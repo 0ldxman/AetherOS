@@ -1,0 +1,472 @@
+:root {
+    --bg: #191919;
+    --panel: #232323;
+
+    --fg: #b5b6b8;
+    --font-light: #dfdfdf;
+    --font-dark: #141213;
+
+    --line: #303030;
+    --line-bright: #555;
+
+    --accent: #3fd0ff;
+    --accent-green: #17e1b8;
+    --accent-warn: #f5c644;
+    --accent-error: #e6304f;
+
+    --row-hover: #242424;
+    --row-selected: #292929;
+
+    --sid-w: 7rem;          /* ширина закреплённой колонки sid; подгони под свои значения */
+
+    --font-main: "JetBrains Mono", ui-monospace, Menlo, Consolas, monospace;
+}
+
+
+* {
+    box-sizing: border-box;
+}
+
+
+html {
+    font-size: 81.25%;      /* 13px при стандартных 16px, но уважает настройки браузера */
+}
+
+
+html,
+body {
+    margin: 0;
+    width: 100%;
+    height: 100%;
+
+    background: var(--bg);
+    color: var(--fg);
+
+    font-family: var(--font-main);
+}
+
+
+body {
+    font-size: 1rem;
+    overflow: hidden;
+}
+
+
+/* -------------------------------------------------- */
+/* Main */
+/* -------------------------------------------------- */
+
+#sessions-app {
+    width: 100%;
+    height: 100%;
+
+    display: flex;
+    flex-direction: column;
+}
+
+
+/* -------------------------------------------------- */
+/* Header */
+/* -------------------------------------------------- */
+
+.sessions-header {
+    height: 48px;
+
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+
+    padding: 0 14px;
+
+    border-bottom: 1px solid var(--line);
+}
+
+
+.sessions-title {
+    color: var(--font-light);
+    font-size: 14px;
+    font-weight: 600;
+}
+
+
+.sessions-subtitle {
+    margin-top: 2px;
+
+    color: #777;
+    font-size: 9px;
+    letter-spacing: 0.08em;
+}
+
+
+.sessions-counter {
+    display: flex;
+    gap: 7px;
+
+    color: #666;
+
+    font-size: 9px;
+}
+
+
+#session-count {
+    color: var(--accent);
+}
+
+
+/* -------------------------------------------------- */
+/* Table */
+/* -------------------------------------------------- */
+
+.sessions-table-wrap {
+    flex: 1;
+
+    overflow: auto;
+}
+
+
+#sessions-table {
+    width: 100%;
+
+    border-collapse: separate;   /* линии липкого th не теряются при прокрутке */
+    border-spacing: 0;
+
+    table-layout: auto;          /* колонки подстраиваются под содержимое */
+}
+
+
+/* все колонки сжимаются до содержимого, host (2-я) забирает остаток */
+#sessions-table th {
+    width: 1%;
+}
+
+#sessions-table th:nth-child(2) {
+    width: auto;
+}
+
+
+#sessions-table th,
+#sessions-table td {
+    padding: 0.75em 1.2em;
+    vertical-align: middle;
+    text-align: left;
+    white-space: nowrap;
+}
+
+
+#sessions-table th {
+    position: sticky;
+    top: 0;
+    z-index: 2;
+
+    background: var(--font-light);
+    border-bottom: 1px solid var(--line-bright);
+
+    color: var(--font-dark);
+
+    font-size: 0.75rem;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+}
+
+
+#sessions-table td {
+    line-height: 1.3;
+
+    border-bottom: 1px solid var(--line);
+
+    font-size: 0.9rem;
+    font-variant-numeric: tabular-nums;
+}
+
+
+/* ttl — последняя колонка, по правому краю */
+#sessions-table th:last-child,
+#sessions-table td:last-child {
+    text-align: right;
+}
+
+
+#sessions-table tbody tr {
+    cursor: pointer;
+}
+
+
+#sessions-table tbody tr:hover {
+    background: var(--row-hover);
+}
+
+
+#sessions-table tbody tr.selected {
+    background: var(--row-selected);
+}
+
+
+#sessions-table td:first-child {
+    color: var(--accent);
+}
+
+
+#sessions-table td:nth-child(2) {
+    color: var(--font-light);
+}
+
+/* -------------------------------------------------- */
+/* Scrollbars */
+/* -------------------------------------------------- */
+
+/* Firefox (и всё, что не знает ::-webkit-scrollbar) */
+@supports not selector(::-webkit-scrollbar) {
+    .sessions-table-wrap {
+        scrollbar-width: thin;                              /* auto | thin | none */
+        scrollbar-color: var(--font-light) var(--bg);      /* ползунок | дорожка */
+    }
+}
+
+/* Chrome, Edge, Safari: можно задать точный размер и форму */
+.sessions-table-wrap::-webkit-scrollbar {
+    width: 0.7rem;                /* вертикальный */
+    height: 0.7rem;               /* горизонтальный */
+}
+
+.sessions-table-wrap::-webkit-scrollbar-track {
+    background: var(--bg);
+}
+
+.sessions-table-wrap::-webkit-scrollbar-thumb {
+    background: var(--line-bright);
+    border: 1px solid var(--bg);  /* «отступ» вокруг ползунка, делает его тоньше */
+}
+
+.sessions-table-wrap::-webkit-scrollbar-thumb:hover {
+    background: var(--accent);
+}
+
+.sessions-table-wrap::-webkit-scrollbar-corner {
+    background: var(--font-light);        /* квадрат на пересечении двух полос */
+}
+
+
+/* -------------------------------------------------- */
+/* Pinned columns (sid + host) */
+/* -------------------------------------------------- */
+
+#sessions-table th:nth-child(-n+2),
+#sessions-table td:nth-child(-n+2) {
+    position: sticky;
+}
+
+/* sid: прижат к левому краю, ширина строго фиксирована */
+#sessions-table th:nth-child(1),
+#sessions-table td:nth-child(1) {
+    left: 0;
+    width: var(--sid-w);
+    min-width: var(--sid-w);
+    max-width: var(--sid-w);
+}
+
+/* host: прижат сразу за sid */
+#sessions-table th:nth-child(2),
+#sessions-table td:nth-child(2) {
+    left: var(--sid-w);
+}
+
+/* ячейки тела: непрозрачный фон, выше обычных ячеек, но ниже шапки */
+#sessions-table td:nth-child(-n+2) {
+    z-index: 1;
+    background: var(--bg);
+}
+
+/* шапка закреплённых колонок: выше всех, чтобы не уходить под соседние th */
+#sessions-table th:nth-child(-n+2) {
+    z-index: 3;
+}
+
+/* разделитель: показывает, где кончается закреплённая зона */
+#sessions-table th:nth-child(2),
+#sessions-table td:nth-child(2) {
+    border-right: 1px solid var(--font-light);
+}
+
+/* подсветка строки должна красить и закреплённые ячейки */
+#sessions-table tbody tr:hover td:nth-child(-n+2) {
+    background: var(--row-hover);
+}
+
+#sessions-table tbody tr.selected td:nth-child(-n+2) {
+    background: var(--row-selected);
+}
+
+
+/* -------------------------------------------------- */
+/* States */
+/* -------------------------------------------------- */
+
+.state-active {
+    color: var(--accent-green);
+}
+
+
+.state-idle {
+    color: var(--accent-warn);
+}
+
+
+.state-stale {
+    color: #888;
+}
+
+
+.state-terminated {
+    color: var(--accent-error);
+}
+
+
+.state-orphaned {
+    color: var(--accent-error);
+}
+
+
+.ttl-expiring {
+    color: var(--accent-warn);
+}
+
+.connection-stable {
+    color: var(--accent-green);
+}
+
+.connection-degraded {
+    color: var(--accent-warn);
+}
+
+.connection-unstable {
+    color: var(--accent-warn);
+}
+
+.connection-loss {
+    color: var(--accent-error);
+}
+
+
+/* -------------------------------------------------- */
+/* Inspector */
+/* -------------------------------------------------- */
+
+.inspector {
+    position: fixed;
+
+    top: 50%;
+    left: 50%;
+
+    width: 360px;
+
+    transform: translate(-50%, -50%);
+
+    background: var(--bg);
+
+    border: 1px solid var(--line-bright);
+
+    box-shadow:
+        0 0 0 1px #111,
+        0 8px 40px rgba(0, 0, 0, 0.55);
+
+    z-index: 100;
+}
+
+
+.inspector.hidden {
+    display: none;
+}
+
+
+.inspector-header {
+    height: 30px;
+
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+
+    padding-left: 10px;
+
+    background: var(--font-light);
+
+    color: #141414;
+}
+
+
+.inspector-title {
+    font-size: 11px;
+    font-weight: 600;
+}
+
+
+#inspector-close {
+    width: 30px;
+    height: 30px;
+
+    border: 0;
+
+    background: transparent;
+
+    color: #e5484d;
+
+    font: inherit;
+    font-size: 18px;
+
+    cursor: pointer;
+}
+
+
+#inspector-close:hover {
+    background: #191919;
+    color: var(--font-light);
+}
+
+
+.inspector-body {
+    padding: 12px;
+}
+
+
+.inspector-section {
+    padding: 8px 0;
+
+    border-bottom: 1px solid var(--line);
+}
+
+
+.inspector-section:last-child {
+    border-bottom: 0;
+}
+
+
+.field {
+    display: grid;
+
+    grid-template-columns: 110px 1fr;
+
+    min-height: 24px;
+
+    align-items: center;
+}
+
+
+.field-label {
+    color: #666;
+
+    font-size: 9px;
+}
+
+
+.field-value {
+    color: var(--font-light);
+
+    font-size: 11px;
+
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+
+#inspector-state {
+    font-weight: 600;
+}

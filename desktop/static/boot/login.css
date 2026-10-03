@@ -1,0 +1,143 @@
+/* =========================================================
+   LOGIN (добавить к существующему boot.css или подключить отдельно)
+   ========================================================= */
+
+/* -----------------------------------------
+   SPLASH
+   ----------------------------------------- */
+
+.splash {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1.4rem;
+    margin-top: 12vh;
+}
+
+.splash-logo {
+    font-family: var(--font-doted);
+    font-size: clamp(2rem, 8vw, 3.4rem);
+    letter-spacing: .3em;
+    padding-left: .3em; /* компенсирует letter-spacing, чтобы логотип был по центру */
+    color: var(--accent);
+}
+
+.splash-bar {
+    white-space: pre;
+    color: var(--accent-green);
+}
+
+.splash-status {
+    min-height: 1.5em;
+    font-size: var(--fs-small);
+    color: var(--font-muted);
+}
+
+
+/* -----------------------------------------
+   AUTH FORM
+   ----------------------------------------- */
+
+.auth {
+    max-width: 520px;
+    margin-top: 1.5rem;
+}
+
+.auth-row {
+    display: flex;
+    align-items: center;
+    gap: 1ch;
+    margin-bottom: .4rem;
+    cursor: text;
+}
+
+.auth-label {
+    width: 10ch;
+    flex-shrink: 0;
+    white-space: pre;
+    color: var(--font-muted);
+}
+
+.auth-input {
+    flex: 1;
+    min-width: 0;
+    padding: 2px 0;
+    border: 0;
+    border-bottom: 1px solid var(--line);
+    outline: none;
+    background: transparent;
+    color: var(--font-light);
+    font: inherit;
+    caret-color: var(--accent-green);
+}
+
+.auth-input:focus {
+    border-bottom-color: var(--accent-green);
+}
+
+.auth-input:disabled {
+    opacity: .5;
+}
+
+/* Автозаполнение браузера иначе красит поля в яркий цвет */
+.auth-input:-webkit-autofill {
+    -webkit-box-shadow: 0 0 0 100px var(--bg) inset;
+    -webkit-text-fill-color: var(--font-light);
+}
+
+.auth-message {
+    min-height: 1.5em;
+    margin: .6rem 0 1rem;
+}
+
+.auth-actions {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: .25rem;
+}
+
+.auth-btn {
+    padding: 2px 0;
+    border: 0;
+    background: none;
+    color: var(--font-muted);
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+}
+
+.auth-btn:hover:not(:disabled),
+.auth-btn:focus-visible {
+    color: var(--accent);
+    outline: none;
+}
+
+.auth-btn:disabled {
+    opacity: .4;
+    cursor: default;
+}
+
+
+/* -----------------------------------------
+   SHAKE (при неверном пароле)
+   ----------------------------------------- */
+
+.shake {
+    animation: auth-shake .35s;
+}
+
+@keyframes auth-shake {
+    0%, 100% { transform: translateX(0); }
+    20%      { transform: translateX(-6px); }
+    40%      { transform: translateX(6px); }
+    60%      { transform: translateX(-4px); }
+    80%      { transform: translateX(4px); }
+}
+
+
+@media (max-width: 700px) {
+    .auth-label {
+        width: 9ch;
+    }
+}

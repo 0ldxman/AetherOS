@@ -1,0 +1,24 @@
+{% load static %}
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>AetherOS.BOOT</title>
+    <link rel="stylesheet" href="{% static 'boot/boot.css' %}">
+</head>
+
+<body>
+
+<div id="boot-screen">
+    <div id="boot-terminal">
+        <div id="boot-output"></div>
+        <span id="boot-cursor"></span>
+    </div>
+</div>
+
+{{ boot_config|json_script:"boot-config" }}
+<script src="{% static 'boot/boot.js' %}"></script>
+
+</body>
+</html>

@@ -1,0 +1,144 @@
+{% load static %}
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>Sessions</title>
+
+    <link rel="stylesheet" href="{% static 'sessions.css' %}">
+</head>
+
+<body>
+
+<div id="sessions-app">
+
+    <div class="sessions-table-wrap">
+
+        <table id="sessions-table">
+
+            <thead>
+                <tr>
+                    <th>sid</th>
+                    <th>host</th>
+                    <th>connection</th>
+                    <th>uuid</th>
+                    <th>role</th>
+                    <th>started_at</th>
+                    <th>last_active</th>
+                    <th>state</th>
+                    <th>ttl</th>
+                </tr>
+            </thead>
+
+            <tbody id="sessions-body"></tbody>
+
+        </table>
+
+    </div>
+
+</div>
+
+
+<!-- Session inspector -->
+
+<div id="session-inspector" class="inspector hidden">
+
+    <div class="inspector-header">
+
+        <span class="inspector-title">
+            SESSION
+            <span id="inspector-sid">—</span>
+        </span>
+
+        <button id="inspector-close">×</button>
+
+    </div>
+
+    <div class="inspector-body">
+
+        <div class="inspector-section">
+
+            <div class="field">
+                <span class="field-label">HOST</span>
+                <span class="field-value" id="inspector-host">—</span>
+            </div>
+
+            <div class="field">
+                <span class="field-label">FREQUENCY</span>
+                <span class="field-value" id="inspector-frequency">—</span>
+            </div>
+
+            <div class="field">
+                <span class="field-label">HARDWARE ID</span>
+                <span class="field-value" id="inspector-hid">—</span>
+            </div>
+
+        </div>
+
+
+        <div class="inspector-section">
+
+            <div class="field">
+                <span class="field-label">UUID</span>
+                <span class="field-value" id="inspector-uuid">—</span>
+            </div>
+
+            <div class="field">
+                <span class="field-label">ROLE</span>
+                <span class="field-value" id="inspector-role">—</span>
+            </div>
+
+        </div>
+
+
+        <div class="inspector-section">
+
+            <div class="field">
+                <span class="field-label">AUTH TYPE</span>
+                <span class="field-value" id="inspector-auth">—</span>
+            </div>
+
+            <div class="field">
+                <span class="field-label">FLAGS</span>
+                <span class="field-value" id="inspector-flags">—</span>
+            </div>
+
+        </div>
+
+
+        <div class="inspector-section">
+
+            <div class="field">
+                <span class="field-label">STARTED</span>
+                <span class="field-value" id="inspector-started">—</span>
+            </div>
+
+            <div class="field">
+                <span class="field-label">LAST ACTIVE</span>
+                <span class="field-value" id="inspector-last-active">—</span>
+            </div>
+
+            <div class="field">
+                <span class="field-label">STATE</span>
+                <span class="field-value" id="inspector-state">—</span>
+            </div>
+
+            <div class="field">
+                <span class="field-label">TTL</span>
+                <span class="field-value" id="inspector-ttl">—</span>
+            </div>
+
+        </div>
+
+    </div>
+
+</div>
+
+<script>window.SESSION_INSPECTOR_BASE = "{{ session_inspector_base }}";</script>
+<script src="{% static 'sessions.js' %}"></script>
+
+</body>
+</html>

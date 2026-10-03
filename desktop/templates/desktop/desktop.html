@@ -1,0 +1,46 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Aether OS</title>
+    <link rel="stylesheet" href="{% static 'desktop/desktop.css' %}">
+    <link rel="stylesheet" href="{% static 'desktop/winbox/winbox.min.css' %}">
+</head>
+<body>
+    <header id="taskbar">
+        <div class="connection">
+            <span>conn: </span>
+            <span id="machine-name">{{ machine_name }}</span>
+        </div>
+        <div class="ping">
+                <span class="ping-dot"></span>
+                <span id="ping-value">42</span>
+                <span id="ping-unit">ms</span>
+        </div>
+    </header>
+    <main id="desktop">
+        <ul id="icons">
+            {% for app in apps %}
+            <li>
+                <button
+                    class="icon"
+                    data-app="{{ app.id }}"
+                    data-url="{{ app.url }}"
+                >
+                    <span class="icon-glyph">{{ app.glyph }}</span>
+                    <span class="icon-label">{{ app.label }}{{ app.suffix }}</span>
+                </button>
+            </li>
+            {% endfor %}
+        </ul>
+    </main>
+    <div id="clock-plate"> 
+        <span id='clock'></span>
+        <span id="date"></span>
+    </div>
+    <script src="{% static 'desktop/winbox/winbox.min.js' %}"></script>
+    <script src="{% static 'desktop/desktop.js' %}"></script>
+</body>
+</html>

@@ -1,0 +1,22 @@
+{% extends "wiki/base.html" %}
+{% block title %}{{ title }}{% endblock %}
+{% block content %}
+<h1>{{ title }}</h1>
+{% if namespaces %}
+  <h2>Разделы</h2>
+  <ul>
+  {% for n in namespaces %}
+    <li><a href="{{ n.url }}">{{ n.name }}</a>{% if not n.open %} 🔒{% endif %}</li>
+  {% endfor %}
+  </ul>
+{% endif %}
+{% if documents %}
+  <h2>Записи</h2>
+  <ul>
+  {% for d in documents %}
+    <li><a href="{{ d.url }}">{{ d.name }}</a>{% if not d.open %} 🔒{% endif %}</li>
+  {% endfor %}
+  </ul>
+{% endif %}
+{% if not namespaces and not documents %}<p>Пусто.</p>{% endif %}
+{% endblock %}

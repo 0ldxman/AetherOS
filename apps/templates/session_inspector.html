@@ -1,0 +1,211 @@
+{% load static %}
+
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+
+    <meta charset="UTF-8">
+
+    <title>
+        Session {{ sid }}
+    </title>
+
+    <link
+        rel="stylesheet"
+        href="{% static 'sessions.css' %}"
+    >
+
+</head>
+
+<body>
+
+<div class="session-inspector">
+
+    <div class="inspector-section">
+
+        <div class="field">
+            <span class="field-label">
+                HOST
+            </span>
+
+            <span
+                class="field-value"
+                id="session-host"
+            >
+                —
+            </span>
+        </div>
+
+
+        <div class="field">
+            <span class="field-label">
+                FREQUENCY
+            </span>
+
+            <span
+                class="field-value"
+                id="session-frequency"
+            >
+                —
+            </span>
+        </div>
+
+
+        <div class="field">
+            <span class="field-label">
+                HARDWARE ID
+            </span>
+
+            <span
+                class="field-value"
+                id="session-hid"
+            >
+                —
+            </span>
+        </div>
+
+    </div>
+
+
+    <div class="inspector-section">
+
+        <div class="field">
+            <span class="field-label">
+                SID
+            </span>
+
+            <span
+                class="field-value"
+                id="session-sid"
+            >
+                {{ sid }}
+            </span>
+        </div>
+
+
+        <div class="field">
+            <span class="field-label">
+                UUID
+            </span>
+
+            <span
+                class="field-value"
+                id="session-uuid"
+            >
+                —
+            </span>
+        </div>
+
+
+        <div class="field">
+            <span class="field-label">
+                ROLE
+            </span>
+
+            <span
+                class="field-value"
+                id="session-role"
+            >
+                —
+            </span>
+        </div>
+
+    </div>
+
+
+    <div class="inspector-section">
+
+        <div class="field">
+            <span class="field-label">
+                AUTH TYPE
+            </span>
+
+            <span
+                class="field-value"
+                id="session-auth"
+            >
+                —
+            </span>
+        </div>
+
+
+        <div class="field">
+            <span class="field-label">
+                FLAGS
+            </span>
+
+            <span
+                class="field-value"
+                id="session-flags"
+            >
+                —
+            </span>
+        </div>
+
+    </div>
+
+
+    <div class="inspector-section">
+
+        <div class="field">
+            <span class="field-label">
+                STARTED
+            </span>
+
+            <span
+                class="field-value"
+                id="session-started"
+            >
+                —
+            </span>
+        </div>
+
+
+        <div class="field">
+            <span class="field-label">
+                LAST ACTIVE
+            </span>
+
+            <span
+                class="field-value"
+                id="session-last-active"
+            >
+                —
+            </span>
+        </div>
+
+
+        <div class="field">
+            <span class="field-label">
+                STATE
+            </span>
+
+            <span
+                class="field-value"
+                id="session-state"
+            >
+                —
+            </span>
+        </div>
+
+
+        <div class="field">
+            <span class="field-label">
+                TTL
+            </span>
+
+            <span
+                class="field-value"
+                id="session-ttl"
+            >
+                —
+            </span>
+        </div>
+
+    </div>
+
+</div>
+
+</body>
+</html>

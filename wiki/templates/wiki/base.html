@@ -1,0 +1,16 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <title>{% block title %}Вики{% endblock %}</title>
+</head>
+<body>
+{% if crumbs %}
+  <nav>
+    <a href="{% url 'wiki:home' %}">Вики</a>
+    {% for c in crumbs %} / <a href="{{ c.url }}">{{ c.name }}</a>{% endfor %}
+  </nav>
+{% endif %}
+{% block content %}{% endblock %}
+</body>
+</html>

@@ -1,0 +1,37 @@
+{% load static %}
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>AETHER.OS</title>
+    <link rel="stylesheet" href="{% static 'boot/lock.css' %}">
+</head>
+<body>
+    <main class="lock" id="lock">
+        <div class="lock-clock">
+            <div class="lock-time" id="lock-time">--:--</div>
+            <div class="lock-date" id="lock-date"></div>
+        </div>
+
+        <div class="lock-users">
+            <button type="button" class="user-tile" data-action="guest">
+                <span class="user-avatar">◢</span>
+                <span class="user-name">AETHER-ANON</span>
+                <span class="user-note">L0 · PUBLIC</span>
+            </button>
+            <button type="button" class="user-tile" data-action="discord">
+                <span class="user-avatar">◈</span>
+                <span class="user-name">DISCORD</span>
+                <span class="user-note">external authority</span>
+            </button>
+        </div>
+
+        <div class="lock-message" role="alert" aria-live="polite"></div>
+        <div class="lock-footer">AETHER OS 9.1 (Halcyon) · NODE-07</div>
+    </main>
+
+    {{ boot_config|json_script:"boot-config" }}
+    <script src="{% static 'boot/lock.js' %}"></script>
+</body>
+</html>

@@ -1,0 +1,344 @@
+@import url('https://fonts.googleapis.com/css2?family=Doto:wght@100..900&family=JetBrains+Mono:ital,wght@0,100..800;1,100..800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Doto:wght@100..900&display=swap');
+
+:root {
+  --bg: #191919;
+  --panel: #232323;
+  --fg: #b5b6b8;
+  --window-border: #dfdfdf;
+
+  --accent: #3fd0ff;
+  --accent-green: #17e1b8;
+  --accent-error: #e6304f;
+  --accent-error-darker: #df0619;
+  --accent-warn: #f5c644;
+  --line: #212121;
+
+  --font-light: #dfdfdf;
+  --font-dark: #141213;
+  --font-muted: ;
+
+  --fs-base: 1rem;
+  --fs-small: 0.8rem;
+  --fs-smaller: 0.65rem;
+  --fs-tiny: 0.5rem;
+  --fs-midbig: 1.1rem;
+  --fs-big: 1.3rem;
+  --fs-large: 1.6rem;
+  --fs-clock: 0.8rem;
+
+  --font-main: "JetBrains Mono", ui-monospace, Menlo, Consolas, monospace;
+  --font-doted: "Doto", ui-monospace, Menlo, Consolas, monospace;
+
+  --tab-h: 26px;
+
+  --cell: 48px;
+
+  --ping-color: var(--accent-green);
+}
+
+html, body {
+  height: 100%;
+  margin: 0;
+  font-size: var(--fs-base);
+  font-family: var(--font-main);
+}
+
+body {
+  display: flex;
+  flex-direction: column;
+  background: var(--bg);
+  color: var(--fg);
+}
+
+#desktop {
+  flex: 1;
+  position: relative;
+  overflow: hidden;
+  background:
+    linear-gradient(var(--line) 1px, transparent 1px) 0 0 / var(--cell) var(--cell),
+    linear-gradient(90deg, var(--line) 1px, transparent 1px) 0 0 / var(--cell) var(--cell);
+}
+
+#taskbar {
+  position: relative;
+  flex: 0 0 28px;
+  box-sizing: border-box;
+
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+
+  padding: 0 12px;
+
+  background: var(--panel);
+
+  z-index: 10;
+
+  font-size: var(--fs-small);
+}
+
+#machine-name {
+  color: var(--font-light);
+}
+
+.ping {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-family: monospace;
+  font-size: 13px;
+}
+
+#ping-value {
+  min-width: 24px;
+  text-align: right;
+  color: var(--ping-color);
+}
+
+#ping-unit {
+    min-width: 24px;
+    text-align: left;
+    color: var(--ping-color);
+}
+
+.ping-dot {
+    width: 6px;
+    height: 6px;
+    min-width: 6px;
+    min-height: 6px;
+    flex-shrink: 0;
+    
+    border-radius: 50%;
+    background: var(--ping-color);
+
+    animation: ping-pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes ping-pulse {
+    0%, 100% {
+        opacity: 0.5;
+        box-shadow: 0 0 0px var(--ping-color);
+    }
+
+    50% {
+        opacity: 1;
+        box-shadow: 0 0 6px var(--ping-color);
+    }
+}
+
+
+#clock-plate {
+  position: fixed;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 165px;
+  padding: 8px 0 8px;
+  text-align: center;
+  letter-spacing: 0.1em;
+  color: var(--font-light);
+  background: var(--panel);
+  clip-path: polygon(0 0, 100% 0, 85% 100%, 15% 100%);
+  font-size: var(--fs-base);
+  font-family: var(--font-main);
+  font-weight: 600;
+  z-index: 11;
+}
+
+#clock, #date {
+  display: block;
+}
+
+#date {
+  font-size: var(--fs-smaller);
+  letter-spacing: 0.05em;
+}
+
+#icons {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  position: absolute;
+  inset: 0;
+}
+
+#icons li {
+  position: absolute;
+  user-select: none;
+  touch-action: none;
+}
+
+.icon {
+  box-sizing: border-box;
+  width: calc(var(--cell) * 3);
+  padding: 6px;
+  background: none;
+  border: 0;
+  color: var(--fg);
+  font: inherit;
+  font-size: var(--fs-small);
+  text-align: center;
+  cursor: pointer;
+}
+
+.icon-glyph {
+  background: var(--bg);
+  display: block;
+  width: 36px;
+  height: 36px;
+  margin: 0 auto 6px;
+  line-height: 36px;
+  border: 1px solid var(--font-light);
+  color: var(--font-light);
+  font-size: var(--fs-big);
+}
+
+.icon:hover .icon-glyph,
+.icon:focus-visible .icon-glyph {
+  background: var(--font-light);
+  color: var(--bg);
+}
+
+.icon:focus-visible {
+  outline: none;
+}
+
+.icon-label {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+  line-height: 1.2;
+}
+
+
+/* рамка окна */
+.winbox.aether {
+  background: var(--bg);
+  box-shadow: 0 0 0 1px var(--window-border);
+  overflow: visible;
+}
+
+/* тело окна: на всю рамку, без места под заголовок */
+.winbox.aether .wb-body {
+  top: 0;
+  margin: 0;
+  background: var(--bg);
+  color: var(--fg);
+}
+
+/* заголовок: вкладка над рамкой, у левого края */
+.winbox.aether .wb-header {
+  position: absolute;
+  top: auto;
+  bottom: calc(100% + 1px);
+  left: -1px;
+  right: auto;
+  width: auto;
+  min-width: 180px;
+  max-width: 100%;
+  height: var(--tab-h);
+  line-height: var(--tab-h);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding-right: 12px;
+  background: var(--font-light);
+  border: 1px solid var(--font-light);
+  border-bottom: 0;
+}
+
+/* блок кнопок слева, затем название */
+.winbox.aether .wb-control {
+  order: 0;
+  float: none;
+  height: 100%;
+  display: flex;
+}
+
+/* порядок кнопок */
+.winbox.aether .wb-close { order: 0; }
+.winbox.aether .wb-max   { order: 1; }
+.winbox.aether .wb-min   { order: 2; }
+
+/* вид кнопок: символы вместо встроенных картинок */
+.winbox.aether .wb-control > span {
+  width: 24px;
+  background-image: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: var(--font-dark);
+}
+
+.winbox.aether .wb-min::before   { content: "–"; }
+.winbox.aether .wb-max::before   { content: "□"; }
+.winbox.aether .wb-close::before { content: "×"; }
+
+.winbox.aether .wb-close { color: #e5484d; }
+
+.winbox.aether .wb-control > span:hover {
+  background: var(--bg);
+  color: var(--font-light);
+}
+
+/* скрытые кнопки: правила должны стоять с достаточной конкретностью,
+   иначе display: flex выше их перебьёт */
+.winbox.aether .wb-control > .wb-full {
+  display: none;
+}
+
+.winbox.aether.no-min .wb-min,
+.winbox.aether.no-max .wb-max,
+.winbox.aether.no-close .wb-close,
+.winbox.aether.no-full .wb-full {
+  display: none;
+}
+
+/* название */
+.winbox.aether .wb-drag {
+  order: 1;
+  flex: 1;
+  height: 100%;
+  padding: 0;
+}
+
+.winbox.aether .wb-title {
+  font-family: var(--font-main);
+  font-size: var(--fs-base);
+  color: var(--font-dark);
+}
+
+.winbox.aether.max {
+  z-index: 100 !important;
+}
+
+.winbox.aether.max .wb-header {
+  bottom: 100%;
+  left: -1px;
+  right: -1px;
+  width: auto;
+  min-width: 0;
+  max-width: none;
+  border: 1px solid var(--font-light);
+}
+
+
+.winbox.aether.min .wb-body {
+    display: none;
+}
+
+.winbox.aether.min {
+    background: transparent;
+    box-shadow: none;
+    border: 0;
+}
+
+.winbox.aether.min .wb-header {
+    bottom: auto;
+    top: 0;
+}
