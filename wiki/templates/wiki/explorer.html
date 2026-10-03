@@ -1,0 +1,54 @@
+{% extends "wiki/base.html" %}
+{% block title %}aether.db{% endblock %}
+{% block body_class %}explorer{% endblock %}
+{% block body %}
+<div class="layout">
+
+  <nav class="side" aria-label="Неймспейсы">
+    <ul class="tree">
+      <li class="tree-root">
+        <div class="t-row">
+          <a class="node{% if tree.current %} current{% endif %}" href="{{ tree.url }}">.</a>
+        </div>
+        <ul>
+        {% for node in tree.children %}{% include "wiki/_tree_node.html" %}{% endfor %}
+        </ul>
+      </li>
+    </ul>
+  </nav>
+
+  <section class="viewer">
+    <div class="viewer-path">{{ path_text }}</div>
+
+    <div class="viewer-body">
+    {% if locked %}
+      <p class="empty">Доступ закрыт 🔒</p>
+    {% elif documents %}
+      <table class="grid" id="docs">
+        <thead>
+          <tr>
+            <th>название</th>
+            <th>тип</th>
+            <th>обновлено</th>
+            <th>доступ</th>
+          </tr>
+        </thead>
+        <tbody>
+        {% for d in documents %}
+          <tr data-doc-id="{{ d.id }}" data-title="{{ d.title }}" data-url="{{ d.url }}"{% if d.infobox_url %} data-infobox-url="{{ d.infobox_url }}"{% endif %}>
+            <td><a href="{{ d.url }}">{{ d.title }}</a></td>
+            <td>{{ d.type }}</td>
+            <td>{{ d.updated|date:"Y-m-d" }}</td>
+            <td class="{% if d.open %}state-open{% else %}state-locked{% endif %}">{% if d.open %}OPEN{% else %}LOCKED{% endif %}</td>
+          </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    {% else %}
+      <p class="empty">Нет документов.</p>
+    {% endif %}
+    </div>
+  </section>
+
+</div>
+{% endblock %}

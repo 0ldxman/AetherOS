@@ -5,8 +5,8 @@ from .models import Document, Namespace
 
 @admin.register(Namespace)
 class NamespaceAdmin(admin.ModelAdmin):
-    list_display = ("path", "parent")
-    search_fields = ("name",)
+    list_display = ("path", "slug", "parent")
+    search_fields = ("name", "slug")
     list_filter = ("parent",)
 
 

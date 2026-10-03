@@ -1,0 +1,5 @@
+{% if crumbs %}
+<div class="path">
+  {% for c in crumbs %}{% if not forloop.first %}<span class="sep">:</span>{% endif %}<a href="{{ c.url }}">{{ c.name }}</a>{% endfor %}{% if doc %}<span class="sep">:</span><span>{{ doc.title }}</span>{% endif %}
+</div>
+{% endif %}

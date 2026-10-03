@@ -6,14 +6,13 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{% block title %}aether.db{% endblock %}</title>
   <link rel="stylesheet" href="{% static 'wiki/wiki.css' %}">
+  <script src="{% static 'wiki/wiki.js' %}" defer></script>
 </head>
-<body>
-<nav class="bar">
-  <a class="bar-brand" href="{% url 'wiki:home' %}">aether.db</a>
-  {% for c in crumbs %}<span class="sep">/</span><a href="{{ c.url }}">{{ c.name }}</a>{% endfor %}
-</nav>
+<body class="{% block body_class %}{% endblock %}">
+{% block body %}
 <main class="page">
 {% block content %}{% endblock %}
 </main>
+{% endblock %}
 </body>
 </html>

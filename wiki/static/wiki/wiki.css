@@ -7,14 +7,23 @@
 
     --fg: #b5b6b8;
     --font-light: #dfdfdf;
+    --font-dark: #141213;
     --font-muted: #727272;
 
     --line: #303030;
+    --line-bright: #555;
+
     --row-hover: #242424;
+    --row-selected: #292929;
 
     --accent: #3fd0ff;
     --accent-green: #17e1b8;
     --accent-warn: #f5c644;
+
+    /* цвет текущего неймспейса в дереве */
+    --select: var(--accent);
+
+    --side-w: 14rem;
 
     --font-main: "JetBrains Mono", ui-monospace, Menlo, Consolas, monospace;
 }
@@ -26,14 +35,14 @@
 
 
 html {
-    font-size: 87.5%;           /* 14px при стандартных 16px */
+    font-size: 81.25%;          /* 13px, как в sessions */
 }
 
 
 html,
 body {
     margin: 0;
-    min-height: 100%;
+    height: 100%;
 
     background: var(--bg);
     color: var(--fg);
@@ -48,61 +57,29 @@ body {
 }
 
 
-/* -------------------------------------------------- */
-/* Top bar: aether.db / раздел / подраздел            */
-/* -------------------------------------------------- */
-
-.bar {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 0.6em;
-
-    padding: 0.6rem 1.5rem;
-
-    background: var(--panel);
-    border-bottom: 1px solid var(--line);
-
-    font-size: 0.9rem;
+body.explorer {
+    overflow: hidden;
 }
 
 
-.bar a {
-    color: var(--font-light);
+a {
+    color: inherit;
     text-decoration: none;
 }
 
 
-.bar a:hover,
-.bar a:focus-visible {
-    color: var(--accent);
-    outline: none;
-}
-
-
-.bar .bar-brand {
-    color: var(--accent);
-    font-weight: 600;
-}
-
-
-.bar .sep {
-    color: var(--font-muted);
-}
-
-
 /* -------------------------------------------------- */
-/* Page                                               */
+/* Обычная страница (документ, инфобокс, замок)       */
 /* -------------------------------------------------- */
 
 .page {
     max-width: 56rem;
     margin: 0 auto;
-    padding: 1.5rem;
+    padding: 1.2rem 1.5rem 2rem;
 }
 
 
-h1 {
+.page h1 {
     margin: 0 0 1rem;
 
     color: var(--font-light);
@@ -112,108 +89,6 @@ h1 {
 }
 
 
-h2 {
-    margin: 1.8rem 0 0.5rem;
-
-    color: var(--font-muted);
-
-    font-size: 0.9rem;
-    font-weight: 400;
-}
-
-
-/* -------------------------------------------------- */
-/* DBMS info (главная)                                */
-/* -------------------------------------------------- */
-
-.dbms-info {
-    margin-bottom: 1.5rem;
-
-    color: var(--font-muted);
-}
-
-
-.dbms-info b {
-    color: var(--font-light);
-    font-weight: 400;
-}
-
-
-.dbms-info .ok {
-    color: var(--accent-green);
-}
-
-
-/* -------------------------------------------------- */
-/* Rows (базы, разделы, записи)                       */
-/* -------------------------------------------------- */
-
-.rows {
-    margin: 0;
-    padding: 0;
-
-    list-style: none;
-
-    border-top: 1px solid var(--line);
-}
-
-
-.rows li {
-    border-bottom: 1px solid var(--line);
-}
-
-
-.row {
-    display: flex;
-    align-items: baseline;
-    justify-content: space-between;
-    gap: 1rem;
-
-    padding: 0.7em 0.8em;
-
-    color: var(--font-light);
-    text-decoration: none;
-}
-
-
-.row:hover,
-.row:focus-visible {
-    background: var(--row-hover);
-    outline: none;
-}
-
-
-.row:hover .row-name,
-.row:focus-visible .row-name {
-    color: var(--accent);
-}
-
-
-.row-state {
-    flex-shrink: 0;
-
-    color: var(--accent-green);
-
-    font-size: 0.85rem;
-}
-
-
-.row-state.locked {
-    color: var(--accent-warn);
-}
-
-
-.empty {
-    margin: 0;
-
-    color: var(--font-muted);
-}
-
-
-/* -------------------------------------------------- */
-/* Document / locked (пока минимально)                */
-/* -------------------------------------------------- */
-
 .page p {
     max-width: 70ch;
     margin: 0 0 1em;
@@ -222,11 +97,369 @@ h2 {
 }
 
 
-.page aside {
-    margin: 0 0 1.5rem;
-    padding: 0.8rem 1rem;
-
-    border: 1px solid var(--line);
+.page .infobox p {
+    margin: 0 0 0.6em;
 
     color: var(--font-light);
+}
+
+
+.path {
+    margin-bottom: 1rem;
+
+    color: var(--font-muted);
+}
+
+
+.path a:hover,
+.path a:focus-visible {
+    color: var(--accent);
+    outline: none;
+}
+
+
+.path .sep {
+    margin: 0 0.15em;
+}
+
+
+.path > :last-child {
+    color: var(--font-light);
+}
+
+
+/* -------------------------------------------------- */
+/* Explorer: дерево слева, viewer справа              */
+/* -------------------------------------------------- */
+
+.layout {
+    display: flex;
+    height: 100%;
+}
+
+
+.side {
+    flex: 0 0 var(--side-w);
+
+    overflow: auto;
+
+    background: var(--panel);
+    border-right: 1px solid var(--line);
+}
+
+
+.viewer {
+    flex: 1;
+    min-width: 0;
+
+    display: flex;
+    flex-direction: column;
+}
+
+
+.viewer-path {
+    flex: 0 0 auto;
+
+    padding: 0.7rem 1rem;
+
+    border-bottom: 1px solid var(--line);
+
+    color: var(--font-light);
+}
+
+
+.viewer-body {
+    flex: 1;
+
+    overflow: auto;
+}
+
+
+.viewer-body .empty {
+    margin: 0;
+    padding: 1rem;
+}
+
+
+.empty {
+    color: var(--font-muted);
+}
+
+
+/* -------------------------------------------------- */
+/* Tree                                               */
+/* -------------------------------------------------- */
+
+.tree,
+.tree ul {
+    margin: 0;
+    padding: 0;
+
+    list-style: none;
+}
+
+
+.tree {
+    --row: 1.9em;               /* высота строки: от неё считаются линии ветвей */
+
+    padding: 0.6rem 0.8rem 1rem;
+}
+
+
+/* отступ вложенных неймспейсов: линия ветви под меткой родителя */
+.tree ul {
+    padding-left: 2.4ch;
+}
+
+
+.tree-root > ul {
+    padding-left: 0;
+}
+
+
+.tree li {
+    position: relative;
+
+    padding-left: 2.2ch;
+}
+
+
+.tree-root {
+    padding-left: 0;
+}
+
+
+/* вертикальная линия ветви: на всю высоту пункта вместе с вложенными */
+.tree li:not(.tree-root)::before {
+    content: "";
+
+    position: absolute;
+    left: 0.5ch;
+    top: 0;
+    bottom: 0;
+
+    border-left: 1px solid var(--line-bright);
+}
+
+
+/* последний пункт: линия обрывается на середине его строки (└) */
+.tree li:not(.tree-root):last-child::before {
+    bottom: auto;
+    height: calc(var(--row) / 2);
+}
+
+
+/* горизонтальная засечка (├ и └) */
+.tree li:not(.tree-root)::after {
+    content: "";
+
+    position: absolute;
+    left: 0.5ch;
+    top: calc(var(--row) / 2);
+    width: 1.3ch;
+
+    border-top: 1px solid var(--line-bright);
+}
+
+
+.t-row {
+    display: flex;
+    align-items: center;
+    gap: 0.4ch;
+
+    height: var(--row);
+}
+
+
+summary.t-row {
+    cursor: pointer;
+    list-style: none;
+}
+
+
+summary.t-row::-webkit-details-marker {
+    display: none;
+}
+
+
+.mark {
+    flex: 0 0 1.4ch;
+
+    color: var(--font-muted);
+    text-align: center;
+}
+
+
+summary .mark::before {
+    content: "▸";
+}
+
+
+details[open] > summary .mark::before {
+    content: "▾";
+}
+
+
+.node {
+    padding: 0 0.8ch;
+
+    color: var(--fg);
+    white-space: nowrap;
+}
+
+
+.node:hover,
+.node:focus-visible {
+    color: var(--font-light);
+    outline: none;
+}
+
+
+/* текущий неймспейс: блок цвета, как выбранный пункт в консольном меню */
+.node.current {
+    background: var(--select);
+    color: var(--font-dark);
+}
+
+
+.t-row .lock {
+    font-size: 0.8em;
+}
+
+
+/* -------------------------------------------------- */
+/* Table (viewer: документы неймспейса)               */
+/* -------------------------------------------------- */
+
+.grid {
+    width: 100%;
+
+    border-collapse: separate;
+    border-spacing: 0;
+}
+
+
+.grid th,
+.grid td {
+    padding: 0.75em 1.2em;
+
+    text-align: left;
+    white-space: nowrap;
+}
+
+
+.grid th {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+
+    background: var(--font-light);
+    border-bottom: 1px solid var(--line-bright);
+
+    color: var(--font-dark);
+
+    font-size: 0.9rem;
+    font-weight: 600;
+}
+
+
+.grid td {
+    border-bottom: 1px solid var(--line);
+
+    font-variant-numeric: tabular-nums;
+}
+
+
+/* название забирает свободное место */
+.grid th:first-child,
+.grid td:first-child {
+    width: 100%;
+}
+
+
+.grid tbody tr {
+    cursor: pointer;
+}
+
+
+.grid tbody tr:hover {
+    background: var(--row-hover);
+}
+
+
+.grid td:first-child a {
+    color: var(--accent);
+}
+
+
+.grid td:first-child a:focus-visible {
+    outline: 1px solid var(--accent);
+    outline-offset: 2px;
+}
+
+
+.state-open {
+    color: var(--accent-green);
+}
+
+
+.state-locked {
+    color: var(--accent-warn);
+}
+
+
+/* -------------------------------------------------- */
+/* Scrollbars                                         */
+/* -------------------------------------------------- */
+
+@supports not selector(::-webkit-scrollbar) {
+    .side,
+    .viewer-body,
+    body {
+        scrollbar-width: thin;
+        scrollbar-color: var(--line-bright) var(--bg);
+    }
+}
+
+.side::-webkit-scrollbar,
+.viewer-body::-webkit-scrollbar,
+body::-webkit-scrollbar {
+    width: 0.7rem;
+    height: 0.7rem;
+}
+
+.side::-webkit-scrollbar-track,
+.viewer-body::-webkit-scrollbar-track,
+body::-webkit-scrollbar-track {
+    background: var(--bg);
+}
+
+.side::-webkit-scrollbar-thumb,
+.viewer-body::-webkit-scrollbar-thumb,
+body::-webkit-scrollbar-thumb {
+    background: var(--line-bright);
+    border: 1px solid var(--bg);
+}
+
+.side::-webkit-scrollbar-thumb:hover,
+.viewer-body::-webkit-scrollbar-thumb:hover,
+body::-webkit-scrollbar-thumb:hover {
+    background: var(--accent);
+}
+
+.side::-webkit-scrollbar-corner,
+.viewer-body::-webkit-scrollbar-corner {
+    background: var(--bg);
+}
+
+
+/* -------------------------------------------------- */
+/* Узкое окно: дерево сужается, таблица скроллится    */
+/* -------------------------------------------------- */
+
+@media (max-width: 520px) {
+
+    :root {
+        --side-w: 10rem;
+    }
 }

@@ -17,6 +17,8 @@ class Namespace(models.Model):
     RESERVED_ROOT_NAMES = {"go"}
 
     name = models.CharField(max_length=100, validators=[validate_no_colon])
+    # короткий id подключения (показывается в списке баз); пусто = без id
+    slug = models.SlugField(max_length=50, blank=True, default="")
     parent = models.ForeignKey(
         "self",
         null=True,
@@ -46,6 +48,11 @@ class Namespace(models.Model):
                 fields=["name"],
                 condition=Q(parent__isnull=True),
                 name="wiki_namespace_unique_root",
+            ),
+            models.UniqueConstraint(
+                fields=["slug"],
+                condition=~Q(slug=""),
+                name="wiki_namespace_unique_slug",
             ),
         ]
 
