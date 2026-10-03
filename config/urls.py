@@ -26,12 +26,12 @@ from users import aether_auth as auth_views
 urlpatterns = [
     path('admin/', admin.site.urls),
     path("desktop/", include("desktop.urls")),
-    path("wiki/", include("wiki.urls")),
     path("", boot, name="boot"),
     path("lock/", auth_views.lock_page, name="lock"),
     path("auth/guest/", auth_views.guest_api),
     path("auth/logout/", auth_views.logout_api),
-    path("apps/", include("apps.urls"))
+    path("apps/", include("apps.urls")),
+    path("apps/wiki/", include("wiki.urls"))
 ]
 
 if settings.DEBUG:

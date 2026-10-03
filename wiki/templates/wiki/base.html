@@ -1,16 +1,19 @@
+{% load static %}
 <!doctype html>
 <html lang="ru">
 <head>
   <meta charset="utf-8">
-  <title>{% block title %}Вики{% endblock %}</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}aether.db{% endblock %}</title>
+  <link rel="stylesheet" href="{% static 'wiki/wiki.css' %}">
 </head>
 <body>
-{% if crumbs %}
-  <nav>
-    <a href="{% url 'wiki:home' %}">Вики</a>
-    {% for c in crumbs %} / <a href="{{ c.url }}">{{ c.name }}</a>{% endfor %}
-  </nav>
-{% endif %}
+<nav class="bar">
+  <a class="bar-brand" href="{% url 'wiki:home' %}">aether.db</a>
+  {% for c in crumbs %}<span class="sep">/</span><a href="{{ c.url }}">{{ c.name }}</a>{% endfor %}
+</nav>
+<main class="page">
 {% block content %}{% endblock %}
+</main>
 </body>
 </html>

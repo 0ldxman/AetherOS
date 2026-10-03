@@ -1,10 +1,16 @@
 {% extends "wiki/base.html" %}
-{% block title %}{{ title }}{% endblock %}
+{% block title %}aether.db{% endblock %}
 {% block content %}
-<h1>{{ title }}</h1>
+<h1>aether.db</h1>
 
+<div class="dbms-info">
+  <div>система управления базами данных</div>
+  <div>сервер запущен <span class="ok">[ OK ]</span></div>
+  <div>подключено баз: <b>{{ namespaces|length }}</b></div>
+</div>
+
+<h2>Базы данных</h2>
 {% if namespaces %}
-  <h2>Разделы</h2>
   <ul class="rows">
   {% for n in namespaces %}
     <li>
@@ -15,10 +21,12 @@
     </li>
   {% endfor %}
   </ul>
+{% else %}
+  <p class="empty">Нет подключённых баз.</p>
 {% endif %}
 
 {% if documents %}
-  <h2>Записи</h2>
+  <h2>Записи вне баз</h2>
   <ul class="rows">
   {% for d in documents %}
     <li>
@@ -30,6 +38,4 @@
   {% endfor %}
   </ul>
 {% endif %}
-
-{% if not namespaces and not documents %}<p class="empty">Пусто.</p>{% endif %}
 {% endblock %}

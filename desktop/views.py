@@ -9,7 +9,7 @@ APPS = [
         "label": "aether",
         "glyph": "W",
         "suffix": ".db",
-        "url_name": "sessions",
+        "url_name": "wiki:home",
     },
     {
         "id": "mail",

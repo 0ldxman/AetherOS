@@ -1,0 +1,232 @@
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:ital,wght@0,100..800;1,100..800&display=swap');
+
+
+:root {
+    --bg: #191919;
+    --panel: #232323;
+
+    --fg: #b5b6b8;
+    --font-light: #dfdfdf;
+    --font-muted: #727272;
+
+    --line: #303030;
+    --row-hover: #242424;
+
+    --accent: #3fd0ff;
+    --accent-green: #17e1b8;
+    --accent-warn: #f5c644;
+
+    --font-main: "JetBrains Mono", ui-monospace, Menlo, Consolas, monospace;
+}
+
+
+* {
+    box-sizing: border-box;
+}
+
+
+html {
+    font-size: 87.5%;           /* 14px при стандартных 16px */
+}
+
+
+html,
+body {
+    margin: 0;
+    min-height: 100%;
+
+    background: var(--bg);
+    color: var(--fg);
+
+    font-family: var(--font-main);
+}
+
+
+body {
+    font-size: 1rem;
+    line-height: 1.5;
+}
+
+
+/* -------------------------------------------------- */
+/* Top bar: aether.db / раздел / подраздел            */
+/* -------------------------------------------------- */
+
+.bar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.6em;
+
+    padding: 0.6rem 1.5rem;
+
+    background: var(--panel);
+    border-bottom: 1px solid var(--line);
+
+    font-size: 0.9rem;
+}
+
+
+.bar a {
+    color: var(--font-light);
+    text-decoration: none;
+}
+
+
+.bar a:hover,
+.bar a:focus-visible {
+    color: var(--accent);
+    outline: none;
+}
+
+
+.bar .bar-brand {
+    color: var(--accent);
+    font-weight: 600;
+}
+
+
+.bar .sep {
+    color: var(--font-muted);
+}
+
+
+/* -------------------------------------------------- */
+/* Page                                               */
+/* -------------------------------------------------- */
+
+.page {
+    max-width: 56rem;
+    margin: 0 auto;
+    padding: 1.5rem;
+}
+
+
+h1 {
+    margin: 0 0 1rem;
+
+    color: var(--font-light);
+
+    font-size: 1.3rem;
+    font-weight: 600;
+}
+
+
+h2 {
+    margin: 1.8rem 0 0.5rem;
+
+    color: var(--font-muted);
+
+    font-size: 0.9rem;
+    font-weight: 400;
+}
+
+
+/* -------------------------------------------------- */
+/* DBMS info (главная)                                */
+/* -------------------------------------------------- */
+
+.dbms-info {
+    margin-bottom: 1.5rem;
+
+    color: var(--font-muted);
+}
+
+
+.dbms-info b {
+    color: var(--font-light);
+    font-weight: 400;
+}
+
+
+.dbms-info .ok {
+    color: var(--accent-green);
+}
+
+
+/* -------------------------------------------------- */
+/* Rows (базы, разделы, записи)                       */
+/* -------------------------------------------------- */
+
+.rows {
+    margin: 0;
+    padding: 0;
+
+    list-style: none;
+
+    border-top: 1px solid var(--line);
+}
+
+
+.rows li {
+    border-bottom: 1px solid var(--line);
+}
+
+
+.row {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 1rem;
+
+    padding: 0.7em 0.8em;
+
+    color: var(--font-light);
+    text-decoration: none;
+}
+
+
+.row:hover,
+.row:focus-visible {
+    background: var(--row-hover);
+    outline: none;
+}
+
+
+.row:hover .row-name,
+.row:focus-visible .row-name {
+    color: var(--accent);
+}
+
+
+.row-state {
+    flex-shrink: 0;
+
+    color: var(--accent-green);
+
+    font-size: 0.85rem;
+}
+
+
+.row-state.locked {
+    color: var(--accent-warn);
+}
+
+
+.empty {
+    margin: 0;
+
+    color: var(--font-muted);
+}
+
+
+/* -------------------------------------------------- */
+/* Document / locked (пока минимально)                */
+/* -------------------------------------------------- */
+
+.page p {
+    max-width: 70ch;
+    margin: 0 0 1em;
+
+    line-height: 1.6;
+}
+
+
+.page aside {
+    margin: 0 0 1.5rem;
+    padding: 0.8rem 1rem;
+
+    border: 1px solid var(--line);
+
+    color: var(--font-light);
+}

@@ -63,9 +63,12 @@ def _namespace_page(request, ns):
                 {"name": doc.title, "url": _doc_url(doc), "open": s.open}
             )
 
+    # корень (ns is None) это запуск СУБД: корневые неймспейсы выглядят как базы
+    template = "wiki/home.html" if ns is None else "wiki/listing.html"
+
     return render(
         request,
-        "wiki/listing.html",
+        template,
         {
             "title": ns.name if ns else "Вики",
             "crumbs": _crumbs(ns),
