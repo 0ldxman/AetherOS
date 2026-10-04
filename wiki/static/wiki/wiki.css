@@ -41,6 +41,11 @@
 }
 
 
+[hidden] {
+    display: none !important;
+}
+
+
 html {
     font-size: 81.25%;          /* 13px, как в sessions */
 }
@@ -151,7 +156,7 @@ a {
 
     display: flex;
     flex-direction: column;
-    overflow: hidden;           /* скроллится только дерево, поиск закреплён */
+    overflow: hidden;           /* скроллится только дерево */
 
     background: var(--panel);
     border-right: 1px solid var(--line);
@@ -194,14 +199,6 @@ a {
 }
 
 
-.viewer-meta {
-    margin-left: auto;
-
-    color: var(--font-dark);
-    white-space: nowrap;
-}
-
-
 .viewer-body {
     flex: 1;
 
@@ -217,6 +214,168 @@ a {
 
 .empty {
     color: var(--font-muted);
+}
+
+
+/* -------------------------------------------------- */
+/* Футер viewer: консоль БД слева, records справа     */
+/* -------------------------------------------------- */
+
+.viewer-foot {
+    flex: 0 0 auto;
+
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+
+    height: calc(var(--row) + 0.3em);
+    padding: 0 var(--pad-x);
+
+    background: var(--panel);
+    border-top: 1px solid var(--line);
+
+    color: var(--font-muted);
+
+    font-size: 0.9rem;
+}
+
+
+.viewer-foot:focus-within {
+    border-top-color: var(--font-light);
+}
+
+
+.viewer-meta {
+    margin-left: auto;
+
+    white-space: nowrap;
+}
+
+
+/* строка консоли: приглашение, набранный текст, блочный курсор */
+.term {
+    position: relative;
+
+    flex: 1;
+    min-width: 0;
+
+    display: flex;
+    align-items: center;
+    gap: 1ch;
+
+    color: var(--font-light);
+
+    cursor: text;
+}
+
+
+.prompt {
+    flex: 0 0 auto;
+
+    color: var(--accent-green);
+    white-space: nowrap;
+}
+
+
+.prompt-end {
+    margin-left: 0.2ch;
+
+    color: var(--font-light);
+}
+
+
+.typed-wrap {
+    flex: 1;
+    min-width: 0;
+
+    display: flex;
+    align-items: center;
+    overflow: hidden;
+}
+
+
+.typed {
+    flex: 0 0 auto;
+
+    white-space: pre;
+}
+
+
+/* курсор виден всегда: без фокуса пустой контур, с фокусом мигающий блок */
+.caret {
+    flex: 0 0 auto;
+
+    width: 0.6em;
+    height: 1.15em;
+
+    border: 1px solid var(--font-muted);
+}
+
+
+.term:focus-within .caret {
+    background: var(--font-light);
+    border-color: var(--font-light);
+
+    animation: blink 1s steps(1) infinite;
+}
+
+
+/* настоящее поле: прозрачное и поверх строки, только ловит ввод и фокус */
+.term input {
+    position: absolute;
+    inset: 0;
+
+    width: 100%;
+    height: 100%;
+    margin: 0;
+    padding: 0;
+
+    background: transparent;
+    border: 0;
+    outline: none;
+
+    color: transparent;
+    caret-color: transparent;
+
+    font: inherit;
+
+    opacity: 0;
+
+    cursor: text;
+}
+
+
+/* во время поиска дерево не указывает на «текущий раздел»:
+   плашка снимается, остальные цвета (в том числе красный у закрытых) остаются */
+.layout.searching .t-row.current:not(.locked) {
+    background: none;
+    box-shadow: none;
+    clip-path: none;
+    z-index: auto;
+}
+
+
+.layout.searching .t-row.current:not(.locked)::before,
+.layout.searching .t-row.current:not(.locked)::after {
+    content: none;
+}
+
+
+.layout.searching .t-row.current:not(.locked) .node,
+.layout.searching .t-row.current:not(.locked) .mark {
+    color: var(--fg);
+}
+
+
+.layout.searching .t-row.current:not(.locked):hover {
+    background: var(--row-selected);
+    box-shadow: 0 0 0 100vmax var(--row-selected);
+    clip-path: inset(0 -100vmax);
+}
+
+
+.layout.searching .t-row.current:not(.locked):hover .node {
+    color: var(--font-light);
 }
 
 
@@ -444,7 +603,7 @@ li:last-child > details > .t-row.locked {
 }
 
 
-/* у корня "." линий нет */
+/* у корня "~" линий нет */
 .tree-root > .t-row.current::before,
 .tree-root > .t-row.locked::before {
     content: none;
@@ -495,58 +654,6 @@ li:last-child > details > .t-row.locked {
         linear-gradient(var(--r1), var(--r1)) 9.7ch 0 / 1px 100% no-repeat,
         linear-gradient(var(--r2), var(--r2)) 5.1ch 0 / 1px 100% no-repeat,
         linear-gradient(var(--r3), var(--r3)) 0.5ch 0 / 1px 100% no-repeat;
-}
-
-
-/* -------------------------------------------------- */
-/* Поиск: закреплён внизу explorer                    */
-/* -------------------------------------------------- */
-
-.search {
-    flex: 0 0 auto;
-
-    display: flex;
-    align-items: center;
-    gap: 1ch;
-
-    height: calc(var(--row) + 0.3em);
-    padding: 0 0.8rem;
-
-    border-top: 1px solid var(--line);
-
-    color: var(--font-muted);
-}
-
-
-.search input {
-    flex: 1;
-    min-width: 0;
-
-    padding: 0;
-
-    background: transparent;
-    border: 0;
-    outline: none;
-
-    caret-color: var(--font-light);
-    color: var(--font-light);
-
-    font: inherit;
-}
-
-
-.search input::placeholder {
-    color: var(--font-muted);
-}
-
-
-.search:focus-within {
-    border-top-color: var(--font-light);
-}
-
-
-.search:focus-within .search-prompt {
-    color: var(--font-light);
 }
 
 
@@ -734,7 +841,8 @@ li:last-child > details > .t-row.locked {
 
 
 @media (prefers-reduced-motion: reduce) {
-    .cursor {
+    .cursor,
+    .term:focus-within .caret {
         animation: none;
     }
 }

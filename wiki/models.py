@@ -14,7 +14,7 @@ def validate_no_colon(value):
 
 class Namespace(models.Model):
     MAX_DEPTH = 4
-    RESERVED_ROOT_NAMES = {"go"}
+    RESERVED_ROOT_NAMES = {"go", "search"}
 
     name = models.CharField(max_length=100, validators=[validate_no_colon])
     # короткий id подключения (показывается в списке баз); пусто = без id

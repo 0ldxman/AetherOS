@@ -2,59 +2,66 @@
 {% block title %}aether.db{% endblock %}
 {% block body_class %}explorer{% endblock %}
 {% block body %}
-<div class="layout">
+<div class="layout" id="layout" data-search-url="{{ search_url }}" data-scope="{{ scope_address }}" data-ns-id="{{ ns_id }}">
 
   <nav class="side" aria-label="Неймспейсы">
     <ul class="tree">
       <li class="tree-root">
         <div class="t-row{% if tree.current %} current{% endif %}">
-          <a class="node" href="{{ tree.url }}">.</a>
+          <a class="node" href="{{ tree.url }}">~</a>
         </div>
         <ul>
         {% for node in tree.children %}{% include "wiki/_tree_node.html" %}{% endfor %}
         </ul>
       </li>
     </ul>
-
-    <div class="search">
-      <span class="search-prompt">&gt;</span>
-      <input type="text" placeholder="search" aria-label="Поиск" autocomplete="off" spellcheck="false">
-    </div>
   </nav>
 
   <section class="viewer">
     <div class="viewer-path">
-      <span class="viewer-path-text">{{ path_text }}</span>
-      {% if not locked %}<span class="viewer-meta">records: {{ documents|length }}</span>{% endif %}
+      <span class="viewer-path-text" id="path-text">{{ path_text }}</span>
     </div>
 
     <div class="viewer-body">
-    {% if locked %}
-      <div class="denied">
-        <div class="denied-title">ACCESS DENIED</div>
-        <div class="denied-line">&gt; restricted section</div>
-        <div class="denied-line">&gt; no matching key<span class="cursor"></span></div>
+      <div id="browse">
+      {% if locked %}
+        <div class="denied">
+          <div class="denied-title">ACCESS DENIED</div>
+          <div class="denied-line">&gt; restricted section</div>
+          <div class="denied-line">&gt; no matching key<span class="cursor"></span></div>
+        </div>
+      {% elif documents %}
+        <table class="grid" id="docs">
+          <thead>
+            <tr>
+              <th>name</th>
+              <th>access</th>
+            </tr>
+          </thead>
+          <tbody>
+          {% for d in documents %}
+            <tr{% if not d.open %} class="locked"{% endif %} data-doc-id="{{ d.id }}" data-title="{{ d.title }}" data-ext="{{ d.ext }}" data-url="{{ d.url }}"{% if d.infobox_url %} data-infobox-url="{{ d.infobox_url }}"{% endif %}>
+              <td data-sort="{{ d.title }}"><a href="{{ d.url }}">{{ d.title }}<span class="ext">{{ d.ext }}</span></a></td>
+              <td{% if d.open %} class="state-open"{% endif %}>{% if d.open %}OPEN{% else %}LOCKED{% endif %}</td>
+            </tr>
+          {% endfor %}
+          </tbody>
+        </table>
+      {% else %}
+        <p class="empty">&gt; no records</p>
+      {% endif %}
       </div>
-    {% elif documents %}
-      <table class="grid" id="docs">
-        <thead>
-          <tr>
-            <th>name</th>
-            <th>access</th>
-          </tr>
-        </thead>
-        <tbody>
-        {% for d in documents %}
-          <tr{% if not d.open %} class="locked"{% endif %} data-doc-id="{{ d.id }}" data-title="{{ d.title }}" data-ext="{{ d.ext }}" data-url="{{ d.url }}"{% if d.infobox_url %} data-infobox-url="{{ d.infobox_url }}"{% endif %}>
-            <td data-sort="{{ d.title }}"><a href="{{ d.url }}">{{ d.title }}<span class="ext">{{ d.ext }}</span></a></td>
-            <td{% if d.open %} class="state-open"{% endif %}>{% if d.open %}OPEN{% else %}LOCKED{% endif %}</td>
-          </tr>
-        {% endfor %}
-        </tbody>
-      </table>
-    {% else %}
-      <p class="empty">&gt; no records</p>
-    {% endif %}
+
+      <div id="results" hidden></div>
+    </div>
+
+    <div class="viewer-foot">
+      <label class="term" for="search">
+        <span class="prompt">{{ prompt }}<span class="prompt-end">&gt;</span></span>
+        <span class="typed-wrap" id="typed-wrap"><span class="typed" id="typed"></span><span class="caret" aria-hidden="true"></span></span>
+        <input type="text" id="search" maxlength="80" aria-label="Запрос к базе" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false">
+      </label>
+      <span class="viewer-meta" id="records">{% if not locked %}records: {{ documents|length }}{% endif %}</span>
     </div>
   </section>
 

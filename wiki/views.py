@@ -1,11 +1,15 @@
 from collections import defaultdict
 
-from django.http import Http404
+from django.db.models import Q
+from django.http import Http404, JsonResponse
 from django.shortcuts import render
 from django.urls import reverse
 
 from .access import document_state, guest_keys, namespace_state
 from .models import Document, Namespace
+
+SEARCH_LIMIT = 100
+SEARCH_MAX_LEN = 80
 
 
 def _keys(request):
@@ -15,6 +19,21 @@ def _keys(request):
 
 def _ns_path(ns):
     return "/".join(n.name for n in ns.chain())
+
+
+def _path_text(ns):
+    """Путь для шапки и выдачи: ~/Technologies/Weapon/ (корень: ~/)."""
+    return f"~/{_ns_path(ns)}/" if ns else "~/"
+
+
+def _address(ns):
+    """Адрес раздела в запросе: technologies/weapon (корень: ~).
+
+    Имена в нижнем регистре, пробелы заменены на "_", как в промпте.
+    """
+    if ns is None:
+        return "~"
+    return "/".join("_".join(n.name.lower().split()) for n in ns.chain())
 
 
 def _ns_url(ns):
@@ -29,6 +48,28 @@ def _doc_url(doc):
 def _crumbs(ns):
     # у видимого раздела видны и все родители, поэтому крошки безопасны
     return [{"name": n.name, "url": _ns_url(n)} for n in ns.chain()] if ns else []
+
+
+def _prompt(request, ns):
+    """Приглашение консоли БД: имя@слаг.
+
+    Имя: логин игрока (в нижнем регистре, пробелы заменены на "_") или anon
+    у гостя. Слаг: у ближайшего раздела вверх по цепочке, у которого он
+    задан. Нет такого (или корень): root.
+    """
+    if request.user.is_authenticated:
+        name = "_".join(request.user.get_username().lower().split()) or "anon"
+    else:
+        name = "anon"
+
+    slug = "root"
+    if ns is not None:
+        for node in reversed(ns.chain()):
+            if node.slug:
+                slug = node.slug
+                break
+
+    return f"{name}@{slug}"
 
 
 def _all_namespaces():
@@ -48,7 +89,7 @@ def _all_namespaces():
 def _tree(keys, current):
     """Дерево неймспейсов для левой панели.
 
-    Корень "." виртуальный. Скрытые узлы в дерево не попадают, а у закрытых
+    Корень "~" виртуальный. Скрытые узлы в дерево не попадают, а у закрытых
     (но видимых) детей нет: за замок дерево не заглядывает.
     expanded только на пути к текущему неймспейсу, остальное раскрывает
     сам игрок.
@@ -86,6 +127,22 @@ def _tree(keys, current):
     }
 
 
+def _doc_row(doc, state):
+    """Одна строка таблицы для записи (doc.namespace уже привязан)."""
+    url = _doc_url(doc)
+    has_infobox = state.open and bool(doc.infobox.strip())
+
+    return {
+        "id": doc.pk,
+        "title": doc.title,
+        "ext": doc.ext,
+        "updated": doc.updated_at,
+        "open": state.open,
+        "url": url,
+        "infobox_url": f"{url}?infobox=1" if has_infobox else None,
+    }
+
+
 def _doc_rows(ns, keys):
     """Строки таблицы документов неймспейса (только видимые)."""
     rows = []
@@ -94,21 +151,7 @@ def _doc_rows(ns, keys):
         s = document_state(doc, keys)
         if not s.visible:
             continue
-
-        url = _doc_url(doc)
-        has_infobox = s.open and bool(doc.infobox.strip())
-
-        rows.append(
-            {
-                "id": doc.pk,
-                "title": doc.title,
-                "ext": doc.ext,
-                "updated": doc.updated_at,
-                "open": s.open,
-                "url": url,
-                "infobox_url": f"{url}?infobox=1" if has_infobox else None,
-            }
-        )
+        rows.append(_doc_row(doc, s))
     return rows
 
 
@@ -136,7 +179,11 @@ def _namespace_page(request, ns):
         "wiki/explorer.html",
         {
             "tree": _tree(keys, ns),
-            "path_text": f"{_ns_path(ns)}/" if ns else "./",
+            "path_text": _path_text(ns),
+            "prompt": _prompt(request, ns),
+            "search_url": reverse("wiki:search"),
+            "scope_address": _address(ns),
+            "ns_id": ns.pk if ns else "",
             "locked": locked,
             # за замком даже список документов не отдаём
             "documents": [] if locked else _doc_rows(ns, keys),
@@ -191,3 +238,86 @@ def direct(request, link):
     if doc is None:
         raise Http404
     return _document_page(request, doc, via_direct_link=True)
+
+
+# =========================================================
+# Поиск
+# =========================================================
+
+def _searchable_text(doc, keys):
+    """Текст записи, по которому разрешено искать.
+
+    Сюда попадает только то, что игрок и так может прочитать.
+    TODO: когда появятся ::spoiler, вырезать блоки, для которых у игрока
+    нет нужного ключа, иначе по факту совпадения можно узнать их содержимое.
+    """
+    return doc.body
+
+
+def search(request):
+    """GET ?q=слово&ns=id раздела -> {"rows": [...]}.
+
+    ns: раздел, из которого ищет игрок (пусто = корень). Ищем в нём и во
+    всех вложенных разделах. Показываем только видимое: записи в закрытом
+    разделе в выдачу не попадают совсем (как и в проводнике). Закрытая
+    запись в открытом разделе находится только по названию, её текст
+    не просматривается.
+    """
+    word = request.GET.get("q", "").strip()[:SEARCH_MAX_LEN]
+    if not word:
+        return JsonResponse({"rows": []})
+
+    keys = _keys(request)
+    all_ns = _all_namespaces()
+    namespaces = {n.pk: n for n in all_ns}
+
+    scope = None
+    raw_scope = request.GET.get("ns", "")
+    if raw_scope:
+        try:
+            scope = namespaces.get(int(raw_scope))
+        except ValueError:
+            scope = None
+
+        if scope is None:
+            return JsonResponse({"rows": []})
+
+        # из закрытого или скрытого раздела искать нельзя
+        scope_state = namespace_state(scope, keys)
+        if not (scope_state.visible and scope_state.open):
+            return JsonResponse({"rows": []})
+
+    # предварительный отбор в базе, точная проверка дальше в Python
+    candidates = Document.objects.filter(
+        Q(title__icontains=word) | Q(body__icontains=word)
+    )
+
+    if scope is not None:
+        # раздел и все его потомки (chain() каждого содержит раздел)
+        in_scope = {
+            n.pk
+            for n in all_ns
+            if any(x.pk == scope.pk for x in n.chain())
+        }
+        candidates = candidates.filter(namespace_id__in=in_scope)
+
+    needle = word.casefold()
+
+    rows = []
+    for doc in candidates:
+        doc.namespace = namespaces.get(doc.namespace_id)
+
+        if doc.namespace is not None:
+            ns_state = namespace_state(doc.namespace, keys)
+            if not (ns_state.visible and ns_state.open):
+                continue
+
+        s = document_state(doc, keys)
+        if not s.visible:
+            continue
+
+        found = needle in doc.title.casefold()
+        if not found and s.open:
+            found = needle in _searchable_text(doc, keys).casefold()
+        if not found:
+            continue
