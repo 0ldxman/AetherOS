@@ -1,0 +1,1349 @@
+/* ==================================================
+   DOCUMENT / ARCHIVE SCAN  (v2)
+
+   Что изменилось по сравнению с v1:
+   - зерно, пыль и дефекты теперь лежат ПОВЕРХ текста
+     (раньше были под ним, и текст оставался «чистым»);
+   - чернила проходят через SVG-фильтр: неровные,
+     слегка растёкшиеся края букв и линий;
+   - цветная кайма у текста (как у дешёвых сканеров);
+   - падающая тень карточки убрана: вместо неё
+     неравномерная полоса «крышки сканера» вокруг листа;
+   - заметнее поворот, мягкость, полосы экспозиции;
+   - показ обратной стороны листа сквозь бумагу;
+   - штампы с рваной, неравномерной заливкой;
+   - лог выглядит как распечатка, а не как кусок монитора;
+   - убраны дубли и невидимые правила (ink bleed через
+     box-shadow 0.14px, лишние text-shadow).
+
+   Структура (без изменений):
+   .page > .md.md--body > .sheet > .sheet-body + .sheet-footer
+
+   Необязательные модификаторы на .sheet:
+   .sheet--punched  — дырки от дырокола слева
+   .sheet--fold     — едва заметная складка
+   Необязательный модификатор на .doc--document:
+   .doc--lite       — без SVG-фильтра чернил (для очень длинных статей)
+   ================================================== */
+
+
+/* -------------------------------------------------- */
+/* Шрифты                                             */
+/* -------------------------------------------------- */
+
+@import url('https://fonts.googleapis.com/css2?family=Cousine:ital,wght@0,400;0,700;1,400&family=Caveat:wght@500&family=Libre+Barcode+39&display=swap');
+
+
+/* -------------------------------------------------- */
+/* Переменные                                         */
+/* -------------------------------------------------- */
+
+.doc--document {
+    --sheet-width: 210mm;
+    --sheet-pad: 2.35rem;
+    --cell-pad: 0.35rem 0.6rem;
+
+
+    /* ---------- Бумага / чернила ---------- */
+
+    --paper: #e8e6e0;
+    --ink: #27261f;
+    --ink-soft: #5f5c55;
+    --rule: #4f4c46;
+
+
+    /* ---------- Геометрия скана ---------- */
+
+    /* Теперь заметно, но не карикатурно */
+    --scan-rotation: -0.28deg;
+    --scan-offset-x: 0.6px;
+    --scan-offset-y: 0.4px;
+
+    /* Оптика */
+    --scan-blur: 0.3px;
+    --scan-contrast: 0.95;
+    --scan-brightness: 0.985;
+
+    /* Общая сила текстур поверх листа (0 — выкл., 1 — как задумано) */
+    --fx-strength: 0.8;
+
+    /* Цветная кайма текста: красный справа, голубой слева */
+    --fringe:
+        0.5px 0 0 rgba(190, 40, 50, 0.20),
+        -0.5px 0 0 rgba(30, 120, 190, 0.20),
+        0 0 0.6px rgba(20, 19, 16, 0.35);
+
+    /* Цвет «крышки» сканера вокруг листа.
+       Тёмная: #141310. Белая: #f1f0ec */
+    --lid: #141310;
+
+
+    /* ---------- Необязательные эффекты (по умолчанию пусты) ---------- */
+
+    --fx-hole-a: linear-gradient(transparent, transparent);
+    --fx-hole-b: linear-gradient(transparent, transparent);
+    --fx-fold: linear-gradient(transparent, transparent);
+
+
+    /* ---------- Штампы ---------- */
+
+    --stamp-red: #a92c24;
+    --stamp-green: #347347;
+    --stamp-blue: #315995;
+    --stamp-grey: #65615a;
+
+    --hand-ink: #24366f;
+
+
+    /* ---------- Лог (теперь «распечатка») ---------- */
+
+    --log-bg: #2a2926;
+    --log-fg: #cdcac2;
+    --log-info: #6ba9bb;
+    --log-ok: #70a590;
+    --log-warn: #c7a85e;
+    --log-error: #c26b73;
+    --log-debug: #85827b;
+
+
+    /* ---------- Шрифты ---------- */
+
+    --font-doc: "Cousine", "Courier New", Courier, monospace;
+    --font-hand: "Caveat", "Segoe Script", cursive;
+    --font-barcode: "Libre Barcode 39", monospace;
+
+
+    /* ---------- SVG-фильтр чернил ----------
+     *
+     * Читаемая версия того, что закодировано ниже:
+     *
+     * <filter id="ink" color-interpolation-filters="sRGB">
+     *   <feTurbulence baseFrequency="0.014" numOctaves="2" seed="4"/>      медленная «волна» геометрии
+     *   <feDisplacementMap scale="1.8"/>
+     *   <feTurbulence baseFrequency="0.8" seed="11"/>                      мелкая шероховатость края
+     *   <feDisplacementMap scale="1.1"/>
+     *   <feGaussianBlur stdDeviation="0.55"/>                              растекание чернил
+     *   <feComponentTransfer><feFuncA slope="1.5" intercept="-0.12"/>      снова «подтянуть» край
+     * </filter>
+     *
+     * Если шрифт стал слишком жирным/рваным — уменьши scale
+     * (1.8 и 1.1) и stdDeviation (0.55).
+     */
+    --ink-filter: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='ink' color-interpolation-filters='sRGB'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.014' numOctaves='2' seed='4' result='warp'/%3E%3CfeDisplacementMap in='SourceGraphic' in2='warp' scale='1.8' xChannelSelector='R' yChannelSelector='G' result='w'/%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='1' seed='11' result='fine'/%3E%3CfeDisplacementMap in='w' in2='fine' scale='1.1' xChannelSelector='R' yChannelSelector='G' result='e'/%3E%3CfeGaussianBlur in='e' stdDeviation='0.55' result='b'/%3E%3CfeComponentTransfer in='b'%3E%3CfeFuncA type='linear' slope='1.5' intercept='-0.12'/%3E%3C/feComponentTransfer%3E%3C/filter%3E%3C/svg%3E#ink");
+}
+
+/* Лёгкий режим: без дорогого SVG-фильтра */
+.doc--document.doc--lite {
+    --ink-filter: none;
+}
+
+
+/* -------------------------------------------------- */
+/* Рабочее пространство                               */
+/* -------------------------------------------------- */
+
+.doc--document .page {
+    width: 100%;
+    max-width: none;
+
+    overflow-x: hidden;
+    overflow-y: visible;
+}
+
+
+.doc--document .md--body {
+    width: 100%;
+
+    padding-top: 1.5rem;
+    padding-bottom: 1.5rem;
+
+    overflow-x: hidden;
+}
+
+
+/* -------------------------------------------------- */
+/* Лист                                               */
+/* -------------------------------------------------- */
+
+.doc--document .sheet {
+    position: relative;
+    isolation: isolate;
+
+    /* Физический A4, не сжимается */
+    width: var(--sheet-width);
+    min-width: var(--sheet-width);
+    max-width: none;
+
+    min-height: calc(var(--sheet-width) * 297 / 210);
+
+    box-sizing: border-box;
+
+    display: flex;
+    flex-direction: column;
+
+    margin-top: 0.9rem;
+    margin-right: auto;
+    margin-bottom: 1.65rem;
+    margin-left: auto;
+
+    padding: var(--sheet-pad);
+
+    /* Бумага — ровный цвет. Вся «грязь» лежит в ::before (под текстом)
+       и ::after (поверх текста). */
+    background-color: var(--paper);
+
+    color: var(--ink);
+
+    font-family: var(--font-doc);
+    font-size: 0.93rem;
+    line-height: 1.52;
+
+    /* Оптика скана */
+    filter:
+        blur(var(--scan-blur))
+        contrast(var(--scan-contrast))
+        brightness(var(--scan-brightness));
+
+    /* Лист лежит на стекле не идеально */
+    transform:
+        translate(var(--scan-offset-x), var(--scan-offset-y))
+        rotate(var(--scan-rotation));
+    transform-origin: center center;
+
+    /*
+     * Нет «тени карточки». Вместо неё:
+     * 1) тонкий тёмный контур самой бумаги;
+     * 2) неравномерная полоса крышки сканера:
+     *    сдвиг 3px/1px + растяжение 7px даёт
+     *    справа 10px, слева 4px, сверху 6px, снизу 8px.
+     */
+    box-shadow:
+        0 0 0 1px rgba(0, 0, 0, 0.55),
+        3px 1px 0 7px var(--lid);
+}
+
+
+/* -------------------------------------------------- */
+/* Слой ПОД текстом: экспозиция, неравномерность       */
+/* бумаги, просвечивание обратной стороны              */
+/* -------------------------------------------------- */
+
+.doc--document .sheet::before {
+    content: "";
+
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+
+    pointer-events: none;
+
+    background-image:
+        /* Обратная сторона листа (зеркальный «текст» из чёрточек) */
+        url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='794' height='1123' viewBox='0 0 794 1123' preserveAspectRatio='none'%3E%3Cdefs%3E%3Cfilter id='b'%3E%3CfeGaussianBlur stdDeviation='1.3'/%3E%3C/filter%3E%3Cpattern id='p' width='630' height='264' patternUnits='userSpaceOnUse'%3E%3Cg stroke='%23201f1b' stroke-opacity='0.04' stroke-width='8' stroke-dasharray='7 3 12 4 5 3 9 5 14 3 6 4 10 3' fill='none'%3E%3Cpath d='M0 11H630' stroke-dashoffset='0'/%3E%3Cpath d='M0 33H630' stroke-dashoffset='13'/%3E%3Cpath d='M0 55H630' stroke-dashoffset='31'/%3E%3Cpath d='M0 77H330' stroke-dashoffset='5'/%3E%3Cpath d='M0 121H630' stroke-dashoffset='22'/%3E%3Cpath d='M0 143H630' stroke-dashoffset='9'/%3E%3Cpath d='M0 165H630' stroke-dashoffset='40'/%3E%3Cpath d='M0 187H630' stroke-dashoffset='17'/%3E%3Cpath d='M0 209H470' stroke-dashoffset='3'/%3E%3Cpath d='M0 253H630' stroke-dashoffset='26'/%3E%3C/g%3E%3C/pattern%3E%3C/defs%3E%3Cg transform='translate(794 0) scale(-1 1)' filter='url(%23b)'%3E%3Crect x='80' y='100' width='630' height='920' fill='url(%23p)'/%3E%3C/g%3E%3C/svg%3E"),
+
+        /* Низкочастотная неоднородность плотности бумаги */
+        url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='1600' height='1600'%3E%3Cfilter id='m' color-interpolation-filters='sRGB'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.004 0.006' numOctaves='3' seed='52' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3CfeComponentTransfer%3E%3CfeFuncR type='linear' slope='1.7' intercept='-0.35'/%3E%3CfeFuncG type='linear' slope='1.7' intercept='-0.35'/%3E%3CfeFuncB type='linear' slope='1.7' intercept='-0.35'/%3E%3CfeFuncA type='linear' slope='0' intercept='0.08'/%3E%3C/feComponentTransfer%3E%3C/filter%3E%3Crect width='1600' height='1600' filter='url(%23m)'/%3E%3C/svg%3E"),
+
+        /* Неравномерная экспозиция */
+        radial-gradient(ellipse 35% 24% at 18% 71%, rgba(0, 0, 0, 0.034), transparent 76%),
+        radial-gradient(ellipse 21% 16% at 78% 60%, rgba(255, 255, 255, 0.030), transparent 80%),
+        radial-gradient(ellipse 16% 12% at 64% 15%, rgba(0, 0, 0, 0.028), transparent 78%),
+        radial-gradient(ellipse 72% 52% at 44% 36%, rgba(255, 255, 255, 0.085) 0%, rgba(255, 255, 255, 0.022) 37%, transparent 73%),
+        radial-gradient(ellipse 30% 90% at 100% 48%, rgba(0, 0, 0, 0.040) 0%, transparent 78%),
+        linear-gradient(180deg, rgba(0, 0, 0, 0.022) 0%, transparent 14%, transparent 82%, rgba(0, 0, 0, 0.038) 100%);
+
+    background-size:
+        100% 1123px,
+        1600px 1600px,
+        100% 100%,
+        100% 100%,
+        100% 100%,
+        100% 100%,
+        100% 100%,
+        100% 100%;
+
+    background-repeat:
+        repeat-y,
+        repeat,
+        no-repeat,
+        no-repeat,
+        no-repeat,
+        no-repeat,
+        no-repeat,
+        no-repeat;
+}
+
+
+/* -------------------------------------------------- */
+/* Слой ПОВЕРХ текста: зерно, пыль, выпадения тонера,  */
+/* полосы сканера, край листа                          */
+/*                                                     */
+/* Ключевое отличие от v1: этот слой лежит над         */
+/* контентом, поэтому шум проходит через чернила.      */
+/* -------------------------------------------------- */
+
+.doc--document .sheet::after {
+    content: "";
+
+    position: absolute;
+    inset: 0;
+    z-index: 5;
+
+    pointer-events: none;
+
+    opacity: var(--fx-strength);
+
+    /* Порядок: сверху вниз */
+    background-image:
+        /* 1. Пылинки, волосок */
+        url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='794' height='1123' viewBox='0 0 794 1123' preserveAspectRatio='none'%3E%3Cdefs%3E%3Cfilter id='d'%3E%3CfeGaussianBlur stdDeviation='0.35'/%3E%3C/filter%3E%3C/defs%3E%3Cg filter='url(%23d)'%3E%3Ccircle cx='122' cy='214' r='1.1' fill='%23111' fill-opacity='0.55'/%3E%3Ccircle cx='561' cy='88' r='0.8' fill='%23111' fill-opacity='0.5'/%3E%3Ccircle cx='308' cy='402' r='1.4' fill='%23111' fill-opacity='0.35'/%3E%3Ccircle cx='703' cy='531' r='0.9' fill='%23111' fill-opacity='0.6'/%3E%3Ccircle cx='96' cy='677' r='0.7' fill='%23111' fill-opacity='0.5'/%3E%3Ccircle cx='447' cy='744' r='1.6' fill='%23111' fill-opacity='0.28'/%3E%3Ccircle cx='618' cy='902' r='1' fill='%23111' fill-opacity='0.55'/%3E%3Ccircle cx='215' cy='986' r='0.8' fill='%23111' fill-opacity='0.5'/%3E%3Ccircle cx='372' cy='1062' r='1.2' fill='%23111' fill-opacity='0.4'/%3E%3Ccircle cx='254' cy='312' r='0.9' fill='%23fff' fill-opacity='0.6'/%3E%3Ccircle cx='655' cy='418' r='1.3' fill='%23fff' fill-opacity='0.5'/%3E%3Ccircle cx='140' cy='820' r='1' fill='%23fff' fill-opacity='0.55'/%3E%3Cpath d='M520 640q30-18 62-6t48 22' stroke='%23111' stroke-opacity='0.3' stroke-width='0.7' fill='none'/%3E%3Cpath d='M92 126q10 14 4 30' stroke='%23111' stroke-opacity='0.22' stroke-width='0.6' fill='none'/%3E%3C/g%3E%3C/svg%3E"),
+
+        /* 2. Выпадения тонера: редкие светлые крапинки цвета бумаги.
+              Последнее число в values (-10.4) — порог: ближе к -9 — больше крапин. */
+        url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='600' height='600'%3E%3Cfilter id='o' color-interpolation-filters='sRGB'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='2' seed='31' stitchTiles='stitch'/%3E%3CfeColorMatrix type='matrix' values='0 0 0 0 0.914 0 0 0 0 0.906 0 0 0 0 0.882 14 0 0 0 -10.4'/%3E%3C/filter%3E%3Crect width='600' height='600' filter='url(%23o)'/%3E%3C/svg%3E"),
+
+        /* 3. Цифровое зерно (мелкое, чёрно-белое) */
+        url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='384' height='384'%3E%3Cfilter id='g' color-interpolation-filters='sRGB'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='1' seed='209' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3CfeComponentTransfer%3E%3CfeFuncR type='linear' slope='2.6' intercept='-0.8'/%3E%3CfeFuncG type='linear' slope='2.6' intercept='-0.8'/%3E%3CfeFuncB type='linear' slope='2.6' intercept='-0.8'/%3E%3CfeFuncA type='linear' slope='0' intercept='0.075'/%3E%3C/feComponentTransfer%3E%3C/filter%3E%3Crect width='384' height='384' filter='url(%23g)'/%3E%3C/svg%3E"),
+
+        /* 4. Шум сканера: растянут по горизонтали (ход головки) */
+        url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='1400' height='1400'%3E%3Cfilter id='s' color-interpolation-filters='sRGB'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.02 0.5' numOctaves='2' seed='117' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3CfeComponentTransfer%3E%3CfeFuncR type='linear' slope='2.2' intercept='-0.6'/%3E%3CfeFuncG type='linear' slope='2.2' intercept='-0.6'/%3E%3CfeFuncB type='linear' slope='2.2' intercept='-0.6'/%3E%3CfeFuncA type='linear' slope='0' intercept='0.035'/%3E%3C/feComponentTransfer%3E%3C/filter%3E%3Crect width='1400' height='1400' filter='url(%23s)'/%3E%3C/svg%3E"),
+
+        /* 5. Вертикальные полосы (дефекты линейки сенсоров) */
+        linear-gradient(
+            90deg,
+            transparent 0 14.2%,
+            rgba(0, 0, 0, 0.020) 14.2% 14.5%,
+            transparent 14.5% 61%,
+            rgba(255, 255, 255, 0.030) 61% 61.3%,
+            transparent 61.3% 83.4%,
+            rgba(0, 0, 0, 0.016) 83.4% 83.55%,
+            transparent 83.55%
+        ),
+
+        /* 6. Горизонтальная строчная структура */
+        repeating-linear-gradient(
+            0deg,
+            rgba(0, 0, 0, 0.012) 0,
+            rgba(0, 0, 0, 0.012) 1px,
+            transparent 1px,
+            transparent 4px,
+            rgba(255, 255, 255, 0.008) 4px,
+            transparent 5px,
+            transparent 9px
+        ),
+
+        /* 7. Складка (только с .sheet--fold) */
+        var(--fx-fold),
+
+        /* 8-9. Дырки (только с .sheet--punched) */
+        var(--fx-hole-a),
+        var(--fx-hole-b);
+
+    background-size:
+        100% 1123px,
+        600px 600px,
+        384px 384px,
+        1400px 1400px,
+        100% 100%,
+        auto,
+        100% 100%,
+        100% 100%,
+        100% 100%;
+
+    background-repeat:
+        repeat-y,
+        repeat,
+        repeat,
+        repeat,
+        no-repeat,
+        repeat,
+        no-repeat,
+        no-repeat,
+        no-repeat;
+
+    /* Физический край листа: затемнение справа/снизу, блик слева/сверху */
+    box-shadow:
+        inset -2px -3px 6px rgba(0, 0, 0, 0.11),
+        inset 1px 1px 2px rgba(255, 255, 255, 0.18),
+        inset 0 0 0 1px rgba(0, 0, 0, 0.09);
+}
+
+
+/* -------------------------------------------------- */
+/* Модификаторы: дырки, складка                       */
+/* -------------------------------------------------- */
+
+.doc--document .sheet--punched {
+    --fx-hole-a: radial-gradient(
+        circle 12px at 24px calc(50% - 151px),
+        var(--lid) 0 9.5px,
+        rgba(0, 0, 0, 0.5) 10px,
+        rgba(0, 0, 0, 0.14) 11.2px,
+        transparent 12px
+    );
+
+    --fx-hole-b: radial-gradient(
+        circle 12px at 24px calc(50% + 151px),
+        var(--lid) 0 9.5px,
+        rgba(0, 0, 0, 0.5) 10px,
+        rgba(0, 0, 0, 0.14) 11.2px,
+        transparent 12px
+    );
+}
+
+
+.doc--document .sheet--fold {
+    --fx-fold: linear-gradient(
+        180deg,
+        transparent calc(33.3% - 3px),
+        rgba(0, 0, 0, 0.045) calc(33.3% - 1.5px),
+        rgba(255, 255, 255, 0.28) 33.3%,
+        rgba(0, 0, 0, 0.030) calc(33.3% + 1.5px),
+        transparent calc(33.3% + 4px)
+    );
+}
+
+
+/* -------------------------------------------------- */
+/* Тело / футер                                       */
+/* -------------------------------------------------- */
+
+.doc--document .sheet-body,
+.doc--document .sheet-footer {
+    position: relative;
+    z-index: 1;
+}
+
+
+.doc--document .sheet-body {
+    flex: 1 0 auto;
+    min-width: 0;
+
+    text-rendering: optimizeLegibility;
+
+    /* Растеризация чернил (см. --ink-filter) */
+    filter: var(--ink-filter);
+
+    /* Цветная кайма и лёгкое растекание чернил на всём тексте */
+    text-shadow: var(--fringe);
+}
+
+
+.doc--document .sheet-footer {
+    flex: 0 0 auto;
+
+    margin-top: 1.5rem;
+    padding-top: 0.4rem;
+
+    border-top: 1px solid rgba(79, 76, 70, 0.62);
+
+    color: var(--ink-soft);
+
+    font-size: 0.72rem;
+    letter-spacing: 0.04em;
+
+    text-shadow: var(--fringe);
+    opacity: 0.92;
+}
+
+
+/* -------------------------------------------------- */
+/* Неравномерная плотность печати                     */
+/* -------------------------------------------------- */
+
+/*
+ * Часть абзацев печатается чуть бледнее, часть чуть плотнее.
+ * Цвет, а не opacity, чтобы бумага не просвечивала.
+ */
+.doc--document .sheet-body .md p:nth-of-type(4n + 2),
+.doc--document .sheet-body .md li:nth-of-type(5n + 3) {
+    color: #35342e;
+}
+
+
+.doc--document .sheet-body .md p:nth-of-type(7n + 4) {
+    color: #3f3e38;
+}
+
+
+.doc--document .sheet-body .md p:nth-of-type(9n + 6) {
+    color: #2c2b25;
+}
+
+
+.doc--document .sheet-body .md small,
+.doc--document .sheet-body .md .muted,
+.doc--document .sig-role,
+.doc--document .sig-date {
+    opacity: 0.92;
+}
+
+
+/* -------------------------------------------------- */
+/* Потеря регистрации печати                          */
+/* -------------------------------------------------- */
+
+/*
+ * Отдельные блоки чуть смещены и повёрнуты. Значения
+ * субпиксельные, но суммарно документ перестаёт быть
+ * «идеально выровненным».
+ */
+.doc--document .sheet-body .md h2:nth-of-type(2n) {
+    transform: translateX(0.6px);
+}
+
+
+.doc--document .sheet-body .md h3:nth-of-type(2n) {
+    transform: translateX(-0.5px);
+}
+
+
+.doc--document .sheet-body .md p:nth-of-type(5n + 2) {
+    transform: translate(0.3px, 0.2px) rotate(0.04deg);
+}
+
+
+.doc--document .sheet-body .md p:nth-of-type(6n + 4) {
+    transform: translate(-0.3px, -0.15px) rotate(-0.035deg);
+}
+
+
+.doc--document .section:nth-of-type(2n) {
+    transform: translateX(-0.55px);
+}
+
+
+.doc--document .grid:nth-of-type(2n) {
+    transform: translateX(0.45px);
+}
+
+
+.doc--document .md table:nth-of-type(2n) {
+    transform: translateX(-0.4px);
+}
+
+
+/* -------------------------------------------------- */
+/* Базовый текст                                      */
+/* -------------------------------------------------- */
+
+.doc--document .md p {
+    max-width: none;
+    margin: 0 0 0.8em;
+
+    color: inherit;
+}
+
+
+.doc--document .md h1,
+.doc--document .md h2,
+.doc--document .md h3,
+.doc--document .md h4 {
+    margin: 1.1em 0 0.5em;
+
+    color: var(--ink);
+
+    font-weight: 700;
+    line-height: 1.25;
+}
+
+
+.doc--document .md h1 {
+    margin-top: 0.7em;
+
+    padding-bottom: 0.28em;
+
+    border-bottom: 1px solid rgba(79, 76, 70, 0.66);
+
+    font-size: 1.45rem;
+    letter-spacing: 0.045em;
+
+    text-transform: uppercase;
+}
+
+
+.doc--document .md h2 {
+    font-size: 1.18rem;
+    letter-spacing: 0.025em;
+}
+
+
+.doc--document .md h3 {
+    font-size: 1.02rem;
+}
+
+
+.doc--document .md h4 {
+    font-size: 0.92rem;
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+}
+
+
+.doc--document .sheet-body > :first-child,
+.doc--document .cell > :first-child,
+.doc--document .section-body > :first-child,
+.doc--document .box > :first-child {
+    margin-top: 0;
+}
+
+
+/* -------------------------------------------------- */
+/* Ссылки                                             */
+/* -------------------------------------------------- */
+
+.doc--document .md a {
+    color: var(--stamp-blue);
+
+    text-decoration-line: underline;
+    text-decoration-thickness: 1px;
+    text-underline-offset: 0.12em;
+}
+
+
+/* -------------------------------------------------- */
+/* Списки                                             */
+/* -------------------------------------------------- */
+
+.doc--document .md ul,
+.doc--document .md ol {
+    margin: 0 0 0.8em;
+    padding-left: 2.2ch;
+}
+
+
+.doc--document .md li {
+    margin-bottom: 0.15em;
+}
+
+
+/* -------------------------------------------------- */
+/* Прочее                                             */
+/* -------------------------------------------------- */
+
+.doc--document .md strong {
+    font-weight: 700;
+}
+
+
+.doc--document .md em {
+    color: inherit;
+}
+
+
+.doc--document .md del {
+    text-decoration-thickness: 1px;
+}
+
+
+.doc--document .md blockquote {
+    margin: 0 0 0.8em;
+    padding: 0.2em 1ch;
+
+    border-left: 3px solid rgba(79, 76, 70, 0.64);
+
+    color: var(--ink-soft);
+}
+
+
+.doc--document .md hr {
+    margin: 1em 0;
+
+    border: 0;
+    border-top: 1px solid rgba(79, 76, 70, 0.62);
+}
+
+
+.doc--document .md code {
+    padding: 0 0.3ch;
+
+    background: rgba(0, 0, 0, 0.055);
+
+    font-family: inherit;
+    font-size: 0.95em;
+}
+
+
+.doc--document .md pre {
+    margin: 0 0 0.8em;
+    padding: 0.6rem 0.8rem;
+
+    overflow: auto;
+
+    background: rgba(0, 0, 0, 0.045);
+
+    border: 1px solid rgba(79, 76, 70, 0.46);
+}
+
+
+.doc--document .md pre code {
+    padding: 0;
+    background: none;
+}
+
+
+/* -------------------------------------------------- */
+/* Markdown-таблица                                   */
+/* -------------------------------------------------- */
+
+.doc--document .md table {
+    width: 100%;
+    margin: 0 0 0.8em;
+
+    border-collapse: collapse;
+}
+
+
+.doc--document .md th,
+.doc--document .md td {
+    padding: var(--cell-pad);
+
+    border: 1px solid rgba(79, 76, 70, 0.64);
+
+    text-align: left;
+    vertical-align: top;
+}
+
+
+.doc--document .md th {
+    background: rgba(0, 0, 0, 0.042);
+    font-weight: 700;
+}
+
+
+.doc--document .md caption {
+    margin-bottom: 0.35rem;
+
+    color: var(--ink-soft);
+
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.07em;
+
+    text-align: left;
+    text-transform: uppercase;
+}
+
+
+/* -------------------------------------------------- */
+/* Spoiler / замазка                                  */
+/* -------------------------------------------------- */
+
+.doc--document .spoiler--masked {
+    background-color: var(--ink);
+    color: var(--ink);
+
+    /* Растр сплошной закраски: чёрное в печати — это точки */
+    background-image: radial-gradient(rgba(255, 255, 255, 0.07) 0.7px, transparent 0.9px);
+    background-size: 3px 3px;
+
+    user-select: none;
+
+    box-decoration-break: clone;
+    -webkit-box-decoration-break: clone;
+}
+
+
+.doc--document div.spoiler--masked {
+    margin: 0 0 0.8em;
+    padding: 0.4em 0.8ch;
+}
+
+
+.doc--document div.spoiler--masked > :last-child {
+    margin-bottom: 0;
+}
+
+
+.doc--document .spoiler--inline.spoiler--open {
+    border-bottom: 1px dotted var(--ink-soft);
+}
+
+
+.doc--document div.spoiler--open {
+    margin: 0 0 0.8em;
+    padding-left: 1.2ch;
+
+    border-left: 2px dashed var(--ink-soft);
+}
+
+
+/* -------------------------------------------------- */
+/* Section                                            */
+/* -------------------------------------------------- */
+
+.doc--document .section {
+    margin: 1.2rem 0;
+
+    border: 1px solid rgba(79, 76, 70, 0.70);
+}
+
+
+.doc--document .section-head {
+    display: flex;
+    align-items: stretch;
+
+    border-bottom: 1px solid rgba(79, 76, 70, 0.64);
+
+    background: rgba(0, 0, 0, 0.018);
+}
+
+
+.doc--document .section-num {
+    display: flex;
+    align-items: center;
+
+    padding: 0.2rem 1rem;
+
+    border-right: 1px solid rgba(79, 76, 70, 0.64);
+
+    font-size: 1.45rem;
+    font-weight: 700;
+    line-height: 1;
+}
+
+
+.doc--document .section-title {
+    display: flex;
+    align-items: center;
+
+    padding: 0.4rem 0.9rem;
+
+    font-weight: 700;
+    letter-spacing: 0.055em;
+
+    text-transform: uppercase;
+}
+
+
+.doc--document .section-body {
+    padding: 0.7rem 0.9rem 0.1rem;
+}
+
+
+/* -------------------------------------------------- */
+/* Grid                                               */
+/* -------------------------------------------------- */
+
+.doc--document .grid {
+    display: grid;
+
+    margin: 0 0 0.8em;
+
+    border-top: 1px solid rgba(79, 76, 70, 0.66);
+    border-left: 1px solid rgba(79, 76, 70, 0.66);
+}
+
+
+.doc--document .cell {
+    min-width: 0;
+
+    padding: var(--cell-pad);
+
+    border-right: 1px solid rgba(79, 76, 70, 0.62);
+    border-bottom: 1px solid rgba(79, 76, 70, 0.62);
+
+    overflow-wrap: anywhere;
+}
+
+
+.doc--document .cell p {
+    margin-bottom: 0.3em;
+}
+
+
+.doc--document .cell > :last-child {
+    margin-bottom: 0;
+}
+
+
+.doc--document .cell-label {
+    margin-bottom: 0.15rem;
+
+    color: var(--ink-soft);
+
+    font-size: 0.65rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    line-height: 1.2;
+
+    text-transform: uppercase;
+}
+
+
+.doc--document .grid--noborder {
+    border-top: none;
+    border-left: none;
+}
+
+
+.doc--document .grid--noborder .cell {
+    border-right: none;
+    border-bottom: none;
+}
+
+
+/* -------------------------------------------------- */
+/* Box                                                */
+/* -------------------------------------------------- */
+
+.doc--document .box {
+    margin: 0 0 0.8em;
+    padding: 0.4rem 0.7rem;
+}
+
+
+.doc--document .box--border {
+    border: 1px solid rgba(79, 76, 70, 0.66);
+}
+
+
+.doc--document .box--dark {
+    background-color: var(--ink);
+    background-image: radial-gradient(rgba(255, 255, 255, 0.07) 0.7px, transparent 0.9px);
+    background-size: 3px 3px;
+    color: var(--paper);
+    text-shadow: 0 0 0.5px rgba(255, 255, 255, 0.25);
+}
+
+
+.doc--document .box--center {
+    text-align: center;
+}
+
+
+.doc--document .box--right {
+    text-align: right;
+}
+
+
+.doc--document .box--small {
+    font-size: 0.8rem;
+}
+
+
+.doc--document .box--big {
+    font-size: 1.3rem;
+}
+
+
+.doc--document .box--bold {
+    font-weight: 700;
+}
+
+
+.doc--document .box--muted {
+    color: var(--ink-soft);
+}
+
+
+.doc--document .box--flush {
+    padding: 0;
+}
+
+
+.doc--document .box > :last-child {
+    margin-bottom: 0;
+}
+
+
+/* -------------------------------------------------- */
+/* Widgets                                            */
+/* -------------------------------------------------- */
+
+.doc--document .widget {
+    margin: 0.8rem 0;
+}
+
+
+.doc--document .widget--masked {
+    min-height: 1.5em;
+}
+
+
+/* -------------------------------------------------- */
+/* Stamp                                              */
+/* -------------------------------------------------- */
+
+.doc--document .widget--stamp.widget--align-left {
+    text-align: left;
+}
+
+
+.doc--document .widget--stamp.widget--align-center {
+    text-align: center;
+}
+
+
+.doc--document .widget--stamp.widget--align-right {
+    text-align: right;
+}
+
+
+.doc--document .stamp {
+    --tone: var(--stamp-red);
+
+    display: inline-block;
+
+    padding: 0.2rem 1rem;
+
+    border: 3px solid var(--tone);
+    border-radius: 1px;
+
+    box-shadow:
+        inset 0 0 0 2px var(--paper),
+        inset 0 0 0 3px var(--tone);
+
+    color: var(--tone);
+
+    font-size: 1.45rem;
+    font-weight: 700;
+    letter-spacing: 0.16em;
+    line-height: 1.3;
+
+    text-transform: uppercase;
+
+    /*
+     * mix-blend-mode: multiply убран: внутри .sheet-body стоит
+     * filter, он создаёт изолированную группу, и multiply
+     * не видит бумагу под собой. Плотность задаёт opacity.
+     */
+    opacity: 0.80;
+
+    text-shadow: 0 0 0.6px var(--tone);
+
+    transform: rotate(var(--angle, -8deg));
+    transform-origin: center;
+
+    /*
+     * Рваная, неравномерная заливка: маска из шума.
+     * Где шум выше порога, чернила «не легли».
+     * Читаемо: feTurbulence(0.35, 3 октавы) -> alpha = -5*R + 4.4
+     */
+    -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='260' height='260'%3E%3Cfilter id='sm' color-interpolation-filters='sRGB'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.35' numOctaves='3' seed='8' stitchTiles='stitch'/%3E%3CfeColorMatrix type='matrix' values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 -5 0 0 0 4.4'/%3E%3C/filter%3E%3Crect width='260' height='260' filter='url(%23sm)'/%3E%3C/svg%3E");
+    mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='260' height='260'%3E%3Cfilter id='sm' color-interpolation-filters='sRGB'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.35' numOctaves='3' seed='8' stitchTiles='stitch'/%3E%3CfeColorMatrix type='matrix' values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 -5 0 0 0 4.4'/%3E%3C/filter%3E%3Crect width='260' height='260' filter='url(%23sm)'/%3E%3C/svg%3E");
+
+    -webkit-mask-size: 260px 260px;
+    mask-size: 260px 260px;
+}
+
+
+.doc--document .stamp--green {
+    --tone: var(--stamp-green);
+}
+
+
+.doc--document .stamp--blue {
+    --tone: var(--stamp-blue);
+}
+
+
+.doc--document .stamp--grey {
+    --tone: var(--stamp-grey);
+}
+
+
+/* -------------------------------------------------- */
+/* Signature                                          */
+/* -------------------------------------------------- */
+
+.doc--document .widget--signature {
+    display: inline-block;
+
+    min-width: 14rem;
+    max-width: 100%;
+
+    margin-right: 2rem;
+}
+
+
+.doc--document .sig-hand {
+    min-height: 1.6em;
+
+    color: var(--hand-ink);
+
+    font-family: var(--font-hand);
+    font-size: 1.9rem;
+    line-height: 1;
+
+    /* Паста шариковой ручки: тёмный центр, мягкий ореол */
+    text-shadow: 0 0 0.7px rgba(36, 54, 111, 0.55);
+
+    transform: rotate(-3deg);
+    transform-origin: left bottom;
+}
+
+
+.doc--document .sig-line {
+    margin-top: 0.1rem;
+
+    border-top: 1px solid rgba(79, 76, 70, 0.70);
+}
+
+
+.doc--document .sig-name {
+    font-weight: 700;
+}
+
+
+.doc--document .sig-role,
+.doc--document .sig-date {
+    color: var(--ink-soft);
+    font-size: 0.8rem;
+}
+
+
+/* -------------------------------------------------- */
+/* Barcode                                            */
+/* -------------------------------------------------- */
+
+.doc--document .widget--barcode {
+    display: inline-flex;
+
+    flex-direction: column;
+    align-items: center;
+}
+
+
+.doc--document .barcode-bars {
+    font-family: var(--font-barcode);
+    font-size: 3rem;
+    line-height: 1;
+}
+
+
+.doc--document .barcode-text {
+    font-size: 0.7rem;
+    letter-spacing: 0.15em;
+}
+
+
+/* -------------------------------------------------- */
+/* Log                                                */
+/* -------------------------------------------------- */
+
+/*
+ * Теперь это распечатка терминала, а не кусок монитора:
+ * чёрный приподнят, цвета приглушены, на заливке растр.
+ */
+.doc--document .widget--log {
+    padding: 0.6rem 0.8rem;
+
+    background-color: var(--log-bg);
+    background-image:
+        radial-gradient(rgba(255, 255, 255, 0.06) 0.7px, transparent 0.9px),
+        repeating-linear-gradient(
+            0deg,
+            rgba(255, 255, 255, 0.018) 0,
+            rgba(255, 255, 255, 0.018) 1px,
+            transparent 1px,
+            transparent 3px
+        );
+    background-size:
+        3px 3px,
+        auto;
+
+    color: var(--log-fg);
+
+    border: 1px solid rgba(0, 0, 0, 0.55);
+
+    text-shadow: 0 0 0.5px rgba(255, 255, 255, 0.25);
+
+    font-size: 0.8rem;
+    line-height: 1.55;
+}
+
+
+.doc--document .log-line {
+    display: flex;
+
+    gap: 1.5ch;
+
+    white-space: pre-wrap;
+}
+
+
+.doc--document .log-time {
+    flex: 0 0 auto;
+    color: var(--log-debug);
+}
+
+
+.doc--document .log-level {
+    flex: 0 0 6ch;
+    font-weight: 700;
+}
+
+
+.doc--document .log-msg {
+    flex: 1;
+    min-width: 0;
+}
+
+
+.doc--document .log-info .log-level {
+    color: var(--log-info);
+}
+
+
+.doc--document .log-ok .log-level {
+    color: var(--log-ok);
+}
+
+
+.doc--document .log-warn .log-level {
+    color: var(--log-warn);
+}
+
+
+.doc--document .log-error .log-level {
+    color: var(--log-error);
+}
+
+
+.doc--document .log-debug .log-level {
+    color: var(--log-debug);
+}
+
+
+.doc--document .log-plain .log-msg {
+    padding-left: 17ch;
+}
+
+
+.doc--document .widget--log .spoiler--masked {
+    background-color: var(--log-fg);
+    color: var(--log-fg);
+}
+
+
+/* -------------------------------------------------- */
+/* Checks                                             */
+/* -------------------------------------------------- */
+
+.doc--document .widget--checks {
+    display: flex;
+    flex-wrap: wrap;
+
+    gap: 0.4rem 2rem;
+}
+
+
+.doc--document .check {
+    display: inline-flex;
+    align-items: center;
+
+    gap: 0.6ch;
+
+    font-size: 0.8rem;
+}
+
+
+.doc--document .check-box {
+    display: inline-grid;
+    place-items: center;
+
+    width: 1em;
+    height: 1em;
+
+    border: 1px solid rgba(79, 76, 70, 0.76);
+
+    font-size: 0.85rem;
+    line-height: 1;
+}
+
+
+.doc--document .check--on .check-box::after {
+    content: "\00d7";
+    font-weight: 700;
+}
+
+
+/* -------------------------------------------------- */
+/* Infobox                                            */
+/* -------------------------------------------------- */
+
+.doc--document .md--infobox {
+    padding: 0.8rem 1rem;
+
+    background: var(--paper);
+    color: var(--ink);
+
+    font-family: var(--font-doc);
+    font-size: 0.85rem;
+    line-height: 1.45;
+}
+
+
+.doc--document .md--infobox p {
+    color: inherit;
+}
+
+
+/* -------------------------------------------------- */
+/* Узкое окно                                         */
+/* -------------------------------------------------- */
+
+/*
+ * Лист не сжимается: правая часть просто уходит за край окна.
+ */
+@media (max-width: 900px) {
+    .doc--document .page {
+        overflow-x: hidden;
+    }
+
+    .doc--document .sheet {
+        margin-left: 0;
+        margin-right: 0.75rem;
+    }
+}
+
+
+/* -------------------------------------------------- */
+/* Печать                                             */
+/* -------------------------------------------------- */
+
+@media print {
+    .doc--document {
+        background: #fff;
+
+        /* Фильтр чернил и кайма при печати не нужны */
+        --ink-filter: none;
+        --fringe: none;
+    }
+
+    .doc--document .page,
+    .doc--document .md--body {
+        width: auto;
+        max-width: none;
+
+        overflow: visible;
+
+        padding: 0;
+    }
+
+    .doc--document .sheet {
+        width: 210mm;
+        min-width: 210mm;
+
+        margin: 0;
+
+        filter: none;
+        transform: none;
+
+        box-shadow: none;
+
+        break-after: page;
+        page-break-after: always;
+    }
+
+    .doc--document .sheet:last-child {
+        break-after: auto;
+        page-break-after: auto;
+    }
+
+    .doc--document .sheet::before,
+    .doc--document .sheet::after {
+        display: none;
+    }
+}

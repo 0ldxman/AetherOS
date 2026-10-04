@@ -1,0 +1,984 @@
+/* ==================================================
+   DOCUMENT / DIGITAL  (электронный вариант документа)
+
+   Тот же документ, что и в скан-версии, но «родной»:
+   как страница в текстовом редакторе или PDF-ридере.
+
+   Принцип:
+   - та же структура и те же классы, что у скана:
+     .page > .md.md--body > .sheet > .sheet-body + .sheet-footer
+     поэтому HTML менять не нужно, меняется только корневой класс;
+   - тот же физический A4 и то же поведение в узком окне,
+     чтобы вёрстка совпадала с версией-сканом;
+   - никаких фильтров, шума и поворотов: всё чёткое, векторное;
+   - вместо «скана» — признаки цифрового документа:
+     белая страница на серой подложке, мягкая тень страницы,
+     шрифт без засечек, цифры одной ширины, синие ссылки,
+     чистые тонкие рамки.
+
+   Все правила привязаны к .doc--digital.
+   Если у вас корневой класс называется иначе —
+   достаточно заменить «.doc--digital» во всём файле.
+   ================================================== */
+
+
+/* -------------------------------------------------- */
+/* Шрифты                                             */
+/* -------------------------------------------------- */
+
+/*
+ * Arimo — метрически совместим с Arial, поэтому текст
+ * выглядит как в обычном документе. Cousine остаётся
+ * для кода и лога, как «моноширинный» шрифт документа.
+ */
+@import url('https://fonts.googleapis.com/css2?family=Arimo:ital,wght@0,400;0,600;0,700;1,400&family=Cousine:ital,wght@0,400;0,700;1,400&family=Caveat:wght@500&family=Libre+Barcode+39&display=swap');
+
+
+/* -------------------------------------------------- */
+/* Переменные                                         */
+/* -------------------------------------------------- */
+
+.doc--digital {
+    /* Физическая ширина листа A4 (как у скана) */
+    --sheet-width: 210mm;
+    --sheet-pad: 2.35rem;
+    --cell-pad: 0.35rem 0.6rem;
+
+
+    /* ---------- Подложка и бумага ---------- */
+
+    /* Серый фон за страницей. transparent — если фон задаёт сайт */
+    --desk: #d9dce1;
+
+    --paper: #ffffff;
+    --ink: #1b1d21;
+    --ink-soft: #5b616b;
+
+    /* Линии формы: основные и второстепенные */
+    --rule: #4a5058;
+    --rule-soft: #b7bcc4;
+
+    /* Заливка шапок таблиц и секций */
+    --shade: #f1f3f5;
+
+
+    /* ---------- Ссылки ---------- */
+
+    --link: #0b57d0;
+
+
+    /* ---------- Штампы ---------- */
+
+    --stamp-red: #c0332b;
+    --stamp-green: #2e7d4f;
+    --stamp-blue: #2f5fa8;
+    --stamp-grey: #6b7078;
+
+    --hand-ink: #1f3a8a;
+
+
+    /* ---------- Лог ---------- */
+
+    --log-bg: #1e2024;
+    --log-fg: #d7d9dd;
+    --log-info: #5ec1e6;
+    --log-ok: #5fc29b;
+    --log-warn: #e3b84d;
+    --log-error: #ef6a75;
+    --log-debug: #7c828c;
+
+
+    /* ---------- Шрифты ---------- */
+
+    --font-doc: "Arimo", Arial, "Helvetica Neue", Helvetica, sans-serif;
+    --font-mono: "Cousine", "Courier New", Courier, monospace;
+    --font-hand: "Caveat", "Segoe Script", cursive;
+    --font-barcode: "Libre Barcode 39", monospace;
+}
+
+
+/* -------------------------------------------------- */
+/* Рабочее пространство                               */
+/* -------------------------------------------------- */
+
+.doc--digital .page {
+    width: 100%;
+    max-width: none;
+
+    overflow-x: hidden;
+    overflow-y: visible;
+}
+
+
+.doc--digital .md--body {
+    width: 100%;
+
+    padding-top: 1.5rem;
+    padding-bottom: 1.5rem;
+
+    overflow-x: hidden;
+
+    background: var(--desk);
+}
+
+
+/* -------------------------------------------------- */
+/* Лист                                               */
+/* -------------------------------------------------- */
+
+.doc--digital .sheet {
+    position: relative;
+
+    /* isolation нужен, чтобы multiply у штампов смешивался
+       именно с бумагой листа, а не с фоном страницы сайта */
+    isolation: isolate;
+
+    /* Физический A4: не сжимается, как и у скана */
+    width: var(--sheet-width);
+    min-width: var(--sheet-width);
+    max-width: none;
+
+    min-height: calc(var(--sheet-width) * 297 / 210);
+
+    box-sizing: border-box;
+
+    display: flex;
+    flex-direction: column;
+
+    margin: 0.5rem auto 1.65rem;
+
+    padding: var(--sheet-pad);
+
+    background: var(--paper);
+    color: var(--ink);
+
+    font-family: var(--font-doc);
+    font-size: 0.93rem;
+    line-height: 1.55;
+
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    font-variant-numeric: tabular-nums;
+
+    /* Страница в редакторе: тонкий контур и мягкая тень */
+    box-shadow:
+        0 0 0 1px rgba(0, 0, 0, 0.08),
+        0 2px 4px rgba(0, 0, 0, 0.10),
+        0 10px 30px rgba(0, 0, 0, 0.14);
+}
+
+
+.doc--digital .sheet ::selection {
+    background: #cfe2ff;
+    color: inherit;
+}
+
+
+.doc--digital .sheet-body {
+    flex: 1 0 auto;
+    min-width: 0;
+
+    text-rendering: optimizeLegibility;
+}
+
+
+.doc--digital .sheet-footer {
+    flex: 0 0 auto;
+
+    margin-top: 1.5rem;
+    padding-top: 0.4rem;
+
+    border-top: 1px solid var(--rule-soft);
+
+    color: var(--ink-soft);
+
+    font-size: 0.72rem;
+    letter-spacing: 0.03em;
+}
+
+
+/* -------------------------------------------------- */
+/* Базовый текст                                      */
+/* -------------------------------------------------- */
+
+.doc--digital .md p {
+    max-width: none;
+    margin: 0 0 0.8em;
+
+    color: inherit;
+}
+
+
+.doc--digital .md h1,
+.doc--digital .md h2,
+.doc--digital .md h3,
+.doc--digital .md h4 {
+    margin: 1.2em 0 0.5em;
+
+    color: var(--ink);
+
+    font-weight: 700;
+    line-height: 1.25;
+}
+
+
+.doc--digital .md h1 {
+    margin-top: 0.7em;
+
+    padding-bottom: 0.3em;
+
+    border-bottom: 2px solid var(--ink);
+
+    font-size: 1.5rem;
+    letter-spacing: 0.03em;
+
+    text-transform: uppercase;
+}
+
+
+.doc--digital .md h2 {
+    font-size: 1.2rem;
+}
+
+
+.doc--digital .md h3 {
+    font-size: 1.04rem;
+}
+
+
+.doc--digital .md h4 {
+    color: var(--ink-soft);
+
+    font-size: 0.9rem;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+}
+
+
+.doc--digital .sheet-body > :first-child,
+.doc--digital .cell > :first-child,
+.doc--digital .section-body > :first-child,
+.doc--digital .box > :first-child {
+    margin-top: 0;
+}
+
+
+/* -------------------------------------------------- */
+/* Ссылки                                             */
+/* -------------------------------------------------- */
+
+.doc--digital .md a {
+    color: var(--link);
+
+    text-decoration-line: underline;
+    text-decoration-thickness: 1px;
+    text-underline-offset: 0.15em;
+}
+
+
+/* -------------------------------------------------- */
+/* Списки                                             */
+/* -------------------------------------------------- */
+
+.doc--digital .md ul,
+.doc--digital .md ol {
+    margin: 0 0 0.8em;
+    padding-left: 1.6em;
+}
+
+
+.doc--digital .md li {
+    margin-bottom: 0.2em;
+}
+
+
+/* -------------------------------------------------- */
+/* Прочее                                             */
+/* -------------------------------------------------- */
+
+.doc--digital .md strong {
+    font-weight: 700;
+}
+
+
+.doc--digital .md em {
+    color: inherit;
+}
+
+
+.doc--digital .md del {
+    text-decoration-thickness: 1px;
+}
+
+
+.doc--digital .md blockquote {
+    margin: 0 0 0.8em;
+    padding: 0.2em 1.2ch;
+
+    border-left: 3px solid #aeb4bc;
+
+    color: var(--ink-soft);
+}
+
+
+.doc--digital .md hr {
+    margin: 1em 0;
+
+    border: 0;
+    border-top: 1px solid var(--rule-soft);
+}
+
+
+.doc--digital .md code {
+    padding: 0.05em 0.35em;
+
+    background: var(--shade);
+    border-radius: 2px;
+
+    font-family: var(--font-mono);
+    font-size: 0.9em;
+}
+
+
+.doc--digital .md pre {
+    margin: 0 0 0.8em;
+    padding: 0.6rem 0.8rem;
+
+    overflow: auto;
+
+    background: #f6f7f9;
+
+    border: 1px solid #d5d9de;
+    border-radius: 2px;
+
+    font-family: var(--font-mono);
+}
+
+
+.doc--digital .md pre code {
+    padding: 0;
+    background: none;
+}
+
+
+/* -------------------------------------------------- */
+/* Markdown-таблица                                   */
+/* -------------------------------------------------- */
+
+.doc--digital .md table {
+    width: 100%;
+    margin: 0 0 0.8em;
+
+    border-collapse: collapse;
+}
+
+
+.doc--digital .md th,
+.doc--digital .md td {
+    padding: var(--cell-pad);
+
+    border: 1px solid var(--rule-soft);
+
+    text-align: left;
+    vertical-align: top;
+}
+
+
+.doc--digital .md th {
+    background: var(--shade);
+    font-weight: 700;
+}
+
+
+.doc--digital .md caption {
+    margin-bottom: 0.35rem;
+
+    color: var(--ink-soft);
+
+    font-size: 0.74rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+
+    text-align: left;
+    text-transform: uppercase;
+}
+
+
+/* -------------------------------------------------- */
+/* Spoiler / редактура (чёрные плашки)                */
+/* -------------------------------------------------- */
+
+.doc--digital .spoiler--masked {
+    background: var(--ink);
+    color: var(--ink);
+
+    user-select: none;
+
+    box-decoration-break: clone;
+    -webkit-box-decoration-break: clone;
+}
+
+
+.doc--digital div.spoiler--masked {
+    margin: 0 0 0.8em;
+    padding: 0.4em 0.8ch;
+}
+
+
+.doc--digital div.spoiler--masked > :last-child {
+    margin-bottom: 0;
+}
+
+
+.doc--digital .spoiler--inline.spoiler--open {
+    border-bottom: 1px dotted var(--ink-soft);
+}
+
+
+.doc--digital div.spoiler--open {
+    margin: 0 0 0.8em;
+    padding-left: 1.2ch;
+
+    border-left: 2px dashed var(--ink-soft);
+}
+
+
+/* -------------------------------------------------- */
+/* Section                                            */
+/* -------------------------------------------------- */
+
+.doc--digital .section {
+    margin: 1.2rem 0;
+
+    border: 1px solid var(--rule);
+}
+
+
+.doc--digital .section-head {
+    display: flex;
+    align-items: stretch;
+
+    border-bottom: 1px solid var(--rule);
+
+    background: var(--shade);
+}
+
+
+.doc--digital .section-num {
+    display: flex;
+    align-items: center;
+
+    padding: 0.2rem 1rem;
+
+    border-right: 1px solid var(--rule);
+
+    font-size: 1.45rem;
+    font-weight: 700;
+    line-height: 1;
+}
+
+
+.doc--digital .section-title {
+    display: flex;
+    align-items: center;
+
+    padding: 0.4rem 0.9rem;
+
+    font-weight: 700;
+    letter-spacing: 0.05em;
+
+    text-transform: uppercase;
+}
+
+
+.doc--digital .section-body {
+    padding: 0.7rem 0.9rem 0.1rem;
+}
+
+
+/* -------------------------------------------------- */
+/* Grid                                               */
+/* -------------------------------------------------- */
+
+.doc--digital .grid {
+    display: grid;
+
+    margin: 0 0 0.8em;
+
+    border-top: 1px solid var(--rule);
+    border-left: 1px solid var(--rule);
+}
+
+
+.doc--digital .cell {
+    min-width: 0;
+
+    padding: var(--cell-pad);
+
+    border-right: 1px solid var(--rule);
+    border-bottom: 1px solid var(--rule);
+
+    overflow-wrap: anywhere;
+}
+
+
+.doc--digital .cell p {
+    margin-bottom: 0.3em;
+}
+
+
+.doc--digital .cell > :last-child {
+    margin-bottom: 0;
+}
+
+
+.doc--digital .cell-label {
+    margin-bottom: 0.15rem;
+
+    color: var(--ink-soft);
+
+    font-size: 0.66rem;
+    font-weight: 700;
+    letter-spacing: 0.07em;
+    line-height: 1.2;
+
+    text-transform: uppercase;
+}
+
+
+.doc--digital .grid--noborder {
+    border-top: none;
+    border-left: none;
+}
+
+
+.doc--digital .grid--noborder .cell {
+    border-right: none;
+    border-bottom: none;
+}
+
+
+/* -------------------------------------------------- */
+/* Box                                                */
+/* -------------------------------------------------- */
+
+.doc--digital .box {
+    margin: 0 0 0.8em;
+    padding: 0.4rem 0.7rem;
+}
+
+
+.doc--digital .box--border {
+    border: 1px solid var(--rule);
+}
+
+
+.doc--digital .box--dark {
+    background: var(--ink);
+    color: var(--paper);
+}
+
+
+.doc--digital .box--center {
+    text-align: center;
+}
+
+
+.doc--digital .box--right {
+    text-align: right;
+}
+
+
+.doc--digital .box--small {
+    font-size: 0.8rem;
+}
+
+
+.doc--digital .box--big {
+    font-size: 1.3rem;
+}
+
+
+.doc--digital .box--bold {
+    font-weight: 700;
+}
+
+
+.doc--digital .box--muted {
+    color: var(--ink-soft);
+}
+
+
+.doc--digital .box--flush {
+    padding: 0;
+}
+
+
+.doc--digital .box > :last-child {
+    margin-bottom: 0;
+}
+
+
+/* -------------------------------------------------- */
+/* Widgets                                            */
+/* -------------------------------------------------- */
+
+.doc--digital .widget {
+    margin: 0.8rem 0;
+}
+
+
+.doc--digital .widget--masked {
+    min-height: 1.5em;
+}
+
+
+/* -------------------------------------------------- */
+/* Stamp                                              */
+/* -------------------------------------------------- */
+
+/*
+ * Штамп в электронном документе — чистая векторная графика:
+ * без рваных краёв и неравномерной заливки. Multiply
+ * оставляет под ним видимым текст.
+ */
+.doc--digital .widget--stamp.widget--align-left {
+    text-align: left;
+}
+
+
+.doc--digital .widget--stamp.widget--align-center {
+    text-align: center;
+}
+
+
+.doc--digital .widget--stamp.widget--align-right {
+    text-align: right;
+}
+
+
+.doc--digital .stamp {
+    --tone: var(--stamp-red);
+
+    display: inline-block;
+
+    padding: 0.2rem 1rem;
+
+    border: 3px solid var(--tone);
+    border-radius: 3px;
+
+    box-shadow:
+        inset 0 0 0 2px var(--paper),
+        inset 0 0 0 3px var(--tone);
+
+    color: var(--tone);
+
+    font-size: 1.45rem;
+    font-weight: 700;
+    letter-spacing: 0.14em;
+    line-height: 1.3;
+
+    text-transform: uppercase;
+
+    opacity: 0.88;
+
+    mix-blend-mode: multiply;
+
+    transform: rotate(var(--angle, -8deg));
+    transform-origin: center;
+}
+
+
+.doc--digital .stamp--green {
+    --tone: var(--stamp-green);
+}
+
+
+.doc--digital .stamp--blue {
+    --tone: var(--stamp-blue);
+}
+
+
+.doc--digital .stamp--grey {
+    --tone: var(--stamp-grey);
+}
+
+
+/* -------------------------------------------------- */
+/* Signature                                          */
+/* -------------------------------------------------- */
+
+.doc--digital .widget--signature {
+    display: inline-block;
+
+    min-width: 14rem;
+    max-width: 100%;
+
+    margin-right: 2rem;
+}
+
+
+.doc--digital .sig-hand {
+    min-height: 1.6em;
+
+    color: var(--hand-ink);
+
+    font-family: var(--font-hand);
+    font-size: 1.9rem;
+    line-height: 1;
+
+    transform: rotate(-2deg);
+    transform-origin: left bottom;
+}
+
+
+.doc--digital .sig-line {
+    margin-top: 0.1rem;
+
+    border-top: 1px solid var(--rule);
+}
+
+
+.doc--digital .sig-name {
+    font-weight: 700;
+}
+
+
+.doc--digital .sig-role,
+.doc--digital .sig-date {
+    color: var(--ink-soft);
+    font-size: 0.8rem;
+}
+
+
+/* -------------------------------------------------- */
+/* Barcode                                            */
+/* -------------------------------------------------- */
+
+.doc--digital .widget--barcode {
+    display: inline-flex;
+
+    flex-direction: column;
+    align-items: center;
+}
+
+
+.doc--digital .barcode-bars {
+    font-family: var(--font-barcode);
+    font-size: 3rem;
+    line-height: 1;
+}
+
+
+.doc--digital .barcode-text {
+    font-family: var(--font-mono);
+    font-size: 0.7rem;
+    letter-spacing: 0.15em;
+}
+
+
+/* -------------------------------------------------- */
+/* Log                                                */
+/* -------------------------------------------------- */
+
+/*
+ * В электронном документе лог — это встроенный блок
+ * терминала: тёмная плашка с яркими уровнями.
+ */
+.doc--digital .widget--log {
+    padding: 0.6rem 0.8rem;
+
+    background: var(--log-bg);
+    color: var(--log-fg);
+
+    border-radius: 3px;
+
+    font-family: var(--font-mono);
+    font-size: 0.8rem;
+    line-height: 1.55;
+}
+
+
+.doc--digital .log-line {
+    display: flex;
+
+    gap: 1.5ch;
+
+    white-space: pre-wrap;
+}
+
+
+.doc--digital .log-time {
+    flex: 0 0 auto;
+    color: var(--log-debug);
+}
+
+
+.doc--digital .log-level {
+    flex: 0 0 6ch;
+    font-weight: 700;
+}
+
+
+.doc--digital .log-msg {
+    flex: 1;
+    min-width: 0;
+}
+
+
+.doc--digital .log-info .log-level {
+    color: var(--log-info);
+}
+
+
+.doc--digital .log-ok .log-level {
+    color: var(--log-ok);
+}
+
+
+.doc--digital .log-warn .log-level {
+    color: var(--log-warn);
+}
+
+
+.doc--digital .log-error .log-level {
+    color: var(--log-error);
+}
+
+
+.doc--digital .log-debug .log-level {
+    color: var(--log-debug);
+}
+
+
+.doc--digital .log-plain .log-msg {
+    padding-left: 17ch;
+}
+
+
+.doc--digital .widget--log .spoiler--masked {
+    background: var(--log-fg);
+    color: var(--log-fg);
+}
+
+
+/* -------------------------------------------------- */
+/* Checks                                             */
+/* -------------------------------------------------- */
+
+.doc--digital .widget--checks {
+    display: flex;
+    flex-wrap: wrap;
+
+    gap: 0.4rem 2rem;
+}
+
+
+.doc--digital .check {
+    display: inline-flex;
+    align-items: center;
+
+    gap: 0.6ch;
+
+    font-size: 0.8rem;
+}
+
+
+.doc--digital .check-box {
+    display: inline-grid;
+    place-items: center;
+
+    width: 1em;
+    height: 1em;
+
+    border: 1px solid var(--rule);
+    border-radius: 2px;
+
+    font-size: 0.85rem;
+    line-height: 1;
+}
+
+
+.doc--digital .check--on .check-box::after {
+    content: "\00d7";
+    font-weight: 700;
+}
+
+
+/* -------------------------------------------------- */
+/* Infobox                                            */
+/* -------------------------------------------------- */
+
+.doc--digital .md--infobox {
+    padding: 0.8rem 1rem;
+
+    background: var(--paper);
+    color: var(--ink);
+
+    font-family: var(--font-doc);
+    font-size: 0.85rem;
+    line-height: 1.45;
+}
+
+
+.doc--digital .md--infobox p {
+    color: inherit;
+}
+
+
+/* -------------------------------------------------- */
+/* Узкое окно                                         */
+/* -------------------------------------------------- */
+
+/*
+ * Как и у скана: лист не сжимается, правая часть
+ * просто выходит за край окна.
+ */
+@media (max-width: 900px) {
+    .doc--digital .page {
+        overflow-x: hidden;
+    }
+
+    .doc--digital .sheet {
+        margin-left: 0;
+        margin-right: 0.75rem;
+    }
+}
+
+
+/* -------------------------------------------------- */
+/* Печать                                             */
+/* -------------------------------------------------- */
+
+@media print {
+    .doc--digital .md--body {
+        background: #fff;
+    }
+
+    .doc--digital .page,
+    .doc--digital .md--body {
+        width: auto;
+        max-width: none;
+
+        overflow: visible;
+
+        padding: 0;
+    }
+
+    .doc--digital .sheet {
+        width: 210mm;
+        min-width: 210mm;
+
+        margin: 0;
+
+        box-shadow: none;
+
+        break-after: page;
+        page-break-after: always;
+    }
+
+    .doc--digital .sheet:last-child {
+        break-after: auto;
+        page-break-after: auto;
+    }
+}
