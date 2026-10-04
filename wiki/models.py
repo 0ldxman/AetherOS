@@ -96,9 +96,12 @@ class Namespace(models.Model):
 
 class Document(models.Model):
     class Type(models.TextChoices):
-        DOCUMENT = "document", "Документ"  # статья с инфобоксом
-        WEB = "web", "Веб-страница"  # страница "из внешней сети"
-    EXTENSIONS = {"document": ".doc", "web": ".snapshot"}
+        DOC = "doc", "Документ"
+        SCAN = "scan", "Скан"
+        WEB = "web", "Веб-снапшот"
+
+    EXTENSIONS = {"doc": ".doc", "scan": ".scan", "web": ".snapshot"}
+
     namespace = models.ForeignKey(
         Namespace,
         null=True,
@@ -106,9 +109,10 @@ class Document(models.Model):
         on_delete=models.PROTECT,
         related_name="documents",
     )
+
     title = models.CharField(max_length=200, validators=[validate_no_colon])
     type = models.CharField(
-        max_length=20, choices=Type.choices, default=Type.DOCUMENT
+        max_length=20, choices=Type.choices, default=Type.DOC
     )
     body = models.TextField(blank=True)  # markdown
     infobox = models.TextField(blank=True)  # markdown

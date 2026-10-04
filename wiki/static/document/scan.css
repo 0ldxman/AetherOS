@@ -22,7 +22,7 @@
    Необязательные модификаторы на .sheet:
    .sheet--punched  — дырки от дырокола слева
    .sheet--fold     — едва заметная складка
-   Необязательный модификатор на .doc--document:
+   Необязательный модификатор на .doc--scan:
    .doc--lite       — без SVG-фильтра чернил (для очень длинных статей)
    ================================================== */
 
@@ -38,7 +38,7 @@
 /* Переменные                                         */
 /* -------------------------------------------------- */
 
-.doc--document {
+.doc--scan {
     --sheet-width: 210mm;
     --sheet-pad: 2.35rem;
     --cell-pad: 0.35rem 0.6rem;
@@ -133,7 +133,7 @@
 }
 
 /* Лёгкий режим: без дорогого SVG-фильтра */
-.doc--document.doc--lite {
+.doc--scan.doc--lite {
     --ink-filter: none;
 }
 
@@ -142,7 +142,7 @@
 /* Рабочее пространство                               */
 /* -------------------------------------------------- */
 
-.doc--document .page {
+.doc--scan .page {
     width: 100%;
     max-width: none;
 
@@ -151,7 +151,7 @@
 }
 
 
-.doc--document .md--body {
+.doc--scan .md--body {
     width: 100%;
 
     padding-top: 1.5rem;
@@ -165,7 +165,7 @@
 /* Лист                                               */
 /* -------------------------------------------------- */
 
-.doc--document .sheet {
+.doc--scan .sheet {
     position: relative;
     isolation: isolate;
 
@@ -228,7 +228,7 @@
 /* бумаги, просвечивание обратной стороны              */
 /* -------------------------------------------------- */
 
-.doc--document .sheet::before {
+.doc--scan .sheet::before {
     content: "";
 
     position: absolute;
@@ -282,7 +282,7 @@
 /* контентом, поэтому шум проходит через чернила.      */
 /* -------------------------------------------------- */
 
-.doc--document .sheet::after {
+.doc--scan .sheet::after {
     content: "";
 
     position: absolute;
@@ -373,7 +373,7 @@
 /* Модификаторы: дырки, складка                       */
 /* -------------------------------------------------- */
 
-.doc--document .sheet--punched {
+.doc--scan .sheet--punched {
     --fx-hole-a: radial-gradient(
         circle 12px at 24px calc(50% - 151px),
         var(--lid) 0 9.5px,
@@ -392,7 +392,7 @@
 }
 
 
-.doc--document .sheet--fold {
+.doc--scan .sheet--fold {
     --fx-fold: linear-gradient(
         180deg,
         transparent calc(33.3% - 3px),
@@ -408,14 +408,14 @@
 /* Тело / футер                                       */
 /* -------------------------------------------------- */
 
-.doc--document .sheet-body,
-.doc--document .sheet-footer {
+.doc--scan .sheet-body,
+.doc--scan .sheet-footer {
     position: relative;
     z-index: 1;
 }
 
 
-.doc--document .sheet-body {
+.doc--scan .sheet-body {
     flex: 1 0 auto;
     min-width: 0;
 
@@ -429,7 +429,7 @@
 }
 
 
-.doc--document .sheet-footer {
+.doc--scan .sheet-footer {
     flex: 0 0 auto;
 
     margin-top: 1.5rem;
@@ -455,26 +455,26 @@
  * Часть абзацев печатается чуть бледнее, часть чуть плотнее.
  * Цвет, а не opacity, чтобы бумага не просвечивала.
  */
-.doc--document .sheet-body .md p:nth-of-type(4n + 2),
-.doc--document .sheet-body .md li:nth-of-type(5n + 3) {
+.doc--scan .sheet-body .md p:nth-of-type(4n + 2),
+.doc--scan .sheet-body .md li:nth-of-type(5n + 3) {
     color: #35342e;
 }
 
 
-.doc--document .sheet-body .md p:nth-of-type(7n + 4) {
+.doc--scan .sheet-body .md p:nth-of-type(7n + 4) {
     color: #3f3e38;
 }
 
 
-.doc--document .sheet-body .md p:nth-of-type(9n + 6) {
+.doc--scan .sheet-body .md p:nth-of-type(9n + 6) {
     color: #2c2b25;
 }
 
 
-.doc--document .sheet-body .md small,
-.doc--document .sheet-body .md .muted,
-.doc--document .sig-role,
-.doc--document .sig-date {
+.doc--scan .sheet-body .md small,
+.doc--scan .sheet-body .md .muted,
+.doc--scan .sig-role,
+.doc--scan .sig-date {
     opacity: 0.92;
 }
 
@@ -488,37 +488,37 @@
  * субпиксельные, но суммарно документ перестаёт быть
  * «идеально выровненным».
  */
-.doc--document .sheet-body .md h2:nth-of-type(2n) {
+.doc--scan .sheet-body .md h2:nth-of-type(2n) {
     transform: translateX(0.6px);
 }
 
 
-.doc--document .sheet-body .md h3:nth-of-type(2n) {
+.doc--scan .sheet-body .md h3:nth-of-type(2n) {
     transform: translateX(-0.5px);
 }
 
 
-.doc--document .sheet-body .md p:nth-of-type(5n + 2) {
+.doc--scan .sheet-body .md p:nth-of-type(5n + 2) {
     transform: translate(0.3px, 0.2px) rotate(0.04deg);
 }
 
 
-.doc--document .sheet-body .md p:nth-of-type(6n + 4) {
+.doc--scan .sheet-body .md p:nth-of-type(6n + 4) {
     transform: translate(-0.3px, -0.15px) rotate(-0.035deg);
 }
 
 
-.doc--document .section:nth-of-type(2n) {
+.doc--scan .section:nth-of-type(2n) {
     transform: translateX(-0.55px);
 }
 
 
-.doc--document .grid:nth-of-type(2n) {
+.doc--scan .grid:nth-of-type(2n) {
     transform: translateX(0.45px);
 }
 
 
-.doc--document .md table:nth-of-type(2n) {
+.doc--scan .md table:nth-of-type(2n) {
     transform: translateX(-0.4px);
 }
 
@@ -527,7 +527,7 @@
 /* Базовый текст                                      */
 /* -------------------------------------------------- */
 
-.doc--document .md p {
+.doc--scan .md p {
     max-width: none;
     margin: 0 0 0.8em;
 
@@ -535,10 +535,10 @@
 }
 
 
-.doc--document .md h1,
-.doc--document .md h2,
-.doc--document .md h3,
-.doc--document .md h4 {
+.doc--scan .md h1,
+.doc--scan .md h2,
+.doc--scan .md h3,
+.doc--scan .md h4 {
     margin: 1.1em 0 0.5em;
 
     color: var(--ink);
@@ -548,7 +548,7 @@
 }
 
 
-.doc--document .md h1 {
+.doc--scan .md h1 {
     margin-top: 0.7em;
 
     padding-bottom: 0.28em;
@@ -562,28 +562,28 @@
 }
 
 
-.doc--document .md h2 {
+.doc--scan .md h2 {
     font-size: 1.18rem;
     letter-spacing: 0.025em;
 }
 
 
-.doc--document .md h3 {
+.doc--scan .md h3 {
     font-size: 1.02rem;
 }
 
 
-.doc--document .md h4 {
+.doc--scan .md h4 {
     font-size: 0.92rem;
     letter-spacing: 0.03em;
     text-transform: uppercase;
 }
 
 
-.doc--document .sheet-body > :first-child,
-.doc--document .cell > :first-child,
-.doc--document .section-body > :first-child,
-.doc--document .box > :first-child {
+.doc--scan .sheet-body > :first-child,
+.doc--scan .cell > :first-child,
+.doc--scan .section-body > :first-child,
+.doc--scan .box > :first-child {
     margin-top: 0;
 }
 
@@ -592,7 +592,7 @@
 /* Ссылки                                             */
 /* -------------------------------------------------- */
 
-.doc--document .md a {
+.doc--scan .md a {
     color: var(--stamp-blue);
 
     text-decoration-line: underline;
@@ -605,14 +605,14 @@
 /* Списки                                             */
 /* -------------------------------------------------- */
 
-.doc--document .md ul,
-.doc--document .md ol {
+.doc--scan .md ul,
+.doc--scan .md ol {
     margin: 0 0 0.8em;
     padding-left: 2.2ch;
 }
 
 
-.doc--document .md li {
+.doc--scan .md li {
     margin-bottom: 0.15em;
 }
 
@@ -621,22 +621,22 @@
 /* Прочее                                             */
 /* -------------------------------------------------- */
 
-.doc--document .md strong {
+.doc--scan .md strong {
     font-weight: 700;
 }
 
 
-.doc--document .md em {
+.doc--scan .md em {
     color: inherit;
 }
 
 
-.doc--document .md del {
+.doc--scan .md del {
     text-decoration-thickness: 1px;
 }
 
 
-.doc--document .md blockquote {
+.doc--scan .md blockquote {
     margin: 0 0 0.8em;
     padding: 0.2em 1ch;
 
@@ -646,7 +646,7 @@
 }
 
 
-.doc--document .md hr {
+.doc--scan .md hr {
     margin: 1em 0;
 
     border: 0;
@@ -654,7 +654,7 @@
 }
 
 
-.doc--document .md code {
+.doc--scan .md code {
     padding: 0 0.3ch;
 
     background: rgba(0, 0, 0, 0.055);
@@ -664,7 +664,7 @@
 }
 
 
-.doc--document .md pre {
+.doc--scan .md pre {
     margin: 0 0 0.8em;
     padding: 0.6rem 0.8rem;
 
@@ -676,7 +676,7 @@
 }
 
 
-.doc--document .md pre code {
+.doc--scan .md pre code {
     padding: 0;
     background: none;
 }
@@ -686,7 +686,7 @@
 /* Markdown-таблица                                   */
 /* -------------------------------------------------- */
 
-.doc--document .md table {
+.doc--scan .md table {
     width: 100%;
     margin: 0 0 0.8em;
 
@@ -694,8 +694,8 @@
 }
 
 
-.doc--document .md th,
-.doc--document .md td {
+.doc--scan .md th,
+.doc--scan .md td {
     padding: var(--cell-pad);
 
     border: 1px solid rgba(79, 76, 70, 0.64);
@@ -705,13 +705,13 @@
 }
 
 
-.doc--document .md th {
+.doc--scan .md th {
     background: rgba(0, 0, 0, 0.042);
     font-weight: 700;
 }
 
 
-.doc--document .md caption {
+.doc--scan .md caption {
     margin-bottom: 0.35rem;
 
     color: var(--ink-soft);
@@ -729,7 +729,7 @@
 /* Spoiler / замазка                                  */
 /* -------------------------------------------------- */
 
-.doc--document .spoiler--masked {
+.doc--scan .spoiler--masked {
     background-color: var(--ink);
     color: var(--ink);
 
@@ -744,23 +744,23 @@
 }
 
 
-.doc--document div.spoiler--masked {
+.doc--scan div.spoiler--masked {
     margin: 0 0 0.8em;
     padding: 0.4em 0.8ch;
 }
 
 
-.doc--document div.spoiler--masked > :last-child {
+.doc--scan div.spoiler--masked > :last-child {
     margin-bottom: 0;
 }
 
 
-.doc--document .spoiler--inline.spoiler--open {
+.doc--scan .spoiler--inline.spoiler--open {
     border-bottom: 1px dotted var(--ink-soft);
 }
 
 
-.doc--document div.spoiler--open {
+.doc--scan div.spoiler--open {
     margin: 0 0 0.8em;
     padding-left: 1.2ch;
 
@@ -772,14 +772,14 @@
 /* Section                                            */
 /* -------------------------------------------------- */
 
-.doc--document .section {
+.doc--scan .section {
     margin: 1.2rem 0;
 
     border: 1px solid rgba(79, 76, 70, 0.70);
 }
 
 
-.doc--document .section-head {
+.doc--scan .section-head {
     display: flex;
     align-items: stretch;
 
@@ -789,7 +789,7 @@
 }
 
 
-.doc--document .section-num {
+.doc--scan .section-num {
     display: flex;
     align-items: center;
 
@@ -803,7 +803,7 @@
 }
 
 
-.doc--document .section-title {
+.doc--scan .section-title {
     display: flex;
     align-items: center;
 
@@ -816,7 +816,7 @@
 }
 
 
-.doc--document .section-body {
+.doc--scan .section-body {
     padding: 0.7rem 0.9rem 0.1rem;
 }
 
@@ -825,7 +825,7 @@
 /* Grid                                               */
 /* -------------------------------------------------- */
 
-.doc--document .grid {
+.doc--scan .grid {
     display: grid;
 
     margin: 0 0 0.8em;
@@ -835,7 +835,7 @@
 }
 
 
-.doc--document .cell {
+.doc--scan .cell {
     min-width: 0;
 
     padding: var(--cell-pad);
@@ -847,17 +847,17 @@
 }
 
 
-.doc--document .cell p {
+.doc--scan .cell p {
     margin-bottom: 0.3em;
 }
 
 
-.doc--document .cell > :last-child {
+.doc--scan .cell > :last-child {
     margin-bottom: 0;
 }
 
 
-.doc--document .cell-label {
+.doc--scan .cell-label {
     margin-bottom: 0.15rem;
 
     color: var(--ink-soft);
@@ -871,13 +871,13 @@
 }
 
 
-.doc--document .grid--noborder {
+.doc--scan .grid--noborder {
     border-top: none;
     border-left: none;
 }
 
 
-.doc--document .grid--noborder .cell {
+.doc--scan .grid--noborder .cell {
     border-right: none;
     border-bottom: none;
 }
@@ -887,18 +887,18 @@
 /* Box                                                */
 /* -------------------------------------------------- */
 
-.doc--document .box {
+.doc--scan .box {
     margin: 0 0 0.8em;
     padding: 0.4rem 0.7rem;
 }
 
 
-.doc--document .box--border {
+.doc--scan .box--border {
     border: 1px solid rgba(79, 76, 70, 0.66);
 }
 
 
-.doc--document .box--dark {
+.doc--scan .box--dark {
     background-color: var(--ink);
     background-image: radial-gradient(rgba(255, 255, 255, 0.07) 0.7px, transparent 0.9px);
     background-size: 3px 3px;
@@ -907,42 +907,42 @@
 }
 
 
-.doc--document .box--center {
+.doc--scan .box--center {
     text-align: center;
 }
 
 
-.doc--document .box--right {
+.doc--scan .box--right {
     text-align: right;
 }
 
 
-.doc--document .box--small {
+.doc--scan .box--small {
     font-size: 0.8rem;
 }
 
 
-.doc--document .box--big {
+.doc--scan .box--big {
     font-size: 1.3rem;
 }
 
 
-.doc--document .box--bold {
+.doc--scan .box--bold {
     font-weight: 700;
 }
 
 
-.doc--document .box--muted {
+.doc--scan .box--muted {
     color: var(--ink-soft);
 }
 
 
-.doc--document .box--flush {
+.doc--scan .box--flush {
     padding: 0;
 }
 
 
-.doc--document .box > :last-child {
+.doc--scan .box > :last-child {
     margin-bottom: 0;
 }
 
@@ -951,12 +951,12 @@
 /* Widgets                                            */
 /* -------------------------------------------------- */
 
-.doc--document .widget {
+.doc--scan .widget {
     margin: 0.8rem 0;
 }
 
 
-.doc--document .widget--masked {
+.doc--scan .widget--masked {
     min-height: 1.5em;
 }
 
@@ -965,22 +965,22 @@
 /* Stamp                                              */
 /* -------------------------------------------------- */
 
-.doc--document .widget--stamp.widget--align-left {
+.doc--scan .widget--stamp.widget--align-left {
     text-align: left;
 }
 
 
-.doc--document .widget--stamp.widget--align-center {
+.doc--scan .widget--stamp.widget--align-center {
     text-align: center;
 }
 
 
-.doc--document .widget--stamp.widget--align-right {
+.doc--scan .widget--stamp.widget--align-right {
     text-align: right;
 }
 
 
-.doc--document .stamp {
+.doc--scan .stamp {
     --tone: var(--stamp-red);
 
     display: inline-block;
@@ -1028,17 +1028,17 @@
 }
 
 
-.doc--document .stamp--green {
+.doc--scan .stamp--green {
     --tone: var(--stamp-green);
 }
 
 
-.doc--document .stamp--blue {
+.doc--scan .stamp--blue {
     --tone: var(--stamp-blue);
 }
 
 
-.doc--document .stamp--grey {
+.doc--scan .stamp--grey {
     --tone: var(--stamp-grey);
 }
 
@@ -1047,7 +1047,7 @@
 /* Signature                                          */
 /* -------------------------------------------------- */
 
-.doc--document .widget--signature {
+.doc--scan .widget--signature {
     display: inline-block;
 
     min-width: 14rem;
@@ -1057,7 +1057,7 @@
 }
 
 
-.doc--document .sig-hand {
+.doc--scan .sig-hand {
     min-height: 1.6em;
 
     color: var(--hand-ink);
@@ -1074,20 +1074,20 @@
 }
 
 
-.doc--document .sig-line {
+.doc--scan .sig-line {
     margin-top: 0.1rem;
 
     border-top: 1px solid rgba(79, 76, 70, 0.70);
 }
 
 
-.doc--document .sig-name {
+.doc--scan .sig-name {
     font-weight: 700;
 }
 
 
-.doc--document .sig-role,
-.doc--document .sig-date {
+.doc--scan .sig-role,
+.doc--scan .sig-date {
     color: var(--ink-soft);
     font-size: 0.8rem;
 }
@@ -1097,7 +1097,7 @@
 /* Barcode                                            */
 /* -------------------------------------------------- */
 
-.doc--document .widget--barcode {
+.doc--scan .widget--barcode {
     display: inline-flex;
 
     flex-direction: column;
@@ -1105,14 +1105,14 @@
 }
 
 
-.doc--document .barcode-bars {
+.doc--scan .barcode-bars {
     font-family: var(--font-barcode);
     font-size: 3rem;
     line-height: 1;
 }
 
 
-.doc--document .barcode-text {
+.doc--scan .barcode-text {
     font-size: 0.7rem;
     letter-spacing: 0.15em;
 }
@@ -1126,7 +1126,7 @@
  * Теперь это распечатка терминала, а не кусок монитора:
  * чёрный приподнят, цвета приглушены, на заливке растр.
  */
-.doc--document .widget--log {
+.doc--scan .widget--log {
     padding: 0.6rem 0.8rem;
 
     background-color: var(--log-bg);
@@ -1154,7 +1154,7 @@
 }
 
 
-.doc--document .log-line {
+.doc--scan .log-line {
     display: flex;
 
     gap: 1.5ch;
@@ -1163,55 +1163,55 @@
 }
 
 
-.doc--document .log-time {
+.doc--scan .log-time {
     flex: 0 0 auto;
     color: var(--log-debug);
 }
 
 
-.doc--document .log-level {
+.doc--scan .log-level {
     flex: 0 0 6ch;
     font-weight: 700;
 }
 
 
-.doc--document .log-msg {
+.doc--scan .log-msg {
     flex: 1;
     min-width: 0;
 }
 
 
-.doc--document .log-info .log-level {
+.doc--scan .log-info .log-level {
     color: var(--log-info);
 }
 
 
-.doc--document .log-ok .log-level {
+.doc--scan .log-ok .log-level {
     color: var(--log-ok);
 }
 
 
-.doc--document .log-warn .log-level {
+.doc--scan .log-warn .log-level {
     color: var(--log-warn);
 }
 
 
-.doc--document .log-error .log-level {
+.doc--scan .log-error .log-level {
     color: var(--log-error);
 }
 
 
-.doc--document .log-debug .log-level {
+.doc--scan .log-debug .log-level {
     color: var(--log-debug);
 }
 
 
-.doc--document .log-plain .log-msg {
+.doc--scan .log-plain .log-msg {
     padding-left: 17ch;
 }
 
 
-.doc--document .widget--log .spoiler--masked {
+.doc--scan .widget--log .spoiler--masked {
     background-color: var(--log-fg);
     color: var(--log-fg);
 }
@@ -1221,7 +1221,7 @@
 /* Checks                                             */
 /* -------------------------------------------------- */
 
-.doc--document .widget--checks {
+.doc--scan .widget--checks {
     display: flex;
     flex-wrap: wrap;
 
@@ -1229,7 +1229,7 @@
 }
 
 
-.doc--document .check {
+.doc--scan .check {
     display: inline-flex;
     align-items: center;
 
@@ -1239,7 +1239,7 @@
 }
 
 
-.doc--document .check-box {
+.doc--scan .check-box {
     display: inline-grid;
     place-items: center;
 
@@ -1253,7 +1253,7 @@
 }
 
 
-.doc--document .check--on .check-box::after {
+.doc--scan .check--on .check-box::after {
     content: "\00d7";
     font-weight: 700;
 }
@@ -1263,7 +1263,7 @@
 /* Infobox                                            */
 /* -------------------------------------------------- */
 
-.doc--document .md--infobox {
+.doc--scan .md--infobox {
     padding: 0.8rem 1rem;
 
     background: var(--paper);
@@ -1275,7 +1275,7 @@
 }
 
 
-.doc--document .md--infobox p {
+.doc--scan .md--infobox p {
     color: inherit;
 }
 
@@ -1288,11 +1288,11 @@
  * Лист не сжимается: правая часть просто уходит за край окна.
  */
 @media (max-width: 900px) {
-    .doc--document .page {
+    .doc--scan .page {
         overflow-x: hidden;
     }
 
-    .doc--document .sheet {
+    .doc--scan .sheet {
         margin-left: 0;
         margin-right: 0.75rem;
     }
@@ -1304,7 +1304,7 @@
 /* -------------------------------------------------- */
 
 @media print {
-    .doc--document {
+    .doc--scan {
         background: #fff;
 
         /* Фильтр чернил и кайма при печати не нужны */
@@ -1312,8 +1312,8 @@
         --fringe: none;
     }
 
-    .doc--document .page,
-    .doc--document .md--body {
+    .doc--scan .page,
+    .doc--scan .md--body {
         width: auto;
         max-width: none;
 
@@ -1322,7 +1322,7 @@
         padding: 0;
     }
 
-    .doc--document .sheet {
+    .doc--scan .sheet {
         width: 210mm;
         min-width: 210mm;
 
@@ -1337,13 +1337,13 @@
         page-break-after: always;
     }
 
-    .doc--document .sheet:last-child {
+    .doc--scan .sheet:last-child {
         break-after: auto;
         page-break-after: auto;
     }
 
-    .doc--document .sheet::before,
-    .doc--document .sheet::after {
+    .doc--scan .sheet::before,
+    .doc--scan .sheet::after {
         display: none;
     }
 }

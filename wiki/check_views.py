@@ -102,7 +102,7 @@ try:
 
         code, html = call(views.resolve, "_т_Со_спойлером")
         check("markdown: жирный в html", code == 200 and "<strong>жирный</strong>" in html)
-        check("тема: класс по типу записи", "doc--document" in html)
+        check("тема: класс по типу записи", "doc--doc" in html)
         check("гость: открытая часть есть, тайного текста нет",
               "открытая часть" in html and "тайный текст" not in html)
         check("гость: спойлер замазан", "spoiler--masked" in html and "█" in html)

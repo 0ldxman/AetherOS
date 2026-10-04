@@ -16,9 +16,9 @@
      шрифт без засечек, цифры одной ширины, синие ссылки,
      чистые тонкие рамки.
 
-   Все правила привязаны к .doc--digital.
+   Все правила привязаны к .doc--doc.
    Если у вас корневой класс называется иначе —
-   достаточно заменить «.doc--digital» во всём файле.
+   достаточно заменить «.doc--doc» во всём файле.
    ================================================== */
 
 
@@ -38,7 +38,7 @@
 /* Переменные                                         */
 /* -------------------------------------------------- */
 
-.doc--digital {
+.doc--doc {
     /* Физическая ширина листа A4 (как у скана) */
     --sheet-width: 210mm;
     --sheet-pad: 2.35rem;
@@ -101,7 +101,7 @@
 /* Рабочее пространство                               */
 /* -------------------------------------------------- */
 
-.doc--digital .page {
+.doc--doc .page {
     width: 100%;
     max-width: none;
 
@@ -110,7 +110,7 @@
 }
 
 
-.doc--digital .md--body {
+.doc--doc .md--body {
     width: 100%;
 
     padding-top: 1.5rem;
@@ -126,7 +126,7 @@
 /* Лист                                               */
 /* -------------------------------------------------- */
 
-.doc--digital .sheet {
+.doc--doc .sheet {
     position: relative;
 
     /* isolation нужен, чтобы multiply у штампов смешивался
@@ -168,13 +168,13 @@
 }
 
 
-.doc--digital .sheet ::selection {
+.doc--doc .sheet ::selection {
     background: #cfe2ff;
     color: inherit;
 }
 
 
-.doc--digital .sheet-body {
+.doc--doc .sheet-body {
     flex: 1 0 auto;
     min-width: 0;
 
@@ -182,7 +182,7 @@
 }
 
 
-.doc--digital .sheet-footer {
+.doc--doc .sheet-footer {
     flex: 0 0 auto;
 
     margin-top: 1.5rem;
@@ -201,7 +201,7 @@
 /* Базовый текст                                      */
 /* -------------------------------------------------- */
 
-.doc--digital .md p {
+.doc--doc .md p {
     max-width: none;
     margin: 0 0 0.8em;
 
@@ -209,10 +209,10 @@
 }
 
 
-.doc--digital .md h1,
-.doc--digital .md h2,
-.doc--digital .md h3,
-.doc--digital .md h4 {
+.doc--doc .md h1,
+.doc--doc .md h2,
+.doc--doc .md h3,
+.doc--doc .md h4 {
     margin: 1.2em 0 0.5em;
 
     color: var(--ink);
@@ -222,7 +222,7 @@
 }
 
 
-.doc--digital .md h1 {
+.doc--doc .md h1 {
     margin-top: 0.7em;
 
     padding-bottom: 0.3em;
@@ -236,17 +236,17 @@
 }
 
 
-.doc--digital .md h2 {
+.doc--doc .md h2 {
     font-size: 1.2rem;
 }
 
 
-.doc--digital .md h3 {
+.doc--doc .md h3 {
     font-size: 1.04rem;
 }
 
 
-.doc--digital .md h4 {
+.doc--doc .md h4 {
     color: var(--ink-soft);
 
     font-size: 0.9rem;
@@ -255,10 +255,10 @@
 }
 
 
-.doc--digital .sheet-body > :first-child,
-.doc--digital .cell > :first-child,
-.doc--digital .section-body > :first-child,
-.doc--digital .box > :first-child {
+.doc--doc .sheet-body > :first-child,
+.doc--doc .cell > :first-child,
+.doc--doc .section-body > :first-child,
+.doc--doc .box > :first-child {
     margin-top: 0;
 }
 
@@ -267,7 +267,7 @@
 /* Ссылки                                             */
 /* -------------------------------------------------- */
 
-.doc--digital .md a {
+.doc--doc .md a {
     color: var(--link);
 
     text-decoration-line: underline;
@@ -280,14 +280,14 @@
 /* Списки                                             */
 /* -------------------------------------------------- */
 
-.doc--digital .md ul,
-.doc--digital .md ol {
+.doc--doc .md ul,
+.doc--doc .md ol {
     margin: 0 0 0.8em;
     padding-left: 1.6em;
 }
 
 
-.doc--digital .md li {
+.doc--doc .md li {
     margin-bottom: 0.2em;
 }
 
@@ -296,22 +296,22 @@
 /* Прочее                                             */
 /* -------------------------------------------------- */
 
-.doc--digital .md strong {
+.doc--doc .md strong {
     font-weight: 700;
 }
 
 
-.doc--digital .md em {
+.doc--doc .md em {
     color: inherit;
 }
 
 
-.doc--digital .md del {
+.doc--doc .md del {
     text-decoration-thickness: 1px;
 }
 
 
-.doc--digital .md blockquote {
+.doc--doc .md blockquote {
     margin: 0 0 0.8em;
     padding: 0.2em 1.2ch;
 
@@ -321,7 +321,7 @@
 }
 
 
-.doc--digital .md hr {
+.doc--doc .md hr {
     margin: 1em 0;
 
     border: 0;
@@ -329,7 +329,7 @@
 }
 
 
-.doc--digital .md code {
+.doc--doc .md code {
     padding: 0.05em 0.35em;
 
     background: var(--shade);
@@ -340,7 +340,7 @@
 }
 
 
-.doc--digital .md pre {
+.doc--doc .md pre {
     margin: 0 0 0.8em;
     padding: 0.6rem 0.8rem;
 
@@ -355,7 +355,7 @@
 }
 
 
-.doc--digital .md pre code {
+.doc--doc .md pre code {
     padding: 0;
     background: none;
 }
@@ -365,7 +365,7 @@
 /* Markdown-таблица                                   */
 /* -------------------------------------------------- */
 
-.doc--digital .md table {
+.doc--doc .md table {
     width: 100%;
     margin: 0 0 0.8em;
 
@@ -373,8 +373,8 @@
 }
 
 
-.doc--digital .md th,
-.doc--digital .md td {
+.doc--doc .md th,
+.doc--doc .md td {
     padding: var(--cell-pad);
 
     border: 1px solid var(--rule-soft);
@@ -384,13 +384,13 @@
 }
 
 
-.doc--digital .md th {
+.doc--doc .md th {
     background: var(--shade);
     font-weight: 700;
 }
 
 
-.doc--digital .md caption {
+.doc--doc .md caption {
     margin-bottom: 0.35rem;
 
     color: var(--ink-soft);
@@ -408,7 +408,7 @@
 /* Spoiler / редактура (чёрные плашки)                */
 /* -------------------------------------------------- */
 
-.doc--digital .spoiler--masked {
+.doc--doc .spoiler--masked {
     background: var(--ink);
     color: var(--ink);
 
@@ -419,23 +419,23 @@
 }
 
 
-.doc--digital div.spoiler--masked {
+.doc--doc div.spoiler--masked {
     margin: 0 0 0.8em;
     padding: 0.4em 0.8ch;
 }
 
 
-.doc--digital div.spoiler--masked > :last-child {
+.doc--doc div.spoiler--masked > :last-child {
     margin-bottom: 0;
 }
 
 
-.doc--digital .spoiler--inline.spoiler--open {
+.doc--doc .spoiler--inline.spoiler--open {
     border-bottom: 1px dotted var(--ink-soft);
 }
 
 
-.doc--digital div.spoiler--open {
+.doc--doc div.spoiler--open {
     margin: 0 0 0.8em;
     padding-left: 1.2ch;
 
@@ -447,14 +447,14 @@
 /* Section                                            */
 /* -------------------------------------------------- */
 
-.doc--digital .section {
+.doc--doc .section {
     margin: 1.2rem 0;
 
     border: 1px solid var(--rule);
 }
 
 
-.doc--digital .section-head {
+.doc--doc .section-head {
     display: flex;
     align-items: stretch;
 
@@ -464,7 +464,7 @@
 }
 
 
-.doc--digital .section-num {
+.doc--doc .section-num {
     display: flex;
     align-items: center;
 
@@ -478,7 +478,7 @@
 }
 
 
-.doc--digital .section-title {
+.doc--doc .section-title {
     display: flex;
     align-items: center;
 
@@ -491,7 +491,7 @@
 }
 
 
-.doc--digital .section-body {
+.doc--doc .section-body {
     padding: 0.7rem 0.9rem 0.1rem;
 }
 
@@ -500,7 +500,7 @@
 /* Grid                                               */
 /* -------------------------------------------------- */
 
-.doc--digital .grid {
+.doc--doc .grid {
     display: grid;
 
     margin: 0 0 0.8em;
@@ -510,7 +510,7 @@
 }
 
 
-.doc--digital .cell {
+.doc--doc .cell {
     min-width: 0;
 
     padding: var(--cell-pad);
@@ -522,17 +522,17 @@
 }
 
 
-.doc--digital .cell p {
+.doc--doc .cell p {
     margin-bottom: 0.3em;
 }
 
 
-.doc--digital .cell > :last-child {
+.doc--doc .cell > :last-child {
     margin-bottom: 0;
 }
 
 
-.doc--digital .cell-label {
+.doc--doc .cell-label {
     margin-bottom: 0.15rem;
 
     color: var(--ink-soft);
@@ -546,13 +546,13 @@
 }
 
 
-.doc--digital .grid--noborder {
+.doc--doc .grid--noborder {
     border-top: none;
     border-left: none;
 }
 
 
-.doc--digital .grid--noborder .cell {
+.doc--doc .grid--noborder .cell {
     border-right: none;
     border-bottom: none;
 }
@@ -562,59 +562,59 @@
 /* Box                                                */
 /* -------------------------------------------------- */
 
-.doc--digital .box {
+.doc--doc .box {
     margin: 0 0 0.8em;
     padding: 0.4rem 0.7rem;
 }
 
 
-.doc--digital .box--border {
+.doc--doc .box--border {
     border: 1px solid var(--rule);
 }
 
 
-.doc--digital .box--dark {
+.doc--doc .box--dark {
     background: var(--ink);
     color: var(--paper);
 }
 
 
-.doc--digital .box--center {
+.doc--doc .box--center {
     text-align: center;
 }
 
 
-.doc--digital .box--right {
+.doc--doc .box--right {
     text-align: right;
 }
 
 
-.doc--digital .box--small {
+.doc--doc .box--small {
     font-size: 0.8rem;
 }
 
 
-.doc--digital .box--big {
+.doc--doc .box--big {
     font-size: 1.3rem;
 }
 
 
-.doc--digital .box--bold {
+.doc--doc .box--bold {
     font-weight: 700;
 }
 
 
-.doc--digital .box--muted {
+.doc--doc .box--muted {
     color: var(--ink-soft);
 }
 
 
-.doc--digital .box--flush {
+.doc--doc .box--flush {
     padding: 0;
 }
 
 
-.doc--digital .box > :last-child {
+.doc--doc .box > :last-child {
     margin-bottom: 0;
 }
 
@@ -623,12 +623,12 @@
 /* Widgets                                            */
 /* -------------------------------------------------- */
 
-.doc--digital .widget {
+.doc--doc .widget {
     margin: 0.8rem 0;
 }
 
 
-.doc--digital .widget--masked {
+.doc--doc .widget--masked {
     min-height: 1.5em;
 }
 
@@ -642,22 +642,22 @@
  * без рваных краёв и неравномерной заливки. Multiply
  * оставляет под ним видимым текст.
  */
-.doc--digital .widget--stamp.widget--align-left {
+.doc--doc .widget--stamp.widget--align-left {
     text-align: left;
 }
 
 
-.doc--digital .widget--stamp.widget--align-center {
+.doc--doc .widget--stamp.widget--align-center {
     text-align: center;
 }
 
 
-.doc--digital .widget--stamp.widget--align-right {
+.doc--doc .widget--stamp.widget--align-right {
     text-align: right;
 }
 
 
-.doc--digital .stamp {
+.doc--doc .stamp {
     --tone: var(--stamp-red);
 
     display: inline-block;
@@ -689,17 +689,17 @@
 }
 
 
-.doc--digital .stamp--green {
+.doc--doc .stamp--green {
     --tone: var(--stamp-green);
 }
 
 
-.doc--digital .stamp--blue {
+.doc--doc .stamp--blue {
     --tone: var(--stamp-blue);
 }
 
 
-.doc--digital .stamp--grey {
+.doc--doc .stamp--grey {
     --tone: var(--stamp-grey);
 }
 
@@ -708,7 +708,7 @@
 /* Signature                                          */
 /* -------------------------------------------------- */
 
-.doc--digital .widget--signature {
+.doc--doc .widget--signature {
     display: inline-block;
 
     min-width: 14rem;
@@ -718,7 +718,7 @@
 }
 
 
-.doc--digital .sig-hand {
+.doc--doc .sig-hand {
     min-height: 1.6em;
 
     color: var(--hand-ink);
@@ -732,20 +732,20 @@
 }
 
 
-.doc--digital .sig-line {
+.doc--doc .sig-line {
     margin-top: 0.1rem;
 
     border-top: 1px solid var(--rule);
 }
 
 
-.doc--digital .sig-name {
+.doc--doc .sig-name {
     font-weight: 700;
 }
 
 
-.doc--digital .sig-role,
-.doc--digital .sig-date {
+.doc--doc .sig-role,
+.doc--doc .sig-date {
     color: var(--ink-soft);
     font-size: 0.8rem;
 }
@@ -755,7 +755,7 @@
 /* Barcode                                            */
 /* -------------------------------------------------- */
 
-.doc--digital .widget--barcode {
+.doc--doc .widget--barcode {
     display: inline-flex;
 
     flex-direction: column;
@@ -763,14 +763,14 @@
 }
 
 
-.doc--digital .barcode-bars {
+.doc--doc .barcode-bars {
     font-family: var(--font-barcode);
     font-size: 3rem;
     line-height: 1;
 }
 
 
-.doc--digital .barcode-text {
+.doc--doc .barcode-text {
     font-family: var(--font-mono);
     font-size: 0.7rem;
     letter-spacing: 0.15em;
@@ -785,7 +785,7 @@
  * В электронном документе лог — это встроенный блок
  * терминала: тёмная плашка с яркими уровнями.
  */
-.doc--digital .widget--log {
+.doc--doc .widget--log {
     padding: 0.6rem 0.8rem;
 
     background: var(--log-bg);
@@ -799,7 +799,7 @@
 }
 
 
-.doc--digital .log-line {
+.doc--doc .log-line {
     display: flex;
 
     gap: 1.5ch;
@@ -808,55 +808,55 @@
 }
 
 
-.doc--digital .log-time {
+.doc--doc .log-time {
     flex: 0 0 auto;
     color: var(--log-debug);
 }
 
 
-.doc--digital .log-level {
+.doc--doc .log-level {
     flex: 0 0 6ch;
     font-weight: 700;
 }
 
 
-.doc--digital .log-msg {
+.doc--doc .log-msg {
     flex: 1;
     min-width: 0;
 }
 
 
-.doc--digital .log-info .log-level {
+.doc--doc .log-info .log-level {
     color: var(--log-info);
 }
 
 
-.doc--digital .log-ok .log-level {
+.doc--doc .log-ok .log-level {
     color: var(--log-ok);
 }
 
 
-.doc--digital .log-warn .log-level {
+.doc--doc .log-warn .log-level {
     color: var(--log-warn);
 }
 
 
-.doc--digital .log-error .log-level {
+.doc--doc .log-error .log-level {
     color: var(--log-error);
 }
 
 
-.doc--digital .log-debug .log-level {
+.doc--doc .log-debug .log-level {
     color: var(--log-debug);
 }
 
 
-.doc--digital .log-plain .log-msg {
+.doc--doc .log-plain .log-msg {
     padding-left: 17ch;
 }
 
 
-.doc--digital .widget--log .spoiler--masked {
+.doc--doc .widget--log .spoiler--masked {
     background: var(--log-fg);
     color: var(--log-fg);
 }
@@ -866,7 +866,7 @@
 /* Checks                                             */
 /* -------------------------------------------------- */
 
-.doc--digital .widget--checks {
+.doc--doc .widget--checks {
     display: flex;
     flex-wrap: wrap;
 
@@ -874,7 +874,7 @@
 }
 
 
-.doc--digital .check {
+.doc--doc .check {
     display: inline-flex;
     align-items: center;
 
@@ -884,7 +884,7 @@
 }
 
 
-.doc--digital .check-box {
+.doc--doc .check-box {
     display: inline-grid;
     place-items: center;
 
@@ -899,7 +899,7 @@
 }
 
 
-.doc--digital .check--on .check-box::after {
+.doc--doc .check--on .check-box::after {
     content: "\00d7";
     font-weight: 700;
 }
@@ -909,7 +909,7 @@
 /* Infobox                                            */
 /* -------------------------------------------------- */
 
-.doc--digital .md--infobox {
+.doc--doc .md--infobox {
     padding: 0.8rem 1rem;
 
     background: var(--paper);
@@ -921,7 +921,7 @@
 }
 
 
-.doc--digital .md--infobox p {
+.doc--doc .md--infobox p {
     color: inherit;
 }
 
@@ -935,11 +935,11 @@
  * просто выходит за край окна.
  */
 @media (max-width: 900px) {
-    .doc--digital .page {
+    .doc--doc .page {
         overflow-x: hidden;
     }
 
-    .doc--digital .sheet {
+    .doc--doc .sheet {
         margin-left: 0;
         margin-right: 0.75rem;
     }
@@ -951,12 +951,12 @@
 /* -------------------------------------------------- */
 
 @media print {
-    .doc--digital .md--body {
+    .doc--doc .md--body {
         background: #fff;
     }
 
-    .doc--digital .page,
-    .doc--digital .md--body {
+    .doc--doc .page,
+    .doc--doc .md--body {
         width: auto;
         max-width: none;
 
@@ -965,7 +965,7 @@
         padding: 0;
     }
 
-    .doc--digital .sheet {
+    .doc--doc .sheet {
         width: 210mm;
         min-width: 210mm;
 
@@ -977,7 +977,7 @@
         page-break-after: always;
     }
 
-    .doc--digital .sheet:last-child {
+    .doc--doc .sheet:last-child {
         break-after: auto;
         page-break-after: auto;
     }
