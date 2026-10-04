@@ -2,23 +2,23 @@
    DOCUMENT / DIGITAL  (электронный вариант документа)
 
    Тот же документ, что и в скан-версии, но «родной»:
-   как страница в текстовом редакторе или PDF-ридере.
+   составлен и загружен в цифровом виде, а не отсканирован.
 
    Принцип:
-   - та же структура и те же классы, что у скана:
-     .page > .md.md--body > .sheet > .sheet-body + .sheet-footer
-     поэтому HTML менять не нужно, меняется только корневой класс;
-   - тот же физический A4 и то же поведение в узком окне,
-     чтобы вёрстка совпадала с версией-сканом;
-   - никаких фильтров, шума и поворотов: всё чёткое, векторное;
-   - вместо «скана» — признаки цифрового документа:
-     белая страница на серой подложке, мягкая тень страницы,
-     шрифт без засечек, цифры одной ширины, синие ссылки,
-     чистые тонкие рамки.
+   - основа это scan.css: те же размеры, отступы, линии,
+     цвета штампов и лога, та же структура и те же классы
+     (.page > .md.md--body > .sheet > .sheet-body + .sheet-footer),
+     поэтому HTML менять не нужно;
+   - убрано всё, что делает скан сканом: поворот и смещение листа,
+     размытие и фильтр чернил, слои шума ::before / ::after,
+     цветная кайма текста, неравномерная плотность печати,
+     сдвиги блоков, маска на штампах, растр на чёрных заливках,
+     дырки и складка;
+   - подложка тёмная (как рабочий стол), у листа нет тени;
+   - два шрифта: технический (Cousine) для структуры
+     и машинописный (Courier-подобный) для содержимого.
 
    Все правила привязаны к .doc--doc.
-   Если у вас корневой класс называется иначе —
-   достаточно заменить «.doc--doc» во всём файле.
    ================================================== */
 
 
@@ -27,11 +27,15 @@
 /* -------------------------------------------------- */
 
 /*
- * Arimo — метрически совместим с Arial, поэтому текст
- * выглядит как в обычном документе. Cousine остаётся
- * для кода и лога, как «моноширинный» шрифт документа.
+ * Cousine        технический: подписи, заголовки, номера, код, лог.
+ * Courier Prime  машинописный: абзацы, списки, значения в ячейках.
+ *
+ * ВАЖНО: нужна кириллица. Если у Courier Prime её нет, браузер
+ * подставит для русских букв следующий шрифт из --font-body.
+ * Тогда замените первый шрифт в --font-body (например, на Cutive Mono)
+ * и добавьте его в @import.
  */
-@import url('https://fonts.googleapis.com/css2?family=Arimo:ital,wght@0,400;0,600;0,700;1,400&family=Cousine:ital,wght@0,400;0,700;1,400&family=Caveat:wght@500&family=Libre+Barcode+39&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Cousine:ital,wght@0,400;0,700;1,400&family=Courier+Prime:ital,wght@0,400;0,700;1,400;1,700&family=Caveat:wght@500&family=Libre+Barcode+39&display=swap');
 
 
 /* -------------------------------------------------- */
@@ -47,53 +51,59 @@
 
     /* ---------- Подложка и бумага ---------- */
 
-    /* Серый фон за страницей. transparent — если фон задаёт сайт */
-    --desk: #d9dce1;
+    /* Тёмный фон за листом, как у рабочего стола.
+       Берётся из переменной --bg вики, запасной цвет задан здесь. */
+    --desk: var(--bg, #191919);
 
     --paper: #ffffff;
-    --ink: #1b1d21;
-    --ink-soft: #5b616b;
+    --ink: #27261f;
+    --ink-soft: #5f5c55;
 
-    /* Линии формы: основные и второстепенные */
-    --rule: #4a5058;
-    --rule-soft: #b7bcc4;
+    /* Одна линия на всё: рамки секций, сетки, таблиц, подписи */
+    --line: rgba(79, 76, 70, 0.66);
 
-    /* Заливка шапок таблиц и секций */
-    --shade: #f1f3f5;
-
-
-    /* ---------- Ссылки ---------- */
-
-    --link: #0b57d0;
+    /* Лёгкие заливки: шапка секции, шапка таблицы, код */
+    --tint: rgba(0, 0, 0, 0.042);
+    --tint-soft: rgba(0, 0, 0, 0.018);
 
 
     /* ---------- Штампы ---------- */
 
-    --stamp-red: #c0332b;
-    --stamp-green: #2e7d4f;
-    --stamp-blue: #2f5fa8;
-    --stamp-grey: #6b7078;
+    --stamp-red: #a92c24;
+    --stamp-green: #347347;
+    --stamp-blue: #315995;
+    --stamp-grey: #65615a;
 
-    --hand-ink: #1f3a8a;
+    --hand-ink: #24366f;
 
 
     /* ---------- Лог ---------- */
 
-    --log-bg: #1e2024;
-    --log-fg: #d7d9dd;
-    --log-info: #5ec1e6;
-    --log-ok: #5fc29b;
-    --log-warn: #e3b84d;
-    --log-error: #ef6a75;
-    --log-debug: #7c828c;
+    --log-bg: #2a2926;
+    --log-fg: #cdcac2;
+    --log-info: #6ba9bb;
+    --log-ok: #70a590;
+    --log-warn: #c7a85e;
+    --log-error: #c26b73;
+    --log-debug: #85827b;
 
 
     /* ---------- Шрифты ---------- */
 
-    --font-doc: "Arimo", Arial, "Helvetica Neue", Helvetica, sans-serif;
-    --font-mono: "Cousine", "Courier New", Courier, monospace;
+    /* Технический: структура, подписи, номера, код */
+    --font-tech: "Cousine", "Liberation Mono", "Courier New", monospace;
+
+    /* Машинописный: основной текст и значения */
+    --font-body: "Courier Prime", "Courier New", Courier, "Liberation Mono", monospace;
+
     --font-hand: "Caveat", "Segoe Script", cursive;
     --font-barcode: "Libre Barcode 39", monospace;
+}
+
+
+/* Скроллбар в тон тёмной подложке (если страница открыта в окне) */
+html:has(body.doc--doc) {
+    scrollbar-color: #3a3a3a var(--bg, #191919);
 }
 
 
@@ -145,31 +155,25 @@
     display: flex;
     flex-direction: column;
 
-    margin: 0.5rem auto 1.65rem;
+    margin-top: 0.9rem;
+    margin-right: auto;
+    margin-bottom: 1.65rem;
+    margin-left: auto;
 
     padding: var(--sheet-pad);
 
-    background: var(--paper);
+    /* Ровная бумага, без тени и без эффектов */
+    background-color: var(--paper);
     color: var(--ink);
 
-    font-family: var(--font-doc);
+    font-family: var(--font-body);
     font-size: 0.93rem;
-    line-height: 1.55;
-
-    -webkit-font-smoothing: antialiased;
-    -moz-osx-font-smoothing: grayscale;
-    font-variant-numeric: tabular-nums;
-
-    /* Страница в редакторе: тонкий контур и мягкая тень */
-    box-shadow:
-        0 0 0 1px rgba(0, 0, 0, 0.08),
-        0 2px 4px rgba(0, 0, 0, 0.10),
-        0 10px 30px rgba(0, 0, 0, 0.14);
+    line-height: 1.52;
 }
 
 
 .doc--doc .sheet ::selection {
-    background: #cfe2ff;
+    background: #cfd9e8;
     color: inherit;
 }
 
@@ -188,12 +192,13 @@
     margin-top: 1.5rem;
     padding-top: 0.4rem;
 
-    border-top: 1px solid var(--rule-soft);
+    border-top: 1px solid var(--line);
 
     color: var(--ink-soft);
 
+    font-family: var(--font-tech);
     font-size: 0.72rem;
-    letter-spacing: 0.03em;
+    letter-spacing: 0.04em;
 }
 
 
@@ -209,14 +214,16 @@
 }
 
 
+/* Заголовки: структура, технический шрифт */
 .doc--doc .md h1,
 .doc--doc .md h2,
 .doc--doc .md h3,
 .doc--doc .md h4 {
-    margin: 1.2em 0 0.5em;
+    margin: 1.1em 0 0.5em;
 
     color: var(--ink);
 
+    font-family: var(--font-tech);
     font-weight: 700;
     line-height: 1.25;
 }
@@ -225,32 +232,32 @@
 .doc--doc .md h1 {
     margin-top: 0.7em;
 
-    padding-bottom: 0.3em;
+    padding-bottom: 0.28em;
 
-    border-bottom: 2px solid var(--ink);
+    border-bottom: 1px solid var(--line);
 
-    font-size: 1.5rem;
-    letter-spacing: 0.03em;
+    font-size: 1.45rem;
+    letter-spacing: 0.045em;
 
     text-transform: uppercase;
 }
 
 
 .doc--doc .md h2 {
-    font-size: 1.2rem;
+    font-size: 1.18rem;
+    letter-spacing: 0.025em;
 }
 
 
 .doc--doc .md h3 {
-    font-size: 1.04rem;
+    font-size: 1.02rem;
 }
 
 
 .doc--doc .md h4 {
-    color: var(--ink-soft);
+    font-size: 0.92rem;
+    letter-spacing: 0.03em;
 
-    font-size: 0.9rem;
-    letter-spacing: 0.04em;
     text-transform: uppercase;
 }
 
@@ -268,11 +275,11 @@
 /* -------------------------------------------------- */
 
 .doc--doc .md a {
-    color: var(--link);
+    color: var(--stamp-blue);
 
     text-decoration-line: underline;
     text-decoration-thickness: 1px;
-    text-underline-offset: 0.15em;
+    text-underline-offset: 0.12em;
 }
 
 
@@ -283,12 +290,12 @@
 .doc--doc .md ul,
 .doc--doc .md ol {
     margin: 0 0 0.8em;
-    padding-left: 1.6em;
+    padding-left: 2.2ch;
 }
 
 
 .doc--doc .md li {
-    margin-bottom: 0.2em;
+    margin-bottom: 0.15em;
 }
 
 
@@ -313,9 +320,9 @@
 
 .doc--doc .md blockquote {
     margin: 0 0 0.8em;
-    padding: 0.2em 1.2ch;
+    padding: 0.2em 1ch;
 
-    border-left: 3px solid #aeb4bc;
+    border-left: 3px solid var(--line);
 
     color: var(--ink-soft);
 }
@@ -325,18 +332,18 @@
     margin: 1em 0;
 
     border: 0;
-    border-top: 1px solid var(--rule-soft);
+    border-top: 1px solid var(--line);
 }
 
 
+/* Код и ID: технический шрифт */
 .doc--doc .md code {
-    padding: 0.05em 0.35em;
+    padding: 0 0.3ch;
 
-    background: var(--shade);
-    border-radius: 2px;
+    background: var(--tint);
 
-    font-family: var(--font-mono);
-    font-size: 0.9em;
+    font-family: var(--font-tech);
+    font-size: 0.95em;
 }
 
 
@@ -346,12 +353,11 @@
 
     overflow: auto;
 
-    background: #f6f7f9;
+    background: var(--tint-soft);
 
-    border: 1px solid #d5d9de;
-    border-radius: 2px;
+    border: 1px solid var(--line);
 
-    font-family: var(--font-mono);
+    font-family: var(--font-tech);
 }
 
 
@@ -377,15 +383,18 @@
 .doc--doc .md td {
     padding: var(--cell-pad);
 
-    border: 1px solid var(--rule-soft);
+    border: 1px solid var(--line);
 
     text-align: left;
     vertical-align: top;
 }
 
 
+/* Шапка таблицы: структура, технический шрифт */
 .doc--doc .md th {
-    background: var(--shade);
+    background: var(--tint);
+
+    font-family: var(--font-tech);
     font-weight: 700;
 }
 
@@ -395,9 +404,10 @@
 
     color: var(--ink-soft);
 
-    font-size: 0.74rem;
+    font-family: var(--font-tech);
+    font-size: 0.72rem;
     font-weight: 700;
-    letter-spacing: 0.06em;
+    letter-spacing: 0.07em;
 
     text-align: left;
     text-transform: uppercase;
@@ -405,9 +415,10 @@
 
 
 /* -------------------------------------------------- */
-/* Spoiler / редактура (чёрные плашки)                */
+/* Spoiler / замазка                                  */
 /* -------------------------------------------------- */
 
+/* Цифровая редактура: чистая сплошная плашка */
 .doc--doc .spoiler--masked {
     background: var(--ink);
     color: var(--ink);
@@ -450,7 +461,7 @@
 .doc--doc .section {
     margin: 1.2rem 0;
 
-    border: 1px solid var(--rule);
+    border: 1px solid var(--line);
 }
 
 
@@ -458,9 +469,11 @@
     display: flex;
     align-items: stretch;
 
-    border-bottom: 1px solid var(--rule);
+    border-bottom: 1px solid var(--line);
 
-    background: var(--shade);
+    background: var(--tint-soft);
+
+    font-family: var(--font-tech);
 }
 
 
@@ -470,7 +483,7 @@
 
     padding: 0.2rem 1rem;
 
-    border-right: 1px solid var(--rule);
+    border-right: 1px solid var(--line);
 
     font-size: 1.45rem;
     font-weight: 700;
@@ -485,7 +498,7 @@
     padding: 0.4rem 0.9rem;
 
     font-weight: 700;
-    letter-spacing: 0.05em;
+    letter-spacing: 0.055em;
 
     text-transform: uppercase;
 }
@@ -505,8 +518,8 @@
 
     margin: 0 0 0.8em;
 
-    border-top: 1px solid var(--rule);
-    border-left: 1px solid var(--rule);
+    border-top: 1px solid var(--line);
+    border-left: 1px solid var(--line);
 }
 
 
@@ -515,8 +528,8 @@
 
     padding: var(--cell-pad);
 
-    border-right: 1px solid var(--rule);
-    border-bottom: 1px solid var(--rule);
+    border-right: 1px solid var(--line);
+    border-bottom: 1px solid var(--line);
 
     overflow-wrap: anywhere;
 }
@@ -532,14 +545,16 @@
 }
 
 
+/* Подпись поля: технический шрифт; значение под ней машинописное */
 .doc--doc .cell-label {
     margin-bottom: 0.15rem;
 
     color: var(--ink-soft);
 
-    font-size: 0.66rem;
+    font-family: var(--font-tech);
+    font-size: 0.65rem;
     font-weight: 700;
-    letter-spacing: 0.07em;
+    letter-spacing: 0.08em;
     line-height: 1.2;
 
     text-transform: uppercase;
@@ -569,7 +584,7 @@
 
 
 .doc--doc .box--border {
-    border: 1px solid var(--rule);
+    border: 1px solid var(--line);
 }
 
 
@@ -637,11 +652,6 @@
 /* Stamp                                              */
 /* -------------------------------------------------- */
 
-/*
- * Штамп в электронном документе — чистая векторная графика:
- * без рваных краёв и неравномерной заливки. Multiply
- * оставляет под ним видимым текст.
- */
 .doc--doc .widget--stamp.widget--align-left {
     text-align: left;
 }
@@ -657,6 +667,8 @@
 }
 
 
+/* Штамп чистый: ровная заливка, без рваных краёв.
+   Multiply оставляет под ним видимым текст. */
 .doc--doc .stamp {
     --tone: var(--stamp-red);
 
@@ -665,7 +677,7 @@
     padding: 0.2rem 1rem;
 
     border: 3px solid var(--tone);
-    border-radius: 3px;
+    border-radius: 1px;
 
     box-shadow:
         inset 0 0 0 2px var(--paper),
@@ -673,9 +685,10 @@
 
     color: var(--tone);
 
+    font-family: var(--font-tech);
     font-size: 1.45rem;
     font-weight: 700;
-    letter-spacing: 0.14em;
+    letter-spacing: 0.16em;
     line-height: 1.3;
 
     text-transform: uppercase;
@@ -727,7 +740,7 @@
     font-size: 1.9rem;
     line-height: 1;
 
-    transform: rotate(-2deg);
+    transform: rotate(-3deg);
     transform-origin: left bottom;
 }
 
@@ -735,7 +748,7 @@
 .doc--doc .sig-line {
     margin-top: 0.1rem;
 
-    border-top: 1px solid var(--rule);
+    border-top: 1px solid var(--line);
 }
 
 
@@ -771,7 +784,7 @@
 
 
 .doc--doc .barcode-text {
-    font-family: var(--font-mono);
+    font-family: var(--font-tech);
     font-size: 0.7rem;
     letter-spacing: 0.15em;
 }
@@ -781,19 +794,13 @@
 /* Log                                                */
 /* -------------------------------------------------- */
 
-/*
- * В электронном документе лог — это встроенный блок
- * терминала: тёмная плашка с яркими уровнями.
- */
 .doc--doc .widget--log {
     padding: 0.6rem 0.8rem;
 
     background: var(--log-bg);
     color: var(--log-fg);
 
-    border-radius: 3px;
-
-    font-family: var(--font-mono);
+    font-family: var(--font-tech);
     font-size: 0.8rem;
     line-height: 1.55;
 }
@@ -880,6 +887,7 @@
 
     gap: 0.6ch;
 
+    font-family: var(--font-tech);
     font-size: 0.8rem;
 }
 
@@ -891,8 +899,7 @@
     width: 1em;
     height: 1em;
 
-    border: 1px solid var(--rule);
-    border-radius: 2px;
+    border: 1px solid var(--line);
 
     font-size: 0.85rem;
     line-height: 1;
@@ -906,6 +913,294 @@
 
 
 /* -------------------------------------------------- */
+/* Masthead (шапка сайта)                             */
+/* -------------------------------------------------- */
+
+.doc--doc .widget--masthead {
+    border: 1px solid var(--line);
+
+    font-family: var(--font-tech);
+}
+
+
+.doc--doc .mast-top {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+
+    gap: 1rem;
+
+    padding: 0.5rem 0.9rem;
+}
+
+
+.doc--doc .mast-title {
+    display: flex;
+    flex-direction: column;
+
+    min-width: 0;
+}
+
+
+.doc--doc .mast-name {
+    font-size: 1.45rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    line-height: 1.15;
+
+    text-transform: uppercase;
+}
+
+
+.doc--doc .mast-tagline {
+    color: var(--ink-soft);
+
+    font-size: 0.72rem;
+    letter-spacing: 0.04em;
+}
+
+
+.doc--doc .mast-date {
+    flex: 0 0 auto;
+
+    color: var(--ink-soft);
+
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.07em;
+
+    text-transform: uppercase;
+}
+
+
+.doc--doc .mast-menu {
+    display: flex;
+    flex-wrap: wrap;
+
+    border-top: 1px solid var(--line);
+
+    background: var(--tint-soft);
+}
+
+
+.doc--doc .mast-item {
+    padding: 0.25rem 0.9rem;
+
+    border-right: 1px solid var(--line);
+
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.07em;
+
+    text-transform: uppercase;
+}
+
+
+.doc--doc .mast-item--active {
+    background: var(--ink);
+    color: var(--paper);
+}
+
+
+/* -------------------------------------------------- */
+/* Bar (полоса «сохранено из»)                        */
+/* -------------------------------------------------- */
+
+.doc--doc .widget--bar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+
+    gap: 0.2rem 1.5ch;
+
+    padding: 0.25rem 0.6rem;
+
+    border: 1px solid var(--line);
+
+    background: var(--tint);
+
+    font-family: var(--font-tech);
+    font-size: 0.7rem;
+    letter-spacing: 0.04em;
+}
+
+
+.doc--doc .bar-label {
+    padding-right: 1.5ch;
+
+    border-right: 1px solid var(--line);
+
+    font-weight: 700;
+    letter-spacing: 0.1em;
+
+    text-transform: uppercase;
+}
+
+
+.doc--doc .bar-url {
+    flex: 1 1 auto;
+    min-width: 0;
+
+    overflow-wrap: anywhere;
+}
+
+
+.doc--doc .bar-date,
+.doc--doc .bar-id {
+    color: var(--ink-soft);
+}
+
+
+.doc--doc .bar-id {
+    font-weight: 700;
+}
+
+
+/* -------------------------------------------------- */
+/* Image                                              */
+/* -------------------------------------------------- */
+
+.doc--doc .widget--image {
+    width: var(--w, 100%);
+    max-width: 100%;
+}
+
+
+.doc--doc .widget--image.widget--align-center {
+    margin-left: auto;
+    margin-right: auto;
+}
+
+
+.doc--doc .widget--image.widget--align-right {
+    margin-left: auto;
+}
+
+
+.doc--doc .image-frame {
+    border: 1px solid var(--line);
+}
+
+
+.doc--doc .image-img {
+    display: block;
+
+    width: 100%;
+    height: auto;
+}
+
+
+/* Заглушка: как непрогрузившаяся картинка, внутри её alt */
+.doc--doc .image-missing {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    box-sizing: border-box;
+    width: 100%;
+
+    padding: 0.6rem;
+
+    background: var(--tint);
+    color: var(--ink-soft);
+
+    font-family: var(--font-tech);
+    font-size: 0.75rem;
+    letter-spacing: 0.04em;
+    text-align: center;
+}
+
+
+.doc--doc .image-ratio-16-9 { aspect-ratio: 16 / 9; }
+.doc--doc .image-ratio-4-3  { aspect-ratio: 4 / 3; }
+.doc--doc .image-ratio-3-2  { aspect-ratio: 3 / 2; }
+.doc--doc .image-ratio-1-1  { aspect-ratio: 1 / 1; }
+.doc--doc .image-ratio-3-4  { aspect-ratio: 3 / 4; }
+.doc--doc .image-ratio-9-16 { aspect-ratio: 9 / 16; }
+
+
+.doc--doc .image-caption {
+    margin-top: 0.3rem;
+
+    color: var(--ink-soft);
+
+    font-family: var(--font-tech);
+    font-size: 0.72rem;
+    letter-spacing: 0.03em;
+}
+
+
+/* -------------------------------------------------- */
+/* Divider (разделитель)                              */
+/* -------------------------------------------------- */
+
+.doc--doc .widget--divider {
+    display: flex;
+    align-items: center;
+
+    gap: 1.5ch;
+
+    margin: 1rem 0;
+}
+
+
+.doc--doc .divider-line {
+    flex: 1 1 auto;
+
+    height: 0;
+
+    border-top: 1px solid var(--line);
+}
+
+
+.doc--doc .divider-label {
+    flex: 0 0 auto;
+
+    color: var(--ink-soft);
+
+    font-family: var(--font-tech);
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+
+    text-transform: uppercase;
+}
+
+
+.doc--doc .divider--double .divider-line {
+    border-top: 3px double var(--line);
+}
+
+
+.doc--doc .divider--dashed .divider-line {
+    border-top-style: dashed;
+}
+
+
+.doc--doc .divider--dotted .divider-line {
+    border-top-style: dotted;
+}
+
+
+.doc--doc .divider--thick .divider-line {
+    border-top: 3px solid var(--ink);
+}
+
+
+.doc--doc .divider--stars {
+    justify-content: center;
+}
+
+
+.doc--doc .divider-mark {
+    color: var(--ink-soft);
+
+    font-family: var(--font-tech);
+    letter-spacing: 0.5em;
+}
+
+
+/* -------------------------------------------------- */
 /* Infobox                                            */
 /* -------------------------------------------------- */
 
@@ -915,7 +1210,7 @@
     background: var(--paper);
     color: var(--ink);
 
-    font-family: var(--font-doc);
+    font-family: var(--font-body);
     font-size: 0.85rem;
     line-height: 1.45;
 }
@@ -932,7 +1227,7 @@
 
 /*
  * Как и у скана: лист не сжимается, правая часть
- * просто выходит за край окна.
+ * просто уходит за край окна.
  */
 @media (max-width: 900px) {
     .doc--doc .page {
@@ -951,7 +1246,7 @@
 /* -------------------------------------------------- */
 
 @media print {
-    .doc--doc .md--body {
+    .doc--doc {
         background: #fff;
     }
 
@@ -963,6 +1258,8 @@
         overflow: visible;
 
         padding: 0;
+
+        background: #fff;
     }
 
     .doc--doc .sheet {
@@ -970,8 +1267,6 @@
         min-width: 210mm;
 
         margin: 0;
-
-        box-shadow: none;
 
         break-after: page;
         page-break-after: always;

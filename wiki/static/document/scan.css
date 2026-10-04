@@ -1260,6 +1260,294 @@
 
 
 /* -------------------------------------------------- */
+/* Masthead (шапка сайта)                             */
+/* -------------------------------------------------- */
+
+.doc--scan .widget--masthead {
+    border: 1px solid rgba(79, 76, 70, 0.66);
+
+    font-family: var(--font-doc);
+}
+
+
+.doc--scan .mast-top {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+
+    gap: 1rem;
+
+    padding: 0.5rem 0.9rem;
+}
+
+
+.doc--scan .mast-title {
+    display: flex;
+    flex-direction: column;
+
+    min-width: 0;
+}
+
+
+.doc--scan .mast-name {
+    font-size: 1.45rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    line-height: 1.15;
+
+    text-transform: uppercase;
+}
+
+
+.doc--scan .mast-tagline {
+    color: var(--ink-soft);
+
+    font-size: 0.72rem;
+    letter-spacing: 0.04em;
+}
+
+
+.doc--scan .mast-date {
+    flex: 0 0 auto;
+
+    color: var(--ink-soft);
+
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.07em;
+
+    text-transform: uppercase;
+}
+
+
+.doc--scan .mast-menu {
+    display: flex;
+    flex-wrap: wrap;
+
+    border-top: 1px solid rgba(79, 76, 70, 0.66);
+
+    background: rgba(0, 0, 0, 0.018);
+}
+
+
+.doc--scan .mast-item {
+    padding: 0.25rem 0.9rem;
+
+    border-right: 1px solid rgba(79, 76, 70, 0.66);
+
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.07em;
+
+    text-transform: uppercase;
+}
+
+
+.doc--scan .mast-item--active {
+    background: var(--ink);
+    color: var(--paper);
+}
+
+
+/* -------------------------------------------------- */
+/* Bar (полоса «сохранено из»)                        */
+/* -------------------------------------------------- */
+
+.doc--scan .widget--bar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+
+    gap: 0.2rem 1.5ch;
+
+    padding: 0.25rem 0.6rem;
+
+    border: 1px solid rgba(79, 76, 70, 0.66);
+
+    background: rgba(0, 0, 0, 0.042);
+
+    font-family: var(--font-doc);
+    font-size: 0.7rem;
+    letter-spacing: 0.04em;
+}
+
+
+.doc--scan .bar-label {
+    padding-right: 1.5ch;
+
+    border-right: 1px solid rgba(79, 76, 70, 0.66);
+
+    font-weight: 700;
+    letter-spacing: 0.1em;
+
+    text-transform: uppercase;
+}
+
+
+.doc--scan .bar-url {
+    flex: 1 1 auto;
+    min-width: 0;
+
+    overflow-wrap: anywhere;
+}
+
+
+.doc--scan .bar-date,
+.doc--scan .bar-id {
+    color: var(--ink-soft);
+}
+
+
+.doc--scan .bar-id {
+    font-weight: 700;
+}
+
+
+/* -------------------------------------------------- */
+/* Image                                              */
+/* -------------------------------------------------- */
+
+.doc--scan .widget--image {
+    width: var(--w, 100%);
+    max-width: 100%;
+}
+
+
+.doc--scan .widget--image.widget--align-center {
+    margin-left: auto;
+    margin-right: auto;
+}
+
+
+.doc--scan .widget--image.widget--align-right {
+    margin-left: auto;
+}
+
+
+.doc--scan .image-frame {
+    border: 1px solid rgba(79, 76, 70, 0.66);
+}
+
+
+.doc--scan .image-img {
+    display: block;
+
+    width: 100%;
+    height: auto;
+}
+
+
+/* Заглушка: как непрогрузившаяся картинка, внутри её alt */
+.doc--scan .image-missing {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    box-sizing: border-box;
+    width: 100%;
+
+    padding: 0.6rem;
+
+    background: rgba(0, 0, 0, 0.042);
+    color: var(--ink-soft);
+
+    font-family: var(--font-doc);
+    font-size: 0.75rem;
+    letter-spacing: 0.04em;
+    text-align: center;
+}
+
+
+.doc--scan .image-ratio-16-9 { aspect-ratio: 16 / 9; }
+.doc--scan .image-ratio-4-3  { aspect-ratio: 4 / 3; }
+.doc--scan .image-ratio-3-2  { aspect-ratio: 3 / 2; }
+.doc--scan .image-ratio-1-1  { aspect-ratio: 1 / 1; }
+.doc--scan .image-ratio-3-4  { aspect-ratio: 3 / 4; }
+.doc--scan .image-ratio-9-16 { aspect-ratio: 9 / 16; }
+
+
+.doc--scan .image-caption {
+    margin-top: 0.3rem;
+
+    color: var(--ink-soft);
+
+    font-family: var(--font-doc);
+    font-size: 0.72rem;
+    letter-spacing: 0.03em;
+}
+
+
+/* -------------------------------------------------- */
+/* Divider (разделитель)                              */
+/* -------------------------------------------------- */
+
+.doc--scan .widget--divider {
+    display: flex;
+    align-items: center;
+
+    gap: 1.5ch;
+
+    margin: 1rem 0;
+}
+
+
+.doc--scan .divider-line {
+    flex: 1 1 auto;
+
+    height: 0;
+
+    border-top: 1px solid rgba(79, 76, 70, 0.66);
+}
+
+
+.doc--scan .divider-label {
+    flex: 0 0 auto;
+
+    color: var(--ink-soft);
+
+    font-family: var(--font-doc);
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+
+    text-transform: uppercase;
+}
+
+
+.doc--scan .divider--double .divider-line {
+    border-top: 3px double rgba(79, 76, 70, 0.66);
+}
+
+
+.doc--scan .divider--dashed .divider-line {
+    border-top-style: dashed;
+}
+
+
+.doc--scan .divider--dotted .divider-line {
+    border-top-style: dotted;
+}
+
+
+.doc--scan .divider--thick .divider-line {
+    border-top: 3px solid var(--ink);
+}
+
+
+.doc--scan .divider--stars {
+    justify-content: center;
+}
+
+
+.doc--scan .divider-mark {
+    color: var(--ink-soft);
+
+    font-family: var(--font-doc);
+    letter-spacing: 0.5em;
+}
+
+
+/* -------------------------------------------------- */
 /* Infobox                                            */
 /* -------------------------------------------------- */
 

@@ -1,0 +1,1509 @@
+/* ==================================================
+   WEB / SNAPSHOT  (сохранённая копия страницы сайта)
+
+   Страница сайта вселенной, которую кто-то заархивировал.
+   Не бумага: непрерывная колонка, которая подстраивается
+   под ширину окна. Те же классы, что у doc и scan:
+   .page > .md.md--body > .sheet > .sheet-body + .sheet-footer
+
+   Что здесь по-другому:
+   - .sheet это страница сайта, а не лист A4;
+   - подпись ::page превращается в подвал сайта;
+   - замазка спойлеров это глитч, а не чёрная плашка;
+   - сайт настраивается пресетом: виджет ::site в начале записи
+     (::site paper | dark | tabloid | gov, accent=red|blue|green|orange|grey)
+     переключает палитру и шрифты. Новый сайт значит другой набор
+     переменных, а не новый стиль.
+
+   Все правила привязаны к .doc--web.
+   ================================================== */
+
+
+/* -------------------------------------------------- */
+/* Шрифты                                             */
+/* -------------------------------------------------- */
+
+/*
+ * Arimo      интерфейсный шрифт без засечек (метрика Arial)
+ * PT Serif   газетный шрифт с засечками
+ * Cousine    код, лог, технические детали
+ * Все три с кириллицей.
+ */
+@import url('https://fonts.googleapis.com/css2?family=Arimo:ital,wght@0,400;0,700;1,400;1,700&family=PT+Serif:ital,wght@0,400;0,700;1,400;1,700&family=Cousine:ital,wght@0,400;0,700;1,400&family=Libre+Barcode+39&display=swap');
+
+
+/* -------------------------------------------------- */
+/* Переменные и пресеты                               */
+/* -------------------------------------------------- */
+
+/* По умолчанию: пресет paper (светлая газета) */
+.doc--web {
+    --max-width: 64rem;
+    --pad: 1.6rem;
+
+    /* Тёмный фон за страницей, как у рабочего стола */
+    --desk: var(--bg, #191919);
+
+    --page-bg: #fdfcf9;
+    --page-text: #1f2125;
+    --page-soft: #666a72;
+    --page-line: #d4d1c8;
+    --page-tint: #f3f1ea;
+
+    --accent: #b3261e;
+    --accent-ink: #ffffff;
+    --link: var(--accent);
+
+    --font-head: "PT Serif", Georgia, "Times New Roman", serif;
+    --font-text: "PT Serif", Georgia, "Times New Roman", serif;
+    --font-mono: "Cousine", "Liberation Mono", "Courier New", monospace;
+    --font-barcode: "Libre Barcode 39", monospace;
+
+    --head-weight: 700;
+    --head-transform: none;
+    --head-spacing: 0;
+
+    /* Полоса архива сверху (::bar): интерфейс архива, а не сайта */
+    --bar-bg: #111418;
+    --bar-text: #c9ced6;
+    --bar-soft: #8b929c;
+    --bar-line: #3a3f47;
+
+    /* Штампы-бейджи и лог */
+    --stamp-red: #b3261e;
+    --stamp-green: #2e7d4f;
+    --stamp-blue: #2f5fa8;
+    --stamp-grey: #6b7078;
+
+    --log-bg: #1e2024;
+    --log-fg: #d7d9dd;
+    --log-info: #5ec1e6;
+    --log-ok: #5fc29b;
+    --log-warn: #e3b84d;
+    --log-error: #ef6a75;
+    --log-debug: #7c828c;
+
+    /* Глитч-замазка */
+    --glitch-a: rgba(255, 32, 80, 0.8);
+    --glitch-b: rgba(0, 220, 255, 0.8);
+}
+
+
+/* ---------- Пресеты: ::site <имя> ---------- */
+
+.doc--web:has(.site-preset--dark) {
+    --page-bg: #14171b;
+    --page-text: #d5d9de;
+    --page-soft: #8a919b;
+    --page-line: #2c3138;
+    --page-tint: #1c2025;
+
+    --accent: #e0554b;
+
+    --font-head: "Arimo", Arial, "Helvetica Neue", Helvetica, sans-serif;
+    --font-text: "Arimo", Arial, "Helvetica Neue", Helvetica, sans-serif;
+}
+
+
+.doc--web:has(.site-preset--tabloid) {
+    --page-bg: #fffbe6;
+    --page-text: #1a1a1a;
+    --page-soft: #5e5a46;
+    --page-line: #1a1a1a;
+    --page-tint: #fff2b3;
+
+    --accent: #d10f0f;
+
+    --font-head: "Arimo", Arial, "Helvetica Neue", Helvetica, sans-serif;
+    --font-text: "Arimo", Arial, "Helvetica Neue", Helvetica, sans-serif;
+
+    --head-transform: uppercase;
+    --head-spacing: -0.01em;
+}
+
+
+.doc--web:has(.site-preset--gov) {
+    --page-bg: #f4f6f8;
+    --page-text: #1c2530;
+    --page-soft: #5a6672;
+    --page-line: #c3ccd5;
+    --page-tint: #e8edf1;
+
+    --accent: #1f4e8c;
+
+    --font-head: "Arimo", Arial, "Helvetica Neue", Helvetica, sans-serif;
+    --font-text: "Arimo", Arial, "Helvetica Neue", Helvetica, sans-serif;
+}
+
+
+/* ---------- Акцент: ::site <имя> accent=<цвет> (после пресетов) ---------- */
+
+.doc--web:has(.site-accent--red)    { --accent: #c8372d; }
+.doc--web:has(.site-accent--blue)   { --accent: #2f6fd0; }
+.doc--web:has(.site-accent--green)  { --accent: #2e8b57; }
+.doc--web:has(.site-accent--orange) { --accent: #d9731a; }
+.doc--web:has(.site-accent--grey)   { --accent: #6b7078; }
+
+
+/* Скроллбар в тон тёмной подложке (если страница открыта в окне) */
+html:has(body.doc--web) {
+    scrollbar-color: #3a3a3a var(--bg, #191919);
+}
+
+
+/* Метка пресета ничего не показывает */
+.doc--web .widget--site {
+    display: none;
+}
+
+
+/* -------------------------------------------------- */
+/* Рабочее пространство                               */
+/* -------------------------------------------------- */
+
+.doc--web .page {
+    width: 100%;
+    max-width: none;
+
+    overflow-x: hidden;
+    overflow-y: visible;
+}
+
+
+.doc--web .md--body {
+    width: 100%;
+    box-sizing: border-box;
+
+    padding: 1.5rem 1rem;
+
+    background: var(--desk);
+}
+
+
+/* -------------------------------------------------- */
+/* Страница                                           */
+/* -------------------------------------------------- */
+
+.doc--web .sheet {
+    position: relative;
+
+    display: block;
+
+    width: 100%;
+    max-width: var(--max-width);
+    box-sizing: border-box;
+
+    margin: 0 auto 1.5rem;
+
+    padding: var(--pad);
+
+    background: var(--page-bg);
+    color: var(--page-text);
+
+    font-family: var(--font-text);
+    font-size: 1rem;
+    line-height: 1.65;
+
+    overflow-wrap: break-word;
+}
+
+
+/* Если страница разбита на листы: склеиваем их в одну */
+.doc--web .sheet:not(:last-child) {
+    margin-bottom: 0;
+}
+
+
+.doc--web .sheet + .sheet {
+    border-top: 1px solid var(--page-line);
+}
+
+
+.doc--web .sheet ::selection {
+    background: var(--accent);
+    color: var(--accent-ink);
+}
+
+
+.doc--web .sheet-body {
+    min-width: 0;
+}
+
+
+/* Подпись ::page становится подвалом сайта */
+.doc--web .sheet-footer {
+    margin: 2rem calc(var(--pad) * -1) calc(var(--pad) * -1);
+    padding: 0.8rem var(--pad);
+
+    border-top: 1px solid var(--page-line);
+
+    background: var(--page-tint);
+    color: var(--page-soft);
+
+    font-family: var(--font-text);
+    font-size: 0.78rem;
+    line-height: 1.4;
+}
+
+
+/* -------------------------------------------------- */
+/* Базовый текст                                      */
+/* -------------------------------------------------- */
+
+.doc--web .md p {
+    max-width: none;
+    margin: 0 0 1em;
+
+    color: inherit;
+}
+
+
+.doc--web .md h1,
+.doc--web .md h2,
+.doc--web .md h3,
+.doc--web .md h4 {
+    margin: 1.4em 0 0.5em;
+
+    color: var(--page-text);
+
+    font-family: var(--font-head);
+    font-weight: var(--head-weight);
+    letter-spacing: var(--head-spacing);
+    line-height: 1.18;
+
+    text-transform: var(--head-transform);
+}
+
+
+.doc--web .md h1 {
+    margin-top: 0.4em;
+
+    font-size: 2.1rem;
+}
+
+
+.doc--web .md h2 {
+    font-size: 1.5rem;
+}
+
+
+.doc--web .md h3 {
+    font-size: 1.2rem;
+}
+
+
+.doc--web .md h4 {
+    color: var(--page-soft);
+
+    font-size: 0.9rem;
+    letter-spacing: 0.08em;
+
+    text-transform: uppercase;
+}
+
+
+.doc--web .sheet-body > :first-child,
+.doc--web .cell > :first-child,
+.doc--web .section-body > :first-child,
+.doc--web .box > :first-child {
+    margin-top: 0;
+}
+
+
+/* -------------------------------------------------- */
+/* Ссылки                                             */
+/* -------------------------------------------------- */
+
+.doc--web .md a {
+    color: var(--link);
+
+    text-decoration-line: underline;
+    text-decoration-thickness: 1px;
+    text-underline-offset: 0.15em;
+}
+
+
+/* -------------------------------------------------- */
+/* Списки                                             */
+/* -------------------------------------------------- */
+
+.doc--web .md ul,
+.doc--web .md ol {
+    margin: 0 0 1em;
+    padding-left: 1.6em;
+}
+
+
+.doc--web .md li {
+    margin-bottom: 0.3em;
+}
+
+
+.doc--web .md li::marker {
+    color: var(--accent);
+}
+
+
+/* -------------------------------------------------- */
+/* Прочее                                             */
+/* -------------------------------------------------- */
+
+.doc--web .md strong {
+    font-weight: 700;
+}
+
+
+.doc--web .md em {
+    color: inherit;
+}
+
+
+.doc--web .md del {
+    color: var(--page-soft);
+    text-decoration-thickness: 1px;
+}
+
+
+.doc--web .md blockquote {
+    margin: 0 0 1em;
+    padding: 0.3em 1.1em;
+
+    border-left: 4px solid var(--accent);
+
+    color: var(--page-soft);
+
+    font-style: italic;
+}
+
+
+.doc--web .md hr {
+    margin: 1.5em 0;
+
+    border: 0;
+    border-top: 1px solid var(--page-line);
+}
+
+
+.doc--web .md code {
+    padding: 0.1em 0.4em;
+
+    background: var(--page-tint);
+    border-radius: 2px;
+
+    font-family: var(--font-mono);
+    font-size: 0.88em;
+}
+
+
+.doc--web .md pre {
+    margin: 0 0 1em;
+    padding: 0.7rem 0.9rem;
+
+    overflow: auto;
+
+    background: var(--page-tint);
+
+    border: 1px solid var(--page-line);
+    border-radius: 3px;
+
+    font-family: var(--font-mono);
+    font-size: 0.88rem;
+    line-height: 1.5;
+}
+
+
+.doc--web .md pre code {
+    padding: 0;
+
+    background: none;
+
+    font-size: inherit;
+}
+
+
+/* -------------------------------------------------- */
+/* Markdown-таблица                                   */
+/* -------------------------------------------------- */
+
+.doc--web .md table {
+    width: 100%;
+    margin: 0 0 1em;
+
+    border-collapse: collapse;
+
+    font-size: 0.92rem;
+    line-height: 1.45;
+}
+
+
+.doc--web .md th,
+.doc--web .md td {
+    padding: 0.45rem 0.7rem;
+
+    border: 1px solid var(--page-line);
+
+    text-align: left;
+    vertical-align: top;
+}
+
+
+.doc--web .md th {
+    background: var(--page-tint);
+
+    font-weight: 700;
+}
+
+
+.doc--web .md tbody tr:nth-child(even) td {
+    background: var(--page-tint);
+}
+
+
+.doc--web .md caption {
+    margin-bottom: 0.4rem;
+
+    color: var(--page-soft);
+
+    font-size: 0.78rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+
+    text-align: left;
+    text-transform: uppercase;
+}
+
+
+/* -------------------------------------------------- */
+/* Spoiler: скелет-загрузка с проявляющейся меткой    */
+/* -------------------------------------------------- */
+
+/*
+ * Под замазкой настоящего текста нет: сервер заменил его на █.
+ * █ прозрачны и задают только размер. Видимая форма это фон самого
+ * элемента: монолитная плашка-скелет. Метка [удалено] лежит по центру
+ * и окрашена в цвет скелета (--sk-base), поэтому в покое её не видно.
+ * Когда блик проходит по плашке, фон под меткой меняется, и она
+ * проявляется. Блик двигается фоном, метка неподвижна.
+ */
+.doc--web {
+    --sk-base: color-mix(in srgb, var(--page-text) 13%, var(--page-bg));
+    --sk-hi:   color-mix(in srgb, var(--page-text) 4%,  var(--page-bg));
+}
+
+
+/* На тёмном пресете блик светлее скелета, а не темнее */
+.doc--web:has(.site-preset--dark) {
+    --sk-base: color-mix(in srgb, var(--page-text) 12%, var(--page-bg));
+    --sk-hi:   color-mix(in srgb, var(--page-text) 26%, var(--page-bg));
+}
+
+
+/* ---------- Инлайн ---------- */
+
+.doc--web .spoiler--masked {
+    position: relative;
+
+    /* inline-block, чтобы метку можно было центрировать по всей плашке */
+    display: inline-block;
+    max-width: 100%;
+    min-width: 4.2rem; /* чтобы метка влезала даже в короткую замазку */
+
+    overflow-wrap: anywhere;
+
+    /* Плотная высота вместо унаследованной 1.65 */
+    line-height: 1.15;
+    vertical-align: -0.2em;
+
+    color: transparent;
+    text-shadow: none;
+    user-select: none;
+
+    border-radius: 3px;
+
+    background-color: var(--sk-base);
+    background-image: linear-gradient(
+        100deg,
+        var(--sk-base) 0 38%,
+        var(--sk-hi) 50%,
+        var(--sk-base) 62% 100%
+    );
+    background-size: 300% 100%;
+    background-repeat: no-repeat;
+    background-position: 100% 0;
+
+    animation: web-skeleton 3.6s ease-in-out infinite;
+}
+
+
+.doc--web .spoiler--masked::before {
+    content: "[удалено]";
+
+    position: absolute;
+    inset: 0;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    overflow: hidden;
+
+    /* Цвет метки = цвет скелета: в покое её не видно */
+    color: var(--sk-base);
+
+    font-family: var(--font-mono);
+    font-size: 0.72rem;
+    font-style: normal;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    line-height: 1;
+    white-space: nowrap;
+    text-transform: none;
+
+    pointer-events: none;
+}
+
+
+/* Фаза сдвига разная, чтобы плашки не мерцали в такт */
+.doc--web .spoiler--masked:nth-of-type(3n + 2) {
+    animation-delay: -1.2s;
+}
+
+
+.doc--web .spoiler--masked:nth-of-type(3n) {
+    animation-delay: -2.4s;
+}
+
+
+/* Вложенное форматирование не должно просвечивать сквозь плашку */
+.doc--web .spoiler--masked :is(a, strong, em, del, code) {
+    color: transparent;
+    background: none;
+    text-decoration-color: transparent;
+}
+
+
+/* ---------- Блок ---------- */
+
+.doc--web div.spoiler--masked {
+    display: block;
+    min-width: 0;
+
+    /* У блока плашка по высоте контента, с обычной высотой строки */
+    line-height: 1.65;
+    vertical-align: baseline;
+
+    margin: 0 0 1em;
+    padding: 0.5em 1ch;
+}
+
+
+.doc--web div.spoiler--masked > :last-child {
+    margin-bottom: 0;
+}
+
+
+/* ---------- Раскрытое (как было) ---------- */
+
+.doc--web .spoiler--inline.spoiler--open {
+    border-bottom: 1px dotted var(--page-soft);
+}
+
+
+.doc--web div.spoiler--open {
+    margin: 0 0 1em;
+    padding-left: 1.2ch;
+
+    border-left: 2px dashed var(--page-soft);
+}
+
+
+@keyframes web-skeleton {
+    from { background-position: 100% 0; }
+    to   { background-position: 0% 0; }
+}
+
+
+/* Без анимации блика метку нечем проявлять: делаем её едва заметной */
+@media (prefers-reduced-motion: reduce) {
+    .doc--web .spoiler--masked {
+        animation: none;
+    }
+
+    .doc--web .spoiler--masked::before {
+        color: color-mix(in srgb, var(--sk-base) 70%, var(--page-text));
+    }
+}
+
+
+/* -------------------------------------------------- */
+/* Section: панель                                    */
+/* -------------------------------------------------- */
+
+.doc--web .section {
+    margin: 1.4rem 0;
+
+    border: 1px solid var(--page-line);
+    border-radius: 3px;
+
+    overflow: hidden;
+}
+
+
+.doc--web .section-head {
+    display: flex;
+    align-items: stretch;
+
+    border-bottom: 1px solid var(--page-line);
+
+    background: var(--page-tint);
+}
+
+
+.doc--web .section-num {
+    display: flex;
+    align-items: center;
+
+    padding: 0.3rem 0.85rem;
+
+    background: var(--accent);
+    color: var(--accent-ink);
+
+    font-family: var(--font-head);
+    font-size: 1.05rem;
+    font-weight: 700;
+    line-height: 1;
+}
+
+
+.doc--web .section-title {
+    display: flex;
+    align-items: center;
+
+    padding: 0.45rem 0.95rem;
+
+    font-family: var(--font-head);
+    font-size: 0.85rem;
+    font-weight: 700;
+    letter-spacing: 0.07em;
+
+    text-transform: uppercase;
+}
+
+
+.doc--web .section-body {
+    padding: 0.9rem 1rem 0.2rem;
+}
+
+
+/* -------------------------------------------------- */
+/* Grid: колонки макета                               */
+/* -------------------------------------------------- */
+
+.doc--web .grid {
+    display: grid;
+
+    gap: 1.6rem;
+
+    margin: 0 0 1em;
+
+    border: 0;
+}
+
+
+.doc--web .cell {
+    min-width: 0;
+
+    padding: 0;
+
+    border: 0;
+}
+
+
+.doc--web .cell p {
+    margin-bottom: 0.7em;
+}
+
+
+.doc--web .cell > :last-child {
+    margin-bottom: 0;
+}
+
+
+/* Подпись ячейки: заголовок блока сайдбара */
+.doc--web .cell-label {
+    margin-bottom: 0.7rem;
+    padding-bottom: 0.3rem;
+
+    border-bottom: 2px solid var(--accent);
+
+    color: var(--accent);
+
+    font-family: var(--font-head);
+    font-size: 0.74rem;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    line-height: 1.2;
+
+    text-transform: uppercase;
+}
+
+
+/* В узком окне колонки встают друг под друга */
+@media (max-width: 640px) {
+    .doc--web .grid {
+        grid-template-columns: 1fr !important;
+    }
+
+    .doc--web .cell {
+        grid-column: auto !important;
+    }
+}
+
+
+/* -------------------------------------------------- */
+/* Box: карточка                                      */
+/* -------------------------------------------------- */
+
+.doc--web .box {
+    margin: 0 0 1em;
+    padding: 0.7rem 1rem;
+}
+
+
+.doc--web .box--border {
+    border: 1px solid var(--page-line);
+    border-radius: 3px;
+
+    background: var(--page-bg);
+}
+
+
+.doc--web .box--dark {
+    background: var(--accent);
+    color: var(--accent-ink);
+
+    border-radius: 3px;
+}
+
+
+.doc--web .box--center {
+    text-align: center;
+}
+
+
+.doc--web .box--right {
+    text-align: right;
+}
+
+
+.doc--web .box--small {
+    font-size: 0.85rem;
+}
+
+
+.doc--web .box--big {
+    font-size: 1.35rem;
+}
+
+
+.doc--web .box--bold {
+    font-weight: 700;
+}
+
+
+.doc--web .box--muted {
+    color: var(--page-soft);
+}
+
+
+.doc--web .box--flush {
+    padding: 0;
+}
+
+
+.doc--web .box > :last-child {
+    margin-bottom: 0;
+}
+
+
+/* -------------------------------------------------- */
+/* Widgets                                            */
+/* -------------------------------------------------- */
+
+.doc--web .widget {
+    margin: 1rem 0;
+}
+
+
+.doc--web .widget--masked {
+    min-height: 1.5em;
+}
+
+
+/* -------------------------------------------------- */
+/* Masthead: шапка сайта                              */
+/* -------------------------------------------------- */
+
+.doc--web .widget--masthead {
+    margin: 0 0 1.4rem;
+
+    border-top: 6px solid var(--accent);
+    border-bottom: 1px solid var(--page-line);
+}
+
+
+/* Первая в записи: на всю ширину страницы, к самому краю */
+.doc--web .sheet-body > .widget--masthead:first-child {
+    margin: calc(var(--pad) * -1) calc(var(--pad) * -1) 1.4rem;
+}
+
+
+/* После полосы архива: тоже на всю ширину, без зазора сверху */
+.doc--web .sheet-body > .widget--bar:first-child + .widget--masthead {
+    margin: 0 calc(var(--pad) * -1) 1.4rem;
+}
+
+
+.doc--web .mast-top {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+
+    gap: 1rem;
+
+    padding: 0.9rem var(--pad) 0.8rem;
+}
+
+
+.doc--web .mast-title {
+    display: flex;
+    flex-direction: column;
+
+    min-width: 0;
+}
+
+
+.doc--web .mast-name {
+    font-family: var(--font-head);
+    font-size: 2.1rem;
+    font-weight: var(--head-weight);
+    letter-spacing: var(--head-spacing);
+    line-height: 1.1;
+
+    text-transform: var(--head-transform);
+}
+
+
+.doc--web .mast-tagline {
+    margin-top: 0.2rem;
+
+    color: var(--page-soft);
+
+    font-family: var(--font-text);
+    font-size: 0.78rem;
+    letter-spacing: 0.08em;
+
+    text-transform: uppercase;
+}
+
+
+.doc--web .mast-date {
+    flex: 0 0 auto;
+
+    color: var(--page-soft);
+
+    font-family: var(--font-text);
+    font-size: 0.75rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+
+    text-transform: uppercase;
+}
+
+
+.doc--web .mast-menu {
+    display: flex;
+    flex-wrap: wrap;
+
+    padding: 0 calc(var(--pad) - 1rem);
+
+    background: var(--accent);
+    color: var(--accent-ink);
+}
+
+
+.doc--web .mast-item {
+    padding: 0.55rem 1rem;
+
+    font-family: var(--font-text);
+    font-size: 0.8rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+
+    text-transform: uppercase;
+}
+
+
+.doc--web .mast-item--active {
+    background: rgba(0, 0, 0, 0.24);
+}
+
+
+/* -------------------------------------------------- */
+/* Bar: полоса «сохранено из»                         */
+/* -------------------------------------------------- */
+
+/* Это интерфейс архива, а не сайта, поэтому цвета у неё свои */
+.doc--web .widget--bar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+
+    gap: 0.2rem 1.5ch;
+
+    margin: 0 0 1rem;
+    padding: 0.4rem 0.8rem;
+
+    background: var(--bar-bg);
+    color: var(--bar-text);
+
+    border-radius: 2px;
+
+    font-family: var(--font-mono);
+    font-size: 0.72rem;
+    letter-spacing: 0.03em;
+}
+
+
+.doc--web .sheet-body > .widget--bar:first-child {
+    margin: calc(var(--pad) * -1) calc(var(--pad) * -1) 1rem;
+    padding: 0.45rem var(--pad);
+
+    border-radius: 0;
+}
+
+
+/* Если за полосой идёт шапка, зазор между ними не нужен */
+.doc--web .sheet-body > .widget--bar:first-child:has(+ .widget--masthead) {
+    margin-bottom: 0;
+}
+
+
+.doc--web .bar-label {
+    padding-right: 1.5ch;
+
+    border-right: 1px solid var(--bar-line);
+
+    font-weight: 700;
+    letter-spacing: 0.1em;
+
+    text-transform: uppercase;
+}
+
+
+.doc--web .bar-url {
+    flex: 1 1 auto;
+    min-width: 0;
+
+    overflow-wrap: anywhere;
+}
+
+
+.doc--web .bar-date,
+.doc--web .bar-id {
+    color: var(--bar-soft);
+}
+
+
+.doc--web .bar-id {
+    font-weight: 700;
+}
+
+
+/* -------------------------------------------------- */
+/* Image                                              */
+/* -------------------------------------------------- */
+
+.doc--web .widget--image {
+    width: var(--w, 100%);
+    max-width: 100%;
+}
+
+
+.doc--web .widget--image.widget--align-center {
+    margin-left: auto;
+    margin-right: auto;
+}
+
+
+.doc--web .widget--image.widget--align-right {
+    margin-left: auto;
+}
+
+
+.doc--web .image-frame {
+    border: 1px solid var(--page-line);
+    border-radius: 2px;
+
+    overflow: hidden;
+}
+
+
+.doc--web .image-img {
+    display: block;
+
+    width: 100%;
+    height: auto;
+}
+
+
+/* Заглушка: как непрогрузившаяся картинка в сохранённой странице */
+.doc--web .image-missing {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    box-sizing: border-box;
+    width: 100%;
+
+    padding: 0.8rem;
+
+    background: var(--page-tint);
+    color: var(--page-soft);
+
+    font-family: var(--font-text);
+    font-size: 0.82rem;
+    text-align: center;
+}
+
+
+.doc--web .image-ratio-16-9 { aspect-ratio: 16 / 9; }
+.doc--web .image-ratio-4-3  { aspect-ratio: 4 / 3; }
+.doc--web .image-ratio-3-2  { aspect-ratio: 3 / 2; }
+.doc--web .image-ratio-1-1  { aspect-ratio: 1 / 1; }
+.doc--web .image-ratio-3-4  { aspect-ratio: 3 / 4; }
+.doc--web .image-ratio-9-16 { aspect-ratio: 9 / 16; }
+
+
+.doc--web .image-caption {
+    margin-top: 0.4rem;
+
+    color: var(--page-soft);
+
+    font-family: var(--font-text);
+    font-size: 0.8rem;
+    font-style: italic;
+    line-height: 1.4;
+}
+
+
+/* -------------------------------------------------- */
+/* Divider                                            */
+/* -------------------------------------------------- */
+
+.doc--web .widget--divider {
+    display: flex;
+    align-items: center;
+
+    gap: 1.5ch;
+
+    margin: 1.4rem 0;
+}
+
+
+.doc--web .divider-line {
+    flex: 1 1 auto;
+
+    height: 0;
+
+    border-top: 1px solid var(--page-line);
+}
+
+
+.doc--web .divider-label {
+    flex: 0 0 auto;
+
+    color: var(--page-soft);
+
+    font-family: var(--font-text);
+    font-size: 0.75rem;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+
+    text-transform: uppercase;
+}
+
+
+.doc--web .divider--double .divider-line {
+    border-top: 3px double var(--page-line);
+}
+
+
+.doc--web .divider--dashed .divider-line {
+    border-top-style: dashed;
+}
+
+
+.doc--web .divider--dotted .divider-line {
+    border-top-style: dotted;
+}
+
+
+.doc--web .divider--thick .divider-line {
+    border-top: 3px solid var(--accent);
+}
+
+
+.doc--web .divider--stars {
+    justify-content: center;
+}
+
+
+.doc--web .divider-mark {
+    color: var(--accent);
+
+    font-family: var(--font-head);
+    letter-spacing: 0.5em;
+}
+
+
+/* -------------------------------------------------- */
+/* Stamp: бейдж                                       */
+/* -------------------------------------------------- */
+
+.doc--web .widget--stamp.widget--align-left {
+    text-align: left;
+}
+
+
+.doc--web .widget--stamp.widget--align-center {
+    text-align: center;
+}
+
+
+.doc--web .widget--stamp.widget--align-right {
+    text-align: right;
+}
+
+
+/* На сайте штамп это плашка-метка: без поворота и двойной рамки */
+.doc--web .stamp {
+    --tone: var(--stamp-red);
+
+    display: inline-block;
+
+    padding: 0.2rem 0.7rem;
+
+    border: 1px solid var(--tone);
+    border-radius: 3px;
+
+    background: var(--tone);
+    color: #ffffff;
+
+    font-family: var(--font-text);
+    font-size: 0.78rem;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    line-height: 1.4;
+
+    text-transform: uppercase;
+
+    transform: none;
+}
+
+
+.doc--web .stamp--green {
+    --tone: var(--stamp-green);
+}
+
+
+.doc--web .stamp--blue {
+    --tone: var(--stamp-blue);
+}
+
+
+.doc--web .stamp--grey {
+    --tone: var(--stamp-grey);
+}
+
+
+/* -------------------------------------------------- */
+/* Signature: подпись под сообщением                  */
+/* -------------------------------------------------- */
+
+.doc--web .widget--signature {
+    display: inline-block;
+
+    min-width: 12rem;
+    max-width: 100%;
+
+    margin-right: 2rem;
+
+    padding-top: 0.4rem;
+
+    border-top: 1px solid var(--page-line);
+}
+
+
+/* Рукописной подписи на сайте нет */
+.doc--web .sig-hand,
+.doc--web .sig-line {
+    display: none;
+}
+
+
+.doc--web .sig-name {
+    font-weight: 700;
+}
+
+
+.doc--web .sig-role,
+.doc--web .sig-date {
+    color: var(--page-soft);
+    font-size: 0.82rem;
+}
+
+
+/* -------------------------------------------------- */
+/* Barcode                                            */
+/* -------------------------------------------------- */
+
+.doc--web .widget--barcode {
+    display: inline-flex;
+
+    flex-direction: column;
+    align-items: center;
+}
+
+
+.doc--web .barcode-bars {
+    font-family: var(--font-barcode);
+    font-size: 3rem;
+    line-height: 1;
+}
+
+
+.doc--web .barcode-text {
+    font-family: var(--font-mono);
+    font-size: 0.7rem;
+    letter-spacing: 0.15em;
+}
+
+
+/* -------------------------------------------------- */
+/* Log: консоль                                       */
+/* -------------------------------------------------- */
+
+.doc--web .widget--log {
+    padding: 0.7rem 0.9rem;
+
+    background: var(--log-bg);
+    color: var(--log-fg);
+
+    border-radius: 3px;
+
+    font-family: var(--font-mono);
+    font-size: 0.82rem;
+    line-height: 1.55;
+}
+
+
+.doc--web .log-line {
+    display: flex;
+
+    gap: 1.5ch;
+
+    white-space: pre-wrap;
+}
+
+
+.doc--web .log-time {
+    flex: 0 0 auto;
+    color: var(--log-debug);
+}
+
+
+.doc--web .log-level {
+    flex: 0 0 6ch;
+    font-weight: 700;
+}
+
+
+.doc--web .log-msg {
+    flex: 1;
+    min-width: 0;
+}
+
+
+.doc--web .log-info .log-level {
+    color: var(--log-info);
+}
+
+
+.doc--web .log-ok .log-level {
+    color: var(--log-ok);
+}
+
+
+.doc--web .log-warn .log-level {
+    color: var(--log-warn);
+}
+
+
+.doc--web .log-error .log-level {
+    color: var(--log-error);
+}
+
+
+.doc--web .log-debug .log-level {
+    color: var(--log-debug);
+}
+
+
+.doc--web .log-plain .log-msg {
+    padding-left: 17ch;
+}
+
+
+/* В логе замазка плоская: глитч на тёмном фоне не нужен */
+.doc--web .widget--log .spoiler--masked {
+    background: var(--log-fg);
+    color: var(--log-fg);
+
+    text-shadow: none;
+
+    animation: none;
+}
+
+
+/* -------------------------------------------------- */
+/* Checks: чекбоксы формы                             */
+/* -------------------------------------------------- */
+
+.doc--web .widget--checks {
+    display: flex;
+    flex-wrap: wrap;
+
+    gap: 0.5rem 2rem;
+}
+
+
+.doc--web .check {
+    display: inline-flex;
+    align-items: center;
+
+    gap: 0.7ch;
+
+    font-size: 0.9rem;
+}
+
+
+.doc--web .check-box {
+    position: relative;
+
+    display: inline-block;
+
+    width: 1.05em;
+    height: 1.05em;
+
+    box-sizing: border-box;
+
+    border: 1px solid var(--page-soft);
+    border-radius: 2px;
+
+    background: var(--page-bg);
+}
+
+
+.doc--web .check--on .check-box {
+    border-color: var(--accent);
+
+    background: var(--accent);
+}
+
+
+/* Галочка рисуется рамками, а не символом, чтобы не зависеть от шрифта */
+.doc--web .check--on .check-box::after {
+    content: "";
+
+    position: absolute;
+    left: 0.3em;
+    top: 0.05em;
+
+    width: 0.28em;
+    height: 0.58em;
+
+    border-right: 2px solid var(--accent-ink);
+    border-bottom: 2px solid var(--accent-ink);
+
+    transform: rotate(45deg);
+}
+
+
+/* -------------------------------------------------- */
+/* Infobox                                            */
+/* -------------------------------------------------- */
+
+.doc--web .md--infobox {
+    padding: 0.9rem 1rem;
+
+    background: var(--page-bg);
+    color: var(--page-text);
+
+    font-family: var(--font-text);
+    font-size: 0.9rem;
+    line-height: 1.5;
+}
+
+
+.doc--web .md--infobox p {
+    color: inherit;
+}
+
+
+/* -------------------------------------------------- */
+/* Узкое окно                                         */
+/* -------------------------------------------------- */
+
+@media (max-width: 640px) {
+    .doc--web {
+        --pad: 1rem;
+    }
+
+    .doc--web .md--body {
+        padding: 0.75rem 0.5rem;
+    }
+
+    .doc--web .md h1 {
+        font-size: 1.7rem;
+    }
+
+    .doc--web .mast-name {
+        font-size: 1.6rem;
+    }
+
+    .doc--web .mast-top {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+}
+
+
+/* -------------------------------------------------- */
+/* Печать                                             */
+/* -------------------------------------------------- */
+
+@media print {
+    .doc--web .md--body {
+        padding: 0;
+
+        background: #fff;
+    }
+
+    .doc--web .spoiler--masked,
+    .doc--web div.spoiler--masked {
+        animation: none;
+        clip-path: none;
+        transform: none;
+    }
+}
