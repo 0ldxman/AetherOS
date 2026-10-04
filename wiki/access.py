@@ -17,6 +17,16 @@ def guest_keys():
     return frozenset()
 
 
+def player_keys(user):
+    """Ключи игрока: у гостя и анонима их нет, у вошедшего берутся из его записей.
+
+    TODO: ключи с машины (machine.keys) добавятся вместе с сессиями на машинах.
+    """
+    if not user.is_authenticated:
+        return guest_keys()
+    return frozenset(user.keys.values_list("slug", flat=True))
+
+
 def _all_satisfied(conditions, keys):
     # пустое условие satisfied считает открытым, отдельно его обрабатывать не нужно
     return all(satisfied(c, keys) for c in conditions)

@@ -4,8 +4,10 @@ from django.db.models import Q
 from django.http import Http404, JsonResponse
 from django.shortcuts import render
 from django.urls import reverse
+from django.utils.safestring import mark_safe
 
-from .access import document_state, guest_keys, namespace_state
+from .access import document_state, namespace_state, player_keys
+from .markup import render as render_markup, visible_text
 from .models import Document, Namespace
 
 SEARCH_LIMIT = 100
@@ -13,8 +15,7 @@ SEARCH_MAX_LEN = 80
 
 
 def _keys(request):
-    # позже здесь будут настоящие ключи игрока
-    return guest_keys()
+    return player_keys(request.user)
 
 
 def _ns_path(ns):
@@ -193,7 +194,8 @@ def _namespace_page(request, ns):
 
 
 def _document_page(request, doc, via_direct_link=False):
-    state = document_state(doc, _keys(request), via_direct_link)
+    keys = _keys(request)
+    state = document_state(doc, keys, via_direct_link)
     if not state.visible:
         raise Http404
 
@@ -207,9 +209,19 @@ def _document_page(request, doc, via_direct_link=False):
     if request.GET.get("infobox"):
         if not doc.infobox.strip():
             raise Http404
-        return render(request, "wiki/infobox.html", {"doc": doc})
+        infobox_html = mark_safe(render_markup(doc.infobox, keys, "infobox"))
+        return render(
+            request,
+            "wiki/infobox.html",
+            {"doc": doc, "infobox_html": infobox_html},
+        )
 
-    return render(request, "wiki/document.html", {"doc": doc, "crumbs": crumbs})
+    body_html = mark_safe(render_markup(doc.body, keys, "body"))
+    return render(
+        request,
+        "wiki/document.html",
+        {"doc": doc, "crumbs": crumbs, "body_html": body_html},
+    )
 
 
 def resolve(request, path=""):
@@ -247,11 +259,10 @@ def direct(request, link):
 def _searchable_text(doc, keys):
     """Текст записи, по которому разрешено искать.
 
-    Сюда попадает только то, что игрок и так может прочитать.
-    TODO: когда появятся ::spoiler, вырезать блоки, для которых у игрока
-    нет нужного ключа, иначе по факту совпадения можно узнать их содержимое.
+    Сюда попадает только то, что игрок и так может прочитать: закрытые
+    ::spoiler вырезаны, иначе по факту совпадения можно узнать их содержимое.
     """
-    return doc.body
+    return visible_text(doc.body, keys)
 
 
 def search(request):
@@ -321,3 +332,11 @@ def search(request):
             found = needle in _searchable_text(doc, keys).casefold()
         if not found:
             continue
+
+        row = _doc_row(doc, s)
+        row.pop("updated", None)  # в выдаче не нужно, и datetime лишний в JSON
+        row["path"] = _path_text(doc.namespace)
+        rows.append(row)
+
+    rows.sort(key=lambda r: (r["path"], r["title"].casefold()))
+    return JsonResponse({"rows": rows[:SEARCH_LIMIT]})
