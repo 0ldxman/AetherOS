@@ -102,7 +102,7 @@ def _doc_rows(ns, keys):
             {
                 "id": doc.pk,
                 "title": doc.title,
-                "type": doc.get_type_display(),
+                "ext": doc.ext,
                 "updated": doc.updated_at,
                 "open": s.open,
                 "url": url,
@@ -136,7 +136,7 @@ def _namespace_page(request, ns):
         "wiki/explorer.html",
         {
             "tree": _tree(keys, ns),
-            "path_text": ns.path() if ns else ".",
+            "path_text": f"{_ns_path(ns)}/" if ns else "./",
             "locked": locked,
             # за замком даже список документов не отдаём
             "documents": [] if locked else _doc_rows(ns, keys),

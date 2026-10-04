@@ -7,45 +7,53 @@
   <nav class="side" aria-label="Неймспейсы">
     <ul class="tree">
       <li class="tree-root">
-        <div class="t-row">
-          <a class="node{% if tree.current %} current{% endif %}" href="{{ tree.url }}">.</a>
+        <div class="t-row{% if tree.current %} current{% endif %}">
+          <a class="node" href="{{ tree.url }}">.</a>
         </div>
         <ul>
         {% for node in tree.children %}{% include "wiki/_tree_node.html" %}{% endfor %}
         </ul>
       </li>
     </ul>
+
+    <div class="search">
+      <span class="search-prompt">&gt;</span>
+      <input type="text" placeholder="search" aria-label="Поиск" autocomplete="off" spellcheck="false">
+    </div>
   </nav>
 
   <section class="viewer">
-    <div class="viewer-path">{{ path_text }}</div>
+    <div class="viewer-path">
+      <span class="viewer-path-text">{{ path_text }}</span>
+      {% if not locked %}<span class="viewer-meta">records: {{ documents|length }}</span>{% endif %}
+    </div>
 
     <div class="viewer-body">
     {% if locked %}
-      <p class="empty">Доступ закрыт 🔒</p>
+      <div class="denied">
+        <div class="denied-title">ACCESS DENIED</div>
+        <div class="denied-line">&gt; restricted section</div>
+        <div class="denied-line">&gt; no matching key<span class="cursor"></span></div>
+      </div>
     {% elif documents %}
       <table class="grid" id="docs">
         <thead>
           <tr>
-            <th>название</th>
-            <th>тип</th>
-            <th>обновлено</th>
-            <th>доступ</th>
+            <th>name</th>
+            <th>access</th>
           </tr>
         </thead>
         <tbody>
         {% for d in documents %}
-          <tr data-doc-id="{{ d.id }}" data-title="{{ d.title }}" data-url="{{ d.url }}"{% if d.infobox_url %} data-infobox-url="{{ d.infobox_url }}"{% endif %}>
-            <td><a href="{{ d.url }}">{{ d.title }}</a></td>
-            <td>{{ d.type }}</td>
-            <td>{{ d.updated|date:"Y-m-d" }}</td>
-            <td class="{% if d.open %}state-open{% else %}state-locked{% endif %}">{% if d.open %}OPEN{% else %}LOCKED{% endif %}</td>
+          <tr{% if not d.open %} class="locked"{% endif %} data-doc-id="{{ d.id }}" data-title="{{ d.title }}" data-ext="{{ d.ext }}" data-url="{{ d.url }}"{% if d.infobox_url %} data-infobox-url="{{ d.infobox_url }}"{% endif %}>
+            <td data-sort="{{ d.title }}"><a href="{{ d.url }}">{{ d.title }}<span class="ext">{{ d.ext }}</span></a></td>
+            <td{% if d.open %} class="state-open"{% endif %}>{% if d.open %}OPEN{% else %}LOCKED{% endif %}</td>
           </tr>
         {% endfor %}
         </tbody>
       </table>
     {% else %}
-      <p class="empty">Нет документов.</p>
+      <p class="empty">&gt; no records</p>
     {% endif %}
     </div>
   </section>

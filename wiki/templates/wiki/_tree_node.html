@@ -1,20 +1,17 @@
 <li>
 {% if node.children %}
   <details data-ns="{{ node.id }}"{% if node.expanded %} open{% endif %}>
-    <summary class="t-row">
+    <summary class="t-row{% if node.current %} current{% endif %}{% if not node.open %} locked{% endif %}">
+      <a class="node" href="{{ node.url }}">{{ node.name }}</a>
       <span class="mark"></span>
-      <a class="node{% if node.current %} current{% endif %}" href="{{ node.url }}">{{ node.name }}</a>
-      {% if not node.open %}<span class="lock">🔒</span>{% endif %}
     </summary>
     <ul>
     {% for child in node.children %}{% include "wiki/_tree_node.html" with node=child %}{% endfor %}
     </ul>
   </details>
 {% else %}
-  <div class="t-row">
-    <span class="mark"></span>
-    <a class="node{% if node.current %} current{% endif %}" href="{{ node.url }}">{{ node.name }}</a>
-    {% if not node.open %}<span class="lock">🔒</span>{% endif %}
+  <div class="t-row{% if node.current %} current{% endif %}{% if not node.open %} locked{% endif %}">
+    <a class="node" href="{{ node.url }}">{{ node.name }}</a>
   </div>
 {% endif %}
 </li>

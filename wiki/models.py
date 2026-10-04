@@ -98,7 +98,7 @@ class Document(models.Model):
     class Type(models.TextChoices):
         DOCUMENT = "document", "Документ"  # статья с инфобоксом
         WEB = "web", "Веб-страница"  # страница "из внешней сети"
-
+    EXTENSIONS = {"document": ".doc", "web": ".snapshot"}
     namespace = models.ForeignKey(
         Namespace,
         null=True,
@@ -176,3 +176,7 @@ class Document(models.Model):
             raise ValidationError(
                 {"title": "Рядом уже есть раздел с таким названием."}
             )
+    
+    @property
+    def ext(self):
+        return self.EXTENSIONS.get(self.type, "")

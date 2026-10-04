@@ -97,10 +97,8 @@
             const id = row.dataset.docId;
             const title = row.dataset.title;
 
-            /*
-             * Пока все документы имеют тип .doc.
-             */
-            const windowTitle = title + ".doc";
+            /* расширение зависит от типа записи: .doc, .snapshot */
+            const windowTitle = title + (row.dataset.ext || ".doc");
 
             /*
              * Сначала инфобокс, потом документ:
@@ -120,6 +118,57 @@
                 windowTitle,
                 row.dataset.url
             );
+        });
+
+
+        /* ================================================== */
+        /* Table: сортировка по клику на заголовок             */
+        /* ================================================== */
+
+        /*
+         * Сортируем только уже отрисованные строки, а они
+         * приходят с сервера отфильтрованными по ключам.
+         */
+        const headers = table.querySelectorAll("thead th");
+        const collator = new Intl.Collator(undefined, {
+            numeric: true,
+            sensitivity: "base",
+        });
+
+        function sortValue(cell) {
+            return cell.dataset.sort || cell.textContent.trim();
+        }
+
+        headers.forEach(function (th, index) {
+            th.addEventListener("click", function () {
+                const asc = th.getAttribute("aria-sort") !== "ascending";
+
+                headers.forEach(function (h) {
+                    h.removeAttribute("aria-sort");
+                });
+
+                th.setAttribute(
+                    "aria-sort",
+                    asc ? "ascending" : "descending"
+                );
+
+                const tbody = table.tBodies[0];
+                const rows = Array.from(tbody.rows);
+
+                rows.sort(function (a, b) {
+                    /* data-sort нужен там, где в ячейке есть лишнее (название + расширение) */
+                    const x = sortValue(a.cells[index]);
+                    const y = sortValue(b.cells[index]);
+
+                    return asc
+                        ? collator.compare(x, y)
+                        : collator.compare(y, x);
+                });
+
+                rows.forEach(function (row) {
+                    tbody.appendChild(row);
+                });
+            });
         });
     }
 })();

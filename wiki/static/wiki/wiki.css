@@ -19,11 +19,18 @@
     --accent: #3fd0ff;
     --accent-green: #17e1b8;
     --accent-warn: #f5c644;
+    --accent-error: #e6304f;
 
-    /* цвет текущего неймспейса в дереве */
-    --select: var(--accent);
+    /* цвет плашки текущего неймспейса в дереве */
+    --select: var(--font-light);
 
-    --side-w: 14rem;
+    --side-w: 15rem;
+
+    /* высота строки: одна и для дерева, и для таблицы */
+    --row: 1.9em;
+
+    /* горизонтальный отступ viewer: путь, таблица и пустые состояния на одной линии */
+    --pad-x: 1.2rem;
 
     --font-main: "JetBrains Mono", ui-monospace, Menlo, Consolas, monospace;
 }
@@ -139,9 +146,12 @@ a {
 
 
 .side {
-    flex: 0 0 var(--side-w);
+    flex: 0 0 var(--side-w);   /* не растёт и не сжимается */
+    min-width: var(--side-w);
 
-    overflow: auto;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;           /* скроллится только дерево, поиск закреплён */
 
     background: var(--panel);
     border-right: 1px solid var(--line);
@@ -150,7 +160,8 @@ a {
 
 .viewer {
     flex: 1;
-    min-width: 0;
+    min-width: 0;              /* при нехватке места viewer сжимается до нуля */
+    overflow: hidden;
 
     display: flex;
     flex-direction: column;
@@ -160,11 +171,34 @@ a {
 .viewer-path {
     flex: 0 0 auto;
 
-    padding: 0.7rem 1rem;
+    display: flex;
+    align-items: baseline;
+    gap: 1rem;
 
-    border-bottom: 1px solid var(--line);
+    padding: 0.4rem var(--pad-x);
 
-    color: var(--font-light);
+    background: var(--font-light);
+
+    color: var(--font-dark);
+
+    font-size: 0.9rem;
+}
+
+
+.viewer-path-text {
+    min-width: 0;
+
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+
+.viewer-meta {
+    margin-left: auto;
+
+    color: var(--font-dark);
+    white-space: nowrap;
 }
 
 
@@ -177,7 +211,7 @@ a {
 
 .viewer-body .empty {
     margin: 0;
-    padding: 1rem;
+    padding: 1rem var(--pad-x);
 }
 
 
@@ -200,9 +234,13 @@ a {
 
 
 .tree {
-    --row: 1.9em;               /* высота строки: от неё считаются линии ветвей */
+    --tree-line: var(--font-light);   /* цвет линий структуры */
 
-    padding: 0.6rem 0.8rem 1rem;
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow: auto;
+
+    padding: 0 0.4rem 1rem;
 }
 
 
@@ -234,11 +272,12 @@ a {
     content: "";
 
     position: absolute;
+    z-index: 1;                     /* линии выше hover-полосы, но ниже плашек */
     left: 0.5ch;
     top: 0;
     bottom: 0;
 
-    border-left: 1px solid var(--line-bright);
+    border-left: 1px solid var(--tree-line);
 }
 
 
@@ -254,11 +293,12 @@ a {
     content: "";
 
     position: absolute;
+    z-index: 1;
     left: 0.5ch;
     top: calc(var(--row) / 2);
     width: 1.3ch;
 
-    border-top: 1px solid var(--line-bright);
+    border-top: 1px solid var(--tree-line);
 }
 
 
@@ -268,6 +308,11 @@ a {
     gap: 0.4ch;
 
     height: var(--row);
+
+    /* линии веток родителей, проходящие через эту строку (см. блок про плашки) */
+    --r1: transparent;
+    --r2: transparent;
+    --r3: transparent;
 }
 
 
@@ -282,6 +327,7 @@ summary.t-row::-webkit-details-marker {
 }
 
 
+/* стрелка раскрытия стоит справа от названия */
 .mark {
     flex: 0 0 1.4ch;
 
@@ -315,15 +361,192 @@ details[open] > summary .mark::before {
 }
 
 
-/* текущий неймспейс: блок цвета, как выбранный пункт в консольном меню */
-.node.current {
-    background: var(--select);
-    color: var(--font-dark);
+.t-row .lock {
+    font-size: 0.8em;
 }
 
 
-.t-row .lock {
-    font-size: 0.8em;
+/* hover строки: серая полоса на всю ширину панели (у current и locked своя плашка) */
+.t-row:not(.current):not(.locked):hover {
+    background: var(--row-selected);
+    box-shadow: 0 0 0 100vmax var(--row-selected);
+    clip-path: inset(0 -100vmax);
+}
+
+
+/* -------------------------------------------------- */
+/* Плашка на всю строку: текущий и закрытый неймспейс */
+/* -------------------------------------------------- */
+
+.t-row.current,
+.t-row.locked {
+    position: relative;
+    z-index: 2;                     /* плашка ложится поверх линий li */
+
+    background: var(--select);
+
+    /* растягиваем плашку до краёв панели, сверху и снизу обрезаем */
+    box-shadow: 0 0 0 100vmax var(--select);
+    clip-path: inset(0 -100vmax);
+
+    --v-len: 100%;                  /* вертикаль коннектора: ├ целиком */
+}
+
+
+.t-row.current {
+    --select: var(--font-light);
+}
+
+
+/* locked идёт ниже current: закрытый раздел остаётся красным, даже если он текущий */
+.t-row.locked {
+    --select: var(--accent-error);
+}
+
+
+/* последний пункт: коннектор └, вертикаль только до середины */
+li:last-child > .t-row.current,
+li:last-child > .t-row.locked,
+li:last-child > details > .t-row.current,
+li:last-child > details > .t-row.locked {
+    --v-len: 50%;
+}
+
+
+.t-row.current .node,
+.t-row.current .node:hover,
+.t-row.current .mark,
+.t-row.current .lock,
+.t-row.locked .node,
+.t-row.locked .node:hover,
+.t-row.locked .mark,
+.t-row.locked .lock {
+    color: var(--bg);
+}
+
+
+/* коннектор цвета bg: линия li под плашкой скрыта */
+.t-row.current::before,
+.t-row.locked::before {
+    content: "";
+
+    position: absolute;
+    left: -1.7ch;                   /* 0.5ch линии li минус 2.2ch отступа li */
+    top: 0;
+    bottom: 0;
+    width: 1.3ch;
+
+    --cur: linear-gradient(var(--bg), var(--bg));
+
+    background:
+        var(--cur) 0 0 / 1px var(--v-len) no-repeat,
+        var(--cur) 0 50% / 100% 1px no-repeat;
+}
+
+
+/* у корня "." линий нет */
+.tree-root > .t-row.current::before,
+.tree-root > .t-row.locked::before {
+    content: none;
+}
+
+
+/*
+ * Линии родителей через плашку.
+ *
+ * Вертикальная линия ветки принадлежит родительскому li и идёт через все
+ * его вложенные строки. Плашка лежит поверх неё, поэтому в этой строке
+ * линию нужно дорисовать цветом bg. Какие родители продолжают ветку
+ * (то есть не последние среди соседей), определяют селекторы ниже:
+ * --r1 родитель, --r2 дедушка, --r3 прадедушка (глубина до 4 уровней).
+ */
+.tree li:not(:last-child) > details > ul > li > .t-row,
+.tree li:not(:last-child) > details > ul > li > details > .t-row {
+    --r1: var(--bg);
+}
+
+.tree li:not(:last-child) > details > ul > li > details > ul > li > .t-row,
+.tree li:not(:last-child) > details > ul > li > details > ul > li > details > .t-row {
+    --r2: var(--bg);
+}
+
+.tree li:not(:last-child) > details > ul > li > details > ul > li > details > ul > li > .t-row,
+.tree li:not(:last-child) > details > ul > li > details > ul > li > details > ul > li > details > .t-row {
+    --r3: var(--bg);
+}
+
+
+/*
+ * Полоса слева от строки шириной 16ch. Линия родителя на расстоянии m уровней
+ * стоит в -(1.7 + 4.6m)ch от строки, то есть в (14.3 - 4.6m)ch от левого края полосы:
+ * m=1 даёт 9.7ch, m=2 даёт 5.1ch, m=3 даёт 0.5ch.
+ */
+.t-row.current::after,
+.t-row.locked::after {
+    content: "";
+
+    position: absolute;
+    left: -16ch;
+    top: 0;
+    bottom: 0;
+    width: 16ch;
+
+    background:
+        linear-gradient(var(--r1), var(--r1)) 9.7ch 0 / 1px 100% no-repeat,
+        linear-gradient(var(--r2), var(--r2)) 5.1ch 0 / 1px 100% no-repeat,
+        linear-gradient(var(--r3), var(--r3)) 0.5ch 0 / 1px 100% no-repeat;
+}
+
+
+/* -------------------------------------------------- */
+/* Поиск: закреплён внизу explorer                    */
+/* -------------------------------------------------- */
+
+.search {
+    flex: 0 0 auto;
+
+    display: flex;
+    align-items: center;
+    gap: 1ch;
+
+    height: calc(var(--row) + 0.3em);
+    padding: 0 0.8rem;
+
+    border-top: 1px solid var(--line);
+
+    color: var(--font-muted);
+}
+
+
+.search input {
+    flex: 1;
+    min-width: 0;
+
+    padding: 0;
+
+    background: transparent;
+    border: 0;
+    outline: none;
+
+    caret-color: var(--font-light);
+    color: var(--font-light);
+
+    font: inherit;
+}
+
+
+.search input::placeholder {
+    color: var(--font-muted);
+}
+
+
+.search:focus-within {
+    border-top-color: var(--font-light);
+}
+
+
+.search:focus-within .search-prompt {
+    color: var(--font-light);
 }
 
 
@@ -341,7 +564,8 @@ details[open] > summary .mark::before {
 
 .grid th,
 .grid td {
-    padding: 0.75em 1.2em;
+    height: var(--row);
+    padding: 0 var(--pad-x);
 
     text-align: left;
     white-space: nowrap;
@@ -353,13 +577,46 @@ details[open] > summary .mark::before {
     top: 0;
     z-index: 1;
 
-    background: var(--font-light);
+    background: var(--panel);
     border-bottom: 1px solid var(--line-bright);
 
-    color: var(--font-dark);
+    color: var(--fg);
 
     font-size: 0.9rem;
     font-weight: 600;
+
+    cursor: pointer;
+    user-select: none;
+}
+
+
+.grid th:hover,
+.grid th[aria-sort] {
+    color: var(--font-light);
+}
+
+
+/* иконка сортировки: фиксированной ширины, чтобы колонки не прыгали */
+.grid th::after {
+    content: "▴▾";
+
+    display: inline-block;
+    width: 3ch;
+    padding-left: 1ch;
+
+    color: var(--font-muted);
+}
+
+
+.grid th[aria-sort="ascending"]::after {
+    content: "▴";
+    color: var(--accent);
+}
+
+
+.grid th[aria-sort="descending"]::after {
+    content: "▾";
+    color: var(--accent);
 }
 
 
@@ -382,13 +639,43 @@ details[open] > summary .mark::before {
 }
 
 
+/* hover строки: как у выбранного неймспейса, светлая плашка и тёмный текст */
 .grid tbody tr:hover {
-    background: var(--row-hover);
+    background: var(--select);
+}
+
+
+.grid tbody tr:hover td,
+.grid tbody tr:hover td a {
+    color: var(--bg);
+}
+
+
+/* закрытая запись: красная строка с тёмным текстом */
+.grid tbody tr.locked {
+    background: var(--accent-error);
+}
+
+
+.grid tbody tr.locked td,
+.grid tbody tr.locked td a {
+    color: var(--bg);
+}
+
+
+.grid tbody tr.locked:hover {
+    filter: brightness(1.12);
 }
 
 
 .grid td:first-child a {
     color: var(--accent);
+}
+
+
+/* расширение в названии: приглушено, цвет наследует от строки */
+.ext {
+    opacity: 0.6;
 }
 
 
@@ -403,8 +690,53 @@ details[open] > summary .mark::before {
 }
 
 
-.state-locked {
-    color: var(--accent-warn);
+/* ACCESS DENIED во viewer: закрытый неймспейс */
+.denied {
+    padding: 1.2rem var(--pad-x);
+}
+
+
+.denied-title {
+    margin-bottom: 0.6rem;
+
+    color: var(--accent-error);
+
+    font-size: 1.3rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+}
+
+
+.denied-line {
+    color: var(--font-muted);
+}
+
+
+.cursor {
+    display: inline-block;
+    width: 0.6em;
+    height: 1em;
+    margin-left: 0.3ch;
+
+    background: var(--accent-error);
+
+    vertical-align: text-bottom;
+
+    animation: blink 1s steps(1) infinite;
+}
+
+
+@keyframes blink {
+    50% {
+        opacity: 0;
+    }
+}
+
+
+@media (prefers-reduced-motion: reduce) {
+    .cursor {
+        animation: none;
+    }
 }
 
 
@@ -413,7 +745,7 @@ details[open] > summary .mark::before {
 /* -------------------------------------------------- */
 
 @supports not selector(::-webkit-scrollbar) {
-    .side,
+    .tree,
     .viewer-body,
     body {
         scrollbar-width: thin;
@@ -421,45 +753,33 @@ details[open] > summary .mark::before {
     }
 }
 
-.side::-webkit-scrollbar,
+.tree::-webkit-scrollbar,
 .viewer-body::-webkit-scrollbar,
 body::-webkit-scrollbar {
     width: 0.7rem;
     height: 0.7rem;
 }
 
-.side::-webkit-scrollbar-track,
+.tree::-webkit-scrollbar-track,
 .viewer-body::-webkit-scrollbar-track,
 body::-webkit-scrollbar-track {
     background: var(--bg);
 }
 
-.side::-webkit-scrollbar-thumb,
+.tree::-webkit-scrollbar-thumb,
 .viewer-body::-webkit-scrollbar-thumb,
 body::-webkit-scrollbar-thumb {
     background: var(--line-bright);
     border: 1px solid var(--bg);
 }
 
-.side::-webkit-scrollbar-thumb:hover,
+.tree::-webkit-scrollbar-thumb:hover,
 .viewer-body::-webkit-scrollbar-thumb:hover,
 body::-webkit-scrollbar-thumb:hover {
     background: var(--accent);
 }
 
-.side::-webkit-scrollbar-corner,
+.tree::-webkit-scrollbar-corner,
 .viewer-body::-webkit-scrollbar-corner {
     background: var(--bg);
-}
-
-
-/* -------------------------------------------------- */
-/* Узкое окно: дерево сужается, таблица скроллится    */
-/* -------------------------------------------------- */
-
-@media (max-width: 520px) {
-
-    :root {
-        --side-w: 10rem;
-    }
 }
