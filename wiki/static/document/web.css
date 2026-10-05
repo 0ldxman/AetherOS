@@ -1507,3 +1507,175 @@ html:has(body.doc--web) {
         transform: none;
     }
 }
+
+
+.doc--web .widget--kv,
+.doc--web .widget--kvm {
+    margin: 0 0 0.8em;
+}
+
+.doc--web .kv-row {
+    display: grid;
+    grid-template-columns: var(--kv-key-width, 9rem) minmax(0, 1fr);
+    gap: 0 0.9rem;
+    padding: 0.15rem 0;
+}
+
+.doc--web .kv-key {
+    color: var(--ink-soft);
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 0.07em;
+    line-height: 2;
+    text-transform: uppercase;
+}
+
+.doc--web .kv-val {
+    min-width: 0;
+    overflow-wrap: anywhere;
+}
+
+.doc--web .kv-line + .kv-line {
+    margin-top: 0.15em;
+}
+
+.doc--web .widget--kv-border,
+.doc--web .widget--kvm-border {
+    border: 1px solid var(--rule);
+}
+
+.doc--web .widget--kv-border .kv-row,
+.doc--web .widget--kvm-border .kv-row {
+    gap: 0;
+    padding: 0;
+}
+
+.doc--web .widget--kv-border .kv-row + .kv-row,
+.doc--web .widget--kvm-border .kv-row + .kv-row {
+    border-top: 1px solid var(--rule-soft);
+}
+
+.doc--web .widget--kv-border .kv-key,
+.doc--web .widget--kvm-border .kv-key {
+    padding: var(--cell-pad);
+    border-right: 1px solid var(--rule-soft);
+    background: var(--shade);
+}
+
+.doc--web .widget--kv-border .kv-val,
+.doc--web .widget--kvm-border .kv-val {
+    padding: var(--cell-pad);
+}
+
+
+.doc--web .widget--timeline {
+    margin: 0 0 0.8em;
+}
+
+.doc--web .tl-row {
+    display: grid;
+    grid-template-columns: var(--tl-date-width, 6.5rem) 1.2rem minmax(0, 1fr);
+    column-gap: 0.4rem;
+}
+
+.doc--web .tl-date,
+.doc--web .tl-text {
+    padding-bottom: 0.9rem;
+    min-width: 0;
+    overflow-wrap: anywhere;
+}
+
+.doc--web .tl-date {
+    color: var(--ink-soft);
+    font-weight: 700;
+    text-align: right;
+}
+
+.doc--web .tl-row:last-child .tl-date,
+.doc--web .tl-row:last-child .tl-text {
+    padding-bottom: 0;
+}
+
+.doc--web .tl-dot {
+    position: relative;
+}
+
+.doc--web .tl-dot::before {
+    content: "";
+    position: absolute;
+    top: 0.475em;
+    left: 50%;
+    z-index: 1;
+    box-sizing: border-box;
+    width: 0.6em;
+    height: 0.6em;
+    border: 2px solid var(--rule);
+    border-radius: 50%;
+    background: var(--paper);
+    transform: translateX(-50%);
+}
+
+.doc--web .tl-dot::after {
+    content: "";
+    position: absolute;
+    top: 0.775em;
+    bottom: -0.775em;
+    left: 50%;
+    border-left: 1px solid var(--rule);
+    transform: translateX(-50%);
+}
+
+.doc--web .tl-row:last-child .tl-dot::after {
+    display: none;
+}
+
+
+.doc--web .fold {
+    margin: 1.2rem 0;
+    border: 1px solid var(--rule);
+}
+
+.doc--web .fold-head {
+    display: flex;
+    align-items: center;
+    gap: 0.8ch;
+    padding: 0.4rem 0.9rem;
+    background: var(--shade);
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    cursor: pointer;
+    user-select: none;
+    list-style: none;
+}
+
+.doc--web .fold-head::-webkit-details-marker {
+    display: none;
+}
+
+.doc--web .fold-head::before {
+    content: "+";
+    flex: 0 0 auto;
+    width: 1ch;
+    text-align: center;
+}
+
+.doc--web .fold[open] > .fold-head {
+    border-bottom: 1px solid var(--rule);
+}
+
+.doc--web .fold[open] > .fold-head::before {
+    content: "\2212";
+}
+
+.doc--web .fold-body {
+    padding: 0.7rem 0.9rem 0.1rem;
+}
+
+.doc--web .fold-body > :first-child {
+    margin-top: 0;
+}
+
+.doc--web .fold--masked > .fold-head {
+    display: none;
+}

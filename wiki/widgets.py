@@ -60,14 +60,16 @@ def widget(name, raw=False, positional=None, line=False):
     return register
 
 
-def render_widget(name, data, ctx):
+def render_widget(name, data, ctx, args=""):
     """html виджета или None, если такого виджета нет.
 
     data: словарь параметров (для raw-виджетов это строка с телом блока).
     ctx: объект с методом inline(текст) -> безопасный html.
     """
     entry = WIDGETS.get(name)
-    return entry.fn(data, ctx) if entry else None
+    if not entry:
+        return None
+    return entry.fn(data, ctx, args) if entry.raw else entry.fn(data, ctx)
 
 
 # =========================================================
@@ -172,7 +174,7 @@ _LOG_LINE = re.compile(
 
 
 @widget("log", raw=True)
-def log(text, ctx):
+def log(text, ctx, args=""):
     """Терминальный лог. Строка без времени и уровня выводится как есть."""
     rows = []
     for line in _lines(text):
@@ -199,7 +201,7 @@ _CHECK = re.compile(r"\[([ xX])\](?:\s+(.*))?$")
 
 
 @widget("checks", raw=True)
-def checks(text, ctx):
+def checks(text, ctx, args=""):
     """Чекбоксы: по одному на строку; строка без метки считается неотмеченной."""
     rows = []
     for line in _lines(text):
@@ -342,3 +344,73 @@ def site(params, ctx):
     if accent:
         classes += f" site-accent--{accent}"
     return f'<div class="{classes}"></div>\n'
+
+
+
+KV_FLAGS = ("border",)
+
+def _flags(args, allowed=KV_FLAGS):
+    return [w for w in (args or "").lower().split() if w in allowed]
+
+def _split_first(line, sep):
+    left, found, right = line.partition(sep)
+    return (left.strip(), right.strip()) if found else ("", line.strip())
+
+def _kv_class(name, args):
+    return " ".join(["widget", f"widget--{name}"] + [f"widget--{name}-{f}" for f in _flags(args)])
+
+
+@widget("kv", raw=True)
+def kv(text, ctx, args=""):
+    rows = []
+    for line in _lines(text):
+        key, value = _split_first(line, ":")
+        rows.append(
+            '<div class="kv-row">'
+            f'<div class="kv-key">{ctx.inline(key)}</div>'
+            f'<div class="kv-val">{ctx.inline(value)}</div></div>'
+        )
+    return f'<div class="{_kv_class("kv", args)}">' + "".join(rows) + "</div>\n"
+
+
+@widget("kvm", raw=True)
+def kvm(text, ctx, args=""):
+    chunks, current = [], []
+    for line in (text or "").split("\n"):
+        if line.strip() == "--":
+            chunks.append(current)
+            current = []
+        else:
+            current.append(line.strip())
+    chunks.append(current)
+
+    rows = []
+    for chunk in chunks[:MAX_LINES]:
+        chunk = [x for x in chunk if x]
+        if not chunk:
+            continue
+        key, first = _split_first(chunk[0], ":")
+        value = "".join(
+            f'<div class="kv-line">{ctx.inline(x)}</div>'
+            for x in ([first] + chunk[1:]) if x
+        )
+        rows.append(
+            '<div class="kv-row">'
+            f'<div class="kv-key">{ctx.inline(key)}</div>'
+            f'<div class="kv-val">{value}</div></div>'
+        )
+    return f'<div class="{_kv_class("kvm", args)}">' + "".join(rows) + "</div>\n"
+
+
+@widget("timeline", raw=True)
+def timeline(text, ctx, args=""):
+    rows = []
+    for line in _lines(text):
+        date, event = _split_first(line, "|")
+        rows.append(
+            '<div class="tl-row">'
+            f'<div class="tl-date">{ctx.inline(date)}</div>'
+            '<div class="tl-dot"></div>'
+            f'<div class="tl-text">{ctx.inline(event)}</div></div>'
+        )
+    return '<div class="widget widget--timeline">' + "".join(rows) + "</div>\n"

@@ -49,7 +49,8 @@ INSTALLED_APPS = [
     'mail',
     'wiki',
     'desktop',
-    'apps'
+    'apps',
+    'map'
 ]
 INSTALLED_APPS += [
     "django.contrib.sites",

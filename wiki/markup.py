@@ -117,7 +117,8 @@ PARAM_MAX_LEN = 300   # длина одного значения парамет�
 RAW_MAX_LEN = 5000    # длина тела raw-виджета (log, checks)
 
 # контейнеры: имена, у которых внутри обычная разметка (в WIDGETS их нет)
-CONTAINERS = ("section", "box", "grid")
+CONTAINERS = ("section", "box", "grid", "fold")
+FOLD_DEFAULT_TITLE = "Подробнее"
 GRID_MAX_COLS = 12
 GRID_MAX_CELLS = 200
 BOX_FLAGS = ("border", "dark", "center", "right", "small", "big", "bold", "muted", "flush")
@@ -360,7 +361,7 @@ def _widget_rule(state, start, end, silent):
     token.block = True
     token.markup = "::" + name
     token.map = [start, state.line]
-    token.meta = {"name": name, "data": data}
+    token.meta = {"name": name, "data": data, "args": args if raw else ""}
     return True
 
 
@@ -376,6 +377,12 @@ def _section_meta(args):
         num, title = "", args
     return {"num": num.strip()[:8], "title": title.strip()[:PARAM_MAX_LEN]}
 
+def _fold_meta(args):
+    words = args.split()
+    is_open = bool(words) and words[-1].lower() == "open"
+    if is_open:
+        words = words[:-1]
+    return {"title": " ".join(words)[:PARAM_MAX_LEN], "open": is_open}
 
 def _box_meta(args):
     """Слова из BOX_FLAGS по порядку, без повторов; остальное игнорируется."""
@@ -421,6 +428,7 @@ def _tokenize_range(state, a, b):
     state.md.block.tokenize(state, a, b)
     state.parentType, state.lineMax = old_parent, old_max
 
+_CONTAINER_META = {"section": _section_meta, "box": _box_meta, "fold": _fold_meta}
 
 def _container_rule(state, start, end, silent):
     if state.sCount[start] - state.blkIndent >= 4:
@@ -458,7 +466,7 @@ def _container_rule(state, start, end, silent):
         token.block = True
         token.markup = "::" + name
         token.map = [start, nxt]
-        token.meta = _section_meta(args) if name == "section" else _box_meta(args)
+        token.meta = _CONTAINER_META[name](args)
         _tokenize_range(state, start + 1, nxt)
         token = state.push(name + "_close", "div", -1)
         token.block = True
@@ -604,7 +612,7 @@ def _render_widget_token(tokens, idx, options, env):
     if meta.get("masked"):
         return MASKED_WIDGET
     try:
-        html = render_widget(meta["name"], meta["data"], _ctx(env))
+        html = render_widget(meta["name"], meta["data"], _ctx(env), meta.get("args", ""))
     except Exception:
         return '<div class="widget widget--error"></div>\n'  # сломанный виджет не роняет страницу
     if html is None:
@@ -635,6 +643,13 @@ def _render_box_open(tokens, idx, options, env):
     cls = " ".join(["box"] + [f"box--{flag}" for flag in flags])
     return f'<div class="{cls}">\n'
 
+def _render_fold_open(tokens, idx, options, env):
+    meta = tokens[idx].meta
+    if meta.get("masked"):
+        return '<details class="fold fold--masked" open><summary class="fold-head"></summary><div class="fold-body">\n'
+    title = _ctx(env).inline(meta.get("title") or FOLD_DEFAULT_TITLE)
+    open_attr = " open" if meta.get("open") else ""
+    return f'<details class="fold"{open_attr}><summary class="fold-head">{title}</summary><div class="fold-body">\n'
 
 def _render_grid_open(tokens, idx, options, env):
     meta = tokens[idx].meta
@@ -679,6 +694,8 @@ _md.renderer.rules["section_open"] = _render_section_open
 _md.renderer.rules["section_close"] = lambda tokens, idx, options, env: "</div></div>\n"
 _md.renderer.rules["box_open"] = _render_box_open
 _md.renderer.rules["box_close"] = lambda tokens, idx, options, env: "</div>\n"
+_md.renderer.rules["fold_open"] = _render_fold_open
+_md.renderer.rules["fold_close"] = lambda tokens, idx, options, env: "</div></details>\n"
 
 
 def _mask(text):
@@ -747,7 +764,7 @@ def _process(text, keys):
         elif tok.type == "spoiler_close":
             items.append((tok, masked))
             masked = parents.pop()
-        elif tok.type in ("section_open", "box_open", "grid_open", "cell_open"):
+        elif tok.type in ("section_open", "box_open", "grid_open", "cell_open", "fold_open"):
             if masked:
                 tok.meta = {"masked": True}  # заголовок, флаги, подписи и раскладку не выводим
             items.append((tok, masked))

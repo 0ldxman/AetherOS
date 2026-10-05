@@ -75,6 +75,7 @@
      * Открытие по клику на строку. Работает и для таблицы
      * документов раздела, и для таблицы результатов поиска.
      */
+    const INFOBOX_WINDOW = { width: 320, height: 440 };
     function bindOpen(table) {
         table.addEventListener("click", function (event) {
             const row = event.target.closest("tr[data-url]");
@@ -111,7 +112,8 @@
                 desktop.openApp(
                     "info-" + id,
                     title + ".info",
-                    row.dataset.infoboxUrl
+                    row.dataset.infoboxUrl,
+                    INFOBOX_WINDOW
                 );
             }
 

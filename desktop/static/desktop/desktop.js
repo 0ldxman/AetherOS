@@ -149,7 +149,7 @@ function applyHeaderMinWidth(win, root) {
   }
 }
 
-function openApp(id, label, url) {
+function openApp(id, label, url, options = {}) {
   const existing = openWindows[id];
 
   if (existing) {
@@ -175,6 +175,8 @@ function openApp(id, label, url) {
     height: 320,
 
     url: url,
+
+    ...options,
 
     onclose: () => {
       if (win._minObserver) win._minObserver.disconnect();

@@ -31,7 +31,8 @@ urlpatterns = [
     path("auth/guest/", auth_views.guest_api),
     path("auth/logout/", auth_views.logout_api),
     path("apps/", include("apps.urls")),
-    path("apps/wiki/", include("wiki.urls"))
+    path("apps/wiki/", include("wiki.urls")),
+    path('apps/map/', include('map.urls')),
 ]
 
 if settings.DEBUG:

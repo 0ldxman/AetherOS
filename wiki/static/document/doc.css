@@ -1277,3 +1277,174 @@ html:has(body.doc--doc) {
         page-break-after: auto;
     }
 }
+
+
+.doc--doc .widget--kv,
+.doc--doc .widget--kvm {
+    margin: 0 0 0.8em;
+}
+
+.doc--doc .kv-row {
+    display: grid;
+    grid-template-columns: var(--kv-key-width, 9rem) minmax(0, 1fr);
+    gap: 0 0.9rem;
+    padding: 0.15rem 0;
+}
+
+.doc--doc .kv-key {
+    color: var(--ink-soft);
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 0.07em;
+    line-height: 2;
+    text-transform: uppercase;
+}
+
+.doc--doc .kv-val {
+    min-width: 0;
+    overflow-wrap: anywhere;
+}
+
+.doc--doc .kv-line + .kv-line {
+    margin-top: 0.15em;
+}
+
+.doc--doc .widget--kv-border,
+.doc--doc .widget--kvm-border {
+    border: 1px solid var(--rule);
+}
+
+.doc--doc .widget--kv-border .kv-row,
+.doc--doc .widget--kvm-border .kv-row {
+    gap: 0;
+    padding: 0;
+}
+
+.doc--doc .widget--kv-border .kv-row + .kv-row,
+.doc--doc .widget--kvm-border .kv-row + .kv-row {
+    border-top: 1px solid var(--rule-soft);
+}
+
+.doc--doc .widget--kv-border .kv-key,
+.doc--doc .widget--kvm-border .kv-key {
+    padding: var(--cell-pad);
+    border-right: 1px solid var(--rule-soft);
+    background: var(--shade);
+}
+
+.doc--doc .widget--kv-border .kv-val,
+.doc--doc .widget--kvm-border .kv-val {
+    padding: var(--cell-pad);
+}
+
+
+.doc--doc .widget--timeline {
+    margin: 0 0 0.8em;
+}
+
+.doc--doc .tl-row {
+    display: grid;
+    grid-template-columns: var(--tl-date-width, 6.5rem) 1.2rem minmax(0, 1fr);
+    column-gap: 0.4rem;
+}
+
+.doc--doc .tl-date,
+.doc--doc .tl-text {
+    padding-bottom: 0.9rem;
+    min-width: 0;
+    overflow-wrap: anywhere;
+}
+
+.doc--doc .tl-date {
+    color: var(--ink-soft);
+    font-weight: 700;
+    text-align: right;
+}
+
+.doc--doc .tl-row:last-child .tl-date,
+.doc--doc .tl-row:last-child .tl-text {
+    padding-bottom: 0;
+}
+
+.doc--doc .tl-dot {
+    position: relative;
+}
+
+.doc--doc .tl-dot::before {
+    content: "";
+    position: absolute;
+    top: 0.475em;
+    left: 50%;
+    z-index: 1;
+    box-sizing: border-box;
+    width: 0.6em;
+    height: 0.6em;
+    border: 2px solid var(--rule);
+    border-radius: 50%;
+    background: var(--paper);
+    transform: translateX(-50%);
+}
+
+.doc--doc .tl-dot::after {
+    content: "";
+    position: absolute;
+    top: 0.775em;
+    bottom: -0.775em;
+    left: 50%;
+    border-left: 1px solid var(--rule);
+    transform: translateX(-50%);
+}
+
+.doc--doc .tl-row:last-child .tl-dot::after {
+    display: none;
+}
+
+.doc--doc .fold {
+    margin: 1.2rem 0;
+    border: 1px solid var(--rule);
+}
+
+.doc--doc .fold-head {
+    display: flex;
+    align-items: center;
+    gap: 0.8ch;
+    padding: 0.4rem 0.9rem;
+    background: var(--shade);
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    cursor: pointer;
+    user-select: none;
+    list-style: none;
+}
+
+.doc--doc .fold-head::-webkit-details-marker {
+    display: none;
+}
+
+.doc--doc .fold-head::before {
+    content: "+";
+    flex: 0 0 auto;
+    width: 1ch;
+    text-align: center;
+}
+
+.doc--doc .fold[open] > .fold-head {
+    border-bottom: 1px solid var(--rule);
+}
+
+.doc--doc .fold[open] > .fold-head::before {
+    content: "\2212";
+}
+
+.doc--doc .fold-body {
+    padding: 0.7rem 0.9rem 0.1rem;
+}
+
+.doc--doc .fold-body > :first-child {
+    margin-top: 0;
+}
+
+.doc--doc .fold--masked > .fold-head {
+    display: none;
+}
