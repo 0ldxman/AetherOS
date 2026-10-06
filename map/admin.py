@@ -1,13 +1,17 @@
+import json
 from datetime import date
 
 from django.contrib import admin
 from django.core.exceptions import PermissionDenied
+from django.db import transaction
 from django.http import JsonResponse
 from django.template.response import TemplateResponse
 from django.urls import path
 
 from .models import Country, CountryLabel, Ownership, Province
 from .views import _latest_ownerships
+
+APPLY_MAX_PROVINCES = 10000
 
 
 class CountryLabelInline(admin.TabularInline):
@@ -52,6 +56,8 @@ class OwnershipAdmin(admin.ModelAdmin):
                  name="map_ownership_country_provinces"),
             path("editor/province/", self.admin_site.admin_view(self.province_info_view),
                  name="map_ownership_province_info"),
+            path("editor/apply/", self.admin_site.admin_view(self.apply_view),
+                 name="map_ownership_apply"),
         ]
         return custom + super().get_urls()
 
@@ -64,6 +70,8 @@ class OwnershipAdmin(admin.ModelAdmin):
             "title": "Редактор территорий",
             "opts": self.model._meta,
             "countries": Country.objects.order_by("name", "code"),
+            # кнопка передачи показывается только тем, кто может создавать и менять владения
+            "can_apply": self.has_add_permission(request) and self.has_change_permission(request),
         }
         return TemplateResponse(request, "admin/map/ownership/editor.html", context)
 
@@ -140,6 +148,104 @@ class OwnershipAdmin(admin.ModelAdmin):
             "wiki_url": province.wiki_url,
             "owner": owner,
             "history": history,
+        })
+
+    def apply_view(self, request):
+        """Передача выделенных провинций стране с даты.
+
+        POST JSON: {"codes": [adm1_code, ...], "country": id, "date": "YYYY-MM-DD",
+                    "de_jure": bool, "de_facto": bool}
+
+        Для каждой провинции:
+        - есть запись ровно на эту дату: она обновляется (страна и права);
+        - иначе, если на эту дату владение уже точно такое же, ничего не делается;
+        - иначе создаётся новая запись с этой датой.
+        Более поздние записи не трогаются и продолжают действовать со своих дат.
+        Всё выполняется одной транзакцией: при ошибке не меняется ничего.
+        """
+        if request.method != "POST":
+            return JsonResponse({"error": "нужен POST"}, status=405)
+        if not (self.has_add_permission(request) and self.has_change_permission(request)):
+            raise PermissionDenied
+
+        try:
+            payload = json.loads(request.body or b"{}")
+            codes = payload["codes"]
+            country_id = int(payload["country"])
+            on_date = date.fromisoformat(payload["date"])
+            de_jure = bool(payload.get("de_jure", True))
+            de_facto = bool(payload.get("de_facto", True))
+        except (ValueError, KeyError, TypeError):
+            return JsonResponse({"error": "неверный запрос"}, status=400)
+
+        if not isinstance(codes, list) or not all(isinstance(c, str) for c in codes):
+            return JsonResponse({"error": "codes должен быть списком строк"}, status=400)
+        codes = list(dict.fromkeys(codes))  # без повторов, порядок сохраняется
+        if not codes:
+            return JsonResponse({"error": "ничего не выделено"}, status=400)
+        if len(codes) > APPLY_MAX_PROVINCES:
+            return JsonResponse(
+                {"error": f"слишком много провинций (максимум {APPLY_MAX_PROVINCES})"}, status=400
+            )
+        if not (de_jure or de_facto):
+            return JsonResponse({"error": "нужно выбрать de jure или de facto"}, status=400)
+
+        country = Country.objects.filter(pk=country_id).first()
+        if country is None:
+            return JsonResponse({"error": "страна не найдена"}, status=404)
+        if on_date < country.valid_from or (country.valid_to and on_date > country.valid_to):
+            period = f"{country.valid_from} - {country.valid_to or '...'}"
+            return JsonResponse(
+                {"error": f"страна {country.code} существует {period}, дата {on_date} вне этого периода"},
+                status=400,
+            )
+
+        provinces = {p.source_code: p for p in Province.objects.filter(source_code__in=codes)}
+        missing = [c for c in codes if c not in provinces]
+
+        # история владений выбранных провинций: от новых записей к старым
+        by_province = {}
+        for o in Ownership.objects.filter(province__in=provinces.values()).order_by(
+            "province_id", "-date_from", "-id"
+        ):
+            by_province.setdefault(o.province_id, []).append(o)
+
+        wanted = (country.pk, de_jure, de_facto)
+        to_create, to_update = [], []
+        unchanged = later = 0
+
+        for province in provinces.values():
+            rows = by_province.get(province.pk, [])
+            exact = next((o for o in rows if o.date_from == on_date), None)
+            current = next((o for o in rows if o.date_from <= on_date), None)
+            if any(o.date_from > on_date for o in rows):
+                later += 1
+
+            if exact is not None:
+                if (exact.country_id, exact.de_jure, exact.de_facto) == wanted:
+                    unchanged += 1
+                else:
+                    exact.country = country
+                    exact.de_jure, exact.de_facto = de_jure, de_facto
+                    to_update.append(exact)
+            elif current is not None and (current.country_id, current.de_jure, current.de_facto) == wanted:
+                unchanged += 1  # на эту дату владение и так такое
+            else:
+                to_create.append(Ownership(
+                    province=province, country=country, date_from=on_date,
+                    de_jure=de_jure, de_facto=de_facto,
+                ))
+
+        with transaction.atomic():
+            Ownership.objects.bulk_create(to_create)
+            Ownership.objects.bulk_update(to_update, ["country", "de_jure", "de_facto"])
+
+        return JsonResponse({
+            "created": len(to_create),
+            "updated": len(to_update),
+            "unchanged": unchanged,
+            "later": later,
+            "missing": missing,
         })
 
 
