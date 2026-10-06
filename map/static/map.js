@@ -11,6 +11,35 @@ const COLORS = {
 const GRID_STEP = 10; // шаг сетки в градусах; жирные линии каждые 30°
 const DEFAULT_PROVINCE_COLOR = '#cccccc';
 
+// Подписи стран по рангам (ранг задаётся в БД у CountryLabel).
+// minzoom - с какого зума подпись видна, size - пары [зум, размер текста].
+const LABEL_RANKS = {
+  1: { minzoom: 0,   size: [1, 12, 4, 18, 7, 26] },
+  2: { minzoom: 2.5, size: [2.5, 10, 5, 15, 8, 22] },
+  3: { minzoom: 4,   size: [4, 10, 7, 14, 9, 18] },
+  4: { minzoom: 5.5, size: [5.5, 9, 8, 12, 10, 15] },
+};
+const labelLayerId = (rank) => `country-labels-${rank}`;
+
+// Режимы карты. Для каждого режима перечислены слои, которые видны ТОЛЬКО в нём
+// (воду, леса и дороги режимы не трогают). Слой, которого нет в списке
+// текущего режима, но есть в списке другого, скрывается.
+// Позже сюда добавятся слои названий объектов.
+// Режим редактора территорий: /apps/map/?edit=1 (карта внутри админки)
+const EDIT_MODE = new URLSearchParams(window.location.search).get('edit') === '1';
+
+const DEFAULT_MODE = 'political';
+const MODE_LAYERS = {
+  political: [
+    'adm1-fill',
+    'adm1-boundaries',
+    'adm1-selected',
+    'adm1-selected-line',
+    ...Object.keys(LABEL_RANKS).map(labelLayerId),
+  ],
+  physical: [],
+};
+
 let provinceCodes = {}; // adm1_code -> code из БД
 
 const pmtilesProtocol = new pmtiles.Protocol();
@@ -25,6 +54,7 @@ const map = new maplibregl.Map({
   style: 'https://tiles.openfreemap.org/styles/liberty',
   center: [10, 50],
   zoom: 2,
+  hash: true,
 });
 
 // Глобус по умолчанию (при сильном приближении MapLibre сам переходит в плоский вид)
@@ -55,6 +85,87 @@ function buildColorExpression(colors) {
   return expr;
 }
 
+// Режим из адреса страницы: ?mode=political|physical (неизвестное значение = по умолчанию)
+function getUrlMode() {
+  const mode = new URLSearchParams(window.location.search).get('mode');
+  return Object.hasOwn(MODE_LAYERS, mode) ? mode : DEFAULT_MODE;
+}
+
+let currentMode = getUrlMode();
+let layersReady = false; // true, когда все наши слои добавлены в карту
+
+// Показывает слои текущего режима, прячет слои остальных, подсвечивает кнопку
+function applyMode() {
+  for (const btn of document.querySelectorAll('#mode-panel [data-mode]')) {
+    btn.classList.toggle('active', btn.dataset.mode === currentMode);
+  }
+  if (!layersReady) return;
+
+  const visibleIds = new Set(MODE_LAYERS[currentMode]);
+  const allIds = new Set(Object.values(MODE_LAYERS).flat());
+  for (const id of allIds) {
+    if (!map.getLayer(id)) continue;
+    map.setLayoutProperty(id, 'visibility', visibleIds.has(id) ? 'visible' : 'none');
+  }
+}
+
+// Переключение режима: обновляет карту и пишет ?mode=... в адрес (хэш и ?date= сохраняются)
+function setMapMode(mode) {
+  if (!Object.hasOwn(MODE_LAYERS, mode)) return;
+  currentMode = mode;
+
+  const params = new URLSearchParams(window.location.search);
+  params.set('mode', mode);
+  history.replaceState(
+    history.state,
+    '',
+    `${window.location.pathname}?${params}${window.location.hash}`
+  );
+
+  applyMode();
+}
+
+document.querySelectorAll('#mode-panel [data-mode]').forEach((btn) => {
+  btn.addEventListener('click', () => setMapMode(btn.dataset.mode));
+});
+applyMode(); // подсветка кнопки при старте
+
+// Дата из адреса страницы: ?date=YYYY-MM-DD (без параметра - последние владельцы)
+function getUrlDate() {
+  return new URLSearchParams(window.location.search).get('date');
+}
+
+// Добавляет ?date=... к адресу API, если дата есть в адресе страницы
+function withDate(url) {
+  const date = getUrlDate();
+  return date ? `${url}?date=${encodeURIComponent(date)}` : url;
+}
+
+// Подписи стран: загрузка точек из БД и показ на карте
+function loadCountryLabels() {
+  if (typeof COUNTRY_LABELS_URL === 'undefined') {
+    console.error('COUNTRY_LABELS_URL не объявлена в шаблоне');
+    return;
+  }
+
+  fetch(withDate(COUNTRY_LABELS_URL))
+    .then((r) => {
+      if (!r.ok) throw new Error(`HTTP ${r.status}`);
+      return r.json();
+    })
+    .then((labels) => {
+      map.getSource('country-labels').setData({
+        type: 'FeatureCollection',
+        features: labels.map((l) => ({
+          type: 'Feature',
+          properties: { text: l.text, rank: l.rank },
+          geometry: { type: 'Point', coordinates: [l.lng, l.lat] },
+        })),
+      });
+    })
+    .catch((err) => console.error('Не удалось загрузить подписи стран', err));
+}
+
 // Загрузка цветов и кодов с сервера и применение к слою заливки
 function loadProvinceColors() {
   if (typeof PROVINCE_COLORS_URL === 'undefined') {
@@ -62,7 +173,7 @@ function loadProvinceColors() {
     return;
   }
 
-  fetch(PROVINCE_COLORS_URL)
+  fetch(withDate(PROVINCE_COLORS_URL))
     .then((r) => {
       if (!r.ok) throw new Error(`HTTP ${r.status}`);
       return r.json();
@@ -264,8 +375,71 @@ map.on('load', () => {
     },
   });
 
+  // Выделение провинций (только в режиме редактора): подсветка и контур.
+  // Список выделенных задаётся фильтром, см. applySelection().
+  if (EDIT_MODE) {
+    const noProvinces = ['in', ['get', 'adm1_code'], ['literal', []]];
+
+    map.addLayer({
+      id: 'adm1-selected',
+      type: 'fill',
+      source: 'adm1',
+      'source-layer': 'aether_provinces',
+      filter: noProvinces,
+      paint: { 'fill-color': '#ffcf4d', 'fill-opacity': 0.45 },
+    }, 'graticule-lines');
+
+    map.addLayer({
+      id: 'adm1-selected-line',
+      type: 'line',
+      source: 'adm1',
+      'source-layer': 'aether_provinces',
+      filter: noProvinces,
+      paint: { 'line-color': '#ffcf4d', 'line-width': 2 },
+    }, 'graticule-lines');
+  }
+
+  // Названия стран: самыми верхними слоями, по одному слою на ранг.
+  // Слои добавляются от мелкого ранга к крупному: верхний слой первым
+  // занимает место, поэтому при пересечении побеждает более крупная страна.
+  map.addSource('country-labels', {
+    type: 'geojson',
+    data: { type: 'FeatureCollection', features: [] },
+  });
+
+  for (const rank of Object.keys(LABEL_RANKS).sort((a, b) => b - a)) {
+    const style = LABEL_RANKS[rank];
+    map.addLayer({
+      id: labelLayerId(rank),
+      type: 'symbol',
+      source: 'country-labels',
+      minzoom: style.minzoom,
+      filter: ['==', ['get', 'rank'], Number(rank)],
+      layout: {
+        'text-field': ['get', 'text'],
+        'text-font': ['Noto Sans Regular'],
+        'text-size': ['interpolate', ['linear'], ['zoom'], ...style.size],
+        'text-transform': 'uppercase',
+        'text-letter-spacing': 0.15,
+        'text-max-width': 8,
+      },
+      paint: {
+        'text-color': '#dce6f0',
+        'text-halo-color': '#05070a',
+        'text-halo-width': 1.5,
+        'text-opacity': ['interpolate', ['linear'], ['zoom'], 0, 0.85, 8, 0.85, 10, 0],
+      },
+    });
+  }
+
+  // Режим карты (слои уже все на месте)
+  layersReady = true;
+  applyMode();
+  applySelection();
+
   // Цвета стран: в самом конце, чтобы ошибка здесь ничего не ломала
   loadProvinceColors();
+  loadCountryLabels();
 });
 
 // Курсор-прицел
@@ -320,3 +494,94 @@ document.documentElement.addEventListener('mouseleave', () => {
   crosshair.classList.remove('visible');
   info.classList.remove('visible');
 });
+
+// ---------------------------------------------------------------------------
+// Режим выбора точки: /apps/map/?pick=1
+// Карта открыта внутри админки (iframe). Клик ставит маркер и отправляет
+// координаты родительской странице; родитель может прислать координаты обратно
+// (например, когда их ввели руками), тогда маркер сдвигается.
+// Сообщения принимаются и отправляются только в рамках одного адреса сайта.
+// ---------------------------------------------------------------------------
+const PICK_MODE = new URLSearchParams(window.location.search).get('pick') === '1';
+let pickMarker = null;
+
+function setPickPoint(lng, lat) {
+  if (!pickMarker) {
+    const el = document.createElement('div');
+    el.className = 'pick-marker';
+    pickMarker = new maplibregl.Marker({ element: el });
+  }
+  pickMarker.setLngLat([lng, lat]).addTo(map);
+}
+
+function clearPickPoint() {
+  if (pickMarker) {
+    pickMarker.remove();
+    pickMarker = null;
+  }
+}
+
+if (PICK_MODE) {
+  map.on('click', (e) => {
+    const { lng, lat } = e.lngLat.wrap();
+    setPickPoint(lng, lat);
+    window.parent.postMessage({ type: 'aether-map-pick', lng, lat }, window.location.origin);
+  });
+
+  window.addEventListener('message', (e) => {
+    if (e.origin !== window.location.origin || e.source !== window.parent) return;
+    const d = e.data || {};
+    if (d.type !== 'aether-map-set') return;
+
+    if (Number.isFinite(d.lng) && Number.isFinite(d.lat)) {
+      setPickPoint(d.lng, d.lat);
+      map.easeTo({ center: [d.lng, d.lat], zoom: Math.max(map.getZoom(), 3) });
+    } else {
+      clearPickPoint();
+    }
+  });
+
+  // Сообщаем родителю, что карта готова принимать координаты
+  window.parent.postMessage({ type: 'aether-map-ready' }, window.location.origin);
+}
+
+// ---------------------------------------------------------------------------
+// Режим редактора территорий: /apps/map/?edit=1
+// Карта открыта внутри админки. Клик по провинции отправляется родительской
+// странице (она хранит выделение), родитель присылает список выделенных
+// провинций обратно, и карта их подсвечивает.
+// ---------------------------------------------------------------------------
+let selectionCodes = []; // adm1_code выделенных провинций
+
+function applySelection() {
+  if (!EDIT_MODE || !layersReady || !map.getLayer('adm1-selected')) return;
+
+  const filter = ['in', ['get', 'adm1_code'], ['literal', selectionCodes]];
+  map.setFilter('adm1-selected', filter);
+  map.setFilter('adm1-selected-line', filter);
+}
+
+if (EDIT_MODE) {
+  map.on('click', 'adm1-fill', (e) => {
+    const code = e.features[0].properties.adm1_code;
+    const ev = e.originalEvent;
+    const toggle = ev.shiftKey || ev.ctrlKey || ev.metaKey;
+    window.parent.postMessage(
+      { type: 'aether-map-province-click', code, toggle },
+      window.location.origin
+    );
+  });
+
+  window.addEventListener('message', (e) => {
+    if (e.origin !== window.location.origin || e.source !== window.parent) return;
+    const d = e.data || {};
+
+    if (d.type === 'aether-map-selection' && Array.isArray(d.codes)) {
+      selectionCodes = d.codes;
+      applySelection();
+    }
+  });
+
+  // Сообщаем родителю, что карта готова: он пришлёт текущее выделение
+  window.parent.postMessage({ type: 'aether-map-ready' }, window.location.origin);
+}

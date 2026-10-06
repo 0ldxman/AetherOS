@@ -1,0 +1,295 @@
+{% extends "admin/base_site.html" %}
+
+{% block breadcrumbs %}
+<div class="breadcrumbs">
+  <a href="{% url 'admin:index' %}">Главная</a> &rsaquo; Редактор территорий
+</div>
+{% endblock %}
+
+{% block content %}
+<style>
+  #te { display: flex; gap: 16px; align-items: flex-start; }
+  #te-map { flex: 1; min-width: 0; }
+  #te-frame {
+    display: block;
+    width: 100%;
+    height: 78vh;
+    border: 1px solid var(--border-color, #ccc);
+    background: #05070a;
+  }
+  #te-side { width: 360px; flex: none; }
+  .te-box { border: 1px solid var(--border-color, #ccc); padding: 10px 12px; margin-bottom: 12px; }
+  .te-box h3 { margin: 0 0 8px; font-size: 13px; }
+  .te-hint { margin: 6px 0 0; color: var(--body-quiet-color, #666); font-size: 12px; }
+  .te-row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  .te-row select { max-width: 100%; }
+  .te-swatch {
+    display: inline-block;
+    width: 12px;
+    height: 12px;
+    vertical-align: -1px;
+    margin-right: 4px;
+    border: 1px solid rgba(0, 0, 0, 0.4);
+  }
+  #te-info table { width: 100%; margin-top: 8px; }
+  #te-info td, #te-info th { padding: 3px 6px; font-size: 12px; }
+  #te-info tr.te-current td { font-weight: bold; }
+  #te-status { min-height: 1.2em; font-size: 12px; color: var(--body-quiet-color, #666); }
+</style>
+
+<div id="te">
+  <div id="te-map">
+    <iframe id="te-frame" src="{% url 'map:index' %}?edit=1" title="Карта"></iframe>
+  </div>
+
+  <div id="te-side">
+    <div class="te-box">
+      <h3>Дата просмотра</h3>
+      <div class="te-row">
+        <input type="date" id="te-date">
+        <button type="button" class="button" id="te-date-apply">Показать</button>
+      </div>
+      <p class="te-hint">Пусто: самые свежие владельцы. Дата влияет на цвета, названия и данные ниже.</p>
+    </div>
+
+    <div class="te-box">
+      <h3>Выделение</h3>
+      <div class="te-row">
+        <span id="te-count">Выделено: 0</span>
+        <button type="button" class="button" id="te-clear">Очистить</button>
+      </div>
+      <p class="te-hint">Клик: выделить только эту провинцию. Shift или Ctrl + клик: добавить или убрать провинцию.</p>
+    </div>
+
+    <div class="te-box">
+      <h3>Выделить страну целиком</h3>
+      <select id="te-country">
+        {% for c in countries %}
+        <option value="{{ c.id }}">{{ c.name }} ({{ c.code }})</option>
+        {% endfor %}
+      </select>
+      <div class="te-row" style="margin-top: 8px;">
+        <button type="button" class="button" id="te-country-replace">Выделить</button>
+        <button type="button" class="button" id="te-country-add">Добавить к выделению</button>
+      </div>
+      <p class="te-hint">Только выделяет провинции, ничего не меняет.</p>
+      <div id="te-status"></div>
+    </div>
+
+    <div class="te-box">
+      <h3>Провинция</h3>
+      <div id="te-info">Кликните по провинции на карте.</div>
+    </div>
+  </div>
+</div>
+
+<script>
+  const URLS = {
+    map: "{% url 'map:index' %}",
+    info: "{% url 'admin:map_ownership_province_info' %}",
+    country: "{% url 'admin:map_ownership_country_provinces' %}",
+  };
+</script>
+
+{% verbatim %}
+<script>
+(function () {
+  const frame = document.getElementById('te-frame');
+  const dateInput = document.getElementById('te-date');
+  const countSel = document.getElementById('te-count');
+  const statusEl = document.getElementById('te-status');
+  const infoEl = document.getElementById('te-info');
+  const countrySelect = document.getElementById('te-country');
+
+  const selected = new Set(); // adm1_code выделенных провинций
+  let viewDate = '';          // дата, на которую сейчас показана карта ('' = самые свежие)
+  let infoRequest = 0;        // номер последнего запроса инспектора (старые ответы игнорируются)
+
+  // ---------- вспомогательное ----------
+  function el(tag, text, className) {
+    const node = document.createElement(tag);
+    if (text !== undefined) node.textContent = text;
+    if (className) node.className = className;
+    return node;
+  }
+
+  function dateParam() {
+    return viewDate ? `&date=${encodeURIComponent(viewDate)}` : '';
+  }
+
+  function setStatus(text) {
+    statusEl.textContent = text || '';
+  }
+
+  // ---------- выделение ----------
+  function sendSelection() {
+    frame.contentWindow.postMessage(
+      { type: 'aether-map-selection', codes: [...selected] },
+      window.location.origin
+    );
+  }
+
+  function renderSelection() {
+    countSel.textContent = `Выделено: ${selected.size}`;
+  }
+
+  function setSelection(codes, add) {
+    if (!add) selected.clear();
+    codes.forEach((c) => selected.add(c));
+    renderSelection();
+    sendSelection();
+  }
+
+  function onProvinceClick(code, toggle) {
+    if (toggle) {
+      if (selected.has(code)) selected.delete(code);
+      else selected.add(code);
+    } else {
+      selected.clear();
+      selected.add(code);
+    }
+    renderSelection();
+    sendSelection();
+    loadInfo(code);
+  }
+
+  async function selectCountry(countryId, add) {
+    setStatus('Загрузка...');
+    try {
+      const r = await fetch(`${URLS.country}?country=${encodeURIComponent(countryId)}${dateParam()}`);
+      if (!r.ok) throw new Error(`HTTP ${r.status}`);
+      const data = await r.json();
+      if (data.codes.length === 0) {
+        setStatus('У этой страны нет провинций на выбранную дату.');
+        return;
+      }
+      setSelection(data.codes, add);
+      setStatus(`Провинций страны: ${data.codes.length}`);
+    } catch (err) {
+      setStatus(`Ошибка: ${err.message}`);
+    }
+  }
+
+  // ---------- инспектор ----------
+  async function loadInfo(code) {
+    const request = ++infoRequest;
+    infoEl.dataset.code = code; // активная провинция (нужна при смене даты)
+    infoEl.textContent = 'Загрузка...';
+    try {
+      const r = await fetch(`${URLS.info}?source_code=${encodeURIComponent(code)}${dateParam()}`);
+      if (request !== infoRequest) return;
+      if (!r.ok) throw new Error(r.status === 404 ? 'провинция не найдена в БД' : `HTTP ${r.status}`);
+      renderInfo(await r.json());
+    } catch (err) {
+      if (request === infoRequest) infoEl.textContent = `Ошибка: ${err.message}`;
+    }
+  }
+
+  function swatch(color) {
+    const s = el('span', undefined, 'te-swatch');
+    s.style.background = color;
+    return s;
+  }
+
+  function renderInfo(p) {
+    infoEl.textContent = '';
+
+    infoEl.append(el('strong', p.name));
+    infoEl.append(el('div', `${p.code}  ·  ${p.source_code}`, 'te-hint'));
+
+    const owner = el('div');
+    owner.style.marginTop = '8px';
+    if (p.owner) {
+      owner.append('Владелец: ', swatch(p.owner.color), `${p.owner.name} (${p.owner.code})`);
+    } else {
+      owner.append('Владельца на эту дату нет.');
+    }
+    infoEl.append(owner);
+
+    if (p.owner) {
+      const btn = el('button', 'Выделить всю страну', 'button');
+      btn.type = 'button';
+      btn.style.marginTop = '6px';
+      btn.addEventListener('click', () => selectCountry(p.owner.id, false));
+      infoEl.append(btn);
+    }
+
+    if (p.wiki_url) {
+      const link = el('a', 'wiki');
+      link.href = p.wiki_url;
+      link.target = '_blank';
+      link.rel = 'noopener';
+      const wrap = el('div');
+      wrap.style.marginTop = '6px';
+      wrap.append(link);
+      infoEl.append(wrap);
+    }
+
+    const table = el('table');
+    const head = el('tr');
+    ['с даты', 'страна', 'права'].forEach((t) => head.append(el('th', t)));
+    table.append(head);
+
+    for (const h of p.history) {
+      const tr = el('tr', undefined, h.current ? 'te-current' : '');
+      const rights = [h.de_jure && 'jure', h.de_facto && 'facto'].filter(Boolean).join('+');
+      const countryCell = el('td');
+      countryCell.append(swatch(h.color), `${h.country} (${h.country_code})`);
+      tr.append(el('td', h.date_from), countryCell, el('td', rights));
+      table.append(tr);
+    }
+    infoEl.append(el('div', 'История владения (жирным: действует на дату):', 'te-hint'));
+    infoEl.append(table);
+  }
+
+  // ---------- дата и перезагрузка карты ----------
+  function reloadFrame() {
+    let params = new URLSearchParams();
+    let hash = '';
+    try {
+      // сохраняем положение карты и режим (political/physical)
+      params = new URLSearchParams(frame.contentWindow.location.search);
+      hash = frame.contentWindow.location.hash;
+    } catch (e) { /* первый запуск: берём пустые значения */ }
+
+    params.set('edit', '1');
+    if (viewDate) params.set('date', viewDate);
+    else params.delete('date');
+
+    frame.src = `${URLS.map}?${params}${hash}`;
+  }
+
+  // ---------- события ----------
+  window.addEventListener('message', (e) => {
+    if (e.origin !== window.location.origin || e.source !== frame.contentWindow) return;
+    const d = e.data || {};
+
+    if (d.type === 'aether-map-ready') sendSelection();
+    else if (d.type === 'aether-map-province-click') onProvinceClick(d.code, d.toggle);
+  });
+
+  document.getElementById('te-date-apply').addEventListener('click', () => {
+    viewDate = dateInput.value;
+    reloadFrame();
+    setStatus('');
+    const active = infoEl.dataset.code;
+    if (active) loadInfo(active);
+  });
+
+  document.getElementById('te-clear').addEventListener('click', () => {
+    setSelection([], false);
+    setStatus('');
+  });
+
+  document.getElementById('te-country-replace').addEventListener('click', () => {
+    selectCountry(countrySelect.value, false);
+  });
+  document.getElementById('te-country-add').addEventListener('click', () => {
+    selectCountry(countrySelect.value, true);
+  });
+
+  renderSelection();
+})();
+</script>
+{% endverbatim %}
+{% endblock %}

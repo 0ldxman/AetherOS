@@ -1,4 +1,4 @@
-from django.core.validators import RegexValidator
+from django.core.validators import MaxValueValidator, MinValueValidator, RegexValidator
 from django.db import models
 from django.db.models import F, Q
 
@@ -83,3 +83,50 @@ class Ownership(models.Model):
 
     def __str__(self):
         return f"{self.province} → {self.country} с {self.date_from}"
+
+
+class CountryLabel(models.Model):
+    """Подпись страны на карте. У одной страны может быть несколько подписей
+    (основная территория, острова, заморские владения)."""
+
+    # Ранги совпадают с ключами LABEL_RANKS в map.js (размер и зум показа)
+    class Rank(models.IntegerChoices):
+        MAJOR = 1, "Крупная"
+        MEDIUM = 2, "Средняя"
+        SMALL = 3, "Малая"
+        TINY = 4, "Мелкая"
+
+    country = models.ForeignKey(
+        Country,
+        on_delete=models.CASCADE,
+        related_name="labels",
+    )
+    text = models.CharField(
+        "Текст",
+        max_length=128,
+        blank=True,
+        help_text="Пусто - берётся название страны",
+    )
+    lng = models.FloatField(
+        "Долгота",
+        validators=[MinValueValidator(-180), MaxValueValidator(180)],
+    )
+    lat = models.FloatField(
+        "Широта",
+        validators=[MinValueValidator(-90), MaxValueValidator(90)],
+    )
+    rank = models.PositiveSmallIntegerField(
+        "Ранг",
+        choices=Rank.choices,
+        default=Rank.MEDIUM,
+    )
+
+    class Meta:
+        ordering = ["country", "rank", "id"]
+
+    @property
+    def display_text(self):
+        return self.text or self.country.name
+
+    def __str__(self):
+        return f"{self.display_text} ({self.lng}, {self.lat})"

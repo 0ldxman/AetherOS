@@ -10,12 +10,18 @@
 </head>
 <body>
   <div id="map"></div>
+  <div id="mode-panel">
+    <div class="title">map.mode</div>
+    <button type="button" data-mode="political">political</button>
+    <button type="button" data-mode="physical">physical</button>
+  </div>
     <script src="https://unpkg.com/maplibre-gl@5/dist/maplibre-gl.js"></script>
     <script src="https://unpkg.com/pmtiles@4.3.0/dist/pmtiles.js"></script>
     <script>
         const ISLANDS_URL = "{% static 'data/aether_lands.geojson' %}";
         const ADM1_PMTILES_URL = "{% static 'data/aether_provinces.pmtiles' %}";
         const PROVINCE_COLORS_URL = "{% url 'map:province_colors' %}";
+        const COUNTRY_LABELS_URL = "{% url 'map:country_labels' %}";
     </script>
     <script src="{% static 'map.js' %}"></script>
 </body>
