@@ -32,6 +32,13 @@ APPS = [
         "suffix": ".mon",
         "url_name": "sessions",
     },
+    {
+        "id": "map",
+        "label": "world",
+        "glyph": "M",
+        "suffix": ".map",
+        "url_name": "map:index",
+    },
 ]
 
 def desktop(request):

@@ -9,6 +9,16 @@ const COLORS = {
 };
 
 const GRID_STEP = 10; // шаг сетки в градусах; жирные линии каждые 30°
+const DEFAULT_PROVINCE_COLOR = '#cccccc';
+
+let provinceCodes = {}; // adm1_code -> code из БД
+
+const pmtilesProtocol = new pmtiles.Protocol();
+
+maplibregl.addProtocol(
+  'pmtiles',
+  pmtilesProtocol.tile
+);
 
 const map = new maplibregl.Map({
   container: 'map',
@@ -31,6 +41,44 @@ const isForestLayer = (l) =>
   /wood|forest/i.test(l.id);
 const isRoadLayer = (l) =>
   l.type === 'line' && l['source-layer'] === 'transportation';
+
+// Выражение раскраски провинций: adm1_code -> цвет страны
+function buildColorExpression(colors) {
+  const entries = Object.entries(colors);
+  if (entries.length === 0) return DEFAULT_PROVINCE_COLOR;
+
+  const expr = ['match', ['get', 'adm1_code']];
+  for (const [code, color] of entries) {
+    expr.push(code, color);
+  }
+  expr.push(DEFAULT_PROVINCE_COLOR);
+  return expr;
+}
+
+// Загрузка цветов и кодов с сервера и применение к слою заливки
+function loadProvinceColors() {
+  if (typeof PROVINCE_COLORS_URL === 'undefined') {
+    console.error('PROVINCE_COLORS_URL не объявлена в шаблоне');
+    return;
+  }
+
+  fetch(PROVINCE_COLORS_URL)
+    .then((r) => {
+      if (!r.ok) throw new Error(`HTTP ${r.status}`);
+      return r.json();
+    })
+    .then((data) => {
+      const colors = {};
+      provinceCodes = {};
+      for (const [sourceCode, item] of Object.entries(data)) {
+        colors[sourceCode] = item.color;
+        provinceCodes[sourceCode] = item.code;
+      }
+      console.log('Цвета провинций загружены:', Object.keys(colors).length);
+      map.setPaintProperty('adm1-fill', 'fill-color', buildColorExpression(colors));
+    })
+    .catch((err) => console.error('Не удалось загрузить цвета провинций', err));
+}
 
 // Координатная сетка: меридианы и параллели
 function makeGraticule(step) {
@@ -124,13 +172,76 @@ map.on('load', () => {
     paint: { 'fill-color': COLORS.land },
   });
 
-  // Всё оставленное из подложки, кроме фона и воды (леса, здания, дороги),
-  // переносим наверх, поверх островов. Порядок между ними сохраняется.
+  map.addSource('adm1', {
+    type: 'vector',
+    url: `pmtiles://${ADM1_PMTILES_URL}`,
+  });
+
+  // Границы провинций: пунктир
+  map.addLayer({
+    id: 'adm1-boundaries',
+    type: 'line',
+    source: 'adm1',
+    'source-layer': 'aether_provinces',
+    paint: {
+      'line-color': '#8fb4d9',
+      'line-dasharray': [3, 2],
+      'line-width': [
+        'interpolate',
+        ['linear'],
+        ['zoom'],
+        1, 0.35,
+        3, 0.5,
+        5, 0.8,
+        8, 1.2,
+        12, 1.5,
+      ],
+      'line-opacity': [
+        'interpolate',
+        ['linear'],
+        ['zoom'],
+        1, 0.2,
+        3, 0.35,
+        5, 0.55,
+        8, 0.7,
+        11, 0.7,
+        14, 0,
+      ],
+    },
+  });
+
+  // Заливка провинций: под границами, ~20% непрозрачности,
+  // на больших зумах (8 -> 11) плавно исчезает
+  map.addLayer({
+    id: 'adm1-fill',
+    type: 'fill',
+    source: 'adm1',
+    'source-layer': 'aether_provinces',
+    paint: {
+      'fill-color': DEFAULT_PROVINCE_COLOR,
+      'fill-opacity': [
+        'interpolate',
+        ['linear'],
+        ['zoom'],
+        0, 0.2,
+        8, 0.2,
+        11, 0,
+      ],
+    },
+  }, 'adm1-boundaries');
+
+  map.on('click', 'adm1-fill', (e) => {
+    console.log(e.features[0].properties);
+  });
+
+  // Леса, здания и дороги переносим наверх, поверх островов, заливки и границ.
   const overlayIds = map.getStyle().layers
     .filter(l =>
       !isBackground(l) &&
       !isWaterLayer(l) &&
-      l.id !== 'aether-lands-fill'
+      l.id !== 'aether-lands-fill' &&
+      l.id !== 'adm1-fill' &&
+      l.id !== 'adm1-boundaries'
     )
     .map(l => l.id);
 
@@ -152,6 +263,9 @@ map.on('load', () => {
       'line-opacity': ['case', ['get', 'major'], 0.35, 0.15],
     },
   });
+
+  // Цвета стран: в самом конце, чтобы ошибка здесь ничего не ломала
+  loadProvinceColors();
 });
 
 // Курсор-прицел
@@ -160,12 +274,49 @@ crosshair.id = 'crosshair';
 crosshair.innerHTML = '<div class="h"></div><div class="v"></div><div class="box"></div>';
 document.body.appendChild(crosshair);
 
+// Подпись у курсора: координаты (мелко) и код провинции из БД (чуть крупнее)
+const info = document.createElement('div');
+info.id = 'cursor-info';
+info.innerHTML = '<span class="coords"></span><span class="prov"></span>';
+document.body.appendChild(info);
+
+const coordsEl = info.querySelector('.coords');
+const provEl = info.querySelector('.prov');
+
+const fmtCoord = (v, pos, neg) => `${Math.abs(v).toFixed(2)}°${v >= 0 ? pos : neg}`;
+
+let infoFrame = 0;
+let lastMapEvent = null;
+
+map.on('mousemove', (e) => {
+  lastMapEvent = e;
+  if (infoFrame) return;
+  infoFrame = requestAnimationFrame(() => {
+    infoFrame = 0;
+    const { lngLat, point } = lastMapEvent;
+
+    coordsEl.textContent =
+      Number.isFinite(lngLat.lat) && Number.isFinite(lngLat.lng)
+        ? `${fmtCoord(lngLat.lat, 'N', 'S')} ${fmtCoord(lngLat.lng, 'E', 'W')}`
+        : '';
+
+    const hit = map.getLayer('adm1-fill')
+      ? map.queryRenderedFeatures(point, { layers: ['adm1-fill'] })[0]
+      : null;
+    provEl.textContent = hit ? (provinceCodes[hit.properties.adm1_code] || '') : '';
+  });
+});
+
 window.addEventListener('mousemove', (e) => {
   crosshair.style.setProperty('--x', `${e.clientX}px`);
   crosshair.style.setProperty('--y', `${e.clientY}px`);
   crosshair.classList.add('visible');
+
+  info.style.transform = `translate(${e.clientX + 16}px, ${e.clientY + 16}px)`;
+  info.classList.add('visible');
 });
 
 document.documentElement.addEventListener('mouseleave', () => {
   crosshair.classList.remove('visible');
+  info.classList.remove('visible');
 });
