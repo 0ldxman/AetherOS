@@ -35,8 +35,6 @@
  * Тогда замените первый шрифт в --font-body (например, на Cutive Mono)
  * и добавьте его в @import.
  */
-@import url('https://fonts.googleapis.com/css2?family=Cousine:ital,wght@0,400;0,700;1,400&family=Courier+Prime:ital,wght@0,400;0,700;1,400;1,700&family=Caveat:wght@500&family=Libre+Barcode+39&display=swap');
-
 
 /* -------------------------------------------------- */
 /* Переменные                                         */

@@ -26,6 +26,10 @@
 
   {# Общие токены интерфейса. Всегда первыми: страницы в iframe не наследуют их от оболочки. #}
   <link rel="stylesheet" href="{% static 'ui/tokens.css' %}">
+  {# Шрифты: один файл на весь проект, как и tokens.css. #}
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="{% static 'ui/fonts.css' %}">
 
   {# Тема машины — поверх токенов. Пока machine_theme нигде не задаётся, блок ничего не выводит. #}
   {% if machine_theme %}<link rel="stylesheet" href="{% static 'ui/themes/'|add:machine_theme|add:'.css' %}">{% endif %}
