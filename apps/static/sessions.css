@@ -74,8 +74,7 @@ body {
 
 .sessions-subtitle {
     margin-top: 2px;
-
-    color: #777;
+    color: var(--font-muted);
     font-size: 9px;
     letter-spacing: 0.08em;
 }
@@ -85,7 +84,7 @@ body {
     display: flex;
     gap: 7px;
 
-    color: #666;
+    color: var(--font-muted);
 
     font-size: 9px;
 }
@@ -295,7 +294,7 @@ body {
 
 
 .state-stale {
-    color: #888;
+    color: var(--font-muted);
 }
 
 
@@ -349,8 +348,8 @@ body {
     border: 1px solid var(--line-bright);
 
     box-shadow:
-        0 0 0 1px #111,
-        0 8px 40px rgba(0, 0, 0, 0.55);
+        0 0 0 1px var(--bg-sunken),                  /* было #111 */
+        0 8px 40px rgba(0, 0, 0, 0.55);              /* оставил как есть */
 
     z-index: 100;
 }
@@ -372,7 +371,7 @@ body {
 
     background: var(--font-light);
 
-    color: #141414;
+    color: var(--font-dark);
 }
 
 
@@ -390,7 +389,7 @@ body {
 
     background: transparent;
 
-    color: #e5484d;
+    color: var(--status-error);
 
     font: inherit;
     font-size: 18px;
@@ -400,7 +399,7 @@ body {
 
 
 #inspector-close:hover {
-    background: #191919;
+    background: var(--bg);
     color: var(--font-light);
 }
 
@@ -434,7 +433,7 @@ body {
 
 
 .field-label {
-    color: #666;
+    color: var(--font-muted);
 
     font-size: 9px;
 }

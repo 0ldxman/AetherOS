@@ -1,19 +1,21 @@
+{% extends "ui/base.html" %}
 {% load static %}
-<!doctype html>
-<html lang="ru">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>{% block title %}aether.db{% endblock %}</title>
-  <link rel="stylesheet" href="{% static 'wiki/wiki.css' %}">
-  {% block head %}{% endblock %}
-  <script src="{% static 'wiki/wiki.js' %}" defer></script>
-</head>
-<body class="{% block body_class %}{% endblock %}">
+
+{% block title %}{% block wiki_title %}aether.db{% endblock %}{% endblock %}
+
+{% block css %}
+<link rel="stylesheet" href="{% static 'wiki/wiki.css' %}">
+{% block head %}{% endblock %}
+{% endblock %}
+
+{% block head_extra %}
+<script src="{% static 'wiki/wiki.js' %}" defer></script>
+{% endblock %}
+
+{% block body_attrs %} class="{% block body_class %}{% endblock %}"{% endblock %}
+
 {% block body %}
 <main class="page">
 {% block content %}{% endblock %}
 </main>
 {% endblock %}
-</body>
-</html>

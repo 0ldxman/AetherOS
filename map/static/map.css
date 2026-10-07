@@ -1,7 +1,11 @@
+:root {
+  --map-space: #05070a; /* цвет «космоса» вокруг глобуса; держать в согласии с map.js и админкой */
+}
+
 html, body {
   margin: 0;
   height: 100%;
-  background: #05070a; /* цвет «космоса» вокруг глобуса */
+  background: var(--map-space);
 }
 
 #map {
@@ -38,14 +42,14 @@ html, body {
 #crosshair .h {
   width: 100%;
   height: 1px;
-  background: rgba(220, 230, 240, 0.45);
+  background: color-mix(in srgb, var(--font-light) 45%, transparent);
   transform: translateY(var(--y, 0));
 }
 
 #crosshair .v {
   width: 1px;
   height: 100%;
-  background: rgba(220, 230, 240, 0.45);
+  background: color-mix(in srgb, var(--font-light) 45%, transparent);
   transform: translateX(var(--x, 0));
 }
 
@@ -53,7 +57,7 @@ html, body {
   width: 16px;
   height: 16px;
   box-sizing: border-box;
-  border: 1px solid #dce6f0;
+  border: 1px solid var(--font-light);
   transform: translate(calc(var(--x, 0px) - 8px), calc(var(--y, 0px) - 8px));
 }
 
@@ -68,12 +72,12 @@ html, body {
   pointer-events: none;
   opacity: 0;
   z-index: 10;
-  font-family: ui-monospace, Menlo, Consolas, monospace;
-  color: #8fb4d9;
+  font-family: var(--font-main);
+  color: var(--accent);
 }
 #cursor-info.visible { opacity: 1; }
 #cursor-info .coords { font-size: 8px; letter-spacing: 0.04em; opacity: 0.8; }
-#cursor-info .prov   { font-size: 11px; color: #fff; }
+#cursor-info .prov   { font-size: 11px; color: var(--font-light); }
 
 /* Окошко переключения режима карты */
 #mode-panel {
@@ -84,16 +88,16 @@ html, body {
   display: flex;
   flex-direction: column;
   min-width: 150px;
-  background: rgba(5, 7, 10, 0.85);
-  border: 1px solid rgba(143, 180, 217, 0.5);
-  font-family: ui-monospace, Menlo, Consolas, monospace;
+  background: color-mix(in srgb, var(--bg) 85%, transparent);
+  border: 1px solid var(--window-border);
+  font-family: var(--font-main);
   font-size: 11px;
-  color: #8fb4d9;
+  color: var(--font-light);
 }
 
 #mode-panel .title {
   padding: 4px 8px;
-  border-bottom: 1px solid rgba(143, 180, 217, 0.5);
+  border-bottom: 1px solid var(--window-border);
   letter-spacing: 0.08em;
   opacity: 0.7;
 }
@@ -116,12 +120,12 @@ html, body {
 }
 
 #mode-panel button:hover {
-  background: rgba(143, 180, 217, 0.15);
+  background: color-mix(in srgb, var(--window-border) 15%, transparent);
 }
 
 #mode-panel button.active {
-  background: #8fb4d9;
-  color: #05070a;
+  background: var(--window-border);
+  color: var(--font-dark);
 }
 
 #mode-panel button.active::before {
@@ -133,9 +137,9 @@ html, body {
   width: 18px;
   height: 18px;
   box-sizing: border-box;
-  border: 2px solid #ffcf4d;
+  border: 2px solid var(--status-warn);
   border-radius: 50%;
-  background: rgba(255, 207, 77, 0.25);
+  background: color-mix(in srgb, var(--status-warn) 25%, transparent);
   pointer-events: none;
 }
 
@@ -148,5 +152,5 @@ html, body {
   height: 4px;
   margin: -2px 0 0 -2px;
   border-radius: 50%;
-  background: #ffcf4d;
+  background: var(--status-warn);
 }

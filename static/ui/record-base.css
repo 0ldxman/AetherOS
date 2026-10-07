@@ -1,0 +1,1482 @@
+/* ==================================================
+   RECORD BASE  (общая основа для rec и infobox)
+
+   Файл лежит в static/ui/ и подключается через @import
+   из document/rec.css и infobox/infobox.css. Сами страницы
+   и шаблоны ничего о нём не знают.
+
+   Что здесь: всё, что у записи (.doc--rec) и карточки
+   инфобокса (.doc--infobox) одинаково: переменные,
+   базовый текст и все виджеты.
+
+   Что остаётся в rec.css:      лист (.sheet), подпись листа,
+                                контейнер .md--body.
+   Что остаётся в infobox.css:  обёртка .infobox, контейнер
+                                .md--infobox, правило для <p>.
+
+   Правила привязаны к обоим классам body через :is().
+   Специфичность :is() равна самому специфичному аргументу,
+   поэтому она такая же, как у прежних «.doc--rec .x».
+
+   Цвета берутся из static/ui/tokens.css (он подключается
+   в <head> базы раньше всех стилей страницы).
+   ================================================== */
+
+
+/* -------------------------------------------------- */
+/* Шрифты                                             */
+/* -------------------------------------------------- */
+
+/* JetBrains Mono уже подключён в wiki.css.
+   Здесь только то, что нужно виджетам.
+   Сами имена --font-hand и --font-barcode объявлены в tokens.css. */
+@import url('https://fonts.googleapis.com/css2?family=Caveat:wght@500&family=Libre+Barcode+39&display=swap');
+
+
+/* -------------------------------------------------- */
+/* Переменные                                         */
+/* -------------------------------------------------- */
+
+/* Префикс --sk- (skin) один на оба скина.
+   Всё, что можно, ссылается на токены, поэтому тема машины
+   перекрашивает и записи, и инфобокс. */
+:is(.doc--rec, .doc--infobox) {
+    --sk-ink: var(--fg);
+    --sk-ink-strong: var(--font-light);
+    --sk-ink-soft: var(--font-soft);
+
+    --sk-panel: var(--panel);
+    --sk-sunken: var(--bg-sunken);
+
+    --sk-rule: var(--line-bright);
+    --sk-rule-soft: var(--line);
+
+    --sk-link: var(--accent);
+
+    /* замазка: плашка того же цвета, что и текст на ней.
+       Раньше #4a4a4a; теперь считается от фона и текста,
+       на дефолтной теме выходит почти тот же серый */
+    --sk-mask: color-mix(in srgb, var(--fg) 32%, var(--bg));
+
+    --sk-cell-pad: 0.3rem 0.55rem;
+
+    --kv-key-width: 8rem;
+    --tl-date-width: 6rem;
+
+    --sk-stamp-red: var(--status-error);
+    --sk-stamp-green: var(--status-ok);
+    --sk-stamp-blue: var(--status-info);
+    --sk-stamp-grey: var(--font-soft);
+
+    /* рукописная пометка: единственный цвет, который пока остался
+       хардкодом (#8fb0ff). Решить: свой токен или --accent */
+    --sk-hand: #8fb0ff;
+
+    /* фон лога чуть темнее впадин: было #0f0f0f */
+    --sk-log-bg: color-mix(in srgb, var(--bg-sunken) 85%, black);
+    --sk-log-fg: var(--fg);
+    --sk-log-info: var(--status-info);
+    --sk-log-ok: var(--status-ok);
+    --sk-log-warn: var(--status-warn);
+    --sk-log-error: var(--status-error);
+    --sk-log-debug: var(--font-muted);
+}
+
+
+/* -------------------------------------------------- */
+/* Рамка страницы                                     */
+/* -------------------------------------------------- */
+:is(.doc--rec, .doc--infobox) {
+    overflow-x: hidden;
+}
+
+
+:is(.doc--rec, .doc--infobox) ::selection {
+    background: var(--accent);
+    color: var(--font-dark);
+}
+
+
+/* wiki.css даёт .page ширину 56rem и большие отступы: запись занимает всё окно */
+:is(.doc--rec, .doc--infobox) .page {
+    max-width: none;
+    margin: 0;
+    padding: 0;
+}
+
+
+/* -------------------------------------------------- */
+/* Базовый текст                                      */
+/* -------------------------------------------------- */
+
+
+:is(.doc--rec .md, .doc--infobox .md--infobox) h1,
+:is(.doc--rec .md, .doc--infobox .md--infobox) h2,
+:is(.doc--rec .md, .doc--infobox .md--infobox) h3,
+:is(.doc--rec .md, .doc--infobox .md--infobox) h4 {
+    margin: 1.1em 0 0.5em;
+
+    color: var(--sk-ink-strong);
+
+    font-weight: 700;
+    line-height: 1.25;
+}
+
+
+:is(.doc--rec .md, .doc--infobox .md--infobox) h1 {
+    padding-bottom: 0.3em;
+
+    border-bottom: 1px solid var(--sk-rule);
+
+    font-size: 1.15rem;
+    letter-spacing: 0.06em;
+
+    text-transform: uppercase;
+}
+
+
+:is(.doc--rec .md, .doc--infobox .md--infobox) h2 {
+    font-size: 1rem;
+}
+
+
+:is(.doc--rec .md, .doc--infobox .md--infobox) h3 {
+    font-size: 0.92rem;
+}
+
+
+:is(.doc--rec .md, .doc--infobox .md--infobox) h4 {
+    color: var(--sk-ink-soft);
+
+    font-size: 0.75rem;
+    letter-spacing: 0.08em;
+
+    text-transform: uppercase;
+}
+
+
+:is(.doc--rec .md, .doc--infobox .md--infobox) strong {
+    color: var(--sk-ink-strong);
+    font-weight: 700;
+}
+
+
+:is(.doc--rec .md, .doc--infobox .md--infobox) del {
+    text-decoration-thickness: 1px;
+}
+
+
+/* -------------------------------------------------- */
+/* Ссылки                                             */
+/* -------------------------------------------------- */
+:is(.doc--rec .md, .doc--infobox .md--infobox) a {
+    color: var(--sk-link);
+
+    text-decoration-line: underline;
+    text-decoration-thickness: 1px;
+    text-underline-offset: 0.15em;
+}
+
+
+/* как у иконок рабочего стола: при наведении цвета инвертируются */
+:is(.doc--rec .md, .doc--infobox .md--infobox) a:hover,
+:is(.doc--rec .md, .doc--infobox .md--infobox) a:focus-visible {
+    background: var(--accent);
+    color: var(--font-dark);
+
+    outline: none;
+    text-decoration-line: none;
+}
+
+
+/* -------------------------------------------------- */
+/* Списки, цитата, код, таблица                       */
+/* -------------------------------------------------- */
+:is(.doc--rec .md, .doc--infobox .md--infobox) ul,
+:is(.doc--rec .md, .doc--infobox .md--infobox) ol {
+    margin: 0 0 0.7em;
+    padding-left: 1.4em;
+}
+
+
+:is(.doc--rec .md, .doc--infobox .md--infobox) li {
+    margin-bottom: 0.15em;
+}
+
+
+:is(.doc--rec .md, .doc--infobox .md--infobox) li::marker {
+    color: var(--sk-ink-soft);
+}
+
+
+:is(.doc--rec .md, .doc--infobox .md--infobox) blockquote {
+    margin: 0 0 0.7em;
+    padding: 0.1em 1.2ch;
+
+    border-left: 2px solid var(--accent);
+
+    color: var(--sk-ink-soft);
+}
+
+
+:is(.doc--rec .md, .doc--infobox .md--infobox) hr {
+    margin: 0.9em 0;
+
+    border: 0;
+    border-top: 1px solid var(--sk-rule-soft);
+}
+
+
+:is(.doc--rec .md, .doc--infobox .md--infobox) code {
+    padding: 0.05em 0.35em;
+
+    background: var(--sk-panel);
+
+    font-family: var(--font-main);
+    font-size: 0.92em;
+}
+
+
+:is(.doc--rec .md, .doc--infobox .md--infobox) pre {
+    margin: 0 0 0.7em;
+    padding: 0.5rem 0.7rem;
+
+    overflow: auto;
+
+    background: var(--sk-sunken);
+
+    border: 1px solid var(--sk-rule-soft);
+}
+
+
+:is(.doc--rec .md, .doc--infobox .md--infobox) pre code {
+    padding: 0;
+    background: none;
+}
+
+
+:is(.doc--rec .md, .doc--infobox .md--infobox) table {
+    width: 100%;
+    margin: 0 0 0.7em;
+
+    border-collapse: collapse;
+    table-layout: fixed;
+}
+
+
+:is(.doc--rec .md, .doc--infobox .md--infobox) th,
+:is(.doc--rec .md, .doc--infobox .md--infobox) td {
+    padding: var(--sk-cell-pad);
+
+    border: 1px solid var(--sk-rule-soft);
+
+    overflow-wrap: anywhere;
+
+    text-align: left;
+    vertical-align: top;
+}
+
+
+:is(.doc--rec .md, .doc--infobox .md--infobox) th {
+    background: var(--sk-panel);
+
+    color: var(--sk-ink-strong);
+
+    font-size: 0.75rem;
+    letter-spacing: 0.06em;
+
+    text-transform: uppercase;
+}
+
+
+:is(.doc--rec .md, .doc--infobox .md--infobox) caption {
+    margin-bottom: 0.3rem;
+
+    color: var(--sk-ink-soft);
+
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+
+    text-align: left;
+    text-transform: uppercase;
+}
+
+
+/* -------------------------------------------------- */
+/* Spoiler / замазка                                  */
+/* -------------------------------------------------- */
+:is(.doc--rec, .doc--infobox) .spoiler--masked {
+    background: var(--sk-mask);
+    color: var(--sk-mask);
+
+    user-select: none;
+
+    box-decoration-break: clone;
+    -webkit-box-decoration-break: clone;
+}
+
+
+:is(.doc--rec, .doc--infobox) div.spoiler--masked {
+    margin: 0 0 0.7em;
+    padding: 0.35em 0.8ch;
+}
+
+
+:is(.doc--rec, .doc--infobox) div.spoiler--masked > :last-child {
+    margin-bottom: 0;
+}
+
+
+/* открытое: тонкая зелёная метка «доступно по ключу» */
+:is(.doc--rec, .doc--infobox) .spoiler--inline.spoiler--open {
+    border-bottom: 1px dotted var(--status-ok);
+}
+
+
+:is(.doc--rec, .doc--infobox) div.spoiler--open {
+    margin: 0 0 0.7em;
+    padding-left: 1.2ch;
+
+    border-left: 2px dashed var(--status-ok);
+}
+
+
+/* -------------------------------------------------- */
+/* Section                                            */
+/* -------------------------------------------------- */
+:is(.doc--rec, .doc--infobox) .section {
+    margin: 1rem 0;
+
+    border: 1px solid var(--sk-rule);
+}
+
+
+:is(.doc--rec, .doc--infobox) .section-head {
+    display: flex;
+    align-items: stretch;
+
+    border-bottom: 1px solid var(--sk-rule);
+
+    background: var(--sk-panel);
+}
+
+
+/* номер раздела: светлая вкладка, как заголовок окна */
+:is(.doc--rec, .doc--infobox) .section-num {
+    display: flex;
+    align-items: center;
+
+    padding: 0.2rem 0.7rem;
+
+    background: var(--font-light);
+    color: var(--font-dark);
+
+    font-size: 1.05rem;
+    font-weight: 700;
+    line-height: 1;
+}
+
+
+:is(.doc--rec, .doc--infobox) .section-title {
+    display: flex;
+    align-items: center;
+
+    padding: 0.35rem 0.7rem;
+
+    color: var(--sk-ink-strong);
+
+    font-size: 0.82rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+
+    text-transform: uppercase;
+}
+
+
+:is(.doc--rec, .doc--infobox) .section-body {
+    padding: 0.6rem 0.8rem;
+}
+
+
+:is(.doc--rec, .doc--infobox) .section-body > :first-child,
+:is(.doc--rec, .doc--infobox) .fold-body > :first-child,
+:is(.doc--rec, .doc--infobox) .cell > :first-child,
+:is(.doc--rec, .doc--infobox) .box > :first-child {
+    margin-top: 0;
+}
+
+
+:is(.doc--rec, .doc--infobox) .section-body > :last-child,
+:is(.doc--rec, .doc--infobox) .fold-body > :last-child,
+:is(.doc--rec, .doc--infobox) .cell > :last-child,
+:is(.doc--rec, .doc--infobox) .box > :last-child {
+    margin-bottom: 0;
+}
+
+
+/* -------------------------------------------------- */
+/* Fold  (сворачиваемый сегмент)                      */
+/* -------------------------------------------------- */
+:is(.doc--rec, .doc--infobox) .fold {
+    margin: 1rem 0;
+
+    border: 1px solid var(--sk-rule);
+}
+
+
+:is(.doc--rec, .doc--infobox) .fold-head {
+    display: flex;
+    align-items: center;
+
+    gap: 0.8ch;
+
+    padding: 0.35rem 0.7rem;
+
+    background: var(--sk-panel);
+    color: var(--sk-ink-strong);
+
+    font-size: 0.82rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+
+    text-transform: uppercase;
+
+    cursor: pointer;
+    user-select: none;
+
+    list-style: none;
+}
+
+
+:is(.doc--rec, .doc--infobox) .fold-head::-webkit-details-marker {
+    display: none;
+}
+
+
+:is(.doc--rec, .doc--infobox) .fold-head::before {
+    content: "+";
+
+    flex: 0 0 auto;
+    width: 1ch;
+
+    color: var(--accent);
+
+    text-align: center;
+}
+
+
+:is(.doc--rec, .doc--infobox) .fold-head:hover {
+    background: var(--row-selected);
+}
+
+
+:is(.doc--rec, .doc--infobox) .fold-head:focus-visible {
+    outline: 1px solid var(--accent);
+    outline-offset: -1px;
+}
+
+
+:is(.doc--rec, .doc--infobox) .fold[open] > .fold-head {
+    border-bottom: 1px solid var(--sk-rule);
+}
+
+
+:is(.doc--rec, .doc--infobox) .fold[open] > .fold-head::before {
+    content: "\2212";
+}
+
+
+:is(.doc--rec, .doc--infobox) .fold-body {
+    padding: 0.6rem 0.8rem;
+}
+
+
+/* закрытый fold: заголовка нет, тело замазано и всегда открыто */
+:is(.doc--rec, .doc--infobox) .fold--masked > .fold-head {
+    display: none;
+}
+
+
+/* -------------------------------------------------- */
+/* Grid                                               */
+/* -------------------------------------------------- */
+:is(.doc--rec, .doc--infobox) .grid {
+    display: grid;
+
+    margin: 0 0 0.7em;
+
+    border-top: 1px solid var(--sk-rule);
+    border-left: 1px solid var(--sk-rule);
+}
+
+
+:is(.doc--rec, .doc--infobox) .cell {
+    min-width: 0;
+
+    padding: var(--sk-cell-pad);
+
+    border-right: 1px solid var(--sk-rule);
+    border-bottom: 1px solid var(--sk-rule);
+
+    overflow-wrap: anywhere;
+}
+
+
+:is(.doc--rec, .doc--infobox) .cell p {
+    margin-bottom: 0.3em;
+}
+
+
+:is(.doc--rec, .doc--infobox) .cell-label {
+    margin-bottom: 0.15rem;
+
+    color: var(--sk-ink-soft);
+
+    font-size: 0.65rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    line-height: 1.2;
+
+    text-transform: uppercase;
+}
+
+
+:is(.doc--rec, .doc--infobox) .grid--noborder {
+    border-top: none;
+    border-left: none;
+}
+
+
+:is(.doc--rec, .doc--infobox) .grid--noborder .cell {
+    border-right: none;
+    border-bottom: none;
+}
+
+
+/* -------------------------------------------------- */
+/* Box                                                */
+/* -------------------------------------------------- */
+:is(.doc--rec, .doc--infobox) .box {
+    margin: 0 0 0.7em;
+    padding: 0.4rem 0.7rem;
+}
+
+
+:is(.doc--rec, .doc--infobox) .box--border {
+    border: 1px solid var(--sk-rule);
+}
+
+
+/* инверсия, как у активной вкладки окна */
+:is(.doc--rec, .doc--infobox) .box--dark {
+    background: var(--font-light);
+    color: var(--font-dark);
+}
+
+
+:is(.doc--rec, .doc--infobox) .box--dark strong,
+:is(.doc--rec, .doc--infobox) .box--dark a {
+    color: var(--font-dark);
+}
+
+
+:is(.doc--rec, .doc--infobox) .box--center {
+    text-align: center;
+}
+
+
+:is(.doc--rec, .doc--infobox) .box--right {
+    text-align: right;
+}
+
+
+:is(.doc--rec, .doc--infobox) .box--small {
+    font-size: 0.78rem;
+}
+
+
+:is(.doc--rec, .doc--infobox) .box--big {
+    font-size: 1.25rem;
+}
+
+
+:is(.doc--rec, .doc--infobox) .box--bold {
+    font-weight: 700;
+}
+
+
+:is(.doc--rec, .doc--infobox) .box--muted {
+    color: var(--sk-ink-soft);
+}
+
+
+:is(.doc--rec, .doc--infobox) .box--flush {
+    padding: 0;
+}
+
+
+/* -------------------------------------------------- */
+/* Widgets                                            */
+/* -------------------------------------------------- */
+:is(.doc--rec, .doc--infobox) .widget {
+    margin: 0.7rem 0;
+}
+
+
+/* закрытый виджет: штриховка вместо содержимого */
+:is(.doc--rec, .doc--infobox) .widget--masked {
+    min-height: 1.5em;
+
+    background: repeating-linear-gradient(
+        135deg,
+        var(--sk-rule-soft) 0,
+        var(--sk-rule-soft) 4px,
+        transparent 4px,
+        transparent 8px
+    );
+}
+
+
+/* неизвестный виджет и сломанный виджет */
+:is(.doc--rec, .doc--infobox) .widget--unknown {
+    padding: 0.2rem 0.5rem;
+
+    border: 1px dashed var(--sk-rule);
+
+    color: var(--sk-ink-soft);
+}
+
+
+:is(.doc--rec, .doc--infobox) .widget--error {
+    min-height: 1.5em;
+
+    border: 1px dashed var(--status-error);
+}
+
+
+/* -------------------------------------------------- */
+/* Stamp  (здесь это бейдж, а не штамп)               */
+/* -------------------------------------------------- */
+
+/* выравнивание по умолчанию (left): бейджи идущие подряд встают в один ряд */
+:is(.doc--rec, .doc--infobox) .widget--stamp.widget--align-left {
+    display: inline-block;
+
+    margin-right: 0.3rem;
+
+    text-align: left;
+}
+
+
+:is(.doc--rec, .doc--infobox) .widget--stamp.widget--align-center {
+    text-align: center;
+}
+
+
+:is(.doc--rec, .doc--infobox) .widget--stamp.widget--align-right {
+    text-align: right;
+}
+
+
+:is(.doc--rec, .doc--infobox) .stamp {
+    --tone: var(--sk-stamp-red);
+
+    display: inline-flex;
+    align-items: center;
+
+    gap: 0.6ch;
+
+    padding: 0.1rem 0.55rem;
+
+    border: 1px solid var(--tone);
+
+    background: transparent;
+    background: color-mix(in srgb, var(--tone) 14%, transparent);
+
+    color: var(--tone);
+
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    line-height: 1.6;
+
+    text-transform: uppercase;
+}
+
+
+/* квадратик-индикатор слева, как статус у процесса */
+:is(.doc--rec, .doc--infobox) .stamp::before {
+    content: "";
+
+    flex: 0 0 auto;
+
+    width: 0.5em;
+    height: 0.5em;
+
+    background: var(--tone);
+}
+
+
+:is(.doc--rec, .doc--infobox) .stamp--green {
+    --tone: var(--sk-stamp-green);
+}
+
+
+:is(.doc--rec, .doc--infobox) .stamp--blue {
+    --tone: var(--sk-stamp-blue);
+}
+
+
+:is(.doc--rec, .doc--infobox) .stamp--grey {
+    --tone: var(--sk-stamp-grey);
+}
+
+
+/* -------------------------------------------------- */
+/* Signature                                          */
+/* -------------------------------------------------- */
+
+/*
+ * Блок подписи как запись в журнале: слева тонкая линия,
+ * сверху «от руки», под ней пунктир, ниже имя и должность,
+ * справа дата.
+ */
+:is(.doc--rec, .doc--infobox) .widget--signature {
+    display: inline-grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas:
+        "hand hand"
+        "line line"
+        "name date"
+        "role date";
+
+    min-width: 12rem;
+    max-width: 100%;
+
+    margin-right: 1.5rem;
+    padding-left: 0.7rem;
+
+    border-left: 2px solid var(--sk-rule);
+}
+
+
+:is(.doc--rec, .doc--infobox) .sig-hand {
+    grid-area: hand;
+
+    min-height: 1.4em;
+
+    color: var(--sk-hand);
+
+    font-family: var(--font-hand);
+    font-size: 1.5rem;
+    line-height: 1;
+
+    transform: rotate(-2deg);
+    transform-origin: left bottom;
+}
+
+
+:is(.doc--rec, .doc--infobox) .sig-line {
+    grid-area: line;
+
+    margin: 0.15rem 0 0.25rem;
+
+    border-top: 1px dashed var(--sk-ink-soft);
+}
+
+
+:is(.doc--rec, .doc--infobox) .sig-name {
+    grid-area: name;
+
+    color: var(--sk-ink-strong);
+    font-weight: 700;
+}
+
+
+:is(.doc--rec, .doc--infobox) .sig-role {
+    grid-area: role;
+
+    color: var(--sk-ink-soft);
+    font-size: 0.78rem;
+}
+
+
+:is(.doc--rec, .doc--infobox) .sig-date {
+    grid-area: date;
+    align-self: start;
+
+    padding-left: 1.5ch;
+
+    color: var(--sk-ink-soft);
+    font-size: 0.78rem;
+
+    text-align: right;
+}
+
+
+/* -------------------------------------------------- */
+/* Barcode                                            */
+/* -------------------------------------------------- */
+
+/* светлая пластина: штрихи читаются как штрихкод, а не как текст */
+:is(.doc--rec, .doc--infobox) .widget--barcode {
+    display: inline-flex;
+
+    flex-direction: column;
+    align-items: center;
+
+    padding: 0.3rem 0.7rem 0.2rem;
+
+    background: var(--font-light);
+    color: var(--font-dark);
+}
+
+
+:is(.doc--rec, .doc--infobox) .widget--barcode:empty {
+    display: none;
+}
+
+
+:is(.doc--rec, .doc--infobox) .barcode-bars {
+    font-family: var(--font-barcode);
+    font-size: 2.6rem;
+    line-height: 1;
+}
+
+
+:is(.doc--rec, .doc--infobox) .barcode-text {
+    font-family: var(--font-main);
+    font-size: 0.65rem;
+    letter-spacing: 0.15em;
+}
+
+
+/* -------------------------------------------------- */
+/* Log                                                */
+/* -------------------------------------------------- */
+:is(.doc--rec, .doc--infobox) .widget--log {
+    padding: 0.5rem 0.7rem;
+
+    background: var(--sk-log-bg);
+    color: var(--sk-log-fg);
+
+    border: 1px solid var(--sk-rule-soft);
+
+    font-size: 0.8rem;
+    line-height: 1.5;
+}
+
+
+:is(.doc--rec, .doc--infobox) .log-line {
+    display: flex;
+
+    gap: 1.5ch;
+
+    white-space: pre-wrap;
+}
+
+
+:is(.doc--rec, .doc--infobox) .log-time {
+    flex: 0 0 auto;
+    color: var(--sk-log-debug);
+}
+
+
+:is(.doc--rec, .doc--infobox) .log-level {
+    flex: 0 0 6ch;
+    font-weight: 700;
+}
+
+
+:is(.doc--rec, .doc--infobox) .log-msg {
+    flex: 1;
+    min-width: 0;
+
+    overflow-wrap: anywhere;
+}
+
+
+:is(.doc--rec, .doc--infobox) .log-info .log-level {
+    color: var(--sk-log-info);
+}
+
+
+:is(.doc--rec, .doc--infobox) .log-ok .log-level {
+    color: var(--sk-log-ok);
+}
+
+
+:is(.doc--rec, .doc--infobox) .log-warn .log-level {
+    color: var(--sk-log-warn);
+}
+
+
+:is(.doc--rec, .doc--infobox) .log-error .log-level {
+    color: var(--sk-log-error);
+}
+
+
+:is(.doc--rec, .doc--infobox) .log-debug .log-level {
+    color: var(--sk-log-debug);
+}
+
+
+/* 8ch время + 6ch уровень + два промежутка по 1.5ch */
+:is(.doc--rec, .doc--infobox) .log-plain .log-msg {
+    padding-left: 17ch;
+}
+
+
+/* замазка внутри лога: плашка цвета текста лога, чтобы не терялась на тёмном фоне */
+:is(.doc--rec, .doc--infobox) .widget--log .spoiler--masked {
+    background: var(--sk-mask);
+    color: var(--sk-mask);
+}
+
+
+/* -------------------------------------------------- */
+/* Checks                                             */
+/* -------------------------------------------------- */
+:is(.doc--rec, .doc--infobox) .widget--checks {
+    display: flex;
+    flex-wrap: wrap;
+
+    gap: 0.4rem 1.5rem;
+}
+
+
+:is(.doc--rec, .doc--infobox) .check {
+    display: inline-flex;
+    align-items: center;
+
+    gap: 0.7ch;
+
+    font-size: 0.85rem;
+}
+
+
+:is(.doc--rec, .doc--infobox) .check-box {
+    display: inline-grid;
+    place-items: center;
+
+    width: 1em;
+    height: 1em;
+
+    border: 1px solid var(--sk-ink-soft);
+
+    font-size: 0.85rem;
+    line-height: 1;
+}
+
+
+:is(.doc--rec, .doc--infobox) .check--on .check-box {
+    border-color: var(--status-ok);
+    color: var(--status-ok);
+}
+
+
+:is(.doc--rec, .doc--infobox) .check--on .check-box::after {
+    content: "\00d7";
+    font-weight: 700;
+}
+
+
+/* -------------------------------------------------- */
+/* KV / KVM  (ключ: значение)                         */
+/* -------------------------------------------------- */
+:is(.doc--rec, .doc--infobox) .widget--kv,
+:is(.doc--rec, .doc--infobox) .widget--kvm {
+    margin: 0 0 0.7em;
+}
+
+
+:is(.doc--rec, .doc--infobox) .kv-row {
+    display: grid;
+    grid-template-columns: var(--kv-key-width) minmax(0, 1fr);
+
+    gap: 0 0.9rem;
+
+    padding: 0.15rem 0;
+}
+
+
+:is(.doc--rec, .doc--infobox) .kv-key {
+    color: var(--sk-ink-soft);
+
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    line-height: 2.1;
+
+    text-transform: uppercase;
+}
+
+
+:is(.doc--rec, .doc--infobox) .kv-val {
+    min-width: 0;
+
+    color: var(--sk-ink-strong);
+
+    overflow-wrap: anywhere;
+}
+
+
+:is(.doc--rec, .doc--infobox) .kv-line + .kv-line {
+    margin-top: 0.15em;
+}
+
+
+/* флаг border: рамка вокруг всего виджета и линии между строками */
+:is(.doc--rec, .doc--infobox) .widget--kv-border,
+:is(.doc--rec, .doc--infobox) .widget--kvm-border {
+    border: 1px solid var(--sk-rule);
+}
+
+
+:is(.doc--rec, .doc--infobox) .widget--kv-border .kv-row,
+:is(.doc--rec, .doc--infobox) .widget--kvm-border .kv-row {
+    gap: 0;
+
+    padding: 0;
+}
+
+
+:is(.doc--rec, .doc--infobox) .widget--kv-border .kv-row + .kv-row,
+:is(.doc--rec, .doc--infobox) .widget--kvm-border .kv-row + .kv-row {
+    border-top: 1px solid var(--sk-rule-soft);
+}
+
+
+:is(.doc--rec, .doc--infobox) .widget--kv-border .kv-key,
+:is(.doc--rec, .doc--infobox) .widget--kvm-border .kv-key {
+    padding: var(--sk-cell-pad);
+
+    border-right: 1px solid var(--sk-rule-soft);
+
+    background: var(--sk-panel);
+}
+
+
+:is(.doc--rec, .doc--infobox) .widget--kv-border .kv-val,
+:is(.doc--rec, .doc--infobox) .widget--kvm-border .kv-val {
+    padding: var(--sk-cell-pad);
+}
+
+
+/* -------------------------------------------------- */
+/* Timeline                                           */
+/* -------------------------------------------------- */
+:is(.doc--rec, .doc--infobox) .widget--timeline {
+    margin: 0 0 0.7em;
+}
+
+
+:is(.doc--rec, .doc--infobox) .tl-row {
+    display: grid;
+    grid-template-columns: var(--tl-date-width) 1.2rem minmax(0, 1fr);
+
+    column-gap: 0.4rem;
+}
+
+
+:is(.doc--rec, .doc--infobox) .tl-date,
+:is(.doc--rec, .doc--infobox) .tl-text {
+    padding-bottom: 0.8rem;
+
+    min-width: 0;
+
+    overflow-wrap: anywhere;
+}
+
+
+:is(.doc--rec, .doc--infobox) .tl-date {
+    color: var(--sk-ink-soft);
+
+    font-weight: 700;
+
+    text-align: right;
+}
+
+
+:is(.doc--rec, .doc--infobox) .tl-text {
+    color: var(--sk-ink-strong);
+}
+
+
+:is(.doc--rec, .doc--infobox) .tl-row:last-child .tl-date,
+:is(.doc--rec, .doc--infobox) .tl-row:last-child .tl-text {
+    padding-bottom: 0;
+}
+
+
+:is(.doc--rec, .doc--infobox) .tl-dot {
+    position: relative;
+}
+
+
+/* точка: центр совпадает с серединой первой строки текста */
+:is(.doc--rec, .doc--infobox) .tl-dot::before {
+    content: "";
+
+    position: absolute;
+    top: 0.475em;
+    left: 50%;
+    z-index: 1;
+
+    box-sizing: border-box;
+
+    width: 0.6em;
+    height: 0.6em;
+
+    border: 2px solid var(--accent);
+    border-radius: 50%;
+
+    background: var(--bg);
+
+    transform: translateX(-50%);
+}
+
+
+/* линия: от центра этой точки до центра следующей */
+:is(.doc--rec, .doc--infobox) .tl-dot::after {
+    content: "";
+
+    position: absolute;
+    top: 0.775em;
+    bottom: -0.775em;
+    left: 50%;
+
+    border-left: 1px solid var(--sk-rule);
+
+    transform: translateX(-50%);
+}
+
+
+:is(.doc--rec, .doc--infobox) .tl-row:last-child .tl-dot::after {
+    display: none;
+}
+
+
+/* -------------------------------------------------- */
+/* Masthead  (шапка сайта)                            */
+/* -------------------------------------------------- */
+
+/* как строка заголовка и меню окна: панель, плоская рамка */
+:is(.doc--rec, .doc--infobox) .widget--masthead {
+    border: 1px solid var(--sk-rule);
+
+    background: var(--sk-panel);
+}
+
+
+:is(.doc--rec, .doc--infobox) .mast-top {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+
+    gap: 1rem;
+
+    padding: 0.5rem 0.8rem;
+}
+
+
+:is(.doc--rec, .doc--infobox) .mast-title {
+    display: flex;
+    flex-direction: column;
+
+    min-width: 0;
+}
+
+
+:is(.doc--rec, .doc--infobox) .mast-name {
+    color: var(--sk-ink-strong);
+
+    font-size: 1.15rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    line-height: 1.15;
+
+    text-transform: uppercase;
+}
+
+
+:is(.doc--rec, .doc--infobox) .mast-tagline {
+    color: var(--sk-ink-soft);
+
+    font-size: 0.72rem;
+    letter-spacing: 0.04em;
+}
+
+
+:is(.doc--rec, .doc--infobox) .mast-date {
+    flex: 0 0 auto;
+
+    color: var(--sk-ink-soft);
+
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+
+    text-transform: uppercase;
+}
+
+
+:is(.doc--rec, .doc--infobox) .mast-menu {
+    display: flex;
+    flex-wrap: wrap;
+
+    border-top: 1px solid var(--sk-rule);
+
+    background: var(--sk-sunken);
+}
+
+
+:is(.doc--rec, .doc--infobox) .mast-item {
+    padding: 0.25rem 0.8rem;
+
+    border-right: 1px solid var(--sk-rule-soft);
+
+    color: var(--sk-ink-soft);
+
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+
+    text-transform: uppercase;
+}
+
+
+/* активный пункт: инверсия, как заголовок активного окна */
+:is(.doc--rec, .doc--infobox) .mast-item--active {
+    background: var(--font-light);
+    color: var(--font-dark);
+}
+
+
+/* -------------------------------------------------- */
+/* Bar  (полоса «сохранено из»)                       */
+/* -------------------------------------------------- */
+
+/* как адресная строка: плоская панель с тонкой рамкой */
+:is(.doc--rec, .doc--infobox) .widget--bar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+
+    gap: 0.2rem 1.5ch;
+
+    padding: 0.25rem 0.6rem;
+
+    border: 1px solid var(--sk-rule);
+
+    background: var(--sk-panel);
+
+    font-size: 0.7rem;
+    letter-spacing: 0.04em;
+}
+
+
+:is(.doc--rec, .doc--infobox) .bar-label {
+    padding-right: 1.5ch;
+
+    border-right: 1px solid var(--sk-rule);
+
+    color: var(--accent);
+
+    font-weight: 700;
+    letter-spacing: 0.1em;
+
+    text-transform: uppercase;
+}
+
+
+:is(.doc--rec, .doc--infobox) .bar-url {
+    flex: 1 1 auto;
+    min-width: 0;
+
+    color: var(--sk-ink-strong);
+
+    overflow-wrap: anywhere;
+}
+
+
+:is(.doc--rec, .doc--infobox) .bar-date,
+:is(.doc--rec, .doc--infobox) .bar-id {
+    color: var(--sk-ink-soft);
+}
+
+
+:is(.doc--rec, .doc--infobox) .bar-id {
+    font-weight: 700;
+}
+
+
+/* -------------------------------------------------- */
+/* Image                                              */
+/* -------------------------------------------------- */
+:is(.doc--rec, .doc--infobox) .widget--image {
+    width: var(--w, 100%);
+    max-width: 100%;
+}
+
+
+:is(.doc--rec, .doc--infobox) .widget--image.widget--align-center {
+    margin-left: auto;
+    margin-right: auto;
+}
+
+
+:is(.doc--rec, .doc--infobox) .widget--image.widget--align-right {
+    margin-left: auto;
+}
+
+
+:is(.doc--rec, .doc--infobox) .image-frame {
+    border: 1px solid var(--sk-rule);
+
+    background: var(--sk-sunken);
+}
+
+
+:is(.doc--rec, .doc--infobox) .image-img {
+    display: block;
+
+    width: 100%;
+    height: auto;
+}
+
+
+/* заглушка: тёмное поле с alt-текстом, как пустой слот просмотрщика */
+:is(.doc--rec, .doc--infobox) .image-missing {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    box-sizing: border-box;
+    width: 100%;
+
+    padding: 0.6rem;
+
+    background: var(--sk-sunken);
+    color: var(--sk-ink-soft);
+
+    font-size: 0.75rem;
+    letter-spacing: 0.04em;
+    text-align: center;
+}
+
+
+:is(.doc--rec, .doc--infobox) .image-ratio-16-9 { aspect-ratio: 16 / 9; }
+
+
+:is(.doc--rec, .doc--infobox) .image-ratio-4-3 { aspect-ratio: 4 / 3; }
+
+
+:is(.doc--rec, .doc--infobox) .image-ratio-3-2 { aspect-ratio: 3 / 2; }
+
+
+:is(.doc--rec, .doc--infobox) .image-ratio-1-1 { aspect-ratio: 1 / 1; }
+
+
+:is(.doc--rec, .doc--infobox) .image-ratio-3-4 { aspect-ratio: 3 / 4; }
+
+
+:is(.doc--rec, .doc--infobox) .image-ratio-9-16 { aspect-ratio: 9 / 16; }
+
+
+:is(.doc--rec, .doc--infobox) .image-caption {
+    margin-top: 0.3rem;
+
+    color: var(--sk-ink-soft);
+
+    font-size: 0.72rem;
+    letter-spacing: 0.04em;
+}
+
+
+/* -------------------------------------------------- */
+/* Divider  (разделитель)                             */
+/* -------------------------------------------------- */
+:is(.doc--rec, .doc--infobox) .widget--divider {
+    display: flex;
+    align-items: center;
+
+    gap: 1.5ch;
+
+    margin: 0.9rem 0;
+}
+
+
+:is(.doc--rec, .doc--infobox) .divider-line {
+    flex: 1 1 auto;
+
+    height: 0;
+
+    border-top: 1px solid var(--sk-rule);
+}
+
+
+:is(.doc--rec, .doc--infobox) .divider-label {
+    flex: 0 0 auto;
+
+    color: var(--sk-ink-soft);
+
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+
+    text-transform: uppercase;
+}
+
+
+:is(.doc--rec, .doc--infobox) .divider--double .divider-line {
+    border-top: 3px double var(--sk-rule);
+}
+
+
+:is(.doc--rec, .doc--infobox) .divider--dashed .divider-line {
+    border-top-style: dashed;
+}
+
+
+:is(.doc--rec, .doc--infobox) .divider--dotted .divider-line {
+    border-top-style: dotted;
+}
+
+
+/* толстая линия: светлая, как инвертированные заливки интерфейса */
+:is(.doc--rec, .doc--infobox) .divider--thick .divider-line {
+    border-top: 3px solid var(--font-light);
+}
+
+
+:is(.doc--rec, .doc--infobox) .divider--stars {
+    justify-content: center;
+}
+
+
+:is(.doc--rec, .doc--infobox) .divider-mark {
+    color: var(--sk-ink-soft);
+
+    letter-spacing: 0.5em;
+}
+
+
+/* -------------------------------------------------- */
+/* Узкое окно                                         */
+/* -------------------------------------------------- */
+
+@media (max-width: 400px) {
+    :is(.doc--rec, .doc--infobox) {
+        --kv-key-width: 6rem;
+        --tl-date-width: 4.8rem;
+    }
+
+    :is(.doc--rec, .doc--infobox) .mast-top {
+        flex-direction: column;
+        align-items: flex-start;
+
+        gap: 0.3rem;
+    }
+}

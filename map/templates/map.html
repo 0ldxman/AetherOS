@@ -1,31 +1,33 @@
+{% extends "ui/base.html" %}
 {% load static %}
-<!DOCTYPE html>
-<html lang="ru">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Aether OS / World</title>
+
+{% block title %}Aether OS / World{% endblock %}
+
+{% block css %}
   <link href="https://unpkg.com/maplibre-gl@5/dist/maplibre-gl.css" rel="stylesheet">
   <link href="{% static 'map.css' %}" rel="stylesheet">
   <link href="{% static 'timeline.css' %}" rel="stylesheet">
-</head>
-<body>
+{% endblock %}
+
+{% block body %}
   <div id="map"></div>
   <div id="mode-panel">
     <div class="title">map.mode</div>
     <button type="button" data-mode="political">political</button>
     <button type="button" data-mode="physical">physical</button>
   </div>
-    <script src="https://unpkg.com/maplibre-gl@5/dist/maplibre-gl.js"></script>
-    <script src="https://unpkg.com/pmtiles@4.3.0/dist/pmtiles.js"></script>
-    <script>
-        const ISLANDS_URL = "{% static 'data/aether_lands.geojson' %}";
-        const ADM1_PMTILES_URL = "{% static 'data/aether_provinces.pmtiles' %}";
-        const PROVINCE_COLORS_URL = "{% url 'map:province_colors' %}";
-        const COUNTRY_LABELS_URL = "{% url 'map:country_labels' %}";
-        const TIMELINE_URL = "{% url 'map:timeline_dates' %}";
-    </script>
-    <script src="{% static 'map.js' %}"></script>
-    <script src="{% static 'timeline.js' %}"></script>
-</body>
-</html>
+{% endblock %}
+
+{% block js %}
+  <script src="https://unpkg.com/maplibre-gl@5/dist/maplibre-gl.js"></script>
+  <script src="https://unpkg.com/pmtiles@4.3.0/dist/pmtiles.js"></script>
+  <script>
+    const ISLANDS_URL = "{% static 'data/aether_lands.geojson' %}";
+    const ADM1_PMTILES_URL = "{% static 'data/aether_provinces.pmtiles' %}";
+    const PROVINCE_COLORS_URL = "{% url 'map:province_colors' %}";
+    const COUNTRY_LABELS_URL = "{% url 'map:country_labels' %}";
+    const TIMELINE_URL = "{% url 'map:timeline_dates' %}";
+  </script>
+  <script src="{% static 'map.js' %}"></script>
+  <script src="{% static 'timeline.js' %}"></script>
+{% endblock %}

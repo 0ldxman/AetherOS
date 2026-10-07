@@ -1,9 +1,9 @@
 /* Таймлайн карты: линия с датами, ползунок и ручной ввод даты (год-месяц-день) */
 #timeline {
-  --tl-accent: #9fe8ff;
-  --tl-fg: #d7e2ea;
-  --tl-dim: rgba(215, 226, 234, 0.45);
-  --tl-bg: rgba(5, 7, 10, 0.82);
+  --tl-accent: var(--accent);
+  --tl-fg: var(--font-light);
+  --tl-dim: color-mix(in srgb, var(--font-light) 45%, transparent);
+  --tl-bg: color-mix(in srgb, var(--bg) 82%, transparent);
 
   position: fixed;
   left: 50%;
@@ -15,7 +15,7 @@
   background: var(--tl-bg);
   border: 1px solid var(--tl-dim);
   color: var(--tl-fg);
-  font: 11px/1.2 ui-monospace, "Cascadia Mono", Consolas, monospace;
+  font: 11px/1.2 var(--font-main);
   z-index: 20;
   user-select: none;
 }
@@ -26,8 +26,8 @@
   margin-bottom: 6px;
   letter-spacing: 0.06em;
 }
-#timeline .tl-title { color: var(--tl-accent); }
-#timeline .tl-hint  { color: var(--tl-dim); }
+#timeline .tl-title { color: var(--font-light); }
+#timeline .tl-hint  { color: var(--font-muted); }
 
 /* Дорожка: линия, засечки событий и сам ползунок */
 #timeline .tl-track {
@@ -68,18 +68,18 @@
   -webkit-appearance: none;
   width: 12px; height: 24px;
   margin-top: 1px;
-  background: var(--tl-bg);
-  border: 1px solid var(--tl-accent);
+  background: var(--window-border);
+  border: 1px solid var(--window-border);
   border-radius: 0;
 }
 #timeline .tl-range::-moz-range-thumb {
   width: 10px; height: 22px;
-  background: var(--tl-bg);
-  border: 1px solid var(--tl-accent);
+  background: var(--window-border);
+  border: 1px solid var(--window-border);
   border-radius: 0;
 }
-#timeline .tl-range:focus-visible::-webkit-slider-thumb { background: var(--tl-accent); }
-#timeline .tl-range:focus-visible::-moz-range-thumb     { background: var(--tl-accent); }
+#timeline .tl-range:focus-visible::-webkit-slider-thumb { background: var(--window-border); }
+#timeline .tl-range:focus-visible::-moz-range-thumb     { background: var(--window-border); }
 
 /* Подписи годов под линией */
 #timeline .tl-labels {
@@ -117,19 +117,19 @@
   font: inherit;
   text-align: center;
 }
-#timeline .tl-date input:focus { outline: none; border-bottom-color: var(--tl-accent); color: var(--tl-accent); }
-#timeline .tl-date input.tl-bad { border-bottom-color: #ff6b6b; }
+#timeline .tl-date input:focus { outline: none; border-bottom-color: var(--accent-warn); color: var(--accent-warn); }
+#timeline .tl-date input.tl-bad { border-bottom-color: var(--status-error); }
 #timeline .tl-y { width: 4ch; }
 #timeline .tl-m, #timeline .tl-d { width: 2ch; }
 
 #timeline button {
   padding: 3px 9px;
   background: transparent;
-  border: 1px solid var(--tl-dim);
+  border: 1px solid var(--window-border);
   border-radius: 0;
   color: var(--tl-fg);
   font: inherit;
   cursor: pointer;
 }
-#timeline button:hover:not(:disabled) { border-color: var(--tl-accent); color: var(--tl-accent); }
+#timeline button:hover:not(:disabled) { background: var(--window-border); color: var(--font-dark); }
 #timeline button:disabled { opacity: 0.3; cursor: default; }

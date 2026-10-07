@@ -18,7 +18,7 @@
     body        — содержимое страницы
     js          — скрипты в конце <body>
 {% endcomment %}
-<html lang="ru"{% if machine_theme %} data-theme="{{ machine_theme }}"{% endif %}{% block html_attrs %}{% endblock %}>
+<html lang="{% block lang %}ru{% endblock %}"{% if machine_theme %} data-theme="{{ machine_theme }}"{% endif %}{% block html_attrs %}{% endblock %}>
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
