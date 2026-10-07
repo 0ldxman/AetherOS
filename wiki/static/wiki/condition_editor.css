@@ -1,0 +1,477 @@
+/* ==================================================
+   Aether Wiki — Condition Editor
+   ================================================== */
+
+
+/* ==================================================
+   Original Django field
+   ================================================== */
+
+.aether-condition-source {
+    display: none !important;
+}
+
+
+/* ==================================================
+   Editor
+   ================================================== */
+
+.aether-condition-editor {
+    width: 100%;
+    box-sizing: border-box;
+
+    margin-top: 8px;
+
+    border: 1px solid
+        var(--border-color, #ccc);
+
+    background:
+        var(--body-bg, #fff);
+
+    font-size: 13px;
+}
+
+
+/* ==================================================
+   Header
+   ================================================== */
+
+.aether-condition-editor__header {
+    display: flex;
+    align-items: center;
+
+    min-height: 34px;
+
+    padding: 0 10px;
+
+    box-sizing: border-box;
+
+    border-bottom: 1px solid
+        var(--border-color, #ccc);
+
+    background:
+        var(--darkened-bg, #f8f8f8);
+}
+
+
+.aether-condition-editor__title {
+    font-weight: 600;
+
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+
+/* ==================================================
+   Content
+   ================================================== */
+
+.aether-condition-editor__content {
+    padding: 10px;
+}
+
+
+/* ==================================================
+   No restriction
+   ================================================== */
+
+.aether-condition-empty {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+
+    min-height: 32px;
+}
+
+
+.aether-condition-empty__label {
+    color:
+        var(--body-quiet-color, #666);
+}
+
+
+/* ==================================================
+   Nodes
+   ================================================== */
+
+.aether-condition-node {
+    position: relative;
+
+    box-sizing: border-box;
+}
+
+
+/* ==================================================
+   KEY
+   ================================================== */
+
+.aether-condition-node--key {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+
+    min-height: 32px;
+}
+
+
+.aether-condition-key {
+    width: 240px;
+    max-width: 100%;
+
+    height: 30px;
+
+    padding: 3px 8px;
+
+    box-sizing: border-box;
+
+    border: 1px solid
+        var(--border-color, #bbb);
+
+    background:
+        var(--body-bg, #fff);
+
+    color:
+        var(--body-fg, #222);
+
+    font: inherit;
+}
+
+
+/* ==================================================
+   Groups
+   ================================================== */
+
+.aether-condition-node--group,
+.aether-condition-node--not {
+    margin: 5px 0;
+
+    border: 1px solid
+        var(--border-color, #ccc);
+
+    background:
+        var(--darkened-bg, #f8f8f8);
+}
+
+
+.aether-condition-group__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+
+    min-height: 34px;
+
+    padding: 0 6px 0 9px;
+
+    box-sizing: border-box;
+
+    border-bottom: 1px solid
+        var(--border-color, #ccc);
+}
+
+
+.aether-condition-group__children {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+
+    padding: 6px 8px 7px 18px;
+
+    border-left: 3px solid
+        var(--border-color, #ccc);
+}
+
+
+/* ==================================================
+   Operators
+   ================================================== */
+
+.aether-condition-operator {
+    display: inline-flex;
+    align-items: center;
+
+    min-height: 22px;
+
+    padding: 0 7px;
+
+    box-sizing: border-box;
+
+    border: 1px solid
+        var(--border-color, #aaa);
+
+    background:
+        var(--body-bg, #fff);
+
+    color:
+        var(--body-fg, #222);
+
+    font-size: 11px;
+    font-weight: 700;
+
+    letter-spacing: 0.06em;
+}
+
+
+/* ==================================================
+   Controls
+   ================================================== */
+
+.aether-condition-node__controls {
+    display: flex;
+    align-items: center;
+    gap: 3px;
+
+    margin-left: auto;
+}
+
+
+.aether-condition-button,
+.aether-condition-small-button,
+.aether-condition-icon-button {
+    appearance: none;
+
+    box-sizing: border-box;
+
+    border: 1px solid
+        var(--border-color, #bbb);
+
+    background:
+        var(--body-bg, #fff);
+
+    color:
+        var(--body-fg, #222);
+
+    font: inherit;
+
+    cursor: pointer;
+}
+
+
+.aether-condition-button {
+    min-height: 28px;
+
+    padding: 3px 9px;
+}
+
+
+.aether-condition-small-button {
+    min-height: 25px;
+
+    padding: 2px 7px;
+
+    font-size: 12px;
+}
+
+
+.aether-condition-icon-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+
+    width: 26px;
+    height: 26px;
+
+    padding: 0;
+
+    font-size: 15px;
+    line-height: 1;
+}
+
+
+.aether-condition-button:hover,
+.aether-condition-small-button:hover,
+.aether-condition-icon-button:hover {
+    border-color:
+        var(--link-fg, #447e9b);
+}
+
+
+/* ==================================================
+   Menus
+   ================================================== */
+
+.aether-condition-menu {
+    position: relative;
+}
+
+
+.aether-condition-menu__popup {
+    position: absolute;
+
+    top: calc(100% + 3px);
+    right: 0;
+
+    z-index: 1000;
+
+    min-width: 110px;
+
+    padding: 3px;
+
+    box-sizing: border-box;
+
+    border: 1px solid
+        var(--border-color, #aaa);
+
+    background:
+        var(--body-bg, #fff);
+
+    box-shadow:
+        0 3px 8px rgba(0, 0, 0, 0.12);
+}
+
+
+.aether-condition-menu__popup[hidden] {
+    display: none;
+}
+
+
+.aether-condition-menu__item {
+    display: block;
+
+    width: 100%;
+
+    padding: 5px 8px;
+
+    box-sizing: border-box;
+
+    border: 0;
+
+    background: transparent;
+
+    color:
+        var(--body-fg, #222);
+
+    text-align: left;
+
+    font: inherit;
+
+    cursor: pointer;
+}
+
+
+.aether-condition-menu__item:hover {
+    background:
+        var(--selected-row, #eee);
+}
+
+
+/* ==================================================
+   Invalid condition
+   ================================================== */
+
+.aether-condition-invalid {
+    display: flex;
+    flex-direction: column;
+    gap: 7px;
+
+    padding: 10px;
+
+    border: 1px solid
+        var(--error-fg, #ba2121);
+
+    color:
+        var(--error-fg, #ba2121);
+}
+
+
+.aether-condition-invalid__raw {
+    display: block;
+
+    max-width: 100%;
+
+    padding: 7px;
+
+    box-sizing: border-box;
+
+    overflow-x: auto;
+
+    background:
+        var(--darkened-bg, #f8f8f8);
+
+    color:
+        var(--body-fg, #222);
+
+    font:
+        12px/1.5 ui-monospace,
+        SFMono-Regular,
+        Menlo,
+        Consolas,
+        monospace;
+
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+}
+
+
+.aether-condition-invalid-node {
+    padding: 6px 8px;
+
+    color:
+        var(--error-fg, #ba2121);
+
+    font-size: 12px;
+}
+
+
+/* ==================================================
+   Focus
+   ================================================== */
+
+.aether-condition-key:focus,
+.aether-condition-button:focus,
+.aether-condition-small-button:focus,
+.aether-condition-icon-button:focus {
+    outline: 2px solid
+        var(--link-fg, #447e9b);
+
+    outline-offset: 1px;
+}
+
+
+/* ==================================================
+   Responsive
+   ================================================== */
+
+@media (max-width: 700px) {
+
+    .aether-condition-key {
+        width: 100%;
+        min-width: 0;
+    }
+
+    .aether-condition-node--key {
+        flex-wrap: wrap;
+    }
+
+    .aether-condition-node--key
+    .aether-condition-node__controls {
+        margin-left: 0;
+    }
+
+    .aether-condition-group__children {
+        padding-left: 10px;
+    }
+
+}
+
+.aether-condition-editor {
+    height: auto;
+    min-height: 0;
+    overflow: visible;
+}
+
+.aether-condition-editor__content {
+    height: auto;
+    min-height: 0;
+    overflow: visible;
+}
+
+.aether-condition-node {
+    height: auto;
+    min-height: 0;
+}
+
+.form-row:has(.aether-condition-editor) {
+    height: auto;
+    min-height: 0;
+    overflow: visible;
+}

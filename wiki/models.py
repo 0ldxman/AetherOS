@@ -99,8 +99,9 @@ class Document(models.Model):
         DOC = "doc", "Документ"
         SCAN = "scan", "Скан"
         WEB = "web", "Веб-снапшот"
+        RECORD = "rec", "Запись"
 
-    EXTENSIONS = {"doc": ".doc", "scan": ".scan", "web": ".snapshot"}
+    EXTENSIONS = {"doc": ".doc", "scan": ".scan", "web": ".snapshot", "rec": ".rec"}
 
     namespace = models.ForeignKey(
         Namespace,

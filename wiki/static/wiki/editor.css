@@ -1,0 +1,845 @@
+/* Редактор записей вики в админке: слева форма, справа предпросмотр */
+
+.wp-split {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 20px;
+  align-items: start;
+}
+
+.wp-split__form { min-width: 0; }
+
+/* Поля с текстом: широкие, моноширинные */
+body.wp-editor #id_body,
+body.wp-editor #id_infobox {
+  width: 100%;
+  box-sizing: border-box;
+  min-height: 55vh;
+  font: 13px/1.5 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  tab-size: 4;
+  resize: vertical;
+}
+
+/* Подписи над полями, а не слева: иначе половина ширины уходит на подпись */
+body.wp-editor .aligned label {
+  float: none;
+  display: block;
+  width: auto;
+  padding: 0 0 4px;
+}
+body.wp-editor .aligned .form-row > div { max-width: none; }
+
+/* Панель предпросмотра: прилипает к верху при прокрутке формы */
+.wp-pane {
+  position: sticky;
+  top: 12px;
+  height: calc(100vh - 24px);
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  border: 1px solid var(--border-color, #ccc);
+  background: var(--body-bg, #fff);
+}
+
+.wp-pane__bar {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--border-color, #ccc);
+  background: var(--darkened-bg, #f8f8f8);
+}
+
+.wp-tabs { display: flex; gap: 4px; }
+
+.wp-tab {
+  padding: 4px 12px;
+  border: 1px solid var(--border-color, #ccc);
+  border-radius: 3px;
+  background: var(--body-bg, #fff);
+  color: var(--body-fg, #333);
+  cursor: pointer;
+}
+.wp-tab.is-active {
+  background: var(--primary, #417690);
+  border-color: var(--primary, #417690);
+  color: #fff;
+}
+.wp-tab.is-empty:not(.is-active) { opacity: .5; }
+
+.wp-as { display: flex; align-items: center; gap: 6px; }
+
+.wp-status { margin-left: auto; font-size: 12px; color: var(--body-quiet-color, #666); }
+.wp-status[data-kind="error"] { color: var(--error-fg, #ba2121); font-weight: 600; }
+
+.wp-keys {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 16px;
+  padding: 8px 10px;
+  max-height: 120px;
+  overflow: auto;
+  border-bottom: 1px solid var(--border-color, #ccc);
+  font-size: 12px;
+}
+.wp-keys[hidden] { display: none; }
+.wp-keys label { display: inline-flex; align-items: center; gap: 4px; cursor: pointer; }
+.wp-keys__empty { color: var(--body-quiet-color, #666); }
+
+.wp-frame {
+  display: none;
+  flex: 1;
+  width: 100%;
+  min-height: 0;
+  border: 0;
+  background: #05070a;
+}
+
+.wp-frame.is-active { display: block; }
+
+@media (max-width: 1100px) {
+  .wp-split {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .wp-pane {
+    position: static;
+    height: 70vh;
+  }
+
+  .wp-resizer {
+    display: none;
+  }
+}
+
+/* ============================================================
+   AETHER MARKUP EDITOR
+   ============================================================ */
+
+
+/* ------------------------------------------------------------
+   Root
+   ------------------------------------------------------------ */
+
+.aether-editor {
+    --ae-bg: #171717;
+    --ae-panel: #202020;
+    --ae-panel-2: #242424;
+
+    --ae-line: #3a3a3a;
+    --ae-line-soft: #2d2d2d;
+
+    --ae-text: #d4d4d4;
+    --ae-text-soft: #858585;
+    --ae-text-dim: #5e5e5e;
+
+    --ae-accent: #3fd0ff;
+    --ae-green: #17e1b8;
+    --ae-yellow: #f5c644;
+    --ae-red: #e6304f;
+
+    width: 100%;
+    min-width: 0;
+}
+
+
+/* ------------------------------------------------------------
+   Workspace
+   ------------------------------------------------------------ */
+
+.aether-editor__workspace {
+    display: grid;
+
+    /*
+     * Editor and preview are deliberately side by side.
+     */
+    grid-template-columns:
+        minmax(0, 1fr)
+        minmax(0, 1fr);
+
+    width: 100%;
+    min-height: 720px;
+
+    border: 1px solid var(--ae-line);
+
+    background: var(--ae-bg);
+}
+
+
+/* ------------------------------------------------------------
+   Source / Preview panes
+   ------------------------------------------------------------ */
+
+.aether-editor__source,
+.aether-editor__preview {
+    min-width: 0;
+    min-height: 0;
+
+    display: flex;
+    flex-direction: column;
+
+    background: var(--ae-bg);
+}
+
+
+.aether-editor__source {
+    border-right: 1px solid var(--ae-line);
+}
+
+
+/* ------------------------------------------------------------
+   Toolbar
+   ------------------------------------------------------------ */
+
+.aether-editor__toolbar {
+    flex: 0 0 38px;
+
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+
+    min-width: 0;
+
+    border-bottom: 1px solid var(--ae-line);
+
+    background: var(--ae-panel);
+
+    color: var(--ae-text-soft);
+
+    font-family:
+        "JetBrains Mono",
+        "SFMono-Regular",
+        Consolas,
+        monospace;
+
+    font-size: 11px;
+    letter-spacing: 0.08em;
+}
+
+
+/* ------------------------------------------------------------
+   Tabs
+   ------------------------------------------------------------ */
+
+.aether-editor__tabs {
+    display: flex;
+    align-self: stretch;
+}
+
+
+.aether-editor__tab {
+    appearance: none;
+
+    border: 0;
+    border-right: 1px solid var(--ae-line);
+
+    padding: 0 16px;
+
+    background: transparent;
+
+    color: var(--ae-text-dim);
+
+    font: inherit;
+    letter-spacing: inherit;
+
+    cursor: pointer;
+}
+
+
+.aether-editor__tab:hover {
+    background: var(--ae-panel-2);
+    color: var(--ae-text);
+}
+
+
+.aether-editor__tab.is-active {
+    background: var(--ae-bg);
+    color: var(--ae-accent);
+}
+
+
+/* ------------------------------------------------------------
+   Status
+   ------------------------------------------------------------ */
+
+.aether-editor__status {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+
+    padding: 0 12px;
+
+    white-space: nowrap;
+}
+
+
+.aether-editor__status-dot {
+    width: 6px;
+    height: 6px;
+
+    border-radius: 50%;
+
+    background: var(--ae-green);
+
+    box-shadow:
+        0 0 5px rgba(23, 225, 184, 0.45);
+}
+
+
+.aether-editor__status-dot.is-working {
+    background: var(--ae-yellow);
+
+    box-shadow:
+        0 0 5px rgba(245, 198, 68, 0.45);
+}
+
+
+.aether-editor__status-dot.is-error {
+    background: var(--ae-red);
+
+    box-shadow:
+        0 0 5px rgba(230, 48, 79, 0.45);
+}
+
+
+/* ------------------------------------------------------------
+   Preview title
+   ------------------------------------------------------------ */
+
+.aether-editor__preview-title {
+    padding-left: 14px;
+
+    color: var(--ae-text-soft);
+}
+
+
+/* ------------------------------------------------------------
+   Preview controls
+   ------------------------------------------------------------ */
+
+.aether-editor__preview-controls {
+    display: flex;
+    align-items: center;
+
+    padding-right: 8px;
+}
+
+
+.aether-editor__preview-controls label {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+}
+
+
+.aether-editor__preview-controls label span {
+    color: var(--ae-text-dim);
+}
+
+
+.aether-editor__preview-controls select {
+    appearance: none;
+
+    border: 1px solid var(--ae-line);
+
+    padding: 4px 8px;
+
+    background: var(--ae-panel-2);
+
+    color: var(--ae-text);
+
+    font-family: inherit;
+    font-size: 10px;
+    letter-spacing: 0.05em;
+
+    outline: none;
+}
+
+
+.aether-editor__preview-controls select:focus {
+    border-color: var(--ae-accent);
+}
+
+
+/* ------------------------------------------------------------
+   Editor wrapper
+   ------------------------------------------------------------ */
+
+.aether-editor__editor-wrap {
+    position: relative;
+
+    flex: 1 1 auto;
+
+    min-height: 0;
+
+    overflow: hidden;
+}
+
+
+/* ------------------------------------------------------------
+   CodeMirror
+   ------------------------------------------------------------ */
+
+.aether-editor__instance {
+    position: absolute;
+
+    inset: 0;
+
+    min-width: 0;
+    min-height: 0;
+}
+
+
+.aether-editor__instance[hidden] {
+    display: none;
+}
+
+
+.aether-editor .cm-editor {
+    height: 100%;
+
+    background: #191919;
+
+    color: var(--ae-text);
+
+    font-family:
+        "JetBrains Mono",
+        "SFMono-Regular",
+        Consolas,
+        monospace;
+
+    font-size: 13px;
+}
+
+
+.aether-editor .cm-scroller {
+    overflow: auto;
+}
+
+
+.aether-editor .cm-content {
+    min-height: 100%;
+
+    padding-top: 12px;
+    padding-bottom: 40px;
+}
+
+
+.aether-editor .cm-line {
+    padding-left: 8px;
+    padding-right: 12px;
+
+    line-height: 1.55;
+}
+
+
+/* ------------------------------------------------------------
+   Gutters
+   ------------------------------------------------------------ */
+
+.aether-editor .cm-gutters {
+    border-right: 1px solid #2a2a2a;
+
+    background: #181818;
+
+    color: #555;
+
+    font-family:
+        "JetBrains Mono",
+        "SFMono-Regular",
+        Consolas,
+        monospace;
+}
+
+
+.aether-editor .cm-lineNumbers .cm-gutterElement {
+    padding: 0 10px 0 8px;
+}
+
+
+.aether-editor .cm-activeLineGutter {
+    background: #222;
+
+    color: #858585;
+}
+
+
+.aether-editor .cm-activeLine {
+    background: rgba(255, 255, 255, 0.025);
+}
+
+
+/* ------------------------------------------------------------
+   Cursor / selection
+   ------------------------------------------------------------ */
+
+.aether-editor .cm-cursor {
+    border-left-color: var(--ae-accent);
+}
+
+
+.aether-editor .cm-selectionBackground,
+.aether-editor .cm-focused .cm-selectionBackground {
+    background: rgba(63, 208, 255, 0.16) !important;
+}
+
+
+.aether-editor .cm-matchingBracket {
+    background: rgba(63, 208, 255, 0.12);
+
+    outline: 1px solid rgba(63, 208, 255, 0.4);
+}
+
+
+/* ------------------------------------------------------------
+   Folding
+   ------------------------------------------------------------ */
+
+.aether-editor .cm-foldPlaceholder {
+    border: 1px solid var(--ae-line);
+
+    padding: 0 5px;
+
+    background: var(--ae-panel);
+
+    color: var(--ae-text-dim);
+}
+
+
+/* ------------------------------------------------------------
+   Preview
+   ------------------------------------------------------------ */
+
+.aether-editor__preview-wrap {
+    position: relative;
+
+    flex: 1 1 auto;
+
+    min-height: 0;
+
+    overflow: hidden;
+
+    background: #111;
+}
+
+
+.aether-editor__preview-frame {
+    display: block;
+
+    width: 100%;
+    height: 100%;
+
+    border: 0;
+
+    background: #111;
+}
+
+
+/* ------------------------------------------------------------
+   Key panel
+   ------------------------------------------------------------ */
+
+.aether-key-panel {
+    position: absolute;
+
+    z-index: 1000;
+
+    top: 48px;
+    right: 20px;
+
+    width: 300px;
+
+    border: 1px solid var(--ae-line);
+
+    background: #1b1b1b;
+
+    color: var(--ae-text);
+
+    box-shadow:
+        0 10px 30px rgba(0, 0, 0, 0.45);
+
+    font-family:
+        "JetBrains Mono",
+        "SFMono-Regular",
+        Consolas,
+        monospace;
+
+    font-size: 11px;
+}
+
+
+.aether-key-panel[hidden] {
+    display: none;
+}
+
+
+.aether-key-panel__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+
+    min-height: 36px;
+
+    padding: 0 10px;
+
+    border-bottom: 1px solid var(--ae-line);
+
+    color: var(--ae-text-soft);
+
+    letter-spacing: 0.08em;
+}
+
+
+.aether-key-panel__header button {
+    appearance: none;
+
+    border: 0;
+
+    background: transparent;
+
+    color: var(--ae-text-dim);
+
+    font: inherit;
+
+    cursor: pointer;
+}
+
+
+.aether-key-panel__header button:hover {
+    color: var(--ae-text);
+}
+
+
+.aether-key-panel__list {
+    max-height: 320px;
+
+    overflow-y: auto;
+
+    padding: 6px;
+}
+
+
+.aether-key-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+
+    padding: 7px 6px;
+}
+
+
+.aether-key-item:hover {
+    background: #222;
+}
+
+
+.aether-key-item input {
+    margin: 0;
+}
+
+
+.aether-key-item label {
+    flex: 1;
+
+    cursor: pointer;
+
+    color: var(--ae-text);
+}
+
+
+/* ------------------------------------------------------------
+   Django original fields
+   ------------------------------------------------------------ */
+
+/*
+ * The real Django textareas remain in the form so that
+ * Django admin can submit them normally.
+ *
+ * They are hidden because CodeMirror is their visual editor.
+ */
+
+#aether-editor ~ .form-row textarea#id_body,
+#aether-editor ~ .form-row textarea#id_infobox {
+    display: none;
+}
+
+
+/*
+ * Fallback: editor.js adds this class directly to the
+ * original textarea.
+ */
+
+.aether-source-field {
+    display: none !important;
+}
+
+
+/* ------------------------------------------------------------
+   Responsive fallback
+   ------------------------------------------------------------ */
+
+@media (max-width: 1100px) {
+
+  .wp-split {
+    grid-template-columns:
+      minmax(0, 1fr);
+  }
+
+
+  .wp-resizer {
+    display: none;
+  }
+
+
+  .wp-pane {
+    position: static;
+    height: 70vh;
+  }
+}
+
+/* ==================================================
+   AETHER FOLDING
+   ================================================== */
+
+.aether-fold-marker {
+    display: inline-flex;
+
+    width: 14px;
+    height: 14px;
+
+    align-items: center;
+    justify-content: center;
+
+    font-family:
+        var(--font-mono, "JetBrains Mono", monospace);
+
+    font-size: 11px;
+
+    line-height: 1;
+
+    color:
+        var(--accent, #3fd0ff);
+
+    cursor: pointer;
+
+    opacity: .75;
+
+    transition:
+        opacity .12s ease,
+        color .12s ease;
+}
+
+.aether-fold-marker:hover {
+    opacity: 1;
+
+    color:
+        var(--fg, #b5b6b8);
+}
+
+
+/* Немного уменьшаем визуальный вес gutter */
+
+.aether-cm .cm-foldGutter {
+    width: 18px;
+}
+
+.aether-cm .cm-foldGutter .cm-gutterElement {
+    padding: 0;
+}
+
+
+/* Убираем стандартный текстовый marker,
+   если CodeMirror его создаёт */
+
+.aether-cm .cm-foldGutter span {
+    font-family:
+        var(--font-mono, "JetBrains Mono", monospace);
+}
+
+
+/* ==================================================
+   Editor split / preview viewport
+   ================================================== */
+
+.wp-split {
+  position: relative;
+}
+
+.wp-resizer {
+  width: 8px;
+  min-width: 8px;
+  height: 100%;
+  min-height: 100px;
+
+  cursor: col-resize;
+  touch-action: none;
+  user-select: none;
+
+  background: var(--border-color, #ccc);
+  opacity: 0.35;
+
+  position: relative;
+  z-index: 20;
+}
+
+.wp-resizer:hover,
+.wp-split.is-resizing .wp-resizer {
+  opacity: 0.8;
+}
+
+body.wp-is-resizing {
+  cursor: col-resize !important;
+  user-select: none !important;
+}
+
+body.wp-is-resizing iframe,
+body.wp-is-resizing textarea {
+  pointer-events: none;
+}
+
+
+/* ==================================================
+   Preview viewport
+   ================================================== */
+
+.wp-preview-viewport {
+  flex: 1 1 auto;
+
+  width: 100%;
+  min-width: 0;
+  min-height: 0;
+
+  overflow-x: auto;
+  overflow-y: hidden;
+
+  position: relative;
+
+  background: #05070a;
+
+  box-sizing: border-box;
+}
+
+.wp-preview-viewport .wp-frame {
+  display: none;
+
+  width: 100%;
+  min-width: 100%;
+
+  height: 100%;
+  min-height: 100%;
+
+  border: 0;
+  margin: 0;
+  padding: 0;
+
+  background: #05070a;
+}
+
+.wp-preview-viewport .wp-frame.is-active {
+  display: block;
+}
+
+body.wp-editor .aether-original-field {
+    display: none !important;
+}

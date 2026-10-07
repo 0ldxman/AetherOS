@@ -22,19 +22,29 @@ def satisfied(req, keys):
 
 
 def _check(req):
-    """Строгая проверка формы условия (вложенные условия не бывают пустыми)."""
+    """Строгая проверка формы условия."""
+
+    if isinstance(req, dict) and not req:
+        return
+
     if isinstance(req, str) and req:
         return
+
     if isinstance(req, dict) and len(req) == 1:
         (op, val), = req.items()
+
         if op in ("all", "any") and isinstance(val, list) and val:
             for r in val:
                 _check(r)
             return
+
         if op == "not" and val:
             _check(val)
             return
-    raise ValidationError(f"Неверное условие: {req!r}")
+
+    raise ValidationError(
+        f"Неверное условие: {req!r}"
+    )
 
 
 def validate_requirements(req):

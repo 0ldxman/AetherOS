@@ -1,6 +1,7 @@
 from django.contrib import admin
 
 from .models import Document, Namespace
+from .admin_preview import DocumentPreviewMixin
 
 
 @admin.register(Namespace)
@@ -11,7 +12,7 @@ class NamespaceAdmin(admin.ModelAdmin):
 
 
 @admin.register(Document)
-class DocumentAdmin(admin.ModelAdmin):
+class DocumentAdmin(DocumentPreviewMixin, admin.ModelAdmin):
     list_display = ("title", "namespace", "type", "updated_at")
     list_filter = ("namespace", "type")
     search_fields = ("title",)

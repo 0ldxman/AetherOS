@@ -1,0 +1,72 @@
+{% extends "admin/change_form.html" %}
+{% load static %}
+
+{% block extrahead %}{{ block.super }}
+<link rel="stylesheet" href="{% static 'wiki/editor.css' %}">
+<link rel="stylesheet" href="{% static 'wiki/condition_editor.css' %}">
+<script type="module" src="{% static 'wiki/editor.js' %}"></script>
+{% endblock %}
+
+{% block bodyclass %}{{ block.super }} wp-editor{% endblock %}
+
+{% block content %}
+<div class="wp-split" id="wp-split" data-preview-url="{{ preview_url }}">
+  <div class="wp-split__form">
+    {{ block.super }}
+  </div>
+
+  <aside class="wp-pane" aria-label="Предпросмотр">
+    <div class="wp-pane__bar">
+      <div class="wp-tabs">
+        <button type="button" class="wp-tab is-active" data-tab="body">Документ</button>
+        <button type="button" class="wp-tab" data-tab="infobox">Инфобокс</button>
+      </div>
+
+      <label class="wp-as">
+        Смотреть как
+        <select id="wp-as">
+          <option value="all" selected>со всеми ключами</option>
+          <option value="none">без ключей</option>
+          <option value="custom">выбранные ключи</option>
+        </select>
+      </label>
+
+      <span class="wp-status" id="wp-status"></span>
+    </div>
+
+    <div class="wp-keys" id="wp-keys" hidden>
+      {% for k in preview_keys %}
+        <label title="{{ k.description }}">
+          <input type="checkbox" value="{{ k.slug }}">
+          {{ k.slug }}
+        </label>
+      {% empty %}
+        <span class="wp-keys__empty">Ключей пока нет.</span>
+      {% endfor %}
+    </div>
+
+    <script id="wiki-condition-keys" type="application/json">
+    [
+        {% for k in preview_keys %}
+        {
+            "slug": "{{ k.slug|escapejs }}",
+            "description": "{{ k.description|default:''|escapejs }}"
+        }{% if not forloop.last %},{% endif %}
+        {% endfor %}
+    ]
+    </script>
+
+    <iframe
+      class="wp-frame is-active"
+      id="wp-frame-body"
+      title="Предпросмотр документа"
+    ></iframe>
+
+    <iframe
+      class="wp-frame"
+      id="wp-frame-infobox"
+      title="Предпросмотр инфобокса"
+    ></iframe>
+  </aside>
+</div>
+{% endblock %}
