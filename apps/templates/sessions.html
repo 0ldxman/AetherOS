@@ -1,17 +1,14 @@
+{% extends "ui/base.html" %}
 {% load static %}
 
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+{% block lang %}en{% endblock %}
+{% block title %}Sessions{% endblock %}
 
-    <title>Sessions</title>
-
+{% block css %}
     <link rel="stylesheet" href="{% static 'sessions.css' %}">
-</head>
+{% endblock %}
 
-<body>
+{% block body %}
 
 <div id="sessions-app">
 
@@ -137,8 +134,9 @@
 
 </div>
 
+{% endblock %}
+
+{% block js %}
 <script>window.SESSION_INSPECTOR_BASE = "{{ session_inspector_base }}";</script>
 <script src="{% static 'sessions.js' %}"></script>
-
-</body>
-</html>
+{% endblock %}

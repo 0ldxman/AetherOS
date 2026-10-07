@@ -1,0 +1,40 @@
+{% load static %}<!doctype html>
+{% comment %}
+  Aether OS — базовый шаблон. Путь в проекте: templates/ui/base.html
+  Все страницы (оболочка рабочего стола, boot/login, вики, sessions, карта, почта...)
+  наследуются отсюда: {% extends "ui/base.html" %}
+
+  Что делает база:
+    * подключает static/ui/tokens.css ПЕРВЫМ — дочерние шаблоны сами его не подключают;
+    * ставит тему машины на <html> (если во view/context processor есть machine_theme);
+    * даёт блоки, в которые страницы кладут свои css/js.
+
+  Блоки:
+    title       — заголовок вкладки
+    html_attrs  — доп. атрибуты <html> (с ведущим пробелом, напр. ' class="x"')
+    css         — <link> на css страницы (идёт после tokens.css и темы)
+    head_extra  — всё остальное в <head> (MapLibre, meta, preload...)
+    body_attrs  — атрибуты <body> (с ведущим пробелом, напр. ' class="desktop"')
+    body        — содержимое страницы
+    js          — скрипты в конце <body>
+{% endcomment %}
+<html lang="ru"{% if machine_theme %} data-theme="{{ machine_theme }}"{% endif %}{% block html_attrs %}{% endblock %}>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}Aether OS{% endblock %}</title>
+
+  {# Общие токены интерфейса. Всегда первыми: страницы в iframe не наследуют их от оболочки. #}
+  <link rel="stylesheet" href="{% static 'ui/tokens.css' %}">
+
+  {# Тема машины — поверх токенов. Пока machine_theme нигде не задаётся, блок ничего не выводит. #}
+  {% if machine_theme %}<link rel="stylesheet" href="{% static 'ui/themes/'|add:machine_theme|add:'.css' %}">{% endif %}
+
+  {% block css %}{% endblock %}
+  {% block head_extra %}{% endblock %}
+</head>
+<body{% block body_attrs %}{% endblock %}>
+{% block body %}{% endblock %}
+{% block js %}{% endblock %}
+</body>
+</html>

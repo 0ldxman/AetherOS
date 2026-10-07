@@ -55,3 +55,9 @@ def country_labels(request):
         ],
         safe=False,
     )
+
+
+def timeline_dates(request):
+    """Даты, в которые менялись границы: из них строятся засечки таймлайна."""
+    days = Ownership.objects.order_by("date_from").values_list("date_from", flat=True).distinct()
+    return JsonResponse({"dates": [d.isoformat() for d in days]})

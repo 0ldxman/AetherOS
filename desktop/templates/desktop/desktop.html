@@ -1,14 +1,14 @@
+{% extends "ui/base.html" %}
 {% load static %}
-<!DOCTYPE html>
-<html lang="ru">
-<head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Aether OS</title>
+
+{% block title %}Aether OS{% endblock %}
+
+{% block css %}
     <link rel="stylesheet" href="{% static 'desktop/desktop.css' %}">
     <link rel="stylesheet" href="{% static 'desktop/winbox/winbox.min.css' %}">
-</head>
-<body>
+{% endblock %}
+
+{% block body %}
     <header id="taskbar">
         <div class="connection">
             <span>conn: </span>
@@ -40,7 +40,9 @@
         <span id='clock'></span>
         <span id="date"></span>
     </div>
+{% endblock %}
+
+{% block js %}
     <script src="{% static 'desktop/winbox/winbox.min.js' %}"></script>
     <script src="{% static 'desktop/desktop.js' %}"></script>
-</body>
-</html>
+{% endblock %}

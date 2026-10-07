@@ -3,38 +3,12 @@
 
 
 :root {
-  --bg: #0e0e0e;
-  --panel: #232323;
-  --fg: #b5b6b8;
-  --window-border: #b5b6b8;
+  /* Общие токены — static/ui/tokens.css (подключать раньше этого файла).
+     Ниже только отличия экрана загрузки. */
+  --bg: #0e0e0e;                    /* на загрузке темнее, чем на рабочем столе */
+  --line: var(--line-faint);        /* boot.css и login.css всегда использовали тонкую линию */
 
-  --accent: #3fd0ff;
-  --accent-green: #17e1b8;
-  --accent-error: #e6304f;
-  --accent-error-darker: #df0619;
-  --accent-warn: #f5c644;
-  --line: #212121;
-
-  --font-light: #dfdfdf;
-  --font-dark: #141213;
-  --font-muted: #727272;
-
-  --fs-base: 1rem;
-  --fs-small: 0.8rem;
-  --fs-smaller: 0.65rem;
-  --fs-tiny: 0.5rem;
-  --fs-midbig: 1.1rem;
-  --fs-big: 1.3rem;
-  --fs-large: 1.6rem;
   --fs-clock: 0.8rem;
-
-  --font-main: "JetBrains Mono", ui-monospace, Menlo, Consolas, monospace;
-  --font-doted: "Doto", ui-monospace, Menlo, Consolas, monospace;
-
-  --tab-h: 26px;
-
-  --cell: 48px;
-
   --ping-color: var(--accent-green);
 }
 

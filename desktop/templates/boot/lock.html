@@ -1,13 +1,14 @@
+{% extends "ui/base.html" %}
 {% load static %}
-<!doctype html>
-<html lang="en">
-<head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>AETHER.OS</title>
+
+{% block lang %}en{% endblock %}
+{% block title %}AETHER.OS{% endblock %}
+
+{% block css %}
     <link rel="stylesheet" href="{% static 'boot/lock.css' %}">
-</head>
-<body>
+{% endblock %}
+
+{% block body %}
     <main class="lock" id="lock">
         <div class="lock-clock">
             <div class="lock-time" id="lock-time">--:--</div>
@@ -30,8 +31,9 @@
         <div class="lock-message" role="alert" aria-live="polite"></div>
         <div class="lock-footer">AETHER OS 9.1 (Halcyon) · NODE-07</div>
     </main>
+{% endblock %}
 
+{% block js %}
     {{ boot_config|json_script:"boot-config" }}
     <script src="{% static 'boot/lock.js' %}"></script>
-</body>
-</html>
+{% endblock %}

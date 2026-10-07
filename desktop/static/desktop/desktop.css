@@ -2,38 +2,8 @@
 @import url('https://fonts.googleapis.com/css2?family=Doto:wght@100..900&display=swap');
 
 :root {
-  --bg: #191919;
-  --panel: #232323;
-  --fg: #b5b6b8;
-  --window-border: #dfdfdf;
-
-  --accent: #3fd0ff;
-  --accent-green: #17e1b8;
-  --accent-error: #e6304f;
-  --accent-error-darker: #df0619;
-  --accent-warn: #f5c644;
-  --line: #212121;
-
-  --font-light: #dfdfdf;
-  --font-dark: #141213;
-  --font-muted: ;
-
-  --fs-base: 1rem;
-  --fs-small: 0.8rem;
-  --fs-smaller: 0.65rem;
-  --fs-tiny: 0.5rem;
-  --fs-midbig: 1.1rem;
-  --fs-big: 1.3rem;
-  --fs-large: 1.6rem;
+  /* Общие токены — static/ui/tokens.css (подключать раньше этого файла). Здесь только локальное. */
   --fs-clock: 0.8rem;
-
-  --font-main: "JetBrains Mono", ui-monospace, Menlo, Consolas, monospace;
-  --font-doted: "Doto", ui-monospace, Menlo, Consolas, monospace;
-
-  --tab-h: 26px;
-
-  --cell: 48px;
-
   --ping-color: var(--accent-green);
 }
 
@@ -56,8 +26,8 @@ body {
   position: relative;
   overflow: hidden;
   background:
-    linear-gradient(var(--line) 1px, transparent 1px) 0 0 / var(--cell) var(--cell),
-    linear-gradient(90deg, var(--line) 1px, transparent 1px) 0 0 / var(--cell) var(--cell);
+    linear-gradient(var(--line-faint) 1px, transparent 1px) 0 0 / var(--cell) var(--cell),
+    linear-gradient(90deg, var(--line-faint) 1px, transparent 1px) 0 0 / var(--cell) var(--cell);
 }
 
 #taskbar {

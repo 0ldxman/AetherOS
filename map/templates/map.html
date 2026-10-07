@@ -7,6 +7,7 @@
   <title>Aether OS / World</title>
   <link href="https://unpkg.com/maplibre-gl@5/dist/maplibre-gl.css" rel="stylesheet">
   <link href="{% static 'map.css' %}" rel="stylesheet">
+  <link href="{% static 'timeline.css' %}" rel="stylesheet">
 </head>
 <body>
   <div id="map"></div>
@@ -22,7 +23,9 @@
         const ADM1_PMTILES_URL = "{% static 'data/aether_provinces.pmtiles' %}";
         const PROVINCE_COLORS_URL = "{% url 'map:province_colors' %}";
         const COUNTRY_LABELS_URL = "{% url 'map:country_labels' %}";
+        const TIMELINE_URL = "{% url 'map:timeline_dates' %}";
     </script>
     <script src="{% static 'map.js' %}"></script>
+    <script src="{% static 'timeline.js' %}"></script>
 </body>
 </html>

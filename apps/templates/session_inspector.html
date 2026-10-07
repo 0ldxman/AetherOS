@@ -1,24 +1,14 @@
+{% extends "ui/base.html" %}
 {% load static %}
 
-<!DOCTYPE html>
-<html lang="en">
+{% block lang %}en{% endblock %}
+{% block title %}Session {{ sid }}{% endblock %}
 
-<head>
+{% block css %}
+    <link rel="stylesheet" href="{% static 'sessions.css' %}">
+{% endblock %}
 
-    <meta charset="UTF-8">
-
-    <title>
-        Session {{ sid }}
-    </title>
-
-    <link
-        rel="stylesheet"
-        href="{% static 'sessions.css' %}"
-    >
-
-</head>
-
-<body>
+{% block body %}
 
 <div class="session-inspector">
 
@@ -207,5 +197,4 @@
 
 </div>
 
-</body>
-</html>
+{% endblock %}

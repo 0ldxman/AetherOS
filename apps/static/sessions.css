@@ -1,25 +1,8 @@
 :root {
-    --bg: #191919;
-    --panel: #232323;
-
-    --fg: #b5b6b8;
-    --font-light: #dfdfdf;
-    --font-dark: #141213;
-
-    --line: #303030;
-    --line-bright: #555;
-
-    --accent: #3fd0ff;
-    --accent-green: #17e1b8;
-    --accent-warn: #f5c644;
-    --accent-error: #e6304f;
-
-    --row-hover: #242424;
-    --row-selected: #292929;
+    /* Общие токены (цвета, шрифты, --line, --row-hover/selected...) — static/ui/tokens.css,
+       он должен подключаться раньше этого файла. Здесь только локальное. */
 
     --sid-w: 7rem;          /* ширина закреплённой колонки sid; подгони под свои значения */
-
-    --font-main: "JetBrains Mono", ui-monospace, Menlo, Consolas, monospace;
 }
 
 

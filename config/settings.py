@@ -80,7 +80,8 @@ ROOT_URLCONF = 'config.urls'
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [],
+        # Общие шаблоны проекта: templates/ui/base.html и всё, что не принадлежит одному приложению
+        'DIRS': [BASE_DIR / 'templates'],
         'APP_DIRS': True,
         'OPTIONS': {
             'context_processors': [
@@ -164,6 +165,10 @@ USE_TZ = True
 
 STATIC_URL = "/proxy/8000/static/"
 
+# Общая статика проекта: static/ui/tokens.css, static/ui/themes/*.css, позже static/ui/fonts.css.
+# Не принадлежит ни одному приложению; папка static/ лежит в корне проекта рядом с manage.py.
+STATICFILES_DIRS = [BASE_DIR / "static"]
+
 
 # Email
 # https://docs.djangoproject.com/en/6.1/topics/email/#topic-email-configuration
@@ -177,4 +182,6 @@ MAILERS = {
 
 X_FRAME_OPTIONS = "SAMEORIGIN"
 
-WHITENOISE_MAX_AGE = 31536000
+# Год кэша — только вне отладки. Имена файлов без хеша, поэтому при DEBUG год кэша
+# не даёт правкам css дойти до браузера (приходится обновлять жёстко после каждой правки).
+WHITENOISE_MAX_AGE = 0 if DEBUG else 31536000

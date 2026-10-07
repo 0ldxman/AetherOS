@@ -2,24 +2,7 @@
 
 
 :root {
-    --bg: #191919;
-    --panel: #232323;
-
-    --fg: #b5b6b8;
-    --font-light: #dfdfdf;
-    --font-dark: #141213;
-    --font-muted: #727272;
-
-    --line: #303030;
-    --line-bright: #555;
-
-    --row-hover: #242424;
-    --row-selected: #292929;
-
-    --accent: #3fd0ff;
-    --accent-green: #17e1b8;
-    --accent-warn: #f5c644;
-    --accent-error: #e6304f;
+    /* Общие токены — static/ui/tokens.css (подключать раньше этого файла). Здесь только локальное. */
 
     /* цвет плашки текущего неймспейса в дереве */
     --select: var(--font-light);
@@ -31,8 +14,6 @@
 
     /* горизонтальный отступ viewer: путь, таблица и пустые состояния на одной линии */
     --pad-x: 1.2rem;
-
-    --font-main: "JetBrains Mono", ui-monospace, Menlo, Consolas, monospace;
 }
 
 
