@@ -40,9 +40,6 @@
     --accent-ink: #ffffff;
     --link: var(--accent);
 
-    --font-head: "PT Serif", Georgia, "Times New Roman", serif;
-    --font-text: "PT Serif", Georgia, "Times New Roman", serif;
-    --font-mono: "Cousine", "Liberation Mono", "Courier New", monospace;
     --font-barcode: "Libre Barcode 39", monospace;
 
     --head-weight: 700;
@@ -86,8 +83,8 @@
 
     --accent: #e0554b;
 
-    --font-head: "Arimo", Arial, "Helvetica Neue", Helvetica, sans-serif;
-    --font-text: "Arimo", Arial, "Helvetica Neue", Helvetica, sans-serif;
+    --ff-pt-serif: var(--ff-arimo);
+    --ff-pt-serif: var(--ff-arimo);
 }
 
 
@@ -100,8 +97,8 @@
 
     --accent: #d10f0f;
 
-    --font-head: "Arimo", Arial, "Helvetica Neue", Helvetica, sans-serif;
-    --font-text: "Arimo", Arial, "Helvetica Neue", Helvetica, sans-serif;
+    --ff-pt-serif: var(--ff-arimo);
+    --ff-pt-serif: var(--ff-arimo);
 
     --head-transform: uppercase;
     --head-spacing: -0.01em;
@@ -117,8 +114,8 @@
 
     --accent: #1f4e8c;
 
-    --font-head: "Arimo", Arial, "Helvetica Neue", Helvetica, sans-serif;
-    --font-text: "Arimo", Arial, "Helvetica Neue", Helvetica, sans-serif;
+    --ff-pt-serif: var(--ff-arimo);
+    --ff-pt-serif: var(--ff-arimo);
 }
 
 
@@ -186,7 +183,7 @@ html:has(body.doc--web) {
     background: var(--page-bg);
     color: var(--page-text);
 
-    font-family: var(--font-text);
+    font-family: var(--ff-pt-serif);
     font-size: 1rem;
     line-height: 1.65;
 
@@ -226,7 +223,7 @@ html:has(body.doc--web) {
     background: var(--page-tint);
     color: var(--page-soft);
 
-    font-family: var(--font-text);
+    font-family: var(--ff-pt-serif);
     font-size: 0.78rem;
     line-height: 1.4;
 }
@@ -252,7 +249,7 @@ html:has(body.doc--web) {
 
     color: var(--page-text);
 
-    font-family: var(--font-head);
+    font-family: var(--ff-pt-serif);
     font-weight: var(--head-weight);
     letter-spacing: var(--head-spacing);
     line-height: 1.18;
@@ -376,7 +373,7 @@ html:has(body.doc--web) {
     background: var(--page-tint);
     border-radius: 2px;
 
-    font-family: var(--font-mono);
+    font-family: var(--ff-cousine);
     font-size: 0.88em;
 }
 
@@ -392,7 +389,7 @@ html:has(body.doc--web) {
     border: 1px solid var(--page-line);
     border-radius: 3px;
 
-    font-family: var(--font-mono);
+    font-family: var(--ff-cousine);
     font-size: 0.88rem;
     line-height: 1.5;
 }
@@ -536,7 +533,7 @@ html:has(body.doc--web) {
     /* Цвет метки = цвет скелета: в покое её не видно */
     color: var(--sk-base);
 
-    font-family: var(--font-mono);
+    font-family: var(--ff-cousine);
     font-size: 0.72rem;
     font-style: normal;
     font-weight: 700;
@@ -654,7 +651,7 @@ html:has(body.doc--web) {
     background: var(--accent);
     color: var(--accent-ink);
 
-    font-family: var(--font-head);
+    font-family: var(--ff-pt-serif);
     font-size: 1.05rem;
     font-weight: 700;
     line-height: 1;
@@ -667,7 +664,7 @@ html:has(body.doc--web) {
 
     padding: 0.45rem 0.95rem;
 
-    font-family: var(--font-head);
+    font-family: var(--ff-pt-serif);
     font-size: 0.85rem;
     font-weight: 700;
     letter-spacing: 0.07em;
@@ -724,7 +721,7 @@ html:has(body.doc--web) {
 
     color: var(--accent);
 
-    font-family: var(--font-head);
+    font-family: var(--ff-pt-serif);
     font-size: 0.74rem;
     font-weight: 700;
     letter-spacing: 0.1em;
@@ -870,7 +867,7 @@ html:has(body.doc--web) {
 
 
 .doc--web .mast-name {
-    font-family: var(--font-head);
+    font-family: var(--ff-pt-serif);
     font-size: 2.1rem;
     font-weight: var(--head-weight);
     letter-spacing: var(--head-spacing);
@@ -885,7 +882,7 @@ html:has(body.doc--web) {
 
     color: var(--page-soft);
 
-    font-family: var(--font-text);
+    font-family: var(--ff-pt-serif);
     font-size: 0.78rem;
     letter-spacing: 0.08em;
 
@@ -898,7 +895,7 @@ html:has(body.doc--web) {
 
     color: var(--page-soft);
 
-    font-family: var(--font-text);
+    font-family: var(--ff-pt-serif);
     font-size: 0.75rem;
     font-weight: 700;
     letter-spacing: 0.08em;
@@ -921,7 +918,7 @@ html:has(body.doc--web) {
 .doc--web .mast-item {
     padding: 0.55rem 1rem;
 
-    font-family: var(--font-text);
+    font-family: var(--ff-pt-serif);
     font-size: 0.8rem;
     font-weight: 700;
     letter-spacing: 0.06em;
@@ -955,7 +952,7 @@ html:has(body.doc--web) {
 
     border-radius: 2px;
 
-    font-family: var(--font-mono);
+    font-family: var(--ff-cousine);
     font-size: 0.72rem;
     letter-spacing: 0.03em;
 }
@@ -1057,7 +1054,7 @@ html:has(body.doc--web) {
     background: var(--page-tint);
     color: var(--page-soft);
 
-    font-family: var(--font-text);
+    font-family: var(--ff-pt-serif);
     font-size: 0.82rem;
     text-align: center;
 }
@@ -1076,7 +1073,7 @@ html:has(body.doc--web) {
 
     color: var(--page-soft);
 
-    font-family: var(--font-text);
+    font-family: var(--ff-pt-serif);
     font-size: 0.8rem;
     font-style: italic;
     line-height: 1.4;
@@ -1111,7 +1108,7 @@ html:has(body.doc--web) {
 
     color: var(--page-soft);
 
-    font-family: var(--font-text);
+    font-family: var(--ff-pt-serif);
     font-size: 0.75rem;
     font-weight: 700;
     letter-spacing: 0.1em;
@@ -1148,7 +1145,7 @@ html:has(body.doc--web) {
 .doc--web .divider-mark {
     color: var(--accent);
 
-    font-family: var(--font-head);
+    font-family: var(--ff-pt-serif);
     letter-spacing: 0.5em;
 }
 
@@ -1186,7 +1183,7 @@ html:has(body.doc--web) {
     background: var(--tone);
     color: #ffffff;
 
-    font-family: var(--font-text);
+    font-family: var(--ff-pt-serif);
     font-size: 0.78rem;
     font-weight: 700;
     letter-spacing: 0.1em;
@@ -1270,7 +1267,7 @@ html:has(body.doc--web) {
 
 
 .doc--web .barcode-text {
-    font-family: var(--font-mono);
+    font-family: var(--ff-cousine);
     font-size: 0.7rem;
     letter-spacing: 0.15em;
 }
@@ -1288,7 +1285,7 @@ html:has(body.doc--web) {
 
     border-radius: 3px;
 
-    font-family: var(--font-mono);
+    font-family: var(--ff-cousine);
     font-size: 0.82rem;
     line-height: 1.55;
 }
@@ -1436,7 +1433,7 @@ html:has(body.doc--web) {
     background: var(--page-bg);
     color: var(--page-text);
 
-    font-family: var(--font-text);
+    font-family: var(--ff-pt-serif);
     font-size: 0.9rem;
     line-height: 1.5;
 }

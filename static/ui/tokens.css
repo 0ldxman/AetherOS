@@ -64,13 +64,28 @@
   --status-warn: var(--accent-warn);
   --status-error: var(--accent-error);
 
-  /* ---- Шрифты --------------------------------------------------------- */
-  --font-main: "JetBrains Mono", ui-monospace, Menlo, Consolas, monospace;
-  --font-doted: "Doto", ui-monospace, Menlo, Consolas, monospace;
-  --font-hand: "Caveat", "Segoe Script", cursive;          /* рукописные пометки */
-  --font-barcode: "Libre Barcode 39", monospace;           /* штрихкод */
-  /* Шрифты бумажных документов (Cousine, Courier Prime, PT Serif, Arimo)
-     остаются в doc/scan/web.css: это содержимое мира, а не интерфейс машины. */
+  /* ---- Гарнитуры -------------------------------------------------------
+     Одна переменная на шрифт: имя + запасные. Загрузка шрифтов — в fonts.css.
+     Если гарнитуру закомментировали в fonts.css, сработают запасные. */
+  --ff-jetbrains-mono: "JetBrains Mono", ui-monospace, Menlo, Consolas, monospace;
+  --ff-doto: "Doto", ui-monospace, Menlo, Consolas, monospace;
+  --ff-caveat: "Caveat", "Segoe Script", cursive;
+  --ff-libre-barcode-39: "Libre Barcode 39", monospace;
+  --ff-cousine: "Cousine", "Liberation Mono", "Courier New", monospace;
+  --ff-courier-prime: "Courier Prime", "Courier New", Courier, "Liberation Mono", monospace;
+  --ff-arimo: "Arimo", Arial, "Helvetica Neue", Helvetica, sans-serif;
+  --ff-pt-serif: "PT Serif", Georgia, "Times New Roman", serif;
+
+  /* ---- Шрифты (роли) ---------------------------------------------------
+     «Какой шрифт где». Тема машины меняет роль одной строкой,
+     например --font-main: var(--ff-doto). */
+  --font-main: var(--ff-jetbrains-mono);
+  --font-doted: var(--ff-doto);
+  --font-hand: var(--ff-caveat);             /* рукописные пометки */
+  --font-barcode: var(--ff-libre-barcode-39); /* штрихкод */
+  /* Роли бумажных документов (--font-tech, --font-body, --font-doc,
+     --font-head, --font-text, --font-mono) остаются в скинах doc/scan/web,
+     но тоже ссылаются на --ff-*. */
 
   /* ---- Кегль ---------------------------------------------------------- */
   --fs-base: 1rem;

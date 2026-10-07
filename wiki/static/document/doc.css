@@ -31,8 +31,8 @@
  * Courier Prime  машинописный: абзацы, списки, значения в ячейках.
  *
  * ВАЖНО: нужна кириллица. Если у Courier Prime её нет, браузер
- * подставит для русских букв следующий шрифт из --font-body.
- * Тогда замените первый шрифт в --font-body (например, на Cutive Mono)
+ * подставит для русских букв следующий шрифт из --ff-courier-prime.
+ * Тогда замените первый шрифт в --ff-courier-prime (например, на Cutive Mono)
  * и добавьте его в @import.
  */
 
@@ -87,12 +87,6 @@
 
 
     /* ---------- Шрифты ---------- */
-
-    /* Технический: структура, подписи, номера, код */
-    --font-tech: "Cousine", "Liberation Mono", "Courier New", monospace;
-
-    /* Машинописный: основной текст и значения */
-    --font-body: "Courier Prime", "Courier New", Courier, "Liberation Mono", monospace;
 
     --font-hand: "Caveat", "Segoe Script", cursive;
     --font-barcode: "Libre Barcode 39", monospace;
@@ -164,7 +158,7 @@ html:has(body.doc--doc) {
     background-color: var(--paper);
     color: var(--ink);
 
-    font-family: var(--font-body);
+    font-family: var(--ff-courier-prime);
     font-size: 0.93rem;
     line-height: 1.52;
 }
@@ -194,7 +188,7 @@ html:has(body.doc--doc) {
 
     color: var(--ink-soft);
 
-    font-family: var(--font-tech);
+    font-family: var(--ff-cousine);
     font-size: 0.72rem;
     letter-spacing: 0.04em;
 }
@@ -221,7 +215,7 @@ html:has(body.doc--doc) {
 
     color: var(--ink);
 
-    font-family: var(--font-tech);
+    font-family: var(--ff-cousine);
     font-weight: 700;
     line-height: 1.25;
 }
@@ -340,7 +334,7 @@ html:has(body.doc--doc) {
 
     background: var(--tint);
 
-    font-family: var(--font-tech);
+    font-family: var(--ff-cousine);
     font-size: 0.95em;
 }
 
@@ -355,7 +349,7 @@ html:has(body.doc--doc) {
 
     border: 1px solid var(--line);
 
-    font-family: var(--font-tech);
+    font-family: var(--ff-cousine);
 }
 
 
@@ -392,7 +386,7 @@ html:has(body.doc--doc) {
 .doc--doc .md th {
     background: var(--tint);
 
-    font-family: var(--font-tech);
+    font-family: var(--ff-cousine);
     font-weight: 700;
 }
 
@@ -402,7 +396,7 @@ html:has(body.doc--doc) {
 
     color: var(--ink-soft);
 
-    font-family: var(--font-tech);
+    font-family: var(--ff-cousine);
     font-size: 0.72rem;
     font-weight: 700;
     letter-spacing: 0.07em;
@@ -471,7 +465,7 @@ html:has(body.doc--doc) {
 
     background: var(--tint-soft);
 
-    font-family: var(--font-tech);
+    font-family: var(--ff-cousine);
 }
 
 
@@ -549,7 +543,7 @@ html:has(body.doc--doc) {
 
     color: var(--ink-soft);
 
-    font-family: var(--font-tech);
+    font-family: var(--ff-cousine);
     font-size: 0.65rem;
     font-weight: 700;
     letter-spacing: 0.08em;
@@ -683,7 +677,7 @@ html:has(body.doc--doc) {
 
     color: var(--tone);
 
-    font-family: var(--font-tech);
+    font-family: var(--ff-cousine);
     font-size: 1.45rem;
     font-weight: 700;
     letter-spacing: 0.16em;
@@ -782,7 +776,7 @@ html:has(body.doc--doc) {
 
 
 .doc--doc .barcode-text {
-    font-family: var(--font-tech);
+    font-family: var(--ff-cousine);
     font-size: 0.7rem;
     letter-spacing: 0.15em;
 }
@@ -798,7 +792,7 @@ html:has(body.doc--doc) {
     background: var(--log-bg);
     color: var(--log-fg);
 
-    font-family: var(--font-tech);
+    font-family: var(--ff-cousine);
     font-size: 0.8rem;
     line-height: 1.55;
 }
@@ -885,7 +879,7 @@ html:has(body.doc--doc) {
 
     gap: 0.6ch;
 
-    font-family: var(--font-tech);
+    font-family: var(--ff-cousine);
     font-size: 0.8rem;
 }
 
@@ -917,7 +911,7 @@ html:has(body.doc--doc) {
 .doc--doc .widget--masthead {
     border: 1px solid var(--line);
 
-    font-family: var(--font-tech);
+    font-family: var(--ff-cousine);
 }
 
 
@@ -1017,7 +1011,7 @@ html:has(body.doc--doc) {
 
     background: var(--tint);
 
-    font-family: var(--font-tech);
+    font-family: var(--ff-cousine);
     font-size: 0.7rem;
     letter-spacing: 0.04em;
 }
@@ -1102,7 +1096,7 @@ html:has(body.doc--doc) {
     background: var(--tint);
     color: var(--ink-soft);
 
-    font-family: var(--font-tech);
+    font-family: var(--ff-cousine);
     font-size: 0.75rem;
     letter-spacing: 0.04em;
     text-align: center;
@@ -1122,7 +1116,7 @@ html:has(body.doc--doc) {
 
     color: var(--ink-soft);
 
-    font-family: var(--font-tech);
+    font-family: var(--ff-cousine);
     font-size: 0.72rem;
     letter-spacing: 0.03em;
 }
@@ -1156,7 +1150,7 @@ html:has(body.doc--doc) {
 
     color: var(--ink-soft);
 
-    font-family: var(--font-tech);
+    font-family: var(--ff-cousine);
     font-size: 0.72rem;
     font-weight: 700;
     letter-spacing: 0.1em;
@@ -1193,7 +1187,7 @@ html:has(body.doc--doc) {
 .doc--doc .divider-mark {
     color: var(--ink-soft);
 
-    font-family: var(--font-tech);
+    font-family: var(--ff-cousine);
     letter-spacing: 0.5em;
 }
 
@@ -1208,7 +1202,7 @@ html:has(body.doc--doc) {
     background: var(--paper);
     color: var(--ink);
 
-    font-family: var(--font-body);
+    font-family: var(--ff-courier-prime);
     font-size: 0.85rem;
     line-height: 1.45;
 }

@@ -99,8 +99,6 @@
 
 
     /* ---------- Шрифты ---------- */
-
-    --font-doc: "Cousine", "Courier New", Courier, monospace;
     --font-hand: "Caveat", "Segoe Script", cursive;
     --font-barcode: "Libre Barcode 39", monospace;
 
@@ -186,7 +184,7 @@
 
     color: var(--ink);
 
-    font-family: var(--font-doc);
+    font-family: var(--ff-cousine);
     font-size: 0.93rem;
     line-height: 1.52;
 
@@ -1258,7 +1256,7 @@
 .doc--scan .widget--masthead {
     border: 1px solid rgba(79, 76, 70, 0.66);
 
-    font-family: var(--font-doc);
+    font-family: var(--ff-cousine);
 }
 
 
@@ -1358,7 +1356,7 @@
 
     background: rgba(0, 0, 0, 0.042);
 
-    font-family: var(--font-doc);
+    font-family: var(--ff-cousine);
     font-size: 0.7rem;
     letter-spacing: 0.04em;
 }
@@ -1443,7 +1441,7 @@
     background: rgba(0, 0, 0, 0.042);
     color: var(--ink-soft);
 
-    font-family: var(--font-doc);
+    font-family: var(--ff-cousine);
     font-size: 0.75rem;
     letter-spacing: 0.04em;
     text-align: center;
@@ -1463,7 +1461,7 @@
 
     color: var(--ink-soft);
 
-    font-family: var(--font-doc);
+    font-family: var(--ff-cousine);
     font-size: 0.72rem;
     letter-spacing: 0.03em;
 }
@@ -1497,7 +1495,7 @@
 
     color: var(--ink-soft);
 
-    font-family: var(--font-doc);
+    font-family: var(--ff-cousine);
     font-size: 0.72rem;
     font-weight: 700;
     letter-spacing: 0.1em;
@@ -1534,7 +1532,7 @@
 .doc--scan .divider-mark {
     color: var(--ink-soft);
 
-    font-family: var(--font-doc);
+    font-family: var(--ff-cousine);
     letter-spacing: 0.5em;
 }
 
@@ -1549,7 +1547,7 @@
     background: var(--paper);
     color: var(--ink);
 
-    font-family: var(--font-doc);
+    font-family: var(--ff-cousine);
     font-size: 0.85rem;
     line-height: 1.45;
 }
