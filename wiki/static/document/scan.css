@@ -24,6 +24,11 @@
    .sheet--fold     — едва заметная складка
    Необязательный модификатор на .doc--scan:
    .doc--lite       — без SVG-фильтра чернил (для очень длинных статей)
+
+   Переменные скина (определены в блоке «Переменные»):
+   --line, --line-soft  основная и мягкая линия: рамки, сетки, таблицы
+   --tint, --tint-soft  лёгкие заливки: шапки, код, полоса «bar», kv-ключи
+   Шрифты --font-hand и --font-barcode берутся из static/ui/tokens.css.
    ================================================== */
 
 /* -------------------------------------------------- */
@@ -41,7 +46,18 @@
     --paper: #e8e6e0;
     --ink: #27261f;
     --ink-soft: #5f5c55;
-    --rule: #4f4c46;
+
+    /* Линии и лёгкие заливки: вместо россыпи rgba(79, 76, 70, …) и rgba(0, 0, 0, …).
+       --line намеренно перекрывает глобальный токен --line, но только внутри документа. */
+    --line: rgba(79, 76, 70, 0.66);
+    --line-soft: rgba(79, 76, 70, 0.50);
+
+    --tint: rgba(0, 0, 0, 0.042);
+    --tint-soft: rgba(0, 0, 0, 0.018);
+
+    /* Ширина колонки ключей (kv/kvm) и даты (timeline) */
+    --kv-key-width: 9rem;
+    --tl-date-width: 6.5rem;
 
 
     /* ---------- Геометрия скана ---------- */
@@ -98,9 +114,6 @@
     --log-debug: #85827b;
 
 
-    /* ---------- Шрифты ---------- */
-    --font-hand: "Caveat", "Segoe Script", cursive;
-    --font-barcode: "Libre Barcode 39", monospace;
 
 
     /* ---------- SVG-фильтр чернил ----------
@@ -386,7 +399,7 @@
     --fx-fold: linear-gradient(
         180deg,
         transparent calc(33.3% - 3px),
-        rgba(0, 0, 0, 0.045) calc(33.3% - 1.5px),
+        var(--tint) calc(33.3% - 1.5px),
         rgba(255, 255, 255, 0.28) 33.3%,
         rgba(0, 0, 0, 0.030) calc(33.3% + 1.5px),
         transparent calc(33.3% + 4px)
@@ -425,7 +438,7 @@
     margin-top: 1.5rem;
     padding-top: 0.4rem;
 
-    border-top: 1px solid rgba(79, 76, 70, 0.62);
+    border-top: 1px solid var(--line);
 
     color: var(--ink-soft);
 
@@ -543,7 +556,7 @@
 
     padding-bottom: 0.28em;
 
-    border-bottom: 1px solid rgba(79, 76, 70, 0.66);
+    border-bottom: 1px solid var(--line);
 
     font-size: 1.45rem;
     letter-spacing: 0.045em;
@@ -573,6 +586,7 @@
 .doc--scan .sheet-body > :first-child,
 .doc--scan .cell > :first-child,
 .doc--scan .section-body > :first-child,
+.doc--scan .fold-body > :first-child,
 .doc--scan .box > :first-child {
     margin-top: 0;
 }
@@ -630,7 +644,7 @@
     margin: 0 0 0.8em;
     padding: 0.2em 1ch;
 
-    border-left: 3px solid rgba(79, 76, 70, 0.64);
+    border-left: 3px solid var(--line);
 
     color: var(--ink-soft);
 }
@@ -640,14 +654,14 @@
     margin: 1em 0;
 
     border: 0;
-    border-top: 1px solid rgba(79, 76, 70, 0.62);
+    border-top: 1px solid var(--line);
 }
 
 
 .doc--scan .md code {
     padding: 0 0.3ch;
 
-    background: rgba(0, 0, 0, 0.055);
+    background: var(--tint);
 
     font-family: inherit;
     font-size: 0.95em;
@@ -660,9 +674,9 @@
 
     overflow: auto;
 
-    background: rgba(0, 0, 0, 0.045);
+    background: var(--tint);
 
-    border: 1px solid rgba(79, 76, 70, 0.46);
+    border: 1px solid var(--line-soft);
 }
 
 
@@ -688,7 +702,7 @@
 .doc--scan .md td {
     padding: var(--cell-pad);
 
-    border: 1px solid rgba(79, 76, 70, 0.64);
+    border: 1px solid var(--line);
 
     text-align: left;
     vertical-align: top;
@@ -696,7 +710,7 @@
 
 
 .doc--scan .md th {
-    background: rgba(0, 0, 0, 0.042);
+    background: var(--tint);
     font-weight: 700;
 }
 
@@ -765,7 +779,7 @@
 .doc--scan .section {
     margin: 1.2rem 0;
 
-    border: 1px solid rgba(79, 76, 70, 0.70);
+    border: 1px solid var(--line);
 }
 
 
@@ -773,9 +787,9 @@
     display: flex;
     align-items: stretch;
 
-    border-bottom: 1px solid rgba(79, 76, 70, 0.64);
+    border-bottom: 1px solid var(--line);
 
-    background: rgba(0, 0, 0, 0.018);
+    background: var(--tint-soft);
 }
 
 
@@ -785,7 +799,7 @@
 
     padding: 0.2rem 1rem;
 
-    border-right: 1px solid rgba(79, 76, 70, 0.64);
+    border-right: 1px solid var(--line);
 
     font-size: 1.45rem;
     font-weight: 700;
@@ -812,6 +826,75 @@
 
 
 /* -------------------------------------------------- */
+/* Fold  (сворачиваемый сегмент)                      */
+/* -------------------------------------------------- */
+
+.doc--scan .fold {
+    margin: 1.2rem 0;
+
+    border: 1px solid var(--line);
+}
+
+
+.doc--scan .fold-head {
+    display: flex;
+    align-items: center;
+
+    gap: 0.8ch;
+
+    padding: 0.4rem 0.9rem;
+
+    background: var(--tint-soft);
+
+    font-weight: 700;
+    letter-spacing: 0.055em;
+
+    text-transform: uppercase;
+
+    cursor: pointer;
+    user-select: none;
+
+    list-style: none;
+}
+
+
+.doc--scan .fold-head::-webkit-details-marker {
+    display: none;
+}
+
+
+.doc--scan .fold-head::before {
+    content: "+";
+
+    flex: 0 0 auto;
+    width: 1ch;
+
+    text-align: center;
+}
+
+
+.doc--scan .fold[open] > .fold-head {
+    border-bottom: 1px solid var(--line);
+}
+
+
+.doc--scan .fold[open] > .fold-head::before {
+    content: "\2212";
+}
+
+
+.doc--scan .fold-body {
+    padding: 0.7rem 0.9rem 0.1rem;
+}
+
+
+/* закрытый fold: заголовка нет, тело замазано и всегда открыто */
+.doc--scan .fold--masked > .fold-head {
+    display: none;
+}
+
+
+/* -------------------------------------------------- */
 /* Grid                                               */
 /* -------------------------------------------------- */
 
@@ -820,8 +903,8 @@
 
     margin: 0 0 0.8em;
 
-    border-top: 1px solid rgba(79, 76, 70, 0.66);
-    border-left: 1px solid rgba(79, 76, 70, 0.66);
+    border-top: 1px solid var(--line);
+    border-left: 1px solid var(--line);
 }
 
 
@@ -830,8 +913,8 @@
 
     padding: var(--cell-pad);
 
-    border-right: 1px solid rgba(79, 76, 70, 0.62);
-    border-bottom: 1px solid rgba(79, 76, 70, 0.62);
+    border-right: 1px solid var(--line);
+    border-bottom: 1px solid var(--line);
 
     overflow-wrap: anywhere;
 }
@@ -842,7 +925,8 @@
 }
 
 
-.doc--scan .cell > :last-child {
+.doc--scan .cell > :last-child,
+.doc--scan .fold-body > :last-child {
     margin-bottom: 0;
 }
 
@@ -884,7 +968,7 @@
 
 
 .doc--scan .box--border {
-    border: 1px solid rgba(79, 76, 70, 0.66);
+    border: 1px solid var(--line);
 }
 
 
@@ -1067,7 +1151,7 @@
 .doc--scan .sig-line {
     margin-top: 0.1rem;
 
-    border-top: 1px solid rgba(79, 76, 70, 0.70);
+    border-top: 1px solid var(--line);
 }
 
 
@@ -1236,7 +1320,7 @@
     width: 1em;
     height: 1em;
 
-    border: 1px solid rgba(79, 76, 70, 0.76);
+    border: 1px solid var(--line);
 
     font-size: 0.85rem;
     line-height: 1;
@@ -1250,11 +1334,182 @@
 
 
 /* -------------------------------------------------- */
+/* KV / KVM  (ключ: значение)                         */
+/* -------------------------------------------------- */
+
+.doc--scan .widget--kv,
+.doc--scan .widget--kvm {
+    margin: 0 0 0.8em;
+}
+
+
+.doc--scan .kv-row {
+    display: grid;
+    grid-template-columns: var(--kv-key-width) minmax(0, 1fr);
+
+    gap: 0 0.9rem;
+
+    padding: 0.15rem 0;
+}
+
+
+.doc--scan .kv-key {
+    color: var(--ink-soft);
+
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    line-height: 2;
+
+    text-transform: uppercase;
+}
+
+
+.doc--scan .kv-val {
+    min-width: 0;
+
+    overflow-wrap: anywhere;
+}
+
+
+.doc--scan .kv-line + .kv-line {
+    margin-top: 0.15em;
+}
+
+
+/* флаг border: рамка вокруг всего виджета и линии между строками */
+.doc--scan .widget--kv-border,
+.doc--scan .widget--kvm-border {
+    border: 1px solid var(--line);
+}
+
+
+.doc--scan .widget--kv-border .kv-row,
+.doc--scan .widget--kvm-border .kv-row {
+    gap: 0;
+
+    padding: 0;
+}
+
+
+.doc--scan .widget--kv-border .kv-row + .kv-row,
+.doc--scan .widget--kvm-border .kv-row + .kv-row {
+    border-top: 1px solid var(--line-soft);
+}
+
+
+.doc--scan .widget--kv-border .kv-key,
+.doc--scan .widget--kvm-border .kv-key {
+    padding: var(--cell-pad);
+
+    border-right: 1px solid var(--line-soft);
+
+    background: var(--tint-soft);
+}
+
+
+.doc--scan .widget--kv-border .kv-val,
+.doc--scan .widget--kvm-border .kv-val {
+    padding: var(--cell-pad);
+}
+
+
+/* -------------------------------------------------- */
+/* Timeline                                           */
+/* -------------------------------------------------- */
+
+.doc--scan .widget--timeline {
+    margin: 0 0 0.8em;
+}
+
+
+.doc--scan .tl-row {
+    display: grid;
+    grid-template-columns: var(--tl-date-width) 1.2rem minmax(0, 1fr);
+
+    column-gap: 0.4rem;
+}
+
+
+.doc--scan .tl-date,
+.doc--scan .tl-text {
+    padding-bottom: 0.9rem;
+
+    min-width: 0;
+
+    overflow-wrap: anywhere;
+}
+
+
+.doc--scan .tl-date {
+    color: var(--ink-soft);
+
+    font-weight: 700;
+
+    text-align: right;
+}
+
+
+.doc--scan .tl-row:last-child .tl-date,
+.doc--scan .tl-row:last-child .tl-text {
+    padding-bottom: 0;
+}
+
+
+.doc--scan .tl-dot {
+    position: relative;
+}
+
+
+/* точка: центр совпадает с серединой первой строки текста */
+.doc--scan .tl-dot::before {
+    content: "";
+
+    position: absolute;
+    top: 0.475em;
+    left: 50%;
+    z-index: 1;
+
+    box-sizing: border-box;
+
+    width: 0.6em;
+    height: 0.6em;
+
+    border: 2px solid var(--ink);
+    border-radius: 50%;
+
+    background: var(--paper);
+
+    transform: translateX(-50%);
+}
+
+
+/* линия: от центра этой точки до центра следующей */
+.doc--scan .tl-dot::after {
+    content: "";
+
+    position: absolute;
+    top: 0.775em;
+    bottom: -0.775em;
+    left: 50%;
+
+    border-left: 1px solid var(--line);
+
+    transform: translateX(-50%);
+}
+
+
+.doc--scan .tl-row:last-child .tl-dot::after {
+    display: none;
+}
+
+
+/* -------------------------------------------------- */
 /* Masthead (шапка сайта)                             */
 /* -------------------------------------------------- */
 
 .doc--scan .widget--masthead {
-    border: 1px solid rgba(79, 76, 70, 0.66);
+    border: 1px solid var(--line);
 
     font-family: var(--ff-cousine);
 }
@@ -1314,16 +1569,16 @@
     display: flex;
     flex-wrap: wrap;
 
-    border-top: 1px solid rgba(79, 76, 70, 0.66);
+    border-top: 1px solid var(--line);
 
-    background: rgba(0, 0, 0, 0.018);
+    background: var(--tint-soft);
 }
 
 
 .doc--scan .mast-item {
     padding: 0.25rem 0.9rem;
 
-    border-right: 1px solid rgba(79, 76, 70, 0.66);
+    border-right: 1px solid var(--line);
 
     font-size: 0.72rem;
     font-weight: 700;
@@ -1352,9 +1607,9 @@
 
     padding: 0.25rem 0.6rem;
 
-    border: 1px solid rgba(79, 76, 70, 0.66);
+    border: 1px solid var(--line);
 
-    background: rgba(0, 0, 0, 0.042);
+    background: var(--tint);
 
     font-family: var(--ff-cousine);
     font-size: 0.7rem;
@@ -1365,7 +1620,7 @@
 .doc--scan .bar-label {
     padding-right: 1.5ch;
 
-    border-right: 1px solid rgba(79, 76, 70, 0.66);
+    border-right: 1px solid var(--line);
 
     font-weight: 700;
     letter-spacing: 0.1em;
@@ -1415,7 +1670,7 @@
 
 
 .doc--scan .image-frame {
-    border: 1px solid rgba(79, 76, 70, 0.66);
+    border: 1px solid var(--line);
 }
 
 
@@ -1438,7 +1693,7 @@
 
     padding: 0.6rem;
 
-    background: rgba(0, 0, 0, 0.042);
+    background: var(--tint);
     color: var(--ink-soft);
 
     font-family: var(--ff-cousine);
@@ -1486,7 +1741,7 @@
 
     height: 0;
 
-    border-top: 1px solid rgba(79, 76, 70, 0.66);
+    border-top: 1px solid var(--line);
 }
 
 
@@ -1505,7 +1760,7 @@
 
 
 .doc--scan .divider--double .divider-line {
-    border-top: 3px double rgba(79, 76, 70, 0.66);
+    border-top: 3px double var(--line);
 }
 
 
@@ -1624,176 +1879,4 @@
     .doc--scan .sheet::after {
         display: none;
     }
-}
-
-
-.doc--scan .widget--kv,
-.doc--scan .widget--kvm {
-    margin: 0 0 0.8em;
-}
-
-.doc--scan .kv-row {
-    display: grid;
-    grid-template-columns: var(--kv-key-width, 9rem) minmax(0, 1fr);
-    gap: 0 0.9rem;
-    padding: 0.15rem 0;
-}
-
-.doc--scan .kv-key {
-    color: var(--ink-soft);
-    font-size: 0.7rem;
-    font-weight: 700;
-    letter-spacing: 0.08em;
-    line-height: 2;
-    text-transform: uppercase;
-}
-
-.doc--scan .kv-val {
-    min-width: 0;
-    overflow-wrap: anywhere;
-}
-
-.doc--scan .kv-line + .kv-line {
-    margin-top: 0.15em;
-}
-
-.doc--scan .widget--kv-border,
-.doc--scan .widget--kvm-border {
-    border: 1px solid rgba(79, 76, 70, 0.66);
-}
-
-.doc--scan .widget--kv-border .kv-row,
-.doc--scan .widget--kvm-border .kv-row {
-    gap: 0;
-    padding: 0;
-}
-
-.doc--scan .widget--kv-border .kv-row + .kv-row,
-.doc--scan .widget--kvm-border .kv-row + .kv-row {
-    border-top: 1px solid rgba(79, 76, 70, 0.50);
-}
-
-.doc--scan .widget--kv-border .kv-key,
-.doc--scan .widget--kvm-border .kv-key {
-    padding: var(--cell-pad);
-    border-right: 1px solid rgba(79, 76, 70, 0.50);
-    background: rgba(0, 0, 0, 0.018);
-}
-
-.doc--scan .widget--kv-border .kv-val,
-.doc--scan .widget--kvm-border .kv-val {
-    padding: var(--cell-pad);
-}
-
-
-.doc--scan .widget--timeline {
-    margin: 0 0 0.8em;
-}
-
-.doc--scan .tl-row {
-    display: grid;
-    grid-template-columns: var(--tl-date-width, 6.5rem) 1.2rem minmax(0, 1fr);
-    column-gap: 0.4rem;
-}
-
-.doc--scan .tl-date,
-.doc--scan .tl-text {
-    padding-bottom: 0.9rem;
-    min-width: 0;
-    overflow-wrap: anywhere;
-}
-
-.doc--scan .tl-date {
-    color: var(--ink-soft);
-    font-weight: 700;
-    text-align: right;
-}
-
-.doc--scan .tl-row:last-child .tl-date,
-.doc--scan .tl-row:last-child .tl-text {
-    padding-bottom: 0;
-}
-
-.doc--scan .tl-dot {
-    position: relative;
-}
-
-.doc--scan .tl-dot::before {
-    content: "";
-    position: absolute;
-    top: 0.475em;
-    left: 50%;
-    z-index: 1;
-    box-sizing: border-box;
-    width: 0.6em;
-    height: 0.6em;
-    border: 2px solid rgba(79, 76, 70, 0.66);
-    border-radius: 50%;
-    background: var(--paper);
-    transform: translateX(-50%);
-}
-
-.doc--scan .tl-dot::after {
-    content: "";
-    position: absolute;
-    top: 0.775em;
-    bottom: -0.775em;
-    left: 50%;
-    border-left: 1px solid rgba(79, 76, 70, 0.66);
-    transform: translateX(-50%);
-}
-
-.doc--scan .tl-row:last-child .tl-dot::after {
-    display: none;
-}
-
-
-.doc--scan .fold {
-    margin: 1.2rem 0;
-    border: 1px solid rgba(79, 76, 70, 0.66);
-}
-
-.doc--scan .fold-head {
-    display: flex;
-    align-items: center;
-    gap: 0.8ch;
-    padding: 0.4rem 0.9rem;
-    background: rgba(0, 0, 0, 0.018);
-    font-weight: 700;
-    letter-spacing: 0.055em;
-    text-transform: uppercase;
-    cursor: pointer;
-    user-select: none;
-    list-style: none;
-}
-
-.doc--scan .fold-head::-webkit-details-marker {
-    display: none;
-}
-
-.doc--scan .fold-head::before {
-    content: "+";
-    flex: 0 0 auto;
-    width: 1ch;
-    text-align: center;
-}
-
-.doc--scan .fold[open] > .fold-head {
-    border-bottom: 1px solid rgba(79, 76, 70, 0.66);
-}
-
-.doc--scan .fold[open] > .fold-head::before {
-    content: "\2212";
-}
-
-.doc--scan .fold-body {
-    padding: 0.7rem 0.9rem 0.1rem;
-}
-
-.doc--scan .fold-body > :first-child {
-    margin-top: 0;
-}
-
-.doc--scan .fold--masked > .fold-head {
-    display: none;
 }

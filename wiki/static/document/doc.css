@@ -19,6 +19,12 @@
      и машинописный (Courier-подобный) для содержимого.
 
    Все правила привязаны к .doc--doc.
+
+   Переменные скина (все определены в блоке «Переменные»):
+   --line       единственная линия: рамки, сетки, таблицы, подпись
+   --tint       заливка шапок таблиц, кода, полосы «bar»
+   --tint-soft  лёгкая заливка: шапки секций, fold, kv-ключи
+   Шрифты --font-hand и --font-barcode берутся из static/ui/tokens.css.
    ================================================== */
 
 
@@ -30,10 +36,13 @@
  * Cousine        технический: подписи, заголовки, номера, код, лог.
  * Courier Prime  машинописный: абзацы, списки, значения в ячейках.
  *
+ * Оба объявлены в static/ui/tokens.css (--ff-cousine, --ff-courier-prime),
+ * загружаются в static/ui/fonts.css.
+ *
  * ВАЖНО: нужна кириллица. Если у Courier Prime её нет, браузер
  * подставит для русских букв следующий шрифт из --ff-courier-prime.
  * Тогда замените первый шрифт в --ff-courier-prime (например, на Cutive Mono)
- * и добавьте его в @import.
+ * и добавьте его в fonts.css.
  */
 
 /* -------------------------------------------------- */
@@ -46,6 +55,10 @@
     --sheet-pad: 2.35rem;
     --cell-pad: 0.35rem 0.6rem;
 
+    /* Ширина колонки ключей (kv/kvm) и даты (timeline) */
+    --kv-key-width: 9rem;
+    --tl-date-width: 6.5rem;
+
 
     /* ---------- Подложка и бумага ---------- */
 
@@ -57,7 +70,8 @@
     --ink: #27261f;
     --ink-soft: #5f5c55;
 
-    /* Одна линия на всё: рамки секций, сетки, таблиц, подписи */
+    /* Одна линия на всё: рамки секций, сеток, таблиц, подпись.
+       Намеренно перекрывает глобальный токен --line, но только внутри документа. */
     --line: rgba(79, 76, 70, 0.66);
 
     /* Лёгкие заливки: шапка секции, шапка таблицы, код */
@@ -84,12 +98,6 @@
     --log-warn: #c7a85e;
     --log-error: #c26b73;
     --log-debug: #85827b;
-
-
-    /* ---------- Шрифты ---------- */
-
-    --font-hand: "Caveat", "Segoe Script", cursive;
-    --font-barcode: "Libre Barcode 39", monospace;
 }
 
 
@@ -257,6 +265,7 @@ html:has(body.doc--doc) {
 .doc--doc .sheet-body > :first-child,
 .doc--doc .cell > :first-child,
 .doc--doc .section-body > :first-child,
+.doc--doc .fold-body > :first-child,
 .doc--doc .box > :first-child {
     margin-top: 0;
 }
@@ -502,6 +511,76 @@ html:has(body.doc--doc) {
 
 
 /* -------------------------------------------------- */
+/* Fold  (сворачиваемый сегмент)                      */
+/* -------------------------------------------------- */
+
+.doc--doc .fold {
+    margin: 1.2rem 0;
+
+    border: 1px solid var(--line);
+}
+
+
+.doc--doc .fold-head {
+    display: flex;
+    align-items: center;
+
+    gap: 0.8ch;
+
+    padding: 0.4rem 0.9rem;
+
+    background: var(--tint-soft);
+
+    font-family: var(--ff-cousine);
+    font-weight: 700;
+    letter-spacing: 0.055em;
+
+    text-transform: uppercase;
+
+    cursor: pointer;
+    user-select: none;
+
+    list-style: none;
+}
+
+
+.doc--doc .fold-head::-webkit-details-marker {
+    display: none;
+}
+
+
+.doc--doc .fold-head::before {
+    content: "+";
+
+    flex: 0 0 auto;
+    width: 1ch;
+
+    text-align: center;
+}
+
+
+.doc--doc .fold[open] > .fold-head {
+    border-bottom: 1px solid var(--line);
+}
+
+
+.doc--doc .fold[open] > .fold-head::before {
+    content: "\2212";
+}
+
+
+.doc--doc .fold-body {
+    padding: 0.7rem 0.9rem 0.1rem;
+}
+
+
+/* закрытый fold: заголовка нет, тело замазано и всегда открыто */
+.doc--doc .fold--masked > .fold-head {
+    display: none;
+}
+
+
+/* -------------------------------------------------- */
 /* Grid                                               */
 /* -------------------------------------------------- */
 
@@ -532,7 +611,8 @@ html:has(body.doc--doc) {
 }
 
 
-.doc--doc .cell > :last-child {
+.doc--doc .cell > :last-child,
+.doc--doc .fold-body > :last-child {
     margin-bottom: 0;
 }
 
@@ -905,6 +985,179 @@ html:has(body.doc--doc) {
 
 
 /* -------------------------------------------------- */
+/* KV / KVM  (ключ: значение)                         */
+/* -------------------------------------------------- */
+
+.doc--doc .widget--kv,
+.doc--doc .widget--kvm {
+    margin: 0 0 0.8em;
+}
+
+
+.doc--doc .kv-row {
+    display: grid;
+    grid-template-columns: var(--kv-key-width) minmax(0, 1fr);
+
+    gap: 0 0.9rem;
+
+    padding: 0.15rem 0;
+}
+
+
+.doc--doc .kv-key {
+    color: var(--ink-soft);
+
+    font-family: var(--ff-cousine);
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 0.07em;
+    line-height: 2;
+
+    text-transform: uppercase;
+}
+
+
+.doc--doc .kv-val {
+    min-width: 0;
+
+    overflow-wrap: anywhere;
+}
+
+
+.doc--doc .kv-line + .kv-line {
+    margin-top: 0.15em;
+}
+
+
+/* флаг border: рамка вокруг всего виджета и линии между строками */
+.doc--doc .widget--kv-border,
+.doc--doc .widget--kvm-border {
+    border: 1px solid var(--line);
+}
+
+
+.doc--doc .widget--kv-border .kv-row,
+.doc--doc .widget--kvm-border .kv-row {
+    gap: 0;
+
+    padding: 0;
+}
+
+
+.doc--doc .widget--kv-border .kv-row + .kv-row,
+.doc--doc .widget--kvm-border .kv-row + .kv-row {
+    border-top: 1px solid var(--line);
+}
+
+
+.doc--doc .widget--kv-border .kv-key,
+.doc--doc .widget--kvm-border .kv-key {
+    padding: var(--cell-pad);
+
+    border-right: 1px solid var(--line);
+
+    background: var(--tint-soft);
+}
+
+
+.doc--doc .widget--kv-border .kv-val,
+.doc--doc .widget--kvm-border .kv-val {
+    padding: var(--cell-pad);
+}
+
+
+/* -------------------------------------------------- */
+/* Timeline                                           */
+/* -------------------------------------------------- */
+
+.doc--doc .widget--timeline {
+    margin: 0 0 0.8em;
+}
+
+
+.doc--doc .tl-row {
+    display: grid;
+    grid-template-columns: var(--tl-date-width) 1.2rem minmax(0, 1fr);
+
+    column-gap: 0.4rem;
+}
+
+
+.doc--doc .tl-date,
+.doc--doc .tl-text {
+    padding-bottom: 0.9rem;
+
+    min-width: 0;
+
+    overflow-wrap: anywhere;
+}
+
+
+.doc--doc .tl-date {
+    color: var(--ink-soft);
+
+    font-family: var(--ff-cousine);
+    font-weight: 700;
+
+    text-align: right;
+}
+
+
+.doc--doc .tl-row:last-child .tl-date,
+.doc--doc .tl-row:last-child .tl-text {
+    padding-bottom: 0;
+}
+
+
+.doc--doc .tl-dot {
+    position: relative;
+}
+
+
+/* точка: центр совпадает с серединой первой строки текста */
+.doc--doc .tl-dot::before {
+    content: "";
+
+    position: absolute;
+    top: 0.475em;
+    left: 50%;
+    z-index: 1;
+
+    box-sizing: border-box;
+
+    width: 0.6em;
+    height: 0.6em;
+
+    border: 2px solid var(--ink);
+    border-radius: 50%;
+
+    background: var(--paper);
+
+    transform: translateX(-50%);
+}
+
+
+/* линия: от центра этой точки до центра следующей */
+.doc--doc .tl-dot::after {
+    content: "";
+
+    position: absolute;
+    top: 0.775em;
+    bottom: -0.775em;
+    left: 50%;
+
+    border-left: 1px solid var(--line);
+
+    transform: translateX(-50%);
+}
+
+
+.doc--doc .tl-row:last-child .tl-dot::after {
+    display: none;
+}
+
+
+/* -------------------------------------------------- */
 /* Masthead (шапка сайта)                             */
 /* -------------------------------------------------- */
 
@@ -1268,175 +1521,4 @@ html:has(body.doc--doc) {
         break-after: auto;
         page-break-after: auto;
     }
-}
-
-
-.doc--doc .widget--kv,
-.doc--doc .widget--kvm {
-    margin: 0 0 0.8em;
-}
-
-.doc--doc .kv-row {
-    display: grid;
-    grid-template-columns: var(--kv-key-width, 9rem) minmax(0, 1fr);
-    gap: 0 0.9rem;
-    padding: 0.15rem 0;
-}
-
-.doc--doc .kv-key {
-    color: var(--ink-soft);
-    font-size: 0.7rem;
-    font-weight: 700;
-    letter-spacing: 0.07em;
-    line-height: 2;
-    text-transform: uppercase;
-}
-
-.doc--doc .kv-val {
-    min-width: 0;
-    overflow-wrap: anywhere;
-}
-
-.doc--doc .kv-line + .kv-line {
-    margin-top: 0.15em;
-}
-
-.doc--doc .widget--kv-border,
-.doc--doc .widget--kvm-border {
-    border: 1px solid var(--rule);
-}
-
-.doc--doc .widget--kv-border .kv-row,
-.doc--doc .widget--kvm-border .kv-row {
-    gap: 0;
-    padding: 0;
-}
-
-.doc--doc .widget--kv-border .kv-row + .kv-row,
-.doc--doc .widget--kvm-border .kv-row + .kv-row {
-    border-top: 1px solid var(--rule-soft);
-}
-
-.doc--doc .widget--kv-border .kv-key,
-.doc--doc .widget--kvm-border .kv-key {
-    padding: var(--cell-pad);
-    border-right: 1px solid var(--rule-soft);
-    background: var(--shade);
-}
-
-.doc--doc .widget--kv-border .kv-val,
-.doc--doc .widget--kvm-border .kv-val {
-    padding: var(--cell-pad);
-}
-
-
-.doc--doc .widget--timeline {
-    margin: 0 0 0.8em;
-}
-
-.doc--doc .tl-row {
-    display: grid;
-    grid-template-columns: var(--tl-date-width, 6.5rem) 1.2rem minmax(0, 1fr);
-    column-gap: 0.4rem;
-}
-
-.doc--doc .tl-date,
-.doc--doc .tl-text {
-    padding-bottom: 0.9rem;
-    min-width: 0;
-    overflow-wrap: anywhere;
-}
-
-.doc--doc .tl-date {
-    color: var(--ink-soft);
-    font-weight: 700;
-    text-align: right;
-}
-
-.doc--doc .tl-row:last-child .tl-date,
-.doc--doc .tl-row:last-child .tl-text {
-    padding-bottom: 0;
-}
-
-.doc--doc .tl-dot {
-    position: relative;
-}
-
-.doc--doc .tl-dot::before {
-    content: "";
-    position: absolute;
-    top: 0.475em;
-    left: 50%;
-    z-index: 1;
-    box-sizing: border-box;
-    width: 0.6em;
-    height: 0.6em;
-    border: 2px solid var(--rule);
-    border-radius: 50%;
-    background: var(--paper);
-    transform: translateX(-50%);
-}
-
-.doc--doc .tl-dot::after {
-    content: "";
-    position: absolute;
-    top: 0.775em;
-    bottom: -0.775em;
-    left: 50%;
-    border-left: 1px solid var(--rule);
-    transform: translateX(-50%);
-}
-
-.doc--doc .tl-row:last-child .tl-dot::after {
-    display: none;
-}
-
-.doc--doc .fold {
-    margin: 1.2rem 0;
-    border: 1px solid var(--rule);
-}
-
-.doc--doc .fold-head {
-    display: flex;
-    align-items: center;
-    gap: 0.8ch;
-    padding: 0.4rem 0.9rem;
-    background: var(--shade);
-    font-weight: 700;
-    letter-spacing: 0.05em;
-    text-transform: uppercase;
-    cursor: pointer;
-    user-select: none;
-    list-style: none;
-}
-
-.doc--doc .fold-head::-webkit-details-marker {
-    display: none;
-}
-
-.doc--doc .fold-head::before {
-    content: "+";
-    flex: 0 0 auto;
-    width: 1ch;
-    text-align: center;
-}
-
-.doc--doc .fold[open] > .fold-head {
-    border-bottom: 1px solid var(--rule);
-}
-
-.doc--doc .fold[open] > .fold-head::before {
-    content: "\2212";
-}
-
-.doc--doc .fold-body {
-    padding: 0.7rem 0.9rem 0.1rem;
-}
-
-.doc--doc .fold-body > :first-child {
-    margin-top: 0;
-}
-
-.doc--doc .fold--masked > .fold-head {
-    display: none;
 }
