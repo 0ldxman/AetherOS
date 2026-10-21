@@ -19,6 +19,9 @@ env = environ.Env()
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 environ.Env.read_env(BASE_DIR / ".env")
+NEXTCLOUD_URL = env("NEXTCLOUD_URL")
+NEXTCLOUD_USERNAME = env("NEXTCLOUD_USERNAME")
+NEXTCLOUD_APP_PASSWORD = env("NEXTCLOUD_APP_PASSWORD")
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/6.1/howto/deployment/checklist/
@@ -52,7 +55,9 @@ INSTALLED_APPS = [
     'wiki',
     'desktop',
     'apps',
-    'map'
+    'map',
+    'assets',
+    'filesystem',
 ]
 INSTALLED_APPS += [
     "django.contrib.sites",

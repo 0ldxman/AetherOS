@@ -1,51 +1,352 @@
-from django import forms
 from django.contrib import admin
-from django.contrib.auth.hashers import make_password
+from django.contrib import messages
 
-from .models import DesktopApp, Machine, MachineApp, MachineSession
+from .models import (
+    Machine,
+    MachineProfile,
+    MachineProfileHID,
+    MachineProfileToken,
+    Session,
+)
 
 
-class MachineAdminForm(forms.ModelForm):
-    new_password = forms.CharField(
-        required=False,
-        label="Пароль",
-        widget=forms.PasswordInput(render_value=False),
-        help_text="Оставь пустым, чтобы не менять. В базе хранится только хеш.",
+# ==================================================
+# Machine Profile
+# ==================================================
+
+class MachineProfileInline(admin.TabularInline):
+    model = MachineProfile
+    extra = 0
+
+    fields = (
+        "name",
+        "user",
+        "login",
+        "freq",
     )
 
-    class Meta:
-        model = Machine
-        exclude = ["password"]
+    show_change_link = True
 
 
-class MachineAppInline(admin.TabularInline):
-    model = MachineApp
-    extra = 0
+# ==================================================
+# Machine
+# ==================================================
+
+@admin.action(description="Delete selected machines")
+def delete_selected_machines(modeladmin, request, queryset):
+    protected = queryset.filter(is_system=True)
+    deletable = queryset.filter(is_system=False)
+
+    protected_count = protected.count()
+
+    if protected_count:
+        modeladmin.message_user(
+            request,
+            f"{protected_count} system machine(s) cannot be deleted.",
+            level=messages.ERROR,
+        )
+
+    if deletable.exists():
+        count = deletable.count()
+        deletable.delete()
+
+        modeladmin.message_user(
+            request,
+            f"{count} machine(s) deleted.",
+            level=messages.SUCCESS,
+        )
 
 
 @admin.register(Machine)
 class MachineAdmin(admin.ModelAdmin):
-    form = MachineAdminForm
-    list_display = ("name", "ip", "login", "style")
-    search_fields = ("name", "ip", "login")
-    filter_horizontal = ("keys", "authorized_keys")
-    inlines = [MachineAppInline]
+    list_display = (
+        "id",
+        "name",
+        "system",
+        "hostname",
+        "status",
+        "hid",
+        "is_system",
+        "created_at",
+        "updated_at",
+    )
 
-    def save_model(self, request, obj, form, change):
-        raw = form.cleaned_data.get("new_password")
-        if raw:
-            obj.set_password(raw)
-        elif not change:
-            obj.password = make_password(None)  # непригодный пароль, войти нельзя
-        super().save_model(request, obj, form, change)
+    list_filter = (
+        "system",
+        "status",
+        "is_system",
+    )
+
+    search_fields = (
+        "name",
+        "hostname",
+        "hid",
+    )
+
+    readonly_fields = (
+        "created_at",
+        "updated_at",
+    )
+
+    ordering = (
+        "name",
+    )
+
+    inlines = (
+        MachineProfileInline,
+    )
+
+    actions = (
+        delete_selected_machines,
+    )
+
+    def has_delete_permission(self, request, obj=None):
+        if obj is not None and obj.is_system:
+            return False
+
+        return super().has_delete_permission(request, obj)
 
 
-@admin.register(DesktopApp)
-class DesktopAppAdmin(admin.ModelAdmin):
-    list_display = ("slug", "title", "url")
+# ==================================================
+# Profile Token
+# ==================================================
+
+class MachineProfileTokenInline(admin.TabularInline):
+    model = MachineProfileToken
+    extra = 0
+
+    fields = (
+        "token",
+        "max_usage",
+        "usage",
+        "expires_at",
+        "created_at",
+    )
+
+    readonly_fields = (
+        "created_at",
+    )
 
 
-@admin.register(MachineSession)
-class MachineSessionAdmin(admin.ModelAdmin):
-    list_display = ("user", "machine", "started_at", "ended_at")
-    list_filter = ("machine",)
+# ==================================================
+# Profile HID
+# ==================================================
+
+class MachineProfileHIDInline(admin.TabularInline):
+    model = MachineProfileHID
+    extra = 0
+
+    fields = (
+        "hid",
+    )
+
+
+# ==================================================
+# Machine Profile
+# ==================================================
+
+@admin.register(MachineProfile)
+class MachineProfileAdmin(admin.ModelAdmin):
+    list_display = (
+        "id",
+        "name",
+        "machine",
+        "user",
+        "login",
+        "freq",
+        "has_password",
+        "has_key_condition",
+    )
+
+    list_filter = (
+        "machine",
+    )
+
+    search_fields = (
+        "name",
+        "login",
+        "machine__name",
+        "machine__hostname",
+    )
+
+    autocomplete_fields = (
+        "machine",
+        "user",
+    )
+
+    readonly_fields = (
+        "id",
+    )
+
+    fieldsets = (
+        (
+            "Profile",
+            {
+                "fields": (
+                    "id",
+                    "name",
+                    "machine",
+                    "user",
+                ),
+            },
+        ),
+        (
+            "Endpoint",
+            {
+                "fields": (
+                    "login",
+                    "freq",
+                ),
+            },
+        ),
+        (
+            "Authentication",
+            {
+                "fields": (
+                    "password_hash",
+                    "key_condition",
+                ),
+            },
+        ),
+    )
+
+    inlines = (
+        MachineProfileTokenInline,
+        MachineProfileHIDInline,
+    )
+
+    def has_password(self, obj):
+        return bool(obj.password_hash)
+
+    has_password.boolean = True
+    has_password.short_description = "Password"
+
+    def has_key_condition(self, obj):
+        return bool(obj.key_condition)
+
+    has_key_condition.boolean = True
+    has_key_condition.short_description = "Key condition"
+
+
+# ==================================================
+# Machine Profile Token
+# ==================================================
+
+@admin.register(MachineProfileToken)
+class MachineProfileTokenAdmin(admin.ModelAdmin):
+    list_display = (
+        "id",
+        "profile",
+        "token",
+        "max_usage",
+        "usage",
+        "expires_at",
+        "created_at",
+    )
+
+    list_filter = (
+        "expires_at",
+        "profile__machine",
+    )
+
+    search_fields = (
+        "token",
+        "profile__name",
+        "profile__login",
+        "profile__machine__hostname",
+    )
+
+    autocomplete_fields = (
+        "profile",
+    )
+
+    readonly_fields = (
+        "created_at",
+        "updated_at",
+    )
+
+    ordering = (
+        "-created_at",
+    )
+
+
+# ==================================================
+# Machine Profile HID
+# ==================================================
+
+@admin.register(MachineProfileHID)
+class MachineProfileHIDAdmin(admin.ModelAdmin):
+    list_display = (
+        "id",
+        "profile",
+        "hid",
+    )
+
+    list_filter = (
+        "profile__machine",
+    )
+
+    search_fields = (
+        "hid",
+        "profile__name",
+        "profile__login",
+        "profile__machine__hostname",
+    )
+
+    autocomplete_fields = (
+        "profile",
+    )
+
+
+# ==================================================
+# Session
+# ==================================================
+
+@admin.register(Session)
+class SessionAdmin(admin.ModelAdmin):
+    list_display = (
+        "id",
+        "user",
+        "profile",
+        "machine",
+        "login",
+        "freq",
+        "created_at",
+    )
+
+    list_filter = (
+        "profile__machine",
+    )
+
+    search_fields = (
+        "user__username",
+        "profile__name",
+        "profile__login",
+        "profile__machine__hostname",
+    )
+
+    autocomplete_fields = (
+        "user",
+        "profile",
+    )
+
+    readonly_fields = (
+        "id",
+        "created_at",
+    )
+
+    ordering = (
+        "-created_at",
+    )
+
+    @admin.display(description="Machine")
+    def machine(self, obj):
+        return obj.profile.machine
+
+    @admin.display(description="Login")
+    def login(self, obj):
+        return obj.profile.login
+
+    @admin.display(description="Freq")
+    def freq(self, obj):
+        return obj.profile.freq

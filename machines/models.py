@@ -4,89 +4,235 @@ from django.db import models
 from django.db.models import Q
 
 from secure.models import Key
+import secrets
 
 
-class DesktopApp(models.Model):
-    """Приложение, которое может стоять на машине (иконка на рабочем столе)."""
-
-    slug = models.SlugField(unique=True)
-    title = models.CharField(max_length=60)
-    icon = models.CharField(max_length=200, blank=True)  # символ или путь к картинке
-    url = models.CharField(max_length=200)  # что открывать в окне
-
-    def __str__(self):
-        return self.title
+def generate_hid():
+    return ":".join(f"{secrets.randbelow(256):02x}" for _ in range(6))
 
 
 class Machine(models.Model):
-    name = models.CharField(max_length=100)
-    ip = models.CharField(max_length=64, unique=True)  # вымышленный адрес
-    login = models.CharField(max_length=50)
-    password = models.CharField(max_length=128)  # только хеш, см. set_password()
-    style = models.SlugField(default="default")  # имя темы оформления рабочего стола
-    # ключи, которые "лежат" на машине: действуют только в сессии на ней
-    keys = models.ManyToManyField(Key, blank=True, related_name="machines")
-    # ключи, которыми можно войти на машину вместо пароля (ssh <ip> --k <ключ>)
-    authorized_keys = models.ManyToManyField(
-        Key, blank=True, related_name="opens_machines"
+    class Status(models.TextChoices):
+        ONLINE = "ONLINE", "Online"
+        OFFLINE = "OFFLINE", "Offline"
+        MAINTENANCE = "MAINTENANCE", "Maintenance"
+    
+    class MachineSystem(models.TextChoices):
+        AETHER = "AETHER", "Aether"
+
+    id = models.BigAutoField(primary_key=True)
+
+    name = models.CharField(
+        max_length=255,
     )
-    apps = models.ManyToManyField(
-        DesktopApp, through="MachineApp", blank=True, related_name="machines"
+
+    system = models.CharField(
+        max_length=32,
+        choices=MachineSystem.choices,
+        default=MachineSystem.AETHER,
     )
 
-    def __str__(self):
-        return f"{self.name} ({self.ip})"
+    hostname = models.CharField(
+        max_length=255,
+        unique=True,
+        null=True,
+        blank=True,
+    )
 
-    def set_password(self, raw):
-        self.password = make_password(raw)
+    is_system = models.BooleanField(
+        default=False,
+    )
 
-    def check_password(self, raw):
-        return check_password(raw, self.password)
+    status = models.CharField(
+        max_length=32,
+        choices=Status.choices,
+        default=Status.OFFLINE,
+    )
+
+    hid = models.CharField(
+        max_length=17,
+        unique=True,
+        blank=True,
+    )
+
+    created_at = models.DateTimeField(
+        auto_now_add=True,
+    )
+
+    updated_at = models.DateTimeField(
+        auto_now=True,
+    )
+
+    def save(self, *args, **kwargs):
+        if not self.hid:
+            self.hid = generate_hid()
+
+        super().save(*args, **kwargs)
+    
+    def delete(self, *args, **kwargs):
+        if self.is_system:
+            raise ValidationError(
+                f"Machine '{self.hostname}' is protected and cannot be deleted."
+            )
+
+        return super().delete(*args, **kwargs)
 
 
-class MachineApp(models.Model):
-    """Приложение на конкретной машине."""
+class MachineProfile(models.Model):
+    id = models.BigAutoField(
+        primary_key=True,
+    )
 
     machine = models.ForeignKey(
-        Machine, on_delete=models.CASCADE, related_name="machine_apps"
+        "machines.Machine",
+        on_delete=models.CASCADE,
+        related_name="profiles",
     )
-    app = models.ForeignKey(DesktopApp, on_delete=models.CASCADE)
-    requirements = models.JSONField(default=dict, blank=True)  # условие показа иконки
-    order = models.PositiveSmallIntegerField(default=0)
 
-    class Meta:
-        ordering = ["order"]
-        constraints = [
-            models.UniqueConstraint(
-                fields=["machine", "app"], name="unique_machine_app"
-            ),
-        ]
-
-    def __str__(self):
-        return f"{self.machine.name}: {self.app.title}"
-
-
-class MachineSession(models.Model):
-    machine = models.ForeignKey(
-        Machine, on_delete=models.CASCADE, related_name="sessions"
-    )
     user = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE,
-        related_name="machine_sessions",
+        null=True,
+        blank=True,
+        related_name="machine_profiles",
     )
-    started_at = models.DateTimeField(auto_now_add=True)
-    ended_at = models.DateTimeField(null=True, blank=True)  # NULL = сессия активна
+
+    name = models.CharField(
+        max_length=255,
+    )
+
+    freq = models.DecimalField(
+        max_digits=6,
+        decimal_places=3,
+    )
+
+    login = models.CharField(
+        max_length=128,
+    )
+
+    password_hash = models.CharField(
+        max_length=128,
+        blank=True,
+    )
+
+    key_condition = models.JSONField(
+        null=True,
+        blank=True,
+    )
 
     class Meta:
+        ordering = ("machine", "login", "freq")
         constraints = [
-            # у игрока может быть только одна активная сессия
             models.UniqueConstraint(
-                fields=["user"],
-                condition=Q(ended_at__isnull=True),
-                name="one_active_session_per_user",
+                fields=(
+                    "machine",
+                    "login",
+                    "freq",
+                ),
+                name="unique_machine_profile_endpoint",
             ),
         ]
 
     def __str__(self):
-        return f"{self.user} @ {self.machine.name}"
+        return f"{self.login}@{self.machine.hostname}:{self.freq:.3f}"
+
+
+class MachineProfileToken(models.Model):
+    id = models.BigAutoField(
+        primary_key=True,
+    )
+
+    profile = models.ForeignKey(
+        MachineProfile,
+        on_delete=models.CASCADE,
+        related_name="tokens",
+    )
+
+    token = models.CharField(
+        max_length=255,
+        unique=True,
+    )
+
+    max_usage = models.PositiveIntegerField(
+        null=True,
+        blank=True,
+    )
+
+    usage = models.PositiveIntegerField(
+        default=0,
+    )
+
+    expires_at = models.DateTimeField(
+        null=True,
+        blank=True,
+    )
+
+    created_at = models.DateTimeField(
+        auto_now_add=True,
+    )
+
+    updated_at = models.DateTimeField(
+        auto_now=True,
+    )
+
+    class Meta:
+        ordering = ("-created_at",)
+
+    def __str__(self):
+        return f"{self.profile.login} / {self.token}"
+
+
+class MachineProfileHID(models.Model):
+    id = models.BigAutoField(
+        primary_key=True,
+    )
+
+    profile = models.ForeignKey(
+        MachineProfile,
+        on_delete=models.CASCADE,
+        related_name="allowed_hids",
+    )
+
+    hid = models.CharField(
+        max_length=17,
+    )
+
+    class Meta:
+        ordering = ("profile", "hid")
+        constraints = [
+            models.UniqueConstraint(
+                fields=(
+                    "profile",
+                    "hid",
+                ),
+                name="unique_profile_hid",
+            ),
+        ]
+
+    def __str__(self):
+        return self.hid
+
+
+class Session(models.Model):
+    id = models.BigAutoField(
+        primary_key=True,
+    )
+
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="sessions",
+    )
+
+    profile = models.ForeignKey(
+        "machines.MachineProfile",
+        on_delete=models.CASCADE,
+        related_name="sessions",
+    )
+
+    created_at = models.DateTimeField(
+        auto_now_add=True,
+    )
+
+    def __str__(self):
+        return f"{self.user} @ {self.profile}"

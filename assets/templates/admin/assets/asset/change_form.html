@@ -1,0 +1,541 @@
+{% extends "admin/change_form.html" %}
+
+{% block extrahead %}
+    {{ block.super }}
+
+    <style>
+        .aether-nextcloud {
+            margin-top: 20px;
+            margin-bottom: 25px;
+            border: 1px solid var(--border-color, #ddd);
+            background: var(--body-bg, #fff);
+        }
+
+        .aether-nextcloud-header {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 10px 12px;
+            border-bottom: 1px solid var(--border-color, #ddd);
+            background: var(--darkened-bg, #f8f8f8);
+        }
+
+        .aether-nextcloud-back {
+            padding: 4px 10px;
+            cursor: pointer;
+        }
+
+        .aether-nextcloud-path {
+            font-family: monospace;
+            font-size: 13px;
+        }
+
+        .aether-nextcloud-list {
+            min-height: 180px;
+            max-height: 420px;
+            overflow-y: auto;
+        }
+
+        .aether-nextcloud-row {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 8px 12px;
+            cursor: default;
+            user-select: none;
+        }
+
+        .aether-nextcloud-row:hover {
+            background: var(--selected-row, #f0f0f0);
+        }
+
+        .aether-nextcloud-row.aether-nextcloud-selected {
+            background: #79aec8;
+            color: #fff;
+        }
+
+        .aether-nextcloud-icon {
+            width: 22px;
+            text-align: center;
+            flex: 0 0 22px;
+        }
+
+        .aether-nextcloud-name {
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .aether-nextcloud-status {
+            padding: 12px;
+            color: var(--body-quiet-color, #666);
+        }
+    </style>
+{% endblock %}
+
+
+{% block field_sets %}
+    {% for fieldset in adminform %}
+        {% if forloop.first %}
+
+            <fieldset
+                class="module aligned {{ fieldset.classes }}"
+            >
+                {% if fieldset.name %}
+                    <h2>{{ fieldset.name }}</h2>
+                {% endif %}
+
+                {% if fieldset.description %}
+                    <div class="description">
+                        {{ fieldset.description|safe }}
+                    </div>
+                {% endif %}
+
+                {% for line in fieldset %}
+                    {% for field in line %}
+                        {% if field.field.name == "name" %}
+                            <div
+                                class="form-row field-{{ field.field.name }}"
+                            >
+                                <div>
+                                    {% if not field.is_readonly %}
+                                        {{ field.field.errors }}
+
+                                        {% if field.field.field.required %}
+                                            <label
+                                                for="{{ field.field.id_for_label }}"
+                                                class="required"
+                                            >
+                                                {{ field.field.label }}
+                                            </label>
+                                        {% else %}
+                                            <label
+                                                for="{{ field.field.id_for_label }}"
+                                            >
+                                                {{ field.field.label }}
+                                            </label>
+                                        {% endif %}
+
+                                        {{ field.field }}
+
+                                    {% else %}
+                                        <div>
+                                            <label>
+                                                {{ field.field.label }}
+                                            </label>
+
+                                            <div class="readonly">
+                                                {{ field.contents }}
+                                            </div>
+                                        </div>
+                                    {% endif %}
+
+                                    {% if field.field.help_text %}
+                                        <div class="help">
+                                            {{ field.field.help_text|safe }}
+                                        </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+
+                            <!-- ==================================================
+                                 Nextcloud file browser
+                                 ================================================== -->
+
+                            <div class="aether-nextcloud">
+                                <div class="aether-nextcloud-header">
+                                    <button
+                                        type="button"
+                                        class="aether-nextcloud-back"
+                                        id="aether-nextcloud-back"
+                                    >
+                                        ←
+                                    </button>
+
+                                    <span
+                                        class="aether-nextcloud-path"
+                                        id="aether-nextcloud-path"
+                                    >
+                                        /AETHER
+                                    </span>
+                                </div>
+
+                                <div
+                                    class="aether-nextcloud-list"
+                                    id="aether-nextcloud-list"
+                                >
+                                    <div class="aether-nextcloud-status">
+                                        Loading...
+                                    </div>
+                                </div>
+                            </div>
+
+                        {% else %}
+                            <div
+                                class="form-row field-{{ field.field.name }}"
+                            >
+                                {{ field.errors }}
+
+                                {% if field.is_checkbox %}
+                                    {{ field.field }}
+
+                                    <label
+                                        for="{{ field.field.id_for_label }}"
+                                    >
+                                        {{ field.field.label }}
+                                    </label>
+                                {% else %}
+                                    <div>
+                                        <label
+                                            for="{{ field.field.id_for_label }}"
+                                            {% if field.field.field.required %}
+                                                class="required"
+                                            {% endif %}
+                                        >
+                                            {{ field.field.label }}
+                                        </label>
+
+                                        {{ field.field }}
+                                    </div>
+                                {% endif %}
+
+                                {% if field.field.help_text %}
+                                    <div class="help">
+                                        {{ field.field.help_text|safe }}
+                                    </div>
+                                {% endif %}
+                            </div>
+                        {% endif %}
+                    {% endfor %}
+                {% endfor %}
+            </fieldset>
+
+        {% else %}
+
+            <fieldset
+                class="module aligned {{ fieldset.classes }}"
+            >
+                {% if fieldset.name %}
+                    <h2>{{ fieldset.name }}</h2>
+                {% endif %}
+
+                {% if fieldset.description %}
+                    <div class="description">
+                        {{ fieldset.description|safe }}
+                    </div>
+                {% endif %}
+
+                {% for line in fieldset %}
+                    {% for field in line %}
+                        <div
+                            class="form-row field-{{ field.field.name }}"
+                        >
+                            {{ field.errors }}
+
+                            {% if field.is_checkbox %}
+                                {{ field.field }}
+
+                                <label
+                                    for="{{ field.field.id_for_label }}"
+                                >
+                                    {{ field.field.label }}
+                                </label>
+                            {% else %}
+                                <div>
+                                    <label
+                                        for="{{ field.field.id_for_label }}"
+                                        {% if field.field.field.required %}
+                                            class="required"
+                                        {% endif %}
+                                    >
+                                        {{ field.field.label }}
+                                    </label>
+
+                                    {% if field.is_readonly %}
+                                        <div class="readonly">
+                                            {{ field.contents }}
+                                        </div>
+                                    {% else %}
+                                        {{ field.field }}
+                                    {% endif %}
+                                </div>
+                            {% endif %}
+
+                            {% if field.field.help_text %}
+                                <div class="help">
+                                    {{ field.field.help_text|safe }}
+                                </div>
+                            {% endif %}
+                        </div>
+                    {% endfor %}
+                {% endfor %}
+            </fieldset>
+
+        {% endif %}
+    {% endfor %}
+{% endblock %}
+
+
+{% block after_field_sets %}
+    {{ block.super }}
+{% endblock %}
+
+
+{% block admin_change_form_document_ready %}
+    {{ block.super }}
+
+    <script>
+        (function () {
+            "use strict";
+
+            const browser = {
+                path: "AETHER",
+                history: [],
+            };
+
+            const pathElement =
+                document.getElementById(
+                    "aether-nextcloud-path"
+                );
+
+            const listElement =
+                document.getElementById(
+                    "aether-nextcloud-list"
+                );
+
+            const backButton =
+                document.getElementById(
+                    "aether-nextcloud-back"
+                );
+
+            const fileIdInput =
+                document.getElementById(
+                    "id_file_id"
+                );
+
+
+            function updatePath() {
+                pathElement.textContent =
+                    "/" + browser.path;
+            }
+
+
+            function load() {
+                updatePath();
+
+                listElement.innerHTML = `
+                    <div class="aether-nextcloud-status">
+                        Loading...
+                    </div>
+                `;
+
+                const url =
+                    "{% url 'assets:nextcloud_browse' %}"
+                    + "?path="
+                    + encodeURIComponent(
+                        browser.path
+                    );
+
+                fetch(url)
+                    .then(function (response) {
+                        if (!response.ok) {
+                            throw new Error(
+                                "HTTP "
+                                + response.status
+                            );
+                        }
+
+                        return response.json();
+                    })
+                    .then(function (data) {
+                        render(data.items);
+                    })
+                    .catch(function (error) {
+                        listElement.innerHTML = `
+                            <div class="aether-nextcloud-status">
+                                Failed to load directory:
+                                ${error}
+                            </div>
+                        `;
+                    });
+            }
+
+
+            function render(items) {
+                listElement.innerHTML = "";
+
+                if (!items.length) {
+                    listElement.innerHTML = `
+                        <div class="aether-nextcloud-status">
+                            Directory is empty.
+                        </div>
+                    `;
+
+                    return;
+                }
+
+                items.forEach(function (item) {
+                    const row =
+                        document.createElement(
+                            "div"
+                        );
+
+                    row.className =
+                        "aether-nextcloud-row";
+
+                    const icon =
+                        document.createElement(
+                            "span"
+                        );
+
+                    icon.className =
+                        "aether-nextcloud-icon";
+
+                    const name =
+                        document.createElement(
+                            "span"
+                        );
+
+                    name.className =
+                        "aether-nextcloud-name";
+
+                    if (item.is_parent) {
+                        icon.textContent = "📁";
+                    } else if (
+                        item.is_directory
+                    ) {
+                        icon.textContent = "📁";
+                    } else {
+                        icon.textContent = "📄";
+                    }
+
+                    name.textContent =
+                        item.name;
+
+                    row.appendChild(icon);
+                    row.appendChild(name);
+
+                    /*
+                     * Parent directory.
+                     */
+                    if (item.is_parent) {
+                        row.addEventListener(
+                            "dblclick",
+                            function () {
+                                browser.path =
+                                    item.path
+                                        .replace(
+                                            /^\/+/,
+                                            ""
+                                        );
+
+                                load();
+                            }
+                        );
+                    }
+
+                    /*
+                     * Regular directory.
+                     */
+                    else if (
+                        item.is_directory
+                    ) {
+                        row.addEventListener(
+                            "dblclick",
+                            function () {
+                                browser.history.push(
+                                    browser.path
+                                );
+
+                                browser.path =
+                                    item.path
+                                        .replace(
+                                            /^\/+/,
+                                            ""
+                                        );
+
+                                load();
+                            }
+                        );
+                    }
+
+                    /*
+                     * File.
+                     */
+                    else {
+                        row.addEventListener(
+                            "click",
+                            function () {
+                                document
+                                    .querySelectorAll(
+                                        ".aether-nextcloud-selected"
+                                    )
+                                    .forEach(
+                                        function (
+                                            element
+                                        ) {
+                                            element.classList.remove(
+                                                "aether-nextcloud-selected"
+                                            );
+                                        }
+                                    );
+
+                                row.classList.add(
+                                    "aether-nextcloud-selected"
+                                );
+
+                                if (
+                                    fileIdInput
+                                ) {
+                                    fileIdInput.value =
+                                        item.file_id;
+                                }
+                            }
+                        );
+                    }
+
+                    listElement.appendChild(
+                        row
+                    );
+                });
+            }
+
+
+            backButton.addEventListener(
+                "click",
+                function () {
+                    if (
+                        browser.path ===
+                        "AETHER"
+                    ) {
+                        return;
+                    }
+
+                    const parts =
+                        browser.path.split(
+                            "/"
+                        );
+
+                    parts.pop();
+
+                    browser.path =
+                        parts.join(
+                            "/"
+                        );
+
+                    if (
+                        !browser.path
+                    ) {
+                        browser.path =
+                            "AETHER";
+                    }
+
+                    load();
+                }
+            );
+
+
+            load();
+        })();
+    </script>
+{% endblock %}
