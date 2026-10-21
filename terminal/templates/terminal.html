@@ -1,0 +1,36 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Terminal — {{ hostname }}</title>
+    <link rel="stylesheet" href="{% static 'terminal.css' %}">
+</head>
+<body>
+    <main
+        id="terminal"
+        data-session-id="{{ session_id }}"
+        data-execute-url="{% url 'terminal:execute' %}"
+        data-hostname="{{ hostname }}"
+    >
+        <div id="terminal-output" aria-live="polite"></div>
+
+        <form id="terminal-form" autocomplete="off">
+            <label id="terminal-prompt" for="terminal-input">
+                {{ hostname }}:/home$
+            </label>
+            <input
+                id="terminal-input"
+                type="text"
+                spellcheck="false"
+                autocomplete="off"
+                autofocus
+            >
+        </form>
+    </main>
+
+    {% csrf_token %}
+    <script src="{% static 'terminal.js' %}"></script>
+</body>
+</html>

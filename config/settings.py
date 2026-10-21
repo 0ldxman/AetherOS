@@ -58,6 +58,7 @@ INSTALLED_APPS = [
     'map',
     'assets',
     'filesystem',
+    'terminal',
 ]
 INSTALLED_APPS += [
     "django.contrib.sites",

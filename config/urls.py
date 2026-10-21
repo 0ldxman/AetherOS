@@ -35,6 +35,7 @@ urlpatterns = [
     path("apps/", include("apps.urls")),
     path("apps/wiki/", include("wiki.urls")),
     path('apps/map/', include('map.urls')),
+    path("apps/terminal/", include("terminal.urls")),
 ]
 
 if settings.DEBUG:

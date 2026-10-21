@@ -1,0 +1,75 @@
+:root {
+    color-scheme: dark;
+    --background: #191919;
+    --foreground: #b5b6b8;
+    --accent: #3fd0ff;
+    --error: #ff7777;
+}
+
+* {
+    box-sizing: border-box;
+}
+
+html,
+body {
+    width: 100%;
+    height: 100%;
+    margin: 0;
+    overflow: hidden;
+    background: var(--background);
+    color: var(--foreground);
+    font-family: "JetBrains Mono", monospace;
+    font-size: 13px;
+}
+
+#terminal {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    height: 100%;
+    padding: 12px;
+    overflow: auto;
+}
+
+#terminal-output {
+    flex: 1;
+    overflow-wrap: anywhere;
+    white-space: pre-wrap;
+}
+
+.terminal-line {
+    margin: 0 0 5px;
+    line-height: 1.5;
+    white-space: pre-wrap;
+}
+
+.terminal-command {
+    color: var(--accent);
+}
+
+.terminal-error {
+    color: var(--error);
+}
+
+#terminal-form {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    margin-top: 8px;
+}
+
+#terminal-prompt {
+    flex-shrink: 0;
+    color: var(--accent);
+}
+
+#terminal-input {
+    flex: 1;
+    min-width: 0;
+    border: 0;
+    outline: 0;
+    padding: 0;
+    background: transparent;
+    color: var(--foreground);
+    font: inherit;
+}
