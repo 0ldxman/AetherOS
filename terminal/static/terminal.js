@@ -35,6 +35,17 @@
         terminal.scrollTop = terminal.scrollHeight;
     }
 
+    function openWindow(win) {
+        const desktop = window.parent && window.parent.desktopAPI;
+
+        if (!desktop || typeof desktop.openApp !== "function") {
+            appendLine("terminal: cannot open window", "terminal-error");
+            return;
+        }
+
+        desktop.openApp(win.id, win.title, win.url);
+    }
+
     async function executeCommand(command) {
         const response = await fetch(executeUrl, {
             method: "POST",
@@ -62,6 +73,10 @@
 
         if (data.output) {
             appendLine(data.output, data.exit_code ? "terminal-error" : "");
+        }
+
+        if (data.window) {
+            openWindow(data.window);
         }
     }
 

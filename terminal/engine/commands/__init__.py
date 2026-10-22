@@ -4,7 +4,7 @@ from terminal.engine.commands.basic import (
     PwdCommand,
 )
 from terminal.engine.commands.crypto import B256Command, CphCommand
-from terminal.engine.commands.info import FtypCommand
+from terminal.engine.commands.info import FtypCommand, CntCommand
 from terminal.engine.commands.raw import RprCommand
 
 
@@ -18,5 +18,6 @@ COMMANDS = {
         CphCommand,
         B256Command,
         RprCommand,
+        CntCommand,
     )
 }
