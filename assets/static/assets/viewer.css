@@ -1,0 +1,227 @@
+
+/* ==================================================
+   Aether OS — Asset Viewer
+   Shared shell
+   ================================================== */
+
+.asset-viewer {
+    min-height: 100vh;
+    margin: 0;
+    background: var(--bg);
+    color: var(--fg);
+    font-family: var(--font-main);
+    font-size: var(--fs-small);
+}
+
+.asset-viewer *,
+.asset-viewer *::before,
+.asset-viewer *::after {
+    box-sizing: border-box;
+}
+
+.av-shell {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+}
+
+/* Header */
+
+.av-header {
+    min-height: 42px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 0 20px;
+    border-bottom: 1px solid var(--line-bright);
+    background: var(--panel);
+}
+
+.av-brand,
+.av-header-meta {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.av-brand {
+    color: var(--font-light);
+    font-family: var(--font-doted);
+    font-weight: 700;
+    letter-spacing: 0.08em;
+}
+
+.av-brand-mark {
+    width: 22px;
+    height: 22px;
+    display: grid;
+    place-items: center;
+    border: 1px solid var(--accent);
+    color: var(--accent);
+}
+
+.av-separator,
+.av-meta-separator {
+    color: var(--font-muted);
+}
+
+.av-section {
+    color: var(--font-soft);
+}
+
+.av-header-meta {
+    color: var(--font-muted);
+    font-size: var(--fs-smaller);
+    letter-spacing: 0.06em;
+}
+
+.av-status {
+    width: 6px;
+    height: 6px;
+    flex: 0 0 auto;
+    background: var(--status-ok);
+}
+
+/* Main layout */
+
+.av-main {
+    width: 100%;
+    max-width: 1440px;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    margin: 0 auto;
+    padding: 24px;
+}
+
+/* File information */
+
+.av-file-info {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 20px;
+    padding-bottom: 18px;
+    border-bottom: 1px solid var(--line);
+}
+
+.av-file-heading {
+    min-width: 0;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+}
+
+.av-file-icon {
+    width: 42px;
+    height: 42px;
+    flex: 0 0 auto;
+    display: grid;
+    place-items: center;
+    border: 1px solid var(--line-bright);
+    color: var(--accent);
+    font-size: var(--fs-smaller);
+}
+
+.av-file-details {
+    min-width: 0;
+}
+
+.av-file-details h1 {
+    margin: 0 0 6px;
+    overflow-wrap: anywhere;
+    color: var(--font-light);
+    font-size: var(--fs-midbig);
+    font-weight: 500;
+}
+
+.av-file-meta {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+    color: var(--font-muted);
+    font-size: var(--fs-smaller);
+    overflow-wrap: anywhere;
+}
+
+.av-file-type {
+    flex: 0 0 auto;
+    padding: 5px 8px;
+    border: 1px solid var(--line-bright);
+    color: var(--accent);
+    font-size: var(--fs-smaller);
+}
+
+/* Content area */
+
+.av-content {
+    min-height: 300px;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    margin-top: 18px;
+    border: 1px solid var(--line);
+    background: var(--bg-sunken);
+}
+
+.av-placeholder {
+    min-height: 300px;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    padding: 24px;
+    text-align: center;
+}
+
+.av-placeholder-mark {
+    color: var(--accent);
+    letter-spacing: 0.08em;
+}
+
+.av-placeholder p {
+    margin: 0;
+    color: var(--font-light);
+}
+
+.av-placeholder > span:last-child {
+    color: var(--font-muted);
+    font-size: var(--fs-smaller);
+}
+
+/* Footer */
+
+.av-footer {
+    display: flex;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 10px;
+    padding-top: 12px;
+    color: var(--font-muted);
+    font-size: var(--fs-smaller);
+}
+
+/* Responsive */
+
+@media (max-width: 640px) {
+    .av-header {
+        padding: 0 12px;
+    }
+
+    .av-main {
+        padding: 14px;
+    }
+
+    .av-file-info {
+        align-items: flex-start;
+        flex-direction: column;
+    }
+
+    .av-footer {
+        flex-direction: column;
+    }
+}

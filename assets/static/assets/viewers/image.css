@@ -1,0 +1,333 @@
+
+/* ==================================================
+   AETHER OS / IMAGE VIEWER
+   Floating overlays
+   ================================================== */
+
+.image-viewer {
+    width: 100%;
+    height: 100vh;
+    height: 100dvh;
+    min-height: 320px;
+    margin: 0;
+    overflow: hidden;
+    background: #101112;
+    color: #fff;
+    font-family: var(--font-main);
+    font-size: var(--fs-smaller);
+}
+
+.image-viewer *,
+.image-viewer *::before,
+.image-viewer *::after {
+    box-sizing: border-box;
+}
+
+.image-viewer button {
+    color: inherit;
+    font: inherit;
+}
+
+.iv-workspace {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    min-height: 0;
+    overflow: hidden;
+    background: #101112;
+}
+
+/* Main image */
+
+.iv-stage {
+    position: absolute;
+    inset: 0;
+    overflow: hidden;
+    isolation: isolate;
+    background: #101112;
+    touch-action: none;
+    user-select: none;
+    cursor: grab;
+}
+
+.iv-stage.iv-is-dragging {
+    cursor: grabbing;
+}
+
+.iv-source {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    display: block;
+    width: auto;
+    height: auto;
+    max-width: none;
+    max-height: none;
+    object-fit: contain;
+    transform: translate(-50%, -50%);
+    pointer-events: none;
+    opacity: 0;
+    visibility: hidden;
+}
+
+.iv-source.iv-image-ready {
+    opacity: 1;
+    visibility: visible;
+}
+
+.iv-stage::after {
+    position: absolute;
+    z-index: 1;
+    inset: 0;
+    content: "";
+    pointer-events: none;
+    background:
+        linear-gradient(
+            90deg,
+            rgb(0 0 0 / 14%),
+            transparent 35%,
+            transparent 78%,
+            rgb(0 0 0 / 8%)
+        );
+}
+
+/* Left metadata overlay */
+
+.iv-image-info {
+    position: absolute;
+    z-index: 3;
+    top: 22px;
+    left: 24px;
+    width: min(460px, calc(100% - 48px));
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 5px;
+    color: #fff;
+    text-shadow:
+        0 1px 4px rgb(0 0 0 / 95%),
+        0 0 10px rgb(0 0 0 / 65%);
+    pointer-events: none;
+}
+
+.iv-title-line {
+    max-width: 100%;
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    min-width: 0;
+}
+
+.iv-format {
+    flex: 0 0 auto;
+    color: rgb(255 255 255 / 78%);
+    font-size: 9px;
+    line-height: 1.5;
+    white-space: nowrap;
+}
+
+.iv-image-info h1 {
+    min-width: 0;
+    margin: 0;
+    color: #fff;
+    font-family: var(--font-main);
+    font-size: 11px;
+    font-weight: 500;
+    line-height: 1.5;
+    overflow-wrap: anywhere;
+}
+
+.iv-info-line {
+    max-width: 100%;
+    display: flex;
+    align-items: baseline;
+    gap: 5px;
+    font-size: 9px;
+    line-height: 1.5;
+}
+
+.iv-info-label {
+    flex: 0 0 auto;
+    color: rgb(255 255 255 / 65%);
+    font-size: 8px;
+    letter-spacing: 0.035em;
+}
+
+.iv-info-value {
+    min-width: 0;
+    color: rgb(255 255 255 / 92%);
+    overflow-wrap: anywhere;
+}
+
+/* Floating minimap */
+
+/* Floating minimap — bottom-right */
+
+.iv-navigator {
+    position: absolute;
+    z-index: 4;
+    top: auto;
+    right: 22px;
+    bottom: 22px;
+    width: 138px;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 7px;
+    color: #fff;
+    text-shadow:
+        0 1px 4px rgb(0 0 0 / 95%),
+        0 0 10px rgb(0 0 0 / 65%);
+}
+
+.iv-navigator-label {
+    align-self: stretch;
+    color: rgb(255 255 255 / 82%);
+    font-size: 8px;
+    letter-spacing: 0.08em;
+    line-height: 1.5;
+}
+
+/* Proportions are set from the source image in JS */
+
+.iv-minimap {
+    position: relative;
+    display: block;
+    width: 138px;
+    height: auto;
+    max-width: 100%;
+    max-height: 190px;
+    flex: 0 0 auto;
+    padding: 0;
+    overflow: hidden;
+    border: 1px solid rgb(255 255 255 / 65%);
+    background: transparent;
+    cursor: crosshair;
+    touch-action: none;
+}
+
+.iv-minimap:focus-visible {
+    outline: 1px solid #fff;
+    outline-offset: 3px;
+}
+
+.iv-minimap-image {
+    position: absolute;
+    display: block;
+    max-width: none;
+    max-height: none;
+    user-select: none;
+    pointer-events: none;
+}
+
+.iv-minimap-viewport {
+    position: absolute;
+    display: block;
+    min-width: 2px;
+    min-height: 2px;
+    border: 1px solid #fff;
+    background: rgb(255 255 255 / 10%);
+    box-shadow: 0 0 0 9999px rgb(0 0 0 / 35%);
+    pointer-events: none;
+}
+
+.iv-navigator-data {
+    width: 100%;
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 8px;
+    color: rgb(255 255 255 / 82%);
+    font-size: 8px;
+    line-height: 1.5;
+}
+
+.iv-navigator-data span:last-child {
+    color: rgb(255 255 255 / 58%);
+    font-size: 7px;
+    text-align: right;
+}
+
+/* Loading and error states */
+
+.iv-loading,
+.iv-error {
+    position: absolute;
+    z-index: 5;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    background: #101112;
+    color: rgb(255 255 255 / 65%);
+    font-size: 9px;
+    letter-spacing: 0.1em;
+}
+
+.iv-loading[hidden],
+.iv-error[hidden] {
+    display: none;
+}
+
+.iv-error > span {
+    color: #fff;
+}
+
+.iv-error p {
+    margin: 0;
+    font-size: 10px;
+    letter-spacing: normal;
+}
+
+/* Responsive */
+
+@media (max-width: 600px) {
+    .iv-image-info {
+        top: 14px;
+        left: 14px;
+        width: calc(100% - 28px);
+        gap: 4px;
+    }
+
+    .iv-title-line {
+        max-width: calc(100% - 118px);
+        flex-wrap: wrap;
+        gap: 4px 7px;
+    }
+
+    .iv-image-info h1 {
+        font-size: 10px;
+    }
+
+    .iv-info-line {
+        max-width: calc(100% - 100px);
+        font-size: 8px;
+    }
+
+    .iv-info-label {
+        font-size: 7px;
+    }
+
+    .iv-navigator {
+        top: auto;
+        right: 12px;
+        bottom: 14px;
+        width: 104px;
+        gap: 5px;
+    }
+
+    .iv-minimap {
+        width: 104px;
+        max-height: 145px;
+    }
+
+    .iv-navigator-label {
+        font-size: 7px;
+    }
+
+    .iv-navigator-data {
+        font-size: 7px;
+    }
+}

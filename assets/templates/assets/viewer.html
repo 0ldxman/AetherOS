@@ -1,0 +1,68 @@
+
+{% extends "ui/base.html" %}
+{% load static %}
+
+{% block title %}{{ asset.name }} — Aether OS{% endblock %}
+
+{% block css %}
+<link rel="stylesheet" href="{% static 'assets/viewer.css' %}">
+{% endblock %}
+
+{% block body_attrs %} class="asset-viewer"{% endblock %}
+
+{% block body %}
+<div class="av-shell">
+    <header class="av-header">
+        <div class="av-brand">
+            <span class="av-brand-mark">A</span>
+            <span>AETHER</span>
+            <span class="av-separator">/</span>
+            <span class="av-section">ASSET VIEWER</span>
+        </div>
+
+        <div class="av-header-meta">
+            <span class="av-status"></span>
+            <span>READ ONLY</span>
+        </div>
+    </header>
+
+    <main class="av-main">
+        <section class="av-file-info">
+            <div class="av-file-heading">
+                <div class="av-file-icon">
+                    {% block file_icon %}FILE{% endblock %}
+                </div>
+
+                <div class="av-file-details">
+                    <h1>{{ asset.name }}</h1>
+
+                    <div class="av-file-meta">
+                        <span>{{ filename }}</span>
+                        <span class="av-meta-separator">·</span>
+                        <span>{{ content_type }}</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="av-file-type">
+                {{ viewer_type }}
+            </div>
+        </section>
+
+        <section class="av-content">
+            {% block viewer_content %}
+            <div class="av-placeholder">
+                <span class="av-placeholder-mark">[ AETHER VIEWER ]</span>
+                <p>VIEWER INITIALIZED</p>
+                <span>CONTENT HANDLER NOT CONFIGURED</span>
+            </div>
+            {% endblock %}
+        </section>
+
+        <footer class="av-footer">
+            <span>ASSET ID: {{ asset.public_id }}</span>
+            <span>AETHER OS / CONTENT INTERFACE</span>
+        </footer>
+    </main>
+</div>
+{% endblock %}

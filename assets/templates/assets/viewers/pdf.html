@@ -1,0 +1,120 @@
+
+{% extends "ui/base.html" %}
+{% load static %}
+
+{% block title %}{{ asset.name }} — Aether OS{% endblock %}
+{% block body_attrs %} class="pdf-viewer"{% endblock %}
+
+{% block css %}
+<link rel="stylesheet" href="{% static 'assets/viewers/pdf.css' %}">
+{% endblock %}
+
+{% block body %}
+<main
+    class="pv-workspace"
+    data-pdf-viewer
+    data-pdf-url="{{ content_url|escape }}"
+    data-pdf-name="{{ asset.name|escape }}"
+    data-pdf-filename="{{ filename|escape }}"
+    data-pdf-type="{{ content_type|escape }}"
+    data-pdf-id="{{ asset.public_id|escape }}"
+>
+    <header class="pv-header">
+        <div class="pv-heading">
+            <div class="pv-title-line">
+                <span class="pv-document-tag">[DOC]</span>
+                <h1>{{ asset.name }}</h1>
+            </div>
+
+            <div class="pv-id-line">
+                <span class="pv-meta-label">ID:</span>
+                <span class="pv-id-value">{{ asset.public_id }}</span>
+            </div>
+        </div>
+
+        <div class="pv-header-right">
+            <span class="pv-header-status" data-pdf-status>INITIALIZING</span>
+            <span data-pdf-page-count hidden>—</span>
+
+            <button class="pv-button pv-fullscreen-button" data-pdf-fullscreen disabled>FULLSCREEN</button>
+        </div>
+    </header>
+
+    <section class="pv-viewport"
+             data-pdf-viewport
+             aria-label="PDF document">
+        <div class="pv-loading" data-pdf-loading>
+            <span class="pv-loading-mark">DOC /</span>
+            <span data-pdf-loading-message>LOADING DOCUMENT</span>
+        </div>
+
+        <div class="pv-error" data-pdf-error hidden>
+            <span class="pv-error-title">DOCUMENT / ERROR</span>
+            <p data-pdf-error-message>Unable to load PDF document.</p>
+        </div>
+
+        <div class="pv-page-area" data-pdf-page-area hidden>
+            <div class="pv-page-frame" data-pdf-page-frame>
+                <canvas data-pdf-canvas aria-label="Rendered PDF page"></canvas>
+            </div>
+        </div>
+    </section>
+
+    <footer class="pv-footer">
+        <div class="pv-footer-group pv-scale-group">
+            <span class="pv-footer-label">SCALE</span>
+
+            <button class="pv-button pv-icon-button"
+                    data-pdf-zoom-out disabled
+                    aria-label="Zoom out">−</button>
+
+            <span class="pv-zoom-value" data-pdf-zoom-value>100%</span>
+
+            <button class="pv-button pv-icon-button"
+                    data-pdf-zoom-in disabled
+                    aria-label="Zoom in">+</button>
+
+            <button class="pv-button pv-fit-button"
+                    data-pdf-fit disabled>FIT WIDTH</button>
+        </div>
+
+        <div class="pv-footer-group pv-page-group">
+            <div class="pv-page-navigation">
+                <button class="pv-button pv-icon-button"
+                        data-pdf-prev disabled
+                        aria-label="Previous page">‹</button>
+
+                <div class="pv-page-center">
+                    <div class="pv-page-control">
+                        <input class="pv-page-input"
+                            data-pdf-page-input
+                            type="number"
+                            min="1"
+                            value="1"
+                            disabled
+                            aria-label="Current page">
+
+                        <span class="pv-page-separator">/</span>
+                        <span class="pv-page-total" data-pdf-page-total>—</span>
+                    </div>
+                    <span class="pv-footer-label">PAGE</span>
+                </div>
+
+                <button class="pv-button pv-icon-button"
+                        data-pdf-next disabled
+                        aria-label="Next page">›</button>
+            </div>
+        </div>
+
+        <div class="pv-footer-group pv-size-group">
+            <span class="pv-footer-label">PAGE SIZE</span>
+            <span class="pv-footer-value" data-pdf-dimensions>—</span>
+        </div>
+    </footer>
+</main>
+{% endblock %}
+
+{% block js %}
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js" defer></script>
+<script src="{% static 'assets/viewers/pdf.js' %}" defer></script>
+{% endblock %}

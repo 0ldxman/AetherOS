@@ -1,0 +1,777 @@
+
+/* ==================================================
+   AETHER OS — VIDEO VIEWER
+   Flat terminal interface
+   ================================================== */
+
+.video-viewer {
+    margin: 0;
+    width: 100%;
+    height: 100%;
+    min-width: 0;
+    min-height: 0;
+    overflow: hidden;
+    background: var(--bg, #191919);
+    color: var(--font-light, #b5b6b8);
+    font-family: var(--font-main, monospace);
+}
+
+.video-viewer *,
+.video-viewer *::before,
+.video-viewer *::after {
+    box-sizing: border-box;
+}
+
+.video-viewer button,
+.video-viewer input,
+.video-viewer select {
+    font: inherit;
+    font-family: var(--font-main, monospace);
+}
+
+.video-viewer button {
+    -webkit-tap-highlight-color: transparent;
+}
+
+.vv-workspace {
+    position: relative;
+    width: 100%;
+    height: 100vh;
+    height: 100dvh;
+    min-height: 0;
+    overflow: hidden;
+    background: #000;
+}
+
+.vv-stage {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    isolation: isolate;
+    background: #000;
+}
+
+/* --------------------------------------------------
+   Video
+   -------------------------------------------------- */
+
+.vv-source {
+    position: absolute;
+    inset: 0;
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    background: #000;
+    outline: none;
+}
+
+.vv-stage::before,
+.vv-stage::after {
+    position: absolute;
+    z-index: 2;
+    right: 0;
+    left: 0;
+    content: "";
+    pointer-events: none;
+    transition: opacity 250ms ease;
+}
+
+.vv-stage::before {
+    top: 0;
+    height: 180px;
+    background: linear-gradient(
+        to bottom,
+        rgb(0 0 0 / 65%),
+        transparent
+    );
+}
+
+.vv-stage::after {
+    bottom: 0;
+    height: 190px;
+    background: linear-gradient(
+        to top,
+        rgb(0 0 0 / 78%),
+        transparent
+    );
+}
+
+/* --------------------------------------------------
+   Metadata
+   -------------------------------------------------- */
+
+.vv-metadata {
+    position: absolute;
+    z-index: 4;
+    top: 24px;
+    left: 26px;
+    max-width: min(560px, calc(100% - 52px));
+    color: var(--font-light, #b5b6b8);
+    pointer-events: auto;
+    transition: opacity 250ms ease;
+}
+
+.vv-title-line {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+    min-width: 0;
+    margin-bottom: 13px;
+}
+
+.vv-format {
+    flex: 0 0 auto;
+    color: var(--font-light, #b5b6b8);
+    font-family: var(--font-main, monospace);
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+}
+
+.vv-title-line h1 {
+    min-width: 0;
+    margin: 0;
+    overflow-wrap: anywhere;
+    color: var(--font-light, #b5b6b8);
+    font-family: var(--font-main, monospace);
+    font-size: 14px;
+    font-weight: 500;
+    line-height: 1.4;
+    letter-spacing: 0.025em;
+}
+
+.vv-info-line {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 5px;
+    font-family: var(--font-main, monospace);
+    font-size: 10px;
+    line-height: 1.5;
+    letter-spacing: 0.04em;
+}
+
+.vv-info-label {
+    flex: 0 0 auto;
+    color: var(--font-muted, #85898c);
+}
+
+.vv-info-value {
+    min-width: 0;
+    overflow-wrap: anywhere;
+    color: var(--font-light, #b5b6b8);
+    font-variant-numeric: tabular-nums;
+}
+
+/* --------------------------------------------------
+   Status
+   -------------------------------------------------- */
+
+.vv-status {
+    position: absolute;
+    z-index: 4;
+    top: 27px;
+    right: 26px;
+    color: var(--font-muted, #85898c);
+    font-family: var(--font-main, monospace);
+    font-size: 9px;
+    letter-spacing: 0.1em;
+    text-align: right;
+    pointer-events: none;
+    transition: opacity 250ms ease;
+}
+
+/* --------------------------------------------------
+   Center play button
+   -------------------------------------------------- */
+
+.vv-center-play {
+    position: absolute;
+    z-index: 5;
+    top: 50%;
+    left: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 58px;
+    height: 58px;
+    padding: 0;
+    transform: translate(-50%, -50%);
+    border: 1px solid var(--font-light, #b5b6b8);
+    border-radius: 0;
+    background: var(--font-light, #b5b6b8);
+    color: #000;
+    cursor: pointer;
+    opacity: 1;
+    transition: opacity 180ms ease;
+}
+
+.vv-center-play:hover,
+.vv-center-play:focus,
+.vv-center-play:active {
+    border-color: var(--font-light, #b5b6b8);
+    background: var(--font-light, #b5b6b8);
+    color: #000;
+    outline: none;
+    box-shadow: none;
+}
+
+.vv-center-play svg {
+    display: block;
+    width: 22px;
+    height: 22px;
+    fill: #000;
+    stroke: none;
+}
+
+.vv-center-play[hidden] {
+    display: none;
+}
+
+/* --------------------------------------------------
+   Loading
+   -------------------------------------------------- */
+
+.vv-loading {
+    position: absolute;
+    z-index: 6;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #000;
+    color: var(--font-muted, #85898c);
+    font-family: var(--font-main, monospace);
+    font-size: 10px;
+    letter-spacing: 0.12em;
+    pointer-events: none;
+}
+
+.vv-loading[hidden] {
+    display: none;
+}
+
+/* --------------------------------------------------
+   Error
+   -------------------------------------------------- */
+
+.vv-error {
+    position: absolute;
+    z-index: 8;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    padding: 24px;
+    background: #000;
+    color: var(--font-light, #b5b6b8);
+    text-align: center;
+}
+
+.vv-error > span {
+    color: var(--font-light, #b5b6b8);
+    font-family: var(--font-main, monospace);
+    font-size: 11px;
+    letter-spacing: 0.1em;
+}
+
+.vv-error p {
+    max-width: 520px;
+    margin: 0;
+    color: var(--font-muted, #85898c);
+    font-size: 12px;
+    line-height: 1.6;
+    overflow-wrap: anywhere;
+}
+
+.vv-error[hidden] {
+    display: none;
+}
+
+/* --------------------------------------------------
+   Controls container
+   -------------------------------------------------- */
+
+.vv-controls {
+    position: absolute;
+    z-index: 7;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    padding: 30px 26px 22px;
+    background: linear-gradient(
+        to top,
+        rgb(0 0 0 / 88%),
+        rgb(0 0 0 / 35%) 70%,
+        transparent
+    );
+    opacity: 1;
+    visibility: visible;
+    transition:
+        opacity 250ms ease,
+        visibility 250ms ease;
+}
+
+.vv-stage.vv-controls-hidden .vv-controls {
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+}
+
+.vv-stage.vv-controls-hidden .vv-metadata,
+.vv-stage.vv-controls-hidden .vv-status {
+    opacity: 0;
+    pointer-events: none;
+}
+
+.vv-stage.vv-controls-hidden::before,
+.vv-stage.vv-controls-hidden::after {
+    opacity: 0;
+}
+
+.vv-stage.vv-controls-hidden .vv-center-play {
+    opacity: 0;
+    pointer-events: none;
+}
+
+/* --------------------------------------------------
+   Timeline
+   -------------------------------------------------- */
+
+.vv-progress-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    width: 100%;
+    margin-bottom: 17px;
+}
+
+.vv-time {
+    flex: 0 0 auto;
+    min-width: 76px;
+    color: var(--font-light, #b5b6b8);
+    font-family: var(--font-main, monospace);
+    font-size: 10px;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: 0.025em;
+    white-space: nowrap;
+}
+
+.vv-time:last-child {
+    text-align: right;
+}
+
+.vv-progress,
+.vv-volume {
+    display: block;
+    min-width: 0;
+    padding: 0;
+    border: 0;
+    border-radius: 0;
+    appearance: none;
+    -webkit-appearance: none;
+    background: transparent;
+    cursor: pointer;
+    outline: none;
+}
+
+.vv-progress {
+    flex: 1 1 auto;
+    width: 100%;
+    height: 14px;
+}
+
+/* Progress track — white played portion */
+
+.vv-progress::-webkit-slider-runnable-track {
+    width: 100%;
+    height: 3px;
+    border: 0;
+    border-radius: 0;
+    background: linear-gradient(
+        to right,
+        #fff 0%,
+        #fff var(--vv-progress, 0%),
+        rgb(255 255 255 / 30%) var(--vv-progress, 0%),
+        rgb(255 255 255 / 30%) 100%
+    );
+}
+
+.vv-progress::-moz-range-track {
+    width: 100%;
+    height: 3px;
+    border: 0;
+    border-radius: 0;
+    background: rgb(255 255 255 / 30%);
+}
+
+.vv-progress::-moz-range-progress {
+    height: 3px;
+    border: 0;
+    border-radius: 0;
+    background: #fff;
+}
+
+/* Rectangular progress thumb */
+
+.vv-progress::-webkit-slider-thumb {
+    width: 8px;
+    height: 11px;
+    margin-top: -4px;
+    border: 0;
+    border-radius: 0;
+    appearance: none;
+    -webkit-appearance: none;
+    background: #fff;
+}
+
+.vv-progress::-moz-range-thumb {
+    width: 8px;
+    height: 11px;
+    border: 0;
+    border-radius: 0;
+    background: #fff;
+}
+
+/* --------------------------------------------------
+   Control row
+   -------------------------------------------------- */
+
+.vv-control-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 24px;
+    min-height: 30px;
+}
+
+.vv-control-group {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    min-width: 0;
+}
+
+.vv-control-group-right {
+    justify-content: flex-end;
+    margin-left: auto;
+}
+
+/* --------------------------------------------------
+   Buttons
+   -------------------------------------------------- */
+
+.vv-control-button {
+    display: inline-flex;
+    flex: 0 0 auto;
+    align-items: center;
+    justify-content: center;
+    width: 30px;
+    height: 30px;
+    padding: 0;
+    border: 1px solid transparent;
+    border-radius: 0;
+    background: transparent;
+    color: #000;
+    cursor: pointer;
+    outline: none;
+    box-shadow: none;
+}
+
+.vv-control-button:hover,
+.vv-control-button:focus,
+.vv-control-button:active {
+    border-color: transparent;
+    background: transparent;
+    color: #000;
+    outline: none;
+    box-shadow: none;
+}
+
+.vv-control-button svg {
+    display: block;
+    width: 17px;
+    height: 17px;
+    fill: none;
+    stroke: #000;
+    stroke-width: 1.8;
+    stroke-linecap: square;
+    stroke-linejoin: miter;
+}
+
+
+.vv-play-button {
+    width: 30px;
+    height: 30px;
+    border: 1px solid transparent;
+    border-radius: 0;
+    background: transparent;
+    color: var(--font-light, #b5b6b8);
+}
+
+.vv-play-button:hover,
+.vv-play-button:focus,
+.vv-play-button:active {
+    border-color: transparent;
+    background: transparent;
+    color: var(--font-light, #b5b6b8);
+    outline: none;
+    box-shadow: none;
+}
+
+.vv-play-button svg {
+    display: block;
+    width: 22px;
+    height: 22px;
+    fill: var(--font-light, #b5b6b8);
+    stroke: none;
+}
+
+.vv-play-button svg path {
+    fill: var(--font-light, #b5b6b8);
+    stroke: none;
+}
+
+.vv-control-button[hidden] {
+    display: none;
+}
+
+/* --------------------------------------------------
+   Volume
+   -------------------------------------------------- */
+
+.vv-volume {
+    flex: 0 1 90px;
+    width: 90px;
+    height: 12px;
+}
+
+.vv-volume::-webkit-slider-runnable-track {
+    width: 100%;
+    height: 3px;
+    border: 0;
+    border-radius: 0;
+    background: rgb(255 255 255 / 30%);
+}
+
+.vv-volume::-moz-range-track {
+    width: 100%;
+    height: 3px;
+    border: 0;
+    border-radius: 0;
+    background: rgb(255 255 255 / 30%);
+}
+
+.vv-volume::-moz-range-progress {
+    height: 3px;
+    border: 0;
+    border-radius: 0;
+    background: #fff;
+}
+
+.vv-volume::-webkit-slider-thumb {
+    width: 7px;
+    height: 10px;
+    margin-top: -3.5px;
+    border: 0;
+    border-radius: 0;
+    appearance: none;
+    -webkit-appearance: none;
+    background: #fff;
+}
+
+.vv-volume::-moz-range-thumb {
+    width: 7px;
+    height: 10px;
+    border: 0;
+    border-radius: 0;
+    background: #fff;
+}
+
+/* --------------------------------------------------
+   Playback speed
+   -------------------------------------------------- */
+
+.vv-speed-control {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    color: var(--font-muted, #85898c);
+    font-family: var(--font-main, monospace);
+    font-size: 8px;
+    font-weight: 400;
+    letter-spacing: 0.04em;
+    white-space: nowrap;
+}
+
+.vv-speed-control select {
+    width: 66px;
+    min-width: 66px;
+    height: 26px;
+    padding: 0 20px 0 7px;
+    border: 1px solid var(--font-muted, #85898c);
+    border-radius: 0;
+    appearance: none;
+    -webkit-appearance: none;
+    background-color: var(--bg, #191919);
+    background-image:
+        linear-gradient(45deg, transparent 50%, var(--font-light, #b5b6b8) 50%),
+        linear-gradient(135deg, var(--font-light, #b5b6b8) 50%, transparent 50%);
+    background-position:
+        calc(100% - 9px) 10px,
+        calc(100% - 5px) 10px;
+    background-size: 4px 4px, 4px 4px;
+    background-repeat: no-repeat;
+    color: var(--font-light, #b5b6b8);
+    font-family: var(--font-main, monospace);
+    font-size: 10px;
+    font-weight: 400;
+    font-variant-numeric: tabular-nums;
+    line-height: 1;
+    cursor: pointer;
+    outline: none;
+    box-shadow: none;
+}
+
+.vv-speed-control select:hover,
+.vv-speed-control select:focus,
+.vv-speed-control select:active {
+    border-color: var(--font-muted, #85898c);
+    border-radius: 0;
+    background-color: var(--bg, #191919);
+    color: var(--font-light, #b5b6b8);
+    outline: none;
+    box-shadow: none;
+}
+
+.vv-speed-control select option {
+    border: 0;
+    border-radius: 0;
+    background-color: var(--bg, #191919);
+    color: var(--font-light, #b5b6b8);
+    font-family: var(--font-main, monospace);
+    font-size: 10px;
+}
+
+
+
+/* --------------------------------------------------
+   Fullscreen
+   Icon uses window text color
+   -------------------------------------------------- */
+
+.vv-fullscreen-button svg {
+    width: 17px;
+    height: 17px;
+    fill: none;
+    stroke: var(--font-light, #b5b6b8);
+    stroke-width: 1.8;
+    stroke-linecap: square;
+    stroke-linejoin: miter;
+}
+
+.vv-fullscreen-button:hover svg,
+.vv-fullscreen-button:focus svg,
+.vv-fullscreen-button:active svg {
+    stroke: var(--font-light, #b5b6b8);
+}
+
+/* --------------------------------------------------
+   Responsive
+   -------------------------------------------------- */
+
+@media (max-width: 700px) {
+    .vv-metadata {
+        top: 16px;
+        left: 16px;
+        max-width: calc(100% - 32px);
+    }
+
+    .vv-status {
+        top: 18px;
+        right: 16px;
+    }
+
+    .vv-controls {
+        padding: 26px 16px 16px;
+    }
+
+    .vv-progress-row {
+        gap: 8px;
+        margin-bottom: 13px;
+    }
+
+    .vv-control-row {
+        gap: 12px;
+    }
+
+    .vv-control-group {
+        gap: 8px;
+    }
+
+    .vv-volume {
+        flex-basis: 64px;
+        width: 64px;
+    }
+
+    .vv-speed-control {
+        gap: 5px;
+    }
+
+    .vv-speed-control select {
+        min-width: 56px;
+        padding: 0 4px;
+    }
+}
+
+@media (max-width: 440px) {
+    .vv-title-line {
+        gap: 7px;
+    }
+
+    .vv-title-line h1 {
+        font-size: 12px;
+    }
+
+    .vv-info-line {
+        font-size: 9px;
+    }
+
+    .vv-control-row {
+        flex-wrap: wrap;
+        row-gap: 12px;
+    }
+
+    .vv-control-group-right {
+        margin-left: auto;
+    }
+
+    .vv-volume {
+        flex-basis: 48px;
+        width: 48px;
+    }
+
+    .vv-speed-control > span {
+        display: none;
+    }
+
+    .vv-center-play {
+        width: 48px;
+        height: 48px;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .vv-stage::before,
+    .vv-stage::after,
+    .vv-controls,
+    .vv-metadata,
+    .vv-status,
+    .vv-center-play {
+        transition: none;
+    }
+}

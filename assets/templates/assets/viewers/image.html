@@ -1,0 +1,95 @@
+
+{% extends "ui/base.html" %}
+{% load static %}
+
+{% block title %}{{ asset.name }} — Aether OS{% endblock %}
+
+{% block body_attrs %} class="image-viewer"{% endblock %}
+
+{% block css %}
+<link rel="stylesheet" href="{% static 'assets/viewers/image.css' %}">
+{% endblock %}
+
+{% block body %}
+<main
+    class="iv-workspace"
+    data-image-viewer
+    data-image-name="{{ asset.name|escape }}"
+    data-image-filename="{{ filename|escape }}"
+    data-image-type="{{ content_type|escape }}"
+>
+    <section class="iv-stage" data-image-stage>
+        <div class="iv-loading" data-image-loading>
+            <span>IMAGE / INITIALIZING</span>
+        </div>
+
+        <div class="iv-error" data-image-error hidden>
+            <span>IMAGE / ERROR</span>
+            <p>Unable to load image source.</p>
+        </div>
+
+        <img
+            class="iv-source"
+            data-image-source
+            src="{{ content_url }}"
+            alt="{{ asset.name }}"
+            draggable="false"
+        >
+
+        <aside class="iv-image-info" data-image-info>
+            <div class="iv-title-line">
+                <span class="iv-format" data-image-extension>[IMG]</span>
+                <h1>{{ asset.name }}</h1>
+            </div>
+
+            <div class="iv-info-line">
+                <span class="iv-info-label">ID:</span>
+                <span class="iv-info-value">{{ asset.public_id }}</span>
+            </div>
+
+            <div class="iv-info-line">
+                <span class="iv-info-label">RESOLUTION:</span>
+                <span class="iv-info-value" data-image-resolution>—</span>
+            </div>
+
+            <div class="iv-info-line">
+                <span class="iv-info-label">SCALE:</span>
+                <span class="iv-info-value" data-image-zoom-label>100%</span>
+            </div>
+        </aside>
+    </section>
+
+    <aside class="iv-navigator" aria-label="Image navigation">
+        <div class="iv-navigator-label">FIELD OF VIEW</div>
+
+        <button
+            class="iv-minimap"
+            type="button"
+            data-image-minimap
+            aria-label="Navigate image"
+            title="Click or drag to navigate"
+        >
+            <img
+                class="iv-minimap-image"
+                data-image-minimap-image
+                src="{{ content_url }}"
+                alt=""
+                draggable="false"
+            >
+            <span
+                class="iv-minimap-viewport"
+                data-image-minimap-viewport
+            ></span>
+        </button>
+
+        <div class="iv-navigator-data">
+            <span data-image-zoom-value>100%</span>
+            <span data-image-view-value>FULL FRAME</span>
+        </div>
+    </aside>
+</main>
+{% endblock %}
+
+{% block js %}
+<script src="{% static 'assets/viewers/image.js' %}" defer></script>
+{% endblock %}

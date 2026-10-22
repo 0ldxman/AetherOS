@@ -1,6 +1,6 @@
 from django.contrib import admin
-from .forms import MachineFileForm
 
+from .forms import MachineFileForm
 from .models import (
     FileKey,
     MachineFile,
@@ -11,13 +11,14 @@ from .models import (
 @admin.register(MachineFile)
 class MachineFileAdmin(admin.ModelAdmin):
     form = MachineFileForm
+
     list_display = (
         "id",
         "machine",
         "path",
         "file_type",
         "has_state",
-        "asset",
+        "url",
         "created_at",
         "updated_at",
     )
@@ -31,12 +32,11 @@ class MachineFileAdmin(admin.ModelAdmin):
         "path",
         "machine__name",
         "machine__hostname",
-        "asset__name",
+        "url",
     )
 
     autocomplete_fields = (
         "machine",
-        "asset",
     )
 
     readonly_fields = (
@@ -54,7 +54,7 @@ class MachineFileAdmin(admin.ModelAdmin):
                     "machine",
                     "path",
                     "file_type",
-                    "asset",
+                    "url",
                 ),
             },
         ),

@@ -1,3 +1,4 @@
+
 from django.contrib import admin
 
 from .forms import AssetAdminForm
@@ -19,6 +20,8 @@ class AssetAdmin(admin.ModelAdmin):
     list_display = (
         "id",
         "name",
+        "public_id",
+        "viewer_type",
         "file_id",
         "created_at",
         "updated_at",
@@ -32,11 +35,17 @@ class AssetAdmin(admin.ModelAdmin):
     search_fields = (
         "id",
         "name",
+        "public_id",
         "file_id",
+    )
+
+    list_filter = (
+        "viewer_type",
     )
 
     readonly_fields = (
         "id",
+        "public_id",
         "created_at",
         "updated_at",
     )
@@ -47,8 +56,10 @@ class AssetAdmin(admin.ModelAdmin):
             {
                 "fields": (
                     "id",
+                    "public_id",
                     "name",
                     "file_id",
+                    "viewer_type",
                 ),
             },
         ),

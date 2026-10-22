@@ -31,12 +31,15 @@ class MachineFile(models.Model):
         default="",
     )
 
-    asset = models.ForeignKey(
-        "assets.Asset",
-        on_delete=models.SET_NULL,
-        null=True,
+    url = models.CharField(
+        max_length=2048,
         blank=True,
-        related_name="machine_files",
+        default="",
+        verbose_name="Content URL",
+        help_text=(
+            "Внутренний URL интерфейса, открываемого после снятия "
+            "всех блокирующих слоёв. Например: apps/assets/12/"
+        ),
     )
 
     created_at = models.DateTimeField(

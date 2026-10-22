@@ -290,14 +290,32 @@ class NextcloudClient:
 
         return None
 
+
     def stream(
         self,
         path: str,
         headers: dict[str, str] | None = None,
     ):
-        return self.request(
+        import logging
+
+        logger = logging.getLogger(__name__)
+
+        response = self.request(
             "GET",
             path,
             headers=headers or {},
             stream=True,
         )
+
+        logger.warning(
+            "Nextcloud stream: status=%s url=%s "
+            "content_type=%s content_encoding=%s "
+            "content_length=%s",
+            response.status_code,
+            response.url,
+            response.headers.get("Content-Type"),
+            response.headers.get("Content-Encoding"),
+            response.headers.get("Content-Length"),
+        )
+
+        return response

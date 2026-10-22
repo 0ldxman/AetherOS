@@ -1,0 +1,140 @@
+
+{% extends "ui/base.html" %}
+{% load static %}
+
+{% block title %}{{ asset.name }} — Aether OS{% endblock %}
+{% block body_attrs %} class="text-viewer"{% endblock %}
+
+{% block css %}
+<link rel="stylesheet" href="{% static 'assets/viewers/text.css' %}">
+{% endblock %}
+
+{% block body %}
+<main
+    class="tv-workspace"
+    data-text-viewer
+    data-text-url="{{ content_url|escape }}"
+    data-text-name="{{ asset.name|escape }}"
+    data-text-filename="{{ filename|escape }}"
+    data-text-type="{{ content_type|escape }}"
+    data-text-id="{{ asset.public_id|escape }}"
+>
+    <header class="tv-header">
+        <div class="tv-heading">
+            <div class="tv-title-line">
+                <span class="tv-document-tag" data-text-tag>[TEXT]</span>
+                <h1>{{ asset.name }}</h1>
+            </div>
+
+            <div class="tv-meta-lines">
+                <div class="tv-id-line">
+                    <span class="tv-meta-label">ID:</span>
+                    <span class="tv-id-value">{{ asset.public_id }}</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="tv-header-right">
+            <span class="tv-header-status" data-text-status>
+                INITIALIZING
+            </span>
+
+            <button
+                class="tv-button"
+                type="button"
+                data-text-copy
+                disabled
+            >
+                COPY
+            </button>
+
+            <button
+                class="tv-button"
+                type="button"
+                data-text-fullscreen
+                disabled
+            >
+                FULLSCREEN
+            </button>
+        </div>
+    </header>
+
+    <section
+        class="tv-viewport"
+        data-text-viewport
+        aria-label="Text document"
+    >
+        <div class="tv-loading" data-text-loading>
+            <span class="tv-loading-mark">TEXT /</span>
+            <span data-text-loading-message>LOADING DOCUMENT</span>
+        </div>
+
+        <div class="tv-error" data-text-error hidden>
+            <span class="tv-error-title">DOCUMENT / ERROR</span>
+            <p data-text-error-message>
+                Unable to load text document.
+            </p>
+        </div>
+
+        <div class="tv-document" data-text-document hidden>
+            <pre class="tv-content"><code data-text-content></code></pre>
+        </div>
+    </section>
+
+    
+    <footer class="tv-footer">
+        <div class="tv-footer-group tv-scale-group">
+            <span class="tv-footer-label">SCALE</span>
+
+            <button
+                class="tv-button tv-icon-button"
+                type="button"
+                data-text-zoom-out
+                aria-label="Decrease text size"
+                disabled
+            >−</button>
+
+            <span class="tv-zoom-value" data-text-zoom-value>100%</span>
+
+            <button
+                class="tv-button tv-icon-button"
+                type="button"
+                data-text-zoom-in
+                aria-label="Increase text size"
+                disabled
+            >+</button>
+
+            <button
+                class="tv-button"
+                type="button"
+                data-text-zoom-reset
+                disabled
+            >RESET</button>
+        </div>
+
+        <div class="tv-document-stats">
+            <div class="tv-stats-row">
+                <div class="tv-footer-group tv-document-info">
+                    <span class="tv-footer-label">ENCODING</span>
+                    <span class="tv-footer-value" data-text-encoding>—</span>
+                </div>
+
+                <div class="tv-footer-group tv-document-info">
+                    <span class="tv-footer-label">LINES</span>
+                    <span class="tv-footer-value" data-text-lines>—</span>
+                </div>
+            </div>
+
+            <div class="tv-footer-group tv-document-info">
+                <span class="tv-footer-label">SIZE</span>
+                <span class="tv-footer-value" data-text-size>—</span>
+            </div>
+        </div>
+    </footer>
+
+</main>
+{% endblock %}
+
+{% block js %}
+<script src="{% static 'assets/viewers/text.js' %}" defer></script>
+{% endblock %}
