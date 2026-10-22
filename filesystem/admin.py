@@ -1,4 +1,5 @@
 from django.contrib import admin
+from .forms import MachineFileForm
 
 from .models import (
     FileKey,
@@ -9,6 +10,7 @@ from .models import (
 
 @admin.register(MachineFile)
 class MachineFileAdmin(admin.ModelAdmin):
+    form = MachineFileForm
     list_display = (
         "id",
         "machine",

@@ -63,6 +63,16 @@ class MachineFile(models.Model):
 
 
 class SessionFile(models.Model):
+    """Что сделала сессия с файлом машины.
+
+    Файл без записи здесь выглядит в сессии так, как лежит на машине.
+    Запись появляется, когда с файлом что-то случилось: игрок снял слой,
+    переименовал, скопировал или удалил его.
+
+    На один файл машины может быть несколько записей (копии, =>): каждая
+    живёт под своим path и со своим прогрессом.
+    """
+
     id = models.BigAutoField(
         primary_key=True,
     )
@@ -79,6 +89,21 @@ class SessionFile(models.Model):
         related_name="session_files",
     )
 
+    path = models.CharField(
+        max_length=2048,
+        blank=True,
+        help_text=(
+            "Путь файла в этой сессии. Пусто при создании = путь файла "
+            "на машине."
+        ),
+    )
+
+    deleted_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text="Файл удалён игроком в этой сессии (надгробие).",
+    )
+
     state = models.TextField(
         blank=True,
         default="",
@@ -89,14 +114,30 @@ class SessionFile(models.Model):
             models.UniqueConstraint(
                 fields=(
                     "session",
-                    "file",
+                    "path",
                 ),
-                name="unique_session_file",
+                name="unique_session_path",
             ),
         ]
 
+        indexes = [
+            models.Index(
+                fields=(
+                    "session",
+                    "file",
+                ),
+                name="sessionfile_session_file_idx",
+            ),
+        ]
+
+    def save(self, *args, **kwargs):
+        if not self.path:
+            self.path = self.file.path
+
+        super().save(*args, **kwargs)
+
     def __str__(self):
-        return f"{self.session} : {self.file.path}"
+        return f"{self.session} : {self.path}"
 
 
 class FileKey(models.Model):
