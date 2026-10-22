@@ -14,7 +14,8 @@
         "[name=csrfmiddlewaretoken]"
     ).value;
 
-    let cwd = "/home";
+    // Только для приглашения: настоящая папка хранится на сервере в сессии.
+    let cwd = terminal.dataset.cwd || "/home";
     let busy = false;
     const history = [];
     let historyIndex = 0;
@@ -41,10 +42,7 @@
                 "Content-Type": "application/json",
                 "X-CSRFToken": csrfToken,
             },
-            body: JSON.stringify({
-                command,
-                cwd,
-            }),
+            body: JSON.stringify({ command }),
         });
 
         let data;

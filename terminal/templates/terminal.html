@@ -12,12 +12,13 @@
         id="terminal"
         data-execute-url="{% url 'terminal:execute' %}"
         data-hostname="{{ hostname }}"
+        data-cwd="{{ cwd }}"
     >
         <div id="terminal-output" aria-live="polite"></div>
 
         <form id="terminal-form" autocomplete="off">
             <label id="terminal-prompt" for="terminal-input">
-                {{ hostname }}:/home$
+                {{ hostname }}:{{ cwd }}$
             </label>
             <input
                 id="terminal-input"

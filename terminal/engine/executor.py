@@ -1,5 +1,5 @@
 from terminal.engine.commands import COMMANDS
-from terminal.engine.context import TerminalContext
+from terminal.engine.context import DEFAULT_CWD, TerminalContext
 from terminal.engine.parser import (
     CommandParseError,
     parse_command,
@@ -12,11 +12,16 @@ class TerminalExecutor:
         self,
         session,
         source: str,
-        cwd: str = "/home",
+        cwd: str = DEFAULT_CWD,
     ) -> tuple[CommandResult, str]:
+        """Выполняет команду и возвращает (результат, новая папка).
+
+        Хранить папку между запросами должен вызывающий код,
+        executor ничего не запоминает.
+        """
         context = TerminalContext(
             session=session,
-            cwd=cwd or "/home",
+            cwd=cwd or DEFAULT_CWD,
         )
 
         try:
