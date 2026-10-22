@@ -7,7 +7,12 @@ from .models import (
     MachineProfileHID,
     MachineProfileToken,
     Session,
+    MachineApp,
 )
+
+class MachineAppInline(admin.TabularInline):
+    model = MachineApp
+    extra = 0
 
 
 # ==================================================
@@ -94,6 +99,7 @@ class MachineAdmin(admin.ModelAdmin):
 
     inlines = (
         MachineProfileInline,
+        MachineAppInline,
     )
 
     actions = (

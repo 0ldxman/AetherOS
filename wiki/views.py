@@ -216,11 +216,23 @@ def _document_page(request, doc, via_direct_link=False):
             {"doc": doc, "infobox_html": infobox_html},
         )
 
+    infobox_url = None
+    if via_direct_link and doc.infobox.strip():
+        infobox_url = (
+            reverse("wiki:direct", kwargs={"link": doc.direct_link})
+            + "?infobox=1"
+        )
+
     body_html = mark_safe(render_markup(doc.body, keys, "body"))
     return render(
         request,
         "wiki/document.html",
-        {"doc": doc, "crumbs": crumbs, "body_html": body_html},
+        {
+            "doc": doc,
+            "crumbs": crumbs,
+            "body_html": body_html,
+            "infobox_url": infobox_url,
+        },
     )
 
 

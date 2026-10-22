@@ -1,6 +1,13 @@
 from django.shortcuts import render
 from django.urls import reverse
 
+from django.shortcuts import redirect, render
+from django.urls import get_script_prefix
+
+from secure.access import satisfied
+
+from machines.current import current_machine, visible_apps
+
 # Create your views here.
 
 APPS = [
@@ -42,15 +49,26 @@ APPS = [
 ]
 
 def desktop(request):
-    apps = []
+    machine = current_machine(request)
 
-    for app in APPS:
-        item = app.copy()
-        item["url"] = reverse(app["url_name"])
-        apps.append(item)
+    if machine is None:
+        return redirect("boot")
+
+    prefix = get_script_prefix().rstrip("/")
+
+    apps = [
+        {
+            "id": app.pk,
+            "label": app.label,
+            "glyph": app.glyph,
+            "suffix": app.suffix,
+            "url": prefix + app.path,
+        }
+        for app in visible_apps(request, machine)
+    ]
 
     return render(request, "desktop/desktop.html", {
-        "machine_name": "aether-anon",
+        "machine_name": machine.hostname,
         "apps": apps,
     })
 

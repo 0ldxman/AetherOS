@@ -76,10 +76,16 @@ MIDDLEWARE = [
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
+    'machines.middleware.MachineAppMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
+
+MACHINE_APP_NAMESPACES = ["terminal", "map", "wiki"]
+
 MIDDLEWARE += ["allauth.account.middleware.AccountMiddleware"]
+
+
 
 ROOT_URLCONF = 'config.urls'
 

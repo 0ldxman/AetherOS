@@ -6,6 +6,11 @@ from django.db.models import Q
 from secure.models import Key
 import secrets
 
+from urllib.parse import urlsplit
+
+from django.core.exceptions import ValidationError
+from django.urls import Resolver404, resolve
+
 
 def generate_hid():
     return ":".join(f"{secrets.randbelow(256):02x}" for _ in range(6))
@@ -236,3 +241,50 @@ class Session(models.Model):
 
     def __str__(self):
         return f"{self.user} @ {self.profile}"
+
+
+class MachineApp(models.Model):
+    id = models.BigAutoField(primary_key=True)
+
+    machine = models.ForeignKey(
+        "machines.Machine",
+        on_delete=models.CASCADE,
+        related_name="machine_apps",
+    )
+
+    label = models.CharField(max_length=64)
+    glyph = models.CharField(max_length=8)
+    suffix = models.CharField(max_length=16, blank=True)
+
+    path = models.CharField(max_length=512)
+
+    order = models.PositiveSmallIntegerField(default=0)
+
+    key_condition = models.JSONField(null=True, blank=True)
+
+    class Meta:
+        ordering = ("machine", "order", "id")
+
+    def __str__(self):
+        return f"{self.machine.hostname}: {self.label}"
+
+    def clean(self):
+        parts = urlsplit(self.path)
+
+        if (
+            parts.scheme
+            or parts.netloc
+            or parts.fragment
+            or "\\" in self.path
+            or not parts.path.startswith("/")
+        ):
+            raise ValidationError(
+                {"path": "Нужен внутренний путь от корня сайта, например /apps/map/."}
+            )
+
+        try:
+            resolve(parts.path)
+        except Resolver404:
+            raise ValidationError(
+                {"path": "Такого адреса нет в проекте."}
+            )

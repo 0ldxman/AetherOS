@@ -186,6 +186,25 @@
         bindSort(docsTable);
     }
 
+    /* ================================================== */
+    /* Document: инфобокс открывается вместе с документом  */
+    /* ================================================== */
+
+    const autoInfobox = document.getElementById("auto-infobox");
+
+    if (autoInfobox) {
+        const desktop = getDesktop();
+
+        if (desktop) {
+            desktop.openApp(
+                "info-" + autoInfobox.dataset.id,
+                autoInfobox.dataset.title + ".info",
+                autoInfobox.dataset.url,
+                INFOBOX_WINDOW
+            );
+        }
+    }
+
 
     /* ================================================== */
     /* Search: запрос к «базе», выдача подменяет список    */

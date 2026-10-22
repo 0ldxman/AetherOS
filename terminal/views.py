@@ -9,6 +9,7 @@ from machines.models import Session
 from terminal.engine.executor import TerminalExecutor
 from django.shortcuts import render
 
+from machines.current import active_session
 
 @login_required
 @require_POST
@@ -28,7 +29,6 @@ def execute(request):
         )
 
     source = payload.get("command", "")
-    session_id = payload.get("session_id")
     cwd = payload.get("cwd", "/home")
 
     if not isinstance(source, str) or len(source) > 4096:
@@ -43,20 +43,7 @@ def execute(request):
             status=400,
         )
 
-    if not session_id:
-        return JsonResponse(
-            {"error": "Missing session_id"},
-            status=400,
-        )
-
-    session = get_object_or_404(
-        Session.objects.select_related(
-            "profile",
-            "profile__machine",
-        ),
-        pk=session_id,
-        user=request.user,
-    )
+    session = active_session(request)
 
     result, new_cwd = TerminalExecutor().execute(
         session=session,
@@ -74,28 +61,10 @@ def execute(request):
 
 @login_required
 def terminal_page(request):
-    session_id = request.GET.get("session_id")
-
-    if not session_id:
-        return JsonResponse(
-            {"error": "Missing session_id"},
-            status=400,
-        )
-
-    session = get_object_or_404(
-        Session.objects.select_related(
-            "profile",
-            "profile__machine",
-        ),
-        pk=session_id,
-        user=request.user,
-    )
+    session = active_session(request)
 
     return render(
         request,
-        "terminal/terminal.html",
-        {
-            "session_id": session.pk,
-            "hostname": session.profile.machine.hostname,
-        },
+        "terminal.html",
+        {"hostname": session.profile.machine.hostname},
     )

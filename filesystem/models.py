@@ -26,11 +26,6 @@ class MachineFile(models.Model):
         default=FileType.FILE,
     )
 
-    ext = models.CharField(
-        max_length=16,
-        default=".note",
-    )
-
     state = models.TextField(
         blank=True,
         default="",

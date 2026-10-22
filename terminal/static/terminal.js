@@ -7,7 +7,6 @@
     const input = document.getElementById("terminal-input");
     const prompt = document.getElementById("terminal-prompt");
 
-    const sessionId = terminal.dataset.sessionId;
     const executeUrl = terminal.dataset.executeUrl;
     const hostname = terminal.dataset.hostname;
 
@@ -43,7 +42,6 @@
                 "X-CSRFToken": csrfToken,
             },
             body: JSON.stringify({
-                session_id: sessionId,
                 command,
                 cwd,
             }),

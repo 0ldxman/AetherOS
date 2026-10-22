@@ -14,7 +14,6 @@ class MachineFileAdmin(admin.ModelAdmin):
         "machine",
         "path",
         "file_type",
-        "ext",
         "has_state",
         "asset",
         "created_at",
@@ -28,7 +27,6 @@ class MachineFileAdmin(admin.ModelAdmin):
 
     search_fields = (
         "path",
-        "ext",
         "machine__name",
         "machine__hostname",
         "asset__name",
@@ -54,7 +52,6 @@ class MachineFileAdmin(admin.ModelAdmin):
                     "machine",
                     "path",
                     "file_type",
-                    "ext",
                     "asset",
                 ),
             },
