@@ -96,6 +96,8 @@ class SessionFileAdmin(admin.ModelAdmin):
         "id",
         "session",
         "file",
+        "path",
+        "is_deleted",
         "has_state",
     )
 
@@ -104,6 +106,7 @@ class SessionFileAdmin(admin.ModelAdmin):
     )
 
     search_fields = (
+        "path",
         "file__path",
         "session__user__username",
         "session__profile__name",
@@ -128,6 +131,8 @@ class SessionFileAdmin(admin.ModelAdmin):
                     "id",
                     "session",
                     "file",
+                    "path",
+                    "deleted_at",
                 ),
             },
         ),
@@ -144,6 +149,13 @@ class SessionFileAdmin(admin.ModelAdmin):
     ordering = (
         "-id",
     )
+
+    @admin.display(
+        boolean=True,
+        description="Deleted",
+    )
+    def is_deleted(self, obj):
+        return obj.deleted_at is not None
 
     @admin.display(
         boolean=True,

@@ -1,19 +1,77 @@
+from dataclasses import dataclass
 from pathlib import PurePosixPath
 
-from filesystem.models import MachineFile
+from filesystem.models import MachineFile, SessionFile
+
+
+@dataclass(frozen=True)
+class Entry:
+    """Файл так, как его видит игрок в своей сессии.
+
+    path -- путь в сессии (после rename или для копии он может отличаться
+    от machine_file.path), session_file -- запись сессии или None, если
+    сессия файл не трогала."""
+
+    path: str
+    file_type: str
+    machine_file: MachineFile
+    session_file: SessionFile | None = None
 
 
 class VirtualFilesystem:
     def __init__(self, context):
         self.context = context
+        self._entries_cache: dict[str, Entry] | None = None
 
-    def _query(self):
-        return MachineFile.objects.filter(
-            machine=self.context.machine,
+    def _entries(self) -> dict[str, Entry]:
+        """Все файлы сессии: путь -> Entry. Считается один раз на команду.
+
+        1. Файл машины, к которому у сессии нет записей, виден как есть.
+        2. Если записи есть, файл виден только там, где её путь указывает
+           (rename сдвигает, copy добавляет копию).
+        3. Запись с deleted_at (надгробие) файл прячет."""
+        if self._entries_cache is None:
+            machine_files = MachineFile.objects.filter(
+                machine=self.context.machine,
+            )
+            rows = list(
+                SessionFile.objects.filter(
+                    session=self.context.session,
+                ).select_related("file")
+            )
+            touched = {row.file_id for row in rows}
+            entries: dict[str, Entry] = {}
+
+            for machine_file in machine_files:
+                if machine_file.id not in touched:
+                    entries[machine_file.path] = Entry(
+                        machine_file.path,
+                        machine_file.file_type,
+                        machine_file,
+                    )
+
+            for row in rows:
+                if row.deleted_at is None:
+                    entries[row.path] = Entry(
+                        row.path,
+                        row.file.file_type,
+                        row.file,
+                        row,
+                    )
+
+            self._entries_cache = entries
+
+        return self._entries_cache
+
+    def get_file(self, path: str) -> Entry | None:
+        return self._entries().get(path)
+
+    def _has_children(self, path: str) -> bool:
+        prefix = path.rstrip("/") + "/"
+
+        return any(
+            entry_path.startswith(prefix) for entry_path in self._entries()
         )
-
-    def get_file(self, path: str) -> MachineFile | None:
-        return self._query().filter(path=path).first()
 
     def exists(self, path: str) -> bool:
         if path == "/":
@@ -22,11 +80,7 @@ class VirtualFilesystem:
         if self.get_file(path) is not None:
             return True
 
-        prefix = path.rstrip("/") + "/"
-
-        return self._query().filter(
-            path__startswith=prefix,
-        ).exists()
+        return self._has_children(path)
 
     def is_directory(self, path: str) -> bool:
         if path == "/":
@@ -37,11 +91,7 @@ class VirtualFilesystem:
         if file is not None:
             return file.file_type == MachineFile.FileType.DIRECTORY
 
-        prefix = path.rstrip("/") + "/"
-
-        return self._query().filter(
-            path__startswith=prefix,
-        ).exists()
+        return self._has_children(path)
 
     def list_directory(self, path: str) -> list[dict]:
         if not self.is_directory(path):
@@ -50,10 +100,14 @@ class VirtualFilesystem:
         prefix = "/" if path == "/" else path.rstrip("/") + "/"
         result = {}
 
-        for file in self._query().filter(
-            path__startswith=prefix,
-        ).order_by("path"):
-            relative = file.path[len(prefix):]
+        for entry in sorted(
+            self._entries().values(),
+            key=lambda item: item.path,
+        ):
+            if not entry.path.startswith(prefix):
+                continue
+
+            relative = entry.path[len(prefix):]
 
             if not relative:
                 continue
@@ -65,12 +119,12 @@ class VirtualFilesystem:
                 result[first_component] = {
                     "name": first_component,
                     "is_directory": not is_direct_child
-                    or file.file_type == MachineFile.FileType.DIRECTORY,
+                    or entry.file_type == MachineFile.FileType.DIRECTORY,
                 }
 
             elif is_direct_child:
                 result[first_component]["is_directory"] = (
-                    file.file_type == MachineFile.FileType.DIRECTORY
+                    entry.file_type == MachineFile.FileType.DIRECTORY
                 )
 
         return sorted(
