@@ -5,6 +5,7 @@ from dataclasses import dataclass
 class CommandResult:
     output: str = ""
     exit_code: int = 0
+    window: dict | None = None  # {"id": ..., "title": ..., "url": ...}
 
     @property
     def success(self) -> bool:

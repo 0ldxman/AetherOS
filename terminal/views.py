@@ -55,6 +55,7 @@ def execute(request):
     return JsonResponse({
         "output": result.output,
         "exit_code": result.exit_code,
+        "window": result.window,
         "cwd": new_cwd,
         "hostname": session.profile.machine.hostname,
     })
