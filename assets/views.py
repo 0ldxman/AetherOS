@@ -1,9 +1,9 @@
-
 from __future__ import annotations
 
 from mimetypes import guess_type
 from pathlib import PurePosixPath
 
+import requests
 from django.contrib.admin.views.decorators import (
     staff_member_required,
 )
@@ -21,7 +21,6 @@ from django.utils.http import (
 
 from .models import Asset
 from .nextcloud import NextcloudClient
-from django.utils.http import content_disposition_header
 
 
 @staff_member_required
@@ -125,7 +124,7 @@ def asset_content(
     try:
         asset = Asset.objects.get(
             public_id=public_id,
-    )
+        )
     except Asset.DoesNotExist:
         raise Http404(
             "Asset not found."
@@ -182,7 +181,6 @@ def asset_viewer(
         content_type,
     )
 
-    
     template_name = f"assets/viewers/{viewer_type.lower()}.html"
 
     return render(
@@ -199,7 +197,6 @@ def asset_viewer(
             ),
         },
     )
-
 
 
 def _resolve_viewer_type(
@@ -255,7 +252,6 @@ def _resolve_viewer_type(
         return Asset.ViewerType.TEXT
 
     return Asset.ViewerType.RAW
-
 
 
 def _serve_asset_file(
@@ -389,154 +385,6 @@ def _serve_asset_file(
             response["Content-Length"] = content_length
 
     content_range = upstream.headers.get("Content-Range")
-    if content_range:
-        response["Content-Range"] = content_range
-
-    return response
-
-    """Stream an asset from Nextcloud to the client."""
-    if request.method not in {
-        "GET",
-        "HEAD",
-    }:
-        return HttpResponse(
-            status=405,
-            headers={"Allow": "GET, HEAD"},
-        )
-
-    client = NextcloudClient.from_settings()
-
-    try:
-        file = client.get_file_by_id(
-            asset.file_id,
-        )
-    except Exception as exc:
-        raise Http404(
-            "Unable to locate asset file."
-        ) from exc
-
-    if file is None:
-        raise Http404(
-            "Asset file not found."
-        )
-
-    if file.is_directory:
-        raise Http404(
-            "Asset points to a directory."
-        )
-
-    content_type, _ = guess_type(
-        file.filename,
-    )
-
-    content_type = (
-        content_type
-        or "application/octet-stream"
-    )
-
-    etag = file.etag
-    last_modified = file.last_modified
-
-    if (
-        etag
-        and request.headers.get(
-            "If-None-Match",
-        ) == etag
-    ):
-        response = HttpResponse(
-            status=304,
-        )
-
-        response["ETag"] = etag
-
-        if last_modified:
-            response["Last-Modified"] = (
-                last_modified
-            )
-
-        return response
-
-    if request.method == "HEAD":
-        response = HttpResponse(
-            status=200,
-            content_type=content_type,
-        )
-
-        response["Content-Disposition"] = (
-            content_disposition_header(
-                False,
-                file.filename,
-            )
-        )
-
-        response["Accept-Ranges"] = "bytes"
-
-        if etag:
-            response["ETag"] = etag
-
-        if last_modified:
-            response["Last-Modified"] = (
-                last_modified
-            )
-
-        if file.size is not None:
-            response["Content-Length"] = str(
-                file.size,
-            )
-
-        return response
-
-    request_headers = {}
-
-    range_header = request.headers.get(
-        "Range",
-    )
-
-    if range_header:
-        request_headers["Range"] = range_header
-
-    try:
-        upstream = client.stream(
-            file.path,
-            headers=request_headers,
-        )
-    except Exception as exc:
-        raise Http404(
-            "Unable to download asset."
-        ) from exc
-
-    response = StreamingHttpResponse(
-        _stream_upstream_response(upstream),
-        status=upstream.status_code,
-        content_type=content_type,
-    )
-
-    response["Content-Disposition"] = (
-        content_disposition_header(
-            False,
-            file.filename,
-        )
-    )
-
-    response["Accept-Ranges"] = "bytes"
-
-    if etag:
-        response["ETag"] = etag
-
-    if last_modified:
-        response["Last-Modified"] = last_modified
-
-    content_length = upstream.headers.get(
-        "Content-Length",
-    )
-
-    if content_length:
-        response["Content-Length"] = content_length
-
-    content_range = upstream.headers.get(
-        "Content-Range",
-    )
-
     if content_range:
         response["Content-Range"] = content_range
 

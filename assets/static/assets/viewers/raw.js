@@ -1,4 +1,3 @@
-
 /* =========================================================
    Aether OS — Raw / Binary Viewer
    ========================================================= */
@@ -13,15 +12,19 @@
     }
 
     const contentUrl = root.dataset.rawUrl;
-    const filename = root.dataset.rawFilename || "";
 
     const PAGE_SIZE = 256;
-    const SCAN_CHUNK_SIZE = 64 * 1024;
+    // HEX bytes are visually grouped; keep in sync with raw.css.
+    const GROUP_SIZE = 8;
+    const SCAN_CHUNK_SIZE = 1024 * 1024;
     const MAX_PATTERN_LENGTH = 4096;
     const MAX_MATCHES = 10000;
     const MAX_STRINGS = 5000;
     const MIN_STRING_LENGTH = 4;
     const MAX_DISPLAY_STRING_LENGTH = 2048;
+    // A single printable run is split once it reaches this size,
+    // so memory stays bounded on huge text-like files.
+    const MAX_RUN_BYTES = 4096;
     const MIN_PANEL_WIDTH = 180;
     const SPLITTER_WIDTH = 6;
 
@@ -68,6 +71,7 @@
         matchLength: 0,
         currentMatch: -1,
         searchPattern: new Uint8Array(0),
+        searchStatus: "none", // none | scanning | done
 
         strings: [],
         totalStrings: 0,
@@ -79,49 +83,108 @@
     let hexRatio = 0.62;
     let resizing = false;
     let activePointerId = null;
-    let operationId = 0;
 
+    /*
+     * Two independent counters:
+     *  - loadOp: page loads (HEX view). A newer load supersedes an older one.
+     *  - scanOp: full-file scans (search / strings). A newer scan, or a
+     *    reload, cancels the running scan.
+     * Page loads must NOT cancel scans, otherwise `state.scanning`
+     * would never be reset.
+     */
+    let loadOp = 0;
+    let scanOp = 0;
+
+    // How many bytes from the start of the file are used for format
+    // detection (enough for the TAR signature at offset 257).
+    const SIGNATURE_SAMPLE_SIZE = 512;
+
+    const ascii = (text) => Array.from(text, ch => ch.charCodeAt(0));
+
+    /*
+     * Binary signatures (magic numbers).
+     *   bytes     - expected bytes; null matches any byte
+     *   offset    - where the pattern starts (default 0)
+     *   minLength - the file must be at least this long (default: end of pattern)
+     * The first match wins, so specific entries go before generic ones.
+     */
     const signatures = [
-        {
-            bytes: [0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A],
-            name: "PNG image"
-        },
-        {
-            bytes: [0x25, 0x50, 0x44, 0x46, 0x2D],
-            name: "PDF document"
-        },
-        {
-            bytes: [0x50, 0x4B, 0x03, 0x04],
-            name: "ZIP archive / DOCX"
-        },
-        {
-            bytes: [0x50, 0x4B, 0x05, 0x06],
-            name: "ZIP archive (empty)"
-        },
-        {
-            bytes: [0x4D, 0x5A],
-            name: "DOS / Windows executable"
-        },
-        {
-            bytes: [0xFF, 0xD8, 0xFF],
-            name: "JPEG image"
-        },
-        {
-            bytes: [0x47, 0x49, 0x46, 0x38],
-            name: "GIF image"
-        },
-        {
-            bytes: [0x1F, 0x8B],
-            name: "GZIP archive"
-        },
-        {
-            bytes: [0x53, 0x51, 0x4C, 0x69, 0x74, 0x65],
-            name: "SQLite database"
-        },
-        {
-            bytes: [0x52, 0x61, 0x72, 0x21, 0x1A, 0x07],
-            name: "RAR archive"
-        }
+        // Images
+        { name: "PNG image", bytes: [0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A] },
+        { name: "JPEG image", bytes: [0xFF, 0xD8, 0xFF] },
+        { name: "GIF image", bytes: ascii("GIF8") },
+        { name: "WebP image", bytes: [...ascii("RIFF"), null, null, null, null, ...ascii("WEBP")] },
+        { name: "HEIC image", offset: 4, bytes: ascii("ftypheic") },
+        { name: "TIFF image", bytes: [0x49, 0x49, 0x2A, 0x00] },
+        { name: "TIFF image", bytes: [0x4D, 0x4D, 0x00, 0x2A] },
+        { name: "BMP image", bytes: [0x42, 0x4D, null, null, null, null, 0x00, 0x00, 0x00, 0x00] },
+        { name: "Photoshop document", bytes: ascii("8BPS") },
+
+        // Audio / video
+        { name: "WAV audio", bytes: [...ascii("RIFF"), null, null, null, null, ...ascii("WAVE")] },
+        { name: "AVI video", bytes: [...ascii("RIFF"), null, null, null, null, ...ascii("AVI ")] },
+        { name: "AIFF audio", bytes: [...ascii("FORM"), null, null, null, null, ...ascii("AIFF")] },
+        { name: "M4A audio", offset: 4, bytes: ascii("ftypM4A ") },
+        { name: "QuickTime video", offset: 4, bytes: ascii("ftypqt  ") },
+        { name: "MP4 video", offset: 4, bytes: ascii("ftyp") },
+        { name: "Matroska / WebM video", bytes: [0x1A, 0x45, 0xDF, 0xA3] },
+        { name: "FLV video", bytes: [...ascii("FLV"), 0x01] },
+        { name: "Ogg container", bytes: ascii("OggS") },
+        { name: "FLAC audio", bytes: ascii("fLaC") },
+        { name: "MP3 audio (ID3 tag)", bytes: ascii("ID3") },
+        { name: "MP3 audio", bytes: [0xFF, 0xFB] },
+        { name: "MP3 audio", bytes: [0xFF, 0xF3] },
+        { name: "MP3 audio", bytes: [0xFF, 0xF2] },
+        { name: "MIDI audio", bytes: ascii("MThd") },
+
+        // Documents / keys
+        { name: "PDF document", bytes: ascii("%PDF-") },
+        { name: "PostScript document", bytes: ascii("%!PS") },
+        { name: "RTF document", bytes: ascii("{\\rtf") },
+        { name: "Legacy Office document (OLE2)", bytes: [0xD0, 0xCF, 0x11, 0xE0, 0xA1, 0xB1, 0x1A, 0xE1] },
+        { name: "PEM key / certificate", bytes: ascii("-----BEGIN ") },
+
+        // Archives
+        { name: "ZIP archive (ZIP / DOCX / XLSX / APK)", bytes: [0x50, 0x4B, 0x03, 0x04] },
+        { name: "ZIP archive (empty)", bytes: [0x50, 0x4B, 0x05, 0x06] },
+        { name: "ZIP archive (spanned)", bytes: [0x50, 0x4B, 0x07, 0x08] },
+        { name: "RAR archive", bytes: [0x52, 0x61, 0x72, 0x21, 0x1A, 0x07] },
+        { name: "7-Zip archive", bytes: [0x37, 0x7A, 0xBC, 0xAF, 0x27, 0x1C] },
+        { name: "XZ archive", bytes: [0xFD, 0x37, 0x7A, 0x58, 0x5A, 0x00] },
+        { name: "Zstandard archive", bytes: [0x28, 0xB5, 0x2F, 0xFD] },
+        { name: "LZ4 archive", bytes: [0x04, 0x22, 0x4D, 0x18] },
+        { name: "BZIP2 archive", bytes: [...ascii("BZh"), null, 0x31, 0x41, 0x59, 0x26, 0x53, 0x59] },
+        { name: "GZIP archive", bytes: [0x1F, 0x8B, 0x08] },
+        { name: "TAR archive", offset: 257, bytes: ascii("ustar") },
+        { name: "Cabinet archive (CAB)", bytes: ascii("MSCF") },
+
+        // Executables / code
+        { name: "ELF executable", bytes: [0x7F, 0x45, 0x4C, 0x46] },
+        { name: "DOS / Windows executable", bytes: [0x4D, 0x5A], minLength: 64 },
+        { name: "Mach-O executable", bytes: [0xFE, 0xED, 0xFA, 0xCE] },
+        { name: "Mach-O executable", bytes: [0xFE, 0xED, 0xFA, 0xCF] },
+        { name: "Mach-O executable", bytes: [0xCE, 0xFA, 0xED, 0xFE] },
+        { name: "Mach-O executable", bytes: [0xCF, 0xFA, 0xED, 0xFE] },
+        { name: "Java class / Mach-O universal binary", bytes: [0xCA, 0xFE, 0xBA, 0xBE] },
+        { name: "WebAssembly module", bytes: [0x00, 0x61, 0x73, 0x6D] },
+        { name: "Android DEX", bytes: [...ascii("dex"), 0x0A] },
+        { name: "Windows shortcut (LNK)", bytes: [0x4C, 0x00, 0x00, 0x00, 0x01, 0x14, 0x02, 0x00] },
+        { name: "Script (shebang)", bytes: ascii("#!") },
+
+        // Databases / containers / misc
+        { name: "SQLite database", bytes: ascii("SQLite format 3\0") },
+        { name: "KeePass database (KDBX)", bytes: [0x03, 0xD9, 0xA2, 0x9A, 0x67, 0xFB, 0x4B, 0xB5] },
+        { name: "LUKS encrypted volume", bytes: [...ascii("LUKS"), 0xBA, 0xBE] },
+        { name: "Packet capture (PCAP)", bytes: [0xD4, 0xC3, 0xB2, 0xA1] },
+        { name: "Packet capture (PCAP)", bytes: [0xA1, 0xB2, 0xC3, 0xD4] },
+        { name: "Packet capture (PCAPNG)", bytes: [0x0A, 0x0D, 0x0D, 0x0A] },
+        { name: "Apple binary plist", bytes: ascii("bplist00") },
+
+        // Fonts
+        { name: "TrueType font", bytes: [0x00, 0x01, 0x00, 0x00, 0x00] },
+        { name: "OpenType font", bytes: ascii("OTTO") },
+        { name: "WOFF font", bytes: ascii("wOFF") },
+        { name: "WOFF2 font", bytes: ascii("wOF2") }
     ];
 
     /* =====================================================
@@ -156,22 +219,129 @@
         return byte >= 0x20 && byte <= 0x7E;
     }
 
-    function detectSignature(bytes) {
+    function matchesSignature(data, signature) {
+        const offset = signature.offset || 0;
+        const pattern = signature.bytes;
+        const required = Math.max(
+            offset + pattern.length,
+            signature.minLength || 0
+        );
+
+        if (data.length < required) {
+            return false;
+        }
+
+        for (let i = 0; i < pattern.length; i++) {
+            if (pattern[i] !== null && data[offset + i] !== pattern[i]) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    function looksLikeJson(head) {
+        return (
+            /^\{\s*(?:["}]|$)/.test(head) ||
+            /^\[\s*(?:[\[{"\]]|-?\d|true\b|false\b|null\b|$)/.test(head)
+        );
+    }
+
+    /*
+     * Text formats have no magic numbers, so they are recognised from the
+     * first bytes of the content. Returns null when the sample is not text.
+     * `wholeFile` tells whether the sample is the entire file; then JSON can
+     * be verified by actually parsing it.
+     */
+    function detectText(data, wholeFile) {
+        if (
+            data.length >= 2 &&
+            ((data[0] === 0xFF && data[1] === 0xFE) ||
+                (data[0] === 0xFE && data[1] === 0xFF))
+        ) {
+            return "UTF-16 text";
+        }
+
+        const start =
+            data[0] === 0xEF && data[1] === 0xBB && data[2] === 0xBF ? 3 : 0;
+
+        let asciiOnly = true;
+
+        for (let i = start; i < data.length; i++) {
+            const byte = data[i];
+
+            if (byte === 0x09 || byte === 0x0A || byte === 0x0C || byte === 0x0D) {
+                continue;
+            }
+
+            if (byte < 0x20 || byte === 0x7F) {
+                return null;
+            }
+
+            if (byte >= 0x80) {
+                asciiOnly = false;
+            }
+        }
+
+        let text;
+
+        try {
+            // stream: true tolerates a multi-byte character cut off at
+            // the end of the sample.
+            text = new TextDecoder("utf-8", { fatal: true }).decode(
+                data.subarray(start),
+                { stream: true }
+            );
+        } catch (error) {
+            return null;
+        }
+
+        const head = text.trimStart();
+
+        if (looksLikeJson(head)) {
+            if (!wholeFile) {
+                return "JSON text";
+            }
+
+            try {
+                JSON.parse(text);
+                return "JSON text";
+            } catch (error) {
+                // Not valid JSON after all: fall through to plain text.
+            }
+        }
+
+        if (/^<\?xml\b/i.test(head)) {
+            return /<svg\b/i.test(head) ? "SVG image" : "XML document";
+        }
+
+        if (/^<svg\b/i.test(head)) {
+            return "SVG image";
+        }
+
+        if (/^<!doctype\s+html|^<html\b/i.test(head)) {
+            return "HTML document";
+        }
+
+        if (/^<[a-z!?]/i.test(head)) {
+            return "XML / HTML markup";
+        }
+
+        return asciiOnly ? "ASCII text" : "UTF-8 text";
+    }
+
+    function detectSignature(data, wholeFile) {
+        if (data.length === 0) {
+            return "Empty file";
+        }
+
         for (const signature of signatures) {
-            if (
-                signature.bytes.every(
-                    (byte, index) => bytes[index] === byte
-                )
-            ) {
+            if (matchesSignature(data, signature)) {
                 return signature.name;
             }
         }
 
-        if (bytes.length === 0) {
-            return "Empty file";
-        }
-
-        return "Unknown / no signature match";
+        return detectText(data, wholeFile) || "Unknown";
     }
 
     function isStringsVisible() {
@@ -418,12 +588,13 @@
             return;
         }
 
-        const bytes = await fetchRange(
-            0,
-            Math.min(15, state.size - 1)
-        );
+        const sampleSize = Math.min(SIGNATURE_SAMPLE_SIZE, state.size);
+        const bytes = await fetchRange(0, sampleSize - 1);
 
-        elements.signature.textContent = detectSignature(bytes);
+        elements.signature.textContent = detectSignature(
+            bytes,
+            state.size <= SIGNATURE_SAMPLE_SIZE
+        );
     }
 
     /* =====================================================
@@ -491,7 +662,36 @@
         return element;
     }
 
-    function render() {
+    // Scrolls the HEX panel so the selected byte is centred; a freshly
+    // loaded page without a selection starts at the top.
+    function revealSelected() {
+        const container = elements.data;
+        const target = container.querySelector(".rv-byte.is-selected");
+
+        if (!target) {
+            container.scrollTop = 0;
+            return;
+        }
+
+        const box = container.getBoundingClientRect();
+        const rect = target.getBoundingClientRect();
+
+        container.scrollTop +=
+            rect.top - box.top - (box.height - rect.height) / 2;
+    }
+
+    // Tells the CSS how many bytes per row / how many group gaps there are,
+    // so the header and all rows share one fixed HEX column width.
+    function updateHexGeometry() {
+        root.style.setProperty("--rv-bytes", String(state.width));
+        root.style.setProperty(
+            "--rv-groups",
+            String(Math.max(0, Math.ceil(state.width / GROUP_SIZE) - 1))
+        );
+    }
+
+    function render(reveal = false) {
+        updateHexGeometry();
         elements.data.replaceChildren();
 
         if (state.size === 0) {
@@ -542,9 +742,22 @@
                 const byte = state.bytes[i];
                 const absoluteOffset = state.start + i;
 
-                hex.appendChild(
-                    makeByte(byte, absoluteOffset, "rv-byte", matchBytes)
+                const hexByte = makeByte(
+                    byte,
+                    absoluteOffset,
+                    "rv-byte",
+                    matchBytes
                 );
+
+                // Gap after every 8th byte, but not after the last one.
+                if (
+                    (i - index) % GROUP_SIZE === GROUP_SIZE - 1 &&
+                    i < index + state.width - 1
+                ) {
+                    hexByte.classList.add("is-group-end");
+                }
+
+                hex.appendChild(hexByte);
 
                 ascii.appendChild(
                     makeByte(byte, absoluteOffset, "rv-char", matchBytes)
@@ -565,14 +778,16 @@
         elements.prev.disabled = state.start === 0;
         elements.next.disabled =
             state.start + state.bytes.length >= state.size;
+
+        if (reveal) {
+            revealSelected();
+        }
     }
 
     async function loadPage(requestedOffset) {
-        if (state.loading) {
-            return;
-        }
-
-        const thisOperation = ++operationId;
+        // A newer request supersedes an older one (see loadOp), so rapid
+        // clicks never leave the page out of sync with the UI state.
+        const thisLoad = ++loadOp;
         state.loading = true;
         setStatus("READING");
 
@@ -603,7 +818,7 @@
 
             const bytes = await fetchRange(state.start, end);
 
-            if (thisOperation !== operationId) {
+            if (thisLoad !== loadOp) {
                 return;
             }
 
@@ -620,10 +835,10 @@
                 }
             }
 
-            render();
+            render(true);
             setStatus("READY");
         } catch (error) {
-            if (thisOperation !== operationId) {
+            if (thisLoad !== loadOp) {
                 return;
             }
 
@@ -638,7 +853,7 @@
 
             elements.data.appendChild(message);
         } finally {
-            if (thisOperation === operationId) {
+            if (thisLoad === loadOp) {
                 state.loading = false;
             }
         }
@@ -660,25 +875,32 @@
        Search
        ===================================================== */
 
+    // Accepts "41 45 54", "41-45-54", "41:45:54", "0x41 0x45 0x54"
+    // and contiguous digits such as "414554" (read as pairs).
     function parseHexPattern(value) {
-        const cleaned = value.trim().replace(/^0x/i, "");
+        const cleaned = value.trim().replace(/0x/gi, "");
 
         if (!cleaned || !/^[0-9a-f\s,:-]+$/i.test(cleaned)) {
             return null;
         }
 
-        const tokens = cleaned.split(/[\s,:-]+/).filter(Boolean);
+        const tokens = [];
 
-        if (
-            !tokens.length ||
-            tokens.some(token => !/^[0-9a-f]{1,2}$/i.test(token))
-        ) {
+        for (const token of cleaned.split(/[\s,:-]+/).filter(Boolean)) {
+            if (token.length <= 2) {
+                tokens.push(token);
+            } else if (token.length % 2 === 0) {
+                tokens.push(...token.match(/../g));
+            } else {
+                return null;
+            }
+        }
+
+        if (!tokens.length) {
             return null;
         }
 
-        return new Uint8Array(
-            tokens.map(token => Number.parseInt(token, 16))
-        );
+        return Uint8Array.from(tokens, token => Number.parseInt(token, 16));
     }
 
     function parseSearchPattern() {
@@ -719,9 +941,13 @@
         elements.stringsButton.disabled = state.scanning;
 
         if (state.totalMatches === 0) {
-            elements.searchCount.textContent = state.scanning
-                ? "SCANNING..."
-                : "NO MATCHES";
+            // Neutral until a search has actually been run.
+            elements.searchCount.textContent =
+                state.searchStatus === "scanning"
+                    ? "SCANNING..."
+                    : state.searchStatus === "done"
+                        ? "NO MATCHES"
+                        : "—";
         } else {
             const stored = state.matches.length;
             const total = state.totalMatches;
@@ -787,13 +1013,15 @@
             return;
         }
 
-        const thisOperation = ++operationId;
+        const thisScan = ++scanOp;
+        const isCancelled = () => thisScan !== scanOp;
 
         state.scanning = true;
         state.matches = [];
         state.totalMatches = 0;
         state.matchLength = pattern.length;
         state.searchPattern = pattern;
+        state.searchStatus = "scanning";
         state.currentMatch = -1;
         state.selected = null;
 
@@ -859,13 +1087,17 @@
                         combined.length - carryLength
                     );
                 },
-                () => thisOperation !== operationId
+                isCancelled
             );
 
-            if (!completed || thisOperation !== operationId) {
+            if (!completed || isCancelled()) {
                 return;
             }
 
+            // The scan itself is over: unlock the controls before
+            // navigating to the first match.
+            state.scanning = false;
+            state.searchStatus = "done";
             state.currentMatch = state.matches.length ? 0 : -1;
             updateSearchControls();
 
@@ -878,26 +1110,26 @@
 
                 await goToMatch(0);
             } else {
-                renderStrings();
+                if (isStringsVisible()) {
+                    renderStrings();
+                }
+
                 render();
                 setStatus("NO MATCHES");
             }
         } catch (error) {
-            if (thisOperation !== operationId) {
+            if (isCancelled()) {
                 return;
             }
 
+            state.searchStatus = "none";
             setStatus("SEARCH ERROR");
             elements.searchCount.textContent =
                 error.message || "Unable to search file.";
         } finally {
-            if (thisOperation === operationId) {
+            if (!isCancelled()) {
                 state.scanning = false;
                 updateSearchControls();
-
-                if (state.matches.length) {
-                    setStatus("SEARCH COMPLETE");
-                }
             }
         }
     }
@@ -925,25 +1157,21 @@
        STRINGS renderer and search highlighting
        ===================================================== */
 
+    // The string that was actually searched for (bytes decoded as UTF-8),
+    // or null when the pattern is not valid text. Matching is exact, the
+    // same as the byte search itself.
     function getStringSearchPattern() {
         if (!state.searchPattern || state.searchPattern.length === 0) {
             return null;
         }
 
-        const bytes = state.searchPattern;
-
-        // Highlight the query in the string list when it has a
-        // printable ASCII representation.
-        if ([...bytes].every(byte => byte >= 0x20 && byte <= 0x7E)) {
-            return String.fromCharCode(...bytes);
+        try {
+            return new TextDecoder("utf-8", { fatal: true }).decode(
+                state.searchPattern
+            );
+        } catch (error) {
+            return null;
         }
-
-        // For text searches, the query may contain UTF-8 bytes.
-        if (elements.searchMode.value === "text") {
-            return elements.searchInput.value || null;
-        }
-
-        return null;
     }
 
     function appendHighlightedText(container, value, pattern) {
@@ -952,18 +1180,10 @@
             return;
         }
 
-        const lowerValue = value.toLocaleLowerCase();
-        const lowerPattern = pattern.toLocaleLowerCase();
-
-        if (!lowerPattern) {
-            container.textContent = value;
-            return;
-        }
-
         let cursor = 0;
 
         while (cursor < value.length) {
-            const index = lowerValue.indexOf(lowerPattern, cursor);
+            const index = value.indexOf(pattern, cursor);
 
             if (index === -1) {
                 container.appendChild(
@@ -1038,7 +1258,8 @@
             return;
         }
 
-        const thisOperation = ++operationId;
+        const thisScan = ++scanOp;
+        const isCancelled = () => thisScan !== scanOp;
 
         state.scanning = true;
         state.strings = [];
@@ -1057,66 +1278,114 @@
         updateSearchControls();
         setStatus("EXTRACTING STRINGS");
 
+        // Current run of printable characters (fixed buffer).
+        const run = new Uint8Array(MAX_RUN_BYTES);
+        let runLength = 0;
+        let runChars = 0;
         let runStart = 0;
-        let runBytes = [];
+
+        // Current character being assembled. A multi-byte UTF-8
+        // sequence may span two scan chunks, so this state lives here.
+        const seq = new Uint8Array(4);
+        let seqLength = 0;
+        let seqNeed = 0;
+        let seqStart = 0;
 
         function finishRun() {
-            if (runBytes.length === 0) {
-                return;
-            }
-
-            const bytes = new Uint8Array(runBytes);
-
-            const value = new TextDecoder("utf-8", {
-                fatal: false
-            }).decode(bytes);
-
-            const cleaned = value.replace(/\uFFFD/g, "");
-
-            if ([...cleaned].length >= MIN_STRING_LENGTH) {
+            if (runChars >= MIN_STRING_LENGTH) {
                 state.totalStrings++;
 
                 if (state.strings.length < MAX_STRINGS) {
+                    const value = new TextDecoder("utf-8", {
+                        fatal: false
+                    }).decode(run.subarray(0, runLength));
+
                     state.strings.push({
                         offset: runStart,
-                        value: cleaned.slice(0, MAX_DISPLAY_STRING_LENGTH)
+                        value: value.slice(0, MAX_DISPLAY_STRING_LENGTH)
                     });
                 } else {
                     state.stringsTruncated = true;
                 }
             }
 
-            runBytes = [];
+            runLength = 0;
+            runChars = 0;
+        }
+
+        // Appends the complete character stored in seq[0..length).
+        function appendChar(length, offset) {
+            if (runLength + length > MAX_RUN_BYTES) {
+                finishRun();
+            }
+
+            if (runLength === 0) {
+                runStart = offset;
+            }
+
+            run.set(seq.subarray(0, length), runLength);
+            runLength += length;
+            runChars++;
+        }
+
+        function startSequence(first, need, offset) {
+            seq[0] = first;
+            seqLength = 1;
+            seqNeed = need;
+            seqStart = offset;
+        }
+
+        /*
+         * Accepts printable ASCII and well-formed UTF-8 only.
+         * Stray bytes >= 0x80 (typical for PNG, ZIP, executables)
+         * end the current run instead of being treated as text.
+         */
+        function consumeByte(byte, offset) {
+            if (seqNeed > 0) {
+                if ((byte & 0xC0) === 0x80) {
+                    seq[seqLength++] = byte;
+                    seqNeed--;
+
+                    if (seqNeed === 0) {
+                        appendChar(seqLength, seqStart);
+                        seqLength = 0;
+                    }
+
+                    return;
+                }
+
+                // Broken sequence: drop it and end the run,
+                // then handle this byte as a fresh one.
+                seqNeed = 0;
+                seqLength = 0;
+                finishRun();
+            }
+
+            if ((byte >= 0x20 && byte <= 0x7E) || byte === 0x09) {
+                seq[0] = byte;
+                appendChar(1, offset);
+            } else if (byte >= 0xC2 && byte <= 0xDF) {
+                startSequence(byte, 1, offset);
+            } else if (byte >= 0xE0 && byte <= 0xEF) {
+                startSequence(byte, 2, offset);
+            } else if (byte >= 0xF0 && byte <= 0xF4) {
+                startSequence(byte, 3, offset);
+            } else {
+                finishRun();
+            }
         }
 
         try {
             const completed = await scanFile(
                 async (bytes, chunkStart) => {
                     for (let i = 0; i < bytes.length; i++) {
-                        const byte = bytes[i];
-                        const offset = chunkStart + i;
-
-                        const isAsciiPrintable =
-                            byte >= 0x20 && byte <= 0x7E;
-
-                        // Keep possible UTF-8 continuation and leading bytes.
-                        const isUtf8Byte = byte >= 0x80 && byte <= 0xF4;
-
-                        if (isAsciiPrintable || isUtf8Byte) {
-                            if (runBytes.length === 0) {
-                                runStart = offset;
-                            }
-
-                            runBytes.push(byte);
-                        } else {
-                            finishRun();
-                        }
+                        consumeByte(bytes[i], chunkStart + i);
                     }
                 },
-                () => thisOperation !== operationId
+                isCancelled
             );
 
-            if (!completed || thisOperation !== operationId) {
+            if (!completed || isCancelled()) {
                 return;
             }
 
@@ -1129,7 +1398,7 @@
                     : "STRINGS COMPLETE"
             );
         } catch (error) {
-            if (thisOperation !== operationId) {
+            if (isCancelled()) {
                 return;
             }
 
@@ -1143,7 +1412,7 @@
             elements.stringsResults.appendChild(message);
             setStatus("STRINGS ERROR");
         } finally {
-            if (thisOperation === operationId) {
+            if (!isCancelled()) {
                 state.scanning = false;
                 updateSearchControls();
                 updateSplitLayout();
@@ -1212,16 +1481,6 @@
             elements.searchMode.value === "hex"
                 ? "Example: 41 45 54 48 45 52"
                 : "Text to find...";
-
-        if (state.strings.length) {
-            renderStrings();
-        }
-    });
-
-    elements.searchInput.addEventListener("input", function () {
-        if (state.strings.length) {
-            renderStrings();
-        }
     });
 
     elements.searchPrev.addEventListener("click", function () {
@@ -1259,11 +1518,9 @@
        ===================================================== */
 
     async function initialize() {
-        if (state.loading || state.scanning) {
-            return;
-        }
-
-        ++operationId;
+        // RELOAD cancels a running scan instead of being blocked by it.
+        ++scanOp;
+        state.scanning = false;
 
         state.start = 0;
         state.selected = null;
@@ -1273,6 +1530,7 @@
         state.totalMatches = 0;
         state.matchLength = 0;
         state.searchPattern = new Uint8Array(0);
+        state.searchStatus = "none";
         state.currentMatch = -1;
 
         state.strings = [];
@@ -1283,18 +1541,17 @@
         setStringsVisible(false);
 
         elements.data.replaceChildren();
-        elements.searchCount.textContent = "NO SEARCH";
+        elements.searchCount.textContent = "—";
         elements.stringsCount.textContent = "—";
 
+        updateSearchControls();
         elements.searchPrev.disabled = true;
         elements.searchNext.disabled = true;
+        elements.searchCount.textContent = "—";
 
-        const extensionMatch = filename.match(/\.([^.\/\\]+)$/);
-        const extension = extensionMatch
-            ? extensionMatch[1].toUpperCase()
-            : "BIN";
-
-        elements.tag.textContent = `[RAW.${extension}]`;
+        // The file name / extension is deliberately not shown anywhere:
+        // the format must be discovered from the content itself.
+        elements.tag.textContent = "[RAW]";
         elements.signature.textContent = "—";
         elements.size.textContent = "—";
         elements.page.textContent = "—";

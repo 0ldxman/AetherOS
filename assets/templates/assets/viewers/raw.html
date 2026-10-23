@@ -1,4 +1,3 @@
-
 {% extends "ui/base.html" %}
 {% load static %}
 
@@ -15,20 +14,13 @@
     data-raw-viewer
     data-raw-url="{{ content_url|escape }}"
     data-raw-name="{{ asset.name|escape }}"
-    data-raw-filename="{{ filename|escape }}"
-    data-raw-type="{{ content_type|escape }}"
     data-raw-id="{{ asset.public_id|escape }}"
 >
     <header class="rv-header">
-        <div class="rv-heading">
-            <div class="rv-title-line">
-                <span class="rv-tag" data-raw-tag>[RAW.BIN]</span>
-                <h1>{{ asset.name }}</h1>
-            </div>
-            <div class="rv-id-line">
-                <span>ID:</span>
-                <span class="rv-id-value">{{ asset.public_id }}</span>
-            </div>
+        <div class="rv-title-line">
+            <span class="rv-tag" data-raw-tag>[RAW]</span>
+            <h1>{{ asset.name }}</h1>
+            <span class="rv-id-value" title="{{ asset.public_id }}">{{ asset.public_id }}</span>
         </div>
 
         <div class="rv-header-right">
@@ -37,9 +29,9 @@
         </div>
     </header>
 
-    <section class="rv-toolbar">
+    <section class="rv-toolbar" aria-label="File analysis">
         <form class="rv-goto" data-raw-goto-form>
-            <label for="rv-offset">OFFSET (HEX)</label>
+            <label for="rv-offset">OFFSET</label>
             <span class="rv-input-prefix">0x</span>
             <input
                 id="rv-offset"
@@ -50,23 +42,20 @@
                 spellcheck="false"
                 placeholder="00000000"
             >
-            <button class="rv-button" type="submit">GOTO</button>
+            <button class="rv-button" type="submit">GO</button>
         </form>
 
         <div class="rv-width-control">
-            <label for="rv-width">BYTES / ROW</label>
+            <label for="rv-width">ROW</label>
             <select id="rv-width" data-raw-width>
-                <option value="8">08</option>
+                <option value="8">8</option>
                 <option value="16" selected>16</option>
                 <option value="32">32</option>
             </select>
         </div>
-    </section>
 
-    <section class="rv-searchbar" aria-label="File analysis">
         <form class="rv-search-form" data-raw-search-form>
-            <label for="rv-search-mode">FIND</label>
-            <select id="rv-search-mode" data-raw-search-mode>
+            <select id="rv-search-mode" data-raw-search-mode aria-label="Search mode">
                 <option value="text">TEXT</option>
                 <option value="hex">HEX</option>
             </select>
@@ -78,24 +67,25 @@
                 placeholder="Text to find..."
                 aria-label="Search pattern"
             >
-            <button class="rv-button" type="submit" data-raw-find>SEARCH</button>
+            <button class="rv-button" type="submit" data-raw-find>FIND</button>
         </form>
 
         <div class="rv-search-actions">
-            <span class="rv-search-count" data-raw-search-count>NO SEARCH</span>
-            <button class="rv-button" type="button" data-raw-search-prev disabled>PREV MATCH</button>
-            <button class="rv-button" type="button" data-raw-search-next disabled>NEXT MATCH</button>
+            <span class="rv-search-count" data-raw-search-count>—</span>
+            <button class="rv-button rv-icon-button" type="button" data-raw-search-prev disabled
+                    aria-label="Previous match" title="Previous match">‹</button>
+            <button class="rv-button rv-icon-button" type="button" data-raw-search-next disabled
+                    aria-label="Next match" title="Next match">›</button>
             <button class="rv-button" type="button" data-raw-strings>STRINGS</button>
         </div>
     </section>
 
-    
     <section class="rv-inspector" aria-label="Binary data">
         <div class="rv-hex-panel">
             <div class="rv-table-header">
-                <span class="rv-offset-heading">OFFSET</span>
-                <span class="rv-hex-heading">HEX BYTES</span>
-                <span class="rv-ascii-heading">ASCII</span>
+                <span>OFFSET</span>
+                <span>HEX</span>
+                <span>ASCII</span>
             </div>
 
             <div class="rv-data" data-raw-data>
@@ -103,19 +93,19 @@
             </div>
         </div>
 
-            <div
-                class="rv-splitter"
-                data-raw-splitter
-                role="separator"
-                aria-label="Resize HEX and STRINGS panels"
-                aria-orientation="vertical"
-                tabindex="0"
-                hidden
-            ></div>
+        <div
+            class="rv-splitter"
+            data-raw-splitter
+            role="separator"
+            aria-label="Resize HEX and STRINGS panels"
+            aria-orientation="vertical"
+            tabindex="0"
+            hidden
+        ></div>
 
         <section class="rv-strings-panel" data-raw-strings-panel hidden>
             <div class="rv-strings-heading">
-                <span>EXTRACTED STRINGS</span>
+                <span>STRINGS</span>
                 <span data-raw-strings-count>—</span>
             </div>
             <div class="rv-strings-results" data-raw-strings-results></div>
@@ -129,9 +119,11 @@
         </div>
 
         <div class="rv-footer-right">
-            <button class="rv-button" type="button" data-raw-prev disabled>PREV</button>
+            <button class="rv-button rv-icon-button" type="button" data-raw-prev disabled
+                    aria-label="Previous page" title="Previous page">‹</button>
             <span class="rv-page-status" data-raw-page>—</span>
-            <button class="rv-button" type="button" data-raw-next disabled>NEXT</button>
+            <button class="rv-button rv-icon-button" type="button" data-raw-next disabled
+                    aria-label="Next page" title="Next page">›</button>
         </div>
     </footer>
 </main>

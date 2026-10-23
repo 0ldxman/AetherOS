@@ -1,6 +1,6 @@
-
 /* =========================================================
    Aether OS — Raw / Binary Viewer
+   Header / toolbar / inspector / footer
    ========================================================= */
 
 html:has(body.raw-viewer) {
@@ -29,61 +29,74 @@ body.raw-viewer {
     --rv-hover: #303334;
     --rv-selected: #b5b6b8;
     --rv-match: #8f7a3b;
+
+    /* ASCII column is deliberately quieter than the HEX column. */
+    --rv-ascii: #8b8e90;
+    --rv-ascii-dim: #4d5052;
 }
 
 /* =========================================================
-   Workspace
+   Workspace: header / toolbar / inspector / footer
    ========================================================= */
 
 .rv-workspace {
     display: grid;
-    grid-template-rows: auto auto auto minmax(0, 1fr) auto;
+    grid-template-rows: auto auto minmax(0, 1fr) auto;
     width: 100%;
     height: 100%;
     min-width: 0;
     min-height: 0;
-    margin: 0;
-    padding: 0;
     overflow: hidden;
     box-sizing: border-box;
     background: var(--rv-bg);
     color: var(--rv-fg);
     font-family: var(--font-main, monospace);
     font-size: 11px;
-}
 
-/* =========================================================
-   Header
-   ========================================================= */
+    /*
+     * HEX column geometry. --rv-bytes (bytes per row) and --rv-groups
+     * (gaps between groups of 8) are set from raw.js, so the header and
+     * every row share one fixed column width and always line up.
+     */
+    --rv-byte-w: 17px;
+    --rv-byte-gap: 5px;
+    --rv-group-gap: 8px;
+    --rv-bytes: 16;
+    --rv-groups: 1;
+    --rv-hex-width: calc(
+        var(--rv-bytes) * var(--rv-byte-w) +
+        (var(--rv-bytes) - 1) * var(--rv-byte-gap) +
+        var(--rv-groups) * var(--rv-group-gap)
+    );
+}
 
 .rv-header,
 .rv-toolbar,
-.rv-searchbar,
 .rv-footer {
     display: flex;
     align-items: center;
-    justify-content: space-between;
-    gap: 16px;
     min-width: 0;
     box-sizing: border-box;
     background: var(--rv-panel);
 }
 
-.rv-header {
-    padding: 12px 16px;
-    border-bottom: 1px solid var(--rv-border);
-}
+/* =========================================================
+   Header — one line
+   ========================================================= */
 
-.rv-heading {
-    min-width: 0;
-    overflow: hidden;
+.rv-header {
+    justify-content: space-between;
+    gap: 16px;
+    padding: 9px 16px;
+    border-bottom: 1px solid var(--rv-border);
 }
 
 .rv-title-line {
     display: flex;
     align-items: baseline;
-    gap: 9px;
+    gap: 10px;
     min-width: 0;
+    overflow: hidden;
 }
 
 .rv-tag {
@@ -104,16 +117,12 @@ body.raw-viewer {
     white-space: nowrap;
 }
 
-.rv-id-line {
-    display: flex;
-    gap: 6px;
-    margin-top: 4px;
+.rv-id-value {
+    flex: 0 1 auto;
+    min-width: 0;
+    overflow: hidden;
     color: var(--rv-muted);
     font-size: 9px;
-}
-
-.rv-id-value {
-    overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
 }
@@ -121,7 +130,7 @@ body.raw-viewer {
 .rv-header-right {
     display: flex;
     align-items: center;
-    gap: 10px;
+    gap: 12px;
     flex: 0 0 auto;
 }
 
@@ -139,8 +148,8 @@ body.raw-viewer {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    min-width: 0;
-    height: 27px;
+    flex: 0 0 auto;
+    height: 25px;
     margin: 0;
     padding: 0 9px;
     border: 1px solid var(--rv-muted);
@@ -149,15 +158,14 @@ body.raw-viewer {
     color: var(--rv-fg);
     font-family: inherit;
     font-size: 9px;
-    font-weight: 400;
     line-height: 1;
     white-space: nowrap;
     cursor: pointer;
 }
 
 .rv-button:hover:not(:disabled) {
-    background: var(--rv-fg);
     border-color: var(--rv-fg);
+    background: var(--rv-fg);
     color: var(--rv-bg);
 }
 
@@ -167,13 +175,19 @@ body.raw-viewer {
     cursor: default;
 }
 
+.rv-icon-button {
+    width: 25px;
+    padding: 0;
+    font-size: 15px;
+}
+
 /* =========================================================
-   Toolbar / GOTO / Width
+   Toolbar — one row, wraps on narrow screens
    ========================================================= */
 
 .rv-toolbar {
-    justify-content: flex-start;
-    gap: 24px;
+    flex-wrap: wrap;
+    gap: 8px 18px;
     padding: 8px 16px;
     border-bottom: 1px solid var(--rv-border);
 }
@@ -184,29 +198,26 @@ body.raw-viewer {
 .rv-search-actions {
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: 7px;
     min-width: 0;
     margin: 0;
 }
 
 .rv-goto label,
-.rv-width-control label,
-.rv-search-form label {
+.rv-width-control label {
     color: var(--rv-muted);
     font-size: 9px;
     white-space: nowrap;
 }
 
 .rv-input-prefix {
-    margin-right: -8px;
+    margin-right: -6px;
     color: var(--rv-muted);
 }
 
-.rv-goto input,
-.rv-width-control select,
-.rv-search-form input,
-.rv-search-form select {
-    height: 27px;
+.rv-toolbar input,
+.rv-toolbar select {
+    height: 25px;
     box-sizing: border-box;
     border: 1px solid var(--rv-border);
     border-radius: 0;
@@ -217,66 +228,50 @@ body.raw-viewer {
     font-size: 10px;
 }
 
-.rv-goto input {
-    width: 110px;
-    padding: 0 7px;
-}
-
-.rv-width-control select,
-.rv-search-form select {
-    min-width: 55px;
-    padding: 0 5px;
-}
-
-.rv-goto input:focus,
-.rv-width-control select:focus,
-.rv-search-form input:focus,
-.rv-search-form select:focus {
+.rv-toolbar input:focus,
+.rv-toolbar select:focus {
     border-color: var(--rv-fg);
 }
 
-/* =========================================================
-   Search bar
-   ========================================================= */
+.rv-toolbar input::placeholder {
+    color: var(--rv-muted);
+}
 
-.rv-searchbar {
-    justify-content: space-between;
-    flex-wrap: wrap;
-    gap: 8px 18px;
-    padding: 8px 16px;
-    border-bottom: 1px solid var(--rv-border);
+.rv-goto input {
+    width: 78px;
+    padding: 0 7px;
+}
+
+.rv-toolbar select {
+    padding: 0 4px;
 }
 
 .rv-search-form {
-    flex: 1 1 300px;
+    flex: 1 1 280px;
 }
 
 .rv-search-form input {
-    flex: 1 1 130px;
-    width: 100px;
+    flex: 1 1 120px;
     min-width: 0;
     padding: 0 7px;
 }
 
-.rv-search-form input::placeholder {
-    color: var(--rv-muted);
-}
-
 .rv-search-actions {
-    flex-wrap: wrap;
+    margin-left: auto;
     gap: 6px;
 }
 
 .rv-search-count {
-    min-width: 75px;
+    max-width: 200px;
+    overflow: hidden;
     color: var(--rv-muted);
     font-size: 9px;
+    text-overflow: ellipsis;
     white-space: nowrap;
 }
 
 /* =========================================================
-   Inspector — split layout
-   HEX left, STRINGS right
+   Inspector: HEX | splitter | STRINGS
    ========================================================= */
 
 .rv-inspector {
@@ -286,14 +281,12 @@ body.raw-viewer {
     min-width: 0;
     min-height: 0;
     overflow: hidden;
-    background: var(--rv-bg);
     box-sizing: border-box;
+    background: var(--rv-bg);
 }
 
-/* When STRINGS is open, split the entire inspector area. */
-.rv-inspector:has(> .rv-strings-panel:not([hidden])) {
-    grid-template-columns: minmax(0, 62fr) minmax(0, 38fr);
-    grid-template-rows: minmax(0, 1fr);
+.rv-inspector:has(.rv-strings-panel:not([hidden])) {
+    grid-template-columns: minmax(0, 62fr) 6px minmax(0, 38fr);
 }
 
 /* =========================================================
@@ -306,23 +299,19 @@ body.raw-viewer {
     min-width: 0;
     min-height: 0;
     overflow: hidden;
-    box-sizing: border-box;
 }
 
 .rv-table-header {
     display: grid;
-    grid-template-columns: 92px minmax(0, auto) minmax(120px, 1fr);
-    gap: 12px;
+    grid-template-columns: 70px var(--rv-hex-width) minmax(0, 1fr);
+    gap: 16px;
     flex: 0 0 auto;
-    padding: 9px 16px;
+    width: 100%;
+    padding: 8px 16px;
     border-bottom: 1px solid var(--rv-border);
     color: var(--rv-muted);
     font-size: 9px;
     box-sizing: border-box;
-}
-
-.rv-hex-panel .rv-table-header {
-    width: 100%;
 }
 
 .rv-data {
@@ -348,14 +337,12 @@ body.raw-viewer {
     background: var(--rv-muted);
 }
 
-/* =========================================================
-   HEX rows and bytes
-   ========================================================= */
+/* HEX rows and bytes */
 
 .rv-row {
     display: grid;
-    grid-template-columns: 92px minmax(0, auto) minmax(120px, 1fr);
-    gap: 12px;
+    grid-template-columns: 70px var(--rv-hex-width) minmax(0, 1fr);
+    gap: 16px;
     min-width: max-content;
     min-height: 23px;
     align-items: center;
@@ -377,7 +364,7 @@ body.raw-viewer {
 }
 
 .rv-hex {
-    gap: 5px;
+    gap: var(--rv-byte-gap);
 }
 
 .rv-byte,
@@ -385,11 +372,25 @@ body.raw-viewer {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    min-width: 17px;
     height: 21px;
     box-sizing: border-box;
-    color: var(--rv-fg);
     cursor: pointer;
+}
+
+.rv-byte {
+    flex: 0 0 var(--rv-byte-w);
+    width: var(--rv-byte-w);
+    color: var(--rv-fg);
+}
+
+/* Visual gap after every 8th byte of a row. */
+.rv-byte.is-group-end {
+    margin-right: var(--rv-group-gap);
+}
+
+.rv-char {
+    min-width: 7px;
+    color: var(--rv-ascii);
 }
 
 .rv-byte:hover,
@@ -397,23 +398,12 @@ body.raw-viewer {
     outline: 1px solid var(--rv-muted);
 }
 
-.rv-byte.is-selected,
-.rv-char.is-selected {
-    background: var(--rv-selected);
-    color: var(--rv-bg);
-    outline: 1px solid var(--rv-selected);
-}
-
 .rv-byte.is-zero {
     color: #747779;
 }
 
 .rv-char.is-nonprintable {
-    color: #65686a;
-}
-
-.rv-char {
-    min-width: 10px;
+    color: var(--rv-ascii-dim);
 }
 
 .rv-byte.is-match,
@@ -423,6 +413,8 @@ body.raw-viewer {
     outline: 1px solid var(--rv-match);
 }
 
+.rv-byte.is-selected,
+.rv-char.is-selected,
 .rv-byte.is-selected.is-match,
 .rv-char.is-selected.is-match {
     background: var(--rv-selected);
@@ -438,7 +430,43 @@ body.raw-viewer {
 }
 
 /* =========================================================
-   STRINGS panel — full height right column
+   Splitter
+   ========================================================= */
+
+.rv-splitter {
+    position: relative;
+    z-index: 2;
+    width: 6px;
+    min-width: 6px;
+    height: 100%;
+    padding: 0;
+    border: 0;
+    border-left: 1px solid var(--rv-border);
+    border-right: 1px solid var(--rv-border);
+    background: var(--rv-panel);
+    cursor: col-resize;
+    touch-action: none;
+    box-sizing: border-box;
+}
+
+.rv-splitter:hover,
+.rv-splitter:focus-visible {
+    outline: none;
+    background: var(--rv-muted);
+}
+
+.rv-splitter[hidden] {
+    display: none;
+}
+
+body.rv-resizing,
+body.rv-resizing * {
+    cursor: col-resize !important;
+    user-select: none !important;
+}
+
+/* =========================================================
+   STRINGS panel
    ========================================================= */
 
 .rv-strings-panel {
@@ -448,9 +476,7 @@ body.raw-viewer {
     height: 100%;
     min-width: 0;
     min-height: 0;
-    margin: 0;
     overflow: hidden;
-    border-left: 1px solid var(--rv-border);
     box-sizing: border-box;
 }
 
@@ -464,8 +490,7 @@ body.raw-viewer {
     align-items: center;
     gap: 12px;
     flex: 0 0 auto;
-    min-width: 0;
-    padding: 9px 12px;
+    padding: 8px 12px;
     border-bottom: 1px solid var(--rv-border);
     color: var(--rv-muted);
     font-size: 9px;
@@ -479,7 +504,6 @@ body.raw-viewer {
     overflow: auto;
     scrollbar-color: var(--rv-muted) var(--rv-bg);
     scrollbar-width: thin;
-    box-sizing: border-box;
 }
 
 .rv-string-row {
@@ -514,12 +538,20 @@ body.raw-viewer {
     white-space: pre-wrap;
 }
 
+.rv-string-match {
+    padding: 0;
+    background: var(--rv-match);
+    color: #fff;
+    font: inherit;
+}
+
 /* =========================================================
    Footer
    ========================================================= */
 
 .rv-footer {
-    min-height: 43px;
+    justify-content: space-between;
+    gap: 16px;
     padding: 7px 16px;
     border-top: 1px solid var(--rv-border);
     font-size: 9px;
@@ -529,8 +561,12 @@ body.raw-viewer {
 .rv-footer-right {
     display: flex;
     align-items: center;
-    gap: 18px;
+    gap: 16px;
     min-width: 0;
+}
+
+.rv-footer-right {
+    gap: 8px;
 }
 
 .rv-footer-left span {
@@ -555,152 +591,36 @@ body.raw-viewer {
    Responsive
    ========================================================= */
 
-@media (max-width: 850px) {
-    .rv-searchbar {
-        align-items: flex-start;
-    }
-
-    .rv-search-actions {
-        width: 100%;
-    }
-}
-
 @media (max-width: 760px) {
-    .rv-inspector:has(> .rv-strings-panel:not([hidden])) {
-        grid-template-columns: minmax(0, 1fr);
-        grid-template-rows: minmax(0, 1fr) minmax(120px, 38%);
-    }
-
-    .rv-strings-panel {
-        border-left: 0;
-        border-top: 1px solid var(--rv-border);
-    }
-}
-
-@media (max-width: 650px) {
     .rv-header,
     .rv-toolbar,
-    .rv-searchbar,
     .rv-footer {
-        padding-right: 9px;
-        padding-left: 9px;
+        padding-right: 10px;
+        padding-left: 10px;
     }
 
-    .rv-header {
-        align-items: flex-start;
-        gap: 8px;
-    }
-
-    .rv-header-right {
-        flex-wrap: wrap;
-        justify-content: flex-end;
-        gap: 5px;
-    }
-
-    .rv-status {
-        width: 100%;
-        text-align: right;
-    }
-
-    .rv-toolbar {
-        flex-wrap: wrap;
-        gap: 8px 16px;
-    }
-
-    .rv-search-form {
-        flex-wrap: wrap;
+    .rv-id-value {
+        display: none;
     }
 
     .rv-search-actions {
-        gap: 5px;
+        width: 100%;
+        margin-left: 0;
     }
 
-    .rv-table-header {
-        padding-right: 9px;
-        padding-left: 9px;
+    .rv-table-header,
+    .rv-data,
+    .rv-strings-heading,
+    .rv-string-row {
+        padding-right: 10px;
+        padding-left: 10px;
     }
 
-    .rv-data {
-        padding-right: 9px;
-        padding-left: 9px;
-    }
-
-    .rv-footer-left,
-    .rv-footer-right {
-        gap: 8px;
+    .rv-footer-left {
+        gap: 10px;
     }
 
     .rv-page-status {
-        min-width: 65px;
-    }
-
-    .rv-strings-heading {
-        padding-right: 9px;
-        padding-left: 9px;
-    }
-
-    .rv-string-row {
-        padding-right: 9px;
-        padding-left: 9px;
-    }
-}
-
-
-/* Resizable HEX / STRINGS split */
-
-.rv-inspector:has(.rv-strings-panel:not([hidden])) {
-    grid-template-columns: minmax(0, 62fr) 6px minmax(0, 38fr);
-}
-
-.rv-splitter {
-    position: relative;
-    z-index: 2;
-    width: 6px;
-    min-width: 6px;
-    height: 100%;
-    padding: 0;
-    border: 0;
-    border-left: 1px solid var(--rv-border);
-    border-right: 1px solid var(--rv-border);
-    background: var(--rv-panel);
-    cursor: col-resize;
-    touch-action: none;
-    box-sizing: border-box;
-}
-
-.rv-splitter:hover,
-.rv-splitter:focus-visible {
-    outline: none;
-    background: var(--rv-muted);
-}
-
-.rv-splitter[hidden] {
-    display: none;
-}
-
-body.rv-resizing,
-body.rv-resizing * {
-    cursor: col-resize !important;
-    user-select: none !important;
-}
-
-.rv-string-match {
-    padding: 0;
-    background: var(--rv-match);
-    color: #fff;
-    font: inherit;
-}
-
-/* На узком окне оставляем вертикальный разделитель,
-   чтобы STRINGS не превращалась в нижнюю панель. */
-@media (max-width: 760px) {
-    .rv-inspector:has(.rv-strings-panel:not([hidden])) {
-        grid-template-columns: minmax(0, 1fr) 6px minmax(0, 1fr);
-        grid-template-rows: minmax(0, 1fr);
-    }
-
-    .rv-strings-panel {
-        border-top: 0;
-        border-left: 0;
+        min-width: 70px;
     }
 }
