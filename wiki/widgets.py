@@ -2,9 +2,9 @@
 
 Виджет вставляется блоком в любое место тела документа или инфобокса.
 Здесь описаны только листовые виджеты: stamp, signature, barcode, log, checks,
-masthead (шапка сайта), bar (полоса «сохранено из»), image (картинка),
-divider (разделитель), а также page (его html пуст: листы и футеры собирает
-markup.py).
+masthead (шапка сайта), bar (полоса «сохранено из»), ассеты (asset, image,
+audio, video, file), divider (разделитель), а также page (его html пуст:
+листы и футеры собирает markup.py).
 Контейнеры (section, box, grid) целиком в markup.py.
 
 Как работает виджет: на входе простые данные, на выходе готовый html.
@@ -20,6 +20,11 @@ import re
 from collections import namedtuple
 from html import escape
 
+from django.urls import NoReverseMatch, reverse
+
+from assets.services import asset_widget_kind, find_asset
+from pathlib import PurePosixPath
+
 TONES = ("red", "green", "blue", "grey")
 ALIGNS = ("left", "center", "right")
 
@@ -29,11 +34,12 @@ BARCODE_MAX_LEN = 40      # длина значения штрихкода
 MENU_MAX_ITEMS = 12       # пунктов меню в шапке сайта
 
 IMAGE_RATIOS = {"16:9": "16-9", "4:3": "4-3", "3:2": "3-2", "1:1": "1-1", "3:4": "3-4", "9:16": "9-16"}
+ASSET_CONTENT_URL = "asset_viewer:content"
+ASSET_VIEWER_URL = "asset_viewer:viewer"
 DIVIDER_STYLES = ("line", "double", "dashed", "dotted", "thick", "stars")
 
-# Ссылка на картинку: asset:группа:группа:slug (до 5 частей).
-# Любая другая ссылка (http и т.д.) картинкой не становится.
-_ASSET_REF = re.compile(r"asset(?::[a-z0-9_-]{1,40}){1,5}")
+# Ссылка на ассет (asset:slug, slug или UUID) разбирается в
+# assets.services.find_asset. Внешние ссылки (http и т.д.) ассетом не становятся.
 
 # Code 39: шрифт Libre Barcode 39 рисует штрихи по символам *ТЕКСТ*
 _BARCODE_ALLOWED = re.compile(r"[^A-Z0-9 .$/+%-]")
@@ -104,13 +110,33 @@ def barcode_value(raw):
     return _BARCODE_ALLOWED.sub("", (raw or "").upper())[:BARCODE_MAX_LEN]
 
 
-def resolve_asset(ref):
-    """Адрес картинки по ссылке asset:... или None, если картинки нет.
+def _asset_urls(asset):
+    """(адрес содержимого, адрес вьювера). Чего нет в urls.py, то None."""
+    result = []
+    for name in (ASSET_CONTENT_URL, ASSET_VIEWER_URL):
+        try:
+            result.append(reverse(name, args=[asset.public_id]))
+        except NoReverseMatch:
+            result.append(None)
+    return tuple(result)
 
-    Пока хранилища картинок нет, всегда None: виджет image рисует заглушку.
-    Когда появится модель картинок, менять нужно только эту функцию.
-    """
-    return None
+
+def resolve_asset(ref):
+    """Адрес содержимого ассета по ссылке или None, если ассета нет."""
+    asset = find_asset(ref)
+    if asset is None:
+        return None
+    return _asset_urls(asset)[0]
+
+
+def _human_size(size):
+    if not size:
+        return ""
+    value = float(size)
+    for unit in ("Б", "КБ", "МБ", "ГБ"):
+        if value < 1024 or unit == "ГБ":
+            return f"{value:.0f} {unit}" if unit == "Б" else f"{value:.1f} {unit}"
+        value /= 1024
 
 
 def _menu(raw):
@@ -263,34 +289,236 @@ def bar(params, ctx):
     return '<div class="widget widget--bar">' + "".join(cells) + "</div>\n"
 
 
+def _asset_missing(ref, text="ASSET NOT FOUND"):
+    return (
+        '<div class="widget widget--asset-missing">'
+        f'<span class="asset-missing-text">{text}</span>'
+        f'<span class="asset-missing-ref">{escape(ref)}</span></div>\n'
+    )
+
+
+def _asset_figure(kind, inner, params, ctx):
+    """Общая обёртка: width, align, caption."""
+    default_width = 100 if kind == "audio" else 60
+    width = _num(params.get("width"), default_width, 10, 100)
+    align = _choice(params.get("align"), ALIGNS, "center")
+    caption = ""
+    if params.get("caption"):
+        caption = f'<figcaption class="asset-caption">{ctx.inline(params["caption"])}</figcaption>'
+    return (
+        f'<figure class="widget widget--{kind} widget--align-{align}" style="--w: {width}%">'
+        f'{inner}{caption}</figure>\n'
+    )
+
+
+def _render_image(asset, urls, params, ctx):
+    content, viewer = urls
+    alt = params.get("alt") or asset.name
+    img = (
+        f'<img class="image-img" src="{escape(content, quote=True)}" '
+        f'alt="{escape(alt, quote=True)}" loading="lazy">'
+    )
+    if viewer:
+        # href работает и без JS; main.js перехватывает клик и открывает окно
+        img = (
+            f'<a class="image-link" href="{escape(viewer, quote=True)}" '
+            f'data-asset-viewer="{escape(viewer, quote=True)}" '
+            f'data-asset-title="{escape(asset.name, quote=True)}">{img}</a>'
+        )
+    return _asset_figure("image", f'<div class="image-frame">{img}</div>', params, ctx)
+
+
+
+def _render_audio(asset, urls, params, ctx):
+    title = ctx.inline(params.get("title") or asset.name)
+
+    filename = getattr(asset, "filename", None) or asset.name
+    extension = PurePosixPath(filename).suffix.lower() or "—"
+
+    viewer_url = urls[1]
+    audio_url = urls[0]
+
+    audio_id = escape(str(asset.public_id), quote=True)
+    audio_src = escape(audio_url, quote=True)
+    viewer_href = escape(viewer_url, quote=True)
+    viewer_title = escape(str(filename), quote=True)
+    extension_html = escape(extension, quote=True)
+
+    inner = (
+        '<div class="audio-card">'
+
+        '<div class="audio-card-field audio-card-field--title">'
+        '<span class="audio-card-label">TITLE:</span>'
+        '<span class="audio-card-value audio-card-title">'
+        f'{title}'
+        '</span>'
+        '</div>'
+
+        '<div class="audio-card-meta">'
+
+        '<div class="audio-card-field audio-card-field--id">'
+        '<span class="audio-card-label">ID:</span>'
+        '<span class="audio-card-value">'
+        f'<a class="audio-id-link" '
+        f'href="{viewer_href}" '
+        f'data-asset-viewer="{viewer_href}" '
+        f'data-asset-title="{viewer_title}">'
+        f'{audio_id} ↗'
+        '</a>'
+        '</span>'
+        '</div>'
+
+        '<div class="audio-card-field audio-card-field--type">'
+        '<span class="audio-card-label">TYPE:</span>'
+        f'<span class="audio-card-value">{extension_html}</span>'
+        '</div>'
+
+        '<div class="audio-card-field audio-card-field--duration">'
+        '<span class="audio-card-label">DURATION:</span>'
+        '<span class="audio-card-value audio-duration">—:—</span>'
+        '</div>'
+
+        '</div>'
+
+        '<div class="audio-card-waveform" '
+        f'data-audio-src="{audio_src}" '
+        'aria-label="Осциллограмма аудиозаписи">'
+        '<svg class="audio-waveform-svg" '
+        'viewBox="0 0 600 72" '
+        'preserveAspectRatio="none" '
+        'aria-hidden="true">'
+        '</svg>'
+        '</div>'
+
+        '</div>'
+    )
+
+    return _asset_figure("audio", inner, params, ctx)
+
+
+
+def _render_video(asset, urls, params, ctx):
+    filename = getattr(asset, "filename", None) or asset.name
+    asset_id = asset.public_id
+    content, viewer = urls
+
+    inner = (
+        f'<video class="video-el" controls preload="metadata" '
+        f'src="{escape(content, quote=True)}"></video>'
+    )
+
+    figure = _asset_figure("video", inner, params, ctx)
+
+    viewer_attr = (
+        f' data-viewer-url="{escape(viewer, quote=True)}"'
+        if viewer else ""
+    )
+
+    metadata = (
+        f'data-file-name="{escape(str(filename), quote=True)}" '
+        f'data-asset-id="{escape(str(asset_id), quote=True)}"'
+        f'{viewer_attr}'
+    )
+
+    figure = figure.replace(
+        'class="widget widget--video',
+        f'{metadata} class="widget widget--video',
+        1,
+    )
+
+    return figure
+
+
+def _render_file(asset, urls, params, ctx):
+    content, viewer = urls
+    label = ctx.inline(params.get("label") or asset.filename or asset.name)
+    size = _human_size(asset.size)
+    size_html = f'<span class="file-size">{size}</span>' if size else ""
+
+    buttons = []
+    if viewer:
+        buttons.append(
+            f'<a class="file-btn" href="{escape(viewer, quote=True)}" '
+            f'data-asset-viewer="{escape(viewer, quote=True)}" '
+            f'data-asset-title="{escape(asset.name, quote=True)}">Открыть</a>'
+        )
+    buttons.append(
+        f'<a class="file-btn" href="{escape(content, quote=True)}" download>Скачать</a>'
+    )
+
+    return (
+        '<div class="widget widget--file">'
+        f'<div class="file-info"><span class="file-name">{label}</span>{size_html}</div>'
+        f'<div class="file-actions">{"".join(buttons)}</div></div>\n'
+    )
+
+
+_ASSET_RENDERERS = {
+    "image": _render_image,
+    "audio": _render_audio,
+    "video": _render_video,
+    "file": _render_file,
+}
+
+
+def _asset_widget(params, ctx, forced=None):
+    ref = (params.get("src") or "").strip()
+    asset = find_asset(ref)
+    if asset is None:
+        return _asset_missing(ref)
+    urls = _asset_urls(asset)
+    if urls[0] is None:
+        return _asset_missing(ref)
+    kind = asset_widget_kind(asset)
+    if forced and kind != forced:
+        return _asset_missing(ref, "ASSET TYPE MISMATCH")
+    return _ASSET_RENDERERS[kind](asset, urls, params, ctx)
+
+
+@widget("asset", positional="src")
+def asset(params, ctx):
+    """Ассет любого вида: ::asset theme-01 caption="Тема". Вид выбирается по типу файла."""
+    return _asset_widget(params, ctx)
+
+
+@widget("audio", positional="src")
+def audio(params, ctx):
+    """::audio theme-01 title="Тема города" """
+    return _asset_widget(params, ctx, "audio")
+
+
+@widget("video", positional="src")
+def video(params, ctx):
+    """::video intro-01 width=80 caption="Вступление" """
+    return _asset_widget(params, ctx, "video")
+
+
+@widget("file", positional="src")
+def file(params, ctx):
+    """::file report-01 label="Отчёт (PDF)" """
+    return _asset_widget(params, ctx, "file")
+
+
 @widget("image", positional="src")
 def image(params, ctx):
-    """Картинка: src=asset:группа:slug, alt, caption, width (10-100, %),
-    align (left/center/right), ratio (16:9, 4:3, 3:2, 1:1, 3:4, 9:16).
+    """Картинка: src=slug или UUID, alt, caption, width (10-100, %),
+    align (left/center/right), ratio (для рамки, если картинки нет).
 
-    Пока картинок нет (см. resolve_asset), вместо неё рамка с подписью alt,
+    Если ассета нет или он не картинка, вместо неё рамка с подписью alt,
     как у непрогрузившейся картинки в сохранённой странице.
     """
     ref = (params.get("src") or "").strip()
-    url = resolve_asset(ref) if _ASSET_REF.fullmatch(ref) else None
+    found = find_asset(ref)
+    if found is not None and asset_widget_kind(found) == "image":
+        urls = _asset_urls(found)
+        if urls[0]:
+            return _render_image(found, urls, params, ctx)
+
     alt = params.get("alt", "")
-    width = _num(params.get("width"), 100, 10, 100)
-    align = _choice(params.get("align"), ALIGNS, "center")
     ratio = IMAGE_RATIOS.get((params.get("ratio") or "").strip(), "16-9")
-
-    if url:
-        inner = f'<img class="image-img" src="{escape(url, quote=True)}" alt="{escape(alt, quote=True)}">'
-    else:
-        shown = ctx.inline(alt) if alt else "NO IMAGE"
-        inner = f'<div class="image-missing image-ratio-{ratio}"><span>{shown}</span></div>'
-
-    caption = ""
-    if params.get("caption"):
-        caption = f'<figcaption class="image-caption">{ctx.inline(params["caption"])}</figcaption>'
-    return (
-        f'<figure class="widget widget--image widget--align-{align}" style="--w: {width}%">'
-        f'<div class="image-frame">{inner}</div>{caption}</figure>\n'
-    )
+    shown = ctx.inline(alt) if alt else "NO IMAGE"
+    inner = f'<div class="image-frame"><div class="image-missing image-ratio-{ratio}"><span>{shown}</span></div></div>'
+    return _asset_figure("image", inner, params, ctx)
 
 
 @widget("divider", positional="label", line=True)

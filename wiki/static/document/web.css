@@ -1095,72 +1095,62 @@ html:has(body.doc--web) {
 }
 
 
+
 /* -------------------------------------------------- */
-/* Image                                              */
+/* Assets: изображения, видео, аудио и файлы           */
 /* -------------------------------------------------- */
 
-.doc--web .widget--image {
+/*
+ * Ассеты оформляются как часть сохранённой веб-страницы.
+ * Цвета наследуются от активного пресета сайта.
+ */
+
+
+/* ---------- Общая геометрия ---------- */
+
+.doc--web :is(
+    .widget--image,
+    .widget--video,
+    .widget--audio,
+    .widget--file
+) {
     width: var(--w, 100%);
     max-width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
 }
 
 
-.doc--web .widget--image.widget--align-center {
+.doc--web :is(
+    .widget--image,
+    .widget--video,
+    .widget--audio,
+    .widget--file
+).widget--align-center {
     margin-left: auto;
     margin-right: auto;
 }
 
 
-.doc--web .widget--image.widget--align-right {
+.doc--web :is(
+    .widget--image,
+    .widget--video,
+    .widget--audio,
+    .widget--file
+).widget--align-right {
     margin-left: auto;
 }
 
 
-.doc--web .image-frame {
-    border: 1px solid var(--page-line);
-    border-radius: 2px;
-
-    overflow: hidden;
-}
-
-
-.doc--web .image-img {
-    display: block;
-
-    width: 100%;
-    height: auto;
-}
-
-
-/* Заглушка: как непрогрузившаяся картинка в сохранённой странице */
-.doc--web .image-missing {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-
-    box-sizing: border-box;
-    width: 100%;
-
-    padding: 0.8rem;
-
-    background: var(--page-tint);
-    color: var(--page-soft);
-
-    font-family: var(--ff-pt-serif);
-    font-size: 0.82rem;
-    text-align: center;
-}
-
-
-.doc--web .image-ratio-16-9 { aspect-ratio: 16 / 9; }
-.doc--web .image-ratio-4-3  { aspect-ratio: 4 / 3; }
-.doc--web .image-ratio-3-2  { aspect-ratio: 3 / 2; }
-.doc--web .image-ratio-1-1  { aspect-ratio: 1 / 1; }
-.doc--web .image-ratio-3-4  { aspect-ratio: 3 / 4; }
-.doc--web .image-ratio-9-16 { aspect-ratio: 9 / 16; }
-
-
-.doc--web .image-caption {
+.doc--web :is(
+    .widget--image,
+    .widget--video,
+    .widget--audio,
+    .widget--file
+) :is(
+    .asset-caption,
+    .image-caption
+) {
     margin-top: 0.4rem;
 
     color: var(--page-soft);
@@ -1171,6 +1161,321 @@ html:has(body.doc--web) {
     line-height: 1.4;
 }
 
+
+/* ---------- Image ---------- */
+
+.doc--web .image-frame {
+    position: relative;
+
+    width: 100%;
+    box-sizing: border-box;
+
+    border: 1px solid var(--page-line);
+    border-radius: 2px;
+
+    background: var(--page-tint);
+
+    overflow: hidden;
+}
+
+
+.doc--web .image-img {
+    display: block;
+
+    width: 100%;
+    max-width: 100%;
+    max-height: 70vh;
+
+    height: auto;
+
+    object-fit: contain;
+}
+
+
+/* Изображение может быть ссылкой на оригинал */
+
+.doc--web .image-link {
+    display: block;
+
+    color: inherit;
+    text-decoration: none;
+}
+
+
+.doc--web .image-link:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+}
+
+
+/* Заглушка вместо отсутствующего изображения */
+
+.doc--web .image-missing {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    box-sizing: border-box;
+    width: 100%;
+
+    padding: 1rem;
+
+    background: var(--page-tint);
+    color: var(--page-soft);
+
+    font-family: var(--ff-pt-serif);
+    font-size: 0.82rem;
+    line-height: 1.5;
+    text-align: center;
+}
+
+
+/* Ограничение пропорций */
+
+.doc--web .image-ratio-16-9 { aspect-ratio: 16 / 9; }
+.doc--web .image-ratio-4-3  { aspect-ratio: 4 / 3; }
+.doc--web .image-ratio-3-2  { aspect-ratio: 3 / 2; }
+.doc--web .image-ratio-1-1  { aspect-ratio: 1 / 1; }
+.doc--web .image-ratio-3-4  { aspect-ratio: 3 / 4; }
+.doc--web .image-ratio-9-16 { aspect-ratio: 9 / 16; }
+
+
+/* ---------- Video ---------- */
+
+.doc--web .widget--video {
+    overflow: hidden;
+}
+
+
+.doc--web .video-el {
+    display: block;
+
+    width: 100%;
+    max-width: 100%;
+    max-height: 70vh;
+
+    height: auto;
+
+    border: 1px solid var(--page-line);
+    border-radius: 2px;
+
+    background: #111;
+
+    object-fit: contain;
+}
+
+
+/* ---------- Audio ---------- */
+
+.doc--web .widget--audio {
+    padding: 0.8rem 0.9rem;
+
+    border: 1px solid var(--page-line);
+    border-radius: 3px;
+
+    background: var(--page-tint);
+}
+
+
+.doc--web .audio-title {
+    margin-bottom: 0.55rem;
+
+    color: var(--page-text);
+
+    font-family: var(--ff-pt-serif);
+    font-size: 0.9rem;
+    font-weight: 700;
+    line-height: 1.4;
+
+    overflow-wrap: anywhere;
+}
+
+
+.doc--web .audio-el {
+    display: block;
+
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+}
+
+
+/* ---------- File ---------- */
+
+.doc--web .widget--file {
+    display: flex;
+    align-items: center;
+
+    gap: 0.9rem;
+
+    padding: 0.8rem 0.9rem;
+
+    border: 1px solid var(--page-line);
+    border-radius: 3px;
+
+    background: var(--page-bg);
+}
+
+
+.doc--web .file-info {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+
+.doc--web .file-name {
+    color: var(--link);
+
+    font-family: var(--ff-pt-serif);
+    font-size: 0.92rem;
+    font-weight: 700;
+    line-height: 1.4;
+
+    overflow-wrap: anywhere;
+}
+
+
+.doc--web .file-size {
+    margin-top: 0.2rem;
+
+    color: var(--page-soft);
+
+    font-family: var(--ff-cousine);
+    font-size: 0.7rem;
+    line-height: 1.4;
+}
+
+
+.doc--web .file-actions {
+    display: flex;
+    flex: 0 0 auto;
+    flex-wrap: wrap;
+    align-items: center;
+
+    gap: 0.4rem;
+}
+
+
+.doc--web .file-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+
+    max-width: 100%;
+    box-sizing: border-box;
+
+    padding: 0.35rem 0.65rem;
+
+    border: 1px solid var(--page-line);
+    border-radius: 2px;
+
+    background: var(--page-tint);
+    color: var(--page-text);
+
+    font-family: var(--ff-pt-serif);
+    font-size: 0.75rem;
+    font-weight: 700;
+    line-height: 1.4;
+
+    text-decoration: none;
+    overflow-wrap: anywhere;
+
+    cursor: pointer;
+}
+
+
+.doc--web .file-btn:hover {
+    border-color: var(--accent);
+
+    background: var(--accent);
+    color: var(--accent-ink);
+}
+
+
+.doc--web .file-btn:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+}
+
+
+/* ---------- Отсутствующий или недоступный ассет ---------- */
+
+.doc--web .widget--asset-missing,
+.doc--web .widget--error {
+    box-sizing: border-box;
+
+    padding: 0.8rem 0.9rem;
+
+    border: 1px dashed var(--page-line);
+
+    background: var(--page-tint);
+    color: var(--page-soft);
+
+    font-family: var(--ff-cousine);
+    font-size: 0.75rem;
+    line-height: 1.5;
+}
+
+
+.doc--web .asset-missing-text {
+    overflow-wrap: anywhere;
+}
+
+
+.doc--web .asset-missing-ref {
+    display: block;
+
+    margin-top: 0.3rem;
+
+    color: var(--page-soft);
+
+    font-size: 0.68rem;
+    opacity: 0.8;
+
+    overflow-wrap: anywhere;
+}
+
+
+/* Ошибка выделяется акцентом сайта, но не ломает оформление */
+
+.doc--web .widget--error {
+    border-color: var(--accent);
+    border-left-width: 3px;
+}
+
+
+/* ---------- Замаскированный ассет ---------- */
+
+/*
+ * Не переопределяем сам механизм маскировки:
+ * размеры и состояние определяются общей логикой виджетов.
+ */
+
+.doc--web .widget--masked {
+    min-height: 1.5em;
+}
+
+
+/* ---------- Узкое окно ---------- */
+
+@media (max-width: 640px) {
+    .doc--web .widget--file {
+        align-items: flex-start;
+        flex-wrap: wrap;
+    }
+
+    .doc--web .file-info {
+        flex-basis: 100%;
+    }
+
+    .doc--web .file-actions {
+        flex-basis: 100%;
+    }
+
+    .doc--web .widget--audio {
+        padding: 0.65rem;
+    }
+}
 
 /* -------------------------------------------------- */
 /* Divider                                            */

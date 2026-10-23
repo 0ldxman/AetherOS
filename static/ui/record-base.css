@@ -22,7 +22,6 @@
    в <head> базы раньше всех стилей страницы).
    ================================================== */
 
-
 /* -------------------------------------------------- */
 /* Переменные                                         */
 /* -------------------------------------------------- */
@@ -72,7 +71,6 @@
     --sk-log-debug: var(--font-muted);
 }
 
-
 /* -------------------------------------------------- */
 /* Рамка страницы                                     */
 /* -------------------------------------------------- */
@@ -80,12 +78,10 @@
     overflow-x: hidden;
 }
 
-
 :is(.doc--rec, .doc--infobox) ::selection {
     background: var(--accent);
     color: var(--font-dark);
 }
-
 
 /* wiki.css даёт .page ширину 56rem и большие отступы: запись занимает всё окно */
 :is(.doc--rec, .doc--infobox) .page {
@@ -94,11 +90,9 @@
     padding: 0;
 }
 
-
 /* -------------------------------------------------- */
 /* Базовый текст                                      */
 /* -------------------------------------------------- */
-
 
 :is(.doc--rec .md, .doc--infobox .md--infobox) h1,
 :is(.doc--rec .md, .doc--infobox .md--infobox) h2,
@@ -112,7 +106,6 @@
     line-height: 1.25;
 }
 
-
 :is(.doc--rec .md, .doc--infobox .md--infobox) h1 {
     padding-bottom: 0.3em;
 
@@ -124,16 +117,13 @@
     text-transform: uppercase;
 }
 
-
 :is(.doc--rec .md, .doc--infobox .md--infobox) h2 {
     font-size: 1rem;
 }
 
-
 :is(.doc--rec .md, .doc--infobox .md--infobox) h3 {
     font-size: 0.92rem;
 }
-
 
 :is(.doc--rec .md, .doc--infobox .md--infobox) h4 {
     color: var(--sk-ink-soft);
@@ -144,17 +134,14 @@
     text-transform: uppercase;
 }
 
-
 :is(.doc--rec .md, .doc--infobox .md--infobox) strong {
     color: var(--sk-ink-strong);
     font-weight: 700;
 }
 
-
 :is(.doc--rec .md, .doc--infobox .md--infobox) del {
     text-decoration-thickness: 1px;
 }
-
 
 /* -------------------------------------------------- */
 /* Ссылки                                             */
@@ -167,7 +154,6 @@
     text-underline-offset: 0.15em;
 }
 
-
 /* как у иконок рабочего стола: при наведении цвета инвертируются */
 :is(.doc--rec .md, .doc--infobox .md--infobox) a:hover,
 :is(.doc--rec .md, .doc--infobox .md--infobox) a:focus-visible {
@@ -178,7 +164,6 @@
     text-decoration-line: none;
 }
 
-
 /* -------------------------------------------------- */
 /* Списки, цитата, код, таблица                       */
 /* -------------------------------------------------- */
@@ -188,16 +173,13 @@
     padding-left: 1.4em;
 }
 
-
 :is(.doc--rec .md, .doc--infobox .md--infobox) li {
     margin-bottom: 0.15em;
 }
 
-
 :is(.doc--rec .md, .doc--infobox .md--infobox) li::marker {
     color: var(--sk-ink-soft);
 }
-
 
 :is(.doc--rec .md, .doc--infobox .md--infobox) blockquote {
     margin: 0 0 0.7em;
@@ -208,14 +190,12 @@
     color: var(--sk-ink-soft);
 }
 
-
 :is(.doc--rec .md, .doc--infobox .md--infobox) hr {
     margin: 0.9em 0;
 
     border: 0;
     border-top: 1px solid var(--sk-rule-soft);
 }
-
 
 :is(.doc--rec .md, .doc--infobox .md--infobox) code {
     padding: 0.05em 0.35em;
@@ -225,7 +205,6 @@
     font-family: var(--font-main);
     font-size: 0.92em;
 }
-
 
 :is(.doc--rec .md, .doc--infobox .md--infobox) pre {
     margin: 0 0 0.7em;
@@ -238,12 +217,10 @@
     border: 1px solid var(--sk-rule-soft);
 }
 
-
 :is(.doc--rec .md, .doc--infobox .md--infobox) pre code {
     padding: 0;
     background: none;
 }
-
 
 :is(.doc--rec .md, .doc--infobox .md--infobox) table {
     width: 100%;
@@ -252,7 +229,6 @@
     border-collapse: collapse;
     table-layout: fixed;
 }
-
 
 :is(.doc--rec .md, .doc--infobox .md--infobox) th,
 :is(.doc--rec .md, .doc--infobox .md--infobox) td {
@@ -266,7 +242,6 @@
     vertical-align: top;
 }
 
-
 :is(.doc--rec .md, .doc--infobox .md--infobox) th {
     background: var(--sk-panel);
 
@@ -277,7 +252,6 @@
 
     text-transform: uppercase;
 }
-
 
 :is(.doc--rec .md, .doc--infobox .md--infobox) caption {
     margin-bottom: 0.3rem;
@@ -292,7 +266,6 @@
     text-transform: uppercase;
 }
 
-
 /* -------------------------------------------------- */
 /* Spoiler / замазка                                  */
 /* -------------------------------------------------- */
@@ -306,23 +279,19 @@
     -webkit-box-decoration-break: clone;
 }
 
-
 :is(.doc--rec, .doc--infobox) div.spoiler--masked {
     margin: 0 0 0.7em;
     padding: 0.35em 0.8ch;
 }
 
-
 :is(.doc--rec, .doc--infobox) div.spoiler--masked > :last-child {
     margin-bottom: 0;
 }
-
 
 /* открытое: тонкая зелёная метка «доступно по ключу» */
 :is(.doc--rec, .doc--infobox) .spoiler--inline.spoiler--open {
     border-bottom: 1px dotted var(--status-ok);
 }
-
 
 :is(.doc--rec, .doc--infobox) div.spoiler--open {
     margin: 0 0 0.7em;
@@ -330,7 +299,6 @@
 
     border-left: 2px dashed var(--status-ok);
 }
-
 
 /* -------------------------------------------------- */
 /* Section                                            */
@@ -341,7 +309,6 @@
     border: 1px solid var(--sk-rule);
 }
 
-
 :is(.doc--rec, .doc--infobox) .section-head {
     display: flex;
     align-items: stretch;
@@ -350,7 +317,6 @@
 
     background: var(--sk-panel);
 }
-
 
 /* номер раздела: светлая вкладка, как заголовок окна */
 :is(.doc--rec, .doc--infobox) .section-num {
@@ -367,7 +333,6 @@
     line-height: 1;
 }
 
-
 :is(.doc--rec, .doc--infobox) .section-title {
     display: flex;
     align-items: center;
@@ -383,11 +348,9 @@
     text-transform: uppercase;
 }
 
-
 :is(.doc--rec, .doc--infobox) .section-body {
     padding: 0.6rem 0.8rem;
 }
-
 
 :is(.doc--rec, .doc--infobox) .section-body > :first-child,
 :is(.doc--rec, .doc--infobox) .fold-body > :first-child,
@@ -396,14 +359,12 @@
     margin-top: 0;
 }
 
-
 :is(.doc--rec, .doc--infobox) .section-body > :last-child,
 :is(.doc--rec, .doc--infobox) .fold-body > :last-child,
 :is(.doc--rec, .doc--infobox) .cell > :last-child,
 :is(.doc--rec, .doc--infobox) .box > :last-child {
     margin-bottom: 0;
 }
-
 
 /* -------------------------------------------------- */
 /* Fold  (сворачиваемый сегмент)                      */
@@ -413,7 +374,6 @@
 
     border: 1px solid var(--sk-rule);
 }
-
 
 :is(.doc--rec, .doc--infobox) .fold-head {
     display: flex;
@@ -438,11 +398,9 @@
     list-style: none;
 }
 
-
 :is(.doc--rec, .doc--infobox) .fold-head::-webkit-details-marker {
     display: none;
 }
-
 
 :is(.doc--rec, .doc--infobox) .fold-head::before {
     content: "+";
@@ -455,38 +413,31 @@
     text-align: center;
 }
 
-
 :is(.doc--rec, .doc--infobox) .fold-head:hover {
     background: var(--row-selected);
 }
-
 
 :is(.doc--rec, .doc--infobox) .fold-head:focus-visible {
     outline: 1px solid var(--accent);
     outline-offset: -1px;
 }
 
-
 :is(.doc--rec, .doc--infobox) .fold[open] > .fold-head {
     border-bottom: 1px solid var(--sk-rule);
 }
-
 
 :is(.doc--rec, .doc--infobox) .fold[open] > .fold-head::before {
     content: "\2212";
 }
 
-
 :is(.doc--rec, .doc--infobox) .fold-body {
     padding: 0.6rem 0.8rem;
 }
-
 
 /* закрытый fold: заголовка нет, тело замазано и всегда открыто */
 :is(.doc--rec, .doc--infobox) .fold--masked > .fold-head {
     display: none;
 }
-
 
 /* -------------------------------------------------- */
 /* Grid                                               */
@@ -500,7 +451,6 @@
     border-left: 1px solid var(--sk-rule);
 }
 
-
 :is(.doc--rec, .doc--infobox) .cell {
     min-width: 0;
 
@@ -512,11 +462,9 @@
     overflow-wrap: anywhere;
 }
 
-
 :is(.doc--rec, .doc--infobox) .cell p {
     margin-bottom: 0.3em;
 }
-
 
 :is(.doc--rec, .doc--infobox) .cell-label {
     margin-bottom: 0.15rem;
@@ -531,18 +479,15 @@
     text-transform: uppercase;
 }
 
-
 :is(.doc--rec, .doc--infobox) .grid--noborder {
     border-top: none;
     border-left: none;
 }
 
-
 :is(.doc--rec, .doc--infobox) .grid--noborder .cell {
     border-right: none;
     border-bottom: none;
 }
-
 
 /* -------------------------------------------------- */
 /* Box                                                */
@@ -552,11 +497,9 @@
     padding: 0.4rem 0.7rem;
 }
 
-
 :is(.doc--rec, .doc--infobox) .box--border {
     border: 1px solid var(--sk-rule);
 }
-
 
 /* инверсия, как у активной вкладки окна */
 :is(.doc--rec, .doc--infobox) .box--dark {
@@ -564,47 +507,38 @@
     color: var(--font-dark);
 }
 
-
 :is(.doc--rec, .doc--infobox) .box--dark strong,
 :is(.doc--rec, .doc--infobox) .box--dark a {
     color: var(--font-dark);
 }
 
-
 :is(.doc--rec, .doc--infobox) .box--center {
     text-align: center;
 }
-
 
 :is(.doc--rec, .doc--infobox) .box--right {
     text-align: right;
 }
 
-
 :is(.doc--rec, .doc--infobox) .box--small {
     font-size: 0.78rem;
 }
-
 
 :is(.doc--rec, .doc--infobox) .box--big {
     font-size: 1.25rem;
 }
 
-
 :is(.doc--rec, .doc--infobox) .box--bold {
     font-weight: 700;
 }
-
 
 :is(.doc--rec, .doc--infobox) .box--muted {
     color: var(--sk-ink-soft);
 }
 
-
 :is(.doc--rec, .doc--infobox) .box--flush {
     padding: 0;
 }
-
 
 /* -------------------------------------------------- */
 /* Widgets                                            */
@@ -612,7 +546,6 @@
 :is(.doc--rec, .doc--infobox) .widget {
     margin: 0.7rem 0;
 }
-
 
 /* закрытый виджет: штриховка вместо содержимого */
 :is(.doc--rec, .doc--infobox) .widget--masked {
@@ -627,7 +560,6 @@
     );
 }
 
-
 /* неизвестный виджет и сломанный виджет */
 :is(.doc--rec, .doc--infobox) .widget--unknown {
     padding: 0.2rem 0.5rem;
@@ -637,13 +569,41 @@
     color: var(--sk-ink-soft);
 }
 
+:is(.doc--rec, .doc--infobox) .widget--asset-missing {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+
+    gap: 0.2rem 1.5ch;
+
+    padding: 0.25rem 0.6rem;
+
+    border: 1px dashed var(--status-error);
+
+    font-size: 0.72rem;
+    letter-spacing: 0.04em;
+}
+
+:is(.doc--rec, .doc--infobox) .asset-missing-text {
+    color: var(--status-error);
+
+    font-weight: 700;
+    letter-spacing: 0.1em;
+}
+
+:is(.doc--rec, .doc--infobox) .asset-missing-ref {
+    min-width: 0;
+
+    color: var(--sk-ink-soft);
+
+    overflow-wrap: anywhere;
+}
 
 :is(.doc--rec, .doc--infobox) .widget--error {
     min-height: 1.5em;
 
     border: 1px dashed var(--status-error);
 }
-
 
 /* -------------------------------------------------- */
 /* Stamp  (здесь это бейдж, а не штамп)               */
@@ -658,16 +618,13 @@
     text-align: left;
 }
 
-
 :is(.doc--rec, .doc--infobox) .widget--stamp.widget--align-center {
     text-align: center;
 }
 
-
 :is(.doc--rec, .doc--infobox) .widget--stamp.widget--align-right {
     text-align: right;
 }
-
 
 :is(.doc--rec, .doc--infobox) .stamp {
     --tone: var(--sk-stamp-red);
@@ -694,7 +651,6 @@
     text-transform: uppercase;
 }
 
-
 /* квадратик-индикатор слева, как статус у процесса */
 :is(.doc--rec, .doc--infobox) .stamp::before {
     content: "";
@@ -707,21 +663,17 @@
     background: var(--tone);
 }
 
-
 :is(.doc--rec, .doc--infobox) .stamp--green {
     --tone: var(--sk-stamp-green);
 }
-
 
 :is(.doc--rec, .doc--infobox) .stamp--blue {
     --tone: var(--sk-stamp-blue);
 }
 
-
 :is(.doc--rec, .doc--infobox) .stamp--grey {
     --tone: var(--sk-stamp-grey);
 }
-
 
 /* -------------------------------------------------- */
 /* Signature                                          */
@@ -750,7 +702,6 @@
     border-left: 2px solid var(--sk-rule);
 }
 
-
 :is(.doc--rec, .doc--infobox) .sig-hand {
     grid-area: hand;
 
@@ -766,7 +717,6 @@
     transform-origin: left bottom;
 }
 
-
 :is(.doc--rec, .doc--infobox) .sig-line {
     grid-area: line;
 
@@ -775,7 +725,6 @@
     border-top: 1px dashed var(--sk-ink-soft);
 }
 
-
 :is(.doc--rec, .doc--infobox) .sig-name {
     grid-area: name;
 
@@ -783,14 +732,12 @@
     font-weight: 700;
 }
 
-
 :is(.doc--rec, .doc--infobox) .sig-role {
     grid-area: role;
 
     color: var(--sk-ink-soft);
     font-size: 0.78rem;
 }
-
 
 :is(.doc--rec, .doc--infobox) .sig-date {
     grid-area: date;
@@ -803,7 +750,6 @@
 
     text-align: right;
 }
-
 
 /* -------------------------------------------------- */
 /* Barcode                                            */
@@ -822,11 +768,9 @@
     color: var(--font-dark);
 }
 
-
 :is(.doc--rec, .doc--infobox) .widget--barcode:empty {
     display: none;
 }
-
 
 :is(.doc--rec, .doc--infobox) .barcode-bars {
     font-family: var(--font-barcode);
@@ -834,13 +778,11 @@
     line-height: 1;
 }
 
-
 :is(.doc--rec, .doc--infobox) .barcode-text {
     font-family: var(--font-main);
     font-size: 0.65rem;
     letter-spacing: 0.15em;
 }
-
 
 /* -------------------------------------------------- */
 /* Log                                                */
@@ -857,7 +799,6 @@
     line-height: 1.5;
 }
 
-
 :is(.doc--rec, .doc--infobox) .log-line {
     display: flex;
 
@@ -866,18 +807,15 @@
     white-space: pre-wrap;
 }
 
-
 :is(.doc--rec, .doc--infobox) .log-time {
     flex: 0 0 auto;
     color: var(--sk-log-debug);
 }
 
-
 :is(.doc--rec, .doc--infobox) .log-level {
     flex: 0 0 6ch;
     font-weight: 700;
 }
-
 
 :is(.doc--rec, .doc--infobox) .log-msg {
     flex: 1;
@@ -886,44 +824,36 @@
     overflow-wrap: anywhere;
 }
 
-
 :is(.doc--rec, .doc--infobox) .log-info .log-level {
     color: var(--sk-log-info);
 }
-
 
 :is(.doc--rec, .doc--infobox) .log-ok .log-level {
     color: var(--sk-log-ok);
 }
 
-
 :is(.doc--rec, .doc--infobox) .log-warn .log-level {
     color: var(--sk-log-warn);
 }
-
 
 :is(.doc--rec, .doc--infobox) .log-error .log-level {
     color: var(--sk-log-error);
 }
 
-
 :is(.doc--rec, .doc--infobox) .log-debug .log-level {
     color: var(--sk-log-debug);
 }
-
 
 /* 8ch время + 6ch уровень + два промежутка по 1.5ch */
 :is(.doc--rec, .doc--infobox) .log-plain .log-msg {
     padding-left: 17ch;
 }
 
-
 /* замазка внутри лога: плашка цвета текста лога, чтобы не терялась на тёмном фоне */
 :is(.doc--rec, .doc--infobox) .widget--log .spoiler--masked {
     background: var(--sk-mask);
     color: var(--sk-mask);
 }
-
 
 /* -------------------------------------------------- */
 /* Checks                                             */
@@ -935,7 +865,6 @@
     gap: 0.4rem 1.5rem;
 }
 
-
 :is(.doc--rec, .doc--infobox) .check {
     display: inline-flex;
     align-items: center;
@@ -944,7 +873,6 @@
 
     font-size: 0.85rem;
 }
-
 
 :is(.doc--rec, .doc--infobox) .check-box {
     display: inline-grid;
@@ -959,18 +887,15 @@
     line-height: 1;
 }
 
-
 :is(.doc--rec, .doc--infobox) .check--on .check-box {
     border-color: var(--status-ok);
     color: var(--status-ok);
 }
 
-
 :is(.doc--rec, .doc--infobox) .check--on .check-box::after {
     content: "\00d7";
     font-weight: 700;
 }
-
 
 /* -------------------------------------------------- */
 /* KV / KVM  (ключ: значение)                         */
@@ -980,7 +905,6 @@
     margin: 0 0 0.7em;
 }
 
-
 :is(.doc--rec, .doc--infobox) .kv-row {
     display: grid;
     grid-template-columns: var(--kv-key-width) minmax(0, 1fr);
@@ -989,7 +913,6 @@
 
     padding: 0.15rem 0;
 }
-
 
 :is(.doc--rec, .doc--infobox) .kv-key {
     color: var(--sk-ink-soft);
@@ -1002,7 +925,6 @@
     text-transform: uppercase;
 }
 
-
 :is(.doc--rec, .doc--infobox) .kv-val {
     min-width: 0;
 
@@ -1011,18 +933,15 @@
     overflow-wrap: anywhere;
 }
 
-
 :is(.doc--rec, .doc--infobox) .kv-line + .kv-line {
     margin-top: 0.15em;
 }
-
 
 /* флаг border: рамка вокруг всего виджета и линии между строками */
 :is(.doc--rec, .doc--infobox) .widget--kv-border,
 :is(.doc--rec, .doc--infobox) .widget--kvm-border {
     border: 1px solid var(--sk-rule);
 }
-
 
 :is(.doc--rec, .doc--infobox) .widget--kv-border .kv-row,
 :is(.doc--rec, .doc--infobox) .widget--kvm-border .kv-row {
@@ -1031,12 +950,10 @@
     padding: 0;
 }
 
-
 :is(.doc--rec, .doc--infobox) .widget--kv-border .kv-row + .kv-row,
 :is(.doc--rec, .doc--infobox) .widget--kvm-border .kv-row + .kv-row {
     border-top: 1px solid var(--sk-rule-soft);
 }
-
 
 :is(.doc--rec, .doc--infobox) .widget--kv-border .kv-key,
 :is(.doc--rec, .doc--infobox) .widget--kvm-border .kv-key {
@@ -1047,12 +964,10 @@
     background: var(--sk-panel);
 }
 
-
 :is(.doc--rec, .doc--infobox) .widget--kv-border .kv-val,
 :is(.doc--rec, .doc--infobox) .widget--kvm-border .kv-val {
     padding: var(--sk-cell-pad);
 }
-
 
 /* -------------------------------------------------- */
 /* Timeline                                           */
@@ -1061,14 +976,12 @@
     margin: 0 0 0.7em;
 }
 
-
 :is(.doc--rec, .doc--infobox) .tl-row {
     display: grid;
     grid-template-columns: var(--tl-date-width) 1.2rem minmax(0, 1fr);
 
     column-gap: 0.4rem;
 }
-
 
 :is(.doc--rec, .doc--infobox) .tl-date,
 :is(.doc--rec, .doc--infobox) .tl-text {
@@ -1079,7 +992,6 @@
     overflow-wrap: anywhere;
 }
 
-
 :is(.doc--rec, .doc--infobox) .tl-date {
     color: var(--sk-ink-soft);
 
@@ -1088,22 +1000,18 @@
     text-align: right;
 }
 
-
 :is(.doc--rec, .doc--infobox) .tl-text {
     color: var(--sk-ink-strong);
 }
-
 
 :is(.doc--rec, .doc--infobox) .tl-row:last-child .tl-date,
 :is(.doc--rec, .doc--infobox) .tl-row:last-child .tl-text {
     padding-bottom: 0;
 }
 
-
 :is(.doc--rec, .doc--infobox) .tl-dot {
     position: relative;
 }
-
 
 /* точка: центр совпадает с серединой первой строки текста */
 :is(.doc--rec, .doc--infobox) .tl-dot::before {
@@ -1127,7 +1035,6 @@
     transform: translateX(-50%);
 }
 
-
 /* линия: от центра этой точки до центра следующей */
 :is(.doc--rec, .doc--infobox) .tl-dot::after {
     content: "";
@@ -1142,11 +1049,9 @@
     transform: translateX(-50%);
 }
 
-
 :is(.doc--rec, .doc--infobox) .tl-row:last-child .tl-dot::after {
     display: none;
 }
-
 
 /* -------------------------------------------------- */
 /* Masthead  (шапка сайта)                            */
@@ -1159,7 +1064,6 @@
     background: var(--sk-panel);
 }
 
-
 :is(.doc--rec, .doc--infobox) .mast-top {
     display: flex;
     align-items: flex-end;
@@ -1170,14 +1074,12 @@
     padding: 0.5rem 0.8rem;
 }
 
-
 :is(.doc--rec, .doc--infobox) .mast-title {
     display: flex;
     flex-direction: column;
 
     min-width: 0;
 }
-
 
 :is(.doc--rec, .doc--infobox) .mast-name {
     color: var(--sk-ink-strong);
@@ -1190,14 +1092,12 @@
     text-transform: uppercase;
 }
 
-
 :is(.doc--rec, .doc--infobox) .mast-tagline {
     color: var(--sk-ink-soft);
 
     font-size: 0.72rem;
     letter-spacing: 0.04em;
 }
-
 
 :is(.doc--rec, .doc--infobox) .mast-date {
     flex: 0 0 auto;
@@ -1211,7 +1111,6 @@
     text-transform: uppercase;
 }
 
-
 :is(.doc--rec, .doc--infobox) .mast-menu {
     display: flex;
     flex-wrap: wrap;
@@ -1220,7 +1119,6 @@
 
     background: var(--sk-sunken);
 }
-
 
 :is(.doc--rec, .doc--infobox) .mast-item {
     padding: 0.25rem 0.8rem;
@@ -1236,13 +1134,11 @@
     text-transform: uppercase;
 }
 
-
 /* активный пункт: инверсия, как заголовок активного окна */
 :is(.doc--rec, .doc--infobox) .mast-item--active {
     background: var(--font-light);
     color: var(--font-dark);
 }
-
 
 /* -------------------------------------------------- */
 /* Bar  (полоса «сохранено из»)                       */
@@ -1266,7 +1162,6 @@
     letter-spacing: 0.04em;
 }
 
-
 :is(.doc--rec, .doc--infobox) .bar-label {
     padding-right: 1.5ch;
 
@@ -1280,7 +1175,6 @@
     text-transform: uppercase;
 }
 
-
 :is(.doc--rec, .doc--infobox) .bar-url {
     flex: 1 1 auto;
     min-width: 0;
@@ -1290,37 +1184,50 @@
     overflow-wrap: anywhere;
 }
 
-
 :is(.doc--rec, .doc--infobox) .bar-date,
 :is(.doc--rec, .doc--infobox) .bar-id {
     color: var(--sk-ink-soft);
 }
 
-
 :is(.doc--rec, .doc--infobox) .bar-id {
     font-weight: 700;
 }
 
-
 /* -------------------------------------------------- */
-/* Image                                              */
+/* Медиа: общие размеры и выравнивание                */
 /* -------------------------------------------------- */
-:is(.doc--rec, .doc--infobox) .widget--image {
+:is(.doc--rec, .doc--infobox) .widget--image,
+:is(.doc--rec, .doc--infobox) .widget--video,
+:is(.doc--rec, .doc--infobox) .widget--audio {
     width: var(--w, 100%);
     max-width: 100%;
 }
 
+:is(.doc--rec, .doc--infobox) .widget--image.widget--align-center,
+:is(.doc--rec, .doc--infobox) .widget--video.widget--align-center,
+:is(.doc--rec, .doc--infobox) .widget--audio.widget--align-center {
+    margin-left: auto;
+    margin-right: auto;
+}
+
+:is(.doc--rec, .doc--infobox) .widget--image.widget--align-right,
+:is(.doc--rec, .doc--infobox) .widget--video.widget--align-right,
+:is(.doc--rec, .doc--infobox) .widget--audio.widget--align-right {
+    margin-left: auto;
+}
+:is(.doc--rec, .doc--infobox) .widget--image {
+    width: var(--w, 100%);
+    max-width: 100%;
+}
 
 :is(.doc--rec, .doc--infobox) .widget--image.widget--align-center {
     margin-left: auto;
     margin-right: auto;
 }
 
-
 :is(.doc--rec, .doc--infobox) .widget--image.widget--align-right {
     margin-left: auto;
 }
-
 
 :is(.doc--rec, .doc--infobox) .image-frame {
     border: 1px solid var(--sk-rule);
@@ -1328,14 +1235,12 @@
     background: var(--sk-sunken);
 }
 
-
 :is(.doc--rec, .doc--infobox) .image-img {
     display: block;
 
     width: 100%;
     height: auto;
 }
-
 
 /* заглушка: тёмное поле с alt-текстом, как пустой слот просмотрщика */
 :is(.doc--rec, .doc--infobox) .image-missing {
@@ -1356,26 +1261,63 @@
     text-align: center;
 }
 
-
 :is(.doc--rec, .doc--infobox) .image-ratio-16-9 { aspect-ratio: 16 / 9; }
-
 
 :is(.doc--rec, .doc--infobox) .image-ratio-4-3 { aspect-ratio: 4 / 3; }
 
-
 :is(.doc--rec, .doc--infobox) .image-ratio-3-2 { aspect-ratio: 3 / 2; }
-
 
 :is(.doc--rec, .doc--infobox) .image-ratio-1-1 { aspect-ratio: 1 / 1; }
 
-
 :is(.doc--rec, .doc--infobox) .image-ratio-3-4 { aspect-ratio: 3 / 4; }
-
 
 :is(.doc--rec, .doc--infobox) .image-ratio-9-16 { aspect-ratio: 9 / 16; }
 
+:is(.doc--rec, .doc--infobox) .video-el {
+    display: block;
 
-:is(.doc--rec, .doc--infobox) .image-caption {
+    width: 100%;
+    height: auto;
+
+    border: 1px solid var(--sk-rule);
+
+    background: var(--sk-sunken);
+}
+
+:is(.doc--rec, .doc--infobox) .widget--audio {
+    padding: 0.4rem 0.7rem 0.5rem;
+
+    border: 1px solid var(--sk-rule);
+
+    background: var(--sk-panel);
+}
+
+:is(.doc--rec, .doc--infobox) .audio-title {
+    margin-bottom: 0.3rem;
+
+    color: var(--sk-ink-strong);
+
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+
+    text-transform: uppercase;
+}
+
+:is(.doc--rec, .doc--infobox) .audio-el {
+    display: block;
+
+    width: 100%;
+}
+
+:is(.doc--rec, .doc--infobox) .image-img,
+:is(.doc--rec, .doc--infobox) .video-el {
+    max-height: 70vh;
+
+    object-fit: contain;
+}
+
+:is(.doc--rec, .doc--infobox) .asset-caption {
     margin-top: 0.3rem;
 
     color: var(--sk-ink-soft);
@@ -1384,6 +1326,92 @@
     letter-spacing: 0.04em;
 }
 
+:is(.doc--rec, .doc--infobox) .md .image-link {
+    display: block;
+
+    text-decoration: none;
+    cursor: zoom-in;
+}
+
+:is(.doc--rec, .doc--infobox) .md .image-link:hover,
+:is(.doc--rec, .doc--infobox) .md .image-link:focus-visible {
+    background: none;
+    outline: none;
+}
+
+:is(.doc--rec, .doc--infobox) .image-link:hover .image-img,
+:is(.doc--rec, .doc--infobox) .image-link:focus-visible .image-img {
+    outline: 1px solid var(--accent);
+    outline-offset: -1px;
+}
+
+/* -------------------------------------------------- */
+/* File  (файл: скачать или открыть во вьювере)       */
+/* -------------------------------------------------- */
+:is(.doc--rec, .doc--infobox) .widget--file {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+
+    gap: 0.4rem 1.5ch;
+
+    padding: 0.35rem 0.7rem;
+
+    border: 1px solid var(--sk-rule);
+
+    background: var(--sk-panel);
+}
+
+:is(.doc--rec, .doc--infobox) .file-info {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+
+    gap: 0.1rem 1.5ch;
+
+    min-width: 0;
+}
+
+:is(.doc--rec, .doc--infobox) .file-name {
+    min-width: 0;
+
+    color: var(--sk-ink-strong);
+
+    font-size: 0.82rem;
+    overflow-wrap: anywhere;
+}
+
+:is(.doc--rec, .doc--infobox) .file-size {
+    flex: 0 0 auto;
+
+    color: var(--sk-ink-soft);
+
+    font-size: 0.72rem;
+    letter-spacing: 0.04em;
+}
+
+:is(.doc--rec, .doc--infobox) .file-actions {
+    display: flex;
+    flex: 0 0 auto;
+
+    gap: 0.4rem;
+}
+
+/* кнопка: плоская рамка; при наведении работает общая инверсия ссылок */
+:is(.doc--rec, .doc--infobox) .md .file-btn {
+    padding: 0.15rem 0.7rem;
+
+    border: 1px solid var(--accent);
+
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    line-height: 1.6;
+
+    text-decoration: none;
+    text-transform: uppercase;
+}
 
 /* -------------------------------------------------- */
 /* Divider  (разделитель)                             */
@@ -1397,7 +1425,6 @@
     margin: 0.9rem 0;
 }
 
-
 :is(.doc--rec, .doc--infobox) .divider-line {
     flex: 1 1 auto;
 
@@ -1405,7 +1432,6 @@
 
     border-top: 1px solid var(--sk-rule);
 }
-
 
 :is(.doc--rec, .doc--infobox) .divider-label {
     flex: 0 0 auto;
@@ -1419,39 +1445,32 @@
     text-transform: uppercase;
 }
 
-
 :is(.doc--rec, .doc--infobox) .divider--double .divider-line {
     border-top: 3px double var(--sk-rule);
 }
-
 
 :is(.doc--rec, .doc--infobox) .divider--dashed .divider-line {
     border-top-style: dashed;
 }
 
-
 :is(.doc--rec, .doc--infobox) .divider--dotted .divider-line {
     border-top-style: dotted;
 }
-
 
 /* толстая линия: светлая, как инвертированные заливки интерфейса */
 :is(.doc--rec, .doc--infobox) .divider--thick .divider-line {
     border-top: 3px solid var(--font-light);
 }
 
-
 :is(.doc--rec, .doc--infobox) .divider--stars {
     justify-content: center;
 }
-
 
 :is(.doc--rec, .doc--infobox) .divider-mark {
     color: var(--sk-ink-soft);
 
     letter-spacing: 0.5em;
 }
-
 
 /* -------------------------------------------------- */
 /* Узкое окно                                         */

@@ -23,6 +23,42 @@
  * Остальные файлы и шаблоны менять не придётся.
  * ========================================================================== */
 
+/* Belepotan Rus: маркерный шрифт */
+@font-face {
+  font-family: 'Belepotan Rus';
+  /* Пишем путь без косой черты и точек в начале */
+  src: url('fonts/Belepotan-Rus.otf') format('opentype');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Belepotan Rus';
+  src: url('fonts/Belepotan-Rus-Italic.otf') format('opentype');
+  font-weight: 400;
+  font-style: italic;
+  font-display: swap;
+}
+
+/* Lemon Tuesday: шрифт от руки 1 */
+@font-face {
+  font-family: 'Lemon Tuesday';
+  /* Пишем путь без косой черты и точек в начале */
+  src: url('fonts/Lemon-Tuesday.otf') format('opentype');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* Strokify: шрифт от руки 2 */
+@font-face {
+  font-family: 'Strokify';
+  src: url('fonts/Strokify-Light.ttf') format('opentype');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
 
 /* -------------------------------------------------- */
 /* Интерфейс                                          */

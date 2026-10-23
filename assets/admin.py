@@ -1,5 +1,4 @@
-
-from django.contrib import admin
+from django.contrib import admin, messages
 
 from .forms import AssetAdminForm
 from .models import Asset
@@ -20,8 +19,11 @@ class AssetAdmin(admin.ModelAdmin):
     list_display = (
         "id",
         "name",
+        "slug",
         "public_id",
         "viewer_type",
+        "content_type",
+        "size",
         "file_id",
         "created_at",
         "updated_at",
@@ -35,8 +37,10 @@ class AssetAdmin(admin.ModelAdmin):
     search_fields = (
         "id",
         "name",
+        "slug",
         "public_id",
         "file_id",
+        "filename",
     )
 
     list_filter = (
@@ -46,6 +50,9 @@ class AssetAdmin(admin.ModelAdmin):
     readonly_fields = (
         "id",
         "public_id",
+        "filename",
+        "content_type",
+        "size",
         "created_at",
         "updated_at",
     )
@@ -58,8 +65,19 @@ class AssetAdmin(admin.ModelAdmin):
                     "id",
                     "public_id",
                     "name",
+                    "slug",
                     "file_id",
                     "viewer_type",
+                ),
+            },
+        ),
+        (
+            "File (cached from Nextcloud)",
+            {
+                "fields": (
+                    "filename",
+                    "content_type",
+                    "size",
                 ),
             },
         ),
@@ -73,3 +91,55 @@ class AssetAdmin(admin.ModelAdmin):
             },
         ),
     )
+
+    actions = ("refresh_metadata",)
+
+    def save_model(self, request, obj, form, change):
+        # Метаданные обновляем при создании и при смене файла.
+        if not change or "file_id" in form.changed_data:
+            try:
+                obj.refresh_metadata()
+            except Exception as exc:
+                self.message_user(
+                    request,
+                    f"Не удалось получить метаданные файла: {exc}",
+                    level=messages.WARNING,
+                )
+
+        super().save_model(request, obj, form, change)
+
+    @admin.action(description="Обновить метаданные файла из Nextcloud")
+    def refresh_metadata(self, request, queryset):
+        updated = 0
+        failed = 0
+
+        for asset in queryset:
+            try:
+                asset.refresh_metadata()
+            except Exception:
+                failed += 1
+                continue
+
+            asset.save(
+                update_fields=[
+                    "filename",
+                    "content_type",
+                    "size",
+                    "updated_at",
+                ]
+            )
+            updated += 1
+
+        if updated:
+            self.message_user(
+                request,
+                f"Обновлено ассетов: {updated}.",
+                level=messages.SUCCESS,
+            )
+
+        if failed:
+            self.message_user(
+                request,
+                f"Не удалось обновить: {failed}.",
+                level=messages.WARNING,
+            )

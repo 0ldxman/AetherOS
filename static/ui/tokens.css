@@ -75,14 +75,19 @@
   --ff-courier-prime: "Courier Prime", "Courier New", Courier, "Liberation Mono", monospace;
   --ff-arimo: "Arimo", Arial, "Helvetica Neue", Helvetica, sans-serif;
   --ff-pt-serif: "PT Serif", Georgia, "Times New Roman", serif;
+  --ff-belepotan: "Belepotan Rus", Georgia, "Times New Roman", serif;
+  --ff-lemon-tuesday: "Lemon Tuesday", "Segoe Script", cursive;
+  --ff-strokify: "Strokify", "Segoe Script", cursive;
 
   /* ---- Шрифты (роли) ---------------------------------------------------
      «Какой шрифт где». Тема машины меняет роль одной строкой,
      например --font-main: var(--ff-doto). */
   --font-main: var(--ff-jetbrains-mono);
   --font-doted: var(--ff-doto);
-  --font-hand: var(--ff-caveat);             /* рукописные пометки */
+  --font-hand: var(--ff-strokify);             /* рукописные пометки */
   --font-barcode: var(--ff-libre-barcode-39); /* штрихкод */
+  --font-marker: var(--ff-belepotan);
+
   /* Роли бумажных документов (--font-tech, --font-body, --font-doc,
      --font-head, --font-text, --font-mono) остаются в скинах doc/scan/web,
      но тоже ссылаются на --ff-*. */

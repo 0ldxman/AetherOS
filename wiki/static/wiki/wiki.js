@@ -451,3 +451,23 @@
         syncTyped();
     }
 })();
+
+
+document.addEventListener("click", (e) => {
+  const link = e.target.closest("[data-asset-viewer]");
+  if (!link) return;
+
+  // страница вики лежит в iframe окна, а desktopAPI живёт у родителя
+  const api = window.parent && window.parent.desktopAPI;
+  if (!api) return; // нет рабочего стола: сработает обычная ссылка
+
+  e.preventDefault();
+
+  const url = link.dataset.assetViewer;
+  api.openApp(
+    "asset-" + url.replace(/\W+/g, "-"),
+    link.dataset.assetTitle || "Asset",
+    url,
+    { width: 640, height: 480 }
+  );
+});

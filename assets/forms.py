@@ -8,6 +8,7 @@ class AssetAdminForm(forms.ModelForm):
         model = Asset
         fields = (
             "name",
+            "slug",
             "file_id",
         )
 
@@ -15,3 +16,6 @@ class AssetAdminForm(forms.ModelForm):
         super().__init__(*args, **kwargs)
 
         self.fields["file_id"].widget = forms.HiddenInput()
+
+    def clean_slug(self):
+        return (self.cleaned_data.get("slug") or "").strip().lower()

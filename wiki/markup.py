@@ -1557,7 +1557,8 @@ def _render_widget_token(
         )
 
     except Exception:
-
+        import logging
+        logging.getLogger(__name__).exception("widget %s failed", meta["name"])
         return (
             '<div class="widget widget--error">'
             '</div>\n'

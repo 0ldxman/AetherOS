@@ -1,8 +1,5 @@
 from __future__ import annotations
 
-from mimetypes import guess_type
-from pathlib import PurePosixPath
-
 import requests
 from django.contrib.admin.views.decorators import (
     staff_member_required,
@@ -21,6 +18,7 @@ from django.utils.http import (
 
 from .models import Asset
 from .nextcloud import NextcloudClient
+from .services import guess_content_type, resolve_viewer_type
 
 
 @staff_member_required
@@ -166,16 +164,9 @@ def asset_viewer(
             "Asset file not found."
         )
 
-    content_type, _ = guess_type(
-        file.filename,
-    )
+    content_type = guess_content_type(file.filename)
 
-    content_type = (
-        content_type
-        or "application/octet-stream"
-    )
-
-    viewer_type = _resolve_viewer_type(
+    viewer_type = resolve_viewer_type(
         asset,
         file.filename,
         content_type,
@@ -197,64 +188,6 @@ def asset_viewer(
             ),
         },
     )
-
-
-def _resolve_viewer_type(
-    asset,
-    filename: str,
-    content_type: str,
-) -> str:
-    """Resolve AUTO to a suitable viewer based on file type."""
-    if asset.viewer_type != Asset.ViewerType.AUTO:
-        return asset.viewer_type
-
-    extension = PurePosixPath(
-        filename,
-    ).suffix.lower()
-
-    if content_type.startswith("audio/"):          # ← новый блок
-        return Asset.ViewerType.AUDIO
-
-    if content_type.startswith("video/"):
-        return Asset.ViewerType.VIDEO
-
-    if content_type.startswith("image/"):
-        return Asset.ViewerType.IMAGE
-
-    if (
-        content_type == "application/pdf"
-        or extension == ".pdf"
-    ):
-        return Asset.ViewerType.PDF
-
-    text_extensions = {
-        ".txt",
-        ".log",
-        ".md",
-        ".csv",
-        ".json",
-        ".xml",
-        ".yaml",
-        ".yml",
-        ".ini",
-        ".cfg",
-        ".conf",
-        ".sh",
-        ".py",
-        ".sql",
-    }
-
-    if (
-        content_type.startswith("text/")
-        or extension in text_extensions
-        or content_type in {
-            "application/json",
-            "application/xml",
-        }
-    ):
-        return Asset.ViewerType.TEXT
-
-    return Asset.ViewerType.RAW
 
 
 def _serve_asset_file(
@@ -283,8 +216,7 @@ def _serve_asset_file(
     if file.is_directory:
         raise Http404("Asset points to a directory.")
 
-    content_type, _ = guess_type(file.filename)
-    content_type = content_type or "application/octet-stream"
+    content_type = guess_content_type(file.filename)
 
     etag = file.etag
     last_modified = file.last_modified
