@@ -1,0 +1,143 @@
+{% extends "ui/base.html" %}
+{% load static %}
+
+{% block title %}{{ asset.name }} — Aether OS{% endblock %}
+
+{% block body_attrs %} class="audio-viewer"{% endblock %}
+
+{% block css %}
+<link rel="stylesheet" href="{% static 'assets/viewers/audio.css' %}">
+{% endblock %}
+
+{% block body %}
+<main
+    class="au-workspace"
+    data-audio-viewer
+    data-audio-filename="{{ filename|escape }}"
+>
+    <audio
+        data-audio-source
+        src="{{ content_url }}"
+        preload="metadata"
+    ></audio>
+
+    <header class="au-header">
+        <div class="au-metadata">
+            <div class="au-title-line">
+                <span class="au-format" data-audio-extension>[AUDIO]</span>
+                <h1>{{ asset.name }}</h1>
+            </div>
+
+            <div class="au-info-row">
+                <div class="au-info-line">
+                    <span class="au-info-label">ID:</span>
+                    <span class="au-info-value">{{ asset.public_id }}</span>
+                </div>
+
+                <div class="au-info-line">
+                    <span class="au-info-label">DURATION:</span>
+                    <span class="au-info-value" data-audio-duration>—</span>
+                </div>
+
+                <div class="au-info-line">
+                    <span class="au-info-label">LEVEL:</span>
+                    <span class="au-info-value" data-audio-level>—</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="au-status" data-audio-status>READY</div>
+    </header>
+
+    <section class="au-stage">
+        <canvas class="au-canvas" data-audio-canvas></canvas>
+
+        <div class="au-loading" data-audio-loading>
+            <span>AUDIO / INITIALIZING</span>
+        </div>
+
+        <div class="au-error" data-audio-error hidden>
+            <span>AUDIO / ERROR</span>
+            <p data-audio-error-message>Unable to load audio source.</p>
+        </div>
+    </section>
+
+    <div class="au-controls">
+        <div class="au-progress-row">
+            <span class="au-time" data-audio-current-time>00:00</span>
+
+            <input
+                class="au-progress"
+                data-audio-progress
+                type="range"
+                min="0"
+                max="1000"
+                value="0"
+                step="1"
+                aria-label="Seek audio"
+            >
+
+            <span class="au-time" data-audio-total-time>00:00</span>
+        </div>
+
+        <div class="au-control-row">
+            <div class="au-control-group">
+                <button
+                    class="au-control-button"
+                    type="button"
+                    data-audio-play
+                    aria-label="Play"
+                    title="Play / Pause (Space)"
+                >
+                    <svg viewBox="0 0 24 24" data-audio-play-icon aria-hidden="true">
+                        <path d="M8 5.5 19 12 8 18.5Z" />
+                    </svg>
+                </button>
+
+                <button
+                    class="au-control-button"
+                    type="button"
+                    data-audio-mute
+                    aria-label="Mute"
+                    title="Mute / Unmute (M)"
+                >
+                    <svg viewBox="0 0 24 24" aria-hidden="true">
+                        <path d="M4 9v6h4l5 4V5L8 9H4Z" />
+                        <path d="M16 9a4 4 0 0 1 0 6" data-audio-volume-wave />
+                        <path d="m17 9 5 6m0-6-5 6" data-audio-mute-cross hidden />
+                    </svg>
+                </button>
+
+                <input
+                    class="au-volume"
+                    data-audio-volume
+                    type="range"
+                    min="0"
+                    max="1"
+                    value="1"
+                    step="0.01"
+                    aria-label="Volume"
+                >
+            </div>
+
+            <div class="au-control-group au-control-group-right">
+                <label class="au-speed-control">
+                    <span>SPEED</span>
+                    <select data-audio-speed aria-label="Playback speed">
+                        <option value="0.5">0.5×</option>
+                        <option value="0.75">0.75×</option>
+                        <option value="1" selected>1×</option>
+                        <option value="1.25">1.25×</option>
+                        <option value="1.5">1.5×</option>
+                        <option value="2">2×</option>
+                    </select>
+                </label>
+            </div>
+        </div>
+    </div>
+</main>
+{% endblock %}
+
+{% block js %}
+<script src="{% static 'assets/viewers/audio.js' %}" defer></script>
+{% endblock %}

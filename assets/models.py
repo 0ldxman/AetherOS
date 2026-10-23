@@ -23,6 +23,7 @@ class Asset(models.Model):
 
     class ViewerType(models.TextChoices):
         AUTO = "AUTO", "Auto"
+        AUDIO = "AUDIO", "Audio"
         VIDEO = "VIDEO", "Video"
         TEXT = "TEXT", "Text"
         IMAGE = "IMAGE", "Image"

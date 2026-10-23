@@ -212,6 +212,9 @@ def _resolve_viewer_type(
         filename,
     ).suffix.lower()
 
+    if content_type.startswith("audio/"):          # ← новый блок
+        return Asset.ViewerType.AUDIO
+
     if content_type.startswith("video/"):
         return Asset.ViewerType.VIDEO
 
