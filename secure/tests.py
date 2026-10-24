@@ -44,3 +44,36 @@ class ValidateRequirementsTests(SimpleTestCase):
                     {"all": [5]}):
             with self.assertRaises(ValidationError, msg=repr(req)):
                 validate_requirements(req)
+
+
+class FormatConditionTests(SimpleTestCase):
+    """format_condition: обратное к parse_expr, скобки только где нужны."""
+
+    def test_roundtrip_through_the_expression_parser(self):
+        from secure.access import format_condition
+        from wiki.markup import parse_expr
+
+        for text in [
+            "key_a",
+            "key_a and key_b",
+            "key_a or key_b",
+            "not key_a",
+            "key_a and (key_b or key_c)",
+            "(key_a and key_b) or key_c",
+            "not (key_a or key_b)",
+            "key_a and not key_b",
+            "key_a or key_b and key_c",
+        ]:
+            canonical = format_condition(parse_expr(text))
+            self.assertEqual(parse_expr(canonical), parse_expr(text), text)
+
+    def test_readable_output(self):
+        from secure.access import format_condition
+
+        self.assertEqual(format_condition({}), "")
+        self.assertEqual(format_condition(None), "")
+        self.assertEqual(format_condition("key_a"), "key_a")
+        self.assertEqual(format_condition({"all": ["a", {"any": ["b", "c"]}]}), "a and (b or c)")
+        self.assertEqual(format_condition({"any": [{"all": ["a", "b"]}, "c"]}), "a and b or c")
+        self.assertEqual(format_condition({"not": {"any": ["a", "b"]}}), "not (a or b)")
+        self.assertEqual(format_condition({"all": ["a", {"not": "b"}]}), "a and not b")

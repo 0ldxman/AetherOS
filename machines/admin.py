@@ -6,6 +6,9 @@ from django.utils import timezone
 from django.urls import reverse
 from django.utils.html import format_html
 
+from secure.access import format_condition
+from secure.admin_widgets import ConditionFieldsMixin
+
 from .forms import MachineProfileForm, MachineProfileTokenForm, has_real_hash
 from .models import (
     Machine,
@@ -19,6 +22,8 @@ from .models import (
 class MachineAppInline(admin.TabularInline):
     model = MachineApp
     extra = 0
+    fields = ("label", "glyph", "suffix", "path", "order")
+    show_change_link = True  # условие по ключам правится на странице приложения
 
 
 # ==================================================
@@ -185,7 +190,8 @@ class MachineProfileHIDInline(admin.TabularInline):
 # ==================================================
 
 @admin.register(MachineProfile)
-class MachineProfileAdmin(admin.ModelAdmin):
+class MachineProfileAdmin(ConditionFieldsMixin, admin.ModelAdmin):
+    condition_fields = ("key_condition",)
     form = MachineProfileForm
     list_select_related = ("machine", "user")
     actions = ("hash_plain_passwords",)
@@ -198,7 +204,7 @@ class MachineProfileAdmin(admin.ModelAdmin):
         "login",
         "freq",
         "has_password",
-        "has_key_condition",
+        "condition",
     )
 
     list_filter = (
@@ -290,11 +296,9 @@ class MachineProfileAdmin(admin.ModelAdmin):
     def has_password(self, obj):
         return bool(obj.password_hash)
 
-    def has_key_condition(self, obj):
-        return bool(obj.key_condition)
-
-    has_key_condition.boolean = True
-    has_key_condition.short_description = "Key condition"
+    @admin.display(description="Условие по ключам")
+    def condition(self, obj):
+        return format_condition(obj.key_condition) or "—"
 
 
 # ==================================================
@@ -446,3 +450,23 @@ class SessionAdmin(admin.ModelAdmin):
     @admin.display(description="Freq")
     def freq(self, obj):
         return obj.profile.freq
+
+
+# ==================================================
+# Machine App
+# ==================================================
+
+@admin.register(MachineApp)
+class MachineAppAdmin(ConditionFieldsMixin, admin.ModelAdmin):
+    condition_fields = ("key_condition",)
+    list_display = ("label", "machine", "path", "order", "condition")
+    list_display_links = ("label",)
+    list_filter = ("machine",)
+    list_select_related = ("machine",)
+    search_fields = ("label", "path", "machine__name", "machine__hostname")
+    autocomplete_fields = ("machine",)
+    ordering = ("machine", "order", "id")
+
+    @admin.display(description="Условие по ключам")
+    def condition(self, obj):
+        return format_condition(obj.key_condition) or "—"

@@ -157,3 +157,46 @@ class KeyAdminTests(AdminTestCase):
         response = self.client.get(reverse("admin:secure_key_changelist"))
         holders = {k.slug: k._holders for k in response.context["cl"].result_list}
         self.assertEqual(holders, {"key_a": 1, "key_ab": 0})
+
+
+class NamespaceConditionTests(AdminTestCase):
+    def setUp(self):
+        super().setUp()
+        Key.objects.create(slug="key_a", description="первый")
+        self.ns = Namespace.objects.create(name="Раздел")
+
+    def data(self, **extra):
+        return {"name": "Раздел", "slug": "", "parent": "", "visibility": "{}", "access": "{}", **extra}
+
+    def url(self):
+        return reverse("admin:wiki_namespace_change", args=[self.ns.pk])
+
+    def test_page_uses_the_visual_condition_editor(self):
+        response = self.client.get(self.url())
+        self.assertContains(response, "data-condition-editor")
+        self.assertContains(response, "condition_editor.js")
+        self.assertContains(response, "key_a")  # список ключей для редактора
+
+    def test_valid_condition_is_saved(self):
+        self.client.post(self.url(), self.data(access='{"all": ["key_a", "key_b"]}'))
+        self.ns.refresh_from_db()
+        self.assertEqual(self.ns.access, {"all": ["key_a", "key_b"]})
+
+    def test_invalid_condition_is_rejected(self):
+        response = self.client.post(self.url(), self.data(access='{"xor": ["key_a"]}'))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Неверное условие")
+        self.ns.refresh_from_db()
+        self.assertEqual(self.ns.access, {})
+
+    def test_blank_condition_is_saved_as_an_empty_object_not_none(self):
+        # access/visibility не допускают NULL: пустое значение не должно ронять сохранение
+        response = self.client.post(self.url(), self.data(access="", visibility=""))
+        self.assertEqual(response.status_code, 302)
+        self.ns.refresh_from_db()
+        self.assertEqual((self.ns.access, self.ns.visibility), ({}, {}))
+
+    def test_list_shows_the_condition_as_text(self):
+        Namespace.objects.filter(pk=self.ns.pk).update(access={"all": ["a", {"any": ["b", "c"]}]})
+        response = self.client.get(reverse("admin:wiki_namespace_changelist"))
+        self.assertContains(response, "закрыта: a and (b or c)")

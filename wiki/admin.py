@@ -5,6 +5,10 @@ from django.db import IntegrityError, transaction
 from django.db.models import Count
 from django.template.response import TemplateResponse
 from django.utils.html import format_html
+from django.utils.text import Truncator
+
+from secure.access import format_condition
+from secure.admin_widgets import ConditionFieldsMixin
 
 from .admin_dashboard import DocumentDashboardMixin
 from .admin_locks import DocumentLocksMixin
@@ -23,9 +27,9 @@ def _protection(obj):
     """Кратко: чем закрыта запись или раздел (сами условия, без цепочки родителей)."""
     marks = []
     if obj.access:
-        marks.append("закрыта")
+        marks.append(f"закрыта: {Truncator(format_condition(obj.access)).chars(40)}")
     if obj.visibility:
-        marks.append("скрыта")
+        marks.append(f"скрыта: {Truncator(format_condition(obj.visibility)).chars(40)}")
     return " · ".join(marks) or "—"
 
 
@@ -119,7 +123,8 @@ class MoveForm(forms.Form):
 # =========================================================
 
 @admin.register(Namespace)
-class NamespaceAdmin(admin.ModelAdmin):
+class NamespaceAdmin(ConditionFieldsMixin, admin.ModelAdmin):
+    condition_fields = ("access", "visibility")
     list_display = ("path_display", "slug", "documents_count", "children_count", "protection")
     list_display_links = ("path_display",)
     search_fields = ("name", "slug")
