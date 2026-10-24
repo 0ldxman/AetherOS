@@ -1194,55 +1194,735 @@
 }
 
 /* -------------------------------------------------- */
-/* Медиа: общие размеры и выравнивание                */
+/* Assets: изображения, видео, аудио и файлы           */
 /* -------------------------------------------------- */
-:is(.doc--rec, .doc--infobox) .widget--image,
-:is(.doc--rec, .doc--infobox) .widget--video,
-:is(.doc--rec, .doc--infobox) .widget--audio {
+
+/*
+ * Ассеты оформлены как окна и элементы интерфейса Aether.OS:
+ * вкладка-заголовок над рамкой слева (как у окон рабочего стола),
+ * инверсия при наведении (как у иконок), уголки-рамки у изображений.
+ * Цвета и линии только из --sk-* и токенов (--font-light, --font-dark, --accent).
+ *
+ * Этот блок ставится ВМЕСТО всего, что лежит между заголовками
+ * «Медиа: общие размеры и выравнивание» и «Divider (разделитель)»:
+ * там были и медиа, и file, и дубли правил для .widget--image.
+ */
+
+
+/* ---------- Общая геометрия ---------- */
+
+:is(.doc--rec, .doc--infobox) :is(
+    .widget--image,
+    .widget--video,
+    .widget--audio,
+    .widget--file
+) {
     width: var(--w, 100%);
     max-width: 100%;
+    min-width: 0;
+
+    box-sizing: border-box;
 }
 
-:is(.doc--rec, .doc--infobox) .widget--image.widget--align-center,
-:is(.doc--rec, .doc--infobox) .widget--video.widget--align-center,
-:is(.doc--rec, .doc--infobox) .widget--audio.widget--align-center {
+
+/* figure по умолчанию имеет боковые отступы браузера: обнуляем */
+:is(.doc--rec, .doc--infobox) figure.widget {
+    margin-left: 0;
+    margin-right: 0;
+}
+
+
+:is(.doc--rec, .doc--infobox) :is(
+    .widget--image,
+    .widget--video,
+    .widget--audio
+).widget--align-left {
+    margin-left: 0;
+    margin-right: auto;
+}
+
+
+:is(.doc--rec, .doc--infobox) :is(
+    .widget--image,
+    .widget--video,
+    .widget--audio
+).widget--align-center {
     margin-left: auto;
     margin-right: auto;
 }
 
-:is(.doc--rec, .doc--infobox) .widget--image.widget--align-right,
-:is(.doc--rec, .doc--infobox) .widget--video.widget--align-right,
-:is(.doc--rec, .doc--infobox) .widget--audio.widget--align-right {
+
+:is(.doc--rec, .doc--infobox) :is(
+    .widget--image,
+    .widget--video,
+    .widget--audio
+).widget--align-right {
     margin-left: auto;
+    margin-right: 0;
 }
-:is(.doc--rec, .doc--infobox) .widget--image {
-    width: var(--w, 100%);
+
+
+/* Подпись: как строка консоли, с акцентным «>» */
+:is(.doc--rec, .doc--infobox) .asset-caption {
+    display: block;
+
+    margin-top: 0.3rem;
+
+    color: var(--sk-ink-soft);
+
+    font-size: 0.72rem;
+    letter-spacing: 0.04em;
+    line-height: 1.4;
+
+    overflow-wrap: anywhere;
+}
+
+
+:is(.doc--rec, .doc--infobox) .asset-caption::before {
+    content: "> ";
+
+    color: var(--accent);
+    font-weight: 700;
+}
+
+
+/* ---------- Audio ---------- */
+
+/*
+ * Встроенный аудиоплеер собирается JS (audio-widget.js) в стиле
+ * аудио-просмотрщика: строка [AUDIO.MP3] название и статус, под ней
+ * ID и длительность, затем плоские контролы. Графика громкости нет.
+ * Без JS остаётся обычный <audio controls> в рамке.
+ *
+ * Этот блок ставится ВМЕСТО старого раздела «Audio» в record-base.css
+ * (правила .widget--audio, .widget--audio::before, .audio-title, .audio-el).
+ * Правило `.audio-card { display: none }` оставить.
+ *
+ * Кроме того, в разделе «Вкладка-заголовок» убрать .widget--audio
+ * из трёх селекторов (остаётся только .widget--file):
+ *   :is(.widget--audio, .widget--file)::before            (оформление вкладки)
+ *   :is(.widget--audio, .widget--file)                    (position + margin-top)
+ *   :is(.widget--audio, .widget--file)::before            (position: absolute)
+ */
+
+/* Запасной вариант без JS */
+:is(.doc--rec, .doc--infobox) .widget--audio:not(.aw-ready) {
+    padding: 0.5rem 0.7rem 0.6rem;
+
+    border: 1px solid var(--sk-rule);
+
+    background: var(--sk-panel);
+}
+
+:is(.doc--rec, .doc--infobox) .widget--audio:not(.aw-ready) .audio-title {
+    margin-bottom: 0.35rem;
+
+    color: var(--sk-ink-strong);
+
+    font-size: 0.78rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    line-height: 1.4;
+
+    overflow-wrap: anywhere;
+}
+
+:is(.doc--rec, .doc--infobox) .audio-el {
+    display: block;
+
+    width: 100%;
     max-width: 100%;
+    min-width: 0;
+
+    accent-color: var(--accent);
+    color-scheme: dark;
 }
 
-:is(.doc--rec, .doc--infobox) .widget--image.widget--align-center {
-    margin-left: auto;
-    margin-right: auto;
+/* Карточка с осциллограммой нужна только скану */
+:is(.doc--rec, .doc--infobox) .audio-card {
+    display: none;
 }
 
-:is(.doc--rec, .doc--infobox) .widget--image.widget--align-right {
-    margin-left: auto;
+
+/* ---------- Полоса плеера ---------- */
+
+:is(.doc--rec, .doc--infobox) .aw-box {
+    width: 100%;
+
+    padding: 10px 14px 8px;
+
+    border: 1px solid var(--sk-rule);
+
+    background: var(--sk-sunken);
+    color: var(--font-light);
+
+    container-type: inline-size;
+
+    outline: none;
+
+    &:focus-visible {
+        outline: 1px solid var(--accent);
+        outline-offset: -1px;
+    }
+
+    & [hidden] {
+        display: none;
+    }
+
+
+    /* ---------- Заголовок ---------- */
+
+    & .aw-head {
+        display: flex;
+        align-items: baseline;
+        justify-content: space-between;
+
+        gap: 12px;
+    }
+
+    & .aw-title {
+        display: flex;
+        align-items: baseline;
+
+        gap: 8px;
+        min-width: 0;
+    }
+
+    & .aw-format {
+        flex: 0 0 auto;
+
+        font-size: 10px;
+        font-weight: 700;
+        letter-spacing: 0.08em;
+    }
+
+    & .aw-name {
+        min-width: 0;
+
+        font-size: 12px;
+        font-weight: 500;
+        letter-spacing: 0.025em;
+        line-height: 1.4;
+
+        overflow-wrap: anywhere;
+    }
+
+    & .aw-status {
+        flex: 0 0 auto;
+
+        color: var(--font-muted, var(--sk-ink-soft));
+
+        font-size: 9px;
+        letter-spacing: 0.1em;
+        white-space: nowrap;
+    }
+
+    & .aw-info {
+        display: flex;
+        flex-wrap: wrap;
+
+        gap: 2px 20px;
+
+        margin-top: 4px;
+
+        font-size: 9px;
+        letter-spacing: 0.04em;
+        line-height: 1.5;
+    }
+
+    & .aw-info-line {
+        display: flex;
+        flex-wrap: wrap;
+
+        gap: 8px;
+    }
+
+    & .aw-label {
+        flex: 0 0 auto;
+
+        color: var(--font-muted, var(--sk-ink-soft));
+    }
+
+    & .aw-value {
+        min-width: 0;
+
+        font-variant-numeric: tabular-nums;
+        overflow-wrap: anywhere;
+    }
+
+
+    /* ---------- Ошибка ---------- */
+
+    & .aw-error {
+        display: flex;
+        flex-direction: column;
+
+        gap: 4px;
+
+        margin-top: 8px;
+    }
+
+    & .aw-error span {
+        font-size: 10px;
+        letter-spacing: 0.1em;
+    }
+
+    & .aw-error p {
+        margin: 0;
+
+        color: var(--font-muted, var(--sk-ink-soft));
+
+        font-size: 11px;
+        line-height: 1.5;
+        overflow-wrap: anywhere;
+    }
+
+    &.aw-failed .aw-controls,
+    &.aw-failed .aw-info {
+        display: none;
+    }
+
+
+    /* ---------- Управление ---------- */
+
+    & .aw-controls {
+        margin-top: 10px;
+    }
+
+    & .aw-progress-row {
+        display: flex;
+        align-items: center;
+
+        gap: 10px;
+
+        margin-bottom: 6px;
+    }
+
+    & .aw-time {
+        flex: 0 0 auto;
+
+        min-width: 36px;
+
+        font-size: 10px;
+        font-variant-numeric: tabular-nums;
+        letter-spacing: 0.025em;
+        white-space: nowrap;
+    }
+
+    & .aw-time:last-child {
+        text-align: right;
+    }
+
+    & .aw-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+
+        gap: 12px;
+        min-height: 28px;
+    }
+
+    & .aw-group {
+        display: flex;
+        align-items: center;
+
+        gap: 8px;
+        min-width: 0;
+    }
+
+    & .aw-group-right {
+        justify-content: flex-end;
+
+        margin-left: auto;
+    }
+
+
+    /* ---------- Кнопки ---------- */
+
+    /* a.aw-btn перебивает оформление и инверсию ссылок записи */
+    & .aw-btn,
+    & a.aw-btn,
+    & .aw-btn:hover,
+    & a.aw-btn:hover,
+    & .aw-btn:focus-visible,
+    & a.aw-btn:focus-visible {
+        display: inline-flex;
+        flex: 0 0 auto;
+        align-items: center;
+        justify-content: center;
+
+        width: 28px;
+        height: 28px;
+
+        padding: 0;
+
+        border: 1px solid transparent;
+        border-radius: 0;
+
+        background: transparent;
+        color: var(--font-light);
+
+        text-decoration: none;
+
+        cursor: pointer;
+        outline: none;
+        box-shadow: none;
+    }
+
+    & .aw-btn:focus-visible,
+    & a.aw-btn:focus-visible {
+        border-color: var(--accent);
+    }
+
+    & .aw-btn svg {
+        display: block;
+
+        width: 17px;
+        height: 17px;
+
+        fill: none;
+        stroke: var(--font-light);
+        stroke-width: 1.8;
+        stroke-linecap: square;
+        stroke-linejoin: miter;
+    }
+
+    & .aw-play svg {
+        width: 21px;
+        height: 21px;
+
+        fill: var(--font-light);
+        stroke: none;
+    }
+
+
+    /* ---------- Ползунки ---------- */
+
+    & .aw-progress,
+    & .aw-volume {
+        display: block;
+
+        min-width: 0;
+        padding: 0;
+
+        border: 0;
+        border-radius: 0;
+
+        appearance: none;
+        -webkit-appearance: none;
+
+        background: transparent;
+
+        cursor: pointer;
+        outline: none;
+    }
+
+    & .aw-progress {
+        flex: 1 1 auto;
+
+        width: 100%;
+        height: 14px;
+    }
+
+    & .aw-volume {
+        flex: 0 1 72px;
+
+        width: 72px;
+        height: 12px;
+    }
+
+    & .aw-progress::-webkit-slider-runnable-track {
+        width: 100%;
+        height: 3px;
+
+        border: 0;
+        border-radius: 0;
+
+        background: linear-gradient(
+            to right,
+            var(--font-light) 0%,
+            var(--font-light) var(--aw-progress, 0%),
+            color-mix(in srgb, var(--font-light) 25%, transparent) var(--aw-progress, 0%),
+            color-mix(in srgb, var(--font-light) 25%, transparent) 100%
+        );
+    }
+
+    & .aw-volume::-webkit-slider-runnable-track {
+        width: 100%;
+        height: 3px;
+
+        border: 0;
+        border-radius: 0;
+
+        background: color-mix(in srgb, var(--font-light) 25%, transparent);
+    }
+
+    & .aw-progress::-moz-range-track,
+    & .aw-volume::-moz-range-track {
+        width: 100%;
+        height: 3px;
+
+        border: 0;
+        border-radius: 0;
+
+        background: color-mix(in srgb, var(--font-light) 25%, transparent);
+    }
+
+    & .aw-progress::-moz-range-progress,
+    & .aw-volume::-moz-range-progress {
+        height: 3px;
+
+        border: 0;
+        border-radius: 0;
+
+        background: var(--font-light);
+    }
+
+    & .aw-progress::-webkit-slider-thumb {
+        width: 8px;
+        height: 11px;
+        margin-top: -4px;
+
+        border: 0;
+        border-radius: 0;
+
+        appearance: none;
+        -webkit-appearance: none;
+
+        background: var(--font-light);
+    }
+
+    & .aw-volume::-webkit-slider-thumb {
+        width: 7px;
+        height: 10px;
+        margin-top: -3.5px;
+
+        border: 0;
+        border-radius: 0;
+
+        appearance: none;
+        -webkit-appearance: none;
+
+        background: var(--font-light);
+    }
+
+    & .aw-progress::-moz-range-thumb {
+        width: 8px;
+        height: 11px;
+
+        border: 0;
+        border-radius: 0;
+
+        background: var(--font-light);
+    }
+
+    & .aw-volume::-moz-range-thumb {
+        width: 7px;
+        height: 10px;
+
+        border: 0;
+        border-radius: 0;
+
+        background: var(--font-light);
+    }
+
+
+    /* ---------- Скорость ---------- */
+
+    & .aw-speed {
+        display: inline-flex;
+        align-items: center;
+
+        gap: 6px;
+
+        color: var(--font-muted, var(--sk-ink-soft));
+
+        font-size: 8px;
+        letter-spacing: 0.04em;
+        white-space: nowrap;
+    }
+
+    & .aw-speed select {
+        width: 58px;
+        height: 24px;
+
+        padding: 0 18px 0 6px;
+
+        border: 1px solid var(--font-muted, var(--sk-rule));
+        border-radius: 0;
+
+        appearance: none;
+        -webkit-appearance: none;
+
+        background-color: var(--bg, #191919);
+        background-image:
+            linear-gradient(45deg, transparent 50%, var(--font-light) 50%),
+            linear-gradient(135deg, var(--font-light) 50%, transparent 50%);
+        background-position:
+            calc(100% - 9px) 9px,
+            calc(100% - 5px) 9px;
+        background-size: 4px 4px, 4px 4px;
+        background-repeat: no-repeat;
+
+        color: var(--font-light);
+
+        font: inherit;
+        font-size: 10px;
+        font-variant-numeric: tabular-nums;
+        line-height: 1;
+
+        cursor: pointer;
+        outline: none;
+        box-shadow: none;
+    }
+
+    & .aw-speed select:focus-visible {
+        border-color: var(--accent);
+    }
+
+    & .aw-speed select option {
+        background-color: var(--bg, #191919);
+        color: var(--font-light);
+    }
 }
 
+
+/* ---------- Подпись ---------- */
+
+/* Подпись под плеером остаётся строкой консоли с «>» */
+:is(.doc--rec, .doc--infobox) .widget--audio .asset-caption {
+    margin-top: 0.3rem;
+}
+
+
+/* ---------- Узкая полоса (инфобокс, узкое окно) ---------- */
+
+@container (max-width: 460px) {
+    :is(.doc--rec, .doc--infobox) .aw-info {
+        display: none;
+    }
+
+    :is(.doc--rec, .doc--infobox) .aw-speed > span {
+        display: none;
+    }
+
+    :is(.doc--rec, .doc--infobox) .aw-volume {
+        flex-basis: 48px;
+
+        width: 48px;
+    }
+}
+
+@container (max-width: 320px) {
+    :is(.doc--rec, .doc--infobox) .aw-volume,
+    :is(.doc--rec, .doc--infobox) .aw-status {
+        display: none;
+    }
+
+    :is(.doc--rec, .doc--infobox) .aw-time {
+        min-width: 0;
+    }
+}
+
+/* Убирает старую рамку и вкладку вокруг собранного плеера */
+:is(.doc--rec, .doc--infobox) .widget--audio.aw-ready {
+    margin-top: 0.7rem;
+    padding: 0;
+
+    border: 0;
+
+    background: none;
+}
+
+:is(.doc--rec, .doc--infobox) .widget--audio.aw-ready::before {
+    content: none;
+}
+
+/* ---------- Image ---------- */
+
+/* Рамка с уголками-скобками, как рамка наведения в интерфейсе */
 :is(.doc--rec, .doc--infobox) .image-frame {
+    position: relative;
+
     border: 1px solid var(--sk-rule);
 
     background: var(--sk-sunken);
 }
 
+
+:is(.doc--rec, .doc--infobox) .image-frame::before,
+:is(.doc--rec, .doc--infobox) .image-frame::after {
+    content: "";
+
+    position: absolute;
+    z-index: 1;
+
+    width: 10px;
+    height: 10px;
+
+    pointer-events: none;
+
+    transition: width 0.12s, height 0.12s;
+}
+
+
+:is(.doc--rec, .doc--infobox) .image-frame::before {
+    top: -1px;
+    left: -1px;
+
+    border-top: 2px solid var(--accent);
+    border-left: 2px solid var(--accent);
+}
+
+
+:is(.doc--rec, .doc--infobox) .image-frame::after {
+    right: -1px;
+    bottom: -1px;
+
+    border-right: 2px solid var(--accent);
+    border-bottom: 2px solid var(--accent);
+}
+
+
+/* При наведении на картинку-ссылку уголки вытягиваются */
+:is(.doc--rec, .doc--infobox) .image-frame:has(.image-link:hover)::before,
+:is(.doc--rec, .doc--infobox) .image-frame:has(.image-link:hover)::after,
+:is(.doc--rec, .doc--infobox) .image-frame:has(.image-link:focus-visible)::before,
+:is(.doc--rec, .doc--infobox) .image-frame:has(.image-link:focus-visible)::after {
+    width: 18px;
+    height: 18px;
+}
+
+
 :is(.doc--rec, .doc--infobox) .image-img {
     display: block;
 
     width: 100%;
+    max-width: 100%;
     height: auto;
+    max-height: 70vh;
+
+    object-fit: contain;
 }
 
-/* заглушка: тёмное поле с alt-текстом, как пустой слот просмотрщика */
+
+/* Общая инверсия ссылок картинке не нужна */
+:is(.doc--rec, .doc--infobox) .md .image-link {
+    display: block;
+
+    text-decoration: none;
+    cursor: zoom-in;
+}
+
+
+:is(.doc--rec, .doc--infobox) .md .image-link:hover,
+:is(.doc--rec, .doc--infobox) .md .image-link:focus-visible {
+    background: none;
+    outline: none;
+}
+
+
+/* Заглушка: пустой слот со штриховкой закрытого виджета */
 :is(.doc--rec, .doc--infobox) .image-missing {
     display: flex;
     align-items: center;
@@ -1253,7 +1933,13 @@
 
     padding: 0.6rem;
 
-    background: var(--sk-sunken);
+    background: repeating-linear-gradient(
+        135deg,
+        var(--sk-rule-soft) 0,
+        var(--sk-rule-soft) 4px,
+        transparent 4px,
+        transparent 8px
+    );
     color: var(--sk-ink-soft);
 
     font-size: 0.75rem;
@@ -1261,157 +1947,932 @@
     text-align: center;
 }
 
-:is(.doc--rec, .doc--infobox) .image-ratio-16-9 { aspect-ratio: 16 / 9; }
 
-:is(.doc--rec, .doc--infobox) .image-ratio-4-3 { aspect-ratio: 4 / 3; }
-
-:is(.doc--rec, .doc--infobox) .image-ratio-3-2 { aspect-ratio: 3 / 2; }
-
-:is(.doc--rec, .doc--infobox) .image-ratio-1-1 { aspect-ratio: 1 / 1; }
-
-:is(.doc--rec, .doc--infobox) .image-ratio-3-4 { aspect-ratio: 3 / 4; }
-
-:is(.doc--rec, .doc--infobox) .image-ratio-9-16 { aspect-ratio: 9 / 16; }
-
-:is(.doc--rec, .doc--infobox) .video-el {
-    display: block;
-
-    width: 100%;
-    height: auto;
-
-    border: 1px solid var(--sk-rule);
+/* Текст на штриховке подкладываем фоном, чтобы читался */
+:is(.doc--rec, .doc--infobox) .image-missing span {
+    padding: 0.1rem 0.6rem;
 
     background: var(--sk-sunken);
 }
 
+
+:is(.doc--rec, .doc--infobox) .image-ratio-16-9 { aspect-ratio: 16 / 9; }
+:is(.doc--rec, .doc--infobox) .image-ratio-4-3  { aspect-ratio: 4 / 3; }
+:is(.doc--rec, .doc--infobox) .image-ratio-3-2  { aspect-ratio: 3 / 2; }
+:is(.doc--rec, .doc--infobox) .image-ratio-1-1  { aspect-ratio: 1 / 1; }
+:is(.doc--rec, .doc--infobox) .image-ratio-3-4  { aspect-ratio: 3 / 4; }
+:is(.doc--rec, .doc--infobox) .image-ratio-9-16 { aspect-ratio: 9 / 16; }
+
+
+/* ---------- Video ---------- */
+
+/*
+ * Встроенный плеер собирается JS (video-widget.js) из тех же частей,
+ * что и просмотрщик: заголовок и метаданные поверх кадра, квадратная
+ * кнопка по центру, плоские контролы, белая полоса прогресса.
+ * Без JS остаётся обычный <video controls> с рамкой.
+ *
+ * Этот блок ставится ВМЕСТО старого раздела «Video» в record-base.css.
+ * Кроме того, в том же файле нужно:
+ *   1. убрать `.widget--video,` из списка селекторов
+ *      «Вкладка-заголовок: видео, аудио, файл» (там `::before`);
+ *   2. аудио и файл остаются с вкладками как были.
+ *
+ * Используется вложенность CSS (&): нужны актуальные браузеры.
+ */
+
+/* Запасной вариант без JS */
+:is(.doc--rec, .doc--infobox) .video-el {
+    display: block;
+
+    width: 100%;
+    max-width: 100%;
+    height: auto;
+    max-height: 70vh;
+
+    border: 1px solid var(--sk-rule);
+
+    background: #000;
+
+    object-fit: contain;
+
+    color-scheme: dark;
+}
+
+
+/* ---------- Кадр ---------- */
+
+:is(.doc--rec, .doc--infobox) .vw-stage {
+    position: relative;
+
+    width: 100%;
+    max-height: 70vh;
+
+    aspect-ratio: var(--vw-ratio, 16 / 9);
+
+    border: 1px solid var(--sk-rule);
+
+    background: #000;
+    color: var(--font-light);
+
+    overflow: hidden;
+    isolation: isolate;
+
+    container-type: inline-size;
+
+    outline: none;
+
+    /* градиенты под текст и контролы, как в просмотрщике */
+    &::before,
+    &::after {
+        content: "";
+
+        position: absolute;
+        right: 0;
+        left: 0;
+        z-index: 2;
+
+        pointer-events: none;
+
+        transition: opacity 250ms ease;
+    }
+
+    &::before {
+        top: 0;
+        height: 90px;
+
+        background: linear-gradient(to bottom, rgb(0 0 0 / 65%), transparent);
+    }
+
+    &::after {
+        bottom: 0;
+        height: 110px;
+
+        background: linear-gradient(to top, rgb(0 0 0 / 78%), transparent);
+    }
+
+    &:focus-visible {
+        outline: 1px solid var(--accent);
+        outline-offset: -1px;
+    }
+
+    & [hidden] {
+        display: none;
+    }
+
+    & .vw-source {
+        position: absolute;
+        inset: 0;
+
+        display: block;
+
+        width: 100%;
+        height: 100%;
+        max-height: none;
+
+        border: 0;
+
+        background: #000;
+
+        object-fit: contain;
+
+        cursor: pointer;
+    }
+
+
+    /* ---------- Метаданные ---------- */
+
+    & .vw-meta {
+        position: absolute;
+        top: 12px;
+        left: 14px;
+        z-index: 4;
+
+        max-width: calc(100% - 28px);
+
+        color: var(--font-light);
+
+        pointer-events: none;
+
+        transition: opacity 250ms ease;
+    }
+
+    & .vw-title {
+        display: flex;
+        align-items: baseline;
+
+        gap: 8px;
+        min-width: 0;
+
+        margin-bottom: 8px;
+    }
+
+    & .vw-format {
+        flex: 0 0 auto;
+
+        font-size: 10px;
+        font-weight: 700;
+        letter-spacing: 0.08em;
+    }
+
+    & .vw-name {
+        min-width: 0;
+
+        font-size: 12px;
+        font-weight: 500;
+        letter-spacing: 0.025em;
+        line-height: 1.4;
+
+        overflow-wrap: anywhere;
+    }
+
+    & .vw-info {
+        display: flex;
+        flex-wrap: wrap;
+
+        gap: 8px;
+
+        margin-top: 3px;
+
+        font-size: 9px;
+        letter-spacing: 0.04em;
+        line-height: 1.5;
+    }
+
+    & .vw-label {
+        flex: 0 0 auto;
+
+        color: var(--font-muted, var(--sk-ink-soft));
+    }
+
+    & .vw-value {
+        min-width: 0;
+
+        font-variant-numeric: tabular-nums;
+        overflow-wrap: anywhere;
+    }
+
+    & .vw-status {
+        position: absolute;
+        top: 14px;
+        right: 14px;
+        z-index: 4;
+
+        color: var(--font-muted, var(--sk-ink-soft));
+
+        font-size: 9px;
+        letter-spacing: 0.1em;
+
+        pointer-events: none;
+
+        transition: opacity 250ms ease;
+    }
+
+
+    /* ---------- Центральная кнопка ---------- */
+
+    & .vw-center {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        z-index: 5;
+
+        display: flex;
+        align-items: center;
+        justify-content: center;
+
+        width: 48px;
+        height: 48px;
+
+        padding: 0;
+
+        transform: translate(-50%, -50%);
+
+        border: 1px solid var(--font-light);
+        border-radius: 0;
+
+        background: var(--font-light);
+
+        cursor: pointer;
+
+        transition: opacity 180ms ease;
+    }
+
+    & .vw-center svg {
+        display: block;
+
+        width: 20px;
+        height: 20px;
+
+        fill: #000;
+        stroke: none;
+    }
+
+
+    /* ---------- Ошибка ---------- */
+
+    & .vw-error {
+        position: absolute;
+        inset: 0;
+        z-index: 8;
+
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+
+        gap: 8px;
+
+        padding: 16px;
+
+        background: #000;
+
+        text-align: center;
+    }
+
+    & .vw-error span {
+        font-size: 10px;
+        letter-spacing: 0.1em;
+    }
+
+    & .vw-error p {
+        max-width: 420px;
+        margin: 0;
+
+        color: var(--font-muted, var(--sk-ink-soft));
+
+        font-size: 11px;
+        line-height: 1.5;
+        overflow-wrap: anywhere;
+    }
+
+
+    /* ---------- Панель управления ---------- */
+
+    & .vw-controls {
+        position: absolute;
+        right: 0;
+        bottom: 0;
+        left: 0;
+        z-index: 7;
+
+        padding: 22px 14px 10px;
+
+        transition: opacity 250ms ease, visibility 250ms ease;
+    }
+
+    & .vw-progress-row {
+        display: flex;
+        align-items: center;
+
+        gap: 10px;
+
+        margin-bottom: 8px;
+    }
+
+    & .vw-time {
+        flex: 0 0 auto;
+
+        min-width: 36px;
+
+        font-size: 10px;
+        font-variant-numeric: tabular-nums;
+        letter-spacing: 0.025em;
+        white-space: nowrap;
+    }
+
+    & .vw-time:last-child {
+        text-align: right;
+    }
+
+    & .vw-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+
+        gap: 12px;
+        min-height: 28px;
+    }
+
+    & .vw-group {
+        display: flex;
+        align-items: center;
+
+        gap: 8px;
+        min-width: 0;
+    }
+
+    & .vw-group-right {
+        justify-content: flex-end;
+
+        margin-left: auto;
+    }
+
+
+    /* ---------- Кнопки ---------- */
+
+    /* a.vw-btn перебивает общее оформление и инверсию ссылок записи */
+    & .vw-btn,
+    & a.vw-btn,
+    & .vw-btn:hover,
+    & a.vw-btn:hover,
+    & .vw-btn:focus-visible,
+    & a.vw-btn:focus-visible {
+        display: inline-flex;
+        flex: 0 0 auto;
+        align-items: center;
+        justify-content: center;
+
+        width: 28px;
+        height: 28px;
+
+        padding: 0;
+
+        border: 1px solid transparent;
+        border-radius: 0;
+
+        background: transparent;
+        color: var(--font-light);
+
+        text-decoration: none;
+
+        cursor: pointer;
+        outline: none;
+        box-shadow: none;
+    }
+
+    & .vw-btn:focus-visible,
+    & a.vw-btn:focus-visible {
+        border-color: var(--accent);
+    }
+
+    & .vw-btn svg {
+        display: block;
+
+        width: 17px;
+        height: 17px;
+
+        fill: none;
+        stroke: var(--font-light);
+        stroke-width: 1.8;
+        stroke-linecap: square;
+        stroke-linejoin: miter;
+    }
+
+    & .vw-play svg {
+        width: 21px;
+        height: 21px;
+
+        fill: var(--font-light);
+        stroke: none;
+    }
+
+
+    /* ---------- Ползунки ---------- */
+
+    & .vw-progress,
+    & .vw-volume {
+        display: block;
+
+        min-width: 0;
+        padding: 0;
+
+        border: 0;
+        border-radius: 0;
+
+        appearance: none;
+        -webkit-appearance: none;
+
+        background: transparent;
+
+        cursor: pointer;
+        outline: none;
+    }
+
+    & .vw-progress {
+        flex: 1 1 auto;
+
+        width: 100%;
+        height: 14px;
+    }
+
+    & .vw-volume {
+        flex: 0 1 72px;
+
+        width: 72px;
+        height: 12px;
+    }
+
+    & .vw-progress::-webkit-slider-runnable-track {
+        width: 100%;
+        height: 3px;
+
+        border: 0;
+        border-radius: 0;
+
+        background: linear-gradient(
+            to right,
+            #fff 0%,
+            #fff var(--vw-progress, 0%),
+            rgb(255 255 255 / 30%) var(--vw-progress, 0%),
+            rgb(255 255 255 / 30%) 100%
+        );
+    }
+
+    & .vw-progress::-moz-range-track,
+    & .vw-volume::-moz-range-track {
+        width: 100%;
+        height: 3px;
+
+        border: 0;
+        border-radius: 0;
+
+        background: rgb(255 255 255 / 30%);
+    }
+
+    & .vw-volume::-webkit-slider-runnable-track {
+        width: 100%;
+        height: 3px;
+
+        border: 0;
+        border-radius: 0;
+
+        background: rgb(255 255 255 / 30%);
+    }
+
+    & .vw-progress::-moz-range-progress,
+    & .vw-volume::-moz-range-progress {
+        height: 3px;
+
+        border: 0;
+        border-radius: 0;
+
+        background: #fff;
+    }
+
+    & .vw-progress::-webkit-slider-thumb {
+        width: 8px;
+        height: 11px;
+        margin-top: -4px;
+
+        border: 0;
+        border-radius: 0;
+
+        appearance: none;
+        -webkit-appearance: none;
+
+        background: #fff;
+    }
+
+    & .vw-volume::-webkit-slider-thumb {
+        width: 7px;
+        height: 10px;
+        margin-top: -3.5px;
+
+        border: 0;
+        border-radius: 0;
+
+        appearance: none;
+        -webkit-appearance: none;
+
+        background: #fff;
+    }
+
+    & .vw-progress::-moz-range-thumb {
+        width: 8px;
+        height: 11px;
+
+        border: 0;
+        border-radius: 0;
+
+        background: #fff;
+    }
+
+    & .vw-volume::-moz-range-thumb {
+        width: 7px;
+        height: 10px;
+
+        border: 0;
+        border-radius: 0;
+
+        background: #fff;
+    }
+
+
+    /* ---------- Скорость ---------- */
+
+    & .vw-speed {
+        display: inline-flex;
+        align-items: center;
+
+        gap: 6px;
+
+        color: var(--font-muted, var(--sk-ink-soft));
+
+        font-size: 8px;
+        letter-spacing: 0.04em;
+        white-space: nowrap;
+    }
+
+    & .vw-speed select {
+        width: 58px;
+        height: 24px;
+
+        padding: 0 18px 0 6px;
+
+        border: 1px solid var(--font-muted, var(--sk-rule));
+        border-radius: 0;
+
+        appearance: none;
+        -webkit-appearance: none;
+
+        background-color: var(--bg, #191919);
+        background-image:
+            linear-gradient(45deg, transparent 50%, var(--font-light) 50%),
+            linear-gradient(135deg, var(--font-light) 50%, transparent 50%);
+        background-position:
+            calc(100% - 9px) 9px,
+            calc(100% - 5px) 9px;
+        background-size: 4px 4px, 4px 4px;
+        background-repeat: no-repeat;
+
+        color: var(--font-light);
+
+        font: inherit;
+        font-size: 10px;
+        font-variant-numeric: tabular-nums;
+        line-height: 1;
+
+        cursor: pointer;
+        outline: none;
+        box-shadow: none;
+    }
+
+    & .vw-speed select:focus-visible {
+        border-color: var(--accent);
+    }
+
+    & .vw-speed select option {
+        background-color: var(--bg, #191919);
+        color: var(--font-light);
+    }
+
+
+    /* ---------- Автоскрытие ---------- */
+
+    &.vw-hidden {
+        cursor: none;
+    }
+
+    &.vw-hidden::before,
+    &.vw-hidden::after {
+        opacity: 0;
+    }
+
+    &.vw-hidden .vw-controls {
+        opacity: 0;
+        visibility: hidden;
+        pointer-events: none;
+    }
+
+    &.vw-hidden :is(.vw-meta, .vw-status, .vw-center) {
+        opacity: 0;
+        pointer-events: none;
+    }
+
+
+    /* ---------- Полный экран ---------- */
+
+    &.vw-fullscreen {
+        width: 100%;
+        height: 100%;
+        max-height: none;
+
+        aspect-ratio: auto;
+
+        border: 0;
+    }
+
+    &.vw-fullscreen .vw-meta {
+        top: 24px;
+        left: 26px;
+    }
+
+    &.vw-fullscreen .vw-status {
+        top: 27px;
+        right: 26px;
+    }
+
+    &.vw-fullscreen .vw-controls {
+        padding: 30px 26px 22px;
+    }
+}
+
+
+/* ---------- Подпись ---------- */
+
+/* Подпись под плеером остаётся строкой консоли с «>» */
+:is(.doc--rec, .doc--infobox) .widget--video .asset-caption {
+    margin-top: 0.3rem;
+}
+
+
+/* ---------- Узкий плеер (инфобокс, узкое окно) ---------- */
+
+@container (max-width: 460px) {
+    :is(.doc--rec, .doc--infobox) .vw-info {
+        display: none;
+    }
+
+    :is(.doc--rec, .doc--infobox) .vw-speed > span {
+        display: none;
+    }
+
+    :is(.doc--rec, .doc--infobox) .vw-volume {
+        flex-basis: 48px;
+
+        width: 48px;
+    }
+}
+
+@container (max-width: 320px) {
+    :is(.doc--rec, .doc--infobox) .vw-volume,
+    :is(.doc--rec, .doc--infobox) .vw-status {
+        display: none;
+    }
+
+    :is(.doc--rec, .doc--infobox) .vw-time {
+        min-width: 0;
+    }
+}
+
+
+@media (prefers-reduced-motion: reduce) {
+    :is(.doc--rec, .doc--infobox) .vw-stage,
+    :is(.doc--rec, .doc--infobox) .vw-stage::before,
+    :is(.doc--rec, .doc--infobox) .vw-stage::after,
+    :is(.doc--rec, .doc--infobox) .vw-stage :is(.vw-controls, .vw-meta, .vw-status, .vw-center) {
+        transition: none;
+    }
+}
+
+
+/* ---------- Audio ---------- */
+
+/* Карточка с осциллограммой нужна только скану */
+:is(.doc--rec, .doc--infobox) .audio-card {
+    display: none;
+}
+
+
 :is(.doc--rec, .doc--infobox) .widget--audio {
-    padding: 0.4rem 0.7rem 0.5rem;
+    padding: 0.5rem 0.7rem 0.6rem;
 
     border: 1px solid var(--sk-rule);
 
     background: var(--sk-panel);
 }
 
+
+:is(.doc--rec, .doc--infobox) .widget--audio::before {
+    content: "АУДИО";
+}
+
+
 :is(.doc--rec, .doc--infobox) .audio-title {
-    margin-bottom: 0.3rem;
+    margin-bottom: 0.35rem;
 
     color: var(--sk-ink-strong);
 
-    font-size: 0.72rem;
+    font-size: 0.78rem;
     font-weight: 700;
-    letter-spacing: 0.08em;
+    letter-spacing: 0.06em;
+    line-height: 1.4;
 
-    text-transform: uppercase;
+    overflow-wrap: anywhere;
 }
+
 
 :is(.doc--rec, .doc--infobox) .audio-el {
     display: block;
 
     width: 100%;
+    max-width: 100%;
+    min-width: 0;
+
+    accent-color: var(--accent);
+    color-scheme: dark;
 }
 
-:is(.doc--rec, .doc--infobox) .image-img,
-:is(.doc--rec, .doc--infobox) .video-el {
-    max-height: 70vh;
 
-    object-fit: contain;
+/* ---------- File ---------- */
+
+/*
+ * Одна тихая строка с точечным заполнителем:
+ *   ↓ [PDF] Название ................ 2.3 МБ  ОТКРЫТЬ
+ * Вся строка это ссылка на скачивание (растянутая ссылка через ::after).
+ * «Открыть» лежит поверх неё отдельной мелкой ссылкой.
+ * При наведении строка инвертируется, как строки в aether.db.
+ *
+ * Ставится ВМЕСТО старого раздела «File» в record-base.css целиком,
+ * вместе с хвостом `.doc--infobox .widget--file ...`.
+ * Правило `.widget--file .file-code { display: none }` больше не нужно.
+ */
+
+:is(.doc--rec, .doc--infobox) .widget--file {
+    position: relative;
+
+    display: flex;
+    align-items: center;
+
+    gap: 0;
+
+    margin: 0.5rem 0;
+    padding: 5px 10px;
+
+    border: 0;
+
+    background: transparent;
+    color: var(--font-light);
+
+    font-size: 12px;
+    line-height: 1.4;
 }
 
-:is(.doc--rec, .doc--infobox) .asset-caption {
-    margin-top: 0.3rem;
-
-    color: var(--sk-ink-soft);
-
-    font-size: 0.72rem;
-    letter-spacing: 0.04em;
+:is(.doc--rec, .doc--infobox) .widget--file:hover,
+:is(.doc--rec, .doc--infobox) .widget--file:focus-within {
+    background: var(--font-light);
+    color: var(--font-dark);
 }
 
-:is(.doc--rec, .doc--infobox) .md .image-link {
-    display: block;
+/* Название и метка: клик по любой точке строки скачивает */
+:is(.doc--rec, .doc--infobox) .widget--file a.file-main.file-main {
+    flex: 0 1 auto;
+    min-width: 0;
+
+    overflow: hidden;
+
+    color: inherit;
+    background: none;
+
+    font-weight: 500;
+    letter-spacing: 0.025em;
 
     text-decoration: none;
-    cursor: zoom-in;
-}
+    text-overflow: ellipsis;
+    white-space: nowrap;
 
-:is(.doc--rec, .doc--infobox) .md .image-link:hover,
-:is(.doc--rec, .doc--infobox) .md .image-link:focus-visible {
-    background: none;
     outline: none;
 }
 
-:is(.doc--rec, .doc--infobox) .image-link:hover .image-img,
-:is(.doc--rec, .doc--infobox) .image-link:focus-visible .image-img {
-    outline: 1px solid var(--accent);
-    outline-offset: -1px;
+:is(.doc--rec, .doc--infobox) .widget--file a.file-main.file-main::before {
+    content: "> " attr(data-tag);
+
+    margin-right: 8px;
+
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+
+    color: var(--accent);
 }
 
-/* -------------------------------------------------- */
-/* File  (файл: скачать или открыть во вьювере)       */
-/* -------------------------------------------------- */
-:is(.doc--rec, .doc--infobox) .widget--file {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    justify-content: space-between;
-
-    gap: 0.4rem 1.5ch;
-
-    padding: 0.35rem 0.7rem;
-
-    border: 1px solid var(--sk-rule);
-
-    background: var(--sk-panel);
+:is(.doc--rec, .doc--infobox) .widget--file:hover a.file-main.file-main::before,
+:is(.doc--rec, .doc--infobox) .widget--file:focus-within a.file-main.file-main::before {
+    color: inherit;
 }
 
-:is(.doc--rec, .doc--infobox) .file-info {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: baseline;
+:is(.doc--rec, .doc--infobox) .widget--file a.file-main.file-main::after {
+    content: "";
 
-    gap: 0.1rem 1.5ch;
-
-    min-width: 0;
+    position: absolute;
+    inset: 0;
 }
 
-:is(.doc--rec, .doc--infobox) .file-name {
-    min-width: 0;
+/* Точечный заполнитель */
+:is(.doc--rec, .doc--infobox) .widget--file .file-dots {
+    flex: 1 1 1.5rem;
+    min-width: 1rem;
 
-    color: var(--sk-ink-strong);
+    margin: 0 8px;
 
-    font-size: 0.82rem;
-    overflow-wrap: anywhere;
+    overflow: hidden;
+
+    letter-spacing: 0.25em;
+    white-space: nowrap;
+
+    opacity: 0.4;
 }
 
-:is(.doc--rec, .doc--infobox) .file-size {
+/* Символы вместо границы: обрезаются по ширине, как в консоли */
+:is(.doc--rec, .doc--infobox) .widget--file .file-dots::before {
+    content: "........................................................................................................................";
+}
+
+:is(.doc--rec, .doc--infobox) .widget--file .file-size {
     flex: 0 0 auto;
 
-    color: var(--sk-ink-soft);
-
-    font-size: 0.72rem;
+    font-size: 11px;
+    font-variant-numeric: tabular-nums;
     letter-spacing: 0.04em;
+    white-space: nowrap;
 }
 
-:is(.doc--rec, .doc--infobox) .file-actions {
-    display: flex;
+/* «Открыть»: мелкая ссылка поверх растянутой */
+:is(.doc--rec, .doc--infobox) .widget--file a.file-open.file-open {
+    position: relative;
+    z-index: 1;
+
     flex: 0 0 auto;
 
-    gap: 0.4rem;
-}
+    margin-left: 14px;
 
-/* кнопка: плоская рамка; при наведении работает общая инверсия ссылок */
-:is(.doc--rec, .doc--infobox) .md .file-btn {
-    padding: 0.15rem 0.7rem;
+    background: none;
+    color: var(--font-light);
 
-    border: 1px solid var(--accent);
-
-    font-size: 0.72rem;
+    font-size: 9px;
     font-weight: 700;
     letter-spacing: 0.1em;
-    line-height: 1.6;
 
     text-decoration: none;
     text-transform: uppercase;
+    white-space: nowrap;
+
+    outline: none;
 }
+
+:is(.doc--rec, .doc--infobox) .widget--file a.file-open.file-open::before {
+    content: "[";
+
+    margin-right: 3px;
+}
+
+:is(.doc--rec, .doc--infobox) .widget--file a.file-open.file-open::after {
+    content: "]";
+
+    margin-left: 3px;
+}
+
+:is(.doc--rec, .doc--infobox) .widget--file a.file-open.file-open:hover,
+:is(.doc--rec, .doc--infobox) .widget--file a.file-open.file-open:focus-visible {
+    background: var(--bg);
+    color: var(--font-light);
+}
+
+/* Наведение на карточку: белый фон, весь текст чёрный, включая кнопку */
+:is(.doc--rec, .doc--infobox) .widget--file:hover a.file-open.file-open,
+:is(.doc--rec, .doc--infobox) .widget--file:focus-within a.file-open.file-open {
+    color: var(--font-dark);
+}
+
+:is(.doc--rec, .doc--infobox) .widget--file a.file-open.file-open:hover,
+:is(.doc--rec, .doc--infobox) .widget--file a.file-open.file-open:focus-visible,
+:is(.doc--rec, .doc--infobox) .widget--file:hover a.file-open.file-open:hover,
+:is(.doc--rec, .doc--infobox) .widget--file:focus-within a.file-open.file-open:focus-visible {
+    background: var(--bg);
+    color: var(--font-light);
+}
+
 
 /* -------------------------------------------------- */
 /* Divider  (разделитель)                             */

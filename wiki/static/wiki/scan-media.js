@@ -1,7 +1,7 @@
 /* =========================================================
    Aether Wiki — Scan Media
-   Видео в формате архивного контактного листа.
-   Обработка выполняется в браузере, без сохранения файлов.
+   Архивный контактный лист видео.
+   Метаданные и кадры загружаются независимо по этапам.
    ========================================================= */
 
 (function () {
@@ -14,80 +14,21 @@
     const FRAME_WIDTH = 480;
     const JPEG_QUALITY = 0.72;
 
-    const LOAD_TIMEOUT = 15000;
-    const SEEK_TIMEOUT = 8000;
+    const LOAD_TIMEOUT = 30000;
+    const SEEK_TIMEOUT = 10000;
 
-    /*
-     * Кэш действует только в пределах текущей страницы.
-     *
-     * key: URL видео
-     * value: Promise с готовыми кадрами
-     *
-     * Promise позволяет не обрабатывать один файл несколько
-     * раз, если он встретился в нескольких местах документа.
-     */
     const frameCache = new Map();
-
     const initialized = new WeakSet();
 
     let observer = null;
 
     /* =====================================================
-       Вспомогательные функции
+       Форматирование
        ===================================================== */
-
-    function getVideoMetadata(widget, video, duration) {
-        const filename = widget.dataset.fileName || "UNKNOWN";
-        const assetId = widget.dataset.assetId || "UNKNOWN";
-        const viewerUrl = widget.dataset.viewerUrl || "";
-
-        const cleanName = filename.split(/[\\/]/).pop();
-
-        const resolution = video.videoWidth && video.videoHeight
-            ? video.videoWidth + " × " + video.videoHeight
-            : "UNKNOWN";
-
-        const status = document.createElement("div");
-        status.className = "video-preview-status";
-
-        const details = document.createElement("div");
-        details.className = "video-preview-meta";
-
-        const info = document.createElement("div");
-        info.className = "video-preview-info";
-        info.textContent =
-            cleanName +
-            " · DURATION: " + formatTime(duration) +
-            " · RESOLUTION: " + resolution;
-
-        details.appendChild(info);
-
-        if (viewerUrl) {
-            const link = document.createElement("a");
-            link.className = "file-btn video-preview-id";
-            link.href = viewerUrl;
-            link.dataset.assetViewer = viewerUrl;
-            link.dataset.assetTitle = cleanName;
-            link.textContent = "ID: " + assetId;
-            link.title = "Открыть видео в viewer";
-
-            details.appendChild(link);
-        } else {
-            const id = document.createElement("span");
-            id.className = "video-preview-id";
-            id.textContent = "ID: " + assetId;
-
-            details.appendChild(id);
-        }
-
-        status.appendChild(details);
-
-        return status;
-    }
 
     function formatTime(seconds) {
         if (!Number.isFinite(seconds) || seconds < 0) {
-            return "00:00";
+            return "--:--";
         }
 
         seconds = Math.floor(seconds);
@@ -110,19 +51,115 @@
         return mm + ":" + ss;
     }
 
+    function getFileInfo(widget) {
+        const filename =
+            widget.dataset.fileName || "UNKNOWN";
+
+        return {
+            filename: filename.split(/[\\/]/).pop(),
+            assetId: widget.dataset.assetId || "UNKNOWN",
+            viewerUrl: widget.dataset.viewerUrl || ""
+        };
+    }
+
+    /* =====================================================
+       Метаданные
+
+       Блок создаётся сразу. До loadedmetadata отображаются
+       имя файла и ID, остальные поля заполняются позднее.
+       ===================================================== */
+
+    function createMetadataElement(widget) {
+        const status = document.createElement("div");
+        status.className = "video-preview-status";
+        status.setAttribute("role", "status");
+
+        const details = document.createElement("div");
+        details.className = "video-preview-meta";
+
+        const info = document.createElement("div");
+        info.className = "video-preview-info";
+
+        const id = document.createElement("span");
+        const file = getFileInfo(widget);
+
+        info.textContent =
+            file.filename +
+            " · DURATION: --:--" +
+            " · RESOLUTION: UNKNOWN";
+
+        if (file.viewerUrl) {
+            const link = document.createElement("a");
+
+            link.className = "file-btn video-preview-id";
+            link.href = file.viewerUrl;
+            link.dataset.assetViewer = file.viewerUrl;
+            link.dataset.assetTitle = file.filename;
+            link.textContent = "ID: " + file.assetId;
+            link.title = "Открыть видео в viewer";
+
+            id.replaceWith(link);
+            details.append(info, link);
+        } else {
+            id.className = "video-preview-id";
+            id.textContent = "ID: " + file.assetId;
+
+            details.append(info, id);
+        }
+
+        status.appendChild(details);
+
+        return status;
+    }
+
+    function updateMetadataElement(element, widget, metadata) {
+        const file = getFileInfo(widget);
+
+        const resolution =
+            metadata &&
+            metadata.width > 0 &&
+            metadata.height > 0
+                ? metadata.width + " × " + metadata.height
+                : "UNKNOWN";
+
+        const duration =
+            metadata && Number.isFinite(metadata.duration)
+                ? formatTime(metadata.duration)
+                : "--:--";
+
+        const info = element.querySelector(".video-preview-info");
+
+        if (info) {
+            info.textContent =
+                file.filename +
+                " · DURATION: " + duration +
+                " · RESOLUTION: " + resolution;
+        }
+    }
+
+    /* =====================================================
+       События медиа
+       ===================================================== */
+
     function waitForEvent(media, successEvent, timeoutMs) {
         return new Promise(function (resolve, reject) {
             let settled = false;
 
             const timeout = window.setTimeout(function () {
-                finish(new Error("Превышено время ожидания: " + successEvent));
+                finish(
+                    new Error(
+                        "Превышено время ожидания: " + successEvent
+                    )
+                );
             }, timeoutMs);
 
             function cleanup() {
                 window.clearTimeout(timeout);
+
                 media.removeEventListener(successEvent, onSuccess);
                 media.removeEventListener("error", onError);
                 media.removeEventListener("abort", onAbort);
+                media.removeEventListener("stalled", onStalled);
             }
 
             function finish(error) {
@@ -145,22 +182,33 @@
             }
 
             function onError() {
-                finish(new Error("Ошибка чтения медиаданных"));
+                const mediaError = media.error;
+
+                finish(
+                    new Error(
+                        "Ошибка декодирования видео" +
+                        (
+                            mediaError
+                                ? " (код " + mediaError.code + ")"
+                                : ""
+                        )
+                    )
+                );
             }
 
             function onAbort() {
-                finish(new Error("Загрузка медиаданных прервана"));
+                finish(new Error("Загрузка видео прервана"));
+            }
+
+            function onStalled() {
+                /* Не завершаем ожидание: браузер может продолжить загрузку. */
             }
 
             media.addEventListener(successEvent, onSuccess);
             media.addEventListener("error", onError);
             media.addEventListener("abort", onAbort);
+            media.addEventListener("stalled", onStalled);
 
-            /*
-            * Учитываем события, которые могли произойти раньше.
-            * Для seeked такой проверки намеренно нет:
-            * ожидание должно начинаться до изменения currentTime.
-            */
             if (
                 successEvent === "loadedmetadata" &&
                 media.readyState >= HTMLMediaElement.HAVE_METADATA
@@ -176,150 +224,133 @@
     }
 
 
-    function waitForSeek(video, targetTime, timeoutMs) {
-        return new Promise(function (resolve, reject) {
-            let settled = false;
-            let timeoutId;
-            let checkId;
-
-            function cleanup() {
-                window.clearTimeout(timeoutId);
-                window.clearInterval(checkId);
-
-                video.removeEventListener("seeked", checkSeek);
-                video.removeEventListener("timeupdate", checkSeek);
+    function waitForSeek(video, time) {
+        return new Promise((resolve, reject) => {
+            const cleanup = () => {
+                video.removeEventListener("seeked", onSeeked);
                 video.removeEventListener("error", onError);
-                video.removeEventListener("abort", onAbort);
-            }
+            };
 
-            function finish(error) {
-                if (settled) {
-                    return;
-                }
-
-                settled = true;
+            const onSeeked = () => {
                 cleanup();
+                resolve();
+            };
 
-                if (error) {
-                    reject(error);
-                } else {
-                    resolve();
-                }
-            }
-
-            function checkSeek() {
-                if (
-                    !video.seeking &&
-                    Number.isFinite(video.currentTime) &&
-                    Math.abs(video.currentTime - targetTime) < 0.1 &&
-                    video.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA
-                ) {
-                    finish(null);
-                }
-            }
-
-            function onError() {
-                finish(new Error("Ошибка чтения видео при перемотке"));
-            }
-
-            function onAbort() {
-                finish(new Error("Загрузка видео прервана при перемотке"));
-            }
-
-            video.addEventListener("seeked", checkSeek);
-            video.addEventListener("timeupdate", checkSeek);
-            video.addEventListener("error", onError);
-            video.addEventListener("abort", onAbort);
-
-            timeoutId = window.setTimeout(function () {
-                finish(
-                    new Error(
-                        "Не удалось переместиться на " +
-                        targetTime.toFixed(2) +
-                        " с за отведённое время"
-                    )
+            const onError = () => {
+                cleanup();
+                reject(
+                    video.error ||
+                    new Error("Ошибка декодирования видео")
                 );
-            }, timeoutMs);
+            };
 
-            /*
-            * Некоторые браузеры не присылают seeked ожидаемым образом.
-            * Проверяем фактическую позицию видео независимо от события.
-            */
-            checkId = window.setInterval(checkSeek, 100);
+            // Сначала подписываемся, затем начинаем перемотку.
+            video.addEventListener("seeked", onSeeked);
+            video.addEventListener("error", onError);
 
-            checkSeek();
+            if (Math.abs(video.currentTime - time) < 0.01) {
+                cleanup();
+                resolve();
+                return;
+            }
+
+            video.currentTime = time;
         });
     }
 
 
-    function createStatus(preview, message) {
-        let status = preview.querySelector(".video-preview-status");
-
-        if (!status) {
-            status = document.createElement("div");
-            status.className = "video-preview-status";
-            status.setAttribute("role", "status");
-            preview.appendChild(status);
-        }
-
-        status.textContent = message;
-
-        return status;
-    }
+    /* =====================================================
+       Превью и геометрия
+       ===================================================== */
 
     function createPreview(widget) {
         const preview = document.createElement("div");
+
         preview.className = "video-preview";
-        preview.setAttribute("aria-label", "Архивный контактный лист видео");
+        preview.setAttribute(
+            "aria-label",
+            "Архивный контактный лист видео"
+        );
 
         const grid = document.createElement("div");
         grid.className = "video-preview-grid";
 
+        /*
+         * Если исходный плеер уже знает размеры, используем
+         * их для заглушек ещё до запуска декодера.
+         */
+        const sourceVideo = widget.querySelector(VIDEO_SELECTOR);
+
+        let initialRatio = null;
+
+        if (
+            sourceVideo &&
+            sourceVideo.videoWidth > 0 &&
+            sourceVideo.videoHeight > 0
+        ) {
+            initialRatio =
+                sourceVideo.videoWidth / sourceVideo.videoHeight;
+        }
+
+        for (let index = 0; index < FRAME_COUNT; index += 1) {
+            const tile = document.createElement("div");
+
+            tile.className =
+                "video-preview-frame video-preview-frame--pending";
+
+            tile.dataset.frameIndex = String(index);
+            tile.setAttribute("aria-hidden", "true");
+
+            if (initialRatio) {
+                tile.style.aspectRatio =
+                    sourceVideo.videoWidth + " / " +
+                    sourceVideo.videoHeight;
+            }
+
+            grid.appendChild(tile);
+        }
+
         preview.appendChild(grid);
 
-        /*
-         * Вставляем превью перед исходным видео.
-         * Сам video остаётся в DOM, но скрывается CSS.
-         */
+        const metadataElement = createMetadataElement(widget);
+        preview.appendChild(metadataElement);
+
         widget.insertBefore(preview, widget.firstChild);
 
         return {
             root: preview,
-            grid: grid
+            grid: grid,
+            metadata: metadataElement
         };
     }
 
-    function renderFrames(grid, frames) {
-        grid.replaceChildren();
+    function setFrameAspectRatio(grid, metadata) {
+        if (
+            !metadata ||
+            !Number.isFinite(metadata.width) ||
+            !Number.isFinite(metadata.height) ||
+            metadata.width <= 0 ||
+            metadata.height <= 0
+        ) {
+            return;
+        }
 
-        frames.forEach(function (frame) {
-            const tile = document.createElement("div");
-            tile.className = "video-preview-frame";
+        const ratio =
+            metadata.width + " / " + metadata.height;
 
-            const image = document.createElement("img");
-            image.src = frame.src;
-            image.alt = "Кадр видео, " + formatTime(frame.time);
-            image.loading = "lazy";
-            image.decoding = "async";
-
-            const timestamp = document.createElement("span");
-            timestamp.className = "video-preview-time";
-            timestamp.textContent = formatTime(frame.time);
-
-            tile.appendChild(image);
-            tile.appendChild(timestamp);
-            grid.appendChild(tile);
-        });
+        /*
+         * Задаём ratio непосредственно каждой плитке.
+         * Это исключает зависимость от наследования CSS-переменной.
+         */
+        grid.querySelectorAll(".video-preview-frame").forEach(
+            function (tile) {
+                tile.style.aspectRatio = ratio;
+            }
+        );
     }
 
     function getFrameTimes(duration) {
-        /*
-         * Берём кадры внутри длительности, не с самого начала
-         * и не с последнего кадра, где часто бывает пустота.
-         */
-        const positions = [0.12, 0.38, 0.64, 0.88];
-
-        return positions
+        return [0.12, 0.38, 0.64, 0.88]
             .slice(0, FRAME_COUNT)
             .map(function (position) {
                 return Math.min(
@@ -330,10 +361,59 @@
     }
 
     /* =====================================================
-       Чтение кадров
+       Отображение кадров
        ===================================================== */
 
-    async function extractFrames(sourceUrl) {
+    function renderFrame(grid, frame) {
+        const tile = grid.querySelector(
+            '[data-frame-index="' + frame.index + '"]'
+        );
+
+        if (!tile || tile.dataset.frameReady === "true") {
+            return;
+        }
+
+        tile.dataset.frameReady = "true";
+        tile.classList.remove("video-preview-frame--pending");
+        tile.classList.add("video-preview-frame--loading");
+
+        const image = document.createElement("img");
+
+        image.className = "video-preview-image";
+        image.alt = "Кадр видео, " + formatTime(frame.time);
+        image.decoding = "async";
+        image.draggable = false;
+
+        const timestamp = document.createElement("span");
+
+        timestamp.className = "video-preview-time";
+        timestamp.textContent = formatTime(frame.time);
+
+        image.addEventListener("load", function () {
+            window.requestAnimationFrame(function () {
+                tile.classList.remove("video-preview-frame--loading");
+                tile.classList.add("video-preview-frame--revealed");
+            });
+        }, { once: true });
+
+        image.addEventListener("error", function () {
+            tile.classList.remove("video-preview-frame--loading");
+            tile.classList.add("video-preview-frame--error");
+        }, { once: true });
+
+        tile.append(image, timestamp);
+        image.src = frame.src;
+    }
+
+    /* =====================================================
+       Извлечение кадров
+
+       Важно: исходный URL назначается непосредственно video.src.
+       Весь файл не скачивается заранее через fetch() и blob().
+       Браузер сам загружает необходимые диапазоны данных.
+       ===================================================== */
+
+    async function extractFrames(sourceUrl, onMetadata, onFrame) {
         const video = document.createElement("video");
 
         video.preload = "auto";
@@ -342,11 +422,6 @@
         video.controls = false;
         video.setAttribute("aria-hidden", "true");
 
-        /*
-         * Элемент должен быть загружен, но не отображаться.
-         * display:none здесь не используется: отдельные браузеры
-         * ведут себя с ним нестабильно при декодировании кадров.
-         */
         video.style.position = "fixed";
         video.style.left = "-10000px";
         video.style.top = "0";
@@ -358,6 +433,10 @@
         document.body.appendChild(video);
 
         try {
+            /*
+             * Сначала регистрируем обработчик, затем назначаем URL,
+             * чтобы не пропустить loadedmetadata.
+             */
             const metadataPromise = waitForEvent(
                 video,
                 "loadedmetadata",
@@ -370,19 +449,34 @@
             await metadataPromise;
 
             const duration = video.duration;
+            const width = video.videoWidth;
+            const height = video.videoHeight;
 
             if (!Number.isFinite(duration) || duration <= 0) {
-                throw new Error("Не удалось определить длительность видео");
+                throw new Error(
+                    "Браузер не смог определить длительность видео"
+                );
             }
 
-            if (!video.videoWidth || !video.videoHeight) {
-                throw new Error("Видео не содержит доступных кадров");
+            if (width <= 0 || height <= 0) {
+                throw new Error(
+                    "Браузер не смог определить разрешение видео"
+                );
             }
 
-            const aspectRatio = video.videoWidth / video.videoHeight;
+            const metadata = {
+                duration: duration,
+                width: width,
+                height: height,
+                aspectRatio: width / height
+            };
 
-            const times = getFrameTimes(duration);
-            const frames = [];
+            /*
+             * Метаданные публикуются до декодирования кадров.
+             */
+            if (typeof onMetadata === "function") {
+                onMetadata(metadata);
+            }
 
             const canvas = document.createElement("canvas");
             const context = canvas.getContext("2d", {
@@ -390,43 +484,25 @@
             });
 
             if (!context) {
-                throw new Error("Canvas недоступен");
+                throw new Error("Canvas 2D недоступен");
             }
 
-            const scale = Math.min(
-                1,
-                FRAME_WIDTH / video.videoWidth
-            );
+            const scale = Math.min(1, FRAME_WIDTH / width);
 
-            canvas.width = Math.max(
-                1,
-                Math.round(video.videoWidth * scale)
-            );
+            canvas.width = Math.max(1, Math.round(width * scale));
+            canvas.height = Math.max(1, Math.round(height * scale));
 
-            canvas.height = Math.max(
-                1,
-                Math.round(video.videoHeight * scale)
-            );
+            const times = getFrameTimes(duration);
+            const frames = [];
+
 
             for (const time of times) {
-                /*
-                 * Если видео уже находится на нужном времени,
-                 * принудительный seek не нужен.
-                 */
-                if (Math.abs(video.currentTime - time) > 0.01) {
-                    const seekPromise = waitForSeek(
-                        video,
-                        time,
-                        SEEK_TIMEOUT
-                    );
+                await waitForSeek(video, time);
 
-                    video.currentTime = time;
-
-                    await seekPromise;
-                }
-
+                // После seeked ждём, пока браузер получит данные для кадра.
                 if (
-                    video.readyState < HTMLMediaElement.HAVE_CURRENT_DATA
+                    video.readyState <
+                    HTMLMediaElement.HAVE_CURRENT_DATA
                 ) {
                     await waitForEvent(
                         video,
@@ -434,6 +510,13 @@
                         LOAD_TIMEOUT
                     );
                 }
+
+                // Даём браузеру возможность завершить отрисовку декодированного кадра.
+                await new Promise(resolve => {
+                    requestAnimationFrame(() => {
+                        requestAnimationFrame(resolve);
+                    });
+                });
 
                 context.drawImage(
                     video,
@@ -443,20 +526,28 @@
                     canvas.height
                 );
 
-                frames.push({
+                const frame = {
+                    index: frames.length,
                     time: time,
                     src: canvas.toDataURL(
                         "image/jpeg",
                         JPEG_QUALITY
                     )
-                });
+                };
+
+                frames.push(frame);
+
+                if (typeof onFrame === "function") {
+                    onFrame(frame);
+                }
             }
+
 
             return {
                 duration: duration,
-                width: video.videoWidth,
-                height: video.videoHeight,
-                aspectRatio: aspectRatio,
+                width: width,
+                height: height,
+                aspectRatio: width / height,
                 frames: frames
             };
         } finally {
@@ -468,10 +559,71 @@
     }
 
     /* =====================================================
-       Обработка одного виджета
+       Кэш общей задачи
        ===================================================== */
 
-    
+    function getFrameTask(sourceUrl) {
+        const cached = frameCache.get(sourceUrl);
+
+        if (cached) {
+            return cached;
+        }
+
+        const task = {
+            frames: [],
+            subscribers: new Set(),
+            metadata: null,
+            metadataSubscribers: new Set(),
+            promise: null
+        };
+
+        /*
+         * Запускаем задачу один раз на URL.
+         * Подписчики получают метаданные и кадры независимо.
+         */
+        task.promise = extractFrames(
+            sourceUrl,
+
+            function (metadata) {
+                task.metadata = metadata;
+
+                task.metadataSubscribers.forEach(function (subscriber) {
+                    try {
+                        subscriber(metadata);
+                    } catch (error) {
+                        console.error(
+                            "[Aether Wiki] Ошибка обновления метаданных:",
+                            error
+                        );
+                    }
+                });
+            },
+
+            function (frame) {
+                task.frames[frame.index] = frame;
+
+                task.subscribers.forEach(function (subscriber) {
+                    try {
+                        subscriber(frame);
+                    } catch (error) {
+                        console.error(
+                            "[Aether Wiki] Ошибка отображения кадра:",
+                            error
+                        );
+                    }
+                });
+            }
+        );
+
+        frameCache.set(sourceUrl, task);
+
+        return task;
+    }
+
+    /* =====================================================
+       Обработка виджета
+       ===================================================== */
+
     async function processWidget(widget) {
         if (initialized.has(widget)) {
             return;
@@ -479,74 +631,83 @@
 
         initialized.add(widget);
 
-        const video = widget.querySelector(VIDEO_SELECTOR);
+        const sourceVideo = widget.querySelector(VIDEO_SELECTOR);
 
-        if (!video) {
+        if (!sourceVideo) {
             return;
         }
 
-        const sourceUrl = video.currentSrc || video.src;
+        const sourceUrl =
+            sourceVideo.currentSrc ||
+            sourceVideo.src ||
+            sourceVideo.getAttribute("src");
 
-        const previewParts = createPreview(widget);
-        const preview = previewParts.root;
-        const grid = previewParts.grid;
+        const parts = createPreview(widget);
+        const preview = parts.root;
+        const grid = parts.grid;
+        const metadataElement = parts.metadata;
 
+        /*
+         * Имя файла и ID уже видны. Длительность и разрешение
+         * пока имеют значения-заполнители.
+         */
         if (!sourceUrl) {
             preview.classList.add("video-preview--failed");
-            createStatus(
-                preview,
-                "ПРЕДПРОСМОТР НЕДОСТУПЕН — ИСТОЧНИК НЕ УКАЗАН"
-            );
+            showError(preview, "ИСТОЧНИК ВИДЕО НЕ УКАЗАН");
             return;
         }
 
-        createStatus(preview, "ИЗВЛЕЧЕНИЕ КАДРОВ…");
+        const task = getFrameTask(sourceUrl);
 
-        let cachedPromise = frameCache.get(sourceUrl);
+        function onMetadata(metadata) {
+            updateMetadataElement(
+                metadataElement,
+                widget,
+                metadata
+            );
 
-        if (!cachedPromise) {
-            cachedPromise = extractFrames(sourceUrl);
-            frameCache.set(sourceUrl, cachedPromise);
+            setFrameAspectRatio(grid, metadata);
         }
 
+        function onFrame(frame) {
+            renderFrame(grid, frame);
+        }
+
+        task.metadataSubscribers.add(onMetadata);
+        task.subscribers.add(onFrame);
+
+        /*
+         * Если задача уже выполняется, немедленно отображаем
+         * имеющиеся метаданные и ранее извлечённые кадры.
+         */
+        if (task.metadata) {
+            onMetadata(task.metadata);
+        }
+
+        task.frames.forEach(function (frame) {
+            if (frame) {
+                onFrame(frame);
+            }
+        });
+
         try {
-            const result = await cachedPromise;
+            const result = await task.promise;
 
-            renderFrames(grid, result.frames);
-
-            grid.style.setProperty(
-                "--frame-ratio",
-                result.width + " / " + result.height
-            );
+            onMetadata(result);
 
             preview.classList.remove("video-preview--failed");
-
-            const oldStatus = preview.querySelector(
-                ".video-preview-status"
-            );
-
-            if (oldStatus) {
-                oldStatus.remove();
-            }
-
-            preview.appendChild(
-                getVideoMetadata(widget, video, result.duration)
-            );
-
         } catch (error) {
-            /*
-            * Удаляем неудачный Promise из кэша,
-            * чтобы обработку можно было повторить.
-            */
-            if (frameCache.get(sourceUrl) === cachedPromise) {
+            if (frameCache.get(sourceUrl) === task) {
                 frameCache.delete(sourceUrl);
             }
 
-            preview.classList.add("video-preview--failed");
-
-            createStatus(
+            /*
+             * Не скрываем сетку: уже извлечённые кадры остаются.
+             * Ошибка отображается отдельно от метаданных.
+             */
+            showError(
                 preview,
-                "ПРЕДПРОСМОТР НЕДОСТУПЕН — ФОРМАТ НЕ ПОДДЕРЖИВАЕТСЯ ИЛИ ПОТОК НЕ ЧИТАЕТСЯ"
+                "НЕ УДАЛОСЬ ИЗВЛЕЧЬ ВСЕ КАДРЫ"
             );
 
             console.warn(
@@ -554,9 +715,27 @@
                 sourceUrl,
                 error
             );
+        } finally {
+            task.subscribers.delete(onFrame);
+            task.metadataSubscribers.delete(onMetadata);
         }
     }
 
+    function showError(preview, message) {
+        let errorElement = preview.querySelector(
+            ".video-preview-error"
+        );
+
+        if (!errorElement) {
+            errorElement = document.createElement("div");
+            errorElement.className = "video-preview-error";
+            errorElement.setAttribute("role", "status");
+
+            preview.appendChild(errorElement);
+        }
+
+        errorElement.textContent = message;
+    }
 
     /* =====================================================
        Инициализация и ленивая обработка
@@ -615,10 +794,6 @@
 
         scan(document);
 
-        /*
-         * Поддержка документов, которые подгружаются в DOM
-         * после первоначальной загрузки страницы.
-         */
         const mutationObserver = new MutationObserver(function (records) {
             records.forEach(function (record) {
                 record.addedNodes.forEach(function (node) {

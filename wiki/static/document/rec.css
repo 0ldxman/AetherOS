@@ -95,3 +95,7 @@
         padding: 0.6rem 0.65rem 0.8rem;
     }
 }
+
+:is(.doc--rec, .doc--infobox) .audio-card { display: none; }
+.doc--web .audio-card { display: none; }
+.doc--doc .audio-card { display: none; }

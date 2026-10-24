@@ -23,6 +23,40 @@
  * Остальные файлы и шаблоны менять не придётся.
  * ========================================================================== */
 
+/* -------------------------------------------------- */
+/* Интерфейс                                          */
+/* -------------------------------------------------- */
+
+/* JetBrains Mono: основной моноширинный шрифт интерфейса (--font-main) */
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:ital,wght@0,100..800;1,100..800&display=swap');
+
+/* Doto: точечный шрифт экранов загрузки и входа (--font-doted) */
+@import url('https://fonts.googleapis.com/css2?family=Doto:wght@100..900&display=swap');
+
+/* Caveat: рукописные пометки в записях (--font-hand) */
+@import url('https://fonts.googleapis.com/css2?family=Caveat:wght@500&display=swap');
+
+/* Libre Barcode 39: штрихкод (--font-barcode) */
+@import url('https://fonts.googleapis.com/css2?family=Libre+Barcode+39&display=swap');
+
+
+/* -------------------------------------------------- */
+/* Бумажные документы (содержимое мира)               */
+/* -------------------------------------------------- */
+
+/* Cousine: технический, моноширинный. doc, scan, web */
+@import url('https://fonts.googleapis.com/css2?family=Cousine:ital,wght@0,400;0,700;1,400&display=swap');
+
+/* Courier Prime: машинописный. doc */
+@import url('https://fonts.googleapis.com/css2?family=Courier+Prime:ital,wght@0,400;0,700;1,400;1,700&display=swap');
+
+/* Arimo: без засечек (метрика Arial). web */
+@import url('https://fonts.googleapis.com/css2?family=Arimo:ital,wght@0,400;0,700;1,400;1,700&display=swap');
+
+/* PT Serif: газетный, с засечками. web */
+@import url('https://fonts.googleapis.com/css2?family=PT+Serif:ital,wght@0,400;0,700;1,400;1,700&display=swap');
+
+
 /* Belepotan Rus: маркерный шрифт */
 @font-face {
   font-family: 'Belepotan Rus';
@@ -59,36 +93,3 @@
   font-style: normal;
   font-display: swap;
 }
-
-/* -------------------------------------------------- */
-/* Интерфейс                                          */
-/* -------------------------------------------------- */
-
-/* JetBrains Mono: основной моноширинный шрифт интерфейса (--font-main) */
-@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:ital,wght@0,100..800;1,100..800&display=swap');
-
-/* Doto: точечный шрифт экранов загрузки и входа (--font-doted) */
-@import url('https://fonts.googleapis.com/css2?family=Doto:wght@100..900&display=swap');
-
-/* Caveat: рукописные пометки в записях (--font-hand) */
-@import url('https://fonts.googleapis.com/css2?family=Caveat:wght@500&display=swap');
-
-/* Libre Barcode 39: штрихкод (--font-barcode) */
-@import url('https://fonts.googleapis.com/css2?family=Libre+Barcode+39&display=swap');
-
-
-/* -------------------------------------------------- */
-/* Бумажные документы (содержимое мира)               */
-/* -------------------------------------------------- */
-
-/* Cousine: технический, моноширинный. doc, scan, web */
-@import url('https://fonts.googleapis.com/css2?family=Cousine:ital,wght@0,400;0,700;1,400&display=swap');
-
-/* Courier Prime: машинописный. doc */
-@import url('https://fonts.googleapis.com/css2?family=Courier+Prime:ital,wght@0,400;0,700;1,400;1,700&display=swap');
-
-/* Arimo: без засечек (метрика Arial). web */
-@import url('https://fonts.googleapis.com/css2?family=Arimo:ital,wght@0,400;0,700;1,400;1,700&display=swap');
-
-/* PT Serif: газетный, с засечками. web */
-@import url('https://fonts.googleapis.com/css2?family=PT+Serif:ital,wght@0,400;0,700;1,400;1,700&display=swap');

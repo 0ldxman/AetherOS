@@ -593,15 +593,52 @@
 
 
 /* -------------------------------------------------- */
-/* Ссылки                                             */
+/* Ссылки: выделены жёлтым маркером                   */
 /* -------------------------------------------------- */
 
-.doc--scan .md a {
-    color: var(--stamp-blue);
+/*
+ * Исключены ссылки виджетов (картинка, файл, ID у аудио и видео):
+ * у них свои правила, маркер на них не нужен.
+ */
+.doc--scan .md a:not(.image-link):not(.file-btn):not(.audio-id-link):not(.video-preview-id) {
+    color: var(--ink);
 
-    text-decoration-line: underline;
-    text-decoration-thickness: 1px;
-    text-underline-offset: 0.12em;
+    text-decoration: none;
+
+    /* маркер чуть шире текста с обеих сторон */
+    padding: 0 0.2em;
+    margin: 0 -0.2em;
+
+    /* полоса ниже верха и выше низа строки, как проведённая маркером */
+    background-image:
+        linear-gradient(
+            177deg,
+            transparent 0 14%,
+            rgba(255, 221, 55, 0.62) 14% 90%,
+            transparent 90%
+        );
+
+    /* неровные края: рука ведёт маркер не идеально */
+    border-radius: 0.3em 0.6em 0.35em 0.55em / 0.6em 0.35em 0.6em 0.35em;
+
+    /* для ссылок, которые переносятся на другую строку */
+    box-decoration-break: clone;
+    -webkit-box-decoration-break: clone;
+}
+
+
+.doc--scan .md a:not(.image-link):not(.file-btn):not(.audio-id-link):not(.video-preview-id):hover,
+.doc--scan .md a:not(.image-link):not(.file-btn):not(.audio-id-link):not(.video-preview-id):focus-visible {
+    /* повторный проход маркером: цвет плотнее */
+    background-image:
+        linear-gradient(
+            177deg,
+            transparent 0 14%,
+            rgba(255, 210, 30, 0.82) 14% 90%,
+            transparent 90%
+        );
+
+    outline: none;
 }
 
 
@@ -1876,8 +1913,8 @@
 
     overflow: hidden;
 
-    border: 1px solid var(--ink);
-    background: var(--ink);
+    border: 1px solid var(--line);
+    background: var(--paper);
 }
 
 /* Сетка кадров */
@@ -1891,19 +1928,29 @@
     background: var(--paper);
 }
 
-/* Отдельный кадр */
 
+/* Геометрия плиток задаётся JS по фактическому разрешению видео. */
 .doc--scan .video-preview-frame {
     position: relative;
-
     min-width: 0;
-    aspect-ratio: var(--frame-ratio, 16 / 9);
+
+    aspect-ratio: 16 / 9; /* Временный размер до loadedmetadata. */
 
     overflow: hidden;
+    isolation: isolate;
 
-    background: var(--ink);
+    background: var(--ink, #191919);
 }
 
+/* Сетка остаётся видимой, даже если извлечение завершилось ошибкой. */
+.doc--scan .video-preview--failed .video-preview-grid {
+    display: grid;
+}
+
+/* Ошибка — отдельная строка, метаданные остаются на месте. */
+.doc--scan .video-preview-error {
+    padding: 0.4rem 0.55rem;
+}
 /* Изображение кадра */
 
 .doc--scan .video-preview-frame img {
@@ -1955,10 +2002,6 @@
 }
 
 /* Ошибка обработки */
-
-.doc--scan .video-preview--failed .video-preview-grid {
-    display: none;
-}
 
 .doc--scan .video-preview--failed .video-preview-status {
     min-height: 3rem;
@@ -2038,35 +2081,223 @@
     outline-offset: 3px;
 }
 
+/* =========================================================
+   Aether Wiki — Scan Media
+   Постепенное проявление кадров контактного листа
+   ========================================================= */
+
+/*
+ * Ячейки существуют с самого начала.
+ * Их геометрия не меняется при добавлении изображений.
+ */
+
+.doc--scan .video-preview-frame {
+    position: relative;
+    overflow: hidden;
+
+    background: var(--ink, #191919);
+
+    isolation: isolate;
+}
+
+
+/*
+ * Заглушка до появления кадра.
+ * Ненавязчивая разметка напоминает пустую ячейку скана.
+ */
+
+.doc--scan .video-preview-frame--pending::before {
+    content: "";
+
+    position: absolute;
+    inset: 0;
+
+    z-index: 1;
+
+    pointer-events: none;
+
+    background:
+        linear-gradient(
+            90deg,
+            transparent calc(50% - 1px),
+            var(--ink) 50%,
+            transparent calc(50% + 1px)
+        ),
+        linear-gradient(
+            0deg,
+            transparent calc(50% - 1px),
+            var(--ink) 50%,
+            transparent calc(50% + 1px)
+        );
+
+    opacity: 1;
+
+    transition: opacity 900ms ease;
+}
+
+
+/*
+ * Изображение сначала приглушено.
+ * По мере проявления возвращаются контраст и яркость.
+ */
+
+.doc--scan .video-preview-image {
+    display: block;
+
+    width: 100%;
+    height: 100%;
+
+    object-fit: contain;
+
+    opacity: 0;
+
+    filter:
+        grayscale(1)
+        contrast(0.65)
+        brightness(0.65);
+
+    transform: scale(1.015);
+
+    transition:
+        opacity 1100ms ease,
+        filter 1500ms ease,
+        transform 1500ms ease;
+
+    will-change: opacity, filter;
+}
+
+
+/*
+ * Кадр декодирован и проявляется.
+ */
+
+.doc--scan .video-preview-frame--revealed .video-preview-image {
+    opacity: 1;
+
+    filter:
+        grayscale(0)
+        contrast(1)
+        brightness(1);
+
+    transform: scale(1);
+}
+
+
+/*
+ * Разметка пустой ячейки постепенно исчезает.
+ */
+
+.doc--scan .video-preview-frame--revealed::before {
+    opacity: 0;
+}
+
+
+/*
+ * Временная метка появляется вместе с изображением.
+ */
+
+.doc--scan .video-preview-time {
+    opacity: 0;
+
+    transition: opacity 600ms ease 350ms;
+}
+
+.doc--scan .video-preview-frame--revealed .video-preview-time {
+    opacity: 1;
+}
+
+
+/*
+ * Ошибка загрузки отдельного кадра не должна
+ * ломать размеры остальных ячеек.
+ */
+
+.doc--scan .video-preview-frame--error {
+    background: var(--ink, #191919);
+}
+
+.doc--scan .video-preview-frame--error::after {
+    content: "";
+
+    position: absolute;
+    inset: 0;
+
+    pointer-events: none;
+
+    border: 1px solid var(--ink);
+}
+
+
+/*
+ * Учитываем настройку пользователя на уменьшение анимации.
+ */
+
+@media (prefers-reduced-motion: reduce) {
+    .doc--scan .video-preview-image,
+    .doc--scan .video-preview-frame--pending::before,
+    .doc--scan .video-preview-time {
+        transition: none;
+    }
+
+    .doc--scan .video-preview-frame--revealed .video-preview-image {
+        opacity: 1;
+
+        filter: none;
+
+        transform: none;
+    }
+
+    .doc--scan .video-preview-frame--revealed::before {
+        opacity: 0;
+    }
+
+    .doc--scan .video-preview-frame--revealed .video-preview-time {
+        opacity: 1;
+    }
+}
+
 
 /* -------------------------------------------------- */
 /* File                                               */
 /* -------------------------------------------------- */
 
 .doc--scan .widget--file {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    justify-content: space-between;
+    position: relative;
 
-    gap: 0.6rem 1rem;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas:
+        "bars"
+        "cap"
+        "info";
+    justify-items: center;
+    row-gap: 0;
 
+    width: fit-content;
+    min-width: min(24rem, 100%);
+    max-width: 100%;
     box-sizing: border-box;
-    min-width: 0;
 
-    padding: 0.55rem 0.7rem;
+    margin-left: auto;
+    margin-right: auto;
+    padding: 0.8rem 1.6rem 0.65rem;
 
-    border: 1px solid var(--line);
-
-    background:
-        linear-gradient(
-            90deg,
-            var(--tint) 0,
-            var(--tint-soft) 4px,
-            transparent 4px
+    background-color: #efecdf;
+    background-image:
+        radial-gradient(
+            ellipse at 45% 30%,
+            rgba(255, 252, 235, 0.38),
+            transparent 75%
         );
 
-    font-family: var(--ff-cousine);
+    border: 1px solid rgba(75, 63, 43, 0.42);
+
+    box-shadow:
+        1px 2px 2px rgba(39, 32, 21, 0.14),
+        2px 3px 5px rgba(39, 32, 21, 0.08),
+        inset 0 0 0 1px rgba(255, 250, 229, 0.25);
+
+    transform: rotate(-0.35deg);
 }
 
 
@@ -2157,6 +2388,224 @@
 
 
 /* -------------------------------------------------- */
+/* File: учётная этикетка с штрихкодом                */
+/* -------------------------------------------------- */
+
+/*
+ * Сверху штрихкод и ID по центру, ниже пунктирный разделитель,
+ * затем строка «ПРИЛОЖЕНИЕ название (размер)».
+ * Этикетка стоит по центру листа, ширина по содержимому.
+ * Клик по этикетке открывает вьювер (как сканирование кода).
+ */
+
+/* Этикетка: отдельный клочок бумаги, вклеенный в лист */
+.doc--scan .widget--file {
+    background-color: #efecdf;
+    background-image:
+        radial-gradient(
+            ellipse at 45% 30%,
+            rgba(255, 252, 235, 0.38),
+            transparent 75%
+        );
+
+    border: 1px solid rgba(75, 63, 43, 0.42);
+
+    box-shadow:
+        1px 2px 2px rgba(39, 32, 21, 0.14),
+        2px 3px 5px rgba(39, 32, 21, 0.08),
+        inset 0 0 0 1px rgba(255, 250, 229, 0.25);
+
+    transform: rotate(-0.35deg);
+}
+
+
+/* Штрихкод: крупный, растянут по высоте от нижнего края штрихов */
+.doc--scan .widget--file[data-barcode]::after {
+    --bc-size: 2rem;     /* ширина кода */
+    --bc-k: 2.6;                      /* было 3.4 */
+    --bc-foot: 0.8;      /* где в строке кончаются штрихи: 0.7–0.9 */
+
+    content: "*" attr(data-barcode) "*";
+
+    grid-area: bars;
+
+    color: var(--ink);
+
+    font-family: var(--font-barcode);
+    font-size: var(--bc-size);
+    line-height: 1;
+    text-transform: uppercase;
+    white-space: nowrap;
+
+    transform: scaleY(var(--bc-k));
+    transform-origin: 50% calc(var(--bc-foot) * 100%);
+
+    /* место под часть, выросшую вверх */
+    margin-top: calc((var(--bc-k) - 1) * var(--bc-foot) * var(--bc-size));
+}
+
+
+/* ID: почти вплотную к штрихам */
+.doc--scan .widget--file[data-barcode]::before {
+    content: attr(data-id);
+    --id-pull: -0.7rem;   /* ещё ближе: -0.9rem, дальше: -0.4rem */
+
+    grid-area: cap;
+
+    margin-top: var(--id-pull);
+    padding-bottom: 0.55rem;
+
+    color: var(--ink-soft);
+
+    font-family: var(--ff-cousine);
+    font-size: 0.6rem;
+    letter-spacing: 0.06em;
+    line-height: 1.2;
+    text-transform: none;
+    text-align: center;
+    overflow-wrap: anywhere;
+}
+
+
+/* Строка приложения: ПРИЛОЖЕНИЕ название (размер) */
+.doc--scan .widget--file .file-info {
+    grid-area: info;
+
+    display: block;
+    width: 100%;
+    box-sizing: border-box;
+
+    padding-top: 0.5rem;
+
+    border-top: 1px dashed var(--line);
+
+    text-align: center;
+    line-height: 1.45;
+
+    overflow-wrap: anywhere;
+    line-height: 1.3;
+}
+
+
+.doc--scan .widget--file .file-info::before {
+    content: "ПРИЛОЖЕНИЕ";
+
+    display: block;
+    margin-bottom: 0.1rem;
+
+    color: var(--ink-soft);
+
+    font-family: var(--ff-cousine);
+    font-size: 0.62rem;
+    font-weight: 700;
+    letter-spacing: 0.14em;
+    line-height: 1.4;
+}
+
+
+.doc--scan .widget--file .file-name {
+    display: inline;
+
+    /* скрывает исходный текст (label) */
+    font-size: 0;
+}
+
+/* Имя файла: Cousine, чтобы кириллица и латиница были одним шрифтом */
+.doc--scan .widget--file .file-name::before {
+    content: attr(data-filename);
+
+    color: #29385c;
+
+    font-family: var(--font-hand, cursive);
+    font-size: 1.45rem;
+    font-weight: 400;
+    line-height: 1.2;
+
+    text-shadow: none;
+}
+
+
+/* Размер: от руки, тем же цветом */
+.doc--scan .widget--file .file-size {
+    color: #29385c;
+
+    font-family: var(--font-hand, cursive);
+    font-size: 1.15rem;
+    letter-spacing: 0;
+    line-height: 1.2;
+    text-transform: none;
+
+    text-shadow: none;
+}
+
+
+.doc--scan .widget--file .file-size::before {
+    content: " (";                    /* пробел перед скобкой */
+}
+
+
+.doc--scan .widget--file .file-size::after {
+    content: ")";
+}
+
+
+/* Без штрихкода (пустой ID): остаётся только строка приложения */
+.doc--scan .widget--file:not([data-barcode]) .file-info {
+    padding-top: 0;
+
+    border-top: 0;
+}
+
+
+/* Кнопки: разметка растворяется, ссылка растягивается на всю этикетку */
+.doc--scan .widget--file .file-actions {
+    display: contents;
+}
+
+
+.doc--scan .widget--file .file-btn {
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+
+    padding: 0;
+
+    border: 0;
+    background: transparent;
+    color: transparent;
+
+    font-size: 0;
+    line-height: 0;
+
+    text-decoration: none;
+    cursor: pointer;
+}
+
+
+.doc--scan .widget--file .file-btn[download]:not(:only-child) {
+    display: none;
+}
+
+
+.doc--scan .widget--file .file-btn:hover,
+.doc--scan .widget--file .file-btn:focus-visible {
+    background: var(--tint-soft);
+}
+
+
+.doc--scan .widget--file .file-btn:focus-visible {
+    outline: 1px dashed var(--ink);
+    outline-offset: 2px;
+}
+
+@media print {
+    .doc--scan .widget--file {
+        transform: none;
+        box-shadow: none;
+    }
+}
+
+/* -------------------------------------------------- */
 /* Missing asset                                      */
 /* -------------------------------------------------- */
 
@@ -2202,6 +2651,10 @@
 
     overflow-wrap: anywhere;
     word-break: break-word;
+}
+
+.widget--file .file-code {
+    display: none;
 }
 
 
@@ -2384,36 +2837,58 @@
 
 
 
+
 /* =========================================================
    Aether Wiki — Scan Audio Card
+   Physical archive label attached to a scanned document
    ========================================================= */
 
 
-/* =========================================================
-   Aether OS — Audio archive card
-   ========================================================= */
+/* ---------------------------------------------------------
+   Card / paper label
+   --------------------------------------------------------- */
 
 .doc--scan .widget--audio .audio-card {
+    position: relative;
+    isolation: isolate;
+
     display: flex;
     flex-direction: column;
     gap: 10px;
 
     width: 100%;
     box-sizing: border-box;
-
     padding: 12px 14px 10px;
 
-    color: var(--scan-ink, #292820);
-    font-family: "JetBrains Mono", monospace;
+    color: #292820;
+    font-family: var(--ff-cousine, "JetBrains Mono", monospace);
 
-    border: 1px solid rgba(45, 43, 35, 0.42);
-    background: rgba(115, 108, 82, 0.045);
+    /* Separate paper surface */
+    background-color: #eeece4;
+    background-image:
+        linear-gradient(
+            105deg,
+            rgba(255, 255, 255, 0.20),
+            transparent 38%,
+            rgba(80, 70, 48, 0.025) 100%
+        );
 
+    border: 1px solid rgba(55, 50, 39, 0.48);
+    border-radius: 0;
+
+    /* Slightly lifted from the scanned paper */
     box-shadow:
-        inset 0 0 0 2px rgba(45, 43, 35, 0.045);
+        1px 2px 2px rgba(27, 24, 18, 0.12),
+        2px 4px 5px rgba(27, 24, 18, 0.075),
+        inset 0 0 0 1px rgba(255, 255, 255, 0.28);
+
+    transform: rotate(-0.12deg);
 }
 
-/* Все поля: подпись + заполненная строка */
+
+/* ---------------------------------------------------------
+   Field layout
+   --------------------------------------------------------- */
 
 .doc--scan .widget--audio .audio-card-field {
     display: flex;
@@ -2424,12 +2899,17 @@
     box-sizing: border-box;
 }
 
+
+/* ---------------------------------------------------------
+   Machine-printed labels: TITLE, ID, TYPE, DURATION
+   --------------------------------------------------------- */
+
 .doc--scan .widget--audio .audio-card-label {
     flex: 0 0 auto;
 
-    color: rgba(45, 43, 35, 0.66);
+    color: rgba(45, 43, 35, 0.72);
 
-    font-family: "JetBrains Mono", monospace;
+    font-family: var(--ff-cousine, "JetBrains Mono", monospace);
     font-size: 9px;
     font-weight: 400;
     line-height: 1.5;
@@ -2437,39 +2917,196 @@
     text-transform: uppercase;
 }
 
-/* Значение расположено на линии, как запись в бланке */
+
+
+/* =========================================================
+   Aether Wiki — Scan Audio Card
+   Taped handwritten archive label
+   ========================================================= */
+
+
+/* ---------------------------------------------------------
+   Paper label
+   --------------------------------------------------------- */
+
+.doc--scan .widget--audio .audio-card {
+    position: relative;
+    isolation: isolate;
+
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+
+    width: 100%;
+    box-sizing: border-box;
+    padding: 15px 14px 10px;
+
+    color: #292820;
+    font-family: var(--ff-cousine, "JetBrains Mono", monospace);
+
+    background-color: #e8e4d7;
+    background-image:
+        radial-gradient(
+            ellipse at 45% 35%,
+            rgba(255, 252, 235, 0.34),
+            transparent 76%
+        );
+
+    border: 1px solid rgba(75, 63, 43, 0.44);
+    border-radius: 0;
+
+    box-shadow:
+        1px 2px 2px rgba(39, 32, 21, 0.15),
+        3px 4px 6px rgba(39, 32, 21, 0.09),
+        inset 0 0 0 1px rgba(255, 250, 229, 0.22);
+
+    transform: rotate(-0.65deg);
+}
+
+
+/* ---------------------------------------------------------
+   Tape — upper left and lower right
+   --------------------------------------------------------- */
+
+.doc--scan .widget--audio .audio-card::before,
+.doc--scan .widget--audio .audio-card::after {
+    content: "";
+    position: absolute;
+    z-index: 2;
+
+    width: 62px;
+    height: 17px;
+
+    pointer-events: none;
+
+    background-color: rgba(190, 174, 126, 0.38);
+    background-image:
+        linear-gradient(
+            180deg,
+            rgba(255, 255, 230, 0.27),
+            rgba(154, 133, 88, 0.08)
+        );
+
+    border-top: 1px solid rgba(135, 116, 77, 0.20);
+    border-bottom: 1px solid rgba(135, 116, 77, 0.16);
+
+    box-shadow:
+        0 1px 1px rgba(45, 36, 22, 0.08),
+        inset 0 0 2px rgba(255, 255, 230, 0.14);
+
+    opacity: 0.92;
+}
+
+/* Upper-left tape */
+.doc--scan .widget--audio .audio-card::before {
+    top: -7px;
+    left: 14px;
+    transform: rotate(-8deg);
+}
+
+/* Lower-right tape */
+.doc--scan .widget--audio .audio-card::after {
+    right: 13px;
+    bottom: -7px;
+    transform: rotate(-8deg);
+}
+
+
+/* ---------------------------------------------------------
+   Field layout
+   --------------------------------------------------------- */
+
+.doc--scan .widget--audio .audio-card-field {
+    display: flex;
+    align-items: baseline;
+    gap: 7px;
+
+    min-width: 0;
+    box-sizing: border-box;
+}
+
+
+/* ---------------------------------------------------------
+   Machine-printed labels
+   --------------------------------------------------------- */
+
+.doc--scan .widget--audio .audio-card-label {
+    flex: 0 0 auto;
+
+    color: rgba(45, 43, 35, 0.72);
+
+    font-family: var(--ff-cousine, "JetBrains Mono", monospace);
+    font-size: 9px;
+    font-weight: 400;
+    line-height: 1.5;
+    letter-spacing: 0.055em;
+    text-transform: uppercase;
+}
+
+
+/* ---------------------------------------------------------
+   Handwritten values
+   Text sits directly on the field rule
+   --------------------------------------------------------- */
 
 .doc--scan .widget--audio .audio-card-value {
     display: inline-block;
     flex: 1 1 auto;
 
     min-width: 0;
-    padding: 0 2px 2px;
+    box-sizing: border-box;
 
-    border-bottom: 1px solid rgba(45, 43, 35, 0.48);
+    /*
+     * The writing baseline aligns with the underline.
+     * No extra bottom padding pushing the rule below the text.
+     */
+    padding: 0 2px 0;
 
-    color: var(--scan-ink, #292820);
+    color: #29385c;
 
-    font-family: "JetBrains Mono", monospace;
-    font-size: 11px;
-    font-weight: 500;
-    line-height: 1.6;
+    font-family: var(--font-hand, cursive);
+    font-size: 21px;
+    font-weight: 400;
+    line-height: 1.15;
+
+    border-bottom: 1px solid rgba(41, 56, 92, 0.34);
 
     overflow-wrap: anywhere;
+    text-shadow: none;
 }
 
-/* Название — самостоятельное поле на всю ширину */
+
+/* ---------------------------------------------------------
+   Title — centered, larger handwriting
+   --------------------------------------------------------- */
 
 .doc--scan .widget--audio .audio-card-field--title {
     width: 100%;
+    align-items: baseline;
+    justify-content: center;
+    gap: 9px;
+}
+
+.doc--scan .widget--audio .audio-card-field--title .audio-card-label {
+    align-self: center;
 }
 
 .doc--scan .widget--audio .audio-card-title {
-    font-size: 12px;
-    font-weight: 600;
+    flex: 0 1 auto;
+
+    font-family: var(--font-hand, cursive);
+    font-size: 27px;
+    font-weight: 400;
+    line-height: 1.2;
+
+    text-align: center;
+    color: #29385c;
 }
 
-/* ID, TYPE и DURATION */
+
+/* ---------------------------------------------------------
+   Metadata grid: ID / TYPE / DURATION
+   --------------------------------------------------------- */
 
 .doc--scan .widget--audio .audio-card-meta {
     display: grid;
@@ -2477,6 +3114,7 @@
     gap: 8px 14px;
 
     width: 100%;
+    min-width: 0;
 }
 
 .doc--scan .widget--audio .audio-card-field--id {
@@ -2488,11 +3126,27 @@
     min-width: 0;
 }
 
+/* ID remains machine-printed */
+.doc--scan .widget--audio .audio-card-field--id .audio-card-value {
+    font-family: var(--ff-cousine, "JetBrains Mono", monospace);
+    font-size: 10px;
+    font-weight: 500;
+    line-height: 1.6;
+    color: var(--scan-ink, #292820);
+
+    padding: 0 2px 2px;
+    border-bottom-color: rgba(45, 43, 35, 0.38);
+}
+
+/* Duration stays on one line */
 .doc--scan .widget--audio .audio-card-field--duration .audio-card-value {
     white-space: nowrap;
 }
 
-/* Ссылка на просмотр записи */
+
+/* ---------------------------------------------------------
+   ID link
+   --------------------------------------------------------- */
 
 .doc--scan .widget--audio .audio-id-link {
     color: inherit;
@@ -2506,37 +3160,57 @@
     text-underline-offset: 2px;
 }
 
-/* Осциллограмма */
+
+/* ---------------------------------------------------------
+   Audio waveform — machine-printed
+   --------------------------------------------------------- */
 
 .doc--scan .widget--audio .audio-card-waveform {
     width: 100%;
     height: 36px;
     min-height: 36px;
-
     margin-top: 2px;
+
     overflow: hidden;
 
-    border-top: 1px solid rgba(45, 43, 35, 0.22);
-    opacity: 0.82;
+    border-top: 1px solid rgba(62, 54, 39, 0.24);
+    color: rgba(45, 43, 35, 0.82);
+    opacity: 0.88;
 }
 
 .doc--scan .widget--audio .audio-waveform-svg {
     display: block;
-
     width: 100%;
     height: 100%;
 }
 
-/* Узкие документы */
+.doc--scan .widget--audio .audio-waveform-line {
+    stroke: currentColor;
+    stroke-width: 1.4;
+    stroke-linecap: round;
+}
+
+.doc--scan .widget--audio .audio-waveform-baseline {
+    stroke: rgba(45, 43, 35, 0.28);
+    stroke-width: 0.7;
+}
+
+
+/* ---------------------------------------------------------
+   Narrow documents
+   --------------------------------------------------------- */
 
 @media (max-width: 420px) {
     .doc--scan .widget--audio .audio-card {
-        padding: 10px;
+        padding: 13px 10px 10px;
         gap: 8px;
+        transform: rotate(-0.4deg);
     }
 
-    .doc--scan .widget--audio .audio-card-meta {
-        gap: 7px 10px;
+    .doc--scan .widget--audio .audio-card::before,
+    .doc--scan .widget--audio .audio-card::after {
+        width: 48px;
+        height: 14px;
     }
 
     .doc--scan .widget--audio .audio-card-label {
@@ -2544,6 +3218,40 @@
     }
 
     .doc--scan .widget--audio .audio-card-value {
-        font-size: 10px;
+        font-size: 18px;
     }
+
+    .doc--scan .widget--audio .audio-card-title {
+        font-size: 23px;
+    }
+
+    .doc--scan .widget--audio .audio-card-field--id .audio-card-value {
+        font-size: 9px;
+    }
+
+    .doc--scan .widget--audio .audio-card-meta {
+        gap: 7px 10px;
+    }
+}
+
+
+/* ---------------------------------------------------------
+   Print
+   --------------------------------------------------------- */
+
+@media print {
+    .doc--scan .widget--audio .audio-card {
+        transform: none;
+        box-shadow: none;
+    }
+
+    .doc--scan .widget--audio .audio-card::before,
+    .doc--scan .widget--audio .audio-card::after {
+        display: none;
+    }
+}
+
+.doc--scan .widget--audio .audio-title,
+.doc--scan .widget--audio .audio-el {
+    display: none;
 }

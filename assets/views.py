@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+import logging  # DIAG
+import time  # DIAG
+
 import requests
 from django.contrib.admin.views.decorators import (
     staff_member_required,
@@ -19,6 +22,8 @@ from django.utils.http import (
 from .models import Asset
 from .nextcloud import NextcloudClient
 from .services import guess_content_type, resolve_viewer_type
+
+logger = logging.getLogger(__name__)  # DIAG
 
 
 @staff_member_required
@@ -203,6 +208,8 @@ def _serve_asset_file(
 
     client = NextcloudClient.from_settings()
 
+    t0 = time.monotonic()  # DIAG: старт поиска файла
+
     try:
         file = client.get_file_by_id(asset.file_id)
     except Exception as exc:
@@ -215,6 +222,8 @@ def _serve_asset_file(
 
     if file.is_directory:
         raise Http404("Asset points to a directory.")
+
+    t1 = time.monotonic()  # DIAG: поиск файла закончен
 
     content_type = guess_content_type(file.filename)
 
@@ -273,6 +282,16 @@ def _serve_asset_file(
         raise Http404(
             "Unable to download asset."
         ) from exc
+
+    t2 = time.monotonic()  # DIAG: Nextcloud начал отдавать ответ
+
+    logger.warning(  # DIAG
+        "asset %s: lookup %.2fs, stream-open %.2fs, range=%s",
+        asset.public_id,
+        t1 - t0,
+        t2 - t1,
+        range_header,
+    )
 
     # Не передаём ошибки Nextcloud клиенту как успешный поток.
     if upstream.status_code not in (200, 206):

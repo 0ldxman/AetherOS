@@ -1302,80 +1302,6 @@ html:has(body.doc--doc) {
 
 
 /* -------------------------------------------------- */
-/* Image                                              */
-/* -------------------------------------------------- */
-
-.doc--doc .widget--image {
-    width: var(--w, 100%);
-    max-width: 100%;
-}
-
-
-.doc--doc .widget--image.widget--align-center {
-    margin-left: auto;
-    margin-right: auto;
-}
-
-
-.doc--doc .widget--image.widget--align-right {
-    margin-left: auto;
-}
-
-
-.doc--doc .image-frame {
-    border: 1px solid var(--line);
-}
-
-
-.doc--doc .image-img {
-    display: block;
-
-    width: 100%;
-    height: auto;
-}
-
-
-/* Заглушка: как непрогрузившаяся картинка, внутри её alt */
-.doc--doc .image-missing {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-
-    box-sizing: border-box;
-    width: 100%;
-
-    padding: 0.6rem;
-
-    background: var(--tint);
-    color: var(--ink-soft);
-
-    font-family: var(--ff-cousine);
-    font-size: 0.75rem;
-    letter-spacing: 0.04em;
-    text-align: center;
-}
-
-
-.doc--doc .image-ratio-16-9 { aspect-ratio: 16 / 9; }
-.doc--doc .image-ratio-4-3  { aspect-ratio: 4 / 3; }
-.doc--doc .image-ratio-3-2  { aspect-ratio: 3 / 2; }
-.doc--doc .image-ratio-1-1  { aspect-ratio: 1 / 1; }
-.doc--doc .image-ratio-3-4  { aspect-ratio: 3 / 4; }
-.doc--doc .image-ratio-9-16 { aspect-ratio: 9 / 16; }
-
-
-.doc--doc .image-caption {
-    margin-top: 0.3rem;
-
-    color: var(--ink-soft);
-
-    font-family: var(--ff-cousine);
-    font-size: 0.72rem;
-    letter-spacing: 0.03em;
-}
-
-
-/* -------------------------------------------------- */
 /* Divider (разделитель)                              */
 /* -------------------------------------------------- */
 
@@ -1521,4 +1447,482 @@ html:has(body.doc--doc) {
         break-after: auto;
         page-break-after: auto;
     }
+}
+
+/* -------------------------------------------------- */
+/* Assets: изображения, видео, аудио и файлы           */
+/* -------------------------------------------------- */
+
+/*
+ * Электронный документ: ассеты оформлены как элементы формы.
+ * Структура (метки, номера, рамки) в техническом шрифте,
+ * содержимое (названия, подписи) в машинописном.
+ * Цвета и линии только из переменных скина: --line, --tint,
+ * --tint-soft, --ink, --ink-soft, --paper.
+ *
+ * Этот блок ставится ВМЕСТО:
+ *   1. раздела «Image» (от .widget--image до .image-caption включительно);
+ *   2. всего хвоста файла от «Media: общая геометрия» до конца.
+ * Ставить его удобнее всего в самый конец файла.
+ */
+
+
+/* ---------- Нумерация подписей ---------- */
+
+/* «РИС. 1», «ВИДЕО 1»: счётчики идут сквозь все листы записи.
+   Нумеруются только ассеты с подписью. Не нужно: удалите три правила
+   с counter-increment ниже и эту. */
+.doc--doc .md--body {
+    counter-reset: asset-img asset-vid;
+}
+
+
+/* ---------- Общая геометрия ---------- */
+
+.doc--doc :is(
+    .widget--image,
+    .widget--video,
+    .widget--audio,
+    .widget--file
+) {
+    width: var(--w, 100%);
+    max-width: 100%;
+    min-width: 0;
+
+    box-sizing: border-box;
+}
+
+
+/* figure по умолчанию имеет боковые отступы браузера: обнуляем */
+.doc--doc figure.widget {
+    margin-left: 0;
+    margin-right: 0;
+}
+
+
+.doc--doc :is(
+    .widget--image,
+    .widget--video,
+    .widget--audio
+).widget--align-left {
+    margin-left: 0;
+    margin-right: auto;
+}
+
+
+.doc--doc :is(
+    .widget--image,
+    .widget--video,
+    .widget--audio
+).widget--align-center {
+    margin-left: auto;
+    margin-right: auto;
+}
+
+
+.doc--doc :is(
+    .widget--image,
+    .widget--video,
+    .widget--audio
+).widget--align-right {
+    margin-left: auto;
+    margin-right: 0;
+}
+
+
+/* Подпись под медиа: техническим шрифтом, как подпись к рисунку */
+.doc--doc .asset-caption {
+    display: block;
+
+    margin-top: 0.3rem;
+
+    color: var(--ink-soft);
+
+    font-family: var(--ff-cousine);
+    font-size: 0.72rem;
+    letter-spacing: 0.03em;
+    line-height: 1.4;
+
+    overflow-wrap: anywhere;
+}
+
+
+/* ---------- Image ---------- */
+
+.doc--doc .image-frame {
+    border: 1px solid var(--line);
+}
+
+
+.doc--doc .image-img {
+    display: block;
+
+    width: 100%;
+    height: auto;
+    max-height: 70vh;
+
+    object-fit: contain;
+}
+
+
+.doc--doc .md .image-link {
+    display: block;
+
+    color: inherit;
+    text-decoration: none;
+
+    cursor: zoom-in;
+}
+
+
+.doc--doc .image-link:focus-visible {
+    outline: 1px dashed var(--ink);
+    outline-offset: 3px;
+}
+
+
+.doc--doc .widget--image .asset-caption::before {
+    counter-increment: asset-img;
+    content: "Рис. " counter(asset-img) " \2014  ";
+
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+}
+
+
+/* Заглушка: как непрогрузившаяся картинка, внутри её alt */
+.doc--doc .image-missing {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    box-sizing: border-box;
+    width: 100%;
+
+    padding: 0.6rem;
+
+    background: var(--tint);
+    color: var(--ink-soft);
+
+    font-family: var(--ff-cousine);
+    font-size: 0.75rem;
+    letter-spacing: 0.04em;
+    text-align: center;
+}
+
+
+.doc--doc .image-ratio-16-9 { aspect-ratio: 16 / 9; }
+.doc--doc .image-ratio-4-3  { aspect-ratio: 4 / 3; }
+.doc--doc .image-ratio-3-2  { aspect-ratio: 3 / 2; }
+.doc--doc .image-ratio-1-1  { aspect-ratio: 1 / 1; }
+.doc--doc .image-ratio-3-4  { aspect-ratio: 3 / 4; }
+.doc--doc .image-ratio-9-16 { aspect-ratio: 9 / 16; }
+
+
+/* ---------- Video ---------- */
+
+/* Полоса-шапка над плеером: «ВИДЕО / имя файла».
+   Имя приходит в data-file-name самого figure (см. _render_video). */
+.doc--doc .widget--video::before {
+    content: "ВИДЕО  /  " attr(data-file-name);
+
+    display: block;
+
+    padding: 0.25rem 0.7rem;
+
+    border: 1px solid var(--line);
+    border-bottom: 0;
+
+    background: var(--tint-soft);
+    color: var(--ink-soft);
+
+    font-family: var(--ff-cousine);
+    font-size: 0.65rem;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    line-height: 1.4;
+
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+
+.doc--doc .video-el {
+    display: block;
+
+    width: 100%;
+    max-width: 100%;
+    max-height: 70vh;
+
+    height: auto;
+
+    border: 1px solid var(--line);
+
+    background: var(--ink);
+
+    object-fit: contain;
+}
+
+
+.doc--doc .widget--video .asset-caption::before {
+    counter-increment: asset-vid;
+    content: "Видео " counter(asset-vid) " \2014  ";
+
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+}
+
+
+/* ---------- Audio ---------- */
+
+/* Карточка с осциллограммой нужна только скану */
+.doc--doc .audio-card {
+    display: none;
+}
+
+
+/* Форма: рамка, шапка «АУДИО», ниже название машинописью и плеер */
+.doc--doc .widget--audio {
+    padding: 0.5rem 0.7rem 0.6rem;
+
+    border: 1px solid var(--line);
+
+    background: var(--paper);
+}
+
+
+.doc--doc .widget--audio::before {
+    content: "АУДИО";
+
+    display: block;
+
+    margin: -0.5rem -0.7rem 0.5rem;
+    padding: 0.25rem 0.7rem;
+
+    border-bottom: 1px solid var(--line);
+
+    background: var(--tint-soft);
+    color: var(--ink-soft);
+
+    font-family: var(--ff-cousine);
+    font-size: 0.65rem;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    line-height: 1.4;
+}
+
+
+/* Название это содержимое, поэтому машинописным шрифтом */
+.doc--doc .audio-title {
+    margin-bottom: 0.4rem;
+
+    color: var(--ink);
+
+    font-family: var(--ff-courier-prime);
+    font-size: 0.88rem;
+    font-weight: 700;
+    line-height: 1.4;
+
+    overflow-wrap: anywhere;
+}
+
+
+.doc--doc .audio-el {
+    display: block;
+
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+
+    accent-color: var(--ink);
+}
+
+
+/* Подпись у аудио внутри рамки, как нижняя строка формы */
+.doc--doc .widget--audio .asset-caption {
+    margin: 0.5rem -0.7rem -0.6rem;
+    padding: 0.25rem 0.7rem;
+
+    border-top: 1px solid var(--line);
+
+    background: var(--tint-soft);
+}
+
+
+/* ---------- File ---------- */
+
+/* Строка формы: ячейка-метка «ФАЙЛ» | имя и размер | кнопки-ячейки */
+.doc--doc .widget--file {
+    display: flex;
+    align-items: stretch;
+
+    gap: 0;
+
+    padding: 0;
+
+    border: 1px solid var(--line);
+
+    background: var(--paper);
+
+    font-family: var(--ff-cousine);
+}
+
+
+.doc--doc .widget--file::before {
+    content: "ФАЙЛ";
+
+    display: flex;
+    flex: 0 0 auto;
+    align-items: center;
+
+    padding: 0 0.8rem;
+
+    border-right: 1px solid var(--line);
+
+    background: var(--tint-soft);
+    color: var(--ink-soft);
+
+    font-size: 0.65rem;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+}
+
+
+.doc--doc .file-info {
+    display: flex;
+    flex: 1 1 auto;
+    flex-wrap: wrap;
+    align-items: baseline;
+
+    gap: 0.1rem 1.5ch;
+
+    min-width: 0;
+
+    padding: 0.4rem 0.8rem;
+}
+
+
+.doc--doc .file-name {
+    min-width: 0;
+
+    color: var(--ink);
+
+    font-family: var(--ff-courier-prime);
+    font-size: 0.88rem;
+    font-weight: 700;
+    line-height: 1.45;
+
+    overflow-wrap: anywhere;
+}
+
+
+.doc--doc .file-size {
+    flex: 0 0 auto;
+
+    color: var(--ink-soft);
+
+    font-size: 0.7rem;
+    letter-spacing: 0.04em;
+    white-space: nowrap;
+}
+
+
+.doc--doc .file-actions {
+    display: flex;
+    flex: 0 0 auto;
+    align-items: stretch;
+
+    gap: 0;
+}
+
+
+/* Кнопки прилегают к правому краю как ячейки формы.
+   Селектор с .md нужен, чтобы перебить цвет и подчёркивание у ".md a". */
+.doc--doc .md .file-btn {
+    display: flex;
+    align-items: center;
+
+    padding: 0 0.9rem;
+
+    border: 0;
+    border-left: 1px solid var(--line);
+    border-radius: 0;
+
+    background: var(--paper);
+    color: var(--ink);
+
+    font-family: var(--ff-cousine);
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+
+    text-decoration: none;
+    text-transform: uppercase;
+    white-space: nowrap;
+
+    cursor: pointer;
+}
+
+
+.doc--doc .md .file-btn:hover {
+    background: var(--ink);
+    color: var(--paper);
+}
+
+
+.doc--doc .md .file-btn:focus-visible {
+    outline: 1px dashed var(--ink);
+    outline-offset: -4px;
+}
+
+
+/* ---------- Missing asset ---------- */
+
+/* Красная кромка из цвета штампов: сразу видно, что вложения нет */
+.doc--doc .widget--asset-missing {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+
+    gap: 0.25rem 1.5ch;
+
+    box-sizing: border-box;
+
+    padding: 0.35rem 0.7rem;
+
+    border: 1px dashed var(--line);
+    border-left: 3px solid var(--stamp-red);
+
+    background: var(--tint-soft);
+
+    font-family: var(--ff-cousine);
+    font-size: 0.7rem;
+    line-height: 1.5;
+}
+
+
+.doc--doc .asset-missing-text {
+    flex: 0 0 auto;
+
+    color: var(--stamp-red);
+
+    font-weight: 700;
+    letter-spacing: 0.08em;
+}
+
+
+.doc--doc .asset-missing-ref {
+    flex: 1 1 8rem;
+    min-width: 0;
+
+    color: var(--ink-soft);
+
+    overflow-wrap: anywhere;
+}
+
+.widget--file .file-code {
+    display: none;
 }

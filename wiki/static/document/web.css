@@ -1101,9 +1101,44 @@ html:has(body.doc--web) {
 /* -------------------------------------------------- */
 
 /*
- * Ассеты оформляются как часть сохранённой веб-страницы.
- * Цвета наследуются от активного пресета сайта.
+ * Ассеты оформляются как компоненты сайта: подпись с акцентной чертой,
+ * видео с полосой имени файла, аудио-карточка с акцентной кромкой,
+ * файл как вложение. Цвета берутся из переменных пресета.
+ * Что отличается между пресетами, вынесено в --asset-*.
+ *
+ * Этот блок заменяет целиком старый раздел «Assets» и второй
+ * дубль «.widget--masked» внутри него.
  */
+
+.doc--web {
+    --asset-bw: 1px;          /* толщина рамок */
+    --asset-radius: 3px;      /* скругление */
+    --asset-pad: 0.8rem 0.95rem;
+
+    /* Штриховка заглушек (нет ассета / нет картинки) */
+    --asset-hatch: repeating-linear-gradient(
+        135deg,
+        transparent 0 8px,
+        color-mix(in srgb, var(--page-text) 6%, transparent) 8px 16px
+    );
+}
+
+
+.doc--web:has(.site-preset--tabloid) {
+    --asset-bw: 2px;
+    --asset-radius: 0;
+}
+
+
+.doc--web:has(.site-preset--gov) {
+    --asset-radius: 2px;
+}
+
+
+/* Родные элементы управления браузера подстраиваются под тёмный пресет */
+.doc--web:has(.site-preset--dark) :is(.audio-el, .video-el) {
+    color-scheme: dark;
+}
 
 
 /* ---------- Общая геометрия ---------- */
@@ -1142,22 +1177,18 @@ html:has(body.doc--web) {
 }
 
 
-.doc--web :is(
-    .widget--image,
-    .widget--video,
-    .widget--audio,
-    .widget--file
-) :is(
-    .asset-caption,
-    .image-caption
-) {
-    margin-top: 0.4rem;
+/* Подпись: короткая акцентная черта слева, как у подписей к фото в новостях */
+.doc--web .asset-caption {
+    margin: 0.5rem 0 0;
+    padding-left: 0.7rem;
+
+    border-left: 3px solid var(--accent);
 
     color: var(--page-soft);
 
     font-family: var(--ff-pt-serif);
     font-size: 0.8rem;
-    font-style: italic;
+    font-style: normal;
     line-height: 1.4;
 }
 
@@ -1170,8 +1201,8 @@ html:has(body.doc--web) {
     width: 100%;
     box-sizing: border-box;
 
-    border: 1px solid var(--page-line);
-    border-radius: 2px;
+    border: var(--asset-bw) solid var(--page-line);
+    border-radius: var(--asset-radius);
 
     background: var(--page-tint);
 
@@ -1189,16 +1220,24 @@ html:has(body.doc--web) {
     height: auto;
 
     object-fit: contain;
+
+    transition: opacity 0.15s;
 }
 
 
-/* Изображение может быть ссылкой на оригинал */
-
+/* Картинка это ссылка на вьювер */
 .doc--web .image-link {
     display: block;
 
     color: inherit;
     text-decoration: none;
+
+    cursor: zoom-in;
+}
+
+
+.doc--web .image-link:hover .image-img {
+    opacity: 0.92;
 }
 
 
@@ -1208,8 +1247,7 @@ html:has(body.doc--web) {
 }
 
 
-/* Заглушка вместо отсутствующего изображения */
-
+/* Заглушка вместо отсутствующей картинки: как непрогрузившаяся на сайте */
 .doc--web .image-missing {
     display: flex;
     align-items: center;
@@ -1220,17 +1258,15 @@ html:has(body.doc--web) {
 
     padding: 1rem;
 
-    background: var(--page-tint);
+    background: var(--asset-hatch), var(--page-tint);
     color: var(--page-soft);
 
-    font-family: var(--ff-pt-serif);
-    font-size: 0.82rem;
+    font-family: var(--ff-cousine);
+    font-size: 0.78rem;
     line-height: 1.5;
     text-align: center;
 }
 
-
-/* Ограничение пропорций */
 
 .doc--web .image-ratio-16-9 { aspect-ratio: 16 / 9; }
 .doc--web .image-ratio-4-3  { aspect-ratio: 4 / 3; }
@@ -1242,8 +1278,38 @@ html:has(body.doc--web) {
 
 /* ---------- Video ---------- */
 
+/* Карточка: полоса с именем файла, плеер, подпись внутри рамки */
 .doc--web .widget--video {
+    border: var(--asset-bw) solid var(--page-line);
+    border-radius: var(--asset-radius);
+
+    background: var(--page-bg);
+
     overflow: hidden;
+}
+
+
+/* Имя файла приходит в data-file-name самого figure (см. _render_video) */
+.doc--web .widget--video::before {
+    content: "\25B6\00A0\00A0" attr(data-file-name);
+
+    display: block;
+
+    padding: 0.35rem 0.8rem;
+
+    border-bottom: var(--asset-bw) solid var(--page-line);
+
+    background: var(--page-tint);
+    color: var(--page-soft);
+
+    font-family: var(--ff-cousine);
+    font-size: 0.7rem;
+    letter-spacing: 0.04em;
+    line-height: 1.4;
+
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
 
@@ -1256,8 +1322,8 @@ html:has(body.doc--web) {
 
     height: auto;
 
-    border: 1px solid var(--page-line);
-    border-radius: 2px;
+    border: 0;
+    border-radius: 0;
 
     background: #111;
 
@@ -1265,15 +1331,45 @@ html:has(body.doc--web) {
 }
 
 
+.doc--web .widget--video .asset-caption {
+    margin: 0;
+    padding: 0.5rem 0.8rem;
+
+    border-top: var(--asset-bw) solid var(--page-line);
+    border-left: 0;
+}
+
+
 /* ---------- Audio ---------- */
 
+/* Карточка с толстой акцентной кромкой слева и кикером «Аудио» */
 .doc--web .widget--audio {
-    padding: 0.8rem 0.9rem;
+    padding: var(--asset-pad);
+    padding-left: 1.1rem;
 
-    border: 1px solid var(--page-line);
-    border-radius: 3px;
+    border: var(--asset-bw) solid var(--page-line);
+    border-left: 4px solid var(--accent);
+    border-radius: var(--asset-radius);
 
     background: var(--page-tint);
+}
+
+
+.doc--web .widget--audio::before {
+    content: "Аудио";
+
+    display: block;
+
+    margin-bottom: 0.2rem;
+
+    color: var(--accent);
+
+    font-family: var(--ff-cousine);
+    font-size: 0.64rem;
+    font-weight: 700;
+    letter-spacing: 0.14em;
+
+    text-transform: uppercase;
 }
 
 
@@ -1283,7 +1379,7 @@ html:has(body.doc--web) {
     color: var(--page-text);
 
     font-family: var(--ff-pt-serif);
-    font-size: 0.9rem;
+    font-size: 0.95rem;
     font-weight: 700;
     line-height: 1.4;
 
@@ -1297,10 +1393,20 @@ html:has(body.doc--web) {
     width: 100%;
     max-width: 100%;
     min-width: 0;
+
+    accent-color: var(--accent);
 }
 
 
-/* ---------- File ---------- */
+.doc--web .widget--audio .asset-caption {
+    margin-top: 0.55rem;
+    padding-left: 0;
+
+    border-left: 0;
+}
+
+
+/* ---------- File: вложение ---------- */
 
 .doc--web .widget--file {
     display: flex;
@@ -1308,12 +1414,34 @@ html:has(body.doc--web) {
 
     gap: 0.9rem;
 
-    padding: 0.8rem 0.9rem;
+    padding: var(--asset-pad);
 
-    border: 1px solid var(--page-line);
-    border-radius: 3px;
+    border: var(--asset-bw) solid var(--page-line);
+    border-radius: var(--asset-radius);
 
     background: var(--page-bg);
+}
+
+
+/* Значок листа с тремя строками, рисуется фонами */
+.doc--web .widget--file::before {
+    content: "";
+
+    flex: 0 0 auto;
+
+    width: 1.7rem;
+    height: 2.15rem;
+
+    box-sizing: border-box;
+
+    border: 2px solid var(--accent);
+    border-radius: 2px;
+
+    background:
+        linear-gradient(var(--accent) 0 0) 0.3rem 0.5rem / 0.7rem 2px no-repeat,
+        linear-gradient(var(--accent) 0 0) 0.3rem 0.85rem / 0.7rem 2px no-repeat,
+        linear-gradient(var(--accent) 0 0) 0.3rem 1.2rem / 0.4rem 2px no-repeat,
+        var(--page-bg);
 }
 
 
@@ -1324,10 +1452,12 @@ html:has(body.doc--web) {
 
 
 .doc--web .file-name {
-    color: var(--link);
+    display: block;
+
+    color: var(--page-text);
 
     font-family: var(--ff-pt-serif);
-    font-size: 0.92rem;
+    font-size: 0.95rem;
     font-weight: 700;
     line-height: 1.4;
 
@@ -1336,12 +1466,15 @@ html:has(body.doc--web) {
 
 
 .doc--web .file-size {
-    margin-top: 0.2rem;
+    display: block;
+
+    margin-top: 0.15rem;
 
     color: var(--page-soft);
 
     font-family: var(--ff-cousine);
     font-size: 0.7rem;
+    letter-spacing: 0.04em;
     line-height: 1.4;
 }
 
@@ -1356,6 +1489,7 @@ html:has(body.doc--web) {
 }
 
 
+/* «Открыть»: контурная кнопка; «Скачать» (последняя): залитая акцентом */
 .doc--web .file-btn {
     display: inline-flex;
     align-items: center;
@@ -1364,17 +1498,18 @@ html:has(body.doc--web) {
     max-width: 100%;
     box-sizing: border-box;
 
-    padding: 0.35rem 0.65rem;
+    padding: 0.38rem 0.8rem;
 
-    border: 1px solid var(--page-line);
-    border-radius: 2px;
+    border: 1px solid var(--accent);
+    border-radius: var(--asset-radius);
 
-    background: var(--page-tint);
-    color: var(--page-text);
+    background: transparent;
+    color: var(--accent);
 
     font-family: var(--ff-pt-serif);
     font-size: 0.75rem;
     font-weight: 700;
+    letter-spacing: 0.04em;
     line-height: 1.4;
 
     text-decoration: none;
@@ -1384,11 +1519,23 @@ html:has(body.doc--web) {
 }
 
 
-.doc--web .file-btn:hover {
-    border-color: var(--accent);
-
+.doc--web .file-btn:last-child {
     background: var(--accent);
     color: var(--accent-ink);
+}
+
+
+.doc--web .file-btn:hover {
+    background: var(--page-tint);
+    color: var(--accent);
+}
+
+
+.doc--web .file-btn:last-child:hover {
+    background: var(--accent);
+    color: var(--accent-ink);
+
+    filter: brightness(1.12);
 }
 
 
@@ -1404,11 +1551,12 @@ html:has(body.doc--web) {
 .doc--web .widget--error {
     box-sizing: border-box;
 
-    padding: 0.8rem 0.9rem;
+    padding: var(--asset-pad);
 
     border: 1px dashed var(--page-line);
+    border-radius: var(--asset-radius);
 
-    background: var(--page-tint);
+    background: var(--asset-hatch), var(--page-tint);
     color: var(--page-soft);
 
     font-family: var(--ff-cousine);
@@ -1418,6 +1566,9 @@ html:has(body.doc--web) {
 
 
 .doc--web .asset-missing-text {
+    font-weight: 700;
+    letter-spacing: 0.08em;
+
     overflow-wrap: anywhere;
 }
 
@@ -1427,8 +1578,6 @@ html:has(body.doc--web) {
 
     margin-top: 0.3rem;
 
-    color: var(--page-soft);
-
     font-size: 0.68rem;
     opacity: 0.8;
 
@@ -1436,23 +1585,14 @@ html:has(body.doc--web) {
 }
 
 
-/* Ошибка выделяется акцентом сайта, но не ломает оформление */
-
+/* Ошибка выделяется акцентом сайта */
 .doc--web .widget--error {
     border-color: var(--accent);
     border-left-width: 3px;
 }
 
-
-/* ---------- Замаскированный ассет ---------- */
-
-/*
- * Не переопределяем сам механизм маскировки:
- * размеры и состояние определяются общей логикой виджетов.
- */
-
-.doc--web .widget--masked {
-    min-height: 1.5em;
+.widget--file .file-code {
+    display: none;
 }
 
 
@@ -1460,12 +1600,11 @@ html:has(body.doc--web) {
 
 @media (max-width: 640px) {
     .doc--web .widget--file {
-        align-items: flex-start;
         flex-wrap: wrap;
     }
 
     .doc--web .file-info {
-        flex-basis: 100%;
+        flex: 1 1 0;
     }
 
     .doc--web .file-actions {
@@ -1473,7 +1612,7 @@ html:has(body.doc--web) {
     }
 
     .doc--web .widget--audio {
-        padding: 0.65rem;
+        padding: 0.65rem 0.65rem 0.65rem 0.9rem;
     }
 }
 
@@ -2067,3 +2206,7 @@ html:has(body.doc--web) {
         transform: none;
     }
 }
+
+:is(.doc--rec, .doc--infobox) .audio-card { display: none; }
+.doc--web .audio-card { display: none; }
+.doc--doc .audio-card { display: none; }
