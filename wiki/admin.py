@@ -6,6 +6,7 @@ from django.db.models import Count
 from django.template.response import TemplateResponse
 from django.utils.html import format_html
 
+from .admin_dashboard import DocumentDashboardMixin
 from .admin_locks import DocumentLocksMixin
 from .admin_preview import DocumentPreviewMixin
 from .admin_revisions import DocumentRevisionsMixin
@@ -153,7 +154,7 @@ class NamespaceAdmin(admin.ModelAdmin):
 
 @admin.register(Document)
 class DocumentAdmin(
-    DocumentLocksMixin, DocumentRevisionsMixin, DocumentPreviewMixin, admin.ModelAdmin
+    DocumentDashboardMixin, DocumentLocksMixin, DocumentRevisionsMixin, DocumentPreviewMixin, admin.ModelAdmin
 ):
     list_display = ("title", "section", "type", "protection", "updated_at", "updated_by", "editing", "as_player")
     list_filter = (NamespaceTreeFilter, "type", ProtectionFilter)

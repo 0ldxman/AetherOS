@@ -1,0 +1,10 @@
+.dash-totals { display: flex; flex-wrap: wrap; gap: 8px 28px; margin: 0 0 20px; font-size: 14px; }
+.dash-totals b { font-size: 22px; margin-right: 4px; }
+
+.dash-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(380px, 1fr)); gap: 16px; }
+.dash-card { padding: 4px 16px 12px; border: 1px solid var(--hairline-color, #ddd); border-radius: 6px; }
+.dash-card h2 { margin: 12px 0 6px; padding: 0; background: none; color: var(--body-fg, #333); font-size: 15px; text-transform: none; }
+.dash-card--warn h2 .dash-count { background: var(--error-fg, #ba2121); color: #fff; }
+.dash-count { padding: 1px 8px; border-radius: 10px; background: var(--darkened-bg, #eee); font-size: 12px; font-weight: 400; }
+.dash-note { margin: 0 0 8px; color: var(--body-quiet-color, #666); font-size: 12px; line-height: 1.4; }
+.dash-card table { width: 100%; }

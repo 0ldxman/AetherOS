@@ -1,10 +1,11 @@
 {% extends "admin/base_site.html" %}
 
 {% block breadcrumbs %}
-<div class="breadcrumbs">
-  <a href="{% url 'admin:index' %}">Главная</a> ›
-  <a href="{% url 'admin:secure_key_changelist' %}">Ключи</a> › {{ title }}
-</div>
+<ol class="breadcrumbs">
+  <li><a href="{% url 'admin:index' %}">Главная</a></li>
+  <li><a href="{% url 'admin:secure_key_changelist' %}">Ключи</a></li>
+  <li aria-current="page">{{ title }}</li>
+</ol>
 {% endblock %}
 
 {% block content %}

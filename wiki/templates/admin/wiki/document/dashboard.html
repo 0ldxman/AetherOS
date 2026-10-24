@@ -1,0 +1,95 @@
+{% extends "admin/base_site.html" %}
+{% load static %}
+
+{% block extrastyle %}{{ block.super }}
+<link rel="stylesheet" href="{% static 'wiki/dashboard.css' %}">
+{% endblock %}
+
+{% block breadcrumbs %}
+<ol class="breadcrumbs">
+  <li><a href="{% url 'admin:index' %}">Главная</a></li>
+  <li><a href="{{ list_url }}">Записи</a></li>
+  <li aria-current="page">Сводка автора</li>
+</ol>
+{% endblock %}
+
+{% block content %}
+<div id="content-main" class="dash">
+
+  <div class="dash-totals">
+    <div><b>{{ data.totals.documents }}</b> записей</div>
+    <div><b>{{ data.totals.namespaces }}</b> разделов</div>
+    <div><b>{{ data.totals.assets }}</b> ассетов</div>
+    <div><b>{{ data.totals.keys }}</b> ключей</div>
+  </div>
+
+  <div class="dash-grid">
+
+    <section class="dash-card">
+      <h2>Недавно изменённые</h2>
+      <table>
+        {% for doc, path in data.recent %}
+        <tr>
+          <td><a href="{% url 'admin:wiki_document_change' doc.pk %}">{{ path }}</a></td>
+          <td>{{ doc.updated_by|default:"—" }}</td>
+          <td>{{ doc.updated_at|date:"d.m H:i" }}</td>
+        </tr>
+        {% empty %}<tr><td>Записей нет.</td></tr>{% endfor %}
+      </table>
+    </section>
+
+    <section class="dash-card dash-card--warn">
+      <h2>Ошибки разметки <span class="dash-count">{{ data.broken|length }}</span></h2>
+      <p class="dash-note">Незакрытые блоки, неверные условия, неизвестные виджеты. Подробности видны в редакторе.</p>
+      <table>
+        {% for doc, path, count in data.broken|slice:":50" %}
+        <tr>
+          <td><a href="{% url 'admin:wiki_document_change' doc.pk %}">{{ path }}</a></td>
+          <td>{{ count }}</td>
+        </tr>
+        {% empty %}<tr><td>Ошибок нет.</td></tr>{% endfor %}
+      </table>
+    </section>
+
+    <section class="dash-card">
+      <h2>Без входящих ссылок <span class="dash-count">{{ data.orphans|length }}</span></h2>
+      <p class="dash-note">На эти записи не ведёт ни одна ссылка из других записей. В обозревателе их всё равно видно.</p>
+      <table>
+        {% for doc, path in data.orphans|slice:":50" %}
+        <tr><td><a href="{% url 'admin:wiki_document_change' doc.pk %}">{{ path }}</a></td></tr>
+        {% empty %}<tr><td>Таких нет.</td></tr>{% endfor %}
+      </table>
+      {% if data.orphans|length > limit %}<p class="dash-note">Показаны первые {{ limit }}.</p>{% endif %}
+    </section>
+
+    <section class="dash-card">
+      <h2>Ассеты не использованы в вики <span class="dash-count">{{ data.unused_assets|length }}</span></h2>
+      <p class="dash-note">Ни в одной записи нет виджета с этим ассетом. Ассет может использоваться в файловой системе машин: здесь это не учитывается.</p>
+      <table>
+        {% for asset in data.unused_assets|slice:":50" %}
+        <tr>
+          <td><a href="{% url 'admin:assets_asset_change' asset.pk %}">{{ asset.name }}</a></td>
+          <td>{{ asset.slug|default:"—" }}</td>
+        </tr>
+        {% empty %}<tr><td>Таких нет.</td></tr>{% endfor %}
+      </table>
+      {% if data.unused_assets|length > limit %}<p class="dash-note">Показаны первые {{ limit }}.</p>{% endif %}
+    </section>
+
+    <section class="dash-card">
+      <h2>Ключи, которых нет в вики <span class="dash-count">{{ data.unused_keys|length }}</span></h2>
+      <p class="dash-note">Не встречаются ни в условиях доступа, ни в тексте записей. Ключ может использоваться в машинах и файловой системе: здесь это не учитывается.</p>
+      <table>
+        {% for key in data.unused_keys|slice:":50" %}
+        <tr>
+          <td><a href="{% url 'admin:secure_key_change' key.pk %}">{{ key.slug }}</a></td>
+          <td>{{ key.description }}</td>
+        </tr>
+        {% empty %}<tr><td>Таких нет.</td></tr>{% endfor %}
+      </table>
+      {% if data.unused_keys|length > limit %}<p class="dash-note">Показаны первые {{ limit }}.</p>{% endif %}
+    </section>
+
+  </div>
+</div>
+{% endblock %}

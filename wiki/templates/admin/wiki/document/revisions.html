@@ -6,11 +6,12 @@
 {% endblock %}
 
 {% block breadcrumbs %}
-<div class="breadcrumbs">
-  <a href="{% url 'admin:index' %}">Главная</a> ›
-  <a href="{% url 'admin:wiki_document_changelist' %}">Записи</a> ›
-  <a href="{{ change_url }}">{{ original }}</a> › История
-</div>
+<ol class="breadcrumbs">
+  <li><a href="{% url 'admin:index' %}">Главная</a></li>
+  <li><a href="{% url 'admin:wiki_document_changelist' %}">Записи</a></li>
+  <li><a href="{{ change_url }}">{{ original }}</a></li>
+  <li aria-current="page">История</li>
+</ol>
 {% endblock %}
 
 {% block content %}
