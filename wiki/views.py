@@ -73,21 +73,25 @@ def _prompt(request, ns):
     return f"{name}@{slug}"
 
 
-def _all_namespaces():
+def _all_namespaces(request):
     """Все неймспейсы одним запросом, с уже привязанными родителями.
 
     Привязка нужна, чтобы chain() и namespace_state() не ходили в базу
-    на каждый узел дерева.
+    на каждый узел дерева. Список запоминается на запросе: путь, дерево
+    и поиск в одном запросе читают таблицу один раз.
     """
-    nodes = list(Namespace.objects.all())
-    by_id = {n.pk: n for n in nodes}
-    for n in nodes:
-        if n.parent_id is not None:
-            n.parent = by_id[n.parent_id]
+    nodes = getattr(request, "_wiki_namespaces", None)
+    if nodes is None:
+        nodes = list(Namespace.objects.all())
+        by_id = {n.pk: n for n in nodes}
+        for n in nodes:
+            if n.parent_id is not None:
+                n.parent = by_id[n.parent_id]
+        request._wiki_namespaces = nodes
     return nodes
 
 
-def _tree(keys, current):
+def _tree(request, keys, current):
     """Дерево неймспейсов для левой панели.
 
     Корень "~" виртуальный. Скрытые узлы в дерево не попадают, а у закрытых
@@ -96,7 +100,7 @@ def _tree(keys, current):
     сам игрок.
     """
     children = defaultdict(list)
-    for n in _all_namespaces():
+    for n in _all_namespaces(request):
         children[n.parent_id].append(n)
 
     on_path = {n.pk for n in current.chain()} if current else set()
@@ -147,7 +151,8 @@ def _doc_row(doc, state):
 def _doc_rows(ns, keys):
     """Строки таблицы документов неймспейса (только видимые)."""
     rows = []
-    for doc in Document.objects.filter(namespace=ns):
+    # тело записи в таблице не нужно: не читаем его из базы
+    for doc in Document.objects.filter(namespace=ns).defer("body"):
         doc.namespace = ns  # чтобы не ходить в базу за родителем на каждой строке
         s = document_state(doc, keys)
         if not s.visible:
@@ -179,7 +184,7 @@ def _namespace_page(request, ns):
         request,
         "wiki/explorer.html",
         {
-            "tree": _tree(keys, ns),
+            "tree": _tree(request, keys, ns),
             "path_text": _path_text(ns),
             "prompt": _prompt(request, ns),
             "search_url": reverse("wiki:search"),
@@ -241,18 +246,22 @@ def resolve(request, path=""):
     if not parts:
         return _namespace_page(request, None)
 
+    # путь разбирается по списку неймспейсов в памяти: один запрос на любую глубину
+    by_name = {(n.parent_id, n.name): n for n in _all_namespaces(request)}
+
     current = None
     for part in parts[:-1]:
-        current = Namespace.objects.filter(parent=current, name=part).first()
+        current = by_name.get((current.pk if current else None, part))
         if current is None:
             raise Http404
 
     last = parts[-1]
-    ns = Namespace.objects.filter(parent=current, name=last).first()
+    ns = by_name.get((current.pk if current else None, last))
     if ns is not None:
         return _namespace_page(request, ns)
     doc = Document.objects.filter(namespace=current, title=last).first()
     if doc is not None:
+        doc.namespace = current  # уже с привязанными родителями
         return _document_page(request, doc)
     raise Http404
 
@@ -261,6 +270,9 @@ def direct(request, link):
     doc = Document.objects.filter(direct_link=link).first()
     if doc is None:
         raise Http404
+    if doc.namespace_id is not None:
+        by_id = {n.pk: n for n in _all_namespaces(request)}
+        doc.namespace = by_id[doc.namespace_id]
     return _document_page(request, doc, via_direct_link=True)
 
 
@@ -291,7 +303,7 @@ def search(request):
         return JsonResponse({"rows": []})
 
     keys = _keys(request)
-    all_ns = _all_namespaces()
+    all_ns = _all_namespaces(request)
     namespaces = {n.pk: n for n in all_ns}
 
     scope = None
