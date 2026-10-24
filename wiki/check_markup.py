@@ -145,7 +145,7 @@ html = render("текст ::spoiler a в середине строки")
 check("в середине строки это просто текст", "::spoiler a" in html and "spoiler--" not in html)
 
 html = render("    ::spoiler a\n    код")
-check("с отступом 4 пробела это код", "<pre>" in html and "spoiler--" not in html)
+check("отступ редактора не делает код: спойлер работает", "<pre>" not in html and "spoiler--masked" in html)
 
 html = render("абзац\n::spoiler a\nсекрет\n::", keys=set())
 check("спойлер сразу после абзаца", "спойлер" not in html and "секрет" not in html and "spoiler--masked" in html)
@@ -203,7 +203,7 @@ html = render("текст ::stamp X в середине строки")
 check("виджет в середине строки это текст", "widget--stamp" not in html and "::stamp X" in html)
 
 html = render("    ::stamp X\n    код")
-check("виджет с отступом 4 пробела это код", "<pre>" in html and "widget--stamp" not in html)
+check("отступ редактора не делает код: виджет работает", "<pre>" not in html and "widget--stamp" in html)
 
 # --- замазка внутри закрытого спойлера ---
 
@@ -275,7 +275,7 @@ html = render("текст ::section A в середине")
 check("section в середине строки это текст", "section-head" not in html and "::section A" in html)
 
 html = render("    ::box border\n    код")
-check("контейнер с отступом 4 пробела это код", "<pre>" in html and "box--border" not in html)
+check("отступ редактора не делает код: контейнер работает", "<pre>" not in html and "box--border" in html)
 
 # --- замазка ---
 
