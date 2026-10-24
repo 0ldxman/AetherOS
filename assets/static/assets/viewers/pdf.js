@@ -25,7 +25,7 @@
         error: $("[data-pdf-error]"),
         errorMessage: $("[data-pdf-error-message]"),
 
-        status: $("[data-pdf-status]"),
+        status: $("[data-viewer-status]"),
         pageCount: $("[data-pdf-page-count]"),
         pageTotal: $("[data-pdf-page-total]"),
         pageInput: $("[data-pdf-page-input]"),

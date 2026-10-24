@@ -1,45 +1,31 @@
-
-{% extends "ui/base.html" %}
+{% extends "assets/viewers/_base.html" %}
 {% load static %}
 
-{% block title %}{{ asset.name }} — Aether OS{% endblock %}
-{% block body_attrs %} class="pdf-viewer"{% endblock %}
+{% block viewer_class %}pdf-viewer{% endblock %}
 
-{% block css %}
+{% block viewer_css %}
 <link rel="stylesheet" href="{% static 'assets/viewers/pdf.css' %}">
 {% endblock %}
 
-{% block body %}
-<main
-    class="pv-workspace"
+{% block workspace_class %}pv-workspace{% endblock %}
+{% block workspace_attrs %}
     data-pdf-viewer
     data-pdf-url="{{ content_url|escape }}"
     data-pdf-name="{{ asset.name|escape }}"
     data-pdf-filename="{{ filename|escape }}"
     data-pdf-type="{{ content_type|escape }}"
     data-pdf-id="{{ asset.public_id|escape }}"
->
-    <header class="pv-header">
-        <div class="pv-heading">
-            <div class="pv-title-line">
-                <span class="pv-document-tag">[DOC]</span>
-                <h1>{{ asset.name }}</h1>
-            </div>
+{% endblock %}
 
-            <div class="pv-id-line">
-                <span class="pv-meta-label">ID:</span>
-                <span class="pv-id-value">{{ asset.public_id }}</span>
-            </div>
-        </div>
+{% block viewer_tag %}[DOC]{% endblock %}
 
-        <div class="pv-header-right">
-            <span class="pv-header-status" data-pdf-status>INITIALIZING</span>
+{% block header_actions %}
             <span data-pdf-page-count hidden>—</span>
 
-            <button class="pv-button pv-fullscreen-button" data-pdf-fullscreen disabled>FULLSCREEN</button>
-        </div>
-    </header>
+            <button class="av-button pv-fullscreen-button" data-pdf-fullscreen disabled>FULLSCREEN</button>
+{% endblock %}
 
+{% block viewer_content %}
     <section class="pv-viewport"
              data-pdf-viewport
              aria-label="PDF document">
@@ -64,23 +50,23 @@
         <div class="pv-footer-group pv-scale-group">
             <span class="pv-footer-label">SCALE</span>
 
-            <button class="pv-button pv-icon-button"
+            <button class="av-button av-icon-button pv-icon-button"
                     data-pdf-zoom-out disabled
                     aria-label="Zoom out">−</button>
 
             <span class="pv-zoom-value" data-pdf-zoom-value>100%</span>
 
-            <button class="pv-button pv-icon-button"
+            <button class="av-button av-icon-button pv-icon-button"
                     data-pdf-zoom-in disabled
                     aria-label="Zoom in">+</button>
 
-            <button class="pv-button pv-fit-button"
+            <button class="av-button pv-fit-button"
                     data-pdf-fit disabled>FIT WIDTH</button>
         </div>
 
         <div class="pv-footer-group pv-page-group">
             <div class="pv-page-navigation">
-                <button class="pv-button pv-icon-button"
+                <button class="av-button av-icon-button pv-icon-button"
                         data-pdf-prev disabled
                         aria-label="Previous page">‹</button>
 
@@ -100,7 +86,7 @@
                     <span class="pv-footer-label">PAGE</span>
                 </div>
 
-                <button class="pv-button pv-icon-button"
+                <button class="av-button av-icon-button pv-icon-button"
                         data-pdf-next disabled
                         aria-label="Next page">›</button>
             </div>
@@ -111,10 +97,9 @@
             <span class="pv-footer-value" data-pdf-dimensions>—</span>
         </div>
     </footer>
-</main>
 {% endblock %}
 
-{% block js %}
+{% block viewer_js %}
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js" defer></script>
 <script src="{% static 'assets/viewers/pdf.js' %}" defer></script>
 {% endblock %}

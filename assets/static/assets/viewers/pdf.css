@@ -4,172 +4,21 @@
    Forensic workstation / archive interface
    ================================================== */
 
-.pdf-viewer {
-    margin: 0;
-    width: 100%;
-    height: 100%;
-    overflow: hidden;
-    background: var(--bg, #191919);
-    color: var(--font-light, #b5b6b8);
-    font-family: var(--font-main, monospace);
-}
-
-.pdf-viewer *,
-.pdf-viewer *::before,
-.pdf-viewer *::after {
+.av-page *,
+.av-page *::before,
+.av-page *::after {
     box-sizing: border-box;
 }
 
 .pv-workspace {
     display: flex;
     flex-direction: column;
-    width: 100%;
-    height: 100dvh;
-    min-width: 0;
-    min-height: 0;
-    overflow: hidden;
-    background: var(--bg, #191919);
-}
-
-/* ==================================================
-   HEADER
-   ================================================== */
-
-.pv-header {
-    display: flex;
-    flex: 0 0 auto;
-    align-items: center;
-    justify-content: space-between;
-    gap: 24px;
-    min-height: 62px;
-    padding: 10px 18px;
-    border-bottom: 1px solid var(--font-muted, #65686a);
-    background: var(--bg, #191919);
-}
-
-.pv-heading {
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    gap: 5px;
-    min-width: 0;
-}
-
-.pv-title-line {
-    display: flex;
-    align-items: baseline;
-    gap: 10px;
-    min-width: 0;
-}
-
-.pv-document-tag {
-    flex: 0 0 auto;
-    color: var(--font-light, #b5b6b8);
-    font-size: 11px;
-    font-weight: 700;
-    letter-spacing: 0.04em;
-}
-
-.pv-title-line h1 {
-    overflow: hidden;
-    margin: 0;
-    color: var(--font-light, #b5b6b8);
-    font-family: var(--font-main, monospace);
-    font-size: 16px;
-    font-weight: 400;
-    line-height: 1.4;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-}
-
-.pv-id-line {
-    display: flex;
-    align-items: center;
-    gap: 5px;
-    min-width: 0;
-    color: var(--font-muted, #85898c);
-    font-size: 9px;
-    line-height: 1.3;
-}
-
-.pv-meta-label {
-    flex: 0 0 auto;
-}
-
-.pv-id-value {
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-}
-
-.pv-header-right {
-    display: flex;
-    flex: 0 0 auto;
-    align-items: center;
-    gap: 16px;
-}
-
-.pv-header-type {
-    color: var(--font-muted, #85898c);
-    font-size: 9px;
-    letter-spacing: 0.06em;
-    white-space: nowrap;
-}
-
-.pv-header-status {
-    color: var(--font-muted, #85898c);
-    font-size: 9px;
-    letter-spacing: 0.05em;
-    white-space: nowrap;
 }
 
 /* ==================================================
    BUTTONS
+   Базовая кнопка и шапка в static/ui/viewer.css
    ================================================== */
-
-.pv-button {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    flex: 0 0 auto;
-    min-width: 0;
-    height: 27px;
-    margin: 0;
-    padding: 0 9px;
-    border: 1px solid var(--font-muted, #65686a);
-    border-radius: 0;
-    outline: none;
-    background: transparent;
-    color: var(--font-light, #b5b6b8);
-    font-family: var(--font-main, monospace);
-    font-size: 9px;
-    font-weight: 400;
-    line-height: 1;
-    white-space: nowrap;
-    cursor: pointer;
-    box-shadow: none;
-    transition: none;
-}
-
-.pv-button:hover {
-    border-color: var(--font-light, #b5b6b8);
-    background: var(--font-light, #b5b6b8);
-    color: var(--bg, #191919);
-}
-
-.pv-button:focus,
-.pv-button:active {
-    border-color: var(--font-light, #b5b6b8);
-    outline: none;
-    box-shadow: none;
-}
-
-.pv-button:disabled {
-    border-color: #3b3d3e;
-    background: transparent;
-    color: #55585a;
-    cursor: default;
-}
 
 .pv-fullscreen-button {
     height: 25px;
@@ -179,9 +28,6 @@
 }
 
 .pv-icon-button {
-    width: 27px;
-    height: 27px;
-    padding: 0;
     font-size: 17px;
 }
 
@@ -505,24 +351,6 @@
    ================================================== */
 
 @media (max-width: 760px) {
-    .pv-header {
-        min-height: 56px;
-        padding: 8px 10px;
-        gap: 10px;
-    }
-
-    .pv-header-type {
-        display: none;
-    }
-
-    .pv-title-line h1 {
-        font-size: 11px;
-    }
-
-    .pv-header-right {
-        gap: 6px;
-    }
-
     .pv-viewport {
         padding: 16px;
     }
@@ -585,14 +413,6 @@
    ================================================== */
 
 @media (max-width: 440px) {
-    .pv-document-tag {
-        font-size: 9px;
-    }
-
-    .pv-id-line {
-        font-size: 8px;
-    }
-
     .pv-fullscreen-button {
         width: 28px;
         overflow: hidden;
