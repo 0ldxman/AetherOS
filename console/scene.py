@@ -19,13 +19,15 @@
     newline   закончить строку (count пустых строк подряд)
     type      напечатать побуквенно (speed, human, typo)
     dots      «метка ........ СТАТУС», точки набираются по одной
+    progress  полоса «[#####-----]  50%»
     pause     пауза (ms, jitter)
     clear     очистить экран
     flash     вспышка экрана
     glitch    текст с id «портится» и становится другим
     one_of    случайная из нескольких вложенных сцен
-    choice    выбор из вариантов; события (events) разыгрываются, пока
-              игрок не ответил, и могут добавлять варианты
+    choice    выбор из вариантов; вариант может появиться позже (late: его
+              текст печатается на месте и «оформляется под кнопку») и
+              перепечатываться, пока игрок не отвечает (rewrites)
 
 Тексты могут содержать {имя}: браузер подставит значения при проигрывании.
 Ничего секретного в сцену класть нельзя: она целиком видна в исходнике страницы.
@@ -71,7 +73,14 @@ def _steps(scene):
 
 @dataclass(frozen=True)
 class Option:
-    """Вариант в выборе. key это подпись («[ D ]»), keys это клавиши быстрого выбора."""
+    """Вариант в выборе. key это подпись («[ D ]»), keys это клавиши быстрого выбора.
+
+    late: вариант появляется не сразу. Его текст сначала печатается на месте простой
+          строкой, потом «оформляется под кнопку»:
+          {"after_ms": 2200 или [от, до], "typo": True, "settle_ms": 450}
+    rewrites: пока игрок не ответил, текст стирается и набирается другой из labels:
+          {"after_ms": [20000, 30000], "labels": ["...", "..."]}
+    """
 
     id: str
     key: str
@@ -79,9 +88,11 @@ class Option:
     tag: str = ""
     keys: tuple = ()
     style: str | None = None
+    late: dict | None = None
+    rewrites: dict | None = None
 
     def to_dict(self):
-        return {
+        data = {
             "id": self.id,
             "key": self.key,
             "label": self.label if isinstance(self.label, str) else list(self.label),
@@ -89,22 +100,18 @@ class Option:
             "keys": [k.lower() for k in self.keys],
             "style": _style(self.style),
         }
-
-
-@dataclass(frozen=True)
-class Event:
-    """Что случается, пока игрок выбирает: после after_ms играет сцена и добавляются варианты."""
-
-    after_ms: object       # число или [от, до]
-    scene: object          # Scene или список шагов
-    options: tuple = field(default_factory=tuple)
-
-    def to_dict(self):
-        return {
-            "after_ms": _delay(self.after_ms),
-            "steps": _steps(self.scene),
-            "options": [o.to_dict() for o in self.options],
-        }
+        if self.late is not None:
+            data["late"] = {
+                "after_ms": _delay(self.late.get("after_ms", 0)),
+                "typo": bool(self.late.get("typo", True)),
+                "settle_ms": _ms(self.late.get("settle_ms", 450), "settle_ms"),
+            }
+        if self.rewrites is not None:
+            labels = list(self.rewrites.get("labels", ()))
+            if len(labels) < 2:
+                raise SceneError("rewrites.labels: нужно хотя бы две строки")
+            data["rewrites"] = {"after_ms": _delay(self.rewrites.get("after_ms", 20000)), "labels": labels}
+        return data
 
 
 class Scene:
@@ -171,6 +178,13 @@ class Scene:
         )
         return self.newline() if newline else self
 
+    def progress(self, label, *, ms=1200, width=24, newline=True):
+        """Полоса прогресса «[#####-----]  50%», заполняется за ms."""
+        self.steps.append(
+            {"op": "progress", "label": str(label), "ms": _ms(ms), "width": _ms(width, "width")}
+        )
+        return self.newline() if newline else self
+
     def route(self, hops, *, label="carrier", width=10, ms=450, jitter=250):
         """Маршрут: [(название, имя, задержка мс или None для «нет ответа»), ...]."""
         for index, (name, host, latency) in enumerate(hops):
@@ -198,9 +212,9 @@ class Scene:
         self.steps.append({"op": "flash"})
         return self
 
-    def glitch(self, id, to):
-        """Текст, ранее выведенный с этим id, портится и становится to."""
-        self.steps.append({"op": "glitch", "id": id, "to": str(to)})
+    def glitch(self, id, to, *, frames=14):
+        """Текст, ранее выведенный с этим id, портится и становится to (только отличающиеся буквы)."""
+        self.steps.append({"op": "glitch", "id": id, "to": str(to), "frames": _ms(frames, "frames")})
         return self
 
     # ---------- ветвление ----------
@@ -211,7 +225,7 @@ class Scene:
         self.steps.append({"op": "one_of", "scenes": [_steps(s) for s in scenes]})
         return self
 
-    def choice(self, id, options, *, prompt="Select", events=()):
+    def choice(self, id, options, *, prompt="Select"):
         if not options:
             raise SceneError("choice без вариантов")
         self.steps.append(
@@ -220,7 +234,6 @@ class Scene:
                 "id": id,
                 "prompt": prompt,
                 "options": [o.to_dict() for o in options],
-                "events": [e.to_dict() for e in events],
             }
         )
         return self

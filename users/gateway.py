@@ -3,17 +3,27 @@
 Это сцены консоли (console/scene.py), а не страница: Python собирает их, браузер
 проигрывает (static/ui/console.js, desktop/static/boot/lock.js).
 
-Сюжет. Игрок пробует зайти на aether-main. Вход там только через внешнюю
-систему (Discord). Пока он смотрит, на машине кто-то другой, не игрок, пишет ему
-сообщение и открывает обходной канал. Выбрав его, игрок видит, что имя узла
-меняется на aether-null: для системы это две личности на одном корпусе, hid у
-них общий.
+Подключение идёт этапами, между ними экран очищается, а шапка (клиент, имя узла,
+chassis) печатается заново:
+
+    1/5 link          определение адреса, цепочка relay (один не отвечает)
+    2/5 key exchange  обмен ключами, отпечаток, полоса прогресса
+    3/5 node          данные узла (hid, владелец замазан), вопрос про неизвестный узел
+    4/5 access        баннер и вход: Discord, а на месте второго варианта кто-то
+                      печатает фразу от первого лица, и она «оформляется под кнопку»
+    5/5 session       если игрок пошёл за этой фразой: имя узла в шапке портится
+                      (aether-main -> aether-null, меняются только буквы main/null),
+                      chassis остаётся прежним, потом открывается гостевая сессия
+
+Если игрок долго ничего не выбирает, фраза стирается и набирается другая.
 
 ПРОТОТИП: данные в GATEWAY потом должны задаваться из админки (у каждой машины
 свои). Организацию-владельца здесь НЕ указываем, а поле owner замазано: игрок
 должен сам догадаться, чья это машина. Сцена целиком видна в исходнике страницы.
 """
-from console.scene import Event, Option, Scene
+from console.scene import Option, Scene
+
+STAGES = 5
 
 GATEWAY = {
     "client": "AETHER LINK 3.2",
@@ -29,78 +39,112 @@ GATEWAY = {
         ("relay 03", "gw-██", 41),
         ("relay 04", "aether-main", 44),
     ],
+    "key_exchange": {
+        "cipher": "x25519 / chacha20",
+        "key_id": "9c1e 44a0 b73d 08f2 e5a1 63cc",
+    },
     "notice": [
         "Authorized personnel only.",
         "All access is monitored and logged.",
     ],
     "owner_mask": 14,
     "external": "DISCORD",
-    "channel": {"name": "maintenance", "port": 4721},
-    "sender": "unregistered operator · tty3 · 03:12",
-    # Первое лицо, случайная строка при каждом заходе
-    "messages": [
-        "i left it open for you",
-        "come in. i'll keep it open",
-        "i can let you in. quietly.",
-        "you don't have to ask them",
-        "this way. they aren't looking at this door",
-        "i opened this for you. hurry",
-    ],
-    # Если игрок ничего не делает, спустя это время приходит ещё одно сообщение
-    "nudge_after_ms": [20000, 30000],
-    "nudges": [
-        "...still here",
-        "i can't hold this open for long",
-        "are you there?",
-    ],
-    # Сообщение появляется через столько мс после того, как показаны варианты входа
-    "event_after_ms": 2200,
+    # Фраза незнакомца: на месте второго варианта, от первого лица, случайная при каждом заходе
+    "voice": {
+        "after_ms": 2200,   # через сколько после появления входа начинает печатать
+        "lines": [
+            "i left it open for you",
+            "come in. i'll keep it open",
+            "i can let you in. quietly.",
+            "you don't have to ask them",
+            "this way. they aren't looking at this door",
+            "i opened this for you. hurry",
+        ],
+        # если игрок ничего не делает, спустя это время текст стирается и набирается другой
+        "again_after_ms": [20000, 30000],
+        "again_lines": [
+            "...still here",
+            "i can't hold this open for long",
+            "are you there?",
+            "i left it open for you",
+        ],
+    },
 }
+
+
+# ---------- общие куски ----------
+
+def _header(s, cfg, *, target=False, host=None, chassis=None):
+    """Шапка этапа: клиент, узел и (с этапа 3) chassis. Имя узла с id для glitch."""
+    s.line((cfg["client"], None), ("  ·  remote session client", "dim"))
+    if target:
+        s.kv("target", cfg["host"], note="(saved)")
+    else:
+        s.kv("node", host or cfg["host"], id="host")
+    if chassis:
+        s.kv("chassis", chassis, "dim")
+
+
+def _stage(s, number, title):
+    s.newline()
+    s.line(f"-- {number}/{STAGES}  {title} --", style="dim")
+
+
+def _next_screen(s):
+    """Конец этапа: короткая пауза и чистый экран."""
+    s.pause(500)
+    s.clear()
 
 
 def _discord_option(cfg):
     return Option("discord", "[ D ]", "external authority", tag=cfg["external"], keys=("d",))
 
 
-def _bypass_option(cfg):
+def _voice_option(cfg, *, late):
+    """Вариант, текст которого печатает посторонний. late: появляется сам, а не сразу."""
+    voice = cfg["voice"]
     return Option(
         "bypass",
         "[ ? ]",
-        f"{cfg['channel']['name']} channel",
-        tag="OPEN",
+        voice["lines"],
         keys=("?", "/"),
         style="warning",
+        late={"after_ms": voice["after_ms"], "typo": True, "settle_ms": 500} if late else None,
+        rewrites={"after_ms": voice["again_after_ms"], "labels": voice["again_lines"]} if late else None,
     )
 
 
-def _inbound(cfg, scene):
-    """Входящее сообщение от постороннего оператора: типизируется «живым человеком»."""
-    return (
-        Scene()
-        .newline()
-        .line(f"-- inbound text · {cfg['sender']} --", style="warning")
-        .extend(scene)
-        .line("-- end --", style="dim")
-    )
-
+# ---------- сцены ----------
 
 def intro_scene(cfg, hid):
-    """Подключение к aether-main и вход; затем событие с обходным каналом."""
+    """Этапы 1-4: подключение и вход. Заканчивается выбором."""
     s = Scene()
-    s.line((cfg["client"], None), ("  ·  remote session client", "dim"))
-    s.newline()
-    s.kv("target", cfg["host"], note="(saved)")
+
+    # 1. link
+    _header(s, cfg, target=True)
+    _stage(s, 1, "link")
     s.dots("resolving ", cfg["address"], "dim", ms=700)
     s.route(cfg["route"])
-    s.pause(300)
-    s.dots("session   negotiating ", "OK", ms=650)
+    s.dots("link      establishing ", "OK", ms=600)
+    _next_screen(s)
 
-    s.newline()
-    s.kv("node", cfg["host"], id="host")
+    # 2. key exchange
+    _header(s, cfg)
+    _stage(s, 2, "key exchange")
+    s.kv("cipher", cfg["key_exchange"]["cipher"], "dim")
+    s.dots("client    generating key pair ", "OK", ms=700)
+    s.dots("node      requesting public key ", "OK", ms=900)
+    s.kv("key id", cfg["key_exchange"]["key_id"], "dim")
+    s.progress("session   deriving key ", ms=1700)
+    s.dots("session   key accepted ", "OK", ms=450)
+    _next_screen(s)
+
+    # 3. node
+    _header(s, cfg)
+    _stage(s, 3, "node")
     s.kv("chassis", hid, "dim")
     s.kv("system", cfg["system"])
     s.kv("owner", Scene.mask(cfg["owner_mask"]), note="[restricted]")
-
     s.newline()
     s.line("Node unrecognised. No prior contact on record.")
     s.pause(500)
@@ -109,40 +153,25 @@ def intro_scene(cfg, hid):
     s.type("y", human=True)       # игрок «набрал» сам
     s.newline()
     s.line("Node added to contacts.", style="dim")
+    _next_screen(s)
 
+    # 4. access
+    _header(s, cfg, chassis=hid)
+    _stage(s, 4, "access")
     s.newline()
     s.line("-- node notice --", style="dim")
     for row in cfg["notice"]:
         s.line(row, style="dim")
-    s.pause(300)
     s.newline()
     s.kv("access", "external authority")
     s.newline()
-
-    message = Scene().one_of(*[Scene().type(m, human=True, typo=True).newline() for m in cfg["messages"]])
-    opened = (
-        _inbound(cfg, message)
-        .pause(500)
-        .line(f"channel opened: {cfg['channel']['name']} · {cfg['channel']['port']}", style="warning")
-        .kv("access", "external authority · open", style="warning")
-        .newline()
-    )
-    nudge = Scene().one_of(*[Scene().type(n, human=True).newline() for n in cfg["nudges"]])
-
-    s.choice(
-        "entry",
-        [_discord_option(cfg)],
-        events=[
-            Event(cfg["event_after_ms"], opened, (_bypass_option(cfg),)),
-            Event(cfg["nudge_after_ms"], _inbound(cfg, nudge)),
-        ],
-    )
+    s.choice("entry", [_discord_option(cfg), _voice_option(cfg, late=True)])
     return s
 
 
 def menu_scene(cfg):
     """Выбор снова, без сюжета (после неудачного обходного входа)."""
-    return Scene().newline().choice("entry", [_discord_option(cfg), _bypass_option(cfg)])
+    return Scene().newline().choice("entry", [_discord_option(cfg), _voice_option(cfg, late=False)])
 
 
 def discord_scene(cfg):
@@ -158,21 +187,19 @@ def discord_scene(cfg):
 
 
 def bypass_scene(cfg, hid):
-    """Нажат обходной канал: то же железо, другое имя. Сессию ещё не открыли (established_scene)."""
-    port = cfg["channel"]["port"]
-    s = Scene()
-    s.newline()
-    s.dots(f"connecting channel {port} ", "OK", "warning", ms=700)
-    s.flash()
-    s.pause(150)
-    s.glitch("host", cfg["null_host"])
+    """Игрок пошёл за фразой. Имя узла в шапке портится прямо на месте, chassis остаётся.
 
-    s.newline()
-    s.line("!! NODE IDENTITY MISMATCH !!", style="warning")
-    s.kv("node", f"{cfg['host']}  ->  {cfg['null_host']}", "warning")
-    s.kv("chassis", hid, note="(unchanged)")
-    s.line("Two identities answer on one chassis.", style="dim")
-    s.newline()
+    Сессию ещё не открыли: это делает established_scene после ответа сервера.
+    """
+    s = Scene()
+    s.flash()
+    s.pause(120)
+    s.glitch("host", cfg["null_host"], frames=28)   # только main -> null: «aether-» остаётся
+    s.pause(1100)                                    # дать увидеть, что стало
+    _next_screen(s)
+
+    _header(s, cfg, host=cfg["null_host"], chassis=hid)
+    _stage(s, 5, "session")
     s.dots("access    ", "OPEN", "warning", ms=550)
     return s
 
@@ -195,12 +222,11 @@ def established_scene(clearance):
 
 def error_scene(cfg):
     """Обходной вход не удался: имя возвращается. {code} подставляет браузер."""
-    port = cfg["channel"]["port"]
     return (
         Scene()
         .newline()
-        .glitch("host", cfg["host"])
-        .line(f"ERROR: channel {port} refused ({{code}})", style="error")
+        .glitch("host", cfg["host"], frames=20)
+        .line("ERROR: access refused ({code})", style="error")
     )
 
 
@@ -208,10 +234,8 @@ def restored_scene(cfg, hid, *, username, clearance, guest):
     """У игрока уже есть сессия: короткое подключение и идём дальше."""
     host = cfg["null_host"] if guest else cfg["host"]
     s = Scene()
-    s.line((cfg["client"], None), ("  ·  remote session client", "dim"))
+    _header(s, cfg, host=host, chassis=hid)
     s.newline()
-    s.kv("target", host, note="(saved)")
-    s.kv("chassis", hid, "dim")
     s.dots("session   restoring ", "OK", ms=500)
     s.newline()
     s.kv("user", username, "dim" if guest else "success")

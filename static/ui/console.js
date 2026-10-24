@@ -90,10 +90,11 @@
             return current || newLine();
         }
 
-        function showCursor() {
+        // курсор в конце строки или внутри parent (например, внутри варианта выбора)
+        function showCursor(parent) {
             hideCursor();
             cursor = el("span", "con-cursor");
-            ensureLine().appendChild(cursor);
+            (parent || ensureLine()).appendChild(cursor);
         }
 
         function span(style) {
@@ -110,7 +111,7 @@
         /* ---------- печать ---------- */
 
         // human: неровный ритм, пауза в раздумье и (typo) одна опечатка, которую замечают и стирают
-        async function typeInto(target, value, opts, run) {
+        async function typeInto(target, value, opts, run, cursorParent) {
             const human = Boolean(opts.human);
             const hesitateAt = human ? randomInt(2, Math.max(3, value.length - 3)) : -1;
             const typoAt = human && opts.typo && value.length > 10 ? randomInt(4, value.length - 4) : -1;
@@ -122,32 +123,42 @@
                 }
 
                 if (i === hesitateAt) {
-                    showCursor();
+                    showCursor(cursorParent);
                     await wait(randomInt(350, 700), run);
                 }
 
                 if (i === typoAt && /[a-z]/.test(value[i])) {
                     const wrong = pick("abcdefghijklmnopqrstuvwxyz".replace(value[i], "").split(""));
                     target.textContent += wrong;
-                    showCursor();
+                    showCursor(cursorParent);
                     await wait(randomInt(420, 760), run);
                     target.textContent = target.textContent.slice(0, -1);
                     await wait(130, run);
                 }
 
                 target.textContent += value[i];
-                showCursor();
+                showCursor(cursorParent);
                 await wait(
                     human ? randomInt(45, 130) + (value[i] === " " ? randomInt(30, 120) : 0) : opts.speed || 22,
                     run
                 );
             }
 
-            showCursor();
+            showCursor(cursorParent);
         }
 
-        // текст «портится» и становится другим: меняющиеся символы сначала прыгают, потом встают на место
-        async function glitchTo(target, to, run) {
+        // стирание по буквам, как будто человек нажал Backspace
+        async function eraseFrom(target, run, cursorParent) {
+            while (target.textContent.length) {
+                target.textContent = target.textContent.slice(0, -1);
+                showCursor(cursorParent);
+                await wait(24, run);
+            }
+        }
+
+        // Текст «портится» и становится другим. Прыгают только отличающиеся буквы:
+        // у aether-main и aether-null общее «aether-» остаётся на месте.
+        async function glitchTo(target, to, frames, run) {
             const from = target.textContent;
 
             if (skipping) {
@@ -156,13 +167,17 @@
             }
 
             const length = Math.max(from.length, to.length);
+            const start = frames * 0.35;
+            const step = frames * 0.045;
 
-            for (let frame = 0; frame < 14; frame++) {
+            target.classList.add("con-warning");
+
+            for (let frame = 0; frame < frames; frame++) {
                 let shown = "";
 
                 for (let i = 0; i < length; i++) {
                     const wanted = to[i] || "";
-                    const settled = frame > 5 + i * 0.6;
+                    const settled = frame > start + i * step;
 
                     shown += wanted === (from[i] || "") || settled ? wanted : pick(NOISE);
                 }
@@ -172,6 +187,7 @@
             }
 
             target.textContent = to;
+            target.classList.remove("con-warning");
         }
 
 
@@ -215,6 +231,26 @@
                 await wait(70, run);
             },
 
+            async progress(op, run, vars) {
+                const label = span();
+                label.textContent = fill(op.label, vars);
+
+                const bar = span("dim");
+                const width = op.width || 24;
+                const steps = 25;
+
+                for (let i = 0; i <= steps; i++) {
+                    const percent = Math.round((i * 100) / steps);
+                    const filled = Math.round((width * percent) / 100);
+
+                    bar.textContent = `[${"#".repeat(filled)}${"-".repeat(width - filled)}] ${String(percent).padStart(3)}%`;
+                    showCursor();
+                    await wait((op.ms || 1200) / steps, run);
+                }
+
+                await wait(70, run);
+            },
+
             async pause(op, run) {
                 const jitter = op.jitter ? randomInt(-op.jitter, op.jitter) : 0;
                 await wait(Math.max(0, (op.ms || 0) + jitter), run);
@@ -242,7 +278,7 @@
 
             async glitch(op, run, vars) {
                 const target = ids[op.id];
-                if (target) await glitchTo(target, fill(op.to, vars), run);
+                if (target) await glitchTo(target, fill(op.to, vars), op.frames || 14, run);
             },
 
             async one_of(op, run, vars, result) {
@@ -275,21 +311,21 @@
         }
 
         async function choiceOp(op, run, vars, result) {
-            let items = op.options.slice();
+            const items = op.options.filter(item => !item.late);   // варианты, готовые к выбору
+            const later = op.options.filter(item => item.late);    // появятся сами, позже
             let box = null;
-            let prompt = null;
+            let promptLine = null;
+            let promptText = null;
             let settled = false;
             let focusedId = null;
 
-            const child = { aborted: false };   // отменяет события, когда ответ получен
+            const child = { aborted: false };   // останавливает «поздние» варианты, когда ответ получен
             let resolveAnswer;
             const answered = new Promise(resolve => { resolveAnswer = resolve; });
 
             if (options.onChoice) options.onChoice();
 
-            function buttons() {
-                return Array.from(box.querySelectorAll(".con-option"));
-            }
+            const buttons = () => Array.from(box.querySelectorAll(".con-option"));
 
             function answer(id) {
                 if (settled) return;
@@ -307,55 +343,46 @@
                 resolveAnswer(id);
             }
 
-            function optionButton(item) {
+            function labelFor(item) {
+                return fill(Array.isArray(item.label) ? pick(item.label) : item.label, vars);
+            }
+
+            // forming: текст варианта ещё печатается, подпись «[ ? ]» занимает место, но не видна
+            function makeButton(item, forming) {
                 const button = el("button", "con-option");
                 button.type = "button";
                 button.dataset.option = item.id;
 
-                const label = Array.isArray(item.label) ? pick(item.label) : item.label;
-                const main = el("span", "con-option-main" + (item.style ? " con-" + item.style : ""));
-                main.textContent = item.tag
-                    ? `${item.key}  ${fill(label, vars).padEnd(24)}`
-                    : `${item.key}  ${fill(label, vars)}`;
+                const main = el("span", "con-option-main");
+                const keyEl = el("span", "con-option-key" + (forming ? " con-hidden" : ""));
+                const labelEl = el("span", "con-option-label");
 
-                if (item.tag) {
-                    const tag = el("span", "con-option-tag");
-                    tag.textContent = item.tag;
-                    main.appendChild(tag);
+                keyEl.textContent = item.key + "  ";
+                main.append(keyEl, labelEl);
+
+                if (forming) {
+                    button.disabled = true;
+                } else {
+                    labelEl.textContent = item.tag ? labelFor(item).padEnd(24) : labelFor(item);
+
+                    if (item.style) main.classList.add("con-" + item.style);
+
+                    if (item.tag) {
+                        const tag = el("span", "con-option-tag");
+                        tag.textContent = item.tag;
+                        main.appendChild(tag);
+                    }
                 }
 
                 button.appendChild(main);
                 button.addEventListener("click", () => answer(item.id));
                 button.addEventListener("focus", () => { focusedId = item.id; });
-                return button;
+
+                return { button, main, keyEl, labelEl };
             }
 
-            // Список вариантов выводится заново, старый остаётся выше приглушённым:
-            // консоль только дописывает, а не переписывает уже показанное.
-            function render() {
-                if (box) {
-                    box.classList.add("con-stale");
-                    buttons().forEach(button => { button.disabled = true; });
-                }
-
-                if (prompt) prompt.remove();
-                hideCursor();
-                current = null;
-
-                box = el("div", "con-options");
-                container.appendChild(box);
-                items.forEach(item => box.appendChild(optionButton(item)));
-
-                const keys = items.map(keyLabel).join("/");
-                prompt = newLine();
-                const text = el("span");
-                text.textContent = `${op.prompt || "Select"} [${keys}] `;
-                prompt.appendChild(text);
-                showCursor();
-
-                const target = buttons().find(button => button.dataset.option === focusedId) || buttons()[0];
-                if (target) target.focus({ preventScroll: true });
-                scrollDown();
+            function refreshPrompt() {
+                promptText.textContent = `${op.prompt || "Select"} [${items.map(keyLabel).join("/")}] `;
             }
 
             function onKey(event) {
@@ -369,7 +396,7 @@
 
                 if (event.key === "ArrowDown" || event.key === "ArrowUp") {
                     event.preventDefault();
-                    const list = buttons();
+                    const list = buttons().filter(button => !button.disabled);
                     const index = list.indexOf(document.activeElement);
                     const step = event.key === "ArrowDown" ? 1 : -1;
                     list[(index + step + list.length) % list.length].focus();
@@ -379,34 +406,74 @@
                 return false;
             }
 
-            keyHandlers.add(onKey);
-            render();
+            // Вариант появляется на месте: сначала его текст печатается простой строкой,
+            // потом он «оформляется под кнопку» (подпись, цвет, мерцание).
+            async function appear(item) {
+                await realWait(delayOf(item.late.after_ms), child);
 
-            // события: сюжетные куски, которые случаются, пока игрок выбирает
-            (async () => {
-                try {
-                    for (const event of op.events || []) {
-                        await realWait(delayOf(event.after_ms), child);
+                skipping = REDUCED;   // этот кусок проигрывается по-настоящему
+                const made = makeButton(item, true);
+                box.appendChild(made.button);
 
-                        skipping = REDUCED;   // новый кусок проигрывается по-настоящему
-                        if (box) {
-                            box.classList.add("con-stale");
-                            buttons().forEach(button => { button.disabled = true; });
-                        }
-                        if (prompt) prompt.remove();
-                        prompt = null;
-                        hideCursor();
-                        current = null;
+                await typeInto(made.labelEl, labelFor(item), { human: true, typo: item.late.typo }, child, made.main);
+                await wait(item.late.settle_ms || 450, child);
 
-                        await runSteps(event.steps || [], child, vars, result);
+                made.button.classList.add("con-flicker");
+                await wait(160, child);
+                made.button.classList.remove("con-flicker");
 
-                        items = items.concat(event.options || []);
-                        render();
-                    }
-                } catch (error) {
-                    if (!(error instanceof Abort)) console.error(error);
+                made.keyEl.classList.remove("con-hidden");
+                if (item.style) made.main.classList.add("con-" + item.style);
+                made.button.disabled = false;
+
+                items.push(item);
+                refreshPrompt();
+                showCursor(promptLine);
+
+                if (item.rewrites) await rewrite(item, made);
+            }
+
+            // Пока игрок не отвечает, текст стирается и набирается другой на том же месте
+            async function rewrite(item, made) {
+                const spec = item.rewrites;
+                let shown = made.labelEl.textContent;
+
+                for (;;) {
+                    await realWait(delayOf(spec.after_ms), child);
+
+                    skipping = REDUCED;
+                    const next = pick(spec.labels.filter(label => label !== shown));
+
+                    await eraseFrom(made.labelEl, child, made.main);
+                    await wait(randomInt(300, 700), child);
+                    await typeInto(made.labelEl, next, { human: true, typo: false }, child, made.main);
+
+                    shown = next;
+                    showCursor(promptLine);
                 }
-            })();
+            }
+
+            keyHandlers.add(onKey);
+
+            box = el("div", "con-options");
+            container.appendChild(box);
+            items.forEach(item => box.appendChild(makeButton(item, false).button));
+
+            promptLine = newLine();
+            promptText = el("span");
+            promptLine.appendChild(promptText);
+            refreshPrompt();
+            showCursor(promptLine);
+
+            const first = buttons()[0];
+            if (first) first.focus({ preventScroll: true });
+            scrollDown();
+
+            later.forEach(item => {
+                appear(item).catch(error => {
+                    if (!(error instanceof Abort)) console.error(error);
+                });
+            });
 
             const id = await answered;
             result.choice = id;

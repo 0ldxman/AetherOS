@@ -158,7 +158,7 @@ class LockScreenTests(TestCase):
 
 
 class GatewayScenesTests(TestCase):
-    """Содержание сцен входа: сюжет, замазанный владелец, общий hid."""
+    """Содержание сцен входа: этапы, замазанный владелец, общий hid, глюк имени на месте."""
 
     @classmethod
     def setUpTestData(cls):
@@ -175,20 +175,71 @@ class GatewayScenesTests(TestCase):
         request.session = session if session is not None else {}
         return gateway_scenes(request)
 
+    def texts(self, scene):
+        return [s.get("value", "") for s in scene if s["op"] == "text"]
+
+    def after_last_clear(self, scene):
+        index = max(i for i, step in enumerate(scene) if step["op"] == "clear")
+        return scene[index + 1:]
+
+    # ---------- чего на экране быть не должно ----------
+
     def test_the_owner_organisation_is_never_named(self):
         for name, scene in self.scenes().items():
             self.assertNotIn("CTRG", spoken(scene), name)
+
+    def test_no_inbound_message_and_no_printed_mismatch(self):
+        # незнакомец говорит прямо в меню, а смена имени это глюк самого текста, а не строка «mismatch -> »
+        for name, scene in self.scenes().items():
+            text = spoken(scene)
+            for word in ("inbound", "MISMATCH", "channel opened", "->"):
+                self.assertNotIn(word, text, f"{name}: {word}")
+
+    # ---------- этапы ----------
+
+    def test_intro_is_four_stages_split_by_cleared_screens(self):
+        intro = self.scenes()["intro"]
+        self.assertEqual(sum(1 for s in intro if s["op"] == "clear"), 3)
+        titles = [t for t in self.texts(intro) if t.startswith("-- ")]
+        self.assertEqual(
+            [t for t in titles if "/5" in t],
+            ["-- 1/5  link --", "-- 2/5  key exchange --", "-- 3/5  node --", "-- 4/5  access --"],
+        )
+
+    def test_the_session_is_the_fifth_stage(self):
+        self.assertIn("-- 5/5  session --", self.texts(self.scenes()["bypass"]))
+
+    def test_each_stage_reprints_the_header(self):
+        intro = self.scenes()["intro"]
+        self.assertEqual(sum(1 for t in self.texts(intro) if t == "AETHER LINK 3.2"), 4)
+
+    def test_key_exchange_has_a_progress_bar_and_a_key_id(self):
+        from users.gateway import GATEWAY
+
+        intro = self.scenes()["intro"]
+        self.assertEqual(len(steps(intro, "progress")), 1)
+        self.assertIn(GATEWAY["key_exchange"]["key_id"], spoken(intro))
+
+    def test_route_includes_a_timeout_and_a_retry(self):
+        text = spoken(self.scenes()["intro"])
+        self.assertIn("no answer", text)
+        self.assertEqual(text.count("relay 03"), 2)
 
     def test_owner_field_is_masked_and_marked_restricted(self):
         text = spoken(self.scenes()["intro"])
         self.assertIn("█" * 14, text)
         self.assertIn("[restricted]", text)
 
+    def test_trust_prompt_is_typed_by_the_player_like_a_human(self):
+        typed = [s for s in self.scenes()["intro"] if s["op"] == "type"]
+        self.assertEqual([(s["value"], s["human"]) for s in typed], [("y", True)])
+
+    # ---------- hid ----------
+
     def test_hid_is_read_from_the_machine_and_shown_before_and_after(self):
         scenes = self.scenes()
         self.assertIn(self.machine.hid, spoken(scenes["intro"]))
         self.assertIn(self.machine.hid, spoken(scenes["bypass"]))
-        self.assertIn("(unchanged)", spoken(scenes["bypass"]))
 
     def test_hid_has_a_placeholder_when_the_machine_is_missing(self):
         from users.aether_auth import UNKNOWN_HID
@@ -196,55 +247,70 @@ class GatewayScenesTests(TestCase):
         Machine.objects.all().delete()
         self.assertIn(UNKNOWN_HID, spoken(self.scenes()["intro"]))
 
-    def test_intro_goes_through_the_stages_in_order(self):
-        text = [s.get("value", "") for s in self.scenes()["intro"] if s["op"] == "text"]
-        joined = "|".join(text)
-        order = ["AETHER LINK", "target", "node", "chassis", "owner", "Trust node", "node notice", "access"]
-        positions = [joined.index(word) for word in order]
-        self.assertEqual(positions, sorted(positions))
+    # ---------- вход и фраза незнакомца ----------
 
-    def test_route_includes_a_timeout_and_a_retry(self):
-        text = spoken(self.scenes()["intro"])
-        self.assertIn("no answer", text)
-        self.assertEqual(text.count("relay 03"), 2)
-
-    def test_trust_prompt_is_typed_by_the_player_like_a_human(self):
-        typed = [s for s in self.scenes()["intro"] if s["op"] == "type"]
-        self.assertEqual([(s["value"], s["human"]) for s in typed], [("y", True)])
-
-    def test_entry_choice_starts_with_discord_only(self):
-        (choice,) = [s for s in self.scenes()["intro"] if s["op"] == "choice"]
-        self.assertEqual([o["id"] for o in choice["options"]], ["discord"])
-
-    def test_stranger_appears_later_with_the_bypass_option(self):
+    def test_discord_is_immediate_and_the_stranger_text_arrives_later_in_place(self):
         from users.gateway import GATEWAY
 
         (choice,) = [s for s in self.scenes()["intro"] if s["op"] == "choice"]
-        first, second = choice["events"]
-        self.assertEqual(first["after_ms"], GATEWAY["event_after_ms"])
-        self.assertEqual([o["id"] for o in first["options"]], ["bypass"])
-        self.assertEqual(first["options"][0]["keys"], ["?", "/"])
-        self.assertEqual(second["after_ms"], GATEWAY["nudge_after_ms"])
+        discord, bypass = choice["options"]
+        self.assertNotIn("late", discord)
+        self.assertEqual(bypass["late"]["after_ms"], GATEWAY["voice"]["after_ms"])
+        self.assertEqual(bypass["keys"], ["?", "/"])
+        self.assertEqual(bypass["label"], GATEWAY["voice"]["lines"])   # случайная из набора, в первом лице
+        self.assertNotIn("events", choice)
 
-    def test_the_stranger_speaks_in_the_first_person_from_a_random_pool(self):
+    def test_the_text_is_erased_and_typed_again_if_the_player_waits(self):
         from users.gateway import GATEWAY
 
-        (one_of,) = steps(self.scenes()["intro"], "one_of")[:1]
-        said = {nested[0]["value"] for nested in one_of["scenes"]}
-        self.assertEqual(said, set(GATEWAY["messages"]))
+        (choice,) = [s for s in self.scenes()["intro"] if s["op"] == "choice"]
+        rewrites = choice["options"][1]["rewrites"]
+        self.assertEqual(rewrites["after_ms"], GATEWAY["voice"]["again_after_ms"])
+        self.assertEqual(rewrites["labels"], GATEWAY["voice"]["again_lines"])
+        self.assertGreaterEqual(len(rewrites["labels"]), 2)
 
-    def test_bypass_turns_the_host_into_null_in_place(self):
+    def test_after_a_failed_bypass_the_menu_shows_both_options_at_once(self):
+        (choice,) = [s for s in self.scenes()["menu"] if s["op"] == "choice"]
+        self.assertEqual([o["id"] for o in choice["options"]], ["discord", "bypass"])
+        self.assertTrue(all("late" not in o and "rewrites" not in o for o in choice["options"]))
+
+    # ---------- имя узла глючит на месте ----------
+
+    def test_only_main_turns_into_null_so_the_prefix_stays_put(self):
+        from users.gateway import GATEWAY
+
+        host, null = GATEWAY["host"], GATEWAY["null_host"]
+        prefix = 0
+        while host[prefix] == null[prefix]:
+            prefix += 1
+        self.assertEqual(host[:prefix], "aether-")
+
+    def test_the_glitch_acts_on_the_header_that_is_on_screen_at_that_moment(self):
         scenes = self.scenes()
-        ids = {s["id"] for s in steps(scenes["intro"], "text") if "id" in s}
-        glitches = steps(scenes["bypass"], "glitch") + steps(scenes["error"], "glitch")
-        self.assertTrue(glitches)
-        for glitch in glitches:
-            self.assertIn(glitch["id"], ids)  # иначе браузеру нечего портить
-        self.assertEqual(steps(scenes["bypass"], "glitch")[0]["to"], "aether-null")
-        self.assertEqual(steps(scenes["error"], "glitch")[0]["to"], "aether-main")
+        # перед выбором на экране шапка этапа 4 с именем узла (id host)...
+        on_screen = {s["id"] for s in self.after_last_clear(scenes["intro"]) if s["op"] == "text" and "id" in s}
+        self.assertIn("host", on_screen)
+        (glitch,) = steps(scenes["bypass"], "glitch")
+        self.assertEqual((glitch["id"], glitch["to"]), ("host", "aether-null"))
+        # ...а после смены экран очищается и новая шапка уже с aether-null и тем же chassis
+        after = self.after_last_clear(scenes["bypass"])
+        self.assertIn("aether-null", [s.get("value") for s in after if s["op"] == "text"])
+        self.assertIn(self.machine.hid, spoken(after))
+
+    def test_failure_glitches_the_name_back_on_the_current_header(self):
+        scenes = self.scenes()
+        ids = {s["id"] for s in self.after_last_clear(scenes["bypass"]) if s["op"] == "text" and "id" in s}
+        (glitch,) = steps(scenes["error"], "glitch")
+        self.assertIn(glitch["id"], ids)
+        self.assertEqual(glitch["to"], "aether-main")
+
+    def test_the_glitch_is_long_enough_to_notice(self):
+        (glitch,) = steps(self.scenes()["bypass"], "glitch")
+        self.assertGreaterEqual(glitch["frames"], 24)
+
+    # ---------- сессия ----------
 
     def test_the_session_is_only_announced_after_the_server_confirms(self):
-        # bypass играется, пока идёт запрос; established только после успешного ответа
         scenes = self.scenes()
         self.assertNotIn("session established", spoken(scenes["bypass"]))
         self.assertNotIn("Loading workspace", spoken(scenes["bypass"]))
@@ -258,14 +324,12 @@ class GatewayScenesTests(TestCase):
 
     def test_logged_in_player_gets_a_restored_scene(self):
         user = get_user_model().objects.create_user("ivan", password="pw")
-        restored = self.scenes(user=user)["restored"]
-        text = spoken(restored)
+        text = spoken(self.scenes(user=user)["restored"])
         self.assertIn("ivan", text)
         self.assertIn("aether-main", text)
         self.assertNotIn("Unregistered", text)
 
     def test_returning_guest_restores_onto_aether_null(self):
-        restored = self.scenes(session={"guest": True})["restored"]
-        text = spoken(restored)
+        text = spoken(self.scenes(session={"guest": True})["restored"])
         self.assertIn("aether-null", text)
         self.assertIn("Unregistered session", text)

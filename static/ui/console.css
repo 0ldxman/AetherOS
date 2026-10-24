@@ -79,10 +79,17 @@
 .con-option:focus { outline: none; }
 .con-option:disabled { cursor: default; }
 
-/* прежний список после того, как вывод пошёл дальше */
-.con-stale { opacity: 0.45; }
-
 .con-chosen .con-option-main { color: var(--accent-green); }
+
+/* подпись варианта, пока его текст ещё печатается: место занято, но не видно */
+.con-hidden { visibility: hidden; }
+
+/* момент, когда напечатанный текст «оформляется под кнопку» */
+.con-flicker,
+.con-flicker .con-option-main {
+    background: var(--font-light);
+    color: var(--bg);
+}
 
 @media (max-width: 700px) {
     .con-option-tag {

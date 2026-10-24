@@ -6,7 +6,7 @@ import json
 
 from django.test import SimpleTestCase
 
-from console.scene import Event, Option, Scene, SceneError
+from console.scene import Option, Scene, SceneError
 
 
 class BuildingTests(SimpleTestCase):
@@ -54,8 +54,15 @@ class BuildingTests(SimpleTestCase):
         self.assertEqual(sum(1 for s in scene.to_dict() if s["op"] == "pause"), 2)
 
     def test_glitch_and_mask(self):
-        self.assertEqual(Scene().glitch("host", "aether-null").to_dict()[0], {"op": "glitch", "id": "host", "to": "aether-null"})
+        step = Scene().glitch("host", "aether-null").to_dict()[0]
+        self.assertEqual((step["op"], step["id"], step["to"], step["frames"]), ("glitch", "host", "aether-null", 14))
+        self.assertEqual(Scene().glitch("host", "x", frames=26).to_dict()[0]["frames"], 26)
         self.assertEqual(Scene.mask(4), "████")
+
+    def test_progress_bar_ends_the_line(self):
+        steps = Scene().progress("session ", ms=900, width=20).to_dict()
+        self.assertEqual([s["op"] for s in steps], ["progress", "newline"])
+        self.assertEqual((steps[0]["ms"], steps[0]["width"]), (900, 20))
 
     def test_extend_appends_steps(self):
         self.assertEqual(len(Scene().text("a").extend(Scene().text("b")).to_dict()), 2)
@@ -81,7 +88,11 @@ class ValidationTests(SimpleTestCase):
 
     def test_delay_range_must_be_ordered(self):
         with self.assertRaises(SceneError):
-            Event([30, 20], Scene()).to_dict()
+            Option("a", "[ A ]", "x", late={"after_ms": [30, 20]}).to_dict()
+
+    def test_rewrites_need_at_least_two_texts(self):
+        with self.assertRaises(SceneError):
+            Option("a", "[ A ]", "x", rewrites={"labels": ["only one"]}).to_dict()
 
 
 class BranchingTests(SimpleTestCase):
@@ -89,19 +100,32 @@ class BranchingTests(SimpleTestCase):
         step = Scene().one_of(Scene().text("a"), Scene().text("b")).to_dict()[0]
         self.assertEqual([s[0]["value"] for s in step["scenes"]], ["a", "b"])
 
-    def test_choice_with_events(self):
-        option = Option("discord", "[ D ]", "external authority", tag="DISCORD", keys=("D",))
-        extra = Option("bypass", "[ ? ]", ["a", "b"], keys=("?", "/"), style="warning")
-        step = (
-            Scene()
-            .choice("entry", [option], events=[Event(2200, Scene().line("x"), (extra,)), Event([20000, 30000], Scene())])
-            .to_dict()[0]
+    def test_plain_option_has_no_late_or_rewrites(self):
+        data = Option("discord", "[ D ]", "external authority", tag="DISCORD", keys=("D",)).to_dict()
+        self.assertEqual(data["keys"], ["d"])
+        self.assertNotIn("late", data)
+        self.assertNotIn("rewrites", data)
+
+    def test_late_option_that_rewrites_itself(self):
+        option = Option(
+            "bypass", "[ ? ]", ["a", "b"], keys=("?", "/"), style="warning",
+            late={"after_ms": 2200, "typo": False, "settle_ms": 300},
+            rewrites={"after_ms": [20000, 30000], "labels": ["x", "y"]},
         )
-        self.assertEqual(step["options"][0]["keys"], ["d"])
-        first, second = step["events"]
-        self.assertEqual(first["after_ms"], 2200)
-        self.assertEqual(first["options"][0]["label"], ["a", "b"])
-        self.assertEqual(second["after_ms"], [20000, 30000])
+        data = option.to_dict()
+        self.assertEqual(data["label"], ["a", "b"])
+        self.assertEqual(data["late"], {"after_ms": 2200, "typo": False, "settle_ms": 300})
+        self.assertEqual(data["rewrites"], {"after_ms": [20000, 30000], "labels": ["x", "y"]})
+
+    def test_late_defaults(self):
+        late = Option("a", "[ A ]", "x", late={}).to_dict()["late"]
+        self.assertEqual((late["after_ms"], late["typo"], late["settle_ms"]), (0, True, 450))
+
+    def test_choice_carries_its_options(self):
+        scene = Scene().choice("entry", [Option("a", "[ A ]", "x"), Option("b", "[ B ]", "y", late={"after_ms": 10})])
+        step = scene.to_dict()[0]
+        self.assertEqual([o["id"] for o in step["options"]], ["a", "b"])
+        self.assertNotIn("events", step)
 
     def test_the_whole_scene_is_json(self):
         scene = Scene().line("é ·", style="dim").choice("c", [Option("a", "[ A ]", "x")])
