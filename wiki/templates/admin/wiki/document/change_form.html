@@ -6,6 +6,7 @@
 <link rel="stylesheet" href="{% static 'wiki/condition_editor.css' %}">
 <script type="module" src="{% static 'wiki/editor.js' %}"></script>
 {% if lock_url %}<script src="{% static 'wiki/doc_lock.js' %}" defer></script>{% endif %}
+<script src="{% static 'wiki/doc_draft.js' %}" defer></script>
 {% endblock %}
 
 {% block object-tools-items %}
