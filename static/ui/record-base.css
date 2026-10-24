@@ -1294,15 +1294,7 @@
  * ID и длительность, затем плоские контролы. Графика громкости нет.
  * Без JS остаётся обычный <audio controls> в рамке.
  *
- * Этот блок ставится ВМЕСТО старого раздела «Audio» в record-base.css
- * (правила .widget--audio, .widget--audio::before, .audio-title, .audio-el).
- * Правило `.audio-card { display: none }` оставить.
- *
- * Кроме того, в разделе «Вкладка-заголовок» убрать .widget--audio
- * из трёх селекторов (остаётся только .widget--file):
- *   :is(.widget--audio, .widget--file)::before            (оформление вкладки)
- *   :is(.widget--audio, .widget--file)                    (position + margin-top)
- *   :is(.widget--audio, .widget--file)::before            (position: absolute)
+ * Используется вложенность CSS (&): нужны актуальные браузеры.
  */
 
 /* Запасной вариант без JS */
@@ -1971,12 +1963,6 @@
  * что и просмотрщик: заголовок и метаданные поверх кадра, квадратная
  * кнопка по центру, плоские контролы, белая полоса прогресса.
  * Без JS остаётся обычный <video controls> с рамкой.
- *
- * Этот блок ставится ВМЕСТО старого раздела «Video» в record-base.css.
- * Кроме того, в том же файле нужно:
- *   1. убрать `.widget--video,` из списка селекторов
- *      «Вкладка-заголовок: видео, аудио, файл» (там `::before`);
- *   2. аудио и файл остаются с вкладками как были.
  *
  * Используется вложенность CSS (&): нужны актуальные браузеры.
  */
@@ -2657,54 +2643,6 @@
 }
 
 
-/* ---------- Audio ---------- */
-
-/* Карточка с осциллограммой нужна только скану */
-:is(.doc--rec, .doc--infobox) .audio-card {
-    display: none;
-}
-
-
-:is(.doc--rec, .doc--infobox) .widget--audio {
-    padding: 0.5rem 0.7rem 0.6rem;
-
-    border: 1px solid var(--sk-rule);
-
-    background: var(--sk-panel);
-}
-
-
-:is(.doc--rec, .doc--infobox) .widget--audio::before {
-    content: "АУДИО";
-}
-
-
-:is(.doc--rec, .doc--infobox) .audio-title {
-    margin-bottom: 0.35rem;
-
-    color: var(--sk-ink-strong);
-
-    font-size: 0.78rem;
-    font-weight: 700;
-    letter-spacing: 0.06em;
-    line-height: 1.4;
-
-    overflow-wrap: anywhere;
-}
-
-
-:is(.doc--rec, .doc--infobox) .audio-el {
-    display: block;
-
-    width: 100%;
-    max-width: 100%;
-    min-width: 0;
-
-    accent-color: var(--accent);
-    color-scheme: dark;
-}
-
-
 /* ---------- File ---------- */
 
 /*
@@ -2713,10 +2651,6 @@
  * Вся строка это ссылка на скачивание (растянутая ссылка через ::after).
  * «Открыть» лежит поверх неё отдельной мелкой ссылкой.
  * При наведении строка инвертируется, как строки в aether.db.
- *
- * Ставится ВМЕСТО старого раздела «File» в record-base.css целиком,
- * вместе с хвостом `.doc--infobox .widget--file ...`.
- * Правило `.widget--file .file-code { display: none }` больше не нужно.
  */
 
 :is(.doc--rec, .doc--infobox) .widget--file {
