@@ -35,9 +35,13 @@ if not SECRET_KEY:
         raise RuntimeError("SECRET_KEY не задан в .env")
     SECRET_KEY = "dev-only-insecure-key"
 
-ALLOWED_HOSTS = ["localhost", "127.0.0.1"]
-CSRF_TRUSTED_ORIGINS = ["http://localhost:8443"]
-FORCE_SCRIPT_NAME = "/proxy/8000"  # только для отладки через code-server
+# Значения по умолчанию рассчитаны на разработку через code-server.
+# На сервере задайте их в .env (см. .env.example).
+ALLOWED_HOSTS = env.list("ALLOWED_HOSTS", default=["localhost", "127.0.0.1"])
+CSRF_TRUSTED_ORIGINS = env.list("CSRF_TRUSTED_ORIGINS", default=["http://localhost:8443"])
+
+# Префикс адреса за прокси code-server. На сервере: FORCE_SCRIPT_NAME= (пусто).
+FORCE_SCRIPT_NAME = env("FORCE_SCRIPT_NAME", default="/proxy/8000") or None
 
 AUTH_USER_MODEL = "users.User"
 # Application definition
@@ -178,7 +182,7 @@ USE_TZ = True
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/6.1/howto/static-files/
 
-STATIC_URL = "/proxy/8000/static/"
+STATIC_URL = env("STATIC_URL", default=f"{FORCE_SCRIPT_NAME or ''}/static/")
 
 # Общая статика проекта: static/ui/tokens.css, static/ui/themes/*.css, позже static/ui/fonts.css.
 # Не принадлежит ни одному приложению; папка static/ лежит в корне проекта рядом с manage.py.
@@ -200,3 +204,17 @@ X_FRAME_OPTIONS = "SAMEORIGIN"
 # Год кэша — только вне отладки. Имена файлов без хеша, поэтому при DEBUG год кэша
 # не даёт правкам css дойти до браузера (приходится обновлять жёстко после каждой правки).
 WHITENOISE_MAX_AGE = 0 if DEBUG else 31536000
+
+# Вне отладки статика собирается командой collectstatic в STATIC_ROOT, а к именам
+# файлов добавляется хеш содержимого: правка css/js сразу доходит до браузера,
+# даже при годовом кэше. Файлы, на которые нет ссылок из css, хешируются как есть.
+STATIC_ROOT = env("STATIC_ROOT", default=str(BASE_DIR / "staticfiles"))
+if not DEBUG:
+    STORAGES = {
+        "default": {"BACKEND": "django.core.files.storage.FileSystemStorage"},
+        "staticfiles": {"BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage"},
+    }
+
+    # Сайт отдаётся по https за прокси (см. SECURE_PROXY_SSL_HEADER)
+    SESSION_COOKIE_SECURE = True
+    CSRF_COOKIE_SECURE = True
