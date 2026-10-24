@@ -22,6 +22,10 @@
      fullscreenClass   класс на stage в полноэкранном режиме
      hoverGuards    элементы, над которыми панель не прячется
      onMetadata     вызывается при каждом обновлении метаданных
+     onError        вызывается с текстом ошибки (после показа ошибки)
+     beforePlay     async-функция перед media.play() (например, resume AudioContext)
+     volumeModel    { get(), isMuted(), setVolume(v), setMuted(m) }: если громкость
+                    живёт не в самом элементе (Web Audio). По умолчанию media.volume/muted
    ================================================== */
 
 (function () {
@@ -70,6 +74,21 @@
         let hideTimer = null;
         let seeking = false;
         let failed = false;
+
+        const volumeModel = options.volumeModel || {
+            get: function () {
+                return media.volume;
+            },
+            isMuted: function () {
+                return media.muted;
+            },
+            setVolume: function (value) {
+                media.volume = value;
+            },
+            setMuted: function (value) {
+                media.muted = value;
+            },
+        };
 
         /* ---------- Состояние ---------- */
 
@@ -127,6 +146,10 @@
             }
 
             setStatus("ERROR");
+
+            if (options.onError) {
+                options.onError(message || errorMessage(media, label));
+            }
         }
 
         function hideLoading() {
@@ -193,6 +216,10 @@
                 }
 
                 try {
+                    if (options.beforePlay) {
+                        await options.beforePlay();
+                    }
+
                     await media.play();
                 } catch (err) {
                     showError(
@@ -261,10 +288,10 @@
         /* ---------- Громкость ---------- */
 
         function updateVolumeUI() {
-            const silent = media.muted || media.volume === 0;
+            const silent = volumeModel.isMuted() || volumeModel.get() === 0;
 
             if (ui.volume) {
-                ui.volume.value = String(media.muted ? 0 : media.volume);
+                ui.volume.value = String(silent ? 0 : volumeModel.get());
             }
 
             if (ui.muteButton) {
@@ -281,7 +308,7 @@
         }
 
         function toggleMute() {
-            media.muted = !media.muted;
+            volumeModel.setMuted(!volumeModel.isMuted());
             updateVolumeUI();
         }
 
@@ -379,8 +406,10 @@
         });
 
         on(ui.volume, "input", function () {
-            media.volume = Number(ui.volume.value);
-            media.muted = media.volume === 0;
+            const value = Number(ui.volume.value);
+
+            volumeModel.setVolume(value);
+            volumeModel.setMuted(value === 0);
             updateVolumeUI();
             showControls();
         });

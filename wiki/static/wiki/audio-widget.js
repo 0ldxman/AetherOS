@@ -12,11 +12,8 @@
     const SELECTOR = ".doc--rec .widget--audio, .doc--infobox .widget--audio";
 
     const ICON_PLAY = '<path d="M8 5.5 19 12 8 18.5Z" />';
-    const ICON_PAUSE = '<path d="M7 5h4v14H7zM15 5h4v14h-4z" />';
 
     const SPEEDS = ["0.5", "0.75", "1", "1.25", "1.5", "2"];
-
-    const formatTime = Aether.formatTime;
 
     function template(hasViewer) {
         const speedOptions = SPEEDS.map(function (v) {
@@ -151,167 +148,50 @@
             });
         }
 
-        let seeking = false;
-        let failed = false;
-
-        /* ---------- Статус, ошибки ---------- */
-
-        function setStatus(value) {
-            status.textContent = value;
-        }
-
-        function showError(message) {
-            failed = true;
-
-            box.classList.add("aw-failed");
-            errorText.textContent = message || "Unable to load audio source.";
-            errorBox.hidden = false;
-
-            setStatus("ERROR");
-        }
-
         /* ---------- Метаданные ---------- */
 
         function updateMetadata() {
-            duration.textContent = formatTime(audio.duration);
-            total.textContent = formatTime(audio.duration);
+            duration.textContent = Aether.formatTime(audio.duration);
         }
 
-        /* ---------- Воспроизведение ---------- */
+        /* ---------- Плеер ---------- */
 
-        function updatePlayState() {
-            const playing = !audio.paused && !audio.ended;
-
-            box.classList.toggle("aw-playing", playing);
-
-            playIcon.innerHTML = playing ? ICON_PAUSE : ICON_PLAY;
-            playButton.setAttribute("aria-label", playing ? "Pause" : "Play");
-            playButton.title = playing ? "Pause (Space)" : "Play (Space)";
-
-            if (failed) {
-                setStatus("ERROR");
-            } else if (audio.ended) {
-                setStatus("END OF FILE");
-            } else if (playing) {
-                setStatus("PLAYING");
-            } else if (audio.currentTime > 0) {
-                setStatus("PAUSED");
-            } else {
-                setStatus("READY");
+        const player = Aether.createPlayer(
+            audio,
+            {
+                stage: box,
+                status: status,
+                playButton: playButton,
+                playIcon: playIcon,
+                muteButton: muteButton,
+                wave: wave,
+                cross: cross,
+                volume: volume,
+                speed: speed,
+                progress: progress,
+                current: current,
+                total: total,
+                error: errorBox,
+                errorMessage: errorText,
+            },
+            {
+                label: "audio",
+                classes: { playing: "aw-playing" },
+                progressVar: "--aw-progress",
+                onMetadata: updateMetadata,
+                onError: function () {
+                    box.classList.add("aw-failed");
+                },
             }
-        }
+        );
 
-        async function togglePlayback() {
-            if (failed) {
-                return;
-            }
-
-            if (audio.paused || audio.ended) {
-                if (audio.ended) {
-                    audio.currentTime = 0;
-                }
-
-                try {
-                    await audio.play();
-                } catch (err) {
-                    showError("Playback could not be started. The format may not be supported by this browser.");
-                }
-            } else {
-                audio.pause();
-            }
-        }
-
-        playButton.addEventListener("click", togglePlayback);
-
+        /* одновременно звучит только один ассет на странице */
         audio.addEventListener("play", function () {
-            /* одновременно звучит только один ассет на странице */
             document.querySelectorAll("audio, video").forEach(function (media) {
                 if (media !== audio) {
                     media.pause();
                 }
             });
-
-            updatePlayState();
-        });
-
-        audio.addEventListener("playing", updatePlayState);
-        audio.addEventListener("pause", updatePlayState);
-        audio.addEventListener("ended", updatePlayState);
-
-        audio.addEventListener("waiting", function () {
-            if (!audio.paused) {
-                setStatus("BUFFERING");
-            }
-        });
-
-        /* ---------- Таймлайн ---------- */
-
-        function paintProgress(fraction) {
-            progress.style.setProperty("--aw-progress", `${fraction * 100}%`);
-        }
-
-        function updateProgress() {
-            current.textContent = formatTime(audio.currentTime);
-
-            if (!seeking && Number.isFinite(audio.duration) && audio.duration > 0) {
-                const value = Math.round((audio.currentTime / audio.duration) * 1000);
-
-                progress.value = String(value);
-                paintProgress(value / 1000);
-            }
-        }
-
-        progress.addEventListener("pointerdown", function () {
-            seeking = true;
-        });
-
-        progress.addEventListener("input", function () {
-            const fraction = Number(progress.value) / 1000;
-
-            paintProgress(fraction);
-
-            if (Number.isFinite(audio.duration) && audio.duration > 0) {
-                audio.currentTime = fraction * audio.duration;
-                current.textContent = formatTime(audio.currentTime);
-            }
-        });
-
-        function endSeek() {
-            seeking = false;
-        }
-
-        progress.addEventListener("pointerup", endSeek);
-        progress.addEventListener("change", endSeek);
-
-        audio.addEventListener("timeupdate", updateProgress);
-        audio.addEventListener("durationchange", updateMetadata);
-
-        /* ---------- Громкость ---------- */
-
-        function updateVolumeUI() {
-            const silent = audio.muted || audio.volume === 0;
-
-            volume.value = String(audio.muted ? 0 : audio.volume);
-            muteButton.setAttribute("aria-label", silent ? "Unmute" : "Mute");
-            wave.hidden = silent;
-            cross.hidden = !silent;
-        }
-
-        muteButton.addEventListener("click", function () {
-            audio.muted = !audio.muted;
-        });
-
-        volume.addEventListener("input", function () {
-            audio.volume = Number(volume.value);
-            audio.muted = audio.volume === 0;
-        });
-
-        audio.addEventListener("volumechange", updateVolumeUI);
-
-        /* ---------- Скорость ---------- */
-
-        speed.addEventListener("change", function () {
-            audio.playbackRate = Number(speed.value);
         });
 
         /* ---------- Клавиатура ---------- */
@@ -331,73 +211,15 @@
                 return;
             }
 
-            switch (event.key.toLowerCase()) {
-                case " ":
-                    event.preventDefault();
-                    togglePlayback();
-                    break;
-
-                case "arrowleft":
-                    event.preventDefault();
-                    audio.currentTime = Math.max(0, audio.currentTime - 5);
-                    break;
-
-                case "arrowright":
-                    event.preventDefault();
-                    audio.currentTime = Number.isFinite(audio.duration)
-                        ? Math.min(audio.duration, audio.currentTime + 5)
-                        : audio.currentTime + 5;
-                    break;
-
-                case "m":
-                    audio.muted = !audio.muted;
-                    break;
-            }
+            player.handleKey(event);
         });
 
-        /* ---------- Загрузка ---------- */
-
-        audio.addEventListener("loadedmetadata", function () {
-            updateMetadata();
-            updateProgress();
-            updatePlayState();
-        });
-
-        audio.addEventListener("error", function () {
-            let message = "Unable to load audio source.";
-
-            if (audio.error) {
-                switch (audio.error.code) {
-                    case MediaError.MEDIA_ERR_ABORTED:
-                        message = "Audio loading was aborted.";
-                        break;
-                    case MediaError.MEDIA_ERR_NETWORK:
-                        message = "A network error interrupted audio loading.";
-                        break;
-                    case MediaError.MEDIA_ERR_DECODE:
-                        message = "The audio could not be decoded.";
-                        break;
-                    case MediaError.MEDIA_ERR_SRC_NOT_SUPPORTED:
-                        message = "This audio format or codec is not supported.";
-                        break;
-                }
-            }
-
-            showError(message);
-        });
-
-        /* ---------- Начальное состояние ---------- */
-
-        updateVolumeUI();
-        updatePlayState();
-
-        if (audio.readyState >= HTMLMediaElement.HAVE_METADATA) {
-            updateMetadata();
-            updateProgress();
-        } else if (audio.error) {
-            showError("Unable to load audio source.");
-        } else if (audio.preload === "none") {
-            /* в разметке preload="none": нужна только длительность */
+        /* в разметке preload="none": нужна только длительность */
+        if (
+            audio.readyState < HTMLMediaElement.HAVE_METADATA &&
+            !audio.error &&
+            audio.preload === "none"
+        ) {
             audio.preload = "metadata";
             audio.load();
         }

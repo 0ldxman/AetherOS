@@ -1,6 +1,7 @@
 /* ==================================================
    AETHER OS / AUDIO VIEWER
-   Playback, custom controls and live loudness graph
+   Live loudness graph; playback and controls come from the
+   shared player core (static/ui/player-core.js)
    ================================================== */
 
 (function () {
@@ -74,8 +75,6 @@
        -------------------------------------------------- */
     let smoothLevel = 0;        // smoothed loudness 0..1
     let gutter = 0;             // side margin in px, read from CSS (--au-gutter)
-    let failed = false;
-    let seeking = false;
 
     let volume = 1;
     let muted = false;
@@ -90,21 +89,12 @@
        Helpers
        -------------------------------------------------- */
 
-    const formatTime = Aether.formatTime;
-
-    function setStatus(value) {
-        status.textContent = value;
-    }
-
-    function showError(message) {
-        failed = true;
-        stopLoop();
-
+    // Ошибка до создания плеера (нет Web Audio)
+    function showFatal(message) {
         loading.hidden = true;
         error.hidden = false;
-        errorMessage.textContent = message || "Unable to load audio source.";
-
-        setStatus("ERROR");
+        errorMessage.textContent = message;
+        status.textContent = "ERROR";
     }
 
     function setExtension() {
@@ -118,8 +108,7 @@
     }
 
     function updateMetadata() {
-        durationLabel.textContent = formatTime(audio.duration);
-        totalTimeLabel.textContent = formatTime(audio.duration);
+        durationLabel.textContent = Aether.formatTime(audio.duration);
     }
 
     /* --------------------------------------------------
@@ -132,7 +121,7 @@
     const AudioContextClass = window.AudioContext || window.webkitAudioContext;
 
     if (!AudioContextClass) {
-        showError("This browser does not support Web Audio.");
+        showFatal("This browser does not support Web Audio.");
         return;
     }
 
@@ -295,178 +284,73 @@
     new ResizeObserver(resizeCanvas).observe(canvas);
 
     /* --------------------------------------------------
-       Playback
+       Player
+       Громкость живёт в gain-узле ПОСЛЕ анализатора, поэтому
+       график идёт и при mute: свою модель громкости отдаём ядру.
        -------------------------------------------------- */
 
-    function updatePlayState() {
-        const playing = !audio.paused && !audio.ended;
+    const player = Aether.createPlayer(
+        audio,
+        {
+            status: status,
+            playButton: playButton,
+            playIcon: playIcon,
+            muteButton: muteButton,
+            wave: volumeWave,
+            cross: muteCross,
+            volume: volumeSlider,
+            speed: speedSelect,
+            progress: progress,
+            current: currentTimeLabel,
+            total: totalTimeLabel,
+            loading: loading,
+            error: error,
+            errorMessage: errorMessage,
+        },
+        {
+            label: "audio",
+            progressVar: "--au-progress",
+            onMetadata: updateMetadata,
+            onError: stopLoop,
+            // Браузер держит контекст приостановленным до действия пользователя
+            beforePlay: function () {
+                return audioContext.resume();
+            },
+            volumeModel: {
+                get: function () {
+                    return volume;
+                },
+                isMuted: function () {
+                    return muted;
+                },
+                setVolume: function (value) {
+                    volume = value;
+                },
+                setMuted: function (value) {
+                    muted = value;
 
-        playButton.setAttribute("aria-label", playing ? "Pause" : "Play");
-        playButton.title = playing ? "Pause (Space)" : "Play (Space)";
-
-        playIcon.innerHTML = playing
-            ? '<path d="M7 5h4v14H7zM15 5h4v14h-4z" />'
-            : '<path d="M8 5.5 19 12 8 18.5Z" />';
-
-        if (failed) {
-            setStatus("ERROR");
-        } else if (audio.ended) {
-            setStatus("END OF FILE");
-        } else if (playing) {
-            setStatus("PLAYING");
-        } else if (audio.currentTime > 0) {
-            setStatus("PAUSED");
-        } else {
-            setStatus("READY");
+                    if (!muted && volume === 0) {
+                        volume = 1;
+                    }
+                },
+            },
         }
-    }
+    );
 
-    async function togglePlayback() {
-        if (failed) {
-            return;
-        }
+    // Громкость применяется к gain-узлу при каждом изменении интерфейса
+    const applyVolume = function () {
+        gainNode.gain.value = muted || volume === 0 ? 0 : volume;
+    };
 
-        if (audio.paused || audio.ended) {
-            if (audio.ended) {
-                audio.currentTime = 0;
-            }
-
-            try {
-                // Browsers keep the audio context suspended until a user action
-                await audioContext.resume();
-                await audio.play();
-            } catch (err) {
-                showError(
-                    "Playback could not be started. The format may not be supported by this browser."
-                );
-            }
-        } else {
-            audio.pause();
-        }
-    }
-
-    playButton.addEventListener("click", togglePlayback);
-
-    audio.addEventListener("play", function () {
-        updatePlayState();
-        startLoop();
+    [muteButton, volumeSlider].forEach(function (el) {
+        el.addEventListener("click", applyVolume);
+        el.addEventListener("input", applyVolume);
     });
 
-    audio.addEventListener("pause", function () {
-        updatePlayState();
-        stopLoop();
-    });
-
-    audio.addEventListener("ended", function () {
-        updatePlayState();
-        stopLoop();
-    });
-
+    audio.addEventListener("play", startLoop);
+    audio.addEventListener("pause", stopLoop);
+    audio.addEventListener("ended", stopLoop);
     audio.addEventListener("seeked", clearGraph);
-
-    audio.addEventListener("waiting", function () {
-        if (!audio.paused) {
-            setStatus("BUFFERING");
-        }
-    });
-
-    audio.addEventListener("playing", updatePlayState);
-
-    /* --------------------------------------------------
-       Timeline
-       -------------------------------------------------- */
-
-    function updateProgress() {
-        const duration = audio.duration;
-        const current = audio.currentTime;
-
-        currentTimeLabel.textContent = formatTime(current);
-
-        if (!seeking && Number.isFinite(duration) && duration > 0) {
-            const value = Math.round((current / duration) * 1000);
-
-            progress.value = String(value);
-            progress.style.setProperty("--au-progress", `${value / 10}%`);
-        }
-    }
-
-    function seekFromSlider() {
-        const duration = audio.duration;
-
-        if (!Number.isFinite(duration) || duration <= 0) {
-            return;
-        }
-
-        audio.currentTime = (Number(progress.value) / 1000) * duration;
-    }
-
-    progress.addEventListener("pointerdown", function () {
-        seeking = true;
-    });
-
-    progress.addEventListener("input", function () {
-        const fraction = Number(progress.value) / 1000;
-
-        progress.style.setProperty("--au-progress", `${fraction * 100}%`);
-
-        if (Number.isFinite(audio.duration)) {
-            currentTimeLabel.textContent = formatTime(fraction * audio.duration);
-        }
-    });
-
-    progress.addEventListener("change", function () {
-        seekFromSlider();
-        seeking = false;
-    });
-
-    audio.addEventListener("timeupdate", updateProgress);
-    audio.addEventListener("durationchange", updateMetadata);
-    audio.addEventListener("loadedmetadata", updateMetadata);
-
-    /* --------------------------------------------------
-       Volume and mute
-       -------------------------------------------------- */
-
-    function updateVolumeUI() {
-        const silent = muted || volume === 0;
-
-        gainNode.gain.value = silent ? 0 : volume;
-        volumeSlider.value = String(silent ? 0 : volume);
-
-        muteButton.setAttribute("aria-label", silent ? "Unmute" : "Mute");
-
-        volumeWave.hidden = silent;
-        muteCross.hidden = !silent;
-    }
-
-    muteButton.addEventListener("click", function () {
-        muted = !muted;
-
-        if (!muted && volume === 0) {
-            volume = 1;
-        }
-
-        updateVolumeUI();
-    });
-
-    volumeSlider.addEventListener("input", function () {
-        volume = Number(volumeSlider.value);
-        muted = volume === 0;
-
-        updateVolumeUI();
-    });
-
-    /* --------------------------------------------------
-       Playback speed
-       -------------------------------------------------- */
-
-    speedSelect.addEventListener("change", function () {
-        audio.playbackRate = Number(speedSelect.value);
-    });
-
-    /* --------------------------------------------------
-       Keyboard shortcuts
-       -------------------------------------------------- */
 
     document.addEventListener("keydown", function (event) {
         if (
@@ -490,82 +374,12 @@
             return;
         }
 
-        switch (event.key.toLowerCase()) {
-            case " ":
-                event.preventDefault();
-                togglePlayback();
-                break;
-
-            case "arrowleft":
-                event.preventDefault();
-                audio.currentTime = Math.max(0, audio.currentTime - 5);
-                break;
-
-            case "arrowright":
-                event.preventDefault();
-                audio.currentTime = Number.isFinite(audio.duration)
-                    ? Math.min(audio.duration, audio.currentTime + 5)
-                    : audio.currentTime + 5;
-                break;
-
-            case "m":
-                muted = !muted;
-                updateVolumeUI();
-                break;
+        if (player.handleKey(event) && event.key.toLowerCase() === "m") {
+            applyVolume();
         }
     });
-
-    /* --------------------------------------------------
-       Loading and errors
-       -------------------------------------------------- */
-
-    audio.addEventListener("loadedmetadata", function () {
-        loading.hidden = true;
-        updateMetadata();
-        updateProgress();
-        updatePlayState();
-    });
-
-    audio.addEventListener("error", function () {
-        let message = "Unable to load audio source.";
-
-        if (audio.error) {
-            switch (audio.error.code) {
-                case MediaError.MEDIA_ERR_ABORTED:
-                    message = "Audio loading was aborted.";
-                    break;
-
-                case MediaError.MEDIA_ERR_NETWORK:
-                    message = "A network error interrupted audio loading.";
-                    break;
-
-                case MediaError.MEDIA_ERR_DECODE:
-                    message = "The audio could not be decoded.";
-                    break;
-
-                case MediaError.MEDIA_ERR_SRC_NOT_SUPPORTED:
-                    message = "This audio format or codec is not supported.";
-                    break;
-            }
-        }
-
-        showError(message);
-    });
-
-    /* --------------------------------------------------
-       Initial state
-       -------------------------------------------------- */
 
     setExtension();
-    updateVolumeUI();
-    updatePlayState();
+    applyVolume();
     resizeCanvas();
-
-    if (audio.readyState >= HTMLMediaElement.HAVE_METADATA) {
-        loading.hidden = true;
-        updateMetadata();
-        updateProgress();
-    } else if (audio.error) {
-        showError("Unable to load audio source.");
-    }
 })();
