@@ -52,6 +52,11 @@
       {% endfor %}
     </div>
 
+    <details class="wp-issues" id="wp-issues" open hidden>
+      <summary id="wp-issues-summary"></summary>
+      <ul id="wp-issues-list"></ul>
+    </details>
+
     <script id="wiki-condition-keys" type="application/json">
     [
         {% for k in preview_keys %}

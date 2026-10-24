@@ -1500,6 +1500,188 @@ import "./condition_editor.js";
 
 
   /* ==================================================
+   * ISSUES
+   *
+   * Проблемы текста приходят вместе с предпросмотром
+   * (wiki/markup/lint.py). Клик по строке списка
+   * переносит курсор на нужную строку редактора.
+   * ================================================== */
+
+  const issuesBox =
+    $("wp-issues");
+
+  const issuesSummary =
+    $("wp-issues-summary");
+
+  const issuesList =
+    $("wp-issues-list");
+
+  const FIELD_LABELS = {
+    body: "Текст",
+    infobox: "Инфобокс",
+  };
+
+
+  function goToIssue(
+    field,
+    line
+  ) {
+
+    const editor =
+      editors[field];
+
+    if (!editor) {
+      return;
+    }
+
+
+    showTab(field);
+
+
+    const doc =
+      editor.view.state.doc;
+
+    const target =
+      doc.line(
+        Math.min(
+          Math.max(line, 1),
+          doc.lines
+        )
+      );
+
+
+    editor.view.dispatch({
+
+      selection: {
+        anchor: target.from,
+      },
+
+      scrollIntoView: true,
+
+    });
+
+
+    editor.view.focus();
+
+  }
+
+
+  function renderIssues(issues) {
+
+    if (
+      !issuesBox ||
+      !issues
+    ) {
+      return;
+    }
+
+
+    const rows = [];
+
+    Object.keys(FIELD_LABELS)
+      .forEach(
+        (field) => {
+
+          (issues[field] || [])
+            .forEach(
+              (issue) => {
+
+                rows.push({
+                  field,
+                  issue,
+                });
+
+              }
+            );
+
+        }
+      );
+
+
+    issuesList.textContent = "";
+
+    issuesBox.hidden =
+      rows.length === 0;
+
+    if (!rows.length) {
+      return;
+    }
+
+
+    const errors =
+      rows.filter(
+        (row) =>
+          row.issue.level === "error"
+      ).length;
+
+
+    issuesBox.dataset.level =
+      errors
+        ? "error"
+        : "warning";
+
+    issuesSummary.textContent =
+      "Проблем в тексте: " +
+      rows.length +
+      (
+        errors
+          ? " (ошибок: " + errors + ")"
+          : ""
+      );
+
+
+    rows.forEach(
+      ({ field, issue }) => {
+
+        const item =
+          document.createElement("li");
+
+        item.dataset.level =
+          issue.level;
+
+        const where =
+          document.createElement("span");
+
+        where.className =
+          "wp-issue__where";
+
+        where.textContent =
+          FIELD_LABELS[field] +
+          ", " +
+          issue.line;
+
+        const text =
+          document.createElement("span");
+
+        text.className =
+          "wp-issue__text";
+
+        text.textContent =
+          issue.message;
+
+        item.append(where, text);
+
+        item.addEventListener(
+          "click",
+          () => {
+
+            goToIssue(
+              field,
+              issue.line
+            );
+
+          }
+        );
+
+        issuesList.appendChild(item);
+
+      }
+    );
+
+  }
+
+
+  /* ==================================================
    * PREVIEW FRAME SIZE
    * ================================================== */
 
@@ -2042,6 +2224,11 @@ import "./condition_editor.js";
       show(
         frames.infobox,
         data.infobox
+      );
+
+
+      renderIssues(
+        data.issues
       );
 
 

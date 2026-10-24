@@ -81,11 +81,13 @@
 from .api import render, visible_text
 from .constants import MASK_CHAR, VARIANTS
 from .expr import SpoilerSyntaxError, parse_expr
+from .lint import lint
 
 __all__ = [
     "MASK_CHAR",
     "VARIANTS",
     "SpoilerSyntaxError",
+    "lint",
     "parse_expr",
     "render",
     "visible_text",

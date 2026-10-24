@@ -118,3 +118,25 @@ class AdminRevisionTests(TestCase):
     def test_change_form_links_to_history(self):
         response = self.client.get(reverse("admin:wiki_document_change", args=[self.doc.pk]))
         self.assertContains(response, self.url("revisions", self.doc.pk))
+
+
+@override_settings(FORCE_SCRIPT_NAME=None)
+class PreviewIssuesTests(TestCase):
+    def setUp(self):
+        previous = get_script_prefix()
+        set_script_prefix("/")
+        self.addCleanup(set_script_prefix, previous)
+        self.client.force_login(get_user_model().objects.create_superuser("root", password="pw"))
+
+    def test_preview_returns_lint_issues_per_field(self):
+        import json
+
+        response = self.client.post(
+            reverse("admin:wiki_document_preview"),
+            json.dumps({"body": "::box\nнет закрытия", "infobox": "ок", "type": "doc"}),
+            content_type="application/json",
+        )
+        data = response.json()
+        self.assertTrue(data["ok"])
+        self.assertEqual([i["code"] for i in data["issues"]["body"]], ["unclosed-block"])
+        self.assertEqual(data["issues"]["infobox"], [])

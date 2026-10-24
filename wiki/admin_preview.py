@@ -22,7 +22,10 @@
     {"title": "...", "type": "doc", "body": "...", "infobox": "...",
      "keys": {"mode": "all" | "none" | "custom", "list": ["key_a", ...]}}
 Ответ:
-    {"ok": true, "body": "<html>", "infobox": "<html>"}
+    {"ok": true, "body": "<html>", "infobox": "<html>",
+     "issues": {"body": [проблема, ...], "infobox": [...]}}
+    проблема: {"line", "level": "error" | "warning", "code", "message"},
+    список строится markup.lint и не влияет на предпросмотр
     {"ok": false, "error": "текст"}  и статус 4xx/5xx
 """
 import json
@@ -70,6 +73,18 @@ def _preview_keys(spec):
         if isinstance(wanted, list):
             return frozenset(s for s in wanted[:MAX_KEYS] if isinstance(s, str) and s in existing)
     return frozenset()
+
+
+def _lint_fields(data):
+    """Проблемы текста и инфобокса; сбой проверки не должен ломать предпросмотр."""
+    result = {}
+    for field in ("body", "infobox"):
+        try:
+            result[field] = [i.as_dict() for i in markup.lint(_text(data.get(field)))]
+        except Exception:
+            logger.exception("Ошибка проверки текста записи вики (%s)", field)
+            result[field] = []
+    return result
 
 
 class DocumentPreviewMixin:
@@ -133,4 +148,11 @@ class DocumentPreviewMixin:
             logger.exception("Ошибка предпросмотра записи вики")
             return _error(f"{type(exc).__name__}: {exc}"[:300], 500)
 
-        return JsonResponse({"ok": True, "body": page_body, "infobox": page_infobox})
+        return JsonResponse(
+            {
+                "ok": True,
+                "body": page_body,
+                "infobox": page_infobox,
+                "issues": _lint_fields(data),
+            }
+        )
