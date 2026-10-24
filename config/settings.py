@@ -12,7 +12,6 @@ https://docs.djangoproject.com/en/6.1/ref/settings/
 
 from pathlib import Path
 import environ
-import os
 
 env = environ.Env()
 
@@ -26,11 +25,15 @@ NEXTCLOUD_APP_PASSWORD = env("NEXTCLOUD_APP_PASSWORD")
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/6.1/howto/deployment/checklist/
 
-# SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-j@2km^i8ls9+^mri!q7ucl!terk+3-hodk9iw6!#9cu+6a_yxr'
-
-# SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+# DEBUG и SECRET_KEY берутся из .env. Без DEBUG по умолчанию включён режим
+# разработки; в нём SECRET_KEY можно не задавать (подставится временный ключ),
+# а вне него отсутствие SECRET_KEY - ошибка запуска.
+DEBUG = env.bool("DEBUG", default=True)
+SECRET_KEY = env("SECRET_KEY", default="")
+if not SECRET_KEY:
+    if not DEBUG:
+        raise RuntimeError("SECRET_KEY не задан в .env")
+    SECRET_KEY = "dev-only-insecure-key"
 
 ALLOWED_HOSTS = ["localhost", "127.0.0.1"]
 CSRF_TRUSTED_ORIGINS = ["http://localhost:8443"]
@@ -149,8 +152,8 @@ SOCIALACCOUNT_PROVIDERS = {
     "discord": {
         "SCOPE": ["identify", "email"],
         "APP": {
-            "client_id": os.environ["DISCORD_CLIENT_ID"],
-            "secret": os.environ["DISCORD_CLIENT_SECRET"],
+            "client_id": env("DISCORD_CLIENT_ID"),
+            "secret": env("DISCORD_CLIENT_SECRET"),
             "key": "",
         },
     }
