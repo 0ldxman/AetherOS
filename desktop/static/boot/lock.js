@@ -49,10 +49,19 @@ function setBusy(value) {
 
 /* ---------- часы (пока реальное время) ---------- */
 
+/* Двоеточие рисуется отдельным элементом (две точки в стиле цифр) и мигает раз в секунду */
+const timeEl = document.getElementById("lock-time");
+const colonEl = document.createElement("span");
+colonEl.className = "lock-colon";
+colonEl.setAttribute("aria-hidden", "true");
+
 function tick() {
     const now = new Date();
-    document.getElementById("lock-time").textContent =
-        now.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
+    const time = now.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
+    const [hours, minutes] = time.split(":");
+
+    timeEl.setAttribute("aria-label", time);
+    timeEl.replaceChildren(hours, colonEl, minutes);
     document.getElementById("lock-date").textContent =
         now.toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long" });
 }

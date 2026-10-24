@@ -84,3 +84,37 @@ class UrlPrefixTests(TestCase):
         body = response.content.decode()
         self.assertIn('data-logout-url="/proxy/8000/auth/logout/"', body)
         self.assertNotIn("/proxy/8000/proxy/8000", body)
+
+
+@override_settings(FORCE_SCRIPT_NAME=None)
+class LockScreenTests(TestCase):
+    def setUp(self):
+        previous = get_script_prefix()
+        set_script_prefix("/")
+        self.addCleanup(set_script_prefix, previous)
+
+    def test_page_has_the_hooks_lock_js_needs(self):
+        response = self.client.get(reverse("lock"))
+        self.assertContains(response, 'id="lock"')
+        self.assertContains(response, 'id="lock-time"')
+        self.assertContains(response, 'id="lock-date"')
+        self.assertContains(response, 'class="lock-message"')
+        self.assertContains(response, 'data-action="guest"')
+        self.assertContains(response, 'data-action="discord"')
+        self.assertContains(response, "boot/lock.js")
+
+    def test_node_name_comes_from_the_config_in_bar_and_footer(self):
+        from users.aether_auth import NODE_NAME
+
+        body = self.client.get(reverse("lock")).content.decode()
+        self.assertGreaterEqual(body.count(NODE_NAME), 2)
+
+    def test_stylesheet_uses_only_design_tokens(self):
+        # tokens.css: хардкод цвета вне него считается багом (другая машина останется «от старой»)
+        import re
+        from pathlib import Path
+
+        css = (Path(__file__).parent / "static" / "boot" / "lock.css").read_text(encoding="utf-8")
+        self.assertEqual(re.findall(r"#[0-9a-fA-F]{3,8}\b", css), [])
+        self.assertNotIn(":root", css)
+        self.assertNotRegex(css, r"rgba?\(")
