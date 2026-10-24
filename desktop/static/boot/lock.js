@@ -227,12 +227,10 @@ function clearanceText(clearance) {
 
 /* ---------- шапка машины ---------- */
 
-/* Шапка: система, организация, имя машины. Имя машины отдельным элементом,
-   потому что при обходе оно меняется прямо на месте. */
+/* Шапка: система и имя машины. Организацию-владельца не показываем намеренно.
+   Имя машины отдельным элементом, потому что при обходе оно меняется прямо на месте. */
 function addHeader(host) {
-    const line = addLine([
-        `${GATEWAY.system || "AETHER"}  ·  ${GATEWAY.org || ""}  ·  `
-    ]);
+    const line = addLine([`${GATEWAY.system || "AETHER"}  ·  `]);
 
     hostEl = el("span", "lock-host");
     hostEl.textContent = host;

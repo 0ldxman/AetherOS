@@ -108,7 +108,7 @@ class LockScreenTests(TestCase):
 
         machine = Machine.objects.create(name="Main", hostname="aether-main")
         body = self.client.get(reverse("lock")).content.decode()
-        self.assertIn("CTRG", body)
+        self.assertNotIn("CTRG", body)  # чья это машина, игрок должен догадаться сам
         self.assertIn("aether-null", body)
         self.assertIn(machine.hid, body)
         self.assertIn("i left it open for you", body)
@@ -130,11 +130,20 @@ class LockScreenTests(TestCase):
 
 
 class GatewayConfigTests(TestCase):
-    def test_the_screen_is_aether_of_ctrg_on_aether_main(self):
+    def test_the_screen_is_aether_on_aether_main(self):
         from users.aether_auth import gateway_config
 
         config = gateway_config()
-        self.assertEqual((config["system"], config["org"], config["host"]), ("AETHER", "CTRG", "aether-main"))
+        self.assertEqual((config["system"], config["host"]), ("AETHER", "aether-main"))
+
+    def test_the_owner_organisation_is_never_sent_to_the_browser(self):
+        import json
+
+        from users.aether_auth import gateway_config
+
+        config = gateway_config()
+        self.assertNotIn("org", config)
+        self.assertNotIn("CTRG", json.dumps(config))
 
     def test_bypass_turns_main_into_null(self):
         from users.aether_auth import gateway_config
