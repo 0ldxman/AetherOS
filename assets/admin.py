@@ -1,7 +1,11 @@
 from django.contrib import admin, messages
+from django.template.defaultfilters import filesizeformat
+from django.urls import NoReverseMatch, reverse
+from django.utils.html import format_html
 
 from .forms import AssetAdminForm
 from .models import Asset
+from .services import asset_widget_kind
 
 
 @admin.register(Asset)
@@ -23,9 +27,10 @@ class AssetAdmin(admin.ModelAdmin):
         "public_id",
         "viewer_type",
         "content_type",
-        "size",
+        "size_display",
+        "wiki_snippet",
+        "open_link",
         "file_id",
-        "created_at",
         "updated_at",
     )
 
@@ -93,6 +98,24 @@ class AssetAdmin(admin.ModelAdmin):
     )
 
     actions = ("refresh_metadata",)
+
+    @admin.display(description="Размер", ordering="size")
+    def size_display(self, obj):
+        return filesizeformat(obj.size) if obj.size else "—"
+
+    @admin.display(description="Для вики")
+    def wiki_snippet(self, obj):
+        # то, что вставляется в текст записи; slug короче и читаемее UUID
+        ref = obj.slug or obj.public_id
+        return format_html("<code>::{} {}</code>", asset_widget_kind(obj), ref)
+
+    @admin.display(description="Просмотр")
+    def open_link(self, obj):
+        try:
+            url = reverse("asset_viewer:viewer", args=[obj.public_id])
+        except NoReverseMatch:
+            return "—"
+        return format_html('<a href="{}" target="_blank" rel="noopener">открыть</a>', url)
 
     def save_model(self, request, obj, form, change):
         # Метаданные обновляем при создании и при смене файла.

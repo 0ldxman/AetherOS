@@ -68,6 +68,16 @@ class Machine(models.Model):
         auto_now=True,
     )
 
+    @property
+    def label(self):
+        """Короткое имя для строк: hostname, а если его нет, название."""
+        return self.hostname or self.name
+
+    def __str__(self):
+        if self.hostname and self.hostname != self.name:
+            return f"{self.name} ({self.hostname})"
+        return self.name
+
     def save(self, *args, **kwargs):
         if not self.hid:
             self.hid = generate_hid()
@@ -139,7 +149,7 @@ class MachineProfile(models.Model):
         ]
 
     def __str__(self):
-        return f"{self.login}@{self.machine.hostname}:{self.freq:.3f}"
+        return f"{self.login}@{self.machine.label}:{self.freq:.3f}"
 
 
 class MachineProfileToken(models.Model):
@@ -266,7 +276,7 @@ class MachineApp(models.Model):
         ordering = ("machine", "order", "id")
 
     def __str__(self):
-        return f"{self.machine.hostname}: {self.label}"
+        return f"{self.machine.label}: {self.label}"
 
     def clean(self):
         parts = urlsplit(self.path)

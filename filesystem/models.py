@@ -62,7 +62,7 @@ class MachineFile(models.Model):
         ]
 
     def __str__(self):
-        return f"{self.machine.hostname}:{self.path}"
+        return f"{self.machine.label}:{self.path}"
 
 
 class SessionFile(models.Model):
@@ -170,3 +170,6 @@ class FileKey(models.Model):
                 name="unique_file_key",
             ),
         ]
+
+    def __str__(self):
+        return f"{self.file} — {self.key}"

@@ -16,11 +16,28 @@ HOLDERS_SHOWN = 50
 class UserKeyInline(admin.TabularInline):
     model = UserKey
     extra = 0
+    autocomplete_fields = ("key",)
+    readonly_fields = ("obtained_at",)
 
 
 @admin.register(User)
 class CustomUserAdmin(UserAdmin):
     inlines = [UserKeyInline]
+    list_display = UserAdmin.list_display + ("keys_count", "profiles_count", "last_login")
+
+    def get_queryset(self, request):
+        return super().get_queryset(request).annotate(
+            _keys=Count("userkey", distinct=True),
+            _profiles=Count("machine_profiles", distinct=True),
+        )
+
+    @admin.display(description="Ключей", ordering="_keys")
+    def keys_count(self, obj):
+        return obj._keys
+
+    @admin.display(description="Профилей", ordering="_profiles")
+    def profiles_count(self, obj):
+        return obj._profiles
 
 
 class KeyHoldersForm(forms.Form):

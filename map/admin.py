@@ -24,6 +24,7 @@ class CountryLabelInline(admin.TabularInline):
 @admin.register(Country)
 class CountryAdmin(admin.ModelAdmin):
     inlines = (CountryLabelInline,)
+    list_select_related = ("predecessor",)
     list_display = ("name", "code", "valid_from", "valid_to", "predecessor")
     search_fields = ("name", "code")
     list_filter = ("valid_from",)
@@ -38,6 +39,7 @@ class ProvinceAdmin(admin.ModelAdmin):
 
 @admin.register(Ownership)
 class OwnershipAdmin(admin.ModelAdmin):
+    list_select_related = ("province", "country")
     list_display = ("province", "country", "date_from", "de_jure", "de_facto")
     list_filter = ("de_jure", "de_facto", "country")
     search_fields = ("province__name", "province__code", "country__name", "country__code")
@@ -251,6 +253,7 @@ class OwnershipAdmin(admin.ModelAdmin):
 
 @admin.register(CountryLabel)
 class CountryLabelAdmin(admin.ModelAdmin):
+    list_select_related = ("country",)
     list_display = ("label_text", "country", "rank", "lng", "lat")
     list_filter = ("rank",)
     list_select_related = ("country",)

@@ -1,5 +1,8 @@
 from django.contrib import admin
 from django.contrib import messages
+from django.db.models import Count
+from django.urls import reverse
+from django.utils.html import format_html
 
 from .models import (
     Machine,
@@ -65,15 +68,20 @@ def delete_selected_machines(modeladmin, request, queryset):
 @admin.register(Machine)
 class MachineAdmin(admin.ModelAdmin):
     list_display = (
-        "id",
         "name",
-        "system",
         "hostname",
         "status",
-        "hid",
+        "system",
         "is_system",
-        "created_at",
+        "profiles_count",
+        "apps_count",
+        "files_link",
+        "hid",
         "updated_at",
+    )
+
+    list_display_links = (
+        "name",
     )
 
     list_filter = (
@@ -111,6 +119,27 @@ class MachineAdmin(admin.ModelAdmin):
             return False
 
         return super().has_delete_permission(request, obj)
+
+    def get_queryset(self, request):
+        return super().get_queryset(request).annotate(
+            _profiles=Count("profiles", distinct=True),
+            _apps=Count("machine_apps", distinct=True),
+            _files=Count("files", distinct=True),
+        )
+
+    @admin.display(description="Профилей", ordering="_profiles")
+    def profiles_count(self, obj):
+        return obj._profiles
+
+    @admin.display(description="Приложений", ordering="_apps")
+    def apps_count(self, obj):
+        return obj._apps
+
+    @admin.display(description="Файлов", ordering="_files")
+    def files_link(self, obj):
+        # число ведёт в список файлов именно этой машины
+        url = reverse("admin:filesystem_machinefile_changelist")
+        return format_html('<a href="{}?machine__id__exact={}">{}</a>', url, obj.pk, obj._files)
 
 
 # ==================================================
@@ -153,6 +182,8 @@ class MachineProfileHIDInline(admin.TabularInline):
 
 @admin.register(MachineProfile)
 class MachineProfileAdmin(admin.ModelAdmin):
+    list_select_related = ("machine", "user")
+
     list_display = (
         "id",
         "name",
@@ -240,6 +271,8 @@ class MachineProfileAdmin(admin.ModelAdmin):
 
 @admin.register(MachineProfileToken)
 class MachineProfileTokenAdmin(admin.ModelAdmin):
+    list_select_related = ("profile__machine",)
+
     list_display = (
         "id",
         "profile",
@@ -282,6 +315,8 @@ class MachineProfileTokenAdmin(admin.ModelAdmin):
 
 @admin.register(MachineProfileHID)
 class MachineProfileHIDAdmin(admin.ModelAdmin):
+    list_select_related = ("profile__machine",)
+
     list_display = (
         "id",
         "profile",
@@ -310,6 +345,9 @@ class MachineProfileHIDAdmin(admin.ModelAdmin):
 
 @admin.register(Session)
 class SessionAdmin(admin.ModelAdmin):
+    list_select_related = ("user", "profile__machine")
+    date_hierarchy = "created_at"
+
     list_display = (
         "id",
         "user",
