@@ -88,26 +88,31 @@ class UrlPrefixTests(TestCase):
 
 @override_settings(FORCE_SCRIPT_NAME=None)
 class LockScreenTests(TestCase):
+    """Экран входа после загрузки: терминал на деталях загрузки, данные про дыру для гостя."""
+
     def setUp(self):
         previous = get_script_prefix()
         set_script_prefix("/")
         self.addCleanup(set_script_prefix, previous)
 
-    def test_page_has_the_hooks_lock_js_needs(self):
+    def test_page_is_built_from_the_boot_screen_parts(self):
         response = self.client.get(reverse("lock"))
-        self.assertContains(response, 'id="lock"')
-        self.assertContains(response, 'id="lock-time"')
-        self.assertContains(response, 'id="lock-date"')
-        self.assertContains(response, 'class="lock-message"')
-        self.assertContains(response, 'data-action="guest"')
-        self.assertContains(response, 'data-action="discord"')
+        self.assertContains(response, 'id="boot-screen"')
+        self.assertContains(response, 'id="boot-output"')
+        self.assertContains(response, "boot/boot.css")
+        self.assertContains(response, "boot/login.css")
         self.assertContains(response, "boot/lock.js")
 
-    def test_node_name_comes_from_the_config_in_bar_and_footer(self):
+    def test_gateway_data_reaches_the_page(self):
+        body = self.client.get(reverse("lock")).content.decode()
+        self.assertIn("maintenance console", body)
+        self.assertIn("aether-null", body)
+        self.assertIn("unknown operator", body)
+
+    def test_node_name_is_in_the_config(self):
         from users.aether_auth import NODE_NAME
 
-        body = self.client.get(reverse("lock")).content.decode()
-        self.assertGreaterEqual(body.count(NODE_NAME), 2)
+        self.assertContains(self.client.get(reverse("lock")), NODE_NAME)
 
     def test_stylesheet_uses_only_design_tokens(self):
         # tokens.css: хардкод цвета вне него считается багом (другая машина останется «от старой»)
@@ -118,3 +123,24 @@ class LockScreenTests(TestCase):
         self.assertEqual(re.findall(r"#[0-9a-fA-F]{3,8}\b", css), [])
         self.assertNotIn(":root", css)
         self.assertNotRegex(css, r"rgba?\(")
+
+
+class GatewayConfigTests(TestCase):
+    def test_guest_hole_exists_only_on_aether_null(self):
+        from users.aether_auth import gateway_config
+
+        guest = gateway_config()["guest"]
+        self.assertEqual(guest["machine"], "aether-null")
+        self.assertEqual(guest["clearance"], {"level": "L0", "label": "PUBLIC"})
+
+    def test_external_authority_leads_to_the_main_machine(self):
+        from users.aether_auth import gateway_config
+
+        self.assertEqual(gateway_config()["external"]["machine"], "aether-main")
+
+    def test_config_helper_does_not_mutate_the_template_data(self):
+        from users.aether_auth import GATEWAY, gateway_config
+
+        gateway_config()["guest"]["machine"] = "changed"
+        self.assertEqual(GATEWAY["guest"]["machine"], "aether-null")
+        self.assertNotIn("clearance", GATEWAY["guest"])

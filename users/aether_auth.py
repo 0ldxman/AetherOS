@@ -37,6 +37,41 @@ CLEARANCE_LABELS = {
     5: "TOP SECRET",
 }
 
+# =========================================================
+# GATEWAY (экран входа после загрузки)
+# ---------------------------------------------------------
+# ПРОТОТИП: эти тексты потом должны задаваться из админки
+# (у каждой машины своё). Аноним входит не через логин, а через
+# дыру: что-то на aether-null оставили открытым намеренно, но не
+# игрок. Дыра есть только на aether-null.
+# =========================================================
+
+GATEWAY = {
+    "notice": [
+        "This system is for authorized use only.",
+        "All access is monitored and logged.",
+    ],
+    "guest": {
+        "machine": "aether-null",
+        "service": "maintenance console",
+        "opened": "03:12",
+        "by": "unknown operator",
+    },
+    "external": {
+        "label": "DISCORD",
+        "machine": "aether-main",
+    },
+}
+
+
+def gateway_config():
+    """Данные экрана входа; уровень допуска гостя берётся из настроек выше."""
+    return {
+        **GATEWAY,
+        "guest": {**GATEWAY["guest"], "clearance": clearance_dict(GUEST_LEVEL)},
+    }
+
+
 # Ограничение перебора пароля: 5 неудач на связку IP + логин, блок на 5 минут
 
 
@@ -136,7 +171,9 @@ def guest_api(request):
 
 @ensure_csrf_cookie  # нужна для POST на guest_api
 def lock_page(request):
-    return render(request, "boot/lock.html", {"boot_config": build_boot_config(request)})
+    config = build_boot_config(request)
+    config["gateway"] = gateway_config()
+    return render(request, "boot/lock.html", {"boot_config": config})
 
 
 @require_POST

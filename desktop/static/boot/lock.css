@@ -1,255 +1,60 @@
-/* Экран блокировки.
-   Только токены из static/ui/tokens.css (подключены базовым шаблоном): своих цветов и
-   шрифтов здесь нет. Фон и сетка те же, что у рабочего стола, плитки ведут себя как его
-   иконки, подпись над плиткой повторяет вкладку окна, верхняя полоса повторяет панель задач,
-   поэтому после входа картинка не меняется скачком. */
+/* Экран входа: продолжение загрузки.
+   Строки, цвета, курсор и развёртка приходят из boot.css, кнопки выбора из login.css.
+   Здесь только то, что нужно самому экрану; своих цветов нет. */
 
-* { box-sizing: border-box; }
-
-html, body {
-    height: 100%;
-    margin: 0;
+#boot-screen {
+    transition: opacity 0.6s ease;
 }
 
-body {
-    background: var(--bg);
-    color: var(--fg);
-    font-family: var(--font-main);
-    font-size: var(--fs-base);
-}
-
-.lock {
-    position: relative;
-    min-height: 100%;
-    display: flex;
-    flex-direction: column;
-    background:
-        linear-gradient(var(--line-faint) 1px, transparent 1px) 0 0 / var(--cell) var(--cell),
-        linear-gradient(90deg, var(--line-faint) 1px, transparent 1px) 0 0 / var(--cell) var(--cell);
+#boot-screen.is-leaving {
     opacity: 0;
-    transition: opacity 0.7s ease;
-}
-.lock.is-ready { opacity: 1; }
-.lock.is-leaving { opacity: 0; }
-
-
-/* ---------- полоса состояния (как панель задач) ---------- */
-
-.lock-bar {
-    flex: 0 0 28px;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 0 12px;
-    background: var(--panel);
-    font-size: var(--fs-small);
 }
 
-.lock-node { color: var(--font-light); }
-
-.lock-state {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    font-family: monospace;
-    font-size: 13px;
-    color: var(--accent-warn);
+.lock-options {
+    margin-top: 0.4rem;
 }
 
-.lock-dot {
-    width: 6px;
-    height: 6px;
-    flex-shrink: 0;
-    border-radius: 50%;
-    background: var(--accent-warn);
-    animation: lock-pulse 2.4s ease-in-out infinite;
-}
-
-@keyframes lock-pulse {
-    0%, 100% { opacity: 0.5; box-shadow: 0 0 0 var(--accent-warn); }
-    50%      { opacity: 1;   box-shadow: 0 0 6px var(--accent-warn); }
-}
-
-
-/* ---------- центр ---------- */
-
-.lock-center {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    gap: clamp(28px, 7vh, 56px);
-    padding: 24px 16px 64px;
-}
-
-.lock-time {
-    font-family: var(--font-doted);
-    font-size: clamp(64px, 13vw, 132px);
-    font-weight: 400;
-    line-height: 1;
-    letter-spacing: 0.06em;
-    padding-left: 0.06em; /* компенсирует letter-spacing, чтобы время стояло по центру */
-    text-align: center;
+/* вариант входа: основная строка и пояснения под ней */
+.lock-option {
+    display: block;
+    width: 100%;
     color: var(--font-light);
+    white-space: pre;
 }
 
-/* двоеточие шрифта Doto выглядит как крестик из точек, поэтому рисуем своё: две точки */
-.lock-colon {
+.lock-option .lock-option-note {
+    display: block;
+    padding-left: 9ch; /* под названием варианта, мимо метки [ G ] */
+}
+
+.lock-option:hover:not(:disabled) .lock-option-main,
+.lock-option:focus-visible .lock-option-main {
+    color: var(--accent);
+}
+
+.lock-option:disabled {
+    opacity: 0.4;
+}
+
+/* маркер выбранного варианта; место под него есть всегда, чтобы текст не прыгал */
+.lock-option .lock-option-main {
     position: relative;
-    display: inline-block;
-    width: 0.3em;
-    height: 1em;
-    vertical-align: baseline;
-    animation: lock-blink 2s steps(1, end) infinite;
+    padding-left: 2ch;
 }
 
-.lock-colon::before,
-.lock-colon::after {
-    content: "";
-    position: absolute;
-    left: 50%;
-    width: 0.06em;
-    height: 0.06em;
-    margin-left: -0.03em;
-    background: currentColor;
-}
-
-/* цифры Doto занимают от 0.30em до 0.94em высоты строки: точки на трети и двух третях */
-.lock-colon::before { top: 0.48em; }
-.lock-colon::after  { top: 0.70em; }
-
-@keyframes lock-blink {
-    0%   { opacity: 1; }
-    50%  { opacity: 0.2; }
-}
-
-.lock-date {
-    margin-top: 14px;
-    text-align: center;
-    color: var(--font-muted);
-    font-size: var(--fs-small);
-    text-transform: uppercase;
-    letter-spacing: 0.25em;
-}
-
-
-/* ---------- плитки входа ---------- */
-
-.lock-users {
-    display: flex;
-    flex-wrap: wrap;
-    justify-content: center;
-    gap: calc(var(--tab-h) + 16px) 24px; /* по вертикали запас под вкладки при переносе */
-    margin-top: var(--tab-h);            /* место под вкладку первой строки */
-}
-
-.user-tile {
-    position: relative;
-    width: 200px;
-    padding: 24px 16px 20px;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 14px;
-    background: var(--panel);
-    border: 1px solid var(--line-bright);
-    color: var(--fg);
-    font: inherit;
-    cursor: pointer;
-    transition: opacity 0.4s, transform 0.4s, border-color 0.2s;
-}
-
-/* вкладка над плиткой: как заголовок окна рабочего стола */
-.user-tab {
-    position: absolute;
-    bottom: calc(100% + 1px);
-    left: -1px;
-    max-width: calc(100% + 2px);
-    height: var(--tab-h);
-    padding: 0 12px;
-    overflow: hidden;
-    white-space: nowrap;
-    text-overflow: ellipsis;
-    line-height: var(--tab-h);
-    background: var(--font-light);
-    border: 1px solid var(--font-light);
-    border-bottom: 0;
-    color: var(--font-dark);
-    font-size: var(--fs-small);
-}
-
-/* значок: как значок приложения на столе */
-.user-avatar {
-    width: 56px;
-    height: 56px;
-    display: grid;
-    place-items: center;
-    background: var(--bg);
-    border: 1px solid var(--font-light);
-    color: var(--font-light);
-    font-size: var(--fs-large);
-    transition: background 0.2s, color 0.2s;
-}
-
-.user-name {
-    color: var(--font-light);
-    letter-spacing: 0.12em;
-}
-
-.user-tile:hover,
-.user-tile:focus-visible,
-.user-tile.is-chosen {
-    border-color: var(--font-light);
-    outline: none;
-}
-
-.user-tile:hover .user-avatar,
-.user-tile:focus-visible .user-avatar,
-.user-tile.is-chosen .user-avatar {
-    background: var(--font-light);
-    color: var(--bg);
-}
-
-
-/* ---------- сообщение и подпись ---------- */
-
-.lock-message {
-    min-height: 1.4em;
-    text-align: center;
-    color: var(--font-muted);
-}
-.lock-message.error { color: var(--status-error); }
-
-.lock-footer {
+.lock-option:focus-visible .lock-option-main::before,
+.lock-option:hover:not(:disabled) .lock-option-main::before {
+    content: ">";
     position: absolute;
     left: 0;
-    right: 0;
-    bottom: 18px;
-    text-align: center;
-    font-size: var(--fs-smaller);
-    letter-spacing: 0.15em;
-    color: var(--font-muted);
+    color: var(--accent-green);
 }
 
-
-/* ---------- состояния ---------- */
-
-.lock.is-busy .user-tile { pointer-events: none; }
-.lock.is-unlocking .user-tile:not(.is-chosen) { opacity: 0; }
-.lock.is-unlocking .user-tile.is-chosen { transform: scale(1.04); }
-
-
-/* ---------- узкие и низкие экраны ---------- */
-
-@media (max-width: 480px) {
-    .user-tile { width: min(100%, 260px); }
-}
-
-@media (prefers-reduced-motion: reduce) {
-    .lock,
-    .user-tile,
-    .user-avatar { transition: none; }
-    .lock-dot,
-    .lock-colon { animation: none; }
+@media (max-width: 700px) {
+    .lock-option .lock-option-tag,
+    .lock-option .lock-option-note {
+        display: block;
+        padding-left: 7ch; /* под названием варианта, мимо метки [ G ] */
+        white-space: normal;
+    }
 }
