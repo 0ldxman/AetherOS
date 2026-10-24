@@ -5,6 +5,7 @@
 <link rel="stylesheet" href="{% static 'wiki/editor.css' %}">
 <link rel="stylesheet" href="{% static 'wiki/condition_editor.css' %}">
 <script type="module" src="{% static 'wiki/editor.js' %}"></script>
+{% if lock_url %}<script src="{% static 'wiki/doc_lock.js' %}" defer></script>{% endif %}
 {% endblock %}
 
 {% block object-tools-items %}
@@ -22,6 +23,12 @@
 {% block content %}
 <div class="wp-split" id="wp-split" data-preview-url="{{ preview_url }}" data-assets-url="{{ assets_url }}">
   <div class="wp-split__form">
+    {% if lock_url %}
+    <div class="wp-lock" id="wp-lock" role="status" hidden
+         data-lock-url="{{ lock_url }}"
+         data-unlock-url="{{ unlock_url }}"
+         data-interval="{{ lock_interval_ms }}"></div>
+    {% endif %}
     {{ block.super }}
   </div>
 

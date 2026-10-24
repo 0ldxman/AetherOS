@@ -910,3 +910,15 @@ body.wp-editor .aether-original-field {
 .wp-picker__list .wp-picker__empty { color: var(--body-quiet-color, #666); cursor: default; }
 .wp-picker__list .wp-picker__empty:hover { background: none; }
 
+
+/* Предупреждение о том, что запись правит кто-то ещё (doc_lock.js) */
+.wp-lock {
+  margin: 0 0 12px;
+  padding: 8px 12px;
+  border: 1px solid #b8860b;
+  border-radius: 4px;
+  background: rgba(184, 134, 11, .15);
+  color: var(--body-fg, #333);
+  font-size: 13px;
+}
+.wp-lock[hidden] { display: none; }

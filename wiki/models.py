@@ -221,3 +221,29 @@ class DocumentRevision(models.Model):
     def __str__(self):
         return f"{self.document_id} @ {self.saved_at:%Y-%m-%d %H:%M}"
 
+
+
+class DocumentLock(models.Model):
+    """Кто сейчас правит запись в админке.
+
+    Мягкая блокировка: она только предупреждает остальных, сохранение не
+    запрещает (от потери правок защищает проверка версии при сохранении,
+    wiki/admin_locks.py). Запись живёт, пока страница редактора шлёт сигналы
+    и не старше wiki.locks.LOCK_TTL.
+    """
+
+    document = models.OneToOneField(
+        Document,
+        on_delete=models.CASCADE,
+        related_name="lock",
+    )
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="+",
+    )
+    acquired_at = models.DateTimeField(auto_now_add=True)
+    refreshed_at = models.DateTimeField()
+
+    def __str__(self):
+        return f"{self.document_id} -> {self.user_id}"
