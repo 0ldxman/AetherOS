@@ -1,46 +1,27 @@
-
-{% extends "ui/base.html" %}
+{% extends "assets/viewers/_base.html" %}
 {% load static %}
 
-{% block title %}{{ asset.name }} — Aether OS{% endblock %}
-{% block body_attrs %} class="text-viewer"{% endblock %}
+{% block viewer_class %}text-viewer{% endblock %}
 
-{% block css %}
+{% block viewer_css %}
 <link rel="stylesheet" href="{% static 'assets/viewers/text.css' %}">
 {% endblock %}
 
-{% block body %}
-<main
-    class="tv-workspace"
+{% block workspace_class %}tv-workspace{% endblock %}
+{% block workspace_attrs %}
     data-text-viewer
     data-text-url="{{ content_url|escape }}"
     data-text-name="{{ asset.name|escape }}"
     data-text-filename="{{ filename|escape }}"
     data-text-type="{{ content_type|escape }}"
     data-text-id="{{ asset.public_id|escape }}"
->
-    <header class="tv-header">
-        <div class="tv-heading">
-            <div class="tv-title-line">
-                <span class="tv-document-tag" data-text-tag>[TEXT]</span>
-                <h1>{{ asset.name }}</h1>
-            </div>
+{% endblock %}
 
-            <div class="tv-meta-lines">
-                <div class="tv-id-line">
-                    <span class="tv-meta-label">ID:</span>
-                    <span class="tv-id-value">{{ asset.public_id }}</span>
-                </div>
-            </div>
-        </div>
+{% block viewer_tag %}[TEXT]{% endblock %}
 
-        <div class="tv-header-right">
-            <span class="tv-header-status" data-text-status>
-                INITIALIZING
-            </span>
-
+{% block header_actions %}
             <button
-                class="tv-button"
+                class="av-button"
                 type="button"
                 data-text-copy
                 disabled
@@ -49,16 +30,16 @@
             </button>
 
             <button
-                class="tv-button"
+                class="av-button"
                 type="button"
                 data-text-fullscreen
                 disabled
             >
                 FULLSCREEN
             </button>
-        </div>
-    </header>
+{% endblock %}
 
+{% block viewer_content %}
     <section
         class="tv-viewport"
         data-text-viewport
@@ -87,7 +68,7 @@
             <span class="tv-footer-label">SCALE</span>
 
             <button
-                class="tv-button tv-icon-button"
+                class="av-button av-icon-button"
                 type="button"
                 data-text-zoom-out
                 aria-label="Decrease text size"
@@ -97,7 +78,7 @@
             <span class="tv-zoom-value" data-text-zoom-value>100%</span>
 
             <button
-                class="tv-button tv-icon-button"
+                class="av-button av-icon-button"
                 type="button"
                 data-text-zoom-in
                 aria-label="Increase text size"
@@ -105,7 +86,7 @@
             >+</button>
 
             <button
-                class="tv-button"
+                class="av-button"
                 type="button"
                 data-text-zoom-reset
                 disabled
@@ -131,10 +112,8 @@
             </div>
         </div>
     </footer>
-
-</main>
 {% endblock %}
 
-{% block js %}
+{% block viewer_js %}
 <script src="{% static 'assets/viewers/text.js' %}" defer></script>
 {% endblock %}

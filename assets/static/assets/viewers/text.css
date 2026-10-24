@@ -1,209 +1,11 @@
-
 /* =========================================================
    Aether OS — Text Viewer
+   Общие части (шапка, кнопки) в static/ui/viewer.css
    ========================================================= */
-
-html:has(body.text-viewer) {
-    width: 100%;
-    height: 100%;
-    margin: 0;
-    padding: 0;
-    overflow: hidden;
-}
-
-body.text-viewer {
-    width: 100%;
-    height: 100vh;
-    height: 100dvh;
-    margin: 0 !important;
-    padding: 0 !important;
-    overflow: hidden;
-}
-
-.pdf-viewer,
-.text-viewer {
-    overflow: hidden;
-}
-
-.text-viewer {
-    --tv-bg: var(--bg, #191919);
-    --tv-panel: var(--panel, #232323);
-    --tv-fg: var(--font-light, #b5b6b8);
-    --tv-muted: var(--font-muted, #65686a);
-    --tv-border: #3b3d3e;
-    --tv-disabled: #55585a;
-}
 
 .tv-workspace {
     display: grid;
     grid-template-rows: auto minmax(0, 1fr) auto;
-    box-sizing: border-box;
-    width: 100%;
-    height: 100%;
-    min-width: 0;
-    min-height: 0;
-    margin: 0;
-    padding: 0;
-    overflow: hidden;
-    background: var(--tv-bg);
-    color: var(--tv-fg);
-    font-family: var(--font-main, monospace);
-    font-size: 11px;
-}
-
-/* =========================================================
-   Header
-   ========================================================= */
-
-.tv-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 20px;
-    min-width: 0;
-    margin: 0;
-    padding: 12px 16px;
-    border: 0;
-    border-bottom: 1px solid var(--tv-border);
-    background: var(--tv-panel);
-    box-sizing: border-box;
-}
-
-.tv-heading {
-    min-width: 0;
-    overflow: hidden;
-}
-
-.tv-title-line {
-    display: flex;
-    align-items: baseline;
-    gap: 9px;
-    min-width: 0;
-}
-
-.tv-document-tag {
-    flex: 0 0 auto;
-    color: var(--tv-muted);
-    font-size: 10px;
-    letter-spacing: 0.04em;
-    white-space: nowrap;
-}
-
-.tv-title-line h1 {
-    min-width: 0;
-    margin: 0;
-    padding: 0;
-    overflow: hidden;
-    color: var(--tv-fg);
-    font-family: var(--font-main, monospace);
-    font-size: 12px;
-    font-weight: 400;
-    line-height: 1.5;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-}
-
-.tv-meta-lines {
-    display: flex;
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 3px;
-    margin-top: 4px;
-}
-
-.tv-id-line,
-.tv-encoding-line {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    min-width: 0;
-    color: var(--tv-muted);
-    font-size: 9px;
-    line-height: 1.4;
-}
-
-.tv-id-value {
-    min-width: 0;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-}
-
-.tv-encoding-line .tv-footer-value {
-    font-size: 9px;
-}
-
-.tv-header-right {
-    display: flex;
-    align-items: center;
-    justify-content: flex-end;
-    gap: 8px;
-    flex: 0 0 auto;
-}
-
-.tv-header-status {
-    margin-right: 5px;
-    color: var(--tv-muted);
-    font-size: 9px;
-    white-space: nowrap;
-}
-
-/* =========================================================
-   Buttons
-   ========================================================= */
-
-.tv-button {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    flex: 0 0 auto;
-    min-width: 0;
-    height: 27px;
-    margin: 0;
-    padding: 0 9px;
-    border: 1px solid var(--tv-muted);
-    border-radius: 0;
-    outline: none;
-    background: transparent;
-    color: var(--tv-fg);
-    font-family: var(--font-main, monospace);
-    font-size: 9px;
-    font-weight: 400;
-    line-height: 1;
-    white-space: nowrap;
-    cursor: pointer;
-    box-shadow: none;
-    transition: none;
-}
-
-.tv-button:hover:not(:disabled) {
-    border-color: var(--tv-fg);
-    background: var(--tv-fg);
-    color: var(--tv-bg);
-}
-
-.tv-button:focus-visible {
-    outline: 1px solid var(--tv-fg);
-    outline-offset: 2px;
-}
-
-.tv-button:active:not(:disabled) {
-    background: var(--tv-muted);
-    border-color: var(--tv-muted);
-    color: var(--tv-bg);
-}
-
-.tv-button:disabled {
-    border-color: var(--tv-border);
-    background: transparent;
-    color: var(--tv-disabled);
-    cursor: default;
-}
-
-.tv-icon-button {
-    width: 27px;
-    padding: 0;
-    font-size: 15px;
 }
 
 /* =========================================================
@@ -217,8 +19,8 @@ body.text-viewer {
     margin: 0;
     padding: 0;
     overflow: auto;
-    background: var(--tv-bg);
-    scrollbar-color: var(--tv-muted) var(--tv-bg);
+    background: var(--av-bg);
+    scrollbar-color: var(--av-muted) var(--av-bg);
     scrollbar-width: thin;
 }
 
@@ -228,16 +30,16 @@ body.text-viewer {
 }
 
 .tv-viewport::-webkit-scrollbar-track {
-    background: var(--tv-bg);
+    background: var(--av-bg);
 }
 
 .tv-viewport::-webkit-scrollbar-thumb {
-    border: 2px solid var(--tv-bg);
-    background: var(--tv-muted);
+    border: 2px solid var(--av-bg);
+    background: var(--av-muted);
 }
 
 .tv-viewport::-webkit-scrollbar-thumb:hover {
-    background: var(--tv-fg);
+    background: var(--av-fg);
 }
 
 .tv-document {
@@ -258,7 +60,7 @@ body.text-viewer {
     margin: 0;
     padding: 0;
     overflow: visible;
-    color: var(--tv-fg);
+    color: var(--av-fg);
     background: transparent;
     font-family: var(--font-main, monospace);
     font-size: 12px;
@@ -295,25 +97,25 @@ body.text-viewer {
     min-height: 100%;
     padding: 24px;
     box-sizing: border-box;
-    color: var(--tv-muted);
+    color: var(--av-muted);
     text-align: center;
     font-size: 10px;
 }
 
 .tv-loading-mark {
-    color: var(--tv-fg);
+    color: var(--av-fg);
     font-size: 12px;
 }
 
 .tv-error-title {
-    color: var(--tv-fg);
+    color: var(--av-fg);
     font-size: 10px;
 }
 
 .tv-error p {
     max-width: 600px;
     margin: 0;
-    color: var(--tv-muted);
+    color: var(--av-muted);
     font-size: 10px;
     line-height: 1.7;
     overflow-wrap: anywhere;
@@ -340,8 +142,8 @@ body.text-viewer {
     padding: 7px 16px;
     box-sizing: border-box;
     border: 0;
-    border-top: 1px solid var(--tv-border);
-    background: var(--tv-panel);
+    border-top: 1px solid var(--av-border);
+    background: var(--av-panel);
 }
 
 .tv-footer-group {
@@ -356,7 +158,7 @@ body.text-viewer {
 }
 
 .tv-footer-label {
-    color: var(--tv-muted);
+    color: var(--av-muted);
     font-size: 9px;
     white-space: nowrap;
 }
@@ -364,7 +166,7 @@ body.text-viewer {
 .tv-footer-value {
     min-width: 0;
     overflow: hidden;
-    color: var(--tv-fg);
+    color: var(--av-fg);
     font-size: 10px;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -372,7 +174,7 @@ body.text-viewer {
 
 .tv-zoom-value {
     min-width: 37px;
-    color: var(--tv-fg);
+    color: var(--av-fg);
     font-size: 10px;
     text-align: center;
     white-space: nowrap;
@@ -411,10 +213,10 @@ body.text-viewer {
 .tv-workspace:fullscreen {
     width: 100%;
     height: 100%;
-    background: var(--tv-bg);
+    background: var(--av-bg);
 }
 
-.tv-workspace:fullscreen .tv-header,
+.tv-workspace:fullscreen .av-header,
 .tv-workspace:fullscreen .tv-footer {
     flex-shrink: 0;
 }
@@ -424,23 +226,6 @@ body.text-viewer {
    ========================================================= */
 
 @media (max-width: 760px) {
-    .tv-header {
-        align-items: flex-start;
-        gap: 10px;
-        padding: 10px;
-    }
-
-    .tv-header-right {
-        flex-wrap: wrap;
-        gap: 5px;
-    }
-
-    .tv-header-status {
-        width: 100%;
-        margin: 0;
-        text-align: right;
-    }
-
     .tv-footer {
         gap: 10px;
         padding: 9px 10px;
@@ -452,19 +237,6 @@ body.text-viewer {
 }
 
 @media (max-width: 420px) {
-    .tv-title-line h1 {
-        max-width: 150px;
-    }
-
-    .tv-header-right {
-        max-width: 145px;
-    }
-
-    .tv-button {
-        padding-right: 6px;
-        padding-left: 6px;
-    }
-
     .tv-footer-group {
         gap: 5px;
     }

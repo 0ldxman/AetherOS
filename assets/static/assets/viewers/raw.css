@@ -1,31 +1,9 @@
 /* =========================================================
    Aether OS — Raw / Binary Viewer
-   Header / toolbar / inspector / footer
+   Toolbar / inspector / footer (шапка и кнопки в static/ui/viewer.css)
    ========================================================= */
 
-html:has(body.raw-viewer) {
-    width: 100%;
-    height: 100%;
-    margin: 0;
-    padding: 0;
-    overflow: hidden;
-}
-
-body.raw-viewer {
-    width: 100%;
-    height: 100vh;
-    height: 100dvh;
-    margin: 0 !important;
-    padding: 0 !important;
-    overflow: hidden;
-}
-
 .raw-viewer {
-    --rv-bg: var(--bg, #191919);
-    --rv-panel: var(--panel, #232323);
-    --rv-fg: var(--font-light, #b5b6b8);
-    --rv-muted: var(--font-muted, #65686a);
-    --rv-border: #3b3d3e;
     --rv-hover: #303334;
     --rv-selected: #b5b6b8;
     --rv-match: #8f7a3b;
@@ -42,16 +20,6 @@ body.raw-viewer {
 .rv-workspace {
     display: grid;
     grid-template-rows: auto auto minmax(0, 1fr) auto;
-    width: 100%;
-    height: 100%;
-    min-width: 0;
-    min-height: 0;
-    overflow: hidden;
-    box-sizing: border-box;
-    background: var(--rv-bg);
-    color: var(--rv-fg);
-    font-family: var(--font-main, monospace);
-    font-size: 11px;
 
     /*
      * HEX column geometry. --rv-bytes (bytes per row) and --rv-groups
@@ -70,115 +38,13 @@ body.raw-viewer {
     );
 }
 
-.rv-header,
 .rv-toolbar,
 .rv-footer {
     display: flex;
     align-items: center;
     min-width: 0;
     box-sizing: border-box;
-    background: var(--rv-panel);
-}
-
-/* =========================================================
-   Header — one line
-   ========================================================= */
-
-.rv-header {
-    justify-content: space-between;
-    gap: 16px;
-    padding: 9px 16px;
-    border-bottom: 1px solid var(--rv-border);
-}
-
-.rv-title-line {
-    display: flex;
-    align-items: baseline;
-    gap: 10px;
-    min-width: 0;
-    overflow: hidden;
-}
-
-.rv-tag {
-    flex: 0 0 auto;
-    color: var(--rv-muted);
-    font-size: 10px;
-    white-space: nowrap;
-}
-
-.rv-title-line h1 {
-    min-width: 0;
-    margin: 0;
-    overflow: hidden;
-    font-size: 12px;
-    font-weight: 400;
-    line-height: 1.5;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-}
-
-.rv-id-value {
-    flex: 0 1 auto;
-    min-width: 0;
-    overflow: hidden;
-    color: var(--rv-muted);
-    font-size: 9px;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-}
-
-.rv-header-right {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    flex: 0 0 auto;
-}
-
-.rv-status {
-    color: var(--rv-muted);
-    font-size: 9px;
-    white-space: nowrap;
-}
-
-/* =========================================================
-   Buttons
-   ========================================================= */
-
-.rv-button {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    flex: 0 0 auto;
-    height: 25px;
-    margin: 0;
-    padding: 0 9px;
-    border: 1px solid var(--rv-muted);
-    border-radius: 0;
-    background: transparent;
-    color: var(--rv-fg);
-    font-family: inherit;
-    font-size: 9px;
-    line-height: 1;
-    white-space: nowrap;
-    cursor: pointer;
-}
-
-.rv-button:hover:not(:disabled) {
-    border-color: var(--rv-fg);
-    background: var(--rv-fg);
-    color: var(--rv-bg);
-}
-
-.rv-button:disabled {
-    border-color: var(--rv-border);
-    color: #55585a;
-    cursor: default;
-}
-
-.rv-icon-button {
-    width: 25px;
-    padding: 0;
-    font-size: 15px;
+    background: var(--av-panel);
 }
 
 /* =========================================================
@@ -189,7 +55,7 @@ body.raw-viewer {
     flex-wrap: wrap;
     gap: 8px 18px;
     padding: 8px 16px;
-    border-bottom: 1px solid var(--rv-border);
+    border-bottom: 1px solid var(--av-border);
 }
 
 .rv-goto,
@@ -205,36 +71,36 @@ body.raw-viewer {
 
 .rv-goto label,
 .rv-width-control label {
-    color: var(--rv-muted);
+    color: var(--av-muted);
     font-size: 9px;
     white-space: nowrap;
 }
 
 .rv-input-prefix {
     margin-right: -6px;
-    color: var(--rv-muted);
+    color: var(--av-muted);
 }
 
 .rv-toolbar input,
 .rv-toolbar select {
     height: 25px;
     box-sizing: border-box;
-    border: 1px solid var(--rv-border);
+    border: 1px solid var(--av-border);
     border-radius: 0;
     outline: none;
-    background: var(--rv-bg);
-    color: var(--rv-fg);
+    background: var(--av-bg);
+    color: var(--av-fg);
     font-family: inherit;
     font-size: 10px;
 }
 
 .rv-toolbar input:focus,
 .rv-toolbar select:focus {
-    border-color: var(--rv-fg);
+    border-color: var(--av-fg);
 }
 
 .rv-toolbar input::placeholder {
-    color: var(--rv-muted);
+    color: var(--av-muted);
 }
 
 .rv-goto input {
@@ -264,7 +130,7 @@ body.raw-viewer {
 .rv-search-count {
     max-width: 200px;
     overflow: hidden;
-    color: var(--rv-muted);
+    color: var(--av-muted);
     font-size: 9px;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -282,7 +148,7 @@ body.raw-viewer {
     min-height: 0;
     overflow: hidden;
     box-sizing: border-box;
-    background: var(--rv-bg);
+    background: var(--av-bg);
 }
 
 .rv-inspector:has(.rv-strings-panel:not([hidden])) {
@@ -308,8 +174,8 @@ body.raw-viewer {
     flex: 0 0 auto;
     width: 100%;
     padding: 8px 16px;
-    border-bottom: 1px solid var(--rv-border);
-    color: var(--rv-muted);
+    border-bottom: 1px solid var(--av-border);
+    color: var(--av-muted);
     font-size: 9px;
     box-sizing: border-box;
 }
@@ -320,7 +186,7 @@ body.raw-viewer {
     min-height: 0;
     overflow: auto;
     padding: 8px 16px 16px;
-    scrollbar-color: var(--rv-muted) var(--rv-bg);
+    scrollbar-color: var(--av-muted) var(--av-bg);
     scrollbar-width: thin;
     box-sizing: border-box;
 }
@@ -333,8 +199,8 @@ body.raw-viewer {
 
 .rv-data::-webkit-scrollbar-thumb,
 .rv-strings-results::-webkit-scrollbar-thumb {
-    border: 2px solid var(--rv-bg);
-    background: var(--rv-muted);
+    border: 2px solid var(--av-bg);
+    background: var(--av-muted);
 }
 
 /* HEX rows and bytes */
@@ -352,7 +218,7 @@ body.raw-viewer {
 }
 
 .rv-offset {
-    color: var(--rv-muted);
+    color: var(--av-muted);
     user-select: none;
 }
 
@@ -380,7 +246,7 @@ body.raw-viewer {
 .rv-byte {
     flex: 0 0 var(--rv-byte-w);
     width: var(--rv-byte-w);
-    color: var(--rv-fg);
+    color: var(--av-fg);
 }
 
 /* Visual gap after every 8th byte of a row. */
@@ -395,7 +261,7 @@ body.raw-viewer {
 
 .rv-byte:hover,
 .rv-char:hover {
-    outline: 1px solid var(--rv-muted);
+    outline: 1px solid var(--av-muted);
 }
 
 .rv-byte.is-zero {
@@ -418,13 +284,13 @@ body.raw-viewer {
 .rv-byte.is-selected.is-match,
 .rv-char.is-selected.is-match {
     background: var(--rv-selected);
-    color: var(--rv-bg);
+    color: var(--av-bg);
     outline: 1px solid var(--rv-selected);
 }
 
 .rv-message {
     padding: 24px 0;
-    color: var(--rv-muted);
+    color: var(--av-muted);
     font-size: 10px;
     white-space: pre-wrap;
 }
@@ -441,9 +307,9 @@ body.raw-viewer {
     height: 100%;
     padding: 0;
     border: 0;
-    border-left: 1px solid var(--rv-border);
-    border-right: 1px solid var(--rv-border);
-    background: var(--rv-panel);
+    border-left: 1px solid var(--av-border);
+    border-right: 1px solid var(--av-border);
+    background: var(--av-panel);
     cursor: col-resize;
     touch-action: none;
     box-sizing: border-box;
@@ -452,7 +318,7 @@ body.raw-viewer {
 .rv-splitter:hover,
 .rv-splitter:focus-visible {
     outline: none;
-    background: var(--rv-muted);
+    background: var(--av-muted);
 }
 
 .rv-splitter[hidden] {
@@ -491,8 +357,8 @@ body.rv-resizing * {
     gap: 12px;
     flex: 0 0 auto;
     padding: 8px 12px;
-    border-bottom: 1px solid var(--rv-border);
-    color: var(--rv-muted);
+    border-bottom: 1px solid var(--av-border);
+    color: var(--av-muted);
     font-size: 9px;
     box-sizing: border-box;
 }
@@ -502,7 +368,7 @@ body.rv-resizing * {
     min-width: 0;
     min-height: 0;
     overflow: auto;
-    scrollbar-color: var(--rv-muted) var(--rv-bg);
+    scrollbar-color: var(--av-muted) var(--av-bg);
     scrollbar-width: thin;
 }
 
@@ -516,7 +382,7 @@ body.rv-resizing * {
     border: 0;
     border-bottom: 1px solid #292b2c;
     background: transparent;
-    color: var(--rv-fg);
+    color: var(--av-fg);
     font: inherit;
     text-align: left;
     cursor: pointer;
@@ -528,7 +394,7 @@ body.rv-resizing * {
 }
 
 .rv-string-offset {
-    color: var(--rv-muted);
+    color: var(--av-muted);
     white-space: nowrap;
 }
 
@@ -553,7 +419,7 @@ body.rv-resizing * {
     justify-content: space-between;
     gap: 16px;
     padding: 7px 16px;
-    border-top: 1px solid var(--rv-border);
+    border-top: 1px solid var(--av-border);
     font-size: 9px;
 }
 
@@ -570,19 +436,19 @@ body.rv-resizing * {
 }
 
 .rv-footer-left span {
-    color: var(--rv-muted);
+    color: var(--av-muted);
     white-space: nowrap;
 }
 
 .rv-footer-left b {
     margin-left: 5px;
-    color: var(--rv-fg);
+    color: var(--av-fg);
     font-weight: 400;
 }
 
 .rv-page-status {
     min-width: 100px;
-    color: var(--rv-muted);
+    color: var(--av-muted);
     text-align: center;
     white-space: nowrap;
 }
@@ -592,15 +458,10 @@ body.rv-resizing * {
    ========================================================= */
 
 @media (max-width: 760px) {
-    .rv-header,
     .rv-toolbar,
     .rv-footer {
         padding-right: 10px;
         padding-left: 10px;
-    }
-
-    .rv-id-value {
-        display: none;
     }
 
     .rv-search-actions {

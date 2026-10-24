@@ -1,34 +1,27 @@
-{% extends "ui/base.html" %}
+{% extends "assets/viewers/_base.html" %}
 {% load static %}
 
-{% block title %}{{ asset.name }} — Aether OS{% endblock %}
-{% block body_attrs %} class="raw-viewer"{% endblock %}
+{% block viewer_class %}raw-viewer{% endblock %}
 
-{% block css %}
+{% block viewer_css %}
 <link rel="stylesheet" href="{% static 'assets/viewers/raw.css' %}">
 {% endblock %}
 
-{% block body %}
-<main
-    class="rv-workspace"
+{% block workspace_class %}rv-workspace{% endblock %}
+{% block workspace_attrs %}
     data-raw-viewer
     data-raw-url="{{ content_url|escape }}"
     data-raw-name="{{ asset.name|escape }}"
     data-raw-id="{{ asset.public_id|escape }}"
->
-    <header class="rv-header">
-        <div class="rv-title-line">
-            <span class="rv-tag" data-raw-tag>[RAW]</span>
-            <h1>{{ asset.name }}</h1>
-            <span class="rv-id-value" title="{{ asset.public_id }}">{{ asset.public_id }}</span>
-        </div>
+{% endblock %}
 
-        <div class="rv-header-right">
-            <span class="rv-status" data-raw-status>INITIALIZING</span>
-            <button class="rv-button" type="button" data-raw-refresh>RELOAD</button>
-        </div>
-    </header>
+{% block viewer_tag %}[RAW]{% endblock %}
 
+{% block header_actions %}
+            <button class="av-button" type="button" data-raw-refresh>RELOAD</button>
+{% endblock %}
+
+{% block viewer_content %}
     <section class="rv-toolbar" aria-label="File analysis">
         <form class="rv-goto" data-raw-goto-form>
             <label for="rv-offset">OFFSET</label>
@@ -42,7 +35,7 @@
                 spellcheck="false"
                 placeholder="00000000"
             >
-            <button class="rv-button" type="submit">GO</button>
+            <button class="av-button" type="submit">GO</button>
         </form>
 
         <div class="rv-width-control">
@@ -67,16 +60,16 @@
                 placeholder="Text to find..."
                 aria-label="Search pattern"
             >
-            <button class="rv-button" type="submit" data-raw-find>FIND</button>
+            <button class="av-button" type="submit" data-raw-find>FIND</button>
         </form>
 
         <div class="rv-search-actions">
             <span class="rv-search-count" data-raw-search-count>—</span>
-            <button class="rv-button rv-icon-button" type="button" data-raw-search-prev disabled
+            <button class="av-button av-icon-button" type="button" data-raw-search-prev disabled
                     aria-label="Previous match" title="Previous match">‹</button>
-            <button class="rv-button rv-icon-button" type="button" data-raw-search-next disabled
+            <button class="av-button av-icon-button" type="button" data-raw-search-next disabled
                     aria-label="Next match" title="Next match">›</button>
-            <button class="rv-button" type="button" data-raw-strings>STRINGS</button>
+            <button class="av-button" type="button" data-raw-strings>STRINGS</button>
         </div>
     </section>
 
@@ -119,16 +112,15 @@
         </div>
 
         <div class="rv-footer-right">
-            <button class="rv-button rv-icon-button" type="button" data-raw-prev disabled
+            <button class="av-button av-icon-button" type="button" data-raw-prev disabled
                     aria-label="Previous page" title="Previous page">‹</button>
             <span class="rv-page-status" data-raw-page>—</span>
-            <button class="rv-button rv-icon-button" type="button" data-raw-next disabled
+            <button class="av-button av-icon-button" type="button" data-raw-next disabled
                     aria-label="Next page" title="Next page">›</button>
         </div>
     </footer>
-</main>
 {% endblock %}
 
-{% block js %}
+{% block viewer_js %}
 <script src="{% static 'assets/viewers/raw.js' %}" defer></script>
 {% endblock %}

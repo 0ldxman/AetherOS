@@ -29,8 +29,8 @@
     const SPLITTER_WIDTH = 6;
 
     const elements = {
-        tag: root.querySelector("[data-raw-tag]"),
-        status: root.querySelector("[data-raw-status]"),
+        tag: root.querySelector("[data-viewer-tag]"),
+        status: root.querySelector("[data-viewer-status]"),
         data: root.querySelector("[data-raw-data]"),
         size: root.querySelector("[data-raw-size]"),
         signature: root.querySelector("[data-raw-signature]"),

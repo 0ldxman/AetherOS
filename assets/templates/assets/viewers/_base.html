@@ -1,0 +1,55 @@
+{% extends "ui/base.html" %}
+{% load static %}
+{% comment %}
+  Общий каркас вьювера ассета: заголовок страницы, шапка (тег формата,
+  имя, ID, статус) и подключение общих стилей. Вьювер наследует этот шаблон
+  и заполняет блоки:
+
+    viewer_class    - класс body (стили вьювера привязаны к нему)
+    viewer_css      - <link> на CSS вьювера
+    workspace_class - класс <main> (поверх av-workspace)
+    workspace_attrs - data-атрибуты <main> (data-xxx-viewer, data-xxx-url ...)
+    viewer_tag      - подпись формата, например [TEXT]
+    header_actions  - кнопки справа от статуса
+    viewer_content  - всё, что идёт под шапкой
+    viewer_js       - <script> вьювера
+
+  JS находит тег и статус по data-viewer-tag и data-viewer-status.
+{% endcomment %}
+
+{% block title %}{{ asset.name }} — Aether OS{% endblock %}
+{% block body_attrs %} class="av-page {% block viewer_class %}{% endblock %}"{% endblock %}
+
+{% block css %}
+<link rel="stylesheet" href="{% static 'ui/viewer.css' %}">
+{% block viewer_css %}{% endblock %}
+{% endblock %}
+
+{% block body %}
+<main class="av-workspace {% block workspace_class %}{% endblock %}" {% block workspace_attrs %}{% endblock %}>
+    <header class="av-header">
+        <div class="av-heading">
+            <div class="av-title-line">
+                <span class="av-tag" data-viewer-tag>{% block viewer_tag %}{% endblock %}</span>
+                <h1>{{ asset.name }}</h1>
+            </div>
+
+            <div class="av-id-line">
+                <span>ID:</span>
+                <span class="av-id-value">{{ asset.public_id }}</span>
+            </div>
+        </div>
+
+        <div class="av-header-right">
+            <span class="av-status" data-viewer-status>INITIALIZING</span>
+            {% block header_actions %}{% endblock %}
+        </div>
+    </header>
+
+    {% block viewer_content %}{% endblock %}
+</main>
+{% endblock %}
+
+{% block js %}
+{% block viewer_js %}{% endblock %}
+{% endblock %}

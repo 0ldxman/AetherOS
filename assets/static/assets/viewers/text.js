@@ -13,7 +13,7 @@
     }
 
 
-    const tag = root.querySelector("[data-text-tag]");
+    const tag = root.querySelector("[data-viewer-tag]");
     const filename = root.dataset.textFilename || "";
 
     if (tag) {
@@ -37,7 +37,7 @@
     const documentPanel = root.querySelector("[data-text-document]");
     const contentElement = root.querySelector("[data-text-content]");
 
-    const statusElement = root.querySelector("[data-text-status]");
+    const statusElement = root.querySelector("[data-viewer-status]");
     const encodingElement = root.querySelector("[data-text-encoding]");
     const linesElement = root.querySelector("[data-text-lines]");
     const sizeElement = root.querySelector("[data-text-size]");
