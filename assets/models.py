@@ -1,5 +1,3 @@
-from mimetypes import guess_type
-
 from django.core.validators import RegexValidator
 from django.db import models
 from django.db.models import Q
@@ -118,6 +116,7 @@ class Asset(models.Model):
         Бросает ValueError, если файла нет или это папка.
         """
         from .nextcloud import NextcloudClient
+        from .services import guess_content_type
 
         client = client or NextcloudClient.from_settings()
         file = client.get_file_by_id(self.file_id)
@@ -126,8 +125,5 @@ class Asset(models.Model):
             raise ValueError("Файл в Nextcloud не найден.")
 
         self.filename = file.filename
-        self.content_type = (
-            guess_type(file.filename)[0]
-            or "application/octet-stream"
-        )
+        self.content_type = guess_content_type(file.filename)
         self.size = file.size

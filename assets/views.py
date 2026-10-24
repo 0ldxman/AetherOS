@@ -1,9 +1,7 @@
 from __future__ import annotations
 
-import logging  # DIAG
-import time  # DIAG
+import logging
 
-import requests
 from django.contrib.admin.views.decorators import (
     staff_member_required,
 )
@@ -13,17 +11,17 @@ from django.http import (
     JsonResponse,
     StreamingHttpResponse,
 )
-from django.shortcuts import render
+from django.shortcuts import get_object_or_404, render
 from django.urls import reverse
-from django.utils.http import (
-    content_disposition_header,
-)
+from django.utils.http import content_disposition_header
 
 from .models import Asset
 from .nextcloud import NextcloudClient
 from .services import guess_content_type, resolve_viewer_type
 
-logger = logging.getLogger(__name__)  # DIAG
+logger = logging.getLogger(__name__)
+
+STREAM_CHUNK_SIZE = 64 * 1024
 
 
 @staff_member_required
@@ -48,10 +46,11 @@ def browse_nextcloud(request):
 
     try:
         items = client.list(path)
-    except Exception as exc:
+    except Exception:
+        logger.exception("Nextcloud browse failed: %s", path)
         return JsonResponse(
-            {"error": str(exc)},
-            status=500,
+            {"error": "Nextcloud request failed."},
+            status=502,
         )
 
     result = []
@@ -99,93 +98,47 @@ def browse_nextcloud(request):
     )
 
 
-def asset_file(
-    request,
-    asset_id: int,
-):
-    """Legacy endpoint using the database primary key."""
-    try:
-        asset = Asset.objects.get(
-            pk=asset_id,
-        )
-    except Asset.DoesNotExist:
-        raise Http404(
-            "Asset not found."
-        )
-
-    return _serve_asset_file(
-        request,
-        asset,
-    )
-
-
-def asset_content(
-    request,
-    public_id,
-):
+def asset_content(request, public_id):
     """Serve asset contents using its public UUID."""
-    try:
-        asset = Asset.objects.get(
-            public_id=public_id,
+    asset = get_object_or_404(Asset, public_id=public_id)
+    return _serve_asset_file(request, asset)
+
+
+def asset_viewer(request, public_id):
+    """Render the viewer page for an asset.
+
+    Имя и тип файла берутся из закэшированных метаданных ассета:
+    Nextcloud опрашивается только если кэш ещё пуст.
+    """
+    asset = get_object_or_404(Asset, public_id=public_id)
+
+    if not asset.filename:
+        try:
+            asset.refresh_metadata()
+        except Exception as exc:
+            raise Http404("Unable to locate asset file.") from exc
+        asset.save(
+            update_fields=[
+                "filename",
+                "content_type",
+                "size",
+                "updated_at",
+            ]
         )
-    except Asset.DoesNotExist:
-        raise Http404(
-            "Asset not found."
-        )
-
-    return _serve_asset_file(
-        request,
-        asset,
-    )
-
-
-def asset_viewer(
-    request,
-    public_id,
-):
-    """Render the viewer page for an asset."""
-    try:
-        asset = Asset.objects.get(
-            public_id=public_id,
-        )
-    except Asset.DoesNotExist:
-        raise Http404(
-            "Asset not found."
-        )
-
-    client = NextcloudClient.from_settings()
-
-    try:
-        file = client.get_file_by_id(
-            asset.file_id,
-        )
-    except Exception as exc:
-        raise Http404(
-            "Unable to locate asset file."
-        ) from exc
-
-    if file is None or file.is_directory:
-        raise Http404(
-            "Asset file not found."
-        )
-
-    content_type = guess_content_type(file.filename)
 
     viewer_type = resolve_viewer_type(
         asset,
-        file.filename,
-        content_type,
+        asset.filename,
+        asset.content_type,
     )
-
-    template_name = f"assets/viewers/{viewer_type.lower()}.html"
 
     return render(
         request,
-        template_name,
+        f"assets/viewers/{viewer_type.lower()}.html",
         {
             "asset": asset,
-            "filename": file.filename,
-            "content_type": content_type,
+            "filename": asset.filename,
+            "content_type": asset.content_type,
             "viewer_type": viewer_type,
             "content_url": reverse(
                 "asset_viewer:content",
@@ -195,10 +148,34 @@ def asset_viewer(
     )
 
 
-def _serve_asset_file(
-    request,
-    asset: Asset,
-):
+def _find_file(client, asset: Asset):
+    """Файл ассета в Nextcloud или Http404."""
+    try:
+        file = client.get_file_by_id(asset.file_id)
+    except Exception as exc:
+        raise Http404("Unable to locate asset file.") from exc
+
+    if file is None or file.is_directory:
+        raise Http404("Asset file not found.")
+    return file
+
+
+def _apply_file_headers(response, file, content_type=None):
+    """Заголовки, общие для GET, HEAD и 304."""
+    if content_type is not None:
+        response["Content-Disposition"] = content_disposition_header(
+            False,
+            file.filename,
+        )
+    response["Accept-Ranges"] = "bytes"
+    if file.etag:
+        response["ETag"] = file.etag
+    if file.last_modified:
+        response["Last-Modified"] = file.last_modified
+    return response
+
+
+def _serve_asset_file(request, asset: Asset):
     """Stream an asset from Nextcloud to the client."""
     if request.method not in {"GET", "HEAD"}:
         return HttpResponse(
@@ -207,68 +184,26 @@ def _serve_asset_file(
         )
 
     client = NextcloudClient.from_settings()
-
-    t0 = time.monotonic()  # DIAG: старт поиска файла
-
-    try:
-        file = client.get_file_by_id(asset.file_id)
-    except Exception as exc:
-        raise Http404(
-            "Unable to locate asset file."
-        ) from exc
-
-    if file is None:
-        raise Http404("Asset file not found.")
-
-    if file.is_directory:
-        raise Http404("Asset points to a directory.")
-
-    t1 = time.monotonic()  # DIAG: поиск файла закончен
-
+    file = _find_file(client, asset)
     content_type = guess_content_type(file.filename)
 
-    etag = file.etag
-    last_modified = file.last_modified
-
     if (
-        etag
-        and request.headers.get("If-None-Match") == etag
+        file.etag
+        and request.headers.get("If-None-Match") == file.etag
     ):
-        response = HttpResponse(status=304)
-        response["ETag"] = etag
-
-        if last_modified:
-            response["Last-Modified"] = last_modified
-
-        return response
+        return _apply_file_headers(HttpResponse(status=304), file)
 
     if request.method == "HEAD":
-        response = HttpResponse(
-            status=200,
-            content_type=content_type,
+        response = _apply_file_headers(
+            HttpResponse(status=200, content_type=content_type),
+            file,
+            content_type,
         )
-
-        response["Content-Disposition"] = (
-            content_disposition_header(
-                False,
-                file.filename,
-            )
-        )
-        response["Accept-Ranges"] = "bytes"
-
-        if etag:
-            response["ETag"] = etag
-
-        if last_modified:
-            response["Last-Modified"] = last_modified
-
         if file.size is not None:
             response["Content-Length"] = str(file.size)
-
         return response
 
     request_headers = {}
-
     range_header = request.headers.get("Range")
     if range_header:
         request_headers["Range"] = range_header
@@ -279,51 +214,22 @@ def _serve_asset_file(
             headers=request_headers,
         )
     except Exception as exc:
-        raise Http404(
-            "Unable to download asset."
-        ) from exc
-
-    t2 = time.monotonic()  # DIAG: Nextcloud начал отдавать ответ
-
-    logger.warning(  # DIAG
-        "asset %s: lookup %.2fs, stream-open %.2fs, range=%s",
-        asset.public_id,
-        t1 - t0,
-        t2 - t1,
-        range_header,
-    )
+        raise Http404("Unable to download asset.") from exc
 
     # Не передаём ошибки Nextcloud клиенту как успешный поток.
     if upstream.status_code not in (200, 206):
-        try:
-            upstream.raise_for_status()
-            raise Http404("Unable to retrieve asset content.")
-        except requests.RequestException as exc:
-            raise Http404(
-                "Unable to retrieve asset content."
-            ) from exc
-        finally:
-            upstream.close()
+        upstream.close()
+        raise Http404("Unable to retrieve asset content.")
 
-    response = StreamingHttpResponse(
-        _stream_upstream_response(upstream),
-        status=upstream.status_code,
-        content_type=content_type,
+    response = _apply_file_headers(
+        StreamingHttpResponse(
+            _stream_upstream_response(upstream),
+            status=upstream.status_code,
+            content_type=content_type,
+        ),
+        file,
+        content_type,
     )
-
-    response["Content-Disposition"] = (
-        content_disposition_header(
-            False,
-            file.filename,
-        )
-    )
-    response["Accept-Ranges"] = "bytes"
-
-    if etag:
-        response["ETag"] = etag
-
-    if last_modified:
-        response["Last-Modified"] = last_modified
 
     # requests.iter_content() автоматически распаковывает
     # gzip/deflate. Поэтому исходные заголовки длины и
@@ -345,12 +251,10 @@ def _serve_asset_file(
     return response
 
 
-def _stream_upstream_response(
-    response,
-):
+def _stream_upstream_response(response):
     try:
         for chunk in response.iter_content(
-            chunk_size=64 * 1024,
+            chunk_size=STREAM_CHUNK_SIZE,
         ):
             if chunk:
                 yield chunk
