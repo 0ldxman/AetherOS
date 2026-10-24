@@ -1,9 +1,12 @@
 from django.contrib import admin
 from django.contrib import messages
+from django.contrib.auth.hashers import make_password
 from django.db.models import Count
+from django.utils import timezone
 from django.urls import reverse
 from django.utils.html import format_html
 
+from .forms import MachineProfileForm, MachineProfileTokenForm, has_real_hash
 from .models import (
     Machine,
     MachineProfile,
@@ -148,6 +151,7 @@ class MachineAdmin(admin.ModelAdmin):
 
 class MachineProfileTokenInline(admin.TabularInline):
     model = MachineProfileToken
+    form = MachineProfileTokenForm
     extra = 0
 
     fields = (
@@ -182,7 +186,9 @@ class MachineProfileHIDInline(admin.TabularInline):
 
 @admin.register(MachineProfile)
 class MachineProfileAdmin(admin.ModelAdmin):
+    form = MachineProfileForm
     list_select_related = ("machine", "user")
+    actions = ("hash_plain_passwords",)
 
     list_display = (
         "id",
@@ -213,6 +219,7 @@ class MachineProfileAdmin(admin.ModelAdmin):
 
     readonly_fields = (
         "id",
+        "password_state",
     )
 
     fieldsets = (
@@ -240,7 +247,9 @@ class MachineProfileAdmin(admin.ModelAdmin):
             "Authentication",
             {
                 "fields": (
-                    "password_hash",
+                    "password_state",
+                    "new_password",
+                    "clear_password",
                     "key_condition",
                 ),
             },
@@ -252,11 +261,34 @@ class MachineProfileAdmin(admin.ModelAdmin):
         MachineProfileHIDInline,
     )
 
+    def save_model(self, request, obj, form, change):
+        if form.cleaned_data.get("new_password"):
+            obj.password_hash = make_password(form.cleaned_data["new_password"])
+        elif form.cleaned_data.get("clear_password"):
+            obj.password_hash = ""
+        super().save_model(request, obj, form, change)
+
+    @admin.display(description="Пароль")
+    def password_state(self, obj):
+        if not obj.pk or not obj.password_hash:
+            return "не задан"
+        if has_real_hash(obj.password_hash):
+            return "задан (хэш)"
+        return "ВНИМАНИЕ: в поле лежит не хэш, а открытый текст. Задайте пароль заново или используйте действие «Захэшировать открытые пароли»."
+
+    @admin.action(description="Захэшировать открытые пароли")
+    def hash_plain_passwords(self, request, queryset):
+        fixed = 0
+        for profile in queryset.exclude(password_hash=""):
+            if not has_real_hash(profile.password_hash):
+                profile.password_hash = make_password(profile.password_hash)
+                profile.save(update_fields=["password_hash"])
+                fixed += 1
+        self.message_user(request, f"Захэшировано паролей: {fixed}.", messages.SUCCESS)
+
+    @admin.display(boolean=True, description="Password")
     def has_password(self, obj):
         return bool(obj.password_hash)
-
-    has_password.boolean = True
-    has_password.short_description = "Password"
 
     def has_key_condition(self, obj):
         return bool(obj.key_condition)
@@ -271,16 +303,21 @@ class MachineProfileAdmin(admin.ModelAdmin):
 
 @admin.register(MachineProfileToken)
 class MachineProfileTokenAdmin(admin.ModelAdmin):
+    form = MachineProfileTokenForm
     list_select_related = ("profile__machine",)
+    actions = ("reset_usage",)
 
     list_display = (
-        "id",
-        "profile",
         "token",
-        "max_usage",
-        "usage",
+        "profile",
+        "uses",
         "expires_at",
+        "is_valid",
         "created_at",
+    )
+
+    list_display_links = (
+        "token",
     )
 
     list_filter = (
@@ -307,6 +344,21 @@ class MachineProfileTokenAdmin(admin.ModelAdmin):
     ordering = (
         "-created_at",
     )
+
+    @admin.display(description="Использовано")
+    def uses(self, obj):
+        return f"{obj.usage} / {obj.max_usage}" if obj.max_usage is not None else f"{obj.usage} / ∞"
+
+    @admin.display(boolean=True, description="Действует")
+    def is_valid(self, obj):
+        if obj.expires_at is not None and obj.expires_at <= timezone.now():
+            return False
+        return obj.max_usage is None or obj.usage < obj.max_usage
+
+    @admin.action(description="Сбросить счётчик использований")
+    def reset_usage(self, request, queryset):
+        count = queryset.update(usage=0)
+        self.message_user(request, f"Сброшено токенов: {count}.", messages.SUCCESS)
 
 
 # ==================================================
