@@ -1,0 +1,38 @@
+{% extends "admin/base_site.html" %}
+{% load static %}
+
+{% block extrastyle %}{{ block.super }}
+<link rel="stylesheet" href="{% static 'wiki/revisions.css' %}">
+{% endblock %}
+
+{% block breadcrumbs %}
+<div class="breadcrumbs">
+  <a href="{% url 'admin:index' %}">Главная</a> ›
+  <a href="{% url 'admin:wiki_document_changelist' %}">Записи</a> ›
+  <a href="{{ change_url }}">{{ original }}</a> › История
+</div>
+{% endblock %}
+
+{% block content %}
+<div id="content-main">
+  <p><a href="{{ change_url }}">← К записи</a></p>
+  <table class="rev-list">
+    <thead>
+      <tr><th>Когда</th><th>Кто</th><th>Что изменилось</th><th>Название</th><th></th></tr>
+    </thead>
+    <tbody>
+    {% for rev in revisions %}
+      <tr>
+        <td>{{ rev.saved_at|date:"d.m.Y H:i" }}{% if forloop.first %} <span class="rev-now">текущая</span>{% endif %}</td>
+        <td>{{ rev.saved_by|default:"—" }}</td>
+        <td>{{ rev.changed|join:", " }}</td>
+        <td>{{ rev.title }}</td>
+        <td><a href="{{ rev.url }}">Открыть</a></td>
+      </tr>
+    {% empty %}
+      <tr><td colspan="5">Версий пока нет.</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

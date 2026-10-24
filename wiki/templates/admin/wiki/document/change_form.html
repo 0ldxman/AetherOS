@@ -7,6 +7,13 @@
 <script type="module" src="{% static 'wiki/editor.js' %}"></script>
 {% endblock %}
 
+{% block object-tools-items %}
+  {% if revisions_url %}
+  <li><a href="{{ revisions_url }}">Версии</a></li>
+  {% endif %}
+  {{ block.super }}
+{% endblock %}
+
 {% block bodyclass %}{{ block.super }} wp-editor{% endblock %}
 
 {% block content %}

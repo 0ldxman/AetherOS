@@ -185,3 +185,39 @@ class Document(models.Model):
     @property
     def ext(self):
         return self.EXTENSIONS.get(self.type, "")
+
+
+class DocumentRevision(models.Model):
+    """Снимок записи после очередного сохранения.
+
+    Последняя версия записи совпадает с текущим состоянием Document.
+    Снимки создаёт wiki.revisions.record_revision (по сигналу post_save),
+    просматривает и откатывает админка (wiki/admin_revisions.py).
+    """
+
+    document = models.ForeignKey(
+        Document,
+        on_delete=models.CASCADE,
+        related_name="revisions",
+    )
+    title = models.CharField(max_length=200)
+    type = models.CharField(max_length=20)
+    body = models.TextField(blank=True)
+    infobox = models.TextField(blank=True)
+
+    saved_at = models.DateTimeField(auto_now_add=True)
+    saved_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="+",
+    )
+
+    class Meta:
+        ordering = ["-saved_at", "-id"]
+        indexes = [models.Index(fields=["document", "-saved_at"])]
+
+    def __str__(self):
+        return f"{self.document_id} @ {self.saved_at:%Y-%m-%d %H:%M}"
+

@@ -1,0 +1,61 @@
+{% extends "admin/base_site.html" %}
+{% load static %}
+
+{% block extrastyle %}{{ block.super }}
+<link rel="stylesheet" href="{% static 'wiki/revisions.css' %}">
+{% endblock %}
+
+{% block breadcrumbs %}
+<div class="breadcrumbs">
+  <a href="{% url 'admin:index' %}">Главная</a> ›
+  <a href="{% url 'admin:wiki_document_changelist' %}">Записи</a> ›
+  <a href="{{ change_url }}">{{ original }}</a> ›
+  <a href="{{ list_url }}">История</a> › {{ revision.saved_at|date:"d.m.Y H:i" }}
+</div>
+{% endblock %}
+
+{% block content %}
+<div id="content-main">
+  <p class="rev-meta">
+    {{ revision.saved_at|date:"d.m.Y H:i" }}, {{ revision.saved_by|default:"автор неизвестен" }}.
+    Режим: <b>{{ heading }}</b>.
+    {% if against_current %}
+      <a href="{{ self_url }}">Показать, что изменила версия</a>
+    {% else %}
+      <a href="{{ self_url }}?against=current">Сравнить с текущей записью</a>
+    {% endif %}
+  </p>
+
+  {% if can_restore %}
+  <form method="post" class="rev-restore">
+    {% csrf_token %}
+    <button type="submit" class="button default">Восстановить эту версию</button>
+    <span>Текущий текст сохранится в истории, его можно будет вернуть.</span>
+  </form>
+  {% endif %}
+
+  {% if diff is None %}
+    <p>Предыдущих версий нет: это первое сохранение записи.</p>
+  {% elif not diff %}
+    <p>Различий нет.</p>
+  {% endif %}
+
+  {% for field, change in diff.items %}
+    <h2 class="rev-field">
+      {% if field == "title" %}Название{% elif field == "type" %}Тип{% elif field == "body" %}Текст{% else %}Инфобокс{% endif %}
+    </h2>
+    {% if field == "title" or field == "type" %}
+      <div class="rev-diff">
+        <div class="rev-line rev-del">{{ change.0 }}</div>
+        <div class="rev-line rev-add">{{ change.1 }}</div>
+      </div>
+    {% else %}
+      <div class="rev-diff">
+        {% for kind, text in change %}
+          <div class="rev-line rev-{{ kind }}">{{ text }}</div>
+        {% endfor %}
+      </div>
+    {% endif %}
+  {% endfor %}
+</div>
+{% endblock %}
