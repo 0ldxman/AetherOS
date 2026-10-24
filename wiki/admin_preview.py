@@ -47,6 +47,7 @@ from assets.services import asset_widget_kind
 from secure.models import Key
 
 from . import markup
+from .access import keys_for_mode
 from .models import Document
 
 logger = logging.getLogger(__name__)
@@ -66,22 +67,14 @@ def _text(value):
 
 
 def _preview_keys(spec):
-    """Набор slug'ов ключей, под которым рисуется предпросмотр.
-
-    Берутся только существующие ключи: удалённый или опечатанный slug
-    просто не попадёт в набор.
-    """
+    """Набор slug'ов ключей, под которым рисуется предпросмотр."""
     if not isinstance(spec, dict):
         return frozenset()
-    existing = set(Key.objects.values_list("slug", flat=True))
-    mode = spec.get("mode")
-    if mode == "all":
-        return frozenset(existing)
-    if mode == "custom":
-        wanted = spec.get("list")
-        if isinstance(wanted, list):
-            return frozenset(s for s in wanted[:MAX_KEYS] if isinstance(s, str) and s in existing)
-    return frozenset()
+    listed = spec.get("list")
+    if not isinstance(listed, list):
+        listed = []
+    listed = [s for s in listed[:MAX_KEYS] if isinstance(s, str)]
+    return keys_for_mode(spec.get("mode"), listed)
 
 
 def _lint_fields(data):

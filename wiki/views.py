@@ -6,7 +6,7 @@ from django.shortcuts import render
 from django.urls import reverse
 from django.utils.safestring import mark_safe
 
-from .access import document_state, namespace_state, player_keys
+from .access import document_state, namespace_state, request_keys
 from .markup import render as render_markup, visible_text
 from .models import Document, Namespace
 
@@ -15,7 +15,7 @@ SEARCH_MAX_LEN = 80
 
 
 def _keys(request):
-    return player_keys(request.user)
+    return request_keys(request)
 
 
 def _ns_path(ns):

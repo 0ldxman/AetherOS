@@ -1,7 +1,9 @@
 {% extends "wiki/base.html" %}
+{% load wiki_extras %}
 {% block title %}aether.db{% endblock %}
 {% block body_class %}explorer{% endblock %}
 {% block body %}
+{% view_as_banner %}
 <div class="layout" id="layout" data-search-url="{{ search_url }}" data-scope="{{ scope_address }}" data-ns-id="{{ ns_id }}">
 
   <nav class="side" aria-label="Неймспейсы">

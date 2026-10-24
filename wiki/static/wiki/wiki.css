@@ -869,3 +869,19 @@ body::-webkit-scrollbar-thumb:hover {
 .viewer-body::-webkit-scrollbar-corner {
     background: var(--bg);
 }
+
+/* Плашка подмены ключей для сотрудников (wiki/access.py: view_as) */
+.view-as {
+  position: fixed;
+  left: 50%;
+  bottom: 12px;
+  z-index: 50;
+  transform: translateX(-50%);
+  padding: 4px 14px;
+  border-radius: 999px;
+  background: #b8860b;
+  color: #fff;
+  font: 12px/1.6 system-ui, sans-serif;
+  white-space: nowrap;
+}
+.view-as a { color: #fff; text-decoration: underline; }

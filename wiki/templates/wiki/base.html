@@ -1,5 +1,5 @@
 {% extends "ui/base.html" %}
-{% load static %}
+{% load static wiki_extras %}
 
 {% block title %}{% block wiki_title %}aether.db{% endblock %}{% endblock %}
 
@@ -20,6 +20,7 @@
 {% block body_attrs %} class="{% block body_class %}{% endblock %}"{% endblock %}
 
 {% block body %}
+{% block view_as %}{% view_as_banner %}{% endblock %}
 <main class="page">
 {% block content %}{% endblock %}
 </main>

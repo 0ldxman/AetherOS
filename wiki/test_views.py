@@ -20,10 +20,12 @@ from wiki.models import Document, Namespace
 rf = RequestFactory()
 
 
-def call(fn, *args, user=None, params=None):
+def call(fn, *args, user=None, params=None, session=None):
     """(status, content, число SQL-запросов)."""
     request = rf.get("/", params or {})
     request.user = user or AnonymousUser()
+    if session is not None:
+        request.session = session
     with CaptureQueriesContext(connection) as ctx:
         try:
             response = fn(request, *args)
@@ -145,3 +147,51 @@ class WikiViewsTests(TestCase):
             "search": 3,
         }.items():
             self.assertLessEqual(counts[name], limit, f"{name}: {counts[name]} запросов")
+
+
+class ViewAsTests(TestCase):
+    """Подмена ключей сотрудником (?as=...), запоминается в сессии."""
+
+    LOCKED = "ACCESS DENIED"
+
+    @classmethod
+    def setUpTestData(cls):
+        Namespace.objects.create(name="Закрытый", access="key_a")
+        Key.objects.create(slug="key_a")
+        User = get_user_model()
+        cls.staff = User.objects.create_user("staff", password="pw", is_staff=True)
+        cls.player = User.objects.create_user("player", password="pw")
+
+    def page(self, user, session, params=None):
+        return call(views.resolve, "Закрытый", user=user, params=params, session=session)[1]
+
+    def test_staff_without_override_sees_player_view(self):
+        self.assertIn(self.LOCKED, self.page(self.staff, {}))
+
+    def test_staff_can_open_as_player_with_all_keys(self):
+        html = self.page(self.staff, {}, {"as": "all"})
+        self.assertNotIn(self.LOCKED, html)
+        self.assertIn("со всеми ключами", html)
+
+    def test_override_sticks_until_reset(self):
+        session = {}
+        self.page(self.staff, session, {"as": "key_a"})
+        self.assertNotIn(self.LOCKED, self.page(self.staff, session))
+        self.page(self.staff, session, {"as": "reset"})
+        self.assertIn(self.LOCKED, self.page(self.staff, session))
+
+    def test_none_hides_what_all_would_open(self):
+        session = {}
+        self.page(self.staff, session, {"as": "all"})
+        self.assertIn(self.LOCKED, self.page(self.staff, session, {"as": "none"}))
+
+    def test_document_page_shows_the_banner_too(self):
+        Document.objects.create(title="Открытая", body="текст")
+        html = call(views.resolve, "Открытая", user=self.staff, params={"as": "none"}, session={})[1]
+        self.assertIn("Просмотр как игрок", html)
+        self.assertIn("без ключей", html)
+
+    def test_ordinary_player_cannot_use_it(self):
+        html = self.page(self.player, {}, {"as": "all"})
+        self.assertIn(self.LOCKED, html)
+        self.assertNotIn("Просмотр как игрок", html)
