@@ -75,17 +75,7 @@
         setStatus("ERROR");
     }
 
-    function formatBytes(bytes) {
-        if (bytes < 1024) {
-            return `${bytes} B`;
-        }
-
-        if (bytes < 1024 * 1024) {
-            return `${(bytes / 1024).toFixed(1)} KB`;
-        }
-
-        return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
-    }
+    const formatBytes = Aether.formatSize;
 
     function countLines(text) {
         if (text.length === 0) {
@@ -330,16 +320,8 @@
         }
     });
 
-    fullscreenButton.addEventListener("click", async function () {
-        try {
-            if (!document.fullscreenElement) {
-                await root.requestFullscreen();
-            } else {
-                await document.exitFullscreen();
-            }
-        } catch (error) {
-            console.error("Text Viewer fullscreen:", error);
-        }
+    fullscreenButton.addEventListener("click", function () {
+        Aether.toggleFullscreen(root);
     });
 
     document.addEventListener("fullscreenchange", function () {

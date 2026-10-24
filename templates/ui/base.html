@@ -34,6 +34,9 @@
   {# Тема машины — поверх токенов. Пока machine_theme нигде не задаётся, блок ничего не выводит. #}
   {% if machine_theme %}<link rel="stylesheet" href="{% static 'ui/themes/'|add:machine_theme|add:'.css' %}">{% endif %}
 
+  {# Общие помощники (Aether.formatTime и др.): defer сохраняет порядок, поэтому они раньше скриптов страниц #}
+  <script src="{% static 'ui/utils.js' %}" defer></script>
+
   {% block css %}{% endblock %}
   {% block head_extra %}{% endblock %}
 </head>

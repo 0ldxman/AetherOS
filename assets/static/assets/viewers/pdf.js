@@ -372,16 +372,8 @@
         renderPage();
     }
 
-    async function toggleFullscreen() {
-        try {
-            if (!document.fullscreenElement) {
-                await root.requestFullscreen();
-            } else {
-                await document.exitFullscreen();
-            }
-        } catch (error) {
-            console.error("Aether PDF fullscreen error:", error);
-        }
+    function toggleFullscreen() {
+        return Aether.toggleFullscreen(root);
     }
 
     function updateFullscreenLabel() {
