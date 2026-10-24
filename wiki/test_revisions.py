@@ -140,3 +140,40 @@ class PreviewIssuesTests(TestCase):
         self.assertTrue(data["ok"])
         self.assertEqual([i["code"] for i in data["issues"]["body"]], ["unclosed-block"])
         self.assertEqual(data["issues"]["infobox"], [])
+
+
+@override_settings(FORCE_SCRIPT_NAME=None)
+class AssetSearchTests(TestCase):
+    @classmethod
+    def setUpTestData(cls):
+        from assets.models import Asset
+
+        Asset.objects.create(
+            name="City theme", slug="theme-01", file_id="a", filename="city.mp3",
+            viewer_type=Asset.ViewerType.AUDIO,
+        )
+        Asset.objects.create(name="Map", file_id="b", filename="map.png", viewer_type=Asset.ViewerType.IMAGE)
+
+    def setUp(self):
+        previous = get_script_prefix()
+        set_script_prefix("/")
+        self.addCleanup(set_script_prefix, previous)
+        self.client.force_login(get_user_model().objects.create_superuser("root", password="pw"))
+        self.url = reverse("admin:wiki_document_assets")
+
+    def test_search_by_name_slug_or_filename(self):
+        for query in ("city", "theme-01", "city.mp3"):
+            items = self.client.get(self.url, {"q": query}).json()["items"]
+            self.assertEqual([i["ref"] for i in items], ["theme-01"], query)
+
+    def test_ref_falls_back_to_uuid_and_kind_is_the_widget_name(self):
+        from assets.models import Asset
+
+        items = {i["name"]: i for i in self.client.get(self.url).json()["items"]}
+        self.assertEqual(items["City theme"]["kind"], "audio")
+        self.assertEqual(items["Map"]["kind"], "image")
+        self.assertEqual(items["Map"]["ref"], str(Asset.objects.get(name="Map").public_id))
+
+    def test_requires_staff(self):
+        self.client.logout()
+        self.assertEqual(self.client.get(self.url).status_code, 302)

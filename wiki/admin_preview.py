@@ -18,6 +18,11 @@
 - «смотреть как»: набор ключей игрока задаётся в запросе, проверка доступа
   к записи в предпросмотре не выполняется (это админка).
 
+Поиск ассетов для вставки (GET assets/?q=текст):
+    {"ok": true, "items": [{"ref", "name", "filename", "kind"}]}
+    ref - то, что пишется в разметке (slug, а если его нет, UUID);
+    kind - имя виджета для этого ассета (audio, video, image, file).
+
 Запрос (POST, JSON):
     {"title": "...", "type": "doc", "body": "...", "infobox": "...",
      "keys": {"mode": "all" | "none" | "custom", "list": ["key_a", ...]}}
@@ -31,11 +36,14 @@
 import json
 import logging
 
+from django.db.models import Q
 from django.http import HttpResponseNotAllowed, JsonResponse
 from django.template.loader import render_to_string
 from django.urls import path, reverse
 from django.utils.safestring import mark_safe
 
+from assets.models import Asset
+from assets.services import asset_widget_kind
 from secure.models import Key
 
 from . import markup
@@ -46,6 +54,7 @@ logger = logging.getLogger(__name__)
 MAX_REQUEST_BYTES = 400_000   # тело запроса целиком
 MAX_TITLE_LEN = 200
 MAX_KEYS = 500                # сколько ключей принимаем в режиме custom
+MAX_ASSET_RESULTS = 20        # сколько ассетов отдаёт поиск для вставки
 
 
 def _error(message, status):
@@ -87,12 +96,24 @@ def _lint_fields(data):
     return result
 
 
+def _asset_item(asset):
+    return {
+        "ref": asset.slug or str(asset.public_id),
+        "name": asset.name,
+        "filename": asset.filename,
+        "kind": asset_widget_kind(asset),
+    }
+
+
 class DocumentPreviewMixin:
     change_form_template = "admin/wiki/document/change_form.html"
 
-    def _preview_url_name(self):
+    def _url_name(self, suffix):
         opts = self.model._meta
-        return f"{opts.app_label}_{opts.model_name}_preview"
+        return f"{opts.app_label}_{opts.model_name}_{suffix}"
+
+    def _admin_url(self, suffix):
+        return reverse(f"{self.admin_site.name}:{self._url_name(suffix)}")
 
     def get_urls(self):
         # свой адрес должен идти раньше стандартных: иначе preview/ примется за id записи
@@ -100,19 +121,37 @@ class DocumentPreviewMixin:
             path(
                 "preview/",
                 self.admin_site.admin_view(self.preview_view),
-                name=self._preview_url_name(),
+                name=self._url_name("preview"),
+            ),
+            path(
+                "assets/",
+                self.admin_site.admin_view(self.assets_view),
+                name=self._url_name("assets"),
             ),
         ]
         return custom + super().get_urls()
 
     def render_change_form(self, request, context, add=False, change=False, form_url="", obj=None):
-        context["preview_url"] = reverse(
-            f"{self.admin_site.name}:{self._preview_url_name()}"
-        )
+        context["preview_url"] = self._admin_url("preview")
+        context["assets_url"] = self._admin_url("assets")
         context["preview_keys"] = list(
             Key.objects.order_by("slug").values("slug", "description")
         )
         return super().render_change_form(request, context, add, change, form_url, obj)
+
+    def assets_view(self, request):
+        if not (self.has_add_permission(request) or self.has_change_permission(request)):
+            return _error("Нет прав на редактирование записей.", 403)
+        query = request.GET.get("q", "").strip()[:100]
+        found = Asset.objects.order_by("name")
+        if query:
+            found = found.filter(
+                Q(name__icontains=query)
+                | Q(slug__icontains=query)
+                | Q(filename__icontains=query)
+            )
+        items = [_asset_item(a) for a in found[:MAX_ASSET_RESULTS]]
+        return JsonResponse({"ok": True, "items": items})
 
     def preview_view(self, request):
         if request.method != "POST":

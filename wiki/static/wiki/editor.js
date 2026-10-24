@@ -39,6 +39,10 @@ import {
   syntaxHighlighting,
 } from "https://esm.sh/@codemirror/language@6";
 
+import {
+  autocompletion,
+} from "https://esm.sh/@codemirror/autocomplete@6";
+
 
 /*
  * Aether language layer.
@@ -91,6 +95,9 @@ import "./condition_editor.js";
 
   const previewUrl =
     root.dataset.previewUrl;
+
+  const assetsUrl =
+    root.dataset.assetsUrl;
 
   const DELAY_MS = 400;
 
@@ -443,6 +450,640 @@ import "./condition_editor.js";
 
 
   /* ==================================================
+   * INSERT TOOLS
+   *
+   * Кнопки над редактором вставляют ассет или ключ
+   * по выбору из списка; те же списки подсказывает
+   * автодополнение. Разметка: wiki/markup/__init__.py.
+   * ================================================== */
+
+  const ASSET_WIDGET = /^\s*::(asset|audio|video|file|image)[ \t]+([\w-]*)$/;
+
+  const KEY_CONTEXT = /(?:\]\{|^\s*::spoiler[ \t]+)([^}\n]*)$/;
+
+  const KEY_WORD = /[A-Za-z0-9_-]*$/;
+
+
+  const keyList = (() => {
+
+    try {
+
+      return JSON.parse(
+        document.getElementById(
+          "wiki-condition-keys"
+        ).textContent
+      );
+
+    } catch (e) {
+
+      return [];
+
+    }
+
+  })();
+
+
+  async function findAssets(query) {
+
+    const url =
+      new URL(
+        assetsUrl,
+        window.location.href
+      );
+
+    url.searchParams.set(
+      "q",
+      query
+    );
+
+    const resp =
+      await fetch(
+        url,
+        {
+          credentials:
+            "same-origin",
+        }
+      );
+
+    const data =
+      await resp.json();
+
+    if (!resp.ok || !data.ok) {
+
+      throw new Error(
+        data.error ||
+        "HTTP " + resp.status
+      );
+
+    }
+
+    return data.items;
+
+  }
+
+
+  /*
+   * Подсказки: ключи в условиях спойлера
+   * ([текст]{...} и ::spoiler ...), ссылки на ассеты
+   * после ::audio / ::video / ::file / ::image / ::asset.
+   */
+
+  async function aetherCompletions(context) {
+
+    const line =
+      context.state.doc.lineAt(
+        context.pos
+      );
+
+    const before =
+      line.text.slice(
+        0,
+        context.pos - line.from
+      );
+
+
+    const word =
+      KEY_WORD.exec(before)[0];
+
+    const from =
+      context.pos - word.length;
+
+
+    if (ASSET_WIDGET.test(before)) {
+
+      let items;
+
+      try {
+
+        items =
+          await findAssets(word);
+
+      } catch (e) {
+
+        return null;
+
+      }
+
+      if (context.aborted) {
+        return null;
+      }
+
+      return {
+
+        from,
+
+        filter: false,
+
+        options:
+          items.map(
+            (item) => ({
+
+              label:
+                item.ref,
+
+              detail:
+                item.name,
+
+              type:
+                "constant",
+
+            })
+          ),
+
+      };
+
+    }
+
+
+    if (KEY_CONTEXT.test(before)) {
+
+      return {
+
+        from,
+
+        validFor:
+          /^[\w-]*$/,
+
+        options:
+          keyList.map(
+            (key) => ({
+
+              label:
+                key.slug,
+
+              detail:
+                key.description,
+
+              type:
+                "keyword",
+
+            })
+          ),
+
+      };
+
+    }
+
+
+    return null;
+
+  }
+
+
+  /*
+   * Единое всплывающее окно выбора:
+   * поле поиска и список под кнопкой.
+   */
+
+  const picker = (() => {
+
+    const box =
+      document.createElement("div");
+
+    box.className =
+      "wp-picker";
+
+    box.hidden =
+      true;
+
+    const input =
+      document.createElement("input");
+
+    input.type =
+      "search";
+
+    input.className =
+      "wp-picker__search";
+
+    const list =
+      document.createElement("ul");
+
+    list.className =
+      "wp-picker__list";
+
+    box.append(input, list);
+
+    document.body.appendChild(box);
+
+
+    let load = null;
+    let pick = null;
+    let timer = 0;
+    let token = 0;
+
+
+    function close() {
+
+      box.hidden =
+        true;
+
+      clearTimeout(timer);
+
+    }
+
+
+    function fill(items, emptyText) {
+
+      list.textContent = "";
+
+      if (!items.length) {
+
+        const empty =
+          document.createElement("li");
+
+        empty.className =
+          "wp-picker__empty";
+
+        empty.textContent =
+          emptyText;
+
+        list.appendChild(empty);
+
+        return;
+
+      }
+
+      items.forEach(
+        (item) => {
+
+          const row =
+            document.createElement("li");
+
+          const title =
+            document.createElement("b");
+
+          title.textContent =
+            item.title;
+
+          const note =
+            document.createElement("span");
+
+          note.textContent =
+            item.note || "";
+
+          row.append(title, note);
+
+          row.addEventListener(
+            "click",
+            () => {
+
+              close();
+
+              pick(item.value);
+
+            }
+          );
+
+          list.appendChild(row);
+
+        }
+      );
+
+    }
+
+
+    async function refresh() {
+
+      const mine =
+        ++token;
+
+      let result;
+
+      try {
+
+        result =
+          await load(
+            input.value.trim()
+          );
+
+      } catch (e) {
+
+        if (mine === token) {
+
+          fill(
+            [],
+            "Не удалось загрузить: " +
+            e.message
+          );
+
+        }
+
+        return;
+
+      }
+
+      if (mine === token) {
+
+        fill(
+          result,
+          "Ничего не найдено."
+        );
+
+      }
+
+    }
+
+
+    input.addEventListener(
+      "input",
+      () => {
+
+        clearTimeout(timer);
+
+        timer =
+          setTimeout(refresh, 200);
+
+      }
+    );
+
+
+    document.addEventListener(
+      "mousedown",
+      (event) => {
+
+        if (
+          !box.hidden &&
+          !box.contains(event.target) &&
+          !event.target.closest(
+            ".wp-insert__btn"
+          )
+        ) {
+
+          close();
+
+        }
+
+      }
+    );
+
+
+    box.addEventListener(
+      "keydown",
+      (event) => {
+
+        if (event.key === "Escape") {
+
+          close();
+
+        }
+
+      }
+    );
+
+
+    return {
+
+      open(anchor, options) {
+
+        load =
+          options.load;
+
+        pick =
+          options.pick;
+
+        input.placeholder =
+          options.placeholder;
+
+        input.value =
+          "";
+
+        const rect =
+          anchor.getBoundingClientRect();
+
+        box.style.top =
+          (rect.bottom + 4) + "px";
+
+        box.style.left =
+          Math.max(
+            8,
+            Math.min(
+              rect.left,
+              window.innerWidth - 340
+            )
+          ) + "px";
+
+        box.hidden =
+          false;
+
+        input.focus();
+
+        refresh();
+
+      },
+
+      close,
+
+    };
+
+  })();
+
+
+  function replaceSelection(editor, make) {
+
+    const view =
+      editor.view;
+
+    const { from, to } =
+      view.state.selection.main;
+
+    const selected =
+      view.state.sliceDoc(from, to);
+
+    let text =
+      make(selected);
+
+
+    /*
+     * Блок (виджет, ::spoiler) всегда начинается с новой строки,
+     * иначе он склеится с текстом слева от курсора.
+     */
+
+    if (
+      /^::/.test(text) &&
+      from > view.state.doc.lineAt(from).from
+    ) {
+
+      text =
+        "\n" + text;
+
+    }
+
+    view.dispatch({
+
+      changes: {
+        from,
+        to,
+        insert: text,
+      },
+
+      selection: {
+        anchor:
+          from + text.length,
+      },
+
+      scrollIntoView: true,
+
+    });
+
+    view.focus();
+
+  }
+
+
+  function buildToolbar(getEditor) {
+
+    const bar =
+      document.createElement("div");
+
+    bar.className =
+      "wp-insert";
+
+
+    function button(label, title, onClick) {
+
+      const el =
+        document.createElement("button");
+
+      el.type =
+        "button";
+
+      el.className =
+        "wp-insert__btn";
+
+      el.textContent =
+        label;
+
+      el.title =
+        title;
+
+      el.addEventListener(
+        "click",
+        () => {
+
+          onClick(el);
+
+        }
+      );
+
+      bar.appendChild(el);
+
+    }
+
+
+    button(
+      "+ Ассет",
+      "Вставить аудио, видео, картинку или файл из Nextcloud",
+      (anchor) => {
+
+        picker.open(
+          anchor,
+          {
+
+            placeholder:
+              "Название, slug или имя файла",
+
+            load: async (query) =>
+              (await findAssets(query))
+                .map(
+                  (item) => ({
+
+                    title:
+                      item.name,
+
+                    note:
+                      item.kind + " · " + item.ref,
+
+                    value:
+                      item,
+
+                  })
+                ),
+
+            pick: (item) => {
+
+              replaceSelection(
+                getEditor(),
+                () =>
+                  "::" + item.kind +
+                  " " + item.ref + "\n"
+              );
+
+            },
+
+          }
+        );
+
+      }
+    );
+
+
+    button(
+      "+ Ключ",
+      "Выделенный текст станет строчным спойлером [текст]{ключ}, " +
+      "без выделения вставится блок ::spoiler",
+      (anchor) => {
+
+        picker.open(
+          anchor,
+          {
+
+            placeholder:
+              "Название ключа",
+
+            load: async (query) =>
+              keyList
+                .filter(
+                  (key) =>
+                    key.slug.includes(
+                      query.toLowerCase()
+                    ) ||
+                    (key.description || "")
+                      .toLowerCase()
+                      .includes(
+                        query.toLowerCase()
+                      )
+                )
+                .slice(0, 50)
+                .map(
+                  (key) => ({
+
+                    title:
+                      key.slug,
+
+                    note:
+                      key.description,
+
+                    value:
+                      key.slug,
+
+                  })
+                ),
+
+            pick: (slug) => {
+
+              replaceSelection(
+                getEditor(),
+                (selected) =>
+                  selected
+                    ? "[" + selected + "]{" + slug + "}"
+                    : "::spoiler " + slug + "\n\n::\n"
+              );
+
+            },
+
+          }
+        );
+
+      }
+    );
+
+
+    return bar;
+
+  }
+
+
+  /* ==================================================
    * EDITOR FACTORY
    * ================================================== */
 
@@ -498,6 +1139,12 @@ import "./condition_editor.js";
     editorHost.className =
       "aether-cm";
 
+
+    container.appendChild(
+      buildToolbar(
+        () => container._aetherEditor
+      )
+    );
 
     container.appendChild(
       editorHost
@@ -606,6 +1253,17 @@ import "./condition_editor.js";
        */
 
       aetherEditorTheme,
+
+
+      /*
+       * ================================================
+       * AUTOCOMPLETE
+       * ================================================
+       */
+
+      autocompletion({
+        override: [aetherCompletions],
+      }),
 
 
       /*
