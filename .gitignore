@@ -1,1 +1,13 @@
 blahblah.md
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+
+# Секреты и локальные настройки
+.env
+
+# Django
+db.sqlite3
+*.log
