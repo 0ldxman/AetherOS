@@ -12,7 +12,30 @@
     <header id="taskbar">
         <div class="connection">
             <span>conn: </span>
-            <span id="machine-name">{{ machine_name }}</span>
+            <button
+                type="button"
+                id="session-menu-button"
+                class="session-button"
+                aria-haspopup="menu"
+                aria-expanded="false"
+                aria-controls="session-menu"
+            >
+                <span id="machine-name">{{ login }}@{{ machine_name }}</span>
+                <span class="session-caret" aria-hidden="true">▾</span>
+            </button>
+            <ul id="session-menu" class="session-menu" role="menu" hidden>
+                {% if can_sessions %}
+                <li role="none">
+                    <button type="button" role="menuitem" data-action="sessions" data-url="{{ sessions_url }}">sessions.mon</button>
+                </li>
+                {% endif %}
+                <li role="none">
+                    <button type="button" role="menuitem" data-action="reset-layout">reset layout</button>
+                </li>
+                <li role="none">
+                    <button type="button" role="menuitem" data-action="disconnect" data-logout-url="{{ logout_url }}" data-lock-url="{{ lock_url }}">disconnect</button>
+                </li>
+            </ul>
         </div>
         <div class="ping">
                 <span class="ping-dot"></span>
@@ -20,7 +43,7 @@
                 <span id="ping-unit">ms</span>
         </div>
     </header>
-    <main id="desktop">
+    <main id="desktop" data-layout-key="{{ layout_key }}">
         <ul id="icons">
             {% for app in apps %}
             <li>

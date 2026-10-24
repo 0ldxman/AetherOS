@@ -3,10 +3,11 @@ from django.urls import reverse
 
 from django.shortcuts import redirect, render
 from django.urls import get_script_prefix
+from django.views.decorators.csrf import ensure_csrf_cookie
 
 from secure.access import satisfied
 
-from machines.current import current_machine, visible_apps
+from machines.current import active_session, current_machine, visible_apps
 
 # Create your views here.
 
@@ -48,11 +49,32 @@ APPS = [
     },
 ]
 
+GUEST_LOGIN = "guest"
+
+
+def _identity(request, machine):
+    """Кто подключён и куда: (логин на машине, ключ раскладки стола).
+
+    Раскладка (иконки, окна) запоминается в браузере отдельно для каждой
+    пары «игрок и машина»: у разных машин свой стол.
+    """
+    if request.user.is_authenticated:
+        login = active_session(request).profile.login
+        owner = f"u{request.user.pk}"
+    else:
+        login = GUEST_LOGIN
+        owner = GUEST_LOGIN
+    return login, f"{owner}-m{machine.pk}"
+
+
+@ensure_csrf_cookie  # меню «disconnect» шлёт POST на выход
 def desktop(request):
     machine = current_machine(request)
 
     if machine is None:
         return redirect("boot")
+
+    login, layout_key = _identity(request, machine)
 
     prefix = get_script_prefix().rstrip("/")
 
@@ -68,8 +90,14 @@ def desktop(request):
     ]
 
     return render(request, "desktop/desktop.html", {
-        "machine_name": machine.hostname,
+        "machine_name": machine.label,
+        "login": login,
+        "layout_key": layout_key,
         "apps": apps,
+        "can_sessions": request.user.is_authenticated,
+        "sessions_url": reverse("sessions"),
+        "logout_url": reverse("logout"),
+        "lock_url": reverse("lock"),
     })
 
 def boot(request):

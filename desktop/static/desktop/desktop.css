@@ -41,13 +41,89 @@ body {
 
   background: var(--panel);
 
-  z-index: 10;
+  /* z-index у панели не задан намеренно: заголовки окон нарисованы над рамкой и заходят
+     на панель, окна (WinBox) должны быть выше неё. Меню ниже поднимается своим z-index,
+     для этого панель не должна создавать собственный слой. */
 
   font-size: var(--fs-small);
 }
 
 #machine-name {
   color: var(--font-light);
+}
+
+.connection {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.session-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 6px;
+  background: none;
+  border: 1px solid transparent;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+.session-button:hover,
+.session-button:focus-visible,
+.session-button[aria-expanded="true"] {
+  border-color: var(--line-bright);
+  outline: none;
+}
+
+.session-caret {
+  color: var(--fg);
+  font-size: var(--fs-smaller);
+}
+
+.session-menu {
+  position: absolute;
+  z-index: 1000;
+  top: calc(100% + 4px);
+  left: 0;
+  min-width: 190px;
+  margin: 0;
+  padding: 4px 0;
+  list-style: none;
+  background: var(--panel);
+  border: 1px solid var(--line-bright);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.5);
+}
+
+.session-menu[hidden] {
+  display: none;
+}
+
+.session-menu button {
+  display: block;
+  width: 100%;
+  padding: 6px 14px;
+  background: none;
+  border: 0;
+  color: var(--fg);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.session-menu button:hover,
+.session-menu button:focus-visible {
+  background: var(--font-light);
+  color: var(--bg);
+  outline: none;
+}
+
+.session-menu button[data-action="disconnect"] {
+  border-top: 1px solid var(--line);
+  margin-top: 4px;
+  padding-top: 8px;
 }
 
 .ping {

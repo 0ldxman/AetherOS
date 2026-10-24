@@ -30,7 +30,7 @@ urlpatterns = [
     path("", boot, name="boot"),
     path("lock/", auth_views.lock_page, name="lock"),
     path("auth/guest/", auth_views.guest_api),
-    path("auth/logout/", auth_views.logout_api),
+    path("auth/logout/", auth_views.logout_api, name="logout"),
     path("apps/", include("apps.urls")),
     path("apps/wiki/", include("wiki.urls")),
     path('apps/map/', include('map.urls')),
