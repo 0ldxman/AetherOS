@@ -10,14 +10,9 @@
     "use strict";
 
     const SELECTOR = ".doc--rec .widget--video, .doc--infobox .widget--video";
-    const AUTO_HIDE_DELAY = 2200;
-
     const ICON_PLAY = '<path d="M8 5.5 19 12 8 18.5Z" />';
-    const ICON_PAUSE = '<path d="M7 5h4v14H7zM15 5h4v14h-4z" />';
 
     const SPEEDS = ["0.5", "0.75", "1", "1.25", "1.5", "2"];
-
-    const formatTime = Aether.formatTime;
 
     function template(hasViewer) {
         const speedOptions = SPEEDS.map(function (v) {
@@ -130,7 +125,6 @@
         const center = q(".vw-center");
         const errorBox = q(".vw-error");
         const errorText = q(".vw-error p");
-        const meta = q(".vw-meta");
         const controls = q(".vw-controls");
         const status = q(".vw-status");
         const resolution = q(".vw-res");
@@ -140,7 +134,6 @@
         const progress = q(".vw-progress");
         const playButton = q(".vw-play");
         const playIcon = q(".vw-play svg");
-        const centerIcon = q(".vw-center svg");
         const muteButton = q(".vw-mute");
         const wave = q(".vw-wave");
         const cross = q(".vw-cross");
@@ -162,10 +155,6 @@
             });
         }
 
-        let hideTimer = null;
-        let seeking = false;
-        let failed = false;
-
         /* ---------- Метаданные ---------- */
 
         function updateMetadata() {
@@ -177,236 +166,42 @@
                 );
             }
 
-            duration.textContent = formatTime(video.duration);
-            total.textContent = formatTime(video.duration);
+            duration.textContent = Aether.formatTime(video.duration);
         }
 
-        /* ---------- Показ и скрытие ---------- */
+        /* ---------- Плеер ---------- */
 
-        function showControls() {
-            clearTimeout(hideTimer);
-            stage.classList.remove("vw-hidden");
-        }
-
-        function scheduleHide() {
-            clearTimeout(hideTimer);
-
-            if (video.paused || video.ended || failed || seeking) {
-                showControls();
-                return;
+        const player = Aether.createPlayer(
+            video,
+            {
+                stage: stage,
+                controls: controls,
+                status: status,
+                center: center,
+                playButton: playButton,
+                playIcon: playIcon,
+                muteButton: muteButton,
+                wave: wave,
+                cross: cross,
+                volume: volume,
+                speed: speed,
+                fullscreenButton: fsButton,
+                progress: progress,
+                current: current,
+                total: total,
+                error: errorBox,
+                errorMessage: errorText,
+            },
+            {
+                label: "video",
+                classes: { playing: "vw-playing", hidden: "vw-hidden" },
+                progressVar: "--vw-progress",
+                fullscreenClass: "vw-fullscreen",
+                onMetadata: updateMetadata,
             }
+        );
 
-            hideTimer = setTimeout(function () {
-                if (!controls.matches(":hover")) {
-                    stage.classList.add("vw-hidden");
-                }
-            }, AUTO_HIDE_DELAY);
-        }
-
-        /* ---------- Статус, ошибки ---------- */
-
-        function setStatus(value) {
-            status.textContent = value;
-        }
-
-        function showError(message) {
-            failed = true;
-            showControls();
-
-            errorText.textContent = message || "Unable to load video source.";
-            errorBox.hidden = false;
-            center.hidden = true;
-            setStatus("ERROR");
-        }
-
-        /* ---------- Воспроизведение ---------- */
-
-        function updatePlayState() {
-            const playing = !video.paused && !video.ended;
-            const icon = playing ? ICON_PAUSE : ICON_PLAY;
-
-            stage.classList.toggle("vw-playing", playing);
-
-            playIcon.innerHTML = icon;
-            playButton.setAttribute("aria-label", playing ? "Pause" : "Play");
-            playButton.title = playing ? "Pause (Space)" : "Play (Space)";
-            centerIcon.innerHTML = ICON_PLAY;
-            center.hidden = playing || failed;
-
-            if (failed) {
-                setStatus("ERROR");
-            } else if (video.ended) {
-                setStatus("END OF FILE");
-            } else if (playing) {
-                setStatus("PLAYING");
-            } else if (video.currentTime > 0) {
-                setStatus("PAUSED");
-            } else {
-                setStatus("READY");
-            }
-        }
-
-        async function togglePlayback() {
-            if (failed) {
-                return;
-            }
-
-            if (video.paused || video.ended) {
-                if (video.ended) {
-                    video.currentTime = 0;
-                }
-
-                try {
-                    await video.play();
-                } catch (err) {
-                    showError("Playback could not be started. The format may not be supported by this browser.");
-                }
-            } else {
-                video.pause();
-            }
-
-            showControls();
-        }
-
-        playButton.addEventListener("click", togglePlayback);
-        center.addEventListener("click", togglePlayback);
-        video.addEventListener("click", togglePlayback);
-
-        video.addEventListener("play", function () {
-            updatePlayState();
-            scheduleHide();
-        });
-
-        video.addEventListener("playing", function () {
-            updatePlayState();
-            scheduleHide();
-        });
-
-        video.addEventListener("pause", function () {
-            updatePlayState();
-            showControls();
-        });
-
-        video.addEventListener("ended", function () {
-            updatePlayState();
-            showControls();
-        });
-
-        video.addEventListener("waiting", function () {
-            if (!video.paused) {
-                setStatus("BUFFERING");
-            }
-        });
-
-        /* ---------- Таймлайн ---------- */
-
-        function paintProgress(fraction) {
-            progress.style.setProperty("--vw-progress", `${fraction * 100}%`);
-        }
-
-        function updateProgress() {
-            current.textContent = formatTime(video.currentTime);
-
-            if (!seeking && Number.isFinite(video.duration) && video.duration > 0) {
-                const value = Math.round((video.currentTime / video.duration) * 1000);
-
-                progress.value = String(value);
-                paintProgress(value / 1000);
-            }
-        }
-
-        progress.addEventListener("pointerdown", function () {
-            seeking = true;
-            showControls();
-        });
-
-        progress.addEventListener("input", function () {
-            const fraction = Number(progress.value) / 1000;
-
-            paintProgress(fraction);
-
-            if (Number.isFinite(video.duration) && video.duration > 0) {
-                video.currentTime = fraction * video.duration;
-                current.textContent = formatTime(video.currentTime);
-            }
-        });
-
-        function endSeek() {
-            if (seeking) {
-                seeking = false;
-                scheduleHide();
-            }
-        }
-
-        progress.addEventListener("pointerup", endSeek);
-        progress.addEventListener("change", endSeek);
-
-        video.addEventListener("timeupdate", updateProgress);
-        video.addEventListener("durationchange", updateMetadata);
-
-        /* ---------- Громкость ---------- */
-
-        function updateVolumeUI() {
-            const silent = video.muted || video.volume === 0;
-
-            volume.value = String(video.muted ? 0 : video.volume);
-            muteButton.setAttribute("aria-label", silent ? "Unmute" : "Mute");
-            wave.hidden = silent;
-            cross.hidden = !silent;
-        }
-
-        muteButton.addEventListener("click", function () {
-            video.muted = !video.muted;
-            showControls();
-        });
-
-        volume.addEventListener("input", function () {
-            video.volume = Number(volume.value);
-            video.muted = video.volume === 0;
-            showControls();
-        });
-
-        video.addEventListener("volumechange", updateVolumeUI);
-
-        /* ---------- Скорость ---------- */
-
-        speed.addEventListener("change", function () {
-            video.playbackRate = Number(speed.value);
-            showControls();
-        });
-
-        /* ---------- Полный экран ---------- */
-
-        function isFullscreen() {
-            return document.fullscreenElement === stage;
-        }
-
-        async function toggleFullscreen() {
-            await Aether.toggleFullscreen(stage, video);
-
-            showControls();
-        }
-
-        function updateFullscreenUI() {
-            const active = isFullscreen();
-
-            stage.classList.toggle("vw-fullscreen", active);
-            fsButton.setAttribute("aria-label", active ? "Exit fullscreen" : "Enter fullscreen");
-            fsButton.title = active ? "Exit fullscreen (F)" : "Fullscreen (F)";
-        }
-
-        fsButton.addEventListener("click", toggleFullscreen);
-        document.addEventListener("fullscreenchange", updateFullscreenUI);
-
-        /* ---------- Мышь и клавиатура ---------- */
-
-        stage.addEventListener("pointermove", function () {
-            showControls();
-            scheduleHide();
-        });
-
-        stage.addEventListener("pointerleave", scheduleHide);
-        controls.addEventListener("pointerleave", scheduleHide);
+        /* ---------- Клавиатура ---------- */
 
         stage.addEventListener("keydown", function (event) {
             if (event.defaultPrevented || event.ctrlKey || event.altKey || event.metaKey) {
@@ -423,83 +218,8 @@
                 return;
             }
 
-            switch (event.key.toLowerCase()) {
-                case " ":
-                    event.preventDefault();
-                    togglePlayback();
-                    break;
-
-                case "arrowleft":
-                    event.preventDefault();
-                    video.currentTime = Math.max(0, video.currentTime - 5);
-                    break;
-
-                case "arrowright":
-                    event.preventDefault();
-                    video.currentTime = Number.isFinite(video.duration)
-                        ? Math.min(video.duration, video.currentTime + 5)
-                        : video.currentTime + 5;
-                    break;
-
-                case "m":
-                    video.muted = !video.muted;
-                    break;
-
-                case "f":
-                    toggleFullscreen();
-                    break;
-
-                default:
-                    return;
-            }
-
-            showControls();
-            scheduleHide();
+            player.handleKey(event);
         });
-
-        /* ---------- Загрузка ---------- */
-
-        video.addEventListener("loadedmetadata", function () {
-            updateMetadata();
-            updateProgress();
-            updatePlayState();
-        });
-
-        video.addEventListener("error", function () {
-            let message = "Unable to load video source.";
-
-            if (video.error) {
-                switch (video.error.code) {
-                    case MediaError.MEDIA_ERR_ABORTED:
-                        message = "Video loading was aborted.";
-                        break;
-                    case MediaError.MEDIA_ERR_NETWORK:
-                        message = "A network error interrupted video loading.";
-                        break;
-                    case MediaError.MEDIA_ERR_DECODE:
-                        message = "The video could not be decoded.";
-                        break;
-                    case MediaError.MEDIA_ERR_SRC_NOT_SUPPORTED:
-                        message = "This video format or codec is not supported.";
-                        break;
-                }
-            }
-
-            showError(message);
-        });
-
-        /* ---------- Начальное состояние ---------- */
-
-        updateVolumeUI();
-        updateFullscreenUI();
-        updatePlayState();
-
-        if (video.readyState >= HTMLMediaElement.HAVE_METADATA) {
-            updateMetadata();
-            updateProgress();
-        } else if (video.error) {
-            showError("Unable to load video source.");
-        }
     }
 
     function init(root) {
