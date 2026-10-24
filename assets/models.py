@@ -116,7 +116,6 @@ class Asset(models.Model):
         Бросает ValueError, если файла нет или это папка.
         """
         from .nextcloud import NextcloudClient
-        from .services import guess_content_type
 
         client = client or NextcloudClient.from_settings()
         file = client.get_file_by_id(self.file_id)
@@ -124,6 +123,21 @@ class Asset(models.Model):
         if file is None or file.is_directory:
             raise ValueError("Файл в Nextcloud не найден.")
 
-        self.filename = file.filename
-        self.content_type = guess_content_type(file.filename)
-        self.size = file.size
+        self.apply_file(file)
+
+    def apply_file(self, file):
+        """Копирует метаданные из файла Nextcloud в кэш.
+
+        Возвращает True, если что-то изменилось. Не сохраняет объект.
+        """
+        from .services import guess_content_type
+
+        values = {
+            "filename": file.filename,
+            "content_type": guess_content_type(file.filename),
+            "size": file.size,
+        }
+        changed = any(getattr(self, k) != v for k, v in values.items())
+        for key, value in values.items():
+            setattr(self, key, value)
+        return changed

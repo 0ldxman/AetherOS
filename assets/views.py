@@ -187,6 +187,18 @@ def _serve_asset_file(request, asset: Asset):
     file = _find_file(client, asset)
     content_type = guess_content_type(file.filename)
 
+    # Файл уже получен из Nextcloud, поэтому заодно держим кэш метаданных
+    # актуальным (переименование, подмена файла). Пишем только при изменении.
+    if asset.apply_file(file):
+        asset.save(
+            update_fields=[
+                "filename",
+                "content_type",
+                "size",
+                "updated_at",
+            ]
+        )
+
     if (
         file.etag
         and request.headers.get("If-None-Match") == file.etag
