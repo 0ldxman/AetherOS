@@ -136,7 +136,8 @@ class KeyAdminTests(AdminTestCase):
 
     def test_change_page_lists_usage(self):
         response = self.client.get(reverse("admin:secure_key_change", args=[self.key.pk]))
-        self.assertContains(response, "запись: Закрытый:Д")
+        self.assertContains(response, "запись: <a")
+        self.assertContains(response, "Закрытый:Д</a>")
         self.assertNotContains(response, "Двойник")
 
     def test_grant_and_revoke(self):

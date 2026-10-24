@@ -1,8 +1,9 @@
 """Сводка для автора: что менялось, что висит без связей, что сломано.
 
 Считается по всем записям за один проход (тексты читаются целиком), поэтому
-для очень большой вики стоит кэшировать. Данные только из вики: ключи и
-ассеты, которыми пользуются машины и файловая система, здесь не видны.
+для очень большой вики стоит кэшировать. Ассеты считаются только по
+вики (файловая система машин ссылается на них по адресу, здесь это не видно);
+ключи учитываются и в вики, и в условиях машин, и среди ключей файлов.
 """
 import re
 from dataclasses import dataclass, field
@@ -10,9 +11,11 @@ from dataclasses import dataclass, field
 from django.contrib.auth import get_user_model
 
 from assets.models import Asset
+from secure.access import condition_slugs
 from secure.models import Key
+from secure.usage import used_slugs
 
-from .markup.lint import ERROR, _Scan, _slugs, _wiki_target
+from .markup.lint import ERROR, _Scan, _wiki_target
 from .models import Document, Namespace
 
 RECENT_LIMIT = 15
@@ -86,14 +89,14 @@ def build():
                     incoming[found] += 1
         for condition in (doc.access, doc.visibility):
             if condition:
-                key_slugs.update(_slugs(condition))
+                key_slugs.update(condition_slugs(condition))
         if problems:
             broken.append((doc, len(problems)))
 
     for ns in namespaces:
         for condition in (ns.access, ns.visibility):
             if condition:
-                key_slugs.update(_slugs(condition))
+                key_slugs.update(condition_slugs(condition))
 
     result = Dashboard()
     result.recent = [
@@ -107,6 +110,7 @@ def build():
         a for a in Asset.objects.order_by("name")
         if (a.slug or "") not in asset_refs and str(a.public_id) not in asset_refs
     ]
+    key_slugs |= used_slugs()  # условия машин и ключи файлов
     result.unused_keys = list(Key.objects.exclude(slug__in=key_slugs).order_by("slug"))
     result.totals = {
         "documents": len(documents),

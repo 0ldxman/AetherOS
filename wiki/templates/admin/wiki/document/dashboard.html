@@ -77,8 +77,8 @@
     </section>
 
     <section class="dash-card">
-      <h2>Ключи, которых нет в вики <span class="dash-count">{{ data.unused_keys|length }}</span></h2>
-      <p class="dash-note">Не встречаются ни в условиях доступа, ни в тексте записей. Ключ может использоваться в машинах и файловой системе: здесь это не учитывается.</p>
+      <h2>Ключи, которые нигде не используются <span class="dash-count">{{ data.unused_keys|length }}</span></h2>
+      <p class="dash-note">Не встречаются ни в вики (условия и текст), ни в условиях приложений и профилей машин, ни среди ключей файлов. У игроков такой ключ может быть.</p>
       <table>
         {% for key in data.unused_keys|slice:":50" %}
         <tr>

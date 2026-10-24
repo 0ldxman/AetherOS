@@ -73,3 +73,16 @@ def _format(req, parent):
     parts = req.get("all") or req.get("any") or []
     text = f" {op} ".join(_format(p, level) for p in parts)
     return f"({text})" if len(parts) > 1 and level < parent else text
+
+
+def condition_slugs(req):
+    """Все slug'и ключей в условии (в порядке появления, с повторами)."""
+    if not req:
+        return []
+    if isinstance(req, str):
+        return [req]
+    found = []
+    for value in req.values():
+        for part in value if isinstance(value, list) else [value]:
+            found.extend(condition_slugs(part))
+    return found

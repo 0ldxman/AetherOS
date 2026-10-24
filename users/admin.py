@@ -6,7 +6,7 @@ from django.template.response import TemplateResponse
 from django.urls import reverse
 from django.utils.html import format_html, format_html_join
 
-from wiki.key_usage import key_usage
+from secure.usage import key_usage
 
 from .models import Key, User, UserKey
 
@@ -85,19 +85,12 @@ class KeyAdmin(admin.ModelAdmin):
     def usage(self, obj):
         if obj.pk is None:
             return "—"
-        documents, namespaces = key_usage(obj.slug)
-        if not documents and not namespaces:
-            return "Нигде: ни в условиях доступа, ни в тексте записей."
-        rows = [
-            (reverse("admin:wiki_document_change", args=[d.pk]), f"запись: {d.path()}")
-            for d in documents
-        ] + [
-            (reverse("admin:wiki_namespace_change", args=[n.pk]), f"раздел: {n.path()}")
-            for n in namespaces
-        ]
+        rows = key_usage(obj.slug)
+        if not rows:
+            return "Нигде: ни в вики, ни в условиях машин, ни среди ключей файлов."
         return format_html(
             "<ul>{}</ul>",
-            format_html_join("", '<li><a href="{}">{}</a></li>', rows),
+            format_html_join("", '<li>{}: <a href="{}">{}</a></li>', ((r.kind, r.url, r.label) for r in rows)),
         )
 
     def _choose_users(self, request, queryset, action, title):

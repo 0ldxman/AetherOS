@@ -15,6 +15,7 @@ from urllib.parse import unquote, urlsplit
 from django.conf import settings
 
 from assets.services import asset_widget_kind, find_asset
+from secure.access import condition_slugs
 from secure.models import Key
 from wiki.models import Document, Namespace
 from wiki.widgets import WIDGETS
@@ -54,17 +55,6 @@ class Issue:
 
     def as_dict(self):
         return asdict(self)
-
-
-def _slugs(condition):
-    """Все slug'и ключей в разобранном условии."""
-    if isinstance(condition, str):
-        return [condition]
-    found = []
-    for value in condition.values():
-        for part in value if isinstance(value, list) else [value]:
-            found.extend(_slugs(part))
-    return found
 
 
 def _block_body(lines, start):
@@ -163,7 +153,7 @@ class _Scan:
         except SpoilerSyntaxError as exc:
             self.issue(number, ERROR, "bad-condition", f"Условие спойлера: {exc}")
             return
-        self.keys.extend((number, slug) for slug in _slugs(condition))
+        self.keys.extend((number, slug) for slug in condition_slugs(condition))
 
     def _inline(self, number, text):
         text = _CODE_SPAN.sub("", text)
