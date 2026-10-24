@@ -9,6 +9,7 @@ from django.utils.html import format_html
 from .admin_dashboard import DocumentDashboardMixin
 from .admin_locks import DocumentLocksMixin
 from .admin_preview import DocumentPreviewMixin
+from .admin_transfer import DocumentTransferMixin
 from .admin_revisions import DocumentRevisionsMixin
 from .models import Document, Namespace
 from .views import _doc_url
@@ -154,14 +155,14 @@ class NamespaceAdmin(admin.ModelAdmin):
 
 @admin.register(Document)
 class DocumentAdmin(
-    DocumentDashboardMixin, DocumentLocksMixin, DocumentRevisionsMixin, DocumentPreviewMixin, admin.ModelAdmin
+    DocumentTransferMixin, DocumentDashboardMixin, DocumentLocksMixin, DocumentRevisionsMixin, DocumentPreviewMixin, admin.ModelAdmin
 ):
     list_display = ("title", "section", "type", "protection", "updated_at", "updated_by", "editing", "as_player")
     list_filter = (NamespaceTreeFilter, "type", ProtectionFilter)
     list_select_related = ("namespace__parent__parent__parent", "updated_by", "lock__user")
     search_fields = ("title", "body", "infobox")
     readonly_fields = ("created_at", "created_by", "updated_at", "updated_by")
-    actions = ("move_to_namespace",)
+    actions = ("move_to_namespace", "export_selected")
 
     def save_model(self, request, obj, form, change):
         if not change:

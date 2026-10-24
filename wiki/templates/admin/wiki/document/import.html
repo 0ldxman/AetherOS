@@ -1,0 +1,77 @@
+{% extends "admin/base_site.html" %}
+{% load static %}
+
+{% block extrastyle %}{{ block.super }}
+<link rel="stylesheet" href="{% static 'wiki/transfer.css' %}">
+{% endblock %}
+
+{% block breadcrumbs %}
+<ol class="breadcrumbs">
+  <li><a href="{% url 'admin:index' %}">Главная</a></li>
+  <li><a href="{{ list_url }}">Записи</a></li>
+  <li aria-current="page">Импорт</li>
+</ol>
+{% endblock %}
+
+{% block content %}
+<div id="content-main" class="imp">
+
+  <form method="post" enctype="multipart/form-data" class="imp-upload">
+    {% csrf_token %}
+    <p>
+      ZIP-архив (как после экспорта) или один файл <code>.md</code>, до {{ max_mb }} МБ.
+      Сначала будет показан результат без записи в базу.
+    </p>
+    <input type="file" name="archive" accept=".zip,.md" required>
+    <input type="submit" class="default" value="Проверить">
+  </form>
+
+  {% if error %}<p class="errornote">{{ error }}</p>{% endif %}
+
+  {% if batch %}
+    <h2>Что произойдёт</h2>
+    <p class="imp-counts">
+      <span class="imp-create">создать: <b>{{ counts.create }}</b></span>
+      <span class="imp-update">обновить: <b>{{ counts.update }}</b></span>
+      <span>без изменений: <b>{{ counts.same }}</b></span>
+      <span class="imp-error">с ошибками: <b>{{ counts.error }}</b></span>
+    </p>
+    <p class="imp-note">
+      Ничего не удаляется. Записи с ошибками будут пропущены, остальное запишется.
+      Каждое обновление попадёт в историю версий.
+    </p>
+
+    {% for note in notes %}<p class="imp-note">{{ note }}</p>{% endfor %}
+
+    {% if rows %}
+    <table class="imp-table">
+      <thead><tr><th>Тип</th><th>Путь</th><th>Действие</th><th>Подробности</th></tr></thead>
+      <tbody>
+      {% for row in rows %}
+        <tr class="imp-row imp-{{ row.action }}">
+          <td>{% if row.kind == "doc" %}запись{% else %}раздел{% endif %}</td>
+          <td>{{ row.path }}</td>
+          <td>{% if row.action == "create" %}создать{% elif row.action == "update" %}обновить{% else %}ошибка{% endif %}</td>
+          <td>
+            {% if row.changes %}изменится: {{ row.changes|join:", " }}{% endif %}
+            {% for e in row.errors %}<div class="imp-err">{{ e }}</div>{% endfor %}
+            {% for w in row.warnings %}<div class="imp-warn">{{ w }}</div>{% endfor %}
+          </td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+    {% endif %}
+
+    {% if can_apply %}
+    <form method="post" action="{{ apply_url }}" class="imp-apply">
+      {% csrf_token %}
+      <input type="submit" class="default" value="Выполнить импорт">
+      <a href="{{ list_url }}">Отмена</a>
+    </form>
+    {% else %}
+      <p>Импортировать нечего.</p>
+    {% endif %}
+  {% endif %}
+</div>
+{% endblock %}

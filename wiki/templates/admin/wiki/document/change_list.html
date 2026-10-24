@@ -2,5 +2,7 @@
 
 {% block object-tools-items %}
   {% if dashboard_url %}<li><a href="{{ dashboard_url }}">Сводка автора</a></li>{% endif %}
+  {% if import_url %}<li><a href="{{ import_url }}">Импорт</a></li>{% endif %}
+  {% if export_url %}<li><a href="{{ export_url }}">Экспорт{% if 'ns=' in export_url %} раздела{% else %} всего{% endif %}</a></li>{% endif %}
   {{ block.super }}
 {% endblock %}

@@ -1,3 +1,5 @@
+import uuid
+
 from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.db import models
@@ -247,3 +249,25 @@ class DocumentLock(models.Model):
 
     def __str__(self):
         return f"{self.document_id} -> {self.user_id}"
+
+
+class ImportBatch(models.Model):
+    """Загруженный архив между сухим прогоном импорта и подтверждением.
+
+    Хранится в базе, а не в памяти процесса или сессии: так подтверждение
+    работает и при нескольких воркерах. Старше суток удаляется при
+    следующей загрузке (wiki/admin_transfer.py).
+    """
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="+",
+    )
+    filename = models.CharField(max_length=255)
+    data = models.BinaryField()
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"{self.filename} ({self.created_at:%Y-%m-%d %H:%M})"
