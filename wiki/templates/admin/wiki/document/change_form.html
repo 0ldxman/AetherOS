@@ -11,6 +11,9 @@
   {% if revisions_url %}
   <li><a href="{{ revisions_url }}">Версии</a></li>
   {% endif %}
+  {% for label, url in player_links %}
+  <li><a href="{{ url }}" target="_blank" rel="noopener">{{ label }}</a></li>
+  {% endfor %}
   {{ block.super }}
 {% endblock %}
 

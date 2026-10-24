@@ -1,0 +1,30 @@
+{% extends "admin/base_site.html" %}
+
+{% block breadcrumbs %}
+<div class="breadcrumbs">
+  <a href="{% url 'admin:index' %}">Главная</a> ›
+  <a href="{% url 'admin:wiki_document_changelist' %}">Записи</a> › Переместить
+</div>
+{% endblock %}
+
+{% block content %}
+<div id="content-main">
+  <p>Записей выбрано: <b>{{ documents|length }}</b>.</p>
+  <ul>
+    {% for doc in documents %}<li>{{ doc.path }}</li>{% endfor %}
+  </ul>
+
+  <form method="post">
+    {% csrf_token %}
+    {% for pk in selected %}<input type="hidden" name="_selected_action" value="{{ pk }}">{% endfor %}
+    <input type="hidden" name="action" value="{{ action_name }}">
+    <input type="hidden" name="apply" value="1">
+    <p>{{ form.namespace.label_tag }} {{ form.namespace }}</p>
+    {{ form.namespace.errors }}
+    <p>
+      <input type="submit" class="default" value="Переместить">
+      <a href="{% url 'admin:wiki_document_changelist' %}">Отмена</a>
+    </p>
+  </form>
+</div>
+{% endblock %}

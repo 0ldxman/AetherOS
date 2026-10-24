@@ -1,0 +1,28 @@
+{% extends "admin/base_site.html" %}
+
+{% block breadcrumbs %}
+<div class="breadcrumbs">
+  <a href="{% url 'admin:index' %}">Главная</a> ›
+  <a href="{% url 'admin:secure_key_changelist' %}">Ключи</a> › {{ title }}
+</div>
+{% endblock %}
+
+{% block content %}
+<div id="content-main">
+  <p>Ключи: <b>{% for key in keys %}{{ key.slug }}{% if not forloop.last %}, {% endif %}{% endfor %}</b></p>
+
+  <form method="post">
+    {% csrf_token %}
+    {% for pk in selected %}<input type="hidden" name="_selected_action" value="{{ pk }}">{% endfor %}
+    <input type="hidden" name="action" value="{{ action_name }}">
+    <input type="hidden" name="apply" value="1">
+    <p>{{ form.users.label_tag }}</p>
+    {{ form.users }}
+    {{ form.users.errors }}
+    <p>
+      <input type="submit" class="default" value="{{ title }}">
+      <a href="{% url 'admin:secure_key_changelist' %}">Отмена</a>
+    </p>
+  </form>
+</div>
+{% endblock %}
