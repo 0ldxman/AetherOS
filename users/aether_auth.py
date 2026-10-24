@@ -40,68 +40,48 @@ CLEARANCE_LABELS = {
 # =========================================================
 # GATEWAY (экран входа)
 # ---------------------------------------------------------
-# ПРОТОТИП: тексты потом должны задаваться из админки (у каждой машины,
-# организации и системы свои). Aether это система.
-#
-# Организацию-владельца машины здесь НЕ указываем и клиенту не отдаём: игрок должен
-# сам догадаться, чья это машина (по оформлению, содержимому, названиям). Всё,
-# что подаётся в браузер, видно в исходнике страницы.
-#
-# Игрок приходит на aether-main, там вход только через Discord. Через пару
-# секунд в меню кто-то дописывает строку от первого лица: это обходной путь
-# внутрь, оставленный не игроком. Нажатие превращает aether-main в aether-null
-# (для системы это две машины на одном железе, у них общий hid).
+# Сцены экрана входа собирает users/gateway.py; здесь только данные,
+# которых нет в самих сценах: hid машины из базы и допуск гостя.
 # =========================================================
-
-GATEWAY = {
-    "system": "AETHER",
-    "host": "aether-main",
-    "notice": [
-        "Authorized personnel only.",
-        "All access is monitored and logged.",
-    ],
-    "external": {"label": "DISCORD"},
-    "bypass": {
-        "host": "aether-null",
-        # когда после появления меню печатается строка
-        "delay_ms": 2200,
-        # строка выбирается случайно при каждом заходе
-        "lines": [
-            "i left it open for you",
-            "come in. i'll keep it open",
-            "i can let you in. quietly.",
-            "you don't have to ask them",
-            "this way. they aren't looking at this door",
-            "i opened this for you. hurry",
-        ],
-        # если игрок ничего не делает, через столько мс добавляется вторая строка
-        "again_after_ms": [20000, 30000],
-        "again_lines": [
-            "...still here",
-            "i can't hold this open for long",
-            "are you there?",
-        ],
-    },
-}
 
 # hid, который показывается, если машины aether-main нет в базе
 UNKNOWN_HID = "--:--:--:--:--:--"
 
 
-def gateway_config():
-    """Данные экрана входа: тексты из GATEWAY, hid машины из базы, допуск гостя."""
+def gateway_scenes(request):
+    """Сцены экрана входа для этого посетителя (словарь имя -> список шагов)."""
     from machines.models import Machine
 
+    from . import gateway
+
+    cfg = gateway.GATEWAY
     hid = (
-        Machine.objects.filter(hostname=GATEWAY["host"])
-        .values_list("hid", flat=True)
-        .first()
+        Machine.objects.filter(hostname=cfg["host"]).values_list("hid", flat=True).first()
+        or UNKNOWN_HID
     )
-    return {
-        **GATEWAY,
-        "hid": hid or UNKNOWN_HID,
-        "bypass": {**GATEWAY["bypass"], "clearance": clearance_dict(GUEST_LEVEL)},
+    guest_clearance = clearance_dict(GUEST_LEVEL)
+
+    scenes = {
+        "intro": gateway.intro_scene(cfg, hid),
+        "menu": gateway.menu_scene(cfg),
+        "discord": gateway.discord_scene(cfg),
+        "bypass": gateway.bypass_scene(cfg, hid),
+        "established": gateway.established_scene(guest_clearance),
+        "error": gateway.error_scene(cfg),
     }
+
+    level = current_level(request)
+    if level is not None:
+        is_guest = bool(request.session.get("guest")) and not request.user.is_authenticated
+        scenes["restored"] = gateway.restored_scene(
+            cfg,
+            hid,
+            username="guest" if is_guest else request.user.get_username(),
+            clearance=clearance_dict(level),
+            guest=is_guest,
+        )
+
+    return {name: scene.to_dict() for name, scene in scenes.items()}
 
 
 # Ограничение перебора пароля: 5 неудач на связку IP + логин, блок на 5 минут
@@ -204,7 +184,7 @@ def guest_api(request):
 @ensure_csrf_cookie  # нужна для POST на guest_api
 def lock_page(request):
     config = build_boot_config(request)
-    config["gateway"] = gateway_config()
+    config["scenes"] = gateway_scenes(request)
     return render(request, "boot/lock.html", {"boot_config": config})
 
 

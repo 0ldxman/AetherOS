@@ -1,0 +1,97 @@
+/* ==================================================
+   AETHER / CONSOLE
+   Стили проигрывателя консольных сцен (static/ui/console.js).
+   Только токены из tokens.css: вид совпадает с экраном загрузки.
+   ================================================== */
+
+.con-line {
+    min-height: 1.5em;
+    white-space: pre-wrap;        /* выравнивание пробелами сохраняется, а длинная строка переносится, а не обрезается */
+    overflow-wrap: anywhere;
+}
+
+.con-success { color: var(--status-ok); }
+.con-warning { color: var(--status-warn); }
+.con-error   { color: var(--status-error); }
+.con-dim     { color: var(--font-muted); }
+
+.con-cursor {
+    display: inline-block;
+    width: 8px;
+    height: 15px;
+    margin-left: 2px;
+    background: currentColor;
+    vertical-align: -2px;
+    animation: con-blink 0.8s steps(1) infinite;
+}
+
+@keyframes con-blink {
+    0%, 50%   { opacity: 1; }
+    51%, 100% { opacity: 0; }
+}
+
+/* вспышка экрана (шаг flash) */
+.con-flash {
+    filter: invert(1);
+}
+
+
+/* ---------- выбор ---------- */
+
+.con-options {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    margin-top: 0.4rem;
+}
+
+.con-option {
+    display: block;
+    width: 100%;
+    padding: 2px 0;
+    border: 0;
+    background: none;
+    color: var(--font-light);
+    font: inherit;
+    text-align: left;
+    white-space: pre;
+    cursor: pointer;
+}
+
+.con-option-main {
+    position: relative;
+    padding-left: 2ch; /* место под маркер выбранного варианта, чтобы текст не прыгал */
+}
+
+.con-option:hover:not(:disabled) .con-option-main,
+.con-option:focus-visible .con-option-main {
+    color: var(--accent);
+}
+
+.con-option:hover:not(:disabled) .con-option-main::before,
+.con-option:focus-visible .con-option-main::before {
+    content: ">";
+    position: absolute;
+    left: 0;
+    color: var(--accent-green);
+}
+
+.con-option:focus { outline: none; }
+.con-option:disabled { cursor: default; }
+
+/* прежний список после того, как вывод пошёл дальше */
+.con-stale { opacity: 0.45; }
+
+.con-chosen .con-option-main { color: var(--accent-green); }
+
+@media (max-width: 700px) {
+    .con-option-tag {
+        display: block;
+        padding-left: 7ch; /* под названием варианта, мимо метки [ D ] */
+        white-space: normal;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .con-cursor { animation: none; }
+}

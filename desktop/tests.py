@@ -86,95 +86,186 @@ class UrlPrefixTests(TestCase):
         self.assertNotIn("/proxy/8000/proxy/8000", body)
 
 
+def boot_config(response):
+    """Данные, которые страница отдаёт скрипту (json_script boot-config)."""
+    import json
+    import re
+
+    body = response.content.decode()
+    raw = re.search(r'<script id="boot-config" type="application/json">(.*?)</script>', body, re.S).group(1)
+    return json.loads(raw)
+
+
+def steps(scene, op):
+    """Все шаги с этим op, включая вложенные (one_of, события выбора)."""
+    found = []
+    for step in scene:
+        if step["op"] == op:
+            found.append(step)
+        for nested in step.get("scenes", []):
+            found += steps(nested, op)
+        for event in step.get("events", []):
+            found += steps(event["steps"], op)
+    return found
+
+
+def spoken(scene):
+    """Весь текст сцены одной строкой (для поиска слов)."""
+    import json
+
+    return json.dumps(scene, ensure_ascii=False)
+
+
 @override_settings(FORCE_SCRIPT_NAME=None)
 class LockScreenTests(TestCase):
-    """Экран входа после загрузки: терминал на деталях загрузки, данные про дыру для гостя."""
+    """Экран входа: страница-оболочка для консольных сцен."""
 
     def setUp(self):
         previous = get_script_prefix()
         set_script_prefix("/")
         self.addCleanup(set_script_prefix, previous)
 
-    def test_page_is_built_from_the_boot_screen_parts(self):
+    def test_page_is_a_shell_for_the_console_player(self):
         response = self.client.get(reverse("lock"))
         self.assertContains(response, 'id="boot-screen"')
         self.assertContains(response, 'id="boot-output"')
-        self.assertContains(response, "boot/boot.css")
-        self.assertContains(response, "boot/login.css")
+        self.assertContains(response, "ui/console.js")
+        self.assertContains(response, "ui/console.css")
         self.assertContains(response, "boot/lock.js")
+        self.assertContains(response, "boot/boot.css")
 
-    def test_gateway_data_reaches_the_page(self):
-        from machines.models import Machine
-
-        machine = Machine.objects.create(name="Main", hostname="aether-main")
+    def test_scripts_are_deferred_so_aether_namespace_exists(self):
+        # utils.js и console.js defer: lock.js обязан идти после них, иначе Aether.console ещё нет
         body = self.client.get(reverse("lock")).content.decode()
-        self.assertNotIn("CTRG", body)  # чья это машина, игрок должен догадаться сам
-        self.assertIn("aether-null", body)
-        self.assertIn(machine.hid, body)
-        self.assertIn("i left it open for you", body)
+        self.assertRegex(body, r'console\.js"\s+defer')
+        self.assertRegex(body, r'lock\.js"\s+defer')
 
-    def test_node_name_is_in_the_config(self):
-        from users.aether_auth import NODE_NAME
+    def test_anonymous_gets_the_connection_scenes_but_no_restored_scene(self):
+        scenes = boot_config(self.client.get(reverse("lock")))["scenes"]
+        self.assertEqual(set(scenes), {"intro", "menu", "discord", "bypass", "established", "error"})
 
-        self.assertContains(self.client.get(reverse("lock")), NODE_NAME)
-
-    def test_stylesheet_uses_only_design_tokens(self):
+    def test_stylesheets_use_only_design_tokens(self):
         # tokens.css: хардкод цвета вне него считается багом (другая машина останется «от старой»)
         import re
         from pathlib import Path
 
-        css = (Path(__file__).parent / "static" / "boot" / "lock.css").read_text(encoding="utf-8")
-        self.assertEqual(re.findall(r"#[0-9a-fA-F]{3,8}\b", css), [])
-        self.assertNotIn(":root", css)
-        self.assertNotRegex(css, r"rgba?\(")
+        root = Path(__file__).resolve().parent.parent
+        for path in (root / "desktop/static/boot/lock.css", root / "static/ui/console.css"):
+            css = path.read_text(encoding="utf-8")
+            self.assertEqual(re.findall(r"#[0-9a-fA-F]{3,8}\b", css), [], path.name)
+            self.assertNotIn(":root", css, path.name)
+            self.assertNotRegex(css, r"rgba?\(", path.name)
 
 
-class GatewayConfigTests(TestCase):
-    def test_the_screen_is_aether_on_aether_main(self):
-        from users.aether_auth import gateway_config
+class GatewayScenesTests(TestCase):
+    """Содержание сцен входа: сюжет, замазанный владелец, общий hid."""
 
-        config = gateway_config()
-        self.assertEqual((config["system"], config["host"]), ("AETHER", "aether-main"))
+    @classmethod
+    def setUpTestData(cls):
+        cls.machine = Machine.objects.create(name="Main", hostname="aether-main")
 
-    def test_the_owner_organisation_is_never_sent_to_the_browser(self):
-        import json
+    def scenes(self, user=None, session=None):
+        from django.contrib.auth.models import AnonymousUser
+        from django.test import RequestFactory
 
-        from users.aether_auth import gateway_config
+        from users.aether_auth import gateway_scenes
 
-        config = gateway_config()
-        self.assertNotIn("org", config)
-        self.assertNotIn("CTRG", json.dumps(config))
+        request = RequestFactory().get("/lock/")
+        request.user = user or AnonymousUser()
+        request.session = session if session is not None else {}
+        return gateway_scenes(request)
 
-    def test_bypass_turns_main_into_null(self):
-        from users.aether_auth import gateway_config
+    def test_the_owner_organisation_is_never_named(self):
+        for name, scene in self.scenes().items():
+            self.assertNotIn("CTRG", spoken(scene), name)
 
-        bypass = gateway_config()["bypass"]
-        self.assertEqual(bypass["host"], "aether-null")
-        self.assertEqual(bypass["clearance"], {"level": "L0", "label": "PUBLIC"})
+    def test_owner_field_is_masked_and_marked_restricted(self):
+        text = spoken(self.scenes()["intro"])
+        self.assertIn("█" * 14, text)
+        self.assertIn("[restricted]", text)
 
-    def test_bypass_voice_is_a_pool_to_pick_from(self):
-        from users.aether_auth import GATEWAY
-
-        self.assertGreaterEqual(len(GATEWAY["bypass"]["lines"]), 3)
-        self.assertGreaterEqual(len(GATEWAY["bypass"]["again_lines"]), 2)
-        low, high = GATEWAY["bypass"]["again_after_ms"]
-        self.assertLess(low, high)
-
-    def test_hid_is_taken_from_the_machine(self):
-        from machines.models import Machine
-        from users.aether_auth import gateway_config
-
-        machine = Machine.objects.create(name="Main", hostname="aether-main")
-        self.assertEqual(gateway_config()["hid"], machine.hid)
+    def test_hid_is_read_from_the_machine_and_shown_before_and_after(self):
+        scenes = self.scenes()
+        self.assertIn(self.machine.hid, spoken(scenes["intro"]))
+        self.assertIn(self.machine.hid, spoken(scenes["bypass"]))
+        self.assertIn("(unchanged)", spoken(scenes["bypass"]))
 
     def test_hid_has_a_placeholder_when_the_machine_is_missing(self):
-        from users.aether_auth import UNKNOWN_HID, gateway_config
+        from users.aether_auth import UNKNOWN_HID
 
-        self.assertEqual(gateway_config()["hid"], UNKNOWN_HID)
+        Machine.objects.all().delete()
+        self.assertIn(UNKNOWN_HID, spoken(self.scenes()["intro"]))
 
-    def test_config_helper_does_not_mutate_the_template_data(self):
-        from users.aether_auth import GATEWAY, gateway_config
+    def test_intro_goes_through_the_stages_in_order(self):
+        text = [s.get("value", "") for s in self.scenes()["intro"] if s["op"] == "text"]
+        joined = "|".join(text)
+        order = ["AETHER LINK", "target", "node", "chassis", "owner", "Trust node", "node notice", "access"]
+        positions = [joined.index(word) for word in order]
+        self.assertEqual(positions, sorted(positions))
 
-        gateway_config()["bypass"]["host"] = "changed"
-        self.assertEqual(GATEWAY["bypass"]["host"], "aether-null")
-        self.assertNotIn("clearance", GATEWAY["bypass"])
+    def test_route_includes_a_timeout_and_a_retry(self):
+        text = spoken(self.scenes()["intro"])
+        self.assertIn("no answer", text)
+        self.assertEqual(text.count("relay 03"), 2)
+
+    def test_trust_prompt_is_typed_by_the_player_like_a_human(self):
+        typed = [s for s in self.scenes()["intro"] if s["op"] == "type"]
+        self.assertEqual([(s["value"], s["human"]) for s in typed], [("y", True)])
+
+    def test_entry_choice_starts_with_discord_only(self):
+        (choice,) = [s for s in self.scenes()["intro"] if s["op"] == "choice"]
+        self.assertEqual([o["id"] for o in choice["options"]], ["discord"])
+
+    def test_stranger_appears_later_with_the_bypass_option(self):
+        from users.gateway import GATEWAY
+
+        (choice,) = [s for s in self.scenes()["intro"] if s["op"] == "choice"]
+        first, second = choice["events"]
+        self.assertEqual(first["after_ms"], GATEWAY["event_after_ms"])
+        self.assertEqual([o["id"] for o in first["options"]], ["bypass"])
+        self.assertEqual(first["options"][0]["keys"], ["?", "/"])
+        self.assertEqual(second["after_ms"], GATEWAY["nudge_after_ms"])
+
+    def test_the_stranger_speaks_in_the_first_person_from_a_random_pool(self):
+        from users.gateway import GATEWAY
+
+        (one_of,) = steps(self.scenes()["intro"], "one_of")[:1]
+        said = {nested[0]["value"] for nested in one_of["scenes"]}
+        self.assertEqual(said, set(GATEWAY["messages"]))
+
+    def test_bypass_turns_the_host_into_null_in_place(self):
+        scenes = self.scenes()
+        ids = {s["id"] for s in steps(scenes["intro"], "text") if "id" in s}
+        glitches = steps(scenes["bypass"], "glitch") + steps(scenes["error"], "glitch")
+        self.assertTrue(glitches)
+        for glitch in glitches:
+            self.assertIn(glitch["id"], ids)  # иначе браузеру нечего портить
+        self.assertEqual(steps(scenes["bypass"], "glitch")[0]["to"], "aether-null")
+        self.assertEqual(steps(scenes["error"], "glitch")[0]["to"], "aether-main")
+
+    def test_the_session_is_only_announced_after_the_server_confirms(self):
+        # bypass играется, пока идёт запрос; established только после успешного ответа
+        scenes = self.scenes()
+        self.assertNotIn("session established", spoken(scenes["bypass"]))
+        self.assertNotIn("Loading workspace", spoken(scenes["bypass"]))
+        established = spoken(scenes["established"])
+        self.assertIn("session established", established)
+        self.assertIn("L0 (PUBLIC)", established)
+        self.assertIn("not registered", established)
+
+    def test_error_scene_has_a_placeholder_for_the_status(self):
+        self.assertIn("{code}", spoken(self.scenes()["error"]))
+
+    def test_logged_in_player_gets_a_restored_scene(self):
+        user = get_user_model().objects.create_user("ivan", password="pw")
+        restored = self.scenes(user=user)["restored"]
+        text = spoken(restored)
+        self.assertIn("ivan", text)
+        self.assertIn("aether-main", text)
+        self.assertNotIn("Unregistered", text)
+
+    def test_returning_guest_restores_onto_aether_null(self):
+        restored = self.scenes(session={"guest": True})["restored"]
+        text = spoken(restored)
+        self.assertIn("aether-null", text)
+        self.assertIn("Unregistered session", text)

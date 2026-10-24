@@ -2,10 +2,10 @@
 {% load static %}
 
 {% comment %}
-  Экран входа после загрузки. Строится из тех же деталей, что и сама загрузка:
-  boot.css (строки, цвета, курсор, развёртка) и login.css (кнопки выбора).
-  Узел подаёт себя как удалённую машину: данные про дыру для гостя и баннер лежат
-  в boot_config.gateway (users/aether_auth.py).
+  Экран входа: игрок подключается к удалённой машине. Всё содержимое это консольные
+  сцены (boot_config.scenes, их собирает users/gateway.py), а проигрывает их
+  общий проигрыватель static/ui/console.js. Сюда ничего про владельца машины не
+  попадает: исходник страницы виден игроку.
 {% endcomment %}
 
 {% block lang %}en{% endblock %}
@@ -13,14 +13,14 @@
 
 {% block css %}
     <link rel="stylesheet" href="{% static 'boot/boot.css' %}">
-    <link rel="stylesheet" href="{% static 'boot/login.css' %}">
+    <link rel="stylesheet" href="{% static 'ui/console.css' %}">
     <link rel="stylesheet" href="{% static 'boot/lock.css' %}">
 {% endblock %}
 
 {% block body %}
     <div id="boot-screen">
         <div id="boot-terminal">
-            <div id="boot-output" aria-live="polite"></div>
+            <div id="boot-output"></div>
         </div>
         <div class="boot-hint" id="lock-hint">[ any key ] skip</div>
     </div>
@@ -28,5 +28,6 @@
 
 {% block js %}
     {{ boot_config|json_script:"boot-config" }}
-    <script src="{% static 'boot/lock.js' %}"></script>
+    <script src="{% static 'ui/console.js' %}" defer></script>
+    <script src="{% static 'boot/lock.js' %}" defer></script>
 {% endblock %}

@@ -1,6 +1,6 @@
-/* Экран входа: продолжение загрузки.
-   Строки, цвета, курсор и развёртка приходят из boot.css, кнопки выбора из login.css.
-   Здесь только то, что нужно самому экрану; своих цветов нет. */
+/* Экран входа. Строки, выбор и курсор рисует проигрыватель консоли
+   (static/ui/console.css), раскладку и развёртку даёт boot.css.
+   Здесь только плавное исчезновение при переходе на стол. */
 
 #boot-screen {
     transition: opacity 0.6s ease;
@@ -8,58 +8,4 @@
 
 #boot-screen.is-leaving {
     opacity: 0;
-}
-
-/* короткая вспышка при «сбросе соединения» */
-#boot-screen.is-flash {
-    filter: invert(1);
-}
-
-.lock-options {
-    margin-top: 0.4rem;
-}
-
-/* вариант входа: основная строка и пояснения под ней */
-.lock-option {
-    display: block;
-    width: 100%;
-    color: var(--font-light);
-    white-space: pre;
-}
-
-.lock-option .lock-option-note {
-    display: block;
-    padding-left: 9ch; /* под названием варианта, мимо метки [ G ] */
-}
-
-.lock-option:hover:not(:disabled) .lock-option-main,
-.lock-option:focus-visible .lock-option-main {
-    color: var(--accent);
-}
-
-.lock-option:disabled {
-    opacity: 0.4;
-}
-
-/* маркер выбранного варианта; место под него есть всегда, чтобы текст не прыгал */
-.lock-option .lock-option-main {
-    position: relative;
-    padding-left: 2ch;
-}
-
-.lock-option:focus-visible .lock-option-main::before,
-.lock-option:hover:not(:disabled) .lock-option-main::before {
-    content: ">";
-    position: absolute;
-    left: 0;
-    color: var(--accent-green);
-}
-
-@media (max-width: 700px) {
-    .lock-option .lock-option-tag,
-    .lock-option .lock-option-note {
-        display: block;
-        padding-left: 7ch; /* под названием варианта, мимо метки [ G ] */
-        white-space: normal;
-    }
 }
