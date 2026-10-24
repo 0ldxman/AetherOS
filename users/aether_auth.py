@@ -38,37 +38,66 @@ CLEARANCE_LABELS = {
 }
 
 # =========================================================
-# GATEWAY (экран входа после загрузки)
+# GATEWAY (экран входа)
 # ---------------------------------------------------------
-# ПРОТОТИП: эти тексты потом должны задаваться из админки
-# (у каждой машины своё). Аноним входит не через логин, а через
-# дыру: что-то на aether-null оставили открытым намеренно, но не
-# игрок. Дыра есть только на aether-null.
+# ПРОТОТИП: тексты потом должны задаваться из админки (у каждой машины,
+# организации и системы свои). Aether это система, CTRG организация.
+#
+# Игрок приходит на aether-main, там вход только через Discord. Через пару
+# секунд в меню кто-то дописывает строку от первого лица: это обходной путь
+# внутрь, оставленный не игроком. Нажатие превращает aether-main в aether-null
+# (для системы это две машины на одном железе, у них общий hid).
 # =========================================================
 
 GATEWAY = {
+    "system": "AETHER",
+    "org": "CTRG",
+    "host": "aether-main",
     "notice": [
-        "This system is for authorized use only.",
+        "CTRG property. Authorized personnel only.",
         "All access is monitored and logged.",
     ],
-    "guest": {
-        "machine": "aether-null",
-        "service": "maintenance console",
-        "opened": "03:12",
-        "by": "unknown operator",
-    },
-    "external": {
-        "label": "DISCORD",
-        "machine": "aether-main",
+    "external": {"label": "DISCORD"},
+    "bypass": {
+        "host": "aether-null",
+        # когда после появления меню печатается строка
+        "delay_ms": 2200,
+        # строка выбирается случайно при каждом заходе
+        "lines": [
+            "i left it open for you",
+            "come in. i'll keep it open",
+            "i can let you in. quietly.",
+            "you don't have to ask them",
+            "this way. they aren't looking at this door",
+            "i opened this for you. hurry",
+        ],
+        # если игрок ничего не делает, через столько мс добавляется вторая строка
+        "again_after_ms": [20000, 30000],
+        "again_lines": [
+            "...still here",
+            "i can't hold this open for long",
+            "are you there?",
+        ],
     },
 }
 
+# hid, который показывается, если машины aether-main нет в базе
+UNKNOWN_HID = "--:--:--:--:--:--"
+
 
 def gateway_config():
-    """Данные экрана входа; уровень допуска гостя берётся из настроек выше."""
+    """Данные экрана входа: тексты из GATEWAY, hid машины из базы, допуск гостя."""
+    from machines.models import Machine
+
+    hid = (
+        Machine.objects.filter(hostname=GATEWAY["host"])
+        .values_list("hid", flat=True)
+        .first()
+    )
     return {
         **GATEWAY,
-        "guest": {**GATEWAY["guest"], "clearance": clearance_dict(GUEST_LEVEL)},
+        "hid": hid or UNKNOWN_HID,
+        "bypass": {**GATEWAY["bypass"], "clearance": clearance_dict(GUEST_LEVEL)},
     }
 
 

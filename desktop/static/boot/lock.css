@@ -10,6 +10,11 @@
     opacity: 0;
 }
 
+/* короткая вспышка при «сбросе соединения» */
+#boot-screen.is-flash {
+    filter: invert(1);
+}
+
 .lock-options {
     margin-top: 0.4rem;
 }

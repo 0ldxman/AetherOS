@@ -104,10 +104,14 @@ class LockScreenTests(TestCase):
         self.assertContains(response, "boot/lock.js")
 
     def test_gateway_data_reaches_the_page(self):
+        from machines.models import Machine
+
+        machine = Machine.objects.create(name="Main", hostname="aether-main")
         body = self.client.get(reverse("lock")).content.decode()
-        self.assertIn("maintenance console", body)
+        self.assertIn("CTRG", body)
         self.assertIn("aether-null", body)
-        self.assertIn("unknown operator", body)
+        self.assertIn(machine.hid, body)
+        self.assertIn("i left it open for you", body)
 
     def test_node_name_is_in_the_config(self):
         from users.aether_auth import NODE_NAME
@@ -126,21 +130,42 @@ class LockScreenTests(TestCase):
 
 
 class GatewayConfigTests(TestCase):
-    def test_guest_hole_exists_only_on_aether_null(self):
+    def test_the_screen_is_aether_of_ctrg_on_aether_main(self):
         from users.aether_auth import gateway_config
 
-        guest = gateway_config()["guest"]
-        self.assertEqual(guest["machine"], "aether-null")
-        self.assertEqual(guest["clearance"], {"level": "L0", "label": "PUBLIC"})
+        config = gateway_config()
+        self.assertEqual((config["system"], config["org"], config["host"]), ("AETHER", "CTRG", "aether-main"))
 
-    def test_external_authority_leads_to_the_main_machine(self):
+    def test_bypass_turns_main_into_null(self):
         from users.aether_auth import gateway_config
 
-        self.assertEqual(gateway_config()["external"]["machine"], "aether-main")
+        bypass = gateway_config()["bypass"]
+        self.assertEqual(bypass["host"], "aether-null")
+        self.assertEqual(bypass["clearance"], {"level": "L0", "label": "PUBLIC"})
+
+    def test_bypass_voice_is_a_pool_to_pick_from(self):
+        from users.aether_auth import GATEWAY
+
+        self.assertGreaterEqual(len(GATEWAY["bypass"]["lines"]), 3)
+        self.assertGreaterEqual(len(GATEWAY["bypass"]["again_lines"]), 2)
+        low, high = GATEWAY["bypass"]["again_after_ms"]
+        self.assertLess(low, high)
+
+    def test_hid_is_taken_from_the_machine(self):
+        from machines.models import Machine
+        from users.aether_auth import gateway_config
+
+        machine = Machine.objects.create(name="Main", hostname="aether-main")
+        self.assertEqual(gateway_config()["hid"], machine.hid)
+
+    def test_hid_has_a_placeholder_when_the_machine_is_missing(self):
+        from users.aether_auth import UNKNOWN_HID, gateway_config
+
+        self.assertEqual(gateway_config()["hid"], UNKNOWN_HID)
 
     def test_config_helper_does_not_mutate_the_template_data(self):
         from users.aether_auth import GATEWAY, gateway_config
 
-        gateway_config()["guest"]["machine"] = "changed"
-        self.assertEqual(GATEWAY["guest"]["machine"], "aether-null")
-        self.assertNotIn("clearance", GATEWAY["guest"])
+        gateway_config()["bypass"]["host"] = "changed"
+        self.assertEqual(GATEWAY["bypass"]["host"], "aether-null")
+        self.assertNotIn("clearance", GATEWAY["bypass"])
