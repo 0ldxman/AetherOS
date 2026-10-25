@@ -3,22 +3,26 @@
 Это сцены консоли (console/scene.py), а не страница: Python собирает их, браузер
 проигрывает (static/ui/console.js, desktop/static/boot/lock.js).
 
-Aether это связь на радиоволнах, а не обычные сетевые протоколы. Подключение это
-настоящая последовательность шагов радиоклиента Aether Link, на языке Aether. Между
-этапами смена режима (чёрный кадр), а шапка (клиент, имя узла, chassis) печатается
-заново:
+Aether это связь на радиоволнах, а у ПК игрока радио нет. Поэтому сначала ПК выходит
+через обычный интернет на МОСТ (остаток общей сети, у него есть радиооборудование), а
+мост уже ведёт радиосвязь до узла. Первый этап честно говорит на сетевом языке (tcp,
+tls), дальше только радио. Между этапами смена режима (чёрный кадр), а шапка (клиент,
+имя узла, через какой мост, chassis) печатается заново:
 
-    1/8 tune          радио, антенна, заземление, поиск несущей, захват частоты узла
-    2/8 path          станции на пути сигнала (часть молчит: сеть местами разрушена)
-    3/8 sync          преамбула, кадры, модуляция, коррекция ошибок, скорость канала
-    4/8 key exchange  пара ключей, отпечатки, полоса «deriving key», ключи сессии
-    5/8 identity      цепочка сертификатов (издатель замазан, срок давно вышел),
+    1/9 bridge        ПК без радио, каталог мостов (ближние и дальние, рабочие и нет),
+                      выбор ближайшего рабочего, правка Zero видна как след: ключ клиента
+                      внесён в белый список «3 min ago by ██████»
+    2/9 tune          радио моста, антенна, заземление, поиск несущей, захват частоты узла
+    3/9 path          станции на пути сигнала (часть молчит: сеть местами разрушена)
+    4/9 sync          преамбула, кадры, модуляция, коррекция ошибок, скорость канала
+    5/9 key exchange  пара ключей, отпечатки, полоса «deriving key», ключи сессии
+    6/9 identity      цепочка сертификатов (издатель замазан, срок давно вышел),
                       статус отзыва недоступен, ключ узла с картинкой отпечатка,
                       вопрос про неизвестный узел (на знакомом узле его нет)
-    6/8 node          chassis, система, владелец замазан, центр не отвечает, политика
-    7/8 access        баннер, методы входа (два из трёх недоступны), выбор: Discord, а
+    7/9 node          chassis, система, владелец замазан, центр не отвечает, политика
+    8/9 access        баннер, методы входа (два из трёх недоступны), выбор: Discord, а
                       на месте второго варианта кто-то печатает фразу от первого лица
-    8/8 session       если игрок пошёл за этой фразой: имя узла в шапке портится
+    9/9 session       если игрок пошёл за этой фразой: имя узла в шапке портится
                       (aether-main -> aether-null, меняются только main/null),
                       chassis остаётся прежним, потом открывается сессия «witness»
 
@@ -36,7 +40,7 @@ from console.scene import Option, Scene
 from machines.identity import CORE_HOST
 from machines.world import BEACON_LAST_SYNC, CERT_NOT_AFTER, CORE_LAST_CONTACT, GAME_DATE, days_since
 
-STAGES = 8
+STAGES = 9
 
 CLIENT = "AETHER LINK 3.2"
 PROTOCOL = "alp/3.2"
@@ -44,7 +48,9 @@ NULL_HOST = "aether-null"
 EXTERNAL = "DISCORD"
 CIPHER = "x25519 / chacha20-poly1305 / sha256"
 KEY_ID = "9c1e 44a0 b73d 08f2 e5a1 63cc"
-CLIENT_KEY = "SHA256:Qm7cRk0VnT2yJfX4uL8aZpE3wH1dBs9oGcNx6tYvAeI"
+CLIENT_KEY = "SHA256:Qm7cRk0VnT2yJfX4uL8aZpE3wH1dBs9oGcNx6tYvAeI"   # если ключ посетителя не передан
+BRIDGE = "narthex"
+BRIDGE_NOTE = "for the one who comes to see"
 OWNER_MASK = 14
 SYSTEM = "AETHER 9.1 (halcyon)"
 KERNEL = "aek 5.8.14-hal"
@@ -70,6 +76,18 @@ ROUTE = (
     ("gw-██", 63, 655, -97),
     ("aether-main", 66, 701, -92),
 )
+# Каталог мостов: (имя, расстояние км, состояние, подробности). Ближайшие часто мертвы;
+# клиент берёт ближайший рабочий. Имена: греческие ветры и вестники (эфир, воздух).
+BRIDGES = (
+    ("zephyr", 12, "offline", "no carrier"),
+    ("boreas", 38, "no answer", "silent for 1,204 d"),
+    (BRIDGE, 91, "reachable", "rtt 38 ms"),
+    ("notos", 214, "degraded", "rtt 410 ms, loss 12 %"),
+    ("euros", 388, "offline", "no carrier"),
+    ("iris", 530, "reachable", "rtt 96 ms"),
+    ("hermes", 702, "offline", "no carrier"),
+)
+BRIDGE_STYLES = {"offline": "error", "no answer": "warning", "degraded": "warning", "reachable": "success"}
 STATIONS_KNOWN = 31
 STATIONS_REACHABLE = 17
 
@@ -95,13 +113,15 @@ VOICE_AGAIN_MS = (20000, 30000)        # через сколько молчан�
 
 # ---------- общие куски ----------
 
-def _header(s, ident, *, host=None, chassis=None, saved=False):
-    """Шапка этапа: клиент, узел и (с этапа 5) chassis. Имя узла с id для glitch."""
+def _header(s, ident, *, host=None, chassis=None, saved=False, via=True):
+    """Шапка этапа: клиент, узел, мост и (с этапа 6) chassis. Имя узла с id для glitch."""
     s.say(CLIENT, (f"  ·  {PROTOCOL}", "dim"))
     if saved:
         s.row("target", ident.hostname, note="(saved)")
     else:
         s.row("node", host or ident.hostname, id="host")
+    if via:
+        s.row("via", BRIDGE, "dim")
     if chassis:
         s.row("chassis", chassis, "dim")
 
@@ -154,9 +174,45 @@ def _options(*, late):
 # ---------- этапы ----------
 # known: узел игрок уже видел. Шум (необязательные подробности) тогда пропускается.
 
-def _tune(s, ident, known):
+def _bridge(s, ident, known, client_key):
+    _header(s, ident, saved=True, via=False)
+    _stage(s, 1, "bridge")
+    s.row("client", "x86_64  ·  radio: no device found", "warning")
+    if not known:
+        s.row("client key", client_key, "dim", width=11)
+    s.say(
+        f"directory {len(BRIDGES)} bridges, last sync {BEACON_LAST_SYNC} ({days_since(BEACON_LAST_SYNC)} d ago)",
+        style="warning",
+    )
+    if known:
+        s.task(f"select    {BRIDGE} ", "reachable", ms=(300, 700), style="success")
+    else:
+        s.say("bridges   nearest first", style="dim")
+        for name, km, status, detail in BRIDGES:
+            s.wait((200, 600))
+            s.say(
+                "          ", f"{name:<9}{km:>4} km  ",
+                (f"{status:<10}", BRIDGE_STYLES[status]), (detail, "dim"),
+                ("   <" if name == BRIDGE else "", "success"),
+            )
+        s.say(f"select    {BRIDGE}  (nearest reachable)")
+    s.task(f"connect   {BRIDGE}  tcp 443 ", "established", ms=(450, 1000), style="success")
+    if not known:
+        s.task("tls       1.3 handshake ", "ok", ms=(350, 800), style="success")
+    s.row("bridge", f"{BRIDGE}  ·  rf0 wideband 2-30 MHz  ·  loop 40 m  ·  earth 2.8 ohm", "dim")
+    if not known:
+        s.row("operator", f'note: "{BRIDGE_NOTE}"', "dim")
+    s.task("auth      client key ", "allowlisted", ms=(500, 1100), style="success")
+    s.say("          allowlist: 1 entry (this client)", style="dim")
+    s.say("          added 3 min ago by " + Scene.mask(10) + "  [restricted]", style="warning")
+    s.row("tunnel", "alp over tls  ·  frame 1380", "dim")
+    s.row("channel", "7 of 16 allocated  ·  tx 40 W", "dim")
+    s.say("          handing the link to the radio")
+
+
+def _tune(s, ident, known, client_key):
     _header(s, ident, saved=True)
-    _stage(s, 1, "tune")
+    _stage(s, 2, "tune")
     s.row("radio", "rf0  aether wideband 2-30 MHz", "dim")
     if not known:
         s.row("antenna", "loop 40 m  ·  vswr 1.3", "dim")
@@ -175,9 +231,9 @@ def _tune(s, ident, known):
         s.row("mode", "ground wave + skywave", "dim")
 
 
-def _path(s, ident, known):
+def _path(s, ident, known, client_key):
     _header(s, ident)
-    _stage(s, 2, "path")
+    _stage(s, 3, "path")
     s.say(f"stations  directory {STATIONS_KNOWN}, reachable {STATIONS_REACHABLE}", style="dim")
     s.say("path      probing stations (max 12 hops)")
     _route(s)
@@ -189,9 +245,9 @@ def _path(s, ident, known):
     s.task("frame     measuring max size ", "1452 bytes", style="dim", ms=(400, 900))
 
 
-def _sync(s, ident, known):
+def _sync(s, ident, known, client_key):
     _header(s, ident)
-    _stage(s, 3, "sync")
+    _stage(s, 4, "sync")
     s.task("preamble  detecting ", "found", ms=(300, 700), style="success")
     s.task("frame     synchronising ", "locked", ms=(500, 1100), style="success")
     s.burst(
@@ -215,14 +271,14 @@ def _sync(s, ident, known):
     s.task("link      measuring quality ", "good", ms=(300, 700), style="success")
 
 
-def _key_exchange(s, ident, known):
+def _key_exchange(s, ident, known, client_key):
     _header(s, ident)
-    _stage(s, 4, "key exchange")
+    _stage(s, 5, "key exchange")
     s.row("kex", "x25519  ·  kdf hkdf-sha256", "dim")
     s.row("cipher", CIPHER, "dim")
     s.task("client    generating key pair ", "OK", ms=(500, 900))
     if not known:
-        s.row("client", f"ed25519  {CLIENT_KEY}", "dim")
+        s.row("client", f"ed25519  {client_key}", "dim")
     s.task("node      sending challenge ", "OK", ms=(700, 1300))
     if not known:
         s.burst(
@@ -241,9 +297,9 @@ def _key_exchange(s, ident, known):
     s.task("session   key accepted ", "OK", ms=(300, 600))
 
 
-def _identity(s, ident, known):
+def _identity(s, ident, known, client_key):
     _header(s, ident)
-    _stage(s, 5, "identity")
+    _stage(s, 6, "identity")
     s.say("certificate chain  (2)")
     mask = Scene.mask(OWNER_MASK)
     s.burst(
@@ -280,9 +336,9 @@ def _identity(s, ident, known):
     s.say("Node added to contacts.", style="dim")
 
 
-def _node(s, ident, known):
+def _node(s, ident, known, client_key):
     _header(s, ident, chassis=ident.hid)
-    _stage(s, 6, "node")
+    _stage(s, 7, "node")
     s.row("system", SYSTEM)
     s.row("kernel", KERNEL, "dim")
     if not known:
@@ -303,9 +359,9 @@ def _node(s, ident, known):
     s.row("sessions", "0 active", "dim")
 
 
-def _access(s, ident, known):
+def _access(s, ident, known, client_key):
     _header(s, ident, chassis=ident.hid)
-    _stage(s, 7, "access")
+    _stage(s, 8, "access")
     s.blank()
     s.say("-- node banner --", style="dim")
     for row in (BANNER if not known else BANNER[:2]):
@@ -323,16 +379,17 @@ def _access(s, ident, known):
 
 # ---------- сцены ----------
 
-def intro_scene(ident, *, known=False):
-    """Этапы 1-7: подключение и вход. Заканчивается выбором.
+def intro_scene(ident, *, known=False, client_key=CLIENT_KEY):
+    """Этапы 1-8: мост, радио, вход. Заканчивается выбором.
 
     known: узел игрок уже добавлял в контакты, вопроса про доверие нет.
+    client_key: отпечаток ключа этого посетителя (на мосту он в белом списке).
     """
     s = Scene()
-    for stage in (_tune, _path, _sync, _key_exchange, _identity, _node):
-        stage(s, ident, known)
+    for stage in (_bridge, _tune, _path, _sync, _key_exchange, _identity, _node):
+        stage(s, ident, known, client_key)
         _next_screen(s)
-    _access(s, ident, known)
+    _access(s, ident, known, client_key)
     s.blank()
     s.choice("entry", _options(late=True))
     return s
@@ -363,7 +420,7 @@ def bypass_scene(ident, login):
     _next_screen(s)
 
     _header(s, ident, host=NULL_HOST, chassis=ident.hid)
-    _stage(s, 8, "session")
+    _stage(s, 9, "session")
     s.task(f"channel   opening ({login}) ", "OPEN", style="warning", ms=(450, 900))
     return s
 
@@ -375,7 +432,7 @@ def established_scene(clearance, login):
     s.task("pty       allocating 120x32 ", "OK", ms=(250, 550))
     s.burst(
         ("env       ", ("TERM=aether-256  LANG=en_US.UTF-8", "dim")),
-        ("env       ", (f"AETHER_SESSION={login}  AETHER_SCOPE=public", "dim")),
+        ("env       ", (f"AETHER_SESSION={login}  AETHER_SCOPE={clearance['level']}", "dim")),
         ("limits    ", ("idle 15 min  ·  recording on", "dim")),
     )
     s.task("display   negotiating 1280x720 ", "OK", ms=(400, 800))
@@ -383,7 +440,7 @@ def established_scene(clearance, login):
     s.say("session established.", style="success")
     s.blank()
     s.row("user", login, "dim")
-    s.row("clearance", f"{clearance['level']} ({clearance['label']})", "warning")
+    s.row("clearance", clearance["level"], "warning")
     s.say("WARNING: session is not registered on this node", style="warning")
     s.blank()
     s.say("Loading workspace")
@@ -406,7 +463,7 @@ def restored_scene(ident, *, username, clearance, guest):
     s.task("session   restoring ", "OK", ms=(350, 700))
     s.blank()
     s.row("user", username, "dim" if guest else "success")
-    s.row("clearance", f"{clearance['level']} ({clearance['label']})", "warning" if guest else "success")
+    s.row("clearance", clearance["level"], "warning" if guest else "success")
     if guest:
         s.say("Unregistered session: not on this node's account list.", style="warning")
     s.blank()

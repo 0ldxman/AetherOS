@@ -18,6 +18,8 @@ from django.shortcuts import render
 from django.views.decorators.csrf import ensure_csrf_cookie
 from django.views.decorators.http import require_POST
 
+from machines.world import CLEARANCE
+
 
 # =========================================================
 # SETTINGS
@@ -27,14 +29,6 @@ GUEST_LEVEL = 0
 GUEST_LOGIN = "witness"   # под этим именем входит игрок без регистрации
 DEFAULT_USER_LEVEL = 1
 
-CLEARANCE_LABELS = {
-    0: "PUBLIC",
-    1: "INTERNAL",
-    2: "CONFIDENTIAL",
-    3: "RESTRICTED",
-    4: "SECRET",
-    5: "TOP SECRET",
-}
 
 # =========================================================
 # GATEWAY (экран входа)
@@ -43,17 +37,30 @@ CLEARANCE_LABELS = {
 # которых нет в самих сценах: hid машины из базы и допуск гостя.
 # =========================================================
 
+def _visitor(request):
+    """Кто пришёл: пользователь или (для безымянного) его сессия; от этого зависит ключ клиента."""
+    if request.user.is_authenticated:
+        return f"user:{request.user.pk}"
+    session = getattr(request, "session", None)
+    key = getattr(session, "session_key", None)
+    if session is not None and key is None and hasattr(session, "create"):
+        session.create()
+        key = session.session_key
+    return f"session:{key or 'anonymous'}"
+
+
 def gateway_scenes(request):
     """Сцены экрана входа для этого посетителя (словарь имя -> список шагов)."""
-    from machines.identity import identity_of
+    from machines.identity import client_fingerprint, identity_of
 
     from . import gateway
 
     ident = identity_of()
+    client_key = client_fingerprint(_visitor(request))
 
     scenes = {
-        "intro": gateway.intro_scene(ident),
-        "intro_known": gateway.intro_scene(ident, known=True),
+        "intro": gateway.intro_scene(ident, client_key=client_key),
+        "intro_known": gateway.intro_scene(ident, known=True, client_key=client_key),
         "menu": gateway.menu_scene(),
         "discord": gateway.discord_scene(),
         "bypass": gateway.bypass_scene(ident, GUEST_LOGIN),
@@ -101,11 +108,9 @@ def current_level(request):
 
 
 def clearance_dict(level):
-    """Формат для сцен: {"level": "L3", "label": "RESTRICTED"}"""
-    return {
-        "level": f"L{level}",
-        "label": CLEARANCE_LABELS.get(level, "UNKNOWN"),
-    }
+    """Формат для сцен: {"level": "MYS", "label": "mystes"} (код из трёх букв и греческое имя)."""
+    code, label = CLEARANCE.get(level, ("???", "unknown"))
+    return {"level": code, "label": label}
 
 
 def clearance_required(min_level):

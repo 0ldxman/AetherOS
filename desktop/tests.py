@@ -209,35 +209,92 @@ class GatewayScenesTests(TestCase):
 
     # ---------- этапы ----------
 
-    def test_intro_is_seven_stages_split_by_mode_changes(self):
+    def test_intro_is_eight_stages_split_by_mode_changes(self):
         intro = self.scenes()["intro"]
-        self.assertEqual(sum(1 for s in intro if s["op"] == "cut"), 6)
-        titles = [t for t in self.texts(intro) if t.startswith("-- ") and "/8" in t]
+        self.assertEqual(sum(1 for s in intro if s["op"] == "cut"), 7)
+        titles = [t for t in self.texts(intro) if t.startswith("-- ") and "/9" in t]
         self.assertEqual(
             titles,
             [
-                "-- 1/8  tune --", "-- 2/8  path --", "-- 3/8  sync --", "-- 4/8  key exchange --",
-                "-- 5/8  identity --", "-- 6/8  node --", "-- 7/8  access --",
+                "-- 1/9  bridge --", "-- 2/9  tune --", "-- 3/9  path --", "-- 4/9  sync --",
+                "-- 5/9  key exchange --", "-- 6/9  identity --", "-- 7/9  node --", "-- 8/9  access --",
             ],
         )
 
-    def test_the_session_is_the_eighth_stage(self):
-        self.assertIn("-- 8/8  session --", self.texts(self.scenes()["bypass"]))
+    def test_the_session_is_the_ninth_stage(self):
+        self.assertIn("-- 9/9  session --", self.texts(self.scenes()["bypass"]))
 
     def test_each_stage_reprints_the_header(self):
         intro = self.scenes()["intro"]
-        self.assertEqual(sum(1 for t in self.texts(intro) if t == "AETHER LINK 3.2"), 7)
+        self.assertEqual(sum(1 for t in self.texts(intro) if t == "AETHER LINK 3.2"), 8)
 
-    def test_the_link_is_radio_not_an_ip_network(self):
-        text = spoken(self.scenes()["intro"])
+    def test_the_link_is_radio_after_the_bridge_not_an_ip_network(self):
+        import re
+
+        intro = self.scenes()["intro"]
+        first_cut = next(i for i, step in enumerate(intro) if step["op"] == "cut")
+        bridge, radio = spoken(intro[:first_cut]), spoken(intro[first_cut:])
         for word in ("rf0", "MHz", "carrier", "stations", "dBm", "ofdm", "ldpc", "ground wave", "callsign",
                      "alp/3.2", "certificate chain", "host key", "key id", "[ED25519 256]",
                      "auth      offered by node", "no client key", "38 Mbit/s"):
-            self.assertIn(word, text)
-        import re
-
+            self.assertIn(word, radio)
         for word in ("dns", "tcp", "udp", "ethernet", "eth0", "ttl", "ssh", "tls", "mtu"):
-            self.assertIsNone(re.search(rf"\b{word}\b", text, re.IGNORECASE), word)
+            self.assertIsNone(re.search(rf"\b{word}\b", radio, re.IGNORECASE), word)
+        # а первый этап честно говорит на языке обычного интернета: ПК игрока живёт в нём
+        for word in ("tcp 443", "tls", "x86_64"):
+            self.assertIn(word, bridge)
+
+    def test_the_players_pc_has_no_radio_so_a_bridge_comes_first(self):
+        text = spoken(self.scenes()["intro"])
+        self.assertIn("radio: no device found", text)
+        self.assertLess(text.index("-- 1/9  bridge --"), text.index("-- 2/9  tune --"))
+
+    def test_the_bridge_directory_lists_near_and_far_working_and_dead(self):
+        from users.gateway import BRIDGE, BRIDGES
+
+        distances = [km for _, km, _, _ in BRIDGES]
+        self.assertEqual(distances, sorted(distances))                      # ближайшие первыми
+        self.assertGreaterEqual(len({status for _, _, status, _ in BRIDGES}), 4)
+        nearest_alive = next(name for name, _, status, _ in BRIDGES if status in ("reachable", "degraded"))
+        self.assertEqual(nearest_alive, BRIDGE)                             # берётся ближайший рабочий
+        dead_before = [name for name, _, status, _ in BRIDGES[:2] if status in ("offline", "no answer")]
+        self.assertEqual(len(dead_before), 2)                               # ближе него мертво
+        text = spoken(self.scenes()["intro"])
+        for name, *_ in BRIDGES:
+            self.assertIn(name, text)
+        self.assertIn(f"select    {BRIDGE}  (nearest reachable)", text)
+
+    def test_the_bridge_names_are_greek_winds_and_messengers(self):
+        from users.gateway import BRIDGES
+
+        self.assertEqual({name for name, *_ in BRIDGES}, {"zephyr", "boreas", "narthex", "notos", "euros", "iris", "hermes"})
+
+    def test_the_bridge_was_opened_for_this_client_by_someone_restricted(self):
+        text = spoken(self.scenes()["intro"])
+        self.assertIn("allowlisted", text)
+        self.assertIn("allowlist: 1 entry (this client)", text)
+        self.assertIn("added 3 min ago by " + "█" * 10, text)
+        self.assertIn("for the one who comes to see", text)
+
+    def test_the_client_key_is_personal(self):
+        from django.contrib.auth import get_user_model
+
+        from machines.identity import client_fingerprint
+
+        first = get_user_model().objects.create_user("ivan", password="pw")
+        second = get_user_model().objects.create_user("olga", password="pw")
+        a, b = self.scenes(user=first), self.scenes(user=second)
+        self.assertIn(client_fingerprint(f"user:{first.pk}"), spoken(a["intro"]))
+        self.assertIn(client_fingerprint(f"user:{second.pk}"), spoken(b["intro"]))
+        self.assertNotEqual(spoken(a["intro"]), spoken(b["intro"]))
+
+    def test_the_known_node_does_not_repeat_the_bridge_noise(self):
+        scenes = self.scenes()
+        known = spoken(scenes["intro_known"])
+        self.assertNotIn("bridges   nearest first", known)
+        self.assertNotIn("tls       1.3 handshake", known)
+        self.assertIn("select    narthex", known)
+        self.assertIn("allowlisted", known)
 
     def test_the_node_frequency_comes_from_the_machine(self):
         from machines.identity import freq_for
@@ -294,7 +351,7 @@ class GatewayScenesTests(TestCase):
     def test_every_stage_gives_time_to_read_before_the_screen_changes(self):
         intro = self.scenes()["intro"]
         cuts = [i for i, step in enumerate(intro) if step["op"] == "cut"]
-        self.assertEqual(len(cuts), 6)
+        self.assertEqual(len(cuts), 7)
         for index in cuts:
             self.assertEqual(intro[index - 1]["op"], "read", f"перед cut №{index} нет read")
 
@@ -414,7 +471,9 @@ class GatewayScenesTests(TestCase):
         self.assertNotIn("Loading workspace", spoken(scenes["bypass"]))
         established = spoken(scenes["established"])
         self.assertIn("session established", established)
-        self.assertIn("L0 (PUBLIC)", established)
+        self.assertIn("MRT", established)
+        self.assertNotIn("L0", established)
+        self.assertNotIn("PUBLIC", established)
         self.assertIn("witness", established)
         self.assertIn("not registered", established)
 
@@ -430,6 +489,7 @@ class GatewayScenesTests(TestCase):
         text = spoken(self.scenes(user=user)["restored"])
         self.assertIn("ivan", text)
         self.assertIn("aether-main", text)
+        self.assertIn("AKR", text)          # допуск пользователя: ступень первая
         self.assertNotIn("Unregistered", text)
 
     def test_returning_guest_restores_onto_aether_null(self):
@@ -515,6 +575,11 @@ class BootScreenTests(TestCase):
         full = spoken(self.scenes()["full"])
         self.assertIn("reset by remote request", full)
         self.assertIn("[restricted]", full)
+
+    def test_the_recovery_entry_wants_the_top_greek_step_not_l5(self):
+        full = spoken(self.scenes()["full"])
+        self.assertIn("[clearance ARC required]", full)
+        self.assertNotIn("L5", full)
 
     def test_the_machine_belongs_to_the_alternate_2020_not_to_2061(self):
         full = spoken(self.scenes()["full"])

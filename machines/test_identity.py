@@ -4,8 +4,8 @@
 """
 from django.test import TestCase
 
-from machines.identity import UNKNOWN_HID, address_for, callsign_for, fingerprint_for, freq_for, identity_of, randomart_for, serial_for
-from machines.world import CORE_LAST_CONTACT, GAME_DATE, days_since
+from machines.identity import UNKNOWN_HID, address_for, callsign_for, client_fingerprint, fingerprint_for, freq_for, identity_of, randomart_for, serial_for
+from machines.world import CLEARANCE, CORE_LAST_CONTACT, GAME_DATE, clearance_code, days_since
 from machines.models import Machine
 
 
@@ -81,8 +81,28 @@ class RadioIdentityTests(TestCase):
 class WorldTests(TestCase):
     def test_the_player_comes_after_the_hunt(self):
         self.assertGreaterEqual(GAME_DATE.year, 2030)
-        self.assertGreater(CORE_LAST_CONTACT.year, 2026)       # центр замолчал во время войны 2027 года
+        self.assertEqual((CORE_LAST_CONTACT.year, CORE_LAST_CONTACT.month), (2027, 10))   # конец октября 2027
         self.assertLess(CORE_LAST_CONTACT, GAME_DATE)
 
     def test_days_since_is_a_readable_number(self):
         self.assertRegex(days_since(CORE_LAST_CONTACT), r"^\d{1,3}(,\d{3})*$")
+
+
+class ClearanceLadderTests(TestCase):
+    def test_three_letter_greek_codes_for_six_steps(self):
+        self.assertEqual(sorted(CLEARANCE), [0, 1, 2, 3, 4, 5])
+        for code, name in CLEARANCE.values():
+            self.assertRegex(code, r"^[A-Z]{3}$")
+            self.assertTrue(name.islower())
+        self.assertEqual([clearance_code(n) for n in range(6)], ["MRT", "AKR", "MYS", "EPO", "HIE", "ARC"])
+
+    def test_the_witness_is_the_first_step(self):
+        self.assertEqual(clearance_code(0), "MRT")
+
+    def test_an_unknown_level_does_not_break_the_screen(self):
+        self.assertEqual(clearance_code(99), "???")
+
+    def test_the_players_own_key_follows_who_they_are(self):
+        self.assertEqual(client_fingerprint("user:1"), client_fingerprint("user:1"))
+        self.assertNotEqual(client_fingerprint("user:1"), client_fingerprint("user:2"))
+        self.assertNotEqual(client_fingerprint("user:1"), fingerprint_for("user:1"))   # не совпадает с ключом узла

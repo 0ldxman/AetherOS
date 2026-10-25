@@ -61,6 +61,11 @@ def fingerprint_for(hid):
     return "SHA256:" + base64.b64encode(host_key_digest(hid)).decode().rstrip("=")
 
 
+def client_fingerprint(who):
+    """Отпечаток ключа клиента этого посетителя: у одного человека всегда один."""
+    return fingerprint_for("client:" + str(who))
+
+
 def randomart_for(hid, title="ED25519 256", footer="SHA256"):
     """Картинка отпечатка («блуждающий слон», как у ssh): у одного ключа всегда одна."""
     width, height = 17, 9

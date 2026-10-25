@@ -21,7 +21,7 @@ import hashlib
 
 from console.scene import Scene
 from machines.identity import CORE_HOST
-from machines.world import BEACON_LAST_SYNC, CORE_LAST_CONTACT, GAME_DATE, days_since
+from machines.world import BEACON_LAST_SYNC, CORE_LAST_CONTACT, GAME_DATE, clearance_code, days_since
 
 WIDTH = 12          # ширина подписей в таблицах прошивки
 
@@ -183,7 +183,7 @@ def _bootloader(s):
     s.blank()
     s.row("entry", "aether 9.1 (halcyon)", note="default", width=WIDTH)
     s.row("kernel", "aek 5.8.14-hal  vault=/dev/vault0", "dim", width=WIDTH)
-    s.say("recovery".ljust(WIDTH), ("aether 9.1 recovery  ", "dim"), ("[clearance L5 required]", "error"))
+    s.say("recovery".ljust(WIDTH), ("aether 9.1 recovery  ", "dim"), (f"[clearance {clearance_code(5)} required]", "error"))
     s.say("diagnostics".ljust(WIDTH), ("memory, vault  ", "dim"), ("[locked]", "warning"))
     s.blank()
     s.bar("loading aek 5.8.14-hal   ", ms=(900, 1600))
