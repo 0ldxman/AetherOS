@@ -57,7 +57,7 @@ class OutputTests(SimpleTestCase):
 
     def test_chaining_returns_the_scene(self):
         scene = Scene()
-        self.assertIs(scene.say("a", end=False).wait(10).flash().clear().fade("out"), scene)
+        self.assertIs(scene.say("a", end=False).wait(10).flash().clear().cut(), scene)
 
 
 class ProcessTests(SimpleTestCase):
@@ -77,29 +77,34 @@ class ProcessTests(SimpleTestCase):
         self.assertEqual([s["op"] for s in steps], ["dots", "text", "newline"])
         self.assertEqual((steps[1]["value"], steps[1]["style"]), ("  (ECC)", "dim"))
 
-    def test_service_task_waits_and_is_replaced_by_the_result(self):
-        step = Scene().task("Starting X...", "OK", look="service", done="Started X.").to_dict()[0]
+    def test_unit_task_waits_and_is_replaced_by_the_result(self):
+        step = Scene().task("keyagent  starting", "OK", look="unit", done="keyagent  secure key agent").to_dict()[0]
         self.assertEqual(step["op"], "spin")
-        self.assertEqual(step["pending"], [["[ WAIT ] Starting X...", "dim"]])
-        self.assertEqual(step["done"], [["[  OK  ] ", "success"], ["Started X.", None]])
+        self.assertEqual(step["pending"], [["[  ..  ] keyagent  starting", "dim"]])
+        self.assertEqual(step["done"], [["[  up  ] ", "success"], ["keyagent  secure key agent", None]])
 
-    def test_failed_and_warned_services_color_their_text_too(self):
-        warn = Scene().task("a", "WARN", look="service", done="b").to_dict()[0]["done"]
-        fail = Scene().task("a", "FAIL", "(code 1)", look="service", done="b").to_dict()[0]["done"]
-        self.assertEqual(warn, [["[ WARN ] ", "warning"], ["b", "warning"]])
-        self.assertEqual(fail[0], ["[FAILED] ", "error"])
+    def test_failed_and_warned_units_color_their_text_too(self):
+        warn = Scene().task("a", "WARN", look="unit", done="b").to_dict()[0]["done"]
+        fail = Scene().task("a", "FAIL", "(code 1)", look="unit", done="b").to_dict()[0]["done"]
+        self.assertEqual(warn, [["[ warn ] ", "warning"], ["b", "warning"]])
+        self.assertEqual(fail[0], ["[ fail ] ", "error"])
         self.assertEqual(fail[-1], ["(code 1)", "dim"])
+
+    def test_the_old_systemd_marks_are_gone(self):
+        text = json.dumps(Scene().task("a", "OK", look="unit").to_dict())
+        for word in ("WAIT", "FAILED", "  OK  "):
+            self.assertNotIn(word, text)
 
     def test_kernel_task_shows_an_unknown_time_then_the_real_one(self):
         step = Scene().task("vault: unlocking", "OK", at=0.801544).to_dict()[0]
         self.assertEqual(step["op"], "spin")
         self.assertIn("X.XXXXXX", step["pending"][0][0])
-        self.assertEqual(step["done"][0][0], "[    0.801544] vault: unlocking ")
+        self.assertEqual(step["done"][0][0], "  0.801544  vault: unlocking ")
         self.assertEqual(step["ms"], 801)
 
     def test_kernel_clock_runs_across_log_and_task(self):
         scene = Scene()
-        scene.log(0.5, "a")
+        scene.log(0.5, "cpu", "a")
         scene.task("b", "OK", at=1.0)
         waits = [s["ms"] for s in scene.to_dict() if s["op"] == "wait"]
         spin = [s for s in scene.to_dict() if s["op"] == "spin"][0]
@@ -131,6 +136,44 @@ class ProcessTests(SimpleTestCase):
                 Scene().countdown("{n}", bad)
 
 
+class RealismTests(SimpleTestCase):
+    def test_log_line_is_time_subsystem_text_with_the_subsystem_dimmed(self):
+        steps = Scene().log(0.004211, "cpu", "8 cores").to_dict()
+        texts = [s for s in steps if s["op"] == "text"]
+        self.assertEqual(texts[0]["value"], "  0.004211")
+        self.assertEqual((texts[2]["value"], texts[2]["style"]), ("cpu    ", "dim"))
+        self.assertEqual(texts[3]["value"], " 8 cores")
+
+    def test_burst_prints_lines_together_with_short_random_gaps(self):
+        scene = Scene().burst("a", ("b ", ("c", "dim")), gap=(5, 20))
+        self.assertEqual(ops(scene).count("newline"), 2)
+        waits = [s["ms"] for s in scene.to_dict() if s["op"] == "wait"]
+        self.assertEqual(waits, [[5, 20], [5, 20]])
+
+    def test_a_part_tuple_is_one_part_not_a_list_of_lines(self):
+        scene = Scene().burst(("done", "success"))
+        self.assertEqual(ops(scene).count("newline"), 1)
+
+    def test_times_can_be_ranges_so_two_boots_differ(self):
+        scene = Scene().wait((100, 300)).task("a", "OK", ms=(500, 900)).bar("b", ms=(800, 1200))
+        steps = {s["op"]: s["ms"] for s in scene.to_dict() if "ms" in s}
+        self.assertEqual(steps, {"wait": [100, 300], "dots": [500, 900], "bar": [800, 1200]})
+
+    def test_a_range_must_be_ordered(self):
+        with self.assertRaises(SceneError):
+            Scene().wait((300, 100))
+
+    def test_the_cursor_is_shown_only_where_the_console_waits_for_input(self):
+        plain = Scene().say("working", end=False).to_dict()[-1]
+        prompt = Scene().say("Trust? [y/n] ", end=False, cursor=True).to_dict()[-1]
+        self.assertNotIn("cursor", plain)
+        self.assertTrue(prompt["cursor"])
+
+    def test_cut_is_a_mode_change_not_a_fade(self):
+        self.assertEqual(Scene().cut().to_dict(), [{"op": "cut"}])
+        self.assertFalse(hasattr(Scene(), "fade"))
+
+
 class EffectTests(SimpleTestCase):
     def test_glitch_and_mask(self):
         step = Scene().glitch("host", "aether-null").to_dict()[0]
@@ -138,10 +181,6 @@ class EffectTests(SimpleTestCase):
         self.assertEqual(Scene().glitch("host", "x", frames=26).to_dict()[0]["frames"], 26)
         self.assertEqual(Scene.mask(4), "████")
 
-    def test_fade_goes_out_or_in(self):
-        self.assertEqual(Scene().fade("in", 200).to_dict()[0], {"op": "fade", "to": "in", "ms": 200})
-        with self.assertRaises(SceneError):
-            Scene().fade("sideways")
 
 
 class ValidationTests(SimpleTestCase):

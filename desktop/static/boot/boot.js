@@ -21,6 +21,9 @@
     const forceFull = new URLSearchParams(window.location.search).get("boot") === "full";
     const full = forceFull || !storage(store => store.getItem(SEEN_KEY));
 
+    const hint = document.getElementById("boot-hint");
+    hint.hidden = full;   // подсказка про пропуск нужна тем, кто уже видел загрузку
+
     const term = Aether.console.create(document.getElementById("boot-output"), {
         flashTarget: document.getElementById("boot-screen")
     });

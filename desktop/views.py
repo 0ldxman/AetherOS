@@ -7,6 +7,8 @@ from django.views.decorators.csrf import ensure_csrf_cookie
 
 from secure.access import satisfied
 
+from machines.identity import identity_of
+
 from .boots import boot_scenes
 
 from machines.current import active_session, current_machine, visible_apps
@@ -103,4 +105,4 @@ def desktop(request):
     })
 
 def boot(request):
-    return render(request, "boot/boot.html", {"boot_config": {"scenes": boot_scenes()}})
+    return render(request, "boot/boot.html", {"boot_config": {"scenes": boot_scenes(identity_of())}})

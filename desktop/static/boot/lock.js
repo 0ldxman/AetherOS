@@ -26,8 +26,20 @@
 
     const term = Aether.console.create(output, {
         flashTarget: screen,
-        onChoice: () => { hint.hidden = true; }
+        onChoice: () => {
+            hint.hidden = true;
+            remembered(store => store.setItem(KNOWN_KEY, "1"));   // узел добавлен в контакты, дальше без вопроса
+        }
     });
+
+    const KNOWN_KEY = "aether_entry_known";
+
+    function remembered(action) {
+        try { return action(window.localStorage); } catch (error) { return null; }   // может быть недоступно
+    }
+
+    const known = Boolean(remembered(store => store.getItem(KNOWN_KEY)));
+    hint.hidden = !known;   // подсказка про пропуск нужна тем, кто здесь уже был
 
     function getCookie(name) {
         const prefix = name + "=";
@@ -88,8 +100,8 @@
         await choose(SCENES.menu);
     }
 
-    async function choose(scene) {
-        const result = await term.play(scene);
+    async function choose(scene, options) {
+        const result = await term.play(scene, options);
 
         if (result.choice === "discord") await connectExternal();
         else if (result.choice === "bypass") await connectBypass();
@@ -104,7 +116,8 @@
                 return;
             }
 
-            await choose(SCENES.intro);
+            const intro = known ? SCENES.intro_known : SCENES.intro;
+            await choose(intro, known ? { speed: 0.6 } : {});
         } catch (error) {
             console.error(error);
         }

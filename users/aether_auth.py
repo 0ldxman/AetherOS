@@ -42,35 +42,29 @@ CLEARANCE_LABELS = {
 # которых нет в самих сценах: hid машины из базы и допуск гостя.
 # =========================================================
 
-# hid, который показывается, если машины aether-main нет в базе
-UNKNOWN_HID = "--:--:--:--:--:--"
-
-
 def gateway_scenes(request):
     """Сцены экрана входа для этого посетителя (словарь имя -> список шагов)."""
-    from machines.models import Machine
+    from machines.identity import identity_of
 
     from . import gateway
 
-    hid = (
-        Machine.objects.filter(hostname=gateway.HOST).values_list("hid", flat=True).first()
-        or UNKNOWN_HID
-    )
+    ident = identity_of()
 
     scenes = {
-        "intro": gateway.intro_scene(hid),
+        "intro": gateway.intro_scene(ident),
+        "intro_known": gateway.intro_scene(ident, known=True),
         "menu": gateway.menu_scene(),
         "discord": gateway.discord_scene(),
-        "bypass": gateway.bypass_scene(hid),
+        "bypass": gateway.bypass_scene(ident),
         "established": gateway.established_scene(clearance_dict(GUEST_LEVEL)),
-        "error": gateway.error_scene(),
+        "error": gateway.error_scene(ident),
     }
 
     level = current_level(request)
     if level is not None:
         is_guest = bool(request.session.get("guest")) and not request.user.is_authenticated
         scenes["restored"] = gateway.restored_scene(
-            hid,
+            ident,
             username="guest" if is_guest else request.user.get_username(),
             clearance=clearance_dict(level),
             guest=is_guest,

@@ -140,7 +140,7 @@ class LockScreenTests(TestCase):
 
     def test_anonymous_gets_the_connection_scenes_but_no_restored_scene(self):
         scenes = boot_config(self.client.get(reverse("lock")))["scenes"]
-        self.assertEqual(set(scenes), {"intro", "menu", "discord", "bypass", "established", "error"})
+        self.assertEqual(set(scenes), {"intro", "intro_known", "menu", "discord", "bypass", "established", "error"})
 
     def test_stylesheets_use_only_design_tokens(self):
         # tokens.css: хардкод цвета вне него считается багом (другая машина останется «от старой»)
@@ -177,7 +177,7 @@ class GatewayScenesTests(TestCase):
         return [s.get("value", "") for s in scene if s["op"] == "text"]
 
     def after_last_clear(self, scene):
-        index = max(i for i, step in enumerate(scene) if step["op"] == "clear")
+        index = max(i for i, step in enumerate(scene) if step["op"] == "cut")
         return scene[index + 1:]
 
     # ---------- чего на экране быть не должно ----------
@@ -195,21 +195,30 @@ class GatewayScenesTests(TestCase):
 
     # ---------- этапы ----------
 
-    def test_intro_is_four_stages_split_by_cleared_screens(self):
+    def test_intro_is_six_stages_split_by_mode_changes(self):
         intro = self.scenes()["intro"]
-        self.assertEqual(sum(1 for s in intro if s["op"] == "clear"), 3)
-        titles = [t for t in self.texts(intro) if t.startswith("-- ")]
+        self.assertEqual(sum(1 for s in intro if s["op"] == "cut"), 5)
+        titles = [t for t in self.texts(intro) if t.startswith("-- ") and "/7" in t]
         self.assertEqual(
-            [t for t in titles if "/5" in t],
-            ["-- 1/5  link --", "-- 2/5  key exchange --", "-- 3/5  node --", "-- 4/5  access --"],
+            titles,
+            [
+                "-- 1/7  resolve --", "-- 2/7  transport --", "-- 3/7  key exchange --",
+                "-- 4/7  identity --", "-- 5/7  node --", "-- 6/7  access --",
+            ],
         )
 
-    def test_the_session_is_the_fifth_stage(self):
-        self.assertIn("-- 5/5  session --", self.texts(self.scenes()["bypass"]))
+    def test_the_session_is_the_seventh_stage(self):
+        self.assertIn("-- 7/7  session --", self.texts(self.scenes()["bypass"]))
 
     def test_each_stage_reprints_the_header(self):
         intro = self.scenes()["intro"]
-        self.assertEqual(sum(1 for t in self.texts(intro) if t == "AETHER LINK 3.2"), 4)
+        self.assertEqual(sum(1 for t in self.texts(intro) if t == "AETHER LINK 3.2"), 6)
+
+    def test_connection_has_real_steps_not_just_a_banner(self):
+        text = spoken(self.scenes()["intro"])
+        for word in ("resolver", "AAAA", "path mtu", "alp/3.2", "certificate chain", "host key",
+                     "key id", "auth      offered by node", "no client key"):
+            self.assertIn(word, text)
 
     def test_key_exchange_has_a_progress_bar_and_a_key_id(self):
         from users.gateway import KEY_ID
@@ -223,6 +232,11 @@ class GatewayScenesTests(TestCase):
         self.assertIn("no answer", text)
         self.assertEqual(text.count("relay 03"), 2)
 
+    def test_the_certificate_issuer_and_the_owner_are_masked(self):
+        text = spoken(self.scenes()["intro"])
+        self.assertGreaterEqual(text.count("█" * 14), 3)    # издатель, второй сертификат, владелец
+        self.assertIn("[restricted]", text)
+
     def test_owner_field_is_masked_and_marked_restricted(self):
         text = spoken(self.scenes()["intro"])
         self.assertIn("█" * 14, text)
@@ -232,6 +246,18 @@ class GatewayScenesTests(TestCase):
         typed = [s for s in self.scenes()["intro"] if s["op"] == "type"]
         self.assertEqual([(s["value"], s["human"]) for s in typed], [("y", True)])
 
+    def test_the_prompt_shows_a_cursor_because_the_console_waits(self):
+        prompt = [s for s in self.scenes()["intro"] if s.get("cursor")]
+        self.assertEqual(len(prompt), 1)
+        self.assertIn("[y/n]", prompt[0]["value"])
+
+    def test_a_known_node_does_not_ask_again(self):
+        known = self.scenes()["intro_known"]
+        self.assertEqual([s for s in known if s["op"] == "type"], [])
+        self.assertNotIn("Trust this node", spoken(known))
+        self.assertIn("matches contacts", spoken(known))
+        self.assertEqual(len(steps(known, "choice")), 1)
+
     # ---------- hid ----------
 
     def test_hid_is_read_from_the_machine_and_shown_before_and_after(self):
@@ -240,7 +266,7 @@ class GatewayScenesTests(TestCase):
         self.assertIn(self.machine.hid, spoken(scenes["bypass"]))
 
     def test_hid_has_a_placeholder_when_the_machine_is_missing(self):
-        from users.aether_auth import UNKNOWN_HID
+        from machines.identity import UNKNOWN_HID
 
         Machine.objects.all().delete()
         self.assertIn(UNKNOWN_HID, spoken(self.scenes()["intro"]))
@@ -274,9 +300,10 @@ class GatewayScenesTests(TestCase):
     # ---------- имя узла глючит на месте ----------
 
     def test_only_main_turns_into_null_so_the_prefix_stays_put(self):
-        from users.gateway import HOST, NULL_HOST
+        from machines.identity import ENTRY_HOST
+        from users.gateway import NULL_HOST
 
-        host, null = HOST, NULL_HOST
+        host, null = ENTRY_HOST, NULL_HOST
         prefix = 0
         while host[prefix] == null[prefix]:
             prefix += 1
@@ -334,7 +361,11 @@ class GatewayScenesTests(TestCase):
 
 @override_settings(FORCE_SCRIPT_NAME=None)
 class BootScreenTests(TestCase):
-    """Загрузка машины: консольная сцена, полная и короткая."""
+    """Загрузка машины: консольная сцена Aether, полная и короткая."""
+
+    @classmethod
+    def setUpTestData(cls):
+        cls.machine = Machine.objects.create(name="Main", hostname="aether-main")
 
     def setUp(self):
         previous = get_script_prefix()
@@ -355,13 +386,13 @@ class BootScreenTests(TestCase):
         self.assertEqual(set(scenes), {"full", "short"})
         self.assertGreater(len(scenes["full"]), len(scenes["short"]))
 
-    def test_full_boot_has_all_stages_and_the_short_one_only_connect_and_services(self):
+    def test_full_boot_has_all_stages_and_the_short_one_only_connect_and_units(self):
         scenes = self.scenes()
         full, short = spoken(scenes["full"]), spoken(scenes["short"])
-        for word in ("AETHER FIRMWARE", "AETHER BOOT", "aether-kernel", "Started Secure Key Agent"):
+        for word in ("AETHER FIRMWARE", "AEBOOT", "aether kernel", "keyagent"):
             self.assertIn(word, full)
-        self.assertIn("Started Secure Key Agent", short)
-        for word in ("AETHER FIRMWARE", "AETHER BOOT", "aether-kernel"):
+        self.assertIn("keyagent", short)
+        for word in ("AETHER FIRMWARE", "AEBOOT", "aether kernel"):
             self.assertNotIn(word, short)
 
     def test_firmware_is_a_modern_uefi_with_signatures_not_an_old_bios(self):
@@ -371,22 +402,49 @@ class BootScreenTests(TestCase):
         for word in ("BIOS", "Press <DEL>", "Memory Testing"):
             self.assertNotIn(word, full)
 
+    def test_aether_is_not_linux(self):
+        full = spoken(self.scenes()["full"]).lower()
+        for word in ("linux", "systemd", "dmesg", "ttys0", "[  ok  ]", "started "):
+            self.assertNotIn(word, full)
+        for word in ("aek", "aeinit", "aemc", "aefs"):
+            self.assertIn(word, full)
+
     def test_the_machine_belongs_to_the_alternate_2020_not_to_2061(self):
         full = spoken(self.scenes()["full"])
         self.assertIn("2020", full)
         self.assertNotIn("2061", full)
+
+    def test_the_boot_shows_the_same_machine_as_the_entry_screen(self):
+        from machines.identity import serial_for
+
+        full = spoken(self.scenes()["full"])
+        self.assertIn("aether-main", full)
+        self.assertIn(self.machine.hid, full)                  # MAC сетевого адаптера
+        self.assertIn(serial_for(self.machine.hid), full)
+        lock = spoken(boot_config(self.client.get(reverse("lock")))["scenes"]["intro"])
+        self.assertIn(self.machine.hid, lock)
+        self.assertIn(serial_for(self.machine.hid), lock)
 
     def test_boot_uses_the_toolkit_not_just_text(self):
         full = self.scenes()["full"]
         self.assertEqual(len(steps(full, "count")), 1)         # память
         self.assertEqual(len(steps(full, "bar")), 1)           # загрузка образа
         self.assertGreaterEqual(len(steps(full, "spin")), 11)  # службы и задачи ядра
-        self.assertEqual(steps(full, "fade")[-1]["to"], "out")  # гаснет перед переходом
+        self.assertGreaterEqual(len(steps(full, "cut")), 4)    # смена режима между этапами
+        self.assertEqual(full[-1]["op"], "cut")                # чёрный кадр перед переходом
 
-    def test_services_show_a_warning_and_a_failure(self):
+    def test_times_are_ranges_so_two_boots_are_not_identical(self):
+        ranges = [s["ms"] for s in steps(self.scenes()["full"], "spin") if isinstance(s["ms"], list)]
+        self.assertGreaterEqual(len(ranges), 8)
+
+    def test_the_cursor_is_only_where_the_console_waits(self):
+        typed = steps(self.scenes()["full"], "type")
+        self.assertEqual([s["value"] for s in typed], ["aemc attach aether-main"])
+
+    def test_units_show_a_warning_and_a_failure(self):
         results = [s["done"][0][0] for s in steps(self.scenes()["short"], "spin")]
-        self.assertIn("[ WARN ] ", results)
-        self.assertIn("[FAILED] ", results)
+        self.assertIn("[ warn ] ", results)
+        self.assertIn("[ fail ] ", results)
 
     def test_the_organisation_is_never_named(self):
         self.assertNotIn("CTRG", spoken(self.scenes()))

@@ -44,6 +44,7 @@
         let skipping = REDUCED;      // пропуск анимации: любая клавиша или клик
         let playing = 0;
         let speed = 1;               // множитель времени: 0.5 вдвое быстрее (повторная загрузка)
+        let variance = 0.15;         // разброс пауз: две загрузки подряд не совпадают
         const ids = {};              // id -> элемент, для glitch
         const keyHandlers = new Set();
 
@@ -55,7 +56,7 @@
             if (run.aborted) return Promise.reject(new Abort());
             if (skipping || ms <= 0) return Promise.resolve();
             return new Promise((resolve, reject) => {
-                setTimeout(() => (run.aborted ? reject(new Abort()) : resolve()), ms * speed);
+                setTimeout(() => (run.aborted ? reject(new Abort()) : resolve()), ms * speed * (1 + (Math.random() * 2 - 1) * variance));
             });
         }
 
@@ -99,6 +100,7 @@
         }
 
         function span(style) {
+            hideCursor();
             const node = el("span", style ? "con-" + style : "");
             ensureLine().appendChild(node);
             return node;
@@ -222,12 +224,19 @@
 
         /* ---------- шаги ---------- */
 
+        function resetScreen() {
+            container.replaceChildren();
+            current = null;
+            cursor = null;
+            Object.keys(ids).forEach(key => delete ids[key]);
+        }
+
         const OPS = {
             async text(op, run, vars) {
                 const node = span(op.style);
                 node.textContent = fill(op.value, vars);
                 if (op.id) ids[op.id] = node;
-                showCursor();
+                if (op.cursor) showCursor();
             },
 
             async newline() {
@@ -247,34 +256,43 @@
 
                 const dots = span("dim");
                 const count = op.count || 14;
+                const total = delayOf(op.ms || 500);
 
                 for (let i = 0; i < count; i++) {
                     dots.textContent += ".";
-                    showCursor();
-                    await wait((op.ms || 500) / count, run);
+                    await wait(total / count, run);
                 }
 
                 const result = span(op.style);
                 result.textContent = " " + fill(op.status, vars);
-                showCursor();
                 await wait(70, run);
             },
 
+            // Полоса идёт неровно: ускоряется, стоит, делает рывки (как настоящая)
             async bar(op, run, vars) {
                 const label = span();
                 label.textContent = fill(op.label, vars);
 
                 const bar = span("dim");
                 const width = op.width || 24;
-                const steps = 25;
+                const frames = 36;
+                const weights = [];
 
-                for (let i = 0; i <= steps; i++) {
-                    const percent = Math.round((i * 100) / steps);
+                for (let i = 0; i < frames; i++) {
+                    const stall = Math.random() < 0.18;
+                    weights.push(stall ? 0 : 0.2 + Math.random() * 1.8);
+                }
+
+                const sum = weights.reduce((a, b) => a + b, 0);
+                let done = 0;
+
+                for (let i = 0; i < frames; i++) {
+                    done += weights[i];
+                    const percent = i === frames - 1 ? 100 : Math.round((done * 100) / sum);
                     const filled = Math.round((width * percent) / 100);
 
                     bar.textContent = `[${"#".repeat(filled)}${"-".repeat(width - filled)}] ${String(percent).padStart(3)}%`;
-                    showCursor();
-                    await wait((op.ms || 1200) / steps, run);
+                    await wait(delayOf(op.ms || 1200) / frames, run);
                 }
 
                 await wait(70, run);
@@ -282,7 +300,6 @@
 
             // задача с результатом: строка с ожиданием заменяется итоговой
             async spin(op, run, vars) {
-                hideCursor();
                 const group = span();
                 renderParts(group, op.pending, vars);
 
@@ -290,7 +307,7 @@
                 group.appendChild(spinner);
 
                 const frames = ["|", "/", "-", "\\"];
-                const ticks = Math.max(1, Math.round((op.ms || 600) / 100));
+                const ticks = Math.max(1, Math.round(delayOf(op.ms || 600) / 100));
 
                 for (let i = 0; i < ticks; i++) {
                     spinner.textContent = frames[i % frames.length];
@@ -299,18 +316,17 @@
 
                 group.replaceChildren();
                 renderParts(group, op.done, vars);
-                showCursor();
             },
 
             async count(op, run, vars) {
                 span().textContent = fill(op.label, vars);
                 const number = span();
                 const steps = 28;
+                const total = delayOf(op.ms || 1400);
 
                 for (let i = 1; i <= steps; i++) {
                     number.textContent = `${Math.floor((op.to * i) / steps)}${op.unit || ""}`;
-                    showCursor();
-                    await wait((op.ms || 1400) / steps, run);
+                    await wait(total / steps, run);
                 }
             },
 
@@ -319,27 +335,30 @@
 
                 for (let n = op.seconds; n > 0; n--) {
                     node.textContent = fill(op.template, vars).replace("{n}", n);
-                    showCursor();
                     await wait(1000, run);
                 }
             },
 
-            async fade(op, run) {
-                container.style.transition = skipping ? "none" : `opacity ${op.ms || 400}ms ease`;
-                container.style.opacity = op.to === "in" ? "1" : "0";
-                await wait(op.ms || 400, run);
-            },
-
             async wait(op, run) {
-                const jitter = op.jitter ? randomInt(-op.jitter, op.jitter) : 0;
-                await wait(Math.max(0, (op.ms || 0) + jitter), run);
+                await wait(delayOf(op.ms), run);
             },
 
             async clear() {
-                container.replaceChildren();
-                current = null;
-                cursor = null;
-                Object.keys(ids).forEach(key => delete ids[key]);
+                resetScreen();
+            },
+
+            // смена режима вывода: чёрный кадр, потом чистый экран
+            async cut(op, run) {
+                if (!skipping) {
+                    container.style.visibility = "hidden";
+                    try {
+                        await wait(randomInt(120, 260), run);
+                    } finally {
+                        container.style.visibility = "";
+                    }
+                }
+
+                resetScreen();
             },
 
             async flash(op, run) {
@@ -583,6 +602,7 @@
 
             skipping = REDUCED;
             speed = opts.speed || 1;
+            variance = opts.variance === undefined ? 0.15 : opts.variance;
             playing += 1;
 
             try {
