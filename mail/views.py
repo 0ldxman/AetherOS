@@ -1,3 +1,4 @@
+import json
 import re
 from datetime import timezone
 
@@ -11,7 +12,8 @@ from users.aether_auth import AUTH_REQUIRED, is_player
 
 from .access import mark_read, mark_unread, read_ids, viewer_for, visible_messages
 from .attachments import SaveError, payload, save_to_machine
-from .models import Attachment
+from .compose import TaskError, available_tasks, public_segments, send
+from .models import Attachment, ComposeProgress
 
 PREVIEW_LENGTH = 90
 
@@ -124,3 +126,62 @@ def attachment_save(request, pk):
         return JsonResponse({"error": str(error)}, status=error.status)
 
     return JsonResponse({"saved": True, "path": path})
+
+
+@require_GET
+def task_list(request):
+    """Задачи на набор, доступные игроку на этом ящике (только вошедшему через Discord)."""
+    viewer = _viewer_or_404(request)
+
+    if not is_player(request):
+        return JsonResponse({"error": AUTH_REQUIRED}, status=403)
+
+    tasks = available_tasks(viewer)
+    used = dict(
+        ComposeProgress.objects.filter(user=viewer.user, task__in=tasks).values_list("task_id", "attempts")
+    )
+    domain = viewer.machine.mail_host
+
+    return JsonResponse({
+        "from": viewer.address,
+        "tasks": [
+            {
+                "id": task.pk,
+                "to": f"{task.to_login}@{domain}",
+                "subject": task.subject,
+                "segments": public_segments(task),
+                "attempts_left": (
+                    max(0, task.max_attempts - used.get(task.pk, 0)) if task.max_attempts else None
+                ),
+            }
+            for task in tasks
+        ],
+    })
+
+
+@require_POST
+def task_send(request, pk):
+    """Отправить набранный текст. Сервер сам сверяет его с целевым."""
+    viewer = _viewer_or_404(request)
+
+    if not is_player(request):
+        return JsonResponse({"error": AUTH_REQUIRED}, status=403)
+
+    task = next((t for t in available_tasks(viewer) if t.pk == pk), None)
+    if task is None:
+        raise Http404
+
+    try:
+        payload_in = json.loads(request.body)
+        text = payload_in["text"]
+        if not isinstance(text, str) or len(text) > 20000:
+            raise ValueError
+    except (ValueError, KeyError, TypeError):
+        return JsonResponse({"error": "invalid message"}, status=400)
+
+    try:
+        send(request.user, task, text)
+    except TaskError as error:
+        return JsonResponse({"error": str(error), **error.extra}, status=error.status)
+
+    return JsonResponse({"sent": True})

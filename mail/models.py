@@ -279,3 +279,78 @@ class Delivered(models.Model):
 
     def __str__(self):
         return f"{self.message_id} -> {self.user_id} at {self.available_at:%Y-%m-%d %H:%M:%S}"
+
+
+class ComposeTask(models.Model):
+    """Задача на набор: игрок, вошедший под чужим логином, должен написать письмо «от его лица».
+
+    Целевой текст виден бледным слоем; набранные буквы закрашиваются, ошибочная подсвечивается
+    красным. Часть текста можно скрыть: {{secret}} показывается только числом символов, игрок
+    должен знать само значение (найденный пароль, имя). После верной отправки письмо остаётся в
+    «отправленных» игрока, а ответные письма приходят с задержкой.
+    """
+
+    machine = models.ForeignKey("machines.Machine", on_delete=models.CASCADE, related_name="compose_tasks")
+
+    login = models.CharField(
+        "От чьего имени",
+        max_length=128,
+        help_text="Логин на машине, под которым игрок должен быть вошёл (ящик, откуда уйдёт письмо).",
+    )
+
+    to_login = models.CharField("Кому", max_length=128, help_text="Логин адресата.")
+    subject = models.CharField("Тема", max_length=255, blank=True)
+
+    target = models.TextField(
+        "Целевой текст",
+        help_text="Что нужно набрать. Скрытое пишется в двойных фигурных скобках: пароль {{hunter2}}.",
+    )
+
+    key_condition = models.JSONField("Условие по ключам", null=True, blank=True)
+
+    max_attempts = models.PositiveSmallIntegerField(
+        "Попыток отправить",
+        default=5,
+        help_text="Сколько раз игрок может отправить неверный текст (ошибка в скрытой части). 0: без ограничения.",
+    )
+
+    reply_delay = models.PositiveIntegerField(
+        "Задержка ответа, с",
+        default=30,
+        help_text="Через сколько секунд после отправки придут ответные письма.",
+    )
+
+    replies = models.ManyToManyField(
+        Message,
+        blank=True,
+        related_name="reply_to_tasks",
+        limit_choices_to={"delivery": "trigger"},
+        help_text="Ответные письма (только «после доставки»).",
+    )
+
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ("machine", "login", "id")
+
+    def __str__(self):
+        return f"{self.login} -> {self.to_login}: {self.subject or '(no subject)'}"
+
+
+class ComposeProgress(models.Model):
+    """Что сделал игрок с задачей на набор: неверные отправки и когда отправил."""
+
+    task = models.ForeignKey(ComposeTask, on_delete=models.CASCADE, related_name="progress")
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="mail_tasks")
+    attempts = models.PositiveSmallIntegerField(default=0)
+    sent_at = models.DateTimeField(null=True, blank=True)
+    text = models.TextField(blank=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=("task", "user"), name="unique_compose_progress"),
+        ]
+        verbose_name_plural = "compose progress"
+
+    def __str__(self):
+        return f"{self.task_id} / {self.user_id}: {'sent' if self.sent_at else f'{self.attempts} failed'}"

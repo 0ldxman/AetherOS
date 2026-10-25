@@ -384,8 +384,165 @@
         }, 3500);
     }
 
-    function compose() {
-        notice("transmit: core unreachable, outgoing mail is disabled");
+    /* ---------- набор письма «от чужого имени» ---------- */
+
+    // Целевой текст виден бледным слоем, набранное закрашивается, неверная буква получает красный фон.
+    // Скрытые части ({{...}}) приходят только числом символов: про них браузер ничего не знает,
+    // верность проверяет сервер при отправке.
+    const composer = { task: null, typed: "", box: null, input: null, send: null };
+
+    function totalLength(task) {
+        return task.segments.reduce((sum, seg) => sum + (seg.text !== undefined ? Array.from(seg.text).length : seg.hidden), 0);
+    }
+
+    function typingChar(shown, state) {
+        const node = el("span", "t-char " + state, shown);
+        return node;
+    }
+
+    function paintTyping() {
+        const task = composer.task;
+        const typed = Array.from(composer.typed);
+        let index = 0;
+        let mistakes = 0;
+
+        composer.box.replaceChildren();
+
+        function put(expected, hidden) {
+            const entered = index < typed.length;
+            let state = "t-ghost";
+            let shown = hidden ? "•" : expected;
+
+            if (entered) {
+                shown = typed[index];
+                if (hidden) state = "t-done t-secret";
+                else if (typed[index] === expected) state = "t-done";
+                else {
+                    state = "t-wrong";
+                    mistakes += 1;
+                }
+            }
+
+            if (index === typed.length) state += " t-caret";
+
+            const isBreak = shown === "\n";
+            composer.box.appendChild(typingChar(isBreak ? "↵" : shown, state));
+            if (isBreak) composer.box.appendChild(document.createElement("br"));
+            index += 1;
+        }
+
+        task.segments.forEach(function (seg) {
+            if (seg.text !== undefined) Array.from(seg.text).forEach(ch => put(ch, false));
+            else for (let n = 0; n < seg.hidden; n++) put("•", true);
+        });
+
+        composer.send.disabled = !(typed.length === totalLength(task) && mistakes === 0);
+        composer.mistakes = mistakes;
+    }
+
+    function closeComposer() {
+        composer.task = null;
+        view.replaceChildren(el("p", "mail-empty", "select a message"));
+        reader.querySelectorAll(".mail-toolbar").forEach(node => node.remove());
+        root.classList.remove("is-reading");
+    }
+
+    async function sendComposed() {
+        composer.send.disabled = true;
+
+        try {
+            const response = await fetch(composer.task.sendUrl, {
+                method: "POST",
+                credentials: "same-origin",
+                headers: { "X-CSRFToken": csrf(), "Content-Type": "application/json" },
+                body: JSON.stringify({ text: composer.typed })
+            });
+            const data = await response.json().catch(() => ({}));
+
+            if (!response.ok) {
+                const left = data.attempts_left;
+                notice((data.error || `error ${response.status}`) + (left === undefined || left === null ? "" : `  ·  ${left} attempts left`));
+                paintTyping();
+                return;
+            }
+
+            notice("message sent");
+            closeComposer();
+            await loadMessages();
+            state.folder = { type: "sent", value: "" };
+            renderAll();
+        } catch (error) {
+            notice("could not reach the machine");
+            paintTyping();
+        }
+    }
+
+    function openComposer(task, from) {
+        const bar = el("div", "mail-toolbar");
+        const cancel = el("button", "mail-button", "cancel");
+        cancel.type = "button";
+        cancel.addEventListener("click", closeComposer);
+        bar.appendChild(cancel);
+        reader.querySelectorAll(".mail-toolbar").forEach(node => node.remove());
+        reader.appendChild(bar);
+
+        const fields = el("dl", "mail-fields");
+        [["from", from], ["to", task.to], ["subject", task.subject || "(no subject)"]].forEach(function (pair) {
+            fields.append(el("dt", "", pair[0]), el("dd", "", pair[1]));
+        });
+
+        const wrap = el("div", "typing");
+        const box = el("div", "typing-text");
+        const input = el("textarea", "typing-input");
+        input.setAttribute("aria-label", "type the message");
+        input.spellcheck = false;
+        input.autocomplete = "off";
+        wrap.append(box, input);
+
+        const send = el("button", "mail-button", "send");
+        send.type = "button";
+        send.disabled = true;
+        send.addEventListener("click", sendComposed);
+
+        view.replaceChildren(fields, wrap, el("div", "mail-actions"));
+        view.lastChild.appendChild(send);
+
+        Object.assign(composer, { task, typed: "", box, input, send });
+
+        input.addEventListener("input", function () {
+            composer.typed = Array.from(input.value.replace(/\r\n/g, "\n")).slice(0, totalLength(task)).join("");
+            if (input.value !== composer.typed) input.value = composer.typed;
+            paintTyping();
+        });
+        ["paste", "drop"].forEach(name => input.addEventListener(name, event => event.preventDefault()));
+        wrap.addEventListener("click", () => input.focus());
+
+        root.classList.add("is-reading");
+        paintTyping();
+        input.focus();
+    }
+
+    async function compose() {
+        try {
+            const response = await fetch(root.dataset.tasksUrl, { credentials: "same-origin" });
+            const data = await response.json().catch(() => ({}));
+
+            if (!response.ok) {
+                notice(data.error ? `compose: ${data.error}` : `error ${response.status}`);
+                return;
+            }
+
+            if (!data.tasks.length) {
+                notice("nothing to send from this mailbox");
+                return;
+            }
+
+            const task = data.tasks[0];
+            task.sendUrl = url(root.dataset.sendUrl, task.id);
+            openComposer(task, data.from);
+        } catch (error) {
+            notice("could not reach the machine");
+        }
     }
 
     document.getElementById("mail-compose").addEventListener("click", compose);
@@ -395,6 +552,10 @@
 
     document.addEventListener("keydown", function (event) {
         if (event.ctrlKey || event.metaKey || event.altKey) return;
+        if (document.activeElement && document.activeElement.tagName === "TEXTAREA") {
+            if (event.key === "Escape") closeComposer();
+            return;
+        }
 
         const ids = visible().map(m => m.id);
         const index = ids.indexOf(state.selected);
@@ -417,10 +578,14 @@
 
     /* ---------- старт ---------- */
 
-    getJson(root.dataset.listUrl)
-        .then(function (data) {
-            state.messages = data.messages;
-            if (data.address) document.getElementById("mail-address").textContent = data.address;
+    async function loadMessages() {
+        const data = await getJson(root.dataset.listUrl);
+        state.messages = data.messages;
+        if (data.address) document.getElementById("mail-address").textContent = data.address;
+    }
+
+    loadMessages()
+        .then(function () {
             renderAll();
 
             const shown = visible();

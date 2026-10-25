@@ -13,7 +13,7 @@ from django.urls import get_script_prefix, reverse, set_script_prefix
 
 from machines.models import Machine, MachineApp, MachineProfile
 from mail.access import Viewer, mark_read, mark_unread, read_ids, summary, visible_messages
-from mail.models import Attachment, Delivered, Message, MessageRead
+from mail.models import Attachment, ComposeProgress, Delivered, Message, MessageRead
 from secure.models import Key
 from users.models import UserKey
 
@@ -317,9 +317,10 @@ class LookTests(TestCase):
         for helper in ("renderBody", "md-strong", "md-quote", "md-list", "md-h"):
             self.assertIn(helper, js)
 
-    def test_compose_is_disabled_while_the_core_is_silent(self):
+    def test_compose_is_a_real_composer_not_the_old_stub(self):
         js = (Path(__file__).resolve().parent / "static/mail/mail.js").read_text(encoding="utf-8")
-        self.assertIn("core unreachable", js)
+        self.assertNotIn("core unreachable", js)
+        self.assertIn("nothing to send from this mailbox", js)
 
 
 class AdminTests(TestCase):
@@ -918,3 +919,259 @@ class AttachmentSaveApiTests(TestCase):
         js = (Path(__file__).resolve().parent / "static/mail/mail.js").read_text(encoding="utf-8")
         for word in ("downloadAttachment", "saveAttachment", "save to machine", "item.download", "item.save"):
             self.assertIn(word, js)
+
+
+class ComposeLogicTests(TestCase):
+    """Задача на набор: разбор текста, доступность, проверка и отправка."""
+
+    @classmethod
+    def setUpTestData(cls):
+        from machines.models import MachineProfile, Session
+        from mail.models import ComposeProgress, ComposeTask
+
+        cls.machine = Machine.objects.create(name="Staff", hostname="apollo-staff")
+        cls.user = get_user_model().objects.create_user("ivan", password="pw")
+        cls.other = get_user_model().objects.create_user("olga", password="pw")
+        cls.reply = make_message(slug="reply_1", delivery=Message.Delivery.TRIGGER, machine=cls.machine, to_login="will_smith", subject="re")
+        cls.task = ComposeTask.objects.create(
+            machine=cls.machine, login="will_smith", to_login="olga", subject="the file",
+            target="hi olga,\nthe password is {{hunter22}}, thanks", max_attempts=3, reply_delay=30,
+        )
+        cls.task.replies.add(cls.reply)
+        cls.right = "hi olga,\nthe password is hunter22, thanks"
+
+    def viewer(self, user=None, login="will_smith", keys=()):
+        return Viewer(login=login, machine=self.machine, keys=frozenset(keys), user=user or self.user)
+
+    # ---------- текст ----------
+
+    def test_the_target_is_split_into_visible_and_hidden_parts(self):
+        from mail.compose import segments
+
+        self.assertEqual(segments("a {{b}} c {{d}}"), [("text", "a "), ("hidden", "b"), ("text", " c "), ("hidden", "d")])
+        self.assertEqual(segments("plain"), [("text", "plain")])
+        self.assertEqual(segments("{{only}}"), [("hidden", "only")])
+
+    def test_the_expected_text_has_the_secret_values_in_place(self):
+        from mail.compose import expected_text
+
+        self.assertEqual(expected_text(self.task), self.right)
+
+    def test_the_browser_only_learns_how_long_a_secret_is(self):
+        from mail.compose import public_segments
+
+        shown = public_segments(self.task)
+        self.assertEqual(shown, [{"text": "hi olga,\nthe password is "}, {"hidden": 8}, {"text": ", thanks"}])
+        self.assertNotIn("hunter22", json.dumps(shown))
+
+    def test_windows_line_breaks_do_not_matter(self):
+        from mail.compose import normalize
+
+        self.assertEqual(normalize("a\r\nb\rc"), "a\nb\nc")
+
+    # ---------- доступность ----------
+
+    def test_the_task_is_offered_in_the_right_mailbox_only(self):
+        from mail.compose import available_tasks
+
+        self.assertEqual(available_tasks(self.viewer()), [self.task])
+        self.assertEqual(available_tasks(self.viewer(login="WILL_SMITH")), [self.task])      # регистр не важен
+        self.assertEqual(available_tasks(self.viewer(login="olga")), [])
+
+    def test_keys_gate_the_task(self):
+        from mail.compose import available_tasks
+
+        self.task.key_condition = "the_door"
+        self.task.save()
+        self.assertEqual(available_tasks(self.viewer()), [])
+        self.assertEqual(available_tasks(self.viewer(keys=["the_door"])), [self.task])
+
+    def test_a_witness_has_no_tasks(self):
+        from mail.compose import available_tasks
+
+        self.assertEqual(available_tasks(Viewer(login="will_smith", machine=self.machine, keys=frozenset(), session_key="s")), [])
+
+    # ---------- отправка ----------
+
+    def test_a_right_text_sends_the_letter_and_queues_the_replies(self):
+        from datetime import timedelta
+
+        from django.utils import timezone
+
+        from mail.compose import send
+
+        now = timezone.now()
+        result = send(self.user, self.task, self.right, now=now)
+        self.assertEqual((result.replies, result.delay), (1, 30))
+        mine = visible_messages(self.viewer(), "sent", now=now)
+        self.assertEqual([m.body for m in mine], [self.right])
+        self.assertEqual((mine[0].to_login, mine[0].sender_address), ("olga", "will_smith@apollo.mail"))
+        self.assertEqual(visible_messages(self.viewer(), "inbox", now=now), [])                    # ответа ещё нет
+        later = visible_messages(self.viewer(), "inbox", now=now + timedelta(seconds=31))
+        self.assertEqual([m.subject for m in later], ["re"])
+
+    def test_the_sent_copy_belongs_to_that_player_only(self):
+        from mail.compose import send
+
+        send(self.user, self.task, self.right)
+        self.assertEqual(visible_messages(self.viewer(self.other), "sent"), [])
+
+    def test_a_wrong_secret_costs_an_attempt_and_sends_nothing(self):
+        from mail.compose import TaskError, send
+
+        with self.assertRaises(TaskError) as caught:
+            send(self.user, self.task, self.right.replace("hunter22", "hunter23"))
+        self.assertEqual((caught.exception.status, caught.exception.extra), (422, {"attempts_left": 2}))
+        self.assertEqual(visible_messages(self.viewer(), "sent"), [])
+        self.assertEqual(Delivered.objects.count(), 0)
+
+    def test_too_many_wrong_attempts_lock_the_task_even_for_the_right_text(self):
+        from mail.compose import TaskError, send
+
+        for _ in range(3):
+            with self.assertRaises(TaskError):
+                send(self.user, self.task, "nope")
+        with self.assertRaises(TaskError) as caught:
+            send(self.user, self.task, self.right)
+        self.assertEqual(caught.exception.status, 423)
+
+    def test_zero_attempts_means_unlimited(self):
+        from mail.compose import TaskError, send
+
+        self.task.max_attempts = 0
+        self.task.save()
+        for _ in range(10):
+            with self.assertRaises(TaskError) as caught:
+                send(self.user, self.task, "nope")
+        self.assertIsNone(caught.exception.extra["attempts_left"])
+        send(self.user, self.task, self.right)
+
+    def test_the_letter_cannot_be_sent_twice(self):
+        from mail.compose import TaskError, send
+
+        send(self.user, self.task, self.right)
+        with self.assertRaises(TaskError) as caught:
+            send(self.user, self.task, self.right)
+        self.assertEqual(caught.exception.status, 409)
+
+    def test_a_sent_task_is_no_longer_offered(self):
+        from mail.compose import available_tasks, send
+
+        send(self.user, self.task, self.right)
+        self.assertEqual(available_tasks(self.viewer()), [])
+        self.assertEqual(available_tasks(self.viewer(self.other)), [self.task])        # у другого игрока своя
+
+    def test_progress_is_per_player(self):
+        from mail.compose import TaskError, send
+
+        with self.assertRaises(TaskError):
+            send(self.user, self.task, "nope")
+        send(self.other, self.task, self.right)                                         # его счётчик чистый
+        self.assertEqual(ComposeProgress.objects.get(user=self.user).attempts, 1)
+
+
+@override_settings(FORCE_SCRIPT_NAME=None)
+class ComposeApiTests(TestCase):
+    @classmethod
+    def setUpTestData(cls):
+        from machines.models import MachineProfile
+        from mail.models import ComposeTask
+
+        cls.machine = Machine.objects.create(name="Staff", hostname="apollo-staff")
+        MachineApp.objects.create(machine=cls.machine, label="intercom", glyph="@", path="/apps/mail/")
+        cls.user = get_user_model().objects.create_user("ivan", password="pw")
+        cls.profile = MachineProfile.objects.create(machine=cls.machine, user=cls.user, name="I", login="will_smith", freq=1)
+        cls.reply = make_message(slug="r1", delivery=Message.Delivery.TRIGGER, machine=cls.machine, to_login="will_smith", subject="re")
+        cls.task = ComposeTask.objects.create(
+            machine=cls.machine, login="will_smith", to_login="olga", subject="s", target="hello {{abc}}", max_attempts=2
+        )
+        cls.task.replies.add(cls.reply)
+
+    def setUp(self):
+        previous = get_script_prefix()
+        set_script_prefix("/")
+        self.addCleanup(set_script_prefix, previous)
+
+    def player(self):
+        from machines.current import SESSION_KEY
+        from machines.models import Session
+
+        self.client.force_login(self.user)
+        stored = self.client.session
+        stored[SESSION_KEY] = Session.objects.create(user=self.user, profile=self.profile).pk
+        stored.save()
+
+    def post(self, text):
+        response = self.client.post(
+            reverse("mail:send", args=[self.task.pk]), data=json.dumps({"text": text}), content_type="application/json"
+        )
+        ok = response["Content-Type"].startswith("application/json")
+        return response, (json.loads(response.content) if ok else None)
+
+    def test_the_list_gives_the_text_without_the_secret(self):
+        self.player()
+        response = self.client.get(reverse("mail:tasks"))
+        data = json.loads(response.content)
+        self.assertEqual(data["from"], "will_smith@apollo.mail")
+        (task,) = data["tasks"]
+        self.assertEqual((task["to"], task["subject"], task["attempts_left"]), ("olga@apollo.mail", "s", 2))
+        self.assertEqual(task["segments"], [{"text": "hello "}, {"hidden": 3}])
+        self.assertNotIn("abc", response.content.decode())
+
+    def test_a_witness_gets_the_authorization_error_for_everything(self):
+        from users.aether_auth import AUTH_REQUIRED
+
+        session = self.client.session
+        session["guest"] = True
+        session.save()
+        null = Machine.objects.create(name="Null", hostname="aether-null")
+        MachineApp.objects.create(machine=null, label="intercom", glyph="@", path="/apps/mail/")
+        for response in (self.client.get(reverse("mail:tasks")), self.client.post(reverse("mail:send", args=[self.task.pk]))):
+            self.assertEqual(response.status_code, 403)
+            self.assertEqual(json.loads(response.content)["error"], AUTH_REQUIRED)
+
+    def test_a_right_text_is_sent_and_the_copy_lands_in_sent(self):
+        self.player()
+        response, data = self.post("hello abc")
+        self.assertEqual((response.status_code, data), (200, {"sent": True}))
+        rows = json.loads(self.client.get(reverse("mail:messages")).content)["messages"]
+        self.assertEqual([(r["folder"], r["subject"]) for r in rows if r["folder"] == "sent"], [("sent", "s")])
+
+    def test_a_wrong_text_is_rejected_and_counts(self):
+        self.player()
+        response, data = self.post("hello abd")
+        self.assertEqual((response.status_code, data["error"], data["attempts_left"]), (422, "message rejected", 1))
+
+    def test_the_task_locks_after_the_limit(self):
+        self.player()
+        self.post("x")
+        self.post("y")
+        response, data = self.post("hello abc")
+        self.assertEqual(response.status_code, 423)
+
+    def test_a_second_send_is_refused_and_the_task_is_gone(self):
+        self.player()
+        self.post("hello abc")
+        self.assertEqual(self.post("hello abc")[0].status_code, 404)           # задача уже недоступна
+        self.assertEqual(json.loads(self.client.get(reverse("mail:tasks")).content)["tasks"], [])
+
+    def test_a_bad_body_is_a_400(self):
+        self.player()
+        for body in (b"not json", b"{}", b'{"text": 5}'):
+            response = self.client.post(reverse("mail:send", args=[self.task.pk]), data=body, content_type="application/json")
+            self.assertEqual(response.status_code, 400, body)
+
+    def test_a_task_of_another_mailbox_does_not_exist(self):
+        from mail.models import ComposeTask
+
+        self.player()
+        other = ComposeTask.objects.create(machine=self.machine, login="someone_else", to_login="x", target="x")
+        self.assertEqual(self.client.post(reverse("mail:send", args=[other.pk]), data="{}", content_type="application/json").status_code, 404)
+
+    def test_the_script_has_the_typing_machinery(self):
+        js = (Path(__file__).resolve().parent / "static/mail/mail.js").read_text(encoding="utf-8")
+        for word in ("t-wrong", "t-ghost", "t-done", "typing-input", '"paste"', "paintTyping", "sendComposed", "attempts left"):
+            self.assertIn(word, js)
+        css = (Path(__file__).resolve().parent / "static/mail/mail.css").read_text(encoding="utf-8")
+        for word in (".t-wrong", ".t-ghost", ".t-caret", "var(--status-error)"):
+            self.assertIn(word, css)

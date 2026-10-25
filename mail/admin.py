@@ -5,7 +5,7 @@ from django.utils.html import format_html
 from secure.access import format_condition
 from secure.admin_widgets import ConditionFieldsMixin
 
-from .models import Attachment, Delivered, Message, MessageRead
+from .models import Attachment, ComposeProgress, ComposeTask, Delivered, Message, MessageRead
 
 
 class AttachmentInline(admin.TabularInline):
@@ -95,3 +95,51 @@ class DeliveredAdmin(admin.ModelAdmin):
     search_fields = ("message__subject", "message__slug", "user__username")
     autocomplete_fields = ("user",)
     readonly_fields = ("created_at",)
+
+
+@admin.register(ComposeTask)
+class ComposeTaskAdmin(ConditionFieldsMixin, admin.ModelAdmin):
+    condition_fields = ("key_condition",)
+    list_select_related = ("machine",)
+    list_display = ("subject_or_blank", "machine", "login", "to_login", "max_attempts", "reply_delay", "replies_count", "condition")
+    list_display_links = ("subject_or_blank",)
+    list_filter = ("machine",)
+    search_fields = ("subject", "login", "to_login", "target")
+    autocomplete_fields = ("machine",)
+    filter_horizontal = ("replies",)
+
+    fieldsets = (
+        ("Who writes to whom", {"fields": ("machine", "login", "to_login", "subject")}),
+        ("Text to type", {"fields": ("target",)}),
+        ("Reply", {"fields": ("replies", "reply_delay")}),
+        ("Rules", {"fields": ("key_condition", "max_attempts")}),
+    )
+
+    def get_queryset(self, request):
+        return super().get_queryset(request).annotate(_replies=Count("replies", distinct=True))
+
+    @admin.display(description="Тема", ordering="subject")
+    def subject_or_blank(self, obj):
+        return obj.subject or format_html("<i>{}</i>", "(без темы)")
+
+    @admin.display(description="Ответов", ordering="_replies")
+    def replies_count(self, obj):
+        return obj._replies
+
+    @admin.display(description="Условие по ключам")
+    def condition(self, obj):
+        return format_condition(obj.key_condition) or "—"
+
+
+@admin.register(ComposeProgress)
+class ComposeProgressAdmin(admin.ModelAdmin):
+    """Что игроки сделали с задачами. Удалить запись значит сбросить прогресс игрока."""
+
+    list_select_related = ("task", "user")
+    list_display = ("task", "user", "attempts", "sent_at")
+    list_filter = ("sent_at",)
+    search_fields = ("task__subject", "user__username")
+    readonly_fields = ("task", "user", "attempts", "sent_at", "text")
+
+    def has_add_permission(self, request):
+        return False

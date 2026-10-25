@@ -195,6 +195,18 @@ body { font-size: 1rem; line-height: 1.5; }
 }
 .mail-button:hover { border-color: var(--accent); color: var(--accent); }
 
+/* ---------- набор письма: бледный целевой текст, закрашивание, красные ошибки ---------- */
+
+.typing { position: relative; padding: 0.6rem 0.2rem; line-height: 1.8; }
+.typing-text { white-space: pre-wrap; overflow-wrap: anywhere; }
+.typing-input { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; resize: none; border: 0; cursor: text; }
+
+.t-ghost { color: var(--font-muted); opacity: 0.55; }
+.t-done { color: var(--font-light); }
+.t-secret { color: var(--status-info); }
+.t-wrong { background: var(--status-error); color: var(--font-dark); }
+.t-caret { box-shadow: inset 2px 0 0 var(--accent); }
+
 /* ---------- нижняя строка ---------- */
 
 #mail-status {
