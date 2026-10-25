@@ -251,6 +251,83 @@ a {
 
 
 /* -------------------------------------------------- */
+/* Свойства выбранного объекта                        */
+/* -------------------------------------------------- */
+
+.props {
+    position: relative;
+
+    flex: 0 0 auto;
+    min-height: 7.2rem;
+    max-height: 9rem;
+    overflow: auto;
+
+    padding: 0.5rem var(--pad-x);
+
+    background: var(--panel);
+    border-top: 1px solid var(--line-bright);
+}
+
+
+.props .empty {
+    margin: 0;
+}
+
+
+.props-list {
+    display: grid;
+    grid-template-columns: max-content 1fr;
+    gap: 0.1rem 2ch;
+
+    margin: 0;
+}
+
+
+.props-list dt {
+    color: var(--font-muted);
+}
+
+
+.props-list dd {
+    margin: 0;
+    min-width: 0;
+
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+
+    color: var(--fg);
+}
+
+
+.props-open {
+    position: absolute;
+    top: 0.5rem;
+    right: var(--pad-x);
+
+    padding: 0.1rem 1.2ch;
+
+    background: none;
+    border: 1px solid var(--line-bright);
+
+    color: var(--font-light);
+
+    font: inherit;
+    font-size: 0.9rem;
+
+    cursor: pointer;
+}
+
+
+.props-open:hover {
+    background: var(--font-light);
+    border-color: var(--font-light);
+
+    color: var(--bg);
+}
+
+
+/* -------------------------------------------------- */
 /* Футер viewer: консоль БД слева, records справа     */
 /* -------------------------------------------------- */
 
@@ -775,38 +852,6 @@ li:last-child > details > .t-row.locked {
 }
 
 
-/* номер строки, как в выдаче БД */
-.grid tbody {
-    counter-reset: row;
-}
-
-
-.grid tbody tr {
-    counter-increment: row;
-}
-
-
-.grid .n {
-    width: 1%;
-    min-width: 4ch;
-
-    color: var(--font-muted);
-    text-align: right;
-
-    cursor: default;
-}
-
-
-.grid th.n::after {
-    content: none;
-}
-
-
-.grid td.n::before {
-    content: counter(row);
-}
-
-
 .grid td {
     border-bottom: 1px solid var(--line);
 
@@ -815,8 +860,8 @@ li:last-child > details > .t-row.locked {
 
 
 /* название забирает свободное место */
-.grid th:nth-child(2),
-.grid td:nth-child(2) {
+.grid th:first-child,
+.grid td:first-child {
     width: 100%;
 }
 
@@ -838,6 +883,18 @@ li:last-child > details > .t-row.locked {
 }
 
 
+/* выбранная строка: плашка и метка слева, как у выбранного в дереве */
+.grid tbody tr.selected {
+    background: var(--row-hover);
+    box-shadow: inset 2px 0 var(--accent);
+}
+
+
+.grid tbody tr.selected:hover {
+    background: var(--select);
+}
+
+
 /* закрытая запись: красная строка с тёмным текстом */
 .grid tbody tr.locked {
     background: var(--accent-error);
@@ -855,7 +912,7 @@ li:last-child > details > .t-row.locked {
 }
 
 
-.grid td:nth-child(2) a {
+.grid td:first-child a {
     color: var(--accent);
 }
 
@@ -866,7 +923,7 @@ li:last-child > details > .t-row.locked {
 }
 
 
-.grid td:nth-child(2) a:focus-visible {
+.grid td:first-child a:focus-visible {
     outline: 1px solid var(--accent);
     outline-offset: 2px;
 }

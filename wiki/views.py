@@ -1,3 +1,4 @@
+import hashlib
 from collections import defaultdict
 
 from django.db.models import Q
@@ -135,10 +136,30 @@ def _tree(request, keys, current):
 KIND_LABELS = {"doc": "document", "scan": "scan", "web": "snapshot", "rec": "record"}
 
 
-def _doc_row(doc, state):
-    """Одна строка таблицы для записи (doc.namespace уже привязан)."""
+def _size_text(count):
+    if count < 1024:
+        return f"{count} B"
+    if count < 1024 * 1024:
+        return f"{count / 1024:.1f} KB"
+    return f"{count / (1024 * 1024):.1f} MB"
+
+
+def _doc_row(doc, state, keys):
+    """Одна строка таблицы для записи (doc.namespace уже привязан).
+
+    Размер и контрольная сумма считаются по тому, что игрок вправе прочитать (без закрытых
+    ::spoiler); у закрытой записи их нет совсем.
+    """
     url = _doc_url(doc)
     has_infobox = state.open and bool(doc.infobox.strip())
+
+    size = etag = None
+    nbytes = 0
+    if state.open:
+        text = visible_text(doc.body, keys).encode("utf-8")
+        nbytes = len(text)
+        size = _size_text(nbytes)
+        etag = hashlib.sha1(text).hexdigest()[:10]
 
     return {
         "id": doc.pk,
@@ -147,6 +168,10 @@ def _doc_row(doc, state):
         "type": doc.type,
         "kind": KIND_LABELS.get(doc.type, doc.type),
         "updated": doc.updated_at,
+        "key": f"{_path_text(doc.namespace)}{doc.title}{doc.ext}",
+        "bytes": nbytes,
+        "size": size,
+        "etag": etag,
         "open": state.open,
         "url": url,
         "infobox_url": f"{url}?infobox=1" if has_infobox else None,
@@ -156,13 +181,12 @@ def _doc_row(doc, state):
 def _doc_rows(ns, keys):
     """Строки таблицы документов неймспейса (только видимые)."""
     rows = []
-    # тело записи в таблице не нужно: не читаем его из базы
-    for doc in Document.objects.filter(namespace=ns).defer("body"):
+    for doc in Document.objects.filter(namespace=ns):
         doc.namespace = ns  # чтобы не ходить в базу за родителем на каждой строке
         s = document_state(doc, keys)
         if not s.visible:
             continue
-        rows.append(_doc_row(doc, s))
+        rows.append(_doc_row(doc, s, keys))
     return rows
 
 
@@ -223,6 +247,7 @@ def _namespace_page(request, ns):
             "up_url": up_url,
             "folders": folders,
             "path_text": _path_text(ns),
+            "at_root": ns is None,
             "prompt": _prompt(request, ns),
             "search_url": reverse("wiki:search"),
             "scope_address": _address(ns),
@@ -230,7 +255,8 @@ def _namespace_page(request, ns):
             "locked": locked,
             # за замком даже список документов не отдаём
             "documents": documents,
-            "rows": len(documents) + len(folders),
+            "objects": len(documents),
+            "prefixes": len(folders),
         },
         status=403 if locked else 200,
     )
@@ -395,7 +421,7 @@ def search(request):
         if not found:
             continue
 
-        row = _doc_row(doc, s)
+        row = _doc_row(doc, s, keys)
         row.pop("updated", None)  # в выдаче не нужно, и datetime лишний в JSON
         row["path"] = _path_text(doc.namespace)
         rows.append(row)

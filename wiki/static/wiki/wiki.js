@@ -72,56 +72,140 @@
     }
 
     /*
-     * Открытие по клику на строку. Работает и для таблицы
-     * документов раздела, и для таблицы результатов поиска.
+     * Строка выбирается кликом: внизу показываются свойства объекта.
+     * Открывается запись двойным кликом, по названию или кнопкой open.
+     * Работает и для таблицы раздела, и для таблицы результатов поиска.
      */
     const INFOBOX_WINDOW = { width: 320, height: 440 };
+
+    const props = document.getElementById("props");
+    const propsEmpty = document.getElementById("props-empty");
+    const propsList = document.getElementById("props-list");
+    const propsOpen = document.getElementById("props-open");
+
+    let selected = null;
+
+    function openRow(row) {
+        const desktop = getDesktop();
+
+        /* вне рабочего стола работают обычные ссылки */
+        if (!desktop) {
+            window.location.href = row.dataset.url;
+            return;
+        }
+
+        const id = row.dataset.docId;
+        const title = row.dataset.title;
+
+        /* расширение зависит от типа записи: .doc, .snapshot */
+        const windowTitle = title + (row.dataset.ext || ".doc");
+
+        /*
+         * Сначала инфобокс, потом документ:
+         * окно документа открывается последним
+         * и остаётся сверху.
+         */
+        if (row.dataset.infoboxUrl) {
+            desktop.openApp(
+                "info-" + id,
+                title + ".info",
+                row.dataset.infoboxUrl,
+                INFOBOX_WINDOW
+            );
+        }
+
+        desktop.openApp(
+            "doc-" + id,
+            windowTitle,
+            row.dataset.url
+        );
+    }
+
+    function showProps(row) {
+        const fields = [
+            ["key", row.dataset.key],
+            ["class", row.dataset.class],
+            ["size", row.dataset.size],
+            ["etag", row.dataset.etag],
+            ["access", row.dataset.access],
+        ];
+
+        if (row.dataset.infoboxUrl) {
+            fields.push(["infobox", "yes"]);
+        }
+
+        propsList.replaceChildren();
+
+        fields.forEach(function (pair) {
+            if (pair[1] === undefined) {
+                return;
+            }
+
+            const term = document.createElement("dt");
+            const value = document.createElement("dd");
+
+            term.textContent = pair[0];
+            value.textContent = pair[1];
+            propsList.append(term, value);
+        });
+
+        propsEmpty.hidden = true;
+        propsList.hidden = false;
+        propsOpen.hidden = !row.dataset.url;
+    }
+
+    function select(row) {
+        if (selected) {
+            selected.classList.remove("selected");
+        }
+
+        selected = row;
+        row.classList.add("selected");
+        showProps(row);
+    }
+
     function bindOpen(table) {
         table.addEventListener("click", function (event) {
-            const row = event.target.closest("tr[data-url]");
+            const row = event.target.closest("tr[data-key]");
 
             if (!row) {
                 return;
             }
 
-            const desktop = getDesktop();
+            select(row);
 
-            /* Вне рабочего стола работают обычные ссылки */
-            if (!desktop) {
-                if (!event.target.closest("a")) {
-                    window.location.href = row.dataset.url;
-                }
+            /* название раздела ведёт по ссылке, название записи открывает её */
+            if (event.target.closest("a") && row.dataset.url) {
+                event.preventDefault();
+                openRow(row);
+            }
+        });
 
+        table.addEventListener("dblclick", function (event) {
+            const row = event.target.closest("tr[data-key]");
+
+            if (!row) {
                 return;
             }
 
-            event.preventDefault();
-
-            const id = row.dataset.docId;
-            const title = row.dataset.title;
-
-            /* расширение зависит от типа записи: .doc, .snapshot */
-            const windowTitle = title + (row.dataset.ext || ".doc");
-
-            /*
-             * Сначала инфобокс, потом документ:
-             * окно документа открывается последним
-             * и остаётся сверху.
-             */
-            if (row.dataset.infoboxUrl) {
-                desktop.openApp(
-                    "info-" + id,
-                    title + ".info",
-                    row.dataset.infoboxUrl,
-                    INFOBOX_WINDOW
-                );
+            if (row.dataset.url) {
+                openRow(row);
+                return;
             }
 
-            desktop.openApp(
-                "doc-" + id,
-                windowTitle,
-                row.dataset.url
-            );
+            const link = row.querySelector("a");
+
+            if (link) {
+                window.location.href = link.href;
+            }
+        });
+    }
+
+    if (propsOpen) {
+        propsOpen.addEventListener("click", function () {
+            if (selected && selected.dataset.url) {
+                openRow(selected);
+            }
         });
     }
 
@@ -147,10 +231,6 @@
         const headers = table.querySelectorAll("thead th");
 
         headers.forEach(function (th, index) {
-            if (th.classList.contains("n")) {
-                return;
-            }
-
             th.addEventListener("click", function () {
                 const asc = th.getAttribute("aria-sort") !== "ascending";
 
@@ -294,8 +374,8 @@
 
         const headRow = el("tr");
 
-        ["#", "name", "path", "access"].forEach(function (label) {
-            headRow.appendChild(el("th", label === "#" ? "n" : null, label));
+        ["key", "class", "size", "etag", "access"].forEach(function (label) {
+            headRow.appendChild(el("th", null, label));
         });
 
         table.appendChild(el("thead")).appendChild(headRow);
@@ -309,6 +389,11 @@
             tr.dataset.title = item.title;
             tr.dataset.ext = item.ext || "";
             tr.dataset.url = item.url;
+            tr.dataset.key = item.key;
+            tr.dataset.class = item.kind;
+            tr.dataset.size = item.size || "-";
+            tr.dataset.etag = item.etag || "-";
+            tr.dataset.access = item.open ? "open" : "locked";
 
             if (item.infobox_url) {
                 tr.dataset.infoboxUrl = item.infobox_url;
@@ -318,12 +403,17 @@
             const nameCell = el("td");
             nameCell.dataset.sort = item.title;
 
-            const link = el("a", null, item.title);
+            const link = el("a", null);
             link.href = item.url;
+            link.appendChild(el("span", "ext", item.path || ""));
+            link.appendChild(document.createTextNode(item.title));
             link.appendChild(el("span", "ext", item.ext || ""));
             nameCell.appendChild(link);
 
-            const pathCell = el("td", null, item.path || "");
+            const classCell = el("td", null, item.kind);
+            const sizeCell = el("td", null, item.size || "-");
+            sizeCell.dataset.sort = item.bytes;
+            const etagCell = el("td", null, item.etag || "-");
 
             const accessCell = el(
                 "td",
@@ -331,7 +421,7 @@
                 item.open ? "OPEN" : "LOCKED"
             );
 
-            tr.append(el("td", "n"), nameCell, pathCell, accessCell);
+            tr.append(nameCell, classCell, sizeCell, etagCell, accessCell);
             body.appendChild(tr);
         });
 
@@ -407,7 +497,7 @@
                 results.appendChild(el("p", "empty", "> error: query failed"));
             } else {
                 records.textContent =
-                    "(" + rows.length + (rows.length === 1 ? " row)" : " rows)");
+                    "(" + rows.length + (rows.length === 1 ? " object)" : " objects)");
 
                 if (rows.length) {
                     results.appendChild(buildResultsTable(rows));

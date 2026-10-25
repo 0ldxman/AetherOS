@@ -88,9 +88,29 @@ class WikiViewsTests(TestCase):
         status, html, _ = call(views.resolve, "")
         self.assertEqual(status, 200)
         self.assertIn('class="folder', html)
-        self.assertIn('<th class="n">#</th>', html)
+        self.assertIn("<th>etag</th>", html)
+        self.assertIn('data-class="volume"', html)  # раздел верхнего уровня это том
         self.assertIn("Открытая", html)
-        self.assertIn("3 rows", html)  # два раздела и одна открытая запись
+        self.assertIn("2 objects, 1 volume", html)  # открытая запись, запись со спойлером, том «Закрытый»
+
+    def test_object_metadata_ignores_hidden_spoilers(self):
+        """Размер и etag считаются по видимому тексту: из них нельзя вытянуть закрытую часть."""
+        _, anon, _ = call(views.resolve, "")
+        _, keyed, _ = call(views.resolve, "", user=self.player)
+        self.assertIn("data-size=", anon)
+        self.assertNotEqual(
+            [line for line in anon.splitlines() if "Со спойлером" in line and "data-etag" in line],
+            [line for line in keyed.splitlines() if "Со спойлером" in line and "data-etag" in line],
+        )
+
+    def test_locked_object_has_no_size_or_etag(self):
+        locked = Document.objects.create(namespace=None, title="Замок", body="х" * 50, access="key_a")
+        _, html, _ = call(views.resolve, "")
+        line = next(l for l in html.splitlines() if 'data-title="Замок"' in l)
+        self.assertIn('data-size="-"', line)
+        self.assertIn('data-etag="-"', line)
+        self.assertNotIn("50", line.split("data-size")[1][:8])
+        locked.delete()
 
     def test_locked_section_shows_no_rows(self):
         status, html, _ = call(views.resolve, "Закрытый")
