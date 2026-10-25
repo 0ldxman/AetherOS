@@ -1,0 +1,5 @@
+<tr{% if not d.open %} class="locked"{% endif %} data-doc-id="{{ d.id }}" data-title="{{ d.title }}" data-ext="{{ d.ext }}" data-url="{{ d.url }}" data-key="{{ d.key }}" data-class="{{ d.kind }}" data-size="{{ d.size|default:'-' }}" data-etag="{{ d.etag|default:'-' }}" data-access="{% if d.open %}open{% else %}locked{% endif %}" data-excerpt="{{ d.excerpt }}"{% if d.infobox_url %} data-infobox-url="{{ d.infobox_url }}"{% endif %}>
+  <td data-sort="{{ d.title }}"><a href="{{ d.url }}">{{ d.title }}<span class="ext">{{ d.ext }}</span></a></td>
+  <td class="summary">{{ d.summary }}</td>
+  <td{% if d.open %} class="state-open"{% endif %}>{% if d.open %}OPEN{% else %}LOCKED{% endif %}</td>
+</tr>

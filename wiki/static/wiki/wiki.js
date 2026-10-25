@@ -78,9 +78,11 @@
      */
     const INFOBOX_WINDOW = { width: 320, height: 440 };
 
-    const props = document.getElementById("props");
+    const readerBox = document.getElementById("reader");
     const propsEmpty = document.getElementById("props-empty");
-    const propsList = document.getElementById("props-list");
+    const readerTitle = document.getElementById("reader-title");
+    const readerText = document.getElementById("reader-text");
+    const readerMeta = document.getElementById("reader-meta");
     const propsOpen = document.getElementById("props-open");
 
     let selected = null;
@@ -121,37 +123,35 @@
         );
     }
 
+    /* панель чтения: начало текста того, что игрок вправе видеть */
     function showProps(row) {
-        const fields = [
-            ["key", row.dataset.key],
-            ["class", row.dataset.class],
-            ["size", row.dataset.size],
-            ["etag", row.dataset.etag],
-            ["access", row.dataset.access],
-        ];
+        const data = row.dataset;
+        const locked = data.access === "locked";
 
-        if (row.dataset.infoboxUrl) {
-            fields.push(["infobox", "yes"]);
+        readerTitle.textContent = data.key;
+        readerText.textContent = locked
+            ? "> restricted: no matching key"
+            : data.excerpt || "> no text";
+
+        const meta = [data.class];
+
+        if (data.size && data.size !== "-") {
+            meta.push(data.size);
         }
 
-        propsList.replaceChildren();
+        if (data.etag && data.etag !== "-") {
+            meta.push("etag " + data.etag);
+        }
 
-        fields.forEach(function (pair) {
-            if (pair[1] === undefined) {
-                return;
-            }
+        if (data.infoboxUrl) {
+            meta.push("infobox");
+        }
 
-            const term = document.createElement("dt");
-            const value = document.createElement("dd");
-
-            term.textContent = pair[0];
-            value.textContent = pair[1];
-            propsList.append(term, value);
-        });
+        readerMeta.textContent = meta.join("  \u00b7  ");
 
         propsEmpty.hidden = true;
-        propsList.hidden = false;
-        propsOpen.hidden = !row.dataset.url;
+        readerBox.hidden = false;
+        propsOpen.hidden = !data.url;
     }
 
     function select(row) {
@@ -264,10 +264,61 @@
     }
 
     const docsTable = document.getElementById("docs");
+    const recentTable = document.getElementById("recent");
 
     if (docsTable) {
         bindOpen(docsTable);
         bindSort(docsTable);
+
+        /* читать есть что сразу: первая запись раздела выбрана */
+        const first = docsTable.querySelector("tr[data-url]");
+
+        if (first) {
+            select(first);
+        }
+    }
+
+    if (recentTable) {
+        bindOpen(recentTable);
+    }
+
+    /* ================================================== */
+    /* Tree: сворачивается, навигация есть и в основном окне */
+    /* ================================================== */
+
+    const TREE_KEY = "wiki:tree:hidden";
+    const treeToggle = document.getElementById("tree-toggle");
+    const treeLayout = document.getElementById("layout");
+
+    function setTree(hidden) {
+        treeLayout.classList.toggle("tree-hidden", hidden);
+        treeToggle.setAttribute("aria-expanded", hidden ? "false" : "true");
+
+        try {
+            localStorage.setItem(TREE_KEY, hidden ? "1" : "0");
+        } catch (error) {
+            /* запомнить не получится, не страшно */
+        }
+    }
+
+    if (treeToggle && treeLayout) {
+        let hidden = window.innerWidth < 640;
+
+        try {
+            const stored = localStorage.getItem(TREE_KEY);
+
+            if (stored !== null) {
+                hidden = stored === "1";
+            }
+        } catch (error) {
+            /* по ширине окна */
+        }
+
+        setTree(hidden);
+
+        treeToggle.addEventListener("click", function () {
+            setTree(!treeLayout.classList.contains("tree-hidden"));
+        });
     }
 
 
@@ -374,7 +425,7 @@
 
         const headRow = el("tr");
 
-        ["key", "class", "size", "etag", "access"].forEach(function (label) {
+        ["name", "summary", "access"].forEach(function (label) {
             headRow.appendChild(el("th", null, label));
         });
 
@@ -394,6 +445,7 @@
             tr.dataset.size = item.size || "-";
             tr.dataset.etag = item.etag || "-";
             tr.dataset.access = item.open ? "open" : "locked";
+            tr.dataset.excerpt = item.excerpt || "";
 
             if (item.infobox_url) {
                 tr.dataset.infoboxUrl = item.infobox_url;
@@ -410,10 +462,7 @@
             link.appendChild(el("span", "ext", item.ext || ""));
             nameCell.appendChild(link);
 
-            const classCell = el("td", null, item.kind);
-            const sizeCell = el("td", null, item.size || "-");
-            sizeCell.dataset.sort = item.bytes;
-            const etagCell = el("td", null, item.etag || "-");
+            const summaryCell = el("td", "summary", item.summary || "");
 
             const accessCell = el(
                 "td",
@@ -421,7 +470,7 @@
                 item.open ? "OPEN" : "LOCKED"
             );
 
-            tr.append(nameCell, classCell, sizeCell, etagCell, accessCell);
+            tr.append(nameCell, summaryCell, accessCell);
             body.appendChild(tr);
         });
 

@@ -88,10 +88,10 @@ class WikiViewsTests(TestCase):
         status, html, _ = call(views.resolve, "")
         self.assertEqual(status, 200)
         self.assertIn('class="folder', html)
-        self.assertIn("<th>etag</th>", html)
+        self.assertIn("<th>summary</th>", html)
         self.assertIn('data-class="volume"', html)  # раздел верхнего уровня это том
         self.assertIn("Открытая", html)
-        self.assertIn("2 objects, 1 volume", html)  # открытая запись, запись со спойлером, том «Закрытый»
+        self.assertIn("2 articles, 1 volume", html)  # открытая запись, запись со спойлером, том «Закрытый»
 
     def test_object_metadata_ignores_hidden_spoilers(self):
         """Размер и etag считаются по видимому тексту: из них нельзя вытянуть закрытую часть."""
@@ -102,6 +102,25 @@ class WikiViewsTests(TestCase):
             [line for line in anon.splitlines() if "Со спойлером" in line and "data-etag" in line],
             [line for line in keyed.splitlines() if "Со спойлером" in line and "data-etag" in line],
         )
+
+    def test_summary_is_the_first_sentence_without_the_repeated_title(self):
+        Document.objects.create(
+            namespace=None, title="Статья", body="# Статья\n\nПервая фраза. Вторая фраза.\n\nАбзац."
+        )
+        _, html, _ = call(views.resolve, "")
+        self.assertIn('<td class="summary">Первая фраза.</td>', html)
+
+    def test_locked_article_shows_no_text(self):
+        Document.objects.create(namespace=None, title="Закрыта", body="тайный текст", access="key_a")
+        _, html, _ = call(views.resolve, "")
+        self.assertNotIn("тайный текст", html)
+        self.assertIn('<td class="summary">restricted</td>', html)
+
+    def test_counts_include_only_visible_articles(self):
+        _, html, _ = call(views.resolve, "")
+        # открыта «Открытая» и «Со спойлером»; «Скрытая» не видна, «Вложенная» за замком раздела, но видна
+        self.assertIn("archive &middot; 4 articles", html)
+        self.assertNotIn("Скрытая", html)
 
     def test_locked_object_has_no_size_or_etag(self):
         locked = Document.objects.create(namespace=None, title="Замок", body="х" * 50, access="key_a")
@@ -192,7 +211,7 @@ class WikiViewsTests(TestCase):
         }
         # потолки с запасом; главное - не растут с глубиной пути
         for name, limit in {
-            "home": 3,
+            "home": 4,  # + «recent» на стартовой странице
             "namespace": 3,
             "document": 3,
             "deep_document": 3,

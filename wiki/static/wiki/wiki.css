@@ -255,14 +255,12 @@ a {
 /* -------------------------------------------------- */
 
 .props {
-    position: relative;
-
     flex: 0 0 auto;
-    min-height: 7.2rem;
-    max-height: 9rem;
+    min-height: 9rem;
+    max-height: 38%;
     overflow: auto;
 
-    padding: 0.5rem var(--pad-x);
+    padding: 0.6rem var(--pad-x);
 
     background: var(--panel);
     border-top: 1px solid var(--line-bright);
@@ -274,36 +272,45 @@ a {
 }
 
 
-.props-list {
-    display: grid;
-    grid-template-columns: max-content 1fr;
-    gap: 0.1rem 2ch;
-
-    margin: 0;
+.reader-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
 }
 
 
-.props-list dt {
-    color: var(--font-muted);
-}
-
-
-.props-list dd {
-    margin: 0;
+.reader-title {
     min-width: 0;
 
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
 
+    color: var(--font-light);
+    font-weight: 600;
+}
+
+
+.reader-text {
+    margin: 0.5rem 0;
+
     color: var(--fg);
+    line-height: 1.5;
+    white-space: pre-line;
+}
+
+
+.reader-meta {
+    margin: 0;
+
+    color: var(--font-muted);
+    font-size: 0.9rem;
 }
 
 
 .props-open {
-    position: absolute;
-    top: 0.5rem;
-    right: var(--pad-x);
+    flex: 0 0 auto;
 
     padding: 0.1rem 1.2ch;
 
@@ -788,6 +795,7 @@ li:last-child > details > .t-row.locked {
 
 .grid {
     width: 100%;
+    table-layout: fixed;    /* таблица раздела и «recent» выровнены по одним колонкам */
 
     border-collapse: separate;
     border-spacing: 0;
@@ -862,7 +870,16 @@ li:last-child > details > .t-row.locked {
 /* название забирает свободное место */
 .grid th:first-child,
 .grid td:first-child {
-    width: 100%;
+    width: 34%;
+
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+
+.grid th:last-child,
+.grid td:last-child {
+    width: 7rem;
 }
 
 
@@ -1044,3 +1061,41 @@ body::-webkit-scrollbar-thumb:hover {
   white-space: nowrap;
 }
 .view-as a { color: #fff; text-decoration: underline; }
+
+
+/* подпись записи в списке: о чём она */
+.grid td.summary {
+    color: var(--font-muted);
+
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+
+.intro {
+    margin: 0;
+    padding: 0.7rem var(--pad-x) 0.4rem;
+
+    color: var(--font-muted);
+}
+
+
+/* дерево сворачивается: навигация есть и в основном окне */
+.tree-toggle {
+    flex: 0 0 auto;
+
+    padding: 0 0.8ch;
+
+    background: none;
+    border: 1px solid var(--font-dark);
+
+    color: var(--font-dark);
+
+    font: inherit;
+    cursor: pointer;
+}
+
+
+.layout.tree-hidden .side {
+    display: none;
+}

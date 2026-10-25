@@ -6,7 +6,7 @@
 {% view_as_banner %}
 <div class="layout" id="layout" data-search-url="{{ search_url }}" data-scope="{{ scope_address }}" data-ns-id="{{ ns_id }}">
 
-  <nav class="side" aria-label="Неймспейсы">
+  <nav class="side" id="tree" aria-label="Неймспейсы">
     <ul class="tree">
       <li class="tree-root">
         <div class="t-row{% if tree.current %} current{% endif %}">
@@ -21,6 +21,7 @@
 
   <section class="viewer">
     <div class="viewer-path">
+      <button type="button" class="tree-toggle" id="tree-toggle" title="show / hide the tree" aria-controls="tree" aria-expanded="true">tree</button>
       <nav class="crumbs" aria-label="Путь">
         {% if up_url %}<a class="crumb-up" href="{{ up_url }}" title="up">..</a>{% endif %}
         {% for c in crumbs %}{% if not forloop.first %}<span class="sep">/</span>{% endif %}<a href="{{ c.url }}"{% if forloop.last %} aria-current="page"{% endif %}>{{ c.name }}</a>{% endfor %}
@@ -37,37 +38,34 @@
           <div class="denied-line">&gt; no matching key<span class="cursor"></span></div>
         </div>
       {% elif documents or folders %}
+        {% if at_root %}<p class="intro">archive &middot; {{ total }} article{{ total|pluralize }} &middot; {{ prefixes }} volume{{ prefixes|pluralize }}</p>{% endif %}
         <table class="grid" id="docs">
           <thead>
             <tr>
-              <th>key</th>
-              <th>class</th>
-              <th>size</th>
-              <th>etag</th>
+              <th>name</th>
+              <th>summary</th>
               <th>access</th>
             </tr>
           </thead>
           <tbody>
           {% for f in folders %}
-            <tr class="folder{% if not f.open %} locked{% endif %}" data-key="{{ path_text }}{{ f.name }}/" data-class="{% if at_root %}volume{% else %}prefix{% endif %}" data-access="{% if f.open %}open{% else %}locked{% endif %}">
+            <tr class="folder{% if not f.open %} locked{% endif %}" data-key="{{ path_text }}{{ f.name }}/" data-class="{% if at_root %}volume{% else %}section{% endif %}" data-access="{% if f.open %}open{% else %}locked{% endif %}" data-excerpt="{% if f.open %}{{ f.count }} article{{ f.count|pluralize }}{% else %}restricted: no matching key{% endif %}">
               <td data-sort="{{ f.name }}"><a href="{{ f.url }}">{{ f.name }}<span class="ext">/</span></a></td>
-              <td>{% if at_root %}volume{% else %}prefix{% endif %}</td>
-              <td data-sort="-1">-</td>
-              <td>-</td>
+              <td class="summary">{% if f.open %}{% if at_root %}volume{% else %}section{% endif %} &middot; {{ f.count }} article{{ f.count|pluralize }}{% else %}restricted{% endif %}</td>
               <td{% if f.open %} class="state-open"{% endif %}>{% if f.open %}OPEN{% else %}LOCKED{% endif %}</td>
             </tr>
           {% endfor %}
-          {% for d in documents %}
-            <tr{% if not d.open %} class="locked"{% endif %} data-doc-id="{{ d.id }}" data-title="{{ d.title }}" data-ext="{{ d.ext }}" data-url="{{ d.url }}" data-key="{{ d.key }}" data-class="{{ d.kind }}" data-size="{{ d.size|default:'-' }}" data-etag="{{ d.etag|default:'-' }}" data-access="{% if d.open %}open{% else %}locked{% endif %}"{% if d.infobox_url %} data-infobox-url="{{ d.infobox_url }}"{% endif %}>
-              <td data-sort="{{ d.title }}"><a href="{{ d.url }}">{{ d.title }}<span class="ext">{{ d.ext }}</span></a></td>
-              <td>{{ d.kind }}</td>
-              <td data-sort="{{ d.bytes }}">{{ d.size|default:"-" }}</td>
-              <td>{{ d.etag|default:"-" }}</td>
-              <td{% if d.open %} class="state-open"{% endif %}>{% if d.open %}OPEN{% else %}LOCKED{% endif %}</td>
-            </tr>
-          {% endfor %}
+          {% for d in documents %}{% include "wiki/_doc_row.html" %}{% endfor %}
           </tbody>
         </table>
+        {% if recent %}
+        <p class="intro">recent</p>
+        <table class="grid" id="recent">
+          <tbody>
+          {% for d in recent %}{% include "wiki/_doc_row.html" %}{% endfor %}
+          </tbody>
+        </table>
+        {% endif %}
       {% else %}
         <p class="empty">&gt; no records</p>
       {% endif %}
@@ -77,9 +75,15 @@
     </div>
 
     <div class="props" id="props" aria-live="polite">
-      <p class="empty" id="props-empty">&gt; select an object to see its properties</p>
-      <dl class="props-list" id="props-list" hidden></dl>
-      <button type="button" class="props-open" id="props-open" hidden>open</button>
+      <p class="empty" id="props-empty">&gt; select an article to read it here</p>
+      <div class="reader" id="reader" hidden>
+        <div class="reader-head">
+          <span class="reader-title" id="reader-title"></span>
+          <button type="button" class="props-open" id="props-open" hidden>open</button>
+        </div>
+        <p class="reader-text" id="reader-text"></p>
+        <p class="reader-meta" id="reader-meta"></p>
+      </div>
     </div>
 
     <div class="viewer-foot">
@@ -88,7 +92,7 @@
         <span class="typed-wrap" id="typed-wrap"><span class="typed" id="typed"></span><span class="caret" aria-hidden="true"></span><span class="typed-hint" id="typed-hint">search by name or text, then Enter</span></span>
         <input type="text" id="search" maxlength="80" aria-label="Запрос к базе" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false">
       </label>
-      <span class="viewer-meta" id="records">{% if not locked %}{{ objects }} object{{ objects|pluralize }}, {{ prefixes }} {% if at_root %}volume{{ prefixes|pluralize }}{% else %}prefix{{ prefixes|pluralize:'es' }}{% endif %}{% endif %}</span>
+      <span class="viewer-meta" id="records">{% if not locked %}{{ objects }} article{{ objects|pluralize }}, {{ prefixes }} {% if at_root %}volume{{ prefixes|pluralize }}{% else %}section{{ prefixes|pluralize }}{% endif %}{% endif %}</span>
     </div>
   </section>
 

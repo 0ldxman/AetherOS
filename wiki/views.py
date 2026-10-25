@@ -1,4 +1,5 @@
 import hashlib
+import re
 from collections import defaultdict
 
 from django.db.models import Q
@@ -145,6 +146,38 @@ def _tree(request, keys, current):
 KIND_LABELS = {"doc": "document", "scan": "scan", "web": "snapshot", "rec": "record"}
 
 
+_LINK = re.compile(r"!?\[([^\]]*)\]\([^)]*\)")
+_MARK = re.compile(r"[*_`>#~]+")
+
+
+def _plain(text, title=""):
+    """Текст записи для подписи и чтения: без директив (::...) и без первой строки, если она повторяет название."""
+    lines = []
+    for line in text.splitlines():
+        line = line.strip()
+        if not line or line.startswith(("::", "#")):
+            continue  # заголовок и так показан названием записи
+        line = _MARK.sub("", _LINK.sub(r"\1", line)).strip()
+        if line:
+            lines.append(line)
+    if lines and lines[0].casefold() == title.strip().casefold():
+        lines.pop(0)
+    return "\n".join(lines)
+
+
+def _cut(text, limit):
+    if len(text) <= limit:
+        return text
+    return text[:limit].rsplit(" ", 1)[0].rstrip(",;:") + "..."
+
+
+def _summary(plain):
+    """Первая фраза записи: подпись в списке."""
+    first = plain.split("\n", 1)[0] if plain else ""
+    match = re.search(r"(?<=[.!?])\s", first)
+    return _cut(first[: match.start()] if match else first, 90)
+
+
 def _size_text(count):
     if count < 1024:
         return f"{count} B"
@@ -164,11 +197,15 @@ def _doc_row(doc, state, keys):
 
     size = etag = None
     nbytes = 0
+    summary, excerpt = "restricted", ""
     if state.open:
-        text = visible_text(doc.body, keys).encode("utf-8")
-        nbytes = len(text)
+        visible = visible_text(doc.body, keys)
+        raw = visible.encode("utf-8")
+        nbytes = len(raw)
         size = _size_text(nbytes)
-        etag = hashlib.sha1(text).hexdigest()[:10]
+        etag = hashlib.sha1(raw).hexdigest()[:10]
+        plain = _plain(visible, doc.title)
+        summary, excerpt = _summary(plain), _cut(plain, 520)
 
     return {
         "id": doc.pk,
@@ -181,6 +218,8 @@ def _doc_row(doc, state, keys):
         "bytes": nbytes,
         "size": size,
         "etag": etag,
+        "summary": summary,
+        "excerpt": excerpt,
         "open": state.open,
         "url": url,
         "infobox_url": f"{url}?infobox=1" if has_infobox else None,
@@ -196,6 +235,55 @@ def _doc_rows(ns, keys):
         if not s.visible:
             continue
         rows.append(_doc_row(doc, s, keys))
+    return rows
+
+
+def _article_counts(request, keys):
+    """Сколько видимых записей в каждом неймспейсе (с вложенными) и всего.
+
+    Считаются только записи, которые игрок видит: скрытое и несмонтированное не попадает
+    даже в число.
+    """
+    by_id = {n.pk: n for n in _all_namespaces(request)}
+    counts = defaultdict(int)
+    total = 0
+
+    for doc in Document.objects.only("id", "namespace", "visibility", "access"):
+        if doc.namespace_id is not None:
+            if doc.namespace_id not in by_id:
+                continue
+            doc.namespace = by_id[doc.namespace_id]
+
+        if not document_state(doc, keys).visible:
+            continue
+
+        total += 1
+        if doc.namespace_id is not None:
+            for node in doc.namespace.chain():
+                counts[node.pk] += 1
+
+    return counts, total
+
+
+def _recent(request, keys, limit=5):
+    """Недавно изменённые открытые записи из доступных томов (для стартовой страницы)."""
+    by_id = {n.pk: n for n in _all_namespaces(request)}
+    rows = []
+
+    for doc in Document.objects.order_by("-updated_at")[:60]:
+        if doc.namespace_id is not None:
+            if doc.namespace_id not in by_id:
+                continue
+            doc.namespace = by_id[doc.namespace_id]
+
+        state = document_state(doc, keys)
+        if not (state.visible and state.open):
+            continue
+
+        rows.append(_doc_row(doc, state, keys))
+        if len(rows) == limit:
+            break
+
     return rows
 
 
@@ -246,6 +334,9 @@ def _namespace_page(request, ns):
     crumbs, up_url = _path_bar(ns)
     documents = [] if locked else _doc_rows(ns, keys)
     folders = [] if locked else _folders(tree, ns)
+    counts, total = _article_counts(request, keys)
+    for folder in folders:
+        folder["count"] = counts[folder["id"]]
 
     return render(
         request,
@@ -264,6 +355,8 @@ def _namespace_page(request, ns):
             "locked": locked,
             # за замком даже список документов не отдаём
             "documents": documents,
+            "total": total,
+            "recent": _recent(request, keys) if ns is None and not locked else [],
             "objects": len(documents),
             "prefixes": len(folders),
         },
