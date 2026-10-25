@@ -252,3 +252,27 @@ class ConditionFieldTests(AdminTestCase):
              "allowed_hids-MIN_NUM_FORMS": 0, "allowed_hids-MAX_NUM_FORMS": 1000},
         )
         self.assertEqual(response.status_code, 200)
+
+
+class AppSuffixTests(AdminTestCase):
+    """Расширение приложения на рабочем столе всегда с точкой: aether.db, а не aetherdb."""
+
+    def make(self, suffix):
+        from machines.models import MachineApp
+
+        return MachineApp.objects.create(machine=self.machine, label="aether", glyph="A", suffix=suffix, path="/apps/wiki/")
+
+    def test_a_suffix_without_a_dot_gets_one(self):
+        self.assertEqual(self.make("db").suffix, ".db")
+
+    def test_a_suffix_with_a_dot_is_kept_and_blank_stays_blank(self):
+        self.assertEqual(self.make(".map").suffix, ".map")
+        self.assertEqual(self.make("  ").suffix, "")
+        self.assertEqual(self.make("..sh").suffix, ".sh")
+
+    def test_the_desktop_shows_the_dot_even_for_an_old_row(self):
+        from machines.models import MachineApp, normalize_suffix
+
+        app = self.make("db")
+        MachineApp.objects.filter(pk=app.pk).update(suffix="db")        # как до исправления
+        self.assertEqual(normalize_suffix(MachineApp.objects.get(pk=app.pk).suffix), ".db")

@@ -13,6 +13,7 @@ from users.aether_auth import GUEST_LOGIN
 from .boots import boot_scenes
 
 from machines.current import active_session, current_machine, visible_apps
+from machines.models import normalize_suffix
 
 # Create your views here.
 
@@ -87,7 +88,7 @@ def desktop(request):
             "id": app.pk,
             "label": app.label,
             "glyph": app.glyph,
-            "suffix": app.suffix,
+            "suffix": normalize_suffix(app.suffix),
             "url": prefix + app.path,
         }
         for app in visible_apps(request, machine)
