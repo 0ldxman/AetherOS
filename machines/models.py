@@ -8,6 +8,8 @@ import secrets
 
 from django.core.exceptions import ValidationError
 
+from mail.addresses import validate_address
+
 from .paths import validate_internal_path
 
 
@@ -59,15 +61,6 @@ class Machine(models.Model):
         blank=True,
     )
 
-    mail_domain = models.CharField(
-        max_length=255,
-        blank=True,
-        help_text=(
-            "Почтовый домен машины, например apollo.mail. Пусто: берётся первое слово "
-            "имени хоста и «.mail» (apollo-staff -> apollo.mail)."
-        ),
-    )
-
     created_at = models.DateTimeField(
         auto_now_add=True,
     )
@@ -75,13 +68,6 @@ class Machine(models.Model):
     updated_at = models.DateTimeField(
         auto_now=True,
     )
-
-    @property
-    def mail_host(self):
-        """Домен почтовых адресов на этой машине: login@<mail_host>."""
-        if self.mail_domain:
-            return self.mail_domain
-        return f"{(self.hostname or self.name).split('-')[0]}.mail"
 
     @property
     def label(self):
@@ -140,6 +126,13 @@ class MachineProfile(models.Model):
         max_length=128,
     )
 
+    mail = models.CharField(
+        "Почта",
+        max_length=255,
+        validators=[validate_address],
+        help_text="Адрес этого профиля, например will_smith@apollo.mail. Игрок под профилем читает и пишет от его лица.",
+    )
+
     password_hash = models.CharField(
         max_length=128,
         blank=True,
@@ -165,6 +158,12 @@ class MachineProfile(models.Model):
 
     def __str__(self):
         return f"{self.login}@{self.machine.label}:{self.freq:.3f}"
+
+    def save(self, *args, **kwargs):
+        if not self.mail:
+            self.mail = f"{self.login}@{self.machine.label}"
+
+        super().save(*args, **kwargs)
 
 
 class MachineProfileToken(models.Model):

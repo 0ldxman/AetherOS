@@ -8,20 +8,22 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from django.contrib.auth import get_user_model
+from django.core.exceptions import ValidationError
 from django.test import TestCase, override_settings
 from django.urls import get_script_prefix, reverse, set_script_prefix
 
 from machines.models import Machine, MachineApp, MachineProfile
+from mail.addresses import matches, matches_any, split, validate_address, validate_masks
 from mail.access import Viewer, mark_read, mark_unread, read_ids, summary, visible_messages
-from mail.models import Attachment, ComposeProgress, Delivered, Message, MessageRead
+from mail.models import Attachment, ComposeProgress, Delivered, Message, MessageRead, Trashed
 from secure.models import Key
 from users.models import UserKey
 
 
 def make_message(**fields):
     data = {
-        "sender_name": "██████",
-        "sender_address": "██████@aether-core",
+        "sender": "██████@aether-core",
+        "recipients": "*",
         "subject": "for you",
         "body": "come in.\n\nclose the door behind you.",
         "sent_at": datetime(2030, 11, 14, 3, 11, tzinfo=timezone.utc),
@@ -31,37 +33,43 @@ def make_message(**fields):
 
 
 class AccessTests(TestCase):
-    @classmethod
-    def setUpTestData(cls):
-        cls.main = Machine.objects.create(name="Main", hostname="aether-main")
-        cls.null = Machine.objects.create(name="Null", hostname="aether-null")
-
-    def viewer(self, login="witness", machine=None, keys=(), **extra):
-        return Viewer(login=login, machine=machine or self.null, keys=frozenset(keys), **extra)
+    def viewer(self, address="witness@aether-null", keys=(), **extra):
+        return Viewer(address=address, keys=frozenset(keys), **extra)
 
     def ids(self, viewer):
         return {m.pk for m in visible_messages(viewer)}
 
-    def test_a_message_belongs_to_its_machine(self):
-        here = make_message(machine=self.null)
-        there = make_message(machine=self.main)
-        self.assertEqual(self.ids(self.viewer(machine=self.null)), {here.pk})
-        self.assertEqual(self.ids(self.viewer(machine=self.main)), {there.pk})
+    def test_a_message_is_for_its_recipients(self):
+        mine = make_message(recipients="ivan@aether-null")
+        self.assertEqual(self.ids(self.viewer("ivan@aether-null")), {mine.pk})
+        self.assertEqual(self.ids(self.viewer("IVAN@aether-null")), {mine.pk})       # регистр не важен
+        self.assertEqual(self.ids(self.viewer("olga@aether-null")), set())
+        self.assertEqual(self.ids(self.viewer("ivan@aether-main")), set())            # тот же логин на другой машине это другой адрес
 
-    def test_a_message_without_a_machine_is_on_every_machine(self):
-        everywhere = make_message(machine=None)
-        for machine in (self.main, self.null):
-            self.assertEqual(self.ids(self.viewer(machine=machine)), {everywhere.pk})
+    def test_several_recipients_may_be_listed(self):
+        letter = make_message(recipients="ivan@aether-null\nolga@apollo.mail, zero@aether-core")
+        for address in ("ivan@aether-null", "olga@apollo.mail", "zero@aether-core"):
+            self.assertEqual(self.ids(self.viewer(address)), {letter.pk}, address)
+        self.assertEqual(self.ids(self.viewer("kate@apollo.mail")), set())
 
-    def test_an_addressed_message_is_only_for_that_login(self):
-        mine = make_message(to_login="witness")
-        self.assertEqual(self.ids(self.viewer(login="witness")), {mine.pk})
-        self.assertEqual(self.ids(self.viewer(login="WITNESS")), {mine.pk})    # регистр не важен
-        self.assertEqual(self.ids(self.viewer(login="ivan")), set())
+    def test_a_mask_stands_for_any_characters(self):
+        letter = make_message(recipients="*@aether-*")
+        for address in ("witness@aether-null", "ivan@aether-main", "x@aether-"):
+            self.assertEqual(self.ids(self.viewer(address)), {letter.pk}, address)
+        for address in ("ivan@apollo.mail", "ivan@xaether-main"):
+            self.assertEqual(self.ids(self.viewer(address)), set(), address)
 
-    def test_a_message_without_an_addressee_is_for_everyone(self):
-        open_letter = make_message(to_login="")
-        self.assertEqual(self.ids(self.viewer(login="ivan")), {open_letter.pk})
+    def test_a_lone_star_is_everyone(self):
+        letter = make_message(recipients="*")
+        self.assertEqual(self.ids(self.viewer("anyone@anywhere")), {letter.pk})
+
+    def test_a_letter_without_recipients_is_for_nobody(self):
+        make_message(recipients="")
+        self.assertEqual(self.ids(self.viewer()), set())
+
+    def test_the_dots_in_a_mask_are_not_wildcards(self):
+        self.assertTrue(matches("ivan@apollo.mail", "ivan@apollo.mail"))
+        self.assertFalse(matches("ivan@apollo.mail", "ivan@apolloxmail"))
 
     def test_keys_decide_who_sees_a_message(self):
         locked = make_message(key_condition="the_door")
@@ -76,6 +84,55 @@ class AccessTests(TestCase):
         self.assertEqual([m.pk for m in visible_messages(self.viewer())], [new.pk, old.pk])
 
 
+class AddressTests(TestCase):
+    def test_split_accepts_lines_commas_and_spaces(self):
+        self.assertEqual(split("a@b\nc@d, e@f;  g@h"), ["a@b", "c@d", "e@f", "g@h"])
+        self.assertEqual(split(""), [])
+
+    def test_an_address_is_name_at_host(self):
+        validate_address("will_smith@apollo.mail")
+        for bad in ("", "will_smith", "a@b@c", "a b@c", "*@apollo.mail", "a@"):
+            with self.assertRaises(ValidationError, msg=bad):
+                validate_address(bad)
+
+    def test_masks_may_have_stars(self):
+        validate_masks("*\n*@aether-*\nivan@apollo.mail")
+        for bad in ("ivan", "a@b@c"):
+            with self.assertRaises(ValidationError, msg=bad):
+                validate_masks(bad)
+
+    def test_matches_any_looks_through_the_whole_list(self):
+        self.assertTrue(matches_any("a@b\nc@*", "c@d"))
+        self.assertFalse(matches_any("a@b\nc@*", "e@d"))
+
+
+class ProfileMailTests(TestCase):
+    @classmethod
+    def setUpTestData(cls):
+        cls.staff = Machine.objects.create(name="Staff", hostname="apollo-staff")
+
+    def test_an_explicit_address_is_kept(self):
+        profile = MachineProfile.objects.create(machine=self.staff, name="W", login="will_smith", freq=1, mail="will@apollo.mail")
+        self.assertEqual(profile.mail, "will@apollo.mail")
+
+    def test_a_profile_saved_without_an_address_gets_login_at_hostname(self):
+        profile = MachineProfile.objects.create(machine=self.staff, name="W", login="will_smith", freq=2)
+        self.assertEqual(profile.mail, "will_smith@apollo-staff")
+
+    def test_the_address_is_required_and_checked_in_forms(self):
+        profile = MachineProfile(machine=self.staff, name="W", login="w", freq=3, mail="")
+        with self.assertRaises(ValidationError) as caught:
+            profile.full_clean()
+        self.assertIn("mail", caught.exception.message_dict)
+        profile.mail = "no at sign"
+        with self.assertRaises(ValidationError):
+            profile.full_clean()
+
+    def test_two_profiles_may_share_an_address(self):
+        MachineProfile.objects.create(machine=self.staff, name="A", login="a", freq=1, mail="boss@apollo.mail")
+        MachineProfile.objects.create(machine=self.staff, name="B", login="b", freq=1, mail="boss@apollo.mail")
+
+
 class ReadStateTests(TestCase):
     @classmethod
     def setUpTestData(cls):
@@ -85,7 +142,7 @@ class ReadStateTests(TestCase):
         cls.olga = get_user_model().objects.create_user("olga", password="pw")
 
     def viewer(self, **extra):
-        return Viewer(login="witness", machine=self.null, keys=frozenset(), **extra)
+        return Viewer(address="witness@aether-null", keys=frozenset(), **extra)
 
     def test_a_signed_in_player_is_tracked_by_the_account(self):
         viewer = self.viewer(user=self.ivan)
@@ -116,10 +173,10 @@ class ReadStateTests(TestCase):
         self.assertEqual(read_ids(b), {self.message.pk})
 
     def test_the_summary_counts_unread_and_names_the_latest_sender(self):
-        newest = make_message(sender_name="zero", sent_at=datetime(2030, 11, 14, 3, 11, tzinfo=timezone.utc))
+        newest = make_message(sender="zero@aether-core", sent_at=datetime(2030, 11, 14, 3, 11, tzinfo=timezone.utc))
         data = summary(self.viewer(user=self.ivan))
         self.assertEqual(data["unread"], 2)
-        self.assertEqual((data["sender"], data["ago"]), ("zero", "3 min"))
+        self.assertEqual((data["sender"], data["ago"]), ("zero@aether-core", "3 min"))
         mark_read(self.viewer(user=self.ivan), newest)
         mark_read(self.viewer(user=self.ivan), self.message)
         self.assertEqual(summary(self.viewer(user=self.ivan)), {"unread": 0, "sender": "", "ago": ""})
@@ -163,7 +220,7 @@ class InboxApiTests(TestCase):
     def test_the_window_is_a_shell_with_the_players_address(self):
         self.witness()
         response = self.client.get(reverse("mail:inbox"))
-        self.assertContains(response, "witness@aether.mail")
+        self.assertContains(response, "witness@aether-null")
         for element in ('id="mail-list"', 'id="mail-folders"', 'id="mail-labels"', 'id="mail-reader"',
                         'id="mail-compose"', 'id="mail-status"'):
             self.assertContains(response, element)
@@ -171,17 +228,17 @@ class InboxApiTests(TestCase):
         self.assertContains(response, "csrfmiddlewaretoken")
 
     def test_the_list_shows_unread_and_a_preview(self):
-        make_message(machine=self.null, subject="the door", body="come in.\n\nquietly.")
+        make_message(subject="the door", body="come in.\n\nquietly.")
         self.witness()
         _, data = self.get_json("mail:messages")
         (row,) = data["messages"]
-        self.assertEqual((row["sender"], row["subject"], row["unread"]), ("██████", "the door", True))
+        self.assertEqual((row["sender"], row["subject"], row["unread"]), ("██████@aether-core", "the door", True))
         self.assertEqual(row["when"], "2030-11-14 03:11 UTC")
         self.assertEqual(row["preview"], "come in. quietly.")
 
     def test_the_card_has_a_label_with_a_tone(self):
-        make_message(machine=self.null, label="system", label_tone="info")
-        make_message(machine=self.null, subject="plain")
+        make_message(label="system", label_tone="info")
+        make_message(subject="plain")
         self.witness()
         _, data = self.get_json("mail:messages")
         by_subject = {row["subject"]: row for row in data["messages"]}
@@ -189,31 +246,31 @@ class InboxApiTests(TestCase):
         self.assertEqual((by_subject["plain"]["label"], by_subject["plain"]["tone"]), ("", "dim"))
 
     def test_the_card_preview_has_no_markup_marks(self):
-        make_message(machine=self.null, body="## the door\n\n- **open** since `monday`\n> *quiet*")
+        make_message(body="## the door\n\n- **open** since `monday`\n> *quiet*")
         self.witness()
         _, data = self.get_json("mail:messages")
         self.assertEqual(data["messages"][0]["preview"], "the door open since monday quiet")
 
     def test_the_full_text_keeps_its_markup_for_the_reader(self):
-        message = make_message(machine=self.null, body="## the door\n\n- **open**")
+        message = make_message(body="## the door\n\n- **open**")
         self.witness()
         _, data = self.get_json("mail:message", message.pk)
         self.assertEqual(data["body"], "## the door\n\n- **open**")
 
     def test_opening_a_message_marks_it_read_and_returns_everything(self):
-        message = make_message(machine=self.null, to_login="witness")
+        message = make_message(recipients="witness@aether-null\nivan@apollo.mail")
         Attachment.objects.create(message=message, label="first file", path="/apps/mail/", order=1)
         self.witness()
         _, data = self.get_json("mail:message", message.pk)
-        self.assertEqual(data["from"], "██████ <██████@aether-core>")
-        self.assertEqual((data["to"], data["body"]), ("witness", message.body))
+        self.assertEqual(data["from"], "██████@aether-core")
+        self.assertEqual((data["to"], data["body"]), ("witness@aether-null, ivan@apollo.mail", message.body))
         self.assertEqual(data["attachments"], [{"id": 1, "kind": "link", "label": "first file", "open": "/apps/mail/"}])
         self.assertFalse(data["unread"])
         _, listing = self.get_json("mail:messages")
         self.assertFalse(listing["messages"][0]["unread"])
 
     def test_mark_unread_brings_the_dot_back(self):
-        message = make_message(machine=self.null)
+        message = make_message()
         self.witness()
         self.get_json("mail:message", message.pk)
         self.client.post(reverse("mail:unread", args=[message.pk]))
@@ -221,15 +278,15 @@ class InboxApiTests(TestCase):
         self.assertTrue(listing["messages"][0]["unread"])
 
     def test_unread_needs_post(self):
-        message = make_message(machine=self.null)
+        message = make_message()
         self.witness()
         self.assertEqual(self.client.get(reverse("mail:unread", args=[message.pk])).status_code, 405)
 
     def test_a_hidden_message_does_not_exist_for_the_player(self):
         for hidden in (
-            make_message(machine=self.main),                        # чужая машина
-            make_message(machine=self.null, to_login="ivan"),       # чужой адресат
-            make_message(machine=self.null, key_condition="nope"),  # нет ключа
+            make_message(recipients="ivan@aether-null"),    # чужой адресат
+            make_message(key_condition="nope"),             # нет ключа
+            make_message(sender="ivan@aether-null", recipients="", status="draft"),   # чужой черновик
         ):
             self.witness()
             self.assertEqual(self.client.get(reverse("mail:message", args=[hidden.pk])).status_code, 404)
@@ -238,7 +295,7 @@ class InboxApiTests(TestCase):
 
     def test_a_player_with_the_key_sees_the_locked_message(self):
         user = get_user_model().objects.create_user("ivan", password="pw")
-        message = make_message(machine=self.main, key_condition="the_door")
+        message = make_message(key_condition="the_door")
         self.client.force_login(user)
         _, data = self.get_json("mail:messages")
         self.assertEqual(data["messages"], [])                    # ключа ещё нет
@@ -247,14 +304,14 @@ class InboxApiTests(TestCase):
         self.assertEqual([row["id"] for row in data["messages"]], [message.pk])
 
     def test_the_body_is_data_not_markup(self):
-        make_message(machine=self.null, body="<script>alert(1)</script>")
+        make_message(body="<script>alert(1)</script>")
         self.witness()
         _, listing = self.get_json("mail:messages")
         self.assertIn("<script>", listing["messages"][0]["preview"])      # как текст, браузер вставит через textContent
         self.assertEqual(self.client.get(reverse("mail:inbox")).content.decode().count("<script>alert"), 0)
 
     def test_two_witnesses_do_not_share_what_they_have_read(self):
-        message = make_message(machine=self.null)
+        message = make_message()
         self.witness()
         self.get_json("mail:message", message.pk)
         from django.test import Client
@@ -328,7 +385,7 @@ class AdminTests(TestCase):
     def setUpTestData(cls):
         cls.admin = get_user_model().objects.create_superuser("root", password="pw")
         cls.machine = Machine.objects.create(name="Null", hostname="aether-null")
-        cls.message = make_message(machine=cls.machine, key_condition="the_door", label="personal")
+        cls.message = make_message(key_condition="the_door", label="personal")
 
     def setUp(self):
         previous = get_script_prefix()
@@ -343,12 +400,13 @@ class AdminTests(TestCase):
             ("admin:mail_message_add", ()),
             ("admin:mail_message_change", (self.message.pk,)),
             ("admin:mail_messageread_changelist", ()),
+            ("admin:mail_composetask_add", ()),
         ):
             self.assertEqual(self.client.get(reverse(name, args=args)).status_code, 200, name)
 
     @override_settings(FORCE_SCRIPT_NAME=None)
     def test_the_list_shows_the_key_condition_and_readers(self):
-        mark_read(Viewer("x", self.machine, frozenset(), session_key="abc"), self.message)
+        mark_read(Viewer("x@y", frozenset(), session_key="abc"), self.message)
         response = self.client.get(reverse("admin:mail_message_changelist"))
         self.assertContains(response, "the_door")
         self.assertContains(response, "██████")
@@ -393,15 +451,15 @@ class GreetingTests(TestCase):
         self.assertIn("intercom: no new messages", self.screen(self.scenes()["established"]))
 
     def test_an_unread_letter_is_announced_with_its_sender_and_age(self):
-        make_message(machine=self.null, sender_name="██████")
+        make_message(sender="██████@aether-core")
         text = self.screen(self.scenes()["established"])
-        self.assertIn("intercom: 1 unread message  (latest from ██████, 3 min ago)", text)
+        self.assertIn("intercom: 1 unread message  (latest from ██████@aether-core, 3 min ago)", text)
 
     def test_the_number_follows_the_database(self):
-        make_message(machine=self.null)
-        make_message(machine=self.null)
-        make_message(machine=self.main)               # чужая машина: не считается
-        make_message(machine=self.null, key_condition="locked")      # скрытое: не считается
+        make_message()
+        make_message(recipients="witness@aether-null")
+        make_message(recipients="olga@apollo.mail")                  # чужой адрес: не считается
+        make_message(key_condition="locked")                         # скрытое: не считается
         text = self.screen(self.scenes()["established"])
         self.assertIn("2 unread messages", text)
 
@@ -410,82 +468,124 @@ class GreetingTests(TestCase):
         self.assertIn("no new messages", self.screen(self.scenes()["established"]))
 
 
-class MailboxAddressTests(TestCase):
-    def test_the_mail_domain_defaults_to_the_first_word_of_the_hostname(self):
-        self.assertEqual(Machine(name="Staff", hostname="apollo-staff").mail_host, "apollo.mail")
-        self.assertEqual(Machine(name="Main", hostname="aether-main").mail_host, "aether.mail")
-        self.assertEqual(Machine(name="Null", hostname="aether-null").mail_host, "aether.mail")   # одно железо: один домен
-
-    def test_an_explicit_domain_wins(self):
-        self.assertEqual(Machine(name="S", hostname="apollo-staff", mail_domain="staff.apollo.mail").mail_host, "staff.apollo.mail")
-
-    def test_a_machine_without_a_hostname_uses_its_name(self):
-        self.assertEqual(Machine(name="relic").mail_host, "relic.mail")
-
-    def test_the_address_is_login_at_domain(self):
-        machine = Machine(name="Staff", hostname="apollo-staff")
-        viewer = Viewer(login="will_smith", machine=machine, keys=frozenset())
-        self.assertEqual(viewer.address, "will_smith@apollo.mail")
-
-
 class FolderTests(TestCase):
-    """Ящик логина: входящие, черновики, отправленные."""
+    """Ящик адреса: входящие, отправленные, черновики и корзина профиля."""
 
     @classmethod
     def setUpTestData(cls):
         cls.staff = Machine.objects.create(name="Staff", hostname="apollo-staff")
-        cls.other = Machine.objects.create(name="Other", hostname="apollo-lab")
+        cls.will = MachineProfile.objects.create(machine=cls.staff, name="W", login="will_smith", freq=1, mail="will_smith@apollo.mail")
+        cls.olga = MachineProfile.objects.create(machine=cls.staff, name="O", login="olga", freq=1, mail="olga@apollo.mail")
 
-    def viewer(self, login="will_smith", machine=None, keys=()):
-        return Viewer(login=login, machine=machine or self.staff, keys=frozenset(keys), session_key="s1")
+    def viewer(self, profile=None, keys=()):
+        profile = profile or self.will
+        return Viewer(address=profile.mail, keys=frozenset(keys), profile=profile, session_key="s1")
 
     def titles(self, viewer, folder=None):
         return [m.subject for m in visible_messages(viewer, folder)]
 
-    def test_a_letter_to_the_login_is_in_its_inbox(self):
-        make_message(subject="hello", to_login="will_smith", machine=self.staff)
+    def test_a_letter_to_the_address_is_in_its_inbox(self):
+        make_message(subject="hello", recipients="will_smith@apollo.mail")
         self.assertEqual(self.titles(self.viewer(), "inbox"), ["hello"])
-        self.assertEqual(self.titles(self.viewer("olga"), "inbox"), [])
+        self.assertEqual(self.titles(self.viewer(self.olga), "inbox"), [])
 
-    def test_a_letter_from_the_login_is_in_its_sent_folder_not_in_the_inbox(self):
-        make_message(subject="done", sender_login="will_smith", to_login="olga", machine=self.staff)
+    def test_a_letter_from_the_address_is_in_its_sent_folder_not_in_the_inbox(self):
+        make_message(subject="done", sender="will_smith@apollo.mail", recipients="olga@apollo.mail")
         self.assertEqual(self.titles(self.viewer(), "sent"), ["done"])
         self.assertEqual(self.titles(self.viewer(), "inbox"), [])
-        self.assertEqual(self.titles(self.viewer("olga"), "inbox"), ["done"])     # получателю то же письмо во входящих
+        self.assertEqual(self.titles(self.viewer(self.olga), "inbox"), ["done"])     # получателю то же письмо во входящих
+
+    def test_a_letter_to_oneself_is_an_inbox_letter(self):
+        make_message(subject="note", sender="will_smith@apollo.mail", recipients="will_smith@apollo.mail")
+        self.assertEqual(self.titles(self.viewer()), ["note"])
+        self.assertEqual(self.titles(self.viewer(), "inbox"), ["note"])
 
     def test_a_draft_is_only_in_its_authors_drafts(self):
-        make_message(subject="unsent", sender_login="will_smith", to_login="olga", is_draft=True, machine=self.staff)
+        make_message(subject="unsent", sender="will_smith@apollo.mail", recipients="olga@apollo.mail", status="draft")
         self.assertEqual(self.titles(self.viewer(), "drafts"), ["unsent"])
-        self.assertEqual(self.titles(self.viewer("olga")), [])                     # адресат не видит неотправленное
-        self.assertEqual(self.titles(self.viewer("olga"), "inbox"), [])
+        self.assertEqual(self.titles(self.viewer(self.olga)), [])                  # адресат не видит неотправленное
+
+    def test_a_broadcast_is_not_a_draft_of_anyone(self):
+        make_message(subject="x", recipients="*", status="draft")
+        self.assertEqual(self.titles(self.viewer()), [])
 
     def test_each_message_knows_its_folder(self):
-        make_message(subject="a", to_login="will_smith", machine=self.staff)
-        make_message(subject="b", sender_login="will_smith", to_login="x", machine=self.staff)
-        make_message(subject="c", sender_login="will_smith", is_draft=True, machine=self.staff)
+        make_message(subject="a", recipients="will_smith@apollo.mail")
+        make_message(subject="b", sender="will_smith@apollo.mail", recipients="x@y")
+        make_message(subject="c", sender="will_smith@apollo.mail", recipients="", status="draft")
         folders = {m.subject: m.folder for m in visible_messages(self.viewer())}
         self.assertEqual(folders, {"a": "inbox", "b": "sent", "c": "drafts"})
 
-    def test_a_mailbox_belongs_to_a_machine(self):
-        make_message(subject="here", sender_login="will_smith", is_draft=True, machine=self.staff)
-        self.assertEqual(self.titles(self.viewer(machine=self.other)), [])
-
-    def test_the_login_match_ignores_case(self):
-        make_message(subject="x", sender_login="Will_Smith", is_draft=True, machine=self.staff)
-        self.assertEqual(self.titles(self.viewer("will_smith"), "drafts"), ["x"])
+    def test_the_address_match_ignores_case(self):
+        make_message(subject="x", sender="Will_Smith@Apollo.Mail", recipients="", status="draft")
+        self.assertEqual(self.titles(self.viewer(), "drafts"), ["x"])
 
     def test_keys_still_gate_a_draft(self):
-        make_message(subject="x", sender_login="will_smith", is_draft=True, machine=self.staff, key_condition="the_door")
+        make_message(subject="x", sender="will_smith@apollo.mail", status="draft", key_condition="the_door")
         self.assertEqual(self.titles(self.viewer()), [])
         self.assertEqual(self.titles(self.viewer(keys=["the_door"])), ["x"])
 
     def test_the_summary_counts_only_the_inbox(self):
-        make_message(sender_login="will_smith", is_draft=True, machine=self.staff)
-        make_message(sender_login="will_smith", to_login="olga", machine=self.staff)
-        inbox = make_message(to_login="will_smith", machine=self.staff)
+        make_message(sender="will_smith@apollo.mail", recipients="", status="draft")
+        make_message(sender="will_smith@apollo.mail", recipients="olga@apollo.mail")
+        inbox = make_message(recipients="will_smith@apollo.mail")
         self.assertEqual(summary(self.viewer())["unread"], 1)
         mark_read(self.viewer(), inbox)
         self.assertEqual(summary(self.viewer())["unread"], 0)
+
+    # ---------- корзина ----------
+
+    def test_a_trashed_letter_moves_to_the_profiles_trash(self):
+        letter = make_message(subject="gone", recipients="will_smith@apollo.mail")
+        Trashed.objects.create(message=letter, profile=self.will)
+        self.assertEqual(self.titles(self.viewer(), "trash"), ["gone"])
+        self.assertEqual(self.titles(self.viewer(), "inbox"), [])
+
+    def test_the_trash_belongs_to_the_profile_not_to_the_address(self):
+        twin = MachineProfile.objects.create(machine=self.staff, name="T", login="twin", freq=1, mail="will_smith@apollo.mail")
+        letter = make_message(subject="gone", recipients="will_smith@apollo.mail")
+        Trashed.objects.create(message=letter, profile=self.will)
+        self.assertEqual(self.titles(self.viewer(twin), "inbox"), ["gone"])          # у двойника с тем же адресом оно во входящих
+        self.assertEqual(self.titles(self.viewer(twin), "trash"), [])
+
+    def test_a_trashed_letter_stays_hidden_from_those_it_was_never_for(self):
+        letter = make_message(subject="gone", recipients="will_smith@apollo.mail")
+        Trashed.objects.create(message=letter, profile=self.olga)                  # лежит в корзине, но письмо не её
+        self.assertEqual(self.titles(self.viewer(self.olga)), [])
+
+    def test_sent_and_draft_letters_can_be_trashed_too(self):
+        sent = make_message(subject="s", sender="will_smith@apollo.mail", recipients="x@y")
+        draft = make_message(subject="d", sender="will_smith@apollo.mail", recipients="", status="draft")
+        Trashed.objects.create(message=sent, profile=self.will)
+        Trashed.objects.create(message=draft, profile=self.will)
+        self.assertEqual(sorted(self.titles(self.viewer(), "trash")), ["d", "s"])
+
+    def test_a_witness_has_no_trash(self):
+        letter = make_message(subject="gone", recipients="witness@aether-null")
+        Trashed.objects.create(message=letter, profile=self.will)
+        guest = Viewer(address="witness@aether-null", keys=frozenset(), session_key="s")
+        self.assertEqual(self.titles(guest, "inbox"), ["gone"])
+        self.assertEqual(self.titles(guest, "trash"), [])
+
+    def test_the_summary_does_not_count_trashed_letters(self):
+        letter = make_message(recipients="will_smith@apollo.mail")
+        Trashed.objects.create(message=letter, profile=self.will)
+        self.assertEqual(summary(self.viewer())["unread"], 0)
+
+    def test_deleting_a_profile_empties_its_trash_rows(self):
+        letter = make_message(recipients="will_smith@apollo.mail")
+        Trashed.objects.create(message=letter, profile=self.will)
+        self.will.delete()
+        self.assertEqual(Trashed.objects.count(), 0)
+        self.assertTrue(Message.objects.filter(pk=letter.pk).exists())
+
+    def test_one_letter_lies_in_a_trash_once(self):
+        from django.db import IntegrityError, transaction
+
+        letter = make_message()
+        Trashed.objects.create(message=letter, profile=self.will)
+        with self.assertRaises(IntegrityError), transaction.atomic():
+            Trashed.objects.create(message=letter, profile=self.will)
 
 
 class TriggerDeliveryTests(TestCase):
@@ -496,10 +596,10 @@ class TriggerDeliveryTests(TestCase):
         cls.other = get_user_model().objects.create_user("olga", password="pw")
 
     def viewer(self, user=None):
-        return Viewer(login="ivan", machine=self.null, keys=frozenset(), user=user)
+        return Viewer(address="ivan@aether-null", keys=frozenset(), user=user)
 
     def letter(self, **fields):
-        return make_message(slug="door_open", delivery=Message.Delivery.TRIGGER, to_login="ivan", machine=self.null, **fields)
+        return make_message(slug="door_open", recipients="ivan@aether-null", **fields)
 
     def test_a_trigger_letter_is_invisible_until_delivered(self):
         self.letter()
@@ -563,7 +663,7 @@ class TriggerDeliveryTests(TestCase):
         self.assertLessEqual((record.available_at - record.created_at).total_seconds(), MAX_DELAY_SECONDS + 1)
 
     def test_open_letters_do_not_need_delivery(self):
-        make_message(to_login="ivan", machine=self.null)
+        make_message(recipients="ivan@aether-null")
         self.assertEqual(len(visible_messages(self.viewer(self.player))), 1)
 
     def test_slugs_are_unique_but_blank_slugs_may_repeat(self):
@@ -592,7 +692,7 @@ class HookMailActionTests(TestCase):
         cls.session = Session.objects.create(user=cls.user, profile=profile)
         cls.file = MachineFile.objects.create(machine=cls.machine, path="/home/door.bin", state=cls.LAYERED)
         cls.letter = make_message(
-            slug="door_open", delivery=Message.Delivery.TRIGGER, to_login="will_smith", machine=cls.machine, subject="open"
+            slug="door_open", recipients="will_smith@apollo-staff", subject="open"
         )
 
     def compile(self, text):
@@ -658,7 +758,7 @@ class HookMailActionTests(TestCase):
         result = unlock_file(row, {"password": "hunter2"})
         self.assertTrue(result.result.removed)
         self.assertEqual([(m.slug, m.delivered, m.immediate) for m in result.mail], [("door_open", True, True)])
-        viewer = Viewer(login="will_smith", machine=self.machine, keys=frozenset(), user=self.user)
+        viewer = Viewer(address="will_smith@apollo-staff", keys=frozenset(), user=self.user)
         self.assertEqual([m.subject for m in visible_messages(viewer)], ["open"])
 
     def test_a_wrong_password_delivers_nothing(self):
@@ -722,7 +822,7 @@ class AttachmentKindTests(TestCase):
         cls.user = get_user_model().objects.create_user("ivan", password="pw")
         profile = MachineProfile.objects.create(machine=cls.machine, user=cls.user, name="I", login="will_smith", freq=1)
         cls.session = Session.objects.create(user=cls.user, profile=profile)
-        cls.message = make_message(machine=cls.machine, to_login="will_smith")
+        cls.message = make_message(recipients="will_smith@apollo-staff")
 
     def attach(self, **fields):
         return Attachment.objects.create(message=self.message, label=fields.pop("label", "x"), **fields)
@@ -850,7 +950,7 @@ class AttachmentSaveApiTests(TestCase):
         cls.file = MachineFile.objects.create(machine=cls.machine, path="/home/evidence.dat", delivered_only=True)
         cls.user = get_user_model().objects.create_user("ivan", password="pw")
         cls.profile = MachineProfile.objects.create(machine=cls.machine, user=cls.user, name="I", login="will_smith", freq=1)
-        cls.message = make_message(machine=cls.machine, to_login="will_smith")
+        cls.message = make_message(recipients="will_smith@apollo-staff")
         cls.item = Attachment.objects.create(message=cls.message, label="evidence", kind="file", machine_file=cls.file)
 
     def setUp(self):
@@ -891,15 +991,13 @@ class AttachmentSaveApiTests(TestCase):
         from filesystem.models import SessionFile
         from users.aether_auth import AUTH_REQUIRED
 
-        MachineApp.objects.filter(machine=self.machine).update(machine=self.machine)
         null = Machine.objects.create(name="Null", hostname="aether-null")
         MachineApp.objects.create(machine=null, label="intercom", glyph="@", path="/apps/mail/")
-        make_message(machine=null)
         session = self.client.session
         session["guest"] = True
         session.save()
         # письмо с вложением на машине witness
-        letter = make_message(machine=null, subject="for the witness")
+        letter = make_message(subject="for the witness")
         item = Attachment.objects.create(message=letter, label="f", kind="file", machine_file=self.file)
         response = self.client.post(reverse("mail:save", args=[item.pk]))
         self.assertEqual(response.status_code, 403)
@@ -932,16 +1030,19 @@ class ComposeLogicTests(TestCase):
         cls.machine = Machine.objects.create(name="Staff", hostname="apollo-staff")
         cls.user = get_user_model().objects.create_user("ivan", password="pw")
         cls.other = get_user_model().objects.create_user("olga", password="pw")
-        cls.reply = make_message(slug="reply_1", delivery=Message.Delivery.TRIGGER, machine=cls.machine, to_login="will_smith", subject="re")
+        cls.profile = MachineProfile.objects.create(machine=cls.machine, user=cls.user, name="W", login="will_smith", freq=1)
+        cls.stranger = MachineProfile.objects.create(machine=cls.machine, name="O", login="olga", freq=1)
+        cls.reply = make_message(slug="reply_1", recipients="will_smith@apollo-staff", subject="re")
         cls.task = ComposeTask.objects.create(
-            machine=cls.machine, login="will_smith", to_login="olga", subject="the file",
+            profile=cls.profile, recipients="olga@apollo-staff", subject="the file",
             target="hi olga,\nthe password is {{hunter22}}, thanks", max_attempts=3, reply_delay=30,
         )
         cls.task.replies.add(cls.reply)
         cls.right = "hi olga,\nthe password is hunter22, thanks"
 
-    def viewer(self, user=None, login="will_smith", keys=()):
-        return Viewer(login=login, machine=self.machine, keys=frozenset(keys), user=user or self.user)
+    def viewer(self, user=None, profile=None, keys=()):
+        profile = profile or self.profile
+        return Viewer(address=profile.mail, keys=frozenset(keys), profile=profile, user=user or self.user)
 
     # ---------- текст ----------
 
@@ -971,12 +1072,11 @@ class ComposeLogicTests(TestCase):
 
     # ---------- доступность ----------
 
-    def test_the_task_is_offered_in_the_right_mailbox_only(self):
+    def test_the_task_is_offered_under_its_profile_only(self):
         from mail.compose import available_tasks
 
         self.assertEqual(available_tasks(self.viewer()), [self.task])
-        self.assertEqual(available_tasks(self.viewer(login="WILL_SMITH")), [self.task])      # регистр не важен
-        self.assertEqual(available_tasks(self.viewer(login="olga")), [])
+        self.assertEqual(available_tasks(self.viewer(profile=self.stranger)), [])               # в чужом профиле задачи нет
 
     def test_keys_gate_the_task(self):
         from mail.compose import available_tasks
@@ -989,7 +1089,7 @@ class ComposeLogicTests(TestCase):
     def test_a_witness_has_no_tasks(self):
         from mail.compose import available_tasks
 
-        self.assertEqual(available_tasks(Viewer(login="will_smith", machine=self.machine, keys=frozenset(), session_key="s")), [])
+        self.assertEqual(available_tasks(Viewer(address="will_smith@apollo-staff", keys=frozenset(), session_key="s")), [])
 
     # ---------- отправка ----------
 
@@ -1005,7 +1105,7 @@ class ComposeLogicTests(TestCase):
         self.assertEqual((result.replies, result.delay), (1, 30))
         mine = visible_messages(self.viewer(), "sent", now=now)
         self.assertEqual([m.body for m in mine], [self.right])
-        self.assertEqual((mine[0].to_login, mine[0].sender_address), ("olga", "will_smith@apollo.mail"))
+        self.assertEqual((mine[0].recipients, mine[0].sender), ("olga@apollo-staff", "will_smith@apollo-staff"))
         self.assertEqual(visible_messages(self.viewer(), "inbox", now=now), [])                    # ответа ещё нет
         later = visible_messages(self.viewer(), "inbox", now=now + timedelta(seconds=31))
         self.assertEqual([m.subject for m in later], ["re"])
@@ -1081,9 +1181,9 @@ class ComposeApiTests(TestCase):
         MachineApp.objects.create(machine=cls.machine, label="intercom", glyph="@", path="/apps/mail/")
         cls.user = get_user_model().objects.create_user("ivan", password="pw")
         cls.profile = MachineProfile.objects.create(machine=cls.machine, user=cls.user, name="I", login="will_smith", freq=1)
-        cls.reply = make_message(slug="r1", delivery=Message.Delivery.TRIGGER, machine=cls.machine, to_login="will_smith", subject="re")
+        cls.reply = make_message(slug="r1", recipients="will_smith@apollo-staff", subject="re")
         cls.task = ComposeTask.objects.create(
-            machine=cls.machine, login="will_smith", to_login="olga", subject="s", target="hello {{abc}}", max_attempts=2
+            profile=cls.profile, recipients="olga@apollo-staff", subject="s", target="hello {{abc}}", max_attempts=2
         )
         cls.task.replies.add(cls.reply)
 
@@ -1112,9 +1212,9 @@ class ComposeApiTests(TestCase):
         self.player()
         response = self.client.get(reverse("mail:tasks"))
         data = json.loads(response.content)
-        self.assertEqual(data["from"], "will_smith@apollo.mail")
+        self.assertEqual(data["from"], "will_smith@apollo-staff")
         (task,) = data["tasks"]
-        self.assertEqual((task["to"], task["subject"], task["attempts_left"]), ("olga@apollo.mail", "s", 2))
+        self.assertEqual((task["to"], task["subject"], task["attempts_left"]), ("olga@apollo-staff", "s", 2))
         self.assertEqual(task["segments"], [{"text": "hello "}, {"hidden": 3}])
         self.assertNotIn("abc", response.content.decode())
 
@@ -1165,7 +1265,8 @@ class ComposeApiTests(TestCase):
         from mail.models import ComposeTask
 
         self.player()
-        other = ComposeTask.objects.create(machine=self.machine, login="someone_else", to_login="x", target="x")
+        someone = MachineProfile.objects.create(machine=self.machine, name="S", login="someone_else", freq=1)
+        other = ComposeTask.objects.create(profile=someone, recipients="x@y", target="x")
         self.assertEqual(self.client.post(reverse("mail:send", args=[other.pk]), data="{}", content_type="application/json").status_code, 404)
 
     def test_the_script_has_the_typing_machinery(self):

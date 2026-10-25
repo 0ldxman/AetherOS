@@ -11,6 +11,7 @@ from machines.current import active_session
 from users.aether_auth import AUTH_REQUIRED, is_player
 
 from .access import mark_read, mark_unread, read_ids, viewer_for, visible_messages
+from .addresses import split
 from .attachments import SaveError, payload, save_to_machine
 from .compose import TaskError, available_tasks, public_segments, send
 from .models import Attachment, ComposeProgress
@@ -20,12 +21,6 @@ PREVIEW_LENGTH = 90
 
 def _when(moment):
     return moment.astimezone(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
-
-
-def _sender(message):
-    if message.sender_address:
-        return f"{message.sender_name} <{message.sender_address}>"
-    return message.sender_name
 
 
 def _plain(text):
@@ -38,12 +33,11 @@ def _row(message, unread):
     body = _plain(message.body)
     return {
         "id": message.pk,
-        "sender": message.sender_name,
+        "sender": message.sender,
         "subject": message.subject or "(no subject)",
         "when": _when(message.sent_at),
         "unread": unread,
         "folder": getattr(message, "folder", "inbox"),
-        "note": message.status_note,
         "label": message.label,
         "tone": message.label_tone,
         "preview": body[:PREVIEW_LENGTH] + ("…" if len(body) > PREVIEW_LENGTH else ""),
@@ -93,8 +87,8 @@ def message_detail(request, pk):
     session = active_session(request) if is_player(request) else None
     data = _row(message, False)
     data.update({
-        "from": _sender(message),
-        "to": message.to_login or "all",
+        "from": message.sender,
+        "to": ", ".join(split(message.recipients)),
         "body": message.body,
         "attachments": [payload(item, session) for item in message.attachments.all()],
     })
@@ -140,14 +134,13 @@ def task_list(request):
     used = dict(
         ComposeProgress.objects.filter(user=viewer.user, task__in=tasks).values_list("task_id", "attempts")
     )
-    domain = viewer.machine.mail_host
 
     return JsonResponse({
         "from": viewer.address,
         "tasks": [
             {
                 "id": task.pk,
-                "to": f"{task.to_login}@{domain}",
+                "to": ", ".join(split(task.recipients)),
                 "subject": task.subject,
                 "segments": public_segments(task),
                 "attempts_left": (

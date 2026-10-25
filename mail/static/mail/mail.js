@@ -232,7 +232,8 @@
             folderRow("inbox", "", "inbox", inFolderCount("inbox")),
             folderRow("unread", "", "unread", unread),
             folderRow("drafts", "", "drafts", inFolderCount("drafts")),
-            folderRow("sent", "", "sent", inFolderCount("sent"))
+            folderRow("sent", "", "sent", inFolderCount("sent")),
+            folderRow("trash", "", "trash", inFolderCount("trash"))
         );
 
         const counts = {};
@@ -324,7 +325,6 @@
         });
         view.appendChild(fields);
 
-        if (data.note) view.appendChild(el("p", "mail-note", data.note));
 
         renderBody(view, data.body);
 

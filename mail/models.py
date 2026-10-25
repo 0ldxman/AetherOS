@@ -1,8 +1,8 @@
 """Почта узла («intercom»): письма, вложения и кто что прочитал.
 
-Письма пишет автор в админке, игрок их читает. Кому письмо видно, решают три вещи:
-машина (или все машины), адресат (логин на машине или все) и условие по ключам,
-как у иконок и записей вики. Прочитанность своя у каждого игрока.
+У письма есть отправитель, получатели, название, содержание, дата и статус. Ящик это адрес
+профиля (MachineProfile.mail): игрок, вошедший под профилем, видит письма этого адреса.
+Прочитанность своя у каждого игрока, корзина своя у каждого профиля.
 """
 from django.conf import settings
 from django.db import models
@@ -10,45 +10,57 @@ from django.db.models import Q
 
 from machines.paths import validate_internal_path
 
+from .addresses import split, validate_address, validate_masks
+
 
 class Message(models.Model):
-    machine = models.ForeignKey(
-        "machines.Machine",
-        on_delete=models.CASCADE,
-        null=True,
-        blank=True,
-        related_name="mail",
-        help_text="Пусто: письмо видно на всех машинах.",
+    sender = models.CharField(
+        "Отправитель",
+        max_length=255,
+        validators=[validate_address],
+        help_text="Адрес, например commander@neweden.mail. Можно замазать: ██████@aether-core.",
     )
 
-    to_login = models.CharField(
-        "Адресат",
-        max_length=128,
+    recipients = models.TextField(
+        "Получатели",
         blank=True,
-        help_text="Логин на машине (например witness). Пусто: всем.",
-    )
-
-    sender_login = models.CharField(
-        "Логин отправителя",
-        max_length=128,
-        blank=True,
+        validators=[validate_masks],
         help_text=(
-            "Чей это ящик в «отправленных» или «черновиках» (логин на этой машине). "
-            "Пусто для писем со стороны и от системы."
+            "Адреса по одному в строку. «*» заменяет любые символы: *@aether-* это все ящики "
+            "на aether-main и aether-null, просто * это все."
         ),
     )
 
-    is_draft = models.BooleanField(
-        "Черновик",
-        default=False,
-        help_text="Неотправленное письмо: лежит в «черновиках» логина отправителя.",
+    class Status(models.TextChoices):
+        OK = "ok", "Отправлено"
+        DRAFT = "draft", "Черновик"
+
+    status = models.CharField(
+        "Статус",
+        max_length=8,
+        choices=Status.choices,
+        default=Status.OK,
+        help_text="Черновик лежит в черновиках отправителя и никому не приходит.",
     )
 
-    status_note = models.CharField(
-        "Пометка",
+    subject = models.CharField(
+        "Название",
         max_length=255,
         blank=True,
-        help_text="Системная строка над текстом, например: not sent: system fault 0x2a.",
+    )
+
+    body = models.TextField(
+        "Содержание",
+        blank=True,
+        help_text=(
+            "Простой текст. Абзацы сохраняются. Можно: # заголовок, ## подзаголовок, "
+            "- пункт списка, > цитата, **жирный**, *курсив*, `код`."
+        ),
+    )
+
+    sent_at = models.DateTimeField(
+        "Дата",
+        help_text="Время в мире игры: когда письмо «пришло».",
     )
 
     slug = models.SlugField(
@@ -57,46 +69,9 @@ class Message(models.Model):
         unique=True,
         null=True,
         blank=True,
-        help_text="Нужен для доставки по триггеру: действие хука «mail <идентификатор>».",
-    )
-
-    class Delivery(models.TextChoices):
-        OPEN = "open", "По правилам (видно сразу)"
-        TRIGGER = "trigger", "Только после доставки (триггер)"
-
-    delivery = models.CharField(
-        "Доставка",
-        max_length=8,
-        choices=Delivery.choices,
-        default=Delivery.OPEN,
-        help_text="«Только после доставки»: письмо появляется у игрока, когда сработает хук mail.",
-    )
-
-    sender_name = models.CharField(
-        "От кого",
-        max_length=128,
-        help_text="Как подписан отправитель. Можно замазать: ██████.",
-    )
-
-    sender_address = models.CharField(
-        "Адрес отправителя",
-        max_length=255,
-        blank=True,
-        help_text="Например ██████@aether-core.",
-    )
-
-    subject = models.CharField(
-        "Тема",
-        max_length=255,
-        blank=True,
-    )
-
-    body = models.TextField(
-        "Текст",
-        blank=True,
         help_text=(
-            "Простой текст. Абзацы сохраняются. Можно: # заголовок, ## подзаголовок, "
-            "- пункт списка, > цитата, **жирный**, *курсив*, `код`."
+            "Необязательно. Если задан, письмо придёт игроку только когда сработает действие "
+            "хука «mail <идентификатор>». Пусто: письмо видно сразу."
         ),
     )
 
@@ -121,11 +96,6 @@ class Message(models.Model):
         default=Tone.DIM,
     )
 
-    sent_at = models.DateTimeField(
-        "Отправлено",
-        help_text="Время в мире игры: когда письмо «пришло».",
-    )
-
     key_condition = models.JSONField(
         "Условие по ключам",
         null=True,
@@ -139,7 +109,15 @@ class Message(models.Model):
         ordering = ("-sent_at", "-id")
 
     def __str__(self):
-        return f"{self.subject or '(no subject)'} ({self.sender_name})"
+        return f"{self.subject or '(no subject)'} ({self.sender})"
+
+    @property
+    def is_trigger(self):
+        return bool(self.slug)
+
+    @property
+    def is_draft(self):
+        return self.status == self.Status.DRAFT
 
 
 class Attachment(models.Model):
@@ -281,6 +259,32 @@ class Delivered(models.Model):
         return f"{self.message_id} -> {self.user_id} at {self.available_at:%Y-%m-%d %H:%M:%S}"
 
 
+class Trashed(models.Model):
+    """Письмо лежит в корзине профиля: персонаж его «удалил», игрок под этим профилем найдёт его там."""
+
+    message = models.ForeignKey(
+        Message,
+        on_delete=models.CASCADE,
+        related_name="trashed",
+    )
+
+    profile = models.ForeignKey(
+        "machines.MachineProfile",
+        on_delete=models.CASCADE,
+        related_name="trashed_mail",
+    )
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=("message", "profile"), name="unique_mail_trashed"),
+        ]
+        verbose_name = "письмо в корзине"
+        verbose_name_plural = "корзина профилей"
+
+    def __str__(self):
+        return f"{self.message_id} in {self.profile_id}"
+
+
 class ComposeTask(models.Model):
     """Задача на набор: игрок, вошедший под чужим логином, должен написать письмо «от его лица».
 
@@ -290,16 +294,21 @@ class ComposeTask(models.Model):
     «отправленных» игрока, а ответные письма приходят с задержкой.
     """
 
-    machine = models.ForeignKey("machines.Machine", on_delete=models.CASCADE, related_name="compose_tasks")
-
-    login = models.CharField(
-        "От чьего имени",
-        max_length=128,
-        help_text="Логин на машине, под которым игрок должен быть вошёл (ящик, откуда уйдёт письмо).",
+    profile = models.ForeignKey(
+        "machines.MachineProfile",
+        on_delete=models.CASCADE,
+        related_name="compose_tasks",
+        verbose_name="От чьего имени",
+        help_text="Профиль, под которым игрок должен быть вошёл: письмо уйдёт с его адреса.",
     )
 
-    to_login = models.CharField("Кому", max_length=128, help_text="Логин адресата.")
-    subject = models.CharField("Тема", max_length=255, blank=True)
+    recipients = models.TextField(
+        "Кому",
+        validators=[validate_masks],
+        help_text="Адреса получателей по одному в строку.",
+    )
+
+    subject = models.CharField("Название", max_length=255, blank=True)
 
     target = models.TextField(
         "Целевой текст",
@@ -324,17 +333,17 @@ class ComposeTask(models.Model):
         Message,
         blank=True,
         related_name="reply_to_tasks",
-        limit_choices_to={"delivery": "trigger"},
-        help_text="Ответные письма (только «после доставки»).",
+        limit_choices_to={"slug__isnull": False},
+        help_text="Ответные письма (только с идентификатором: они приходят по доставке).",
     )
 
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
-        ordering = ("machine", "login", "id")
+        ordering = ("profile", "id")
 
     def __str__(self):
-        return f"{self.login} -> {self.to_login}: {self.subject or '(no subject)'}"
+        return f"{self.profile.mail} -> {', '.join(split(self.recipients))}: {self.subject or '(no subject)'}"
 
 
 class ComposeProgress(models.Model):

@@ -60,7 +60,7 @@ def _visitor(request):
 
 def _mail_summary(request):
     """Непрочитанная почта игрока для приветствия узла (или None, если читать негде)."""
-    from mail.access import Viewer, session_key_of, summary, viewer_for
+    from mail.access import Viewer, guest_address, session_key_of, summary, viewer_for
     from machines.current import NULL_HOSTNAME
     from machines.models import Machine
     from wiki.access import request_keys
@@ -70,7 +70,7 @@ def _mail_summary(request):
         if viewer is None:
             # ещё не подключён: пойдёт на aether-null безымянным (witness)
             machine = Machine.objects.get(hostname=NULL_HOSTNAME)
-            viewer = Viewer(GUEST_LOGIN, machine, request_keys(request), session_key=session_key_of(request.session))
+            viewer = Viewer(guest_address(machine), request_keys(request), session_key=session_key_of(request.session))
     except Machine.DoesNotExist:
         return None
 

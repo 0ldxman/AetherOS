@@ -51,14 +51,14 @@ def normalize(text):
 
 
 def available_tasks(viewer):
-    """Задачи, которые игрок может сейчас выполнить: его машина, его (чужой) логин, ключи, ещё не отправлено."""
-    if viewer.user is None:
+    """Задачи, которые игрок может сейчас выполнить: он вошёл под профилем задачи, ключи, ещё не отправлено."""
+    if viewer.user is None or viewer.profile is None:
         return []
 
     done = set(
         ComposeProgress.objects.filter(user=viewer.user, sent_at__isnull=False).values_list("task_id", flat=True)
     )
-    tasks = ComposeTask.objects.filter(machine=viewer.machine, login__iexact=viewer.login)
+    tasks = ComposeTask.objects.filter(profile=viewer.profile)
 
     return [
         task for task in tasks
@@ -112,17 +112,13 @@ def _attempt(user, task, text, now):
         progress.save(update_fields=["attempts"])
         return TaskError("message rejected", 422, attempts_left=_left(task, progress.attempts))
 
-    domain = task.machine.mail_host
     copy = Message.objects.create(
-        machine=task.machine,
-        sender_login=task.login,
-        sender_name=task.login,
-        sender_address=f"{task.login}@{domain}",
-        to_login=task.to_login,
+        sender=task.profile.mail,
+        recipients=task.recipients,
         subject=task.subject,
         body=normalize(text),
         sent_at=GAME_NOW,
-        delivery=Message.Delivery.TRIGGER,
+        slug=f"sent-{task.pk}-{user.pk}",    # копия видна только тому, кому её доставили
     )
     deliver(user, copy, delay=0, now=now)
 

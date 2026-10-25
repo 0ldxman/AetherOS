@@ -38,6 +38,7 @@ class MachineProfileInline(admin.TabularInline):
         "name",
         "user",
         "login",
+        "mail",
         "freq",
     )
 
@@ -202,6 +203,7 @@ class MachineProfileAdmin(ConditionFieldsMixin, admin.ModelAdmin):
         "machine",
         "user",
         "login",
+        "mail",
         "freq",
         "has_password",
         "condition",
@@ -214,6 +216,7 @@ class MachineProfileAdmin(ConditionFieldsMixin, admin.ModelAdmin):
     search_fields = (
         "name",
         "login",
+        "mail",
         "machine__name",
         "machine__hostname",
     )
@@ -245,6 +248,7 @@ class MachineProfileAdmin(ConditionFieldsMixin, admin.ModelAdmin):
             {
                 "fields": (
                     "login",
+                    "mail",
                     "freq",
                 ),
             },

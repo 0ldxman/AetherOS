@@ -29,7 +29,7 @@ class AdminTestCase(TestCase):
 class ProfilePasswordTests(AdminTestCase):
     def form_data(self, **extra):
         data = {
-            "machine": self.machine.pk, "user": "", "name": "Профиль", "login": "ivan", "freq": "1.000",
+            "machine": self.machine.pk, "user": "", "name": "Профиль", "login": "ivan", "mail": "ivan@m", "freq": "1.000",
             "key_condition": "",
             "tokens-TOTAL_FORMS": 0, "tokens-INITIAL_FORMS": 0, "tokens-MIN_NUM_FORMS": 0, "tokens-MAX_NUM_FORMS": 1000,
             "allowed_hids-TOTAL_FORMS": 0, "allowed_hids-INITIAL_FORMS": 0,
@@ -77,6 +77,12 @@ class ProfilePasswordTests(AdminTestCase):
         response = self.edit(profile, new_password="x", clear_password="on")
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "Нельзя одновременно")
+
+    def test_the_mail_address_is_required_in_the_form(self):
+        response = self.client.post(reverse("admin:machines_machineprofile_add"), self.form_data(mail="", new_password="x"))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "This field is required")
+        self.assertFalse(MachineProfile.objects.filter(login="ivan").exists())
 
     def test_hash_is_never_rendered_back(self):
         profile = self.create(new_password="один")
@@ -170,7 +176,7 @@ class TokenTests(AdminTestCase):
     def test_inline_on_the_profile_page_generates_too(self):
         url = reverse("admin:machines_machineprofile_change", args=[self.profile.pk])
         data = {
-            "machine": self.machine.pk, "user": "", "name": "P", "login": "l", "freq": "1.000", "key_condition": "",
+            "machine": self.machine.pk, "user": "", "name": "P", "login": "l", "mail": "l@m", "freq": "1.000", "key_condition": "",
             "tokens-TOTAL_FORMS": 1, "tokens-INITIAL_FORMS": 0, "tokens-MIN_NUM_FORMS": 0, "tokens-MAX_NUM_FORMS": 1000,
             "tokens-0-token": "", "tokens-0-max_usage": "5", "tokens-0-usage": "0",
             "tokens-0-expires_at_0": "", "tokens-0-expires_at_1": "",

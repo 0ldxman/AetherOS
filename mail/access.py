@@ -1,15 +1,16 @@
 """Кто какие письма видит и что прочитал.
 
-Ящик это логин на машине: игрок, вошедший под will_smith на apollo-staff, видит ящик
-will_smith@apollo.mail. В ящике три папки:
+Ящик это адрес профиля (MachineProfile.mail). Игрок, вошедший под профилем, видит ящик с этим
+адресом, безымянный игрок (witness) видит witness@aether-null. Папки:
 
-    inbox   письма этому логину (или всем);
-    sent    письма, которые отправил этот логин;
-    drafts  неотправленное этого логина.
+    inbox   письма, у которых среди получателей подходит мой адрес (маски: *@aether-*);
+    sent    письма, отправленные с моего адреса;
+    drafts  мои неотправленные;
+    trash   письма, положенные в корзину моего профиля (только вошедшему под профилем).
 
-Видимость письма: машина (или все), папка по логину и ещё два условия: доставка (письмо по
-триггеру видно только тому, кому его доставили, и не раньше времени доставки) и условие по
-ключам. Скрытое письмо для игрока не существует (404, а не «нет доступа»).
+Видимость письма: папка по адресу и ещё два условия: доставка (письмо с идентификатором видно
+только тому, кому его доставили, и не раньше времени доставки) и условие по ключам. Скрытое
+письмо для игрока не существует (404, а не «нет доступа»).
 """
 from dataclasses import dataclass
 
@@ -22,22 +23,19 @@ from secure.access import satisfied
 from users.aether_auth import GUEST_LOGIN
 from wiki.access import request_keys
 
-from .models import Delivered, Message, MessageRead
+from .addresses import matches_any, same
+from .models import Delivered, Message, MessageRead, Trashed
 
-FOLDERS = ("inbox", "drafts", "sent")
+FOLDERS = ("inbox", "drafts", "sent", "trash")
 
 
 @dataclass(frozen=True)
 class Viewer:
-    login: str
-    machine: object
+    address: str
     keys: frozenset
+    profile: object = None       # профиль, под которым игрок вошёл (у witness его нет)
     user: object = None          # вошедший игрок
     session_key: str = ""        # безымянный игрок (witness): отметки по сессии
-
-    @property
-    def address(self):
-        return f"{self.login}@{self.machine.mail_host}"
 
 
 def session_key_of(session):
@@ -49,6 +47,10 @@ def session_key_of(session):
     return session.session_key or ""
 
 
+def guest_address(machine):
+    return f"{GUEST_LOGIN}@{machine.label}"
+
+
 def viewer_for(request):
     """Читатель этого запроса или None, если игрок ещё нигде не подключён."""
     machine = current_machine(request)
@@ -56,35 +58,36 @@ def viewer_for(request):
         return None
 
     if request.user.is_authenticated:
-        return Viewer(
-            login=active_session(request).profile.login,
-            machine=machine,
-            keys=request_keys(request),
-            user=request.user,
-        )
+        profile = active_session(request).profile
+        return Viewer(address=profile.mail, keys=request_keys(request), profile=profile, user=request.user)
 
     return Viewer(
-        login=GUEST_LOGIN,
-        machine=machine,
+        address=guest_address(machine),
         keys=request_keys(request),
         session_key=session_key_of(request.session),
     )
 
 
-def folder_of(message, viewer):
+def folder_of(message, viewer, trashed=frozenset()):
     """В какой папке этого читателя лежит письмо или None, если оно не его."""
-    login = viewer.login.lower()
+    mine = same(message.sender, viewer.address)
 
     if message.is_draft:
-        return "drafts" if message.sender_login.lower() == login else None
+        if not mine:
+            return None
+    elif not (mine or matches_any(message.recipients, viewer.address)):
+        return None
 
-    if message.to_login == "" or message.to_login.lower() == login:
+    if message.pk in trashed:
+        return "trash"
+
+    if message.is_draft:
+        return "drafts"
+
+    if matches_any(message.recipients, viewer.address):
         return "inbox"
 
-    if message.sender_login and message.sender_login.lower() == login:
-        return "sent"
-
-    return None
+    return "sent"
 
 
 def _delivered_ids(viewer, now):
@@ -97,24 +100,30 @@ def _delivered_ids(viewer, now):
     )
 
 
+def _trashed_ids(viewer):
+    if viewer.profile is None:
+        return frozenset()
+    return frozenset(Trashed.objects.filter(profile=viewer.profile).values_list("message_id", flat=True))
+
+
 def visible_messages(viewer, folder=None, now=None):
     """Письма читателя (новые первыми). folder: одна папка или все, если None."""
     now = now or timezone.now()
+    delivered = _delivered_ids(viewer, now)
+    trashed = _trashed_ids(viewer)
+
     candidates = (
         Message.objects
-        .filter(Q(machine=viewer.machine) | Q(machine__isnull=True))
+        .filter(Q(slug__isnull=True) | Q(slug="") | Q(pk__in=delivered))
         .prefetch_related("attachments")
     )
-    delivered = _delivered_ids(viewer, now)
     found = []
 
     for message in candidates:
-        if message.delivery == Message.Delivery.TRIGGER and message.pk not in delivered:
-            continue
         if message.key_condition is not None and not satisfied(message.key_condition, viewer.keys):
             continue
 
-        where = folder_of(message, viewer)
+        where = folder_of(message, viewer, trashed)
         if where is None or (folder is not None and where != folder):
             continue
 
@@ -155,6 +164,6 @@ def summary(viewer):
     latest = unread[0] if unread else None
     return {
         "unread": len(unread),
-        "sender": latest.sender_name if latest else "",
+        "sender": latest.sender if latest else "",
         "ago": ago(latest.sent_at) if latest else "",
     }

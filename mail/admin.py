@@ -5,7 +5,8 @@ from django.utils.html import format_html
 from secure.access import format_condition
 from secure.admin_widgets import ConditionFieldsMixin
 
-from .models import Attachment, ComposeProgress, ComposeTask, Delivered, Message, MessageRead
+from .addresses import split
+from .models import Attachment, ComposeProgress, ComposeTask, Delivered, Message, MessageRead, Trashed
 
 
 class AttachmentInline(admin.TabularInline):
@@ -15,52 +16,59 @@ class AttachmentInline(admin.TabularInline):
     autocomplete_fields = ("asset", "machine_file")
 
 
+class TrashedInline(admin.TabularInline):
+    """В чьих корзинах лежит письмо: персонаж «удалил» его, игрок под этим профилем найдёт."""
+
+    model = Trashed
+    extra = 0
+    autocomplete_fields = ("profile",)
+    verbose_name = "в корзине у профиля"
+    verbose_name_plural = "В корзине у профилей"
+
+
 @admin.register(Message)
 class MessageAdmin(ConditionFieldsMixin, admin.ModelAdmin):
     condition_fields = ("key_condition",)
-    inlines = (AttachmentInline,)
-    list_select_related = ("machine",)
+    inlines = (AttachmentInline, TrashedInline)
     date_hierarchy = "sent_at"
 
     list_display = (
         "subject_or_blank",
-        "sender_name",
-        "to_login",
-        "box",
-        "machine",
-        "label",
+        "sender",
+        "to",
+        "status",
         "sent_at",
+        "label",
+        "trigger",
         "condition",
         "readers",
     )
     list_display_links = ("subject_or_blank",)
-    list_filter = ("machine", "is_draft", "delivery", "label", "sent_at")
-    search_fields = ("subject", "body", "slug", "sender_name", "sender_address", "sender_login", "to_login")
-    autocomplete_fields = ("machine",)
+    list_filter = ("status", "label", "sent_at")
+    search_fields = ("subject", "body", "slug", "sender", "recipients")
     ordering = ("-sent_at",)
     readonly_fields = ("created_at", "updated_at")
 
     fieldsets = (
-        ("Letter", {"fields": ("sender_name", "sender_address", "sender_login", "to_login", "machine", "sent_at")}),
-        ("Content", {"fields": ("subject", "body", "status_note", "label", "label_tone")}),
-        ("Mailbox", {"fields": ("is_draft",)}),
-        ("Visibility", {"fields": ("delivery", "slug", "key_condition")}),
-        ("Metadata", {"fields": ("created_at", "updated_at")}),
+        (None, {"fields": ("sender", "recipients", "subject", "body", "sent_at", "status")}),
+        ("Дополнительно", {"fields": ("slug", "key_condition", "label", "label_tone")}),
+        ("Metadata", {"fields": ("created_at", "updated_at"), "classes": ("collapse",)}),
     )
 
     def get_queryset(self, request):
         return super().get_queryset(request).annotate(_readers=Count("reads", distinct=True))
 
-    @admin.display(description="Тема", ordering="subject")
+    @admin.display(description="Название", ordering="subject")
     def subject_or_blank(self, obj):
-        return obj.subject or format_html("<i>{}</i>", "(без темы)")
+        return obj.subject or format_html("<i>{}</i>", "(без названия)")
 
-    @admin.display(description="Куда")
-    def box(self, obj):
-        if obj.is_draft:
-            return f"черновик {obj.sender_login or '?'}"
-        where = f"→ {obj.to_login}" if obj.to_login else "→ всем"
-        return f"{where} (триггер)" if obj.delivery == Message.Delivery.TRIGGER else where
+    @admin.display(description="Кому")
+    def to(self, obj):
+        return ", ".join(split(obj.recipients)) or "—"
+
+    @admin.display(description="Триггер", boolean=True, ordering="slug")
+    def trigger(self, obj):
+        return obj.is_trigger
 
     @admin.display(description="Условие по ключам")
     def condition(self, obj):
@@ -100,16 +108,15 @@ class DeliveredAdmin(admin.ModelAdmin):
 @admin.register(ComposeTask)
 class ComposeTaskAdmin(ConditionFieldsMixin, admin.ModelAdmin):
     condition_fields = ("key_condition",)
-    list_select_related = ("machine",)
-    list_display = ("subject_or_blank", "machine", "login", "to_login", "max_attempts", "reply_delay", "replies_count", "condition")
+    list_select_related = ("profile", "profile__machine")
+    list_display = ("subject_or_blank", "profile", "recipients_line", "max_attempts", "reply_delay", "replies_count", "condition")
     list_display_links = ("subject_or_blank",)
-    list_filter = ("machine",)
-    search_fields = ("subject", "login", "to_login", "target")
-    autocomplete_fields = ("machine",)
+    search_fields = ("subject", "recipients", "target", "profile__login", "profile__mail")
+    autocomplete_fields = ("profile",)
     filter_horizontal = ("replies",)
 
     fieldsets = (
-        ("Who writes to whom", {"fields": ("machine", "login", "to_login", "subject")}),
+        ("Who writes to whom", {"fields": ("profile", "recipients", "subject")}),
         ("Text to type", {"fields": ("target",)}),
         ("Reply", {"fields": ("replies", "reply_delay")}),
         ("Rules", {"fields": ("key_condition", "max_attempts")}),
@@ -120,7 +127,11 @@ class ComposeTaskAdmin(ConditionFieldsMixin, admin.ModelAdmin):
 
     @admin.display(description="Тема", ordering="subject")
     def subject_or_blank(self, obj):
-        return obj.subject or format_html("<i>{}</i>", "(без темы)")
+        return obj.subject or format_html("<i>{}</i>", "(без названия)")
+
+    @admin.display(description="Кому")
+    def recipients_line(self, obj):
+        return ", ".join(split(obj.recipients))
 
     @admin.display(description="Ответов", ordering="_replies")
     def replies_count(self, obj):
