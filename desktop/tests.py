@@ -815,3 +815,28 @@ class SystemMessageTests(TestCase):
         js = self.read("wiki/static/wiki/wiki.js")
         self.assertIn('desktop.error("access_denied"', js)
         self.assertIn('row.dataset.access === "locked"', js)
+
+
+class WikiIconTests(TestCase):
+    """Значки вики: залитые svg, цвет только из токенов."""
+
+    root = Path(__file__).resolve().parent.parent / "wiki/static/wiki"
+
+    def test_every_icon_exists_and_is_a_plain_filled_shape(self):
+        import re
+
+        for name in ("folder", "bucket", "doc", "scan", "web", "rec"):
+            svg = (self.root / "icons" / f"{name}.svg").read_text(encoding="utf-8")
+            self.assertIn('viewBox="0 0 24 24"', svg, name)
+            self.assertNotIn("stroke", svg, name)                 # залитые, без контуров
+            self.assertNotIn("<script", svg, name)
+            self.assertEqual(re.findall(r"(?:fill|stop-color)=\"#", svg), [], name)  # цвет задаёт CSS
+
+    def test_the_stylesheet_masks_the_icons_with_token_colours(self):
+        import re
+
+        css = (self.root / "wiki.css").read_text(encoding="utf-8")
+        for name in ("folder", "bucket", "doc", "scan", "web", "rec"):
+            self.assertIn(f"icons/{name}.svg", css)
+        block = css[css.index("значки: залитые svg"):css.index("корень: акцент на вёдрах")]
+        self.assertEqual(re.findall(r"#[0-9a-fA-F]{3,8}\b", block), [])

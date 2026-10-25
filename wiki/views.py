@@ -117,7 +117,7 @@ def _tree(request, keys, current):
     if mounts is not None:
         children[None].sort(key=lambda n: (mounts[n.pk], n.name))
 
-    def build(parent_id):
+    def build(parent_id, depth=0):
         result = []
         for ns in children[parent_id]:
             s = namespace_state(ns, keys)
@@ -128,18 +128,25 @@ def _tree(request, keys, current):
                     "id": ns.pk,
                     "name": ns.name,
                     "url": _ns_url(ns),
+                    "bucket": ns.parent_id is None,
+                    "depth": depth,
+                    "node": ns.node,
                     "open": s.open,
                     "current": ns.pk == current_pk,
                     "expanded": s.open and ns.pk in on_path,
-                    "children": build(ns.pk) if s.open else [],
+                    "children": build(ns.pk, depth + 1) if s.open else [],
                 }
             )
         return result
 
+    buckets = build(None)
+
     return {
         "url": reverse("wiki:home"),
         "current": current is None,
-        "children": build(None),
+        "children": buckets,
+        "bucket_count": len(buckets),
+        "nodes": sorted({b["node"] for b in buckets if b["node"]}),
     }
 
 
@@ -297,6 +304,13 @@ def _article_counts(request, keys):
     return counts, total
 
 
+def _annotate_counts(nodes, counts):
+    """Число видимых записей у каждого узла дерева (для подписей справа)."""
+    for node in nodes:
+        node["count"] = counts[node["id"]]
+        _annotate_counts(node["children"], counts)
+
+
 def _folders(tree, ns):
     """Подразделы текущего раздела (из дерева: скрытых и закрытых заглядываний там уже нет)."""
     if ns is None:
@@ -343,6 +357,7 @@ def _namespace_page(request, ns):
     documents = [] if locked else _doc_rows(ns, keys)
     folders = [] if locked else _folders(tree, ns)
     counts, total = _article_counts(request, keys)
+    _annotate_counts(tree["children"], counts)
     nodes = {n.pk: n for n in _all_namespaces(request)}
     for folder in folders:
         folder["count"] = counts[folder["id"]]

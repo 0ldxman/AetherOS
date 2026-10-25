@@ -85,8 +85,14 @@ class WikiViewsTests(TestCase):
         self.assertIn("Buckets (1)", html)           # «Закрытый» (виден, но закрыт замком)
         self.assertIn("<th>Node</th>", html)
         self.assertIn('data-class="Bucket"', html)
-        self.assertIn("Objects (2)", html)
+        self.assertIn("Objects outside buckets (2)", html)   # записи вне вёдер свёрнуты вторым планом
         self.assertIn("1 bucket, 2 objects", html)
+
+    def test_the_tree_shows_icons_and_object_counts(self):
+        _, html, _ = call(views.resolve, "")
+        self.assertIn('class="side-head', html)
+        self.assertIn("ico-bucket", html)
+        self.assertIn('class="t-count">locked</span>', html)     # закрытое ведро: пометка вместо числа
 
     def test_object_metadata_ignores_hidden_spoilers(self):
         """Размер и etag считаются по видимому тексту: из них нельзя вытянуть закрытую часть."""
@@ -117,7 +123,7 @@ class WikiViewsTests(TestCase):
     def test_bucket_count_includes_only_visible_articles(self):
         _, html, _ = call(views.resolve, "")
         line = next(l for l in html.splitlines() if 'data-class="Bucket"' in l)
-        self.assertIn('data-size="2 objects"', line)  # «Секретная» и «Вложенная»; «Скрытая» не видна
+        self.assertIn('data-objects="2"', line)  # «Секретная» и «Вложенная»; «Скрытая» не видна
         self.assertNotIn("Скрытая", html)
 
     def test_objects_have_s3_style_keys_and_uris(self):

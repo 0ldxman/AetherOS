@@ -469,43 +469,46 @@ a {
 }
 
 
-/* во время поиска дерево не указывает на «текущий раздел»:
-   плашка снимается, остальные цвета (в том числе красный у закрытых) остаются */
-.layout.searching .t-row.current:not(.locked) {
-    background: none;
-    box-shadow: none;
-    clip-path: none;
-    z-index: auto;
-}
+/* -------------------------------------------------- */
+/* Дерево: вёдра и папки со значками и числом объектов */
+/* -------------------------------------------------- */
 
+.side-head {
+    flex: 0 0 auto;
 
-.layout.searching .t-row.current:not(.locked)::before,
-.layout.searching .t-row.current:not(.locked)::after {
-    content: none;
-}
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
 
+    padding: 0.6rem 0.9rem;
 
-.layout.searching .t-row.current:not(.locked) .node,
-.layout.searching .t-row.current:not(.locked) .mark {
+    border-bottom: 1px solid var(--line);
+
     color: var(--fg);
+    font-weight: 600;
+    text-decoration: none;
 }
 
 
-.layout.searching .t-row.current:not(.locked):hover {
+.side-head:hover {
+    background: var(--row-hover);
+}
+
+
+.side-head.current,
+.t-row.current {
     background: var(--row-selected);
-    box-shadow: 0 0 0 100vmax var(--row-selected);
-    clip-path: inset(0 -100vmax);
+    box-shadow: inset 2px 0 var(--accent);
 }
 
 
-.layout.searching .t-row.current:not(.locked):hover .node {
-    color: var(--font-light);
+.side-count,
+.t-count {
+    color: var(--font-muted);
+    font-size: 0.85rem;
+    font-weight: 400;
 }
 
-
-/* -------------------------------------------------- */
-/* Tree                                               */
-/* -------------------------------------------------- */
 
 .tree,
 .tree ul {
@@ -517,85 +520,26 @@ a {
 
 
 .tree {
-    --tree-line: var(--font-light);   /* цвет линий структуры */
-
     flex: 1 1 auto;
     min-height: 0;
     overflow: auto;
 
-    padding: 0 0.4rem 1rem;
-}
-
-
-/* отступ вложенных неймспейсов: линия ветви под меткой родителя */
-.tree ul {
-    padding-left: 2.4ch;
-}
-
-
-.tree-root > ul {
-    padding-left: 0;
-}
-
-
-.tree li {
-    position: relative;
-
-    padding-left: 2.2ch;
-}
-
-
-.tree-root {
-    padding-left: 0;
-}
-
-
-/* вертикальная линия ветви: на всю высоту пункта вместе с вложенными */
-.tree li:not(.tree-root)::before {
-    content: "";
-
-    position: absolute;
-    z-index: 1;                     /* линии выше hover-полосы, но ниже плашек */
-    left: 0.5ch;
-    top: 0;
-    bottom: 0;
-
-    border-left: 1px solid var(--tree-line);
-}
-
-
-/* последний пункт: линия обрывается на середине его строки (└) */
-.tree li:not(.tree-root):last-child::before {
-    bottom: auto;
-    height: calc(var(--row) / 2);
-}
-
-
-/* горизонтальная засечка (├ и └) */
-.tree li:not(.tree-root)::after {
-    content: "";
-
-    position: absolute;
-    z-index: 1;
-    left: 0.5ch;
-    top: calc(var(--row) / 2);
-    width: 1.3ch;
-
-    border-top: 1px solid var(--tree-line);
+    padding: 0.4rem 0;
 }
 
 
 .t-row {
     display: flex;
     align-items: center;
-    gap: 0.4ch;
+    gap: 0.5ch;
 
-    height: var(--row);
+    min-height: var(--row);
+    padding: 0 0.9rem 0 calc(0.5rem + var(--depth, 0) * 1.2rem);
+}
 
-    /* линии веток родителей, проходящие через эту строку (см. блок про плашки) */
-    --r1: transparent;
-    --r2: transparent;
-    --r3: transparent;
+
+.t-row:hover {
+    background: var(--row-hover);
 }
 
 
@@ -610,7 +554,7 @@ summary.t-row::-webkit-details-marker {
 }
 
 
-/* стрелка раскрытия стоит справа от названия */
+/* стрелка раскрытия слева; у узлов без вложенных место занято, чтобы значки стояли ровно */
 .mark {
     flex: 0 0 1.4ch;
 
@@ -630,10 +574,14 @@ details[open] > summary .mark::before {
 
 
 .node {
-    padding: 0 0.8ch;
+    flex: 1;
+    min-width: 0;
+
+    display: flex;
+    align-items: center;
 
     color: var(--fg);
-    white-space: nowrap;
+    text-decoration: none;
 }
 
 
@@ -644,140 +592,37 @@ details[open] > summary .mark::before {
 }
 
 
-.t-row .lock {
-    font-size: 0.8em;
+.node-name {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
 
-/* hover строки: серая полоса на всю ширину панели (у current и locked своя плашка) */
-.t-row:not(.current):not(.locked):hover {
-    background: var(--row-selected);
-    box-shadow: 0 0 0 100vmax var(--row-selected);
-    clip-path: inset(0 -100vmax);
-}
-
-
-/* -------------------------------------------------- */
-/* Плашка на всю строку: текущий и закрытый неймспейс */
-/* -------------------------------------------------- */
-
-.t-row.current,
-.t-row.locked {
-    position: relative;
-    z-index: 2;                     /* плашка ложится поверх линий li */
-
-    background: var(--select);
-
-    /* растягиваем плашку до краёв панели, сверху и снизу обрезаем */
-    box-shadow: 0 0 0 100vmax var(--select);
-    clip-path: inset(0 -100vmax);
-
-    --v-len: 100%;                  /* вертикаль коннектора: ├ целиком */
-}
-
-
-.t-row.current {
-    --select: var(--font-light);
-}
-
-
-/* locked идёт ниже current: закрытый раздел остаётся красным, даже если он текущий */
-.t-row.locked {
-    --select: var(--accent-error);
-}
-
-
-/* последний пункт: коннектор └, вертикаль только до середины */
-li:last-child > .t-row.current,
-li:last-child > .t-row.locked,
-li:last-child > details > .t-row.current,
-li:last-child > details > .t-row.locked {
-    --v-len: 50%;
-}
-
-
-.t-row.current .node,
-.t-row.current .node:hover,
-.t-row.current .mark,
-.t-row.current .lock,
+/* закрытый раздел: красное название и пометка вместо числа */
 .t-row.locked .node,
-.t-row.locked .node:hover,
-.t-row.locked .mark,
-.t-row.locked .lock {
-    color: var(--bg);
+.t-row.locked .t-count {
+    color: var(--accent-error);
 }
 
 
-/* коннектор цвета bg: линия li под плашкой скрыта */
-.t-row.current::before,
-.t-row.locked::before {
-    content: "";
+.side-foot {
+    flex: 0 0 auto;
 
-    position: absolute;
-    left: -1.7ch;                   /* 0.5ch линии li минус 2.2ch отступа li */
-    top: 0;
-    bottom: 0;
-    width: 1.3ch;
+    padding: 0.6rem 0.9rem;
 
-    --cur: linear-gradient(var(--bg), var(--bg));
+    border-top: 1px solid var(--line);
 
-    background:
-        var(--cur) 0 0 / 1px var(--v-len) no-repeat,
-        var(--cur) 0 50% / 100% 1px no-repeat;
+    color: var(--font-muted);
+    font-size: 0.85rem;
 }
 
 
-/* у корня "~" линий нет */
-.tree-root > .t-row.current::before,
-.tree-root > .t-row.locked::before {
-    content: none;
-}
-
-
-/*
- * Линии родителей через плашку.
- *
- * Вертикальная линия ветки принадлежит родительскому li и идёт через все
- * его вложенные строки. Плашка лежит поверх неё, поэтому в этой строке
- * линию нужно дорисовать цветом bg. Какие родители продолжают ветку
- * (то есть не последние среди соседей), определяют селекторы ниже:
- * --r1 родитель, --r2 дедушка, --r3 прадедушка (глубина до 4 уровней).
- */
-.tree li:not(:last-child) > details > ul > li > .t-row,
-.tree li:not(:last-child) > details > ul > li > details > .t-row {
-    --r1: var(--bg);
-}
-
-.tree li:not(:last-child) > details > ul > li > details > ul > li > .t-row,
-.tree li:not(:last-child) > details > ul > li > details > ul > li > details > .t-row {
-    --r2: var(--bg);
-}
-
-.tree li:not(:last-child) > details > ul > li > details > ul > li > details > ul > li > .t-row,
-.tree li:not(:last-child) > details > ul > li > details > ul > li > details > ul > li > details > .t-row {
-    --r3: var(--bg);
-}
-
-
-/*
- * Полоса слева от строки шириной 16ch. Линия родителя на расстоянии m уровней
- * стоит в -(1.7 + 4.6m)ch от строки, то есть в (14.3 - 4.6m)ch от левого края полосы:
- * m=1 даёт 9.7ch, m=2 даёт 5.1ch, m=3 даёт 0.5ch.
- */
-.t-row.current::after,
-.t-row.locked::after {
-    content: "";
-
-    position: absolute;
-    left: -16ch;
-    top: 0;
-    bottom: 0;
-    width: 16ch;
-
-    background:
-        linear-gradient(var(--r1), var(--r1)) 9.7ch 0 / 1px 100% no-repeat,
-        linear-gradient(var(--r2), var(--r2)) 5.1ch 0 / 1px 100% no-repeat,
-        linear-gradient(var(--r3), var(--r3)) 0.5ch 0 / 1px 100% no-repeat;
+/* во время поиска дерево не указывает на «текущий раздел» */
+.layout.searching .t-row.current,
+.layout.searching .side-head.current {
+    background: none;
+    box-shadow: none;
 }
 
 
@@ -1108,31 +953,125 @@ body::-webkit-scrollbar-thumb:hover {
 }
 
 
+/* значки: залитые svg, цвет берут из токенов (маска + background) */
 .ico {
+    flex: 0 0 auto;
+
     display: inline-block;
-    width: 0.9em;
-    height: 0.7em;
-    margin-right: 1ch;
+    width: 1.15em;
+    height: 1.15em;
+    margin-right: 0.9ch;
 
-    border: 1px solid currentColor;
+    background: var(--font-muted);
 
-    color: var(--accent);
+    vertical-align: -0.2em;
 
-    vertical-align: -0.05em;
+    -webkit-mask: center / contain no-repeat;
+    mask: center / contain no-repeat;
 }
 
 
 .ico-folder {
-    border-radius: 0 2px 2px 2px;
-    border-top-width: 3px;
+    background: var(--accent);
+
+    -webkit-mask-image: url("icons/folder.svg");
+    mask-image: url("icons/folder.svg");
 }
 
 
-.ico-file {
-    width: 0.7em;
-    height: 0.9em;
+.ico-bucket {
+    background: var(--accent-green);
+
+    -webkit-mask-image: url("icons/bucket.svg");
+    mask-image: url("icons/bucket.svg");
+}
+
+
+.ico-doc {
+    -webkit-mask-image: url("icons/doc.svg");
+    mask-image: url("icons/doc.svg");
+}
+
+
+.ico-scan {
+    -webkit-mask-image: url("icons/scan.svg");
+    mask-image: url("icons/scan.svg");
+}
+
+
+.ico-web {
+    -webkit-mask-image: url("icons/web.svg");
+    mask-image: url("icons/web.svg");
+}
+
+
+.ico-rec {
+    -webkit-mask-image: url("icons/rec.svg");
+    mask-image: url("icons/rec.svg");
+}
+
+
+.t-row .ico {
+    margin-right: 0.7ch;
+}
+
+
+/* корень: акцент на вёдрах */
+.buckets-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 1rem;
+
+    padding-right: var(--pad-x);
+}
+
+
+.buckets-sum {
+    color: var(--font-muted);
+    font-size: 0.9rem;
+}
+
+
+.grid--buckets td {
+    height: 3.2rem;
+
+    font-size: 1.05rem;
+}
+
+
+.grid--buckets th {
+    height: 1.9rem;
+}
+
+
+.grid--buckets .ico {
+    width: 1.6em;
+    height: 1.6em;
+    margin-right: 1.2ch;
+
+    vertical-align: -0.35em;
+}
+
+
+.loose {
+    margin-top: 0.8rem;
+
+    border-top: 1px solid var(--line);
+}
+
+
+.loose > summary {
+    padding: 0.7rem var(--pad-x);
 
     color: var(--font-muted);
+
+    cursor: pointer;
+}
+
+
+.loose[open] > summary {
+    color: var(--fg);
 }
 
 
@@ -1165,4 +1104,10 @@ body::-webkit-scrollbar-thumb:hover {
     white-space: nowrap;
 
     color: var(--fg);
+}
+
+
+/* дата не должна обрезаться */
+.grid th.w-date {
+    width: 10.5rem;
 }

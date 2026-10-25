@@ -132,6 +132,7 @@
 
     const PROPS = [
         ["Type", "class"],
+        ["Objects", "objects"],
         ["Last modified", "modified"],
         ["Size", "size"],
         ["Storage class", "storage"],
@@ -314,8 +315,11 @@
     /* читать есть что сразу: в разделе выбрана первая запись (на корне ничего не выбрано) */
     const rootLayout = document.getElementById("layout");
 
-    if (rootLayout && !rootLayout.dataset.root) {
-        const first = document.querySelector("[data-list] tr[data-url]");
+    if (rootLayout) {
+        /* на корне выбрано первое ведро, в разделе первая запись */
+        const first = document.querySelector(
+            rootLayout.dataset.root ? "[data-list] tr[data-key]" : "[data-list] tr[data-url]"
+        );
 
         if (first) {
             select(first);
@@ -499,10 +503,11 @@
             const nameCell = el("td");
             nameCell.dataset.sort = item.title;
 
+            nameCell.appendChild(el("span", "ico ico-" + item.type));
+
             const link = el("a", null);
             link.href = item.url;
             link.appendChild(document.createTextNode(item.title));
-            link.appendChild(el("span", "ext", item.ext || ""));
             link.appendChild(el("span", "ext", item.ext || ""));
             nameCell.appendChild(link);
 

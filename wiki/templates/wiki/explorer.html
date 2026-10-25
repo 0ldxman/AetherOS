@@ -7,16 +7,13 @@
 <div class="layout" id="layout" data-search-url="{{ search_url }}" data-scope="{{ scope_address }}" data-ns-id="{{ ns_id }}"{% if at_root %} data-root="1"{% endif %}>
 
   <nav class="side" id="tree" aria-label="Неймспейсы">
+    <a class="side-head{% if tree.current %} current{% endif %}" href="{{ tree.url }}">
+      <span>Buckets</span><span class="side-count">{{ tree.bucket_count }}</span>
+    </a>
     <ul class="tree">
-      <li class="tree-root">
-        <div class="t-row{% if tree.current %} current{% endif %}">
-          <a class="node" href="{{ tree.url }}">buckets</a>
-        </div>
-        <ul>
-        {% for node in tree.children %}{% include "wiki/_tree_node.html" %}{% endfor %}
-        </ul>
-      </li>
+    {% for node in tree.children %}{% include "wiki/_tree_node.html" %}{% endfor %}
     </ul>
+    <div class="side-foot">{{ total }} object{{ total|pluralize }}{% if tree.nodes %} &middot; {{ tree.nodes|length }} node{{ tree.nodes|length|pluralize }}{% endif %}</div>
   </nav>
 
   <section class="viewer">
@@ -39,8 +36,11 @@
       {% elif documents or folders %}
         {% if at_root %}
         {% if folders %}
-        <h2 class="list-title">Buckets ({{ prefixes }})</h2>
-        <table class="grid" id="docs" data-list>
+        <div class="buckets-head">
+          <h2 class="list-title">Buckets ({{ prefixes }})</h2>
+          <span class="buckets-sum">{{ total }} object{{ total|pluralize }}{% if tree.nodes %} on {{ tree.nodes|length }} node{{ tree.nodes|length|pluralize }}{% endif %}</span>
+        </div>
+        <table class="grid grid--buckets" id="docs" data-list>
           <thead>
             <tr>
               <th>Name</th>
@@ -51,8 +51,8 @@
           </thead>
           <tbody>
           {% for f in folders %}
-            <tr class="folder{% if not f.open %} locked{% endif %}" data-key="{{ f.key }}" data-uri="{{ f.uri }}" data-class="Bucket" data-node="{{ f.node }}" data-size="{{ f.count }} object{{ f.count|pluralize }}" data-access="{% if f.open %}open{% else %}locked{% endif %}" data-excerpt="">
-              <td data-sort="{{ f.name }}"><span class="ico ico-folder" aria-hidden="true"></span><a href="{{ f.url }}">{{ f.name }}</a></td>
+            <tr class="folder{% if not f.open %} locked{% endif %}" data-key="{{ f.key }}" data-uri="{{ f.uri }}" data-class="Bucket" data-node="{{ f.node }}" data-objects="{{ f.count }}" data-access="{% if f.open %}open{% else %}locked{% endif %}" data-excerpt="">
+              <td data-sort="{{ f.name }}"><span class="ico ico-bucket" aria-hidden="true"></span><a href="{{ f.url }}">{{ f.name }}</a></td>
               <td>{{ f.node|default:"-" }}</td>
               <td data-sort="{{ f.count }}">{{ f.count }}</td>
               <td{% if f.open %} class="state-open"{% endif %}>{% if f.open %}OPEN{% else %}LOCKED{% endif %}</td>
@@ -62,13 +62,15 @@
         </table>
         {% endif %}
         {% if documents %}
-        <h2 class="list-title">Objects ({{ objects }})</h2>
-        <table class="grid" data-list>
-          <thead>{% include "wiki/_object_head.html" %}</thead>
-          <tbody>
-          {% for d in documents %}{% include "wiki/_doc_row.html" %}{% endfor %}
-          </tbody>
-        </table>
+        <details class="loose"{% if not folders %} open{% endif %}>
+          <summary>Objects outside buckets ({{ objects }})</summary>
+          <table class="grid" data-list>
+            <thead>{% include "wiki/_object_head.html" %}</thead>
+            <tbody>
+            {% for d in documents %}{% include "wiki/_doc_row.html" %}{% endfor %}
+            </tbody>
+          </table>
+        </details>
         {% endif %}
         {% else %}
         <h2 class="list-title">Objects ({{ total_here }})</h2>
@@ -76,7 +78,7 @@
           <thead>{% include "wiki/_object_head.html" %}</thead>
           <tbody>
           {% for f in folders %}
-            <tr class="folder{% if not f.open %} locked{% endif %}" data-key="{{ f.key }}" data-uri="{{ f.uri }}" data-class="Folder" data-node="{{ f.node }}" data-size="{{ f.count }} object{{ f.count|pluralize }}" data-access="{% if f.open %}open{% else %}locked{% endif %}" data-excerpt="">
+            <tr class="folder{% if not f.open %} locked{% endif %}" data-key="{{ f.key }}" data-uri="{{ f.uri }}" data-class="Folder" data-node="{{ f.node }}" data-objects="{{ f.count }}" data-access="{% if f.open %}open{% else %}locked{% endif %}" data-excerpt="">
               <td data-sort="{{ f.name }}"><span class="ico ico-folder" aria-hidden="true"></span><a href="{{ f.url }}">{{ f.name }}/</a></td>
               <td>Folder</td>
               <td>-</td>
