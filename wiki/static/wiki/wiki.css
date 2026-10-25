@@ -1111,3 +1111,7 @@ body::-webkit-scrollbar-thumb:hover {
 .grid th.w-date {
     width: 10.5rem;
 }
+
+.grid th.w-wide {
+    width: 9.5rem;
+}
