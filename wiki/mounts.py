@@ -1,7 +1,7 @@
 """Какие тома вики смонтированы на машине игрока.
 
-None значит «без ограничений»: нет машины (служебные вызовы, тесты) или у машины не смонтирован
-ни один том. Иначе словарь {id корневого неймспейса: порядок}.
+None значит «без ограничений»: машины нет (служебные вызовы, тесты). Иначе словарь
+{id корневого неймспейса: порядок}; у машины без монтирований он пуст, и вики для неё пуста.
 """
 
 
@@ -14,8 +14,7 @@ def mounted_roots(request):
     machine = _machine(request)
 
     if machine is not None:
-        rows = dict(machine.volume_mounts.values_list("namespace_id", "order"))
-        mounts = rows or None
+        mounts = dict(machine.volume_mounts.values_list("namespace_id", "order"))
 
     request._wiki_mounts = mounts
     return mounts

@@ -32,8 +32,16 @@ class VolumeMountTests(TestCase):
         for order, ns in enumerate(namespaces):
             VolumeMount.objects.create(machine=self.machine, namespace=ns, order=order)
 
-    def test_without_mounts_everything_is_visible(self):
-        _, html, _ = self.visit(views.resolve, "")
+    def test_without_mounts_nothing_is_visible(self):
+        status, html, _ = self.visit(views.resolve, "")
+        self.assertEqual(status, 200)
+        self.assertNotIn("Общий", html)
+        self.assertNotIn("Внутренний", html)
+        self.assertEqual(self.visit(views.resolve, "Общий")[0], 404)
+        self.assertEqual(self.visit(views.direct, "inner-link")[0], 404)
+
+    def test_without_a_machine_nothing_is_filtered(self):
+        _, html, _ = call(views.resolve, "")
         self.assertIn("Общий", html)
         self.assertIn("Внутренний", html)
 
