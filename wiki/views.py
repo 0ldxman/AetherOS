@@ -305,10 +305,8 @@ def _folders(tree, ns):
 
 
 def _path_bar(ns):
-    """Кликабельный путь: ~ и разделы вплоть до текущего, плюс адрес «вверх»."""
-    crumbs = [{"name": "~", "url": reverse("wiki:home")}] + _crumbs(ns)
-    up = crumbs[-2]["url"] if len(crumbs) > 1 else None
-    return crumbs, up
+    """Кликабельный путь: ~ и разделы вплоть до текущего."""
+    return [{"name": "~", "url": reverse("wiki:home")}] + _crumbs(ns)
 
 
 def _locked(request, title, crumbs=None):
@@ -331,7 +329,7 @@ def _namespace_page(request, ns):
         locked = not state.open
 
     tree = _tree(request, keys, ns)
-    crumbs, up_url = _path_bar(ns)
+    crumbs = _path_bar(ns)
     documents = [] if locked else _doc_rows(ns, keys)
     folders = [] if locked else _folders(tree, ns)
     counts, total = _article_counts(request, keys)
@@ -344,7 +342,6 @@ def _namespace_page(request, ns):
         {
             "tree": tree,
             "crumbs": crumbs,
-            "up_url": up_url,
             "folders": folders,
             "path_text": _path_text(ns),
             "at_root": ns is None,

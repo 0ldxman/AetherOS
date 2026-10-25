@@ -199,14 +199,6 @@ a {
 }
 
 
-.crumb-up {
-    margin-right: 0.5ch;
-    padding: 0 0.6ch;
-
-    border: 1px solid var(--font-dark);
-}
-
-
 
 .viewer-path-text {
     display: none;

@@ -73,16 +73,11 @@ class WikiViewsTests(TestCase):
 
     # ---------- вид обозревателя ----------
 
-    def test_explorer_has_clickable_path_with_up_link(self):
+    def test_explorer_has_clickable_path(self):
         status, html, _ = call(views.resolve, "Закрытый/Дочерний", user=self.player)
         self.assertEqual(status, 403)  # у игрока нет ключа: путь всё равно виден, замка достаточно
         self.assertIn('class="crumbs"', html)
-        self.assertIn('class="crumb-up"', html)
-
-    def test_root_has_no_up_link(self):
-        status, html, _ = call(views.resolve, "")
-        self.assertEqual(status, 200)
-        self.assertNotIn("crumb-up", html)
+        self.assertNotIn("crumb-up", html)  # «вверх» это ссылки пути, отдельной кнопки нет
 
     def test_sections_are_rows_next_to_records(self):
         status, html, _ = call(views.resolve, "")

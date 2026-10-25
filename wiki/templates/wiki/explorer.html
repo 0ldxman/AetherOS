@@ -23,7 +23,6 @@
     <div class="viewer-path">
       <button type="button" class="tree-toggle" id="tree-toggle" title="show / hide the tree" aria-controls="tree" aria-expanded="true">tree</button>
       <nav class="crumbs" aria-label="Путь">
-        {% if up_url %}<a class="crumb-up" href="{{ up_url }}" title="up">..</a>{% endif %}
         {% for c in crumbs %}{% if not forloop.first %}<span class="sep">/</span>{% endif %}<a href="{{ c.url }}"{% if forloop.last %} aria-current="page"{% endif %}>{{ c.name }}</a>{% endfor %}
       </nav>
       <span class="viewer-path-text" id="path-text">{{ path_text }}</span>
