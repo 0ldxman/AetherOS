@@ -10,6 +10,7 @@ from django.utils.safestring import mark_safe
 from .access import document_state, namespace_state, request_keys
 from .markup import render as render_markup, visible_text
 from .models import Document, Namespace
+from .mounts import mounted_roots
 
 SEARCH_LIMIT = 100
 SEARCH_MAX_LEN = 80
@@ -88,6 +89,10 @@ def _all_namespaces(request):
         for n in nodes:
             if n.parent_id is not None:
                 n.parent = by_id[n.parent_id]
+        mounts = mounted_roots(request)
+        if mounts is not None:
+            # том, не смонтированный на машине, для игрока не существует: ни в дереве, ни в поиске
+            nodes = [n for n in nodes if n.chain()[0].pk in mounts]
         request._wiki_namespaces = nodes
     return nodes
 
@@ -106,6 +111,10 @@ def _tree(request, keys, current):
 
     on_path = {n.pk for n in current.chain()} if current else set()
     current_pk = current.pk if current else None
+
+    mounts = mounted_roots(request)
+    if mounts is not None:
+        children[None].sort(key=lambda n: (mounts[n.pk], n.name))
 
     def build(parent_id):
         result = []
@@ -336,7 +345,9 @@ def direct(request, link):
         raise Http404
     if doc.namespace_id is not None:
         by_id = {n.pk: n for n in _all_namespaces(request)}
-        doc.namespace = by_id[doc.namespace_id]
+        doc.namespace = by_id.get(doc.namespace_id)
+        if doc.namespace is None:
+            raise Http404  # том не смонтирован на этой машине
     return _document_page(request, doc, via_direct_link=True)
 
 
@@ -404,6 +415,8 @@ def search(request):
 
     rows = []
     for doc in candidates:
+        if doc.namespace_id is not None and doc.namespace_id not in namespaces:
+            continue  # том не смонтирован на этой машине
         doc.namespace = namespaces.get(doc.namespace_id)
 
         if doc.namespace is not None:

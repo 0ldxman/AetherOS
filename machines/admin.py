@@ -17,6 +17,7 @@ from .models import (
     MachineProfileToken,
     Session,
     MachineApp,
+    VolumeMount,
 )
 
 class MachineAppInline(admin.TabularInline):
@@ -24,6 +25,12 @@ class MachineAppInline(admin.TabularInline):
     extra = 0
     fields = ("label", "glyph", "suffix", "path", "order")
     show_change_link = True  # условие по ключам правится на странице приложения
+
+
+class VolumeMountInline(admin.TabularInline):
+    model = VolumeMount
+    extra = 0
+    fields = ("namespace", "order")
 
 
 # ==================================================
@@ -117,6 +124,7 @@ class MachineAdmin(admin.ModelAdmin):
     inlines = (
         MachineProfileInline,
         MachineAppInline,
+        VolumeMountInline,
     )
 
     actions = (

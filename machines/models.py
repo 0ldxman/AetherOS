@@ -309,3 +309,47 @@ class MachineApp(models.Model):
     def save(self, *args, **kwargs):
         self.suffix = normalize_suffix(self.suffix)
         super().save(*args, **kwargs)
+
+
+
+class VolumeMount(models.Model):
+    """Том вики (корневой неймспейс), смонтированный на машине.
+
+    Машина видит в вики только свои тома; что из них открыто игроку, решают ключи, как раньше.
+    Если у машины не смонтирован ни один том, она видит все (так было до монтирования).
+    """
+
+    machine = models.ForeignKey(
+        "machines.Machine",
+        on_delete=models.CASCADE,
+        related_name="volume_mounts",
+    )
+
+    namespace = models.ForeignKey(
+        "wiki.Namespace",
+        on_delete=models.CASCADE,
+        related_name="mounts",
+        limit_choices_to={"parent__isnull": True},
+        verbose_name="Том",
+        help_text="Корневой неймспейс.",
+    )
+
+    order = models.PositiveSmallIntegerField(
+        default=0,
+        help_text="Порядок в дереве и на стартовой странице: меньше выше.",
+    )
+
+    class Meta:
+        ordering = ("machine", "order", "id")
+        constraints = [
+            models.UniqueConstraint(fields=("machine", "namespace"), name="unique_volume_mount"),
+        ]
+
+    def __str__(self):
+        return f"{self.machine_id}: {self.namespace_id}"
+
+    def clean(self):
+        if self.namespace_id and self.namespace.parent_id is not None:
+            from django.core.exceptions import ValidationError
+
+            raise ValidationError({"namespace": "Монтируется только корневой неймспейс (том)."})
