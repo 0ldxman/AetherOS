@@ -11,7 +11,8 @@ from .models import Attachment, Delivered, Message, MessageRead
 class AttachmentInline(admin.TabularInline):
     model = Attachment
     extra = 0
-    fields = ("label", "path", "order")
+    fields = ("kind", "label", "path", "asset", "machine_file", "order")
+    autocomplete_fields = ("asset", "machine_file")
 
 
 @admin.register(Message)

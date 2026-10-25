@@ -143,18 +143,51 @@ class Message(models.Model):
 
 
 class Attachment(models.Model):
+    """Вложение письма. Три вида:
+
+    link   внутренняя ссылка (запись вики и т.п.): открыть в окне;
+    asset  файл из хранилища (Nextcloud): открыть во вьювере и скачать на ПК;
+    file   файл машины: сохранить его в файловую систему игрока (нужен вход через Discord).
+    """
+
+    class Kind(models.TextChoices):
+        LINK = "link", "Ссылка"
+        ASSET = "asset", "Файл из хранилища"
+        FILE = "file", "Файл на машину"
+
     message = models.ForeignKey(
         Message,
         on_delete=models.CASCADE,
         related_name="attachments",
     )
 
+    kind = models.CharField(max_length=8, choices=Kind.choices, default=Kind.LINK)
+
     label = models.CharField("Подпись", max_length=128)
 
     path = models.CharField(
         "Путь",
         max_length=512,
-        help_text="Внутренний путь от корня сайта, например /apps/wiki/.",
+        blank=True,
+        help_text="Для ссылки: внутренний путь от корня сайта, например /apps/wiki/.",
+    )
+
+    asset = models.ForeignKey(
+        "assets.Asset",
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name="mail_attachments",
+        help_text="Для файла из хранилища.",
+    )
+
+    machine_file = models.ForeignKey(
+        "filesystem.MachineFile",
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name="mail_attachments",
+        help_text="Для файла на машину. Лучше отметить его «delivered only», чтобы он не лежал у всех.",
     )
 
     order = models.PositiveSmallIntegerField(default=0)
@@ -166,7 +199,16 @@ class Attachment(models.Model):
         return self.label
 
     def clean(self):
-        validate_internal_path(self.path)
+        from django.core.exceptions import ValidationError
+
+        if self.kind == self.Kind.LINK:
+            if not self.path:
+                raise ValidationError({"path": "Для ссылки нужен путь."})
+            validate_internal_path(self.path)
+        elif self.kind == self.Kind.ASSET and self.asset_id is None:
+            raise ValidationError({"asset": "Выберите файл из хранилища."})
+        elif self.kind == self.Kind.FILE and self.machine_file_id is None:
+            raise ValidationError({"machine_file": "Выберите файл машины."})
 
 
 class MessageRead(models.Model):

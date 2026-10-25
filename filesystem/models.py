@@ -42,6 +42,14 @@ class MachineFile(models.Model):
         ),
     )
 
+    delivered_only = models.BooleanField(
+        default=False,
+        help_text=(
+            "Файл не лежит на машине сам по себе: он появляется у игрока, когда ему его "
+            "доставили (например, вложением письма «сохранить на машину»)."
+        ),
+    )
+
     created_at = models.DateTimeField(
         auto_now_add=True,
     )

@@ -43,7 +43,8 @@ class VirtualFilesystem:
             entries: dict[str, Entry] = {}
 
             for machine_file in machine_files:
-                if machine_file.id not in touched:
+                # доставленный файл лежит только там, куда его доставили (запись сессии)
+                if machine_file.id not in touched and not machine_file.delivered_only:
                     entries[machine_file.path] = Entry(
                         machine_file.path,
                         machine_file.file_type,

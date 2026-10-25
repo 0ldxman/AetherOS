@@ -3,11 +3,15 @@ from datetime import timezone
 
 from django.http import Http404, JsonResponse
 from django.shortcuts import render
-from django.urls import get_script_prefix
 from django.views.decorators.csrf import ensure_csrf_cookie
 from django.views.decorators.http import require_GET, require_POST
 
+from machines.current import active_session
+from users.aether_auth import AUTH_REQUIRED, is_player
+
 from .access import mark_read, mark_unread, read_ids, viewer_for, visible_messages
+from .attachments import SaveError, payload, save_to_machine
+from .models import Attachment
 
 PREVIEW_LENGTH = 90
 
@@ -84,16 +88,13 @@ def message_detail(request, pk):
     message = _find(viewer, pk)
     mark_read(viewer, message)
 
-    prefix = get_script_prefix().rstrip("/")
+    session = active_session(request) if is_player(request) else None
     data = _row(message, False)
     data.update({
         "from": _sender(message),
         "to": message.to_login or "all",
         "body": message.body,
-        "attachments": [
-            {"label": item.label, "url": prefix + item.path}
-            for item in message.attachments.all()
-        ],
+        "attachments": [payload(item, session) for item in message.attachments.all()],
     })
     return JsonResponse(data)
 
@@ -103,3 +104,23 @@ def message_unread(request, pk):
     viewer = _viewer_or_404(request)
     mark_unread(viewer, _find(viewer, pk))
     return JsonResponse({"unread": True})
+
+
+@require_POST
+def attachment_save(request, pk):
+    """Сохранить файл вложения в файловую систему игрока (только вошедшему через Discord)."""
+    viewer = _viewer_or_404(request)
+
+    attachment = Attachment.objects.filter(pk=pk).select_related("machine_file", "message").first()
+    if attachment is None or attachment.message_id not in {m.pk for m in visible_messages(viewer)}:
+        raise Http404
+
+    if not is_player(request):
+        return JsonResponse({"error": AUTH_REQUIRED}, status=403)
+
+    try:
+        path = save_to_machine(active_session(request), attachment)
+    except SaveError as error:
+        return JsonResponse({"error": str(error)}, status=error.status)
+
+    return JsonResponse({"saved": True, "path": path})

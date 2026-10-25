@@ -207,7 +207,7 @@ class InboxApiTests(TestCase):
         _, data = self.get_json("mail:message", message.pk)
         self.assertEqual(data["from"], "██████ <██████@aether-core>")
         self.assertEqual((data["to"], data["body"]), ("witness", message.body))
-        self.assertEqual(data["attachments"], [{"label": "first file", "url": "/apps/mail/"}])
+        self.assertEqual(data["attachments"], [{"id": 1, "kind": "link", "label": "first file", "open": "/apps/mail/"}])
         self.assertFalse(data["unread"])
         _, listing = self.get_json("mail:messages")
         self.assertFalse(listing["messages"][0]["unread"])
@@ -699,3 +699,222 @@ class HookMailActionTests(TestCase):
         result, _ = TerminalExecutor().execute(session=self.session, source="cph /home/slow.bin hunter2")
         self.assertNotIn("intercom:", result.output)
         self.assertEqual(Delivered.objects.count(), 1)
+
+
+@override_settings(FORCE_SCRIPT_NAME=None)
+class AttachmentKindTests(TestCase):
+    def setUp(self):
+        previous = get_script_prefix()
+        set_script_prefix("/")
+        self.addCleanup(set_script_prefix, previous)
+
+    @classmethod
+    def setUpTestData(cls):
+        from assets.models import Asset
+        from filesystem.models import MachineFile
+        from machines.models import MachineProfile, Session
+
+        cls.machine = Machine.objects.create(name="Staff", hostname="apollo-staff")
+        cls.elsewhere = Machine.objects.create(name="Lab", hostname="apollo-lab")
+        cls.asset = Asset.objects.create(name="photo", file_id="42")
+        cls.file = MachineFile.objects.create(machine=cls.machine, path="/home/evidence.dat", delivered_only=True)
+        cls.user = get_user_model().objects.create_user("ivan", password="pw")
+        profile = MachineProfile.objects.create(machine=cls.machine, user=cls.user, name="I", login="will_smith", freq=1)
+        cls.session = Session.objects.create(user=cls.user, profile=profile)
+        cls.message = make_message(machine=cls.machine, to_login="will_smith")
+
+    def attach(self, **fields):
+        return Attachment.objects.create(message=self.message, label=fields.pop("label", "x"), **fields)
+
+    # ---------- проверка вложения ----------
+
+    def test_each_kind_needs_its_own_target(self):
+        from django.core.exceptions import ValidationError
+
+        for kind in (Attachment.Kind.LINK, Attachment.Kind.ASSET, Attachment.Kind.FILE):
+            with self.assertRaises(ValidationError, msg=kind):
+                Attachment(message=self.message, label="x", kind=kind).full_clean()
+        Attachment(message=self.message, label="x", kind="asset", asset=self.asset).full_clean()
+        Attachment(message=self.message, label="x", kind="file", machine_file=self.file).full_clean()
+
+    # ---------- что видит окно почты ----------
+
+    def test_an_asset_opens_in_the_viewer_and_downloads_as_a_file(self):
+        from mail.attachments import payload
+
+        data = payload(self.attach(kind="asset", asset=self.asset))
+        self.assertEqual(data["open"], f"/view/{self.asset.public_id}/")
+        self.assertEqual(data["download"], f"/view/{self.asset.public_id}/content/?download=1")
+
+    def test_a_file_can_be_saved_to_the_machine_and_knows_if_it_already_was(self):
+        from mail.attachments import payload
+
+        item = self.attach(kind="file", machine_file=self.file)
+        before = payload(item, self.session)
+        self.assertEqual((before["path"], before["saved"]), ("/home/evidence.dat", False))
+        self.assertTrue(before["save"].endswith(f"/api/attachments/{item.pk}/save/"))
+        from mail.attachments import save_to_machine
+
+        save_to_machine(self.session, item)
+        self.assertTrue(payload(item, self.session)["saved"])
+
+    def test_a_download_header_makes_the_browser_save_the_file(self):
+        from types import SimpleNamespace
+
+        from django.http import HttpResponse
+
+        from assets.views import _apply_file_headers
+
+        file = SimpleNamespace(filename="photo.png", etag="", last_modified="")
+        plain = _apply_file_headers(HttpResponse(), file, "image/png")
+        forced = _apply_file_headers(HttpResponse(), file, "image/png", as_attachment=True)
+        self.assertTrue(plain["Content-Disposition"].startswith("inline"))
+        self.assertTrue(forced["Content-Disposition"].startswith("attachment"))
+        self.assertIn("photo.png", forced["Content-Disposition"])
+
+    # ---------- сохранение в файловую систему ----------
+
+    def test_saving_puts_the_file_into_the_players_session_only(self):
+        from filesystem.models import SessionFile
+        from mail.attachments import save_to_machine
+
+        item = self.attach(kind="file", machine_file=self.file)
+        self.assertEqual(save_to_machine(self.session, item), "/home/evidence.dat")
+        row = SessionFile.objects.get(session=self.session)
+        self.assertEqual((row.file, row.deleted_at), (self.file, None))
+
+    def test_saving_twice_keeps_one_copy(self):
+        from filesystem.models import SessionFile
+        from mail.attachments import save_to_machine
+
+        item = self.attach(kind="file", machine_file=self.file)
+        save_to_machine(self.session, item)
+        save_to_machine(self.session, item)
+        self.assertEqual(SessionFile.objects.count(), 1)
+
+    def test_a_deleted_file_comes_back_when_saved_again(self):
+        from django.utils import timezone
+
+        from filesystem.models import SessionFile
+        from mail.attachments import save_to_machine
+
+        item = self.attach(kind="file", machine_file=self.file)
+        save_to_machine(self.session, item)
+        SessionFile.objects.update(deleted_at=timezone.now())
+        save_to_machine(self.session, item)
+        self.assertIsNone(SessionFile.objects.get().deleted_at)
+
+    def test_a_file_of_another_machine_is_refused(self):
+        from filesystem.models import MachineFile
+        from mail.attachments import SaveError, save_to_machine
+
+        far = MachineFile.objects.create(machine=self.elsewhere, path="/home/far.dat")
+        with self.assertRaises(SaveError) as caught:
+            save_to_machine(self.session, self.attach(kind="file", machine_file=far))
+        self.assertEqual(caught.exception.status, 409)
+
+    def test_only_file_attachments_can_be_saved(self):
+        from mail.attachments import SaveError, save_to_machine
+
+        with self.assertRaises(SaveError):
+            save_to_machine(self.session, self.attach(kind="asset", asset=self.asset))
+
+    def test_a_delivered_only_file_is_not_on_the_machine_until_it_is_saved(self):
+        from terminal.engine.executor import TerminalExecutor
+        from mail.attachments import save_to_machine
+
+        item = self.attach(kind="file", machine_file=self.file)
+        listing = lambda: TerminalExecutor().execute(session=self.session, source="ls /home")[0].output
+        self.assertNotIn("evidence.dat", listing())
+        save_to_machine(self.session, item)
+        self.assertIn("evidence.dat", listing())
+
+    def test_an_ordinary_machine_file_is_listed_for_everyone(self):
+        from filesystem.models import MachineFile
+        from terminal.engine.executor import TerminalExecutor
+
+        MachineFile.objects.create(machine=self.machine, path="/home/readme.txt")
+        self.assertIn("readme.txt", TerminalExecutor().execute(session=self.session, source="ls /home")[0].output)
+
+
+@override_settings(FORCE_SCRIPT_NAME=None)
+class AttachmentSaveApiTests(TestCase):
+    @classmethod
+    def setUpTestData(cls):
+        from filesystem.models import MachineFile
+        from machines.models import MachineProfile, Session
+
+        cls.machine = Machine.objects.create(name="Staff", hostname="apollo-staff")
+        MachineApp.objects.create(machine=cls.machine, label="intercom", glyph="@", path="/apps/mail/")
+        cls.file = MachineFile.objects.create(machine=cls.machine, path="/home/evidence.dat", delivered_only=True)
+        cls.user = get_user_model().objects.create_user("ivan", password="pw")
+        cls.profile = MachineProfile.objects.create(machine=cls.machine, user=cls.user, name="I", login="will_smith", freq=1)
+        cls.message = make_message(machine=cls.machine, to_login="will_smith")
+        cls.item = Attachment.objects.create(message=cls.message, label="evidence", kind="file", machine_file=cls.file)
+
+    def setUp(self):
+        previous = get_script_prefix()
+        set_script_prefix("/")
+        self.addCleanup(set_script_prefix, previous)
+
+    def player(self):
+        from machines.current import SESSION_KEY
+        from machines.models import Session
+
+        self.client.force_login(self.user)
+        session = Session.objects.create(user=self.user, profile=self.profile)
+        stored = self.client.session
+        stored[SESSION_KEY] = session.pk
+        stored.save()
+        return session
+
+    def save(self):
+        response = self.client.post(reverse("mail:save", args=[self.item.pk]))
+        return response, json.loads(response.content)
+
+    def test_a_signed_in_player_saves_the_file(self):
+        from filesystem.models import SessionFile
+
+        session = self.player()
+        response, data = self.save()
+        self.assertEqual((response.status_code, data), (200, {"saved": True, "path": "/home/evidence.dat"}))
+        self.assertTrue(SessionFile.objects.filter(session=session, file=self.file).exists())
+
+    def test_the_window_shows_the_saved_state_afterwards(self):
+        self.player()
+        self.save()
+        detail = json.loads(self.client.get(reverse("mail:message", args=[self.message.pk])).content)
+        self.assertTrue(detail["attachments"][0]["saved"])
+
+    def test_a_witness_gets_the_authorization_error_and_nothing_changes(self):
+        from filesystem.models import SessionFile
+        from users.aether_auth import AUTH_REQUIRED
+
+        MachineApp.objects.filter(machine=self.machine).update(machine=self.machine)
+        null = Machine.objects.create(name="Null", hostname="aether-null")
+        MachineApp.objects.create(machine=null, label="intercom", glyph="@", path="/apps/mail/")
+        make_message(machine=null)
+        session = self.client.session
+        session["guest"] = True
+        session.save()
+        # письмо с вложением на машине witness
+        letter = make_message(machine=null, subject="for the witness")
+        item = Attachment.objects.create(message=letter, label="f", kind="file", machine_file=self.file)
+        response = self.client.post(reverse("mail:save", args=[item.pk]))
+        self.assertEqual(response.status_code, 403)
+        self.assertEqual(json.loads(response.content)["error"], AUTH_REQUIRED)
+        self.assertEqual(SessionFile.objects.count(), 0)
+
+    def test_a_hidden_letters_attachment_does_not_exist(self):
+        Message.objects.filter(pk=self.message.pk).update(key_condition="nope")
+        self.player()
+        self.assertEqual(self.client.post(reverse("mail:save", args=[self.item.pk])).status_code, 404)
+
+    def test_saving_needs_post(self):
+        self.player()
+        self.assertEqual(self.client.get(reverse("mail:save", args=[self.item.pk])).status_code, 405)
+
+    def test_the_script_has_a_button_for_each_attachment_kind(self):
+        js = (Path(__file__).resolve().parent / "static/mail/mail.js").read_text(encoding="utf-8")
+        for word in ("downloadAttachment", "saveAttachment", "save to machine", "item.download", "item.save"):
+            self.assertIn(word, js)

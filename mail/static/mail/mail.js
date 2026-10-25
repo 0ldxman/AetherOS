@@ -54,10 +54,69 @@
     function openAttachment(item) {
         const api = desktop();
         if (api && typeof api.openApp === "function") {
-            api.openApp("mail-" + item.url, item.label, item.url);
+            api.openApp("mail-" + item.open, item.label, item.open);
         } else {
-            window.open(item.url, "_blank", "noopener");
+            window.open(item.open, "_blank", "noopener");
         }
+    }
+
+    // скачивание на ПК: заголовок ответа велит браузеру сохранить файл, а не показывать
+    function downloadAttachment(item) {
+        const link = document.createElement("a");
+        link.href = item.download;
+        link.rel = "noopener";
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+    }
+
+    async function saveAttachment(item, button) {
+        try {
+            const response = await fetch(item.save, {
+                method: "POST",
+                credentials: "same-origin",
+                headers: { "X-CSRFToken": csrf() }
+            });
+            const data = await response.json().catch(() => ({}));
+
+            if (!response.ok) {
+                notice(data.error || `error ${response.status}`);
+                return;
+            }
+
+            item.saved = true;
+            button.textContent = `saved to ${data.path}`;
+            button.disabled = true;
+        } catch (error) {
+            notice("could not reach the machine");
+        }
+    }
+
+    function attachmentButtons(item) {
+        const buttons = [];
+
+        function make(text, action) {
+            const button = el("button", "mail-button", text);
+            button.type = "button";
+            button.addEventListener("click", () => action(button));
+            buttons.push(button);
+            return button;
+        }
+
+        if (item.kind === "asset") {
+            make(item.label, () => openAttachment(item));
+            make("download", () => downloadAttachment(item));
+        } else if (item.kind === "file") {
+            const button = make(`${item.label}  ·  save to machine`, () => saveAttachment(item, button));
+            if (item.saved) {
+                button.textContent = `saved to ${item.path}`;
+                button.disabled = true;
+            }
+        } else {
+            make(item.label, () => openAttachment(item));
+        }
+
+        return buttons;
     }
 
 
@@ -272,10 +331,7 @@
         if (data.attachments.length) {
             const files = el("div", "mail-files");
             data.attachments.forEach(function (item) {
-                const button = el("button", "mail-button", item.label);
-                button.type = "button";
-                button.addEventListener("click", () => openAttachment(item));
-                files.appendChild(button);
+                attachmentButtons(item).forEach(button => files.appendChild(button));
             });
             view.appendChild(files);
         }
@@ -317,14 +373,19 @@
 
     let hintTimer = null;
 
-    function compose() {
-        hint.textContent = "transmit: core unreachable, outgoing mail is disabled";
+    // строка состояния: короткое сообщение вместо подсказки клавиш
+    function notice(text) {
+        hint.textContent = text;
         status.classList.add("is-warning");
         clearTimeout(hintTimer);
         hintTimer = setTimeout(function () {
             hint.textContent = HINT;
             status.classList.remove("is-warning");
         }, 3500);
+    }
+
+    function compose() {
+        notice("transmit: core unreachable, outgoing mail is disabled");
     }
 
     document.getElementById("mail-compose").addEventListener("click", compose);

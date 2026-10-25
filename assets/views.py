@@ -160,11 +160,11 @@ def _find_file(client, asset: Asset):
     return file
 
 
-def _apply_file_headers(response, file, content_type=None):
-    """Заголовки, общие для GET, HEAD и 304."""
+def _apply_file_headers(response, file, content_type=None, as_attachment=False):
+    """Заголовки, общие для GET, HEAD и 304. as_attachment: браузер сохраняет файл, а не показывает."""
     if content_type is not None:
         response["Content-Disposition"] = content_disposition_header(
-            False,
+            as_attachment,
             file.filename,
         )
     response["Accept-Ranges"] = "bytes"
@@ -241,6 +241,7 @@ def _serve_asset_file(request, asset: Asset):
         ),
         file,
         content_type,
+        as_attachment=request.GET.get("download") == "1",
     )
 
     # requests.iter_content() автоматически распаковывает
