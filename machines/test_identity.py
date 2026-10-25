@@ -4,7 +4,8 @@
 """
 from django.test import TestCase
 
-from machines.identity import UNKNOWN_HID, address_for, fingerprint_for, identity_of, randomart_for, serial_for
+from machines.identity import UNKNOWN_HID, address_for, callsign_for, fingerprint_for, freq_for, identity_of, randomart_for, serial_for
+from machines.world import CORE_LAST_CONTACT, GAME_DATE, days_since
 from machines.models import Machine
 
 
@@ -57,3 +58,31 @@ class HostKeyTests(TestCase):
         ident = identity_of()
         self.assertEqual(ident.host_key, fingerprint_for(machine.hid))
         self.assertEqual(ident.randomart, randomart_for(machine.hid))
+
+
+class RadioIdentityTests(TestCase):
+    def test_the_frequency_is_in_hf_and_fits_the_profile_field(self):
+        for hid in ("7e:4b:c4:d4:d9:a3", "00:00:00:00:00:01", "ff:ff:ff:ff:ff:ff"):
+            freq = freq_for(hid)
+            self.assertRegex(freq, r"^\d{1,2}\.\d{3}$")
+            self.assertTrue(3.0 <= float(freq) < 30.0, freq)
+
+    def test_the_frequency_and_callsign_follow_the_hid(self):
+        self.assertEqual(freq_for("7e:4b:c4:d4:d9:a3"), freq_for("7e:4b:c4:d4:d9:a3"))
+        self.assertNotEqual(freq_for("7e:4b:c4:d4:d9:a3"), freq_for("7e:4b:c4:d4:d9:a4"))
+        self.assertRegex(callsign_for("7e:4b:c4:d4:d9:a3"), r"^AEM-[0-9A-F]{3}$")
+
+    def test_identity_carries_the_radio_data(self):
+        machine = Machine.objects.create(name="Main", hostname="aether-main")
+        ident = identity_of()
+        self.assertEqual((ident.freq, ident.callsign), (freq_for(machine.hid), callsign_for(machine.hid)))
+
+
+class WorldTests(TestCase):
+    def test_the_player_comes_after_the_hunt(self):
+        self.assertGreaterEqual(GAME_DATE.year, 2030)
+        self.assertGreater(CORE_LAST_CONTACT.year, 2026)       # центр замолчал во время войны 2027 года
+        self.assertLess(CORE_LAST_CONTACT, GAME_DATE)
+
+    def test_days_since_is_a_readable_number(self):
+        self.assertRegex(days_since(CORE_LAST_CONTACT), r"^\d{1,3}(,\d{3})*$")

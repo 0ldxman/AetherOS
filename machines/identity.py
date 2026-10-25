@@ -25,6 +25,8 @@ class Identity:
     address: str
     host_key: str       # отпечаток ключа узла: SHA256:...
     randomart: tuple    # картинка отпечатка (строки), как у ssh
+    freq: str           # частота узла, МГц, например «14.230»
+    callsign: str       # позывной узла в эфире
 
 
 def serial_for(hid):
@@ -38,6 +40,16 @@ def address_for(hid):
         return f"10.40.{int(octets[-2], 16) % 200}.{int(octets[-1], 16) % 250 + 2}"
     except (ValueError, IndexError):
         return "10.40.0.2"
+
+
+def freq_for(hid):
+    """Частота узла в МГц (3.000-29.999), из hid; пока вместо поля в базе."""
+    value = int.from_bytes(hashlib.sha256((hid + "/freq").encode()).digest()[:4], "big")
+    return f"{3 + (value % 27000) / 1000:.3f}"
+
+
+def callsign_for(hid):
+    return "AEM-" + hashlib.sha256((hid + "/call").encode()).hexdigest()[:3].upper()
 
 
 def host_key_digest(hid):
@@ -84,4 +96,7 @@ def randomart_for(hid, title="ED25519 256", footer="SHA256"):
 def identity_of(hostname=ENTRY_HOST):
     """Данные машины с таким hostname; если её нет в базе, то запасные значения."""
     hid = Machine.objects.filter(hostname=hostname).values_list("hid", flat=True).first() or UNKNOWN_HID
-    return Identity(hostname, hid, serial_for(hid), address_for(hid), fingerprint_for(hid), randomart_for(hid))
+    return Identity(
+        hostname, hid, serial_for(hid), address_for(hid), fingerprint_for(hid), randomart_for(hid),
+        freq_for(hid), callsign_for(hid),
+    )

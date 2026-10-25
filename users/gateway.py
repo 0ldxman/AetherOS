@@ -3,47 +3,47 @@
 Это сцены консоли (console/scene.py), а не страница: Python собирает их, браузер
 проигрывает (static/ui/console.js, desktop/static/boot/lock.js).
 
-Подключение это настоящая последовательность шагов клиента Aether Link (протокол
-alp), только на языке Aether. Между этапами смена режима (чёрный кадр), а шапка
-(клиент, имя узла, chassis) печатается заново:
+Aether это связь на радиоволнах, а не обычные сетевые протоколы. Подключение это
+настоящая последовательность шагов радиоклиента Aether Link, на языке Aether. Между
+этапами смена режима (чёрный кадр), а шапка (клиент, имя узла, chassis) печатается
+заново:
 
-    1/7 resolve       имя узла: серверы имён, записи A/AAAA/TXT, маршрут (один relay
-                      не отвечает), mtu
-    2/7 transport     соединение, окно, часы, выбор версии протокола и возможностей
-    3/7 key exchange  пара ключей, отпечатки, полоса «deriving key», ключи сессии
-    4/7 identity      цепочка сертификатов (издатель замазан), отзыв, ключ узла с
-                      картинкой отпечатка, вопрос про неизвестный узел (на знакомом
-                      узле его нет)
-    5/7 node          chassis, система, владелец замазан, политика, uplink, сессии
-    6/7 access        баннер, методы входа (два из трёх недоступны), выбор: Discord, а
+    1/8 tune          радио, антенна, заземление, поиск несущей, захват частоты узла
+    2/8 path          станции на пути сигнала (часть молчит: сеть местами разрушена)
+    3/8 sync          преамбула, кадры, модуляция, коррекция ошибок, скорость канала
+    4/8 key exchange  пара ключей, отпечатки, полоса «deriving key», ключи сессии
+    5/8 identity      цепочка сертификатов (издатель замазан, срок давно вышел),
+                      статус отзыва недоступен, ключ узла с картинкой отпечатка,
+                      вопрос про неизвестный узел (на знакомом узле его нет)
+    6/8 node          chassis, система, владелец замазан, центр не отвечает, политика
+    7/8 access        баннер, методы входа (два из трёх недоступны), выбор: Discord, а
                       на месте второго варианта кто-то печатает фразу от первого лица
-    7/7 session       если игрок пошёл за этой фразой: имя узла в шапке портится
+    8/8 session       если игрок пошёл за этой фразой: имя узла в шапке портится
                       (aether-main -> aether-null, меняются только main/null),
-                      chassis остаётся прежним, потом открывается гостевая сессия
+                      chassis остаётся прежним, потом открывается сессия «witness»
 
 Если игрок долго ничего не выбирает, фраза стирается и набирается другая.
 
-Объём: на первом заходе текста много (шум: серверы имён, параметры соединения,
-расширения сертификата, политика), на знакомом узле (known=True) шум пропускается.
-После каждого этапа экран держится столько, чтобы его успели прочитать (read()).
+Объём: на первом заходе текста много (шум: параметры линии, станции, расширения
+сертификата, политика), на знакомом узле (known=True) шум пропускается. После каждого
+этапа экран держится столько, чтобы его успели прочитать (read()).
 
 Организацию-владельца здесь НЕ указываем: поле owner и издатель сертификата замазаны,
 игрок должен сам догадаться, чья это машина. Сцена целиком видна в исходнике страницы.
+Даты (игровая, последний контакт с центром) берутся из machines/world.py.
 """
 from console.scene import Option, Scene
 from machines.identity import CORE_HOST
+from machines.world import BEACON_LAST_SYNC, CERT_NOT_AFTER, CORE_LAST_CONTACT, GAME_DATE, days_since
 
-STAGES = 7
+STAGES = 8
 
 CLIENT = "AETHER LINK 3.2"
 PROTOCOL = "alp/3.2"
-PORT = 7443
-RESOLVER = "10.40.0.2"
 NULL_HOST = "aether-null"
 EXTERNAL = "DISCORD"
 CIPHER = "x25519 / chacha20-poly1305 / sha256"
 KEY_ID = "9c1e 44a0 b73d 08f2 e5a1 63cc"
-CLIENT_ADDRESS = "10.40.31.18"
 CLIENT_KEY = "SHA256:Qm7cRk0VnT2yJfX4uL8aZpE3wH1dBs9oGcNx6tYvAeI"
 OWNER_MASK = 14
 SYSTEM = "AETHER 9.1 (halcyon)"
@@ -60,14 +60,18 @@ BANNER = (
     "Report faults to the node operator.",
 )
 
-# (название, имя, задержка мс; None: нет ответа)
+# Станции на пути сигнала: (название, пеленг °, расстояние км, уровень dBm; None: нет ответа).
+# Одна станция молчит, сигнал идёт в обход через соседнюю (сеть местами разрушена).
 ROUTE = (
-    ("relay 01", "VX-04", 12),
-    ("relay 02", "VX-11", 27),
-    ("relay 03", "···", None),
-    ("relay 03", "gw-██", 41),
-    ("relay 04", "aether-main", 44),
+    ("VX-04", 42, 312, -81),
+    ("VX-11", 57, 488, -86),
+    ("VX-19", 61, 602, None),
+    ("VX-19", 61, 602, None),
+    ("gw-██", 63, 655, -97),
+    ("aether-main", 66, 701, -92),
 )
+STATIONS_KNOWN = 31
+STATIONS_REACHABLE = 17
 
 # Фразы незнакомца, от первого лица. Первая выбирается случайно при каждом заходе,
 # а если игрок молчит, текст стирается и набирается одна из следующих.
@@ -92,7 +96,7 @@ VOICE_AGAIN_MS = (20000, 30000)        # через сколько молчан�
 # ---------- общие куски ----------
 
 def _header(s, ident, *, host=None, chassis=None, saved=False):
-    """Шапка этапа: клиент, узел и (с этапа 4) chassis. Имя узла с id для glitch."""
+    """Шапка этапа: клиент, узел и (с этапа 5) chassis. Имя узла с id для glitch."""
     s.say(CLIENT, (f"  ·  {PROTOCOL}", "dim"))
     if saved:
         s.row("target", ident.hostname, note="(saved)")
@@ -113,10 +117,25 @@ def _next_screen(s):
 
 
 def _route(s):
-    for index, (name, host, latency) in enumerate(ROUTE):
-        answer = ("no answer", "warning") if latency is None else (f"{latency:>3} ms", "dim")
+    """Станции на пути. Молчащая станция вызывается второй раз, потом идёт обход."""
+    seen = set()
+    for index, (name, bearing, km, level) in enumerate(ROUTE):
+        retry = name in seen
+        seen.add(name)
+        delay = km / 300     # свет проходит 300 км за миллисекунду
         s.wait((250, 700))
-        s.say("carrier   " if index == 0 else " " * 10, f"{name:<10}{host:<14}", answer)
+        head = "stations  " if index == 0 else " " * 10
+        what = f"{name:<12}{bearing:03d}°  {km:>4} km  {delay:.2f} ms  "
+        if level is None:
+            s.say(head, what, ("no answer", "warning"), ("  (retry)" if retry else "", "dim"))
+        else:
+            s.say(head, what, (f"{level} dBm", "dim"), ("  (detour)" if name == "gw-██" else "", "dim"))
+
+
+def _scan_range(freq):
+    """Диапазон поиска вокруг частоты узла: «14.000-14.500»."""
+    low = int(float(freq) * 2) / 2
+    return f"{low:.3f}-{low + 0.5:.3f}"
 
 
 def _options(*, late):
@@ -135,68 +154,76 @@ def _options(*, late):
 # ---------- этапы ----------
 # known: узел игрок уже видел. Шум (необязательные подробности) тогда пропускается.
 
-def _resolve(s, ident, known):
+def _tune(s, ident, known):
     _header(s, ident, saved=True)
-    _stage(s, 1, "resolve")
+    _stage(s, 1, "tune")
+    s.row("radio", "rf0  aether wideband 2-30 MHz", "dim")
     if not known:
-        s.row("client", f"{CLIENT_ADDRESS}/16  eth0 up", "dim")
-        s.row("search", "aether, aether.local", "dim")
-        s.task("gateway   10.40.0.1 ", "reachable", style="dim", ms=(250, 600))
-    s.row("resolver", f"{RESOLVER}  ({CORE_HOST})", "dim")
+        s.row("antenna", "loop 40 m  ·  vswr 1.3", "dim")
+        s.task("earth     electrode 2.8 ohm ", "ok", style="success", ms=(300, 700))
+    s.task(f"beacons   {ident.hostname} ", f"{ident.freq} MHz", style="dim", ms=(350, 800))
+    s.say(
+        f"          cached entry, last sync {BEACON_LAST_SYNC} ({days_since(BEACON_LAST_SYNC)} d ago)",
+        style="warning",
+    )
     if not known:
-        s.task("resolver  10.40.0.3 ", "no answer", style="warning", ms=(900, 1500))
-        s.say("resolver   secondary silent, using primary", style="dim")
-        s.row("cache", "miss", "dim")
-    s.task(f"query     {ident.hostname} A ", ident.address, style="dim", ms=(350, 800))
-    s.task(f"query     {ident.hostname} AAAA ", "no record", style="dim", ms=(250, 600))
-    s.task(f"query     {ident.hostname} TXT ", f"v=alp1 port={PORT} caps=shell,files,relay", style="dim", ms=(300, 700))
-    s.row("ttl", "300 s", "dim")
+        s.row("callsign", ident.callsign, "dim")
+    s.task(f"scan      {_scan_range(ident.freq)} MHz ", "3 carriers", style="dim", ms=(900, 1600))
+    s.task(f"carrier   {ident.freq} MHz ", "locked", ms=(500, 1000), style="success")
+    s.row("noise", "-112 dBm  ·  snr 31 dB", "dim")
     if not known:
-        s.task("reverse   " + ident.address + " ", ident.hostname, style="dim", ms=(250, 600))
-    s.say("path      probing route (max 12 hops)")
+        s.row("mode", "ground wave + skywave", "dim")
+
+
+def _path(s, ident, known):
+    _header(s, ident)
+    _stage(s, 2, "path")
+    s.say(f"stations  directory {STATIONS_KNOWN}, reachable {STATIONS_REACHABLE}", style="dim")
+    s.say("path      probing stations (max 12 hops)")
     _route(s)
     if not known:
-        s.row("route", "5 hops, 1 retry, loss 0 %, rtt 38-47 ms", "dim")
-        s.row("target", f"{ident.hostname} is the last hop", "dim")
-    s.task("path mtu  discovering ", "1452 bytes", style="dim", ms=(400, 900))
+        s.row("route", "6 stations, 1 silent, 1 detour, loss 0.4 %", "dim")
+        s.task("loss      computing ", "118 dB", style="dim", ms=(300, 700))
+        s.task("ground    coupling ", "ok", style="success", ms=(300, 700))
+    s.row("delay", "2.33 ms  (min 2.29, max 2.41)", "dim")
+    s.task("frame     measuring max size ", "1452 bytes", style="dim", ms=(400, 900))
 
 
-def _transport(s, ident, known):
+def _sync(s, ident, known):
     _header(s, ident)
-    _stage(s, 2, "transport")
-    s.task(f"connect   {ident.address}:{PORT} ", "established", ms=(500, 1100), style="success")
-    s.row("rtt", "41 ms  (min 38, max 47)", "dim")
-    if not known:
-        s.row("window", "64 KiB  keepalive 15 s", "dim")
-        s.row("clock", "skew +0.18 s  (tolerance 5 s)", "dim")
+    _stage(s, 3, "sync")
+    s.task("preamble  detecting ", "found", ms=(300, 700), style="success")
+    s.task("frame     synchronising ", "locked", ms=(500, 1100), style="success")
     s.burst(
         ("offer     ", PROTOCOL + " alp/3.1 alp/3.0"),
         ("accept    ", PROTOCOL),
     )
-    s.row("protocol", PROTOCOL)
+    s.row("modem", "ofdm 1024 carriers  qpsk / 16qam adaptive", "dim")
+    s.row("fec", "ldpc 3/4  ber 2e-6", "dim")
     if not known:
+        s.row("doppler", "+0.4 Hz  ·  multipath 3 paths", "dim")
         s.burst(
             ("server    ", "banner alp-3.2 build 2020.09.2"),
-            ("ciphers   ", "x25519+chacha20-poly1305"),
-            ("          ", "x25519+aes256-gcm"),
-            ("          ", "p256+aes256-gcm"),
             ("feature   ", "multiplex     on"),
             ("feature   ", "resume        on"),
             ("feature   ", "padding       on"),
             ("feature   ", "compression   off"),
         )
-    s.row("cipher", CIPHER, "dim")
-    s.task("compress  negotiating ", "off", style="dim", ms=(200, 450))
+        s.row("arq", "retransmits 0.8 %", "dim")
+    s.row("protocol", PROTOCOL)
+    s.row("rate", "38 Mbit/s  (adaptive)")
+    s.task("link      measuring quality ", "good", ms=(300, 700), style="success")
 
 
 def _key_exchange(s, ident, known):
     _header(s, ident)
-    _stage(s, 3, "key exchange")
+    _stage(s, 4, "key exchange")
     s.row("kex", "x25519  ·  kdf hkdf-sha256", "dim")
+    s.row("cipher", CIPHER, "dim")
     s.task("client    generating key pair ", "OK", ms=(500, 900))
     if not known:
         s.row("client", f"ed25519  {CLIENT_KEY}", "dim")
-    s.task("node      requesting public key ", "OK", ms=(700, 1300))
+    s.task("node      sending challenge ", "OK", ms=(700, 1300))
     if not known:
         s.burst(
             ("send      ", ("32 bytes  client ephemeral key", "dim")),
@@ -216,17 +243,18 @@ def _key_exchange(s, ident, known):
 
 def _identity(s, ident, known):
     _header(s, ident)
-    _stage(s, 4, "identity")
+    _stage(s, 5, "identity")
     s.say("certificate chain  (2)")
     mask = Scene.mask(OWNER_MASK)
     s.burst(
         ("  [0] subject   ", ident.hostname),
         ("      issuer    ", (mask, None), ("  [restricted]", "dim")),
         ("      serial    ", ("0x4f21a7c93b05", "dim")),
-        ("      names     ", (f"{ident.hostname}, {ident.address}", "dim")),
+        ("      names     ", (f"{ident.hostname}, {ident.callsign}", "dim")),
         ("      usage     ", ("session, key agreement", "dim")),
         ("      algorithm ", ("ed25519 / sha256", "dim")),
-        ("      valid     ", ("2019-11-02 .. 2021-11-02", "dim")),
+        ("      valid     ", ("2019-11-02 .. " + str(CERT_NOT_AFTER), "dim"),
+         (f"  expired {days_since(CERT_NOT_AFTER)} d ago", "warning")),
         ("  [1] subject   ", (mask, None)),
         ("      usage     ", ("certificate signing", "dim")),
         ("      algorithm ", ("ed25519 / sha256", "dim")),
@@ -234,7 +262,9 @@ def _identity(s, ident, known):
         ("      valid     ", ("2018-05-14 .. 2023-05-14", "dim")),
     )
     s.task("chain     verifying signatures ", "OK", ms=(500, 1000))
-    s.task("revoked   checking status ", "good", ms=(400, 900), style="success")
+    s.task("expiry    node policy accepts expired ", "yes", style="warning", ms=(300, 700))
+    s.task("revoked   checking status ", "unknown", style="warning", ms=(700, 1400))
+    s.say(f"          status server {CORE_HOST} unreachable", style="dim")
     s.row("host key", f"ed25519  {ident.host_key}", "dim", width=10)
     s.blank()
     if known:
@@ -252,20 +282,22 @@ def _identity(s, ident, known):
 
 def _node(s, ident, known):
     _header(s, ident, chassis=ident.hid)
-    _stage(s, 5, "node")
+    _stage(s, 6, "node")
     s.row("system", SYSTEM)
     s.row("kernel", KERNEL, "dim")
     if not known:
         s.row("build", "forge-03  2020-09-02", "dim")
     s.row("serial", ident.serial, "dim")
+    s.row("callsign", ident.callsign, "dim")
     s.row("owner", Scene.mask(OWNER_MASK), note="[restricted]")
     s.row("accounts", Scene.mask(4) + " registered", "dim")
+    s.row("date", f"{GAME_DATE}  03:12 UTC  (beacon)", "dim")
     if not known:
-        s.row("uptime", "41 d 06:12", "dim")
         s.row("timezone", "UTC  ·  locale en_US.UTF-8", "dim")
         s.row("features", "shell, files, relay, sessions", "dim")
-        s.task("time      syncing with core ", "±3 ms", style="dim", ms=(300, 700))
-    s.task(f"uplink    {CORE_HOST} ", "reachable", style="dim", ms=(400, 900))
+    s.task(f"uplink    {CORE_HOST} ", "unreachable", style="warning", ms=(900, 1800))
+    s.row("contact", f"last {CORE_LAST_CONTACT}  ({days_since(CORE_LAST_CONTACT)} d ago)", "warning")
+    s.row("reset", "3 min ago  ·  remote request", "dim")
     if not known:
         s.row("policy", "audit full  ·  recording on  ·  default deny", "dim")
     s.row("sessions", "0 active", "dim")
@@ -273,7 +305,7 @@ def _node(s, ident, known):
 
 def _access(s, ident, known):
     _header(s, ident, chassis=ident.hid)
-    _stage(s, 6, "access")
+    _stage(s, 7, "access")
     s.blank()
     s.say("-- node banner --", style="dim")
     for row in (BANNER if not known else BANNER[:2]):
@@ -292,12 +324,12 @@ def _access(s, ident, known):
 # ---------- сцены ----------
 
 def intro_scene(ident, *, known=False):
-    """Этапы 1-6: подключение и вход. Заканчивается выбором.
+    """Этапы 1-7: подключение и вход. Заканчивается выбором.
 
     known: узел игрок уже добавлял в контакты, вопроса про доверие нет.
     """
     s = Scene()
-    for stage in (_resolve, _transport, _key_exchange, _identity, _node):
+    for stage in (_tune, _path, _sync, _key_exchange, _identity, _node):
         stage(s, ident, known)
         _next_screen(s)
     _access(s, ident, known)
@@ -331,13 +363,13 @@ def bypass_scene(ident, login):
     _next_screen(s)
 
     _header(s, ident, host=NULL_HOST, chassis=ident.hid)
-    _stage(s, 7, "session")
+    _stage(s, 8, "session")
     s.task(f"channel   opening ({login}) ", "OPEN", style="warning", ms=(450, 900))
     return s
 
 
 def established_scene(clearance, login):
-    """Сервер открыл гостевую сессию: заканчиваем подключение. Играется только после успеха."""
+    """Сервер открыл сессию: заканчиваем подключение. Играется только после успеха."""
     s = Scene()
     s.task(f"register  login {login} ", "unregistered", style="warning", ms=(400, 900))
     s.task("pty       allocating 120x32 ", "OK", ms=(250, 550))

@@ -209,30 +209,67 @@ class GatewayScenesTests(TestCase):
 
     # ---------- этапы ----------
 
-    def test_intro_is_six_stages_split_by_mode_changes(self):
+    def test_intro_is_seven_stages_split_by_mode_changes(self):
         intro = self.scenes()["intro"]
-        self.assertEqual(sum(1 for s in intro if s["op"] == "cut"), 5)
-        titles = [t for t in self.texts(intro) if t.startswith("-- ") and "/7" in t]
+        self.assertEqual(sum(1 for s in intro if s["op"] == "cut"), 6)
+        titles = [t for t in self.texts(intro) if t.startswith("-- ") and "/8" in t]
         self.assertEqual(
             titles,
             [
-                "-- 1/7  resolve --", "-- 2/7  transport --", "-- 3/7  key exchange --",
-                "-- 4/7  identity --", "-- 5/7  node --", "-- 6/7  access --",
+                "-- 1/8  tune --", "-- 2/8  path --", "-- 3/8  sync --", "-- 4/8  key exchange --",
+                "-- 5/8  identity --", "-- 6/8  node --", "-- 7/8  access --",
             ],
         )
 
-    def test_the_session_is_the_seventh_stage(self):
-        self.assertIn("-- 7/7  session --", self.texts(self.scenes()["bypass"]))
+    def test_the_session_is_the_eighth_stage(self):
+        self.assertIn("-- 8/8  session --", self.texts(self.scenes()["bypass"]))
 
     def test_each_stage_reprints_the_header(self):
         intro = self.scenes()["intro"]
-        self.assertEqual(sum(1 for t in self.texts(intro) if t == "AETHER LINK 3.2"), 6)
+        self.assertEqual(sum(1 for t in self.texts(intro) if t == "AETHER LINK 3.2"), 7)
 
-    def test_connection_has_real_steps_not_just_a_banner(self):
+    def test_the_link_is_radio_not_an_ip_network(self):
         text = spoken(self.scenes()["intro"])
-        for word in ("resolver", "AAAA", "path mtu", "alp/3.2", "certificate chain", "host key",
-                     "key id", "auth      offered by node", "no client key"):
+        for word in ("rf0", "MHz", "carrier", "stations", "dBm", "ofdm", "ldpc", "ground wave", "callsign",
+                     "alp/3.2", "certificate chain", "host key", "key id", "[ED25519 256]",
+                     "auth      offered by node", "no client key", "38 Mbit/s"):
             self.assertIn(word, text)
+        import re
+
+        for word in ("dns", "tcp", "udp", "ethernet", "eth0", "ttl", "ssh", "tls", "mtu"):
+            self.assertIsNone(re.search(rf"\b{word}\b", text, re.IGNORECASE), word)
+
+    def test_the_node_frequency_comes_from_the_machine(self):
+        from machines.identity import freq_for
+
+        text = spoken(self.scenes()["intro"])
+        self.assertIn(f"{freq_for(self.machine.hid)} MHz", text)
+
+    def test_the_network_is_broken_in_places(self):
+        text = spoken(self.scenes()["intro"])
+        self.assertIn("no answer", text)
+        self.assertIn("(retry)", text)
+        self.assertIn("(detour)", text)
+        self.assertIn("reachable 17", text)      # из 31 станции в каталоге
+        self.assertIn("unreachable", text)       # центр не отвечает
+
+    def test_the_world_is_after_the_hunt_dates_come_from_the_world_module(self):
+        from machines.world import CORE_LAST_CONTACT, GAME_DATE, days_since
+
+        text = spoken(self.scenes()["intro"])
+        self.assertIn(str(GAME_DATE), text)
+        self.assertIn(str(CORE_LAST_CONTACT), text)
+        self.assertIn(days_since(CORE_LAST_CONTACT) + " d ago", text)
+        self.assertIn("expired", text)           # сертификат давно просрочен
+        self.assertNotIn("2061", text)
+
+    def test_the_status_of_the_certificate_cannot_be_checked(self):
+        text = spoken(self.scenes()["intro"])
+        self.assertIn("revoked", text)
+        self.assertIn("unknown", text)
+
+    def test_someone_reset_the_node_remotely_just_before(self):
+        self.assertIn("remote request", spoken(self.scenes()["intro"]))
 
     def test_key_exchange_has_a_progress_bar_and_a_key_id(self):
         from users.gateway import KEY_ID
@@ -241,10 +278,9 @@ class GatewayScenesTests(TestCase):
         self.assertEqual(len(steps(intro, "bar")), 1)
         self.assertIn(KEY_ID, spoken(intro))
 
-    def test_route_includes_a_timeout_and_a_retry(self):
+    def test_a_silent_station_is_called_twice_then_detoured(self):
         text = spoken(self.scenes()["intro"])
-        self.assertIn("no answer", text)
-        self.assertEqual(text.count("relay 03"), 2)
+        self.assertEqual(text.count("VX-19"), 2)
 
     def test_there_is_twice_as_much_text_as_before(self):
         self.assertGreaterEqual(volume(self.scenes()["intro"]), 4000)    # было 2010
@@ -258,7 +294,7 @@ class GatewayScenesTests(TestCase):
     def test_every_stage_gives_time_to_read_before_the_screen_changes(self):
         intro = self.scenes()["intro"]
         cuts = [i for i, step in enumerate(intro) if step["op"] == "cut"]
-        self.assertEqual(len(cuts), 5)
+        self.assertEqual(len(cuts), 6)
         for index in cuts:
             self.assertEqual(intro[index - 1]["op"], "read", f"перед cut №{index} нет read")
 
@@ -453,9 +489,36 @@ class BootScreenTests(TestCase):
         for word in ("aek", "aeinit", "aemc", "aefs"):
             self.assertIn(word, full)
 
+    def test_the_hardware_is_radio_not_ethernet(self):
+        from machines.identity import freq_for
+
+        full = spoken(self.scenes()["full"])
+        for word in ("rf0", "rf1: no carrier", "antenna", "earth", "electrode", "ofdm", "compatd"):
+            self.assertIn(word, full)
+        self.assertIn(f"{freq_for(self.machine.hid)} MHz", full)
+        import re
+
+        for word in ("eth0", "eth1", "ethernet", "dnsd", "tcp", "dhcp"):
+            self.assertIsNone(re.search(rf"\b{word}\b", full, re.IGNORECASE), word)
+
+    def test_the_node_is_abandoned_the_core_is_gone_and_the_directory_is_stale(self):
+        from machines.world import CORE_LAST_CONTACT, GAME_DATE
+
+        full = spoken(self.scenes()["full"])
+        self.assertIn(str(GAME_DATE), full)
+        self.assertIn(f"unreachable, last contact {CORE_LAST_CONTACT}", full)
+        self.assertIn("beacon directory stale", full)
+        self.assertIn("7 of 12 sectors silent", full)
+        self.assertIn("buffering to vault", full)
+
+    def test_the_node_was_reset_remotely_by_someone_restricted(self):
+        full = spoken(self.scenes()["full"])
+        self.assertIn("reset by remote request", full)
+        self.assertIn("[restricted]", full)
+
     def test_the_machine_belongs_to_the_alternate_2020_not_to_2061(self):
         full = spoken(self.scenes()["full"])
-        self.assertIn("2020", full)
+        self.assertIn("2020-09-02", full)      # сборка ядра: версия старая, прошивку не меняют каждый год
         self.assertNotIn("2061", full)
 
     def test_the_boot_shows_the_same_machine_as_the_entry_screen(self):
@@ -482,7 +545,7 @@ class BootScreenTests(TestCase):
 
     def test_units_come_in_groups(self):
         text = spoken(self.scenes()["short"])
-        for group in ("-- base --", "-- storage --", "-- network --", "-- services --"):
+        for group in ("-- base --", "-- storage --", "-- radio --", "-- services --"):
             self.assertIn(group, text)
 
     def test_boot_uses_the_toolkit_not_just_text(self):

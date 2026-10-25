@@ -6,8 +6,10 @@
 старта, проверки подписей, устройства), только на языке Aether. Тон холодный и
 деловой: нижний регистр, выровненные колонки.
 
-Данные машины (имя, hid, серийный номер, адрес) берутся из machines/identity.py,
-поэтому загрузка и экран входа показывают одно и то же железо.
+Aether работает на радио, поэтому у узла не ethernet, а радиомодем (rf0, rf1), антенна
+и заземление. Данные машины (имя, hid, серийный номер, частота) берутся из
+machines/identity.py, даты из machines/world.py: загрузка и экран входа показывают одно
+и то же железо и один и тот же мир (узел брошен, центр давно не отвечает).
 
 Viper, Essig и Shroud получат свои функции рядом (у кого-то система может быть
 старше, с пиксельным шрифтом и «настоящим» BIOS) и подключатся в BOOTS.
@@ -19,45 +21,49 @@ import hashlib
 
 from console.scene import Scene
 from machines.identity import CORE_HOST
+from machines.world import BEACON_LAST_SYNC, CORE_LAST_CONTACT, GAME_DATE, days_since
 
 WIDTH = 12          # ширина подписей в таблицах прошивки
 
-# Службы aeinit по группам: (имя, описание, результат, пояснение, длительность мс)
-UNITS = (
-    ("base", (
-        ("logd", "log daemon", "OK", None, (120, 400)),
-        ("timesync", f"clock synced with {CORE_HOST} (+3 ms)", "OK", None, (300, 800)),
-        ("devd", "device manager, 14 devices", "OK", None, (150, 450)),
-        ("entropyd", "entropy daemon, pool 4096 bits", "OK", None, (120, 350)),
-        ("schedd", "job scheduler, 11 jobs", "OK", None, (150, 450)),
-        ("keyagent", "secure key agent", "OK", None, (150, 500)),
-        ("authd", "clearance daemon", "OK", None, (200, 600)),
-        ("sessiond", "session broker", "OK", None, (150, 450)),
-    )),
-    ("storage", (
-        ("vaultd", "vault manager, 3 snapshots", "OK", None, (200, 600)),
-        ("archive", "/archive mounted (read-only)", "OK", None, (250, 700)),
-    )),
-    ("network", (
-        ("netd", "eth0 configured", "OK", None, (200, 500)),
-        ("dnsd", "resolver cache, 2 upstreams", "OK", None, (200, 500)),
-        ("gate", "packet policy loaded, 214 rules", "OK", None, (250, 650)),
-        ("linkd", "link supervisor, 1 of 2 uplinks active", "OK", None, (200, 550)),
-        ("uplink", f"link to {CORE_HOST}", "OK", None, (1200, 2300)),
-        ("telemetry", "sector 12: no response, skipping", "WARN", None, (700, 1300)),
-    )),
-    ("services", (
-        ("relay", "message relay", "OK", None, (150, 500)),
-        ("intercom", "mail service", "OK", None, (200, 550)),
-        ("mapd", "map service", "OK", None, (200, 550)),
-        ("aether-db", "knowledge base index", "OK", None, (400, 1000)),
-        ("indexd", "search index, 3 collections", "OK", None, (250, 700)),
-        ("notifyd", "notification bus", "OK", None, (150, 450)),
-        ("archived", "archive service", "OK", None, (200, 600)),
-        ("watcher", "legacy watcher exited (code 0x0f)", "FAIL", None, (300, 800)),
-        ("desktop", "target reached", "OK", None, (250, 600)),
-    )),
-)
+def _unit_groups(ident):
+    """Службы aeinit по группам: (имя, описание, результат, длительность мс)."""
+    return (
+        ("base", (
+            ("logd", "log daemon", "OK", (120, 400)),
+            ("timesync", "clock synced from beacon (stratum 2)", "OK", (300, 800)),
+            ("devd", "device manager, 14 devices", "OK", (150, 450)),
+            ("entropyd", "entropy daemon, pool 4096 bits", "OK", (120, 350)),
+            ("schedd", "job scheduler, 11 jobs", "OK", (150, 450)),
+            ("keyagent", "secure key agent", "OK", (150, 500)),
+            ("authd", "clearance daemon", "OK", (200, 600)),
+            ("sessiond", "session broker", "OK", (150, 450)),
+            ("compatd", "compatibility engine, 4,212 adapters", "OK", (500, 1200)),
+        )),
+        ("storage", (
+            ("vaultd", "vault manager, 3 snapshots", "OK", (200, 600)),
+            ("archive", "/archive mounted (read-only)", "OK", (250, 700)),
+        )),
+        ("radio", (
+            ("rfd", f"radio daemon, rf0 locked at {ident.freq} MHz", "OK", (400, 900)),
+            ("beacond", f"beacon directory stale, last sync {days_since(BEACON_LAST_SYNC)} d ago", "WARN", (500, 1100)),
+            ("gate", "frame policy loaded, 214 rules", "OK", (250, 650)),
+            ("linkd", "link supervisor, 1 of 2 radios active", "OK", (200, 550)),
+            ("uplink", f"{CORE_HOST} unreachable, last contact {CORE_LAST_CONTACT}", "WARN", (1200, 2300)),
+            ("telemetry", "7 of 12 sectors silent", "WARN", (700, 1300)),
+        )),
+        ("services", (
+            ("relay", "message relay", "OK", (150, 500)),
+            ("intercom", "mail service", "OK", (200, 550)),
+            ("mapd", "map service", "OK", (200, 550)),
+            ("aether-db", "knowledge base index", "OK", (400, 1000)),
+            ("indexd", "search index, 3 collections", "OK", (250, 700)),
+            ("notifyd", "notification bus", "OK", (150, 450)),
+            ("archived", "archive service", "OK", (200, 600)),
+            ("watcher", "legacy watcher exited (code 0x0f)", "FAIL", (300, 800)),
+            ("desktop", "target reached", "OK", (250, 600)),
+        )),
+    )
+
 
 # время от старта ядра (с), подсистема, текст
 def _kernel_lines(ident):
@@ -84,13 +90,14 @@ def _kernel_lines(ident):
         (0.019870, "pci", "0000:00 enumerated, 14 devices, 2 bridges"),
         (0.021300, "iommu", "enabled, 3 groups"),
         (0.022800, "pci", "0000:03:00.0 nvme controller"),
-        (0.023400, "pci", "0000:05:00.0 network controller (eth0)"),
+        (0.023400, "pci", "0000:05:00.0 radio controller (rf0)"),
         (0.024115, "nvme", "nvme0: AETHER-VAULT 4 TB, 1 namespace, queue depth 1024"),
         (0.026950, "usb", "xhci: 2 ports, no devices"),
         (0.028100, "hid", "keyboard, mouse: none attached"),
-        (0.031440, "net", f"eth0: {ident.hid} link up 10 Gbps full duplex"),
-        (0.031902, "net", "eth1: no carrier"),
-        (0.033500, "net", "eth0: tso on, gro on, mtu 1500"),
+        (0.031440, "rf", f"rf0: hwid {ident.hid}, carrier {ident.freq} MHz, link up 38 Mbit/s"),
+        (0.031902, "rf", "rf1: no carrier"),
+        (0.033500, "rf", "rf0: ofdm 1024 carriers, fec ldpc 3/4, frame 1452"),
+        (0.034100, "rf", "rf0: earth electrode 2.8 ohm, vswr 1.3"),
         (0.058230, "tpm", "tpm0: 2.0, pcr banks sha256, measured boot log 18 events"),
         (0.060100, "tpm", "tpm0: pcr 0-7 extended"),
         (0.071200, "aemc", "bmc channel up, console on com1"),
@@ -118,7 +125,8 @@ def _connect(s, ident):
     s.task("authenticating ", "OK", ms=(300, 700))
     s.task("opening channel ", "OK", ms=(500, 1100))
     s.say("console attached (escape: ~.)", style="dim")
-    s.say("power state: on  ·  last boot 41 d ago", style="dim")
+    s.say("power state: on  ·  reset by remote request, 3 min ago", style="dim")
+    s.say("requested by " + Scene.mask(10) + "  [restricted]", style="dim")
     s.wait((150, 350))
     s.task("waiting for console ", "OK", ms=(900, 1900))
     s.read()
@@ -138,11 +146,15 @@ def _firmware(s, ident):
     s.count("memory", 64, unit=" GiB", ms=(600, 1100), width=WIDTH, note="ecc, 4 channels")
     s.row("storage", "nvme0  AETHER-VAULT 4 TB  encrypted", width=WIDTH)
     s.row("", "nvme1  not present", "dim", width=WIDTH)
-    s.say("network".ljust(WIDTH), f"eth0 10 Gbps up  {ident.hid}")
-    s.say(" " * WIDTH, "eth1 ", ("no carrier", "warning"))
+    s.say("radio".ljust(WIDTH), f"rf0 aether wideband 2-30 MHz  {ident.freq} MHz locked")
+    s.say(" " * WIDTH, "rf1 ", ("no carrier", "warning"))
+    s.row("antenna", "loop 40 m  vswr 1.3", "dim", width=WIDTH)
+    s.row("earth", "electrode 2.8 ohm", "dim", width=WIDTH)
+    s.row("hwid", ident.hid, "dim", width=WIDTH)
+    s.row("date", f"{GAME_DATE}  03:12:08 UTC  (beacon)", "dim", width=WIDTH)
     s.row("bmc", "aemc 1.7  online", width=WIDTH)
     s.row("pci", "14 devices, 2 bridges", "dim", width=WIDTH)
-    s.row("boot order", "nvme0, network (disabled)", "dim", width=WIDTH)
+    s.row("boot order", "nvme0, radio (disabled)", "dim", width=WIDTH)
     s.wait((200, 400)).blank()
 
     s.say("-- security --", style="dim")
@@ -159,8 +171,9 @@ def _firmware(s, ident):
     _check(s, "cpu", "8 of 8 cores")
     _check(s, "memory (quick)", "pass")
     _check(s, "nvme0 smart", "ok, 0 media errors")
-    _check(s, "eth0 loopback", "pass")
-    s.task(f"{'eth1 loopback':<20}", "skipped, no carrier", style="warning", ms=(300, 700))
+    _check(s, "rf0 loopback", "pass")
+    _check(s, "earth bond", "2.8 ohm")
+    s.task(f"{'rf1 loopback':<20}", "skipped, no carrier", style="warning", ms=(300, 700))
     s.read()
 
 
@@ -187,21 +200,21 @@ def _kernel(s, ident):
     s.task(f"{'vault':<7} unlocking /dev/vault0 using tpm-bound key ...", "OK", at=0.801544)
     s.task(f"{'vault':<7} verifying system image .......", "OK", at=1.120377)
     s.log(1.204910, "fs", "aefs vault0: mounted, journal clean")
-    s.log(1.299410, "fs", "aefs vault0: 3 snapshots, last 2020-09-01")
+    s.log(1.299410, "fs", f"aefs vault0: 3 snapshots, last {CORE_LAST_CONTACT}")
     s.log(1.340200, "sec", "policy loaded: 214 rules, default deny")
     s.log(1.377002, "gate", "default policy drop (inbound)")
-    s.log(1.402118, "audit", f"logging enabled, sink={CORE_HOST}")
+    s.log(1.402118, "audit", f"logging enabled, sink {CORE_HOST} unreachable, buffering to vault")
     s.log(1.409300, "aek", "handing over to aeinit")
     s.blank()
 
 
-def _units(s):
+def _units(s, ident):
     s.say("aeinit  runlevel 3", style="dim")
-    for group, units in UNITS:
+    for group, units in _unit_groups(ident):
         s.say(f"-- {group} --", style="dim")
-        for name, description, result, note, ms in units:
+        for name, description, result, ms in units:
             label = f"{name:<10} "
-            s.task(label + "starting", result, note, look="unit", done=label + description, ms=ms)
+            s.task(label + "starting", result, look="unit", done=label + description, ms=ms)
     s.read(min_ms=1200)
 
 
@@ -212,7 +225,7 @@ def aether_boot(ident, *, short=False):
         _firmware(s, ident)
         _bootloader(s)
         _kernel(s, ident)
-    _units(s)
+    _units(s, ident)
     s.cut()
     return s
 
