@@ -386,3 +386,107 @@ body {
     bottom: auto;
     top: 0;
 }
+
+/* ---------- окно ошибки и уведомления (desktopAPI.error / notify) ---------- */
+
+.winbox.aether.dialog-window .wb-body {
+  display: flex;
+}
+
+.dialog {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1rem;
+  background: var(--panel);
+  color: var(--fg);
+}
+
+.dialog-main {
+  display: flex;
+  gap: 1rem;
+  align-items: flex-start;
+}
+
+.dialog-glyph {
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  width: 2.2rem;
+  height: 2.2rem;
+  border: 1px solid currentColor;
+  font-weight: 700;
+}
+
+.dialog--error .dialog-glyph { color: var(--status-error); }
+.dialog--warning .dialog-glyph { color: var(--status-warn); }
+.dialog--info .dialog-glyph { color: var(--accent); }
+
+.dialog-text {
+  min-width: 0;
+}
+
+.dialog-message {
+  margin: 0;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+
+.dialog-code {
+  margin: 0.5rem 0 0;
+  color: var(--font-muted);
+  font-size: 0.85rem;
+}
+
+.dialog-ok {
+  align-self: flex-end;
+  min-width: 5rem;
+  padding: 0.25rem 1rem;
+  background: none;
+  border: 1px solid var(--line-bright);
+  color: var(--font-light);
+  font: inherit;
+  cursor: pointer;
+}
+
+.dialog-ok:hover,
+.dialog-ok:focus-visible {
+  background: var(--font-light);
+  border-color: var(--font-light);
+  color: var(--bg);
+  outline: none;
+}
+
+#toasts {
+  position: fixed;
+  right: 1rem;
+  bottom: 3.5rem;
+  z-index: 100000;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  width: min(22rem, calc(100vw - 2rem));
+}
+
+.toast {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  padding: 0.6rem 0.8rem;
+  background: var(--panel);
+  border: 1px solid var(--line-bright);
+  border-left-width: 3px;
+  color: var(--fg);
+  cursor: pointer;
+}
+
+.toast--error { border-left-color: var(--status-error); }
+.toast--warning { border-left-color: var(--status-warn); }
+.toast--info { border-left-color: var(--accent); }
+
+.toast-text {
+  color: var(--font-muted);
+  font-size: 0.9rem;
+}

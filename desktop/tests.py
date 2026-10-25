@@ -57,6 +57,14 @@ class DesktopTests(TestCase):
         self.assertNotContains(response, 'data-action="sessions"')
         self.assertContains(response, 'data-action="disconnect"')
 
+    def test_the_desktop_page_carries_the_machine_catalog(self):
+        session = self.client.session
+        session["guest"] = True
+        session.save()
+        response = self.page()
+        self.assertContains(response, 'id="system-messages"')
+        self.assertContains(response, "AE-0403")
+
     def test_anonymous_is_sent_to_boot(self):
         self.assertRedirects(self.page(), reverse("boot"), fetch_redirect_response=False)
 
@@ -751,3 +759,59 @@ class LoadingIndicatorTests(TestCase):
         js = self.read("mail/static/mail/mail.js")
         self.assertIn("function loading()", js)
         self.assertGreaterEqual(js.count("loading()"), 3)        # сам помощник, список и письмо
+
+
+class SystemMessageTests(TestCase):
+    """Окна ошибок и уведомления: каталог по системе машины, desktopAPI, вики."""
+
+    root = Path(__file__).resolve().parent.parent
+
+    def read(self, relative):
+        return (self.root / relative).read_text(encoding="utf-8")
+
+    def test_every_message_has_a_kind_and_a_title(self):
+        from desktop.messages import MESSAGES
+
+        for system, entries in MESSAGES.items():
+            for key, entry in entries.items():
+                self.assertIn(entry["kind"], ("error", "warning", "info"), f"{system}.{key}")
+                self.assertTrue(entry["title"], f"{system}.{key}")
+
+    def test_error_codes_are_unique_within_a_system(self):
+        from desktop.messages import MESSAGES
+
+        for system, entries in MESSAGES.items():
+            codes = [e["code"] for e in entries.values() if e["code"]]
+            self.assertEqual(len(codes), len(set(codes)), system)
+
+    def test_an_unknown_system_falls_back_to_the_default_catalog(self):
+        from desktop.messages import DEFAULT_SYSTEM, MESSAGES, catalog
+
+        self.assertIs(catalog("SOMETHING_ELSE"), MESSAGES[DEFAULT_SYSTEM])
+        self.assertIn("access_denied", catalog("AETHER"))
+
+    def test_the_organisation_is_never_named_in_messages(self):
+        from desktop.messages import MESSAGES
+
+        self.assertNotIn("CTRG", repr(MESSAGES))
+
+    def test_the_desktop_exposes_error_and_notify_without_innerHTML(self):
+        js = self.read("desktop/static/desktop/desktop.js")
+        block = js[js.index("/* ---------- сообщения системы"):js.index("window.desktopAPI = {")]
+        self.assertNotIn("innerHTML", block)        # текст сообщений только как текст
+        api = js[js.index("window.desktopAPI = {"):]
+        for name in ("openApp", "error: showDialog", "notify: showToast"):
+            self.assertIn(name, api[:200])
+
+    def test_dialog_styles_use_only_design_tokens(self):
+        import re
+
+        css = self.read("desktop/static/desktop/desktop.css")
+        block = css[css.index("окно ошибки и уведомления"):]
+        self.assertEqual(re.findall(r"#[0-9a-fA-F]{3,8}\b", block), [])
+        self.assertNotRegex(block, r"rgba?\(")
+
+    def test_the_wiki_answers_a_locked_record_with_an_error_dialog(self):
+        js = self.read("wiki/static/wiki/wiki.js")
+        self.assertIn('desktop.error("access_denied"', js)
+        self.assertIn('row.dataset.access === "locked"', js)

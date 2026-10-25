@@ -90,6 +90,12 @@
     function openRow(row) {
         const desktop = getDesktop();
 
+        /* закрытая запись не открывается: система отвечает окном ошибки */
+        if (desktop && row.dataset.access === "locked" && desktop.error) {
+            desktop.error("access_denied", { object: row.dataset.key });
+            return;
+        }
+
         /* вне рабочего стола работают обычные ссылки */
         if (!desktop) {
             window.location.href = row.dataset.url;

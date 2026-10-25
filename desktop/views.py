@@ -11,6 +11,7 @@ from machines.identity import identity_of
 from users.aether_auth import GUEST_LOGIN
 
 from .boots import boot_scenes
+from .messages import catalog
 
 from machines.current import active_session, current_machine, visible_apps
 from machines.models import normalize_suffix
@@ -103,6 +104,7 @@ def desktop(request):
         "sessions_url": reverse("sessions"),
         "logout_url": reverse("logout"),
         "lock_url": reverse("lock"),
+        "system_messages": catalog(machine.system),
     })
 
 def boot(request):

@@ -482,8 +482,133 @@ function openApp(id, label, url, options = {}) {
   requestAnimationFrame(() => requestAnimationFrame(measure));
 }
 
+/* ---------- сообщения системы: окна ошибок и уведомления ---------- */
+
+// каталог своей операционной системы: коды и формулировки зависят от неё (desktop/messages.py)
+const SYSTEM_MESSAGES = (function () {
+  const node = document.getElementById("system-messages");
+
+  try {
+    return node ? JSON.parse(node.textContent) : {};
+  } catch (error) {
+    return {};
+  }
+})();
+
+const FALLBACK_MESSAGE = { kind: "error", code: "", title: "Error", text: "" };
+const MESSAGE_GLYPH = { error: "!", warning: "!", info: "i" };
+const TOAST_MS = 4500;
+const openDialogs = {};
+let dialogCount = 0;
+
+// spec: ключ из каталога или готовое {kind, code, title, text}; {name} в тексте заполняется из params
+function resolveMessage(spec, params) {
+  const base = typeof spec === "string"
+    ? SYSTEM_MESSAGES[spec] || SYSTEM_MESSAGES.failed || FALLBACK_MESSAGE
+    : spec;
+
+  const fill = (text) => String(text || "").replace(/\{(\w+)\}/g, (match, name) =>
+    params && params[name] !== undefined ? String(params[name]) : ""
+  );
+
+  return {
+    kind: base.kind || "error",
+    code: base.code || "",
+    title: fill(base.title),
+    text: fill(base.text),
+  };
+}
+
+function el(tag, className, text) {
+  const node = document.createElement(tag);
+
+  if (className) node.className = className;
+  if (text !== undefined) node.textContent = text;
+
+  return node;
+}
+
+// окно ошибки как в обычной системе: заголовок, значок, текст, код и кнопка OK
+function showDialog(spec, params = {}) {
+  const msg = resolveMessage(spec, params);
+  const dedupe = msg.kind + "|" + msg.title + "|" + msg.text;
+
+  if (openDialogs[dedupe]) {
+    openDialogs[dedupe].focus();
+    return;
+  }
+
+  const body = el("div", "dialog dialog--" + msg.kind);
+  const main = el("div", "dialog-main");
+  const text = el("div", "dialog-text");
+  const ok = el("button", "dialog-ok", "OK");
+
+  ok.type = "button";
+  text.appendChild(el("p", "dialog-message", msg.text));
+
+  if (msg.code) text.appendChild(el("p", "dialog-code", "code " + msg.code));
+
+  main.append(el("span", "dialog-glyph", MESSAGE_GLYPH[msg.kind] || "!"), text);
+  body.append(main, ok);
+
+  dialogCount += 1;
+
+  const win = new WinBox(msg.title, {
+    id: "dialog-" + dialogCount,
+    root: desktop,
+    top: WINDOW_TOP,
+    class: ["aether", "no-full", "no-max", "no-min", "dialog-window"],
+    x: "center",
+    y: "center",
+    width: 380,
+    height: 190,
+    mount: body,
+    onclose: () => {
+      delete openDialogs[dedupe];
+    },
+  });
+
+  openDialogs[dedupe] = win;
+
+  ok.addEventListener("click", () => win.close());
+  body.addEventListener("keydown", (event) => {
+    if (event.key === "Escape" || event.key === "Enter") {
+      event.preventDefault();
+      win.close();
+    }
+  });
+
+  ok.focus();
+}
+
+// короткое уведомление в углу; исчезает само
+function showToast(spec, params = {}) {
+  const msg = resolveMessage(spec, params);
+  let stack = document.getElementById("toasts");
+
+  if (!stack) {
+    stack = el("div");
+    stack.id = "toasts";
+    stack.setAttribute("aria-live", "polite");
+    document.body.appendChild(stack);
+  }
+
+  const toast = el("div", "toast toast--" + msg.kind);
+
+  toast.append(el("strong", "toast-title", msg.title));
+  if (msg.text) toast.append(el("span", "toast-text", msg.text));
+
+  const close = () => toast.remove();
+
+  toast.addEventListener("click", close);
+  stack.appendChild(toast);
+  setTimeout(close, TOAST_MS);
+}
+
 window.desktopAPI = {
-  openApp
+  openApp,
+  error: showDialog,
+  notify: showToast,
 };
 
 // размер клетки берём из CSS, чтобы он совпадал с фоном
