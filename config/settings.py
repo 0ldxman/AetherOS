@@ -88,7 +88,7 @@ MIDDLEWARE = [
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
 
-MACHINE_APP_NAMESPACES = ["terminal", "map", "wiki"]
+MACHINE_APP_NAMESPACES = ["terminal", "map", "wiki", "mail"]
 
 MIDDLEWARE += ["allauth.account.middleware.AccountMiddleware"]
 

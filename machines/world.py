@@ -7,9 +7,10 @@
 «Большая охота» почти уничтожила организацию. Игрок приходит уже после, около
 2030-2031. Версия Aether старая (2020): прошивку и ядро не меняют каждый год.
 """
-from datetime import date
+from datetime import date, datetime, timezone
 
 GAME_DATE = date(2030, 11, 14)
+GAME_NOW = datetime(2030, 11, 14, 3, 14, tzinfo=timezone.utc)   # «сейчас» в мире игры (часы узла)
 CORE_LAST_CONTACT = date(2027, 10, 29)  # с тех пор центральный узел не отвечает (конец октября 2027)
 BEACON_LAST_SYNC = date(2027, 10, 27)   # когда в последний раз обновлялись списки станций и мостов
 CERT_NOT_AFTER = date(2021, 11, 2)      # сертификат узла давно просрочен
@@ -35,3 +36,15 @@ def clearance_code(level):
 def days_since(day):
     """Сколько дней прошло с этой даты до игровой, с разделителем тысяч: «1,169»."""
     return f"{(GAME_DATE - day).days:,}"
+
+
+def ago(moment):
+    """Сколько прошло от момента до игровых «сейчас»: «3 min», «5 h», «2 d», «1,114 d»."""
+    seconds = int((GAME_NOW - moment).total_seconds())
+    if seconds < 60:
+        return "just now"
+    if seconds < 3600:
+        return f"{seconds // 60} min"
+    if seconds < 86400:
+        return f"{seconds // 3600} h"
+    return f"{seconds // 86400:,} d"

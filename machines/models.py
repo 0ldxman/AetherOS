@@ -6,10 +6,9 @@ from django.db.models import Q
 from secure.models import Key
 import secrets
 
-from urllib.parse import urlsplit
-
 from django.core.exceptions import ValidationError
-from django.urls import Resolver404, resolve
+
+from .paths import validate_internal_path
 
 
 def generate_hid():
@@ -279,22 +278,4 @@ class MachineApp(models.Model):
         return f"{self.machine.label}: {self.label}"
 
     def clean(self):
-        parts = urlsplit(self.path)
-
-        if (
-            parts.scheme
-            or parts.netloc
-            or parts.fragment
-            or "\\" in self.path
-            or not parts.path.startswith("/")
-        ):
-            raise ValidationError(
-                {"path": "Нужен внутренний путь от корня сайта, например /apps/map/."}
-            )
-
-        try:
-            resolve(parts.path)
-        except Resolver404:
-            raise ValidationError(
-                {"path": "Такого адреса нет в проекте."}
-            )
+        validate_internal_path(self.path)

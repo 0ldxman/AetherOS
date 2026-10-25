@@ -49,6 +49,25 @@ def _visitor(request):
     return f"session:{key or 'anonymous'}"
 
 
+def _mail_summary(request):
+    """Непрочитанная почта игрока для приветствия узла (или None, если читать негде)."""
+    from mail.access import Viewer, session_key_of, summary, viewer_for
+    from machines.current import NULL_HOSTNAME
+    from machines.models import Machine
+    from wiki.access import request_keys
+
+    try:
+        viewer = viewer_for(request)
+        if viewer is None:
+            # ещё не подключён: пойдёт на aether-null безымянным (witness)
+            machine = Machine.objects.get(hostname=NULL_HOSTNAME)
+            viewer = Viewer(GUEST_LOGIN, machine, request_keys(request), session_key=session_key_of(request.session))
+    except Machine.DoesNotExist:
+        return None
+
+    return summary(viewer)
+
+
 def gateway_scenes(request):
     """Сцены экрана входа для этого посетителя (словарь имя -> список шагов)."""
     from machines.identity import client_fingerprint, identity_of
@@ -57,6 +76,7 @@ def gateway_scenes(request):
 
     ident = identity_of()
     client_key = client_fingerprint(_visitor(request))
+    mail = _mail_summary(request)
 
     scenes = {
         "intro": gateway.intro_scene(ident, client_key=client_key),
@@ -64,7 +84,7 @@ def gateway_scenes(request):
         "menu": gateway.menu_scene(),
         "discord": gateway.discord_scene(),
         "bypass": gateway.bypass_scene(ident, GUEST_LOGIN),
-        "established": gateway.established_scene(clearance_dict(GUEST_LEVEL), GUEST_LOGIN, ident),
+        "established": gateway.established_scene(clearance_dict(GUEST_LEVEL), GUEST_LOGIN, ident, mail),
         "error": gateway.error_scene(ident),
     }
 
@@ -76,6 +96,7 @@ def gateway_scenes(request):
             username=GUEST_LOGIN if is_guest else request.user.get_username(),
             clearance=clearance_dict(level),
             guest=is_guest,
+            mail=mail,
         )
 
     return {name: scene.to_dict() for name, scene in scenes.items()}

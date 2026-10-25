@@ -509,7 +509,7 @@ class GatewayScenesTests(TestCase):
         self.assertIn("events buffered in the vault, none delivered", text)
         self.assertIn(f"last updated {BEACON_LAST_SYNC}", text)
         self.assertIn("Last login: 2027-10-29 23:41 UTC as " + "█" * 6 + "  through aether-core", text)
-        self.assertIn("intercom: 1 unread message", text)
+        self.assertIn("intercom: no new messages", text)     # почта пуста: приветствие ничего не придумывает
         self.assertNotIn("CTRG", text)
 
     def test_the_numbers_in_the_greeting_belong_to_the_machine(self):

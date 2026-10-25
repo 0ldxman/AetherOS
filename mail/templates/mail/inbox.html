@@ -1,0 +1,33 @@
+{% extends "ui/base.html" %}
+{% load static %}
+
+{% block title %}intercom — {{ address }}{% endblock %}
+
+{% block css %}
+    <link rel="stylesheet" href="{% static 'mail/mail.css' %}">
+{% endblock %}
+
+{% block body %}
+    <main id="mail"
+          data-list-url="{% url 'mail:messages' %}"
+          data-message-url="{% url 'mail:message' 0 %}"
+          data-unread-url="{% url 'mail:unread' 0 %}">
+        <header id="mail-bar">
+            <span id="mail-address">{{ address }}</span>
+            <span id="mail-count" aria-live="polite"></span>
+        </header>
+
+        <div id="mail-panes">
+            <ul id="mail-list" role="listbox" aria-label="inbox"></ul>
+
+            <article id="mail-view" aria-live="polite">
+                <p id="mail-empty">select a message</p>
+            </article>
+        </div>
+    </main>
+    {% csrf_token %}
+{% endblock %}
+
+{% block js %}
+    <script src="{% static 'mail/mail.js' %}" defer></script>
+{% endblock %}

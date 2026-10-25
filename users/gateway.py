@@ -409,7 +409,21 @@ def _pair(label, value, other_label="", other_value="", *, width=17, gap=24):
     return f"{left:<{width + gap}}{other_label:<14}{other_value}"
 
 
-def _motd(s, ident, login, *, short=False):
+def _mail_line(s, mail):
+    """Строка про почту: сколько непрочитанных и от кого последнее (из базы)."""
+    unread = (mail or {}).get("unread", 0)
+    if not unread:
+        s.say("  intercom: ", ("no new messages", "dim"))
+        return
+    noun = "message" if unread == 1 else "messages"
+    sender = mail["sender"]
+    s.say(
+        "  intercom: ", (f"{unread} unread {noun}", "warning"),
+        (f"  (latest from {sender}, {mail['ago']} ago)" if sender else f"  (latest {mail['ago']} ago)", "dim"),
+    )
+
+
+def _motd(s, ident, login, mail=None, *, short=False):
     """Приветствие узла после входа: большое, с информацией и следами мира."""
     days_core = days_since(CORE_LAST_CONTACT)
     events = (GAME_DATE - CORE_LAST_CONTACT).days * EVENTS_PER_DAY + _metric(ident, "events", 0, 99)
@@ -439,7 +453,7 @@ def _motd(s, ident, login, *, short=False):
     s.say(" * Updates: no channel (core unreachable).")
     s.blank()
     s.say("  Last login: ", (f"{LAST_LOGIN} as ", None), (Scene.mask(6), None), "  through aether-core")
-    s.say("  intercom: ", ("1 unread message", "warning"), ("  (received 3 min ago)", "dim"))
+    _mail_line(s, mail)
     s.blank()
     if not short:
         s.say(f"  This node is unattended. Sessions are recorded. Logged in as {login}.", style="dim")
@@ -495,7 +509,7 @@ def bypass_scene(ident, login):
     return s
 
 
-def established_scene(clearance, login, ident):
+def established_scene(clearance, login, ident, mail=None):
     """Сервер открыл сессию: заканчиваем подключение. Играется только после успеха."""
     s = Scene()
     s.task(f"register  login {login} ", "unregistered", style="warning", ms=(400, 900))
@@ -512,7 +526,7 @@ def established_scene(clearance, login, ident):
     s.row("user", login, "dim")
     s.row("clearance", clearance["level"], "warning")
     s.say("WARNING: session is not registered on this node", style="warning")
-    _motd(s, ident, login)
+    _motd(s, ident, login, mail)
     s.say("Loading workspace")
     return s
 
@@ -525,7 +539,7 @@ def error_scene(ident):
     return s
 
 
-def restored_scene(ident, *, username, clearance, guest):
+def restored_scene(ident, *, username, clearance, guest, mail=None):
     """У игрока уже есть сессия: короткое подключение и идём дальше."""
     s = Scene()
     _header(s, ident, host=NULL_HOST if guest else ident.hostname, chassis=ident.hid)
@@ -536,6 +550,6 @@ def restored_scene(ident, *, username, clearance, guest):
     s.row("clearance", clearance["level"], "warning" if guest else "success")
     if guest:
         s.say("Unregistered session: not on this node's account list.", style="warning")
-    _motd(s, ident, username, short=True)
+    _motd(s, ident, username, mail, short=True)
     s.say("Loading workspace")
     return s

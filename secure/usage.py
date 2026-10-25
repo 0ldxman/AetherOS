@@ -14,24 +14,28 @@ from .access import condition_slugs
 
 @dataclass(frozen=True)
 class Usage:
-    kind: str    # "запись", "раздел", "приложение", "профиль", "файл"
+    kind: str    # "запись", "раздел", "приложение", "профиль", "файл", "письмо"
     label: str
     url: str
 
 
 def _json_conditions():
     """(объект, вид, условие) для всех JSON-условий вне вики."""
+    from mail.models import Message
     from machines.models import MachineApp, MachineProfile
 
     for app in MachineApp.objects.select_related("machine").exclude(key_condition=None):
         yield app, "приложение", app.key_condition
     for profile in MachineProfile.objects.select_related("machine").exclude(key_condition=None):
         yield profile, "профиль", profile.key_condition
+    for message in Message.objects.exclude(key_condition=None):
+        yield message, "письмо", message.key_condition
 
 
 _ADMIN = {
     "приложение": "admin:machines_machineapp_change",
     "профиль": "admin:machines_machineprofile_change",
+    "письмо": "admin:mail_message_change",
 }
 
 
