@@ -26,6 +26,8 @@
 
   {# Общие токены интерфейса. Всегда первыми: страницы в iframe не наследуют их от оболочки. #}
   <link rel="stylesheet" href="{% static 'ui/tokens.css' %}">
+  {# Круглый индикатор загрузки (.spinner, .loading-veil): общий для всех страниц. #}
+  <link rel="stylesheet" href="{% static 'ui/spinner.css' %}">
   {# Шрифты: один файл на весь проект, как и tokens.css. #}
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>

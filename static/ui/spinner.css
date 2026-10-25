@@ -1,0 +1,58 @@
+/* ==================================================
+   AETHER / SPINNER
+   Круглый индикатор загрузки. Один на весь проект: окна рабочего стола,
+   списки, которые подгружаются, любая страница.
+   Только токены из tokens.css, свои цвета не задаются.
+
+       <div class="spinner" role="status" aria-label="loading"></div>
+       <div class="spinner spinner--small"></div>
+
+   .loading-veil: заслон на всю область, спиннер по центру и подпись.
+   ================================================== */
+
+.spinner {
+    --spinner-size: 2.4rem;
+    --spinner-thickness: 2px;
+
+    display: inline-block;
+    box-sizing: border-box;
+    width: var(--spinner-size);
+    height: var(--spinner-size);
+    border: var(--spinner-thickness) solid var(--line-bright);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spinner-turn 0.9s linear infinite;
+}
+
+.spinner--small {
+    --spinner-size: 1.2rem;
+}
+
+@keyframes spinner-turn {
+    to { transform: rotate(360deg); }
+}
+
+/* без лишнего движения: медленный оборот вместо быстрого */
+@media (prefers-reduced-motion: reduce) {
+    .spinner { animation-duration: 3s; }
+}
+
+.loading-veil {
+    position: absolute;
+    inset: 0;
+    z-index: 5;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 1rem;
+    background: var(--bg);
+    color: var(--font-muted);
+    font-size: var(--fs-small);
+}
+
+.loading-veil[hidden] { display: none; }
+
+.loading-label {
+    letter-spacing: 0.04em;
+}

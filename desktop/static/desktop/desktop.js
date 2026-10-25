@@ -330,6 +330,62 @@ function applyHeaderMinWidth(win, root) {
   }
 }
 
+/*
+ * Пока приложение грузится (и при переходах внутри окна), поверх него
+ * лежит заслон с круглым спиннером: игрок не видит пустой документ и
+ * неоформленный HTML. Если страница так и не сообщила о загрузке,
+ * заслон снимается сам через LOAD_TIMEOUT_MS.
+ */
+const LOAD_TIMEOUT_MS = 15000;
+
+function attachLoader(win, label) {
+  const body = win.body;
+  const frame = body && body.querySelector("iframe");
+
+  if (!frame) return;
+
+  const veil = document.createElement("div");
+  veil.className = "loading-veil";
+
+  const spinner = document.createElement("div");
+  spinner.className = "spinner";
+  spinner.setAttribute("role", "status");
+  spinner.setAttribute("aria-label", "loading");
+
+  const caption = document.createElement("div");
+  caption.className = "loading-label";
+  caption.textContent = "loading " + label;
+
+  veil.append(spinner, caption);
+  body.appendChild(veil);
+
+  let timer = null;
+
+  const hide = () => {
+    clearTimeout(timer);
+    veil.hidden = true;
+  };
+
+  const show = () => {
+    veil.hidden = false;
+    clearTimeout(timer);
+    timer = setTimeout(hide, LOAD_TIMEOUT_MS);
+  };
+
+  frame.addEventListener("load", () => {
+    hide();
+
+    // переход внутри окна (ссылка в вики и т.п.): снова показываем заслон
+    try {
+      frame.contentWindow.addEventListener("beforeunload", show);
+    } catch (error) {
+      /* страница с другого адреса: следить за уходом нельзя */
+    }
+  });
+
+  show();
+}
+
 function openApp(id, label, url, options = {}) {
   const existing = openWindows[id];
 
@@ -400,6 +456,7 @@ function openApp(id, label, url, options = {}) {
   openWindows[id] = win;
   openMeta[id] = { id, label, url, options };
   noteFocus(id);
+  attachLoader(win, label);
 
   const root = getWinRoot(win, id);
 

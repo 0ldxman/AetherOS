@@ -2,6 +2,8 @@
 
 Запуск: python manage.py test desktop
 """
+from pathlib import Path
+
 from django.contrib.auth import get_user_model
 from django.test import TestCase, override_settings
 from django.urls import get_script_prefix, reverse, set_script_prefix
@@ -707,3 +709,45 @@ class BootScreenTests(TestCase):
         root = Path(__file__).resolve().parent / "static/boot"
         self.assertFalse((root / "login.js").exists())
         self.assertNotIn("function stageBios", (root / "boot.js").read_text(encoding="utf-8"))
+
+
+
+class LoadingIndicatorTests(TestCase):
+    """Круглый спиннер: общий стиль, заслон на окнах рабочего стола, загрузка внутри почты."""
+
+    root = Path(__file__).resolve().parent.parent
+
+    def read(self, relative):
+        return (self.root / relative).read_text(encoding="utf-8")
+
+    def test_the_spinner_style_exists_and_uses_only_design_tokens(self):
+        import re
+
+        css = self.read("static/ui/spinner.css")
+        for selector in (".spinner", ".spinner--small", ".loading-veil", "@keyframes spinner-turn"):
+            self.assertIn(selector, css)
+        self.assertIn("border-radius: 50%", css)                 # круглый
+        self.assertEqual(re.findall(r"#[0-9a-fA-F]{3,8}\b", css), [])
+        self.assertNotIn(":root", css)
+        self.assertNotRegex(css, r"rgba?\(")
+
+    def test_the_spinner_respects_reduced_motion(self):
+        self.assertIn("prefers-reduced-motion", self.read("static/ui/spinner.css"))
+
+    def test_every_page_gets_the_spinner_style_from_the_base_template(self):
+        base = self.read("templates/ui/base.html")
+        self.assertIn("ui/spinner.css", base)
+        self.assertLess(base.index("ui/tokens.css"), base.index("ui/spinner.css"))   # после токенов
+
+    def test_desktop_windows_show_a_veil_until_the_app_has_loaded(self):
+        js = self.read("desktop/static/desktop/desktop.js")
+        for part in ("attachLoader", "loading-veil", 'className = "spinner"', '"load"', "beforeunload", "LOAD_TIMEOUT_MS"):
+            self.assertIn(part, js)
+        self.assertIn("attachLoader(win, label)", js)             # вызывается при открытии окна
+        loader = js[js.index("function attachLoader"):js.index("function openApp")]
+        self.assertNotIn("innerHTML", loader)
+
+    def test_the_mail_window_shows_a_spinner_while_data_is_coming(self):
+        js = self.read("mail/static/mail/mail.js")
+        self.assertIn("function loading()", js)
+        self.assertGreaterEqual(js.count("loading()"), 3)        # сам помощник, список и письмо

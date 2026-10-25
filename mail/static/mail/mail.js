@@ -28,6 +28,16 @@
         return node;
     }
 
+    // круглый спиннер (static/ui/spinner.css), пока данные едут с сервера
+    function loading() {
+        const box = el("div", "mail-loading");
+        const spinner = el("div", "spinner");
+        spinner.setAttribute("role", "status");
+        spinner.setAttribute("aria-label", "loading");
+        box.appendChild(spinner);
+        return box;
+    }
+
     function url(template, id) {
         return template.replace("/0/", "/" + id + "/");
     }
@@ -341,6 +351,7 @@
 
     async function open(id) {
         state.selected = id;
+        view.replaceChildren(loading());
 
         try {
             const data = await getJson(url(root.dataset.messageUrl, id));
@@ -584,6 +595,8 @@
         if (data.address) document.getElementById("mail-address").textContent = data.address;
     }
 
+    list.replaceChildren(loading());
+
     loadMessages()
         .then(function () {
             renderAll();
@@ -593,6 +606,6 @@
             if (first && window.matchMedia("(min-width: 761px)").matches) open(first.id);
         })
         .catch(function () {
-            list.appendChild(el("li", "mail-empty", "inbox unavailable"));
+            list.replaceChildren(el("li", "mail-empty", "inbox unavailable"));
         });
 })();
