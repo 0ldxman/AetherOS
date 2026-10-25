@@ -149,7 +149,7 @@ AUTHENTICATION_BACKENDS = [
 SITE_ID = 1
 LOGIN_REDIRECT_URL = "/"
 
-# Позволяет запускать вход обычной ссылкой (GET), как это делает login.js
+# Позволяет запускать вход обычной ссылкой (GET), как это делает экран входа
 SOCIALACCOUNT_LOGIN_ON_GET = True
 
 SOCIALACCOUNT_PROVIDERS = {

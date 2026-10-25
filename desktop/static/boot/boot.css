@@ -2,7 +2,7 @@
   /* Общие токены — static/ui/tokens.css (подключать раньше этого файла).
      Ниже только отличия экрана загрузки. */
   --bg: #0e0e0e;                    /* на загрузке темнее, чем на рабочем столе */
-  --line: var(--line-faint);        /* boot.css и login.css всегда использовали тонкую линию */
+  --line: var(--line-faint);        /* экран загрузки и входа всегда использовали тонкую линию */
 
   --fs-clock: 0.8rem;
   --ping-color: var(--accent-green);
@@ -61,75 +61,6 @@ body {
     color: var(--font-muted);
     opacity: .6;
     pointer-events: none;
-}
-
-
-.boot-line {
-    min-height: 1.5em;
-    white-space: pre;
-}
-
-
-/* -----------------------------------------
-   STYLES
-   ----------------------------------------- */
-
-.success {
-    color: var(--accent-green);
-}
-
-.warning {
-    color: var(--accent-warn);
-}
-
-.error {
-    color: var(--accent-error);
-}
-
-.dim {
-    color: var(--font-muted);
-}
-
-
-/* -----------------------------------------
-   CURSOR
-   ----------------------------------------- */
-
-.boot-cursor {
-    display: inline-block;
-    width: 8px;
-    height: 15px;
-    margin-left: 2px;
-    background: currentColor;
-    vertical-align: -2px;
-    animation:
-        cursor-blink
-        .8s
-        steps(1)
-        infinite;
-}
-
-
-@keyframes cursor-blink {
-    0%,
-    50% {
-        opacity: 1;
-    }
-    51%,
-    100% {
-        opacity: 0;
-    }
-}
-
-
-/* -----------------------------------------
-   SPINNER
-   ----------------------------------------- */
-
-.boot-spinner {
-    display: inline-block;
-    width: 1ch;
-    text-align: center;
 }
 
 

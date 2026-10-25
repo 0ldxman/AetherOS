@@ -17,231 +17,214 @@ chassis) печатается заново:
 
 Если игрок долго ничего не выбирает, фраза стирается и набирается другая.
 
-ПРОТОТИП: данные в GATEWAY потом должны задаваться из админки (у каждой машины
-свои). Организацию-владельца здесь НЕ указываем, а поле owner замазано: игрок
-должен сам догадаться, чья это машина. Сцена целиком видна в исходнике страницы.
+Организацию-владельца здесь НЕ указываем, а поле owner замазано: игрок должен сам
+догадаться, чья это машина. Сцена целиком видна в исходнике страницы.
 """
 from console.scene import Option, Scene
 
 STAGES = 5
 
-GATEWAY = {
-    "client": "AETHER LINK 3.2",
-    "system": "AETHER",
-    "host": "aether-main",
-    "null_host": "aether-null",
-    "address": "10.40.7.12",
-    # (название, имя, задержка мс; None: нет ответа)
-    "route": [
-        ("relay 01", "VX-04", 12),
-        ("relay 02", "VX-11", 27),
-        ("relay 03", "···", None),
-        ("relay 03", "gw-██", 41),
-        ("relay 04", "aether-main", 44),
-    ],
-    "key_exchange": {
-        "cipher": "x25519 / chacha20",
-        "key_id": "9c1e 44a0 b73d 08f2 e5a1 63cc",
-    },
-    "notice": [
-        "Authorized personnel only.",
-        "All access is monitored and logged.",
-    ],
-    "owner_mask": 14,
-    "external": "DISCORD",
-    # Фраза незнакомца: на месте второго варианта, от первого лица, случайная при каждом заходе
-    "voice": {
-        "after_ms": 2200,   # через сколько после появления входа начинает печатать
-        "lines": [
-            "i left it open for you",
-            "come in. i'll keep it open",
-            "i can let you in. quietly.",
-            "you don't have to ask them",
-            "this way. they aren't looking at this door",
-            "i opened this for you. hurry",
-        ],
-        # если игрок ничего не делает, спустя это время текст стирается и набирается другой
-        "again_after_ms": [20000, 30000],
-        "again_lines": [
-            "...still here",
-            "i can't hold this open for long",
-            "are you there?",
-            "i left it open for you",
-        ],
-    },
-}
+CLIENT = "AETHER LINK 3.2"
+SYSTEM = "AETHER"
+HOST = "aether-main"
+NULL_HOST = "aether-null"
+ADDRESS = "10.40.7.12"
+EXTERNAL = "DISCORD"
+CIPHER = "x25519 / chacha20"
+KEY_ID = "9c1e 44a0 b73d 08f2 e5a1 63cc"
+OWNER_MASK = 14
+
+NOTICE = (
+    "Authorized personnel only.",
+    "All access is monitored and logged.",
+)
+
+# (название, имя, задержка мс; None: нет ответа)
+ROUTE = (
+    ("relay 01", "VX-04", 12),
+    ("relay 02", "VX-11", 27),
+    ("relay 03", "···", None),
+    ("relay 03", "gw-██", 41),
+    ("relay 04", "aether-main", 44),
+)
+
+# Фразы незнакомца, от первого лица. Первая выбирается случайно при каждом заходе,
+# а если игрок молчит, текст стирается и набирается одна из следующих.
+VOICE = (
+    "i left it open for you",
+    "come in. i'll keep it open",
+    "i can let you in. quietly.",
+    "you don't have to ask them",
+    "this way. they aren't looking at this door",
+    "i opened this for you. hurry",
+)
+VOICE_AGAIN = (
+    "...still here",
+    "i can't hold this open for long",
+    "are you there?",
+    "i left it open for you",
+)
+VOICE_AFTER_MS = 2200                  # через сколько после появления входа начинает печатать
+VOICE_AGAIN_MS = (20000, 30000)        # через сколько молчания перепечатывает
 
 
 # ---------- общие куски ----------
 
-def _header(s, cfg, *, target=False, host=None, chassis=None):
+def _header(s, *, host=HOST, chassis=None, saved=False):
     """Шапка этапа: клиент, узел и (с этапа 3) chassis. Имя узла с id для glitch."""
-    s.line((cfg["client"], None), ("  ·  remote session client", "dim"))
-    if target:
-        s.kv("target", cfg["host"], note="(saved)")
+    s.say(CLIENT, ("  ·  remote session client", "dim"))
+    if saved:
+        s.row("target", HOST, note="(saved)")
     else:
-        s.kv("node", host or cfg["host"], id="host")
+        s.row("node", host, id="host")
     if chassis:
-        s.kv("chassis", chassis, "dim")
+        s.row("chassis", chassis, "dim")
 
 
 def _stage(s, number, title):
-    s.newline()
-    s.line(f"-- {number}/{STAGES}  {title} --", style="dim")
+    s.blank()
+    s.say(f"-- {number}/{STAGES}  {title} --", style="dim")
 
 
 def _next_screen(s):
     """Конец этапа: короткая пауза и чистый экран."""
-    s.pause(500)
-    s.clear()
+    s.wait(500).clear()
 
 
-def _discord_option(cfg):
-    return Option("discord", "[ D ]", "external authority", tag=cfg["external"], keys=("d",))
+def _route(s):
+    for index, (name, host, latency) in enumerate(ROUTE):
+        answer = ("no answer", "warning") if latency is None else (f"{latency:>3} ms", "dim")
+        s.wait(450, 250)
+        s.say("carrier   " if index == 0 else " " * 10, f"{name:<10}{host:<14}", answer)
 
 
-def _voice_option(cfg, *, late):
-    """Вариант, текст которого печатает посторонний. late: появляется сам, а не сразу."""
-    voice = cfg["voice"]
-    return Option(
-        "bypass",
-        "[ ? ]",
-        voice["lines"],
-        keys=("?", "/"),
-        style="warning",
-        late={"after_ms": voice["after_ms"], "typo": True, "settle_ms": 500} if late else None,
-        rewrites={"after_ms": voice["again_after_ms"], "labels": voice["again_lines"]} if late else None,
-    )
+def _options(*, late):
+    """Discord и фраза незнакомца. late: фраза появляется сама, а не сразу."""
+    return [
+        Option("discord", "d", "external authority", tag=EXTERNAL),
+        Option(
+            "bypass", "?", VOICE, also=("/",), style="warning",
+            appear=VOICE_AFTER_MS if late else None,
+            retype=VOICE_AGAIN if late else (),
+            retype_after=VOICE_AGAIN_MS,
+        ),
+    ]
 
 
 # ---------- сцены ----------
 
-def intro_scene(cfg, hid):
+def intro_scene(hid):
     """Этапы 1-4: подключение и вход. Заканчивается выбором."""
     s = Scene()
 
-    # 1. link
-    _header(s, cfg, target=True)
+    _header(s, saved=True)
     _stage(s, 1, "link")
-    s.dots("resolving ", cfg["address"], "dim", ms=700)
-    s.route(cfg["route"])
-    s.dots("link      establishing ", "OK", ms=600)
+    s.task("resolving ", ADDRESS, style="dim", ms=700)
+    _route(s)
+    s.task("link      establishing ", "OK")
     _next_screen(s)
 
-    # 2. key exchange
-    _header(s, cfg)
+    _header(s)
     _stage(s, 2, "key exchange")
-    s.kv("cipher", cfg["key_exchange"]["cipher"], "dim")
-    s.dots("client    generating key pair ", "OK", ms=700)
-    s.dots("node      requesting public key ", "OK", ms=900)
-    s.kv("key id", cfg["key_exchange"]["key_id"], "dim")
-    s.progress("session   deriving key ", ms=1700)
-    s.dots("session   key accepted ", "OK", ms=450)
+    s.row("cipher", CIPHER, "dim")
+    s.task("client    generating key pair ", "OK", ms=700)
+    s.task("node      requesting public key ", "OK", ms=900)
+    s.row("key id", KEY_ID, "dim")
+    s.bar("session   deriving key ", ms=1700)
+    s.task("session   key accepted ", "OK", ms=450)
     _next_screen(s)
 
-    # 3. node
-    _header(s, cfg)
+    _header(s)
     _stage(s, 3, "node")
-    s.kv("chassis", hid, "dim")
-    s.kv("system", cfg["system"])
-    s.kv("owner", Scene.mask(cfg["owner_mask"]), note="[restricted]")
-    s.newline()
-    s.line("Node unrecognised. No prior contact on record.")
-    s.pause(500)
-    s.text("Trust node and continue? [y/n] ")
-    s.pause(700, jitter=300)
+    s.row("chassis", hid, "dim")
+    s.row("system", SYSTEM)
+    s.row("owner", Scene.mask(OWNER_MASK), note="[restricted]")
+    s.blank()
+    s.say("Node unrecognised. No prior contact on record.")
+    s.wait(500)
+    s.say("Trust node and continue? [y/n] ", end=False)
+    s.wait(700, 300)
     s.type("y", human=True)       # игрок «набрал» сам
-    s.newline()
-    s.line("Node added to contacts.", style="dim")
+    s.say("Node added to contacts.", style="dim")
     _next_screen(s)
 
-    # 4. access
-    _header(s, cfg, chassis=hid)
+    _header(s, chassis=hid)
     _stage(s, 4, "access")
-    s.newline()
-    s.line("-- node notice --", style="dim")
-    for row in cfg["notice"]:
-        s.line(row, style="dim")
-    s.newline()
-    s.kv("access", "external authority")
-    s.newline()
-    s.choice("entry", [_discord_option(cfg), _voice_option(cfg, late=True)])
+    s.blank()
+    s.say("-- node notice --", style="dim")
+    for row in NOTICE:
+        s.say(row, style="dim")
+    s.blank()
+    s.row("access", "external authority")
+    s.blank()
+    s.choice("entry", _options(late=True))
     return s
 
 
-def menu_scene(cfg):
+def menu_scene():
     """Выбор снова, без сюжета (после неудачного обходного входа)."""
-    return Scene().newline().choice("entry", [_discord_option(cfg), _voice_option(cfg, late=False)])
+    return Scene().blank().choice("entry", _options(late=False))
 
 
-def discord_scene(cfg):
-    return (
-        Scene()
-        .newline()
-        .text("> requesting external authority: ")
-        .text(cfg["external"], "dim")
-        .newline()
-        .pause(250)
-        .line("Redirecting ...")
-    )
+def discord_scene():
+    s = Scene().blank()
+    s.say("> requesting external authority: ", (EXTERNAL, "dim"))
+    s.wait(250)
+    s.say("Redirecting ...")
+    return s
 
 
-def bypass_scene(cfg, hid):
+def bypass_scene(hid):
     """Игрок пошёл за фразой. Имя узла в шапке портится прямо на месте, chassis остаётся.
 
     Сессию ещё не открыли: это делает established_scene после ответа сервера.
     """
     s = Scene()
-    s.flash()
-    s.pause(120)
-    s.glitch("host", cfg["null_host"], frames=28)   # только main -> null: «aether-» остаётся
-    s.pause(1100)                                    # дать увидеть, что стало
+    s.flash().wait(120)
+    s.glitch("host", NULL_HOST, frames=28)   # только main -> null: «aether-» остаётся
+    s.wait(1100)                             # дать увидеть, что стало
     _next_screen(s)
 
-    _header(s, cfg, host=cfg["null_host"], chassis=hid)
+    _header(s, host=NULL_HOST, chassis=hid)
     _stage(s, 5, "session")
-    s.dots("access    ", "OPEN", "warning", ms=550)
+    s.task("access    ", "OPEN", style="warning", ms=550)
     return s
 
 
 def established_scene(clearance):
     """Сервер открыл гостевую сессию: заканчиваем подключение. Играется только после успеха."""
     s = Scene()
-    s.dots("display   negotiating 1280x720 ", "OK", ms=600)
-    s.dots("first frame ", "OK", ms=450)
-    s.line("session established.", style="success")
-
-    s.newline()
-    s.kv("user", "guest", "dim")
-    s.kv("clearance", f"{clearance['level']} ({clearance['label']})", "warning")
-    s.line("WARNING: session is not registered on this node", style="warning")
-    s.newline()
-    s.line("Loading workspace")
+    s.task("display   negotiating 1280x720 ", "OK")
+    s.task("first frame ", "OK", ms=450)
+    s.say("session established.", style="success")
+    s.blank()
+    s.row("user", "guest", "dim")
+    s.row("clearance", f"{clearance['level']} ({clearance['label']})", "warning")
+    s.say("WARNING: session is not registered on this node", style="warning")
+    s.blank()
+    s.say("Loading workspace")
     return s
 
 
-def error_scene(cfg):
+def error_scene():
     """Обходной вход не удался: имя возвращается. {code} подставляет браузер."""
-    return (
-        Scene()
-        .newline()
-        .glitch("host", cfg["host"], frames=20)
-        .line("ERROR: access refused ({code})", style="error")
-    )
+    s = Scene().blank()
+    s.glitch("host", HOST, frames=20)
+    s.say("ERROR: access refused ({code})", style="error")
+    return s
 
 
-def restored_scene(cfg, hid, *, username, clearance, guest):
+def restored_scene(hid, *, username, clearance, guest):
     """У игрока уже есть сессия: короткое подключение и идём дальше."""
-    host = cfg["null_host"] if guest else cfg["host"]
     s = Scene()
-    _header(s, cfg, host=host, chassis=hid)
-    s.newline()
-    s.dots("session   restoring ", "OK", ms=500)
-    s.newline()
-    s.kv("user", username, "dim" if guest else "success")
-    s.kv("clearance", f"{clearance['level']} ({clearance['label']})", "warning" if guest else "success")
+    _header(s, host=NULL_HOST if guest else HOST, chassis=hid)
+    s.blank()
+    s.task("session   restoring ", "OK", ms=500)
+    s.blank()
+    s.row("user", username, "dim" if guest else "success")
+    s.row("clearance", f"{clearance['level']} ({clearance['label']})", "warning" if guest else "success")
     if guest:
-        s.line("Unregistered session: not on this node's account list.", style="warning")
-    s.newline()
-    s.line("Loading workspace")
+        s.say("Unregistered session: not on this node's account list.", style="warning")
+    s.blank()
+    s.say("Loading workspace")
     return s

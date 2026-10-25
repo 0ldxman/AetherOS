@@ -1,25 +1,30 @@
 {% extends "ui/base.html" %}
 {% load static %}
 
+{% comment %}
+  Загрузка машины: консольная сцена (desktop/boots.py), которую проигрывает общий
+  проигрыватель static/ui/console.js. По окончании переходим на экран входа.
+{% endcomment %}
+
 {% block lang %}en{% endblock %}
 {% block title %}AetherOS.BOOT{% endblock %}
 
 {% block css %}
     <link rel="stylesheet" href="{% static 'boot/boot.css' %}">
+    <link rel="stylesheet" href="{% static 'ui/console.css' %}">
 {% endblock %}
 
 {% block body %}
-
-<div id="boot-screen">
-    <div id="boot-terminal">
-        <div id="boot-output"></div>
-        <span id="boot-cursor"></span>
+    <div id="boot-screen">
+        <div id="boot-terminal">
+            <div id="boot-output"></div>
+        </div>
+        <div class="boot-hint">[ any key ] skip</div>
     </div>
-</div>
-
 {% endblock %}
 
 {% block js %}
-{{ boot_config|json_script:"boot-config" }}
-<script src="{% static 'boot/boot.js' %}"></script>
+    {{ boot_config|json_script:"boot-config" }}
+    <script src="{% static 'ui/console.js' %}" defer></script>
+    <script src="{% static 'boot/boot.js' %}" defer></script>
 {% endblock %}

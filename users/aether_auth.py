@@ -1,5 +1,5 @@
 """
-Aether.OS: авторизация для экрана входа (login.js).
+Aether.OS: авторизация для экрана входа (сцены в gateway.py, страница в boot/lock.js).
 
 Положите файл в любое приложение проекта (например, core/auth_views.py)
 и подключите urls по инструкции из django_setup.md.
@@ -22,8 +22,6 @@ from django.views.decorators.http import require_POST
 # =========================================================
 # SETTINGS
 # =========================================================
-
-NODE_NAME = "NODE-07"
 
 GUEST_LEVEL = 0
 DEFAULT_USER_LEVEL = 1
@@ -54,27 +52,24 @@ def gateway_scenes(request):
 
     from . import gateway
 
-    cfg = gateway.GATEWAY
     hid = (
-        Machine.objects.filter(hostname=cfg["host"]).values_list("hid", flat=True).first()
+        Machine.objects.filter(hostname=gateway.HOST).values_list("hid", flat=True).first()
         or UNKNOWN_HID
     )
-    guest_clearance = clearance_dict(GUEST_LEVEL)
 
     scenes = {
-        "intro": gateway.intro_scene(cfg, hid),
-        "menu": gateway.menu_scene(cfg),
-        "discord": gateway.discord_scene(cfg),
-        "bypass": gateway.bypass_scene(cfg, hid),
-        "established": gateway.established_scene(guest_clearance),
-        "error": gateway.error_scene(cfg),
+        "intro": gateway.intro_scene(hid),
+        "menu": gateway.menu_scene(),
+        "discord": gateway.discord_scene(),
+        "bypass": gateway.bypass_scene(hid),
+        "established": gateway.established_scene(clearance_dict(GUEST_LEVEL)),
+        "error": gateway.error_scene(),
     }
 
     level = current_level(request)
     if level is not None:
         is_guest = bool(request.session.get("guest")) and not request.user.is_authenticated
         scenes["restored"] = gateway.restored_scene(
-            cfg,
             hid,
             username="guest" if is_guest else request.user.get_username(),
             clearance=clearance_dict(level),
@@ -111,7 +106,7 @@ def current_level(request):
 
 
 def clearance_dict(level):
-    """Формат, который ждёт login.js: {"level": "L3", "label": "RESTRICTED"}"""
+    """Формат для сцен: {"level": "L3", "label": "RESTRICTED"}"""
     return {
         "level": f"L{level}",
         "label": CLEARANCE_LABELS.get(level, "UNKNOWN"),
@@ -139,33 +134,6 @@ def clearance_required(min_level):
 
 
 # =========================================================
-# BOOT PAGE
-# =========================================================
-
-def build_boot_config(request):
-    """Данные для boot.js и login.js (читаются из json_script boot-config)"""
-    level = current_level(request)
-    is_guest = bool(request.session.get("guest")) and not request.user.is_authenticated
-
-    config = {
-        "node": NODE_NAME,
-        "authenticated": level is not None,
-        "guest": is_guest,
-    }
-
-    if level is not None:
-        config["username"] = "guest" if is_guest else request.user.get_username()
-        config["clearance"] = clearance_dict(level)
-
-    return config
-
-
-@ensure_csrf_cookie  # без этого fetch из login.js не получит csrftoken
-def boot_page(request):
-    return render(request, "boot.html", {"boot_config": build_boot_config(request)})
-
-
-# =========================================================
 # API
 # ========================================================
 
@@ -183,9 +151,7 @@ def guest_api(request):
 
 @ensure_csrf_cookie  # нужна для POST на guest_api
 def lock_page(request):
-    config = build_boot_config(request)
-    config["scenes"] = gateway_scenes(request)
-    return render(request, "boot/lock.html", {"boot_config": config})
+    return render(request, "boot/lock.html", {"boot_config": {"scenes": gateway_scenes(request)}})
 
 
 @require_POST

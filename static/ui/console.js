@@ -6,7 +6,7 @@
    переходам между машинами.
 
        const term = Aether.console.create(container, { flashTarget, onChoice });
-       const result = await term.play(scene, { vars: { code: "HTTP 500" } });
+       const result = await term.play(scene, { vars: { code: "HTTP 500" }, speed: 1 });
        // result.choice: id варианта, если в сцене был выбор
 
    Стили лежат в static/ui/console.css, подключать вместе.
@@ -43,6 +43,7 @@
         let cursor = null;
         let skipping = REDUCED;      // пропуск анимации: любая клавиша или клик
         let playing = 0;
+        let speed = 1;               // множитель времени: 0.5 вдвое быстрее (повторная загрузка)
         const ids = {};              // id -> элемент, для glitch
         const keyHandlers = new Set();
 
@@ -54,7 +55,7 @@
             if (run.aborted) return Promise.reject(new Abort());
             if (skipping || ms <= 0) return Promise.resolve();
             return new Promise((resolve, reject) => {
-                setTimeout(() => (run.aborted ? reject(new Abort()) : resolve()), ms);
+                setTimeout(() => (run.aborted ? reject(new Abort()) : resolve()), ms * speed);
             });
         }
 
@@ -103,6 +104,15 @@
             return node;
         }
 
+        // части [[текст, стиль], ...] в одном элементе
+        function renderParts(parent, parts, vars) {
+            for (const [value, style] of parts) {
+                const node = el("span", style ? "con-" + style : "");
+                node.textContent = fill(value, vars);
+                parent.appendChild(node);
+            }
+        }
+
         function scrollDown() {
             container.scrollTop = container.scrollHeight;
         }
@@ -112,6 +122,25 @@
 
         // human: неровный ритм, пауза в раздумье и (typo) одна опечатка, которую замечают и стирают
         async function typeInto(target, value, opts, run, cursorParent) {
+            if (opts.chunk > 1) {
+                // пачками по 1..chunk символов: логи и дампы
+                for (let i = 0; i < value.length;) {
+                    if (skipping) {
+                        target.textContent = value;
+                        break;
+                    }
+
+                    const size = randomInt(1, opts.chunk);
+                    target.textContent += value.slice(i, i + size);
+                    i += size;
+                    showCursor(cursorParent);
+                    await wait(opts.speed || 22, run);
+                }
+
+                showCursor(cursorParent);
+                return;
+            }
+
             const human = Boolean(opts.human);
             const hesitateAt = human ? randomInt(2, Math.max(3, value.length - 3)) : -1;
             const typoAt = human && opts.typo && value.length > 10 ? randomInt(4, value.length - 4) : -1;
@@ -231,7 +260,7 @@
                 await wait(70, run);
             },
 
-            async progress(op, run, vars) {
+            async bar(op, run, vars) {
                 const label = span();
                 label.textContent = fill(op.label, vars);
 
@@ -251,7 +280,57 @@
                 await wait(70, run);
             },
 
-            async pause(op, run) {
+            // задача с результатом: строка с ожиданием заменяется итоговой
+            async spin(op, run, vars) {
+                hideCursor();
+                const group = span();
+                renderParts(group, op.pending, vars);
+
+                const spinner = el("span", "con-spinner");
+                group.appendChild(spinner);
+
+                const frames = ["|", "/", "-", "\\"];
+                const ticks = Math.max(1, Math.round((op.ms || 600) / 100));
+
+                for (let i = 0; i < ticks; i++) {
+                    spinner.textContent = frames[i % frames.length];
+                    await wait(100, run);
+                }
+
+                group.replaceChildren();
+                renderParts(group, op.done, vars);
+                showCursor();
+            },
+
+            async count(op, run, vars) {
+                span().textContent = fill(op.label, vars);
+                const number = span();
+                const steps = 28;
+
+                for (let i = 1; i <= steps; i++) {
+                    number.textContent = `${Math.floor((op.to * i) / steps)}${op.unit || ""}`;
+                    showCursor();
+                    await wait((op.ms || 1400) / steps, run);
+                }
+            },
+
+            async countdown(op, run, vars) {
+                const node = span();
+
+                for (let n = op.seconds; n > 0; n--) {
+                    node.textContent = fill(op.template, vars).replace("{n}", n);
+                    showCursor();
+                    await wait(1000, run);
+                }
+            },
+
+            async fade(op, run) {
+                container.style.transition = skipping ? "none" : `opacity ${op.ms || 400}ms ease`;
+                container.style.opacity = op.to === "in" ? "1" : "0";
+                await wait(op.ms || 400, run);
+            },
+
+            async wait(op, run) {
                 const jitter = op.jitter ? randomInt(-op.jitter, op.jitter) : 0;
                 await wait(Math.max(0, (op.ms || 0) + jitter), run);
             },
@@ -503,6 +582,7 @@
             const result = {};
 
             skipping = REDUCED;
+            speed = opts.speed || 1;
             playing += 1;
 
             try {

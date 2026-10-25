@@ -97,15 +97,13 @@ def boot_config(response):
 
 
 def steps(scene, op):
-    """Все шаги с этим op, включая вложенные (one_of, события выбора)."""
+    """Все шаги с этим op, включая вложенные (one_of)."""
     found = []
     for step in scene:
         if step["op"] == op:
             found.append(step)
         for nested in step.get("scenes", []):
             found += steps(nested, op)
-        for event in step.get("events", []):
-            found += steps(event["steps"], op)
     return found
 
 
@@ -214,11 +212,11 @@ class GatewayScenesTests(TestCase):
         self.assertEqual(sum(1 for t in self.texts(intro) if t == "AETHER LINK 3.2"), 4)
 
     def test_key_exchange_has_a_progress_bar_and_a_key_id(self):
-        from users.gateway import GATEWAY
+        from users.gateway import KEY_ID
 
         intro = self.scenes()["intro"]
-        self.assertEqual(len(steps(intro, "progress")), 1)
-        self.assertIn(GATEWAY["key_exchange"]["key_id"], spoken(intro))
+        self.assertEqual(len(steps(intro, "bar")), 1)
+        self.assertIn(KEY_ID, spoken(intro))
 
     def test_route_includes_a_timeout_and_a_retry(self):
         text = spoken(self.scenes()["intro"])
@@ -250,23 +248,22 @@ class GatewayScenesTests(TestCase):
     # ---------- вход и фраза незнакомца ----------
 
     def test_discord_is_immediate_and_the_stranger_text_arrives_later_in_place(self):
-        from users.gateway import GATEWAY
+        from users.gateway import VOICE, VOICE_AFTER_MS
 
         (choice,) = [s for s in self.scenes()["intro"] if s["op"] == "choice"]
         discord, bypass = choice["options"]
         self.assertNotIn("late", discord)
-        self.assertEqual(bypass["late"]["after_ms"], GATEWAY["voice"]["after_ms"])
+        self.assertEqual(bypass["late"]["after_ms"], VOICE_AFTER_MS)
         self.assertEqual(bypass["keys"], ["?", "/"])
-        self.assertEqual(bypass["label"], GATEWAY["voice"]["lines"])   # случайная из набора, в первом лице
-        self.assertNotIn("events", choice)
+        self.assertEqual(bypass["label"], list(VOICE))   # случайная из набора, в первом лице
 
     def test_the_text_is_erased_and_typed_again_if_the_player_waits(self):
-        from users.gateway import GATEWAY
+        from users.gateway import VOICE_AGAIN, VOICE_AGAIN_MS
 
         (choice,) = [s for s in self.scenes()["intro"] if s["op"] == "choice"]
         rewrites = choice["options"][1]["rewrites"]
-        self.assertEqual(rewrites["after_ms"], GATEWAY["voice"]["again_after_ms"])
-        self.assertEqual(rewrites["labels"], GATEWAY["voice"]["again_lines"])
+        self.assertEqual(rewrites["after_ms"], list(VOICE_AGAIN_MS))
+        self.assertEqual(rewrites["labels"], list(VOICE_AGAIN))
         self.assertGreaterEqual(len(rewrites["labels"]), 2)
 
     def test_after_a_failed_bypass_the_menu_shows_both_options_at_once(self):
@@ -277,9 +274,9 @@ class GatewayScenesTests(TestCase):
     # ---------- имя узла глючит на месте ----------
 
     def test_only_main_turns_into_null_so_the_prefix_stays_put(self):
-        from users.gateway import GATEWAY
+        from users.gateway import HOST, NULL_HOST
 
-        host, null = GATEWAY["host"], GATEWAY["null_host"]
+        host, null = HOST, NULL_HOST
         prefix = 0
         while host[prefix] == null[prefix]:
             prefix += 1
@@ -333,3 +330,58 @@ class GatewayScenesTests(TestCase):
         text = spoken(self.scenes(session={"guest": True})["restored"])
         self.assertIn("aether-null", text)
         self.assertIn("Unregistered session", text)
+
+
+@override_settings(FORCE_SCRIPT_NAME=None)
+class BootScreenTests(TestCase):
+    """Загрузка машины: консольная сцена, полная и короткая."""
+
+    def setUp(self):
+        previous = get_script_prefix()
+        set_script_prefix("/")
+        self.addCleanup(set_script_prefix, previous)
+
+    def scenes(self):
+        return boot_config(self.client.get(reverse("boot")))["scenes"]
+
+    def test_page_is_a_shell_for_the_console_player(self):
+        response = self.client.get(reverse("boot"))
+        self.assertContains(response, 'id="boot-output"')
+        self.assertContains(response, "ui/console.js")
+        self.assertRegex(response.content.decode(), r'boot\.js"\s+defer')
+
+    def test_page_carries_a_full_and_a_short_boot(self):
+        scenes = self.scenes()
+        self.assertEqual(set(scenes), {"full", "short"})
+        self.assertGreater(len(scenes["full"]), len(scenes["short"]))
+
+    def test_full_boot_has_all_stages_and_the_short_one_only_connect_and_services(self):
+        scenes = self.scenes()
+        full, short = spoken(scenes["full"]), spoken(scenes["short"])
+        for word in ("AETHER-BIOS", "AETHER BOOT MANAGER", "Aether kernel", "Started Secure Key Agent"):
+            self.assertIn(word, full)
+        self.assertIn("Started Secure Key Agent", short)
+        for word in ("AETHER-BIOS", "AETHER BOOT MANAGER", "Aether kernel"):
+            self.assertNotIn(word, short)
+
+    def test_boot_uses_the_toolkit_not_just_text(self):
+        full = self.scenes()["full"]
+        self.assertEqual(len(steps(full, "count")), 1)         # память растёт
+        self.assertEqual(len(steps(full, "countdown")), 1)     # Auto-boot in 3s
+        self.assertGreaterEqual(len(steps(full, "spin")), 11)  # службы и задачи ядра
+        self.assertEqual(steps(full, "fade")[-1]["to"], "out")  # гаснет перед переходом
+
+    def test_services_show_a_warning_and_a_failure(self):
+        results = [s["done"][0][0] for s in steps(self.scenes()["short"], "spin")]
+        self.assertIn("[ WARN ] ", results)
+        self.assertIn("[FAILED] ", results)
+
+    def test_the_organisation_is_never_named(self):
+        self.assertNotIn("CTRG", spoken(self.scenes()))
+
+    def test_the_old_engines_are_gone(self):
+        from pathlib import Path
+
+        root = Path(__file__).resolve().parent / "static/boot"
+        self.assertFalse((root / "login.js").exists())
+        self.assertNotIn("function stageBios", (root / "boot.js").read_text(encoding="utf-8"))

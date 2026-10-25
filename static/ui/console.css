@@ -102,3 +102,10 @@
 @media (prefers-reduced-motion: reduce) {
     .con-cursor { animation: none; }
 }
+
+/* спиннер задачи (шаг spin): занимает одну клетку, текст не прыгает */
+.con-spinner {
+    display: inline-block;
+    width: 1ch;
+    text-align: center;
+}

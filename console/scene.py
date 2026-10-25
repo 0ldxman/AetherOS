@@ -2,42 +2,52 @@
 
 Сцена это список шагов (словарей), который Python собирает, а браузер
 проигрывает (static/ui/console.js). Так один и тот же язык служит и экрану
-входа, и ответам команд терминала, и переходам между машинами.
+входа, и загрузке машины, и ответам команд терминала.
 
-    scene = (
-        Scene()
-        .line("connecting ...")
-        .dots("resolving", "10.40.7.12", "dim", ms=700)
-        .text("Trust node? [y/n] ")
-        .type("y", human=True)          # «набирает» человек: неровный ритм
-        .newline()
-    )
-    scene.to_json()
+    s = Scene()
+    s.say("AETHER LINK 3.2", style="dim")             # строка
+    s.row("node", "aether-main", id="host")           # «метка    значение»
+    s.task("resolving", "10.40.7.12", style="dim")    # «resolving ........ 10.40.7.12»
+    s.say("Trust node? [y/n] ", end=False).type("y", human=True)
+    s.wait(500).clear()
 
-Шаги:
-    text      дописать текст в текущую строку (style, id)
-    newline   закончить строку (count пустых строк подряд)
-    type      напечатать побуквенно (speed, human, typo)
-    dots      «метка ........ СТАТУС», точки набираются по одной
-    progress  полоса «[#####-----]  50%»
-    pause     пауза (ms, jitter)
-    clear     очистить экран
-    flash     вспышка экрана
-    glitch    текст с id «портится» и становится другим
-    one_of    случайная из нескольких вложенных сцен
-    choice    выбор из вариантов; вариант может появиться позже (late: его
-              текст печатается на месте и «оформляется под кнопку») и
-              перепечатываться, пока игрок не отвечает (rewrites)
+Весь словарь сцены:
+
+    вывод      say      строка из частей: "текст", ("текст", стиль) или ("текст", стиль, id)
+               row      «метка    значение  (пояснение)», метка дополняется до width
+               blank    пустая строка
+               type     напечатать побуквенно: human (неровный ритм), typo, chunk (пачками)
+    процесс    task     задача с результатом: «метка ..... OK» (look="dots"),
+                        «[ WAIT ] метка» -> «[  OK  ] метка» (look="service"),
+                        «[X.XXXXXX] метка» -> «[    0.801544] метка OK» (при at=)
+               bar      полоса «[#####-----]  50%»
+               count    число растёт до значения: «Memory Testing:  64000K OK»
+               countdown  «Auto-boot in 3s...» -> 2s -> 1s
+               log      строка ядра с меткой времени; пауза равна разнице меток
+    время      wait     пауза (ms, jitter)
+    эффекты    clear    очистить экран
+               flash    вспышка экрана
+               fade     плавно погасить («out») или показать («in») экран
+               glitch   текст с id «портится» и становится другим
+    ветвление  one_of   случайная из вложенных сцен
+               choice   выбор из Option; вариант может появиться позже (appear) и
+                        перепечатываться, пока игрок молчит (retype)
 
 Тексты могут содержать {имя}: браузер подставит значения при проигрывании.
 Ничего секретного в сцену класть нельзя: она целиком видна в исходнике страницы.
 """
 import json
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 
 STYLES = ("success", "warning", "error", "dim")
+LOOKS = ("dots", "service", "kernel")
 MASK_CHAR = "█"
 MAX_MS = 120_000
+
+# результат задачи -> цвет, которым он выводится
+RESULT_STYLES = {"OK": "success", "WARN": "warning", "FAIL": "error"}
+# как результат выглядит в строке службы: [  OK  ] [ WARN ] [FAILED]
+SERVICE_MARKS = {"OK": "  OK  ", "WARN": " WARN ", "FAIL": "FAILED"}
 
 
 class SceneError(ValueError):
@@ -57,12 +67,12 @@ def _ms(value, name="ms"):
 
 
 def _delay(value):
-    """Задержка: число или пара [от, до]."""
+    """Задержка: число или пара (от, до)."""
     if isinstance(value, (list, tuple)):
         if len(value) != 2 or value[0] > value[1]:
-            raise SceneError(f"Диапазон задержки должен быть [от, до], получено {value!r}")
-        return [_ms(value[0], "after_ms"), _ms(value[1], "after_ms")]
-    return _ms(value, "after_ms")
+            raise SceneError(f"Диапазон задержки должен быть (от, до), получено {value!r}")
+        return [_ms(value[0], "задержка"), _ms(value[1], "задержка")]
+    return _ms(value, "задержка")
 
 
 def _steps(scene):
@@ -71,137 +81,194 @@ def _steps(scene):
     return list(scene)
 
 
+def _stamp(at):
+    """Метка времени ядра: [    0.004211]; None: время ещё неизвестно."""
+    value = "X.XXXXXX" if at is None else f"{at:.6f}"
+    return f"[{value:>12}]"
+
+
 @dataclass(frozen=True)
 class Option:
-    """Вариант в выборе. key это подпись («[ D ]»), keys это клавиши быстрого выбора.
+    """Вариант в выборе.
 
-    late: вариант появляется не сразу. Его текст сначала печатается на месте простой
-          строкой, потом «оформляется под кнопку»:
-          {"after_ms": 2200 или [от, до], "typo": True, "settle_ms": 450}
-    rewrites: пока игрок не ответил, текст стирается и набирается другой из labels:
-          {"after_ms": [20000, 30000], "labels": ["...", "..."]}
+    key       клавиша быстрого выбора; на экране «[ D ]». also: ещё клавиши.
+    label     текст варианта: строка или список (случайная при каждом показе).
+    appear    None: вариант есть сразу. Число мс или (от, до): появится сам, позже.
+              Его текст сначала печатается на месте простой строкой, потом
+              «оформляется под кнопку» (settle мс спустя, typo: с опечаткой).
+    retype    тексты (не меньше двух) для перепечатки: пока игрок не ответил, через
+              retype_after мс (число или (от, до)) текст стирается и набирается другой.
     """
 
     id: str
     key: str
-    label: object          # строка или список строк (случайная при каждом показе)
+    label: object
     tag: str = ""
-    keys: tuple = ()
+    also: tuple = ()
     style: str | None = None
-    late: dict | None = None
-    rewrites: dict | None = None
+    appear: object = None
+    typo: bool = True
+    settle: int = 500
+    retype: tuple = ()
+    retype_after: object = (20000, 30000)
 
     def to_dict(self):
         data = {
             "id": self.id,
-            "key": self.key,
+            "key": f"[ {self.key.upper()} ]",
             "label": self.label if isinstance(self.label, str) else list(self.label),
             "tag": self.tag,
-            "keys": [k.lower() for k in self.keys],
+            "keys": [k.lower() for k in (self.key, *self.also)],
             "style": _style(self.style),
         }
-        if self.late is not None:
+        if self.appear is not None:
             data["late"] = {
-                "after_ms": _delay(self.late.get("after_ms", 0)),
-                "typo": bool(self.late.get("typo", True)),
-                "settle_ms": _ms(self.late.get("settle_ms", 450), "settle_ms"),
+                "after_ms": _delay(self.appear),
+                "typo": bool(self.typo),
+                "settle_ms": _ms(self.settle, "settle"),
             }
-        if self.rewrites is not None:
-            labels = list(self.rewrites.get("labels", ()))
-            if len(labels) < 2:
-                raise SceneError("rewrites.labels: нужно хотя бы две строки")
-            data["rewrites"] = {"after_ms": _delay(self.rewrites.get("after_ms", 20000)), "labels": labels}
+        if self.retype:
+            if self.appear is None:
+                raise SceneError("retype работает только у варианта с appear")
+            if len(self.retype) < 2:
+                raise SceneError("retype: нужно хотя бы две строки")
+            data["rewrites"] = {"after_ms": _delay(self.retype_after), "labels": list(self.retype)}
         return data
 
 
 class Scene:
     def __init__(self):
         self.steps = []
+        self._clock = 0.0       # «время ядра» для log() и task(at=)
 
     # ---------- вывод ----------
 
-    def text(self, value, style=None, *, id=None):
+    def _text(self, value, style=None, id=None):
         step = {"op": "text", "value": str(value)}
         if style is not None:
             step["style"] = _style(style)
         if id:
             step["id"] = id
         self.steps.append(step)
-        return self
 
-    def newline(self, count=1):
+    def say(self, *parts, style=None, end=True):
+        """Строка. Части: "текст", ("текст", стиль) или ("текст", стиль, id).
+
+        style красит части без собственного стиля. end=False оставляет строку
+        открытой: дальше можно дописать type() или ещё один say().
+        """
+        for part in parts:
+            if isinstance(part, tuple):
+                value, part_style, part_id = (*part, None, None)[:3]
+                self._text(value, part_style or style, part_id)
+            else:
+                self._text(part, style)
+        return self.blank() if end else self
+
+    def blank(self, count=1):
+        """Конец строки; если строка не открыта, то пустая строка."""
         for _ in range(count):
             self.steps.append({"op": "newline"})
         return self
 
-    def line(self, *parts, style=None):
-        """Строка целиком. Части: строка или (текст, стиль)."""
-        for part in parts or ("",):
-            if isinstance(part, tuple):
-                self.text(part[0], part[1])
-            else:
-                self.text(part, style)
-        return self.newline()
-
-    def kv(self, label, value, style=None, *, width=10, note=None, id=None):
+    def row(self, label, value, style=None, *, width=10, note=None, id=None):
         """«метка     значение  (пояснение)»: метка дополняется до width."""
-        self.text(label.ljust(width))
-        self.text(value, style, id=id)
+        parts = [label.ljust(width), (value, style, id)]
         if note:
-            self.text("  " + note, "dim")
-        return self.newline()
+            parts.append(("  " + note, "dim"))
+        return self.say(*parts)
 
-    def type(self, value, *, speed=22, style=None, human=False, typo=False):
+    def type(self, value, *, speed=22, style=None, human=False, typo=False, chunk=1, end=True):
+        """Напечатать. human: неровный ритм и раздумья. typo: опечатка, которую стирают.
+        chunk: по сколько символов (до) появляется за раз, для логов и дампов."""
         step = {
             "op": "type",
             "value": str(value),
             "speed": _ms(speed, "speed"),
             "human": bool(human),
             "typo": bool(typo),
+            "chunk": _ms(chunk, "chunk"),
         }
         if style is not None:
             step["style"] = _style(style)
         self.steps.append(step)
-        return self
+        return self.blank() if end else self
 
-    def dots(self, label, status, style="success", *, ms=500, count=14, newline=True):
-        """«метка ........ СТАТУС» и конец строки (newline=False оставляет её открытой)."""
-        self.steps.append(
-            {
-                "op": "dots",
-                "label": str(label),
-                "status": str(status),
-                "style": _style(style),
-                "ms": _ms(ms),
-                "count": _ms(count, "count"),
-            }
-        )
-        return self.newline() if newline else self
+    # ---------- процессы ----------
 
-    def progress(self, label, *, ms=1200, width=24, newline=True):
+    def task(self, label, result="OK", note=None, *, look=None, ms=600, done=None, style=None, at=None):
+        """Задача, у которой есть результат: OK, WARN, FAIL или любой свой текст.
+
+        look="dots"     «label ........ OK», точки набираются по одной (по умолчанию)
+        look="service"  «[ WAIT ] label» со спиннером, потом строка заменяется на
+                        «[  OK  ] done» (done: текст после запуска, по умолчанию label)
+        look="kernel"   «[X.XXXXXX] label» со спиннером, потом настоящая метка at и
+                        результат. Выбирается, если указан at (секунды «времени ядра»)
+        """
+        look = look or ("kernel" if at is not None else "dots")
+        if look not in LOOKS:
+            raise SceneError(f"Неизвестный вид задачи {look!r}; допустимы {LOOKS}")
+        style = _style(style) or RESULT_STYLES.get(result)
+
+        if look == "dots":
+            self.steps.append(
+                {"op": "dots", "label": str(label), "status": str(result), "style": style, "ms": _ms(ms), "count": 14}
+            )
+            if note:
+                self._text("  " + note, "dim")
+        elif look == "service":
+            bad = result in ("WARN", "FAIL")
+            mark = SERVICE_MARKS.get(result, str(result).center(6))
+            parts = [[f"[{mark}] ", style], [str(done or label), style if bad else None]]
+            if note:
+                parts.append([note, "dim"])
+            self.steps.append({"op": "spin", "pending": [[f"[ WAIT ] {label}", "dim"]], "done": parts, "ms": _ms(ms)})
+        else:
+            if at is None:
+                raise SceneError("look='kernel' требует at")
+            ms = max(0, (at - self._clock) * 1000)
+            self._clock = at
+            parts = [[f"{_stamp(at)} {label} ", None], [str(result), style]]
+            if note:
+                parts.append([" " + note, "dim"])
+            self.steps.append(
+                {"op": "spin", "pending": [[f"{_stamp(None)} {label} ", None]], "done": parts, "ms": _ms(ms)}
+            )
+        return self.blank()
+
+    def log(self, at, message, style=None):
+        """Строка ядра с меткой времени. Пауза перед ней равна разнице с прошлой меткой."""
+        self.wait(max(0, (at - self._clock) * 1000))
+        self._clock = at
+        return self.say(f"{_stamp(at)} {message}", style=style)
+
+    def bar(self, label, *, ms=1200, width=24):
         """Полоса прогресса «[#####-----]  50%», заполняется за ms."""
-        self.steps.append(
-            {"op": "progress", "label": str(label), "ms": _ms(ms), "width": _ms(width, "width")}
-        )
-        return self.newline() if newline else self
+        self.steps.append({"op": "bar", "label": str(label), "ms": _ms(ms), "width": _ms(width, "width")})
+        return self.blank()
 
-    def route(self, hops, *, label="carrier", width=10, ms=450, jitter=250):
-        """Маршрут: [(название, имя, задержка мс или None для «нет ответа»), ...]."""
-        for index, (name, host, latency) in enumerate(hops):
-            self.pause(ms, jitter)
-            self.text((label if index == 0 else "").ljust(width))
-            self.text(f"{name:<10}{host:<14}")
-            if latency is None:
-                self.text("no answer", "warning")
-            else:
-                self.text(f"{latency:>3} ms", "dim")
-            self.newline()
-        return self
+    def count(self, label, to, *, unit="", ms=1400, width=17, result=None, note=None):
+        """Число растёт от 0 до to, как проверка памяти: «Memory Testing:  64000K OK»."""
+        self.steps.append(
+            {"op": "count", "label": str(label).ljust(width), "to": int(to), "unit": str(unit), "ms": _ms(ms)}
+        )
+        if result:
+            self._text(" " + result, RESULT_STYLES.get(result))
+        if note:
+            self._text("  " + note, "dim")
+        return self.blank()
+
+    def countdown(self, template, seconds):
+        """Обратный отсчёт: template содержит {n}, например «Auto-boot in {n}s...»."""
+        if isinstance(seconds, bool) or not isinstance(seconds, int) or not 1 <= seconds <= 600:
+            raise SceneError(f"seconds должно быть целым от 1 до 600, получено {seconds!r}")
+        self.steps.append({"op": "countdown", "template": str(template), "seconds": seconds})
+        return self.blank()
 
     # ---------- время и эффекты ----------
 
-    def pause(self, ms, jitter=0):
-        self.steps.append({"op": "pause", "ms": _ms(ms), "jitter": _ms(jitter, "jitter")})
+    def wait(self, ms, jitter=0):
+        self.steps.append({"op": "wait", "ms": _ms(ms), "jitter": _ms(jitter, "jitter")})
         return self
 
     def clear(self):
@@ -210,6 +277,13 @@ class Scene:
 
     def flash(self):
         self.steps.append({"op": "flash"})
+        return self
+
+    def fade(self, to="out", ms=400):
+        """Экран плавно гаснет («out») или появляется («in»)."""
+        if to not in ("out", "in"):
+            raise SceneError(f"fade: нужно 'out' или 'in', получено {to!r}")
+        self.steps.append({"op": "fade", "to": to, "ms": _ms(ms)})
         return self
 
     def glitch(self, id, to, *, frames=14):
@@ -229,17 +303,8 @@ class Scene:
         if not options:
             raise SceneError("choice без вариантов")
         self.steps.append(
-            {
-                "op": "choice",
-                "id": id,
-                "prompt": prompt,
-                "options": [o.to_dict() for o in options],
-            }
+            {"op": "choice", "id": id, "prompt": prompt, "options": [o.to_dict() for o in options]}
         )
-        return self
-
-    def extend(self, other):
-        self.steps.extend(_steps(other))
         return self
 
     # ---------- помощники ----------
