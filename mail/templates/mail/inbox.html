@@ -17,7 +17,7 @@
             <section class="pane" id="mail-side" aria-label="folders">
                 <h2 class="pane-title">intercom</h2>
                 <p id="mail-address">{{ address }}</p>
-                <button type="button" id="mail-compose" class="compose">[C] compose</button>
+                <button type="button" id="mail-compose" class="compose"><span>compose</span><span class="kbd">C</span></button>
                 <ul id="mail-folders" class="folders" role="listbox" aria-label="folders"></ul>
                 <hr>
                 <ul id="mail-labels" class="folders" role="listbox" aria-label="labels"></ul>
@@ -35,7 +35,7 @@
         </div>
 
         <footer id="mail-status">
-            <span id="mail-hint">j/k move  ·  u unread  ·  c compose  ·  esc back</span>
+            <span id="mail-hint">j / k  move   ·   u  mark unread   ·   c  compose   ·   esc  back</span>
             <span id="mail-count" aria-live="polite"></span>
         </footer>
     </main>

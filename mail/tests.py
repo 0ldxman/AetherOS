@@ -290,15 +290,31 @@ class StylesTests(TestCase):
         self.assertNotIn("insertAdjacentHTML", js)
 
 
-class TerminalLookTests(TestCase):
-    def test_the_window_uses_the_console_font_size_and_line_height(self):
-        css = (Path(__file__).resolve().parent / "static/mail/mail.css").read_text(encoding="utf-8")
-        for token in ("--font-console", "--fs-console", "--lh-console", "--term-fg", "--term-dim"):
+class LookTests(TestCase):
+    """Почта выглядит как остальные приложения (вики, карта), а не как терминал."""
+
+    def css(self):
+        return (Path(__file__).resolve().parent / "static/mail/mail.css").read_text(encoding="utf-8")
+
+    def test_the_window_uses_the_interface_font_size_and_colors(self):
+        css = self.css()
+        for token in ("--font-main", "--fg", "--font-light", "--font-muted", "--accent", "--panel", "--line", "--radius"):
+            self.assertIn(f"var({token})", css)
+        self.assertIn("font-size: 81.25%", css)            # 13px, как в вики
+
+    def test_the_terminal_palette_and_font_are_not_used_here(self):
+        css = self.css()
+        for token in ("--font-console", "--fs-console", "--lh-console", "--term-"):
+            self.assertNotIn(token, css)
+
+    def test_the_status_colors_come_from_the_status_tokens(self):
+        css = self.css()
+        for token in ("--status-ok", "--status-warn", "--status-info", "--status-error"):
             self.assertIn(f"var({token})", css)
 
     def test_the_script_renders_a_small_safe_markup(self):
         js = (Path(__file__).resolve().parent / "static/mail/mail.js").read_text(encoding="utf-8")
-        for helper in ("renderBody", "md-strong", "md-quote", "md-list", "md-h1"):
+        for helper in ("renderBody", "md-strong", "md-quote", "md-list", "md-h"):
             self.assertIn(helper, js)
 
     def test_compose_is_disabled_while_the_core_is_silent(self):

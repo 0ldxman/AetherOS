@@ -1,5 +1,5 @@
 /* ==================================================
-   INTERCOM: терминальная почта. Папки и метки слева, карточки писем в
+   INTERCOM: почта узла. Папки и метки слева, карточки писем в
    середине, письмо справа. Всё, что пришло с сервера, попадает на страницу
    через textContent (в том числе текст писем): разметку внести нельзя.
    ================================================== */
@@ -122,7 +122,7 @@
             if (!line.trim()) flush();
             else if (heading) {
                 flush();
-                block(parent, "p", "md-h" + heading[1].length, ["#".repeat(heading[1].length) + " " + heading[2]]);
+                block(parent, "p", "md-h" + heading[1].length, [heading[2]]);
             } else if (/^[-*]\s+/.test(line)) add("list", line.replace(/^[-*]\s+/, ""));
             else if (/^>\s?/.test(line)) add("quote", line.replace(/^>\s?/, ""));
             else add("p", line);
@@ -234,11 +234,11 @@
         reader.querySelectorAll(".mail-toolbar").forEach(node => node.remove());
 
         const bar = el("div", "mail-toolbar");
-        const back = el("button", "mail-button mail-back", "[esc] inbox");
+        const back = el("button", "mail-button mail-back", "‹ inbox");
         back.type = "button";
         back.addEventListener("click", () => root.classList.remove("is-reading"));
 
-        const unread = el("button", "mail-button", "[u] unread");
+        const unread = el("button", "mail-button", "mark unread");
         unread.type = "button";
         unread.addEventListener("click", () => markUnread(data.id));
 
@@ -251,7 +251,7 @@
         const back = toolbar(data);
         view.replaceChildren(back);
 
-        view.appendChild(el("p", "md-h1", "# " + data.subject));
+        view.appendChild(el("h2", "mail-title", data.subject));
 
         const fields = el("dl", "mail-fields");
         [["from", data.from], ["to", data.to], ["date", data.when]].forEach(function (pair) {
@@ -264,7 +264,7 @@
         if (data.attachments.length) {
             const files = el("div", "mail-files");
             data.attachments.forEach(function (item) {
-                const button = el("button", "mail-button", "[+] " + item.label);
+                const button = el("button", "mail-button", item.label);
                 button.type = "button";
                 button.addEventListener("click", () => openAttachment(item));
                 files.appendChild(button);
