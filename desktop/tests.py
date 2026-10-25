@@ -358,16 +358,28 @@ class BootScreenTests(TestCase):
     def test_full_boot_has_all_stages_and_the_short_one_only_connect_and_services(self):
         scenes = self.scenes()
         full, short = spoken(scenes["full"]), spoken(scenes["short"])
-        for word in ("AETHER-BIOS", "AETHER BOOT MANAGER", "Aether kernel", "Started Secure Key Agent"):
+        for word in ("AETHER FIRMWARE", "AETHER BOOT", "aether-kernel", "Started Secure Key Agent"):
             self.assertIn(word, full)
         self.assertIn("Started Secure Key Agent", short)
-        for word in ("AETHER-BIOS", "AETHER BOOT MANAGER", "Aether kernel"):
+        for word in ("AETHER FIRMWARE", "AETHER BOOT", "aether-kernel"):
             self.assertNotIn(word, short)
+
+    def test_firmware_is_a_modern_uefi_with_signatures_not_an_old_bios(self):
+        full = spoken(self.scenes()["full"])
+        for word in ("uefi", "secure boot", "tpm 2.0", "measured boot", "sha256:", "nvme0"):
+            self.assertIn(word, full)
+        for word in ("BIOS", "Press <DEL>", "Memory Testing"):
+            self.assertNotIn(word, full)
+
+    def test_the_machine_belongs_to_the_alternate_2020_not_to_2061(self):
+        full = spoken(self.scenes()["full"])
+        self.assertIn("2020", full)
+        self.assertNotIn("2061", full)
 
     def test_boot_uses_the_toolkit_not_just_text(self):
         full = self.scenes()["full"]
-        self.assertEqual(len(steps(full, "count")), 1)         # память растёт
-        self.assertEqual(len(steps(full, "countdown")), 1)     # Auto-boot in 3s
+        self.assertEqual(len(steps(full, "count")), 1)         # память
+        self.assertEqual(len(steps(full, "bar")), 1)           # загрузка образа
         self.assertGreaterEqual(len(steps(full, "spin")), 11)  # службы и задачи ядра
         self.assertEqual(steps(full, "fade")[-1]["to"], "out")  # гаснет перед переходом
 

@@ -77,6 +77,8 @@
   --ff-pt-serif: "PT Serif", Georgia, "Times New Roman", serif;
   --ff-belepotan: "Belepotan Rus", Georgia, "Times New Roman", serif;
   --ff-lemon-tuesday: "Lemon Tuesday", "Segoe Script", cursive;
+  --ff-ast-premiumexec: "AST PremiumExec", ui-monospace, Menlo, Consolas, monospace;
+  --ff-ibm-vga: "IBM VGA", ui-monospace, Menlo, Consolas, monospace;
   --ff-strokify: "Strokify", "Segoe Script", cursive;
 
   /* ---- Шрифты (роли) ---------------------------------------------------
@@ -84,6 +86,8 @@
      например --font-main: var(--ff-doto). */
   --font-main: var(--ff-jetbrains-mono);
   --font-doted: var(--ff-doto);
+  --font-console: var(--font-main);                  /* терминал загрузки и входа */
+  --fs-console: var(--fs-base);                      /* пиксельным шрифтам (IBM VGA 16px, AST 19px) нужен свой размер */
   --font-hand: var(--ff-lemon-tuesday);             /* рукописные пометки */
   --font-barcode: var(--ff-libre-barcode-39); /* штрихкод */
   --font-marker: var(--ff-belepotan);
