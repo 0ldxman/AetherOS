@@ -28,6 +28,12 @@ class Namespace(models.Model):
         on_delete=models.PROTECT,
         related_name="children",
     )
+    # где физически лежит ведро (нода сети); осмысленно только у корневого неймспейса, вложенные
+    # показывают ноду своего ведра
+    node = models.CharField(
+        max_length=50, blank=True, default="",
+        help_text="Нода, где лежит ведро (подпись). Задаётся у корневого неймспейса, вложенные показывают её же.",
+    )
     # показывается ли раздел в списках; формат см. secure/access.py, пусто = всем
     visibility = models.JSONField(
         default=dict, blank=True, validators=[validate_requirements]
@@ -131,6 +137,16 @@ class Document(models.Model):
     # открыта ли запись; пусто = открыто всем
     access = models.JSONField(
         default=dict, blank=True, validators=[validate_requirements]
+    )
+    # дата записи в мире игры (Last modified); пусто = показывается реальное время изменения
+    world_date = models.DateField(
+        null=True, blank=True,
+        help_text="Last modified в мире игры. Пусто: показывается реальное время изменения.",
+    )
+    # класс хранения: пока только подпись (standard, archive, sealed...), поведения нет
+    storage_class = models.CharField(
+        max_length=30, default="standard",
+        help_text="Класс хранения (подпись): standard, archive, sealed... Пока ничего не меняет.",
     )
 
     created_at = models.DateTimeField(auto_now_add=True)

@@ -4,13 +4,13 @@
 {% block body_class %}explorer{% endblock %}
 {% block body %}
 {% view_as_banner %}
-<div class="layout" id="layout" data-search-url="{{ search_url }}" data-scope="{{ scope_address }}" data-ns-id="{{ ns_id }}">
+<div class="layout" id="layout" data-search-url="{{ search_url }}" data-scope="{{ scope_address }}" data-ns-id="{{ ns_id }}"{% if at_root %} data-root="1"{% endif %}>
 
   <nav class="side" id="tree" aria-label="Неймспейсы">
     <ul class="tree">
       <li class="tree-root">
         <div class="t-row{% if tree.current %} current{% endif %}">
-          <a class="node" href="{{ tree.url }}">~</a>
+          <a class="node" href="{{ tree.url }}">buckets</a>
         </div>
         <ul>
         {% for node in tree.children %}{% include "wiki/_tree_node.html" %}{% endfor %}
@@ -37,31 +37,55 @@
           <div class="denied-line">&gt; no matching key<span class="cursor"></span></div>
         </div>
       {% elif documents or folders %}
-        {% if at_root %}<p class="intro">archive &middot; {{ total }} article{{ total|pluralize }} &middot; {{ prefixes }} volume{{ prefixes|pluralize }}</p>{% endif %}
-        <table class="grid" id="docs">
+        {% if at_root %}
+        {% if folders %}
+        <h2 class="list-title">Buckets ({{ prefixes }})</h2>
+        <table class="grid" id="docs" data-list>
           <thead>
             <tr>
-              <th>name</th>
-              <th>summary</th>
-              <th>access</th>
+              <th>Name</th>
+              <th>Node</th>
+              <th>Objects</th>
+              <th>Access</th>
             </tr>
           </thead>
           <tbody>
           {% for f in folders %}
-            <tr class="folder{% if not f.open %} locked{% endif %}" data-key="{{ path_text }}{{ f.name }}/" data-class="{% if at_root %}volume{% else %}section{% endif %}" data-access="{% if f.open %}open{% else %}locked{% endif %}" data-excerpt="{% if f.open %}{{ f.count }} article{{ f.count|pluralize }}{% else %}restricted: no matching key{% endif %}">
-              <td data-sort="{{ f.name }}"><a href="{{ f.url }}">{{ f.name }}<span class="ext">/</span></a></td>
-              <td class="summary">{% if f.open %}{% if at_root %}volume{% else %}section{% endif %} &middot; {{ f.count }} article{{ f.count|pluralize }}{% else %}restricted{% endif %}</td>
+            <tr class="folder{% if not f.open %} locked{% endif %}" data-key="{{ f.key }}" data-uri="{{ f.uri }}" data-class="Bucket" data-node="{{ f.node }}" data-size="{{ f.count }} object{{ f.count|pluralize }}" data-access="{% if f.open %}open{% else %}locked{% endif %}" data-excerpt="">
+              <td data-sort="{{ f.name }}"><span class="ico ico-folder" aria-hidden="true"></span><a href="{{ f.url }}">{{ f.name }}</a></td>
+              <td>{{ f.node|default:"-" }}</td>
+              <td data-sort="{{ f.count }}">{{ f.count }}</td>
+              <td{% if f.open %} class="state-open"{% endif %}>{% if f.open %}OPEN{% else %}LOCKED{% endif %}</td>
+            </tr>
+          {% endfor %}
+          </tbody>
+        </table>
+        {% endif %}
+        {% if documents %}
+        <h2 class="list-title">Objects ({{ objects }})</h2>
+        <table class="grid" data-list>
+          <thead>{% include "wiki/_object_head.html" %}</thead>
+          <tbody>
+          {% for d in documents %}{% include "wiki/_doc_row.html" %}{% endfor %}
+          </tbody>
+        </table>
+        {% endif %}
+        {% else %}
+        <h2 class="list-title">Objects ({{ total_here }})</h2>
+        <table class="grid" id="docs" data-list>
+          <thead>{% include "wiki/_object_head.html" %}</thead>
+          <tbody>
+          {% for f in folders %}
+            <tr class="folder{% if not f.open %} locked{% endif %}" data-key="{{ f.key }}" data-uri="{{ f.uri }}" data-class="Folder" data-node="{{ f.node }}" data-size="{{ f.count }} object{{ f.count|pluralize }}" data-access="{% if f.open %}open{% else %}locked{% endif %}" data-excerpt="">
+              <td data-sort="{{ f.name }}"><span class="ico ico-folder" aria-hidden="true"></span><a href="{{ f.url }}">{{ f.name }}/</a></td>
+              <td>Folder</td>
+              <td>-</td>
+              <td data-sort="-1">-</td>
+              <td>-</td>
               <td{% if f.open %} class="state-open"{% endif %}>{% if f.open %}OPEN{% else %}LOCKED{% endif %}</td>
             </tr>
           {% endfor %}
           {% for d in documents %}{% include "wiki/_doc_row.html" %}{% endfor %}
-          </tbody>
-        </table>
-        {% if recent %}
-        <p class="intro">recent</p>
-        <table class="grid" id="recent">
-          <tbody>
-          {% for d in recent %}{% include "wiki/_doc_row.html" %}{% endfor %}
           </tbody>
         </table>
         {% endif %}
@@ -74,14 +98,17 @@
     </div>
 
     <div class="props" id="props" aria-live="polite">
-      <p class="empty" id="props-empty">&gt; select an article to read it here</p>
+      <p class="empty" id="props-empty">&gt; select a bucket or an object to see its properties</p>
       <div class="reader" id="reader" hidden>
         <div class="reader-head">
           <span class="reader-title" id="reader-title"></span>
-          <button type="button" class="props-open" id="props-open" hidden>open</button>
+          <span class="reader-actions">
+            <button type="button" class="props-open" id="props-open" hidden>Open</button>
+            <button type="button" class="props-open" id="props-copy">Copy URI</button>
+          </span>
         </div>
+        <dl class="props-grid" id="props-grid"></dl>
         <p class="reader-text" id="reader-text"></p>
-        <p class="reader-meta" id="reader-meta"></p>
       </div>
     </div>
 
@@ -91,7 +118,7 @@
         <span class="typed-wrap" id="typed-wrap"><span class="typed" id="typed"></span><span class="caret" aria-hidden="true"></span><span class="typed-hint" id="typed-hint">search by name or text, then Enter</span></span>
         <input type="text" id="search" maxlength="80" aria-label="Запрос к базе" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false">
       </label>
-      <span class="viewer-meta" id="records">{% if not locked %}{{ objects }} article{{ objects|pluralize }}, {{ prefixes }} {% if at_root %}volume{{ prefixes|pluralize }}{% else %}section{{ prefixes|pluralize }}{% endif %}{% endif %}</span>
+      <span class="viewer-meta" id="records">{% if not locked %}{% if at_root %}{{ prefixes }} bucket{{ prefixes|pluralize }}, {{ objects }} object{{ objects|pluralize }}{% else %}{{ objects }} object{{ objects|pluralize }}, {{ prefixes }} folder{{ prefixes|pluralize }}{% endif %}{% endif %}</span>
     </div>
   </section>
 

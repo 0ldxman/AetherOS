@@ -82,8 +82,9 @@
     const propsEmpty = document.getElementById("props-empty");
     const readerTitle = document.getElementById("reader-title");
     const readerText = document.getElementById("reader-text");
-    const readerMeta = document.getElementById("reader-meta");
+    const propsGrid = document.getElementById("props-grid");
     const propsOpen = document.getElementById("props-open");
+    const propsCopy = document.getElementById("props-copy");
 
     let selected = null;
 
@@ -129,31 +130,43 @@
         );
     }
 
-    /* панель чтения: начало текста того, что игрок вправе видеть */
+    const PROPS = [
+        ["Type", "class"],
+        ["Last modified", "modified"],
+        ["Size", "size"],
+        ["Storage class", "storage"],
+        ["ETag", "etag"],
+        ["Node", "node"],
+        ["URI", "uri"],
+        ["Access", "access"],
+    ];
+
+    /* панель свойств: поля объекта и начало его текста (то, что игрок вправе видеть) */
     function showProps(row) {
         const data = row.dataset;
         const locked = data.access === "locked";
 
         readerTitle.textContent = data.key;
+        propsGrid.replaceChildren();
+
+        PROPS.forEach(function (pair) {
+            const value = data[pair[1]];
+
+            if (!value || value === "-") {
+                return;
+            }
+
+            const term = document.createElement("dt");
+            const cell = document.createElement("dd");
+
+            term.textContent = pair[0];
+            cell.textContent = value;
+            propsGrid.append(term, cell);
+        });
+
         readerText.textContent = locked
             ? "> restricted: no matching key"
-            : data.excerpt || "> no text";
-
-        const meta = [data.class];
-
-        if (data.size && data.size !== "-") {
-            meta.push(data.size);
-        }
-
-        if (data.etag && data.etag !== "-") {
-            meta.push("etag " + data.etag);
-        }
-
-        if (data.infoboxUrl) {
-            meta.push("infobox");
-        }
-
-        readerMeta.textContent = meta.join("  \u00b7  ");
+            : data.excerpt || "";
 
         propsEmpty.hidden = true;
         readerBox.hidden = false;
@@ -203,6 +216,30 @@
 
             if (link) {
                 window.location.href = link.href;
+            }
+        });
+    }
+
+    if (propsCopy) {
+        propsCopy.addEventListener("click", function () {
+            if (!selected) {
+                return;
+            }
+
+            const uri = selected.dataset.uri;
+            const desktop = getDesktop();
+
+            /* буфер обмена может быть недоступен: тогда просто сообщаем адрес */
+            const done = function () {
+                if (desktop && desktop.notify) {
+                    desktop.notify("uri_copied", { object: uri });
+                }
+            };
+
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                navigator.clipboard.writeText(uri).then(done, done);
+            } else {
+                done();
             }
         });
     }
@@ -269,23 +306,20 @@
         });
     }
 
-    const docsTable = document.getElementById("docs");
-    const recentTable = document.getElementById("recent");
+    document.querySelectorAll("[data-list]").forEach(function (table) {
+        bindOpen(table);
+        bindSort(table);
+    });
 
-    if (docsTable) {
-        bindOpen(docsTable);
-        bindSort(docsTable);
+    /* читать есть что сразу: в разделе выбрана первая запись (на корне ничего не выбрано) */
+    const rootLayout = document.getElementById("layout");
 
-        /* читать есть что сразу: первая запись раздела выбрана */
-        const first = docsTable.querySelector("tr[data-url]");
+    if (rootLayout && !rootLayout.dataset.root) {
+        const first = document.querySelector("[data-list] tr[data-url]");
 
         if (first) {
             select(first);
         }
-    }
-
-    if (recentTable) {
-        bindOpen(recentTable);
     }
 
     /* ================================================== */
@@ -431,7 +465,7 @@
 
         const headRow = el("tr");
 
-        ["name", "summary", "access"].forEach(function (label) {
+        ["Name", "Location", "Type", "Size", "Access"].forEach(function (label) {
             headRow.appendChild(el("th", null, label));
         });
 
@@ -447,8 +481,12 @@
             tr.dataset.ext = item.ext || "";
             tr.dataset.url = item.url;
             tr.dataset.key = item.key;
+            tr.dataset.uri = item.uri;
             tr.dataset.class = item.kind;
+            tr.dataset.modified = item.modified || "-";
             tr.dataset.size = item.size || "-";
+            tr.dataset.storage = item.storage || "-";
+            tr.dataset.node = item.node || "";
             tr.dataset.etag = item.etag || "-";
             tr.dataset.access = item.open ? "open" : "locked";
             tr.dataset.excerpt = item.excerpt || "";
@@ -463,12 +501,15 @@
 
             const link = el("a", null);
             link.href = item.url;
-            link.appendChild(el("span", "ext", item.path || ""));
             link.appendChild(document.createTextNode(item.title));
+            link.appendChild(el("span", "ext", item.ext || ""));
             link.appendChild(el("span", "ext", item.ext || ""));
             nameCell.appendChild(link);
 
-            const summaryCell = el("td", "summary", item.summary || "");
+            const locationCell = el("td", null, item.path || "-");
+            const classCell = el("td", null, item.kind);
+            const sizeCell = el("td", null, item.size || "-");
+            sizeCell.dataset.sort = item.bytes;
 
             const accessCell = el(
                 "td",
@@ -476,7 +517,7 @@
                 item.open ? "OPEN" : "LOCKED"
             );
 
-            tr.append(nameCell, summaryCell, accessCell);
+            tr.append(nameCell, locationCell, classCell, sizeCell, accessCell);
             body.appendChild(tr);
         });
 

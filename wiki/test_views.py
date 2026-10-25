@@ -79,14 +79,14 @@ class WikiViewsTests(TestCase):
         self.assertIn('class="crumbs"', html)
         self.assertNotIn("crumb-up", html)  # «вверх» это ссылки пути, отдельной кнопки нет
 
-    def test_sections_are_rows_next_to_records(self):
+    def test_root_lists_buckets_and_root_objects(self):
         status, html, _ = call(views.resolve, "")
         self.assertEqual(status, 200)
-        self.assertIn('class="folder', html)
-        self.assertIn("<th>summary</th>", html)
-        self.assertIn('data-class="volume"', html)  # раздел верхнего уровня это том
-        self.assertIn("Открытая", html)
-        self.assertIn("2 articles, 1 volume", html)  # открытая запись, запись со спойлером, том «Закрытый»
+        self.assertIn("Buckets (1)", html)           # «Закрытый» (виден, но закрыт замком)
+        self.assertIn("<th>Node</th>", html)
+        self.assertIn('data-class="Bucket"', html)
+        self.assertIn("Objects (2)", html)
+        self.assertIn("1 bucket, 2 objects", html)
 
     def test_object_metadata_ignores_hidden_spoilers(self):
         """Размер и etag считаются по видимому тексту: из них нельзя вытянуть закрытую часть."""
@@ -98,24 +98,61 @@ class WikiViewsTests(TestCase):
             [line for line in keyed.splitlines() if "Со спойлером" in line and "data-etag" in line],
         )
 
-    def test_summary_is_the_first_sentence_without_the_repeated_title(self):
+    def test_preview_skips_the_repeated_title(self):
         Document.objects.create(
             namespace=None, title="Статья", body="# Статья\n\nПервая фраза. Вторая фраза.\n\nАбзац."
         )
         _, html, _ = call(views.resolve, "")
-        self.assertIn('<td class="summary">Первая фраза.</td>', html)
+        self.assertIn('data-excerpt="Первая фраза. Вторая фраза.\nАбзац."', html)
 
     def test_locked_article_shows_no_text(self):
         Document.objects.create(namespace=None, title="Закрыта", body="тайный текст", access="key_a")
         _, html, _ = call(views.resolve, "")
         self.assertNotIn("тайный текст", html)
-        self.assertIn('<td class="summary">restricted</td>', html)
+        line = next(l for l in html.splitlines() if 'data-title="Закрыта"' in l)
+        self.assertIn('data-excerpt=""', line)
+        self.assertIn('data-modified="-"', line)     # дата тоже не раскрывается
+        self.assertIn('data-storage="-"', line)
 
-    def test_counts_include_only_visible_articles(self):
+    def test_bucket_count_includes_only_visible_articles(self):
         _, html, _ = call(views.resolve, "")
-        # открыта «Открытая» и «Со спойлером»; «Скрытая» не видна, «Вложенная» за замком раздела, но видна
-        self.assertIn("archive &middot; 4 articles", html)
+        line = next(l for l in html.splitlines() if 'data-class="Bucket"' in l)
+        self.assertIn('data-size="2 objects"', line)  # «Секретная» и «Вложенная»; «Скрытая» не видна
         self.assertNotIn("Скрытая", html)
+
+    def test_objects_have_s3_style_keys_and_uris(self):
+        _, html, _ = call(views.resolve, "")
+        self.assertIn('data-key="Открытая.doc"', html)
+        self.assertIn('data-uri="aether://Открытая.doc"', html)
+        _, html, _ = self.node_page()
+        self.assertIn('data-uri="aether://Корень/Лист.doc"', html)
+
+    def node_page(self):
+        bucket = Namespace.objects.create(name="Корень", node="ν-0412")
+        Document.objects.create(namespace=bucket, title="Лист", body="текст")
+        Namespace.objects.create(name="Вложен", parent=bucket)
+        return call(views.resolve, "Корень")
+
+    def test_a_bucket_shows_its_node_and_nested_folders_inherit_it(self):
+        _, html, _ = self.node_page()
+        self.assertIn('data-node="ν-0412"', html)
+        line = next(l for l in html.splitlines() if 'data-class="Folder"' in l)
+        self.assertIn('data-node="ν-0412"', line)
+
+    def test_last_modified_is_the_world_date_or_the_real_time(self):
+        import datetime
+
+        Document.objects.create(namespace=None, title="Датированная", body="х", world_date=datetime.date(2027, 10, 3))
+        _, html, _ = call(views.resolve, "")
+        line = next(l for l in html.splitlines() if 'data-title="Датированная"' in l)
+        self.assertIn('data-modified="Oct 3, 2027"', line)
+        other = next(l for l in html.splitlines() if 'data-title="Открытая"' in l)
+        self.assertNotIn("2027", other)               # без даты в мире показывается реальное время
+
+    def test_storage_class_defaults_to_standard(self):
+        _, html, _ = call(views.resolve, "")
+        line = next(l for l in html.splitlines() if 'data-title="Открытая"' in l)
+        self.assertIn('data-storage="standard"', line)
 
     def test_locked_object_has_no_size_or_etag(self):
         locked = Document.objects.create(namespace=None, title="Замок", body="х" * 50, access="key_a")
@@ -206,7 +243,7 @@ class WikiViewsTests(TestCase):
         }
         # потолки с запасом; главное - не растут с глубиной пути
         for name, limit in {
-            "home": 4,  # + «recent» на стартовой странице
+            "home": 3,
             "namespace": 3,
             "document": 3,
             "deep_document": 3,

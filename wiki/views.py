@@ -186,19 +186,46 @@ def _size_text(count):
     return f"{count / (1024 * 1024):.1f} MB"
 
 
+def _node_of(namespace):
+    """Нода ведра: у корня цепочки; пусто, если не задана или записи вне ведра."""
+    return namespace.chain()[0].node if namespace is not None else ""
+
+
+def _key(namespace, name):
+    """Ключ объекта в стиле S3: путь от ведра без «~», разделы через «/»."""
+    parts = [n.name for n in namespace.chain()] if namespace is not None else []
+    return "/".join(parts + [name])
+
+
+def _uri(key):
+    return f"aether://{key}"
+
+
+def _modified(doc):
+    """Last modified: дата в мире, если задана, иначе реальное время изменения (текст и ключ сортировки)."""
+    if doc.world_date:
+        d = doc.world_date
+        return f"{d:%b} {d.day}, {d.year}", d.isoformat()
+    t = doc.updated_at
+    return f"{t:%b} {t.day}, {t.year}", t.isoformat()
+
+
 def _doc_row(doc, state, keys):
     """Одна строка таблицы для записи (doc.namespace уже привязан).
 
-    Размер и контрольная сумма считаются по тому, что игрок вправе прочитать (без закрытых
-    ::spoiler); у закрытой записи их нет совсем.
+    Размер, контрольная сумма, дата и класс хранения показываются только у открытой записи:
+    у закрытой видны лишь название и тип.
     """
     url = _doc_url(doc)
     has_infobox = state.open and bool(doc.infobox.strip())
 
-    size = etag = None
+    size = etag = modified = storage = None
+    modified_sort = ""
     nbytes = 0
     summary, excerpt = "restricted", ""
     if state.open:
+        modified, modified_sort = _modified(doc)
+        storage = doc.storage_class
         visible = visible_text(doc.body, keys)
         raw = visible.encode("utf-8")
         nbytes = len(raw)
@@ -214,7 +241,12 @@ def _doc_row(doc, state, keys):
         "type": doc.type,
         "kind": KIND_LABELS.get(doc.type, doc.type),
         "updated": doc.updated_at,
-        "key": f"{_path_text(doc.namespace)}{doc.title}{doc.ext}",
+        "key": _key(doc.namespace, doc.title + doc.ext),
+        "uri": _uri(_key(doc.namespace, doc.title + doc.ext)),
+        "node": _node_of(doc.namespace),
+        "modified": modified,
+        "modified_sort": modified_sort,
+        "storage": storage,
         "bytes": nbytes,
         "size": size,
         "etag": etag,
@@ -265,28 +297,6 @@ def _article_counts(request, keys):
     return counts, total
 
 
-def _recent(request, keys, limit=5):
-    """Недавно изменённые открытые записи из доступных томов (для стартовой страницы)."""
-    by_id = {n.pk: n for n in _all_namespaces(request)}
-    rows = []
-
-    for doc in Document.objects.order_by("-updated_at")[:60]:
-        if doc.namespace_id is not None:
-            if doc.namespace_id not in by_id:
-                continue
-            doc.namespace = by_id[doc.namespace_id]
-
-        state = document_state(doc, keys)
-        if not (state.visible and state.open):
-            continue
-
-        rows.append(_doc_row(doc, state, keys))
-        if len(rows) == limit:
-            break
-
-    return rows
-
-
 def _folders(tree, ns):
     """Подразделы текущего раздела (из дерева: скрытых и закрытых заглядываний там уже нет)."""
     if ns is None:
@@ -306,7 +316,7 @@ def _folders(tree, ns):
 
 def _path_bar(ns):
     """Кликабельный путь: ~ и разделы вплоть до текущего."""
-    return [{"name": "~", "url": reverse("wiki:home")}] + _crumbs(ns)
+    return [{"name": "Buckets", "url": reverse("wiki:home")}] + _crumbs(ns)
 
 
 def _locked(request, title, crumbs=None):
@@ -333,8 +343,12 @@ def _namespace_page(request, ns):
     documents = [] if locked else _doc_rows(ns, keys)
     folders = [] if locked else _folders(tree, ns)
     counts, total = _article_counts(request, keys)
+    nodes = {n.pk: n for n in _all_namespaces(request)}
     for folder in folders:
         folder["count"] = counts[folder["id"]]
+        folder["key"] = _key(nodes[folder["id"]], "")      # заканчивается на «/»
+        folder["uri"] = _uri(folder["key"])
+        folder["node"] = _node_of(nodes[folder["id"]])
 
     return render(
         request,
@@ -353,8 +367,8 @@ def _namespace_page(request, ns):
             # за замком даже список документов не отдаём
             "documents": documents,
             "total": total,
-            "recent": _recent(request, keys) if ns is None and not locked else [],
             "objects": len(documents),
+            "total_here": len(documents) + len(folders),
             "prefixes": len(folders),
         },
         status=403 if locked else 200,
@@ -526,7 +540,7 @@ def search(request):
 
         row = _doc_row(doc, s, keys)
         row.pop("updated", None)  # в выдаче не нужно, и datetime лишний в JSON
-        row["path"] = _path_text(doc.namespace)
+        row["path"] = _key(doc.namespace, "")
         rows.append(row)
 
     rows.sort(key=lambda r: (r["path"], r["title"].casefold()))

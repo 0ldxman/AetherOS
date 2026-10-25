@@ -853,6 +853,9 @@ li:last-child > details > .t-row.locked {
 
 
 .grid td {
+    overflow: hidden;
+    text-overflow: ellipsis;
+
     border-bottom: 1px solid var(--line);
 
     font-variant-numeric: tabular-nums;
@@ -1090,4 +1093,76 @@ body::-webkit-scrollbar-thumb:hover {
 
 .layout.tree-hidden .side {
     display: none;
+}
+
+
+/* заголовки списков и значки, как в консоли хранилища объектов */
+.list-title {
+    margin: 0;
+    padding: 0.8rem var(--pad-x) 0.4rem;
+
+    color: var(--fg);
+
+    font-size: 1rem;
+    font-weight: 600;
+}
+
+
+.ico {
+    display: inline-block;
+    width: 0.9em;
+    height: 0.7em;
+    margin-right: 1ch;
+
+    border: 1px solid currentColor;
+
+    color: var(--accent);
+
+    vertical-align: -0.05em;
+}
+
+
+.ico-folder {
+    border-radius: 0 2px 2px 2px;
+    border-top-width: 3px;
+}
+
+
+.ico-file {
+    width: 0.7em;
+    height: 0.9em;
+
+    color: var(--font-muted);
+}
+
+
+.reader-actions {
+    display: flex;
+    flex: 0 0 auto;
+    gap: 0.5rem;
+}
+
+
+.props-grid {
+    display: grid;
+    grid-template-columns: max-content minmax(0, 1fr) max-content minmax(0, 1fr);
+    gap: 0.15rem 2ch;
+
+    margin: 0.5rem 0;
+}
+
+
+.props-grid dt {
+    color: var(--font-muted);
+}
+
+
+.props-grid dd {
+    margin: 0;
+
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+
+    color: var(--fg);
 }

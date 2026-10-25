@@ -39,6 +39,12 @@ MESSAGES = {
             "title": "Operation failed",
             "text": "The request could not be completed.",
         },
+        "uri_copied": {
+            "kind": "info",
+            "code": "",
+            "title": "URI copied",
+            "text": "{object}",
+        },
         "mail_sent": {
             "kind": "info",
             "code": "",
