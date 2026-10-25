@@ -51,7 +51,7 @@ class MessageAdmin(ConditionFieldsMixin, admin.ModelAdmin):
 
     fieldsets = (
         (None, {"fields": ("sender", "recipients", "subject", "body", "sent_at", "status")}),
-        ("Дополнительно", {"fields": ("slug", "key_condition", "label", "label_tone")}),
+        ("Дополнительно", {"fields": ("slug", "key_condition", "label", "label_tone"), "classes": ("collapse",)}),
         ("Metadata", {"fields": ("created_at", "updated_at"), "classes": ("collapse",)}),
     )
 
