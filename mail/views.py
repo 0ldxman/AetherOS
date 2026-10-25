@@ -1,3 +1,4 @@
+import re
 from datetime import timezone
 
 from django.http import Http404, JsonResponse
@@ -21,14 +22,22 @@ def _sender(message):
     return message.sender_name
 
 
+def _plain(text):
+    """Текст без разметки письма (# - > ** * `): для превью в карточке."""
+    text = re.sub(r"^\s*(#{1,3}\s+|[-*]\s+|>\s?)", "", text, flags=re.MULTILINE)
+    return " ".join(re.sub(r"(\*\*|\*|`)", "", text).split())
+
+
 def _row(message, unread):
-    body = " ".join(message.body.split())
+    body = _plain(message.body)
     return {
         "id": message.pk,
         "sender": message.sender_name,
         "subject": message.subject or "(no subject)",
         "when": _when(message.sent_at),
         "unread": unread,
+        "label": message.label,
+        "tone": message.label_tone,
         "preview": body[:PREVIEW_LENGTH] + ("…" if len(body) > PREVIEW_LENGTH else ""),
         "attachments": len(message.attachments.all()),
     }

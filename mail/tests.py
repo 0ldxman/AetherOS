@@ -164,7 +164,9 @@ class InboxApiTests(TestCase):
         self.witness()
         response = self.client.get(reverse("mail:inbox"))
         self.assertContains(response, "witness@aether-null")
-        self.assertContains(response, 'id="mail-list"')
+        for element in ('id="mail-list"', 'id="mail-folders"', 'id="mail-labels"', 'id="mail-reader"',
+                        'id="mail-compose"', 'id="mail-status"'):
+            self.assertContains(response, element)
         self.assertContains(response, "mail/mail.js")
         self.assertContains(response, "csrfmiddlewaretoken")
 
@@ -176,6 +178,27 @@ class InboxApiTests(TestCase):
         self.assertEqual((row["sender"], row["subject"], row["unread"]), ("██████", "the door", True))
         self.assertEqual(row["when"], "2030-11-14 03:11 UTC")
         self.assertEqual(row["preview"], "come in. quietly.")
+
+    def test_the_card_has_a_label_with_a_tone(self):
+        make_message(machine=self.null, label="system", label_tone="info")
+        make_message(machine=self.null, subject="plain")
+        self.witness()
+        _, data = self.get_json("mail:messages")
+        by_subject = {row["subject"]: row for row in data["messages"]}
+        self.assertEqual((by_subject["for you"]["label"], by_subject["for you"]["tone"]), ("system", "info"))
+        self.assertEqual((by_subject["plain"]["label"], by_subject["plain"]["tone"]), ("", "dim"))
+
+    def test_the_card_preview_has_no_markup_marks(self):
+        make_message(machine=self.null, body="## the door\n\n- **open** since `monday`\n> *quiet*")
+        self.witness()
+        _, data = self.get_json("mail:messages")
+        self.assertEqual(data["messages"][0]["preview"], "the door open since monday quiet")
+
+    def test_the_full_text_keeps_its_markup_for_the_reader(self):
+        message = make_message(machine=self.null, body="## the door\n\n- **open**")
+        self.witness()
+        _, data = self.get_json("mail:message", message.pk)
+        self.assertEqual(data["body"], "## the door\n\n- **open**")
 
     def test_opening_a_message_marks_it_read_and_returns_everything(self):
         message = make_message(machine=self.null, to_login="witness")
@@ -267,12 +290,28 @@ class StylesTests(TestCase):
         self.assertNotIn("insertAdjacentHTML", js)
 
 
+class TerminalLookTests(TestCase):
+    def test_the_window_uses_the_console_font_size_and_line_height(self):
+        css = (Path(__file__).resolve().parent / "static/mail/mail.css").read_text(encoding="utf-8")
+        for token in ("--font-console", "--fs-console", "--lh-console", "--term-fg", "--term-dim"):
+            self.assertIn(f"var({token})", css)
+
+    def test_the_script_renders_a_small_safe_markup(self):
+        js = (Path(__file__).resolve().parent / "static/mail/mail.js").read_text(encoding="utf-8")
+        for helper in ("renderBody", "md-strong", "md-quote", "md-list", "md-h1"):
+            self.assertIn(helper, js)
+
+    def test_compose_is_disabled_while_the_core_is_silent(self):
+        js = (Path(__file__).resolve().parent / "static/mail/mail.js").read_text(encoding="utf-8")
+        self.assertIn("core unreachable", js)
+
+
 class AdminTests(TestCase):
     @classmethod
     def setUpTestData(cls):
         cls.admin = get_user_model().objects.create_superuser("root", password="pw")
         cls.machine = Machine.objects.create(name="Null", hostname="aether-null")
-        cls.message = make_message(machine=cls.machine, key_condition="the_door")
+        cls.message = make_message(machine=cls.machine, key_condition="the_door", label="personal")
 
     def setUp(self):
         previous = get_script_prefix()
@@ -296,6 +335,7 @@ class AdminTests(TestCase):
         response = self.client.get(reverse("admin:mail_message_changelist"))
         self.assertContains(response, "the_door")
         self.assertContains(response, "██████")
+        self.assertContains(response, "personal")
 
     def test_the_key_usage_lists_the_letter(self):
         from secure.usage import key_usage, used_slugs

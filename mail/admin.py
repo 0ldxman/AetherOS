@@ -26,12 +26,13 @@ class MessageAdmin(ConditionFieldsMixin, admin.ModelAdmin):
         "sender_name",
         "to_login",
         "machine",
+        "label",
         "sent_at",
         "condition",
         "readers",
     )
     list_display_links = ("subject_or_blank",)
-    list_filter = ("machine", "sent_at")
+    list_filter = ("machine", "label", "sent_at")
     search_fields = ("subject", "body", "sender_name", "sender_address", "to_login")
     autocomplete_fields = ("machine",)
     ordering = ("-sent_at",)
@@ -39,7 +40,7 @@ class MessageAdmin(ConditionFieldsMixin, admin.ModelAdmin):
 
     fieldsets = (
         ("Letter", {"fields": ("sender_name", "sender_address", "to_login", "machine", "sent_at")}),
-        ("Content", {"fields": ("subject", "body")}),
+        ("Content", {"fields": ("subject", "body", "label", "label_tone")}),
         ("Visibility", {"fields": ("key_condition",)}),
         ("Metadata", {"fields": ("created_at", "updated_at")}),
     )

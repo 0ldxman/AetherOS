@@ -50,7 +50,31 @@ class Message(models.Model):
     body = models.TextField(
         "Текст",
         blank=True,
-        help_text="Простой текст. Абзацы и переносы строк сохраняются.",
+        help_text=(
+            "Простой текст. Абзацы сохраняются. Можно: # заголовок, ## подзаголовок, "
+            "- пункт списка, > цитата, **жирный**, *курсив*, `код`."
+        ),
+    )
+
+    label = models.CharField(
+        "Метка",
+        max_length=32,
+        blank=True,
+        help_text="Короткий ярлык на карточке и в боковой панели, например system или personal.",
+    )
+
+    class Tone(models.TextChoices):
+        DIM = "dim", "Серая"
+        INFO = "info", "Голубая"
+        OK = "ok", "Зелёная"
+        WARN = "warn", "Жёлтая"
+        ERROR = "error", "Красная"
+
+    label_tone = models.CharField(
+        "Цвет метки",
+        max_length=8,
+        choices=Tone.choices,
+        default=Tone.DIM,
     )
 
     sent_at = models.DateTimeField(

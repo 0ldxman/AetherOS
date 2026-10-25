@@ -12,18 +12,32 @@
           data-list-url="{% url 'mail:messages' %}"
           data-message-url="{% url 'mail:message' 0 %}"
           data-unread-url="{% url 'mail:unread' 0 %}">
-        <header id="mail-bar">
-            <span id="mail-address">{{ address }}</span>
-            <span id="mail-count" aria-live="polite"></span>
-        </header>
 
         <div id="mail-panes">
-            <ul id="mail-list" role="listbox" aria-label="inbox"></ul>
+            <section class="pane" id="mail-side" aria-label="folders">
+                <h2 class="pane-title">intercom</h2>
+                <p id="mail-address">{{ address }}</p>
+                <button type="button" id="mail-compose" class="compose">[C] compose</button>
+                <ul id="mail-folders" class="folders" role="listbox" aria-label="folders"></ul>
+                <hr>
+                <ul id="mail-labels" class="folders" role="listbox" aria-label="labels"></ul>
+            </section>
 
-            <article id="mail-view" aria-live="polite">
-                <p id="mail-empty">select a message</p>
-            </article>
+            <section class="pane" id="mail-middle" aria-label="messages">
+                <h2 class="pane-title" id="mail-folder-title">inbox</h2>
+                <ol id="mail-list" class="cards"></ol>
+            </section>
+
+            <section class="pane" id="mail-reader" aria-label="message" aria-live="polite">
+                <h2 class="pane-title">preview</h2>
+                <div id="mail-view"><p id="mail-empty">select a message</p></div>
+            </section>
         </div>
+
+        <footer id="mail-status">
+            <span id="mail-hint">j/k move  ·  u unread  ·  c compose  ·  esc back</span>
+            <span id="mail-count" aria-live="polite"></span>
+        </footer>
     </main>
     {% csrf_token %}
 {% endblock %}
