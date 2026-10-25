@@ -84,33 +84,22 @@ class WikiViewsTests(TestCase):
         self.assertEqual(status, 200)
         self.assertNotIn("crumb-up", html)
 
-    def test_sections_are_shown_as_cards_next_to_records(self):
+    def test_sections_are_rows_next_to_records(self):
         status, html, _ = call(views.resolve, "")
         self.assertEqual(status, 200)
-        self.assertIn('id="cards"', html)
-        self.assertIn('card card-folder', html)
+        self.assertIn('class="folder', html)
+        self.assertIn('<th class="n">#</th>', html)
         self.assertIn("Открытая", html)
-        self.assertIn('data-filter="open"', html)
-        self.assertIn('data-view="list"', html)
+        self.assertIn("3 rows", html)  # два раздела и одна открытая запись
 
-    def test_locked_section_shows_no_cards_or_filters(self):
+    def test_locked_section_shows_no_rows(self):
         status, html, _ = call(views.resolve, "Закрытый")
         self.assertEqual(status, 403)
-        self.assertNotIn('id="cards"', html)
-        self.assertNotIn('id="chips"', html)
+        self.assertNotIn('id="docs"', html)
         self.assertNotIn("Вложенная", html)
 
-    def test_type_chips_appear_only_when_types_differ(self):
-        _, html, _ = call(views.resolve, "")
-        self.assertNotIn('data-filter="type:', html)
-
-        Document.objects.create(namespace=None, title="Снимок", type=Document.Type.SCAN)
-        _, html, _ = call(views.resolve, "")
-        self.assertIn('data-filter="type:scan"', html)
-        self.assertIn('data-filter="type:doc"', html)
-
-    def test_closed_section_is_not_expanded_into_cards(self):
-        """Карточки подразделов берутся из дерева: за замок они не заглядывают."""
+    def test_closed_section_is_not_expanded_into_rows(self):
+        """Строки подразделов берутся из дерева: за замок они не заглядывают."""
         _, html, _ = call(views.resolve, "")
         self.assertIn("Закрытый", html)
         self.assertNotIn("Дочерний", html)

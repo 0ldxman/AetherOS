@@ -212,6 +212,7 @@ def _namespace_page(request, ns):
     tree = _tree(request, keys, ns)
     crumbs, up_url = _path_bar(ns)
     documents = [] if locked else _doc_rows(ns, keys)
+    folders = [] if locked else _folders(tree, ns)
 
     return render(
         request,
@@ -220,8 +221,7 @@ def _namespace_page(request, ns):
             "tree": tree,
             "crumbs": crumbs,
             "up_url": up_url,
-            "folders": [] if locked else _folders(tree, ns),
-            "kinds": sorted({(d["type"], d["kind"]) for d in documents}),
+            "folders": folders,
             "path_text": _path_text(ns),
             "prompt": _prompt(request, ns),
             "search_url": reverse("wiki:search"),
@@ -230,6 +230,7 @@ def _namespace_page(request, ns):
             "locked": locked,
             # за замком даже список документов не отдаём
             "documents": documents,
+            "rows": len(documents) + len(folders),
         },
         status=403 if locked else 200,
     )
