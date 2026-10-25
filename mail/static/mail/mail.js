@@ -19,7 +19,7 @@
     const status = document.getElementById("mail-status");
     const HINT = hint.textContent;
 
-    const state = { messages: [], selected: null, folder: { type: "all", value: "" } };
+    const state = { messages: [], selected: null, folder: { type: "inbox", value: "" } };
 
     function el(tag, className, text) {
         const node = document.createElement(tag);
@@ -136,9 +136,13 @@
 
     function inFolder(message) {
         const folder = state.folder;
-        if (folder.type === "unread") return message.unread;
         if (folder.type === "label") return message.label === folder.value;
-        return true;
+        if (folder.type === "unread") return message.folder === "inbox" && message.unread;
+        return message.folder === folder.type;
+    }
+
+    function inFolderCount(name) {
+        return state.messages.filter(m => m.folder === name).length;
     }
 
     function visible() {
@@ -166,8 +170,10 @@
     function renderFolders() {
         const unread = state.messages.filter(m => m.unread).length;
         folders.replaceChildren(
-            folderRow("all", "", "inbox", state.messages.length),
-            folderRow("unread", "", "unread", unread)
+            folderRow("inbox", "", "inbox", inFolderCount("inbox")),
+            folderRow("unread", "", "unread", unread),
+            folderRow("drafts", "", "drafts", inFolderCount("drafts")),
+            folderRow("sent", "", "sent", inFolderCount("sent"))
         );
 
         const counts = {};
@@ -180,7 +186,7 @@
         );
 
         const folder = state.folder;
-        folderTitle.textContent = folder.type === "all" ? "inbox" : folder.type === "unread" ? "unread" : folder.value;
+        folderTitle.textContent = folder.type === "label" ? folder.value : folder.type;
     }
 
 
@@ -258,6 +264,8 @@
             fields.append(el("dt", "", pair[0]), el("dd", "", pair[1]));
         });
         view.appendChild(fields);
+
+        if (data.note) view.appendChild(el("p", "mail-note", data.note));
 
         renderBody(view, data.body);
 
@@ -351,6 +359,7 @@
     getJson(root.dataset.listUrl)
         .then(function (data) {
             state.messages = data.messages;
+            if (data.address) document.getElementById("mail-address").textContent = data.address;
             renderAll();
 
             const shown = visible();

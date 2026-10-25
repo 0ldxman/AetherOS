@@ -10,6 +10,7 @@ compile_text(text) -> list[CompiledLayer] или StateError со ВСЕМИ ош
 """
 
 import difflib
+import re
 from dataclasses import dataclass
 from string import Formatter
 from typing import Any
@@ -17,6 +18,7 @@ from typing import Any
 from filesystem.states.base import BaseState, Param
 from filesystem.states.hooks import (
     ACTIONS,
+    MAIL_ACTIONS,
     EVENTS,
     GLOBAL_PLACEHOLDERS,
     PATH_ACTIONS,
@@ -207,6 +209,50 @@ def _check_text(
     return problems
 
 
+MAIL_SLUG = re.compile(r"^[a-z0-9][a-z0-9_-]*$")
+MAIL_MAX_DELAY = 7 * 24 * 3600
+
+
+def parse_mail(action: Action):
+    """mail <письмо> [delay=секунды] -> (slug, секунды) или (None, текст ошибки)."""
+    if action.quoted:
+        return None, "«mail»: идентификатор письма пишется без кавычек"
+
+    args, err = tokenize(action.value)
+
+    if err:
+        return None, err
+
+    if not args or args[0].key is not None:
+        return None, "«mail» требует идентификатор письма: mail door_open"
+
+    slug = args[0].value
+
+    if not MAIL_SLUG.match(slug):
+        return None, f"«mail»: идентификатор «{slug}» не подходит (строчные латинские буквы, цифры, «-» и «_»)"
+
+    delay = 0
+
+    for extra in args[1:]:
+        if extra.key != "delay":
+            return None, "«mail» принимает только delay=секунды"
+
+        try:
+            delay = int(extra.value)
+        except ValueError:
+            return None, f"«mail»: delay должен быть целым числом секунд, а не «{extra.value}»"
+
+        if not 0 <= delay <= MAIL_MAX_DELAY:
+            return None, f"«mail»: delay от 0 до {MAIL_MAX_DELAY} секунд"
+
+    return (slug, delay), None
+
+
+def _check_mail(action: Action) -> list[Problem]:
+    parsed, error = parse_mail(action)
+    return [Problem(action.line, error)] if error else []
+
+
 def _check_action(
     action: Action, registry: StateRegistry, allowed: set[str]
 ) -> list[Problem]:
@@ -235,6 +281,9 @@ def _check_action(
             return [Problem(line, f"«{name}» принимает ровно один путь")]
 
         return []
+
+    if name in MAIL_ACTIONS:
+        return _check_mail(action)
 
     # add <слой> [аргументы]
     if action.quoted:

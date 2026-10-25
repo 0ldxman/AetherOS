@@ -59,6 +59,15 @@ class Machine(models.Model):
         blank=True,
     )
 
+    mail_domain = models.CharField(
+        max_length=255,
+        blank=True,
+        help_text=(
+            "Почтовый домен машины, например apollo.mail. Пусто: берётся первое слово "
+            "имени хоста и «.mail» (apollo-staff -> apollo.mail)."
+        ),
+    )
+
     created_at = models.DateTimeField(
         auto_now_add=True,
     )
@@ -66,6 +75,13 @@ class Machine(models.Model):
     updated_at = models.DateTimeField(
         auto_now=True,
     )
+
+    @property
+    def mail_host(self):
+        """Домен почтовых адресов на этой машине: login@<mail_host>."""
+        if self.mail_domain:
+            return self.mail_domain
+        return f"{(self.hostname or self.name).split('-')[0]}.mail"
 
     @property
     def label(self):

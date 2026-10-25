@@ -135,4 +135,6 @@ class LayerCommand(BaseCommand):
             lines = [f"{self.name}: {target}: wrong {wrong}"]
             code = 1
 
-        return CommandResult("\n".join(lines + outcome.say), code)
+        arrived = sum(1 for item in outcome.mail if item.delivered and item.immediate)
+        notice = [f"intercom: {arrived} new message{'s' if arrived != 1 else ''}"] if arrived else []
+        return CommandResult("\n".join(lines + outcome.say + notice), code)

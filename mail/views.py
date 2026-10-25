@@ -36,6 +36,8 @@ def _row(message, unread):
         "subject": message.subject or "(no subject)",
         "when": _when(message.sent_at),
         "unread": unread,
+        "folder": getattr(message, "folder", "inbox"),
+        "note": message.status_note,
         "label": message.label,
         "tone": message.label_tone,
         "preview": body[:PREVIEW_LENGTH] + ("…" if len(body) > PREVIEW_LENGTH else ""),
@@ -53,9 +55,7 @@ def _viewer_or_404(request):
 @ensure_csrf_cookie
 def inbox(request):
     viewer = _viewer_or_404(request)
-    return render(request, "mail/inbox.html", {
-        "address": f"{viewer.login}@{viewer.machine.label}",
-    })
+    return render(request, "mail/inbox.html", {"address": viewer.address})
 
 
 @require_GET
@@ -63,7 +63,11 @@ def message_list(request):
     viewer = _viewer_or_404(request)
     done = read_ids(viewer)
     messages = visible_messages(viewer)
-    return JsonResponse({"messages": [_row(m, m.pk not in done) for m in messages]})
+    # непрочитанность важна только во входящих: черновики и отправленное «прочитаны» всегда
+    return JsonResponse({
+        "address": viewer.address,
+        "messages": [_row(m, m.folder == "inbox" and m.pk not in done) for m in messages],
+    })
 
 
 def _find(viewer, pk):

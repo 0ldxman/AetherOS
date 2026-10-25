@@ -9,7 +9,7 @@
 """
 
 import posixpath
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from django.db import transaction
 
@@ -26,6 +26,14 @@ class UnlockResult:
     say: list[str]  # что сказать игроку после ответа команды
     log: list[str]  # строки для журнала сессии
     ops: list[OpResult]  # что получилось с drop, rename, copy
+    mail: list = field(default_factory=list)  # что получилось с письмами (mail.delivery.DeliveryResult)
+
+
+def _deliver_mail(user, mails):
+    """Письма из хуков: доставляются игроку сессии (почта сама решает, что с несуществующим)."""
+    from mail.delivery import deliver_by_slug
+
+    return [deliver_by_slug(user, op.slug, delay=op.delay) for op in mails]
 
 
 @transaction.atomic
@@ -55,6 +63,7 @@ def unlock_file(session_file: SessionFile, given=None) -> UnlockResult:
     locked.save(update_fields=["state"])
 
     ops = apply_file_ops(locked, outcome.hooks.file_ops)
+    mail = _deliver_mail(locked.session.user, outcome.hooks.mails)
 
     return UnlockResult(
         session_file=locked,
@@ -62,4 +71,5 @@ def unlock_file(session_file: SessionFile, given=None) -> UnlockResult:
         say=outcome.hooks.say,
         log=outcome.hooks.log,
         ops=ops,
+        mail=mail,
     )

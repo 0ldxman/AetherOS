@@ -13,7 +13,7 @@ from django.urls import get_script_prefix, reverse, set_script_prefix
 
 from machines.models import Machine, MachineApp, MachineProfile
 from mail.access import Viewer, mark_read, mark_unread, read_ids, summary, visible_messages
-from mail.models import Attachment, Message, MessageRead
+from mail.models import Attachment, Delivered, Message, MessageRead
 from secure.models import Key
 from users.models import UserKey
 
@@ -163,7 +163,7 @@ class InboxApiTests(TestCase):
     def test_the_window_is_a_shell_with_the_players_address(self):
         self.witness()
         response = self.client.get(reverse("mail:inbox"))
-        self.assertContains(response, "witness@aether-null")
+        self.assertContains(response, "witness@aether.mail")
         for element in ('id="mail-list"', 'id="mail-folders"', 'id="mail-labels"', 'id="mail-reader"',
                         'id="mail-compose"', 'id="mail-status"'):
             self.assertContains(response, element)
@@ -407,3 +407,295 @@ class GreetingTests(TestCase):
     def test_a_missing_witness_machine_does_not_break_the_screen(self):
         Machine.objects.filter(hostname="aether-null").delete()
         self.assertIn("no new messages", self.screen(self.scenes()["established"]))
+
+
+class MailboxAddressTests(TestCase):
+    def test_the_mail_domain_defaults_to_the_first_word_of_the_hostname(self):
+        self.assertEqual(Machine(name="Staff", hostname="apollo-staff").mail_host, "apollo.mail")
+        self.assertEqual(Machine(name="Main", hostname="aether-main").mail_host, "aether.mail")
+        self.assertEqual(Machine(name="Null", hostname="aether-null").mail_host, "aether.mail")   # одно железо: один домен
+
+    def test_an_explicit_domain_wins(self):
+        self.assertEqual(Machine(name="S", hostname="apollo-staff", mail_domain="staff.apollo.mail").mail_host, "staff.apollo.mail")
+
+    def test_a_machine_without_a_hostname_uses_its_name(self):
+        self.assertEqual(Machine(name="relic").mail_host, "relic.mail")
+
+    def test_the_address_is_login_at_domain(self):
+        machine = Machine(name="Staff", hostname="apollo-staff")
+        viewer = Viewer(login="will_smith", machine=machine, keys=frozenset())
+        self.assertEqual(viewer.address, "will_smith@apollo.mail")
+
+
+class FolderTests(TestCase):
+    """Ящик логина: входящие, черновики, отправленные."""
+
+    @classmethod
+    def setUpTestData(cls):
+        cls.staff = Machine.objects.create(name="Staff", hostname="apollo-staff")
+        cls.other = Machine.objects.create(name="Other", hostname="apollo-lab")
+
+    def viewer(self, login="will_smith", machine=None, keys=()):
+        return Viewer(login=login, machine=machine or self.staff, keys=frozenset(keys), session_key="s1")
+
+    def titles(self, viewer, folder=None):
+        return [m.subject for m in visible_messages(viewer, folder)]
+
+    def test_a_letter_to_the_login_is_in_its_inbox(self):
+        make_message(subject="hello", to_login="will_smith", machine=self.staff)
+        self.assertEqual(self.titles(self.viewer(), "inbox"), ["hello"])
+        self.assertEqual(self.titles(self.viewer("olga"), "inbox"), [])
+
+    def test_a_letter_from_the_login_is_in_its_sent_folder_not_in_the_inbox(self):
+        make_message(subject="done", sender_login="will_smith", to_login="olga", machine=self.staff)
+        self.assertEqual(self.titles(self.viewer(), "sent"), ["done"])
+        self.assertEqual(self.titles(self.viewer(), "inbox"), [])
+        self.assertEqual(self.titles(self.viewer("olga"), "inbox"), ["done"])     # получателю то же письмо во входящих
+
+    def test_a_draft_is_only_in_its_authors_drafts(self):
+        make_message(subject="unsent", sender_login="will_smith", to_login="olga", is_draft=True, machine=self.staff)
+        self.assertEqual(self.titles(self.viewer(), "drafts"), ["unsent"])
+        self.assertEqual(self.titles(self.viewer("olga")), [])                     # адресат не видит неотправленное
+        self.assertEqual(self.titles(self.viewer("olga"), "inbox"), [])
+
+    def test_each_message_knows_its_folder(self):
+        make_message(subject="a", to_login="will_smith", machine=self.staff)
+        make_message(subject="b", sender_login="will_smith", to_login="x", machine=self.staff)
+        make_message(subject="c", sender_login="will_smith", is_draft=True, machine=self.staff)
+        folders = {m.subject: m.folder for m in visible_messages(self.viewer())}
+        self.assertEqual(folders, {"a": "inbox", "b": "sent", "c": "drafts"})
+
+    def test_a_mailbox_belongs_to_a_machine(self):
+        make_message(subject="here", sender_login="will_smith", is_draft=True, machine=self.staff)
+        self.assertEqual(self.titles(self.viewer(machine=self.other)), [])
+
+    def test_the_login_match_ignores_case(self):
+        make_message(subject="x", sender_login="Will_Smith", is_draft=True, machine=self.staff)
+        self.assertEqual(self.titles(self.viewer("will_smith"), "drafts"), ["x"])
+
+    def test_keys_still_gate_a_draft(self):
+        make_message(subject="x", sender_login="will_smith", is_draft=True, machine=self.staff, key_condition="the_door")
+        self.assertEqual(self.titles(self.viewer()), [])
+        self.assertEqual(self.titles(self.viewer(keys=["the_door"])), ["x"])
+
+    def test_the_summary_counts_only_the_inbox(self):
+        make_message(sender_login="will_smith", is_draft=True, machine=self.staff)
+        make_message(sender_login="will_smith", to_login="olga", machine=self.staff)
+        inbox = make_message(to_login="will_smith", machine=self.staff)
+        self.assertEqual(summary(self.viewer())["unread"], 1)
+        mark_read(self.viewer(), inbox)
+        self.assertEqual(summary(self.viewer())["unread"], 0)
+
+
+class TriggerDeliveryTests(TestCase):
+    @classmethod
+    def setUpTestData(cls):
+        cls.null = Machine.objects.create(name="Null", hostname="aether-null")
+        cls.player = get_user_model().objects.create_user("ivan", password="pw")
+        cls.other = get_user_model().objects.create_user("olga", password="pw")
+
+    def viewer(self, user=None):
+        return Viewer(login="ivan", machine=self.null, keys=frozenset(), user=user)
+
+    def letter(self, **fields):
+        return make_message(slug="door_open", delivery=Message.Delivery.TRIGGER, to_login="ivan", machine=self.null, **fields)
+
+    def test_a_trigger_letter_is_invisible_until_delivered(self):
+        self.letter()
+        self.assertEqual(visible_messages(self.viewer(self.player)), [])
+
+    def test_delivery_makes_it_visible_to_that_player_only(self):
+        from mail.delivery import deliver_by_slug
+
+        self.letter()
+        result = deliver_by_slug(self.player, "door_open")
+        self.assertTrue(result.delivered and result.immediate)
+        self.assertEqual(len(visible_messages(self.viewer(self.player))), 1)
+        self.assertEqual(visible_messages(self.viewer(self.other)), [])
+
+    def test_a_delayed_letter_appears_only_after_its_time(self):
+        from datetime import timedelta
+
+        from django.utils import timezone
+
+        from mail.delivery import deliver_by_slug
+
+        self.letter()
+        now = timezone.now()
+        result = deliver_by_slug(self.player, "door_open", delay=30, now=now)
+        self.assertTrue(result.delivered and not result.immediate)
+        self.assertEqual(visible_messages(self.viewer(self.player), now=now + timedelta(seconds=10)), [])
+        self.assertEqual(len(visible_messages(self.viewer(self.player), now=now + timedelta(seconds=31))), 1)
+
+    def test_delivering_twice_changes_nothing(self):
+        from mail.delivery import deliver_by_slug
+
+        self.letter()
+        deliver_by_slug(self.player, "door_open", delay=60)
+        deliver_by_slug(self.player, "door_open", delay=0)       # не ускоряет и не плодит записи
+        self.assertEqual(Delivered.objects.count(), 1)
+        self.assertEqual(visible_messages(self.viewer(self.player)), [])
+
+    def test_a_witness_gets_no_trigger_letters(self):
+        from mail.delivery import deliver_by_slug
+
+        self.letter()
+        from django.contrib.auth.models import AnonymousUser
+
+        result = deliver_by_slug(AnonymousUser(), "door_open")
+        self.assertFalse(result.delivered)
+        self.assertEqual(Delivered.objects.count(), 0)
+        self.assertEqual(visible_messages(self.viewer()), [])
+
+    def test_an_unknown_letter_is_reported_not_raised(self):
+        from mail.delivery import deliver_by_slug
+
+        result = deliver_by_slug(self.player, "nope")
+        self.assertFalse(result.delivered)
+        self.assertIn("nope", result.reason)
+
+    def test_the_delay_is_capped(self):
+        from mail.delivery import MAX_DELAY_SECONDS, deliver
+
+        message = self.letter()
+        record, _ = deliver(self.player, message, delay=10**9)
+        self.assertLessEqual((record.available_at - record.created_at).total_seconds(), MAX_DELAY_SECONDS + 1)
+
+    def test_open_letters_do_not_need_delivery(self):
+        make_message(to_login="ivan", machine=self.null)
+        self.assertEqual(len(visible_messages(self.viewer(self.player))), 1)
+
+    def test_slugs_are_unique_but_blank_slugs_may_repeat(self):
+        from django.db import IntegrityError, transaction
+
+        make_message()
+        make_message()                      # без идентификатора: сколько угодно
+        make_message(slug="one")
+        with self.assertRaises(IntegrityError), transaction.atomic():
+            make_message(slug="one")
+
+
+class HookMailActionTests(TestCase):
+    """Действие хука «mail»: язык, выполнение и доставка из снятого слоя."""
+
+    LAYERED = "> encrypted hunter2 attempts=2\non remove: mail door_open delay=0"
+
+    @classmethod
+    def setUpTestData(cls):
+        from machines.models import MachineProfile, Session
+        from filesystem.models import MachineFile
+
+        cls.machine = Machine.objects.create(name="Staff", hostname="apollo-staff")
+        cls.user = get_user_model().objects.create_user("ivan", password="pw")
+        profile = MachineProfile.objects.create(machine=cls.machine, user=cls.user, name="Ivan", login="will_smith", freq=1)
+        cls.session = Session.objects.create(user=cls.user, profile=profile)
+        cls.file = MachineFile.objects.create(machine=cls.machine, path="/home/door.bin", state=cls.LAYERED)
+        cls.letter = make_message(
+            slug="door_open", delivery=Message.Delivery.TRIGGER, to_login="will_smith", machine=cls.machine, subject="open"
+        )
+
+    def compile(self, text):
+        from filesystem.states.compiler import StateError, compile_text
+
+        try:
+            return compile_text(text), []
+        except StateError as error:
+            return None, [str(p) for p in error.problems]
+
+    # ---------- язык ----------
+
+    def test_the_action_is_part_of_the_language(self):
+        from filesystem.states.hooks import ACTIONS
+
+        self.assertIn("mail", ACTIONS)
+
+    def test_valid_forms_compile(self):
+        for text in (
+            "> encrypted x\non remove: mail door_open",
+            "> encrypted x\non remove: mail door_open delay=30",
+            "> encrypted x\non fail: mail broken-1_a delay=0",
+        ):
+            layers, problems = self.compile(text)
+            self.assertEqual(problems, [], text)
+
+    def test_wrong_forms_are_reported_with_a_reason(self):
+        cases = {
+            "> encrypted x\non remove: mail": "требует идентификатор",
+            '> encrypted x\non remove: mail "door open"': "без кавычек",
+            "> encrypted x\non remove: mail Door_Open": "не подходит",
+            "> encrypted x\non remove: mail door_open delay=abc": "целым числом",
+            "> encrypted x\non remove: mail door_open delay=-5": "от 0 до",
+            "> encrypted x\non remove: mail door_open soon=1": "только delay",
+        }
+        for text, expected in cases.items():
+            layers, problems = self.compile(text)
+            self.assertTrue(any(expected in p for p in problems), (text, problems))
+
+    # ---------- выполнение ----------
+
+    def test_the_executor_collects_the_letter_and_its_delay(self):
+        from filesystem.states.attempt import attempt_remove
+
+        outcome = attempt_remove(
+            "> encrypted hunter2\non remove: mail door_open delay=45", "", path="/a", name="a", given={"password": "hunter2"}
+        )
+        self.assertEqual([(m.slug, m.delay) for m in outcome.hooks.mails], [("door_open", 45)])
+
+    def test_nothing_is_sent_when_the_layer_stays(self):
+        from filesystem.states.attempt import attempt_remove
+
+        outcome = attempt_remove(self.LAYERED, "", path="/a", name="a", given={"password": "wrong"})
+        self.assertEqual(outcome.hooks.mails, [])
+
+    # ---------- доставка ----------
+
+    def test_removing_the_layer_delivers_the_letter_to_the_player(self):
+        from filesystem.models import SessionFile
+        from filesystem.unlock import unlock_file
+
+        row = SessionFile.objects.create(session=self.session, file=self.file)
+        result = unlock_file(row, {"password": "hunter2"})
+        self.assertTrue(result.result.removed)
+        self.assertEqual([(m.slug, m.delivered, m.immediate) for m in result.mail], [("door_open", True, True)])
+        viewer = Viewer(login="will_smith", machine=self.machine, keys=frozenset(), user=self.user)
+        self.assertEqual([m.subject for m in visible_messages(viewer)], ["open"])
+
+    def test_a_wrong_password_delivers_nothing(self):
+        from filesystem.models import SessionFile
+        from filesystem.unlock import unlock_file
+
+        row = SessionFile.objects.create(session=self.session, file=self.file)
+        result = unlock_file(row, {"password": "nope"})
+        self.assertFalse(result.result.removed)
+        self.assertEqual(result.mail, [])
+        self.assertEqual(Delivered.objects.count(), 0)
+
+    def test_an_unknown_letter_in_a_hook_does_not_break_the_unlock(self):
+        from filesystem.models import MachineFile, SessionFile
+        from filesystem.unlock import unlock_file
+
+        broken = MachineFile.objects.create(
+            machine=self.machine, path="/home/b.bin", state="> encrypted hunter2\non remove: mail missing_letter"
+        )
+        row = SessionFile.objects.create(session=self.session, file=broken)
+        result = unlock_file(row, {"password": "hunter2"})
+        self.assertTrue(result.result.removed)
+        self.assertFalse(result.mail[0].delivered)
+
+    def test_the_terminal_tells_the_player_a_letter_arrived(self):
+        from terminal.engine.executor import TerminalExecutor
+
+        result, _ = TerminalExecutor().execute(session=self.session, source="cph /home/door.bin hunter2")
+        self.assertIn("decrypted", result.output)
+        self.assertIn("intercom: 1 new message", result.output)
+
+    def test_a_delayed_letter_is_not_announced_yet(self):
+        from filesystem.models import MachineFile
+        from terminal.engine.executor import TerminalExecutor
+
+        MachineFile.objects.create(
+            machine=self.machine, path="/home/slow.bin", state="> encrypted hunter2\non remove: mail door_open delay=60"
+        )
+        result, _ = TerminalExecutor().execute(session=self.session, source="cph /home/slow.bin hunter2")
+        self.assertNotIn("intercom:", result.output)
+        self.assertEqual(Delivered.objects.count(), 1)

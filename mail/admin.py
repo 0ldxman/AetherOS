@@ -5,7 +5,7 @@ from django.utils.html import format_html
 from secure.access import format_condition
 from secure.admin_widgets import ConditionFieldsMixin
 
-from .models import Attachment, Message, MessageRead
+from .models import Attachment, Delivered, Message, MessageRead
 
 
 class AttachmentInline(admin.TabularInline):
@@ -25,6 +25,7 @@ class MessageAdmin(ConditionFieldsMixin, admin.ModelAdmin):
         "subject_or_blank",
         "sender_name",
         "to_login",
+        "box",
         "machine",
         "label",
         "sent_at",
@@ -32,16 +33,17 @@ class MessageAdmin(ConditionFieldsMixin, admin.ModelAdmin):
         "readers",
     )
     list_display_links = ("subject_or_blank",)
-    list_filter = ("machine", "label", "sent_at")
-    search_fields = ("subject", "body", "sender_name", "sender_address", "to_login")
+    list_filter = ("machine", "is_draft", "delivery", "label", "sent_at")
+    search_fields = ("subject", "body", "slug", "sender_name", "sender_address", "sender_login", "to_login")
     autocomplete_fields = ("machine",)
     ordering = ("-sent_at",)
     readonly_fields = ("created_at", "updated_at")
 
     fieldsets = (
-        ("Letter", {"fields": ("sender_name", "sender_address", "to_login", "machine", "sent_at")}),
-        ("Content", {"fields": ("subject", "body", "label", "label_tone")}),
-        ("Visibility", {"fields": ("key_condition",)}),
+        ("Letter", {"fields": ("sender_name", "sender_address", "sender_login", "to_login", "machine", "sent_at")}),
+        ("Content", {"fields": ("subject", "body", "status_note", "label", "label_tone")}),
+        ("Mailbox", {"fields": ("is_draft",)}),
+        ("Visibility", {"fields": ("delivery", "slug", "key_condition")}),
         ("Metadata", {"fields": ("created_at", "updated_at")}),
     )
 
@@ -51,6 +53,13 @@ class MessageAdmin(ConditionFieldsMixin, admin.ModelAdmin):
     @admin.display(description="Тема", ordering="subject")
     def subject_or_blank(self, obj):
         return obj.subject or format_html("<i>{}</i>", "(без темы)")
+
+    @admin.display(description="Куда")
+    def box(self, obj):
+        if obj.is_draft:
+            return f"черновик {obj.sender_login or '?'}"
+        where = f"→ {obj.to_login}" if obj.to_login else "→ всем"
+        return f"{where} (триггер)" if obj.delivery == Message.Delivery.TRIGGER else where
 
     @admin.display(description="Условие по ключам")
     def condition(self, obj):
@@ -75,3 +84,13 @@ class MessageReadAdmin(admin.ModelAdmin):
     @admin.display(description="Сессия")
     def session_short(self, obj):
         return obj.session_key[:8] if obj.session_key else "—"
+
+
+@admin.register(Delivered)
+class DeliveredAdmin(admin.ModelAdmin):
+    list_select_related = ("message", "user")
+    list_display = ("message", "user", "created_at", "available_at")
+    list_filter = ("available_at",)
+    search_fields = ("message__subject", "message__slug", "user__username")
+    autocomplete_fields = ("user",)
+    readonly_fields = ("created_at",)

@@ -19,8 +19,12 @@ TEXT_ACTIONS = ("say", "log")
 # Действия с одним путём (drop /home/a.dat).
 PATH_ACTIONS = ("drop", "rename", "copy")
 
+# mail <письмо> [delay=секунды]: доставить игроку письмо (идентификатор письма из почты),
+# сразу или с задержкой.
+MAIL_ACTIONS = ("mail",)
+
 # add <слой> [аргументы]: добавить слой на файл.
-ACTIONS = TEXT_ACTIONS + PATH_ACTIONS + ("add",)
+ACTIONS = TEXT_ACTIONS + PATH_ACTIONS + MAIL_ACTIONS + ("add",)
 
 # Подстановки {...}, доступные в любом тексте (say, log, ответы слоя).
 # Слой может добавить свои (см. BaseState.placeholders), а значения его

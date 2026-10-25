@@ -28,6 +28,50 @@ class Message(models.Model):
         help_text="Логин на машине (например witness). Пусто: всем.",
     )
 
+    sender_login = models.CharField(
+        "Логин отправителя",
+        max_length=128,
+        blank=True,
+        help_text=(
+            "Чей это ящик в «отправленных» или «черновиках» (логин на этой машине). "
+            "Пусто для писем со стороны и от системы."
+        ),
+    )
+
+    is_draft = models.BooleanField(
+        "Черновик",
+        default=False,
+        help_text="Неотправленное письмо: лежит в «черновиках» логина отправителя.",
+    )
+
+    status_note = models.CharField(
+        "Пометка",
+        max_length=255,
+        blank=True,
+        help_text="Системная строка над текстом, например: not sent: system fault 0x2a.",
+    )
+
+    slug = models.SlugField(
+        "Идентификатор",
+        max_length=64,
+        unique=True,
+        null=True,
+        blank=True,
+        help_text="Нужен для доставки по триггеру: действие хука «mail <идентификатор>».",
+    )
+
+    class Delivery(models.TextChoices):
+        OPEN = "open", "По правилам (видно сразу)"
+        TRIGGER = "trigger", "Только после доставки (триггер)"
+
+    delivery = models.CharField(
+        "Доставка",
+        max_length=8,
+        choices=Delivery.choices,
+        default=Delivery.OPEN,
+        help_text="«Только после доставки»: письмо появляется у игрока, когда сработает хук mail.",
+    )
+
     sender_name = models.CharField(
         "От кого",
         max_length=128,
@@ -165,3 +209,31 @@ class MessageRead(models.Model):
 
     def __str__(self):
         return f"{self.message_id} read by {self.user_id or self.session_key[:8]}"
+
+
+class Delivered(models.Model):
+    """Письмо по триггеру доставлено игроку (с задержкой: оно появится в available_at)."""
+
+    message = models.ForeignKey(
+        Message,
+        on_delete=models.CASCADE,
+        related_name="deliveries",
+    )
+
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="mail_deliveries",
+    )
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    available_at = models.DateTimeField(help_text="С этого момента игрок видит письмо.")
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=("message", "user"), name="unique_mail_delivery"),
+        ]
+        verbose_name_plural = "deliveries"
+
+    def __str__(self):
+        return f"{self.message_id} -> {self.user_id} at {self.available_at:%Y-%m-%d %H:%M:%S}"

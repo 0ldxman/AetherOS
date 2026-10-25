@@ -9,6 +9,7 @@
   say   -- кладёт текст в outcome.say (его покажет терминал игроку);
   log   -- кладёт текст в outcome.log (запись в журнал сессии);
   add   -- меняет прогресс: игрок получает новый слой сверху;
+  mail  -- кладёт в outcome.mails письмо, которое доставит почта (mail/delivery.py);
   drop, rename, copy -- пока НЕ выполняются, а складываются в
            outcome.file_ops. Им нужны SessionFile и пути, это следующая часть.
 """
@@ -16,8 +17,8 @@
 from dataclasses import dataclass, field
 from typing import Any
 
-from filesystem.states.compiler import CompiledLayer, bind_params
-from filesystem.states.hooks import PATH_ACTIONS
+from filesystem.states.compiler import CompiledLayer, bind_params, parse_mail
+from filesystem.states.hooks import MAIL_ACTIONS, PATH_ACTIONS
 from filesystem.states.parser import Action, tokenize
 from filesystem.states.registry import StateRegistry
 from filesystem.states.registry import registry as default_registry
@@ -33,6 +34,14 @@ class FileOp:
     target: str
 
 
+@dataclass(frozen=True)
+class MailOp:
+    """Письмо, которое нужно доставить игроку: идентификатор и задержка в секундах."""
+
+    slug: str
+    delay: int = 0
+
+
 @dataclass
 class HookOutcome:
     """Итог выполнения хуков."""
@@ -40,11 +49,13 @@ class HookOutcome:
     say: list[str] = field(default_factory=list)
     log: list[str] = field(default_factory=list)
     file_ops: list[FileOp] = field(default_factory=list)
+    mails: list[MailOp] = field(default_factory=list)
 
     def extend(self, other: "HookOutcome"):
         self.say += other.say
         self.log += other.log
         self.file_ops += other.file_ops
+        self.mails += other.mails
 
 
 def _path_of(action: Action) -> str:
@@ -93,6 +104,13 @@ def run_event(
             _add_layer(action, progress, registry)
         elif action.name in PATH_ACTIONS:
             outcome.file_ops.append(FileOp(action.name, _path_of(action)))
+        elif action.name in MAIL_ACTIONS:
+            parsed, error = parse_mail(action)
+
+            if error:
+                raise ValueError(error)
+
+            outcome.mails.append(MailOp(*parsed))
         else:
             raise ValueError(f"неизвестное действие {action.name!r}")
 
