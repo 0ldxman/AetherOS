@@ -76,6 +76,24 @@
   font-display: swap;
 }
 
+/* Terminus (TTF): шрифт Linux-консоли, кириллица есть (--font-console).
+   Пиксельный: чёткий при 12, 14, 16, 18, 20, 22, 24, 28, 32 px. */
+@font-face {
+  font-family: 'Terminus';
+  src: url('fonts/TerminusTTF-4.49.3.ttf') format('truetype');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Terminus';
+  src: url('fonts/TerminusTTF-Bold-4.49.3.ttf') format('truetype');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
 /* Belepotan Rus: маркерный шрифт */
 @font-face {
   font-family: 'Belepotan Rus';

@@ -64,6 +64,16 @@
   --status-warn: var(--accent-warn);
   --status-error: var(--accent-error);
 
+  /* ---- Терминал (загрузка, вход, консоль) -------------------------------
+     Приглушённая палитра обычного терминала (как в Windows Terminal Campbell),
+     без неона интерфейса: так консоль выглядит настоящей. */
+  --term-fg: #cccccc;
+  --term-dim: #767676;
+  --term-ok: #16c60c;
+  --term-warn: #f9f1a5;
+  --term-error: #e74856;
+  --term-info: #61d6d6;
+
   /* ---- Гарнитуры -------------------------------------------------------
      Одна переменная на шрифт: имя + запасные. Загрузка шрифтов — в fonts.css.
      Если гарнитуру закомментировали в fonts.css, сработают запасные. */
@@ -77,6 +87,7 @@
   --ff-pt-serif: "PT Serif", Georgia, "Times New Roman", serif;
   --ff-belepotan: "Belepotan Rus", Georgia, "Times New Roman", serif;
   --ff-lemon-tuesday: "Lemon Tuesday", "Segoe Script", cursive;
+  --ff-terminus: "Terminus", "DejaVu Sans Mono", ui-monospace, Menlo, Consolas, monospace;
   --ff-ast-premiumexec: "AST PremiumExec", ui-monospace, Menlo, Consolas, monospace;
   --ff-ibm-vga: "IBM VGA", ui-monospace, Menlo, Consolas, monospace;
   --ff-strokify: "Strokify", "Segoe Script", cursive;
@@ -86,8 +97,9 @@
      например --font-main: var(--ff-doto). */
   --font-main: var(--ff-jetbrains-mono);
   --font-doted: var(--ff-doto);
-  --font-console: var(--font-main);                  /* терминал загрузки и входа */
-  --fs-console: var(--fs-base);                      /* пиксельным шрифтам (IBM VGA 16px, AST 19px) нужен свой размер */
+  --font-console: var(--ff-terminus);                /* терминал загрузки и входа */
+  --fs-console: 16px;                                /* пиксельному шрифту нужен свой размер: Terminus 16, IBM VGA 16, AST 19 */
+  --lh-console: 1.25;                                /* в терминале строки плотные, не 1.5 как в вёрстке */
   --font-hand: var(--ff-lemon-tuesday);             /* рукописные пометки */
   --font-barcode: var(--ff-libre-barcode-39); /* штрихкод */
   --font-marker: var(--ff-belepotan);

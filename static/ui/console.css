@@ -5,15 +5,15 @@
    ================================================== */
 
 .con-line {
-    min-height: 1.5em;
+    min-height: 1lh;
     white-space: pre-wrap;        /* выравнивание пробелами сохраняется, а длинная строка переносится, а не обрезается */
     overflow-wrap: anywhere;
 }
 
-.con-success { color: var(--status-ok); }
-.con-warning { color: var(--status-warn); }
-.con-error   { color: var(--status-error); }
-.con-dim     { color: var(--font-muted); }
+.con-success { color: var(--term-ok); }
+.con-warning { color: var(--term-warn); }
+.con-error   { color: var(--term-error); }
+.con-dim     { color: var(--term-dim); }
 
 .con-cursor {
     display: inline-block;
@@ -41,17 +41,17 @@
 .con-options {
     display: flex;
     flex-direction: column;
-    gap: 0.25rem;
-    margin-top: 0.4rem;
+    gap: 0;
+    margin-top: 0;
 }
 
 .con-option {
     display: block;
     width: 100%;
-    padding: 2px 0;
+    padding: 0;
     border: 0;
     background: none;
-    color: var(--font-light);
+    color: var(--term-fg);
     font: inherit;
     text-align: left;
     white-space: pre;
@@ -65,7 +65,7 @@
 
 .con-option:hover:not(:disabled) .con-option-main,
 .con-option:focus-visible .con-option-main {
-    color: var(--accent);
+    color: var(--term-info);
 }
 
 .con-option:hover:not(:disabled) .con-option-main::before,
@@ -73,13 +73,13 @@
     content: ">";
     position: absolute;
     left: 0;
-    color: var(--accent-green);
+    color: var(--term-ok);
 }
 
 .con-option:focus { outline: none; }
 .con-option:disabled { cursor: default; }
 
-.con-chosen .con-option-main { color: var(--accent-green); }
+.con-chosen .con-option-main { color: var(--term-ok); }
 
 /* подпись варианта, пока его текст ещё печатается: место занято, но не видно */
 .con-hidden { visibility: hidden; }
@@ -87,7 +87,7 @@
 /* момент, когда напечатанный текст «оформляется под кнопку» */
 .con-flicker,
 .con-flicker .con-option-main {
-    background: var(--font-light);
+    background: var(--term-fg);
     color: var(--bg);
 }
 
