@@ -1,11 +1,12 @@
 import json
 
-from django.contrib.auth.decorators import login_required
+from django.core.exceptions import PermissionDenied
 from django.http import JsonResponse
 from django.shortcuts import render
 from django.views.decorators.http import require_POST
 
-from machines.current import active_session
+from machines.current import active_session, current_machine
+from users.aether_auth import AUTH_REQUIRED, is_player
 from terminal.engine.context import DEFAULT_CWD
 from terminal.engine.executor import TerminalExecutor
 
@@ -14,9 +15,27 @@ from terminal.engine.executor import TerminalExecutor
 CWD_KEY = "terminal_cwd"
 
 
-@login_required
+def _anonymous_answer(request):
+    """Безымянный игрок: терминал открыт, но командам он отвечает ошибкой, а не выполняет их."""
+    machine = current_machine(request)
+
+    if machine is None:
+        raise PermissionDenied
+
+    return JsonResponse({
+        "output": f"terminal: access denied: {AUTH_REQUIRED}",
+        "exit_code": 1,
+        "window": None,
+        "cwd": DEFAULT_CWD,
+        "hostname": machine.hostname,
+    })
+
+
 @require_POST
 def execute(request):
+    if not is_player(request):
+        return _anonymous_answer(request)
+
     try:
         payload = json.loads(request.body)
     except (json.JSONDecodeError, UnicodeDecodeError):
@@ -61,9 +80,16 @@ def execute(request):
     })
 
 
-@login_required
 def terminal_page(request):
-    session = active_session(request)
+    if is_player(request):
+        hostname = active_session(request).profile.machine.hostname
+    else:
+        machine = current_machine(request)
+
+        if machine is None:
+            raise PermissionDenied
+
+        hostname = machine.hostname
 
     # Каждое открытие окна начинается с /home, как новая оболочка.
     request.session[CWD_KEY] = DEFAULT_CWD
@@ -72,7 +98,7 @@ def terminal_page(request):
         request,
         "terminal.html",
         {
-            "hostname": session.profile.machine.hostname,
+            "hostname": hostname,
             "cwd": DEFAULT_CWD,
         },
     )

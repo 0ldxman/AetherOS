@@ -27,6 +27,15 @@ from machines.world import CLEARANCE
 
 GUEST_LEVEL = 0
 GUEST_LOGIN = "witness"   # под этим именем входит игрок без регистрации
+
+# Решать загадки может только игрок, вошедший через Discord. Безымянный видит почту и
+# терминал, но любое действие, меняющее прогресс, отвечает этой ошибкой.
+AUTH_REQUIRED = "sign in with Discord"
+
+
+def is_player(request):
+    """Игрок авторизован (Discord) и может решать загадки."""
+    return request.user.is_authenticated
 DEFAULT_USER_LEVEL = 1
 
 
