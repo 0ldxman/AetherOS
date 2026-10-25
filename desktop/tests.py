@@ -50,7 +50,7 @@ class DesktopTests(TestCase):
         session["guest"] = True
         session.save()
         response = self.page()
-        self.assertContains(response, "guest@aether-null")
+        self.assertContains(response, "witness@aether-null")
         self.assertContains(response, 'data-layout-key="guest-m')
         self.assertNotContains(response, 'data-action="sessions"')
         self.assertContains(response, 'data-action="disconnect"')
@@ -105,6 +105,20 @@ def steps(scene, op):
         for nested in step.get("scenes", []):
             found += steps(nested, op)
     return found
+
+
+def volume(scene):
+    """Сколько символов текста в сцене (по всем шагам, включая вложенные и задачи)."""
+    total = 0
+    for step in steps(scene, "text") + steps(scene, "type"):
+        total += len(step["value"])
+    for step in steps(scene, "dots"):
+        total += len(step["label"]) + len(step["status"])
+    for step in steps(scene, "spin"):
+        total += sum(len(part[0]) for part in step["pending"] + step["done"])
+    for step in steps(scene, "bar") + steps(scene, "count"):
+        total += len(step["label"])
+    return total
 
 
 def spoken(scene):
@@ -232,6 +246,30 @@ class GatewayScenesTests(TestCase):
         self.assertIn("no answer", text)
         self.assertEqual(text.count("relay 03"), 2)
 
+    def test_there_is_twice_as_much_text_as_before(self):
+        self.assertGreaterEqual(volume(self.scenes()["intro"]), 4000)    # было 2010
+
+    def test_noise_is_for_the_first_visit_a_known_node_skips_it(self):
+        scenes = self.scenes()
+        self.assertLess(volume(scenes["intro_known"]), volume(scenes["intro"]) * 0.8)
+        self.assertNotIn("[ED25519 256]", spoken(scenes["intro_known"]))   # картинка отпечатка только на первом заходе
+        self.assertIn("[ED25519 256]", spoken(scenes["intro"]))
+
+    def test_every_stage_gives_time_to_read_before_the_screen_changes(self):
+        intro = self.scenes()["intro"]
+        cuts = [i for i, step in enumerate(intro) if step["op"] == "cut"]
+        self.assertEqual(len(cuts), 5)
+        for index in cuts:
+            self.assertEqual(intro[index - 1]["op"], "read", f"перед cut №{index} нет read")
+
+    def test_the_host_key_picture_belongs_to_the_machine(self):
+        from machines.identity import fingerprint_for, randomart_for
+
+        text = spoken(self.scenes()["intro"])
+        self.assertIn(fingerprint_for(self.machine.hid), text)
+        for line in randomart_for(self.machine.hid):
+            self.assertIn(line, text)
+
     def test_the_certificate_issuer_and_the_owner_are_masked(self):
         text = spoken(self.scenes()["intro"])
         self.assertGreaterEqual(text.count("█" * 14), 3)    # издатель, второй сертификат, владелец
@@ -341,7 +379,12 @@ class GatewayScenesTests(TestCase):
         established = spoken(scenes["established"])
         self.assertIn("session established", established)
         self.assertIn("L0 (PUBLIC)", established)
+        self.assertIn("witness", established)
         self.assertIn("not registered", established)
+
+    def test_the_unregistered_player_is_a_witness_not_a_guest(self):
+        for name, scene in self.scenes().items():
+            self.assertNotIn("guest", spoken(scene).lower(), name)
 
     def test_error_scene_has_a_placeholder_for_the_status(self):
         self.assertIn("{code}", spoken(self.scenes()["error"]))
@@ -357,6 +400,7 @@ class GatewayScenesTests(TestCase):
         text = spoken(self.scenes(session={"guest": True})["restored"])
         self.assertIn("aether-null", text)
         self.assertIn("Unregistered session", text)
+        self.assertIn("witness", text)
 
 
 @override_settings(FORCE_SCRIPT_NAME=None)
@@ -425,11 +469,27 @@ class BootScreenTests(TestCase):
         self.assertIn(self.machine.hid, lock)
         self.assertIn(serial_for(self.machine.hid), lock)
 
+    def test_there_is_twice_as_much_text_as_before(self):
+        scenes = self.scenes()
+        self.assertGreaterEqual(volume(scenes["full"]), 5500)      # было 2754
+        self.assertGreaterEqual(volume(scenes["short"]), 1500)     # было 764
+
+    def test_every_boot_stage_gives_time_to_read_before_the_screen_changes(self):
+        full = self.scenes()["full"]
+        for index, step in enumerate(full):
+            if step["op"] == "cut" and index:
+                self.assertEqual(full[index - 1]["op"], "read", f"перед cut №{index} нет read")
+
+    def test_units_come_in_groups(self):
+        text = spoken(self.scenes()["short"])
+        for group in ("-- base --", "-- storage --", "-- network --", "-- services --"):
+            self.assertIn(group, text)
+
     def test_boot_uses_the_toolkit_not_just_text(self):
         full = self.scenes()["full"]
         self.assertEqual(len(steps(full, "count")), 1)         # память
         self.assertEqual(len(steps(full, "bar")), 1)           # загрузка образа
-        self.assertGreaterEqual(len(steps(full, "spin")), 11)  # службы и задачи ядра
+        self.assertGreaterEqual(len(steps(full, "spin")), 20)  # службы и задачи ядра
         self.assertGreaterEqual(len(steps(full, "cut")), 4)    # смена режима между этапами
         self.assertEqual(full[-1]["op"], "cut")                # чёрный кадр перед переходом
 

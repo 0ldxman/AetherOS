@@ -8,6 +8,7 @@ from django.views.decorators.csrf import ensure_csrf_cookie
 from secure.access import satisfied
 
 from machines.identity import identity_of
+from users.aether_auth import GUEST_LOGIN
 
 from .boots import boot_scenes
 
@@ -53,7 +54,6 @@ APPS = [
     },
 ]
 
-GUEST_LOGIN = "guest"
 
 
 def _identity(request, machine):
@@ -67,7 +67,7 @@ def _identity(request, machine):
         owner = f"u{request.user.pk}"
     else:
         login = GUEST_LOGIN
-        owner = GUEST_LOGIN
+        owner = "guest"   # ключ раскладки не зависит от имени, чтобы сохранённые столы не пропали
     return login, f"{owner}-m{machine.pk}"
 
 

@@ -169,6 +169,12 @@ class RealismTests(SimpleTestCase):
         self.assertNotIn("cursor", plain)
         self.assertTrue(prompt["cursor"])
 
+    def test_read_gives_time_in_proportion_to_the_text_on_screen(self):
+        step = Scene().read().to_dict()[0]
+        self.assertEqual(step, {"op": "read", "per_char": 4, "min_ms": 900, "max_ms": 4500})
+        step = Scene().read(per_char=10, min_ms=500, max_ms=2000).to_dict()[0]
+        self.assertEqual((step["per_char"], step["min_ms"], step["max_ms"]), (10, 500, 2000))
+
     def test_cut_is_a_mode_change_not_a_fade(self):
         self.assertEqual(Scene().cut().to_dict(), [{"op": "cut"}])
         self.assertFalse(hasattr(Scene(), "fade"))

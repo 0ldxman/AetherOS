@@ -22,36 +22,84 @@ from machines.identity import CORE_HOST
 
 WIDTH = 12          # ширина подписей в таблицах прошивки
 
-# (имя, описание, результат, пояснение, длительность мс)
+# Службы aeinit по группам: (имя, описание, результат, пояснение, длительность мс)
 UNITS = (
-    ("keyagent", "secure key agent", "OK", None, (150, 500)),
-    ("authd", "clearance daemon", "OK", None, (200, 600)),
-    ("archive", "/archive mounted (read-only)", "OK", None, (250, 700)),
-    ("uplink", f"link to {CORE_HOST}", "OK", None, (1200, 2300)),
-    ("telemetry", "sector 12: no response, skipping", "WARN", None, (700, 1300)),
-    ("relay", "message relay", "OK", None, (150, 500)),
-    ("archived", "archive service", "OK", None, (200, 600)),
-    ("watcher", "legacy watcher exited (code 0x0f)", "FAIL", None, (300, 800)),
-    ("desktop", "target reached", "OK", None, (250, 600)),
+    ("base", (
+        ("logd", "log daemon", "OK", None, (120, 400)),
+        ("timesync", f"clock synced with {CORE_HOST} (+3 ms)", "OK", None, (300, 800)),
+        ("devd", "device manager, 14 devices", "OK", None, (150, 450)),
+        ("entropyd", "entropy daemon, pool 4096 bits", "OK", None, (120, 350)),
+        ("schedd", "job scheduler, 11 jobs", "OK", None, (150, 450)),
+        ("keyagent", "secure key agent", "OK", None, (150, 500)),
+        ("authd", "clearance daemon", "OK", None, (200, 600)),
+        ("sessiond", "session broker", "OK", None, (150, 450)),
+    )),
+    ("storage", (
+        ("vaultd", "vault manager, 3 snapshots", "OK", None, (200, 600)),
+        ("archive", "/archive mounted (read-only)", "OK", None, (250, 700)),
+    )),
+    ("network", (
+        ("netd", "eth0 configured", "OK", None, (200, 500)),
+        ("dnsd", "resolver cache, 2 upstreams", "OK", None, (200, 500)),
+        ("gate", "packet policy loaded, 214 rules", "OK", None, (250, 650)),
+        ("linkd", "link supervisor, 1 of 2 uplinks active", "OK", None, (200, 550)),
+        ("uplink", f"link to {CORE_HOST}", "OK", None, (1200, 2300)),
+        ("telemetry", "sector 12: no response, skipping", "WARN", None, (700, 1300)),
+    )),
+    ("services", (
+        ("relay", "message relay", "OK", None, (150, 500)),
+        ("intercom", "mail service", "OK", None, (200, 550)),
+        ("mapd", "map service", "OK", None, (200, 550)),
+        ("aether-db", "knowledge base index", "OK", None, (400, 1000)),
+        ("indexd", "search index, 3 collections", "OK", None, (250, 700)),
+        ("notifyd", "notification bus", "OK", None, (150, 450)),
+        ("archived", "archive service", "OK", None, (200, 600)),
+        ("watcher", "legacy watcher exited (code 0x0f)", "FAIL", None, (300, 800)),
+        ("desktop", "target reached", "OK", None, (250, 600)),
+    )),
 )
 
-# время от старта ядра (с), подсистема, текст; None вместо текста: строка-задача ниже
+# время от старта ядра (с), подсистема, текст
 def _kernel_lines(ident):
-    return (
+    lines = [
         (0.000000, "aek", "aether kernel 5.8.14-hal (forge-03) #1 smp 2020-09-02"),
         (0.000000, "aek", "cmdline: vault=/dev/vault0 ro console=com1 quiet=2"),
+        (0.000000, "aek", "mitigations: smep smap nx"),
         (0.001870, "efi", "boot services exited, memory map 38 entries"),
+        (0.002400, "efi", "secure boot enabled, setup mode off"),
+        (0.003100, "cpu", "mitigations: retpoline, stibp off"),
         (0.004211, "cpu", "AETHER QX-9, 8 cores, microcode 0x0a201009"),
+        (0.004680, "cpu", "caches: l1 32k, l2 1m, l3 24m, smt on"),
+        (0.006200, "cpu", "microcode revision 0x0a201009 loaded"),
         (0.007803, "mem", "64 GiB ecc, 4 channels, 0 errors"),
+        (0.008900, "mem", "hugepages: 0 reserved"),
         (0.011302, "acpi", "tables ok (rsdp 0x00000000000f6a90)"),
+        (0.012005, "timer", "tsc stable, clocksource tsc, 3.8 GHz"),
+        (0.013600, "timer", "tsc calibrated 3800.012 MHz"),
+        (0.014400, "irq", "apic enabled, 24 vectors routed"),
+        (0.015900, "smp", "bringing up 7 secondary cores"),
+        (0.016400, "sched", "scheduler: 8 cpus, 1 domain"),
+        (0.017900, "rcu", "callback offloading on"),
+        (0.018700, "smp", "8 cores online"),
         (0.019870, "pci", "0000:00 enumerated, 14 devices, 2 bridges"),
+        (0.021300, "iommu", "enabled, 3 groups"),
+        (0.022800, "pci", "0000:03:00.0 nvme controller"),
+        (0.023400, "pci", "0000:05:00.0 network controller (eth0)"),
         (0.024115, "nvme", "nvme0: AETHER-VAULT 4 TB, 1 namespace, queue depth 1024"),
+        (0.026950, "usb", "xhci: 2 ports, no devices"),
+        (0.028100, "hid", "keyboard, mouse: none attached"),
         (0.031440, "net", f"eth0: {ident.hid} link up 10 Gbps full duplex"),
         (0.031902, "net", "eth1: no carrier"),
+        (0.033500, "net", "eth0: tso on, gro on, mtu 1500"),
         (0.058230, "tpm", "tpm0: 2.0, pcr banks sha256, measured boot log 18 events"),
+        (0.060100, "tpm", "tpm0: pcr 0-7 extended"),
+        (0.071200, "aemc", "bmc channel up, console on com1"),
         (0.312874, "tamper", "chassis seal intact"),
+        (0.314400, "tamper", "lid sensor ok"),
         (0.318002, "rng", "entropy pool seeded (hwrng)"),
-    )
+        (0.322500, "crypto", "self-tests passed (chacha20, ed25519, sha256)"),
+    ]
+    return sorted(lines, key=lambda line: line[0])
 
 
 def _pcr_digest(ident):
@@ -67,10 +115,13 @@ def _connect(s, ident):
     s.say("> ", end=False, cursor=True).type(f"aemc attach {ident.hostname}", speed=30)
     s.say("aemc 1.7  ·  management controller", style="dim")
     s.wait((200, 450))
+    s.task("authenticating ", "OK", ms=(300, 700))
     s.task("opening channel ", "OK", ms=(500, 1100))
     s.say("console attached (escape: ~.)", style="dim")
+    s.say("power state: on  ·  last boot 41 d ago", style="dim")
     s.wait((150, 350))
     s.task("waiting for console ", "OK", ms=(900, 1900))
+    s.read()
 
 
 def _firmware(s, ident):
@@ -83,11 +134,15 @@ def _firmware(s, ident):
 
     s.say("-- platform --", style="dim")
     s.row("cpu", "AETHER QX-9  8 cores  3.8 GHz", width=WIDTH)
+    s.row("cache", "l1 32k  l2 1m  l3 24m", "dim", width=WIDTH)
     s.count("memory", 64, unit=" GiB", ms=(600, 1100), width=WIDTH, note="ecc, 4 channels")
     s.row("storage", "nvme0  AETHER-VAULT 4 TB  encrypted", width=WIDTH)
+    s.row("", "nvme1  not present", "dim", width=WIDTH)
     s.say("network".ljust(WIDTH), f"eth0 10 Gbps up  {ident.hid}")
     s.say(" " * WIDTH, "eth1 ", ("no carrier", "warning"))
     s.row("bmc", "aemc 1.7  online", width=WIDTH)
+    s.row("pci", "14 devices, 2 bridges", "dim", width=WIDTH)
+    s.row("boot order", "nvme0, network (disabled)", "dim", width=WIDTH)
     s.wait((200, 400)).blank()
 
     s.say("-- security --", style="dim")
@@ -96,7 +151,17 @@ def _firmware(s, ident):
     _check(s, "measured boot", "sealed")
     s.row("pcr 0-7", _pcr_digest(ident), "dim", width=WIDTH)
     _check(s, "firmware signature", "verified")
-    s.wait((500, 900))
+    _check(s, "chassis intrusion", "none")
+    _check(s, "boot keys (db)", "3 loaded")
+    s.blank()
+
+    s.say("-- self test --", style="dim")
+    _check(s, "cpu", "8 of 8 cores")
+    _check(s, "memory (quick)", "pass")
+    _check(s, "nvme0 smart", "ok, 0 media errors")
+    _check(s, "eth0 loopback", "pass")
+    s.task(f"{'eth1 loopback':<20}", "skipped, no carrier", style="warning", ms=(300, 700))
+    s.read()
 
 
 def _bootloader(s):
@@ -104,12 +169,15 @@ def _bootloader(s):
     s.say("AEBOOT 2.1", ("  ·  signed loader", "dim"))
     s.blank()
     s.row("entry", "aether 9.1 (halcyon)", note="default", width=WIDTH)
+    s.row("kernel", "aek 5.8.14-hal  vault=/dev/vault0", "dim", width=WIDTH)
     s.say("recovery".ljust(WIDTH), ("aether 9.1 recovery  ", "dim"), ("[clearance L5 required]", "error"))
+    s.say("diagnostics".ljust(WIDTH), ("memory, vault  ", "dim"), ("[locked]", "warning"))
     s.blank()
     s.bar("loading aek 5.8.14-hal   ", ms=(900, 1600))
     s.task("verifying image signature ", "OK", ms=(400, 800))
     s.task("measuring into pcr 8-9 ", "OK", ms=(200, 500))
-    s.wait((300, 600))
+    s.row("handoff", "aek entry 0xffffffff81000000", "dim", width=WIDTH)
+    s.read()
 
 
 def _kernel(s, ident):
@@ -120,6 +188,7 @@ def _kernel(s, ident):
     s.task(f"{'vault':<7} verifying system image .......", "OK", at=1.120377)
     s.log(1.204910, "fs", "aefs vault0: mounted, journal clean")
     s.log(1.299410, "fs", "aefs vault0: 3 snapshots, last 2020-09-01")
+    s.log(1.340200, "sec", "policy loaded: 214 rules, default deny")
     s.log(1.377002, "gate", "default policy drop (inbound)")
     s.log(1.402118, "audit", f"logging enabled, sink={CORE_HOST}")
     s.log(1.409300, "aek", "handing over to aeinit")
@@ -128,10 +197,12 @@ def _kernel(s, ident):
 
 def _units(s):
     s.say("aeinit  runlevel 3", style="dim")
-    for name, description, result, note, ms in UNITS:
-        label = f"{name:<10} "
-        s.task(label + "starting", result, note, look="unit", done=label + description, ms=ms)
-    s.wait((900, 1500))
+    for group, units in UNITS:
+        s.say(f"-- {group} --", style="dim")
+        for name, description, result, note, ms in units:
+            label = f"{name:<10} "
+            s.task(label + "starting", result, note, look="unit", done=label + description, ms=ms)
+    s.read(min_ms=1200)
 
 
 def aether_boot(ident, *, short=False):

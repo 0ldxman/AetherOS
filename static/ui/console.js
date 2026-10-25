@@ -343,6 +343,12 @@
                 await wait(delayOf(op.ms), run);
             },
 
+            // дать прочитать экран: чем больше на нём текста, тем дольше пауза
+            async read(op, run) {
+                const chars = container.textContent.length;
+                await wait(Math.min(op.max_ms, Math.max(op.min_ms, chars * op.per_char)), run);
+            },
+
             async clear() {
                 resetScreen();
             },

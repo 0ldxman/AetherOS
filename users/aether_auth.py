@@ -24,6 +24,7 @@ from django.views.decorators.http import require_POST
 # =========================================================
 
 GUEST_LEVEL = 0
+GUEST_LOGIN = "witness"   # под этим именем входит игрок без регистрации
 DEFAULT_USER_LEVEL = 1
 
 CLEARANCE_LABELS = {
@@ -55,8 +56,8 @@ def gateway_scenes(request):
         "intro_known": gateway.intro_scene(ident, known=True),
         "menu": gateway.menu_scene(),
         "discord": gateway.discord_scene(),
-        "bypass": gateway.bypass_scene(ident),
-        "established": gateway.established_scene(clearance_dict(GUEST_LEVEL)),
+        "bypass": gateway.bypass_scene(ident, GUEST_LOGIN),
+        "established": gateway.established_scene(clearance_dict(GUEST_LEVEL), GUEST_LOGIN),
         "error": gateway.error_scene(ident),
     }
 
@@ -65,7 +66,7 @@ def gateway_scenes(request):
         is_guest = bool(request.session.get("guest")) and not request.user.is_authenticated
         scenes["restored"] = gateway.restored_scene(
             ident,
-            username="guest" if is_guest else request.user.get_username(),
+            username=GUEST_LOGIN if is_guest else request.user.get_username(),
             clearance=clearance_dict(level),
             guest=is_guest,
         )
@@ -138,7 +139,7 @@ def guest_api(request):
     request.session["guest"] = True
 
     return JsonResponse({
-        "username": "guest",
+        "username": GUEST_LOGIN,
         "clearance": clearance_dict(GUEST_LEVEL),
     })
 
