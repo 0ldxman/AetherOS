@@ -64,7 +64,7 @@ def gateway_scenes(request):
         "menu": gateway.menu_scene(),
         "discord": gateway.discord_scene(),
         "bypass": gateway.bypass_scene(ident, GUEST_LOGIN),
-        "established": gateway.established_scene(clearance_dict(GUEST_LEVEL), GUEST_LOGIN),
+        "established": gateway.established_scene(clearance_dict(GUEST_LEVEL), GUEST_LOGIN, ident),
         "error": gateway.error_scene(ident),
     }
 

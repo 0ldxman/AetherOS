@@ -26,6 +26,11 @@ tls), дальше только радио. Между этапами смена
                       (aether-main -> aether-null, меняются только main/null),
                       chassis остаётся прежним, потом открывается сессия «witness»
 
+После входа узел здоровается, как сервер на Linux: логотип, «System information»
+(нагрузка, радио, хранилище, часы работы), уведомления узла, последний вход и почта.
+В этом приветствии спрятаны следы мира (центр молчит, журнал копится, чей-то последний
+вход перед тишиной). См. _motd.
+
 Если игрок долго ничего не выбирает, фраза стирается и набирается другая.
 
 Объём: на первом заходе текста много (шум: параметры линии, станции, расширения
@@ -36,6 +41,8 @@ tls), дальше только радио. Между этапами смена
 игрок должен сам догадаться, чья это машина. Сцена целиком видна в исходнике страницы.
 Даты (игровая, последний контакт с центром) берутся из machines/world.py.
 """
+import hashlib
+
 from console.scene import Option, Scene
 from machines.identity import CORE_HOST
 from machines.world import BEACON_LAST_SYNC, CERT_NOT_AFTER, CORE_LAST_CONTACT, GAME_DATE, days_since
@@ -109,6 +116,17 @@ VOICE_AGAIN = (
 )
 VOICE_AFTER_MS = 2200                  # через сколько после появления входа начинает печатать
 VOICE_AGAIN_MS = (20000, 30000)        # через сколько молчания перепечатывает
+
+
+LOGO = tuple(r"""
+    _    _____ _____ _   _ _____ ____  
+   / \  | ____|_   _| | | | ____|  _ \ 
+  / _ \ |  _|   | | | |_| |  _| | |_) |
+ / ___ \| |___  | | |  _  | |___|  _ < 
+/_/   \_\_____| |_| |_| |_|_____|_| \_\
+""".strip("\n").split("\n"))
+LAST_LOGIN = "2027-10-29 23:41 UTC"     # последний вход на узел перед тем, как центр замолчал
+EVENTS_PER_DAY = 34                      # сколько записей аудита узел копирует локально за сутки
 
 
 # ---------- общие куски ----------
@@ -377,6 +395,58 @@ def _access(s, ident, known, client_key):
     s.row("method", "external", note="available")
 
 
+def _metric(ident, key, low, high):
+    """Показатель узла: число от low до high, у одного узла всегда одно и то же."""
+    value = int.from_bytes(hashlib.sha256((ident.hid + "/" + key).encode()).digest()[:4], "big")
+    return low + value % (high - low + 1)
+
+
+def _pair(label, value, other_label="", other_value="", *, width=17, gap=24):
+    """Строка в две колонки, как в приветствии сервера: «Link load  7 %      Sessions  1»."""
+    left = f"{label:<{width}}{value}"
+    if not other_label:
+        return left
+    return f"{left:<{width + gap}}{other_label:<14}{other_value}"
+
+
+def _motd(s, ident, login, *, short=False):
+    """Приветствие узла после входа: большое, с информацией и следами мира."""
+    days_core = days_since(CORE_LAST_CONTACT)
+    events = (GAME_DATE - CORE_LAST_CONTACT).days * EVENTS_PER_DAY + _metric(ident, "events", 0, 99)
+    s.blank()
+    if not short:
+        for line in LOGO:
+            s.say(line)
+        s.blank()
+    s.say(f" Welcome to {SYSTEM}  {KERNEL}  [via {BRIDGE}]")
+    s.blank()
+    s.say(f"  System information as of {GAME_DATE} 03:14 UTC", style="dim")
+    s.blank()
+    s.say("  " + _pair("Link load:", f"{_metric(ident, 'load', 3, 19)} %", "Sessions:", "1  (you)"))
+    s.say("  " + _pair("Radio:", f"rf0 {ident.freq} MHz locked", "Stations:", f"{STATIONS_REACHABLE} of {STATIONS_KNOWN}"))
+    s.say("  " + _pair("Vault usage:", f"{_metric(ident, 'vault', 31, 58)} % of 4 TB", "Memory:", f"{_metric(ident, 'mem', 14, 37)} % of 64 GiB"))
+    s.say("  " + _pair("Processes:", f"{_metric(ident, 'proc', 180, 260)}", "Temperature:", f"{_metric(ident, 'temp', 36, 47)} C"))
+    s.say("  " + _pair("Uptime:", "3 min", "Core:", "unreachable"))
+    s.blank()
+    if not short:
+        s.say("  " + _pair("Node:", f"{ident.hostname}  ·  callsign {ident.callsign}"))
+        s.say("  " + _pair("Serial:", ident.serial))
+        s.say("  " + _pair("Radio gear:", "rf0 wideband 2-30 MHz  ·  rf1 not present"))
+        s.blank()
+    s.say(f" * Standalone mode: the core has not answered for {days_core} days.")
+    s.say(f" * Audit: {events:,} events buffered in the vault, none delivered.")
+    s.say(f" * Directory: bridges and stations last updated {BEACON_LAST_SYNC}.")
+    s.say(" * Updates: no channel (core unreachable).")
+    s.blank()
+    s.say("  Last login: ", (f"{LAST_LOGIN} as ", None), (Scene.mask(6), None), "  through aether-core")
+    s.say("  intercom: ", ("1 unread message", "warning"), ("  (received 3 min ago)", "dim"))
+    s.blank()
+    if not short:
+        s.say(f"  This node is unattended. Sessions are recorded. Logged in as {login}.", style="dim")
+        s.blank()
+    s.read(per_char=5, min_ms=1500, max_ms=7500)
+
+
 # ---------- сцены ----------
 
 def intro_scene(ident, *, known=False, client_key=CLIENT_KEY):
@@ -425,7 +495,7 @@ def bypass_scene(ident, login):
     return s
 
 
-def established_scene(clearance, login):
+def established_scene(clearance, login, ident):
     """Сервер открыл сессию: заканчиваем подключение. Играется только после успеха."""
     s = Scene()
     s.task(f"register  login {login} ", "unregistered", style="warning", ms=(400, 900))
@@ -442,7 +512,7 @@ def established_scene(clearance, login):
     s.row("user", login, "dim")
     s.row("clearance", clearance["level"], "warning")
     s.say("WARNING: session is not registered on this node", style="warning")
-    s.blank()
+    _motd(s, ident, login)
     s.say("Loading workspace")
     return s
 
@@ -466,6 +536,6 @@ def restored_scene(ident, *, username, clearance, guest):
     s.row("clearance", clearance["level"], "warning" if guest else "success")
     if guest:
         s.say("Unregistered session: not on this node's account list.", style="warning")
-    s.blank()
+    _motd(s, ident, username, short=True)
     s.say("Loading workspace")
     return s

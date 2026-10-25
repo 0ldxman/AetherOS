@@ -477,6 +477,70 @@ class GatewayScenesTests(TestCase):
         self.assertIn("witness", established)
         self.assertIn("not registered", established)
 
+    # ---------- приветствие узла (как на сервере) ----------
+
+    def screen_text(self, scene):
+        text = ""
+        for step in scene:
+            if step["op"] == "text":
+                text += step["value"]
+            elif step["op"] == "newline":
+                text += "\n"
+        return text
+
+    def test_the_node_greets_the_player_after_the_session_opens(self):
+        from machines.world import GAME_DATE
+        from users.gateway import LOGO
+
+        text = self.screen_text(self.scenes()["established"])
+        for line in LOGO:
+            self.assertIn(line, text)
+        for word in ("Welcome to AETHER 9.1 (halcyon)", f"System information as of {GAME_DATE}",
+                     "Link load:", "Radio:", "Vault usage:", "Memory:", "Processes:", "Temperature:", "Uptime:"):
+            self.assertIn(word, text)
+        self.assertLess(text.index("session established."), text.index("Welcome to"))
+        self.assertLess(text.index("Welcome to"), text.index("Loading workspace"))
+
+    def test_the_greeting_carries_traces_of_the_world(self):
+        from machines.world import BEACON_LAST_SYNC, days_since, CORE_LAST_CONTACT
+
+        text = self.screen_text(self.scenes()["established"])
+        self.assertIn(f"the core has not answered for {days_since(CORE_LAST_CONTACT)} days", text)
+        self.assertIn("events buffered in the vault, none delivered", text)
+        self.assertIn(f"last updated {BEACON_LAST_SYNC}", text)
+        self.assertIn("Last login: 2027-10-29 23:41 UTC as " + "█" * 6 + "  through aether-core", text)
+        self.assertIn("intercom: 1 unread message", text)
+        self.assertNotIn("CTRG", text)
+
+    def test_the_numbers_in_the_greeting_belong_to_the_machine(self):
+        first = self.screen_text(self.scenes()["established"])
+        second = self.screen_text(self.scenes()["established"])
+        self.assertEqual(first, second)
+        self.assertIn(f"rf0 {self.machine_freq()} MHz locked", first)
+
+    def machine_freq(self):
+        from machines.identity import freq_for
+
+        return freq_for(self.machine.hid)
+
+    def test_the_greeting_is_big_and_gets_time_to_read(self):
+        scene = self.scenes()["established"]
+        self.assertGreaterEqual(len(self.screen_text(scene).split("Welcome to")[1]), 900)
+        reads = [step for step in scene if step["op"] == "read"]
+        self.assertEqual(len(reads), 1)
+        self.assertGreaterEqual(reads[0]["min_ms"], 1500)
+        self.assertLess(scene.index(reads[0]), len(scene) - 1)     # после него ещё «Loading workspace»
+
+    def test_a_returning_session_gets_a_short_greeting_without_the_logo(self):
+        from users.gateway import LOGO
+
+        user = get_user_model().objects.create_user("ivan", password="pw")
+        text = self.screen_text(self.scenes(user=user)["restored"])
+        self.assertIn("System information as of", text)
+        self.assertIn("Last login:", text)
+        self.assertNotIn(LOGO[2], text)
+        self.assertNotIn("Serial:", text)
+
     def test_the_unregistered_player_is_a_witness_not_a_guest(self):
         for name, scene in self.scenes().items():
             self.assertNotIn("guest", spoken(scene).lower(), name)
