@@ -132,6 +132,9 @@ def _tree(request, keys, current):
     }
 
 
+KIND_LABELS = {"doc": "document", "scan": "scan", "web": "snapshot", "rec": "record"}
+
+
 def _doc_row(doc, state):
     """Одна строка таблицы для записи (doc.namespace уже привязан)."""
     url = _doc_url(doc)
@@ -141,6 +144,8 @@ def _doc_row(doc, state):
         "id": doc.pk,
         "title": doc.title,
         "ext": doc.ext,
+        "type": doc.type,
+        "kind": KIND_LABELS.get(doc.type, doc.type),
         "updated": doc.updated_at,
         "open": state.open,
         "url": url,
@@ -159,6 +164,30 @@ def _doc_rows(ns, keys):
             continue
         rows.append(_doc_row(doc, s))
     return rows
+
+
+def _folders(tree, ns):
+    """Подразделы текущего раздела (из дерева: скрытых и закрытых заглядываний там уже нет)."""
+    if ns is None:
+        return tree["children"]
+
+    def find(nodes):
+        for node in nodes:
+            if node["id"] == ns.pk:
+                return node["children"]
+            found = find(node["children"])
+            if found is not None:
+                return found
+        return None
+
+    return find(tree["children"]) or []
+
+
+def _path_bar(ns):
+    """Кликабельный путь: ~ и разделы вплоть до текущего, плюс адрес «вверх»."""
+    crumbs = [{"name": "~", "url": reverse("wiki:home")}] + _crumbs(ns)
+    up = crumbs[-2]["url"] if len(crumbs) > 1 else None
+    return crumbs, up
 
 
 def _locked(request, title, crumbs=None):
@@ -180,11 +209,19 @@ def _namespace_page(request, ns):
             raise Http404
         locked = not state.open
 
+    tree = _tree(request, keys, ns)
+    crumbs, up_url = _path_bar(ns)
+    documents = [] if locked else _doc_rows(ns, keys)
+
     return render(
         request,
         "wiki/explorer.html",
         {
-            "tree": _tree(request, keys, ns),
+            "tree": tree,
+            "crumbs": crumbs,
+            "up_url": up_url,
+            "folders": [] if locked else _folders(tree, ns),
+            "kinds": sorted({(d["type"], d["kind"]) for d in documents}),
             "path_text": _path_text(ns),
             "prompt": _prompt(request, ns),
             "search_url": reverse("wiki:search"),
@@ -192,7 +229,7 @@ def _namespace_page(request, ns):
             "ns_id": ns.pk if ns else "",
             "locked": locked,
             # за замком даже список документов не отдаём
-            "documents": [] if locked else _doc_rows(ns, keys),
+            "documents": documents,
         },
         status=403 if locked else 200,
     )

@@ -78,7 +78,7 @@
     const INFOBOX_WINDOW = { width: 320, height: 440 };
     function bindOpen(table) {
         table.addEventListener("click", function (event) {
-            const row = event.target.closest("tr[data-url]");
+            const row = event.target.closest("tr[data-url], .card[data-url]");
 
             if (!row) {
                 return;
@@ -180,10 +180,100 @@
     }
 
     const docsTable = document.getElementById("docs");
+    const cardsBox = document.getElementById("cards");
 
     if (docsTable) {
         bindOpen(docsTable);
         bindSort(docsTable);
+    }
+
+    if (cardsBox) {
+        bindOpen(cardsBox);
+    }
+
+
+    /* ================================================== */
+    /* Browse: вид (карточки / список) и фильтр-чипы       */
+    /* ================================================== */
+
+    const VIEW_KEY = "wiki:view";
+    const browseBox = document.getElementById("browse");
+    const chips = document.getElementById("chips");
+    const views = document.getElementById("views");
+    const filterEmpty = document.getElementById("filter-empty");
+
+    function setView(name) {
+        browseBox.classList.toggle("view-cards", name === "cards");
+        browseBox.classList.toggle("view-list", name === "list");
+
+        views.querySelectorAll("[data-view]").forEach(function (button) {
+            button.classList.toggle("is-on", button.dataset.view === name);
+        });
+
+        try {
+            localStorage.setItem(VIEW_KEY, name);
+        } catch (error) {
+            /* хранилище недоступно: вид просто не запомнится */
+        }
+    }
+
+    function applyFilter(rule) {
+        const items = document.querySelectorAll("#cards > [data-open], #docs tbody > tr[data-open]");
+        let shown = 0;
+
+        items.forEach(function (item) {
+            let match = true;
+
+            if (rule === "open") {
+                match = item.dataset.open === "1";
+            } else if (rule === "locked") {
+                match = item.dataset.open === "0";
+            } else if (rule.indexOf("type:") === 0) {
+                match = item.dataset.type === rule.slice(5);
+            }
+
+            item.hidden = !match;
+
+            if (match && item.tagName !== "TR") {
+                shown += 1;
+            }
+        });
+
+        filterEmpty.hidden = shown > 0;
+    }
+
+    if (browseBox && chips && views) {
+        let view = "cards";
+
+        try {
+            view = localStorage.getItem(VIEW_KEY) === "list" ? "list" : "cards";
+        } catch (error) {
+            /* по умолчанию карточки */
+        }
+
+        setView(view);
+
+        views.addEventListener("click", function (event) {
+            const button = event.target.closest("[data-view]");
+
+            if (button) {
+                setView(button.dataset.view);
+            }
+        });
+
+        chips.addEventListener("click", function (event) {
+            const chip = event.target.closest("[data-filter]");
+
+            if (!chip) {
+                return;
+            }
+
+            chips.querySelectorAll("[data-filter]").forEach(function (other) {
+                other.classList.toggle("is-on", other === chip);
+            });
+
+            applyFilter(chip.dataset.filter);
+        });
     }
 
     /* ================================================== */
@@ -218,6 +308,7 @@
     const results = document.getElementById("results");
     const pathText = document.getElementById("path-text");
     const records = document.getElementById("records");
+    const typedHint = document.getElementById("typed-hint");
 
     /*
      * Запрос на языке архива. Он только показывается в шапке:
@@ -356,6 +447,11 @@
          */
         function syncTyped() {
             typed.textContent = input.value;
+
+            if (typedHint) {
+                typedHint.hidden = input.value !== "";
+            }
+
             typedWrap.scrollLeft = typedWrap.scrollWidth;
         }
 

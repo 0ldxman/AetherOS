@@ -71,6 +71,50 @@ class WikiViewsTests(TestCase):
         self.assertIn("Открытая", html)
         self.assertNotIn("Скрытая", html)
 
+    # ---------- вид обозревателя ----------
+
+    def test_explorer_has_clickable_path_with_up_link(self):
+        status, html, _ = call(views.resolve, "Закрытый/Дочерний", user=self.player)
+        self.assertEqual(status, 403)  # у игрока нет ключа: путь всё равно виден, замка достаточно
+        self.assertIn('class="crumbs"', html)
+        self.assertIn('class="crumb-up"', html)
+
+    def test_root_has_no_up_link(self):
+        status, html, _ = call(views.resolve, "")
+        self.assertEqual(status, 200)
+        self.assertNotIn("crumb-up", html)
+
+    def test_sections_are_shown_as_cards_next_to_records(self):
+        status, html, _ = call(views.resolve, "")
+        self.assertEqual(status, 200)
+        self.assertIn('id="cards"', html)
+        self.assertIn('card card-folder', html)
+        self.assertIn("Открытая", html)
+        self.assertIn('data-filter="open"', html)
+        self.assertIn('data-view="list"', html)
+
+    def test_locked_section_shows_no_cards_or_filters(self):
+        status, html, _ = call(views.resolve, "Закрытый")
+        self.assertEqual(status, 403)
+        self.assertNotIn('id="cards"', html)
+        self.assertNotIn('id="chips"', html)
+        self.assertNotIn("Вложенная", html)
+
+    def test_type_chips_appear_only_when_types_differ(self):
+        _, html, _ = call(views.resolve, "")
+        self.assertNotIn('data-filter="type:', html)
+
+        Document.objects.create(namespace=None, title="Снимок", type=Document.Type.SCAN)
+        _, html, _ = call(views.resolve, "")
+        self.assertIn('data-filter="type:scan"', html)
+        self.assertIn('data-filter="type:doc"', html)
+
+    def test_closed_section_is_not_expanded_into_cards(self):
+        """Карточки подразделов берутся из дерева: за замок они не заглядывают."""
+        _, html, _ = call(views.resolve, "")
+        self.assertIn("Закрытый", html)
+        self.assertNotIn("Дочерний", html)
+
     def test_closed_namespace_is_locked(self):
         status, html, _ = call(views.resolve, "Закрытый")
         self.assertEqual(status, 403)

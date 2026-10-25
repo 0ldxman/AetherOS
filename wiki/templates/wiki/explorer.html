@@ -21,34 +21,80 @@
 
   <section class="viewer">
     <div class="viewer-path">
+      <nav class="crumbs" aria-label="Путь">
+        {% if up_url %}<a class="crumb-up" href="{{ up_url }}" title="up">..</a>{% endif %}
+        {% for c in crumbs %}{% if not forloop.first %}<span class="sep">/</span>{% endif %}<a href="{{ c.url }}"{% if forloop.last %} aria-current="page"{% endif %}>{{ c.name }}</a>{% endfor %}
+      </nav>
       <span class="viewer-path-text" id="path-text">{{ path_text }}</span>
     </div>
 
+    {% if documents or folders %}
+    <div class="viewer-bar" id="bar">
+      <div class="chips" id="chips" role="group" aria-label="Фильтр">
+        <button type="button" class="chip is-on" data-filter="all">all</button>
+        <button type="button" class="chip" data-filter="open">open</button>
+        <button type="button" class="chip" data-filter="locked">locked</button>
+        {% if kinds|length > 1 %}{% for type, kind in kinds %}<button type="button" class="chip" data-filter="type:{{ type }}">{{ kind }}</button>{% endfor %}{% endif %}
+      </div>
+      <div class="views" id="views" role="group" aria-label="Вид">
+        <button type="button" class="chip is-on" data-view="cards">cards</button>
+        <button type="button" class="chip" data-view="list">list</button>
+      </div>
+    </div>
+    {% endif %}
+
     <div class="viewer-body">
-      <div id="browse">
+      <div id="browse" class="view-cards">
       {% if locked %}
         <div class="denied">
           <div class="denied-title">ACCESS DENIED</div>
           <div class="denied-line">&gt; restricted section</div>
           <div class="denied-line">&gt; no matching key<span class="cursor"></span></div>
         </div>
-      {% elif documents %}
+      {% elif documents or folders %}
+        <div class="cards" id="cards">
+          {% for f in folders %}
+          <a class="card card-folder{% if not f.open %} locked{% endif %}" href="{{ f.url }}" data-open="{{ f.open|yesno:'1,0' }}" data-type="dir">
+            <span class="card-icon">DIR</span>
+            <span class="card-name">{{ f.name }}<span class="ext">/</span></span>
+            <span class="card-meta">{% if f.open %}section{% else %}section · locked{% endif %}</span>
+          </a>
+          {% endfor %}
+          {% for d in documents %}
+          <div class="card{% if not d.open %} locked{% endif %}" data-open="{{ d.open|yesno:'1,0' }}" data-type="{{ d.type }}" data-doc-id="{{ d.id }}" data-title="{{ d.title }}" data-ext="{{ d.ext }}" data-url="{{ d.url }}"{% if d.infobox_url %} data-infobox-url="{{ d.infobox_url }}"{% endif %}>
+            <span class="card-icon">{{ d.ext|slice:"1:"|upper|slice:":4" }}</span>
+            <a class="card-name" href="{{ d.url }}">{{ d.title }}<span class="ext">{{ d.ext }}</span></a>
+            <span class="card-meta">{{ d.kind }} · {% if d.open %}open{% else %}locked{% endif %}</span>
+          </div>
+          {% endfor %}
+        </div>
+
         <table class="grid" id="docs">
           <thead>
             <tr>
               <th>name</th>
+              <th>type</th>
               <th>access</th>
             </tr>
           </thead>
           <tbody>
+          {% for f in folders %}
+            <tr class="folder{% if not f.open %} locked{% endif %}" data-open="{{ f.open|yesno:'1,0' }}" data-type="dir">
+              <td data-sort="{{ f.name }}"><a href="{{ f.url }}">{{ f.name }}<span class="ext">/</span></a></td>
+              <td>section</td>
+              <td{% if f.open %} class="state-open"{% endif %}>{% if f.open %}OPEN{% else %}LOCKED{% endif %}</td>
+            </tr>
+          {% endfor %}
           {% for d in documents %}
-            <tr{% if not d.open %} class="locked"{% endif %} data-doc-id="{{ d.id }}" data-title="{{ d.title }}" data-ext="{{ d.ext }}" data-url="{{ d.url }}"{% if d.infobox_url %} data-infobox-url="{{ d.infobox_url }}"{% endif %}>
+            <tr{% if not d.open %} class="locked"{% endif %} data-open="{{ d.open|yesno:'1,0' }}" data-type="{{ d.type }}" data-doc-id="{{ d.id }}" data-title="{{ d.title }}" data-ext="{{ d.ext }}" data-url="{{ d.url }}"{% if d.infobox_url %} data-infobox-url="{{ d.infobox_url }}"{% endif %}>
               <td data-sort="{{ d.title }}"><a href="{{ d.url }}">{{ d.title }}<span class="ext">{{ d.ext }}</span></a></td>
+              <td>{{ d.kind }}</td>
               <td{% if d.open %} class="state-open"{% endif %}>{% if d.open %}OPEN{% else %}LOCKED{% endif %}</td>
             </tr>
           {% endfor %}
           </tbody>
         </table>
+        <p class="empty" id="filter-empty" hidden>&gt; nothing matches the filter</p>
       {% else %}
         <p class="empty">&gt; no records</p>
       {% endif %}
@@ -60,7 +106,7 @@
     <div class="viewer-foot">
       <label class="term" for="search">
         <span class="prompt">{{ prompt }}<span class="prompt-end">&gt;</span></span>
-        <span class="typed-wrap" id="typed-wrap"><span class="typed" id="typed"></span><span class="caret" aria-hidden="true"></span></span>
+        <span class="typed-wrap" id="typed-wrap"><span class="typed" id="typed"></span><span class="caret" aria-hidden="true"></span><span class="typed-hint" id="typed-hint">search by name or text, then Enter</span></span>
         <input type="text" id="search" maxlength="80" aria-label="Запрос к базе" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false">
       </label>
       <span class="viewer-meta" id="records">{% if not locked %}records: {{ documents|length }}{% endif %}</span>
