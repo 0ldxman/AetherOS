@@ -465,8 +465,7 @@ body {
 }
 
 .dialog-ok:focus-visible {
-  outline: 1px dashed var(--bg);
-  outline-offset: 2px;
+  outline: none;
 }
 
 /* заголовок окна ошибки красится по виду сообщения */
