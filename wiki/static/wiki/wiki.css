@@ -771,6 +771,11 @@ details[open] > summary .mark::before {
 }
 
 
+.grid tbody tr.locked .ico {
+    background: var(--bg);
+}
+
+
 .grid tbody tr.locked:hover {
     filter: brightness(1.12);
 }
