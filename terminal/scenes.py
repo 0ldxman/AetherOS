@@ -38,11 +38,35 @@ def _damaged(s, path, ok):
     s.task("checksum", _result(ok), ms=(250, 550))
 
 
+def _archive(s, path, ok):
+    s.count("reading index", _stable(path, 4, 60), unit=" entries", ms=(400, 800), width=10)
+    s.bar("unpacking ", ms=(700, 1300), width=20)
+    s.task("verifying", _result(ok), ms=(250, 550))
+
+
+def _binary(s, path, ok):
+    s.count("scanning", _stable(path, 400, 9000), unit=" bytes", ms=(500, 1000), width=10)
+    s.task("collecting strings", _result(ok), ms=(300, 700))
+
+
+def _shifted(s, path, ok):
+    s.task("seeking", "OK", ms=(200, 450))
+    s.bar("reading ", ms=(500, 1000), width=20)
+    s.task("block check", _result(ok), ms=(250, 550))
+
+
+def _disguised(s, path, ok):
+    s.task("probing format", "OK", ms=(250, 500))
+    s.bar("converting ", ms=(600, 1200), width=20)
+    s.task("validating", _result(ok), ms=(250, 600))
+
+
 def _generic(s, path, ok):
     s.task("working", _result(ok), ms=(300, 800))
 
 
-_UNLOCK = {"encrypted": _encrypted, "base64": _base64, "damaged": _damaged}
+_UNLOCK = {"encrypted": _encrypted, "base64": _base64, "damaged": _damaged,
+           "archive": _archive, "binary": _binary, "shifted": _shifted, "disguised": _disguised}
 
 
 def unlock_scene(layer, path, ok):

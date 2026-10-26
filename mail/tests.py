@@ -868,7 +868,7 @@ class HookMailActionTests(TestCase):
     def test_the_terminal_tells_the_player_a_letter_arrived(self):
         from terminal.engine.executor import TerminalExecutor
 
-        result, _ = TerminalExecutor().execute(session=self.session, source="cph /home/door.bin hunter2")
+        result, _ = TerminalExecutor().execute(session=self.session, source="ward /home/door.bin hunter2")
         self.assertIn("decrypted", result.output)
         self.assertIn("intercom: 1 new message", result.output)
 
@@ -879,7 +879,7 @@ class HookMailActionTests(TestCase):
         MachineFile.objects.create(
             machine=self.machine, path="/home/slow.bin", state="> encrypted hunter2\non remove: mail door_open delay=60"
         )
-        result, _ = TerminalExecutor().execute(session=self.session, source="cph /home/slow.bin hunter2")
+        result, _ = TerminalExecutor().execute(session=self.session, source="ward /home/slow.bin hunter2")
         self.assertNotIn("intercom:", result.output)
         self.assertEqual(Delivered.objects.count(), 1)
 

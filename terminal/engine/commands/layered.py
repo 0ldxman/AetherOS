@@ -34,8 +34,8 @@ class LayerCommand(BaseCommand):
 
     Подкласс задаёт только слой и тексты:
 
-        class CphCommand(LayerCommand):
-            name = "cph"
+        class WardCommand(LayerCommand):
+            name = "ward"
             layer = "encrypted"
             done = "decrypted"
             absent = "not encrypted"

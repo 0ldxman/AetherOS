@@ -1,4 +1,4 @@
-"""Команды моста: bridge (войти на другую машину), exit (на уровень выше), bridge-close (закрыть всё).
+"""Команды моста: rcon (войти на другую машину), exit (на уровень выше), rcon-close (закрыть всё).
 
 Условия входа и стек сессий в machines/bridge.py. Здесь разбор команды, чтение файла-ключа (-i), запрос пароля
 и ответы в духе ssh. Отказ не говорит, какое условие не выполнено: только перечень способов записи,
@@ -47,8 +47,8 @@ def answer_prompt(request, text):
 
 
 class BridgeCommand(BaseCommand):
-    name = "bridge"
-    usage = "usage: bridge [-p freq] [-i keyfile] [--token token] login@host"
+    name = "rcon"
+    usage = "usage: rcon [-p freq] [-i keyfile] [--token token] login@host"
 
     def execute(self, context, args):
         request = context.request
@@ -180,7 +180,7 @@ class ExitCommand(BaseCommand):
 
 
 class BridgeCloseCommand(BaseCommand):
-    name = "bridge-close"
+    name = "rcon-close"
 
     def execute(self, context, args):
         request = context.request

@@ -68,5 +68,39 @@ class Shifted(BaseState):
     )
 
 
+@register
+class Archive(BaseState):
+    name = "archive"
+    summary = "Файл это архив: его нужно распаковать (pak)."
+
+
+@register
+class Binary(BaseState):
+    name = "binary"
+    summary = "Читаемый текст спрятан среди двоичных данных: его нужно вытащить (txtx)."
+
+
+@register
+class Disguised(BaseState):
+    name = "disguised"
+    summary = "Файл выдаёт себя за один формат, а на деле другого: его нужно преобразовать (cvt)."
+    params = (
+        Param(
+            "format",
+            str,
+            required=True,
+            positional=True,
+            unlock=True,
+            help="настоящий формат, в который нужно преобразовать файл (регистр не важен)",
+        ),
+    )
+
+    @classmethod
+    def check_unlock(cls, params, given):
+        wanted = str(params.get("format", "")).strip().lower().lstrip(".")
+        named = str(given.get("format", "")).strip().lower().lstrip(".")
+        return () if wanted and wanted == named else ("format",)
+
+
 # Ошибка в default_hooks любого слоя должна падать сразу при запуске.
 validate_defaults()

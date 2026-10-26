@@ -5,9 +5,9 @@ from terminal.engine.commands.basic import (
     PwdCommand,
 )
 from terminal.engine.commands.bridge import BridgeCloseCommand, BridgeCommand, ExitCommand
-from terminal.engine.commands.crypto import B256Command, CphCommand
+from terminal.engine.commands.crypto import EncCommand, PakCommand, TxtxCommand, WardCommand
 from terminal.engine.commands.info import FtypCommand, CntCommand
-from terminal.engine.commands.raw import RprCommand
+from terminal.engine.commands.raw import BlkCommand, CvtCommand, RprCommand
 
 # Общие для всех систем команды файловой системы.
 COMMON = (
@@ -16,13 +16,17 @@ COMMON = (
     CdCommand,
     ClearCommand,
     FtypCommand,
-    CphCommand,
-    B256Command,
+    WardCommand,
+    EncCommand,
+    PakCommand,
+    TxtxCommand,
+    BlkCommand,
+    CvtCommand,
     RprCommand,
     CntCommand,
 )
 
-# У каждой системы свой набор и свои названия команд: у Aether мост это bridge, bridge-close и exit,
+# У каждой системы свой набор и свои названия команд: у Aether мост это rcon, rcon-close и exit,
 # у других систем это будут свои (например ssh и logout). Нового вида систем достаточно добавить сюда.
 COMMANDS_BY_SYSTEM = {
     "AETHER": {

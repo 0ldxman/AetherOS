@@ -1,19 +1,36 @@
 from terminal.engine.commands.layered import LayerCommand
 
 
-class CphCommand(LayerCommand):
-    """cph <файл> <пароль>: снять шифрование (слой encrypted)."""
+class WardCommand(LayerCommand):
+    """ward <файл> <пароль>: снять шифрование (слой encrypted)."""
 
-    name = "cph"
+    name = "ward"
     layer = "encrypted"
     done = "decrypted"
     absent = "not encrypted"
 
 
-class B256Command(LayerCommand):
-    """b256 <файл>: раскодировать содержимое (слой base64)."""
+class EncCommand(LayerCommand):
+    """enc <файл>: раскодировать содержимое (слой base64)."""
 
-    name = "b256"
+    name = "enc"
     layer = "base64"
     done = "decoded"
     absent = "not base64"
+
+class PakCommand(LayerCommand):
+    """pak <файл>: распаковать архив (слой archive)."""
+
+    name = "pak"
+    layer = "archive"
+    done = "unpacked"
+    absent = "not an archive"
+
+
+class TxtxCommand(LayerCommand):
+    """txtx <файл>: вытащить читаемый текст из двоичных данных (слой binary)."""
+
+    name = "txtx"
+    layer = "binary"
+    done = "text extracted"
+    absent = "no text found"
