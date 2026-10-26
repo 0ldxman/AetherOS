@@ -23,6 +23,7 @@ from html import escape
 from django.urls import NoReverseMatch, reverse
 
 from assets.services import asset_widget_kind, find_asset
+from map.scenes import internal_url
 from pathlib import PurePosixPath
 
 TONES = ("red", "green", "blue", "grey")
@@ -693,23 +694,31 @@ _EXCEPT = re.compile(r"^(?:except|кроме)\s+(.+)$", re.IGNORECASE)
 
 
 def parse_map_line(line):
-    """Строка тела ::map -> ('marker', название, lat, lon, цвет, неизвестное слово цвета) |
-    ('region', [(токен, цвет)]) | ('except', [токен]) | None для пустой строки.
+    """Строка тела ::map -> ('marker', название, lat, lon, цвет, неизвестное слово цвета, ссылка) |
+    ('region', [(токен, цвет)], ссылка) | ('except', [токен]) | None для пустой строки.
 
         Краков | 50.06 19.94 red      метка
         POL blue, DEU orange          выделение (через запятую; цвет последним словом)
+        Краков | 50 19 -> Technologies/Report   ссылка по клику: «-> адрес» в конце строки
         except CZE-3  /  -CZE-3       исключить провинцию из выделенного
     """
     line = line.strip()
     if not line:
         return None
 
+    # «-> адрес» в конце строки: клик по метке или выделению открывает ссылку
+    link = ""
+    match = re.search(r"\s+->\s+(\S.*)$", line)
+    if match:
+        line, link = line[: match.start()].strip(), match.group(1).strip()
+
     marker = _MARKER.match(line)
     if marker:
         lat, lon = float(marker.group(2).replace(",", ".")), float(marker.group(3).replace(",", "."))
         word = marker.group(4)
         # неизвестное слово цвета не теряет метку: она рисуется цветом по умолчанию, линтер ругается
-        return ("marker", marker.group(1).strip(), lat, lon, mark_color(word), word if word and not mark_color(word) else "")
+        return ("marker", marker.group(1).strip(), lat, lon, mark_color(word),
+                word if word and not mark_color(word) else "", link)
 
     exclusion = _EXCEPT.match(line)
     if exclusion:
@@ -725,34 +734,34 @@ def parse_map_line(line):
         color = mark_color(words[-1]) if len(words) > 1 else ""
         token = " ".join(words[:-1] if color else words)
         items.append((token, color))
-    return ("region", items)
+    return ("region", items, link)
 
 
 def _marker_rows(text):
-    """Метки тела блока: [(название, lat, lon, цвет)]; координаты вне карты пропускаются."""
+    """Метки тела блока: [(название, lat, lon, цвет, ссылка)]; координаты вне карты пропускаются."""
     rows = []
     for line in _lines(text):
         parsed = parse_map_line(line)
         if parsed and parsed[0] == "marker" and -85 <= parsed[2] <= 85 and -180 <= parsed[3] <= 180:
-            rows.append((parsed[1], parsed[2], parsed[3], parsed[4]))
+            rows.append((parsed[1], parsed[2], parsed[3], parsed[4], parsed[6]))
     return rows[:MAX_MARKERS]
 
 
 def _highlight_items(head, text):
-    """Что выделять: [(токен, цвет)]. Токены из заголовка (старая запись highlight="POL:blue -CZE-3")
-    идут первыми, затем строки тела. Исключения превращаются в токены «-КОД»."""
+    """Что выделять: [(токен, цвет, ссылка)]. Токены из заголовка (старая запись
+    highlight="POL:blue -CZE-3") идут первыми, затем строки тела. Исключения: токены «-КОД»."""
     items = []
     for token in re.split(r"[\s,;]+", head.get("highlight") or head.get("regions") or ""):
         if token:
-            items.append(split_highlight_token(token))
+            items.append((*split_highlight_token(token), ""))
     for line in _lines(text):
         parsed = parse_map_line(line)
         if not parsed:
             continue
         if parsed[0] == "region":
-            items.extend(parsed[1])
+            items.extend((token, color, parsed[2]) for token, color in parsed[1])
         elif parsed[0] == "except":
-            items.extend(("-" + token.lstrip("-"), "") for token in parsed[1])
+            items.extend(("-" + token.lstrip("-"), "", "") for token in parsed[1])
     return items[:MAX_REGIONS]
 
 
@@ -798,18 +807,46 @@ def map_widget(text, ctx, args=""):
 
     from map.bounds import resolve_highlight, union, view_for
 
+    import json
+
+    from map.models import MapScene
+    from map.scenes import visible_features
+    from secure.access import satisfied
+
     head = _head_args(args)
     markers = _marker_rows(text)
+
+    # сохранённая карта: камера, дата и режим берутся из неё, если заголовок не задал свои
+    scene = None
+    scene_payload = None
+    if head.get("scene"):
+        scene = MapScene.objects.filter(slug=head["scene"].strip()).first()
+        if scene is None:
+            return _asset_missing(head["scene"], "MAP NOT FOUND")
+        if not satisfied(scene.key_condition, ctx.keys):
+            return _asset_missing(head["scene"], "MAP RESTRICTED")
+        if scene.base_date and not head.get("date"):
+            head["date"] = scene.base_date.isoformat()
+        if not head.get("mode"):
+            head["mode"] = scene.mode
+        if head.get("lat") in (None, "") and head.get("lon") in (None, ""):
+            head["lat"], head["lon"] = f"{scene.lat:g}", f"{scene.lon:g}"
+            if not head.get("zoom"):
+                head["zoom"] = f"{scene.zoom:g}"
+        if not head.get("caption") and not head.get("title"):
+            head["caption"] = scene.title
     raw_date = (head.get("date") or "").strip()
     try:
         on_date = _date.fromisoformat(raw_date)
     except ValueError:
         on_date = None
     split = _highlight_items(head, text)
-    groups, _unknown = resolve_highlight([base for base, _ in split], on_date) if split else ([], [])
-    colors = {base.upper(): color for base, color in split if color}
+    groups, _unknown = resolve_highlight([base for base, _c, _u in split], on_date) if split else ([], [])
+    colors = {base.upper(): color for base, color, _u in split if color}
+    links = {base.upper(): url for base, _c, url in split if url}
     for group in groups:
         group["color"] = colors.get(group["token"].upper(), colors.get(group["name"].upper(), ""))
+        group["url"] = internal_url(links.get(group["token"].upper(), links.get(group["name"].upper(), "")))
     # без цвета выделения красятся по очереди разными цветами (одно выделение остаётся цвета темы)
     plain = [g for g in groups if not g["color"]]
     if len(plain) > 1:
@@ -820,8 +857,11 @@ def map_widget(text, ctx, args=""):
     chosen = {}
     for group in groups:
         for code in group["codes"]:
-            chosen[code] = group["color"]
-    region_codes = [code + (":" + color if color else "") for code, color in chosen.items()]
+            chosen[code] = (group["color"], group["url"])
+    region_codes = [
+        code + ((":" + color + (":" + quote_plus(url) if url else "")) if color or url else "")
+        for code, (color, url) in chosen.items()
+    ]
 
     has_view = head.get("lat") not in (None, "") and head.get("lon") not in (None, "")
     if has_view:
@@ -829,7 +869,7 @@ def map_widget(text, ctx, args=""):
         lon = float(_num(head.get("lon"), 10, -180, 180))
         zoom = float(_num(head.get("zoom"), 4, 0, 18))
     else:
-        box = union([b for g in groups for b in g["boxes"]] + [[lo, la, lo, la] for _, la, lo, _c in markers])
+        box = union([b for g in groups for b in g["boxes"]] + [[lo, la, lo, la] for _, la, lo, _c, _u in markers])
         if box is not None:
             lat, lon, zoom = view_for(box)
             if head.get("zoom"):
@@ -850,8 +890,21 @@ def map_widget(text, ctx, args=""):
         query += "&labels=0"
     if region_codes:
         query += "&regions=" + ",".join(region_codes)
-    for label, la, lo, color in markers:
-        query += f"&m={la},{lo},{color},{quote_plus(label)}"
+    for label, la, lo, color, link in markers:
+        query += f"&m={la},{lo},{color},{quote_plus(internal_url(link))},{quote_plus(label)}"
+    if scene is not None:
+        if scene.bounds:
+            query += "&bounds=" + ",".join(f"{v:g}" for v in scene.bounds)
+        if scene.min_zoom is not None:
+            query += f"&minzoom={scene.min_zoom:g}"
+        if scene.max_zoom is not None:
+            query += f"&maxzoom={scene.max_zoom:g}"
+        flat = (head.get("flat") or "").strip().lower()
+        if flat in ("on", "1", "yes", "да") or (not flat and scene.flat):
+            query += "&flat=1"
+        scene_payload = _scene_payload(scene, ctx.keys, on_date)
+    elif (head.get("flat") or "").strip().lower() in ("on", "1", "yes", "да"):
+        query += "&flat=1"
 
     try:
         base = reverse("map:index")
@@ -887,7 +940,7 @@ def map_widget(text, ctx, args=""):
     )
 
     legend = []
-    for index, (label, la, lo, color) in enumerate(markers, 1):
+    for index, (label, la, lo, color, _link) in enumerate(markers, 1):
         legend.append(
             f'<li class="map-legend-marker"{_color_attr(color)}><b>{index}</b>{ctx.inline(label)}</li>'
         )
@@ -899,9 +952,35 @@ def map_widget(text, ctx, args=""):
     legend_html = f'<ol class="map-legend">{"".join(legend)}</ol>' if legend else ""
 
     figure = _asset_figure("map", inner, {**head, "width": head.get("width", "100")}, ctx)
+    if scene_payload is not None:
+        figure = figure.replace(
+            "<figure ", f'<figure data-scene="{escape(json.dumps(scene_payload, ensure_ascii=False), quote=True)}" ', 1
+        )
     figure = figure.replace("</figure>", f"{legend_html}</figure>", 1) if legend_html else figure
     # подпись и рамка у карты те же, что у картинки документа
     return figure.replace("widget widget--map", "widget widget--map widget--image", 1)
+
+
+def _scene_payload(scene, keys, on_date):
+    """Пометки сцены для страницы: только видимые игроку, ссылки внутренние, выделения раскрыты в провинции."""
+    from map.bounds import resolve_highlight
+    from map.scenes import visible_features
+
+    payload = []
+    for item in visible_features(scene.features, keys):
+        item = dict(item)
+        if item.get("url"):
+            item["url"] = internal_url(item["url"])
+            if not item["url"]:
+                del item["url"]
+        if item["type"] == "region":
+            groups, _unknown = resolve_highlight([item["token"]], on_date)
+            codes = [code for g in groups for code in g["codes"]]
+            if not codes:
+                continue
+            item = {**{k: v for k, v in item.items() if k != "token"}, "type": "regions", "codes": codes}
+        payload.append(item)
+    return payload
 
 
 def _color_attr(color):

@@ -63,7 +63,7 @@ class BlocksTests(TestCase):
 
     def test_map_markers_go_to_the_url_and_the_legend(self):
         html = render("::map lat=48 lon=2\nПорт | 48.8 2.3\nСклад | 48.9, 2.4\nмусор\n::\n")
-        self.assertIn("m=48.8,2.3,,%D0%9F%D0%BE%D1%80%D1%82", html)
+        self.assertIn("m=48.8,2.3,,,%D0%9F%D0%BE%D1%80%D1%82", html)
         self.assertEqual(html.count("map-legend-marker"), 2)
         self.assertIn("<b>2</b>Склад", html)
 
@@ -232,6 +232,62 @@ class BlocksTests(TestCase):
         self.assertEqual(codes("::map\nPOL blue\nNOPE\n::\n"), [(3, "region-missing")])
         self.assertEqual(codes("::map\nexcept NOPE-1\n::\n"), [(2, "region-missing")])
         self.assertEqual(codes("::map\nТочка | 1 2 розовый\n::\n"), [(2, "map-color")])
+
+    def _scene(self, **fields):
+        from map.models import MapScene
+
+        data = dict(slug="raid", title="Рейд", lat=50, lon=19, zoom=5, features=[
+            {"type": "marker", "coords": [19.9, 50.0], "label": "Краков", "url": "Technologies/Report"},
+            {"type": "arrow", "coords": [[19, 50], [21, 52]], "color": "red"},
+            {"type": "marker", "coords": [10, 10], "label": "Тайник", "key": "secret"},
+        ])
+        data.update(fields)
+        return MapScene.objects.create(**data)
+
+    def test_scene_widget_uses_the_scene_camera_and_embeds_visible_features(self):
+        import json
+        from html import unescape
+
+        from datetime import date
+
+        self._scene(bounds=[10, 40, 30, 60], min_zoom=3, max_zoom=9, flat=True, base_date=date(2029, 2, 12))
+        html = render("::map scene=raid\n::\n")
+        self.assertIn("date=2029-02-12", html)
+        self.assertIn("bounds=10,40,30,60", html)
+        self.assertIn("minzoom=3", html)
+        self.assertIn("maxzoom=9", html)
+        self.assertIn("flat=1", html)
+        self.assertIn("#5/50/19", html)
+        self.assertIn("Рейд", html)                       # подпись по умолчанию из названия сцены
+        features = json.loads(unescape(html.split('data-scene="')[1].split('"')[0]))
+        self.assertEqual([f["type"] for f in features], ["marker", "arrow"])      # секретная метка не попала
+        self.assertTrue(features[0]["url"].endswith("Technologies/Report"))
+        self.assertNotIn("Тайник", html)
+
+    def test_scene_secret_feature_appears_with_the_key(self):
+        self._scene()
+        html = render("::map scene=raid\n::\n", keys={"secret"})
+        self.assertIn("Тайник", html)
+
+    def test_restricted_or_missing_scene_shows_a_placeholder(self):
+        self._scene(key_condition="secret")
+        self.assertIn("MAP RESTRICTED", render("::map scene=raid\n::\n"))
+        self.assertNotIn("data-scene", render("::map scene=raid\n::\n"))
+        self.assertIn("data-scene", render("::map scene=raid\n::\n", keys={"secret"}))
+        self.assertIn("MAP NOT FOUND", render("::map scene=nope\n::\n"))
+
+    def test_header_overrides_the_scene_and_lines_add_on_top(self):
+        self._scene(flat=False)
+        html = render("::map scene=raid lat=1 lon=2 zoom=7 flat=on caption=Своё\nМетка | 3 4 red\n::\n")
+        self.assertIn("#7/1/2", html)
+        self.assertIn("flat=1", html)
+        self.assertIn("Своё", html)
+        self.assertIn("m=3.0,4.0,red,", html)
+
+    def test_inline_links_are_normalized_and_unsafe_ones_dropped(self):
+        html = render("::map lat=1 lon=2\nА | 1 2 -> Technologies/Report\nБ | 3 4 -> javascript:alert(1)\n::\n")
+        self.assertIn("Technologies%2FReport", html)
+        self.assertEqual(html.count("javascript"), 0)
 
     def test_lint_flags_unknown_regions(self):
         from map.models import Province

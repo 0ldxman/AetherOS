@@ -253,3 +253,33 @@ body.theme-term .embed-marker {
   --pin-ring: var(--bg);
   --pin-ink: var(--bg);
 }
+
+/* подпись и ссылка у меток сохранённой карты */
+.marker-link {
+  cursor: pointer;
+}
+
+.marker-label {
+  position: absolute;
+  left: 100%;
+  top: 50%;
+  margin-left: 6px;
+  transform: translateY(-50%);
+  font: 600 12px/1.2 var(--font-main, monospace);
+  white-space: nowrap;
+  color: var(--text, #fff);
+  text-shadow: 0 0 3px var(--halo, #000), 0 0 3px var(--halo, #000);
+}
+
+body.theme-print .marker-label,
+body.theme-scan .marker-label {
+  --text: #2a2118;
+  --halo: #f3ecdb;
+  font-family: var(--font-hand, cursive);
+  font-size: 17px;
+}
+
+body.theme-term .marker-label {
+  --text: var(--accent);
+  --halo: var(--bg);
+}

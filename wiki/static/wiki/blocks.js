@@ -89,14 +89,60 @@
         }
     }
 
+    // ссылка из карты (клик по метке или выделению): в окне рабочего стола или обычным переходом
+    function openLink(url, label) {
+        if (typeof url !== "string" || url.charAt(0) !== "/" || url.indexOf("//") === 0) {
+            return;
+        }
+
+        let desktop = null;
+
+        try {
+            desktop = window.parent && window.parent !== window && window.parent.desktopAPI;
+        } catch (error) {
+            desktop = null;
+        }
+
+        if (desktop && typeof desktop.openApp === "function") {
+            const title = label || decodeURIComponent(url.split("/").filter(Boolean).pop() || "link");
+            desktop.openApp("map-link-" + url, title, url);
+        } else {
+            window.location.href = url;
+        }
+    }
+
     window.addEventListener("message", function (event) {
-        if (event.origin !== window.location.origin || !event.data || event.data.type !== "aether-map-view") {
+        if (event.origin !== window.location.origin || !event.data) {
+            return;
+        }
+
+        const type = event.data.type;
+
+        if (type !== "aether-map-view" && type !== "aether-map-ready" && type !== "aether-map-link") {
             return;
         }
 
         document.querySelectorAll(".map-embed").forEach(function (frame) {
-            if (frame.contentWindow === event.source) {
-                updateView(frame.closest(".widget--map"), event.data);
+            if (frame.contentWindow !== event.source) {
+                return;
+            }
+
+            const widget = frame.closest(".widget--map");
+
+            if (type === "aether-map-view") {
+                updateView(widget, event.data);
+            } else if (type === "aether-map-link") {
+                openLink(event.data.url, event.data.label);
+            } else if (widget.dataset.scene) {
+                // карта готова: отдаём ей пометки сохранённой карты (сервер уже оставил только видимые игроку)
+                try {
+                    frame.contentWindow.postMessage(
+                        { type: "aether-map-scene", features: JSON.parse(widget.dataset.scene) },
+                        window.location.origin
+                    );
+                } catch (error) {
+                    // битые данные: карта остаётся без пометок
+                }
             }
         });
     });

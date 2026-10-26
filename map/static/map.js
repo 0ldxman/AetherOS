@@ -88,15 +88,19 @@ const STATIC_VIEW = EMBED && SEARCH.get('static') === '1';
 // ?regions=adm1_code[:цвет],...
 const REGION_ITEMS = EMBED
   ? (SEARCH.get('regions') || '').split(',').filter(Boolean).map((raw) => {
-      const [code, color] = raw.split(':');
-      return { code, color };
+      const [code, color, link] = raw.split(':');
+      return { code, color, url: link ? decodeURIComponent(link) : '' };
     })
   : [];
-const REGIONS = REGION_ITEMS.map((item) => item.code);
+// Камера сохранённой карты: ?bounds=w,s,e,n ограничивает область, minzoom/maxzoom пределы, flat=1 плоская карта
+const CAMERA_BOUNDS = EMBED ? (SEARCH.get('bounds') || '').split(',').map(Number) : [];
+const CAMERA_LIMITED = CAMERA_BOUNDS.length === 4 && CAMERA_BOUNDS.every(Number.isFinite);
+const numberParam = (name) => (SEARCH.get(name) === null || SEARCH.get(name) === '' ? undefined : Number(SEARCH.get(name)));
+const FLAT_VIEW = EMBED && SEARCH.get('flat') === '1';
 const MARKERS = EMBED
   ? SEARCH.getAll('m').map((raw) => {
-      const [lat, lon, color, ...label] = raw.split(',');
-      return { lat: Number(lat), lon: Number(lon), color, label: label.join(',') };
+      const [lat, lon, color, link, ...label] = raw.split(',');
+      return { lat: Number(lat), lon: Number(lon), color, url: link ? decodeURIComponent(link.replace(/\+/g, ' ')) : '', label: label.join(',') };
     }).filter((m) => Number.isFinite(m.lat) && Number.isFinite(m.lon))
   : [];
 const PROVINCE_NAMES = EMBED && SEARCH.get('labels') !== '0';
@@ -141,11 +145,14 @@ const map = new maplibregl.Map({
   hash: true,
   interactive: !STATIC_VIEW,
   attributionControl: !EMBED,
+  ...(EMBED && numberParam('minzoom') !== undefined ? { minZoom: numberParam('minzoom') } : {}),
+  ...(EMBED && numberParam('maxzoom') !== undefined ? { maxZoom: numberParam('maxzoom') } : {}),
+  ...(CAMERA_LIMITED ? { maxBounds: [[CAMERA_BOUNDS[0], CAMERA_BOUNDS[1]], [CAMERA_BOUNDS[2], CAMERA_BOUNDS[3]]] } : {}),
 });
 
 // Глобус по умолчанию (при сильном приближении MapLibre сам переходит в плоский вид)
 map.on('style.load', () => {
-  map.setProjection({ type: 'globe' });
+  map.setProjection({ type: FLAT_VIEW ? 'mercator' : 'globe' });
 });
 
 const isBackground = (l) => l.type === 'background';
@@ -449,42 +456,36 @@ map.on('load', () => {
 
   overlayIds.forEach(id => map.moveLayer(id));
 
-  // Выделение провинций виджета ::map (?regions=adm1_code,...): выбранные залиты и обведены,
-// остальные притушены
-if (REGIONS.length) {
-  const inRegions = ['in', ['get', 'adm1_code'], ['literal', REGIONS]];
-  const region = THEME_STYLE ? THEME_STYLE.region : '#ffcf4d';
-  // у каждой провинции свой цвет, если автор его задал; остальные в цвете темы
-  const byColor = ['match', ['get', 'adm1_code']];
-  // повторы в match недопустимы: берём последнее значение для провинции
-  const lastColor = new Map(REGION_ITEMS.map((item) => [item.code, item.color]));
-  for (const [code, color] of lastColor) byColor.push(code, markColor(color, region));
-  byColor.push(region);
-  const dim = THEME_STYLE ? THEME_STYLE.dim : '#0f1b2d';
+// Выделение провинций виджета ::map: выбранные залиты и обведены, остальные притушены.
+// Слои есть всегда (во встроенной карте), состав выделения задаёт setRegions(): из адреса
+// (?regions=adm1_code[:цвет[:ссылка]]) и из пометок сохранённой карты, которые приходят позже.
+if (EMBED) {
+  const nothing = ['in', ['get', 'adm1_code'], ['literal', []]];
 
   map.addLayer({
     id: 'regions-dim',
     type: 'fill',
     source: 'adm1',
     'source-layer': 'aether_provinces',
-    filter: ['!', inRegions],
-    paint: { 'fill-color': dim, 'fill-opacity': 0.55 },
+    filter: nothing,
+    layout: { visibility: 'none' },
+    paint: { 'fill-color': THEME_STYLE ? THEME_STYLE.dim : '#0f1b2d', 'fill-opacity': 0.55 },
   });
   map.addLayer({
     id: 'regions-fill',
     type: 'fill',
     source: 'adm1',
     'source-layer': 'aether_provinces',
-    filter: inRegions,
-    paint: { 'fill-color': byColor, 'fill-opacity': 0.4 },
+    filter: nothing,
+    paint: { 'fill-color': '#ffcf4d', 'fill-opacity': 0.4 },
   });
   map.addLayer({
     id: 'regions-line',
     type: 'line',
     source: 'adm1',
     'source-layer': 'aether_provinces',
-    filter: inRegions,
-    paint: { 'line-color': byColor, 'line-width': 2.2 },
+    filter: nothing,
+    paint: { 'line-color': '#ffcf4d', 'line-width': 2.2 },
   });
 }
 
@@ -592,6 +593,8 @@ if (PROVINCE_NAMES) {
   layersReady = true;
   applyMode();
   applySelection();
+  setRegions([]);
+  applyScene();
 
   // Цвета стран: в самом конце, чтобы ошибка здесь ничего не ломала
   loadProvinceColors();
@@ -747,39 +750,7 @@ if (EDIT_MODE) {
 // по которым страница документа обновляет масштаб и координаты в подписи
 // ---------------------------------------------------------------------------
 if (EMBED) {
-  MARKERS.forEach((item, index) => {
-    // внешний элемент двигает MapLibre (transform), вид и наклон у вложенного
-    const el = document.createElement('div');
-    el.title = item.label;
-    const tag = document.createElement('span');
-    tag.className = 'embed-marker';
-    tag.setAttribute('aria-label', String(index + 1));
-    tag.style.setProperty('--tilt', `${[-4, 3, -2, 5][index % 4]}deg`);
-    if (markPalette[item.color]) tag.style.setProperty('--mc', markPalette[item.color]);
-
-    if (THEME === 'scan') {
-      // пометка красной ручкой: маленький крестик, нарисованный от руки в два росчерка, и номер рядом
-      tag.classList.add('embed-marker--pen');
-      const crosses = [
-        ['M4 5 C9 10 14 15 21 22', 'M21 4 C16 9 10 15 5 21'],
-        ['M5 4 C10 11 15 16 20 23', 'M22 6 C17 10 11 16 4 20'],
-        ['M3 6 C9 10 16 16 22 21', 'M20 3 C15 9 11 15 6 22'],
-      ];
-      const [first, second] = crosses[index % crosses.length];
-      tag.innerHTML =
-        '<svg viewBox="0 0 26 26" aria-hidden="true">' +
-        `<path d="${first}"/><path d="${second}"/></svg>` +
-        `<span class="pen-n">${index + 1}</span>`;
-    } else {
-      tag.dataset.n = String(index + 1);
-    }
-
-    el.appendChild(tag);
-    // остриё булавки стоит на точке; крест от руки центрируется на ней
-    new maplibregl.Marker({ element: el, anchor: THEME === 'scan' ? 'center' : 'bottom' })
-      .setLngLat([item.lon, item.lat])
-      .addTo(map);
-  });
+  MARKERS.forEach((item, index) => addMarker(item, index));
 
   const reportView = () => {
     const c = map.getCenter();
@@ -794,4 +765,269 @@ if (EMBED) {
 
   map.on('load', reportView);
   map.on('moveend', reportView);
+}
+
+
+// ---------------------------------------------------------------------------
+// Сохранённая карта (::map scene=слаг): родитель присылает пометки, карта их рисует
+// ---------------------------------------------------------------------------
+let sceneFeatures = [];   // пометки, уже отфильтрованные сервером по ключам игрока
+let regionLinks = new Map();
+
+// Ссылки открывает страница-родитель (окно рабочего стола или обычный переход)
+function postLink(url, label) {
+  if (url) window.parent.postMessage({ type: 'aether-map-link', url, label: label || '' }, window.location.origin);
+}
+
+// Выделение провинций: адрес карты плюс пометки сцены (у последней записи провинции приоритет)
+function setRegions(extra) {
+  if (!EMBED || !map.getLayer('regions-fill')) return;
+
+  const base = THEME_STYLE ? THEME_STYLE.region : '#ffcf4d';
+  const items = new Map();
+  for (const item of [...REGION_ITEMS, ...extra]) items.set(item.code, item);
+
+  regionLinks = new Map([...items].filter(([, item]) => item.url).map(([code, item]) => [code, item]));
+  const codes = [...items.keys()];
+  const inRegions = ['in', ['get', 'adm1_code'], ['literal', codes]];
+
+  const byColor = ['match', ['get', 'adm1_code']];
+  for (const [code, item] of items) byColor.push(code, markColor(item.color, base));
+  byColor.push(base);
+
+  map.setFilter('regions-fill', inRegions);
+  map.setFilter('regions-line', inRegions);
+  map.setFilter('regions-dim', ['!', inRegions]);
+  map.setLayoutProperty('regions-dim', 'visibility', codes.length ? 'visible' : 'none');
+  map.setPaintProperty('regions-fill', 'fill-color', codes.length ? byColor : base);
+  map.setPaintProperty('regions-line', 'line-color', codes.length ? byColor : base);
+}
+
+if (EMBED) {
+  // клик по выделенной провинции открывает её ссылку
+  map.on('click', 'regions-fill', (e) => {
+    const feature = e.features && e.features[0];
+    const item = feature && regionLinks.get(feature.properties.adm1_code);
+    if (item) postLink(item.url, item.label);
+  });
+  map.on('mousemove', 'regions-fill', (e) => {
+    const feature = e.features && e.features[0];
+    map.getCanvas().style.cursor = feature && regionLinks.has(feature.properties.adm1_code) ? 'pointer' : '';
+  });
+  map.on('mouseleave', 'regions-fill', () => { map.getCanvas().style.cursor = ''; });
+}
+
+const SCENE_SOURCE = 'scene-shapes';
+let sceneMarkers = [];
+
+// Круг заданного радиуса: многоугольник из 64 точек по сфере
+function circlePolygon(lon, lat, km) {
+  const ring = [];
+  const d = km / 6371;
+  const phi = (lat * Math.PI) / 180;
+  const lam = (lon * Math.PI) / 180;
+  for (let i = 0; i <= 64; i += 1) {
+    const brg = (i / 64) * 2 * Math.PI;
+    const p2 = Math.asin(Math.sin(phi) * Math.cos(d) + Math.cos(phi) * Math.sin(d) * Math.cos(brg));
+    const l2 = lam + Math.atan2(Math.sin(brg) * Math.sin(d) * Math.cos(phi), Math.cos(d) - Math.sin(phi) * Math.sin(p2));
+    ring.push([(((l2 * 180) / Math.PI + 540) % 360) - 180, (p2 * 180) / Math.PI]);
+  }
+  return ring;
+}
+
+// Направление последнего отрезка линии, градусы по часовой от севера (для наконечника стрелки)
+function bearing(a, b) {
+  const dx = (b[0] - a[0]) * Math.cos(((a[1] + b[1]) / 2) * Math.PI / 180);
+  const dy = b[1] - a[1];
+  return (Math.atan2(dx, dy) * 180) / Math.PI;
+}
+
+function sceneColor(name) {
+  return markColor(name, THEME_STYLE ? THEME_STYLE.region : '#ffcf4d');
+}
+
+function ensureSceneLayers() {
+  if (map.getSource(SCENE_SOURCE)) return;
+
+  if (!map.hasImage('scene-arrow')) {
+    const size = 32;
+    const canvas = document.createElement('canvas');
+    canvas.width = size;
+    canvas.height = size;
+    const ctx = canvas.getContext('2d');
+    ctx.fillStyle = '#fff';
+    ctx.beginPath();
+    ctx.moveTo(size / 2, 2);
+    ctx.lineTo(size - 4, size - 4);
+    ctx.lineTo(size / 2, size - 11);
+    ctx.lineTo(4, size - 4);
+    ctx.closePath();
+    ctx.fill();
+    map.addImage('scene-arrow', ctx.getImageData(0, 0, size, size), { sdf: true });
+  }
+
+  map.addSource(SCENE_SOURCE, { type: 'geojson', data: { type: 'FeatureCollection', features: [] } });
+  const halo = THEME_STYLE ? THEME_STYLE.labelHalo : '#05070a';
+  const text = THEME_STYLE ? THEME_STYLE.labelText : '#dce6f0';
+  const before = map.getLayer('graticule-lines') ? 'graticule-lines' : undefined;
+
+  map.addLayer({ id: 'scene-fill', type: 'fill', source: SCENE_SOURCE,
+    filter: ['all', ['==', ['geometry-type'], 'Polygon'], ['==', ['get', 'fill'], true]],
+    paint: { 'fill-color': ['get', 'c'], 'fill-opacity': 0.25 } }, before);
+  map.addLayer({ id: 'scene-outline', type: 'line', source: SCENE_SOURCE,
+    filter: ['==', ['geometry-type'], 'Polygon'],
+    paint: { 'line-color': ['get', 'c'], 'line-width': 2 } }, before);
+  map.addLayer({ id: 'scene-lines', type: 'line', source: SCENE_SOURCE,
+    filter: ['all', ['==', ['geometry-type'], 'LineString'], ['!=', ['get', 'dash'], true]],
+    layout: { 'line-cap': 'round', 'line-join': 'round' },
+    paint: { 'line-color': ['get', 'c'], 'line-width': ['get', 'w'] } }, before);
+  map.addLayer({ id: 'scene-lines-dashed', type: 'line', source: SCENE_SOURCE,
+    filter: ['all', ['==', ['geometry-type'], 'LineString'], ['==', ['get', 'dash'], true]],
+    paint: { 'line-color': ['get', 'c'], 'line-width': ['get', 'w'], 'line-dasharray': [2, 1.5] } }, before);
+  map.addLayer({ id: 'scene-arrows', type: 'symbol', source: SCENE_SOURCE,
+    filter: ['==', ['get', 'role'], 'head'],
+    layout: { 'icon-image': 'scene-arrow', 'icon-rotate': ['get', 'bearing'], 'icon-rotation-alignment': 'map',
+      'icon-allow-overlap': true, 'icon-ignore-placement': true, 'icon-size': ['+', 0.45, ['*', ['get', 'w'], 0.06]] },
+    paint: { 'icon-color': ['get', 'c'] } }, before);
+  map.addLayer({ id: 'scene-text', type: 'symbol', source: SCENE_SOURCE,
+    filter: ['==', ['get', 'role'], 'text'],
+    layout: { 'text-field': ['get', 't'], 'text-font': ['Noto Sans Regular'], 'text-size': ['get', 'size'],
+      'text-anchor': 'top', 'text-offset': [0, 0.4], 'text-max-width': 12, 'text-allow-overlap': true },
+    paint: { 'text-color': ['get', 'c'], 'text-halo-color': halo, 'text-halo-width': 1.4 } });
+
+  // клик по фигуре открывает её ссылку
+  for (const id of ['scene-fill', 'scene-outline', 'scene-lines', 'scene-lines-dashed', 'scene-arrows']) {
+    map.on('click', id, (e) => {
+      const feature = e.features && e.features[0];
+      if (feature && feature.properties.url) postLink(feature.properties.url, feature.properties.label);
+    });
+    map.on('mouseenter', id, (e) => {
+      const feature = e.features && e.features[0];
+      if (feature && feature.properties.url) map.getCanvas().style.cursor = 'pointer';
+    });
+    map.on('mouseleave', id, () => { map.getCanvas().style.cursor = ''; });
+  }
+  void text;
+}
+
+function applyScene() {
+  if (!EMBED || !layersReady) return;
+
+  ensureSceneLayers();
+  const shapes = [];
+  const regions = [];
+  sceneMarkers.forEach((marker) => marker.remove());
+  sceneMarkers = [];
+
+  for (const item of sceneFeatures) {
+    const c = sceneColor(item.color);
+    const common = { c, url: item.url || '', label: item.label || '' };
+
+    if (item.type === 'regions') {
+      for (const code of item.codes) regions.push({ code, color: item.color, url: item.url || '', label: item.label || '' });
+    } else if (item.type === 'line' || item.type === 'arrow') {
+      const w = item.width || 3;
+      shapes.push({ type: 'Feature', properties: { ...common, w, dash: !!item.dash },
+        geometry: { type: 'LineString', coordinates: item.coords } });
+      if (item.type === 'arrow') {
+        const n = item.coords.length;
+        shapes.push({ type: 'Feature', properties: { ...common, w, role: 'head', bearing: bearing(item.coords[n - 2], item.coords[n - 1]) },
+          geometry: { type: 'Point', coordinates: item.coords[n - 1] } });
+      }
+    } else if (item.type === 'polygon') {
+      const ring = [...item.coords, item.coords[0]];
+      shapes.push({ type: 'Feature', properties: { ...common, fill: item.fill !== false },
+        geometry: { type: 'Polygon', coordinates: [ring] } });
+    } else if (item.type === 'circle') {
+      shapes.push({ type: 'Feature', properties: { ...common, fill: item.fill !== false },
+        geometry: { type: 'Polygon', coordinates: [circlePolygon(item.coords[0], item.coords[1], item.radius_km)] } });
+    } else if (item.type === 'text') {
+      shapes.push({ type: 'Feature', properties: { c, role: 'text', t: item.text, size: item.size || 13 },
+        geometry: { type: 'Point', coordinates: item.coords } });
+    } else if (item.type === 'marker') {
+      sceneMarkers.push(addMarker(item, null));
+    }
+
+    // подпись фигуры у первой точки
+    if (item.label && ['line', 'arrow', 'polygon', 'circle'].includes(item.type)) {
+      const at = item.type === 'circle' ? item.coords : item.coords[0];
+      shapes.push({ type: 'Feature', properties: { c, role: 'text', t: item.label, size: 12 },
+        geometry: { type: 'Point', coordinates: at } });
+    }
+  }
+
+  map.getSource(SCENE_SOURCE).setData({ type: 'FeatureCollection', features: shapes });
+  setRegions(regions);
+}
+
+window.addEventListener('message', (e) => {
+  if (!EMBED || e.origin !== window.location.origin || e.source !== window.parent) return;
+  const d = e.data || {};
+  if (d.type === 'aether-map-scene' && Array.isArray(d.features)) {
+    sceneFeatures = d.features;
+    applyScene();
+  }
+});
+
+if (EMBED) {
+  map.on('load', () => window.parent.postMessage({ type: 'aether-map-ready' }, window.location.origin));
+}
+
+
+// Метка на карте. index: номер (метки из строк ::map) или null (метки сохранённой карты:
+// без номера, с подписью рядом). Вид зависит от темы документа: у scan крестик ручкой.
+function addMarker(item, index) {
+  const lon = item.coords ? item.coords[0] : item.lon;
+  const lat = item.coords ? item.coords[1] : item.lat;
+  const seed = index === null ? Math.abs(Math.round(lon * 7 + lat * 13)) : index;
+  const numbered = index !== null;
+  const text = numbered ? String(index + 1) : '';
+
+  // внешний элемент двигает MapLibre (transform), вид и наклон у вложенного
+  const el = document.createElement('div');
+  el.title = item.label || '';
+  const tag = document.createElement('span');
+  tag.className = 'embed-marker';
+  if (numbered) tag.setAttribute('aria-label', text);
+  tag.style.setProperty('--tilt', `${[-4, 3, -2, 5][seed % 4]}deg`);
+  if (markPalette[item.color]) tag.style.setProperty('--mc', markPalette[item.color]);
+
+  if (THEME === 'scan') {
+    // пометка красной ручкой: маленький крестик, нарисованный от руки в два росчерка, и номер рядом
+    tag.classList.add('embed-marker--pen');
+    const crosses = [
+      ['M4 5 C9 10 14 15 21 22', 'M21 4 C16 9 10 15 5 21'],
+      ['M5 4 C10 11 15 16 20 23', 'M22 6 C17 10 11 16 4 20'],
+      ['M3 6 C9 10 16 16 22 21', 'M20 3 C15 9 11 15 6 22'],
+    ];
+    const [first, second] = crosses[seed % crosses.length];
+    tag.innerHTML =
+      '<svg viewBox="0 0 26 26" aria-hidden="true">' +
+      `<path d="${first}"/><path d="${second}"/></svg>` +
+      (numbered ? `<span class="pen-n">${text}</span>` : '');
+  } else {
+    tag.dataset.n = text;
+  }
+
+  el.appendChild(tag);
+
+  if (!numbered && item.label) {
+    const label = document.createElement('span');
+    label.className = 'marker-label';
+    label.textContent = item.label;
+    el.appendChild(label);
+  }
+
+  if (item.url) {
+    el.classList.add('marker-link');
+    el.addEventListener('click', (event) => {
+      event.stopPropagation();
+      postLink(item.url, item.label);
+    });
+  }
+
+  // остриё булавки стоит на точке; крест от руки центрируется на ней
+  return new maplibregl.Marker({ element: el, anchor: THEME === 'scan' ? 'center' : 'bottom' })
+    .setLngLat([lon, lat])
+    .addTo(map);
 }

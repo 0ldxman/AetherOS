@@ -130,3 +130,65 @@ class CountryLabel(models.Model):
 
     def __str__(self):
         return f"{self.display_text} ({self.lng}, {self.lat})"
+
+class MapScene(models.Model):
+    """Сохранённая карта: дата мира, камера и слой пометок (маркеры, линии, стрелки, фигуры, подписи)."""
+
+    class Mode(models.TextChoices):
+        POLITICAL = "political", "Политическая"
+        PHYSICAL = "physical", "Физическая"
+
+    slug = models.SlugField("Слаг", unique=True, max_length=64)
+    title = models.CharField("Название", max_length=128)
+
+    base_date = models.DateField(
+        "Дата мира", null=True, blank=True,
+        help_text="Владения провинций на эту дату. Пусто: самые свежие.",
+    )
+    mode = models.CharField("Режим", max_length=16, choices=Mode.choices, default=Mode.POLITICAL)
+
+    lat = models.FloatField("Широта центра", default=20, validators=[MinValueValidator(-85), MaxValueValidator(85)])
+    lon = models.FloatField("Долгота центра", default=10, validators=[MinValueValidator(-180), MaxValueValidator(180)])
+    zoom = models.FloatField("Зум", default=3, validators=[MinValueValidator(0), MaxValueValidator(18)])
+
+    bounds = models.JSONField(
+        "Границы камеры", null=True, blank=True,
+        help_text="[запад, юг, восток, север]: за эту область камера не уходит.",
+    )
+    min_zoom = models.FloatField("Минимальный зум", null=True, blank=True)
+    max_zoom = models.FloatField("Максимальный зум", null=True, blank=True)
+    flat = models.BooleanField("Плоская карта", default=False, help_text="2D вместо глобуса.")
+
+    features = models.JSONField("Пометки", default=list, blank=True)
+    key_condition = models.JSONField("Условие по ключам", null=True, blank=True)
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["title"]
+        verbose_name = "сохранённая карта"
+        verbose_name_plural = "сохранённые карты"
+
+    def __str__(self):
+        return f"{self.title} ({self.slug})"
+
+    def clean(self):
+        from django.core.exceptions import ValidationError
+
+        from secure.access import validate_requirements
+
+        from .scenes import clean_features
+
+        self.features = clean_features(self.features)
+        validate_requirements(self.key_condition)
+        if self.bounds is not None:
+            ok = (
+                isinstance(self.bounds, list) and len(self.bounds) == 4
+                and all(isinstance(v, (int, float)) for v in self.bounds)
+                and self.bounds[0] < self.bounds[2] and self.bounds[1] < self.bounds[3]
+            )
+            if not ok:
+                raise ValidationError({"bounds": "Нужно [запад, юг, восток, север], запад меньше востока, юг меньше севера."})
+        if self.min_zoom is not None and self.max_zoom is not None and self.min_zoom > self.max_zoom:
+            raise ValidationError({"max_zoom": "Максимальный зум меньше минимального."})

@@ -8,7 +8,7 @@ from django.http import JsonResponse
 from django.template.response import TemplateResponse
 from django.urls import path
 
-from .models import Country, CountryLabel, Ownership, Province
+from .models import Country, CountryLabel, MapScene, Ownership, Province
 from .views import _latest_ownerships
 
 APPLY_MAX_PROVINCES = 10000
@@ -266,3 +266,14 @@ class CountryLabelAdmin(admin.ModelAdmin):
     @admin.display(description="Текст")
     def label_text(self, obj):
         return obj.display_text
+
+@admin.register(MapScene)
+class MapSceneAdmin(admin.ModelAdmin):
+    list_display = ("title", "slug", "base_date", "mode", "flat", "updated_at")
+    search_fields = ("title", "slug")
+    prepopulated_fields = {"slug": ("title",)}
+    fieldsets = (
+        (None, {"fields": ("title", "slug", "base_date", "mode", "key_condition")}),
+        ("Камера", {"fields": ("lat", "lon", "zoom", "flat", "bounds", "min_zoom", "max_zoom")}),
+        ("Пометки", {"fields": ("features",)}),
+    )
