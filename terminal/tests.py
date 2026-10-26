@@ -151,6 +151,45 @@ class TerminalSceneTests(TestCase):
         for name in ("cph", "b256", "bridge"):
             self.assertIn("command not found", self.run_command(f"{name} /home/door.bin x")["output"])
 
+    def test_on_read_can_open_a_window_while_the_layer_stays(self):
+        from filesystem.models import MachineFile
+
+        MachineFile.objects.create(
+            machine=self.main, path="/home/photo.dat", url="apps/wiki/real/",
+            state="> disguised scan\non read: open apps/wiki/go/decoy/",
+        )
+        data = self.run_command("cnt /home/photo.dat")
+        self.assertEqual(data["exit_code"], 0, data["output"])
+        self.assertIn("opened", data["output"])
+        self.assertEqual(
+            [(e["op"], e["url"], e["title"]) for e in data["effects"]], [("open", "/apps/wiki/go/decoy/", "decoy")]
+        )
+        self.assertIsNone(data["window"])                                                  # настоящий адрес ещё закрыт
+        self.assertIn("wrong", self.run_command("cvt /home/photo.dat png")["output"])      # слой на месте
+        self.assertEqual(self.run_command("cvt /home/photo.dat scan")["exit_code"], 0)
+        real = self.run_command("cnt /home/photo.dat")
+        self.assertEqual(real["window"]["url"], "/apps/wiki/real/")                         # хука больше нет: открывается настоящее
+        self.assertFalse(real["effects"])
+
+    def test_on_read_without_open_still_says_the_file_is_locked(self):
+        from filesystem.models import MachineFile
+
+        MachineFile.objects.create(machine=self.main, path="/home/sealed.dat",
+                                   state='> base64\non read: say "Something rustles inside."')
+        data = self.run_command("cnt /home/sealed.dat")
+        self.assertEqual(data["exit_code"], 1)
+        self.assertIn("content is locked", data["output"])
+        self.assertIn("Something rustles inside.", data["output"])
+
+    def test_the_open_action_checks_its_address(self):
+        from filesystem.states.compiler import StateError, compile_text
+
+        for good in ("open apps/wiki/go/a/", 'open "apps/map/?scene=harbor"', "open view/0c1a/"):
+            compile_text(f"> base64\non read: {good}")
+        for bad in ("open", "open /admin/", "open https://evil.example/", "open a b", "open ../x", 'open "a b"'):
+            with self.assertRaises(StateError, msg=bad):
+                compile_text(f"> base64\non read: {bad}")
+
     def test_rpr_says_when_another_damaged_layer_waits_underneath(self):
         from filesystem.models import MachineFile
 

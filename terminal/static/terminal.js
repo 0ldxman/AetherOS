@@ -90,6 +90,8 @@
             if (api && api.reload) api.reload(); else window.location.reload();
         } else if (effect.op === "lock") {
             if (api && api.lock) api.lock(effect.url); else window.location.href = effect.url;
+        } else if (effect.op === "open" && api && api.openApp) {
+            api.openApp(effect.id, effect.title, effect.url);
         } else if (effect.op === "alert" && api && api.error) {
             for (let i = 0; i < effect.count; i++) {
                 api.error(effect.message, { object: `0x${(4096 + Math.floor(Math.random() * 61000)).toString(16)}` }, { stack: true });

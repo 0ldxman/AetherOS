@@ -7,6 +7,7 @@ from filesystem.unlock import fire_file_event
 from filesystem.trash import TRASH_DIR, empty_trash, in_trash, trashed_rows
 from terminal.engine import trash
 from terminal.engine.commands.basic import BaseCommand
+from terminal.engine.report import hook_report
 from terminal.engine.context import TerminalContext
 from terminal.engine.filesystem import VirtualFilesystem
 from terminal.engine.result import CommandResult
@@ -27,20 +28,6 @@ def _flags(args):
         else:
             flags |= set(arg[1:])
     return flags, operands
-
-
-def hook_report(fired):
-    """Что игрок узнаёт из хуков (say и письма) и что делает браузер (kick, alert): (строки, эффекты или None)."""
-    lines, effects, arrived = [], [], 0
-    for item in fired:
-        if item is None:
-            continue
-        lines += item.say
-        effects += item.effects
-        arrived += sum(1 for mail in item.mail if mail.delivered and mail.immediate)
-    if arrived:
-        lines.append(f"intercom: {arrived} new message{'s' if arrived != 1 else ''}")
-    return lines, effects or None
 
 
 def answer_confirm(request, text, session, cwd):

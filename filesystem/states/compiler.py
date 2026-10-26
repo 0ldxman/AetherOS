@@ -253,8 +253,34 @@ ALERT_MAX_COUNT = 40
 ALERT_GAP_RANGE = (100, 5000)
 
 
+def _open_effect(action: Action):
+    """open <адрес> -> {"op": "open", "url", "title"}: окно по внутреннему адресу сайта."""
+    if action.quoted:
+        url = action.value.strip()
+    else:
+        words = action.value.split()
+        if len(words) != 1:
+            return None, "«open» требует один адрес; адрес с пробелами или = берётся в кавычки: open \"apps/map/?scene=harbor\""
+        url = words[0]
+
+    if not url:
+        return None, "«open» требует адрес: open apps/wiki/go/secret/"
+
+    if (
+        "://" in url or url.startswith("/") or "\\" in url or any(ch.isspace() for ch in url)
+        or ".." in url.split("?")[0].split("/")
+    ):
+        return None, f"«open»: адрес «{url}» не подходит (нужен внутренний путь сайта без начального /, например apps/wiki/go/secret/)"
+
+    title = next((part for part in reversed(url.split("?")[0].split("/")) if part), url)
+    return {"op": "open", "url": url, "title": title}, None
+
+
 def parse_effect(action: Action):
-    """kick | alert <сообщение> [count=N] [gap=мс] -> (эффект для браузера, None) или (None, текст ошибки)."""
+    """kick | alert <сообщение> [count=N] [gap=мс] | open <адрес> -> (эффект для браузера, None) или (None, текст ошибки)."""
+    if action.name == "open":
+        return _open_effect(action)
+
     if action.name == "kick":
         if action.value.strip():
             return None, "«kick» не принимает аргументов"

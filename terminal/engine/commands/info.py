@@ -2,10 +2,13 @@ import re
 import posixpath
 
 from filesystem.content import resolve_content
+from filesystem.models import SessionFile
 from filesystem.size import file_size
 from filesystem.states.attempt import top_answer
+from filesystem.unlock import fire_file_event
 from terminal.engine.commands.basic import BaseCommand
 from terminal.engine.filesystem import VirtualFilesystem
+from terminal.engine.report import hook_report
 from terminal.engine.result import CommandResult
 from terminal.scenes import ftyp_scene, open_scene
 
@@ -91,26 +94,32 @@ class CntCommand(BaseCommand):
         session_file = entry.session_file
         name = posixpath.basename(entry.path)
 
+        # хуки on read верхнего слоя: могут сказать что-то или открыть окно (open), а слой остаётся на месте
+        lines, effects = [], None
+        if machine_file.state.strip() or (session_file and session_file.state):
+            if session_file is None:
+                session_file, _ = SessionFile.objects.get_or_create(
+                    session=context.session, path=entry.path, defaults={"file": machine_file}
+                )
+            lines, effects = hook_report([fire_file_event(session_file, "read", entry.path)])
+
+        if effects and any(effect["op"] == "open" for effect in effects):
+            text = "\n".join([f"cnt: {target}: opened ({file_size(machine_file)} bytes)", *lines])
+            return CommandResult(text, 0, scene=open_scene(entry.path, "opened"), effects=effects)
+
         content = resolve_content(machine_file, session_file, entry.path, name)
 
+        def result(text, code, stage, window=None):
+            return CommandResult("\n".join([text, *lines]), code, window, scene=open_scene(entry.path, stage), effects=effects)
+
         if content.error == "locked":
-            return CommandResult(f"cnt: {target}: content is locked", 1, scene=open_scene(entry.path, "access"))
+            return result(f"cnt: {target}: content is locked", 1, "access")
 
         if content.error == "empty":
-            return CommandResult(f"cnt: {target}: no content", 1, scene=open_scene(entry.path, "content"))
+            return result(f"cnt: {target}: no content", 1, "content")
 
         if content.error:
-            return CommandResult(f"cnt: {target}: bad content path", 1)
+            return CommandResult("\n".join([f"cnt: {target}: bad content path", *lines]), 1, effects=effects)
 
-        url = content.url
-
-        return CommandResult(
-            f"cnt: {target}: opened ({file_size(machine_file)} bytes)",
-            0,
-            {
-                "id": "cnt-" + re.sub(r"\W+", "-", entry.path).strip("-"),
-                "title": name,
-                "url": url,
-            },
-            scene=open_scene(entry.path, "opened"),
-        )
+        window = {"id": "cnt-" + re.sub(r"\W+", "-", entry.path).strip("-"), "title": name, "url": content.url}
+        return result(f"cnt: {target}: opened ({file_size(machine_file)} bytes)", 0, "opened", window)

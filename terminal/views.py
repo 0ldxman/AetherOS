@@ -1,4 +1,5 @@
 import json
+import re
 
 from django.core.exceptions import PermissionDenied
 from django.http import JsonResponse
@@ -7,7 +8,7 @@ from django.views.decorators.http import require_POST
 
 from machines.current import active_session, current_machine
 from users.aether_auth import AUTH_REQUIRED, is_player
-from django.urls import reverse
+from django.urls import get_script_prefix, reverse
 
 from machines import bridge
 from terminal.engine.commands.bridge import PENDING_KEY, answer_prompt
@@ -119,6 +120,11 @@ def _server_effects(request, session, effects):
 
     out = []
     for effect in effects or []:
+        if effect.get("op") == "open":
+            # адрес в хуке внутренний; префикс сайта добавляется здесь, как у обычного cnt
+            url = get_script_prefix().rstrip("/") + "/" + effect["url"]
+            out.append({**effect, "url": url, "id": "hook-" + re.sub(r"\W+", "-", effect["url"]).strip("-")})
+            continue
         if effect.get("op") != "kick":
             out.append(effect)
             continue
