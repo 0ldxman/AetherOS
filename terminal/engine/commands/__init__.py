@@ -7,6 +7,7 @@ from terminal.engine.commands.basic import (
 from terminal.engine.commands.bridge import BridgeCloseCommand, BridgeCommand, ExitCommand, RshellCommand, XferCommand
 from terminal.engine.commands.crypto import EncCommand, PakCommand, TxtxCommand, WardCommand
 from terminal.engine.commands.info import FtypCommand, CntCommand
+from terminal.engine.commands.net import NgetCommand, NreqCommand
 from terminal.engine.commands.raw import BlkCommand, CvtCommand, RprCommand
 
 # Общие для всех систем команды файловой системы.
@@ -23,6 +24,8 @@ COMMON = (
     BlkCommand,
     CvtCommand,
     RprCommand,
+    NreqCommand,
+    NgetCommand,
     CntCommand,
 )
 

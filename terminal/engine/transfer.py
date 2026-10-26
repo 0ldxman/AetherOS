@@ -23,11 +23,19 @@ def copy_file(source, source_path, dest, dest_path):
     if entry is None or source_fs.is_directory(source_path):
         return None, f"{source_path}: not a regular file"
 
+    state = entry.session_file.state if entry.session_file else ""
+    return place_file(dest, entry.machine_file, state, dest_path, posixpath.basename(entry.path))
+
+
+def place_file(dest, machine_file, state, dest_path, name):
+    """Положить файл machine_file в сессию dest по пути dest_path (папка: под именем name) с прогрессом по слоям state.
+
+    Возвращает (путь у получателя, None) или (None, текст ошибки в духе scp)."""
     dest_fs = VirtualFilesystem(dest)
     target = dest_path
 
     if dest_fs.is_directory(target):
-        target = posixpath.join(target, posixpath.basename(entry.path))
+        target = posixpath.join(target, name)
 
     parent = posixpath.dirname(target) or "/"
     if parent not in ("/", DEFAULT_CWD) and not dest_fs.is_directory(parent):
@@ -36,15 +44,21 @@ def copy_file(source, source_path, dest, dest_path):
     if dest_fs.is_directory(target):
         return None, f"{dest_path}: Is a directory"
 
-    state = entry.session_file.state if entry.session_file else ""
     row = SessionFile.objects.filter(session=dest.session, path=target).first()
 
+    # запись сессии прячет «нетронутый» файл машины: если копируют файл этой же машины, оригинал остаётся на месте
+    if machine_file.machine_id == dest.machine.pk and not SessionFile.objects.filter(
+        session=dest.session, file=machine_file
+    ).exists():
+        SessionFile.objects.create(session=dest.session, file=machine_file, path=machine_file.path)
+
     if row is None:
-        SessionFile.objects.create(session=dest.session, file=entry.machine_file, path=target, state=state)
+        SessionFile.objects.create(session=dest.session, file=machine_file, path=target, state=state)
     else:
-        row.file = entry.machine_file
+        row.file = machine_file
         row.state = state
         row.deleted_at = None
         row.save()
 
     return target, None
+

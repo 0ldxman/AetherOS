@@ -580,3 +580,87 @@ class RshellTests(BridgeFixture):
         self.assertEqual(self.shells(), 0)
         self.assertNotIn({"op": "switch"}, data["effects"])
         self.assertEqual(data["hostname"], "aether-main")
+
+
+
+@override_settings(FORCE_SCRIPT_NAME=None)
+class NetTests(TestCase):
+    """nreq и nget: внутриигровые сетевые ресурсы, их файлы приходят в сессию игрока."""
+
+    @classmethod
+    def setUpTestData(cls):
+        from filesystem.models import MachineFile
+        from machines.models import MachineProfile, NetResource, NetResourceFile
+        from secure.models import Key
+
+        cls.main = Machine.objects.create(name="Main", hostname="aether-main")
+        cls.server = Machine.objects.create(name="Archive", hostname="aether-archive")
+        MachineApp.objects.create(machine=cls.main, label="console", glyph=">_", path="/apps/terminal/")
+        cls.user = get_user_model().objects.create_user("ivan", password="pw")
+        MachineProfile.objects.create(machine=cls.main, user=cls.user, name="Ivan", login="ivan", freq=1,
+                                      mail="ivan@aether-main")
+        MachineFile.objects.create(machine=cls.main, path="/home/own.txt", state="")
+        ledger = MachineFile.objects.create(machine=cls.server, path="/srv/ledger.dat", state="> encrypted hunter2")
+        report = MachineFile.objects.create(machine=cls.server, path="/srv/report.txt", state="")
+        cls.open = NetResource.objects.create(address="14.230", response="ARCHIVE RELAY\nwelcome")
+        NetResourceFile.objects.create(resource=cls.open, file=ledger, name="ledger.dat")
+        NetResourceFile.objects.create(resource=cls.open, file=report, name="report.txt")
+        cls.shut = NetResource.objects.create(address="Vault.Net", response="locked", token="sesame", listing=False)
+        NetResourceFile.objects.create(resource=cls.shut, file=report, name="secret.txt")
+        NetResource.objects.create(address="hidden.net", response="you should not see this",
+                                   key_condition="nokey")
+        Key.objects.create(slug="nokey")
+        NetResourceFile.objects.create(resource=cls.open, file=MachineFile.objects.get(path="/home/own.txt"), name="own.txt")
+
+    def setUp(self):
+        previous = get_script_prefix()
+        set_script_prefix("/")
+        self.addCleanup(set_script_prefix, previous)
+        self.client.force_login(self.user)
+
+    def run_command(self, text):
+        response = self.client.post(
+            reverse("terminal:execute"), data=json.dumps({"command": text}), content_type="application/json"
+        )
+        return json.loads(response.content)
+
+    def test_nreq_prints_the_response_and_lists_the_files(self):
+        data = self.run_command("nreq 14.230")
+        self.assertEqual(data["exit_code"], 0)
+        self.assertIn("ARCHIVE RELAY", data["output"])
+        self.assertIn("  ledger.dat", data["output"])
+        self.assertIsNotNone(data["scene"])
+        self.assertNotIn("files:", self.run_command("nreq --token sesame vault.net")["output"])   # listing выключен
+
+    def test_unknown_and_hidden_resources_look_the_same(self):
+        for address in ("nowhere.net", "hidden.net"):
+            data = self.run_command(f"nreq {address}")
+            self.assertEqual(data["exit_code"], 1)
+            self.assertIn("could not resolve host", data["output"])
+
+    def test_a_token_resource_refuses_without_the_token(self):
+        self.assertIn("401", self.run_command("nreq vault.net")["output"])
+        self.assertIn("401", self.run_command("nget vault.net/secret.txt")["output"])
+        self.assertEqual(self.run_command("nreq --token sesame vault.net")["exit_code"], 0)
+
+    def test_nget_saves_a_fresh_copy_with_its_layers(self):
+        data = self.run_command("nget 14.230/ledger.dat")
+        self.assertEqual(data["exit_code"], 0, data["output"])
+        self.assertIn("ledger.dat", self.run_command("ls /home")["output"])
+        self.assertEqual(self.run_command("ward /home/ledger.dat hunter2")["exit_code"], 0)
+        again = self.run_command("nget 14.230/ledger.dat")                      # скачать ещё раз: слой снова на месте
+        self.assertEqual(again["exit_code"], 0)
+        self.assertIn("wrong", self.run_command("ward /home/ledger.dat nope")["output"])
+
+    def test_nget_output_path_and_errors(self):
+        self.assertEqual(self.run_command("nget -o /home/copy.txt 14.230/report.txt")["exit_code"], 0)
+        self.assertIn("copy.txt", self.run_command("ls /home")["output"])
+        self.assertIn("404", self.run_command("nget 14.230/none.txt")["output"])
+        self.assertEqual(self.run_command("nget 14.230")["exit_code"], 2)
+        self.assertEqual(self.run_command("nget -o /nowhere/x 14.230/report.txt")["exit_code"], 1)
+
+    def test_a_file_of_the_own_machine_leaves_the_original_in_place(self):
+        self.assertEqual(self.run_command("nget -o /home/own2.txt 14.230/own.txt")["exit_code"], 0)
+        listing = self.run_command("ls /home")["output"]
+        self.assertIn("own.txt", listing)
+        self.assertIn("own2.txt", listing)

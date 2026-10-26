@@ -355,3 +355,70 @@ class VolumeMount(models.Model):
             from django.core.exceptions import ValidationError
 
             raise ValidationError({"namespace": "Монтируется только корневой неймспейс (том)."})
+
+
+class NetResource(models.Model):
+    """Сетевой ресурс: то, к чему обращаются командами nreq и nget (внутриигровой «сервер»).
+
+    Адрес это частота у Aether или имя у остальных систем, как его пишет игрок. Ресурс отвечает на nreq текстом автора
+    и отдаёт на nget свои файлы: файл появляется в сессии игрока на той машине, где он набрал команду.
+    Реальной сети нет, всё описывается здесь.
+    """
+
+    address = models.CharField(
+        max_length=255,
+        unique=True,
+        help_text="Что вводит игрок: частота (14.230) или имя (archive.eclipse). Регистр не важен.",
+    )
+    title = models.CharField(max_length=128, blank=True, help_text="Название для админки; игрок его не видит.")
+    response = models.TextField(
+        blank=True,
+        help_text="Ответ на nreq. Что угодно: приветствие сервера, баннер, текст ошибки.",
+    )
+    listing = models.BooleanField(
+        default=True,
+        help_text="Добавлять к ответу nreq список файлов, которые можно скачать. Выключите, если имена файлов нужно узнать иначе.",
+    )
+    key_condition = models.JSONField(
+        null=True,
+        blank=True,
+        help_text="Без выполненного условия по ключам ресурс не находится: игроку он отвечает как несуществующий.",
+    )
+    token = models.CharField(
+        max_length=255,
+        blank=True,
+        help_text="Если задан, ресурс отвечает только тому, кто назвал его в --token. Без него: 401.",
+    )
+
+    class Meta:
+        ordering = ("address",)
+        verbose_name = "Сетевой ресурс"
+        verbose_name_plural = "Сетевые ресурсы"
+
+    def __str__(self):
+        return f"{self.address}" + (f" ({self.title})" if self.title else "")
+
+    def save(self, *args, **kwargs):
+        self.address = self.address.strip().lower()
+        super().save(*args, **kwargs)
+
+
+class NetResourceFile(models.Model):
+    """Файл, который ресурс отдаёт по nget: файл машины-сервера под своим именем."""
+
+    resource = models.ForeignKey(NetResource, on_delete=models.CASCADE, related_name="files")
+    file = models.ForeignKey(
+        "filesystem.MachineFile",
+        on_delete=models.CASCADE,
+        related_name="net_files",
+        help_text="Обычно файл машины-сервера. Игрок получит его копию со всеми слоями в исходном состоянии.",
+    )
+    name = models.CharField(max_length=255, help_text="Под каким именем игрок его запрашивает и сохраняет.")
+
+    class Meta:
+        ordering = ("resource", "name")
+        constraints = [models.UniqueConstraint(fields=("resource", "name"), name="unique_net_file_name")]
+
+    def __str__(self):
+        return f"{self.resource.address}/{self.name}"
+

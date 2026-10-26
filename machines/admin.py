@@ -15,6 +15,8 @@ from .models import (
     MachineProfile,
     MachineProfileHID,
     MachineProfileToken,
+    NetResource,
+    NetResourceFile,
     Session,
     MachineApp,
     VolumeMount,
@@ -482,3 +484,34 @@ class MachineAppAdmin(ConditionFieldsMixin, admin.ModelAdmin):
     @admin.display(description="Условие по ключам")
     def condition(self, obj):
         return format_condition(obj.key_condition) or "—"
+
+
+class NetResourceFileInline(admin.TabularInline):
+    model = NetResourceFile
+    extra = 0
+    fields = ("name", "file")
+    raw_id_fields = ("file",)
+
+
+@admin.register(NetResource)
+class NetResourceAdmin(ConditionFieldsMixin, admin.ModelAdmin):
+    condition_fields = ("key_condition",)
+    list_display = ("address", "title", "files_count", "token_set", "condition")
+    search_fields = ("address", "title")
+    inlines = [NetResourceFileInline]
+
+    def get_queryset(self, request):
+        return super().get_queryset(request).annotate(_files=Count("files"))
+
+    @admin.display(description="Файлов", ordering="_files")
+    def files_count(self, obj):
+        return obj._files
+
+    @admin.display(description="Токен", boolean=True)
+    def token_set(self, obj):
+        return bool(obj.token)
+
+    @admin.display(description="Условие по ключам")
+    def condition(self, obj):
+        return format_condition(obj.key_condition) or "—"
+
