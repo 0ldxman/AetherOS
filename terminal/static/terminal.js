@@ -85,6 +85,10 @@
         cwd = data.cwd || cwd;
         updatePrompt();
 
+        if (data.clear) {
+            output.textContent = "";
+        }
+
         // сначала работа команды, потом её ответ
         await playScene(data.scene);
 

@@ -97,3 +97,13 @@ class CdCommand(BaseCommand):
 
         context.cwd = path
         return CommandResult()
+
+
+class ClearCommand(BaseCommand):
+    name = "clear"
+
+    def execute(self, context, args):
+        if args:
+            return CommandResult("clear: too many arguments", 2)
+
+        return CommandResult(clear=True)

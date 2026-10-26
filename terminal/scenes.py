@@ -7,7 +7,7 @@
 import hashlib
 
 from console.scene import Scene
-from users.gateway import _mail_line
+from users.gateway import _motd
 
 
 def _stable(seed, low, high):
@@ -55,10 +55,15 @@ def unlock_scene(layer, path, ok):
 # ---------- приветствие ----------
 
 def greeting_scene(ident, login, mail=None):
-    """Оболочка открылась: короткая строка о сеансе и почта. Каждое окно терминала начинается так."""
+    """Оболочка открылась: шапка сеанса, то же приветствие узла, что после входа (логотип, нагрузка, радио,
+    уведомления, последний вход, почта) и подсказка. Каждое окно терминала начинается так; любая клавиша доигрывает."""
     s = Scene()
-    s.say(f"aether-shell 1.4 on {ident.hostname}  (pty0)", style="dim")
-    s.say("session  ", (login, "success"), ("  ·  recording on", "dim"))
-    _mail_line(s, mail)
+    s.say(f"aether-shell 1.4 on {ident.hostname}", style="dim")
+    s.task("pty       allocating 120x32 ", "OK", ms=(150, 320))
+    s.task("env       TERM=aether-256 ", "OK", ms=(120, 260))
+    s.task(f"session   {login} ", "OK", ms=(180, 360))
+    s.say("recording on", style="dim")
+    _motd(s, ident, login, mail, read=False)
+    s.say("  Type ", ("ls", "success"), " to look around, ", ("clear", "success"), " to wipe the screen.", style="dim")
     s.blank()
     return s.to_dict()

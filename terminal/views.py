@@ -76,6 +76,7 @@ def execute(request):
         "exit_code": result.exit_code,
         "window": result.window,
         "scene": result.scene,
+        "clear": result.clear,
         "cwd": new_cwd,
         "hostname": session.profile.machine.hostname,
     })

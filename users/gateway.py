@@ -423,7 +423,7 @@ def _mail_line(s, mail):
     )
 
 
-def _motd(s, ident, login, mail=None, *, short=False):
+def _motd(s, ident, login, mail=None, *, short=False, read=True):
     """Приветствие узла после входа: большое, с информацией и следами мира."""
     days_core = days_since(CORE_LAST_CONTACT)
     events = (GAME_DATE - CORE_LAST_CONTACT).days * EVENTS_PER_DAY + _metric(ident, "events", 0, 99)
@@ -458,7 +458,8 @@ def _motd(s, ident, login, mail=None, *, short=False):
     if not short:
         s.say(f"  This node is unattended. Sessions are recorded. Logged in as {login}.", style="dim")
         s.blank()
-    s.read(per_char=5, min_ms=1500, max_ms=7500)
+    if read:
+        s.read(per_char=5, min_ms=1500, max_ms=7500)
 
 
 # ---------- сцены ----------

@@ -1,5 +1,6 @@
 from terminal.engine.commands.basic import (
     CdCommand,
+    ClearCommand,
     LsCommand,
     PwdCommand,
 )
@@ -14,6 +15,7 @@ COMMANDS = {
         PwdCommand,
         LsCommand,
         CdCommand,
+        ClearCommand,
         FtypCommand,
         CphCommand,
         B256Command,

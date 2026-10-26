@@ -135,3 +135,16 @@ class TerminalSceneTests(TestCase):
         self.assertIn('id="terminal-greeting"', page)
         self.assertIn("aether-shell", page)
         self.assertIn("ui/console.js", page)
+
+    def test_the_greeting_is_the_full_node_welcome(self):
+        page = self.client.get(reverse("terminal:index")).content.decode()
+        for part in ("System information", "Link load", "Standalone mode", "Type "):
+            self.assertIn(part, page)
+        self.assertNotIn('"op":"read"', page.replace(" ", ""))             # без паузы на чтение: окно открывается быстро
+
+    def test_clear_asks_the_screen_to_wipe(self):
+        data = self.run_command("clear")
+        self.assertTrue(data["clear"])
+        self.assertEqual((data["output"], data["exit_code"]), ("", 0))
+        self.assertFalse(self.run_command("pwd")["clear"])
+        self.assertEqual(self.run_command("clear now")["exit_code"], 2)

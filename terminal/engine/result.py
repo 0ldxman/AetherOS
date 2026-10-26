@@ -9,6 +9,7 @@ class CommandResult:
     # консольная сцена (шаги console/scene.py), которая проигрывается ДО текста ответа: работа команды.
     # Текст output остаётся ответом и печатается после неё, так что без анимации ничего не теряется.
     scene: list | None = None
+    clear: bool = False         # очистить экран терминала (команда clear)
 
     @property
     def success(self) -> bool:
