@@ -64,6 +64,7 @@
     <span class="sep"></span>
     <button type="button" class="button" id="se-reload" title="Перезагрузить карту с датой, режимом и плоским видом из формы">Обновить подложку</button>
     <span id="se-status"></span>
+    <span id="se-warn" style="color:#ba2121"></span>
   </div>
 
   <div id="se-opts">
@@ -455,6 +456,8 @@
       renderList(current ? current.id : null);
       document.getElementById('se-undo').disabled = !(d.history && d.history.undo);
       document.getElementById('se-redo').disabled = !(d.history && d.history.redo);
+    } else if (d.type === 'aether-scene-notice') {
+      document.getElementById('se-warn').textContent = d.text ? ` ${d.text}` : '';
     } else if (d.type === 'aether-scene-selected') {
       showProps(d.feature ? { ...d.feature, id: d.id } : null);
       renderList(d.id);

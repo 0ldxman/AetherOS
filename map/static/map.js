@@ -898,13 +898,30 @@ function hatchName(color) {
 let regionExtra = [];            // последние переданные выделения: внешняя граница досылается позже и перерисовывает их
 const outlineLines = new Map();  // адрес внешней границы -> линии (null: запрос не удался)
 
+function outlineNotice(text) {
+  if (SCENE_EDIT) window.parent.postMessage({ type: 'aether-scene-notice', text }, window.location.origin);
+  else if (text) console.warn(text);
+}
+
 function loadOutline(url) {
   if (outlineLines.has(url)) return;
   outlineLines.set(url, []);
   fetch(url, { credentials: 'same-origin' })
-    .then((r) => (r.ok ? r.json() : null))
-    .then((data) => { outlineLines.set(url, data ? data.coordinates : null); setRegions(regionExtra); })
-    .catch(() => outlineLines.set(url, null));
+    .then(async (r) => {
+      if (!r.ok) {
+        outlineLines.set(url, null);
+        outlineNotice(`Внешняя граница не получена (ответ сервера ${r.status}): выполните migrate и import_province_shapes. Пока рисуются границы всех провинций.`);
+        return;
+      }
+      const data = await r.json();
+      outlineLines.set(url, data.coordinates);
+      outlineNotice(data.coordinates.length ? '' : 'Для этой страны нет контуров провинций: выполните import_province_shapes. Пока рисуются границы всех провинций.');
+      setRegions(regionExtra);
+    })
+    .catch(() => {
+      outlineLines.set(url, null);
+      outlineNotice('Внешняя граница не получена: нет связи с сервером.');
+    });
 }
 
 // Тип заливки выделения или фигуры: свой, а без него по умолчанию темы (scan штрихует, остальные закрашивают)

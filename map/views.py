@@ -1,5 +1,6 @@
 from datetime import date
 
+from django.db import DatabaseError
 from django.http import Http404, JsonResponse
 from django.shortcuts import render
 
@@ -169,7 +170,11 @@ def region_outline(request):
 
     token = (request.GET.get("token") or "").strip()
     groups, _unknown = resolve_highlight([token], on_date) if token else ([], [])
-    lines = outline_for([code for group in groups for code in group["codes"]])
+    try:
+        lines = outline_for([code for group in groups for code in group["codes"]])
+    except DatabaseError:
+        # таблица контуров не создана: не выполнена миграция map 0008
+        return JsonResponse({"error": "province shapes table is missing: run migrate"}, status=503)
     response = JsonResponse({"type": "MultiLineString", "coordinates": lines})
     if lines:       # пустой ответ браузеру не оставляем: контуры могут загрузиться позже
         response["Cache-Control"] = "public, max-age=3600"
