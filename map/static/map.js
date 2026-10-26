@@ -102,6 +102,14 @@ const MARKERS = EMBED
 const PROVINCE_NAMES = EMBED && SEARCH.get('labels') !== '0';
 const PROVINCE_OPACITY = THEME_STYLE ? THEME_STYLE.provinceOpacity : 0.2;
 if (EMBED) document.body.classList.add('embed');
+if (EMBED && THEME === 'scan') {
+  // шероховатость линий: края слегка гуляют, как у шариковой ручки на бумаге
+  document.body.insertAdjacentHTML('beforeend',
+    '<svg width="0" height="0" style="position:absolute" aria-hidden="true"><filter id="pen-rough">' +
+    '<feTurbulence type="fractalNoise" baseFrequency="0.07" numOctaves="2" seed="4" result="n"/>' +
+    '<feDisplacementMap in="SourceGraphic" in2="n" scale="2.6" xChannelSelector="R" yChannelSelector="G"/>' +
+    '</filter></svg>');
+}
 if (THEME) document.body.classList.add('theme-' + THEME);
 
 const DEFAULT_MODE = 'political';
@@ -750,16 +758,21 @@ if (EMBED) {
     if (markPalette[item.color]) tag.style.setProperty('--mc', markPalette[item.color]);
 
     if (THEME === 'scan') {
-      // пометка ручкой: крест, перечёркнутый дважды, и номер от руки рядом
+      // пометка красной ручкой: место обведено неровным кругом с заходом концов друг на друга,
+      // в центре точка, рядом номер от руки
       tag.classList.add('embed-marker--pen');
-      const strokes = index % 2
-        ? ['M5 5 C10 11 17 17 23 24', 'M24 4 C18 10 11 18 5 23', 'M3 8 C10 13 18 19 25 22']
-        : ['M5 6 C10 11 17 17 23 23', 'M23 5 C17 10 11 17 6 22', 'M4 22 C11 16 18 10 24 7'];
+      const loops = [
+        'M22 5 C12 2 4 9 5 19 C6 29 19 33 28 25 C35 17 30 6 19 3 C14 1.5 9 3 6 7',
+        'M9 6 C18 1 31 6 31 18 C31 29 18 34 9 28 C1 22 2 11 11 5 C16 2 23 3 27 7',
+        'M27 8 C21 1 9 3 5 13 C2 24 11 33 22 31 C32 29 34 16 27 8 C24 4 19 2 14 2',
+      ];
+      const loop = loops[index % loops.length];
       tag.innerHTML =
-        '<svg viewBox="0 0 28 28" aria-hidden="true">' +
-        // светлая подложка под линиями, чтобы крест читался на любой заливке
-        `<path class="halo" d="${strokes[0]}"/><path class="halo" d="${strokes[1]}"/>` +
-        `<path d="${strokes[0]}"/><path d="${strokes[1]}"/><path class="again" d="${strokes[2]}"/></svg>` +
+        '<svg viewBox="0 0 36 36" aria-hidden="true">' +
+        // светлая подложка, чтобы пометка читалась на любой заливке
+        `<path class="halo" d="${loop}"/>` +
+        `<path d="${loop}"/><path class="again" transform="rotate(5 18 18)" d="${loop}"/>` +
+        '<circle class="dot" cx="18" cy="18" r="2.2"/></svg>' +
         `<span class="pen-n">${index + 1}</span>`;
     } else {
       tag.dataset.n = String(index + 1);
