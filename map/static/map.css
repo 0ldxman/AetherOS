@@ -164,23 +164,23 @@ body.embed #timeline {
 /*
  * Метки на карте. Три вида, по теме документа (см. THEME в map.js):
  *   maps  булавка с белой точкой, значки круглыми плашками с белым знаком, как на онлайн-картах
- *   term  графика: ромб-прицел и контурные значки с угловыми засечками и свечением
+ *   dark  (и карта без темы: основное приложение, редактор) плоская графика: ромб, контурные значки
  *   scan  пометки от руки: крестик, значки в два росчерка, цифры почерком
  * Цвет задаёт --mc (из разметки), без него берётся цвет темы.
  */
 .embed-marker {
-  --pin: var(--mc, var(--mc-default, var(--accent, #3fd0ff)));
+  --pin: var(--mc, var(--mc-default, #ffcf4d));
   position: relative;
   display: grid;
   place-items: center;
   width: 22px;
   height: 22px;
   box-sizing: border-box;
-  background: color-mix(in srgb, var(--pin) 16%, transparent);
+  background: color-mix(in srgb, var(--pin) 30%, #0b1320);
   border: 2px solid var(--pin);
   color: var(--pin);
   transform: rotate(45deg);
-  box-shadow: 0 0 9px color-mix(in srgb, var(--pin) 55%, transparent), inset 0 0 5px color-mix(in srgb, var(--pin) 35%, transparent);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.6);
 }
 
 .embed-marker::after {
@@ -292,12 +292,10 @@ body.theme-maps .embed-marker--pen {
   top: 50%;
   margin-left: 9px;
   transform: translateY(-50%);
-  font: 500 10.5px/1.2 var(--font-main, monospace);
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
+  font: 600 12px/1.2 var(--font-main, monospace);
   white-space: nowrap;
-  color: var(--mc, var(--accent, #3fd0ff));
-  text-shadow: 0 0 3px #050909, 0 0 3px #050909, 0 0 6px #050909;
+  color: #e6edf5;
+  text-shadow: 0 0 3px #0b1320, 0 0 3px #0b1320, 0 0 5px #0b1320;
 }
 
 body.theme-maps .marker-label {
@@ -356,9 +354,9 @@ body.theme-scan .marker-label {
   mix-blend-mode: multiply;
 }
 
-/* значки-формы (звезда, ромб и другие) на maps и term; на scan их рисует ручка (.embed-marker--pen) */
+/* значки-формы (звезда, ромб и другие) на maps и dark; на scan их рисует ручка (.embed-marker--pen) */
 .embed-marker--icon {
-  --ic: var(--mc, var(--mc-default, var(--accent, #3fd0ff)));
+  --ic: var(--mc, var(--mc-default, #ffcf4d));
   position: relative;
   display: block;
   width: 26px;
@@ -382,10 +380,10 @@ body.theme-scan .marker-label {
   overflow: visible;
   fill: color-mix(in srgb, currentColor 14%, transparent);
   stroke: currentColor;
-  stroke-width: 1.6;
-  stroke-linecap: square;
-  stroke-linejoin: miter;
-  filter: drop-shadow(0 0 3px color-mix(in srgb, currentColor 70%, transparent));
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  filter: drop-shadow(0 1px 1.5px rgba(0, 0, 0, 0.7));
 }
 
 .embed-marker--icon.is-open svg {
@@ -393,34 +391,16 @@ body.theme-scan .marker-label {
 }
 
 .embed-marker--icon.is-solid svg {
-  fill: color-mix(in srgb, currentColor 80%, transparent);
-}
-
-/* term: угловые засечки вокруг значка, как рамка захвата цели */
-body.theme-term .embed-marker--icon::before,
-body:not([class*="theme-"]) .embed-marker--icon::before {
-  content: "";
-  position: absolute;
-  inset: -6px;
-  pointer-events: none;
-  background:
-    linear-gradient(currentColor, currentColor) top left / 6px 1px no-repeat,
-    linear-gradient(currentColor, currentColor) top left / 1px 6px no-repeat,
-    linear-gradient(currentColor, currentColor) top right / 6px 1px no-repeat,
-    linear-gradient(currentColor, currentColor) top right / 1px 6px no-repeat,
-    linear-gradient(currentColor, currentColor) bottom left / 6px 1px no-repeat,
-    linear-gradient(currentColor, currentColor) bottom left / 1px 6px no-repeat,
-    linear-gradient(currentColor, currentColor) bottom right / 6px 1px no-repeat,
-    linear-gradient(currentColor, currentColor) bottom right / 1px 6px no-repeat;
-  opacity: 0.8;
+  fill: currentColor;
 }
 
 .embed-marker--icon .icon-n {
   position: absolute;
-  top: -12px;
-  right: -12px;
+  top: -9px;
+  right: -9px;
   font: 700 10px/1 var(--font-main, monospace);
-  color: currentColor;
+  color: #e6edf5;
+  text-shadow: 0 0 3px #0b1320, 0 0 3px #0b1320;
 }
 
 /* maps: круглая плашка цвета метки с белым знаком */
@@ -527,11 +507,11 @@ body.embed #scene-panel {
 }
 
 /*
- * Выноска: плашка с текстом и линия к месту; цвет линии и рамки из --mc. Без темы и в term тёмная
+ * Выноска: плашка с текстом и линия к месту; цвет линии и рамки из --mc. Без темы и в dark тёмная
  * панель со светлым текстом (цвета заданы здесь, а не взяты из токенов: иначе панель тёмная, а текст тоже).
  */
 .callout {
-  --c: var(--mc, var(--mc-default, var(--accent, #3fd0ff)));
+  --c: var(--mc, var(--mc-default, #ffcf4d));
   position: relative;
   width: 0;
   height: 0;
@@ -545,13 +525,14 @@ body.embed #scene-panel {
   pointer-events: none;
 }
 
-.callout-line line {
+.callout-line .leader {
+  fill: none;
   stroke: var(--c);
-  stroke-width: 1.2;
-  stroke-linecap: square;
+  stroke-width: 1.4;
+  stroke-linecap: round;
 }
 
-.callout-line circle {
+.callout-line .anchor {
   fill: var(--c);
 }
 
@@ -562,15 +543,13 @@ body.embed #scene-panel {
   max-width: 190px;
   padding: 5px 10px 5px 12px;
   box-sizing: border-box;
-  background: rgba(7, 13, 13, 0.92);
-  border: 1px solid color-mix(in srgb, var(--c) 70%, transparent);
+  background: rgba(11, 19, 32, 0.94);
+  border: 1px solid color-mix(in srgb, var(--c) 65%, transparent);
   border-left: 3px solid var(--c);
-  color: #dce6f0;
-  font: 11.5px/1.35 var(--font-main, monospace);
+  color: #e6edf5;
+  font: 12px/1.35 var(--font-main, monospace);
   white-space: pre-wrap;
-  /* срезанный угол, как у терминальных панелей */
-  clip-path: polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 0 100%);
-  box-shadow: 0 0 10px color-mix(in srgb, var(--c) 25%, transparent);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.55);
 }
 
 .callout-edit {
@@ -584,7 +563,6 @@ body.embed #scene-panel {
 .callout.is-selected .callout-box {
   outline: 2px dashed #ffcf4d;
   outline-offset: 3px;
-  clip-path: none;
 }
 
 /* maps: белая карточка с мягкой тенью */
@@ -592,9 +570,17 @@ body.theme-maps .callout {
   --mc-default: #5f6368;
 }
 
-body.theme-maps .callout-line line {
-  stroke-width: 1.5;
-  stroke-linecap: round;
+body.theme-maps .callout-line {
+  filter: drop-shadow(0 1px 1.5px rgba(60, 64, 67, 0.45));
+}
+
+body.theme-maps .callout-line .leader {
+  fill: #fff;
+  stroke: none;
+}
+
+body.theme-maps .callout-line .anchor {
+  display: none;
 }
 
 body.theme-maps .callout-box {
@@ -602,7 +588,6 @@ body.theme-maps .callout-box {
   background: #fff;
   border: 0;
   border-radius: 8px;
-  clip-path: none;
   color: #202124;
   font: 12.5px/1.35 Roboto, "Segoe UI", system-ui, Arial, sans-serif;
   box-shadow: 0 1px 4px rgba(60, 64, 67, 0.45), 0 0 0 1px rgba(60, 64, 67, 0.08);
@@ -615,7 +600,6 @@ body.theme-scan .callout-box {
   background-color: #f4ecd8;
   background-image: radial-gradient(ellipse at 40% 30%, rgba(255, 252, 235, 0.45), transparent 75%);
   border: 0;
-  clip-path: none;
   color: #24366f;
   font-family: var(--font-hand, cursive);
   font-size: 17px;
@@ -627,12 +611,9 @@ body.theme-scan .callout-line {
   filter: url(#pen-rough);
 }
 
-body.theme-scan .callout-line line {
+body.theme-scan .callout-line .leader,
+body.theme-scan .callout-line .anchor {
+  fill: none;
   stroke: var(--mc, #24366f);
-  stroke-width: 1.6;
-  stroke-linecap: round;
-}
-
-body.theme-scan .callout-line circle {
-  fill: var(--mc, #24366f);
+  stroke-width: 1.7;
 }

@@ -171,7 +171,7 @@ class BlocksTests(TestCase):
         for theme, selector in (
             ("scan", '.widget--map[data-theme="scan"], .widget--map:not([data-theme]) {'),
             ("maps", '.widget--map[data-theme="maps"] {'),
-            ("term", '.widget--map[data-theme="term"] {'),
+            ("dark", '.widget--map[data-theme="dark"] {'),
         ):
             palette = js[js.index("const MARK_COLORS"):js.index("const markPalette")]
             block = re.search(theme + r": \{(.*?)\},", palette, re.S).group(1)
@@ -334,7 +334,7 @@ class BlocksTests(TestCase):
         import re
 
         first, second = [json.loads(unquote(v)) for v in re.findall(r'&amp;c=([^&"#]+)', html)[:2]]
-        self.assertEqual(first["text"], "Склад \n у реки")
+        self.assertEqual(first["text"], "Склад\nу реки")
         self.assertEqual((first["offset"], first["color"]), ([80, -40], "blue"))
         self.assertTrue(first["url"].endswith("Technologies/Report"))
         self.assertEqual((second["offset"], second["color"], second["text"]), ([70, -50], "", "Пост"))

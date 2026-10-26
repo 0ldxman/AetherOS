@@ -735,7 +735,7 @@ def parse_map_line(line):
             (int(callout.group(4)), int(callout.group(5))) if callout.group(4) else DEFAULT_CALLOUT_OFFSET
         )
         word = callout.group(6)
-        return ("callout", callout.group(1).replace("\\n", "\n").strip(), lat, lon, offset,
+        return ("callout", re.sub(r"[ \t]*\\n[ \t]*", "\n", callout.group(1)).strip(), lat, lon, offset,
                 mark_color(word), word if word and not mark_color(word) else "", link)
 
     marker = _MARKER.match(line)

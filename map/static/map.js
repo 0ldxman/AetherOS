@@ -8,13 +8,13 @@ const DEFAULT_COLORS = {
   grid: '#8fb4d9',
 };
 
-// Тема встроенной карты (?theme=maps|scan|term, её выбирает виджет ::map по стилю документа). Три разных вида:
+// Тема встроенной карты (?theme=maps|scan|dark, её выбирает виджет ::map по стилю документа). Три разных вида:
 //   maps  светлая карта в духе онлайн-карт для doc и светлого web: булавки, круглые значки, белые карточки
 //   scan  бумажная карта с пометками от руки (ручка, маркер, записки) для scan
-//   term  тёмная графическая карта для rec и инфобокса, она же основная карта приложения: линии, прицелы, свечение
+//   dark  тёмная карта для rec, инфобокса и тёмного web, она же основная карта приложения и редактор: без ?theme
 // Метки, выноски, выделения и фигуры у виджета и у сохранённой карты общие, тема одна на весь документ.
 const THEME_PARAM = new URLSearchParams(window.location.search).get('theme');
-const THEME = THEME_PARAM === 'print' ? 'maps' : THEME_PARAM;   // print: прежнее имя темы maps
+const THEME = { print: 'maps', term: 'dark' }[THEME_PARAM] || THEME_PARAM;   // print и term: прежние имена тем maps и dark
 const accentToken = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim() || '#3fd0ff';
 
 const THEMES = {
@@ -44,19 +44,6 @@ const THEMES = {
     region: '#b3261e',
     dim: '#e8dfcb',
   },
-  term: {
-    colors: {
-      land: '#0d1717', water: '#060b0b', forest: '#0f1f1d', road: '#1f4a49',
-      roadCasing: '#0a1211', building: '#143231', grid: accentToken,
-    },
-    boundary: accentToken,
-    provinceOpacity: 0.12,
-    keepCountryColors: false,
-    labelText: accentToken,
-    labelHalo: '#050909',
-    region: accentToken,
-    dim: '#050909',
-  },
 };
 
 const THEME_STYLE = THEMES[THEME] || null;
@@ -72,12 +59,12 @@ const MARK_COLORS = {
     red: '#b00d1c', blue: '#12307a', green: '#14612a', orange: '#b85200',
     purple: '#5a1f8a', yellow: '#b88a00', teal: '#0e6b6b', grey: '#2f2c28',
   },
-  term: {
+  dark: {
     red: '#ff5a5f', blue: '#5aa9ff', green: '#3fe0a0', orange: '#ffa13d',
     purple: '#b58cff', yellow: '#ffd84d', teal: '#3fd0ff', grey: '#9aa5a5',
   },
 };
-const markPalette = MARK_COLORS[THEME_STYLE ? THEME : 'term'];
+const markPalette = MARK_COLORS[THEME_STYLE ? THEME : 'dark'];
 const markColor = (name, fallback) => markPalette[name] || fallback;
 const COLORS = THEME_STYLE ? THEME_STYLE.colors : DEFAULT_COLORS;
 
@@ -521,7 +508,7 @@ if (EMBED || SCENE_VIEW) {
     layout: { visibility: 'none' },
     paint: { 'fill-color': THEME_STYLE ? THEME_STYLE.dim : '#0f1b2d', 'fill-opacity': 0.55 },
   });
-  // выделение провинций: у каждой темы свой вид (maps: заливка и ровный контур, term: тонкий контур со свечением,
+  // выделение провинций: у каждой темы свой вид (maps: заливка и ровный контур, dark: жёлтая заливка,
   // scan: штриховка цветным карандашом и контур ручкой в два прохода)
   map.addLayer({
     id: 'regions-fill',
@@ -529,18 +516,8 @@ if (EMBED || SCENE_VIEW) {
     source: 'adm1',
     'source-layer': 'aether_provinces',
     filter: nothing,
-    paint: { 'fill-color': '#ffcf4d', 'fill-opacity': THEME === 'maps' ? 0.22 : THEME === 'term' ? 0.16 : THEME === 'scan' ? 1 : 0.4 },
+    paint: { 'fill-color': '#ffcf4d', 'fill-opacity': THEME === 'maps' ? 0.22 : THEME === 'scan' ? 1 : 0.4 },
   });
-  if (THEME === 'term' || !THEME_STYLE) {
-    map.addLayer({
-      id: 'regions-glow',
-      type: 'line',
-      source: 'adm1',
-      'source-layer': 'aether_provinces',
-      filter: nothing,
-      paint: { 'line-color': '#ffcf4d', 'line-width': 7, 'line-blur': 5, 'line-opacity': 0.4 },
-    });
-  }
   map.addLayer({
     id: 'regions-line',
     type: 'line',
@@ -548,7 +525,7 @@ if (EMBED || SCENE_VIEW) {
     'source-layer': 'aether_provinces',
     filter: nothing,
     layout: THEME === 'scan' ? { 'line-cap': 'round', 'line-join': 'round' } : {},
-    paint: { 'line-color': '#ffcf4d', 'line-width': THEME === 'term' ? 1.4 : THEME === 'scan' ? 2.3 : 2.2, 'line-blur': THEME === 'scan' ? 0.35 : 0 },
+    paint: { 'line-color': '#ffcf4d', 'line-width': THEME === 'scan' ? 2.3 : 2.2, 'line-blur': THEME === 'scan' ? 0.35 : 0 },
   });
   if (THEME === 'scan') {
     // второй, более тонкий и смещённый проход ручки: контур выглядит обведённым дважды
@@ -907,12 +884,12 @@ function setRegions(extra) {
   for (const [code, item] of items) byColor.push(code, markColor(item.color, base));
   byColor.push(base);
 
-  for (const id of ['regions-fill', 'regions-line', 'regions-line2', 'regions-glow']) {
+  for (const id of ['regions-fill', 'regions-line', 'regions-line2']) {
     if (map.getLayer(id)) map.setFilter(id, inRegions);
   }
   map.setFilter('regions-dim', ['!', inRegions]);
   map.setLayoutProperty('regions-dim', 'visibility', codes.length ? 'visible' : 'none');
-  for (const id of ['regions-line', 'regions-line2', 'regions-glow']) {
+  for (const id of ['regions-line', 'regions-line2']) {
     if (map.getLayer(id)) map.setPaintProperty(id, 'line-color', codes.length ? byColor : base);
   }
   if (THEME === 'scan') {
@@ -1005,11 +982,6 @@ function ensureSceneLayers() {
       filter: ['==', ['geometry-type'], 'LineString'],
       layout: { 'line-cap': 'round', 'line-join': 'round' },
       paint: { 'line-color': '#ffffff', 'line-width': ['+', ['get', 'w'], 3] } }, before);
-  } else if (THEME === 'term' || !THEME_STYLE) {
-    map.addLayer({ id: 'scene-lines-glow', type: 'line', source: SCENE_SOURCE,
-      filter: ['==', ['geometry-type'], 'LineString'],
-      layout: { 'line-cap': 'round', 'line-join': 'round' },
-      paint: { 'line-color': ['get', 'c'], 'line-width': ['+', ['get', 'w'], 5], 'line-blur': 4, 'line-opacity': 0.35 } }, before);
   }
   map.addLayer({ id: 'scene-lines', type: 'line', source: SCENE_SOURCE,
     filter: ['all', ['==', ['geometry-type'], 'LineString'], ['!=', ['get', 'dash'], true]],
@@ -1172,7 +1144,7 @@ function addMarker(item, index, opts = {}) {
   const shape = item.icon && item.icon !== 'pin' ? MARKER_ICONS[item.icon] : null;
 
   if (shape) {
-    // значок-форма: на scan обведён ручкой, на maps белый знак на круглой плашке, на term контур с засечками
+    // значок-форма: на scan обведён ручкой, на maps белый знак на круглой плашке, на dark плоский контур
     const pen = THEME === 'scan';
     tag.classList.add(pen ? 'embed-marker--pen' : 'embed-marker--icon');
     if (pen) tag.classList.add('embed-marker--pen-shape');
@@ -1739,13 +1711,130 @@ function penPath(points, closed, seed) {
   return d;
 }
 
-function penHead(from, to) {
+
+// Штрих ручки от a к b: свой изгиб, лёгкая дрожь, начало и конец не точно в заданных точках (недоход или заход).
+// Каждый отрезок ломаной рисуется отдельным штрихом, поэтому в углах штрихи не сходятся, как у человека.
+function penStroke(a, b, seed) {
+  const dx = b.x - a.x;
+  const dy = b.y - a.y;
+  const len = Math.hypot(dx, dy);
+  if (len < 1) return '';
+  const ux = dx / len;
+  const uy = dy / len;
+  const nx = -uy;
+  const ny = ux;
+  const before = penRand(seed + 1) * 4.5 - 1.5;
+  const after = penRand(seed + 2) * 5 - 1.5;
+  const side = (penRand(seed + 3) - 0.5) * 2.4;
+  const sx = a.x - ux * before + nx * side;
+  const sy = a.y - uy * before + ny * side;
+  const ex = b.x + ux * after - nx * side * 0.6;
+  const ey = b.y + uy * after - ny * side * 0.6;
+  const bow = (penRand(seed + 4) - 0.5) * Math.min(len * 0.06, 7);
+  const tremor = Math.min(1.1, 0.25 + len * 0.004);
+  const steps = Math.max(2, Math.round(len / 8));
+  const pts = [];
+  for (let i = 0; i <= steps; i += 1) {
+    const t = i / steps;
+    const off = bow * Math.sin(Math.PI * t) + (penRand(seed * 3 + i * 7) - 0.5) * 2 * tremor;
+    pts.push({ x: sx + (ex - sx) * t + nx * off, y: sy + (ey - sy) * t + ny * off });
+  }
+  let d = `M${pts[0].x.toFixed(1)} ${pts[0].y.toFixed(1)}`;
+  for (let i = 1; i < pts.length - 1; i += 1) {
+    const mx = (pts[i].x + pts[i + 1].x) / 2;
+    const my = (pts[i].y + pts[i + 1].y) / 2;
+    d += `Q${pts[i].x.toFixed(1)} ${pts[i].y.toFixed(1)} ${mx.toFixed(1)} ${my.toFixed(1)}`;
+  }
+  const last = pts[pts.length - 1];
+  return `${d}L${last.x.toFixed(1)} ${last.y.toFixed(1)}`;
+}
+
+// Ломаная штрихами: основной проход и, местами, второй, тоньше и в другом месте (рука нажала ещё раз)
+function penPoly(points, closed, seed) {
+  const main = [];
+  const again = [];
+  const edges = closed ? points.length : points.length - 1;
+  for (let i = 0; i < edges; i += 1) {
+    const a = points[i];
+    const b = points[(i + 1) % points.length];
+    main.push(penStroke(a, b, seed + i * 11));
+    if (penRand(seed + i * 5 + 9) < 0.55) again.push(penStroke(a, b, seed + i * 11 + 500));
+  }
+  return { main: main.join(''), again: again.join('') };
+}
+
+// Круг и эллипс от руки: радиус плавает, замкнуть ровно не вышло, конец заходит на второй виток
+function penLoop(ring, seed) {
+  const n = ring.length - 1;
+  const cx = ring.slice(0, n).reduce((sum, p) => sum + p.x, 0) / n;
+  const cy = ring.slice(0, n).reduce((sum, p) => sum + p.y, 0) / n;
+  const start = Math.floor(penRand(seed) * n);
+  const phase = penRand(seed + 1) * 6;
+  const build = (turns, tilt) => {
+    const total = Math.round(n * turns);
+    const pts = [];
+    for (let i = 0; i <= total; i += 1) {
+      const p = ring[(start + i) % n];
+      const theta = (i / n) * Math.PI * 2;
+      const k = 1 + 0.03 * Math.sin(2 * theta + phase + tilt) + 0.018 * Math.sin(3 * theta + phase * 1.7) + 0.045 * (i / n);
+      pts.push({ x: cx + (p.x - cx) * k, y: cy + (p.y - cy) * k });
+    }
+    return penSmooth(pts);
+  };
+  return { main: build(1.14, 0), again: build(0.8, 1.9) };
+}
+
+// Штриховка внутри многоугольника: штрихи разной длины и шага, чуть гуляет наклон, концы не доходят до края
+// или выходят за него. Шаг отсчитывается от первой вершины, поэтому рисунок держится за фигуру.
+function penHatch(poly, seed, spacing = 6.5) {
+  if (poly.length < 3) return '';
+  const angle = ((38 + (penRand(seed) - 0.5) * 8) * Math.PI) / 180;
+  const ux = Math.cos(angle);
+  const uy = Math.sin(angle);
+  const nx = -uy;
+  const ny = ux;
+  const o = poly[0];
+  const pts = poly.map((p) => ({ s: (p.x - o.x) * ux + (p.y - o.y) * uy, t: (p.x - o.x) * nx + (p.y - o.y) * ny }));
+  const tMin = Math.min(...pts.map((p) => p.t));
+  const tMax = Math.max(...pts.map((p) => p.t));
+  const step = Math.max(spacing, (tMax - tMin) / 260);
+  let d = '';
+  let t = tMin + penRand(seed + 2) * step;
+  for (let k = 0; t < tMax; k += 1) {
+    const hits = [];
+    for (let i = 0; i < pts.length; i += 1) {
+      const a = pts[i];
+      const b = pts[(i + 1) % pts.length];
+      if ((a.t <= t && b.t > t) || (b.t <= t && a.t > t)) hits.push(a.s + ((t - a.t) / (b.t - a.t)) * (b.s - a.s));
+    }
+    hits.sort((x, y) => x - y);
+    for (let i = 0; i + 1 < hits.length; i += 2) {
+      const s0 = hits[i] + (penRand(seed + k * 3 + i) * 4.5 - 1.2);
+      const s1 = hits[i + 1] - (penRand(seed + k * 3 + i + 1) * 4.5 - 1.2);
+      if (s1 - s0 < 4) continue;
+      const lift = (penRand(seed + k * 5) - 0.5) * 2.6;
+      const a = { x: o.x + ux * s0 + nx * t, y: o.y + uy * s0 + ny * t };
+      const b = { x: o.x + ux * s1 + nx * (t + lift), y: o.y + uy * s1 + ny * (t + lift) };
+      const bend = (penRand(seed + k * 7) - 0.5) * 2.2;
+      const mx = (a.x + b.x) / 2 + nx * bend;
+      const my = (a.y + b.y) / 2 + ny * bend;
+      d += `M${a.x.toFixed(1)} ${a.y.toFixed(1)}Q${mx.toFixed(1)} ${my.toFixed(1)} ${b.x.toFixed(1)} ${b.y.toFixed(1)}`;
+    }
+    t += step * (0.72 + penRand(seed + k * 13) * 0.62);
+  }
+  return d;
+}
+
+// Неровный пунктир: штрихи и промежутки разной длины
+const PEN_DASH = '9 6 6 5 11 7 5 6 8 5';
+
+// Наконечник стрелки двумя отдельными росчерками, разной длины
+function penHead(from, to, seed) {
   const ang = Math.atan2(to.y - from.y, to.x - from.x);
-  const len = 15;
-  const wing = (delta) => ({ x: to.x - len * Math.cos(ang + delta), y: to.y - len * Math.sin(ang + delta) });
-  const a = wing(0.45);
-  const b = wing(-0.45);
-  return `M${a.x.toFixed(1)} ${a.y.toFixed(1)} L${to.x.toFixed(1)} ${to.y.toFixed(1)} L${b.x.toFixed(1)} ${b.y.toFixed(1)}`;
+  const wing = (delta, len) => ({ x: to.x - len * Math.cos(ang + delta), y: to.y - len * Math.sin(ang + delta) });
+  const a = wing(0.42 + penRand(seed) * 0.16, 13 + penRand(seed + 1) * 5);
+  const b = wing(-0.42 - penRand(seed + 2) * 0.16, 13 + penRand(seed + 3) * 5);
+  return penStroke(a, to, seed + 20) + penStroke(b, to, seed + 30);
 }
 
 function drawPen() {
@@ -1757,52 +1846,46 @@ function drawPen() {
     map.on('render', drawPen);
   }
 
-  const ns = 'http://www.w3.org/2000/svg';
   const project = (c) => map.project(c);
-  const parts = ['<defs>'];
-  const colors = [...new Set(penShapes.map((f) => sceneColor(f.color)))];
-  colors.forEach((c, i) => {
-    parts.push(`<pattern id="hatch-${i}" width="7" height="7" patternUnits="userSpaceOnUse" patternTransform="rotate(40)">` +
-      `<line x1="0" y1="0" x2="0" y2="7" stroke="${c}" stroke-width="1" opacity="0.7"/></pattern>`);
-  });
+  const parts = [];
   const texts = [];   // надписи вне фильтра шероховатости: иначе буквы расплываются
-  parts.push('</defs><g filter="url(#pen-rough)" fill="none" stroke-linecap="round" stroke-linejoin="round">');
+  parts.push('<g filter="url(#pen-rough)" fill="none" stroke-linecap="round" stroke-linejoin="round">');
 
   penShapes.forEach((item, n) => {
     const color = sceneColor(item.color);
-    const hatch = `url(#hatch-${colors.indexOf(color)})`;
     const width = ((item.width || 3) * 0.62).toFixed(2);
+    const thin = (width * 0.5).toFixed(2);
     const seed = n * 17 + 3;
-    const dash = item.dash ? ' stroke-dasharray="7 5"' : '';
+    const dash = item.dash ? ` stroke-dasharray="${PEN_DASH}"` : '';
+    const stroke = (d, w, extra = '') => d && parts.push(`<path d="${d}" stroke="${color}" stroke-width="${w}"${extra}/>`);
     let first = null;
 
     if (item.type === 'line' || item.type === 'arrow') {
       const pts = item.coords.map(project);
       first = pts[0];
-      // линия от руки (smooth) уже неровная сама: без искусственных изгибов и второго прохода
-      const d = item.smooth ? penSmooth(pts) : penPath(pts, false, seed);
-      parts.push(`<path d="${d}" stroke="${color}" stroke-width="${width}"${dash}/>`);
-      if (!item.smooth) parts.push(`<path d="${penPath(pts, false, seed + 50)}" stroke="${color}" stroke-width="${(width * 0.5).toFixed(2)}" opacity="0.55"${dash}/>`);
-      if (item.type === 'arrow') {
-        const head = penHead(pts[pts.length - 2], pts[pts.length - 1]);
-        parts.push(`<path d="${head}" stroke="${color}" stroke-width="${width}"/>`);
+      if (item.smooth) {
+        // линия от руки (smooth) уже неровная сама: без искусственных изгибов и второго прохода
+        stroke(penSmooth(pts), width, dash);
+      } else {
+        const poly = penPoly(pts, false, seed);
+        stroke(poly.main, width, dash);
+        stroke(poly.again, thin, ` opacity="0.55"${dash}`);
       }
+      if (item.type === 'arrow') stroke(penHead(pts[pts.length - 2], pts[pts.length - 1], seed), width);
     } else if (item.type === 'polygon') {
       const pts = item.coords.map(project);
       first = pts[0];
-      if (item.fill !== false) parts.push(`<path d="${penPath(pts, true, seed)}" fill="${hatch}" stroke="none"/>`);
-      parts.push(`<path d="${penPath(pts, true, seed)}" stroke="${color}" stroke-width="${width}"/>`);
-      parts.push(`<path d="${penPath(pts, true, seed + 50)}" stroke="${color}" stroke-width="${(width * 0.5).toFixed(2)}" opacity="0.55"/>`);
+      if (item.fill !== false) stroke(penHatch(pts, seed), 0.95, ' opacity="0.62"');
+      const poly = penPoly(pts, true, seed);
+      stroke(poly.main, width);
+      stroke(poly.again, thin, ' opacity="0.55"');
     } else if (item.type === 'circle') {
       const ring = circlePolygon(item.coords[0], item.coords[1], item.radius_km).map(project);
       first = project(item.coords);
-      const cx = first.x;
-      const cy = first.y;
-      // заход конца за начало: пара точек чуть дальше от центра
-      const over = ring.slice(0, 7).map((p) => ({ x: cx + (p.x - cx) * 1.06, y: cy + (p.y - cy) * 1.06 }));
-      const loop = [...ring.slice(0, -1), ...over];
-      if (item.fill !== false) parts.push(`<path d="${penPath(ring, true, seed)}" fill="${hatch}" stroke="none"/>`);
-      parts.push(`<path d="${penPath(loop, false, seed)}" stroke="${color}" stroke-width="${width}"/>`);
+      const loop = penLoop(ring, seed);
+      if (item.fill !== false) stroke(penHatch(ring.slice(0, -1), seed + 4), 0.95, ' opacity="0.62"');
+      stroke(loop.main, width);
+      stroke(loop.again, thin, ' opacity="0.55"');
     } else if (item.type === 'text') {
       const p = project(item.coords);
       texts.push(`<text x="${p.x.toFixed(1)}" y="${p.y.toFixed(1)}" fill="${color}" stroke="none" ` +
@@ -1818,7 +1901,6 @@ function drawPen() {
 
   parts.push('</g>', ...texts);
   penSvg.innerHTML = parts.join('');
-  void ns;
 }
 
 function escapeXml(text) {
@@ -2012,22 +2094,44 @@ function addCallout(item, opts = {}) {
   svg.setAttribute('class', 'callout-line');
   svg.setAttribute('width', '1');
   svg.setAttribute('height', '1');
-  const line = document.createElementNS(ns, 'line');
-  line.setAttribute('x1', '0');
-  line.setAttribute('y1', '0');
-  const dot = document.createElementNS(ns, 'circle');
-  dot.setAttribute('r', '3.2');
+  const line = document.createElementNS(ns, 'path');
+  line.setAttribute('class', 'leader');
+  // на scan точка это маленький кружок, обведённый ручкой, на остальных картах точка с обводкой
+  const dot = document.createElementNS(ns, THEME === 'scan' ? 'path' : 'circle');
+  dot.setAttribute('class', 'anchor');
+  if (THEME !== 'scan') dot.setAttribute('r', '4');
   svg.append(line, dot);
 
   const box = document.createElement('div');
   box.className = 'callout-box';
   box.textContent = item.text;
 
+  const seed = Math.abs(Math.round(item.coords[0] * 31 + item.coords[1] * 17)) % 997;
   const place = () => {
-    line.setAttribute('x2', String(dx));
-    line.setAttribute('y2', String(dy));
     box.style.left = `${dx}px`;
     box.style.top = `${dy}px`;
+    // линия кончается у края плашки, а не уходит под неё
+    const hw = box.offsetWidth / 2 + 1;
+    const hh = box.offsetHeight / 2 + 1;
+    const k = Math.min(hw / (Math.abs(dx) || 1e-6), hh / (Math.abs(dy) || 1e-6));
+    const ex = k < 1 ? dx - dx * k : dx;
+    const ey = k < 1 ? dy - dy * k : dy;
+    if (THEME === 'scan') {
+      line.setAttribute('d', penStroke({ x: 0, y: 0 }, { x: ex, y: ey }, seed));
+      const ring = [];
+      for (let i = 0; i <= 12; i += 1) ring.push({ x: Math.cos((i / 12) * Math.PI * 2) * 3.6, y: Math.sin((i / 12) * Math.PI * 2) * 3.6 });
+      dot.setAttribute('d', penLoop(ring, seed + 5).main);
+    } else if (THEME === 'maps') {
+      // как у окна на онлайн-картах: плашка с острым хвостиком к точке
+      const len = Math.hypot(ex, ey) || 1;
+      const px = (-ey / len) * 6.5;
+      const py = (ex / len) * 6.5;
+      const ax = (ex / len) * 3;
+      const ay = (ey / len) * 3;
+      line.setAttribute('d', `M${(ex + px).toFixed(1)} ${(ey + py).toFixed(1)}L${ax.toFixed(1)} ${ay.toFixed(1)}L${(ex - px).toFixed(1)} ${(ey - py).toFixed(1)}Z`);
+    } else {
+      line.setAttribute('d', `M0 0L${ex.toFixed(1)} ${ey.toFixed(1)}`);
+    }
   };
   place();
   el.append(svg, box);
@@ -2058,6 +2162,7 @@ function addCallout(item, opts = {}) {
   const marker = new maplibregl.Marker({ element: el, anchor: 'center', draggable: !!opts.onMove })
     .setLngLat(item.coords)
     .addTo(map);
+  requestAnimationFrame(place);   // размер плашки известен только после вставки
   if (opts.onMove) marker.on('dragend', () => { const p = marker.getLngLat(); opts.onMove([p.lng, p.lat]); });
   return marker;
 }

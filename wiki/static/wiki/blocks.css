@@ -450,7 +450,7 @@
 }
 
 /*
- * Оформление карты задаёт сама карта (темы print и term в map.js) и слой подписей поверх неё:
+ * Оформление карты задаёт сама карта (темы maps, scan и dark в map.js) и слой подписей поверх неё:
  * штамп с датой, стрелка севера, масштаб; под кадром строка координат и легенда.
  */
 .widget--map {
@@ -509,7 +509,7 @@
     --mc-grey: #5f6368;
 }
 
-.widget--map[data-theme="term"] {
+.widget--map[data-theme="dark"] {
     --mc-red: #ff5a5f;
     --mc-blue: #5aa9ff;
     --mc-green: #3fe0a0;
@@ -759,8 +759,8 @@
     font-weight: 700;
 }
 
-/* term: ромбы, как метки на карте */
-.widget--map[data-theme="term"] .map-legend b {
+/* dark: ромбы, как метки на карте */
+.widget--map[data-theme="dark"] .map-legend b {
     width: 1.35rem;
     height: 1.35rem;
     border-radius: 0;
