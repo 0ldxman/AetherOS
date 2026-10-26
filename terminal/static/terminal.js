@@ -20,6 +20,20 @@
     const history = [];
     let historyIndex = 0;
 
+    // Сцены (анимация работы команды, приветствие) играет общий проигрыватель консоли: любая клавиша или клик
+    // доигрывают сцену сразу. Строки команд и ответов лежат в том же контейнере.
+    const scenes = window.Aether && window.Aether.console
+        ? window.Aether.console.create(output, { flashTarget: terminal })
+        : null;
+
+    async function playScene(steps) {
+        if (!scenes || !Array.isArray(steps) || !steps.length) {
+            return;
+        }
+
+        await scenes.play(steps);
+    }
+
     function appendLine(text, className = "") {
         const line = document.createElement("div");
         line.className = `terminal-line ${className}`.trim();
@@ -70,6 +84,9 @@
 
         cwd = data.cwd || cwd;
         updatePrompt();
+
+        // сначала работа команды, потом её ответ
+        await playScene(data.scene);
 
         if (data.output) {
             appendLine(data.output, data.exit_code ? "terminal-error" : "");
@@ -137,6 +154,39 @@
         }
     });
 
+    // прокрутка вниз при любом изменении вывода, в том числе пока играет сцена
+    new MutationObserver(scrollToBottom).observe(output, {
+        childList: true,
+        subtree: true,
+        characterData: true,
+    });
+
+    async function greet() {
+        let greeting = null;
+
+        try {
+            greeting = JSON.parse(document.getElementById("terminal-greeting").textContent);
+        } catch {
+            greeting = null;
+        }
+
+        if (!greeting) {
+            return;
+        }
+
+        busy = true;
+        input.disabled = true;
+
+        try {
+            await playScene(greeting);
+        } finally {
+            busy = false;
+            input.disabled = false;
+            input.focus();
+        }
+    }
+
     updatePrompt();
     input.focus();
+    greet();
 })();

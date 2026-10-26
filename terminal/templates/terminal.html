@@ -5,6 +5,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Terminal — {{ hostname }}</title>
+    <link rel="stylesheet" href="{% static 'ui/tokens.css' %}">
+    <link rel="stylesheet" href="{% static 'ui/fonts.css' %}">
+    <link rel="stylesheet" href="{% static 'ui/console.css' %}">
     <link rel="stylesheet" href="{% static 'terminal.css' %}">
 </head>
 <body>
@@ -31,6 +34,8 @@
     </main>
 
     {% csrf_token %}
+    {{ greeting|json_script:"terminal-greeting" }}
+    <script src="{% static 'ui/console.js' %}"></script>
     <script src="{% static 'terminal.js' %}"></script>
 </body>
 </html>

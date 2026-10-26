@@ -6,6 +6,7 @@ from filesystem.unlock import unlock_file
 from terminal.engine.commands.basic import BaseCommand
 from terminal.engine.filesystem import VirtualFilesystem
 from terminal.engine.result import CommandResult
+from terminal.scenes import unlock_scene
 
 _TRUE = {"true", "yes", "1", "да", "вкл"}
 _FALSE = {"false", "no", "0", "нет", "выкл"}
@@ -137,4 +138,8 @@ class LayerCommand(BaseCommand):
 
         arrived = sum(1 for item in outcome.mail if item.delivered and item.immediate)
         notice = [f"intercom: {arrived} new message{'s' if arrived != 1 else ''}"] if arrived else []
-        return CommandResult("\n".join(lines + outcome.say + notice), code)
+        return CommandResult(
+            "\n".join(lines + outcome.say + notice),
+            code,
+            scene=unlock_scene(layer, entry.path, bool(outcome.result.removed)),
+        )
