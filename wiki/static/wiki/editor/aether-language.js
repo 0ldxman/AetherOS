@@ -51,6 +51,8 @@ const BLOCKS = new Set([
   "kv",
   "kvm",
   "timeline",
+  "gallery",
+  "files",
   "spoiler",
 ]);
 
@@ -60,6 +62,8 @@ const RAW_BLOCKS = new Set([
   "kv",
   "kvm",
   "timeline",
+  "gallery",
+  "files",
 ]);
 
 const CONTAINERS = new Set([
@@ -75,6 +79,7 @@ const LINE_WIDGETS = new Set([
   "masthead",
   "bar",
   "image",
+  "map",
   "divider",
   "page",
   "site",

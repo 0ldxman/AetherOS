@@ -1017,6 +1017,94 @@ import "./condition_editor.js";
     );
 
 
+    // ассеты одного вида: галерея берёт картинки, группа файлов файлы
+    function assetBlock(label, title, kind, open, close) {
+
+      button(
+        label,
+        title,
+        (anchor) => {
+
+          picker.open(
+            anchor,
+            {
+
+              placeholder:
+                "Название, slug или имя файла",
+
+              load: async (query) =>
+                (await findAssets(query))
+                  .filter(
+                    (item) =>
+                      item.kind === kind
+                  )
+                  .map(
+                    (item) => ({
+
+                      title:
+                        item.name,
+
+                      note:
+                        item.ref,
+
+                      value:
+                        item,
+
+                    })
+                  ),
+
+              pick: (item) => {
+
+                replaceSelection(
+                  getEditor(),
+                  () =>
+                    open + "\n" +
+                    item.ref + " | подпись\n" +
+                    close + "\n"
+                );
+
+              },
+
+            }
+          );
+
+        }
+      );
+
+    }
+
+
+    assetBlock(
+      "+ Галерея",
+      "Несколько картинок: карусель в web, rec и инфобоксе, плитка в doc и scan",
+      "image",
+      "::gallery cols=2",
+      "::"
+    );
+
+    assetBlock(
+      "+ Файлы",
+      "Группа файлов для скачивания, по строке на файл",
+      "file",
+      "::files",
+      "::"
+    );
+
+    button(
+      "+ Карта",
+      "Карта мира: живая в web, rec и инфобоксе, неподвижная в doc и scan",
+      () => {
+
+        replaceSelection(
+          getEditor(),
+          () =>
+            "::map lat=20 lon=10 zoom=3 caption=\"\"\n"
+        );
+
+      }
+    );
+
+
     button(
       "+ Ключ",
       "Выделенный текст станет строчным спойлером [текст]{ключ}, " +
