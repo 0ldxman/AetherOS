@@ -1,15 +1,54 @@
-"""Сеть: nreq (запрос к ресурсу) и nget (скачать файл ресурса в сессию машины).
+"""Сеть: nreq (запрос по адресу) и nget (скачать файл в сессию машины).
 
-Ресурсы описывает автор (machines.NetResource): адрес, ответ, файлы, условие по ключам и токен. Ресурс, которого игрок
-по ключам не видит, отвечает как несуществующий. Реальной сети нет.
+Сервер и его страницы описывает автор (machines.NetResource и NetNode). Адрес можно писать как URL:
+https://apollo.com/info/ и apollo.com/info это одно и то же. Сервер или узел, которого игрок по ключам не видит,
+отвечает как несуществующий. Реальной сети нет.
 """
-from machines.models import NetResource
+from machines.models import LISTING_TAG, NetNode, NetResource, split_url
 from secure.access import satisfied
 from terminal import net_scenes as scenes
 from terminal.engine.commands.basic import BaseCommand
 from terminal.engine.result import CommandResult
 from terminal.engine.transfer import place_file
 from wiki.access import player_keys
+
+
+class Site:
+    """Сервер глазами игрока: узлы, которые ему видны по ключам."""
+
+    def __init__(self, resource, keys):
+        self.resource = resource
+        self.nodes = {
+            node.path: node
+            for node in resource.nodes.select_related("file")
+            if node.key_condition is None or satisfied(node.key_condition, keys)
+        }
+
+    def children(self, path):
+        """Что лежит прямо внутри path: [(имя, папка ли)], папки первыми. Папка это и узел с вложенным, и просто часть пути."""
+        prefix = path + "/" if path else ""
+        found = {}
+        for other in self.nodes:
+            if not other.startswith(prefix) or other == path:
+                continue
+            head, _, rest = other[len(prefix):].partition("/")
+            found[head] = found.get(head, False) or bool(rest)
+        return sorted(found.items(), key=lambda item: (not item[1], item[0].lower()))
+
+    def listing(self, path):
+        return "\n".join(name + ("/" if folder else "") for name, folder in self.children(path))
+
+    def exists(self, path):
+        return path in self.nodes or bool(self.children(path)) or (not path)
+
+    def page(self, path):
+        """Ответ на nreq для пути: текст узла с подставленным {listing}, а без текста один список."""
+        node = self.nodes.get(path)
+        text = (node.response if node else "").rstrip()
+        listing = self.listing(path)
+        if not text.strip():
+            return listing
+        return text.replace(LISTING_TAG, listing).strip("\n") if LISTING_TAG in text else text
 
 
 class NetCommand(BaseCommand):
@@ -20,29 +59,29 @@ class NetCommand(BaseCommand):
         if isinstance(opts, str):
             return CommandResult(opts, 2)
 
-        address, _, name = opts["operands"][0].partition("/")
+        address, path = split_url(opts["operands"][0])
         system = context.machine.system
-        resource = self.find(context, address)
-        if resource is None:
+        resource = NetResource.objects.filter(address=address).first()
+        request = context.request
+        keys = player_keys(request.user) if request is not None else frozenset()
+
+        if resource is None or (resource.key_condition is not None and not satisfied(resource.key_condition, keys)):
             return CommandResult(
                 f"{self.name}: could not resolve host '{address}'", 1, scene=scenes.unreachable_scene(system, address)
             )
 
-        if resource.token and opts["token"] != resource.token:
+        site = Site(resource, keys)
+        node = site.nodes.get(path)
+        required = [token for token in (resource.token, node.token if node else "") if token]
+        if any(opts["token"] != token for token in required):
             return CommandResult(f"{self.name}: 401 unauthorized", 1, scene=scenes.refused_scene(system, address))
 
-        return self.handle(context, resource, name, opts)
+        if not site.exists(path):
+            return CommandResult(
+                f"{self.name}: 404 not found: {address}/{path}", 1, scene=scenes.refused_scene(system, address)
+            )
 
-    def find(self, context, address):
-        resource = NetResource.objects.filter(address=address.strip().lower()).first()
-        if resource is None:
-            return None
-
-        request = context.request
-        keys = player_keys(request.user) if request is not None else frozenset()
-        if resource.key_condition is not None and not satisfied(resource.key_condition, keys):
-            return None
-        return resource
+        return self.handle(context, site, path, opts)
 
     def _parse(self, args):
         opts = {"operands": [], "token": None, "output": None}
@@ -52,10 +91,7 @@ class NetCommand(BaseCommand):
             if arg in self.options:
                 if i + 1 >= len(args):
                     return f"{self.name}: option {arg} requires an argument"
-                if arg in ("--token", "-t"):
-                    opts["token"] = args[i + 1]
-                else:
-                    opts["output"] = args[i + 1]
+                opts["output" if arg == "-o" else "token"] = args[i + 1]
                 i += 2
             elif arg.startswith("-"):
                 return f"{self.name}: unsupported option: {arg}\n{self.usage}"
@@ -67,39 +103,33 @@ class NetCommand(BaseCommand):
 
 class NreqCommand(NetCommand):
     name = "nreq"
-    usage = "usage: nreq [--token token] address"
+    usage = "usage: nreq [--token token] address[/path]"
 
-    def handle(self, context, resource, name, opts):
-        text = resource.response.rstrip()
-        files = list(resource.files.values_list("name", flat=True)) if resource.listing else []
-        if files:
-            text += ("\n\n" if text else "") + "files:\n" + "\n".join(f"  {item}" for item in files)
-        return CommandResult(text, 0, scene=scenes.request_scene(context.machine.system, resource.address))
+    def handle(self, context, site, path, opts):
+        return CommandResult(
+            site.page(path), 0, scene=scenes.request_scene(context.machine.system, site.resource.address)
+        )
 
 
 class NgetCommand(NetCommand):
     name = "nget"
-    usage = "usage: nget [--token token] [-o path] address/file"
+    usage = "usage: nget [--token token] [-o path] address/path/to/file"
     options = ("--token", "-t", "-o")
 
-    def handle(self, context, resource, name, opts):
+    def handle(self, context, site, path, opts):
         system = context.machine.system
-        if not name:
-            return CommandResult(self.usage, 2)
+        address = site.resource.address
+        node = site.nodes.get(path)
 
-        item = resource.files.filter(name=name).select_related("file").first()
-        if item is None:
-            return CommandResult(
-                f"{self.name}: 404 not found: {resource.address}/{name}", 1, scene=scenes.refused_scene(system, resource.address)
-            )
+        if node is None or node.file is None:
+            return CommandResult(f"{self.name}: {address}/{path}: not a file", 1, scene=scenes.refused_scene(system, address))
 
+        name = path.rsplit("/", 1)[-1]
         dest = context.resolve_path(opts["output"] or name)
-        target, error = place_file(context, item.file, "", dest, name)
+        target, error = place_file(context, node.file, "", dest, name)
         if error:
             return CommandResult(f"{self.name}: {error}", 1)
 
         return CommandResult(
-            f"{self.name}: {resource.address}/{name} -> {target}: saved",
-            0,
-            scene=scenes.download_scene(system, resource.address, name),
+            f"{self.name}: {address}/{path} -> {target}: saved", 0, scene=scenes.download_scene(system, address, name)
         )

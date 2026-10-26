@@ -585,12 +585,12 @@ class RshellTests(BridgeFixture):
 
 @override_settings(FORCE_SCRIPT_NAME=None)
 class NetTests(TestCase):
-    """nreq и nget: внутриигровые сетевые ресурсы, их файлы приходят в сессию игрока."""
+    """nreq и nget: внутриигровые серверы с узлами по путям, файлы приходят в сессию игрока."""
 
     @classmethod
     def setUpTestData(cls):
         from filesystem.models import MachineFile
-        from machines.models import MachineProfile, NetResource, NetResourceFile
+        from machines.models import MachineProfile, NetNode, NetResource
         from secure.models import Key
 
         cls.main = Machine.objects.create(name="Main", hostname="aether-main")
@@ -602,15 +602,25 @@ class NetTests(TestCase):
         MachineFile.objects.create(machine=cls.main, path="/home/own.txt", state="")
         ledger = MachineFile.objects.create(machine=cls.server, path="/srv/ledger.dat", state="> encrypted hunter2")
         report = MachineFile.objects.create(machine=cls.server, path="/srv/report.txt", state="")
-        cls.open = NetResource.objects.create(address="14.230", response="ARCHIVE RELAY\nwelcome")
-        NetResourceFile.objects.create(resource=cls.open, file=ledger, name="ledger.dat")
-        NetResourceFile.objects.create(resource=cls.open, file=report, name="report.txt")
-        cls.shut = NetResource.objects.create(address="Vault.Net", response="locked", token="sesame", listing=False)
-        NetResourceFile.objects.create(resource=cls.shut, file=report, name="secret.txt")
-        NetResource.objects.create(address="hidden.net", response="you should not see this",
-                                   key_condition="nokey")
+
+        site = NetResource.objects.create(address="https://Apollo.com/", title="Apollo")
+        cls.site = site
+        NetNode.objects.create(resource=site, path="", response="APOLLO\n{listing}\nbye")
+        NetNode.objects.create(resource=site, path="info")                                   # без текста: один список
+        NetNode.objects.create(resource=site, path="info/file.pdf", file=ledger)
+        NetNode.objects.create(resource=site, path="info/file2.png", file=report)
+        NetNode.objects.create(resource=site, path="info/attachements/a.txt", file=report)    # папка только по пути
+        NetNode.objects.create(resource=site, path="info/data", response="DATA SECTION")      # текст без {listing}
+        NetNode.objects.create(resource=site, path="info/data/x.bin", file=report)
+        NetNode.objects.create(resource=site, path="private", response="members", token="sesame")
+        NetNode.objects.create(resource=site, path="info/own.txt", file=MachineFile.objects.get(path="/home/own.txt"))
+        NetNode.objects.create(resource=site, path="info/hidden.txt", file=report, key_condition="nokey")
         Key.objects.create(slug="nokey")
-        NetResourceFile.objects.create(resource=cls.open, file=MachineFile.objects.get(path="/home/own.txt"), name="own.txt")
+
+        radio = NetResource.objects.create(address="14.230")
+        NetNode.objects.create(resource=radio, path="", response="RELAY")
+        NetResource.objects.create(address="hidden.net", key_condition="nokey")
+        NetResource.objects.create(address="vault.net", token="sesame")
 
     def setUp(self):
         previous = get_script_prefix()
@@ -624,43 +634,58 @@ class NetTests(TestCase):
         )
         return json.loads(response.content)
 
-    def test_nreq_prints_the_response_and_lists_the_files(self):
-        data = self.run_command("nreq 14.230")
-        self.assertEqual(data["exit_code"], 0)
-        self.assertIn("ARCHIVE RELAY", data["output"])
-        self.assertIn("  ledger.dat", data["output"])
-        self.assertIsNotNone(data["scene"])
-        self.assertNotIn("files:", self.run_command("nreq --token sesame vault.net")["output"])   # listing выключен
+    def test_the_address_is_a_url_and_the_listing_tag_marks_the_place(self):
+        data = self.run_command("nreq https://apollo.com")
+        self.assertEqual(data["exit_code"], 0, data["output"])
+        self.assertEqual(data["output"], "APOLLO\ninfo/\nprivate\nbye")                # {listing}: папка info, и узел private
+        self.assertEqual(self.run_command("nreq apollo.com/")["output"], data["output"])
+        self.assertEqual(self.run_command("nreq 14.230")["output"], "RELAY")             # без {listing} списка нет
 
-    def test_unknown_and_hidden_resources_look_the_same(self):
+    def test_a_node_without_text_prints_only_its_listing_folders_first(self):
+        data = self.run_command("nreq https://apollo.com/info/")
+        self.assertEqual(data["output"], "attachements/\ndata/\nfile.pdf\nfile2.png\nown.txt")   # hidden.txt по ключу не виден
+        self.assertEqual(self.run_command("nreq apollo.com/info/data")["output"], "DATA SECTION")
+        self.assertEqual(self.run_command("nreq apollo.com/info/attachements")["output"], "a.txt")   # папка, которой нет узлом
+
+    def test_unknown_hidden_and_missing_look_right(self):
         for address in ("nowhere.net", "hidden.net"):
             data = self.run_command(f"nreq {address}")
             self.assertEqual(data["exit_code"], 1)
             self.assertIn("could not resolve host", data["output"])
+        self.assertIn("404", self.run_command("nreq apollo.com/nothing")["output"])
+        self.assertIn("404", self.run_command("nreq apollo.com/info/hidden.txt")["output"])
 
-    def test_a_token_resource_refuses_without_the_token(self):
+    def test_tokens_guard_a_server_and_a_node(self):
         self.assertIn("401", self.run_command("nreq vault.net")["output"])
-        self.assertIn("401", self.run_command("nget vault.net/secret.txt")["output"])
         self.assertEqual(self.run_command("nreq --token sesame vault.net")["exit_code"], 0)
+        self.assertIn("401", self.run_command("nreq apollo.com/private")["output"])
+        self.assertEqual(self.run_command("nreq --token sesame apollo.com/private")["output"], "members")
 
     def test_nget_saves_a_fresh_copy_with_its_layers(self):
-        data = self.run_command("nget 14.230/ledger.dat")
+        data = self.run_command("nget https://apollo.com/info/file.pdf")
         self.assertEqual(data["exit_code"], 0, data["output"])
-        self.assertIn("ledger.dat", self.run_command("ls /home")["output"])
-        self.assertEqual(self.run_command("ward /home/ledger.dat hunter2")["exit_code"], 0)
-        again = self.run_command("nget 14.230/ledger.dat")                      # скачать ещё раз: слой снова на месте
-        self.assertEqual(again["exit_code"], 0)
-        self.assertIn("wrong", self.run_command("ward /home/ledger.dat nope")["output"])
+        self.assertIn("file.pdf", self.run_command("ls /home")["output"])
+        self.assertEqual(self.run_command("ward /home/file.pdf hunter2")["exit_code"], 0)
+        self.assertEqual(self.run_command("nget apollo.com/info/file.pdf")["exit_code"], 0)    # скачать ещё раз: слой на месте
+        self.assertIn("wrong", self.run_command("ward /home/file.pdf nope")["output"])
 
     def test_nget_output_path_and_errors(self):
-        self.assertEqual(self.run_command("nget -o /home/copy.txt 14.230/report.txt")["exit_code"], 0)
+        self.assertEqual(self.run_command("nget -o /home/copy.txt apollo.com/info/file2.png")["exit_code"], 0)
         self.assertIn("copy.txt", self.run_command("ls /home")["output"])
-        self.assertIn("404", self.run_command("nget 14.230/none.txt")["output"])
-        self.assertEqual(self.run_command("nget 14.230")["exit_code"], 2)
-        self.assertEqual(self.run_command("nget -o /nowhere/x 14.230/report.txt")["exit_code"], 1)
+        self.assertIn("not a file", self.run_command("nget apollo.com/info")["output"])         # папка
+        self.assertIn("404", self.run_command("nget apollo.com/info/none.txt")["output"])
+        self.assertEqual(self.run_command("nget -o /nowhere/x apollo.com/info/file2.png")["exit_code"], 1)
 
     def test_a_file_of_the_own_machine_leaves_the_original_in_place(self):
-        self.assertEqual(self.run_command("nget -o /home/own2.txt 14.230/own.txt")["exit_code"], 0)
+        self.assertEqual(self.run_command("nget -o /home/own2.txt apollo.com/info/own.txt")["exit_code"], 0)
         listing = self.run_command("ls /home")["output"]
         self.assertIn("own.txt", listing)
         self.assertIn("own2.txt", listing)
+
+    def test_addresses_are_normalised_on_save(self):
+        from machines.models import normalize_address, split_url
+
+        self.assertEqual(self.site.address, "apollo.com")
+        self.assertEqual(normalize_address("HTTPS://Apollo.com/info/"), "apollo.com")
+        self.assertEqual(split_url("https://apollo.com/info/attachements/?x=1#top"), ("apollo.com", "info/attachements"))
+        self.assertEqual(split_url("14.230"), ("14.230", ""))
