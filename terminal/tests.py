@@ -388,6 +388,12 @@ class BridgeTests(TestCase):
         self.assertIn("data-tunnel-url", page)
         self.assertIn("bridge: guest@", page)
 
+    def test_the_tunnel_url_carries_the_site_prefix_once(self):
+        self.run_command("bridge guest@aether-core")
+        set_script_prefix("/proxy/8000/")
+        page = self.client.get("/desktop/").content.decode()
+        self.assertIn('data-tunnel-url="/proxy/8000/apps/terminal/"', page)
+
     def test_the_terminal_works_in_the_tunnel_even_without_its_icon(self):
         self.assertEqual(self.client.get(reverse("terminal:index")).status_code, 200)
         self.run_command("bridge guest@aether-core")                                # у core иконки терминала нет

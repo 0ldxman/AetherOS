@@ -106,7 +106,7 @@ def desktop(request):
     if request.user.is_authenticated and bridge.depth(request) > 0:
         tunnel = {
             "label": f"bridge: {login}@{machine.label}",
-            "url": prefix + reverse("terminal:index"),
+            "url": reverse("terminal:index"),      # reverse уже содержит префикс сайта
             "close_url": reverse("terminal:bridge_close"),
         }
 

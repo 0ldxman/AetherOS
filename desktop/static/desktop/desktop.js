@@ -957,6 +957,12 @@ function openSessions(button) {
 }
 
 async function disconnect(button) {
+  // на чужой машине (мост) «disconnect» закрывает мосты и возвращает на исходную машину, а не выходит из учётной записи игрока
+  if (tunnelUrl) {
+    closeBridge();
+    return;
+  }
+
   try {
     await fetch(button.dataset.logoutUrl, {
       method: "POST",
