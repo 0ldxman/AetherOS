@@ -104,7 +104,9 @@
         }
 
         if (desktop && typeof desktop.openApp === "function") {
-            const title = label || decodeURIComponent(url.split("/").filter(Boolean).pop() || "link");
+            // у ссылки на сохранённую карту (/apps/map/?scene=слаг) заголовок это слаг, а не «?scene=…»
+            const scene = /[?&]scene=([^&#]+)/.exec(url);
+            const title = label || decodeURIComponent(scene ? scene[1] : url.split("?")[0].split("/").filter(Boolean).pop() || "link");
             desktop.openApp("map-link-" + url, title, url);
         } else {
             window.location.href = url;

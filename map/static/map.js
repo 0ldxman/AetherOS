@@ -858,7 +858,7 @@ let regionLinks = new Map();
 
 // Ссылки открывает страница-родитель (окно рабочего стола или обычный переход)
 function postLink(url, label) {
-  if (url && !EMBED) { openProvinceLink(url); return; }   // в самом приложении ссылку открываем сразу
+  if (url && !EMBED) { openProvinceLink(url, label); return; }   // в самом приложении ссылку открываем сразу
   if (url) window.parent.postMessage({ type: 'aether-map-link', url, label: label || '' }, window.location.origin);
 }
 
@@ -1804,7 +1804,7 @@ if (SCENE_EDIT) {
 
 
 // Ссылка провинции: путь сайта открывается окном рабочего стола, внешний адрес в новой вкладке
-function openProvinceLink(url) {
+function openProvinceLink(url, label) {
   if (url.startsWith('/')) {
     let desktop = null;
     try {
@@ -1813,7 +1813,8 @@ function openProvinceLink(url) {
       desktop = null;
     }
     if (desktop && typeof desktop.openApp === 'function') {
-      desktop.openApp(`map-link-${url}`, decodeURIComponent(url.split('/').filter(Boolean).pop() || 'link'), url);
+      const scene = /[?&]scene=([^&#]+)/.exec(url);   // ссылка на сохранённую карту: заголовок это слаг, а не «?scene=…»
+      desktop.openApp(`map-link-${url}`, label || decodeURIComponent(scene ? scene[1] : url.split('?')[0].split('/').filter(Boolean).pop() || 'link'), url);
     } else {
       window.location.href = url;
     }
@@ -2133,41 +2134,6 @@ async function loadSceneView() {
 }
 
 // Выбор сохранённой карты: список в углу, выбор перезагружает карту со ?scene=слаг
-if (!EMBED && !EDIT_MODE && !PICK_MODE && typeof SCENES_URL !== 'undefined') {
-  fetch(SCENES_URL, { credentials: 'same-origin' })
-    .then((r) => (r.ok ? r.json() : []))
-    .then((scenes) => {
-      if (!scenes.length) return;
-      const panel = document.createElement('div');
-      panel.id = 'scene-panel';
-      const select = document.createElement('select');
-      const none = document.createElement('option');
-      none.value = '';
-      none.textContent = 'обычная карта';
-      select.appendChild(none);
-      scenes.forEach((scene) => {
-        const option = document.createElement('option');
-        option.value = scene.slug;
-        option.textContent = scene.title;
-        select.appendChild(option);
-      });
-      select.value = SCENE_SLUG || '';
-      select.addEventListener('change', () => {
-        const params = new URLSearchParams(window.location.search);
-        if (select.value) params.set('scene', select.value); else params.delete('scene');
-        params.delete('date');
-        window.location.search = params.toString();
-      });
-      const title = document.createElement('div');
-      title.className = 'title';
-      title.textContent = 'map.scene';
-      panel.append(title, select);
-      document.body.appendChild(panel);
-    })
-    .catch(() => {});
-}
-
-
 // Свободная линия: точки протяжки упрощаются (Дуглас-Пекер в пикселях), чтобы их осталось не больше 200
 function simplifyPath(coords) {
   const pts = coords.map((c) => { const p = map.project(c); return { x: p.x, y: p.y, c }; });

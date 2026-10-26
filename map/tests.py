@@ -514,3 +514,21 @@ class OutlineDiagnosticsTests(TestCase):
         # токен, который ничего не выделяет
         data = self.client.get("/apps/map/api/outline/?token=ZZZ").json()
         self.assertEqual((data["coordinates"], data["provinces"]), ([], 0))
+
+
+class SceneLinkTests(TestCase):
+    def test_a_scene_link_is_a_plain_internal_path(self):
+        from .scenes import internal_url
+
+        self.assertEqual(internal_url("/apps/map/?scene=operation-vistula"), "/apps/map/?scene=operation-vistula")
+        self.assertEqual(internal_url("https://evil.example/?scene=x"), "")
+
+    def test_the_map_page_has_no_scene_picker(self):
+        from django.contrib.auth import get_user_model
+
+        MapScene.objects.create(slug="a", title="A")
+        self.client.force_login(get_user_model().objects.create_user("boss", password="pw", is_staff=True))
+        page = self.client.get("/apps/map/?scene=a")
+        self.assertEqual(page.status_code, 200)
+        js = open("map/static/map.js", encoding="utf-8").read()
+        self.assertNotIn("scene-panel", js)
