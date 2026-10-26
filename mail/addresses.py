@@ -43,3 +43,32 @@ def matches_any(masks_text, address):
 
 def same(first, second):
     return (first or "").lower() == (second or "").lower()
+
+
+def recipients_line(masks_text, address):
+    """Строка «to» для читателя: его адрес (если письмо дошло по маске), полные адреса и «and +n» за скрытые маски.
+
+    Маски читателю не показываются: только адреса, заданные целиком.
+    """
+    shown, hidden, mine = [], 0, False
+
+    for part in split(masks_text):
+        if "*" not in part:
+            if same(part, address):
+                mine = True
+            else:
+                shown.append(part)
+        elif matches(part, address):
+            mine = True      # подошедшая маска превращается в адрес читателя
+        else:
+            hidden += 1
+
+    if mine:
+        shown.insert(0, address)
+
+    line = ", ".join(shown)
+
+    if hidden:
+        line = f"{line} and +{hidden}" if line else f"+{hidden}"
+
+    return line

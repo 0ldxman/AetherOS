@@ -11,7 +11,7 @@ from machines.current import active_session
 from users.aether_auth import AUTH_REQUIRED, is_player
 
 from .access import mark_read, mark_unread, read_ids, viewer_for, visible_messages
-from .addresses import split
+from .addresses import recipients_line, split
 from .attachments import SaveError, payload, save_to_machine
 from .compose import TaskError, available_tasks, public_segments, send
 from .models import Attachment, ComposeProgress
@@ -106,7 +106,7 @@ def message_detail(request, pk):
     data = _row(message, False)
     data.update({
         "from": message.sender,
-        "to": ", ".join(split(message.recipients)),
+        "to": recipients_line(message.recipients, viewer.address),
         "body": message.body,
         "attachments": [payload(item, session) for item in message.attachments.all()],
     })

@@ -84,6 +84,21 @@ class AccessTests(TestCase):
         self.assertEqual([m.pk for m in visible_messages(self.viewer())], [new.pk, old.pk])
 
 
+class RecipientsLineTests(TestCase):
+    def test_reader_sees_own_address_and_full_addresses_only(self):
+        from .addresses import recipients_line
+        masks = "*@aether-main\n*@aether-null\njohn_snow@aether-core"
+        self.assertEqual(
+            recipients_line(masks, "oldman@aether-main"),
+            "oldman@aether-main, john_snow@aether-core and +1",
+        )
+
+    def test_no_hidden_masks_no_tail(self):
+        from .addresses import recipients_line
+        self.assertEqual(recipients_line("a@x, *@x", "a@x"), "a@x")
+        self.assertEqual(recipients_line("*@y", "a@x"), "+1")
+
+
 class AddressTests(TestCase):
     def test_split_accepts_lines_commas_and_spaces(self):
         self.assertEqual(split("a@b\nc@d, e@f;  g@h"), ["a@b", "c@d", "e@f", "g@h"])
