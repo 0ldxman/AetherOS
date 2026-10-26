@@ -111,3 +111,13 @@ class MapEditorAccessTests(TestCase):
         self.assertEqual(self.client.get(url).status_code, 200)
         self.client.logout()
         self.assertEqual(self.client.get(url).status_code, 403)
+
+
+class ProvinceLinkTests(TestCase):
+    def test_link_prefers_the_province_then_the_country_and_rejects_unsafe(self):
+        from .views import link_of
+
+        self.assertEqual(link_of("https://wiki.example/p", "https://wiki.example/c"), "https://wiki.example/p")
+        self.assertEqual(link_of("", "/wiki/Poland"), "/wiki/Poland")
+        self.assertEqual(link_of("javascript:alert(1)", "//evil.example"), "")
+        self.assertEqual(link_of("", ""), "")

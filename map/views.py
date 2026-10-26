@@ -28,15 +28,27 @@ def _latest_ownerships(request):
     return qs, None
 
 
+def link_of(province_url, country_url):
+    """Ссылка по клику на провинцию: её страница, а без неё страница страны. Только http(s) и пути сайта."""
+    for raw in (province_url, country_url):
+        raw = (raw or "").strip()
+        if raw.startswith(("http://", "https://")) or (raw.startswith("/") and not raw.startswith("//")):
+            return raw
+    return ""
+
+
 def province_colors(request):
     qs, error = _latest_ownerships(request)
     if error:
         return error
 
-    rows = qs.values_list("province__source_code", "province__code", "country__color")
-    return JsonResponse(
-        {source_code: {"code": code, "color": color} for source_code, code, color in rows}
+    rows = qs.values_list(
+        "province__source_code", "province__code", "country__color", "province__wiki_url", "country__wiki_url"
     )
+    return JsonResponse({
+        source_code: {"code": code, "color": color, "url": link_of(province_url, country_url)}
+        for source_code, code, color, province_url, country_url in rows
+    })
 
 
 def country_labels(request):

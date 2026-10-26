@@ -99,6 +99,7 @@ const numberParam = (name) => (SEARCH.get(name) === null || SEARCH.get(name) ===
 const FLAT_VIEW = EMBED && SEARCH.get('flat') === '1';
 // Редактор сохранённой карты: /apps/map/?embed=1&scene_edit=1 внутри админки (инструменты и свойства у родителя)
 const SCENE_EDIT = EMBED && SEARCH.get('scene_edit') === '1';
+const PEN_SCENE = EMBED && THEME === 'scan';
 const MARKERS = EMBED
   ? SEARCH.getAll('m').map((raw) => {
       const [lat, lon, color, link, ...label] = raw.split(',');
@@ -131,6 +132,7 @@ const MODE_LAYERS = {
 };
 
 let provinceCodes = {}; // adm1_code -> code из БД
+let provinceLinks = {}; // adm1_code -> ссылка по клику (wiki_url)
 
 const pmtilesProtocol = new pmtiles.Protocol();
 
@@ -276,9 +278,11 @@ function loadProvinceColors() {
     .then((data) => {
       const colors = {};
       provinceCodes = {};
+      provinceLinks = {};
       for (const [sourceCode, item] of Object.entries(data)) {
         colors[sourceCode] = item.color;
         provinceCodes[sourceCode] = item.code;
+        if (item.url) provinceLinks[sourceCode] = item.url;
       }
       console.log('Цвета провинций загружены:', Object.keys(colors).length);
       // терминальная тема одноцветная: цвета стран ей не нужны
@@ -441,9 +445,17 @@ map.on('load', () => {
     },
   }, 'adm1-boundaries');
 
-  map.on('click', 'adm1-fill', (e) => {
-    console.log(e.features[0].properties);
-  });
+  // Клик по провинции в основной карте открывает её ссылку (страница провинции или страны, поле wiki_url)
+  if (!EMBED && !EDIT_MODE && !PICK_MODE) {
+    map.on('click', 'adm1-fill', (e) => {
+      const url = provinceLinks[e.features[0].properties.adm1_code];
+      if (url) openProvinceLink(url);
+    });
+    map.on('mousemove', 'adm1-fill', (e) => {
+      map.getCanvas().style.cursor = provinceLinks[e.features[0].properties.adm1_code] ? 'pointer' : '';
+    });
+    map.on('mouseleave', 'adm1-fill', () => { map.getCanvas().style.cursor = ''; });
+  }
 
   // Леса, здания и дороги переносим наверх, поверх островов, заливки и границ.
   const overlayIds = map.getStyle().layers
@@ -917,6 +929,7 @@ function applyScene() {
 
   ensureSceneLayers();
   const shapes = [];
+  const pen = [];   // для scan фигуры рисуются от руки поверх карты (SVG), а не слоями карты
   const regions = [];
   sceneMarkers.forEach((marker) => marker.remove());
   sceneMarkers = [];
@@ -927,6 +940,8 @@ function applyScene() {
 
     if (item.type === 'regions') {
       for (const code of item.codes) regions.push({ code, color: item.color, url: item.url || '', label: item.label || '' });
+    } else if (PEN_SCENE && ['line', 'arrow', 'polygon', 'circle', 'text'].includes(item.type)) {
+      pen.push(item);
     } else if (item.type === 'line' || item.type === 'arrow') {
       const w = item.width || 3;
       shapes.push({ type: 'Feature', properties: { ...common, w, dash: !!item.dash },
@@ -955,7 +970,7 @@ function applyScene() {
     }
 
     // подпись фигуры у первой точки
-    if (item.label && ['line', 'arrow', 'polygon', 'circle'].includes(item.type)) {
+    if (item.label && ['line', 'arrow', 'polygon', 'circle'].includes(item.type) && !PEN_SCENE) {
       const at = item.type === 'circle' ? item.coords : item.coords[0];
       shapes.push({ type: 'Feature', properties: { c, role: 'text', t: item.label, size: 12 },
         geometry: { type: 'Point', coordinates: at } });
@@ -964,6 +979,8 @@ function applyScene() {
 
   map.getSource(SCENE_SOURCE).setData({ type: 'FeatureCollection', features: shapes });
   setRegions(regions);
+  penShapes = pen;
+  drawPen();
 }
 
 window.addEventListener('message', (e) => {
@@ -1156,11 +1173,19 @@ const editor = {
       const edge = destination(feature.coords, 90, feature.radius_km);
       make(edge, (point, done) => done && this.patch(feature.id, { radius_km: Math.max(1, Math.round(distanceKm(feature.coords, point))) }), 'edit-handle--radius');
     } else {
+      const need = feature.type === 'polygon' ? 3 : 2;
       feature.coords.forEach((coord, index) => {
         make(coord, (point, done) => {
           if (!done) return;
           const coords = feature.coords.map((c, i) => (i === index ? point : c));
           this.patch(feature.id, { coords });
+        });
+        // двойной клик по вершине убирает её (пока остаётся достаточно точек)
+        const el = this.handles[this.handles.length - 1].getElement();
+        el.title = 'Двойной клик: убрать вершину';
+        el.addEventListener('dblclick', (event) => {
+          event.stopPropagation();
+          if (feature.coords.length > need) this.patch(feature.id, { coords: feature.coords.filter((_, i) => i !== index) });
         });
       });
     }
@@ -1204,6 +1229,28 @@ const editor = {
       this.draft = null;
       this.drawDraft();
     }
+  },
+
+  // двойной клик по выбранной линии или многоугольнику вставляет вершину в ближайший отрезок
+  addVertex(e) {
+    const feature = this.features.find((f) => f.id === this.selectedId);
+    if (this.tool !== 'select' || !feature || !['line', 'arrow', 'polygon'].includes(feature.type)) return;
+    const pts = feature.coords.map((c) => map.project(c));
+    const at = e.point;
+    const closed = feature.type === 'polygon';
+    let best = { index: -1, dist: 14 };
+    for (let i = 0; i < pts.length - (closed ? 0 : 1); i += 1) {
+      const a = pts[i];
+      const b = pts[(i + 1) % pts.length];
+      const t = Math.max(0, Math.min(1, ((at.x - a.x) * (b.x - a.x) + (at.y - a.y) * (b.y - a.y)) / (((b.x - a.x) ** 2 + (b.y - a.y) ** 2) || 1)));
+      const dist = Math.hypot(at.x - (a.x + t * (b.x - a.x)), at.y - (a.y + t * (b.y - a.y)));
+      if (dist < best.dist) best = { index: i, dist };
+    }
+    if (best.index < 0) return;
+    e.preventDefault();
+    const coords = [...feature.coords];
+    coords.splice(best.index + 1, 0, [e.lngLat.lng, e.lngLat.lat]);
+    this.patch(feature.id, { coords });
   },
 
   click(e) {
@@ -1271,7 +1318,8 @@ function destination(from, bearingDeg, km) {
 if (SCENE_EDIT) {
   map.on('click', (e) => { if (layersReady) editor.click(e); });
   map.on('dblclick', (e) => {
-    if (editor.draft && editor.draft.type !== 'circle') { e.preventDefault(); editor.finishDraft(); }
+    if (editor.draft && editor.draft.type !== 'circle') { e.preventDefault(); editor.finishDraft(); return; }
+    editor.addVertex(e);
   });
   map.on('mousemove', (e) => {
     if (!editor.draft) return;
@@ -1319,4 +1367,138 @@ if (SCENE_EDIT) {
 
   // после загрузки слоёв и цветов провинций перерисовываем (выделения регионов нужны коды провинций)
   map.once('idle', () => editor.render());
+}
+
+
+// Ссылка провинции: путь сайта открывается окном рабочего стола, внешний адрес в новой вкладке
+function openProvinceLink(url) {
+  if (url.startsWith('/')) {
+    let desktop = null;
+    try {
+      desktop = window.parent !== window && window.parent.desktopAPI;
+    } catch (error) {
+      desktop = null;
+    }
+    if (desktop && typeof desktop.openApp === 'function') {
+      desktop.openApp(`map-link-${url}`, decodeURIComponent(url.split('/').filter(Boolean).pop() || 'link'), url);
+    } else {
+      window.location.href = url;
+    }
+  } else {
+    window.open(url, '_blank', 'noopener');
+  }
+}
+
+
+// ---------------------------------------------------------------------------
+// scan: фигуры сохранённой карты рисуются «ручкой». SVG поверх карты, точки берутся
+// из проекции карты, линии слегка гуляют, поверх шероховатость (фильтр pen-rough).
+// ---------------------------------------------------------------------------
+let penShapes = [];
+let penSvg = null;
+
+// детерминированный «случайный» разброс по номеру, чтобы рисунок не дрожал между кадрами
+const penRand = (n) => { const x = Math.sin(n * 12.9898) * 43758.5453; return x - Math.floor(x); };
+
+function penPath(points, closed, seed) {
+  if (points.length < 2) return '';
+  let d = `M${points[0].x.toFixed(1)} ${points[0].y.toFixed(1)}`;
+  const last = closed ? points.length : points.length - 1;
+  for (let i = 1; i <= last; i += 1) {
+    const a = points[i - 1];
+    const b = points[i % points.length];
+    const dx = b.x - a.x;
+    const dy = b.y - a.y;
+    const len = Math.hypot(dx, dy) || 1;
+    const off = (penRand(seed + i) - 0.5) * Math.min(len * 0.07, 3.4);
+    const mx = (a.x + b.x) / 2 - (dy / len) * off;
+    const my = (a.y + b.y) / 2 + (dx / len) * off;
+    d += ` Q${mx.toFixed(1)} ${my.toFixed(1)} ${b.x.toFixed(1)} ${b.y.toFixed(1)}`;
+  }
+  return d;
+}
+
+function penHead(from, to) {
+  const ang = Math.atan2(to.y - from.y, to.x - from.x);
+  const len = 15;
+  const wing = (delta) => ({ x: to.x - len * Math.cos(ang + delta), y: to.y - len * Math.sin(ang + delta) });
+  const a = wing(0.45);
+  const b = wing(-0.45);
+  return `M${a.x.toFixed(1)} ${a.y.toFixed(1)} L${to.x.toFixed(1)} ${to.y.toFixed(1)} L${b.x.toFixed(1)} ${b.y.toFixed(1)}`;
+}
+
+function drawPen() {
+  if (!PEN_SCENE) return;
+  if (!penSvg) {
+    penSvg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    penSvg.setAttribute('class', 'pen-scene');
+    map.getCanvasContainer().appendChild(penSvg);
+    map.on('render', drawPen);
+  }
+
+  const ns = 'http://www.w3.org/2000/svg';
+  const project = (c) => map.project(c);
+  const parts = ['<defs>'];
+  const colors = [...new Set(penShapes.map((f) => sceneColor(f.color)))];
+  colors.forEach((c, i) => {
+    parts.push(`<pattern id="hatch-${i}" width="7" height="7" patternUnits="userSpaceOnUse" patternTransform="rotate(40)">` +
+      `<line x1="0" y1="0" x2="0" y2="7" stroke="${c}" stroke-width="1" opacity="0.7"/></pattern>`);
+  });
+  const texts = [];   // надписи вне фильтра шероховатости: иначе буквы расплываются
+  parts.push('</defs><g filter="url(#pen-rough)" fill="none" stroke-linecap="round" stroke-linejoin="round">');
+
+  penShapes.forEach((item, n) => {
+    const color = sceneColor(item.color);
+    const hatch = `url(#hatch-${colors.indexOf(color)})`;
+    const width = ((item.width || 3) * 0.62).toFixed(2);
+    const seed = n * 17 + 3;
+    const dash = item.dash ? ' stroke-dasharray="7 5"' : '';
+    let first = null;
+
+    if (item.type === 'line' || item.type === 'arrow') {
+      const pts = item.coords.map(project);
+      first = pts[0];
+      const d = penPath(pts, false, seed);
+      parts.push(`<path d="${d}" stroke="${color}" stroke-width="${width}"${dash}/>`);
+      parts.push(`<path d="${penPath(pts, false, seed + 50)}" stroke="${color}" stroke-width="${(width * 0.5).toFixed(2)}" opacity="0.55"${dash}/>`);
+      if (item.type === 'arrow') {
+        const head = penHead(pts[pts.length - 2], pts[pts.length - 1]);
+        parts.push(`<path d="${head}" stroke="${color}" stroke-width="${width}"/>`);
+      }
+    } else if (item.type === 'polygon') {
+      const pts = item.coords.map(project);
+      first = pts[0];
+      if (item.fill !== false) parts.push(`<path d="${penPath(pts, true, seed)}" fill="${hatch}" stroke="none"/>`);
+      parts.push(`<path d="${penPath(pts, true, seed)}" stroke="${color}" stroke-width="${width}"/>`);
+      parts.push(`<path d="${penPath(pts, true, seed + 50)}" stroke="${color}" stroke-width="${(width * 0.5).toFixed(2)}" opacity="0.55"/>`);
+    } else if (item.type === 'circle') {
+      const ring = circlePolygon(item.coords[0], item.coords[1], item.radius_km).map(project);
+      first = project(item.coords);
+      const cx = first.x;
+      const cy = first.y;
+      // заход конца за начало: пара точек чуть дальше от центра
+      const over = ring.slice(0, 7).map((p) => ({ x: cx + (p.x - cx) * 1.06, y: cy + (p.y - cy) * 1.06 }));
+      const loop = [...ring.slice(0, -1), ...over];
+      if (item.fill !== false) parts.push(`<path d="${penPath(ring, true, seed)}" fill="${hatch}" stroke="none"/>`);
+      parts.push(`<path d="${penPath(loop, false, seed)}" stroke="${color}" stroke-width="${width}"/>`);
+    } else if (item.type === 'text') {
+      const p = project(item.coords);
+      texts.push(`<text x="${p.x.toFixed(1)}" y="${p.y.toFixed(1)}" fill="${color}" stroke="none" ` +
+        `font-family="var(--font-hand, cursive)" font-size="${(item.size || 14) * 1.5}" text-anchor="middle" ` +
+        `transform="rotate(-3 ${p.x.toFixed(1)} ${p.y.toFixed(1)})">${escapeXml(item.text)}</text>`);
+    }
+
+    if (item.label && first && item.type !== 'text') {
+      texts.push(`<text x="${(first.x + 8).toFixed(1)}" y="${(first.y - 8).toFixed(1)}" fill="${color}" stroke="none" ` +
+        `font-family="var(--font-hand, cursive)" font-size="21" transform="rotate(-4 ${first.x.toFixed(1)} ${first.y.toFixed(1)})">${escapeXml(item.label)}</text>`);
+    }
+  });
+
+  parts.push('</g>', ...texts);
+  penSvg.innerHTML = parts.join('');
+  void ns;
+}
+
+function escapeXml(text) {
+  return String(text).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&apos;' })[c]);
 }
