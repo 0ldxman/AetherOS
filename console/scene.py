@@ -17,7 +17,8 @@
                row      «метка    значение  (пояснение)», метка дополняется до width
                blank    пустая строка
                type     напечатать побуквенно: human (неровный ритм), typo, chunk (пачками)
-    процесс    task     задача с результатом: «метка ..... OK» (look="dots"),
+    процесс    bars     несколько полос сразу, у каждой свой темп и итог (починка по блокам, перенос по частям)
+               task     задача с результатом: «метка ..... OK» (look="dots"),
                         «[ .. ] метка» -> «[  up  ] метка» (look="unit", службы Aether),
                         «X.XXXXXX метка» -> «0.801544 метка OK» (при at=, строки ядра)
                bar      полоса «[#####-----]  50%»
@@ -272,6 +273,25 @@ class Scene:
         """Полоса прогресса «[#####-----]  50%», заполняется за ms."""
         self.steps.append({"op": "bar", "label": str(label), "ms": _delay(ms), "width": _ms(width, "width")})
         return self.blank()
+
+    def bars(self, rows, *, width=14):
+        """Несколько полос сразу, каждая на своей строке, со своим темпом и своим итогом: как копирование
+        или починка по частям. rows это (подпись, ms), (подпись, ms, итог) или (подпись, ms, итог, до_какого_процента).
+        Итог OK по умолчанию; полоса с FAIL встаёт, не дойдя до конца (процент по умолчанию 100)."""
+        items = []
+        for row in rows:
+            label, ms, *rest = row
+            status = str(rest[0]) if rest else "OK"
+            stop = rest[1] if len(rest) > 1 else 100
+            if isinstance(stop, bool) or not isinstance(stop, int) or not 0 <= stop <= 100:
+                raise SceneError(f"процент остановки должен быть целым от 0 до 100, получено {stop!r}")
+            items.append(
+                {"label": str(label), "ms": _delay(ms), "status": status, "style": RESULT_STYLES.get(status), "stop": stop}
+            )
+        if not items:
+            raise SceneError("bars: нужна хотя бы одна полоса")
+        self.steps.append({"op": "bars", "rows": items, "width": _ms(width, "width")})
+        return self
 
     def count(self, label, to, *, unit="", ms=1400, width=17, result=None, note=None):
         """Число растёт от 0 до to, как проверка памяти: «Memory Testing:  64000K OK»."""

@@ -71,30 +71,40 @@ def unlock_scene(layer, path, ok):
 
 
 def repair_scene(path, size, ok, more):
-    """Восстановление файла (rpr): проходы как у fsck и ddrescue. more значит, что под снятым слоем лежит ещё один
-    damaged: за этот проход вылечилась не вся порча, и об этом сказано прямо. Сервер уже решил исход (ok, more)."""
+    """Восстановление файла (rpr): проходы как у fsck и ddrescue, а восстановление блоков идёт сразу по всем плохим,
+    каждый со своим темпом. more значит, что под снятым слоем лежит ещё один damaged: часть блоков за этот проход не
+    поддаётся (их полоса встаёт и кончается FAIL). Сервер уже решил исход (ok, more)."""
     blocks = max(8, -(-size // 512))
     bad = min(blocks - 1, _stable(path, 3, 9))
-    recovered = bad - (_stable(path + ":rest", 1, max(1, bad // 2)) if more else 0)
-    shown = sorted({_stable(f"{path}:{i}", 0, blocks - 1) for i in range(min(bad, 4))})
+    lost = _stable(path + ":rest", 1, max(1, bad // 2)) if more else 0
+
+    numbers, index = [], 0
+    while len(numbers) < bad:
+        number = _stable(f"{path}:{index}", 0, blocks - 1)
+        index += 1
+        if number not in numbers:
+            numbers.append(number)
+    numbers.sort()
+
+    order = sorted(range(bad), key=lambda i: _stable(f"{path}:o{i}", 0, 10**6))
+    failing = set(order[:lost])
+    rows = []
+    for i, number in enumerate(numbers):
+        start = 900 + _stable(f"{path}:t{i}", 0, 1800)          # у каждого блока свой темп
+        row = (f"  block {number:05d} ", (start, start + 600))
+        rows.append(row + (("FAIL", 35 + _stable(f"{path}:s{i}", 0, 50)) if i in failing else ()))
 
     s = Scene()
     s.row("rpr", path, width=8)
     s.row("size", f"{size} bytes", note=f"{blocks} blocks of 512", width=8)
     s.blank()
     s.count("pass 1/4  surface scan", blocks, unit=" blk", ms=(min(2600, 500 + blocks * 9), min(3200, 800 + blocks * 12)), width=26)
-    for number in shown:
-        s.say(f"  block {number:05d}  checksum mismatch", style="warning")
-        s.wait((70, 200))
-    if bad > len(shown):
-        s.say(f"  ... {bad - len(shown)} more", style="dim")
     s.say(f"  {bad} damaged blocks", style="warning")
     s.task("pass 2/4  rebuilding block map", "OK", ms=(500, 1000))
-    s.bar("pass 3/4  reconstruct ", ms=(1100, 2000), width=14)
-    s.say(f"  recovered {recovered} of {bad} blocks", style="warning" if recovered < bad else "dim")
+    s.say("pass 3/4  reconstructing from parity")
+    s.bars(rows, width=14)
+    s.say(f"  recovered {bad - lost} of {bad} blocks", style="warning" if lost else "dim")
     s.task("pass 4/4  verifying checksums", "FAIL" if not ok else ("WARN" if more else "OK"), ms=(400, 800))
-    if ok and more:
-        s.say(f"  {bad - recovered} blocks could not be recovered in this pass", style="warning")
     return s.to_dict()           # вердикт (repaired, further repair required) говорит ответ команды
 
 

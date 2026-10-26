@@ -298,6 +298,49 @@
                 await wait(70, run);
             },
 
+            // Несколько полос сразу: у каждой своя строка, свой темп и свой итог. Не доведённая до конца встаёт на stop %.
+            async bars(op, run, vars) {
+                const width = op.width || 14;
+                const tick = 70;
+
+                const rows = op.rows.map(row => {
+                    const line = newLine();
+                    const label = el("span");
+                    label.textContent = fill(row.label, vars);
+                    const bar = el("span", "con-dim");
+                    const mark = el("span");
+                    line.append(label, bar, mark);
+
+                    const frames = Math.max(6, Math.round(delayOf(row.ms) / tick));
+                    const weights = Array.from({ length: frames }, () => (Math.random() < 0.18 ? 0 : 0.2 + Math.random() * 1.8));
+
+                    return { row, bar, mark, weights, sum: weights.reduce((a, b) => a + b, 0) || 1, done: 0, index: 0, finished: false };
+                });
+
+                while (rows.some(item => !item.finished)) {
+                    for (const item of rows) {
+                        if (item.finished) continue;
+
+                        item.done += item.weights[item.index++];
+                        const last = item.index >= item.weights.length;
+                        const percent = last ? item.row.stop : Math.round((item.done * item.row.stop) / item.sum);
+                        const filled = Math.round((width * percent) / 100);
+                        item.bar.textContent = `[${"#".repeat(filled)}${"-".repeat(width - filled)}] ${String(percent).padStart(3)}%`;
+
+                        if (last) {
+                            item.finished = true;
+                            item.mark.textContent = " " + item.row.status;
+                            if (item.row.style) item.mark.className = "con-" + item.row.style;
+                        }
+                    }
+
+                    scrollDown();
+                    await wait(tick, run);
+                }
+
+                current = null;
+            },
+
             // задача с результатом: строка с ожиданием заменяется итоговой
             async spin(op, run, vars) {
                 const group = span();

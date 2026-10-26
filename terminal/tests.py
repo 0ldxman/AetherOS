@@ -158,10 +158,13 @@ class TerminalSceneTests(TestCase):
         first = self.run_command("rpr /home/hurt.dat")
         self.assertEqual(first["exit_code"], 0)
         self.assertIn("further repair required", first["output"])
-        self.assertTrue(any("could not be recovered" in str(step) for step in first["scene"]))
+        bars = [step for step in first["scene"] if step["op"] == "bars"][0]["rows"]
+        self.assertTrue(2 <= len(bars) <= 9)
+        self.assertTrue(any(row["status"] == "FAIL" and row["stop"] < 100 for row in bars))        # часть блоков не поддалась
         second = self.run_command("rpr /home/hurt.dat")
         self.assertEqual(second["output"], "rpr: /home/hurt.dat: repaired")
-        self.assertFalse(any("could not be recovered" in str(step) for step in second["scene"]))
+        done = [step for step in second["scene"] if step["op"] == "bars"][0]["rows"]
+        self.assertTrue(all(row["status"] == "OK" and row["stop"] == 100 for row in done))         # в последний проход вылечились все
         self.assertTrue(any("18 blocks" in str(step) or "pass 1/4" in str(step) for step in second["scene"]))     # размер 9000 -> 18 блоков
         self.assertIn("nothing to repair", self.run_command("rpr /home/hurt.dat")["output"])
 

@@ -120,6 +120,17 @@ class ProcessTests(SimpleTestCase):
         self.assertEqual(ops(scene), ["bar", "newline"])
         self.assertEqual((scene.to_dict()[0]["ms"], scene.to_dict()[0]["width"]), (900, 20))
 
+    def test_bars_run_together_and_a_failed_one_stops_short(self):
+        scene = Scene().bars([("a ", 900), ("b ", (800, 1200), "FAIL", 60)], width=10).to_dict()
+        self.assertEqual([step["op"] for step in scene], ["bars"])
+        rows = scene[0]["rows"]
+        self.assertEqual((rows[0]["status"], rows[0]["stop"], rows[0]["style"]), ("OK", 100, "success"))
+        self.assertEqual((rows[1]["status"], rows[1]["stop"], rows[1]["ms"], rows[1]["style"]), ("FAIL", 60, [800, 1200], "error"))
+        with self.assertRaises(SceneError):
+            Scene().bars([])
+        with self.assertRaises(SceneError):
+            Scene().bars([("a", 100, "OK", 150)])
+
     def test_count_pads_the_label_and_can_finish_with_a_result(self):
         steps = Scene().count("Memory Testing:", 64000, unit="K", result="OK", note="(ECC)").to_dict()
         self.assertEqual(steps[0]["label"], "Memory Testing:".ljust(17))
