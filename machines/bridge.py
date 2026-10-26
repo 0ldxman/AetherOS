@@ -28,6 +28,7 @@ from .current import SESSION_KEY, active_session
 from .models import Machine, MachineProfile, MachineProfileToken, Session
 
 STACK_KEY = "bridge_stack"
+SHELL_KEY = "rshell_stack"
 MAX_DEPTH = 4
 
 
@@ -37,12 +38,18 @@ def depth(request):
     return len(request.session.get(STACK_KEY, []))
 
 
+def session_for(user, profile):
+    """Сессия пары (игрок, запись): переиспользуется между визитами, прогресс по файлам остаётся."""
+    session = Session.objects.filter(user=user, profile=profile).select_related("profile__machine").order_by("-pk").first()
+    if session is None:
+        session = Session.objects.create(user=user, profile=profile)
+    return session
+
+
 def enter(request, profile):
     """Игрок вошёл на запись profile: текущая сессия уходит в стек, активной становится сессия записи."""
     source = active_session(request)
-    session = Session.objects.filter(user=request.user, profile=profile).order_by("-pk").first()
-    if session is None:
-        session = Session.objects.create(user=request.user, profile=profile)
+    session = session_for(request.user, profile)
 
     request.session[STACK_KEY] = [*request.session.get(STACK_KEY, []), source.pk]
     request.session[SESSION_KEY] = session.pk
@@ -59,6 +66,68 @@ def leave(request, all_levels=False):
     request.session[SESSION_KEY] = stack[0] if all_levels else stack[-1]
     request.session[STACK_KEY] = [] if all_levels else stack[:-1]
     return left
+
+
+# ---------- оболочка на другой машине (rshell) ----------
+#
+# Рабочий стол остаётся на своей машине, меняется только оболочка терминала. Стек оболочек лежит в той же сессии Django:
+# [{"session": pk, "back_cwd": папка}, ...], у верхней записи сессия, на которой сейчас терминал, а back_cwd это папка
+# уровнем ниже (туда вернёт exit и от неё считаются локальные пути xfer).
+
+def shell_depth(request):
+    return len(request.session.get(SHELL_KEY, []))
+
+
+def total_depth(request):
+    """Все открытые уровни: мосты рабочего стола и оболочки терминала (общий предел вложенности)."""
+    return depth(request) + shell_depth(request)
+
+
+def terminal_session(request):
+    """Сессия, на которой сейчас терминал: верхняя оболочка, а без неё сессия рабочего стола."""
+    stack = request.session.get(SHELL_KEY, [])
+    if stack:
+        session = (
+            Session.objects.select_related("profile__machine").filter(pk=stack[-1]["session"], user=request.user).first()
+        )
+        if session is not None:
+            return session
+    return active_session(request)
+
+
+def shell_enter(request, profile, back_cwd):
+    session = session_for(request.user, profile)
+    request.session[SHELL_KEY] = [*request.session.get(SHELL_KEY, []), {"session": session.pk, "back_cwd": back_cwd}]
+    return session
+
+
+def shell_leave(request, all_levels=False):
+    """Выйти из оболочки на уровень выше (или из всех). Возвращает (покинутая сессия, папка, в которую вернуться) или None."""
+    stack = list(request.session.get(SHELL_KEY, []))
+    if not stack:
+        return None
+
+    left = terminal_session(request)
+    back = stack[0]["back_cwd"] if all_levels else stack[-1]["back_cwd"]
+    request.session[SHELL_KEY] = [] if all_levels else stack[:-1]
+    return left, back
+
+
+def shell_clear(request):
+    request.session.pop(SHELL_KEY, None)
+
+
+def shell_parent(request):
+    """Уровень ниже верхней оболочки: (сессия, папка). Это «своя» сторона для xfer; None, если оболочки нет."""
+    stack = request.session.get(SHELL_KEY, [])
+    if not stack:
+        return None
+
+    parent = (
+        Session.objects.select_related("profile__machine").filter(pk=stack[-2]["session"], user=request.user).first()
+        if len(stack) > 1 else active_session(request)
+    )
+    return parent, stack[-1]["back_cwd"]
 
 
 # ---------- поиск записи ----------

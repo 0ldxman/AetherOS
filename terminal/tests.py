@@ -188,8 +188,8 @@ class TerminalSceneTests(TestCase):
 
 
 @override_settings(FORCE_SCRIPT_NAME=None)
-class BridgeTests(TestCase):
-    """Мост: вход на другую машину из терминала (rcon), условия входа, стек сессий, выход."""
+class BridgeFixture(TestCase):
+    """Машины, записи и помощники для проверки входа на другие машины."""
 
     @classmethod
     def setUpTestData(cls):
@@ -266,6 +266,14 @@ class BridgeTests(TestCase):
 
     def depth(self):
         return len(self.client.session.get("bridge_stack", []))
+
+    def shells(self):
+        return len(self.client.session.get("rshell_stack", []))
+
+
+@override_settings(FORCE_SCRIPT_NAME=None)
+class BridgeTests(BridgeFixture):
+    """Мост: вход на другую машину из терминала (rcon), условия входа, стек сессий, выход."""
 
     # ---------- вход ----------
 
@@ -455,3 +463,120 @@ class BridgeTests(TestCase):
         data = self.run_command("ward /home/noise.bin nope")
         alert = [e for e in data["effects"] if e["op"] == "alert"][0]
         self.assertEqual((alert["message"], alert["count"], alert["gap"]), ("unreachable", 3, 200))
+
+
+
+@override_settings(FORCE_SCRIPT_NAME=None)
+class RshellTests(BridgeFixture):
+    """rshell: оболочка на другой машине внутри терминала (рабочий стол не меняется), exit, xfer."""
+
+    @classmethod
+    def setUpTestData(cls):
+        super().setUpTestData()
+        from filesystem.models import MachineFile
+
+        MachineFile.objects.create(machine=cls.main, path="/home/notes.txt", state="")
+        MachineFile.objects.create(machine=cls.main, path="/home/work/a.txt", state="")
+        MachineFile.objects.create(machine=cls.main, path="/home/vault.bin", state="> encrypted hunter2")
+        MachineFile.objects.create(machine=cls.core, path="/home/loot.dat", state="> archive")
+        MachineFile.objects.create(machine=cls.core, path="/home/docs/readme.txt", state="")
+
+    def test_rshell_enters_without_switching_the_desktop(self):
+        data = self.run_command("rshell guest@aether-core")
+        self.assertEqual(data["exit_code"], 0)
+        self.assertEqual((data["hostname"], data["login"]), ("aether-core", "guest"))
+        self.assertEqual(self.where().login, "ivan")                    # рабочий стол остался на aether-main
+        self.assertEqual((self.depth(), self.shells()), (0, 1))
+        self.assertFalse(any(step["op"] == "cut" for step in data["scene"]))
+        self.assertEqual([e["op"] for e in data["effects"]], ["play"])  # приветствие той машины
+        self.assertIn("loot.dat", self.run_command("ls /home")["output"])
+        self.assertNotIn("notes.txt", self.run_command("ls /home")["output"])
+
+    def test_exit_leaves_the_shell_and_restores_the_folder(self):
+        self.assertEqual(self.run_command("cd /home/work")["cwd"], "/home/work")
+        data = self.run_command("rshell guest@aether-core")
+        self.assertEqual(data["cwd"], "/home")
+        data = self.run_command("exit")
+        self.assertEqual((data["hostname"], data["login"], data["cwd"]), ("aether-main", "ivan", "/home/work"))
+        self.assertIsNone(data["effects"] or None)
+        self.assertEqual(self.shells(), 0)
+        self.assertIn("notes.txt", self.run_command("ls /home")["output"])
+
+    def test_rshell_asks_for_the_same_conditions(self):
+        data = self.run_command("rshell root@aether-core")
+        self.assertEqual(data["prompt"]["kind"], "password")
+        self.assertEqual(self.shells(), 0)
+        self.assertIn("Permission denied", self.answer("nope")["output"])
+        self.run_command("rshell root@aether-core")
+        data = self.answer("s3cret")
+        self.assertEqual((data["login"], data["hostname"]), ("root", "aether-core"))
+        self.assertEqual(self.shells(), 1)
+
+    def test_rcon_is_refused_inside_a_shell_but_shells_nest_in_a_tunnel(self):
+        self.run_command("rshell guest@aether-core")
+        self.assertIn("exit it first", self.run_command("rcon dig@aether-deep")["output"])
+        self.run_command("rcon-close")
+        self.assertEqual((self.depth(), self.shells()), (0, 0))
+        self.run_command("rcon guest@aether-core")
+        self.assertEqual(self.run_command("rshell dig@aether-deep")["exit_code"], 0)
+        self.assertEqual((self.depth(), self.shells()), (1, 1))
+        self.assertEqual(self.run_command("exit")["login"], "guest")            # сначала оболочка
+        self.assertEqual(self.run_command("exit")["effects"], [{"op": "switch"}])   # потом мост
+
+    def test_xfer_downloads_a_file_into_the_players_session_with_its_layers(self):
+        self.run_command("rshell guest@aether-core")
+        data = self.run_command("xfer :/home/loot.dat /home/got.dat")
+        self.assertEqual(data["exit_code"], 0, data["output"])
+        self.assertIn("transferred", data["output"])
+        self.run_command("exit")
+        self.assertIn("got.dat", self.run_command("ls /home")["output"])
+        self.assertEqual(self.run_command("pak /home/got.dat")["exit_code"], 0)    # слой переехал вместе с файлом
+
+    def test_xfer_uploads_and_a_folder_destination_keeps_the_name(self):
+        self.run_command("rshell guest@aether-core")
+        data = self.run_command("xfer /home/notes.txt :/home/docs")
+        self.assertEqual(data["exit_code"], 0, data["output"])
+        self.assertIn("readme.txt", self.run_command("ls /home/docs")["output"])
+        self.assertIn("notes.txt", self.run_command("ls /home/docs")["output"])
+        self.run_command("exit")
+        self.assertNotIn("docs", self.run_command("ls /home")["output"])
+
+    def test_xfer_errors(self):
+        self.assertIn("not inside an rshell", self.run_command("xfer :/home/x y")["output"])
+        self.run_command("rshell guest@aether-core")
+        self.assertIn("No such file", self.run_command("xfer :/home/none.dat /home/a")["output"])
+        self.assertIn("not a regular file", self.run_command("xfer :/home/docs /home/a")["output"])
+        self.assertEqual(self.run_command("xfer /home/a /home/b")["exit_code"], 2)         # нет удалённой стороны
+        self.assertEqual(self.run_command("xfer :/home/a :/home/b")["exit_code"], 2)       # обе удалённые
+
+    def test_xfer_with_an_address_needs_no_shell_and_asks_for_the_password(self):
+        data = self.run_command("xfer guest@aether-core:/home/loot.dat /home/got.dat")
+        self.assertEqual(data["exit_code"], 0, data["output"])
+        self.assertEqual(self.shells(), 0)
+        self.assertIn("got.dat", self.run_command("ls /home")["output"])
+
+        data = self.run_command("xfer root@aether-core:/home/loot.dat /home/second.dat")
+        self.assertEqual(data["prompt"]["kind"], "password")
+        self.assertNotIn("second.dat", self.run_command("ls /home")["output"])
+        data = self.answer("s3cret")
+        self.assertEqual(data["exit_code"], 0, data["output"])
+        self.assertIn("second.dat", self.run_command("ls /home")["output"])
+
+        self.run_command("xfer root@aether-core:/home/loot.dat /home/third.dat")
+        self.assertIn("Permission denied", self.answer("wrong")["output"])
+        self.assertNotIn("third.dat", self.run_command("ls /home")["output"])
+
+    def test_closing_the_tunnel_also_closes_shells(self):
+        self.run_command("rshell guest@aether-core")
+        self.client.post(reverse("terminal:bridge_close"))
+        self.assertEqual(self.shells(), 0)
+
+    def test_a_kick_inside_a_shell_throws_the_player_out_of_the_shell_only(self):
+        self.run_command("rshell guest@aether-core")
+        from filesystem.models import MachineFile
+
+        MachineFile.objects.create(machine=self.core, path="/home/trap2.bin", state="> encrypted x attempts=1\non fail: kick")
+        data = self.run_command("ward /home/trap2.bin wrong")
+        self.assertEqual(self.shells(), 0)
+        self.assertNotIn({"op": "switch"}, data["effects"])
+        self.assertEqual(data["hostname"], "aether-main")

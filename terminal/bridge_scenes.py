@@ -16,8 +16,9 @@ def _endpoint(system, profile):
     return str(int(profile.freq))
 
 
-def connect_scene(system, host, profile):
-    """Игрок вошёл: соединение, обмен ключами, вход, и чёрный кадр перед сменой рабочего стола."""
+def connect_scene(system, host, profile, cut=True, opened=True):
+    """Игрок вошёл: соединение, обмен ключами, вход, и (cut) чёрный кадр перед сменой рабочего стола.
+    rshell и xfer не меняют рабочий стол: для них cut=False, а xfer ещё и не говорит об открытой сессии."""
     s = Scene()
     if system == AETHER:
         s.task(f"resolving  {host} ", "OK", ms=(200, 450))
@@ -30,8 +31,10 @@ def connect_scene(system, host, profile):
         s.task(f"connect    {host}:{_endpoint(system, profile)} ", "OK", ms=(250, 600))
         s.task("tls        handshake ", "OK", ms=(300, 700))
         s.task(f"auth       {profile.login} ", "OK", ms=(250, 600))
-    s.say("session opened.", style="success")
-    s.wait(450).cut()
+    if opened:
+        s.say("session opened.", style="success")
+    if cut:
+        s.wait(450).cut()
     return s.to_dict()
 
 
@@ -56,12 +59,26 @@ def unreachable_scene(system, host):
     return s.to_dict()
 
 
-def disconnect_scene(system, host):
-    """Мост закрыт: возвращаемся на уровень выше."""
+def disconnect_scene(system, host, cut=True):
+    """Мост (или оболочка, тогда cut=False: рабочий стол не меняется) закрыт: возвращаемся на уровень выше."""
     s = Scene()
     s.task("session    closing ", "OK", ms=(250, 550))
     s.say(f"connection to {host} closed.", style="dim")
-    s.wait(350).cut()
+    if cut:
+        s.wait(350).cut()
+    return s.to_dict()
+
+
+def transfer_scene(name, size_seed, ok=True, connect=None):
+    """Перенос файла: открытие канала, полоса передачи, проверка. connect это сцена соединения (xfer с явным адресом)."""
+    from terminal.scenes import _stable, _result
+
+    s = Scene()
+    for step in (connect or []):
+        s.steps.append(step)
+    s.task("channel    opening ", "OK", ms=(150, 350))
+    s.count(f"sending {name} ", _stable(name + str(size_seed), 4, 900), unit=" KB", ms=(500, 1100), width=12)
+    s.task("checksum   ", _result(ok), ms=(250, 550))
     return s.to_dict()
 
 

@@ -51,9 +51,10 @@ def execute(request):
             status=400,
         )
 
-    session = active_session(request)
+    session = bridge.terminal_session(request)
     cwd = request.session.get(CWD_KEY, DEFAULT_CWD)
     depth_before = bridge.depth(request)
+    shell_before = bridge.shell_depth(request)
 
     if payload.get("cancel"):
         request.session.pop(PENDING_KEY, None)
@@ -63,8 +64,7 @@ def execute(request):
         text = payload["answer"]
         if not isinstance(text, str) or len(text) > 512:
             return JsonResponse({"error": "Invalid answer"}, status=400)
-        result, entered_cwd = answer_prompt(request, text)
-        new_cwd = entered_cwd or cwd
+        result, new_cwd = answer_prompt(request, text, session, cwd)
     else:
         source = payload.get("command", "")
 
@@ -84,6 +84,11 @@ def execute(request):
     effects = _server_effects(request, session, result.effects)
     if bridge.depth(request) != depth_before:
         new_cwd = DEFAULT_CWD      # смена машины начинает новую оболочку
+    if bridge.shell_depth(request) > shell_before:
+        # вошли в оболочку на другой машине: её приветствие после ответа команды
+        greeting = _greeting(request, bridge.terminal_session(request).profile.machine.hostname, mail=False)
+        if greeting:
+            effects.append({"op": "play", "scene": greeting})
 
     if new_cwd != cwd:
         request.session[CWD_KEY] = new_cwd
@@ -97,7 +102,8 @@ def execute(request):
         "effects": effects,
         "prompt": result.prompt,
         "cwd": new_cwd,
-        "hostname": active_session(request).profile.machine.hostname,
+        "hostname": bridge.terminal_session(request).profile.machine.hostname,
+        "login": bridge.terminal_session(request).profile.login,
     })
 
 
@@ -115,7 +121,9 @@ def _server_effects(request, session, effects):
         host = session.profile.machine.hostname
         system = session.profile.machine.system
         out.append({"op": "play", "scene": scenes.kick_scene(system, host)})
-        if bridge.leave(request):
+        if bridge.shell_depth(request):
+            request.session[CWD_KEY] = bridge.shell_leave(request)[1]
+        elif bridge.leave(request):
             request.session[CWD_KEY] = DEFAULT_CWD
             out.append({"op": "switch"})
         else:
@@ -129,6 +137,7 @@ def bridge_close(request):
     if not is_player(request):
         raise PermissionDenied
 
+    bridge.shell_clear(request)
     bridge.leave(request, all_levels=True)
     request.session[CWD_KEY] = DEFAULT_CWD
     return JsonResponse({"ok": True})
@@ -147,11 +156,11 @@ def _login(request):
     """Под каким логином игрок в оболочке: логин профиля или имя безымянного игрока."""
     from users.aether_auth import GUEST_LOGIN
 
-    return active_session(request).profile.login if is_player(request) else GUEST_LOGIN
+    return bridge.terminal_session(request).profile.login if is_player(request) else GUEST_LOGIN
 
 
-def _greeting(request, hostname):
-    """Сцена приветствия оболочки (или None, если машину не описать)."""
+def _greeting(request, hostname, mail=True):
+    """Сцена приветствия оболочки (или None, если машину не описать). Почта в ней своя только у рабочего стола."""
     from machines.identity import identity_of
     from machines.models import Machine
     from users.aether_auth import _mail_summary
@@ -159,13 +168,14 @@ def _greeting(request, hostname):
     from .scenes import greeting_scene
 
     try:
-        return greeting_scene(identity_of(hostname), _login(request), _mail_summary(request))
+        return greeting_scene(identity_of(hostname), _login(request), _mail_summary(request) if mail else None)
     except Machine.DoesNotExist:
         return None
 
 
 def terminal_page(request):
     if is_player(request):
+        bridge.shell_clear(request)        # новое окно это новая оболочка на машине рабочего стола
         hostname = active_session(request).profile.machine.hostname
     else:
         machine = current_machine(request)

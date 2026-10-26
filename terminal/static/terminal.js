@@ -8,8 +8,8 @@
     const prompt = document.getElementById("terminal-prompt");
 
     const executeUrl = terminal.dataset.executeUrl;
-    const hostname = terminal.dataset.hostname;
-    const login = terminal.dataset.login;
+    let hostname = terminal.dataset.hostname;
+    let login = terminal.dataset.login;
 
     const csrfToken = document.querySelector(
         "[name=csrfmiddlewaretoken]"
@@ -121,6 +121,8 @@
         }
 
         cwd = data.cwd || cwd;
+        hostname = data.hostname || hostname;     // rshell меняет машину и логин оболочки
+        login = data.login || login;
         updatePrompt();
 
         if (data.clear) {

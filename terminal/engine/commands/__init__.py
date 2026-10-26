@@ -4,7 +4,7 @@ from terminal.engine.commands.basic import (
     LsCommand,
     PwdCommand,
 )
-from terminal.engine.commands.bridge import BridgeCloseCommand, BridgeCommand, ExitCommand
+from terminal.engine.commands.bridge import BridgeCloseCommand, BridgeCommand, ExitCommand, RshellCommand, XferCommand
 from terminal.engine.commands.crypto import EncCommand, PakCommand, TxtxCommand, WardCommand
 from terminal.engine.commands.info import FtypCommand, CntCommand
 from terminal.engine.commands.raw import BlkCommand, CvtCommand, RprCommand
@@ -31,7 +31,7 @@ COMMON = (
 COMMANDS_BY_SYSTEM = {
     "AETHER": {
         command.name: command()
-        for command in (*COMMON, BridgeCommand, BridgeCloseCommand, ExitCommand)
+        for command in (*COMMON, BridgeCommand, RshellCommand, XferCommand, BridgeCloseCommand, ExitCommand)
     },
 }
 
