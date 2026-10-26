@@ -43,8 +43,10 @@
     }
 
     function updatePrompt() {
-        // логин@машина:~/путь$ (в корне просто ~)
-        prompt.textContent = `${login}@${hostname}:~${cwd === "/" ? "" : cwd}$`;
+        // логин@машина:путь$, путь как в Linux: /home это ~, внутри него ~/папка (домашняя папка DEFAULT_CWD на сервере)
+        const home = "/home";
+        const shown = cwd === home ? "~" : cwd.startsWith(home + "/") ? "~" + cwd.slice(home.length) : cwd;
+        prompt.textContent = `${login}@${hostname}:${shown}$`;
     }
 
     function scrollToBottom() {

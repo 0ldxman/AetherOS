@@ -152,4 +152,10 @@ class TerminalSceneTests(TestCase):
     def test_the_prompt_is_login_at_machine_and_path(self):
         page = self.client.get(reverse("terminal:index")).content.decode()
         self.assertIn('data-login="ivan"', page)
-        self.assertIn("ivan@aether-main:~/home$", page)
+        self.assertIn("ivan@aether-main:~$", page)
+        from terminal.views import prompt_path
+
+        self.assertEqual(
+            [prompt_path(p) for p in ("/home", "/home/docs", "/", "/etc", "/homework")],
+            ["~", "~/docs", "/", "/etc", "/homework"],
+        )

@@ -22,7 +22,7 @@
 
         <form id="terminal-form" autocomplete="off">
             <label id="terminal-prompt" for="terminal-input">
-                {{ login }}@{{ hostname }}:~{% if cwd != '/' %}{{ cwd }}{% endif %}$
+                {{ login }}@{{ hostname }}:{{ prompt_path }}$
             </label>
             <input
                 id="terminal-input"

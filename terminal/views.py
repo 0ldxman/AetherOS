@@ -82,6 +82,15 @@ def execute(request):
     })
 
 
+def prompt_path(cwd):
+    """Путь для приглашения, как в Linux: /home это ~, внутри него ~/папка, остальное полным путём."""
+    if cwd == DEFAULT_CWD:
+        return "~"
+    if cwd.startswith(DEFAULT_CWD + "/"):
+        return "~" + cwd[len(DEFAULT_CWD):]
+    return cwd
+
+
 def _login(request):
     """Под каким логином игрок в оболочке: логин профиля или имя безымянного игрока."""
     from users.aether_auth import GUEST_LOGIN
@@ -126,6 +135,7 @@ def terminal_page(request):
             "hostname": hostname,
             "login": _login(request),
             "cwd": DEFAULT_CWD,
+            "prompt_path": prompt_path(DEFAULT_CWD),
             "greeting": greeting,
         },
     )
