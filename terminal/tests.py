@@ -1151,7 +1151,7 @@ class RawCommandTests(TestCase):
         self.assertEqual(data["exit_code"], 0)
         first = data["output"].splitlines()[0]
         self.assertRegex(first, r"^00000000  c2 a7 72 65 63 0a 77 68")
-        self.assertIn("|..rec.who:", first)
+        self.assertIn("|..rec.wh|", first)
         self.assertIn("0+1 records in", data["output"])
         self.assertIn("bytes copied", data["output"])
 
@@ -1205,3 +1205,35 @@ class RawCommandTests(TestCase):
         data = self.run_command("blk /home/report.rec 0 4")
         self.assertIn(f"{size} bytes copied", data["output"])
         self.assertIn(f"{size} bytes)", self.run_command("cnt /home/report.rec")["output"])
+
+    def test_cnt_r_opens_the_raw_viewer_with_the_same_bytes(self):
+        data = self.run_command("cnt -r /home/skin.dat")
+        self.assertEqual(data["exit_code"], 0, data["output"])
+        window = data["window"]
+        self.assertEqual(window["title"], "skin.dat [raw]")
+        self.assertIn("/view/fs/raw/?path=%2Fhome%2Fskin.dat", window["url"])
+        page = self.client.get(window["url"])
+        self.assertEqual(page.status_code, 200)
+        self.assertContains(page, "data-raw-viewer")
+        self.assertContains(page, "/view/fs/raw/content/?path=%2Fhome%2Fskin.dat")
+
+    def test_the_raw_content_is_served_in_ranges_like_an_asset(self):
+        url = reverse("fsview:content") + "?path=/home/skin.dat"
+        size = int(self.run_command("ls -l /home/skin.dat")["output"].split()[0])
+        head = self.client.head(url)
+        self.assertEqual((head.status_code, head["Content-Length"]), (200, str(size)))
+
+        first = self.client.get(url, HTTP_RANGE="bytes=0-7")
+        self.assertEqual(first.status_code, 206)
+        self.assertEqual(first.content, b"\x9eSCAN\r\n\x1b")                                    # то же, что показывает blk
+        self.assertEqual(first["Content-Range"], f"bytes 0-7/{size}")
+        self.assertEqual(len(self.client.get(url, HTTP_RANGE="bytes=-4").content), 4)
+        self.assertEqual(self.client.get(url, HTTP_RANGE=f"bytes={size + 10}-").status_code, 416)
+        self.assertEqual(len(self.client.get(url).content), size)
+
+    def test_the_raw_viewer_shows_only_the_players_own_files(self):
+        missing = reverse("fsview:content") + "?path=/home/none.dat"
+        self.assertEqual(self.client.get(missing).status_code, 404)
+        self.assertEqual(self.client.get(reverse("fsview:content") + "?path=/home").status_code, 404)   # папка
+        self.client.logout()
+        self.assertEqual(self.client.get(reverse("fsview:content") + "?path=/home/skin.dat").status_code, 403)

@@ -70,6 +70,9 @@ class CntCommand(BaseCommand):
     name = "cnt"
 
     def execute(self, context, args):
+        raw_view = "-r" in args
+        args = [arg for arg in args if arg != "-r"]
+
         if not args:
             return CommandResult("cnt: missing file operand", 2)
 
@@ -93,6 +96,17 @@ class CntCommand(BaseCommand):
         machine_file = entry.machine_file
         session_file = entry.session_file
         name = posixpath.basename(entry.path)
+
+        if raw_view:
+            # cnt -r: сырые байты файла во вьювере raw; слои и хуки read не трогаются (это не «открыть», а «заглянуть внутрь»)
+            from filesystem.views import raw_url
+
+            return CommandResult(
+                f"cnt: {target}: opened in the raw viewer ({size_of(context, entry)} bytes)",
+                0,
+                {"id": "raw-" + re.sub(r"\W+", "-", entry.path).strip("-"), "title": f"{name} [raw]", "url": raw_url(entry.path)},
+                scene=open_scene(entry.path, "opened"),
+            )
 
         # хуки on read верхнего слоя: могут сказать что-то или открыть окно (open), а слой остаётся на месте
         lines, effects = [], None

@@ -1,17 +1,20 @@
-"""Hexdump как у hexdump -C: смещение, 16 байт в двух группах, ASCII справа; повторяющиеся строки сворачиваются в «*»."""
+"""Hexdump в духе hexdump -C, но по 8 байт в строке: окно терминала узкое. Смещение, байты, ASCII справа;
+повторяющиеся строки сворачиваются в «*»."""
+
+WIDTH = 8
 
 
 def hexdump(data, start=0):
     lines, previous, folded = [], None, False
-    for offset in range(0, len(data), 16):
-        row = data[offset:offset + 16]
-        if row == previous and offset + 16 < len(data):
+    for offset in range(0, len(data), WIDTH):
+        row = data[offset:offset + WIDTH]
+        if row == previous and offset + WIDTH < len(data):
             if not folded:
                 lines.append("*")
                 folded = True
             continue
         previous, folded = row, False
-        cells = [f"{byte:02x}" for byte in row] + ["  "] * (16 - len(row))
+        cells = [f"{byte:02x}" for byte in row] + ["  "] * (WIDTH - len(row))
         text = "".join(chr(byte) if 32 <= byte < 127 else "." for byte in row)
-        lines.append(f"{start + offset:08x}  {' '.join(cells[:8])}  {' '.join(cells[8:])}  |{text}|")
+        lines.append(f"{start + offset:08x}  {' '.join(cells)}  |{text}|")
     return lines
