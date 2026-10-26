@@ -154,3 +154,9 @@ html, body {
   border-radius: 50%;
   background: var(--status-warn);
 }
+
+/* встроенная карта: только карта, без панелей и таймлайна */
+body.embed #mode-panel,
+body.embed #timeline {
+  display: none;
+}

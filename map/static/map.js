@@ -28,6 +28,12 @@ const labelLayerId = (rank) => `country-labels-${rank}`;
 // Режим редактора территорий: /apps/map/?edit=1 (карта внутри админки)
 const EDIT_MODE = new URLSearchParams(window.location.search).get('edit') === '1';
 
+// Встроенная карта (виджет ::map в документе): ?embed=1 без панелей, &static=1 без управления
+const SEARCH = new URLSearchParams(window.location.search);
+const EMBED = SEARCH.get('embed') === '1';
+const STATIC_VIEW = EMBED && SEARCH.get('static') === '1';
+if (EMBED) document.body.classList.add('embed');
+
 const DEFAULT_MODE = 'political';
 const MODE_LAYERS = {
   political: [
@@ -55,6 +61,8 @@ const map = new maplibregl.Map({
   center: [10, 50],
   zoom: 2,
   hash: true,
+  interactive: !STATIC_VIEW,
+  attributionControl: !EMBED,
 });
 
 // Глобус по умолчанию (при сильном приближении MapLibre сам переходит в плоский вид)

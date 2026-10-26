@@ -5,11 +5,13 @@
 
 {% block css %}
 <link rel="stylesheet" href="{% static 'wiki/wiki.css' %}">
+<link rel="stylesheet" href="{% static 'wiki/blocks.css' %}">
 {% block head %}{% endblock %}
 {% endblock %}
 
 {% block head_extra %}
 <script src="{% static 'wiki/wiki.js' %}" defer></script>
+<script src="{% static 'wiki/blocks.js' %}" defer></script>
 <script src="{% static 'wiki/scan-media.js' %}" defer></script>
 <script src="{% static 'wiki/audio-waveform.js' %}" defer></script>
 <script src="{% static 'ui/player-core.js' %}" defer></script>

@@ -37,6 +37,9 @@ ASSET_WIDGETS = {
     "image": "image",
 }
 
+# группы: по строке «src | подпись», каждый src проверяется как ассет своего вида
+GROUP_WIDGETS = {"gallery": "image", "files": "file"}
+
 _CLOSE = re.compile(r"::\s*$")
 _INLINE_SPOILER = re.compile(r"\]\{([^}\n]*)\}")
 _CODE_SPAN = re.compile(r"`[^`\n]*`")
@@ -143,6 +146,12 @@ class _Scan:
                 else _parse_body(_block_body(lines, index))
             )
             self.assets.append((number, name, (params.get("src") or "").strip()))
+
+        if name in GROUP_WIDGETS:
+            for offset, row in enumerate(_block_body(lines, index), 1):
+                src = row.partition("|")[0].strip()
+                if src:
+                    self.assets.append((number + offset, GROUP_WIDGETS[name], src))
 
         if _opens_block(text):
             stack.append((name, number))

@@ -1,0 +1,123 @@
+/*
+ * Галерея, группа файлов и карта в документе.
+ * Цвета не задаются: берутся у страницы (currentColor), кадры картинок рисует стиль документа.
+ */
+
+/* ---------- галерея ---------- */
+
+.widget--gallery {
+    margin: 1rem 0;
+}
+
+.widget--gallery .gallery-caption {
+    margin-bottom: 0.4rem;
+    opacity: 0.75;
+}
+
+.widget--gallery .gallery-item > .widget {
+    margin: 0;
+    width: 100%;
+    --w: 100%;
+}
+
+/* плитка: doc и scan */
+.widget--gallery[data-mode="tile"] .gallery-items,
+.widget--gallery:not([data-mode]) .gallery-items {
+    display: grid;
+    grid-template-columns: repeat(var(--cols, 2), minmax(0, 1fr));
+    gap: 0.8rem;
+}
+
+.widget--gallery.gallery--cols-1 { --cols: 1; }
+.widget--gallery.gallery--cols-2 { --cols: 2; }
+.widget--gallery.gallery--cols-3 { --cols: 3; }
+.widget--gallery.gallery--cols-4 { --cols: 4; }
+
+.widget--gallery[data-mode="tile"] .gallery-controls {
+    display: none;
+}
+
+.widget--gallery:not([data-mode]) .gallery-controls {
+    display: none;
+}
+
+/* карусель: web, rec и инфобокс */
+.widget--gallery[data-mode="carousel"] .gallery-item {
+    display: none;
+}
+
+.widget--gallery[data-mode="carousel"] .gallery-item.is-active {
+    display: block;
+}
+
+.widget--gallery .gallery-controls {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.8rem;
+    margin-top: 0.4rem;
+    font: inherit;
+}
+
+.widget--gallery .gallery-controls button {
+    min-width: 2rem;
+    padding: 0.1rem 0.6rem;
+    background: none;
+    border: 1px solid currentColor;
+    border-radius: 0;
+    color: inherit;
+    font: inherit;
+    cursor: pointer;
+    opacity: 0.8;
+}
+
+.widget--gallery .gallery-controls button:hover {
+    opacity: 1;
+}
+
+.widget--gallery .gallery-count {
+    opacity: 0.7;
+    font-variant-numeric: tabular-nums;
+}
+
+/* ---------- группа файлов ---------- */
+
+.widget--files {
+    margin: 1rem 0;
+}
+
+.widget--files .files-title {
+    margin-bottom: 0.3rem;
+    opacity: 0.75;
+}
+
+.widget--files > .widget--file {
+    margin: 0;
+}
+
+/* ---------- карта ---------- */
+
+.widget--map .map-frame {
+    position: relative;
+    width: 100%;
+    background: color-mix(in srgb, currentColor 10%, transparent);
+}
+
+.widget--map .map-embed {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    border: 0;
+}
+
+.widget--map[data-mode="still"] .map-embed {
+    pointer-events: none;
+}
+
+.map-frame.image-ratio-16-9 { aspect-ratio: 16 / 9; }
+.map-frame.image-ratio-4-3  { aspect-ratio: 4 / 3; }
+.map-frame.image-ratio-3-2  { aspect-ratio: 3 / 2; }
+.map-frame.image-ratio-1-1  { aspect-ratio: 1 / 1; }
+.map-frame.image-ratio-3-4  { aspect-ratio: 3 / 4; }
+.map-frame.image-ratio-9-16 { aspect-ratio: 9 / 16; }

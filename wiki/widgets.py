@@ -536,6 +536,130 @@ def image(params, ctx):
     return _asset_figure("image", inner, params, ctx)
 
 
+MAX_GALLERY = 24          # картинок в галерее
+MAX_FILES = 24            # файлов в группе
+GALLERY_COLS = (1, 2, 3, 4)
+MAP_MODES = ("political", "physical")
+
+_ARG = re.compile(r'([a-z_][a-z0-9_]*)=(".*?"|\S+)')
+
+
+def _head_args(args):
+    """«cols=2 caption="Архив"» из строки открытия raw-виджета -> словарь."""
+    return {m.group(1): m.group(2).strip('"') for m in _ARG.finditer(args or "")}
+
+
+def _src_lines(text, limit):
+    """Строки «src | подпись» -> [(src, подпись)]."""
+    rows = []
+    for line in _lines(text)[:limit]:
+        src, _, caption = line.partition("|")
+        if src.strip():
+            rows.append((src.strip(), caption.strip()))
+    return rows
+
+
+@widget("gallery", raw=True)
+def gallery(text, ctx, args=""):
+    """Несколько картинок: по строке «src | подпись». Параметры: cols (1-4, для плитки), caption.
+
+    ::gallery cols=2 caption="Место происшествия"
+    photo-01 | Вход
+    photo-02 | Задний двор
+    ::
+
+    Вид зависит от документа (его выбирает wiki.js по классу страницы): у web, rec и инфобокса
+    это карусель с кнопками, у doc и scan плитка из кадров, как фотографии на печатном листе.
+    """
+    head = _head_args(args)
+    rows = _src_lines(text, MAX_GALLERY)
+    if not rows:
+        return ""
+
+    cols = int(float(_num(head.get("cols"), 2, GALLERY_COLS[0], GALLERY_COLS[-1])))
+    items = "".join(
+        '<div class="gallery-item">'
+        + image({"src": src, "caption": caption, "alt": caption, "width": "100", "align": "center"}, ctx)
+        + "</div>"
+        for src, caption in rows
+    )
+    controls = (
+        '<div class="gallery-controls">'
+        '<button type="button" class="gallery-prev" aria-label="Назад">&lsaquo;</button>'
+        f'<span class="gallery-count">1 / {len(rows)}</span>'
+        '<button type="button" class="gallery-next" aria-label="Вперёд">&rsaquo;</button>'
+        "</div>"
+    )
+    caption = ""
+    if head.get("caption"):
+        caption = f'<div class="gallery-caption">{ctx.inline(head["caption"])}</div>'
+    return (
+        f'<div class="widget widget--gallery gallery--cols-{cols}" data-count="{len(rows)}">'
+        f'{caption}<div class="gallery-items">{items}</div>{controls}</div>\n'
+    )
+
+
+@widget("files", raw=True)
+def files(text, ctx, args=""):
+    """Несколько файлов одной группой: по строке «src | подпись». Параметры: title.
+
+    ::files title="Приложения"
+    report-01 | Отчёт (PDF)
+    photos-zip | Фотографии
+    ::
+
+    Каждая строка выглядит как ::file в стиле документа.
+    """
+    head = _head_args(args)
+    rows = _src_lines(text, MAX_FILES)
+    if not rows:
+        return ""
+
+    items = "".join(
+        _asset_widget({"src": src, "label": label}, ctx, "file") for src, label in rows
+    )
+    title = ""
+    if head.get("title"):
+        title = f'<div class="files-title">{ctx.inline(head["title"])}</div>'
+    return f'<div class="widget widget--files">{title}{items}</div>\n'
+
+
+@widget("map", positional="caption")
+def map_widget(params, ctx):
+    """Карта мира: lat, lon, zoom (0-18), date (ГГГГ-ММ-ДД), mode, ratio, width, caption.
+
+    ::map lat=48.8 lon=2.3 zoom=5 date=2041-03-12 caption="Порт на тот день"
+
+    У web, rec и инфобокса карта живая (можно двигать и приближать), у doc и scan это
+    неподвижный кадр. Вид выбирает wiki.js по классу страницы, поэтому в разметке два адреса.
+    """
+    lat = _num(params.get("lat"), 20, -85, 85)
+    lon = _num(params.get("lon"), 10, -180, 180)
+    zoom = _num(params.get("zoom"), 2, 0, 18)
+    query = "embed=1"
+    mode = _choice(params.get("mode"), MAP_MODES, "")
+    if mode:
+        query += f"&mode={mode}"
+    date = (params.get("date") or "").strip()
+    if re.fullmatch(r"\d{4}-\d{2}-\d{2}", date):
+        query += f"&date={date}"
+    try:
+        base = reverse("map:index")
+    except NoReverseMatch:
+        return _asset_missing(params.get("caption", ""), "MAP NOT AVAILABLE")
+    live = f"{base}?{query}#{zoom}/{lat}/{lon}"
+    still = f"{base}?{query}&static=1#{zoom}/{lat}/{lon}"
+    ratio = IMAGE_RATIOS.get((params.get("ratio") or "").strip(), "16-9")
+    inner = (
+        f'<div class="image-frame"><div class="map-frame image-ratio-{ratio}">'
+        f'<iframe class="map-embed" title="Карта" loading="lazy" '
+        f'data-live="{escape(live, quote=True)}" data-static="{escape(still, quote=True)}"></iframe>'
+        "</div></div>"
+    )
+    figure = _asset_figure("map", inner, {**params, "width": params.get("width", "100")}, ctx)
+    return figure
+
+
 @widget("divider", positional="label", line=True)
 def divider(params, ctx):
     """Разделитель: label (необязательно), style (line, double, dashed, dotted, thick, stars).
