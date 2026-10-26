@@ -394,12 +394,16 @@ body {
 }
 
 .dialog {
+  --tone: var(--accent);
   display: flex;
   flex: 1;
   flex-direction: column;
-  background: var(--panel);
-  color: var(--fg);
+  background: var(--tone);
+  color: var(--bg);
 }
+
+.dialog--error { --tone: var(--status-error); }
+.dialog--warning { --tone: var(--status-warn); }
 
 .dialog-main {
   display: flex;
@@ -409,21 +413,18 @@ body {
   padding: 1.25rem 1.25rem 1rem;
 }
 
+/* тёмный квадрат с цветным знаком */
 .dialog-glyph {
   flex: 0 0 auto;
   display: grid;
   place-items: center;
   width: 2.4rem;
   height: 2.4rem;
-  background: var(--glyph);
-  color: var(--bg);
+  background: var(--bg);
+  color: var(--tone);
   font-size: 1.4rem;
   font-weight: 700;
 }
-
-.dialog { --glyph: var(--accent); }
-.dialog--error { --glyph: var(--status-error); }
-.dialog--warning { --glyph: var(--status-warn); }
 
 .dialog-message {
   margin: 0;
@@ -432,37 +433,35 @@ body {
   overflow-wrap: anywhere;
 }
 
-/* нижняя полоса с кнопкой, как в системных окнах */
+/* нижняя полоса с кнопкой */
 .dialog-foot {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 1rem;
   padding: 0.6rem 1rem;
-  background: var(--bg);
-  border-top: 1px solid var(--line);
+  border-top: 1px solid var(--bg);
 }
 
 .dialog-code {
-  color: var(--font-muted);
   font-size: 0.8rem;
+  opacity: 0.7;
 }
 
 .dialog-ok {
   min-width: 5.5rem;
   padding: 0.25rem 1rem;
   background: none;
-  border: 1px solid var(--line-bright);
-  color: var(--font-light);
+  border: 1px solid var(--bg);
+  color: var(--bg);
   font: inherit;
   cursor: pointer;
 }
 
 .dialog-ok:hover,
 .dialog-ok:focus-visible {
-  background: var(--font-light);
-  border-color: var(--font-light);
-  color: var(--bg);
+  background: var(--bg);
+  color: var(--tone);
   outline: none;
 }
 
@@ -479,6 +478,7 @@ body {
 
 .winbox.aether.dialog-window--error {
   border-color: var(--status-error);
+  background: var(--status-error);
 }
 
 .winbox.aether.dialog-window--warning .wb-header {
