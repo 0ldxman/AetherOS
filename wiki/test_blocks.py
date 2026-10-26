@@ -176,6 +176,63 @@ class BlocksTests(TestCase):
             shown = dict(re.findall(r"--mc-(\w+): (#[0-9a-f]{6});", css[start:css.index("}", start)]))
             self.assertEqual(wanted, shown, theme)
 
+    def _poland_czechia(self):
+        from datetime import date
+
+        from map.models import Country, Ownership, Province
+
+        data = (("POL", "Польша", ("POL-1", "POL-3146"), ("POL-2", "POL-3170")),
+                ("CZE", "Чехия", ("CZE-1", "CZE-1001"), ("CZE-3", "CZE-1003")),
+                ("DEU", "Германия", ("DEU-1", "DEU-1")))
+        for prefix, name, *provinces in data:
+            country = Country.objects.create(code=prefix + "-2013", name=name, valid_from=date(2013, 1, 1))
+            for code, source in provinces:
+                province = Province.objects.create(code=code, source_code=source, name=code)
+                Ownership.objects.create(province=province, country=country, date_from=date(2013, 1, 1), de_jure=True)
+
+    def test_body_lines_set_highlights_colors_and_exclusions(self):
+        self._poland_czechia()
+        html = render("::map date=2041-03-12\nPOL blue\nCZE green\nexcept CZE-3\nКраков | 50 19 red\n::\n")
+        self.assertIn("POL-3146:blue", html)
+        self.assertIn("CZE-1001:green", html)
+        self.assertNotIn("CZE-1003", html)
+        self.assertIn("m=50.0,19.0,red,", html)
+
+    def test_minus_is_the_short_form_of_except_and_commas_group_items(self):
+        self._poland_czechia()
+        html = render("::map\nPOL blue, CZE green\n-CZE-3\n::\n")
+        self.assertIn("POL-3170:blue", html)
+        self.assertIn("CZE-1001:green", html)
+        self.assertNotIn("CZE-1003", html)
+
+    def test_highlights_without_colors_get_different_colors(self):
+        self._poland_czechia()
+        html = render("::map\nPOL\nCZE\nDEU\n::\n")
+        colors = {c for c in ("red", "blue", "green", "orange", "purple") if f":{c}" in html}
+        self.assertEqual(len(colors), 3)
+        # одно выделение остаётся цвета темы
+        self.assertNotIn("POL-3146:", render("::map\nPOL\n::\n"))
+
+    def test_explicit_colors_are_not_reused_by_auto_colors(self):
+        self._poland_czechia()
+        html = render("::map\nPOL red\nCZE\nDEU\n::\n")
+        self.assertIn("POL-3146:red", html)
+        self.assertNotIn("CZE-1001:red", html)
+        self.assertNotIn("DEU-1:red", html)
+
+    def test_old_header_syntax_still_works(self):
+        self._poland_czechia()
+        html = render('::map highlight="POL:blue CZE:green -CZE-3"\n::\n')
+        self.assertIn("POL-3146:blue", html)
+        self.assertNotIn("CZE-1003", html)
+
+    def test_lint_checks_body_lines(self):
+        self._poland_czechia()
+        self.assertEqual(codes("::map\nPOL blue\nexcept CZE-3\nКраков | 1 2 red\n::\n"), [])
+        self.assertEqual(codes("::map\nPOL blue\nNOPE\n::\n"), [(3, "region-missing")])
+        self.assertEqual(codes("::map\nexcept NOPE-1\n::\n"), [(2, "region-missing")])
+        self.assertEqual(codes("::map\nТочка | 1 2 розовый\n::\n"), [(2, "map-color")])
+
     def test_lint_flags_unknown_regions(self):
         from map.models import Province
 

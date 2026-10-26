@@ -688,19 +688,72 @@ def split_highlight_token(token):
     return base, mark_color(word)
 MAX_MARKERS = 12
 MAX_REGIONS = 24
+AUTO_COLORS = ("red", "blue", "green", "orange", "purple", "teal", "yellow", "grey")
+_EXCEPT = re.compile(r"^(?:except|кроме)\s+(.+)$", re.IGNORECASE)
+
+
+def parse_map_line(line):
+    """Строка тела ::map -> ('marker', название, lat, lon, цвет, неизвестное слово цвета) |
+    ('region', [(токен, цвет)]) | ('except', [токен]) | None для пустой строки.
+
+        Краков | 50.06 19.94 red      метка
+        POL blue, DEU orange          выделение (через запятую; цвет последним словом)
+        except CZE-3  /  -CZE-3       исключить провинцию из выделенного
+    """
+    line = line.strip()
+    if not line:
+        return None
+
+    marker = _MARKER.match(line)
+    if marker:
+        lat, lon = float(marker.group(2).replace(",", ".")), float(marker.group(3).replace(",", "."))
+        word = marker.group(4)
+        # неизвестное слово цвета не теряет метку: она рисуется цветом по умолчанию, линтер ругается
+        return ("marker", marker.group(1).strip(), lat, lon, mark_color(word), word if word and not mark_color(word) else "")
+
+    exclusion = _EXCEPT.match(line)
+    if exclusion:
+        return ("except", [t for t in re.split(r"[\s,;]+", exclusion.group(1)) if t])
+    if line.startswith("-") and len(line) > 1:
+        return ("except", [t for t in re.split(r"[\s,;]+", line[1:]) if t])
+
+    items = []
+    for part in line.split(","):
+        words = part.split()
+        if not words:
+            continue
+        color = mark_color(words[-1]) if len(words) > 1 else ""
+        token = " ".join(words[:-1] if color else words)
+        items.append((token, color))
+    return ("region", items)
 
 
 def _marker_rows(text):
-    """Строки «Название | lat lon [цвет]» -> [(название, lat, lon, цвет)]; кривые строки пропускаются."""
+    """Метки тела блока: [(название, lat, lon, цвет)]; координаты вне карты пропускаются."""
     rows = []
     for line in _lines(text):
-        match = _MARKER.match(line)
-        if not match:
-            continue
-        lat, lon = float(match.group(2).replace(",", ".")), float(match.group(3).replace(",", "."))
-        if -85 <= lat <= 85 and -180 <= lon <= 180:
-            rows.append((match.group(1).strip(), lat, lon, mark_color(match.group(4))))
+        parsed = parse_map_line(line)
+        if parsed and parsed[0] == "marker" and -85 <= parsed[2] <= 85 and -180 <= parsed[3] <= 180:
+            rows.append((parsed[1], parsed[2], parsed[3], parsed[4]))
     return rows[:MAX_MARKERS]
+
+
+def _highlight_items(head, text):
+    """Что выделять: [(токен, цвет)]. Токены из заголовка (старая запись highlight="POL:blue -CZE-3")
+    идут первыми, затем строки тела. Исключения превращаются в токены «-КОД»."""
+    items = []
+    for token in re.split(r"[\s,;]+", head.get("highlight") or head.get("regions") or ""):
+        if token:
+            items.append(split_highlight_token(token))
+    for line in _lines(text):
+        parsed = parse_map_line(line)
+        if not parsed:
+            continue
+        if parsed[0] == "region":
+            items.extend(parsed[1])
+        elif parsed[0] == "except":
+            items.extend(("-" + token.lstrip("-"), "") for token in parsed[1])
+    return items[:MAX_REGIONS]
 
 
 def _scale_text(zoom, lat):
@@ -715,16 +768,26 @@ def _scale_text(zoom, lat):
 def map_widget(text, ctx, args=""):
     """Карта мира с выделением провинций и метками.
 
-    ::map highlight="POL RUS-32 -POL-3" date=2041-03-12 caption="Порт на тот день"
-    Порт | 48.8 2.3
+    ::map date=2041-03-12 caption="Порт на тот день"
+    POL blue
+    CZE green, SVK
+    except CZE-3
+    Порт | 48.8 2.3 red
     Склад | 48.9 2.4
     ::
 
-    Параметры: highlight (что выделить, через пробел или запятую: код провинции RUS-32, страна POL,
-    POL-2013 или название, исключение -POL-3; страна берётся по владениям на date), lat, lon, zoom (0-18),
-    date (ГГГГ-ММ-ДД), mode (political: границы, заливка, названия; physical: только рельеф),
-    labels=off (без названий провинций), ratio, width, caption. Без lat и lon вид подбирается по выделенным
-    провинциям и меткам. Метки в теле блока: «Название | широта долгота».
+    Заголовок только про саму карту: date (ГГГГ-ММ-ДД), caption, lat, lon, zoom (0-18),
+    mode (political: границы, заливка, названия; physical: только рельеф), labels=off
+    (без названий провинций), ratio, width. Без lat и lon вид подбирается по выделенному и меткам.
+
+    Тело блока, по строке:
+      КОД [цвет]             выделение: провинция (RUS-32), страна (POL, POL-2013 или название;
+                             страна берётся по владениям на date); несколько через запятую;
+                             цвет последним словом, без цвета разные выделения красятся по очереди
+      except КОД  или  -КОД  убрать провинцию (или страну) из выделенного
+      Название | lat lon [цвет]   метка
+
+    Старая запись highlight="POL:blue -CZE-3" в заголовке по-прежнему работает.
 
     У web, rec и инфобокса карта живая (можно двигать и приближать), у doc и scan неподвижный
     кадр. Вид выбирает wiki.js по классу страницы, поэтому в разметке два адреса.
@@ -742,12 +805,17 @@ def map_widget(text, ctx, args=""):
         on_date = _date.fromisoformat(raw_date)
     except ValueError:
         on_date = None
-    tokens = [t for t in re.split(r"[\s,;]+", head.get("highlight") or head.get("regions") or "") if t][:MAX_REGIONS]
-    split = [split_highlight_token(t) for t in tokens]
-    groups, _unknown = resolve_highlight([base for base, _ in split], on_date) if tokens else ([], [])
-    colors = {base.upper(): color for base, color in split}
+    split = _highlight_items(head, text)
+    groups, _unknown = resolve_highlight([base for base, _ in split], on_date) if split else ([], [])
+    colors = {base.upper(): color for base, color in split if color}
     for group in groups:
         group["color"] = colors.get(group["token"].upper(), colors.get(group["name"].upper(), ""))
+    # без цвета выделения красятся по очереди разными цветами (одно выделение остаётся цвета темы)
+    plain = [g for g in groups if not g["color"]]
+    if len(plain) > 1:
+        free = [c for c in AUTO_COLORS if c not in {g["color"] for g in groups}]
+        for index, group in enumerate(plain):
+            group["color"] = free[index % len(free)] if free else AUTO_COLORS[index % len(AUTO_COLORS)]
     # провинция в нескольких токенах (POL:blue и POL-2:red) берёт цвет последнего
     chosen = {}
     for group in groups:

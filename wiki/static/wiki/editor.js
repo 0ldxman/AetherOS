@@ -1092,13 +1092,13 @@ import "./condition_editor.js";
 
     button(
       "+ Карта",
-      "Карта мира: выделение провинций (RUS-32) и стран (POL) и метки; живая в web, rec и инфобоксе, неподвижная в doc и scan",
+      "Карта мира: строки: выделение провинций (RUS-32) и стран (POL) с цветом, except, метки; живая в web, rec и инфобоксе, неподвижная в doc и scan",
       () => {
 
         replaceSelection(
           getEditor(),
           () =>
-            "::map highlight=\"\" caption=\"\"\nНазвание | 20 10\n::\n"
+            "::map caption=\"\"\nPOL blue\nНазвание | 20 10 red\n::\n"
         );
 
       }
