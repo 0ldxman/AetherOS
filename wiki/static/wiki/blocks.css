@@ -487,7 +487,7 @@
 }
 
 /* цвета выделения и меток (имена из разметки); значения те же, что MARK_COLORS в map/static/map.js */
-.widget--map {
+.widget--map[data-theme="scan"], .widget--map:not([data-theme]) {
     --mc-red: #b00d1c;
     --mc-blue: #12307a;
     --mc-green: #14612a;
@@ -496,6 +496,17 @@
     --mc-yellow: #b88a00;
     --mc-teal: #0e6b6b;
     --mc-grey: #2f2c28;
+}
+
+.widget--map[data-theme="maps"] {
+    --mc-red: #d93025;
+    --mc-blue: #1a73e8;
+    --mc-green: #188038;
+    --mc-orange: #e8710a;
+    --mc-purple: #8e24aa;
+    --mc-yellow: #f9ab00;
+    --mc-teal: #129eaf;
+    --mc-grey: #5f6368;
 }
 
 .widget--map[data-theme="term"] {
@@ -665,12 +676,99 @@
     mix-blend-mode: multiply;
 }
 
-/* doc: бирки-квадраты, как на карте */
-.doc--doc .widget--map .map-legend b {
-    background: transparent;
-    border: 1.5px solid var(--m-ink);
+/* maps (doc и светлый web): карточки и круглые кнопки, как на онлайн-картах */
+.widget--map[data-theme="maps"] {
+    --m-red: #d93025;
+    --m-card: #fff;
+    --m-card-ink: #3c4043;
+    --m-card-soft: #70757a;
+    --m-card-shadow: 0 1px 4px rgba(60, 64, 67, 0.4), 0 0 0 1px rgba(60, 64, 67, 0.06);
+}
+
+.widget--map[data-theme="maps"] .map-ui {
+    font-family: Roboto, "Segoe UI", system-ui, Arial, sans-serif;
+}
+
+.widget--map[data-theme="maps"] .map-stamp {
+    top: 0.65rem;
+    left: 0.65rem;
+    padding: 0.35rem 0.75rem 0.4rem;
+    border: 0;
+    border-radius: 8px;
+    background: var(--m-card);
+    box-shadow: var(--m-card-shadow);
+    color: var(--m-card-ink);
+    font-size: 0.82rem;
+    font-weight: 600;
+    letter-spacing: 0;
+    text-transform: none;
+}
+
+.widget--map[data-theme="maps"] .map-stamp-date {
+    color: var(--m-card-soft);
+    font-size: 0.7rem;
+    font-weight: 400;
+    letter-spacing: 0;
+}
+
+.widget--map[data-theme="maps"] .map-north {
+    top: 0.65rem;
+    right: 0.65rem;
+    display: grid;
+    place-items: center;
+    width: 1.1rem;
+    height: 1.4rem;
+    padding: 0.35rem;
+    border-radius: 50%;
+    background: var(--m-card);
+    box-shadow: var(--m-card-shadow);
+}
+
+.widget--map[data-theme="maps"] .map-north-arrow {
+    fill: #d93025;
+}
+
+.widget--map[data-theme="maps"] .map-north-n {
+    fill: var(--m-card);
+}
+
+.widget--map[data-theme="maps"] .map-scale {
+    left: 0.65rem;
+    bottom: 0.65rem;
+    min-width: 5rem;
+    border-radius: 4px;
+    background: color-mix(in srgb, var(--m-card) 85%, transparent);
+    color: var(--m-card-ink);
+    font-size: 0.66rem;
+    letter-spacing: 0;
+}
+
+.widget--map[data-theme="maps"] .map-scale-bar {
+    border-color: var(--m-card-ink);
+}
+
+.widget--map[data-theme="maps"] .map-legend b {
+    width: 1.3rem;
+    height: 1.3rem;
+    background: var(--c, var(--m-red));
+    border: 2px solid #fff;
+    border-radius: 50%;
+    box-shadow: 0 1px 3px rgba(60, 64, 67, 0.5);
+    color: #fff;
+    font-size: 0.66rem;
+    font-weight: 700;
+}
+
+/* term: ромбы, как метки на карте */
+.widget--map[data-theme="term"] .map-legend b {
+    width: 1.35rem;
+    height: 1.35rem;
     border-radius: 0;
-    color: var(--m-ink);
+    background: var(--c, var(--accent));
+    clip-path: polygon(50% 0, 100% 50%, 50% 100%, 0 50%);
+    color: #050909;
+    font-size: 0.62rem;
+    font-weight: 700;
 }
 
 /* rec и инфобокс: терминальные подписи */

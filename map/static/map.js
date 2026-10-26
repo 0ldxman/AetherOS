@@ -8,13 +8,30 @@ const DEFAULT_COLORS = {
   grid: '#8fb4d9',
 };
 
-// Тема встроенной карты (?theme=print|term, её выбирает виджет ::map по стилю документа):
-// print: карта на бумаге для doc, scan и светлого web; term: терминальная для rec и инфобокса
-const THEME = new URLSearchParams(window.location.search).get('theme');
+// Тема встроенной карты (?theme=maps|scan|term, её выбирает виджет ::map по стилю документа). Три разных вида:
+//   maps  светлая карта в духе онлайн-карт для doc и светлого web: булавки, круглые значки, белые карточки
+//   scan  бумажная карта с пометками от руки (ручка, маркер, записки) для scan
+//   term  тёмная графическая карта для rec и инфобокса, она же основная карта приложения: линии, прицелы, свечение
+// Метки, выноски, выделения и фигуры у виджета и у сохранённой карты общие, тема одна на весь документ.
+const THEME_PARAM = new URLSearchParams(window.location.search).get('theme');
+const THEME = THEME_PARAM === 'print' ? 'maps' : THEME_PARAM;   // print: прежнее имя темы maps
 const accentToken = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim() || '#3fd0ff';
 
 const THEMES = {
-  print: {
+  maps: {
+    colors: {
+      land: '#f1efe9', water: '#a9d3f5', forest: '#cfe8c9', road: '#ffffff',
+      roadCasing: '#d7d3c8', building: '#e5e1d8', grid: '#9aa0a6',
+    },
+    boundary: '#8a8f98',
+    provinceOpacity: 0.22,
+    keepCountryColors: true,
+    labelText: '#3c4043',
+    labelHalo: '#ffffff',
+    region: '#1a73e8',
+    dim: '#ffffff',
+  },
+  scan: {
     colors: {
       land: '#e8dfcb', water: '#c9d4d6', forest: '#d9d8b8', road: '#a89a80',
       roadCasing: '#e8dfcb', building: '#cfc4ac', grid: '#7a6a4f',
@@ -42,13 +59,16 @@ const THEMES = {
   },
 };
 
-THEMES.scan = THEMES.print;   // scan: та же бумажная карта, отличаются только метки
 const THEME_STYLE = THEMES[THEME] || null;
 
 // Цвета выделения и меток из разметки виджета (red, blue...). Те же имена и значения у легенды
 // в wiki/static/wiki/blocks.css (--mc-*): при правке менять оба места, тест следит за совпадением.
 const MARK_COLORS = {
-  print: {
+  maps: {
+    red: '#d93025', blue: '#1a73e8', green: '#188038', orange: '#e8710a',
+    purple: '#8e24aa', yellow: '#f9ab00', teal: '#129eaf', grey: '#5f6368',
+  },
+  scan: {
     red: '#b00d1c', blue: '#12307a', green: '#14612a', orange: '#b85200',
     purple: '#5a1f8a', yellow: '#b88a00', teal: '#0e6b6b', grey: '#2f2c28',
   },
@@ -57,7 +77,7 @@ const MARK_COLORS = {
     purple: '#b58cff', yellow: '#ffd84d', teal: '#3fd0ff', grey: '#9aa5a5',
   },
 };
-const markPalette = MARK_COLORS[THEME === 'term' || !THEME_STYLE ? 'term' : 'print'];
+const markPalette = MARK_COLORS[THEME_STYLE ? THEME : 'term'];
 const markColor = (name, fallback) => markPalette[name] || fallback;
 const COLORS = THEME_STYLE ? THEME_STYLE.colors : DEFAULT_COLORS;
 
@@ -501,22 +521,47 @@ if (EMBED || SCENE_VIEW) {
     layout: { visibility: 'none' },
     paint: { 'fill-color': THEME_STYLE ? THEME_STYLE.dim : '#0f1b2d', 'fill-opacity': 0.55 },
   });
+  // выделение провинций: у каждой темы свой вид (maps: заливка и ровный контур, term: тонкий контур со свечением,
+  // scan: штриховка цветным карандашом и контур ручкой в два прохода)
   map.addLayer({
     id: 'regions-fill',
     type: 'fill',
     source: 'adm1',
     'source-layer': 'aether_provinces',
     filter: nothing,
-    paint: { 'fill-color': '#ffcf4d', 'fill-opacity': 0.4 },
+    paint: { 'fill-color': '#ffcf4d', 'fill-opacity': THEME === 'maps' ? 0.22 : THEME === 'term' ? 0.16 : THEME === 'scan' ? 1 : 0.4 },
   });
+  if (THEME === 'term' || !THEME_STYLE) {
+    map.addLayer({
+      id: 'regions-glow',
+      type: 'line',
+      source: 'adm1',
+      'source-layer': 'aether_provinces',
+      filter: nothing,
+      paint: { 'line-color': '#ffcf4d', 'line-width': 7, 'line-blur': 5, 'line-opacity': 0.4 },
+    });
+  }
   map.addLayer({
     id: 'regions-line',
     type: 'line',
     source: 'adm1',
     'source-layer': 'aether_provinces',
     filter: nothing,
-    paint: { 'line-color': '#ffcf4d', 'line-width': 2.2 },
+    layout: THEME === 'scan' ? { 'line-cap': 'round', 'line-join': 'round' } : {},
+    paint: { 'line-color': '#ffcf4d', 'line-width': THEME === 'term' ? 1.4 : THEME === 'scan' ? 2.3 : 2.2, 'line-blur': THEME === 'scan' ? 0.35 : 0 },
   });
+  if (THEME === 'scan') {
+    // второй, более тонкий и смещённый проход ручки: контур выглядит обведённым дважды
+    map.addLayer({
+      id: 'regions-line2',
+      type: 'line',
+      source: 'adm1',
+      'source-layer': 'aether_provinces',
+      filter: nothing,
+      layout: { 'line-cap': 'round', 'line-join': 'round' },
+      paint: { 'line-color': '#ffcf4d', 'line-width': 0.9, 'line-offset': 1.6, 'line-opacity': 0.7 },
+    });
+  }
 }
 
 // Названия провинций во встроенной карте (?labels=0 отключает): с зума 4, выделенные заметнее
@@ -810,6 +855,42 @@ function postLink(url, label) {
   if (url) window.parent.postMessage({ type: 'aether-map-link', url, label: label || '' }, window.location.origin);
 }
 
+// Штриховка цветным карандашом для выделений на scan: плитка 64 px, концы штрихов совпадают на краях,
+// поэтому рисунок ложится без швов, а изгиб штриха разный, чтобы не выглядело печатным узором
+const hatchImages = new Set();
+function hatchName(color) {
+  const name = `hatch:${color}`;
+  if (hatchImages.has(name) || map.hasImage(name)) return name;
+  const size = 64;
+  const canvas = document.createElement('canvas');
+  canvas.width = size;
+  canvas.height = size;
+  const ctx = canvas.getContext('2d');
+  ctx.fillStyle = color;
+  ctx.globalAlpha = 0.13;
+  ctx.fillRect(0, 0, size, size);
+  ctx.globalAlpha = 0.62;
+  ctx.strokeStyle = color;
+  ctx.lineCap = 'round';
+  const wobble = [1.6, -1.2, 2.1, -1.8, 1.1, -2.2, 1.7, -0.9];
+  [3, 11, 19, 27, 35, 43, 51, 59].forEach((y, i) => {
+    ctx.lineWidth = 1.1 + (i % 3) * 0.25;
+    const w = wobble[i];
+    // штрих уходит вниз-вправо и, дойдя до края плитки, продолжается с противоположной стороны
+    ctx.beginPath();
+    ctx.moveTo(0, y);
+    ctx.quadraticCurveTo((size - y) / 2 + w, (size + y) / 2 - w, size - y, size);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(size - y, 0);
+    ctx.quadraticCurveTo(size - y / 2 + w, y / 2 - w, size, y);
+    ctx.stroke();
+  });
+  map.addImage(name, ctx.getImageData(0, 0, size, size), { pixelRatio: 2 });
+  hatchImages.add(name);
+  return name;
+}
+
 // Выделение провинций: адрес карты плюс пометки сцены (у последней записи провинции приоритет)
 function setRegions(extra) {
   if (!(EMBED || SCENE_VIEW) || !map.getLayer('regions-fill')) return;
@@ -826,12 +907,22 @@ function setRegions(extra) {
   for (const [code, item] of items) byColor.push(code, markColor(item.color, base));
   byColor.push(base);
 
-  map.setFilter('regions-fill', inRegions);
-  map.setFilter('regions-line', inRegions);
+  for (const id of ['regions-fill', 'regions-line', 'regions-line2', 'regions-glow']) {
+    if (map.getLayer(id)) map.setFilter(id, inRegions);
+  }
   map.setFilter('regions-dim', ['!', inRegions]);
   map.setLayoutProperty('regions-dim', 'visibility', codes.length ? 'visible' : 'none');
-  map.setPaintProperty('regions-fill', 'fill-color', codes.length ? byColor : base);
-  map.setPaintProperty('regions-line', 'line-color', codes.length ? byColor : base);
+  for (const id of ['regions-line', 'regions-line2', 'regions-glow']) {
+    if (map.getLayer(id)) map.setPaintProperty(id, 'line-color', codes.length ? byColor : base);
+  }
+  if (THEME === 'scan') {
+    const pattern = ['match', ['get', 'adm1_code']];
+    for (const [code, item] of items) pattern.push(code, hatchName(markColor(item.color, base)));
+    pattern.push(hatchName(base));
+    map.setPaintProperty('regions-fill', 'fill-pattern', pattern);
+  } else {
+    map.setPaintProperty('regions-fill', 'fill-color', codes.length ? byColor : base);
+  }
 }
 
 if (EMBED) {
@@ -908,6 +999,18 @@ function ensureSceneLayers() {
   map.addLayer({ id: 'scene-outline', type: 'line', source: SCENE_SOURCE,
     filter: ['==', ['geometry-type'], 'Polygon'],
     paint: { 'line-color': ['get', 'c'], 'line-width': 2, 'line-opacity': PEN_SCENE ? 0 : 1 } }, before);
+  if (THEME === 'maps') {
+    // маршрут с белой окантовкой, как на онлайн-картах
+    map.addLayer({ id: 'scene-lines-casing', type: 'line', source: SCENE_SOURCE,
+      filter: ['==', ['geometry-type'], 'LineString'],
+      layout: { 'line-cap': 'round', 'line-join': 'round' },
+      paint: { 'line-color': '#ffffff', 'line-width': ['+', ['get', 'w'], 3] } }, before);
+  } else if (THEME === 'term' || !THEME_STYLE) {
+    map.addLayer({ id: 'scene-lines-glow', type: 'line', source: SCENE_SOURCE,
+      filter: ['==', ['geometry-type'], 'LineString'],
+      layout: { 'line-cap': 'round', 'line-join': 'round' },
+      paint: { 'line-color': ['get', 'c'], 'line-width': ['+', ['get', 'w'], 5], 'line-blur': 4, 'line-opacity': 0.35 } }, before);
+  }
   map.addLayer({ id: 'scene-lines', type: 'line', source: SCENE_SOURCE,
     filter: ['all', ['==', ['geometry-type'], 'LineString'], ['!=', ['get', 'dash'], true]],
     layout: { 'line-cap': 'round', 'line-join': 'round' },
@@ -1022,6 +1125,32 @@ if (EMBED) {
 }
 
 
+// Контур значка «от руки»: точки пути смещаются плавным шумом, а замкнутый контур идёт чуть дальше
+// начала и не попадает в него. seed разный у меток, pass у первого и второго прохода ручки.
+function roughPath(d, seed, pass) {
+  const ns = 'http://www.w3.org/2000/svg';
+  const phase = seed * 1.7 + pass * 2.3;
+  const amp = pass ? 0.55 : 0.4;
+  return d.split(/(?=M)/).filter(Boolean).map((sub) => {
+    const probe = document.createElementNS(ns, 'path');
+    probe.setAttribute('d', sub);
+    const length = probe.getTotalLength();
+    if (!length) return '';
+    const closed = /z\s*$/i.test(sub.trim());
+    const span = length * (closed ? 1.06 : 1);
+    const steps = Math.max(8, Math.round(span / 1));
+    const points = [];
+    for (let i = 0; i <= steps; i += 1) {
+      const t = (i / steps) * span;
+      const at = probe.getPointAtLength(t > length ? t - length : t);
+      const x = at.x + amp * (Math.sin(t * 0.38 + phase) + 0.4 * Math.sin(t * 0.9 + phase * 2));
+      const y = at.y + amp * (Math.cos(t * 0.34 + phase * 1.3) + 0.4 * Math.cos(t * 0.8 + phase));
+      points.push(`${i ? 'L' : 'M'}${x.toFixed(1)} ${y.toFixed(1)}`);
+    }
+    return points.join('');
+  }).join('');
+}
+
 // Метка на карте. index: номер (метки из строк ::map) или null (метки сохранённой карты:
 // без номера, с подписью рядом). Вид зависит от темы документа: у scan крестик ручкой.
 function addMarker(item, index, opts = {}) {
@@ -1043,13 +1172,17 @@ function addMarker(item, index, opts = {}) {
   const shape = item.icon && item.icon !== 'pin' ? MARKER_ICONS[item.icon] : null;
 
   if (shape) {
-    // значок-форма: на scan обведён ручкой, на остальных картах плоский с лёгкой заливкой
+    // значок-форма: на scan обведён ручкой, на maps белый знак на круглой плашке, на term контур с засечками
     const pen = THEME === 'scan';
     tag.classList.add(pen ? 'embed-marker--pen' : 'embed-marker--icon');
+    if (pen) tag.classList.add('embed-marker--pen-shape');
     if (shape.solid) tag.classList.add('is-solid');
     if (!shape.closed) tag.classList.add('is-open');
+    // от руки: контур ведётся неровно, замкнутая фигура не сходится ровно, второй проход тоньше и в другом месте
+    const first = pen ? roughPath(shape.d, seed, 0) : shape.d;
+    const again = pen ? `<path class="again" d="${roughPath(shape.d, seed, 1)}"/>` : '';
     tag.innerHTML =
-      `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="${shape.d}"/></svg>` +
+      `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="${first}"/>${again}</svg>` +
       (numbered ? `<span class="${pen ? 'pen-n' : 'icon-n'}">${text}</span>` : '');
   } else if (THEME === 'scan') {
     // пометка красной ручкой: маленький крестик, нарисованный от руки в два росчерка, и номер рядом
@@ -1089,8 +1222,8 @@ function addMarker(item, index, opts = {}) {
     });
   }
 
-  // остриё булавки стоит на точке; крест от руки центрируется на ней
-  const centered = THEME === 'scan' || !!shape;
+  // остриё булавки (maps) стоит на точке; прицел, крест от руки и круглые значки центрируются на ней
+  const centered = THEME !== 'maps' || !!shape;
   const marker = new maplibregl.Marker({ element: el, anchor: centered ? 'center' : 'bottom', draggable: !!opts.onMove })
     .setLngLat([lon, lat])
     .addTo(map);

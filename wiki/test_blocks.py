@@ -168,7 +168,11 @@ class BlocksTests(TestCase):
         root = Path(__file__).resolve().parents[1]
         js = (root / "map/static/map.js").read_text(encoding="utf-8")
         css = (root / "wiki/static/wiki/blocks.css").read_text(encoding="utf-8")
-        for theme, selector in (("print", ".widget--map {"), ("term", '.widget--map[data-theme="term"] {')):
+        for theme, selector in (
+            ("scan", '.widget--map[data-theme="scan"], .widget--map:not([data-theme]) {'),
+            ("maps", '.widget--map[data-theme="maps"] {'),
+            ("term", '.widget--map[data-theme="term"] {'),
+        ):
             palette = js[js.index("const MARK_COLORS"):js.index("const markPalette")]
             block = re.search(theme + r": \{(.*?)\},", palette, re.S).group(1)
             wanted = dict(re.findall(r"(\w+): '(#[0-9a-f]{6})'", block))

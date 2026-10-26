@@ -162,41 +162,69 @@ body.embed #timeline {
 }
 
 /*
- * Метки виджета ::map: булавки. Остриё стоит на точке, цвет задаёт --mc (из разметки),
- * без него берётся цвет темы. Сама булавка повёрнутая капля, номер повёрнут обратно.
+ * Метки на карте. Три вида, по теме документа (см. THEME в map.js):
+ *   maps  булавка с белой точкой, значки круглыми плашками с белым знаком, как на онлайн-картах
+ *   term  графика: ромб-прицел и контурные значки с угловыми засечками и свечением
+ *   scan  пометки от руки: крестик, значки в два росчерка, цифры почерком
+ * Цвет задаёт --mc (из разметки), без него берётся цвет темы.
  */
 .embed-marker {
-  --pin: var(--mc, var(--mc-default, #b3261e));
+  --pin: var(--mc, var(--mc-default, var(--accent, #3fd0ff)));
   position: relative;
   display: grid;
   place-items: center;
-  width: 26px;
-  height: 26px;
-  margin-bottom: 9px;
+  width: 22px;
+  height: 22px;
   box-sizing: border-box;
-  background: var(--pin);
-  border: 2px solid var(--pin-ring, #fff);
-  border-radius: 50% 50% 50% 0;
-  color: var(--pin-ink, #fff);
-  transform: rotate(-45deg);
-  box-shadow: 1px 1px 0 rgba(0, 0, 0, 0.25);
+  background: color-mix(in srgb, var(--pin) 16%, transparent);
+  border: 2px solid var(--pin);
+  color: var(--pin);
+  transform: rotate(45deg);
+  box-shadow: 0 0 9px color-mix(in srgb, var(--pin) 55%, transparent), inset 0 0 5px color-mix(in srgb, var(--pin) 35%, transparent);
 }
 
 .embed-marker::after {
-  /* номер читается прямо, а не по диагонали */
+  /* номер читается прямо, а не по диагонали; без номера в центре точка */
   content: attr(data-n);
-  transform: rotate(45deg);
-  font: 700 12px/1 var(--font-main, monospace);
+  transform: rotate(-45deg);
+  font: 700 11px/1 var(--font-main, monospace);
 }
 
-body.theme-print .embed-marker {
-  --mc-default: #b3261e;
-  --pin-ring: #fffdf6;
-  --pin-ink: #fffdf6;
+.embed-marker[data-n=""]::after {
+  width: 4px;
+  height: 4px;
+  background: var(--pin);
+}
+
+/* maps: булавка, остриё на точке */
+body.theme-maps .embed-marker {
+  --mc-default: #d93025;
+  width: 26px;
+  height: 26px;
+  margin-bottom: 9px;
+  background: var(--pin);
+  border: 2px solid color-mix(in srgb, var(--pin) 72%, #000);
+  border-radius: 50% 50% 50% 0;
+  color: #fff;
+  transform: rotate(-45deg);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.35);
+}
+
+body.theme-maps .embed-marker::after {
+  transform: rotate(45deg);
+  font: 700 12px/1 Roboto, "Segoe UI", system-ui, Arial, sans-serif;
+}
+
+body.theme-maps .embed-marker[data-n=""]::after {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #fff;
 }
 
 /* scan: пометка красной ручкой, крест на точке и номер от руки, краска просвечивает бумагу */
-.embed-marker--pen {
+.embed-marker--pen,
+body.theme-maps .embed-marker--pen {
   display: block;
   width: 24px;
   height: 24px;
@@ -215,13 +243,18 @@ body.theme-print .embed-marker {
   content: none;
 }
 
+.embed-marker--pen-shape {
+  width: 28px;
+  height: 28px;
+}
+
 .embed-marker--pen svg {
   width: 100%;
   height: 100%;
   overflow: visible;
   fill: none;
   stroke: currentColor;
-  stroke-width: 2.1;
+  stroke-width: 2.3;
   stroke-linecap: round;
   stroke-linejoin: round;
   filter: url(#pen-rough);
@@ -233,8 +266,8 @@ body.theme-print .embed-marker {
 }
 
 .embed-marker--pen .again {
-  stroke-width: 0.9;
-  opacity: 0.7;
+  stroke-width: 1;
+  opacity: 0.75;
 }
 
 .embed-marker--pen .pen-n {
@@ -248,12 +281,6 @@ body.theme-print .embed-marker {
   transform: rotate(-7deg);
 }
 
-body.theme-term .embed-marker {
-  --mc-default: var(--accent);
-  --pin-ring: var(--bg);
-  --pin-ink: var(--bg);
-}
-
 /* подпись и ссылка у меток сохранённой карты */
 .marker-link {
   cursor: pointer;
@@ -263,26 +290,34 @@ body.theme-term .embed-marker {
   position: absolute;
   left: 100%;
   top: 50%;
-  margin-left: 6px;
+  margin-left: 9px;
   transform: translateY(-50%);
-  font: 600 12px/1.2 var(--font-main, monospace);
+  font: 500 10.5px/1.2 var(--font-main, monospace);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
   white-space: nowrap;
-  color: var(--text, #fff);
-  text-shadow: 0 0 3px var(--halo, #000), 0 0 3px var(--halo, #000);
+  color: var(--mc, var(--accent, #3fd0ff));
+  text-shadow: 0 0 3px #050909, 0 0 3px #050909, 0 0 6px #050909;
 }
 
-body.theme-print .marker-label,
+body.theme-maps .marker-label {
+  margin-left: 6px;
+  font: 600 12px/1.2 Roboto, "Segoe UI", system-ui, Arial, sans-serif;
+  letter-spacing: 0;
+  text-transform: none;
+  color: #3c4043;
+  text-shadow: -1px 0 #fff, 1px 0 #fff, 0 -1px #fff, 0 1px #fff, 0 0 3px #fff;
+}
+
 body.theme-scan .marker-label {
-  --text: #2a2118;
+  margin-left: 6px;
   font-family: var(--font-hand, cursive);
   font-size: 17px;
   font-weight: 400;
+  letter-spacing: 0;
+  text-transform: none;
+  color: #2a2118;
   text-shadow: none;   /* на бумаге подпись без светлой обводки, как написанная ручкой */
-}
-
-body.theme-term .marker-label {
-  --text: var(--accent);
-  --halo: var(--bg);
 }
 
 /* редактор сохранённой карты: ручки вершин и выбранная метка */
@@ -321,9 +356,9 @@ body.theme-term .marker-label {
   mix-blend-mode: multiply;
 }
 
-/* значки-формы (звезда, ромб и другие) на светлой и терминальной картах: плоские, цвет из метки */
+/* значки-формы (звезда, ромб и другие) на maps и term; на scan их рисует ручка (.embed-marker--pen) */
 .embed-marker--icon {
-  --mc-fallback: var(--mc-default, #b3261e);
+  --ic: var(--mc, var(--mc-default, var(--accent, #3fd0ff)));
   position: relative;
   display: block;
   width: 26px;
@@ -334,7 +369,7 @@ body.theme-term .marker-label {
   border-radius: 0;
   box-shadow: none;
   transform: none;
-  color: var(--mc, var(--mc-fallback));
+  color: var(--ic);
 }
 
 .embed-marker--icon::after {
@@ -345,11 +380,12 @@ body.theme-term .marker-label {
   width: 100%;
   height: 100%;
   overflow: visible;
-  fill: color-mix(in srgb, currentColor 28%, transparent);
+  fill: color-mix(in srgb, currentColor 14%, transparent);
   stroke: currentColor;
-  stroke-width: 2.2;
-  stroke-linecap: round;
-  stroke-linejoin: round;
+  stroke-width: 1.6;
+  stroke-linecap: square;
+  stroke-linejoin: miter;
+  filter: drop-shadow(0 0 3px color-mix(in srgb, currentColor 70%, transparent));
 }
 
 .embed-marker--icon.is-open svg {
@@ -357,28 +393,94 @@ body.theme-term .marker-label {
 }
 
 .embed-marker--icon.is-solid svg {
-  fill: currentColor;
+  fill: color-mix(in srgb, currentColor 80%, transparent);
+}
+
+/* term: угловые засечки вокруг значка, как рамка захвата цели */
+body.theme-term .embed-marker--icon::before,
+body:not([class*="theme-"]) .embed-marker--icon::before {
+  content: "";
+  position: absolute;
+  inset: -6px;
+  pointer-events: none;
+  background:
+    linear-gradient(currentColor, currentColor) top left / 6px 1px no-repeat,
+    linear-gradient(currentColor, currentColor) top left / 1px 6px no-repeat,
+    linear-gradient(currentColor, currentColor) top right / 6px 1px no-repeat,
+    linear-gradient(currentColor, currentColor) top right / 1px 6px no-repeat,
+    linear-gradient(currentColor, currentColor) bottom left / 6px 1px no-repeat,
+    linear-gradient(currentColor, currentColor) bottom left / 1px 6px no-repeat,
+    linear-gradient(currentColor, currentColor) bottom right / 6px 1px no-repeat,
+    linear-gradient(currentColor, currentColor) bottom right / 1px 6px no-repeat;
+  opacity: 0.8;
 }
 
 .embed-marker--icon .icon-n {
   position: absolute;
-  top: -9px;
-  right: -9px;
-  font: 700 11px/1 var(--font-main, monospace);
+  top: -12px;
+  right: -12px;
+  font: 700 10px/1 var(--font-main, monospace);
   color: currentColor;
 }
 
-/* на scan значок рисуется ручкой теми же правилами, что крестик: контур без заливки */
+/* maps: круглая плашка цвета метки с белым знаком */
+body.theme-maps .embed-marker--icon {
+  --mc-default: #d93025;
+  margin: 0;
+  transform: none;
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  background: var(--ic);
+  border: 2px solid #fff;
+  border-radius: 50%;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.4);
+  color: #fff;
+}
+
+body.theme-maps .embed-marker--icon svg {
+  width: 18px;
+  height: 18px;
+  fill: rgba(255, 255, 255, 0.28);
+  stroke: #fff;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  filter: none;
+}
+
+body.theme-maps .embed-marker--icon.is-open svg {
+  fill: none;
+}
+
+body.theme-maps .embed-marker--icon.is-solid svg {
+  fill: #fff;
+}
+
+body.theme-maps .embed-marker--icon .icon-n {
+  top: -7px;
+  right: -7px;
+  display: grid;
+  place-items: center;
+  min-width: 15px;
+  height: 15px;
+  padding: 0 3px;
+  box-sizing: border-box;
+  background: #fff;
+  border-radius: 8px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
+  color: #3c4043;
+  font: 700 10px/1 Roboto, "Segoe UI", system-ui, Arial, sans-serif;
+}
+
+/* на scan значок рисуется ручкой теми же правилами, что крестик: контур без заливки, в два росчерка */
 .embed-marker--pen svg path {
   vector-effect: none;
 }
 
 .embed-marker--pen.is-solid svg {
   fill: currentColor;
-}
-
-body.theme-term .embed-marker--icon {
-  --mc-fallback: var(--accent);
 }
 
 /* выбор сохранённой карты в приложении */
@@ -424,9 +526,12 @@ body.embed #scene-panel {
   display: none;
 }
 
-/* выноска: плашка с текстом и линия к месту; цвет линии и рамки из --mc */
+/*
+ * Выноска: плашка с текстом и линия к месту; цвет линии и рамки из --mc. Без темы и в term тёмная
+ * панель со светлым текстом (цвета заданы здесь, а не взяты из токенов: иначе панель тёмная, а текст тоже).
+ */
 .callout {
-  --c: var(--mc, var(--mc-default, #6b6b6b));
+  --c: var(--mc, var(--mc-default, var(--accent, #3fd0ff)));
   position: relative;
   width: 0;
   height: 0;
@@ -442,8 +547,8 @@ body.embed #scene-panel {
 
 .callout-line line {
   stroke: var(--c);
-  stroke-width: 1.6;
-  stroke-linecap: round;
+  stroke-width: 1.2;
+  stroke-linecap: square;
 }
 
 .callout-line circle {
@@ -455,13 +560,17 @@ body.embed #scene-panel {
   transform: translate(-50%, -50%);
   width: max-content;
   max-width: 190px;
-  padding: 4px 9px;
+  padding: 5px 10px 5px 12px;
   box-sizing: border-box;
-  background: var(--panel, #fffdf6);
-  border: 1.5px solid var(--c);
-  color: var(--text, #2a2118);
-  font: 12px/1.3 var(--font-main, monospace);
+  background: rgba(7, 13, 13, 0.92);
+  border: 1px solid color-mix(in srgb, var(--c) 70%, transparent);
+  border-left: 3px solid var(--c);
+  color: #dce6f0;
+  font: 11.5px/1.35 var(--font-main, monospace);
   white-space: pre-wrap;
+  /* срезанный угол, как у терминальных панелей */
+  clip-path: polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 0 100%);
+  box-shadow: 0 0 10px color-mix(in srgb, var(--c) 25%, transparent);
 }
 
 .callout-edit {
@@ -475,30 +584,41 @@ body.embed #scene-panel {
 .callout.is-selected .callout-box {
   outline: 2px dashed #ffcf4d;
   outline-offset: 3px;
+  clip-path: none;
 }
 
-body.theme-print .callout-box {
-  --panel: #fffdf6;
-  --text: #2a2118;
+/* maps: белая карточка с мягкой тенью */
+body.theme-maps .callout {
+  --mc-default: #5f6368;
 }
 
-body.theme-term .callout-box {
-  --panel: color-mix(in srgb, var(--bg) 88%, transparent);
-  --text: var(--font-light);
-  border-radius: 0;
-  --mc-default: var(--accent);
+body.theme-maps .callout-line line {
+  stroke-width: 1.5;
+  stroke-linecap: round;
+}
+
+body.theme-maps .callout-box {
+  padding: 6px 11px;
+  background: #fff;
+  border: 0;
+  border-radius: 8px;
+  clip-path: none;
+  color: #202124;
+  font: 12.5px/1.35 Roboto, "Segoe UI", system-ui, Arial, sans-serif;
+  box-shadow: 0 1px 4px rgba(60, 64, 67, 0.45), 0 0 0 1px rgba(60, 64, 67, 0.08);
 }
 
 /* scan: записка на клочке бумаги, написанная от руки, линия ручкой */
 body.theme-scan .callout-box {
-  --panel: #f4ecd8;
-  --text: #24366f;
   --c: transparent;
-  border: 0;
   padding: 6px 11px;
+  background-color: #f4ecd8;
+  background-image: radial-gradient(ellipse at 40% 30%, rgba(255, 252, 235, 0.45), transparent 75%);
+  border: 0;
+  clip-path: none;
+  color: #24366f;
   font-family: var(--font-hand, cursive);
   font-size: 17px;
-  background-image: radial-gradient(ellipse at 40% 30%, rgba(255, 252, 235, 0.45), transparent 75%);
   box-shadow: 1px 2px 3px rgba(39, 32, 21, 0.35);
   transform: translate(-50%, -50%) rotate(-1.4deg);
 }
@@ -509,6 +629,8 @@ body.theme-scan .callout-line {
 
 body.theme-scan .callout-line line {
   stroke: var(--mc, #24366f);
+  stroke-width: 1.6;
+  stroke-linecap: round;
 }
 
 body.theme-scan .callout-line circle {
