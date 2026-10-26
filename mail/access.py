@@ -12,6 +12,7 @@
 только тому, кому его доставили, и не раньше времени доставки) и условие по ключам. Скрытое
 письмо для игрока не существует (404, а не «нет доступа»).
 """
+import copy
 from dataclasses import dataclass
 
 from django.db.models import Q
@@ -90,6 +91,16 @@ def folder_of(message, viewer, trashed=frozenset()):
     return "sent"
 
 
+def folders_of(message, viewer, trashed=frozenset()):
+    """Все папки читателя, где лежит письмо: себе или своему ящику по маске письмо и во входящих, и в отправленных."""
+    where = folder_of(message, viewer, trashed)
+
+    if where == "inbox" and not message.is_draft and same(message.sender, viewer.address):
+        return ["inbox", "sent"]
+
+    return [] if where is None else [where]
+
+
 def _delivered_ids(viewer, now):
     if viewer.user is None:
         return set()
@@ -123,12 +134,14 @@ def visible_messages(viewer, folder=None, now=None):
         if message.key_condition is not None and not satisfied(message.key_condition, viewer.keys):
             continue
 
-        where = folder_of(message, viewer, trashed)
-        if where is None or (folder is not None and where != folder):
-            continue
+        for where in folders_of(message, viewer, trashed):
+            if folder is not None and where != folder:
+                continue
 
-        message.folder = where
-        found.append(message)
+            # копия объекта, чтобы у письма в каждой папке была своя отметка папки
+            entry = copy.copy(message)
+            entry.folder = where
+            found.append(entry)
 
     return found
 

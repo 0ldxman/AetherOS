@@ -84,6 +84,16 @@ class AccessTests(TestCase):
         self.assertEqual([m.pk for m in visible_messages(self.viewer())], [new.pk, old.pk])
 
 
+class SelfMailFolderTests(TestCase):
+    def test_message_to_myself_is_in_inbox_and_sent(self):
+        from .access import Viewer, visible_messages
+        make_message(sender="me@aether-main", recipients="me@aether-main, *@aether-main")
+        viewer = Viewer(address="me@aether-main", keys=frozenset())
+        self.assertEqual([m.folder for m in visible_messages(viewer)], ["inbox", "sent"])
+        self.assertEqual(len(visible_messages(viewer, "sent")), 1)
+        self.assertEqual(len(visible_messages(viewer, "inbox")), 1)
+
+
 class RecipientsLineTests(TestCase):
     def test_reader_sees_own_address_and_full_addresses_only(self):
         from .addresses import recipients_line
@@ -532,10 +542,10 @@ class FolderTests(TestCase):
         self.assertEqual(self.titles(self.viewer(), "inbox"), [])
         self.assertEqual(self.titles(self.viewer(self.olga), "inbox"), ["done"])     # получателю то же письмо во входящих
 
-    def test_a_letter_to_oneself_is_an_inbox_letter(self):
+    def test_a_letter_to_oneself_is_in_the_inbox_and_in_sent(self):
         make_message(subject="note", sender="will_smith@apollo.mail", recipients="will_smith@apollo.mail")
-        self.assertEqual(self.titles(self.viewer()), ["note"])
         self.assertEqual(self.titles(self.viewer(), "inbox"), ["note"])
+        self.assertEqual(self.titles(self.viewer(), "sent"), ["note"])
 
     def test_a_draft_is_only_in_its_authors_drafts(self):
         make_message(subject="unsent", sender="will_smith@apollo.mail", recipients="olga@apollo.mail", status="draft")
