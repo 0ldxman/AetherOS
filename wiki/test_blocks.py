@@ -46,20 +46,48 @@ class BlocksTests(TestCase):
         self.assertIn("Отчёт", html)
 
     def test_map_embeds_live_and_still_addresses(self):
-        html = render("::map lat=48.8 lon=2.3 zoom=5 date=2041-03-12 caption=Порт")
+        html = render("::map lat=48.8 lon=2.3 zoom=5 date=2041-03-12 caption=Порт\n::\n")
         self.assertIn("widget--map", html)
         self.assertIn("embed=1", html)
         self.assertIn("date=2041-03-12", html)
         self.assertIn("static=1#5/48.8/2.3", html)
         self.assertIn("Порт", html)
+        self.assertIn("map-stamp", html)
+        self.assertIn("map-north", html)
+        self.assertIn("map-scale", html)
 
     def test_map_ignores_a_bad_date_and_clamps_the_view(self):
-        html = render("::map lat=999 date=tomorrow")
+        html = render("::map lat=999 lon=1 date=tomorrow\n::\n")
         self.assertNotIn("date=", html)
         self.assertIn("/85/", html)
+
+    def test_map_markers_go_to_the_url_and_the_legend(self):
+        html = render("::map lat=48 lon=2\nПорт | 48.8 2.3\nСклад | 48.9, 2.4\nмусор\n::\n")
+        self.assertIn("m=48.8,2.3,%D0%9F%D0%BE%D1%80%D1%82", html)
+        self.assertEqual(html.count("map-legend-marker"), 2)
+        self.assertIn("<b>2</b>Склад", html)
+
+    def test_map_regions_come_from_database_codes(self):
+        from map.models import Province
+
+        Province.objects.create(code="RUS-32", source_code="RUS-2400", name="Алтай")
+        html = render('::map regions="RUS-32 XXX-1"\n::\n')
+        self.assertIn("regions=RUS-2400", html)
+        self.assertNotIn("XXX-1", html)
+        self.assertIn("map-legend-region", html)
+        self.assertIn("Алтай", html)
+        # вид подобран по рамке провинции
+        self.assertIn("static=1#", html)
+        self.assertNotIn("#2/20/10", html)
+
+    def test_lint_flags_unknown_regions(self):
+        from map.models import Province
+
+        Province.objects.create(code="RUS-32", source_code="RUS-2400", name="Алтай")
+        self.assertEqual(codes('::map regions="RUS-32 NOPE-1"\n::\n'), [(1, "region-missing")])
 
     def test_lint_checks_the_assets_of_groups(self):
         self.assertEqual(codes("::gallery\npic-1 | a\nnope | b\n::\n"), [(3, "asset-missing")])
         self.assertEqual(codes("::gallery\nrep-1 | a\n::\n"), [(2, "asset-type")])
         self.assertEqual(codes("::files\nrep-1 | a\n::\n"), [])
-        self.assertEqual(codes("::map lat=1 lon=2\n"), [])
+        self.assertEqual(codes("::map lat=1 lon=2\n::\n"), [])

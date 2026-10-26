@@ -1092,13 +1092,13 @@ import "./condition_editor.js";
 
     button(
       "+ Карта",
-      "Карта мира: живая в web, rec и инфобоксе, неподвижная в doc и scan",
+      "Карта мира: выделенные провинции (коды RUS-32) и метки; живая в web, rec и инфобоксе, неподвижная в doc и scan",
       () => {
 
         replaceSelection(
           getEditor(),
           () =>
-            "::map lat=20 lon=10 zoom=3 caption=\"\"\n"
+            "::map regions=\"\" caption=\"\"\nНазвание | 20 10\n::\n"
         );
 
       }

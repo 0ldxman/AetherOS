@@ -78,6 +78,7 @@ class _Scan:
         self.issues = []
         self.keys = []     # (строка, slug)
         self.assets = []   # (строка, виджет, ссылка)
+        self.regions = []  # (строка, код провинции) из ::map regions=...
         self.links = []    # (строка, адрес)
         self._run(text.splitlines())
 
@@ -146,6 +147,11 @@ class _Scan:
                 else _parse_body(_block_body(lines, index))
             )
             self.assets.append((number, name, (params.get("src") or "").strip()))
+
+        if name == "map" and args:
+            for code in re.split(r"[\s,;]+", _parse_args(args, None).get("regions", "")):
+                if code:
+                    self.regions.append((number, code))
 
         if name in GROUP_WIDGETS:
             for offset, row in enumerate(_block_body(lines, index), 1):
@@ -247,6 +253,16 @@ def lint(text):
                 number, ERROR, "asset-type",
                 f"::{widget} не подходит ассету «{ref}»: это {asset_widget_kind(asset)}.",
             ))
+
+    if scan.regions:
+        from map.models import Province
+
+        known = {code.upper() for code in Province.objects.filter(
+            code__in={code.upper() for _, code in scan.regions}
+        ).values_list("code", flat=True)}
+        for number, code in scan.regions:
+            if code.upper() not in known:
+                issues.append(Issue(number, ERROR, "region-missing", f"Провинции {code} нет в базе карты."))
 
     wiki = _Wiki()
     checked = {}

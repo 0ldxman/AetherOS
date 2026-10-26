@@ -1,4 +1,4 @@
-const COLORS = {
+const DEFAULT_COLORS = {
   land: '#2b2f36',
   water: '#0f1b2d',
   forest: '#1f3a2e',
@@ -7,6 +7,43 @@ const COLORS = {
   building: '#3d444f',
   grid: '#8fb4d9',
 };
+
+// Тема встроенной карты (?theme=print|term, её выбирает виджет ::map по стилю документа):
+// print: карта на бумаге для doc, scan и светлого web; term: терминальная для rec и инфобокса
+const THEME = new URLSearchParams(window.location.search).get('theme');
+const accentToken = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim() || '#3fd0ff';
+
+const THEMES = {
+  print: {
+    colors: {
+      land: '#e8dfcb', water: '#c9d4d6', forest: '#d9d8b8', road: '#a89a80',
+      roadCasing: '#e8dfcb', building: '#cfc4ac', grid: '#7a6a4f',
+    },
+    boundary: '#6b5b3e',
+    provinceOpacity: 0.28,
+    keepCountryColors: true,
+    labelText: '#2e2518',
+    labelHalo: '#e8dfcb',
+    region: '#b3261e',
+    dim: '#e8dfcb',
+  },
+  term: {
+    colors: {
+      land: '#0d1717', water: '#060b0b', forest: '#0f1f1d', road: '#1f4a49',
+      roadCasing: '#0a1211', building: '#143231', grid: accentToken,
+    },
+    boundary: accentToken,
+    provinceOpacity: 0.12,
+    keepCountryColors: false,
+    labelText: accentToken,
+    labelHalo: '#050909',
+    region: accentToken,
+    dim: '#050909',
+  },
+};
+
+const THEME_STYLE = THEMES[THEME] || null;
+const COLORS = THEME_STYLE ? THEME_STYLE.colors : DEFAULT_COLORS;
 
 const GRID_STEP = 10; // шаг сетки в градусах; жирные линии каждые 30°
 const DEFAULT_PROVINCE_COLOR = '#cccccc';
@@ -32,7 +69,16 @@ const EDIT_MODE = new URLSearchParams(window.location.search).get('edit') === '1
 const SEARCH = new URLSearchParams(window.location.search);
 const EMBED = SEARCH.get('embed') === '1';
 const STATIC_VIEW = EMBED && SEARCH.get('static') === '1';
+const REGIONS = EMBED ? (SEARCH.get('regions') || '').split(',').filter(Boolean) : [];
+const MARKERS = EMBED
+  ? SEARCH.getAll('m').map((raw) => {
+      const [lat, lon, ...label] = raw.split(',');
+      return { lat: Number(lat), lon: Number(lon), label: label.join(',') };
+    }).filter((m) => Number.isFinite(m.lat) && Number.isFinite(m.lon))
+  : [];
+const PROVINCE_OPACITY = THEME_STYLE ? THEME_STYLE.provinceOpacity : 0.2;
 if (EMBED) document.body.classList.add('embed');
+if (THEME) document.body.classList.add('theme-' + THEME);
 
 const DEFAULT_MODE = 'political';
 const MODE_LAYERS = {
@@ -194,7 +240,10 @@ function loadProvinceColors() {
         provinceCodes[sourceCode] = item.code;
       }
       console.log('Цвета провинций загружены:', Object.keys(colors).length);
-      map.setPaintProperty('adm1-fill', 'fill-color', buildColorExpression(colors));
+      // терминальная тема одноцветная: цвета стран ей не нужны
+      if (!THEME_STYLE || THEME_STYLE.keepCountryColors) {
+        map.setPaintProperty('adm1-fill', 'fill-color', buildColorExpression(colors));
+      }
     })
     .catch((err) => console.error('Не удалось загрузить цвета провинций', err));
 }
@@ -303,7 +352,7 @@ map.on('load', () => {
     source: 'adm1',
     'source-layer': 'aether_provinces',
     paint: {
-      'line-color': '#8fb4d9',
+      'line-color': THEME_STYLE ? THEME_STYLE.boundary : '#8fb4d9',
       'line-dasharray': [3, 2],
       'line-width': [
         'interpolate',
@@ -342,8 +391,8 @@ map.on('load', () => {
         'interpolate',
         ['linear'],
         ['zoom'],
-        0, 0.2,
-        8, 0.2,
+        0, PROVINCE_OPACITY,
+        8, PROVINCE_OPACITY,
         11, 0,
       ],
     },
@@ -366,7 +415,40 @@ map.on('load', () => {
 
   overlayIds.forEach(id => map.moveLayer(id));
 
-  // Координатная сетка: самым последним слоем, поверх всего
+  // Выделение провинций виджета ::map (?regions=adm1_code,...): выбранные залиты и обведены,
+// остальные притушены
+if (REGIONS.length) {
+  const inRegions = ['in', ['get', 'adm1_code'], ['literal', REGIONS]];
+  const region = THEME_STYLE ? THEME_STYLE.region : '#ffcf4d';
+  const dim = THEME_STYLE ? THEME_STYLE.dim : '#0f1b2d';
+
+  map.addLayer({
+    id: 'regions-dim',
+    type: 'fill',
+    source: 'adm1',
+    'source-layer': 'aether_provinces',
+    filter: ['!', inRegions],
+    paint: { 'fill-color': dim, 'fill-opacity': 0.55 },
+  });
+  map.addLayer({
+    id: 'regions-fill',
+    type: 'fill',
+    source: 'adm1',
+    'source-layer': 'aether_provinces',
+    filter: inRegions,
+    paint: { 'fill-color': region, 'fill-opacity': 0.4 },
+  });
+  map.addLayer({
+    id: 'regions-line',
+    type: 'line',
+    source: 'adm1',
+    'source-layer': 'aether_provinces',
+    filter: inRegions,
+    paint: { 'line-color': region, 'line-width': 2.2 },
+  });
+}
+
+// Координатная сетка: самым последним слоем, поверх всего
   map.addSource('graticule', {
     type: 'geojson',
     data: makeGraticule(GRID_STEP),
@@ -432,8 +514,8 @@ map.on('load', () => {
         'text-max-width': 8,
       },
       paint: {
-        'text-color': '#dce6f0',
-        'text-halo-color': '#05070a',
+        'text-color': THEME_STYLE ? THEME_STYLE.labelText : '#dce6f0',
+        'text-halo-color': THEME_STYLE ? THEME_STYLE.labelHalo : '#05070a',
         'text-halo-width': 1.5,
         'text-opacity': ['interpolate', ['linear'], ['zoom'], 0, 0.85, 8, 0.85, 10, 0],
       },
@@ -592,4 +674,32 @@ if (EDIT_MODE) {
 
   // Сообщаем родителю, что карта готова: он пришлёт текущее выделение
   window.parent.postMessage({ type: 'aether-map-ready' }, window.location.origin);
+}
+
+// ---------------------------------------------------------------------------
+// Встроенная карта (виджет ::map): нумерованные метки и сообщения родителю о текущем виде,
+// по которым страница документа обновляет масштаб и координаты в подписи
+// ---------------------------------------------------------------------------
+if (EMBED) {
+  MARKERS.forEach((item, index) => {
+    const el = document.createElement('div');
+    el.className = 'embed-marker';
+    el.textContent = String(index + 1);
+    el.title = item.label;
+    new maplibregl.Marker({ element: el }).setLngLat([item.lon, item.lat]).addTo(map);
+  });
+
+  const reportView = () => {
+    const c = map.getCenter();
+    window.parent.postMessage({
+      type: 'aether-map-view',
+      lat: c.lat,
+      lon: c.lng,
+      zoom: map.getZoom(),
+      width: map.getContainer().clientWidth,
+    }, window.location.origin);
+  };
+
+  map.on('load', reportView);
+  map.on('moveend', reportView);
 }

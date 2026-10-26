@@ -450,23 +450,192 @@
 }
 
 /*
- * Тёмная карта приложения подгоняется под документ фильтром:
- * печатные doc, scan и светлый web получают «карту на бумаге» (светлую, серую, с тоном бумаги),
- * rec и инфобокс остаются тёмными, но одноцветными, в цвет акцента ОС.
+ * Оформление карты задаёт сама карта (темы print и term в map.js) и слой подписей поверх неё:
+ * штамп с датой, стрелка севера, масштаб; под кадром строка координат и легенда.
  */
-:is(.doc--doc, .doc--scan, .doc--web) .widget--map .map-embed {
-    filter: invert(1) grayscale(1) sepia(0.3) contrast(0.9) brightness(1.05);
+.widget--map {
+    --m-ink: currentColor;
+    --m-soft: color-mix(in srgb, currentColor 65%, transparent);
+    --m-red: #b3261e;
+    --m-paper: color-mix(in srgb, var(--paper, var(--page-bg, white)) 88%, transparent);
+    --m-line: color-mix(in srgb, currentColor 40%, transparent);
+}
+
+.doc--doc .widget--map,
+.doc--scan .widget--map {
+    --m-ink: var(--ink);
+    --m-soft: var(--ink-soft);
+    --m-paper: color-mix(in srgb, var(--paper) 90%, transparent);
+    --m-line: var(--line);
+}
+
+.doc--web .widget--map {
+    --m-ink: var(--page-text);
+    --m-soft: var(--page-soft);
+    --m-red: var(--accent);
+    --m-paper: color-mix(in srgb, var(--page-bg) 90%, transparent);
+    --m-line: var(--page-line);
+}
+
+:is(.doc--rec, .doc--infobox) .widget--map,
+.doc--web:has(.site-preset--dark) .widget--map {
+    --m-ink: var(--font-light, var(--page-text));
+    --m-soft: var(--font-muted, var(--page-soft));
+    --m-red: var(--accent);
+    --m-paper: color-mix(in srgb, var(--bg, var(--page-bg)) 82%, transparent);
+    --m-line: var(--line-bright, var(--page-line));
+}
+
+.widget--map .map-ui {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    color: var(--m-ink);
+    font-family: inherit;
+}
+
+.widget--map .map-stamp {
+    position: absolute;
+    top: 0.6rem;
+    left: 0.6rem;
+    display: flex;
+    flex-direction: column;
+    padding: 0.2rem 0.65rem 0.25rem;
+    border: 2px solid var(--m-red);
+    background: var(--m-paper);
+    color: var(--m-red);
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.2em;
+    line-height: 1.3;
+    text-transform: uppercase;
+}
+
+.widget--map .map-stamp-date {
+    font-size: 0.6rem;
+    font-weight: 400;
+    letter-spacing: 0.1em;
+}
+
+.widget--map .map-north {
+    position: absolute;
+    top: 0.5rem;
+    right: 0.6rem;
+    width: 1.5rem;
+    height: 2rem;
+    padding: 0.15rem 0.25rem;
+    background: var(--m-paper);
+    box-sizing: content-box;
+}
+
+.widget--map .map-north-arrow {
+    fill: var(--m-ink);
+}
+
+.widget--map .map-north-n {
+    fill: var(--m-paper);
+    font: 700 7px sans-serif;
+}
+
+.widget--map .map-scale {
+    position: absolute;
+    left: 0.6rem;
+    bottom: 0.55rem;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    width: fit-content;
+    min-width: 6rem;
+    padding: 0.2rem 0.4rem;
+    box-sizing: border-box;
+    background: var(--m-paper);
+    font-size: 0.62rem;
+    letter-spacing: 0.08em;
+}
+
+.widget--map .map-scale-bar {
+    display: block;
+    width: 22%;
+    min-width: 3rem;
+    max-width: 40vw;
+    height: 5px;
+    border: 1px solid var(--m-ink);
+    border-top: 0;
+}
+
+.widget--map .map-status {
+    padding: 0.25rem 0.6rem;
+    border-top: 1px solid var(--m-line);
+    color: var(--m-soft);
+    font-size: 0.66rem;
+    letter-spacing: 0.08em;
+    font-variant-numeric: tabular-nums;
+    text-transform: uppercase;
+}
+
+.widget--map .map-legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.2rem 1.1rem;
+    margin: 0.7rem 0 0;
+    padding: 0;
+    list-style: none;
+    font-size: 0.76rem;
+    line-height: 1.4;
+}
+
+.widget--map .map-legend li {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+}
+
+.widget--map .map-legend b {
+    display: inline-grid;
+    place-items: center;
+    width: 1.25rem;
+    height: 1.25rem;
+    border-radius: 50%;
+    background: var(--m-red);
+    color: var(--m-paper);
+    font-size: 0.68rem;
+}
+
+.widget--map .map-legend-region i {
+    width: 0.9rem;
+    height: 0.9rem;
+    box-sizing: border-box;
+    border: 2px solid var(--m-red);
+    background: color-mix(in srgb, var(--m-red) 35%, transparent);
+}
+
+.widget--map .map-legend-region span {
+    color: var(--m-soft);
+    font-size: 0.66rem;
+    letter-spacing: 0.08em;
+}
+
+/* scan: штамп от руки, как оттиск на бумаге */
+.doc--scan .widget--map .map-stamp {
+    transform: rotate(-3deg);
+    border-style: double;
+    border-width: 4px;
+    background: transparent;
     mix-blend-mode: multiply;
 }
 
-.doc--web:has(.site-preset--dark) .widget--map .map-embed {
-    filter: grayscale(0.6) contrast(1.05);
-    mix-blend-mode: normal;
+/* rec и инфобокс: терминальные подписи */
+:is(.doc--rec, .doc--infobox) .widget--map .map-stamp,
+.doc--web:has(.site-preset--dark) .widget--map .map-stamp {
+    border: 0;
+    border-left: 3px solid var(--m-red);
+    padding-left: 0.5rem;
+    letter-spacing: 0.16em;
 }
 
-:is(.doc--rec, .doc--infobox) .widget--map .map-embed {
-    filter: grayscale(1) sepia(1) hue-rotate(130deg) saturate(1.6) brightness(0.9);
-    mix-blend-mode: normal;
+:is(.doc--rec, .doc--infobox) .widget--map .map-status::before {
+    content: "> ";
+    color: var(--m-red);
 }
 
 .map-frame.image-ratio-16-9 { aspect-ratio: 16 / 9; }

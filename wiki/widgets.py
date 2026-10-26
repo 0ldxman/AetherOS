@@ -661,41 +661,135 @@ def _files_row(src, label, ctx):
     )
 
 
-@widget("map", positional="caption")
-def map_widget(params, ctx):
-    """Карта мира: lat, lon, zoom (0-18), date (ГГГГ-ММ-ДД), mode, ratio, width, caption.
+_MARKER = re.compile(r"^(.*?)\s*\|\s*(-?\d+(?:[.,]\d+)?)[\s,;]+(-?\d+(?:[.,]\d+)?)\s*$")
+MAX_MARKERS = 12
+MAX_REGIONS = 24
 
-    ::map lat=48.8 lon=2.3 zoom=5 date=2041-03-12 caption="Порт на тот день"
 
-    У web, rec и инфобокса карта живая (можно двигать и приближать), у doc и scan это
-    неподвижный кадр. Вид выбирает wiki.js по классу страницы, поэтому в разметке два адреса.
+def _marker_rows(text):
+    """Строки «Название | lat lon» -> [(название, lat, lon)]; кривые строки пропускаются."""
+    rows = []
+    for line in _lines(text):
+        match = _MARKER.match(line)
+        if not match:
+            continue
+        lat, lon = float(match.group(2).replace(",", ".")), float(match.group(3).replace(",", "."))
+        if -85 <= lat <= 85 and -180 <= lon <= 180:
+            rows.append((match.group(1).strip(), lat, lon))
+    return rows[:MAX_MARKERS]
+
+
+def _scale_text(zoom, lat):
+    """Подпись масштаба для начального вида: километров в 100 пикселях."""
+    import math
+
+    km = 78271.52 * math.cos(math.radians(lat)) / (2 ** float(zoom)) * 100 / 1000
+    return f"{km:.0f}" if km >= 10 else f"{km:.1f}"
+
+
+@widget("map", raw=True)
+def map_widget(text, ctx, args=""):
+    """Карта мира с выделением провинций и метками.
+
+    ::map regions="RUS-32 UKR-5" date=2041-03-12 caption="Порт на тот день"
+    Порт | 48.8 2.3
+    Склад | 48.9 2.4
+    ::
+
+    Параметры: regions (коды провинций из БД через пробел или запятую), lat, lon, zoom (0-18),
+    date (ГГГГ-ММ-ДД), mode, ratio, width, caption. Без lat и lon вид подбирается по выделенным
+    провинциям и меткам. Метки в теле блока: «Название | широта долгота».
+
+    У web, rec и инфобокса карта живая (можно двигать и приближать), у doc и scan неподвижный
+    кадр. Вид выбирает wiki.js по классу страницы, поэтому в разметке два адреса.
     """
-    lat = _num(params.get("lat"), 20, -85, 85)
-    lon = _num(params.get("lon"), 10, -180, 180)
-    zoom = _num(params.get("zoom"), 2, 0, 18)
+    from urllib.parse import quote_plus
+
+    from map.bounds import resolve_regions, union, view_for
+
+    head = _head_args(args)
+    markers = _marker_rows(text)
+    codes = [c for c in re.split(r"[\s,;]+", head.get("regions", "")) if c][:MAX_REGIONS]
+    regions, _unknown = resolve_regions(codes) if codes else ([], [])
+
+    has_view = head.get("lat") not in (None, "") and head.get("lon") not in (None, "")
+    if has_view:
+        lat = float(_num(head.get("lat"), 20, -85, 85))
+        lon = float(_num(head.get("lon"), 10, -180, 180))
+        zoom = float(_num(head.get("zoom"), 4, 0, 18))
+    else:
+        box = union([r[3] for r in regions] + [[lo, la, lo, la] for _, la, lo in markers])
+        if box is not None:
+            lat, lon, zoom = view_for(box)
+            if head.get("zoom"):
+                zoom = float(_num(head.get("zoom"), zoom, 0, 18))
+        else:
+            lat, lon, zoom = 20.0, 10.0, 2.0
+
     query = "embed=1"
-    mode = _choice(params.get("mode"), MAP_MODES, "")
+    mode = _choice(head.get("mode"), MAP_MODES, "")
     if mode:
         query += f"&mode={mode}"
-    date = (params.get("date") or "").strip()
-    if re.fullmatch(r"\d{4}-\d{2}-\d{2}", date):
+    date = (head.get("date") or "").strip()
+    if not re.fullmatch(r"\d{4}-\d{2}-\d{2}", date):
+        date = ""
+    if date:
         query += f"&date={date}"
+    if regions:
+        query += "&regions=" + ",".join(quote_plus(r[1]) for r in regions)
+    for label, la, lo in markers:
+        query += f"&m={la},{lo},{quote_plus(label)}"
+
     try:
         base = reverse("map:index")
     except NoReverseMatch:
-        return _asset_missing(params.get("caption", ""), "MAP NOT AVAILABLE")
-    live = f"{base}?{query}#{zoom}/{lat}/{lon}"
-    still = f"{base}?{query}&static=1#{zoom}/{lat}/{lon}"
-    ratio = IMAGE_RATIOS.get((params.get("ratio") or "").strip(), "16-9")
+        return _asset_missing(head.get("caption", ""), "MAP NOT AVAILABLE")
+    view = f"#{zoom:g}/{lat:g}/{lon:g}"
+    live = f"{base}?{query}{view}"
+    still = f"{base}?{query}&static=1{view}"
+    ratio = IMAGE_RATIOS.get((head.get("ratio") or "").strip(), "16-9")
+
+    stamp = f'<span class="map-stamp"><span class="map-stamp-name">КАРТА</span>'
+    if date:
+        stamp += f'<span class="map-stamp-date">{escape(date)}</span>'
+    stamp += "</span>"
+    north = (
+        '<svg class="map-north" viewBox="0 0 24 32" aria-hidden="true">'
+        '<path class="map-north-arrow" d="M12 1 L20 29 L12 23 L4 29 Z"/>'
+        '<text x="12" y="17" text-anchor="middle" class="map-north-n">N</text></svg>'
+    )
+    scale = (
+        '<div class="map-scale"><span class="map-scale-bar"></span>'
+        f'<span class="map-scale-text" data-km="{_scale_text(zoom, lat)}">{_scale_text(zoom, lat)} км</span></div>'
+    )
     inner = (
         f'<div class="image-frame"><div class="map-frame image-ratio-{ratio}">'
         f'<iframe class="map-embed" title="Карта" loading="lazy" '
         f'data-live="{escape(live, quote=True)}" data-static="{escape(still, quote=True)}"></iframe>'
-        "</div></div>"
+        f'<div class="map-ui" aria-hidden="true">{stamp}{north}{scale}</div>'
+        "</div>"
+        f'<div class="map-status" data-lat="{lat:g}" data-lon="{lon:g}" data-zoom="{zoom:g}">'
+        f'{_coord(lat, "N", "S")} {_coord(lon, "E", "W")} · ×{zoom:g}</div>'
+        "</div>"
     )
-    figure = _asset_figure("map", inner, {**params, "width": params.get("width", "100")}, ctx)
+
+    legend = []
+    for index, (label, la, lo) in enumerate(markers, 1):
+        legend.append(f'<li class="map-legend-marker"><b>{index}</b>{ctx.inline(label)}</li>')
+    for code, _source, name, _box in regions:
+        legend.append(
+            f'<li class="map-legend-region"><i></i>{escape(name)}<span>{escape(code)}</span></li>'
+        )
+    legend_html = f'<ol class="map-legend">{"".join(legend)}</ol>' if legend else ""
+
+    figure = _asset_figure("map", inner, {**head, "width": head.get("width", "100")}, ctx)
+    figure = figure.replace("</figure>", f"{legend_html}</figure>", 1) if legend_html else figure
     # подпись и рамка у карты те же, что у картинки документа
     return figure.replace("widget widget--map", "widget widget--map widget--image", 1)
+
+
+def _coord(value, plus, minus):
+    return f"{abs(value):.2f}°{plus if value >= 0 else minus}"
 
 
 @widget("divider", positional="label", line=True)

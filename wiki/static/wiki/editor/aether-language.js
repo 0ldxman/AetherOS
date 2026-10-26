@@ -53,6 +53,7 @@ const BLOCKS = new Set([
   "timeline",
   "gallery",
   "files",
+  "map",
   "spoiler",
 ]);
 
@@ -64,6 +65,7 @@ const RAW_BLOCKS = new Set([
   "timeline",
   "gallery",
   "files",
+  "map",
 ]);
 
 const CONTAINERS = new Set([
@@ -79,7 +81,6 @@ const LINE_WIDGETS = new Set([
   "masthead",
   "bar",
   "image",
-  "map",
   "divider",
   "page",
   "site",
