@@ -361,18 +361,26 @@ class VolumeMount(models.Model):
 LISTING_TAG = "{listing}"
 
 
+SCHEME = re.compile(r"^([a-z][a-z0-9+.-]*)://", re.I)
+
+
 def normalize_address(text):
-    """Адрес сервера как его хранят и ищут: без схемы (https://), пути, запроса и конечных слэшей, строчными буквами."""
-    text = re.sub(r"^[a-z][a-z0-9+.-]*://", "", (text or "").strip(), flags=re.I)
-    return re.split(r"[/?#]", text, maxsplit=1)[0].strip().lower()
+    """Адрес сервера как его хранят и ищут: схема (если есть) и имя строчными, без пути, запроса и конечных слэшей.
+    https://Apollo.com/info/ -> https://apollo.com; apollo.com остаётся apollo.com (сервер для любой схемы)."""
+    scheme, host, _ = split_url(text)
+    return f"{scheme}://{host}" if scheme and host else host
 
 
 def split_url(text):
-    """(адрес, путь) из того, что набрал игрок: https://apollo.com/info/ -> ("apollo.com", "info")."""
-    text = re.sub(r"^[a-z][a-z0-9+.-]*://", "", (text or "").strip(), flags=re.I)
+    """(схема, адрес, путь) из того, что набрал игрок: https://apollo.com/info/ -> ("https", "apollo.com", "info").
+    Схемы может не быть: тогда это пустая строка."""
+    text = (text or "").strip()
+    found = SCHEME.match(text)
+    scheme = found.group(1).lower() if found else ""
+    text = SCHEME.sub("", text, count=1)
     text = re.split(r"[?#]", text, maxsplit=1)[0]
     host, _, path = text.partition("/")
-    return host.strip().lower(), "/".join(part for part in path.split("/") if part)
+    return scheme, host.strip().lower(), "/".join(part for part in path.split("/") if part)
 
 
 class NetResource(models.Model):
@@ -385,7 +393,10 @@ class NetResource(models.Model):
     address = models.CharField(
         max_length=255,
         unique=True,
-        help_text="Что вводит игрок: частота (14.230) или имя сервера (apollo.com). Схема https:// и регистр не важны.",
+        help_text=(
+            "Что вводит игрок: частота (14.230) или имя сервера (apollo.com). Регистр не важен. "
+            "Со схемой (ftp://apollo.com) игрок должен набрать её; без схемы сервер отвечает на любую."
+        ),
     )
     title = models.CharField(max_length=128, blank=True, help_text="Название для админки; игрок его не видит.")
     key_condition = models.JSONField(

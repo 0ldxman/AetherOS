@@ -603,7 +603,7 @@ class NetTests(TestCase):
         ledger = MachineFile.objects.create(machine=cls.server, path="/srv/ledger.dat", state="> encrypted hunter2")
         report = MachineFile.objects.create(machine=cls.server, path="/srv/report.txt", state="")
 
-        site = NetResource.objects.create(address="https://Apollo.com/", title="Apollo")
+        site = NetResource.objects.create(address="Apollo.com/", title="Apollo")
         cls.site = site
         NetNode.objects.create(resource=site, path="", response="APOLLO\n{listing}\nbye")
         NetNode.objects.create(resource=site, path="info")                                   # без текста: один список
@@ -619,6 +619,9 @@ class NetTests(TestCase):
 
         radio = NetResource.objects.create(address="14.230")
         NetNode.objects.create(resource=radio, path="", response="RELAY")
+        ftp = NetResource.objects.create(address="FTP://apollo.com")
+        NetNode.objects.create(resource=ftp, path="", response="FTP READY")
+        NetNode.objects.create(resource=ftp, path="pub/tool.bin", file=report)
         NetResource.objects.create(address="hidden.net", key_condition="nokey")
         NetResource.objects.create(address="vault.net", token="sesame")
 
@@ -686,6 +689,19 @@ class NetTests(TestCase):
         from machines.models import normalize_address, split_url
 
         self.assertEqual(self.site.address, "apollo.com")
-        self.assertEqual(normalize_address("HTTPS://Apollo.com/info/"), "apollo.com")
-        self.assertEqual(split_url("https://apollo.com/info/attachements/?x=1#top"), ("apollo.com", "info/attachements"))
-        self.assertEqual(split_url("14.230"), ("14.230", ""))
+        self.assertEqual(normalize_address("HTTPS://Apollo.com/info/"), "https://apollo.com")
+        self.assertEqual(normalize_address("Apollo.com/info/"), "apollo.com")
+        self.assertEqual(
+            split_url("https://apollo.com/info/attachements/?x=1#top"), ("https", "apollo.com", "info/attachements")
+        )
+        self.assertEqual(split_url("14.230"), ("", "14.230", ""))
+
+    def test_the_scheme_is_part_of_the_address_when_the_server_has_one(self):
+        self.assertEqual(self.run_command("nreq ftp://apollo.com")["output"], "FTP READY")          # точная схема
+        self.assertEqual(self.run_command("nreq FTP://Apollo.com/pub")["output"], "tool.bin")
+        self.assertEqual(self.run_command("nreq https://apollo.com")["output"].splitlines()[0], "APOLLO")   # сервер без схемы: любая
+        self.assertEqual(self.run_command("nreq apollo.com")["output"].splitlines()[0], "APOLLO")           # и без схемы вовсе
+        self.assertEqual(self.run_command("nreq ftp://apollo.com/info")["exit_code"], 1)            # на ftp нет страницы info
+        self.assertEqual(self.run_command("nget ftp://apollo.com/pub/tool.bin")["exit_code"], 0)
+        self.assertEqual(self.run_command("nget apollo.com/pub/tool.bin")["exit_code"], 1)          # у сервера без схемы такого узла нет
+        self.assertIn("could not resolve", self.run_command("nreq http://hidden.net")["output"])

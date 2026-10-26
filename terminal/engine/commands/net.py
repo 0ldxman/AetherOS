@@ -59,9 +59,12 @@ class NetCommand(BaseCommand):
         if isinstance(opts, str):
             return CommandResult(opts, 2)
 
-        address, path = split_url(opts["operands"][0])
+        scheme, host, path = split_url(opts["operands"][0])
+        address = f"{scheme}://{host}" if scheme else host
         system = context.machine.system
-        resource = NetResource.objects.filter(address=address).first()
+        # сервер со схемой отвечает только на неё, без схемы на любую (и на запрос без схемы)
+        found = {item.address: item for item in NetResource.objects.filter(address__in=[address, host])}
+        resource = found.get(address) or found.get(host)
         request = context.request
         keys = player_keys(request.user) if request is not None else frozenset()
 
