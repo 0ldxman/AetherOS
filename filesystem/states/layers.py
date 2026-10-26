@@ -77,7 +77,26 @@ class Archive(BaseState):
 @register
 class Binary(BaseState):
     name = "binary"
-    summary = "Читаемый текст спрятан среди двоичных данных: его нужно вытащить (txtx)."
+    summary = (
+        "Внутри настоящий текст, но в необычной кодировке (utf16, hex, rot13, gzip, morse): нужно опознать её и "
+        "преобразовать командой cvt."
+    )
+    params = (
+        Param(
+            "encoding",
+            str,
+            required=True,
+            positional=True,
+            unlock=True,
+            help="кодировка, в которую завёрнут текст (регистр не важен)",
+        ),
+    )
+
+    @classmethod
+    def check_unlock(cls, params, given):
+        wanted = str(params.get("encoding", "")).strip().lower()
+        named = str(given.get("encoding", "")).strip().lower()
+        return () if wanted and wanted == named else ("encoding",)
 
 
 @register

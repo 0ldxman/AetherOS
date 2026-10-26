@@ -122,3 +122,23 @@ def find_asset(ref: str) -> Asset | None:
         return None
 
     return Asset.objects.filter(public_id=public_id).first()
+
+
+def read_asset_bytes(asset, limit):
+    """Байты ассета из Nextcloud (не больше limit; больше нельзя: вернётся None). Нужны для сырого вида файла."""
+    from .nextcloud import NextcloudClient
+
+    client = NextcloudClient.from_settings()
+    file = client.get_file_by_id(asset.file_id)
+    if file is None or file.is_directory:
+        return None
+    if file.size is not None and file.size > limit:
+        return None
+
+    response = client.stream(file.path)
+    try:
+        data = b"".join(response.iter_content(65536))
+    finally:
+        response.close()
+    return data if len(data) <= limit else None
+

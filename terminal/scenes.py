@@ -108,6 +108,46 @@ def repair_scene(path, size, ok, more):
     return s.to_dict()           # вердикт (repaired, further repair required) говорит ответ команды
 
 
+# ---------- сырые байты ----------
+
+def block_scene(path, blocks):
+    """blk: перемотка и чтение блоков (dd). Работы тем больше, чем больше блоков."""
+    s = Scene()
+    s.task("seeking", "OK", ms=(60, 160))
+    if blocks:
+        s.task(f"reading {blocks} block{'s' if blocks != 1 else ''}", "OK", ms=(80 * blocks, 140 * blocks))
+    return s.to_dict()
+
+
+def strings_scene(path, size):
+    """txtx: просмотр байтов в поисках читаемого."""
+    s = Scene()
+    s.count("scanning", size, unit=" B", ms=(150, 450), width=10)
+    return s.to_dict()
+
+
+def convert_scene(path, size, value, ok, kind):
+    """cvt: чтение файла как названного формата (disguised) или раскодирование кодировки (binary). Решение уже принято
+    сервером: неверное название обрывается на разборе входа, и по сцене ничего не узнать раньше ответа."""
+    stage = "input" if kind == "disguised" else "stream"
+    s = Scene()
+    s.row("cvt", path, width=8)
+    s.row("size", f"{size} bytes", width=8)
+    s.row(stage, f"{value}", note="read as requested" if kind == "disguised" else "decode as requested", width=8)
+    s.blank()
+    s.task("probing input", "OK" if ok else "FAIL", ms=(500, 1100))
+    if not ok:
+        return s.to_dict()
+    if kind == "disguised":
+        s.row("  pages", str(_stable(path + ":pg", 1, 40)), width=10)
+        s.row("  objects", str(_stable(path + ":ob", 60, 900)), width=10)
+    else:
+        s.row("  units", str(max(1, size // 2)), width=10)
+    s.bar("decoding streams ", ms=(900, 1800), width=14)
+    s.task("writing output", "OK", ms=(300, 700))
+    return s.to_dict()
+
+
 # ---------- просмотр файла ----------
 
 def ftyp_scene(path):

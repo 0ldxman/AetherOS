@@ -25,12 +25,3 @@ class PakCommand(LayerCommand):
     layer = "archive"
     done = "unpacked"
     absent = "not an archive"
-
-
-class TxtxCommand(LayerCommand):
-    """txtx <файл>: вытащить читаемый текст из двоичных данных (слой binary)."""
-
-    name = "txtx"
-    layer = "binary"
-    done = "text extracted"
-    absent = "no text found"

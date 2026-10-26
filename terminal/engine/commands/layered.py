@@ -60,9 +60,13 @@ class LayerCommand(BaseCommand):
 
         return self.unlock(context, args[0], args[1:], self.layer)
 
-    def scene_for(self, layer, entry, ok, rest):
-        """Сцена работы команды. rest это слой, оказавшийся сверху после снятия (или None)."""
+    def scene_for(self, context, layer, entry, ok, rest, values):
+        """Сцена работы команды. rest это слой, оказавшийся сверху после снятия (или None), values названные игроком."""
         return unlock_scene(layer, entry.path, ok)
+
+    def fail_for(self, context, entry, target, wrong, values):
+        """Что сказать, когда слой не снялся: wrong это названные неверно значения."""
+        return f"{self.name}: {target}: wrong {wrong}"
 
     def done_for(self, rest):
         """Что сказать, когда слой снят."""
@@ -143,7 +147,7 @@ class LayerCommand(BaseCommand):
             code = 0
         else:
             wrong = ", ".join(outcome.result.wrong)
-            lines = [f"{self.name}: {target}: wrong {wrong}"]
+            lines = [self.fail_for(context, entry, target, wrong, values)]
             code = 1
 
         arrived = sum(1 for item in outcome.mail if item.delivered and item.immediate)
@@ -151,6 +155,6 @@ class LayerCommand(BaseCommand):
         return CommandResult(
             "\n".join(lines + outcome.say + notice),
             code,
-            scene=self.scene_for(layer, entry, bool(outcome.result.removed), rest),
+            scene=self.scene_for(context, layer, entry, bool(outcome.result.removed), rest, values),
             effects=outcome.effects or None,
         )

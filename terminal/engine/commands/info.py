@@ -3,11 +3,11 @@ import posixpath
 
 from filesystem.content import resolve_content
 from filesystem.models import SessionFile
-from filesystem.size import file_size
 from filesystem.states.attempt import top_answer
 from filesystem.unlock import fire_file_event
 from terminal.engine.commands.basic import BaseCommand
 from terminal.engine.filesystem import VirtualFilesystem
+from terminal.engine.rawinfo import size_of
 from terminal.engine.report import hook_report
 from terminal.engine.result import CommandResult
 from terminal.scenes import ftyp_scene, open_scene
@@ -104,7 +104,7 @@ class CntCommand(BaseCommand):
             lines, effects = hook_report([fire_file_event(session_file, "read", entry.path)])
 
         if effects and any(effect["op"] == "open" for effect in effects):
-            text = "\n".join([f"cnt: {target}: opened ({file_size(machine_file)} bytes)", *lines])
+            text = "\n".join([f"cnt: {target}: opened ({size_of(context, entry)} bytes)", *lines])
             return CommandResult(text, 0, scene=open_scene(entry.path, "opened"), effects=effects)
 
         content = resolve_content(machine_file, session_file, entry.path, name)
@@ -122,4 +122,4 @@ class CntCommand(BaseCommand):
             return CommandResult("\n".join([f"cnt: {target}: bad content path", *lines]), 1, effects=effects)
 
         window = {"id": "cnt-" + re.sub(r"\W+", "-", entry.path).strip("-"), "title": name, "url": content.url}
-        return result(f"cnt: {target}: opened ({file_size(machine_file)} bytes)", 0, "opened", window)
+        return result(f"cnt: {target}: opened ({size_of(context, entry)} bytes)", 0, "opened", window)

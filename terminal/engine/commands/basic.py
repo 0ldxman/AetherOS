@@ -1,4 +1,5 @@
-from filesystem.size import DIRECTORY_SIZE, file_size, human_size
+from filesystem.size import DIRECTORY_SIZE, human_size
+from terminal.engine.rawinfo import size_of
 from terminal.engine.filesystem import VirtualFilesystem
 from terminal.engine.result import CommandResult
 
@@ -53,7 +54,7 @@ class LsCommand(BaseCommand):
         if not fs.is_directory(path):
             file = fs.get_file(path)
             name = file.path.rsplit("/", 1)[-1]
-            return CommandResult(self._long([(file_size(file.machine_file), name)], "h" in flags) if "l" in flags else name)
+            return CommandResult(self._long([(size_of(context, file), name)], "h" in flags) if "l" in flags else name)
 
         try:
             entries = fs.list_directory(path)
@@ -67,7 +68,7 @@ class LsCommand(BaseCommand):
                  for entry in entries]
 
         if "l" in flags:
-            rows = [(self._size(fs, path, entry), name) for entry, name in zip(entries, names)]
+            rows = [(self._size(context, fs, path, entry), name) for entry, name in zip(entries, names)]
             if "a" in flags:
                 rows = [(DIRECTORY_SIZE, "./"), (DIRECTORY_SIZE, "../")] + rows
             return CommandResult(self._long(rows, "h" in flags))
@@ -78,12 +79,12 @@ class LsCommand(BaseCommand):
         return CommandResult("  ".join(names))
 
     @staticmethod
-    def _size(fs, directory, entry):
+    def _size(context, fs, directory, entry):
         """Размер строки списка: у файла его собственный, у папки 4096."""
         if entry["is_directory"]:
             return DIRECTORY_SIZE
         file = fs.get_file(directory.rstrip("/") + "/" + entry["name"])
-        return file_size(file.machine_file) if file else DIRECTORY_SIZE
+        return size_of(context, file) if file else DIRECTORY_SIZE
 
     @staticmethod
     def _long(rows, human):

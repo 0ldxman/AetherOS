@@ -95,7 +95,7 @@ class TerminalSceneTests(TestCase):
         MachineFile.objects.create(machine=cls.main, path="/home/door.bin", state="> encrypted hunter2 attempts=3")
         MachineFile.objects.create(machine=cls.main, path="/home/note.txt", state="> base64")
         MachineFile.objects.create(machine=cls.main, path="/home/pack.dat", state="> archive")
-        MachineFile.objects.create(machine=cls.main, path="/home/blob.bin", state="> binary")
+        MachineFile.objects.create(machine=cls.main, path="/home/blob.bin", state="> binary utf16")
         MachineFile.objects.create(machine=cls.main, path="/home/slice.img", state="> shifted skip=2 count=5")
         MachineFile.objects.create(machine=cls.main, path="/home/report.txt", state="> disguised pdf")
 
@@ -133,7 +133,7 @@ class TerminalSceneTests(TestCase):
         for command, expected in (
             ("enc /home/note.txt", "decoded"),
             ("pak /home/pack.dat", "unpacked"),
-            ("txtx /home/blob.bin", "text extracted"),
+            ("cvt /home/blob.bin utf16", "converted"),
             ("blk /home/slice.img 2 5", "blocks read"),
             ("cvt /home/report.txt PDF", "converted"),
         ):
@@ -165,7 +165,7 @@ class TerminalSceneTests(TestCase):
             [(e["op"], e["url"], e["title"]) for e in data["effects"]], [("open", "/apps/wiki/go/decoy/", "decoy")]
         )
         self.assertIsNone(data["window"])                                                  # настоящий адрес ещё закрыт
-        self.assertIn("wrong", self.run_command("cvt /home/photo.dat png")["output"])      # слой на месте
+        self.assertIn("cannot read as png", self.run_command("cvt /home/photo.dat png")["output"])      # слой на месте
         self.assertEqual(self.run_command("cvt /home/photo.dat scan")["exit_code"], 0)
         real = self.run_command("cnt /home/photo.dat")
         self.assertEqual(real["window"]["url"], "/apps/wiki/real/")                         # хука больше нет: открывается настоящее
@@ -235,10 +235,11 @@ class TerminalSceneTests(TestCase):
         self.assertIn("123456 bytes", self.run_command("cnt /home/big.dat")["output"])
         self.assertIn("120K  big.dat", [line.strip() for line in self.run_command("ls -lh /home")["output"].splitlines()])
 
-        generated = self.run_command("ls -l /home/note.txt")["output"].split()[0]               # без указанного размера
-        self.assertEqual(generated, self.run_command("ls -l /home/note.txt")["output"].split()[0])
+        MachineFile.objects.create(machine=self.main, path="/home/plain.txt", state="")
+        generated = self.run_command("ls -l /home/plain.txt")["output"].split()[0]              # без указанного размера
+        self.assertEqual(generated, self.run_command("ls -l /home/plain.txt")["output"].split()[0])
         self.assertTrue(180 <= int(generated) <= 48000)
-        self.run_command("cp /home/note.txt /home/copy.txt")
+        self.run_command("cp /home/plain.txt /home/copy.txt")
         self.assertEqual(self.run_command("ls -l /home/copy.txt")["output"].split()[0], generated)
 
     def test_ls_options(self):
@@ -1091,3 +1092,116 @@ class FileOpsTests(TestCase):
         self.assertIn("use rcvr", self.run_command("mv /trash/a.txt /home/a.txt")["output"])
         self.assertIn("use del", self.run_command("cp /home/b.txt /trash/b.txt")["output"])
 
+
+
+@override_settings(FORCE_SCRIPT_NAME=None)
+class RawCommandTests(TestCase):
+    """blk, txtx и cvt работают с настоящими данными файла (запись вики) и слоями поверх них."""
+
+    BODY = "Cargo manifest altered.\n\nRef A-113."
+
+    @classmethod
+    def setUpTestData(cls):
+        from filesystem.models import MachineFile
+        from machines.models import MachineProfile
+        from wiki.models import Document, Namespace
+
+        cls.main = Machine.objects.create(name="Main", hostname="aether-main")
+        MachineApp.objects.create(machine=cls.main, label="console", glyph=">_", path="/apps/terminal/")
+        cls.user = get_user_model().objects.create_user("ivan", password="pw")
+        MachineProfile.objects.create(machine=cls.main, user=cls.user, name="Ivan", login="ivan", freq=1,
+                                      mail="ivan@aether-main")
+        space = Namespace.objects.create(name="Harbor")
+        Document.objects.create(namespace=space, title="Report", type="rec", body=cls.BODY)
+        url = "apps/wiki/Harbor/Report"
+        for path, state in (
+            ("/home/report.rec", ""),
+            ("/home/skin.dat", "> disguised scan"),
+            ("/home/wide.dat", "> binary utf16"),
+            ("/home/vault.dat", "> encrypted hunter2"),
+            ("/home/slice.img", "> shifted skip=2 count=5"),
+        ):
+            MachineFile.objects.create(machine=cls.main, path=path, state=state, url=url)
+
+    def setUp(self):
+        previous = get_script_prefix()
+        set_script_prefix("/")
+        self.addCleanup(set_script_prefix, previous)
+        self.client.force_login(self.user)
+
+    def run_command(self, text):
+        response = self.client.post(
+            reverse("terminal:execute"), data=json.dumps({"command": text}), content_type="application/json"
+        )
+        return json.loads(response.content)
+
+    def test_txtx_prints_the_real_text_of_the_record(self):
+        data = self.run_command("txtx /home/report.rec")
+        self.assertEqual(data["exit_code"], 0)
+        self.assertIn("Cargo manifest altered.", data["output"])
+        self.assertRegex(data["output"], r"^\s+\w+  who: ")                       # со смещением, как strings -t x
+
+    def test_txtx_finds_nothing_readable_under_a_cipher_or_a_wide_encoding(self):
+        self.assertEqual(self.run_command("txtx /home/vault.dat")["output"].count("Cargo"), 0)
+        self.assertNotIn("Cargo", self.run_command("txtx /home/wide.dat")["output"])      # UTF-16: ASCII-строк нет
+        self.assertIn("Cargo manifest", self.run_command("txtx /home/skin.dat")["output"])  # контейнер scan: текст в блоке OCR
+
+    def test_blk_dumps_blocks_like_dd(self):
+        data = self.run_command("blk /home/report.rec")
+        self.assertEqual(data["exit_code"], 0)
+        first = data["output"].splitlines()[0]
+        self.assertRegex(first, r"^00000000  c2 a7 72 65 63 0a 77 68")
+        self.assertIn("|..rec.who:", first)
+        self.assertIn("0+1 records in", data["output"])
+        self.assertIn("bytes copied", data["output"])
+
+        past = self.run_command("blk /home/report.rec 9 1")                               # за концом файла
+        self.assertEqual(past["exit_code"], 1)
+        self.assertIn("0+0 records in", past["output"])
+
+        shown = self.run_command("blk /home/wide.dat")["output"]
+        self.assertIn("|.", shown)
+        self.assertRegex(shown, r"a7 00 72 00 65 00 63 00")                              # §rec в UTF-16
+
+    def test_blk_still_unlocks_a_shifted_layer_and_still_shows_the_blocks(self):
+        wrong = self.run_command("blk /home/slice.img 0 1")                               # блоки показаны, но числа не те
+        self.assertEqual(wrong["exit_code"], 1)
+        self.assertIn("records in", wrong["output"])
+        self.assertIn("wrong skip", wrong["output"])
+        self.assertEqual(self.run_command("blk /home/slice.img")["exit_code"], 0)          # без чисел только чтение
+        data = self.run_command("blk /home/slice.img 2 5")
+        self.assertIn("blocks read", data["output"])
+        self.assertIn("records in", data["output"])
+        self.assertIn("records in", self.run_command("blk /home/slice.img 1 1")["output"])   # слоя уже нет, чтение работает
+
+    def test_cvt_names_the_container_and_the_error_shows_the_real_header(self):
+        data = self.run_command("cvt /home/skin.dat pdf")
+        self.assertEqual(data["exit_code"], 1)
+        self.assertIn("cannot read as pdf", data["output"])
+        self.assertIn("unexpected header: 9e 53 43 41 4e 0d 0a 1b", data["output"])        # то, что лежит в начале на самом деле
+        self.assertIn("9e 53 43 41 4e 0d 0a 1b", self.run_command("blk /home/skin.dat")["output"].splitlines()[0])
+
+        ok = self.run_command("cvt /home/skin.dat SCAN")                                   # регистр не важен
+        self.assertEqual((ok["exit_code"], ok["output"]), (0, "cvt: /home/skin.dat: converted"))
+        self.assertIn("|..rec.", self.run_command("blk /home/skin.dat")["output"])          # слой снят: файл стал записью rec
+
+    def test_cvt_decodes_a_binary_layer_by_its_encoding(self):
+        wrong = self.run_command("cvt /home/wide.dat rot13")
+        self.assertEqual(wrong["exit_code"], 1)
+        self.assertIn("unexpected header: a7 00 72 00", wrong["output"])
+        self.assertEqual(self.run_command("cvt /home/wide.dat utf16")["exit_code"], 0)
+        self.assertIn("Cargo manifest", self.run_command("txtx /home/wide.dat")["output"])   # теперь текст читается
+
+    def test_cvt_on_a_file_without_such_layers_and_the_scenes_give_nothing_away(self):
+        self.assertIn("nothing to convert", self.run_command("cvt /home/report.rec pdf")["output"])
+        scene = self.run_command("cvt /home/skin.dat pdf")["scene"]
+        self.assertEqual([s for s in scene if s["op"] == "dots"][-1]["status"], "FAIL")
+        self.assertNotIn("bars", [s["op"] for s in scene])                                  # до чтения потоков не дошли
+        good = self.run_command("cvt /home/skin.dat scan")["scene"]
+        self.assertIn("bar", [s["op"] for s in good])
+
+    def test_the_size_in_ls_is_the_length_of_the_bytes_that_blk_shows(self):
+        size = int(self.run_command("ls -l /home/report.rec")["output"].split()[0])
+        data = self.run_command("blk /home/report.rec 0 4")
+        self.assertIn(f"{size} bytes copied", data["output"])
+        self.assertIn(f"{size} bytes)", self.run_command("cnt /home/report.rec")["output"])

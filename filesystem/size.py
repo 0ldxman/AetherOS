@@ -1,24 +1,37 @@
 """Размер файла, который видит игрок (ls -l, cnt).
 
-Данных у файла нет, есть только описание, поэтому размер берётся так: если автор указал его в админке (MachineFile.size),
-это он; иначе размер выдумывается один раз и навсегда из машины и пути файла, так что везде (ls, cnt, копии, перенос
-между машинами) число одно и то же. Папка, как в Unix, 4096.
+Это длина сырых байтов файла (filesystem/rawview): у ассета настоящий размер, у записи вики размер её контейнера, у
+файла без источника указанный автором (MachineFile.size) или выдуманный по пути, всегда один и тот же. Слои меняют
+размер, как в жизни (base64 длиннее, шифр той же длины). Папка, как в Unix, 4096.
 """
-import hashlib
+from django.core.cache import cache
+
+from filesystem.rawview import build_raw
+from filesystem.rawview.source import resolve_payload
 
 DIRECTORY_SIZE = 4096
-GENERATED_MIN, GENERATED_MAX = 180, 48_000
+CACHE_SECONDS = 300
 
 
-def file_size(machine_file):
+def file_size(machine_file, session_state="", keys=frozenset()):
     """Размер файла в байтах."""
     if machine_file.file_type == "DIRECTORY":
         return DIRECTORY_SIZE
-    if machine_file.size is not None:
+
+    layered = bool((machine_file.state or "").strip() or (session_state or "").strip())
+    if machine_file.size is not None and not layered:
         return machine_file.size
 
-    digest = hashlib.sha256(f"{machine_file.machine.hostname}:{machine_file.path}".encode()).digest()
-    return GENERATED_MIN + int.from_bytes(digest[:4], "big") % (GENERATED_MAX - GENERATED_MIN + 1)
+    payload = resolve_payload(machine_file, keys)
+    if payload.kind == "asset" and payload.size is not None and not layered:
+        return payload.size                        # ассет без слоёв: настоящий размер, без похода в Nextcloud
+
+    key = f"rawsize:{machine_file.pk}:{machine_file.updated_at.timestamp()}:{hash(session_state)}:{payload.stamp}"
+    size = cache.get(key)
+    if size is None:
+        size = build_raw(machine_file, session_state, keys).size
+        cache.set(key, size, CACHE_SECONDS)
+    return size
 
 
 def human_size(size):
