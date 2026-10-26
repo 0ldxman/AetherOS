@@ -79,19 +79,22 @@ def unlock_scene(layer, path, ok):
 # ---------- просмотр файла ----------
 
 def ftyp_scene(path):
-    """Определение типа: одинаковая для любого файла, по ней ничего не узнать раньше ответа."""
+    """Определение типа смотрит только заголовок и потому быстрое. Одинаковая для любого файла: по ней ничего не узнать
+    раньше ответа."""
     s = Scene()
-    s.task("reading header", "OK", ms=(120, 300))
-    s.task("matching signature", "OK", ms=(180, 420))
+    s.task("reading header", "OK", ms=(60, 160))
     return s.to_dict()
 
 
-def open_scene(path, ok):
-    """Открытие содержимого: решение (открылось или нет) принято сервером раньше."""
+def open_scene(path, stage):
+    """Открытие содержимого. stage говорит, где оно остановилось (решение принято сервером раньше): access (доступ
+    закрыт слоем), content (открывать нечего), opened (окно открылось). Читать данных тут нет: окно читает их само."""
     s = Scene()
-    s.task("locating", "OK", ms=(120, 280))
-    s.count("reading", _stable(path, 8, 900), unit=" KB", ms=(350, 800), width=10)
-    s.task("opening", _result(ok), ms=(200, 500))
+    s.task("checking access", "FAIL" if stage == "access" else "OK", ms=(120, 300))
+    if stage != "access":
+        s.task("locating content", "FAIL" if stage == "content" else "OK", ms=(120, 280))
+    if stage == "opened":
+        s.task("launching viewer", "OK", ms=(200, 450))
     return s.to_dict()
 
 

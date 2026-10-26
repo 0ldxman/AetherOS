@@ -163,8 +163,32 @@ class TerminalSceneTests(TestCase):
         self.assertEqual([s for s in opened["scene"] if s["op"] == "dots"][-1]["status"], "OK")
         blocked = self.run_command("cnt /home/door.bin")
         self.assertEqual([s for s in blocked["scene"] if s["op"] == "dots"][-1]["status"], "FAIL")
+        self.assertEqual(len([s for s in blocked["scene"] if s["op"] == "dots"]), 1)     # закрыто слоем: дальше проверки доступа не идём
         self.assertIsNone(self.run_command("ftyp /home/missing")["scene"])               # ошибка до начала работы
         self.assertIsNone(self.run_command("ftyp /home")["scene"])                       # папка: работы нет
+
+    def test_the_size_is_the_same_in_ls_cnt_and_a_copy(self):
+        from filesystem.models import MachineFile
+
+        MachineFile.objects.create(machine=self.main, path="/home/big.dat", state="", size=123456, url="apps/wiki/")
+        MachineFile.objects.create(machine=self.main, path="/home/docs/inner.txt", state="")
+        self.assertEqual(self.run_command("ls -l /home/big.dat")["output"], "123456  big.dat")
+        listing = self.run_command("ls -l /home")["output"].splitlines()
+        self.assertIn("123456  big.dat", [line.strip() for line in listing])
+        self.assertTrue(any(line.endswith("docs/") and line.strip().startswith("4096") for line in listing))      # папка 4096
+        self.assertIn("123456 bytes", self.run_command("cnt /home/big.dat")["output"])
+        self.assertIn("120K  big.dat", [line.strip() for line in self.run_command("ls -lh /home")["output"].splitlines()])
+
+        generated = self.run_command("ls -l /home/note.txt")["output"].split()[0]               # без указанного размера
+        self.assertEqual(generated, self.run_command("ls -l /home/note.txt")["output"].split()[0])
+        self.assertTrue(180 <= int(generated) <= 48000)
+        self.run_command("cp /home/note.txt /home/copy.txt")
+        self.assertEqual(self.run_command("ls -l /home/copy.txt")["output"].split()[0], generated)
+
+    def test_ls_options(self):
+        self.assertEqual(self.run_command("ls -x")["exit_code"], 2)
+        self.assertIn("./", self.run_command("ls -la")["output"])
+        self.assertEqual(self.run_command("ls -a")["output"].split()[:2], [".", ".."])
 
     def test_commands_without_work_have_no_scene(self):
         self.assertIsNone(self.run_command("pwd")["scene"])

@@ -42,6 +42,14 @@ class MachineFile(models.Model):
         ),
     )
 
+    size = models.PositiveBigIntegerField(
+        null=True,
+        blank=True,
+        help_text=(
+            "Размер в байтах, который видит игрок (ls -l, cnt). Пусто: размер выдумывается из пути файла и всегда один и тот же."
+        ),
+    )
+
     system = models.BooleanField(
         default=False,
         help_text="Системный файл: игрок не может его удалить (del). Базовые папки защищает список «Защищённые пути».",

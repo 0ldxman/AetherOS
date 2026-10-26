@@ -2,6 +2,7 @@ import re
 import posixpath
 
 from filesystem.content import resolve_content
+from filesystem.size import file_size
 from filesystem.states.attempt import top_answer
 from terminal.engine.commands.basic import BaseCommand
 from terminal.engine.filesystem import VirtualFilesystem
@@ -93,10 +94,10 @@ class CntCommand(BaseCommand):
         content = resolve_content(machine_file, session_file, entry.path, name)
 
         if content.error == "locked":
-            return CommandResult(f"cnt: {target}: content is locked", 1, scene=open_scene(entry.path, False))
+            return CommandResult(f"cnt: {target}: content is locked", 1, scene=open_scene(entry.path, "access"))
 
         if content.error == "empty":
-            return CommandResult(f"cnt: {target}: no content", 1, scene=open_scene(entry.path, False))
+            return CommandResult(f"cnt: {target}: no content", 1, scene=open_scene(entry.path, "content"))
 
         if content.error:
             return CommandResult(f"cnt: {target}: bad content path", 1)
@@ -104,12 +105,12 @@ class CntCommand(BaseCommand):
         url = content.url
 
         return CommandResult(
-            f"cnt: {target}: opened",
+            f"cnt: {target}: opened ({file_size(machine_file)} bytes)",
             0,
             {
                 "id": "cnt-" + re.sub(r"\W+", "-", entry.path).strip("-"),
                 "title": name,
                 "url": url,
             },
-            scene=open_scene(entry.path, True),
+            scene=open_scene(entry.path, "opened"),
         )

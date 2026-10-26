@@ -70,6 +70,7 @@ class MachineFileAdmin(admin.ModelAdmin):
                     "path",
                     "file_type",
                     "url",
+                    "size",
                     "system",
                 ),
             },

@@ -1,3 +1,4 @@
+from filesystem.size import DIRECTORY_SIZE, file_size, human_size
 from terminal.engine.filesystem import VirtualFilesystem
 from terminal.engine.result import CommandResult
 
@@ -20,22 +21,20 @@ class PwdCommand(BaseCommand):
 
 
 class LsCommand(BaseCommand):
+    """ls [-a] [-l] [-h] [путь]: список; -l с размерами в байтах, -lh в привычных K и M."""
+
     name = "ls"
 
     def execute(self, context, args):
-        show_all = False
+        flags = set()
         paths = []
 
         for arg in args:
-            if arg == "-a":
-                show_all = True
-            elif arg == "-la" or arg == "-al":
-                show_all = True
-            elif arg.startswith("-"):
-                return CommandResult(
-                    f"ls: unsupported option: {arg}",
-                    2,
-                )
+            if arg.startswith("-") and len(arg) > 1:
+                unknown = set(arg[1:]) - set("alh")
+                if unknown:
+                    return CommandResult(f"ls: unsupported option: -{sorted(unknown)[0]}", 2)
+                flags |= set(arg[1:])
             else:
                 paths.append(arg)
 
@@ -53,7 +52,8 @@ class LsCommand(BaseCommand):
 
         if not fs.is_directory(path):
             file = fs.get_file(path)
-            return CommandResult(file.path.rsplit("/", 1)[-1])
+            name = file.path.rsplit("/", 1)[-1]
+            return CommandResult(self._long([(file_size(file.machine_file), name)], "h" in flags) if "l" in flags else name)
 
         try:
             entries = fs.list_directory(path)
@@ -66,10 +66,31 @@ class LsCommand(BaseCommand):
         names = [entry["name"] + ("/" if entry["is_directory"] else "")
                  for entry in entries]
 
-        if show_all:
+        if "l" in flags:
+            rows = [(self._size(fs, path, entry), name) for entry, name in zip(entries, names)]
+            if "a" in flags:
+                rows = [(DIRECTORY_SIZE, "./"), (DIRECTORY_SIZE, "../")] + rows
+            return CommandResult(self._long(rows, "h" in flags))
+
+        if "a" in flags:
             names = [".", ".."] + names
 
         return CommandResult("  ".join(names))
+
+    @staticmethod
+    def _size(fs, directory, entry):
+        """Размер строки списка: у файла его собственный, у папки 4096."""
+        if entry["is_directory"]:
+            return DIRECTORY_SIZE
+        file = fs.get_file(directory.rstrip("/") + "/" + entry["name"])
+        return file_size(file.machine_file) if file else DIRECTORY_SIZE
+
+    @staticmethod
+    def _long(rows, human):
+        """Строки «размер имя», размеры выровнены по правому краю."""
+        shown = [(human_size(size) if human else str(size), name) for size, name in rows]
+        width = max((len(size) for size, _ in shown), default=0)
+        return "\n".join(f"{size:>{width}}  {name}" for size, name in shown)
 
 
 class CdCommand(BaseCommand):
