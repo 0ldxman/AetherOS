@@ -18,6 +18,7 @@ from assets.services import asset_widget_kind, find_asset
 from secure.access import condition_slugs
 from secure.models import Key
 from wiki.models import Document, Namespace
+from map.icons import ICON_NAMES
 from wiki.widgets import MARK_COLORS, WIDGETS, parse_map_line, split_highlight_token
 
 from .constants import CONTAINERS
@@ -164,7 +165,7 @@ class _Scan:
                     continue
                 if parsed[0] == "marker":
                     if parsed[5]:
-                        self.issue(number + offset, ERROR, "map-color", f"«{parsed[5]}»: неизвестный цвет (есть: {', '.join(MARK_COLORS)}).")
+                        self.issue(number + offset, ERROR, "map-color", f"«{parsed[5]}»: неизвестный цвет или значок (цвета: {', '.join(MARK_COLORS)}; значки: {', '.join(ICON_NAMES)}).")
                 elif parsed[0] == "region":
                     self.regions.extend((number + offset, token) for token, _color in parsed[1])
                 elif parsed[0] == "except":

@@ -7,7 +7,9 @@ from .models import CountryLabel, Ownership
 
 
 def index(request):
-    return render(request, 'map.html')
+    from .icons import MARKER_ICONS
+
+    return render(request, 'map.html', {"marker_icons": MARKER_ICONS})
 
 
 def _latest_ownerships(request):

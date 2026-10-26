@@ -19,6 +19,7 @@
 {% endblock %}
 
 {% block js %}
+  {{ marker_icons|json_script:"marker-icons" }}
   <script src="https://unpkg.com/maplibre-gl@5/dist/maplibre-gl.js"></script>
   <script src="https://unpkg.com/pmtiles@4.3.0/dist/pmtiles.js"></script>
   <script>

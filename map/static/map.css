@@ -198,8 +198,8 @@ body.theme-print .embed-marker {
 /* scan: пометка красной ручкой, крест на точке и номер от руки, краска просвечивает бумагу */
 .embed-marker--pen {
   display: block;
-  width: 20px;
-  height: 20px;
+  width: 24px;
+  height: 24px;
   margin: 0;
   background: none;
   border: 0;
@@ -319,4 +319,64 @@ body.theme-term .marker-label {
   pointer-events: none;
   overflow: visible;
   mix-blend-mode: multiply;
+}
+
+/* значки-формы (звезда, ромб и другие) на светлой и терминальной картах: плоские, цвет из метки */
+.embed-marker--icon {
+  --mc-fallback: var(--mc-default, #b3261e);
+  position: relative;
+  display: block;
+  width: 26px;
+  height: 26px;
+  margin: 0;
+  background: none;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  transform: none;
+  color: var(--mc, var(--mc-fallback));
+}
+
+.embed-marker--icon::after {
+  content: none;
+}
+
+.embed-marker--icon svg {
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  fill: color-mix(in srgb, currentColor 28%, transparent);
+  stroke: currentColor;
+  stroke-width: 2.2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.embed-marker--icon.is-open svg {
+  fill: none;
+}
+
+.embed-marker--icon.is-solid svg {
+  fill: currentColor;
+}
+
+.embed-marker--icon .icon-n {
+  position: absolute;
+  top: -9px;
+  right: -9px;
+  font: 700 11px/1 var(--font-main, monospace);
+  color: currentColor;
+}
+
+/* на scan значок рисуется ручкой теми же правилами, что крестик: контур без заливки */
+.embed-marker--pen svg path {
+  vector-effect: none;
+}
+
+.embed-marker--pen.is-solid svg {
+  fill: currentColor;
+}
+
+body.theme-term .embed-marker--icon {
+  --mc-fallback: var(--accent);
 }

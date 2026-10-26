@@ -23,6 +23,7 @@ from html import escape
 from django.urls import NoReverseMatch, reverse
 
 from assets.services import asset_widget_kind, find_asset
+from map.icons import icon_name
 from map.scenes import internal_url
 from pathlib import PurePosixPath
 
@@ -670,7 +671,7 @@ MARK_ALIASES = {
 }
 
 _MARKER = re.compile(
-    r"^(.*?)\s*\|\s*(-?\d+(?:[.,]\d+)?)[\s,;]+(-?\d+(?:[.,]\d+)?)(?:\s+([^\W\d_]+))?\s*$"
+    r"^(.*?)\s*\|\s*(-?\d+(?:[.,]\d+)?)[\s,;]+(-?\d+(?:[.,]\d+)?)(?:\s+([^\W\d_]+))?(?:\s+([^\W\d_]+))?\s*$"
 )
 
 
@@ -694,12 +695,14 @@ _EXCEPT = re.compile(r"^(?:except|кроме)\s+(.+)$", re.IGNORECASE)
 
 
 def parse_map_line(line):
-    """Строка тела ::map -> ('marker', название, lat, lon, цвет, неизвестное слово цвета, ссылка) |
+    """Строка тела ::map -> ('marker', название, lat, lon, цвет, неизвестное слово, ссылка, значок) |
     ('region', [(токен, цвет)], ссылка) | ('except', [токен]) | None для пустой строки.
 
         Краков | 50.06 19.94 red      метка
         POL blue, DEU orange          выделение (через запятую; цвет последним словом)
         Краков | 50 19 -> Technologies/Report   ссылка по клику: «-> адрес» в конце строки
+        Склад | 50 19 red star        цвет и значок (булавка, крест, кольцо, точка, квадрат, треугольник,
+                                      ромб, звезда, флажок, восклицание, вопрос, прицел, галочка)
         except CZE-3  /  -CZE-3       исключить провинцию из выделенного
     """
     line = line.strip()
@@ -715,10 +718,19 @@ def parse_map_line(line):
     marker = _MARKER.match(line)
     if marker:
         lat, lon = float(marker.group(2).replace(",", ".")), float(marker.group(3).replace(",", "."))
-        word = marker.group(4)
-        # неизвестное слово цвета не теряет метку: она рисуется цветом по умолчанию, линтер ругается
-        return ("marker", marker.group(1).strip(), lat, lon, mark_color(word),
-                word if word and not mark_color(word) else "", link)
+        # после координат до двух слов в любом порядке: цвет и значок (red star, звезда красный).
+        # Неизвестное слово не теряет метку: она рисуется по умолчанию, линтер ругается
+        color = icon = bad = ""
+        for word in (marker.group(4), marker.group(5)):
+            if not word:
+                continue
+            if mark_color(word) and not color:
+                color = mark_color(word)
+            elif icon_name(word) and not icon:
+                icon = icon_name(word)
+            elif not bad:
+                bad = word
+        return ("marker", marker.group(1).strip(), lat, lon, color, bad, link, icon)
 
     exclusion = _EXCEPT.match(line)
     if exclusion:
@@ -738,12 +750,12 @@ def parse_map_line(line):
 
 
 def _marker_rows(text):
-    """Метки тела блока: [(название, lat, lon, цвет, ссылка)]; координаты вне карты пропускаются."""
+    """Метки тела блока: [(название, lat, lon, цвет, ссылка, значок)]; координаты вне карты пропускаются."""
     rows = []
     for line in _lines(text):
         parsed = parse_map_line(line)
         if parsed and parsed[0] == "marker" and -85 <= parsed[2] <= 85 and -180 <= parsed[3] <= 180:
-            rows.append((parsed[1], parsed[2], parsed[3], parsed[4], parsed[6]))
+            rows.append((parsed[1], parsed[2], parsed[3], parsed[4], parsed[6], parsed[7]))
     return rows[:MAX_MARKERS]
 
 
@@ -869,7 +881,7 @@ def map_widget(text, ctx, args=""):
         lon = float(_num(head.get("lon"), 10, -180, 180))
         zoom = float(_num(head.get("zoom"), 4, 0, 18))
     else:
-        box = union([b for g in groups for b in g["boxes"]] + [[lo, la, lo, la] for _, la, lo, _c, _u in markers])
+        box = union([b for g in groups for b in g["boxes"]] + [[lo, la, lo, la] for _, la, lo, _c, _u, _i in markers])
         if box is not None:
             lat, lon, zoom = view_for(box)
             if head.get("zoom"):
@@ -890,8 +902,8 @@ def map_widget(text, ctx, args=""):
         query += "&labels=0"
     if region_codes:
         query += "&regions=" + ",".join(region_codes)
-    for label, la, lo, color, link in markers:
-        query += f"&m={la},{lo},{color},{quote_plus(internal_url(link))},{quote_plus(label)}"
+    for label, la, lo, color, link, icon in markers:
+        query += f"&m={la},{lo},{color},{icon},{quote_plus(internal_url(link))},{quote_plus(label)}"
     if scene is not None:
         if scene.bounds:
             query += "&bounds=" + ",".join(f"{v:g}" for v in scene.bounds)
@@ -940,7 +952,7 @@ def map_widget(text, ctx, args=""):
     )
 
     legend = []
-    for index, (label, la, lo, color, _link) in enumerate(markers, 1):
+    for index, (label, la, lo, color, _link, _icon) in enumerate(markers, 1):
         legend.append(
             f'<li class="map-legend-marker"{_color_attr(color)}><b>{index}</b>{ctx.inline(label)}</li>'
         )

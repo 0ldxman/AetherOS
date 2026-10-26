@@ -2,7 +2,7 @@
 
 Сцена это ссылка на базовую карту (дата мира) плюс список пометок. Пометка словарь:
 
-    marker   coords [lon, lat]                      label, color, url, key
+    marker   coords [lon, lat]                      label, color, icon, url, key
     line     coords [[lon, lat], ...] (от 2)        label, color, width, dash, url, key
     arrow    как line, на конце наконечник
     polygon  coords [[lon, lat], ...] (от 3)        label, color, fill, url, key
@@ -17,6 +17,8 @@ from django.core.exceptions import ValidationError
 from django.urls import NoReverseMatch, get_script_prefix, reverse
 
 from secure.access import satisfied, validate_requirements
+
+from .icons import ICON_NAMES
 from wiki.markup.expr import SpoilerSyntaxError, parse_expr
 
 FEATURE_TYPES = ("marker", "line", "arrow", "polygon", "circle", "text", "region")
@@ -104,6 +106,10 @@ def clean_features(raw):
             if color not in COLORS:
                 raise ValidationError(f"{where}: цвет один из {', '.join(COLORS)}.")
             clean["color"] = color
+        if kind == "marker" and item.get("icon"):
+            if item["icon"] not in ICON_NAMES:
+                raise ValidationError(f"{where}: значок один из {', '.join(ICON_NAMES)}.")
+            clean["icon"] = item["icon"]
         if item.get("label") and kind != "text":
             clean["label"] = str(item["label"]).strip()[:TEXT_LIMIT]
         if item.get("url"):

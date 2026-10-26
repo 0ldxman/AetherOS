@@ -30,6 +30,10 @@
   #se-layers .se-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   #se-layers .se-dot { width: 10px; height: 10px; border-radius: 50%; flex: none; border: 1px solid rgba(0,0,0,.3); }
   #se-layers button { padding: 0 5px; line-height: 18px; cursor: pointer; }
+  #se-icons { display: flex; flex-wrap: wrap; gap: 4px; }
+  #se-icons button { width: 32px; height: 32px; padding: 3px; cursor: pointer; background: var(--body-bg, #fff); border: 1px solid var(--border-color, #ccc); }
+  #se-icons button.active { border-color: var(--primary, #417690); box-shadow: 0 0 0 2px var(--primary, #417690); }
+  #se-icons svg { width: 100%; height: 100%; fill: none; stroke: currentColor; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
   .se-suggest { position: relative; }
   .se-suggest ul { position: absolute; z-index: 20; left: 0; right: 0; top: 100%; margin: 0; padding: 0; list-style: none;
     background: var(--body-bg, #fff); border: 1px solid var(--border-color, #ccc); max-height: 180px; overflow: auto; }
@@ -117,6 +121,7 @@
             {% for c in colors %}<option value="{{ c }}">{{ c }}</option>{% endfor %}
           </select>
         </div>
+        <div class="se-row" data-for="marker"><label>Значок</label><div id="se-icons"></div></div>
         <div class="se-row" data-for="line arrow"><label>Толщина</label><input type="number" data-prop="width" min="1" max="8" step="0.5"></div>
         <div class="se-row inline" data-for="line arrow"><input type="checkbox" data-prop="dash" id="se-dash"><label for="se-dash">Пунктир</label></div>
         <div class="se-row inline" data-for="polygon circle"><input type="checkbox" data-prop="fill" id="se-fill"><label for="se-fill">Заливка</label></div>
@@ -132,11 +137,13 @@
 </div>
 
 {{ keys_info|json_script:"se-keys-data" }}
+{{ marker_icons|json_script:"se-icons-data" }}
 <script>
 (function () {
   const frame = document.getElementById('se-frame');
   const lookupUrl = "{% url 'admin:map_mapscene_lookup' %}";
   const keyInfo = JSON.parse(document.getElementById('se-keys-data').textContent);
+  const iconShapes = JSON.parse(document.getElementById('se-icons-data').textContent);
   const mapUrl = "{% url 'map:index' %}";
   const features = document.getElementById('id_features');
   const props = document.getElementById('se-props');
@@ -324,6 +331,24 @@
     return parts.length > 1 && (all ? 2 : 1) < (parent || 0) ? `(${text})` : text;
   }
 
+  // значки меток: кнопка на каждую форму; «булавка» это вид по умолчанию, без значка
+  (function buildIcons() {
+    const box = document.getElementById('se-icons');
+    const make = (name, title, path) => {
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.dataset.icon = name;
+      button.title = title;
+      button.innerHTML = path
+        ? `<svg viewBox="0 0 24 24"><path d="${path}"/></svg>`
+        : '<svg viewBox="0 0 24 24"><path d="M12 22C12 22 5 14 5 9a7 7 0 0 1 14 0c0 5-7 13-7 13Z"/><circle cx="12" cy="9" r="2.4"/></svg>';
+      button.addEventListener('click', () => { if (current) send({ type: 'aether-scene-update', id: current.id, patch: { icon: name } }); });
+      box.appendChild(button);
+    };
+    make('', 'По умолчанию (булавка, на scan крестик)', '');
+    Object.entries(iconShapes).forEach(([name, shape]) => make(name, shape.label, shape.d));
+  })();
+
   function showProps(feature) {
     current = feature;
     props.hidden = !feature;
@@ -334,6 +359,7 @@
     props.querySelectorAll('[data-for]').forEach((row) => {
       row.hidden = !row.dataset.for.split(' ').includes(feature.type);
     });
+    document.querySelectorAll('#se-icons button').forEach((b) => b.classList.toggle('active', b.dataset.icon === (feature.icon || '')));
     props.querySelectorAll('[data-prop]').forEach((input) => {
       const name = input.dataset.prop;
       let value = feature[name];

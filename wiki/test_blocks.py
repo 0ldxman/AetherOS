@@ -63,7 +63,7 @@ class BlocksTests(TestCase):
 
     def test_map_markers_go_to_the_url_and_the_legend(self):
         html = render("::map lat=48 lon=2\nПорт | 48.8 2.3\nСклад | 48.9, 2.4\nмусор\n::\n")
-        self.assertIn("m=48.8,2.3,,,%D0%9F%D0%BE%D1%80%D1%82", html)
+        self.assertIn("m=48.8,2.3,,,,%D0%9F%D0%BE%D1%80%D1%82", html)
         self.assertEqual(html.count("map-legend-marker"), 2)
         self.assertIn("<b>2</b>Склад", html)
 
@@ -288,6 +288,24 @@ class BlocksTests(TestCase):
         html = render("::map lat=1 lon=2\nА | 1 2 -> Technologies/Report\nБ | 3 4 -> javascript:alert(1)\n::\n")
         self.assertIn("Technologies%2FReport", html)
         self.assertEqual(html.count("javascript"), 0)
+
+    def test_marker_icons_in_lines_in_any_order_with_colors(self):
+        html = render("::map lat=1 lon=2\nА | 1 2 star red\nБ | 3 4 синий ромб\nВ | 5 6 triangle\nГ | 7 8 розовый\n::\n")
+        self.assertIn("m=1.0,2.0,red,star,", html)
+        self.assertIn("m=3.0,4.0,blue,diamond,", html)
+        self.assertIn("m=5.0,6.0,,triangle,", html)
+        self.assertIn("m=7.0,8.0,,,", html)                     # неизвестное слово не теряет метку
+        self.assertEqual(codes("::map lat=1 lon=2\nА | 1 2 star red\n::\n"), [])
+        self.assertEqual(codes("::map lat=1 lon=2\nГ | 7 8 розовый\n::\n"), [(2, "map-color")])
+
+    def test_scene_marker_icon_is_validated(self):
+        from django.core.exceptions import ValidationError
+
+        from map.scenes import clean_features
+
+        self.assertEqual(clean_features([{"type": "marker", "coords": [1, 2], "icon": "star"}])[0]["icon"], "star")
+        with self.assertRaises(ValidationError):
+            clean_features([{"type": "marker", "coords": [1, 2], "icon": "bomb"}])
 
     def test_lint_flags_unknown_regions(self):
         from map.models import Province

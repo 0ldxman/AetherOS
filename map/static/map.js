@@ -100,10 +100,14 @@ const FLAT_VIEW = EMBED && SEARCH.get('flat') === '1';
 // Редактор сохранённой карты: /apps/map/?embed=1&scene_edit=1 внутри админки (инструменты и свойства у родителя)
 const SCENE_EDIT = EMBED && SEARCH.get('scene_edit') === '1';
 const PEN_SCENE = EMBED && THEME === 'scan';
+// формы значков меток (map/icons.py): имя -> {d, closed, solid}
+const MARKER_ICONS = (() => {
+  try { return JSON.parse(document.getElementById('marker-icons').textContent); } catch (error) { return {}; }
+})();
 const MARKERS = EMBED
   ? SEARCH.getAll('m').map((raw) => {
-      const [lat, lon, color, link, ...label] = raw.split(',');
-      return { lat: Number(lat), lon: Number(lon), color, url: link ? decodeURIComponent(link.replace(/\+/g, ' ')) : '', label: label.join(',') };
+      const [lat, lon, color, icon, link, ...label] = raw.split(',');
+      return { lat: Number(lat), lon: Number(lon), color, icon, url: link ? decodeURIComponent(link.replace(/\+/g, ' ')) : '', label: label.join(',') };
     }).filter((m) => Number.isFinite(m.lat) && Number.isFinite(m.lon))
   : [];
 const PROVINCE_NAMES = EMBED && SEARCH.get('labels') !== '0';
@@ -1016,7 +1020,18 @@ function addMarker(item, index, opts = {}) {
   tag.style.setProperty('--tilt', `${[-4, 3, -2, 5][seed % 4]}deg`);
   if (markPalette[item.color]) tag.style.setProperty('--mc', markPalette[item.color]);
 
-  if (THEME === 'scan') {
+  const shape = item.icon && item.icon !== 'pin' ? MARKER_ICONS[item.icon] : null;
+
+  if (shape) {
+    // значок-форма: на scan обведён ручкой, на остальных картах плоский с лёгкой заливкой
+    const pen = THEME === 'scan';
+    tag.classList.add(pen ? 'embed-marker--pen' : 'embed-marker--icon');
+    if (shape.solid) tag.classList.add('is-solid');
+    if (!shape.closed) tag.classList.add('is-open');
+    tag.innerHTML =
+      `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="${shape.d}"/></svg>` +
+      (numbered ? `<span class="${pen ? 'pen-n' : 'icon-n'}">${text}</span>` : '');
+  } else if (THEME === 'scan') {
     // пометка красной ручкой: маленький крестик, нарисованный от руки в два росчерка, и номер рядом
     tag.classList.add('embed-marker--pen');
     const crosses = [
@@ -1055,7 +1070,8 @@ function addMarker(item, index, opts = {}) {
   }
 
   // остриё булавки стоит на точке; крест от руки центрируется на ней
-  const marker = new maplibregl.Marker({ element: el, anchor: THEME === 'scan' ? 'center' : 'bottom', draggable: !!opts.onMove })
+  const centered = THEME === 'scan' || !!shape;
+  const marker = new maplibregl.Marker({ element: el, anchor: centered ? 'center' : 'bottom', draggable: !!opts.onMove })
     .setLngLat([lon, lat])
     .addTo(map);
   if (opts.onMove) marker.on('dragend', () => { const p = marker.getLngLat(); opts.onMove([p.lng, p.lat]); });

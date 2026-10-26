@@ -287,6 +287,9 @@ class MapSceneAdmin(admin.ModelAdmin):
 
         from secure.models import Key
 
+        from .icons import MARKER_ICONS
+
+        context["marker_icons"] = MARKER_ICONS
         context["colors"] = COLORS
         keys = list(Key.objects.order_by("slug").values("slug", "description"))
         context["keys"] = [k["slug"] for k in keys]
