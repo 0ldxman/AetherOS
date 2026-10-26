@@ -168,3 +168,24 @@ def visible_features(features, keys, on_date=None):
         if satisfied(item.get("key"), keys) and in_span(item, on_date):
             shown.append({k: v for k, v in item.items() if k not in ("key", "from", "to")})
     return shown
+
+
+def scene_payload(scene, keys, on_date):
+    """Пометки сцены для страницы: видимые игроку на дату, ссылки внутренние, выделения раскрыты в провинции."""
+    from .bounds import resolve_highlight
+
+    payload = []
+    for item in visible_features(scene.features, keys, on_date):
+        item = dict(item)
+        if item.get("url"):
+            item["url"] = internal_url(item["url"])
+            if not item["url"]:
+                del item["url"]
+        if item["type"] == "region":
+            groups, _unknown = resolve_highlight([item["token"]], on_date)
+            codes = [code for g in groups for code in g["codes"]]
+            if not codes:
+                continue
+            item = {**{k: v for k, v in item.items() if k != "token"}, "type": "regions", "codes": codes}
+        payload.append(item)
+    return payload

@@ -180,3 +180,33 @@ class RegionLookupTests(TestCase):
         self.client.force_login(staff)
         data = self.client.get(url).json()
         self.assertEqual({r["token"] for r in data["results"]}, {"POL", "POL-2"})
+
+
+class SceneApiTests(TestCase):
+    def setUp(self):
+        from django.contrib.auth import get_user_model
+
+        self.open = MapScene.objects.create(slug="open", title="Открытая", lat=50, lon=19, zoom=5, flat=True,
+            bounds=[10, 40, 30, 60], base_date="2041-03-12",
+            features=[{"type": "marker", "coords": [19, 50], "label": "А"},
+                      {"type": "marker", "coords": [1, 1], "label": "Секрет", "key": "secret"},
+                      {"type": "marker", "coords": [2, 2], "label": "Старое", "to": "2030-01-01"}])
+        self.closed = MapScene.objects.create(slug="closed", title="Закрытая", key_condition="secret")
+        self.staff = get_user_model().objects.create_user("boss", password="pw", is_staff=True)
+
+    def test_list_and_detail_hide_what_the_player_has_no_key_for(self):
+        self.client.force_login(self.staff)
+        listing = self.client.get("/apps/map/api/scenes/").json()
+        self.assertEqual([s["slug"] for s in listing], ["open"])
+
+        data = self.client.get("/apps/map/api/scenes/open/").json()
+        self.assertEqual((data["lat"], data["flat"], data["bounds"], data["date"]), (50, True, [10, 40, 30, 60], "2041-03-12"))
+        self.assertEqual([f["label"] for f in data["features"]], ["А"])         # секретная и устаревшая отсеяны
+        self.assertEqual(self.client.get("/apps/map/api/scenes/closed/").status_code, 404)
+        self.assertEqual(self.client.get("/apps/map/api/scenes/nope/").status_code, 404)
+
+    def test_the_date_can_be_overridden(self):
+        self.client.force_login(self.staff)
+        data = self.client.get("/apps/map/api/scenes/open/?date=2029-01-01").json()
+        self.assertEqual([f["label"] for f in data["features"]], ["А", "Старое"])
+        self.assertEqual(self.client.get("/apps/map/api/scenes/open/?date=bad").status_code, 400)

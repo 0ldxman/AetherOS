@@ -974,25 +974,9 @@ def map_widget(text, ctx, args=""):
 
 
 def _scene_payload(scene, keys, on_date):
-    """Пометки сцены для страницы: только видимые игроку, ссылки внутренние, выделения раскрыты в провинции."""
-    from map.bounds import resolve_highlight
-    from map.scenes import visible_features
+    from map.scenes import scene_payload
 
-    payload = []
-    for item in visible_features(scene.features, keys, on_date):
-        item = dict(item)
-        if item.get("url"):
-            item["url"] = internal_url(item["url"])
-            if not item["url"]:
-                del item["url"]
-        if item["type"] == "region":
-            groups, _unknown = resolve_highlight([item["token"]], on_date)
-            codes = [code for g in groups for code in g["codes"]]
-            if not codes:
-                continue
-            item = {**{k: v for k, v in item.items() if k != "token"}, "type": "regions", "codes": codes}
-        payload.append(item)
-    return payload
+    return scene_payload(scene, keys, on_date)
 
 
 def _color_attr(color):

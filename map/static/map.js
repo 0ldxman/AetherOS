@@ -100,6 +100,11 @@ const FLAT_VIEW = EMBED && SEARCH.get('flat') === '1';
 // Редактор сохранённой карты: /apps/map/?embed=1&scene_edit=1 внутри админки (инструменты и свойства у родителя)
 const SCENE_EDIT = EMBED && SEARCH.get('scene_edit') === '1';
 const PEN_SCENE = EMBED && THEME === 'scan';
+// Сохранённая карта в самом приложении: /apps/map/?scene=слаг (камера, дата и пометки берутся из сцены)
+const SCENE_SLUG = !EMBED ? SEARCH.get('scene') : null;
+const SCENE_VIEW = !!SCENE_SLUG;
+let sceneDate = '';
+const START_HASH = window.location.hash;   // вид из адреса до того, как карта сама запишет свой
 // формы значков меток (map/icons.py): имя -> {d, closed, solid}
 const MARKER_ICONS = (() => {
   try { return JSON.parse(document.getElementById('marker-icons').textContent); } catch (error) { return {}; }
@@ -233,7 +238,7 @@ applyMode(); // подсветка кнопки при старте
 
 // Дата из адреса страницы: ?date=YYYY-MM-DD (без параметра - последние владельцы)
 function getUrlDate() {
-  return new URLSearchParams(window.location.search).get('date');
+  return new URLSearchParams(window.location.search).get('date') || sceneDate || null;
 }
 
 // Добавляет ?date=... к адресу API, если дата есть в адресе страницы
@@ -477,7 +482,7 @@ map.on('load', () => {
 // Выделение провинций виджета ::map: выбранные залиты и обведены, остальные притушены.
 // Слои есть всегда (во встроенной карте), состав выделения задаёт setRegions(): из адреса
 // (?regions=adm1_code[:цвет[:ссылка]]) и из пометок сохранённой карты, которые приходят позже.
-if (EMBED) {
+if (EMBED || SCENE_VIEW) {
   const nothing = ['in', ['get', 'adm1_code'], ['literal', []]];
 
   map.addLayer({
@@ -615,8 +620,7 @@ if (PROVINCE_NAMES) {
   applyScene();
 
   // Цвета стран: в самом конце, чтобы ошибка здесь ничего не ломала
-  loadProvinceColors();
-  loadCountryLabels();
+  startData();
 });
 
 // Курсор-прицел
@@ -794,12 +798,13 @@ let regionLinks = new Map();
 
 // Ссылки открывает страница-родитель (окно рабочего стола или обычный переход)
 function postLink(url, label) {
+  if (url && !EMBED) { openProvinceLink(url); return; }   // в самом приложении ссылку открываем сразу
   if (url) window.parent.postMessage({ type: 'aether-map-link', url, label: label || '' }, window.location.origin);
 }
 
 // Выделение провинций: адрес карты плюс пометки сцены (у последней записи провинции приоритет)
 function setRegions(extra) {
-  if (!EMBED || !map.getLayer('regions-fill')) return;
+  if (!(EMBED || SCENE_VIEW) || !map.getLayer('regions-fill')) return;
 
   const base = THEME_STYLE ? THEME_STYLE.region : '#ffcf4d';
   const items = new Map();
@@ -930,7 +935,7 @@ function ensureSceneLayers() {
 }
 
 function applyScene() {
-  if (!EMBED || !layersReady) return;
+  if (!(EMBED || SCENE_VIEW) || !layersReady) return;
 
   ensureSceneLayers();
   const shapes = [];
@@ -1680,4 +1685,76 @@ function condSatisfied(req, keys) {
   if (req.any) return req.any.some((r) => condSatisfied(r, keys));
   if (req.not !== undefined) return !condSatisfied(req.not, keys);
   return false;
+}
+
+
+// Данные карты: у сохранённой карты сначала берём её дату и камеру, потому что от даты зависят цвета и подписи
+async function startData() {
+  if (SCENE_VIEW) await loadSceneView();
+  loadProvinceColors();
+  loadCountryLabels();
+}
+
+async function loadSceneView() {
+  try {
+    const response = await fetch(`${SCENES_URL}${encodeURIComponent(SCENE_SLUG)}/${window.location.search.includes('date=') ? `?date=${encodeURIComponent(SEARCH.get('date'))}` : ''}`,
+      { credentials: 'same-origin' });
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    const data = await response.json();
+
+    // дата сцены попадает в адрес, чтобы таймлайн и остальное приложение показывали её же
+    if (!SEARCH.get('date') && data.date) {
+      const params = new URLSearchParams(window.location.search);
+      params.set('date', data.date);
+      window.location.replace(`${window.location.pathname}?${params}${START_HASH}`);
+      return;
+    }
+    if (!SEARCH.get('mode') && Object.hasOwn(MODE_LAYERS, data.mode)) { currentMode = data.mode; applyMode(); }
+    map.setProjection({ type: data.flat ? 'mercator' : 'globe' });
+    if (Array.isArray(data.bounds) && data.bounds.length === 4) map.setMaxBounds([[data.bounds[0], data.bounds[1]], [data.bounds[2], data.bounds[3]]]);
+    if (data.min_zoom !== null && data.min_zoom !== undefined) map.setMinZoom(data.min_zoom);
+    if (data.max_zoom !== null && data.max_zoom !== undefined) map.setMaxZoom(data.max_zoom);
+    if (!START_HASH) map.jumpTo({ center: [data.lon, data.lat], zoom: data.zoom });
+
+    sceneFeatures = data.features;
+    applyScene();
+    document.title = `${data.title} · ${document.title}`;
+  } catch (error) {
+    console.error('Не удалось загрузить сохранённую карту', error);
+  }
+}
+
+// Выбор сохранённой карты: список в углу, выбор перезагружает карту со ?scene=слаг
+if (!EMBED && !EDIT_MODE && !PICK_MODE && typeof SCENES_URL !== 'undefined') {
+  fetch(SCENES_URL, { credentials: 'same-origin' })
+    .then((r) => (r.ok ? r.json() : []))
+    .then((scenes) => {
+      if (!scenes.length) return;
+      const panel = document.createElement('div');
+      panel.id = 'scene-panel';
+      const select = document.createElement('select');
+      const none = document.createElement('option');
+      none.value = '';
+      none.textContent = 'обычная карта';
+      select.appendChild(none);
+      scenes.forEach((scene) => {
+        const option = document.createElement('option');
+        option.value = scene.slug;
+        option.textContent = scene.title;
+        select.appendChild(option);
+      });
+      select.value = SCENE_SLUG || '';
+      select.addEventListener('change', () => {
+        const params = new URLSearchParams(window.location.search);
+        if (select.value) params.set('scene', select.value); else params.delete('scene');
+        params.delete('date');
+        window.location.search = params.toString();
+      });
+      const title = document.createElement('div');
+      title.className = 'title';
+      title.textContent = 'map.scene';
+      panel.append(title, select);
+      document.body.appendChild(panel);
+    })
+    .catch(() => {});
 }

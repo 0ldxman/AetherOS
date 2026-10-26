@@ -1,6 +1,6 @@
 from datetime import date
 
-from django.http import JsonResponse
+from django.http import Http404, JsonResponse
 from django.shortcuts import render
 
 from .models import CountryLabel, Ownership
@@ -75,3 +75,53 @@ def timeline_dates(request):
     """Даты, в которые менялись границы: из них строятся засечки таймлайна."""
     days = Ownership.objects.order_by("date_from").values_list("date_from", flat=True).distinct()
     return JsonResponse({"dates": [d.isoformat() for d in days]})
+
+def _visible_scenes(request):
+    """Сохранённые карты, открытые игроку по ключам."""
+    from secure.access import satisfied
+    from wiki.access import request_keys
+
+    from .models import MapScene
+
+    keys = request_keys(request)
+    return [scene for scene in MapScene.objects.all() if satisfied(scene.key_condition, keys)], keys
+
+
+def scene_list(request):
+    """Список сохранённых карт для выбора в приложении карты."""
+    scenes, _keys = _visible_scenes(request)
+    return JsonResponse([
+        {"slug": s.slug, "title": s.title, "date": s.base_date.isoformat() if s.base_date else ""}
+        for s in scenes
+    ], safe=False)
+
+
+def scene_detail(request, slug):
+    """Сохранённая карта целиком: камера, дата и только те пометки, что видны игроку (закрытая сцена 404)."""
+    from .scenes import scene_payload
+
+    scenes, keys = _visible_scenes(request)
+    scene = next((s for s in scenes if s.slug == slug), None)
+    if scene is None:
+        raise Http404
+
+    raw = request.GET.get("date")
+    try:
+        on_date = date.fromisoformat(raw) if raw else scene.base_date
+    except ValueError:
+        return JsonResponse({"error": "date must be YYYY-MM-DD"}, status=400)
+
+    return JsonResponse({
+        "slug": scene.slug,
+        "title": scene.title,
+        "date": scene.base_date.isoformat() if scene.base_date else "",
+        "mode": scene.mode,
+        "lat": scene.lat,
+        "lon": scene.lon,
+        "zoom": scene.zoom,
+        "flat": scene.flat,
+        "bounds": scene.bounds,
+        "min_zoom": scene.min_zoom,
+        "max_zoom": scene.max_zoom,
+        "features": scene_payload(scene, keys, on_date),
+    })
