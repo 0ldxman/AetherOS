@@ -60,6 +60,14 @@ class LayerCommand(BaseCommand):
 
         return self.unlock(context, args[0], args[1:], self.layer)
 
+    def scene_for(self, layer, entry, ok, rest):
+        """Сцена работы команды. rest это слой, оказавшийся сверху после снятия (или None)."""
+        return unlock_scene(layer, entry.path, ok)
+
+    def done_for(self, rest):
+        """Что сказать, когда слой снят."""
+        return self.done
+
     def unlock(self, context, target, values, layer):
         path = context.resolve_path(target)
         fs = VirtualFilesystem(context)
@@ -128,8 +136,10 @@ class LayerCommand(BaseCommand):
 
         outcome = unlock_file(session_file, given)
 
+        rest = peek_top(entry.machine_file.state, outcome.session_file.state)
+
         if outcome.result.removed:
-            lines = [f"{self.name}: {target}: {self.done}"]
+            lines = [f"{self.name}: {target}: {self.done_for(rest)}"]
             code = 0
         else:
             wrong = ", ".join(outcome.result.wrong)
@@ -141,6 +151,6 @@ class LayerCommand(BaseCommand):
         return CommandResult(
             "\n".join(lines + outcome.say + notice),
             code,
-            scene=unlock_scene(layer, entry.path, bool(outcome.result.removed)),
+            scene=self.scene_for(layer, entry, bool(outcome.result.removed), rest),
             effects=outcome.effects or None,
         )

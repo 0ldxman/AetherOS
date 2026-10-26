@@ -151,6 +151,20 @@ class TerminalSceneTests(TestCase):
         for name in ("cph", "b256", "bridge"):
             self.assertIn("command not found", self.run_command(f"{name} /home/door.bin x")["output"])
 
+    def test_rpr_says_when_another_damaged_layer_waits_underneath(self):
+        from filesystem.models import MachineFile
+
+        MachineFile.objects.create(machine=self.main, path="/home/hurt.dat", state="> damaged\n> damaged", size=9000)
+        first = self.run_command("rpr /home/hurt.dat")
+        self.assertEqual(first["exit_code"], 0)
+        self.assertIn("further repair required", first["output"])
+        self.assertTrue(any("could not be recovered" in str(step) for step in first["scene"]))
+        second = self.run_command("rpr /home/hurt.dat")
+        self.assertEqual(second["output"], "rpr: /home/hurt.dat: repaired")
+        self.assertFalse(any("could not be recovered" in str(step) for step in second["scene"]))
+        self.assertTrue(any("18 blocks" in str(step) or "pass 1/4" in str(step) for step in second["scene"]))     # размер 9000 -> 18 блоков
+        self.assertIn("nothing to repair", self.run_command("rpr /home/hurt.dat")["output"])
+
     def test_ftyp_and_cnt_play_a_short_scene_that_gives_nothing_away(self):
         from filesystem.models import MachineFile
 
