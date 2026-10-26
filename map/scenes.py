@@ -10,9 +10,13 @@
     text     coords [lon, lat], text                color, size, key
     region   token (POL, RUS-32)            label, color, url, key
 
+from, to  необязательные даты (ГГГГ-ММ-ДД): пометка видна только на дату сцены внутри этого промежутка.
+
 color это имя из палитры (red, blue...), url внутренний адрес, key условие по ключам
 (то же, что у спойлеров), оно проверяется на сервере и закрытые пометки в страницу не попадают.
 """
+from datetime import date
+
 from django.core.exceptions import ValidationError
 from django.urls import NoReverseMatch, get_script_prefix, reverse
 
@@ -123,6 +127,18 @@ def clean_features(raw):
             clean["fill"] = bool(item["fill"])
         if kind == "text" and item.get("size"):
             clean["size"] = max(8, min(48, float(item["size"])))
+        # видимость по времени: на дату сцены между from и to (границы необязательны)
+        span = {}
+        for name in ("from", "to"):
+            if item.get(name):
+                try:
+                    span[name] = date.fromisoformat(str(item[name])).isoformat()
+                except ValueError:
+                    raise ValidationError(f"{where}: дата «{name}» вида ГГГГ-ММ-ДД.")
+        if span.get("from") and span.get("to") and span["from"] > span["to"]:
+            raise ValidationError(f"{where}: «from» позже «to».")
+        clean.update(span)
+
         key = item.get("key")
         if isinstance(key, str):
             # условие строкой, как у спойлеров: secret and not other
@@ -137,10 +153,18 @@ def clean_features(raw):
     return result
 
 
-def visible_features(features, keys):
-    """Пометки, которые видны игроку с этими ключами (поле key уже проверено и наружу не уходит)."""
+def in_span(item, on_date):
+    """Видна ли пометка на дату: без даты сцены или без границ видна всегда."""
+    if on_date is None:
+        return True
+    iso = on_date.isoformat()
+    return (not item.get("from") or item["from"] <= iso) and (not item.get("to") or iso <= item["to"])
+
+
+def visible_features(features, keys, on_date=None):
+    """Пометки, которые видны игроку с этими ключами на дату (поле key уже проверено и наружу не уходит)."""
     shown = []
     for item in features or []:
-        if satisfied(item.get("key"), keys):
-            shown.append({k: v for k, v in item.items() if k != "key"})
+        if satisfied(item.get("key"), keys) and in_span(item, on_date):
+            shown.append({k: v for k, v in item.items() if k not in ("key", "from", "to")})
     return shown

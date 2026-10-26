@@ -264,6 +264,16 @@ class BlocksTests(TestCase):
         self.assertTrue(features[0]["url"].endswith("Technologies/Report"))
         self.assertNotIn("Тайник", html)
 
+    def test_scene_features_follow_the_date_of_the_map(self):
+        self._scene(features=[
+            {"type": "marker", "coords": [1, 1], "label": "Раньше", "to": "2030-01-01"},
+            {"type": "marker", "coords": [2, 2], "label": "Позже", "from": "2040-01-01"},
+        ])
+        self.assertIn("Раньше", render("::map scene=raid date=2029-02-12\n::\n"))
+        self.assertNotIn("Позже", render("::map scene=raid date=2029-02-12\n::\n"))
+        self.assertIn("Позже", render("::map scene=raid date=2041-02-12\n::\n"))
+        self.assertNotIn("Раньше", render("::map scene=raid date=2041-02-12\n::\n"))
+
     def test_scene_secret_feature_appears_with_the_key(self):
         self._scene()
         html = render("::map scene=raid\n::\n", keys={"secret"})

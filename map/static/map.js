@@ -1099,6 +1099,7 @@ const editor = {
   lastPatch: null,
   hidden: new Set(),    // скрыты только в редакторе (в сцену не пишутся)
   previewKeys: null,    // null: видно всё; иначе набор ключей воображаемого игрока
+  previewDate: null,    // ГГГГ-ММ-ДД: показать пометки, видимые на эту дату (null: все)
 
   newId() { this.nextId += 1; return `f${this.nextId}`; },
 
@@ -1140,6 +1141,7 @@ const editor = {
   // видна ли пометка воображаемому игроку (условие по ключам, как у спойлеров)
   shown(feature) {
     if (this.hidden.has(feature.id)) return false;
+    if (this.previewDate && ((feature.from && feature.from > this.previewDate) || (feature.to && this.previewDate > feature.to))) return false;
     return this.previewKeys === null || condSatisfied(feature.key, this.previewKeys);
   },
 
@@ -1497,6 +1499,9 @@ if (SCENE_EDIT) {
       if (Array.isArray(d.bounds) && d.bounds.length === 4) {
         map.fitBounds([[d.bounds[0], d.bounds[1]], [d.bounds[2], d.bounds[3]]], { padding: 40, maxZoom: 7, duration: 600 });
       }
+    } else if (d.type === 'aether-scene-preview-date') {
+      editor.previewDate = d.date || null;
+      editor.render();
     } else if (d.type === 'aether-scene-preview') {
       editor.setPreview(Array.isArray(d.keys) ? d.keys : null);
     }

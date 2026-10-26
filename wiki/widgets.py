@@ -979,7 +979,7 @@ def _scene_payload(scene, keys, on_date):
     from map.scenes import visible_features
 
     payload = []
-    for item in visible_features(scene.features, keys):
+    for item in visible_features(scene.features, keys, on_date):
         item = dict(item)
         if item.get("url"):
             item["url"] = internal_url(item["url"])

@@ -35,6 +35,29 @@ class MapSceneTests(TestCase):
             with self.assertRaises(ValidationError, msg=bad):
                 clean_features(bad)
 
+    def test_features_can_be_limited_in_time(self):
+        from datetime import date
+
+        from django.core.exceptions import ValidationError
+
+        from .scenes import clean_features, visible_features
+
+        features = clean_features([
+            {"type": "marker", "coords": [0, 0], "label": "всегда"},
+            {"type": "marker", "coords": [1, 1], "label": "до", "to": "2041-03-12"},
+            {"type": "marker", "coords": [2, 2], "label": "после", "from": "2041-03-13"},
+            {"type": "marker", "coords": [3, 3], "label": "промежуток", "from": "2041-01-01", "to": "2041-12-31"},
+        ])
+        labels = lambda on: [f["label"] for f in visible_features(features, set(), on)]
+        self.assertEqual(labels(None), ["всегда", "до", "после", "промежуток"])      # без даты видно всё
+        self.assertEqual(labels(date(2041, 3, 12)), ["всегда", "до", "промежуток"])
+        self.assertEqual(labels(date(2041, 3, 13)), ["всегда", "после", "промежуток"])
+        self.assertEqual(labels(date(2042, 1, 1)), ["всегда", "после"])
+        self.assertNotIn("from", visible_features(features, set(), date(2041, 3, 13))[1])
+        for bad in ({"from": "вчера"}, {"from": "2041-05-01", "to": "2041-01-01"}):
+            with self.assertRaises(ValidationError):
+                clean_features([{"type": "marker", "coords": [0, 0], **bad}])
+
     def test_visible_features_follow_keys_and_hide_the_key_field(self):
         from .scenes import visible_features
 

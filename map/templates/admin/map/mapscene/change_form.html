@@ -79,6 +79,7 @@
         <option value="with">игрок с ключами…</option>
       </select>
     </label>
+    <label>На дату: <input type="date" id="se-view-date" title="Показать пометки, видимые на эту дату (карта тоже перезагрузится на неё)"></label>
     <select id="se-keys" multiple hidden title="Ключи игрока (Ctrl+клик: несколько)">
       {% for k in keys %}<option value="{{ k }}">{{ k }}</option>{% endfor %}
     </select>
@@ -127,6 +128,7 @@
         <div class="se-row inline" data-for="polygon circle"><input type="checkbox" data-prop="fill" id="se-fill"><label for="se-fill">Заливка</label></div>
         <div class="se-row" data-for="circle"><label>Радиус, км</label><input type="number" data-prop="radius_km" min="1" max="20000"></div>
         <div class="se-row" data-for="marker line arrow polygon circle region"><label>Ссылка по клику (путь вики или /адрес)</label><input type="text" data-prop="url"></div>
+        <div class="se-row inline"><label>Видна с</label><input type="date" data-prop="from"><label>по</label><input type="date" data-prop="to"></div>
         <div class="se-row"><label>Условие по ключам (key_a and not key_b)</label><div class="se-suggest"><input type="text" data-prop="key" id="se-key" autocomplete="off"></div></div>
         <div class="se-row"><button type="button" class="button" id="se-duplicate" data-for="marker line arrow polygon circle text">Дублировать</button></div>
         <div class="se-row"><button type="button" class="button" id="se-delete" style="color:#ba2121">Удалить пометку</button></div>
@@ -157,7 +159,9 @@
   function frameUrl() {
     const q = new URLSearchParams({ embed: '1', scene_edit: '1' });
     if (document.getElementById('se-theme') && document.getElementById('se-theme').value) q.set('theme', document.getElementById('se-theme').value);
-    if (field('base_date') && field('base_date').value) q.set('date', field('base_date').value);
+    const viewDate = document.getElementById('se-view-date') && document.getElementById('se-view-date').value;
+    if (viewDate) q.set('date', viewDate);
+    else if (field('base_date') && field('base_date').value) q.set('date', field('base_date').value);
     if (field('mode') && field('mode').value) q.set('mode', field('mode').value);
     if (field('flat') && field('flat').checked) q.set('flat', '1');
     const lat = parseFloat(String(field('lat').value).replace(',', '.'));
@@ -202,7 +206,7 @@
       dot.style.background = COLORS[feature.color] || '#999';
       const name = document.createElement('span');
       name.className = 'se-name';
-      name.textContent = (feature.key ? '\uD83D\uDD12 ' : '') + TYPE_NAMES[feature.type] + ': ' +
+      name.textContent = (feature.key ? '\uD83D\uDD12 ' : '') + (feature.from || feature.to ? '\u23F1 ' : '') + TYPE_NAMES[feature.type] + ': ' +
         (feature.label || feature.text || feature.token || '');
       const up = document.createElement('button');
       up.type = 'button'; up.textContent = '\u2191'; up.title = 'Выше';
@@ -293,6 +297,10 @@
   document.getElementById('se-viewer').addEventListener('change', sendPreview);
   document.getElementById('se-keys').addEventListener('change', sendPreview);
   document.getElementById('se-theme').addEventListener('change', loadFrame);
+  document.getElementById('se-view-date').addEventListener('change', () => {
+    send({ type: 'aether-scene-preview-date', date: document.getElementById('se-view-date').value });
+    loadFrame();
+  });
   document.getElementById('se-undo').addEventListener('click', () => send({ type: 'aether-scene-undo' }));
   document.getElementById('se-redo').addEventListener('click', () => send({ type: 'aether-scene-redo' }));
   document.getElementById('se-duplicate').addEventListener('click', () => { if (current) send({ type: 'aether-scene-duplicate', id: current.id }); });
@@ -416,6 +424,7 @@
       send({ type: 'aether-scene-load', features: readFeatures() });
       send({ type: 'aether-scene-camera' });
       sendPreview();
+      if (document.getElementById('se-view-date').value) send({ type: 'aether-scene-preview-date', date: document.getElementById('se-view-date').value });
     } else if (d.type === 'aether-scene-features') {
       features.value = JSON.stringify(d.features, null, 1);
       status.textContent = `Пометок: ${d.features.length}`;
