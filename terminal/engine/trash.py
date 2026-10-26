@@ -9,6 +9,7 @@ from django.utils import timezone
 
 from filesystem.models import ProtectedPath, SessionFile
 from filesystem.states.stack import load_progress
+from filesystem.unlock import fire_file_event
 from filesystem.trash import TRASH_DIR, in_trash, trashed_rows
 from terminal.engine.filesystem import VirtualFilesystem
 
@@ -38,7 +39,8 @@ def _claim(session, path):
 
 
 def trash(context, path):
-    """Перенести файл или папку path в /trash под тем же именем (занято: name.1, name.2). Возвращает число файлов."""
+    """Перенести файл или папку path в /trash под тем же именем (занято: name.1, name.2).
+    Возвращает [(запись в корзине, прежний путь)] для каждого файла."""
     fs = VirtualFilesystem(context)
     found = under(fs._entries(), path)
     name = posixpath.basename(path)
@@ -48,6 +50,7 @@ def trash(context, path):
         candidate = f"{name}.{number}"
 
     now = timezone.now()
+    moved = []
     for entry in found:
         rest = entry.path[len(path):]
         target = posixpath.join(TRASH_DIR, candidate) + rest
@@ -57,9 +60,11 @@ def trash(context, path):
             for key, value in fields.items():
                 setattr(entry.session_file, key, value)
             entry.session_file.save()
+            row = entry.session_file
         else:
-            SessionFile.objects.create(session=context.session, file=entry.machine_file, **fields)
-    return len(found)
+            row = SessionFile.objects.create(session=context.session, file=entry.machine_file, **fields)
+        moved.append((row, entry.path))
+    return moved
 
 
 def damage_layers(row, now):
@@ -69,9 +74,10 @@ def damage_layers(row, now):
 
 
 def recover(context, path, dest=None):
-    """Вернуть файл (или папку) из корзины. Возвращает (список итоговых путей, None) или (None, текст ошибки).
+    """Вернуть файл (или папку) из корзины. Возвращает ([(запись, итоговый путь)], None) или (None, текст ошибки).
 
-    Файл возвращается на прежнее место (или в dest) и получает слои damaged: чем дольше лежал, тем больше."""
+    Файл возвращается на прежнее место (или в dest) и получает слои damaged: чем дольше лежал, тем больше.
+    Хуки restore автора файла берут верхний слой до порчи, их итог исполняет команда."""
     session = context.session
     prefix = path.rstrip("/") + "/"
     rows = [row for row in trashed_rows(session) if row.path == path or row.path.startswith(prefix)]
@@ -91,13 +97,22 @@ def recover(context, path, dest=None):
         plan.append((row, target))
 
     now = timezone.now()
+    recovered = []
     for row, target in plan:
-        progress = load_progress(row.state, row.file.state)
-        for _ in range(damage_layers(row, now)):
-            progress.push("damaged")
+        layers = damage_layers(row, now)
         _claim(session, target)
-        row.state = progress.dump()
         row.path = target
         row.origin_path, row.trashed_at, row.purge_at = "", None, None
         row.save()
-    return [target for _, target in plan], None
+
+        fired = fire_file_event(row, "restore", target)          # хук автора видит файл ещё целым
+        if fired is not None:
+            row.refresh_from_db(fields=["state"])
+
+        progress = load_progress(row.state, row.file.state)
+        for _ in range(layers):
+            progress.push("damaged")
+        row.state = progress.dump()
+        row.save(update_fields=["state"])
+        recovered.append((target, fired))
+    return recovered, None

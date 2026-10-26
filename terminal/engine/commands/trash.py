@@ -3,6 +3,7 @@
 del и wipe спрашивают подтверждение (del -f и wipe -f без вопроса). Вопрос это prompt вида confirm, ответ приходит
 отдельным запросом (terminal.views.execute), а что собирались сделать, лежит в Django-сессии.
 """
+from filesystem.unlock import fire_file_event
 from filesystem.trash import TRASH_DIR, empty_trash, in_trash, trashed_rows
 from terminal.engine import trash
 from terminal.engine.commands.basic import BaseCommand
@@ -26,6 +27,20 @@ def _flags(args):
         else:
             flags |= set(arg[1:])
     return flags, operands
+
+
+def hook_report(fired):
+    """Что игрок узнаёт из хуков (say и письма) и что делает браузер (kick, alert): (строки, эффекты или None)."""
+    lines, effects, arrived = [], [], 0
+    for item in fired:
+        if item is None:
+            continue
+        lines += item.say
+        effects += item.effects
+        arrived += sum(1 for mail in item.mail if mail.delivered and mail.immediate)
+    if arrived:
+        lines.append(f"intercom: {arrived} new message{'s' if arrived != 1 else ''}")
+    return lines, effects or None
 
 
 def answer_confirm(request, text, session, cwd):
@@ -67,7 +82,9 @@ class Del(BaseCommand):
 
         if "f" in flags:
             result = self.finish(context, paths, recursive)
-            return CommandResult("\n".join(filter(None, [text, result.output])), 1 if problems else 0, scene=result.scene)
+            return CommandResult(
+                "\n".join(filter(None, [text, result.output])), 1 if problems else 0, scene=result.scene, effects=result.effects
+            )
 
         names = ", ".join(f"'{p}'" for p in paths)
         context.request.session[CONFIRM_KEY] = {"mode": "del", "paths": paths, "recursive": recursive}
@@ -88,13 +105,18 @@ class Del(BaseCommand):
 
     @classmethod
     def finish(cls, context, paths, recursive):
-        count = 0
+        moved = []
         for path in paths:
             if cls.check(context, path, recursive) is None:     # за время вопроса что-то могло измениться
-                count += trash.trash(context, path)
-        if not count:
+                moved += trash.trash(context, path)
+        if not moved:
             return CommandResult()
-        return CommandResult(f"del: {count} file{'s' if count != 1 else ''} moved to {TRASH_DIR}", 0, scene=scenes.trash_scene(count))
+
+        # хуки on delete: файл уже в корзине, а в текстах хука {path} прежний путь
+        lines, effects = hook_report(fire_file_event(row, "delete", original) for row, original in moved)
+        count = len(moved)
+        text = "\n".join([f"del: {count} file{'s' if count != 1 else ''} moved to {TRASH_DIR}", *lines])
+        return CommandResult(text, 0, scene=scenes.trash_scene(count), effects=effects)
 
 
 class Rcvr(BaseCommand):
@@ -114,9 +136,9 @@ class Rcvr(BaseCommand):
         if error:
             return CommandResult(f"{self.name}: {args[0]}: {error}", 1)
 
-        return CommandResult(
-            f"{self.name}: {', '.join(restored)}: recovered, the data is damaged", 0, scene=scenes.recover_scene(path)
-        )
+        lines, effects = hook_report(fired for _, fired in restored)
+        text = "\n".join([f"{self.name}: {', '.join(target for target, _ in restored)}: recovered, the data is damaged", *lines])
+        return CommandResult(text, 0, scene=scenes.recover_scene(path), effects=effects)
 
 
 class Wipe(BaseCommand):

@@ -725,6 +725,10 @@ class TrashTests(TestCase):
             MachineFile.objects.create(machine=cls.main, path=path, state="")
         MachineFile.objects.create(machine=cls.main, path="/home/core.sys", state="", system=True)
         MachineFile.objects.create(machine=cls.main, path="/home/locked.bin", state="> encrypted hunter2")
+        MachineFile.objects.create(machine=cls.main, path="/home/bait.txt", state='> base64\non delete: say "Somebody is watching {name}."')
+        MachineFile.objects.create(machine=cls.main, path="/home/trap.txt", state="> base64\non delete: alert unreachable count=2 gap=100")
+        MachineFile.objects.create(machine=cls.main, path="/home/boom.txt", state="> base64\non delete: drop /home/a.txt")
+        MachineFile.objects.create(machine=cls.main, path="/home/ghost.txt", state='> base64\non restore: say "It remembers you."')
         ProtectedPath.objects.create(path="/etc", machine=cls.main)
 
     def setUp(self):
@@ -882,6 +886,27 @@ class TrashTests(TestCase):
         self.assertIn("purged: 1", out.getvalue())
         self.assertFalse(SessionFile.objects.filter(purge_at__isnull=False, deleted_at__isnull=True).exists())
 
+    def test_on_delete_runs_the_hooks_of_the_top_layer(self):
+        data = self.run_command("del -f /home/bait.txt")
+        self.assertEqual(data["exit_code"], 0, data["output"])
+        self.assertIn("Somebody is watching bait.txt.", data["output"])
+        self.assertIn("bait.txt", self.ls("/trash"))                                    # удалился, как обычно
+        self.assertNotIn("Somebody", self.run_command("del -f /home/b.txt")["output"])  # у файла без слоёв хуков нет
+
+    def test_on_delete_can_throw_effects_and_drop_other_files(self):
+        data = self.run_command("del -f /home/trap.txt")
+        self.assertEqual([e["op"] for e in data["effects"]], ["alert"])
+        self.assertEqual(data["effects"][0]["count"], 2)
+        self.run_command("del -f /home/boom.txt")
+        self.assertNotIn("a.txt", self.ls())                                            # хук убрал и a.txt
+
+    def test_on_restore_sees_the_file_before_the_damage_and_the_damage_still_comes(self):
+        self.run_command("del -f /home/ghost.txt")
+        data = self.run_command("rcvr /trash/ghost.txt")
+        self.assertIn("It remembers you.", data["output"])
+        self.assertEqual(self.run_command("rpr /home/ghost.txt")["exit_code"], 0)       # повреждение осталось
+        self.assertEqual(self.run_command("enc /home/ghost.txt")["exit_code"], 0)       # и слой автора под ним цел
+
 
 @override_settings(FORCE_SCRIPT_NAME=None)
 class FileOpsTests(TestCase):
@@ -970,3 +995,4 @@ class FileOpsTests(TestCase):
         self.run_command("del -f /home/a.txt")
         self.assertIn("use rcvr", self.run_command("mv /trash/a.txt /home/a.txt")["output"])
         self.assertIn("use del", self.run_command("cp /home/b.txt /trash/b.txt")["output"])
+

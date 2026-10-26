@@ -18,7 +18,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from filesystem.states.compiler import CompiledLayer, compile_text
-from filesystem.states.executor import HookOutcome, run_events
+from filesystem.states.executor import HookOutcome, run_event, run_events
 from filesystem.states.registry import StateRegistry
 from filesystem.states.registry import registry as default_registry
 from filesystem.states.runtime import answer, layer_variables
@@ -62,6 +62,40 @@ def attempt_remove(
     hooks = run_events(result, progress, path=path, name=name, registry=registry)
 
     return AttemptOutcome(result, hooks, progress.dump())
+
+
+@dataclass
+class EventOutcome:
+    hooks: HookOutcome  # что случилось по хукам события
+    state: str  # новый текст для SessionFile.state (хук мог добавить слой)
+
+
+def fire_event(
+    canonical_text: str,
+    raw_state: str,
+    event: str,
+    *,
+    path: str,
+    name: str,
+    registry: StateRegistry = default_registry,
+) -> EventOutcome:
+    """Событие, которое случилось с файлом само по себе (delete, restore), без попытки снять слой.
+
+    Хуки на него берёт верхний слой файла, как и при остальных событиях. Нет слоёв: хуков нет."""
+    canonical = (
+        compile_text(canonical_text, registry) if canonical_text.strip() else []
+    )
+    progress = load_progress(raw_state, canonical_text)
+    stack = build_stack(canonical, progress, registry)
+    outcome = HookOutcome()
+
+    if stack:
+        variables = layer_variables(
+            stack[0], path=path, name=name, attempts_left=attempts_left(stack, progress)
+        )
+        outcome = run_event(stack[0], event, progress, variables, registry)
+
+    return EventOutcome(outcome, progress.dump())
 
 
 def top_answer(

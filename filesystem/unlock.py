@@ -15,7 +15,7 @@ from django.db import transaction
 
 from filesystem.models import SessionFile
 from filesystem.session_ops import OpResult, apply_file_ops
-from filesystem.states.attempt import attempt_remove
+from filesystem.states.attempt import attempt_remove, fire_event
 from filesystem.states.stack import RemoveResult
 
 
@@ -74,4 +74,37 @@ def unlock_file(session_file: SessionFile, given=None) -> UnlockResult:
         ops=ops,
         mail=mail,
         effects=outcome.hooks.effects,
+    )
+
+
+@transaction.atomic
+def fire_file_event(session_file: SessionFile, event: str, path: str | None = None) -> UnlockResult | None:
+    """Хуки события, которое случилось с файлом сессии само (delete при del, restore при rcvr).
+
+    path это путь для {path} в текстах хуков (файл мог уже переехать). У файла без слоёв хуков нет: None."""
+    if not session_file.file.state.strip() and not session_file.state:
+        return None
+
+    locked = (
+        SessionFile.objects.select_for_update(of=("self",))
+        .select_related("file", "session__profile__machine")
+        .get(pk=session_file.pk)
+    )
+    shown = path or locked.path
+    fired = fire_event(locked.file.state, locked.state, event, path=shown, name=posixpath.basename(shown))
+
+    locked.state = fired.state
+    locked.save(update_fields=["state"])
+
+    ops = apply_file_ops(locked, fired.hooks.file_ops)
+    mail = _deliver_mail(locked.session.user, fired.hooks.mails)
+
+    return UnlockResult(
+        session_file=locked,
+        result=RemoveResult(False),
+        say=fired.hooks.say,
+        log=fired.hooks.log,
+        ops=ops,
+        mail=mail,
+        effects=fired.hooks.effects,
     )
