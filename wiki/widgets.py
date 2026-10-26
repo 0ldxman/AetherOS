@@ -675,6 +675,15 @@ _MARKER = re.compile(
 )
 
 
+# выноска: «note ТЕКСТ | lat lon [+dx -dy] [цвет] [-> адрес]»; \n в тексте переносит строку
+_CALLOUT = re.compile(
+    r"^(?:note|выноска)\s+(.+?)\s*\|\s*(-?\d+(?:[.,]\d+)?)[\s,;]+(-?\d+(?:[.,]\d+)?)"
+    r"(?:\s+([+-]\d+)\s+([+-]\d+))?(?:\s+([^\W\d_]+))?\s*$",
+    re.IGNORECASE,
+)
+DEFAULT_CALLOUT_OFFSET = (70, -50)
+
+
 def mark_color(word):
     """Имя цвета из разметки (red, синий...) -> имя из MARK_COLORS или '' (неизвестное и пустое)."""
     word = (word or "").strip().lower()
@@ -689,6 +698,7 @@ def split_highlight_token(token):
         return token, ""
     return base, mark_color(word)
 MAX_MARKERS = 12
+TEXT_LIMIT_CALLOUT = 200
 MAX_REGIONS = 24
 AUTO_COLORS = ("red", "blue", "green", "orange", "purple", "teal", "yellow", "grey")
 _EXCEPT = re.compile(r"^(?:except|кроме)\s+(.+)$", re.IGNORECASE)
@@ -696,11 +706,14 @@ _EXCEPT = re.compile(r"^(?:except|кроме)\s+(.+)$", re.IGNORECASE)
 
 def parse_map_line(line):
     """Строка тела ::map -> ('marker', название, lat, lon, цвет, неизвестное слово, ссылка, значок) |
+    ('callout', текст, lat, lon, (dx, dy), цвет, неизвестное слово, ссылка) |
     ('region', [(токен, цвет)], ссылка) | ('except', [токен]) | None для пустой строки.
 
         Краков | 50.06 19.94 red      метка
         POL blue, DEU orange          выделение (через запятую; цвет последним словом)
         Краков | 50 19 -> Technologies/Report   ссылка по клику: «-> адрес» в конце строки
+        note Склад | 50 19 +80 -40 blue  выноска: плашка с текстом и линией к месту (смещение в
+                                      пикселях необязательно, \\n переносит строку; «выноска» то же, что note)
         Склад | 50 19 red star        цвет и значок (булавка, крест, кольцо, точка, квадрат, треугольник,
                                       ромб, звезда, флажок, восклицание, вопрос, прицел, галочка)
         except CZE-3  /  -CZE-3       исключить провинцию из выделенного
@@ -714,6 +727,16 @@ def parse_map_line(line):
     match = re.search(r"\s+->\s+(\S.*)$", line)
     if match:
         line, link = line[: match.start()].strip(), match.group(1).strip()
+
+    callout = _CALLOUT.match(line)
+    if callout:
+        lat, lon = float(callout.group(2).replace(",", ".")), float(callout.group(3).replace(",", "."))
+        offset = (
+            (int(callout.group(4)), int(callout.group(5))) if callout.group(4) else DEFAULT_CALLOUT_OFFSET
+        )
+        word = callout.group(6)
+        return ("callout", callout.group(1).replace("\\n", "\n").strip(), lat, lon, offset,
+                mark_color(word), word if word and not mark_color(word) else "", link)
 
     marker = _MARKER.match(line)
     if marker:
@@ -756,6 +779,19 @@ def _marker_rows(text):
         parsed = parse_map_line(line)
         if parsed and parsed[0] == "marker" and -85 <= parsed[2] <= 85 and -180 <= parsed[3] <= 180:
             rows.append((parsed[1], parsed[2], parsed[3], parsed[4], parsed[6], parsed[7]))
+    return rows[:MAX_MARKERS]
+
+
+def _callout_rows(text):
+    """Выноски тела блока: [{lat, lon, offset, color, url, text}]; координаты вне карты пропускаются."""
+    rows = []
+    for line in _lines(text):
+        parsed = parse_map_line(line)
+        if parsed and parsed[0] == "callout" and -85 <= parsed[2] <= 85 and -180 <= parsed[3] <= 180:
+            rows.append({
+                "lat": parsed[2], "lon": parsed[3], "offset": list(parsed[4]), "color": parsed[5],
+                "url": internal_url(parsed[7]), "text": parsed[1][:TEXT_LIMIT_CALLOUT],
+            })
     return rows[:MAX_MARKERS]
 
 
@@ -813,7 +849,7 @@ def map_widget(text, ctx, args=""):
     У web, rec и инфобокса карта живая (можно двигать и приближать), у doc и scan неподвижный
     кадр. Вид выбирает wiki.js по классу страницы, поэтому в разметке два адреса.
     """
-    from urllib.parse import quote_plus
+    from urllib.parse import quote, quote_plus
 
     from datetime import date as _date
 
@@ -827,6 +863,7 @@ def map_widget(text, ctx, args=""):
 
     head = _head_args(args)
     markers = _marker_rows(text)
+    callouts = _callout_rows(text)
 
     # сохранённая карта: камера, дата и режим берутся из неё, если заголовок не задал свои
     scene = None
@@ -881,7 +918,8 @@ def map_widget(text, ctx, args=""):
         lon = float(_num(head.get("lon"), 10, -180, 180))
         zoom = float(_num(head.get("zoom"), 4, 0, 18))
     else:
-        box = union([b for g in groups for b in g["boxes"]] + [[lo, la, lo, la] for _, la, lo, _c, _u, _i in markers])
+        box = union([b for g in groups for b in g["boxes"]] + [[lo, la, lo, la] for _, la, lo, _c, _u, _i in markers]
+        + [[c["lon"], c["lat"], c["lon"], c["lat"]] for c in callouts])
         if box is not None:
             lat, lon, zoom = view_for(box)
             if head.get("zoom"):
@@ -904,6 +942,8 @@ def map_widget(text, ctx, args=""):
         query += "&regions=" + ",".join(region_codes)
     for label, la, lo, color, link, icon in markers:
         query += f"&m={la},{lo},{color},{icon},{quote_plus(internal_url(link))},{quote_plus(label)}"
+    for callout in callouts:
+        query += "&c=" + quote(json.dumps(callout, ensure_ascii=False, separators=(",", ":")), safe="")
     if scene is not None:
         if scene.bounds:
             query += "&bounds=" + ",".join(f"{v:g}" for v in scene.bounds)

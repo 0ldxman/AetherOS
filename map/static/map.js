@@ -115,6 +115,12 @@ const MARKERS = EMBED
       return { lat: Number(lat), lon: Number(lon), color, icon, url: link ? decodeURIComponent(link.replace(/\+/g, ' ')) : '', label: label.join(',') };
     }).filter((m) => Number.isFinite(m.lat) && Number.isFinite(m.lon))
   : [];
+// Выноски из строк ::map (?c=<json>): текст, место, смещение плашки в пикселях
+const CALLOUTS = EMBED
+  ? SEARCH.getAll('c').map((raw) => { try { return JSON.parse(raw); } catch (error) { return null; } })
+      .filter((c) => c && Number.isFinite(c.lat) && Number.isFinite(c.lon) && c.text)
+      .map((c) => ({ coords: [c.lon, c.lat], text: c.text, color: c.color, offset: c.offset, url: c.url }))
+  : [];
 const PROVINCE_NAMES = EMBED && SEARCH.get('labels') !== '0';
 const PROVINCE_OPACITY = THEME_STYLE ? THEME_STYLE.provinceOpacity : 0.2;
 if (EMBED) document.body.classList.add('embed');
@@ -774,6 +780,7 @@ if (EDIT_MODE) {
 // ---------------------------------------------------------------------------
 if (EMBED) {
   MARKERS.forEach((item, index) => addMarker(item, index));
+  CALLOUTS.forEach((item) => addCallout(item));
 
   const reportView = () => {
     const c = map.getCenter();

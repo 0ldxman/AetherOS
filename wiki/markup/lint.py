@@ -166,6 +166,8 @@ class _Scan:
                 parsed = parse_map_line(row)
                 if not parsed:
                     continue
+                if parsed[0] == "callout" and parsed[6]:
+                    self.issue(number + offset, ERROR, "map-color", f"«{parsed[6]}»: неизвестный цвет выноски (цвета: {', '.join(MARK_COLORS)}).")
                 if parsed[0] == "marker":
                     if parsed[5]:
                         self.issue(number + offset, ERROR, "map-color", f"«{parsed[5]}»: неизвестный цвет или значок (цвета: {', '.join(MARK_COLORS)}; значки: {', '.join(ICON_NAMES)}).")

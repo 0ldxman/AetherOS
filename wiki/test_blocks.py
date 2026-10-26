@@ -322,6 +322,22 @@ class BlocksTests(TestCase):
         self.assertEqual(codes("::map scene=raid\n::\n"), [])
         self.assertEqual(codes("::map scene=nope\n::\n"), [(1, "scene-missing")])
 
+    def test_callouts_in_lines(self):
+        import json
+        from urllib.parse import unquote
+
+        html = render("::map\nnote Склад \\n у реки | 50.1 19.9 +80 -40 blue -> Technologies/Report\nвыноска Пост | 51 20\n::\n")
+        import re
+
+        first, second = [json.loads(unquote(v)) for v in re.findall(r'&amp;c=([^&"#]+)', html)[:2]]
+        self.assertEqual(first["text"], "Склад \n у реки")
+        self.assertEqual((first["offset"], first["color"]), ([80, -40], "blue"))
+        self.assertTrue(first["url"].endswith("Technologies/Report"))
+        self.assertEqual((second["offset"], second["color"], second["text"]), ([70, -50], "", "Пост"))
+        self.assertIn("#", html)                                   # вид подобран по выноскам
+        self.assertEqual(codes("::map\nnote А | 1 2 blue\n::\n"), [])
+        self.assertEqual(codes("::map\nnote А | 1 2 розовый\n::\n"), [(2, "map-color")])
+
     def test_lint_flags_unknown_regions(self):
         from map.models import Province
 
