@@ -120,6 +120,20 @@ class WikiViewsTests(TestCase):
         self.assertIn('data-modified="-"', line)     # дата тоже не раскрывается
         self.assertIn('data-storage="-"', line)
 
+    def test_locked_article_keeps_extension(self):
+        Document.objects.create(namespace=None, title="Закрыта", body="x", access="key_a")
+        _, html, _ = call(views.resolve, "")
+        line = next(l for l in html.splitlines() if 'data-title="Закрыта"' in l)
+        self.assertIn('data-key="Закрыта.doc"', line)
+        self.assertIn('<span class="ext">.doc</span>', html)
+
+    def test_unknown_type_is_shown_as_a_document(self):
+        Document.objects.create(namespace=None, title="Странная", body="x", type="document")
+        _, html, _ = call(views.resolve, "")
+        line = next(l for l in html.splitlines() if 'data-title="Странная"' in l)
+        self.assertIn('data-key="Странная.doc"', line)
+        self.assertIn("ico-doc", html)
+
     def test_bucket_count_includes_only_visible_articles(self):
         _, html, _ = call(views.resolve, "")
         line = next(l for l in html.splitlines() if 'data-class="Bucket"' in l)

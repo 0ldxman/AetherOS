@@ -224,6 +224,8 @@ def _doc_row(doc, state, keys):
     у закрытой видны лишь название и тип.
     """
     url = _doc_url(doc)
+    # тип вне списка (записан вручную) считается обычным документом
+    kind_type = doc.type if doc.type in KIND_LABELS else "doc"
     has_infobox = state.open and bool(doc.infobox.strip())
 
     size = etag = modified = storage = None
@@ -245,8 +247,8 @@ def _doc_row(doc, state, keys):
         "id": doc.pk,
         "title": doc.title,
         "ext": doc.ext,
-        "type": doc.type,
-        "kind": KIND_LABELS.get(doc.type, doc.type),
+        "type": kind_type,
+        "kind": KIND_LABELS[kind_type],
         "updated": doc.updated_at,
         "key": _key(doc.namespace, doc.title + doc.ext),
         "uri": _uri(_key(doc.namespace, doc.title + doc.ext)),

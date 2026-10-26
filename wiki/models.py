@@ -202,7 +202,7 @@ class Document(models.Model):
     
     @property
     def ext(self):
-        return self.EXTENSIONS.get(self.type, "")
+        return self.EXTENSIONS.get(self.type, self.EXTENSIONS["doc"])
 
 
 class DocumentRevision(models.Model):
