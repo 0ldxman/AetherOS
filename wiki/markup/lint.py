@@ -80,6 +80,7 @@ class _Scan:
         self.keys = []     # (строка, slug)
         self.assets = []   # (строка, виджет, ссылка)
         self.regions = []  # (строка, код провинции) из ::map regions=...
+        self.scenes = []   # (строка, слаг) из ::map scene=...
         self.links = []    # (строка, адрес)
         self._run(text.splitlines())
 
@@ -152,6 +153,8 @@ class _Scan:
         if name == "map":
             if args:
                 params = _parse_args(args, None)
+                if params.get("scene"):
+                    self.scenes.append((number, params["scene"]))
                 for code in re.split(r"[\s,;]+", params.get("highlight") or params.get("regions") or ""):
                     if code:
                         base, color = split_highlight_token(code)
@@ -271,6 +274,14 @@ def lint(text):
                 number, ERROR, "asset-type",
                 f"::{widget} не подходит ассету «{ref}»: это {asset_widget_kind(asset)}.",
             ))
+
+    if scan.scenes:
+        from map.models import MapScene
+
+        existing = set(MapScene.objects.filter(slug__in={slug for _, slug in scan.scenes}).values_list("slug", flat=True))
+        for number, slug in scan.scenes:
+            if slug not in existing:
+                issues.append(Issue(number, ERROR, "scene-missing", f"Сохранённой карты «{slug}» нет."))
 
     if scan.regions:
         from map.bounds import resolve_highlight

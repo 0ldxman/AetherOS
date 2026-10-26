@@ -22,7 +22,7 @@
 {% block bodyclass %}{{ block.super }} wp-editor{% endblock %}
 
 {% block content %}
-<div class="wp-split" id="wp-split" data-preview-url="{{ preview_url }}" data-assets-url="{{ assets_url }}">
+<div class="wp-split" id="wp-split" data-preview-url="{{ preview_url }}" data-assets-url="{{ assets_url }}" data-scenes-url="{{ scenes_url }}">
   <div class="wp-split__form">
     {% if lock_url %}
     <div class="wp-lock" id="wp-lock" role="status" hidden

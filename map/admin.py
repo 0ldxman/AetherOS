@@ -1,15 +1,19 @@
 import json
 from datetime import date
 
-from django.contrib import admin
-from django.core.exceptions import PermissionDenied
+from django.contrib import admin, messages
+from django.core.exceptions import PermissionDenied, ValidationError
 from django.db import transaction
-from django.http import JsonResponse
+from django.http import HttpResponse, JsonResponse
+from django.shortcuts import get_object_or_404, redirect
+from django.urls import reverse
+from django.utils.html import format_html
 from django.template.response import TemplateResponse
 from django.urls import path
 
 from .bounds import lookup_regions
-from .models import Country, CountryLabel, MapScene, Ownership, Province
+from .revisions import apply_data, export_scenes, import_scenes, record_revision
+from .models import Country, CountryLabel, MapScene, MapSceneRevision, Ownership, Province
 from .views import _latest_ownerships
 
 APPLY_MAX_PROVINCES = 10000
@@ -268,8 +272,40 @@ class CountryLabelAdmin(admin.ModelAdmin):
     def label_text(self, obj):
         return obj.display_text
 
+class MapSceneRevisionInline(admin.TabularInline):
+    """История сохранений: только просмотр, откат отдельной кнопкой."""
+
+    model = MapSceneRevision
+    extra = 0
+    can_delete = False
+    max_num = 0
+    fields = ("saved_at", "saved_by", "summary", "restore")
+    readonly_fields = fields
+    verbose_name_plural = "История сохранений"
+
+    def has_add_permission(self, request, obj=None):
+        return False
+
+    @admin.display(description="Что внутри")
+    def summary(self, revision):
+        data = revision.data
+        return f"{len(data.get('features') or [])} пометок, {data.get('title', '')}"
+
+    @admin.display(description="")
+    def restore(self, revision):
+        if not revision.pk:
+            return ""
+        url = reverse("admin:map_mapscene_revert", args=[revision.scene_id, revision.pk])
+        return format_html('<a href="{}">Восстановить</a>', url)
+
+
 @admin.register(MapScene)
 class MapSceneAdmin(admin.ModelAdmin):
+    save_as = True          # «Сохранить как новый»: копия сцены под другим слагом
+    inlines = (MapSceneRevisionInline,)
+    change_list_template = "admin/map/mapscene/change_list.html"
+    actions = ("export_json",)
+
     # рисование пометок: карта в iframe рядом с формой (map/templates/admin/map/mapscene/change_form.html)
     change_form_template = "admin/map/mapscene/change_form.html"
 
@@ -296,10 +332,85 @@ class MapSceneAdmin(admin.ModelAdmin):
         context["keys_info"] = keys
         return super().render_change_form(request, context, *args, **kwargs)
 
+    def save_model(self, request, obj, form, change):
+        super().save_model(request, obj, form, change)
+        record_revision(obj, request.user)
+
+    @admin.action(description="Выгрузить выбранные в JSON")
+    def export_json(self, request, queryset):
+        response = HttpResponse(
+            json.dumps(export_scenes(queryset), ensure_ascii=False, indent=1),
+            content_type="application/json; charset=utf-8",
+        )
+        response["Content-Disposition"] = 'attachment; filename="map-scenes.json"'
+        return response
+
     def get_urls(self):
-        # поиск регионов для редактора; должен идти раньше стандартных адресов
-        custom = [path("lookup/", self.admin_site.admin_view(self.lookup_view), name="map_mapscene_lookup")]
+        # свои адреса должны идти раньше стандартных (иначе lookup/ примется за id записи)
+        custom = [
+            path("lookup/", self.admin_site.admin_view(self.lookup_view), name="map_mapscene_lookup"),
+            path("import/", self.admin_site.admin_view(self.import_view), name="map_mapscene_import"),
+            path("find/", self.admin_site.admin_view(self.find_view), name="map_mapscene_find"),
+            path("<int:scene_id>/revert/<int:revision_id>/", self.admin_site.admin_view(self.revert_view),
+                 name="map_mapscene_revert"),
+        ]
         return custom + super().get_urls()
+
+    def find_view(self, request):
+        """Поиск сохранённых карт по названию или слагу для кнопки «+ Карта» в редакторе вики."""
+        if not self.has_view_permission(request):
+            raise PermissionDenied
+        query = request.GET.get("q", "").strip()
+        scenes = MapScene.objects.all()
+        if query:
+            from django.db.models import Q
+
+            scenes = scenes.filter(Q(title__icontains=query) | Q(slug__icontains=query))
+        return JsonResponse({"items": [{"slug": s.slug, "title": s.title} for s in scenes[:30]]})
+
+    def revert_view(self, request, scene_id, revision_id):
+        """Откат к снимку: подтверждение и запись нового снимка (история не стирается)."""
+        scene = get_object_or_404(MapScene, pk=scene_id)
+        revision = get_object_or_404(MapSceneRevision, pk=revision_id, scene=scene)
+        if not self.has_change_permission(request, scene):
+            raise PermissionDenied
+        change_url = reverse("admin:map_mapscene_change", args=[scene.pk])
+        if request.method == "POST":
+            try:
+                apply_data(scene, revision.data)
+                scene.full_clean()
+            except ValidationError as error:
+                messages.error(request, "; ".join(error.messages))
+                return redirect(change_url)
+            scene.save()
+            record_revision(scene, request.user)
+            messages.success(request, "Карта восстановлена из снимка.")
+            return redirect(change_url)
+        context = {
+            **self.admin_site.each_context(request), "title": "Восстановить карту", "opts": self.model._meta,
+            "scene": scene, "revision": revision, "features": len(revision.data.get("features") or []),
+            "change_url": change_url,
+        }
+        return TemplateResponse(request, "admin/map/mapscene/revert.html", context)
+
+    def import_view(self, request):
+        """Загрузка сцен из файла выгрузки: создаёт новые и обновляет существующие по слагу."""
+        if not self.has_add_permission(request):
+            raise PermissionDenied
+        error = ""
+        if request.method == "POST":
+            upload = request.FILES.get("file")
+            raw = upload.read().decode("utf-8") if upload else request.POST.get("text", "")
+            try:
+                created, updated = import_scenes(json.loads(raw or "null"), request.user)
+            except (ValueError, ValidationError) as exc:
+                error = "; ".join(exc.messages) if isinstance(exc, ValidationError) else f"Не разобрать JSON: {exc}"
+            else:
+                messages.success(request, f"Создано: {created}, обновлено: {updated}.")
+                return redirect(reverse("admin:map_mapscene_changelist"))
+        context = {**self.admin_site.each_context(request), "title": "Загрузить карты из JSON",
+                   "opts": self.model._meta, "error": error}
+        return TemplateResponse(request, "admin/map/mapscene/import.html", context)
 
     def lookup_view(self, request):
         """Поиск провинций и стран по названию или коду: [{kind, token, name, bounds}]."""

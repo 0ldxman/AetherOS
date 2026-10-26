@@ -90,6 +90,11 @@ class MapSceneTests(TestCase):
         MapScene(slug="s", title="S", bounds=[5, 10, 10, 20], features=[{"type": "marker", "coords": [1, 2]}]).full_clean()
 
 
+# форма истории сохранений идёт в каждом сохранении через админку
+REVISIONS_FORM = {"revisions-TOTAL_FORMS": 0, "revisions-INITIAL_FORMS": 0,
+                  "revisions-MIN_NUM_FORMS": 0, "revisions-MAX_NUM_FORMS": 0}
+
+
 class MapSceneAdminTests(TestCase):
     def test_editor_page_renders_for_staff_and_keys_accept_expressions(self):
         from django.contrib.auth import get_user_model
@@ -124,6 +129,7 @@ class MapSceneAdminTests(TestCase):
         response = self.client.post(reverse("admin:map_mapscene_add"), {
             "title": "Рейд", "slug": "raid", "mode": "political", "lat": 50, "lon": 19, "zoom": 5,
             "features": json.dumps([{"type": "marker", "coords": [19, 50], "label": "A", "key": "secret"}]),
+            **REVISIONS_FORM,
         })
         self.assertEqual(response.status_code, 302, getattr(response, "context", None) and response.context["adminform"].form.errors)
         scene = MapScene.objects.get(slug="raid")
@@ -210,3 +216,106 @@ class SceneApiTests(TestCase):
         data = self.client.get("/apps/map/api/scenes/open/?date=2029-01-01").json()
         self.assertEqual([f["label"] for f in data["features"]], ["А", "Старое"])
         self.assertEqual(self.client.get("/apps/map/api/scenes/open/?date=bad").status_code, 400)
+
+
+class SceneHistoryTests(TestCase):
+    def setUp(self):
+        from django.contrib.auth import get_user_model
+
+        self.boss = get_user_model().objects.create_superuser("boss", password="pw")
+        self.client.force_login(self.boss)
+
+    def _post_scene(self, **extra):
+        import json
+
+        from django.urls import reverse
+
+        data = {"title": "Рейд", "slug": "raid", "mode": "political", "lat": 50, "lon": 19, "zoom": 5,
+                "features": json.dumps([{"type": "marker", "coords": [19, 50], "label": "A"}]), **REVISIONS_FORM, **extra}
+        return self.client.post(reverse("admin:map_mapscene_add"), data)
+
+    def test_every_change_leaves_a_snapshot_and_can_be_restored(self):
+        import json
+
+        from django.urls import reverse
+
+        self._post_scene()
+        scene = MapScene.objects.get(slug="raid")
+        self.assertEqual(scene.revisions.count(), 1)
+        page = self.client.get(reverse("admin:map_mapscene_change", args=[scene.pk]))
+        self.assertContains(page, "_saveasnew")             # «Сохранить как новый»
+        self.assertContains(page, "История сохранений")
+        self.client.post(reverse("admin:map_mapscene_change", args=[scene.pk]), {
+            "title": "Рейд 2", "slug": "raid", "mode": "political", "lat": 51, "lon": 19, "zoom": 5,
+            "features": json.dumps([]), **REVISIONS_FORM,
+        })
+        scene.refresh_from_db()
+        self.assertEqual((scene.title, scene.features), ("Рейд 2", []))
+        first = scene.revisions.last()
+        page = self.client.get(reverse("admin:map_mapscene_revert", args=[scene.pk, first.pk]))
+        self.assertContains(page, "Восстановить")
+        self.client.post(reverse("admin:map_mapscene_revert", args=[scene.pk, first.pk]))
+        scene.refresh_from_db()
+        self.assertEqual((scene.title, len(scene.features)), ("Рейд", 1))
+        self.assertEqual(scene.revisions.count(), 3)        # откат тоже в истории
+
+    def test_save_as_new_makes_a_copy(self):
+        import json
+
+        from django.urls import reverse
+
+        self._post_scene()
+        scene = MapScene.objects.get(slug="raid")
+        self.client.post(reverse("admin:map_mapscene_change", args=[scene.pk]), {
+            "_saveasnew": "1", "title": "Копия", "slug": "raid-copy", "mode": "political", "lat": 50, "lon": 19,
+            "zoom": 5, "features": json.dumps([{"type": "marker", "coords": [19, 50], "label": "A"}]),
+            **REVISIONS_FORM,
+        })
+        self.assertTrue(MapScene.objects.filter(slug="raid-copy").exists())
+        self.assertTrue(MapScene.objects.filter(slug="raid").exists())
+
+    def test_export_and_import_round_trip(self):
+        import json
+
+        from django.urls import reverse
+
+        from .revisions import export_scenes, import_scenes
+
+        scene = MapScene.objects.create(slug="a", title="A", base_date="2041-03-12", flat=True,
+                                        features=[{"type": "marker", "coords": [1, 2]}])
+        dump = json.loads(json.dumps(export_scenes([scene])))
+        scene.delete()
+        self.assertEqual(import_scenes(dump), (1, 0))
+        again = MapScene.objects.get(slug="a")
+        self.assertEqual((again.flat, str(again.base_date), len(again.features)), (True, "2041-03-12", 1))
+        self.assertEqual(import_scenes(dump), (0, 1))
+
+        # плохая сцена отменяет весь файл
+        from django.core.exceptions import ValidationError
+
+        with self.assertRaises(ValidationError):
+            import_scenes([{"slug": "b", "title": "B"}, {"slug": "c", "title": "C", "features": [{"type": "blob"}]}])
+        self.assertFalse(MapScene.objects.filter(slug="b").exists())
+
+        # действие админки и страница загрузки
+        response = self.client.post(reverse("admin:map_mapscene_changelist"),
+                                    {"action": "export_json", "_selected_action": [again.pk]})
+        self.assertEqual(response["Content-Type"], "application/json; charset=utf-8")
+        self.assertEqual(json.loads(response.content)[0]["slug"], "a")
+        page = self.client.get(reverse("admin:map_mapscene_import"))
+        self.assertContains(page, "Загрузить")
+        self.client.post(reverse("admin:map_mapscene_import"), {"text": json.dumps([{"slug": "z", "title": "Z"}])})
+        self.assertTrue(MapScene.objects.filter(slug="z").exists())
+
+
+class SceneFindTests(TestCase):
+    def test_find_lists_scenes_for_the_wiki_editor(self):
+        from django.contrib.auth import get_user_model
+        from django.urls import reverse
+
+        MapScene.objects.create(slug="raid", title="Операция Висла")
+        MapScene.objects.create(slug="other", title="Другая")
+        self.client.force_login(get_user_model().objects.create_superuser("boss", password="pw"))
+        url = reverse("admin:map_mapscene_find")
+        self.assertEqual({i["slug"] for i in self.client.get(url).json()["items"]}, {"raid", "other"})
+        self.assertEqual([i["slug"] for i in self.client.get(url + "?q=raid").json()["items"]], ["raid"])

@@ -317,6 +317,11 @@ class BlocksTests(TestCase):
         with self.assertRaises(ValidationError):
             clean_features([{"type": "marker", "coords": [1, 2], "icon": "bomb"}])
 
+    def test_lint_flags_unknown_scene(self):
+        self._scene()
+        self.assertEqual(codes("::map scene=raid\n::\n"), [])
+        self.assertEqual(codes("::map scene=nope\n::\n"), [(1, "scene-missing")])
+
     def test_lint_flags_unknown_regions(self):
         from map.models import Province
 

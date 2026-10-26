@@ -99,6 +99,9 @@ import "./condition_editor.js";
   const assetsUrl =
     root.dataset.assetsUrl;
 
+  const scenesUrl =
+    root.dataset.scenesUrl || "";
+
   const DELAY_MS = 400;
 
   const STORE =
@@ -1016,6 +1019,83 @@ import "./condition_editor.js";
       }
     );
 
+
+    // сохранённая карта: выбор из списка вставляет ::map scene=слаг
+    if (scenesUrl) {
+
+      button(
+        "+ Сохранённая карта",
+        "Вставить карту, нарисованную в разделе «Сохранённые карты»",
+        (anchor) => {
+
+          picker.open(
+            anchor,
+            {
+
+              placeholder:
+                "Название или слаг карты",
+
+              load: async (query) => {
+
+                const url =
+                  new URL(
+                    scenesUrl,
+                    window.location.href
+                  );
+
+                url.searchParams.set(
+                  "q",
+                  query
+                );
+
+                const resp =
+                  await fetch(
+                    url,
+                    {
+                      credentials:
+                        "same-origin",
+                    }
+                  );
+
+                const data =
+                  await resp.json();
+
+                return data.items.map(
+                  (item) => ({
+
+                    title:
+                      item.title,
+
+                    note:
+                      item.slug,
+
+                    value:
+                      item,
+
+                  })
+                );
+
+              },
+
+              pick: (item) => {
+
+                replaceSelection(
+                  getEditor(),
+                  () =>
+                    "::map scene=" +
+                    item.slug +
+                    "\n::\n"
+                );
+
+              },
+
+            }
+          );
+
+        }
+      );
+
+    }
 
     // ассеты одного вида: галерея берёт картинки, группа файлов файлы
     function assetBlock(label, title, kind, open, close) {

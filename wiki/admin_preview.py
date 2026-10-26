@@ -127,6 +127,12 @@ class DocumentPreviewMixin:
     def render_change_form(self, request, context, add=False, change=False, form_url="", obj=None):
         context["preview_url"] = self._admin_url("preview")
         context["assets_url"] = self._admin_url("assets")
+        try:
+            from django.urls import reverse
+
+            context["scenes_url"] = reverse("admin:map_mapscene_find")
+        except Exception:
+            context["scenes_url"] = ""
         context["preview_keys"] = list(
             Key.objects.order_by("slug").values("slug", "description")
         )

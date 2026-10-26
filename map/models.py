@@ -1,3 +1,4 @@
+from django.conf import settings
 from django.core.validators import MaxValueValidator, MinValueValidator, RegexValidator
 from django.db import models
 from django.db.models import F, Q
@@ -192,3 +193,17 @@ class MapScene(models.Model):
                 raise ValidationError({"bounds": "Нужно [запад, юг, восток, север], запад меньше востока, юг меньше севера."})
         if self.min_zoom is not None and self.max_zoom is not None and self.min_zoom > self.max_zoom:
             raise ValidationError({"max_zoom": "Максимальный зум меньше минимального."})
+
+
+class MapSceneRevision(models.Model):
+    """Снимок сохранённой карты после очередного сохранения (для отката)."""
+
+    scene = models.ForeignKey(MapScene, on_delete=models.CASCADE, related_name="revisions")
+    saved_at = models.DateTimeField(auto_now_add=True)
+    saved_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL, related_name="+"
+    )
+    data = models.JSONField()
+
+    class Meta:
+        ordering = ["-saved_at", "-id"]
