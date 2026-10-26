@@ -15,13 +15,14 @@
         id="terminal"
         data-execute-url="{% url 'terminal:execute' %}"
         data-hostname="{{ hostname }}"
+        data-login="{{ login }}"
         data-cwd="{{ cwd }}"
     >
         <div id="terminal-output" aria-live="polite"></div>
 
         <form id="terminal-form" autocomplete="off">
             <label id="terminal-prompt" for="terminal-input">
-                {{ hostname }}:{{ cwd }}$
+                {{ login }}@{{ hostname }}:~{% if cwd != '/' %}{{ cwd }}{% endif %}$
             </label>
             <input
                 id="terminal-input"

@@ -9,6 +9,7 @@
 
     const executeUrl = terminal.dataset.executeUrl;
     const hostname = terminal.dataset.hostname;
+    const login = terminal.dataset.login;
 
     const csrfToken = document.querySelector(
         "[name=csrfmiddlewaretoken]"
@@ -42,7 +43,8 @@
     }
 
     function updatePrompt() {
-        prompt.textContent = `${hostname}:${cwd}$`;
+        // логин@машина:~/путь$ (в корне просто ~)
+        prompt.textContent = `${login}@${hostname}:~${cwd === "/" ? "" : cwd}$`;
     }
 
     function scrollToBottom() {

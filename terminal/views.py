@@ -82,17 +82,23 @@ def execute(request):
     })
 
 
+def _login(request):
+    """Под каким логином игрок в оболочке: логин профиля или имя безымянного игрока."""
+    from users.aether_auth import GUEST_LOGIN
+
+    return active_session(request).profile.login if is_player(request) else GUEST_LOGIN
+
+
 def _greeting(request, hostname):
     """Сцена приветствия оболочки (или None, если машину не описать)."""
     from machines.identity import identity_of
     from machines.models import Machine
-    from users.aether_auth import GUEST_LOGIN, _mail_summary
+    from users.aether_auth import _mail_summary
 
     from .scenes import greeting_scene
 
     try:
-        login = active_session(request).profile.login if is_player(request) else GUEST_LOGIN
-        return greeting_scene(identity_of(hostname), login, _mail_summary(request))
+        return greeting_scene(identity_of(hostname), _login(request), _mail_summary(request))
     except Machine.DoesNotExist:
         return None
 
@@ -118,6 +124,7 @@ def terminal_page(request):
         "terminal.html",
         {
             "hostname": hostname,
+            "login": _login(request),
             "cwd": DEFAULT_CWD,
             "greeting": greeting,
         },

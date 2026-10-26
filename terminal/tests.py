@@ -148,3 +148,8 @@ class TerminalSceneTests(TestCase):
         self.assertEqual((data["output"], data["exit_code"]), ("", 0))
         self.assertFalse(self.run_command("pwd")["clear"])
         self.assertEqual(self.run_command("clear now")["exit_code"], 2)
+
+    def test_the_prompt_is_login_at_machine_and_path(self):
+        page = self.client.get(reverse("terminal:index")).content.decode()
+        self.assertIn('data-login="ivan"', page)
+        self.assertIn("ivan@aether-main:~/home$", page)
