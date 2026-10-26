@@ -151,6 +151,21 @@ class TerminalSceneTests(TestCase):
         for name in ("cph", "b256", "bridge"):
             self.assertIn("command not found", self.run_command(f"{name} /home/door.bin x")["output"])
 
+    def test_ftyp_and_cnt_play_a_short_scene_that_gives_nothing_away(self):
+        from filesystem.models import MachineFile
+
+        MachineFile.objects.create(machine=self.main, path="/home/page.txt", state="", url="apps/wiki/")
+        plain, locked = self.run_command("ftyp /home/page.txt"), self.run_command("ftyp /home/door.bin")
+        self.assertEqual(self.ops(plain["scene"]), self.ops(locked["scene"]))
+        self.assertEqual(plain["output"], "/home/page.txt: data")
+        opened = self.run_command("cnt /home/page.txt")
+        self.assertEqual(opened["exit_code"], 0)
+        self.assertEqual([s for s in opened["scene"] if s["op"] == "dots"][-1]["status"], "OK")
+        blocked = self.run_command("cnt /home/door.bin")
+        self.assertEqual([s for s in blocked["scene"] if s["op"] == "dots"][-1]["status"], "FAIL")
+        self.assertIsNone(self.run_command("ftyp /home/missing")["scene"])               # ошибка до начала работы
+        self.assertIsNone(self.run_command("ftyp /home")["scene"])                       # папка: работы нет
+
     def test_commands_without_work_have_no_scene(self):
         self.assertIsNone(self.run_command("pwd")["scene"])
         self.assertIsNone(self.run_command("ward /home/missing.bin x")["scene"])      # ошибка до начала работы

@@ -76,6 +76,25 @@ def unlock_scene(layer, path, ok):
     return scene.to_dict()
 
 
+# ---------- просмотр файла ----------
+
+def ftyp_scene(path):
+    """Определение типа: одинаковая для любого файла, по ней ничего не узнать раньше ответа."""
+    s = Scene()
+    s.task("reading header", "OK", ms=(120, 300))
+    s.task("matching signature", "OK", ms=(180, 420))
+    return s.to_dict()
+
+
+def open_scene(path, ok):
+    """Открытие содержимого: решение (открылось или нет) принято сервером раньше."""
+    s = Scene()
+    s.task("locating", "OK", ms=(120, 280))
+    s.count("reading", _stable(path, 8, 900), unit=" KB", ms=(350, 800), width=10)
+    s.task("opening", _result(ok), ms=(200, 500))
+    return s.to_dict()
+
+
 # ---------- корзина ----------
 
 def trash_scene(count):

@@ -6,6 +6,7 @@ from filesystem.states.attempt import top_answer
 from terminal.engine.commands.basic import BaseCommand
 from terminal.engine.filesystem import VirtualFilesystem
 from terminal.engine.result import CommandResult
+from terminal.scenes import ftyp_scene, open_scene
 
 
 # Что ftyp говорит о файле, на который не ответил ни один слой.
@@ -50,7 +51,7 @@ class FtypCommand(BaseCommand):
             name=posixpath.basename(entry.path),
         )
 
-        return CommandResult(f"{target}: {text if text is not None else PLAIN_FILE}")
+        return CommandResult(f"{target}: {text if text is not None else PLAIN_FILE}", scene=ftyp_scene(entry.path))
 
 
 
@@ -92,10 +93,10 @@ class CntCommand(BaseCommand):
         content = resolve_content(machine_file, session_file, entry.path, name)
 
         if content.error == "locked":
-            return CommandResult(f"cnt: {target}: content is locked", 1)
+            return CommandResult(f"cnt: {target}: content is locked", 1, scene=open_scene(entry.path, False))
 
         if content.error == "empty":
-            return CommandResult(f"cnt: {target}: no content", 1)
+            return CommandResult(f"cnt: {target}: no content", 1, scene=open_scene(entry.path, False))
 
         if content.error:
             return CommandResult(f"cnt: {target}: bad content path", 1)
@@ -110,4 +111,5 @@ class CntCommand(BaseCommand):
                 "title": name,
                 "url": url,
             },
+            scene=open_scene(entry.path, True),
         )
