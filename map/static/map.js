@@ -745,13 +745,31 @@ if (EMBED) {
     el.title = item.label;
     const tag = document.createElement('span');
     tag.className = 'embed-marker';
-    tag.dataset.n = String(index + 1);
     tag.setAttribute('aria-label', String(index + 1));
     tag.style.setProperty('--tilt', `${[-4, 3, -2, 5][index % 4]}deg`);
     if (markPalette[item.color]) tag.style.setProperty('--mc', markPalette[item.color]);
+
+    if (THEME === 'scan') {
+      // пометка ручкой: крест, перечёркнутый дважды, и номер от руки рядом
+      tag.classList.add('embed-marker--pen');
+      const strokes = index % 2
+        ? ['M5 5 C10 11 17 17 23 24', 'M24 4 C18 10 11 18 5 23', 'M3 8 C10 13 18 19 25 22']
+        : ['M5 6 C10 11 17 17 23 23', 'M23 5 C17 10 11 17 6 22', 'M4 22 C11 16 18 10 24 7'];
+      tag.innerHTML =
+        '<svg viewBox="0 0 28 28" aria-hidden="true">' +
+        // светлая подложка под линиями, чтобы крест читался на любой заливке
+        `<path class="halo" d="${strokes[0]}"/><path class="halo" d="${strokes[1]}"/>` +
+        `<path d="${strokes[0]}"/><path d="${strokes[1]}"/><path class="again" d="${strokes[2]}"/></svg>` +
+        `<span class="pen-n">${index + 1}</span>`;
+    } else {
+      tag.dataset.n = String(index + 1);
+    }
+
     el.appendChild(tag);
-    // остриё булавки стоит на точке
-    new maplibregl.Marker({ element: el, anchor: 'bottom' }).setLngLat([item.lon, item.lat]).addTo(map);
+    // остриё булавки стоит на точке; крест от руки центрируется на ней
+    new maplibregl.Marker({ element: el, anchor: THEME === 'scan' ? 'center' : 'bottom' })
+      .setLngLat([item.lon, item.lat])
+      .addTo(map);
   });
 
   const reportView = () => {
