@@ -697,7 +697,8 @@ def map_widget(text, ctx, args=""):
     ::
 
     Параметры: regions (коды провинций из БД через пробел или запятую), lat, lon, zoom (0-18),
-    date (ГГГГ-ММ-ДД), mode, ratio, width, caption. Без lat и lon вид подбирается по выделенным
+    date (ГГГГ-ММ-ДД), mode (political: границы, заливка, названия; physical: только рельеф),
+    labels=off (без названий провинций), ratio, width, caption. Без lat и lon вид подбирается по выделенным
     провинциям и меткам. Метки в теле блока: «Название | широта долгота».
 
     У web, rec и инфобокса карта живая (можно двигать и приближать), у doc и scan неподвижный
@@ -735,6 +736,8 @@ def map_widget(text, ctx, args=""):
         date = ""
     if date:
         query += f"&date={date}"
+    if (head.get("labels") or "").strip().lower() in ("off", "0", "no", "нет"):
+        query += "&labels=0"
     if regions:
         query += "&regions=" + ",".join(quote_plus(r[1]) for r in regions)
     for label, la, lo in markers:

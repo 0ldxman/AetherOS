@@ -80,6 +80,12 @@ class BlocksTests(TestCase):
         self.assertIn("static=1#", html)
         self.assertNotIn("#2/20/10", html)
 
+    def test_map_mode_and_province_names_are_options(self):
+        html = render("::map lat=50 lon=19 zoom=5 mode=physical labels=off\n::\n")
+        self.assertIn("mode=physical", html)
+        self.assertIn("labels=0", html)
+        self.assertNotIn("labels=0", render("::map lat=50 lon=19 zoom=5\n::\n"))
+
     def test_lint_flags_unknown_regions(self):
         from map.models import Province
 

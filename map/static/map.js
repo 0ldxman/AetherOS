@@ -76,6 +76,7 @@ const MARKERS = EMBED
       return { lat: Number(lat), lon: Number(lon), label: label.join(',') };
     }).filter((m) => Number.isFinite(m.lat) && Number.isFinite(m.lon))
   : [];
+const PROVINCE_NAMES = EMBED && SEARCH.get('labels') !== '0';
 const PROVINCE_OPACITY = THEME_STYLE ? THEME_STYLE.provinceOpacity : 0.2;
 if (EMBED) document.body.classList.add('embed');
 if (THEME) document.body.classList.add('theme-' + THEME);
@@ -364,17 +365,19 @@ map.on('load', () => {
         8, 1.2,
         12, 1.5,
       ],
-      'line-opacity': [
-        'interpolate',
-        ['linear'],
-        ['zoom'],
-        1, 0.2,
-        3, 0.35,
-        5, 0.55,
-        8, 0.7,
-        11, 0.7,
-        14, 0,
-      ],
+      'line-opacity': THEME_STYLE
+        ? ['interpolate', ['linear'], ['zoom'], 1, 0.45, 3, 0.65, 5, 0.85, 8, 0.95, 11, 0.95, 14, 0]
+        : [
+            'interpolate',
+            ['linear'],
+            ['zoom'],
+            1, 0.2,
+            3, 0.35,
+            5, 0.55,
+            8, 0.7,
+            11, 0.7,
+            14, 0,
+          ],
     },
   });
 
@@ -445,6 +448,32 @@ if (REGIONS.length) {
     'source-layer': 'aether_provinces',
     filter: inRegions,
     paint: { 'line-color': region, 'line-width': 2.2 },
+  });
+}
+
+// Названия провинций во встроенной карте (?labels=0 отключает): с зума 4, выделенные заметнее
+if (PROVINCE_NAMES) {
+  const textColor = THEME_STYLE ? THEME_STYLE.labelText : '#dce6f0';
+  const halo = THEME_STYLE ? THEME_STYLE.labelHalo : '#05070a';
+
+  map.addLayer({
+    id: 'province-names',
+    type: 'symbol',
+    source: 'adm1',
+    'source-layer': 'aether_provinces',
+    minzoom: 4,
+    layout: {
+      'text-field': ['coalesce', ['get', 'name_ru'], ['get', 'name']],
+      'text-font': ['Noto Sans Regular'],
+      'text-size': ['interpolate', ['linear'], ['zoom'], 4, 9, 7, 12, 10, 15],
+      'text-max-width': 7,
+    },
+    paint: {
+      'text-color': textColor,
+      'text-halo-color': halo,
+      'text-halo-width': 1.4,
+      'text-opacity': ['interpolate', ['linear'], ['zoom'], 4, 0.75, 7, 0.95],
+    },
   });
 }
 
