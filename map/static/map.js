@@ -758,19 +758,17 @@ if (EMBED) {
     if (markPalette[item.color]) tag.style.setProperty('--mc', markPalette[item.color]);
 
     if (THEME === 'scan') {
-      // пометка красной ручкой: место обведено неровным кругом с заходом концов друг на друга,
-      // в центре точка, рядом номер от руки
+      // пометка красной ручкой: маленький крестик, нарисованный от руки в два росчерка, и номер рядом
       tag.classList.add('embed-marker--pen');
-      const loops = [
-        'M22 5 C12 2 4 9 5 19 C6 29 19 33 28 25 C35 17 30 6 19 3 C14 1.5 9 3 6 7',
-        'M9 6 C18 1 31 6 31 18 C31 29 18 34 9 28 C1 22 2 11 11 5 C16 2 23 3 27 7',
-        'M27 8 C21 1 9 3 5 13 C2 24 11 33 22 31 C32 29 34 16 27 8 C24 4 19 2 14 2',
+      const crosses = [
+        ['M4 5 C9 10 14 15 21 22', 'M21 4 C16 9 10 15 5 21'],
+        ['M5 4 C10 11 15 16 20 23', 'M22 6 C17 10 11 16 4 20'],
+        ['M3 6 C9 10 16 16 22 21', 'M20 3 C15 9 11 15 6 22'],
       ];
-      const loop = loops[index % loops.length];
+      const [first, second] = crosses[index % crosses.length];
       tag.innerHTML =
-        '<svg viewBox="0 0 36 36" aria-hidden="true">' +
-        `<path d="${loop}"/><path class="again" transform="rotate(5 18 18)" d="${loop}"/>` +
-        '<circle class="dot" cx="18" cy="18" r="1.7"/></svg>' +
+        '<svg viewBox="0 0 26 26" aria-hidden="true">' +
+        `<path d="${first}"/><path d="${second}"/></svg>` +
         `<span class="pen-n">${index + 1}</span>`;
     } else {
       tag.dataset.n = String(index + 1);
