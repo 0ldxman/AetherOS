@@ -65,3 +65,49 @@ class MapSceneTests(TestCase):
         with self.assertRaises(ValidationError):
             scene.full_clean()
         MapScene(slug="s", title="S", bounds=[5, 10, 10, 20], features=[{"type": "marker", "coords": [1, 2]}]).full_clean()
+
+
+class MapSceneAdminTests(TestCase):
+    def test_editor_page_renders_for_staff_and_keys_accept_expressions(self):
+        from django.contrib.auth import get_user_model
+        from django.urls import reverse
+
+        from .scenes import clean_features
+
+        user = get_user_model().objects.create_superuser("boss", password="pw")
+        self.client.force_login(user)
+        response = self.client.get(reverse("admin:map_mapscene_add"))
+        self.assertContains(response, 'id="se-frame"')
+        self.assertContains(response, "scene_edit")
+        self.assertContains(response, 'value="red"')
+
+        cleaned = clean_features([{"type": "marker", "coords": [0, 0], "key": "a and not b"}])
+        self.assertEqual(cleaned[0]["key"], {"all": ["a", {"not": "b"}]})
+        self.assertEqual(clean_features([{"type": "marker", "coords": [0, 0], "key": "  "}])[0].get("key"), None)
+
+    def test_saving_a_scene_through_the_admin(self):
+        from django.contrib.auth import get_user_model
+        from django.urls import reverse
+        import json
+
+        user = get_user_model().objects.create_superuser("boss", password="pw")
+        self.client.force_login(user)
+        response = self.client.post(reverse("admin:map_mapscene_add"), {
+            "title": "Рейд", "slug": "raid", "mode": "political", "lat": 50, "lon": 19, "zoom": 5,
+            "features": json.dumps([{"type": "marker", "coords": [19, 50], "label": "A", "key": "secret"}]),
+        })
+        self.assertEqual(response.status_code, 302, getattr(response, "context", None) and response.context["adminform"].form.errors)
+        scene = MapScene.objects.get(slug="raid")
+        self.assertEqual(scene.features[0]["key"], "secret")
+
+
+class MapEditorAccessTests(TestCase):
+    def test_staff_open_the_map_without_a_machine_others_do_not(self):
+        from django.contrib.auth import get_user_model
+
+        url = "/apps/map/?embed=1&scene_edit=1"
+        staff = get_user_model().objects.create_user("boss", password="pw", is_staff=True)
+        self.client.force_login(staff)
+        self.assertEqual(self.client.get(url).status_code, 200)
+        self.client.logout()
+        self.assertEqual(self.client.get(url).status_code, 403)

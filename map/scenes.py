@@ -17,6 +17,7 @@ from django.core.exceptions import ValidationError
 from django.urls import NoReverseMatch, get_script_prefix, reverse
 
 from secure.access import satisfied, validate_requirements
+from wiki.markup.expr import SpoilerSyntaxError, parse_expr
 
 FEATURE_TYPES = ("marker", "line", "arrow", "polygon", "circle", "text", "region")
 COLORS = ("red", "blue", "green", "orange", "purple", "yellow", "teal", "grey")
@@ -116,9 +117,16 @@ def clean_features(raw):
             clean["fill"] = bool(item["fill"])
         if kind == "text" and item.get("size"):
             clean["size"] = max(8, min(48, float(item["size"])))
-        if item.get("key"):
-            validate_requirements(item["key"])
-            clean["key"] = item["key"]
+        key = item.get("key")
+        if isinstance(key, str):
+            # условие строкой, как у спойлеров: secret and not other
+            try:
+                key = parse_expr(key) if key.strip() else None
+            except SpoilerSyntaxError as error:
+                raise ValidationError(f"{where}: условие по ключам: {error}")
+        if key:
+            validate_requirements(key)
+            clean["key"] = key
         result.append(clean)
     return result
 

@@ -6,6 +6,9 @@ from machines.current import machine_has_app, wiki_allows
 
 def map_allows(request, match):
     """Карта нужна и окну вики: виджет ::map встраивает её (?embed=1) на машинах без иконки карты."""
+    # редакторы карты работают внутри админки у персонала, машина в сессии им не нужна
+    if getattr(request.user, "is_staff", False):
+        return True
     if machine_has_app(request, "map"):
         return True
     if not machine_has_app(request, "wiki"):

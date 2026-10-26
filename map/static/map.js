@@ -97,6 +97,8 @@ const CAMERA_BOUNDS = EMBED ? (SEARCH.get('bounds') || '').split(',').map(Number
 const CAMERA_LIMITED = CAMERA_BOUNDS.length === 4 && CAMERA_BOUNDS.every(Number.isFinite);
 const numberParam = (name) => (SEARCH.get(name) === null || SEARCH.get(name) === '' ? undefined : Number(SEARCH.get(name)));
 const FLAT_VIEW = EMBED && SEARCH.get('flat') === '1';
+// Редактор сохранённой карты: /apps/map/?embed=1&scene_edit=1 внутри админки (инструменты и свойства у родителя)
+const SCENE_EDIT = EMBED && SEARCH.get('scene_edit') === '1';
 const MARKERS = EMBED
   ? SEARCH.getAll('m').map((raw) => {
       const [lat, lon, color, link, ...label] = raw.split(',');
@@ -921,7 +923,7 @@ function applyScene() {
 
   for (const item of sceneFeatures) {
     const c = sceneColor(item.color);
-    const common = { c, url: item.url || '', label: item.label || '' };
+    const common = { c, url: item.url || '', label: item.label || '', fid: item.id || '' };
 
     if (item.type === 'regions') {
       for (const code of item.codes) regions.push({ code, color: item.color, url: item.url || '', label: item.label || '' });
@@ -945,7 +947,11 @@ function applyScene() {
       shapes.push({ type: 'Feature', properties: { c, role: 'text', t: item.text, size: item.size || 13 },
         geometry: { type: 'Point', coordinates: item.coords } });
     } else if (item.type === 'marker') {
-      sceneMarkers.push(addMarker(item, null));
+      sceneMarkers.push(addMarker(item, null, SCENE_EDIT ? {
+        selected: item.id === editor.selectedId,
+        onSelect: () => editor.select(item.id),
+        onMove: (point) => editor.patch(item.id, { coords: point }),
+      } : {}));
     }
 
     // подпись фигуры у первой точки
@@ -976,7 +982,7 @@ if (EMBED) {
 
 // Метка на карте. index: номер (метки из строк ::map) или null (метки сохранённой карты:
 // без номера, с подписью рядом). Вид зависит от темы документа: у scan крестик ручкой.
-function addMarker(item, index) {
+function addMarker(item, index, opts = {}) {
   const lon = item.coords ? item.coords[0] : item.lon;
   const lat = item.coords ? item.coords[1] : item.lat;
   const seed = index === null ? Math.abs(Math.round(lon * 7 + lat * 13)) : index;
@@ -1018,7 +1024,11 @@ function addMarker(item, index) {
     el.appendChild(label);
   }
 
-  if (item.url) {
+  if (opts.onSelect) {
+    // редактор: метку можно выбрать кликом и двигать
+    el.classList.add('marker-edit');
+    el.addEventListener('click', (event) => { event.stopPropagation(); opts.onSelect(); });
+  } else if (item.url) {
     el.classList.add('marker-link');
     el.addEventListener('click', (event) => {
       event.stopPropagation();
@@ -1027,7 +1037,286 @@ function addMarker(item, index) {
   }
 
   // остриё булавки стоит на точке; крест от руки центрируется на ней
-  return new maplibregl.Marker({ element: el, anchor: THEME === 'scan' ? 'center' : 'bottom' })
+  const marker = new maplibregl.Marker({ element: el, anchor: THEME === 'scan' ? 'center' : 'bottom', draggable: !!opts.onMove })
     .setLngLat([lon, lat])
     .addTo(map);
+  if (opts.onMove) marker.on('dragend', () => { const p = marker.getLngLat(); opts.onMove([p.lng, p.lat]); });
+  if (opts.selected) el.classList.add('is-selected');
+  return marker;
+}
+
+
+// ---------------------------------------------------------------------------
+// Редактор сохранённой карты (?scene_edit=1). Родитель (админка) шлёт сообщения:
+//   aether-scene-load {features}   aether-scene-tool {tool}   aether-scene-select {id}
+//   aether-scene-update {id, patch}   aether-scene-delete {id}   aether-scene-camera
+// карта отвечает: aether-scene-features {features}, aether-scene-selected {id, feature},
+//   aether-scene-view {lat, lon, zoom, bounds}.
+// ---------------------------------------------------------------------------
+const editor = {
+  features: [],
+  tool: 'select',
+  selectedId: null,
+  draft: null,          // {type, coords, cursor} пока рисуется линия, фигура или круг
+  handles: [],
+  nextId: 1,
+
+  newId() { this.nextId += 1; return `f${this.nextId}`; },
+
+  // пометки без служебного id уходят родителю
+  emit() {
+    const features = this.features.map(({ id, ...rest }) => rest);
+    window.parent.postMessage({ type: 'aether-scene-features', features }, window.location.origin);
+  },
+
+  emitSelected() {
+    const feature = this.features.find((f) => f.id === this.selectedId) || null;
+    window.parent.postMessage({ type: 'aether-scene-selected', id: this.selectedId, feature }, window.location.origin);
+  },
+
+  load(features) {
+    this.features = (features || []).map((f) => ({ ...f, id: this.newId() }));
+    this.selectedId = null;
+    this.render();
+  },
+
+  // выделения предпросмотра: код провинции из БД (RUS-32) или страна по префиксу (POL)
+  codesFor(token) {
+    const key = String(token || '').toUpperCase();
+    return Object.entries(provinceCodes)
+      .filter(([, code]) => String(code).toUpperCase() === key || String(code).toUpperCase().startsWith(`${key}-`))
+      .map(([source]) => source);
+  },
+
+  render() {
+    sceneFeatures = this.features.map((f) => (f.type === 'region'
+      ? { ...f, type: 'regions', codes: this.codesFor(f.token) }
+      : f));
+    applyScene();
+    this.drawHandles();
+    this.drawDraft();
+  },
+
+  select(id) {
+    this.selectedId = id;
+    this.render();
+    this.emitSelected();
+  },
+
+  patch(id, change) {
+    const feature = this.features.find((f) => f.id === id);
+    if (!feature) return;
+    Object.assign(feature, change);
+    for (const key of Object.keys(change)) if (change[key] === '' || change[key] === null) delete feature[key];
+    this.render();
+    this.emit();
+    if (id === this.selectedId) this.emitSelected();
+  },
+
+  remove(id) {
+    this.features = this.features.filter((f) => f.id !== id);
+    if (this.selectedId === id) this.selectedId = null;
+    this.render();
+    this.emit();
+    this.emitSelected();
+  },
+
+  add(feature) {
+    const full = { ...feature, id: this.newId() };
+    this.features.push(full);
+    this.selectedId = full.id;
+    this.tool = 'select';
+    this.draft = null;
+    this.render();
+    this.emit();
+    this.emitSelected();
+    window.parent.postMessage({ type: 'aether-scene-tool', tool: 'select' }, window.location.origin);
+  },
+
+  // ручки выбранной фигуры: вершины линии и многоугольника, центр и радиус круга, точка текста
+  drawHandles() {
+    this.handles.forEach((h) => h.remove());
+    this.handles = [];
+    const feature = this.features.find((f) => f.id === this.selectedId);
+    if (!feature || feature.type === 'marker' || feature.type === 'region') return;
+
+    const make = (lngLat, onMove, extra = '') => {
+      const el = document.createElement('div');
+      el.className = `edit-handle ${extra}`;
+      const handle = new maplibregl.Marker({ element: el, draggable: true }).setLngLat(lngLat).addTo(map);
+      handle.on('drag', () => { const p = handle.getLngLat(); onMove([p.lng, p.lat], false); });
+      handle.on('dragend', () => { const p = handle.getLngLat(); onMove([p.lng, p.lat], true); });
+      this.handles.push(handle);
+    };
+
+    if (feature.type === 'text') {
+      make(feature.coords, (point, done) => done && this.patch(feature.id, { coords: point }));
+    } else if (feature.type === 'circle') {
+      make(feature.coords, (point, done) => done && this.patch(feature.id, { coords: point }));
+      const edge = destination(feature.coords, 90, feature.radius_km);
+      make(edge, (point, done) => done && this.patch(feature.id, { radius_km: Math.max(1, Math.round(distanceKm(feature.coords, point))) }), 'edit-handle--radius');
+    } else {
+      feature.coords.forEach((coord, index) => {
+        make(coord, (point, done) => {
+          if (!done) return;
+          const coords = feature.coords.map((c, i) => (i === index ? point : c));
+          this.patch(feature.id, { coords });
+        });
+      });
+    }
+  },
+
+  // черновик рисуемой фигуры
+  drawDraft() {
+    if (!map.getSource('scene-draft')) {
+      map.addSource('scene-draft', { type: 'geojson', data: { type: 'FeatureCollection', features: [] } });
+      map.addLayer({ id: 'scene-draft-fill', type: 'fill', source: 'scene-draft', filter: ['==', ['geometry-type'], 'Polygon'],
+        paint: { 'fill-color': '#ffcf4d', 'fill-opacity': 0.2 } });
+      map.addLayer({ id: 'scene-draft-line', type: 'line', source: 'scene-draft',
+        paint: { 'line-color': '#ffcf4d', 'line-width': 2, 'line-dasharray': [2, 2] } });
+      map.addLayer({ id: 'scene-draft-point', type: 'circle', source: 'scene-draft', filter: ['==', ['geometry-type'], 'Point'],
+        paint: { 'circle-radius': 4, 'circle-color': '#ffcf4d' } });
+    }
+    const out = [];
+    const d = this.draft;
+    if (d) {
+      const pts = d.cursor ? [...d.coords, d.cursor] : [...d.coords];
+      if (d.type === 'circle' && d.coords.length) {
+        const radius = d.cursor ? distanceKm(d.coords[0], d.cursor) : 1;
+        out.push({ type: 'Feature', properties: {}, geometry: { type: 'Polygon', coordinates: [circlePolygon(d.coords[0][0], d.coords[0][1], Math.max(radius, 0.1))] } });
+      } else if (d.type === 'polygon' && pts.length >= 3) {
+        out.push({ type: 'Feature', properties: {}, geometry: { type: 'Polygon', coordinates: [[...pts, pts[0]]] } });
+      } else if (pts.length >= 2) {
+        out.push({ type: 'Feature', properties: {}, geometry: { type: 'LineString', coordinates: pts } });
+      }
+      d.coords.forEach((c) => out.push({ type: 'Feature', properties: {}, geometry: { type: 'Point', coordinates: c } }));
+    }
+    map.getSource('scene-draft').setData({ type: 'FeatureCollection', features: out });
+  },
+
+  finishDraft() {
+    const d = this.draft;
+    if (!d) return;
+    const need = d.type === 'polygon' ? 3 : 2;
+    if (d.coords.length >= need) {
+      this.add({ type: d.type, coords: d.coords, color: 'red', ...(d.type === 'arrow' ? { width: 3 } : {}) });
+    } else {
+      this.draft = null;
+      this.drawDraft();
+    }
+  },
+
+  click(e) {
+    const point = [e.lngLat.lng, e.lngLat.lat];
+
+    if (this.tool === 'marker') return this.add({ type: 'marker', coords: point, label: 'Метка', color: 'red' });
+    if (this.tool === 'text') return this.add({ type: 'text', coords: point, text: 'Текст', color: 'grey', size: 14 });
+
+    if (this.tool === 'region') {
+      const hit = map.queryRenderedFeatures(e.point, { layers: ['adm1-fill'] })[0];
+      const code = hit && provinceCodes[hit.properties.adm1_code];
+      if (code && !this.features.some((f) => f.type === 'region' && f.token === code)) {
+        this.add({ type: 'region', token: code, color: 'red' });
+      }
+      return;
+    }
+
+    if (this.tool === 'circle') {
+      if (!this.draft) { this.draft = { type: 'circle', coords: [point] }; return; }
+      const radius = Math.max(1, Math.round(distanceKm(this.draft.coords[0], point)));
+      return this.add({ type: 'circle', coords: this.draft.coords[0], radius_km: radius, color: 'green' });
+    }
+
+    if (['line', 'arrow', 'polygon'].includes(this.tool)) {
+      if (!this.draft) this.draft = { type: this.tool, coords: [] };
+      this.draft.coords.push(point);
+      this.drawDraft();
+      return;
+    }
+
+    // выбор: фигура под курсором или пусто
+    const layers = ['scene-fill', 'scene-outline', 'scene-lines', 'scene-lines-dashed', 'scene-arrows', 'scene-text', 'regions-fill']
+      .filter((id) => map.getLayer(id));
+    const hit = map.queryRenderedFeatures(e.point, { layers })[0];
+    if (hit && hit.properties.fid) return this.select(hit.properties.fid);
+    if (hit && hit.layer.id === 'regions-fill') {
+      const code = provinceCodes[hit.properties.adm1_code];
+      const region = this.features.find((f) => f.type === 'region' && this.codesFor(f.token).includes(hit.properties.adm1_code));
+      if (region || code) return this.select(region ? region.id : null);
+    }
+    this.select(null);
+  },
+};
+
+// Расстояние по сфере и точка на заданном расстоянии и направлении (градусы по часовой от севера)
+function distanceKm(a, b) {
+  const rad = (v) => (v * Math.PI) / 180;
+  const dLat = rad(b[1] - a[1]);
+  const dLon = rad(b[0] - a[0]);
+  const h = Math.sin(dLat / 2) ** 2 + Math.cos(rad(a[1])) * Math.cos(rad(b[1])) * Math.sin(dLon / 2) ** 2;
+  return 6371 * 2 * Math.asin(Math.min(1, Math.sqrt(h)));
+}
+
+function destination(from, bearingDeg, km) {
+  const rad = (v) => (v * Math.PI) / 180;
+  const d = km / 6371;
+  const phi = rad(from[1]);
+  const lam = rad(from[0]);
+  const brg = rad(bearingDeg);
+  const p2 = Math.asin(Math.sin(phi) * Math.cos(d) + Math.cos(phi) * Math.sin(d) * Math.cos(brg));
+  const l2 = lam + Math.atan2(Math.sin(brg) * Math.sin(d) * Math.cos(phi), Math.cos(d) - Math.sin(phi) * Math.sin(p2));
+  return [(((l2 * 180) / Math.PI + 540) % 360) - 180, (p2 * 180) / Math.PI];
+}
+
+if (SCENE_EDIT) {
+  map.on('click', (e) => { if (layersReady) editor.click(e); });
+  map.on('dblclick', (e) => {
+    if (editor.draft && editor.draft.type !== 'circle') { e.preventDefault(); editor.finishDraft(); }
+  });
+  map.on('mousemove', (e) => {
+    if (!editor.draft) return;
+    editor.draft.cursor = [e.lngLat.lng, e.lngLat.lat];
+    editor.drawDraft();
+  });
+  map.getCanvas().addEventListener('keydown', () => {});
+  window.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') editor.finishDraft();
+    if (e.key === 'Escape') { editor.draft = null; editor.drawDraft(); }
+    if ((e.key === 'Delete' || e.key === 'Backspace') && editor.selectedId) editor.remove(editor.selectedId);
+  });
+
+  const reportCamera = () => {
+    const c = map.getCenter();
+    const b = map.getBounds();
+    window.parent.postMessage({
+      type: 'aether-scene-view', lat: c.lat, lon: c.lng, zoom: map.getZoom(),
+      bounds: [b.getWest(), b.getSouth(), b.getEast(), b.getNorth()],
+    }, window.location.origin);
+  };
+  map.on('moveend', reportCamera);
+
+  window.addEventListener('message', (e) => {
+    if (e.origin !== window.location.origin || e.source !== window.parent) return;
+    const d = e.data || {};
+    if (d.type === 'aether-scene-load') {
+      editor.load(d.features);
+    } else if (d.type === 'aether-scene-tool') {
+      editor.tool = d.tool || 'select';
+      editor.draft = null;
+      editor.drawDraft();
+      map.getCanvas().style.cursor = editor.tool === 'select' ? '' : 'crosshair';
+      map.doubleClickZoom[['line', 'arrow', 'polygon'].includes(editor.tool) ? 'disable' : 'enable']();
+    } else if (d.type === 'aether-scene-select') {
+      editor.select(d.id || null);
+    } else if (d.type === 'aether-scene-update') {
+      editor.patch(d.id, d.patch || {});
+    } else if (d.type === 'aether-scene-delete') {
+      editor.remove(d.id);
+    } else if (d.type === 'aether-scene-camera') {
+      reportCamera();
+    }
+  });
+
+  // после загрузки слоёв и цветов провинций перерисовываем (выделения регионов нужны коды провинций)
+  map.once('idle', () => editor.render());
 }
