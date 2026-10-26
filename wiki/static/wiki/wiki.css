@@ -749,6 +749,13 @@ details[open] > summary .mark::before {
 
 .grid tbody tr.selected:hover {
     background: var(--select);
+    box-shadow: none;
+}
+
+
+/* на светлой плашке иконка темнеет вместе с текстом */
+.grid tbody tr:hover .ico {
+    background: var(--bg);
 }
 
 
