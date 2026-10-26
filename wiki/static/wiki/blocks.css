@@ -488,14 +488,14 @@
 
 /* цвета выделения и меток (имена из разметки); значения те же, что MARK_COLORS в map/static/map.js */
 .widget--map {
-    --mc-red: #b3261e;
-    --mc-blue: #1f4e8c;
-    --mc-green: #2e6b3a;
-    --mc-orange: #c56a12;
-    --mc-purple: #6b3a8c;
-    --mc-yellow: #c9a227;
-    --mc-teal: #1f7a7a;
-    --mc-grey: #55514a;
+    --mc-red: #b00d1c;
+    --mc-blue: #12307a;
+    --mc-green: #14612a;
+    --mc-orange: #b85200;
+    --mc-purple: #5a1f8a;
+    --mc-yellow: #b88a00;
+    --mc-teal: #0e6b6b;
+    --mc-grey: #2f2c28;
 }
 
 .widget--map[data-theme="term"] {

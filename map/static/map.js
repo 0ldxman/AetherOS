@@ -49,8 +49,8 @@ const THEME_STYLE = THEMES[THEME] || null;
 // в wiki/static/wiki/blocks.css (--mc-*): при правке менять оба места, тест следит за совпадением.
 const MARK_COLORS = {
   print: {
-    red: '#b3261e', blue: '#1f4e8c', green: '#2e6b3a', orange: '#c56a12',
-    purple: '#6b3a8c', yellow: '#c9a227', teal: '#1f7a7a', grey: '#55514a',
+    red: '#b00d1c', blue: '#12307a', green: '#14612a', orange: '#b85200',
+    purple: '#5a1f8a', yellow: '#b88a00', teal: '#0e6b6b', grey: '#2f2c28',
   },
   term: {
     red: '#ff5a5f', blue: '#5aa9ff', green: '#3fe0a0', orange: '#ffa13d',
@@ -107,7 +107,7 @@ if (EMBED && THEME === 'scan') {
   document.body.insertAdjacentHTML('beforeend',
     '<svg width="0" height="0" style="position:absolute" aria-hidden="true"><filter id="pen-rough">' +
     '<feTurbulence type="fractalNoise" baseFrequency="0.07" numOctaves="2" seed="4" result="n"/>' +
-    '<feDisplacementMap in="SourceGraphic" in2="n" scale="2.6" xChannelSelector="R" yChannelSelector="G"/>' +
+    '<feDisplacementMap in="SourceGraphic" in2="n" scale="2" xChannelSelector="R" yChannelSelector="G"/>' +
     '</filter></svg>');
 }
 if (THEME) document.body.classList.add('theme-' + THEME);
@@ -769,10 +769,8 @@ if (EMBED) {
       const loop = loops[index % loops.length];
       tag.innerHTML =
         '<svg viewBox="0 0 36 36" aria-hidden="true">' +
-        // светлая подложка, чтобы пометка читалась на любой заливке
-        `<path class="halo" d="${loop}"/>` +
         `<path d="${loop}"/><path class="again" transform="rotate(5 18 18)" d="${loop}"/>` +
-        '<circle class="dot" cx="18" cy="18" r="2.2"/></svg>' +
+        '<circle class="dot" cx="18" cy="18" r="1.7"/></svg>' +
         `<span class="pen-n">${index + 1}</span>`;
     } else {
       tag.dataset.n = String(index + 1);

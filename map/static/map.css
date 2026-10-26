@@ -205,7 +205,9 @@ body.theme-print .embed-marker {
   border: 0;
   border-radius: 0;
   box-shadow: none;
-  color: var(--mc, #b3261e);
+  color: var(--mc, #b00d1c);
+  /* краска впитывается в бумагу: пересечения и тёмные места темнее */
+  mix-blend-mode: multiply;
   transform: rotate(var(--tilt, 0deg));
 }
 
@@ -219,7 +221,7 @@ body.theme-print .embed-marker {
   overflow: visible;
   fill: none;
   stroke: currentColor;
-  stroke-width: 3;
+  stroke-width: 1.8;
   stroke-linecap: round;
   stroke-linejoin: round;
   filter: url(#pen-rough);
@@ -230,15 +232,9 @@ body.theme-print .embed-marker {
   stroke: none;
 }
 
-.embed-marker--pen .halo {
-  stroke: #f3ecdb;
-  stroke-width: 6;
-  opacity: 0.55;
-}
-
 .embed-marker--pen .again {
-  stroke-width: 1.2;
-  opacity: 0.6;
+  stroke-width: 0.9;
+  opacity: 0.7;
 }
 
 .embed-marker--pen .pen-n {
@@ -246,11 +242,10 @@ body.theme-print .embed-marker {
   top: -20px;
   right: -16px;
   font-family: var(--font-hand, cursive);
-  font-size: 28px;
+  font-size: 25px;
   font-weight: 700;
   line-height: 1;
   transform: rotate(-7deg);
-  text-shadow: 0 0 3px #f3ecdb, 0 0 3px #f3ecdb, 0 0 2px #f3ecdb, 0 0 2px #f3ecdb;
 }
 
 body.theme-term .embed-marker {
