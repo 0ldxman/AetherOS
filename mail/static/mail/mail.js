@@ -80,6 +80,33 @@
         link.remove();
     }
 
+    // файл машины: сервер решает, открывается ли он (слои), и отдаёт адрес вьювера
+    async function openFile(item) {
+        const api = desktop();
+
+        try {
+            const response = await fetch(item.open, { credentials: "same-origin" });
+            const data = await response.json().catch(() => ({}));
+
+            if (!response.ok) {
+                if (api && typeof api.error === "function") {
+                    api.error(data.error || "failed");
+                } else {
+                    notice(data.error || `error ${response.status}`);
+                }
+                return;
+            }
+
+            if (api && typeof api.openApp === "function") {
+                api.openApp(data.id, data.title, data.url);
+            } else {
+                window.open(data.url, "_blank", "noopener");
+            }
+        } catch (error) {
+            notice("could not reach the machine");
+        }
+    }
+
     async function saveAttachment(item, button) {
         try {
             const response = await fetch(item.save, {
@@ -117,7 +144,9 @@
             make(item.label, () => openAttachment(item));
             make("download", () => downloadAttachment(item));
         } else if (item.kind === "file") {
-            const button = make(`${item.label}  ·  save to machine`, () => saveAttachment(item, button));
+            make(item.label, () => openFile(item));
+
+            const button = make("save to machine", () => saveAttachment(item, button));
             if (item.saved) {
                 button.textContent = `saved to ${item.path}`;
                 button.disabled = true;

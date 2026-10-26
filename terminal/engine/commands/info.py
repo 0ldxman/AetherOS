@@ -1,17 +1,12 @@
+import re
 import posixpath
 
+from filesystem.content import resolve_content
 from filesystem.states.attempt import top_answer
 from terminal.engine.commands.basic import BaseCommand
 from terminal.engine.filesystem import VirtualFilesystem
 from terminal.engine.result import CommandResult
 
-import re
-
-from django.urls import get_script_prefix
-
-from filesystem.states.compiler import compile_text
-from filesystem.states.stack import build_stack, load_progress
-from filesystem.states.registry import registry
 
 # Что ftyp говорит о файле, на который не ответил ни один слой.
 PLAIN_FILE = "data"
@@ -94,50 +89,18 @@ class CntCommand(BaseCommand):
         session_file = entry.session_file
         name = posixpath.basename(entry.path)
 
-        canonical_text = machine_file.state or ""
-        raw_state = session_file.state if session_file else ""
+        content = resolve_content(machine_file, session_file, entry.path, name)
 
-        # Приоритет: ответ верхнего слоя cnt.
-        url_path = top_answer(
-            canonical_text,
-            raw_state,
-            self.name,
-            path=entry.path,
-            name=name,
-            only_top=True,
-        )
+        if content.error == "locked":
+            return CommandResult(f"cnt: {target}: content is locked", 1)
 
-        if url_path is None:
-            # Проверяем эффективный стек с учётом прогресса сессии.
-            canonical = (
-                compile_text(canonical_text, registry)
-                if canonical_text.strip()
-                else []
-            )
-            progress = load_progress(raw_state, canonical_text)
-            stack = build_stack(canonical, progress, registry)
-
-            if stack:
-                return CommandResult(f"cnt: {target}: content is locked", 1)
-
-            # Стек пуст — используем URL самого файла.
-            url_path = machine_file.url
-
-        if not url_path or not url_path.strip():
+        if content.error == "empty":
             return CommandResult(f"cnt: {target}: no content", 1)
 
-        url_path = url_path.strip()
-
-        # Разрешены только внутренние пути сайта.
-        if (
-            "://" in url_path
-            or url_path.startswith("//")
-            or "\\" in url_path
-            or url_path.startswith("/")
-        ):
+        if content.error:
             return CommandResult(f"cnt: {target}: bad content path", 1)
 
-        url = get_script_prefix().rstrip("/") + "/" + url_path
+        url = content.url
 
         return CommandResult(
             f"cnt: {target}: opened",

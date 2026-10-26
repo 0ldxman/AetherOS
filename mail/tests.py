@@ -1060,9 +1060,42 @@ class AttachmentSaveApiTests(TestCase):
         self.player()
         self.assertEqual(self.client.get(reverse("mail:save", args=[self.item.pk])).status_code, 405)
 
+    def open(self, item=None):
+        response = self.client.get(reverse("mail:open", args=[(item or self.item).pk]))
+        return response, json.loads(response.content)
+
+    def test_a_file_without_layers_opens_in_its_viewer(self):
+        self.file.url = "apps/wiki/"
+        self.file.save()
+        self.player()
+        response, data = self.open()
+        self.assertEqual((response.status_code, data["url"], data["title"]), (200, "/apps/wiki/", "evidence.dat"))
+
+    def test_a_locked_file_does_not_open(self):
+        from filesystem.models import MachineFile
+
+        locked = MachineFile.objects.create(
+            machine=self.machine, path="/home/locked.dat", url="apps/wiki/", state="> encrypted hunter2"
+        )
+        item = Attachment.objects.create(message=self.message, label="locked", kind="file", machine_file=locked)
+        self.player()
+        response, data = self.open(item)
+        self.assertEqual((response.status_code, data), (423, {"error": "content_locked"}))
+
+    def test_a_file_without_content_says_so(self):
+        self.player()
+        response, data = self.open()
+        self.assertEqual((response.status_code, data), (404, {"error": "no_content"}))
+
+    def test_someone_elses_message_attachment_is_not_found(self):
+        self.player()
+        other = make_message(recipients="nobody@elsewhere")
+        item = Attachment.objects.create(message=other, label="x", kind="file", machine_file=self.file)
+        self.assertEqual(self.client.get(reverse("mail:open", args=[item.pk])).status_code, 404)
+
     def test_the_script_has_a_button_for_each_attachment_kind(self):
         js = (Path(__file__).resolve().parent / "static/mail/mail.js").read_text(encoding="utf-8")
-        for word in ("downloadAttachment", "saveAttachment", "save to machine", "item.download", "item.save"):
+        for word in ("downloadAttachment", "saveAttachment", "openFile", "save to machine", "item.download", "item.save", "item.open"):
             self.assertIn(word, js)
 
 

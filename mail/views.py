@@ -7,12 +7,13 @@ from django.shortcuts import render
 from django.views.decorators.csrf import ensure_csrf_cookie
 from django.views.decorators.http import require_GET, require_POST
 
+from filesystem.content import resolve_content
 from machines.current import active_session
 from users.aether_auth import AUTH_REQUIRED, is_player
 
 from .access import mark_read, mark_unread, read_ids, viewer_for, visible_messages
 from .addresses import recipients_line, split
-from .attachments import SaveError, payload, save_to_machine
+from .attachments import SaveError, payload, save_to_machine, session_file_of
 from .compose import TaskError, available_tasks, public_segments, send
 from .models import Attachment, ComposeProgress
 
@@ -118,6 +119,38 @@ def message_unread(request, pk):
     viewer = _viewer_or_404(request)
     mark_unread(viewer, _find(viewer, pk))
     return JsonResponse({"unread": True})
+
+
+OPEN_ERRORS = {
+    "locked": ("content_locked", 423),
+    "empty": ("no_content", 404),
+    "bad_path": ("no_content", 404),
+}
+
+
+@require_GET
+def attachment_open(request, pk):
+    """Адрес вьювера файла-вложения по тем же правилам, что у cnt: пока на файле есть слои, он закрыт."""
+    viewer = _viewer_or_404(request)
+
+    attachment = Attachment.objects.filter(pk=pk, kind=Attachment.Kind.FILE).select_related("machine_file").first()
+    if attachment is None or attachment.message_id not in {m.pk for m in visible_messages(viewer)}:
+        raise Http404
+
+    machine_file = attachment.machine_file
+    saved = session_file_of(active_session(request), machine_file) if is_player(request) else None
+    path = saved.path if saved and saved.path else machine_file.path
+
+    content = resolve_content(machine_file, saved, path, path.rsplit("/", 1)[-1])
+    if content.error:
+        code, status = OPEN_ERRORS[content.error]
+        return JsonResponse({"error": code}, status=status)
+
+    return JsonResponse({
+        "id": f"mail-file-{attachment.pk}",
+        "title": path.rsplit("/", 1)[-1],
+        "url": content.url,
+    })
 
 
 @require_POST

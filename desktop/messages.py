@@ -39,6 +39,18 @@ MESSAGES = {
             "title": "Operation failed",
             "text": "The request could not be completed.",
         },
+        "content_locked": {
+            "kind": "error",
+            "code": "AE-0423",
+            "title": "Access denied",
+            "text": "The contents of this file are locked.",
+        },
+        "no_content": {
+            "kind": "error",
+            "code": "AE-0410",
+            "title": "Nothing to open",
+            "text": "This file has no contents to show.",
+        },
         "uri_copied": {
             "kind": "info",
             "code": "",

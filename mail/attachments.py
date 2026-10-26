@@ -29,6 +29,7 @@ def payload(attachment, session=None):
     elif attachment.kind == Attachment.Kind.FILE:
         data.update({
             "path": attachment.machine_file.path,
+            "open": reverse("mail:open", args=[attachment.pk]),
             "save": reverse("mail:save", args=[attachment.pk]),
             "saved": player_has_file(session, attachment.machine_file),
         })
@@ -36,6 +37,13 @@ def payload(attachment, session=None):
         data["open"] = _prefix(attachment.path)
 
     return data
+
+
+def session_file_of(session, machine_file):
+    """Запись игрока о файле (его прогресс и путь) или None, если файл у него не сохранён."""
+    if session is None:
+        return None
+    return SessionFile.objects.filter(session=session, file=machine_file, deleted_at__isnull=True).first()
 
 
 class SaveError(Exception):
