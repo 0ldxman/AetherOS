@@ -123,6 +123,21 @@ DATABASES = {
 }
 
 
+# Кэш и сессии. С REDIS_URL оба живут в Redis (сессии cached_db: база остаётся источником правды,
+# Redis снимает с неё чтение на каждый запрос). Без него кэш локальный, сессии в базе.
+REDIS_URL = env("REDIS_URL", default="")
+if REDIS_URL:
+    CACHES = {
+        "default": {
+            "BACKEND": "django.core.cache.backends.redis.RedisCache",
+            "LOCATION": REDIS_URL,
+            "KEY_PREFIX": "aether",
+            "TIMEOUT": 300,
+        }
+    }
+    SESSION_ENGINE = "django.contrib.sessions.backends.cached_db"
+
+
 # Password validation
 # https://docs.djangoproject.com/en/6.1/ref/settings/#auth-password-validators
 
