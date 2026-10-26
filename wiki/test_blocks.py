@@ -63,7 +63,7 @@ class BlocksTests(TestCase):
 
     def test_map_markers_go_to_the_url_and_the_legend(self):
         html = render("::map lat=48 lon=2\nПорт | 48.8 2.3\nСклад | 48.9, 2.4\nмусор\n::\n")
-        self.assertIn("m=48.8,2.3,%D0%9F%D0%BE%D1%80%D1%82", html)
+        self.assertIn("m=48.8,2.3,,%D0%9F%D0%BE%D1%80%D1%82", html)
         self.assertEqual(html.count("map-legend-marker"), 2)
         self.assertIn("<b>2</b>Склад", html)
 
@@ -122,6 +122,59 @@ class BlocksTests(TestCase):
         self.assertIn("POL-3146", render("::map highlight=POL date=2020-01-01\n::\n"))
         self.assertNotIn("POL-3146", render("::map highlight=POL date=2035-01-01\n::\n"))
         self.assertIn("POL-3146", render("::map highlight=Германия date=2035-01-01\n::\n"))
+
+    def test_marker_and_highlight_colors(self):
+        from datetime import date
+
+        from map.models import Country, Ownership, Province
+
+        p = Province.objects.create(code="POL-1", source_code="POL-3146", name="Силезия")
+        pol = Country.objects.create(code="POL-2013", name="Польша", valid_from=date(2013, 1, 1))
+        Ownership.objects.create(province=p, country=pol, date_from=date(2013, 1, 1), de_jure=True)
+
+        html = render("::map highlight=POL:blue lat=50 lon=19 zoom=5\nКраков | 50 19 синий\nДом | 51 20\n::\n")
+        self.assertIn("regions=POL-3146:blue", html)
+        self.assertIn("m=50.0,19.0,blue,", html)
+        self.assertIn("m=51.0,20.0,,", html)
+        self.assertIn('class="map-legend-marker" data-color="blue"', html)
+        self.assertIn('class="map-legend-region" data-color="blue"', html)
+
+    def test_a_province_in_two_tokens_takes_the_last_color_once(self):
+        from datetime import date
+
+        from map.models import Country, Ownership, Province
+
+        a = Province.objects.create(code="POL-1", source_code="POL-3146", name="Силезия")
+        b = Province.objects.create(code="POL-2", source_code="POL-3170", name="Малая Польша")
+        pol = Country.objects.create(code="POL-2013", name="Польша", valid_from=date(2013, 1, 1))
+        for province in (a, b):
+            Ownership.objects.create(province=province, country=pol, date_from=date(2013, 1, 1), de_jure=True)
+        html = render("::map highlight=POL:blue,POL-2:red\n::\n")
+        self.assertEqual(html.count("POL-3170"), 2)        # живой и статичный адрес, по разу
+        self.assertIn("POL-3170:red", html)
+        self.assertNotIn("POL-3170:blue", html)
+        self.assertIn("POL-3146:blue", html)
+
+    def test_unknown_color_is_ignored_by_render_and_flagged_by_lint(self):
+        html = render("::map lat=1 lon=2\nТочка | 1 2 розовый\n::\n")
+        self.assertIn("m=1.0,2.0,,", html)
+        self.assertEqual(codes("::map lat=1 lon=2\nТочка | 1 2 розовый\n::\n"), [(2, "map-color")])
+        self.assertEqual(codes("::map highlight=POL:розовый\n::\n")[0][1], "map-color")
+
+    def test_marker_palette_matches_between_map_and_legend(self):
+        import re
+        from pathlib import Path
+
+        root = Path(__file__).resolve().parents[1]
+        js = (root / "map/static/map.js").read_text(encoding="utf-8")
+        css = (root / "wiki/static/wiki/blocks.css").read_text(encoding="utf-8")
+        for theme, selector in (("print", ".widget--map {"), ("term", '.widget--map[data-theme="term"] {')):
+            palette = js[js.index("const MARK_COLORS"):js.index("const markPalette")]
+            block = re.search(theme + r": \{(.*?)\},", palette, re.S).group(1)
+            wanted = dict(re.findall(r"(\w+): '(#[0-9a-f]{6})'", block))
+            start = css.index(selector, css.index("цвета выделения и меток"))
+            shown = dict(re.findall(r"--mc-(\w+): (#[0-9a-f]{6});", css[start:css.index("}", start)]))
+            self.assertEqual(wanted, shown, theme)
 
     def test_lint_flags_unknown_regions(self):
         from map.models import Province

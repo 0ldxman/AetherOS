@@ -161,57 +161,54 @@ body.embed #timeline {
   display: none;
 }
 
-/* нумерованные метки виджета ::map; вид зависит от темы документа */
+/*
+ * Метки виджета ::map: булавки. Остриё стоит на точке, цвет задаёт --mc (из разметки),
+ * без него берётся цвет темы. Сама булавка повёрнутая капля, номер повёрнут обратно.
+ */
 .embed-marker {
+  --pin: var(--mc, var(--mc-default, #b3261e));
+  position: relative;
   display: grid;
   place-items: center;
-  width: 22px;
-  height: 22px;
-  box-sizing: border-box;
-  background: var(--marker-bg, #b3261e);
-  border: 2px solid var(--marker-ring, #fff);
-  border-radius: 50%;
-  color: var(--marker-ink, #fff);
-  font: 700 11px/1 var(--font-main, monospace);
-}
-
-/* doc и светлый web: плоская бирка с тонкой рамкой, как номер на чертеже */
-body.theme-print .embed-marker {
-  --marker-bg: #fffdf6;
-  --marker-ink: #2a2118;
-  --marker-ring: #2a2118;
-  border-width: 1.5px;
-  border-radius: 0;
-  width: 20px;
-  height: 20px;
-}
-
-/* scan: номер обведён красной ручкой, без заливки и теней, как пометка на распечатке */
-body.theme-scan .embed-marker {
   width: 26px;
   height: 26px;
-  background: transparent;
-  border: 2px solid #b3261e;
-  border-radius: 55% 45% 52% 48% / 48% 54% 46% 52%;
-  color: #b3261e;
-  font-weight: 700;
-  transform: rotate(var(--tilt, -3deg));
-  mix-blend-mode: multiply;
+  margin-bottom: 9px;
+  box-sizing: border-box;
+  background: var(--pin);
+  border: 2px solid var(--pin-ring, #fff);
+  border-radius: 50% 50% 50% 0;
+  color: var(--pin-ink, #fff);
+  transform: rotate(-45deg);
+  box-shadow: 1px 1px 0 rgba(0, 0, 0, 0.25);
 }
 
-body.theme-scan .embed-marker::after {
-  content: "";
-  position: absolute;
-  inset: -3px;
-  border: 1px solid #b3261e;
-  border-radius: 48% 52% 55% 45% / 54% 46% 52% 48%;
-  opacity: 0.55;
-  transform: rotate(8deg);
+.embed-marker::after {
+  /* номер читается прямо, а не по диагонали */
+  content: attr(data-n);
+  transform: rotate(45deg);
+  font: 700 12px/1 var(--font-main, monospace);
+}
+
+body.theme-print .embed-marker {
+  --mc-default: #b3261e;
+  --pin-ring: #fffdf6;
+  --pin-ink: #fffdf6;
+}
+
+/* scan: красится как маркер или штемпельная краска, просвечивая бумагу */
+body.theme-scan .embed-marker {
+  --mc-default: #b3261e;
+  --pin-ring: transparent;
+  --pin-ink: #f7f1e1;
+  border-width: 0;
+  box-shadow: none;
+  mix-blend-mode: multiply;
+  opacity: 0.92;
+  transform: rotate(calc(-45deg + var(--tilt, 0deg)));
 }
 
 body.theme-term .embed-marker {
-  --marker-bg: var(--accent);
-  --marker-ink: var(--bg);
-  --marker-ring: var(--bg);
-  border-radius: 0;
+  --mc-default: var(--accent);
+  --pin-ring: var(--bg);
+  --pin-ink: var(--bg);
 }

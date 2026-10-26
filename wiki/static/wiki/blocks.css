@@ -486,6 +486,38 @@
     --m-line: var(--line-bright, var(--page-line));
 }
 
+/* цвета выделения и меток (имена из разметки); значения те же, что MARK_COLORS в map/static/map.js */
+.widget--map {
+    --mc-red: #b3261e;
+    --mc-blue: #1f4e8c;
+    --mc-green: #2e6b3a;
+    --mc-orange: #c56a12;
+    --mc-purple: #6b3a8c;
+    --mc-yellow: #c9a227;
+    --mc-teal: #1f7a7a;
+    --mc-grey: #55514a;
+}
+
+.widget--map[data-theme="term"] {
+    --mc-red: #ff5a5f;
+    --mc-blue: #5aa9ff;
+    --mc-green: #3fe0a0;
+    --mc-orange: #ffa13d;
+    --mc-purple: #b58cff;
+    --mc-yellow: #ffd84d;
+    --mc-teal: #3fd0ff;
+    --mc-grey: #9aa5a5;
+}
+
+.widget--map [data-color="red"] { --c: var(--mc-red); }
+.widget--map [data-color="blue"] { --c: var(--mc-blue); }
+.widget--map [data-color="green"] { --c: var(--mc-green); }
+.widget--map [data-color="orange"] { --c: var(--mc-orange); }
+.widget--map [data-color="purple"] { --c: var(--mc-purple); }
+.widget--map [data-color="yellow"] { --c: var(--mc-yellow); }
+.widget--map [data-color="teal"] { --c: var(--mc-teal); }
+.widget--map [data-color="grey"] { --c: var(--mc-grey); }
+
 .widget--map .map-ui {
     position: absolute;
     inset: 0;
@@ -596,7 +628,7 @@
     width: 1.25rem;
     height: 1.25rem;
     border-radius: 50%;
-    background: var(--m-red);
+    background: var(--c, var(--m-red));
     color: var(--m-paper);
     font-size: 0.68rem;
 }
@@ -605,8 +637,8 @@
     width: 0.9rem;
     height: 0.9rem;
     box-sizing: border-box;
-    border: 2px solid var(--m-red);
-    background: color-mix(in srgb, var(--m-red) 35%, transparent);
+    border: 2px solid var(--c, var(--m-red));
+    background: color-mix(in srgb, var(--c, var(--m-red)) 35%, transparent);
 }
 
 .widget--map .map-legend-region span {
@@ -624,12 +656,12 @@
     mix-blend-mode: multiply;
 }
 
-/* легенда scan: номера в красных пометках ручкой, как на карте */
+/* легенда scan: номера в обводке ручкой цвета метки */
 .doc--scan .widget--map .map-legend b {
     background: transparent;
-    border: 2px solid var(--m-red);
+    border: 2px solid var(--c, var(--m-red));
     border-radius: 55% 45% 52% 48% / 48% 54% 46% 52%;
-    color: var(--m-red);
+    color: var(--c, var(--m-red));
     mix-blend-mode: multiply;
 }
 

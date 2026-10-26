@@ -18,7 +18,7 @@ from assets.services import asset_widget_kind, find_asset
 from secure.access import condition_slugs
 from secure.models import Key
 from wiki.models import Document, Namespace
-from wiki.widgets import WIDGETS
+from wiki.widgets import MARK_COLORS, WIDGETS, _MARKER, mark_color, split_highlight_token
 
 from .constants import CONTAINERS
 from .expr import SpoilerSyntaxError, parse_expr
@@ -152,7 +152,16 @@ class _Scan:
             params = _parse_args(args, None)
             for code in re.split(r"[\s,;]+", params.get("highlight") or params.get("regions") or ""):
                 if code:
-                    self.regions.append((number, code))
+                    base, color = split_highlight_token(code)
+                    if base != code and not color:
+                        self.issue(number, ERROR, "map-color", f"«{code}»: неизвестный цвет (есть: {', '.join(MARK_COLORS)}).")
+                    self.regions.append((number, base))
+
+        if name == "map":
+            for offset, row in enumerate(_block_body(lines, index), 1):
+                match = _MARKER.match(row)
+                if match and match.group(4) and not mark_color(match.group(4)):
+                    self.issue(number + offset, ERROR, "map-color", f"«{match.group(4)}»: неизвестный цвет метки.")
 
         if name in GROUP_WIDGETS:
             for offset, row in enumerate(_block_body(lines, index), 1):

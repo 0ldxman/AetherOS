@@ -661,13 +661,37 @@ def _files_row(src, label, ctx):
     )
 
 
-_MARKER = re.compile(r"^(.*?)\s*\|\s*(-?\d+(?:[.,]\d+)?)[\s,;]+(-?\d+(?:[.,]\d+)?)\s*$")
+MARK_COLORS = ("red", "blue", "green", "orange", "purple", "yellow", "teal", "grey")
+MARK_ALIASES = {
+    "красный": "red", "синий": "blue", "зелёный": "green", "зеленый": "green", "оранжевый": "orange",
+    "фиолетовый": "purple", "жёлтый": "yellow", "желтый": "yellow", "бирюзовый": "teal",
+    "серый": "grey", "gray": "grey", "black": "grey", "чёрный": "grey", "черный": "grey",
+}
+
+_MARKER = re.compile(
+    r"^(.*?)\s*\|\s*(-?\d+(?:[.,]\d+)?)[\s,;]+(-?\d+(?:[.,]\d+)?)(?:\s+([^\W\d_]+))?\s*$"
+)
+
+
+def mark_color(word):
+    """Имя цвета из разметки (red, синий...) -> имя из MARK_COLORS или '' (неизвестное и пустое)."""
+    word = (word or "").strip().lower()
+    word = MARK_ALIASES.get(word, word)
+    return word if word in MARK_COLORS else ""
+
+
+def split_highlight_token(token):
+    """«POL:blue» -> («POL», 'blue'); цвет неизвестен -> ('POL', ''), доступно и «-POL-3» без цвета."""
+    base, _, word = token.rpartition(":")
+    if not base:
+        return token, ""
+    return base, mark_color(word)
 MAX_MARKERS = 12
 MAX_REGIONS = 24
 
 
 def _marker_rows(text):
-    """Строки «Название | lat lon» -> [(название, lat, lon)]; кривые строки пропускаются."""
+    """Строки «Название | lat lon [цвет]» -> [(название, lat, lon, цвет)]; кривые строки пропускаются."""
     rows = []
     for line in _lines(text):
         match = _MARKER.match(line)
@@ -675,7 +699,7 @@ def _marker_rows(text):
             continue
         lat, lon = float(match.group(2).replace(",", ".")), float(match.group(3).replace(",", "."))
         if -85 <= lat <= 85 and -180 <= lon <= 180:
-            rows.append((match.group(1).strip(), lat, lon))
+            rows.append((match.group(1).strip(), lat, lon, mark_color(match.group(4))))
     return rows[:MAX_MARKERS]
 
 
@@ -719,8 +743,17 @@ def map_widget(text, ctx, args=""):
     except ValueError:
         on_date = None
     tokens = [t for t in re.split(r"[\s,;]+", head.get("highlight") or head.get("regions") or "") if t][:MAX_REGIONS]
-    groups, _unknown = resolve_highlight(tokens, on_date) if tokens else ([], [])
-    region_codes = [code for g in groups for code in g["codes"]]
+    split = [split_highlight_token(t) for t in tokens]
+    groups, _unknown = resolve_highlight([base for base, _ in split], on_date) if tokens else ([], [])
+    colors = {base.upper(): color for base, color in split}
+    for group in groups:
+        group["color"] = colors.get(group["token"].upper(), colors.get(group["name"].upper(), ""))
+    # провинция в нескольких токенах (POL:blue и POL-2:red) берёт цвет последнего
+    chosen = {}
+    for group in groups:
+        for code in group["codes"]:
+            chosen[code] = group["color"]
+    region_codes = [code + (":" + color if color else "") for code, color in chosen.items()]
 
     has_view = head.get("lat") not in (None, "") and head.get("lon") not in (None, "")
     if has_view:
@@ -728,7 +761,7 @@ def map_widget(text, ctx, args=""):
         lon = float(_num(head.get("lon"), 10, -180, 180))
         zoom = float(_num(head.get("zoom"), 4, 0, 18))
     else:
-        box = union([b for g in groups for b in g["boxes"]] + [[lo, la, lo, la] for _, la, lo in markers])
+        box = union([b for g in groups for b in g["boxes"]] + [[lo, la, lo, la] for _, la, lo, _c in markers])
         if box is not None:
             lat, lon, zoom = view_for(box)
             if head.get("zoom"):
@@ -748,9 +781,9 @@ def map_widget(text, ctx, args=""):
     if (head.get("labels") or "").strip().lower() in ("off", "0", "no", "нет"):
         query += "&labels=0"
     if region_codes:
-        query += "&regions=" + ",".join(quote_plus(c) for c in region_codes)
-    for label, la, lo in markers:
-        query += f"&m={la},{lo},{quote_plus(label)}"
+        query += "&regions=" + ",".join(region_codes)
+    for label, la, lo, color in markers:
+        query += f"&m={la},{lo},{color},{quote_plus(label)}"
 
     try:
         base = reverse("map:index")
@@ -786,11 +819,14 @@ def map_widget(text, ctx, args=""):
     )
 
     legend = []
-    for index, (label, la, lo) in enumerate(markers, 1):
-        legend.append(f'<li class="map-legend-marker"><b>{index}</b>{ctx.inline(label)}</li>')
+    for index, (label, la, lo, color) in enumerate(markers, 1):
+        legend.append(
+            f'<li class="map-legend-marker"{_color_attr(color)}><b>{index}</b>{ctx.inline(label)}</li>'
+        )
     for group in groups:
         legend.append(
-            f'<li class="map-legend-region"><i></i>{escape(group["name"])}<span>{escape(group["token"])}</span></li>'
+            f'<li class="map-legend-region"{_color_attr(group["color"])}><i></i>{escape(group["name"])}'
+            f'<span>{escape(group["token"])}</span></li>'
         )
     legend_html = f'<ol class="map-legend">{"".join(legend)}</ol>' if legend else ""
 
@@ -798,6 +834,10 @@ def map_widget(text, ctx, args=""):
     figure = figure.replace("</figure>", f"{legend_html}</figure>", 1) if legend_html else figure
     # подпись и рамка у карты те же, что у картинки документа
     return figure.replace("widget widget--map", "widget widget--map widget--image", 1)
+
+
+def _color_attr(color):
+    return f' data-color="{color}"' if color else ""
 
 
 def _coord(value, plus, minus):

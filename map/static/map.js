@@ -44,6 +44,21 @@ const THEMES = {
 
 THEMES.scan = THEMES.print;   // scan: та же бумажная карта, отличаются только метки
 const THEME_STYLE = THEMES[THEME] || null;
+
+// Цвета выделения и меток из разметки виджета (red, blue...). Те же имена и значения у легенды
+// в wiki/static/wiki/blocks.css (--mc-*): при правке менять оба места, тест следит за совпадением.
+const MARK_COLORS = {
+  print: {
+    red: '#b3261e', blue: '#1f4e8c', green: '#2e6b3a', orange: '#c56a12',
+    purple: '#6b3a8c', yellow: '#c9a227', teal: '#1f7a7a', grey: '#55514a',
+  },
+  term: {
+    red: '#ff5a5f', blue: '#5aa9ff', green: '#3fe0a0', orange: '#ffa13d',
+    purple: '#b58cff', yellow: '#ffd84d', teal: '#3fd0ff', grey: '#9aa5a5',
+  },
+};
+const markPalette = MARK_COLORS[THEME === 'term' || !THEME_STYLE ? 'term' : 'print'];
+const markColor = (name, fallback) => markPalette[name] || fallback;
 const COLORS = THEME_STYLE ? THEME_STYLE.colors : DEFAULT_COLORS;
 
 const GRID_STEP = 10; // шаг сетки в градусах; жирные линии каждые 30°
@@ -70,11 +85,18 @@ const EDIT_MODE = new URLSearchParams(window.location.search).get('edit') === '1
 const SEARCH = new URLSearchParams(window.location.search);
 const EMBED = SEARCH.get('embed') === '1';
 const STATIC_VIEW = EMBED && SEARCH.get('static') === '1';
-const REGIONS = EMBED ? (SEARCH.get('regions') || '').split(',').filter(Boolean) : [];
+// ?regions=adm1_code[:цвет],...
+const REGION_ITEMS = EMBED
+  ? (SEARCH.get('regions') || '').split(',').filter(Boolean).map((raw) => {
+      const [code, color] = raw.split(':');
+      return { code, color };
+    })
+  : [];
+const REGIONS = REGION_ITEMS.map((item) => item.code);
 const MARKERS = EMBED
   ? SEARCH.getAll('m').map((raw) => {
-      const [lat, lon, ...label] = raw.split(',');
-      return { lat: Number(lat), lon: Number(lon), label: label.join(',') };
+      const [lat, lon, color, ...label] = raw.split(',');
+      return { lat: Number(lat), lon: Number(lon), color, label: label.join(',') };
     }).filter((m) => Number.isFinite(m.lat) && Number.isFinite(m.lon))
   : [];
 const PROVINCE_NAMES = EMBED && SEARCH.get('labels') !== '0';
@@ -424,6 +446,12 @@ map.on('load', () => {
 if (REGIONS.length) {
   const inRegions = ['in', ['get', 'adm1_code'], ['literal', REGIONS]];
   const region = THEME_STYLE ? THEME_STYLE.region : '#ffcf4d';
+  // у каждой провинции свой цвет, если автор его задал; остальные в цвете темы
+  const byColor = ['match', ['get', 'adm1_code']];
+  // повторы в match недопустимы: берём последнее значение для провинции
+  const lastColor = new Map(REGION_ITEMS.map((item) => [item.code, item.color]));
+  for (const [code, color] of lastColor) byColor.push(code, markColor(color, region));
+  byColor.push(region);
   const dim = THEME_STYLE ? THEME_STYLE.dim : '#0f1b2d';
 
   map.addLayer({
@@ -440,7 +468,7 @@ if (REGIONS.length) {
     source: 'adm1',
     'source-layer': 'aether_provinces',
     filter: inRegions,
-    paint: { 'fill-color': region, 'fill-opacity': 0.4 },
+    paint: { 'fill-color': byColor, 'fill-opacity': 0.4 },
   });
   map.addLayer({
     id: 'regions-line',
@@ -448,7 +476,7 @@ if (REGIONS.length) {
     source: 'adm1',
     'source-layer': 'aether_provinces',
     filter: inRegions,
-    paint: { 'line-color': region, 'line-width': 2.2 },
+    paint: { 'line-color': byColor, 'line-width': 2.2 },
   });
 }
 
@@ -717,10 +745,13 @@ if (EMBED) {
     el.title = item.label;
     const tag = document.createElement('span');
     tag.className = 'embed-marker';
-    tag.textContent = String(index + 1);
+    tag.dataset.n = String(index + 1);
+    tag.setAttribute('aria-label', String(index + 1));
     tag.style.setProperty('--tilt', `${[-4, 3, -2, 5][index % 4]}deg`);
+    if (markPalette[item.color]) tag.style.setProperty('--mc', markPalette[item.color]);
     el.appendChild(tag);
-    new maplibregl.Marker({ element: el }).setLngLat([item.lon, item.lat]).addTo(map);
+    // остриё булавки стоит на точке
+    new maplibregl.Marker({ element: el, anchor: 'bottom' }).setLngLat([item.lon, item.lat]).addTo(map);
   });
 
   const reportView = () => {
