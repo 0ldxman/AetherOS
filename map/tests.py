@@ -385,3 +385,42 @@ class MapCacheTests(TestCase):
         scene_queries = [q["sql"] for q in queries if "map_mapscene" in q["sql"]]
         self.assertTrue(scene_queries)
         self.assertFalse([q for q in scene_queries if '"features"' in q or '"thumbnail"' in q])
+
+
+class RegionResolveTests(TestCase):
+    def setUp(self):
+        from datetime import date
+
+        from django.contrib.auth import get_user_model
+        from django.core.cache import cache
+
+        from .models import Country, Ownership, Province
+
+        cache.clear()
+        self.staff = get_user_model().objects.create_user("boss", password="pw", is_staff=True)
+        ukr = Country.objects.create(code="UKR-2041", name="Украина", color="#aabbcc", valid_from=date(2000, 1, 1))
+        rus = Country.objects.create(code="RUS-2041", name="Россия", color="#ccbbaa", valid_from=date(2000, 1, 1))
+        # провинция с украинским кодом, которой на 2041 год владеет Россия
+        taken = Province.objects.create(code="UKR-1", source_code="ukr_1", name="Занятая")
+        own = Province.objects.create(code="UKR-2", source_code="ukr_2", name="Своя")
+        Ownership.objects.create(province=taken, country=rus, date_from=date(2040, 1, 1), de_jure=True)
+        Ownership.objects.create(province=own, country=ukr, date_from=date(2000, 1, 1), de_jure=True)
+
+    def test_a_country_is_resolved_by_ownership_on_the_date(self):
+        self.client.force_login(self.staff)
+        data = self.client.get("/apps/map/api/resolve-regions/?tokens=RUS,UKR&date=2041-03-12").json()
+        self.assertEqual(data["RUS"], ["ukr_1"])
+        self.assertEqual(data["UKR"], ["ukr_2"])
+
+    def test_only_staff_may_ask(self):
+        self.assertEqual(self.client.get("/apps/map/api/resolve-regions/?tokens=RUS").status_code, 403)
+
+    def test_a_region_keeps_its_fill_flag_and_reaches_the_page(self):
+        from .scenes import clean_features, scene_payload
+
+        features = clean_features([{"type": "region", "token": "RUS", "fill": False}])
+        self.assertIs(features[0]["fill"], False)
+        scene = MapScene.objects.create(slug="r", title="R", features=features)
+        payload = scene_payload(scene, frozenset(), None)
+        self.assertIs(payload[0]["fill"], False)
+        self.assertEqual(payload[0]["type"], "regions")

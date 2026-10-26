@@ -135,3 +135,22 @@ def scene_detail(request, slug):
         "max_zoom": scene.max_zoom,
         "features": scene_payload(scene, keys, on_date),
     })
+
+
+def resolve_regions(request):
+    """Для редактора сцен: какие провинции (adm1_code) выделяет каждый токен на дату (страна по владению на дату)."""
+    from .bounds import resolve_highlight
+
+    if not getattr(request.user, "is_staff", False):
+        raise Http404
+    raw = request.GET.get("date")
+    try:
+        on_date = date.fromisoformat(raw) if raw else None
+    except ValueError:
+        return JsonResponse({"error": "date must be YYYY-MM-DD"}, status=400)
+
+    result = {}
+    for token in [t for t in request.GET.get("tokens", "").split(",") if t.strip()][:40]:
+        groups, _unknown = resolve_highlight([token], on_date)
+        result[token] = [code for group in groups for code in group["codes"]]
+    return JsonResponse(result)

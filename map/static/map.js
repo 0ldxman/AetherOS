@@ -887,6 +887,11 @@ function setRegions(extra) {
   for (const id of ['regions-fill', 'regions-line', 'regions-line2']) {
     if (map.getLayer(id)) map.setFilter(id, inRegions);
   }
+  // без заливки у выделения остаётся только контур (слой заливки при этом нужен для клика по ссылке)
+  const filled = [...items].filter(([, item]) => item.fill !== false).map(([code]) => code);
+  const fillOpacity = THEME === 'maps' ? 0.22 : THEME === 'scan' ? 1 : 0.4;
+  map.setPaintProperty('regions-fill', 'fill-opacity',
+    ['case', ['in', ['get', 'adm1_code'], ['literal', filled]], fillOpacity, 0]);
   map.setFilter('regions-dim', ['!', inRegions]);
   map.setLayoutProperty('regions-dim', 'visibility', codes.length ? 'visible' : 'none');
   for (const id of ['regions-line', 'regions-line2']) {
@@ -1034,7 +1039,7 @@ function applyScene() {
     if (PEN_SCENE && ['line', 'arrow', 'polygon', 'circle', 'text'].includes(item.type)) pen.push(item);
 
     if (item.type === 'regions') {
-      for (const code of item.codes) regions.push({ code, color: item.color, url: item.url || '', label: item.label || '' });
+      for (const code of item.codes) regions.push({ code, color: item.color, url: item.url || '', label: item.label || '', fill: item.fill });
     } else if (item.type === 'line' || item.type === 'arrow') {
       const w = item.width || 3;
       shapes.push({ type: 'Feature', properties: { ...common, w, dash: !!item.dash },
@@ -1298,10 +1303,33 @@ const editor = {
 
   // выделения предпросмотра: код провинции из БД (RUS-32) или страна по префиксу (POL)
   codesFor(token) {
+    // страна по владению на дату считает сервер (как в документе); пока ответа нет, берётся приближение по префиксу кода
+    const date = getUrlDate() || '';
+    const cached = this.resolved[`${token}|${date}`];
+    if (cached) return cached;
+    this.resolve(token, date);
     const key = String(token || '').toUpperCase();
     return Object.entries(provinceCodes)
       .filter(([, code]) => String(code).toUpperCase() === key || String(code).toUpperCase().startsWith(`${key}-`))
       .map(([source]) => source);
+  },
+
+  resolved: {},
+  asked: new Set(),
+
+  resolve(token, date) {
+    const id = `${token}|${date}`;
+    if (this.asked.has(id) || !token) return;
+    this.asked.add(id);
+    const url = `${RESOLVE_URL}?tokens=${encodeURIComponent(token)}${date ? `&date=${date}` : ''}`;
+    fetch(url, { credentials: 'same-origin' })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => {
+        if (!data || !Array.isArray(data[token])) { this.asked.delete(id); return; }
+        this.resolved[id] = data[token];
+        this.render();
+      })
+      .catch(() => this.asked.delete(id));
   },
 
   render() {

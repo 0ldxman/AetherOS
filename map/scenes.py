@@ -11,7 +11,7 @@
     text     coords [lon, lat], text                color, size, key
     callout  coords [lon, lat] (место), text        color, offset [dx, dy] в пикселях, url, key
              выноска: плашка с текстом, от неё линия к месту
-    region   token (POL, RUS-32)            label, color, url, key
+    region   token (POL, RUS-32)            label, color, fill, url, key
 
 from, to  необязательные даты (ГГГГ-ММ-ДД): пометка видна только на дату сцены внутри этого промежутка.
 
@@ -134,7 +134,7 @@ def clean_features(raw):
                 clean["dash"] = True
             if item.get("smooth"):
                 clean["smooth"] = True
-        if kind in ("polygon", "circle") and "fill" in item:
+        if kind in ("polygon", "circle", "region") and "fill" in item:
             clean["fill"] = bool(item["fill"])
         if kind == "text" and item.get("size"):
             clean["size"] = max(8, min(48, float(item["size"])))
