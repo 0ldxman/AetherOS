@@ -3,6 +3,7 @@ from datetime import date
 from django.http import Http404, JsonResponse
 from django.shortcuts import render
 
+from .cache import shared_json as _shared_json
 from .models import CountryLabel, Ownership
 
 
@@ -44,13 +45,16 @@ def province_colors(request):
     if error:
         return error
 
-    rows = qs.values_list(
-        "province__source_code", "province__code", "country__color", "province__wiki_url", "country__wiki_url"
-    )
-    return JsonResponse({
-        source_code: {"code": code, "color": color, "url": link_of(province_url, country_url)}
-        for source_code, code, color, province_url, country_url in rows
-    })
+    def compute():
+        rows = qs.values_list(
+            "province__source_code", "province__code", "country__color", "province__wiki_url", "country__wiki_url"
+        )
+        return {
+            source_code: {"code": code, "color": color, "url": link_of(province_url, country_url)}
+            for source_code, code, color, province_url, country_url in rows
+        }
+
+    return _shared_json("colors", request.GET.get("date", ""), compute)
 
 
 def country_labels(request):
@@ -59,37 +63,43 @@ def country_labels(request):
     if error:
         return error
 
-    country_ids = set(qs.values_list("country_id", flat=True))
-    labels = CountryLabel.objects.filter(country_id__in=country_ids).select_related("country")
-
-    return JsonResponse(
-        [
+    def compute():
+        country_ids = set(qs.values_list("country_id", flat=True))
+        labels = CountryLabel.objects.filter(country_id__in=country_ids).select_related("country")
+        return [
             {"text": label.display_text, "lng": label.lng, "lat": label.lat, "rank": label.rank}
             for label in labels
-        ],
-        safe=False,
-    )
+        ]
+
+    return _shared_json("labels", request.GET.get("date", ""), compute)
 
 
 def timeline_dates(request):
     """Даты, в которые менялись границы: из них строятся засечки таймлайна."""
-    days = Ownership.objects.order_by("date_from").values_list("date_from", flat=True).distinct()
-    return JsonResponse({"dates": [d.isoformat() for d in days]})
+    def compute():
+        days = Ownership.objects.order_by("date_from").values_list("date_from", flat=True).distinct()
+        return {"dates": [d.isoformat() for d in days]}
 
-def _visible_scenes(request):
-    """Сохранённые карты, открытые игроку по ключам."""
+    return _shared_json("dates", "", compute)
+
+
+def _visible_scenes(request, light=False):
+    """Сохранённые карты, открытые игроку по ключам. light не грузит пометки и миниатюру (списку они не нужны)."""
     from secure.access import satisfied
     from wiki.access import request_keys
 
     from .models import MapScene
 
     keys = request_keys(request)
-    return [scene for scene in MapScene.objects.all() if satisfied(scene.key_condition, keys)], keys
+    scenes = MapScene.objects.all()
+    if light:
+        scenes = scenes.defer("features", "thumbnail")
+    return [scene for scene in scenes if satisfied(scene.key_condition, keys)], keys
 
 
 def scene_list(request):
     """Список сохранённых карт для выбора в приложении карты."""
-    scenes, _keys = _visible_scenes(request)
+    scenes, _keys = _visible_scenes(request, light=True)
     return JsonResponse([
         {"slug": s.slug, "title": s.title, "date": s.base_date.isoformat() if s.base_date else ""}
         for s in scenes

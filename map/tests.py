@@ -341,3 +341,41 @@ class SceneFindTests(TestCase):
         url = reverse("admin:map_mapscene_find")
         self.assertEqual({i["slug"] for i in self.client.get(url).json()["items"]}, {"raid", "other"})
         self.assertEqual([i["slug"] for i in self.client.get(url + "?q=raid").json()["items"]], ["raid"])
+
+
+class MapCacheTests(TestCase):
+    def test_timeline_is_cached_and_follows_ownership_changes(self):
+        from datetime import date
+
+        from django.db import connection
+        from django.test.utils import CaptureQueriesContext
+
+        from .models import Country, Ownership, Province
+
+        from django.contrib.auth import get_user_model
+
+        self.client.force_login(get_user_model().objects.create_user("boss", password="pw", is_staff=True))
+        country = Country.objects.create(code="POL-2041", name="Poland", color="#aabbcc", valid_from=date(2000, 1, 1))
+        province = Province.objects.create(code="POL-1", source_code="pol_1", name="P")
+        Ownership.objects.create(province=province, country=country, date_from=date(2041, 1, 1), de_jure=True)
+
+        self.assertEqual(self.client.get("/apps/map/timeline/").json(), {"dates": ["2041-01-01"]})
+        with CaptureQueriesContext(connection) as queries:
+            self.client.get("/apps/map/timeline/")
+        self.assertFalse([q for q in queries if "map_ownership" in q["sql"]])
+
+        Ownership.objects.create(province=province, country=country, date_from=date(2042, 1, 1), de_jure=True)
+        self.assertEqual(self.client.get("/apps/map/timeline/").json(), {"dates": ["2041-01-01", "2042-01-01"]})
+
+    def test_scene_list_does_not_load_features_or_thumbnails(self):
+        from django.contrib.auth import get_user_model
+        from django.db import connection
+        from django.test.utils import CaptureQueriesContext
+
+        MapScene.objects.create(slug="a", title="A", features=[{"type": "marker", "coords": [1, 1]}])
+        self.client.force_login(get_user_model().objects.create_user("boss", password="pw", is_staff=True))
+        with CaptureQueriesContext(connection) as queries:
+            self.client.get("/apps/map/api/scenes/")
+        scene_queries = [q["sql"] for q in queries if "map_mapscene" in q["sql"]]
+        self.assertTrue(scene_queries)
+        self.assertFalse([q for q in scene_queries if '"features"' in q or '"thumbnail"' in q])

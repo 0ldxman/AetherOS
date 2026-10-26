@@ -78,6 +78,7 @@ INSTALLED_APPS += [
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
     'whitenoise.middleware.WhiteNoiseMiddleware',
+    'django.middleware.gzip.GZipMiddleware',
 
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
@@ -121,6 +122,9 @@ WSGI_APPLICATION = 'config.wsgi.application'
 DATABASES = {
 "default": env.db("DATABASE_URL"),
 }
+# соединение живёт между запросами: на каждый запрос заново подключаться дорого, а опросов много
+DATABASES["default"].setdefault("CONN_MAX_AGE", 60)
+DATABASES["default"].setdefault("CONN_HEALTH_CHECKS", True)
 
 
 # Кэш и сессии. С REDIS_URL оба живут в Redis (сессии cached_db: база остаётся источником правды,
