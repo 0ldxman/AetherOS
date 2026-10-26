@@ -489,3 +489,28 @@ class OutlineTests(TestCase):
         payload = scene_payload(scene, frozenset(), date(2041, 3, 12))
         self.assertIn("/api/outline/?token=AAA&date=2041-03-12", payload[0]["outline_url"])
         self.assertNotIn("token", payload[0])
+
+
+class OutlineDiagnosticsTests(TestCase):
+    def test_an_empty_answer_says_why(self):
+        from datetime import date
+
+        from django.contrib.auth import get_user_model
+        from django.core.cache import cache
+
+        from .models import Country, Ownership, Province
+
+        cache.clear()
+        self.client.force_login(get_user_model().objects.create_user("boss", password="pw", is_staff=True))
+        country = Country.objects.create(code="BBB-2041", name="B", color="#aabbcc", valid_from=date(2000, 1, 1))
+        province = Province.objects.create(code="BBB-1", source_code="bbb-1", name="B1")
+        Ownership.objects.create(province=province, country=country, date_from=date(2000, 1, 1), de_jure=True)
+        # провинция есть, контура нет: сервер не пытается грузить файл, если таблица не пуста
+        from .models import ProvinceShape
+
+        ProvinceShape.objects.create(source_code="other", rings=[[[0, 0], [1, 0], [1, 1], [0, 0]]])
+        data = self.client.get("/apps/map/api/outline/?token=BBB&date=2041-03-12").json()
+        self.assertEqual((data["coordinates"], data["provinces"], data["shapes"]), ([], 1, 0))
+        # токен, который ничего не выделяет
+        data = self.client.get("/apps/map/api/outline/?token=ZZZ").json()
+        self.assertEqual((data["coordinates"], data["provinces"]), ([], 0))

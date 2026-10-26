@@ -160,6 +160,7 @@ def resolve_regions(request):
 def region_outline(request):
     """Внешняя граница выделения: линии объединения провинций токена (страна без внутренних границ) на дату."""
     from .bounds import resolve_highlight
+    from .models import ProvinceShape
     from .outline import outline_for
 
     raw = request.GET.get("date")
@@ -170,12 +171,15 @@ def region_outline(request):
 
     token = (request.GET.get("token") or "").strip()
     groups, _unknown = resolve_highlight([token], on_date) if token else ([], [])
+    codes = [code for group in groups for code in group["codes"]]
     try:
-        lines = outline_for([code for group in groups for code in group["codes"]])
+        lines = outline_for(codes)
+        shapes = 0 if lines else ProvinceShape.objects.filter(source_code__in=codes).count()
     except DatabaseError:
         # таблица контуров не создана: не выполнена миграция map 0008
         return JsonResponse({"error": "province shapes table is missing: run migrate"}, status=503)
-    response = JsonResponse({"type": "MultiLineString", "coordinates": lines})
+    # provinces и shapes объясняют пустой ответ: токен ничего не выделяет или нет контуров в базе
+    response = JsonResponse({"type": "MultiLineString", "coordinates": lines, "provinces": len(codes), "shapes": shapes})
     if lines:       # пустой ответ браузеру не оставляем: контуры могут загрузиться позже
         response["Cache-Control"] = "public, max-age=3600"
     return response

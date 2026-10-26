@@ -915,7 +915,9 @@ function loadOutline(url) {
       }
       const data = await r.json();
       outlineLines.set(url, data.coordinates);
-      outlineNotice(data.coordinates.length ? '' : 'Для этой страны нет контуров провинций: выполните import_province_shapes. Пока рисуются границы всех провинций.');
+      outlineNotice(data.coordinates.length ? '' : (data.provinces
+        ? `Для ${data.provinces} провинций выделения нет контуров в базе: выполните import_province_shapes. Пока рисуются границы всех провинций.`
+        : 'Эта страна на выбранную дату не владеет ни одной провинцией (проверьте код или название и даты владения). Пока рисуются границы всех провинций.'));
       setRegions(regionExtra);
     })
     .catch(() => {
