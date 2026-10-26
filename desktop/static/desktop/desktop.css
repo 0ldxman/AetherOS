@@ -428,6 +428,7 @@ body {
 
 .dialog-message {
   margin: 0;
+  font-size: 0.9rem;
   min-width: 0;
   line-height: 1.4;
   overflow-wrap: anywhere;
@@ -458,11 +459,14 @@ body {
   cursor: pointer;
 }
 
-.dialog-ok:hover,
-.dialog-ok:focus-visible {
+.dialog-ok:hover {
   background: var(--bg);
   color: var(--tone);
-  outline: none;
+}
+
+.dialog-ok:focus-visible {
+  outline: 1px dashed var(--bg);
+  outline-offset: 2px;
 }
 
 /* заголовок окна ошибки красится по виду сообщения */
@@ -479,6 +483,11 @@ body {
 .winbox.aether.dialog-window--error {
   border-color: var(--status-error);
   background: var(--status-error);
+  box-shadow: 0 0 0 1px var(--status-error);
+}
+
+.winbox.aether.dialog-window--warning {
+  box-shadow: 0 0 0 1px var(--status-warn);
 }
 
 .winbox.aether.dialog-window--warning .wb-header {
