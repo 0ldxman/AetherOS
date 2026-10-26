@@ -27,6 +27,7 @@ class UnlockResult:
     log: list[str]  # строки для журнала сессии
     ops: list[OpResult]  # что получилось с drop, rename, copy
     mail: list = field(default_factory=list)  # что получилось с письмами (mail.delivery.DeliveryResult)
+    effects: list = field(default_factory=list)  # эффекты хуков для браузера (kick, alert)
 
 
 def _deliver_mail(user, mails):
@@ -72,4 +73,5 @@ def unlock_file(session_file: SessionFile, given=None) -> UnlockResult:
         log=outcome.hooks.log,
         ops=ops,
         mail=mail,
+        effects=outcome.hooks.effects,
     )

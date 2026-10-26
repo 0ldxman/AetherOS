@@ -118,8 +118,10 @@ class MachineProfile(models.Model):
     )
 
     freq = models.DecimalField(
-        max_digits=6,
+        "Частота / порт",
+        max_digits=8,
         decimal_places=3,
+        help_text="Где слушает эта запись: у систем Aether частота в МГц (14.230), у остальных порт (22).",
     )
 
     login = models.CharField(

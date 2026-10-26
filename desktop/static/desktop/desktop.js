@@ -450,6 +450,8 @@ function openApp(id, label, url, options = {}) {
       if (win && win._minObserver) win._minObserver.disconnect();
       delete openWindows[id];
       noteClosed(id);
+      // окно-туннель закрыли: все мосты закрываются, и мы возвращаемся на исходную машину
+      if (options.tunnel) closeBridge();
     },
   });
 
@@ -529,9 +531,12 @@ function el(tag, className, text) {
 }
 
 // окно ошибки как в обычной системе: заголовок, значок, текст, код и кнопка OK
-function showDialog(spec, params = {}) {
+function showDialog(spec, params = {}, options = {}) {
   const msg = resolveMessage(spec, params);
-  const dedupe = msg.kind + "|" + msg.title + "|" + msg.text;
+  // stack: окна одного сообщения не склеиваются в одно и ложатся в случайные места (хук alert)
+  const dedupe = options.stack
+    ? "stack-" + (dialogCount + 1)
+    : msg.kind + "|" + msg.title + "|" + msg.text;
 
   if (openDialogs[dedupe]) {
     openDialogs[dedupe].focus();
@@ -566,8 +571,8 @@ function showDialog(spec, params = {}) {
       "dialog-window",
       "dialog-window--" + msg.kind,
     ],
-    x: "center",
-    y: "center",
+    x: options.stack ? Math.max(0, Math.round(Math.random() * (desktop.clientWidth - 400))) : "center",
+    y: options.stack ? WINDOW_TOP + Math.round(Math.random() * Math.max(0, desktop.clientHeight - 170 - WINDOW_TOP)) : "center",
     width: 400,
     height: 170,
     mount: body,
@@ -723,7 +728,30 @@ window.desktopAPI = {
   openApp,
   error: showDialog,
   notify: showToast,
+  reload: () => window.location.reload(),
+  lock: (url) => { window.location.href = url; },
 };
+
+// Мост: окно-туннель с терминалом открыто на столе чужой машины сразу. Его закрытие закрывает все мосты.
+const tunnelUrl = desktop.dataset.tunnelUrl;
+
+function closeBridge() {
+  fetch(desktop.dataset.tunnelCloseUrl, {
+    method: "POST",
+    credentials: "same-origin",
+    headers: { "X-CSRFToken": getCookie("csrftoken") },
+  }).finally(() => window.location.reload());
+}
+
+if (tunnelUrl) {
+  openApp("tunnel", desktop.dataset.tunnelLabel || "bridge", tunnelUrl, {
+    tunnel: true,
+    x: 80,
+    y: WINDOW_TOP + 30,
+    width: 760,
+    height: 460,
+  });
+}
 
 // размер клетки берём из CSS, чтобы он совпадал с фоном
 const CELL = parseFloat(

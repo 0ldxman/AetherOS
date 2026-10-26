@@ -99,7 +99,19 @@ def desktop(request):
     mail_url = reverse("mail:inbox")
     has_mail = any(item["url"] == mail_url for item in apps)
 
+    # мост: игрок на чужой машине, и терминал-«дыра» открыт на столе сразу
+    from machines import bridge
+
+    tunnel = None
+    if request.user.is_authenticated and bridge.depth(request) > 0:
+        tunnel = {
+            "label": f"bridge: {login}@{machine.label}",
+            "url": prefix + reverse("terminal:index"),
+            "close_url": reverse("terminal:bridge_close"),
+        }
+
     return render(request, "desktop/desktop.html", {
+        "tunnel": tunnel,
         "mail_url": mail_url if has_mail else "",
         "mail_pulse_url": reverse("mail:pulse") if has_mail else "",
         "machine_name": machine.label,

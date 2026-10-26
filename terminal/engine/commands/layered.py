@@ -142,4 +142,5 @@ class LayerCommand(BaseCommand):
             "\n".join(lines + outcome.say + notice),
             code,
             scene=unlock_scene(layer, entry.path, bool(outcome.result.removed)),
+            effects=outcome.effects or None,
         )

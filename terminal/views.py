@@ -7,12 +7,13 @@ from django.views.decorators.http import require_POST
 
 from machines.current import active_session, current_machine
 from users.aether_auth import AUTH_REQUIRED, is_player
-from terminal.engine.context import DEFAULT_CWD
-from terminal.engine.executor import TerminalExecutor
+from django.urls import reverse
 
-# Ключ в Django-сессии: текущая папка открытого окна терминала.
-# Хранится на сервере, браузер не может её подменить.
-CWD_KEY = "terminal_cwd"
+from machines import bridge
+from terminal.engine.commands.bridge import PENDING_KEY, answer_prompt
+from terminal.engine.context import CWD_KEY, DEFAULT_CWD
+from terminal.engine.executor import TerminalExecutor
+from terminal.engine.result import CommandResult
 
 
 def _anonymous_answer(request):
@@ -50,23 +51,39 @@ def execute(request):
             status=400,
         )
 
-    source = payload.get("command", "")
+    session = active_session(request)
+    cwd = request.session.get(CWD_KEY, DEFAULT_CWD)
+    depth_before = bridge.depth(request)
 
-    if not isinstance(source, str) or len(source) > 4096:
-        return JsonResponse(
-            {"error": "Invalid command"},
-            status=400,
+    if payload.get("cancel"):
+        request.session.pop(PENDING_KEY, None)
+        result, new_cwd = CommandResult(), cwd
+    elif "answer" in payload:
+        # ответ на запрос пароля (моста): сам ответ в историю и в вывод не попадает
+        text = payload["answer"]
+        if not isinstance(text, str) or len(text) > 512:
+            return JsonResponse({"error": "Invalid answer"}, status=400)
+        result, entered_cwd = answer_prompt(request, text)
+        new_cwd = entered_cwd or cwd
+    else:
+        source = payload.get("command", "")
+
+        if not isinstance(source, str) or len(source) > 4096:
+            return JsonResponse(
+                {"error": "Invalid command"},
+                status=400,
+            )
+
+        result, new_cwd = TerminalExecutor().execute(
+            session=session,
+            source=source,
+            cwd=cwd,
+            request=request,
         )
 
-    session = active_session(request)
-
-    cwd = request.session.get(CWD_KEY, DEFAULT_CWD)
-
-    result, new_cwd = TerminalExecutor().execute(
-        session=session,
-        source=source,
-        cwd=cwd,
-    )
+    effects = _server_effects(request, session, result.effects)
+    if bridge.depth(request) != depth_before:
+        new_cwd = DEFAULT_CWD      # смена машины начинает новую оболочку
 
     if new_cwd != cwd:
         request.session[CWD_KEY] = new_cwd
@@ -77,9 +94,44 @@ def execute(request):
         "window": result.window,
         "scene": result.scene,
         "clear": result.clear,
+        "effects": effects,
+        "prompt": result.prompt,
         "cwd": new_cwd,
-        "hostname": session.profile.machine.hostname,
+        "hostname": active_session(request).profile.machine.hostname,
     })
+
+
+def _server_effects(request, session, effects):
+    """Эффекты ответа для браузера. kick из хука выполняется здесь, на сервере: игрока выбрасывает на уровень выше
+    (или на экран входа, если выше нет), а браузер получает сцену обрыва и смену рабочего стола."""
+    from . import bridge_scenes as scenes
+
+    out = []
+    for effect in effects or []:
+        if effect.get("op") != "kick":
+            out.append(effect)
+            continue
+
+        host = session.profile.machine.hostname
+        system = session.profile.machine.system
+        out.append({"op": "play", "scene": scenes.kick_scene(system, host)})
+        if bridge.leave(request):
+            request.session[CWD_KEY] = DEFAULT_CWD
+            out.append({"op": "switch"})
+        else:
+            out.append({"op": "lock", "url": reverse("lock")})
+    return out
+
+
+@require_POST
+def bridge_close(request):
+    """Закрытие окна-туннеля: все мосты закрываются, игрок возвращается на исходную машину."""
+    if not is_player(request):
+        raise PermissionDenied
+
+    bridge.leave(request, all_levels=True)
+    request.session[CWD_KEY] = DEFAULT_CWD
+    return JsonResponse({"ok": True})
 
 
 def prompt_path(cwd):

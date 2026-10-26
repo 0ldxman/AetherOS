@@ -23,8 +23,13 @@ PATH_ACTIONS = ("drop", "rename", "copy")
 # сразу или с задержкой.
 MAIL_ACTIONS = ("mail",)
 
+# Действия-эффекты: что случается с игроком и его рабочим столом.
+#   kick                              выбросить игрока из текущей сессии (на уровень моста выше или на экран входа);
+#   alert <сообщение> [count=N] [gap=мс]   засыпать рабочий стол окнами ошибок (сообщение из каталога системы).
+EFFECT_ACTIONS = ("kick", "alert")
+
 # add <слой> [аргументы]: добавить слой на файл.
-ACTIONS = TEXT_ACTIONS + PATH_ACTIONS + MAIL_ACTIONS + ("add",)
+ACTIONS = TEXT_ACTIONS + PATH_ACTIONS + MAIL_ACTIONS + EFFECT_ACTIONS + ("add",)
 
 # Подстановки {...}, доступные в любом тексте (say, log, ответы слоя).
 # Слой может добавить свои (см. BaseState.placeholders), а значения его

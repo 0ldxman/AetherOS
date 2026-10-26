@@ -64,14 +64,48 @@
         desktop.openApp(win.id, win.title, win.url);
     }
 
-    async function executeCommand(command) {
+    // запрос на ввод пароля (мост): пока он открыт, строка ввода скрыта звёздочками, а ответ уходит отдельно
+    let awaiting = null;
+
+    function awaitAnswer(request) {
+        awaiting = request;
+        input.type = "password";
+        prompt.textContent = request.text;
+    }
+
+    function endAnswer() {
+        awaiting = null;
+        input.type = "text";
+        updatePrompt();
+    }
+
+    // Эффекты ответа: сцена после текста, смена рабочего стола, экран входа, окна ошибок
+    async function runEffect(effect) {
+        const desktop = window.parent && window.parent !== window ? window.parent : null;
+        const api = desktop && desktop.desktopAPI;
+
+        if (effect.op === "play") {
+            await playScene(effect.scene);
+        } else if (effect.op === "switch") {
+            if (api && api.reload) api.reload(); else window.location.reload();
+        } else if (effect.op === "lock") {
+            if (api && api.lock) api.lock(effect.url); else window.location.href = effect.url;
+        } else if (effect.op === "alert" && api && api.error) {
+            for (let i = 0; i < effect.count; i++) {
+                api.error(effect.message, { object: `0x${(4096 + Math.floor(Math.random() * 61000)).toString(16)}` }, { stack: true });
+                await new Promise((resolve) => setTimeout(resolve, effect.gap * (0.6 + Math.random() * 0.8)));
+            }
+        }
+    }
+
+    async function send(body) {
         const response = await fetch(executeUrl, {
             method: "POST",
             headers: {
                 "Content-Type": "application/json",
                 "X-CSRFToken": csrfToken,
             },
-            body: JSON.stringify({ command }),
+            body: JSON.stringify(body),
         });
 
         let data;
@@ -103,6 +137,23 @@
         if (data.window) {
             openWindow(data.window);
         }
+
+        if (data.prompt) {
+            awaitAnswer(data.prompt);
+        }
+
+        // effects после текста: смена рабочего стола ждёт, пока доиграет последняя сцена
+        for (const effect of data.effects || []) {
+            if (effect.op === "play") {
+                await runEffect(effect);
+            } else {
+                runEffect(effect);
+            }
+        }
+    }
+
+    function executeCommand(command) {
+        return send({ command });
     }
 
     form.addEventListener("submit", async (event) => {
@@ -112,23 +163,29 @@
             return;
         }
 
-        const command = input.value.trim();
+        const answering = awaiting !== null;
+        const command = answering ? input.value : input.value.trim();
 
-        if (!command) {
+        if (!command && !answering) {
             return;
         }
 
-        appendLine(`${prompt.textContent} ${command}`, "terminal-command");
+        if (answering) {
+            // ответ на запрос пароля: строка запроса остаётся на экране, сам пароль нет
+            appendLine(awaiting.text);
+            endAnswer();
+        } else {
+            appendLine(`${prompt.textContent} ${command}`, "terminal-command");
+            history.push(command);
+            historyIndex = history.length;
+        }
+
         input.value = "";
-
-        history.push(command);
-        historyIndex = history.length;
-
         busy = true;
         input.disabled = true;
 
         try {
-            await executeCommand(command);
+            await (answering ? send({ answer: command }) : executeCommand(command));
         } catch (error) {
             appendLine(`terminal: ${error.message}`, "terminal-error");
         } finally {
@@ -140,6 +197,24 @@
     });
 
     input.addEventListener("keydown", (event) => {
+        // Esc или Ctrl+C отменяют запрос пароля
+        if (awaiting && (event.key === "Escape" || (event.ctrlKey && event.key === "c"))) {
+            event.preventDefault();
+            appendLine(`${awaiting.text}^C`);
+            endAnswer();
+            input.value = "";
+            fetch(executeUrl, {
+                method: "POST",
+                headers: { "Content-Type": "application/json", "X-CSRFToken": csrfToken },
+                body: JSON.stringify({ cancel: true }),
+            });
+            return;
+        }
+
+        if (awaiting) {
+            return;
+        }
+
         if (event.key === "ArrowUp") {
             event.preventDefault();
 

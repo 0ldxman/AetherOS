@@ -18,6 +18,7 @@ from typing import Any
 from filesystem.states.base import BaseState, Param
 from filesystem.states.hooks import (
     ACTIONS,
+    EFFECT_ACTIONS,
     MAIL_ACTIONS,
     EVENTS,
     GLOBAL_PLACEHOLDERS,
@@ -248,6 +249,58 @@ def parse_mail(action: Action):
     return (slug, delay), None
 
 
+ALERT_MAX_COUNT = 40
+ALERT_GAP_RANGE = (100, 5000)
+
+
+def parse_effect(action: Action):
+    """kick | alert <сообщение> [count=N] [gap=мс] -> (эффект для браузера, None) или (None, текст ошибки)."""
+    if action.name == "kick":
+        if action.value.strip():
+            return None, "«kick» не принимает аргументов"
+        return {"op": "kick"}, None
+
+    if action.quoted:
+        return None, "«alert»: сообщение пишется без кавычек"
+
+    args, err = tokenize(action.value)
+
+    if err:
+        return None, err
+
+    if not args or args[0].key is not None:
+        return None, "«alert» требует сообщение: alert unreachable count=12"
+
+    message = args[0].value
+
+    if not MAIL_SLUG.match(message):
+        return None, f"«alert»: сообщение «{message}» не подходит (строчные латинские буквы, цифры, «-» и «_»)"
+
+    values = {"count": 6, "gap": 500}
+
+    for extra in args[1:]:
+        if extra.key not in values:
+            return None, "«alert» принимает только count=число и gap=миллисекунды"
+
+        try:
+            values[extra.key] = int(extra.value)
+        except ValueError:
+            return None, f"«alert»: {extra.key} должен быть целым числом, а не «{extra.value}»"
+
+    if not 1 <= values["count"] <= ALERT_MAX_COUNT:
+        return None, f"«alert»: count от 1 до {ALERT_MAX_COUNT}"
+
+    if not ALERT_GAP_RANGE[0] <= values["gap"] <= ALERT_GAP_RANGE[1]:
+        return None, f"«alert»: gap от {ALERT_GAP_RANGE[0]} до {ALERT_GAP_RANGE[1]} миллисекунд"
+
+    return {"op": "alert", "message": message, **values}, None
+
+
+def _check_effect(action: Action) -> list[Problem]:
+    _, error = parse_effect(action)
+    return [Problem(action.line, error)] if error else []
+
+
 def _check_mail(action: Action) -> list[Problem]:
     parsed, error = parse_mail(action)
     return [Problem(action.line, error)] if error else []
@@ -284,6 +337,9 @@ def _check_action(
 
     if name in MAIL_ACTIONS:
         return _check_mail(action)
+
+    if name in EFFECT_ACTIONS:
+        return _check_effect(action)
 
     # add <слой> [аргументы]
     if action.quoted:

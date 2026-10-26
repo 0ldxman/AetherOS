@@ -3,12 +3,15 @@ from dataclasses import dataclass
 from machines.models import Session
 
 DEFAULT_CWD = "/home"
+# Ключ в Django-сессии: текущая папка открытого окна терминала. Хранится на сервере, браузер не может её подменить.
+CWD_KEY = "terminal_cwd"
 
 
 @dataclass
 class TerminalContext:
     session: Session
     cwd: str = DEFAULT_CWD
+    request: object = None      # запрос, если команде нужно состояние входа (мост); в тестах без него None
 
     @property
     def machine(self):

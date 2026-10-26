@@ -1,4 +1,4 @@
-from terminal.engine.commands import COMMANDS
+from terminal.engine.commands import commands_for
 from terminal.engine.context import DEFAULT_CWD, TerminalContext
 from terminal.engine.parser import (
     CommandParseError,
@@ -13,6 +13,7 @@ class TerminalExecutor:
         session,
         source: str,
         cwd: str = DEFAULT_CWD,
+        request=None,
     ) -> tuple[CommandResult, str]:
         """Выполняет команду и возвращает (результат, новая папка).
 
@@ -22,6 +23,7 @@ class TerminalExecutor:
         context = TerminalContext(
             session=session,
             cwd=cwd or DEFAULT_CWD,
+            request=request,
         )
 
         try:
@@ -35,7 +37,7 @@ class TerminalExecutor:
         if parsed is None:
             return CommandResult(), context.cwd
 
-        command = COMMANDS.get(parsed.name)
+        command = commands_for(context.machine.system).get(parsed.name)
 
         if command is None:
             return CommandResult(
