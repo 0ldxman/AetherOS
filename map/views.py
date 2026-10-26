@@ -171,5 +171,6 @@ def region_outline(request):
     groups, _unknown = resolve_highlight([token], on_date) if token else ([], [])
     lines = outline_for([code for group in groups for code in group["codes"]])
     response = JsonResponse({"type": "MultiLineString", "coordinates": lines})
-    response["Cache-Control"] = "public, max-age=3600"
+    if lines:       # пустой ответ браузеру не оставляем: контуры могут загрузиться позже
+        response["Cache-Control"] = "public, max-age=3600"
     return response

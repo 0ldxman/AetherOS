@@ -100,7 +100,26 @@ def outline_for(codes):
     key = "map:outline:" + hashlib.md5(",".join(codes).encode()).hexdigest()
     lines = cache.get(key)
     if lines is None:
+        ensure_shapes()
         shapes = dict(ProvinceShape.objects.filter(source_code__in=codes).values_list("source_code", "rings"))
         lines = outer_boundary(shapes)
-        cache.set(key, lines, CACHE_SECONDS)
+        if lines:      # пустой ответ не запоминаем: контуры могут появиться после загрузки
+            cache.set(key, lines, CACHE_SECONDS)
     return lines
+
+
+def ensure_shapes():
+    """Контуры провинций ещё не загружены: один раз читаем их из GeoJSON в репозитории (около 7 секунд).
+    Тот же результат даёт команда import_province_shapes; здесь страховка на случай, если её не запускали."""
+    from django.core.management import call_command
+
+    from .models import ProvinceShape
+
+    if ProvinceShape.objects.exists() or not cache.add("map:shapes-importing", 1, 600):
+        return
+    try:
+        call_command("import_province_shapes", verbosity=0)
+    except OSError:
+        pass
+    finally:
+        cache.delete("map:shapes-importing")

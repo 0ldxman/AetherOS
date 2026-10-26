@@ -927,7 +927,10 @@ function setRegions(extra) {
 
   const strokeOf = (item) => markColor(item.color, base);
   const fillOf = (item) => markColor(item.fill_color || item.color, base);
-  const outer = [...items].filter(([, item]) => item.outline_url).map(([c]) => c);
+  // внутренние границы убираются только там, где внешняя линия уже пришла: нет линии (нет контуров на сервере, ошибка), остаются границы провинций
+  for (const item of items.values()) if (item.outline_url) loadOutline(item.outline_url);
+  const hasOutline = (item) => item.outline_url && (outlineLines.get(item.outline_url) || []).length > 0;
+  const outer = [...items].filter(([, item]) => hasOutline(item)).map(([c]) => c);
   const filled = [...items].filter(([, item]) => item.fill !== false);
   const solid = filled.filter(([, item]) => fillStyleOf(item) !== 'hatch').map(([c]) => c);
   const hatched = filled.filter(([, item]) => fillStyleOf(item) === 'hatch').map(([c]) => c);
@@ -943,6 +946,8 @@ function setRegions(extra) {
   strokes.push(base);
   fills.push(base);
   patterns.push(hatchName(base));
+  // match без единой пары недопустим: без штриховки слою достаточно имени картинки
+  const hatchPaint = hatched.length ? patterns : hatchName(base);
 
   // у «страны целиком» провинции обводятся не по одной: их границы заменяет внешняя линия с сервера
   const ownOutline = outer.length ? ['all', inRegions, ['!', only(outer)]] : inRegions;
@@ -960,15 +965,14 @@ function setRegions(extra) {
   map.setPaintProperty('regions-fill', 'fill-color', codes.length ? fills : base);
   map.setPaintProperty('regions-fill', 'fill-opacity', ['case', only(solid), fillOpacity, 0]);
   map.setFilter('regions-hatch', only(hatched));
-  map.setPaintProperty('regions-hatch', 'fill-pattern', patterns);
+  map.setPaintProperty('regions-hatch', 'fill-pattern', hatchPaint);
 
   map.setFilter('regions-dim', ['!', inRegions]);
   map.setLayoutProperty('regions-dim', 'visibility', codes.length ? 'visible' : 'none');
 
   const outlines = new Map();
   for (const item of items.values()) {
-    if (!item.outline_url) continue;
-    loadOutline(item.outline_url);
+    if (!hasOutline(item)) continue;
     outlines.set(item.outline_url, strokeOf(item));
   }
   const features = [];
@@ -1385,7 +1389,7 @@ const editor = {
     // страна по владению на дату считает сервер (как в документе); пока ответа нет, берётся приближение по префиксу кода
     const date = getUrlDate() || '';
     const cached = this.resolved[`${token}|${date}`];
-    if (cached) return cached;
+    if (cached && cached.length) return cached;
     this.resolve(token, date);
     const key = String(token || '').toUpperCase();
     return Object.entries(provinceCodes)
