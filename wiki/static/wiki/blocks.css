@@ -274,6 +274,31 @@
     display: none;
 }
 
+/* клик по этикетке (штрихкоду) открывает файл; отдельной кнопки нет */
+.widget--files .files-hit {
+    display: none;
+}
+
+.doc--scan .widget--files .files-hit {
+    display: block;
+    position: absolute;
+    inset: 0;
+    z-index: 2;
+    cursor: pointer;
+}
+
+.doc--scan .widget--files .files-row:hover {
+    background: color-mix(in srgb, var(--ink) 5%, transparent);
+}
+
+.doc--scan .widget--files .files-open {
+    display: none;
+}
+
+.doc--scan .widget--files .files-row .files-name {
+    pointer-events: none;
+}
+
 /* штрихкод и номер из id ассета */
 .doc--scan .widget--files .files-row[data-barcode]::before {
     --bc-size: 2rem;
@@ -300,7 +325,7 @@
     content: attr(data-id);
     order: 2;
     flex: 0 0 100%;
-    margin-top: 0.15rem;
+    margin-top: -0.55rem;
     padding-bottom: 0.2rem;
     color: var(--ink-soft);
     font-size: 0.6rem;

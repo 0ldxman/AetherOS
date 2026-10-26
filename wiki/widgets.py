@@ -455,8 +455,8 @@ def _render_file(asset, urls, params, ctx):
     dots = '<span class="file-dots"></span>'
     size_html = f'<span class="file-size">{size}</span>' if size else ""
     open_html = ""
+    v = escape(viewer, quote=True) if viewer else ""
     if viewer:
-        v = escape(viewer, quote=True)
         open_html = (
             f'<a class="file-open" href="{v}" data-asset-viewer="{v}" '
             f'data-asset-title="{escape(asset.name, quote=True)}">Открыть</a>'
@@ -650,8 +650,11 @@ def _files_row(src, label, ctx):
             f'<a class="files-open" href="{v}" data-asset-viewer="{v}" '
             f'data-asset-title="{escape(found.name, quote=True)}">Открыть</a>'
         )
+    # вся этикетка scan кликабельна: открывает вьювер, а без вьювера скачивает (в остальных стилях скрыта)
+    hit_url, hit_extra = (v, f' data-asset-viewer="{v}" data-asset-title="{escape(found.name, quote=True)}"') if viewer else (escape(content, quote=True), " download")
+    hit = f'<a class="files-hit" href="{hit_url}"{hit_extra} aria-label="{escape(source_name or found.name, quote=True)}"></a>'
     return (
-        f'<div class="files-row"{code_attr}>'
+        f'<div class="files-row"{code_attr}>{hit}'
         f'<span class="files-tag">{escape(ext[:5])}</span>'
         f'<a class="files-name" href="{escape(content, quote=True)}" download>{name}</a>'
         f'<span class="files-dots"></span>{size_html}{open_html}</div>'

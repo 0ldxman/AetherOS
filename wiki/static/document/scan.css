@@ -600,7 +600,7 @@
  * Исключены ссылки виджетов (картинка, файл, ID у аудио и видео):
  * у них свои правила, маркер на них не нужен.
  */
-.doc--scan .md a:not(.image-link):not(.file-btn):not(.file-main):not(.file-open):not(.files-name):not(.files-open):not(.audio-id-link):not(.video-preview-id) {
+.doc--scan .md a:not(.image-link):not(.file-btn):not(.file-main):not(.file-open):not(.files-name):not(.files-open):not(.files-hit):not(.audio-id-link):not(.video-preview-id) {
     color: var(--ink);
 
     text-decoration: none;
@@ -627,8 +627,8 @@
 }
 
 
-.doc--scan .md a:not(.image-link):not(.file-btn):not(.file-main):not(.file-open):not(.files-name):not(.files-open):not(.audio-id-link):not(.video-preview-id):hover,
-.doc--scan .md a:not(.image-link):not(.file-btn):not(.file-main):not(.file-open):not(.files-name):not(.files-open):not(.audio-id-link):not(.video-preview-id):focus-visible {
+.doc--scan .md a:not(.image-link):not(.file-btn):not(.file-main):not(.file-open):not(.files-name):not(.files-open):not(.files-hit):not(.audio-id-link):not(.video-preview-id):hover,
+.doc--scan .md a:not(.image-link):not(.file-btn):not(.file-main):not(.file-open):not(.files-name):not(.files-open):not(.files-hit):not(.audio-id-link):not(.video-preview-id):focus-visible {
     /* повторный проход маркером: цвет плотнее */
     background-image:
         linear-gradient(
