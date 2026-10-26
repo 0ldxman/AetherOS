@@ -222,9 +222,20 @@
     margin-right: auto;
     box-sizing: border-box;
 
-    border: 1px solid color-mix(in srgb, var(--ink) 40%, transparent);
-    box-shadow: 1px 2px 3px color-mix(in srgb, var(--ink) 20%, transparent);
-    transform: rotate(-0.3deg);
+    /* как этикетка одиночного ::file: клочок бумаги, вклеенный в лист */
+    background-color: #efecdf;
+    background-image:
+        radial-gradient(
+            ellipse at 45% 30%,
+            rgba(255, 252, 235, 0.38),
+            transparent 75%
+        );
+    border: 1px solid rgba(75, 63, 43, 0.42);
+    box-shadow:
+        1px 2px 2px rgba(39, 32, 21, 0.14),
+        2px 3px 5px rgba(39, 32, 21, 0.08),
+        inset 0 0 0 1px rgba(255, 250, 229, 0.25);
+    transform: rotate(-0.35deg);
 }
 
 .doc--scan .widget--files .files-head {
@@ -349,7 +360,7 @@
     z-index: 1;
     max-width: 78%;
     padding: 0.15rem 0.9rem 0.2rem;
-    background: color-mix(in srgb, var(--paper) 35%, white);
+    background: color-mix(in srgb, color-mix(in srgb, var(--paper) 35%, white) 82%, transparent);
     border: 1px solid color-mix(in srgb, var(--ink) 25%, transparent);
     box-shadow: 1px 2px 3px color-mix(in srgb, var(--ink) 25%, transparent);
     transform: translateX(-50%) rotate(-1.6deg);
