@@ -109,7 +109,7 @@
         const id = row.dataset.docId;
         const title = row.dataset.title;
 
-        /* расширение зависит от типа записи: .doc, .snapshot */
+        /* расширение зависит от типа записи: .doc, .snp */
         const windowTitle = title + (row.dataset.ext || ".doc");
 
         /*
