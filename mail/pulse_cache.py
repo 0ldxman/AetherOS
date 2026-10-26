@@ -1,4 +1,4 @@
-"""Кэш ответа pulse: рабочий стол опрашивает его у каждого игрока каждые несколько секунд.
+"""Кэш ответов почты по читателю: pulse рабочий стол опрашивает каждые несколько секунд, список писем открывается с окном.
 
 Ответ зависит от читателя и от писем. Любое изменение писем, доставок, корзины или отметок
 о прочтении поднимает общую версию, и кэши всех читателей устаревают сразу. Время доставки
@@ -27,10 +27,14 @@ def _who(viewer):
     return hashlib.md5(f"{owner}|{viewer.address}|{keys}".encode()).hexdigest()
 
 
-def cached_pulse(viewer, compute):
-    key = f"mail:pulse:{cache.get(VERSION_KEY, 0)}:{_who(viewer)}"
+def cached_for_viewer(name, viewer, compute):
+    key = f"mail:{name}:{cache.get(VERSION_KEY, 0)}:{_who(viewer)}"
     data = cache.get(key)
     if data is None:
         data = compute()
         cache.set(key, data, TTL)
     return data
+
+
+def cached_pulse(viewer, compute):
+    return cached_for_viewer("pulse", viewer, compute)

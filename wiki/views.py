@@ -272,7 +272,21 @@ def _doc_row(doc, state, keys):
 
 
 def _doc_rows(ns, keys):
-    """Строки таблицы документов неймспейса (только видимые)."""
+    """Строки таблицы документов неймспейса (только видимые).
+
+    Строка зависит только от записи и набора ключей (размер, сумма и выдержка считаются по видимому тексту),
+    поэтому готовые строки общие для всех с теми же ключами, пока вики не менялась.
+    """
+    who = hashlib.md5(str(sorted(keys)).encode()).hexdigest()
+    cache_key = f"wiki:rows:{cache.get(WIKI_VERSION_KEY, 0)}:{ns.pk if ns else 0}:{who}"
+    rows = cache.get(cache_key)
+    if rows is None:
+        rows = _build_doc_rows(ns, keys)
+        cache.set(cache_key, rows, WIKI_COUNTS_TTL)
+    return rows
+
+
+def _build_doc_rows(ns, keys):
     rows = []
     for doc in Document.objects.filter(namespace=ns):
         doc.namespace = ns  # чтобы не ходить в базу за родителем на каждой строке

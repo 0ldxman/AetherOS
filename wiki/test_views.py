@@ -9,6 +9,7 @@ from django.contrib.auth import get_user_model
 from django.contrib.auth.models import AnonymousUser
 from django.db import connection
 from django.http import Http404
+from django.core.cache import cache
 from django.test import RequestFactory, TestCase
 from django.test.utils import CaptureQueriesContext
 
@@ -35,6 +36,9 @@ def call(fn, *args, user=None, params=None, session=None):
 
 
 class WikiViewsTests(TestCase):
+    def setUp(self):
+        cache.clear()      # кэш пережил бы откат базы между тестами
+
     @classmethod
     def setUpTestData(cls):
         cls.closed_ns = Namespace.objects.create(name="Закрытый", access="key_a")
@@ -152,6 +156,18 @@ class WikiViewsTests(TestCase):
         self.assertIn('data-objects="3"', objects())
         added.delete()
         self.assertIn('data-objects="2"', objects())
+
+    def test_cached_rows_follow_an_edited_article(self):
+        _, html, _ = call(views.resolve, "")
+        self.assertIn("Открытая", html)
+        call(views.resolve, "")                                  # из кэша
+        Document.objects.filter(title="Открытая").first().save()
+        doc = Document.objects.get(title="Открытая")
+        doc.title = "Переименована"
+        doc.save()
+        _, html, _ = call(views.resolve, "")
+        self.assertIn("Переименована", html)
+        self.assertNotIn(">Открытая<", html)
 
     def test_objects_have_s3_style_keys_and_uris(self):
         _, html, _ = call(views.resolve, "")
@@ -287,6 +303,9 @@ class WikiViewsTests(TestCase):
 
 
 class ViewAsTests(TestCase):
+    def setUp(self):
+        cache.clear()      # кэш пережил бы откат базы между тестами
+
     """Подмена ключей сотрудником (?as=...), запоминается в сессии."""
 
     LOCKED = "ACCESS DENIED"

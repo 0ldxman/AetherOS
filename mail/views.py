@@ -11,7 +11,7 @@ from filesystem.content import resolve_content
 from machines.current import active_session
 from users.aether_auth import AUTH_REQUIRED, is_player
 
-from .pulse_cache import cached_pulse
+from .pulse_cache import cached_for_viewer, cached_pulse
 from .access import mark_read, mark_unread, read_ids, viewer_for, visible_messages
 from .addresses import recipients_line, split
 from .attachments import SaveError, payload, save_to_machine, session_file_of
@@ -32,7 +32,7 @@ def _plain(text):
 
 
 def _row(message, unread):
-    body = _plain(message.body)
+    body = _plain(message.body[:PREVIEW_LENGTH * 6])      # превью не нужен весь текст письма
     return {
         "id": message.pk,
         "sender": message.sender,
@@ -63,13 +63,16 @@ def inbox(request):
 @require_GET
 def message_list(request):
     viewer = _viewer_or_404(request)
-    done = read_ids(viewer)
-    messages = visible_messages(viewer)
-    # непрочитанность важна только во входящих: черновики и отправленное «прочитаны» всегда
-    return JsonResponse({
-        "address": viewer.address,
-        "messages": [_row(m, m.folder == "inbox" and m.pk not in done) for m in messages],
-    })
+
+    def compute():
+        done = read_ids(viewer)
+        # непрочитанность важна только во входящих: черновики и отправленное «прочитаны» всегда
+        return {
+            "address": viewer.address,
+            "messages": [_row(m, m.folder == "inbox" and m.pk not in done) for m in visible_messages(viewer)],
+        }
+
+    return JsonResponse(cached_for_viewer("list", viewer, compute))
 
 
 PULSE_LIMIT = 20

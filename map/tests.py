@@ -344,6 +344,12 @@ class SceneFindTests(TestCase):
 
 
 class MapCacheTests(TestCase):
+    def setUp(self):
+        from django.core.cache import cache
+
+        cache.clear()
+
+
     def test_timeline_is_cached_and_follows_ownership_changes(self):
         from datetime import date
 

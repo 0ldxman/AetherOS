@@ -8,6 +8,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from django.contrib.auth import get_user_model
+from django.core.cache import cache
 from django.core.exceptions import ValidationError
 from django.db import connection
 from django.test import TestCase, override_settings
@@ -221,6 +222,7 @@ class InboxApiTests(TestCase):
             MachineApp.objects.create(machine=machine, label="intercom", glyph="@", path="/apps/mail/")
 
     def setUp(self):
+        cache.clear()      # кэш пережил бы откат базы между тестами
         previous = get_script_prefix()
         set_script_prefix("/")
         self.addCleanup(set_script_prefix, previous)
@@ -276,6 +278,16 @@ class InboxApiTests(TestCase):
         make_message(subject="second")
         _, data = self.get_json("mail:pulse")
         self.assertEqual(data["unread"], 2)
+
+    def test_the_list_is_cached_and_follows_reading(self):
+        first = make_message(subject="first")
+        self.witness()
+        _, data = self.get_json("mail:messages")
+        self.assertTrue(data["messages"][0]["unread"])
+        self.get_json("mail:messages")
+        self.get_json("mail:message", first.pk)
+        _, data = self.get_json("mail:messages")
+        self.assertFalse(data["messages"][0]["unread"])
 
     def test_pulse_ignores_mail_of_other_addresses_in_the_query(self):
         for n in range(30):
@@ -457,6 +469,7 @@ class AdminTests(TestCase):
         cls.message = make_message(key_condition="the_door", label="personal")
 
     def setUp(self):
+        cache.clear()      # кэш пережил бы откат базы между тестами
         previous = get_script_prefix()
         set_script_prefix("/")
         self.addCleanup(set_script_prefix, previous)
@@ -874,6 +887,7 @@ class HookMailActionTests(TestCase):
 @override_settings(FORCE_SCRIPT_NAME=None)
 class AttachmentKindTests(TestCase):
     def setUp(self):
+        cache.clear()      # кэш пережил бы откат базы между тестами
         previous = get_script_prefix()
         set_script_prefix("/")
         self.addCleanup(set_script_prefix, previous)
@@ -1023,6 +1037,7 @@ class AttachmentSaveApiTests(TestCase):
         cls.item = Attachment.objects.create(message=cls.message, label="evidence", kind="file", machine_file=cls.file)
 
     def setUp(self):
+        cache.clear()      # кэш пережил бы откат базы между тестами
         previous = get_script_prefix()
         set_script_prefix("/")
         self.addCleanup(set_script_prefix, previous)
@@ -1290,6 +1305,7 @@ class ComposeApiTests(TestCase):
         cls.task.replies.add(cls.reply)
 
     def setUp(self):
+        cache.clear()      # кэш пережил бы откат базы между тестами
         previous = get_script_prefix()
         set_script_prefix("/")
         self.addCleanup(set_script_prefix, previous)
