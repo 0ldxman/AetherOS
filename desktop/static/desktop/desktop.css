@@ -238,6 +238,26 @@ body {
   font-size: var(--fs-big);
 }
 
+.icon-glyph {
+  position: relative;
+}
+
+/* счётчик непрочитанных на иконке */
+.icon-badge {
+  position: absolute;
+  top: -7px;
+  right: -9px;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 3px;
+  box-sizing: border-box;
+  background: var(--status-error);
+  color: var(--bg);
+  font-size: 11px;
+  line-height: 16px;
+  text-align: center;
+}
+
 .icon:hover .icon-glyph,
 .icon:focus-visible .icon-glyph {
   background: var(--font-light);
@@ -496,6 +516,10 @@ body {
 
 .winbox.aether.dialog-window--warning .wb-title {
   color: var(--bg);
+}
+
+.toast--action {
+  cursor: pointer;
 }
 
 #toasts {

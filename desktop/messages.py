@@ -55,7 +55,7 @@ MESSAGES = {
             "kind": "info",
             "code": "",
             "title": "New message",
-            "text": "{object}",
+            "text": "{sender}: {subject}",
         },
     },
 }

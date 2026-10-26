@@ -70,6 +70,24 @@ def message_list(request):
     })
 
 
+PULSE_LIMIT = 20
+
+
+@require_GET
+def pulse(request):
+    """Что нового во входящих: рабочий стол опрашивает это ради бейджа и уведомления."""
+    viewer = _viewer_or_404(request)
+    done = read_ids(viewer)
+    fresh = [m for m in visible_messages(viewer, "inbox") if m.pk not in done]
+    return JsonResponse({
+        "unread": len(fresh),
+        "messages": [
+            {"id": m.pk, "sender": m.sender, "subject": m.subject or "(no subject)"}
+            for m in fresh[:PULSE_LIMIT]
+        ],
+    })
+
+
 def _find(viewer, pk):
     for message in visible_messages(viewer):
         if message.pk == pk:

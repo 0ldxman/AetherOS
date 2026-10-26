@@ -227,6 +227,28 @@ class InboxApiTests(TestCase):
         self.assertContains(response, "mail/mail.js")
         self.assertContains(response, "csrfmiddlewaretoken")
 
+    def test_pulse_counts_unread_and_shrinks_after_reading(self):
+        first = make_message(subject="the door")
+        self.witness()
+        _, data = self.get_json("mail:pulse")
+        self.assertEqual(data["unread"], 1)
+        self.assertEqual(data["messages"][0]["id"], first.pk)
+        self.assertEqual(data["messages"][0]["subject"], "the door")
+        self.get_json("mail:message", first.pk)
+        _, data = self.get_json("mail:pulse")
+        self.assertEqual((data["unread"], data["messages"]), (0, []))
+
+    def test_pulse_needs_a_connected_player(self):
+        self.assertEqual(self.client.get(reverse("mail:pulse")).status_code, 403)
+
+    def test_the_desktop_polls_mail_only_with_the_intercom_icon(self):
+        self.witness()
+        page = self.client.get(reverse("desktop")).content.decode()
+        self.assertIn('data-mail-pulse-url="/apps/mail/api/pulse/"', page)
+        MachineApp.objects.filter(machine=self.null).delete()
+        page = self.client.get(reverse("desktop")).content.decode()
+        self.assertIn('data-mail-pulse-url=""', page)
+
     def test_the_list_shows_unread_and_a_preview(self):
         make_message(subject="the door", body="come in.\n\nquietly.")
         self.witness()

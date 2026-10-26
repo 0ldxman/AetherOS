@@ -95,7 +95,13 @@ def desktop(request):
         for app in visible_apps(request, machine)
     ]
 
+    # опрос новых писем нужен только если интерком есть на этом столе
+    mail_url = reverse("mail:inbox")
+    has_mail = any(item["url"] == mail_url for item in apps)
+
     return render(request, "desktop/desktop.html", {
+        "mail_url": mail_url if has_mail else "",
+        "mail_pulse_url": reverse("mail:pulse") if has_mail else "",
         "machine_name": machine.label,
         "login": login,
         "layout_key": layout_key,

@@ -590,7 +590,7 @@ function showDialog(spec, params = {}) {
 }
 
 // короткое уведомление в углу; исчезает само
-function showToast(spec, params = {}) {
+function showToast(spec, params = {}, onClick = null) {
   const msg = resolveMessage(spec, params);
   let stack = document.getElementById("toasts");
 
@@ -608,9 +608,96 @@ function showToast(spec, params = {}) {
 
   const close = () => toast.remove();
 
-  toast.addEventListener("click", close);
+  toast.addEventListener("click", () => {
+    close();
+    if (onClick) onClick();
+  });
+  if (onClick) toast.classList.add("toast--action");
   stack.appendChild(toast);
   setTimeout(close, TOAST_MS);
+}
+
+
+/* ==================================================
+   Новая почта: бейдж на иконке интеркома и уведомление
+   ================================================== */
+
+const MAIL_POLL_MS = 25000;
+const mailUrl = desktop.dataset.mailUrl;
+const mailPulseUrl = desktop.dataset.mailPulseUrl;
+const knownMail = new Set();
+let mailSeeded = false;
+
+function mailIcon() {
+  const path = new URL(mailUrl, window.location.href).pathname;
+
+  return Array.from(document.querySelectorAll(".icon")).find(
+    (item) => new URL(item.dataset.url, window.location.href).pathname === path
+  );
+}
+
+function openMail() {
+  const icon = mailIcon();
+
+  if (icon) {
+    openApp(icon.dataset.app, icon.querySelector(".icon-label").textContent, icon.dataset.url);
+  }
+}
+
+function setMailBadge(count) {
+  const icon = mailIcon();
+
+  if (!icon) return;
+
+  let badge = icon.querySelector(".icon-badge");
+
+  if (!count) {
+    if (badge) badge.remove();
+    return;
+  }
+
+  if (!badge) {
+    badge = el("span", "icon-badge");
+    icon.querySelector(".icon-glyph").appendChild(badge);
+  }
+
+  badge.textContent = count > 9 ? "9+" : String(count);
+}
+
+async function pollMail() {
+  if (document.hidden) return;
+
+  let data;
+
+  try {
+    const response = await fetch(mailPulseUrl, { credentials: "same-origin" });
+    if (!response.ok) return;
+    data = await response.json();
+  } catch (error) {
+    return;     // сеть недоступна: попробуем в следующий раз
+  }
+
+  setMailBadge(data.unread);
+
+  const fresh = data.messages.filter((item) => !knownMail.has(item.id));
+  data.messages.forEach((item) => knownMail.add(item.id));
+
+  // первый опрос только запоминает уже лежащие письма: о них игрок знает по бейджу
+  if (!mailSeeded) {
+    mailSeeded = true;
+    return;
+  }
+
+  if (fresh.length === 1) {
+    showToast("mail_new", { sender: fresh[0].sender, subject: fresh[0].subject }, openMail);
+  } else if (fresh.length > 1) {
+    showToast("mail_new", { sender: fresh.length + " messages", subject: "see the intercom" }, openMail);
+  }
+}
+
+if (mailUrl && mailPulseUrl) {
+  pollMail();
+  setInterval(pollMail, MAIL_POLL_MS);
 }
 
 window.desktopAPI = {
