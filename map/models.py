@@ -218,3 +218,14 @@ class MapSceneRevision(models.Model):
 
     class Meta:
         ordering = ["-saved_at", "-id"]
+
+
+class ProvinceShape(models.Model):
+    """Контуры провинции из aether_provinces.geojson: нужны, чтобы склеить внешнюю границу страны (границы между
+    выбранными провинциями сокращаются, остаётся граница их объединения). Заполняется командой import_province_shapes."""
+
+    source_code = models.CharField(max_length=64, unique=True)
+    rings = models.JSONField("Кольца", help_text="[[[lon, lat], ...], ...]: все кольца провинции, окружности и дыры.")
+
+    def __str__(self):
+        return self.source_code

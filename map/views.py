@@ -154,3 +154,22 @@ def resolve_regions(request):
         groups, _unknown = resolve_highlight([token], on_date)
         result[token] = [code for group in groups for code in group["codes"]]
     return JsonResponse(result)
+
+
+def region_outline(request):
+    """Внешняя граница выделения: линии объединения провинций токена (страна без внутренних границ) на дату."""
+    from .bounds import resolve_highlight
+    from .outline import outline_for
+
+    raw = request.GET.get("date")
+    try:
+        on_date = date.fromisoformat(raw) if raw else None
+    except ValueError:
+        return JsonResponse({"error": "date must be YYYY-MM-DD"}, status=400)
+
+    token = (request.GET.get("token") or "").strip()
+    groups, _unknown = resolve_highlight([token], on_date) if token else ([], [])
+    lines = outline_for([code for group in groups for code in group["codes"]])
+    response = JsonResponse({"type": "MultiLineString", "coordinates": lines})
+    response["Cache-Control"] = "public, max-age=3600"
+    return response

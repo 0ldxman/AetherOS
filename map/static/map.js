@@ -516,7 +516,16 @@ if (EMBED || SCENE_VIEW) {
     source: 'adm1',
     'source-layer': 'aether_provinces',
     filter: nothing,
-    paint: { 'fill-color': '#ffcf4d', 'fill-opacity': THEME === 'maps' ? 0.22 : THEME === 'scan' ? 1 : 0.4 },
+    paint: { 'fill-color': '#ffcf4d', 'fill-antialias': false, 'fill-opacity': THEME === 'maps' ? 0.22 : THEME === 'scan' ? 1 : 0.4 },
+  });
+  // штриховая заливка отдельным слоем: у каждого выделения свой тип заливки (штрих или сплошная)
+  map.addLayer({
+    id: 'regions-hatch',
+    type: 'fill',
+    source: 'adm1',
+    'source-layer': 'aether_provinces',
+    filter: nothing,
+    paint: { 'fill-opacity': 1, 'fill-antialias': false },
   });
   map.addLayer({
     id: 'regions-line',
@@ -537,6 +546,24 @@ if (EMBED || SCENE_VIEW) {
       filter: nothing,
       layout: { 'line-cap': 'round', 'line-join': 'round' },
       paint: { 'line-color': '#ffcf4d', 'line-width': 0.9, 'line-offset': 1.6, 'line-opacity': 0.7 },
+    });
+  }
+  // внешняя граница выделений «страна целиком»: линия объединения провинций с сервера, без внутренних границ
+  map.addSource('region-outline', { type: 'geojson', data: { type: 'FeatureCollection', features: [] } });
+  map.addLayer({
+    id: 'region-outline-line',
+    type: 'line',
+    source: 'region-outline',
+    layout: { 'line-cap': 'round', 'line-join': 'round' },
+    paint: { 'line-color': ['get', 'c'], 'line-width': THEME === 'scan' ? 2.5 : 2.4, 'line-blur': THEME === 'scan' ? 0.35 : 0 },
+  });
+  if (THEME === 'scan') {
+    map.addLayer({
+      id: 'region-outline-line2',
+      type: 'line',
+      source: 'region-outline',
+      layout: { 'line-cap': 'round', 'line-join': 'round' },
+      paint: { 'line-color': ['get', 'c'], 'line-width': 0.9, 'line-offset': 1.6, 'line-opacity': 0.7 },
     });
   }
 }
@@ -868,9 +895,25 @@ function hatchName(color) {
   return name;
 }
 
+let regionExtra = [];            // последние переданные выделения: внешняя граница досылается позже и перерисовывает их
+const outlineLines = new Map();  // адрес внешней границы -> линии (null: запрос не удался)
+
+function loadOutline(url) {
+  if (outlineLines.has(url)) return;
+  outlineLines.set(url, []);
+  fetch(url, { credentials: 'same-origin' })
+    .then((r) => (r.ok ? r.json() : null))
+    .then((data) => { outlineLines.set(url, data ? data.coordinates : null); setRegions(regionExtra); })
+    .catch(() => outlineLines.set(url, null));
+}
+
+// Тип заливки выделения или фигуры: свой, а без него по умолчанию темы (scan штрихует, остальные закрашивают)
+const fillStyleOf = (item) => item.fill_style || (THEME === 'scan' ? 'hatch' : 'solid');
+
 // Выделение провинций: адрес карты плюс пометки сцены (у последней записи провинции приоритет)
 function setRegions(extra) {
   if (!(EMBED || SCENE_VIEW) || !map.getLayer('regions-fill')) return;
+  regionExtra = extra;
 
   const base = THEME_STYLE ? THEME_STYLE.region : '#ffcf4d';
   const items = new Map();
@@ -878,33 +921,62 @@ function setRegions(extra) {
 
   regionLinks = new Map([...items].filter(([, item]) => item.url).map(([code, item]) => [code, item]));
   const codes = [...items.keys()];
-  const inRegions = ['in', ['get', 'adm1_code'], ['literal', codes]];
+  const code = ['get', 'adm1_code'];
+  const inRegions = ['in', code, ['literal', codes]];
+  const only = (list) => ['in', code, ['literal', list]];
 
-  const byColor = ['match', ['get', 'adm1_code']];
-  for (const [code, item] of items) byColor.push(code, markColor(item.color, base));
-  byColor.push(base);
+  const strokeOf = (item) => markColor(item.color, base);
+  const fillOf = (item) => markColor(item.fill_color || item.color, base);
+  const outer = [...items].filter(([, item]) => item.outline_url).map(([c]) => c);
+  const filled = [...items].filter(([, item]) => item.fill !== false);
+  const solid = filled.filter(([, item]) => fillStyleOf(item) !== 'hatch').map(([c]) => c);
+  const hatched = filled.filter(([, item]) => fillStyleOf(item) === 'hatch').map(([c]) => c);
 
-  for (const id of ['regions-fill', 'regions-line', 'regions-line2']) {
-    if (map.getLayer(id)) map.setFilter(id, inRegions);
+  const strokes = ['match', code];
+  const fills = ['match', code];
+  const patterns = ['match', code];
+  for (const [c, item] of items) {
+    strokes.push(c, strokeOf(item));
+    fills.push(c, fillOf(item));
+    if (hatched.includes(c)) patterns.push(c, hatchName(fillOf(item)));
   }
-  // без заливки у выделения остаётся только контур (слой заливки при этом нужен для клика по ссылке)
-  const filled = [...items].filter(([, item]) => item.fill !== false).map(([code]) => code);
-  const fillOpacity = THEME === 'maps' ? 0.22 : THEME === 'scan' ? 1 : 0.4;
-  map.setPaintProperty('regions-fill', 'fill-opacity',
-    ['case', ['in', ['get', 'adm1_code'], ['literal', filled]], fillOpacity, 0]);
+  strokes.push(base);
+  fills.push(base);
+  patterns.push(hatchName(base));
+
+  // у «страны целиком» провинции обводятся не по одной: их границы заменяет внешняя линия с сервера
+  const ownOutline = outer.length ? ['all', inRegions, ['!', only(outer)]] : inRegions;
+  for (const id of ['regions-line', 'regions-line2']) {
+    if (map.getLayer(id)) {
+      map.setFilter(id, ownOutline);
+      map.setPaintProperty(id, 'line-color', codes.length ? strokes : base);
+    }
+  }
+  if (map.getLayer('adm1-boundaries')) map.setFilter('adm1-boundaries', outer.length ? ['!', only(outer)] : null);
+
+  // слой сплошной заливки остаётся и для клика по ссылке, поэтому заливку выключают прозрачностью
+  const fillOpacity = THEME === 'maps' ? 0.22 : 0.4;
+  map.setFilter('regions-fill', inRegions);
+  map.setPaintProperty('regions-fill', 'fill-color', codes.length ? fills : base);
+  map.setPaintProperty('regions-fill', 'fill-opacity', ['case', only(solid), fillOpacity, 0]);
+  map.setFilter('regions-hatch', only(hatched));
+  map.setPaintProperty('regions-hatch', 'fill-pattern', patterns);
+
   map.setFilter('regions-dim', ['!', inRegions]);
   map.setLayoutProperty('regions-dim', 'visibility', codes.length ? 'visible' : 'none');
-  for (const id of ['regions-line', 'regions-line2']) {
-    if (map.getLayer(id)) map.setPaintProperty(id, 'line-color', codes.length ? byColor : base);
+
+  const outlines = new Map();
+  for (const item of items.values()) {
+    if (!item.outline_url) continue;
+    loadOutline(item.outline_url);
+    outlines.set(item.outline_url, strokeOf(item));
   }
-  if (THEME === 'scan') {
-    const pattern = ['match', ['get', 'adm1_code']];
-    for (const [code, item] of items) pattern.push(code, hatchName(markColor(item.color, base)));
-    pattern.push(hatchName(base));
-    map.setPaintProperty('regions-fill', 'fill-pattern', pattern);
-  } else {
-    map.setPaintProperty('regions-fill', 'fill-color', codes.length ? byColor : base);
+  const features = [];
+  for (const [url, color] of outlines) {
+    const lines = outlineLines.get(url);
+    if (lines && lines.length) features.push({ type: 'Feature', properties: { c: color }, geometry: { type: 'MultiLineString', coordinates: lines } });
   }
+  map.getSource('region-outline').setData({ type: 'FeatureCollection', features });
 }
 
 if (EMBED) {
@@ -976,8 +1048,11 @@ function ensureSceneLayers() {
   const before = map.getLayer('graticule-lines') ? 'graticule-lines' : undefined;
 
   map.addLayer({ id: 'scene-fill', type: 'fill', source: SCENE_SOURCE,
-    filter: ['all', ['==', ['geometry-type'], 'Polygon'], ['==', ['get', 'fill'], true]],
-    paint: { 'fill-color': ['get', 'c'], 'fill-opacity': PEN_SCENE ? 0 : 0.25 } }, before);
+    filter: ['all', ['==', ['geometry-type'], 'Polygon'], ['==', ['get', 'fill'], true], ['==', ['get', 'fs'], 'solid']],
+    paint: { 'fill-color': ['get', 'fc'], 'fill-opacity': PEN_SCENE ? 0 : 0.25 } }, before);
+  map.addLayer({ id: 'scene-hatch', type: 'fill', source: SCENE_SOURCE,
+    filter: ['all', ['==', ['geometry-type'], 'Polygon'], ['==', ['get', 'fill'], true], ['==', ['get', 'fs'], 'hatch']],
+    paint: { 'fill-pattern': ['get', 'hp'], 'fill-opacity': PEN_SCENE ? 0 : 1 } }, before);
   map.addLayer({ id: 'scene-outline', type: 'line', source: SCENE_SOURCE,
     filter: ['==', ['geometry-type'], 'Polygon'],
     paint: { 'line-color': ['get', 'c'], 'line-width': 2, 'line-opacity': PEN_SCENE ? 0 : 1 } }, before);
@@ -1008,7 +1083,7 @@ function ensureSceneLayers() {
       'text-opacity': PEN_SCENE ? 0 : 1 } });
 
   // клик по фигуре открывает её ссылку
-  for (const id of ['scene-fill', 'scene-outline', 'scene-lines', 'scene-lines-dashed', 'scene-arrows']) {
+  for (const id of ['scene-fill', 'scene-hatch', 'scene-outline', 'scene-lines', 'scene-lines-dashed', 'scene-arrows']) {
     map.on('click', id, (e) => {
       const feature = e.features && e.features[0];
       if (feature && feature.properties.url) postLink(feature.properties.url, feature.properties.label);
@@ -1039,7 +1114,10 @@ function applyScene() {
     if (PEN_SCENE && ['line', 'arrow', 'polygon', 'circle', 'text'].includes(item.type)) pen.push(item);
 
     if (item.type === 'regions') {
-      for (const code of item.codes) regions.push({ code, color: item.color, url: item.url || '', label: item.label || '', fill: item.fill });
+      for (const code of item.codes) {
+        regions.push({ code, color: item.color, url: item.url || '', label: item.label || '', fill: item.fill,
+          fill_color: item.fill_color, fill_style: item.fill_style, outline_url: item.outline_url });
+      }
     } else if (item.type === 'line' || item.type === 'arrow') {
       const w = item.width || 3;
       shapes.push({ type: 'Feature', properties: { ...common, w, dash: !!item.dash },
@@ -1049,13 +1127,14 @@ function applyScene() {
         shapes.push({ type: 'Feature', properties: { ...common, w, role: 'head', bearing: bearing(item.coords[n - 2], item.coords[n - 1]) },
           geometry: { type: 'Point', coordinates: item.coords[n - 1] } });
       }
-    } else if (item.type === 'polygon') {
-      const ring = [...item.coords, item.coords[0]];
-      shapes.push({ type: 'Feature', properties: { ...common, fill: item.fill !== false },
-        geometry: { type: 'Polygon', coordinates: [ring] } });
-    } else if (item.type === 'circle') {
-      shapes.push({ type: 'Feature', properties: { ...common, fill: item.fill !== false },
-        geometry: { type: 'Polygon', coordinates: [circlePolygon(item.coords[0], item.coords[1], item.radius_km)] } });
+    } else if (item.type === 'polygon' || item.type === 'circle') {
+      const fc = sceneColor(item.fill_color || item.color);
+      const hatch = fillStyleOf(item) === 'hatch';
+      const props = { ...common, fill: item.fill !== false, fs: hatch ? 'hatch' : 'solid', fc, hp: hatch ? hatchName(fc) : '' };
+      const ring = item.type === 'polygon'
+        ? [...item.coords, item.coords[0]]
+        : circlePolygon(item.coords[0], item.coords[1], item.radius_km);
+      shapes.push({ type: 'Feature', properties: props, geometry: { type: 'Polygon', coordinates: [ring] } });
     } else if (item.type === 'text') {
       shapes.push({ type: 'Feature', properties: { c, role: 'text', t: item.text, size: item.size || 13 },
         geometry: { type: 'Point', coordinates: item.coords } });
@@ -1334,7 +1413,14 @@ const editor = {
 
   render() {
     sceneFeatures = this.features.filter((f) => this.shown(f)).map((f) => (f.type === 'region'
-      ? { ...f, type: 'regions', codes: this.codesFor(f.token) }
+      ? {
+          ...f,
+          type: 'regions',
+          codes: this.codesFor(f.token),
+          outline_url: f.border === 'outer'
+            ? `${OUTLINE_URL}?token=${encodeURIComponent(f.token)}${getUrlDate() ? `&date=${getUrlDate()}` : ''}`
+            : undefined,
+        }
       : f));
     applyScene();
     this.drawHandles();
@@ -1554,7 +1640,7 @@ const editor = {
     }
 
     // выбор: фигура под курсором или пусто
-    const layers = ['scene-fill', 'scene-outline', 'scene-lines', 'scene-lines-dashed', 'scene-arrows', 'scene-text', 'regions-fill']
+    const layers = ['scene-fill', 'scene-hatch', 'scene-outline', 'scene-lines', 'scene-lines-dashed', 'scene-arrows', 'scene-text', 'regions-fill']
       .filter((id) => map.getLayer(id));
     const hit = map.queryRenderedFeatures(e.point, { layers })[0];
     if (hit && hit.properties.fid) return this.select(hit.properties.fid);
@@ -1887,6 +1973,17 @@ function drawPen() {
     const dash = item.dash ? ` stroke-dasharray="${PEN_DASH}"` : '';
     const stroke = (d, w, extra = '') => d && parts.push(`<path d="${d}" stroke="${color}" stroke-width="${w}"${extra}/>`);
     let first = null;
+    // заливка фигуры своим цветом: штрихами цветного карандаша или сплошным маркером
+    const penFill = (pts, shape, fillSeed) => {
+      if (shape.fill === false) return;
+      const fillColor = sceneColor(shape.fill_color || shape.color);
+      if (fillStyleOf(shape) === 'hatch') {
+        const d = penHatch(pts, fillSeed);
+        if (d) parts.push(`<path d="${d}" stroke="${fillColor}" stroke-width="0.95" opacity="0.62"/>`);
+      } else {
+        parts.push(`<path d="${penPath(pts, true, fillSeed)}" fill="${fillColor}" fill-opacity="0.3" stroke="none"/>`);
+      }
+    };
 
     if (item.type === 'line' || item.type === 'arrow') {
       const pts = item.coords.map(project);
@@ -1903,7 +2000,7 @@ function drawPen() {
     } else if (item.type === 'polygon') {
       const pts = item.coords.map(project);
       first = pts[0];
-      if (item.fill !== false) stroke(penHatch(pts, seed), 0.95, ' opacity="0.62"');
+      penFill(pts, item, seed);
       const poly = penPoly(pts, true, seed);
       stroke(poly.main, width);
       stroke(poly.again, thin, ' opacity="0.55"');
@@ -1911,7 +2008,7 @@ function drawPen() {
       const ring = circlePolygon(item.coords[0], item.coords[1], item.radius_km).map(project);
       first = project(item.coords);
       const loop = penLoop(ring, seed);
-      if (item.fill !== false) stroke(penHatch(ring.slice(0, -1), seed + 4), 0.95, ' opacity="0.62"');
+      penFill(ring.slice(0, -1), item, seed + 4);
       stroke(loop.main, width);
       stroke(loop.again, thin, ' opacity="0.55"');
     } else if (item.type === 'text') {

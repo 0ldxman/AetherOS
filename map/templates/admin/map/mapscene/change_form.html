@@ -118,7 +118,7 @@
         <div class="se-row" data-for="text callout"><label>Текст</label><input type="text" data-prop="text"></div>
         <div class="se-row" data-for="text"><label>Размер</label><input type="number" data-prop="size" min="8" max="48"></div>
         <div class="se-row" data-for="region"><label>Провинция или страна (RUS-32, POL)</label><div class="se-suggest"><input type="text" data-prop="token" id="se-token" autocomplete="off"></div></div>
-        <div class="se-row"><label>Цвет</label>
+        <div class="se-row"><label>Цвет (обводки)</label>
           <select data-prop="color">
             <option value="">по умолчанию</option>
             {% for c in colors %}<option value="{{ c }}">{{ c }}</option>{% endfor %}
@@ -128,6 +128,25 @@
         <div class="se-row" data-for="line arrow"><label>Толщина</label><input type="number" data-prop="width" min="1" max="8" step="0.5"></div>
         <div class="se-row inline" data-for="line arrow"><input type="checkbox" data-prop="dash" id="se-dash"><label for="se-dash">Пунктир</label></div>
         <div class="se-row inline" data-for="polygon circle region"><input type="checkbox" data-prop="fill" id="se-fill"><label for="se-fill">Заливка (без неё только контур)</label></div>
+        <div class="se-row" data-for="polygon circle region"><label>Цвет заливки</label>
+          <select data-prop="fill_color">
+            <option value="">как у обводки</option>
+            {% for c in colors %}<option value="{{ c }}">{{ c }}</option>{% endfor %}
+          </select>
+        </div>
+        <div class="se-row" data-for="polygon circle region"><label>Вид заливки</label>
+          <select data-prop="fill_style">
+            <option value="">как принято в теме (scan штрих, иначе сплошная)</option>
+            <option value="hatch">штриховка</option>
+            <option value="solid">сплошная</option>
+          </select>
+        </div>
+        <div class="se-row" data-for="region"><label>Границы</label>
+          <select data-prop="border">
+            <option value="">все границы провинций</option>
+            <option value="outer">только внешние (страна целиком)</option>
+          </select>
+        </div>
         <div class="se-row" data-for="circle"><label>Радиус, км</label><input type="number" data-prop="radius_km" min="1" max="20000"></div>
         <div class="se-row" data-for="marker line arrow polygon circle region callout"><label>Ссылка по клику (путь вики или /адрес)</label><input type="text" data-prop="url"></div>
         <div class="se-row inline"><label>Видна с</label><input type="date" data-prop="from"><label>по</label><input type="date" data-prop="to"></div>

@@ -6,12 +6,12 @@
     line     coords [[lon, lat], ...] (от 2)        label, color, width, dash, smooth, url, key
              (smooth: линия, нарисованная от руки, без вершин для правки)
     arrow    как line, на конце наконечник
-    polygon  coords [[lon, lat], ...] (от 3)        label, color, fill, url, key
-    circle   coords [lon, lat], radius_km           label, color, fill, url, key
+    polygon  coords [[lon, lat], ...] (от 3)        label, color, fill, fill_color, fill_style, url, key
+    circle   coords [lon, lat], radius_km           label, color, fill, fill_color, fill_style, url, key
     text     coords [lon, lat], text                color, size, key
     callout  coords [lon, lat] (место), text        color, offset [dx, dy] в пикселях, url, key
              выноска: плашка с текстом, от неё линия к месту
-    region   token (POL, RUS-32)            label, color, fill, url, key
+    region   token (POL, RUS-32)            label, color, fill, fill_color, fill_style, border (outer), url, key
 
 from, to  необязательные даты (ГГГГ-ММ-ДД): пометка видна только на дату сцены внутри этого промежутка.
 
@@ -19,6 +19,7 @@ color это имя из палитры (red, blue...), url внутренний
 (то же, что у спойлеров), оно проверяется на сервере и закрытые пометки в страницу не попадают.
 """
 from datetime import date
+from urllib.parse import quote
 
 from django.core.exceptions import ValidationError
 from django.urls import NoReverseMatch, get_script_prefix, reverse
@@ -28,6 +29,7 @@ from secure.access import satisfied, validate_requirements
 from .icons import ICON_NAMES
 from wiki.markup.expr import SpoilerSyntaxError, parse_expr
 
+FILL_STYLES = ("solid", "hatch")
 FEATURE_TYPES = ("marker", "line", "arrow", "polygon", "circle", "text", "callout", "region")
 COLORS = ("red", "blue", "green", "orange", "purple", "yellow", "teal", "grey")
 MAX_FEATURES = 400
@@ -134,8 +136,19 @@ def clean_features(raw):
                 clean["dash"] = True
             if item.get("smooth"):
                 clean["smooth"] = True
-        if kind in ("polygon", "circle", "region") and "fill" in item:
-            clean["fill"] = bool(item["fill"])
+        if kind in ("polygon", "circle", "region"):
+            if "fill" in item:
+                clean["fill"] = bool(item["fill"])
+            if item.get("fill_color"):
+                if item["fill_color"] not in COLORS:
+                    raise ValidationError(f"{where}: цвет заливки один из {', '.join(COLORS)}.")
+                clean["fill_color"] = item["fill_color"]
+            if item.get("fill_style"):
+                if item["fill_style"] not in FILL_STYLES:
+                    raise ValidationError(f"{where}: заливка один из {', '.join(FILL_STYLES)}.")
+                clean["fill_style"] = item["fill_style"]
+        if kind == "region" and item.get("border") == "outer":
+            clean["border"] = "outer"
         if kind == "text" and item.get("size"):
             clean["size"] = max(8, min(48, float(item["size"])))
         # видимость по времени: на дату сцены между from и to (границы необязательны)
@@ -197,6 +210,11 @@ def scene_payload(scene, keys, on_date):
             codes = [code for g in groups for code in g["codes"]]
             if not codes:
                 continue
+            if item.get("border") == "outer":
+                # внешнюю границу страны страница берёт отдельным запросом: линия может быть большой
+                item["outline_url"] = (
+                    f"{reverse('map:outline')}?token={quote(item['token'])}" + (f"&date={on_date.isoformat()}" if on_date else "")
+                )
             item = {**{k: v for k, v in item.items() if k != "token"}, "type": "regions", "codes": codes}
         payload.append(item)
     return payload

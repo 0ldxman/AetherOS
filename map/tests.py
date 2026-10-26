@@ -424,3 +424,68 @@ class RegionResolveTests(TestCase):
         payload = scene_payload(scene, frozenset(), None)
         self.assertIs(payload[0]["fill"], False)
         self.assertEqual(payload[0]["type"], "regions")
+
+
+class OutlineTests(TestCase):
+    SQUARE_A = [[0, 0], [1, 0], [1, 1], [0, 1], [0, 0]]
+    SQUARE_B = [[1, 0], [2, 0], [2, 1], [1, 1], [1, 0]]      # делит с A сторону x=1
+
+    def test_the_shared_border_between_selected_provinces_disappears(self):
+        from .outline import outer_boundary
+
+        lines = outer_boundary({"a": [self.SQUARE_A], "b": [self.SQUARE_B]})
+        self.assertEqual(len(lines), 1)
+        self.assertEqual(lines[0][0], lines[0][-1])                      # замкнутая линия
+        xs = {round(x, 3) for line in lines for x, _y in line}
+        self.assertEqual(xs, {0.0, 2.0})                                 # у x=1 границы нет (точки на ней схлопнулись)
+        # одна провинция даёт все четыре стороны
+        single = outer_boundary({"a": [self.SQUARE_A]})
+        self.assertEqual({tuple(p) for p in single[0]}, {(0, 0), (1, 0), (1, 1), (0, 1)})
+
+    def test_an_enclave_keeps_its_own_ring(self):
+        from .outline import outer_boundary
+
+        hole = [[0.25, 0.25], [0.25, 0.75], [0.75, 0.75], [0.75, 0.25], [0.25, 0.25]]
+        lines = outer_boundary({"a": [self.SQUARE_A, hole]})
+        self.assertEqual(len(lines), 2)
+
+    def test_the_outline_endpoint_resolves_the_token_on_the_date(self):
+        from datetime import date
+
+        from django.core.cache import cache
+
+        from .models import Country, Ownership, Province, ProvinceShape
+
+        cache.clear()
+        country = Country.objects.create(code="AAA-2041", name="A", color="#aabbcc", valid_from=date(2000, 1, 1))
+        for code, ring in (("AAA-1", self.SQUARE_A), ("AAA-2", self.SQUARE_B)):
+            province = Province.objects.create(code=code, source_code=code.lower(), name=code)
+            ProvinceShape.objects.create(source_code=code.lower(), rings=[ring])
+            Ownership.objects.create(province=province, country=country, date_from=date(2000, 1, 1), de_jure=True)
+        from django.contrib.auth import get_user_model
+
+        self.client.force_login(get_user_model().objects.create_user("boss", password="pw", is_staff=True))
+        data = self.client.get("/apps/map/api/outline/?token=AAA&date=2041-03-12").json()
+        self.assertEqual(data["type"], "MultiLineString")
+        self.assertEqual(len(data["coordinates"]), 1)
+
+    def test_a_scene_region_with_outer_border_points_at_the_outline(self):
+        from datetime import date
+
+        from .scenes import clean_features, scene_payload
+
+        features = clean_features([{"type": "region", "token": "AAA", "border": "outer", "fill_color": "blue",
+                                    "fill_style": "hatch", "color": "red"}])
+        self.assertEqual((features[0]["border"], features[0]["fill_style"], features[0]["fill_color"]), ("outer", "hatch", "blue"))
+        with self.assertRaises(Exception):
+            clean_features([{"type": "polygon", "coords": [[0, 0], [1, 0], [1, 1]], "fill_style": "dots"}])
+        # без провинций токен ничего не выделяет, поэтому на странице его нет: проверяем сам адрес через заготовку
+        from .models import Country, Ownership, Province
+
+        country = Country.objects.create(code="AAA-2041", name="A", color="#aabbcc", valid_from=date(2000, 1, 1))
+        province = Province.objects.create(code="AAA-1", source_code="aaa-1", name="A1")
+        Ownership.objects.create(province=province, country=country, date_from=date(2000, 1, 1), de_jure=True)
+        scene = MapScene.objects.create(slug="o", title="O", features=features)
+        payload = scene_payload(scene, frozenset(), date(2041, 3, 12))
+        self.assertIn("/api/outline/?token=AAA&date=2041-03-12", payload[0]["outline_url"])
+        self.assertNotIn("token", payload[0])

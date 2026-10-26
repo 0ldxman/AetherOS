@@ -10,5 +10,6 @@ urlpatterns = [
     path("timeline/", views.timeline_dates, name="timeline_dates"),
     path("api/scenes/", views.scene_list, name="scene_list"),
     path("api/resolve-regions/", views.resolve_regions, name="resolve_regions"),
+    path("api/outline/", views.region_outline, name="outline"),
     path("api/scenes/<slug:slug>/", views.scene_detail, name="scene_detail"),
 ]
