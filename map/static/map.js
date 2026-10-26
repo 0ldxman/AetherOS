@@ -887,27 +887,28 @@ function ensureSceneLayers() {
 
   map.addLayer({ id: 'scene-fill', type: 'fill', source: SCENE_SOURCE,
     filter: ['all', ['==', ['geometry-type'], 'Polygon'], ['==', ['get', 'fill'], true]],
-    paint: { 'fill-color': ['get', 'c'], 'fill-opacity': 0.25 } }, before);
+    paint: { 'fill-color': ['get', 'c'], 'fill-opacity': PEN_SCENE ? 0 : 0.25 } }, before);
   map.addLayer({ id: 'scene-outline', type: 'line', source: SCENE_SOURCE,
     filter: ['==', ['geometry-type'], 'Polygon'],
-    paint: { 'line-color': ['get', 'c'], 'line-width': 2 } }, before);
+    paint: { 'line-color': ['get', 'c'], 'line-width': 2, 'line-opacity': PEN_SCENE ? 0 : 1 } }, before);
   map.addLayer({ id: 'scene-lines', type: 'line', source: SCENE_SOURCE,
     filter: ['all', ['==', ['geometry-type'], 'LineString'], ['!=', ['get', 'dash'], true]],
     layout: { 'line-cap': 'round', 'line-join': 'round' },
-    paint: { 'line-color': ['get', 'c'], 'line-width': ['get', 'w'] } }, before);
+    paint: { 'line-color': ['get', 'c'], 'line-width': ['get', 'w'], 'line-opacity': PEN_SCENE ? 0 : 1 } }, before);
   map.addLayer({ id: 'scene-lines-dashed', type: 'line', source: SCENE_SOURCE,
     filter: ['all', ['==', ['geometry-type'], 'LineString'], ['==', ['get', 'dash'], true]],
-    paint: { 'line-color': ['get', 'c'], 'line-width': ['get', 'w'], 'line-dasharray': [2, 1.5] } }, before);
+    paint: { 'line-color': ['get', 'c'], 'line-width': ['get', 'w'], 'line-dasharray': [2, 1.5], 'line-opacity': PEN_SCENE ? 0 : 1 } }, before);
   map.addLayer({ id: 'scene-arrows', type: 'symbol', source: SCENE_SOURCE,
     filter: ['==', ['get', 'role'], 'head'],
     layout: { 'icon-image': 'scene-arrow', 'icon-rotate': ['get', 'bearing'], 'icon-rotation-alignment': 'map',
       'icon-allow-overlap': true, 'icon-ignore-placement': true, 'icon-size': ['+', 0.45, ['*', ['get', 'w'], 0.06]] },
-    paint: { 'icon-color': ['get', 'c'] } }, before);
+    paint: { 'icon-color': ['get', 'c'], 'icon-opacity': PEN_SCENE ? 0 : 1 } }, before);
   map.addLayer({ id: 'scene-text', type: 'symbol', source: SCENE_SOURCE,
     filter: ['==', ['get', 'role'], 'text'],
     layout: { 'text-field': ['get', 't'], 'text-font': ['Noto Sans Regular'], 'text-size': ['get', 'size'],
       'text-anchor': 'top', 'text-offset': [0, 0.4], 'text-max-width': 12, 'text-allow-overlap': true },
-    paint: { 'text-color': ['get', 'c'], 'text-halo-color': halo, 'text-halo-width': 1.4 } });
+    paint: { 'text-color': ['get', 'c'], 'text-halo-color': halo, 'text-halo-width': 1.4,
+      'text-opacity': PEN_SCENE ? 0 : 1 } });
 
   // клик по фигуре открывает её ссылку
   for (const id of ['scene-fill', 'scene-outline', 'scene-lines', 'scene-lines-dashed', 'scene-arrows']) {
@@ -937,11 +938,11 @@ function applyScene() {
   for (const item of sceneFeatures) {
     const c = sceneColor(item.color);
     const common = { c, url: item.url || '', label: item.label || '', fid: item.id || '' };
+    // для scan те же фигуры дополнительно рисуются от руки; слои карты остаются невидимыми ради выбора в редакторе
+    if (PEN_SCENE && ['line', 'arrow', 'polygon', 'circle', 'text'].includes(item.type)) pen.push(item);
 
     if (item.type === 'regions') {
       for (const code of item.codes) regions.push({ code, color: item.color, url: item.url || '', label: item.label || '' });
-    } else if (PEN_SCENE && ['line', 'arrow', 'polygon', 'circle', 'text'].includes(item.type)) {
-      pen.push(item);
     } else if (item.type === 'line' || item.type === 'arrow') {
       const w = item.width || 3;
       shapes.push({ type: 'Feature', properties: { ...common, w, dash: !!item.dash },
@@ -970,7 +971,7 @@ function applyScene() {
     }
 
     // подпись фигуры у первой точки
-    if (item.label && ['line', 'arrow', 'polygon', 'circle'].includes(item.type) && !PEN_SCENE) {
+    if (item.label && ['line', 'arrow', 'polygon', 'circle'].includes(item.type)) {
       const at = item.type === 'circle' ? item.coords : item.coords[0];
       shapes.push({ type: 'Feature', properties: { c, role: 'text', t: item.label, size: 12 },
         geometry: { type: 'Point', coordinates: at } });
@@ -1077,13 +1078,65 @@ const editor = {
   draft: null,          // {type, coords, cursor} пока рисуется линия, фигура или круг
   handles: [],
   nextId: 1,
+  undoStack: [],
+  redoStack: [],
+  lastPatch: null,
+  hidden: new Set(),    // скрыты только в редакторе (в сцену не пишутся)
+  previewKeys: null,    // null: видно всё; иначе набор ключей воображаемого игрока
 
   newId() { this.nextId += 1; return `f${this.nextId}`; },
+
+  // снимок перед изменением для отмены; подряд идущие правки одного поля склеиваются
+  remember(coalesce) {
+    const now = Date.now();
+    if (coalesce && this.lastPatch && this.lastPatch.key === coalesce && now - this.lastPatch.time < 900) {
+      this.lastPatch.time = now;
+      return;
+    }
+    this.lastPatch = coalesce ? { key: coalesce, time: now } : null;
+    this.undoStack.push(JSON.stringify(this.features));
+    if (this.undoStack.length > 100) this.undoStack.shift();
+    this.redoStack = [];
+  },
+
+  restore(snapshot) {
+    this.features = JSON.parse(snapshot);
+    if (!this.features.some((f) => f.id === this.selectedId)) this.selectedId = null;
+    this.render();
+    this.emit();
+    this.emitSelected();
+  },
+
+  undo() {
+    if (!this.undoStack.length) return;
+    this.redoStack.push(JSON.stringify(this.features));
+    this.lastPatch = null;
+    this.restore(this.undoStack.pop());
+  },
+
+  redo() {
+    if (!this.redoStack.length) return;
+    this.undoStack.push(JSON.stringify(this.features));
+    this.lastPatch = null;
+    this.restore(this.redoStack.pop());
+  },
+
+  // видна ли пометка воображаемому игроку (условие по ключам, как у спойлеров)
+  shown(feature) {
+    if (this.hidden.has(feature.id)) return false;
+    return this.previewKeys === null || condSatisfied(feature.key, this.previewKeys);
+  },
 
   // пометки без служебного id уходят родителю
   emit() {
     const features = this.features.map(({ id, ...rest }) => rest);
-    window.parent.postMessage({ type: 'aether-scene-features', features }, window.location.origin);
+    window.parent.postMessage({
+      type: 'aether-scene-features',
+      features,
+      ids: this.features.map((f) => f.id),
+      hidden: [...this.hidden],
+      history: { undo: this.undoStack.length, redo: this.redoStack.length },
+    }, window.location.origin);
   },
 
   emitSelected() {
@@ -1094,7 +1147,10 @@ const editor = {
   load(features) {
     this.features = (features || []).map((f) => ({ ...f, id: this.newId() }));
     this.selectedId = null;
+    this.undoStack = [];
+    this.redoStack = [];
     this.render();
+    this.emit();
   },
 
   // выделения предпросмотра: код провинции из БД (RUS-32) или страна по префиксу (POL)
@@ -1106,7 +1162,7 @@ const editor = {
   },
 
   render() {
-    sceneFeatures = this.features.map((f) => (f.type === 'region'
+    sceneFeatures = this.features.filter((f) => this.shown(f)).map((f) => (f.type === 'region'
       ? { ...f, type: 'regions', codes: this.codesFor(f.token) }
       : f));
     applyScene();
@@ -1123,6 +1179,7 @@ const editor = {
   patch(id, change) {
     const feature = this.features.find((f) => f.id === id);
     if (!feature) return;
+    this.remember(`${id}:${Object.keys(change).sort().join(',')}`);
     Object.assign(feature, change);
     for (const key of Object.keys(change)) if (change[key] === '' || change[key] === null) delete feature[key];
     this.render();
@@ -1131,6 +1188,7 @@ const editor = {
   },
 
   remove(id) {
+    this.remember();
     this.features = this.features.filter((f) => f.id !== id);
     if (this.selectedId === id) this.selectedId = null;
     this.render();
@@ -1140,6 +1198,7 @@ const editor = {
 
   add(feature) {
     const full = { ...feature, id: this.newId() };
+    this.remember();
     this.features.push(full);
     this.selectedId = full.id;
     this.tool = 'select';
@@ -1148,6 +1207,43 @@ const editor = {
     this.emit();
     this.emitSelected();
     window.parent.postMessage({ type: 'aether-scene-tool', tool: 'select' }, window.location.origin);
+  },
+
+  // копия пометки со сдвигом на 24 px вправо и вниз (выделение региона не копируется)
+  duplicate(id) {
+    const feature = this.features.find((f) => f.id === id);
+    if (!feature || feature.type === 'region') return;
+    const shift = (c) => { const p = map.project(c); const q = map.unproject([p.x + 24, p.y + 24]); return [q.lng, q.lat]; };
+    const copy = JSON.parse(JSON.stringify(feature));
+    copy.coords = Array.isArray(copy.coords[0]) ? copy.coords.map(shift) : shift(copy.coords);
+    delete copy.id;
+    this.add(copy);
+  },
+
+  // порядок в списке (и слоёв): dir -1 выше, +1 ниже
+  reorder(id, dir) {
+    const i = this.features.findIndex((f) => f.id === id);
+    const j = i + dir;
+    if (i < 0 || j < 0 || j >= this.features.length) return;
+    this.remember();
+    [this.features[i], this.features[j]] = [this.features[j], this.features[i]];
+    this.render();
+    this.emit();
+  },
+
+  setHidden(id, hidden) {
+    if (hidden) this.hidden.add(id); else this.hidden.delete(id);
+    if (hidden && this.selectedId === id) this.selectedId = null;
+    this.render();
+    this.emit();
+    this.emitSelected();
+  },
+
+  setPreview(keys) {
+    this.previewKeys = keys === null ? null : new Set(keys);
+    if (this.selectedId && !this.shown(this.features.find((f) => f.id === this.selectedId) || {})) this.selectedId = null;
+    this.render();
+    this.emitSelected();
   },
 
   // ручки выбранной фигуры: вершины линии и многоугольника, центр и радиус круга, точка текста
@@ -1331,6 +1427,8 @@ if (SCENE_EDIT) {
     if (e.key === 'Enter') editor.finishDraft();
     if (e.key === 'Escape') { editor.draft = null; editor.drawDraft(); }
     if ((e.key === 'Delete' || e.key === 'Backspace') && editor.selectedId) editor.remove(editor.selectedId);
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') { e.preventDefault(); if (e.shiftKey) editor.redo(); else editor.undo(); }
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'y') { e.preventDefault(); editor.redo(); }
   });
 
   const reportCamera = () => {
@@ -1362,6 +1460,18 @@ if (SCENE_EDIT) {
       editor.remove(d.id);
     } else if (d.type === 'aether-scene-camera') {
       reportCamera();
+    } else if (d.type === 'aether-scene-undo') {
+      editor.undo();
+    } else if (d.type === 'aether-scene-redo') {
+      editor.redo();
+    } else if (d.type === 'aether-scene-duplicate') {
+      editor.duplicate(d.id);
+    } else if (d.type === 'aether-scene-move') {
+      editor.reorder(d.id, d.dir);
+    } else if (d.type === 'aether-scene-hide') {
+      editor.setHidden(d.id, !!d.hidden);
+    } else if (d.type === 'aether-scene-preview') {
+      editor.setPreview(Array.isArray(d.keys) ? d.keys : null);
     }
   });
 
@@ -1501,4 +1611,41 @@ function drawPen() {
 
 function escapeXml(text) {
   return String(text).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&apos;' })[c]);
+}
+
+
+// Условие по ключам для предпросмотра «как игрок»: те же правила, что secure/access.py и спойлеры вики.
+// Условие приходит словарём ({"all": [...]}) или строкой (secret and not other).
+function parseCondition(src) {
+  const tokens = String(src).replace(/\(/g, ' ( ').replace(/\)/g, ' ) ').split(/\s+/).filter(Boolean);
+  let pos = 0;
+  const atom = () => {
+    const word = tokens[pos]; pos += 1;
+    if (word === '(') { const inner = orExpr(); pos += 1; return inner; }
+    if (word === 'not') return { not: atom() };
+    return word;
+  };
+  const andExpr = () => {
+    const parts = [atom()];
+    while (tokens[pos] === 'and') { pos += 1; parts.push(atom()); }
+    return parts.length > 1 ? { all: parts } : parts[0];
+  };
+  const orExpr = () => {
+    const parts = [andExpr()];
+    while (tokens[pos] === 'or') { pos += 1; parts.push(andExpr()); }
+    return parts.length > 1 ? { any: parts } : parts[0];
+  };
+  return tokens.length ? orExpr() : null;
+}
+
+function condSatisfied(req, keys) {
+  if (!req) return true;
+  if (typeof req === 'string') {
+    const parsed = parseCondition(req);
+    return typeof parsed === 'string' ? keys.has(parsed) : condSatisfied(parsed, keys);
+  }
+  if (req.all) return req.all.every((r) => condSatisfied(r, keys));
+  if (req.any) return req.any.some((r) => condSatisfied(r, keys));
+  if (req.not !== undefined) return !condSatisfied(req.not, keys);
+  return false;
 }

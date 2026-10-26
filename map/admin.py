@@ -284,5 +284,8 @@ class MapSceneAdmin(admin.ModelAdmin):
     def render_change_form(self, request, context, *args, **kwargs):
         from .scenes import COLORS
 
+        from secure.models import Key
+
         context["colors"] = COLORS
+        context["keys"] = list(Key.objects.order_by("slug").values_list("slug", flat=True))
         return super().render_change_form(request, context, *args, **kwargs)

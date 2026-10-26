@@ -74,12 +74,18 @@ class MapSceneAdminTests(TestCase):
 
         from .scenes import clean_features
 
+        from secure.models import Key
+
+        Key.objects.create(slug="secret_key")
         user = get_user_model().objects.create_superuser("boss", password="pw")
         self.client.force_login(user)
         response = self.client.get(reverse("admin:map_mapscene_add"))
+        self.assertContains(response, 'value="secret_key"')
         self.assertContains(response, 'id="se-frame"')
         self.assertContains(response, "scene_edit")
         self.assertContains(response, 'value="red"')
+        for control in ('id="se-undo"', 'id="se-layers"', 'id="se-theme"', 'id="se-viewer"', 'id="se-duplicate"'):
+            self.assertContains(response, control)
 
         cleaned = clean_features([{"type": "marker", "coords": [0, 0], "key": "a and not b"}])
         self.assertEqual(cleaned[0]["key"], {"all": ["a", {"not": "b"}]})

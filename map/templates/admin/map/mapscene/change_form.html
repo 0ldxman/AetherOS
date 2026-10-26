@@ -20,6 +20,17 @@
   .se-row.inline { flex-direction: row; align-items: center; gap: 6px; }
   .se-hint { color: var(--body-quiet-color, #666); font-size: 12px; margin: 4px 0 0; }
   #se-status { min-height: 1.2em; font-size: 12px; color: var(--body-quiet-color, #666); }
+  #se-opts { display: flex; flex-wrap: wrap; gap: 14px; align-items: center; margin-bottom: 8px; font-size: 12px; }
+  #se-opts select { max-width: 220px; }
+  #se-keys { min-width: 140px; height: 54px; }
+  #se-layers { list-style: none; margin: 0; padding: 0; max-height: 220px; overflow: auto; font-size: 12px; }
+  #se-layers li { display: flex; align-items: center; gap: 4px; padding: 3px 4px; cursor: pointer; border-bottom: 1px solid var(--hairline-color, #eee); }
+  #se-layers li.selected { background: var(--selected-row, #e6f0ff); font-weight: bold; }
+  #se-layers li.off .se-name { opacity: .45; text-decoration: line-through; }
+  #se-layers .se-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  #se-layers .se-dot { width: 10px; height: 10px; border-radius: 50%; flex: none; border: 1px solid rgba(0,0,0,.3); }
+  #se-layers button { padding: 0 5px; line-height: 18px; cursor: pointer; }
+  #se-layers .se-empty { color: var(--body-quiet-color, #666); cursor: default; }
 </style>
 
 <div id="se">
@@ -35,8 +46,32 @@
     <button type="button" class="button" data-tool="text" title="Клик: поставить подпись">Текст</button>
     <button type="button" class="button" data-tool="region" title="Клик по провинции: выделить её">Провинция</button>
     <span class="sep"></span>
+    <button type="button" class="button" id="se-undo" title="Отменить (Ctrl+Z)">&#8630; Отмена</button>
+    <button type="button" class="button" id="se-redo" title="Повторить (Ctrl+Y)">&#8631; Повтор</button>
+    <span class="sep"></span>
     <button type="button" class="button" id="se-reload" title="Перезагрузить карту с датой, режимом и плоским видом из формы">Обновить подложку</button>
     <span id="se-status"></span>
+  </div>
+
+  <div id="se-opts">
+    <label>Показывать как:
+      <select id="se-theme">
+        <option value="">редактор (тёмная)</option>
+        <option value="print">doc и web (бумага)</option>
+        <option value="scan">scan (от руки)</option>
+        <option value="term">rec и инфобокс (терминал)</option>
+      </select>
+    </label>
+    <label>Кто смотрит:
+      <select id="se-viewer">
+        <option value="all">все пометки (автор)</option>
+        <option value="none">игрок без ключей</option>
+        <option value="with">игрок с ключами…</option>
+      </select>
+    </label>
+    <select id="se-keys" multiple hidden title="Ключи игрока (Ctrl+клик: несколько)">
+      {% for k in keys %}<option value="{{ k }}">{{ k }}</option>{% endfor %}
+    </select>
   </div>
 
   <div id="se-wrap">
@@ -50,6 +85,12 @@
         <div class="se-row"><button type="button" class="button" id="se-take-min">Минимальный зум = текущий</button></div>
         <div class="se-row"><button type="button" class="button" id="se-take-max">Максимальный зум = текущий</button></div>
         <p class="se-hint" id="se-view">Двигайте карту, затем нажмите нужную кнопку: значения попадут в поля формы выше.</p>
+      </div>
+
+      <div class="se-box" id="se-list">
+        <h3>Пометки</h3>
+        <ul id="se-layers"></ul>
+        <p class="se-hint">Глаз скрывает пометку только на время правки. Стрелки меняют порядок слоёв.</p>
       </div>
 
       <div class="se-box" id="se-props" hidden>
@@ -70,6 +111,7 @@
         <div class="se-row" data-for="circle"><label>Радиус, км</label><input type="number" data-prop="radius_km" min="1" max="20000"></div>
         <div class="se-row" data-for="marker line arrow polygon circle region"><label>Ссылка по клику (путь вики или /адрес)</label><input type="text" data-prop="url"></div>
         <div class="se-row"><label>Условие по ключам (key_a and not key_b)</label><input type="text" data-prop="key"></div>
+        <div class="se-row"><button type="button" class="button" id="se-duplicate" data-for="marker line arrow polygon circle text">Дублировать</button></div>
         <div class="se-row"><button type="button" class="button" id="se-delete" style="color:#ba2121">Удалить пометку</button></div>
       </div>
     </div>
@@ -92,6 +134,7 @@
 
   function frameUrl() {
     const q = new URLSearchParams({ embed: '1', scene_edit: '1' });
+    if (document.getElementById('se-theme') && document.getElementById('se-theme').value) q.set('theme', document.getElementById('se-theme').value);
     if (field('base_date') && field('base_date').value) q.set('date', field('base_date').value);
     if (field('mode') && field('mode').value) q.set('mode', field('mode').value);
     if (field('flat') && field('flat').checked) q.set('flat', '1');
@@ -103,6 +146,80 @@
   }
 
   function loadFrame() { frame.src = frameUrl(); }
+
+  let ids = [];
+  let hiddenIds = [];
+  let list = [];
+  const COLORS = {
+    red: '#b00d1c', blue: '#12307a', green: '#14612a', orange: '#b85200',
+    purple: '#5a1f8a', yellow: '#b88a00', teal: '#0e6b6b', grey: '#2f2c28',
+  };
+  const TYPE_NAMES = { marker: 'Метка', line: 'Линия', arrow: 'Стрелка', polygon: 'Многоугольник', circle: 'Круг', text: 'Текст', region: 'Провинция' };
+
+  function renderList(selectedId) {
+    const ul = document.getElementById('se-layers');
+    ul.textContent = '';
+    if (!list.length) {
+      const li = document.createElement('li');
+      li.className = 'se-empty';
+      li.textContent = 'Пока пусто: выберите инструмент и кликните по карте.';
+      ul.appendChild(li);
+      return;
+    }
+    list.forEach((feature, index) => {
+      const id = ids[index];
+      const li = document.createElement('li');
+      li.className = (id === selectedId ? 'selected ' : '') + (hiddenIds.includes(id) ? 'off' : '');
+      const eye = document.createElement('button');
+      eye.type = 'button';
+      eye.title = 'Скрыть или показать на время правки';
+      eye.textContent = hiddenIds.includes(id) ? '\u25CB' : '\u25CF';
+      eye.addEventListener('click', (e) => { e.stopPropagation(); send({ type: 'aether-scene-hide', id, hidden: !hiddenIds.includes(id) }); });
+      const dot = document.createElement('span');
+      dot.className = 'se-dot';
+      dot.style.background = COLORS[feature.color] || '#999';
+      const name = document.createElement('span');
+      name.className = 'se-name';
+      name.textContent = (feature.key ? '\uD83D\uDD12 ' : '') + TYPE_NAMES[feature.type] + ': ' +
+        (feature.label || feature.text || feature.token || '');
+      const up = document.createElement('button');
+      up.type = 'button'; up.textContent = '\u2191'; up.title = 'Выше';
+      up.addEventListener('click', (e) => { e.stopPropagation(); send({ type: 'aether-scene-move', id, dir: -1 }); });
+      const down = document.createElement('button');
+      down.type = 'button'; down.textContent = '\u2193'; down.title = 'Ниже';
+      down.addEventListener('click', (e) => { e.stopPropagation(); send({ type: 'aether-scene-move', id, dir: 1 }); });
+      li.append(eye, dot, name, up, down);
+      li.addEventListener('click', () => send({ type: 'aether-scene-select', id }));
+      ul.appendChild(li);
+    });
+  }
+
+  function sendPreview() {
+    const mode = document.getElementById('se-viewer').value;
+    const select = document.getElementById('se-keys');
+    select.hidden = mode !== 'with';
+    const keys = mode === 'all' ? null : mode === 'none' ? [] : Array.from(select.selectedOptions).map((o) => o.value);
+    send({ type: 'aether-scene-preview', keys });
+  }
+  document.getElementById('se-viewer').addEventListener('change', sendPreview);
+  document.getElementById('se-keys').addEventListener('change', sendPreview);
+  document.getElementById('se-theme').addEventListener('change', loadFrame);
+  document.getElementById('se-undo').addEventListener('click', () => send({ type: 'aether-scene-undo' }));
+  document.getElementById('se-redo').addEventListener('click', () => send({ type: 'aether-scene-redo' }));
+  document.getElementById('se-duplicate').addEventListener('click', () => { if (current) send({ type: 'aether-scene-duplicate', id: current.id }); });
+
+  // клавиши вне полей ввода: инструменты и отмена
+  const TOOL_KEYS = { v: 'select', m: 'marker', l: 'line', a: 'arrow', p: 'polygon', c: 'circle', t: 'text', r: 'region' };
+  document.addEventListener('keydown', (e) => {
+    const tag = (e.target.tagName || '').toLowerCase();
+    if (['input', 'textarea', 'select'].includes(tag) || e.target.isContentEditable) return;
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') { e.preventDefault(); send({ type: e.shiftKey ? 'aether-scene-redo' : 'aether-scene-undo' }); return; }
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'y') { e.preventDefault(); send({ type: 'aether-scene-redo' }); return; }
+    if (e.ctrlKey || e.metaKey || e.altKey) return;
+    const tool = TOOL_KEYS[e.key.toLowerCase()];
+    const button = tool && document.querySelector(`#se-tools [data-tool=${tool}]`);
+    if (button) button.click();
+  });
 
   function readFeatures() {
     try {
@@ -190,11 +307,19 @@
     if (d.type === 'aether-map-ready') {
       send({ type: 'aether-scene-load', features: readFeatures() });
       send({ type: 'aether-scene-camera' });
+      sendPreview();
     } else if (d.type === 'aether-scene-features') {
       features.value = JSON.stringify(d.features, null, 1);
       status.textContent = `Пометок: ${d.features.length}`;
+      list = d.features;
+      ids = d.ids || [];
+      hiddenIds = d.hidden || [];
+      renderList(current ? current.id : null);
+      document.getElementById('se-undo').disabled = !(d.history && d.history.undo);
+      document.getElementById('se-redo').disabled = !(d.history && d.history.redo);
     } else if (d.type === 'aether-scene-selected') {
       showProps(d.feature ? { ...d.feature, id: d.id } : null);
+      renderList(d.id);
     } else if (d.type === 'aether-scene-view') {
       view = d;
       document.getElementById('se-view').textContent =
