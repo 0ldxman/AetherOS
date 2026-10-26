@@ -540,16 +540,16 @@ function showDialog(spec, params = {}) {
 
   const body = el("div", "dialog dialog--" + msg.kind);
   const main = el("div", "dialog-main");
-  const text = el("div", "dialog-text");
+  const foot = el("div", "dialog-foot");
   const ok = el("button", "dialog-ok", "OK");
 
   ok.type = "button";
-  text.appendChild(el("p", "dialog-message", msg.text));
-
-  if (msg.code) text.appendChild(el("p", "dialog-code", "code " + msg.code));
-
-  main.append(el("span", "dialog-glyph", MESSAGE_GLYPH[msg.kind] || "!"), text);
-  body.append(main, ok);
+  foot.append(el("span", "dialog-code", msg.code ? "code " + msg.code : ""), ok);
+  main.append(
+    el("span", "dialog-glyph", MESSAGE_GLYPH[msg.kind] || "!"),
+    el("p", "dialog-message", msg.text)
+  );
+  body.append(main, foot);
 
   dialogCount += 1;
 
@@ -557,11 +557,19 @@ function showDialog(spec, params = {}) {
     id: "dialog-" + dialogCount,
     root: desktop,
     top: WINDOW_TOP,
-    class: ["aether", "no-full", "no-max", "no-min", "dialog-window"],
+    class: [
+      "aether",
+      "no-full",
+      "no-max",
+      "no-min",
+      "no-resize",
+      "dialog-window",
+      "dialog-window--" + msg.kind,
+    ],
     x: "center",
     y: "center",
-    width: 380,
-    height: 190,
+    width: 400,
+    height: 170,
     mount: body,
     onclose: () => {
       delete openDialogs[dedupe];

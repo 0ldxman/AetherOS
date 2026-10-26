@@ -397,52 +397,59 @@ body {
   display: flex;
   flex: 1;
   flex-direction: column;
-  justify-content: space-between;
-  gap: 1rem;
-  padding: 1rem;
   background: var(--panel);
   color: var(--fg);
 }
 
 .dialog-main {
   display: flex;
+  flex: 1;
   gap: 1rem;
-  align-items: flex-start;
+  align-items: center;
+  padding: 1.25rem 1.25rem 1rem;
 }
 
 .dialog-glyph {
   flex: 0 0 auto;
   display: grid;
   place-items: center;
-  width: 2.2rem;
-  height: 2.2rem;
-  border: 1px solid currentColor;
+  width: 2.4rem;
+  height: 2.4rem;
+  background: var(--glyph);
+  color: var(--bg);
+  font-size: 1.4rem;
   font-weight: 700;
 }
 
-.dialog--error .dialog-glyph { color: var(--status-error); }
-.dialog--warning .dialog-glyph { color: var(--status-warn); }
-.dialog--info .dialog-glyph { color: var(--accent); }
-
-.dialog-text {
-  min-width: 0;
-}
+.dialog { --glyph: var(--accent); }
+.dialog--error { --glyph: var(--status-error); }
+.dialog--warning { --glyph: var(--status-warn); }
 
 .dialog-message {
   margin: 0;
+  min-width: 0;
   line-height: 1.4;
   overflow-wrap: anywhere;
 }
 
+/* нижняя полоса с кнопкой, как в системных окнах */
+.dialog-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.6rem 1rem;
+  background: var(--bg);
+  border-top: 1px solid var(--line);
+}
+
 .dialog-code {
-  margin: 0.5rem 0 0;
   color: var(--font-muted);
-  font-size: 0.85rem;
+  font-size: 0.8rem;
 }
 
 .dialog-ok {
-  align-self: flex-end;
-  min-width: 5rem;
+  min-width: 5.5rem;
   padding: 0.25rem 1rem;
   background: none;
   border: 1px solid var(--line-bright);
@@ -457,6 +464,30 @@ body {
   border-color: var(--font-light);
   color: var(--bg);
   outline: none;
+}
+
+/* заголовок окна ошибки красится по виду сообщения */
+.winbox.aether.dialog-window--error .wb-header {
+  background: var(--status-error);
+  border-color: var(--status-error);
+}
+
+.winbox.aether.dialog-window--error .wb-title,
+.winbox.aether.dialog-window--error .wb-control * {
+  color: var(--bg);
+}
+
+.winbox.aether.dialog-window--error {
+  border-color: var(--status-error);
+}
+
+.winbox.aether.dialog-window--warning .wb-header {
+  background: var(--status-warn);
+  border-color: var(--status-warn);
+}
+
+.winbox.aether.dialog-window--warning .wb-title {
+  color: var(--bg);
 }
 
 #toasts {
