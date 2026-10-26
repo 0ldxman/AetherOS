@@ -641,6 +641,8 @@ def _files_row(src, label, ctx):
     name = ctx.inline(label or found.filename or found.name)
     size = _human_size(found.size)
     size_html = f'<span class="files-size">{size}</span>' if size else ""
+    code = barcode_value(str(found.public_id))
+    code_attr = f' data-barcode="{code}" data-id="{escape(str(found.public_id), quote=True)}"' if code else ""
     open_html = ""
     if viewer:
         v = escape(viewer, quote=True)
@@ -649,7 +651,7 @@ def _files_row(src, label, ctx):
             f'data-asset-title="{escape(found.name, quote=True)}">Открыть</a>'
         )
     return (
-        '<div class="files-row">'
+        f'<div class="files-row"{code_attr}>'
         f'<span class="files-tag">{escape(ext[:5])}</span>'
         f'<a class="files-name" href="{escape(content, quote=True)}" download>{name}</a>'
         f'<span class="files-dots"></span>{size_html}{open_html}</div>'

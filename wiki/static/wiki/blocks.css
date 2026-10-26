@@ -203,17 +203,138 @@
     --g-font: var(--ff-cousine);
 }
 
-/* scan: бумажный бланк, названия от руки */
+/*
+ * scan: полоса этикеток со штрихкодами. На штрихкоде наклеен стикер с названием файла,
+ * между этикетками линия разреза с ножницами.
+ */
 .doc--scan .widget--files {
     --g-ink: var(--ink);
     --g-soft: var(--ink-soft);
     --g-line: var(--line);
     --g-accent: var(--hand-ink);
-    --g-bg: color-mix(in srgb, var(--paper) 70%, white);
+    --g-bg: color-mix(in srgb, var(--paper) 65%, white);
     --g-font: var(--ff-cousine);
 
-    box-shadow: 1px 2px 3px color-mix(in srgb, var(--ink) 18%, transparent);
+    width: fit-content;
+    min-width: min(24rem, 100%);
+    max-width: 100%;
+    margin-left: auto;
+    margin-right: auto;
+    box-sizing: border-box;
+
+    border: 1px solid color-mix(in srgb, var(--ink) 40%, transparent);
+    box-shadow: 1px 2px 3px color-mix(in srgb, var(--ink) 20%, transparent);
     transform: rotate(-0.3deg);
+}
+
+.doc--scan .widget--files .files-head {
+    justify-content: center;
+    gap: 0.6rem;
+    border-bottom: 0;
+    padding-bottom: 0;
+}
+
+.doc--scan .widget--files .files-row {
+    position: relative;
+    flex-wrap: wrap;
+    justify-content: center;
+    align-items: baseline;
+    gap: 0 0.8rem;
+    padding: 0.9rem 1.6rem 0.55rem;
+    text-align: center;
+}
+
+/* линия разреза: пунктир с ножницами слева */
+.doc--scan .widget--files .files-row + .files-row {
+    border-top: 1px dashed color-mix(in srgb, var(--ink) 55%, transparent);
+    margin-top: 0.6rem;
+}
+
+.doc--scan .widget--files .files-row + .files-row .files-tag {
+    display: block;
+    position: absolute;
+    top: -0.62rem;
+    left: 0.7rem;
+    min-width: 0;
+    padding: 0 0.2rem;
+    border: 0;
+    background: var(--g-bg);
+    font-size: 0;
+    line-height: 1;
+}
+
+.doc--scan .widget--files .files-row + .files-row .files-tag::before {
+    content: "\2702";
+    color: var(--ink-soft);
+    font-size: 0.95rem;
+}
+
+.doc--scan .widget--files .files-head + .files-row .files-tag,
+.doc--scan .widget--files .files-dots {
+    display: none;
+}
+
+/* штрихкод и номер из id ассета */
+.doc--scan .widget--files .files-row[data-barcode]::before {
+    --bc-size: 2rem;
+    --bc-k: 2.6;
+    --bc-foot: 0.8;
+
+    content: "*" attr(data-barcode) "*";
+    order: 1;
+    flex: 0 0 100%;
+
+    color: var(--ink);
+    font-family: var(--font-barcode);
+    font-size: var(--bc-size);
+    line-height: 1;
+    text-transform: uppercase;
+    white-space: nowrap;
+
+    transform: scaleY(var(--bc-k));
+    transform-origin: 50% calc(var(--bc-foot) * 100%);
+    margin-top: calc((var(--bc-k) - 1) * var(--bc-foot) * var(--bc-size));
+}
+
+.doc--scan .widget--files .files-row[data-barcode]::after {
+    content: attr(data-id);
+    order: 2;
+    flex: 0 0 100%;
+    margin-top: 0.15rem;
+    padding-bottom: 0.2rem;
+    color: var(--ink-soft);
+    font-size: 0.6rem;
+    letter-spacing: 0.06em;
+    overflow-wrap: anywhere;
+}
+
+.doc--scan .widget--files .files-size {
+    order: 3;
+}
+
+.doc--scan .widget--files .files-open {
+    order: 4;
+}
+
+/* стикер с названием: наклеен поверх штрихкода */
+.doc--scan .widget--files .files-row .files-name {
+    position: absolute;
+    top: 1.25rem;
+    left: 50%;
+    z-index: 1;
+    max-width: 78%;
+    padding: 0.15rem 0.9rem 0.2rem;
+    background: color-mix(in srgb, var(--paper) 35%, white);
+    border: 1px solid color-mix(in srgb, var(--ink) 25%, transparent);
+    box-shadow: 1px 2px 3px color-mix(in srgb, var(--ink) 25%, transparent);
+    transform: translateX(-50%) rotate(-1.6deg);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.doc--scan .widget--files .files-row:nth-of-type(even) .files-name {
+    transform: translateX(-50%) rotate(1.2deg);
 }
 
 .doc--scan .widget--files .files-row a.files-name {
