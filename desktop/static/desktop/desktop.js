@@ -590,7 +590,7 @@ function showDialog(spec, params = {}) {
 }
 
 // короткое уведомление в углу; исчезает само
-function showToast(spec, params = {}, onClick = null) {
+function showToast(spec, params = {}, onClick = null, ms = TOAST_MS) {
   const msg = resolveMessage(spec, params);
   let stack = document.getElementById("toasts");
 
@@ -614,7 +614,7 @@ function showToast(spec, params = {}, onClick = null) {
   });
   if (onClick) toast.classList.add("toast--action");
   stack.appendChild(toast);
-  setTimeout(close, TOAST_MS);
+  setTimeout(close, ms);
 }
 
 
@@ -622,7 +622,8 @@ function showToast(spec, params = {}, onClick = null) {
    Новая почта: бейдж на иконке интеркома и уведомление
    ================================================== */
 
-const MAIL_POLL_MS = 25000;
+const MAIL_POLL_MS = 10000;
+const MAIL_TOAST_MS = 9000;
 const mailUrl = desktop.dataset.mailUrl;
 const mailPulseUrl = desktop.dataset.mailPulseUrl;
 const knownMail = new Set();
@@ -689,15 +690,16 @@ async function pollMail() {
   }
 
   if (fresh.length === 1) {
-    showToast("mail_new", { sender: fresh[0].sender, subject: fresh[0].subject }, openMail);
+    showToast("mail_new", { sender: fresh[0].sender, subject: fresh[0].subject }, openMail, MAIL_TOAST_MS);
   } else if (fresh.length > 1) {
-    showToast("mail_new", { sender: fresh.length + " messages", subject: "see the intercom" }, openMail);
+    showToast("mail_new", { sender: fresh.length + " messages", subject: "see the intercom" }, openMail, MAIL_TOAST_MS);
   }
 }
 
 if (mailUrl && mailPulseUrl) {
   pollMail();
   setInterval(pollMail, MAIL_POLL_MS);
+  document.addEventListener("visibilitychange", pollMail);
 }
 
 window.desktopAPI = {
