@@ -2,16 +2,20 @@ import hashlib
 import re
 from collections import defaultdict
 
+from django.core.cache import cache
 from django.db.models import Q
 from django.http import Http404, JsonResponse
 from django.shortcuts import render
 from django.urls import reverse
 from django.utils.safestring import mark_safe
 
+from secure.access import satisfied
+
 from .access import document_state, namespace_state, request_keys
 from .markup import render as render_markup, visible_text
 from .models import Document, Namespace
 from .mounts import mounted_roots
+from .versioning import WIKI_COUNTS_TTL, WIKI_VERSION_KEY
 
 SEARCH_LIMIT = 100
 SEARCH_MAX_LEN = 80
@@ -283,26 +287,36 @@ def _article_counts(request, keys):
     """Сколько видимых записей в каждом неймспейсе (с вложенными) и всего.
 
     Считаются только записи, которые игрок видит: скрытое и несмонтированное не попадает
-    даже в число.
+    даже в число. Результат общий для всех с одним набором ключей и монтирований, пока вики не менялась.
     """
+    mounts = mounted_roots(request)
+    who = hashlib.md5(
+        f"{sorted(keys)}|{sorted(mounts.items()) if mounts is not None else None}".encode()
+    ).hexdigest()
+    cache_key = f"wiki:counts:{cache.get(WIKI_VERSION_KEY, 0)}:{who}"
+    found = cache.get(cache_key)
+    if found is not None:
+        counts, total = found
+        return defaultdict(int, counts), total
+
     by_id = {n.pk: n for n in _all_namespaces(request)}
+    # условия цепочки считаются один раз на неймспейс, а не на каждую запись в нём
+    visible_ns = {pk: namespace_state(n, keys).visible for pk, n in by_id.items()}
     counts = defaultdict(int)
     total = 0
 
-    for doc in Document.objects.only("id", "namespace", "visibility", "access"):
-        if doc.namespace_id is not None:
-            if doc.namespace_id not in by_id:
-                continue
-            doc.namespace = by_id[doc.namespace_id]
-
-        if not document_state(doc, keys).visible:
+    for namespace_id, visibility in Document.objects.values_list("namespace_id", "visibility"):
+        if namespace_id is not None and not visible_ns.get(namespace_id, False):
+            continue
+        if not satisfied(visibility, keys):
             continue
 
         total += 1
-        if doc.namespace_id is not None:
-            for node in doc.namespace.chain():
+        if namespace_id is not None:
+            for node in by_id[namespace_id].chain():
                 counts[node.pk] += 1
 
+    cache.set(cache_key, (dict(counts), total), WIKI_COUNTS_TTL)
     return counts, total
 
 

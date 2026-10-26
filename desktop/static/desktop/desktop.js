@@ -623,6 +623,8 @@ function showToast(spec, params = {}, onClick = null, ms = TOAST_MS) {
    ================================================== */
 
 const MAIL_POLL_MS = 10000;
+const MAIL_POLL_MAX_MS = 60000;
+let mailFailures = 0;
 const MAIL_TOAST_MS = 9000;
 const mailUrl = desktop.dataset.mailUrl;
 const mailPulseUrl = desktop.dataset.mailPulseUrl;
@@ -672,11 +674,17 @@ async function pollMail() {
 
   try {
     const response = await fetch(mailPulseUrl, { credentials: "same-origin" });
-    if (!response.ok) return;
+    if (!response.ok) {
+      mailFailures += 1;
+      return;
+    }
     data = await response.json();
   } catch (error) {
+    mailFailures += 1;
     return;     // сеть недоступна: попробуем в следующий раз
   }
+
+  mailFailures = 0;
 
   setMailBadge(data.unread);
 
@@ -696,9 +704,18 @@ async function pollMail() {
   }
 }
 
+// интервал с разбросом, чтобы окна не бились в сервер одновременно, и с отступом при ошибках
+function scheduleMailPoll() {
+  const base = Math.min(MAIL_POLL_MS * 2 ** mailFailures, MAIL_POLL_MAX_MS);
+  setTimeout(async () => {
+    await pollMail();
+    scheduleMailPoll();
+  }, base + Math.random() * 3000);
+}
+
 if (mailUrl && mailPulseUrl) {
   pollMail();
-  setInterval(pollMail, MAIL_POLL_MS);
+  scheduleMailPoll();
   document.addEventListener("visibilitychange", pollMail);
 }
 

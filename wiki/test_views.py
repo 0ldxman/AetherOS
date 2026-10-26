@@ -140,6 +140,19 @@ class WikiViewsTests(TestCase):
         self.assertIn('data-objects="2"', line)  # «Секретная» и «Вложенная»; «Скрытая» не видна
         self.assertNotIn("Скрытая", html)
 
+    def test_bucket_count_follows_new_and_removed_articles_despite_the_cache(self):
+        def objects():
+            _, html, _ = call(views.resolve, "")
+            return next(l for l in html.splitlines() if 'data-class="Bucket"' in l)
+
+        self.assertIn('data-objects="2"', objects())
+        self.assertIn('data-objects="2"', objects())           # из кэша
+        bucket = Namespace.objects.get(name=Namespace.objects.filter(parent=None).first().name)
+        added = Document.objects.create(namespace=bucket, title="Ещё одна", body="x")
+        self.assertIn('data-objects="3"', objects())
+        added.delete()
+        self.assertIn('data-objects="2"', objects())
+
     def test_objects_have_s3_style_keys_and_uris(self):
         _, html, _ = call(views.resolve, "")
         self.assertIn('data-key="Открытая.doc"', html)

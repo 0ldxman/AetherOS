@@ -107,6 +107,10 @@ class Message(models.Model):
 
     class Meta:
         ordering = ("-sent_at", "-id")
+        indexes = [
+            models.Index(fields=["sender"], name="mail_message_sender_idx"),
+            models.Index(fields=["-sent_at", "-id"], name="mail_message_sent_idx"),
+        ]
 
     def __str__(self):
         return f"{self.subject or '(no subject)'} ({self.sender})"

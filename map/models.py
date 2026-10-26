@@ -71,6 +71,9 @@ class Ownership(models.Model):
 
     class Meta:
         ordering = ["province", "date_from"]
+        indexes = [
+            models.Index(fields=["date_from"], name="ownership_date_from_idx"),   # выбор на дату и засечки таймлайна
+        ]
         constraints = [
             models.UniqueConstraint(
                 fields=["province", "country", "date_from"],
