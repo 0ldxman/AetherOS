@@ -86,6 +86,43 @@ class BlocksTests(TestCase):
         self.assertIn("labels=0", html)
         self.assertNotIn("labels=0", render("::map lat=50 lon=19 zoom=5\n::\n"))
 
+    def test_highlight_accepts_provinces_countries_and_exclusions(self):
+        from datetime import date
+
+        from map.models import Country, Ownership, Province
+
+        a = Province.objects.create(code="POL-1", source_code="POL-3146", name="Силезия")
+        b = Province.objects.create(code="POL-2", source_code="POL-3170", name="Малая Польша")
+        c = Province.objects.create(code="DEU-1", source_code="DEU-1", name="Бавария")
+        pol = Country.objects.create(code="POL-2013", name="Польша", valid_from=date(2013, 1, 1))
+        deu = Country.objects.create(code="DEU-2013", name="Германия", valid_from=date(2013, 1, 1))
+        for province, country in ((a, pol), (b, pol), (c, deu)):
+            Ownership.objects.create(province=province, country=country, date_from=date(2013, 1, 1), de_jure=True)
+
+        html = render("::map highlight=POL,-POL-2\n::\n")
+        self.assertIn("regions=POL-3146&", html + "&")
+        self.assertNotIn("POL-3170", html)
+        self.assertNotIn("DEU-1", html)
+        self.assertIn("Польша", html)
+        # страна по названию, провинция по коду
+        html = render("::map highlight=Германия,POL-2\n::\n")
+        self.assertIn("DEU-1", html)
+        self.assertIn("POL-3170", html)
+
+    def test_country_follows_the_owner_on_the_date(self):
+        from datetime import date
+
+        from map.models import Country, Ownership, Province
+
+        p = Province.objects.create(code="POL-1", source_code="POL-3146", name="Силезия")
+        pol = Country.objects.create(code="POL-2013", name="Польша", valid_from=date(2013, 1, 1))
+        deu = Country.objects.create(code="DEU-2030", name="Германия", valid_from=date(2030, 1, 1))
+        Ownership.objects.create(province=p, country=pol, date_from=date(2013, 1, 1), de_jure=True)
+        Ownership.objects.create(province=p, country=deu, date_from=date(2030, 1, 1), de_jure=True)
+        self.assertIn("POL-3146", render("::map highlight=POL date=2020-01-01\n::\n"))
+        self.assertNotIn("POL-3146", render("::map highlight=POL date=2035-01-01\n::\n"))
+        self.assertIn("POL-3146", render("::map highlight=Германия date=2035-01-01\n::\n"))
+
     def test_lint_flags_unknown_regions(self):
         from map.models import Province
 

@@ -42,6 +42,7 @@ const THEMES = {
   },
 };
 
+THEMES.scan = THEMES.print;   // scan: та же бумажная карта, отличаются только метки
 const THEME_STYLE = THEMES[THEME] || null;
 const COLORS = THEME_STYLE ? THEME_STYLE.colors : DEFAULT_COLORS;
 
@@ -711,10 +712,14 @@ if (EDIT_MODE) {
 // ---------------------------------------------------------------------------
 if (EMBED) {
   MARKERS.forEach((item, index) => {
+    // внешний элемент двигает MapLibre (transform), вид и наклон у вложенного
     const el = document.createElement('div');
-    el.className = 'embed-marker';
-    el.textContent = String(index + 1);
     el.title = item.label;
+    const tag = document.createElement('span');
+    tag.className = 'embed-marker';
+    tag.textContent = String(index + 1);
+    tag.style.setProperty('--tilt', `${[-4, 3, -2, 5][index % 4]}deg`);
+    el.appendChild(tag);
     new maplibregl.Marker({ element: el }).setLngLat([item.lon, item.lat]).addTo(map);
   });
 

@@ -624,6 +624,23 @@
     mix-blend-mode: multiply;
 }
 
+/* легенда scan: номера в красных пометках ручкой, как на карте */
+.doc--scan .widget--map .map-legend b {
+    background: transparent;
+    border: 2px solid var(--m-red);
+    border-radius: 55% 45% 52% 48% / 48% 54% 46% 52%;
+    color: var(--m-red);
+    mix-blend-mode: multiply;
+}
+
+/* doc: бирки-квадраты, как на карте */
+.doc--doc .widget--map .map-legend b {
+    background: transparent;
+    border: 1.5px solid var(--m-ink);
+    border-radius: 0;
+    color: var(--m-ink);
+}
+
 /* rec и инфобокс: терминальные подписи */
 :is(.doc--rec, .doc--infobox) .widget--map .map-stamp,
 .doc--web:has(.site-preset--dark) .widget--map .map-stamp {

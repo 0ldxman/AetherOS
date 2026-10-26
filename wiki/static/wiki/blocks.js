@@ -47,7 +47,7 @@
     // светлые страницы получают карту на бумаге, тёмные терминальную
     const dark = body.classList.contains("doc--rec") || body.classList.contains("doc--infobox") ||
         (body.classList.contains("doc--web") && document.querySelector(".site-preset--dark"));
-    const theme = dark ? "term" : "print";
+    const theme = dark ? "term" : (body.classList.contains("doc--scan") ? "scan" : "print");
 
     function initMap(frame) {
         const widget = frame.closest(".widget--map");

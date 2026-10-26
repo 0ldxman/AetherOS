@@ -161,7 +161,7 @@ body.embed #timeline {
   display: none;
 }
 
-/* нумерованные метки виджета ::map */
+/* нумерованные метки виджета ::map; вид зависит от темы документа */
 .embed-marker {
   display: grid;
   place-items: center;
@@ -173,11 +173,45 @@ body.embed #timeline {
   border-radius: 50%;
   color: var(--marker-ink, #fff);
   font: 700 11px/1 var(--font-main, monospace);
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
+}
+
+/* doc и светлый web: плоская бирка с тонкой рамкой, как номер на чертеже */
+body.theme-print .embed-marker {
+  --marker-bg: #fffdf6;
+  --marker-ink: #2a2118;
+  --marker-ring: #2a2118;
+  border-width: 1.5px;
+  border-radius: 0;
+  width: 20px;
+  height: 20px;
+}
+
+/* scan: номер обведён красной ручкой, без заливки и теней, как пометка на распечатке */
+body.theme-scan .embed-marker {
+  width: 26px;
+  height: 26px;
+  background: transparent;
+  border: 2px solid #b3261e;
+  border-radius: 55% 45% 52% 48% / 48% 54% 46% 52%;
+  color: #b3261e;
+  font-weight: 700;
+  transform: rotate(var(--tilt, -3deg));
+  mix-blend-mode: multiply;
+}
+
+body.theme-scan .embed-marker::after {
+  content: "";
+  position: absolute;
+  inset: -3px;
+  border: 1px solid #b3261e;
+  border-radius: 48% 52% 55% 45% / 54% 46% 52% 48%;
+  opacity: 0.55;
+  transform: rotate(8deg);
 }
 
 body.theme-term .embed-marker {
   --marker-bg: var(--accent);
   --marker-ink: var(--bg);
   --marker-ring: var(--bg);
+  border-radius: 0;
 }

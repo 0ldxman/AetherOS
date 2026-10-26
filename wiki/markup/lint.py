@@ -149,7 +149,8 @@ class _Scan:
             self.assets.append((number, name, (params.get("src") or "").strip()))
 
         if name == "map" and args:
-            for code in re.split(r"[\s,;]+", _parse_args(args, None).get("regions", "")):
+            params = _parse_args(args, None)
+            for code in re.split(r"[\s,;]+", params.get("highlight") or params.get("regions") or ""):
                 if code:
                     self.regions.append((number, code))
 
@@ -255,14 +256,13 @@ def lint(text):
             ))
 
     if scan.regions:
-        from map.models import Province
+        from map.bounds import resolve_highlight
 
-        known = {code.upper() for code in Province.objects.filter(
-            code__in={code.upper() for _, code in scan.regions}
-        ).values_list("code", flat=True)}
+        _groups, unknown = resolve_highlight([code for _, code in scan.regions])
+        missing = {code.upper() for code in unknown}
         for number, code in scan.regions:
-            if code.upper() not in known:
-                issues.append(Issue(number, ERROR, "region-missing", f"Провинции {code} нет в базе карты."))
+            if code.upper() in missing:
+                issues.append(Issue(number, ERROR, "region-missing", f"«{code}»: нет такой провинции или страны на карте."))
 
     wiki = _Wiki()
     checked = {}

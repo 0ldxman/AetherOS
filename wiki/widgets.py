@@ -691,12 +691,13 @@ def _scale_text(zoom, lat):
 def map_widget(text, ctx, args=""):
     """Карта мира с выделением провинций и метками.
 
-    ::map regions="RUS-32 UKR-5" date=2041-03-12 caption="Порт на тот день"
+    ::map highlight="POL RUS-32 -POL-3" date=2041-03-12 caption="Порт на тот день"
     Порт | 48.8 2.3
     Склад | 48.9 2.4
     ::
 
-    Параметры: regions (коды провинций из БД через пробел или запятую), lat, lon, zoom (0-18),
+    Параметры: highlight (что выделить, через пробел или запятую: код провинции RUS-32, страна POL,
+    POL-2013 или название, исключение -POL-3; страна берётся по владениям на date), lat, lon, zoom (0-18),
     date (ГГГГ-ММ-ДД), mode (political: границы, заливка, названия; physical: только рельеф),
     labels=off (без названий провинций), ratio, width, caption. Без lat и lon вид подбирается по выделенным
     провинциям и меткам. Метки в теле блока: «Название | широта долгота».
@@ -706,12 +707,20 @@ def map_widget(text, ctx, args=""):
     """
     from urllib.parse import quote_plus
 
-    from map.bounds import resolve_regions, union, view_for
+    from datetime import date as _date
+
+    from map.bounds import resolve_highlight, union, view_for
 
     head = _head_args(args)
     markers = _marker_rows(text)
-    codes = [c for c in re.split(r"[\s,;]+", head.get("regions", "")) if c][:MAX_REGIONS]
-    regions, _unknown = resolve_regions(codes) if codes else ([], [])
+    raw_date = (head.get("date") or "").strip()
+    try:
+        on_date = _date.fromisoformat(raw_date)
+    except ValueError:
+        on_date = None
+    tokens = [t for t in re.split(r"[\s,;]+", head.get("highlight") or head.get("regions") or "") if t][:MAX_REGIONS]
+    groups, _unknown = resolve_highlight(tokens, on_date) if tokens else ([], [])
+    region_codes = [code for g in groups for code in g["codes"]]
 
     has_view = head.get("lat") not in (None, "") and head.get("lon") not in (None, "")
     if has_view:
@@ -719,7 +728,7 @@ def map_widget(text, ctx, args=""):
         lon = float(_num(head.get("lon"), 10, -180, 180))
         zoom = float(_num(head.get("zoom"), 4, 0, 18))
     else:
-        box = union([r[3] for r in regions] + [[lo, la, lo, la] for _, la, lo in markers])
+        box = union([b for g in groups for b in g["boxes"]] + [[lo, la, lo, la] for _, la, lo in markers])
         if box is not None:
             lat, lon, zoom = view_for(box)
             if head.get("zoom"):
@@ -738,8 +747,8 @@ def map_widget(text, ctx, args=""):
         query += f"&date={date}"
     if (head.get("labels") or "").strip().lower() in ("off", "0", "no", "нет"):
         query += "&labels=0"
-    if regions:
-        query += "&regions=" + ",".join(quote_plus(r[1]) for r in regions)
+    if region_codes:
+        query += "&regions=" + ",".join(quote_plus(c) for c in region_codes)
     for label, la, lo in markers:
         query += f"&m={la},{lo},{quote_plus(label)}"
 
@@ -779,9 +788,9 @@ def map_widget(text, ctx, args=""):
     legend = []
     for index, (label, la, lo) in enumerate(markers, 1):
         legend.append(f'<li class="map-legend-marker"><b>{index}</b>{ctx.inline(label)}</li>')
-    for code, _source, name, _box in regions:
+    for group in groups:
         legend.append(
-            f'<li class="map-legend-region"><i></i>{escape(name)}<span>{escape(code)}</span></li>'
+            f'<li class="map-legend-region"><i></i>{escape(group["name"])}<span>{escape(group["token"])}</span></li>'
         )
     legend_html = f'<ol class="map-legend">{"".join(legend)}</ol>' if legend else ""
 
