@@ -274,9 +274,10 @@ body.theme-term .embed-marker {
 body.theme-print .marker-label,
 body.theme-scan .marker-label {
   --text: #2a2118;
-  --halo: #f3ecdb;
   font-family: var(--font-hand, cursive);
   font-size: 17px;
+  font-weight: 400;
+  text-shadow: none;   /* на бумаге подпись без светлой обводки, как написанная ручкой */
 }
 
 body.theme-term .marker-label {
