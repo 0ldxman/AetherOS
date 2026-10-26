@@ -26,7 +26,8 @@ def protection(context, path, found):
     for item in ProtectedPath.objects.filter(machine__isnull=True) | ProtectedPath.objects.filter(machine_id=machine):
         if item.path == path or item.path.startswith(prefix):
             return "Operation not permitted"
-    if any(entry.machine_file.system for entry in found):
+    # системный файл защищён на своём месте: копия, лежащая в другом пути, уже обычный файл
+    if any(entry.machine_file.system and entry.path == entry.machine_file.path for entry in found):
         return "Operation not permitted"
     return None
 

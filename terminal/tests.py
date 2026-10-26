@@ -881,3 +881,92 @@ class TrashTests(TestCase):
         call_command("purge_trash", stdout=out)
         self.assertIn("purged: 1", out.getvalue())
         self.assertFalse(SessionFile.objects.filter(purge_at__isnull=False, deleted_at__isnull=True).exists())
+
+
+@override_settings(FORCE_SCRIPT_NAME=None)
+class FileOpsTests(TestCase):
+    """mv и cp: перенос и копирование файлов и папок в сессии."""
+
+    @classmethod
+    def setUpTestData(cls):
+        from filesystem.models import MachineFile
+        from machines.models import MachineProfile
+
+        cls.main = Machine.objects.create(name="Main", hostname="aether-main")
+        MachineApp.objects.create(machine=cls.main, label="console", glyph=">_", path="/apps/terminal/")
+        cls.user = get_user_model().objects.create_user("ivan", password="pw")
+        MachineProfile.objects.create(machine=cls.main, user=cls.user, name="Ivan", login="ivan", freq=1,
+                                      mail="ivan@aether-main")
+        for path in ("/home/a.txt", "/home/b.txt", "/home/docs/x.txt", "/home/docs/sub/y.txt", "/home/work/w.txt"):
+            MachineFile.objects.create(machine=cls.main, path=path, state="")
+        MachineFile.objects.create(machine=cls.main, path="/home/core.sys", state="", system=True)
+        MachineFile.objects.create(machine=cls.main, path="/home/door.bin", state="> encrypted hunter2")
+
+    def setUp(self):
+        previous = get_script_prefix()
+        set_script_prefix("/")
+        self.addCleanup(set_script_prefix, previous)
+        self.client.force_login(self.user)
+
+    def run_command(self, text):
+        response = self.client.post(
+            reverse("terminal:execute"), data=json.dumps({"command": text}), content_type="application/json"
+        )
+        return json.loads(response.content)
+
+    def ls(self, path="/home"):
+        return self.run_command(f"ls {path}")["output"].split()
+
+    def test_mv_renames_a_file_and_moves_it_into_a_folder(self):
+        self.assertEqual(self.run_command("mv /home/a.txt /home/c.txt")["exit_code"], 0)
+        self.assertIn("c.txt", self.ls())
+        self.assertNotIn("a.txt", self.ls())
+        self.run_command("mv /home/c.txt /home/work")
+        self.assertEqual(self.ls("/home/work"), ["c.txt", "w.txt"])
+
+    def test_cp_leaves_the_original_and_keeps_the_layers(self):
+        self.assertEqual(self.run_command("cp /home/door.bin /home/door2.bin")["exit_code"], 0)
+        self.assertIn("door.bin", self.ls())
+        self.assertIn("door2.bin", self.ls())
+        self.assertEqual(self.run_command("ward /home/door2.bin hunter2")["exit_code"], 0)
+        self.assertIn("wrong", self.run_command("ward /home/door.bin nope")["output"])      # у оригинала слой на месте
+
+    def test_a_copy_carries_the_progress_made_before_it(self):
+        self.run_command("ward /home/door.bin hunter2")
+        self.run_command("cp /home/door.bin /home/open.bin")
+        self.assertIn("not encrypted", self.run_command("ward /home/open.bin hunter2")["output"])
+
+    def test_folders_need_r_for_cp_and_move_whole(self):
+        self.assertIn("omitting directory", self.run_command("cp /home/docs /home/docs2")["output"])
+        self.assertEqual(self.run_command("cp -r /home/docs /home/docs2")["exit_code"], 0)
+        self.assertEqual(self.ls("/home/docs2/sub"), ["y.txt"])
+        self.assertEqual(self.ls("/home/docs/sub"), ["y.txt"])
+        self.run_command("mv /home/docs /home/work")
+        self.assertNotIn("docs", self.ls())
+        self.assertEqual(self.ls("/home/work/docs/sub"), ["y.txt"])
+
+    def test_several_sources_need_a_folder_as_the_target(self):
+        self.assertEqual(self.run_command("mv /home/a.txt /home/b.txt /home/work")["exit_code"], 0)
+        self.assertEqual(self.ls("/home/work"), ["a.txt", "b.txt", "w.txt"])
+        self.assertIn("is not a directory", self.run_command("cp /home/door.bin /home/core.sys /home/nothing")["output"])
+
+    def test_nothing_is_overwritten_and_errors_are_clear(self):
+        self.assertIn("exists", self.run_command("mv /home/a.txt /home/b.txt")["output"])
+        self.assertIn("exists", self.run_command("cp /home/a.txt /home/b.txt")["output"])
+        self.assertIn("No such file", self.run_command("mv /home/none /home/x")["output"])
+        self.assertIn("into itself", self.run_command("cp -r /home/docs /home/docs/sub/copy")["output"])
+        self.assertIn("the same", self.run_command("mv /home/a.txt /home/a.txt")["output"])
+        self.assertIn("No such file", self.run_command("cp /home/a.txt /nowhere/deep/a.txt")["output"])
+        self.assertIn("a.txt", self.ls())                                                   # ничего не пропало
+        self.assertEqual(self.run_command("mv /home/a.txt")["exit_code"], 2)
+
+    def test_a_system_file_cannot_move_but_its_copy_is_an_ordinary_file(self):
+        self.assertIn("Operation not permitted", self.run_command("mv /home/core.sys /home/work")["output"])
+        self.assertEqual(self.run_command("cp /home/core.sys /home/work/core.copy")["exit_code"], 0)
+        self.assertEqual(self.run_command("del -f /home/work/core.copy")["exit_code"], 0)   # копию удалить можно
+        self.assertIn("Operation not permitted", self.run_command("del -f /home/core.sys")["output"])
+
+    def test_the_trash_is_not_a_source_or_a_target(self):
+        self.run_command("del -f /home/a.txt")
+        self.assertIn("use rcvr", self.run_command("mv /trash/a.txt /home/a.txt")["output"])
+        self.assertIn("use del", self.run_command("cp /home/b.txt /trash/b.txt")["output"])
