@@ -58,6 +58,28 @@ class MapSceneTests(TestCase):
             with self.assertRaises(ValidationError):
                 clean_features([{"type": "marker", "coords": [0, 0], **bad}])
 
+    def test_callouts_and_freehand_lines_are_validated(self):
+        from django.core.exceptions import ValidationError
+
+        from .scenes import clean_features
+
+        callout = clean_features([{"type": "callout", "coords": [1, 2], "text": " Склад ", "offset": [9999, -20]}])[0]
+        self.assertEqual((callout["text"], callout["offset"]), ("Склад", [500, -20]))
+        self.assertEqual(clean_features([{"type": "callout", "coords": [1, 2], "text": "x"}])[0]["offset"], [70, -50])
+        self.assertTrue(clean_features([{"type": "line", "coords": [[0, 0], [1, 1]], "smooth": True}])[0]["smooth"])
+        for bad in ({"type": "callout", "coords": [1, 2]}, {"type": "callout", "coords": [1, 2], "text": "x", "offset": "no"}):
+            with self.assertRaises(ValidationError):
+                clean_features([bad])
+
+    def test_thumbnail_must_be_a_small_jpeg_data_url(self):
+        from django.core.exceptions import ValidationError
+
+        ok = MapScene(slug="t", title="T", thumbnail="data:image/jpeg;base64,/9j/4AAQ")
+        ok.full_clean()
+        for bad in ("http://evil.example/x.jpg", "data:text/html;base64,PHNjcmlwdD4=", "data:image/jpeg;base64," + "A" * 130000):
+            with self.assertRaises(ValidationError):
+                MapScene(slug="t", title="T", thumbnail=bad).full_clean()
+
     def test_visible_features_follow_keys_and_hide_the_key_field(self):
         from .scenes import visible_features
 

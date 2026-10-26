@@ -3,6 +3,7 @@
 {% block after_field_sets %}
 <style>
   #se { margin: 16px 0; }
+  .field-thumbnail { display: none; }
   #se [hidden] { display: none !important; }
   #se-tools { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; align-items: center; }
   #se-tools .button.active { background: var(--primary, #417690); color: #fff; }
@@ -54,6 +55,8 @@
     <button type="button" class="button" data-tool="polygon" title="Клики: вершины, двойной клик или Enter: закончить">Многоугольник</button>
     <button type="button" class="button" data-tool="circle" title="Клик: центр, второй клик: радиус">Круг</button>
     <button type="button" class="button" data-tool="text" title="Клик: поставить подпись">Текст</button>
+    <button type="button" class="button" data-tool="callout" title="Клик: место, плашку потом можно перетащить">Выноска</button>
+    <button type="button" class="button" data-tool="freehand" title="Зажмите кнопку мыши и ведите по карте">Рисовать</button>
     <button type="button" class="button" data-tool="region" title="Клик по провинции: выделить её">Провинция</button>
     <span class="sep"></span>
     <button type="button" class="button" id="se-undo" title="Отменить (Ctrl+Z)">&#8630; Отмена</button>
@@ -113,7 +116,7 @@
       <div class="se-box" id="se-props" hidden>
         <h3 id="se-title">Пометка</h3>
         <div class="se-row" data-for="marker line arrow polygon circle region"><label>Подпись</label><input type="text" data-prop="label"></div>
-        <div class="se-row" data-for="text"><label>Текст</label><input type="text" data-prop="text"></div>
+        <div class="se-row" data-for="text callout"><label>Текст</label><input type="text" data-prop="text"></div>
         <div class="se-row" data-for="text"><label>Размер</label><input type="number" data-prop="size" min="8" max="48"></div>
         <div class="se-row" data-for="region"><label>Провинция или страна (RUS-32, POL)</label><div class="se-suggest"><input type="text" data-prop="token" id="se-token" autocomplete="off"></div></div>
         <div class="se-row"><label>Цвет</label>
@@ -127,10 +130,10 @@
         <div class="se-row inline" data-for="line arrow"><input type="checkbox" data-prop="dash" id="se-dash"><label for="se-dash">Пунктир</label></div>
         <div class="se-row inline" data-for="polygon circle"><input type="checkbox" data-prop="fill" id="se-fill"><label for="se-fill">Заливка</label></div>
         <div class="se-row" data-for="circle"><label>Радиус, км</label><input type="number" data-prop="radius_km" min="1" max="20000"></div>
-        <div class="se-row" data-for="marker line arrow polygon circle region"><label>Ссылка по клику (путь вики или /адрес)</label><input type="text" data-prop="url"></div>
+        <div class="se-row" data-for="marker line arrow polygon circle region callout"><label>Ссылка по клику (путь вики или /адрес)</label><input type="text" data-prop="url"></div>
         <div class="se-row inline"><label>Видна с</label><input type="date" data-prop="from"><label>по</label><input type="date" data-prop="to"></div>
         <div class="se-row"><label>Условие по ключам (key_a and not key_b)</label><div class="se-suggest"><input type="text" data-prop="key" id="se-key" autocomplete="off"></div></div>
-        <div class="se-row"><button type="button" class="button" id="se-duplicate" data-for="marker line arrow polygon circle text">Дублировать</button></div>
+        <div class="se-row"><button type="button" class="button" id="se-duplicate" data-for="marker line arrow polygon circle text callout">Дублировать</button></div>
         <div class="se-row"><button type="button" class="button" id="se-delete" style="color:#ba2121">Удалить пометку</button></div>
       </div>
     </div>
@@ -180,7 +183,7 @@
     red: '#b00d1c', blue: '#12307a', green: '#14612a', orange: '#b85200',
     purple: '#5a1f8a', yellow: '#b88a00', teal: '#0e6b6b', grey: '#2f2c28',
   };
-  const TYPE_NAMES = { marker: 'Метка', line: 'Линия', arrow: 'Стрелка', polygon: 'Многоугольник', circle: 'Круг', text: 'Текст', region: 'Провинция' };
+  const TYPE_NAMES = { marker: 'Метка', line: 'Линия', arrow: 'Стрелка', polygon: 'Многоугольник', circle: 'Круг', text: 'Текст', callout: 'Выноска', region: 'Провинция' };
 
   function renderList(selectedId) {
     const ul = document.getElementById('se-layers');
@@ -306,7 +309,7 @@
   document.getElementById('se-duplicate').addEventListener('click', () => { if (current) send({ type: 'aether-scene-duplicate', id: current.id }); });
 
   // клавиши вне полей ввода: инструменты и отмена
-  const TOOL_KEYS = { v: 'select', m: 'marker', l: 'line', a: 'arrow', p: 'polygon', c: 'circle', t: 'text', r: 'region' };
+  const TOOL_KEYS = { v: 'select', m: 'marker', l: 'line', a: 'arrow', p: 'polygon', c: 'circle', t: 'text', o: 'callout', f: 'freehand', r: 'region' };
   document.addEventListener('keydown', (e) => {
     const tag = (e.target.tagName || '').toLowerCase();
     if (['input', 'textarea', 'select'].includes(tag) || e.target.isContentEditable) return;
@@ -362,7 +365,7 @@
     props.hidden = !feature;
     if (!feature) return;
     document.getElementById('se-title').textContent = {
-      marker: 'Метка', line: 'Линия', arrow: 'Стрелка', polygon: 'Многоугольник', circle: 'Круг', text: 'Текст', region: 'Выделение',
+      marker: 'Метка', line: 'Линия', arrow: 'Стрелка', polygon: 'Многоугольник', circle: 'Круг', text: 'Текст', callout: 'Выноска', region: 'Выделение',
     }[feature.type] || 'Пометка';
     props.querySelectorAll('[data-for]').forEach((row) => {
       row.hidden = !row.dataset.for.split(' ').includes(feature.type);
@@ -443,6 +446,39 @@
         `Сейчас: ${d.lat.toFixed(3)}, ${d.lon.toFixed(3)}, зум ${d.zoom.toFixed(1)}`;
     }
   });
+
+  // миниатюра: перед сохранением просим карту снять кадр и кладём его в скрытое поле формы
+  const thumb = document.getElementById('id_thumbnail');
+  const form = document.getElementById('mapscene_form') || (thumb && thumb.form);
+  let captured = false;
+  if (form && thumb) {
+    form.addEventListener('submit', (event) => {
+      if (captured) return;
+      event.preventDefault();
+      const submitter = event.submitter;
+      const finish = () => {
+        captured = true;
+        if (submitter && submitter.name) {
+          const hidden = document.createElement('input');
+          hidden.type = 'hidden';
+          hidden.name = submitter.name;
+          hidden.value = submitter.value;
+          form.appendChild(hidden);
+        }
+        form.submit();
+      };
+      const onThumb = (e) => {
+        if (e.origin !== window.location.origin || e.source !== frame.contentWindow || !e.data || e.data.type !== 'aether-scene-thumb') return;
+        window.removeEventListener('message', onThumb);
+        clearTimeout(timer);
+        if (e.data.data && e.data.data.length < 110000) thumb.value = e.data.data;
+        finish();
+      };
+      const timer = setTimeout(() => { window.removeEventListener('message', onThumb); finish(); }, 2500);
+      window.addEventListener('message', onThumb);
+      send({ type: 'aether-scene-capture' });
+    });
+  }
 
   loadFrame();
 })();

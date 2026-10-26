@@ -158,6 +158,7 @@ const map = new maplibregl.Map({
   hash: true,
   interactive: !STATIC_VIEW,
   attributionControl: !EMBED,
+  preserveDrawingBuffer: SCENE_EDIT,   // нужен, чтобы редактор мог снять миниатюру с холста
   ...(EMBED && numberParam('minzoom') !== undefined ? { minZoom: numberParam('minzoom') } : {}),
   ...(EMBED && numberParam('maxzoom') !== undefined ? { maxZoom: numberParam('maxzoom') } : {}),
   ...(CAMERA_LIMITED ? { maxBounds: [[CAMERA_BOUNDS[0], CAMERA_BOUNDS[1]], [CAMERA_BOUNDS[2], CAMERA_BOUNDS[3]]] } : {}),
@@ -971,6 +972,13 @@ function applyScene() {
     } else if (item.type === 'text') {
       shapes.push({ type: 'Feature', properties: { c, role: 'text', t: item.text, size: item.size || 13 },
         geometry: { type: 'Point', coordinates: item.coords } });
+    } else if (item.type === 'callout') {
+      sceneMarkers.push(addCallout(item, SCENE_EDIT ? {
+        selected: item.id === editor.selectedId,
+        onSelect: () => editor.select(item.id),
+        onMove: (point) => editor.patch(item.id, { coords: point }),
+        onOffset: (offset) => editor.patch(item.id, { offset }),
+      } : {}));
     } else if (item.type === 'marker') {
       sceneMarkers.push(addMarker(item, null, SCENE_EDIT ? {
         selected: item.id === editor.selectedId,
@@ -1274,7 +1282,7 @@ const editor = {
     this.handles.forEach((h) => h.remove());
     this.handles = [];
     const feature = this.features.find((f) => f.id === this.selectedId);
-    if (!feature || feature.type === 'marker' || feature.type === 'region') return;
+    if (!feature || ['marker', 'region', 'callout'].includes(feature.type) || feature.smooth) return;
 
     const make = (lngLat, onMove, extra = '') => {
       const el = document.createElement('div');
@@ -1377,6 +1385,8 @@ const editor = {
 
     if (this.tool === 'marker') return this.add({ type: 'marker', coords: point, label: 'Метка', color: 'red' });
     if (this.tool === 'text') return this.add({ type: 'text', coords: point, text: 'Текст', color: 'grey', size: 14 });
+    if (this.tool === 'callout') return this.add({ type: 'callout', coords: point, text: 'Выноска', offset: [70, -50], color: 'grey' });
+    if (this.tool === 'freehand') return;   // рисуется протяжкой, клик ничего не делает
 
     if (this.tool === 'region') {
       const hit = map.queryRenderedFeatures(e.point, { layers: ['adm1-fill'] })[0];
@@ -1445,8 +1455,29 @@ if (SCENE_EDIT) {
   });
   map.on('mousemove', (e) => {
     if (!editor.draft) return;
+    if (editor.draft.type === 'freehand') {
+      // протяжка: новая точка, когда курсор ушёл от последней хотя бы на 3 пикселя
+      const last = map.project(editor.draft.coords[editor.draft.coords.length - 1]);
+      if (Math.hypot(e.point.x - last.x, e.point.y - last.y) >= 3) {
+        editor.draft.coords.push([e.lngLat.lng, e.lngLat.lat]);
+        editor.drawDraft();
+      }
+      return;
+    }
     editor.draft.cursor = [e.lngLat.lng, e.lngLat.lat];
     editor.drawDraft();
+  });
+  map.on('mousedown', (e) => {
+    if (editor.tool !== 'freehand') return;
+    e.preventDefault();
+    editor.draft = { type: 'freehand', coords: [[e.lngLat.lng, e.lngLat.lat]] };
+  });
+  map.on('mouseup', () => {
+    if (!editor.draft || editor.draft.type !== 'freehand') return;
+    const coords = simplifyPath(editor.draft.coords);
+    editor.draft = null;
+    editor.drawDraft();
+    if (coords.length >= 2) editor.add({ type: 'line', smooth: true, coords, color: 'red', width: 3 });
   });
   map.getCanvas().addEventListener('keydown', () => {});
   window.addEventListener('keydown', (e) => {
@@ -1477,6 +1508,7 @@ if (SCENE_EDIT) {
       editor.draft = null;
       editor.drawDraft();
       map.getCanvas().style.cursor = editor.tool === 'select' ? '' : 'crosshair';
+      map.dragPan[editor.tool === 'freehand' ? 'disable' : 'enable']();
       map.doubleClickZoom[['line', 'arrow', 'polygon'].includes(editor.tool) ? 'disable' : 'enable']();
     } else if (d.type === 'aether-scene-select') {
       editor.select(d.id || null);
@@ -1486,6 +1518,8 @@ if (SCENE_EDIT) {
       editor.remove(d.id);
     } else if (d.type === 'aether-scene-camera') {
       reportCamera();
+    } else if (d.type === 'aether-scene-capture') {
+      captureThumbnail();
     } else if (d.type === 'aether-scene-undo') {
       editor.undo();
     } else if (d.type === 'aether-scene-redo') {
@@ -1605,9 +1639,10 @@ function drawPen() {
     if (item.type === 'line' || item.type === 'arrow') {
       const pts = item.coords.map(project);
       first = pts[0];
-      const d = penPath(pts, false, seed);
+      // линия от руки (smooth) уже неровная сама: без искусственных изгибов и второго прохода
+      const d = item.smooth ? penSmooth(pts) : penPath(pts, false, seed);
       parts.push(`<path d="${d}" stroke="${color}" stroke-width="${width}"${dash}/>`);
-      parts.push(`<path d="${penPath(pts, false, seed + 50)}" stroke="${color}" stroke-width="${(width * 0.5).toFixed(2)}" opacity="0.55"${dash}/>`);
+      if (!item.smooth) parts.push(`<path d="${penPath(pts, false, seed + 50)}" stroke="${color}" stroke-width="${(width * 0.5).toFixed(2)}" opacity="0.55"${dash}/>`);
       if (item.type === 'arrow') {
         const head = penHead(pts[pts.length - 2], pts[pts.length - 1]);
         parts.push(`<path d="${head}" stroke="${color}" stroke-width="${width}"/>`);
@@ -1757,4 +1792,146 @@ if (!EMBED && !EDIT_MODE && !PICK_MODE && typeof SCENES_URL !== 'undefined') {
       document.body.appendChild(panel);
     })
     .catch(() => {});
+}
+
+
+// Свободная линия: точки протяжки упрощаются (Дуглас-Пекер в пикселях), чтобы их осталось не больше 200
+function simplifyPath(coords) {
+  const pts = coords.map((c) => { const p = map.project(c); return { x: p.x, y: p.y, c }; });
+  const dist = (p, a, b) => {
+    const dx = b.x - a.x; const dy = b.y - a.y;
+    const len = dx * dx + dy * dy || 1;
+    const t = Math.max(0, Math.min(1, ((p.x - a.x) * dx + (p.y - a.y) * dy) / len));
+    return Math.hypot(p.x - (a.x + t * dx), p.y - (a.y + t * dy));
+  };
+  const run = (tol) => {
+    const keep = new Array(pts.length).fill(false);
+    keep[0] = keep[pts.length - 1] = true;
+    const stack = [[0, pts.length - 1]];
+    while (stack.length) {
+      const [lo, hi] = stack.pop();
+      let far = -1; let farDist = tol;
+      for (let i = lo + 1; i < hi; i += 1) {
+        const d = dist(pts[i], pts[lo], pts[hi]);
+        if (d > farDist) { far = i; farDist = d; }
+      }
+      if (far >= 0) { keep[far] = true; stack.push([lo, far], [far, hi]); }
+    }
+    return pts.filter((_, i) => keep[i]).map((p) => [Number(p.c[0].toFixed(5)), Number(p.c[1].toFixed(5))]);
+  };
+  let tol = 1.5;
+  let out = run(tol);
+  while (out.length > 200 && tol < 40) { tol *= 1.5; out = run(tol); }
+  return out;
+}
+
+// Миниатюра сцены для списка в админке: холст карты уменьшается до 360 px, метки и выноски дорисовываются точками
+function captureThumbnail() {
+  map.triggerRepaint();
+  map.once('render', () => {
+    const src = map.getCanvas();
+    const box = map.getContainer();
+    const width = 360;
+    const height = Math.max(60, Math.round((width * box.clientHeight) / box.clientWidth));
+    const canvas = document.createElement('canvas');
+    canvas.width = width;
+    canvas.height = height;
+    const ctx = canvas.getContext('2d');
+    ctx.drawImage(src, 0, 0, width, height);
+    const k = width / box.clientWidth;
+    for (const item of sceneFeatures) {
+      if (!['marker', 'callout', 'text'].includes(item.type)) continue;
+      const p = map.project(item.coords);
+      ctx.fillStyle = markColor(item.color, '#ff5a5f');
+      ctx.strokeStyle = '#fff';
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.arc(p.x * k, p.y * k, item.type === 'marker' ? 5 : 3, 0, Math.PI * 2);
+      ctx.fill();
+      if (item.type === 'marker') ctx.stroke();
+    }
+    let data = '';
+    try { data = canvas.toDataURL('image/jpeg', 0.72); } catch (error) { data = ''; }   // холст мог «испачкаться» чужими тайлами
+    window.parent.postMessage({ type: 'aether-scene-thumb', data }, window.location.origin);
+  });
+}
+
+// Выноска: плашка с текстом и линия к месту. Смещение плашки задаёт offset в пикселях,
+// поэтому при зуме она остаётся рядом с местом, а не уезжает.
+function addCallout(item, opts = {}) {
+  const [dx0, dy0] = item.offset || [70, -50];
+  let dx = dx0;
+  let dy = dy0;
+  const el = document.createElement('div');
+  el.className = 'callout';
+  if (markPalette[item.color]) el.style.setProperty('--mc', markPalette[item.color]);
+  if (opts.selected) el.classList.add('is-selected');
+
+  const ns = 'http://www.w3.org/2000/svg';
+  const svg = document.createElementNS(ns, 'svg');
+  svg.setAttribute('class', 'callout-line');
+  svg.setAttribute('width', '1');
+  svg.setAttribute('height', '1');
+  const line = document.createElementNS(ns, 'line');
+  line.setAttribute('x1', '0');
+  line.setAttribute('y1', '0');
+  const dot = document.createElementNS(ns, 'circle');
+  dot.setAttribute('r', '3.2');
+  svg.append(line, dot);
+
+  const box = document.createElement('div');
+  box.className = 'callout-box';
+  box.textContent = item.text;
+
+  const place = () => {
+    line.setAttribute('x2', String(dx));
+    line.setAttribute('y2', String(dy));
+    box.style.left = `${dx}px`;
+    box.style.top = `${dy}px`;
+  };
+  place();
+  el.append(svg, box);
+
+  if (opts.onOffset) {
+    // правка: плашку можно тянуть, клик выбирает выноску
+    box.classList.add('callout-edit');
+    box.addEventListener('pointerdown', (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      opts.onSelect();
+      const start = { x: event.clientX, y: event.clientY, dx, dy };
+      const move = (e) => { dx = Math.round(start.dx + e.clientX - start.x); dy = Math.round(start.dy + e.clientY - start.y); place(); };
+      const up = () => {
+        window.removeEventListener('pointermove', move);
+        window.removeEventListener('pointerup', up);
+        if (dx !== start.dx || dy !== start.dy) opts.onOffset([dx, dy]);
+      };
+      window.addEventListener('pointermove', move);
+      window.addEventListener('pointerup', up);
+    });
+    // точку выноски двигает маркер карты
+  } else if (item.url) {
+    box.classList.add('callout-link');
+    box.addEventListener('click', (event) => { event.stopPropagation(); postLink(item.url, item.text); });
+  }
+
+  const marker = new maplibregl.Marker({ element: el, anchor: 'center', draggable: !!opts.onMove })
+    .setLngLat(item.coords)
+    .addTo(map);
+  if (opts.onMove) marker.on('dragend', () => { const p = marker.getLngLat(); opts.onMove([p.lng, p.lat]); });
+  return marker;
+}
+
+
+// Гладкая линия через точки (квадратичные кривые по серединам отрезков)
+function penSmooth(points) {
+  if (points.length < 3) return penPath(points, false, 0);
+  let d = `M${points[0].x.toFixed(1)} ${points[0].y.toFixed(1)}`;
+  for (let i = 1; i < points.length - 1; i += 1) {
+    const mx = (points[i].x + points[i + 1].x) / 2;
+    const my = (points[i].y + points[i + 1].y) / 2;
+    d += ` Q${points[i].x.toFixed(1)} ${points[i].y.toFixed(1)} ${mx.toFixed(1)} ${my.toFixed(1)}`;
+  }
+  const last = points[points.length - 1];
+  return `${d} L${last.x.toFixed(1)} ${last.y.toFixed(1)}`;
 }

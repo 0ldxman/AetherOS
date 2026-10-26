@@ -309,11 +309,12 @@ class MapSceneAdmin(admin.ModelAdmin):
     # рисование пометок: карта в iframe рядом с формой (map/templates/admin/map/mapscene/change_form.html)
     change_form_template = "admin/map/mapscene/change_form.html"
 
-    list_display = ("title", "slug", "base_date", "mode", "flat", "updated_at")
+    list_display = ("preview", "title", "slug", "base_date", "mode", "flat", "updated_at")
+    list_display_links = ("preview", "title")
     search_fields = ("title", "slug")
     prepopulated_fields = {"slug": ("title",)}
     fieldsets = (
-        (None, {"fields": ("title", "slug", "base_date", "mode", "key_condition")}),
+        (None, {"fields": ("title", "slug", "base_date", "mode", "key_condition", "thumbnail")}),
         ("Камера", {"fields": ("lat", "lon", "zoom", "flat", "bounds", "min_zoom", "max_zoom")}),
         ("Пометки (JSON; рисуются в редакторе ниже)", {"fields": ("features",), "classes": ("collapse",)}),
     )
@@ -331,6 +332,12 @@ class MapSceneAdmin(admin.ModelAdmin):
         context["keys"] = [k["slug"] for k in keys]
         context["keys_info"] = keys
         return super().render_change_form(request, context, *args, **kwargs)
+
+    @admin.display(description="Вид")
+    def preview(self, scene):
+        if not scene.thumbnail:
+            return "—"
+        return format_html('<img src="{}" alt="" style="height:64px;width:auto;border:1px solid #ccc">', scene.thumbnail)
 
     def save_model(self, request, obj, form, change):
         super().save_model(request, obj, form, change)

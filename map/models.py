@@ -161,6 +161,10 @@ class MapScene(models.Model):
     flat = models.BooleanField("Плоская карта", default=False, help_text="2D вместо глобуса.")
 
     features = models.JSONField("Пометки", default=list, blank=True)
+    thumbnail = models.TextField(
+        "Миниатюра", blank=True,
+        help_text="Картинка-превью для списка (data:image/jpeg), снимается редактором при сохранении.",
+    )
     key_condition = models.JSONField("Условие по ключам", null=True, blank=True)
 
     created_at = models.DateTimeField(auto_now_add=True)
@@ -182,6 +186,10 @@ class MapScene(models.Model):
         from .scenes import clean_features
 
         self.features = clean_features(self.features)
+        if self.thumbnail and not (
+            self.thumbnail.startswith("data:image/jpeg;base64,") and len(self.thumbnail) <= 120_000
+        ):
+            raise ValidationError({"thumbnail": "Миниатюра это data:image/jpeg;base64 не больше 120 КБ."})
         validate_requirements(self.key_condition)
         if self.bounds is not None:
             ok = (

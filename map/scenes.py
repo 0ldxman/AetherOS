@@ -3,11 +3,14 @@
 Сцена это ссылка на базовую карту (дата мира) плюс список пометок. Пометка словарь:
 
     marker   coords [lon, lat]                      label, color, icon, url, key
-    line     coords [[lon, lat], ...] (от 2)        label, color, width, dash, url, key
+    line     coords [[lon, lat], ...] (от 2)        label, color, width, dash, smooth, url, key
+             (smooth: линия, нарисованная от руки, без вершин для правки)
     arrow    как line, на конце наконечник
     polygon  coords [[lon, lat], ...] (от 3)        label, color, fill, url, key
     circle   coords [lon, lat], radius_km           label, color, fill, url, key
     text     coords [lon, lat], text                color, size, key
+    callout  coords [lon, lat] (место), text        color, offset [dx, dy] в пикселях, url, key
+             выноска: плашка с текстом, от неё линия к месту
     region   token (POL, RUS-32)            label, color, url, key
 
 from, to  необязательные даты (ГГГГ-ММ-ДД): пометка видна только на дату сцены внутри этого промежутка.
@@ -25,7 +28,7 @@ from secure.access import satisfied, validate_requirements
 from .icons import ICON_NAMES
 from wiki.markup.expr import SpoilerSyntaxError, parse_expr
 
-FEATURE_TYPES = ("marker", "line", "arrow", "polygon", "circle", "text", "region")
+FEATURE_TYPES = ("marker", "line", "arrow", "polygon", "circle", "text", "callout", "region")
 COLORS = ("red", "blue", "green", "orange", "purple", "yellow", "teal", "grey")
 MAX_FEATURES = 400
 MAX_POINTS = 500
@@ -77,7 +80,7 @@ def clean_features(raw):
         kind = item["type"]
         clean = {"type": kind}
 
-        if kind in ("marker", "circle", "text"):
+        if kind in ("marker", "circle", "text", "callout"):
             clean["coords"] = _point(item.get("coords"), where)
         elif kind in ("line", "arrow", "polygon"):
             points = item.get("coords")
@@ -99,11 +102,17 @@ def clean_features(raw):
             if not 0 < radius <= 20000:
                 raise ValidationError(f"{where}: radius_km от 0 до 20000.")
             clean["radius_km"] = radius
-        if kind == "text":
+        if kind in ("text", "callout"):
             text = str(item.get("text") or "").strip()[:TEXT_LIMIT]
             if not text:
-                raise ValidationError(f"{where}: у текста нужен text.")
+                raise ValidationError(f"{where}: у текста и выноски нужен text.")
             clean["text"] = text
+        if kind == "callout":
+            try:
+                dx, dy = (float(v) for v in (item.get("offset") or [70, -50]))
+            except (TypeError, ValueError):
+                raise ValidationError(f"{where}: offset это [dx, dy] в пикселях.")
+            clean["offset"] = [max(-500, min(500, round(dx))), max(-500, min(500, round(dy)))]
 
         color = item.get("color")
         if color:
@@ -114,7 +123,7 @@ def clean_features(raw):
             if item["icon"] not in ICON_NAMES:
                 raise ValidationError(f"{where}: значок один из {', '.join(ICON_NAMES)}.")
             clean["icon"] = item["icon"]
-        if item.get("label") and kind != "text":
+        if item.get("label") and kind not in ("text", "callout"):
             clean["label"] = str(item["label"]).strip()[:TEXT_LIMIT]
         if item.get("url"):
             clean["url"] = str(item["url"]).strip()[:300]
@@ -123,6 +132,8 @@ def clean_features(raw):
                 clean["width"] = max(1, min(8, float(item["width"])))
             if item.get("dash"):
                 clean["dash"] = True
+            if item.get("smooth"):
+                clean["smooth"] = True
         if kind in ("polygon", "circle") and "fill" in item:
             clean["fill"] = bool(item["fill"])
         if kind == "text" and item.get("size"):
