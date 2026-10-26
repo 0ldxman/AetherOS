@@ -37,10 +37,11 @@ class BlocksTests(TestCase):
     def test_empty_gallery_renders_nothing(self):
         self.assertNotIn("widget--gallery", render("::gallery\n\n::\n"))
 
-    def test_files_group_reuses_the_file_widget(self):
+    def test_files_group_is_one_frame_with_rows(self):
         html = render('::files title="Приложения"\nrep-1 | Отчёт\n::\n')
         self.assertIn("widget--files", html)
-        self.assertIn("widget--file", html)
+        self.assertEqual(html.count('class="files-row"'), 1)
+        self.assertIn("files-head", html)
         self.assertIn("Приложения", html)
         self.assertIn("Отчёт", html)
 

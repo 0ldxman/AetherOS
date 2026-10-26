@@ -608,20 +608,52 @@ def files(text, ctx, args=""):
     photos-zip | Фотографии
     ::
 
-    Каждая строка выглядит как ::file в стиле документа.
+    Одна цельная рамка с шапкой и строками; цвета и шрифты берёт у стиля документа.
     """
     head = _head_args(args)
     rows = _src_lines(text, MAX_FILES)
     if not rows:
         return ""
 
-    items = "".join(
-        _asset_widget({"src": src, "label": label}, ctx, "file") for src, label in rows
+    items = "".join(_files_row(src, label, ctx) for src, label in rows)
+    title = ctx.inline(head["title"]) if head.get("title") else "Приложения"
+    return (
+        '<div class="widget widget--files">'
+        f'<div class="files-head"><span class="files-title">{title}</span>'
+        f'<span class="files-count">{len(rows)}</span></div>{items}</div>\n'
     )
-    title = ""
-    if head.get("title"):
-        title = f'<div class="files-title">{ctx.inline(head["title"])}</div>'
-    return f'<div class="widget widget--files">{title}{items}</div>\n'
+
+
+def _files_row(src, label, ctx):
+    """Строка группы файлов: [PDF] название ..... размер  Открыть."""
+    found = find_asset(src)
+    urls = _asset_urls(found) if found is not None else (None, None)
+    if found is None or urls[0] is None:
+        return (
+            '<div class="files-row files-row--missing">'
+            '<span class="files-tag">?</span>'
+            f'<span class="files-name">{escape(src)}</span>'
+            '<span class="files-dots"></span><span class="files-size">ASSET NOT FOUND</span></div>'
+        )
+    content, viewer = urls
+    source_name = getattr(found, "filename", None) or found.name or ""
+    ext = PurePosixPath(str(source_name)).suffix.lstrip(".").upper() or "FILE"
+    name = ctx.inline(label or found.filename or found.name)
+    size = _human_size(found.size)
+    size_html = f'<span class="files-size">{size}</span>' if size else ""
+    open_html = ""
+    if viewer:
+        v = escape(viewer, quote=True)
+        open_html = (
+            f'<a class="files-open" href="{v}" data-asset-viewer="{v}" '
+            f'data-asset-title="{escape(found.name, quote=True)}">Открыть</a>'
+        )
+    return (
+        '<div class="files-row">'
+        f'<span class="files-tag">{escape(ext[:5])}</span>'
+        f'<a class="files-name" href="{escape(content, quote=True)}" download>{name}</a>'
+        f'<span class="files-dots"></span>{size_html}{open_html}</div>'
+    )
 
 
 @widget("map", positional="caption")
@@ -657,7 +689,8 @@ def map_widget(params, ctx):
         "</div></div>"
     )
     figure = _asset_figure("map", inner, {**params, "width": params.get("width", "100")}, ctx)
-    return figure
+    # подпись и рамка у карты те же, что у картинки документа
+    return figure.replace("widget widget--map", "widget widget--map widget--image", 1)
 
 
 @widget("divider", positional="label", line=True)
