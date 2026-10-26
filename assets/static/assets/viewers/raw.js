@@ -13,6 +13,15 @@
 
     const contentUrl = root.dataset.rawUrl;
 
+    // formats of this game (admin: file formats): [{name, bytes} | {name, prefix}]
+    let customFormats = [];
+
+    try {
+        customFormats = JSON.parse(root.dataset.rawFormats || "[]");
+    } catch (error) {
+        customFormats = [];
+    }
+
     const PAGE_SIZE = 256;
     // HEX bytes are visually grouped; keep in sync with raw.css.
     const GROUP_SIZE = 8;
@@ -136,12 +145,6 @@
         { name: "MP3 audio", bytes: [0xFF, 0xF3] },
         { name: "MP3 audio", bytes: [0xFF, 0xF2] },
         { name: "MIDI audio", bytes: ascii("MThd") },
-
-        // Aether formats (the text ones, SNP and REC, are recognised in detectText)
-        { name: "Aether SCAN (image + OCR text)", bytes: [0x9E, ...ascii("SCAN"), 0x0D, 0x0A, 0x1B] },
-        { name: "Aether DOC (package of parts)", bytes: [0xD0, 0x0C, ...ascii("DOC"), 0x00] },
-        { name: "Aether PAK (archive)", bytes: [0x8F, ...ascii("PAK"), 0x0D, 0x0A, 0x1A, 0x00] },
-        { name: "Aether APP (application descriptor)", bytes: [0x9B, ...ascii("APP"), 0x0D, 0x0A, 0x1A, 0x00] },
 
         // Documents / keys
         { name: "PDF document", bytes: ascii("%PDF-") },
@@ -290,12 +293,11 @@
 
         const head = text.trimStart();
 
-        if (/^<!--SNP\b/.test(head)) {
-            return "Aether SNP (page snapshot)";
-        }
-
-        if (/^\u00a7rec\b/.test(head)) {
-            return "Aether REC (record)";
+        // text formats from the registry (admin: file formats): the start of their template
+        for (const format of customFormats) {
+            if (format.prefix && head.startsWith(format.prefix)) {
+                return format.name;
+            }
         }
 
         if (looksLikeJson(head)) {
@@ -333,6 +335,13 @@
     function detectSignature(data, wholeFile) {
         if (data.length === 0) {
             return "Empty file";
+        }
+
+        // binary formats from the registry come first: they are specific to this game
+        for (const format of customFormats) {
+            if (format.bytes && matchesSignature(data, { bytes: format.bytes })) {
+                return format.name;
+            }
         }
 
         for (const signature of signatures) {

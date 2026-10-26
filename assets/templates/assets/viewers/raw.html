@@ -13,6 +13,7 @@
     data-raw-url="{{ content_url|escape }}"
     data-raw-name="{{ asset.name|escape }}"
     data-raw-id="{{ asset.public_id|escape }}"
+    data-raw-formats="{{ formats_json }}"
 {% endblock %}
 
 {% block viewer_tag %}[RAW]{% endblock %}

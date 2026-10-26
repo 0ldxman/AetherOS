@@ -13,7 +13,7 @@ DIRECTORY_SIZE = 4096
 CACHE_SECONDS = 300
 
 
-def file_size(machine_file, session_state="", keys=frozenset()):
+def file_size(machine_file, session_state="", keys=frozenset(), viewer=None):
     """Размер файла в байтах."""
     if machine_file.file_type == "DIRECTORY":
         return DIRECTORY_SIZE
@@ -22,14 +22,14 @@ def file_size(machine_file, session_state="", keys=frozenset()):
     if machine_file.size is not None and not layered:
         return machine_file.size
 
-    payload = resolve_payload(machine_file, keys)
+    payload = resolve_payload(machine_file, keys, viewer=viewer)
     if payload.kind == "asset" and payload.size is not None and not layered:
         return payload.size                        # ассет без слоёв: настоящий размер, без похода в Nextcloud
 
     key = f"rawsize:{machine_file.pk}:{machine_file.updated_at.timestamp()}:{hash(session_state)}:{payload.stamp}"
     size = cache.get(key)
     if size is None:
-        size = build_raw(machine_file, session_state, keys).size
+        size = build_raw(machine_file, session_state, keys, viewer=viewer).size
         cache.set(key, size, CACHE_SECONDS)
     return size
 

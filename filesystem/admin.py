@@ -1,9 +1,12 @@
 from django.contrib import admin
 from django.db.models import Count
 
-from .forms import MachineFileForm
+from .forms import FileEncodingForm, FileFormatForm, FormatPartFormSet, MachineFileForm
 from .models import (
+    FileEncoding,
+    FileFormat,
     FileKey,
+    FormatPart,
     MachineFile,
     ProtectedPath,
     SessionFile,
@@ -241,4 +244,28 @@ class ProtectedPathAdmin(admin.ModelAdmin):
     list_filter = ("machine",)
     search_fields = ("path",)
     autocomplete_fields = ("machine",)
+
+
+class FormatPartInline(admin.TabularInline):
+    model = FormatPart
+    formset = FormatPartFormSet
+    extra = 0
+    fields = ("order", "name", "source", "value")
+
+
+@admin.register(FileFormat)
+class FileFormatAdmin(admin.ModelAdmin):
+    form = FileFormatForm
+    inlines = (FormatPartInline,)
+    list_display = ("name", "title", "extension", "kind", "magic")
+    list_filter = ("kind",)
+    search_fields = ("name", "title", "extension")
+
+
+@admin.register(FileEncoding)
+class FileEncodingAdmin(admin.ModelAdmin):
+    form = FileEncodingForm
+    list_display = ("name", "title", "kind", "param")
+    list_filter = ("kind",)
+    search_fields = ("name", "title")
 

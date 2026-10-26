@@ -241,3 +241,107 @@ class ProtectedPath(models.Model):
         self.path = text
         super().save(*args, **kwargs)
 
+
+class FileFormat(models.Model):
+    """Формат файла: как выглядят его первые байты и устройство. Из этого строятся сырые байты файла (blk, txtx, вьювер raw)
+    и ответы cvt. Игрок называет формат в cvt по имени.
+
+    Виды устройства:
+        signature  сигнатура (magic) и дальше тело как есть: обычные форматы (pdf, png...);
+        text       текстовый шаблон с подстановками {body}, {who}...: форматы, которые читаются как текст;
+        chunks     сигнатура и блоки «длина, метка, данные» (как PNG): части задаются ниже;
+        package    сигнатура, число частей и таблица частей (имя, смещение, размер), затем сами части.
+    """
+
+    class Kind(models.TextChoices):
+        SIGNATURE = "signature", "Сигнатура и тело"
+        TEXT = "text", "Текстовый шаблон"
+        CHUNKS = "chunks", "Блоки с метками"
+        PACKAGE = "package", "Пакет частей с таблицей"
+
+    name = models.SlugField(
+        max_length=32,
+        unique=True,
+        help_text="Как игрок называет формат в cvt: строчными буквами (scan, doc, pdf).",
+    )
+    title = models.CharField(max_length=128, blank=True, help_text="Подпись для админки и вьювера: Aether SCAN (картинка + OCR).")
+    extension = models.CharField(max_length=16, blank=True, help_text="Расширение имени файла: .scan")
+    kind = models.CharField(max_length=16, choices=Kind.choices, default=Kind.SIGNATURE)
+    magic = models.TextField(
+        blank=True,
+        help_text="Первые байты в hex через пробел: 9e 53 43 41 4e 0d 0a 1b. Для текстового шаблона не нужны (сигнатура это начало шаблона).",
+    )
+    template = models.TextField(
+        blank=True,
+        help_text=(
+            "Только для вида «текстовый шаблон». Подстановки: {body} текст, {body_html} текст абзацами HTML, {who}, {when}, "
+            "{ref}, {src}, {at}, {title}, {hash}, {sender}, {recipients}, {subject}, {date}, {id}. Фигурные скобки самого "
+            "текста удваиваются: {{ }}."
+        ),
+    )
+
+    class Meta:
+        ordering = ("name",)
+        verbose_name = "Формат файла"
+        verbose_name_plural = "Форматы файлов"
+
+    def __str__(self):
+        return self.name
+
+
+class FormatPart(models.Model):
+    """Часть формата с блоками или пакетом: имя (метка), откуда берётся её содержимое."""
+
+    class Source(models.TextChoices):
+        BODY = "body", "Текст источника (запись вики, письмо...)"
+        IMAGE = "image", "Картинка источника (у ассета настоящая, иначе шум)"
+        TEMPLATE = "template", "Текст-шаблон"
+        HEX = "hex", "Постоянные байты (hex)"
+        NOISE = "noise", "Шум (длина в значении)"
+        CONFIDENCE = "confidence", "Байт уверенности (70-99)"
+
+    format = models.ForeignKey(FileFormat, on_delete=models.CASCADE, related_name="parts")
+    order = models.PositiveSmallIntegerField(default=0)
+    name = models.CharField(max_length=8, help_text="Метка блока (ровно 4 символа) или имя части пакета (до 8 символов).")
+    source = models.CharField(max_length=16, choices=Source.choices, default=Source.BODY)
+    value = models.TextField(blank=True, help_text="Шаблон, hex-байты или длина шума; для остальных источников не нужно.")
+
+    class Meta:
+        ordering = ("format", "order", "id")
+        verbose_name = "Часть формата"
+        verbose_name_plural = "Части формата"
+
+    def __str__(self):
+        return f"{self.format.name}: {self.name}"
+
+
+class FileEncoding(models.Model):
+    """Кодировка слоя binary: во что завёрнут настоящий текст. Игрок называет её в cvt по имени."""
+
+    class Kind(models.TextChoices):
+        CODEC = "codec", "Кодек Python (utf-16-le, cp500...)"
+        HEX = "hex", "Байты как hex-текст"
+        ROT = "rot", "Сдвиг букв (rot13)"
+        XOR = "xor", "XOR с байтом"
+        GZIP = "gzip", "gzip"
+        MORSE = "morse", "Азбука Морзе"
+        REVERSE = "reverse", "Байты задом наперёд"
+        BASE32 = "base32", "base32"
+
+    name = models.SlugField(max_length=32, unique=True, help_text="Как игрок называет кодировку в cvt: utf16, rot13, morse.")
+    title = models.CharField(max_length=128, blank=True)
+    kind = models.CharField(max_length=16, choices=Kind.choices)
+    param = models.CharField(
+        max_length=64,
+        blank=True,
+        help_text="codec: имя кодека; hex: разделитель (по умолчанию пробел); rot: сдвиг (13); xor: байт (0x5a или 90).",
+    )
+
+    class Meta:
+        ordering = ("name",)
+        verbose_name = "Кодировка слоя binary"
+        verbose_name_plural = "Кодировки слоя binary"
+
+    def __str__(self):
+        return self.name
+

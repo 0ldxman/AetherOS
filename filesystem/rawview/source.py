@@ -9,18 +9,15 @@
 Доступ учитывается: запись вики, закрытая от игрока по ключам, отдаёт вместо тела шум той же длины.
 """
 import json
-import re
 from dataclasses import dataclass, field
 from urllib.parse import parse_qs, urlsplit
 
 READ_LIMIT = 8 * 1024 * 1024
 
-WIKI_FORMAT = {"doc": "doc", "scan": "scan", "web": "snp", "rec": "rec"}
-
 
 @dataclass
 class Payload:
-    kind: str = "none"                         # none | wiki | asset | map | app
+    kind: str = "none"                         # none | wiki | asset | map | mail | app
     body: bytes = b""                          # текст (wiki, map) или готовые байты (asset, app)
     fmt: str | None = None                     # формат, который диктует источник (тип записи вики)
     meta: dict = field(default_factory=dict)
@@ -52,10 +49,13 @@ def _wiki(parts, keys):
         return Payload()
 
     chain = document.namespace.path().replace(":", "/") + "/" if document.namespace else ""
+    from filesystem.rawview.registry import format_for_extension
+
+    found = format_for_extension(document.EXTENSIONS.get(document.type, ".doc"))   # тип записи -> расширение -> формат
     return Payload(
         kind="wiki",
         body=document.body.encode(),
-        fmt=WIKI_FORMAT.get(document.type, "doc"),
+        fmt=found.name if found else None,
         locked=not document_state(document, keys).open,
         stamp=f"wiki:{document.pk}:{document.updated_at.isoformat()}",
         meta={
@@ -98,7 +98,35 @@ def _map(query, keys):
     return Payload(kind="map", body=json.dumps(data, ensure_ascii=False, indent=1).encode(), stamp=f"map:{scene.pk}:{scene.updated_at.isoformat()}" if hasattr(scene, "updated_at") else f"map:{scene.pk}")
 
 
-def resolve_payload(machine_file, keys, reader=None):
+def _mail(parts, query, viewer):
+    """Письмо по ?message=слаг или .../api/messages/<pk>/: текст с заголовками. Не доступное читателю закрыто шумом."""
+    from mail.access import visible_messages
+    from mail.models import Message
+
+    ref = (query.get("message") or [""])[0]
+    if not ref and len(parts) >= 4 and parts[-2].isdigit():
+        ref = parts[-2]
+    message = Message.objects.filter(slug=ref).first() or (Message.objects.filter(pk=int(ref)).first() if ref.isdigit() else None)
+    if message is None:
+        return Payload()
+
+    seen = bool(viewer) and bool(visible_messages(viewer, pk=message.pk, attachments=False))
+    return Payload(
+        kind="mail",
+        body=message.body.encode(),
+        locked=not seen,
+        stamp=f"mail:{message.pk}:{message.updated_at.isoformat()}",
+        meta={
+            "sender": message.sender,
+            "recipients": ", ".join(line.strip() for line in message.recipients.splitlines() if line.strip()),
+            "subject": message.subject,
+            "date": message.sent_at.strftime("%a, %d %b %Y %H:%M:%S +0000"),
+            "id": message.slug or str(message.pk),
+        },
+    )
+
+
+def resolve_payload(machine_file, keys, reader=None, viewer=None):
     """Источник данных файла по его адресу содержимого."""
     url = (machine_file.url or "").strip().lstrip("/")
     if not url:
@@ -113,6 +141,9 @@ def resolve_payload(machine_file, keys, reader=None):
         return _wiki(parts[2:], keys) if len(parts) > 2 else Payload()
     if parts[:2] == ["apps", "map"]:
         return _map(parse_qs(parsed.query), keys)
+    if parts[:2] == ["apps", "mail"]:
+        found = _mail(parts, parse_qs(parsed.query), viewer)
+        return found if found.kind == "mail" else Payload(kind="app", stamp=f"app:{url}", meta={"path": url})
     if parts[:1] == ["apps"]:
         return Payload(kind="app", stamp=f"app:{url}", meta={"path": url})
     return Payload()

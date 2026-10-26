@@ -61,17 +61,25 @@ def _core(machine_file, payload, fmt, seed):
         if real is None:
             size = payload.size if payload.size is not None else generated_size(machine_file)
             real = noise(seed + ":asset", size)
-        if fmt in formats.AETHER_FORMATS:
-            return formats.build(fmt, b"", payload.meta, image=real, seed=seed) if fmt == "scan" else formats.build(fmt, real, payload.meta, seed=seed)
+        if fmt and formats.known(fmt):
+            if formats.has_image(fmt):
+                return formats.build(fmt, b"", payload.meta, image=real, seed=seed)
+            return formats.build(fmt, real, payload.meta, seed=seed)
         return real
 
-    if payload.kind in ("wiki", "map"):
-        body = noise(seed + ":body", len(payload.body)) if payload.locked else payload.body
-        return formats.build(fmt or "rec", body, payload.meta, seed=seed)
+    if payload.kind in ("wiki", "map", "mail"):
+        wanted = fmt or payload.fmt or ("msg" if payload.kind == "mail" else "rec")
+        data = formats.build(wanted, payload.body, payload.meta, seed=seed)
+        if payload.locked:
+            # доступа нет: место, где лежит тело, закрывается шумом той же длины, остальное (заголовки формата) как есть
+            for variant in formats.variants(payload.body):
+                data = data.replace(variant, noise(seed + ":body", len(variant)))
+        return data
 
     if payload.kind == "app":
         text = f"path: {payload.meta['path']}\n".encode()
-        return formats.APP_MAGIC + text + noise(seed + ":app", max(0, 256 - len(formats.APP_MAGIC) - len(text)))
+        head = formats.magic("app")
+        return head + text + noise(seed + ":app", max(0, 256 - len(head) - len(text)))
 
     body = noise(seed, generated_size(machine_file))
     return formats.build(fmt, body, {}, seed=seed) if fmt and formats.known(fmt) else body
@@ -87,10 +95,10 @@ def _damage(data, seed):
     return bytes(out)
 
 
-def build_raw(machine_file, session_state="", keys=frozenset(), reader=None):
+def build_raw(machine_file, session_state="", keys=frozenset(), reader=None, viewer=None):
     """Байты файла для игрока с этими ключами и этим прогрессом по слоям."""
     seed = f"{machine_file.machine.hostname}:{machine_file.path}"
-    payload = resolve_payload(machine_file, keys, reader)
+    payload = resolve_payload(machine_file, keys, reader, viewer)
     stack = layers_of(machine_file, session_state)
 
     # слой disguised главнее: он говорит, в какую упаковку завёрнуто содержимое
@@ -108,7 +116,7 @@ def build_raw(machine_file, session_state="", keys=frozenset(), reader=None):
         elif name == "encrypted":
             data = noise(seed + ":enc", len(data))
         elif name == "archive":
-            data = formats.PAK_MAGIC + noise(seed + ":pak", len(data))
+            data = formats.magic("pak") + noise(seed + ":pak", len(data))
         elif name in ("damaged", "corrupted"):
             data = _damage(data, seed)
         elif name == "shifted":

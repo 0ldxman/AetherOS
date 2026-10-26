@@ -1,93 +1,104 @@
-"""Форматы файлов: настоящие (по сигнатуре) и свои у Aether (scan, doc, snp, rec).
-
-Свои форматы устроены по-разному, как у разных авторов:
-    scan  блоки с метками (IMG, OCR, CONF): картинка и распознанный текст;
-    doc   пакет частей с таблицей в начале (body, style, meta);
-    snp   «слепок сайта»: HTML, который начинается комментарием-пометкой <!--SNP;
-    rec   текст с пометкой §rec и блоком полей.
-"""
+"""Построение файла по формату из реестра (registry.py): сигнатура, блоки, пакет частей или текстовый шаблон."""
 import hashlib
 import html
+import string
 
+from filesystem.rawview import registry
 from filesystem.rawview.noise import noise, stable
 
-AETHER_FORMATS = ("scan", "doc", "snp", "rec")
+PLACEHOLDERS = (
+    "body", "body_html", "who", "when", "ref", "src", "at", "title", "hash", "sender", "recipients", "subject", "date", "id",
+)
 
-REAL_SIGNATURES = {
-    "pdf": b"%PDF-1.7\n%\xe2\xe3\xcf\xd3\n",
-    "png": b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR",
-    "jpg": b"\xff\xd8\xff\xe0\x00\x10JFIF\x00",
-    "gif": b"GIF89a",
-    "zip": b"PK\x03\x04",
-    "gz": b"\x1f\x8b\x08\x00",
-    "wav": b"RIFF\x24\x08\x00\x00WAVEfmt ",
-    "mp3": b"ID3\x04\x00\x00",
-}
 
-SCAN_MAGIC = b"\x9eSCAN\r\n\x1b"
-DOC_MAGIC = b"\xd0\x0cDOC\x00"
-PAK_MAGIC = b"\x8fPAK\r\n\x1a\x00"        # заголовок архива (слой archive)
-APP_MAGIC = b"\x9bAPP\r\n\x1a\x00"        # дескриптор приложения
+class _Context(dict):
+    def __missing__(self, key):
+        return ""
 
 
 def known(name):
-    return name in AETHER_FORMATS or name in REAL_SIGNATURES
+    return registry.format_named(name) is not None
 
 
-def _chunk(tag, data):
-    return len(data).to_bytes(4, "big") + tag + data
+def magic(name):
+    """Сигнатура формата (bytes) или пустые байты, если такого формата нет."""
+    fmt = registry.format_named(name)
+    return fmt.magic if fmt else b""
 
 
-def _digest(body):
-    return hashlib.sha256(body).hexdigest()[:16]
+def has_image(name):
+    """Есть ли у формата часть-картинка: ассет-картинка кладётся в неё, а не в тело."""
+    fmt = registry.format_named(name)
+    return bool(fmt) and any(part.source == "image" for part in fmt.parts)
 
 
-def build(fmt, body, meta=None, image=None, seed=""):
-    """Контейнер формата fmt вокруг тела body (bytes) и полей meta. Настоящий формат (pdf, png...) это его сигнатура и тело."""
-    meta = meta or {}
+def context(body, meta):
+    """Подстановки шаблонов: тело и поля источника."""
+    text = body.decode("utf-8", "replace")
+    paragraphs = "".join(f"<p>{html.escape(p)}</p>\n" for p in text.split("\n\n") if p.strip())
+    values = _Context({key: str(value) for key, value in (meta or {}).items() if isinstance(value, (str, int, float))})
+    values.update(body=text, body_html=paragraphs, hash=hashlib.sha256(body).hexdigest()[:16])
+    values.setdefault("who", "unknown")
+    return values
 
-    if fmt == "rec":
-        head = f"§rec\nwho: {meta.get('who', 'unknown')}\nwhen: {meta.get('when', '')}\nref: {meta.get('ref', '')}\n---\n"
-        return head.encode() + body + b"\n"
 
-    if fmt == "snp":
-        text = body.decode("utf-8", "replace")
-        paragraphs = "".join(f"<p>{html.escape(p)}</p>\n" for p in text.split("\n\n") if p.strip())
-        sealed = _digest(body)
-        page = (
-            f"<!--SNP\nsrc:  {meta.get('src', '')}\nat:   {meta.get('at', '')}\nhash: {sealed}\n-->\n"
-            f"<!doctype html>\n<html><head><meta charset=\"utf-8\"><title>{html.escape(str(meta.get('title', '')))}</title>"
-            f"<style>body{{font-family:serif}}</style></head>\n<body>\n{paragraphs}"
-            f"<script>document.documentElement.dataset.snapshot=1</script>\n</body></html>\n"
-            f"<!--@hdr HTTP/1.1 200 OK\ncontent-type: text/html; charset=utf-8\n-->\n<!--@seal {sealed} -->\n"
-        )
-        return page.encode()
+def variants(body):
+    """Как тело встречается в готовом файле (как есть и абзацами HTML): их закрывает шум у недоступного игроку источника."""
+    found = []
+    for text in (body, context(body, {})["body_html"].encode()):
+        if text and text not in found:
+            found.append(text)
+    return found
 
-    if fmt == "scan":
-        picture = image if image is not None else noise(seed + ":img", max(256, min(8192, len(body) * 3)))
-        confidence = bytes([70 + stable(seed + ":conf", 0, 29)])
-        return SCAN_MAGIC + _chunk(b"IMG ", picture) + _chunk(b"OCR ", body) + _chunk(b"CONF", confidence)
 
-    if fmt == "doc":
-        parts = [
-            ("body", body),
-            ("style", b"font: serif; size: 11\n"),
-            ("meta", f"title: {meta.get('title', '')}\nwhen: {meta.get('when', '')}\n".encode()),
-        ]
-        offset = len(DOC_MAGIC) + 2 + 16 * len(parts)
+def _part(part, body, meta, image, seed):
+    if part.source == "body":
+        return body
+    if part.source == "image":
+        return image if image is not None else noise(f"{seed}:{part.name}", max(256, min(8192, len(body) * 3)))
+    if part.source == "template":
+        return string.Formatter().vformat(part.value, (), context(body, meta)).encode()
+    if part.source == "hex":
+        return bytes.fromhex(part.value)
+    if part.source == "noise":
+        return noise(f"{seed}:{part.name}", int(part.value or 0))
+    if part.source == "confidence":
+        return bytes([70 + stable(f"{seed}:conf", 0, 29)])
+    return b""
+
+
+def build(name, body, meta=None, image=None, seed=""):
+    """Файл формата name вокруг тела body (bytes) и полей meta. Незнакомый формат оставляет тело как есть."""
+    fmt = registry.format_named(name)
+    if fmt is None:
+        return body
+
+    if fmt.kind == "text":
+        return string.Formatter().vformat(fmt.template, (), context(body, meta)).encode()
+
+    if fmt.kind in ("chunks", "package"):
+        parts = [(part.name.encode("ascii", "replace"), _part(part, body, meta, image, seed)) for part in fmt.parts]
+        if fmt.kind == "chunks":
+            return fmt.magic + b"".join(len(data).to_bytes(4, "big") + tag[:4].ljust(4, b" ") + data for tag, data in parts)
+
+        offset = len(fmt.magic) + 2 + 16 * len(parts)
         table, blob = b"", b""
-        for name, data in parts:
-            table += name.encode().ljust(8, b"\0") + (offset + len(blob)).to_bytes(4, "big") + len(data).to_bytes(4, "big")
+        for tag, data in parts:
+            table += tag[:8].ljust(8, b"\0") + (offset + len(blob)).to_bytes(4, "big") + len(data).to_bytes(4, "big")
             blob += data
-        return DOC_MAGIC + len(parts).to_bytes(2, "big") + table + blob
+        return fmt.magic + len(parts).to_bytes(2, "big") + table + blob
 
-    signature = REAL_SIGNATURES.get(fmt)
-    if signature is not None:
-        return signature + body
-
-    return body
+    return fmt.magic + body
 
 
-def header(fmt, length=16):
-    """Первые байты файла формата fmt (для сообщения об ошибке cvt)."""
-    return build(fmt, b"", {})[:length]
+def header(name, length=16):
+    """Первые байты файла формата name."""
+    return build(name, b"", {})[:length]
+
+
+def prefix(name):
+    """Начало текстового формата до первой подстановки (по нему вьювер узнаёт такие файлы)."""
+    fmt = registry.format_named(name)
+    if fmt is None or fmt.kind != "text":
+        return ""
+    return fmt.template.split("{", 1)[0].replace("{{", "{")

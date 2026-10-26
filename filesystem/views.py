@@ -13,7 +13,7 @@ from django.shortcuts import render
 from django.urls import reverse
 from django.utils.http import urlencode
 
-from filesystem.rawview import build_raw_cached
+from filesystem.rawview import build_raw_cached, viewer_formats
 from machines.bridge import terminal_session
 from terminal.engine.context import TerminalContext
 from terminal.engine.filesystem import VirtualFilesystem
@@ -50,14 +50,16 @@ def raw_page(request):
     return render(
         request,
         "assets/viewers/raw.html",
-        {"asset": SimpleNamespace(name=name, public_id=identity), "content_url": content},
+        {"asset": SimpleNamespace(name=name, public_id=identity), "content_url": content, "formats_json": viewer_formats()},
     )
 
 
 def raw_content(request):
     entry = _entry(request)
     state = entry.session_file.state if entry.session_file else ""
-    data = build_raw_cached(entry.machine_file, state, player_keys(request.user))
+    from mail.access import viewer_for
+
+    data = build_raw_cached(entry.machine_file, state, player_keys(request.user), viewer=viewer_for(request))
     total = len(data)
 
     headers = {"Accept-Ranges": "bytes", "Cache-Control": "no-store", "Content-Type": "application/octet-stream"}
