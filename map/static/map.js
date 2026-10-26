@@ -107,6 +107,8 @@ const FLAT_VIEW = EMBED && SEARCH.get('flat') === '1';
 // Редактор сохранённой карты: /apps/map/?embed=1&scene_edit=1 внутри админки (инструменты и свойства у родителя)
 const SCENE_EDIT = EMBED && SEARCH.get('scene_edit') === '1';
 const PEN_SCENE = EMBED && THEME === 'scan';
+// цвет выбранного и черновика в редакторе: на светлых картах жёлтый не виден
+const SELECT_COLOR = THEME === 'maps' || THEME === 'scan' ? '#1a1a1a' : '#ffcf4d';
 // Сохранённая карта в самом приложении: /apps/map/?scene=слаг (камера, дата и пометки берутся из сцены)
 const SCENE_SLUG = !EMBED ? SEARCH.get('scene') : null;
 const SCENE_VIEW = !!SCENE_SLUG;
@@ -718,7 +720,8 @@ map.on('mousemove', (e) => {
   });
 });
 
-window.addEventListener('mousemove', (e) => {
+// pointermove, а не mousemove: при перетаскивании выноски pointerdown гасит мышиные события, и прицел замирал
+window.addEventListener('pointermove', (e) => {
   crosshair.style.setProperty('--x', `${e.clientX}px`);
   crosshair.style.setProperty('--y', `${e.clientY}px`);
   crosshair.classList.add('visible');
@@ -1572,11 +1575,11 @@ const editor = {
     if (!map.getSource('scene-draft')) {
       map.addSource('scene-draft', { type: 'geojson', data: { type: 'FeatureCollection', features: [] } });
       map.addLayer({ id: 'scene-draft-fill', type: 'fill', source: 'scene-draft', filter: ['==', ['geometry-type'], 'Polygon'],
-        paint: { 'fill-color': '#ffcf4d', 'fill-opacity': 0.2 } });
+        paint: { 'fill-color': SELECT_COLOR, 'fill-opacity': 0.2 } });
       map.addLayer({ id: 'scene-draft-line', type: 'line', source: 'scene-draft',
-        paint: { 'line-color': '#ffcf4d', 'line-width': 2, 'line-dasharray': [2, 2] } });
+        paint: { 'line-color': SELECT_COLOR, 'line-width': 2, 'line-dasharray': [2, 2] } });
       map.addLayer({ id: 'scene-draft-point', type: 'circle', source: 'scene-draft', filter: ['==', ['geometry-type'], 'Point'],
-        paint: { 'circle-radius': 4, 'circle-color': '#ffcf4d' } });
+        paint: { 'circle-radius': 4, 'circle-color': SELECT_COLOR } });
     }
     const out = [];
     const d = this.draft;
@@ -2255,20 +2258,24 @@ function addCallout(item, opts = {}) {
   box.textContent = item.text;
 
   const seed = Math.abs(Math.round(item.coords[0] * 31 + item.coords[1] * 17)) % 997;
+  let half = [0, 0];                 // половина размера плашки: читается раз, а не на каждый кадр перетаскивания
+  const measure = () => { half = [box.offsetWidth / 2 + 1, box.offsetHeight / 2 + 1]; };
+  let anchorDrawn = false;
   const place = () => {
     box.style.left = `${dx}px`;
     box.style.top = `${dy}px`;
     // линия кончается у края плашки, а не уходит под неё
-    const hw = box.offsetWidth / 2 + 1;
-    const hh = box.offsetHeight / 2 + 1;
-    const k = Math.min(hw / (Math.abs(dx) || 1e-6), hh / (Math.abs(dy) || 1e-6));
+    const k = Math.min(half[0] / (Math.abs(dx) || 1e-6), half[1] / (Math.abs(dy) || 1e-6));
     const ex = k < 1 ? dx - dx * k : dx;
     const ey = k < 1 ? dy - dy * k : dy;
     if (THEME === 'scan') {
       line.setAttribute('d', penStroke({ x: 0, y: 0 }, { x: ex, y: ey }, seed));
-      const ring = [];
-      for (let i = 0; i <= 12; i += 1) ring.push({ x: Math.cos((i / 12) * Math.PI * 2) * 3.6, y: Math.sin((i / 12) * Math.PI * 2) * 3.6 });
-      dot.setAttribute('d', penLoop(ring, seed + 5).main);
+      if (!anchorDrawn) {
+        anchorDrawn = true;      // кружок у места не двигается при перетаскивании плашки
+        const ring = [];
+        for (let i = 0; i <= 12; i += 1) ring.push({ x: Math.cos((i / 12) * Math.PI * 2) * 3.6, y: Math.sin((i / 12) * Math.PI * 2) * 3.6 });
+        dot.setAttribute('d', penLoop(ring, seed + 5).main);
+      }
     } else if (THEME === 'maps') {
       // как у окна на онлайн-картах: плашка с острым хвостиком к точке
       const len = Math.hypot(ex, ey) || 1;
@@ -2285,21 +2292,37 @@ function addCallout(item, opts = {}) {
   el.append(svg, box);
 
   if (opts.onOffset) {
-    // правка: плашку можно тянуть, клик выбирает выноску
+    // правка: плашку можно тянуть, клик выбирает выноску. Указатель захватывается плашкой, поэтому она
+    // следует за ним, даже когда он вне её; перерисовка раз в кадр
     box.classList.add('callout-edit');
     box.addEventListener('pointerdown', (event) => {
       event.preventDefault();
       event.stopPropagation();
-      opts.onSelect();
+      // выбор перерисовывает сцену и заменяет плашку новым элементом, поэтому выбираем после перетаскивания:
+      // раньше плашка выбиралась сразу, перетаскивался уже убранный элемент и ничего не двигалось до отпускания
+      measure();
+      try { box.setPointerCapture(event.pointerId); } catch (error) { /* без захвата работают слушатели окна */ }
+      box.classList.add('is-dragging');
       const start = { x: event.clientX, y: event.clientY, dx, dy };
-      const move = (e) => { dx = Math.round(start.dx + e.clientX - start.x); dy = Math.round(start.dy + e.clientY - start.y); place(); };
+      let frame = 0;
+      const move = (e) => {
+        dx = Math.round(start.dx + e.clientX - start.x);
+        dy = Math.round(start.dy + e.clientY - start.y);
+        if (!frame) frame = requestAnimationFrame(() => { frame = 0; place(); });
+      };
       const up = () => {
         window.removeEventListener('pointermove', move);
         window.removeEventListener('pointerup', up);
+        window.removeEventListener('pointercancel', up);
+        box.classList.remove('is-dragging');
+        if (frame) { cancelAnimationFrame(frame); frame = 0; }
+        place();
         if (dx !== start.dx || dy !== start.dy) opts.onOffset([dx, dy]);
+        if (!opts.selected) opts.onSelect();
       };
       window.addEventListener('pointermove', move);
       window.addEventListener('pointerup', up);
+      window.addEventListener('pointercancel', up);
     });
     // точку выноски двигает маркер карты
   } else if (item.url) {
@@ -2310,7 +2333,7 @@ function addCallout(item, opts = {}) {
   const marker = new maplibregl.Marker({ element: el, anchor: 'center', draggable: !!opts.onMove })
     .setLngLat(item.coords)
     .addTo(map);
-  requestAnimationFrame(place);   // размер плашки известен только после вставки
+  requestAnimationFrame(() => { measure(); place(); });   // размер плашки известен только после вставки
   if (opts.onMove) marker.on('dragend', () => { const p = marker.getLngLat(); opts.onMove([p.lng, p.lat]); });
   return marker;
 }

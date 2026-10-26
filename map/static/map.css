@@ -39,17 +39,30 @@ html, body {
   left: 0;
 }
 
+/* на светлых картах (maps, scan) прицел и подпись у курсора тёмные, а цвет выбранного не жёлтый */
+body.theme-maps {
+  --cross: #202124;
+  --select: #1a1a1a;
+  --cursor-halo: #fff;
+}
+
+body.theme-scan {
+  --cross: #2a2118;
+  --select: #1a1a1a;
+  --cursor-halo: #f0e8d4;
+}
+
 #crosshair .h {
   width: 100%;
   height: 1px;
-  background: color-mix(in srgb, var(--font-light) 45%, transparent);
+  background: color-mix(in srgb, var(--cross, var(--font-light)) 55%, transparent);
   transform: translateY(var(--y, 0));
 }
 
 #crosshair .v {
   width: 1px;
   height: 100%;
-  background: color-mix(in srgb, var(--font-light) 45%, transparent);
+  background: color-mix(in srgb, var(--cross, var(--font-light)) 55%, transparent);
   transform: translateX(var(--x, 0));
 }
 
@@ -57,7 +70,7 @@ html, body {
   width: 16px;
   height: 16px;
   box-sizing: border-box;
-  border: 1px solid var(--font-light);
+  border: 1px solid var(--cross, var(--font-light));
   transform: translate(calc(var(--x, 0px) - 8px), calc(var(--y, 0px) - 8px));
 }
 
@@ -73,11 +86,12 @@ html, body {
   opacity: 0;
   z-index: 10;
   font-family: var(--font-main);
-  color: var(--accent);
+  color: var(--cross, var(--accent));
+  text-shadow: 0 0 3px var(--cursor-halo, transparent), 0 0 3px var(--cursor-halo, transparent);
 }
 #cursor-info.visible { opacity: 1; }
 #cursor-info .coords { font-size: 8px; letter-spacing: 0.04em; opacity: 0.8; }
-#cursor-info .prov   { font-size: 11px; color: var(--font-light); }
+#cursor-info .prov   { font-size: 11px; color: var(--cross, var(--font-light)); }
 
 /* Окошко переключения режима карты */
 #mode-panel {
@@ -324,7 +338,7 @@ body.theme-scan .marker-label {
   height: 12px;
   box-sizing: border-box;
   background: #fff;
-  border: 2px solid #ffcf4d;
+  border: 2px solid var(--select, #ffcf4d);
   border-radius: 50%;
   cursor: grab;
 }
@@ -339,7 +353,7 @@ body.theme-scan .marker-label {
 }
 
 .marker-edit.is-selected .embed-marker {
-  outline: 2px dashed #ffcf4d;
+  outline: 2px dashed var(--select, #ffcf4d);
   outline-offset: 3px;
 }
 
@@ -554,6 +568,14 @@ body.embed #scene-panel {
 
 .callout-edit {
   cursor: grab;
+  touch-action: none;
+  user-select: none;
+}
+
+/* пока плашку тянут: без плавностей и с тенью, чтобы было видно, что она в руке */
+.callout-box.is-dragging {
+  transition: none;
+  filter: drop-shadow(0 3px 5px rgba(0, 0, 0, 0.45));
 }
 
 .callout-link {
@@ -561,7 +583,7 @@ body.embed #scene-panel {
 }
 
 .callout.is-selected .callout-box {
-  outline: 2px dashed #ffcf4d;
+  outline: 2px dashed var(--select, #ffcf4d);
   outline-offset: 3px;
 }
 
