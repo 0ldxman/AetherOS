@@ -19,6 +19,17 @@ def active_session(request):
 
     session_id = request.session.get(SESSION_KEY)
 
+    # за запрос эту функцию зовут и middleware, и вид, и шаблон: держим найденную сессию, пока выбор не сменился
+    memo = getattr(request, "_active_session", None)
+    if memo is not None and memo[0] == (session_id, request.user.pk):
+        return memo[1]
+
+    session = _active_session(request, session_id)
+    request._active_session = ((request.session.get(SESSION_KEY), request.user.pk), session)
+    return session
+
+
+def _active_session(request, session_id):
     if session_id:
         session = (
             Session.objects
@@ -59,16 +70,27 @@ def current_machine(request):
         return active_session(request).profile.machine
 
     if request.session.get("guest"):
-        return Machine.objects.get(hostname=NULL_HOSTNAME)
+        machine = getattr(request, "_null_machine", None)
+        if machine is None:
+            machine = request._null_machine = Machine.objects.get(hostname=NULL_HOSTNAME)
+        return machine
 
     return None
+
+def _machine_apps(request, machine):
+    """Иконки машины: за запрос читаются из базы один раз."""
+    cache = request.__dict__.setdefault("_machine_apps", {})
+    if machine.pk not in cache:
+        cache[machine.pk] = list(machine.machine_apps.all())
+    return cache[machine.pk]
+
 
 def visible_apps(request, machine):
     keys = player_keys(request.user)
 
     return [
         app
-        for app in machine.machine_apps.all()
+        for app in _machine_apps(request, machine)
         if app.key_condition is None or satisfied(app.key_condition, keys)
     ]
 

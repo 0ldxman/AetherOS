@@ -11,6 +11,7 @@ from filesystem.content import resolve_content
 from machines.current import active_session
 from users.aether_auth import AUTH_REQUIRED, is_player
 
+from .pulse_cache import cached_pulse
 from .access import mark_read, mark_unread, read_ids, viewer_for, visible_messages
 from .addresses import recipients_line, split
 from .attachments import SaveError, payload, save_to_machine, session_file_of
@@ -78,21 +79,24 @@ PULSE_LIMIT = 20
 def pulse(request):
     """Что нового во входящих: рабочий стол опрашивает это ради бейджа и уведомления."""
     viewer = _viewer_or_404(request)
-    done = read_ids(viewer)
-    fresh = [m for m in visible_messages(viewer, "inbox") if m.pk not in done]
-    return JsonResponse({
-        "unread": len(fresh),
-        "messages": [
-            {"id": m.pk, "sender": m.sender, "subject": m.subject or "(no subject)"}
-            for m in fresh[:PULSE_LIMIT]
-        ],
-    })
+
+    def compute():
+        done = read_ids(viewer)
+        fresh = [m for m in visible_messages(viewer, "inbox", attachments=False) if m.pk not in done]
+        return {
+            "unread": len(fresh),
+            "messages": [
+                {"id": m.pk, "sender": m.sender, "subject": m.subject or "(no subject)"}
+                for m in fresh[:PULSE_LIMIT]
+            ],
+        }
+
+    return JsonResponse(cached_pulse(viewer, compute))
 
 
 def _find(viewer, pk):
-    for message in visible_messages(viewer):
-        if message.pk == pk:
-            return message
+    for message in visible_messages(viewer, pk=pk):
+        return message
     raise Http404     # чужое и скрытое письмо выглядит как несуществующее
 
 
@@ -134,7 +138,7 @@ def attachment_open(request, pk):
     viewer = _viewer_or_404(request)
 
     attachment = Attachment.objects.filter(pk=pk, kind=Attachment.Kind.FILE).select_related("machine_file").first()
-    if attachment is None or attachment.message_id not in {m.pk for m in visible_messages(viewer)}:
+    if attachment is None or not visible_messages(viewer, pk=attachment.message_id, attachments=False):
         raise Http404
 
     machine_file = attachment.machine_file
@@ -159,7 +163,7 @@ def attachment_save(request, pk):
     viewer = _viewer_or_404(request)
 
     attachment = Attachment.objects.filter(pk=pk).select_related("machine_file", "message").first()
-    if attachment is None or attachment.message_id not in {m.pk for m in visible_messages(viewer)}:
+    if attachment is None or not visible_messages(viewer, pk=attachment.message_id, attachments=False):
         raise Http404
 
     if not is_player(request):

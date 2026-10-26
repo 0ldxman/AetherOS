@@ -117,8 +117,22 @@ def _trashed_ids(viewer):
     return frozenset(Trashed.objects.filter(profile=viewer.profile).values_list("message_id", flat=True))
 
 
-def visible_messages(viewer, folder=None, now=None):
-    """Письма читателя (новые первыми). folder: одна папка или все, если None."""
+def _could_be_mine(address):
+    """Грубый отбор в базе: письма, где адрес читателя встречается как отправитель или в получателях,
+    и письма с масками (в них есть «*»). Точное решение принимает folder_of, так что отбор только
+    не должен терять подходящие письма."""
+    return (
+        Q(sender__iexact=address)
+        | Q(recipients__icontains=address)
+        | Q(recipients__contains="*")
+    )
+
+
+def visible_messages(viewer, folder=None, now=None, pk=None, attachments=True):
+    """Письма читателя (новые первыми). folder: одна папка или все, если None.
+
+    pk сужает выборку одним письмом, attachments=False не подгружает вложения (им нужен только счёт).
+    """
     now = now or timezone.now()
     delivered = _delivered_ids(viewer, now)
     trashed = _trashed_ids(viewer)
@@ -126,8 +140,12 @@ def visible_messages(viewer, folder=None, now=None):
     candidates = (
         Message.objects
         .filter(Q(slug__isnull=True) | Q(slug="") | Q(pk__in=delivered))
-        .prefetch_related("attachments")
+        .filter(_could_be_mine(viewer.address))
     )
+    if pk is not None:
+        candidates = candidates.filter(pk=pk)
+    if attachments:
+        candidates = candidates.prefetch_related("attachments")
     found = []
 
     for message in candidates:

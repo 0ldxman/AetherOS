@@ -9,7 +9,9 @@ from pathlib import Path
 
 from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError
+from django.db import connection
 from django.test import TestCase, override_settings
+from django.test.utils import CaptureQueriesContext
 from django.urls import get_script_prefix, reverse, set_script_prefix
 
 from machines.models import Machine, MachineApp, MachineProfile
@@ -262,6 +264,26 @@ class InboxApiTests(TestCase):
         self.get_json("mail:message", first.pk)
         _, data = self.get_json("mail:pulse")
         self.assertEqual((data["unread"], data["messages"]), (0, []))
+
+    def test_pulse_is_cached_and_new_mail_drops_the_cache(self):
+        make_message(subject="first")
+        self.witness()
+        self.get_json("mail:pulse")
+        with CaptureQueriesContext(connection) as queries:
+            _, data = self.get_json("mail:pulse")
+        self.assertFalse([q for q in queries if "mail_message" in q["sql"]])
+        self.assertEqual(data["unread"], 1)
+        make_message(subject="second")
+        _, data = self.get_json("mail:pulse")
+        self.assertEqual(data["unread"], 2)
+
+    def test_pulse_ignores_mail_of_other_addresses_in_the_query(self):
+        for n in range(30):
+            make_message(subject=f"to someone {n}", recipients="other@aether-core")
+        make_message(subject="mine")
+        self.witness()
+        _, data = self.get_json("mail:pulse")
+        self.assertEqual([m["subject"] for m in data["messages"]], ["mine"])
 
     def test_pulse_needs_a_connected_player(self):
         self.assertEqual(self.client.get(reverse("mail:pulse")).status_code, 403)

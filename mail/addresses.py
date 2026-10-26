@@ -5,6 +5,7 @@
 а просто * подходит всем. Регистр не важен.
 """
 import re
+from functools import lru_cache
 
 from django.core.exceptions import ValidationError
 
@@ -29,6 +30,7 @@ def validate_masks(value):
             raise ValidationError(f"«{part}»: нужен адрес вида имя@хост, где «*» заменяет любые символы.")
 
 
+@lru_cache(maxsize=2048)
 def _compile(mask):
     return re.compile("^" + ".*".join(re.escape(piece) for piece in mask.lower().split("*")) + "$", re.DOTALL)
 
