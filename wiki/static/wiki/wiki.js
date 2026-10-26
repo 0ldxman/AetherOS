@@ -92,8 +92,11 @@
         const desktop = getDesktop();
 
         /* закрытая запись не открывается: система отвечает окном ошибки */
-        if (desktop && row.dataset.access === "locked" && desktop.error) {
-            desktop.error("access_denied", { object: row.dataset.key });
+        if (row.dataset.access === "locked") {
+            if (desktop && desktop.error) {
+                desktop.error("access_denied", { object: row.dataset.key });
+            }
+
             return;
         }
 
