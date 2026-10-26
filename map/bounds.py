@@ -106,3 +106,37 @@ def view_for(box, width_px=800, height_px=450, pad=1.25):
     zoom_x = math.log2(width_px / 512 * 360 / span_lon)
     zoom_y = math.log2(height_px / 512 * 2 * math.pi / span_merc)
     return round(lat, 3), round(lon, 3), round(max(0.5, min(12, min(zoom_x, zoom_y))), 1)
+
+
+def lookup_regions(query, limit=12):
+    """Поиск для редактора сцен: провинции (по названию и коду) и страны (по названию и коду).
+
+    -> [{kind, token, name, bounds}]; token это то, что пишется в выделение (RUS-32 или POL).
+    """
+    from django.db.models import Q
+
+    from .models import Country, Province
+
+    query = (query or "").strip()
+    if len(query) < 2:
+        return []
+
+    bounds = _bounds()
+    found = []
+
+    prefixes = {}
+    for country in Country.objects.filter(Q(name__icontains=query) | Q(code__icontains=query))[:limit]:
+        prefix = country.code.split("-")[0].upper()
+        if prefix in prefixes:
+            continue
+        sources = Province.objects.filter(code__istartswith=prefix + "-").values_list("source_code", flat=True)
+        prefixes[prefix] = union([bounds.get(source) for source in sources])
+        found.append({"kind": "country", "token": prefix, "name": country.name, "bounds": prefixes[prefix]})
+
+    provinces = Province.objects.filter(Q(name__icontains=query) | Q(code__icontains=query))[:limit]
+    for province in provinces:
+        found.append({
+            "kind": "province", "token": province.code, "name": province.name,
+            "bounds": bounds.get(province.source_code),
+        })
+    return found

@@ -8,6 +8,7 @@ from django.http import JsonResponse
 from django.template.response import TemplateResponse
 from django.urls import path
 
+from .bounds import lookup_regions
 from .models import Country, CountryLabel, MapScene, Ownership, Province
 from .views import _latest_ownerships
 
@@ -287,5 +288,18 @@ class MapSceneAdmin(admin.ModelAdmin):
         from secure.models import Key
 
         context["colors"] = COLORS
-        context["keys"] = list(Key.objects.order_by("slug").values_list("slug", flat=True))
+        keys = list(Key.objects.order_by("slug").values("slug", "description"))
+        context["keys"] = [k["slug"] for k in keys]
+        context["keys_info"] = keys
         return super().render_change_form(request, context, *args, **kwargs)
+
+    def get_urls(self):
+        # поиск регионов для редактора; должен идти раньше стандартных адресов
+        custom = [path("lookup/", self.admin_site.admin_view(self.lookup_view), name="map_mapscene_lookup")]
+        return custom + super().get_urls()
+
+    def lookup_view(self, request):
+        """Поиск провинций и стран по названию или коду: [{kind, token, name, bounds}]."""
+        if not self.has_view_permission(request):
+            raise PermissionDenied
+        return JsonResponse({"results": lookup_regions(request.GET.get("q", ""))})

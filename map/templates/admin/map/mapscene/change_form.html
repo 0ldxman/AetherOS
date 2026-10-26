@@ -30,6 +30,12 @@
   #se-layers .se-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   #se-layers .se-dot { width: 10px; height: 10px; border-radius: 50%; flex: none; border: 1px solid rgba(0,0,0,.3); }
   #se-layers button { padding: 0 5px; line-height: 18px; cursor: pointer; }
+  .se-suggest { position: relative; }
+  .se-suggest ul { position: absolute; z-index: 20; left: 0; right: 0; top: 100%; margin: 0; padding: 0; list-style: none;
+    background: var(--body-bg, #fff); border: 1px solid var(--border-color, #ccc); max-height: 180px; overflow: auto; }
+  .se-suggest li { padding: 4px 8px; cursor: pointer; font-size: 12px; border-bottom: 1px solid var(--hairline-color, #eee); }
+  .se-suggest li:hover, .se-suggest li.active { background: var(--selected-row, #e6f0ff); }
+  .se-suggest li small { color: var(--body-quiet-color, #666); margin-left: 6px; }
   #se-layers .se-empty { color: var(--body-quiet-color, #666); cursor: default; }
 </style>
 
@@ -87,6 +93,12 @@
         <p class="se-hint" id="se-view">Двигайте карту, затем нажмите нужную кнопку: значения попадут в поля формы выше.</p>
       </div>
 
+      <div class="se-box" id="se-find">
+        <h3>Найти регион</h3>
+        <div class="se-suggest"><input type="text" id="se-find-input" placeholder="название или код: Польша, RUS-32" autocomplete="off" style="width:100%;box-sizing:border-box"></div>
+        <p class="se-hint">Выбор из списка добавляет выделение и показывает его на карте. Инструмент «Провинция»: клик выделяет, Shift+клик выделяет страну целиком, повторный клик снимает.</p>
+      </div>
+
       <div class="se-box" id="se-list">
         <h3>Пометки</h3>
         <ul id="se-layers"></ul>
@@ -98,7 +110,7 @@
         <div class="se-row" data-for="marker line arrow polygon circle region"><label>Подпись</label><input type="text" data-prop="label"></div>
         <div class="se-row" data-for="text"><label>Текст</label><input type="text" data-prop="text"></div>
         <div class="se-row" data-for="text"><label>Размер</label><input type="number" data-prop="size" min="8" max="48"></div>
-        <div class="se-row" data-for="region"><label>Провинция или страна (RUS-32, POL)</label><input type="text" data-prop="token"></div>
+        <div class="se-row" data-for="region"><label>Провинция или страна (RUS-32, POL)</label><div class="se-suggest"><input type="text" data-prop="token" id="se-token" autocomplete="off"></div></div>
         <div class="se-row"><label>Цвет</label>
           <select data-prop="color">
             <option value="">по умолчанию</option>
@@ -110,7 +122,7 @@
         <div class="se-row inline" data-for="polygon circle"><input type="checkbox" data-prop="fill" id="se-fill"><label for="se-fill">Заливка</label></div>
         <div class="se-row" data-for="circle"><label>Радиус, км</label><input type="number" data-prop="radius_km" min="1" max="20000"></div>
         <div class="se-row" data-for="marker line arrow polygon circle region"><label>Ссылка по клику (путь вики или /адрес)</label><input type="text" data-prop="url"></div>
-        <div class="se-row"><label>Условие по ключам (key_a and not key_b)</label><input type="text" data-prop="key"></div>
+        <div class="se-row"><label>Условие по ключам (key_a and not key_b)</label><div class="se-suggest"><input type="text" data-prop="key" id="se-key" autocomplete="off"></div></div>
         <div class="se-row"><button type="button" class="button" id="se-duplicate" data-for="marker line arrow polygon circle text">Дублировать</button></div>
         <div class="se-row"><button type="button" class="button" id="se-delete" style="color:#ba2121">Удалить пометку</button></div>
       </div>
@@ -119,9 +131,12 @@
   <p class="se-hint">Клик по фигуре выбирает её, у выбранной тянутся вершины. Delete удаляет выбранное, Esc отменяет рисование. Изменения попадают в поле «Пометки» выше; сохраняются кнопкой «Сохранить» внизу страницы.</p>
 </div>
 
+{{ keys_info|json_script:"se-keys-data" }}
 <script>
 (function () {
   const frame = document.getElementById('se-frame');
+  const lookupUrl = "{% url 'admin:map_mapscene_lookup' %}";
+  const keyInfo = JSON.parse(document.getElementById('se-keys-data').textContent);
   const mapUrl = "{% url 'map:index' %}";
   const features = document.getElementById('id_features');
   const props = document.getElementById('se-props');
@@ -193,6 +208,73 @@
       ul.appendChild(li);
     });
   }
+
+  // подсказки под полем ввода: fetcher(text) -> [{label, note, value}], pick(item) вызывается по выбору
+  function suggest(input, fetcher, pick) {
+    const box = input.closest('.se-suggest');
+    let list = null;
+    let timer = null;
+    let token = 0;
+    function close() { if (list) { list.remove(); list = null; } }
+    async function refresh() {
+      const mine = ++token;
+      const items = await fetcher(input.value);
+      if (mine !== token) return;
+      close();
+      if (!items.length) return;
+      list = document.createElement('ul');
+      items.forEach((item) => {
+        const li = document.createElement('li');
+        li.textContent = item.label;
+        if (item.note) { const small = document.createElement('small'); small.textContent = item.note; li.appendChild(small); }
+        li.addEventListener('mousedown', (event) => { event.preventDefault(); close(); pick(item); });
+        list.appendChild(li);
+      });
+      box.appendChild(list);
+    }
+    input.addEventListener('input', () => { clearTimeout(timer); timer = setTimeout(refresh, 150); });
+    input.addEventListener('focus', refresh);
+    input.addEventListener('blur', () => setTimeout(close, 120));
+    input.addEventListener('keydown', (event) => { if (event.key === 'Escape') close(); });
+  }
+
+  async function lookup(text) {
+    if (text.trim().length < 2) return [];
+    try {
+      const response = await fetch(`${lookupUrl}?q=${encodeURIComponent(text.trim())}`, { credentials: 'same-origin' });
+      const data = await response.json();
+      return data.results.map((r) => ({
+        label: r.name, note: `${r.kind === 'country' ? 'страна' : 'провинция'} · ${r.token}`, value: r.token, bounds: r.bounds,
+      }));
+    } catch (error) {
+      return [];
+    }
+  }
+
+  // поиск региона: выбор добавляет выделение на карте
+  const findInput = document.getElementById('se-find-input');
+  suggest(findInput, lookup, (item) => {
+    send({ type: 'aether-scene-add-region', token: item.value, bounds: item.bounds });
+    findInput.value = '';
+  });
+
+  // поле токена выделения: те же подсказки, выбор подставляет код
+  suggest(document.getElementById('se-token'), lookup, (item) => {
+    document.getElementById('se-token').value = item.value;
+    if (current) send({ type: 'aether-scene-update', id: current.id, patch: { token: item.value } });
+  });
+
+  // условие по ключам: подсказки по последнему слову (key_a and sec…), выбор подставляет ключ
+  const keyInput = document.getElementById('se-key');
+  suggest(keyInput, async (text) => {
+    const word = (text.match(/[A-Za-z0-9_-]*$/) || [''])[0].toLowerCase();
+    if (!word || ['and', 'or', 'not'].includes(word)) return [];
+    return keyInfo.filter((k) => k.slug.toLowerCase().includes(word)).slice(0, 8)
+      .map((k) => ({ label: k.slug, note: (k.description || '').slice(0, 50), value: k.slug }));
+  }, (item) => {
+    keyInput.value = keyInput.value.replace(/[A-Za-z0-9_-]*$/, item.value) + ' ';
+    if (current) send({ type: 'aether-scene-update', id: current.id, patch: { key: keyInput.value.trim() } });
+  });
 
   function sendPreview() {
     const mode = document.getElementById('se-viewer').value;

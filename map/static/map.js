@@ -1358,9 +1358,12 @@ const editor = {
     if (this.tool === 'region') {
       const hit = map.queryRenderedFeatures(e.point, { layers: ['adm1-fill'] })[0];
       const code = hit && provinceCodes[hit.properties.adm1_code];
-      if (code && !this.features.some((f) => f.type === 'region' && f.token === code)) {
-        this.add({ type: 'region', token: code, color: 'red' });
-      }
+      if (!code) return;
+      // Shift+клик выделяет страну целиком (по префиксу кода), повторный клик по выделенному снимает выделение
+      const token = e.originalEvent.shiftKey ? String(code).split('-')[0] : code;
+      const existing = this.features.find((f) => f.type === 'region' && f.token === token);
+      if (existing) this.remove(existing.id);
+      else this.add({ type: 'region', token, color: 'red' });
       return;
     }
 
@@ -1470,6 +1473,14 @@ if (SCENE_EDIT) {
       editor.reorder(d.id, d.dir);
     } else if (d.type === 'aether-scene-hide') {
       editor.setHidden(d.id, !!d.hidden);
+    } else if (d.type === 'aether-scene-add-region') {
+      // выбор из поиска: добавить выделение и подлететь к нему
+      if (d.token && !editor.features.some((f) => f.type === 'region' && f.token === d.token)) {
+        editor.add({ type: 'region', token: d.token, color: 'red' });
+      }
+      if (Array.isArray(d.bounds) && d.bounds.length === 4) {
+        map.fitBounds([[d.bounds[0], d.bounds[1]], [d.bounds[2], d.bounds[3]]], { padding: 40, maxZoom: 7, duration: 600 });
+      }
     } else if (d.type === 'aether-scene-preview') {
       editor.setPreview(Array.isArray(d.keys) ? d.keys : null);
     }

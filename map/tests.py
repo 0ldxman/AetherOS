@@ -127,3 +127,33 @@ class ProvinceLinkTests(TestCase):
         self.assertEqual(link_of("", "/wiki/Poland"), "/wiki/Poland")
         self.assertEqual(link_of("javascript:alert(1)", "//evil.example"), "")
         self.assertEqual(link_of("", ""), "")
+
+
+class RegionLookupTests(TestCase):
+    def test_lookup_finds_provinces_and_countries_for_staff_only(self):
+        from datetime import date
+
+        from django.contrib.auth import get_user_model
+        from django.urls import reverse
+
+        from .bounds import lookup_regions
+        from .models import Country, Province
+
+        Country.objects.create(code="POL-2013", name="Польша", valid_from=date(2013, 1, 1))
+        Province.objects.create(code="POL-2", source_code="POL-3170", name="Малая Польша")
+        Province.objects.create(code="DEU-1", source_code="DEU-1", name="Бавария")
+
+        found = lookup_regions("Польш")
+        kinds = {(r["kind"], r["token"]) for r in found}
+        self.assertEqual(kinds, {("country", "POL"), ("province", "POL-2")})
+        province = next(r for r in found if r["kind"] == "province")
+        self.assertEqual(len(province["bounds"]), 4)               # рамка из province_bounds.json
+        self.assertEqual(lookup_regions("п"), [])                  # слишком короткий запрос
+        self.assertEqual([r["token"] for r in lookup_regions("DEU-1")], ["DEU-1"])
+
+        url = reverse("admin:map_mapscene_lookup") + "?q=%D0%9F%D0%BE%D0%BB%D1%8C%D1%88"
+        self.assertEqual(self.client.get(url).status_code, 302)    # без входа в админку
+        staff = get_user_model().objects.create_superuser("boss", password="pw")
+        self.client.force_login(staff)
+        data = self.client.get(url).json()
+        self.assertEqual({r["token"] for r in data["results"]}, {"POL", "POL-2"})
