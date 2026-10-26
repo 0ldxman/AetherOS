@@ -11,6 +11,7 @@ from django.urls import reverse
 
 from machines import bridge
 from terminal.engine.commands.bridge import PENDING_KEY, answer_prompt
+from terminal.engine.commands.trash import CONFIRM_KEY, answer_confirm
 from terminal.engine.context import CWD_KEY, DEFAULT_CWD
 from terminal.engine.executor import TerminalExecutor
 from terminal.engine.result import CommandResult
@@ -58,13 +59,17 @@ def execute(request):
 
     if payload.get("cancel"):
         request.session.pop(PENDING_KEY, None)
+        request.session.pop(CONFIRM_KEY, None)
         result, new_cwd = CommandResult(), cwd
     elif "answer" in payload:
         # ответ на запрос пароля (моста): сам ответ в историю и в вывод не попадает
         text = payload["answer"]
         if not isinstance(text, str) or len(text) > 512:
             return JsonResponse({"error": "Invalid answer"}, status=400)
-        result, new_cwd = answer_prompt(request, text, session, cwd)
+        if request.session.get(CONFIRM_KEY):
+            result, new_cwd = answer_confirm(request, text, session, cwd)
+        else:
+            result, new_cwd = answer_prompt(request, text, session, cwd)
     else:
         source = payload.get("command", "")
 

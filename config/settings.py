@@ -10,6 +10,7 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/6.1/ref/settings/
 """
 
+from datetime import timedelta
 from pathlib import Path
 import environ
 
@@ -237,3 +238,10 @@ if not DEBUG:
     # Сайт отдаётся по https за прокси (см. SECURE_PROXY_SSL_HEADER)
     SESSION_COOKIE_SECURE = True
     CSRF_COOKIE_SECURE = True
+
+# Корзина терминала (del / rcvr): сколько файл лежит до полного удаления, как быстро он «портится» и сколько слоёв damaged
+# получает при восстановлении (минимум один, потом по слою за каждый шаг времени в корзине, не больше максимума).
+TRASH_TTL = timedelta(days=7)
+TRASH_DAMAGE_STEP = timedelta(days=1)
+TRASH_DAMAGE_MAX = 5
+

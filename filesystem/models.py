@@ -42,6 +42,11 @@ class MachineFile(models.Model):
         ),
     )
 
+    system = models.BooleanField(
+        default=False,
+        help_text="Системный файл: игрок не может его удалить (del). Базовые папки защищает список «Защищённые пути».",
+    )
+
     delivered_only = models.BooleanField(
         default=False,
         help_text=(
@@ -120,6 +125,16 @@ class SessionFile(models.Model):
         default="",
     )
 
+    # Корзина (del): файл лежит в /trash, пока не истечёт purge_at. Потом запись остаётся надгробием (deleted_at)
+    # или исчезает, если файл пришёл с другой машины. origin_path и trashed_at нужны для rcvr.
+    origin_path = models.CharField(max_length=2048, blank=True, default="")
+    trashed_at = models.DateTimeField(null=True, blank=True)
+    purge_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text="Когда файл из корзины удалится насовсем. Пусто: файл не в корзине.",
+    )
+
     class Meta:
         constraints = [
             models.UniqueConstraint(
@@ -181,3 +196,40 @@ class FileKey(models.Model):
 
     def __str__(self):
         return f"{self.file} — {self.key}"
+
+
+class ProtectedPath(models.Model):
+    """Путь, который игрок не может удалить командой del (и никто внутри него тоже): базовые папки.
+
+    Без машины действует на всех машинах. Начальный список (/, /home, /bin, /trash) создаёт миграция.
+    """
+
+    path = models.CharField(max_length=2048)
+    machine = models.ForeignKey(
+        "machines.Machine",
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name="protected_paths",
+        help_text="Пусто: путь защищён на всех машинах.",
+    )
+
+    class Meta:
+        ordering = ("path",)
+        verbose_name = "Защищённый путь"
+        verbose_name_plural = "Защищённые пути"
+        constraints = [
+            models.UniqueConstraint(fields=("path", "machine"), name="unique_protected_path_machine"),
+            models.UniqueConstraint(
+                fields=("path",), condition=models.Q(machine__isnull=True), name="unique_protected_path_global"
+            ),
+        ]
+
+    def __str__(self):
+        return self.path + (f" ({self.machine.label})" if self.machine_id else "")
+
+    def save(self, *args, **kwargs):
+        text = "/" + "/".join(part for part in (self.path or "").split("/") if part)
+        self.path = text
+        super().save(*args, **kwargs)
+

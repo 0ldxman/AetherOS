@@ -705,3 +705,179 @@ class NetTests(TestCase):
         self.assertEqual(self.run_command("nget ftp://apollo.com/pub/tool.bin")["exit_code"], 0)
         self.assertEqual(self.run_command("nget apollo.com/pub/tool.bin")["exit_code"], 1)          # у сервера без схемы такого узла нет
         self.assertIn("could not resolve", self.run_command("nreq http://hidden.net")["output"])
+
+
+@override_settings(FORCE_SCRIPT_NAME=None)
+class TrashTests(TestCase):
+    """del, rcvr, wipe: корзина /trash, подтверждение, повреждение при возврате, срок хранения."""
+
+    @classmethod
+    def setUpTestData(cls):
+        from filesystem.models import MachineFile, ProtectedPath
+        from machines.models import MachineProfile
+
+        cls.main = Machine.objects.create(name="Main", hostname="aether-main")
+        MachineApp.objects.create(machine=cls.main, label="console", glyph=">_", path="/apps/terminal/")
+        cls.user = get_user_model().objects.create_user("ivan", password="pw")
+        MachineProfile.objects.create(machine=cls.main, user=cls.user, name="Ivan", login="ivan", freq=1,
+                                      mail="ivan@aether-main")
+        for path in ("/home/a.txt", "/home/b.txt", "/home/docs/x.txt", "/home/docs/y.txt", "/etc/keep.cfg"):
+            MachineFile.objects.create(machine=cls.main, path=path, state="")
+        MachineFile.objects.create(machine=cls.main, path="/home/core.sys", state="", system=True)
+        MachineFile.objects.create(machine=cls.main, path="/home/locked.bin", state="> encrypted hunter2")
+        ProtectedPath.objects.create(path="/etc", machine=cls.main)
+
+    def setUp(self):
+        previous = get_script_prefix()
+        set_script_prefix("/")
+        self.addCleanup(set_script_prefix, previous)
+        self.client.force_login(self.user)
+
+    def post(self, payload):
+        response = self.client.post(reverse("terminal:execute"), data=json.dumps(payload), content_type="application/json")
+        return json.loads(response.content)
+
+    def run_command(self, text):
+        return self.post({"command": text})
+
+    def answer(self, text):
+        return self.post({"answer": text})
+
+    def ls(self, path="/home"):
+        return self.run_command(f"ls {path}")["output"]
+
+    def test_del_asks_and_a_yes_moves_the_file_to_the_trash(self):
+        data = self.run_command("del /home/a.txt")
+        self.assertEqual(data["prompt"]["kind"], "confirm")
+        self.assertIn("a.txt", self.ls())                                   # пока не подтвердили
+        data = self.answer("y")
+        self.assertEqual(data["exit_code"], 0, data["output"])
+        self.assertNotIn("a.txt", self.ls())
+        self.assertIn("a.txt", self.ls("/trash"))
+
+    def test_anything_but_yes_cancels(self):
+        self.run_command("del /home/a.txt")
+        self.assertEqual(self.answer("n")["output"], "")
+        self.assertIn("a.txt", self.ls())
+        self.run_command("del /home/a.txt")
+        self.post({"cancel": True})
+        self.assertIsNone(self.answer("y")["prompt"])                       # отменённый вопрос не оживает
+        self.assertIn("a.txt", self.ls())
+
+    def test_force_skips_the_question_and_several_files_work(self):
+        data = self.run_command("del -f /home/a.txt /home/b.txt")
+        self.assertIsNone(data["prompt"])
+        self.assertEqual(self.ls("/trash").split(), ["a.txt", "b.txt"])
+
+    def test_a_folder_needs_r_and_keeps_its_structure(self):
+        self.assertIn("Is a directory", self.run_command("del -f /home/docs")["output"])
+        self.run_command("del -rf /home/docs")
+        self.assertNotIn("docs", self.ls())
+        self.assertEqual(self.ls("/trash/docs").split(), ["x.txt", "y.txt"])
+
+    def test_system_files_protected_paths_and_the_trash_cannot_be_deleted(self):
+        self.assertIn("Operation not permitted", self.run_command("del -f /home/core.sys")["output"])
+        self.assertIn("Operation not permitted", self.run_command("del -rf /home")["output"])        # внутри системный файл и /home защищён
+        self.assertIn("Operation not permitted", self.run_command("del -rf /")["output"])
+        self.assertIn("Operation not permitted", self.run_command("del -rf /etc")["output"])         # защищён у этой машины
+        self.assertIn("core.sys", self.ls())
+        self.run_command("del -f /home/a.txt")
+        self.assertIn("already in the trash", self.run_command("del -f /trash/a.txt")["output"])
+        self.assertIn("No such file", self.run_command("del -f /home/none")["output"])
+
+    def test_a_live_name_in_the_trash_gets_a_numbered_suffix(self):
+        self.run_command("del -f /home/a.txt")
+        self.run_command("rcvr /trash/a.txt /home/b2.txt")
+        self.run_command("del -f /home/b.txt")
+        self.run_command("rcvr /trash/b.txt /home/a.txt")
+        self.run_command("del -f /home/a.txt")                              # в корзине теперь b.txt под именем a.txt
+        self.run_command("del -f /home/b2.txt")
+        self.run_command("rcvr /trash/b2.txt /home/a.txt")
+        self.run_command("del -f /home/a.txt")
+        self.assertEqual(self.ls("/trash").split(), ["a.txt", "a.txt.1"])
+
+    def test_rcvr_returns_the_file_damaged_and_longer_stay_means_more_layers(self):
+        from datetime import timedelta
+
+        from django.utils import timezone
+
+        from filesystem.models import SessionFile
+
+        self.run_command("del -f /home/a.txt")
+        data = self.run_command("rcvr /trash/a.txt")
+        self.assertEqual(data["exit_code"], 0, data["output"])
+        self.assertIn("a.txt", self.ls())
+        self.assertEqual(self.run_command("rpr /home/a.txt")["exit_code"], 0)         # один слой
+        self.assertIn("nothing to repair", self.run_command("rpr /home/a.txt")["output"])
+
+        self.run_command("del -f /home/b.txt")
+        SessionFile.objects.filter(path="/trash/b.txt").update(trashed_at=timezone.now() - timedelta(days=3, hours=1))
+        self.run_command("rcvr /trash/b.txt")
+        repaired = [self.run_command("rpr /home/b.txt")["exit_code"] for _ in range(5)]
+        self.assertEqual(repaired, [0, 0, 0, 0, 1])                                   # 1 + 3 дня = 4 слоя
+
+    def test_the_number_of_damaged_layers_is_capped(self):
+        from datetime import timedelta
+
+        from django.utils import timezone
+
+        from filesystem.models import SessionFile
+
+        self.run_command("del -f /home/a.txt")
+        SessionFile.objects.filter(path="/trash/a.txt").update(trashed_at=timezone.now() - timedelta(days=6))
+        self.run_command("rcvr /trash/a.txt")
+        self.assertEqual([self.run_command("rpr /home/a.txt")["exit_code"] for _ in range(7)], [0] * 5 + [1, 1])
+
+    def test_rcvr_errors_and_a_destination(self):
+        self.run_command("del -f /home/a.txt /home/b.txt")
+        self.assertIn("not in the trash", self.run_command("rcvr /home/a.txt")["output"])
+        self.assertIn("No such file", self.run_command("rcvr /trash/none")["output"])
+        self.run_command("rcvr /trash/a.txt /home/b.txt")
+        self.assertIn("b.txt", self.ls("/trash"))                                      # путь назначения был занят? нет: b.txt в корзине
+        self.run_command("rcvr /trash/b.txt /home/moved.txt")
+        self.assertIn("moved.txt", self.ls())
+
+    def test_a_folder_comes_back_whole_to_its_old_places(self):
+        self.run_command("del -rf /home/docs")
+        self.assertEqual(self.run_command("rcvr /trash/docs")["exit_code"], 0)
+        self.assertEqual(self.ls("/home/docs").split(), ["x.txt", "y.txt"])
+        self.run_command("del -rf /home/docs")
+        self.assertIn("a destination can only be given", self.run_command("rcvr /trash/docs /home/other")["output"])
+
+    def test_expired_files_vanish_for_good_and_the_original_does_not_return(self):
+        from datetime import timedelta
+
+        from django.utils import timezone
+
+        from filesystem.models import SessionFile
+
+        self.run_command("del -f /home/a.txt")
+        SessionFile.objects.filter(path="/trash/a.txt").update(purge_at=timezone.now() - timedelta(minutes=1))
+        self.assertEqual(self.run_command("rcvr /trash/a.txt")["exit_code"], 1)         # срок вышел: возвращать нечего
+        self.assertNotIn("a.txt", self.ls())                                           # машинный файл не вернулся на старое место
+        self.assertIn("No such file", self.ls("/trash"))                               # корзина пуста
+
+    def test_wipe_empties_the_trash_after_a_question(self):
+        self.run_command("del -f /home/a.txt /home/b.txt")
+        data = self.run_command("wipe")
+        self.assertEqual(data["prompt"]["kind"], "confirm")
+        self.assertIn("2 files removed", self.answer("y")["output"])
+        self.assertIn("empty", self.run_command("wipe")["output"])
+        self.assertNotIn("a.txt", self.ls())                                           # и со старых мест не вернулись
+        self.assertNotIn("b.txt", self.ls())
+
+    def test_the_purge_command_cleans_every_session(self):
+        from datetime import timedelta
+        from io import StringIO
+
+        from django.core.management import call_command
+        from django.utils import timezone
+
+        from filesystem.models import SessionFile
+
+        self.run_command("del -f /home/a.txt")
+        SessionFile.objects.update(purge_at=timezone.now() - timedelta(minutes=1))
+        out = StringIO()
+        call_command("purge_trash", stdout=out)
+        self.assertIn("purged: 1", out.getvalue())
+        self.assertFalse(SessionFile.objects.filter(purge_at__isnull=False, deleted_at__isnull=True).exists())

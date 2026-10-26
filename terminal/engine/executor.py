@@ -1,3 +1,4 @@
+from filesystem.trash import purge_expired
 from terminal.engine.commands import commands_for
 from terminal.engine.context import DEFAULT_CWD, TerminalContext
 from terminal.engine.parser import (
@@ -25,6 +26,8 @@ class TerminalExecutor:
             cwd=cwd or DEFAULT_CWD,
             request=request,
         )
+
+        purge_expired(session)     # срок файлов в корзине вышел: они удаляются насовсем
 
         try:
             parsed = parse_command(source)

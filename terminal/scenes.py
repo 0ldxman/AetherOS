@@ -76,6 +76,29 @@ def unlock_scene(layer, path, ok):
     return scene.to_dict()
 
 
+# ---------- корзина ----------
+
+def trash_scene(count):
+    s = Scene()
+    s.task("moving to trash", "OK", ms=(150, 400))
+    return s.to_dict()
+
+
+def recover_scene(path):
+    s = Scene()
+    s.count("scanning trash", _stable(path, 120, 1800), unit=" blocks", ms=(500, 1000), width=10)
+    s.bar("recovering ", ms=(700, 1400), width=20)
+    s.task("checksum", "WARN", ms=(250, 550))
+    return s.to_dict()
+
+
+def wipe_scene(count):
+    s = Scene()
+    s.bar("overwriting ", ms=(500, 1100), width=20)
+    s.task("trash emptied", "OK", ms=(150, 350))
+    return s.to_dict()
+
+
 # ---------- приветствие ----------
 
 def greeting_scene(ident, login, mail=None):

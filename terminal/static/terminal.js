@@ -69,7 +69,7 @@
 
     function awaitAnswer(request) {
         awaiting = request;
-        input.type = "password";
+        input.type = request.kind === "confirm" ? "text" : "password";
         prompt.textContent = request.text;
     }
 
@@ -173,8 +173,8 @@
         }
 
         if (answering) {
-            // ответ на запрос пароля: строка запроса остаётся на экране, сам пароль нет
-            appendLine(awaiting.text);
+            // ответ на запрос пароля: строка запроса остаётся на экране, сам пароль нет (ответ на y/n остаётся)
+            appendLine(awaiting.kind === "confirm" ? awaiting.text + command : awaiting.text);
             endAnswer();
         } else {
             appendLine(`${prompt.textContent} ${command}`, "terminal-command");

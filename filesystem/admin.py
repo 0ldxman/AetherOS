@@ -5,6 +5,7 @@ from .forms import MachineFileForm
 from .models import (
     FileKey,
     MachineFile,
+    ProtectedPath,
     SessionFile,
 )
 
@@ -69,6 +70,7 @@ class MachineFileAdmin(admin.ModelAdmin):
                     "path",
                     "file_type",
                     "url",
+                    "system",
                 ),
             },
         ),
@@ -160,6 +162,9 @@ class SessionFileAdmin(admin.ModelAdmin):
                     "file",
                     "path",
                     "deleted_at",
+                    "origin_path",
+                    "trashed_at",
+                    "purge_at",
                 ),
             },
         ),
@@ -227,3 +232,12 @@ class FileKeyAdmin(admin.ModelAdmin):
         "file",
         "key",
     )
+
+
+@admin.register(ProtectedPath)
+class ProtectedPathAdmin(admin.ModelAdmin):
+    list_display = ("path", "machine")
+    list_filter = ("machine",)
+    search_fields = ("path",)
+    autocomplete_fields = ("machine",)
+
