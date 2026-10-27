@@ -72,8 +72,8 @@ class LayerCommand(BaseCommand):
         """Что сказать, когда слой снят."""
         return self.done
 
-    def unlock(self, context, target, values, layer, absent=None, finish=None):
-        """absent заменяет текст «нечего снимать»; finish(entry, before) зовётся, когда слой снят (before: прогресс файла до
+    def unlock(self, context, target, values, layer, absent=None, finish=None, scene=None):
+        """absent заменяет текст «нечего снимать»; scene(entry, ok, rest) заменяет scene_for; finish(entry, before) зовётся, когда слой снят (before: прогресс файла до
         снятия), и может вернуть строку для ответа."""
         path = context.resolve_path(target)
         fs = VirtualFilesystem(context)
@@ -160,6 +160,10 @@ class LayerCommand(BaseCommand):
         return CommandResult(
             "\n".join(lines + outcome.say + notice),
             code,
-            scene=self.scene_for(context, layer, entry, bool(outcome.result.removed), rest, values),
+            scene=(
+                scene(entry, bool(outcome.result.removed), rest)
+                if scene
+                else self.scene_for(context, layer, entry, bool(outcome.result.removed), rest, values)
+            ),
             effects=outcome.effects or None,
         )

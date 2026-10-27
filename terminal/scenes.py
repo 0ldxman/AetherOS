@@ -133,8 +133,13 @@ FORMAT_UNITS = {
     "rec": ("fields", "lines"), "snp": ("nodes", "styles"), "msg": ("headers", "lines"), "pak": ("entries", "blocks"),
     "app": ("sections", "symbols"),
 }
-ENCODING_UNITS = {"codec": "code units", "hex": "octets", "rot": "letters", "xor": "bytes", "gzip": "blocks", "morse": "symbols",
-                  "reverse": "bytes", "base32": "quanta"}
+# кодировка слоя binary (вид из реестра) -> (единицы, что проверяется перед разбором)
+ENCODING_STEPS = {
+    "codec": ("code units", "checking byte order"), "hex": ("octets", "checking digit pairs"),
+    "rot": ("letters", "mapping alphabet"), "xor": ("bytes", "applying key stream"),
+    "gzip": ("blocks", "inflating deflate stream"), "morse": ("symbols", "splitting dots and dashes"),
+    "reverse": ("bytes", "reversing order"), "base32": ("quanta", "checking padding"),
+}
 
 
 def _decode_rows(path, names):
@@ -146,28 +151,21 @@ def _decode_rows(path, names):
     return rows
 
 
-def convert_scene(path, size, value, ok, kind):
-    """cvt: чтение файла как названного формата (disguised) или раскодирование кодировки (binary). Решение уже принято
-    сервером: неверное название обрывается на разборе входа, и по сцене ничего не узнать раньше ответа. Единицы разбора
-    берутся из формата: у записи поля, у страницы узлы, у документа и скана их части (каждая своей полосой)."""
+def convert_scene(path, size, value, ok, out):
+    """cvt ext: чтение файла как названного формата и запись результата. out это куда ляжет копия (None: тот же файл,
+    расширение заменяется). Решение уже принято сервером: неверное название обрывается на разборе входа, и по сцене
+    ничего не узнать раньше ответа. Единицы разбора берутся из формата: у записи поля, у страницы узлы, у документа и
+    скана их части (каждая своей полосой)."""
     from filesystem.rawview import registry
 
-    stage = "input" if kind == "disguised" else "stream"
     s = Scene()
     s.row("cvt", path, width=8)
     s.row("size", f"{size} bytes", width=8)
-    s.row(stage, f"{value}", note="read as requested" if kind == "disguised" else "decode as requested", width=8)
+    s.row("format", f"{value}", note="read as requested", width=8)
+    s.row("output", out or path, note="" if out else "in place", width=8)
     s.blank()
     s.task("probing input", "OK" if ok else "FAIL", ms=(500, 1100))
     if not ok:
-        return s.to_dict()
-
-    if kind != "disguised":
-        found = registry.encoding_named(value.lower())
-        unit = ENCODING_UNITS.get(found.kind if found else "", "units")
-        s.row("  " + unit, str(max(1, size)), width=16)
-        s.bar("decoding stream ", ms=(900, 1800), width=14)
-        s.task("writing output", "OK", ms=(300, 700))
         return s.to_dict()
 
     fmt = registry.format_named(value.lower())
@@ -183,6 +181,29 @@ def convert_scene(path, size, value, ok, kind):
         s.row("  " + big, str(max(1, min(size // 48, _stable(path + ":a", 1, 40)))), width=16)
         s.row("  " + small, str(max(2, min(size // 8, _stable(path + ":b", 60, 900)))), width=16)
         s.bar("decoding streams ", ms=(900, 1800), width=14)
+    s.task("writing output", "OK", ms=(300, 700))
+    return s.to_dict()
+
+
+def decode_scene(path, size, value, ok):
+    """cvt enc: раскодирование слоя binary из названной кодировки. Решение уже принято сервером: неверная кодировка
+    обрывается на проверке потока, и по сцене ничего не узнать раньше ответа. Шаги и единицы зависят от вида кодировки."""
+    from filesystem.rawview import registry
+
+    found = registry.encoding_named(value.lower())
+    unit, check = ENCODING_STEPS.get(found.kind if found else "", ("units", "checking stream"))
+    s = Scene()
+    s.row("cvt", path, width=9)
+    s.row("size", f"{size} bytes", width=9)
+    s.row("encoding", value, note="decode as requested", width=9)
+    s.blank()
+    s.task("probing stream", "OK", ms=(300, 700))
+    s.task(check, "OK" if ok else "FAIL", ms=(400, 900))
+    if not ok:
+        return s.to_dict()
+    s.row("  " + unit, str(max(1, size)), width=16)
+    s.bar("decoding stream ", ms=(900, 1800), width=14)
+    s.task("verifying text", "OK", ms=(200, 500))
     s.task("writing output", "OK", ms=(300, 700))
     return s.to_dict()
 

@@ -1221,11 +1221,19 @@ class RawCommandTests(TestCase):
         good = self.run_command("cvt ext /home/skin.dat /home/s.scan")["scene"]
         self.assertIn("bars", [s["op"] for s in good])                                       # у скана по полосе на блок IMG, OCR, CONF
 
+    def test_cvt_enc_scene_fails_at_the_stream_check_and_shows_no_decoding(self):
+        data = self.run_command("cvt enc rot13 /home/wide.dat")
+        self.assertIn("cannot decode as rot13", data["output"])
+        scene = data["scene"]
+        self.assertEqual([s for s in scene if s["op"] == "dots"][-1]["status"], "FAIL")
+        self.assertNotIn("bar", [s["op"] for s in scene])
+
     def test_cvt_scene_speaks_the_language_of_the_format(self):
-        from terminal.scenes import convert_scene
+        from terminal.scenes import convert_scene, decode_scene
 
         def text(fmt, kind="disguised"):
-            return " ".join(str(v) for step in convert_scene("/a", 400, fmt, True, kind) for v in step.values())
+            steps = convert_scene("/a", 400, fmt, True, "/b") if kind == "disguised" else decode_scene("/a", 400, fmt, True)
+            return " ".join(str(v) for step in steps for v in step.values())
 
         self.assertIn("pages", text("pdf"))
         self.assertIn("fields", text("rec"))
@@ -1235,6 +1243,11 @@ class RawCommandTests(TestCase):
         self.assertIn("reading chunk table", text("scan"))
         self.assertIn("OCR", text("scan"))
         self.assertIn("code units", text("utf16", "binary"))
+        self.assertIn("checking digit pairs", text("hex", "binary"))
+        self.assertIn("splitting dots and dashes", text("morse", "binary"))
+        self.assertNotIn("decoding streams", text("rot13", "binary"))                       # у кодировки своя сцена, не про формат
+        self.assertIn("/b", text("pdf"))
+        self.assertNotIn("checking", text("pdf"))
 
     def test_the_size_in_ls_is_the_length_of_the_bytes_that_blk_shows(self):
         size = int(self.run_command("ls -l /home/report.rec")["output"].split()[0])

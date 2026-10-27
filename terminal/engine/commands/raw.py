@@ -9,7 +9,7 @@ from terminal.engine.filesystem import VirtualFilesystem
 from terminal.engine.hexdump import hexdump
 from terminal.engine.rawinfo import raw_of, size_of
 from terminal.engine.result import CommandResult
-from terminal.scenes import block_scene, convert_scene, repair_scene
+from terminal.scenes import block_scene, convert_scene, decode_scene, repair_scene
 
 BLOCK = 512
 MAX_BLOCKS = 4
@@ -98,7 +98,10 @@ class CvtCommand(LayerCommand):
         if args and args[0] == "ext" and len(args) == 3:
             return self.convert_format(context, args[1], args[2])
         if args and args[0] == "enc" and len(args) == 3:
-            return self.unlock(context, args[2], [args[1]], "binary", absent="nothing to decode")
+            return self.unlock(
+                context, args[2], [args[1]], "binary", absent="nothing to decode",
+                scene=lambda entry, ok, rest: decode_scene(entry.path, size_of(context, entry), args[1], ok),
+            )
         return CommandResult(self.USAGE, 2)
 
     def convert_format(self, context, target, out):
@@ -117,6 +120,9 @@ class CvtCommand(LayerCommand):
         if not fs.exists(path) or fs.is_directory(path):
             return self.unlock(context, target, [name], "disguised")
 
+        def scene(entry, ok, rest):
+            return convert_scene(entry.path, size_of(context, entry), name, ok, None if in_place else destination)
+
         destination = context.resolve_path(posixpath.splitext(target)[0] + ext if in_place else out)
         problem = fileops.check(context, fs, path, destination, in_place, False)
         if problem:
@@ -134,12 +140,11 @@ class CvtCommand(LayerCommand):
                 SessionFile.objects.filter(session=context.session, path=entry.path).update(state=before)
             return f"  {destination}"
 
-        return self.unlock(context, target, [name], "disguised", finish=finish)
-
-    def scene_for(self, context, layer, entry, ok, rest, values):
-        return convert_scene(entry.path, size_of(context, entry), values[0], ok, layer)
+        return self.unlock(context, target, [name], "disguised", finish=finish, scene=scene)
 
     def fail_for(self, context, entry, target, wrong, values):
         head = " ".join(f"{byte:02x}" for byte in raw_of(context, entry).data[:16])
-        return f"{self.name}: {target}: cannot read as {values[0]}\n  unexpected header: {head}"
+        top = peek_top(entry.machine_file.state, entry.session_file.state if entry.session_file else "")
+        verb = "decode" if top is not None and top.state.name == "binary" else "read"
+        return f"{self.name}: {target}: cannot {verb} as {values[0]}\n  unexpected header: {head}"
 
