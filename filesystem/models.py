@@ -206,6 +206,27 @@ class FileKey(models.Model):
         return f"{self.file} — {self.key}"
 
 
+class FileSlice(models.Model):
+    """Кусок другого файла, вырезанный командой blk: ссылка на источник, его прогресс по слоям на момент вырезки и окно в
+    байтах. Байты куска считаются на лету, поэтому большие ассеты в базу не копируются.
+
+    Файл машины, которому принадлежит запись, скрыт ото всех (delivered_only) и виден только там, куда его положили.
+    """
+
+    file = models.OneToOneField("filesystem.MachineFile", on_delete=models.CASCADE, related_name="slice")
+    source = models.ForeignKey("filesystem.MachineFile", on_delete=models.CASCADE, related_name="slices")
+    state = models.TextField(blank=True, help_text="Прогресс источника по слоям на момент вырезки (как его видел игрок).")
+    start = models.PositiveBigIntegerField()
+    end = models.PositiveBigIntegerField(null=True, blank=True, help_text="Пусто: до конца источника.")
+
+    class Meta:
+        verbose_name = "Вырезка из файла"
+        verbose_name_plural = "Вырезки из файлов"
+
+    def __str__(self):
+        return f"{self.source_id}[{self.start}:{self.end}]"
+
+
 class ProtectedPath(models.Model):
     """Путь, который игрок не может удалить командой del (и никто внутри него тоже): базовые папки.
 

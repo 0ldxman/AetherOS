@@ -134,7 +134,7 @@ class TerminalSceneTests(TestCase):
             ("enc /home/note.txt", "decoded"),
             ("pak /home/pack.dat", "unpacked"),
             ("cvt enc utf16 /home/blob.bin", "converted"),
-            ("blk /home/slice.img 2 5", "blocks read"),
+            ("blk -i /home/slice.img -o /home/s.out skip=2", "copied"),
             ("cvt ext /home/report.txt .PDF", "converted"),
         ):
             data = self.run_command(command)
@@ -143,7 +143,9 @@ class TerminalSceneTests(TestCase):
             self.assertIsNotNone(data["scene"])
 
     def test_the_wrong_values_do_not_open_the_layer(self):
-        self.assertEqual(self.run_command("blk /home/slice.img 1 5")["exit_code"], 1)
+        cut = self.run_command("blk -i /home/slice.img -o /home/wrong.out skip=1")                   # не на данных: файл есть, слой на месте
+        self.assertEqual(cut["exit_code"], 0)
+        self.assertIn("copied", self.run_command("blk -i /home/slice.img -o /home/right.out skip=2")["output"])
         self.assertEqual(self.run_command("cvt ext /home/report.txt .docx")["exit_code"], 1)
         self.assertIn("not an archive", self.run_command("pak /home/report.txt")["output"])
 
@@ -1170,58 +1172,119 @@ class RawCommandTests(TestCase):
         self.assertNotIn("Cargo", self.run_command("txtx /home/wide.dat")["output"])      # UTF-16: ASCII-строк нет
         self.assertIn("Cargo manifest", self.run_command("txtx /home/skin.dat")["output"])  # контейнер scan: текст в блоке OCR
 
-    def test_blk_dumps_blocks_like_dd(self):
-        data = self.run_command("blk /home/report.rec")
-        self.assertEqual(data["exit_code"], 0)
-        first = data["output"].splitlines()[0]
-        self.assertRegex(first, r"^00000000  c2 a7 72 65 63 0a 77 68")
-        self.assertIn("|..rec.wh|", first)
+    def raw(self, path):
+        return self.client.get(reverse("fsview:content") + f"?path={path}").content
+
+    def test_blk_cuts_a_window_into_a_new_file_like_dd(self):
+        whole = self.raw("/home/report.rec")
+        data = self.run_command("blk -i /home/report.rec -o /home/part.dat start=0 end=16")
+        self.assertEqual(data["exit_code"], 0, data["output"])
         self.assertIn("0+1 records in", data["output"])
-        self.assertIn("bytes copied", data["output"])
+        self.assertIn("16 bytes copied", data["output"])
+        self.assertEqual(self.raw("/home/part.dat"), whole[:16])
+        self.assertIn("part.dat", self.run_command("ls /home")["output"])
+        self.assertEqual(self.raw("/home/report.rec"), whole)                                    # исходник цел
 
-        past = self.run_command("blk /home/report.rec 9 1")                               # за концом файла
-        self.assertEqual(past["exit_code"], 1)
-        self.assertIn("0+0 records in", past["output"])
+        blocks = self.run_command("blk -i /home/report.rec -o /home/blocks.dat skip=0 count=1")
+        self.assertEqual(self.raw("/home/blocks.dat"), whole)                                    # блок длиннее файла: до конца
+        self.assertIn(f"{len(whole)} bytes copied", blocks["output"])
 
-        shown = self.run_command("blk /home/wide.dat")["output"]
-        self.assertIn("|.", shown)
-        self.assertRegex(shown, r"a7 00 72 00 65 00 63 00")                              # §rec в UTF-16
+        again = self.run_command("blk -i /home/part.dat -o /home/inner.dat start=4 end=10")      # вырезка из вырезки
+        self.assertEqual(self.raw("/home/inner.dat"), whole[4:10])
+        self.assertEqual(again["exit_code"], 0)
 
-    def test_blk_still_unlocks_a_shifted_layer_and_still_shows_the_blocks(self):
-        wrong = self.run_command("blk /home/slice.img 0 1")                               # блоки показаны, но числа не те
-        self.assertEqual(wrong["exit_code"], 1)
-        self.assertIn("records in", wrong["output"])
-        self.assertIn("wrong skip", wrong["output"])
-        self.assertEqual(self.run_command("blk /home/slice.img")["exit_code"], 0)          # без чисел только чтение
-        data = self.run_command("blk /home/slice.img 2 5")
-        self.assertIn("blocks read", data["output"])
-        self.assertIn("records in", data["output"])
-        self.assertIn("records in", self.run_command("blk /home/slice.img 1 1")["output"])   # слоя уже нет, чтение работает
+    def test_blk_without_an_end_scans_for_it_and_shows_the_address(self):
+        data = self.run_command("blk -i /home/report.rec -o /home/tail.dat start=8")
+        text = " ".join(str(v) for step in data["scene"] for v in step.values())
+        self.assertIn("scanning for EOF", text)
+        self.assertIn(f"EOF at 0x{len(self.raw('/home/report.rec')):x}", text)
+        named = self.run_command("blk -i /home/report.rec -o /home/n.dat start=8 end=12")
+        self.assertNotIn("scanning for EOF", " ".join(str(v) for step in named["scene"] for v in step.values()))
+
+    def test_blk_refuses_what_dd_would_not_do_quietly(self):
+        self.run_command("blk -i /home/report.rec -o /home/x.dat start=0")
+        for command, text in (
+            ("blk -i /home/report.rec -o /home/x.dat start=0", "exists"),
+            ("blk -i /home/none -o /home/y.dat start=0", "No such file"),
+            ("blk -i /home/report.rec -o /home/z.dat start=99999", "beyond the end"),
+            ("blk -i /home/report.rec -o /home/z.dat start=5 end=5", "end must be after start"),
+            ("blk -i /home/report.rec -o /home/z.dat skip=0 start=1", "not both"),
+            ("blk -i /home/report.rec -o /home/z.dat skip=x", "invalid skip"),
+            ("blk -i /home/report.rec", "usage: blk"),
+            ("blk /home/report.rec", "usage: blk"),
+        ):
+            data = self.run_command(command)
+            self.assertNotEqual(data["exit_code"], 0, command)
+            self.assertIn(text, data["output"], command)
+        self.assertNotIn("z.dat", self.run_command("ls /home")["output"])
+
+    def test_blk_cuts_what_the_player_sees_so_a_cipher_gives_noise(self):
+        self.run_command("blk -i /home/vault.dat -o /home/v.dat start=0")
+        self.assertNotIn(b"Cargo", self.raw("/home/v.dat"))
+        self.assertEqual(len(self.raw("/home/v.dat")), len(self.raw("/home/vault.dat")))
+
+    def test_blk_reports_an_io_error_on_a_damaged_block(self):
+        from filesystem.models import MachineFile
+
+        MachineFile.objects.create(machine=self.main, path="/home/dmg.dat", state="> damaged", url="apps/wiki/Harbor/Report")
+        data = self.run_command("blk -i /home/dmg.dat -o /home/d.out start=0")
+        self.assertEqual(data["exit_code"], 0)
+        self.assertIn("I/O error at block 0", data["output"])
+        text = " ".join(str(v) for step in data["scene"] for v in step.values())
+        self.assertIn("I/O error at block 0", text)
+
+    def test_blk_cut_at_the_data_of_a_shifted_file_is_the_real_file_and_any_other_is_junk(self):
+        whole = self.raw("/home/report.rec")
+        junk = self.run_command("blk -i /home/slice.img -o /home/junk.dat skip=1")
+        self.assertEqual(junk["exit_code"], 0, junk["output"])
+        self.assertNotEqual(self.raw("/home/junk.dat")[:4], "§rec".encode()[:4])
+        self.assertIn("no content", self.run_command("cnt /home/junk.dat")["output"])                    # у обрезка нет адреса, открывать нечего
+        short = self.run_command("blk -i /home/slice.img -o /home/short.dat start=0x400 end=0x410")     # данные обрезаны
+        self.assertEqual(short["exit_code"], 0)
+
+        real = self.run_command("blk -i /home/slice.img -o /home/real.dat skip=2")
+        self.assertEqual(real["exit_code"], 0, real["output"])
+        self.assertEqual(self.raw("/home/real.dat"), whole)                                                 # настоящий файл без шума
+        self.assertIn(f"{len(whole)} bytes copied", real["output"])
+        opened = self.run_command("cnt /home/real.dat")
+        self.assertEqual(opened["exit_code"], 0, opened["output"])
+        self.assertIsNotNone(opened["window"])
+        again = self.run_command("blk -i /home/slice.img -o /home/real2.dat start=0x400 end=0x9999")    # слой на исходнике остался
+        self.assertEqual(again["exit_code"], 0, again["output"])
+        self.assertEqual(self.raw("/home/real2.dat"), whole)
+
+    def test_blk_cut_of_a_key_block_can_be_given_to_kex(self):
+        self.keyed_file()
+        offset = int(self.offset_of_block("/home/keyed.rec"), 16)
+        self.run_command(f"blk -i /home/keyed.rec -o /home/piece.dat start={offset}")
+        data = self.run_command("kex /home/piece.dat 0")
+        self.assertEqual(data["exit_code"], 0, data["output"])
+        self.assertIn("key secret_a", data["output"])
 
     def test_cvt_names_the_container_and_the_error_shows_the_real_header(self):
         data = self.run_command("cvt ext /home/skin.dat /home/skin.pdf")
         self.assertEqual(data["exit_code"], 1)
         self.assertIn("cannot read as pdf", data["output"])
         self.assertIn("unexpected header: 9e 53 43 41 4e 0d 0a 1b", data["output"])        # то, что лежит в начале на самом деле
-        self.assertIn("9e 53 43 41 4e 0d 0a 1b", self.run_command("blk /home/skin.dat")["output"].splitlines()[0])
+        self.assertEqual(self.raw("/home/skin.dat")[:8], b"\x9eSCAN\r\n\x1b")
 
         ok = self.run_command("cvt ext /home/skin.dat /home/skin.SCAN")                    # регистр не важен
         self.assertEqual((ok["exit_code"], ok["output"]), (0, "cvt: /home/skin.dat: converted\n  /home/skin.SCAN"))
-        self.assertIn("|..rec.", self.run_command("blk /home/skin.SCAN")["output"])         # копия стала записью rec
-        self.assertIn("9e 53 43 41", self.run_command("blk /home/skin.dat")["output"])      # у исходника слой остался
+        self.assertTrue(self.raw("/home/skin.SCAN").startswith("§rec".encode()))                       # копия стала записью rec
+        self.assertEqual(self.raw("/home/skin.dat")[:4], b"\x9eSCA")                                    # у исходника слой остался
 
     def test_cvt_ext_with_only_an_extension_converts_the_file_in_place(self):
         data = self.run_command("cvt ext /home/skin.dat .scan")
         self.assertEqual(data["exit_code"], 0, data["output"])
         self.assertIn("/home/skin.dat -> /home/skin.scan", data["output"])
-        self.assertIn("No such file", self.run_command("blk /home/skin.dat")["output"])
-        self.assertIn("|..rec.", self.run_command("blk /home/skin.scan")["output"])
+        self.assertIn("No such file", self.run_command("txtx /home/skin.dat")["output"])
+        self.assertTrue(self.raw("/home/skin.scan").startswith("§rec".encode()))
 
     def test_cvt_ext_refuses_an_existing_output_and_a_wrong_copy_does_not_free_the_original(self):
         self.run_command("cvt ext /home/skin.dat /home/a.scan")
         self.assertIn("exists", self.run_command("cvt ext /home/skin.dat /home/a.scan")["output"])
         self.run_command("cvt ext /home/skin.dat /home/b.pdf")
-        self.assertIn("9e 53 43 41", self.run_command("blk /home/skin.dat")["output"])      # неудача копии не снимает слой с исходника
+        self.assertEqual(self.raw("/home/skin.dat")[:4], b"\x9eSCA")                                    # неудача копии не снимает слой с исходника
 
     def test_cvt_ext_takes_an_alias_and_a_zip_format_lists_its_files(self):
         from filesystem.models import MachineFile
@@ -1350,10 +1413,11 @@ class RawCommandTests(TestCase):
         self.assertIn("/b", text("pdf"))
         self.assertNotIn("checking", text("pdf"))
 
-    def test_the_size_in_ls_is_the_length_of_the_bytes_that_blk_shows(self):
+    def test_the_size_in_ls_is_the_length_of_the_bytes_that_blk_cuts(self):
         size = int(self.run_command("ls -l /home/report.rec")["output"].split()[0])
-        data = self.run_command("blk /home/report.rec 0 4")
+        data = self.run_command("blk -i /home/report.rec -o /home/all.dat skip=0")
         self.assertIn(f"{size} bytes copied", data["output"])
+        self.assertEqual(int(self.run_command("ls -l /home/all.dat")["output"].split()[0]), size)
         self.assertIn(f"{size} bytes)", self.run_command("cnt /home/report.rec")["output"])
 
     def test_cnt_r_opens_the_raw_viewer_with_the_same_bytes(self):
@@ -1375,7 +1439,7 @@ class RawCommandTests(TestCase):
 
         first = self.client.get(url, HTTP_RANGE="bytes=0-7")
         self.assertEqual(first.status_code, 206)
-        self.assertEqual(first.content, b"\x9eSCAN\r\n\x1b")                                    # то же, что показывает blk
+        self.assertEqual(first.content, b"\x9eSCAN\r\n\x1b")                                    # то же, что видит txtx
         self.assertEqual(first["Content-Range"], f"bytes 0-7/{size}")
         self.assertEqual(len(self.client.get(url, HTTP_RANGE="bytes=-4").content), 4)
         self.assertEqual(self.client.get(url, HTTP_RANGE=f"bytes={size + 10}-").status_code, 416)

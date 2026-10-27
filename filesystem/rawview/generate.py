@@ -17,6 +17,7 @@ GENERATED_MIN, GENERATED_MAX = 180, 48_000
 class RawFile:
     data: bytes
     format: str | None = None     # какой формат у файла «на самом деле» (по слою disguised или по записи вики)
+    bad: tuple = ()               # блоки (по 512 байт) последнего слоя damaged, если он сверху: чтение их даёт ошибку
 
     @property
     def size(self):
@@ -71,7 +72,7 @@ def _content(machine_file, payload, fmt, seed):
         wanted = fmt or payload.fmt or ("msg" if payload.kind == "mail" else "rec")
         return formats.build(wanted, payload.body, payload.meta, seed=seed, views=payload.views)
 
-    if payload.kind == "key":
+    if payload.kind in ("key", "slice"):
         return payload.body
 
     if payload.kind == "app":
@@ -94,11 +95,16 @@ def _core(machine_file, payload, fmt, seed):
     return data
 
 
+def _bad_blocks(length, seed):
+    """Номера повреждённых блоков файла такой длины."""
+    blocks = max(1, -(-length // BLOCK))
+    return sorted({stable(f"{seed}:bad{i}", 0, blocks - 1) for i in range(min(blocks, stable(seed, 3, 9)))})
+
+
 def _damage(data, seed):
     """Повреждённые блоки: несколько блоков заменены шумом, длина не меняется."""
-    blocks = max(1, -(-len(data) // BLOCK))
     out = bytearray(data)
-    for number in sorted({stable(f"{seed}:bad{i}", 0, blocks - 1) for i in range(min(blocks, stable(seed, 3, 9)))}):
+    for number in _bad_blocks(len(data), seed):
         start = number * BLOCK
         out[start:start + BLOCK] = noise(f"{seed}:blk{number}", len(out[start:start + BLOCK]))
     return bytes(out)
@@ -117,8 +123,10 @@ def build_raw(machine_file, session_state="", keys=frozenset(), reader=None, vie
     payload.meta.setdefault("host", machine_file.machine.hostname)
     data = _core(machine_file, payload, fmt, seed)
 
+    bad = ()
     for layer in reversed(stack):         # от нижнего слоя к верхнему
         name, params = layer.state.name, layer.params
+        bad = ()
         if name == "binary":
             data = encodings.encode(str(params.get("encoding", "")).strip().lower(), data)
         elif name == "base64":
@@ -128,9 +136,10 @@ def build_raw(machine_file, session_state="", keys=frozenset(), reader=None, vie
         elif name == "archive":
             data = formats.magic("pak") + noise(seed + ":pak", len(data))
         elif name in ("damaged", "corrupted"):
+            bad = tuple(_bad_blocks(len(data), seed))
             data = _damage(data, seed)
         elif name == "shifted":
             skip = int(params.get("skip", 0))
             data = noise(seed + ":skip", skip * BLOCK) + data + noise(seed + ":tail", BLOCK)
 
-    return RawFile(data, fmt)
+    return RawFile(data, format=fmt, bad=bad)

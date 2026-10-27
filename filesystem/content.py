@@ -37,8 +37,8 @@ def resolve_content(machine_file, session_file, path, name):
 
         url_path = machine_file.url
 
-    if not url_path or not url_path.strip():
-        return Content(error="empty")
+    if not url_path or not url_path.strip() or url_path.strip() == "slice" or url_path.strip().startswith("keys/"):
+        return Content(error="empty")                 # вырезки и ключи игрока: адреса у них нет, читаются как байты (cnt -r)
 
     url_path = url_path.strip()
 

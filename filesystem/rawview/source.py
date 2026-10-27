@@ -17,7 +17,7 @@ READ_LIMIT = 8 * 1024 * 1024
 
 @dataclass
 class Payload:
-    kind: str = "none"                         # none | wiki | asset | map | mail | app
+    kind: str = "none"                         # none | wiki | asset | map | mail | app | key | slice
     body: bytes = b""                          # текст (wiki, map) или готовые байты (asset, app)
     fmt: str | None = None                     # формат, который диктует источник (тип записи вики)
     meta: dict = field(default_factory=dict)
@@ -136,6 +136,20 @@ def _key(slug):
     return Payload(kind="key", body=keys.armor(slug, f"store:{slug}"), stamp=f"key:{slug}")
 
 
+def _slice(machine_file, keys, reader, viewer):
+    """Вырезка (blk): окно в байтах источника с тем прогрессом по слоям, какой был при вырезке."""
+    from filesystem.models import FileSlice
+    from filesystem.rawview.generate import build_raw
+
+    cut = FileSlice.objects.filter(file=machine_file).select_related("source", "source__machine").first()
+    if cut is None:
+        return Payload()
+    data = build_raw(cut.source, cut.state, keys, reader, viewer).data
+    return Payload(
+        kind="slice", body=data[cut.start:cut.end], stamp=f"slice:{cut.pk}:{cut.source.updated_at.timestamp()}",
+    )
+
+
 def resolve_payload(machine_file, keys, reader=None, viewer=None):
     """Источник данных файла по его адресу содержимого."""
     url = (machine_file.url or "").strip().lstrip("/")
@@ -147,6 +161,8 @@ def resolve_payload(machine_file, keys, reader=None, viewer=None):
 
     if parts[:1] == ["keys"] and len(parts) == 2:
         return _key(parts[1])
+    if parts == ["slice"]:
+        return _slice(machine_file, keys, reader, viewer)
 
     if parts[:1] == ["view"] and len(parts) >= 2:
         return _asset(parts[1], reader)

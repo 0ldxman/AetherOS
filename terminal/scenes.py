@@ -110,12 +110,25 @@ def repair_scene(path, size, ok, more):
 
 # ---------- сырые байты ----------
 
-def block_scene(path, blocks):
-    """blk: перемотка и чтение блоков (dd). Работы тем больше, чем больше блоков."""
+def block_scene(path, out, start, end, scanning, size, errors=()):
+    """blk: чтение окна и запись нового файла. scanning: конец окна не назван, и команда ищет конец файла; после поиска
+    показывает его адрес. errors это блоки с ошибкой чтения (damaged). Решение, настоящий ли файл получится, сцене не
+    известно: она одинакова для верного и неверного окна."""
+    blocks = max(1, -(-(end - start) // 512))
     s = Scene()
+    s.row("blk", path, width=8)
+    s.row("output", out, width=8)
+    s.row("window", f"0x{start:x} - " + ("EOF" if scanning else f"0x{end:x}"), width=8)
+    s.blank()
     s.task("seeking", "OK", ms=(60, 160))
-    if blocks:
-        s.task(f"reading {blocks} block{'s' if blocks != 1 else ''}", "OK", ms=(80 * blocks, 140 * blocks))
+    if scanning:
+        total = max(1, -(-(size - start) // 512))
+        s.count("scanning for EOF", total, unit=" blk", ms=(min(2200, 400 + total * 9), min(2800, 700 + total * 12)), width=22)
+        s.say(f"  EOF at 0x{size:x}")
+    s.task(f"reading {blocks} block{'s' if blocks != 1 else ''}", "WARN" if errors else "OK", ms=(60 * blocks, 110 * blocks))
+    for number in list(errors)[:3]:
+        s.say(f"  I/O error at block {number}", style="warning")
+    s.task("writing output", "OK", ms=(150, 400))
     return s.to_dict()
 
 

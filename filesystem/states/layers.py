@@ -61,10 +61,10 @@ class Base64(BaseState):
 @register
 class Shifted(BaseState):
     name = "shifted"
-    summary = "Данные сдвинуты: нужно знать, с какого места и сколько читать."
+    summary = "Настоящие данные лежат со сдвигом, перед ними шум: нужно найти, где они начинаются, и вырезать их командой blk."
     params = (
-        Param("skip", int, required=True, unlock=True, help="сколько блоков пропустить"),
-        Param("count", int, required=True, unlock=True, help="сколько блоков взять"),
+        Param("skip", int, required=True, unlock=True, help="сколько блоков (по 512 байт) шума перед данными"),
+        Param("count", int, help="сколько блоков занимают данные (справка автору: снимает слой начало окна, а не его длина)"),
     )
 
 

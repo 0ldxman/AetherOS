@@ -1,12 +1,13 @@
 import posixpath
 
+from filesystem import slices
 from filesystem.models import SessionFile
 from filesystem.rawview.registry import format_for_extension
 from filesystem.states.attempt import peek_top
 from terminal.engine import fileops
 from terminal.engine.commands.layered import LayerCommand
 from terminal.engine.filesystem import VirtualFilesystem
-from terminal.engine.hexdump import hexdump
+from terminal.engine.commands.keys import parse_offset
 from terminal.engine.rawinfo import raw_of, size_of
 from terminal.engine.result import CommandResult
 from terminal.scenes import block_scene, convert_scene, decode_scene, repair_scene
@@ -36,51 +37,118 @@ class RprCommand(LayerCommand):
 
 
 class BlkCommand(LayerCommand):
-    """blk <файл> [skip] [count]: прочитать count блоков по 512 байт, начиная с skip, и показать их (hexdump), как dd.
+    """blk -i <вход> -o <выход> skip=N [count=M] | start=A [end=B]: вырезать кусок файла в новый файл, как dd.
 
-    Если на файле слой shifted и названы оба числа, это ещё и попытка его снять."""
+    Окно задаётся блоками по 512 байт (skip, count) или адресами байтов (start, end; end не входит). Без count и end
+    вырезается всё до конца файла. Читаются те же байты, что показывают cnt -r и txtx: под шифром это шум.
+
+    Если на файле слой shifted и окно начинается ровно на данных и не короче их, новый файл настоящий: слой снят с его
+    копии. Любое другое окно даёт файл из тех байтов, что попали в окно. Исходный файл не меняется."""
 
     name = "blk"
     layer = "shifted"
-    done = "blocks read"
-    absent = "nothing to read"
+    done = "copied"
+    absent = "nothing to copy"
+    usage = "usage: blk -i input -o output skip=N [count=M]\n       blk -i input -o output start=A [end=B]"
+    KEYS = ("skip", "count", "start", "end")
+
+    def parse(self, args):
+        """Словарь с input, output, start, end (end None: до конца файла) или текст ошибки."""
+        given, flags = {}, {}
+        i = 0
+        while i < len(args):
+            arg = args[i]
+            if arg in ("-i", "-o"):
+                if i + 1 >= len(args):
+                    return f"blk: option {arg} requires an argument"
+                flags[arg] = args[i + 1]
+                i += 2
+            elif "=" in arg and arg.split("=", 1)[0] in self.KEYS:
+                key, value = arg.split("=", 1)
+                number = parse_offset(value) if key in ("start", "end") else (int(value) if value.isdigit() else None)
+                if number is None:
+                    return f"blk: invalid {key}: {value}"
+                given[key] = number
+                i += 1
+            else:
+                return self.usage
+        if "-i" not in flags or "-o" not in flags or not given:
+            return self.usage
+        if {"skip", "count"} & given.keys() and {"start", "end"} & given.keys():
+            return "blk: use either skip/count or start/end, not both"
+        if {"skip", "count"} & given.keys():
+            skip = given.get("skip", 0)
+            if given.get("count", 1) < 1:
+                return "blk: count must be 1 or more"
+            start = skip * BLOCK
+            end = (skip + given["count"]) * BLOCK if "count" in given else None
+        else:
+            start, end = given.get("start", 0), given.get("end")
+        if end is not None and end <= start:
+            return "blk: end must be after start"
+        return {"input": flags["-i"], "output": flags["-o"], "start": start, "end": end}
 
     def execute(self, context, args):
-        if not args or len(args) > 3:
-            return CommandResult("usage: blk file [skip] [count]", 2)
+        opts = self.parse(args)
+        if isinstance(opts, str):
+            return CommandResult(opts, 2)
 
-        try:
-            skip = int(args[1]) if len(args) > 1 else 0
-            count = int(args[2]) if len(args) > 2 else 1
-        except ValueError:
-            return CommandResult("blk: skip and count must be whole numbers", 2)
-        if skip < 0 or count < 1:
-            return CommandResult("blk: skip must be 0 or more and count 1 or more", 2)
-        asked, count = count, min(count, MAX_BLOCKS)     # показываем не больше MAX_BLOCKS, снимать слой пробуем с названным
-
-        target = args[0]
+        target, out = opts["input"], opts["output"]
         path = context.resolve_path(target)
+        destination = context.resolve_path(out)
         fs = VirtualFilesystem(context)
         if not fs.exists(path):
             return CommandResult(f"blk: cannot open '{target}': No such file or directory", 2)
         if fs.is_directory(path):
             return CommandResult(f"blk: {target}: Is a directory", 1)
+        problem = fileops.check(context, fs, path, destination, False, False)
+        if problem:
+            return CommandResult(f"blk: {out}: {problem}", 1)
 
         entry = fs.get_file(path)
-        data = raw_of(context, entry).data
-        chunk = data[skip * BLOCK:(skip + count) * BLOCK]
-        whole, rest = divmod(len(chunk), BLOCK)
+        raw = raw_of(context, entry)
+        data, start, end = raw.data, opts["start"], opts["end"]
+        if start >= len(data):
+            return CommandResult(f"blk: {target}: start is beyond the end of the file ({len(data)} bytes)", 1)
+
+        scanning = end is None
+        end = min(len(data), end if end is not None else len(data))
+        raw_state = entry.session_file.state if entry.session_file else ""
+        top = peek_top(entry.machine_file.state, raw_state)
+        real = (
+            top is not None and top.state.name == self.layer
+            and start == int(top.params["skip"]) * BLOCK and end >= len(data) - BLOCK
+        )
+        if real:
+            end = len(data) - BLOCK                         # хвост шума за данными в файл не попадает
+
+        length = end - start
+        whole, rest = divmod(length, BLOCK)
         records = f"{whole}+{1 if rest else 0} records"
-        lines = [*hexdump(chunk, skip * BLOCK), f"{records} in", f"{records} out", f"{len(chunk)} bytes copied"]
+        errors = [n for n in raw.bad if start < (n + 1) * BLOCK and n * BLOCK < end]
+        lines = [
+            *(f"blk: {target}: I/O error at block {n}" for n in errors),
+            f"{records} in", f"{records} out", f"{length} bytes copied",
+        ]
+        scene = block_scene(entry.path, destination, start, end, scanning, len(data), errors)
 
-        top = peek_top(entry.machine_file.state, entry.session_file.state if entry.session_file else "")
-        if len(args) == 3 and top is not None and top.state.name == self.layer:
-            result = self.unlock(context, target, [str(skip), str(asked)], self.layer)
-            return CommandResult("\n".join([*lines, result.output]), result.exit_code, scene=result.scene, effects=result.effects)
+        if real:
+            def finish(item, before):
+                fileops.apply(context, item.path, destination, False)
+                if item.session_file is not None:
+                    item.session_file.state = before                   # у исходника слой остаётся, снят он только с копии
+                    item.session_file.save(update_fields=["state"])
+                else:
+                    SessionFile.objects.filter(session=context.session, path=item.path).update(state=before)
+                return f"  {destination}"
 
-        if not chunk:
-            return CommandResult("\n".join(lines), 1, scene=block_scene(entry.path, 0))
-        return CommandResult("\n".join(lines), 0, scene=block_scene(entry.path, whole + (1 if rest else 0)))
+            result = self.unlock(context, target, [str(int(top.params["skip"]))], self.layer, finish=finish, scene=lambda *_: scene)
+            if result.exit_code != 0:
+                return result
+            return CommandResult("\n".join([*lines, result.output]), 0, scene=scene, effects=result.effects)
+
+        slices.make(context.session, entry.machine_file, raw_state, start, end, destination)
+        return CommandResult("\n".join([*lines, f"blk: {target}: {self.done}", f"  {destination}"]), 0, scene=scene)
 
 
 class CvtCommand(LayerCommand):
