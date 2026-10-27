@@ -99,7 +99,7 @@ class RawViewTests(TestCase):
         url = "apps/wiki/Harbor/Report"
         plain = self.raw(self.make("/p", url)).data
 
-        based = self.raw(self.make("/b", url, "> base64")).data
+        based = self.raw(self.make("/b", url, "> binary base64")).data
         self.assertEqual(based, encodings.wrap_base64(plain))
         self.assertNotIn(b"Cargo", based)                                        # закодировано
 
@@ -118,8 +118,8 @@ class RawViewTests(TestCase):
     def test_a_removed_layer_stops_changing_the_view(self):
         from filesystem.states.stack import Progress, canonical_hash
 
-        file = self.make("/a", "apps/wiki/Harbor/Report", "> base64")
-        done = Progress(canonical_hash=canonical_hash("> base64"), removed=1).dump()
+        file = self.make("/a", "apps/wiki/Harbor/Report", "> binary base64")
+        done = Progress(canonical_hash=canonical_hash("> binary base64"), removed=1).dump()
         self.assertIn(b"Cargo", self.raw(file, done).data)
 
     def test_an_asset_gives_its_real_bytes_and_a_wrapper_only_under_a_layer(self):
@@ -586,4 +586,38 @@ class SignatureBlockTests(TestCase):
         closed = signatures.embed(b"text\n", [("director", None, True)], "s", locked=True)
         self.assertEqual(len(open_data), len(closed))
         self.assertEqual(signatures.find(closed), [])
+
+    def test_base64_is_an_encoding_with_variants_and_the_old_layer_is_gone(self):
+        import base64
+
+        data = b"Cargo manifest altered. " * 6
+        wrapped = encodings.encode("base64", data)
+        self.assertTrue(wrapped.endswith(b"\n"))
+        self.assertTrue(all(len(line) <= 76 for line in wrapped.splitlines()))
+        self.assertEqual(base64.b64decode(wrapped), data)
+        url = encodings.encode("base64url", b"\xfb\xff\xfe?>")
+        self.assertNotIn(b"=", url)
+        self.assertNotIn(b"+", url)
+        self.assertNotIn(b"/", url)
+        self.assertNotIn(b"\n", url)
+        self.assertEqual(encodings.valid_param("base64", "url,nowrap"), None)
+        self.assertIn("только", encodings.valid_param("base64", "gzip"))
+        from filesystem.states.registry import registry
+
+        self.assertIsNone(registry.get("base64"))                                    # слой base64 убран
+
+    def test_the_data_migration_rewrites_old_base64_layers(self):
+        import importlib
+
+        from django.apps import apps as live
+
+        module = importlib.import_module("filesystem.migrations.0018_seed_base64_encoding")
+        machine = Machine.objects.create(name="M3", hostname="m3")
+        old = MachineFile.objects.create(machine=machine, path="/o", state='> base64\non read: say "x"')
+        plain = MachineFile.objects.create(machine=machine, path="/p", state="> binary utf16")
+        module.move(live, None)
+        old.refresh_from_db()
+        plain.refresh_from_db()
+        self.assertEqual(old.state, '> binary base64\non read: say "x"')
+        self.assertEqual(plain.state, "> binary utf16")
 

@@ -385,6 +385,7 @@ class FileEncoding(models.Model):
         BASE85 = "base85", "base85"
         UU = "uu", "uuencode"
         ATBASH = "atbash", "Атбаш (алфавит наоборот)"
+        BASE64 = "base64", "base64 (параметры: url, nowrap)"
 
     name = models.SlugField(max_length=32, unique=True, help_text="Как игрок называет кодировку в cvt: utf16, rot13, morse.")
     title = models.CharField(max_length=128, blank=True)
@@ -392,7 +393,7 @@ class FileEncoding(models.Model):
     param = models.CharField(
         max_length=64,
         blank=True,
-        help_text="codec: имя кодека; hex: разделитель (по умолчанию пробел); rot: сдвиг (13); xor: байт (0x5a или 90).",
+        help_text="codec: имя кодека; hex: разделитель (по умолчанию пробел); rot: сдвиг (13); xor: байт (0x5a или 90); base64: url (алфавит для URL, без «=»), nowrap (одной строкой).",
     )
 
     class Meta:

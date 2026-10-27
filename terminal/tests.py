@@ -93,7 +93,7 @@ class TerminalSceneTests(TestCase):
         MachineProfile.objects.create(machine=cls.main, user=cls.user, name="Ivan", login="ivan", freq=1,
                                       mail="ivan@aether-main")
         MachineFile.objects.create(machine=cls.main, path="/home/door.bin", state="> encrypted hunter2 attempts=3")
-        MachineFile.objects.create(machine=cls.main, path="/home/note.txt", state="> base64")
+        MachineFile.objects.create(machine=cls.main, path="/home/note.txt", state="> binary base64")
         MachineFile.objects.create(machine=cls.main, path="/home/pack.zip/a.txt", state="")
         MachineFile.objects.create(machine=cls.main, path="/home/blob.bin", state="> binary utf16")
         MachineFile.objects.create(machine=cls.main, path="/home/slice.img", state="> shifted skip=2 count=5")
@@ -131,7 +131,7 @@ class TerminalSceneTests(TestCase):
 
     def test_each_layer_has_its_own_command(self):
         for command, expected in (
-            ("enc /home/note.txt", "decoded"),
+            ("cvt enc base64 /home/note.txt", "converted"),
             ("pak x /home/pack.zip", "extracted"),
             ("cvt enc utf16 /home/blob.bin", "converted"),
             ("blk /home/slice.img skip=2", "copied"),
@@ -177,7 +177,7 @@ class TerminalSceneTests(TestCase):
         from filesystem.models import MachineFile
 
         MachineFile.objects.create(machine=self.main, path="/home/sealed.dat",
-                                   state='> base64\non read: say "Something rustles inside."')
+                                   state='> binary utf16\non read: say "Something rustles inside."')
         data = self.run_command("cnt /home/sealed.dat")
         self.assertEqual(data["exit_code"], 1)
         self.assertIn("content is locked", data["output"])
@@ -187,10 +187,10 @@ class TerminalSceneTests(TestCase):
         from filesystem.states.compiler import StateError, compile_text
 
         for good in ("open apps/wiki/go/a/", 'open "apps/map/?scene=harbor"', "open view/0c1a/"):
-            compile_text(f"> base64\non read: {good}")
+            compile_text(f"> binary utf16\non read: {good}")
         for bad in ("open", "open /admin/", "open https://evil.example/", "open a b", "open ../x", 'open "a b"'):
             with self.assertRaises(StateError, msg=bad):
-                compile_text(f"> base64\non read: {bad}")
+                compile_text(f"> binary utf16\non read: {bad}")
 
     def test_rpr_says_when_another_damaged_layer_waits_underneath(self):
         from filesystem.models import MachineFile
@@ -847,10 +847,10 @@ class TrashTests(TestCase):
             MachineFile.objects.create(machine=cls.main, path=path, state="")
         MachineFile.objects.create(machine=cls.main, path="/home/core.sys", state="", system=True)
         MachineFile.objects.create(machine=cls.main, path="/home/locked.bin", state="> encrypted hunter2")
-        MachineFile.objects.create(machine=cls.main, path="/home/bait.txt", state='> base64\non delete: say "Somebody is watching {name}."')
-        MachineFile.objects.create(machine=cls.main, path="/home/trap.txt", state="> base64\non delete: alert unreachable count=2 gap=100")
-        MachineFile.objects.create(machine=cls.main, path="/home/boom.txt", state="> base64\non delete: drop /home/a.txt")
-        MachineFile.objects.create(machine=cls.main, path="/home/ghost.txt", state='> base64\non restore: say "It remembers you."')
+        MachineFile.objects.create(machine=cls.main, path="/home/bait.txt", state='> binary utf16\non delete: say "Somebody is watching {name}."')
+        MachineFile.objects.create(machine=cls.main, path="/home/trap.txt", state="> binary utf16\non delete: alert unreachable count=2 gap=100")
+        MachineFile.objects.create(machine=cls.main, path="/home/boom.txt", state="> binary utf16\non delete: drop /home/a.txt")
+        MachineFile.objects.create(machine=cls.main, path="/home/ghost.txt", state='> binary utf16\non restore: say "It remembers you."')
         ProtectedPath.objects.create(path="/etc", machine=cls.main)
 
     def setUp(self):
@@ -1027,7 +1027,7 @@ class TrashTests(TestCase):
         data = self.run_command("rcvr /trash/ghost.txt")
         self.assertIn("It remembers you.", data["output"])
         self.assertEqual(self.run_command("rpr /home/ghost.txt")["exit_code"], 0)       # повреждение осталось
-        self.assertEqual(self.run_command("enc /home/ghost.txt")["exit_code"], 0)       # и слой автора под ним цел
+        self.assertEqual(self.run_command("cvt enc utf16 /home/ghost.txt")["exit_code"], 0)       # и слой автора под ним цел
 
 
 @override_settings(FORCE_SCRIPT_NAME=None)

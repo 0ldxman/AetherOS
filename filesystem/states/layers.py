@@ -67,12 +67,6 @@ class Encrypted(BaseState):
 
 
 @register
-class Base64(BaseState):
-    name = "base64"
-    summary = "Содержимое закодировано в base64."
-
-
-@register
 class Shifted(BaseState):
     name = "shifted"
     summary = "Настоящие данные лежат со сдвигом, перед ними шум: нужно найти, где они начинаются, и вырезать их командой blk."

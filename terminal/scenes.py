@@ -28,10 +28,6 @@ def _encrypted(s, path, ok):
     s.task("checking passphrase", _result(ok), ms=(350, 800))
 
 
-def _base64(s, path, ok):
-    s.task("decoding", _result(ok), ms=(250, 650))
-
-
 def _binary(s, path, ok):
     s.count("scanning", _stable(path, 400, 9000), unit=" bytes", ms=(500, 1000), width=10)
     s.task("collecting strings", _result(ok), ms=(300, 700))
@@ -53,7 +49,7 @@ def _generic(s, path, ok):
     s.task("working", _result(ok), ms=(300, 800))
 
 
-_UNLOCK = {"encrypted": _encrypted, "base64": _base64,
+_UNLOCK = {"encrypted": _encrypted,
            "binary": _binary, "shifted": _shifted, "disguised": _disguised}
 
 
@@ -223,6 +219,7 @@ ENCODING_STEPS = {
     "dec": ("numbers", "parsing decimal codes"), "oct": ("numbers", "parsing octal codes"),
     "url": ("escapes", "checking percent escapes"), "base85": ("groups", "checking alphabet"),
     "uu": ("lines", "checking line lengths"), "atbash": ("letters", "mapping reversed alphabet"),
+    "base64": ("characters", "checking alphabet and padding"),
 }
 
 

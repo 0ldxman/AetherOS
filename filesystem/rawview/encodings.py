@@ -47,6 +47,15 @@ def _uu(data, param):
     return ("begin 644 data\n" + "\n".join(lines) + "\n`\nend\n").encode()
 
 
+def _base64(data, param):
+    """base64: строки по 76 символов, как утилита base64. url: алфавит для URL без «=»; nowrap: одной строкой."""
+    flags = {word.strip() for word in str(param or "").split(",") if word.strip()}
+    text = base64.urlsafe_b64encode(data).rstrip(b"=") if "url" in flags else base64.b64encode(data)
+    if "nowrap" in flags or "url" in flags:
+        return text
+    return b"\n".join(text[i:i + 76] for i in range(0, len(text), 76)) + b"\n"
+
+
 def _byte(param):
     return int(str(param or "0"), 0) & 0xFF
 
@@ -68,6 +77,7 @@ ENCODERS = {
     "base85": lambda data, param: base64.b85encode(data),
     "uu": _uu,
     "atbash": _atbash,
+    "base64": _base64,
 }
 
 
@@ -90,6 +100,10 @@ def valid_param(kind, param):
             codecs.lookup(param or "utf-16-le")
         except LookupError:
             return f"нет такого кодека: {param}"
+    if kind == "base64":
+        unknown = {word.strip() for word in str(param or "").split(",") if word.strip()} - {"url", "nowrap"}
+        if unknown:
+            return f"у base64 только параметры url и nowrap, не {sorted(unknown)[0]}"
     if kind in ("rot", "xor") and param:
         try:
             int(str(param), 0)

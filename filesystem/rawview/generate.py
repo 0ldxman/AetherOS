@@ -143,8 +143,6 @@ def build_raw(machine_file, session_state="", keys=frozenset(), reader=None, vie
         bad = ()
         if name == "binary":
             data = encodings.encode(str(params.get("encoding", "")).strip().lower(), data)
-        elif name == "base64":
-            data = encodings.wrap_base64(data)
         elif name == "encrypted":
             data = _cipher(len(data), params, seed)
         elif name in ("damaged", "corrupted"):

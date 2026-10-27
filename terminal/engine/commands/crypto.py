@@ -154,12 +154,3 @@ class WardCommand(LayerCommand):
             return CommandResult(f"ward: '{output}' exists, delete it first", 1)
         keystore.put_signature(context.session, held.machine_file.url[len(keystore.PREFIX):], signatures.digest(data), output)
         return CommandResult(f"ward: signed {target} with key {name}\n  {output}", 0, scene=sign_scene(entry.path, name))
-
-
-class EncCommand(LayerCommand):
-    """enc <файл>: раскодировать содержимое (слой base64)."""
-
-    name = "enc"
-    layer = "base64"
-    done = "decoded"
-    absent = "not base64"
