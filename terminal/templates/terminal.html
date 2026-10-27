@@ -17,7 +17,12 @@
         data-hostname="{{ hostname }}"
         data-login="{{ login }}"
         data-cwd="{{ cwd }}"
+        data-tab-focus-url="{{ tab_urls.focus }}"
+        data-tab-desktop-url="{{ tab_urls.desktop }}"
+        data-tab-close-url="{{ tab_urls.close }}"
     >
+        <nav id="terminal-tabs" role="tablist" hidden></nav>
+        <ul id="terminal-tab-menu" role="menu" hidden></ul>
         <div id="terminal-output" aria-live="polite"></div>
 
         <form id="terminal-form" autocomplete="off">
@@ -36,6 +41,7 @@
 
     {% csrf_token %}
     {{ greeting|json_script:"terminal-greeting" }}
+    {{ tabs|json_script:"terminal-tabs-data" }}
     <script src="{% static 'ui/console.js' %}"></script>
     <script src="{% static 'terminal.js' %}"></script>
 </body>

@@ -371,11 +371,29 @@ class BridgeFixture(TestCase):
         request.user = self.user
         keystore.put(active_session(request), slug)
 
+    def request(self):
+        from django.test import RequestFactory
+
+        request = RequestFactory().get("/")
+        request.session = self.client.session
+        request.user = self.user
+        return request
+
     def depth(self):
-        return len(self.client.session.get("bridge_stack", []))
+        """Подключений до рабочего стола."""
+        from machines import bridge
+
+        return bridge.depth(self.request())
 
     def shells(self):
-        return len(self.client.session.get("rshell_stack", []))
+        """Подключений от рабочего стола до терминала (оболочки, у которых рабочий стол остался позади)."""
+        from machines import bridge
+
+        request = self.request()
+        tree = request.session.get(bridge.TREE_KEY)
+        if not tree:
+            return 0
+        return max(0, bridge._depth_of(tree, tree["terminal"]) - bridge._depth_of(tree, tree["desktop"]))
 
 
 @override_settings(FORCE_SCRIPT_NAME=None)
@@ -634,11 +652,15 @@ class RshellTests(BridgeFixture):
         self.assertEqual((data["login"], data["hostname"]), ("root", "aether-core"))
         self.assertEqual(self.shells(), 1)
 
-    def test_rcon_is_refused_inside_a_shell_but_shells_nest_in_a_tunnel(self):
+    def test_rcon_inside_a_shell_grows_from_the_shell_and_moves_the_desktop_there(self):
         self.run_command("rshell guest@aether-core")
-        self.assertIn("exit it first", self.run_command("rcon dig@aether-deep")["output"])
+        data = self.run_command("rcon dig@aether-deep")
+        self.assertEqual(data["effects"], [{"op": "switch"}])
+        self.assertEqual(self.where().login, "dig")
+        self.assertEqual([row["label"] for row in data["tabs"]], ["ivan@aether-main", "guest@aether-core", "dig@aether-deep"])
         self.run_command("rcon-close")
         self.assertEqual((self.depth(), self.shells()), (0, 0))
+        self.assertEqual(self.where().login, "ivan")
         self.run_command("rcon guest@aether-core")
         self.assertEqual(self.run_command("rshell dig@aether-deep")["exit_code"], 0)
         self.assertEqual((self.depth(), self.shells()), (1, 1))
@@ -703,6 +725,126 @@ class RshellTests(BridgeFixture):
         self.assertNotIn({"op": "switch"}, data["effects"])
         self.assertEqual(data["hostname"], "aether-main")
 
+
+
+@override_settings(FORCE_SCRIPT_NAME=None)
+class TabsTests(BridgeFixture):
+    """Подключения это дерево со вкладками: терминал и рабочий стол ходят по нему независимо."""
+
+    @classmethod
+    def setUpTestData(cls):
+        super().setUpTestData()
+        from filesystem.models import MachineFile
+
+        MachineFile.objects.create(machine=cls.main, path="/home/notes.txt", state="")
+        MachineFile.objects.create(machine=cls.main, path="/home/work/a.txt", state="")
+        MachineFile.objects.create(machine=cls.core, path="/home/loot.dat", state="")
+        MachineFile.objects.create(machine=cls.deep, path="/home/deep.dat", state="")
+
+    def post(self, name, node):
+        response = self.client.post(reverse(f"terminal:{name}"), data=json.dumps({"node": node}), content_type="application/json")
+        return response.status_code, json.loads(response.content)
+
+    def chain(self):
+        """main -> core (rcon, рабочий стол там) -> deep (rshell, терминал там)."""
+        self.run_command("rcon guest@aether-core")
+        return self.run_command("rshell dig@aether-deep")
+
+    def test_the_tabs_list_the_tree_and_say_where_the_terminal_and_the_desktop_are(self):
+        self.assertEqual(self.run_command("pwd")["tabs"], [])                              # одна машина: вкладок нет
+        data = self.chain()
+        rows = {row["label"]: row for row in data["tabs"]}
+        self.assertEqual(list(rows), ["ivan@aether-main", "guest@aether-core", "dig@aether-deep"])
+        self.assertEqual(rows["dig@aether-deep"]["parent"], rows["guest@aether-core"]["id"])
+        self.assertTrue(rows["dig@aether-deep"]["terminal"] and not rows["dig@aether-deep"]["desktop"])
+        self.assertTrue(rows["guest@aether-core"]["desktop"] and not rows["guest@aether-core"]["terminal"])
+
+    def test_clicking_a_tab_moves_the_terminal_and_not_the_desktop(self):
+        data = self.chain()
+        ids = {row["label"]: row["id"] for row in data["tabs"]}
+        code, data = self.post("tab_focus", ids["ivan@aether-main"])
+        self.assertEqual(code, 200)
+        self.assertEqual((data["login"], data["hostname"]), ("ivan", "aether-main"))
+        self.assertEqual(self.where().login, "guest")                                      # рабочий стол остался на core
+        self.assertIn("notes.txt", self.run_command("ls /home")["output"])                 # команды идут на выбранной вкладке
+        code, data = self.post("tab_focus", ids["dig@aether-deep"])
+        self.assertIn("deep.dat", self.run_command("ls /home")["output"])
+        self.assertEqual(self.post("tab_focus", "99")[0], 404)
+
+    def test_a_window_is_not_opened_from_a_tab_the_desktop_is_not_on(self):
+        self.run_command("rshell guest@aether-core")                                        # терминал на core, стол на main
+        data = self.run_command("cnt /home/loot.dat")
+        self.assertEqual(data["exit_code"], 1)
+        self.assertIn("no display", data["output"])
+        self.assertIsNone(data["window"])
+        self.post("tab_focus", "0")
+        self.assertNotIn("no display", self.run_command("cnt /home/notes.txt")["output"])   # на столе работает как обычно
+
+    def test_each_tab_remembers_its_folder(self):
+        self.run_command("cd /home/work")
+        data = self.run_command("rshell guest@aether-core")
+        self.assertEqual(data["cwd"], "/home")
+        self.post("tab_focus", "0")
+        self.assertEqual(self.run_command("pwd")["output"], "/home/work")
+        self.post("tab_focus", "1")
+        self.assertEqual(self.run_command("pwd")["output"], "/home")
+
+    def test_a_tab_menu_moves_the_desktop(self):
+        data = self.chain()
+        ids = {row["label"]: row["id"] for row in data["tabs"]}
+        code, data = self.post("tab_desktop", ids["dig@aether-deep"])
+        self.assertEqual(data["effects"], [{"op": "switch"}])
+        self.assertEqual(self.where().login, "dig")
+        self.assertEqual(self.depth(), 2)
+        self.assertEqual(self.post("tab_desktop", ids["dig@aether-deep"])[0], 404)         # он и так там
+
+    def test_closing_a_tab_closes_everything_opened_from_it(self):
+        data = self.chain()
+        ids = {row["label"]: row["id"] for row in data["tabs"]}
+        code, data = self.post("tab_close", ids["guest@aether-core"])
+        self.assertEqual(code, 200)
+        self.assertEqual([row["label"] for row in data["tabs"]], [])                       # остался только корень
+        self.assertEqual(data["effects"], [{"op": "switch"}])                              # рабочий стол был под закрытым
+        self.assertEqual(self.where().login, "ivan")
+        self.assertEqual((data["login"], data["hostname"]), ("ivan", "aether-main"))
+        self.assertEqual(self.post("tab_close", "0")[0], 404)                              # корень не закрывается
+
+    def test_closing_a_branch_keeps_the_others(self):
+        self.run_command("rshell guest@aether-core")
+        self.post("tab_focus", "0")
+        self.run_command("rshell dig@aether-deep")                                         # вторая ветка от корня
+        labels = [row["label"] for row in self.run_command("pwd")["tabs"]]
+        self.assertEqual(labels, ["ivan@aether-main", "guest@aether-core", "dig@aether-deep"])
+        code, data = self.post("tab_close", "1")
+        self.assertEqual([row["label"] for row in data["tabs"]], ["ivan@aether-main", "dig@aether-deep"])
+        self.assertEqual(data["effects"], [])
+        self.assertEqual(data["login"], "dig")                                             # терминал не был под закрытым
+
+    def test_a_kick_closes_only_the_terminal_branch(self):
+        from filesystem.models import MachineFile
+
+        self.chain()
+        MachineFile.objects.create(machine=self.deep, path="/home/trap.bin", state="> encrypted x attempts=1\non fail: kick")
+        data = self.run_command("ward /home/trap.bin wrong")
+        self.assertEqual(data["login"], "guest")
+        self.assertEqual(self.where().login, "guest")
+        self.assertEqual([row["label"] for row in data["tabs"]], ["ivan@aether-main", "guest@aether-core"])
+
+    def test_xfer_between_tabs_goes_along_the_tree_and_the_scene_shows_the_route(self):
+        self.chain()                                    # main -> core -> deep, терминал на deep
+        data = self.run_command("xfer ivan@aether-main:/home/notes.txt /home/got.txt")
+        self.assertEqual(data["exit_code"], 0, data["output"])
+        text = json.dumps(data["scene"])
+        self.assertIn("route", text)
+        self.assertIn("relay      guest@aether-core", text)                               # промежуточный узел на пути
+        self.assertIn("got.txt", self.run_command("ls /home")["output"])
+
+    def test_the_limits_stop_endless_tabs(self):
+        self.run_command("rshell guest@aether-core")
+        self.run_command("rshell dig@aether-deep")
+        self.run_command("rshell relay@aether-core")
+        self.run_command("rshell guest@aether-core")
+        self.assertIn("too many nested", self.run_command("rshell dig@aether-deep")["output"])
 
 
 @override_settings(FORCE_SCRIPT_NAME=None)

@@ -55,8 +55,8 @@ def execute(request):
 
     session = bridge.terminal_session(request)
     cwd = request.session.get(CWD_KEY, DEFAULT_CWD)
-    depth_before = bridge.depth(request)
-    shell_before = bridge.shell_depth(request)
+    desktop_before = bridge.desktop_id(request)
+    nodes_before = bridge.node_count(request)
 
     if payload.get("cancel"):
         request.session.pop(PENDING_KEY, None)
@@ -88,9 +88,9 @@ def execute(request):
         )
 
     effects = _server_effects(request, session, result.effects)
-    if bridge.depth(request) != depth_before:
-        new_cwd = DEFAULT_CWD      # смена машины начинает новую оболочку
-    if bridge.shell_depth(request) > shell_before:
+    if bridge.desktop_id(request) != desktop_before:
+        new_cwd = DEFAULT_CWD      # смена рабочего стола начинает новую оболочку
+    elif bridge.node_count(request) > nodes_before:
         # вошли в оболочку на другой машине: её приветствие после ответа команды
         greeting = _greeting(request, bridge.terminal_session(request).profile.machine.hostname, mail=False)
         if greeting:
@@ -110,6 +110,7 @@ def execute(request):
         "cwd": new_cwd,
         "hostname": bridge.terminal_session(request).profile.machine.hostname,
         "login": bridge.terminal_session(request).profile.login,
+        "tabs": bridge.tabs(request),
     })
 
 
@@ -132,13 +133,13 @@ def _server_effects(request, session, effects):
         host = session.profile.machine.hostname
         system = session.profile.machine.system
         out.append({"op": "play", "scene": scenes.kick_scene(system, host)})
-        if bridge.shell_depth(request):
-            request.session[CWD_KEY] = bridge.shell_leave(request)[1]
-        elif bridge.leave(request):
-            request.session[CWD_KEY] = DEFAULT_CWD
-            out.append({"op": "switch"})
-        else:
+        closed = bridge.close(request, cwd=request.session.get(CWD_KEY, DEFAULT_CWD))
+        if closed is None:
             out.append({"op": "lock", "url": reverse("lock")})
+            continue
+        request.session[CWD_KEY] = closed.cwd
+        if closed.desktop_moved:
+            out.append({"op": "switch"})
     return out
 
 
@@ -148,10 +149,67 @@ def bridge_close(request):
     if not is_player(request):
         raise PermissionDenied
 
-    bridge.shell_clear(request)
-    bridge.leave(request, all_levels=True)
+    bridge.close_all(request)
     request.session[CWD_KEY] = DEFAULT_CWD
     return JsonResponse({"ok": True})
+
+
+def _tab_payload(request, extra=None):
+    session = bridge.terminal_session(request)
+    return JsonResponse({
+        "cwd": request.session.get(CWD_KEY, DEFAULT_CWD),
+        "hostname": session.profile.machine.hostname,
+        "login": session.profile.login,
+        "tabs": bridge.tabs(request),
+        **(extra or {}),
+    })
+
+
+def _tab_node(request):
+    if not is_player(request):
+        raise PermissionDenied
+    try:
+        node = json.loads(request.body).get("node")
+    except (json.JSONDecodeError, UnicodeDecodeError, AttributeError):
+        node = None
+    return node if isinstance(node, str) else None
+
+
+@require_POST
+def tab_focus(request):
+    """Клик по вкладке: терминал работает на другом узле, рабочий стол остаётся."""
+    node = _tab_node(request)
+    request.session.pop(PENDING_KEY, None)
+    request.session.pop(CONFIRM_KEY, None)
+    cwd = bridge.focus(request, node, request.session.get(CWD_KEY, DEFAULT_CWD)) if node else None
+    if cwd is None:
+        return JsonResponse({"error": "No such connection"}, status=404)
+    request.session[CWD_KEY] = cwd
+    return _tab_payload(request)
+
+
+@require_POST
+def tab_desktop(request):
+    """Контекстное меню вкладки: рабочий стол переезжает на её машину."""
+    node = _tab_node(request)
+    if not node or not bridge.move_desktop(request, node):
+        return JsonResponse({"error": "No such connection"}, status=404)
+    return _tab_payload(request, {"effects": [{"op": "switch"}]})
+
+
+@require_POST
+def tab_close(request):
+    """Контекстное меню вкладки: закрыть подключение со всем, что открыто из него."""
+    from . import bridge_scenes as scenes
+
+    node = _tab_node(request)
+    closed = bridge.close(request, node, cwd=request.session.get(CWD_KEY, DEFAULT_CWD)) if node else None
+    if closed is None:
+        return JsonResponse({"error": "No such connection"}, status=404)
+    request.session[CWD_KEY] = closed.cwd
+    left = closed.sessions[0]
+    scene = scenes.disconnect_scene(left.profile.machine.system, left.profile.machine.hostname, cut=closed.desktop_moved)
+    return _tab_payload(request, {"scene": scene, "effects": [{"op": "switch"}] if closed.desktop_moved else []})
 
 
 def prompt_path(cwd):
@@ -186,7 +244,7 @@ def _greeting(request, hostname, mail=True):
 
 def terminal_page(request):
     if is_player(request):
-        bridge.shell_clear(request)        # новое окно это новая оболочка на машине рабочего стола
+        bridge.terminal_reset(request)     # новое окно это новая оболочка на машине рабочего стола
         hostname = active_session(request).profile.machine.hostname
     else:
         machine = current_machine(request)
@@ -210,5 +268,11 @@ def terminal_page(request):
             "cwd": DEFAULT_CWD,
             "prompt_path": prompt_path(DEFAULT_CWD),
             "greeting": greeting,
+            "tabs": bridge.tabs(request) if is_player(request) else [],
+            "tab_urls": {
+                "focus": reverse("terminal:tab_focus"),
+                "desktop": reverse("terminal:tab_desktop"),
+                "close": reverse("terminal:tab_close"),
+            },
         },
     )

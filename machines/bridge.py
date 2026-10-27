@@ -1,11 +1,16 @@
-"""Мост: игрок входит с одной машины на другую из терминала (команда bridge).
+"""Мост: игрок входит с одной машины на другую из терминала (rcon, rshell).
 
-Состояние живёт в Django-сессии, на сервере, браузер его подменить не может:
+Состояние живёт в Django-сессии, на сервере, браузер его подменить не может. Это дерево подключений:
 
-    machine_session_id   сессия машины, на которой игрок сейчас (её читают все приложения);
-    bridge_stack         сессии, из которых игрок пришёл, путь назад: [A, B] при цепочке A -> B -> C.
+    узел        одно подключение: сессия машины (для пары игрок, запись) и родитель, откуда подключились;
+                корень это машина, на которой игрок начал. Один и тот же профиль, открытый двумя путями, это два узла;
+    desktop     узел, чей рабочий стол открыт (его сессия лежит в machine_session_id и читают все приложения);
+    terminal    узел, на котором сейчас терминал: команды идут в его сессии. Он может не совпадать с desktop.
 
-Вход кладёт текущую сессию в стек и делает активной сессию целевой записи, выход достаёт из стека.
+rcon растит ребёнка узла терминала и двигает оба указателя, rshell только terminal. Закрытие узла закрывает всё поддерево:
+если под ним был рабочий стол, он возвращается на родителя закрытого узла. Прямой связи между узлами, не родственными по
+дереву, нет: путь из C в A идёт через B.
+
 Сессия для пары (игрок, запись) переиспользуется: прогресс по файлам и счётчики попыток остаются между визитами.
 
 Условия входа, их проверяет verdict():
@@ -27,16 +32,13 @@ from secure.access import satisfied
 from .current import SESSION_KEY, active_session
 from .models import Machine, MachineProfile, MachineProfileToken, Session
 
-STACK_KEY = "bridge_stack"
-SHELL_KEY = "rshell_stack"
-MAX_DEPTH = 4
+TREE_KEY = "bridge_tree"
+MAX_DEPTH = 4           # самая длинная цепочка подключений от корня
+MAX_NODES = 8           # вкладок (подключений) всего
+HOME = "/home"
 
 
-# ---------- стек ----------
-
-def depth(request):
-    return len(request.session.get(STACK_KEY, []))
-
+# ---------- дерево подключений ----------
 
 def session_for(user, profile):
     """Сессия пары (игрок, запись): переиспользуется между визитами, прогресс по файлам остаётся."""
@@ -46,88 +48,247 @@ def session_for(user, profile):
     return session
 
 
-def enter(request, profile):
-    """Игрок вошёл на запись profile: текущая сессия уходит в стек, активной становится сессия записи."""
-    source = active_session(request)
-    session = session_for(request.user, profile)
-
-    request.session[STACK_KEY] = [*request.session.get(STACK_KEY, []), source.pk]
-    request.session[SESSION_KEY] = session.pk
-    return session
-
-
-def leave(request, all_levels=False):
-    """Вернуться на уровень выше (или на исходную машину). Возвращает покинутую сессию или None, если выходить некуда."""
-    stack = list(request.session.get(STACK_KEY, []))
-    if not stack:
-        return None
-
-    left = active_session(request)
-    request.session[SESSION_KEY] = stack[0] if all_levels else stack[-1]
-    request.session[STACK_KEY] = [] if all_levels else stack[:-1]
-    return left
+def _tree(request, create=True):
+    """Дерево из сессии Django. Если рабочий стол сменили мимо моста (другим входом), дерево начинается заново."""
+    tree = request.session.get(TREE_KEY)
+    current = request.session.get(SESSION_KEY)
+    if tree is not None:
+        node = tree["nodes"].get(tree["desktop"])
+        if node is None or (current is not None and node["session"] != current):
+            tree = None
+    if tree is None:
+        if not create:
+            return None
+        base = active_session(request)
+        tree = {"next": 1, "nodes": {"0": {"parent": None, "session": base.pk, "cwd": HOME}}, "desktop": "0", "terminal": "0"}
+    return tree
 
 
-# ---------- оболочка на другой машине (rshell) ----------
-#
-# Рабочий стол остаётся на своей машине, меняется только оболочка терминала. Стек оболочек лежит в той же сессии Django:
-# [{"session": pk, "back_cwd": папка}, ...], у верхней записи сессия, на которой сейчас терминал, а back_cwd это папка
-# уровнем ниже (туда вернёт exit и от неё считаются локальные пути xfer).
-
-def shell_depth(request):
-    return len(request.session.get(SHELL_KEY, []))
+def _save(request, tree):
+    request.session[TREE_KEY] = tree
+    request.session[SESSION_KEY] = tree["nodes"][tree["desktop"]]["session"]
 
 
-def total_depth(request):
-    """Все открытые уровни: мосты рабочего стола и оболочки терминала (общий предел вложенности)."""
-    return depth(request) + shell_depth(request)
+def _depth_of(tree, node):
+    count = 0
+    while tree["nodes"][node]["parent"] is not None:
+        node = tree["nodes"][node]["parent"]
+        count += 1
+    return count
+
+
+def _subtree(tree, node):
+    found = [node]
+    for key, item in tree["nodes"].items():
+        if item["parent"] == node:
+            found += _subtree(tree, key)
+    return found
+
+
+def _session_of(request, tree, node):
+    return Session.objects.select_related("profile__machine").filter(pk=tree["nodes"][node]["session"], user=request.user).first()
+
+
+def depth(request):
+    """Глубина рабочего стола: 0 на исходной машине, иначе число подключений до него."""
+    tree = _tree(request, create=False)
+    return _depth_of(tree, tree["desktop"]) if tree else 0
+
+
+def node_count(request):
+    tree = _tree(request, create=False)
+    return len(tree["nodes"]) if tree else 1
+
+
+def terminal_id(request):
+    tree = _tree(request, create=False)
+    return tree["terminal"] if tree else "0"
+
+
+def desktop_id(request):
+    tree = _tree(request, create=False)
+    return tree["desktop"] if tree else "0"
 
 
 def terminal_session(request):
-    """Сессия, на которой сейчас терминал: верхняя оболочка, а без неё сессия рабочего стола."""
-    stack = request.session.get(SHELL_KEY, [])
-    if stack:
-        session = (
-            Session.objects.select_related("profile__machine").filter(pk=stack[-1]["session"], user=request.user).first()
-        )
+    """Сессия, на которой сейчас терминал."""
+    tree = _tree(request, create=False)
+    if tree:
+        session = _session_of(request, tree, tree["terminal"])
         if session is not None:
             return session
     return active_session(request)
 
 
-def shell_enter(request, profile, back_cwd):
+def tabs(request):
+    """Вкладки терминала в порядке открытия: узел, метка login@host, где терминал, где рабочий стол. Пусто, пока подключений нет."""
+    tree = _tree(request, create=False)
+    if not tree or len(tree["nodes"]) < 2:
+        return []
+    sessions = {
+        item.pk: item
+        for item in Session.objects.select_related("profile__machine").filter(pk__in=[n["session"] for n in tree["nodes"].values()])
+    }
+    rows = []
+    for key in sorted(tree["nodes"], key=int):
+        item = tree["nodes"][key]
+        profile = sessions[item["session"]].profile
+        rows.append({
+            "id": key,
+            "parent": item["parent"],
+            "label": f"{profile.login}@{profile.machine.hostname}",
+            "terminal": key == tree["terminal"],
+            "desktop": key == tree["desktop"],
+        })
+    return rows
+
+
+def can_open(request):
+    """None, если можно открыть ещё подключение от узла терминала, иначе причина отказа."""
+    tree = _tree(request)
+    if len(tree["nodes"]) >= MAX_NODES or _depth_of(tree, tree["terminal"]) + 1 > MAX_DEPTH:
+        return "too many nested sessions"
+    return None
+
+
+def open_child(request, profile, desktop, cwd):
+    """Подключение profile от узла терминала. cwd это папка терминала сейчас (вернётся при выходе). desktop: сменить и рабочий стол."""
+    tree = _tree(request)
     session = session_for(request.user, profile)
-    request.session[SHELL_KEY] = [*request.session.get(SHELL_KEY, []), {"session": session.pk, "back_cwd": back_cwd}]
+    parent = tree["terminal"]
+    tree["nodes"][parent]["cwd"] = cwd
+    key = str(tree["next"])
+    tree["next"] += 1
+    tree["nodes"][key] = {"parent": parent, "session": session.pk, "cwd": HOME}
+    tree["terminal"] = key
+    if desktop:
+        tree["desktop"] = key
+    _save(request, tree)
     return session
 
 
-def shell_leave(request, all_levels=False):
-    """Выйти из оболочки на уровень выше (или из всех). Возвращает (покинутая сессия, папка, в которую вернуться) или None."""
-    stack = list(request.session.get(SHELL_KEY, []))
-    if not stack:
+@dataclass
+class Closed:
+    sessions: list          # закрытые сессии, первая это закрытый узел
+    cwd: str                # папка терминала после закрытия
+    desktop_moved: bool     # рабочий стол переехал (сменить его в браузере)
+
+
+def close(request, node=None, cwd=HOME):
+    """Закрыть узел (по умолчанию терминальный) со всем поддеревом. None для корня: закрывать нечего.
+    Терминал переходит на родителя закрытого узла, рабочий стол под закрытым узлом тоже."""
+    tree = _tree(request)
+    node = node or tree["terminal"]
+    if node not in tree["nodes"] or tree["nodes"][node]["parent"] is None:
         return None
+    if node == tree["terminal"]:
+        tree["nodes"][node]["cwd"] = cwd
+    gone = _subtree(tree, node)
+    parent = tree["nodes"][node]["parent"]
+    sessions = [_session_of(request, tree, key) for key in gone]
+    moved = tree["desktop"] in gone
+    if tree["terminal"] in gone:
+        tree["terminal"] = parent
+    if moved:
+        tree["desktop"] = parent
+    for key in gone:
+        del tree["nodes"][key]
+    _save(request, tree)
+    return Closed([item for item in sessions if item is not None], HOME if moved else tree["nodes"][tree["terminal"]]["cwd"], moved)
 
-    left = terminal_session(request)
-    back = stack[0]["back_cwd"] if all_levels else stack[-1]["back_cwd"]
-    request.session[SHELL_KEY] = [] if all_levels else stack[:-1]
-    return left, back
 
-
-def shell_clear(request):
-    request.session.pop(SHELL_KEY, None)
-
-
-def shell_parent(request):
-    """Уровень ниже верхней оболочки: (сессия, папка). Это «своя» сторона для xfer; None, если оболочки нет."""
-    stack = request.session.get(SHELL_KEY, [])
-    if not stack:
+def close_all(request):
+    """Закрыть все подключения, вернуться на исходную машину. Возвращает (последняя сессия рабочего стола, рабочий стол сменился)."""
+    tree = _tree(request, create=False)
+    if not tree or len(tree["nodes"]) < 2:
         return None
+    left = _session_of(request, tree, tree["terminal"])
+    moved = tree["desktop"] != "0"
+    root = tree["nodes"]["0"]
+    _save(request, {"next": 1, "nodes": {"0": root}, "desktop": "0", "terminal": "0"})
+    return left, moved
 
-    parent = (
-        Session.objects.select_related("profile__machine").filter(pk=stack[-2]["session"], user=request.user).first()
-        if len(stack) > 1 else active_session(request)
-    )
-    return parent, stack[-1]["back_cwd"]
+
+def focus(request, node, cwd):
+    """Терминал на узел node (вкладка), рабочий стол не меняется. cwd это папка терминала сейчас. Возвращает папку узла или None."""
+    tree = _tree(request)
+    if node not in tree["nodes"]:
+        return None
+    tree["nodes"][tree["terminal"]]["cwd"] = cwd
+    tree["terminal"] = node
+    _save(request, tree)
+    return tree["nodes"][node]["cwd"]
+
+
+def terminal_reset(request):
+    """Новое окно терминала это новая оболочка на машине рабочего стола."""
+    tree = _tree(request, create=False)
+    if tree:
+        tree["terminal"] = tree["desktop"]
+        tree["nodes"][tree["desktop"]]["cwd"] = HOME
+        _save(request, tree)
+
+
+def move_desktop(request, node):
+    """Рабочий стол на узел node. False, если такого узла нет или он уже открыт."""
+    tree = _tree(request)
+    if node not in tree["nodes"] or tree["desktop"] == node:
+        return False
+    tree["desktop"] = node
+    _save(request, tree)
+    return True
+
+
+def parent_side(request):
+    """Сторона «у себя» для xfer: (сессия родителя узла терминала, его папка) или None в корне."""
+    tree = _tree(request, create=False)
+    if not tree:
+        return None
+    parent = tree["nodes"][tree["terminal"]]["parent"]
+    if parent is None:
+        return None
+    session = _session_of(request, tree, parent)
+    return (session, tree["nodes"][parent]["cwd"]) if session else None
+
+
+def find_open(request, login, host):
+    """Открытый узел login@host (host это имя машины или её метка) или None. Узел терминала не считается."""
+    tree = _tree(request, create=False)
+    if not tree:
+        return None
+    for row in tabs(request):
+        if row["id"] != tree["terminal"] and row["label"] == f"{login}@{host}":
+            return row["id"]
+    return None
+
+
+def side(request, node):
+    """(сессия, папка) узла node: сторона xfer. Папка та, на которой узел оставили (по умолчанию /home)."""
+    tree = _tree(request, create=False)
+    if not tree or node not in tree["nodes"]:
+        return None
+    session = _session_of(request, tree, node)
+    return (session, tree["nodes"][node]["cwd"]) if session else None
+
+
+def route(request, source, target):
+    """Метки узлов на пути source -> target по дереву, включая оба конца."""
+    tree = _tree(request, create=False)
+    if not tree:
+        return []
+    ups = []
+    node = source
+    while node is not None:
+        ups.append(node)
+        node = tree["nodes"][node]["parent"]
+    down = []
+    node = target
+    while node is not None and node not in ups:
+        down.append(node)
+        node = tree["nodes"][node]["parent"]
+    path = ups[: ups.index(node) + 1] + down[::-1] if node is not None else ups + down[::-1]
+    labels = {row["id"]: row["label"] for row in tabs(request)}
+    return [labels[key] for key in path if key in labels]
 
 
 # ---------- поиск записи ----------

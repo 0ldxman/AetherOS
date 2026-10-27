@@ -69,13 +69,18 @@ def disconnect_scene(system, host, cut=True):
     return s.to_dict()
 
 
-def transfer_scene(name, size_seed, ok=True, connect=None):
-    """Перенос файла: открытие канала, полоса передачи, проверка. connect это сцена соединения (xfer с явным адресом)."""
+def transfer_scene(name, size_seed, ok=True, connect=None, hops=None):
+    """Перенос файла: открытие канала, полоса передачи, проверка. connect это сцена соединения (xfer с явным адресом),
+    hops метки узлов по цепочке подключений (xfer между открытыми вкладками): файл идёт через каждый."""
     from terminal.scenes import _stable, _result
 
     s = Scene()
     for step in (connect or []):
         s.steps.append(step)
+    if hops and len(hops) > 1:
+        s.say("route  " + " -> ".join(hops), style="dim")
+        for hop in hops[1:-1]:
+            s.task(f"relay      {hop} ", "OK", ms=(200, 450))
     s.task("channel    opening ", "OK", ms=(150, 350))
     s.count(f"sending {name} ", _stable(name + str(size_seed), 4, 900), unit=" KB", ms=(500, 1100), width=12)
     s.task("checksum   ", _result(ok), ms=(250, 550))

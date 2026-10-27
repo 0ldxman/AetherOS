@@ -175,14 +175,13 @@ class BridgeCommand(EntryCommand):
     usage = "usage: rcon [-p freq] [-i keyname] [--token token] login@host"
 
     def run(self, context, opts):
-        if bridge.total_depth(context.request) >= bridge.MAX_DEPTH:
-            return CommandResult(f"{self.name}: too many nested sessions", 1)
-        if bridge.shell_depth(context.request):
-            return CommandResult(f"{self.name}: not available inside an rshell session, exit it first", 1)
+        refused = bridge.can_open(context.request)
+        if refused:
+            return CommandResult(f"{self.name}: {refused}", 1)
         return self.enter(context, opts, opts["operands"][0])
 
     def finish(self, context, profile, args):
-        bridge.enter(context.request, profile)
+        bridge.open_child(context.request, profile, True, context.cwd)
         context.cwd = DEFAULT_CWD
         return CommandResult(
             scene=scenes.connect_scene(profile.machine.system, profile.machine.hostname, profile), effects=SWITCH
@@ -198,12 +197,13 @@ class RshellCommand(EntryCommand):
     usage = "usage: rshell [-p freq] [-i keyname] [--token token] login@host"
 
     def run(self, context, opts):
-        if bridge.total_depth(context.request) >= bridge.MAX_DEPTH:
-            return CommandResult(f"{self.name}: too many nested sessions", 1)
+        refused = bridge.can_open(context.request)
+        if refused:
+            return CommandResult(f"{self.name}: {refused}", 1)
         return self.enter(context, opts, opts["operands"][0])
 
     def finish(self, context, profile, args):
-        bridge.shell_enter(context.request, profile, context.cwd)
+        bridge.open_child(context.request, profile, False, context.cwd)
         context.cwd = DEFAULT_CWD
         return CommandResult(scene=scenes.connect_scene(profile.machine.system, profile.machine.hostname, profile, cut=False))
 
@@ -237,6 +237,11 @@ class XferCommand(EntryCommand):
         if address is None:
             return self.inside_shell(context, args)
 
+        login, _, host = address.partition("@")
+        node = bridge.find_open(context.request, login, host)
+        if node is not None:
+            return self.through_tree(context, node, args)
+
         return self.enter(context, opts, address, args)
 
     @staticmethod
@@ -251,19 +256,29 @@ class XferCommand(EntryCommand):
 
     def inside_shell(self, context, args):
         request = context.request
-        parent = bridge.shell_parent(request)
+        parent = bridge.parent_side(request)
         if parent is None:
             return CommandResult(f"{self.name}: not inside an rshell session, use login@host:path", 1)
 
         local = TerminalContext(session=parent[0], cwd=parent[1], request=request)
         return self.transfer(context, local, args, connect=None)
 
+    def through_tree(self, context, node, args):
+        """Адрес уже открыт вкладкой: вход не нужен, Aether сам несёт файл по цепочке подключений от одного узла к другому."""
+        request = context.request
+        found = bridge.side(request, node)
+        if found is None:
+            return CommandResult(f"{self.name}: connection lost", 1)
+        remote = TerminalContext(session=found[0], cwd=found[1], request=request)
+        hops = bridge.route(request, bridge.terminal_id(request), node)
+        return self.transfer(remote, context, args, connect=None, hops=hops)
+
     def finish(self, context, profile, args):
         remote = TerminalContext(session=bridge.session_for(context.request.user, profile), cwd=DEFAULT_CWD, request=context.request)
         connect = scenes.connect_scene(profile.machine.system, profile.machine.hostname, profile, cut=False, opened=False)
         return self.transfer(remote, context, args, connect=connect)
 
-    def transfer(self, remote, local, args, connect):
+    def transfer(self, remote, local, args, connect, hops=None):
         """remote и local это контексты сторон: remote.cwd и local.cwd основа для их относительных путей."""
         remote_path = remote.resolve_path(args["remote"])
         local_path = local.resolve_path(args["local"])
@@ -273,12 +288,12 @@ class XferCommand(EntryCommand):
 
         target, error = copy_file(source, source_path, dest, dest_path)
         if error:
-            return CommandResult(f"{self.name}: {error}", 1, scene=scenes.transfer_scene(source_path, 0, ok=False, connect=connect))
+            return CommandResult(f"{self.name}: {error}", 1, scene=scenes.transfer_scene(source_path, 0, ok=False, connect=connect, hops=hops))
 
         return CommandResult(
             f"{self.name}: {source_path} -> {target}: transferred",
             0,
-            scene=scenes.transfer_scene(source_path, target, connect=connect),
+            scene=scenes.transfer_scene(source_path, target, connect=connect, hops=hops),
         )
 
 ENTRY_COMMANDS = {"rcon": BridgeCommand, "rshell": RshellCommand, "xfer": XferCommand}
@@ -289,19 +304,17 @@ class ExitCommand(BaseCommand):
 
     def execute(self, context, args):
         request = context.request
-        if request is None or bridge.total_depth(request) == 0:
+        if request is None or bridge.node_count(request) < 2 or bridge.terminal_id(request) == "0":
             return CommandResult(f"{self.name}: not inside a remote session", 1)
 
-        if bridge.shell_depth(request):
-            left, back = bridge.shell_leave(request)
-            context.cwd = back
-            host = left.profile.machine.hostname
-            return CommandResult(scene=scenes.disconnect_scene(left.profile.machine.system, host, cut=False))
-
-        left = bridge.leave(request)
-        context.cwd = DEFAULT_CWD
+        closed = bridge.close(request, cwd=context.cwd)
+        context.cwd = closed.cwd
+        left = closed.sessions[0]
         host = left.profile.machine.hostname
-        return CommandResult(scene=scenes.disconnect_scene(left.profile.machine.system, host), effects=SWITCH)
+        return CommandResult(
+            scene=scenes.disconnect_scene(left.profile.machine.system, host, cut=closed.desktop_moved),
+            effects=SWITCH if closed.desktop_moved else None,
+        )
 
 
 class BridgeCloseCommand(BaseCommand):
@@ -309,16 +322,10 @@ class BridgeCloseCommand(BaseCommand):
 
     def execute(self, context, args):
         request = context.request
-        if request is None or bridge.total_depth(request) == 0:
+        if request is None or bridge.node_count(request) < 2:
             return CommandResult(f"{self.name}: no open bridge", 1)
 
-        shell = bridge.shell_leave(request, all_levels=True)
-        if bridge.depth(request) == 0:
-            # были только оболочки терминала: рабочий стол не менялся
-            left, context.cwd = shell
-            return CommandResult(scene=scenes.disconnect_scene(left.profile.machine.system, left.profile.machine.hostname, cut=False))
-
-        left = bridge.leave(request, all_levels=True)
-        context.cwd = DEFAULT_CWD
+        left, moved = bridge.close_all(request)
+        context.cwd = DEFAULT_CWD if moved else context.cwd
         host = left.profile.machine.hostname
-        return CommandResult(scene=scenes.disconnect_scene(left.profile.machine.system, host), effects=SWITCH)
+        return CommandResult(scene=scenes.disconnect_scene(left.profile.machine.system, host, cut=moved), effects=SWITCH if moved else None)

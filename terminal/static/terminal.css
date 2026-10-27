@@ -73,3 +73,79 @@ body {
     color: var(--foreground);
     font: inherit;
 }
+
+.terminal-dim {
+    opacity: 0.6;
+}
+
+#terminal-tabs {
+    position: sticky;
+    top: -12px;
+    z-index: 2;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    margin: -12px -12px 8px;
+    padding: 6px 12px 0;
+    background: var(--background);
+    border-bottom: 1px solid color-mix(in srgb, var(--foreground) 25%, transparent);
+}
+
+#terminal-tabs[hidden],
+#terminal-tab-menu[hidden] {
+    display: none;
+}
+
+.terminal-tab {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 2px 10px;
+    border: 1px solid color-mix(in srgb, var(--foreground) 25%, transparent);
+    border-bottom: 0;
+    background: transparent;
+    color: color-mix(in srgb, var(--foreground) 65%, transparent);
+    font: inherit;
+    font-size: 0.85em;
+    cursor: pointer;
+}
+
+.terminal-tab:hover {
+    color: var(--foreground);
+}
+
+.terminal-tab[aria-selected="true"] {
+    color: var(--accent);
+    border-color: var(--accent);
+    background: color-mix(in srgb, var(--accent) 10%, transparent);
+}
+
+.terminal-tab-desk {
+    color: var(--accent);
+}
+
+#terminal-tab-menu {
+    position: fixed;
+    z-index: 5;
+    min-width: 190px;
+    margin: 0;
+    padding: 4px 0;
+    list-style: none;
+    background: var(--background);
+    border: 1px solid var(--accent);
+    font-size: 0.85em;
+}
+
+#terminal-tab-menu li {
+    padding: 3px 14px;
+    cursor: pointer;
+}
+
+#terminal-tab-menu li:hover:not([aria-disabled="true"]) {
+    background: color-mix(in srgb, var(--accent) 20%, transparent);
+}
+
+#terminal-tab-menu li[aria-disabled="true"] {
+    opacity: 0.4;
+    cursor: default;
+}

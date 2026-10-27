@@ -128,21 +128,25 @@ HELP = {
         ("rcon [-p <freq>] [-i <keyname>] [--token <token>] <login>@<host>",),
         "-p  endpoint (frequency) when the login is served on several\n"
         "-i  key from /home/.secrets to present\n"
-        "exit returns one level, rcon-close closes every session.",
+        "The console opens on the machine this terminal is on and the desktop moves to the new one. Every open connection "
+        "is a tab at the top of the terminal: a click moves the terminal there, the tab menu moves the desktop or closes "
+        "the connection with everything opened from it. exit closes the current connection, rcon-close closes them all.",
     ),
     "rshell": (
         "open a shell on another machine inside this terminal",
         ("rshell [-p <freq>] [-i <keyname>] [--token <token>] <login>@<host>",),
-        "Takes the same options as rcon. exit returns to the previous shell.",
+        "Takes the same options as rcon, but the desktop stays where it is; the shell appears as a new tab. "
+        "exit closes it and returns to the machine it was opened from.",
     ),
     "xfer": (
         "copy a file between machines",
         ("xfer :<remote path> <local path>", "xfer <local path> :<remote path>",
          "xfer [-p <freq>] [-i <keyname>] [--token <token>] <login>@<host>:<path> <local path>"),
-        "Inside an rshell session a path with a leading colon is on the remote machine. "
-        "With a login@host address no session is needed.",
+        "Inside an rshell session a path with a leading colon is on the machine of the shell, a path without it is on the machine "
+        "it was opened from. A login@host that is already open in a tab is reached through the connections between "
+        "the two machines; any other login@host is connected for the transfer alone.",
     ),
-    "exit": ("leave the current remote session", ("exit",), ""),
+    "exit": ("close the current connection", ("exit",), "Closes the connection of this tab and every connection opened from it."),
     "rcon-close": ("close every open remote session", ("rcon-close",), ""),
 }
 

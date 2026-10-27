@@ -49,6 +49,129 @@
         prompt.textContent = `${login}@${hostname}:${shown}$`;
     }
 
+    // Вкладки подключений: клик переносит терминал, рабочий стол остаётся; меню правой кнопкой меняет стол или закрывает
+    const tabsBar = document.getElementById("terminal-tabs");
+    const tabMenu = document.getElementById("terminal-tab-menu");
+    let tabs = [];
+
+    async function post(url, body) {
+        const response = await fetch(url, {
+            method: "POST",
+            headers: { "Content-Type": "application/json", "X-CSRFToken": csrfToken },
+            body: JSON.stringify(body),
+        });
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok) {
+            throw new Error(data.error || `HTTP ${response.status}`);
+        }
+        return data;
+    }
+
+    function renderTabs(list) {
+        tabs = list || [];
+        tabsBar.textContent = "";
+        tabsBar.hidden = tabs.length < 2;
+
+        for (const tab of tabs) {
+            const button = document.createElement("button");
+            button.type = "button";
+            button.className = "terminal-tab";
+            button.setAttribute("role", "tab");
+            button.setAttribute("aria-selected", tab.terminal ? "true" : "false");
+            button.title = tab.desktop ? "desktop is here" : "";
+            button.textContent = tab.label;
+
+            if (tab.desktop) {
+                const mark = document.createElement("span");
+                mark.className = "terminal-tab-desk";
+                mark.textContent = "\u25A3";
+                button.prepend(mark);
+            }
+
+            button.addEventListener("click", () => focusTab(tab));
+            button.addEventListener("contextmenu", (event) => {
+                event.preventDefault();
+                openTabMenu(tab, event.clientX, event.clientY);
+            });
+            tabsBar.appendChild(button);
+        }
+    }
+
+    function applyShell(data) {
+        cwd = data.cwd || cwd;
+        hostname = data.hostname || hostname;
+        login = data.login || login;
+        renderTabs(data.tabs);
+        updatePrompt();
+    }
+
+    async function focusTab(tab) {
+        if (busy || tab.terminal) {
+            return;
+        }
+
+        try {
+            if (awaiting) {
+                endAnswer();
+            }
+            const data = await post(terminal.dataset.tabFocusUrl, { node: tab.id });
+            applyShell(data);
+            appendLine(`-- ${tab.label} --`, "terminal-dim");
+        } catch (error) {
+            appendLine(`terminal: ${error.message}`, "terminal-error");
+        }
+        input.focus();
+    }
+
+    function closeTabMenu() {
+        tabMenu.hidden = true;
+    }
+
+    function openTabMenu(tab, x, y) {
+        tabMenu.textContent = "";
+
+        const items = [
+            ["Switch desktop here", !tab.desktop, async () => {
+                const data = await post(terminal.dataset.tabDesktopUrl, { node: tab.id });
+                applyShell(data);
+                for (const effect of data.effects || []) runEffect(effect);
+            }],
+            ["Close connection", tab.parent !== null, async () => {
+                const data = await post(terminal.dataset.tabCloseUrl, { node: tab.id });
+                applyShell(data);
+                await playScene(data.scene);
+                for (const effect of data.effects || []) runEffect(effect);
+            }],
+        ];
+
+        for (const [label, enabled, action] of items) {
+            const item = document.createElement("li");
+            item.setAttribute("role", "menuitem");
+            item.setAttribute("aria-disabled", enabled ? "false" : "true");
+            item.textContent = label;
+            item.addEventListener("click", async () => {
+                closeTabMenu();
+                if (!enabled || busy) return;
+                try {
+                    await action();
+                } catch (error) {
+                    appendLine(`terminal: ${error.message}`, "terminal-error");
+                }
+                input.focus();
+            });
+            tabMenu.appendChild(item);
+        }
+
+        tabMenu.style.left = `${Math.min(x, window.innerWidth - 200)}px`;
+        tabMenu.style.top = `${y}px`;
+        tabMenu.hidden = false;
+    }
+
+    document.addEventListener("click", closeTabMenu);
+    document.addEventListener("keydown", (event) => {
+        if (event.key === "Escape") closeTabMenu();
+    });
+
     function scrollToBottom() {
         terminal.scrollTop = terminal.scrollHeight;
     }
@@ -125,6 +248,7 @@
         cwd = data.cwd || cwd;
         hostname = data.hostname || hostname;     // rshell меняет машину и логин оболочки
         login = data.login || login;
+        if (data.tabs) renderTabs(data.tabs);
         updatePrompt();
 
         if (data.clear) {
@@ -271,6 +395,12 @@
             input.disabled = false;
             input.focus();
         }
+    }
+
+    try {
+        renderTabs(JSON.parse(document.getElementById("terminal-tabs-data").textContent));
+    } catch {
+        renderTabs([]);
     }
 
     updatePrompt();

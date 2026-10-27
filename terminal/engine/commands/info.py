@@ -84,6 +84,13 @@ class CntCommand(BaseCommand):
         if len(args) > 1:
             return CommandResult("cnt: too many arguments", 2)
 
+        request = context.request
+        if request is not None and request.user.is_authenticated:
+            from machines import bridge
+
+            if bridge.terminal_id(request) != bridge.desktop_id(request):
+                return CommandResult("cnt: no display: the desktop is on another machine", 1)    # окно открылось бы не на той машине
+
         target = args[0]
         path = context.resolve_path(target)
         fs = VirtualFilesystem(context)
