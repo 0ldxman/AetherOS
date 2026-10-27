@@ -32,12 +32,6 @@ def _base64(s, path, ok):
     s.task("decoding", _result(ok), ms=(250, 650))
 
 
-def _archive(s, path, ok):
-    s.count("reading index", _stable(path, 4, 60), unit=" entries", ms=(400, 800), width=10)
-    s.bar("unpacking ", ms=(700, 1300), width=20)
-    s.task("verifying", _result(ok), ms=(250, 550))
-
-
 def _binary(s, path, ok):
     s.count("scanning", _stable(path, 400, 9000), unit=" bytes", ms=(500, 1000), width=10)
     s.task("collecting strings", _result(ok), ms=(300, 700))
@@ -60,7 +54,7 @@ def _generic(s, path, ok):
 
 
 _UNLOCK = {"encrypted": _encrypted, "base64": _base64,
-           "archive": _archive, "binary": _binary, "shifted": _shifted, "disguised": _disguised}
+           "binary": _binary, "shifted": _shifted, "disguised": _disguised}
 
 
 def unlock_scene(layer, path, ok):
@@ -106,6 +100,35 @@ def repair_scene(path, size, ok, more):
     s.say(f"  recovered {bad - lost} of {bad} blocks", style="warning" if lost else "dim")
     s.task("pass 4/4  verifying checksums", "FAIL" if not ok else ("WARN" if more else "OK"), ms=(400, 800))
     return s.to_dict()           # вердикт (repaired, further repair required) говорит ответ команды
+
+
+# ---------- архивы ----------
+
+def pak_list_scene(path, count):
+    """pak l: чтение заголовка и таблицы архива."""
+    s = Scene()
+    s.task("reading header", "OK", ms=(150, 350))
+    s.count("reading index", max(1, count), unit=" entries", ms=(250 + 60 * min(count, 12), 450 + 90 * min(count, 12)), width=10)
+    return s.to_dict()
+
+
+def pak_extract_scene(path, names, ok=True):
+    """pak x: каждый файл своей полосой (до восьми, остальные одной строкой)."""
+    s = Scene()
+    s.task("reading header", "OK", ms=(150, 350))
+    s.say(f"extracting {len(names)} file{'s' if len(names) != 1 else ''}")
+    shown = names[:8]
+    width = max([6] + [len(name.rsplit("/", 1)[-1]) for name in shown])
+    rows = []
+    for i, name in enumerate(shown):
+        start = 300 + _stable(f"{path}:{name}:t", 0, 1100)
+        rows.append((f"  {name.rsplit('/', 1)[-1]:<{width}} ", (start, start + 450)))
+    if rows:
+        s.bars(rows, width=14)
+    if len(names) > len(shown):
+        s.say(f"  ... {len(names) - len(shown)} more")
+    s.task("verifying", "OK" if ok else "FAIL", ms=(200, 450))
+    return s.to_dict()
 
 
 # ---------- сырые байты ----------

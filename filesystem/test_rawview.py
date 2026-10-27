@@ -115,9 +115,6 @@ class RawViewTests(TestCase):
         self.assertEqual(len(hurt), len(plain))
         self.assertNotEqual(hurt, plain)
 
-        packed = self.raw(self.make("/k", url, "> archive")).data
-        self.assertTrue(packed.startswith(formats.magic("pak")))
-
     def test_a_removed_layer_stops_changing_the_view(self):
         from filesystem.states.stack import Progress, canonical_hash
 

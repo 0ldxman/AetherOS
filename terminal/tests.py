@@ -94,7 +94,7 @@ class TerminalSceneTests(TestCase):
                                       mail="ivan@aether-main")
         MachineFile.objects.create(machine=cls.main, path="/home/door.bin", state="> encrypted hunter2 attempts=3")
         MachineFile.objects.create(machine=cls.main, path="/home/note.txt", state="> base64")
-        MachineFile.objects.create(machine=cls.main, path="/home/pack.dat", state="> archive")
+        MachineFile.objects.create(machine=cls.main, path="/home/pack.zip/a.txt", state="")
         MachineFile.objects.create(machine=cls.main, path="/home/blob.bin", state="> binary utf16")
         MachineFile.objects.create(machine=cls.main, path="/home/slice.img", state="> shifted skip=2 count=5")
         MachineFile.objects.create(machine=cls.main, path="/home/report.txt", state="> disguised pdf")
@@ -132,13 +132,13 @@ class TerminalSceneTests(TestCase):
     def test_each_layer_has_its_own_command(self):
         for command, expected in (
             ("enc /home/note.txt", "decoded"),
-            ("pak /home/pack.dat", "unpacked"),
+            ("pak x /home/pack.zip", "extracted"),
             ("cvt enc utf16 /home/blob.bin", "converted"),
             ("blk /home/slice.img skip=2", "copied"),
             ("cvt ext /home/report.txt .PDF", "converted"),
         ):
             data = self.run_command(command)
-            self.assertEqual(data["exit_code"], 0, command)
+            self.assertEqual(data["exit_code"], 0, command + ": " + data["output"])
             self.assertIn(expected, data["output"])
             self.assertIsNotNone(data["scene"])
 
@@ -147,7 +147,7 @@ class TerminalSceneTests(TestCase):
         self.assertEqual(cut["exit_code"], 0)
         self.assertIn("copied", self.run_command("blk /home/slice.img skip=2")["output"])
         self.assertEqual(self.run_command("cvt ext /home/report.txt .docx")["exit_code"], 1)
-        self.assertIn("not an archive", self.run_command("pak /home/report.txt")["output"])
+        self.assertIn("not an archive", self.run_command("pak l /home/report.txt")["output"])
 
     def test_the_old_names_are_gone(self):
         for name in ("cph", "b256", "bridge"):
@@ -600,7 +600,7 @@ class RshellTests(BridgeFixture):
         MachineFile.objects.create(machine=cls.main, path="/home/notes.txt", state="")
         MachineFile.objects.create(machine=cls.main, path="/home/work/a.txt", state="")
         MachineFile.objects.create(machine=cls.main, path="/home/vault.bin", state="> encrypted hunter2")
-        MachineFile.objects.create(machine=cls.core, path="/home/loot.dat", state="> archive")
+        MachineFile.objects.create(machine=cls.core, path="/home/loot.dat", state="> encrypted hunter2")
         MachineFile.objects.create(machine=cls.core, path="/home/docs/readme.txt", state="")
 
     def test_rshell_enters_without_switching_the_desktop(self):
@@ -652,7 +652,7 @@ class RshellTests(BridgeFixture):
         self.assertIn("transferred", data["output"])
         self.run_command("exit")
         self.assertIn("got.dat", self.run_command("ls /home")["output"])
-        self.assertEqual(self.run_command("pak /home/got.dat")["exit_code"], 0)    # слой переехал вместе с файлом
+        self.assertEqual(self.run_command("ward /home/got.dat hunter2")["exit_code"], 0)    # слой переехал вместе с файлом
 
     def test_xfer_uploads_and_a_folder_destination_keeps_the_name(self):
         self.run_command("rshell guest@aether-core")
@@ -1477,3 +1477,135 @@ class RawCommandTests(TestCase):
         self.assertEqual(self.client.get(reverse("fsview:content") + "?path=/home").status_code, 404)   # папка
         self.client.logout()
         self.assertEqual(self.client.get(reverse("fsview:content") + "?path=/home/skin.dat").status_code, 403)
+
+
+@override_settings(FORCE_SCRIPT_NAME=None)
+class ArchiveTests(TestCase):
+    """Архив это файл с расширением, под путём которого лежат другие файлы: pak l, pak x, pak pass."""
+
+    BODY = "Cargo manifest altered.\n\nRef A-113."
+
+    @classmethod
+    def setUpTestData(cls):
+        from filesystem.models import MachineFile
+        from machines.models import MachineProfile
+        from wiki.models import Document, Namespace
+
+        cls.main = Machine.objects.create(name="Main", hostname="aether-main")
+        MachineApp.objects.create(machine=cls.main, label="console", glyph=">_", path="/apps/terminal/")
+        cls.user = get_user_model().objects.create_user("ivan", password="pw")
+        MachineProfile.objects.create(machine=cls.main, user=cls.user, name="Ivan", login="ivan", freq=1,
+                                      mail="ivan@aether-main")
+        Document.objects.create(namespace=Namespace.objects.create(name="Harbor"), title="Report", type="rec", body=cls.BODY)
+        url = "apps/wiki/Harbor/Report"
+        for path, state, extra in (
+            ("/home/plain.txt", "", {}),
+            ("/home/pack.zip/README.txt", "", {}),
+            ("/home/pack.zip/notes/a.txt", "", {}),
+            ("/home/pack.zip/inner.7z/key.txt", "", {}),
+            ("/home/lock.zip", "> encrypted hunter2 attempts=2", {"url": ""}),
+            ("/home/lock.zip/x.txt", "", {}),
+            ("/home/bad.zip", "> damaged", {"url": ""}),
+            ("/home/bad.zip/y.txt", "", {}),
+            ("/home/stuff.old", "", {"file_type": "DIRECTORY", "url": ""}),
+            ("/home/stuff.old/f.txt", "", {}),
+        ):
+            MachineFile.objects.create(machine=cls.main, path=path, state=state, **({"url": url} | extra))
+
+    def setUp(self):
+        previous = get_script_prefix()
+        set_script_prefix("/")
+        self.addCleanup(set_script_prefix, previous)
+        self.client.force_login(self.user)
+
+    def run_command(self, text):
+        response = self.client.post(
+            reverse("terminal:execute"), data=json.dumps({"command": text}), content_type="application/json"
+        )
+        return json.loads(response.content)
+
+    def raw(self, path):
+        return self.client.get(reverse("fsview:content") + f"?path={path}").content
+
+    def test_an_archive_is_a_file_in_ls_and_cd_cannot_enter_it(self):
+        listing = self.run_command("ls /home")["output"]
+        self.assertIn("pack.zip", listing)
+        self.assertNotIn("pack.zip/", listing)                                          # файл, не папка
+        self.assertIn("stuff.old/", listing)                                            # запись DIRECTORY: обычная папка
+        self.assertIn("f.txt", self.run_command("ls /home/stuff.old")["output"])
+        self.assertNotEqual(self.run_command("cd /home/pack.zip")["exit_code"], 0)
+        self.assertNotEqual(self.run_command("ls /home/pack.zip/README.txt")["exit_code"], 0)
+        self.assertNotEqual(self.run_command("cnt /home/pack.zip/README.txt")["exit_code"], 0)   # члены недоступны
+        self.assertIn("no content", self.run_command("cnt /home/pack.zip")["output"])
+        self.assertIn("PAK archive", self.run_command("ftyp /home/pack.zip")["output"])
+
+    def test_pak_l_lists_the_members_without_the_content_of_nested_archives(self):
+        data = self.run_command("pak l /home/pack.zip")
+        self.assertEqual(data["exit_code"], 0, data["output"])
+        for name in ("README.txt", "notes/a.txt", "inner.7z"):
+            self.assertIn(name, data["output"])
+        self.assertNotIn("key.txt", data["output"])                                     # вложенный раскрывается только после распаковки
+        self.assertIn("3 files", data["output"])
+
+    def test_pak_x_unpacks_next_to_the_archive_and_refuses_to_overwrite(self):
+        data = self.run_command("pak x /home/pack.zip")
+        self.assertEqual(data["exit_code"], 0, data["output"])
+        self.assertIn("extracted 3 files to /home/pack", data["output"])
+        self.assertIn("README.txt", self.run_command("ls /home/pack")["output"])
+        self.assertIn("a.txt", self.run_command("ls /home/pack/notes")["output"])
+        self.assertIn("exists", self.run_command("pak x /home/pack.zip")["output"])
+        self.assertIn("pack.zip", self.run_command("ls /home")["output"])               # архив остался
+
+    def test_pak_x_can_pick_members_and_a_folder(self):
+        data = self.run_command("pak x /home/pack.zip notes -d /home/out")
+        self.assertEqual(data["exit_code"], 0, data["output"])
+        self.assertEqual(self.run_command("ls /home/out/notes")["output"].strip(), "a.txt")
+        self.assertIn("Not found in archive", self.run_command("pak x /home/pack.zip nothing")["output"])
+
+    def test_a_nested_archive_opens_only_after_the_outer_one_is_unpacked(self):
+        self.assertNotEqual(self.run_command("pak l /home/pack.zip/inner.7z")["exit_code"], 0)       # по внутреннему пути не достать
+        self.run_command("pak x /home/pack.zip")
+        data = self.run_command("pak l /home/pack/inner.7z")
+        self.assertEqual(data["exit_code"], 0, data["output"])
+        self.assertIn("key.txt", data["output"])
+        self.assertEqual(self.run_command("pak x /home/pack/inner.7z")["exit_code"], 0)
+        self.assertIn("key.txt", self.run_command("ls /home/pack/inner")["output"])
+
+    def test_a_password_archive_needs_pak_pass_and_ward_does_not_open_it(self):
+        self.assertIn("password required", self.run_command("pak l /home/lock.zip")["output"])
+        self.assertIn("password required", self.run_command("pak x /home/lock.zip")["output"])
+        self.assertIn("no valid data found", self.run_command("ward /home/lock.zip hunter2")["output"])
+        self.assertIn("incorrect password", self.run_command("pak pass /home/lock.zip nope")["output"])
+        self.assertEqual(self.run_command("pak pass /home/lock.zip hunter2")["exit_code"], 0)
+        self.assertIn("x.txt", self.run_command("pak l /home/lock.zip")["output"])
+        self.assertIn("not password protected", self.run_command("pak pass /home/lock.zip hunter2")["output"])
+
+    def test_a_damaged_archive_cannot_be_read_until_it_is_repaired(self):
+        self.assertIn("Unexpected EOF", self.run_command("pak l /home/bad.zip")["output"])
+        self.assertEqual(self.run_command("rpr /home/bad.zip")["exit_code"], 0)
+        self.assertIn("y.txt", self.run_command("pak l /home/bad.zip")["output"])
+
+    def test_pak_refuses_what_is_not_an_archive_and_bad_usage(self):
+        self.assertIn("not an archive", self.run_command("pak l /home/plain.txt")["output"])
+        self.assertIn("not an archive", self.run_command("pak pass /home/plain.txt x")["output"])
+        self.assertIn("No such file", self.run_command("pak l /home/none.zip")["output"])
+        self.assertIn("Is a directory", self.run_command("pak l /home/stuff.old")["output"])
+        for command in ("pak", "pak l", "pak z /home/pack.zip", "pak pass /home/lock.zip"):
+            self.assertEqual(self.run_command(command)["exit_code"], 2, command)
+
+    def test_the_bytes_of_an_archive_are_a_table_and_the_data_of_its_members(self):
+        from filesystem.rawview import formats
+
+        data = self.raw("/home/pack.zip")
+        self.assertTrue(data.startswith(formats.magic("pak")))
+        for name in ("README.txt", "notes/a.txt", "inner.7z"):
+            self.assertIn(name.encode(), data)
+        self.assertIn(b"Cargo manifest altered.", data)
+        size = int(self.run_command("ls -l /home/pack.zip")["output"].split()[0])
+        self.assertEqual(size, len(data))
+        locked = self.raw("/home/lock.zip")
+        self.assertNotIn(b"x.txt", locked)                                              # под паролем только шум
+        self.assertNotIn(b"Cargo", locked)
+
+    def test_files_cannot_be_put_into_an_archive(self):
+        self.assertNotEqual(self.run_command("cp /home/plain.txt /home/pack.zip/new.txt")["exit_code"], 0)

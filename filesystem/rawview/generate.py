@@ -75,6 +75,9 @@ def _content(machine_file, payload, fmt, seed):
     if payload.kind in ("key", "slice"):
         return payload.body
 
+    if payload.kind == "archive":
+        return payload.build()
+
     if payload.kind == "app":
         text = f"path: {payload.meta['path']}\n".encode()
         head = formats.magic("app")
@@ -87,7 +90,7 @@ def _content(machine_file, payload, fmt, seed):
 def _core(machine_file, payload, fmt, seed):
     """Содержимое файла вместе с блоками его ключей (FileKey): они лежат под слоями и открываются вместе с ними."""
     data = _content(machine_file, payload, fmt, seed)
-    data = keys.embed(data, keys.slugs_of(machine_file), seed, real=payload.kind == "asset", locked=payload.locked)
+    data = keys.embed(data, keys.slugs_of(machine_file), seed, real=payload.kind in ("asset", "archive"), locked=payload.locked)
     if payload.locked and payload.kind in ("wiki", "map", "mail"):
         # доступа нет: место, где лежит тело, закрывается шумом той же длины, остальное (заголовки формата) как есть
         for variant in formats.variants(payload.body, payload.views):
@@ -133,8 +136,6 @@ def build_raw(machine_file, session_state="", keys=frozenset(), reader=None, vie
             data = encodings.wrap_base64(data)
         elif name == "encrypted":
             data = noise(seed + ":enc", len(data))
-        elif name == "archive":
-            data = formats.magic("pak") + noise(seed + ":pak", len(data))
         elif name in ("damaged", "corrupted"):
             bad = tuple(_bad_blocks(len(data), seed))
             data = _damage(data, seed)

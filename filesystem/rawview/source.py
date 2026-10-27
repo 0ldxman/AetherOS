@@ -17,7 +17,7 @@ READ_LIMIT = 8 * 1024 * 1024
 
 @dataclass
 class Payload:
-    kind: str = "none"                         # none | wiki | asset | map | mail | app | key | slice
+    kind: str = "none"                         # none | wiki | asset | map | mail | app | key | slice | archive
     body: bytes = b""                          # текст (wiki, map) или готовые байты (asset, app)
     fmt: str | None = None                     # формат, который диктует источник (тип записи вики)
     meta: dict = field(default_factory=dict)
@@ -25,6 +25,7 @@ class Payload:
     locked: bool = False                       # доступа нет: тело подменяется шумом
     stamp: str = ""                            # что меняется вместе с источником (для кэша размера)
     size: int | None = None                    # размер источника, если он известен без чтения (ассет)
+    build: object = None                       # как получить тело лениво (архив: читать всех членов ради размера незачем)
 
 
 def _wiki_document(parts):
@@ -150,10 +151,33 @@ def _slice(machine_file, keys, reader, viewer):
     )
 
 
+def _archive(machine_file, keys, reader, viewer):
+    """Архив: заголовок pak, таблица (имя, размер, смещение) и данные членов. Данные члена это его собственные байты с его
+    слоями, у вложенного архива это его архив целиком. Тело строится лениво: для размера и кэша хватает отпечатка."""
+    from filesystem import archives
+    from filesystem.rawview import formats
+    from filesystem.rawview.generate import build_raw
+
+    def build():
+        found = [(name, build_raw(item, "", keys, reader, viewer).data) for name, item in archives.members(machine_file)]
+        table, offset = b"", 0
+        header = len(formats.magic("pak")) + 2 + sum(2 + len(name.encode()) + 8 for name, _ in found)
+        for name, data in found:
+            table += len(name.encode()).to_bytes(2, "big") + name.encode() + len(data).to_bytes(4, "big") + (header + offset).to_bytes(4, "big")
+            offset += len(data)
+        return formats.magic("pak") + len(found).to_bytes(2, "big") + table + b"".join(data for _, data in found)
+
+    return Payload(kind="archive", build=build, stamp=f"archive:{machine_file.pk}:{archives.stamp(machine_file)}")
+
+
 def resolve_payload(machine_file, keys, reader=None, viewer=None):
     """Источник данных файла по его адресу содержимого."""
     url = (machine_file.url or "").strip().lstrip("/")
     if not url:
+        from filesystem import archives
+
+        if archives.is_archive(machine_file):
+            return _archive(machine_file, keys, reader, viewer)
         return Payload()
 
     parsed = urlsplit(url)

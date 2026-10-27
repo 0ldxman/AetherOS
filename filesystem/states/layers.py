@@ -70,12 +70,6 @@ class Shifted(BaseState):
 
 
 @register
-class Archive(BaseState):
-    name = "archive"
-    summary = "Файл это архив: его нужно распаковать (pak)."
-
-
-@register
 class Binary(BaseState):
     name = "binary"
     summary = (

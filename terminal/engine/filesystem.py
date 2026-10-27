@@ -1,6 +1,7 @@
 from dataclasses import dataclass
 from pathlib import PurePosixPath
 
+from filesystem import archives
 from filesystem.models import MachineFile, SessionFile
 
 
@@ -22,6 +23,7 @@ class VirtualFilesystem:
     def __init__(self, context):
         self.context = context
         self._entries_cache: dict[str, Entry] | None = None
+        self._archives: set[str] = set()
 
     def _entries(self) -> dict[str, Entry]:
         """Все файлы сессии: путь -> Entry. Считается один раз на команду.
@@ -31,9 +33,10 @@ class VirtualFilesystem:
            (rename сдвигает, copy добавляет копию).
         3. Запись с deleted_at (надгробие) файл прячет."""
         if self._entries_cache is None:
-            machine_files = MachineFile.objects.filter(
-                machine=self.context.machine,
-            )
+            machine_files = list(MachineFile.objects.filter(machine=self.context.machine))
+            known = {item.path: item.file_type for item in machine_files}
+            machine_files += archives.ensure_records(self.context.machine, known)         # архив без слоёв: запись создаётся сама
+            self._archives = archives.find({item.path: item.file_type for item in machine_files})
             rows = list(
                 SessionFile.objects.filter(
                     session=self.context.session,
@@ -59,6 +62,9 @@ class VirtualFilesystem:
                         row.file,
                         row,
                     )
+
+            # члены архива игроку недоступны, пока он не распакует архив
+            entries = {path: item for path, item in entries.items() if not archives.hidden(path, self._archives)}
 
             self._entries_cache = entries
 
