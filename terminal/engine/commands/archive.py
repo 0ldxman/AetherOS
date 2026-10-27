@@ -124,12 +124,39 @@ class PakCommand(LayerCommand):
         return self.extract(context, entry, found, names, dest)
 
     def listing(self, context, entry, found):
+        """Дерево членов, как tree: папки первыми, у файлов размер справа."""
         keys, viewer = keys_of(context), viewer_of(context)
-        rows = [(file_size(item, "", keys, viewer), name) for name, item in found]
-        width = max((len(str(size)) for size, _ in rows), default=1)
-        lines = [f"{size:>{width}}  {name}" for size, name in rows]
-        lines.append(f"{len(rows)} file{'s' if len(rows) != 1 else ''}, {sum(size for size, _ in rows)} bytes")
-        return CommandResult("\n".join(lines), 0, scene=pak_list_scene(entry.path, len(rows)))
+        tree = {}
+        total = 0
+        for name, item in found:
+            size = file_size(item, "", keys, viewer)
+            total += size
+            node = tree
+            *folders, leaf = name.split("/")
+            for folder in folders:
+                node = node.setdefault(folder, {})
+            node[leaf] = size
+
+        rows = []
+
+        def walk(node, prefix):
+            names = sorted(node, key=lambda key: (not isinstance(node[key], dict), key.casefold()))
+            for number, key in enumerate(names):
+                last = number == len(names) - 1
+                value = node[key]
+                rows.append((f"{prefix}{'└── ' if last else '├── '}{key}{'/' if isinstance(value, dict) else ''}",
+                             None if isinstance(value, dict) else value))
+                if isinstance(value, dict):
+                    walk(value, prefix + ("    " if last else "│   "))
+
+        walk(tree, "")
+        width = max([len(text) for text, _ in rows] + [len(posixpath.basename(entry.path))])
+        sizes = max([len(str(size)) for _, size in rows if size is not None] + [1])
+        lines = [posixpath.basename(entry.path)]
+        lines += [text if size is None else f"{text:<{width}}  {size:>{sizes}}" for text, size in rows]
+        lines.append("")
+        lines.append(f"{len(found)} file{'s' if len(found) != 1 else ''}, {total} bytes")
+        return CommandResult("\n".join(lines), 0, scene=pak_list_scene(entry.path, len(found)))
 
     def extract(self, context, entry, found, names, dest):
         fs = VirtualFilesystem(context)

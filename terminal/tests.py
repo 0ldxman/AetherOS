@@ -1542,10 +1542,16 @@ class ArchiveTests(TestCase):
     def test_pak_l_lists_the_members_without_the_content_of_nested_archives(self):
         data = self.run_command("pak l /home/pack.zip")
         self.assertEqual(data["exit_code"], 0, data["output"])
-        for name in ("README.txt", "notes/a.txt", "inner.7z"):
+        for name in ("README.txt", "notes/", "a.txt", "inner.7z"):
             self.assertIn(name, data["output"])
         self.assertNotIn("key.txt", data["output"])                                     # вложенный раскрывается только после распаковки
         self.assertIn("3 files", data["output"])
+        lines = data["output"].splitlines()
+        self.assertEqual(lines[0], "pack.zip")                                          # дерево, а не пути
+        self.assertEqual(lines[1].split()[:2], ["├──", "notes/"])                      # папки первыми
+        self.assertTrue(lines[2].startswith("│   └── a.txt"))
+        self.assertTrue(lines[-3].startswith("└── README.txt"))                          # последний на своём уровне с «└»
+        self.assertNotIn("notes/a.txt", data["output"])
 
     def test_pak_x_unpacks_next_to_the_archive_and_refuses_to_overwrite(self):
         data = self.run_command("pak x /home/pack.zip")
