@@ -62,3 +62,8 @@ def place_file(dest, machine_file, state, dest_path, name):
 
     return target, None
 
+
+
+def hop_seconds(size):
+    """Сколько секунд файл size байт идёт по одному прыжку: больше файл, дольше (от 1 до 8 секунд)."""
+    return min(8.0, 1.0 + size / 1024 / 300)

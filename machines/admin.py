@@ -274,6 +274,16 @@ class MachineProfileAdmin(ConditionFieldsMixin, admin.ModelAdmin):
                 ),
             },
         ),
+        (
+            "Connection limit",
+            {
+                "fields": (
+                    "ttl",
+                    "cooldown",
+                    "kick_message",
+                ),
+            },
+        ),
     )
 
     inlines = (

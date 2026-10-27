@@ -857,6 +857,120 @@ class TabsTests(BridgeFixture):
 
 
 @override_settings(FORCE_SCRIPT_NAME=None)
+class ConnectionLimitTests(BridgeFixture):
+    """Срок подключения (ttl) записи: обрыв по времени, предупреждения, блокировка после обрыва, обрыв передачи файла."""
+
+    @classmethod
+    def setUpTestData(cls):
+        super().setUpTestData()
+        from filesystem.models import MachineFile
+
+        MachineFile.objects.create(machine=cls.main, path="/home/notes.txt", state="")
+
+    def setUp(self):
+        super().setUp()
+        from types import SimpleNamespace
+        from unittest import mock
+
+        self.now = [1_000_000.0]
+        patcher = mock.patch("machines.bridge.time", SimpleNamespace(time=lambda: self.now[0]))
+        patcher.start()
+        self.addCleanup(patcher.stop)
+        self.core_profile = type(self.open_account).objects.get(pk=self.open_account.pk)
+
+    def limit(self, profile, ttl, **extra):
+        type(profile).objects.filter(pk=profile.pk).update(ttl=ttl, **extra)
+
+    def tick(self):
+        response = self.client.post(reverse("terminal:tick"), data="{}", content_type="application/json")
+        return json.loads(response.content)
+
+    def test_a_connection_gets_a_deadline_from_the_ttl_of_the_record(self):
+        self.limit(self.open_account, 90)
+        data = self.run_command("rcon guest@aether-core")
+        rows = {row["label"]: row for row in data["tabs"]}
+        self.assertEqual(rows["guest@aether-core"]["deadline"], self.now[0] + 90)
+        self.assertIsNone(rows["ivan@aether-main"]["deadline"])                        # у корня срока нет
+        self.assertEqual(data["warn_at"], [30, 10])
+
+    def test_after_the_deadline_the_connection_is_closed_and_the_desktop_goes_back(self):
+        self.limit(self.open_account, 90, kick_message="Trace complete.\nYour address is known.")
+        self.run_command("rcon guest@aether-core")
+        self.now[0] += 60
+        self.assertEqual(self.tick()["kicks"], [])                                      # ещё живо
+        self.now[0] += 31
+        data = self.tick()
+        (kick,) = data["kicks"]
+        self.assertEqual((kick["label"], kick["desktop"]), ("guest@aether-core", True))
+        self.assertEqual(kick["message"], "Trace complete.\nYour address is known.")
+        self.assertEqual(self.where().login, "ivan")
+        self.assertEqual(data["tabs"], [])
+
+    def test_the_default_message_depends_on_the_system(self):
+        self.limit(self.open_account, 5)
+        self.run_command("rcon guest@aether-core")
+        self.now[0] += 6
+        (kick,) = self.tick()["kicks"]
+        self.assertIn("session time limit exceeded", kick["message"])
+
+    def test_a_command_after_the_deadline_is_not_run_and_reports_the_kick(self):
+        self.limit(self.open_account, 10)
+        self.run_command("rcon guest@aether-core")
+        self.now[0] += 11
+        data = self.run_command("ls /home")
+        self.assertEqual(len(data["kicks"]), 1)
+        self.assertEqual(data["output"], "")
+        self.assertEqual(self.where().login, "ivan")
+
+    def test_a_shell_deadline_drops_only_that_shell(self):
+        self.limit(self.open_account, 10)
+        self.run_command("rshell guest@aether-core")
+        self.now[0] += 11
+        (kick,) = self.tick()["kicks"]
+        self.assertFalse(kick["desktop"])                                              # стол не менялся
+        data = self.run_command("pwd")
+        self.assertEqual((data["hostname"], data["login"]), ("aether-main", "ivan"))
+
+    def test_the_cooldown_blocks_the_record_until_it_passes(self):
+        from datetime import timedelta
+
+        from django.utils import timezone
+
+        self.limit(self.open_account, 10, cooldown=120)
+        self.run_command("rcon guest@aether-core")
+        self.now[0] += 11
+        self.tick()
+        data = self.run_command("rcon guest@aether-core")
+        self.assertEqual(data["exit_code"], 1)
+        self.assertIn("account locked", data["output"])
+        self.assertIn("retry in 0", data["output"])
+        self.assertEqual(self.where().login, "ivan")
+        from machines.models import Session
+
+        Session.objects.filter(profile=self.open_account).update(blocked_until=timezone.now() - timedelta(seconds=1))
+        self.assertEqual(self.run_command("rcon guest@aether-core")["exit_code"], 0)
+
+    def test_a_transfer_is_cut_when_a_node_on_the_route_expires_before_it_ends(self):
+        self.limit(self.open_account, 100)
+        self.limit(self.deep_open, 100)
+        self.run_command("rcon guest@aether-core")
+        self.run_command("rshell dig@aether-deep")
+        self.now[0] += 99                                                              # до срока секунда, а прыжок идёт дольше
+        data = self.run_command("xfer ivan@aether-main:/home/notes.txt /home/got.txt")
+        self.assertEqual(data["exit_code"], 1)
+        self.assertIn("connection lost", data["output"])
+        self.assertIn("connection lost", json.dumps(data["scene"]))
+        self.assertNotIn("got.txt", self.run_command("ls /home")["output"])            # файл не доехал
+
+    def test_a_transfer_that_ends_in_time_goes_through(self):
+        self.limit(self.open_account, 100)
+        self.run_command("rcon guest@aether-core")
+        self.run_command("rshell dig@aether-deep")
+        data = self.run_command("xfer ivan@aether-main:/home/notes.txt /home/got.txt")
+        self.assertEqual(data["exit_code"], 0, data["output"])
+
+
+@override_settings(FORCE_SCRIPT_NAME=None)
 class NetTests(TestCase):
     """nreq и nget: внутриигровые серверы с узлами по путям, файлы приходят в сессию игрока."""
 

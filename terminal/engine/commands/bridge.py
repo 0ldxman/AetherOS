@@ -15,7 +15,8 @@ from terminal.engine.commands.basic import BaseCommand
 from terminal.engine.context import DEFAULT_CWD, TerminalContext
 from terminal.engine.filesystem import VirtualFilesystem
 from terminal.engine.result import CommandResult
-from terminal.engine.transfer import copy_file
+from terminal.engine.rawinfo import size_of
+from terminal.engine.transfer import copy_file, hop_seconds
 
 PENDING_KEY = "bridge_pending"
 SWITCH = [{"op": "switch"}]
@@ -108,6 +109,13 @@ class EntryCommand(BaseCommand):
         target_system = profile.machine.system
         if profile.pk == context.profile.pk:
             return CommandResult(f"{self.name}: already on this account", 1)
+        wait = bridge.locked_for(request.user, profile)
+        if wait:
+            return CommandResult(
+                f"{self.name}: {login}@{host}: account locked, security review in progress (retry in {wait // 60:02d}:{wait % 60:02d})",
+                1,
+                scene=scenes.locked_scene(target_system, host, login),
+            )
         endpoint_text = f"{profile.freq:.3f} MHz"
 
         if not bridge.source_allowed(profile, context.machine):
@@ -262,8 +270,7 @@ class XferCommand(EntryCommand):
 
         local = TerminalContext(session=parent[0], cwd=parent[1], request=request)
         here, there = bridge.terminal_id(request), bridge.parent_id(request)
-        hops = bridge.route(request, *((there, here) if args["download"] else (here, there)))       # по порядку отправки
-        return self.transfer(context, local, args, connect=None, hops=hops)
+        return self.transfer(context, local, args, connect=None, route=(there, here) if args["download"] else (here, there))
 
     def through_tree(self, context, node, args):
         """Адрес уже открыт вкладкой: вход не нужен, Aether сам несёт файл по цепочке подключений от одного узла к другому."""
@@ -273,15 +280,28 @@ class XferCommand(EntryCommand):
             return CommandResult(f"{self.name}: connection lost", 1)
         remote = TerminalContext(session=found[0], cwd=found[1], request=request)
         here = bridge.terminal_id(request)
-        hops = bridge.route(request, *((node, here) if args["download"] else (here, node)))          # по порядку отправки
-        return self.transfer(remote, context, args, connect=None, hops=hops)
+        return self.transfer(remote, context, args, connect=None, route=(node, here) if args["download"] else (here, node))
 
     def finish(self, context, profile, args):
         remote = TerminalContext(session=bridge.session_for(context.request.user, profile), cwd=DEFAULT_CWD, request=context.request)
         connect = scenes.connect_scene(profile.machine.system, profile.machine.hostname, profile, cut=False, opened=False)
         return self.transfer(remote, context, args, connect=connect)
 
-    def transfer(self, remote, local, args, connect, hops=None):
+    @staticmethod
+    def timing(source, path, request, ids):
+        """Сколько идёт каждый прыжок (мс, от размера файла) и где оборвётся связь: (номер прыжка, процент) или None.
+        Связь живёт, пока живы оба узла прыжка: срок любого из них обрывает передачу, если он выйдет раньше конца прыжка."""
+        entry = VirtualFilesystem(source).get_file(path)
+        size = size_of(source, entry) if entry is not None else 0
+        hop = hop_seconds(size)
+        for index, (a, b) in enumerate(zip(ids, ids[1:])):
+            life = bridge.link_lifetime(request, a, b)
+            if life is not None and life < (index + 1) * hop:
+                done = max(0.0, life - index * hop)
+                return int(hop * 1000), (index, max(0, min(99, int(done / hop * 100))))
+        return int(hop * 1000), None
+
+    def transfer(self, remote, local, args, connect, route=None):
         """remote и local это контексты сторон: remote.cwd и local.cwd основа для их относительных путей."""
         remote_path = remote.resolve_path(args["remote"])
         local_path = local.resolve_path(args["local"])
@@ -289,14 +309,27 @@ class XferCommand(EntryCommand):
             (remote, remote_path, local, local_path) if args["download"] else (local, local_path, remote, remote_path)
         )
 
+        hops, hop_ms, lost = None, None, None
+        if route:
+            request = local.request
+            ids = bridge.route_ids(request, *route)                  # узлы по порядку отправки
+            hops = bridge.route(request, *route)
+            hop_ms, lost = self.timing(source, source_path, request, ids)
+
+        if lost:
+            return CommandResult(
+                f"{self.name}: connection lost: {hops[lost[0]]} -> {hops[lost[0] + 1]}", 1,
+                scene=scenes.transfer_scene(source_path, 0, ok=False, connect=connect, hops=hops, hop_ms=hop_ms, lost=lost),
+            )
+
         target, error = copy_file(source, source_path, dest, dest_path)
         if error:
-            return CommandResult(f"{self.name}: {error}", 1, scene=scenes.transfer_scene(source_path, 0, ok=False, connect=connect, hops=hops))
+            return CommandResult(f"{self.name}: {error}", 1, scene=scenes.transfer_scene(source_path, 0, ok=False, connect=connect, hops=hops, hop_ms=hop_ms))
 
         return CommandResult(
             f"{self.name}: {source_path} -> {target}: transferred",
             0,
-            scene=scenes.transfer_scene(source_path, target, connect=connect, hops=hops),
+            scene=scenes.transfer_scene(source_path, target, connect=connect, hops=hops, hop_ms=hop_ms),
         )
 
 ENTRY_COMMANDS = {"rcon": BridgeCommand, "rshell": RshellCommand, "xfer": XferCommand}

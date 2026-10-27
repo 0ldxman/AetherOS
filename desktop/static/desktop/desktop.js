@@ -724,7 +724,92 @@ if (mailUrl && mailPulseUrl) {
   document.addEventListener("visibilitychange", pollMail);
 }
 
+// Обрыв подключения по сроку: чёрный экран на пару секунд, посреди него окно под консоль с сообщением записи, потом
+// стол возвращается на машину, откуда игрок пришёл
+let blackoutRunning = false;
+
+function blackout(kick) {
+  if (blackoutRunning) return;
+  blackoutRunning = true;
+
+  const cover = document.createElement("div");
+  cover.className = "blackout";
+  const box = document.createElement("div");
+  box.className = "blackout-window";
+  const title = document.createElement("div");
+  title.className = "blackout-title";
+  title.textContent = `${kick.label} - connection closed`;
+  const body = document.createElement("pre");
+  body.className = "blackout-body";
+  const cursor = document.createElement("span");
+  cursor.className = "blackout-cursor";
+  box.append(title, body);
+  cover.append(box);
+  document.body.append(cover);
+  requestAnimationFrame(() => cover.classList.add("blackout--on"));
+
+  const text = kick.message || "connection closed";
+  let shown = 0;
+
+  function type() {
+    body.textContent = text.slice(0, shown);
+    body.append(cursor);
+    if (shown < text.length) {
+      shown += 1;
+      setTimeout(type, text[shown - 1] === "\n" ? 380 : 32);
+    } else {
+      setTimeout(() => window.location.reload(), 2600);
+    }
+  }
+
+  setTimeout(() => {
+    box.classList.add("blackout-window--on");
+    type();
+  }, 1500);
+}
+
+function handleKicks(kicks) {
+  const hit = (kicks || []).find((kick) => kick.desktop);
+  if (hit) blackout(hit);
+}
+
+// Срок подключения, на котором открыт этот стол: в нужный момент просим сервер закрыть вышедшее
+function watchLimit() {
+  let limit = null;
+  try {
+    limit = JSON.parse(document.getElementById("desktop-limit").textContent);
+  } catch {
+    return;
+  }
+  if (!limit) return;
+
+  const wait = limit.deadline * 1000 - (limit.now * 1000 + 0) + 400;
+  setTimeout(async () => {
+    try {
+      const response = await fetch(limit.tick_url, {
+        method: "POST",
+        credentials: "same-origin",
+        headers: { "Content-Type": "application/json", "X-CSRFToken": getCookie("csrftoken") },
+        body: "{}",
+      });
+      handleKicks((await response.json()).kicks);
+    } catch {
+      // следующий запрос к серверу всё равно проверит срок
+    }
+  }, Math.max(0, wait - (Date.now() - pageLoadedAt)));
+}
+
+const pageLoadedAt = Date.now();
+
+try {
+  handleKicks(JSON.parse(document.getElementById("desktop-kicks").textContent));
+} catch {
+  // обрывов нет
+}
+watchLimit();
+
 window.desktopAPI = {
+  blackout,
   openApp,
   error: showDialog,
   notify: showToast,

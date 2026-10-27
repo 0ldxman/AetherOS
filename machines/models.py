@@ -146,6 +146,26 @@ class MachineProfile(models.Model):
         blank=True,
     )
 
+    ttl = models.PositiveIntegerField(
+        "Срок подключения, с",
+        null=True,
+        blank=True,
+        help_text="Сколько секунд держится подключение игрока на эту запись (с момента входа). Пусто: без ограничения.",
+    )
+
+    cooldown = models.PositiveIntegerField(
+        "Блокировка после обрыва, с",
+        null=True,
+        blank=True,
+        help_text="Сколько секунд после обрыва по сроку запись не принимает этого игрока (для него это блокировка аккаунта).",
+    )
+
+    kick_message = models.TextField(
+        "Сообщение при обрыве",
+        blank=True,
+        help_text="Текст в окне на чёрном экране, когда игрока выбросило с рабочего стола этой записи. Пусто: стандартный для системы.",
+    )
+
     class Meta:
         ordering = ("machine", "login", "freq")
         constraints = [
@@ -264,6 +284,12 @@ class Session(models.Model):
 
     created_at = models.DateTimeField(
         auto_now_add=True,
+    )
+
+    blocked_until = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text="Запись не принимает игрока до этого момента (после обрыва по сроку).",
     )
 
     def __str__(self):

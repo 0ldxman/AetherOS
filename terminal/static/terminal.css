@@ -152,3 +152,7 @@ body {
     opacity: 0.4;
     cursor: default;
 }
+
+.terminal-warning {
+    color: var(--term-warn);
+}

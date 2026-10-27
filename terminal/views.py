@@ -34,6 +34,37 @@ def _anonymous_answer(request):
     })
 
 
+def _kicks(request):
+    """Обрывы по сроку, которые случились с игроком (и ещё не показаны): для ответа браузеру. Папка терминала подстраивается."""
+    from . import bridge_scenes as scenes
+
+    bridge.remember_cwd(request, request.session.get(CWD_KEY, DEFAULT_CWD))
+    bridge.expire(request)
+    kicks = bridge.take_kicks(request)
+    if kicks:
+        request.session[CWD_KEY] = kicks[-1]["cwd"]
+    return [
+        {**item, "message": item["message"] or scenes.default_kick_text(item["system"], item["host"])}
+        for item in kicks
+    ]
+
+
+def _tabs(request):
+    """Вкладки для браузера: у вкладки со сроком ещё текст предупреждения ({n} подставит браузер)."""
+    from . import bridge_scenes as scenes
+
+    rows = bridge.tabs(request)
+    for row in rows:
+        row["warn"] = scenes.warning_text(row.pop("system"), row["host"]) if row["deadline"] else ""
+    return rows
+
+
+def _clock():
+    import time
+
+    return time.time()
+
+
 @require_POST
 def execute(request):
     if not is_player(request):
@@ -52,6 +83,10 @@ def execute(request):
             {"error": "Expected a JSON object"},
             status=400,
         )
+
+    kicks = _kicks(request)
+    if kicks:
+        return _tab_payload(request, {"output": "", "exit_code": 1, "kicks": kicks})       # подключение закончилось до команды
 
     session = bridge.terminal_session(request)
     cwd = request.session.get(CWD_KEY, DEFAULT_CWD)
@@ -110,7 +145,9 @@ def execute(request):
         "cwd": new_cwd,
         "hostname": bridge.terminal_session(request).profile.machine.hostname,
         "login": bridge.terminal_session(request).profile.login,
-        "tabs": bridge.tabs(request),
+        "tabs": _tabs(request),
+        "now": _clock(),
+        "warn_at": bridge.WARN_AT,
     })
 
 
@@ -160,7 +197,9 @@ def _tab_payload(request, extra=None):
         "cwd": request.session.get(CWD_KEY, DEFAULT_CWD),
         "hostname": session.profile.machine.hostname,
         "login": session.profile.login,
-        "tabs": bridge.tabs(request),
+        "tabs": _tabs(request),
+        "now": _clock(),
+        "warn_at": bridge.WARN_AT,
         **(extra or {}),
     })
 
@@ -176,8 +215,19 @@ def _tab_node(request):
 
 
 @require_POST
+def tick(request):
+    """Браузер дошёл до срока подключения: сервер закрывает всё, что вышло, и говорит, что случилось."""
+    if not is_player(request):
+        raise PermissionDenied
+    return _tab_payload(request, {"kicks": _kicks(request)})
+
+
+@require_POST
 def tab_focus(request):
     """Клик по вкладке: терминал работает на другом узле, рабочий стол остаётся."""
+    kicks = _kicks(request) if is_player(request) else []
+    if kicks:
+        return _tab_payload(request, {"kicks": kicks})
     node = _tab_node(request)
     request.session.pop(PENDING_KEY, None)
     request.session.pop(CONFIRM_KEY, None)
@@ -191,6 +241,9 @@ def tab_focus(request):
 @require_POST
 def tab_desktop(request):
     """Контекстное меню вкладки: рабочий стол переезжает на её машину."""
+    kicks = _kicks(request) if is_player(request) else []
+    if kicks:
+        return _tab_payload(request, {"kicks": kicks})
     node = _tab_node(request)
     if not node or not bridge.move_desktop(request, node):
         return JsonResponse({"error": "No such connection"}, status=404)
@@ -200,6 +253,9 @@ def tab_desktop(request):
 @require_POST
 def tab_close(request):
     """Контекстное меню вкладки: закрыть подключение со всем, что открыто из него."""
+    kicks = _kicks(request) if is_player(request) else []
+    if kicks:
+        return _tab_payload(request, {"kicks": kicks})
     from . import bridge_scenes as scenes
 
     node = _tab_node(request)
@@ -243,6 +299,7 @@ def _greeting(request, hostname, mail=True):
 
 
 def terminal_page(request):
+    kicks = _kicks(request) if is_player(request) else []
     if is_player(request):
         bridge.terminal_reset(request)     # новое окно это новая оболочка на машине рабочего стола
         hostname = active_session(request).profile.machine.hostname
@@ -268,11 +325,13 @@ def terminal_page(request):
             "cwd": DEFAULT_CWD,
             "prompt_path": prompt_path(DEFAULT_CWD),
             "greeting": greeting,
-            "tabs": bridge.tabs(request) if is_player(request) else [],
+            "tabs": _tabs(request) if is_player(request) else [],
+            "boot": {"kicks": kicks, "now": _clock(), "warn_at": bridge.WARN_AT},
             "tab_urls": {
                 "focus": reverse("terminal:tab_focus"),
                 "desktop": reverse("terminal:tab_desktop"),
                 "close": reverse("terminal:tab_close"),
+                "tick": reverse("terminal:tick"),
             },
         },
     )

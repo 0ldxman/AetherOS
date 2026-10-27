@@ -20,6 +20,8 @@ rcon растит ребёнка узла терминала и двигает �
     токен     заменяет и пароль, и ключ; у него свои срок и число использований.
 Записи с паролем и ключом требуют и то и другое. Если задан список hid, входить можно только с машин из него.
 """
+import time
+from datetime import timedelta
 from dataclasses import dataclass
 from decimal import Decimal, InvalidOperation
 
@@ -139,8 +141,73 @@ def tabs(request):
             "label": f"{profile.login}@{profile.machine.hostname}",
             "terminal": key == tree["terminal"],
             "desktop": key == tree["desktop"],
+            "deadline": item.get("deadline"),
+            "host": profile.machine.hostname,
+            "system": profile.machine.system,
         })
     return rows
+
+
+# ---------- срок подключения ----------
+
+KICKS_KEY = "bridge_kicks"
+WARN_AT = (30, 10)          # за сколько секунд до обрыва терминал предупреждает
+
+
+def locked_for(user, profile):
+    """Сколько секунд запись ещё не принимает игрока после обрыва по сроку (0: принимает)."""
+    until = Session.objects.filter(user=user, profile=profile, blocked_until__isnull=False).order_by("-pk").values_list(
+        "blocked_until", flat=True
+    ).first()
+    if until is None:
+        return 0
+    return max(0, int((until - timezone.now()).total_seconds()) + 1)
+
+
+def expire(request, now=None):
+    """Закрыть подключения, у которых вышел срок: как kick, но по времени. Возвращает список обрывов для показа игроку
+    (они же копятся в сессии, пока их не заберёт take_kicks). Запись с cooldown после обрыва не принимает игрока."""
+    now = now or time.time()
+    kicks = []
+    while True:
+        tree = _tree(request, create=False)
+        if not tree:
+            break
+        due = [key for key, node in tree["nodes"].items() if node.get("deadline") and node["deadline"] <= now]
+        if not due:
+            break
+        node = min(due, key=lambda key: tree["nodes"][key]["deadline"])
+        closed = close(request, node)
+        if closed is None or not closed.sessions:
+            break
+        left = closed.sessions[0]
+        profile = left.profile
+        if profile.cooldown:
+            Session.objects.filter(pk=left.pk).update(blocked_until=timezone.now() + timedelta(seconds=profile.cooldown))
+        kicks.append({
+            "label": f"{profile.login}@{profile.machine.hostname}",
+            "host": profile.machine.hostname,
+            "system": profile.machine.system,
+            "message": profile.kick_message.strip(),
+            "desktop": closed.desktop_moved,
+            "cwd": closed.cwd,
+        })
+    if kicks:
+        request.session[KICKS_KEY] = [*request.session.get(KICKS_KEY, []), *kicks]
+    return kicks
+
+
+def remember_cwd(request, cwd):
+    """Папка терминала сейчас записывается на узле терминала (нужна, чтобы закрытие другого узла её не потеряло)."""
+    tree = _tree(request, create=False)
+    if tree:
+        tree["nodes"][tree["terminal"]]["cwd"] = cwd
+        request.session[TREE_KEY] = tree
+
+
+def take_kicks(request):
+    """Обрывы, которые игрок ещё не видел: забирает и очищает."""
+    return request.session.pop(KICKS_KEY, [])
 
 
 def can_open(request):
@@ -159,7 +226,10 @@ def open_child(request, profile, desktop, cwd):
     tree["nodes"][parent]["cwd"] = cwd
     key = str(tree["next"])
     tree["next"] += 1
-    tree["nodes"][key] = {"parent": parent, "session": session.pk, "cwd": HOME}
+    tree["nodes"][key] = {
+        "parent": parent, "session": session.pk, "cwd": HOME,
+        "deadline": time.time() + profile.ttl if profile.ttl else None,        # срок подключения с момента входа
+    }
     tree["terminal"] = key
     if desktop:
         tree["desktop"] = key
@@ -277,8 +347,8 @@ def side(request, node):
     return (session, tree["nodes"][node]["cwd"]) if session else None
 
 
-def route(request, source, target):
-    """Метки узлов на пути source -> target по дереву, включая оба конца."""
+def route_ids(request, source, target):
+    """Узлы на пути source -> target по дереву, включая оба конца."""
     tree = _tree(request, create=False)
     if not tree:
         return []
@@ -292,9 +362,22 @@ def route(request, source, target):
     while node is not None and node not in ups:
         down.append(node)
         node = tree["nodes"][node]["parent"]
-    path = ups[: ups.index(node) + 1] + down[::-1] if node is not None else ups + down[::-1]
+    return ups[: ups.index(node) + 1] + down[::-1] if node is not None else ups + down[::-1]
+
+
+def link_lifetime(request, a, b, now=None):
+    """Сколько секунд проживёт связь между узлами a и b: до первого срока любого из них (None: без ограничения)."""
+    tree = _tree(request, create=False)
+    now = now or time.time()
+    limits = [tree["nodes"][key].get("deadline") for key in (a, b) if tree and key in tree["nodes"]]
+    limits = [item - now for item in limits if item]
+    return max(0.0, min(limits)) if limits else None
+
+
+def route(request, source, target):
+    """Метки узлов на пути source -> target по дереву, включая оба конца."""
     labels = {row["id"]: row["label"] for row in tabs(request)}
-    return [labels[key] for key in path if key in labels]
+    return [labels[key] for key in route_ids(request, source, target) if key in labels]
 
 
 # ---------- поиск записи ----------

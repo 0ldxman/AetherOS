@@ -107,6 +107,8 @@
             });
             tabsBar.appendChild(button);
         }
+
+        scheduleLimits();
     }
 
     // Терминал переходит на вкладку, у которой стоит terminal: лента и история переключаются на её собственные
@@ -134,12 +136,80 @@
         }
     }
 
+    // Сроки подключений: за warn_at секунд до срока вкладка предупреждает в своей ленте, на сроке браузер просит сервер
+    // закрыть вышедшее (сервер решает сам, браузер только вовремя стучится)
+    let clockOffset = 0;
+    let warnAt = [30, 10];
+    let limitTimers = [];
+
+    function syncClock(data) {
+        if (data.now) clockOffset = data.now * 1000 - Date.now();
+        if (data.warn_at) warnAt = data.warn_at;
+    }
+
+    function appendLineTo(id, text, className) {
+        if (id === activeId) {
+            appendLine(text, className);
+            return;
+        }
+
+        const line = document.createElement("div");
+        line.className = `terminal-line ${className}`.trim();
+        line.textContent = text;
+        storeOf(id).nodes.push(line);
+    }
+
+    function scheduleLimits() {
+        limitTimers.forEach(clearTimeout);
+        limitTimers = [];
+        const now = Date.now() + clockOffset;
+
+        for (const entry of tabs) {
+            if (!entry.deadline) continue;
+            const at = entry.deadline * 1000;
+
+            for (const left of warnAt) {
+                if (at - left * 1000 > now) {
+                    limitTimers.push(setTimeout(() => {
+                        appendLineTo(entry.id, (entry.warn || "").replace("{n}", left), "terminal-warning");
+                    }, at - left * 1000 - now));
+                }
+            }
+
+            limitTimers.push(setTimeout(tickNow, Math.max(0, at - now) + 400));
+        }
+    }
+
+    async function tickNow() {
+        try {
+            applyShell(await post(terminal.dataset.tickUrl, {}));
+        } catch {
+            // сеть моргнула: следующая команда всё равно проверит срок на сервере
+        }
+    }
+
+    // Что случилось с подключениями по сроку: выброс с рабочего стола показывает рабочий стол (чёрный экран), выход
+    // из оболочки терминал пишет сам
+    function handleKicks(kicks) {
+        const api = window.parent && window.parent !== window ? window.parent.desktopAPI : null;
+
+        for (const kick of kicks || []) {
+            if (kick.desktop && api && api.blackout) {
+                api.blackout(kick);
+            } else {
+                appendLine(`connection to ${kick.host} closed: ${kick.message.split("\n")[0]}`, "terminal-error");
+            }
+        }
+    }
+
     function applyShell(data) {
+        syncClock(data);
         cwd = data.cwd || cwd;
         hostname = data.hostname || hostname;
         login = data.login || login;
         renderTabs(data.tabs);
         settleTabs();
+        handleKicks(data.kicks);              // сообщение выброшенной вкладки пишется туда, где терминал оказался
         updatePrompt();
     }
 
@@ -285,6 +355,7 @@
         cwd = data.cwd || cwd;
         hostname = data.hostname || hostname;     // rshell меняет машину и логин оболочки
         login = data.login || login;
+        syncClock(data);
         if (data.tabs) renderTabs(data.tabs);
         updatePrompt();
 
@@ -308,6 +379,7 @@
         }
 
         settleTabs();            // команда доиграла в ленте своей вкладки, дальше терминал на той, что указал сервер
+        handleKicks(data.kicks);
 
         // effects после текста: смена рабочего стола ждёт, пока доиграет последняя сцена
         for (const effect of data.effects || []) {
@@ -437,7 +509,11 @@
     }
 
     try {
+        const boot = JSON.parse(document.getElementById("terminal-boot").textContent);
+        syncClock(boot);
         renderTabs(JSON.parse(document.getElementById("terminal-tabs-data").textContent));
+        settleTabs();
+        handleKicks(boot.kicks);
     } catch {
         renderTabs([]);
     }

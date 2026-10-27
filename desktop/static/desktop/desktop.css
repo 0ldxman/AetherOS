@@ -553,3 +553,68 @@ body {
   color: var(--font-muted);
   font-size: 0.9rem;
 }
+
+
+/* Обрыв подключения по сроку: чёрный экран с окном под консоль */
+.blackout {
+  position: fixed;
+  inset: 0;
+  z-index: 100000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: black;
+  opacity: 0;
+  transition: opacity 0.45s ease-in;
+}
+
+.blackout--on {
+  opacity: 1;
+}
+
+.blackout-window {
+  width: min(560px, 86vw);
+  border: 1px solid var(--term-error);
+  background: var(--bg-sunken);
+  box-shadow: 0 0 40px color-mix(in srgb, var(--term-error) 35%, transparent);
+  font-family: var(--font-console, monospace);
+  font-size: var(--fs-console, 16px);
+  opacity: 0;
+  transform: scale(0.97);
+  transition: opacity 0.12s steps(2), transform 0.2s ease-out;
+}
+
+.blackout-window--on {
+  opacity: 1;
+  transform: none;
+}
+
+.blackout-title {
+  padding: 4px 10px;
+  background: var(--term-error);
+  color: black;
+}
+
+.blackout-body {
+  margin: 0;
+  font: inherit;
+  min-height: 5.5em;
+  padding: 14px 16px;
+  color: var(--term-error);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.blackout-cursor {
+  display: inline-block;
+  width: 0.6em;
+  height: 1em;
+  margin-left: 2px;
+  vertical-align: text-bottom;
+  background: var(--term-error);
+  animation: blackout-blink 0.8s steps(2) infinite;
+}
+
+@keyframes blackout-blink {
+  50% { opacity: 0; }
+}

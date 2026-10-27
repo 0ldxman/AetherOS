@@ -75,6 +75,10 @@ def _identity(request, machine):
 
 @ensure_csrf_cookie  # меню «disconnect» шлёт POST на выход
 def desktop(request):
+    from machines import bridge
+    from terminal.views import _clock, _kicks
+
+    kicks = _kicks(request) if request.user.is_authenticated else []
     machine = current_machine(request)
 
     if machine is None:
@@ -103,6 +107,10 @@ def desktop(request):
     from machines import bridge
 
     tunnel = None
+    limit = None
+    if request.user.is_authenticated:
+        node = next((row for row in bridge.tabs(request) if row["desktop"]), None)
+        limit = {"deadline": node["deadline"], "now": _clock(), "tick_url": reverse("terminal:tick")} if node and node["deadline"] else None
     if request.user.is_authenticated and bridge.depth(request) > 0:
         tunnel = {
             "label": f"rcon: {login}@{machine.label}",
@@ -112,6 +120,8 @@ def desktop(request):
 
     return render(request, "desktop/desktop.html", {
         "tunnel": tunnel,
+        "limit": limit,
+        "kicks": kicks,
         "mail_url": mail_url if has_mail else "",
         "mail_pulse_url": reverse("mail:pulse") if has_mail else "",
         "machine_name": machine.label,

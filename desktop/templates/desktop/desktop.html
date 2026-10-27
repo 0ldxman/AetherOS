@@ -67,6 +67,8 @@
 
 {% block js %}
     {{ system_messages|json_script:"system-messages" }}
+    {{ kicks|json_script:"desktop-kicks" }}
+    {{ limit|json_script:"desktop-limit" }}
     <script src="{% static 'desktop/winbox/winbox.min.js' %}"></script>
     <script src="{% static 'desktop/desktop.js' %}"></script>
 {% endblock %}

@@ -20,6 +20,7 @@
         data-tab-focus-url="{{ tab_urls.focus }}"
         data-tab-desktop-url="{{ tab_urls.desktop }}"
         data-tab-close-url="{{ tab_urls.close }}"
+        data-tick-url="{{ tab_urls.tick }}"
     >
         <nav id="terminal-tabs" role="tablist" hidden></nav>
         <ul id="terminal-tab-menu" role="menu" hidden></ul>
@@ -42,6 +43,7 @@
     {% csrf_token %}
     {{ greeting|json_script:"terminal-greeting" }}
     {{ tabs|json_script:"terminal-tabs-data" }}
+    {{ boot|json_script:"terminal-boot" }}
     <script src="{% static 'ui/console.js' %}"></script>
     <script src="{% static 'terminal.js' %}"></script>
 </body>
