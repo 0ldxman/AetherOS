@@ -11,12 +11,14 @@ from terminal.engine.commands.info import FtypCommand, CntCommand
 from terminal.engine.commands.net import NgetCommand, NreqCommand
 from terminal.engine.commands.files import Cp, Mv
 from terminal.engine.commands.inspect import TxtxCommand
+from terminal.engine.commands.help import HelpCommand
 from terminal.engine.commands.keys import KexCommand
 from terminal.engine.commands.trash import Del, Rcvr, Wipe
 from terminal.engine.commands.raw import BlkCommand, CvtCommand, RprCommand
 
 # Общие для всех систем команды файловой системы.
 COMMON = (
+    HelpCommand,
     PwdCommand,
     LsCommand,
     CdCommand,
