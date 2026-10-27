@@ -126,9 +126,32 @@ def strings_scene(path, size):
     return s.to_dict()
 
 
+# что читает cvt у формата: названия единиц разбора (формат -> (крупные, мелкие)); для незнакомого берутся общие
+FORMAT_UNITS = {
+    "pdf": ("pages", "objects"), "png": ("chunks", "scanlines"), "jpg": ("segments", "tables"), "gif": ("frames", "colors"),
+    "zip": ("entries", "headers"), "gz": ("members", "blocks"), "wav": ("channels", "frames"), "mp3": ("frames", "tags"),
+    "rec": ("fields", "lines"), "snp": ("nodes", "styles"), "msg": ("headers", "lines"), "pak": ("entries", "blocks"),
+    "app": ("sections", "symbols"),
+}
+ENCODING_UNITS = {"codec": "code units", "hex": "octets", "rot": "letters", "xor": "bytes", "gzip": "blocks", "morse": "symbols",
+                  "reverse": "bytes", "base32": "quanta"}
+
+
+def _decode_rows(path, names):
+    """Части формата читаются сразу все, каждая в своём темпе."""
+    rows = []
+    for i, name in enumerate(names):
+        start = 500 + _stable(f"{path}:p{i}", 0, 1400)
+        rows.append((f"  {name.strip():<6}", (start, start + 500)))
+    return rows
+
+
 def convert_scene(path, size, value, ok, kind):
     """cvt: чтение файла как названного формата (disguised) или раскодирование кодировки (binary). Решение уже принято
-    сервером: неверное название обрывается на разборе входа, и по сцене ничего не узнать раньше ответа."""
+    сервером: неверное название обрывается на разборе входа, и по сцене ничего не узнать раньше ответа. Единицы разбора
+    берутся из формата: у записи поля, у страницы узлы, у документа и скана их части (каждая своей полосой)."""
+    from filesystem.rawview import registry
+
     stage = "input" if kind == "disguised" else "stream"
     s = Scene()
     s.row("cvt", path, width=8)
@@ -138,12 +161,28 @@ def convert_scene(path, size, value, ok, kind):
     s.task("probing input", "OK" if ok else "FAIL", ms=(500, 1100))
     if not ok:
         return s.to_dict()
-    if kind == "disguised":
-        s.row("  pages", str(_stable(path + ":pg", 1, 40)), width=10)
-        s.row("  objects", str(_stable(path + ":ob", 60, 900)), width=10)
+
+    if kind != "disguised":
+        found = registry.encoding_named(value.lower())
+        unit = ENCODING_UNITS.get(found.kind if found else "", "units")
+        s.row("  " + unit, str(max(1, size)), width=16)
+        s.bar("decoding stream ", ms=(900, 1800), width=14)
+        s.task("writing output", "OK", ms=(300, 700))
+        return s.to_dict()
+
+    fmt = registry.format_named(value.lower())
+    names = [part.name for part in fmt.parts] if fmt else []
+    if fmt and fmt.kind in ("chunks", "package"):
+        what = "chunks" if fmt.kind == "chunks" else "parts"
+        s.task("reading chunk table" if fmt.kind == "chunks" else "reading part table", "OK", ms=(200, 500))
+        s.row(f"  {what}", f"{len(names)}  ({', '.join(name.strip() for name in names)})", width=16)
+        s.say(f"decoding {what}")
+        s.bars(_decode_rows(path, names), width=14)
     else:
-        s.row("  units", str(max(1, size // 2)), width=10)
-    s.bar("decoding streams ", ms=(900, 1800), width=14)
+        big, small = FORMAT_UNITS.get(value.lower(), ("blocks", "records"))
+        s.row("  " + big, str(max(1, min(size // 48, _stable(path + ":a", 1, 40)))), width=16)
+        s.row("  " + small, str(max(2, min(size // 8, _stable(path + ":b", 60, 900)))), width=16)
+        s.bar("decoding streams ", ms=(900, 1800), width=14)
     s.task("writing output", "OK", ms=(300, 700))
     return s.to_dict()
 

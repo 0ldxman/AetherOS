@@ -1198,7 +1198,22 @@ class RawCommandTests(TestCase):
         self.assertEqual([s for s in scene if s["op"] == "dots"][-1]["status"], "FAIL")
         self.assertNotIn("bars", [s["op"] for s in scene])                                  # до чтения потоков не дошли
         good = self.run_command("cvt /home/skin.dat scan")["scene"]
-        self.assertIn("bar", [s["op"] for s in good])
+        self.assertIn("bars", [s["op"] for s in good])                                       # у скана по полосе на блок IMG, OCR, CONF
+
+    def test_cvt_scene_speaks_the_language_of_the_format(self):
+        from terminal.scenes import convert_scene
+
+        def text(fmt, kind="disguised"):
+            return " ".join(str(v) for step in convert_scene("/a", 400, fmt, True, kind) for v in step.values())
+
+        self.assertIn("pages", text("pdf"))
+        self.assertIn("fields", text("rec"))
+        self.assertIn("nodes", text("snp"))
+        self.assertNotIn("pages", text("rec"))
+        self.assertIn("reading part table", text("doc"))
+        self.assertIn("reading chunk table", text("scan"))
+        self.assertIn("OCR", text("scan"))
+        self.assertIn("code units", text("utf16", "binary"))
 
     def test_the_size_in_ls_is_the_length_of_the_bytes_that_blk_shows(self):
         size = int(self.run_command("ls -l /home/report.rec")["output"].split()[0])
