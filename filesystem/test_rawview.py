@@ -515,8 +515,11 @@ class KeyBlockTests(TestCase):
         html = keys.embed(formats.build("snp", b"text", {"title": "T"}), ["secret_a"], "s").decode()
         self.assertIn("<!--\n-----BEGIN ACCESS KEY-----", html)
         self.assertLess(html.index("-----BEGIN"), html.index("</body>"))
-        rec = keys.embed(formats.build("rec", b"text"), ["secret_a"], "s").decode()
-        self.assertTrue(rec.rstrip().endswith("-----END ACCESS KEY-----"))
+        rec = keys.embed(formats.build("rec", b"text\n\nmore\n\nlines\n"), ["secret_a"], "s").decode()
+        self.assertIn("-----BEGIN ACCESS KEY-----\nKeyname: secret_a", rec)
+        self.assertTrue(rec.startswith("\u00a7rec\nwho:"))                               # шапка формата на месте
+        spread = keys.embed(formats.build("snp", b"a\n\nb\n\nc\n", {"title": "T"}), ["k_one", "k_two", "k_three"], "s").decode()
+        self.assertEqual(spread.count("-----BEGIN ACCESS KEY-----"), 3)
 
     def test_unknown_data_gets_the_block_at_the_end_when_real_and_inside_when_noise(self):
         from filesystem.rawview import keys

@@ -138,19 +138,41 @@ def _package(data, blocks, seed, fmt):
     return data[:head] + len(parts).to_bytes(2, "big") + index + blob if start <= len(data) else None
 
 
+def _lines(text, start=0):
+    """Границы строк (индексы начала строки) от start и конец текста: сюда можно вставить блок, не разрезав строку."""
+    found = [i + 1 for i in range(start, len(text)) if text[i] == "\n"]
+    return found if found and found[-1] == len(text) else found + [len(text)]
+
+
+def _place(text, blocks, seed, spots, wrap):
+    """Каждый блок на своей границе строки из spots (стабильно по слагу); wrap оформляет блок под формат."""
+    inserts = [(spots[_pick(seed, slug, len(spots))], wrap(block.decode("utf-8", "surrogateescape"))) for slug, block in blocks]
+    for position, piece in sorted(inserts, key=lambda item: -item[0]):
+        text = text[:position] + piece + text[position:]
+    return text
+
+
 def _markup(data, blocks, seed):
-    text = data.decode("utf-8")
-    spot = text.rfind("</body>")
-    spot = text.rfind("</") if spot < 0 else spot
-    if spot < 0:
+    text = data.decode("utf-8", "surrogateescape")
+    start = text.find("<body")
+    end = text.rfind("</body>")
+    if end < 0:
+        end = text.rfind("</")
+    if end < 0:
         return None
-    comment = "".join(f"<!--\n{block.decode()}-->\n" for _, block in blocks)
-    return (text[:spot] + comment + text[spot:]).encode()
+    first = text.find("\n", max(start, 0)) + 1 if start >= 0 else 0
+    spots = [i for i in _lines(text, first) if i <= end] or [end]
+    if end not in spots and text[end - 1:end] == "\n":
+        spots.append(end)
+    return _place(text, blocks, seed, spots, lambda block: f"<!--\n{block}-->\n").encode("utf-8", "surrogateescape")
 
 
 def _text(data, blocks, seed):
-    text = data.decode("utf-8")
-    return (text.rstrip("\n") + "\n\n" + "\n".join(block.decode() for _, block in blocks)).encode()
+    text = data.decode("utf-8", "surrogateescape")
+    if not text.endswith("\n"):
+        text += "\n"
+    spots = _lines(text, len(text) // 3)
+    return _place(text, blocks, seed, spots, lambda block: "\n" + block).encode("utf-8", "surrogateescape")
 
 
 def _anywhere(data, blocks, seed, real):
