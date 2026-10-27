@@ -3,7 +3,7 @@ from dataclasses import dataclass
 
 from django.conf import settings
 
-from filesystem.rawview import encodings, formats, keys
+from filesystem.rawview import encodings, formats, keys, signatures
 from filesystem.rawview.noise import noise, stable
 from filesystem.rawview.source import READ_LIMIT, resolve_payload
 from filesystem.states.compiler import StateError, compile_text
@@ -72,7 +72,7 @@ def _content(machine_file, payload, fmt, seed):
         wanted = fmt or payload.fmt or ("msg" if payload.kind == "mail" else "rec")
         return formats.build(wanted, payload.body, payload.meta, seed=seed, views=payload.views)
 
-    if payload.kind in ("key", "slice"):
+    if payload.kind in ("key", "slice", "signature"):
         return payload.body
 
     if payload.kind == "archive":
@@ -95,7 +95,8 @@ def _core(machine_file, payload, fmt, seed):
         # доступа нет: место, где лежит тело, закрывается шумом той же длины, остальное (заголовки формата) как есть
         for variant in formats.variants(payload.body, payload.views):
             data = data.replace(variant, noise(seed + ":body", len(variant)))
-    return data
+    signed = [(row.key.slug, row.date, row.valid) for row in machine_file.signatures.select_related("key").order_by("key__slug")]
+    return signatures.embed(data, signed, seed, locked=payload.locked)
 
 
 def _bad_blocks(length, seed):

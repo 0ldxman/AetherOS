@@ -19,7 +19,7 @@ def build_raw_cached(machine_file, session_state="", keys=frozenset(), seconds=1
     payload = resolve_payload(machine_file, keys, viewer=viewer)
     key = (
         f"rawbytes:{machine_file.pk}:{machine_file.updated_at.timestamp()}:{hash(session_state)}:{payload.stamp}:"
-        f"{payload.locked}:{','.join(keys.slugs_of(machine_file))}"
+        f"{payload.locked}:{','.join(keys.slugs_of(machine_file))}:{signed_stamp(machine_file)}"
     )
     data = cache.get(key)
     if data is None:
@@ -27,6 +27,10 @@ def build_raw_cached(machine_file, session_state="", keys=frozenset(), seconds=1
         if len(data) <= 4 * 1024 * 1024:
             cache.set(key, data, seconds)
     return data
+
+
+def signed_stamp(machine_file):
+    return ",".join(f"{row.key.slug}:{row.valid}:{row.date}" for row in machine_file.signatures.select_related("key"))
 
 
 def viewer_formats():

@@ -562,3 +562,28 @@ class KeyBlockTests(TestCase):
         self.assertIn(b"Keyname: secret_a", opened)
         self.assertEqual(len(closed), len(opened))
 
+
+class SignatureBlockTests(TestCase):
+    """Блоки подписей: хеш по содержимому, любая правка ломает, шум при закрытом источнике."""
+
+    def test_a_block_checks_against_the_content_it_was_made_for(self):
+        from filesystem.rawview import signatures
+
+        content = b"Cargo manifest altered.\n"
+        data = signatures.embed(content, [("director", None, True), ("other", None, False)], "s")
+        found = signatures.find(data)
+        self.assertEqual([item["slug"] for item in found], ["director", "other"])
+        self.assertEqual(data[:found[0]["start"]], content)
+        self.assertTrue(signatures.check(found[0], content))
+        self.assertFalse(signatures.check(found[0], content + b"x"))                       # правка ломает
+        self.assertFalse(signatures.check(found[1], content))                              # подделка
+        self.assertEqual(data, signatures.embed(content, [("director", None, True), ("other", None, False)], "s"))
+
+    def test_a_closed_source_shows_noise_of_the_same_length_and_no_blocks(self):
+        from filesystem.rawview import signatures
+
+        open_data = signatures.embed(b"text\n", [("director", None, True)], "s")
+        closed = signatures.embed(b"text\n", [("director", None, True)], "s", locked=True)
+        self.assertEqual(len(open_data), len(closed))
+        self.assertEqual(signatures.find(closed), [])
+

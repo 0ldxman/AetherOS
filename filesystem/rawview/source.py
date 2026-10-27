@@ -17,7 +17,7 @@ READ_LIMIT = 8 * 1024 * 1024
 
 @dataclass
 class Payload:
-    kind: str = "none"                         # none | wiki | asset | map | mail | app | key | slice | archive
+    kind: str = "none"                         # none | wiki | asset | map | mail | app | key | slice | archive | signature
     body: bytes = b""                          # текст (wiki, map) или готовые байты (asset, app)
     fmt: str | None = None                     # формат, который диктует источник (тип записи вики)
     meta: dict = field(default_factory=dict)
@@ -137,6 +137,14 @@ def _key(slug):
     return Payload(kind="key", body=keys.armor(slug, f"store:{slug}"), stamp=f"key:{slug}")
 
 
+def _signature(parts):
+    """Файл подписи (ward sign): блок подписи ключа под хешем другого файла."""
+    from filesystem.rawview import signatures
+
+    slug, hexhash = parts[1], parts[2]
+    return Payload(kind="signature", body=signatures.block(slug, hexhash, f"sig:{slug}"), stamp=f"sig:{slug}:{hexhash}")
+
+
 def _slice(machine_file, keys, reader, viewer):
     """Вырезка (blk): окно в байтах источника с тем прогрессом по слоям, какой был при вырезке."""
     from filesystem.models import FileSlice
@@ -185,6 +193,8 @@ def resolve_payload(machine_file, keys, reader=None, viewer=None):
 
     if parts[:1] == ["keys"] and len(parts) == 2:
         return _key(parts[1])
+    if parts[:1] == ["sig"] and len(parts) == 3:
+        return _signature(parts)
     if parts == ["slice"]:
         return _slice(machine_file, keys, reader, viewer)
 

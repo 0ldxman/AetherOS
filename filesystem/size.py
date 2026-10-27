@@ -16,7 +16,8 @@ CACHE_SECONDS = 300
 def keys_in_file(machine_file):
     from filesystem.rawview.keys import slugs_of
 
-    return slugs_of(machine_file)
+    signed = [f"{row.key.slug}:{row.valid}:{row.date}" for row in machine_file.signatures.select_related("key")]
+    return [*slugs_of(machine_file), *signed]
 
 
 def file_size(machine_file, session_state="", keys=frozenset(), viewer=None):

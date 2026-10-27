@@ -1615,3 +1615,133 @@ class ArchiveTests(TestCase):
 
     def test_files_cannot_be_put_into_an_archive(self):
         self.assertNotEqual(self.run_command("cp /home/plain.txt /home/pack.zip/new.txt")["exit_code"], 0)
+
+
+@override_settings(FORCE_SCRIPT_NAME=None)
+class SignatureTests(TestCase):
+    """Подписи: блоки в байтах файла (ward verify) и подпись игрока ключом из /home/.secrets (ward sign)."""
+
+    BODY = "Cargo manifest altered.\n\nRef A-113."
+
+    @classmethod
+    def setUpTestData(cls):
+        import datetime
+
+        from filesystem.models import FileSignature, MachineFile
+        from machines.models import MachineProfile
+        from secure.models import Key
+        from wiki.models import Document, Namespace
+
+        cls.main = Machine.objects.create(name="Main", hostname="aether-main")
+        MachineApp.objects.create(machine=cls.main, label="console", glyph=">_", path="/apps/terminal/")
+        cls.user = get_user_model().objects.create_user("ivan", password="pw")
+        MachineProfile.objects.create(machine=cls.main, user=cls.user, name="Ivan", login="ivan", freq=1,
+                                      mail="ivan@aether-main")
+        Document.objects.create(namespace=Namespace.objects.create(name="Harbor"), title="Report", type="rec", body=cls.BODY)
+        cls.director = Key.objects.create(slug="director")
+        cls.other = Key.objects.create(slug="other")
+        url = "apps/wiki/Harbor/Report"
+
+        def make(path, state="", signed=()):
+            item = MachineFile.objects.create(machine=cls.main, path=path, url=url, state=state)
+            for key, valid, date in signed:
+                FileSignature.objects.create(file=item, key=key, valid=valid, date=date)
+            return item
+
+        make("/home/plain.rec")
+        make("/home/memo.rec", signed=[(cls.director, True, datetime.date(2026, 10, 26))])
+        make("/home/forged.rec", signed=[(cls.director, False, None)])
+        make("/home/co.rec", signed=[(cls.director, True, None), (cls.other, False, None)])
+        make("/home/vault.rec", "> encrypted hunter2", signed=[(cls.director, True, None)])
+
+    def setUp(self):
+        previous = get_script_prefix()
+        set_script_prefix("/")
+        self.addCleanup(set_script_prefix, previous)
+        self.client.force_login(self.user)
+
+    def run_command(self, text):
+        response = self.client.post(
+            reverse("terminal:execute"), data=json.dumps({"command": text}), content_type="application/json"
+        )
+        return json.loads(response.content)
+
+    def raw(self, path):
+        return self.client.get(reverse("fsview:content") + f"?path={path}").content
+
+    def give_key(self, slug):
+        from django.test import RequestFactory
+
+        from filesystem import keystore
+        from machines.current import active_session
+
+        self.run_command("pwd")                                                      # сессия игрока появляется при первой команде
+        request = RequestFactory().get("/")
+        request.session = self.client.session
+        request.user = self.user
+        keystore.put(active_session(request), slug)
+
+    def test_a_signed_file_carries_a_block_after_its_content_and_verifies(self):
+        data = self.raw("/home/memo.rec")
+        self.assertIn(b"-----BEGIN SIGNATURE-----\nKeyname: director\nDate: 2026-10-26\n", data)
+        self.assertTrue(data.startswith("§rec".encode()))
+        good = self.run_command("ward verify /home/memo.rec")
+        self.assertEqual(good["exit_code"], 0, good["output"])
+        self.assertIn("Signature made 2026-10-26 using key director", good["output"])
+        self.assertIn("Good signature from director", good["output"])
+        self.assertEqual(int(self.run_command("ls -l /home/memo.rec")["output"].split()[0]), len(data))
+
+    def test_a_forged_signature_and_an_unsigned_file_do_not_verify(self):
+        bad = self.run_command("ward verify /home/forged.rec")
+        self.assertEqual(bad["exit_code"], 1)
+        self.assertIn("BAD signature from director", bad["output"])
+        none = self.run_command("ward verify /home/plain.rec")
+        self.assertEqual(none["exit_code"], 1)
+        self.assertIn("no signature found", none["output"])
+        both = self.run_command("ward verify /home/co.rec")                          # две подписи: одна верна, вторая нет
+        self.assertEqual(both["exit_code"], 1)
+        self.assertIn("Good signature from director", both["output"])
+        self.assertIn("BAD signature from other", both["output"])
+
+    def test_any_change_of_the_content_breaks_the_signature(self):
+        self.run_command("blk /home/memo.rec start=2")                               # вырезка без первых байтов, подпись осталась
+        self.assertIn("BAD signature from director", self.run_command("ward verify /home/memo.rec.prt.2")["output"])
+        self.run_command("blk /home/memo.rec start=0 end=40")                        # вырезка до подписи
+        self.assertIn("no signature found", self.run_command("ward verify /home/memo.rec.prt.0")["output"])
+
+    def test_a_layer_hides_the_signature(self):
+        self.assertNotIn(b"SIGNATURE", self.raw("/home/vault.rec"))
+        self.assertIn("no signature found", self.run_command("ward verify /home/vault.rec")["output"])
+
+    def test_ward_sign_makes_a_detached_signature_with_a_key_from_the_secrets_folder(self):
+        self.assertIn("no secret key", self.run_command("ward sign -k director /home/plain.rec")["output"])
+        self.give_key("director")
+        data = self.run_command("ward sign -k director /home/plain.rec")
+        self.assertEqual(data["exit_code"], 0, data["output"])
+        self.assertIn("/home/plain.rec.sig", data["output"])
+        self.assertTrue(self.raw("/home/plain.rec.sig").startswith(b"-----BEGIN SIGNATURE-----\nKeyname: director\n"))
+        self.assertIn("SIG detached signature", self.run_command("ftyp /home/plain.rec.sig")["output"])
+        good = self.run_command("ward verify /home/plain.rec.sig /home/plain.rec")
+        self.assertEqual(good["exit_code"], 0, good["output"])
+        self.assertIn("Good signature from director", good["output"])
+        self.assertIn("BAD signature", self.run_command("ward verify /home/plain.rec.sig /home/memo.rec")["output"])   # подпись чужого файла
+        self.assertIn("exists", self.run_command("ward sign -k director /home/plain.rec")["output"])
+        self.assertEqual(self.run_command("ward sign -k director /home/none")["exit_code"], 2)
+
+    def test_ward_verify_and_sign_usage_and_a_missing_file(self):
+        for command in ("ward verify", "ward verify a b c", "ward sign", "ward sign -k director"):
+            self.assertEqual(self.run_command(command)["exit_code"], 2, command)
+        self.assertEqual(self.run_command("ward verify /home/none")["exit_code"], 2)
+
+    def test_a_signed_mail_attachment_verifies_after_it_is_saved_into_the_session(self):
+        from filesystem import keystore
+        from filesystem.models import FileSignature, MachineFile, SessionFile
+        from machines.models import Session
+
+        self.run_command("pwd")
+        attachment = MachineFile.objects.create(machine=self.main, path="/mail/att.rec", url="apps/wiki/Harbor/Report",
+                                                delivered_only=True)
+        FileSignature.objects.create(file=attachment, key=self.director, valid=True)
+        SessionFile.objects.create(session=Session.objects.get(user=self.user), file=attachment, path="/home/att.rec")
+        self.assertIn("Good signature from director", self.run_command("ward verify /home/att.rec")["output"])
+

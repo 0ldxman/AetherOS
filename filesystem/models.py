@@ -227,6 +227,24 @@ class FileSlice(models.Model):
         return f"{self.source_id}[{self.start}:{self.end}]"
 
 
+class FileSignature(models.Model):
+    """Подпись файла: в его байтах лежит блок подписи ключом. Подпись считается по содержимому, так что любое изменение
+    (например, вырезка) её ломает. valid=False делает подделку: блок есть, но подпись не сходится."""
+
+    file = models.ForeignKey("filesystem.MachineFile", on_delete=models.CASCADE, related_name="signatures")
+    key = models.ForeignKey("secure.Key", on_delete=models.CASCADE, related_name="signatures")
+    valid = models.BooleanField(default=True, help_text="Снять отметку: подпись не сходится (подделка).")
+    date = models.DateField(null=True, blank=True, help_text="Дата подписи в мире игры (необязательно).")
+
+    class Meta:
+        constraints = [models.UniqueConstraint(fields=("file", "key"), name="unique_file_signature")]
+        verbose_name = "Подпись файла"
+        verbose_name_plural = "Подписи файла"
+
+    def __str__(self):
+        return f"{self.file} подписан {self.key}"
+
+
 class ProtectedPath(models.Model):
     """Путь, который игрок не может удалить командой del (и никто внутри него тоже): базовые папки.
 

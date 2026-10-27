@@ -6,6 +6,7 @@ from .models import (
     FileEncoding,
     FileFormat,
     FileKey,
+    FileSignature,
     FormatPart,
     MachineFile,
     ProtectedPath,
@@ -21,10 +22,18 @@ class FileKeyInline(admin.TabularInline):
     autocomplete_fields = ("key",)
 
 
+class FileSignatureInline(admin.TabularInline):
+    """Подписи файла: блоки подписи в его байтах (проверяются командой ward verify)."""
+
+    model = FileSignature
+    extra = 0
+    autocomplete_fields = ("key",)
+
+
 @admin.register(MachineFile)
 class MachineFileAdmin(admin.ModelAdmin):
     form = MachineFileForm
-    inlines = (FileKeyInline,)
+    inlines = (FileKeyInline, FileSignatureInline)
     list_select_related = ("machine",)
 
     list_display = (

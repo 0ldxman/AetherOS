@@ -131,6 +131,28 @@ def pak_extract_scene(path, names, ok=True):
     return s.to_dict()
 
 
+# ---------- подписи ----------
+
+def verify_scene(path, count, ok):
+    """ward verify: чтение блоков подписи, хеш содержимого и сверка."""
+    s = Scene()
+    s.task("reading signature", "OK" if count else "FAIL", ms=(150, 350))
+    if count:
+        s.bar("hashing content ", ms=(500, 1000), width=14)
+        s.task("checking signature", "OK" if ok else "FAIL", ms=(300, 700))
+    return s.to_dict()
+
+
+def sign_scene(path, key):
+    """ward sign: хеш файла и подпись секретным ключом."""
+    s = Scene()
+    s.task("loading secret key", "OK", ms=(200, 450))
+    s.bar("hashing content ", ms=(500, 1000), width=14)
+    s.task("signing", "OK", ms=(350, 800))
+    s.task("writing signature", "OK", ms=(150, 350))
+    return s.to_dict()
+
+
 # ---------- сырые байты ----------
 
 def block_scene(path, out, start, end, scanning, size, errors=()):

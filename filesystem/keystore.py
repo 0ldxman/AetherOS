@@ -41,3 +41,21 @@ def put(session, slug):
         row.save(update_fields=["deleted_at", "file"])
         created = True
     return row.path, created
+
+
+STORE_SIG = "/.sigstore"
+
+
+def put_signature(session, slug, hexhash, path):
+    """Файл подписи ключа slug под хешем hexhash в сессии игрока по пути path. Возвращает SessionFile."""
+    holder, _ = MachineFile.objects.get_or_create(
+        machine=session.profile.machine,
+        path=f"{STORE_SIG}/{slug}-{hexhash[:16]}",
+        defaults={"url": f"sig/{slug}/{hexhash}", "delivered_only": True},
+    )
+    row = SessionFile.objects.filter(session=session, path=path).first()
+    if row is None:
+        return SessionFile.objects.create(session=session, file=holder, path=path)
+    row.file, row.deleted_at, row.state = holder, None, ""
+    row.save(update_fields=["file", "deleted_at", "state"])
+    return row
