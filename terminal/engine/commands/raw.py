@@ -1,6 +1,9 @@
 import posixpath
 
+from filesystem.models import SessionFile
+from filesystem.rawview.registry import format_for_extension
 from filesystem.states.attempt import peek_top
+from terminal.engine import fileops
 from terminal.engine.commands.layered import LayerCommand
 from terminal.engine.filesystem import VirtualFilesystem
 from terminal.engine.hexdump import hexdump
@@ -89,17 +92,49 @@ class CvtCommand(LayerCommand):
     layer = "disguised"
     done = "converted"
     absent = "nothing to convert"
-    LAYERS = {"disguised": "format", "binary": "encoding"}
+    USAGE = "usage: cvt ext file out | cvt enc encoding file"
 
     def execute(self, context, args):
-        if len(args) != 2:
-            return CommandResult("usage: cvt file format", 2)
+        if args and args[0] == "ext" and len(args) == 3:
+            return self.convert_format(context, args[1], args[2])
+        if args and args[0] == "enc" and len(args) == 3:
+            return self.unlock(context, args[2], [args[1]], "binary", absent="nothing to decode")
+        return CommandResult(self.USAGE, 2)
 
-        path = context.resolve_path(args[0])
-        entry = VirtualFilesystem(context).get_file(path)
-        top = peek_top(entry.machine_file.state, entry.session_file.state if entry.session_file else "") if entry else None
-        layer = top.state.name if top is not None and top.state.name in self.LAYERS else self.layer
-        return self.unlock(context, args[0], args[1:], layer)
+    def convert_format(self, context, target, out):
+        """cvt ext файл файл.pdf: копия под новым именем с прочитанным контейнером, исходник остаётся как был.
+        cvt ext файл .pdf: тот же файл, расширение заменено."""
+        path = context.resolve_path(target)
+        fs = VirtualFilesystem(context)
+        base = posixpath.basename(out)
+        in_place = base.startswith(".") and base.count(".") == 1       # назвали одно расширение
+        ext = base if in_place else posixpath.splitext(base)[1]
+        found = format_for_extension(ext) if ext else None
+        name = found.name if found else ext.lstrip(".")
+        if not name:
+            return CommandResult(self.USAGE, 2)
+
+        if not fs.exists(path) or fs.is_directory(path):
+            return self.unlock(context, target, [name], "disguised")
+
+        destination = context.resolve_path(posixpath.splitext(target)[0] + ext if in_place else out)
+        problem = fileops.check(context, fs, path, destination, in_place, False)
+        if problem:
+            return CommandResult(f"cvt: {out}: {problem}", 1)
+
+        def finish(entry, before):
+            if in_place:
+                fileops.apply(context, entry.path, destination, True)
+                return f"  {entry.path} -> {destination}"
+            fileops.apply(context, entry.path, destination, False)
+            if entry.session_file is not None:
+                entry.session_file.state = before                  # у исходника слой остаётся, снят он только с копии
+                entry.session_file.save(update_fields=["state"])
+            else:
+                SessionFile.objects.filter(session=context.session, path=entry.path).update(state=before)
+            return f"  {destination}"
+
+        return self.unlock(context, target, [name], "disguised", finish=finish)
 
     def scene_for(self, context, layer, entry, ok, rest, values):
         return convert_scene(entry.path, size_of(context, entry), values[0], ok, layer)

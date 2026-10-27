@@ -72,7 +72,9 @@ class LayerCommand(BaseCommand):
         """Что сказать, когда слой снят."""
         return self.done
 
-    def unlock(self, context, target, values, layer):
+    def unlock(self, context, target, values, layer, absent=None, finish=None):
+        """absent заменяет текст «нечего снимать»; finish(entry, before) зовётся, когда слой снят (before: прогресс файла до
+        снятия), и может вернуть строку для ответа."""
         path = context.resolve_path(target)
         fs = VirtualFilesystem(context)
 
@@ -105,7 +107,7 @@ class LayerCommand(BaseCommand):
 
             return CommandResult(
                 f"{self.name}: {target}: "
-                f"{text if text is not None else self.absent}",
+                f"{text if text is not None else (absent or self.absent)}",
                 1,
             )
 
@@ -138,12 +140,15 @@ class LayerCommand(BaseCommand):
                 defaults={"file": entry.machine_file},
             )
 
+        before = session_file.state
         outcome = unlock_file(session_file, given)
 
         rest = peek_top(entry.machine_file.state, outcome.session_file.state)
 
         if outcome.result.removed:
             lines = [f"{self.name}: {target}: {self.done_for(rest)}"]
+            extra = finish(entry, before) if finish else None
+            lines += [extra] if extra else []
             code = 0
         else:
             wrong = ", ".join(outcome.result.wrong)

@@ -79,7 +79,7 @@ class Binary(BaseState):
     name = "binary"
     summary = (
         "Внутри настоящий текст, но в необычной кодировке (utf16, hex, rot13, gzip, morse): нужно опознать её и "
-        "преобразовать командой cvt."
+        "раскодировать командой cvt enc <кодировка> <файл>."
     )
     params = (
         Param(
@@ -102,7 +102,7 @@ class Binary(BaseState):
 @register
 class Disguised(BaseState):
     name = "disguised"
-    summary = "Файл выдаёт себя за один формат, а на деле другого: его нужно преобразовать (cvt)."
+    summary = "Файл выдаёт себя за один формат, а на деле другого: его нужно прочитать как настоящий (cvt ext <файл> <файл.формат>)."
     params = (
         Param(
             "format",

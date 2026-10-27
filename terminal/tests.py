@@ -133,9 +133,9 @@ class TerminalSceneTests(TestCase):
         for command, expected in (
             ("enc /home/note.txt", "decoded"),
             ("pak /home/pack.dat", "unpacked"),
-            ("cvt /home/blob.bin utf16", "converted"),
+            ("cvt enc utf16 /home/blob.bin", "converted"),
             ("blk /home/slice.img 2 5", "blocks read"),
-            ("cvt /home/report.txt PDF", "converted"),
+            ("cvt ext /home/report.txt .PDF", "converted"),
         ):
             data = self.run_command(command)
             self.assertEqual(data["exit_code"], 0, command)
@@ -144,7 +144,7 @@ class TerminalSceneTests(TestCase):
 
     def test_the_wrong_values_do_not_open_the_layer(self):
         self.assertEqual(self.run_command("blk /home/slice.img 1 5")["exit_code"], 1)
-        self.assertEqual(self.run_command("cvt /home/report.txt docx")["exit_code"], 1)
+        self.assertEqual(self.run_command("cvt ext /home/report.txt .docx")["exit_code"], 1)
         self.assertIn("not an archive", self.run_command("pak /home/report.txt")["output"])
 
     def test_the_old_names_are_gone(self):
@@ -165,9 +165,9 @@ class TerminalSceneTests(TestCase):
             [(e["op"], e["url"], e["title"]) for e in data["effects"]], [("open", "/apps/wiki/go/decoy/", "decoy")]
         )
         self.assertIsNone(data["window"])                                                  # настоящий адрес ещё закрыт
-        self.assertIn("cannot read as png", self.run_command("cvt /home/photo.dat png")["output"])      # слой на месте
-        self.assertEqual(self.run_command("cvt /home/photo.dat scan")["exit_code"], 0)
-        real = self.run_command("cnt /home/photo.dat")
+        self.assertIn("cannot read as png", self.run_command("cvt ext /home/photo.dat /home/photo.png")["output"])      # слой на месте
+        self.assertEqual(self.run_command("cvt ext /home/photo.dat /home/photo.scan")["exit_code"], 0)
+        real = self.run_command("cnt /home/photo.scan")
         self.assertEqual(real["window"]["url"], "/apps/wiki/real/")                         # хука больше нет: открывается настоящее
         self.assertFalse(real["effects"])
 
@@ -1175,29 +1175,50 @@ class RawCommandTests(TestCase):
         self.assertIn("records in", self.run_command("blk /home/slice.img 1 1")["output"])   # слоя уже нет, чтение работает
 
     def test_cvt_names_the_container_and_the_error_shows_the_real_header(self):
-        data = self.run_command("cvt /home/skin.dat pdf")
+        data = self.run_command("cvt ext /home/skin.dat /home/skin.pdf")
         self.assertEqual(data["exit_code"], 1)
         self.assertIn("cannot read as pdf", data["output"])
         self.assertIn("unexpected header: 9e 53 43 41 4e 0d 0a 1b", data["output"])        # то, что лежит в начале на самом деле
         self.assertIn("9e 53 43 41 4e 0d 0a 1b", self.run_command("blk /home/skin.dat")["output"].splitlines()[0])
 
-        ok = self.run_command("cvt /home/skin.dat SCAN")                                   # регистр не важен
-        self.assertEqual((ok["exit_code"], ok["output"]), (0, "cvt: /home/skin.dat: converted"))
-        self.assertIn("|..rec.", self.run_command("blk /home/skin.dat")["output"])          # слой снят: файл стал записью rec
+        ok = self.run_command("cvt ext /home/skin.dat /home/skin.SCAN")                    # регистр не важен
+        self.assertEqual((ok["exit_code"], ok["output"]), (0, "cvt: /home/skin.dat: converted\n  /home/skin.SCAN"))
+        self.assertIn("|..rec.", self.run_command("blk /home/skin.SCAN")["output"])         # копия стала записью rec
+        self.assertIn("9e 53 43 41", self.run_command("blk /home/skin.dat")["output"])      # у исходника слой остался
+
+    def test_cvt_ext_with_only_an_extension_converts_the_file_in_place(self):
+        data = self.run_command("cvt ext /home/skin.dat .scan")
+        self.assertEqual(data["exit_code"], 0, data["output"])
+        self.assertIn("/home/skin.dat -> /home/skin.scan", data["output"])
+        self.assertIn("No such file", self.run_command("blk /home/skin.dat")["output"])
+        self.assertIn("|..rec.", self.run_command("blk /home/skin.scan")["output"])
+
+    def test_cvt_ext_refuses_an_existing_output_and_a_wrong_copy_does_not_free_the_original(self):
+        self.run_command("cvt ext /home/skin.dat /home/a.scan")
+        self.assertIn("exists", self.run_command("cvt ext /home/skin.dat /home/a.scan")["output"])
+        self.run_command("cvt ext /home/skin.dat /home/b.pdf")
+        self.assertIn("9e 53 43 41", self.run_command("blk /home/skin.dat")["output"])      # неудача копии не снимает слой с исходника
+
+    def test_cvt_needs_one_of_its_two_forms(self):
+        for command in ("cvt", "cvt /home/skin.dat pdf", "cvt ext /home/skin.dat", "cvt enc utf16"):
+            data = self.run_command(command)
+            self.assertEqual(data["exit_code"], 2, command)
+            self.assertIn("usage: cvt ext file out | cvt enc encoding file", data["output"])
 
     def test_cvt_decodes_a_binary_layer_by_its_encoding(self):
-        wrong = self.run_command("cvt /home/wide.dat rot13")
+        wrong = self.run_command("cvt enc rot13 /home/wide.dat")
         self.assertEqual(wrong["exit_code"], 1)
         self.assertIn("unexpected header: a7 00 72 00", wrong["output"])
-        self.assertEqual(self.run_command("cvt /home/wide.dat utf16")["exit_code"], 0)
+        self.assertEqual(self.run_command("cvt enc utf16 /home/wide.dat")["exit_code"], 0)
         self.assertIn("Cargo manifest", self.run_command("txtx /home/wide.dat")["output"])   # теперь текст читается
 
     def test_cvt_on_a_file_without_such_layers_and_the_scenes_give_nothing_away(self):
-        self.assertIn("nothing to convert", self.run_command("cvt /home/report.rec pdf")["output"])
-        scene = self.run_command("cvt /home/skin.dat pdf")["scene"]
+        self.assertIn("nothing to convert", self.run_command("cvt ext /home/report.rec .pdf")["output"])
+        self.assertIn("nothing to decode", self.run_command("cvt enc rot13 /home/report.rec")["output"])
+        scene = self.run_command("cvt ext /home/skin.dat /home/s.pdf")["scene"]
         self.assertEqual([s for s in scene if s["op"] == "dots"][-1]["status"], "FAIL")
         self.assertNotIn("bars", [s["op"] for s in scene])                                  # до чтения потоков не дошли
-        good = self.run_command("cvt /home/skin.dat scan")["scene"]
+        good = self.run_command("cvt ext /home/skin.dat /home/s.scan")["scene"]
         self.assertIn("bars", [s["op"] for s in good])                                       # у скана по полосе на блок IMG, OCR, CONF
 
     def test_cvt_scene_speaks_the_language_of_the_format(self):
