@@ -18,7 +18,7 @@ from machines.bridge import terminal_session
 from terminal.engine.context import TerminalContext
 from terminal.engine.filesystem import VirtualFilesystem
 from users.aether_auth import is_player
-from wiki.access import player_keys
+from wiki.access import request_keys
 
 RANGE = re.compile(r"^bytes=(\d*)-(\d*)$")
 
@@ -59,7 +59,7 @@ def raw_content(request):
     state = entry.session_file.state if entry.session_file else ""
     from mail.access import viewer_for
 
-    data = build_raw_cached(entry.machine_file, state, player_keys(request.user), viewer=viewer_for(request))
+    data = build_raw_cached(entry.machine_file, state, request_keys(request), viewer=viewer_for(request))
     total = len(data)
 
     headers = {"Accept-Ranges": "bytes", "Cache-Control": "no-store", "Content-Type": "application/octet-stream"}

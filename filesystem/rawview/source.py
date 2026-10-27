@@ -65,7 +65,7 @@ def _wiki(parts, keys):
             "who": document.created_by.get_username() if document.created_by else "unknown",
             "when": (document.world_date or document.updated_at.date()).isoformat(),
             "ref": document.direct_link or document.title,
-            "src": f"aether://{chain}{document.title}",
+            "src": f"wiki://{chain}{document.title}",
             "at": document.updated_at.strftime("%Y-%m-%dT%H:%M:%SZ"),
             "title": document.title,
         },
@@ -129,6 +129,13 @@ def _mail(parts, query, viewer):
     )
 
 
+def _key(slug):
+    """Файл ключа в папке секретов игрока: блок ключа, как он лежит в байтах файлов."""
+    from filesystem.rawview import keys
+
+    return Payload(kind="key", body=keys.armor(slug, f"store:{slug}"), stamp=f"key:{slug}")
+
+
 def resolve_payload(machine_file, keys, reader=None, viewer=None):
     """Источник данных файла по его адресу содержимого."""
     url = (machine_file.url or "").strip().lstrip("/")
@@ -137,6 +144,9 @@ def resolve_payload(machine_file, keys, reader=None, viewer=None):
 
     parsed = urlsplit(url)
     parts = [part for part in parsed.path.split("/") if part]
+
+    if parts[:1] == ["keys"] and len(parts) == 2:
+        return _key(parts[1])
 
     if parts[:1] == ["view"] and len(parts) >= 2:
         return _asset(parts[1], reader)

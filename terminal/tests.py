@@ -1139,7 +1139,7 @@ class RawCommandTests(TestCase):
         data = self.run_command("txtx /home/report.rec")
         self.assertEqual(data["exit_code"], 0)
         self.assertIn("Cargo manifest altered.", data["output"])
-        self.assertRegex(data["output"], r"^\s+\w+  who: ")                       # со смещением, как strings -t x
+        self.assertRegex(data["output"], r"^0x[0-9a-f]+  who: ")                       # со смещением, как strings -t x
 
     def test_txtx_finds_nothing_readable_under_a_cipher_or_a_wide_encoding(self):
         self.assertEqual(self.run_command("txtx /home/vault.dat")["output"].count("Cargo"), 0)
@@ -1212,6 +1212,66 @@ class RawCommandTests(TestCase):
         text = " ".join(str(v) for step in data["scene"] for v in step.values())
         self.assertIn("reading central directory", text)
         self.assertIn("document.xml", text)
+
+    def keyed_file(self, path="/home/keyed.rec", state=""):
+        from filesystem.models import MachineFile
+        from secure.models import Key
+
+        item = MachineFile.objects.create(machine=self.main, path=path, url="apps/wiki/Harbor/Report", state=state)
+        item.keys.create(key=Key.objects.get_or_create(slug="secret_a")[0])
+        return item
+
+    def offset_of_block(self, path):
+        runs = self.run_command(f"txtx {path}")["output"].splitlines()
+        return next(line.split()[0] for line in runs if "-----BEGIN ACCESS KEY-----" in line)
+
+    def test_kex_extracts_the_key_found_by_txtx_into_the_hidden_secrets_folder(self):
+        self.keyed_file()
+        offset = self.offset_of_block("/home/keyed.rec")
+        data = self.run_command(f"kex /home/keyed.rec {offset}")
+        self.assertEqual(data["exit_code"], 0, data["output"])
+        self.assertIn("key secret_a extracted to /home/.secrets/secret_a", data["output"])
+        self.assertNotIn(".secrets", self.run_command("ls /home")["output"])                 # папка скрыта
+        self.assertIn(".secrets", self.run_command("ls -a /home")["output"])
+        self.assertIn("secret_a", self.run_command("ls /home/.secrets")["output"])
+        self.assertIn("Keyname: secret_a", self.run_command("txtx /home/.secrets/secret_a")["output"])
+        again = self.run_command(f"kex /home/keyed.rec {offset}")
+        self.assertIn("already in /home/.secrets/secret_a", again["output"])
+
+    def test_kex_needs_the_exact_place_and_an_open_file_and_a_real_key(self):
+        self.keyed_file()
+        self.keyed_file("/home/closed.rec", "> encrypted hunter2")
+        offset = int(self.offset_of_block("/home/keyed.rec"), 16)
+        self.assertEqual(self.run_command(f"kex /home/keyed.rec {offset + 40}")["exit_code"], 1)
+        self.assertEqual(self.run_command(f"kex /home/keyed.rec {offset - 3}")["exit_code"], 0)    # txtx может склеить блок с байтами перед ним
+        denied = self.run_command(f"kex /home/closed.rec {offset}")
+        self.assertIn("no key at", denied["output"])                                             # под шифром по смещению шум
+        self.assertEqual([s for s in denied["scene"] if s["op"] == "dots"][-1]["status"], "FAIL")
+        from secure.models import Key
+
+        Key.objects.filter(slug="secret_a").delete()
+        self.assertIn("no key at", self.run_command(f"kex /home/report.rec 0")["output"])
+        for command in ("kex", "kex /home/keyed.rec", "kex /home/keyed.rec x"):
+            self.assertEqual(self.run_command(command)["exit_code"], 2, command)
+
+    def test_a_key_in_the_secrets_folder_opens_what_needs_it_and_deleting_the_file_takes_it_back(self):
+        from machines.models import MachineApp, Session
+        from wiki.models import Document, Namespace
+
+        MachineApp.objects.create(machine=self.main, label="wiki", glyph="W", path="/apps/wiki/")
+        Document.objects.create(namespace=None, title="Gated", type="rec", body="x",
+                                access={"all": ["secret_a"]})
+        self.keyed_file()
+        offset = self.offset_of_block("/home/keyed.rec")
+        session = Session.objects.get(user=self.user)
+        stored = self.client.session
+        stored["machine_session_id"] = session.pk
+        stored.save()
+        self.assertEqual(self.client.get("/apps/wiki/Gated").status_code, 403)
+        self.run_command(f"kex /home/keyed.rec {offset}")
+        self.assertEqual(self.client.get("/apps/wiki/Gated").status_code, 200)
+        self.run_command("del -f /home/.secrets/secret_a")
+        self.assertEqual(self.client.get("/apps/wiki/Gated").status_code, 403)
 
     def test_cvt_needs_one_of_its_two_forms(self):
         for command in ("cvt", "cvt /home/skin.dat pdf", "cvt ext /home/skin.dat", "cvt enc utf16"):

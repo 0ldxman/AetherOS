@@ -266,7 +266,7 @@ class FileFormat(models.Model):
         unique=True,
         help_text="Как игрок называет формат в cvt: строчными буквами (scan, doc, pdf).",
     )
-    title = models.CharField(max_length=128, blank=True, help_text="Подпись для админки и вьювера: Aether SCAN (картинка + OCR).")
+    title = models.CharField(max_length=128, blank=True, help_text="Подпись для админки и вьювера: SCAN картинка + OCR.")
     extension = models.CharField(max_length=16, blank=True, help_text="Расширение имени файла: .scan")
     aliases = models.CharField(
         max_length=128,
@@ -282,7 +282,7 @@ class FileFormat(models.Model):
         blank=True,
         help_text=(
             "Только для вида «текстовый шаблон». Подстановки: {body} текст, {body_html} текст абзацами HTML, {who}, {when}, "
-            "{ref}, {src}, {at}, {title}, {hash}, {sender}, {recipients}, {subject}, {date}, {id}; тело в других видах: {body_xml}, "
+            "{ref}, {src}, {at}, {title}, {hash}, {sender}, {recipients}, {subject}, {date}, {id}, {host} (имя узла); тело в других видах: {body_xml}, "
             "{body_json}, {body_csv}, {body_rtf}, {body_b64}. Фигурные скобки самого "
             "текста удваиваются: {{ }}."
         ),

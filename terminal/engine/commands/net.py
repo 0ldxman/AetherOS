@@ -10,7 +10,7 @@ from terminal import net_scenes as scenes
 from terminal.engine.commands.basic import BaseCommand
 from terminal.engine.result import CommandResult
 from terminal.engine.transfer import place_file
-from wiki.access import player_keys
+from wiki.access import request_keys
 
 
 class Site:
@@ -66,7 +66,7 @@ class NetCommand(BaseCommand):
         found = {item.address: item for item in NetResource.objects.filter(address__in=[address, host])}
         resource = found.get(address) or found.get(host)
         request = context.request
-        keys = player_keys(request.user) if request is not None else frozenset()
+        keys = request_keys(request) if request is not None else frozenset()
 
         if resource is None or (resource.key_condition is not None and not satisfied(resource.key_condition, keys)):
             return CommandResult(

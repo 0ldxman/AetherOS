@@ -10,7 +10,7 @@ from filesystem.rawview import flatten, registry
 from filesystem.rawview.noise import noise, stable
 
 PLACEHOLDERS = (
-    "body", "body_html", "body_xml", "body_json", "body_csv", "body_rtf", "body_b64", "who", "when", "ref", "src", "at", "title", "hash", "sender", "recipients", "subject", "date", "id",
+    "body", "body_html", "body_xml", "body_json", "body_csv", "body_rtf", "body_b64", "host", "who", "when", "ref", "src", "at", "title", "hash", "sender", "recipients", "subject", "date", "id",
 )
 
 

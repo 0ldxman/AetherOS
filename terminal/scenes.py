@@ -166,6 +166,24 @@ def _decode_rows(path, names):
     return rows
 
 
+def extract_scene(path, offset, found, known):
+    """kex: чтение блока по смещению и разбор его шапки. found: на этом месте блок ключа, known: такой ключ существует.
+    Сервер уже решил исход; сцена до разбора шапки ничего не выдаёт."""
+    s = Scene()
+    s.row("kex", path, width=8)
+    s.row("offset", f"0x{offset:x}", width=8)
+    s.blank()
+    s.task("seeking", "OK", ms=(80, 200))
+    s.task("reading block", "OK", ms=(150, 400))
+    s.task("parsing armor", "OK" if found else "FAIL", ms=(300, 800))
+    if not found:
+        return s.to_dict()
+    s.task("checking keyname", "OK" if known else "FAIL", ms=(300, 700))
+    if known:
+        s.task("writing key", "OK", ms=(200, 500))
+    return s.to_dict()
+
+
 def convert_scene(path, size, value, ok, out):
     """cvt ext: чтение файла как названного формата и запись результата. out это куда ляжет копия (None: тот же файл,
     расширение заменяется). Решение уже принято сервером: неверное название обрывается на разборе входа, и по сцене

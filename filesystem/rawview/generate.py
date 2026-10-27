@@ -3,7 +3,7 @@ from dataclasses import dataclass
 
 from django.conf import settings
 
-from filesystem.rawview import encodings, formats
+from filesystem.rawview import encodings, formats, keys
 from filesystem.rawview.noise import noise, stable
 from filesystem.rawview.source import READ_LIMIT, resolve_payload
 from filesystem.states.compiler import StateError, compile_text
@@ -54,7 +54,7 @@ def _asset_bytes(payload):
         return None
 
 
-def _core(machine_file, payload, fmt, seed):
+def _content(machine_file, payload, fmt, seed):
     """Байты файла без слоёв: настоящие данные в контейнере формата или шум."""
     if payload.kind == "asset":
         real = _asset_bytes(payload)
@@ -76,6 +76,9 @@ def _core(machine_file, payload, fmt, seed):
                 data = data.replace(variant, noise(seed + ":body", len(variant)))
         return data
 
+    if payload.kind == "key":
+        return payload.body
+
     if payload.kind == "app":
         text = f"path: {payload.meta['path']}\n".encode()
         head = formats.magic("app")
@@ -83,6 +86,12 @@ def _core(machine_file, payload, fmt, seed):
 
     body = noise(seed, generated_size(machine_file))
     return formats.build(fmt, body, {}, seed=seed) if fmt and formats.known(fmt) else body
+
+
+def _core(machine_file, payload, fmt, seed):
+    """Содержимое файла вместе с блоками его ключей (FileKey): они лежат под слоями и открываются вместе с ними."""
+    data = _content(machine_file, payload, fmt, seed)
+    return keys.embed(data, keys.slugs_of(machine_file), seed, real=payload.kind == "asset", locked=payload.locked)
 
 
 def _damage(data, seed):
@@ -105,6 +114,7 @@ def build_raw(machine_file, session_state="", keys=frozenset(), reader=None, vie
     disguised = next((layer for layer in stack if layer.state.name == "disguised"), None)
     fmt = str(disguised.params["format"]).strip().lower() if disguised else payload.fmt
 
+    payload.meta.setdefault("host", machine_file.machine.hostname)
     data = _core(machine_file, payload, fmt, seed)
 
     for layer in reversed(stack):         # от нижнего слоя к верхнему

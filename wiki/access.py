@@ -70,11 +70,25 @@ def view_as(request):
     return session.get(VIEW_AS_SESSION)
 
 
+def held_keys(request):
+    """Ключи, которые игрок достал из файлов (kex): слаги файлов его папки /home/.secrets в этой сессии."""
+    from filesystem.keystore import slugs_of
+    from machines.current import SESSION_KEY
+    from machines.models import Session
+
+    if not request.user.is_authenticated or not hasattr(request, "session"):
+        return frozenset()
+    session_id = request.session.get(SESSION_KEY)
+    if not session_id:
+        return frozenset()
+    return slugs_of(Session.objects.filter(pk=session_id, user=request.user).first())
+
+
 def request_keys(request):
-    """Ключи, под которыми показывается страница: подмена сотрудника или ключи игрока."""
+    """Ключи, под которыми показывается страница: подмена сотрудника или ключи игрока (свои и добытые из файлов)."""
     spec = view_as(request)
     if spec is None:
-        return player_keys(request.user)
+        return player_keys(request.user) | held_keys(request)
     if spec in ("all", "none"):
         return keys_for_mode(spec)
     return keys_for_mode("custom", [s for s in spec.split(",") if s])

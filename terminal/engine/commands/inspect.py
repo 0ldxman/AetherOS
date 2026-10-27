@@ -42,7 +42,7 @@ class TxtxCommand(BaseCommand):
         entry = fs.get_file(path)
         data = raw_of(context, entry).data
         runs = printable_runs(data)
-        lines = [f"{offset:7x}  {text}" for offset, text in runs[:MAX_LINES]]
+        lines = [f"0x{offset:06x}  {text}" for offset, text in runs[:MAX_LINES]]
         if len(runs) > MAX_LINES:
             lines.append(f"... {len(runs) - MAX_LINES} more")
         return CommandResult("\n".join(lines), 0, scene=strings_scene(entry.path, len(data)))

@@ -13,12 +13,13 @@ def build_raw_cached(machine_file, session_state="", keys=frozenset(), seconds=1
     """build_raw с кэшем на короткое время: вьювер читает файл десятками запросов с диапазонами, а ассет лежит в Nextcloud."""
     from django.core.cache import cache
 
+    from filesystem.rawview import keys
     from filesystem.rawview.source import resolve_payload
 
     payload = resolve_payload(machine_file, keys, viewer=viewer)
     key = (
         f"rawbytes:{machine_file.pk}:{machine_file.updated_at.timestamp()}:{hash(session_state)}:{payload.stamp}:"
-        f"{payload.locked}"
+        f"{payload.locked}:{','.join(keys.slugs_of(machine_file))}"
     )
     data = cache.get(key)
     if data is None:

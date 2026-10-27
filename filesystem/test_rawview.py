@@ -70,7 +70,7 @@ class RawViewTests(TestCase):
         self.assertIn(b"OCR " + BODY.encode(), scan[:-5])
 
         snp = self.raw(self.make("/c", "apps/wiki/Harbor/Site")).data
-        self.assertTrue(snp.startswith(b"<!--SNP\nsrc:  aether://Harbor/Site"))
+        self.assertTrue(snp.startswith(b"<!--SNP\nsrc:  wiki://Harbor/Site"))
         self.assertIn(b"<!--@seal ", snp)
 
         doc = self.raw(self.make("/d", "apps/wiki/Harbor/Letter")).data
@@ -205,9 +205,9 @@ class RawViewTests(TestCase):
         from filesystem.rawview import viewer_formats
 
         listed = {item["name"]: item for item in json.loads(viewer_formats())}
-        self.assertEqual(listed["Aether SCAN (image + OCR text)"]["bytes"][:5], [0x9E, 0x53, 0x43, 0x41, 0x4E])
-        self.assertEqual(listed["Aether SNP (page snapshot)"]["prefix"], "<!--SNP\nsrc:  ")
-        self.assertEqual(listed["Aether REC (record)"]["prefix"], "\u00a7rec\nwho: ")
+        self.assertEqual(listed["SCAN image + OCR text"]["bytes"][:5], [0x9E, 0x53, 0x43, 0x41, 0x4E])
+        self.assertEqual(listed["SNP page snapshot"]["prefix"], "<!--SNP\nsrc:  ")
+        self.assertEqual(listed["REC record"]["prefix"], "\u00a7rec\nwho: ")
 
     def test_a_mail_message_becomes_the_text_of_a_letter(self):
         from django.utils import timezone
@@ -412,4 +412,153 @@ class MoreFormatsTests(TestCase):
         lines = encodings.encode("uu", data).decode().splitlines()
         self.assertEqual(lines[0], "begin 644 data")
         self.assertEqual(b"".join(binascii.a2b_uu(line) for line in lines[1:-2]), data)
+
+
+def _jpeg():
+    def seg(marker, payload):
+        return b"\xff" + bytes([marker]) + (len(payload) + 2).to_bytes(2, "big") + payload
+
+    return b"\xff\xd8" + seg(0xE0, b"JFIF\x00\x01\x01\x00\x00\x01\x00\x01\x00\x00") + seg(0xDB, bytes(65)) + \
+        seg(0xDA, bytes(10)) + b"\x12\x34\x56" * 40 + b"\xff\xd9"
+
+
+def _png():
+    import struct
+    import zlib
+
+    def chunk(kind, data):
+        return struct.pack(">I", len(data)) + kind + data + struct.pack(">I", zlib.crc32(kind + data) & 0xFFFFFFFF)
+
+    ihdr = struct.pack(">IIBBBBB", 4, 4, 8, 2, 0, 0, 0)
+    return b"\x89PNG\r\n\x1a\n" + chunk(b"IHDR", ihdr) + chunk(b"IDAT", zlib.compress(bytes(52))) + chunk(b"IEND", b"")
+
+
+class KeyBlockTests(TestCase):
+    """Ключи файла лежат в его байтах блоками в стиле PEM, каждый в своём месте, и контейнер остаётся целым."""
+
+    SLUGS = ["secret_a", "secret_b"]
+
+    def setUp(self):
+        from filesystem.rawview.registry import invalidate
+
+        invalidate()
+        self.addCleanup(invalidate)
+
+    def found(self, data):
+        from filesystem.rawview import keys
+
+        return [(m.start(), keys.parse(data, m.start())) for m in __import__("re").finditer(rb"-----BEGIN ACCESS KEY-----", data)]
+
+    def test_a_block_is_pem_like_with_the_keyname_in_the_header_and_has_no_system_name(self):
+        from filesystem.rawview import keys
+
+        block = keys.armor("secret_a", "seed")
+        text = block.decode()
+        self.assertTrue(text.startswith("-----BEGIN ACCESS KEY-----\nKeyname: secret_a\n\n"))
+        self.assertTrue(text.endswith("-----END ACCESS KEY-----\n"))
+        self.assertNotIn("aether", text.lower())
+        self.assertEqual(block, keys.armor("secret_a", "seed"))                      # стабильно
+        self.assertNotEqual(block, keys.armor("secret_a", "other"))
+        self.assertEqual(keys.parse(b"xx" + block, 2), "secret_a")
+        self.assertIsNone(keys.parse(b"xx" + block, 1))                              # только с начала блока
+
+    def test_jpeg_keeps_its_structure_and_each_key_lies_in_a_comment_segment(self):
+        from filesystem.rawview import keys
+
+        data = keys.embed(_jpeg(), self.SLUGS, "s", real=True)
+        self.assertEqual([slug for _, slug in self.found(data)], self.SLUGS if self.found(data)[0][1] == "secret_a" else self.SLUGS[::-1])
+        pos, comments = 2, 0
+        while data[pos + 1] != 0xDA:                                                    # сегменты до начала изображения целы
+            self.assertEqual(data[pos], 0xFF)
+            comments += data[pos + 1] == 0xFE
+            pos += 2 + int.from_bytes(data[pos + 2:pos + 4], "big")
+        self.assertEqual(comments, 2)
+        self.assertTrue(data.endswith(b"\xff\xd9"))
+
+    def test_png_chunks_keep_valid_checksums(self):
+        import struct
+        import zlib
+
+        from filesystem.rawview import keys
+
+        data = keys.embed(_png(), self.SLUGS, "s", real=True)
+        pos, kinds = 8, []
+        while pos < len(data):
+            size = struct.unpack(">I", data[pos:pos + 4])[0]
+            kind, body = data[pos + 4:pos + 8], data[pos + 8:pos + 8 + size]
+            self.assertEqual(struct.unpack(">I", data[pos + 8 + size:pos + 12 + size])[0], zlib.crc32(kind + body) & 0xFFFFFFFF)
+            kinds.append(kind)
+            pos += 12 + size
+        self.assertEqual((kinds[0], kinds[-1], kinds.count(b"tEXt")), (b"IHDR", b"IEND", 2))
+
+    def test_a_zip_gets_an_archive_comment_and_pdf_comments_after_eof(self):
+        import io
+        import zipfile
+
+        from filesystem.rawview import keys
+
+        archive = zipfile.ZipFile(io.BytesIO(keys.embed(formats.build("docx", b"text"), self.SLUGS, "s")))
+        self.assertIsNone(archive.testzip())
+        self.assertIn(b"Keyname: secret_a", archive.comment)
+        pdf = keys.embed(b"%PDF-1.7\n1 0 obj\n<<>>\nendobj\n%%EOF\n", self.SLUGS, "s", real=True)
+        self.assertTrue(pdf.startswith(b"%PDF-1.7\n1 0 obj"))
+        self.assertIn(b"%Keyname: secret_b", pdf)
+
+    def test_own_containers_take_the_key_as_their_own_part(self):
+        from filesystem.rawview import keys
+
+        scan = keys.embed(formats.build("scan", b"text", seed="x"), ["secret_a"], "s")
+        self.assertIn(b"KEY -----BEGIN ACCESS KEY-----", scan)
+        doc = keys.embed(formats.build("doc", b"text"), ["secret_a"], "s")
+        self.assertIn(b"key.pem", doc)
+        self.assertIn(b"Keyname: secret_a", doc)
+        html = keys.embed(formats.build("snp", b"text", {"title": "T"}), ["secret_a"], "s").decode()
+        self.assertIn("<!--\n-----BEGIN ACCESS KEY-----", html)
+        self.assertLess(html.index("-----BEGIN"), html.index("</body>"))
+        rec = keys.embed(formats.build("rec", b"text"), ["secret_a"], "s").decode()
+        self.assertTrue(rec.rstrip().endswith("-----END ACCESS KEY-----"))
+
+    def test_unknown_data_gets_the_block_at_the_end_when_real_and_inside_when_noise(self):
+        from filesystem.rawview import keys
+        from filesystem.rawview.noise import noise
+
+        real = b"\x00\x01binary-asset" * 20
+        self.assertTrue(keys.embed(real, ["secret_a"], "s", real=True).startswith(real))
+        fake = noise("n", 2000)
+        inside = keys.embed(fake, ["secret_a"], "s")
+        at = inside.index(b"-----BEGIN")
+        self.assertTrue(500 <= at <= 1500)
+
+    def test_a_key_is_in_a_file_only_through_its_filekey_and_layers_hide_it(self):
+        from secure.models import Key
+
+        machine = Machine.objects.create(name="M", hostname="m1")
+        for slug in self.SLUGS:
+            Key.objects.create(slug=slug)
+        space = Namespace.objects.create(name="Space")
+        Document.objects.create(namespace=space, title="Note", type="rec", body=BODY)
+        plain = MachineFile.objects.create(machine=machine, path="/a", url="apps/wiki/Space/Note")
+        locked = MachineFile.objects.create(machine=machine, path="/b", url="apps/wiki/Space/Note", state="> encrypted pw")
+        for item in (plain, locked):
+            for slug in self.SLUGS:
+                item.keys.create(key=Key.objects.get(slug=slug))
+        data = build_raw(plain).data
+        self.assertEqual(sorted(slug for _, slug in self.found(data)), self.SLUGS)
+        self.assertEqual(self.found(build_raw(locked).data), [])                        # зашифровано: ключей не видно
+        self.assertEqual(self.found(build_raw(MachineFile.objects.create(machine=machine, path="/c", url="apps/wiki/Space/Note")).data), [])
+        self.assertEqual(file_size(plain), len(data))                                    # размер учитывает блоки
+
+    def test_a_closed_source_shows_noise_in_place_of_the_blocks(self):
+        from secure.models import Key
+
+        machine = Machine.objects.create(name="M", hostname="m2")
+        space = Namespace.objects.create(name="Space2")
+        Document.objects.create(namespace=space, title="Hidden", type="rec", body=BODY, access={"all": ["zz"]})
+        item = MachineFile.objects.create(machine=machine, path="/h", url="apps/wiki/Space2/Hidden")
+        item.keys.create(key=Key.objects.create(slug="secret_a"))
+        closed = build_raw(item).data
+        opened = build_raw(item, keys=frozenset({"zz"})).data
+        self.assertNotIn(b"secret_a", closed)
+        self.assertIn(b"Keyname: secret_a", opened)
+        self.assertEqual(len(closed), len(opened))
 

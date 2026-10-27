@@ -5,7 +5,7 @@ from urllib.parse import urlsplit
 from django.urls import Resolver404, resolve
 
 from secure.access import satisfied
-from wiki.access import player_keys
+from wiki.access import request_keys
 
 NULL_HOSTNAME = "aether-null"
 MAIN_HOSTNAME = "aether-main"
@@ -86,7 +86,7 @@ def _machine_apps(request, machine):
 
 
 def visible_apps(request, machine):
-    keys = player_keys(request.user)
+    keys = request_keys(request)
 
     return [
         app
