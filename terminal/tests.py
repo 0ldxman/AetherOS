@@ -1903,6 +1903,15 @@ class HelpTests(TestCase):
         for name in HELP:
             self.assertIn(name, COMMANDS, f"справка для несуществующей команды {name}")
 
+    def test_help_speaks_about_the_tools_not_about_the_game(self):
+        from terminal.engine.commands.help import HELP
+
+        forbidden = ("layer", "shifted", "puzzle", "game", "real file", "real data", "player", "hint", "solve")
+        for name, (summary, synopsis, details) in HELP.items():
+            text = " ".join([summary, *synopsis, details]).lower()
+            for word in forbidden:
+                self.assertNotIn(word, text, f"{name}: справка выдаёт механику ({word})")
+
     def test_help_lists_the_commands_in_groups(self):
         data = self.run_command("help")
         self.assertEqual(data["exit_code"], 0)

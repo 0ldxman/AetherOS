@@ -17,134 +17,133 @@ GROUPS = (
 
 HELP = {
     "help": (
-        "list the commands or explain one",
+        "list the available commands or show how to use one",
         ("help", "help <command>"),
-        "Without arguments lists every command of this system. With a command name shows its usage and what it does.",
+        "Without arguments lists every command of this system. With a command name shows its usage.",
     ),
-    "pwd": ("print the current directory", ("pwd",), ""),
+    "pwd": ("print the working directory", ("pwd",), ""),
     "ls": (
-        "list a directory",
+        "list directory contents",
         ("ls [-a] [-l] [-h] [path]",),
-        "-a also shows hidden names (starting with a dot), -l shows sizes in bytes, -h makes them human readable.\n"
-        "An archive is listed as one file.",
+        "-a  do not hide entries whose names start with a dot\n"
+        "-l  show sizes in bytes\n"
+        "-h  with -l, print sizes in human readable form",
     ),
-    "cd": (
-        "change the current directory",
-        ("cd [path]",),
-        "Archives are files, not folders: unpack them with pak x before looking inside.",
-    ),
-    "clear": ("clear the screen", ("clear",), ""),
+    "cd": ("change the working directory", ("cd [path]",), ""),
+    "clear": ("clear the terminal screen", ("clear",), ""),
     "cnt": (
         "open a file",
         ("cnt <file>", "cnt -r <file>"),
-        "Opens the file in its viewer. -r opens the raw byte viewer (hex and text) instead and works for every file.\n"
-        "A file under a layer (password, damage, encoding...) cannot be opened until the layer is removed.\n"
-        "Archives and pieces cut with blk have no viewer: read them with cnt -r.",
+        "Opens the file in the viewer that suits it.\n"
+        "-r  show the raw contents of the file as hexadecimal and text instead",
     ),
     "ftyp": (
-        "tell what kind of file this is",
+        "determine the type of a file",
         ("ftyp <file>",),
-        "The top layer of the file answers first. Without a layer the start of the file decides "
-        "(PDF document, REC record, PGP encrypted data...), otherwise it is just data.",
+        "Examines the beginning of the file and reports what it looks like, the way file(1) does.",
     ),
     "txtx": (
-        "print readable strings from the bytes of a file",
+        "print the printable strings of a file",
         ("txtx <file>",),
-        "Prints runs of printable characters with their offsets (0x...). These offsets are what blk and kex ask for.",
+        "Prints every run of at least four printable characters together with its offset in the file, like strings -t x.",
     ),
     "rpr": (
         "repair a damaged file",
         ("rpr <file>",),
-        "Rebuilds the damaged blocks. A file can be damaged more than once: repair it again while it still needs it.",
+        "Rebuilds unreadable blocks from the data that remains. If errors remain, run it again.",
     ),
     "cvt": (
-        "read a file as its real format or decode its text encoding",
+        "convert a file between formats or text encodings",
         ("cvt ext <file> <out.ext>", "cvt ext <file> .ext", "cvt enc <encoding> <file>"),
-        "ext: a file that pretends to be something else is read as the format of the extension. With a full output name "
-        "a copy is made, with only an extension (.pdf) the file itself is converted and renamed.\n"
-        "enc: removes a text encoding (utf16, cp1251, rot13, base64, gzip, morse, hex...).\n"
-        "A wrong guess shows the real first bytes of the file.",
+        "ext  read the file as the format of the given extension. With a full output name the result is written there, "
+        "with only an extension (.pdf) the file itself is converted and renamed.\n"
+        "enc  decode the text of the file from the named encoding (utf16, cp1251, rot13, base64, gzip, morse, hex...)",
     ),
     "blk": (
-        "cut a piece of a file into a new file (like dd)",
+        "copy a piece of a file into a new file (like dd)",
         ("blk <file> skip=N [count=M]", "blk <file> start=A [end=B]"),
-        "skip and count are 512-byte blocks, start and end are byte addresses (end is not included). Without count or "
-        "end the cut runs to the end of the file.\n"
-        "The result is a new file next to the source, named <name>.prt.<start in hex>. If the piece starts exactly where "
-        "the real data of a shifted file begins, you get the real file instead, under the name its layer gives it.\n"
-        "The source never changes. Look at the result with ftyp and cnt -r.",
+        "skip and count are in 512-byte blocks. start and end are byte addresses, end is not included.\n"
+        "Without count or end the copy runs to the end of the file.\n"
+        "The piece is written next to the input as <name>.prt.<start in hex>; a piece that identifies itself "
+        "may be named after what it is. The input is not modified.",
     ),
     "kex": (
-        "extract a key found in the bytes of a file",
+        "import a key from the bytes of a file",
         ("kex <file> <offset>",),
-        "Reads the file as you see it now. If a key block (-----BEGIN ACCESS KEY-----) starts at the offset, the key is "
-        "saved to /home/.secrets/<keyname>. The offset is decimal or 0x hex, as printed by txtx.\n"
-        "example: kex dump.img 0x4d",
+        "Reads the file at the given offset and imports the key block found there (-----BEGIN ACCESS KEY-----) "
+        "into the key store /home/.secrets/<keyname>.\n"
+        "The offset is decimal or 0x hexadecimal, like the ones txtx prints.",
     ),
     "ward": (
-        "decrypt files, check and make signatures",
+        "decrypt files, verify and make signatures",
         (
             "ward <file> <password>", "ward -k <keyname> <file>", "ward keys",
             "ward verify [<signature>] <file>", "ward sign -k <keyname> <file>",
         ),
-        "Decrypts a file with a password or with a key from /home/.secrets (ward keys lists them with their IDs).\n"
-        "verify checks the signatures inside a file, or a signature file (.sig) against another file: Good, BAD or none.\n"
-        "sign makes <file>.sig with a key you hold. Archives have their own password: pak pass.",
+        "<file> <password>  decrypt with a passphrase\n"
+        "-k <keyname>       decrypt with a key from /home/.secrets\n"
+        "keys               list the keys in /home/.secrets with their IDs\n"
+        "verify             check the signatures inside a file, or a detached signature (.sig) against a file\n"
+        "sign               write <file>.sig, signed with a key you hold\n"
+        "Archives are not handled here, see pak.",
     ),
     "pak": (
-        "work with archives",
+        "list and extract archives",
         ("pak l <archive>", "pak x <archive> [member...] [-d dir]", "pak pass <archive> <password>"),
-        "An archive is a file that holds other files. l shows them as a tree, x unpacks all or the named members next to "
-        "the archive (or into -d dir), pass takes off the archive password.\n"
-        "A nested archive opens only after the outer one is unpacked. A damaged or password-protected archive cannot be read.",
+        "l     list the contents as a tree\n"
+        "x     extract everything, or the named members, into a directory next to the archive (or into -d dir)\n"
+        "pass  remove the password protection of an archive\n"
+        "A damaged or password-protected archive cannot be read.",
     ),
-    "mv": ("move or rename files", ("mv <source>... <destination>",), "Does not overwrite: delete the target first."),
+    "mv": ("move or rename files", ("mv <source>... <destination>",), "Refuses to overwrite an existing file."),
     "cp": (
         "copy files",
         ("cp [-r] <source>... <destination>",),
-        "-r copies folders. A copy keeps the layers of the original. Does not overwrite.",
+        "-r  copy directories recursively\nRefuses to overwrite an existing file.",
     ),
     "del": (
         "move files to the trash",
         ("del [-f] [-r] <file>...",),
-        "Asks before deleting, -f skips the question, -r takes folders. System files cannot be deleted. "
-        "The trash is /trash and keeps things for a week.",
+        "Asks for confirmation, -f does not. -r removes directories. Protected system files cannot be removed.\n"
+        "Files in /trash are purged after seven days.",
     ),
     "rcvr": (
-        "take a file back from the trash",
+        "restore a file from the trash",
         ("rcvr <file-in-trash> [destination]",),
-        "The longer a file lay in the trash, the more damaged it comes back.",
+        "Files that have stayed in the trash may not come back intact.",
     ),
-    "wipe": ("empty the trash for good", ("wipe [-f]",), ""),
+    "wipe": ("empty the trash permanently", ("wipe [-f]",), "Asks for confirmation, -f does not."),
     "nreq": (
         "send a request to a network address",
         ("nreq [--token <token>] <address>[/path]",),
-        "Prints what the server answers. Some addresses ask for a token.",
+        "Prints the answer of the server. Some addresses require a token.",
     ),
     "nget": (
         "download a file from a network address",
         ("nget [--token <token>] [-o <path>] <address>/<path/to/file>",),
-        "The file arrives in your session with its layers, under its own name or -o path.",
+        "-o  where to save the file (default: its own name in the working directory)",
     ),
     "rcon": (
-        "log in to another machine (the desktop switches)",
+        "open a remote console on another machine",
         ("rcon [-p <freq>] [-i <keyname>] [--token <token>] <login>@<host>",),
-        "-i names a key from /home/.secrets, -p picks the endpoint when a login is served on several. "
-        "exit goes one level back, rcon-close closes everything.",
+        "-p  endpoint (frequency) when the login is served on several\n"
+        "-i  key from /home/.secrets to present\n"
+        "exit returns one level, rcon-close closes every session.",
     ),
     "rshell": (
-        "log in to another machine inside the terminal",
+        "open a shell on another machine inside this terminal",
         ("rshell [-p <freq>] [-i <keyname>] [--token <token>] <login>@<host>",),
-        "Like rcon, but the desktop stays where it is. exit goes back.",
+        "Takes the same options as rcon. exit returns to the previous shell.",
     ),
     "xfer": (
-        "move a file between machines",
+        "copy a file between machines",
         ("xfer :<remote path> <local path>", "xfer <local path> :<remote path>",
          "xfer [-p <freq>] [-i <keyname>] [--token <token>] <login>@<host>:<path> <local path>"),
-        "Inside rshell a path with a leading colon is on the remote machine. With an address no rshell is needed.",
+        "Inside an rshell session a path with a leading colon is on the remote machine. "
+        "With a login@host address no session is needed.",
     ),
-    "exit": ("go back one level after rcon or rshell", ("exit",), ""),
-    "rcon-close": ("close every open session", ("rcon-close",), ""),
+    "exit": ("leave the current remote session", ("exit",), ""),
+    "rcon-close": ("close every open remote session", ("rcon-close",), ""),
 }
 
 
