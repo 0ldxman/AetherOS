@@ -1253,6 +1253,13 @@ class RawCommandTests(TestCase):
         self.assertEqual(again["exit_code"], 0, again["output"])
         self.assertEqual(self.raw("/home/real2.dat"), whole)
 
+    def test_ftyp_names_a_file_by_the_start_of_its_bytes_when_no_layer_answers(self):
+        self.run_command("blk -i /home/slice.img -o /home/real.dat skip=2")
+        self.run_command("blk -i /home/slice.img -o /home/junk.dat skip=1")
+        self.assertIn("REC record", self.run_command("ftyp /home/real.dat")["output"])
+        self.assertIn(": data", self.run_command("ftyp /home/junk.dat")["output"])              # шум: никакого формата
+        self.assertIn("REC record", self.run_command("ftyp /home/report.rec")["output"])
+
     def test_blk_cut_of_a_key_block_can_be_given_to_kex(self):
         self.keyed_file()
         offset = int(self.offset_of_block("/home/keyed.rec"), 16)

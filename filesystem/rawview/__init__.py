@@ -6,7 +6,7 @@
 """
 from filesystem.rawview.generate import RawFile, build_raw
 
-__all__ = ["RawFile", "build_raw", "build_raw_cached"]
+__all__ = ["RawFile", "build_raw", "build_raw_cached", "detect"]
 
 
 def build_raw_cached(machine_file, session_state="", keys=frozenset(), seconds=120, viewer=None):
@@ -50,3 +50,15 @@ def viewer_formats():
         found.append(entry)
     return json.dumps(found)
 
+
+
+def detect(data):
+    """Формат реестра, с чьей сигнатуры (или текстового начала) начинаются байты, или None. Самое длинное совпадение побеждает."""
+    from filesystem.rawview import formats, registry
+
+    best, length = None, 0
+    for item in registry.all_formats():
+        start = formats.prefix(item.name).encode() if item.kind == "text" else item.magic
+        if start and data.startswith(start) and len(start) > length:
+            best, length = item, len(start)
+    return best

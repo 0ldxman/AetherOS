@@ -2,12 +2,13 @@ import re
 import posixpath
 
 from filesystem.content import resolve_content
+from filesystem.rawview import detect
 from filesystem.models import SessionFile
 from filesystem.states.attempt import top_answer
 from filesystem.unlock import fire_file_event
 from terminal.engine.commands.basic import BaseCommand
 from terminal.engine.filesystem import VirtualFilesystem
-from terminal.engine.rawinfo import size_of
+from terminal.engine.rawinfo import raw_of, size_of
 from terminal.engine.report import hook_report
 from terminal.engine.result import CommandResult
 from terminal.scenes import ftyp_scene, open_scene
@@ -55,7 +56,11 @@ class FtypCommand(BaseCommand):
             name=posixpath.basename(entry.path),
         )
 
-        return CommandResult(f"{target}: {text if text is not None else PLAIN_FILE}", scene=ftyp_scene(entry.path))
+        if text is None:
+            found = detect(raw_of(context, entry).data)            # как file: по началу самих байтов (у вырезки это единственный след)
+            text = found.title if found else PLAIN_FILE
+
+        return CommandResult(f"{target}: {text}", scene=ftyp_scene(entry.path))
 
 
 
