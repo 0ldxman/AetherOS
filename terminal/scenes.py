@@ -108,7 +108,7 @@ def pak_list_scene(path, count):
     """pak l: чтение заголовка и таблицы архива."""
     s = Scene()
     s.task("reading header", "OK", ms=(150, 350))
-    s.count("reading index", max(1, count), unit=" entries", ms=(250 + 60 * min(count, 12), 450 + 90 * min(count, 12)), width=10)
+    s.count("reading index", max(1, count), unit=" entries", ms=(250 + 60 * min(count, 12), 450 + 90 * min(count, 12)), width=16)
     return s.to_dict()
 
 
