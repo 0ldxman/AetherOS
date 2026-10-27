@@ -1257,6 +1257,9 @@ class RawCommandTests(TestCase):
         self.assertIn("reading chunk table", text("scan"))
         self.assertIn("OCR", text("scan"))
         self.assertIn("code units", text("utf16", "binary"))
+        self.assertIn("checking byte order", text("utf16", "binary"))
+        self.assertIn("checking code page", text("cp1251", "binary"))
+        self.assertNotIn("byte order", text("cp1251", "binary"))
         self.assertIn("checking digit pairs", text("hex", "binary"))
         self.assertIn("splitting dots and dashes", text("morse", "binary"))
         self.assertNotIn("decoding streams", text("rot13", "binary"))                       # у кодировки своя сцена, не про формат

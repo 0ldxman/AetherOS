@@ -159,9 +159,10 @@ ENCODING_STEPS = {
 def _decode_rows(path, names):
     """Части формата читаются сразу все, каждая в своём темпе."""
     rows = []
+    width = max([6] + [len(name.strip()) for name in names])
     for i, name in enumerate(names):
         start = 500 + _stable(f"{path}:p{i}", 0, 1400)
-        rows.append((f"  {name.strip():<6}", (start, start + 500)))
+        rows.append((f"  {name.strip():<{width}} ", (start, start + 500)))
     return rows
 
 
@@ -208,6 +209,14 @@ def decode_scene(path, size, value, ok):
 
     found = registry.encoding_named(value.lower())
     unit, check = ENCODING_STEPS.get(found.kind if found else "", ("units", "checking stream"))
+    if found and found.kind == "codec":
+        codec = found.param.lower()
+        if codec.startswith(("utf-16", "utf-32")):
+            pass                                                    # единицы и порядок байтов
+        elif codec == "utf-7":
+            unit, check = "code units", "checking shift sequences"
+        else:
+            unit, check = "bytes", "checking code page"
     s = Scene()
     s.row("cvt", path, width=9)
     s.row("size", f"{size} bytes", width=9)
