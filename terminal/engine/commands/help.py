@@ -82,7 +82,7 @@ HELP = {
         ),
         "<file> <password>  decrypt with a passphrase\n"
         "-k <keyname>       decrypt with a key from /home/.secrets\n"
-        "keys               list the keys in /home/.secrets with their IDs\n"
+        "keys               list the keys in /home/.secrets: ID, keyname and the file that holds it\n"
         "verify             check the signatures inside a file, or a detached signature (.sig) against a file\n"
         "sign               write <file>.sig, signed with a key you hold\n"
         "Archives are not handled here, see pak.",

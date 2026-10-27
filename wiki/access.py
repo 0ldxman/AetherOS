@@ -19,16 +19,6 @@ def guest_keys():
     return frozenset()
 
 
-def player_keys(user):
-    """Ключи игрока: у гостя и анонима их нет, у вошедшего берутся из его записей.
-
-    TODO: ключи с машины (machine.keys) добавятся вместе с сессиями на машинах.
-    """
-    if not user.is_authenticated:
-        return guest_keys()
-    return frozenset(user.keys.values_list("slug", flat=True))
-
-
 # =========================================================
 # «Смотреть как игрок» (только для сотрудников)
 # =========================================================
@@ -85,10 +75,10 @@ def held_keys(request):
 
 
 def request_keys(request):
-    """Ключи, под которыми показывается страница: подмена сотрудника или ключи игрока (свои и добытые из файлов)."""
+    """Ключи, под которыми показывается страница: подмена сотрудника или ключи из папки секретов игрока."""
     spec = view_as(request)
     if spec is None:
-        return player_keys(request.user) | held_keys(request)
+        return held_keys(request)
     if spec in ("all", "none"):
         return keys_for_mode(spec)
     return keys_for_mode("custom", [s for s in spec.split(",") if s])

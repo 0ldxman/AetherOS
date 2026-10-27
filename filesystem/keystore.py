@@ -19,10 +19,29 @@ def slugs_of(session):
     """Слаги ключей, лежащих в папке секретов этой сессии."""
     if session is None:
         return frozenset()
-    rows = SessionFile.objects.filter(
-        session=session, deleted_at__isnull=True, path__startswith=SECRETS + "/", file__url__startswith=PREFIX,
-    ).values_list("file__url", flat=True)
-    return frozenset(url[len(PREFIX):] for url in rows)
+    return frozenset(slug for _, slug in held(session))
+
+
+def held(session):
+    """Ключи в папке секретов: список (имя файла, слаг). Имя файла и ключ это разное: ключ задаёт содержимое (адрес keys/<слаг>).
+
+    Это и файлы, которые игрок получил (запись сессии), и файлы, лежащие там на самой машине (админ), пока игрок их не
+    удалил и не переместил."""
+    if session is None:
+        return []
+    prefix = SECRETS + "/"
+    rows = list(SessionFile.objects.filter(session=session).select_related("file"))
+    touched = {row.file_id for row in rows}
+    found = {}
+    for file in MachineFile.objects.filter(machine=session.profile.machine, path__startswith=prefix, url__startswith=PREFIX):
+        if file.id not in touched and not file.delivered_only:                    # как её видит файловая система
+            found[file.path] = file.url
+    for row in rows:
+        if row.deleted_at is None and row.path.startswith(prefix) and row.file.url.startswith(PREFIX):
+            found[row.path] = row.file.url
+    return [
+        (path[len(prefix):], url[len(PREFIX):]) for path, url in sorted(found.items()) if "/" not in path[len(prefix):]
+    ]
 
 
 def put(session, slug):

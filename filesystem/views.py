@@ -88,3 +88,13 @@ def raw_content(request):
     response = HttpResponse(data[start:end + 1], status=206, headers=headers)
     response["Content-Range"] = f"bytes {start}-{end}/{total}"
     return response
+
+
+def text_content(request):
+    """Содержимое файла-ключа или подписи как текст (cnt): те же байты, что в raw, но в простом окне."""
+    entry = _entry(request)
+    state = entry.session_file.state if entry.session_file else ""
+    from mail.access import viewer_for
+
+    data = build_raw_cached(entry.machine_file, state, request_keys(request), viewer=viewer_for(request))
+    return HttpResponse(data.decode("utf-8", "replace"), content_type="text/plain; charset=utf-8", headers={"Cache-Control": "no-store"})

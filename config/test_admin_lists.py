@@ -16,7 +16,6 @@ from filesystem.models import FileKey, MachineFile, SessionFile
 from machines.models import Machine, MachineApp, MachineProfile, Session
 from map.models import Country, CountryLabel, Ownership, Province
 from secure.models import Key
-from users.models import UserKey
 
 
 def build(i, user, key):
@@ -67,7 +66,6 @@ class ListsTests(TestCase):
         self.addCleanup(set_script_prefix, previous)
         self.user = get_user_model().objects.create_superuser("root", password="pw")
         self.key = Key.objects.create(slug="key_a")
-        UserKey.objects.create(user=self.user, key=self.key)
         self.client.force_login(self.user)
 
     def urls(self):
@@ -112,11 +110,11 @@ class ListsTests(TestCase):
         self.assertContains(response, "key_a")
         self.assertContains(response, "keys-TOTAL_FORMS")
 
-    def test_user_list_shows_key_and_profile_counts(self):
+    def test_user_list_shows_profile_count(self):
         build(1, self.user, self.key)
         response = self.client.get(reverse("admin:users_user_changelist"))
         row = next(u for u in response.context["cl"].result_list if u.pk == self.user.pk)
-        self.assertEqual((row._keys, row._profiles), (1, 1))
+        self.assertEqual(row._profiles, 1)
 
     def test_asset_list_shows_snippet_and_size(self):
         build(1, self.user, self.key)

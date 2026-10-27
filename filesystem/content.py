@@ -5,7 +5,8 @@ MachineFile.url. Прогресс сессии (снятые слои) учит�
 """
 from dataclasses import dataclass
 
-from django.urls import get_script_prefix
+from django.urls import get_script_prefix, reverse
+from django.utils.http import urlencode
 
 from filesystem.states.attempt import top_answer
 from filesystem.states.compiler import compile_text
@@ -37,8 +38,11 @@ def resolve_content(machine_file, session_file, path, name):
 
         url_path = machine_file.url
 
-    if not url_path or not url_path.strip() or url_path.strip() == "slice" or url_path.strip().startswith(("keys/", "sig/")):
-        return Content(error="empty")                 # вырезки и ключи игрока: адреса у них нет, читаются как байты (cnt -r)
+    if url_path and url_path.strip().startswith(("keys/", "sig/")):
+        return Content(url=reverse("fsview:text") + "?" + urlencode({"path": path}))        # ключ и подпись: их содержимое показывается текстом
+
+    if not url_path or not url_path.strip() or url_path.strip() == "slice":
+        return Content(error="empty")                 # вырезки: адреса нет, читаются как байты (cnt -r)
 
     url_path = url_path.strip()
 

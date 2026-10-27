@@ -11,7 +11,6 @@ from django.test.utils import CaptureQueriesContext
 from django.urls import get_script_prefix, reverse, set_script_prefix
 
 from secure.models import Key
-from users.models import UserKey
 from wiki.key_usage import key_usage
 from wiki.models import Document, Namespace
 
@@ -139,25 +138,6 @@ class KeyAdminTests(AdminTestCase):
         self.assertContains(response, "запись: <a")
         self.assertContains(response, "Закрытый:Д</a>")
         self.assertNotContains(response, "Двойник")
-
-    def test_grant_and_revoke(self):
-        url = reverse("admin:secure_key_changelist")
-        base = {"action": "grant", ACTION_CHECKBOX_NAME: [self.key.pk]}
-        self.client.post(url, {**base, "apply": "1", "users": [self.player.pk]})
-        self.assertTrue(UserKey.objects.filter(user=self.player, key=self.key).exists())
-
-        self.client.post(url, {**base, "apply": "1", "users": [self.player.pk]})  # повтор безвреден
-        self.assertEqual(UserKey.objects.filter(user=self.player, key=self.key).count(), 1)
-
-        base["action"] = "revoke"
-        self.client.post(url, {**base, "apply": "1", "users": [self.player.pk]})
-        self.assertFalse(UserKey.objects.filter(user=self.player).exists())
-
-    def test_list_shows_holders(self):
-        UserKey.objects.create(user=self.player, key=self.key)
-        response = self.client.get(reverse("admin:secure_key_changelist"))
-        holders = {k.slug: k._holders for k in response.context["cl"].result_list}
-        self.assertEqual(holders, {"key_a": 1, "key_ab": 0})
 
 
 class NamespaceConditionTests(AdminTestCase):

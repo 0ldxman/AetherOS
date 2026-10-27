@@ -14,7 +14,7 @@ from django.test import RequestFactory, TestCase
 from django.test.utils import CaptureQueriesContext
 
 from secure.models import Key
-from users.models import UserKey
+from filesystem.testing import give_keys
 from wiki import views
 from wiki.models import Document, Namespace
 
@@ -60,7 +60,7 @@ class WikiViewsTests(TestCase):
         )
         cls.key = Key.objects.create(slug="spoiler_key")
         cls.player = get_user_model().objects.create_user("player")
-        UserKey.objects.create(user=cls.player, key=cls.key)
+        cls.held = give_keys(cls.player, cls.key.slug)
         cls.spoiler_doc = Document.objects.create(
             namespace=None, title="Со спойлером",
             body="открытая часть\n\n::spoiler spoiler_key\nтайный текст\n::",
@@ -78,7 +78,7 @@ class WikiViewsTests(TestCase):
     # ---------- вид обозревателя ----------
 
     def test_explorer_has_clickable_path(self):
-        status, html, _ = call(views.resolve, "Закрытый/Дочерний", user=self.player)
+        status, html, _ = call(views.resolve, "Закрытый/Дочерний", user=self.player, session=self.held)
         self.assertEqual(status, 403)  # у игрока нет ключа: путь всё равно виден, замка достаточно
         self.assertIn('class="crumbs"', html)
         self.assertNotIn("crumb-up", html)  # «вверх» это ссылки пути, отдельной кнопки нет
@@ -101,7 +101,7 @@ class WikiViewsTests(TestCase):
     def test_object_metadata_ignores_hidden_spoilers(self):
         """Размер и etag считаются по видимому тексту: из них нельзя вытянуть закрытую часть."""
         _, anon, _ = call(views.resolve, "")
-        _, keyed, _ = call(views.resolve, "", user=self.player)
+        _, keyed, _ = call(views.resolve, "", user=self.player, session=self.held)
         self.assertIn("data-size=", anon)
         self.assertNotEqual(
             [line for line in anon.splitlines() if "Со спойлером" in line and "data-etag" in line],
@@ -263,14 +263,14 @@ class WikiViewsTests(TestCase):
 
     def test_spoiler_open_only_with_key(self):
         _, guest, _ = call(views.resolve, "Со спойлером")
-        _, player, _ = call(views.resolve, "Со спойлером", user=self.player)
+        _, player, _ = call(views.resolve, "Со спойлером", user=self.player, session=self.held)
         self.assertNotIn("тайный текст", guest)
         self.assertIn("тайный текст", player)
 
     def test_search_respects_spoilers(self):
         _, body, _ = call(views.search, params={"q": "тайный"})
         self.assertEqual(json.loads(body)["rows"], [])
-        _, body, _ = call(views.search, params={"q": "тайный"}, user=self.player)
+        _, body, _ = call(views.search, params={"q": "тайный"}, user=self.player, session=self.held)
         rows = json.loads(body)["rows"]
         self.assertEqual([r["title"] for r in rows], ["Со спойлером"])
 

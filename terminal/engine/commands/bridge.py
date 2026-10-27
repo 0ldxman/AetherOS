@@ -160,12 +160,10 @@ class EntryCommand(BaseCommand):
         return opts
 
     def _read_key(self, context, name):
-        """Ключ по имени из папки секретов этой сессии (/home/.secrets/имя): набор из одного slug или текст ошибки."""
-        entry = VirtualFilesystem(context).get_file(keystore.path_of(name))
-        url = entry.machine_file.url if entry is not None else ""
-        if not url.startswith(keystore.PREFIX):
+        """Ключ по названию (keyname) из папки секретов этой сессии (/home/.secrets/имя): набор из одного slug или текст ошибки."""
+        if name not in keystore.slugs_of(context.session):
             return f"{self.name}: key '{name}' not found in {keystore.SECRETS}"
-        return {url[len(keystore.PREFIX):]}
+        return {name}
 
 
 class BridgeCommand(EntryCommand):

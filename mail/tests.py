@@ -20,7 +20,6 @@ from mail.addresses import matches, matches_any, split, validate_address, valida
 from mail.access import Viewer, mark_read, mark_unread, read_ids, summary, visible_messages
 from mail.models import Attachment, ComposeProgress, Delivered, Message, MessageRead, Trashed
 from secure.models import Key
-from users.models import UserKey
 
 
 def make_message(**fields):
@@ -380,7 +379,10 @@ class InboxApiTests(TestCase):
         self.client.force_login(user)
         _, data = self.get_json("mail:messages")
         self.assertEqual(data["messages"], [])                    # ключа ещё нет
-        UserKey.objects.create(user=user, key=Key.objects.create(slug="the_door"))
+        from filesystem.testing import give_keys
+
+        Key.objects.create(slug="the_door")
+        give_keys(user, "the_door")                              # ключ лежит в /home/.secrets начатой сессии
         _, data = self.get_json("mail:messages")
         self.assertEqual([row["id"] for row in data["messages"]], [message.pk])
 

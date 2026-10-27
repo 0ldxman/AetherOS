@@ -1862,6 +1862,41 @@ class WardKeyTests(TestCase):
         self.assertIn("director", data["output"])
         self.assertIn("Director of the harbor office", data["output"])
 
+    def test_the_keyname_is_the_content_not_the_file_name(self):
+        self.give_key("director")
+        self.run_command("mv /home/.secrets/director /home/.secrets/id_rsa")
+        data = self.run_command("ward keys")
+        self.assertIn("id_rsa", data["output"])                                   # имя файла и keyname рядом
+        self.assertIn("director", data["output"])
+        self.assertEqual(self.run_command("ward -k director /home/keyed.rec")["exit_code"], 0)      # ключ назван по keyname
+        self.assertIn("no secret key", self.run_command("ward -k id_rsa /home/both.rec")["output"])
+
+    def test_a_key_file_placed_on_the_machine_counts_once_it_lies_in_the_secrets(self):
+        from filesystem import keystore
+        from filesystem.models import MachineFile
+        from django.test import RequestFactory
+        from machines.current import active_session
+
+        self.run_command("pwd")
+        MachineFile.objects.create(machine=self.main, path="/home/.secrets/badge", url="keys/director")
+        request = RequestFactory().get("/")
+        request.session = self.client.session
+        request.user = self.user
+        self.assertIn("director", keystore.slugs_of(active_session(request)))
+        self.assertEqual(self.run_command("ward -k director /home/keyed.rec")["exit_code"], 0)
+        self.assertEqual(self.run_command("del -f /home/.secrets/badge")["exit_code"], 0)
+        self.assertNotIn("director", keystore.slugs_of(active_session(request)))
+
+    def test_cnt_opens_a_key_as_text(self):
+        self.give_key("director")
+        data = self.run_command("cnt /home/.secrets/director")
+        self.assertEqual(data["exit_code"], 0, data["output"])
+        window = data["window"]
+        self.assertIn("/view/fs/text/", window["url"])
+        body = self.client.get(window["url"]).content.decode()
+        self.assertIn("-----BEGIN ACCESS KEY-----", body)
+        self.assertIn("Keyname: director", body)
+
     def test_ward_k_usage(self):
         for command in ("ward -k", "ward -k director", "ward -k a b c"):
             self.assertEqual(self.run_command(command)["exit_code"], 2, command)

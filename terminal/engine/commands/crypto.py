@@ -54,10 +54,7 @@ class WardCommand(LayerCommand):
 
     def held_key(self, context, name):
         """slug ключа с таким именем в /home/.secrets или None."""
-        held = VirtualFilesystem(context).get_file(keystore.path_of(name))
-        if held is None or not held.machine_file.url.startswith(keystore.PREFIX):
-            return None
-        return held.machine_file.url[len(keystore.PREFIX):]
+        return name if name in keystore.slugs_of(context.session) else None
 
     def with_key(self, context, args):
         if len(args) != 2:
@@ -79,17 +76,16 @@ class WardCommand(LayerCommand):
         return result
 
     def list_keys(self, context):
-        fs = VirtualFilesystem(context)
-        names = [item["name"] for item in fs.list_directory(keystore.SECRETS)] if fs.is_directory(keystore.SECRETS) else []
         rows = []
-        for name in names:
-            slug = self.held_key(context, name)
-            if slug:
-                note = Key.objects.filter(slug=slug).values_list("description", flat=True).first() or ""
-                rows.append((keys.key_id(slug).hex().upper(), slug, note.strip().splitlines()[0] if note.strip() else ""))
+        for filename, slug in keystore.held(context.session):
+            note = Key.objects.filter(slug=slug).values_list("description", flat=True).first() or ""
+            rows.append((keys.key_id(slug).hex().upper(), slug, filename, note.strip().splitlines()[0] if note.strip() else ""))
         if not rows:
             return CommandResult(f"ward: no keys in {keystore.SECRETS}", 1)
-        return CommandResult("\n".join(f"{ident}  {slug}" + (f"  {note}" if note else "") for ident, slug, note in rows), 0)
+        width = max(len(slug) for _, slug, _, _ in rows)
+        return CommandResult(
+            "\n".join(f"{ident}  {slug:<{width}}  {filename}" + (f"  {note}" if note else "") for ident, slug, filename, note in rows), 0
+        )
 
     def _open(self, context, target):
         """(запись, байты) файла или (None, ответ с ошибкой)."""
@@ -143,8 +139,7 @@ class WardCommand(LayerCommand):
             return CommandResult("usage: ward sign -k keyname file", 2)
         name, target = args[1], args[2]
         fs = VirtualFilesystem(context)
-        held = fs.get_file(keystore.path_of(name))
-        if held is None or not held.machine_file.url.startswith(keystore.PREFIX):
+        if self.held_key(context, name) is None:
             return CommandResult(f"ward: no secret key '{name}' in {keystore.SECRETS}", 1)
         entry, data = self._open(context, target)
         if entry is None:
@@ -152,5 +147,5 @@ class WardCommand(LayerCommand):
         output = entry.path + ".sig"
         if fs.exists(output):
             return CommandResult(f"ward: '{output}' exists, delete it first", 1)
-        keystore.put_signature(context.session, held.machine_file.url[len(keystore.PREFIX):], signatures.digest(data), output)
+        keystore.put_signature(context.session, name, signatures.digest(data), output)
         return CommandResult(f"ward: signed {target} with key {name}\n  {output}", 0, scene=sign_scene(entry.path, name))

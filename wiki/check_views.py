@@ -8,16 +8,18 @@ from django.http import Http404
 from django.test import RequestFactory
 
 from secure.models import Key
-from users.models import UserKey
+from filesystem.testing import give_keys
 from wiki import views
 from wiki.models import Document, Namespace
 
 rf = RequestFactory()
 
 
-def call(fn, *args, user=None, params=None):
+def call(fn, *args, user=None, params=None, session=None):
     request = rf.get("/", params or {})
     request.user = user or AnonymousUser()
+    if session is not None:
+        request.session = session
     try:
         r = fn(request, *args)
         return r.status_code, r.content.decode()
@@ -92,7 +94,7 @@ try:
 
         key = Key.objects.create(slug="_t_key")
         player = get_user_model().objects.create_user("_t_player")
-        UserKey.objects.create(user=player, key=key)
+        held = give_keys(player, key.slug)
         Document.objects.create(
             namespace=None,
             title="_т_Со_спойлером",
@@ -107,7 +109,7 @@ try:
               "открытая часть" in html and "тайный текст" not in html)
         check("гость: спойлер замазан", "spoiler--masked" in html and "█" in html)
 
-        code, html = call(views.resolve, "_т_Со_спойлером", user=player)
+        code, html = call(views.resolve, "_т_Со_спойлером", user=player, session=held)
         check("игрок с ключом: тайный текст виден", "тайный текст" in html and "spoiler--open" in html)
         check("игрок с ключом: ключ не в html", "_t_key" not in html)
 
@@ -115,14 +117,14 @@ try:
         check("инфобокс у гостя: замазан", "тайный инфобокс" not in html and "видимый инфобокс" in html)
         check("инфобокс: вариант оформления", "md--infobox" in html)
 
-        code, html = call(views.resolve, "_т_Со_спойлером", user=player, params={"infobox": 1})
+        code, html = call(views.resolve, "_т_Со_спойлером", user=player, session=held, params={"infobox": 1})
         check("инфобокс у игрока с ключом: виден", "тайный инфобокс" in html)
 
         code, body = call(views.search, params={"q": "тайный"})
         check("поиск у гостя: по закрытому тексту не находит",
               code == 200 and json.loads(body)["rows"] == [])
 
-        code, body = call(views.search, params={"q": "тайный"}, user=player)
+        code, body = call(views.search, params={"q": "тайный"}, user=player, session=held)
         rows = json.loads(body)["rows"]
         check("поиск у игрока с ключом: находит", len(rows) == 1 and rows[0]["title"] == "_т_Со_спойлером")
 
