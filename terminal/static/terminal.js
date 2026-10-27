@@ -18,8 +18,21 @@
     // Только для приглашения: настоящая папка хранится на сервере в сессии.
     let cwd = terminal.dataset.cwd || "/home";
     let busy = false;
-    const history = [];
-    let historyIndex = 0;
+
+    // У каждой вкладки своя лента вывода и своя история команд. Ленты неактивных вкладок лежат отдельно, пока терминал
+    // на другой; вкладка без подключений одна и называется "0"
+    const stores = new Map();
+    let activeId = "0";
+
+    function storeOf(id) {
+        if (!stores.has(id)) {
+            stores.set(id, { nodes: [], history: [], index: 0 });
+        }
+
+        return stores.get(id);
+    }
+
+    let tab = storeOf(activeId);
 
     // Сцены (анимация работы команды, приветствие) играет общий проигрыватель консоли: любая клавиша или клик
     // доигрывают сцену сразу. Строки команд и ответов лежат в том же контейнере.
@@ -72,28 +85,52 @@
         tabsBar.textContent = "";
         tabsBar.hidden = tabs.length < 2;
 
-        for (const tab of tabs) {
+        for (const entry of tabs) {
             const button = document.createElement("button");
             button.type = "button";
             button.className = "terminal-tab";
             button.setAttribute("role", "tab");
-            button.setAttribute("aria-selected", tab.terminal ? "true" : "false");
-            button.title = tab.desktop ? "desktop is here" : "";
-            button.textContent = tab.label;
+            button.setAttribute("aria-selected", entry.terminal ? "true" : "false");
+            button.title = entry.desktop ? "desktop is here" : "";
+            button.textContent = entry.label;
 
-            if (tab.desktop) {
+            if (entry.desktop) {
                 const mark = document.createElement("span");
                 mark.className = "terminal-tab-desk";
-                mark.textContent = "\u25A3";
                 button.prepend(mark);
             }
 
-            button.addEventListener("click", () => focusTab(tab));
+            button.addEventListener("click", () => focusTab(entry));
             button.addEventListener("contextmenu", (event) => {
                 event.preventDefault();
-                openTabMenu(tab, event.clientX, event.clientY);
+                openTabMenu(entry, event.clientX, event.clientY);
             });
             tabsBar.appendChild(button);
+        }
+    }
+
+    // Терминал переходит на вкладку, у которой стоит terminal: лента и история переключаются на её собственные
+    function settleTabs() {
+        const target = tabs.find((entry) => entry.terminal);
+        const id = target ? target.id : "0";
+
+        if (id !== activeId) {
+            tab.nodes = Array.from(output.childNodes);
+            tab.index = tab.history.length;
+            tab = storeOf(id);
+            activeId = id;
+            output.replaceChildren(...tab.nodes);
+            tab.nodes = [];
+            input.value = "";
+            scrollToBottom();
+        }
+
+        const alive = new Set(tabs.map((entry) => entry.id));
+        alive.add("0");
+        for (const key of Array.from(stores.keys())) {
+            if (!alive.has(key) && key !== activeId) {
+                stores.delete(key);                       // закрытое подключение уносит свою ленту
+            }
         }
     }
 
@@ -102,11 +139,12 @@
         hostname = data.hostname || hostname;
         login = data.login || login;
         renderTabs(data.tabs);
+        settleTabs();
         updatePrompt();
     }
 
-    async function focusTab(tab) {
-        if (busy || tab.terminal) {
+    async function focusTab(entry) {
+        if (busy || entry.terminal) {
             return;
         }
 
@@ -114,9 +152,8 @@
             if (awaiting) {
                 endAnswer();
             }
-            const data = await post(terminal.dataset.tabFocusUrl, { node: tab.id });
+            const data = await post(terminal.dataset.tabFocusUrl, { node: entry.id });
             applyShell(data);
-            appendLine(`-- ${tab.label} --`, "terminal-dim");
         } catch (error) {
             appendLine(`terminal: ${error.message}`, "terminal-error");
         }
@@ -127,19 +164,19 @@
         tabMenu.hidden = true;
     }
 
-    function openTabMenu(tab, x, y) {
+    function openTabMenu(entry, x, y) {
         tabMenu.textContent = "";
 
         const items = [
-            ["Switch desktop here", !tab.desktop, async () => {
-                const data = await post(terminal.dataset.tabDesktopUrl, { node: tab.id });
+            ["Switch desktop here", !entry.desktop, async () => {
+                const data = await post(terminal.dataset.tabDesktopUrl, { node: entry.id });
                 applyShell(data);
                 for (const effect of data.effects || []) runEffect(effect);
             }],
-            ["Close connection", tab.parent !== null, async () => {
-                const data = await post(terminal.dataset.tabCloseUrl, { node: tab.id });
-                applyShell(data);
+            ["Close connection", entry.parent !== null, async () => {
+                const data = await post(terminal.dataset.tabCloseUrl, { node: entry.id });
                 await playScene(data.scene);
+                applyShell(data);
                 for (const effect of data.effects || []) runEffect(effect);
             }],
         ];
@@ -270,6 +307,8 @@
             awaitAnswer(data.prompt);
         }
 
+        settleTabs();            // команда доиграла в ленте своей вкладки, дальше терминал на той, что указал сервер
+
         // effects после текста: смена рабочего стола ждёт, пока доиграет последняя сцена
         for (const effect of data.effects || []) {
             if (effect.op === "play") {
@@ -304,8 +343,8 @@
             endAnswer();
         } else {
             appendLine(`${prompt.textContent} ${command}`, "terminal-command");
-            history.push(command);
-            historyIndex = history.length;
+            tab.history.push(command);
+            tab.index = tab.history.length;
         }
 
         input.value = "";
@@ -346,20 +385,20 @@
         if (event.key === "ArrowUp") {
             event.preventDefault();
 
-            if (historyIndex > 0) {
-                historyIndex--;
-                input.value = history[historyIndex];
+            if (tab.index > 0) {
+                tab.index--;
+                input.value = tab.history[tab.index];
             }
         }
 
         if (event.key === "ArrowDown") {
             event.preventDefault();
 
-            if (historyIndex < history.length - 1) {
-                historyIndex++;
-                input.value = history[historyIndex];
+            if (tab.index < tab.history.length - 1) {
+                tab.index++;
+                input.value = tab.history[tab.index];
             } else {
-                historyIndex = history.length;
+                tab.index = tab.history.length;
                 input.value = "";
             }
         }

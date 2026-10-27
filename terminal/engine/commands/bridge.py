@@ -261,7 +261,9 @@ class XferCommand(EntryCommand):
             return CommandResult(f"{self.name}: not inside an rshell session, use login@host:path", 1)
 
         local = TerminalContext(session=parent[0], cwd=parent[1], request=request)
-        return self.transfer(context, local, args, connect=None)
+        here, there = bridge.terminal_id(request), bridge.parent_id(request)
+        hops = bridge.route(request, *((there, here) if args["download"] else (here, there)))       # по порядку отправки
+        return self.transfer(context, local, args, connect=None, hops=hops)
 
     def through_tree(self, context, node, args):
         """Адрес уже открыт вкладкой: вход не нужен, Aether сам несёт файл по цепочке подключений от одного узла к другому."""
@@ -270,7 +272,8 @@ class XferCommand(EntryCommand):
         if found is None:
             return CommandResult(f"{self.name}: connection lost", 1)
         remote = TerminalContext(session=found[0], cwd=found[1], request=request)
-        hops = bridge.route(request, bridge.terminal_id(request), node)
+        here = bridge.terminal_id(request)
+        hops = bridge.route(request, *((node, here) if args["download"] else (here, node)))          # по порядку отправки
         return self.transfer(remote, context, args, connect=None, hops=hops)
 
     def finish(self, context, profile, args):

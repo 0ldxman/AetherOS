@@ -836,8 +836,17 @@ class TabsTests(BridgeFixture):
         self.assertEqual(data["exit_code"], 0, data["output"])
         text = json.dumps(data["scene"])
         self.assertIn("route", text)
-        self.assertIn("relay      guest@aether-core", text)                               # промежуточный узел на пути
+        self.assertIn("ivan@aether-main -> guest@aether-core", text)                    # по полосе на каждый прыжок, по порядку
+        self.assertIn("guest@aether-core -> dig@aether-deep", text)
+        self.assertLess(text.index("ivan@aether-main -> guest"), text.index("guest@aether-core -> dig"))
+        self.assertEqual(text.count('"op": "bar"'), 2)
         self.assertIn("got.txt", self.run_command("ls /home")["output"])
+
+    def test_the_route_follows_the_direction_of_the_transfer(self):
+        self.chain()                                    # терминал на deep
+        data = self.run_command("xfer /home/deep.dat ivan@aether-main:/home/sent.dat")          # отправка: от deep к main
+        text = json.dumps(data["scene"])
+        self.assertLess(text.index("dig@aether-deep -> guest@aether-core"), text.index("guest@aether-core -> ivan@aether-main"))
 
     def test_the_limits_stop_endless_tabs(self):
         self.run_command("rshell guest@aether-core")

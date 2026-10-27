@@ -239,6 +239,12 @@ def move_desktop(request, node):
     return True
 
 
+def parent_id(request):
+    """Родитель узла терминала или None в корне."""
+    tree = _tree(request, create=False)
+    return tree["nodes"][tree["terminal"]]["parent"] if tree else None
+
+
 def parent_side(request):
     """Сторона «у себя» для xfer: (сессия родителя узла терминала, его папка) или None в корне."""
     tree = _tree(request, create=False)
