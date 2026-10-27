@@ -31,6 +31,13 @@ BLOCK = re.compile(rf"{re.escape(BEGIN)}\r?\nKeyname: ([A-Za-z0-9_.:-]{{1,64}})\
 PNG = b"\x89PNG\r\n\x1a\n"
 
 
+def key_id(slug):
+    """Идентификатор ключа (8 байт, как ID ключа gpg): лежит в зашифрованных ключом файлах и в списке ward keys."""
+    import hashlib
+
+    return hashlib.sha256(f"keyid:{slug}".encode()).digest()[:8]
+
+
 def slugs_of(machine_file):
     """Слаги ключей файла по порядку."""
     return sorted(machine_file.keys.values_list("key__slug", flat=True))

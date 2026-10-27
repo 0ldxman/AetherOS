@@ -28,16 +28,21 @@ class Damaged(BaseState):
 @register
 class Encrypted(BaseState):
     name = "encrypted"
-    summary = "Файл зашифрован паролем."
+    summary = "Файл зашифрован: снимается паролем (ward файл пароль) или ключом (ward -k ключ файл)."
     placeholders = ("attempts_left",)
     params = (
         Param(
             "password",
             str,
-            required=True,
             positional=True,
             unlock=True,
-            help="пароль, который нужно ввести",
+            help="пароль, который нужно ввести (можно не задавать, если файл открывается ключом)",
+        ),
+        Param(
+            "key",
+            str,
+            unlock=True,
+            help="slug ключа, которым файл расшифровывается (ключ игрок достаёт командой kex: ward -k)",
         ),
         Param(
             "attempts",
@@ -46,6 +51,15 @@ class Encrypted(BaseState):
             help="сколько неверных попыток разрешено",
         ),
     )
+
+    @classmethod
+    def check_unlock(cls, params, given):
+        """Подходит пароль или ключ: названный ключ сравнивается с ключом слоя, иначе пароль с паролем слоя."""
+        if given.get("key"):
+            wanted = str(params.get("key") or "").strip().lower()
+            return () if wanted and str(given["key"]).strip().lower() == wanted else ("key",)
+        wanted = params.get("password")
+        return () if wanted not in (None, "") and given.get("password") == wanted else ("password",)
 
     @classmethod
     def max_attempts(cls, params):

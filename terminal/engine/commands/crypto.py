@@ -1,8 +1,10 @@
+from dataclasses import replace
+
 from filesystem import archives, keystore
-from filesystem.rawview import signatures
+from filesystem.rawview import keys, signatures
 from secure.models import Key
 from terminal.engine.rawinfo import raw_of
-from terminal.scenes import sign_scene, verify_scene
+from terminal.scenes import key_scene, sign_scene, verify_scene
 from terminal.engine.commands.layered import LayerCommand
 from terminal.engine.filesystem import VirtualFilesystem
 from terminal.engine.result import CommandResult
@@ -20,16 +22,74 @@ class WardCommand(LayerCommand):
     done = "decrypted"
     absent = "not encrypted"
 
+    USAGE = "usage: ward file password\n       ward -k keyname file\n       ward verify [signature] file\n       ward sign -k keyname file\n       ward keys"
+
     def execute(self, context, args):
         if args and args[0] == "verify":
             return self.verify(context, args[1:])
         if args and args[0] == "sign":
             return self.sign(context, args[1:])
+        if args and args[0] == "keys":
+            return self.list_keys(context)
+        if args and args[0] == "-k":
+            return self.with_key(context, args[1:])
         if args:
             entry = VirtualFilesystem(context).get_file(context.resolve_path(args[0]))
             if entry is not None and archives.is_archive(entry.machine_file):
                 return CommandResult(f"{self.name}: {args[0]}: no valid data found", 1)        # как gpg на чужом файле
-        return super().execute(context, args)
+        if not args:
+            return CommandResult("ward: missing file operand", 2)
+        if len(args) == 1:
+            return CommandResult("ward: missing password", 2)
+        if len(args) > 2:
+            return CommandResult("ward: too many arguments", 2)
+        result = self.unlock(context, args[0], [], self.layer, given={"password": args[1]})
+        if result.exit_code == 0 and "decrypted" in result.output:
+            return replace(result, output="ward: AES256.CFB encrypted data\nward: encrypted with 1 passphrase\n" + result.output)
+        return result
+
+    def fail_for(self, context, entry, target, wrong, values):
+        reason = "No secret key" if "key" in wrong.split(", ") else "Bad session key"
+        return f"{self.name}: decryption failed: {reason}"
+
+    def held_key(self, context, name):
+        """slug ключа с таким именем в /home/.secrets или None."""
+        held = VirtualFilesystem(context).get_file(keystore.path_of(name))
+        if held is None or not held.machine_file.url.startswith(keystore.PREFIX):
+            return None
+        return held.machine_file.url[len(keystore.PREFIX):]
+
+    def with_key(self, context, args):
+        if len(args) != 2:
+            return CommandResult(self.USAGE, 2)
+        name, target = args
+        slug = self.held_key(context, name)
+        if slug is None:
+            return CommandResult(f"ward: no secret key '{name}' in {keystore.SECRETS}", 1)
+        entry = VirtualFilesystem(context).get_file(context.resolve_path(target))
+        if entry is not None and archives.is_archive(entry.machine_file):
+            return CommandResult(f"{self.name}: {target}: no valid data found", 1)
+        result = self.unlock(
+            context, target, [], self.layer, given={"key": slug},
+            scene=lambda item, ok, rest: key_scene(item.path, ok),
+        )
+        if result.exit_code == 0 and "decrypted" in result.output:
+            head = f"ward: encrypted with RSA key, ID {keys.key_id(slug).hex().upper()}\n      \"{slug}\"\n"
+            return replace(result, output=head + result.output)
+        return result
+
+    def list_keys(self, context):
+        fs = VirtualFilesystem(context)
+        names = [item["name"] for item in fs.list_directory(keystore.SECRETS)] if fs.is_directory(keystore.SECRETS) else []
+        rows = []
+        for name in names:
+            slug = self.held_key(context, name)
+            if slug:
+                note = Key.objects.filter(slug=slug).values_list("description", flat=True).first() or ""
+                rows.append((keys.key_id(slug).hex().upper(), slug, note.strip().splitlines()[0] if note.strip() else ""))
+        if not rows:
+            return CommandResult(f"ward: no keys in {keystore.SECRETS}", 1)
+        return CommandResult("\n".join(f"{ident}  {slug}" + (f"  {note}" if note else "") for ident, slug, note in rows), 0)
 
     def _open(self, context, target):
         """(запись, байты) файла или (None, ответ с ошибкой)."""

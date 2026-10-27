@@ -120,7 +120,7 @@ class TerminalSceneTests(TestCase):
         self.assertIn("bar", self.ops(data["scene"]))
         failed = [step for step in data["scene"] if step["op"] == "dots"]
         self.assertEqual(failed[-1]["status"], "FAIL")
-        self.assertIn("wrong", data["output"])                # текст ответа остаётся
+        self.assertIn("decryption failed: Bad session key", data["output"])      # текст ответа остаётся
 
     def test_the_right_password_ends_with_success(self):
         data = self.run_command("ward /home/door.bin hunter2")
@@ -792,7 +792,7 @@ class NetTests(TestCase):
         self.assertIn("file.pdf", self.run_command("ls /home")["output"])
         self.assertEqual(self.run_command("ward /home/file.pdf hunter2")["exit_code"], 0)
         self.assertEqual(self.run_command("nget apollo.com/info/file.pdf")["exit_code"], 0)    # скачать ещё раз: слой на месте
-        self.assertIn("wrong", self.run_command("ward /home/file.pdf nope")["output"])
+        self.assertIn("Bad session key", self.run_command("ward /home/file.pdf nope")["output"])
 
     def test_nget_output_path_and_errors(self):
         self.assertEqual(self.run_command("nget -o /home/copy.txt apollo.com/info/file2.png")["exit_code"], 0)
@@ -1076,7 +1076,7 @@ class FileOpsTests(TestCase):
         self.assertIn("door.bin", self.ls())
         self.assertIn("door2.bin", self.ls())
         self.assertEqual(self.run_command("ward /home/door2.bin hunter2")["exit_code"], 0)
-        self.assertIn("wrong", self.run_command("ward /home/door.bin nope")["output"])      # у оригинала слой на месте
+        self.assertIn("Bad session key", self.run_command("ward /home/door.bin nope")["output"])      # у оригинала слой на месте
 
     def test_a_copy_carries_the_progress_made_before_it(self):
         self.run_command("ward /home/door.bin hunter2")
@@ -1744,4 +1744,125 @@ class SignatureTests(TestCase):
         FileSignature.objects.create(file=attachment, key=self.director, valid=True)
         SessionFile.objects.create(session=Session.objects.get(user=self.user), file=attachment, path="/home/att.rec")
         self.assertIn("Good signature from director", self.run_command("ward verify /home/att.rec")["output"])
+
+
+@override_settings(FORCE_SCRIPT_NAME=None)
+class WardKeyTests(TestCase):
+    """ward расшифровывает паролем или ключом из /home/.secrets; зашифрованный файл в байтах выглядит как PGP."""
+
+    BODY = "Cargo manifest altered.\n\nRef A-113."
+
+    @classmethod
+    def setUpTestData(cls):
+        from filesystem.models import MachineFile
+        from machines.models import MachineProfile
+        from secure.models import Key
+        from wiki.models import Document, Namespace
+
+        cls.main = Machine.objects.create(name="Main", hostname="aether-main")
+        MachineApp.objects.create(machine=cls.main, label="console", glyph=">_", path="/apps/terminal/")
+        cls.user = get_user_model().objects.create_user("ivan", password="pw")
+        MachineProfile.objects.create(machine=cls.main, user=cls.user, name="Ivan", login="ivan", freq=1,
+                                      mail="ivan@aether-main")
+        Document.objects.create(namespace=Namespace.objects.create(name="Harbor"), title="Report", type="rec", body=cls.BODY)
+        Key.objects.create(slug="director", description="Director of the harbor office")
+        Key.objects.create(slug="other")
+        url = "apps/wiki/Harbor/Report"
+        for path, state in (
+            ("/home/pass.rec", "> encrypted hunter2"),
+            ("/home/keyed.rec", "> encrypted key=director attempts=2"),
+            ("/home/both.rec", "> encrypted hunter2 key=director"),
+        ):
+            MachineFile.objects.create(machine=cls.main, path=path, state=state, url=url)
+
+    def setUp(self):
+        previous = get_script_prefix()
+        set_script_prefix("/")
+        self.addCleanup(set_script_prefix, previous)
+        self.client.force_login(self.user)
+
+    def run_command(self, text):
+        response = self.client.post(
+            reverse("terminal:execute"), data=json.dumps({"command": text}), content_type="application/json"
+        )
+        return json.loads(response.content)
+
+    def raw(self, path):
+        return self.client.get(reverse("fsview:content") + f"?path={path}").content
+
+    def give_key(self, slug):
+        from django.test import RequestFactory
+
+        from filesystem import keystore
+        from machines.current import active_session
+
+        self.run_command("pwd")
+        request = RequestFactory().get("/")
+        request.session = self.client.session
+        request.user = self.user
+        keystore.put(active_session(request), slug)
+
+    def test_an_encrypted_file_looks_like_a_pgp_packet_and_ftyp_says_so(self):
+        from filesystem.rawview import keys
+
+        pw = self.raw("/home/pass.rec")
+        self.assertTrue(pw.startswith(b"\x8c\x0d\x04\x09\x03\x08"))
+        self.assertNotIn(b"Cargo", pw)
+        self.assertIn("PGP symmetric key encrypted data", self.run_command("ftyp /home/pass.rec")["output"])
+        pk = self.raw("/home/keyed.rec")
+        self.assertTrue(pk.startswith(b"\x85\x01\x0c\x03" + keys.key_id("director")))      # в файле ID ключа получателя
+        self.assertIn("PGP public-key encrypted data", self.run_command("ftyp /home/keyed.rec")["output"])
+        self.assertEqual(len(pw), len(self.raw("/home/pass.rec")))
+
+    def test_the_password_is_reported_the_way_gpg_does(self):
+        bad = self.run_command("ward /home/pass.rec nope")
+        self.assertEqual(bad["exit_code"], 1)
+        self.assertIn("ward: decryption failed: Bad session key", bad["output"])
+        good = self.run_command("ward /home/pass.rec hunter2")
+        self.assertEqual(good["exit_code"], 0)
+        self.assertIn("ward: encrypted with 1 passphrase", good["output"])
+
+    def test_a_key_decrypts_what_is_encrypted_for_it(self):
+        self.assertIn("no secret key 'director'", self.run_command("ward -k director /home/keyed.rec")["output"])
+        self.give_key("other")
+        wrong = self.run_command("ward -k other /home/keyed.rec")
+        self.assertEqual(wrong["exit_code"], 1)
+        self.assertIn("decryption failed: No secret key", wrong["output"])                # не тот ключ: попытка потрачена
+        self.give_key("director")
+        good = self.run_command("ward -k director /home/keyed.rec")
+        self.assertEqual(good["exit_code"], 0, good["output"])
+        self.assertIn("encrypted with RSA key, ID", good["output"])
+        self.assertIn('"director"', good["output"])
+        self.assertTrue(self.raw("/home/keyed.rec").startswith("§rec".encode()))        # слой снят
+
+    def test_a_file_with_a_password_and_a_key_opens_with_either(self):
+        self.give_key("director")
+        self.assertEqual(self.run_command("ward -k director /home/both.rec")["exit_code"], 0)
+        self.assertEqual(self.run_command("ward /home/pass.rec hunter2")["exit_code"], 0)
+        self.assertNotEqual(self.run_command("ward /home/keyed.rec hunter2")["exit_code"], 0)     # у ключевого пароля нет
+
+    def test_a_wrong_key_spends_an_attempt_and_the_fail_hook_fires(self):
+        from filesystem.models import MachineFile
+
+        MachineFile.objects.create(machine=self.main, path="/home/trap.rec", url="apps/wiki/Harbor/Report",
+                                   state="> encrypted key=director attempts=1\non fail: say \"alarm\"")
+        self.give_key("other")
+        data = self.run_command("ward -k other /home/trap.rec")
+        self.assertEqual(data["exit_code"], 1)
+        self.assertIn("alarm", data["output"])
+
+    def test_ward_keys_lists_the_keys_with_their_ids(self):
+        from filesystem.rawview import keys
+
+        self.assertIn("no keys", self.run_command("ward keys")["output"])
+        self.give_key("director")
+        data = self.run_command("ward keys")
+        self.assertEqual(data["exit_code"], 0)
+        self.assertIn(keys.key_id("director").hex().upper(), data["output"])
+        self.assertIn("director", data["output"])
+        self.assertIn("Director of the harbor office", data["output"])
+
+    def test_ward_k_usage(self):
+        for command in ("ward -k", "ward -k director", "ward -k a b c"):
+            self.assertEqual(self.run_command(command)["exit_code"], 2, command)
 

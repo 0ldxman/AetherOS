@@ -99,6 +99,16 @@ def _core(machine_file, payload, fmt, seed):
     return signatures.embed(data, signed, seed, locked=payload.locked)
 
 
+def _cipher(length, params, seed):
+    """Зашифрованный файл: пакеты в духе OpenPGP (ключ получателя, пароль), дальше шум. Длина не меняется."""
+    head = b""
+    if params.get("key"):
+        head += b"\x85\x01\x0c\x03" + keys.key_id(str(params["key"]).strip().lower()) + noise(seed + ":pk", 4)    # зашифровано ключом: его ID
+    if params.get("password") not in (None, ""):
+        head += b"\x8c\x0d\x04\x09\x03\x08" + noise(seed + ":salt", 8) + b"\x00\x0c"                    # зашифровано паролем (соль)
+    return (head + noise(seed + ":enc", max(0, length - len(head))))[:length]
+
+
 def _bad_blocks(length, seed):
     """Номера повреждённых блоков файла такой длины."""
     blocks = max(1, -(-length // BLOCK))
@@ -136,7 +146,7 @@ def build_raw(machine_file, session_state="", keys=frozenset(), reader=None, vie
         elif name == "base64":
             data = encodings.wrap_base64(data)
         elif name == "encrypted":
-            data = noise(seed + ":enc", len(data))
+            data = _cipher(len(data), params, seed)
         elif name in ("damaged", "corrupted"):
             bad = tuple(_bad_blocks(len(data), seed))
             data = _damage(data, seed)

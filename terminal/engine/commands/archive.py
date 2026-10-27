@@ -82,7 +82,7 @@ class PakCommand(LayerCommand):
         top = peek_top(entry.machine_file.state, state)
         if top is not None and top.state.name != self.layer:
             return self.blocked(entry, target)
-        return self.unlock(context, target, [password], self.layer)
+        return self.unlock(context, target, [], self.layer, given={"password": password})
 
     def fail_for(self, context, entry, target, wrong, values):
         return f"pak: {target}: incorrect password"

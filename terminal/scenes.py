@@ -131,6 +131,18 @@ def pak_extract_scene(path, names, ok=True):
     return s.to_dict()
 
 
+# ---------- расшифровка ключом ----------
+
+def key_scene(path, ok):
+    """ward -k: заголовок пакета, секретный ключ, сессионный ключ."""
+    s = Scene()
+    s.task("reading packet header", "OK", ms=(150, 350))
+    s.task("loading secret key", "OK", ms=(200, 450))
+    s.bar("decrypting session key ", ms=(600, 1200), width=14)
+    s.task("checking session key", "OK" if ok else "FAIL", ms=(300, 700))
+    return s.to_dict()
+
+
 # ---------- подписи ----------
 
 def verify_scene(path, count, ok):

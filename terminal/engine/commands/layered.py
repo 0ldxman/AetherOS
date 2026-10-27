@@ -72,8 +72,8 @@ class LayerCommand(BaseCommand):
         """Что сказать, когда слой снят."""
         return self.done
 
-    def unlock(self, context, target, values, layer, absent=None, finish=None, scene=None):
-        """absent заменяет текст «нечего снимать»; scene(entry, ok, rest) заменяет scene_for; finish(entry, before) зовётся, когда слой снят (before: прогресс файла до
+    def unlock(self, context, target, values, layer, absent=None, finish=None, scene=None, given=None):
+        """absent заменяет текст «нечего снимать»; scene(entry, ok, rest) заменяет scene_for; given: готовые значения вместо разбора values; finish(entry, before) зовётся, когда слой снят (before: прогресс файла до
         снятия), и может вернуть строку для ответа."""
         path = context.resolve_path(target)
         fs = VirtualFilesystem(context)
@@ -111,25 +111,26 @@ class LayerCommand(BaseCommand):
                 1,
             )
 
-        params = [p for p in top.state.params if p.unlock]
+        if given is None:
+            params = [p for p in top.state.params if p.unlock]
 
-        if len(values) > len(params):
-            return CommandResult(f"{self.name}: too many arguments", 2)
+            if len(values) > len(params):
+                return CommandResult(f"{self.name}: too many arguments", 2)
 
-        if len(values) < len(params):
-            return CommandResult(
-                f"{self.name}: missing {params[len(values)].name}", 2
-            )
-
-        given = {}
-
-        for param, text in zip(params, values):
-            try:
-                given[param.name] = _convert(param, text)
-            except ValueError:
+            if len(values) < len(params):
                 return CommandResult(
-                    f"{self.name}: invalid {param.name}: {text}", 2
+                    f"{self.name}: missing {params[len(values)].name}", 2
                 )
+
+            given = {}
+
+            for param, text in zip(params, values):
+                try:
+                    given[param.name] = _convert(param, text)
+                except ValueError:
+                    return CommandResult(
+                        f"{self.name}: invalid {param.name}: {text}", 2
+                    )
 
         session_file = entry.session_file
 
