@@ -111,7 +111,7 @@ class CvtCommand(LayerCommand):
         fs = VirtualFilesystem(context)
         base = posixpath.basename(out)
         in_place = base.startswith(".") and base.count(".") == 1       # назвали одно расширение
-        ext = base if in_place else posixpath.splitext(base)[1]
+        ext = base.lower() if in_place else posixpath.splitext(base)[1]
         found = format_for_extension(ext) if ext else None
         name = found.name if found else ext.lstrip(".")
         if not name:

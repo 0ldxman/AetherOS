@@ -1199,6 +1199,20 @@ class RawCommandTests(TestCase):
         self.run_command("cvt ext /home/skin.dat /home/b.pdf")
         self.assertIn("9e 53 43 41", self.run_command("blk /home/skin.dat")["output"])      # неудача копии не снимает слой с исходника
 
+    def test_cvt_ext_takes_an_alias_and_a_zip_format_lists_its_files(self):
+        from filesystem.models import MachineFile
+
+        MachineFile.objects.create(machine=self.main, path="/home/pic.dat", state="> disguised jpg", url="apps/wiki/Harbor/Report")
+        self.assertEqual(self.run_command("cvt ext /home/pic.dat /home/pic.jpeg")["exit_code"], 0)
+        data = self.run_command("cvt ext /home/pic.dat .JPG")                                              # у исходника слой остался
+        self.assertIn("/home/pic.dat -> /home/pic.jpg", data["output"])
+        MachineFile.objects.create(machine=self.main, path="/home/word.dat", state="> disguised docx", url="apps/wiki/Harbor/Report")
+        data = self.run_command("cvt ext /home/word.dat /home/word.docx")
+        self.assertEqual(data["exit_code"], 0, data["output"])
+        text = " ".join(str(v) for step in data["scene"] for v in step.values())
+        self.assertIn("reading central directory", text)
+        self.assertIn("document.xml", text)
+
     def test_cvt_needs_one_of_its_two_forms(self):
         for command in ("cvt", "cvt /home/skin.dat pdf", "cvt ext /home/skin.dat", "cvt enc utf16"):
             data = self.run_command(command)

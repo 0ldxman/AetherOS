@@ -27,6 +27,7 @@ class FormatDef:
     magic: bytes
     template: str
     parts: tuple = field(default_factory=tuple)
+    aliases: tuple = ()
 
 
 @dataclass(frozen=True)
@@ -36,6 +37,11 @@ class EncodingDef:
     param: str = ""
 
 
+def aliases(text):
+    """Псевдонимы формата: расширения без точки, строчными (jpeg, jpe)."""
+    return tuple(word.strip().lstrip(".").lower() for word in (text or "").split(",") if word.strip())
+
+
 def _load():
     from filesystem.models import FileEncoding, FileFormat
 
@@ -43,7 +49,7 @@ def _load():
     for item in FileFormat.objects.prefetch_related("parts"):
         magic = bytes.fromhex(item.magic) if item.magic.strip() else b""
         parts = tuple(PartDef(p.name, p.source, p.value) for p in item.parts.all())
-        formats[item.name] = FormatDef(item.name, item.title or item.name, item.extension, item.kind, magic, item.template, parts)
+        formats[item.name] = FormatDef(item.name, item.title or item.name, item.extension, item.kind, magic, item.template, parts, aliases(item.aliases))
     encodings = {item.name: EncodingDef(item.name, item.kind, item.param) for item in FileEncoding.objects.all()}
     return formats, encodings
 
@@ -61,7 +67,10 @@ def invalidate(**kwargs):
 
 
 def format_named(name):
-    return _registry()[0].get((name or "").strip().lower())
+    """Формат по имени или по псевдониму (jpeg -> jpg); точка в начале не мешает."""
+    wanted = (name or "").strip().lower().lstrip(".")
+    found = _registry()[0]
+    return found.get(wanted) or next((item for item in found.values() if wanted in item.aliases), None)
 
 
 def all_formats():
@@ -73,7 +82,9 @@ def encoding_named(name):
 
 
 def format_for_extension(extension):
-    """Формат с таким расширением имени файла (.scan -> scan); так тип записи вики находит свой формат."""
+    """Формат с таким расширением имени файла (.scan -> scan, .jpeg -> jpg); так тип записи вики находит свой формат."""
     wanted = (extension or "").strip().lower()
-    return next((item for item in _registry()[0].values() if item.extension and item.extension == wanted), None)
+    formats = _registry()[0].values()
+    exact = next((item for item in formats if item.extension and item.extension == wanted), None)
+    return exact or next((item for item in formats if wanted.lstrip(".") in item.aliases), None)
 

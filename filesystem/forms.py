@@ -69,6 +69,19 @@ class FileFormatForm(forms.ModelForm):
         model = FileFormat
         fields = "__all__"
 
+    def _check_aliases(self, data):
+        """Псевдоним не должен совпадать с именем или псевдонимом другого формата, а расширение с чужим."""
+        from filesystem.rawview.registry import aliases
+
+        mine = {data.get("name", "")} | set(aliases(data.get("aliases", "")))
+        taken = {}
+        for item in FileFormat.objects.exclude(pk=self.instance.pk):
+            for word in {item.name, *aliases(item.aliases), item.extension.lstrip(".").lower()} - {""}:
+                taken[word] = item.name
+        clash = sorted(word for word in mine - {""} if word in taken)
+        if clash:
+            self.add_error("aliases", f"«{clash[0]}» уже занят форматом {taken[clash[0]]}.")
+
     def clean_name(self):
         return self.cleaned_data["name"].strip().lower()
 
@@ -76,6 +89,7 @@ class FileFormatForm(forms.ModelForm):
         data = super().clean()
         kind = data.get("kind")
         magic = data.get("magic", "")
+        self._check_aliases(data)
         try:
             _check_hex(magic, "Сигнатура")
         except forms.ValidationError as exc:
@@ -101,13 +115,15 @@ class FormatPartFormSet(forms.BaseInlineFormSet):
         kind = self.instance.kind if self.instance and self.instance.pk else self.data.get("kind", "")
         live = [f for f in self.forms if f.cleaned_data and not f.cleaned_data.get("DELETE")]
 
-        if kind in ("chunks", "package") and not live and not self.errors:
+        if kind in ("chunks", "package", "zip") and not live and not self.errors:
             raise forms.ValidationError("Для блоков и пакета нужна хотя бы одна часть.")
 
         for form in live:
             name, source, value = (form.cleaned_data.get(k, "") for k in ("name", "source", "value"))
             if kind == "chunks" and len(name) != 4:
                 form.add_error("name", "Метка блока ровно 4 символа.")
+            if kind == "package" and len(name) > 8:
+                form.add_error("name", "Имя части пакета до 8 символов.")
             if not name.isascii():
                 form.add_error("name", "Только латиница и цифры.")
             try:

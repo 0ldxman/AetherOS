@@ -116,8 +116,14 @@ class Disguised(BaseState):
 
     @classmethod
     def check_unlock(cls, params, given):
-        wanted = str(params.get("format", "")).strip().lower().lstrip(".")
-        named = str(given.get("format", "")).strip().lower().lstrip(".")
+        from filesystem.rawview.registry import format_named
+
+        def canonical(text):
+            text = str(text).strip().lower().lstrip(".")
+            found = format_named(text)
+            return found.name if found else text          # jpeg и jpg это один формат
+
+        wanted, named = canonical(params.get("format", "")), canonical(given.get("format", ""))
         return () if wanted and wanted == named else ("format",)
 
 

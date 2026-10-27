@@ -132,6 +132,16 @@ FORMAT_UNITS = {
     "zip": ("entries", "headers"), "gz": ("members", "blocks"), "wav": ("channels", "frames"), "mp3": ("frames", "tags"),
     "rec": ("fields", "lines"), "snp": ("nodes", "styles"), "msg": ("headers", "lines"), "pak": ("entries", "blocks"),
     "app": ("sections", "symbols"),
+    "bmp": ("rows", "pixels"), "tiff": ("directories", "tags"), "webp": ("chunks", "frames"), "ico": ("images", "entries"),
+    "psd": ("layers", "channels"), "ogg": ("pages", "packets"), "flac": ("blocks", "frames"), "mid": ("tracks", "events"),
+    "mp4": ("boxes", "samples"), "mkv": ("elements", "clusters"), "avi": ("streams", "chunks"), "7z": ("entries", "folders"),
+    "rar": ("entries", "blocks"), "bz2": ("blocks", "symbols"), "xz": ("blocks", "records"), "exe": ("sections", "imports"),
+    "dll": ("sections", "exports"), "elf": ("segments", "symbols"), "class": ("methods", "constants"),
+    "sqlite": ("pages", "tables"), "pcap": ("packets", "flows"), "kdbx": ("groups", "entries"), "rtf": ("groups", "controls"),
+    "html": ("nodes", "styles"), "xml": ("elements", "attributes"), "json": ("keys", "values"), "csv": ("rows", "columns"),
+    "txt": ("lines", "words"), "md": ("blocks", "lines"), "log": ("entries", "lines"), "svg": ("nodes", "paths"),
+    "eml": ("headers", "parts"), "pem": ("blocks", "lines"), "pgp": ("packets", "lines"), "ssh": ("blocks", "lines"),
+    "sh": ("commands", "lines"), "py": ("statements", "lines"), "map": ("layers", "features"),
 }
 # кодировка слоя binary (вид из реестра) -> (единицы, что проверяется перед разбором)
 ENCODING_STEPS = {
@@ -139,6 +149,10 @@ ENCODING_STEPS = {
     "rot": ("letters", "mapping alphabet"), "xor": ("bytes", "applying key stream"),
     "gzip": ("blocks", "inflating deflate stream"), "morse": ("symbols", "splitting dots and dashes"),
     "reverse": ("bytes", "reversing order"), "base32": ("quanta", "checking padding"),
+    "rot47": ("symbols", "mapping printable range"), "bin": ("bits", "grouping bytes"),
+    "dec": ("numbers", "parsing decimal codes"), "oct": ("numbers", "parsing octal codes"),
+    "url": ("escapes", "checking percent escapes"), "base85": ("groups", "checking alphabet"),
+    "uu": ("lines", "checking line lengths"), "atbash": ("letters", "mapping reversed alphabet"),
 }
 
 
@@ -170,14 +184,16 @@ def convert_scene(path, size, value, ok, out):
 
     fmt = registry.format_named(value.lower())
     names = [part.name for part in fmt.parts] if fmt else []
-    if fmt and fmt.kind in ("chunks", "package"):
-        what = "chunks" if fmt.kind == "chunks" else "parts"
-        s.task("reading chunk table" if fmt.kind == "chunks" else "reading part table", "OK", ms=(200, 500))
-        s.row(f"  {what}", f"{len(names)}  ({', '.join(name.strip() for name in names)})", width=16)
+    if fmt and fmt.kind in ("chunks", "package", "zip"):
+        what = {"chunks": "chunks", "package": "parts", "zip": "entries"}[fmt.kind]
+        s.task({"chunks": "reading chunk table", "package": "reading part table", "zip": "reading central directory"}[fmt.kind],
+               "OK", ms=(200, 500))
+        shown = [name.rsplit("/", 1)[-1] for name in names]
+        s.row(f"  {what}", f"{len(names)}  ({', '.join(name.strip() for name in shown)})", width=16)
         s.say(f"decoding {what}")
-        s.bars(_decode_rows(path, names), width=14)
+        s.bars(_decode_rows(path, shown), width=14)
     else:
-        big, small = FORMAT_UNITS.get(value.lower(), ("blocks", "records"))
+        big, small = FORMAT_UNITS.get(fmt.name if fmt else value.lower(), ("blocks", "records"))
         s.row("  " + big, str(max(1, min(size // 48, _stable(path + ":a", 1, 40)))), width=16)
         s.row("  " + small, str(max(2, min(size // 8, _stable(path + ":b", 60, 900)))), width=16)
         s.bar("decoding streams ", ms=(900, 1800), width=14)

@@ -1,11 +1,13 @@
 """Кодировки слоя binary: настоящий текст внутри, но в виде, который нужно опознать и вернуть командой cvt.
 
-Какие кодировки есть, решает реестр (FileEncoding в админке); здесь только виды: codec, hex, rot, xor, gzip, morse...
+Какие кодировки есть, решает реестр (FileEncoding в админке); здесь только виды: codec, hex, rot, xor, gzip, morse, rot47, bin, dec, oct, url, base85, uu, atbash...
 """
 import base64
+import binascii
 import codecs
 import gzip
 import string
+from urllib.parse import quote_from_bytes
 
 from filesystem.rawview import registry
 
@@ -28,6 +30,23 @@ def _rot(data, param):
     return data.decode("utf-8", "replace").translate(table).encode()
 
 
+def _rot47(data, param):
+    table = {code: 33 + (code - 33 + 47) % 94 for code in range(33, 127)}
+    return data.decode("utf-8", "replace").translate(table).encode()
+
+
+def _atbash(data, param):
+    table = {}
+    for alphabet in (string.ascii_lowercase, string.ascii_uppercase):
+        table.update({ord(ch): alphabet[25 - i] for i, ch in enumerate(alphabet)})
+    return data.decode("utf-8", "replace").translate(table).encode()
+
+
+def _uu(data, param):
+    lines = [binascii.b2a_uu(data[i:i + 45]).decode().rstrip("\n") for i in range(0, len(data), 45)]
+    return ("begin 644 data\n" + "\n".join(lines) + "\n`\nend\n").encode()
+
+
 def _byte(param):
     return int(str(param or "0"), 0) & 0xFF
 
@@ -41,6 +60,14 @@ ENCODERS = {
     "morse": _morse,
     "reverse": lambda data, param: data[::-1],
     "base32": lambda data, param: base64.b32encode(data),
+    "rot47": _rot47,
+    "bin": lambda data, param: " ".join(f"{byte:08b}" for byte in data).encode(),
+    "dec": lambda data, param: " ".join(str(byte) for byte in data).encode(),
+    "oct": lambda data, param: " ".join(f"{byte:03o}" for byte in data).encode(),
+    "url": lambda data, param: quote_from_bytes(data, safe="").encode(),
+    "base85": lambda data, param: base64.b85encode(data),
+    "uu": _uu,
+    "atbash": _atbash,
 }
 
 

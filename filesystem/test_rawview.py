@@ -303,3 +303,113 @@ class RegistryAdminTests(TestCase):
         self.assertContains(self.client.post(add, {"name": "bad", "title": "", "kind": "codec", "param": "no-such-codec"}), "нет такого кодека")
         self.assertContains(self.client.post(add, {"name": "bad", "title": "", "kind": "rot", "param": "many"}), "должен быть числом")
         self.assertEqual(self.client.post(add, {"name": "ok", "title": "", "kind": "reverse", "param": ""}).status_code, 302)
+
+    def test_an_alias_cannot_take_a_name_or_extension_of_another_format(self):
+        from filesystem.models import FileFormat
+
+        self.assertContains(self.post_format(magic="01 02", aliases="jpg"), "уже занят форматом jpg")
+        self.assertContains(self.post_format(magic="01 02", aliases="jpeg"), "уже занят форматом jpg")
+        self.assertContains(self.post_format(magic="01 02", aliases=".pdf"), "уже занят форматом pdf")
+        self.assertEqual(self.post_format(magic="01 02", aliases="xx, yy").status_code, 302)
+        self.assertEqual(FileFormat.objects.get(name="x").aliases, "xx, yy")
+
+    def test_a_zip_format_needs_parts(self):
+        self.assertContains(self.post_format(kind="zip", magic=""), "хотя бы одна часть")
+
+
+class MoreFormatsTests(TestCase):
+    """Форматы и кодировки, заведённые вторым набором: псевдонимы, zip-контейнеры, текстовые шаблоны, новые кодировки."""
+
+    SAMPLE = "Cargo <manifest> & \"altered\".\nRef A-113. Груз {7}."
+
+    def setUp(self):
+        from filesystem.rawview.registry import invalidate
+
+        invalidate()
+        self.addCleanup(invalidate)
+
+    def test_aliases_find_the_same_format(self):
+        from filesystem.rawview import registry
+
+        self.assertEqual(registry.format_named("jpeg").name, "jpg")
+        self.assertEqual(registry.format_named(".JPE").name, "jpg")
+        self.assertEqual(registry.format_for_extension(".tif").name, "tiff")
+        self.assertEqual(registry.format_for_extension(".htm").name, "html")
+        self.assertEqual(registry.format_for_extension(".jpg").name, "jpg")
+        self.assertIsNone(registry.format_named("nonsense"))
+
+    def test_the_disguised_layer_accepts_an_alias_of_its_format(self):
+        from filesystem.states.layers import Disguised
+
+        self.assertEqual(Disguised.check_unlock({"format": "jpg"}, {"format": "jpeg"}), ())
+        self.assertEqual(Disguised.check_unlock({"format": "jpeg"}, {"format": ".JPG"}), ())
+        self.assertEqual(Disguised.check_unlock({"format": "jpg"}, {"format": "png"}), ("format",))
+
+    def test_office_and_book_formats_are_real_zip_files_with_the_text_inside(self):
+        import io
+        import zipfile
+
+        for name, inner in (("docx", "word/document.xml"), ("xlsx", "xl/worksheets/sheet1.xml"), ("pptx", "ppt/slides/slide1.xml"),
+                            ("odt", "content.xml"), ("epub", "OEBPS/text.xhtml")):
+            data = formats.build(name, self.SAMPLE.encode(), {"title": "T", "who": "w"})
+            archive = zipfile.ZipFile(io.BytesIO(data))
+            self.assertIsNone(archive.testzip(), name)
+            self.assertIn(inner, archive.namelist())
+            self.assertIn("Груз", archive.read(inner).decode(), name)
+        self.assertIn("Cargo &lt;manifest&gt; &amp;", zipfile.ZipFile(io.BytesIO(formats.build("docx", self.SAMPLE.encode()))).read("word/document.xml").decode())
+        for name in ("odt", "epub"):
+            self.assertEqual(zipfile.ZipFile(io.BytesIO(formats.build(name, b"x"))).namelist()[0], "mimetype")   # mimetype первым
+        self.assertTrue(formats.build("docx", b"x").startswith(b"PK\x03\x04"))
+
+    def test_text_formats_carry_the_text_in_their_own_escaping(self):
+        import json
+
+        self.assertEqual(json.loads(formats.build("json", self.SAMPLE.encode(), {"title": "T"}))["text"], self.SAMPLE)
+        self.assertIn('"Cargo <manifest> & ""altered"".', formats.build("csv", self.SAMPLE.encode()).decode())
+        self.assertIn("\\u1043?", formats.build("rtf", self.SAMPLE.encode()).decode())              # Г как \u1043?
+        self.assertIn("&amp;", formats.build("svg", self.SAMPLE.encode()).decode())
+        self.assertTrue(formats.build("pem", self.SAMPLE.encode()).startswith(b"-----BEGIN CERTIFICATE-----\n"))
+        self.assertTrue(formats.build("sh", b"x", {"title": "T"}).startswith(b"#!/bin/sh\n"))
+        self.assertTrue(formats.build("map", b"{}", {"ref": "outer"}).startswith("§map\nscene: outer".encode()))
+        for name in ("html", "xml", "txt", "md", "log", "eml", "pgp", "ssh", "py"):
+            self.assertTrue(formats.build(name, self.SAMPLE.encode(), {"title": "T"}), name)
+
+    def test_signature_formats_start_with_their_magic(self):
+        for name, start in (("bmp", b"BM"), ("tiff", b"II*\x00"), ("webp", b"RIFF"), ("ogg", b"OggS"), ("flac", b"fLaC"),
+                            ("mkv", b"\x1a\x45\xdf\xa3"), ("7z", b"7z\xbc\xaf"), ("rar", b"Rar!"), ("exe", b"MZ"),
+                            ("elf", b"\x7fELF"), ("class", b"\xca\xfe\xba\xbe"), ("sqlite", b"SQLite format 3\x00"),
+                            ("kdbx", b"\x03\xd9\xa2\x9a")):
+            self.assertTrue(formats.build(name, b"tail").startswith(start), name)
+
+    def test_a_locked_source_hides_every_escaped_form_of_the_body(self):
+        found = formats.variants(b"a<b&c", {})
+        self.assertIn(b"a&lt;b&amp;c", found)
+        self.assertIn(b"YTxiJmM=", found)
+
+    def test_every_new_encoding_changes_the_bytes_and_the_reversible_ones_come_back(self):
+        import base64
+        import binascii
+        from urllib.parse import unquote_to_bytes
+
+        data = "Cargo Ref A-113. Груз ~{}".encode()
+        for name in ("utf32", "cp1251", "koi8r", "cp866", "utf7", "xor", "reverse", "base32", "rot47", "bin", "dec", "oct",
+                     "url", "base85", "uu", "atbash"):
+            self.assertTrue(encodings.known(name), name)
+            self.assertTrue(encodings.encode(name, data), name)
+        self.assertEqual(encodings.encode("rot47", encodings.encode("rot47", data)), data)
+        self.assertEqual(encodings.encode("atbash", encodings.encode("atbash", b"Cargo Ref")), b"Cargo Ref")
+        self.assertEqual(encodings.encode("xor", encodings.encode("xor", data)), data)
+        self.assertEqual(encodings.encode("reverse", data)[::-1], data)
+        self.assertEqual(encodings.encode("cp1251", data).decode("cp1251"), data.decode())
+        self.assertEqual(encodings.encode("koi8r", data).decode("koi8-r"), data.decode())
+        self.assertEqual(encodings.encode("utf7", data).decode("utf-7"), data.decode())
+        self.assertEqual(bytes(int(x, 2) for x in encodings.encode("bin", data).split()), data)
+        self.assertEqual(bytes(int(x) for x in encodings.encode("dec", data).split()), data)
+        self.assertEqual(bytes(int(x, 8) for x in encodings.encode("oct", data).split()), data)
+        self.assertEqual(unquote_to_bytes(encodings.encode("url", data).decode()), data)
+        self.assertEqual(base64.b85decode(encodings.encode("base85", data)), data)
+        self.assertEqual(base64.b32decode(encodings.encode("base32", data)), data)
+        lines = encodings.encode("uu", data).decode().splitlines()
+        self.assertEqual(lines[0], "begin 644 data")
+        self.assertEqual(b"".join(binascii.a2b_uu(line) for line in lines[1:-2]), data)
+

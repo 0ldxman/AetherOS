@@ -250,7 +250,8 @@ class FileFormat(models.Model):
         signature  сигнатура (magic) и дальше тело как есть: обычные форматы (pdf, png...);
         text       текстовый шаблон с подстановками {body}, {who}...: форматы, которые читаются как текст;
         chunks     сигнатура и блоки «длина, метка, данные» (как PNG): части задаются ниже;
-        package    сигнатура, число частей и таблица частей (имя, смещение, размер), затем сами части.
+        package    сигнатура, число частей и таблица частей (имя, смещение, размер), затем сами части;
+        zip        настоящий zip без сжатия: части это файлы внутри (docx, xlsx, epub...).
     """
 
     class Kind(models.TextChoices):
@@ -258,6 +259,7 @@ class FileFormat(models.Model):
         TEXT = "text", "Текстовый шаблон"
         CHUNKS = "chunks", "Блоки с метками"
         PACKAGE = "package", "Пакет частей с таблицей"
+        ZIP = "zip", "Zip-контейнер (файлы внутри)"
 
     name = models.SlugField(
         max_length=32,
@@ -266,6 +268,11 @@ class FileFormat(models.Model):
     )
     title = models.CharField(max_length=128, blank=True, help_text="Подпись для админки и вьювера: Aether SCAN (картинка + OCR).")
     extension = models.CharField(max_length=16, blank=True, help_text="Расширение имени файла: .scan")
+    aliases = models.CharField(
+        max_length=128,
+        blank=True,
+        help_text="Другие расширения этого же формата через запятую: jpeg, jpe (у jpg). cvt и тип записи вики находят формат и по ним.",
+    )
     kind = models.CharField(max_length=16, choices=Kind.choices, default=Kind.SIGNATURE)
     magic = models.TextField(
         blank=True,
@@ -275,7 +282,8 @@ class FileFormat(models.Model):
         blank=True,
         help_text=(
             "Только для вида «текстовый шаблон». Подстановки: {body} текст, {body_html} текст абзацами HTML, {who}, {when}, "
-            "{ref}, {src}, {at}, {title}, {hash}, {sender}, {recipients}, {subject}, {date}, {id}. Фигурные скобки самого "
+            "{ref}, {src}, {at}, {title}, {hash}, {sender}, {recipients}, {subject}, {date}, {id}; тело в других видах: {body_xml}, "
+            "{body_json}, {body_csv}, {body_rtf}, {body_b64}. Фигурные скобки самого "
             "текста удваиваются: {{ }}."
         ),
     )
@@ -302,7 +310,10 @@ class FormatPart(models.Model):
 
     format = models.ForeignKey(FileFormat, on_delete=models.CASCADE, related_name="parts")
     order = models.PositiveSmallIntegerField(default=0)
-    name = models.CharField(max_length=8, help_text="Метка блока (ровно 4 символа) или имя части пакета (до 8 символов).")
+    name = models.CharField(
+        max_length=64,
+        help_text="Метка блока (ровно 4 символа), имя части пакета (до 8 символов) или путь файла внутри zip.",
+    )
     source = models.CharField(max_length=16, choices=Source.choices, default=Source.BODY)
     value = models.TextField(blank=True, help_text="Шаблон, hex-байты или длина шума; для остальных источников не нужно.")
 
@@ -327,6 +338,14 @@ class FileEncoding(models.Model):
         MORSE = "morse", "Азбука Морзе"
         REVERSE = "reverse", "Байты задом наперёд"
         BASE32 = "base32", "base32"
+        ROT47 = "rot47", "rot47 (все печатные символы)"
+        BIN = "bin", "Текст из нулей и единиц"
+        DEC = "dec", "Коды символов десятичными числами"
+        OCT = "oct", "Коды символов восьмеричными числами"
+        URL = "url", "Процентная запись (%D0%9F)"
+        BASE85 = "base85", "base85"
+        UU = "uu", "uuencode"
+        ATBASH = "atbash", "Атбаш (алфавит наоборот)"
 
     name = models.SlugField(max_length=32, unique=True, help_text="Как игрок называет кодировку в cvt: utf16, rot13, morse.")
     title = models.CharField(max_length=128, blank=True)

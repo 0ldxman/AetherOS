@@ -98,7 +98,7 @@ def _map(query, keys):
         "slug": scene.slug, "title": scene.title, "mode": scene.mode, "lat": scene.lat, "lon": scene.lon, "zoom": scene.zoom,
         "features": visible_features(scene.features, keys),
     }
-    return Payload(kind="map", body=json.dumps(data, ensure_ascii=False, indent=1).encode(), stamp=f"map:{scene.pk}:{scene.updated_at.isoformat()}" if hasattr(scene, "updated_at") else f"map:{scene.pk}")
+    return Payload(kind="map", fmt="map", meta={"ref": scene.slug, "title": scene.title}, body=json.dumps(data, ensure_ascii=False, indent=1).encode(), stamp=f"map:{scene.pk}:{scene.updated_at.isoformat()}" if hasattr(scene, "updated_at") else f"map:{scene.pk}")
 
 
 def _mail(parts, query, viewer):
