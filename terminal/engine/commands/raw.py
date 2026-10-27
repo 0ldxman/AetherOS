@@ -37,42 +37,37 @@ class RprCommand(LayerCommand):
 
 
 class BlkCommand(LayerCommand):
-    """blk -i <вход> -o <выход> skip=N [count=M] | start=A [end=B]: вырезать кусок файла в новый файл, как dd.
+    """blk <файл> skip=N [count=M] | start=A [end=B]: вырезать кусок файла в новый файл, как dd.
 
     Окно задаётся блоками по 512 байт (skip, count) или адресами байтов (start, end; end не входит). Без count и end
     вырезается всё до конца файла. Читаются те же байты, что показывают cnt -r и txtx: под шифром это шум.
 
-    Если на файле слой shifted и окно начинается ровно на данных и не короче их, новый файл настоящий: слой снят с его
-    копии. Любое другое окно даёт файл из тех байтов, что попали в окно. Исходный файл не меняется."""
+    Если на файле слой shifted и окно начинается ровно на данных и не короче их, новый файл настоящий (слой снят с его
+    копии) и называется так, как велит слой (out=имя, иначе <имя>.out). Любое другое окно даёт файл из тех байтов, что
+    попали в окно, с именем <имя>.prt.<начало в hex>. Исходный файл не меняется."""
 
     name = "blk"
     layer = "shifted"
     done = "copied"
     absent = "nothing to copy"
-    usage = "usage: blk -i input -o output skip=N [count=M]\n       blk -i input -o output start=A [end=B]"
+    usage = "usage: blk file skip=N [count=M]\n       blk file start=A [end=B]"
     KEYS = ("skip", "count", "start", "end")
 
     def parse(self, args):
-        """Словарь с input, output, start, end (end None: до конца файла) или текст ошибки."""
-        given, flags = {}, {}
-        i = 0
-        while i < len(args):
-            arg = args[i]
-            if arg in ("-i", "-o"):
-                if i + 1 >= len(args):
-                    return f"blk: option {arg} requires an argument"
-                flags[arg] = args[i + 1]
-                i += 2
-            elif "=" in arg and arg.split("=", 1)[0] in self.KEYS:
+        """Словарь с input, start, end (end None: до конца файла) или текст ошибки."""
+        given, files = {}, []
+        for arg in args:
+            if "=" in arg and arg.split("=", 1)[0] in self.KEYS:
                 key, value = arg.split("=", 1)
                 number = parse_offset(value) if key in ("start", "end") else (int(value) if value.isdigit() else None)
                 if number is None:
                     return f"blk: invalid {key}: {value}"
                 given[key] = number
-                i += 1
-            else:
+            elif arg.startswith("-") or "=" in arg:
                 return self.usage
-        if "-i" not in flags or "-o" not in flags or not given:
+            else:
+                files.append(arg)
+        if len(files) != 1 or not given:
             return self.usage
         if {"skip", "count"} & given.keys() and {"start", "end"} & given.keys():
             return "blk: use either skip/count or start/end, not both"
@@ -86,24 +81,28 @@ class BlkCommand(LayerCommand):
             start, end = given.get("start", 0), given.get("end")
         if end is not None and end <= start:
             return "blk: end must be after start"
-        return {"input": flags["-i"], "output": flags["-o"], "start": start, "end": end}
+        return {"input": files[0], "start": start, "end": end}
+
+    @staticmethod
+    def output_path(path, start, real, out):
+        """Куда ляжет результат: настоящий файл под именем из слоя, всё остальное как <имя>.prt.<начало в hex>."""
+        folder = posixpath.dirname(path) or "/"
+        if real:
+            return out if out.startswith("/") else posixpath.join(folder, out or posixpath.basename(path) + ".out")
+        return posixpath.join(folder, f"{posixpath.basename(path)}.prt.{start:x}")
 
     def execute(self, context, args):
         opts = self.parse(args)
         if isinstance(opts, str):
             return CommandResult(opts, 2)
 
-        target, out = opts["input"], opts["output"]
+        target = opts["input"]
         path = context.resolve_path(target)
-        destination = context.resolve_path(out)
         fs = VirtualFilesystem(context)
         if not fs.exists(path):
             return CommandResult(f"blk: cannot open '{target}': No such file or directory", 2)
         if fs.is_directory(path):
             return CommandResult(f"blk: {target}: Is a directory", 1)
-        problem = fileops.check(context, fs, path, destination, False, False)
-        if problem:
-            return CommandResult(f"blk: {out}: {problem}", 1)
 
         entry = fs.get_file(path)
         raw = raw_of(context, entry)
@@ -121,6 +120,11 @@ class BlkCommand(LayerCommand):
         )
         if real:
             end = len(data) - BLOCK                         # хвост шума за данными в файл не попадает
+
+        destination = context.resolve_path(self.output_path(entry.path, start, real, str(top.params.get("out") or "") if real else ""))
+        problem = fileops.check(context, fs, path, destination, False, False)
+        if problem:
+            return CommandResult(f"blk: {posixpath.basename(destination)}: {problem}", 1)
 
         length = end - start
         whole, rest = divmod(length, BLOCK)

@@ -134,7 +134,7 @@ class TerminalSceneTests(TestCase):
             ("enc /home/note.txt", "decoded"),
             ("pak /home/pack.dat", "unpacked"),
             ("cvt enc utf16 /home/blob.bin", "converted"),
-            ("blk -i /home/slice.img -o /home/s.out skip=2", "copied"),
+            ("blk /home/slice.img skip=2", "copied"),
             ("cvt ext /home/report.txt .PDF", "converted"),
         ):
             data = self.run_command(command)
@@ -143,9 +143,9 @@ class TerminalSceneTests(TestCase):
             self.assertIsNotNone(data["scene"])
 
     def test_the_wrong_values_do_not_open_the_layer(self):
-        cut = self.run_command("blk -i /home/slice.img -o /home/wrong.out skip=1")                   # не на данных: файл есть, слой на месте
+        cut = self.run_command("blk /home/slice.img skip=1")                                         # не на данных: файл есть, слой на месте
         self.assertEqual(cut["exit_code"], 0)
-        self.assertIn("copied", self.run_command("blk -i /home/slice.img -o /home/right.out skip=2")["output"])
+        self.assertIn("copied", self.run_command("blk /home/slice.img skip=2")["output"])
         self.assertEqual(self.run_command("cvt ext /home/report.txt .docx")["exit_code"], 1)
         self.assertIn("not an archive", self.run_command("pak /home/report.txt")["output"])
 
@@ -1177,57 +1177,61 @@ class RawCommandTests(TestCase):
 
     def test_blk_cuts_a_window_into_a_new_file_like_dd(self):
         whole = self.raw("/home/report.rec")
-        data = self.run_command("blk -i /home/report.rec -o /home/part.dat start=0 end=16")
+        data = self.run_command("blk /home/report.rec start=0 end=16")
         self.assertEqual(data["exit_code"], 0, data["output"])
         self.assertIn("0+1 records in", data["output"])
         self.assertIn("16 bytes copied", data["output"])
-        self.assertEqual(self.raw("/home/part.dat"), whole[:16])
-        self.assertIn("part.dat", self.run_command("ls /home")["output"])
+        self.assertIn("/home/report.rec.prt.0", data["output"])                                 # имя: исходное, .prt, начало в hex
+        self.assertEqual(self.raw("/home/report.rec.prt.0"), whole[:16])
+        self.assertIn("report.rec.prt.0", self.run_command("ls /home")["output"])
         self.assertEqual(self.raw("/home/report.rec"), whole)                                    # исходник цел
 
-        blocks = self.run_command("blk -i /home/report.rec -o /home/blocks.dat skip=0 count=1")
-        self.assertEqual(self.raw("/home/blocks.dat"), whole)                                    # блок длиннее файла: до конца
+        again = self.run_command("blk /home/report.rec.prt.0 start=4 end=10")                    # вырезка из вырезки
+        self.assertEqual(again["exit_code"], 0)
+        self.assertEqual(self.raw("/home/report.rec.prt.0.prt.4"), whole[4:10])
+
+    def test_blk_in_blocks_reads_to_the_end_of_a_short_file(self):
+        whole = self.raw("/home/report.rec")
+        blocks = self.run_command("blk /home/report.rec skip=0 count=1")
+        self.assertEqual(self.raw("/home/report.rec.prt.0"), whole)                              # блок длиннее файла: до конца
         self.assertIn(f"{len(whole)} bytes copied", blocks["output"])
 
-        again = self.run_command("blk -i /home/part.dat -o /home/inner.dat start=4 end=10")      # вырезка из вырезки
-        self.assertEqual(self.raw("/home/inner.dat"), whole[4:10])
-        self.assertEqual(again["exit_code"], 0)
-
     def test_blk_without_an_end_scans_for_it_and_shows_the_address(self):
-        data = self.run_command("blk -i /home/report.rec -o /home/tail.dat start=8")
+        data = self.run_command("blk /home/report.rec start=8")
         text = " ".join(str(v) for step in data["scene"] for v in step.values())
         self.assertIn("scanning for EOF", text)
         self.assertIn(f"EOF at 0x{len(self.raw('/home/report.rec')):x}", text)
-        named = self.run_command("blk -i /home/report.rec -o /home/n.dat start=8 end=12")
+        named = self.run_command("blk /home/report.rec start=9 end=12")
         self.assertNotIn("scanning for EOF", " ".join(str(v) for step in named["scene"] for v in step.values()))
 
     def test_blk_refuses_what_dd_would_not_do_quietly(self):
-        self.run_command("blk -i /home/report.rec -o /home/x.dat start=0")
+        self.run_command("blk /home/report.rec start=0")
         for command, text in (
-            ("blk -i /home/report.rec -o /home/x.dat start=0", "exists"),
-            ("blk -i /home/none -o /home/y.dat start=0", "No such file"),
-            ("blk -i /home/report.rec -o /home/z.dat start=99999", "beyond the end"),
-            ("blk -i /home/report.rec -o /home/z.dat start=5 end=5", "end must be after start"),
-            ("blk -i /home/report.rec -o /home/z.dat skip=0 start=1", "not both"),
-            ("blk -i /home/report.rec -o /home/z.dat skip=x", "invalid skip"),
-            ("blk -i /home/report.rec", "usage: blk"),
+            ("blk /home/report.rec start=0", "exists"),
+            ("blk /home/none start=0", "No such file"),
+            ("blk /home/report.rec start=99999", "beyond the end"),
+            ("blk /home/report.rec start=5 end=5", "end must be after start"),
+            ("blk /home/report.rec skip=0 start=1", "not both"),
+            ("blk /home/report.rec skip=x", "invalid skip"),
             ("blk /home/report.rec", "usage: blk"),
+            ("blk -i /home/report.rec -o /home/z start=1", "usage: blk"),
+            ("blk skip=1", "usage: blk"),
         ):
             data = self.run_command(command)
             self.assertNotEqual(data["exit_code"], 0, command)
             self.assertIn(text, data["output"], command)
-        self.assertNotIn("z.dat", self.run_command("ls /home")["output"])
+        self.assertNotIn("prt.5", self.run_command("ls /home")["output"])
 
     def test_blk_cuts_what_the_player_sees_so_a_cipher_gives_noise(self):
-        self.run_command("blk -i /home/vault.dat -o /home/v.dat start=0")
-        self.assertNotIn(b"Cargo", self.raw("/home/v.dat"))
-        self.assertEqual(len(self.raw("/home/v.dat")), len(self.raw("/home/vault.dat")))
+        self.run_command("blk /home/vault.dat start=0")
+        self.assertNotIn(b"Cargo", self.raw("/home/vault.dat.prt.0"))
+        self.assertEqual(len(self.raw("/home/vault.dat.prt.0")), len(self.raw("/home/vault.dat")))
 
     def test_blk_reports_an_io_error_on_a_damaged_block(self):
         from filesystem.models import MachineFile
 
         MachineFile.objects.create(machine=self.main, path="/home/dmg.dat", state="> damaged", url="apps/wiki/Harbor/Report")
-        data = self.run_command("blk -i /home/dmg.dat -o /home/d.out start=0")
+        data = self.run_command("blk /home/dmg.dat start=0")
         self.assertEqual(data["exit_code"], 0)
         self.assertIn("I/O error at block 0", data["output"])
         text = " ".join(str(v) for step in data["scene"] for v in step.values())
@@ -1235,36 +1239,51 @@ class RawCommandTests(TestCase):
 
     def test_blk_cut_at_the_data_of_a_shifted_file_is_the_real_file_and_any_other_is_junk(self):
         whole = self.raw("/home/report.rec")
-        junk = self.run_command("blk -i /home/slice.img -o /home/junk.dat skip=1")
+        junk = self.run_command("blk /home/slice.img skip=1")
         self.assertEqual(junk["exit_code"], 0, junk["output"])
-        self.assertNotEqual(self.raw("/home/junk.dat")[:4], "§rec".encode()[:4])
-        self.assertIn("no content", self.run_command("cnt /home/junk.dat")["output"])                    # у обрезка нет адреса, открывать нечего
-        short = self.run_command("blk -i /home/slice.img -o /home/short.dat start=0x400 end=0x410")     # данные обрезаны
-        self.assertEqual(short["exit_code"], 0)
+        self.assertIn("/home/slice.img.prt.200", junk["output"])                                  # неверно: .prt и начало в hex
+        self.assertNotEqual(self.raw("/home/slice.img.prt.200")[:4], "§rec".encode()[:4])
+        self.assertIn("no content", self.run_command("cnt /home/slice.img.prt.200")["output"])
+        short = self.run_command("blk /home/slice.img start=0x400 end=0x410")                    # данные обрезаны
+        self.assertIn("/home/slice.img.prt.400", short["output"])
 
-        real = self.run_command("blk -i /home/slice.img -o /home/real.dat skip=2")
+        real = self.run_command("blk /home/slice.img skip=2")
         self.assertEqual(real["exit_code"], 0, real["output"])
-        self.assertEqual(self.raw("/home/real.dat"), whole)                                                 # настоящий файл без шума
+        self.assertIn("/home/slice.img.out", real["output"])                                      # в слое нет out=: <имя>.out
+        self.assertEqual(self.raw("/home/slice.img.out"), whole)                                  # настоящий файл без шума
         self.assertIn(f"{len(whole)} bytes copied", real["output"])
-        opened = self.run_command("cnt /home/real.dat")
+        opened = self.run_command("cnt /home/slice.img.out")
         self.assertEqual(opened["exit_code"], 0, opened["output"])
         self.assertIsNotNone(opened["window"])
-        again = self.run_command("blk -i /home/slice.img -o /home/real2.dat start=0x400 end=0x9999")    # слой на исходнике остался
-        self.assertEqual(again["exit_code"], 0, again["output"])
-        self.assertEqual(self.raw("/home/real2.dat"), whole)
+        self.assertIn("exists", self.run_command("blk /home/slice.img start=0x400")["output"])    # слой на исходнике остался, имя занято
+        self.run_command("del -f /home/slice.img.out")
+        self.assertEqual(self.run_command("blk /home/slice.img start=0x400 end=0x9999")["exit_code"], 0)
+        self.assertEqual(self.raw("/home/slice.img.out"), whole)
+
+    def test_a_shifted_layer_names_the_real_file_with_out(self):
+        from filesystem.models import MachineFile
+
+        MachineFile.objects.create(machine=self.main, path="/home/dump.img", state="> shifted skip=2 out=photo.jpg",
+                                   url="apps/wiki/Harbor/Report")
+        MachineFile.objects.create(machine=self.main, path="/home/dump2.img", state="> shifted skip=2 out=/home/deep.bin",
+                                   url="apps/wiki/Harbor/Report")
+        self.assertIn("/home/dump.img.prt.200", self.run_command("blk /home/dump.img skip=1")["output"])
+        self.assertIn("/home/photo.jpg", self.run_command("blk /home/dump.img skip=2")["output"])
+        self.assertTrue(self.raw("/home/photo.jpg").startswith("§rec".encode()))
+        self.assertIn("/home/deep.bin", self.run_command("blk /home/dump2.img skip=2")["output"])
 
     def test_ftyp_names_a_file_by_the_start_of_its_bytes_when_no_layer_answers(self):
-        self.run_command("blk -i /home/slice.img -o /home/real.dat skip=2")
-        self.run_command("blk -i /home/slice.img -o /home/junk.dat skip=1")
-        self.assertIn("REC record", self.run_command("ftyp /home/real.dat")["output"])
-        self.assertIn(": data", self.run_command("ftyp /home/junk.dat")["output"])              # шум: никакого формата
+        self.run_command("blk /home/slice.img skip=2")
+        self.run_command("blk /home/slice.img skip=1")
+        self.assertIn("REC record", self.run_command("ftyp /home/slice.img.out")["output"])
+        self.assertIn(": data", self.run_command("ftyp /home/slice.img.prt.200")["output"])      # шум: никакого формата
         self.assertIn("REC record", self.run_command("ftyp /home/report.rec")["output"])
 
     def test_blk_cut_of_a_key_block_can_be_given_to_kex(self):
         self.keyed_file()
         offset = int(self.offset_of_block("/home/keyed.rec"), 16)
-        self.run_command(f"blk -i /home/keyed.rec -o /home/piece.dat start={offset}")
-        data = self.run_command("kex /home/piece.dat 0")
+        self.run_command(f"blk /home/keyed.rec start={offset}")
+        data = self.run_command(f"kex /home/keyed.rec.prt.{offset:x} 0")
         self.assertEqual(data["exit_code"], 0, data["output"])
         self.assertIn("key secret_a", data["output"])
 
@@ -1422,9 +1441,9 @@ class RawCommandTests(TestCase):
 
     def test_the_size_in_ls_is_the_length_of_the_bytes_that_blk_cuts(self):
         size = int(self.run_command("ls -l /home/report.rec")["output"].split()[0])
-        data = self.run_command("blk -i /home/report.rec -o /home/all.dat skip=0")
+        data = self.run_command("blk /home/report.rec skip=0")
         self.assertIn(f"{size} bytes copied", data["output"])
-        self.assertEqual(int(self.run_command("ls -l /home/all.dat")["output"].split()[0]), size)
+        self.assertEqual(int(self.run_command("ls -l /home/report.rec.prt.0")["output"].split()[0]), size)
         self.assertIn(f"{size} bytes)", self.run_command("cnt /home/report.rec")["output"])
 
     def test_cnt_r_opens_the_raw_viewer_with_the_same_bytes(self):
