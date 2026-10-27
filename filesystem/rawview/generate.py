@@ -69,10 +69,10 @@ def _core(machine_file, payload, fmt, seed):
 
     if payload.kind in ("wiki", "map", "mail"):
         wanted = fmt or payload.fmt or ("msg" if payload.kind == "mail" else "rec")
-        data = formats.build(wanted, payload.body, payload.meta, seed=seed)
+        data = formats.build(wanted, payload.body, payload.meta, seed=seed, views=payload.views)
         if payload.locked:
             # доступа нет: место, где лежит тело, закрывается шумом той же длины, остальное (заголовки формата) как есть
-            for variant in formats.variants(payload.body):
+            for variant in formats.variants(payload.body, payload.views):
                 data = data.replace(variant, noise(seed + ":body", len(variant)))
         return data
 

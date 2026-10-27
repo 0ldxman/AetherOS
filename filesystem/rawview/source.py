@@ -21,6 +21,7 @@ class Payload:
     body: bytes = b""                          # текст (wiki, map) или готовые байты (asset, app)
     fmt: str | None = None                     # формат, который диктует источник (тип записи вики)
     meta: dict = field(default_factory=dict)
+    views: dict = field(default_factory=dict)  # тело в видах формата (flatten.STYLES): текст, html, объекты, ocr
     locked: bool = False                       # доступа нет: тело подменяется шумом
     stamp: str = ""                            # что меняется вместе с источником (для кэша размера)
     size: int | None = None                    # размер источника, если он известен без чтения (ассет)
@@ -49,12 +50,14 @@ def _wiki(parts, keys):
         return Payload()
 
     chain = document.namespace.path().replace(":", "/") + "/" if document.namespace else ""
+    from filesystem.rawview import flatten
     from filesystem.rawview.registry import format_for_extension
 
     found = format_for_extension(document.EXTENSIONS.get(document.type, ".doc"))   # тип записи -> расширение -> формат
     return Payload(
         kind="wiki",
         body=document.body.encode(),
+        views=flatten.views(document.body, keys),
         fmt=found.name if found else None,
         locked=not document_state(document, keys).open,
         stamp=f"wiki:{document.pk}:{document.updated_at.isoformat()}",

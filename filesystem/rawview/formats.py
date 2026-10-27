@@ -3,7 +3,7 @@ import hashlib
 import html
 import string
 
-from filesystem.rawview import registry
+from filesystem.rawview import flatten, registry
 from filesystem.rawview.noise import noise, stable
 
 PLACEHOLDERS = (
@@ -32,32 +32,35 @@ def has_image(name):
     return bool(fmt) and any(part.source == "image" for part in fmt.parts)
 
 
-def context(body, meta):
-    """Подстановки шаблонов: тело и поля источника."""
-    text = body.decode("utf-8", "replace")
-    paragraphs = "".join(f"<p>{html.escape(p)}</p>\n" for p in text.split("\n\n") if p.strip())
+def context(body, meta, views=None):
+    """Подстановки шаблонов: тело и поля источника. views (запись вики) даёт тело текстом и HTML без разметки вики."""
+    views = views or {}
+    text = views.get("text", body).decode("utf-8", "replace")
+    paragraphs = views["html"].decode() if "html" in views else "".join(
+        f"<p>{html.escape(p)}</p>\n" for p in text.split("\n\n") if p.strip()
+    )
     values = _Context({key: str(value) for key, value in (meta or {}).items() if isinstance(value, (str, int, float))})
     values.update(body=text, body_html=paragraphs, hash=hashlib.sha256(body).hexdigest()[:16])
     values.setdefault("who", "unknown")
     return values
 
 
-def variants(body):
-    """Как тело встречается в готовом файле (как есть и абзацами HTML): их закрывает шум у недоступного игроку источника."""
+def variants(body, views=None):
+    """Как тело встречается в готовом файле (как есть, абзацами HTML и видами записи): их закрывает шум у недоступного игроку источника."""
     found = []
-    for text in (body, context(body, {})["body_html"].encode()):
+    for text in (body, context(body, {}, views)["body_html"].encode(), *(views or {}).values()):
         if text and text not in found:
             found.append(text)
     return found
 
 
-def _part(part, body, meta, image, seed):
+def _part(part, body, meta, image, seed, views=None, name=""):
     if part.source == "body":
-        return body
+        return (views or {}).get(flatten.BODY_STYLE.get(name, "text"), body)
     if part.source == "image":
         return image if image is not None else noise(f"{seed}:{part.name}", max(256, min(8192, len(body) * 3)))
     if part.source == "template":
-        return string.Formatter().vformat(part.value, (), context(body, meta)).encode()
+        return string.Formatter().vformat(part.value, (), context(body, meta, views)).encode()
     if part.source == "hex":
         return bytes.fromhex(part.value)
     if part.source == "noise":
@@ -67,17 +70,17 @@ def _part(part, body, meta, image, seed):
     return b""
 
 
-def build(name, body, meta=None, image=None, seed=""):
+def build(name, body, meta=None, image=None, seed="", views=None):
     """Файл формата name вокруг тела body (bytes) и полей meta. Незнакомый формат оставляет тело как есть."""
     fmt = registry.format_named(name)
     if fmt is None:
         return body
 
     if fmt.kind == "text":
-        return string.Formatter().vformat(fmt.template, (), context(body, meta)).encode()
+        return string.Formatter().vformat(fmt.template, (), context(body, meta, views)).encode()
 
     if fmt.kind in ("chunks", "package"):
-        parts = [(part.name.encode("ascii", "replace"), _part(part, body, meta, image, seed)) for part in fmt.parts]
+        parts = [(part.name.encode("ascii", "replace"), _part(part, body, meta, image, seed, views, name)) for part in fmt.parts]
         if fmt.kind == "chunks":
             return fmt.magic + b"".join(len(data).to_bytes(4, "big") + tag[:4].ljust(4, b" ") + data for tag, data in parts)
 

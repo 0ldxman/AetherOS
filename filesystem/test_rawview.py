@@ -39,6 +39,27 @@ class RawViewTests(TestCase):
     def raw(self, file, session_state="", keys=frozenset(), reader=None):
         return build_raw(file, session_state, keys, reader)
 
+    def test_widgets_leave_no_wiki_syntax_in_the_file(self):
+        text = "Intro.\n\n::map scene=outer caption=\"Outer\"\n::\n\n::stamp SECRET tone=red\n"
+        space = Namespace.objects.get(name="Harbor")
+        for kind, title, expected in (
+            ("rec", "W1", b"[map: Outer]"),
+            ("web", "W2", b'<figure data-kind="map"><figcaption>Outer</figcaption></figure>'),
+            ("doc", "W3", b'{object map "Outer"}'),
+            ("scan", "W4", b"Outer"),
+        ):
+            Document.objects.create(namespace=space, title=title, type=kind, body=text)
+            data = self.raw(self.make(f"/w/{title}", f"apps/wiki/Harbor/{title}")).data
+            self.assertIn(expected, data)
+            self.assertNotIn(b"::map", data)
+            self.assertNotIn(b"::stamp", data)
+
+    def test_closed_record_hides_every_view_of_its_body(self):
+        Document.objects.filter(pk=self.closed.pk).update(body="Secret.\n\n::map scene=x caption=\"Hidden place\"\n::\n")
+        data = self.raw(self.make("/cl", "apps/wiki/Harbor/Closed")).data
+        self.assertNotIn(b"Hidden place", data)
+        self.assertNotIn(b"Secret.", data)
+
     def test_a_wiki_record_becomes_the_container_of_its_type_with_the_real_text(self):
         data = self.raw(self.make("/a", "apps/wiki/Harbor/Report")).data
         self.assertTrue(data.startswith("§rec\nwho: marsh\n".encode()))
