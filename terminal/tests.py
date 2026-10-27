@@ -291,7 +291,7 @@ class BridgeFixture(TestCase):
     def setUpTestData(cls):
         from django.contrib.auth.hashers import make_password
 
-        from filesystem.models import FileKey, MachineFile
+        from filesystem.models import MachineFile
         from machines.models import MachineProfile, MachineProfileHID, MachineProfileToken
         from secure.models import Key
 
@@ -320,11 +320,8 @@ class BridgeFixture(TestCase):
         MachineProfileToken.objects.create(profile=cls.tok, token="golden", max_usage=1)
         MachineProfileToken.objects.create(profile=cls.tok, token="forever")
 
-        key = Key.objects.create(slug="cardkey")
-        card = MachineFile.objects.create(machine=cls.main, path="/home/card.key", state="")
-        FileKey.objects.create(file=card, key=key)
-        locked = MachineFile.objects.create(machine=cls.main, path="/home/locked.key", state="> encrypted hunter2")
-        FileKey.objects.create(file=locked, key=key)
+        Key.objects.create(slug="cardkey")
+        Key.objects.create(slug="otherkey")
         MachineFile.objects.create(machine=cls.main, path="/home/trap.bin", state="> encrypted hunter2 attempts=1\non fail: kick")
         MachineFile.objects.create(machine=cls.main, path="/home/noise.bin",
                                    state="> encrypted hunter2 attempts=1\non fail: alert unreachable count=3 gap=200")
@@ -359,6 +356,18 @@ class BridgeFixture(TestCase):
         request.session = self.client.session
         request.user = self.user
         return active_session(request).profile
+
+    def give_key(self, slug):
+        """Ключ лежит в папке секретов текущей сессии игрока (как после kex)."""
+        from django.test import RequestFactory
+
+        from filesystem import keystore
+        from machines.current import active_session
+
+        request = RequestFactory().get("/")
+        request.session = self.client.session
+        request.user = self.user
+        keystore.put(active_session(request), slug)
 
     def depth(self):
         return len(self.client.session.get("bridge_stack", []))
@@ -407,12 +416,26 @@ class BridgeTests(BridgeFixture):
         self.assertEqual(data["effects"], [{"op": "switch"}])
         self.assertEqual(self.where().login, "root")
 
-    def test_a_key_account_needs_the_key_file(self):
+    def test_a_key_account_needs_the_key_from_the_secrets_folder(self):
         self.assertIn("Permission denied (publickey)", self.run_command("rcon badge@aether-core")["output"])
-        self.assertIn("not found", self.run_command("rcon -i /home/none.key badge@aether-core")["output"])
-        self.assertIn("invalid format", self.run_command("rcon -i /home/locked.key badge@aether-core")["output"])
-        self.assertEqual(self.run_command("rcon -i /home/card.key badge@aether-core")["exit_code"], 0)
+        self.assertIn("not found", self.run_command("rcon -i cardkey badge@aether-core")["output"])      # такого ключа у игрока нет
+        self.give_key("otherkey")
+        self.assertIn("Permission denied", self.run_command("rcon -i otherkey badge@aether-core")["output"])  # не тот ключ
+        self.give_key("cardkey")
+        self.assertEqual(self.run_command("rcon -i cardkey badge@aether-core")["exit_code"], 0)
         self.assertEqual(self.where().login, "badge")
+
+    def test_rshell_and_xfer_take_the_same_key_name(self):
+        self.assertIn("not found", self.run_command("rshell -i cardkey badge@aether-core")["output"])
+        self.assertIn("not found", self.run_command("xfer -i cardkey badge@aether-core:/home/readme /home/x")["output"])
+        self.give_key("cardkey")
+        self.assertEqual(self.run_command("rshell -i cardkey badge@aether-core")["exit_code"], 0)
+        self.assertEqual(self.shells(), 1)
+
+    def test_a_deleted_key_file_is_a_lost_key(self):
+        self.give_key("cardkey")
+        self.run_command("del -f /home/.secrets/cardkey")
+        self.assertIn("not found", self.run_command("rcon -i cardkey badge@aether-core")["output"])
 
     def test_a_password_and_key_account_needs_both(self):
         data = self.run_command("rcon ops@aether-core")                        # без ключа: пароль всё равно спросят
@@ -420,10 +443,11 @@ class BridgeTests(BridgeFixture):
         self.assertIn("Permission denied (publickey,password)", self.answer("s3cret")["output"])
         self.assertEqual(self.depth(), 0)
 
-        self.run_command("rcon -i /home/card.key ops@aether-core")
+        self.give_key("cardkey")
+        self.run_command("rcon -i cardkey ops@aether-core")
         self.assertIn("Permission denied", self.answer("nope")["output"])        # ключ есть, пароль неверный
 
-        self.run_command("rcon -i /home/card.key ops@aether-core")
+        self.run_command("rcon -i cardkey ops@aether-core")
         self.assertEqual(self.answer("s3cret")["effects"], [{"op": "switch"}])
 
     def test_a_token_replaces_password_and_key_and_is_spent(self):

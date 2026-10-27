@@ -1,14 +1,14 @@
 """Команды входа на другую машину: rcon (войти с переключением рабочего стола), rshell (войти только в терминале),
 xfer (перенести файл между машинами), exit (на уровень выше), rcon-close (закрыть всё).
 
-Условия входа и стеки сессий в machines/bridge.py. Здесь разбор команды, чтение файла-ключа (-i), запрос пароля
+Условия входа и стеки сессий в machines/bridge.py. Здесь разбор команды, имя ключа из папки секретов (-i), запрос пароля
 и ответы в духе ssh. Отказ не говорит, какое условие не выполнено: только перечень способов записи,
 Permission denied (publickey,password). Нет машины или записи называется прямо.
 
 Три команды входят одинаково (одни и те же условия, сцены и отказы) и различаются только тем, что делают с принятой
 записью: rcon открывает мост и меняет рабочий стол, rshell вкладывает оболочку в терминал, xfer переносит файл.
 """
-from filesystem.states.attempt import peek_top
+from filesystem import keystore
 from machines import bridge
 from terminal import bridge_scenes as scenes
 from terminal.engine.commands.basic import BaseCommand
@@ -46,7 +46,7 @@ def answer_prompt(request, text, session, cwd):
 
 
 class EntryCommand(BaseCommand):
-    """Общая часть rcon, rshell и xfer: разбор -p/-i/--token, поиск записи и проверка условий входа."""
+    """Общая часть rcon, rshell и xfer: разбор -p, -i (имя ключа из /home/.secrets), --token, поиск записи и проверка условий входа."""
 
     mode = ""
 
@@ -159,16 +159,13 @@ class EntryCommand(BaseCommand):
             return self.usage
         return opts
 
-    def _read_key(self, context, path):
-        """Ключи из файла-ключа: набор slug или текст ошибки. Файл со слоями «не читается»."""
-        target = context.resolve_path(path)
-        entry = VirtualFilesystem(context).get_file(target)
-        if entry is None:
-            return f"{self.name}: identity file {path} not found"
-        raw_state = entry.session_file.state if entry.session_file else ""
-        if peek_top(entry.machine_file.state, raw_state) is not None:
-            return f'Load key "{path}": invalid format'
-        return set(entry.machine_file.keys.values_list("key__slug", flat=True))
+    def _read_key(self, context, name):
+        """Ключ по имени из папки секретов этой сессии (/home/.secrets/имя): набор из одного slug или текст ошибки."""
+        entry = VirtualFilesystem(context).get_file(keystore.path_of(name))
+        url = entry.machine_file.url if entry is not None else ""
+        if not url.startswith(keystore.PREFIX):
+            return f"{self.name}: key '{name}' not found in {keystore.SECRETS}"
+        return {url[len(keystore.PREFIX):]}
 
 
 class BridgeCommand(EntryCommand):
@@ -177,7 +174,7 @@ class BridgeCommand(EntryCommand):
     name = "rcon"
     mode = "rcon"
     operands = 1
-    usage = "usage: rcon [-p freq] [-i keyfile] [--token token] login@host"
+    usage = "usage: rcon [-p freq] [-i keyname] [--token token] login@host"
 
     def run(self, context, opts):
         if bridge.total_depth(context.request) >= bridge.MAX_DEPTH:
@@ -200,7 +197,7 @@ class RshellCommand(EntryCommand):
     name = "rshell"
     mode = "rshell"
     operands = 1
-    usage = "usage: rshell [-p freq] [-i keyfile] [--token token] login@host"
+    usage = "usage: rshell [-p freq] [-i keyname] [--token token] login@host"
 
     def run(self, context, opts):
         if bridge.total_depth(context.request) >= bridge.MAX_DEPTH:
@@ -224,7 +221,7 @@ class XferCommand(EntryCommand):
     mode = "xfer"
     operands = 2
     usage = (
-        "usage: xfer [-p freq] [-i keyfile] [--token token] source destination\n"
+        "usage: xfer [-p freq] [-i keyname] [--token token] source destination\n"
         "       one side is :path (inside rshell) or login@host:path"
     )
 
