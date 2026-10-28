@@ -103,7 +103,7 @@ class CdCommand(BaseCommand):
         if len(args) > 1:
             return CommandResult("cd: too many arguments", 2)
 
-        target = args[0] if args else "/home"
+        target = args[0] if args else context.home
         path = context.resolve_path(target)
         fs = VirtualFilesystem(context)
 

@@ -2235,3 +2235,44 @@ class HelpTests(TestCase):
         self.assertEqual(self.run_command("help nothing")["exit_code"], 1)
         self.assertIn("no such command", self.run_command("help nothing")["output"])
         self.assertEqual(self.run_command("help a b")["exit_code"], 2)
+
+
+@override_settings(FORCE_SCRIPT_NAME=None)
+class HomeFolderTests(TestCase):
+    """Оболочка начинается в домашней папке записи (место home), а если её нет, в /home."""
+
+    @classmethod
+    def setUpTestData(cls):
+        from machines.models import MachineProfile
+
+        cls.main = Machine.objects.create(name="Main", hostname="aether-main")
+        make_app(cls.main, label="console", glyph=">_", path="/apps/terminal/")
+        cls.user = get_user_model().objects.create_user("ivan", password="pw")
+        MachineProfile.objects.create(machine=cls.main, user=cls.user, name="Ivan", login="ivan", freq=1)
+
+    def setUp(self):
+        previous = get_script_prefix()
+        set_script_prefix("/")
+        self.addCleanup(set_script_prefix, previous)
+        self.client.force_login(self.user)
+
+    def run_command(self, text):
+        response = self.client.post(
+            reverse("terminal:execute"), data=json.dumps({"command": text}), content_type="application/json"
+        )
+        return json.loads(response.content)
+
+    def test_without_a_home_folder_the_shell_starts_in_home(self):
+        page = self.client.get(reverse("terminal:index"))
+        self.assertContains(page, 'data-cwd="/home"')
+        self.assertContains(page, 'data-home="/home"')
+
+    def test_the_home_folder_of_the_record_is_where_it_starts(self):
+        make_file(self.main, "/home/ivan/notes.txt", body="hi")
+        page = self.client.get(reverse("terminal:index"))
+        self.assertContains(page, 'data-cwd="/home/ivan"')
+        self.assertContains(page, "ivan@aether-main:~$")
+        self.run_command("cd /")
+        data = self.run_command("cd")
+        self.assertEqual((data["cwd"], data["home"]), ("/home/ivan", "/home/ivan"))
+        self.assertIn("notes.txt", self.run_command("ls")["output"])

@@ -12,7 +12,8 @@ from filesystem import keystore
 from machines import bridge
 from terminal import bridge_scenes as scenes
 from terminal.engine.commands.basic import BaseCommand
-from terminal.engine.context import DEFAULT_CWD, TerminalContext
+from terminal.engine.context import TerminalContext
+from terminal.engine.home import home_of
 from terminal.engine.filesystem import VirtualFilesystem
 from terminal.engine.result import CommandResult
 from terminal.engine.rawinfo import size_of
@@ -190,7 +191,7 @@ class BridgeCommand(EntryCommand):
 
     def finish(self, context, profile, args):
         bridge.open_child(context.request, profile, True, context.cwd)
-        context.cwd = DEFAULT_CWD
+        context.cwd = home_of(bridge.terminal_session(context.request))
         return CommandResult(
             scene=scenes.connect_scene(profile.machine.system, profile.machine.hostname, profile), effects=SWITCH
         )
@@ -212,7 +213,7 @@ class RshellCommand(EntryCommand):
 
     def finish(self, context, profile, args):
         bridge.open_child(context.request, profile, False, context.cwd)
-        context.cwd = DEFAULT_CWD
+        context.cwd = home_of(bridge.terminal_session(context.request))
         return CommandResult(scene=scenes.connect_scene(profile.machine.system, profile.machine.hostname, profile, cut=False))
 
 
@@ -283,7 +284,8 @@ class XferCommand(EntryCommand):
         return self.transfer(remote, context, args, connect=None, route=(node, here) if args["download"] else (here, node))
 
     def finish(self, context, profile, args):
-        remote = TerminalContext(session=bridge.session_for(context.request.user, profile), cwd=DEFAULT_CWD, request=context.request)
+        session = bridge.session_for(context.request.user, profile)
+        remote = TerminalContext(session=session, cwd=home_of(session), request=context.request)
         connect = scenes.connect_scene(profile.machine.system, profile.machine.hostname, profile, cut=False, opened=False)
         return self.transfer(remote, context, args, connect=connect)
 
@@ -362,6 +364,6 @@ class BridgeCloseCommand(BaseCommand):
             return CommandResult(f"{self.name}: no open bridge", 1)
 
         left, moved = bridge.close_all(request)
-        context.cwd = DEFAULT_CWD if moved else context.cwd
+        context.cwd = home_of(bridge.terminal_session(request)) if moved else context.cwd
         host = left.profile.machine.hostname
         return CommandResult(scene=scenes.disconnect_scene(left.profile.machine.system, host, cut=moved), effects=SWITCH if moved else None)

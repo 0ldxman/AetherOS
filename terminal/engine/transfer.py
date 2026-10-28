@@ -5,7 +5,6 @@
 """
 import posixpath
 
-from terminal.engine.context import DEFAULT_CWD
 from terminal.engine.filesystem import VirtualFilesystem
 
 
@@ -34,7 +33,7 @@ def _target(dest, dest_path, name):
         target = posixpath.join(target, name)
 
     parent = posixpath.dirname(target) or "/"
-    if parent not in ("/", DEFAULT_CWD) and not dest_fs.is_directory(parent):
+    if parent not in ("/", dest.home) and not dest_fs.is_directory(parent):
         return None, f"{dest_path}: No such file or directory"
 
     if dest_fs.is_directory(target):

@@ -14,6 +14,7 @@ from machines import bridge
 from terminal.engine.commands.bridge import PENDING_KEY, answer_prompt
 from terminal.engine.commands.trash import CONFIRM_KEY, answer_confirm
 from terminal.engine.context import CWD_KEY, DEFAULT_CWD
+from terminal.engine.home import home_of
 from terminal.engine.executor import TerminalExecutor
 from terminal.engine.result import CommandResult
 
@@ -124,7 +125,7 @@ def execute(request):
 
     effects = _server_effects(request, session, result.effects)
     if bridge.desktop_id(request) != desktop_before:
-        new_cwd = DEFAULT_CWD      # смена рабочего стола начинает новую оболочку
+        new_cwd = _home(request)      # смена рабочего стола начинает новую оболочку
     elif bridge.node_count(request) > nodes_before:
         # вошли в оболочку на другой машине: её приветствие после ответа команды
         greeting = _greeting(request, bridge.terminal_session(request).profile.machine.hostname, mail=False)
@@ -143,6 +144,7 @@ def execute(request):
         "effects": effects,
         "prompt": result.prompt,
         "cwd": new_cwd,
+        "home": _home(request),
         "hostname": bridge.terminal_session(request).profile.machine.hostname,
         "login": bridge.terminal_session(request).profile.login,
         "tabs": _tabs(request),
@@ -187,7 +189,7 @@ def bridge_close(request):
         raise PermissionDenied
 
     bridge.close_all(request)
-    request.session[CWD_KEY] = DEFAULT_CWD
+    request.session[CWD_KEY] = _home(request)
     return JsonResponse({"ok": True})
 
 
@@ -195,6 +197,7 @@ def _tab_payload(request, extra=None):
     session = bridge.terminal_session(request)
     return JsonResponse({
         "cwd": request.session.get(CWD_KEY, DEFAULT_CWD),
+        "home": home_of(session),
         "hostname": session.profile.machine.hostname,
         "login": session.profile.login,
         "tabs": _tabs(request),
@@ -268,12 +271,17 @@ def tab_close(request):
     return _tab_payload(request, {"scene": scene, "effects": [{"op": "switch"}] if closed.desktop_moved else []})
 
 
-def prompt_path(cwd):
-    """Путь для приглашения, как в Linux: /home это ~, внутри него ~/папка, остальное полным путём."""
-    if cwd == DEFAULT_CWD:
+def _home(request):
+    """Домашняя папка оболочки, в которой сейчас терминал."""
+    return home_of(bridge.terminal_session(request)) if is_player(request) else DEFAULT_CWD
+
+
+def prompt_path(cwd, home=DEFAULT_CWD):
+    """Путь для приглашения, как в Linux: домашняя папка это ~, внутри неё ~/папка, остальное полным путём."""
+    if cwd == home:
         return "~"
-    if cwd.startswith(DEFAULT_CWD + "/"):
-        return "~" + cwd[len(DEFAULT_CWD):]
+    if cwd.startswith(home + "/"):
+        return "~" + cwd[len(home):]
     return cwd
 
 
@@ -311,8 +319,9 @@ def terminal_page(request):
 
         hostname = machine.hostname
 
-    # Каждое открытие окна начинается с /home, как новая оболочка.
-    request.session[CWD_KEY] = DEFAULT_CWD
+    # Каждое открытие окна начинается с домашней папки, как новая оболочка.
+    home = _home(request)
+    request.session[CWD_KEY] = home
 
     greeting = _greeting(request, hostname)
 
@@ -322,8 +331,9 @@ def terminal_page(request):
         {
             "hostname": hostname,
             "login": _login(request),
-            "cwd": DEFAULT_CWD,
-            "prompt_path": prompt_path(DEFAULT_CWD),
+            "cwd": home,
+            "home": home,
+            "prompt_path": prompt_path(home, home),
             "greeting": greeting,
             "tabs": _tabs(request) if is_player(request) else [],
             "boot": {"kicks": kicks, "now": _clock(), "warn_at": bridge.WARN_AT},

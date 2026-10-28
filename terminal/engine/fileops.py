@@ -7,7 +7,6 @@ import posixpath
 
 from filesystem.trash import in_trash
 from terminal.engine import trash
-from terminal.engine.context import DEFAULT_CWD
 from terminal.engine.filesystem import VirtualFilesystem
 
 
@@ -35,7 +34,7 @@ def check(context, fs, source, target, move, recursive):
     if fs.exists(target):
         return f"'{target}' exists, delete it first"
     parent = posixpath.dirname(target) or "/"
-    if parent not in ("/", DEFAULT_CWD) and not fs.is_directory(parent):
+    if parent not in ("/", context.home) and not fs.is_directory(parent):
         return f"'{parent}': No such file or directory"
     if move and trash.protection(context, source, None):
         return "Operation not permitted"

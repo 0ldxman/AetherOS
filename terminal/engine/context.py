@@ -22,6 +22,14 @@ class TerminalContext:
         return self.session.profile
 
     @property
+    def home(self):
+        from terminal.engine.home import home_of
+
+        if getattr(self, "_home", None) is None:
+            self._home = home_of(self.session)
+        return self._home
+
+    @property
     def user(self):
         return self.session.user
 
