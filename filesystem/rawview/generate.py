@@ -5,7 +5,7 @@ from django.conf import settings
 
 from filesystem.rawview import encodings, formats, keys, signatures
 from filesystem.rawview.noise import noise, stable
-from filesystem.rawview.source import READ_LIMIT, resolve_payload
+from filesystem.sources import READ_LIMIT, resolve_payload
 from filesystem.states.compiler import StateError, compile_text
 from filesystem.states.stack import build_stack, load_progress
 
@@ -56,8 +56,8 @@ def _asset_bytes(payload):
 
 
 def _content(machine_file, payload, fmt, seed):
-    """Байты файла без слоёв: настоящие данные в контейнере формата или шум."""
-    if payload.kind == "asset":
+    """Байты файла без слоёв: настоящие данные в контейнере формата или шум. Как их собирать, говорит layout источника."""
+    if payload.layout == "asset":
         real = _asset_bytes(payload)
         if real is None:
             size = payload.size if payload.size is not None else generated_size(machine_file)
@@ -68,17 +68,17 @@ def _content(machine_file, payload, fmt, seed):
             return formats.build(fmt, real, payload.meta, seed=seed)
         return real
 
-    if payload.kind in ("wiki", "map", "mail"):
-        wanted = fmt or payload.fmt or ("msg" if payload.kind == "mail" else "rec")
+    if payload.layout == "format":
+        wanted = fmt or payload.fmt or payload.default_fmt
         return formats.build(wanted, payload.body, payload.meta, seed=seed, views=payload.views)
 
-    if payload.kind in ("key", "slice", "signature"):
+    if payload.layout == "raw":
         return payload.body
 
-    if payload.kind == "archive":
+    if payload.layout == "archive":
         return payload.build()
 
-    if payload.kind == "app":
+    if payload.layout == "app":
         text = f"path: {payload.meta['path']}\n".encode()
         head = formats.magic("app")
         return head + text + noise(seed + ":app", max(0, 256 - len(head) - len(text)))
@@ -90,8 +90,8 @@ def _content(machine_file, payload, fmt, seed):
 def _core(machine_file, payload, fmt, seed):
     """Содержимое файла вместе с блоками его ключей (FileKey): они лежат под слоями и открываются вместе с ними."""
     data = _content(machine_file, payload, fmt, seed)
-    data = keys.embed(data, keys.slugs_of(machine_file), seed, real=payload.kind in ("asset", "archive"), locked=payload.locked)
-    if payload.locked and payload.kind in ("wiki", "map", "mail"):
+    data = keys.embed(data, keys.slugs_of(machine_file), seed, real=payload.real, locked=payload.locked)
+    if payload.locked and payload.layout == "format":
         # доступа нет: место, где лежит тело, закрывается шумом той же длины, остальное (заголовки формата) как есть
         for variant in formats.variants(payload.body, payload.views):
             data = data.replace(variant, noise(seed + ":body", len(variant)))

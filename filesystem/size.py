@@ -7,7 +7,7 @@
 from django.core.cache import cache
 
 from filesystem.rawview import build_raw
-from filesystem.rawview.source import resolve_payload
+from filesystem.sources import resolve_payload
 
 DIRECTORY_SIZE = 4096
 CACHE_SECONDS = 300
@@ -31,7 +31,7 @@ def file_size(machine_file, session_state="", keys=frozenset(), viewer=None):
         return machine_file.size
 
     payload = resolve_payload(machine_file, keys, viewer=viewer)
-    if payload.kind == "asset" and payload.size is not None and not layered:
+    if payload.size is not None and not layered:
         return payload.size                        # ассет без слоёв: настоящий размер, без похода в Nextcloud
 
     key = f"rawsize:{machine_file.pk}:{machine_file.updated_at.timestamp()}:{hash(session_state)}:{payload.stamp}:{','.join(held)}"

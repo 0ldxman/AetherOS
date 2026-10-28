@@ -5,10 +5,11 @@
 машины скрыт ото всех (delivered_only) и виден только там, куда его положили.
 """
 from filesystem.models import MachineFile, SessionFile
+from filesystem.sources.keys import KEY_PREFIX, key_address, signature_address
 
 SECRETS = "/home/.secrets"
 STORE = "/.keystore"
-PREFIX = "keys/"
+PREFIX = KEY_PREFIX
 
 
 def path_of(slug):
@@ -49,7 +50,7 @@ def put(session, slug):
     machine_file, _ = MachineFile.objects.get_or_create(
         machine=session.profile.machine,
         path=f"{STORE}/{slug}",
-        defaults={"url": PREFIX + slug, "delivered_only": True},
+        defaults={"url": key_address(slug), "delivered_only": True},
     )
     row, created = SessionFile.objects.get_or_create(
         session=session, path=path_of(slug), defaults={"file": machine_file},
@@ -70,7 +71,7 @@ def put_signature(session, slug, hexhash, path):
     holder, _ = MachineFile.objects.get_or_create(
         machine=session.profile.machine,
         path=f"{STORE_SIG}/{slug}-{hexhash[:16]}",
-        defaults={"url": f"sig/{slug}/{hexhash}", "delivered_only": True},
+        defaults={"url": signature_address(slug, hexhash), "delivered_only": True},
     )
     row = SessionFile.objects.filter(session=session, path=path).first()
     if row is None:

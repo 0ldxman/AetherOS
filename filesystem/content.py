@@ -1,25 +1,16 @@
 """Что открывается, когда игрок открывает файл машины (cnt в терминале, вложение в почте).
 
 Сначала ответ верхнего слоя на cnt. Если его нет и блокирующих слоёв не осталось, открывается
-MachineFile.url. Прогресс сессии (снятые слои) учитывается, если у игрока есть запись SessionFile.
+MachineFile.url: какое окно соответствует адресу, знает его вид содержимого (filesystem/sources).
+Прогресс сессии (снятые слои) учитывается, если у игрока есть запись SessionFile.
 """
-from dataclasses import dataclass
-
-from django.urls import get_script_prefix, reverse
-from django.utils.http import urlencode
-
+from filesystem.sources import Content, resolve_window
 from filesystem.states.attempt import top_answer
 from filesystem.states.compiler import compile_text
 from filesystem.states.registry import registry
 from filesystem.states.stack import build_stack, load_progress
 
 COMMAND = "cnt"
-
-
-@dataclass
-class Content:
-    url: str = ""
-    error: str = ""     # "locked" | "empty" | "bad_path"
 
 
 def resolve_content(machine_file, session_file, path, name):
@@ -38,16 +29,4 @@ def resolve_content(machine_file, session_file, path, name):
 
         url_path = machine_file.url
 
-    if url_path and url_path.strip().startswith(("keys/", "sig/")):
-        return Content(url=reverse("fsview:text") + "?" + urlencode({"path": path}))        # ключ и подпись: их содержимое показывается текстом
-
-    if not url_path or not url_path.strip() or url_path.strip() == "slice":
-        return Content(error="empty")                 # вырезки: адреса нет, читаются как байты (cnt -r)
-
-    url_path = url_path.strip()
-
-    # только внутренние пути сайта
-    if "://" in url_path or url_path.startswith("//") or "\\" in url_path or url_path.startswith("/"):
-        return Content(error="bad_path")
-
-    return Content(url=get_script_prefix().rstrip("/") + "/" + url_path)
+    return resolve_window(url_path, path)

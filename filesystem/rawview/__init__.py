@@ -14,7 +14,7 @@ def build_raw_cached(machine_file, session_state="", keys=frozenset(), seconds=1
     from django.core.cache import cache
 
     from filesystem.rawview import keys
-    from filesystem.rawview.source import resolve_payload
+    from filesystem.sources import resolve_payload
 
     payload = resolve_payload(machine_file, keys, viewer=viewer)
     key = (
