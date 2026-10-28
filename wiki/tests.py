@@ -7,26 +7,23 @@ from django.test import SimpleTestCase
 
 from wiki.access import document_state, namespace_state
 from wiki.markup import MASK_CHAR, render, visible_text
-from wiki.models import Document, Namespace
+from wiki.library import Node
 
 
-def ns(name, parent=None, visibility=None, access=None):
-    """Неймспейс в памяти: chain() ходит по parent, база не нужна."""
-    return Namespace(
-        name=name,
-        parent=parent,
-        visibility=visibility or "",
-        access=access or "",
-    )
+def ns(name, parent=None, hidden=False, access=None):
+    """Раздел в памяти: chain() ходит по parent, база не нужна."""
+    return Node(pk=id(name), name=name, parent=parent, volume=None, access=access or {}, hidden=hidden)
 
 
-def doc(namespace, visibility=None, access=None):
-    return Document(
-        namespace=namespace,
-        title="d",
-        visibility=visibility or "",
-        access=access or "",
-    )
+class Page:
+    """Страница в памяти с теми же полями, что у wiki.library.Page."""
+
+    def __init__(self, namespace, hidden=False, access=None):
+        self.namespace, self.title, self.hidden, self.access = namespace, "d", hidden, access or {}
+
+
+def doc(namespace, hidden=False, access=None):
+    return Page(namespace, hidden, access)
 
 
 class AccessTests(SimpleTestCase):
@@ -44,22 +41,23 @@ class AccessTests(SimpleTestCase):
         self.assertTrue(document_state(leaf, {"key"}).open)
 
     def test_hidden_parent_hides_document(self):
-        root = ns("root", visibility="key")
+        root = ns("root", hidden=True)
         leaf = doc(ns("child", parent=root))
 
         self.assertFalse(document_state(leaf, frozenset()).visible)
-        self.assertTrue(document_state(leaf, {"key"}).visible)
+        self.assertFalse(namespace_state(leaf.namespace, frozenset()).visible)
 
     def test_document_conditions_apply_on_top_of_namespace(self):
-        leaf = doc(ns("a"), visibility="v", access="k")
+        leaf = doc(ns("a"), hidden=True, access="k")
 
         state = document_state(leaf, frozenset())
         self.assertFalse(state.visible or state.open)
-        state = document_state(leaf, {"v", "k"})
-        self.assertTrue(state.visible and state.open)
+        state = document_state(leaf, {"k"})
+        self.assertFalse(state.visible)                       # скрытая страница скрыта, ключ её не показывает
+        self.assertTrue(state.open)
 
-    def test_direct_link_bypasses_only_visibility(self):
-        leaf = doc(ns("a"), visibility="v", access="k")
+    def test_direct_link_bypasses_only_hiding(self):
+        leaf = doc(ns("a"), hidden=True, access="k")
 
         state = document_state(leaf, frozenset(), via_direct_link=True)
         self.assertTrue(state.visible)

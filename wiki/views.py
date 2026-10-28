@@ -13,8 +13,7 @@ from secure.access import satisfied
 
 from .access import document_state, namespace_state, request_keys
 from .markup import render as render_markup, visible_text
-from .models import Document, Namespace
-from .mounts import mounted_roots
+from .library import library
 from .versioning import WIKI_COUNTS_TTL, WIKI_VERSION_KEY
 
 SEARCH_LIMIT = 100
@@ -87,19 +86,7 @@ def _all_namespaces(request):
     на каждый узел дерева. Список запоминается на запросе: путь, дерево
     и поиск в одном запросе читают таблицу один раз.
     """
-    nodes = getattr(request, "_wiki_namespaces", None)
-    if nodes is None:
-        nodes = list(Namespace.objects.all())
-        by_id = {n.pk: n for n in nodes}
-        for n in nodes:
-            if n.parent_id is not None:
-                n.parent = by_id[n.parent_id]
-        mounts = mounted_roots(request)
-        if mounts is not None:
-            # том, не смонтированный на машине, для игрока не существует: ни в дереве, ни в поиске
-            nodes = [n for n in nodes if n.chain()[0].pk in mounts]
-        request._wiki_namespaces = nodes
-    return nodes
+    return library(request).nodes          # том, не смонтированный на машине, для игрока не существует: ни в дереве, ни в поиске
 
 
 def _tree(request, keys, current):
@@ -116,10 +103,6 @@ def _tree(request, keys, current):
 
     on_path = {n.pk for n in current.chain()} if current else set()
     current_pk = current.pk if current else None
-
-    mounts = mounted_roots(request)
-    if mounts is not None:
-        children[None].sort(key=lambda n: (mounts[n.pk], n.name))
 
     def build(parent_id, depth=0):
         result = []
@@ -271,7 +254,7 @@ def _doc_row(doc, state, keys):
     }
 
 
-def _doc_rows(ns, keys):
+def _doc_rows(request, ns, keys):
     """Строки таблицы документов неймспейса (только видимые).
 
     Строка зависит только от записи и набора ключей (размер, сумма и выдержка считаются по видимому тексту),
@@ -281,15 +264,14 @@ def _doc_rows(ns, keys):
     cache_key = f"wiki:rows:{cache.get(WIKI_VERSION_KEY, 0)}:{ns.pk if ns else 0}:{who}"
     rows = cache.get(cache_key)
     if rows is None:
-        rows = _build_doc_rows(ns, keys)
+        rows = _build_doc_rows(request, ns, keys)
         cache.set(cache_key, rows, WIKI_COUNTS_TTL)
     return rows
 
 
-def _build_doc_rows(ns, keys):
+def _build_doc_rows(request, ns, keys):
     rows = []
-    for doc in Document.objects.filter(namespace=ns):
-        doc.namespace = ns  # чтобы не ходить в базу за родителем на каждой строке
+    for doc in library(request).pages_in(ns):
         s = document_state(doc, keys)
         if not s.visible:
             continue
@@ -303,32 +285,26 @@ def _article_counts(request, keys):
     Считаются только записи, которые игрок видит: скрытое и несмонтированное не попадает
     даже в число. Результат общий для всех с одним набором ключей и монтирований, пока вики не менялась.
     """
-    mounts = mounted_roots(request)
-    who = hashlib.md5(
-        f"{sorted(keys)}|{sorted(mounts.items()) if mounts is not None else None}".encode()
-    ).hexdigest()
+    lib = library(request)
+    who = hashlib.md5(f"{sorted(keys)}|{sorted(lib.by_pk)}".encode()).hexdigest()
     cache_key = f"wiki:counts:{cache.get(WIKI_VERSION_KEY, 0)}:{who}"
     found = cache.get(cache_key)
     if found is not None:
         counts, total = found
         return defaultdict(int, counts), total
 
-    by_id = {n.pk: n for n in _all_namespaces(request)}
     # условия цепочки считаются один раз на неймспейс, а не на каждую запись в нём
-    visible_ns = {pk: namespace_state(n, keys).visible for pk, n in by_id.items()}
+    visible_ns = {pk: namespace_state(n, keys).visible for pk, n in lib.by_pk.items()}
     counts = defaultdict(int)
     total = 0
 
-    for namespace_id, visibility in Document.objects.values_list("namespace_id", "visibility"):
-        if namespace_id is not None and not visible_ns.get(namespace_id, False):
-            continue
-        if not satisfied(visibility, keys):
+    for page in lib.pages:
+        if not visible_ns.get(page.namespace.pk, False) or page.hidden:
             continue
 
         total += 1
-        if namespace_id is not None:
-            for node in by_id[namespace_id].chain():
-                counts[node.pk] += 1
+        for node in page.namespace.chain():
+            counts[node.pk] += 1
 
     cache.set(cache_key, (dict(counts), total), WIKI_COUNTS_TTL)
     return counts, total
@@ -384,7 +360,7 @@ def _namespace_page(request, ns):
 
     tree = _tree(request, keys, ns)
     crumbs = _path_bar(ns)
-    documents = [] if locked else _doc_rows(ns, keys)
+    documents = [] if locked else _doc_rows(request, ns, keys)
     folders = [] if locked else _folders(tree, ns)
     counts, total = _article_counts(request, keys)
     _annotate_counts(tree["children"], counts)
@@ -468,8 +444,9 @@ def resolve(request, path=""):
     if not parts:
         return _namespace_page(request, None)
 
-    # путь разбирается по списку неймспейсов в памяти: один запрос на любую глубину
-    by_name = {(n.parent_id, n.name): n for n in _all_namespaces(request)}
+    # путь разбирается по списку разделов в памяти: один набор запросов на любую глубину
+    lib = library(request)
+    by_name = lib.by_name
 
     current = None
     for part in parts[:-1]:
@@ -481,22 +458,16 @@ def resolve(request, path=""):
     ns = by_name.get((current.pk if current else None, last))
     if ns is not None:
         return _namespace_page(request, ns)
-    doc = Document.objects.filter(namespace=current, title=last).first()
+    doc = lib.page_at(current, last)
     if doc is not None:
-        doc.namespace = current  # уже с привязанными родителями
         return _document_page(request, doc)
     raise Http404
 
 
 def direct(request, link):
-    doc = Document.objects.filter(direct_link=link).first()
+    doc = library(request).by_slug.get(link)
     if doc is None:
-        raise Http404
-    if doc.namespace_id is not None:
-        by_id = {n.pk: n for n in _all_namespaces(request)}
-        doc.namespace = by_id.get(doc.namespace_id)
-        if doc.namespace is None:
-            raise Http404  # том не смонтирован на этой машине
+        raise Http404                  # такой записи нет или её том не смонтирован на этой машине
     return _document_page(request, doc, via_direct_link=True)
 
 
@@ -546,28 +517,18 @@ def search(request):
         if not (scope_state.visible and scope_state.open):
             return JsonResponse({"rows": []})
 
-    # предварительный отбор в базе, точная проверка дальше в Python
-    candidates = Document.objects.filter(
-        Q(title__icontains=word) | Q(body__icontains=word)
-    )
+    candidates = library(request).pages
+    needle = word.casefold()
+    candidates = [page for page in candidates if needle in page.title.casefold() or needle in page.body.casefold()]
 
     if scope is not None:
         # раздел и все его потомки (chain() каждого содержит раздел)
-        in_scope = {
-            n.pk
-            for n in all_ns
-            if any(x.pk == scope.pk for x in n.chain())
-        }
-        candidates = candidates.filter(namespace_id__in=in_scope)
+        candidates = [page for page in candidates if any(x.pk == scope.pk for x in page.namespace.chain())]
 
     needle = word.casefold()
 
     rows = []
     for doc in candidates:
-        if doc.namespace_id is not None and doc.namespace_id not in namespaces:
-            continue  # том не смонтирован на этой машине
-        doc.namespace = namespaces.get(doc.namespace_id)
-
         if doc.namespace is not None:
             ns_state = namespace_state(doc.namespace, keys)
             if not (ns_state.visible and ns_state.open):

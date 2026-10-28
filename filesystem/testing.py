@@ -178,11 +178,11 @@ def give_keys(user, *slugs):
         machine = Machine.objects.create(name=f"keys-{user.pk}", hostname=f"keys-{user.pk}")
         profile = MachineProfile.objects.create(machine=machine, user=user, name=user.get_username(), login="keys", freq=1)
         session = Session.objects.create(user=user, profile=profile)
-        from machines.models import VolumeMount
-        from wiki.models import Namespace
+        from filesystem.models import Volume
+        from machines.models import MachineMount
 
-        for order, root in enumerate(Namespace.objects.filter(parent=None)):             # вики машины видна целиком
-            VolumeMount.objects.create(machine=machine, namespace=root, order=order)
+        for order, volume in enumerate(Volume.objects.order_by("pk")):                    # вики машины видна целиком
+            MachineMount.objects.create(machine=machine, volume=volume, mount_path="", order=order)
     machine = session.profile.machine
     root_volume(machine)
     view = MachineView(machine, user)

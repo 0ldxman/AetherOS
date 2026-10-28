@@ -93,7 +93,7 @@ def namespace_state(namespace, keys):
     """Состояние неймспейса: условия всей цепочки от корня до него."""
     nodes = namespace.chain()
     return State(
-        visible=_all_satisfied([n.visibility for n in nodes], keys),
+        visible=not any(n.hidden for n in nodes),
         open=_all_satisfied([n.access for n in nodes], keys),
     )
 
@@ -105,9 +105,7 @@ def document_state(doc, keys, via_direct_link=False):
     Открытость по ключам остаётся в силе.
     """
     nodes = doc.namespace.chain() if doc.namespace else []
-    visible = via_direct_link or _all_satisfied(
-        [n.visibility for n in nodes] + [doc.visibility], keys
-    )
+    visible = via_direct_link or not (any(n.hidden for n in nodes) or doc.hidden)
     is_open = _all_satisfied(
         [n.access for n in nodes] + [doc.access], keys
     )

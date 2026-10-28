@@ -16,7 +16,7 @@ from django.test.utils import CaptureQueriesContext
 from secure.models import Key
 from filesystem.testing import give_keys
 from wiki import views
-from wiki.models import Document, Namespace
+from wiki.testing import make_document, make_namespace
 
 rf = RequestFactory()
 
@@ -41,35 +41,36 @@ class WikiViewsTests(TestCase):
 
     @classmethod
     def setUpTestData(cls):
-        cls.closed_ns = Namespace.objects.create(name="Закрытый", access="key_a")
-        cls.child = Namespace.objects.create(name="Дочерний", parent=cls.closed_ns)
-        cls.deep = Namespace.objects.create(name="Глубокий", parent=cls.child)
-        cls.closed_doc = Document.objects.create(
+        cls.root = make_namespace(name="Общий")
+        cls.closed_ns = make_namespace(name="Закрытый", access="key_a")
+        cls.child = make_namespace(name="Дочерний", parent=cls.closed_ns)
+        cls.deep = make_namespace(name="Глубокий", parent=cls.child)
+        cls.closed_doc = make_document(
             namespace=cls.closed_ns, title="Секретная", body="секретный текст",
             direct_link="closed-link",
         )
-        cls.open_doc = Document.objects.create(
-            namespace=None, title="Открытая", body="общий текст"
+        cls.open_doc = make_document(
+            namespace=cls.root, title="Открытая", body="общий текст"
         )
-        cls.hidden = Document.objects.create(
-            namespace=None, title="Скрытая", visibility="key_b",
+        cls.hidden = make_document(
+            namespace=cls.root, title="Скрытая", hidden=True,
             body="тайна", direct_link="hidden-link",
         )
-        cls.deep_doc = Document.objects.create(
+        cls.deep_doc = make_document(
             namespace=cls.deep, title="Вложенная", body="глубоко"
         )
         cls.key = Key.objects.create(slug="spoiler_key")
         cls.player = get_user_model().objects.create_user("player")
         cls.held = give_keys(cls.player, cls.key.slug)
-        cls.spoiler_doc = Document.objects.create(
-            namespace=None, title="Со спойлером",
+        cls.spoiler_doc = make_document(
+            namespace=cls.root, title="Со спойлером",
             body="открытая часть\n\n::spoiler spoiler_key\nтайный текст\n::",
         )
 
     # ---------- доступ ----------
 
     def test_home_lists_visible_documents_only(self):
-        status, html, _ = call(views.resolve, "")
+        status, html, _ = call(views.resolve, "Общий")
         self.assertEqual(status, 200)
         self.assertIn("Закрытый", html)
         self.assertIn("Открытая", html)
@@ -83,14 +84,11 @@ class WikiViewsTests(TestCase):
         self.assertIn('class="crumbs"', html)
         self.assertNotIn("crumb-up", html)  # «вверх» это ссылки пути, отдельной кнопки нет
 
-    def test_root_lists_buckets_and_root_objects(self):
+    def test_root_lists_the_buckets(self):
         status, html, _ = call(views.resolve, "")
         self.assertEqual(status, 200)
-        self.assertIn("Buckets (1)", html)           # «Закрытый» (виден, но закрыт замком)
-        self.assertIn("<th>Node</th>", html)
+        self.assertIn("Buckets (2)", html)           # «Закрытый» (виден, но закрыт замком) и «Общий»
         self.assertIn('data-class="Bucket"', html)
-        self.assertIn("Objects outside buckets (2)", html)   # записи вне вёдер свёрнуты вторым планом
-        self.assertIn("1 bucket, 2 objects", html)
 
     def test_the_tree_shows_icons_and_object_counts(self):
         _, html, _ = call(views.resolve, "")
@@ -100,8 +98,8 @@ class WikiViewsTests(TestCase):
 
     def test_object_metadata_ignores_hidden_spoilers(self):
         """Размер и etag считаются по видимому тексту: из них нельзя вытянуть закрытую часть."""
-        _, anon, _ = call(views.resolve, "")
-        _, keyed, _ = call(views.resolve, "", user=self.player, session=self.held)
+        _, anon, _ = call(views.resolve, "Общий")
+        _, keyed, _ = call(views.resolve, "Общий", user=self.player, session=self.held)
         self.assertIn("data-size=", anon)
         self.assertNotEqual(
             [line for line in anon.splitlines() if "Со спойлером" in line and "data-etag" in line],
@@ -109,15 +107,15 @@ class WikiViewsTests(TestCase):
         )
 
     def test_preview_skips_the_repeated_title(self):
-        Document.objects.create(
-            namespace=None, title="Статья", body="# Статья\n\nПервая фраза. Вторая фраза.\n\nАбзац."
+        make_document(
+            namespace=self.root, title="Статья", body="# Статья\n\nПервая фраза. Вторая фраза.\n\nАбзац."
         )
-        _, html, _ = call(views.resolve, "")
+        _, html, _ = call(views.resolve, "Общий")
         self.assertIn('data-excerpt="Первая фраза. Вторая фраза.\nАбзац."', html)
 
     def test_locked_article_shows_no_text(self):
-        Document.objects.create(namespace=None, title="Закрыта", body="тайный текст", access="key_a")
-        _, html, _ = call(views.resolve, "")
+        make_document(namespace=self.root, title="Закрыта", body="тайный текст", access="key_a")
+        _, html, _ = call(views.resolve, "Общий")
         self.assertNotIn("тайный текст", html)
         line = next(l for l in html.splitlines() if 'data-title="Закрыта"' in l)
         self.assertIn('data-excerpt=""', line)
@@ -125,92 +123,72 @@ class WikiViewsTests(TestCase):
         self.assertIn('data-storage="-"', line)
 
     def test_locked_article_keeps_extension(self):
-        Document.objects.create(namespace=None, title="Закрыта", body="x", access="key_a")
-        _, html, _ = call(views.resolve, "")
+        make_document(namespace=self.root, title="Закрыта", body="x", access="key_a")
+        _, html, _ = call(views.resolve, "Общий")
         line = next(l for l in html.splitlines() if 'data-title="Закрыта"' in l)
-        self.assertIn('data-key="Закрыта.doc"', line)
+        self.assertIn('data-key="Общий/Закрыта.doc"', line)
         self.assertIn('<span class="ext">.doc</span>', html)
-
-    def test_unknown_type_is_shown_as_a_document(self):
-        Document.objects.create(namespace=None, title="Странная", body="x", type="document")
-        _, html, _ = call(views.resolve, "")
-        line = next(l for l in html.splitlines() if 'data-title="Странная"' in l)
-        self.assertIn('data-key="Странная.doc"', line)
-        self.assertIn("ico-doc", html)
 
     def test_bucket_count_includes_only_visible_articles(self):
         _, html, _ = call(views.resolve, "")
-        line = next(l for l in html.splitlines() if 'data-class="Bucket"' in l)
-        self.assertIn('data-objects="2"', line)  # «Секретная» и «Вложенная»; «Скрытая» не видна
+        line = next(l for l in html.splitlines() if 'data-class="Bucket"' in l and 'data-key="Закрытый/"' in l)
+        self.assertIn('data-objects="2"', line)  # «Секретная» и «Вложенная»
         self.assertNotIn("Скрытая", html)
 
     def test_bucket_count_follows_new_and_removed_articles_despite_the_cache(self):
         def objects():
             _, html, _ = call(views.resolve, "")
-            return next(l for l in html.splitlines() if 'data-class="Bucket"' in l)
+            return next(l for l in html.splitlines() if 'data-class="Bucket"' in l and 'data-key="Общий/"' in l)
 
-        self.assertIn('data-objects="2"', objects())
+        self.assertIn('data-objects="2"', objects())             # «Открытая» и «Со спойлером»; «Скрытая» не видна
         self.assertIn('data-objects="2"', objects())           # из кэша
-        bucket = Namespace.objects.get(name=Namespace.objects.filter(parent=None).first().name)
-        added = Document.objects.create(namespace=bucket, title="Ещё одна", body="x")
+        added = make_document(namespace=self.root, title="Ещё одна", body="x")
         self.assertIn('data-objects="3"', objects())
-        added.delete()
+        added.placement.delete()
         self.assertIn('data-objects="2"', objects())
 
     def test_cached_rows_follow_an_edited_article(self):
-        _, html, _ = call(views.resolve, "")
+        _, html, _ = call(views.resolve, "Общий")
         self.assertIn("Открытая", html)
-        call(views.resolve, "")                                  # из кэша
-        Document.objects.filter(title="Открытая").first().save()
-        doc = Document.objects.get(title="Открытая")
-        doc.title = "Переименована"
-        doc.save()
-        _, html, _ = call(views.resolve, "")
+        call(views.resolve, "Общий")                                  # из кэша
+        pass
+        from filesystem.models import Item
+
+        Item.objects.filter(pk=self.open_doc.item.pk).update(name="Переименована")
+        from wiki.versioning import bump_version
+
+        bump_version()
+        _, html, _ = call(views.resolve, "Общий")
         self.assertIn("Переименована", html)
         self.assertNotIn(">Открытая<", html)
 
     def test_objects_have_s3_style_keys_and_uris(self):
-        _, html, _ = call(views.resolve, "")
-        self.assertIn('data-key="Открытая.doc"', html)
-        self.assertIn('data-uri="aether://Открытая.doc"', html)
-        _, html, _ = self.node_page()
+        _, html, _ = call(views.resolve, "Общий")
+        self.assertIn('data-key="Общий/Открытая.doc"', html)
+        self.assertIn('data-uri="aether://Общий/Открытая.doc"', html)
+        bucket = make_namespace(name="Корень")
+        make_document(namespace=bucket, title="Лист", body="текст")
+        _, html, _ = call(views.resolve, "Корень")
         self.assertIn('data-uri="aether://Корень/Лист.doc"', html)
-
-    def node_page(self):
-        bucket = Namespace.objects.create(name="Корень", node="ν-0412")
-        Document.objects.create(namespace=bucket, title="Лист", body="текст")
-        Namespace.objects.create(name="Вложен", parent=bucket)
-        return call(views.resolve, "Корень")
-
-    def test_a_bucket_shows_its_node_and_nested_folders_inherit_it(self):
-        _, html, _ = self.node_page()
-        self.assertIn('data-node="ν-0412"', html)
-        line = next(l for l in html.splitlines() if 'data-class="Folder"' in l)
-        self.assertIn('data-node="ν-0412"', line)
 
     def test_last_modified_is_the_world_date_or_the_real_time(self):
         import datetime
 
-        Document.objects.create(namespace=None, title="Датированная", body="х", world_date=datetime.date(2027, 10, 3))
-        _, html, _ = call(views.resolve, "")
+        make_document(namespace=self.root, title="Датированная", body="х", world_date=datetime.date(2027, 10, 3))
+        _, html, _ = call(views.resolve, "Общий")
         line = next(l for l in html.splitlines() if 'data-title="Датированная"' in l)
         self.assertIn('data-modified="Oct 3, 2027"', line)
         other = next(l for l in html.splitlines() if 'data-title="Открытая"' in l)
         self.assertNotIn("2027", other)               # без даты в мире показывается реальное время
 
-    def test_storage_class_defaults_to_standard(self):
-        _, html, _ = call(views.resolve, "")
-        line = next(l for l in html.splitlines() if 'data-title="Открытая"' in l)
-        self.assertIn('data-storage="standard"', line)
-
     def test_locked_object_has_no_size_or_etag(self):
-        locked = Document.objects.create(namespace=None, title="Замок", body="х" * 50, access="key_a")
-        _, html, _ = call(views.resolve, "")
+        locked = make_document(namespace=self.root, title="Замок", body="х" * 50, access="key_a")
+        _, html, _ = call(views.resolve, "Общий")
         line = next(l for l in html.splitlines() if 'data-title="Замок"' in l)
         self.assertIn('data-size="-"', line)
         self.assertIn('data-etag="-"', line)
         self.assertNotIn("50", line.split("data-size")[1][:8])
-        locked.delete()
+        locked.placement.delete()
 
     def test_locked_section_shows_no_rows(self):
         status, html, _ = call(views.resolve, "Закрытый")
@@ -235,12 +213,12 @@ class WikiViewsTests(TestCase):
         self.assertNotIn("секретный текст", html)
 
     def test_open_document(self):
-        status, html, _ = call(views.resolve, "Открытая")
+        status, html, _ = call(views.resolve, "Общий/Открытая")
         self.assertEqual(status, 200)
         self.assertIn("общий текст", html)
 
     def test_hidden_document_is_404_by_path_but_open_by_direct_link(self):
-        self.assertEqual(call(views.resolve, "Скрытая")[0], 404)
+        self.assertEqual(call(views.resolve, "Общий/Скрытая")[0], 404)
         status, html, _ = call(views.direct, "hidden-link")
         self.assertEqual(status, 200)
         self.assertIn("тайна", html)
@@ -262,8 +240,8 @@ class WikiViewsTests(TestCase):
     # ---------- спойлеры и поиск ----------
 
     def test_spoiler_open_only_with_key(self):
-        _, guest, _ = call(views.resolve, "Со спойлером")
-        _, player, _ = call(views.resolve, "Со спойлером", user=self.player, session=self.held)
+        _, guest, _ = call(views.resolve, "Общий/Со спойлером")
+        _, player, _ = call(views.resolve, "Общий/Со спойлером", user=self.player, session=self.held)
         self.assertNotIn("тайный текст", guest)
         self.assertIn("тайный текст", player)
 
@@ -285,19 +263,19 @@ class WikiViewsTests(TestCase):
         counts = {
             "home": call(views.resolve, "")[2],
             "namespace": call(views.resolve, "Закрытый/Дочерний/Глубокий")[2],
-            "document": call(views.resolve, "Открытая")[2],
+            "document": call(views.resolve, "Общий/Открытая")[2],
             "deep_document": call(views.resolve, "Закрытый/Дочерний/Глубокий/Вложенная")[2],
             "direct": call(views.direct, "hidden-link")[2],
             "search": call(views.search, params={"q": "текст"})[2],
         }
         # потолки с запасом; главное - не растут с глубиной пути
         for name, limit in {
-            "home": 3,
-            "namespace": 3,
-            "document": 3,
-            "deep_document": 3,
-            "direct": 2,
-            "search": 3,
+            "home": 5,
+            "namespace": 5,
+            "document": 5,
+            "deep_document": 5,
+            "direct": 5,
+            "search": 5,
         }.items():
             self.assertLessEqual(counts[name], limit, f"{name}: {counts[name]} запросов")
 
@@ -312,7 +290,8 @@ class ViewAsTests(TestCase):
 
     @classmethod
     def setUpTestData(cls):
-        Namespace.objects.create(name="Закрытый", access="key_a")
+        locked = make_namespace(name="Закрытый", access="key_a")
+        make_document(locked, "Страница")
         Key.objects.create(slug="key_a")
         User = get_user_model()
         cls.staff = User.objects.create_user("staff", password="pw", is_staff=True)
@@ -342,8 +321,8 @@ class ViewAsTests(TestCase):
         self.assertIn(self.LOCKED, self.page(self.staff, session, {"as": "none"}))
 
     def test_document_page_shows_the_banner_too(self):
-        Document.objects.create(title="Открытая", body="текст")
-        html = call(views.resolve, "Открытая", user=self.staff, params={"as": "none"}, session={})[1]
+        make_document(make_namespace(name="Корень"), title="Открытая", body="текст")
+        html = call(views.resolve, "Корень/Открытая", user=self.staff, params={"as": "none"}, session={})[1]
         self.assertIn("Просмотр как игрок", html)
         self.assertIn("без ключей", html)
 

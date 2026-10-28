@@ -16,6 +16,9 @@ class WikiConfig(AppConfig):
             dispatch_uid="wiki_record_revision",
         )
 
-        for model in (Document, Namespace):
+        from filesystem.models import Item, Placement, Volume
+        from machines.models import MachineMount
+
+        for model in (Document, Namespace, Item, Placement, Volume, MachineMount):
             post_save.connect(lambda **kw: bump_version(), sender=model, weak=False, dispatch_uid=f"wiki-bump-{model.__name__}")
             post_delete.connect(lambda **kw: bump_version(), sender=model, weak=False, dispatch_uid=f"wiki-bump-del-{model.__name__}")

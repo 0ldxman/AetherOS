@@ -1634,23 +1634,25 @@ class RawCommandTests(TestCase):
             self.assertEqual(self.run_command(command)["exit_code"], 2, command)
 
     def test_a_key_in_the_secrets_folder_opens_what_needs_it_and_deleting_the_file_takes_it_back(self):
-        from machines.models import MachineApp, Session
-        from wiki.models import Document, Namespace
+        from filesystem.models import Volume
+        from machines.models import MachineApp, MachineMount, Session
+        from wiki.testing import make_document, make_namespace
 
         MachineApp.objects.create(machine=self.main, label="wiki", glyph="W", path="/apps/wiki/")
-        Document.objects.create(namespace=None, title="Gated", type="rec", body="x",
-                                access={"all": ["secret_a"]})
+        section = make_namespace("Section")
+        make_document(section, "Gated", type="rec", body="x", access={"all": ["secret_a"]})
+        MachineMount.objects.create(machine=self.main, volume=section.volume, mount_path="", order=5)
         self.keyed_file()
         offset = self.offset_of_block("/home/keyed.rec")
         session = Session.objects.get(user=self.user)
         stored = self.client.session
         stored["machine_session_id"] = session.pk
         stored.save()
-        self.assertEqual(self.client.get("/apps/wiki/Gated").status_code, 403)
+        self.assertEqual(self.client.get("/apps/wiki/Section/Gated").status_code, 403)
         self.run_command(f"kex /home/keyed.rec {offset}")
-        self.assertEqual(self.client.get("/apps/wiki/Gated").status_code, 200)
+        self.assertEqual(self.client.get("/apps/wiki/Section/Gated").status_code, 200)
         self.run_command("del -f /home/.secrets/secret_a")
-        self.assertEqual(self.client.get("/apps/wiki/Gated").status_code, 403)
+        self.assertEqual(self.client.get("/apps/wiki/Section/Gated").status_code, 403)
 
     def test_cvt_needs_one_of_its_two_forms(self):
         for command in ("cvt", "cvt /home/skin.dat pdf", "cvt ext /home/skin.dat", "cvt enc utf16"):
