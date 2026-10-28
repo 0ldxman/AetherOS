@@ -1,4 +1,13 @@
+import uuid
+
+from django.conf import settings
+from django.core.exceptions import ValidationError
+from django.core.validators import URLValidator
 from django.db import models
+from django.db.models import Q
+
+from filesystem.names import normalize_inner, validate_name
+from secure.access import validate_requirements
 
 
 class MachineFile(models.Model):
@@ -327,6 +336,33 @@ class FileFormat(models.Model):
         ),
     )
 
+    class Content(models.TextChoices):
+        TEXT = "text", "Текст"
+        TEXT_ASSET = "text_asset", "Текст или ассет"
+        ASSET = "asset", "Ассет"
+        LINK_ASSET = "link_asset", "Ссылка или ассет"
+        SCENE = "scene", "Сцена карты"
+        MESSAGE = "message", "Письмо"
+        NONE = "none", "Без содержимого"
+
+    content = models.CharField(
+        "Содержимое",
+        max_length=16,
+        choices=Content.choices,
+        default=Content.TEXT_ASSET,
+        help_text="Что вводится у объекта этого формата: текст, ассет из хранилища, ссылка, сцена карты, письмо или ничего.",
+    )
+    page = models.BooleanField(
+        "Страница вики",
+        default=False,
+        help_text="Объект этого формата показывается в вики как страница.",
+    )
+    editable = models.BooleanField(
+        "Можно править",
+        default=False,
+        help_text="Игрок может править файлы этого формата (edt). Выключено у форматов вроде PDF.",
+    )
+
     class Meta:
         ordering = ("name",)
         verbose_name = "Формат файла"
@@ -404,3 +440,362 @@ class FileEncoding(models.Model):
     def __str__(self):
         return self.name
 
+
+
+# ----------------------------------------------------------------------------------------------------------------------
+# Тома и объекты (docs/storage-spec.md)
+# ----------------------------------------------------------------------------------------------------------------------
+
+KEY_FORMAT = "key"             # объект этого формата это ключ: его слаг входит в условия доступа
+MAX_DEPTH = 16                 # самая глубокая вложенность папок в томе
+
+
+REQUIRED_CONTENT = {"asset", "link_asset", "scene", "message"}       # этим форматам без содержимого делать нечего
+ALLOWED_CONTENT = {                                                  # какие поля объекта использует формат (FileFormat.content)
+    "text": {"body"},
+    "text_asset": {"body", "asset"},
+    "asset": {"asset"},
+    "link_asset": {"url", "asset"},
+    "scene": {"scene"},
+    "message": {"message"},
+    "none": set(),
+}
+
+
+class Item(models.Model):
+    """Объект: любой файл сам по себе. Не привязан ни к тому, ни к машине: в том его кладёт Placement (так один объект лежит
+    в нескольких томах без дубликатов).
+
+    Что вводится в содержимое, зависит от формата (FileFormat.content): текст, ассет, ссылка, сцена карты, письмо.
+    """
+
+    slug = models.SlugField("Слаг", max_length=64, unique=True, help_text="Короткий идентификатор: латиница, цифры, «-» и «_».")
+    name = models.CharField("Название", max_length=200, validators=[validate_name], help_text="Имя файла без расширения.")
+    format = models.SlugField(
+        "Формат", max_length=32, blank=True, help_text="Имя формата из реестра (scan, doc, key, conf...). Пусто: файл без формата.",
+    )
+
+    # содержимое
+    body = models.TextField("Текст", blank=True)
+    asset = models.ForeignKey(
+        "assets.Asset", null=True, blank=True, on_delete=models.PROTECT, related_name="items", verbose_name="Ассет",
+    )
+    url = models.CharField(
+        "Ссылка", max_length=2048, blank=True,
+        validators=[URLValidator(schemes=["http", "https"])],
+        help_text="Внешний адрес: окно его показывает, а байты файла генерируются.",
+    )
+    scene = models.ForeignKey(
+        "map.MapScene", null=True, blank=True, on_delete=models.PROTECT, related_name="items", verbose_name="Сцена карты",
+    )
+    message = models.ForeignKey(
+        "mail.Message", null=True, blank=True, on_delete=models.PROTECT, related_name="items", verbose_name="Письмо",
+    )
+
+    # доступ и внутренности
+    access = models.JSONField(
+        "Доступ", default=dict, blank=True, validators=[validate_requirements],
+        help_text="Кому открыто содержимое: условие по слагам ключей. Пусто: всем.",
+    )
+    state = models.TextField("Слои защиты", blank=True)
+
+    # метаданные
+    size = models.PositiveBigIntegerField(
+        "Размер", null=True, blank=True,
+        help_text="Если не указан, считается по содержимому.",
+    )
+    meta = models.TextField("Метаинформация", blank=True, help_text="Свободный текст или разметка: дополнительное окно любого приложения.")
+    world_created_at = models.DateField("Создан (в мире)", null=True, blank=True)
+    world_updated_at = models.DateField("Изменён (в мире)", null=True, blank=True)
+    world_creator = models.CharField("Автор (в мире)", max_length=128, blank=True)
+
+    # админское
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL, related_name="+",
+    )
+    updated_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL, related_name="+",
+    )
+
+    class Meta:
+        ordering = ("name", "slug")
+        verbose_name = "Объект"
+        verbose_name_plural = "Объекты"
+
+    def __str__(self):
+        return f"{self.name} [{self.slug}]"
+
+    def file_format(self):
+        """Запись реестра форматов этого объекта или None."""
+        return FileFormat.objects.filter(name=self.format).first() if self.format else None
+
+    @property
+    def default_filename(self):
+        """Имя файла по умолчанию: название и расширение формата."""
+        found = self.file_format()
+        return self.name + (found.extension if found else "")
+
+    def clean(self):
+        super().clean()
+        found = self.file_format()
+        if self.format and found is None:
+            raise ValidationError({"format": "Такого формата нет в реестре."})
+
+        used = {
+            "body": bool(self.body.strip()),
+            "asset": self.asset_id is not None,
+            "url": bool(self.url),
+            "scene": self.scene_id is not None,
+            "message": self.message_id is not None,
+        }
+        allowed = ALLOWED_CONTENT[found.content if found else "text_asset"]
+        labels = {"body": "текст", "asset": "ассет", "url": "ссылка", "scene": "сцена карты", "message": "письмо"}
+
+        errors = {}
+        for field, filled in used.items():
+            if filled and field not in allowed:
+                errors[field] = "Для этого формата это поле не используется."
+        if not errors:
+            chosen = [field for field in allowed if used[field]]
+            names = " или ".join(labels[field] for field in sorted(allowed))
+            if len(chosen) > 1:
+                errors["__all__"] = f"Выберите одно из содержимого: {names}."
+            elif not chosen and found and found.content in REQUIRED_CONTENT:
+                errors["__all__"] = f"Нужно указать содержимое: {names}."
+        if errors:
+            raise ValidationError(errors)
+
+
+class ItemKey(models.Model):
+    """Ключ, внедрённый в файл: его блок лежит в байтах объекта и открывается вместе со слоями."""
+
+    item = models.ForeignKey(Item, on_delete=models.CASCADE, related_name="keys")
+    key = models.ForeignKey(Item, on_delete=models.PROTECT, related_name="embedded_in", limit_choices_to={"format": KEY_FORMAT})
+
+    class Meta:
+        constraints = [models.UniqueConstraint(fields=("item", "key"), name="unique_item_key")]
+        verbose_name = "Внедрённый ключ"
+        verbose_name_plural = "Внедрённые ключи"
+
+    def __str__(self):
+        return f"{self.item.slug}: {self.key.slug}"
+
+    def clean(self):
+        super().clean()
+        if self.key_id and self.key.format != KEY_FORMAT:
+            raise ValidationError({"key": "Это не ключ: у объекта должен быть формат «key»."})
+        if self.key_id and self.key_id == self.item_id:
+            raise ValidationError({"key": "Объект не может содержать сам себя."})
+
+
+class ItemSignature(models.Model):
+    """Подпись ключа под объектом, встроенная автором."""
+
+    item = models.ForeignKey(Item, on_delete=models.CASCADE, related_name="signatures")
+    key = models.ForeignKey(Item, on_delete=models.PROTECT, related_name="signed", limit_choices_to={"format": KEY_FORMAT})
+    valid = models.BooleanField(default=True, help_text="Снять отметку: подпись не сходится (подделка).")
+    date = models.DateField(null=True, blank=True, help_text="Дата подписи в мире игры (необязательно).")
+
+    class Meta:
+        constraints = [models.UniqueConstraint(fields=("item", "key"), name="unique_item_signature")]
+        verbose_name = "Подпись"
+        verbose_name_plural = "Подписи"
+
+    def __str__(self):
+        return f"{self.item.slug}: {self.key.slug}"
+
+    def clean(self):
+        super().clean()
+        if self.key_id and self.key.format != KEY_FORMAT:
+            raise ValidationError({"key": "Это не ключ: у объекта должен быть формат «key»."})
+
+
+class Volume(models.Model):
+    """Том: дерево папок и объектов. Не знает, на какой машине лежит; машина монтирует том (machines.MachineMount)."""
+
+    slug = models.SlugField("Слаг", max_length=64, unique=True, help_text="Идентификатор для админки и импорта; в игре не виден.")
+    name = models.CharField("Название диска", max_length=128, blank=True, help_text="Как диск называется в игре (проводник, df, vol).")
+    uuid = models.UUIDField("UUID", default=uuid.uuid4, unique=True, help_text="Идентификатор в fstab и df; можно задать свой.")
+    label = models.CharField("Метка для админки", max_length=128, blank=True, help_text="Чтобы искать том в списках; игрок её не видит.")
+    access = models.JSONField(
+        "Доступ", default=dict, blank=True, validators=[validate_requirements],
+        help_text="Условие по слагам ключей, закрывающее весь том. Пусто: всем.",
+    )
+
+    class Meta:
+        ordering = ("slug",)
+        verbose_name = "Том"
+        verbose_name_plural = "Тома"
+
+    def __str__(self):
+        return f"{self.slug} ({self.label})" if self.label else self.slug
+
+
+class Placement(models.Model):
+    """Строка дерева тома: папка, объект или надгробие. Так объект кладётся в том."""
+
+    class Kind(models.TextChoices):
+        FOLDER = "folder", "Папка"
+        ITEM = "item", "Объект"
+        WHITEOUT = "whiteout", "Надгробие"
+
+    class Mode(models.TextChoices):
+        INHERIT = "inherit", "Как у объекта"
+        REPLACE = "replace", "Заменить"
+        NONE = "none", "Нет"
+
+    volume = models.ForeignKey(Volume, on_delete=models.CASCADE, related_name="placements")
+    parent = models.ForeignKey("self", null=True, blank=True, on_delete=models.CASCADE, related_name="children")
+    kind = models.CharField(max_length=8, choices=Kind.choices, default=Kind.ITEM)
+    name = models.CharField(
+        "Имя", max_length=255, blank=True, validators=[validate_name],
+        help_text="Имя в этом месте. Пусто: берётся имя объекта с расширением формата. Точка в начале скрывает файл.",
+    )
+    item = models.ForeignKey(Item, null=True, blank=True, on_delete=models.PROTECT, related_name="placements", verbose_name="Объект")
+    hidden = models.BooleanField("Скрыт", default=False, help_text="Скрытое не показывает ls без -a.")
+
+    access_mode = models.CharField("Доступ", max_length=8, choices=Mode.choices, default=Mode.INHERIT)
+    access = models.JSONField("Условие доступа", default=dict, blank=True, validators=[validate_requirements])
+    state_mode = models.CharField("Слои", max_length=8, choices=Mode.choices, default=Mode.INHERIT)
+    state = models.TextField("Слои защиты", blank=True)
+
+    system = models.BooleanField("Системный", default=False, help_text="Игрок не может удалить.")
+
+    class Meta:
+        ordering = ("volume", "parent_id", "name")
+        verbose_name = "Размещение"
+        verbose_name_plural = "Размещения"
+        constraints = [
+            models.UniqueConstraint(fields=("volume", "parent", "name"), condition=Q(parent__isnull=False), name="unique_placement_name"),
+            models.UniqueConstraint(fields=("volume", "name"), condition=Q(parent__isnull=True), name="unique_placement_root_name"),
+            models.CheckConstraint(
+                condition=(Q(kind="item", item__isnull=False) | (~Q(kind="item") & Q(item__isnull=True))),
+                name="placement_item_only_for_items",
+            ),
+        ]
+
+    def __str__(self):
+        return f"{self.volume.slug}:/{self.path()}"
+
+    def path(self):
+        """Путь внутри тома (без ведущего слэша)."""
+        names, node, seen = [], self, set()
+        while node is not None and node.pk not in seen:
+            names.append(node.name)
+            seen.add(node.pk)
+            node = node.parent
+        return "/".join(reversed(names))
+
+    def depth(self):
+        depth, node, seen = 0, self.parent, set()
+        while node is not None and node.pk not in seen:
+            depth += 1
+            seen.add(node.pk)
+            node = node.parent
+        return depth
+
+    def save(self, *args, **kwargs):
+        if not self.name and self.item_id:
+            self.name = self.item.default_filename
+        super().save(*args, **kwargs)
+
+    def clean(self):
+        super().clean()
+        errors = {}
+        if self.kind == self.Kind.ITEM and self.item_id is None:
+            errors["item"] = "Укажите объект."
+        if self.kind != self.Kind.ITEM and self.item_id is not None:
+            errors["item"] = "Объект указывается только у размещения вида «Объект»."
+        if not self.name and self.item_id is None:
+            errors["name"] = "Укажите имя."
+        if self.parent_id is not None:
+            if self.parent.kind != self.Kind.FOLDER:
+                errors["parent"] = "Родитель должен быть папкой."
+            elif self.parent.volume_id != self.volume_id:
+                errors["parent"] = "Родитель из другого тома."
+            elif self.pk and self._loops():
+                errors["parent"] = "Родитель создаёт цикл."
+            elif self.depth() >= MAX_DEPTH:
+                errors["parent"] = f"Максимальная вложенность: {MAX_DEPTH}."
+        for field, mode, value in (("access", self.access_mode, self.access), ("state", self.state_mode, self.state)):
+            if mode == self.Mode.REPLACE and not value:
+                errors[field] = "Режим «Заменить» требует заполненного поля (чтобы убрать, выберите «Нет»)."
+        if errors:
+            raise ValidationError(errors)
+        if self.name:
+            validate_name(self.name)
+
+    def _loops(self):
+        node, seen = self.parent, {self.pk}
+        while node is not None:
+            if node.pk in seen:
+                return True
+            seen.add(node.pk)
+            node = node.parent
+        return False
+
+
+class VolumeInstance(models.Model):
+    """Экземпляр тома: пара (том, хост). Место, где живёт состояние игрока.
+
+    local-монтирование тома на машине M даёт экземпляр (том, M); remote указывает на экземпляр хоста. Хост пуст у тома, который
+    отдаёт не машина (внешний источник)."""
+
+    volume = models.ForeignKey(Volume, on_delete=models.CASCADE, related_name="instances")
+    host = models.ForeignKey("machines.Machine", null=True, blank=True, on_delete=models.CASCADE, related_name="hosted_volumes")
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=("volume", "host"), condition=Q(host__isnull=False), name="unique_instance_host"),
+            models.UniqueConstraint(fields=("volume",), condition=Q(host__isnull=True), name="unique_instance_external"),
+        ]
+        verbose_name = "Экземпляр тома"
+        verbose_name_plural = "Экземпляры томов"
+
+    def __str__(self):
+        return f"{self.volume.slug} @ {self.host.label if self.host_id else 'external'}"
+
+
+class PlayerFile(models.Model):
+    """Слой игрока: одно отличие игрока от общей базы по одному пути внутри тома.
+
+    У записи либо ссылка на объект (item), либо собственное содержимое: content (текст, например подпись) или data (байты,
+    например вырезка). Для записи с объектом content это своя версия его тела (правка edt).
+    """
+
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="player_files")
+    instance = models.ForeignKey(VolumeInstance, on_delete=models.CASCADE, related_name="player_files")
+    path = models.CharField("Путь в томе", max_length=2048)
+    item = models.ForeignKey(Item, null=True, blank=True, on_delete=models.CASCADE, related_name="player_files")
+    content = models.TextField(null=True, blank=True)
+    data = models.BinaryField(null=True, blank=True)
+    state = models.TextField(blank=True, default="")
+    deleted_at = models.DateTimeField(null=True, blank=True, help_text="Файл удалён игроком (надгробие).")
+
+    # корзина (del): файл лежит в корзине, пока не истечёт purge_at
+    origin_path = models.CharField(max_length=2048, blank=True, default="")
+    trashed_at = models.DateTimeField(null=True, blank=True)
+    purge_at = models.DateTimeField(null=True, blank=True)
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=("user", "instance", "path"), name="unique_player_file_path"),
+            models.CheckConstraint(
+                condition=~(Q(item__isnull=False) & Q(data__isnull=False)), name="player_file_item_or_data",
+            ),
+        ]
+        indexes = [models.Index(fields=("user", "instance"), name="playerfile_user_instance_idx")]
+        verbose_name = "Файл игрока"
+        verbose_name_plural = "Файлы игроков"
+
+    def __str__(self):
+        return f"{self.user_id}: {self.instance}:/{self.path}"
+
+    def save(self, *args, **kwargs):
+        self.path = normalize_inner(self.path)
+        super().save(*args, **kwargs)

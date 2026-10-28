@@ -24,9 +24,6 @@ class Machine(models.Model):
         OFFLINE = "OFFLINE", "Offline"
         MAINTENANCE = "MAINTENANCE", "Maintenance"
     
-    class MachineSystem(models.TextChoices):
-        AETHER = "AETHER", "Aether"
-
     id = models.BigAutoField(primary_key=True)
 
     name = models.CharField(
@@ -35,8 +32,8 @@ class Machine(models.Model):
 
     system = models.CharField(
         max_length=32,
-        choices=MachineSystem.choices,
-        default=MachineSystem.AETHER,
+        default="AETHER",
+        help_text="Код типа системы (SystemType.code): по нему выбираются сцены и команды.",
     )
 
     hostname = models.CharField(
@@ -69,6 +66,16 @@ class Machine(models.Model):
     updated_at = models.DateTimeField(
         auto_now=True,
     )
+
+    @property
+    def system_type(self):
+        """Запись типа системы этой машины или None, если такого кода в БД нет."""
+        return SystemType.objects.filter(code=self.system).first()
+
+    @property
+    def path_style(self):
+        found = self.system_type
+        return found.path_style if found else "unix"
 
     @property
     def label(self):
@@ -498,4 +505,119 @@ class NetNode(models.Model):
 
     def save(self, *args, **kwargs):
         self.path = "/".join(part for part in (self.path or "").split("/") if part)
+        super().save(*args, **kwargs)
+
+
+class SystemType(models.Model):
+    """Тип системы: что общего у машин одной ОС. Код (AETHER) выбирает сцены и команды в Python, остальное задаётся здесь."""
+
+    class PathStyle(models.TextChoices):
+        UNIX = "unix", "Unix (/home/ivan)"
+        WINDOWS = "windows", "Windows (C:\\Users\\ivan)"
+
+    code = models.CharField("Код", max_length=32, unique=True, help_text="Большими буквами: AETHER. По нему выбираются сцены и команды.")
+    name = models.CharField("Название", max_length=128)
+    path_style = models.CharField(
+        "Диалект путей", max_length=8, choices=PathStyle.choices, default=PathStyle.UNIX,
+        help_text="Как машины этой системы показывают и принимают пути в терминале. Хранение от него не зависит.",
+    )
+
+    class Meta:
+        ordering = ("code",)
+        verbose_name = "Тип системы"
+        verbose_name_plural = "Типы систем"
+
+    def __str__(self):
+        return f"{self.name} ({self.code})"
+
+
+class Place(models.Model):
+    """Именованное место: имя и шаблон пути (secrets, desktop, trash, config, logs, temp...).
+
+    Значения типа системы задают умолчание, машина может переопределить. Какие имена знает движок и что в них по умолчанию,
+    см. machines/places.py. В шаблоне: {login} (логин записи) и {home} (место home)."""
+
+    system_type = models.ForeignKey(SystemType, null=True, blank=True, on_delete=models.CASCADE, related_name="places")
+    machine = models.ForeignKey(Machine, null=True, blank=True, on_delete=models.CASCADE, related_name="places")
+    name = models.SlugField("Имя", max_length=32, help_text="home, secrets, desktop, trash, config, logs, temp или своё.")
+    path = models.CharField("Путь", max_length=512, help_text="Шаблон пути: {home}/.secrets или C:\\Users\\{login}.")
+
+    class Meta:
+        ordering = ("name",)
+        verbose_name = "Место"
+        verbose_name_plural = "Места"
+        constraints = [
+            models.CheckConstraint(
+                condition=(Q(system_type__isnull=False, machine__isnull=True) | Q(system_type__isnull=True, machine__isnull=False)),
+                name="place_system_xor_machine",
+            ),
+            models.UniqueConstraint(fields=("system_type", "name"), condition=Q(system_type__isnull=False), name="unique_system_place"),
+            models.UniqueConstraint(fields=("machine", "name"), condition=Q(machine__isnull=False), name="unique_machine_place"),
+        ]
+
+    def __str__(self):
+        return f"{self.system_type or self.machine}: {self.name} = {self.path}"
+
+    def clean(self):
+        super().clean()
+        from machines.dialect import to_canonical
+
+        if (self.system_type_id is None) == (self.machine_id is None):
+            raise ValidationError("Место задаётся либо для типа системы, либо для машины.")
+        self.path = to_canonical(self.path)
+        if not self.path:
+            raise ValidationError({"path": "Укажите путь."})
+
+    def save(self, *args, **kwargs):
+        from machines.dialect import to_canonical
+
+        self.path = to_canonical(self.path)
+        super().save(*args, **kwargs)
+
+
+class MachineMount(models.Model):
+    """Монтирование: машина подключает том (или его папку) в точку своей файловой системы."""
+
+    class Mode(models.TextChoices):
+        LOCAL = "local", "Локально"
+        REMOTE = "remote", "По сети"
+
+    machine = models.ForeignKey(Machine, on_delete=models.CASCADE, related_name="mounts")
+    volume = models.ForeignKey("filesystem.Volume", on_delete=models.CASCADE, related_name="mounts")
+    volume_path = models.CharField(
+        "Папка тома", max_length=2048, blank=True, help_text="Какая папка внутри тома монтируется. Пусто: весь том.",
+    )
+    mount_path = models.CharField(
+        "Точка монтирования", max_length=2048, blank=True,
+        help_text="Куда монтируется на машине: /mnt/harbor или диск C:. Пусто: в файловую систему том не попадает.",
+    )
+    mode = models.CharField("Режим", max_length=8, choices=Mode.choices, default=Mode.LOCAL)
+    order = models.PositiveSmallIntegerField(
+        "Порядок", default=0,
+        help_text="Если на одну точку смонтировано несколько томов, они складываются стопкой: больший порядок лежит выше.",
+    )
+
+    class Meta:
+        ordering = ("machine", "mount_path", "order", "id")
+        verbose_name = "Монтирование"
+        verbose_name_plural = "Монтирования"
+        constraints = [
+            models.UniqueConstraint(fields=("machine", "mount_path", "order"), condition=~Q(mount_path=""), name="unique_mount_layer"),
+        ]
+
+    def __str__(self):
+        return f"{self.machine.label}: {self.volume.slug} -> {self.mount_path or '(без точки)'}"
+
+    def normalize(self):
+        from filesystem.names import normalize_inner, normalize_mount
+
+        self.volume_path = normalize_inner(self.volume_path)
+        self.mount_path = normalize_mount(self.mount_path)
+
+    def clean(self):
+        super().clean()
+        self.normalize()
+
+    def save(self, *args, **kwargs):
+        self.normalize()
         super().save(*args, **kwargs)

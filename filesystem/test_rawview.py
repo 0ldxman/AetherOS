@@ -264,7 +264,7 @@ class RegistryAdminTests(TestCase):
     def post_format(self, **fields):
         from django.urls import reverse
 
-        data = {"name": "x", "title": "", "extension": "", "kind": "signature", "magic": "", "template": "",
+        data = {"name": "x", "title": "", "extension": "", "kind": "signature", "content": "text_asset", "magic": "", "template": "",
                 "parts-TOTAL_FORMS": "0", "parts-INITIAL_FORMS": "0", "parts-MIN_NUM_FORMS": "0", "parts-MAX_NUM_FORMS": "1000"}
         data.update(fields)
         return self.client.post(reverse("admin:filesystem_fileformat_add"), data)
