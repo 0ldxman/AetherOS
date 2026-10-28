@@ -155,6 +155,20 @@ class Entry:
         return self.item.body if self.item is not None else ""
 
 
+def inner_paths(placements):
+    """Путь внутри тома для каждого размещения: [(путь, размещение)], мелкие пути первыми."""
+    by_id = {placement.pk: placement for placement in placements}
+    memo = {}
+
+    def inner_path(placement):
+        if placement.pk not in memo:
+            parent = by_id.get(placement.parent_id)
+            memo[placement.pk] = (inner_path(parent) + "/" if parent is not None else "") + placement.name
+        return memo[placement.pk]
+
+    return sorted(((inner_path(placement), placement) for placement in placements), key=lambda row: (row[0].count("/"), row[0]))
+
+
 def _depth(point):
     return len([part for part in point.split("/") if part])
 
@@ -222,16 +236,7 @@ class MachineView:
         return entries, layers
 
     def _lay(self, entries, layer, placements):
-        by_id = {placement.pk: placement for placement in placements}
-        inner = {}
-
-        def inner_path(placement):
-            if placement.pk not in inner:
-                parent = by_id.get(placement.parent_id)
-                inner[placement.pk] = (inner_path(parent) + "/" if parent is not None else "") + placement.name
-            return inner[placement.pk]
-
-        rows = sorted(((inner_path(placement), placement) for placement in placements), key=lambda row: (row[0].count("/"), row[0]))
+        rows = inner_paths(placements)
         folders = {}
         for ipath, placement in rows:
             if placement.kind == Placement.Kind.FOLDER:
@@ -302,6 +307,22 @@ class MachineView:
 
     def invalidate(self):
         self._built = None
+
+    def layer_paths(self, layer):
+        """Пути на машине, которые слой занимает своими размещениями (без слоя игрока и без надгробий): {путь: размещение}."""
+        return self._paths_where(layer, lambda placement: placement.kind != Placement.Kind.WHITEOUT)
+
+    def layer_paths_of_kind(self, layer, kind):
+        return self._paths_where(layer, lambda placement: placement.kind == kind)
+
+    def _paths_where(self, layer, keep):
+        placements = list(Placement.objects.filter(volume_id=layer.mount.volume_id).select_related("item"))
+        found = {}
+        for ipath, placement in inner_paths(placements):
+            machine_path = layer.machine_path(ipath)
+            if machine_path is not None and machine_path != layer.point and keep(placement):
+                found[machine_path] = placement
+        return found
 
     # ---- чтение ---------------------------------------------------------------------------------------------------
 

@@ -703,6 +703,8 @@ class Placement(models.Model):
 
     def clean(self):
         super().clean()
+        if not self.name and self.item_id:
+            self.name = self.item.default_filename                  # до проверки уникальности: дубль должен быть ошибкой формы
         errors = {}
         if self.kind == self.Kind.ITEM and self.item_id is None:
             errors["item"] = "Укажите объект."

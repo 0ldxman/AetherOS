@@ -266,8 +266,8 @@ class FormatPartInline(admin.TabularInline):
 class FileFormatAdmin(admin.ModelAdmin):
     form = FileFormatForm
     inlines = (FormatPartInline,)
-    list_display = ("name", "title", "extension", "kind", "magic")
-    list_filter = ("kind",)
+    list_display = ("name", "title", "extension", "kind", "content", "page", "editable", "magic")
+    list_filter = ("kind", "content", "page", "editable")
     search_fields = ("name", "title", "extension")
 
 
@@ -278,3 +278,6 @@ class FileEncodingAdmin(admin.ModelAdmin):
     list_filter = ("kind",)
     search_fields = ("name", "title")
 
+
+
+from filesystem import admin_library  # noqa: E402,F401  регистрирует админку томов и объектов

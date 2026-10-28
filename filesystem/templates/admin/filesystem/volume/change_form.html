@@ -1,0 +1,8 @@
+{% extends "admin/change_form.html" %}
+
+{% block object-tools-items %}
+  {% if tree_url %}
+  <li><a href="{{ tree_url }}">Дерево</a></li>
+  {% endif %}
+  {{ block.super }}
+{% endblock %}

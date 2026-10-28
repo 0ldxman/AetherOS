@@ -61,10 +61,11 @@ class ConditionFormField(forms.JSONField):
 
 class ConditionFieldsMixin:
     condition_fields = ()
+    condition_widget = ConditionWidget          # какой виджет рисует редактор (список ключей берёт он сам)
 
     def formfield_for_dbfield(self, db_field, request, **kwargs):
         if isinstance(db_field, models.JSONField) and db_field.name in self.condition_fields:
             kwargs["form_class"] = ConditionFormField
             kwargs["empty_as_null"] = db_field.null
-            kwargs["widget"] = ConditionWidget(title=str(db_field.verbose_name).capitalize())
+            kwargs["widget"] = self.condition_widget(title=str(db_field.verbose_name).capitalize())
         return super().formfield_for_dbfield(db_field, request, **kwargs)
