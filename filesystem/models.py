@@ -398,6 +398,58 @@ class ItemSignature(models.Model):
             raise ValidationError({"key": "Это не ключ: у объекта должен быть формат «key»."})
 
 
+class VolumeTemplate(models.Model):
+    """Шаблон файловой структуры: набор папок, который создаётся в новом томе, как разметка нового диска."""
+
+    name = models.CharField("Название", max_length=64, unique=True)
+    folders = models.TextField(
+        "Папки", blank=True,
+        help_text="По одной в строке, вложенность через слэш: var/log. Родительские папки создаются сами; строки с # пропускаются.",
+    )
+    system = models.BooleanField("Системные", default=True, help_text="Папки не удаляются командой del.")
+
+    class Meta:
+        ordering = ("name",)
+        verbose_name = "Шаблон файловой структуры"
+        verbose_name_plural = "Шаблоны файловой структуры"
+
+    def __str__(self):
+        return self.name
+
+    def paths(self):
+        """Пути папок, родители раньше потомков, без повторов."""
+        from filesystem.names import normalize_inner
+
+        found = {}
+        for line in self.folders.splitlines():
+            line = line.strip()
+            if line and not line.startswith("#"):
+                parts = normalize_inner(line).split("/")
+                for depth in range(1, len(parts) + 1):
+                    found["/".join(parts[:depth])] = None
+        return sorted(found, key=lambda path: (path.count("/"), path))
+
+    def clean(self):
+        super().clean()
+        from filesystem.names import split, validate_name
+
+        errors = []
+        for line in self.folders.splitlines():
+            line = line.strip()
+            if not line or line.startswith("#"):
+                continue
+            try:
+                parts = split(line)
+                for part in parts:
+                    validate_name(part)
+                if len(parts) > MAX_DEPTH:
+                    errors.append(f"«{line}»: папки вложены не глубже {MAX_DEPTH} уровней.")
+            except ValidationError as error:
+                errors.append(f"«{line}»: {error.messages[0]}")
+        if errors:
+            raise ValidationError({"folders": errors})
+
+
 class Volume(models.Model):
     """Том: дерево папок и объектов. Не знает, на какой машине лежит; машина монтирует том (machines.MachineMount)."""
 

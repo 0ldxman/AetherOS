@@ -243,21 +243,15 @@ def set_flags(volume, placement_id, **flags):
     return placement
 
 
-TEMPLATES = {
-    "empty": ("Пустой том", ()),
-    "unix": ("Unix-подобная система", ("bin", "etc", "home", "tmp", "usr", "usr/share", "var", "var/log", "opt")),
-    "windows": ("Windows-подобная система", ("Users", "Windows", "Windows/System32", "Program Files", "ProgramData", "Temp")),
-}
-
-
 @transaction.atomic
-def apply_template(volume, key):
-    """Основа дерева при создании тома: типовые папки операционной системы."""
-    _, folders = TEMPLATES.get(key, TEMPLATES["empty"])
+def apply_template(volume, template):
+    """Создать в томе папки шаблона файловой структуры (None: пустой том). Возвращает сколько папок создано."""
+    if template is None:
+        return 0
     made = {}
-    for path in folders:
+    for path in template.paths():
         parent_path, _, name = path.rpartition("/")
         made[path] = Placement.objects.create(
-            volume=volume, parent=made.get(parent_path), kind=Placement.Kind.FOLDER, name=name, system=True,
+            volume=volume, parent=made.get(parent_path), kind=Placement.Kind.FOLDER, name=name, system=template.system,
         )
     return len(made)

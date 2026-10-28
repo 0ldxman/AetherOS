@@ -3,13 +3,14 @@ import json
 
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Permission
+from django.core.exceptions import ValidationError
 from django.test import TestCase
 from django.urls import get_script_prefix, reverse, set_script_prefix
 
 from filesystem import filemanager, overlay
 from filesystem.filemanager import FileManagerError
 from filesystem.machine_view import MachineView
-from filesystem.models import FileFormat, Item, ItemKey, Placement, Volume
+from filesystem.models import FileFormat, Item, ItemKey, Placement, Volume, VolumeTemplate
 from machines.models import Machine, MachineMount
 
 
@@ -147,13 +148,22 @@ class VolumeOpsTests(TestCase):
         self.assertEqual((placement.hidden, placement.system), (True, True))
 
     def test_the_templates_make_the_folders_of_a_system(self):
-        self.assertEqual(filemanager.apply_template(self.volume, "unix"), 9)
+        unix = VolumeTemplate.objects.get(name="Unix-подобная система")
+        self.assertEqual(filemanager.apply_template(self.volume, unix), 9)
         log = Placement.objects.get(volume=self.volume, name="log")
         self.assertEqual(log.parent.name, "var")
         win = Volume.objects.create(slug="win")
-        filemanager.apply_template(win, "windows")
+        filemanager.apply_template(win, VolumeTemplate.objects.get(name="Windows-подобная система"))
         self.assertTrue(Placement.objects.filter(volume=win, name="System32", parent__name="Windows").exists())
-        self.assertEqual(filemanager.apply_template(Volume.objects.create(slug="e"), "empty"), 0)
+        self.assertEqual(filemanager.apply_template(Volume.objects.create(slug="e"), None), 0)
+
+    def test_a_template_is_edited_as_text_and_its_parents_are_implied(self):
+        custom = VolumeTemplate.objects.create(name="Aether", folders="# система\nsys/core\nhome/\nsys/core\n", system=False)
+        self.assertEqual(custom.paths(), ["home", "sys", "sys/core"])
+        self.assertEqual(filemanager.apply_template(self.volume, custom), 3)
+        self.assertFalse(Placement.objects.get(volume=self.volume, name="core").system)
+        with self.assertRaises(ValidationError):
+            VolumeTemplate(name="Bad", folders="a/b:c").full_clean()
 
 
 class OverlayTests(TestCase):

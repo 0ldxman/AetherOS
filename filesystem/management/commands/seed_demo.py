@@ -9,7 +9,7 @@ from django.core.management.base import BaseCommand
 from django.db import transaction
 
 from filesystem import appfile, filemanager
-from filesystem.models import FileFormat, Item, ItemKey, ItemMember, Placement, Volume
+from filesystem.models import FileFormat, Item, ItemKey, ItemMember, Placement, Volume, VolumeTemplate
 from machines.models import Machine, MachineMount, MachineProfile, Place, SystemType
 
 
@@ -49,7 +49,7 @@ class Command(BaseCommand):
         # образ системы: общий для всех машин Aether
         base, fresh = Volume.objects.get_or_create(slug="aether-base", defaults={"name": "Aether system disk", "label": "Образ Aether"})
         if fresh:
-            filemanager.apply_template(base, "unix")
+            filemanager.apply_template(base, VolumeTemplate.objects.get(name="Unix-подобная система"))
         put(base, "etc/hosts", "demo-hosts", "127.0.0.1 localhost\n10.0.0.2 aether-core\n")
         put(base, "etc/motd", "demo-motd", "Welcome to Aether.\n")
         put(base, "var/log/syslog", "demo-syslog", "boot ok\n")

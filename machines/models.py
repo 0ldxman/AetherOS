@@ -443,7 +443,7 @@ class SystemType(models.Model):
 
 
 class Place(models.Model):
-    """Именованное место: имя и шаблон пути (secrets, desktop, trash, config, logs, temp...).
+    """Системный путь: именованное место, имя и шаблон пути (secrets, desktop, trash, config, logs, temp...).
 
     Значения типа системы задают умолчание, машина может переопределить. Какие имена знает движок и что в них по умолчанию,
     см. machines/places.py. В шаблоне: {login} (логин записи) и {home} (место home)."""
@@ -455,8 +455,8 @@ class Place(models.Model):
 
     class Meta:
         ordering = ("name",)
-        verbose_name = "Место"
-        verbose_name_plural = "Места"
+        verbose_name = "Системный путь"
+        verbose_name_plural = "Системные пути"
         constraints = [
             models.CheckConstraint(
                 condition=(Q(system_type__isnull=False, machine__isnull=True) | Q(system_type__isnull=True, machine__isnull=False)),

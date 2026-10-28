@@ -6,7 +6,7 @@ from django.test import TestCase
 from django.urls import get_script_prefix, reverse, set_script_prefix
 
 from assets.models import Asset
-from filesystem.models import FileFormat, Item, Placement, Volume
+from filesystem.models import FileFormat, Item, Placement, Volume, VolumeTemplate
 from machines.models import Machine, MachineMount, Place, SystemType
 
 
@@ -160,7 +160,7 @@ class VolumeAdminTests(AdminCase):
     def test_a_new_volume_gets_a_template_of_folders_and_opens_in_the_manager(self):
         response = self.client.post(reverse("admin:filesystem_volume_add"), {
             "slug": "newdisk", "name": "New", "uuid": "11111111-1111-1111-1111-111111111111", "label": "", "access": "{}",
-            "template": "unix", "_save": "Save", "mounts-TOTAL_FORMS": "0", "mounts-INITIAL_FORMS": "0", "mounts-MIN_NUM_FORMS": "0", "mounts-MAX_NUM_FORMS": "1000",
+            "template": VolumeTemplate.objects.get(name="Unix-подобная система").pk, "_save": "Save", "mounts-TOTAL_FORMS": "0", "mounts-INITIAL_FORMS": "0", "mounts-MIN_NUM_FORMS": "0", "mounts-MAX_NUM_FORMS": "1000",
         })
         created = Volume.objects.get(slug="newdisk")
         self.assertRedirects(response, reverse("admin:filesystem_volume_files", args=[created.pk]), fetch_redirect_response=False)

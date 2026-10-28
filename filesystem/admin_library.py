@@ -16,7 +16,7 @@ from .admin_history import ItemHistoryMixin, VersionedFormMixin
 from .admin_preview import ItemPreviewMixin
 from wiki.admin_dashboard import ItemDashboardMixin
 
-from .models import KEY_FORMAT, FileFormat, Item, ItemKey, ItemMember, ItemSignature, Placement, Volume
+from .models import KEY_FORMAT, FileFormat, Item, ItemKey, ItemMember, ItemSignature, Placement, Volume, VolumeTemplate
 from machines.models import MachineMount
 
 
@@ -151,12 +151,11 @@ class VolumeMountInline(admin.TabularInline):
 
 
 class VolumeForm(forms.ModelForm):
-    """При создании можно сразу выбрать основу дерева (как формат нового диска); на странице готового тома выбора нет."""
+    """При создании можно сразу выбрать шаблон файловой структуры (как разметку нового диска); на странице готового тома выбора нет."""
 
-    template = forms.ChoiceField(
-        label="Основа дерева", required=False, initial="empty",
-        choices=[(key, title) for key, (title, _) in filemanager.TEMPLATES.items()],
-        help_text="Типовые папки системы. Дальше файлы создаются в менеджере, как в проводнике.",
+    template = forms.ModelChoiceField(
+        label="Шаблон файловой структуры", required=False, queryset=VolumeTemplate.objects.all(), empty_label="Пустой том",
+        help_text="Папки создаются один раз, при создании тома. Шаблоны правятся в разделе «Шаблоны файловой структуры».",
     )
 
     class Meta:
@@ -167,6 +166,16 @@ class VolumeForm(forms.ModelForm):
         super().__init__(*args, **kwargs)
         if self.instance.pk:
             del self.fields["template"]
+
+
+@admin.register(VolumeTemplate)
+class VolumeTemplateAdmin(admin.ModelAdmin):
+    list_display = ("name", "folders_count", "system")
+    search_fields = ("name",)
+
+    @admin.display(description="Папок")
+    def folders_count(self, obj):
+        return len(obj.paths())
 
 
 @admin.register(Volume)
@@ -202,7 +211,7 @@ class VolumeAdmin(KeyConditionsMixin, VolumeFiles, admin.ModelAdmin):
     def save_model(self, request, obj, form, change):
         super().save_model(request, obj, form, change)
         if not change:
-            filemanager.apply_template(obj, form.cleaned_data.get("template") or "empty")
+            filemanager.apply_template(obj, form.cleaned_data.get("template"))
 
     def response_add(self, request, obj, post_url_continue=None):
         response = super().response_add(request, obj, post_url_continue)
