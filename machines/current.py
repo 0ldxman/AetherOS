@@ -1,4 +1,5 @@
 from decimal import Decimal
+from types import SimpleNamespace
 from machines.models import Machine, MachineProfile, Session
 from urllib.parse import urlsplit
 
@@ -78,11 +79,39 @@ def current_machine(request):
     return None
 
 def _machine_apps(request, machine):
-    """Иконки машины: за запрос читаются из базы один раз."""
+    """Иконки машины: приложения на рабочем столе записи, за запрос читаются один раз."""
     cache = request.__dict__.setdefault("_machine_apps", {})
     if machine.pk not in cache:
-        cache[machine.pk] = list(machine.machine_apps.all())
+        cache[machine.pk] = _desktop_apps(request, machine)
     return cache[machine.pk]
+
+
+def _desktop_apps(request, machine):
+    from django.core.exceptions import ValidationError
+
+    from filesystem import appfile
+    from filesystem.machine_view import MachineView
+    from machines import places
+    from users.aether_auth import GUEST_LOGIN
+
+    signed = request.user.is_authenticated
+    login = active_session(request).profile.login if signed else GUEST_LOGIN
+    desktop = places.resolve(machine, "desktop", login)
+    if desktop is None:
+        return []
+    found = []
+    for entry in MachineView(machine, request.user if signed else None).children(desktop):
+        if entry.is_dir or entry.hidden or entry.item is None or entry.item.format != appfile.APP_FORMAT:
+            continue
+        try:
+            spec = appfile.parse(entry.item.body)
+        except ValidationError:
+            continue
+        found.append(SimpleNamespace(
+            pk=entry.item.pk, label=spec.label, glyph=spec.glyph, suffix=spec.suffix, path=spec.path, order=spec.order,
+            conditions=entry.conditions, name=entry.name,
+        ))
+    return sorted(found, key=lambda app: (app.order, app.name.casefold()))
 
 
 def visible_apps(request, machine):
@@ -91,7 +120,7 @@ def visible_apps(request, machine):
     return [
         app
         for app in _machine_apps(request, machine)
-        if app.key_condition is None or satisfied(app.key_condition, keys)
+        if all(satisfied(condition, keys) for condition in app.conditions)
     ]
 
 

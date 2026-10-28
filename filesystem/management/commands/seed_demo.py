@@ -8,9 +8,9 @@ from django.contrib.auth.hashers import make_password
 from django.core.management.base import BaseCommand
 from django.db import transaction
 
-from filesystem import filemanager
+from filesystem import appfile, filemanager
 from filesystem.models import FileFormat, Item, ItemKey, ItemMember, Placement, Volume
-from machines.models import Machine, MachineMount, MachineProfile, SystemType
+from machines.models import Machine, MachineMount, MachineProfile, Place, SystemType
 
 
 def folder(volume, parent, name):
@@ -38,6 +38,9 @@ class Command(BaseCommand):
 
     @transaction.atomic
     def handle(self, *args, **options):
+        FileFormat.objects.get_or_create(
+            name="app", defaults={"title": "APP application", "extension": ".app", "kind": "text", "template": "{body}", "content": "text"},
+        )
         FileFormat.objects.update_or_create(
             name="key", defaults={"title": "Access key", "extension": ".key", "kind": "text", "template": "{body}", "content": "text"},
         )
@@ -50,6 +53,16 @@ class Command(BaseCommand):
         put(base, "etc/hosts", "demo-hosts", "127.0.0.1 localhost\n10.0.0.2 aether-core\n")
         put(base, "etc/motd", "demo-motd", "Welcome to Aether.\n")
         put(base, "var/log/syslog", "demo-syslog", "boot ok\n")
+
+        # рабочий стол: файлы приложений в общем месте desktop системы
+        Place.objects.update_or_create(system_type=system, name="desktop", defaults={"path": "/etc/desktop"})
+        for slug, label, glyph, path, suffix in (
+            ("app-console", "console", ">_", "/apps/terminal/", ".sh"),
+            ("app-intercom", "intercom", "@", "/apps/mail/", ".conn"),
+            ("app-aether", "aether", "W", "/apps/wiki/", ".db"),
+            ("app-world", "world", "M", "/apps/map/", ".map"),
+        ):
+            put(base, f"etc/desktop/{label}.app", slug, appfile.render(label, glyph, path, suffix), format="app")
 
         # ключи
         alpha = Item.objects.get_or_create(slug="alpha", defaults={"name": "Alpha key", "format": "key"})[0]

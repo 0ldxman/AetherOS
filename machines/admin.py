@@ -21,18 +21,10 @@ from .models import (
     NetNode,
     NetResource,
     Session,
-    MachineApp,
     MachineMount,
     Place,
     SystemType,
 )
-
-class MachineAppInline(admin.TabularInline):
-    model = MachineApp
-    extra = 0
-    fields = ("label", "glyph", "suffix", "path", "order")
-    show_change_link = True  # условие по ключам правится на странице приложения
-
 
 class MachineMountInline(admin.TabularInline):
     """Тома, смонтированные на машину (docs/storage-spec.md)."""
@@ -127,7 +119,6 @@ class MachineAdmin(MachineFiles, admin.ModelAdmin):
         "system",
         "is_system",
         "profiles_count",
-        "apps_count",
         "files_link",
         "hid",
         "updated_at",
@@ -162,7 +153,6 @@ class MachineAdmin(MachineFiles, admin.ModelAdmin):
         MachineProfileInline,
         MachineMountInline,
         MachinePlaceInline,
-        MachineAppInline,
     )
 
     actions = (
@@ -192,16 +182,11 @@ class MachineAdmin(MachineFiles, admin.ModelAdmin):
     def get_queryset(self, request):
         return super().get_queryset(request).annotate(
             _profiles=Count("profiles", distinct=True),
-            _apps=Count("machine_apps", distinct=True),
         )
 
     @admin.display(description="Профилей", ordering="_profiles")
     def profiles_count(self, obj):
         return obj._profiles
-
-    @admin.display(description="Приложений", ordering="_apps")
-    def apps_count(self, obj):
-        return obj._apps
 
     @admin.display(description="Файлы")
     def files_link(self, obj):
@@ -521,26 +506,6 @@ class SessionAdmin(admin.ModelAdmin):
     @admin.display(description="Freq")
     def freq(self, obj):
         return obj.profile.freq
-
-
-# ==================================================
-# Machine App
-# ==================================================
-
-@admin.register(MachineApp)
-class MachineAppAdmin(ConditionFieldsMixin, admin.ModelAdmin):
-    condition_fields = ("key_condition",)
-    list_display = ("label", "machine", "path", "order", "condition")
-    list_display_links = ("label",)
-    list_filter = ("machine",)
-    list_select_related = ("machine",)
-    search_fields = ("label", "path", "machine__name", "machine__hostname")
-    autocomplete_fields = ("machine",)
-    ordering = ("machine", "order", "id")
-
-    @admin.display(description="Условие по ключам")
-    def condition(self, obj):
-        return format_condition(obj.key_condition) or "—"
 
 
 class NetNodeInline(admin.TabularInline):

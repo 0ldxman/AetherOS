@@ -8,8 +8,8 @@ from django.contrib.auth import get_user_model
 from django.test import TestCase, override_settings
 from django.urls import get_script_prefix, reverse, set_script_prefix
 
-from filesystem.testing import embed_key, key_item, make_file
-from machines.models import Machine, MachineApp
+from filesystem.testing import embed_key, key_item, make_file, make_app, remove_apps
+from machines.models import Machine
 from users.aether_auth import AUTH_REQUIRED
 
 
@@ -18,7 +18,7 @@ class AnonymousTerminalTests(TestCase):
     @classmethod
     def setUpTestData(cls):
         cls.null = Machine.objects.create(name="Null", hostname="aether-null")
-        MachineApp.objects.create(machine=cls.null, label="console", glyph=">_", path="/apps/terminal/")
+        make_app(cls.null, label="console", glyph=">_", path="/apps/terminal/")
 
     def setUp(self):
         previous = get_script_prefix()
@@ -64,14 +64,14 @@ class AnonymousTerminalTests(TestCase):
         self.assertEqual(self.run_command("ls")[0].status_code, 403)
 
     def test_the_machine_needs_the_console_icon(self):
-        MachineApp.objects.all().delete()
+        remove_apps()
         self.witness()
         self.assertEqual(self.client.get(reverse("terminal:index")).status_code, 403)
 
     def test_a_signed_in_player_still_gets_a_real_terminal(self):
         user = get_user_model().objects.create_user("ivan", password="pw")
         main = Machine.objects.create(name="Main", hostname="aether-main")
-        MachineApp.objects.create(machine=main, label="console", glyph=">_", path="/apps/terminal/")
+        make_app(main, label="console", glyph=">_", path="/apps/terminal/")
         self.client.force_login(user)
         response, data = self.run_command("pwd")
         self.assertEqual(response.status_code, 200)
@@ -89,7 +89,7 @@ class TerminalSceneTests(TestCase):
         from machines.models import MachineProfile
 
         cls.main = Machine.objects.create(name="Main", hostname="aether-main")
-        MachineApp.objects.create(machine=cls.main, label="console", glyph=">_", path="/apps/terminal/")
+        make_app(cls.main, label="console", glyph=">_", path="/apps/terminal/")
         cls.user = get_user_model().objects.create_user("ivan", password="pw")
         MachineProfile.objects.create(machine=cls.main, user=cls.user, name="Ivan", login="ivan", freq=1,
                                       mail="ivan@aether-main")
@@ -300,7 +300,7 @@ class BridgeFixture(TestCase):
         cls.main = Machine.objects.create(name="Main", hostname="aether-main", hid="AA:00:00:00:00:01")
         cls.core = Machine.objects.create(name="Core", hostname="aether-core", hid="AA:00:00:00:00:02")
         cls.deep = Machine.objects.create(name="Deep", hostname="aether-deep", hid="AA:00:00:00:00:03")
-        MachineApp.objects.create(machine=cls.main, label="console", glyph=">_", path="/apps/terminal/")
+        make_app(cls.main, label="console", glyph=">_", path="/apps/terminal/")
         cls.user = get_user_model().objects.create_user("ivan", password="pw")
         cls.home = MachineProfile.objects.create(machine=cls.main, user=cls.user, name="Ivan", login="ivan",
                                                  freq=1, mail="ivan@aether-main")
@@ -982,7 +982,7 @@ class NetTests(TestCase):
 
         cls.main = Machine.objects.create(name="Main", hostname="aether-main")
         cls.server = Machine.objects.create(name="Archive", hostname="aether-archive")
-        MachineApp.objects.create(machine=cls.main, label="console", glyph=">_", path="/apps/terminal/")
+        make_app(cls.main, label="console", glyph=">_", path="/apps/terminal/")
         cls.user = get_user_model().objects.create_user("ivan", password="pw")
         MachineProfile.objects.create(machine=cls.main, user=cls.user, name="Ivan", login="ivan", freq=1,
                                       mail="ivan@aether-main")
@@ -1104,7 +1104,7 @@ class TrashTests(TestCase):
         from machines.models import MachineProfile
 
         cls.main = Machine.objects.create(name="Main", hostname="aether-main")
-        MachineApp.objects.create(machine=cls.main, label="console", glyph=">_", path="/apps/terminal/")
+        make_app(cls.main, label="console", glyph=">_", path="/apps/terminal/")
         cls.user = get_user_model().objects.create_user("ivan", password="pw")
         MachineProfile.objects.create(machine=cls.main, user=cls.user, name="Ivan", login="ivan", freq=1,
                                       mail="ivan@aether-main")
@@ -1305,7 +1305,7 @@ class FileOpsTests(TestCase):
         from machines.models import MachineProfile
 
         cls.main = Machine.objects.create(name="Main", hostname="aether-main")
-        MachineApp.objects.create(machine=cls.main, label="console", glyph=">_", path="/apps/terminal/")
+        make_app(cls.main, label="console", glyph=">_", path="/apps/terminal/")
         cls.user = get_user_model().objects.create_user("ivan", password="pw")
         MachineProfile.objects.create(machine=cls.main, user=cls.user, name="Ivan", login="ivan", freq=1,
                                       mail="ivan@aether-main")
@@ -1398,7 +1398,7 @@ class RawCommandTests(TestCase):
         from filesystem.testing import make_page
 
         cls.main = Machine.objects.create(name="Main", hostname="aether-main")
-        MachineApp.objects.create(machine=cls.main, label="console", glyph=">_", path="/apps/terminal/")
+        make_app(cls.main, label="console", glyph=">_", path="/apps/terminal/")
         cls.user = get_user_model().objects.create_user("ivan", password="pw")
         MachineProfile.objects.create(machine=cls.main, user=cls.user, name="Ivan", login="ivan", freq=1,
                                       mail="ivan@aether-main")
@@ -1634,10 +1634,10 @@ class RawCommandTests(TestCase):
 
     def test_a_key_in_the_secrets_folder_opens_what_needs_it_and_deleting_the_file_takes_it_back(self):
         from filesystem.models import Volume
-        from machines.models import MachineApp, MachineMount, Session
+        from machines.models import MachineMount, Session
         from wiki.testing import make_document, make_namespace
 
-        MachineApp.objects.create(machine=self.main, label="wiki", glyph="W", path="/apps/wiki/")
+        make_app(self.main, label="wiki", glyph="W", path="/apps/wiki/")
         section = make_namespace("Section")
         make_document(section, "Gated", type="rec", body="x", access={"all": ["secret_a"]})
         MachineMount.objects.create(machine=self.main, volume=section.volume, mount_path="", order=5)
@@ -1759,7 +1759,7 @@ class ArchiveTests(TestCase):
         from filesystem.testing import make_page
 
         cls.main = Machine.objects.create(name="Main", hostname="aether-main")
-        MachineApp.objects.create(machine=cls.main, label="console", glyph=">_", path="/apps/terminal/")
+        make_app(cls.main, label="console", glyph=">_", path="/apps/terminal/")
         cls.user = get_user_model().objects.create_user("ivan", password="pw")
         MachineProfile.objects.create(machine=cls.main, user=cls.user, name="Ivan", login="ivan", freq=1,
                                       mail="ivan@aether-main")
@@ -1901,7 +1901,7 @@ class SignatureTests(TestCase):
         from filesystem.testing import make_page
 
         cls.main = Machine.objects.create(name="Main", hostname="aether-main")
-        MachineApp.objects.create(machine=cls.main, label="console", glyph=">_", path="/apps/terminal/")
+        make_app(cls.main, label="console", glyph=">_", path="/apps/terminal/")
         cls.user = get_user_model().objects.create_user("ivan", password="pw")
         MachineProfile.objects.create(machine=cls.main, user=cls.user, name="Ivan", login="ivan", freq=1,
                                       mail="ivan@aether-main")
@@ -2031,7 +2031,7 @@ class WardKeyTests(TestCase):
         from filesystem.testing import make_page
 
         cls.main = Machine.objects.create(name="Main", hostname="aether-main")
-        MachineApp.objects.create(machine=cls.main, label="console", glyph=">_", path="/apps/terminal/")
+        make_app(cls.main, label="console", glyph=">_", path="/apps/terminal/")
         cls.user = get_user_model().objects.create_user("ivan", password="pw")
         MachineProfile.objects.create(machine=cls.main, user=cls.user, name="Ivan", login="ivan", freq=1,
                                       mail="ivan@aether-main")
@@ -2181,7 +2181,7 @@ class HelpTests(TestCase):
         from machines.models import MachineProfile
 
         cls.main = Machine.objects.create(name="Main", hostname="aether-main")
-        MachineApp.objects.create(machine=cls.main, label="console", glyph=">_", path="/apps/terminal/")
+        make_app(cls.main, label="console", glyph=">_", path="/apps/terminal/")
         cls.user = get_user_model().objects.create_user("ivan", password="pw")
         MachineProfile.objects.create(machine=cls.main, user=cls.user, name="Ivan", login="ivan", freq=1,
                                       mail="ivan@aether-main")

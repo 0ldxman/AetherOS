@@ -205,3 +205,28 @@ def give_key_to_session(session, slug):
     machine = session.profile.machine
     root_volume(machine)
     return keystore.put(MachineView(machine, session.user), machine, session.profile.login, key_item(slug))
+
+
+APPS_DIR = "/apps-desktop"
+
+
+def make_app(machine, label, glyph, path, suffix="", key_condition=None, order=0):
+    """Иконка на столе машины: файл приложения в общем месте desktop (у машины оно одно на всех записей)."""
+    from filesystem import appfile
+
+    Place.objects.get_or_create(machine=machine, name="desktop", defaults={"path": APPS_DIR})
+    made = make_file(machine, f"{APPS_DIR}/{label}.app", body=appfile.render(label, glyph, path, suffix, order), format="app")
+    if key_condition:
+        made.item.access = key_condition
+        made.item.save(update_fields=["access"])
+    return made
+
+
+def remove_apps(machine=None):
+    """Убрать со стола все иконки (машины или всех)."""
+    found = Placement.objects.filter(item__format="app")
+    if machine is not None:
+        found = found.filter(volume__mounts__machine=machine)
+    items = list(found.values_list("item_id", flat=True))
+    found.delete()
+    Item.objects.filter(pk__in=items).delete()

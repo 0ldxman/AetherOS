@@ -274,6 +274,10 @@ class Item(models.Model):
         labels = {"body": "текст", "asset": "ассет", "url": "ссылка", "scene": "сцена карты", "message": "письмо"}
 
         errors = {}
+        if self.format == "app" and self.body.strip():
+            from filesystem import appfile
+
+            appfile.parse(self.body)
         for field, filled in used.items():
             if filled and field not in allowed:
                 errors[field] = "Для этого формата это поле не используется."

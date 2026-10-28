@@ -196,52 +196,6 @@ class ConditionFieldTests(AdminTestCase):
         from filesystem.testing import key_item
         key_item("key_a")
 
-    def app_data(self, **extra):
-        data = {"machine": self.machine.pk, "label": "wiki", "glyph": "W", "suffix": "", "path": "/apps/wiki/",
-                "order": 0, "key_condition": ""}
-        data.update(extra)
-        return data
-
-    def add_app(self, **extra):
-        return self.client.post(reverse("admin:machines_machineapp_add"), self.app_data(**extra))
-
-    def test_app_has_its_own_page_with_the_condition_editor(self):
-        response = self.client.get(reverse("admin:machines_machineapp_add"))
-        self.assertContains(response, "data-condition-editor")
-        self.assertContains(response, "key_a")
-
-    def test_valid_condition_is_saved_and_listed_as_text(self):
-        self.assertEqual(self.add_app(key_condition='{"any": ["key_a", "key_b"]}').status_code, 302)
-        from machines.models import MachineApp
-        self.assertEqual(MachineApp.objects.get().key_condition, {"any": ["key_a", "key_b"]})
-        response = self.client.get(reverse("admin:machines_machineapp_changelist"))
-        self.assertContains(response, "key_a or key_b")
-
-    def test_a_typo_in_the_operator_is_rejected_instead_of_hiding_the_app(self):
-        response = self.add_app(key_condition='{"xor": ["key_a"]}')
-        self.assertEqual(response.status_code, 200)
-        self.assertContains(response, "Неверное условие")
-
-    def test_empty_condition_is_allowed_and_stays_null(self):
-        from machines.models import MachineApp
-        for empty in ("", "{}"):
-            MachineApp.objects.all().delete()
-            self.assertEqual(self.add_app(key_condition=empty).status_code, 302)
-            self.assertIsNone(MachineApp.objects.get().key_condition, repr(empty))
-
-    def test_editor_gets_an_empty_object_not_the_word_null(self):
-        response = self.client.get(reverse("admin:machines_machineapp_add"))
-        field = response.context["adminform"].form["key_condition"]
-        self.assertEqual(field.value(), "{}")
-        self.assertNotContains(response, ">null<")
-
-    def test_machine_page_links_to_app_pages_instead_of_inline_conditions(self):
-        from machines.models import MachineApp
-        MachineApp.objects.create(machine=self.machine, label="wiki", glyph="W", path="/apps/wiki/")
-        response = self.client.get(reverse("admin:machines_machine_change", args=[self.machine.pk]))
-        self.assertNotContains(response, "data-condition-editor")
-        self.assertContains(response, "machineapp")  # ссылка «изменить» у строки
-
     def test_profile_condition_is_validated_too(self):
         response = self.client.post(
             reverse("admin:machines_machineprofile_add"),
@@ -252,27 +206,3 @@ class ConditionFieldTests(AdminTestCase):
              "allowed_hids-MIN_NUM_FORMS": 0, "allowed_hids-MAX_NUM_FORMS": 1000},
         )
         self.assertEqual(response.status_code, 200)
-
-
-class AppSuffixTests(AdminTestCase):
-    """Расширение приложения на рабочем столе всегда с точкой: aether.db, а не aetherdb."""
-
-    def make(self, suffix):
-        from machines.models import MachineApp
-
-        return MachineApp.objects.create(machine=self.machine, label="aether", glyph="A", suffix=suffix, path="/apps/wiki/")
-
-    def test_a_suffix_without_a_dot_gets_one(self):
-        self.assertEqual(self.make("db").suffix, ".db")
-
-    def test_a_suffix_with_a_dot_is_kept_and_blank_stays_blank(self):
-        self.assertEqual(self.make(".map").suffix, ".map")
-        self.assertEqual(self.make("  ").suffix, "")
-        self.assertEqual(self.make("..sh").suffix, ".sh")
-
-    def test_the_desktop_shows_the_dot_even_for_an_old_row(self):
-        from machines.models import MachineApp, normalize_suffix
-
-        app = self.make("db")
-        MachineApp.objects.filter(pk=app.pk).update(suffix="db")        # как до исправления
-        self.assertEqual(normalize_suffix(MachineApp.objects.get(pk=app.pk).suffix), ".db")

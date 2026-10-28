@@ -13,8 +13,8 @@ from django.urls import get_script_prefix, reverse, set_script_prefix
 
 from assets.models import Asset
 from filesystem.models import ItemKey
-from filesystem.testing import embed_key, make_file
-from machines.models import Machine, MachineApp, MachineProfile, Session
+from filesystem.testing import embed_key, make_file, make_app, remove_apps
+from machines.models import Machine, MachineProfile, Session
 from map.models import Country, CountryLabel, Ownership, Province
 from filesystem.testing import key_item
 
@@ -28,7 +28,7 @@ def build(i, user, key):
     session = Session.objects.create(user=user, profile=profile)
     made = make_file(machine, f"/docs/{i}.txt")
     embed_key(made.item, key.slug)
-    MachineApp.objects.create(machine=machine, label="wiki", glyph="W", path="/apps/wiki/")
+    make_app(machine, label="wiki", glyph="W", path="/apps/wiki/")
     country = Country.objects.create(code=f"C{i}", name=f"Страна {i}", valid_from=date(2000, 1, 1))
     province = Province.objects.create(code=f"P{i}", source_code=f"S{i}", name=f"Пров {i}")
     Ownership.objects.create(province=province, country=country, date_from=date(2000, 1, 1), de_jure=True)
@@ -45,9 +45,9 @@ class NamesTests(TestCase):
     def test_machine_without_hostname_does_not_print_none(self):
         machine = Machine.objects.create(name="Безымянный")
         profile = MachineProfile.objects.create(machine=machine, name="p", login="l", freq=1)
-        app = MachineApp.objects.create(machine=machine, label="wiki", glyph="W", path="/apps/wiki/")
+        app = make_app(machine, label="wiki", glyph="W", path="/apps/wiki/")
         made = make_file(machine, "/a")
-        for obj in (profile, app, made.item):
+        for obj in (profile, app.item, made.item):
             self.assertNotIn("None", str(obj))
 
     def test_item_key_is_readable(self):
@@ -100,7 +100,7 @@ class ListsTests(TestCase):
         build(1, self.user, self.key)
         response = self.client.get(reverse("admin:machines_machine_changelist"))
         machine = response.context["cl"].result_list[0]
-        self.assertEqual((machine._profiles, machine._apps), (1, 1))
+        self.assertEqual(machine._profiles, 1)
         self.assertContains(response, reverse("admin:machines_machine_files", args=[machine.pk]))         # колонка ведёт в файловый менеджер
 
     def test_item_page_has_keys_inline(self):

@@ -302,50 +302,6 @@ class Session(models.Model):
         return f"{self.user} @ {self.profile}"
 
 
-def normalize_suffix(value):
-    """Расширение приложения всегда с точкой: «db» и «.db» это одно и то же «.db», пустое остаётся пустым."""
-    value = (value or "").strip().lstrip(".")
-    return f".{value}" if value else ""
-
-
-class MachineApp(models.Model):
-    id = models.BigAutoField(primary_key=True)
-
-    machine = models.ForeignKey(
-        "machines.Machine",
-        on_delete=models.CASCADE,
-        related_name="machine_apps",
-    )
-
-    label = models.CharField(max_length=64)
-    glyph = models.CharField(max_length=8)
-    suffix = models.CharField(
-        max_length=16,
-        blank=True,
-        help_text="Расширение после названия: db или .db (точка добавится сама). Можно не указывать.",
-    )
-
-    path = models.CharField(max_length=512)
-
-    order = models.PositiveSmallIntegerField(default=0)
-
-    key_condition = models.JSONField(null=True, blank=True)
-
-    class Meta:
-        ordering = ("machine", "order", "id")
-
-    def __str__(self):
-        return f"{self.machine.label}: {self.label}"
-
-    def clean(self):
-        self.suffix = normalize_suffix(self.suffix)
-        validate_internal_path(self.path)
-
-    def save(self, *args, **kwargs):
-        self.suffix = normalize_suffix(self.suffix)
-        super().save(*args, **kwargs)
-
-
 LISTING_TAG = "{listing}"
 
 

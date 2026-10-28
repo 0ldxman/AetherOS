@@ -21,10 +21,8 @@ class Usage:
 def _json_conditions():
     """(объект, вид, условие) для всех JSON-условий вне вики."""
     from mail.models import Message
-    from machines.models import MachineApp, MachineProfile
+    from machines.models import MachineProfile
 
-    for app in MachineApp.objects.select_related("machine").exclude(key_condition=None):
-        yield app, "приложение", app.key_condition
     for profile in MachineProfile.objects.select_related("machine").exclude(key_condition=None):
         yield profile, "профиль", profile.key_condition
     for message in Message.objects.exclude(key_condition=None):
@@ -32,7 +30,6 @@ def _json_conditions():
 
 
 _ADMIN = {
-    "приложение": "admin:machines_machineapp_change",
     "профиль": "admin:machines_machineprofile_change",
     "письмо": "admin:mail_message_change",
 }

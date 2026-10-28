@@ -14,7 +14,6 @@ from .boots import boot_scenes
 from .messages import catalog
 
 from machines.current import active_session, current_machine, visible_apps
-from machines.models import normalize_suffix
 
 # Create your views here.
 
@@ -93,7 +92,7 @@ def desktop(request):
             "id": app.pk,
             "label": app.label,
             "glyph": app.glyph,
-            "suffix": normalize_suffix(app.suffix),
+            "suffix": app.suffix,
             "url": prefix + app.path,
         }
         for app in visible_apps(request, machine)

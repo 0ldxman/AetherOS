@@ -15,11 +15,11 @@ from django.test import TestCase, override_settings
 from django.test.utils import CaptureQueriesContext
 from django.urls import get_script_prefix, reverse, set_script_prefix
 
-from machines.models import Machine, MachineApp, MachineProfile
+from machines.models import Machine, MachineProfile
 from mail.addresses import matches, matches_any, split, validate_address, validate_masks
 from mail.access import Viewer, mark_read, mark_unread, read_ids, summary, visible_messages
 from mail.models import Attachment, ComposeProgress, Delivered, Message, MessageRead, Trashed
-from filesystem.testing import key_item
+from filesystem.testing import key_item, make_app, remove_apps
 
 
 def make_message(**fields):
@@ -218,7 +218,7 @@ class InboxApiTests(TestCase):
         cls.main = Machine.objects.create(name="Main", hostname="aether-main")
         cls.null = Machine.objects.create(name="Null", hostname="aether-null")
         for machine in (cls.main, cls.null):
-            MachineApp.objects.create(machine=machine, label="intercom", glyph="@", path="/apps/mail/")
+            make_app(machine, label="intercom", glyph="@", path="/apps/mail/")
 
     def setUp(self):
         cache.clear()      # кэш пережил бы откат базы между тестами
@@ -241,7 +241,7 @@ class InboxApiTests(TestCase):
         self.assertEqual(self.client.get(reverse("mail:messages")).status_code, 403)
 
     def test_the_machine_must_have_the_intercom_icon(self):
-        MachineApp.objects.filter(machine=self.null).delete()
+        remove_apps(self.null)
         self.witness()
         self.assertEqual(self.client.get(reverse("mail:inbox")).status_code, 403)
 
@@ -303,7 +303,7 @@ class InboxApiTests(TestCase):
         self.witness()
         page = self.client.get(reverse("desktop")).content.decode()
         self.assertIn('data-mail-pulse-url="/apps/mail/api/pulse/"', page)
-        MachineApp.objects.filter(machine=self.null).delete()
+        remove_apps(self.null)
         page = self.client.get(reverse("desktop")).content.decode()
         self.assertIn('data-mail-pulse-url=""', page)
 
@@ -1035,7 +1035,7 @@ class AttachmentSaveApiTests(TestCase):
         from machines.models import MachineProfile, Session
 
         cls.machine = Machine.objects.create(name="Staff", hostname="apollo-staff")
-        MachineApp.objects.create(machine=cls.machine, label="intercom", glyph="@", path="/apps/mail/")
+        make_app(cls.machine, label="intercom", glyph="@", path="/apps/mail/")
         cls.file = Item.objects.create(slug="evidence", name="evidence.dat")
         cls.user = get_user_model().objects.create_user("ivan", password="pw")
         cls.profile = MachineProfile.objects.create(machine=cls.machine, user=cls.user, name="I", login="will_smith", freq=1)
@@ -1082,7 +1082,7 @@ class AttachmentSaveApiTests(TestCase):
         from users.aether_auth import AUTH_REQUIRED
 
         null = Machine.objects.create(name="Null", hostname="aether-null")
-        MachineApp.objects.create(machine=null, label="intercom", glyph="@", path="/apps/mail/")
+        make_app(null, label="intercom", glyph="@", path="/apps/mail/")
         session = self.client.session
         session["guest"] = True
         session.save()
@@ -1311,7 +1311,7 @@ class ComposeApiTests(TestCase):
         from mail.models import ComposeTask
 
         cls.machine = Machine.objects.create(name="Staff", hostname="apollo-staff")
-        MachineApp.objects.create(machine=cls.machine, label="intercom", glyph="@", path="/apps/mail/")
+        make_app(cls.machine, label="intercom", glyph="@", path="/apps/mail/")
         cls.user = get_user_model().objects.create_user("ivan", password="pw")
         cls.profile = MachineProfile.objects.create(machine=cls.machine, user=cls.user, name="I", login="will_smith", freq=1)
         cls.reply = make_message(slug="r1", recipients="will_smith@apollo-staff", subject="re")
@@ -1359,7 +1359,7 @@ class ComposeApiTests(TestCase):
         session["guest"] = True
         session.save()
         null = Machine.objects.create(name="Null", hostname="aether-null")
-        MachineApp.objects.create(machine=null, label="intercom", glyph="@", path="/apps/mail/")
+        make_app(null, label="intercom", glyph="@", path="/apps/mail/")
         for response in (self.client.get(reverse("mail:tasks")), self.client.post(reverse("mail:send", args=[self.task.pk]))):
             self.assertEqual(response.status_code, 403)
             self.assertEqual(json.loads(response.content)["error"], AUTH_REQUIRED)
