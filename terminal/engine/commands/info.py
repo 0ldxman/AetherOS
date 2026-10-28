@@ -144,3 +144,38 @@ class CntCommand(BaseCommand):
 
         window = {"id": "cnt-" + re.sub(r"\W+", "-", entry.path).strip("-"), "title": name, "url": content.url}
         return result(f"cnt: {target}: opened ({size_of(context, entry)} bytes)", 0, "opened", window)
+
+
+class EdtCommand(BaseCommand):
+    """edt <файл>: открыть текст файла в редакторе. Правка ложится в слой игрока, база не меняется. Нужны права на чтение и запись."""
+
+    name = "edt"
+
+    def execute(self, context, args):
+        from filesystem import edit
+        from filesystem.views import edit_url
+
+        if len(args) != 1:
+            return CommandResult("usage: edt file", 2)
+        request = context.request
+        if request is not None and request.user.is_authenticated:
+            from machines import bridge
+
+            if bridge.terminal_id(request) != bridge.desktop_id(request):
+                return CommandResult("edt: no display: the desktop is on another machine", 1)
+
+        target = args[0]
+        path = context.resolve_path(target)
+        fs = VirtualFilesystem(context)
+        if not fs.exists(path):
+            return CommandResult(f"edt: cannot open '{target}': No such file or directory", 2)
+        entry = fs.get_file(path)
+        reason = edit.refusal(entry) if entry is not None else "Is a directory"
+        if reason:
+            return CommandResult(f"edt: {target}: {reason}", 1)
+        context.require(path, "r")
+        context.require(path, "w")
+        if resolve_content(entry, path, posixpath.basename(path)).error == "locked":
+            return CommandResult(f"edt: {target}: content is locked", 1)
+        window = {"id": "edt-" + re.sub(r"\W+", "-", path).strip("-"), "title": f"{posixpath.basename(path)} [edit]", "url": edit_url(path)}
+        return CommandResult(f"edt: {target}: opened for editing", 0, window)

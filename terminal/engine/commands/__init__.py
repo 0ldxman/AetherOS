@@ -7,7 +7,7 @@ from terminal.engine.commands.basic import (
 from terminal.engine.commands.bridge import BridgeCloseCommand, BridgeCommand, ExitCommand, RshellCommand, XferCommand
 from terminal.engine.commands.archive import PakCommand
 from terminal.engine.commands.crypto import WardCommand
-from terminal.engine.commands.info import FtypCommand, CntCommand
+from terminal.engine.commands.info import CntCommand, EdtCommand, FtypCommand
 from terminal.engine.commands.net import NgetCommand, NreqCommand
 from terminal.engine.commands.files import Cp, Mv
 from terminal.engine.commands.inspect import TxtxCommand
@@ -40,6 +40,7 @@ COMMON = (
     Mv,
     Cp,
     CntCommand,
+    EdtCommand,
     PermCommand,
     OwnCommand,
 )

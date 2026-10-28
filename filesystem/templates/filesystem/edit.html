@@ -1,0 +1,26 @@
+{% extends "assets/viewers/_base.html" %}
+{% load static %}
+
+{% block viewer_class %}text-viewer edit-viewer{% endblock %}
+
+{% block viewer_css %}
+<link rel="stylesheet" href="{% static 'assets/viewers/text.css' %}">
+<link rel="stylesheet" href="{% static 'filesystem/edit.css' %}">
+{% endblock %}
+
+{% block workspace_attrs %}data-edit-url="{{ save_url|escape }}"{% endblock %}
+{% block viewer_tag %}[EDIT]{% endblock %}
+
+{% block header_actions %}
+<button class="av-button" type="button" data-edit-save>SAVE</button>
+{% endblock %}
+
+{% block viewer_content %}
+<section class="tv-viewport edit-viewport">
+    <textarea class="edit-area" data-edit-area spellcheck="false" autocomplete="off">{{ text }}</textarea>
+</section>
+{% endblock %}
+
+{% block viewer_js %}
+<script src="{% static 'filesystem/edit.js' %}" defer></script>
+{% endblock %}

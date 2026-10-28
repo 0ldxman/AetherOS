@@ -38,6 +38,10 @@ def _entry(request):
     return entry, context
 
 
+def edit_url(path):
+    return reverse("fsview:edit") + "?" + urlencode({"path": path})
+
+
 def raw_url(path):
     return reverse("fsview:raw") + "?" + urlencode({"path": path})
 
@@ -96,3 +100,41 @@ def text_content(request):
 
     data = build_raw_cached(entry, context.view, request_keys(request), viewer=viewer_for(request))
     return HttpResponse(data.decode("utf-8", "replace"), content_type="text/plain; charset=utf-8", headers={"Cache-Control": "no-store"})
+
+
+EDIT_LIMIT = 200_000
+
+
+def edit_page(request):
+    """Редактор текста файла (edt): тот же вьювер, но с правкой. GET отдаёт страницу, POST сохраняет правку в слой игрока."""
+    import json
+
+    from django.http import JsonResponse
+
+    from filesystem import edit, rights
+
+    entry, context = _entry(request)
+    reason = edit.refusal(entry)
+    if reason:
+        return JsonResponse({"ok": False, "error": reason}, status=400) if request.method == "POST" else HttpResponse(reason, status=400)
+    try:
+        context.require(entry.path, "r" if request.method == "GET" else "w")
+    except rights.Denied:
+        return JsonResponse({"ok": False, "error": "Permission denied"}, status=403) if request.method == "POST" else HttpResponse("Permission denied", status=403)
+
+    if request.method == "POST":
+        try:
+            text = json.loads(request.body or b"{}").get("text")
+        except ValueError:
+            text = None
+        if not isinstance(text, str) or len(text) > EDIT_LIMIT:
+            return JsonResponse({"ok": False, "error": "Bad text"}, status=400)
+        context.view.edit_text(entry.path, text)
+        return JsonResponse({"ok": True})
+
+    name = posixpath.basename(entry.path)
+    identity = hashlib.sha1(f"{terminal_session(request).pk}:{entry.path}".encode()).hexdigest()[:12]
+    return render(request, "filesystem/edit.html", {
+        "asset": SimpleNamespace(name=name, public_id=identity), "text": entry.body,
+        "save_url": reverse("fsview:edit") + "?" + urlencode({"path": entry.path}),
+    })

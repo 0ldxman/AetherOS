@@ -8,7 +8,7 @@ from terminal.engine.result import CommandResult
 
 # порядок и группы в списке help
 GROUPS = (
-    ("files", ("ls", "cd", "pwd", "cnt", "mv", "cp", "del", "rcvr", "wipe", "perm", "own", "clear")),
+    ("files", ("ls", "cd", "pwd", "cnt", "edt", "mv", "cp", "del", "rcvr", "wipe", "perm", "own", "clear")),
     ("inspect and repair", ("ftyp", "txtx", "rpr", "cvt", "blk")),
     ("keys and archives", ("kex", "ward", "pak")),
     ("network", ("nreq", "nget", "rcon", "rshell", "xfer", "exit", "rcon-close")),
@@ -36,6 +36,12 @@ HELP = {
         ("cnt <file>", "cnt -r <file>"),
         "Opens the file in the viewer that suits it.\n"
         "-r  show the raw contents of the file as hexadecimal and text instead",
+    ),
+    "edt": (
+        "edit the text of a file",
+        ("edt <file>",),
+        "Opens the text of the file in the editor. Your changes are kept in your own copy; the original does not change.\n"
+        "Needs permission to read and write the file. Only text files of an editable format can be edited.",
     ),
     "ftyp": (
         "determine the type of a file",

@@ -8,6 +8,7 @@
 """
 import posixpath
 
+from django.core.exceptions import ValidationError
 from django.db import transaction
 from django.db.models import Count
 
@@ -66,13 +67,26 @@ def find_placement(volume, rel):
     return node
 
 
-def ensure_folders(volume, rel_dir):
-    """Папки до rel_dir создаются, если их нет. Возвращает последнюю (None: корень)."""
+FOLDER_FIELDS = ("hidden", "system", "owner", "group", "mode", "access_mode", "access", "state_mode", "state")
+
+
+def ensure_folders(volume, rel_dir, view=None, point="/"):
+    """Папки до rel_dir создаются, если их нет. Возвращает последнюю (None: корень).
+
+    Новая папка отличий закрывает папку нижнего слоя на машине, поэтому берёт её свойства (права, условия, флаги): view и точка
+    монтирования нужны, чтобы найти ту папку."""
     parent = None
+    walked = []
     for name in [part for part in rel_dir.split("/") if part]:
+        walked.append(name)
         node = Placement.objects.filter(volume=volume, parent=parent, name=name).first()
         if node is None:
-            node = Placement.objects.create(volume=volume, parent=parent, kind=Placement.Kind.FOLDER, name=name)
+            fields = {}
+            if view is not None:
+                below = view.get(("" if point == "/" else point) + "/" + "/".join(walked))
+                if below is not None and below.placement is not None:
+                    fields = {key: getattr(below.placement, key) for key in FOLDER_FIELDS}
+            node = Placement.objects.create(volume=volume, parent=parent, kind=Placement.Kind.FOLDER, name=name, **fields)
         elif node.kind != Placement.Kind.FOLDER:
             raise FileManagerError(f"«{name}» в томе отличий не папка.")
         parent = node
@@ -123,7 +137,7 @@ def override(machine, path):
         return entry.item                                              # файл уже из тома отличий: правится на месте
     overlay_mount, volume = overlay_for(machine, entry.layer.point)
     rel = rel_inner(entry.layer.point, path)
-    parent = ensure_folders(volume, posixpath.dirname(rel))
+    parent = ensure_folders(volume, posixpath.dirname(rel), view, entry.layer.point)
     existing = Placement.objects.filter(volume=volume, parent=parent, name=posixpath.basename(rel)).first()
     if existing is not None:
         if existing.kind == Placement.Kind.WHITEOUT:
@@ -135,10 +149,37 @@ def override(machine, path):
     Placement.objects.create(
         volume=volume, parent=parent, kind=Placement.Kind.ITEM, item=copy, name=posixpath.basename(rel),
         hidden=bool(source and source.hidden), system=bool(source and source.system),
+        owner=source.owner if source else "", group=source.group if source else "", mode=source.mode if source else "",
         access_mode=source.access_mode if source else Placement.Mode.INHERIT, access=source.access if source else {},
         state_mode=source.state_mode if source else Placement.Mode.INHERIT, state=source.state if source else "",
     )
     return copy
+
+
+@transaction.atomic
+def set_rights(machine, path, owner="", group="", mode=""):
+    """Права файла или папки на этой машине: меняются в её собственном томе (файл общего образа перекрывается копией)."""
+    view = MachineView(machine, None)
+    entry = _entry(view, path)
+    owner, group, mode = (owner or "").strip(), (group or "").strip(), (mode or "").strip()
+    if entry.is_dir:
+        point = entry.layer.point if entry.layer is not None else point_for(view, path)
+        _, volume = overlay_for(machine, point)
+        rel = rel_inner(point, path)
+        if not rel:
+            raise FileManagerError("Права точки монтирования задаёт сам том.")
+        placement = ensure_folders(volume, rel, view, point)
+    else:
+        override(machine, path)
+        _, volume = overlay_for(machine, entry.layer.point)
+        placement = find_placement(volume, rel_inner(entry.layer.point, path))
+    placement.owner, placement.group, placement.mode = owner, group, mode
+    try:
+        placement.full_clean(exclude=("name", "item", "parent", "volume", "access", "state"))
+    except ValidationError as error:
+        raise FileManagerError("; ".join(message for messages in error.message_dict.values() for message in messages))
+    placement.save(update_fields=["owner", "group", "mode"])
+    return placement
 
 
 @transaction.atomic
@@ -275,7 +316,7 @@ def machine_data(machine):
         if path == "/":
             continue
         row = {"path": path, "name": entry.name, "kind": "dir" if entry.is_dir else "file", "volume": "", "mark": "", "private": False,
-               "hidden": entry.hidden, "system": entry.system, "item": None}
+               "hidden": entry.hidden, "system": entry.system, "item": None, "owner": entry.owner, "group": entry.group, "mode": entry.mode}
         if entry.via is not None:
             row.update(volume=f"{entry.via.mount.host.label}:{entry.via.mount.host_path}", mark="remote")
         elif entry.layer is not None:

@@ -320,7 +320,7 @@
             rename: edit && !!one && one.type !== "deleted",
             cut: edit && live.length > 0, copy: edit && live.length > 0, paste: edit && !!state.clip,
             hidden: edit && !!one && one.type !== "deleted",
-            rights: edit && !machine && !!one && one.type !== "deleted",
+            rights: edit && !!one && one.type !== "deleted",
             reset: edit && !!one && (one.row.mark === "override" || (one.type === "folder" && one.row.private)),
             restore: edit && !!one && one.type === "deleted" && (machine ? one.row.private : true),
             delete: edit && (machine ? live.length > 0 : sel.length > 0),
@@ -524,7 +524,7 @@
         } else if (name === "rights") {
             const v = await ask({title: "Права", text: "Режим из трёх цифр (640): владелец, группа, остальные; 4 читать, 2 писать, 1 входить. Пусто: права не заданы, открыто всем.",
                 fields: [{name: "owner", label: "Владелец (логин)", value: one.row.owner || ""}, {name: "group", label: "Группа", value: one.row.group || ""}, {name: "mode", label: "Режим", value: one.row.mode || ""}], ok: "Задать"});
-            if (v) { await api("rights", {id: Number(one.key), owner: v.owner, group: v.group, mode: v.mode}); }
+            if (v) { await api("rights", machine ? {path: one.key, owner: v.owner, group: v.group, mode: v.mode} : {id: Number(one.key), owner: v.owner, group: v.group, mode: v.mode}); }
         } else if (name === "hidden") {
             await api("set", {id: Number(one.key), hidden: !one.row.hidden});
         } else if (name === "cut" || name === "copy") {

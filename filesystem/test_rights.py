@@ -115,3 +115,40 @@ class RightsTests(TestCase):
         self.assertIn("Operation not permitted", self.output("rshell admin@aether-main"))
         self.assertIn("Operation not permitted", self.output("xfer /srv/open.txt admin@aether-main:/tmp"))
         self.assertIn("Operation not permitted", self.output("nget example.com/x"))
+
+
+@override_settings(FORCE_SCRIPT_NAME=None)
+class FolderRightsTests(TestCase):
+    @classmethod
+    def setUpTestData(cls):
+        cls.main = Machine.objects.create(name="Main", hostname="aether-main")
+        make_app(cls.main, label="console", glyph=">_", path="/apps/terminal/")
+        cls.user = get_user_model().objects.create_user("ivan", password="pw")
+        MachineProfile.objects.create(machine=cls.main, user=cls.user, name="Ivan", login="ivan", freq=1)
+        cls.folder = make_file(cls.main, "/work", directory=True)
+        make_file(cls.main, "/work/a.txt", body="a")
+
+    def setUp(self):
+        previous = get_script_prefix()
+        set_script_prefix("/")
+        self.addCleanup(set_script_prefix, previous)
+        self.client.force_login(self.user)
+
+    def run_command(self, text):
+        response = self.client.post(reverse("terminal:execute"), data=json.dumps({"command": text}), content_type="application/json")
+        return json.loads(response.content)
+
+    def test_a_folder_gets_its_rights_from_perm_and_they_decide_listing_and_creating(self):
+        self.assertEqual(self.run_command("perm 555 /work")["exit_code"], 0)
+        self.assertIn("dr-xr-xr-x", self.run_command("ls -l /")["output"])
+        self.assertIn("Permission denied", self.run_command("cp /work/a.txt /work/b.txt")["output"])
+        self.assertIn("Permission denied", self.run_command("del -f /work/a.txt")["output"])
+        self.run_command("perm 755 /work")                                               # тот, кто задал права, их владелец
+        self.assertEqual(self.run_command("cp /work/a.txt /work/b.txt")["exit_code"], 0)
+
+    def test_a_folder_without_the_right_to_enter_closes_what_is_in_it(self):
+        Placement.objects.filter(pk=self.folder.placement.pk).update(owner="root", mode="700")
+        self.assertIn("Permission denied", self.run_command("ls /work")["output"])
+        self.assertIn("Permission denied", self.run_command("txtx /work/a.txt")["output"])
+        self.assertIn("Permission denied", self.run_command("cd /work")["output"])
+        self.assertIn("Operation not permitted", self.run_command("perm 777 /work")["output"])

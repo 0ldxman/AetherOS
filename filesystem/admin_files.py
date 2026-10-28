@@ -181,5 +181,7 @@ class MachineFiles(FileManagerMixin):
             overlay.reset(machine, body.get("path") or "")
         elif op == "rename":
             overlay.rename(machine, body.get("path") or "", body.get("name"))
+        elif op == "rights":
+            overlay.set_rights(machine, body.get("path") or "", body.get("owner"), body.get("group"), body.get("mode"))
         else:
             raise FileManagerError("Неизвестная операция.")

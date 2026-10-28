@@ -582,8 +582,8 @@ class MachineView:
         if done:
             return result
         found = self.get(path)
-        if found is None or found.is_dir:
-            raise FileNotFoundError(path)
+        if found is None or found.layer is None:
+            raise FileNotFoundError(path)                               # папка без слоя придумана видом: права ей не задать
         row = found.player or self._row(found.layer, found.inner)
         return self._save(row, **fields)
 

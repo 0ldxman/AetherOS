@@ -212,6 +212,22 @@ class OverlayTests(TestCase):
         self.assertFalse(self.view(self.other).exists("/etc/extra.txt"))
         self.assertEqual(Placement.objects.filter(volume=self.base).count(), 5)
 
+    def test_the_rights_of_a_file_and_a_folder_are_set_for_this_machine_only_and_the_parents_keep_theirs(self):
+        Placement.objects.filter(volume=self.base, name="etc").update(owner="root", mode="755", system=True)
+        overlay.set_rights(self.machine, "/etc/hosts", "root", "staff", "640")
+        file = self.view().get("/etc/hosts")
+        self.assertEqual((file.owner, file.group, file.mode), ("root", "staff", "640"))
+        etc = self.view().get("/etc")
+        self.assertEqual((etc.owner, etc.mode, etc.system), ("root", "755", True))               # папка отличий взяла свойства нижней
+        overlay.set_rights(self.machine, "/etc", "ivan", "", "700")
+        self.assertEqual(self.view().get("/etc").mode, "700")
+        self.assertEqual(self.view(self.other).get("/etc/hosts").mode, "")                       # другая машина и образ нетронуты
+        self.assertEqual(Placement.objects.get(volume=self.base, name="hosts").mode, "")
+        with self.assertRaises(FileManagerError):
+            overlay.set_rights(self.machine, "/etc/hosts", "", "", "999")
+        with self.assertRaises(FileManagerError):
+            overlay.set_rights(self.machine, "/", "", "", "700")
+
     def test_a_new_file_is_checked_against_the_whole_view(self):
         with self.assertRaises(FileManagerError):
             overlay.new_file(self.machine, "/etc", "hosts")                           # такой уже есть в образе

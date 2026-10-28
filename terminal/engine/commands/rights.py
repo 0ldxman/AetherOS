@@ -17,9 +17,10 @@ def _files(context, command, operands):
         path = context.resolve_path(operand)
         if not fs.exists(path):
             return None, CommandResult(f"{command}: cannot access '{operand}': No such file or directory", 1)
-        if fs.is_directory(path):
-            return None, CommandResult(f"{command}: {operand}: Is a directory", 1)
-        found.append(fs.get_file(path))
+        entry = fs.get_file(path)
+        if entry is None or entry.layer is None:
+            return None, CommandResult(f"{command}: {operand}: cannot change this directory", 1)
+        found.append(entry)
     return found, None
 
 
@@ -41,7 +42,10 @@ class PermCommand(BaseCommand):
             if not principal.root and (mode or owner) and principal.login != owner:
                 raise rights.NotPermitted("owner")
         for entry in files:
-            context.view.set_rights(entry.path, mode=args[0])
+            fields = {"mode": args[0]}
+            if not entry.owner and not principal.root:
+                fields["owner"] = principal.login                    # право, ничьё до сих пор, закрепляется за тем, кто его задал
+            context.view.set_rights(entry.path, **fields)
         context.invalidate()
         return CommandResult()
 
