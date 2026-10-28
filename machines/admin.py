@@ -19,7 +19,8 @@ from .models import (
     Group,
     Machine,
     MachineProfile,
-    MachineProfileHID,
+    EntryPolicy,
+    LoginEvent,
     MachineProfileToken,
     NetNode,
     NetResource,
@@ -261,16 +262,40 @@ class MachineProfileTokenInline(admin.TabularInline):
 
 
 # ==================================================
-# Profile HID
+# Entry policy
 # ==================================================
 
-class MachineProfileHIDInline(admin.TabularInline):
-    model = MachineProfileHID
-    extra = 0
-
-    fields = (
-        "hid",
+@admin.register(EntryPolicy)
+class EntryPolicyAdmin(admin.ModelAdmin):
+    list_display = ("name", "mode", "max_attempts", "lock_seconds", "ttl", "has_windows", "used_by")
+    search_fields = ("name", "description")
+    fieldsets = (
+        (None, {"fields": ("name", "description")}),
+        ("Способы", {"fields": ("mode",)}),
+        ("Откуда и когда", {"fields": ("sources", "via", "windows")}),
+        ("Ошибки и сроки", {"fields": ("max_attempts", "attempts_window", "lock_seconds", "ttl")}),
+        ("Что видит игрок", {"fields": ("denied_text", "locked_text", "window_text", "kick_text")}),
     )
+
+    @admin.display(boolean=True, description="Окна")
+    def has_windows(self, obj):
+        return bool(obj.windows.strip())
+
+    @admin.display(description="Назначена")
+    def used_by(self, obj):
+        return f"типов {obj.system_types.count()}, машин {obj.machines.count()}, записей {obj.profiles.count()}"
+
+
+@admin.register(LoginEvent)
+class LoginEventAdmin(admin.ModelAdmin):
+    list_display = ("at", "profile", "user", "kind", "source", "detail")
+    list_filter = ("kind", "profile__machine")
+    search_fields = ("profile__login", "user__username", "source")
+    list_select_related = ("profile__machine", "user")
+    date_hierarchy = "at"
+
+    def has_add_permission(self, request):
+        return False
 
 
 # ==================================================
@@ -316,7 +341,20 @@ class MachineProfileAdmin(ConditionFieldsMixin, admin.ModelAdmin):
     readonly_fields = (
         "id",
         "password_state",
+        "effective_policy",
     )
+
+    @admin.display(description="Действует")
+    def effective_policy(self, obj):
+        from . import entry
+
+        if obj.pk is None:
+            return "—"
+        policy = entry.policy_of(obj)
+        if policy is None:
+            return "Политики нет: ограничений входа нет."
+        where = "профиля" if obj.entry_policy_id else "машины" if obj.machine.entry_policy_id else "типа системы"
+        return f"«{policy.name}» ({where})"
 
     fieldsets = (
         (
@@ -361,6 +399,15 @@ class MachineProfileAdmin(ConditionFieldsMixin, admin.ModelAdmin):
             },
         ),
         (
+            "Entry policy",
+            {
+                "fields": (
+                    "entry_policy",
+                    "effective_policy",
+                ),
+            },
+        ),
+        (
             "Connection limit",
             {
                 "fields": (
@@ -374,7 +421,6 @@ class MachineProfileAdmin(ConditionFieldsMixin, admin.ModelAdmin):
 
     inlines = (
         MachineProfileTokenInline,
-        MachineProfileHIDInline,
     )
 
     def save_model(self, request, obj, form, change):
@@ -473,36 +519,6 @@ class MachineProfileTokenAdmin(admin.ModelAdmin):
     def reset_usage(self, request, queryset):
         count = queryset.update(usage=0)
         self.message_user(request, f"Сброшено токенов: {count}.", messages.SUCCESS)
-
-
-# ==================================================
-# Machine Profile HID
-# ==================================================
-
-@admin.register(MachineProfileHID)
-class MachineProfileHIDAdmin(admin.ModelAdmin):
-    list_select_related = ("profile__machine",)
-
-    list_display = (
-        "id",
-        "profile",
-        "hid",
-    )
-
-    list_filter = (
-        "profile__machine",
-    )
-
-    search_fields = (
-        "hid",
-        "profile__name",
-        "profile__login",
-        "profile__machine__hostname",
-    )
-
-    autocomplete_fields = (
-        "profile",
-    )
 
 
 # ==================================================

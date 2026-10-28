@@ -31,6 +31,7 @@ from django.utils import timezone
 
 from secure.access import satisfied
 
+from . import entry
 from .current import SESSION_KEY, active_session
 from .models import Machine, MachineProfile, MachineProfileToken, Session
 
@@ -182,13 +183,14 @@ def expire(request, now=None):
             break
         left = closed.sessions[0]
         profile = left.profile
-        if profile.cooldown:
-            Session.objects.filter(pk=left.pk).update(blocked_until=timezone.now() + timedelta(seconds=profile.cooldown))
+        lock = entry.lock_seconds_of(profile)
+        if lock:
+            Session.objects.filter(pk=left.pk).update(blocked_until=timezone.now() + timedelta(seconds=lock))
         kicks.append({
             "label": f"{profile.login}@{profile.machine.hostname}",
             "host": profile.machine.hostname,
             "system": profile.machine.system,
-            "message": profile.kick_message.strip(),
+            "message": entry.kick_text_of(profile),
             "desktop": closed.desktop_moved,
             "cwd": closed.cwd,
         })
@@ -228,7 +230,7 @@ def open_child(request, profile, desktop, cwd):
     tree["next"] += 1
     tree["nodes"][key] = {
         "parent": parent, "session": session.pk, "cwd": HOME,
-        "deadline": time.time() + profile.ttl if profile.ttl else None,        # срок подключения с момента входа
+        "deadline": time.time() + entry.ttl_of(profile) if entry.ttl_of(profile) else None,        # срок подключения с момента входа
     }
     tree["terminal"] = key
     if desktop:
@@ -426,10 +428,18 @@ def methods(profile):
     return [name for name, needed in (("publickey", key_required(profile)), ("password", password_required(profile))) if needed]
 
 
-def source_allowed(profile, source_machine):
-    """Со списком hid входить можно только с машин из него; пустой список пускает откуда угодно."""
-    hids = set(profile.allowed_hids.values_list("hid", flat=True))
-    return not hids or source_machine.hid in hids
+def chain_hosts(request):
+    """Имена хостов цепочки мостов от исходной машины игрока до узла терминала включительно."""
+    tree = _tree(request, create=False)
+    if not tree:
+        return [active_session(request).profile.machine.hostname]
+    names, node = [], tree["terminal"]
+    while node is not None:
+        session = _session_of(request, tree, node)
+        if session is not None:
+            names.append(session.profile.machine.hostname or session.profile.machine.name)
+        node = tree["nodes"][node]["parent"]
+    return names[::-1]
 
 
 def valid_token(profile, value):

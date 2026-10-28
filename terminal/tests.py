@@ -294,7 +294,7 @@ class BridgeFixture(TestCase):
         from django.contrib.auth.hashers import make_password
 
         from filesystem.testing import make_file
-        from machines.models import MachineProfile, MachineProfileHID, MachineProfileToken
+        from machines.models import EntryPolicy, MachineProfile, MachineProfileToken
         from filesystem.testing import key_item
 
         cls.main = Machine.objects.create(name="Main", hostname="aether-main", hid="AA:00:00:00:00:01")
@@ -313,8 +313,7 @@ class BridgeFixture(TestCase):
         cls.ops = account(cls.core, "ops", password_hash=make_password("s3cret"), key_condition="cardkey")
         cls.badge = account(cls.core, "badge", key_condition="cardkey")
         cls.tok = account(cls.core, "tok", password_hash=make_password("s3cret"), key_condition="cardkey")
-        cls.walled = account(cls.core, "walled")
-        MachineProfileHID.objects.create(profile=cls.walled, hid="FF:FF:FF:FF:FF:FF")
+        cls.walled = account(cls.core, "walled", entry_policy=EntryPolicy.objects.create(name="walled", sources="somewhere-else"))
         cls.twin_a = account(cls.core, "twin", freq=14.230)
         cls.twin_b = account(cls.core, "twin", freq=15.000)
         cls.deep_open = account(cls.deep, "dig")

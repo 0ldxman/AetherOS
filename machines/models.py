@@ -3,6 +3,7 @@ from django.conf import settings
 from django.contrib.auth.hashers import check_password, make_password
 from django.db import models
 from django.db.models import Q
+from django.utils import timezone
 
 import secrets
 
@@ -56,6 +57,11 @@ class Machine(models.Model):
         max_length=17,
         unique=True,
         blank=True,
+    )
+
+    entry_policy = models.ForeignKey(
+        "machines.EntryPolicy", null=True, blank=True, on_delete=models.SET_NULL, related_name="machines", verbose_name="Политика входа",
+        help_text="Для записей машины, у которых своей политики нет. Пусто: политика типа системы.",
     )
 
     created_at = models.DateTimeField(
@@ -175,6 +181,11 @@ class MachineProfile(models.Model):
         "root", default=False, help_text="Все привилегии и обход прав файлов.",
     )
 
+    entry_policy = models.ForeignKey(
+        "machines.EntryPolicy", null=True, blank=True, on_delete=models.SET_NULL, related_name="profiles", verbose_name="Политика входа",
+        help_text="Пусто: действует политика машины, иначе типа системы.",
+    )
+
     kick_message = models.TextField(
         "Сообщение при обрыве",
         blank=True,
@@ -202,6 +213,102 @@ class MachineProfile(models.Model):
             self.mail = f"{self.login}@{self.machine.label}"
 
         super().save(*args, **kwargs)
+
+
+class EntryPolicy(models.Model):
+    """Политика входа: правила, по которым запись принимает игрока. Назначается типу системы, машине или профилю; действует самая
+    конкретная. Пароль, условие по ключам и токены остаются у профиля: политика говорит, как их сочетать и когда, откуда и сколько раз
+    можно входить. Решение принимает machines/entry.py."""
+
+    class Mode(models.TextChoices):
+        ALL = "all", "Нужны и пароль, и ключ"
+        ANY = "any", "Хватает пароля или ключа"
+
+    name = models.CharField("Название", max_length=64, unique=True)
+    description = models.TextField("Заметка", blank=True, help_text="Для автора, игрок её не видит.")
+    mode = models.CharField(
+        "Пароль и ключ", max_length=3, choices=Mode.choices, default=Mode.ALL,
+        help_text="Как сочетаются способы записи. Токен пускает мимо обоих.",
+    )
+    sources = models.TextField(
+        "Откуда можно", blank=True,
+        help_text="Хосты, с которых можно входить, по одному в строке. * в имени заменяет любые знаки: gw-*. Пусто: откуда угодно.",
+    )
+    via = models.TextField(
+        "Только через", blank=True, help_text="Хосты, через которые вход обязан пройти (цепочка мостов игрока), по одному в строке.",
+    )
+    max_attempts = models.PositiveSmallIntegerField(
+        "Неверных попыток", null=True, blank=True, help_text="Сколько ошибок подряд до блокировки. Пусто: без блокировки.",
+    )
+    attempts_window = models.PositiveIntegerField("Окно попыток, с", default=600, help_text="Ошибки считаются за это время.")
+    lock_seconds = models.PositiveIntegerField(
+        "Блокировка, с", default=300, help_text="Сколько запись не принимает игрока после серии ошибок или обрыва по сроку.",
+    )
+    ttl = models.PositiveIntegerField(
+        "Срок подключения, с", null=True, blank=True, help_text="Сколько держится подключение. Пусто: без ограничения.",
+    )
+    windows = models.TextField(
+        "Окна времени", blank=True,
+        help_text="mon-fri: 9:00-13:00 14:00-17:00. Дни: mon-fri, sat,sun, *. except sun: * закрывает день. Пусто: в любое время.",
+    )
+    denied_text = models.TextField("Текст отказа", blank=True, help_text="Пусто: стандартный для системы.")
+    locked_text = models.TextField("Текст блокировки", blank=True)
+    window_text = models.TextField("Текст вне окна", blank=True)
+    kick_text = models.TextField("Текст при обрыве", blank=True)
+
+    class Meta:
+        ordering = ("name",)
+        verbose_name = "Политика входа"
+        verbose_name_plural = "Политики входа"
+
+    def __str__(self):
+        return self.name
+
+    @staticmethod
+    def lines(text):
+        return [line.split("#", 1)[0].strip() for line in (text or "").splitlines() if line.split("#", 1)[0].strip()]
+
+    def clean(self):
+        from machines import windows
+
+        try:
+            windows.parse(self.windows)
+        except windows.WindowError as error:
+            raise ValidationError({"windows": str(error)})
+        if self.max_attempts is not None and self.max_attempts < 1:
+            raise ValidationError({"max_attempts": "Не меньше одной попытки."})
+
+
+class LoginEvent(models.Model):
+    """Событие входа на запись: успех, отказ и его причина. Из событий считается блокировка после ошибок, и они же журнал хоста."""
+
+    class Kind(models.TextChoices):
+        OK = "ok", "Вход"
+        BAD_PASSWORD = "bad_password", "Неверный пароль"
+        BAD_KEY = "bad_key", "Нет ключа"
+        BAD_TOKEN = "bad_token", "Токен отвергнут"
+        SOURCE = "source", "Не с того хоста"
+        ROUTE = "route", "Не через тот хост"
+        WINDOW = "window", "Вне окна времени"
+        LOCKED = "locked", "Блокировка"
+
+    FAILURES = ("bad_password", "bad_key")
+
+    profile = models.ForeignKey("machines.MachineProfile", on_delete=models.CASCADE, related_name="events")
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL, related_name="login_events")
+    at = models.DateTimeField(default=timezone.now)
+    kind = models.CharField(max_length=16, choices=Kind.choices)
+    source = models.CharField("Откуда", max_length=128, blank=True)
+    detail = models.CharField(max_length=255, blank=True)
+
+    class Meta:
+        ordering = ("at", "id")
+        indexes = [models.Index(fields=("profile", "user", "at"), name="loginevent_pair_idx")]
+        verbose_name = "Событие входа"
+        verbose_name_plural = "События входа"
+
+    def __str__(self):
+        return f"{self.at:%Y-%m-%d %H:%M:%S} {self.profile.login} {self.kind}"
 
 
 class Group(models.Model):
@@ -287,37 +394,6 @@ class MachineProfileToken(models.Model):
 
     def __str__(self):
         return f"{self.profile.login} / {self.token}"
-
-
-class MachineProfileHID(models.Model):
-    id = models.BigAutoField(
-        primary_key=True,
-    )
-
-    profile = models.ForeignKey(
-        MachineProfile,
-        on_delete=models.CASCADE,
-        related_name="allowed_hids",
-    )
-
-    hid = models.CharField(
-        max_length=17,
-    )
-
-    class Meta:
-        ordering = ("profile", "hid")
-        constraints = [
-            models.UniqueConstraint(
-                fields=(
-                    "profile",
-                    "hid",
-                ),
-                name="unique_profile_hid",
-            ),
-        ]
-
-    def __str__(self):
-        return self.hid
 
 
 class Session(models.Model):
@@ -480,6 +556,10 @@ class SystemType(models.Model):
     path_style = models.CharField(
         "Диалект путей", max_length=8, choices=PathStyle.choices, default=PathStyle.UNIX,
         help_text="Как машины этой системы показывают и принимают пути в терминале. Хранение от него не зависит.",
+    )
+    entry_policy = models.ForeignKey(
+        "machines.EntryPolicy", null=True, blank=True, on_delete=models.SET_NULL, related_name="system_types", verbose_name="Политика входа",
+        help_text="Для машин этого типа, у которых своей политики нет. Пусто: без ограничений.",
     )
 
     class Meta:

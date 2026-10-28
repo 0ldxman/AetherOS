@@ -9,7 +9,8 @@ Permission denied (publickey,password). Нет машины или записи 
 записью: rcon открывает мост и меняет рабочий стол, rshell вкладывает оболочку в терминал, xfer переносит файл.
 """
 from filesystem import keystore
-from machines import bridge
+from machines import bridge, entry
+from machines.models import LoginEvent
 from terminal import bridge_scenes as scenes
 from terminal.engine.commands.basic import BaseCommand
 from terminal.engine.context import TerminalContext
@@ -23,10 +24,19 @@ PENDING_KEY = "bridge_pending"
 SWITCH = [{"op": "switch"}]
 
 
-def _denied(profile, system, host, endpoint=None):
+def _denied(profile, system, host, endpoint=None, text=""):
     listed = ",".join(bridge.methods(profile)) or "none"
     return CommandResult(
-        f"Permission denied ({listed}).", 1, scene=scenes.denied_scene(system, host, profile.login, endpoint)
+        "\n".join(filter(None, [f"Permission denied ({listed}).", text])), 1, scene=scenes.denied_scene(system, host, profile.login, endpoint)
+    )
+
+
+def _locked(profile, user_name, wait, text="", prefix=""):
+    return CommandResult(
+        "\n".join(filter(None, [
+            f"{prefix}account locked, security review in progress (retry in {wait // 60:02d}:{wait % 60:02d})", text,
+        ])),
+        1, scene=scenes.locked_scene(profile.machine.system, profile.machine.hostname, user_name),
     )
 
 
@@ -41,10 +51,22 @@ def answer_prompt(request, text, session, cwd):
     if profile is None or command is None:
         return CommandResult(), cwd
 
-    if pending["key_ok"] and bridge.password_ok(profile, text):
+    source = session.profile.machine.hostname or session.profile.machine.name
+    if (pending["key_ok"] or pending.get("any")) and bridge.password_ok(profile, text):
+        entry.record(profile, request.user, LoginEvent.Kind.OK, source)
         return command().finish(context, profile, pending.get("args") or {}), context.cwd
 
-    return _denied(profile, profile.machine.system, profile.machine.hostname, f"{profile.freq:.3f} MHz"), cwd
+    entry.record(profile, request.user, LoginEvent.Kind.BAD_PASSWORD, source)
+    if entry.after_failure(profile, request.user, source):
+        policy = entry.policy_of(profile)
+        wait = entry.locked_seconds(request.user, profile)
+        return _locked(profile, profile.login, wait, policy.locked_text.strip() if policy else ""), cwd
+    return _denied(profile, profile.machine.system, profile.machine.hostname, f"{profile.freq:.3f} MHz", _text_of(profile)), cwd
+
+
+def _text_of(profile):
+    policy = entry.policy_of(profile)
+    return policy.denied_text.strip() if policy else ""
 
 
 class EntryCommand(BaseCommand):
@@ -111,37 +133,47 @@ class EntryCommand(BaseCommand):
         target_system = profile.machine.system
         if profile.pk == context.profile.pk:
             return CommandResult(f"{self.name}: already on this account", 1)
-        wait = bridge.locked_for(request.user, profile)
-        if wait:
-            return CommandResult(
-                f"{self.name}: {login}@{host}: account locked, security review in progress (retry in {wait // 60:02d}:{wait % 60:02d})",
-                1,
-                scene=scenes.locked_scene(target_system, host, login),
-            )
         endpoint_text = f"{profile.freq:.3f} MHz"
+        user, source = request.user, context.machine.hostname or context.machine.name
 
-        if not bridge.source_allowed(profile, context.machine):
-            return _denied(profile, target_system, host, endpoint_text)
+        refusal = entry.gate(profile, user, context.machine, bridge.chain_hosts(request))
+        if refusal is not None:
+            if refusal.kind == LoginEvent.Kind.LOCKED:
+                return _locked(profile, login, refusal.wait, refusal.text, f"{self.name}: {login}@{host}: ")
+            entry.record(profile, user, refusal.kind, source)
+            return _denied(profile, target_system, host, endpoint_text, refusal.text)
 
         if opts["token"]:
             token = bridge.valid_token(profile, opts["token"])
             if token is None:
+                entry.record(profile, user, LoginEvent.Kind.BAD_TOKEN, source)
                 return CommandResult(
                     f"{self.name}: token rejected", 1, scene=scenes.denied_scene(target_system, host, login, endpoint_text)
                 )
             bridge.spend_token(token)
+            entry.record(profile, user, LoginEvent.Kind.OK, source, "token")
             return self.finish(context, profile, args)
 
         keys_ok = bridge.keys_ok(profile, slugs)
+        either = entry.mode_of(profile) == "any" and bridge.password_required(profile) and bridge.key_required(profile)
+
+        if either and keys_ok:
+            entry.record(profile, user, LoginEvent.Kind.OK, source, "key")
+            return self.finish(context, profile, args)
 
         if bridge.password_required(profile):
-            request.session[PENDING_KEY] = {"profile": profile.pk, "key_ok": keys_ok, "mode": self.mode, "args": args}
+            request.session[PENDING_KEY] = {"profile": profile.pk, "key_ok": keys_ok, "any": either, "mode": self.mode, "args": args}
             return CommandResult(prompt={"kind": "password", "text": f"{login}@{host}'s password: "})
 
         if keys_ok:
+            entry.record(profile, user, LoginEvent.Kind.OK, source, "key")
             return self.finish(context, profile, args)
 
-        return _denied(profile, target_system, host, endpoint_text)
+        entry.record(profile, user, LoginEvent.Kind.BAD_KEY, source)
+        if entry.after_failure(profile, user, source):
+            policy = entry.policy_of(profile)
+            return _locked(profile, login, entry.locked_seconds(user, profile), policy.locked_text.strip() if policy else "")
+        return _denied(profile, target_system, host, endpoint_text, _text_of(profile))
 
     def _parse(self, args):
         """Разбор аргументов: словарь или текст ошибки."""

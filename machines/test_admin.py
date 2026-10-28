@@ -32,8 +32,6 @@ class ProfilePasswordTests(AdminTestCase):
             "machine": self.machine.pk, "user": "", "name": "Профиль", "login": "ivan", "mail": "ivan@m", "freq": "1.000",
             "key_condition": "",
             "tokens-TOTAL_FORMS": 0, "tokens-INITIAL_FORMS": 0, "tokens-MIN_NUM_FORMS": 0, "tokens-MAX_NUM_FORMS": 1000,
-            "allowed_hids-TOTAL_FORMS": 0, "allowed_hids-INITIAL_FORMS": 0,
-            "allowed_hids-MIN_NUM_FORMS": 0, "allowed_hids-MAX_NUM_FORMS": 1000,
         }
         data.update(extra)
         return data
@@ -180,8 +178,6 @@ class TokenTests(AdminTestCase):
             "tokens-TOTAL_FORMS": 1, "tokens-INITIAL_FORMS": 0, "tokens-MIN_NUM_FORMS": 0, "tokens-MAX_NUM_FORMS": 1000,
             "tokens-0-token": "", "tokens-0-max_usage": "5", "tokens-0-usage": "0",
             "tokens-0-expires_at_0": "", "tokens-0-expires_at_1": "",
-            "allowed_hids-TOTAL_FORMS": 0, "allowed_hids-INITIAL_FORMS": 0,
-            "allowed_hids-MIN_NUM_FORMS": 0, "allowed_hids-MAX_NUM_FORMS": 1000,
         }
         response = self.client.post(url, data)
         self.assertEqual(response.status_code, 302)
@@ -201,9 +197,7 @@ class ConditionFieldTests(AdminTestCase):
             reverse("admin:machines_machineprofile_add"),
             {"machine": self.machine.pk, "user": "", "name": "P", "login": "l", "freq": "1.000",
              "key_condition": '{"not": []}',
-             "tokens-TOTAL_FORMS": 0, "tokens-INITIAL_FORMS": 0, "tokens-MIN_NUM_FORMS": 0, "tokens-MAX_NUM_FORMS": 1000,
-             "allowed_hids-TOTAL_FORMS": 0, "allowed_hids-INITIAL_FORMS": 0,
-             "allowed_hids-MIN_NUM_FORMS": 0, "allowed_hids-MAX_NUM_FORMS": 1000},
+             "tokens-TOTAL_FORMS": 0, "tokens-INITIAL_FORMS": 0, "tokens-MIN_NUM_FORMS": 0, "tokens-MAX_NUM_FORMS": 1000,},
         )
         self.assertEqual(response.status_code, 200)
 
