@@ -62,7 +62,8 @@ class Command(BaseCommand):
             ("app-aether", "aether", "W", "/apps/wiki/", ".db"),
             ("app-world", "world", "M", "/apps/map/", ".map"),
         ):
-            put(base, f"etc/desktop/{label}.app", slug, appfile.render(label, glyph, path, suffix), format="app")
+            volumes = ("aether-core:/srv/harbor as Harbor user=reader",) if label == "aether" else ()       # вики подключает архив порта
+            put(base, f"etc/desktop/{label}.app", slug, appfile.render(label, glyph, path, suffix, volumes=volumes), format="app")
 
         put(base, "etc/desktop/readme.txt", "demo-readme", "Welcome. Files on the desktop open by their kind.\n")
 
@@ -73,6 +74,7 @@ class Command(BaseCommand):
         # общий том, который хостит aether-core
         harbor, _ = Volume.objects.get_or_create(slug="harbor", defaults={"name": "Harbor archive", "label": "Архив порта"})
         put(harbor, "ports/manifest.txt", "demo-manifest", "Shipment 7 left at dawn.\n")
+        put(harbor, "ports/shipment-7.doc", "demo-shipment", "Shipment 7 left at dawn.\n\nThe crates were unmarked.", format="doc", name="Shipment 7")
 
         core, _ = Machine.objects.get_or_create(hostname="aether-core", defaults={"name": "Core", "system": system.code})
         mount(core, base, "/", 0)

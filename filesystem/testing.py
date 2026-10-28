@@ -188,10 +188,8 @@ def give_keys(user, *slugs):
         profile = MachineProfile.objects.create(machine=machine, user=user, name=user.get_username(), login="keys", freq=1)
         session = Session.objects.create(user=user, profile=profile)
         from filesystem.models import Volume
-        from machines.models import MachineMount
 
-        for order, volume in enumerate(Volume.objects.order_by("pk")):                    # вики машины видна целиком
-            MachineMount.objects.create(machine=machine, volume=volume, mount_path="", order=order)
+        wiki_sections(machine, list(Volume.objects.order_by("pk")))                       # вики машины видна целиком
     machine = session.profile.machine
     root_volume(machine)
     view = MachineView(machine, user)
@@ -210,12 +208,33 @@ def give_key_to_session(session, slug):
 APPS_DIR = "/apps-desktop"
 
 
-def make_app(machine, label, glyph, path, suffix="", key_condition=None, order=0):
+def wiki_sections(machine, volumes):
+    """Вики на машине: каждый том монтируется в /wiki/<слаг>, а файл вики называет его разделом (по порядку списка)."""
+    from machines.models import MachineMount
+
+    lines = []
+    for order, volume in enumerate(volumes):
+        MachineMount.objects.get_or_create(machine=machine, mount_path=f"/wiki/{volume.slug}", defaults={"volume": volume, "order": order})
+        lines.append(f"/wiki/{volume.slug} as {volume.name or volume.slug}")
+    remove_apps_named(machine, "wiki")
+    return make_app(machine, "wiki", "W", "/apps/wiki/", volumes=lines)
+
+
+def remove_apps_named(machine, label):
+    from filesystem.models import Placement
+
+    found = Placement.objects.filter(name=f"{label}.app", volume__mounts__machine=machine)
+    items = list(found.values_list("item_id", flat=True))
+    found.delete()
+    Item.objects.filter(pk__in=items).delete()
+
+
+def make_app(machine, label, glyph, path, suffix="", key_condition=None, order=0, volumes=()):
     """Иконка на столе машины: файл приложения в общем месте desktop (у машины оно одно на всех записей)."""
     from filesystem import appfile
 
     Place.objects.get_or_create(machine=machine, name="desktop", defaults={"path": APPS_DIR})
-    made = make_file(machine, f"{APPS_DIR}/{label}.app", body=appfile.render(label, glyph, path, suffix, order), format="app")
+    made = make_file(machine, f"{APPS_DIR}/{label}.app", body=appfile.render(label, glyph, path, suffix, order, volumes), format="app")
     if key_condition:
         made.item.access = key_condition
         made.item.save(update_fields=["access"])

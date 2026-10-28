@@ -1,13 +1,15 @@
 """Вики поверх томов: раздел это том (или смонтированная папка тома), подраздел это папка, страница это объект формата-страницы.
 
-Вики приложение, а не хранилище: оно показывает тома, подключённые к машине игрока, и ничего о них не хранит. Для одного запроса
+Вики приложение, а не хранилище: файл вики записи игрока подключает к ней папки хостов (тома на хостах смонтированы обычно, на клиенте их как дисков нет), и ничего о них она не хранит. Для одного запроса
 дерево и страницы читаются целиком несколькими запросами (тома, размещения, объекты) и дальше работают в памяти.
 
 Раздел и страница описаны объектами Node и Page с теми же полями, которые вики использует во всех своих видах (название, цепочка
 родителей, условия доступа, текст), поэтому разметка, проверка доступа и поиск от устройства хранения не зависят.
 """
-from machines.models import MachineMount
+import itertools
+import posixpath
 
+from filesystem import rights
 from filesystem.models import Placement, Volume
 from filesystem.rawview import registry
 
@@ -113,23 +115,101 @@ def _pages_formats():
     return {found.name: found for found in registry.all_formats() if found.page}
 
 
-def _volumes(request):
-    """[(том, папка внутри тома или '')] в порядке показа: смонтированные на машину, а без машины все."""
-    machine = _machine(request) if request is not None else None
-    if machine is None:
-        return [(volume, "") for volume in Volume.objects.order_by("slug")]
-    seen, found = set(), []
-    for mount in MachineMount.objects.filter(machine=machine).select_related("volume").order_by("order", "id"):
-        if mount.volume_id not in seen:
-            seen.add(mount.volume_id)
-            found.append((mount.volume, mount.volume_path))
-    return found
+def _sections(request, machine):
+    """[(название, вид машины, путь в нём)] разделов, которые подключают файлы вики записи игрока.
+
+    Строка volume файла вики называет хост, путь на нём и запись хоста; вики подключается к хосту как клиент и видит поддерево
+    так, как его видит эта запись. Без хоста берётся эта же машина (права записи игрока). Недоступный хост даёт раздел, которого нет."""
+    from urllib.parse import urlsplit
+
+    from django.urls import Resolver404, resolve
+
+    from filesystem.machine_view import MachineView
+    from machines import connection
+    from machines.current import active_session, visible_apps
+    from machines.groups import principal_for
+    from machines.models import Machine
+
+    apps = []
+    for app in visible_apps(request, machine):
+        try:
+            if "wiki" in resolve(urlsplit(app.path).path).namespaces:
+                apps.append(app)
+        except Resolver404:
+            continue
+    lines = [line for app in apps for line in app.volumes]
+    if not lines:
+        return []
+    signed = request.user.is_authenticated
+    profile = active_session(request).profile if signed else None
+    user = request.user if signed else None
+    hosts = {found.hostname: found for found in Machine.objects.filter(hostname__in={line.host for line in lines if line.host})}
+
+    sections = []
+    for line in lines:
+        if line.host:
+            host = hosts.get(line.host)
+            account = connection.account_of(host, line.user or "guest") if host is not None else None
+            view = connection.connect(machine, host, line.path, account, user) if account is not None else None
+        else:
+            view = MachineView(machine, user, principal_for(profile) if profile is not None else None)
+        if view is not None and view.is_directory(line.path):
+            sections.append((line.title or posixpath.basename(line.path) or line.host or machine.label, view, line.path))
+    return sections
 
 
 def build(request=None):
-    """Дерево и страницы для запроса (машина игрока). Разделы без единой страницы вики не показываются."""
+    """Дерево и страницы для запроса (машина игрока). Разделы без единой страницы вики не показываются.
+
+    Без машины (служебные вызовы, сводка автора) берутся все тома; с машиной разделы называет файл вики записи игрока."""
     formats = _pages_formats()
-    volumes = _volumes(request)
+    machine = _machine(request) if request is not None else None
+    if machine is None:
+        return _from_volumes(formats, [(volume, "") for volume in Volume.objects.order_by("slug")])
+    return _from_views(formats, _sections(request, machine))
+
+
+def _from_views(formats, sections):
+    nodes, pages, synthetic = [], [], itertools.count(-1, -1)
+    for title, view, base in sections:
+        entries = view.under(base)
+        root_entry = entries[0]
+        root_conditions = list(root_entry.conditions)
+        root = Node(next(synthetic), title, None, None, {"all": root_conditions} if root_conditions else {}, False)
+        built = {base: root}
+        section_nodes, section_pages = [root], []
+
+        def node_for(path):
+            if path in built:
+                return built[path]
+            entry = view.get(path)
+            placement = entry.placement if entry is not None else None
+            parent = node_for(posixpath.dirname(path))
+            access = placement.access if placement is not None and placement.access_mode != Placement.Mode.NONE else {}
+            node = Node(placement.pk if placement is not None else next(synthetic), posixpath.basename(path), parent, None, access,
+                        bool(entry and entry.hidden))
+            built[path] = node
+            section_nodes.append(node)
+            return node
+
+        for entry in entries[1:]:
+            if entry.is_dir:
+                node_for(entry.path)
+        for entry in entries[1:]:
+            if entry.is_dir or entry.item is None or entry.placement is None or entry.item.format not in formats:
+                continue
+            try:
+                rights.check(view, view.principal, entry.path, "r")
+            except rights.Denied:
+                continue
+            section_pages.append(Page(entry.placement, node_for(posixpath.dirname(entry.path)), formats[entry.item.format]))
+        if section_pages:
+            nodes += section_nodes
+            pages += section_pages
+    return Library(nodes, pages)
+
+
+def _from_volumes(formats, volumes):
     ids = [volume.pk for volume, _ in volumes]
     placements = list(Placement.objects.filter(volume_id__in=ids).select_related("item", "item__updated_by"))
     by_volume = {}
@@ -170,6 +250,8 @@ def build(request=None):
             nodes += volume_nodes
             pages += volume_pages
     return Library(nodes, pages)
+
+
 
 
 def _prefix_folder(rows, prefix):

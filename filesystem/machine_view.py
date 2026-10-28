@@ -259,7 +259,7 @@ class MachineView:
                 if layer.point != "/":
                     _drop(entries, layer.point)                     # новая точка закрывает то, что лежало под ней
                 points.add(layer.point)
-            entries.setdefault(layer.point, Entry(layer.point, DIR))
+            entries.setdefault(layer.point, Entry(layer.point, DIR, gates=() if layer.remote or not layer.mount.volume.access else (layer.mount.volume.access,)))
             if layer.remote:
                 self._lay_remote(entries, layer)
                 continue

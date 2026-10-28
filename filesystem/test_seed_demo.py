@@ -53,3 +53,17 @@ class SeedDemoTests(TestCase):
     def test_the_key_in_the_report_can_be_extracted(self):
         raw = self.run_command("txtx /home/ivan/report.rec").output
         self.assertIn("Keyname: alpha", raw)
+
+    def test_the_wiki_of_the_main_machine_shows_the_harbor_of_the_core(self):
+        from django.contrib.auth.models import AnonymousUser
+        from django.test import RequestFactory
+
+        from machines.current import SESSION_KEY
+        from wiki import library
+
+        request = RequestFactory().get("/")
+        request.user = self.user
+        request.session = {SESSION_KEY: self.session.pk}
+        found = library.build(request)
+        self.assertEqual([page.title for page in found.pages], ["Shipment 7"])
+        self.assertEqual(found.nodes[0].name, "Harbor")

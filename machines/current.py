@@ -125,7 +125,7 @@ def _desktop_apps(request, machine):
             continue
         found.append(SimpleNamespace(
             pk=entry.item.pk, label=spec.label, glyph=spec.glyph, suffix=spec.suffix, path=spec.path, order=spec.order,
-            conditions=entry.conditions, name=entry.name,
+            conditions=entry.conditions, name=entry.name, volumes=spec.volumes,
         ))
     return sorted(found, key=lambda app: (app.order, app.name.casefold()))
 

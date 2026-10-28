@@ -8,6 +8,7 @@ import json
 from django.test import TestCase
 
 from filesystem.models import Volume
+from filesystem.testing import wiki_sections
 from machines.models import Machine, MachineMount
 from wiki import views
 from wiki.test_views import call
@@ -30,8 +31,7 @@ class VolumeMountTests(TestCase):
         return call(fn, *args, session={"guest": True}, **kwargs)
 
     def mount(self, *namespaces):
-        for order, ns in enumerate(namespaces):
-            MachineMount.objects.create(machine=self.machine, volume=ns.volume, mount_path="", order=order)
+        wiki_sections(self.machine, [ns.volume for ns in namespaces])
 
     def test_without_mounts_nothing_is_visible(self):
         status, html, _ = self.visit(views.resolve, "")

@@ -1637,10 +1637,11 @@ class RawCommandTests(TestCase):
         from machines.models import MachineMount, Session
         from wiki.testing import make_document, make_namespace
 
-        make_app(self.main, label="wiki", glyph="W", path="/apps/wiki/")
+        from filesystem.testing import wiki_sections
+
         section = make_namespace("Section")
         make_document(section, "Gated", type="rec", body="x", access={"all": ["secret_a"]})
-        MachineMount.objects.create(machine=self.main, volume=section.volume, mount_path="", order=5)
+        wiki_sections(self.main, [section.volume])
         self.keyed_file()
         offset = self.offset_of_block("/home/keyed.rec")
         session = Session.objects.get(user=self.user)
