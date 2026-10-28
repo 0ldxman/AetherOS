@@ -42,7 +42,7 @@ def slugs_of(item):
     """Слаги ключей, внедрённых в объект, по порядку."""
     if item is None:
         return []
-    return sorted(item.keys.values_list("key__slug", flat=True))
+    return sorted(row.key.slug for row in item.keys.all())
 
 
 def armor(slug, seed):

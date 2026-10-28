@@ -28,6 +28,7 @@ class FormatDef:
     template: str
     parts: tuple = field(default_factory=tuple)
     aliases: tuple = ()
+    page: bool = False              # формат умеет быть страницей вики: виджеты текста рисуются, а не остаются разметкой
 
 
 @dataclass(frozen=True)
@@ -49,7 +50,7 @@ def _load():
     for item in FileFormat.objects.prefetch_related("parts"):
         magic = bytes.fromhex(item.magic) if item.magic.strip() else b""
         parts = tuple(PartDef(p.name, p.source, p.value) for p in item.parts.all())
-        formats[item.name] = FormatDef(item.name, item.title or item.name, item.extension, item.kind, magic, item.template, parts, aliases(item.aliases))
+        formats[item.name] = FormatDef(item.name, item.title or item.name, item.extension, item.kind, magic, item.template, parts, aliases(item.aliases), item.page)
     encodings = {item.name: EncodingDef(item.name, item.kind, item.param) for item in FileEncoding.objects.all()}
     return formats, encodings
 

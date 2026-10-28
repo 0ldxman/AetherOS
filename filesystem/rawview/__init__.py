@@ -35,7 +35,7 @@ def build_raw_cached(entry, view=None, keys=frozenset(), seconds=120, viewer=Non
 def signed_stamp(item):
     if item is None:
         return ""
-    return ",".join(f"{row.key.slug}:{row.valid}:{row.date}" for row in item.signatures.select_related("key"))
+    return ",".join(f"{row.key.slug}:{row.valid}:{row.date}" for row in item.signatures.all())
 
 
 def viewer_formats():

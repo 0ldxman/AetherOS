@@ -18,7 +18,7 @@ def keys_in_file(item):
 
     if item is None:
         return []
-    signed = [f"{row.key.slug}:{row.valid}:{row.date}" for row in item.signatures.select_related("key")]
+    signed = [f"{row.key.slug}:{row.valid}:{row.date}" for row in item.signatures.all()]
     return [*slugs_of(item), *signed]
 
 

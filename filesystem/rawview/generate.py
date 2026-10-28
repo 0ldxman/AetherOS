@@ -138,7 +138,7 @@ def signatures_of(item):
     """Подписи, встроенные автором в объект: [(слаг ключа, дата, верна ли)]."""
     if item is None:
         return []
-    return [(row.key.slug, row.date, row.valid) for row in item.signatures.select_related("key").order_by("key__slug")]
+    return sorted(((row.key.slug, row.date, row.valid) for row in item.signatures.all()), key=lambda found: found[0])
 
 
 def build_raw(entry, view=None, keys=frozenset(), reader=None, viewer=None):

@@ -183,12 +183,11 @@ class TextSource(Source):
         return entry.item is not None and bool(entry.body.strip())
 
     def payload(self, entry, view, keys, reader, viewer):
-        from filesystem.rawview import flatten, formats
-        from filesystem.models import FileFormat
+        from filesystem.rawview import flatten, formats, registry
 
         item = entry.item
         body = entry.body
-        found = FileFormat.objects.filter(name=item.format).first() if item.format else None
+        found = registry.format_named(item.format) if item.format else None
         stamp = f"text:{item.pk}:{item.updated_at.isoformat()}:{hash(body)}"
         if found is None or not formats.known(found.name):
             return Payload(kind="text", layout="raw", body=body.encode(), locked=_locked(entry, keys), stamp=stamp)

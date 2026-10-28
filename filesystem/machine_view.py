@@ -20,6 +20,7 @@ from filesystem.names import normalize_inner
 from machines.models import MachineMount
 
 DIR, FILE = "dir", "file"
+ITEM_PREFETCH = ("item__members", "item__keys__key", "item__signatures__key")      # по запросу на всё дерево, а не на файл
 DATA_LIMIT = 1024 * 1024        # самые большие собственные байты записи игрока (вырезка)
 
 
@@ -221,13 +222,13 @@ class MachineView:
         layers = self._layers()
         volume_ids = {layer.mount.volume_id for layer in layers}
         by_volume = {}
-        for placement in Placement.objects.filter(volume_id__in=volume_ids).select_related("item").prefetch_related("item__members"):
+        for placement in Placement.objects.filter(volume_id__in=volume_ids).select_related("item").prefetch_related(*ITEM_PREFETCH):
             by_volume.setdefault(placement.volume_id, []).append(placement)
 
         rows = {}
         instance_ids = {layer.instance.pk for layer in layers if layer.instance is not None}
         if self.user is not None and instance_ids:
-            for row in PlayerFile.objects.filter(user=self.user, instance_id__in=instance_ids).select_related("item").prefetch_related("item__members"):
+            for row in PlayerFile.objects.filter(user=self.user, instance_id__in=instance_ids).select_related("item").prefetch_related(*ITEM_PREFETCH):
                 rows.setdefault(row.instance_id, []).append(row)
 
         entries, points = {}, set()
