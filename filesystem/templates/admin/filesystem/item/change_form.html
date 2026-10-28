@@ -7,6 +7,14 @@
 {{ formats|json_script:"item-formats" }}
 <script defer src="{% static 'filesystem/item_admin.js' %}"></script>
 <script type="module" src="{% static 'wiki/editor.js' %}"></script>
+{% if lock_url %}<script src="{% static 'wiki/doc_lock.js' %}" defer></script>{% endif %}
+{% endblock %}
+
+{% block object-tools-items %}
+  {% if revisions_url %}
+  <li><a href="{{ revisions_url }}">Версии</a></li>
+  {% endif %}
+  {{ block.super }}
 {% endblock %}
 
 {% block bodyclass %}{{ block.super }} wp-editor{% endblock %}
@@ -14,6 +22,12 @@
 {% block content %}
 <div class="wp-split" id="wp-split" data-preview-url="{{ preview_url }}" data-assets-url="{{ assets_url }}" data-scenes-url="{{ scenes_url }}">
   <div class="wp-split__form">
+    {% if lock_url %}
+    <div class="wp-lock" id="wp-lock" role="status" hidden
+         data-lock-url="{{ lock_url }}"
+         data-unlock-url="{{ unlock_url }}"
+         data-interval="{{ lock_interval_ms }}"></div>
+    {% endif %}
     {{ block.super }}
   </div>
 

@@ -44,12 +44,8 @@ def key_usage(slug):
     from wiki.key_usage import key_usage as wiki_usage
 
     found = []
-    documents, namespaces = wiki_usage(slug)
     found += [
-        Usage("запись", d.path(), reverse("admin:wiki_document_change", args=[d.pk])) for d in documents
-    ]
-    found += [
-        Usage("раздел", n.path(), reverse("admin:wiki_namespace_change", args=[n.pk])) for n in namespaces
+        Usage("запись", item.name, reverse("admin:filesystem_item_change", args=[item.pk])) for item in wiki_usage(slug)
     ]
     for obj, kind, condition in _json_conditions():
         if slug in condition_slugs(condition):

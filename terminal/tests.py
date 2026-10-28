@@ -1395,15 +1395,14 @@ class RawCommandTests(TestCase):
     def setUpTestData(cls):
         from filesystem.testing import make_file
         from machines.models import MachineProfile
-        from wiki.models import Document, Namespace
+        from filesystem.testing import make_page
 
         cls.main = Machine.objects.create(name="Main", hostname="aether-main")
         MachineApp.objects.create(machine=cls.main, label="console", glyph=">_", path="/apps/terminal/")
         cls.user = get_user_model().objects.create_user("ivan", password="pw")
         MachineProfile.objects.create(machine=cls.main, user=cls.user, name="Ivan", login="ivan", freq=1,
                                       mail="ivan@aether-main")
-        space = Namespace.objects.create(name="Harbor")
-        Document.objects.create(namespace=space, title="Report", type="rec", body=cls.BODY)
+        make_page("Harbor/Report", "rec", cls.BODY)
         url = "apps/wiki/Harbor/Report"
         for path, state in (
             ("/home/report.rec", ""),
@@ -1757,14 +1756,14 @@ class ArchiveTests(TestCase):
     def setUpTestData(cls):
         from filesystem.testing import make_file
         from machines.models import MachineProfile
-        from wiki.models import Document, Namespace
+        from filesystem.testing import make_page
 
         cls.main = Machine.objects.create(name="Main", hostname="aether-main")
         MachineApp.objects.create(machine=cls.main, label="console", glyph=">_", path="/apps/terminal/")
         cls.user = get_user_model().objects.create_user("ivan", password="pw")
         MachineProfile.objects.create(machine=cls.main, user=cls.user, name="Ivan", login="ivan", freq=1,
                                       mail="ivan@aether-main")
-        Document.objects.create(namespace=Namespace.objects.create(name="Harbor"), title="Report", type="rec", body=cls.BODY)
+        make_page("Harbor/Report", "rec", cls.BODY)
         url = "apps/wiki/Harbor/Report"
         for path, state, extra in (
             ("/home/plain.txt", "", {}),
@@ -1899,14 +1898,14 @@ class SignatureTests(TestCase):
         from filesystem.testing import make_file, key_item
         from machines.models import MachineProfile
         from secure.models import Key
-        from wiki.models import Document, Namespace
+        from filesystem.testing import make_page
 
         cls.main = Machine.objects.create(name="Main", hostname="aether-main")
         MachineApp.objects.create(machine=cls.main, label="console", glyph=">_", path="/apps/terminal/")
         cls.user = get_user_model().objects.create_user("ivan", password="pw")
         MachineProfile.objects.create(machine=cls.main, user=cls.user, name="Ivan", login="ivan", freq=1,
                                       mail="ivan@aether-main")
-        Document.objects.create(namespace=Namespace.objects.create(name="Harbor"), title="Report", type="rec", body=cls.BODY)
+        make_page("Harbor/Report", "rec", cls.BODY)
         cls.director = key_item("director")
         cls.other = key_item("other")
         url = "apps/wiki/Harbor/Report"
@@ -2029,14 +2028,14 @@ class WardKeyTests(TestCase):
         from filesystem.testing import make_file
         from machines.models import MachineProfile
         from secure.models import Key
-        from wiki.models import Document, Namespace
+        from filesystem.testing import make_page
 
         cls.main = Machine.objects.create(name="Main", hostname="aether-main")
         MachineApp.objects.create(machine=cls.main, label="console", glyph=">_", path="/apps/terminal/")
         cls.user = get_user_model().objects.create_user("ivan", password="pw")
         MachineProfile.objects.create(machine=cls.main, user=cls.user, name="Ivan", login="ivan", freq=1,
                                       mail="ivan@aether-main")
-        Document.objects.create(namespace=Namespace.objects.create(name="Harbor"), title="Report", type="rec", body=cls.BODY)
+        make_page("Harbor/Report", "rec", cls.BODY)
         key_item("director", name="Director of the harbor office")
         key_item("other")
         url = "apps/wiki/Harbor/Report"

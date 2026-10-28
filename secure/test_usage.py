@@ -11,7 +11,7 @@ from machines.models import Machine, MachineApp, MachineProfile
 from secure.models import Key
 from secure.usage import key_usage, used_slugs
 from wiki import dashboard
-from wiki.models import Document
+from wiki.testing import make_document, make_namespace
 
 
 class UsageTests(TestCase):
@@ -26,7 +26,7 @@ class UsageTests(TestCase):
         )
         MachineProfile.objects.create(machine=machine, name="P", login="l", freq=1, key_condition="key_prof")
         embed_key(make_file(machine, "/secret.txt").item, "key_file")
-        Document.objects.create(title="Док", body="[x]{key_doc}")
+        make_document(make_namespace("Раздел"), "Док", body="[x]{key_doc}")
 
     def kinds(self, slug):
         return sorted((u.kind, u.label) for u in key_usage(slug))

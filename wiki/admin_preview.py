@@ -35,6 +35,7 @@
 """
 import json
 import logging
+from types import SimpleNamespace
 
 from django.db.models import Q
 from django.http import HttpResponseNotAllowed, JsonResponse
@@ -48,7 +49,8 @@ from secure.models import Key
 
 from . import markup
 from .access import keys_for_mode
-from .models import Document
+
+DOC_TYPES = ("doc", "scan", "web", "rec")
 
 logger = logging.getLogger(__name__)
 
@@ -168,9 +170,9 @@ class DocumentPreviewMixin:
             return _error("Некорректный запрос.", 400)
 
         doc_type = data.get("type")
-        if doc_type not in Document.Type.values:
-            doc_type = Document.Type.DOC.value
-        doc = Document(title=_text(data.get("title"))[:MAX_TITLE_LEN], type=doc_type)
+        if doc_type not in DOC_TYPES:
+            doc_type = "doc"
+        doc = SimpleNamespace(title=_text(data.get("title"))[:MAX_TITLE_LEN], type=doc_type, pk="")
         keys = _preview_keys(data.get("keys"))
 
         try:

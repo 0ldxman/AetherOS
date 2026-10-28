@@ -8,7 +8,7 @@ from django.test import TestCase
 from assets.models import Asset
 from secure.models import Key
 from wiki.markup import lint
-from wiki.models import Document, Namespace
+from wiki.testing import make_document, make_namespace
 
 
 def codes(text):
@@ -93,8 +93,8 @@ class AssetTests(TestCase):
 class LinkTests(TestCase):
     @classmethod
     def setUpTestData(cls):
-        ns = Namespace.objects.create(name="Тех")
-        Document.objects.create(namespace=ns, title="Оружие", direct_link="gun")
+        ns = make_namespace("Тех")
+        make_document(ns, "Оружие", direct_link="gun")
 
     def test_existing_targets_pass(self):
         text = "[a](/apps/wiki/Тех/Оружие) [b](/apps/wiki/Тех) [c](/apps/wiki/go/gun/)"

@@ -8,7 +8,7 @@
 {% block breadcrumbs %}
 <ol class="breadcrumbs">
   <li><a href="{% url 'admin:index' %}">Главная</a></li>
-  <li><a href="{{ list_url }}">Записи</a></li>
+  <li><a href="{{ list_url }}">Объекты</a></li>
   <li aria-current="page">Сводка автора</li>
 </ol>
 {% endblock %}
@@ -17,7 +17,7 @@
 <div id="content-main" class="dash">
 
   <div class="dash-totals">
-    <div><b>{{ data.totals.documents }}</b> записей</div>
+    <div><b>{{ data.totals.documents }}</b> страниц</div>
     <div><b>{{ data.totals.namespaces }}</b> разделов</div>
     <div><b>{{ data.totals.assets }}</b> ассетов</div>
     <div><b>{{ data.totals.keys }}</b> ключей</div>
@@ -30,7 +30,7 @@
       <table>
         {% for doc, path in data.recent %}
         <tr>
-          <td><a href="{% url 'admin:wiki_document_change' doc.pk %}">{{ path }}</a></td>
+          <td><a href="{% url 'admin:filesystem_item_change' doc.item.pk %}">{{ path }}</a></td>
           <td>{{ doc.updated_by|default:"—" }}</td>
           <td>{{ doc.updated_at|date:"d.m H:i" }}</td>
         </tr>
@@ -44,7 +44,7 @@
       <table>
         {% for doc, path, count in data.broken|slice:":50" %}
         <tr>
-          <td><a href="{% url 'admin:wiki_document_change' doc.pk %}">{{ path }}</a></td>
+          <td><a href="{% url 'admin:filesystem_item_change' doc.item.pk %}">{{ path }}</a></td>
           <td>{{ count }}</td>
         </tr>
         {% empty %}<tr><td>Ошибок нет.</td></tr>{% endfor %}
@@ -56,7 +56,7 @@
       <p class="dash-note">На эти записи не ведёт ни одна ссылка из других записей. В обозревателе их всё равно видно.</p>
       <table>
         {% for doc, path in data.orphans|slice:":50" %}
-        <tr><td><a href="{% url 'admin:wiki_document_change' doc.pk %}">{{ path }}</a></td></tr>
+        <tr><td><a href="{% url 'admin:filesystem_item_change' doc.item.pk %}">{{ path }}</a></td></tr>
         {% empty %}<tr><td>Таких нет.</td></tr>{% endfor %}
       </table>
       {% if data.orphans|length > limit %}<p class="dash-note">Показаны первые {{ limit }}.</p>{% endif %}

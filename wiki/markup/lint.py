@@ -17,7 +17,6 @@ from django.conf import settings
 from assets.services import asset_widget_kind, find_asset
 from secure.access import condition_slugs
 from secure.models import Key
-from wiki.models import Document, Namespace
 from map.icons import ICON_NAMES
 from wiki.widgets import MARK_COLORS, WIDGETS, parse_map_line, split_highlight_token
 
@@ -218,35 +217,31 @@ def _wiki_target(href):
 
 
 class _Wiki:
-    """Существование записей и разделов по пути; считает базу лениво."""
+    """Существование записей и разделов по пути; библиотеку томов читает лениво."""
 
     def __init__(self):
-        self._by_name = None
-
-    def _namespaces(self):
-        if self._by_name is None:
-            self._by_name = {
-                (n.parent_id, n.name): n for n in Namespace.objects.all()
-            }
-        return self._by_name
+        self._library = None
 
     def exists(self, target):
+        from wiki.library import build
+
+        if self._library is None:
+            self._library = build(None)
+        lib = self._library
         if target.startswith("go/"):
-            slug = target[3:].strip("/")
-            return Document.objects.filter(direct_link=slug).exists()
+            return target[3:].strip("/") in lib.by_slug
         parts = [p for p in target.split("/") if p]
         if not parts or parts == ["search"]:
             return True
-        by_name = self._namespaces()
         current = None
         for part in parts[:-1]:
-            current = by_name.get((current.pk if current else None, part))
+            current = lib.by_name.get((current.pk if current else None, part))
             if current is None:
                 return False
         last = parts[-1]
-        if (current.pk if current else None, last) in by_name:
+        if (current.pk if current else None, last) in lib.by_name:
             return True
-        return Document.objects.filter(namespace=current, title=last).exists()
+        return current is not None and lib.page_at(current, last) is not None
 
 
 def lint(text):

@@ -288,6 +288,39 @@ class Item(models.Model):
             raise ValidationError(errors)
 
 
+class ItemRevision(models.Model):
+    """Версия текстового содержимого объекта: снимок, который делается при сохранении, если что-то изменилось."""
+
+    item = models.ForeignKey(Item, on_delete=models.CASCADE, related_name="revisions")
+    name = models.CharField(max_length=200)
+    format = models.SlugField(max_length=32, blank=True)
+    body = models.TextField(blank=True)
+    meta = models.TextField(blank=True)
+    saved_at = models.DateTimeField(auto_now_add=True)
+    saved_by = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL, related_name="+")
+
+    class Meta:
+        ordering = ("-saved_at", "-id")
+        verbose_name = "Версия объекта"
+        verbose_name_plural = "Версии объектов"
+
+    def __str__(self):
+        return f"{self.item.slug} @ {self.saved_at:%Y-%m-%d %H:%M}"
+
+
+class ItemLock(models.Model):
+    """Мягкая блокировка объекта на время правки в админке (кто правит сейчас)."""
+
+    item = models.OneToOneField(Item, on_delete=models.CASCADE, related_name="lock")
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="+")
+    acquired_at = models.DateTimeField(auto_now_add=True)
+    refreshed_at = models.DateTimeField()
+
+    class Meta:
+        verbose_name = "Блокировка объекта"
+        verbose_name_plural = "Блокировки объектов"
+
+
 class ItemMember(models.Model):
     """Член архива: объект-архив содержит другие объекты под своими путями (pak l, pak x)."""
 

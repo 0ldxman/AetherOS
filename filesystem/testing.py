@@ -28,6 +28,24 @@ def _folder(volume, parent, name):
     return found
 
 
+PAGE_EXT = {"doc": ".doc", "scan": ".scan", "web": ".snp", "rec": ".rec"}
+
+
+def page_slug(path):
+    return "wiki-" + path.replace("/", "-")
+
+
+def make_page(path, type="doc", body="", access=None, created_by=None, **fields):
+    """Страница, на которую ссылается адрес `apps/wiki/<путь>` в make_file (путь: Раздел/Название)."""
+    from filesystem.rawview.registry import format_for_extension
+
+    name = path.rsplit("/", 1)[-1]
+    return Item.objects.create(
+        slug=page_slug(path), name=name, format=format_for_extension(PAGE_EXT[type]).name, body=body, access=access or {},
+        world_creator=created_by.get_username() if created_by else "", **fields,
+    )
+
+
 def _item_for(name, state, size, body, format, key, url):
     """Объект для файла. url: адрес содержимого в старом виде (записи вики, ключ, ассет, карта, письмо) для тестов, которые его ещё
     называют: запись вики копируется в объект, остальное связывается с тем, на что указывает."""
@@ -40,20 +58,11 @@ def _item_for(name, state, size, body, format, key, url):
     url = (url or "").strip()
     parts = [part for part in url.split("?")[0].split("/") if part]
     if parts[:2] == ["apps", "wiki"] and len(parts) >= 4:
-        from wiki.models import Document, Namespace
-
-        namespace = None
-        for part in parts[2:-1]:
-            namespace = Namespace.objects.filter(parent=namespace, name=part).first()
-        doc = Document.objects.filter(namespace=namespace, title=parts[-1]).first()
-        if doc is not None:
-            from filesystem.rawview.registry import format_for_extension
-
-            found = format_for_extension(Document.EXTENSIONS.get(doc.type, ".doc"))
+        found = Item.objects.filter(slug=page_slug("/".join(parts[2:]))).first()
+        if found is not None:
             return Item.objects.create(
-                slug=unique_slug(f"wiki-{doc.title}"), name=doc.title, format=found.name if found else doc.type, body=doc.body, meta=doc.infobox,
-                access=doc.access, world_updated_at=doc.world_date, world_creator=doc.created_by.get_username() if doc.created_by else "",
-                state=state, size=size,
+                slug=unique_slug(f"wiki-{found.name}"), name=found.name, format=found.format, body=found.body, meta=found.meta,
+                access=found.access, world_updated_at=found.world_updated_at, world_creator=found.world_creator, state=state, size=size,
             )
     elif parts[:1] == ["view"] and len(parts) >= 2:
         from assets.models import Asset

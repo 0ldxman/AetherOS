@@ -16,7 +16,7 @@ from secure.models import Key
 from secure.usage import used_slugs
 
 from .markup.lint import ERROR, _Scan, _wiki_target
-from .models import Document, Namespace
+from . import library
 
 RECENT_LIMIT = 15
 LIST_LIMIT = 50
@@ -34,42 +34,31 @@ class Dashboard:
     totals: dict = field(default_factory=dict)
 
 
-def _path(doc, by_id):
-    names = []
-    ns = by_id.get(doc.namespace_id)
-    while ns is not None:
-        names.append(ns.name)
-        ns = by_id.get(ns.parent_id)
-    return ":".join(names[::-1] + [doc.title])
-
-
-def _resolver(namespaces, documents):
-    """Функция: путь из ссылки -> id записи (или None)."""
-    by_name = {(n.parent_id, n.name): n for n in namespaces}
-    by_title = {(d.namespace_id, d.title): d.pk for d in documents}
-    by_link = {d.direct_link: d.pk for d in documents if d.direct_link}
+def _resolver(lib):
+    """Функция: путь из ссылки -> id страницы (или None)."""
 
     def resolve(target):
         if target.startswith("go/"):
-            return by_link.get(target[3:].strip("/"))
+            found = lib.by_slug.get(target[3:].strip("/"))
+            return found.pk if found is not None else None
         parts = [p for p in target.split("/") if p]
-        current = None
-        for part in parts[:-1]:
-            current = by_name.get((current.pk if current else None, part))
-            if current is None:
-                return None
         if not parts:
             return None
-        return by_title.get((current.pk if current else None, parts[-1]))
+        current = None
+        for part in parts[:-1]:
+            current = lib.by_name.get((current.pk if current else None, part))
+            if current is None:
+                return None
+        found = lib.page_at(current, parts[-1])
+        return found.pk if found is not None else None
 
     return resolve
 
 
 def build():
-    namespaces = list(Namespace.objects.all())
-    by_id = {n.pk: n for n in namespaces}
-    documents = list(Document.objects.select_related("updated_by"))
-    resolve = _resolver(namespaces, documents)
+    lib = library.build(None)                       # все тома, а не только смонтированные на машину игрока
+    documents = lib.pages
+    resolve = _resolver(lib)
 
     incoming = {d.pk: 0 for d in documents}
     asset_refs, key_slugs, broken = set(), set(), []
@@ -87,25 +76,20 @@ def build():
                 found = resolve(target) if target is not None else None
                 if found is not None and found != doc.pk:
                     incoming[found] += 1
-        for condition in (doc.access, doc.visibility):
-            if condition:
-                key_slugs.update(condition_slugs(condition))
+        if doc.access:
+            key_slugs.update(condition_slugs(doc.access))
         if problems:
             broken.append((doc, len(problems)))
 
-    for ns in namespaces:
-        for condition in (ns.access, ns.visibility):
-            if condition:
-                key_slugs.update(condition_slugs(condition))
+    for node in lib.nodes:
+        if node.access:
+            key_slugs.update(condition_slugs(node.access))
 
     result = Dashboard()
-    result.recent = [
-        (d, _path(d, by_id))
-        for d in sorted(documents, key=lambda d: d.updated_at, reverse=True)[:RECENT_LIMIT]
-    ]
-    result.orphans = [(d, _path(d, by_id)) for d in documents if incoming[d.pk] == 0]
+    result.recent = [(d, d.path()) for d in sorted(documents, key=lambda d: d.updated_at, reverse=True)[:RECENT_LIMIT]]
+    result.orphans = [(d, d.path()) for d in documents if incoming[d.pk] == 0]
     result.orphans.sort(key=lambda row: row[1])
-    result.broken = [(d, _path(d, by_id), count) for d, count in broken]
+    result.broken = [(d, d.path(), count) for d, count in broken]
     result.unused_assets = [
         a for a in Asset.objects.order_by("name")
         if (a.slug or "") not in asset_refs and str(a.public_id) not in asset_refs
@@ -114,7 +98,7 @@ def build():
     result.unused_keys = list(Key.objects.exclude(slug__in=key_slugs).order_by("slug"))
     result.totals = {
         "documents": len(documents),
-        "namespaces": len(namespaces),
+        "namespaces": len(lib.nodes),
         "assets": Asset.objects.count(),
         "keys": Key.objects.count(),
         "authors": get_user_model().objects.filter(is_staff=True).count(),

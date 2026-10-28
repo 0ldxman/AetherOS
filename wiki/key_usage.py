@@ -1,15 +1,13 @@
-"""Где в вики используется ключ: условия доступа и разметка записей.
+"""Где в вики используется ключ: разметка записей.
 
-Нужно админке ключей, чтобы перед удалением или переименованием было видно,
-что от него зависит.
+Условия доступа записей и разделов лежат в объектах, размещениях и томах, их находит secure.usage.
+Здесь только упоминания ключа в тексте и врезке страниц.
 """
 import json
 import re
 
-from django.db.models import Q, TextField
-from django.db.models.functions import Cast
-
-from .models import Document, Namespace
+from filesystem.models import Item
+from .library import _pages_formats
 
 
 def _mentions(slug, *texts):
@@ -18,38 +16,9 @@ def _mentions(slug, *texts):
 
 
 def key_usage(slug):
-    """(записи, разделы), которые упоминают ключ."""
-    documents = (
-        Document.objects.select_related("namespace__parent__parent__parent")
-        .annotate(
-            access_text=Cast("access", TextField()),
-            visibility_text=Cast("visibility", TextField()),
-        )
-        .filter(
-            Q(body__contains=slug)
-            | Q(infobox__contains=slug)
-            | Q(access_text__contains=slug)
-            | Q(visibility_text__contains=slug)
-        )
-    )
-    namespaces = (
-        Namespace.objects.select_related("parent__parent__parent")
-        .annotate(
-            access_text=Cast("access", TextField()),
-            visibility_text=Cast("visibility", TextField()),
-        )
-        .filter(Q(access_text__contains=slug) | Q(visibility_text__contains=slug))
-    )
-    return (
-        [
-            d for d in documents
-            if _mentions(
-                slug, d.body, d.infobox,
-                json.dumps(d.access), json.dumps(d.visibility),
-            )
-        ],
-        [
-            n for n in namespaces
-            if _mentions(slug, json.dumps(n.access), json.dumps(n.visibility))
-        ],
-    )
+    """Объекты страниц, в тексте или врезке которых упомянут ключ."""
+    candidates = Item.objects.filter(body__contains=slug) | Item.objects.filter(meta__contains=slug)
+    return [
+        item for item in candidates.distinct()
+        if item.format in _pages_formats() and _mentions(slug, item.body, json.dumps(item.meta))
+    ]

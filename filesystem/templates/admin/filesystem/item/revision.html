@@ -8,7 +8,7 @@
 {% block breadcrumbs %}
 <ol class="breadcrumbs">
   <li><a href="{% url 'admin:index' %}">Главная</a></li>
-  <li><a href="{% url 'admin:wiki_document_changelist' %}">Записи</a></li>
+  <li><a href="{% url 'admin:filesystem_item_changelist' %}">Объекты</a></li>
   <li><a href="{{ change_url }}">{{ original }}</a></li>
   <li><a href="{{ list_url }}">История</a></li>
   <li aria-current="page">{{ revision.saved_at|date:"d.m.Y H:i" }}</li>
@@ -23,7 +23,7 @@
     {% if against_current %}
       <a href="{{ self_url }}">Показать, что изменила версия</a>
     {% else %}
-      <a href="{{ self_url }}?against=current">Сравнить с текущей записью</a>
+      <a href="{{ self_url }}?against=current">Сравнить с текущим объектом</a>
     {% endif %}
   </p>
 
@@ -36,16 +36,16 @@
   {% endif %}
 
   {% if diff is None %}
-    <p>Предыдущих версий нет: это первое сохранение записи.</p>
+    <p>Предыдущих версий нет: это первое сохранение объекта.</p>
   {% elif not diff %}
     <p>Различий нет.</p>
   {% endif %}
 
   {% for field, change in diff.items %}
     <h2 class="rev-field">
-      {% if field == "title" %}Название{% elif field == "type" %}Тип{% elif field == "body" %}Текст{% else %}Инфобокс{% endif %}
+      {% if field == "name" %}Название{% elif field == "format" %}Формат{% elif field == "body" %}Текст{% else %}Метаинформация{% endif %}
     </h2>
-    {% if field == "title" or field == "type" %}
+    {% if field == "name" or field == "format" %}
       <div class="rev-diff">
         <div class="rev-line rev-del">{{ change.0 }}</div>
         <div class="rev-line rev-add">{{ change.1 }}</div>

@@ -10,22 +10,21 @@ from django.urls import get_script_prefix, reverse, set_script_prefix
 from assets.models import Asset
 from secure.models import Key
 from wiki import dashboard
-from wiki.models import Document, Namespace
+from wiki.testing import make_document, make_namespace
 
 
 class DashboardDataTests(TestCase):
     @classmethod
     def setUpTestData(cls):
-        ns = Namespace.objects.create(name="Тех")
-        cls.target = Document.objects.create(namespace=ns, title="Цель", direct_link="goal")
-        cls.linker = Document.objects.create(
-            namespace=ns, title="Ссылка", body="[к цели](/apps/wiki/Тех/Цель) и ещё [x]{key_used}",
-        )
-        cls.by_go = Document.objects.create(title="Через go", body="[a](/apps/wiki/go/goal/)")
-        cls.lonely = Document.objects.create(title="Одинокая")
-        cls.broken = Document.objects.create(title="Сломанная", body="::box\nнет конца\n")
-        cls.selfref = Document.objects.create(title="Сама", body="[я](/apps/wiki/Сама)")
-        Document.objects.create(title="Закрытая", access="key_gate")
+        ns = make_namespace("Тех")
+        free = make_namespace("Прочее")
+        cls.target = make_document(ns, "Цель", direct_link="goal")
+        cls.linker = make_document(ns, "Ссылка", body="[к цели](/apps/wiki/Тех/Цель) и ещё [x]{key_used}")
+        cls.by_go = make_document(free, "Через go", body="[a](/apps/wiki/go/goal/)")
+        cls.lonely = make_document(free, "Одинокая")
+        cls.broken = make_document(free, "Сломанная", body="::box\nнет конца\n")
+        cls.selfref = make_document(free, "Сама", body="[я](/apps/wiki/Прочее/Сама)")
+        make_document(free, "Закрытая", access="key_gate")
 
         Key.objects.create(slug="key_used")
         Key.objects.create(slug="key_gate")
@@ -33,7 +32,7 @@ class DashboardDataTests(TestCase):
 
         Asset.objects.create(name="Использован", slug="in-use", file_id="1", viewer_type=Asset.ViewerType.AUDIO)
         Asset.objects.create(name="Лишний", slug="idle", file_id="2")
-        Document.objects.create(title="С ассетом", body="::audio in-use title=Т\n")
+        make_document(free, "С ассетом", body="::audio in-use title=Т\n")
 
         cls.data = dashboard.build()
 
@@ -66,7 +65,7 @@ class DashboardDataTests(TestCase):
         self.assertEqual(paths["Цель"], "Тех:Цель")
 
     def test_totals(self):
-        self.assertEqual(self.data.totals["documents"], Document.objects.count())
+        self.assertEqual(self.data.totals["documents"], 8)
 
 
 @override_settings(FORCE_SCRIPT_NAME=None)
@@ -75,20 +74,20 @@ class DashboardPageTests(TestCase):
         previous = get_script_prefix()
         set_script_prefix("/")
         self.addCleanup(set_script_prefix, previous)
-        Document.objects.create(title="Одна")
+        make_document(make_namespace("Раздел"), "Одна")
         self.client.force_login(get_user_model().objects.create_superuser("root", password="pw"))
 
     def test_page_renders(self):
-        response = self.client.get(reverse("admin:wiki_document_dashboard"))
+        response = self.client.get(reverse("admin:filesystem_item_dashboard"))
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "Сводка автора")
         self.assertContains(response, "Одна")
 
     def test_list_links_to_dashboard(self):
-        response = self.client.get(reverse("admin:wiki_document_changelist"))
-        self.assertContains(response, reverse("admin:wiki_document_dashboard"))
+        response = self.client.get(reverse("admin:filesystem_item_changelist"))
+        self.assertContains(response, reverse("admin:filesystem_item_dashboard"))
 
     def test_requires_staff(self):
         self.client.logout()
-        response = self.client.get(reverse("admin:wiki_document_dashboard"))
+        response = self.client.get(reverse("admin:filesystem_item_dashboard"))
         self.assertEqual(response.status_code, 302)

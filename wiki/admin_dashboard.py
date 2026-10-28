@@ -1,6 +1,6 @@
-"""Страница «Сводка автора» в админке записей: wiki/dashboard.py.
+"""Страница «Сводка автора» в админке объектов: wiki/dashboard.py.
 
-    class DocumentAdmin(DocumentDashboardMixin, admin.ModelAdmin): ...
+    class DocumentAdmin(ItemDashboardMixin, admin.ModelAdmin): ...
 
 Адрес: <список записей>/dashboard/; ссылка на неё стоит в шапке списка.
 """
@@ -10,8 +10,8 @@ from django.urls import path, reverse
 from . import dashboard
 
 
-class DocumentDashboardMixin:
-    change_list_template = "admin/wiki/document/change_list.html"
+class ItemDashboardMixin:
+    change_list_template = "admin/filesystem/item/change_list.html"
 
     def _dashboard_name(self):
         opts = self.model._meta
@@ -48,4 +48,4 @@ class DocumentDashboardMixin:
             "limit": dashboard.LIST_LIMIT,
             "list_url": reverse(f"{self.admin_site.name}:{opts.app_label}_{opts.model_name}_changelist"),
         }
-        return TemplateResponse(request, "admin/wiki/document/dashboard.html", context)
+        return TemplateResponse(request, "admin/filesystem/item/dashboard.html", context)

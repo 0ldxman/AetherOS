@@ -9,11 +9,11 @@ from dataclasses import replace
 from types import SimpleNamespace
 
 from filesystem.machine_view import MachineView
-from filesystem.testing import embed_key, make_file
+from filesystem.models import Item
+from filesystem.testing import embed_key, make_file, make_page
 from filesystem.rawview import build_raw, encodings, formats
 from filesystem.size import file_size
 from machines.models import Machine
-from wiki.models import Document, Namespace
 
 BODY = "Cargo manifest altered.\n\nRef A-113."
 
@@ -23,12 +23,11 @@ class RawViewTests(TestCase):
     def setUpTestData(cls):
         cls.machine = Machine.objects.create(name="Main", hostname="aether-main")
         user = get_user_model().objects.create_user("marsh", password="x")
-        space = Namespace.objects.create(name="Harbor")
-        cls.doc = Document.objects.create(namespace=space, title="Report", type="rec", body=BODY, created_by=user)
-        cls.scan_doc = Document.objects.create(namespace=space, title="Page", type="scan", body=BODY)
-        cls.web_doc = Document.objects.create(namespace=space, title="Site", type="web", body=BODY)
-        cls.word_doc = Document.objects.create(namespace=space, title="Letter", type="doc", body=BODY)
-        cls.closed = Document.objects.create(namespace=space, title="Closed", type="rec", body=BODY, access={"all": ["k1"]})
+        cls.doc = make_page("Harbor/Report", "rec", BODY, created_by=user)
+        cls.scan_doc = make_page("Harbor/Page", "scan", BODY)
+        cls.web_doc = make_page("Harbor/Site", "web", BODY)
+        cls.word_doc = make_page("Harbor/Letter", "doc", BODY)
+        cls.closed = make_page("Harbor/Closed", "rec", BODY, access={"all": ["k1"]})
         cls.asset = Asset.objects.create(name="pic", file_id="1", size=11)
 
     def setUp(self):
@@ -52,21 +51,20 @@ class RawViewTests(TestCase):
 
     def test_widgets_leave_no_wiki_syntax_in_the_file(self):
         text = "Intro.\n\n::map scene=outer caption=\"Outer\"\n::\n\n::stamp SECRET tone=red\n"
-        space = Namespace.objects.get(name="Harbor")
         for kind, title, expected in (
             ("rec", "W1", b"[map: Outer]"),
             ("web", "W2", b'<figure data-kind="map"><figcaption>Outer</figcaption></figure>'),
             ("doc", "W3", b'{object map "Outer"}'),
             ("scan", "W4", b"Outer"),
         ):
-            Document.objects.create(namespace=space, title=title, type=kind, body=text)
+            make_page(f"Harbor/{title}", kind, text)
             data = self.raw(self.make(f"/w/{title}", f"apps/wiki/Harbor/{title}")).data
             self.assertIn(expected, data)
             self.assertNotIn(b"::map", data)
             self.assertNotIn(b"::stamp", data)
 
     def test_closed_record_hides_every_view_of_its_body(self):
-        Document.objects.filter(pk=self.closed.pk).update(body="Secret.\n\n::map scene=x caption=\"Hidden place\"\n::\n")
+        Item.objects.filter(pk=self.closed.pk).update(body="Secret.\n\n::map scene=x caption=\"Hidden place\"\n::\n")
         data = self.raw(self.make("/cl", "apps/wiki/Harbor/Closed")).data
         self.assertNotIn(b"Hidden place", data)
         self.assertNotIn(b"Secret.", data)
@@ -539,8 +537,7 @@ class KeyBlockTests(TestCase):
 
     def test_a_key_is_in_a_file_only_through_its_item_key_and_layers_hide_it(self):
         machine = Machine.objects.create(name="M", hostname="m1")
-        space = Namespace.objects.create(name="Space")
-        Document.objects.create(namespace=space, title="Note", type="rec", body=BODY)
+        make_page("Space/Note", "rec", BODY)
         plain = make_file(machine, "/a", url="apps/wiki/Space/Note")
         locked = make_file(machine, "/b", url="apps/wiki/Space/Note", state="> encrypted pw")
         for made in (plain, locked):
@@ -555,8 +552,7 @@ class KeyBlockTests(TestCase):
 
     def test_a_closed_source_shows_noise_in_place_of_the_blocks(self):
         machine = Machine.objects.create(name="M", hostname="m2")
-        space = Namespace.objects.create(name="Space2")
-        Document.objects.create(namespace=space, title="Hidden", type="rec", body=BODY, access={"all": ["zz"]})
+        make_page("Space2/Hidden", "rec", BODY, access={"all": ["zz"]})
         made = make_file(machine, "/h", url="apps/wiki/Space2/Hidden")
         embed_key(made.item, "secret_a")
         entry = self.entry(machine, made)

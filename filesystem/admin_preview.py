@@ -6,6 +6,7 @@ filesystem/static/filesystem/item_admin.js переименовывает их �
 """
 import json
 import logging
+from types import SimpleNamespace
 
 from django.http import HttpResponseNotAllowed, JsonResponse
 from django.template.loader import render_to_string
@@ -14,9 +15,8 @@ from django.utils.safestring import mark_safe
 
 from wiki import markup
 from wiki.admin_preview import (
-    MAX_REQUEST_BYTES, MAX_TITLE_LEN, DocumentPreviewMixin, _error, _lint_fields, _preview_keys, _text,
+    DOC_TYPES, MAX_REQUEST_BYTES, MAX_TITLE_LEN, DocumentPreviewMixin, _error, _lint_fields, _preview_keys, _text,
 )
-from wiki.models import Document
 
 from filesystem.models import KEY_FORMAT, FileFormat, Item
 
@@ -42,7 +42,6 @@ class ItemPreviewMixin(DocumentPreviewMixin):
             for row in Item.objects.filter(format=KEY_FORMAT).order_by("slug").values("slug", "name")
         ]
         data["formats"] = format_table()
-        data["revisions_url"] = ""
         return response
 
     def preview_view(self, request):
@@ -61,7 +60,7 @@ class ItemPreviewMixin(DocumentPreviewMixin):
 
         found = FileFormat.objects.filter(name=_text(data.get("type"))).first()
         keys = _preview_keys(data.get("keys"))
-        doc = Document(title=_text(data.get("title"))[:MAX_TITLE_LEN], type=found.name if found and found.name in Document.Type.values else Document.Type.DOC.value)
+        doc = SimpleNamespace(title=_text(data.get("title"))[:MAX_TITLE_LEN], type=found.name if found and found.name in DOC_TYPES else "doc", pk="")
         body, meta = _text(data.get("body")), _text(data.get("infobox"))
 
         try:

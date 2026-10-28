@@ -12,7 +12,10 @@ from secure.admin_widgets import ConditionFieldsMixin, ConditionWidget
 
 from . import filemanager
 from .admin_files import VolumeFiles
+from .admin_history import ItemHistoryMixin, VersionedFormMixin
 from .admin_preview import ItemPreviewMixin
+from wiki.admin_dashboard import ItemDashboardMixin
+
 from .models import KEY_FORMAT, FileFormat, Item, ItemKey, ItemMember, ItemSignature, Placement, Volume
 from machines.models import MachineMount
 
@@ -32,7 +35,7 @@ class KeyConditionsMixin(ConditionFieldsMixin):
 
 # ---- объект ---------------------------------------------------------------------------------------------------------
 
-class ItemAdminForm(forms.ModelForm):
+class ItemAdminForm(VersionedFormMixin):
     format = forms.ChoiceField(label="Формат", required=False, help_text="Формат решает, что вводится в содержимое.")
 
     class Meta:
@@ -89,19 +92,19 @@ class ItemSignatureInline(KeyedInline):
 
 
 @admin.register(Item)
-class ItemAdmin(KeyConditionsMixin, ItemPreviewMixin, admin.ModelAdmin):
+class ItemAdmin(ItemDashboardMixin, ItemHistoryMixin, KeyConditionsMixin, ItemPreviewMixin, admin.ModelAdmin):
     form = ItemAdminForm
     condition_fields = ("access",)
     inlines = (ItemKeyInline, ItemSignatureInline, ItemMemberInline)
-    list_display = ("slug", "name", "format", "content_summary", "placements_count", "updated_at")
+    list_display = ("slug", "name", "format", "content_summary", "placements_count", "editing", "updated_at")
     list_display_links = ("slug", "name")
     list_filter = ("format",)
     search_fields = ("slug", "name", "meta", "body")
     autocomplete_fields = ("asset", "scene", "message")
-    list_select_related = ("asset", "scene", "message")
+    list_select_related = ("asset", "scene", "message", "lock__user")
     readonly_fields = ("created_at", "updated_at", "created_by", "updated_by")
     fieldsets = (
-        ("Основное", {"fields": ("slug", "name", "format")}),
+        ("Основное", {"fields": ("slug", "name", "format", "base_version")}),
         ("Содержимое", {"fields": ("body", "asset", "url", "scene", "message"), "description": "Что вводится, зависит от формата."}),
         ("Доступ", {"fields": ("access",)}),
         ("Слои защиты", {"fields": ("state",), "classes": ("collapse",)}),

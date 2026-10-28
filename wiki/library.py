@@ -73,6 +73,7 @@ class Page:
         self.direct_link = item.slug
         self.world_date = item.world_updated_at
         self.updated_at = item.updated_at
+        self.updated_by = item.updated_by
         self.hidden = placement.hidden or placement.name.startswith(".")
         if placement.access_mode == Placement.Mode.REPLACE:
             self.access = placement.access or {}
@@ -130,7 +131,7 @@ def build(request=None):
     formats = _pages_formats()
     volumes = _volumes(request)
     ids = [volume.pk for volume, _ in volumes]
-    placements = list(Placement.objects.filter(volume_id__in=ids).select_related("item"))
+    placements = list(Placement.objects.filter(volume_id__in=ids).select_related("item", "item__updated_by"))
     by_volume = {}
     for placement in placements:
         by_volume.setdefault(placement.volume_id, []).append(placement)
