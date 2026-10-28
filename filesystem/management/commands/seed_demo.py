@@ -10,7 +10,7 @@ from django.db import transaction
 
 from filesystem import appfile, filemanager
 from filesystem.models import FileFormat, Item, ItemKey, ItemMember, Placement, Volume, VolumeTemplate
-from machines.models import Machine, MachineMount, MachineProfile, Place, SystemType
+from machines.models import Export, Machine, MachineMount, MachineProfile, Place, SystemType
 
 
 def folder(volume, parent, name):
@@ -29,8 +29,8 @@ def put(volume, path, slug, body="", **fields):
     return item
 
 
-def mount(machine, volume, path, order=0, mode="local"):
-    MachineMount.objects.get_or_create(machine=machine, volume=volume, mount_path=path, defaults={"order": order, "mode": mode})
+def mount(machine, volume, path, order=0):
+    MachineMount.objects.get_or_create(machine=machine, volume=volume, mount_path=path, defaults={"order": order})
 
 
 class Command(BaseCommand):
@@ -82,7 +82,11 @@ class Command(BaseCommand):
         own, _ = Volume.objects.get_or_create(slug="aether-main-own", defaults={"label": "Отличия aether-main"})
         mount(main, base, "/", 0)
         mount(main, own, "/", 1)
-        mount(main, harbor, "/mnt/harbor", 0, mode="remote")             # общий том: состояние у хоста aether-core
+        reader, _ = MachineProfile.objects.get_or_create(machine=core, login="reader", defaults={"name": "Reader", "freq": 7.5})
+        Export.objects.get_or_create(machine=core, path="/srv/harbor")        # core отдаёт архив порта по сети
+        MachineMount.objects.get_or_create(                                   # main подключает его под записью reader хоста
+            machine=main, mode="remote", host=core, host_path="/srv/harbor", mount_path="/mnt/harbor", defaults={"account": reader},
+        )
 
         MachineProfile.objects.get_or_create(
             machine=main, login="ivan", defaults={"name": "Ivan", "freq": 14.23, "password_hash": make_password("demo")},

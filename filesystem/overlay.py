@@ -106,6 +106,8 @@ def _entry(view, path):
     entry = view.get(path)
     if entry is None:
         raise FileManagerError("Такого пути нет.")
+    if entry.via is not None:
+        raise FileManagerError("Это сетевой диск: файлы правятся на хосте.")
     return entry
 
 
@@ -260,7 +262,7 @@ def _items_info(items):
 def machine_data(machine):
     """Собранное дерево машины для менеджера: файлы, папки и (красным) то, что скрыто надгробиями."""
     view = MachineView(machine, None)
-    layers = view.layers
+    layers = [layer for layer in view.layers if not layer.remote]
     by_point, below_paths, whiteouts = {}, {}, {}
     for layer in layers:
         by_point.setdefault(layer.point, []).append(layer)
@@ -274,7 +276,9 @@ def machine_data(machine):
             continue
         row = {"path": path, "name": entry.name, "kind": "dir" if entry.is_dir else "file", "volume": "", "mark": "", "private": False,
                "hidden": entry.hidden, "system": entry.system, "item": None}
-        if entry.layer is not None:
+        if entry.via is not None:
+            row.update(volume=f"{entry.via.mount.host.label}:{entry.via.mount.host_path}", mark="remote")
+        elif entry.layer is not None:
             stack = sorted(by_point[entry.layer.point], key=lambda layer: layer.mount.order)
             below = [layer for layer in stack if layer.mount.order < entry.layer.mount.order]
             row["volume"] = entry.layer.mount.volume.slug

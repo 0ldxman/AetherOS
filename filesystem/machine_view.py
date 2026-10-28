@@ -10,7 +10,7 @@
 слой, откуда пришла запись. База не меняется.
 """
 import posixpath
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 
 from django.utils import timezone
 
@@ -41,6 +41,11 @@ class Layer:
     host_id: int | None
     point: str                  # «/» или «/mnt/harbor»
     prefix: str                 # папка внутри тома («» = весь том)
+
+    @property
+    def remote(self):
+        """Подключение по сети: содержимое берётся из вида хоста, а не из тома."""
+        return self.mount.mode == "remote"
 
     def machine_path(self, inner):
         """Путь внутри тома -> путь на машине или None, если он вне смонтированной папки."""
@@ -83,6 +88,7 @@ class Entry:
     player: PlayerFile | None = None         # запись слоя игрока, которая меняет эту запись или создаёт её
     has_base: bool = False                   # под записью игрока лежит запись из базы (удалить = надгробие)
     gates: tuple = field(default_factory=tuple)   # условия доступа: том и папки вдоль пути
+    via: object = None                       # сетевое подключение (Layer), через которое запись пришла с хоста
 
     @property
     def name(self):
@@ -210,35 +216,33 @@ def _drop(entries, path):
 class MachineView:
     """Вид машины для игрока (user=None: только база, без слоя игрока)."""
 
-    def __init__(self, machine, user=None, principal=None):
+    def __init__(self, machine, user=None, principal=None, trail=frozenset()):
         self.machine = machine
         self.user = user
         self.principal = principal          # кто действует (filesystem/rights.py); None: система, права не проверяются
+        self.trail = trail                  # машины, через которые пришло подключение (чтобы цепочка не замкнулась)
         self._built = None
         self._homes = None
+        self._hosts = {}
 
     # ---- сборка ---------------------------------------------------------------------------------------------------
 
     def _layers(self):
-        mounts = list(MachineMount.objects.filter(machine=self.machine).exclude(mount_path="").select_related("volume"))
+        mounts = list(MachineMount.objects.filter(machine=self.machine).exclude(mount_path="").select_related("volume", "host", "account"))
         mounts.sort(key=lambda mount: (_depth(mount.mount_path), mount.order, mount.id))
-        volume_ids = {mount.volume_id for mount in mounts}
-
-        local_hosts = {}
-        if any(mount.mode == "remote" for mount in mounts):
-            for volume_id, machine_id in MachineMount.objects.filter(volume_id__in=volume_ids, mode="local").values_list("volume_id", "machine_id"):
-                local_hosts.setdefault(volume_id, set()).add(machine_id)
-
-        existing = {(row.volume_id, row.host_id): row for row in VolumeInstance.objects.filter(volume_id__in=volume_ids)}
+        volume_ids = {mount.volume_id for mount in mounts if mount.mode == "local"}
+        existing = {row.volume_id: row for row in VolumeInstance.objects.filter(volume_id__in=volume_ids, host=self.machine)}
         layers = []
         for mount in mounts:
-            host_id = instances.host_id_of(mount, local_hosts)
-            layers.append(Layer(mount, existing.get((mount.volume_id, host_id)), host_id, mount.mount_path, mount.volume_path))
+            if mount.mode == "remote":
+                layers.append(Layer(mount, None, mount.host_id, mount.mount_path, ""))
+            else:
+                layers.append(Layer(mount, existing.get(mount.volume_id), mount.machine_id, mount.mount_path, mount.volume_path))
         return layers
 
     def _build(self):
         layers = self._layers()
-        volume_ids = {layer.mount.volume_id for layer in layers}
+        volume_ids = {layer.mount.volume_id for layer in layers if not layer.remote}
         by_volume = {}
         for placement in Placement.objects.filter(volume_id__in=volume_ids).select_related("item").prefetch_related(*ITEM_PREFETCH):
             by_volume.setdefault(placement.volume_id, []).append(placement)
@@ -256,6 +260,9 @@ class MachineView:
                     _drop(entries, layer.point)                     # новая точка закрывает то, что лежало под ней
                 points.add(layer.point)
             entries.setdefault(layer.point, Entry(layer.point, DIR))
+            if layer.remote:
+                self._lay_remote(entries, layer)
+                continue
             gates_of = self._lay(entries, layer, by_volume.get(layer.mount.volume_id, []))
             if layer.instance is not None:
                 self._overlay(entries, layer, rows.get(layer.instance.pk, []), gates_of)
@@ -289,6 +296,30 @@ class MachineView:
                     _drop(entries, machine_path)
                 entries[machine_path] = Entry(machine_path, FILE, layer, ipath, placement, placement.item, None, True, gates_of(ipath))
         return gates_of
+
+    def _host_view(self, layer):
+        """Вид хоста для сетевого подключения или None (нельзя подключиться): один на сборку."""
+        key = layer.mount.pk
+        if key not in self._hosts:
+            from machines import connection
+
+            mount = layer.mount
+            self._hosts[key] = None if mount.host_id is None else connection.connect(self.machine, mount.host, mount.host_path, mount.account, self.user, self.trail)
+        return self._hosts[key]
+
+    def _lay_remote(self, entries, layer):
+        """Поддерево хоста ложится под точку подключения: записи те же, что видит на хосте учётка подключения."""
+        view = self._host_view(layer)
+        if view is None:
+            return
+        base = layer.mount.host_path.rstrip("/")
+        shift = layer.point.rstrip("/")
+        for found in view.under(base or "/"):
+            rest = found.path[len(base):]
+            if not rest and not found.is_dir:
+                continue                                    # подключается папка, а не файл
+            path = (shift + rest) or "/"
+            entries[path] = replace(found, path=path, via=layer)
 
     def _overlay(self, entries, layer, rows, gates_of):
         for row in sorted(rows, key=lambda row: (row.path.count("/"), row.path)):
@@ -335,6 +366,7 @@ class MachineView:
 
     def invalidate(self):
         self._built = None
+        self._hosts = {}
 
     def layer_paths(self, layer):
         """Пути на машине, которые слой занимает своими размещениями (без слоя игрока и без надгробий): {путь: размещение}."""
@@ -344,6 +376,8 @@ class MachineView:
         return self._paths_where(layer, lambda placement: placement.kind == kind)
 
     def _paths_where(self, layer, keep):
+        if layer.remote:
+            return {}
         placements = list(Placement.objects.filter(volume_id=layer.mount.volume_id).select_related("item"))
         found = {}
         for ipath, placement in inner_paths(placements):
@@ -433,6 +467,34 @@ class MachineView:
             return {"owner": self.principal.login, "group": "", "mode": "644"}
         return source
 
+    # ---- сетевые подключения --------------------------------------------------------------------------------------
+
+    def remote_route(self, path):
+        """(вид хоста, путь на хосте) для пути, который лежит в сетевом подключении, или None. Вид хоста None: подключение оборвано."""
+        path = self._clean(path)
+        for layer in reversed(self.layers):
+            inner = layer.inner_path(path)
+            if inner is None:
+                continue
+            if not layer.remote:
+                return None
+            base = layer.mount.host_path.rstrip("/")
+            return self._host_view(layer), (base + "/" + inner if inner else base) or "/"
+        return None
+
+    def _delegate(self, path, method, *args, **kwargs):
+        """Операция над путём в сетевом подключении выполняется на хосте от имени учётки подключения. (True, итог) или (False, None)."""
+        routed = self.remote_route(path)
+        if routed is None:
+            return False, None
+        view, host_path = routed
+        if view is None:
+            raise ReadOnly(path)
+        try:
+            return True, getattr(view, method)(host_path, *args, **kwargs)
+        finally:
+            self.invalidate()
+
     # ---- запись в слой игрока -------------------------------------------------------------------------------------
 
     def _target(self, path):
@@ -469,6 +531,9 @@ class MachineView:
 
     def put_item(self, path, item, state="", content=None, rights_fields=None):
         """Положить ссылку на объект (cp, mv, распаковка, вложение письма, ключ в папку секретов)."""
+        done, result = self._delegate(path, "put_item", item, state, content, rights_fields)
+        if done:
+            return result
         self._may_write(path)
         fresh = self._fresh(path, rights_fields)
         layer, inner = self._target(path)
@@ -476,6 +541,9 @@ class MachineView:
 
     def put_text(self, path, text, state="", rights_fields=None):
         """Файл игрока без объекта с текстом (подпись)."""
+        done, result = self._delegate(path, "put_text", text, state, rights_fields)
+        if done:
+            return result
         self._may_write(path)
         fresh = self._fresh(path, rights_fields)
         layer, inner = self._target(path)
@@ -483,6 +551,9 @@ class MachineView:
 
     def put_data(self, path, data, state="", rights_fields=None):
         """Файл игрока без объекта с байтами (вырезка)."""
+        done, result = self._delegate(path, "put_data", data, state, rights_fields)
+        if done:
+            return result
         if len(data) > DATA_LIMIT:
             raise ValueError("too large")
         self._may_write(path)
@@ -492,6 +563,9 @@ class MachineView:
 
     def edit_text(self, path, text):
         """Своя версия текста существующего файла."""
+        done, result = self._delegate(path, "edit_text", text)
+        if done:
+            return result
         found = self.get(path)
         if found is None or found.is_dir:
             raise FileNotFoundError(path)
@@ -504,6 +578,9 @@ class MachineView:
 
     def set_rights(self, path, **fields):
         """Права файла в слое игрока: owner, group, mode (только переданные поля)."""
+        done, result = self._delegate(path, "set_rights", **fields)
+        if done:
+            return result
         found = self.get(path)
         if found is None or found.is_dir:
             raise FileNotFoundError(path)
@@ -512,6 +589,9 @@ class MachineView:
 
     def set_progress(self, path, state):
         """Прогресс игрока по слоям файла."""
+        done, result = self._delegate(path, "set_progress", state)
+        if done:
+            return result
         found = self.get(path)
         if found is None or (found.is_dir and found.placement is None):
             raise FileNotFoundError(path)
@@ -520,11 +600,14 @@ class MachineView:
 
     def remove(self, path):
         """Удалить файл или папку со всем внутри. Возвращает число удалённых файлов."""
+        done, result = self._delegate(path, "remove")
+        if done:
+            return result
         count = 0
         if self.principal is not None:
             rights.check_parent(self, self.principal, self._clean(path))
         for found in reversed(self.under(path)):
-            if found.layer is None:
+            if found.layer is None or found.via is not None:
                 continue
             count += not found.is_dir
             for _ in range(3):                                              # файл нижнего слоя мог просвечивать сквозь удалённый
@@ -566,7 +649,7 @@ class MachineView:
 
     def _put_like(self, path, found, keep_owner=False):
         carried = None
-        if self.principal is not None:
+        if self.principal is not None and (keep_owner or self.remote_route(path) is None):
             carried = (
                 {"owner": found.owner, "group": found.group, "mode": found.mode} if keep_owner
                 else {"owner": self.principal.login, "group": "", "mode": found.mode or "644"}

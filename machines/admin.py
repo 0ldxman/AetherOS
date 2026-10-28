@@ -15,6 +15,7 @@ from secure.admin_widgets import ConditionFieldsMixin
 from .privileges import PRIVILEGES
 from .forms import MachineProfileForm, MachineProfileTokenForm, has_real_hash
 from .models import (
+    Export,
     Group,
     Machine,
     MachineProfile,
@@ -28,13 +29,23 @@ from .models import (
     SystemType,
 )
 
+class ExportInline(admin.TabularInline):
+    """Пути, которые машина отдаёт по сети."""
+
+    model = Export
+    extra = 0
+    fields = ("path",)
+
+
 class MachineMountInline(admin.TabularInline):
     """Тома, смонтированные на машину (docs/storage-spec.md)."""
 
     model = MachineMount
+    fk_name = "machine"
     extra = 0
-    fields = ("volume", "volume_path", "mount_path", "mode", "order")
-    autocomplete_fields = ("volume",)
+    fields = ("mode", "volume", "volume_path", "host", "host_path", "account", "mount_path", "order")
+    autocomplete_fields = ("volume", "host")
+    raw_id_fields = ("account",)
 
 
 class MachinePlaceInline(admin.TabularInline):
@@ -184,6 +195,7 @@ class MachineAdmin(MachineFiles, admin.ModelAdmin):
     inlines = (
         MachineProfileInline,
         MachineMountInline,
+        ExportInline,
         MachinePlaceInline,
         MachineGroupInline,
     )

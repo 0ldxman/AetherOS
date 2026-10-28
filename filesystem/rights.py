@@ -61,9 +61,17 @@ def _ancestors(path):
 
 def check(view, principal, path, action):
     """Бросает Denied, если записи нельзя сделать action над path. principal=None: система, проверок нет."""
-    if principal is None or principal.root:
+    if principal is None:
         return
     path = "/" + "/".join(part for part in path.split("/") if part)
+    routed = view.remote_route(path)
+    if routed is not None:                       # путь на сетевом диске: права проверяет хост для учётки подключения
+        host_view, host_path = routed
+        if host_view is None:
+            raise Denied(path)
+        return check(host_view, host_view.principal, host_path, action)
+    if principal.root:
+        return
     for ancestor in _ancestors(path):
         found = view.get(ancestor)
         owner, group, mode = rights_of(view, found) if found is not None else (view.home_owner(ancestor), "", "700" if view.home_owner(ancestor) else "")

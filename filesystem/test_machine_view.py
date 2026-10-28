@@ -316,32 +316,11 @@ class InstanceTests(ViewCase):
         self.shared = Volume.objects.create(slug="harbor")
         place(self.shared, "doc", item("doc", "base"))
 
-    def test_a_remote_mount_shares_the_state_with_the_host(self):
-        mount(self.machine, self.shared, "/mnt/h", mode="local")
-        mount(self.second, self.shared, "/mnt/x", mode="remote")
-        self.view(self.second).edit_text("/mnt/x/doc", "from B")
-        self.assertEqual(self.view(self.machine).get("/mnt/h/doc").body, "from B")
-        self.view(self.machine).remove("/mnt/h/doc")
-        self.assertFalse(self.view(self.second).exists("/mnt/x/doc"))
-
     def test_two_local_mounts_are_independent(self):
         mount(self.machine, self.shared, "/mnt/h", mode="local")
         mount(self.second, self.shared, "/mnt/h", mode="local")
         self.view(self.machine).edit_text("/mnt/h/doc", "only A")
         self.assertEqual(self.view(self.second).get("/mnt/h/doc").body, "base")
-
-    def test_the_layer_of_one_player_is_not_seen_by_another_on_a_shared_volume(self):
-        mount(self.machine, self.shared, "/mnt/h", mode="local")
-        mount(self.second, self.shared, "/mnt/x", mode="remote")
-        self.view(self.second).edit_text("/mnt/x/doc", "ivan's")
-        self.assertEqual(self.view(self.machine, self.other).get("/mnt/h/doc").body, "base")
-
-    def test_without_a_host_a_remote_volume_is_one_external_instance(self):
-        mount(self.machine, self.shared, "/mnt/x", mode="remote")
-        mount(self.second, self.shared, "/mnt/y", mode="remote")
-        self.view(self.machine).edit_text("/mnt/x/doc", "shared")
-        self.assertEqual(self.view(self.second).get("/mnt/y/doc").body, "shared")
-        self.assertIsNone(VolumeInstance.objects.get(volume=self.shared).host)
 
 
 class KeysTests(ViewCase):
