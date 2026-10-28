@@ -22,6 +22,28 @@ class TerminalContext:
         return self.session.profile
 
     @property
+    def principal(self):
+        """Кто действует: запись, её группы и привилегии."""
+        if getattr(self, "_principal", None) is None:
+            from machines.groups import principal_for
+
+            self._principal = principal_for(self.profile)
+        return self._principal
+
+    def require(self, path, action):
+        """Права на путь или Denied (Permission denied)."""
+        from filesystem import rights
+
+        rights.check(self.view, self.principal, path, action)
+
+    def need(self, privilege):
+        """Привилегия записи или NotPermitted (Operation not permitted)."""
+        from filesystem import rights
+
+        if not self.principal.has(privilege):
+            raise rights.NotPermitted(privilege)
+
+    @property
     def home(self):
         from terminal.engine.home import home_of
 
@@ -46,7 +68,7 @@ class TerminalContext:
         if getattr(self, "_view", None) is None:
             from filesystem.machine_view import MachineView
 
-            self._view = MachineView(self.machine, self.user)
+            self._view = MachineView(self.machine, self.user, self.principal)
         return self._view
 
     def invalidate(self):

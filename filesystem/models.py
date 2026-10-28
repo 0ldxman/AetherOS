@@ -2,6 +2,7 @@ import uuid
 
 from django.conf import settings
 from django.core.exceptions import ValidationError
+from django.core.validators import RegexValidator
 from django.core.validators import URLValidator
 from django.db import models
 from django.db.models import Q
@@ -492,6 +493,12 @@ class Placement(models.Model):
         help_text="Имя в этом месте. Пусто: берётся имя объекта с расширением формата. Точка в начале скрывает файл.",
     )
     item = models.ForeignKey(Item, null=True, blank=True, on_delete=models.PROTECT, related_name="placements", verbose_name="Объект")
+    owner = models.CharField("Владелец", max_length=64, blank=True, help_text="Логин записи. Пусто: права не заданы, файл открыт всем.")
+    group = models.CharField("Группа", max_length=64, blank=True)
+    mode = models.CharField(
+        "Права", max_length=3, blank=True, validators=[RegexValidator(r"^[0-7]{3}$", "Три восьмеричные цифры: 640.")],
+        help_text="Владелец, группа, остальные: чтение 4, запись 2, вход или запуск 1 (640, 755). Пусто: открыто всем.",
+    )
     hidden = models.BooleanField("Скрыт", default=False, help_text="Скрытое не показывает ls без -a.")
 
     access_mode = models.CharField("Доступ", max_length=8, choices=Mode.choices, default=Mode.INHERIT)
@@ -618,6 +625,13 @@ class PlayerFile(models.Model):
     origin_path = models.CharField(max_length=2048, blank=True, default="")
     trashed_at = models.DateTimeField(null=True, blank=True)
     purge_at = models.DateTimeField(null=True, blank=True)
+
+    owner = models.CharField("Владелец", max_length=64, blank=True, help_text="Логин записи. Пусто: как у файла в базе.")
+    group = models.CharField("Группа", max_length=64, blank=True)
+    mode = models.CharField(
+        "Права", max_length=3, blank=True, validators=[RegexValidator(r"^[0-7]{3}$", "Три восьмеричные цифры: 640.")],
+        help_text="Владелец, группа, остальные: чтение 4, запись 2, вход или запуск 1 (640, 755). Пусто: как у файла в базе.",
+    )
 
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)

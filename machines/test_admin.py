@@ -206,3 +206,19 @@ class ConditionFieldTests(AdminTestCase):
              "allowed_hids-MIN_NUM_FORMS": 0, "allowed_hids-MAX_NUM_FORMS": 1000},
         )
         self.assertEqual(response.status_code, 200)
+
+
+class GroupAdminTests(AdminTestCase):
+    def test_the_groups_of_a_system_type_are_edited_on_its_page_and_a_profile_names_its_groups(self):
+        from machines.models import Group, SystemType
+
+        system = SystemType.objects.get(code="AETHER")
+        page = self.client.get(reverse("admin:machines_systemtype_change", args=[system.pk]))
+        self.assertContains(page, "groups-0-privileges")
+        from machines.models import MachineProfile
+
+        profile = MachineProfile.objects.create(machine=self.machine, login="ivan", name="Ivan", freq=1)
+        response = self.client.get(reverse("admin:machines_machineprofile_change", args=[profile.pk]))
+        self.assertContains(response, 'name="groups"')
+        self.assertContains(response, 'name="root"')
+        self.assertTrue(Group.objects.filter(system_type=system, name="users").exists())

@@ -8,7 +8,7 @@ from terminal.engine.result import CommandResult
 
 # порядок и группы в списке help
 GROUPS = (
-    ("files", ("ls", "cd", "pwd", "cnt", "mv", "cp", "del", "rcvr", "wipe", "clear")),
+    ("files", ("ls", "cd", "pwd", "cnt", "mv", "cp", "del", "rcvr", "wipe", "perm", "own", "clear")),
     ("inspect and repair", ("ftyp", "txtx", "rpr", "cvt", "blk")),
     ("keys and archives", ("kex", "ward", "pak")),
     ("network", ("nreq", "nget", "rcon", "rshell", "xfer", "exit", "rcon-close")),
@@ -26,7 +26,7 @@ HELP = {
         "list directory contents",
         ("ls [-a] [-l] [-h] [path]",),
         "-a  do not hide entries whose names start with a dot\n"
-        "-l  show sizes in bytes\n"
+        "-l  show permissions, owner, group and size in bytes\n"
         "-h  with -l, print sizes in human readable form",
     ),
     "cd": ("change the working directory", ("cd [path]",), ""),
@@ -113,6 +113,16 @@ HELP = {
         "Files that have stayed in the trash may not come back intact.",
     ),
     "wipe": ("empty the trash permanently", ("wipe [-f]",), "Asks for confirmation, -f does not."),
+    "perm": (
+        "change the permissions of a file",
+        ("perm <mode> <file>...",),
+        "mode is three digits: owner, group, others. 4 read, 2 write, 1 enter. Only the owner can change them.",
+    ),
+    "own": (
+        "change the owner of a file",
+        ("own <owner>[:<group>] <file>...",),
+        "Needs the privilege to change owners.",
+    ),
     "nreq": (
         "send a request to a network address",
         ("nreq [--token <token>] <address>[/path]",),

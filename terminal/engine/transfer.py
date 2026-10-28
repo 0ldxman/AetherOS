@@ -20,6 +20,7 @@ def copy_file(source, source_path, dest, dest_path):
 
     if entry is None or source_fs.is_directory(source_path):
         return None, f"{source_path}: not a regular file"
+    source.require(source_path, "r")
 
     return place_entry(dest, entry, dest_path, posixpath.basename(entry.path))
 

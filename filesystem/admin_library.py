@@ -239,6 +239,7 @@ class PlacementAdmin(KeyConditionsMixin, admin.ModelAdmin):
     fieldsets = (
         (None, {"fields": ("volume", "parent", "kind", "item", "name")}),
         ("Свойства", {"fields": ("hidden", "system")}),
+        ("Права", {"fields": ("owner", "group", "mode")}),
         ("Доступ", {"fields": ("access_mode", "access")}),
         ("Слои защиты", {"fields": ("state_mode", "state")}),
     )

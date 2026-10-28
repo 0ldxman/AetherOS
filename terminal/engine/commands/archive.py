@@ -55,6 +55,7 @@ class PakCommand(LayerCommand):
         if fs.is_directory(path):
             return None, CommandResult(f"pak: {target}: Is a directory", 1)
         entry = fs.get_file(path)
+        context.require(path, "r")
         if not entry.archive:
             return None, CommandResult(f"pak: {target}: not an archive", 1)
         return entry, None

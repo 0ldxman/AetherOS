@@ -12,8 +12,10 @@ from filesystem.admin_files import MachineFiles
 from secure.access import format_condition
 from secure.admin_widgets import ConditionFieldsMixin
 
+from .privileges import PRIVILEGES
 from .forms import MachineProfileForm, MachineProfileTokenForm, has_real_hash
 from .models import (
+    Group,
     Machine,
     MachineProfile,
     MachineProfileHID,
@@ -44,6 +46,36 @@ class MachinePlaceInline(admin.TabularInline):
     fields = ("name", "path")
 
 
+class GroupForm(forms.ModelForm):
+    privileges = forms.MultipleChoiceField(
+        label="Привилегии", required=False, choices=list(PRIVILEGES.items()), widget=forms.CheckboxSelectMultiple,
+    )
+
+    class Meta:
+        model = Group
+        fields = ("name", "privileges", "everyone", "disabled")
+
+
+class SystemGroupInline(admin.TabularInline):
+    """Группы по умолчанию для всех машин этого типа системы."""
+
+    model = Group
+    fk_name = "system_type"
+    form = GroupForm
+    extra = 0
+    fields = ("name", "privileges", "everyone")
+
+
+class MachineGroupInline(admin.TabularInline):
+    """Группы машины: одноимённая заменяет группу типа системы, отключённая прячет её."""
+
+    model = Group
+    fk_name = "machine"
+    form = GroupForm
+    extra = 0
+    fields = ("name", "privileges", "everyone", "disabled")
+
+
 class SystemPlaceInline(admin.TabularInline):
     model = Place
     fk_name = "system_type"
@@ -55,7 +87,7 @@ class SystemPlaceInline(admin.TabularInline):
 class SystemTypeAdmin(admin.ModelAdmin):
     list_display = ("code", "name", "path_style", "machines_count")
     search_fields = ("code", "name")
-    inlines = (SystemPlaceInline,)
+    inlines = (SystemPlaceInline, SystemGroupInline)
 
     @admin.display(description="Машин")
     def machines_count(self, obj):
@@ -153,6 +185,7 @@ class MachineAdmin(MachineFiles, admin.ModelAdmin):
         MachineProfileInline,
         MachineMountInline,
         MachinePlaceInline,
+        MachineGroupInline,
     )
 
     actions = (
@@ -303,6 +336,15 @@ class MachineProfileAdmin(ConditionFieldsMixin, admin.ModelAdmin):
                     "new_password",
                     "clear_password",
                     "key_condition",
+                ),
+            },
+        ),
+        (
+            "Rights",
+            {
+                "fields": (
+                    "groups",
+                    "root",
                 ),
             },
         ),

@@ -1,3 +1,4 @@
+from filesystem import rights
 from filesystem.size import DIRECTORY_SIZE, human_size
 from terminal.engine.rawinfo import size_of
 from terminal.engine.filesystem import VirtualFilesystem
@@ -54,8 +55,9 @@ class LsCommand(BaseCommand):
         if not fs.is_directory(path):
             file = fs.get_file(path)
             name = file.path.rsplit("/", 1)[-1]
-            return CommandResult(self._long([(size_of(context, file), name)], "h" in flags) if "l" in flags else name)
+            return CommandResult(self._long([(size_of(context, file), self._rights(context, file), name)], "h" in flags) if "l" in flags else name)
 
+        context.require(path, "r")
         try:
             entries = fs.list_directory(path)
         except NotADirectoryError:
@@ -70,9 +72,13 @@ class LsCommand(BaseCommand):
                  for entry in entries]
 
         if "l" in flags:
-            rows = [(self._size(context, fs, path, entry), name) for entry, name in zip(entries, names)]
+            rows = [
+                (self._size(context, fs, path, entry), self._rights(context, fs.get_file(path.rstrip("/") + "/" + entry["name"]), True), name)
+                for entry, name in zip(entries, names)
+            ]
             if "a" in flags:
-                rows = [(DIRECTORY_SIZE, "./"), (DIRECTORY_SIZE, "../")] + rows
+                here = self._rights(context, fs.get_file(path), True)
+                rows = [(DIRECTORY_SIZE, here, "./"), (DIRECTORY_SIZE, here, "../")] + rows
             return CommandResult(self._long(rows, "h" in flags))
 
         if "a" in flags:
@@ -89,11 +95,20 @@ class LsCommand(BaseCommand):
         return size_of(context, file) if file else DIRECTORY_SIZE
 
     @staticmethod
+    def _rights(context, entry, directory=False):
+        """«rw-r----- владелец группа» файла; без заданных прав «rwxrwxrwx - -»."""
+        if entry is None:
+            return "rwxrwxrwx - -"
+        owner, group, mode = rights.rights_of(context.view, entry)
+        kind = "d" if directory and entry.is_dir else "-"
+        return f"{kind}{rights.symbolic(mode)} {owner or '-'} {group or '-'}"
+
+    @staticmethod
     def _long(rows, human):
-        """Строки «размер имя», размеры выровнены по правому краю."""
-        shown = [(human_size(size) if human else str(size), name) for size, name in rows]
-        width = max((len(size) for size, _ in shown), default=0)
-        return "\n".join(f"{size:>{width}}  {name}" for size, name in shown)
+        """Строки «размер права владелец группа имя», размеры выровнены по правому краю."""
+        shown = [(human_size(size) if human else str(size), meta, name) for size, meta, name in rows]
+        width = max((len(size) for size, _, _ in shown), default=0)
+        return "\n".join(f"{size:>{width}}  {meta}  {name}" for size, meta, name in shown)
 
 
 class CdCommand(BaseCommand):
@@ -119,6 +134,7 @@ class CdCommand(BaseCommand):
                 1,
             )
 
+        context.require(path, "x")
         context.cwd = path
         return CommandResult()
 

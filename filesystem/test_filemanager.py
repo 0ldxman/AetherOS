@@ -157,6 +157,17 @@ class VolumeOpsTests(TestCase):
         self.assertTrue(Placement.objects.filter(volume=win, name="System32", parent__name="Windows").exists())
         self.assertEqual(filemanager.apply_template(Volume.objects.create(slug="e"), None), 0)
 
+    def test_the_rights_of_a_placement_are_set_and_checked(self):
+        placement = filemanager.new_file(self.volume, None, "r.txt")
+        filemanager.set_rights(self.volume, placement.pk, "ivan", "staff", "640")
+        placement.refresh_from_db()
+        self.assertEqual((placement.owner, placement.group, placement.mode), ("ivan", "staff", "640"))
+        with self.assertRaises(FileManagerError):
+            filemanager.set_rights(self.volume, placement.pk, "ivan", "", "999")
+        filemanager.set_rights(self.volume, placement.pk, "", "", "")
+        placement.refresh_from_db()
+        self.assertEqual(placement.mode, "")
+
     def test_a_template_is_edited_as_text_and_its_parents_are_implied(self):
         custom = VolumeTemplate.objects.create(name="Aether", folders="# система\nsys/core\nhome/\nsys/core\n", system=False)
         self.assertEqual(custom.paths(), ["home", "sys", "sys/core"])

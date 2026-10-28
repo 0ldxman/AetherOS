@@ -104,6 +104,7 @@ class CntCommand(BaseCommand):
 
         entry = fs.get_file(path)
         name = posixpath.basename(entry.path)
+        context.require(path, "r")
 
         if raw_view:
             # cnt -r: сырые байты файла во вьювере raw; слои и хуки read не трогаются (это не «открыть», а «заглянуть внутрь»)

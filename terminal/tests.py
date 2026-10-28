@@ -230,12 +230,12 @@ class TerminalSceneTests(TestCase):
 
         make_file(self.main, "/home/big.dat", state="", size=123456, url="apps/wiki/")
         make_file(self.main, "/home/docs/inner.txt", state="")
-        self.assertEqual(self.run_command("ls -l /home/big.dat")["output"], "123456  big.dat")
+        self.assertEqual(self.run_command("ls -l /home/big.dat")["output"], "123456  -rwxrwxrwx - -  big.dat")
         listing = self.run_command("ls -l /home")["output"].splitlines()
-        self.assertIn("123456  big.dat", [line.strip() for line in listing])
+        self.assertIn("123456  -rwxrwxrwx - -  big.dat", [line.strip() for line in listing])
         self.assertTrue(any(line.endswith("docs/") and line.strip().startswith("4096") for line in listing))      # папка 4096
         self.assertIn("123456 bytes", self.run_command("cnt /home/big.dat")["output"])
-        self.assertIn("120K  big.dat", [line.strip() for line in self.run_command("ls -lh /home")["output"].splitlines()])
+        self.assertIn("120K  -rwxrwxrwx - -  big.dat", [line.strip() for line in self.run_command("ls -lh /home")["output"].splitlines()])
 
         make_file(self.main, "/home/plain.txt", state="")
         generated = self.run_command("ls -l /home/plain.txt")["output"].split()[0]              # без указанного размера

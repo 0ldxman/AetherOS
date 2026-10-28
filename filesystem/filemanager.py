@@ -99,6 +99,7 @@ def data(volume):
         rows.append({
             "id": placement.pk, "parent": placement.parent_id, "kind": placement.kind, "name": placement.name,
             "hidden": placement.hidden, "system": placement.system,
+            "owner": placement.owner, "group": placement.group, "mode": placement.mode,
             "access": placement.access_mode, "state": placement.state_mode,
             "item": None if item is None else {
                 "id": item.pk, "slug": item.slug, "name": item.name, "format": item.format,
@@ -228,6 +229,20 @@ def copy(volume, ids, parent_id):
         depth_ok(parent)
         clone(placement, parent)
     return count
+
+
+def set_rights(volume, placement_id, owner="", group="", mode=""):
+    """Владелец, группа и режим размещения (пусто: права не заданы, открыто всем)."""
+    placement = Placement.objects.filter(pk=placement_id, volume=volume).first()
+    if placement is None:
+        raise FileManagerError("Этого элемента нет.")
+    placement.owner, placement.group, placement.mode = (owner or "").strip(), (group or "").strip(), (mode or "").strip()
+    try:
+        placement.full_clean(exclude=("name", "item", "parent", "volume", "access", "state"))
+    except ValidationError as error:
+        raise FileManagerError("; ".join(message for messages in error.message_dict.values() for message in messages))
+    placement.save(update_fields=["owner", "group", "mode"])
+    return placement
 
 
 def set_flags(volume, placement_id, **flags):

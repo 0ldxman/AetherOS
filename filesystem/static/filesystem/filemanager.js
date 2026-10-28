@@ -242,6 +242,7 @@
             if (row.access && row.access !== "inherit") { add("доступ: " + (row.access === "none" ? "открыт" : "свой")); }
             if (row.state && row.state !== "inherit") { add("слои: " + (row.state === "none" ? "нет" : "свои")); }
         }
+        if (row.mode) { add(row.mode + (row.owner ? " " + row.owner : "") + (row.group ? ":" + row.group : "")); }
         if (row.hidden) { add("скрытый"); }
         if (row.system) { add("системный"); }
         return tags;
@@ -319,6 +320,7 @@
             rename: edit && !!one && one.type !== "deleted",
             cut: edit && live.length > 0, copy: edit && live.length > 0, paste: edit && !!state.clip,
             hidden: edit && !!one && one.type !== "deleted",
+            rights: edit && !machine && !!one && one.type !== "deleted",
             reset: edit && !!one && (one.row.mark === "override" || (one.type === "folder" && one.row.private)),
             restore: edit && !!one && one.type === "deleted" && (machine ? one.row.private : true),
             delete: edit && (machine ? live.length > 0 : sel.length > 0),
@@ -519,6 +521,10 @@
         } else if (name === "reset") {
             const v = await ask({title: "Сбросить к образу", text: "Правка этой машины для «" + one.name + "» будет убрана, вернётся файл из общего образа.", ok: "Сбросить"});
             if (v) { await api("reset", {path: one.key}); }
+        } else if (name === "rights") {
+            const v = await ask({title: "Права", text: "Режим из трёх цифр (640): владелец, группа, остальные; 4 читать, 2 писать, 1 входить. Пусто: права не заданы, открыто всем.",
+                fields: [{name: "owner", label: "Владелец (логин)", value: one.row.owner || ""}, {name: "group", label: "Группа", value: one.row.group || ""}, {name: "mode", label: "Режим", value: one.row.mode || ""}], ok: "Задать"});
+            if (v) { await api("rights", {id: Number(one.key), owner: v.owner, group: v.group, mode: v.mode}); }
         } else if (name === "hidden") {
             await api("set", {id: Number(one.key), hidden: !one.row.hidden});
         } else if (name === "cut" || name === "copy") {
@@ -547,7 +553,7 @@
         const allowed = can();
         const entries = onRow
             ? [["open", "Открыть"], ["edit", "Изменить для этой машины"], ["restore", "Восстановить"], null, ["cut", "Вырезать"], ["copy", "Копировать"], ["paste", "Вставить"], null,
-               ["rename", "Переименовать (F2)"], ["hidden", "Скрытый / показать"], ["reset", "Сбросить к образу"], ["delete", "Удалить (Del)"]]
+               ["rename", "Переименовать (F2)"], ["hidden", "Скрытый / показать"], ["rights", "Права…"], ["reset", "Сбросить к образу"], ["delete", "Удалить (Del)"]]
             : [["new_folder", "Новая папка"], ["new_file", "Новый файл"], ["link", "Положить объект"], null, ["paste", "Вставить"]];
         els.menu.textContent = "";
         entries.forEach(function (entry) {

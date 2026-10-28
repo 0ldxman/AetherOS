@@ -73,6 +73,7 @@ class EntryCommand(BaseCommand):
 
     def enter(self, context, opts, target, args=None):
         """Проверка входа на target (login@host). Возвращает CommandResult (отказ, ошибка, запрос пароля) или результат finish."""
+        context.need("transfer" if self.mode == "xfer" else "bridge")
         request = context.request
         args = args or {}
         login, _, host = target.partition("@")

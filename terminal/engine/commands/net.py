@@ -53,8 +53,11 @@ class Site:
 
 class NetCommand(BaseCommand):
     options = ("--token", "-t")
+    privilege = ""              # что нужно записи, чтобы так обратиться к серверу
 
     def execute(self, context, args):
+        if self.privilege:
+            context.need(self.privilege)
         opts = self._parse(args)
         if isinstance(opts, str):
             return CommandResult(opts, 2)
@@ -118,6 +121,7 @@ class NgetCommand(NetCommand):
     name = "nget"
     usage = "usage: nget [--token token] [-o path] address/path/to/file"
     options = ("--token", "-t", "-o")
+    privilege = "transfer"
 
     def handle(self, context, site, path, opts):
         system = context.machine.system

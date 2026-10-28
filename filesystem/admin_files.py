@@ -148,6 +148,8 @@ class VolumeFiles(FileManagerMixin):
             return {"count": filemanager.move(volume, ids_of(body), body.get("parent"))}
         elif op == "copy":
             return {"count": filemanager.copy(volume, ids_of(body), body.get("parent"))}
+        elif op == "rights":
+            filemanager.set_rights(volume, body.get("id"), body.get("owner"), body.get("group"), body.get("mode"))
         elif op == "set":
             filemanager.set_flags(volume, body.get("id"), **{key: body[key] for key in ("hidden", "system") if key in body})
         else:

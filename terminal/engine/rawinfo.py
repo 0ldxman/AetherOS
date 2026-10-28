@@ -27,4 +27,5 @@ def size_of(context, entry):
 
 
 def raw_of(context, entry):
+    context.require(entry.path, "r")
     return build_raw(entry, context.view, keys_of(context), viewer=viewer_of(context))

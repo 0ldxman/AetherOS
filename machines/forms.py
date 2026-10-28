@@ -39,9 +39,22 @@ class MachineProfileForm(forms.ModelForm):
         help_text="Вход на профиль станет без пароля.",
     )
 
+    groups = forms.CharField(
+        required=False, label="Группы",
+        help_text="Имена групп через запятую. Группы «все записи» входят сами; привилегии складываются по группам.",
+    )
+
     class Meta:
         model = MachineProfile
         exclude = ("password_hash",)
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        if self.instance.pk:
+            self.initial["groups"] = ", ".join(self.instance.groups or [])
+
+    def clean_groups(self):
+        return [name.strip() for name in self.cleaned_data.get("groups", "").split(",") if name.strip()]
 
     def clean(self):
         cleaned = super().clean()

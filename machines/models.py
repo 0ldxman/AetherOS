@@ -166,6 +166,15 @@ class MachineProfile(models.Model):
         help_text="Сколько секунд после обрыва по сроку запись не принимает этого игрока (для него это блокировка аккаунта).",
     )
 
+    groups = models.JSONField(
+        "Группы", default=list, blank=True,
+        help_text="Группы записи по имени. Группы «все записи» входят всегда; привилегии складываются по группам.",
+    )
+
+    root = models.BooleanField(
+        "root", default=False, help_text="Все привилегии и обход прав файлов.",
+    )
+
     kick_message = models.TextField(
         "Сообщение при обрыве",
         blank=True,
@@ -193,6 +202,46 @@ class MachineProfile(models.Model):
             self.mail = f"{self.login}@{self.machine.label}"
 
         super().save(*args, **kwargs)
+
+
+class Group(models.Model):
+    """Группа записей: набор привилегий. Умолчание задаёт тип системы, машина может переопределить группу или отключить её.
+
+    Какие группы есть у машины, см. machines/groups.py."""
+
+    system_type = models.ForeignKey("machines.SystemType", null=True, blank=True, on_delete=models.CASCADE, related_name="groups")
+    machine = models.ForeignKey(Machine, null=True, blank=True, on_delete=models.CASCADE, related_name="groups")
+    name = models.SlugField("Имя", max_length=32)
+    privileges = models.JSONField("Привилегии", default=list, blank=True)
+    everyone = models.BooleanField("Все записи", default=False, help_text="В группе все записи машины, включая созданные позже.")
+    disabled = models.BooleanField(
+        "Отключена", default=False, help_text="Только у машины: группа типа системы с этим именем на этой машине не действует.",
+    )
+
+    class Meta:
+        ordering = ("name",)
+        verbose_name = "Группа"
+        verbose_name_plural = "Группы"
+        constraints = [
+            models.CheckConstraint(
+                condition=(Q(system_type__isnull=False, machine__isnull=True) | Q(system_type__isnull=True, machine__isnull=False)),
+                name="group_system_xor_machine",
+            ),
+            models.UniqueConstraint(fields=("system_type", "name"), condition=Q(system_type__isnull=False), name="unique_system_group"),
+            models.UniqueConstraint(fields=("machine", "name"), condition=Q(machine__isnull=False), name="unique_machine_group"),
+        ]
+
+    def __str__(self):
+        return f"{self.system_type or self.machine}: {self.name}"
+
+    def clean(self):
+        from machines.privileges import PRIVILEGES
+
+        unknown = [code for code in self.privileges if code not in PRIVILEGES]
+        if unknown:
+            raise ValidationError({"privileges": f"Нет таких привилегий: {', '.join(unknown)}."})
+        if self.disabled and self.machine_id is None:
+            raise ValidationError({"disabled": "Отключить можно только группу у машины."})
 
 
 class MachineProfileToken(models.Model):

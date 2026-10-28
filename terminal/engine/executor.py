@@ -5,6 +5,7 @@ from terminal.engine.parser import (
     CommandParseError,
     parse_command,
 )
+from filesystem import rights
 from terminal.engine.result import CommandResult
 
 
@@ -50,6 +51,10 @@ class TerminalExecutor:
 
         try:
             result = command.execute(context, parsed.args)
+        except rights.Denied as denied:
+            return CommandResult(f"{parsed.name}: {denied.path}: Permission denied", 1), context.cwd
+        except rights.NotPermitted:
+            return CommandResult(f"{parsed.name}: Operation not permitted", 1), context.cwd
         except Exception:
             import logging
 

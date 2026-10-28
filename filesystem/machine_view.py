@@ -14,7 +14,7 @@ from dataclasses import dataclass, field
 
 from django.utils import timezone
 
-from filesystem import instances
+from filesystem import instances, rights
 from filesystem.models import KEY_FORMAT, PlayerFile, Placement, VolumeInstance
 from filesystem.names import normalize_inner
 from machines.models import MachineMount
@@ -119,6 +119,22 @@ class Entry:
                 return ""
         return self.item.state if self.item is not None else ""
 
+    def _right(self, name):
+        """Поле прав: своё у слоя игрока, иначе у размещения."""
+        return (getattr(self.player, name, "") if self.player is not None else "") or (getattr(self.placement, name, "") if self.placement is not None else "")
+
+    @property
+    def owner(self):
+        return self._right("owner")
+
+    @property
+    def group(self):
+        return self._right("group")
+
+    @property
+    def mode(self):
+        return self._right("mode")
+
     @property
     def progress(self):
         """Прогресс игрока по слоям."""
@@ -194,10 +210,12 @@ def _drop(entries, path):
 class MachineView:
     """Вид машины для игрока (user=None: только база, без слоя игрока)."""
 
-    def __init__(self, machine, user=None):
+    def __init__(self, machine, user=None, principal=None):
         self.machine = machine
         self.user = user
+        self.principal = principal          # кто действует (filesystem/rights.py); None: система, права не проверяются
         self._built = None
+        self._homes = None
 
     # ---- сборка ---------------------------------------------------------------------------------------------------
 
@@ -374,6 +392,47 @@ class MachineView:
     def _clean(path):
         return "/" + normalize_inner(path)
 
+    # ---- права ----------------------------------------------------------------------------------------------------
+
+    def home_owner(self, path):
+        """Логин записи этой машины, чья домашняя папка содержит path, или None."""
+        if self._homes is None:
+            from machines import places
+
+            template = places.resolve(self.machine, "home", rights.HOME_LOGIN)
+            prefix, _, suffix = (template or "").partition(rights.HOME_LOGIN)
+            logins = set(self.machine.profiles.values_list("login", flat=True)) if template else set()
+            self._homes = (prefix, suffix, logins)
+        prefix, suffix, logins = self._homes
+        if not logins or not path.startswith(prefix):
+            return None
+        login = path[len(prefix):].split("/")[0]
+        if login not in logins:
+            return None
+        base = prefix + login + suffix
+        return login if path == base or path.startswith(base + "/") else None
+
+    def _may(self, path, action):
+        rights.check(self, self.principal, path, action)
+
+    def _may_write(self, path):
+        """Записать path: файл есть, нужно право на него, иначе на папку, где он появится."""
+        if self.principal is None:
+            return
+        found = self.get(path)
+        if found is not None and not found.is_dir:
+            self._may(path, "w")
+        else:
+            rights.check_parent(self, self.principal, self._clean(path))
+
+    def _fresh(self, path, source=None):
+        """Права нового файла игрока: владелец он, режим 644 (копия берёт режим источника, перенос ещё и владельца)."""
+        if self.principal is None or self.get(path) is not None:
+            return {}
+        if source is None:
+            return {"owner": self.principal.login, "group": "", "mode": "644"}
+        return source
+
     # ---- запись в слой игрока -------------------------------------------------------------------------------------
 
     def _target(self, path):
@@ -408,32 +467,47 @@ class MachineView:
     def _clear(self, **fields):
         return {"deleted_at": None, "origin_path": "", "trashed_at": None, "purge_at": None, **fields}
 
-    def put_item(self, path, item, state="", content=None):
+    def put_item(self, path, item, state="", content=None, rights_fields=None):
         """Положить ссылку на объект (cp, mv, распаковка, вложение письма, ключ в папку секретов)."""
+        self._may_write(path)
+        fresh = self._fresh(path, rights_fields)
         layer, inner = self._target(path)
-        return self._save(self._row(layer, inner), **self._clear(item=item, content=content, data=None, state=state))
+        return self._save(self._row(layer, inner), **self._clear(item=item, content=content, data=None, state=state), **fresh)
 
-    def put_text(self, path, text, state=""):
+    def put_text(self, path, text, state="", rights_fields=None):
         """Файл игрока без объекта с текстом (подпись)."""
+        self._may_write(path)
+        fresh = self._fresh(path, rights_fields)
         layer, inner = self._target(path)
-        return self._save(self._row(layer, inner), **self._clear(item=None, content=text, data=None, state=state))
+        return self._save(self._row(layer, inner), **self._clear(item=None, content=text, data=None, state=state), **fresh)
 
-    def put_data(self, path, data, state=""):
+    def put_data(self, path, data, state="", rights_fields=None):
         """Файл игрока без объекта с байтами (вырезка)."""
         if len(data) > DATA_LIMIT:
             raise ValueError("too large")
+        self._may_write(path)
+        fresh = self._fresh(path, rights_fields)
         layer, inner = self._target(path)
-        return self._save(self._row(layer, inner), **self._clear(item=None, content=None, data=bytes(data), state=state))
+        return self._save(self._row(layer, inner), **self._clear(item=None, content=None, data=bytes(data), state=state), **fresh)
 
     def edit_text(self, path, text):
         """Своя версия текста существующего файла."""
         found = self.get(path)
         if found is None or found.is_dir:
             raise FileNotFoundError(path)
+        self._may(path, "w")
         row = self._row(found.layer, found.inner)
         fields = {"content": text, "data": None, "deleted_at": None}
         if found.item is not None:
             fields["item"] = found.item                                   # правка тела объекта: ссылка остаётся
+        return self._save(row, **fields)
+
+    def set_rights(self, path, **fields):
+        """Права файла в слое игрока: owner, group, mode (только переданные поля)."""
+        found = self.get(path)
+        if found is None or found.is_dir:
+            raise FileNotFoundError(path)
+        row = found.player or self._row(found.layer, found.inner)
         return self._save(row, **fields)
 
     def set_progress(self, path, state):
@@ -447,6 +521,8 @@ class MachineView:
     def remove(self, path):
         """Удалить файл или папку со всем внутри. Возвращает число удалённых файлов."""
         count = 0
+        if self.principal is not None:
+            rights.check_parent(self, self.principal, self._clean(path))
         for found in reversed(self.under(path)):
             if found.layer is None:
                 continue
@@ -467,28 +543,37 @@ class MachineView:
         else:
             self._save(self._row(found.layer, found.inner), deleted_at=timezone.now(), item=None, content=None, data=None, state="")
 
-    def copy(self, source, target):
-        """Скопировать файл или папку: те же объекты и прогресс, свои копии записей. Возвращает число файлов."""
+    def copy(self, source, target, keep_owner=False):
+        """Скопировать файл или папку: те же объекты и прогресс, свои копии записей. Возвращает число файлов.
+        Копия принадлежит копирующему и берёт режим источника; при переносе (keep_owner) остаются и владелец с группой."""
         count = 0
         base = self._clean(source)
         for found in self.under(source):
             if found.is_dir:
                 continue
+            if self.principal is not None:
+                self._may(found.path, "r")
             destination = self._clean(target + found.path[len(base):])
-            self._put_like(destination, found)
+            self._put_like(destination, found, keep_owner)
             count += 1
         return count
 
     def move(self, source, target):
-        count = self.copy(source, target)
+        count = self.copy(source, target, keep_owner=True)
         if self._clean(target) != self._clean(source):
             self.remove(source)
         return count
 
-    def _put_like(self, path, found):
+    def _put_like(self, path, found, keep_owner=False):
+        carried = None
+        if self.principal is not None:
+            carried = (
+                {"owner": found.owner, "group": found.group, "mode": found.mode} if keep_owner
+                else {"owner": self.principal.login, "group": "", "mode": found.mode or "644"}
+            )
         if found.item is not None:
-            self.put_item(path, found.item, found.progress, found.text_override)
+            self.put_item(path, found.item, found.progress, found.text_override, carried)
         elif found.own_data is not None:
-            self.put_data(path, found.own_data, found.progress)
+            self.put_data(path, found.own_data, found.progress, carried)
         else:
-            self.put_text(path, found.own_text or "", found.progress)
+            self.put_text(path, found.own_text or "", found.progress, carried)

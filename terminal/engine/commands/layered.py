@@ -88,6 +88,7 @@ class LayerCommand(BaseCommand):
             return CommandResult(f"{self.name}: {target}: Is a directory", 1)
 
         entry = fs.get_file(path)
+        context.require(path, "r")
         raw_state = entry.progress
         name = posixpath.basename(entry.path)
         top = peek_top(entry.state, raw_state)
