@@ -12,8 +12,8 @@ from .models import Attachment, ComposeProgress, ComposeTask, Delivered, Message
 class AttachmentInline(admin.TabularInline):
     model = Attachment
     extra = 0
-    fields = ("kind", "label", "path", "asset", "machine_file", "order")
-    autocomplete_fields = ("asset", "machine_file")
+    fields = ("kind", "label", "path", "asset", "item", "save_path", "order")
+    autocomplete_fields = ("asset", "item")
 
 
 class TrashedInline(admin.TabularInline):

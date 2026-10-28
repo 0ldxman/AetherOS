@@ -1,5 +1,171 @@
-"""Помощники для тестов: выдать игроку ключи так, как их получает игра, то есть файлами в /home/.secrets."""
+"""Помощники для тестов: файлы машины и ключи игрока так, как они устроены в игре (тома, объекты, слой игрока)."""
+import posixpath
+from types import SimpleNamespace
+
+from django.utils.text import slugify
+
 from filesystem import keystore
+from filesystem.archives import has_extension
+from filesystem.filemanager import unique_slug
+from filesystem.machine_view import MachineView
+from filesystem.models import KEY_FORMAT, Item, ItemKey, ItemMember, Placement, Volume
+from machines.models import MachineMount, Place
+
+
+def root_volume(machine):
+    """Том, смонтированный на корень машины (создаётся при первом обращении): в нём лежат файлы, созданные make_file."""
+    from filesystem.provision import ensure_root
+
+    volume = ensure_root(machine)
+    Place.objects.get_or_create(machine=machine, name="secrets", defaults={"path": "/home/.secrets"})     # у тестов одна папка секретов
+    return volume
+
+
+def _folder(volume, parent, name):
+    found = Placement.objects.filter(volume=volume, parent=parent, name=name).first()
+    if found is None:
+        return Placement.objects.create(volume=volume, parent=parent, kind=Placement.Kind.FOLDER, name=name)
+    return found
+
+
+def _item_for(name, state, size, body, format, key, url):
+    """Объект для файла. url: адрес содержимого в старом виде (записи вики, ключ, ассет, карта, письмо) для тестов, которые его ещё
+    называют: запись вики копируется в объект, остальное связывается с тем, на что указывает."""
+    import uuid as uuidlib
+
+    if key or (url or "").startswith("keys/"):
+        slug = key or url.split("/")[1]
+        return Item.objects.get_or_create(slug=slug, defaults={"name": slug, "format": KEY_FORMAT, "body": body})[0]
+    fields = {"state": state, "size": size, "body": body, "format": format}
+    url = (url or "").strip()
+    parts = [part for part in url.split("?")[0].split("/") if part]
+    if parts[:2] == ["apps", "wiki"] and len(parts) >= 4:
+        from wiki.models import Document, Namespace
+
+        namespace = None
+        for part in parts[2:-1]:
+            namespace = Namespace.objects.filter(parent=namespace, name=part).first()
+        doc = Document.objects.filter(namespace=namespace, title=parts[-1]).first()
+        if doc is not None:
+            from filesystem.rawview.registry import format_for_extension
+
+            found = format_for_extension(Document.EXTENSIONS.get(doc.type, ".doc"))
+            return Item.objects.create(
+                slug=unique_slug(f"wiki-{doc.title}"), name=doc.title, format=found.name if found else doc.type, body=doc.body, meta=doc.infobox,
+                access=doc.access, world_updated_at=doc.world_date, world_creator=doc.created_by.get_username() if doc.created_by else "",
+                state=state, size=size,
+            )
+    elif parts[:1] == ["view"] and len(parts) >= 2:
+        from assets.models import Asset
+
+        asset = Asset.objects.filter(public_id=uuidlib.UUID(parts[1])).first()
+        return Item.objects.create(slug=unique_slug(name), name=name, asset=asset, state=state, size=size)
+    elif parts[:2] == ["apps", "map"]:
+        from map.models import MapScene
+
+        slug = url.split("scene=")[-1]
+        return Item.objects.create(slug=unique_slug(name), name=name, scene=MapScene.objects.filter(slug=slug).first(), state=state, size=size)
+    elif parts[:2] == ["apps", "mail"]:
+        from mail.models import Message
+
+        ref = url.split("message=")[-1]
+        return Item.objects.create(slug=unique_slug(name), name=name, message=Message.objects.filter(slug=ref).first(), state=state, size=size)
+    if parts[:1] == ["apps"]:                                                      # приложение как таковое: у файла есть окно
+        return Item.objects.create(slug=unique_slug(name), name=name, url="https://example.com/" + "/".join(parts[1:]), state=state, size=size)
+    return Item.objects.create(slug=unique_slug(name), name=name, **fields)
+
+
+def make_file(machine, path, state="", size=None, system=False, directory=False, key=None, body="", format="", url="", file_type="FILE",
+              **ignored):
+    """Файл (или папка) машины по пути, как раньше создавалась запись MachineFile. Возвращает SimpleNamespace(item, placement, path).
+
+    state слои защиты, size указанный размер, system защита от удаления, directory папка, key слаг ключа (файл-ключ), body текст.
+    Путь с «архивом» (имя с расширением, под которым что-то лежит) делает архив: объект с членами, а файлы под ним его члены."""
+    volume = root_volume(machine)
+    directory = directory or file_type == "DIRECTORY"
+    parts = [part for part in path.strip("/").split("/") if part]
+    parent, depth = None, 0
+
+    while depth < len(parts) - 1:                                                      # папки до файла; архив прерывает спуск
+        name = parts[depth]
+        folder = Placement.objects.filter(volume=volume, parent=parent, name=name).first()
+        if folder is not None and folder.kind == Placement.Kind.ITEM:
+            return _member(machine, volume, folder, parts[depth + 1:], state, size, body, format, key, url)
+        if folder is None and has_extension(name):
+            archive = Item.objects.create(slug=unique_slug(name), name=name)
+            folder = Placement.objects.create(volume=volume, parent=parent, kind=Placement.Kind.ITEM, item=archive, name=name)
+            return _member(machine, volume, folder, parts[depth + 1:], state, size, body, format, key, url)
+        parent = _folder(volume, parent, name) if folder is None else folder
+        depth += 1
+
+    name = parts[-1]
+    existing = Placement.objects.filter(volume=volume, parent=parent, name=name).first()
+    if directory:
+        found = existing or Placement.objects.create(volume=volume, parent=parent, kind=Placement.Kind.FOLDER, name=name)
+        if system and not found.system:
+            found.system = True
+            found.save(update_fields=["system"])
+        return SimpleNamespace(item=None, placement=found, path=path, pk=found.pk)
+
+    if existing is not None and existing.kind == Placement.Kind.ITEM:                  # файл уже есть (архив, созданный членами)
+        item = existing.item
+        if state:
+            item.state = state
+        if size is not None:
+            item.size = size
+        item.save()
+        if system:
+            existing.system = True
+            existing.save(update_fields=["system"])
+        return SimpleNamespace(item=item, placement=existing, path=path, pk=item.pk)
+
+    item = _item_for(name, state, size, body, format, key, url)
+    placement = Placement.objects.create(
+        volume=volume, parent=parent, kind=Placement.Kind.ITEM, item=item, name=name, system=system,
+    )
+    return SimpleNamespace(item=item, placement=placement, path=path, pk=item.pk)
+
+
+def _member(machine, volume, archive_placement, rest, state, size, body, format, key, url=""):
+    """Файл под путём архива: член архива. Вложенный архив (имя с расширением посреди пути) член-архив со своими членами."""
+    archive = archive_placement.item
+    inner, remaining = "", list(rest)
+    while len(remaining) > 1:
+        part = remaining.pop(0)
+        if not has_extension(part):
+            inner = f"{inner}/{part}" if inner else part
+            continue
+        path = f"{inner}/{part}" if inner else part
+        row = ItemMember.objects.filter(archive=archive, path=path).first()
+        nested = row.item if row is not None else Item.objects.create(slug=unique_slug(f"{archive.slug}-{part}"), name=part)
+        if row is None:
+            ItemMember.objects.create(archive=archive, path=path, item=nested)
+        archive, inner = nested, ""
+    leaf = remaining[0]
+    path = f"{inner}/{leaf}" if inner else leaf
+    existing = ItemMember.objects.filter(archive=archive, path=path).first()
+    if existing is not None:                                                         # член уже есть (вложенный архив, созданный раньше)
+        item = existing.item
+        if state:
+            item.state = state
+        item.save()
+        return SimpleNamespace(item=item, placement=archive_placement, path=f"{archive_placement.name}/{path}", pk=item.pk)
+    item = _item_for(f"{archive.slug}-{leaf}", state, size, body, format, key, url)
+    item.name = leaf
+    item.save(update_fields=["name"])
+    ItemMember.objects.create(archive=archive, path=path, item=item)
+    return SimpleNamespace(item=item, placement=archive_placement, path=f"{archive_placement.name}/{path}", pk=item.pk)
+
+
+def embed_key(item, slug):
+    """Внедрить ключ slug в байты объекта (ItemKey); сам ключ объект формата key."""
+    key, _ = Item.objects.get_or_create(slug=slug, defaults={"name": slug, "format": KEY_FORMAT})
+    return ItemKey.objects.get_or_create(item=item, key=key)[0]
+
+
+def key_item(slug, body="", name=""):
+    """Объект-ключ с таким слагом (name: описание ключа, которое показывает ward keys)."""
+    return Item.objects.get_or_create(slug=slug, defaults={"name": name or slug, "format": KEY_FORMAT, "body": body})[0]
 
 
 def give_keys(user, *slugs):
@@ -17,6 +183,16 @@ def give_keys(user, *slugs):
 
         for order, root in enumerate(Namespace.objects.filter(parent=None)):             # вики машины видна целиком
             VolumeMount.objects.create(machine=machine, namespace=root, order=order)
+    machine = session.profile.machine
+    root_volume(machine)
+    view = MachineView(machine, user)
     for slug in slugs:
-        keystore.put(session, slug)
+        keystore.put(view, machine, session.profile.login, key_item(slug))
     return {SESSION_KEY: session.pk}
+
+
+def give_key_to_session(session, slug):
+    """Положить ключ slug в папку секретов записи этой сессии (как после kex)."""
+    machine = session.profile.machine
+    root_volume(machine)
+    return keystore.put(MachineView(machine, session.user), machine, session.profile.login, key_item(slug))

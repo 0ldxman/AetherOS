@@ -1,4 +1,4 @@
-"""Валидатор поля со стеком слоёв (MachineFile.state) для админки."""
+"""Валидатор поля со стеком слоёв (Item.state) для админки."""
 
 from django.core.exceptions import ValidationError
 

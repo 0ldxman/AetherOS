@@ -5,7 +5,11 @@ from django.test import TestCase, override_settings
 from django.urls import get_script_prefix, set_script_prefix
 
 from assets.models import Asset
-from filesystem.models import MachineFile
+from dataclasses import replace
+from types import SimpleNamespace
+
+from filesystem.machine_view import MachineView
+from filesystem.testing import embed_key, make_file
 from filesystem.rawview import build_raw, encodings, formats
 from filesystem.size import file_size
 from machines.models import Machine
@@ -34,10 +38,17 @@ class RawViewTests(TestCase):
         self.addCleanup(invalidate)
 
     def make(self, path, url="", state="", **extra):
-        return MachineFile.objects.create(machine=self.machine, path=path, url=url, state=state, **extra)
+        return make_file(self.machine, path, url=url, state=state, **extra)
 
-    def raw(self, file, session_state="", keys=frozenset(), reader=None):
-        return build_raw(file, session_state, keys, reader)
+    def entry(self, made, progress=""):
+        """Файл вида машины; progress: прогресс игрока по слоям (JSON), если нужен."""
+        found = MachineView(self.machine, None).get(made.path)
+        if progress:
+            found = replace(found, player=SimpleNamespace(state=progress, content=None, data=None, pk=0))
+        return found
+
+    def raw(self, file, session_state="", keys=frozenset(), reader=None, viewer=None):
+        return build_raw(self.entry(file, session_state), None, keys, reader, viewer)
 
     def test_widgets_leave_no_wiki_syntax_in_the_file(self):
         text = "Intro.\n\n::map scene=outer caption=\"Outer\"\n::\n\n::stamp SECRET tone=red\n"
@@ -70,17 +81,12 @@ class RawViewTests(TestCase):
         self.assertIn(b"OCR " + BODY.encode(), scan[:-5])
 
         snp = self.raw(self.make("/c", "apps/wiki/Harbor/Site")).data
-        self.assertTrue(snp.startswith(b"<!--SNP\nsrc:  wiki://Harbor/Site"))
+        self.assertTrue(snp.startswith(b"<!--SNP\nsrc:  file://Site"))
         self.assertIn(b"<!--@seal ", snp)
 
         doc = self.raw(self.make("/d", "apps/wiki/Harbor/Letter")).data
         self.assertTrue(doc.startswith(formats.magic("doc") + b"\x00\x03body"))
         self.assertIn(BODY.encode(), doc)
-
-    def test_a_direct_link_finds_the_same_document(self):
-        Document.objects.filter(pk=self.doc.pk).update(direct_link="harbor-report")
-        data = self.raw(self.make("/a", "apps/wiki/go/harbor-report/")).data
-        self.assertIn(BODY.encode(), data)
 
     def test_the_disguised_layer_wins_over_the_type_of_the_record(self):
         raw = self.raw(self.make("/a", "apps/wiki/Harbor/Report", "> disguised scan"))
@@ -141,7 +147,7 @@ class RawViewTests(TestCase):
         self.assertEqual(self.raw(file).size, 700)
         self.assertEqual(self.raw(file).data, self.raw(file).data)
         other = self.make("/b", "")
-        self.assertEqual(self.raw(other).size, file_size(other))
+        self.assertEqual(self.raw(other).size, file_size(self.entry(other)))
         self.assertEqual(self.raw(self.make("/c", "", "> disguised pdf")).data[:5], b"%PDF-")   # формат виден и у шума
 
     def test_a_map_and_an_unknown_app(self):
@@ -151,11 +157,10 @@ class RawViewTests(TestCase):
         data = self.raw(self.make("/m", "apps/map/?scene=harbor")).data
         self.assertIn(b'"title": "Harbor"', data)
         self.assertNotIn(b"secret", data)                                         # пометка за ключом не утекает
-        self.assertTrue(self.raw(self.make("/t", "apps/terminal/")).data.startswith(formats.magic("app")))
 
     def test_the_size_of_an_asset_without_layers_needs_no_download(self):
         file = self.make("/a", f"view/{self.asset.public_id}/")
-        self.assertEqual(file_size(file), 11)                                     # Asset.size, без чтения из Nextcloud
+        self.assertEqual(file_size(self.entry(file)), 11)                                     # Asset.size, без чтения из Nextcloud
 
     def test_broken_layer_text_does_not_break_the_view(self):
         file = self.make("/a", "", "> binary")                                    # у слоя нет обязательной кодировки
@@ -223,7 +228,7 @@ class RawViewTests(TestCase):
         from unittest import mock
 
         with mock.patch("mail.access.visible_messages", return_value=[object()]):
-            opened = build_raw(self.make("/n", "apps/mail/?message=cargo"), "", frozenset(), None, Reader())
+            opened = self.raw(self.make("/n", "apps/mail/?message=cargo"), viewer=Reader())
         self.assertIn(b"Shipment 7 left.", opened.data)
         self.assertEqual(opened.size, locked.size)                                  # размер не зависит от доступа
 
@@ -529,35 +534,34 @@ class KeyBlockTests(TestCase):
         at = inside.index(b"-----BEGIN")
         self.assertTrue(500 <= at <= 1500)
 
-    def test_a_key_is_in_a_file_only_through_its_filekey_and_layers_hide_it(self):
-        from secure.models import Key
+    def entry(self, machine, made):
+        return MachineView(machine, None).get(made.path)
 
+    def test_a_key_is_in_a_file_only_through_its_item_key_and_layers_hide_it(self):
         machine = Machine.objects.create(name="M", hostname="m1")
-        for slug in self.SLUGS:
-            Key.objects.create(slug=slug)
         space = Namespace.objects.create(name="Space")
         Document.objects.create(namespace=space, title="Note", type="rec", body=BODY)
-        plain = MachineFile.objects.create(machine=machine, path="/a", url="apps/wiki/Space/Note")
-        locked = MachineFile.objects.create(machine=machine, path="/b", url="apps/wiki/Space/Note", state="> encrypted pw")
-        for item in (plain, locked):
+        plain = make_file(machine, "/a", url="apps/wiki/Space/Note")
+        locked = make_file(machine, "/b", url="apps/wiki/Space/Note", state="> encrypted pw")
+        for made in (plain, locked):
             for slug in self.SLUGS:
-                item.keys.create(key=Key.objects.get(slug=slug))
-        data = build_raw(plain).data
+                embed_key(made.item, slug)
+        data = build_raw(self.entry(machine, plain)).data
         self.assertEqual(sorted(slug for _, slug in self.found(data)), self.SLUGS)
-        self.assertEqual(self.found(build_raw(locked).data), [])                        # зашифровано: ключей не видно
-        self.assertEqual(self.found(build_raw(MachineFile.objects.create(machine=machine, path="/c", url="apps/wiki/Space/Note")).data), [])
-        self.assertEqual(file_size(plain), len(data))                                    # размер учитывает блоки
+        self.assertEqual(self.found(build_raw(self.entry(machine, locked)).data), [])             # зашифровано: ключей не видно
+        free = make_file(machine, "/c", url="apps/wiki/Space/Note")
+        self.assertEqual(self.found(build_raw(self.entry(machine, free)).data), [])
+        self.assertEqual(file_size(self.entry(machine, plain)), len(data))                         # размер учитывает блоки
 
     def test_a_closed_source_shows_noise_in_place_of_the_blocks(self):
-        from secure.models import Key
-
         machine = Machine.objects.create(name="M", hostname="m2")
         space = Namespace.objects.create(name="Space2")
         Document.objects.create(namespace=space, title="Hidden", type="rec", body=BODY, access={"all": ["zz"]})
-        item = MachineFile.objects.create(machine=machine, path="/h", url="apps/wiki/Space2/Hidden")
-        item.keys.create(key=Key.objects.create(slug="secret_a"))
-        closed = build_raw(item).data
-        opened = build_raw(item, keys=frozenset({"zz"})).data
+        made = make_file(machine, "/h", url="apps/wiki/Space2/Hidden")
+        embed_key(made.item, "secret_a")
+        entry = self.entry(machine, made)
+        closed = build_raw(entry).data
+        opened = build_raw(entry, keys=frozenset({"zz"})).data
         self.assertNotIn(b"secret_a", closed)
         self.assertIn(b"Keyname: secret_a", opened)
         self.assertEqual(len(closed), len(opened))
@@ -605,19 +609,4 @@ class SignatureBlockTests(TestCase):
         from filesystem.states.registry import registry
 
         self.assertIsNone(registry.get("base64"))                                    # слой base64 убран
-
-    def test_the_data_migration_rewrites_old_base64_layers(self):
-        import importlib
-
-        from django.apps import apps as live
-
-        module = importlib.import_module("filesystem.migrations.0018_seed_base64_encoding")
-        machine = Machine.objects.create(name="M3", hostname="m3")
-        old = MachineFile.objects.create(machine=machine, path="/o", state='> base64\non read: say "x"')
-        plain = MachineFile.objects.create(machine=machine, path="/p", state="> binary utf16")
-        module.move(live, None)
-        old.refresh_from_db()
-        plain.refresh_from_db()
-        self.assertEqual(old.state, '> binary base64\non read: say "x"')
-        self.assertEqual(plain.state, "> binary utf16")
 

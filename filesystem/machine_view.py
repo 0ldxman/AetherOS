@@ -92,6 +92,15 @@ class Entry:
         return self.kind == DIR
 
     @property
+    def archive(self):
+        """Файл-архив: объект с членами (pak l, pak x)."""
+        return self.item is not None and bool(self.item.members.all())
+
+    @property
+    def machine(self):
+        return self.layer.mount.machine if self.layer is not None else None
+
+    @property
     def hidden(self):
         return bool(self.placement and self.placement.hidden) or self.name.startswith(".")
 
@@ -212,13 +221,13 @@ class MachineView:
         layers = self._layers()
         volume_ids = {layer.mount.volume_id for layer in layers}
         by_volume = {}
-        for placement in Placement.objects.filter(volume_id__in=volume_ids).select_related("item"):
+        for placement in Placement.objects.filter(volume_id__in=volume_ids).select_related("item").prefetch_related("item__members"):
             by_volume.setdefault(placement.volume_id, []).append(placement)
 
         rows = {}
         instance_ids = {layer.instance.pk for layer in layers if layer.instance is not None}
         if self.user is not None and instance_ids:
-            for row in PlayerFile.objects.filter(user=self.user, instance_id__in=instance_ids).select_related("item"):
+            for row in PlayerFile.objects.filter(user=self.user, instance_id__in=instance_ids).select_related("item").prefetch_related("item__members"):
                 rows.setdefault(row.instance_id, []).append(row)
 
         entries, points = {}, set()
@@ -371,10 +380,16 @@ class MachineView:
         path = self._clean(path)
         if path in {layer.point for layer in self.layers}:
             raise Occupied(path)
-        for layer in reversed(self.layers):
-            inner = layer.inner_path(path)
-            if inner:
-                return layer, inner
+        for attempt in range(2):
+            for layer in reversed(self.layers):
+                inner = layer.inner_path(path)
+                if inner:
+                    return layer, inner
+            if attempt == 0 and not any(layer.point == "/" for layer in self.layers):
+                from filesystem.provision import ensure_root
+
+                ensure_root(self.machine)                    # у машины ещё нет корня: он появляется с первой записью
+                self.invalidate()
         raise ReadOnly(path)
 
     def _row(self, layer, inner):
@@ -423,7 +438,7 @@ class MachineView:
     def set_progress(self, path, state):
         """Прогресс игрока по слоям файла."""
         found = self.get(path)
-        if found is None or found.is_dir:
+        if found is None or (found.is_dir and found.placement is None):
             raise FileNotFoundError(path)
         row = found.player or self._row(found.layer, found.inner)
         return self._save(row, state=state)

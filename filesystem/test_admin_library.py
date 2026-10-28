@@ -15,6 +15,7 @@ def post_item(client, **fields):
         "slug": "x", "name": "x", "format": "", "body": "", "url": "", "access": "{}", "state": "", "meta": "",
         "keys-TOTAL_FORMS": "0", "keys-INITIAL_FORMS": "0", "keys-MIN_NUM_FORMS": "0", "keys-MAX_NUM_FORMS": "1000",
         "signatures-TOTAL_FORMS": "0", "signatures-INITIAL_FORMS": "0", "signatures-MIN_NUM_FORMS": "0", "signatures-MAX_NUM_FORMS": "1000",
+        "members-TOTAL_FORMS": "0", "members-INITIAL_FORMS": "0", "members-MIN_NUM_FORMS": "0", "members-MAX_NUM_FORMS": "1000",
     }
     data.update(fields)
     return client.post(reverse("admin:filesystem_item_add"), data)
@@ -88,7 +89,7 @@ class ItemAdminTests(AdminCase):
         Item.objects.create(slug="plain", name="Plain", format="txt")
         item = Item.objects.create(slug="doc", name="doc", format="txt")
         page = self.client.get(reverse("admin:filesystem_item_change", args=[item.pk]))
-        for inline in page.context["inline_admin_formsets"]:
+        for inline in page.context["inline_admin_formsets"][:2]:                      # внедрённые ключи и подписи
             self.assertEqual([obj.slug for obj in inline.formset.empty_form.fields["key"].queryset], ["alpha"])
 
     def test_the_preview_renders_a_page_as_a_wiki_page_and_other_formats_as_text(self):

@@ -168,9 +168,9 @@ class EntryCommand(BaseCommand):
         return opts
 
     def _read_key(self, context, name):
-        """Ключ по названию (keyname) из папки секретов этой сессии (/home/.secrets/имя): набор из одного slug или текст ошибки."""
+        """Ключ по названию (keyname) из папки секретов этой сессии: набор из одного slug или текст ошибки."""
         if name not in keystore.slugs_of(context.session):
-            return f"{self.name}: key '{name}' not found in {keystore.SECRETS}"
+            return f"{self.name}: key '{name}' not found in {keystore.secrets_dir(context.machine, context.profile.login)}"
         return {name}
 
 

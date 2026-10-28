@@ -1,6 +1,5 @@
 import posixpath
 
-from filesystem.models import SessionFile
 from filesystem.states.attempt import peek_top, top_answer
 from filesystem.unlock import unlock_file
 from terminal.engine.commands.basic import BaseCommand
@@ -89,15 +88,15 @@ class LayerCommand(BaseCommand):
             return CommandResult(f"{self.name}: {target}: Is a directory", 1)
 
         entry = fs.get_file(path)
-        raw_state = entry.session_file.state if entry.session_file else ""
+        raw_state = entry.progress
         name = posixpath.basename(entry.path)
-        top = peek_top(entry.machine_file.state, raw_state)
+        top = peek_top(entry.state, raw_state)
 
         if top is None or top.state.name != layer:
             # Сверху чужой слой: отвечает он (`команда: ...` в описании
             # файла) или говорим, что делать нечего. Попытка не тратится.
             text = top_answer(
-                entry.machine_file.state,
+                entry.state,
                 raw_state,
                 self.name,
                 path=entry.path,
@@ -132,19 +131,11 @@ class LayerCommand(BaseCommand):
                         f"{self.name}: invalid {param.name}: {text}", 2
                     )
 
-        session_file = entry.session_file
+        before = entry.progress
+        outcome = unlock_file(context.view, entry.path, given)
+        context.invalidate()
 
-        if session_file is None:
-            session_file, _ = SessionFile.objects.get_or_create(
-                session=context.session,
-                path=entry.path,
-                defaults={"file": entry.machine_file},
-            )
-
-        before = session_file.state
-        outcome = unlock_file(session_file, given)
-
-        rest = peek_top(entry.machine_file.state, outcome.session_file.state)
+        rest = peek_top(entry.state, outcome.progress)
 
         if outcome.result.removed:
             lines = [f"{self.name}: {target}: {self.done_for(rest)}"]

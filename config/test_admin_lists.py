@@ -12,7 +12,8 @@ from django.test.utils import CaptureQueriesContext
 from django.urls import get_script_prefix, reverse, set_script_prefix
 
 from assets.models import Asset
-from filesystem.models import FileKey, MachineFile, SessionFile
+from filesystem.models import ItemKey
+from filesystem.testing import embed_key, make_file
 from machines.models import Machine, MachineApp, MachineProfile, Session
 from map.models import Country, CountryLabel, Ownership, Province
 from secure.models import Key
@@ -25,9 +26,8 @@ def build(i, user, key):
         machine=machine, user=user, name=f"P{i}", login=f"login{i}", freq=i
     )
     session = Session.objects.create(user=user, profile=profile)
-    file = MachineFile.objects.create(machine=machine, path=f"/docs/{i}.txt")
-    FileKey.objects.create(file=file, key=key)
-    SessionFile.objects.create(session=session, file=file)
+    made = make_file(machine, f"/docs/{i}.txt")
+    embed_key(made.item, key.slug)
     MachineApp.objects.create(machine=machine, label="wiki", glyph="W", path="/apps/wiki/")
     country = Country.objects.create(code=f"C{i}", name=f"Страна {i}", valid_from=date(2000, 1, 1))
     province = Province.objects.create(code=f"P{i}", source_code=f"S{i}", name=f"Пров {i}")
@@ -46,15 +46,15 @@ class NamesTests(TestCase):
         machine = Machine.objects.create(name="Безымянный")
         profile = MachineProfile.objects.create(machine=machine, name="p", login="l", freq=1)
         app = MachineApp.objects.create(machine=machine, label="wiki", glyph="W", path="/apps/wiki/")
-        file = MachineFile.objects.create(machine=machine, path="/a")
-        for obj in (profile, app, file):
+        made = make_file(machine, "/a")
+        for obj in (profile, app, made.item):
             self.assertNotIn("None", str(obj))
 
-    def test_file_key_is_readable(self):
+    def test_item_key_is_readable(self):
         machine = Machine.objects.create(name="M", hostname="m")
-        file = MachineFile.objects.create(machine=machine, path="/a.txt")
-        link = FileKey.objects.create(file=file, key=Key.objects.create(slug="key_a"))
-        self.assertEqual(str(link), "m:/a.txt — key_a")
+        made = make_file(machine, "/a.txt")
+        link = embed_key(made.item, "key_a")
+        self.assertEqual(str(link), "atxt: key_a")
         self.assertNotIn("object", str(link))
 
 
@@ -100,13 +100,13 @@ class ListsTests(TestCase):
         build(1, self.user, self.key)
         response = self.client.get(reverse("admin:machines_machine_changelist"))
         machine = response.context["cl"].result_list[0]
-        self.assertEqual((machine._profiles, machine._apps, machine._files), (1, 1, 1))
+        self.assertEqual((machine._profiles, machine._apps), (1, 1))
         self.assertContains(response, reverse("admin:machines_machine_files", args=[machine.pk]))         # колонка ведёт в файловый менеджер
 
-    def test_file_page_has_keys_inline(self):
+    def test_item_page_has_keys_inline(self):
         build(1, self.user, self.key)
-        file = MachineFile.objects.get()
-        response = self.client.get(reverse("admin:filesystem_machinefile_change", args=[file.pk]))
+        item = ItemKey.objects.get().item
+        response = self.client.get(reverse("admin:filesystem_item_change", args=[item.pk]))
         self.assertContains(response, "key_a")
         self.assertContains(response, "keys-TOTAL_FORMS")
 

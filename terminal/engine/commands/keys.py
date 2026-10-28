@@ -1,8 +1,7 @@
 """kex: достать ключ из байтов файла. Игрок находит блок ключа (txtx, blk, вьювер raw) и называет его смещение."""
 from filesystem import keystore
 from filesystem.rawview import keys
-from secure.models import Key
-from terminal.engine import fileops  # noqa: F401  (папка секретов создаётся записью сессии)
+from filesystem.models import KEY_FORMAT, Item
 from terminal.engine.commands.basic import BaseCommand
 from terminal.engine.filesystem import VirtualFilesystem
 from terminal.engine.rawinfo import raw_of
@@ -34,7 +33,7 @@ def find_block(data, offset):
 
 class KexCommand(BaseCommand):
     """kex <файл> <смещение>: если с этого места в файле (каким его видит игрок сейчас) начинается блок ключа, ключ
-    попадает в /home/.secrets. Пока файл закрыт слоем, по смещению шум, и ничего не находится."""
+    попадает в папку секретов записи. Пока файл закрыт слоем, по смещению шум, и ничего не находится."""
 
     name = "kex"
     usage = "usage: kex file offset"
@@ -58,12 +57,14 @@ class KexCommand(BaseCommand):
         entry = fs.get_file(path)
         data = raw_of(context, entry).data
         found = find_block(data, offset) if offset < len(data) else None
-        known = found is not None and Key.objects.filter(slug=found[1]).exists()
+        key = Item.objects.filter(slug=found[1], format=KEY_FORMAT).first() if found is not None else None
+        known = key is not None
         scene = extract_scene(entry.path, offset, found is not None, known)
 
         if not known:
             return CommandResult(f"kex: {target}: no key at 0x{offset:x}", 1, scene=scene)
 
-        saved, fresh = keystore.put(context.session, found[1])
+        saved, fresh = keystore.put(context.view, context.machine, context.profile.login, key)
+        context.invalidate()
         line = f"extracted to {saved}" if fresh else f"already in {saved}"
         return CommandResult(f"kex: {target}: key {found[1]} {line}", 0, scene=scene)

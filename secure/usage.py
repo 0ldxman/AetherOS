@@ -13,7 +13,7 @@ from .access import condition_slugs
 
 @dataclass(frozen=True)
 class Usage:
-    kind: str    # "запись", "раздел", "приложение", "профиль", "файл", "письмо"
+    kind: str    # "запись", "раздел", "приложение", "профиль", "объект", "письмо"
     label: str
     url: str
 
@@ -40,7 +40,7 @@ _ADMIN = {
 
 def key_usage(slug):
     """Список Usage для ключа: вики, машины, файлы."""
-    from filesystem.models import FileKey
+    from filesystem.models import Item, ItemKey, ItemSignature, Placement, Volume
     from wiki.key_usage import key_usage as wiki_usage
 
     found = []
@@ -54,19 +54,27 @@ def key_usage(slug):
     for obj, kind, condition in _json_conditions():
         if slug in condition_slugs(condition):
             found.append(Usage(kind, str(obj), reverse(_ADMIN[kind], args=[obj.pk])))
-    for link in FileKey.objects.filter(key__slug=slug).select_related("file__machine"):
-        found.append(
-            Usage("файл", str(link.file), reverse("admin:filesystem_machinefile_change", args=[link.file_id]))
-        )
+    for link in ItemKey.objects.filter(key__slug=slug).select_related("item"):
+        found.append(Usage("объект", str(link.item), reverse("admin:filesystem_item_change", args=[link.item_id])))
+    for link in ItemSignature.objects.filter(key__slug=slug).select_related("item"):
+        found.append(Usage("подпись", str(link.item), reverse("admin:filesystem_item_change", args=[link.item_id])))
+    for model, kind, admin_name in ((Item, "объект", "item"), (Placement, "размещение", "placement"), (Volume, "том", "volume")):
+        for obj in model.objects.exclude(access={}):
+            if slug in condition_slugs(obj.access):
+                found.append(Usage(kind, str(obj), reverse(f"admin:filesystem_{admin_name}_change", args=[obj.pk])))
     return found
 
 
 def used_slugs():
     """Множество slug'ов ключей, встречающихся вне вики (машины и файлы)."""
-    from filesystem.models import FileKey
+    from filesystem.models import Item, ItemKey, ItemSignature, Placement, Volume
 
     slugs = set()
     for _, _, condition in _json_conditions():
         slugs.update(condition_slugs(condition))
-    slugs.update(FileKey.objects.values_list("key__slug", flat=True))
+    slugs.update(ItemKey.objects.values_list("key__slug", flat=True))
+    slugs.update(ItemSignature.objects.values_list("key__slug", flat=True))
+    for model in (Item, Placement, Volume):
+        for access in model.objects.exclude(access={}).values_list("access", flat=True):
+            slugs.update(condition_slugs(access))
     return slugs

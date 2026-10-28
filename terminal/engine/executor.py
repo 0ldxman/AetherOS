@@ -27,7 +27,7 @@ class TerminalExecutor:
             request=request,
         )
 
-        purge_expired(session)     # срок файлов в корзине вышел: они удаляются насовсем
+        purge_expired(session.user)     # срок файлов в корзине вышел: они удаляются насовсем
 
         try:
             parsed = parse_command(source)
@@ -51,6 +51,9 @@ class TerminalExecutor:
         try:
             result = command.execute(context, parsed.args)
         except Exception:
+            import logging
+
+            logging.getLogger("terminal").exception("command failed: %s", parsed.name)
             # Не раскрываем внутренние ошибки Django пользователю.
             return CommandResult(
                 "terminal: internal command error",

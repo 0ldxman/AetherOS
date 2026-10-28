@@ -1,7 +1,7 @@
 """Эффективный стек файла (шаг 2, часть б).
 
-Файл в игре = канонический стек из описания файла (MachineFile.state)
-+ прогресс игрока в сессии (SessionFile.state, JSON):
+Файл в игре = канонический стек из описания файла (Item.state)
++ прогресс игрока в сессии (PlayerFile.state, JSON):
 
   * added   -- слои, которые игрок добавил сам (damaged и т.п), верхний первым;
   * removed -- сколько канонических слоёв уже снято сверху;
@@ -86,7 +86,7 @@ def canonical_hash(text: str) -> str:
 
 
 def load_progress(raw: str, canonical_text: str) -> Progress:
-    """Прогресс из SessionFile.state. Если автор изменил описание файла,
+    """Прогресс из PlayerFile.state. Если автор изменил описание файла,
     прогресс сбрасывается: старые счётчики к новому стеку не подходят."""
     current = canonical_hash(canonical_text)
     progress = Progress.load(raw)

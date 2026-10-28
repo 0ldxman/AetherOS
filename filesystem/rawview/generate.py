@@ -5,7 +5,7 @@ from django.conf import settings
 
 from filesystem.rawview import encodings, formats, keys, signatures
 from filesystem.rawview.noise import noise, stable
-from filesystem.sources import READ_LIMIT, resolve_payload
+from filesystem.sources import READ_LIMIT, payload_for
 from filesystem.states.compiler import StateError, compile_text
 from filesystem.states.stack import build_stack, load_progress
 
@@ -24,23 +24,31 @@ class RawFile:
         return len(self.data)
 
 
-def layers_of(machine_file, session_state=""):
-    """Эффективный стек файла для этой сессии, верхний слой первым."""
-    text = machine_file.state or ""
+def layers_of(state, progress=""):
+    """Эффективный стек файла для этой сессии, верхний слой первым. state: слои автора, progress: прогресс игрока."""
+    text = state or ""
     try:
         canonical = compile_text(text) if text.strip() else []
-        return build_stack(canonical, load_progress(session_state or "", text))
+        return build_stack(canonical, load_progress(progress or "", text))
     except (StateError, ValueError):
         return []              # описание файла с ошибкой (старые данные): байты показываются как у файла без слоёв
 
 
-def generated_size(machine_file):
+def seed_of(entry):
+    """Зерно шума файла: у объекта его слаг (копии и переносы дают те же байты), у файла игрока машина и путь."""
+    if entry.item is not None:
+        return f"item:{entry.item.slug}"
+    host = entry.machine.hostname if entry.machine is not None else ""
+    return f"{host}:{entry.path}"
+
+
+def generated_size(entry):
     """Размер файла, на который ничто не указывает: указанный автором или выдуманный, всегда один и тот же."""
-    if machine_file.file_type == "DIRECTORY":
+    if entry.is_dir:
         return 4096
-    if machine_file.size is not None:
-        return machine_file.size
-    return stable(f"{machine_file.machine.hostname}:{machine_file.path}", GENERATED_MIN, GENERATED_MAX)
+    if entry.item is not None and entry.item.size is not None:
+        return entry.item.size
+    return stable(seed_of(entry), GENERATED_MIN, GENERATED_MAX)
 
 
 def _asset_bytes(payload):
@@ -55,12 +63,12 @@ def _asset_bytes(payload):
         return None
 
 
-def _content(machine_file, payload, fmt, seed):
+def _content(entry, payload, fmt, seed):
     """Байты файла без слоёв: настоящие данные в контейнере формата или шум. Как их собирать, говорит layout источника."""
     if payload.layout == "asset":
         real = _asset_bytes(payload)
         if real is None:
-            size = payload.size if payload.size is not None else generated_size(machine_file)
+            size = payload.size if payload.size is not None else generated_size(entry)
             real = noise(seed + ":asset", size)
         if fmt and formats.known(fmt):
             if formats.has_image(fmt):
@@ -83,19 +91,21 @@ def _content(machine_file, payload, fmt, seed):
         head = formats.magic("app")
         return head + text + noise(seed + ":app", max(0, 256 - len(head) - len(text)))
 
-    body = noise(seed, generated_size(machine_file))
+    body = noise(seed, generated_size(entry))
     return formats.build(fmt, body, {}, seed=seed) if fmt and formats.known(fmt) else body
 
 
-def _core(machine_file, payload, fmt, seed):
-    """Содержимое файла вместе с блоками его ключей (FileKey): они лежат под слоями и открываются вместе с ними."""
-    data = _content(machine_file, payload, fmt, seed)
-    data = keys.embed(data, keys.slugs_of(machine_file), seed, real=payload.real, locked=payload.locked)
+def _core(entry, payload, fmt, seed):
+    """Содержимое файла вместе с блоками его ключей (ItemKey): они лежат под слоями и открываются вместе с ними."""
+    data = _content(entry, payload, fmt, seed)
+    if payload.locked and payload.layout == "raw":
+        data = noise(seed + ":body", len(data))                   # закрытый текст без контейнера: шум той же длины
+    data = keys.embed(data, keys.slugs_of(entry.item), seed, real=payload.real, locked=payload.locked)
     if payload.locked and payload.layout == "format":
         # доступа нет: место, где лежит тело, закрывается шумом той же длины, остальное (заголовки формата) как есть
         for variant in formats.variants(payload.body, payload.views):
             data = data.replace(variant, noise(seed + ":body", len(variant)))
-    signed = [(row.key.slug, row.date, row.valid) for row in machine_file.signatures.select_related("key").order_by("key__slug")]
+    signed = signatures_of(entry.item)
     return signatures.embed(data, signed, seed, locked=payload.locked)
 
 
@@ -124,18 +134,25 @@ def _damage(data, seed):
     return bytes(out)
 
 
-def build_raw(machine_file, session_state="", keys=frozenset(), reader=None, viewer=None):
-    """Байты файла для игрока с этими ключами и этим прогрессом по слоям."""
-    seed = f"{machine_file.machine.hostname}:{machine_file.path}"
-    payload = resolve_payload(machine_file, keys, reader, viewer)
-    stack = layers_of(machine_file, session_state)
+def signatures_of(item):
+    """Подписи, встроенные автором в объект: [(слаг ключа, дата, верна ли)]."""
+    if item is None:
+        return []
+    return [(row.key.slug, row.date, row.valid) for row in item.signatures.select_related("key").order_by("key__slug")]
+
+
+def build_raw(entry, view=None, keys=frozenset(), reader=None, viewer=None):
+    """Байты файла для игрока с этими ключами и этим прогрессом по слоям. entry: файл вида машины, view нужен архиву."""
+    seed = seed_of(entry)
+    payload = payload_for(entry, view, keys, reader, viewer)
+    stack = layers_of(entry.state, entry.progress)
 
     # слой disguised главнее: он говорит, в какую упаковку завёрнуто содержимое
     disguised = next((layer for layer in stack if layer.state.name == "disguised"), None)
     fmt = str(disguised.params["format"]).strip().lower() if disguised else payload.fmt
 
-    payload.meta.setdefault("host", machine_file.machine.hostname)
-    data = _core(machine_file, payload, fmt, seed)
+    payload.meta.setdefault("host", entry.machine.hostname if entry.machine is not None else "")
+    data = _core(entry, payload, fmt, seed)
 
     bad = ()
     for layer in reversed(stack):         # от нижнего слоя к верхнему

@@ -6,7 +6,7 @@ from django.contrib.auth import get_user_model
 from django.test import TestCase, override_settings
 from django.urls import get_script_prefix, reverse, set_script_prefix
 
-from filesystem.models import FileKey, MachineFile
+from filesystem.testing import embed_key, make_file
 from machines.models import Machine, MachineApp, MachineProfile
 from secure.models import Key
 from secure.usage import key_usage, used_slugs
@@ -25,8 +25,7 @@ class UsageTests(TestCase):
             key_condition={"all": ["key_a", {"not": "key_x"}]},
         )
         MachineProfile.objects.create(machine=machine, name="P", login="l", freq=1, key_condition="key_prof")
-        file = MachineFile.objects.create(machine=machine, path="/secret.txt")
-        FileKey.objects.create(file=file, key=Key.objects.get(slug="key_file"))
+        embed_key(make_file(machine, "/secret.txt").item, "key_file")
         Document.objects.create(title="Док", body="[x]{key_doc}")
 
     def kinds(self, slug):
@@ -42,7 +41,7 @@ class UsageTests(TestCase):
         self.assertEqual(self.kinds("key_prof"), [("профиль", "l@main:1.000")])
 
     def test_file_key_counts(self):
-        self.assertEqual(self.kinds("key_file"), [("файл", "main:/secret.txt")])
+        self.assertEqual(self.kinds("key_file"), [("объект", "secret.txt [secrettxt]")])
 
     def test_wiki_usage_is_included(self):
         self.assertEqual(self.kinds("key_doc"), [("запись", "Док")])
@@ -72,12 +71,11 @@ class KeyPageTests(TestCase):
         app = MachineApp.objects.create(
             machine=machine, label="wiki", glyph="W", path="/apps/wiki/", key_condition="key_a"
         )
-        file = MachineFile.objects.create(machine=machine, path="/s.txt")
-        FileKey.objects.create(file=file, key=key)
+        item = embed_key(make_file(machine, "/s.txt").item, "key_a").item
         response = self.client.get(reverse("admin:secure_key_change", args=[key.pk]))
         self.assertContains(response, "приложение: <a")
         self.assertContains(response, reverse("admin:machines_machineapp_change", args=[app.pk]))
-        self.assertContains(response, "файл: <a")
+        self.assertContains(response, "объект: <a")
 
     def test_unused_key_message(self):
         key = Key.objects.create(slug="idle")

@@ -1,8 +1,10 @@
 """Вложения письма: что показать игроку и сохранение файла на машину."""
-from django.db import IntegrityError, transaction
+import posixpath
+
 from django.urls import get_script_prefix, reverse
 
-from filesystem.models import SessionFile
+from filesystem.machine_view import FILE, Entry, MachineView
+from machines import places
 
 from .models import Attachment
 
@@ -11,11 +13,33 @@ def _prefix(path):
     return get_script_prefix().rstrip("/") + path
 
 
-def player_has_file(session, machine_file):
-    """Файл уже лежит у игрока в сессии (и не удалён)."""
+def target_path(session, attachment):
+    """Куда вложение ложится у игрока: названный автором путь, а без него домашняя папка под именем объекта."""
+    item = attachment.item
+    login = session.profile.login if session is not None else ""
+    home = (places.resolve(session.profile.machine, "home", login) if session is not None else None) or "/home"
+    path = (attachment.save_path or "").strip()
+    if not path:
+        return posixpath.join(home, item.default_filename)
+    return path if path.startswith("/") else posixpath.join(home, path)
+
+
+def saved_entry(session, attachment):
+    """Файл вложения в виде машины игрока, если он уже сохранён (по назначенному пути лежит этот объект), иначе None."""
     if session is None:
-        return False
-    return SessionFile.objects.filter(session=session, file=machine_file, deleted_at__isnull=True).exists()
+        return None
+    found = MachineView(session.profile.machine, session.user).get(target_path(session, attachment))
+    return found if found is not None and found.item is not None and found.item.pk == attachment.item_id else None
+
+
+def virtual_entry(session, attachment):
+    """Файл вложения так, как он выглядел бы у игрока, но без сохранения: для окна просмотра."""
+    return Entry(path=target_path(session, attachment), kind=FILE, item=attachment.item)
+
+
+def player_has_file(session, attachment):
+    """Файл уже лежит у игрока."""
+    return saved_entry(session, attachment) is not None
 
 
 def payload(attachment, session=None):
@@ -28,22 +52,15 @@ def payload(attachment, session=None):
         data.update({"open": viewer_url, "download": content_url + "?download=1"})
     elif attachment.kind == Attachment.Kind.FILE:
         data.update({
-            "path": attachment.machine_file.path,
+            "path": target_path(session, attachment),
             "open": reverse("mail:open", args=[attachment.pk]),
             "save": reverse("mail:save", args=[attachment.pk]),
-            "saved": player_has_file(session, attachment.machine_file),
+            "saved": player_has_file(session, attachment),
         })
     else:
         data["open"] = _prefix(attachment.path)
 
     return data
-
-
-def session_file_of(session, machine_file):
-    """Запись игрока о файле (его прогресс и путь) или None, если файл у него не сохранён."""
-    if session is None:
-        return None
-    return SessionFile.objects.filter(session=session, file=machine_file, deleted_at__isnull=True).first()
 
 
 class SaveError(Exception):
@@ -52,26 +69,18 @@ class SaveError(Exception):
         self.status = status
 
 
-@transaction.atomic
 def save_to_machine(session, attachment):
-    """Положить файл вложения в файловую систему игрока. Возвращает путь файла в сессии."""
-    machine_file = attachment.machine_file
-
-    if attachment.kind != Attachment.Kind.FILE or machine_file is None:
+    """Положить файл вложения в файловую систему игрока. Возвращает путь файла у игрока."""
+    if attachment.kind != Attachment.Kind.FILE or attachment.item is None:
         raise SaveError("this attachment cannot be saved to the machine", 400)
 
-    if session.profile.machine_id != machine_file.machine_id:
-        raise SaveError("this file belongs to another machine", 409)
+    view = MachineView(session.profile.machine, session.user)
+    path = target_path(session, attachment)
+    found = view.get(path)
+    if found is not None:
+        if found.item is not None and found.item.pk == attachment.item_id and not found.is_dir:
+            return path
+        raise SaveError("the path is already taken on this machine", 409)
 
-    row = SessionFile.objects.filter(session=session, file=machine_file).first()
-
-    if row is None:
-        try:
-            row = SessionFile.objects.create(session=session, file=machine_file)
-        except IntegrityError:
-            raise SaveError("the path is already taken on this machine", 409)
-    elif row.deleted_at is not None:
-        row.deleted_at = None
-        row.save(update_fields=["deleted_at"])
-
-    return row.path
+    view.put_item(path, attachment.item)
+    return path

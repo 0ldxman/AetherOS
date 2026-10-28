@@ -9,28 +9,33 @@ from filesystem.rawview.generate import RawFile, build_raw
 __all__ = ["RawFile", "build_raw", "build_raw_cached", "detect"]
 
 
-def build_raw_cached(machine_file, session_state="", keys=frozenset(), seconds=120, viewer=None):
+def build_raw_cached(entry, view=None, keys=frozenset(), seconds=120, viewer=None):
     """build_raw с кэшем на короткое время: вьювер читает файл десятками запросов с диапазонами, а ассет лежит в Nextcloud."""
+    import hashlib
+
     from django.core.cache import cache
 
-    from filesystem.rawview import keys
-    from filesystem.sources import resolve_payload
+    from filesystem.rawview import keys as blocks
+    from filesystem.sources import payload_for
 
-    payload = resolve_payload(machine_file, keys, viewer=viewer)
+    payload = payload_for(entry, view, keys, viewer=viewer)
+    state = hashlib.sha256(f"{entry.state}|{entry.progress}".encode()).hexdigest()[:16]
     key = (
-        f"rawbytes:{machine_file.pk}:{machine_file.updated_at.timestamp()}:{hash(session_state)}:{payload.stamp}:"
-        f"{payload.locked}:{','.join(keys.slugs_of(machine_file))}:{signed_stamp(machine_file)}"
+        f"rawbytes:{entry.path}:{entry.item.pk if entry.item is not None else 0}:{state}:{payload.stamp}:{payload.locked}:"
+        f"{','.join(blocks.slugs_of(entry.item))}:{signed_stamp(entry.item)}"
     )
     data = cache.get(key)
     if data is None:
-        data = build_raw(machine_file, session_state, keys, viewer=viewer).data
+        data = build_raw(entry, view, keys, viewer=viewer).data
         if len(data) <= 4 * 1024 * 1024:
             cache.set(key, data, seconds)
     return data
 
 
-def signed_stamp(machine_file):
-    return ",".join(f"{row.key.slug}:{row.valid}:{row.date}" for row in machine_file.signatures.select_related("key"))
+def signed_stamp(item):
+    if item is None:
+        return ""
+    return ",".join(f"{row.key.slug}:{row.valid}:{row.date}" for row in item.signatures.select_related("key"))
 
 
 def viewer_formats():

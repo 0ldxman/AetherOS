@@ -4,7 +4,7 @@ from django.db import connection
 from django.test import TestCase
 from django.test.utils import CaptureQueriesContext
 
-from filesystem.machine_view import DATA_LIMIT, MachineView, Occupied, ReadOnly
+from filesystem.machine_view import DATA_LIMIT, MachineView, Occupied
 from filesystem.models import FileFormat, Item, PlayerFile, Placement, Volume, VolumeInstance
 from machines.models import Machine, MachineMount
 
@@ -290,15 +290,16 @@ class PlayerLayerTests(ViewCase):
         view.remove("/etc/hosts")
         self.assertFalse(self.view().exists("/etc/hosts"))
 
-    def test_there_is_no_place_to_write_where_nothing_is_mounted(self):
+    def test_a_machine_without_a_root_gets_one_with_its_first_file_and_a_mount_point_is_never_written_over(self):
         machine = Machine.objects.create(name="C", hostname="c")
         library = Volume.objects.create(slug="lib")
         mount(machine, library, "/mnt")
         view = self.view(machine)
-        with self.assertRaises(ReadOnly):
-            view.put_text("/elsewhere", "x")
+        view.put_text("/elsewhere", "x")                                              # корня не было: появился
+        self.assertEqual(MachineMount.objects.get(machine=machine, mount_path="/").order, 0)
+        self.assertEqual(self.view(machine).get("/elsewhere").own_text, "x")
         with self.assertRaises(Occupied):
-            view.put_text("/mnt", "x")
+            self.view(machine).put_text("/mnt", "x")
 
     def test_a_new_file_goes_to_the_topmost_layer_covering_the_path(self):
         base = Volume.objects.create(slug="base")

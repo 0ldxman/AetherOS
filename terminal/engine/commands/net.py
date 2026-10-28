@@ -9,7 +9,7 @@ from secure.access import satisfied
 from terminal import net_scenes as scenes
 from terminal.engine.commands.basic import BaseCommand
 from terminal.engine.result import CommandResult
-from terminal.engine.transfer import place_file
+from terminal.engine.transfer import place_item
 from wiki.access import request_keys
 
 
@@ -20,7 +20,7 @@ class Site:
         self.resource = resource
         self.nodes = {
             node.path: node
-            for node in resource.nodes.select_related("file")
+            for node in resource.nodes.select_related("item")
             if node.key_condition is None or satisfied(node.key_condition, keys)
         }
 
@@ -124,12 +124,12 @@ class NgetCommand(NetCommand):
         address = site.resource.address
         node = site.nodes.get(path)
 
-        if node is None or node.file is None:
+        if node is None or node.item is None:
             return CommandResult(f"{self.name}: {address}/{path}: not a file", 1, scene=scenes.refused_scene(system, address))
 
         name = path.rsplit("/", 1)[-1]
         dest = context.resolve_path(opts["output"] or name)
-        target, error = place_file(context, node.file, "", dest, name)
+        target, error = place_item(context, node.item, "", dest, name)
         if error:
             return CommandResult(f"{self.name}: {error}", 1)
 

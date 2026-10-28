@@ -8,6 +8,7 @@ from django.contrib.auth import get_user_model
 from django.test import TestCase, override_settings
 from django.urls import get_script_prefix, reverse, set_script_prefix
 
+from filesystem.testing import embed_key, key_item, make_file
 from machines.models import Machine, MachineApp
 from users.aether_auth import AUTH_REQUIRED
 
@@ -52,11 +53,11 @@ class AnonymousTerminalTests(TestCase):
             self.assertEqual(data["hostname"], "aether-null")
 
     def test_nothing_is_executed_for_a_witness(self):
-        from filesystem.models import SessionFile
+        from filesystem.models import PlayerFile
 
         self.witness()
         self.run_command("ls")
-        self.assertEqual(SessionFile.objects.count(), 0)
+        self.assertEqual(PlayerFile.objects.count(), 0)
 
     def test_a_visitor_who_is_not_connected_anywhere_is_refused(self):
         self.assertEqual(self.client.get(reverse("terminal:index")).status_code, 403)
@@ -84,7 +85,7 @@ class TerminalSceneTests(TestCase):
 
     @classmethod
     def setUpTestData(cls):
-        from filesystem.models import MachineFile
+        from filesystem.testing import make_file
         from machines.models import MachineProfile
 
         cls.main = Machine.objects.create(name="Main", hostname="aether-main")
@@ -92,12 +93,12 @@ class TerminalSceneTests(TestCase):
         cls.user = get_user_model().objects.create_user("ivan", password="pw")
         MachineProfile.objects.create(machine=cls.main, user=cls.user, name="Ivan", login="ivan", freq=1,
                                       mail="ivan@aether-main")
-        MachineFile.objects.create(machine=cls.main, path="/home/door.bin", state="> encrypted hunter2 attempts=3")
-        MachineFile.objects.create(machine=cls.main, path="/home/note.txt", state="> binary base64")
-        MachineFile.objects.create(machine=cls.main, path="/home/pack.zip/a.txt", state="")
-        MachineFile.objects.create(machine=cls.main, path="/home/blob.bin", state="> binary utf16")
-        MachineFile.objects.create(machine=cls.main, path="/home/slice.img", state="> shifted skip=2 count=5")
-        MachineFile.objects.create(machine=cls.main, path="/home/report.txt", state="> disguised pdf")
+        make_file(cls.main, "/home/door.bin", state="> encrypted hunter2 attempts=3")
+        make_file(cls.main, "/home/note.txt", state="> binary base64")
+        make_file(cls.main, "/home/pack.zip/a.txt", state="")
+        make_file(cls.main, "/home/blob.bin", state="> binary utf16")
+        make_file(cls.main, "/home/slice.img", state="> shifted skip=2 count=5")
+        make_file(cls.main, "/home/report.txt", state="> disguised pdf")
 
     def setUp(self):
         previous = get_script_prefix()
@@ -154,10 +155,9 @@ class TerminalSceneTests(TestCase):
             self.assertIn("command not found", self.run_command(f"{name} /home/door.bin x")["output"])
 
     def test_on_read_can_open_a_window_while_the_layer_stays(self):
-        from filesystem.models import MachineFile
+        from filesystem.testing import make_file
 
-        MachineFile.objects.create(
-            machine=self.main, path="/home/photo.dat", url="apps/wiki/real/",
+        make_file(self.main, "/home/photo.dat", url="apps/wiki/real/",
             state="> disguised scan\non read: open apps/wiki/go/decoy/",
         )
         data = self.run_command("cnt /home/photo.dat")
@@ -170,13 +170,13 @@ class TerminalSceneTests(TestCase):
         self.assertIn("cannot read as png", self.run_command("cvt ext /home/photo.dat /home/photo.png")["output"])      # слой на месте
         self.assertEqual(self.run_command("cvt ext /home/photo.dat /home/photo.scan")["exit_code"], 0)
         real = self.run_command("cnt /home/photo.scan")
-        self.assertEqual(real["window"]["url"], "/apps/wiki/real/")                         # хука больше нет: открывается настоящее
+        self.assertEqual(real["window"]["url"], "https://example.com/wiki/real")                         # хука больше нет: открывается настоящее
         self.assertFalse(real["effects"])
 
     def test_on_read_without_open_still_says_the_file_is_locked(self):
-        from filesystem.models import MachineFile
+        from filesystem.testing import make_file
 
-        MachineFile.objects.create(machine=self.main, path="/home/sealed.dat",
+        make_file(self.main, "/home/sealed.dat",
                                    state='> binary utf16\non read: say "Something rustles inside."')
         data = self.run_command("cnt /home/sealed.dat")
         self.assertEqual(data["exit_code"], 1)
@@ -193,9 +193,9 @@ class TerminalSceneTests(TestCase):
                 compile_text(f"> binary utf16\non read: {bad}")
 
     def test_rpr_says_when_another_damaged_layer_waits_underneath(self):
-        from filesystem.models import MachineFile
+        from filesystem.testing import make_file
 
-        MachineFile.objects.create(machine=self.main, path="/home/hurt.dat", state="> damaged\n> damaged", size=9000)
+        make_file(self.main, "/home/hurt.dat", state="> damaged\n> damaged", size=9000)
         first = self.run_command("rpr /home/hurt.dat")
         self.assertEqual(first["exit_code"], 0)
         self.assertIn("further repair required", first["output"])
@@ -210,13 +210,13 @@ class TerminalSceneTests(TestCase):
         self.assertIn("nothing to repair", self.run_command("rpr /home/hurt.dat")["output"])
 
     def test_ftyp_and_cnt_play_a_short_scene_that_gives_nothing_away(self):
-        from filesystem.models import MachineFile
+        from filesystem.testing import make_file
 
-        MachineFile.objects.create(machine=self.main, path="/home/page.txt", state="", url="apps/wiki/")
-        plain, locked = self.run_command("ftyp /home/page.txt"), self.run_command("ftyp /home/door.bin")
+        make_file(self.main, "/home/leaflet.txt", state="", url="apps/wiki/")
+        plain, locked = self.run_command("ftyp /home/leaflet.txt"), self.run_command("ftyp /home/door.bin")
         self.assertEqual(self.ops(plain["scene"]), self.ops(locked["scene"]))
-        self.assertEqual(plain["output"], "/home/page.txt: data")
-        opened = self.run_command("cnt /home/page.txt")
+        self.assertEqual(plain["output"], "/home/leaflet.txt: data")
+        opened = self.run_command("cnt /home/leaflet.txt")
         self.assertEqual(opened["exit_code"], 0)
         self.assertEqual([s for s in opened["scene"] if s["op"] == "dots"][-1]["status"], "OK")
         blocked = self.run_command("cnt /home/door.bin")
@@ -226,10 +226,10 @@ class TerminalSceneTests(TestCase):
         self.assertIsNone(self.run_command("ftyp /home")["scene"])                       # папка: работы нет
 
     def test_the_size_is_the_same_in_ls_cnt_and_a_copy(self):
-        from filesystem.models import MachineFile
+        from filesystem.testing import make_file
 
-        MachineFile.objects.create(machine=self.main, path="/home/big.dat", state="", size=123456, url="apps/wiki/")
-        MachineFile.objects.create(machine=self.main, path="/home/docs/inner.txt", state="")
+        make_file(self.main, "/home/big.dat", state="", size=123456, url="apps/wiki/")
+        make_file(self.main, "/home/docs/inner.txt", state="")
         self.assertEqual(self.run_command("ls -l /home/big.dat")["output"], "123456  big.dat")
         listing = self.run_command("ls -l /home")["output"].splitlines()
         self.assertIn("123456  big.dat", [line.strip() for line in listing])
@@ -237,7 +237,7 @@ class TerminalSceneTests(TestCase):
         self.assertIn("123456 bytes", self.run_command("cnt /home/big.dat")["output"])
         self.assertIn("120K  big.dat", [line.strip() for line in self.run_command("ls -lh /home")["output"].splitlines()])
 
-        MachineFile.objects.create(machine=self.main, path="/home/plain.txt", state="")
+        make_file(self.main, "/home/plain.txt", state="")
         generated = self.run_command("ls -l /home/plain.txt")["output"].split()[0]              # без указанного размера
         self.assertEqual(generated, self.run_command("ls -l /home/plain.txt")["output"].split()[0])
         self.assertTrue(180 <= int(generated) <= 48000)
@@ -293,7 +293,7 @@ class BridgeFixture(TestCase):
     def setUpTestData(cls):
         from django.contrib.auth.hashers import make_password
 
-        from filesystem.models import MachineFile
+        from filesystem.testing import make_file
         from machines.models import MachineProfile, MachineProfileHID, MachineProfileToken
         from secure.models import Key
 
@@ -322,10 +322,10 @@ class BridgeFixture(TestCase):
         MachineProfileToken.objects.create(profile=cls.tok, token="golden", max_usage=1)
         MachineProfileToken.objects.create(profile=cls.tok, token="forever")
 
-        Key.objects.create(slug="cardkey")
-        Key.objects.create(slug="otherkey")
-        MachineFile.objects.create(machine=cls.main, path="/home/trap.bin", state="> encrypted hunter2 attempts=1\non fail: kick")
-        MachineFile.objects.create(machine=cls.main, path="/home/noise.bin",
+        key_item("cardkey")
+        key_item("otherkey")
+        make_file(cls.main, "/home/trap.bin", state="> encrypted hunter2 attempts=1\non fail: kick")
+        make_file(cls.main, "/home/noise.bin",
                                    state="> encrypted hunter2 attempts=1\non fail: alert unreachable count=3 gap=200")
 
     def setUp(self):
@@ -363,13 +363,13 @@ class BridgeFixture(TestCase):
         """Ключ лежит в папке секретов текущей сессии игрока (как после kex)."""
         from django.test import RequestFactory
 
-        from filesystem import keystore
+        from filesystem.testing import give_key_to_session
         from machines.current import active_session
 
         request = RequestFactory().get("/")
         request.session = self.client.session
         request.user = self.user
-        keystore.put(active_session(request), slug)
+        give_key_to_session(active_session(request), slug)
 
     def request(self):
         from django.test import RequestFactory
@@ -586,9 +586,9 @@ class BridgeTests(BridgeFixture):
     def test_the_kick_hook_throws_the_player_out_of_the_bridge(self):
         self.run_command("rcon guest@aether-core")
         # файл ловушки лежит на main, а на core свой пустой диск: заводим такой же файл на core
-        from filesystem.models import MachineFile
+        from filesystem.testing import make_file
 
-        MachineFile.objects.create(machine=self.core, path="/home/trap.bin",
+        make_file(self.core, "/home/trap.bin",
                                    state="> encrypted hunter2 attempts=1\non fail: kick")
         data = self.run_command("ward /home/trap.bin nope")
         self.assertEqual([e["op"] for e in data["effects"]], ["play", "switch"])
@@ -613,13 +613,13 @@ class RshellTests(BridgeFixture):
     @classmethod
     def setUpTestData(cls):
         super().setUpTestData()
-        from filesystem.models import MachineFile
+        from filesystem.testing import make_file
 
-        MachineFile.objects.create(machine=cls.main, path="/home/notes.txt", state="")
-        MachineFile.objects.create(machine=cls.main, path="/home/work/a.txt", state="")
-        MachineFile.objects.create(machine=cls.main, path="/home/vault.bin", state="> encrypted hunter2")
-        MachineFile.objects.create(machine=cls.core, path="/home/loot.dat", state="> encrypted hunter2")
-        MachineFile.objects.create(machine=cls.core, path="/home/docs/readme.txt", state="")
+        make_file(cls.main, "/home/notes.txt", state="")
+        make_file(cls.main, "/home/work/a.txt", state="")
+        make_file(cls.main, "/home/vault.bin", state="> encrypted hunter2")
+        make_file(cls.core, "/home/loot.dat", state="> encrypted hunter2")
+        make_file(cls.core, "/home/docs/readme.txt", state="")
 
     def test_rshell_enters_without_switching_the_desktop(self):
         data = self.run_command("rshell guest@aether-core")
@@ -717,9 +717,9 @@ class RshellTests(BridgeFixture):
 
     def test_a_kick_inside_a_shell_throws_the_player_out_of_the_shell_only(self):
         self.run_command("rshell guest@aether-core")
-        from filesystem.models import MachineFile
+        from filesystem.testing import make_file
 
-        MachineFile.objects.create(machine=self.core, path="/home/trap2.bin", state="> encrypted x attempts=1\non fail: kick")
+        make_file(self.core, "/home/trap2.bin", state="> encrypted x attempts=1\non fail: kick")
         data = self.run_command("ward /home/trap2.bin wrong")
         self.assertEqual(self.shells(), 0)
         self.assertNotIn({"op": "switch"}, data["effects"])
@@ -734,12 +734,12 @@ class TabsTests(BridgeFixture):
     @classmethod
     def setUpTestData(cls):
         super().setUpTestData()
-        from filesystem.models import MachineFile
+        from filesystem.testing import make_file
 
-        MachineFile.objects.create(machine=cls.main, path="/home/notes.txt", state="")
-        MachineFile.objects.create(machine=cls.main, path="/home/work/a.txt", state="")
-        MachineFile.objects.create(machine=cls.core, path="/home/loot.dat", state="")
-        MachineFile.objects.create(machine=cls.deep, path="/home/deep.dat", state="")
+        make_file(cls.main, "/home/notes.txt", state="")
+        make_file(cls.main, "/home/work/a.txt", state="")
+        make_file(cls.core, "/home/loot.dat", state="")
+        make_file(cls.deep, "/home/deep.dat", state="")
 
     def post(self, name, node):
         response = self.client.post(reverse(f"terminal:{name}"), data=json.dumps({"node": node}), content_type="application/json")
@@ -821,10 +821,10 @@ class TabsTests(BridgeFixture):
         self.assertEqual(data["login"], "dig")                                             # терминал не был под закрытым
 
     def test_a_kick_closes_only_the_terminal_branch(self):
-        from filesystem.models import MachineFile
+        from filesystem.testing import make_file
 
         self.chain()
-        MachineFile.objects.create(machine=self.deep, path="/home/trap.bin", state="> encrypted x attempts=1\non fail: kick")
+        make_file(self.deep, "/home/trap.bin", state="> encrypted x attempts=1\non fail: kick")
         data = self.run_command("ward /home/trap.bin wrong")
         self.assertEqual(data["login"], "guest")
         self.assertEqual(self.where().login, "guest")
@@ -863,9 +863,9 @@ class ConnectionLimitTests(BridgeFixture):
     @classmethod
     def setUpTestData(cls):
         super().setUpTestData()
-        from filesystem.models import MachineFile
+        from filesystem.testing import make_file
 
-        MachineFile.objects.create(machine=cls.main, path="/home/notes.txt", state="")
+        make_file(cls.main, "/home/notes.txt", state="")
 
     def setUp(self):
         super().setUp()
@@ -976,7 +976,7 @@ class NetTests(TestCase):
 
     @classmethod
     def setUpTestData(cls):
-        from filesystem.models import MachineFile
+        from filesystem.testing import make_file
         from machines.models import MachineProfile, NetNode, NetResource
         from secure.models import Key
 
@@ -986,29 +986,29 @@ class NetTests(TestCase):
         cls.user = get_user_model().objects.create_user("ivan", password="pw")
         MachineProfile.objects.create(machine=cls.main, user=cls.user, name="Ivan", login="ivan", freq=1,
                                       mail="ivan@aether-main")
-        MachineFile.objects.create(machine=cls.main, path="/home/own.txt", state="")
-        ledger = MachineFile.objects.create(machine=cls.server, path="/srv/ledger.dat", state="> encrypted hunter2")
-        report = MachineFile.objects.create(machine=cls.server, path="/srv/report.txt", state="")
+        own = make_file(cls.main, "/home/own.txt", state="")
+        ledger = make_file(cls.server, "/srv/ledger.dat", state="> encrypted hunter2")
+        report = make_file(cls.server, "/srv/report.txt", state="")
 
         site = NetResource.objects.create(address="Apollo.com/", title="Apollo")
         cls.site = site
         NetNode.objects.create(resource=site, path="", response="APOLLO\n{listing}\nbye")
         NetNode.objects.create(resource=site, path="info")                                   # без текста: один список
-        NetNode.objects.create(resource=site, path="info/file.pdf", file=ledger)
-        NetNode.objects.create(resource=site, path="info/file2.png", file=report)
-        NetNode.objects.create(resource=site, path="info/attachements/a.txt", file=report)    # папка только по пути
+        NetNode.objects.create(resource=site, path="info/file.pdf", item=ledger.item)
+        NetNode.objects.create(resource=site, path="info/file2.png", item=report.item)
+        NetNode.objects.create(resource=site, path="info/attachements/a.txt", item=report.item)    # папка только по пути
         NetNode.objects.create(resource=site, path="info/data", response="DATA SECTION")      # текст без {listing}
-        NetNode.objects.create(resource=site, path="info/data/x.bin", file=report)
+        NetNode.objects.create(resource=site, path="info/data/x.bin", item=report.item)
         NetNode.objects.create(resource=site, path="private", response="members", token="sesame")
-        NetNode.objects.create(resource=site, path="info/own.txt", file=MachineFile.objects.get(path="/home/own.txt"))
-        NetNode.objects.create(resource=site, path="info/hidden.txt", file=report, key_condition="nokey")
-        Key.objects.create(slug="nokey")
+        NetNode.objects.create(resource=site, path="info/own.txt", item=own.item)
+        NetNode.objects.create(resource=site, path="info/hidden.txt", item=report.item, key_condition="nokey")
+        key_item("nokey")
 
         radio = NetResource.objects.create(address="14.230")
         NetNode.objects.create(resource=radio, path="", response="RELAY")
         ftp = NetResource.objects.create(address="FTP://apollo.com")
         NetNode.objects.create(resource=ftp, path="", response="FTP READY")
-        NetNode.objects.create(resource=ftp, path="pub/tool.bin", file=report)
+        NetNode.objects.create(resource=ftp, path="pub/tool.bin", item=report.item)
         NetResource.objects.create(address="hidden.net", key_condition="nokey")
         NetResource.objects.create(address="vault.net", token="sesame")
 
@@ -1100,7 +1100,7 @@ class TrashTests(TestCase):
 
     @classmethod
     def setUpTestData(cls):
-        from filesystem.models import MachineFile, ProtectedPath
+        from filesystem.testing import make_file
         from machines.models import MachineProfile
 
         cls.main = Machine.objects.create(name="Main", hostname="aether-main")
@@ -1109,14 +1109,14 @@ class TrashTests(TestCase):
         MachineProfile.objects.create(machine=cls.main, user=cls.user, name="Ivan", login="ivan", freq=1,
                                       mail="ivan@aether-main")
         for path in ("/home/a.txt", "/home/b.txt", "/home/docs/x.txt", "/home/docs/y.txt", "/etc/keep.cfg"):
-            MachineFile.objects.create(machine=cls.main, path=path, state="")
-        MachineFile.objects.create(machine=cls.main, path="/home/core.sys", state="", system=True)
-        MachineFile.objects.create(machine=cls.main, path="/home/locked.bin", state="> encrypted hunter2")
-        MachineFile.objects.create(machine=cls.main, path="/home/bait.txt", state='> binary utf16\non delete: say "Somebody is watching {name}."')
-        MachineFile.objects.create(machine=cls.main, path="/home/trap.txt", state="> binary utf16\non delete: alert unreachable count=2 gap=100")
-        MachineFile.objects.create(machine=cls.main, path="/home/boom.txt", state="> binary utf16\non delete: drop /home/a.txt")
-        MachineFile.objects.create(machine=cls.main, path="/home/ghost.txt", state='> binary utf16\non restore: say "It remembers you."')
-        ProtectedPath.objects.create(path="/etc", machine=cls.main)
+            make_file(cls.main, path, state="")
+        make_file(cls.main, "/home/core.sys", state="", system=True)
+        make_file(cls.main, "/home/locked.bin", state="> encrypted hunter2")
+        make_file(cls.main, "/home/bait.txt", state='> binary utf16\non delete: say "Somebody is watching {name}."')
+        make_file(cls.main, "/home/trap.txt", state="> binary utf16\non delete: alert unreachable count=2 gap=100")
+        make_file(cls.main, "/home/boom.txt", state="> binary utf16\non delete: drop /home/a.txt")
+        make_file(cls.main, "/home/ghost.txt", state='> binary utf16\non restore: say "It remembers you."')
+        make_file(cls.main, "/etc", directory=True, system=True)
 
     def setUp(self):
         previous = get_script_prefix()
@@ -1192,7 +1192,7 @@ class TrashTests(TestCase):
 
         from django.utils import timezone
 
-        from filesystem.models import SessionFile
+        from filesystem.models import PlayerFile
 
         self.run_command("del -f /home/a.txt")
         data = self.run_command("rcvr /trash/a.txt")
@@ -1202,7 +1202,7 @@ class TrashTests(TestCase):
         self.assertIn("nothing to repair", self.run_command("rpr /home/a.txt")["output"])
 
         self.run_command("del -f /home/b.txt")
-        SessionFile.objects.filter(path="/trash/b.txt").update(trashed_at=timezone.now() - timedelta(days=3, hours=1))
+        PlayerFile.objects.filter(path="trash/b.txt").update(trashed_at=timezone.now() - timedelta(days=3, hours=1))
         self.run_command("rcvr /trash/b.txt")
         repaired = [self.run_command("rpr /home/b.txt")["exit_code"] for _ in range(5)]
         self.assertEqual(repaired, [0, 0, 0, 0, 1])                                   # 1 + 3 дня = 4 слоя
@@ -1212,10 +1212,10 @@ class TrashTests(TestCase):
 
         from django.utils import timezone
 
-        from filesystem.models import SessionFile
+        from filesystem.models import PlayerFile
 
         self.run_command("del -f /home/a.txt")
-        SessionFile.objects.filter(path="/trash/a.txt").update(trashed_at=timezone.now() - timedelta(days=6))
+        PlayerFile.objects.filter(path="trash/a.txt").update(trashed_at=timezone.now() - timedelta(days=6))
         self.run_command("rcvr /trash/a.txt")
         self.assertEqual([self.run_command("rpr /home/a.txt")["exit_code"] for _ in range(7)], [0] * 5 + [1, 1])
 
@@ -1240,10 +1240,10 @@ class TrashTests(TestCase):
 
         from django.utils import timezone
 
-        from filesystem.models import SessionFile
+        from filesystem.models import PlayerFile
 
         self.run_command("del -f /home/a.txt")
-        SessionFile.objects.filter(path="/trash/a.txt").update(purge_at=timezone.now() - timedelta(minutes=1))
+        PlayerFile.objects.filter(path="trash/a.txt").update(purge_at=timezone.now() - timedelta(minutes=1))
         self.assertEqual(self.run_command("rcvr /trash/a.txt")["exit_code"], 1)         # срок вышел: возвращать нечего
         self.assertNotIn("a.txt", self.ls())                                           # машинный файл не вернулся на старое место
         self.assertIn("No such file", self.ls("/trash"))                               # корзина пуста
@@ -1264,14 +1264,14 @@ class TrashTests(TestCase):
         from django.core.management import call_command
         from django.utils import timezone
 
-        from filesystem.models import SessionFile
+        from filesystem.models import PlayerFile
 
         self.run_command("del -f /home/a.txt")
-        SessionFile.objects.update(purge_at=timezone.now() - timedelta(minutes=1))
+        PlayerFile.objects.update(purge_at=timezone.now() - timedelta(minutes=1))
         out = StringIO()
         call_command("purge_trash", stdout=out)
         self.assertIn("purged: 1", out.getvalue())
-        self.assertFalse(SessionFile.objects.filter(purge_at__isnull=False, deleted_at__isnull=True).exists())
+        self.assertFalse(PlayerFile.objects.filter(purge_at__isnull=False, deleted_at__isnull=True).exists())
 
     def test_on_delete_runs_the_hooks_of_the_top_layer(self):
         data = self.run_command("del -f /home/bait.txt")
@@ -1301,7 +1301,7 @@ class FileOpsTests(TestCase):
 
     @classmethod
     def setUpTestData(cls):
-        from filesystem.models import MachineFile
+        from filesystem.testing import make_file
         from machines.models import MachineProfile
 
         cls.main = Machine.objects.create(name="Main", hostname="aether-main")
@@ -1310,9 +1310,9 @@ class FileOpsTests(TestCase):
         MachineProfile.objects.create(machine=cls.main, user=cls.user, name="Ivan", login="ivan", freq=1,
                                       mail="ivan@aether-main")
         for path in ("/home/a.txt", "/home/b.txt", "/home/docs/x.txt", "/home/docs/sub/y.txt", "/home/work/w.txt"):
-            MachineFile.objects.create(machine=cls.main, path=path, state="")
-        MachineFile.objects.create(machine=cls.main, path="/home/core.sys", state="", system=True)
-        MachineFile.objects.create(machine=cls.main, path="/home/door.bin", state="> encrypted hunter2")
+            make_file(cls.main, path, state="")
+        make_file(cls.main, "/home/core.sys", state="", system=True)
+        make_file(cls.main, "/home/door.bin", state="> encrypted hunter2")
 
     def setUp(self):
         previous = get_script_prefix()
@@ -1393,7 +1393,7 @@ class RawCommandTests(TestCase):
 
     @classmethod
     def setUpTestData(cls):
-        from filesystem.models import MachineFile
+        from filesystem.testing import make_file
         from machines.models import MachineProfile
         from wiki.models import Document, Namespace
 
@@ -1412,7 +1412,7 @@ class RawCommandTests(TestCase):
             ("/home/vault.dat", "> encrypted hunter2"),
             ("/home/slice.img", "> shifted skip=2 count=5"),
         ):
-            MachineFile.objects.create(machine=cls.main, path=path, state=state, url=url)
+            make_file(cls.main, path, state=state, url=url)
 
     def setUp(self):
         previous = get_script_prefix()
@@ -1493,9 +1493,9 @@ class RawCommandTests(TestCase):
         self.assertEqual(len(self.raw("/home/vault.dat.prt.0")), len(self.raw("/home/vault.dat")))
 
     def test_blk_reports_an_io_error_on_a_damaged_block(self):
-        from filesystem.models import MachineFile
+        from filesystem.testing import make_file
 
-        MachineFile.objects.create(machine=self.main, path="/home/dmg.dat", state="> damaged", url="apps/wiki/Harbor/Report")
+        make_file(self.main, "/home/dmg.dat", state="> damaged", url="apps/wiki/Harbor/Report")
         data = self.run_command("blk /home/dmg.dat start=0")
         self.assertEqual(data["exit_code"], 0)
         self.assertIn("I/O error at block 0", data["output"])
@@ -1526,11 +1526,11 @@ class RawCommandTests(TestCase):
         self.assertEqual(self.raw("/home/slice.img.out"), whole)
 
     def test_a_shifted_layer_names_the_real_file_with_out(self):
-        from filesystem.models import MachineFile
+        from filesystem.testing import make_file
 
-        MachineFile.objects.create(machine=self.main, path="/home/dump.img", state="> shifted skip=2 out=photo.jpg",
+        make_file(self.main, "/home/dump.img", state="> shifted skip=2 out=photo.jpg",
                                    url="apps/wiki/Harbor/Report")
-        MachineFile.objects.create(machine=self.main, path="/home/dump2.img", state="> shifted skip=2 out=/home/deep.bin",
+        make_file(self.main, "/home/dump2.img", state="> shifted skip=2 out=/home/deep.bin",
                                    url="apps/wiki/Harbor/Report")
         self.assertIn("/home/dump.img.prt.200", self.run_command("blk /home/dump.img skip=1")["output"])
         self.assertIn("/home/photo.jpg", self.run_command("blk /home/dump.img skip=2")["output"])
@@ -1578,13 +1578,13 @@ class RawCommandTests(TestCase):
         self.assertEqual(self.raw("/home/skin.dat")[:4], b"\x9eSCA")                                    # неудача копии не снимает слой с исходника
 
     def test_cvt_ext_takes_an_alias_and_a_zip_format_lists_its_files(self):
-        from filesystem.models import MachineFile
+        from filesystem.testing import make_file
 
-        MachineFile.objects.create(machine=self.main, path="/home/pic.dat", state="> disguised jpg", url="apps/wiki/Harbor/Report")
+        make_file(self.main, "/home/pic.dat", state="> disguised jpg", url="apps/wiki/Harbor/Report")
         self.assertEqual(self.run_command("cvt ext /home/pic.dat /home/pic.jpeg")["exit_code"], 0)
         data = self.run_command("cvt ext /home/pic.dat .JPG")                                              # у исходника слой остался
         self.assertIn("/home/pic.dat -> /home/pic.jpg", data["output"])
-        MachineFile.objects.create(machine=self.main, path="/home/word.dat", state="> disguised docx", url="apps/wiki/Harbor/Report")
+        make_file(self.main, "/home/word.dat", state="> disguised docx", url="apps/wiki/Harbor/Report")
         data = self.run_command("cvt ext /home/word.dat /home/word.docx")
         self.assertEqual(data["exit_code"], 0, data["output"])
         text = " ".join(str(v) for step in data["scene"] for v in step.values())
@@ -1592,11 +1592,11 @@ class RawCommandTests(TestCase):
         self.assertIn("document.xml", text)
 
     def keyed_file(self, path="/home/keyed.rec", state=""):
-        from filesystem.models import MachineFile
+        from filesystem.testing import make_file
         from secure.models import Key
 
-        item = MachineFile.objects.create(machine=self.main, path=path, url="apps/wiki/Harbor/Report", state=state)
-        item.keys.create(key=Key.objects.get_or_create(slug="secret_a")[0])
+        item = make_file(self.main, path, url="apps/wiki/Harbor/Report", state=state)
+        embed_key(item.item, "secret_a")
         return item
 
     def offset_of_block(self, path):
@@ -1625,9 +1625,10 @@ class RawCommandTests(TestCase):
         denied = self.run_command(f"kex /home/closed.rec {offset}")
         self.assertIn("no key at", denied["output"])                                             # под шифром по смещению шум
         self.assertEqual([s for s in denied["scene"] if s["op"] == "dots"][-1]["status"], "FAIL")
-        from secure.models import Key
+        from filesystem.models import Item, ItemKey
 
-        Key.objects.filter(slug="secret_a").delete()
+        ItemKey.objects.filter(key__slug="secret_a").delete()
+        Item.objects.filter(slug="secret_a").delete()
         self.assertIn("no key at", self.run_command(f"kex /home/report.rec 0")["output"])
         for command in ("kex", "kex /home/keyed.rec", "kex /home/keyed.rec x"):
             self.assertEqual(self.run_command(command)["exit_code"], 2, command)
@@ -1752,7 +1753,7 @@ class ArchiveTests(TestCase):
 
     @classmethod
     def setUpTestData(cls):
-        from filesystem.models import MachineFile
+        from filesystem.testing import make_file
         from machines.models import MachineProfile
         from wiki.models import Document, Namespace
 
@@ -1775,7 +1776,7 @@ class ArchiveTests(TestCase):
             ("/home/stuff.old", "", {"file_type": "DIRECTORY", "url": ""}),
             ("/home/stuff.old/f.txt", "", {}),
         ):
-            MachineFile.objects.create(machine=cls.main, path=path, state=state, **({"url": url} | extra))
+            make_file(cls.main, path, state=state, **({"url": url} | extra))
 
     def setUp(self):
         previous = get_script_prefix()
@@ -1892,7 +1893,8 @@ class SignatureTests(TestCase):
     def setUpTestData(cls):
         import datetime
 
-        from filesystem.models import FileSignature, MachineFile
+        from filesystem.models import ItemSignature
+        from filesystem.testing import make_file, key_item
         from machines.models import MachineProfile
         from secure.models import Key
         from wiki.models import Document, Namespace
@@ -1903,14 +1905,14 @@ class SignatureTests(TestCase):
         MachineProfile.objects.create(machine=cls.main, user=cls.user, name="Ivan", login="ivan", freq=1,
                                       mail="ivan@aether-main")
         Document.objects.create(namespace=Namespace.objects.create(name="Harbor"), title="Report", type="rec", body=cls.BODY)
-        cls.director = Key.objects.create(slug="director")
-        cls.other = Key.objects.create(slug="other")
+        cls.director = key_item("director")
+        cls.other = key_item("other")
         url = "apps/wiki/Harbor/Report"
 
         def make(path, state="", signed=()):
-            item = MachineFile.objects.create(machine=cls.main, path=path, url=url, state=state)
+            item = make_file(cls.main, path, url=url, state=state)
             for key, valid, date in signed:
-                FileSignature.objects.create(file=item, key=key, valid=valid, date=date)
+                ItemSignature.objects.create(item=item.item, key=key_item(key.slug), valid=valid, date=date)
             return item
 
         make("/home/plain.rec")
@@ -1937,14 +1939,14 @@ class SignatureTests(TestCase):
     def give_key(self, slug):
         from django.test import RequestFactory
 
-        from filesystem import keystore
+        from filesystem.testing import give_key_to_session
         from machines.current import active_session
 
         self.run_command("pwd")                                                      # сессия игрока появляется при первой команде
         request = RequestFactory().get("/")
         request.session = self.client.session
         request.user = self.user
-        keystore.put(active_session(request), slug)
+        give_key_to_session(active_session(request), slug)
 
     def test_a_signed_file_carries_a_block_after_its_content_and_verifies(self):
         data = self.raw("/home/memo.rec")
@@ -2000,14 +2002,17 @@ class SignatureTests(TestCase):
 
     def test_a_signed_mail_attachment_verifies_after_it_is_saved_into_the_session(self):
         from filesystem import keystore
-        from filesystem.models import FileSignature, MachineFile, SessionFile
+        from filesystem.models import ItemSignature, PlayerFile
+        from filesystem.testing import make_file, key_item
         from machines.models import Session
 
         self.run_command("pwd")
-        attachment = MachineFile.objects.create(machine=self.main, path="/mail/att.rec", url="apps/wiki/Harbor/Report",
+        attachment = make_file(self.main, "/mail/att.rec", url="apps/wiki/Harbor/Report",
                                                 delivered_only=True)
-        FileSignature.objects.create(file=attachment, key=self.director, valid=True)
-        SessionFile.objects.create(session=Session.objects.get(user=self.user), file=attachment, path="/home/att.rec")
+        ItemSignature.objects.create(item=attachment.item, key=key_item(self.director.slug), valid=True)
+        from filesystem.machine_view import MachineView
+
+        MachineView(self.main, self.user).put_item("/home/att.rec", attachment.item)
         self.assertIn("Good signature from director", self.run_command("ward verify /home/att.rec")["output"])
 
 
@@ -2019,7 +2024,7 @@ class WardKeyTests(TestCase):
 
     @classmethod
     def setUpTestData(cls):
-        from filesystem.models import MachineFile
+        from filesystem.testing import make_file
         from machines.models import MachineProfile
         from secure.models import Key
         from wiki.models import Document, Namespace
@@ -2030,15 +2035,15 @@ class WardKeyTests(TestCase):
         MachineProfile.objects.create(machine=cls.main, user=cls.user, name="Ivan", login="ivan", freq=1,
                                       mail="ivan@aether-main")
         Document.objects.create(namespace=Namespace.objects.create(name="Harbor"), title="Report", type="rec", body=cls.BODY)
-        Key.objects.create(slug="director", description="Director of the harbor office")
-        Key.objects.create(slug="other")
+        key_item("director", name="Director of the harbor office")
+        key_item("other")
         url = "apps/wiki/Harbor/Report"
         for path, state in (
             ("/home/pass.rec", "> encrypted hunter2"),
             ("/home/keyed.rec", "> encrypted key=director attempts=2"),
             ("/home/both.rec", "> encrypted hunter2 key=director"),
         ):
-            MachineFile.objects.create(machine=cls.main, path=path, state=state, url=url)
+            make_file(cls.main, path, state=state, url=url)
 
     def setUp(self):
         previous = get_script_prefix()
@@ -2058,14 +2063,14 @@ class WardKeyTests(TestCase):
     def give_key(self, slug):
         from django.test import RequestFactory
 
-        from filesystem import keystore
+        from filesystem.testing import give_key_to_session
         from machines.current import active_session
 
         self.run_command("pwd")
         request = RequestFactory().get("/")
         request.session = self.client.session
         request.user = self.user
-        keystore.put(active_session(request), slug)
+        give_key_to_session(active_session(request), slug)
 
     def test_an_encrypted_file_looks_like_a_pgp_packet_and_ftyp_says_so(self):
         from filesystem.rawview import keys
@@ -2107,9 +2112,9 @@ class WardKeyTests(TestCase):
         self.assertNotEqual(self.run_command("ward /home/keyed.rec hunter2")["exit_code"], 0)     # у ключевого пароля нет
 
     def test_a_wrong_key_spends_an_attempt_and_the_fail_hook_fires(self):
-        from filesystem.models import MachineFile
+        from filesystem.testing import make_file
 
-        MachineFile.objects.create(machine=self.main, path="/home/trap.rec", url="apps/wiki/Harbor/Report",
+        make_file(self.main, "/home/trap.rec", url="apps/wiki/Harbor/Report",
                                    state="> encrypted key=director attempts=1\non fail: say \"alarm\"")
         self.give_key("other")
         data = self.run_command("ward -k other /home/trap.rec")
@@ -2138,19 +2143,19 @@ class WardKeyTests(TestCase):
 
     def test_a_key_file_placed_on_the_machine_counts_once_it_lies_in_the_secrets(self):
         from filesystem import keystore
-        from filesystem.models import MachineFile
+        from filesystem.testing import make_file
         from django.test import RequestFactory
         from machines.current import active_session
 
         self.run_command("pwd")
-        MachineFile.objects.create(machine=self.main, path="/home/.secrets/badge", url="keys/director")
+        make_file(self.main, "/home/.secrets/badge", url="keys/director")
         request = RequestFactory().get("/")
         request.session = self.client.session
         request.user = self.user
-        self.assertIn("director", keystore.slugs_of(active_session(request)))
+        self.assertIn("director", __import__("filesystem.keystore", fromlist=["x"]).slugs_of(active_session(request)))
         self.assertEqual(self.run_command("ward -k director /home/keyed.rec")["exit_code"], 0)
         self.assertEqual(self.run_command("del -f /home/.secrets/badge")["exit_code"], 0)
-        self.assertNotIn("director", keystore.slugs_of(active_session(request)))
+        self.assertNotIn("director", __import__("filesystem.keystore", fromlist=["x"]).slugs_of(active_session(request)))
 
     def test_cnt_opens_a_key_as_text(self):
         self.give_key("director")

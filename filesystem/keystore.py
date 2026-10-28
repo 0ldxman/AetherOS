@@ -1,81 +1,50 @@
-"""Ключи игрока: файлы в его скрытой папке /home/.secrets.
+"""Ключи игрока: файлы в его папке секретов (место secrets его записи на машине, machines/places.py).
 
-Ключ, извлечённый из байтов файла (kex), появляется в сессии игрока файлом /home/.secrets/<слаг>. Ключи игрока на сессии
-это слаги этих файлов: удалил файл, потерял ключ. Содержимое файла берётся по адресу keys/<слаг> (блок ключа), а сам файл
-машины скрыт ото всех (delivered_only) и виден только там, куда его положили.
+Ключ это объект формата key. Ключ, извлечённый из байтов файла (kex), появляется в вид машины файлом secrets/<слаг>. Ключи игрока на
+машине это ключи, лежащие в его папке секретов, откуда бы они туда ни попали (в том числе из смонтированного удалённого тома):
+удалил файл или отмонтировал том, потерял ключ. Имя файла и ключ это разное: ключ задаёт объект, на который файл указывает.
 """
-from filesystem.models import MachineFile, SessionFile
-from filesystem.sources.keys import KEY_PREFIX, key_address, signature_address
-
-SECRETS = "/home/.secrets"
-STORE = "/.keystore"
-PREFIX = KEY_PREFIX
+from machines import places
 
 
-def path_of(slug):
-    return f"{SECRETS}/{slug}"
+def secrets_dir(machine, login):
+    """Папка секретов записи на машине (канонический путь) или None."""
+    return places.resolve(machine, "secrets", login)
+
+
+def _view(session):
+    from filesystem.machine_view import MachineView
+
+    return MachineView(session.profile.machine, session.user)
 
 
 def slugs_of(session):
-    """Слаги ключей, лежащих в папке секретов этой сессии."""
+    """Слаги ключей в папке секретов записи этой сессии."""
     if session is None:
         return frozenset()
-    return frozenset(slug for _, slug in held(session))
+    folder = secrets_dir(session.profile.machine, session.profile.login)
+    return frozenset(_view(session).held_keys(folder)) if folder else frozenset()
 
 
-def held(session):
-    """Ключи в папке секретов: список (имя файла, слаг). Имя файла и ключ это разное: ключ задаёт содержимое (адрес keys/<слаг>).
+def held(view, machine, login):
+    """Ключи в папке секретов: список (имя файла, слаг)."""
+    from filesystem.models import KEY_FORMAT
 
-    Это и файлы, которые игрок получил (запись сессии), и файлы, лежащие там на самой машине (админ), пока игрок их не
-    удалил и не переместил."""
-    if session is None:
+    folder = secrets_dir(machine, login)
+    if not folder:
         return []
-    prefix = SECRETS + "/"
-    rows = list(SessionFile.objects.filter(session=session).select_related("file"))
-    touched = {row.file_id for row in rows}
-    found = {}
-    for file in MachineFile.objects.filter(machine=session.profile.machine, path__startswith=prefix, url__startswith=PREFIX):
-        if file.id not in touched and not file.delivered_only:                    # как её видит файловая система
-            found[file.path] = file.url
-    for row in rows:
-        if row.deleted_at is None and row.path.startswith(prefix) and row.file.url.startswith(PREFIX):
-            found[row.path] = row.file.url
-    return [
-        (path[len(prefix):], url[len(PREFIX):]) for path, url in sorted(found.items()) if "/" not in path[len(prefix):]
-    ]
-
-
-def put(session, slug):
-    """Положить ключ в папку секретов сессии. Возвращает (путь, создан ли заново)."""
-    machine_file, _ = MachineFile.objects.get_or_create(
-        machine=session.profile.machine,
-        path=f"{STORE}/{slug}",
-        defaults={"url": key_address(slug), "delivered_only": True},
+    return sorted(
+        (entry.name, entry.item.slug) for entry in view.children(folder)
+        if not entry.is_dir and entry.item is not None and entry.item.format == KEY_FORMAT
     )
-    row, created = SessionFile.objects.get_or_create(
-        session=session, path=path_of(slug), defaults={"file": machine_file},
-    )
-    if not created and row.deleted_at is not None:
-        row.deleted_at = None
-        row.file = machine_file
-        row.save(update_fields=["deleted_at", "file"])
-        created = True
-    return row.path, created
 
 
-STORE_SIG = "/.sigstore"
-
-
-def put_signature(session, slug, hexhash, path):
-    """Файл подписи ключа slug под хешем hexhash в сессии игрока по пути path. Возвращает SessionFile."""
-    holder, _ = MachineFile.objects.get_or_create(
-        machine=session.profile.machine,
-        path=f"{STORE_SIG}/{slug}-{hexhash[:16]}",
-        defaults={"url": signature_address(slug, hexhash), "delivered_only": True},
-    )
-    row = SessionFile.objects.filter(session=session, path=path).first()
-    if row is None:
-        return SessionFile.objects.create(session=session, file=holder, path=path)
-    row.file, row.deleted_at, row.state = holder, None, ""
-    row.save(update_fields=["file", "deleted_at", "state"])
-    return row
+def put(view, machine, login, item):
+    """Положить ключ в папку секретов записи ссылкой на его объект. Возвращает (путь, создан ли заново)."""
+    folder = secrets_dir(machine, login)
+    path = f"{folder}/{item.slug}"
+    found = view.get(path)
+    if found is not None and found.item is not None and found.item.pk == item.pk:
+        return path, False
+    view.put_item(path, item)
+    return path, True

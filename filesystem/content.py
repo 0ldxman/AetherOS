@@ -1,10 +1,10 @@
-"""Что открывается, когда игрок открывает файл машины (cnt в терминале, вложение в почте).
+"""Что открывается, когда игрок открывает файл (cnt в терминале, вложение в почте).
 
-Сначала ответ верхнего слоя на cnt. Если его нет и блокирующих слоёв не осталось, открывается
-MachineFile.url: какое окно соответствует адресу, знает его вид содержимого (filesystem/sources).
-Прогресс сессии (снятые слои) учитывается, если у игрока есть запись SessionFile.
+Сначала ответ верхнего слоя на cnt. Если его нет и блокирующих слоёв не осталось, открывается окно по виду содержимого файла
+(filesystem/sources): ассет во вьювере, карта и письмо в своих приложениях, ссылка по адресу, текст простым окном.
+Прогресс игрока (снятые слои) учитывается.
 """
-from filesystem.sources import Content, resolve_window
+from filesystem.sources import Content, page_window, window_for
 from filesystem.states.attempt import top_answer
 from filesystem.states.compiler import compile_text
 from filesystem.states.registry import registry
@@ -13,20 +13,16 @@ from filesystem.states.stack import build_stack, load_progress
 COMMAND = "cnt"
 
 
-def resolve_content(machine_file, session_file, path, name):
-    """Адрес содержимого файла или причина, почему его нельзя открыть."""
-    canonical_text = machine_file.state or ""
-    raw_state = session_file.state if session_file else ""
+def resolve_content(entry, path, name):
+    """Окно файла или причина, почему его нельзя открыть."""
+    canonical_text = entry.state or ""
+    answer = top_answer(canonical_text, entry.progress, COMMAND, path=path, name=name, only_top=True)
 
-    url_path = top_answer(canonical_text, raw_state, COMMAND, path=path, name=name, only_top=True)
+    if answer is not None:
+        return page_window(answer)
 
-    if url_path is None:
-        canonical = compile_text(canonical_text, registry) if canonical_text.strip() else []
-        stack = build_stack(canonical, load_progress(raw_state, canonical_text), registry)
+    canonical = compile_text(canonical_text, registry) if canonical_text.strip() else []
+    if build_stack(canonical, load_progress(entry.progress, canonical_text), registry):
+        return Content(error="locked")
 
-        if stack:
-            return Content(error="locked")
-
-        url_path = machine_file.url
-
-    return resolve_window(url_path, path)
+    return window_for(entry)

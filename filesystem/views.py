@@ -35,7 +35,7 @@ def _entry(request):
     entry = fs.get_file(path)
     if entry is None or fs.is_directory(path):
         raise Http404
-    return entry
+    return entry, context
 
 
 def raw_url(path):
@@ -43,7 +43,7 @@ def raw_url(path):
 
 
 def raw_page(request):
-    entry = _entry(request)
+    entry, _ = _entry(request)
     name = posixpath.basename(entry.path)
     identity = hashlib.sha1(f"{terminal_session(request).pk}:{entry.path}".encode()).hexdigest()[:12]
     content = reverse("fsview:content") + "?" + urlencode({"path": entry.path})
@@ -55,11 +55,10 @@ def raw_page(request):
 
 
 def raw_content(request):
-    entry = _entry(request)
-    state = entry.session_file.state if entry.session_file else ""
+    entry, context = _entry(request)
     from mail.access import viewer_for
 
-    data = build_raw_cached(entry.machine_file, state, request_keys(request), viewer=viewer_for(request))
+    data = build_raw_cached(entry, context.view, request_keys(request), viewer=viewer_for(request))
     total = len(data)
 
     headers = {"Accept-Ranges": "bytes", "Cache-Control": "no-store", "Content-Type": "application/octet-stream"}
@@ -91,10 +90,9 @@ def raw_content(request):
 
 
 def text_content(request):
-    """Содержимое файла-ключа или подписи как текст (cnt): те же байты, что в raw, но в простом окне."""
-    entry = _entry(request)
-    state = entry.session_file.state if entry.session_file else ""
+    """Содержимое файла как текст (cnt): те же байты, что в raw, но в простом окне."""
+    entry, context = _entry(request)
     from mail.access import viewer_for
 
-    data = build_raw_cached(entry.machine_file, state, request_keys(request), viewer=viewer_for(request))
+    data = build_raw_cached(entry, context.view, request_keys(request), viewer=viewer_for(request))
     return HttpResponse(data.decode("utf-8", "replace"), content_type="text/plain; charset=utf-8", headers={"Cache-Control": "no-store"})

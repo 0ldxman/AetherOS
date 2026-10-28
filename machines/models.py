@@ -479,13 +479,13 @@ class NetNode(models.Model):
         blank=True,
         help_text="Ответ на nreq. {listing} вставляет список содержимого; без него списка не будет.",
     )
-    file = models.ForeignKey(
-        "filesystem.MachineFile",
+    item = models.ForeignKey(
+        "filesystem.Item",
         on_delete=models.SET_NULL,
         null=True,
         blank=True,
         related_name="net_nodes",
-        help_text="Файл, который отдаёт nget по этому пути (обычно файл машины-сервера).",
+        help_text="Объект, который отдаёт nget по этому пути.",
     )
     key_condition = models.JSONField(
         null=True,

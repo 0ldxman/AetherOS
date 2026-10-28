@@ -1,7 +1,5 @@
 import posixpath
 
-from filesystem import slices
-from filesystem.models import SessionFile
 from filesystem.rawview.registry import format_for_extension
 from filesystem.states.attempt import peek_top
 from terminal.engine import fileops
@@ -112,8 +110,7 @@ class BlkCommand(LayerCommand):
 
         scanning = end is None
         end = min(len(data), end if end is not None else len(data))
-        raw_state = entry.session_file.state if entry.session_file else ""
-        top = peek_top(entry.machine_file.state, raw_state)
+        top = peek_top(entry.state, entry.progress)
         real = (
             top is not None and top.state.name == self.layer
             and start == int(top.params["skip"]) * BLOCK and end >= len(data) - BLOCK
@@ -139,11 +136,8 @@ class BlkCommand(LayerCommand):
         if real:
             def finish(item, before):
                 fileops.apply(context, item.path, destination, False)
-                if item.session_file is not None:
-                    item.session_file.state = before                   # у исходника слой остаётся, снят он только с копии
-                    item.session_file.save(update_fields=["state"])
-                else:
-                    SessionFile.objects.filter(session=context.session, path=item.path).update(state=before)
+                context.view.set_progress(item.path, before)           # у исходника слой остаётся, снят он только с копии
+                context.invalidate()
                 return f"  {destination}"
 
             result = self.unlock(context, target, [str(int(top.params["skip"]))], self.layer, finish=finish, scene=lambda *_: scene)
@@ -151,7 +145,11 @@ class BlkCommand(LayerCommand):
                 return result
             return CommandResult("\n".join([*lines, result.output]), 0, scene=scene, effects=result.effects)
 
-        slices.make(context.session, entry.machine_file, raw_state, start, end, destination)
+        try:
+            context.view.put_data(destination, data[start:end])
+        except ValueError:
+            return CommandResult(f"blk: {target}: output too large", 1)
+        context.invalidate()
         return CommandResult("\n".join([*lines, f"blk: {target}: {self.done}", f"  {destination}"]), 0, scene=scene)
 
 
@@ -205,18 +203,15 @@ class CvtCommand(LayerCommand):
                 fileops.apply(context, entry.path, destination, True)
                 return f"  {entry.path} -> {destination}"
             fileops.apply(context, entry.path, destination, False)
-            if entry.session_file is not None:
-                entry.session_file.state = before                  # у исходника слой остаётся, снят он только с копии
-                entry.session_file.save(update_fields=["state"])
-            else:
-                SessionFile.objects.filter(session=context.session, path=entry.path).update(state=before)
+            context.view.set_progress(entry.path, before)          # у исходника слой остаётся, снят он только с копии
+            context.invalidate()
             return f"  {destination}"
 
         return self.unlock(context, target, [name], "disguised", finish=finish, scene=scene)
 
     def fail_for(self, context, entry, target, wrong, values):
         head = " ".join(f"{byte:02x}" for byte in raw_of(context, entry).data[:16])
-        top = peek_top(entry.machine_file.state, entry.session_file.state if entry.session_file else "")
+        top = peek_top(entry.state, entry.progress)
         verb = "decode" if top is not None and top.state.name == "binary" else "read"
         return f"{self.name}: {target}: cannot {verb} as {values[0]}\n  unexpected header: {head}"
 

@@ -7,14 +7,17 @@ from django.shortcuts import render
 from django.views.decorators.csrf import ensure_csrf_cookie
 from django.views.decorators.http import require_GET, require_POST
 
+from django.urls import reverse
+
 from filesystem.content import resolve_content
+from filesystem.sources import Content
 from machines.current import active_session
 from users.aether_auth import AUTH_REQUIRED, is_player
 
 from .pulse_cache import cached_for_viewer, cached_pulse
 from .access import mark_read, mark_unread, read_ids, viewer_for, visible_messages
 from .addresses import recipients_line, split
-from .attachments import SaveError, payload, save_to_machine, session_file_of
+from .attachments import SaveError, payload, save_to_machine, saved_entry, virtual_entry
 from .compose import TaskError, available_tasks, public_segments, send
 from .models import Attachment, ComposeProgress
 
@@ -140,18 +143,20 @@ def attachment_open(request, pk):
     """Адрес вьювера файла-вложения по тем же правилам, что у cnt: пока на файле есть слои, он закрыт."""
     viewer = _viewer_or_404(request)
 
-    attachment = Attachment.objects.filter(pk=pk, kind=Attachment.Kind.FILE).select_related("machine_file").first()
+    attachment = Attachment.objects.filter(pk=pk, kind=Attachment.Kind.FILE).select_related("item").first()
     if attachment is None or not visible_messages(viewer, pk=attachment.message_id, attachments=False):
         raise Http404
 
-    machine_file = attachment.machine_file
-    saved = session_file_of(active_session(request), machine_file) if is_player(request) else None
-    path = saved.path if saved and saved.path else machine_file.path
+    session = active_session(request) if is_player(request) else None
+    entry = saved_entry(session, attachment) or virtual_entry(session, attachment)
+    path = entry.path
 
-    content = resolve_content(machine_file, saved, path, path.rsplit("/", 1)[-1])
+    content = resolve_content(entry, path, path.rsplit("/", 1)[-1])
     if content.error:
         code, status = OPEN_ERRORS[content.error]
         return JsonResponse({"error": code}, status=status)
+    if entry.layer is None and content.url.startswith(reverse("fsview:text")):       # не сохранён: текст отдаёт само вложение
+        content = Content(url=reverse("mail:attachment_text", args=[attachment.pk]))
 
     return JsonResponse({
         "id": f"mail-file-{attachment.pk}",
@@ -160,12 +165,33 @@ def attachment_open(request, pk):
     })
 
 
+@require_GET
+def attachment_text(request, pk):
+    """Текст вложения-файла, пока он не сохранён у игрока (сохранённый открывается из его файловой системы)."""
+    from django.http import HttpResponse
+
+    from filesystem.rawview import build_raw_cached
+    from wiki.access import request_keys
+
+    viewer = _viewer_or_404(request)
+    attachment = Attachment.objects.filter(pk=pk, kind=Attachment.Kind.FILE).select_related("item").first()
+    if attachment is None or not visible_messages(viewer, pk=attachment.message_id, attachments=False):
+        raise Http404
+
+    session = active_session(request) if is_player(request) else None
+    entry = virtual_entry(session, attachment)
+    if resolve_content(entry, entry.path, entry.name).error:
+        raise Http404
+    data = build_raw_cached(entry, None, request_keys(request), viewer=viewer)
+    return HttpResponse(data.decode("utf-8", "replace"), content_type="text/plain; charset=utf-8", headers={"Cache-Control": "no-store"})
+
+
 @require_POST
 def attachment_save(request, pk):
     """Сохранить файл вложения в файловую систему игрока (только вошедшему через Discord)."""
     viewer = _viewer_or_404(request)
 
-    attachment = Attachment.objects.filter(pk=pk).select_related("machine_file", "message").first()
+    attachment = Attachment.objects.filter(pk=pk).select_related("item", "message").first()
     if attachment is None or not visible_messages(viewer, pk=attachment.message_id, attachments=False):
         raise Http404
 

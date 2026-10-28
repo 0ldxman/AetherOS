@@ -10,7 +10,7 @@
         -> новый прогресс в JSON
 
 Django здесь нет: на вход и на выход идут строки. Чтение и запись
-SessionFile делает unlock.py.
+запись слоя игрока делает unlock.py.
 """
 
 from collections.abc import Mapping
@@ -35,7 +35,7 @@ from filesystem.states.stack import (
 class AttemptOutcome:
     result: RemoveResult  # слой снят или нет, какой слой, что неверно, события
     hooks: HookOutcome  # say, log и файловые операции после хуков
-    state: str  # новый текст для SessionFile.state
+    state: str  # новый текст для PlayerFile.state
 
 
 def attempt_remove(
@@ -47,7 +47,7 @@ def attempt_remove(
     given: Mapping[str, Any] | None = None,
     registry: StateRegistry = default_registry,
 ) -> AttemptOutcome:
-    """canonical_text -- MachineFile.state, raw_state -- SessionFile.state,
+    """canonical_text -- Item.state, raw_state -- PlayerFile.state,
     given -- значения игрока (имя аргумента -> значение, типы уже приведены).
 
     Ошибка в canonical_text (StateError) сюда доходить не должна: админка
@@ -67,7 +67,7 @@ def attempt_remove(
 @dataclass
 class EventOutcome:
     hooks: HookOutcome  # что случилось по хукам события
-    state: str  # новый текст для SessionFile.state (хук мог добавить слой)
+    state: str  # новый текст для PlayerFile.state (хук мог добавить слой)
 
 
 def fire_event(

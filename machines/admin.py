@@ -201,7 +201,6 @@ class MachineAdmin(MachineFiles, admin.ModelAdmin):
         return super().get_queryset(request).annotate(
             _profiles=Count("profiles", distinct=True),
             _apps=Count("machine_apps", distinct=True),
-            _files=Count("files", distinct=True),
         )
 
     @admin.display(description="Профилей", ordering="_profiles")
@@ -555,8 +554,8 @@ class MachineAppAdmin(ConditionFieldsMixin, admin.ModelAdmin):
 class NetNodeInline(admin.TabularInline):
     model = NetNode
     extra = 0
-    fields = ("path", "response", "file", "token")
-    raw_id_fields = ("file",)
+    fields = ("path", "response", "item", "token")
+    autocomplete_fields = ("item",)
     show_change_link = True  # условие по ключам правится на странице узла
 
 
@@ -589,11 +588,11 @@ class NetNodeAdmin(ConditionFieldsMixin, admin.ModelAdmin):
     list_display = ("__str__", "has_file", "condition")
     list_filter = ("resource",)
     search_fields = ("path", "resource__address")
-    raw_id_fields = ("file",)
+    autocomplete_fields = ("item",)
 
     @admin.display(description="Файл", boolean=True)
     def has_file(self, obj):
-        return obj.file_id is not None
+        return obj.item_id is not None
 
     @admin.display(description="Условие по ключам")
     def condition(self, obj):

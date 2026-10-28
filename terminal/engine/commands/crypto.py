@@ -2,7 +2,7 @@ from dataclasses import replace
 
 from filesystem import archives, keystore
 from filesystem.rawview import keys, signatures
-from secure.models import Key
+from filesystem.models import KEY_FORMAT, Item
 from terminal.engine.rawinfo import raw_of
 from terminal.scenes import key_scene, sign_scene, verify_scene
 from terminal.engine.commands.layered import LayerCommand
@@ -35,7 +35,7 @@ class WardCommand(LayerCommand):
             return self.with_key(context, args[1:])
         if args:
             entry = VirtualFilesystem(context).get_file(context.resolve_path(args[0]))
-            if entry is not None and archives.is_archive(entry.machine_file):
+            if entry is not None and entry.archive:
                 return CommandResult(f"{self.name}: {args[0]}: no valid data found", 1)        # как gpg на чужом файле
         if not args:
             return CommandResult("ward: missing file operand", 2)
@@ -52,6 +52,10 @@ class WardCommand(LayerCommand):
         reason = "No secret key" if "key" in wrong.split(", ") else "Bad session key"
         return f"{self.name}: decryption failed: {reason}"
 
+    @staticmethod
+    def secrets(context):
+        return keystore.secrets_dir(context.machine, context.profile.login)
+
     def held_key(self, context, name):
         """slug ключа с таким именем в /home/.secrets или None."""
         return name if name in keystore.slugs_of(context.session) else None
@@ -62,9 +66,9 @@ class WardCommand(LayerCommand):
         name, target = args
         slug = self.held_key(context, name)
         if slug is None:
-            return CommandResult(f"ward: no secret key '{name}' in {keystore.SECRETS}", 1)
+            return CommandResult(f"ward: no secret key '{name}' in {self.secrets(context)}", 1)
         entry = VirtualFilesystem(context).get_file(context.resolve_path(target))
-        if entry is not None and archives.is_archive(entry.machine_file):
+        if entry is not None and entry.archive:
             return CommandResult(f"{self.name}: {target}: no valid data found", 1)
         result = self.unlock(
             context, target, [], self.layer, given={"key": slug},
@@ -77,11 +81,11 @@ class WardCommand(LayerCommand):
 
     def list_keys(self, context):
         rows = []
-        for filename, slug in keystore.held(context.session):
-            note = Key.objects.filter(slug=slug).values_list("description", flat=True).first() or ""
+        for filename, slug in keystore.held(context.view, context.machine, context.profile.login):
+            note = Item.objects.filter(slug=slug, format=KEY_FORMAT).values_list("name", flat=True).first() or ""
             rows.append((keys.key_id(slug).hex().upper(), slug, filename, note.strip().splitlines()[0] if note.strip() else ""))
         if not rows:
-            return CommandResult(f"ward: no keys in {keystore.SECRETS}", 1)
+            return CommandResult(f"ward: no keys in {self.secrets(context)}", 1)
         width = max(len(slug) for _, slug, _, _ in rows)
         return CommandResult(
             "\n".join(f"{ident}  {slug:<{width}}  {filename}" + (f"  {note}" if note else "") for ident, slug, filename, note in rows), 0
@@ -121,7 +125,7 @@ class WardCommand(LayerCommand):
 
         lines, good = [], 0
         for item in found:
-            if not Key.objects.filter(slug=item["slug"]).exists():
+            if not Item.objects.filter(slug=item["slug"], format=KEY_FORMAT).exists():
                 lines.append(f"ward: Can't check signature: No public key ({item['slug']})")
                 continue
             if item["date"]:
@@ -140,12 +144,13 @@ class WardCommand(LayerCommand):
         name, target = args[1], args[2]
         fs = VirtualFilesystem(context)
         if self.held_key(context, name) is None:
-            return CommandResult(f"ward: no secret key '{name}' in {keystore.SECRETS}", 1)
+            return CommandResult(f"ward: no secret key '{name}' in {self.secrets(context)}", 1)
         entry, data = self._open(context, target)
         if entry is None:
             return data
         output = entry.path + ".sig"
         if fs.exists(output):
             return CommandResult(f"ward: '{output}' exists, delete it first", 1)
-        keystore.put_signature(context.session, name, signatures.digest(data), output)
+        context.view.put_text(output, signatures.block(name, signatures.digest(data), f"sig:{name}").decode())
+        context.invalidate()
         return CommandResult(f"ward: signed {target} with key {name}\n  {output}", 0, scene=sign_scene(entry.path, name))

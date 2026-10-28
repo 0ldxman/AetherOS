@@ -1,146 +1,38 @@
-from dataclasses import dataclass
+"""Файловая система машины так, как её видит игрок: вид из монтирований и слой игрока (filesystem/machine_view.py)."""
 from pathlib import PurePosixPath
-
-from filesystem import archives
-from filesystem.models import MachineFile, SessionFile
-
-
-@dataclass(frozen=True)
-class Entry:
-    """Файл так, как его видит игрок в своей сессии.
-
-    path -- путь в сессии (после rename или для копии он может отличаться
-    от machine_file.path), session_file -- запись сессии или None, если
-    сессия файл не трогала."""
-
-    path: str
-    file_type: str
-    machine_file: MachineFile
-    session_file: SessionFile | None = None
 
 
 class VirtualFilesystem:
     def __init__(self, context):
         self.context = context
-        self._entries_cache: dict[str, Entry] | None = None
-        self._archives: set[str] = set()
+        self._entries_cache = None
 
-    def _entries(self) -> dict[str, Entry]:
-        """Все файлы сессии: путь -> Entry. Считается один раз на команду.
-
-        1. Файл машины, к которому у сессии нет записей, виден как есть.
-        2. Если записи есть, файл виден только там, где её путь указывает
-           (rename сдвигает, copy добавляет копию).
-        3. Запись с deleted_at (надгробие) файл прячет."""
+    def _entries(self):
+        """Все записи вида: путь -> Entry. Считается один раз на команду."""
         if self._entries_cache is None:
-            machine_files = list(MachineFile.objects.filter(machine=self.context.machine))
-            known = {item.path: item.file_type for item in machine_files}
-            machine_files += archives.ensure_records(self.context.machine, known)         # архив без слоёв: запись создаётся сама
-            self._archives = archives.find({item.path: item.file_type for item in machine_files})
-            rows = list(
-                SessionFile.objects.filter(
-                    session=self.context.session,
-                ).select_related("file")
-            )
-            touched = {row.file_id for row in rows}
-            entries: dict[str, Entry] = {}
-
-            for machine_file in machine_files:
-                # доставленный файл лежит только там, куда его доставили (запись сессии)
-                if machine_file.id not in touched and not machine_file.delivered_only:
-                    entries[machine_file.path] = Entry(
-                        machine_file.path,
-                        machine_file.file_type,
-                        machine_file,
-                    )
-
-            for row in rows:
-                if row.deleted_at is None:
-                    entries[row.path] = Entry(
-                        row.path,
-                        row.file.file_type,
-                        row.file,
-                        row,
-                    )
-
-            # члены архива игроку недоступны, пока он не распакует архив
-            entries = {path: item for path, item in entries.items() if not archives.hidden(path, self._archives)}
-
-            self._entries_cache = entries
-
+            self._entries_cache = self.context.view.entries
         return self._entries_cache
 
-    def get_file(self, path: str) -> Entry | None:
+    def get_file(self, path):
         return self._entries().get(path)
 
-    def _has_children(self, path: str) -> bool:
-        prefix = path.rstrip("/") + "/"
+    def exists(self, path):
+        return path == "/" or path in self._entries()
 
-        return any(
-            entry_path.startswith(prefix) for entry_path in self._entries()
-        )
-
-    def exists(self, path: str) -> bool:
+    def is_directory(self, path):
         if path == "/":
             return True
+        found = self.get_file(path)
+        return found is not None and found.is_dir
 
-        if self.get_file(path) is not None:
-            return True
+    def children(self, path):
+        """Записи прямо под папкой (папки первыми, затем по имени)."""
+        return self.context.view.children(path)
 
-        return self._has_children(path)
-
-    def is_directory(self, path: str) -> bool:
-        if path == "/":
-            return True
-
-        file = self.get_file(path)
-
-        if file is not None:
-            return file.file_type == MachineFile.FileType.DIRECTORY
-
-        return self._has_children(path)
-
-    def list_directory(self, path: str) -> list[dict]:
+    def list_directory(self, path):
         if not self.is_directory(path):
             raise NotADirectoryError(path)
+        return [{"name": entry.name, "is_directory": entry.is_dir, "hidden": entry.hidden} for entry in self.children(path)]
 
-        prefix = "/" if path == "/" else path.rstrip("/") + "/"
-        result = {}
-
-        for entry in sorted(
-            self._entries().values(),
-            key=lambda item: item.path,
-        ):
-            if not entry.path.startswith(prefix):
-                continue
-
-            relative = entry.path[len(prefix):]
-
-            if not relative:
-                continue
-
-            first_component = relative.split("/", 1)[0]
-            is_direct_child = "/" not in relative
-
-            if first_component not in result:
-                result[first_component] = {
-                    "name": first_component,
-                    "is_directory": not is_direct_child
-                    or entry.file_type == MachineFile.FileType.DIRECTORY,
-                }
-
-            elif is_direct_child:
-                result[first_component]["is_directory"] = (
-                    entry.file_type == MachineFile.FileType.DIRECTORY
-                )
-
-        return sorted(
-            result.values(),
-            key=lambda item: (
-                not item["is_directory"],
-                item["name"].casefold(),
-            ),
-        )
-
-    def parent_path(self, path: str) -> str:
+    def parent_path(self, path):
         return str(PurePosixPath(path).parent)

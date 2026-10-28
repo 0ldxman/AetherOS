@@ -3,7 +3,6 @@ import posixpath
 
 from filesystem.content import resolve_content
 from filesystem.rawview import detect
-from filesystem.models import SessionFile
 from filesystem.states.attempt import top_answer
 from filesystem.unlock import fire_file_event
 from terminal.engine.commands.basic import BaseCommand
@@ -46,11 +45,10 @@ class FtypCommand(BaseCommand):
             return CommandResult(f"{target}: {DIRECTORY}")
 
         entry = fs.get_file(path)
-        session_file = entry.session_file
 
         text = top_answer(
-            entry.machine_file.state,
-            session_file.state if session_file else "",
+            entry.state,
+            entry.progress,
             self.name,
             path=entry.path,
             name=posixpath.basename(entry.path),
@@ -69,7 +67,7 @@ class CntCommand(BaseCommand):
 
     Сначала проверяется ответ верхнего слоя cnt.
     Если такого ответа нет и блокирующих слоёв больше нет,
-    открывается MachineFile.url.
+    открывается окно по виду содержимого файла.
     """
 
     name = "cnt"
@@ -105,8 +103,6 @@ class CntCommand(BaseCommand):
             return CommandResult(f"cnt: {target}: Is a directory", 1)
 
         entry = fs.get_file(path)
-        machine_file = entry.machine_file
-        session_file = entry.session_file
         name = posixpath.basename(entry.path)
 
         if raw_view:
@@ -122,18 +118,16 @@ class CntCommand(BaseCommand):
 
         # хуки on read верхнего слоя: могут сказать что-то или открыть окно (open), а слой остаётся на месте
         lines, effects = [], None
-        if machine_file.state.strip() or (session_file and session_file.state):
-            if session_file is None:
-                session_file, _ = SessionFile.objects.get_or_create(
-                    session=context.session, path=entry.path, defaults={"file": machine_file}
-                )
-            lines, effects = hook_report([fire_file_event(session_file, "read", entry.path)])
+        if entry.state.strip() or entry.progress:
+            lines, effects = hook_report([fire_file_event(context.view, entry.path, "read", entry.path)])
+            context.invalidate()
+            entry = VirtualFilesystem(context).get_file(path) or entry
 
         if effects and any(effect["op"] == "open" for effect in effects):
             text = "\n".join([f"cnt: {target}: opened ({size_of(context, entry)} bytes)", *lines])
             return CommandResult(text, 0, scene=open_scene(entry.path, "opened"), effects=effects)
 
-        content = resolve_content(machine_file, session_file, entry.path, name)
+        content = resolve_content(entry, entry.path, name)
 
         def result(text, code, stage, window=None):
             return CommandResult("\n".join([text, *lines]), code, window, scene=open_scene(entry.path, stage), effects=effects)

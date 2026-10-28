@@ -58,6 +58,8 @@ Machine ──< MachineMount >── Volume ──< Placement >── Object
 
 Ревизии и блокировка (`ItemRevision`, `ItemLock`, `ImportBatch`) переезжают с `Document` на объект.
 
+**Архив** (pak) это объект, у которого есть члены: `ItemMember(archive, path, item)`. Игрок видит его одним файлом; члены не лежат в дереве, а едут вместе с объектом при копировании, переносе и `xfer`; слои (пароль, повреждение) стоят на самом объекте-архиве. `pak x` кладёт члены в слой игрока ссылками на их объекты. Вложенный архив это член, у которого тоже есть члены.
+
 ### 2.2 Размещение (утверждено в основном)
 
 Строка дерева тома. Папки отдельные строки (у них свои условия доступа и пустую папку иначе не создать).
@@ -157,7 +159,7 @@ Machine ──< MachineMount >── Volume ──< Placement >── Object
 | `home` | домашняя папка записи | `/home/{login}` | `C:\Users\{login}` |
 | `secrets` | ключи записи | `{home}/.secrets` | `{home}\.keys` |
 | `desktop` | рабочий стол записи | `{home}/Desktop` | `{home}\Desktop` |
-| `trash` | корзина записи | `{home}/.trash` | `C:\$Recycle.Bin\{login}` |
+| `trash` | корзина (пока общая папка `/trash`; можно переопределить) | `/trash` | `C:\$Recycle.Bin` |
 | `config` | конфиги политик (`access.conf`, `exports`, `fstab`, `limits.conf`, `sudoers`) | `/etc/aether` | `C:\ProgramData\Aether` |
 | `logs` | логи | `/var/log` | `C:\Windows\Logs` |
 | `temp` | временные файлы | `/tmp` | `C:\Temp` |

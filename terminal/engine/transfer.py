@@ -1,11 +1,10 @@
-"""Перенос файла между двумя сессиями (xfer): файл одной машины появляется в сессии другой.
+"""Перенос файла между двумя сессиями (xfer): файл одной машины появляется в слое игрока на другой.
 
-Файл не копируется в базе как новая строка MachineFile: в сессии получателя появляется запись SessionFile, которая указывает
-на файл отправителя и несёт его прогресс по слоям. Так же в сессию попадают доставленные файлы (вложения писем).
+Файл не копируется в базе: в слое игрока у получателя появляется запись, которая указывает на тот же объект и несёт прогресс по
+слоям (а у файла игрока без объекта собственное содержимое). Так же в слой попадают доставленные файлы (вложения писем).
 """
 import posixpath
 
-from filesystem.models import SessionFile
 from terminal.engine.context import DEFAULT_CWD
 from terminal.engine.filesystem import VirtualFilesystem
 
@@ -23,14 +22,11 @@ def copy_file(source, source_path, dest, dest_path):
     if entry is None or source_fs.is_directory(source_path):
         return None, f"{source_path}: not a regular file"
 
-    state = entry.session_file.state if entry.session_file else ""
-    return place_file(dest, entry.machine_file, state, dest_path, posixpath.basename(entry.path))
+    return place_entry(dest, entry, dest_path, posixpath.basename(entry.path))
 
 
-def place_file(dest, machine_file, state, dest_path, name):
-    """Положить файл machine_file в сессию dest по пути dest_path (папка: под именем name) с прогрессом по слоям state.
-
-    Возвращает (путь у получателя, None) или (None, текст ошибки в духе scp)."""
+def _target(dest, dest_path, name):
+    """(путь у получателя, ошибка в духе scp)."""
     dest_fs = VirtualFilesystem(dest)
     target = dest_path
 
@@ -44,24 +40,37 @@ def place_file(dest, machine_file, state, dest_path, name):
     if dest_fs.is_directory(target):
         return None, f"{dest_path}: Is a directory"
 
-    row = SessionFile.objects.filter(session=dest.session, path=target).first()
-
-    # запись сессии прячет «нетронутый» файл машины: если копируют файл этой же машины, оригинал остаётся на месте
-    if machine_file.machine_id == dest.machine.pk and not SessionFile.objects.filter(
-        session=dest.session, file=machine_file
-    ).exists():
-        SessionFile.objects.create(session=dest.session, file=machine_file, path=machine_file.path)
-
-    if row is None:
-        SessionFile.objects.create(session=dest.session, file=machine_file, path=target, state=state)
-    else:
-        row.file = machine_file
-        row.state = state
-        row.deleted_at = None
-        row.save()
-
     return target, None
 
+
+def place_entry(dest, entry, dest_path, name):
+    """Положить файл вида машины entry в слой игрока у dest по пути dest_path (папка: под именем name), с прогрессом по слоям.
+
+    Возвращает (путь у получателя, None) или (None, текст ошибки в духе scp)."""
+    target, error = _target(dest, dest_path, name)
+    if error:
+        return None, error
+
+    view = dest.view
+    if entry.item is not None:
+        view.put_item(target, entry.item, entry.progress, entry.text_override)
+    elif entry.own_data is not None:
+        view.put_data(target, entry.own_data, entry.progress)
+    else:
+        view.put_text(target, entry.own_text or "", entry.progress)
+    dest.invalidate()
+    return target, None
+
+
+def place_item(dest, item, state, dest_path, name):
+    """Положить объект item в слой игрока у dest по пути dest_path с прогрессом по слоям state (nget, вложение письма)."""
+    target, error = _target(dest, dest_path, name)
+    if error:
+        return None, error
+
+    dest.view.put_item(target, item, state)
+    dest.invalidate()
+    return target, None
 
 
 def hop_seconds(size):

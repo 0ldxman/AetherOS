@@ -1,18 +1,16 @@
-"""Что означает адрес содержимого файла (MachineFile.url): байты, которые читаются из него, и окно, которое открывает cnt.
-
-Тесты держат поведение каждого вида адреса неизменным, пока код разбора переезжает в реестр источников.
-"""
+"""Что лежит в файле и какое окно открывает cnt: каждый вид содержимого по тому, что есть в объекте (или у самого игрока)."""
 from django.contrib.auth import get_user_model
 from django.test import TestCase, override_settings
 from django.urls import get_script_prefix, set_script_prefix
 
 from assets.models import Asset
 from filesystem.content import resolve_content
-from filesystem.models import MachineFile
+from filesystem.machine_view import MachineView
+from filesystem.models import FileFormat, Item
 from filesystem.rawview import build_raw, formats
-from filesystem.sources import resolve_payload
+from filesystem.sources import payload_for, source_for
+from filesystem.testing import embed_key, make_file
 from machines.models import Machine
-from wiki.models import Document, Namespace
 
 
 @override_settings(FORCE_SCRIPT_NAME=None)
@@ -20,138 +18,120 @@ class SourceKindTests(TestCase):
     @classmethod
     def setUpTestData(cls):
         cls.machine = Machine.objects.create(name="Main", hostname="aether-main")
-        user = get_user_model().objects.create_user("marsh", password="x")
-        space = Namespace.objects.create(name="Harbor")
-        cls.doc = Document.objects.create(namespace=space, title="Report", type="rec", body="Manifest.", created_by=user, direct_link="rep")
-        cls.closed = Document.objects.create(namespace=space, title="Closed", type="rec", body="Hidden.", access={"all": ["k1"]})
+        cls.user = get_user_model().objects.create_user("marsh", password="x")
         cls.asset = Asset.objects.create(name="pic", file_id="1", size=11)
+        FileFormat.objects.update_or_create(name="rec", defaults={"extension": ".rec", "content": "text", "page": True})
 
     def setUp(self):
         previous = get_script_prefix()
         set_script_prefix("/")
         self.addCleanup(set_script_prefix, previous)
 
-    def make(self, path, url="", **extra):
-        return MachineFile.objects.create(machine=self.machine, path=path, url=url, **extra)
+    def entry(self, path, **fields):
+        made = make_file(self.machine, path, **fields)
+        return MachineView(self.machine, self.user).get(made.path)
 
-    def payload(self, url, **extra):
-        return resolve_payload(self.make(f"/p{MachineFile.objects.count()}", url, **extra), frozenset())
+    def kind(self, path, **fields):
+        return source_for(self.entry(path, **fields)).name
 
-    def content(self, url, **extra):
-        file = self.make(f"/c{MachineFile.objects.count()}", url, **extra)
-        return resolve_content(file, None, file.path, "name")
+    def window(self, entry):
+        return resolve_content(entry, entry.path, "name")
 
-    # --- байты ---------------------------------------------------------------------------------------------
+    # --- какой вид ---------------------------------------------------------------------------------------------
 
-    def test_a_file_without_an_address_has_no_payload(self):
-        found = self.payload("")
-        self.assertEqual((found.kind, found.body, found.locked), ("none", b"", False))
+    def test_each_kind_is_chosen_by_what_the_object_holds(self):
+        self.assertEqual(self.kind("/blank"), "blank")
+        self.assertEqual(self.kind("/text", body="hello"), "text")
+        self.assertEqual(self.kind("/key", key="alpha"), "key")
+        self.assertEqual(self.kind("/link", url="apps/terminal/"), "link")
+        self.assertEqual(self.kind("/asset", url=f"view/{self.asset.public_id}/"), "asset")
 
-    def test_a_key_is_the_block_of_its_slug(self):
-        from filesystem.rawview import keys
-
-        found = self.payload("keys/alpha")
-        self.assertEqual((found.kind, found.stamp), ("key", "key:alpha"))
-        self.assertEqual(found.body, keys.armor("alpha", "store:alpha"))
-        self.assertEqual(self.payload("keys/alpha/extra").kind, "none")
-
-    def test_a_signature_is_the_block_under_a_hash(self):
-        from filesystem.rawview import signatures
-
-        found = self.payload("sig/alpha/abcd")
-        self.assertEqual((found.kind, found.stamp), ("signature", "sig:alpha:abcd"))
-        self.assertEqual(found.body, signatures.block("alpha", "abcd", "sig:alpha"))
-        self.assertEqual(self.payload("sig/alpha").kind, "none")
-
-    def test_a_wiki_record_by_path_and_by_direct_link(self):
-        by_path = self.payload("apps/wiki/Harbor/Report")
-        self.assertEqual((by_path.kind, by_path.fmt, by_path.locked, by_path.body), ("wiki", "rec", False, b"Manifest."))
-        self.assertTrue(by_path.stamp.startswith(f"wiki:{self.doc.pk}:"))
-        self.assertEqual(self.payload("apps/wiki/go/rep").body, b"Manifest.")
-        self.assertTrue(self.payload("apps/wiki/Harbor/Closed").locked)
-        self.assertEqual(self.payload("apps/wiki/Harbor/Missing").kind, "none")
-        self.assertEqual(self.payload("apps/wiki").kind, "none")
-
-    def test_an_asset_keeps_its_size_and_a_bad_id_is_nothing(self):
-        found = self.payload(f"view/{self.asset.public_id}/")
-        self.assertEqual((found.kind, found.size), ("asset", 11))
-        self.assertEqual(self.payload("view/not-a-uuid/").kind, "none")
-
-    def test_a_map_by_scene(self):
-        from map.models import MapScene
-
-        MapScene.objects.create(slug="harbor", title="Harbor", features=[])
-        found = self.payload("apps/map/?scene=harbor")
-        self.assertEqual((found.kind, found.fmt), ("map", "map"))
-        self.assertEqual(self.payload("apps/map/?scene=nowhere").kind, "none")
-
-    def test_a_mail_message_or_a_plain_app(self):
+    def test_a_map_and_a_letter_come_from_their_records(self):
         from django.utils import timezone
 
         from mail.models import Message
+        from map.models import MapScene
 
+        MapScene.objects.create(slug="harbor", title="Harbor", features=[])
         Message.objects.create(sender="a@b", recipients="*", subject="S", body="B", slug="m1", sent_at=timezone.now())
-        found = self.payload("apps/mail/?message=m1")
-        self.assertEqual((found.kind, found.locked), ("mail", True))                    # читателя нет
-        for url in ("apps/mail/?message=missing", "apps/terminal/", "apps/"):
-            app = self.payload(url)
-            self.assertEqual((app.kind, app.stamp, app.meta["path"]), ("app", f"app:{url}", url))
+        self.assertEqual(self.kind("/map", url="apps/map/?scene=harbor"), "map")
+        self.assertEqual(self.kind("/mail", url="apps/mail/?message=m1"), "mail")
 
-    def test_a_leading_slash_and_an_unknown_prefix(self):
-        self.assertEqual(self.payload("/keys/alpha").kind, "key")
-        self.assertEqual(self.payload("other/place").kind, "none")
+    def test_an_archive_is_an_object_with_members(self):
+        made = make_file(self.machine, "/pack.zip/a.txt")
+        entry = MachineView(self.machine, self.user).get("/pack.zip")
+        self.assertTrue(entry.archive)
+        self.assertEqual(source_for(entry).name, "archive")
+        self.assertTrue(build_raw(entry, MachineView(self.machine, self.user)).data.startswith(formats.magic("pak")))
 
-    def test_an_archive_has_no_address_but_files_below_it(self):
-        archive = self.make("/pack.zip")
-        self.make("/pack.zip/a.txt")
-        found = resolve_payload(archive, frozenset())
-        self.assertEqual(found.kind, "archive")
-        self.assertTrue(found.stamp.startswith(f"archive:{archive.pk}:"))
-        self.assertTrue(build_raw(archive).data.startswith(formats.magic("pak")))
+    def test_a_signature_and_a_slice_are_the_players_own_files(self):
+        view = MachineView(self.machine, self.user)
+        make_file(self.machine, "/home/keep")                                          # корень есть
+        view.put_text("/home/a.sig", "-----BEGIN-----")
+        view.put_data("/home/part.bin", b"\x00\x01\x02")
+        for path, body in (("/home/a.sig", b"-----BEGIN-----"), ("/home/part.bin", b"\x00\x01\x02")):
+            entry = view.get(path)
+            self.assertEqual(source_for(entry).name, "own")
+            self.assertEqual(build_raw(entry, view).data, body)
 
-    def test_a_slice_reads_a_window_of_its_source(self):
-        from filesystem.models import FileSlice
+    # --- байты -------------------------------------------------------------------------------------------------
 
-        source = self.make("/src")
-        holder = self.make("/.slices/x", "slice", delivered_only=True)
-        FileSlice.objects.create(file=holder, source=source, state="", start=2, end=9)
-        found = resolve_payload(holder, frozenset())
-        self.assertEqual(found.kind, "slice")
-        self.assertEqual(found.body, build_raw(source).data[2:9])
-        self.assertEqual(resolve_payload(self.make("/.slices/y", "slice"), frozenset()).kind, "none")      # вырезки нет
+    def test_a_key_is_the_block_of_its_slug_when_it_has_no_text(self):
+        from filesystem.rawview import keys
 
-    # --- окно cnt ------------------------------------------------------------------------------------------
+        data = payload_for(self.entry("/k", key="alpha")).body
+        self.assertEqual(data, keys.armor("alpha", "store:alpha"))
+        self.assertEqual(payload_for(self.entry("/k2", key="beta", body="own text")).body, b"own text")
 
-    def test_the_window_of_each_address(self):
-        self.assertEqual(self.content("apps/wiki/Harbor/Report").url, "/apps/wiki/Harbor/Report")
-        self.assertEqual(self.content(f"view/{self.asset.public_id}/").url, f"/view/{self.asset.public_id}/")
-        self.assertEqual(self.content("  apps/map/?scene=harbor  ").url, "/apps/map/?scene=harbor")
+    def test_a_text_object_is_a_container_of_its_format(self):
+        data = build_raw(self.entry("/r", format="rec", body="Manifest.")).data
+        self.assertTrue(data.startswith("§rec\n".encode()))
+        self.assertIn(b"Manifest.", data)
+        self.assertEqual(build_raw(self.entry("/plain", body="as is")).data, b"as is")      # без формата: текст как есть
 
-    def test_a_key_and_a_signature_open_as_text(self):
-        for url in ("keys/alpha", "sig/alpha/abcd"):
-            found = self.content(url)
-            self.assertIn("/text/?path=%2Fc", found.url)
+    def test_the_edit_of_a_player_is_what_is_read(self):
+        view = MachineView(self.machine, self.user)
+        make_file(self.machine, "/home/n.txt", body="base")
+        view.edit_text("/home/n.txt", "mine")
+        self.assertEqual(build_raw(view.get("/home/n.txt"), view).data, b"mine")
 
-    def test_what_has_no_window(self):
-        for url in ("", "   ", "slice"):
-            self.assertEqual(self.content(url).error, "empty")
+    def test_the_same_object_gives_the_same_bytes_wherever_it_lies(self):
+        first = self.entry("/a", size=700)
+        view = MachineView(self.machine, self.user)
+        view.copy("/a", "/b")
+        self.assertEqual(build_raw(view.get("/b"), view).data, build_raw(first, view).data)
+        self.assertEqual(len(build_raw(first).data), 700)
 
-    def test_only_internal_addresses_open(self):
-        for url in ("http://x/y", "//x/y", "/abs", "a\\b"):
-            self.assertEqual(self.content(url).error, "bad_path")
+    def test_an_external_link_never_downloads_anything(self):
+        entry = self.entry("/link", url="apps/x/", size=300)
+        self.assertEqual(len(build_raw(entry).data), 300)                                # байты выдуманы, размер из поля
 
-    # --- реестр --------------------------------------------------------------------------------------------
+    def test_closed_text_gives_noise_of_the_same_length(self):
+        entry = self.entry("/c", body="Secret text", format="rec")
+        item = Item.objects.get(slug__startswith="c")
+        item.access = "k1"
+        item.save()
+        entry = MachineView(self.machine, self.user).get("/c")
+        closed, opened = build_raw(entry).data, build_raw(entry, keys=frozenset({"k1"})).data
+        self.assertNotIn(b"Secret text", closed)
+        self.assertIn(b"Secret text", opened)
+        self.assertEqual(len(closed), len(opened))
 
-    def test_the_first_kind_in_the_registry_owns_an_address(self):
-        from filesystem.sources import Address, source_for
+    # --- окно cnt ----------------------------------------------------------------------------------------------
 
-        expected = {
-            "keys/a": "key", "sig/a/b": "signature", "slice": "slice", "view/x": "asset", "apps/wiki/A/B": "wiki",
-            "apps/map/?scene=x": "map", "apps/mail/?message=m": "mail", "apps/other": "app", "other/place": None,
-        }
-        for url, name in expected.items():
-            found = source_for(Address.parse(url))
-            self.assertEqual(found.name if found else None, name, url)
+    def test_the_window_of_each_kind(self):
+        self.assertEqual(self.window(self.entry("/asset", url=f"view/{self.asset.public_id}/")).url, f"/view/{self.asset.public_id}/")
+        self.assertEqual(self.window(self.entry("/link", url="apps/x/")).url, "https://example.com/x")
+        self.assertIn("/text/?path=%2Ftext", self.window(self.entry("/text", body="hello")).url)
+        self.assertIn("/text/?path=%2Fkey", self.window(self.entry("/key", key="alpha")).url)
+        self.assertEqual(self.window(self.entry("/blank")).error, "empty")
+
+    def test_an_archive_has_no_window_and_a_closed_layer_locks(self):
+        make_file(self.machine, "/pack.zip/a.txt")
+        view = MachineView(self.machine, self.user)
+        self.assertEqual(self.window(view.get("/pack.zip")).error, "empty")
+        locked = self.entry("/door", state="> encrypted hunter2", body="x")
+        self.assertEqual(self.window(locked).error, "locked")
 
     def test_a_new_kind_is_one_class_in_the_registry(self):
         from unittest import mock
@@ -162,19 +142,16 @@ class SourceKindTests(TestCase):
         class Note(Source):
             name = "note"
 
-            def accepts(self, address):
-                return address.parts[:1] == ["note"]
+            def accepts(self, entry):
+                return entry.name == "note"
 
-            def payload(self, machine_file, address, keys, reader, viewer):
+            def payload(self, entry, view, keys, reader, viewer):
                 return Payload(kind="note", layout="raw", body=b"hello", stamp="note:1")
 
-            def shows(self, url):
-                return url.startswith("note/")
-
-            def window(self, url, path):
+            def window(self, entry):
                 return Content(url="/note-window/")
 
         with mock.patch.object(sources, "SOURCES", (Note(), *sources.SOURCES)):
-            file = self.make("/n", "note/1")
-            self.assertEqual(build_raw(file).data, b"hello")
-            self.assertEqual(resolve_content(file, None, "/n", "n").url, "/note-window/")
+            entry = self.entry("/note")
+            self.assertEqual(build_raw(entry).data, b"hello")
+            self.assertEqual(resolve_content(entry, "/note", "note").url, "/note-window/")

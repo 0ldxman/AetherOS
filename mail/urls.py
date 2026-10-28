@@ -12,6 +12,7 @@ urlpatterns = [
     path("api/messages/<int:pk>/unread/", views.message_unread, name="unread"),
     path("api/attachments/<int:pk>/open/", views.attachment_open, name="open"),
     path("api/attachments/<int:pk>/save/", views.attachment_save, name="save"),
+    path("api/attachments/<int:pk>/text/", views.attachment_text, name="attachment_text"),
     path("api/tasks/", views.task_list, name="tasks"),
     path("api/tasks/<int:pk>/send/", views.task_send, name="send"),
 ]

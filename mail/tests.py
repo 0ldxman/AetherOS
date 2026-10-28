@@ -768,13 +768,13 @@ class HookMailActionTests(TestCase):
     @classmethod
     def setUpTestData(cls):
         from machines.models import MachineProfile, Session
-        from filesystem.models import MachineFile
+        from filesystem.testing import make_file
 
         cls.machine = Machine.objects.create(name="Staff", hostname="apollo-staff")
         cls.user = get_user_model().objects.create_user("ivan", password="pw")
         profile = MachineProfile.objects.create(machine=cls.machine, user=cls.user, name="Ivan", login="will_smith", freq=1)
         cls.session = Session.objects.create(user=cls.user, profile=profile)
-        cls.file = MachineFile.objects.create(machine=cls.machine, path="/home/door.bin", state=cls.LAYERED)
+        cls.file = make_file(cls.machine, "/home/door.bin", state=cls.LAYERED)
         cls.letter = make_message(
             slug="door_open", recipients="will_smith@apollo-staff", subject="open"
         )
@@ -835,35 +835,31 @@ class HookMailActionTests(TestCase):
     # ---------- доставка ----------
 
     def test_removing_the_layer_delivers_the_letter_to_the_player(self):
-        from filesystem.models import SessionFile
+        from filesystem.machine_view import MachineView
         from filesystem.unlock import unlock_file
 
-        row = SessionFile.objects.create(session=self.session, file=self.file)
-        result = unlock_file(row, {"password": "hunter2"})
+        result = unlock_file(MachineView(self.machine, self.user), "/home/door.bin", {"password": "hunter2"})
         self.assertTrue(result.result.removed)
         self.assertEqual([(m.slug, m.delivered, m.immediate) for m in result.mail], [("door_open", True, True)])
         viewer = Viewer(address="will_smith@apollo-staff", keys=frozenset(), user=self.user)
         self.assertEqual([m.subject for m in visible_messages(viewer)], ["open"])
 
     def test_a_wrong_password_delivers_nothing(self):
-        from filesystem.models import SessionFile
+        from filesystem.machine_view import MachineView
         from filesystem.unlock import unlock_file
 
-        row = SessionFile.objects.create(session=self.session, file=self.file)
-        result = unlock_file(row, {"password": "nope"})
+        result = unlock_file(MachineView(self.machine, self.user), "/home/door.bin", {"password": "nope"})
         self.assertFalse(result.result.removed)
         self.assertEqual(result.mail, [])
         self.assertEqual(Delivered.objects.count(), 0)
 
     def test_an_unknown_letter_in_a_hook_does_not_break_the_unlock(self):
-        from filesystem.models import MachineFile, SessionFile
+        from filesystem.machine_view import MachineView
+        from filesystem.testing import make_file
         from filesystem.unlock import unlock_file
 
-        broken = MachineFile.objects.create(
-            machine=self.machine, path="/home/b.bin", state="> encrypted hunter2\non remove: mail missing_letter"
-        )
-        row = SessionFile.objects.create(session=self.session, file=broken)
-        result = unlock_file(row, {"password": "hunter2"})
+        make_file(self.machine, "/home/b.bin", state="> encrypted hunter2\non remove: mail missing_letter")
+        result = unlock_file(MachineView(self.machine, self.user), "/home/b.bin", {"password": "hunter2"})
         self.assertTrue(result.result.removed)
         self.assertFalse(result.mail[0].delivered)
 
@@ -875,12 +871,10 @@ class HookMailActionTests(TestCase):
         self.assertIn("intercom: 1 new message", result.output)
 
     def test_a_delayed_letter_is_not_announced_yet(self):
-        from filesystem.models import MachineFile
+        from filesystem.testing import make_file
         from terminal.engine.executor import TerminalExecutor
 
-        MachineFile.objects.create(
-            machine=self.machine, path="/home/slow.bin", state="> encrypted hunter2\non remove: mail door_open delay=60"
-        )
+        make_file(self.machine, "/home/slow.bin", state="> encrypted hunter2\non remove: mail door_open delay=60")
         result, _ = TerminalExecutor().execute(session=self.session, source="ward /home/slow.bin hunter2")
         self.assertNotIn("intercom:", result.output)
         self.assertEqual(Delivered.objects.count(), 1)
@@ -897,19 +891,21 @@ class AttachmentKindTests(TestCase):
     @classmethod
     def setUpTestData(cls):
         from assets.models import Asset
-        from filesystem.models import MachineFile
+        from filesystem.models import Item, Placement
         from machines.models import MachineProfile, Session
 
         cls.machine = Machine.objects.create(name="Staff", hostname="apollo-staff")
         cls.elsewhere = Machine.objects.create(name="Lab", hostname="apollo-lab")
         cls.asset = Asset.objects.create(name="photo", file_id="42")
-        cls.file = MachineFile.objects.create(machine=cls.machine, path="/home/evidence.dat", delivered_only=True)
+        cls.file = Item.objects.create(slug="evidence", name="evidence.dat")
         cls.user = get_user_model().objects.create_user("ivan", password="pw")
         profile = MachineProfile.objects.create(machine=cls.machine, user=cls.user, name="I", login="will_smith", freq=1)
         cls.session = Session.objects.create(user=cls.user, profile=profile)
         cls.message = make_message(recipients="will_smith@apollo-staff")
 
     def attach(self, **fields):
+        if fields.get("kind") == "file":
+            fields.setdefault("save_path", "/home/evidence.dat")
         return Attachment.objects.create(message=self.message, label=fields.pop("label", "x"), **fields)
 
     # ---------- проверка вложения ----------
@@ -921,7 +917,7 @@ class AttachmentKindTests(TestCase):
             with self.assertRaises(ValidationError, msg=kind):
                 Attachment(message=self.message, label="x", kind=kind).full_clean()
         Attachment(message=self.message, label="x", kind="asset", asset=self.asset).full_clean()
-        Attachment(message=self.message, label="x", kind="file", machine_file=self.file).full_clean()
+        Attachment(message=self.message, label="x", kind="file", item=self.file).full_clean()
 
     # ---------- что видит окно почты ----------
 
@@ -935,7 +931,7 @@ class AttachmentKindTests(TestCase):
     def test_a_file_can_be_saved_to_the_machine_and_knows_if_it_already_was(self):
         from mail.attachments import payload
 
-        item = self.attach(kind="file", machine_file=self.file)
+        item = self.attach(kind="file", item=self.file)
         before = payload(item, self.session)
         self.assertEqual((before["path"], before["saved"]), ("/home/evidence.dat", False))
         self.assertTrue(before["save"].endswith(f"/api/attachments/{item.pk}/save/"))
@@ -960,44 +956,52 @@ class AttachmentKindTests(TestCase):
 
     # ---------- сохранение в файловую систему ----------
 
-    def test_saving_puts_the_file_into_the_players_session_only(self):
-        from filesystem.models import SessionFile
+    def test_saving_puts_the_file_into_the_players_layer_only(self):
+        from filesystem.models import PlayerFile, Placement
         from mail.attachments import save_to_machine
 
-        item = self.attach(kind="file", machine_file=self.file)
+        item = self.attach(kind="file", item=self.file)
         self.assertEqual(save_to_machine(self.session, item), "/home/evidence.dat")
-        row = SessionFile.objects.get(session=self.session)
-        self.assertEqual((row.file, row.deleted_at), (self.file, None))
+        row = PlayerFile.objects.get(user=self.user)
+        self.assertEqual((row.item, row.deleted_at), (self.file, None))
+        self.assertEqual(Placement.objects.count(), 0)                                  # база не тронута
 
     def test_saving_twice_keeps_one_copy(self):
-        from filesystem.models import SessionFile
+        from filesystem.models import PlayerFile
         from mail.attachments import save_to_machine
 
-        item = self.attach(kind="file", machine_file=self.file)
+        item = self.attach(kind="file", item=self.file)
         save_to_machine(self.session, item)
         save_to_machine(self.session, item)
-        self.assertEqual(SessionFile.objects.count(), 1)
+        self.assertEqual(PlayerFile.objects.count(), 1)
 
     def test_a_deleted_file_comes_back_when_saved_again(self):
         from django.utils import timezone
 
-        from filesystem.models import SessionFile
+        from filesystem.models import PlayerFile
         from mail.attachments import save_to_machine
 
-        item = self.attach(kind="file", machine_file=self.file)
+        item = self.attach(kind="file", item=self.file)
         save_to_machine(self.session, item)
-        SessionFile.objects.update(deleted_at=timezone.now())
+        PlayerFile.objects.update(deleted_at=timezone.now())
         save_to_machine(self.session, item)
-        self.assertIsNone(SessionFile.objects.get().deleted_at)
+        self.assertIsNone(PlayerFile.objects.get().deleted_at)
 
-    def test_a_file_of_another_machine_is_refused(self):
-        from filesystem.models import MachineFile
+    def test_a_taken_path_is_refused(self):
+        from filesystem.models import Item
+        from filesystem.machine_view import MachineView
         from mail.attachments import SaveError, save_to_machine
 
-        far = MachineFile.objects.create(machine=self.elsewhere, path="/home/far.dat")
+        MachineView(self.machine, self.user).put_item("/home/evidence.dat", Item.objects.create(slug="other", name="other"))
         with self.assertRaises(SaveError) as caught:
-            save_to_machine(self.session, self.attach(kind="file", machine_file=far))
+            save_to_machine(self.session, self.attach(kind="file", item=self.file))
         self.assertEqual(caught.exception.status, 409)
+
+    def test_the_default_place_is_the_home_folder_of_the_record(self):
+        from mail.attachments import target_path
+
+        self.assertEqual(target_path(self.session, Attachment(item=self.file)), "/home/will_smith/evidence.dat")
+        self.assertEqual(target_path(self.session, Attachment(item=self.file, save_path="notes/e.dat")), "/home/will_smith/notes/e.dat")
 
     def test_only_file_attachments_can_be_saved(self):
         from mail.attachments import SaveError, save_to_machine
@@ -1009,17 +1013,17 @@ class AttachmentKindTests(TestCase):
         from terminal.engine.executor import TerminalExecutor
         from mail.attachments import save_to_machine
 
-        item = self.attach(kind="file", machine_file=self.file)
+        item = self.attach(kind="file", item=self.file)
         listing = lambda: TerminalExecutor().execute(session=self.session, source="ls /home")[0].output
         self.assertNotIn("evidence.dat", listing())
         save_to_machine(self.session, item)
         self.assertIn("evidence.dat", listing())
 
     def test_an_ordinary_machine_file_is_listed_for_everyone(self):
-        from filesystem.models import MachineFile
+        from filesystem.testing import make_file
         from terminal.engine.executor import TerminalExecutor
 
-        MachineFile.objects.create(machine=self.machine, path="/home/readme.txt")
+        make_file(self.machine, "/home/readme.txt")
         self.assertIn("readme.txt", TerminalExecutor().execute(session=self.session, source="ls /home")[0].output)
 
 
@@ -1027,16 +1031,16 @@ class AttachmentKindTests(TestCase):
 class AttachmentSaveApiTests(TestCase):
     @classmethod
     def setUpTestData(cls):
-        from filesystem.models import MachineFile
+        from filesystem.models import Item
         from machines.models import MachineProfile, Session
 
         cls.machine = Machine.objects.create(name="Staff", hostname="apollo-staff")
         MachineApp.objects.create(machine=cls.machine, label="intercom", glyph="@", path="/apps/mail/")
-        cls.file = MachineFile.objects.create(machine=cls.machine, path="/home/evidence.dat", delivered_only=True)
+        cls.file = Item.objects.create(slug="evidence", name="evidence.dat")
         cls.user = get_user_model().objects.create_user("ivan", password="pw")
         cls.profile = MachineProfile.objects.create(machine=cls.machine, user=cls.user, name="I", login="will_smith", freq=1)
         cls.message = make_message(recipients="will_smith@apollo-staff")
-        cls.item = Attachment.objects.create(message=cls.message, label="evidence", kind="file", machine_file=cls.file)
+        cls.item = Attachment.objects.create(message=cls.message, label="evidence", kind="file", item=cls.file, save_path="/home/evidence.dat")
 
     def setUp(self):
         cache.clear()      # кэш пережил бы откат базы между тестами
@@ -1060,12 +1064,12 @@ class AttachmentSaveApiTests(TestCase):
         return response, json.loads(response.content)
 
     def test_a_signed_in_player_saves_the_file(self):
-        from filesystem.models import SessionFile
+        from filesystem.models import PlayerFile
 
-        session = self.player()
+        self.player()
         response, data = self.save()
         self.assertEqual((response.status_code, data), (200, {"saved": True, "path": "/home/evidence.dat"}))
-        self.assertTrue(SessionFile.objects.filter(session=session, file=self.file).exists())
+        self.assertTrue(PlayerFile.objects.filter(user=self.user, item=self.file).exists())
 
     def test_the_window_shows_the_saved_state_afterwards(self):
         self.player()
@@ -1074,7 +1078,7 @@ class AttachmentSaveApiTests(TestCase):
         self.assertTrue(detail["attachments"][0]["saved"])
 
     def test_a_witness_gets_the_authorization_error_and_nothing_changes(self):
-        from filesystem.models import SessionFile
+        from filesystem.models import PlayerFile
         from users.aether_auth import AUTH_REQUIRED
 
         null = Machine.objects.create(name="Null", hostname="aether-null")
@@ -1084,11 +1088,11 @@ class AttachmentSaveApiTests(TestCase):
         session.save()
         # письмо с вложением на машине witness
         letter = make_message(subject="for the witness")
-        item = Attachment.objects.create(message=letter, label="f", kind="file", machine_file=self.file)
+        item = Attachment.objects.create(message=letter, label="f", kind="file", item=self.file)
         response = self.client.post(reverse("mail:save", args=[item.pk]))
         self.assertEqual(response.status_code, 403)
         self.assertEqual(json.loads(response.content)["error"], AUTH_REQUIRED)
-        self.assertEqual(SessionFile.objects.count(), 0)
+        self.assertEqual(PlayerFile.objects.count(), 0)
 
     def test_a_hidden_letters_attachment_does_not_exist(self):
         Message.objects.filter(pk=self.message.pk).update(key_condition="nope")
@@ -1104,19 +1108,29 @@ class AttachmentSaveApiTests(TestCase):
         return response, json.loads(response.content)
 
     def test_a_file_without_layers_opens_in_its_viewer(self):
-        self.file.url = "apps/wiki/"
+        self.file.url = "https://example.com/wiki"
         self.file.save()
         self.player()
         response, data = self.open()
-        self.assertEqual((response.status_code, data["url"], data["title"]), (200, "/apps/wiki/", "evidence.dat"))
+        self.assertEqual((response.status_code, data["url"], data["title"]), (200, "https://example.com/wiki", "evidence.dat"))
+
+    def test_a_text_attachment_opens_before_it_is_saved_and_after(self):
+        self.file.body = "Shipment 7 left."
+        self.file.save()
+        self.player()
+        response, data = self.open()
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(data["url"].endswith(f"/api/attachments/{self.item.pk}/text/"))
+        self.assertEqual(self.client.get(data["url"]).content, b"Shipment 7 left.")
+        self.save()
+        response, data = self.open()
+        self.assertIn("/text/?path=%2Fhome%2Fevidence.dat", data["url"])                  # сохранённый открывается из слоя игрока
 
     def test_a_locked_file_does_not_open(self):
-        from filesystem.models import MachineFile
+        from filesystem.models import Item
 
-        locked = MachineFile.objects.create(
-            machine=self.machine, path="/home/locked.dat", url="apps/wiki/", state="> encrypted hunter2"
-        )
-        item = Attachment.objects.create(message=self.message, label="locked", kind="file", machine_file=locked)
+        locked = Item.objects.create(slug="locked", name="locked.dat", url="https://example.com/wiki", state="> encrypted hunter2")
+        item = Attachment.objects.create(message=self.message, label="locked", kind="file", item=locked, save_path="/home/locked.dat")
         self.player()
         response, data = self.open(item)
         self.assertEqual((response.status_code, data), (423, {"error": "content_locked"}))
@@ -1129,7 +1143,7 @@ class AttachmentSaveApiTests(TestCase):
     def test_someone_elses_message_attachment_is_not_found(self):
         self.player()
         other = make_message(recipients="nobody@elsewhere")
-        item = Attachment.objects.create(message=other, label="x", kind="file", machine_file=self.file)
+        item = Attachment.objects.create(message=other, label="x", kind="file", item=self.file)
         self.assertEqual(self.client.get(reverse("mail:open", args=[item.pk])).status_code, 404)
 
     def test_the_script_has_a_button_for_each_attachment_kind(self):

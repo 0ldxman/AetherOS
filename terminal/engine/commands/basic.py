@@ -65,7 +65,7 @@ class LsCommand(BaseCommand):
             )
 
         if "a" not in flags:
-            entries = [entry for entry in entries if not entry["name"].startswith(".")]      # скрытое видно только с -a
+            entries = [entry for entry in entries if not entry["hidden"]]      # скрытое (флаг или точка в имени) видно только с -a
         names = [entry["name"] + ("/" if entry["is_directory"] else "")
                  for entry in entries]
 

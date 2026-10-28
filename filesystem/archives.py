@@ -1,18 +1,13 @@
-"""Архивы файловой системы: файл с расширением, под путём которого лежат другие файлы машины.
+"""Архивы: объект, у которого есть члены (ItemMember), то есть другие объекты под путями внутри архива.
 
-    /home/archive.pak                    запись архива (нужна, если на нём есть слои; без слоёв её создаёт сама система)
-    /home/archive.pak/README.txt         члены архива: обычные файлы машины
-    /home/archive.pak/secret.7z          вложенный архив
-    /home/archive.pak/secret.7z/key.key  его член
-
-Игрок видит архив одним файлом: войти в него нельзя, а члены по их путям ему недоступны, пока он не распакует архив (pak).
-Запись типа «папка» (DIRECTORY) архивом не считается: так автор может сделать обычную папку с точкой в имени.
+Игрок видит архив одним файлом; его члены недоступны, пока он не распакует архив (pak). Архив это обычный файл: его копируют,
+переносят и защищают слоями (пароль, повреждение) как любой другой, а члены лежат у объекта и едут вместе с ним.
 """
+import hashlib
 import posixpath
+from dataclasses import replace
 
-from django.db.models import Count, Max
-
-from filesystem.models import MachineFile
+from filesystem.machine_view import FILE, Entry
 
 
 def has_extension(path):
@@ -20,69 +15,17 @@ def has_extension(path):
     return bool(posixpath.splitext(posixpath.basename(path.rstrip("/")))[1])
 
 
-def ancestors(path):
-    """Пути выше path, кроме корня: /a/b/c -> /a/b, /a."""
-    found, current = [], posixpath.dirname(path)
-    while current and current != "/":
-        found.append(current)
-        current = posixpath.dirname(current)
+def members(view, archive):
+    """Члены архива: [(путь внутри архива, запись)]; вложенный архив это один член, без его содержимого."""
+    found = []
+    for row in archive.item.members.select_related("item").order_by("path"):
+        found.append((row.path, Entry(
+            path=f"{archive.path.rstrip('/')}/{row.path}", kind=FILE, layer=archive.layer, inner="", placement=None, item=row.item,
+        )))
     return found
 
 
-def find(records):
-    """Пути-архивы среди записей машины. records: {путь: тип файла}.
-
-    Архив это путь, под которым что-то лежит, и это либо запись-файл, либо путь без записи, но с расширением."""
-    below = {up for path in records for up in ancestors(path)}
-    return {
-        path for path in below
-        if records.get(path) == MachineFile.FileType.FILE or (path not in records and has_extension(path))
-    }
-
-
-def hidden(path, archives):
-    """Лежит ли path внутри какого-нибудь архива (сам архив не считается)."""
-    return any(path.startswith(archive + "/") for archive in archives)
-
-
-def ensure_records(machine, records):
-    """Записи для архивов без записи (файл без слоёв): создаются при первом обращении. Возвращает созданные MachineFile."""
-    created = []
-    for path in sorted(find(records) - set(records)):
-        item, _ = MachineFile.objects.get_or_create(
-            machine=machine, path=path, defaults={"file_type": MachineFile.FileType.FILE}
-        )
-        created.append(item)
-    return created
-
-
-def below(machine_file):
-    """Все файлы машины под путём этой записи."""
-    return MachineFile.objects.filter(machine_id=machine_file.machine_id, path__startswith=machine_file.path.rstrip("/") + "/")
-
-
-def is_archive(machine_file):
-    """Файл (запись-файл) с расширением, под которым что-то лежит."""
-    return (
-        machine_file.file_type == MachineFile.FileType.FILE
-        and has_extension(machine_file.path)
-        and below(machine_file).exists()
-    )
-
-
-def stamp(machine_file):
-    """Что меняется вместе с содержимым архива: число файлов под ним и время последней правки."""
-    data = below(machine_file).aggregate(n=Count("id"), last=Max("updated_at"))
-    return f"{data['n']}:{data['last'].timestamp() if data['last'] else 0}"
-
-
-def members(machine_file):
-    """Члены архива: [(путь внутри архива, MachineFile)] только файлы, без содержимого вложенных архивов."""
-    prefix = machine_file.path.rstrip("/") + "/"
-    items = list(below(machine_file).order_by("path"))
-    nested = {path for path in find({item.path: item.file_type for item in items}) if path.startswith(prefix)}
-    return [
-        (item.path[len(prefix):], item)
-        for item in items
-        if item.file_type == MachineFile.FileType.FILE and not hidden(item.path, nested)
-    ]
+def stamp(found):
+    """Что меняется вместе с содержимым архива: члены и время правки их объектов."""
+    parts = [f"{name}:{entry.item.pk}:{entry.item.updated_at.timestamp()}:{len(entry.item.members.all())}" for name, entry in found]
+    return hashlib.sha256("|".join(parts).encode()).hexdigest()[:16]

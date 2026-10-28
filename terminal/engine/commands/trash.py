@@ -4,7 +4,7 @@ del и wipe спрашивают подтверждение (del -f и wipe -f �
 отдельным запросом (terminal.views.execute), а что собирались сделать, лежит в Django-сессии.
 """
 from filesystem.unlock import fire_file_event
-from filesystem.trash import TRASH_DIR, empty_trash, in_trash, trashed_rows
+from filesystem.trash import TRASH_DIR, empty_trash, in_trash, trashed
 from terminal.engine import trash
 from terminal.engine.commands.basic import BaseCommand
 from terminal.engine.report import hook_report
@@ -100,7 +100,8 @@ class Del(BaseCommand):
             return CommandResult()
 
         # хуки on delete: файл уже в корзине, а в текстах хука {path} прежний путь
-        lines, effects = hook_report(fire_file_event(row, "delete", original) for row, original in moved)
+        lines, effects = hook_report([fire_file_event(context.view, new_path, "delete", original) for new_path, original in moved])
+        context.invalidate()
         count = len(moved)
         text = "\n".join([f"del: {count} file{'s' if count != 1 else ''} moved to {TRASH_DIR}", *lines])
         return CommandResult(text, 0, scene=scenes.trash_scene(count), effects=effects)
@@ -137,7 +138,7 @@ class Wipe(BaseCommand):
         if operands or flags - {"f"}:
             return CommandResult(self.usage, 2)
 
-        count = trashed_rows(context.session).count()
+        count = len(trashed(context.view))
         if not count:
             return CommandResult(f"{self.name}: the trash is empty")
         if "f" in flags:
@@ -148,5 +149,6 @@ class Wipe(BaseCommand):
 
     @staticmethod
     def finish(context):
-        count = empty_trash(context.session)
+        count = empty_trash(context.view)
+        context.invalidate()
         return CommandResult(f"wipe: {count} file{'s' if count != 1 else ''} removed", 0, scene=scenes.wipe_scene(count))

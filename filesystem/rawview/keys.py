@@ -1,4 +1,4 @@
-"""Ключи файла в его байтах: каждый ключ из FileKey лежит в файле блоком в стиле PEM, в своём месте.
+"""Ключи файла в его байтах: каждый ключ из ItemKey лежит в файле блоком в стиле PEM, в своём месте.
 
     -----BEGIN ACCESS KEY-----
     Keyname: secret_a
@@ -38,9 +38,11 @@ def key_id(slug):
     return hashlib.sha256(f"keyid:{slug}".encode()).digest()[:8]
 
 
-def slugs_of(machine_file):
-    """Слаги ключей файла по порядку."""
-    return sorted(machine_file.keys.values_list("key__slug", flat=True))
+def slugs_of(item):
+    """Слаги ключей, внедрённых в объект, по порядку."""
+    if item is None:
+        return []
+    return sorted(item.keys.values_list("key__slug", flat=True))
 
 
 def armor(slug, seed):

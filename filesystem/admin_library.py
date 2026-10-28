@@ -13,7 +13,7 @@ from secure.admin_widgets import ConditionFieldsMixin, ConditionWidget
 from . import filemanager
 from .admin_files import VolumeFiles
 from .admin_preview import ItemPreviewMixin
-from .models import KEY_FORMAT, FileFormat, Item, ItemKey, ItemSignature, Placement, Volume
+from .models import KEY_FORMAT, FileFormat, Item, ItemKey, ItemMember, ItemSignature, Placement, Volume
 from machines.models import MachineMount
 
 
@@ -38,6 +38,13 @@ class ItemAdminForm(forms.ModelForm):
     class Meta:
         model = Item
         fields = "__all__"
+
+    def clean_state(self):
+        from filesystem.states.validators import validate_state_text
+
+        text = self.cleaned_data.get("state", "")
+        validate_state_text(text)
+        return text
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -64,6 +71,17 @@ class ItemKeyInline(KeyedInline):
     verbose_name_plural = "Внедрённые ключи"
 
 
+class ItemMemberInline(admin.TabularInline):
+    """Члены архива: если у объекта есть члены, игрок видит его архивом (pak l, pak x)."""
+
+    model = ItemMember
+    fk_name = "archive"
+    extra = 0
+    autocomplete_fields = ("item",)
+    verbose_name = "член архива"
+    verbose_name_plural = "Члены архива"
+
+
 class ItemSignatureInline(KeyedInline):
     model = ItemSignature
     verbose_name = "подпись"
@@ -74,12 +92,13 @@ class ItemSignatureInline(KeyedInline):
 class ItemAdmin(KeyConditionsMixin, ItemPreviewMixin, admin.ModelAdmin):
     form = ItemAdminForm
     condition_fields = ("access",)
-    inlines = (ItemKeyInline, ItemSignatureInline)
+    inlines = (ItemKeyInline, ItemSignatureInline, ItemMemberInline)
     list_display = ("slug", "name", "format", "content_summary", "placements_count", "updated_at")
     list_display_links = ("slug", "name")
     list_filter = ("format",)
     search_fields = ("slug", "name", "meta", "body")
     autocomplete_fields = ("asset", "scene", "message")
+    list_select_related = ("asset", "scene", "message")
     readonly_fields = ("created_at", "updated_at", "created_by", "updated_by")
     fieldsets = (
         ("Основное", {"fields": ("slug", "name", "format")}),

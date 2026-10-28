@@ -12,7 +12,7 @@
   mail  -- кладёт в outcome.mails письмо, которое доставит почта (mail/delivery.py);
   kick, alert -- кладут эффект в outcome.effects: его исполняет терминал и рабочий стол;
   drop, rename, copy -- пока НЕ выполняются, а складываются в
-           outcome.file_ops. Им нужны SessionFile и пути, это следующая часть.
+           outcome.file_ops. Им нужны вид машины игрока и пути, это следующая часть.
 """
 
 from dataclasses import dataclass, field

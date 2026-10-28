@@ -22,13 +22,9 @@ def viewer_of(context):
         return None
 
 
-def _state(entry):
-    return entry.session_file.state if entry.session_file else ""
-
-
 def size_of(context, entry):
-    return file_size(entry.machine_file, _state(entry), keys_of(context), viewer_of(context))
+    return file_size(entry, context.view, keys_of(context), viewer_of(context))
 
 
 def raw_of(context, entry):
-    return build_raw(entry.machine_file, _state(entry), keys_of(context), viewer=viewer_of(context))
+    return build_raw(entry, context.view, keys_of(context), viewer=viewer_of(context))

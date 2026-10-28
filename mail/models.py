@@ -163,13 +163,20 @@ class Attachment(models.Model):
         help_text="Для файла из хранилища.",
     )
 
-    machine_file = models.ForeignKey(
-        "filesystem.MachineFile",
+    item = models.ForeignKey(
+        "filesystem.Item",
         on_delete=models.CASCADE,
         null=True,
         blank=True,
         related_name="mail_attachments",
-        help_text="Для файла на машину. Лучше отметить его «delivered only», чтобы он не лежал у всех.",
+        help_text="Для файла на машину: объект, который игрок может сохранить к себе.",
+    )
+
+    save_path = models.CharField(
+        "Куда сохранить",
+        max_length=512,
+        blank=True,
+        help_text="Путь на машине игрока (или имя файла в его домашней папке). Пусто: домашняя папка, под именем объекта.",
     )
 
     order = models.PositiveSmallIntegerField(default=0)
@@ -189,8 +196,8 @@ class Attachment(models.Model):
             validate_internal_path(self.path)
         elif self.kind == self.Kind.ASSET and self.asset_id is None:
             raise ValidationError({"asset": "Выберите файл из хранилища."})
-        elif self.kind == self.Kind.FILE and self.machine_file_id is None:
-            raise ValidationError({"machine_file": "Выберите файл машины."})
+        elif self.kind == self.Kind.FILE and self.item_id is None:
+            raise ValidationError({"item": "Выберите объект."})
 
 
 class MessageRead(models.Model):

@@ -9,7 +9,6 @@
 import posixpath
 
 from filesystem import archives
-from filesystem.models import SessionFile
 from filesystem.states.attempt import peek_top, top_answer
 from filesystem.trash import in_trash
 from terminal.engine import trash
@@ -56,17 +55,17 @@ class PakCommand(LayerCommand):
         if fs.is_directory(path):
             return None, CommandResult(f"pak: {target}: Is a directory", 1)
         entry = fs.get_file(path)
-        if not archives.is_archive(entry.machine_file):
+        if not entry.archive:
             return None, CommandResult(f"pak: {target}: not an archive", 1)
         return entry, None
 
     def blocked(self, entry, target):
         """Отказ, если на архиве есть слой (верхний отвечает сам), иначе None."""
-        state = entry.session_file.state if entry.session_file else ""
-        top = peek_top(entry.machine_file.state, state)
+        state = entry.progress
+        top = peek_top(entry.state, state)
         if top is None:
             return None
-        text = top_answer(entry.machine_file.state, state, self.name, path=entry.path, name=posixpath.basename(entry.path), only_top=True)
+        text = top_answer(entry.state, state, self.name, path=entry.path, name=posixpath.basename(entry.path), only_top=True)
         return CommandResult(f"pak: {target}: {text if text is not None else BLOCKED.get(top.state.name, NOT_ARCHIVE)}", 1)
 
     # --- pass ---
@@ -78,8 +77,7 @@ class PakCommand(LayerCommand):
         entry, error = self.open(context, target)
         if error:
             return error
-        state = entry.session_file.state if entry.session_file else ""
-        top = peek_top(entry.machine_file.state, state)
+        top = peek_top(entry.state, entry.progress)
         if top is not None and top.state.name != self.layer:
             return self.blocked(entry, target)
         return self.unlock(context, target, [], self.layer, given={"password": password})
@@ -118,7 +116,7 @@ class PakCommand(LayerCommand):
         if refusal:
             return refusal
 
-        found = archives.members(entry.machine_file)
+        found = archives.members(context.view, entry)
         if mode == "l":
             return self.listing(context, entry, found)
         return self.extract(context, entry, found, names, dest)
@@ -129,7 +127,7 @@ class PakCommand(LayerCommand):
         tree = {}
         total = 0
         for name, item in found:
-            size = file_size(item, "", keys, viewer)
+            size = file_size(item, context.view, keys, viewer)
             total += size
             node = tree
             *folders, leaf = name.split("/")
@@ -179,8 +177,8 @@ class PakCommand(LayerCommand):
 
         for name, item in chosen:
             target = posixpath.join(folder, name)
-            trash._claim(context.session, target)
-            SessionFile.objects.create(session=context.session, file=item, path=target)
+            context.view.put_item(target, item.item)
+        context.invalidate()
 
         lines = [f"x {name}" for name, _ in chosen]
         lines.append(f"pak: extracted {len(chosen)} file{'s' if len(chosen) != 1 else ''} to {folder}")

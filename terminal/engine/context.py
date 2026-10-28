@@ -21,6 +21,23 @@ class TerminalContext:
     def profile(self):
         return self.session.profile
 
+    @property
+    def user(self):
+        return self.session.user
+
+    @property
+    def view(self):
+        """Вид файловой системы машины для игрока: общий для команд одного запроса (после записи его сбрасывает invalidate)."""
+        if getattr(self, "_view", None) is None:
+            from filesystem.machine_view import MachineView
+
+            self._view = MachineView(self.machine, self.user)
+        return self._view
+
+    def invalidate(self):
+        if getattr(self, "_view", None) is not None:
+            self._view.invalidate()
+
     def resolve_path(self, path: str) -> str:
         """Превращает путь (абсолютный или относительный) в нормальный
         абсолютный: сворачивает '.', '..' и лишние слэши.
