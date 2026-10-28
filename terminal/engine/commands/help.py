@@ -105,7 +105,7 @@ HELP = {
         "move files to the trash",
         ("del [-f] [-r] <file>...",),
         "Asks for confirmation, -f does not. -r removes directories. Protected system files cannot be removed.\n"
-        "Files in /trash are purged after seven days.",
+        "Files in the trash are purged after seven days.",
     ),
     "rcvr": (
         "restore a file from the trash",

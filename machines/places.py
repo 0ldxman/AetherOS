@@ -15,7 +15,7 @@ DEFAULTS = {
     "home": "/home/{login}",
     "secrets": "{home}/.secrets",
     "desktop": "{home}/Desktop",
-    "trash": "/trash",          # общая на машину; своя у записи, если переопределить: {home}/.trash
+    "trash": "{home}/.trash",   # своя у каждой записи; общую на машину задаёт место trash машины или типа системы
     "config": "/etc/aether",
     "logs": "/var/log",
     "temp": "/tmp",

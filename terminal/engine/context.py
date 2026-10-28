@@ -30,6 +30,13 @@ class TerminalContext:
         return self._home
 
     @property
+    def trash_dir(self):
+        """Корзина записи: место trash машины (по умолчанию {home}/.trash)."""
+        from machines import places
+
+        return places.resolve(self.machine, "trash", self.profile.login) or "/trash"
+
+    @property
     def user(self):
         return self.session.user
 

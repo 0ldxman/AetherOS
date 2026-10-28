@@ -167,7 +167,7 @@ class PakCommand(LayerCommand):
 
         base = posixpath.basename(entry.path)
         folder = context.resolve_path(dest) if dest else posixpath.join(posixpath.dirname(entry.path), posixpath.splitext(base)[0])
-        if in_trash(folder):
+        if in_trash(folder, context.trash_dir):
             return CommandResult(f"pak: {folder}: to the trash, use del", 1)
         if fs.exists(folder) and not fs.is_directory(folder):
             return CommandResult(f"pak: '{folder}' exists and is not a directory", 1)

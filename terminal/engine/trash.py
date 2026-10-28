@@ -1,4 +1,4 @@
-"""Корзина в терминале: перенос в /trash (del) и возврат (rcvr). Что такое «в корзине» и как файл исчезает насовсем,
+"""Корзина в терминале: перенос в корзину записи (del) и возврат (rcvr). Что такое «в корзине» и как файл исчезает насовсем,
 в filesystem/trash.py.
 """
 import posixpath
@@ -8,7 +8,7 @@ from django.conf import settings
 from django.utils import timezone
 
 from filesystem.states.stack import load_progress
-from filesystem.trash import TRASH_DIR, in_trash, trashed
+from filesystem.trash import trashed
 from filesystem.unlock import fire_file_event
 from terminal.engine.filesystem import VirtualFilesystem
 
@@ -28,18 +28,18 @@ def protection(context, path, found):
 
 
 def trash(context, path):
-    """Перенести файл или папку path в /trash под тем же именем (занято: name.1, name.2).
+    """Перенести файл или папку path в корзину записи под тем же именем (занято: name.1, name.2).
     Возвращает [(путь в корзине, прежний путь)] для каждого файла."""
     fs = VirtualFilesystem(context)
     view = context.view
     files = [entry for entry in view.under(path) if not entry.is_dir]
     name = posixpath.basename(path)
     candidate, number = name, 0
-    while fs.exists(posixpath.join(TRASH_DIR, candidate)):
+    while fs.exists(posixpath.join(context.trash_dir, candidate)):
         number += 1
         candidate = f"{name}.{number}"
 
-    target = posixpath.join(TRASH_DIR, candidate)
+    target = posixpath.join(context.trash_dir, candidate)
     view.move(path, target)
     now = timezone.now()
     moved = []
@@ -66,7 +66,7 @@ def recover(context, path, dest=None):
     Хуки restore автора файла берут верхний слой до порчи, их итог исполняет команда."""
     view = context.view
     prefix = path.rstrip("/") + "/"
-    found = [entry for entry in trashed(view) if entry.path == path or entry.path.startswith(prefix)]
+    found = [entry for entry in trashed(view, context.trash_dir) if entry.path == path or entry.path.startswith(prefix)]
     if not found:
         return None, "No such file or directory"
 

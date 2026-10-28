@@ -13,7 +13,7 @@ from users.aether_auth import GUEST_LOGIN
 from .boots import boot_scenes
 from .messages import catalog
 
-from machines.current import active_session, current_machine, visible_apps
+from machines.current import active_session, current_machine, desktop_entries, is_app, visible_apps
 
 # Create your views here.
 
@@ -72,6 +72,19 @@ def _identity(request, machine):
     return login, f"{owner}-m{machine.pk}"
 
 
+def _file_icons(request, machine):
+    """Обычные файлы стола: значок открывает окно файла по его виду. Закрытый слоями файл виден, но не открывается, пока слои не сняты."""
+    from filesystem.content import resolve_content
+
+    icons = []
+    for entry in desktop_entries(request, machine):
+        if is_app(entry):
+            continue
+        content = resolve_content(entry, entry.path, entry.name)
+        icons.append({"id": f"file:{entry.path}", "label": entry.name, "glyph": "▤", "url": content.url or "", "closed": not content.url})
+    return icons
+
+
 @ensure_csrf_cookie  # меню «disconnect» шлёт POST на выход
 def desktop(request):
     from machines import bridge
@@ -97,6 +110,8 @@ def desktop(request):
         }
         for app in visible_apps(request, machine)
     ]
+
+    files = _file_icons(request, machine)
 
     # опрос новых писем нужен только если интерком есть на этом столе
     mail_url = reverse("mail:inbox")
@@ -127,6 +142,7 @@ def desktop(request):
         "login": login,
         "layout_key": layout_key,
         "apps": apps,
+        "files": files,
         "can_sessions": request.user.is_authenticated,
         "sessions_url": reverse("sessions"),
         "logout_url": reverse("logout"),

@@ -64,6 +64,8 @@ class Command(BaseCommand):
         ):
             put(base, f"etc/desktop/{label}.app", slug, appfile.render(label, glyph, path, suffix), format="app")
 
+        put(base, "etc/desktop/readme.txt", "demo-readme", "Welcome. Files on the desktop open by their kind.\n")
+
         # ключи
         alpha = Item.objects.get_or_create(slug="alpha", defaults={"name": "Alpha key", "format": "key"})[0]
         Item.objects.get_or_create(slug="harbor-pass", defaults={"name": "Harbor pass", "format": "key"})

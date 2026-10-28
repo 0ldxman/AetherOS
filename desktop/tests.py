@@ -840,3 +840,39 @@ class WikiIconTests(TestCase):
             self.assertIn(f"icons/{name}.svg", css)
         block = css[css.index("значки: залитые svg"):css.index("корень: акцент на вёдрах")]
         self.assertEqual(re.findall(r"#[0-9a-fA-F]{3,8}\b", block), [])
+
+
+@override_settings(FORCE_SCRIPT_NAME=None)
+class DesktopFileTests(TestCase):
+    """Обычные файлы рабочего стола записи рядом с приложениями."""
+
+    def setUp(self):
+        from filesystem.testing import APPS_DIR, make_app, make_file
+
+        previous = get_script_prefix()
+        set_script_prefix("/")
+        self.addCleanup(set_script_prefix, previous)
+        self.main = Machine.objects.create(name="Main", hostname="aether-main")
+        self.user = get_user_model().objects.create_user("ivan", password="pw")
+        self.client.force_login(self.user)
+        make_app(self.main, "console", ">_", "/apps/terminal/")
+        self.make_file, self.dir = make_file, APPS_DIR
+
+    def icons(self):
+        return {icon["label"]: icon for icon in self.client.get(reverse("desktop")).context["files"]}
+
+    def test_a_text_file_is_an_icon_that_opens_its_window_and_an_app_is_not_a_file(self):
+        self.make_file(self.main, f"{self.dir}/notes.txt", body="hello")
+        icons = self.icons()
+        self.assertEqual(list(icons), ["notes.txt"])
+        self.assertIn(reverse("fsview:text"), icons["notes.txt"]["url"])
+        self.assertFalse(icons["notes.txt"]["closed"])
+        self.assertContains(self.client.get(reverse("desktop")), "console")
+
+    def test_a_hidden_file_is_not_shown_and_a_locked_one_is_shown_closed(self):
+        self.make_file(self.main, f"{self.dir}/.secret", body="x")
+        self.make_file(self.main, f"{self.dir}/vault.dat", state="> encrypted hunter2", body="x")
+        icons = self.icons()
+        self.assertEqual(list(icons), ["vault.dat"])
+        self.assertTrue(icons["vault.dat"]["closed"])
+        self.assertContains(self.client.get(reverse("desktop")), "is-closed")

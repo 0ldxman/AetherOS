@@ -968,6 +968,7 @@ iconItems.forEach((li) => {
 
 document.querySelectorAll(".icon").forEach((icon) => {
   icon.addEventListener("dblclick", () => {
+    if (!icon.dataset.url) return; // файл закрыт слоями: пока они не сняты, окна нет
     openApp(
       icon.dataset.app,
       icon.querySelector(".icon-label").textContent,

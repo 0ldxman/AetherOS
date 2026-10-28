@@ -618,3 +618,6 @@ body {
 @keyframes blackout-blink {
   50% { opacity: 0; }
 }
+
+/* файл на столе: закрытый слоями виден, но не открывается */
+.icon--file.is-closed { opacity: 0.55; cursor: not-allowed; }

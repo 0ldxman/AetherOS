@@ -1,10 +1,10 @@
-"""Корзина: del (убрать файл в /trash), rcvr (вернуть, но повреждённым), wipe (очистить корзину).
+"""Корзина: del (убрать файл в корзину записи), rcvr (вернуть, но повреждённым), wipe (очистить корзину).
 
 del и wipe спрашивают подтверждение (del -f и wipe -f без вопроса). Вопрос это prompt вида confirm, ответ приходит
 отдельным запросом (terminal.views.execute), а что собирались сделать, лежит в Django-сессии.
 """
 from filesystem.unlock import fire_file_event
-from filesystem.trash import TRASH_DIR, empty_trash, in_trash, trashed
+from filesystem.trash import empty_trash, in_trash, trashed
 from terminal.engine import trash
 from terminal.engine.commands.basic import BaseCommand
 from terminal.engine.report import hook_report
@@ -83,7 +83,7 @@ class Del(BaseCommand):
         fs = VirtualFilesystem(context)
         if not fs.exists(path):
             return "No such file or directory"
-        if in_trash(path):
+        if in_trash(path, context.trash_dir):
             return "already in the trash (use wipe)"
         found = trash.under(fs._entries(), path)
         if fs.is_directory(path) and not recursive:
@@ -103,7 +103,7 @@ class Del(BaseCommand):
         lines, effects = hook_report([fire_file_event(context.view, new_path, "delete", original) for new_path, original in moved])
         context.invalidate()
         count = len(moved)
-        text = "\n".join([f"del: {count} file{'s' if count != 1 else ''} moved to {TRASH_DIR}", *lines])
+        text = "\n".join([f"del: {count} file{'s' if count != 1 else ''} moved to the trash", *lines])
         return CommandResult(text, 0, scene=scenes.trash_scene(count), effects=effects)
 
 
@@ -116,7 +116,7 @@ class Rcvr(BaseCommand):
             return CommandResult(self.usage, 2)
 
         path = context.resolve_path(args[0])
-        if not in_trash(path) or path == TRASH_DIR:
+        if not in_trash(path, context.trash_dir) or path == context.trash_dir:
             return CommandResult(f"{self.name}: {args[0]}: not in the trash", 1)
 
         dest = context.resolve_path(args[1]) if len(args) > 1 else None
@@ -138,7 +138,7 @@ class Wipe(BaseCommand):
         if operands or flags - {"f"}:
             return CommandResult(self.usage, 2)
 
-        count = len(trashed(context.view))
+        count = len(trashed(context.view, context.trash_dir))
         if not count:
             return CommandResult(f"{self.name}: the trash is empty")
         if "f" in flags:
@@ -149,6 +149,6 @@ class Wipe(BaseCommand):
 
     @staticmethod
     def finish(context):
-        count = empty_trash(context.view)
+        count = empty_trash(context.view, context.trash_dir)
         context.invalidate()
         return CommandResult(f"wipe: {count} file{'s' if count != 1 else ''} removed", 0, scene=scenes.wipe_scene(count))

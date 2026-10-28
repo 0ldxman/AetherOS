@@ -21,9 +21,9 @@ def check(context, fs, source, target, move, recursive):
     """Текст ошибки или None."""
     if not fs.exists(source):
         return "No such file or directory"
-    if in_trash(source):
+    if in_trash(source, context.trash_dir):
         return "in the trash, use rcvr"
-    if in_trash(target):
+    if in_trash(target, context.trash_dir):
         return "to the trash, use del"
     if fs.is_directory(source) and not (move or recursive):
         return "omitting directory (use -r)"

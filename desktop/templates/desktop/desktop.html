@@ -57,6 +57,18 @@
                 </button>
             </li>
             {% endfor %}
+            {% for file in files %}
+            <li>
+                <button
+                    class="icon icon--file{% if file.closed %} is-closed{% endif %}"
+                    data-app="{{ file.id }}"
+                    data-url="{{ file.url }}"
+                >
+                    <span class="icon-glyph">{{ file.glyph }}</span>
+                    <span class="icon-label">{{ file.label }}</span>
+                </button>
+            </li>
+            {% endfor %}
         </ul>
     </main>
     <div id="clock-plate"> 

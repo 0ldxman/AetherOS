@@ -86,22 +86,38 @@ def _machine_apps(request, machine):
     return cache[machine.pk]
 
 
-def _desktop_apps(request, machine):
-    from django.core.exceptions import ValidationError
-
-    from filesystem import appfile
+def desktop_entries(request, machine):
+    """Файлы рабочего стола записи (без папок и скрытого): приложения и обычные файлы. За запрос читаются один раз."""
     from filesystem.machine_view import MachineView
     from machines import places
     from users.aether_auth import GUEST_LOGIN
 
-    signed = request.user.is_authenticated
-    login = active_session(request).profile.login if signed else GUEST_LOGIN
-    desktop = places.resolve(machine, "desktop", login)
-    if desktop is None:
-        return []
+    cache = request.__dict__.setdefault("_desktop_entries", {})
+    if machine.pk not in cache:
+        signed = request.user.is_authenticated
+        login = active_session(request).profile.login if signed else GUEST_LOGIN
+        desktop = places.resolve(machine, "desktop", login)
+        view = MachineView(machine, request.user if signed else None)
+        cache[machine.pk] = [] if desktop is None else [
+            entry for entry in view.children(desktop) if not entry.is_dir and not entry.hidden
+        ]
+    return cache[machine.pk]
+
+
+def is_app(entry):
+    from filesystem import appfile
+
+    return entry.item is not None and entry.item.format == appfile.APP_FORMAT
+
+
+def _desktop_apps(request, machine):
+    from django.core.exceptions import ValidationError
+
+    from filesystem import appfile
+
     found = []
-    for entry in MachineView(machine, request.user if signed else None).children(desktop):
-        if entry.is_dir or entry.hidden or entry.item is None or entry.item.format != appfile.APP_FORMAT:
+    for entry in desktop_entries(request, machine):
+        if not is_app(entry):
             continue
         try:
             spec = appfile.parse(entry.item.body)
