@@ -8,7 +8,7 @@ from django.test import TestCase, override_settings
 from django.urls import get_script_prefix, reverse, set_script_prefix
 
 from assets.models import Asset
-from secure.models import Key
+from filesystem.testing import key_item
 from wiki import dashboard
 from wiki.testing import make_document, make_namespace
 
@@ -26,9 +26,9 @@ class DashboardDataTests(TestCase):
         cls.selfref = make_document(free, "Сама", body="[я](/apps/wiki/Прочее/Сама)")
         make_document(free, "Закрытая", access="key_gate")
 
-        Key.objects.create(slug="key_used")
-        Key.objects.create(slug="key_gate")
-        Key.objects.create(slug="key_idle")
+        key_item("key_used")
+        key_item("key_gate")
+        key_item("key_idle")
 
         Asset.objects.create(name="Использован", slug="in-use", file_id="1", viewer_type=Asset.ViewerType.AUDIO)
         Asset.objects.create(name="Лишний", slug="idle", file_id="2")

@@ -6,7 +6,7 @@
 from django.test import TestCase
 
 from assets.models import Asset
-from secure.models import Key
+from filesystem.testing import key_item
 from wiki.markup import lint
 from wiki.testing import make_document, make_namespace
 
@@ -49,7 +49,7 @@ class StructureTests(TestCase):
 class KeyTests(TestCase):
     @classmethod
     def setUpTestData(cls):
-        Key.objects.create(slug="key_a")
+        key_item("key_a")
 
     def test_known_key_passes_unknown_warns(self):
         text = "::spoiler key_a\nok\n::\n\n::spoiler key_a and ghost\nx\n::\n"

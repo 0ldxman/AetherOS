@@ -45,7 +45,7 @@ from django.utils.safestring import mark_safe
 
 from assets.models import Asset
 from assets.services import asset_widget_kind
-from secure.models import Key
+from secure.keys import key_rows
 
 from . import markup
 from .access import keys_for_mode
@@ -135,9 +135,7 @@ class DocumentPreviewMixin:
             context["scenes_url"] = reverse("admin:map_mapscene_find")
         except Exception:
             context["scenes_url"] = ""
-        context["preview_keys"] = list(
-            Key.objects.order_by("slug").values("slug", "description")
-        )
+        context["preview_keys"] = key_rows()
         return super().render_change_form(request, context, add, change, form_url, obj)
 
     def assets_view(self, request):

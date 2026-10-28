@@ -42,6 +42,10 @@ class ItemPreviewMixin(DocumentPreviewMixin):
             for row in Item.objects.filter(format=KEY_FORMAT).order_by("slug").values("slug", "name")
         ]
         data["formats"] = format_table()
+        if obj is not None and obj.format == KEY_FORMAT:
+            from secure.usage import key_usage
+
+            data["key_usage"] = key_usage(obj.slug)
         return response
 
     def preview_view(self, request):

@@ -4,7 +4,6 @@ from django.contrib.auth.hashers import check_password, make_password
 from django.db import models
 from django.db.models import Q
 
-from secure.models import Key
 import secrets
 
 from django.core.exceptions import ValidationError

@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 
 from secure.access import satisfied
-from secure.models import Key
+from secure.keys import key_slugs
 
 
 @dataclass(frozen=True)
@@ -33,7 +33,7 @@ def keys_for_mode(mode, listed=()):
     Берутся только существующие ключи: удалённый или опечатанный slug
     просто не попадёт в набор.
     """
-    existing = set(Key.objects.values_list("slug", flat=True))
+    existing = key_slugs()
     if mode == "all":
         return frozenset(existing)
     if mode == "custom":

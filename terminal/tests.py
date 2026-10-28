@@ -295,7 +295,7 @@ class BridgeFixture(TestCase):
 
         from filesystem.testing import make_file
         from machines.models import MachineProfile, MachineProfileHID, MachineProfileToken
-        from secure.models import Key
+        from filesystem.testing import key_item
 
         cls.main = Machine.objects.create(name="Main", hostname="aether-main", hid="AA:00:00:00:00:01")
         cls.core = Machine.objects.create(name="Core", hostname="aether-core", hid="AA:00:00:00:00:02")
@@ -978,7 +978,7 @@ class NetTests(TestCase):
     def setUpTestData(cls):
         from filesystem.testing import make_file
         from machines.models import MachineProfile, NetNode, NetResource
-        from secure.models import Key
+        from filesystem.testing import key_item
 
         cls.main = Machine.objects.create(name="Main", hostname="aether-main")
         cls.server = Machine.objects.create(name="Archive", hostname="aether-archive")
@@ -1592,7 +1592,7 @@ class RawCommandTests(TestCase):
 
     def keyed_file(self, path="/home/keyed.rec", state=""):
         from filesystem.testing import make_file
-        from secure.models import Key
+        from filesystem.testing import key_item
 
         item = make_file(self.main, path, url="apps/wiki/Harbor/Report", state=state)
         embed_key(item.item, "secret_a")
@@ -1897,7 +1897,7 @@ class SignatureTests(TestCase):
         from filesystem.models import ItemSignature
         from filesystem.testing import make_file, key_item
         from machines.models import MachineProfile
-        from secure.models import Key
+        from filesystem.testing import key_item
         from filesystem.testing import make_page
 
         cls.main = Machine.objects.create(name="Main", hostname="aether-main")
@@ -2027,7 +2027,7 @@ class WardKeyTests(TestCase):
     def setUpTestData(cls):
         from filesystem.testing import make_file
         from machines.models import MachineProfile
-        from secure.models import Key
+        from filesystem.testing import key_item
         from filesystem.testing import make_page
 
         cls.main = Machine.objects.create(name="Main", hostname="aether-main")

@@ -12,7 +12,7 @@ from django.contrib.auth import get_user_model
 
 from assets.models import Asset
 from secure.access import condition_slugs
-from secure.models import Key
+from secure.keys import key_items
 from secure.usage import used_slugs
 
 from .markup.lint import ERROR, _Scan, _wiki_target
@@ -95,12 +95,12 @@ def build():
         if (a.slug or "") not in asset_refs and str(a.public_id) not in asset_refs
     ]
     key_slugs |= used_slugs()  # условия машин и ключи файлов
-    result.unused_keys = list(Key.objects.exclude(slug__in=key_slugs).order_by("slug"))
+    result.unused_keys = list(key_items().exclude(slug__in=key_slugs).order_by("slug"))
     result.totals = {
         "documents": len(documents),
         "namespaces": len(lib.nodes),
         "assets": Asset.objects.count(),
-        "keys": Key.objects.count(),
+        "keys": key_items().count(),
         "authors": get_user_model().objects.filter(is_staff=True).count(),
     }
     return result

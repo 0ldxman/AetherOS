@@ -13,7 +13,7 @@ from django.core.cache import cache
 from django.test import RequestFactory, TestCase
 from django.test.utils import CaptureQueriesContext
 
-from secure.models import Key
+from filesystem.testing import key_item
 from filesystem.testing import give_keys
 from wiki import views
 from wiki.testing import make_document, make_namespace
@@ -59,7 +59,7 @@ class WikiViewsTests(TestCase):
         cls.deep_doc = make_document(
             namespace=cls.deep, title="Вложенная", body="глубоко"
         )
-        cls.key = Key.objects.create(slug="spoiler_key")
+        cls.key = key_item("spoiler_key")
         cls.player = get_user_model().objects.create_user("player")
         cls.held = give_keys(cls.player, cls.key.slug)
         cls.spoiler_doc = make_document(
@@ -292,7 +292,7 @@ class ViewAsTests(TestCase):
     def setUpTestData(cls):
         locked = make_namespace(name="Закрытый", access="key_a")
         make_document(locked, "Страница")
-        Key.objects.create(slug="key_a")
+        key_item("key_a")
         User = get_user_model()
         cls.staff = User.objects.create_user("staff", password="pw", is_staff=True)
         cls.player = User.objects.create_user("player", password="pw")

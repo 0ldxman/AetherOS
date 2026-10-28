@@ -193,8 +193,8 @@ class TokenTests(AdminTestCase):
 class ConditionFieldTests(AdminTestCase):
     def setUp(self):
         super().setUp()
-        from secure.models import Key
-        Key.objects.create(slug="key_a")
+        from filesystem.testing import key_item
+        key_item("key_a")
 
     def app_data(self, **extra):
         data = {"machine": self.machine.pk, "label": "wiki", "glyph": "W", "suffix": "", "path": "/apps/wiki/",

@@ -19,7 +19,7 @@ from machines.models import Machine, MachineApp, MachineProfile
 from mail.addresses import matches, matches_any, split, validate_address, validate_masks
 from mail.access import Viewer, mark_read, mark_unread, read_ids, summary, visible_messages
 from mail.models import Attachment, ComposeProgress, Delivered, Message, MessageRead, Trashed
-from secure.models import Key
+from filesystem.testing import key_item
 
 
 def make_message(**fields):
@@ -381,7 +381,7 @@ class InboxApiTests(TestCase):
         self.assertEqual(data["messages"], [])                    # ключа ещё нет
         from filesystem.testing import give_keys
 
-        Key.objects.create(slug="the_door")
+        key_item("the_door")
         give_keys(user, "the_door")                              # ключ лежит в /home/.secrets начатой сессии
         _, data = self.get_json("mail:messages")
         self.assertEqual([row["id"] for row in data["messages"]], [message.pk])

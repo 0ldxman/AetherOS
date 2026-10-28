@@ -16,7 +16,7 @@ from filesystem.models import ItemKey
 from filesystem.testing import embed_key, make_file
 from machines.models import Machine, MachineApp, MachineProfile, Session
 from map.models import Country, CountryLabel, Ownership, Province
-from secure.models import Key
+from filesystem.testing import key_item
 
 
 def build(i, user, key):
@@ -65,7 +65,7 @@ class ListsTests(TestCase):
         set_script_prefix("/")
         self.addCleanup(set_script_prefix, previous)
         self.user = get_user_model().objects.create_superuser("root", password="pw")
-        self.key = Key.objects.create(slug="key_a")
+        self.key = key_item("key_a")
         self.client.force_login(self.user)
 
     def urls(self):

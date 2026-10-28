@@ -320,15 +320,15 @@ class MapSceneAdmin(admin.ModelAdmin):
     )
 
     def render_change_form(self, request, context, *args, **kwargs):
-        from .scenes import COLORS
+        from secure.keys import key_rows
 
-        from secure.models import Key
+        from .scenes import COLORS
 
         from .icons import MARKER_ICONS
 
         context["marker_icons"] = MARKER_ICONS
         context["colors"] = COLORS
-        keys = list(Key.objects.order_by("slug").values("slug", "description"))
+        keys = key_rows()
         context["keys"] = [k["slug"] for k in keys]
         context["keys_info"] = keys
         return super().render_change_form(request, context, *args, **kwargs)

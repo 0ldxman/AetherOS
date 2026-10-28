@@ -28,6 +28,11 @@
          data-unlock-url="{{ unlock_url }}"
          data-interval="{{ lock_interval_ms }}"></div>
     {% endif %}
+    {% if key_usage is not None and original.format == "key" %}
+    <div class="module"><h2>Где используется ключ</h2>
+      {% if key_usage %}<ul>{% for row in key_usage %}<li>{{ row.kind }}: <a href="{{ row.url }}">{{ row.label }}</a></li>{% endfor %}</ul>
+      {% else %}<p>Нигде: ни в вики, ни в условиях машин, ни среди ключей файлов.</p>{% endif %}</div>
+    {% endif %}
     {{ block.super }}
   </div>
 

@@ -16,7 +16,7 @@ from django.conf import settings
 
 from assets.services import asset_widget_kind, find_asset
 from secure.access import condition_slugs
-from secure.models import Key
+from secure.keys import key_items
 from map.icons import ICON_NAMES
 from wiki.widgets import MARK_COLORS, WIDGETS, parse_map_line, split_highlight_token
 
@@ -250,7 +250,7 @@ def lint(text):
     issues = list(scan.issues)
 
     known = set(
-        Key.objects.filter(slug__in={slug for _, slug in scan.keys}).values_list("slug", flat=True)
+        key_items().filter(slug__in={slug for _, slug in scan.keys}).values_list("slug", flat=True)
     )
     for number, slug in scan.keys:
         if slug not in known:

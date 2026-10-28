@@ -124,9 +124,9 @@ class MapSceneAdminTests(TestCase):
 
         from .scenes import clean_features
 
-        from secure.models import Key
+        from filesystem.testing import key_item
 
-        Key.objects.create(slug="secret_key")
+        key_item("secret_key")
         user = get_user_model().objects.create_superuser("boss", password="pw")
         self.client.force_login(user)
         response = self.client.get(reverse("admin:map_mapscene_add"))

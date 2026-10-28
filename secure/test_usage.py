@@ -8,7 +8,7 @@ from django.urls import get_script_prefix, reverse, set_script_prefix
 
 from filesystem.testing import embed_key, make_file
 from machines.models import Machine, MachineApp, MachineProfile
-from secure.models import Key
+from filesystem.testing import key_item
 from secure.usage import key_usage, used_slugs
 from wiki import dashboard
 from wiki.testing import make_document, make_namespace
@@ -18,7 +18,7 @@ class UsageTests(TestCase):
     @classmethod
     def setUpTestData(cls):
         for slug in ("key_a", "key_ab", "key_idle", "key_file", "key_prof", "key_doc"):
-            Key.objects.create(slug=slug)
+            key_item(slug)
         machine = Machine.objects.create(name="Main", hostname="main")
         MachineApp.objects.create(
             machine=machine, label="wiki", glyph="W", path="/apps/wiki/",
@@ -66,18 +66,18 @@ class KeyPageTests(TestCase):
         self.client.force_login(get_user_model().objects.create_superuser("root", password="pw"))
 
     def test_key_page_lists_every_kind_with_links(self):
-        key = Key.objects.create(slug="key_a")
+        key = key_item("key_a")
         machine = Machine.objects.create(name="Main", hostname="main")
         app = MachineApp.objects.create(
             machine=machine, label="wiki", glyph="W", path="/apps/wiki/", key_condition="key_a"
         )
         item = embed_key(make_file(machine, "/s.txt").item, "key_a").item
-        response = self.client.get(reverse("admin:secure_key_change", args=[key.pk]))
+        response = self.client.get(reverse("admin:filesystem_item_change", args=[key.pk]))
         self.assertContains(response, "приложение: <a")
         self.assertContains(response, reverse("admin:machines_machineapp_change", args=[app.pk]))
         self.assertContains(response, "объект: <a")
 
     def test_unused_key_message(self):
-        key = Key.objects.create(slug="idle")
-        response = self.client.get(reverse("admin:secure_key_change", args=[key.pk]))
+        key = key_item("idle")
+        response = self.client.get(reverse("admin:filesystem_item_change", args=[key.pk]))
         self.assertContains(response, "Нигде: ни в вики, ни в условиях машин")

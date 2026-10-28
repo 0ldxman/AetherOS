@@ -82,8 +82,8 @@
       <table>
         {% for key in data.unused_keys|slice:":50" %}
         <tr>
-          <td><a href="{% url 'admin:secure_key_change' key.pk %}">{{ key.slug }}</a></td>
-          <td>{{ key.description }}</td>
+          <td><a href="{% url 'admin:filesystem_item_change' key.pk %}">{{ key.slug }}</a></td>
+          <td>{{ key.name }}</td>
         </tr>
         {% empty %}<tr><td>Таких нет.</td></tr>{% endfor %}
       </table>

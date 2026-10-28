@@ -15,7 +15,7 @@ from django import forms
 from django.db import models
 
 from .access import validate_requirements
-from .models import Key
+from .keys import key_rows
 
 
 class ConditionWidget(forms.Textarea):
@@ -29,7 +29,7 @@ class ConditionWidget(forms.Textarea):
         super().__init__({"rows": 3, "data-condition-editor": "1", "data-label": title, **(attrs or {})})
 
     def get_context(self, name, value, attrs):
-        keys = list(Key.objects.order_by("slug").values("slug", "description"))
+        keys = key_rows()
         attrs = {**(attrs or {}), "data-keys": json.dumps(keys, ensure_ascii=False)}
         return super().get_context(name, value, attrs)
 
