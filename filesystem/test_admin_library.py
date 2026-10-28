@@ -123,29 +123,56 @@ class VolumeAdminTests(AdminCase):
         Placement.objects.create(volume=self.volume, kind="item", item=self.item, parent=etc, hidden=True)
         Placement.objects.create(volume=self.volume, kind="item", item=self.item, name="top.rec")
 
-    def test_the_change_form_has_the_mounts_and_a_link_to_the_tree(self):
+    def files(self, name="files"):
+        return reverse(f"admin:filesystem_volume_{name}", args=[self.volume.pk])
+
+    def test_the_change_form_has_the_mounts_and_a_link_to_the_files(self):
         page = self.client.get(reverse("admin:filesystem_volume_change", args=[self.volume.pk]))
-        self.assertContains(page, reverse("admin:filesystem_volume_tree", args=[self.volume.pk]))
+        self.assertContains(page, self.files())
         self.assertContains(page, "mount_path")
 
-    def test_the_tree_shows_folders_first_and_the_flags(self):
-        page = self.client.get(reverse("admin:filesystem_volume_tree", args=[self.volume.pk]))
-        content = page.content.decode()
-        self.assertLess(content.index("etc"), content.index("top.rec"))
-        self.assertContains(page, "Report.rec")
-        self.assertContains(page, "скрыт")
-        self.assertContains(page, "+ сюда")
-        self.assertContains(page, "report")                                          # объект, на который ссылается размещение
+    def test_the_manager_page_has_the_tools_the_tree_and_its_config(self):
+        page = self.client.get(self.files())
+        self.assertContains(page, 'id="fm-tree"')
+        self.assertContains(page, "filemanager.js")
+        self.assertContains(page, "Новая папка")
+        self.assertEqual(page.context["config"]["mode"], "volume")
+        self.assertEqual(page.context["config"]["dataUrl"], self.files("files_data"))
+
+    def test_the_data_lists_every_placement_with_its_object(self):
+        data = self.client.get(self.files("files_data")).json()
+        names = sorted(row["name"] for row in data["rows"])
+        self.assertEqual(names, ["Report.rec", "etc", "top.rec"])
+        report = next(row for row in data["rows"] if row["name"] == "Report.rec")
+        self.assertEqual((report["hidden"], report["item"]["slug"], report["item"]["used"]), (True, "report", 2))
+        self.assertTrue(any(f["name"] == "rec" and f["page"] for f in data["formats"]))
 
     def test_a_missing_volume_is_a_404(self):
-        self.assertEqual(self.client.get(reverse("admin:filesystem_volume_tree", args=[999])).status_code, 404)
+        self.assertEqual(self.client.get(reverse("admin:filesystem_volume_files", args=[999])).status_code, 404)
+        self.assertEqual(self.client.get(reverse("admin:filesystem_volume_files_data", args=[999])).status_code, 404)
 
-    def test_the_list_counts_placements(self):
+    def test_the_list_counts_placements_and_links_to_the_files(self):
         page = self.client.get(reverse("admin:filesystem_volume_changelist"))
-        self.assertContains(page, "harbor")
+        self.assertContains(page, self.files())
         self.assertEqual(list(page.context["cl"].result_list)[0]._placements, 3)
 
-    def test_a_placement_is_added_into_a_folder_from_the_tree_and_named_after_the_object(self):
+    def test_a_new_volume_gets_a_template_of_folders_and_opens_in_the_manager(self):
+        response = self.client.post(reverse("admin:filesystem_volume_add"), {
+            "slug": "newdisk", "name": "New", "uuid": "11111111-1111-1111-1111-111111111111", "label": "", "access": "{}",
+            "template": "unix", "_save": "Save", "mounts-TOTAL_FORMS": "0", "mounts-INITIAL_FORMS": "0", "mounts-MIN_NUM_FORMS": "0", "mounts-MAX_NUM_FORMS": "1000",
+        })
+        created = Volume.objects.get(slug="newdisk")
+        self.assertRedirects(response, reverse("admin:filesystem_volume_files", args=[created.pk]), fetch_redirect_response=False)
+        names = set(created.placements.values_list("name", flat=True))
+        self.assertTrue({"bin", "etc", "home", "var", "log"} <= names)
+
+    def test_the_template_is_offered_only_when_adding(self):
+        add = self.client.get(reverse("admin:filesystem_volume_add"))
+        self.assertIn("template", add.context["adminform"].form.fields)
+        change = self.client.get(reverse("admin:filesystem_volume_change", args=[self.volume.pk]))
+        self.assertNotIn("template", change.context["adminform"].form.fields)
+
+    def test_a_placement_is_added_into_a_folder_and_named_after_the_object(self):
         folder = Placement.objects.create(volume=self.volume, kind="folder", name="docs")
         add = reverse("admin:filesystem_placement_add")
         page = self.client.get(add, {"volume": self.volume.pk, "parent": folder.pk})
@@ -172,6 +199,11 @@ class VolumeAdminTests(AdminCase):
         page = self.client.get(reverse("admin:filesystem_placement_add"), {"volume": self.volume.pk})
         names = [folder.name for folder in page.context["adminform"].form.fields["parent"].queryset]
         self.assertEqual(names, ["etc"])
+
+    def test_the_object_search_of_the_picker(self):
+        Item.objects.create(slug="harbor-map", name="Harbor map", format="txt")
+        found = self.client.get(reverse("admin:filesystem_volume_files_objects"), {"q": "harbor"}).json()
+        self.assertEqual([row["slug"] for row in found["items"]], ["harbor-map"])
 
 
 class MachineAdminTests(AdminCase):
@@ -201,23 +233,28 @@ class MachineAdminTests(AdminCase):
         field = self.client.get(reverse("admin:machines_machine_change", args=[self.machine.pk])).context["adminform"].form.fields["system"]
         self.assertEqual({code for code, _ in field.choices}, {"AETHER", "WIN"})
 
-    def test_the_files_page_marks_where_each_file_comes_from(self):
-        page = self.client.get(reverse("admin:machines_machine_files", args=[self.machine.pk]))
-        rows = {row["path"]: row for row in page.context["rows"]}
-        self.assertEqual((rows["/hosts"]["volume"], rows["/hosts"]["mark"]), ("gw-own", "перекрывает"))
-        self.assertEqual((rows["/extra"]["volume"], rows["/extra"]["mark"]), ("gw-own", "добавлен"))
-        self.assertNotIn("/motd", rows)                                              # скрыт надгробием
-        self.assertEqual(page.context["hidden"], [{"path": "/motd", "volume": "gw-own"}])
-        self.assertContains(page, "Скрыто надгробиями")
+    def files_data(self, machine=None):
+        return self.client.get(reverse("admin:machines_machine_files_data", args=[(machine or self.machine).pk])).json()
+
+    def test_the_manager_marks_where_each_file_comes_from(self):
+        rows = {row["path"]: row for row in self.files_data()["rows"]}
+        self.assertEqual((rows["/hosts"]["volume"], rows["/hosts"]["mark"]), ("gw-own", "override"))
+        self.assertEqual((rows["/extra"]["volume"], rows["/extra"]["mark"]), ("gw-own", "added"))
+        self.assertEqual(rows["/motd"]["kind"], "deleted")                           # скрыт надгробием: показывается красным
+        self.assertEqual(rows["/motd"]["volume"], "gw-own")
 
     def test_a_lone_layer_has_no_marks(self):
         machine = Machine.objects.create(name="Plain", hostname="plain")
         MachineMount.objects.create(machine=machine, volume=self.base, mount_path="/")
-        page = self.client.get(reverse("admin:machines_machine_files", args=[machine.pk]))
-        self.assertEqual({row["mark"] for row in page.context["rows"]}, {""})
+        self.assertEqual({row["mark"] for row in self.files_data(machine)["rows"]}, {""})
 
     def test_a_missing_machine_is_a_404(self):
         self.assertEqual(self.client.get(reverse("admin:machines_machine_files", args=[999])).status_code, 404)
+
+    def test_the_machine_manager_page(self):
+        page = self.client.get(reverse("admin:machines_machine_files", args=[self.machine.pk]))
+        self.assertEqual(page.context["config"]["mode"], "machine")
+        self.assertContains(page, "Изменить для машины")
 
     def test_the_system_type_page_has_its_places(self):
         aether = SystemType.objects.get(code="AETHER")

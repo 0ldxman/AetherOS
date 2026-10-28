@@ -4,13 +4,14 @@ import json
 from django import forms
 from django.contrib import admin
 from django.db.models import Count
-from django.http import Http404
-from django.template.response import TemplateResponse
-from django.urls import path, reverse
+from django.http import HttpResponseRedirect
+from django.urls import reverse
 from django.utils.html import format_html
 
 from secure.admin_widgets import ConditionFieldsMixin, ConditionWidget
 
+from . import filemanager
+from .admin_files import VolumeFiles
 from .admin_preview import ItemPreviewMixin
 from .models import KEY_FORMAT, FileFormat, Item, ItemKey, ItemSignature, Placement, Volume
 from machines.models import MachineMount
@@ -127,16 +128,39 @@ class VolumeMountInline(admin.TabularInline):
     autocomplete_fields = ("machine",)
 
 
+class VolumeForm(forms.ModelForm):
+    """При создании можно сразу выбрать основу дерева (как формат нового диска); на странице готового тома выбора нет."""
+
+    template = forms.ChoiceField(
+        label="Основа дерева", required=False, initial="empty",
+        choices=[(key, title) for key, (title, _) in filemanager.TEMPLATES.items()],
+        help_text="Типовые папки системы. Дальше файлы создаются в менеджере, как в проводнике.",
+    )
+
+    class Meta:
+        model = Volume
+        fields = ("slug", "name", "uuid", "label", "access")
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        if self.instance.pk:
+            del self.fields["template"]
+
+
 @admin.register(Volume)
-class VolumeAdmin(KeyConditionsMixin, admin.ModelAdmin):
+class VolumeAdmin(KeyConditionsMixin, VolumeFiles, admin.ModelAdmin):
+    form = VolumeForm
     condition_fields = ("access",)
     change_form_template = "admin/filesystem/volume/change_form.html"
     inlines = (VolumeMountInline,)
-    list_display = ("slug", "name", "label", "uuid", "placements_count", "mounts_count", "tree_link")
+    list_display = ("slug", "name", "label", "uuid", "placements_count", "mounts_count", "files_link")
     search_fields = ("slug", "name", "label", "uuid")
-    fieldsets = (
-        (None, {"fields": ("slug", "name", "uuid", "label", "access")}),
-    )
+
+    def get_fieldsets(self, request, obj=None):
+        fields = ["slug", "name", "uuid", "label", "access"]
+        if obj is None:
+            fields.append("template")
+        return ((None, {"fields": fields}),)
 
     def get_queryset(self, request):
         return super().get_queryset(request).annotate(_placements=Count("placements", distinct=True), _mounts=Count("mounts", distinct=True))
@@ -149,61 +173,26 @@ class VolumeAdmin(KeyConditionsMixin, admin.ModelAdmin):
     def mounts_count(self, obj):
         return obj._mounts
 
-    @admin.display(description="Дерево")
-    def tree_link(self, obj):
-        return format_html('<a href="{}">дерево</a>', reverse("admin:filesystem_volume_tree", args=[obj.pk]))
+    @admin.display(description="Файлы")
+    def files_link(self, obj):
+        return format_html('<a href="{}">открыть</a>', reverse("admin:filesystem_volume_files", args=[obj.pk]))
 
-    def get_urls(self):
-        custom = [path("<int:pk>/tree/", self.admin_site.admin_view(self.tree_view), name="filesystem_volume_tree")]
-        return custom + super().get_urls()
+    def save_model(self, request, obj, form, change):
+        super().save_model(request, obj, form, change)
+        if not change:
+            filemanager.apply_template(obj, form.cleaned_data.get("template") or "empty")
+
+    def response_add(self, request, obj, post_url_continue=None):
+        response = super().response_add(request, obj, post_url_continue)
+        if "_save" in request.POST and isinstance(response, HttpResponseRedirect):
+            return HttpResponseRedirect(reverse("admin:filesystem_volume_files", args=[obj.pk]))      # новый том открывается файлами
+        return response
 
     def render_change_form(self, request, context, add=False, change=False, form_url="", obj=None):
         response = super().render_change_form(request, context, add, change, form_url, obj)
         if obj is not None:
-            response.context_data["tree_url"] = reverse("admin:filesystem_volume_tree", args=[obj.pk])
+            response.context_data["files_url"] = reverse("admin:filesystem_volume_files", args=[obj.pk])
         return response
-
-    def tree_view(self, request, pk):
-        volume = self.get_object(request, str(pk))
-        if volume is None:
-            raise Http404
-        if not self.has_view_or_change_permission(request, volume):
-            raise Http404
-        add_url = reverse("admin:filesystem_placement_add")
-        rows = tree_rows(volume)
-        for row in rows:
-            row["add_url"] = f"{add_url}?volume={volume.pk}&parent={row['placement'].pk}"
-            row["change_url"] = reverse("admin:filesystem_placement_change", args=[row["placement"].pk])
-        context = {
-            **self.admin_site.each_context(request),
-            "opts": self.model._meta,
-            "title": f"Дерево тома {volume}",
-            "volume": volume,
-            "rows": rows,
-            "root_add_url": f"{add_url}?volume={volume.pk}",
-            "change_url": reverse("admin:filesystem_volume_change", args=[volume.pk]),
-        }
-        return TemplateResponse(request, "admin/filesystem/volume/tree.html", context)
-
-
-def tree_rows(volume):
-    """Размещения тома в порядке дерева: папки перед файлами, внутри по имени; у каждого глубина и путь."""
-    placements = list(volume.placements.select_related("item").order_by("name"))
-    children = {}
-    for placement in placements:
-        children.setdefault(placement.parent_id, []).append(placement)
-    rows = []
-
-    def walk(parent_id, depth, prefix):
-        branch = sorted(children.get(parent_id, []), key=lambda row: (row.kind != Placement.Kind.FOLDER, row.name.casefold()))
-        for placement in branch:
-            here = f"{prefix}/{placement.name}" if prefix else placement.name
-            rows.append({"placement": placement, "depth": depth, "path": here})
-            if placement.kind == Placement.Kind.FOLDER:
-                walk(placement.pk, depth + 1, here)
-
-    walk(None, 0, "")
-    return rows
 
 
 # ---- размещение -----------------------------------------------------------------------------------------------------

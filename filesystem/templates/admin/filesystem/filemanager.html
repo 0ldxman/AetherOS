@@ -1,0 +1,65 @@
+{% extends "admin/base_site.html" %}
+{% load static %}
+
+{% block extrahead %}{{ block.super }}
+<link rel="stylesheet" href="{% static 'filesystem/filemanager.css' %}">
+{{ config|json_script:"fm-config" }}
+<script defer src="{% static 'filesystem/filemanager.js' %}"></script>
+{% endblock %}
+
+{% block bodyclass %}{{ block.super }} fm-page{% endblock %}
+
+{% block breadcrumbs %}
+<ol class="breadcrumbs">
+  <li><a href="{% url 'admin:index' %}">Главная</a></li>
+  <li><a href="{{ list_url }}">{{ opts.verbose_name_plural|capfirst }}</a></li>
+  <li><a href="{{ change_url }}">{{ object }}</a></li>
+  <li aria-current="page">Файлы</li>
+</ol>
+{% endblock %}
+
+{% block content %}
+{% csrf_token %}
+<div class="fm" id="fm" data-mode="{{ config.mode }}">
+  <div class="fm-bar">
+    <button type="button" class="fm-nav" data-act="back" title="Назад (Alt+←)">←</button>
+    <button type="button" class="fm-nav" data-act="up" title="Вверх (Backspace)">↑</button>
+    <div class="fm-path" id="fm-path"></div>
+    <input type="search" class="fm-search" id="fm-search" placeholder="Поиск в этой папке">
+  </div>
+
+  <div class="fm-tools" id="fm-tools">
+    <button type="button" data-act="new_folder">Новая папка</button>
+    <button type="button" data-act="new_file">Новый файл</button>
+    <button type="button" data-act="link" data-only="volume">Положить объект</button>
+    <span class="fm-sep"></span>
+    <button type="button" data-act="edit" data-only="machine">✎ Изменить для машины</button>
+    <button type="button" data-act="open">↗ Открыть объект</button>
+    <button type="button" data-act="rename">Переименовать</button>
+    <button type="button" data-act="cut" data-only="volume">Вырезать</button>
+    <button type="button" data-act="copy" data-only="volume">Копировать</button>
+    <button type="button" data-act="paste" data-only="volume">Вставить</button>
+    <span class="fm-sep"></span>
+    <button type="button" data-act="hidden" data-only="volume">Скрытый</button>
+    <button type="button" data-act="reset" data-only="machine">⟲ Сбросить к образу</button>
+    <button type="button" data-act="restore" data-only="machine">↩ Восстановить</button>
+    <button type="button" data-act="delete" class="fm-danger">✕ Удалить</button>
+  </div>
+
+  <div class="fm-body">
+    <nav class="fm-tree" id="fm-tree" aria-label="Папки"></nav>
+    <div class="fm-main">
+      <table class="fm-list" id="fm-list">
+        <thead><tr><th class="c-name">Имя</th><th class="c-type">Тип</th><th class="c-obj" id="fm-th-obj">Объект</th><th class="c-size">Размер</th><th class="c-note">Состояние</th></tr></thead>
+        <tbody></tbody>
+      </table>
+      <div class="fm-empty" id="fm-empty" hidden>Папка пуста. Создайте файл или папку кнопками сверху или правой кнопкой мыши.</div>
+    </div>
+  </div>
+
+  <div class="fm-status"><span id="fm-count"></span><span id="fm-msg" role="status"></span></div>
+</div>
+
+<div class="fm-menu" id="fm-menu" hidden></div>
+<dialog class="fm-dialog" id="fm-dialog"></dialog>
+{% endblock %}

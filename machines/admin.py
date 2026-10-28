@@ -1,15 +1,14 @@
 from django import forms
 from django.contrib import admin
 from django.contrib import messages
-from django.http import Http404
-from django.template.response import TemplateResponse
-from django.urls import path
+
 from django.contrib.auth.hashers import make_password
 from django.db.models import Count
 from django.utils import timezone
 from django.urls import reverse
 from django.utils.html import format_html
 
+from filesystem.admin_files import MachineFiles
 from secure.access import format_condition
 from secure.admin_widgets import ConditionFieldsMixin
 
@@ -127,7 +126,7 @@ def delete_selected_machines(modeladmin, request, queryset):
 
 
 @admin.register(Machine)
-class MachineAdmin(admin.ModelAdmin):
+class MachineAdmin(MachineFiles, admin.ModelAdmin):
     list_display = (
         "name",
         "hostname",
@@ -186,30 +185,11 @@ class MachineAdmin(admin.ModelAdmin):
             return forms.ChoiceField(label="Тип системы", choices=choices, initial="AETHER", help_text=db_field.help_text)
         return super().formfield_for_dbfield(db_field, request, **kwargs)
 
-    def get_urls(self):
-        custom = [path("<int:pk>/files/", self.admin_site.admin_view(self.files_view), name="machines_machine_files")]
-        return custom + super().get_urls()
-
     def render_change_form(self, request, context, add=False, change=False, form_url="", obj=None):
         response = super().render_change_form(request, context, add, change, form_url, obj)
         if obj is not None:
             response.context_data["files_url"] = reverse("admin:machines_machine_files", args=[obj.pk])
         return response
-
-    def files_view(self, request, pk):
-        """Файловая система машины, какой она видна без слоя игрока: откуда пришёл каждый файл и что скрыто."""
-        machine = self.get_object(request, str(pk))
-        if machine is None or not self.has_view_or_change_permission(request, machine):
-            raise Http404
-        context = {
-            **self.admin_site.each_context(request),
-            "opts": self.model._meta,
-            "title": f"Файлы машины {machine.label}",
-            "machine": machine,
-            "change_url": reverse("admin:machines_machine_change", args=[machine.pk]),
-            **machine_files(machine),
-        }
-        return TemplateResponse(request, "admin/machines/machine/files.html", context)
 
     def has_delete_permission(self, request, obj=None):
         if obj is not None and obj.is_system:
@@ -232,11 +212,9 @@ class MachineAdmin(admin.ModelAdmin):
     def apps_count(self, obj):
         return obj._apps
 
-    @admin.display(description="Файлов", ordering="_files")
+    @admin.display(description="Файлы")
     def files_link(self, obj):
-        # число ведёт в список файлов именно этой машины
-        url = reverse("admin:filesystem_machinefile_changelist")
-        return format_html('<a href="{}?machine__id__exact={}">{}</a>', url, obj.pk, obj._files)
+        return format_html('<a href="{}">открыть</a>', reverse("admin:machines_machine_files", args=[obj.pk]))
 
 
 # ==================================================
@@ -622,44 +600,3 @@ class NetNodeAdmin(ConditionFieldsMixin, admin.ModelAdmin):
         return format_condition(obj.key_condition) or "—"
 
 
-
-def machine_files(machine):
-    """Собранное дерево машины для автора: путь, откуда он пришёл и пометка (базовый, перекрывает, добавлен), плюс надгробия."""
-    from filesystem.machine_view import MachineView
-    from filesystem.models import Placement
-
-    view = MachineView(machine, None)
-    layers = view.layers
-    by_point = {}
-    for layer in layers:
-        by_point.setdefault(layer.point, []).append(layer)
-    lower_paths = {}
-    for layer in layers:
-        lower_paths[layer.mount.pk] = view.layer_paths(layer)
-
-    rows = []
-    for path, entry in sorted(view.entries.items()):
-        if entry.layer is None:
-            rows.append({"path": path, "dir": entry.is_dir, "volume": "", "item": "", "mark": "", "flags": ""})
-            continue
-        stack = sorted(by_point[entry.layer.point], key=lambda layer: layer.mount.order)
-        below = [layer for layer in stack if layer.mount.order < entry.layer.mount.order]
-        if entry.is_dir:
-            mark = ""                                                    # папки объединяются, пометка у них только шум
-        elif not below:
-            mark = "базовый" if len(stack) > 1 else ""
-        elif any(path in lower_paths[layer.mount.pk] for layer in below):
-            mark = "перекрывает"
-        else:
-            mark = "добавлен"
-        flags = " ".join(word for word, on in (("скрыт", entry.hidden), ("системный", entry.system)) if on)
-        rows.append({
-            "path": path, "dir": entry.is_dir, "volume": entry.layer.mount.volume.slug,
-            "item": entry.item.slug if entry.item is not None else "", "mark": mark, "flags": flags,
-        })
-
-    hidden = []
-    for layer in layers:
-        for machine_path, placement in view.layer_paths_of_kind(layer, Placement.Kind.WHITEOUT).items():
-            hidden.append({"path": machine_path, "volume": layer.mount.volume.slug})
-    return {"rows": rows, "hidden": sorted(hidden, key=lambda row: row["path"])}

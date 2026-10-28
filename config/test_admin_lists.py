@@ -101,7 +101,7 @@ class ListsTests(TestCase):
         response = self.client.get(reverse("admin:machines_machine_changelist"))
         machine = response.context["cl"].result_list[0]
         self.assertEqual((machine._profiles, machine._apps, machine._files), (1, 1, 1))
-        self.assertContains(response, f"machine__id__exact={machine.pk}")
+        self.assertContains(response, reverse("admin:machines_machine_files", args=[machine.pk]))         # колонка ведёт в файловый менеджер
 
     def test_file_page_has_keys_inline(self):
         build(1, self.user, self.key)
