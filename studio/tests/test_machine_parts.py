@@ -263,10 +263,10 @@ class CreateAndSystemsTests(TestCase):
         data["game_now"], data["stations_reachable"] = "2030-11-15T03:14:00Z", 20
         self.assertEqual(self.call("put", "/world", data)[0], 200)
         self.assertEqual(days_since(world().core_last_contact), "1,113")
-        status, shown = self.call("post", "/systems/AETHER/greeting/preview", {"greeting": "{core_days} {stations} {date} {time} {audit_events}"})
+        status, shown = self.call("post", "/systems/AETHER/greeting/preview", {"greeting": "{date} {time} <since>2027-10-29</since>"})
         self.assertEqual(shown["errors"], [])
-        text = "".join(part["text"] for part in shown["lines"][0])
-        self.assertTrue(text.startswith("1,113 20 of 31 2030-11-15 03:14 UTC "), text)
+        self.assertEqual("".join(part["text"] for part in shown["lines"][0]), "2030-11-15 03:14 UTC 1,113")
+        self.assertEqual(self.call("post", "/systems/AETHER/greeting/preview", {"greeting": "{core_days}"})[1]["errors"][0]["line"], 1)
 
     def test_since_counts_from_the_world_time_in_the_greeting_and_the_blackout(self):
         status, shown = self.call("post", "/systems/AETHER/greeting/preview", {"greeting": "<since>2027-10-29 | days</since> / <since>x</since>"})
