@@ -1,4 +1,5 @@
-"""Вики поверх томов: раздел это том (или смонтированная папка тома), подраздел это папка, страница это объект формата-страницы.
+"""Вики поверх томов: раздел это том (или смонтированная папка тома), подраздел это папка, страница это объект с текстом-разметкой
+(формат с галочкой markup); остальные файлы раздела открываются во вьювере своего формата.
 
 Вики приложение, а не хранилище: файл вики записи игрока подключает к ней папки хостов (тома на хостах смонтированы обычно, на клиенте их как дисков нет), и ничего о них она не хранит. Для одного запроса
 дерево и страницы читаются целиком несколькими запросами (тома, размещения, объекты) и дальше работают в памяти.
@@ -16,6 +17,7 @@ from filesystem.content.rawview import registry
 # формат записи -> тип записи вики (так их называют шаблоны и значки)
 DOC_TYPES = {"doc": "doc", "scan": "scan", "snp": "web", "rec": "rec"}
 DEFAULT_TYPE = "doc"
+FILE_TYPE = "file"                       # не страница: файл формата без разметки, открывается во вьювере
 
 
 def _machine(request):
@@ -65,21 +67,23 @@ class Node:
 
 
 class Page:
-    """Страница вики: объект формата-страницы, положенный в том."""
+    """Запись раздела вики: страница (формат с разметкой) или файл другого формата, положенный в том."""
 
     storage_class = ""
 
-    def __init__(self, placement, node, fmt):
+    def __init__(self, placement, node, fmt, entry=None, view=None):
         item = placement.item
+        self.markup = fmt is not None and fmt.markup
+        self.entry, self.view = entry, view         # вид машины и запись в нём (раздел из файла вики); у сводки автора пусто
         self.placement = placement
         self.item = item
         self.pk = placement.pk
         self.namespace = node
         self.title = item.name
-        self.type = DOC_TYPES.get(item.format, DEFAULT_TYPE)
+        self.type = DOC_TYPES.get(item.format, DEFAULT_TYPE) if self.markup else FILE_TYPE
         self.ext = fmt.extension if fmt is not None and fmt.extension else f".{self.type}"
-        self.body = item.body
-        self.infobox = item.meta
+        self.body = item.body if self.markup else ""
+        self.infobox = item.meta if self.markup else ""
         self.direct_link = item.slug
         self.world_date = item.world_updated_at
         self.updated_at = item.updated_at
@@ -119,8 +123,12 @@ class Library:
         return next((page for page in self._in.get(node.pk, []) if page.title == title), None) if node is not None else None
 
 
-def _pages_formats():
-    return {found.name: found for found in registry.all_formats() if found.page}
+def _formats():
+    return {found.name: found for found in registry.all_formats()}
+
+
+def _markup_formats():
+    return {name for name, found in _formats().items() if found.markup}
 
 
 def _sections(request, machine):
@@ -170,7 +178,7 @@ def build(request=None):
     """Дерево и страницы для запроса (машина игрока). Разделы без единой страницы вики не показываются.
 
     Без машины (служебные вызовы, сводка автора) берутся все тома; с машиной разделы называет файл вики записи игрока."""
-    formats = _pages_formats()
+    formats = _formats()
     machine = _machine(request) if request is not None else None
     if machine is None:
         return _from_volumes(formats, [(volume, "") for volume in Volume.objects.order_by("slug")])
@@ -204,20 +212,25 @@ def _from_views(formats, sections):
             if entry.is_dir:
                 node_for(entry.path)
         for entry in entries[1:]:
-            if entry.is_dir or entry.item is None or entry.placement is None or entry.item.format not in formats:
+            if entry.is_dir or entry.item is None or entry.placement is None:
                 continue
             try:
                 rights.check(view, view.principal, entry.path, "r")
             except rights.Denied:
                 continue
-            section_pages.append(Page(entry.placement, node_for(posixpath.dirname(entry.path)), formats[entry.item.format]))
+            section_pages.append(Page(entry.placement, node_for(posixpath.dirname(entry.path)), formats.get(entry.item.format), entry, view))
         if section_pages:
             nodes += section_nodes
             pages += section_pages
     return Library(nodes, pages)
 
 
+def _is_markup(formats, name):
+    return name in formats and formats[name].markup
+
+
 def _from_volumes(formats, volumes):
+    """Сводка автора: все тома, но только страницы (файлы других форматов открываются у игрока, в сводке им делать нечего)."""
     ids = [volume.pk for volume, _ in volumes]
     placements = list(Placement.objects.filter(volume_id__in=ids).select_related("item", "item__updated_by"))
     by_volume = {}
@@ -250,10 +263,10 @@ def _from_volumes(formats, volumes):
                 if _under(row, by_id, base):
                     node_for(row.pk)
         for row in rows:
-            if row.kind != Placement.Kind.ITEM or row.item.format not in formats or not _under(row, by_id, base):
+            if row.kind != Placement.Kind.ITEM or not _is_markup(formats, row.item.format) or not _under(row, by_id, base):
                 continue
             node = node_for(row.parent_id) if row.parent_id is not None and row.parent_id != (base.pk if base else None) else root
-            volume_pages.append(Page(row, node, formats[row.item.format]))
+            volume_pages.append(Page(row, node, formats.get(row.item.format)))
         if volume_pages:
             nodes += volume_nodes
             pages += volume_pages

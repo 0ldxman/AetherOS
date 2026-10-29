@@ -65,5 +65,15 @@ class SeedDemoTests(TestCase):
         request.user = self.user
         request.session = {SESSION_KEY: self.session.pk}
         found = library.build(request)
-        self.assertEqual([page.title for page in found.pages], ["Shipment 7"])
+        self.assertEqual([page.title for page in found.pages if page.markup], ["Shipment 7"])
+        self.assertEqual([page.title for page in found.pages if not page.markup], ["manifest.txt"])   # файл без разметки тоже виден, во вьювере
         self.assertEqual(found.nodes[0].name, "Harbor")
+
+        from wiki import views
+
+        found_file = next(page for page in found.pages if not page.markup)
+        page = views.resolve(request, found_file.path().replace(":", "/"))
+        self.assertIn("raw", page.content.decode().lower())                              # вьювер сырых байтов, а не разметка вики
+        data = views.file_bytes(request, found_file.pk)
+        self.assertEqual(data.status_code, 200)
+        self.assertTrue(data.content)

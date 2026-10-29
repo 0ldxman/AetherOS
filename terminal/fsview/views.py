@@ -15,13 +15,12 @@ from django.utils.http import urlencode
 from django.views.decorators.csrf import ensure_csrf_cookie
 
 from filesystem.content.rawview import build_raw_cached, viewer_formats
+from filesystem.content.rawview.serve import serve
 from machines.network.bridge import terminal_session
 from terminal.engine.context import TerminalContext
 from terminal.engine.filesystem import VirtualFilesystem
 from users.aether_auth import is_player
 from secure.requestkeys import request_keys
-
-RANGE = re.compile(r"^bytes=(\d*)-(\d*)$")
 
 
 def _entry(request):
@@ -64,34 +63,7 @@ def raw_content(request):
     from mail.access import viewer_for
 
     data = build_raw_cached(entry, context.view, request_keys(request), viewer=viewer_for(request))
-    total = len(data)
-
-    headers = {"Accept-Ranges": "bytes", "Cache-Control": "no-store", "Content-Type": "application/octet-stream"}
-    if request.method == "HEAD":
-        response = HttpResponse(status=200, headers=headers)
-        response["Content-Length"] = str(total)
-        return response
-
-    header = request.headers.get("Range")
-    if not header:
-        return HttpResponse(data, status=200, headers=headers)
-
-    found = RANGE.match(header.strip())
-    if not found or (found.group(1) == "" and found.group(2) == ""):
-        return HttpResponse(status=416, headers={"Content-Range": f"bytes */{total}"})
-
-    if found.group(1) == "":                                  # bytes=-N: последние N байт
-        start, end = max(0, total - int(found.group(2))), total - 1
-    else:
-        start = int(found.group(1))
-        end = min(int(found.group(2)), total - 1) if found.group(2) else total - 1
-
-    if start >= total or start > end:
-        return HttpResponse(status=416, headers={"Content-Range": f"bytes */{total}"})
-
-    response = HttpResponse(data[start:end + 1], status=206, headers=headers)
-    response["Content-Range"] = f"bytes {start}-{end}/{total}"
-    return response
+    return serve(request, data)
 
 
 def text_content(request):

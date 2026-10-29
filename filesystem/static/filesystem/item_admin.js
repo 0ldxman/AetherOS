@@ -40,7 +40,7 @@
             }
         });
         if (split) {
-            split.dataset.page = known && known.page ? "1" : "0";
+            split.dataset.page = known && known.markup ? "1" : "0";
         }
     }
 

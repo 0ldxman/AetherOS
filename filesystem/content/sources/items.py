@@ -191,7 +191,7 @@ class TextSource(Source):
         stamp = f"text:{item.pk}:{item.updated_at.isoformat()}:{hash(body)}"
         if found is None or not formats.known(found.name):
             return Payload(kind="text", layout="raw", body=body.encode(), locked=_locked(entry, keys), stamp=stamp)
-        views = flatten.views(body, keys) if found.page else {}
+        views = flatten.views(body, keys) if found.markup else {}
         return Payload(
             kind="text", layout="format", fmt=found.name, default_fmt=found.name, body=body.encode(), views=views, meta=_meta(item),
             locked=_locked(entry, keys), stamp=stamp,

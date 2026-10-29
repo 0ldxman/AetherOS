@@ -112,7 +112,7 @@ def data(volume):
 
 def formats():
     return [
-        {"name": found.name, "title": found.title, "extension": found.extension, "page": found.page}
+        {"name": found.name, "title": found.title, "extension": found.extension, "markup": found.markup}
         for found in FileFormat.objects.order_by("name")
     ]
 

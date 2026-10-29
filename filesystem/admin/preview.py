@@ -2,7 +2,7 @@
 
 Редактор вики ищет поля формы по id (title, type, body, infobox); у объекта они называются name, format, body, meta, и
 filesystem/static/filesystem/item_admin.js переименовывает их до запуска редактора. Для форматов, которые умеют быть страницей вики
-(FileFormat.page), текст рендерится разметкой вики; остальные показываются как есть.
+(FileFormat.markup), текст рендерится разметкой вики; остальные показываются как есть.
 """
 import json
 import logging
@@ -26,7 +26,7 @@ logger = logging.getLogger(__name__)
 def format_table():
     """Формат -> что вводится и страница ли это; редактор переключает поля содержимого по этой таблице."""
     return {
-        found.name: {"content": found.content, "page": found.page, "title": found.title}
+        found.name: {"content": found.content, "markup": found.markup, "title": found.title}
         for found in FileFormat.objects.all()
     }
 
@@ -68,7 +68,7 @@ class ItemPreviewMixin(DocumentPreviewMixin):
         body, meta = _text(data.get("body")), _text(data.get("infobox"))
 
         try:
-            if found is not None and found.page:
+            if found is not None and found.markup:
                 body_html = mark_safe(markup.render(body, keys, "body"))
             else:
                 body_html = mark_safe(f"<pre style=\"white-space:pre-wrap;font:13px/1.5 monospace\">{escape(body)}</pre>")

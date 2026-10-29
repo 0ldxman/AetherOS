@@ -138,7 +138,7 @@ def _tree(request, keys, current):
     }
 
 
-KIND_LABELS = {"doc": "document", "scan": "scan", "web": "snapshot", "rec": "record"}
+KIND_LABELS = {"doc": "document", "scan": "scan", "web": "snapshot", "rec": "record", "file": "file"}
 
 
 _LINK = re.compile(r"!?\[([^\]]*)\]\([^)]*\)")
@@ -427,6 +427,9 @@ def _document_page(request, doc, via_direct_link=False):
             + "?infobox=1"
         )
 
+    if not doc.markup:
+        return _file_page(request, doc)
+
     body_html = mark_safe(render_markup(doc.body, keys, "body"))
     return render(
         request,
@@ -438,6 +441,40 @@ def _document_page(request, doc, via_direct_link=False):
             "infobox_url": infobox_url,
         },
     )
+
+
+def _file_page(request, doc):
+    """Файл без разметки: открывается во вьювере своего формата (тот же, что у файлов игрока)."""
+    from types import SimpleNamespace
+
+    from filesystem.content.rawview import viewer_formats
+
+    identity = hashlib.sha1(f"wiki:{doc.pk}".encode()).hexdigest()[:12]
+    return render(
+        request,
+        "assets/viewers/raw.html",
+        {
+            "asset": SimpleNamespace(name=doc.title + doc.ext, public_id=identity),
+            "content_url": reverse("wiki:file", kwargs={"pk": doc.pk}),
+            "formats_json": viewer_formats(),
+        },
+    )
+
+
+def file_bytes(request, pk):
+    """Байты файла раздела так, как их видит игрок: те же слои и ключи, что у вьювера файлов."""
+    from filesystem.content.rawview import build_raw_cached
+    from filesystem.content.rawview.serve import serve
+    from mail.access import viewer_for
+
+    doc = next((page for page in library(request).pages if page.pk == pk and page.entry is not None), None)
+    if doc is None:
+        raise Http404
+    keys = _keys(request)
+    state = document_state(doc, keys)
+    if not (state.visible and state.open):
+        raise Http404
+    return serve(request, build_raw_cached(doc.entry, doc.view, keys, viewer=viewer_for(request)))
 
 
 def resolve(request, path=""):

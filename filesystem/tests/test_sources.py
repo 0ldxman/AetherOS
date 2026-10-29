@@ -20,7 +20,7 @@ class SourceKindTests(TestCase):
         cls.machine = Machine.objects.create(name="Main", hostname="aether-main")
         cls.user = get_user_model().objects.create_user("marsh", password="x")
         cls.asset = Asset.objects.create(name="pic", file_id="1", size=11)
-        FileFormat.objects.update_or_create(name="rec", defaults={"extension": ".rec", "content": "text", "page": True})
+        FileFormat.objects.update_or_create(name="rec", defaults={"extension": ".rec", "content": "text", "markup": True})
 
     def setUp(self):
         previous = get_script_prefix()

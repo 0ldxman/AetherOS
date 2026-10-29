@@ -15,8 +15,8 @@ class FormatPartInline(admin.TabularInline):
 class FileFormatAdmin(admin.ModelAdmin):
     form = FileFormatForm
     inlines = (FormatPartInline,)
-    list_display = ("name", "title", "extension", "kind", "content", "page", "editable", "magic")
-    list_filter = ("kind", "content", "page", "editable")
+    list_display = ("name", "title", "extension", "kind", "content", "markup", "editable", "magic")
+    list_filter = ("kind", "content", "markup", "editable")
     search_fields = ("name", "title", "extension")
 
 

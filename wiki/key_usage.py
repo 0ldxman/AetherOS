@@ -10,7 +10,7 @@ from django.urls import reverse
 
 from filesystem.models import Item
 from secure.usage import Usage
-from wiki.library import _pages_formats
+from wiki.library import _markup_formats
 
 
 def _mentions(slug, *texts):
@@ -23,7 +23,7 @@ def pages(slug):
     candidates = Item.objects.filter(body__contains=slug) | Item.objects.filter(meta__contains=slug)
     return [
         item for item in candidates.distinct()
-        if item.format in _pages_formats() and _mentions(slug, item.body, json.dumps(item.meta))
+        if item.format in _markup_formats() and _mentions(slug, item.body, json.dumps(item.meta))
     ]
 
 

@@ -25,8 +25,8 @@ class AdminCase(TestCase):
     @classmethod
     def setUpTestData(cls):
         cls.boss = get_user_model().objects.create_superuser("boss", "b@example.com", "pw")
-        FileFormat.objects.update_or_create(name="txt", defaults={"extension": ".txt", "content": "text_asset", "page": False})
-        FileFormat.objects.update_or_create(name="rec", defaults={"extension": ".rec", "content": "text", "page": True})
+        FileFormat.objects.update_or_create(name="txt", defaults={"extension": ".txt", "content": "text_asset", "markup": False})
+        FileFormat.objects.update_or_create(name="rec", defaults={"extension": ".rec", "content": "text", "markup": True})
         FileFormat.objects.update_or_create(name="png", defaults={"extension": ".png", "content": "link_asset"})
         FileFormat.objects.update_or_create(name="key", defaults={"extension": ".key", "content": "text"})
 
@@ -50,7 +50,7 @@ class ItemAdminTests(AdminCase):
         self.assertContains(page, 'id="wp-split"')
         self.assertContains(page, 'value="rec"')
         table = page.context["formats"]
-        self.assertEqual(table["rec"]["page"], True)
+        self.assertEqual(table["rec"]["markup"], True)
         self.assertEqual(table["png"]["content"], "link_asset")
 
     def test_a_text_object_is_saved_with_its_author(self):
@@ -146,7 +146,7 @@ class VolumeAdminTests(AdminCase):
         self.assertEqual(names, ["Report.rec", "etc", "top.rec"])
         report = next(row for row in data["rows"] if row["name"] == "Report.rec")
         self.assertEqual((report["hidden"], report["item"]["slug"], report["item"]["used"]), (True, "report", 2))
-        self.assertTrue(any(f["name"] == "rec" and f["page"] for f in data["formats"]))
+        self.assertTrue(any(f["name"] == "rec" and f["markup"] for f in data["formats"]))
 
     def test_a_missing_volume_is_a_404(self):
         self.assertEqual(self.client.get(reverse("admin:filesystem_volume_files", args=[999])).status_code, 404)
