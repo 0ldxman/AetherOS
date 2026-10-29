@@ -116,3 +116,61 @@ class MachinePartsTests(TestCase):
         self.assertEqual((denied["readable"], denied["nodes"]), (False, []))
         own = self.call("get", f"/machines/{self.core.pk}/tree?account={self.ivan.pk}&path=/home/ivan")[1]
         self.assertEqual([node["name"] for node in own["nodes"]], ["notes.txt"])
+
+
+@override_settings(FORCE_SCRIPT_NAME=None)
+class CreateAndSystemsTests(TestCase):
+    @classmethod
+    def setUpTestData(cls):
+        cls.boss = get_user_model().objects.create_user("boss", password="pw", is_staff=True)
+        cls.system, _ = SystemType.objects.get_or_create(code="AETHER", defaults={"name": "Aether"})
+        Group.objects.filter(system_type=cls.system).delete()
+        cls.core = Machine.objects.create(name="Core", hostname="aether-core")
+        MachineProfile.objects.create(machine=cls.core, login="ops", name="Ops", freq=14)
+
+    def setUp(self):
+        previous = get_script_prefix()
+        set_script_prefix("/")
+        self.addCleanup(set_script_prefix, previous)
+        self.client.force_login(self.boss)
+
+    call = MachinePartsTests.call
+
+    def test_a_machine_is_made_from_nothing_from_a_template_and_like_another(self):
+        from filesystem.models import VolumeTemplate
+
+        status, made = self.call("post", "/machines", {"hostname": "gw-01"})
+        self.assertEqual(status, 200, made)
+        template = VolumeTemplate.objects.create(name="unix", folders="etc\nhome")
+        self.assertIn("unix", [t["name"] for t in self.call("get", "/templates")[1]])
+        made = self.call("post", "/machines", {"hostname": "gw-02", "root": "template", "template": template.pk})[1]
+        self.assertEqual(Machine.objects.get(pk=made["id"]).mounts.count(), 1)
+        made = self.call("post", "/machines", {"hostname": "aether-edge", "root": "like", "like": self.core.pk})[1]
+        self.assertEqual(list(Machine.objects.get(pk=made["id"]).profiles.values_list("login", flat=True)), ["ops"])
+        status, answer = self.call("post", "/machines", {"hostname": "aether-core"})
+        self.assertEqual(status, 400)
+        self.assertIn("hostname", answer["fields"])
+
+    def test_a_system_machine_is_not_deleted(self):
+        Machine.objects.filter(pk=self.core.pk).update(is_system=True)
+        self.assertEqual(self.call("delete", f"/machines/{self.core.pk}")[0], 400)
+        other = Machine.objects.create(name="Tmp", hostname="tmp")
+        self.assertEqual(self.call("delete", f"/machines/{other.pk}")[0], 200)
+        self.assertFalse(Machine.objects.filter(pk=other.pk).exists())
+
+    def test_a_system_type_shows_default_places_and_groups_and_keeps_them_when_edited(self):
+        data = self.call("get", "/systems/AETHER")[1]
+        places = {row["name"]: row for row in data["places"]}
+        self.assertEqual((places["home"]["path"], places["home"]["default"]), ("", "/home/{login}"))
+        self.assertEqual([(g["name"], g["source"]) for g in data["groups"]], [("users", "default")])
+
+        data = self.call("put", "/systems/AETHER/groups/ops", {"privileges": ["clock"]})[1]
+        self.assertEqual([(g["name"], g["source"]) for g in data["groups"]], [("ops", "system"), ("users", "system")])
+        data = self.call("put", "/systems/AETHER/places", {"places": {"home": "/users/{login}", "logs": ""}})[1]
+        places = {row["name"]: row for row in data["places"]}
+        self.assertEqual((places["home"]["path"], places["logs"]["path"]), ("/users/{login}", ""))
+        self.assertEqual(self.call("get", "/systems")[1][0]["machines"], 1)
+
+    def test_the_first_machine_group_keeps_the_default_ones(self):
+        data = self.call("put", f"/machines/{self.core.pk}/groups/night", {"privileges": ["backup"]})[1]
+        self.assertEqual(sorted(row["name"] for row in data["groups"]), ["night", "users"])

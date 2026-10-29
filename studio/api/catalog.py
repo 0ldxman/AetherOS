@@ -40,6 +40,20 @@ def formats(request):
     ]
 
 
+class Template(Schema):
+    id: int
+    name: str
+    folders: list[str]
+
+
+@router.get("/templates", response=list[Template])
+def templates(request):
+    """Шаблоны файловой структуры для корня новой машины."""
+    from filesystem.models import VolumeTemplate
+
+    return [Template(id=t.pk, name=t.name, folders=t.paths()) for t in VolumeTemplate.objects.order_by("name")]
+
+
 @router.get("/keys", response=list[Key])
 def keys(request):
     return [Key(**row) for row in key_rows()]

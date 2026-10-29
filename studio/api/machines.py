@@ -5,6 +5,7 @@
 from datetime import datetime, timedelta
 
 from django.contrib.auth import get_user_model
+from django.core.exceptions import ValidationError
 from django.db.models import Count, Q
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
@@ -131,6 +132,21 @@ class Verdict(Schema):
     steps: list[Step]
 
 
+class NewMachine(Schema):
+    hostname: str
+    name: str = ""
+    system: str = "AETHER"
+    status: str = "OFFLINE"
+    root: str = "empty"                 # empty | template | volume | like
+    template: int | None = None
+    volume: int | None = None
+    like: int | None = None             # машина-образец (root=like)
+
+
+class MachineCreated(Schema):
+    id: int
+
+
 class PlayerAction(Schema):
     account: int
     player: str
@@ -192,6 +208,27 @@ def machines(request):
                    accounts=m.account_count, online=m.online_count, refusals=m.refusal_count)
         for m in rows
     ]
+
+
+@router.post("", response=MachineCreated)
+def create(request, body: NewMachine):
+    """Новая машина: с нуля (корень пустой, по шаблону или готовый том) или по образцу другой машины (machines.world.create)."""
+    from machines.world.create import clone_machine, create_machine
+
+    if body.root == "like":
+        machine = clone_machine(get_object_or_404(Machine, pk=body.like), body.hostname.strip(), body.name.strip(), body.status)
+    else:
+        machine = create_machine(body.hostname.strip(), body.name.strip(), body.system, body.status, body.root, body.template, body.volume)
+    return MachineCreated(id=machine.pk)
+
+
+@router.delete("/{int:machine_id}")
+def delete(request, machine_id: int):
+    machine = _machine(machine_id)
+    if machine.is_system:
+        raise ValidationError("Это системная машина: её нельзя удалить.")
+    machine.delete()
+    return {}
 
 
 @router.get("/{int:machine_id}", response=Overview)

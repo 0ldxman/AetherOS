@@ -60,6 +60,7 @@ def save(request, machine_id: int, name: str, body: GroupIn):
     unknown = [code for code in body.privileges if code not in PRIVILEGES]
     if unknown:
         raise ValidationError({"privileges": [f"Нет таких привилегий: {', '.join(unknown)}."]})
+    groups.make_explicit(machine=machine)
     row = Group.objects.filter(machine=machine, name=name).first() or Group(machine=machine, name=name)
     row.privileges, row.everyone, row.disabled = sorted(set(body.privileges)), body.everyone, False
     row.full_clean()
@@ -79,5 +80,6 @@ def revert(request, machine_id: int, name: str):
 def disable(request, machine_id: int, name: str):
     """Группа типа системы на этой машине не действует."""
     machine = get_object_or_404(Machine, pk=machine_id)
+    groups.make_explicit(machine=machine)
     Group.objects.update_or_create(machine=machine, name=name, defaults={"disabled": True, "privileges": [], "everyone": False})
     return _table(machine)

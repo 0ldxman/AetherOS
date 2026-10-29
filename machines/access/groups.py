@@ -29,6 +29,36 @@ def _load(machine):
     return found
 
 
+def make_explicit(machine=None, system_type=None):
+    """Перед первой своей группой у типа или машины: группы по умолчанию (DEFAULT_GROUPS) записываются явно туда же.
+
+    Умолчание действует, только пока групп нет нигде; без этого первая же своя группа молча отняла бы у записей, например, мосты."""
+    if system_type is not None:
+        if Group.objects.filter(system_type=system_type).exists():
+            return
+        if Group.objects.filter(machine__system=system_type.code).exists():
+            return                                         # у машин этого типа свои группы: на них умолчание и так не действует
+        rows = [Group(system_type=system_type, name=name, **spec) for name, spec in DEFAULT_GROUPS.items()]
+    else:
+        if Group.objects.filter(Q(system_type__code=machine.system) | Q(machine=machine)).exists():
+            return
+        rows = [Group(machine=machine, name=name, **spec) for name, spec in DEFAULT_GROUPS.items()]
+    Group.objects.bulk_create(rows)
+
+
+def type_table(system_type):
+    """Группы типа системы для автора: [{name, privileges, everyone, source, machines}] (machines: где тип переопределён)."""
+    rows = list(Group.objects.filter(system_type=system_type))
+    overridden = {}
+    for name, host in Group.objects.filter(machine__system=system_type.code).values_list("name", "machine__hostname"):
+        overridden.setdefault(name, []).append(host or "")
+    if not rows:
+        return [{"name": name, "privileges": sorted(spec["privileges"]), "everyone": spec["everyone"], "source": "default",
+                 "machines": sorted(overridden.get(name, []))} for name, spec in sorted(DEFAULT_GROUPS.items())]
+    return [{"name": row.name, "privileges": sorted(row.privileges), "everyone": row.everyone, "source": "system",
+             "machines": sorted(overridden.get(row.name, []))} for row in sorted(rows, key=lambda row: row.name)]
+
+
 def principal_for(profile):
     """Principal записи: группы по имени (существующие на машине) и «все записи»."""
     available = effective(profile.machine)

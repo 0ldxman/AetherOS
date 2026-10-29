@@ -9,7 +9,7 @@ from django.core.exceptions import ValidationError
 from django.db import transaction
 from django.utils.text import slugify
 
-from filesystem.models import FileFormat, Item, Placement
+from filesystem.models import FileFormat, Item, Placement, Volume
 from filesystem.names import validate_name
 
 
@@ -270,3 +270,28 @@ def apply_template(volume, template):
             volume=volume, parent=made.get(parent_path), kind=Placement.Kind.FOLDER, name=name, system=template.system,
         )
     return len(made)
+
+
+PLACEMENT_FIELDS = ("kind", "name", "item", "owner", "group", "mode", "hidden", "access_mode", "access", "state_mode", "state", "system")
+
+
+@transaction.atomic
+def copy_volume(volume, slug, name="", label=""):
+    """Новый том с тем же деревом: те же папки и размещения тех же объектов (содержимое не дублируется), права и слои как были."""
+    copy = Volume.objects.create(slug=slug, name=name, label=label, access=volume.access)
+    made = {}
+    rows = list(volume.placements.order_by("pk"))
+    pending = rows
+    while pending:                                     # родитель создаётся раньше детей, в каком бы порядке ни лежали строки
+        left = []
+        for row in pending:
+            if row.parent_id is not None and row.parent_id not in made:
+                left.append(row)
+                continue
+            made[row.pk] = Placement.objects.create(
+                volume=copy, parent=made.get(row.parent_id), **{field: getattr(row, field) for field in PLACEMENT_FIELDS},
+            )
+        if len(left) == len(pending):
+            break                                      # петля в дереве: оставшееся без родителя не копируется
+        pending = left
+    return copy
