@@ -1,12 +1,14 @@
 <script lang="ts">
   import { onMount } from "svelte";
-  import { adminUrl, api, type Schemas } from "../lib/api";
+  import { api, type Schemas } from "../lib/api";
   import { go } from "../lib/router.svelte";
+  import NewMachine from "./machine/NewMachine.svelte";
 
   let rows = $state<Schemas["MachineRow"][]>([]);
   let loading = $state(true);
   let query = $state("");
   let status = $state("");
+  let creating = $state(false);
 
   const shown = $derived(
     rows.filter((row) => {
@@ -36,7 +38,7 @@
       {#each Object.entries(STATUS) as [value, label]}<option {value}>{label}</option>{/each}
     </select>
     <input class="field search" placeholder="Поиск по хосту, названию, типу" bind:value={query} />
-    <a class="btn" href={adminUrl("machines/machine/add/")}>Новая машина</a>
+    <button class="btn primary" onclick={() => (creating = true)}>Новая машина</button>
   </div>
 </header>
 
@@ -65,6 +67,8 @@
     {/each}
   {/if}
 </section>
+
+{#if creating}<NewMachine machines={rows} onclose={() => (creating = false)} />{/if}
 
 <style>
   .head { display: flex; justify-content: space-between; align-items: flex-end; gap: 24px; padding: 28px 32px 18px; }

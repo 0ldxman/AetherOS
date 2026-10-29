@@ -1,13 +1,25 @@
 <script lang="ts">
   import { api, problem, type Schemas } from "../../lib/api";
   import { ago, span, when } from "../../lib/time";
+  import Dialog from "../../lib/Dialog.svelte";
+  import { go } from "../../lib/router.svelte";
   import { toast } from "../../lib/toast.svelte";
+  import NewMachine from "./NewMachine.svelte";
 
   let { machine, onchange }: { machine: Schemas["Overview"]; onchange: () => void } = $props();
 
   let form = $state({ hostname: "", name: "", system: "", status: "", entry_policy: null as number | null });
   let saving = $state(false);
   let errors = $state<Record<string, string[]>>({});
+  let dialog = $state<null | "delete" | "copy">(null);
+
+  async function remove() {
+    const { error } = await api.DELETE("/studio/api/machines/{machine_id}", { params: { path: { machine_id: machine.id } } });
+    dialog = null;
+    if (error) return toast(problem(error), "error");
+    toast("Машина удалена.");
+    go("/machines");
+  }
 
   $effect(() => {
     form = { hostname: machine.hostname, name: machine.name, system: machine.system, status: machine.status, entry_policy: machine.policy?.id ?? null };
@@ -111,8 +123,22 @@
     </label>
     <p class="muted small">Учётка со своей политикой её перекрывает. Что действует для каждой учётки, видно на вкладке «Доступ».</p>
     <button class="btn primary" disabled={!dirty || saving} onclick={save}>Сохранить</button>
+    <div class="more-acts">
+      <button class="btn ghost" onclick={() => (dialog = "copy")}>Новая машина по образцу этой</button>
+      {#if !machine.is_system}<button class="btn ghost danger" onclick={() => (dialog = "delete")}>Удалить машину</button>{/if}
+    </div>
   </section>
 </div>
+
+{#if dialog === "delete"}
+  <Dialog title="Удалить {machine.hostname || machine.name}?" confirm="Удалить" danger onsubmit={remove} onclose={() => (dialog = null)}>
+    <p class="muted">Удалятся учётки, их сессии и журнал, монтирования, экспорты, свои группы и пути машины. Тома останутся: они могут быть
+      нужны другим машинам, лишние удалите в «Томах».</p>
+  </Dialog>
+{:else if dialog === "copy"}
+  <NewMachine machines={[{ id: machine.id, hostname: machine.hostname, name: machine.name, system: machine.system, status: machine.status,
+                           is_system: machine.is_system, accounts: 0, online: 0, refusals: 0 }]} like={machine.id} onclose={() => (dialog = null)} />
+{/if}
 
 <style>
   .grid { display: grid; grid-template-columns: 1fr 340px; gap: 16px; padding: 16px 20px 24px; align-items: start; }
@@ -140,4 +166,5 @@
   .pair { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
   .field.bad { border-color: var(--danger); }
   .err { margin: -6px 0 0; color: var(--danger); font-size: 12px; }
+  .more-acts { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; padding-top: 8px; border-top: 1px solid var(--line-soft); }
 </style>

@@ -66,7 +66,7 @@
   <div class="wrap">
     <p class="muted lead">
       Привилегии учётки складываются по её группам; у root есть всё. Клик по клетке группы типа системы переопределяет её на этой машине
-      (у остальных машин типа она не меняется).
+      (у остальных машин типа она не меняется). Группы для всех машин типа — в <a href="#/systems/{machine.system}">типе {machine.system}</a>.
     </p>
     <div class="matrix" style:--cols={table.privileges.length}>
       <div class="cell head name">Группа</div>

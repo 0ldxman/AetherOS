@@ -64,6 +64,38 @@
     ]
    }
   },
+  "/studio/api/templates": {
+   "get": {
+    "operationId": "studio_api_catalog_templates",
+    "summary": "Templates",
+    "parameters": [],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "items": {
+          "$ref": "#/components/schemas/Template"
+         },
+         "title": "Response",
+         "type": "array"
+        }
+       }
+      }
+     }
+    },
+    "description": "Шаблоны файловой структуры для корня новой машины.",
+    "tags": [
+     "catalog"
+    ],
+    "security": [
+     {
+      "SessionAuthIsStaff": []
+     }
+    ]
+   }
+  },
   "/studio/api/keys": {
    "get": {
     "operationId": "studio_api_catalog_keys",
@@ -799,9 +831,73 @@
       "SessionAuthIsStaff": []
      }
     ]
+   },
+   "post": {
+    "operationId": "studio_api_machines_create",
+    "summary": "Create",
+    "parameters": [],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/MachineCreated"
+        }
+       }
+      }
+     }
+    },
+    "description": "Новая машина: с нуля (корень пустой, по шаблону или готовый том) или по образцу другой машины (machines.world.create).",
+    "tags": [
+     "machines"
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/NewMachine"
+       }
+      }
+     },
+     "required": true
+    },
+    "security": [
+     {
+      "SessionAuthIsStaff": []
+     }
+    ]
    }
   },
   "/studio/api/machines/{machine_id}": {
+   "delete": {
+    "operationId": "studio_api_machines_delete",
+    "summary": "Delete",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "machine_id",
+      "schema": {
+       "title": "Machine Id",
+       "type": "integer"
+      },
+      "required": true
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "OK"
+     }
+    },
+    "tags": [
+     "machines"
+    ],
+    "security": [
+     {
+      "SessionAuthIsStaff": []
+     }
+    ]
+   },
    "get": {
     "operationId": "studio_api_machines_overview",
     "summary": "Overview",
@@ -2119,6 +2215,302 @@
      }
     ]
    }
+  },
+  "/studio/api/systems": {
+   "get": {
+    "operationId": "studio_api_systems_systems",
+    "summary": "Systems",
+    "parameters": [],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "items": {
+          "$ref": "#/components/schemas/SystemRow"
+         },
+         "title": "Response",
+         "type": "array"
+        }
+       }
+      }
+     }
+    },
+    "tags": [
+     "systems"
+    ],
+    "security": [
+     {
+      "SessionAuthIsStaff": []
+     }
+    ]
+   },
+   "post": {
+    "operationId": "studio_api_systems_create",
+    "summary": "Create",
+    "parameters": [],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/SystemOut"
+        }
+       }
+      }
+     }
+    },
+    "tags": [
+     "systems"
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/NewSystem"
+       }
+      }
+     },
+     "required": true
+    },
+    "security": [
+     {
+      "SessionAuthIsStaff": []
+     }
+    ]
+   }
+  },
+  "/studio/api/systems/{code}": {
+   "get": {
+    "operationId": "studio_api_systems_read",
+    "summary": "Read",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "code",
+      "schema": {
+       "title": "Code",
+       "type": "string"
+      },
+      "required": true
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/SystemOut"
+        }
+       }
+      }
+     }
+    },
+    "tags": [
+     "systems"
+    ],
+    "security": [
+     {
+      "SessionAuthIsStaff": []
+     }
+    ]
+   },
+   "put": {
+    "operationId": "studio_api_systems_save",
+    "summary": "Save",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "code",
+      "schema": {
+       "title": "Code",
+       "type": "string"
+      },
+      "required": true
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/SystemOut"
+        }
+       }
+      }
+     }
+    },
+    "tags": [
+     "systems"
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/SystemIn"
+       }
+      }
+     },
+     "required": true
+    },
+    "security": [
+     {
+      "SessionAuthIsStaff": []
+     }
+    ]
+   }
+  },
+  "/studio/api/systems/{code}/places": {
+   "put": {
+    "operationId": "studio_api_systems_places",
+    "summary": "Places",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "code",
+      "schema": {
+       "title": "Code",
+       "type": "string"
+      },
+      "required": true
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/SystemOut"
+        }
+       }
+      }
+     }
+    },
+    "description": "Места типа целиком: имя -> шаблон пути. Пустой путь значит «как у движка» (своё значение убирается).",
+    "tags": [
+     "systems"
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/PlacesIn"
+       }
+      }
+     },
+     "required": true
+    },
+    "security": [
+     {
+      "SessionAuthIsStaff": []
+     }
+    ]
+   }
+  },
+  "/studio/api/systems/{code}/groups/{name}": {
+   "put": {
+    "operationId": "studio_api_systems_save_group",
+    "summary": "Save Group",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "code",
+      "schema": {
+       "title": "Code",
+       "type": "string"
+      },
+      "required": true
+     },
+     {
+      "in": "path",
+      "name": "name",
+      "schema": {
+       "title": "Name",
+       "type": "string"
+      },
+      "required": true
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/SystemOut"
+        }
+       }
+      }
+     }
+    },
+    "tags": [
+     "systems"
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/GroupIn"
+       }
+      }
+     },
+     "required": true
+    },
+    "security": [
+     {
+      "SessionAuthIsStaff": []
+     }
+    ]
+   },
+   "delete": {
+    "operationId": "studio_api_systems_drop_group",
+    "summary": "Drop Group",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "code",
+      "schema": {
+       "title": "Code",
+       "type": "string"
+      },
+      "required": true
+     },
+     {
+      "in": "path",
+      "name": "name",
+      "schema": {
+       "title": "Name",
+       "type": "string"
+      },
+      "required": true
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/SystemOut"
+        }
+       }
+      }
+     }
+    },
+    "tags": [
+     "systems"
+    ],
+    "security": [
+     {
+      "SessionAuthIsStaff": []
+     }
+    ]
+   }
   }
  },
  "components": {
@@ -2177,6 +2569,32 @@
      "editable"
     ],
     "title": "Format",
+    "type": "object"
+   },
+   "Template": {
+    "properties": {
+     "id": {
+      "title": "Id",
+      "type": "integer"
+     },
+     "name": {
+      "title": "Name",
+      "type": "string"
+     },
+     "folders": {
+      "items": {
+       "type": "string"
+      },
+      "title": "Folders",
+      "type": "array"
+     }
+    },
+    "required": [
+     "id",
+     "name",
+     "folders"
+    ],
+    "title": "Template",
     "type": "object"
    },
    "Key": {
@@ -3185,6 +3603,85 @@
      "refusals"
     ],
     "title": "MachineRow",
+    "type": "object"
+   },
+   "MachineCreated": {
+    "properties": {
+     "id": {
+      "title": "Id",
+      "type": "integer"
+     }
+    },
+    "required": [
+     "id"
+    ],
+    "title": "MachineCreated",
+    "type": "object"
+   },
+   "NewMachine": {
+    "properties": {
+     "hostname": {
+      "title": "Hostname",
+      "type": "string"
+     },
+     "name": {
+      "default": "",
+      "title": "Name",
+      "type": "string"
+     },
+     "system": {
+      "default": "AETHER",
+      "title": "System",
+      "type": "string"
+     },
+     "status": {
+      "default": "OFFLINE",
+      "title": "Status",
+      "type": "string"
+     },
+     "root": {
+      "default": "empty",
+      "title": "Root",
+      "type": "string"
+     },
+     "template": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Template"
+     },
+     "volume": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Volume"
+     },
+     "like": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Like"
+     }
+    },
+    "required": [
+     "hostname"
+    ],
+    "title": "NewMachine",
     "type": "object"
    },
    "AccountRow": {
@@ -4836,6 +5333,254 @@
      "windows"
     ],
     "title": "WindowsIn",
+    "type": "object"
+   },
+   "SystemRow": {
+    "properties": {
+     "code": {
+      "title": "Code",
+      "type": "string"
+     },
+     "name": {
+      "title": "Name",
+      "type": "string"
+     },
+     "path_style": {
+      "title": "Path Style",
+      "type": "string"
+     },
+     "policy": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Policy"
+     },
+     "machines": {
+      "title": "Machines",
+      "type": "integer"
+     }
+    },
+    "required": [
+     "code",
+     "name",
+     "path_style",
+     "policy",
+     "machines"
+    ],
+    "title": "SystemRow",
+    "type": "object"
+   },
+   "PlaceRow": {
+    "properties": {
+     "name": {
+      "title": "Name",
+      "type": "string"
+     },
+     "path": {
+      "title": "Path",
+      "type": "string"
+     },
+     "default": {
+      "type": "string",
+      "title": "Default"
+     },
+     "machines": {
+      "items": {
+       "type": "string"
+      },
+      "title": "Machines",
+      "type": "array"
+     }
+    },
+    "required": [
+     "name",
+     "path",
+     "default",
+     "machines"
+    ],
+    "title": "PlaceRow",
+    "type": "object"
+   },
+   "SystemOut": {
+    "properties": {
+     "code": {
+      "title": "Code",
+      "type": "string"
+     },
+     "name": {
+      "title": "Name",
+      "type": "string"
+     },
+     "path_style": {
+      "title": "Path Style",
+      "type": "string"
+     },
+     "entry_policy": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Entry Policy"
+     },
+     "machines": {
+      "items": {
+       "type": "string"
+      },
+      "title": "Machines",
+      "type": "array"
+     },
+     "places": {
+      "items": {
+       "$ref": "#/components/schemas/PlaceRow"
+      },
+      "title": "Places",
+      "type": "array"
+     },
+     "privileges": {
+      "items": {
+       "$ref": "#/components/schemas/Privilege"
+      },
+      "title": "Privileges",
+      "type": "array"
+     },
+     "groups": {
+      "items": {
+       "$ref": "#/components/schemas/TypeGroup"
+      },
+      "title": "Groups",
+      "type": "array"
+     },
+     "policies": {
+      "items": {
+       "$ref": "#/components/schemas/Policy"
+      },
+      "title": "Policies",
+      "type": "array"
+     }
+    },
+    "required": [
+     "code",
+     "name",
+     "path_style",
+     "entry_policy",
+     "machines",
+     "places",
+     "privileges",
+     "groups",
+     "policies"
+    ],
+    "title": "SystemOut",
+    "type": "object"
+   },
+   "TypeGroup": {
+    "properties": {
+     "name": {
+      "title": "Name",
+      "type": "string"
+     },
+     "privileges": {
+      "items": {
+       "type": "string"
+      },
+      "title": "Privileges",
+      "type": "array"
+     },
+     "everyone": {
+      "title": "Everyone",
+      "type": "boolean"
+     },
+     "source": {
+      "title": "Source",
+      "type": "string"
+     },
+     "machines": {
+      "items": {
+       "type": "string"
+      },
+      "title": "Machines",
+      "type": "array"
+     }
+    },
+    "required": [
+     "name",
+     "privileges",
+     "everyone",
+     "source",
+     "machines"
+    ],
+    "title": "TypeGroup",
+    "type": "object"
+   },
+   "NewSystem": {
+    "properties": {
+     "code": {
+      "title": "Code",
+      "type": "string"
+     },
+     "name": {
+      "title": "Name",
+      "type": "string"
+     }
+    },
+    "required": [
+     "code",
+     "name"
+    ],
+    "title": "NewSystem",
+    "type": "object"
+   },
+   "SystemIn": {
+    "properties": {
+     "name": {
+      "title": "Name",
+      "type": "string"
+     },
+     "path_style": {
+      "default": "unix",
+      "title": "Path Style",
+      "type": "string"
+     },
+     "entry_policy": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Entry Policy"
+     }
+    },
+    "required": [
+     "name"
+    ],
+    "title": "SystemIn",
+    "type": "object"
+   },
+   "PlacesIn": {
+    "properties": {
+     "places": {
+      "additionalProperties": {
+       "type": "string"
+      },
+      "title": "Places",
+      "type": "object"
+     }
+    },
+    "required": [
+     "places"
+    ],
+    "title": "PlacesIn",
     "type": "object"
    }
   },

@@ -9,6 +9,7 @@
   import Machines from "./routes/Machines.svelte";
   import Machine from "./routes/Machine.svelte";
   import Policies from "./routes/Policies.svelte";
+  import Systems from "./routes/Systems.svelte";
 
   let user = $state("");
 
@@ -23,7 +24,8 @@
     | { name: "item"; id: number }
     | { name: "machines" }
     | { name: "machine"; id: number; tab: string; sub: number | null }
-    | { name: "policies"; id: number | null };
+    | { name: "policies"; id: number | null }
+    | { name: "systems"; code: string | null };
 
   const page: Page = $derived.by((): Page => {
     let found;
@@ -36,6 +38,8 @@
     if (match("/machines", route.path)) return { name: "machines" };
     if ((found = match("/policies/:id", route.path))) return { name: "policies", id: +found.id };
     if (match("/policies", route.path)) return { name: "policies", id: null };
+    if ((found = match("/systems/:code", route.path))) return { name: "systems", code: found.code };
+    if (match("/systems", route.path)) return { name: "systems", code: null };
     return { name: "volumes" };
   });
 
@@ -43,6 +47,7 @@
     { href: "#/volumes", label: "Тома и файлы", section: ["volumes", "volume", "item"] },
     { href: "#/machines", label: "Машины", section: ["machines", "machine"] },
     { href: "#/policies", label: "Политики входа", section: ["policies"] },
+    { href: "#/systems", label: "Типы систем", section: ["systems"] },
   ];
 </script>
 
@@ -71,6 +76,8 @@
       {#key page.id}<Volume id={page.id} folder={page.folder} />{/key}
     {:else if page.name === "item"}
       {#key page.id}<Item id={page.id} />{/key}
+    {:else if page.name === "systems"}
+      {#key page.code}<Systems code={page.code} />{/key}
     {:else if page.name === "policies"}
       <Policies id={page.id} />
     {:else if page.name === "machines"}

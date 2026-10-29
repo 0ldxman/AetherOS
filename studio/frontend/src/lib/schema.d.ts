@@ -38,6 +38,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/studio/api/templates": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Templates
+         * @description Шаблоны файловой структуры для корня новой машины.
+         */
+        get: operations["studio_api_catalog_templates"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/studio/api/keys": {
         parameters: {
             query?: never;
@@ -308,7 +328,11 @@ export interface paths {
         /** Machines */
         get: operations["studio_api_machines_machines"];
         put?: never;
-        post?: never;
+        /**
+         * Create
+         * @description Новая машина: с нуля (корень пустой, по шаблону или готовый том) или по образцу другой машины (machines.world.create).
+         */
+        post: operations["studio_api_machines_create"];
         delete?: never;
         options?: never;
         head?: never;
@@ -327,7 +351,8 @@ export interface paths {
         /** Save */
         put: operations["studio_api_machines_save"];
         post?: never;
-        delete?: never;
+        /** Delete */
+        delete: operations["studio_api_machines_delete"];
         options?: never;
         head?: never;
         patch?: never;
@@ -698,6 +723,80 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/studio/api/systems": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Systems */
+        get: operations["studio_api_systems_systems"];
+        put?: never;
+        /** Create */
+        post: operations["studio_api_systems_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/studio/api/systems/{code}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Read */
+        get: operations["studio_api_systems_read"];
+        /** Save */
+        put: operations["studio_api_systems_save"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/studio/api/systems/{code}/places": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Places
+         * @description Места типа целиком: имя -> шаблон пути. Пустой путь значит «как у движка» (своё значение убирается).
+         */
+        put: operations["studio_api_systems_places"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/studio/api/systems/{code}/groups/{name}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Save Group */
+        put: operations["studio_api_systems_save_group"];
+        post?: never;
+        /** Drop Group */
+        delete: operations["studio_api_systems_drop_group"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -723,6 +822,15 @@ export interface components {
             content: string;
             /** Editable */
             editable: boolean;
+        };
+        /** Template */
+        Template: {
+            /** Id */
+            id: number;
+            /** Name */
+            name: string;
+            /** Folders */
+            folders: string[];
         };
         /** Key */
         Key: {
@@ -1108,6 +1216,42 @@ export interface components {
             online: number;
             /** Refusals */
             refusals: number;
+        };
+        /** MachineCreated */
+        MachineCreated: {
+            /** Id */
+            id: number;
+        };
+        /** NewMachine */
+        NewMachine: {
+            /** Hostname */
+            hostname: string;
+            /**
+             * Name
+             * @default
+             */
+            name: string;
+            /**
+             * System
+             * @default AETHER
+             */
+            system: string;
+            /**
+             * Status
+             * @default OFFLINE
+             */
+            status: string;
+            /**
+             * Root
+             * @default empty
+             */
+            root: string;
+            /** Template */
+            template?: number | null;
+            /** Volume */
+            volume?: number | null;
+            /** Like */
+            like?: number | null;
         };
         /** AccountRow */
         AccountRow: {
@@ -1728,6 +1872,90 @@ export interface components {
             /** Windows */
             windows: string;
         };
+        /** SystemRow */
+        SystemRow: {
+            /** Code */
+            code: string;
+            /** Name */
+            name: string;
+            /** Path Style */
+            path_style: string;
+            /** Policy */
+            policy: string | null;
+            /** Machines */
+            machines: number;
+        };
+        /** PlaceRow */
+        PlaceRow: {
+            /** Name */
+            name: string;
+            /** Path */
+            path: string;
+            /** Default */
+            default: string;
+            /** Machines */
+            machines: string[];
+        };
+        /** SystemOut */
+        SystemOut: {
+            /** Code */
+            code: string;
+            /** Name */
+            name: string;
+            /** Path Style */
+            path_style: string;
+            /** Entry Policy */
+            entry_policy: number | null;
+            /** Machines */
+            machines: string[];
+            /** Places */
+            places: components["schemas"]["PlaceRow"][];
+            /** Privileges */
+            privileges: components["schemas"]["Privilege"][];
+            /** Groups */
+            groups: components["schemas"]["TypeGroup"][];
+            /** Policies */
+            policies: components["schemas"]["Policy"][];
+        };
+        /** TypeGroup */
+        TypeGroup: {
+            /** Name */
+            name: string;
+            /** Privileges */
+            privileges: string[];
+            /** Everyone */
+            everyone: boolean;
+            /** Source */
+            source: string;
+            /** Machines */
+            machines: string[];
+        };
+        /** NewSystem */
+        NewSystem: {
+            /** Code */
+            code: string;
+            /** Name */
+            name: string;
+        };
+        /** SystemIn */
+        SystemIn: {
+            /** Name */
+            name: string;
+            /**
+             * Path Style
+             * @default unix
+             */
+            path_style: string;
+            /** Entry Policy */
+            entry_policy?: number | null;
+        };
+        /** PlacesIn */
+        PlacesIn: {
+            /** Places */
+            places: {
+                [key: string]: string;
+            };
+        };
     };
     responses: never;
     parameters: never;
@@ -1773,6 +2001,26 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Format"][];
+                };
+            };
+        };
+    };
+    studio_api_catalog_templates: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Template"][];
                 };
             };
         };
@@ -2214,6 +2462,30 @@ export interface operations {
             };
         };
     };
+    studio_api_machines_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NewMachine"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MachineCreated"];
+                };
+            };
+        };
+    };
     studio_api_machines_overview: {
         parameters: {
             query?: never;
@@ -2259,6 +2531,26 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["Overview"];
                 };
+            };
+        };
+    };
+    studio_api_machines_delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                machine_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
         };
     };
@@ -2908,6 +3200,174 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Week"];
+                };
+            };
+        };
+    };
+    studio_api_systems_systems: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SystemRow"][];
+                };
+            };
+        };
+    };
+    studio_api_systems_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NewSystem"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SystemOut"];
+                };
+            };
+        };
+    };
+    studio_api_systems_read: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                code: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SystemOut"];
+                };
+            };
+        };
+    };
+    studio_api_systems_save: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                code: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SystemIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SystemOut"];
+                };
+            };
+        };
+    };
+    studio_api_systems_places: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                code: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PlacesIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SystemOut"];
+                };
+            };
+        };
+    };
+    studio_api_systems_save_group: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                code: string;
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GroupIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SystemOut"];
+                };
+            };
+        };
+    };
+    studio_api_systems_drop_group: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                code: string;
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SystemOut"];
                 };
             };
         };
