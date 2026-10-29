@@ -1,3 +1,5 @@
+from datetime import datetime, timezone
+
 from django.test import SimpleTestCase
 
 from scenes.markup import check, render
@@ -73,3 +75,32 @@ class TableTests(SimpleTestCase):
         self.assertEqual([n for n, _ in check("<table>\na | b", [])], [1])
         self.assertEqual([n for n, _ in check("a\n</table>", [])], [2])
         self.assertEqual([n for n, _ in check("<table>\n{nope} | b\n</table>", [])], [2])
+
+
+class SinceTests(SimpleTestCase):
+    NOW = datetime(2030, 11, 14, 3, 14, tzinfo=timezone.utc)
+
+    def shown(self, template, params=None):
+        scene = render(template, params or {}, now=self.NOW)
+        return "".join(step["value"] for step in scene.to_dict() if step["op"] == "text")
+
+    def test_formats(self):
+        self.assertEqual(self.shown("<since>2027-10-29</since>"), "1,112")
+        self.assertEqual(self.shown("<since>2027-10-29 | days</since>"), "1,112")
+        self.assertEqual(self.shown("<since>2030-11-14 | hours</since>"), "3")
+        self.assertEqual(self.shown("<since>2030-11-14 03:00 | minutes</since>"), "14")
+        self.assertEqual(self.shown("<since>2027-10-29 | years</since>"), "3")
+        self.assertEqual(self.shown("<since>2027-10-29 | ymd</since>"), "3 y 0 mo 16 d")
+        self.assertEqual(self.shown("<since>2027-10-29 | ago</since>"), "1,112 d")
+        self.assertEqual(self.shown("<since>2030-11-14 03:00 | ago</since>"), "14 min")
+        self.assertEqual(self.shown("<since>2030-11-20 | ago</since>"), "in 5 d")
+
+    def test_the_date_may_come_from_a_parameter_and_text_around_stays(self):
+        self.assertEqual(self.shown("gone for <since>{when}</since> days", {"when": "2030-11-04"}), "gone for 10 days")
+
+    def test_a_table_cell_keeps_the_bar_inside_since(self):
+        rows = lines_of(render("<table gap=1>\nCORE: | <since>2027-10-29 | days</since> d\nUP: | x\n</table>", {}, now=self.NOW))
+        self.assertEqual(rows, ["CORE: 1,112 d", "UP:   x"])
+
+    def test_errors_name_the_line(self):
+        self.assertEqual([n for n, _ in check("ok\n<since>nope</since>\n<since>2027-10-29 | weeks</since>", [])], [2, 3])

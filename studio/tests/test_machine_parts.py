@@ -268,6 +268,16 @@ class CreateAndSystemsTests(TestCase):
         text = "".join(part["text"] for part in shown["lines"][0])
         self.assertTrue(text.startswith("1,113 20 of 31 2030-11-15 03:14 UTC "), text)
 
+    def test_since_counts_from_the_world_time_in_the_greeting_and_the_blackout(self):
+        status, shown = self.call("post", "/systems/AETHER/greeting/preview", {"greeting": "<since>2027-10-29 | days</since> / <since>x</since>"})
+        self.assertEqual("".join(part["text"] for part in shown["lines"][0]), "1,112 / ?")
+        self.assertEqual([e["line"] for e in shown["errors"]], [1])
+        self.assertEqual(self.call("put", "/systems/AETHER/blackouts/leave", {"text": "away <since>2027-10-29 | years</since> y"})[0], 200)
+        from machines.world import blackout
+
+        profile = self.core.profiles.first() or MachineProfile.objects.create(machine=self.core, login="guest", freq="1")
+        self.assertEqual(blackout.resolve("leave", profile)["text"], "away 3 y")
+
     def test_the_system_image_is_laid_under_the_machine_mounts(self):
         from filesystem.machine_view import MachineView
 

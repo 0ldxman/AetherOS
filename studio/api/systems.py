@@ -16,6 +16,7 @@ from machines.access.privileges import PRIVILEGES
 from filesystem.models import Volume
 from machines.models import EntryPolicy, Group, Machine, Place, SystemBlackout, SystemType, SystemVolume
 from machines.world import blackout as blackouts
+from machines.world.dates import world
 from machines.world.facts import facts
 from machines.world.identity import identity_of
 from machines.world.places import DEFAULTS
@@ -308,7 +309,7 @@ def preview_greeting(request, code: str, body: GreetingIn):
     machine = Machine.objects.filter(system=system.code).order_by("hostname").first()
     host = machine.hostname if machine else "host"
     params = greeting_params(identity_of(host), "player", None, system, facts(machine) if machine else None)
-    rows, found = markup.compile_lines(body.greeting, params)
+    rows, found = markup.compile_lines(body.greeting, params, world().game_now)
     lines = [[GreetingPart(text=text, style=style) for text, style in parts] for parts in rows]
     errors = [GreetingError(line=number, text=text) for number, text in found]
     return GreetingPreview(lines=lines, errors=errors, machine=machine.hostname if machine else None)

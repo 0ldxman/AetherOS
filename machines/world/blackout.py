@@ -1,7 +1,7 @@
 """Чёрный экран рабочего стола: подключение (arrive), закрытие подключения (leave), обрыв по сроку (kick).
 
 Что показывать, решает ОС машины (SystemBlackout), пустые поля заполняет движок. Текст и заголовок с подстановками
-{label} {host} {login} {os} {os_name}: цвет у окна один на всё окно (tone), поэтому цветовых тегов здесь нет."""
+{label} {host} {login} {os} {os_name} и <since>дата | формат</since>: цвет у окна один на всё окно (tone), поэтому цветовых тегов здесь нет."""
 from scenes import markup
 
 EVENTS = {"arrive": "Подключение", "leave": "Закрытие подключения", "kick": "Обрыв по сроку"}
@@ -29,8 +29,11 @@ def defaults(event, system):
 
 
 def _plain(template, params):
-    """Шаблон -> обычный текст (цвета не поддерживаются)."""
-    return "\n".join("".join(text for text, _ in markup.parse_line(line, params)[0]) for line in template.splitlines())
+    """Шаблон -> обычный текст (цвета не поддерживаются; <since> считается от «сейчас» в мире)."""
+    from machines.world.dates import world
+
+    now = world().game_now
+    return "\n".join("".join(text for text, _ in markup.parse_line(line, params, now)[0]) for line in template.splitlines())
 
 
 def check(*templates):
@@ -38,7 +41,7 @@ def check(*templates):
     problems = []
     for template in templates:
         problems += [f"Строка {number}: {text}" for number, text in markup.check(template, PARAMS)]
-        if any(style for line in template.splitlines() for _, style in markup.parse_line(line, dict.fromkeys(PARAMS))[0]):
+        if any(style for line in template.splitlines() for _, style in markup.parse_line(line, dict.fromkeys(PARAMS, ""), markup._PROBE)[0]):
             problems.append("Цвета здесь не поддерживаются: окно красится целиком (поле «Цвет»).")
     return problems
 

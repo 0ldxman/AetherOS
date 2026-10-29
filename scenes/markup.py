@@ -2,6 +2,8 @@
 
     <dim>тусклый</dim>  <success>…</success>  <warning>…</warning>  <error>…</error>
     <rand>21-41</rand>   целое число из диапазона, при каждом показе своё (нагрузки)
+    <since>2027-10-29 | days</since>   сколько прошло от даты до «сейчас» в мире: days (по умолчанию), hours, minutes, years,
+                                       ymd, ago; дата с временем: 2027-10-29 14:30 (UTC), внутри можно {параметр}
     {host}              значение параметра; {{ и }} дают сами скобки; &lt; &gt; &amp; дают < > &
 
     <table> … </table>  колонки: в строках между тегами ячейки разделены |, ширина колонки считается по самой длинной
@@ -13,20 +15,40 @@
 Движок сцен (scenes.engine) шире, а здесь нарочно только это: для сцен будет свой, более богатый язык."""
 import random
 import re
+from datetime import datetime, timezone
 
+from scenes import since
 from scenes.engine import STYLES, Scene
 
 _TOKEN = re.compile(r"<(/?)(\w+)>|\{\{|\}\}|\{(\w*)\}|[{}<>]|&(?:lt|gt|amp|pipe);")
 _RAND = re.compile(r"<rand>\s*(\d+)\s*-\s*(\d+)\s*</rand>")
+_SINCE = re.compile(r"<since>(.*?)</since>")
 _ENTITIES = {"&lt;": "<", "&gt;": ">", "&amp;": "&", "&pipe;": "|"}
 _TABLE = re.compile(r"^\s*<table(?:\s+gap=(\d+))?>\s*$")
 _END_TABLE = re.compile(r"^\s*</table>\s*$")
 GAP = 3
 
 
-def parse_line(line, params):
-    """Строка -> (части [(текст, стиль)], ошибки [текст]). params: допустимые имена -> значения (или None, чтобы только проверить)."""
+def _since(match, params, now, errors):
+    """<since>дата | формат</since> -> текст. Ошибки дописываются в errors, на экране остаётся «?»."""
+    date, _, form = (part.strip() for part in match.group(1).partition("|"))
+    date = re.sub(r"\{(\w+)\}", lambda m: str(params.get(m.group(1), "")), date)
+    start, form = since.parse_date(date), form or "days"
+    if start is None:
+        errors.append(f"<since>: не дата «{date}»; пишите 2027-10-29 или 2027-10-29 14:30.")
+    elif form not in since.FORMATS:
+        errors.append(f"<since>: нет формата «{form}»; допустимы {', '.join(since.FORMATS)}.")
+    else:
+        return since.elapsed(start, now, form)
+    return "?"
+
+
+def parse_line(line, params, now=None):
+    """Строка -> (части [(текст, стиль)], ошибки [текст]). params: допустимые имена -> значения (или None, чтобы только проверить).
+    now: «сейчас» в мире для <since>; без него тег <since> не поддерживается."""
     parts, errors, stack, position = [], [], [], 0
+    if now is not None:
+        line = _SINCE.sub(lambda match: _since(match, params, now, errors), line)
     line = _RAND.sub(lambda m: str(random.randint(*sorted((int(m.group(1)), int(m.group(2)))))), line)
 
     def put(text):
@@ -69,13 +91,13 @@ def parse_line(line, params):
     return parts, errors
 
 
-def _table(rows, gap, params):
+def _table(rows, gap, params, now):
     """Строки таблицы (каждая: список ячеек-текстов шаблона) -> (строки из частей, ошибки [(индекс строки, текст)])."""
     cells, errors = [], []
     for index, row in enumerate(rows):
         parsed = []
         for number, text in enumerate(row):
-            parts, found = parse_line(text.rstrip() if number == 0 else text.strip(), params)
+            parts, found = parse_line(text.rstrip() if number == 0 else text.strip(), params, now)
             parsed.append(parts)
             errors += [(index, message) for message in found]
         cells.append(parsed)
@@ -95,7 +117,7 @@ def _table(rows, gap, params):
     return lines, errors
 
 
-def compile_lines(template, params):
+def compile_lines(template, params, now=None):
     """Шаблон -> (строки [[(текст, стиль)]], ошибки [(номер строки шаблона с 1, текст)]). Таблицы выравниваются здесь."""
     lines, errors = [], []
     source = template.splitlines()
@@ -109,7 +131,7 @@ def compile_lines(template, params):
                 errors.append((number, "Тег <table> не закрыт: нужен </table> на отдельной строке."))
                 end = len(source)
             body = source[index + 1:end]
-            rows, found = _table([row.split("|") for row in body], int(opened.group(1) or GAP), params)
+            rows, found = _table([_cells(row) for row in body], int(opened.group(1) or GAP), params, now)
             lines += rows
             errors += [(number + 1 + row, message) for row, message in found]
             index = end + 1
@@ -117,21 +139,30 @@ def compile_lines(template, params):
         if _END_TABLE.match(line):
             errors.append((number, "Тег </table> закрывает то, что не открыто."))
         else:
-            parts, found = parse_line(line, params)
+            parts, found = parse_line(line, params, now)
             lines.append(parts)
             errors += [(number, message) for message in found]
         index += 1
     return lines, errors
 
 
+def _cells(row):
+    """Ячейки строки таблицы: делит по |, но не внутри <since> (там | отделяет формат)."""
+    keep = _SINCE.sub(lambda match: match.group().replace("|", "\0"), row)
+    return [cell.replace("\0", "|") for cell in keep.split("|")]
+
+
+_PROBE = datetime(2030, 1, 1, tzinfo=timezone.utc)
+
+
 def check(template, names):
-    """Ошибки шаблона: [(номер строки с 1, текст)]."""
-    return compile_lines(template, dict.fromkeys(names))[1]
+    """Ошибки шаблона: [(номер строки с 1, текст)]. Для <since> достаточно любого «сейчас»: проверяются дата и формат."""
+    return compile_lines(template, dict.fromkeys(names, ""), _PROBE)[1]
 
 
-def render(template, params, scene=None):
+def render(template, params, scene=None, now=None):
     """Шаблон -> сцена. Ошибки не роняют вывод: неверное остаётся как есть (разбирает check при сохранении)."""
     scene = scene or Scene()
-    for parts in compile_lines(template, params)[0]:
+    for parts in compile_lines(template, params, now)[0]:
         scene.say(*parts) if parts else scene.blank()
     return scene

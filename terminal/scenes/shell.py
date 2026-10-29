@@ -413,7 +413,7 @@ def greeting_params(ident, login, mail=None, system=None, facts=None):
 def greeting_scene(ident, login, mail=None, system=None, facts=None):
     """Оболочка открылась. Если у ОС задано своё приветствие (SystemType.greeting), показывается оно, иначе общее ниже."""
     if system is not None and system.greeting.strip():
-        return markup.render(system.greeting, greeting_params(ident, login, mail, system, facts)).to_dict()
+        return markup.render(system.greeting, greeting_params(ident, login, mail, system, facts), now=world().game_now).to_dict()
     return _default_greeting(ident, login, mail)
 
 
