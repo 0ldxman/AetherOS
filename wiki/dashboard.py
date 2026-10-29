@@ -15,7 +15,7 @@ from secure.access import condition_slugs
 from secure.keys import key_items
 from secure.usage import used_slugs
 
-from wiki.markup.lint import ERROR, _Scan, _wiki_target
+from documents.markup.lint import ERROR, _Scan, _wiki_target
 from wiki import library
 
 RECENT_LIMIT = 15

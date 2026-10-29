@@ -71,9 +71,13 @@ class SeedDemoTests(TestCase):
 
         from wiki import views
 
+        from terminal.fsview import views as fsview
+
         found_file = next(page for page in found.pages if not page.markup)
-        page = views.resolve(request, found_file.path().replace(":", "/"))
-        self.assertIn("raw", page.content.decode().lower())                              # вьювер сырых байтов, а не разметка вики
-        data = views.file_bytes(request, found_file.pk)
-        self.assertEqual(data.status_code, 200)
-        self.assertTrue(data.content)
+        window = views.resolve(request, found_file.path().replace(":", "/"))
+        self.assertEqual(window.status_code, 302)
+        self.assertIn("/view/fs/text/?wiki=", window["Location"])                        # текст открывается текстом, не разметкой
+        query = window["Location"].split("?", 1)[1]
+        text_request = RequestFactory().get("/view/fs/text/?" + query)
+        text_request.user, text_request.session = self.user, request.session
+        self.assertIn("shipment", fsview.text_content(text_request).content.decode().lower())

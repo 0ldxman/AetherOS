@@ -270,7 +270,9 @@ class RawCommandTests(TerminalClient, TestCase):
         stored.save()
         self.assertEqual(self.client.get("/apps/wiki/Section/Gated").status_code, 403)
         self.run_command(f"kex /home/keyed.rec {offset}")
-        self.assertEqual(self.client.get("/apps/wiki/Section/Gated").status_code, 200)
+        opened = self.client.get("/apps/wiki/Section/Gated", follow=True)
+        self.assertEqual(opened.status_code, 200)
+        self.assertEqual(opened.redirect_chain[0][0].split("?")[0].rsplit("/view/", 1)[1], "doc/")       # открывается окно документа
         self.run_command("del -f /home/.secrets/secret_a")
         self.assertEqual(self.client.get("/apps/wiki/Section/Gated").status_code, 403)
 

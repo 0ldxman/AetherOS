@@ -6,12 +6,10 @@ class WikiConfig(AppConfig):
     name = 'wiki'
 
     def ready(self):
-        from filesystem.content.rawview import flatten as file_flatten
-        from secure import usage
-        from wiki import flatten, key_usage
+        import importlib
 
-        file_flatten.register(flatten.flatten)
-        usage.register(key_usage.key_usage)
+        from filesystem.content import locate
+        from wiki.library import link_checker, locate_file
         from wiki.versioning import bump_version
 
         from filesystem.models import Item, Placement, Volume
@@ -20,3 +18,6 @@ class WikiConfig(AppConfig):
         for model in (Item, Placement, Volume, MachineMount, Export):
             post_save.connect(lambda **kw: bump_version(), sender=model, weak=False, dispatch_uid=f"wiki-bump-{model.__name__}")
             post_delete.connect(lambda **kw: bump_version(), sender=model, weak=False, dispatch_uid=f"wiki-bump-del-{model.__name__}")
+
+        importlib.import_module("documents.markup.lint").link_checker = link_checker   # имя lint в пакете занято функцией
+        locate.register("wiki", locate_file)

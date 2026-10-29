@@ -844,7 +844,7 @@ body.wp-editor .aether-original-field {
     display: none !important;
 }
 
-/* Проблемы текста (wiki/markup/lint.py) */
+/* Проблемы текста (documents/markup/lint.py) */
 .wp-issues {
   border-bottom: 1px solid var(--border-color, #ccc);
   font-size: 12px;

@@ -39,9 +39,9 @@ def site_url(path):
     return get_script_prefix().rstrip("/") + "/" + path.lstrip("/")
 
 
-def text_window(path):
-    """Файл показывается текстом: то же, что в raw, но в простом окне."""
-    return Content(url=reverse("fsview:text") + "?" + urlencode({"path": path}))
+def text_window(address):
+    """Файл показывается текстом: то же, что в raw, но в простом окне. address: адрес файла (filesystem.content.locate)."""
+    return Content(url=reverse("fsview:text") + "?" + urlencode(address))
 
 
 def page_window(url):
@@ -65,5 +65,6 @@ class Source:
     def payload(self, entry, view, keys, reader, viewer):
         raise NotImplementedError
 
-    def window(self, entry):
+    def window(self, entry, address):
+        """Окно файла; address это адрес файла для вьювера (filesystem.content.locate): {"path": ...} или {"wiki": ...}."""
         return Content(error="empty")

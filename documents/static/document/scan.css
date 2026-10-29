@@ -1,0 +1,3160 @@
+/* ==================================================
+   DOCUMENT / ARCHIVE SCAN  (v2)
+
+   Что изменилось по сравнению с v1:
+   - зерно, пыль и дефекты теперь лежат ПОВЕРХ текста
+     (раньше были под ним, и текст оставался «чистым»);
+   - чернила проходят через SVG-фильтр: неровные,
+     слегка растёкшиеся края букв и линий;
+   - цветная кайма у текста (как у дешёвых сканеров);
+   - падающая тень карточки убрана: вместо неё
+     неравномерная полоса «крышки сканера» вокруг листа;
+   - заметнее поворот, мягкость, полосы экспозиции;
+   - показ обратной стороны листа сквозь бумагу;
+   - штампы с рваной, неравномерной заливкой;
+   - лог выглядит как распечатка, а не как кусок монитора;
+   - убраны дубли и невидимые правила (ink bleed через
+     box-shadow 0.14px, лишние text-shadow).
+
+   Структура (без изменений):
+   .page > .md.md--body > .sheet > .sheet-body + .sheet-footer
+
+   Необязательные модификаторы на .sheet:
+   .sheet--punched  — дырки от дырокола слева
+   .sheet--fold     — едва заметная складка
+   Необязательный модификатор на .doc--scan:
+   .doc--lite       — без SVG-фильтра чернил (для очень длинных статей)
+
+   Переменные скина (определены в блоке «Переменные»):
+   --line, --line-soft  основная и мягкая линия: рамки, сетки, таблицы
+   --tint, --tint-soft  лёгкие заливки: шапки, код, полоса «bar», kv-ключи
+   Шрифты --font-hand и --font-barcode берутся из static/ui/tokens.css.
+   ================================================== */
+
+/* -------------------------------------------------- */
+/* Переменные                                         */
+/* -------------------------------------------------- */
+
+.doc--scan {
+    --sheet-width: 210mm;
+    --sheet-pad: 2.35rem;
+    --cell-pad: 0.35rem 0.6rem;
+
+
+    /* ---------- Бумага / чернила ---------- */
+
+    --paper: #e8e6e0;
+    --ink: #27261f;
+    --ink-soft: #5f5c55;
+
+    /* Линии и лёгкие заливки: вместо россыпи rgba(79, 76, 70, …) и rgba(0, 0, 0, …).
+       --line намеренно перекрывает глобальный токен --line, но только внутри документа. */
+    --line: rgba(79, 76, 70, 0.66);
+    --line-soft: rgba(79, 76, 70, 0.50);
+
+    --tint: rgba(0, 0, 0, 0.042);
+    --tint-soft: rgba(0, 0, 0, 0.018);
+
+    /* Ширина колонки ключей (kv/kvm) и даты (timeline) */
+    --kv-key-width: 9rem;
+    --tl-date-width: 6.5rem;
+
+
+    /* ---------- Геометрия скана ---------- */
+
+    /* Теперь заметно, но не карикатурно */
+    --scan-rotation: -0.28deg;
+    --scan-offset-x: 0.6px;
+    --scan-offset-y: 0.4px;
+
+    /* Оптика */
+    --scan-blur: 0.3px;
+    --scan-contrast: 0.95;
+    --scan-brightness: 0.985;
+
+    /* Общая сила текстур поверх листа (0 — выкл., 1 — как задумано) */
+    --fx-strength: 0.8;
+
+    /* Цветная кайма текста: красный справа, голубой слева */
+    --fringe:
+        0.5px 0 0 rgba(190, 40, 50, 0.20),
+        -0.5px 0 0 rgba(30, 120, 190, 0.20),
+        0 0 0.6px rgba(20, 19, 16, 0.35);
+
+    /* Цвет «крышки» сканера вокруг листа.
+       Тёмная: #141310. Белая: #f1f0ec */
+    --lid: #141310;
+
+
+    /* ---------- Необязательные эффекты (по умолчанию пусты) ---------- */
+
+    --fx-hole-a: linear-gradient(transparent, transparent);
+    --fx-hole-b: linear-gradient(transparent, transparent);
+    --fx-fold: linear-gradient(transparent, transparent);
+
+
+    /* ---------- Штампы ---------- */
+
+    --stamp-red: #a92c24;
+    --stamp-green: #347347;
+    --stamp-blue: #315995;
+    --stamp-grey: #65615a;
+
+    --hand-ink: #24366f;
+
+
+    /* ---------- Лог (теперь «распечатка») ---------- */
+
+    --log-bg: #2a2926;
+    --log-fg: #cdcac2;
+    --log-info: #6ba9bb;
+    --log-ok: #70a590;
+    --log-warn: #c7a85e;
+    --log-error: #c26b73;
+    --log-debug: #85827b;
+
+
+
+
+    /* ---------- SVG-фильтр чернил ----------
+     *
+     * Читаемая версия того, что закодировано ниже:
+     *
+     * <filter id="ink" color-interpolation-filters="sRGB">
+     *   <feTurbulence baseFrequency="0.014" numOctaves="2" seed="4"/>      медленная «волна» геометрии
+     *   <feDisplacementMap scale="1.8"/>
+     *   <feTurbulence baseFrequency="0.8" seed="11"/>                      мелкая шероховатость края
+     *   <feDisplacementMap scale="1.1"/>
+     *   <feGaussianBlur stdDeviation="0.55"/>                              растекание чернил
+     *   <feComponentTransfer><feFuncA slope="1.5" intercept="-0.12"/>      снова «подтянуть» край
+     * </filter>
+     *
+     * Если шрифт стал слишком жирным/рваным — уменьши scale
+     * (1.8 и 1.1) и stdDeviation (0.55).
+     */
+    --ink-filter: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='ink' color-interpolation-filters='sRGB'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.014' numOctaves='2' seed='4' result='warp'/%3E%3CfeDisplacementMap in='SourceGraphic' in2='warp' scale='1.8' xChannelSelector='R' yChannelSelector='G' result='w'/%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='1' seed='11' result='fine'/%3E%3CfeDisplacementMap in='w' in2='fine' scale='1.1' xChannelSelector='R' yChannelSelector='G' result='e'/%3E%3CfeGaussianBlur in='e' stdDeviation='0.55' result='b'/%3E%3CfeComponentTransfer in='b'%3E%3CfeFuncA type='linear' slope='1.5' intercept='-0.12'/%3E%3C/feComponentTransfer%3E%3C/filter%3E%3C/svg%3E#ink");
+}
+
+/* Лёгкий режим: без дорогого SVG-фильтра */
+.doc--scan.doc--lite {
+    --ink-filter: none;
+}
+
+
+/* -------------------------------------------------- */
+/* Рабочее пространство                               */
+/* -------------------------------------------------- */
+
+.doc--scan .page {
+    width: 100%;
+    max-width: none;
+
+    overflow-x: hidden;
+    overflow-y: visible;
+}
+
+
+.doc--scan .md--body {
+    width: 100%;
+
+    padding-top: 1.5rem;
+    padding-bottom: 1.5rem;
+
+    overflow-x: hidden;
+}
+
+
+/* -------------------------------------------------- */
+/* Лист                                               */
+/* -------------------------------------------------- */
+
+.doc--scan .sheet {
+    position: relative;
+    isolation: isolate;
+
+    /* Физический A4, не сжимается */
+    width: var(--sheet-width);
+    min-width: var(--sheet-width);
+    max-width: none;
+
+    min-height: calc(var(--sheet-width) * 297 / 210);
+
+    box-sizing: border-box;
+
+    display: flex;
+    flex-direction: column;
+
+    margin-top: 0.9rem;
+    margin-right: auto;
+    margin-bottom: 1.65rem;
+    margin-left: auto;
+
+    padding: var(--sheet-pad);
+
+    /* Бумага — ровный цвет. Вся «грязь» лежит в ::before (под текстом)
+       и ::after (поверх текста). */
+    background-color: var(--paper);
+
+    color: var(--ink);
+
+    font-family: var(--ff-cousine);
+    font-size: 0.93rem;
+    line-height: 1.52;
+
+    /* Оптика скана */
+    filter:
+        blur(var(--scan-blur))
+        contrast(var(--scan-contrast))
+        brightness(var(--scan-brightness));
+
+    /* Лист лежит на стекле не идеально */
+    transform:
+        translate(var(--scan-offset-x), var(--scan-offset-y))
+        rotate(var(--scan-rotation));
+    transform-origin: center center;
+
+    /*
+     * Нет «тени карточки». Вместо неё:
+     * 1) тонкий тёмный контур самой бумаги;
+     * 2) неравномерная полоса крышки сканера:
+     *    сдвиг 3px/1px + растяжение 7px даёт
+     *    справа 10px, слева 4px, сверху 6px, снизу 8px.
+     */
+    box-shadow:
+        0 0 0 1px rgba(0, 0, 0, 0.55),
+        3px 1px 0 7px var(--lid);
+}
+
+
+/* -------------------------------------------------- */
+/* Слой ПОД текстом: экспозиция, неравномерность       */
+/* бумаги, просвечивание обратной стороны              */
+/* -------------------------------------------------- */
+
+.doc--scan .sheet::before {
+    content: "";
+
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+
+    pointer-events: none;
+
+    background-image:
+        /* Обратная сторона листа (зеркальный «текст» из чёрточек) */
+        url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='794' height='1123' viewBox='0 0 794 1123' preserveAspectRatio='none'%3E%3Cdefs%3E%3Cfilter id='b'%3E%3CfeGaussianBlur stdDeviation='1.3'/%3E%3C/filter%3E%3Cpattern id='p' width='630' height='264' patternUnits='userSpaceOnUse'%3E%3Cg stroke='%23201f1b' stroke-opacity='0.04' stroke-width='8' stroke-dasharray='7 3 12 4 5 3 9 5 14 3 6 4 10 3' fill='none'%3E%3Cpath d='M0 11H630' stroke-dashoffset='0'/%3E%3Cpath d='M0 33H630' stroke-dashoffset='13'/%3E%3Cpath d='M0 55H630' stroke-dashoffset='31'/%3E%3Cpath d='M0 77H330' stroke-dashoffset='5'/%3E%3Cpath d='M0 121H630' stroke-dashoffset='22'/%3E%3Cpath d='M0 143H630' stroke-dashoffset='9'/%3E%3Cpath d='M0 165H630' stroke-dashoffset='40'/%3E%3Cpath d='M0 187H630' stroke-dashoffset='17'/%3E%3Cpath d='M0 209H470' stroke-dashoffset='3'/%3E%3Cpath d='M0 253H630' stroke-dashoffset='26'/%3E%3C/g%3E%3C/pattern%3E%3C/defs%3E%3Cg transform='translate(794 0) scale(-1 1)' filter='url(%23b)'%3E%3Crect x='80' y='100' width='630' height='920' fill='url(%23p)'/%3E%3C/g%3E%3C/svg%3E"),
+
+        /* Низкочастотная неоднородность плотности бумаги */
+        url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='1600' height='1600'%3E%3Cfilter id='m' color-interpolation-filters='sRGB'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.004 0.006' numOctaves='3' seed='52' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3CfeComponentTransfer%3E%3CfeFuncR type='linear' slope='1.7' intercept='-0.35'/%3E%3CfeFuncG type='linear' slope='1.7' intercept='-0.35'/%3E%3CfeFuncB type='linear' slope='1.7' intercept='-0.35'/%3E%3CfeFuncA type='linear' slope='0' intercept='0.08'/%3E%3C/feComponentTransfer%3E%3C/filter%3E%3Crect width='1600' height='1600' filter='url(%23m)'/%3E%3C/svg%3E"),
+
+        /* Неравномерная экспозиция */
+        radial-gradient(ellipse 35% 24% at 18% 71%, rgba(0, 0, 0, 0.034), transparent 76%),
+        radial-gradient(ellipse 21% 16% at 78% 60%, rgba(255, 255, 255, 0.030), transparent 80%),
+        radial-gradient(ellipse 16% 12% at 64% 15%, rgba(0, 0, 0, 0.028), transparent 78%),
+        radial-gradient(ellipse 72% 52% at 44% 36%, rgba(255, 255, 255, 0.085) 0%, rgba(255, 255, 255, 0.022) 37%, transparent 73%),
+        radial-gradient(ellipse 30% 90% at 100% 48%, rgba(0, 0, 0, 0.040) 0%, transparent 78%),
+        linear-gradient(180deg, rgba(0, 0, 0, 0.022) 0%, transparent 14%, transparent 82%, rgba(0, 0, 0, 0.038) 100%);
+
+    background-size:
+        100% 1123px,
+        1600px 1600px,
+        100% 100%,
+        100% 100%,
+        100% 100%,
+        100% 100%,
+        100% 100%,
+        100% 100%;
+
+    background-repeat:
+        repeat-y,
+        repeat,
+        no-repeat,
+        no-repeat,
+        no-repeat,
+        no-repeat,
+        no-repeat,
+        no-repeat;
+}
+
+
+/* -------------------------------------------------- */
+/* Слой ПОВЕРХ текста: зерно, пыль, выпадения тонера,  */
+/* полосы сканера, край листа                          */
+/*                                                     */
+/* Ключевое отличие от v1: этот слой лежит над         */
+/* контентом, поэтому шум проходит через чернила.      */
+/* -------------------------------------------------- */
+
+.doc--scan .sheet::after {
+    content: "";
+
+    position: absolute;
+    inset: 0;
+    z-index: 5;
+
+    pointer-events: none;
+
+    opacity: var(--fx-strength);
+
+    /* Порядок: сверху вниз */
+    background-image:
+        /* 1. Пылинки, волосок */
+        url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='794' height='1123' viewBox='0 0 794 1123' preserveAspectRatio='none'%3E%3Cdefs%3E%3Cfilter id='d'%3E%3CfeGaussianBlur stdDeviation='0.35'/%3E%3C/filter%3E%3C/defs%3E%3Cg filter='url(%23d)'%3E%3Ccircle cx='122' cy='214' r='1.1' fill='%23111' fill-opacity='0.55'/%3E%3Ccircle cx='561' cy='88' r='0.8' fill='%23111' fill-opacity='0.5'/%3E%3Ccircle cx='308' cy='402' r='1.4' fill='%23111' fill-opacity='0.35'/%3E%3Ccircle cx='703' cy='531' r='0.9' fill='%23111' fill-opacity='0.6'/%3E%3Ccircle cx='96' cy='677' r='0.7' fill='%23111' fill-opacity='0.5'/%3E%3Ccircle cx='447' cy='744' r='1.6' fill='%23111' fill-opacity='0.28'/%3E%3Ccircle cx='618' cy='902' r='1' fill='%23111' fill-opacity='0.55'/%3E%3Ccircle cx='215' cy='986' r='0.8' fill='%23111' fill-opacity='0.5'/%3E%3Ccircle cx='372' cy='1062' r='1.2' fill='%23111' fill-opacity='0.4'/%3E%3Ccircle cx='254' cy='312' r='0.9' fill='%23fff' fill-opacity='0.6'/%3E%3Ccircle cx='655' cy='418' r='1.3' fill='%23fff' fill-opacity='0.5'/%3E%3Ccircle cx='140' cy='820' r='1' fill='%23fff' fill-opacity='0.55'/%3E%3Cpath d='M520 640q30-18 62-6t48 22' stroke='%23111' stroke-opacity='0.3' stroke-width='0.7' fill='none'/%3E%3Cpath d='M92 126q10 14 4 30' stroke='%23111' stroke-opacity='0.22' stroke-width='0.6' fill='none'/%3E%3C/g%3E%3C/svg%3E"),
+
+        /* 2. Выпадения тонера: редкие светлые крапинки цвета бумаги.
+              Последнее число в values (-10.4) — порог: ближе к -9 — больше крапин. */
+        url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='600' height='600'%3E%3Cfilter id='o' color-interpolation-filters='sRGB'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='2' seed='31' stitchTiles='stitch'/%3E%3CfeColorMatrix type='matrix' values='0 0 0 0 0.914 0 0 0 0 0.906 0 0 0 0 0.882 14 0 0 0 -10.4'/%3E%3C/filter%3E%3Crect width='600' height='600' filter='url(%23o)'/%3E%3C/svg%3E"),
+
+        /* 3. Цифровое зерно (мелкое, чёрно-белое) */
+        url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='384' height='384'%3E%3Cfilter id='g' color-interpolation-filters='sRGB'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='1' seed='209' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3CfeComponentTransfer%3E%3CfeFuncR type='linear' slope='2.6' intercept='-0.8'/%3E%3CfeFuncG type='linear' slope='2.6' intercept='-0.8'/%3E%3CfeFuncB type='linear' slope='2.6' intercept='-0.8'/%3E%3CfeFuncA type='linear' slope='0' intercept='0.075'/%3E%3C/feComponentTransfer%3E%3C/filter%3E%3Crect width='384' height='384' filter='url(%23g)'/%3E%3C/svg%3E"),
+
+        /* 4. Шум сканера: растянут по горизонтали (ход головки) */
+        url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='1400' height='1400'%3E%3Cfilter id='s' color-interpolation-filters='sRGB'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.02 0.5' numOctaves='2' seed='117' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3CfeComponentTransfer%3E%3CfeFuncR type='linear' slope='2.2' intercept='-0.6'/%3E%3CfeFuncG type='linear' slope='2.2' intercept='-0.6'/%3E%3CfeFuncB type='linear' slope='2.2' intercept='-0.6'/%3E%3CfeFuncA type='linear' slope='0' intercept='0.035'/%3E%3C/feComponentTransfer%3E%3C/filter%3E%3Crect width='1400' height='1400' filter='url(%23s)'/%3E%3C/svg%3E"),
+
+        /* 5. Вертикальные полосы (дефекты линейки сенсоров) */
+        linear-gradient(
+            90deg,
+            transparent 0 14.2%,
+            rgba(0, 0, 0, 0.020) 14.2% 14.5%,
+            transparent 14.5% 61%,
+            rgba(255, 255, 255, 0.030) 61% 61.3%,
+            transparent 61.3% 83.4%,
+            rgba(0, 0, 0, 0.016) 83.4% 83.55%,
+            transparent 83.55%
+        ),
+
+        /* 6. Горизонтальная строчная структура */
+        repeating-linear-gradient(
+            0deg,
+            rgba(0, 0, 0, 0.012) 0,
+            rgba(0, 0, 0, 0.012) 1px,
+            transparent 1px,
+            transparent 4px,
+            rgba(255, 255, 255, 0.008) 4px,
+            transparent 5px,
+            transparent 9px
+        ),
+
+        /* 7. Складка (только с .sheet--fold) */
+        var(--fx-fold),
+
+        /* 8-9. Дырки (только с .sheet--punched) */
+        var(--fx-hole-a),
+        var(--fx-hole-b);
+
+    background-size:
+        100% 1123px,
+        600px 600px,
+        384px 384px,
+        1400px 1400px,
+        100% 100%,
+        auto,
+        100% 100%,
+        100% 100%,
+        100% 100%;
+
+    background-repeat:
+        repeat-y,
+        repeat,
+        repeat,
+        repeat,
+        no-repeat,
+        repeat,
+        no-repeat,
+        no-repeat,
+        no-repeat;
+
+    /* Физический край листа: затемнение справа/снизу, блик слева/сверху */
+    box-shadow:
+        inset -2px -3px 6px rgba(0, 0, 0, 0.11),
+        inset 1px 1px 2px rgba(255, 255, 255, 0.18),
+        inset 0 0 0 1px rgba(0, 0, 0, 0.09);
+}
+
+
+/* -------------------------------------------------- */
+/* Модификаторы: дырки, складка                       */
+/* -------------------------------------------------- */
+
+.doc--scan .sheet--punched {
+    --fx-hole-a: radial-gradient(
+        circle 12px at 24px calc(50% - 151px),
+        var(--lid) 0 9.5px,
+        rgba(0, 0, 0, 0.5) 10px,
+        rgba(0, 0, 0, 0.14) 11.2px,
+        transparent 12px
+    );
+
+    --fx-hole-b: radial-gradient(
+        circle 12px at 24px calc(50% + 151px),
+        var(--lid) 0 9.5px,
+        rgba(0, 0, 0, 0.5) 10px,
+        rgba(0, 0, 0, 0.14) 11.2px,
+        transparent 12px
+    );
+}
+
+
+.doc--scan .sheet--fold {
+    --fx-fold: linear-gradient(
+        180deg,
+        transparent calc(33.3% - 3px),
+        var(--tint) calc(33.3% - 1.5px),
+        rgba(255, 255, 255, 0.28) 33.3%,
+        rgba(0, 0, 0, 0.030) calc(33.3% + 1.5px),
+        transparent calc(33.3% + 4px)
+    );
+}
+
+
+/* -------------------------------------------------- */
+/* Тело / футер                                       */
+/* -------------------------------------------------- */
+
+.doc--scan .sheet-body,
+.doc--scan .sheet-footer {
+    position: relative;
+    z-index: 1;
+}
+
+
+.doc--scan .sheet-body {
+    flex: 1 0 auto;
+    min-width: 0;
+
+    text-rendering: optimizeLegibility;
+
+    /* Растеризация чернил (см. --ink-filter) */
+    filter: var(--ink-filter);
+
+    /* Цветная кайма и лёгкое растекание чернил на всём тексте */
+    text-shadow: var(--fringe);
+}
+
+
+.doc--scan .sheet-footer {
+    flex: 0 0 auto;
+
+    margin-top: 1.5rem;
+    padding-top: 0.4rem;
+
+    border-top: 1px solid var(--line);
+
+    color: var(--ink-soft);
+
+    font-size: 0.72rem;
+    letter-spacing: 0.04em;
+
+    text-shadow: var(--fringe);
+    opacity: 0.92;
+}
+
+
+/* -------------------------------------------------- */
+/* Неравномерная плотность печати                     */
+/* -------------------------------------------------- */
+
+/*
+ * Часть абзацев печатается чуть бледнее, часть чуть плотнее.
+ * Цвет, а не opacity, чтобы бумага не просвечивала.
+ */
+.doc--scan .sheet-body .md p:nth-of-type(4n + 2),
+.doc--scan .sheet-body .md li:nth-of-type(5n + 3) {
+    color: #35342e;
+}
+
+
+.doc--scan .sheet-body .md p:nth-of-type(7n + 4) {
+    color: #3f3e38;
+}
+
+
+.doc--scan .sheet-body .md p:nth-of-type(9n + 6) {
+    color: #2c2b25;
+}
+
+
+.doc--scan .sheet-body .md small,
+.doc--scan .sheet-body .md .muted,
+.doc--scan .sig-role,
+.doc--scan .sig-date {
+    opacity: 0.92;
+}
+
+
+/* -------------------------------------------------- */
+/* Потеря регистрации печати                          */
+/* -------------------------------------------------- */
+
+/*
+ * Отдельные блоки чуть смещены и повёрнуты. Значения
+ * субпиксельные, но суммарно документ перестаёт быть
+ * «идеально выровненным».
+ */
+.doc--scan .sheet-body .md h2:nth-of-type(2n) {
+    transform: translateX(0.6px);
+}
+
+
+.doc--scan .sheet-body .md h3:nth-of-type(2n) {
+    transform: translateX(-0.5px);
+}
+
+
+.doc--scan .sheet-body .md p:nth-of-type(5n + 2) {
+    transform: translate(0.3px, 0.2px) rotate(0.04deg);
+}
+
+
+.doc--scan .sheet-body .md p:nth-of-type(6n + 4) {
+    transform: translate(-0.3px, -0.15px) rotate(-0.035deg);
+}
+
+
+.doc--scan .section:nth-of-type(2n) {
+    transform: translateX(-0.55px);
+}
+
+
+.doc--scan .grid:nth-of-type(2n) {
+    transform: translateX(0.45px);
+}
+
+
+.doc--scan .md table:nth-of-type(2n) {
+    transform: translateX(-0.4px);
+}
+
+
+/* -------------------------------------------------- */
+/* Базовый текст                                      */
+/* -------------------------------------------------- */
+
+.doc--scan .md p {
+    max-width: none;
+    margin: 0 0 0.8em;
+
+    color: inherit;
+}
+
+
+.doc--scan .md h1,
+.doc--scan .md h2,
+.doc--scan .md h3,
+.doc--scan .md h4 {
+    margin: 1.1em 0 0.5em;
+
+    color: var(--ink);
+
+    font-weight: 700;
+    line-height: 1.25;
+}
+
+
+.doc--scan .md h1 {
+    margin-top: 0.7em;
+
+    padding-bottom: 0.28em;
+
+    border-bottom: 1px solid var(--line);
+
+    font-size: 1.45rem;
+    letter-spacing: 0.045em;
+
+    text-transform: uppercase;
+}
+
+
+.doc--scan .md h2 {
+    font-size: 1.18rem;
+    letter-spacing: 0.025em;
+}
+
+
+.doc--scan .md h3 {
+    font-size: 1.02rem;
+}
+
+
+.doc--scan .md h4 {
+    font-size: 0.92rem;
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+}
+
+
+.doc--scan .sheet-body > :first-child,
+.doc--scan .cell > :first-child,
+.doc--scan .section-body > :first-child,
+.doc--scan .fold-body > :first-child,
+.doc--scan .box > :first-child {
+    margin-top: 0;
+}
+
+
+/* -------------------------------------------------- */
+/* Ссылки: выделены жёлтым маркером                   */
+/* -------------------------------------------------- */
+
+/*
+ * Исключены ссылки виджетов (картинка, файл, ID у аудио и видео):
+ * у них свои правила, маркер на них не нужен.
+ */
+.doc--scan .md a:not(.image-link):not(.file-btn):not(.file-main):not(.file-open):not(.files-name):not(.files-open):not(.files-hit):not(.audio-id-link):not(.video-preview-id) {
+    color: var(--ink);
+
+    text-decoration: none;
+
+    /* маркер чуть шире текста с обеих сторон */
+    padding: 0 0.2em;
+    margin: 0 -0.2em;
+
+    /* полоса ниже верха и выше низа строки, как проведённая маркером */
+    background-image:
+        linear-gradient(
+            177deg,
+            transparent 0 14%,
+            rgba(255, 221, 55, 0.62) 14% 90%,
+            transparent 90%
+        );
+
+    /* неровные края: рука ведёт маркер не идеально */
+    border-radius: 0.3em 0.6em 0.35em 0.55em / 0.6em 0.35em 0.6em 0.35em;
+
+    /* для ссылок, которые переносятся на другую строку */
+    box-decoration-break: clone;
+    -webkit-box-decoration-break: clone;
+}
+
+
+.doc--scan .md a:not(.image-link):not(.file-btn):not(.file-main):not(.file-open):not(.files-name):not(.files-open):not(.files-hit):not(.audio-id-link):not(.video-preview-id):hover,
+.doc--scan .md a:not(.image-link):not(.file-btn):not(.file-main):not(.file-open):not(.files-name):not(.files-open):not(.files-hit):not(.audio-id-link):not(.video-preview-id):focus-visible {
+    /* повторный проход маркером: цвет плотнее */
+    background-image:
+        linear-gradient(
+            177deg,
+            transparent 0 14%,
+            rgba(255, 210, 30, 0.82) 14% 90%,
+            transparent 90%
+        );
+
+    outline: none;
+}
+
+
+/* -------------------------------------------------- */
+/* Списки                                             */
+/* -------------------------------------------------- */
+
+.doc--scan .md ul,
+.doc--scan .md ol {
+    margin: 0 0 0.8em;
+    padding-left: 2.2ch;
+}
+
+
+.doc--scan .md li {
+    margin-bottom: 0.15em;
+}
+
+
+/* -------------------------------------------------- */
+/* Прочее                                             */
+/* -------------------------------------------------- */
+
+.doc--scan .md strong {
+    font-weight: 700;
+}
+
+
+.doc--scan .md em {
+    color: inherit;
+}
+
+
+.doc--scan .md del {
+    text-decoration-thickness: 1px;
+}
+
+
+.doc--scan .md blockquote {
+    margin: 0 0 0.8em;
+    padding: 0.2em 1ch;
+
+    border-left: 3px solid var(--line);
+
+    color: var(--ink-soft);
+}
+
+
+.doc--scan .md hr {
+    margin: 1em 0;
+
+    border: 0;
+    border-top: 1px solid var(--line);
+}
+
+
+.doc--scan .md code {
+    padding: 0 0.3ch;
+
+    background: var(--tint);
+
+    font-family: inherit;
+    font-size: 0.95em;
+}
+
+
+.doc--scan .md pre {
+    margin: 0 0 0.8em;
+    padding: 0.6rem 0.8rem;
+
+    overflow: auto;
+
+    background: var(--tint);
+
+    border: 1px solid var(--line-soft);
+}
+
+
+.doc--scan .md pre code {
+    padding: 0;
+    background: none;
+}
+
+
+/* -------------------------------------------------- */
+/* Markdown-таблица                                   */
+/* -------------------------------------------------- */
+
+.doc--scan .md table {
+    width: 100%;
+    margin: 0 0 0.8em;
+
+    border-collapse: collapse;
+}
+
+
+.doc--scan .md th,
+.doc--scan .md td {
+    padding: var(--cell-pad);
+
+    border: 1px solid var(--line);
+
+    text-align: left;
+    vertical-align: top;
+}
+
+
+.doc--scan .md th {
+    background: var(--tint);
+    font-weight: 700;
+}
+
+
+.doc--scan .md caption {
+    margin-bottom: 0.35rem;
+
+    color: var(--ink-soft);
+
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.07em;
+
+    text-align: left;
+    text-transform: uppercase;
+}
+
+
+/* -------------------------------------------------- */
+/* Spoiler / замазка                                  */
+/* -------------------------------------------------- */
+
+.doc--scan .spoiler--masked {
+    background-color: var(--ink);
+    color: var(--ink);
+
+    /* Растр сплошной закраски: чёрное в печати — это точки */
+    background-image: radial-gradient(rgba(255, 255, 255, 0.07) 0.7px, transparent 0.9px);
+    background-size: 3px 3px;
+
+    user-select: none;
+
+    box-decoration-break: clone;
+    -webkit-box-decoration-break: clone;
+}
+
+
+.doc--scan div.spoiler--masked {
+    margin: 0 0 0.8em;
+    padding: 0.4em 0.8ch;
+}
+
+
+.doc--scan div.spoiler--masked > :last-child {
+    margin-bottom: 0;
+}
+
+
+.doc--scan .spoiler--inline.spoiler--open {
+    border-bottom: 1px dotted var(--ink-soft);
+}
+
+
+.doc--scan div.spoiler--open {
+    margin: 0 0 0.8em;
+    padding-left: 1.2ch;
+
+    border-left: 2px dashed var(--ink-soft);
+}
+
+
+/* -------------------------------------------------- */
+/* Section                                            */
+/* -------------------------------------------------- */
+
+.doc--scan .section {
+    margin: 1.2rem 0;
+
+    border: 1px solid var(--line);
+}
+
+
+.doc--scan .section-head {
+    display: flex;
+    align-items: stretch;
+
+    border-bottom: 1px solid var(--line);
+
+    background: var(--tint-soft);
+}
+
+
+.doc--scan .section-num {
+    display: flex;
+    align-items: center;
+
+    padding: 0.2rem 1rem;
+
+    border-right: 1px solid var(--line);
+
+    font-size: 1.45rem;
+    font-weight: 700;
+    line-height: 1;
+}
+
+
+.doc--scan .section-title {
+    display: flex;
+    align-items: center;
+
+    padding: 0.4rem 0.9rem;
+
+    font-weight: 700;
+    letter-spacing: 0.055em;
+
+    text-transform: uppercase;
+}
+
+
+.doc--scan .section-body {
+    padding: 0.7rem 0.9rem 0.1rem;
+}
+
+
+/* -------------------------------------------------- */
+/* Fold  (сворачиваемый сегмент)                      */
+/* -------------------------------------------------- */
+
+.doc--scan .fold {
+    margin: 1.2rem 0;
+
+    border: 1px solid var(--line);
+}
+
+
+.doc--scan .fold-head {
+    display: flex;
+    align-items: center;
+
+    gap: 0.8ch;
+
+    padding: 0.4rem 0.9rem;
+
+    background: var(--tint-soft);
+
+    font-weight: 700;
+    letter-spacing: 0.055em;
+
+    text-transform: uppercase;
+
+    cursor: pointer;
+    user-select: none;
+
+    list-style: none;
+}
+
+
+.doc--scan .fold-head::-webkit-details-marker {
+    display: none;
+}
+
+
+.doc--scan .fold-head::before {
+    content: "+";
+
+    flex: 0 0 auto;
+    width: 1ch;
+
+    text-align: center;
+}
+
+
+.doc--scan .fold[open] > .fold-head {
+    border-bottom: 1px solid var(--line);
+}
+
+
+.doc--scan .fold[open] > .fold-head::before {
+    content: "\2212";
+}
+
+
+.doc--scan .fold-body {
+    padding: 0.7rem 0.9rem 0.1rem;
+}
+
+
+/* закрытый fold: заголовка нет, тело замазано и всегда открыто */
+.doc--scan .fold--masked > .fold-head {
+    display: none;
+}
+
+
+/* -------------------------------------------------- */
+/* Grid                                               */
+/* -------------------------------------------------- */
+
+.doc--scan .grid {
+    display: grid;
+
+    margin: 0 0 0.8em;
+
+    border-top: 1px solid var(--line);
+    border-left: 1px solid var(--line);
+}
+
+
+.doc--scan .cell {
+    min-width: 0;
+
+    padding: var(--cell-pad);
+
+    border-right: 1px solid var(--line);
+    border-bottom: 1px solid var(--line);
+
+    overflow-wrap: anywhere;
+}
+
+
+.doc--scan .cell p {
+    margin-bottom: 0.3em;
+}
+
+
+.doc--scan .cell > :last-child,
+.doc--scan .fold-body > :last-child {
+    margin-bottom: 0;
+}
+
+
+.doc--scan .cell-label {
+    margin-bottom: 0.15rem;
+
+    color: var(--ink-soft);
+
+    font-size: 0.65rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    line-height: 1.2;
+
+    text-transform: uppercase;
+}
+
+
+.doc--scan .grid--noborder {
+    border-top: none;
+    border-left: none;
+}
+
+
+.doc--scan .grid--noborder .cell {
+    border-right: none;
+    border-bottom: none;
+}
+
+
+/* -------------------------------------------------- */
+/* Box                                                */
+/* -------------------------------------------------- */
+
+.doc--scan .box {
+    margin: 0 0 0.8em;
+    padding: 0.4rem 0.7rem;
+}
+
+
+.doc--scan .box--border {
+    border: 1px solid var(--line);
+}
+
+
+.doc--scan .box--dark {
+    background-color: var(--ink);
+    background-image: radial-gradient(rgba(255, 255, 255, 0.07) 0.7px, transparent 0.9px);
+    background-size: 3px 3px;
+    color: var(--paper);
+    text-shadow: 0 0 0.5px rgba(255, 255, 255, 0.25);
+}
+
+
+.doc--scan .box--center {
+    text-align: center;
+}
+
+
+.doc--scan .box--right {
+    text-align: right;
+}
+
+
+.doc--scan .box--small {
+    font-size: 0.8rem;
+}
+
+
+.doc--scan .box--big {
+    font-size: 1.3rem;
+}
+
+
+.doc--scan .box--bold {
+    font-weight: 700;
+}
+
+
+.doc--scan .box--muted {
+    color: var(--ink-soft);
+}
+
+
+.doc--scan .box--flush {
+    padding: 0;
+}
+
+
+.doc--scan .box > :last-child {
+    margin-bottom: 0;
+}
+
+
+/* -------------------------------------------------- */
+/* Widgets                                            */
+/* -------------------------------------------------- */
+
+.doc--scan .widget {
+    margin: 0.8rem 0;
+}
+
+
+.doc--scan .widget--masked {
+    min-height: 1.5em;
+}
+
+
+/* -------------------------------------------------- */
+/* Stamp                                              */
+/* -------------------------------------------------- */
+
+.doc--scan .widget--stamp.widget--align-left {
+    text-align: left;
+}
+
+
+.doc--scan .widget--stamp.widget--align-center {
+    text-align: center;
+}
+
+
+.doc--scan .widget--stamp.widget--align-right {
+    text-align: right;
+}
+
+
+.doc--scan .stamp {
+    --tone: var(--stamp-red);
+
+    display: inline-block;
+
+    padding: 0.2rem 1rem;
+
+    border: 3px solid var(--tone);
+    border-radius: 1px;
+
+    box-shadow:
+        inset 0 0 0 2px var(--paper),
+        inset 0 0 0 3px var(--tone);
+
+    color: var(--tone);
+
+    font-size: 1.45rem;
+    font-weight: 700;
+    letter-spacing: 0.16em;
+    line-height: 1.3;
+
+    text-transform: uppercase;
+
+    /*
+     * mix-blend-mode: multiply убран: внутри .sheet-body стоит
+     * filter, он создаёт изолированную группу, и multiply
+     * не видит бумагу под собой. Плотность задаёт opacity.
+     */
+    opacity: 0.80;
+
+    text-shadow: 0 0 0.6px var(--tone);
+
+    transform: rotate(var(--angle, -8deg));
+    transform-origin: center;
+
+    /*
+     * Рваная, неравномерная заливка: маска из шума.
+     * Где шум выше порога, чернила «не легли».
+     * Читаемо: feTurbulence(0.35, 3 октавы) -> alpha = -5*R + 4.4
+     */
+    -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='260' height='260'%3E%3Cfilter id='sm' color-interpolation-filters='sRGB'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.35' numOctaves='3' seed='8' stitchTiles='stitch'/%3E%3CfeColorMatrix type='matrix' values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 -5 0 0 0 4.4'/%3E%3C/filter%3E%3Crect width='260' height='260' filter='url(%23sm)'/%3E%3C/svg%3E");
+    mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='260' height='260'%3E%3Cfilter id='sm' color-interpolation-filters='sRGB'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.35' numOctaves='3' seed='8' stitchTiles='stitch'/%3E%3CfeColorMatrix type='matrix' values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 -5 0 0 0 4.4'/%3E%3C/filter%3E%3Crect width='260' height='260' filter='url(%23sm)'/%3E%3C/svg%3E");
+
+    -webkit-mask-size: 260px 260px;
+    mask-size: 260px 260px;
+}
+
+
+.doc--scan .stamp--green {
+    --tone: var(--stamp-green);
+}
+
+
+.doc--scan .stamp--blue {
+    --tone: var(--stamp-blue);
+}
+
+
+.doc--scan .stamp--grey {
+    --tone: var(--stamp-grey);
+}
+
+
+/* -------------------------------------------------- */
+/* Signature                                          */
+/* -------------------------------------------------- */
+
+.doc--scan .widget--signature {
+    display: inline-block;
+
+    min-width: 14rem;
+    max-width: 100%;
+
+    margin-right: 2rem;
+}
+
+
+.doc--scan .sig-hand {
+    min-height: 1.6em;
+
+    color: var(--hand-ink);
+
+    font-family: var(--font-hand);
+    font-size: 1.9rem;
+    line-height: 1;
+
+    /* Паста шариковой ручки: тёмный центр, мягкий ореол */
+    text-shadow: 0 0 0.7px rgba(36, 54, 111, 0.55);
+
+    transform: rotate(-3deg);
+    transform-origin: left bottom;
+}
+
+
+.doc--scan .sig-line {
+    margin-top: 0.1rem;
+
+    border-top: 1px solid var(--line);
+}
+
+
+.doc--scan .sig-name {
+    font-weight: 700;
+}
+
+
+.doc--scan .sig-role,
+.doc--scan .sig-date {
+    color: var(--ink-soft);
+    font-size: 0.8rem;
+}
+
+
+/* -------------------------------------------------- */
+/* Barcode                                            */
+/* -------------------------------------------------- */
+
+.doc--scan .widget--barcode {
+    display: inline-flex;
+
+    flex-direction: column;
+    align-items: center;
+}
+
+
+.doc--scan .barcode-bars {
+    font-family: var(--font-barcode);
+    font-size: 3rem;
+    line-height: 1;
+}
+
+
+.doc--scan .barcode-text {
+    font-size: 0.7rem;
+    letter-spacing: 0.15em;
+}
+
+
+/* -------------------------------------------------- */
+/* Log                                                */
+/* -------------------------------------------------- */
+
+/*
+ * Теперь это распечатка терминала, а не кусок монитора:
+ * чёрный приподнят, цвета приглушены, на заливке растр.
+ */
+.doc--scan .widget--log {
+    padding: 0.6rem 0.8rem;
+
+    background-color: var(--log-bg);
+    background-image:
+        radial-gradient(rgba(255, 255, 255, 0.06) 0.7px, transparent 0.9px),
+        repeating-linear-gradient(
+            0deg,
+            rgba(255, 255, 255, 0.018) 0,
+            rgba(255, 255, 255, 0.018) 1px,
+            transparent 1px,
+            transparent 3px
+        );
+    background-size:
+        3px 3px,
+        auto;
+
+    color: var(--log-fg);
+
+    border: 1px solid rgba(0, 0, 0, 0.55);
+
+    text-shadow: 0 0 0.5px rgba(255, 255, 255, 0.25);
+
+    font-size: 0.8rem;
+    line-height: 1.55;
+}
+
+
+.doc--scan .log-line {
+    display: flex;
+
+    gap: 1.5ch;
+
+    white-space: pre-wrap;
+}
+
+
+.doc--scan .log-time {
+    flex: 0 0 auto;
+    color: var(--log-debug);
+}
+
+
+.doc--scan .log-level {
+    flex: 0 0 6ch;
+    font-weight: 700;
+}
+
+
+.doc--scan .log-msg {
+    flex: 1;
+    min-width: 0;
+}
+
+
+.doc--scan .log-info .log-level {
+    color: var(--log-info);
+}
+
+
+.doc--scan .log-ok .log-level {
+    color: var(--log-ok);
+}
+
+
+.doc--scan .log-warn .log-level {
+    color: var(--log-warn);
+}
+
+
+.doc--scan .log-error .log-level {
+    color: var(--log-error);
+}
+
+
+.doc--scan .log-debug .log-level {
+    color: var(--log-debug);
+}
+
+
+.doc--scan .log-plain .log-msg {
+    padding-left: 17ch;
+}
+
+
+.doc--scan .widget--log .spoiler--masked {
+    background-color: var(--log-fg);
+    color: var(--log-fg);
+}
+
+
+/* -------------------------------------------------- */
+/* Checks                                             */
+/* -------------------------------------------------- */
+
+.doc--scan .widget--checks {
+    display: flex;
+    flex-wrap: wrap;
+
+    gap: 0.4rem 2rem;
+}
+
+
+.doc--scan .check {
+    display: inline-flex;
+    align-items: center;
+
+    gap: 0.6ch;
+
+    font-size: 0.8rem;
+}
+
+
+.doc--scan .check-box {
+    display: inline-grid;
+    place-items: center;
+
+    width: 1em;
+    height: 1em;
+
+    border: 1px solid var(--line);
+
+    font-size: 0.85rem;
+    line-height: 1;
+}
+
+
+.doc--scan .check--on .check-box::after {
+    content: "\00d7";
+    font-weight: 700;
+}
+
+
+/* -------------------------------------------------- */
+/* KV / KVM  (ключ: значение)                         */
+/* -------------------------------------------------- */
+
+.doc--scan .widget--kv,
+.doc--scan .widget--kvm {
+    margin: 0 0 0.8em;
+}
+
+
+.doc--scan .kv-row {
+    display: grid;
+    grid-template-columns: var(--kv-key-width) minmax(0, 1fr);
+
+    gap: 0 0.9rem;
+
+    padding: 0.15rem 0;
+}
+
+
+.doc--scan .kv-key {
+    color: var(--ink-soft);
+
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    line-height: 2;
+
+    text-transform: uppercase;
+}
+
+
+.doc--scan .kv-val {
+    min-width: 0;
+
+    overflow-wrap: anywhere;
+}
+
+
+.doc--scan .kv-line + .kv-line {
+    margin-top: 0.15em;
+}
+
+
+/* флаг border: рамка вокруг всего виджета и линии между строками */
+.doc--scan .widget--kv-border,
+.doc--scan .widget--kvm-border {
+    border: 1px solid var(--line);
+}
+
+
+.doc--scan .widget--kv-border .kv-row,
+.doc--scan .widget--kvm-border .kv-row {
+    gap: 0;
+
+    padding: 0;
+}
+
+
+.doc--scan .widget--kv-border .kv-row + .kv-row,
+.doc--scan .widget--kvm-border .kv-row + .kv-row {
+    border-top: 1px solid var(--line-soft);
+}
+
+
+.doc--scan .widget--kv-border .kv-key,
+.doc--scan .widget--kvm-border .kv-key {
+    padding: var(--cell-pad);
+
+    border-right: 1px solid var(--line-soft);
+
+    background: var(--tint-soft);
+}
+
+
+.doc--scan .widget--kv-border .kv-val,
+.doc--scan .widget--kvm-border .kv-val {
+    padding: var(--cell-pad);
+}
+
+
+/* -------------------------------------------------- */
+/* Timeline                                           */
+/* -------------------------------------------------- */
+
+.doc--scan .widget--timeline {
+    margin: 0 0 0.8em;
+}
+
+
+.doc--scan .tl-row {
+    display: grid;
+    grid-template-columns: var(--tl-date-width) 1.2rem minmax(0, 1fr);
+
+    column-gap: 0.4rem;
+}
+
+
+.doc--scan .tl-date,
+.doc--scan .tl-text {
+    padding-bottom: 0.9rem;
+
+    min-width: 0;
+
+    overflow-wrap: anywhere;
+}
+
+
+.doc--scan .tl-date {
+    color: var(--ink-soft);
+
+    font-weight: 700;
+
+    text-align: right;
+}
+
+
+.doc--scan .tl-row:last-child .tl-date,
+.doc--scan .tl-row:last-child .tl-text {
+    padding-bottom: 0;
+}
+
+
+.doc--scan .tl-dot {
+    position: relative;
+}
+
+
+/* точка: центр совпадает с серединой первой строки текста */
+.doc--scan .tl-dot::before {
+    content: "";
+
+    position: absolute;
+    top: 0.475em;
+    left: 50%;
+    z-index: 1;
+
+    box-sizing: border-box;
+
+    width: 0.6em;
+    height: 0.6em;
+
+    border: 2px solid var(--ink);
+    border-radius: 50%;
+
+    background: var(--paper);
+
+    transform: translateX(-50%);
+}
+
+
+/* линия: от центра этой точки до центра следующей */
+.doc--scan .tl-dot::after {
+    content: "";
+
+    position: absolute;
+    top: 0.775em;
+    bottom: -0.775em;
+    left: 50%;
+
+    border-left: 1px solid var(--line);
+
+    transform: translateX(-50%);
+}
+
+
+.doc--scan .tl-row:last-child .tl-dot::after {
+    display: none;
+}
+
+
+/* -------------------------------------------------- */
+/* Masthead (шапка сайта)                             */
+/* -------------------------------------------------- */
+
+.doc--scan .widget--masthead {
+    border: 1px solid var(--line);
+
+    font-family: var(--ff-cousine);
+}
+
+
+.doc--scan .mast-top {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+
+    gap: 1rem;
+
+    padding: 0.5rem 0.9rem;
+}
+
+
+.doc--scan .mast-title {
+    display: flex;
+    flex-direction: column;
+
+    min-width: 0;
+}
+
+
+.doc--scan .mast-name {
+    font-size: 1.45rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    line-height: 1.15;
+
+    text-transform: uppercase;
+}
+
+
+.doc--scan .mast-tagline {
+    color: var(--ink-soft);
+
+    font-size: 0.72rem;
+    letter-spacing: 0.04em;
+}
+
+
+.doc--scan .mast-date {
+    flex: 0 0 auto;
+
+    color: var(--ink-soft);
+
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.07em;
+
+    text-transform: uppercase;
+}
+
+
+.doc--scan .mast-menu {
+    display: flex;
+    flex-wrap: wrap;
+
+    border-top: 1px solid var(--line);
+
+    background: var(--tint-soft);
+}
+
+
+.doc--scan .mast-item {
+    padding: 0.25rem 0.9rem;
+
+    border-right: 1px solid var(--line);
+
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.07em;
+
+    text-transform: uppercase;
+}
+
+
+.doc--scan .mast-item--active {
+    background: var(--ink);
+    color: var(--paper);
+}
+
+
+/* -------------------------------------------------- */
+/* Bar (полоса «сохранено из»)                        */
+/* -------------------------------------------------- */
+
+.doc--scan .widget--bar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+
+    gap: 0.2rem 1.5ch;
+
+    padding: 0.25rem 0.6rem;
+
+    border: 1px solid var(--line);
+
+    background: var(--tint);
+
+    font-family: var(--ff-cousine);
+    font-size: 0.7rem;
+    letter-spacing: 0.04em;
+}
+
+
+.doc--scan .bar-label {
+    padding-right: 1.5ch;
+
+    border-right: 1px solid var(--line);
+
+    font-weight: 700;
+    letter-spacing: 0.1em;
+
+    text-transform: uppercase;
+}
+
+
+.doc--scan .bar-url {
+    flex: 1 1 auto;
+    min-width: 0;
+
+    overflow-wrap: anywhere;
+}
+
+
+.doc--scan .bar-date,
+.doc--scan .bar-id {
+    color: var(--ink-soft);
+}
+
+
+.doc--scan .bar-id {
+    font-weight: 700;
+}
+
+
+
+/* -------------------------------------------------- */
+/* Assets                                             */
+/*                                                    */
+/* Архивные вложения: изображения, аудио, видео,      */
+/* файлы и отсутствующие материалы.                   */
+/* Общая фактура сканирования задаётся на .sheet.      */
+/* -------------------------------------------------- */
+
+
+/* -------------------------------------------------- */
+/* Общая геометрия изображений, аудио и видео          */
+/* -------------------------------------------------- */
+
+.doc--scan .widget--image,
+.doc--scan .widget--audio,
+.doc--scan .widget--video {
+    display: block;
+
+    width: var(--w, 60%);
+    max-width: 100%;
+
+    min-width: 0;
+}
+
+
+/* Аудио по умолчанию занимает всю ширину */
+.doc--scan .widget--audio {
+    width: var(--w, 100%);
+}
+
+
+/* Выравнивание объектов */
+.doc--scan .widget--image.widget--align-left,
+.doc--scan .widget--audio.widget--align-left,
+.doc--scan .widget--video.widget--align-left {
+    margin-left: 0;
+    margin-right: auto;
+}
+
+
+.doc--scan .widget--image.widget--align-center,
+.doc--scan .widget--audio.widget--align-center,
+.doc--scan .widget--video.widget--align-center {
+    margin-left: auto;
+    margin-right: auto;
+}
+
+
+.doc--scan .widget--image.widget--align-right,
+.doc--scan .widget--audio.widget--align-right,
+.doc--scan .widget--video.widget--align-right {
+    margin-left: auto;
+    margin-right: 0;
+}
+
+
+/* Подпись под любым медиа-виджетом */
+.doc--scan .asset-caption {
+    display: block;
+
+    margin-top: 0.3rem;
+
+    color: var(--ink-soft);
+
+    font-family: var(--ff-cousine);
+    font-size: 0.72rem;
+    line-height: 1.4;
+    letter-spacing: 0.025em;
+
+    overflow-wrap: anywhere;
+}
+
+
+/* -------------------------------------------------- */
+/* Image                                              */
+/* -------------------------------------------------- */
+
+.doc--scan .widget--image {
+    /* Для изображения ширина по умолчанию — 60% */
+    width: var(--w, 60%);
+}
+
+
+.doc--scan .image-frame {
+    box-sizing: border-box;
+
+    max-width: 100%;
+
+    border: 1px solid var(--line);
+
+    background: var(--paper);
+}
+
+
+/* Ссылка не должна добавлять оформление поверх рамки */
+.doc--scan .image-link {
+    display: block;
+
+    color: inherit;
+    text-decoration: none;
+}
+
+
+.doc--scan .image-link:hover {
+    color: inherit;
+}
+
+
+.doc--scan .image-img {
+    display: block;
+
+    width: 100%;
+    max-width: 100%;
+    height: auto;
+}
+
+
+/* Заглушка отсутствующего изображения */
+.doc--scan .image-missing {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    box-sizing: border-box;
+    width: 100%;
+
+    padding: 0.6rem;
+
+    background:
+        repeating-linear-gradient(
+            135deg,
+            transparent 0,
+            transparent 7px,
+            var(--tint-soft) 7px,
+            var(--tint-soft) 8px
+        );
+
+    color: var(--ink-soft);
+
+    font-family: var(--ff-cousine);
+    font-size: 0.75rem;
+    letter-spacing: 0.04em;
+    line-height: 1.4;
+    text-align: center;
+    overflow-wrap: anywhere;
+}
+
+
+.doc--scan .image-ratio-16-9 {
+    aspect-ratio: 16 / 9;
+}
+
+.doc--scan .image-ratio-4-3 {
+    aspect-ratio: 4 / 3;
+}
+
+.doc--scan .image-ratio-3-2 {
+    aspect-ratio: 3 / 2;
+}
+
+.doc--scan .image-ratio-1-1 {
+    aspect-ratio: 1 / 1;
+}
+
+.doc--scan .image-ratio-3-4 {
+    aspect-ratio: 3 / 4;
+}
+
+.doc--scan .image-ratio-9-16 {
+    aspect-ratio: 9 / 16;
+}
+
+
+/* -------------------------------------------------- */
+/* Audio                                              */
+/* -------------------------------------------------- */
+
+/* Заголовок записи */
+.doc--scan .audio-title {
+    margin-bottom: 0.35rem;
+
+    color: var(--ink);
+
+    font-family: var(--ff-cousine);
+    font-size: 0.78rem;
+    font-weight: 700;
+    line-height: 1.4;
+
+    overflow-wrap: anywhere;
+}
+
+
+/* Нативный аудиоплеер */
+.doc--scan .audio-el {
+    display: block;
+
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+
+    margin: 0;
+
+    border-radius: 0;
+
+    accent-color: var(--ink);
+}
+
+
+/* -------------------------------------------------- */
+/* Video — архивный контактный лист                   */
+/* -------------------------------------------------- */
+
+.doc--scan .widget--video {
+    width: var(--w, 60%);
+}
+
+/* Контейнер контактного листа */
+
+.doc--scan .video-preview {
+    position: relative;
+
+    display: block;
+    width: 100%;
+    min-width: 0;
+
+    overflow: hidden;
+
+    border: 1px solid var(--line);
+    background: var(--paper);
+}
+
+/* Сетка кадров */
+
+.doc--scan .video-preview-grid {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 5px;
+
+    padding: 5px;
+    background: var(--paper);
+}
+
+
+/* Геометрия плиток задаётся JS по фактическому разрешению видео. */
+.doc--scan .video-preview-frame {
+    position: relative;
+    min-width: 0;
+
+    aspect-ratio: 16 / 9; /* Временный размер до loadedmetadata. */
+
+    overflow: hidden;
+    isolation: isolate;
+
+    background: var(--ink, #191919);
+}
+
+/* Сетка остаётся видимой, даже если извлечение завершилось ошибкой. */
+.doc--scan .video-preview--failed .video-preview-grid {
+    display: grid;
+}
+
+/* Ошибка — отдельная строка, метаданные остаются на месте. */
+.doc--scan .video-preview-error {
+    padding: 0.4rem 0.55rem;
+}
+/* Изображение кадра */
+
+.doc--scan .video-preview-frame img {
+    display: block;
+
+    width: 100%;
+    height: 100%;
+
+    object-fit: contain;
+
+    background: var(--ink);
+}
+
+/* Временная метка */
+
+.doc--scan .video-preview-time {
+    position: absolute;
+    right: 0.25rem;
+    bottom: 0.2rem;
+
+    padding: 0.05rem 0.25rem;
+
+    background: var(--ink);
+    color: var(--paper);
+
+    font-family: var(--ff-cousine);
+    font-size: 0.8rem;
+    line-height: 1.4;
+
+    text-shadow: none;
+}
+
+/* Метаданные видео */
+
+.doc--scan .video-preview-status {
+    padding: 0.4rem 0.55rem;
+
+    border-top: 1px solid var(--line);
+
+    background: var(--paper);
+    color: var(--ink-soft);
+
+    font-family: var(--ff-cousine);
+    font-size: 0.68rem;
+    line-height: 1.6;
+    letter-spacing: 0.025em;
+
+    overflow-wrap: anywhere;
+}
+
+/* Ошибка обработки */
+
+.doc--scan .video-preview--failed .video-preview-status {
+    min-height: 3rem;
+
+    display: flex;
+    align-items: center;
+
+    background:
+        repeating-linear-gradient(
+            135deg,
+            transparent 0,
+            transparent 7px,
+            var(--tint-soft) 7px,
+            var(--tint-soft) 8px
+        );
+}
+
+/* В архивном документе исходный плеер не показывается */
+
+.doc--scan .widget--video .video-el {
+    display: none;
+}
+
+.doc--scan .video-preview-meta {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+}
+
+.doc--scan .video-preview-info {
+    overflow-wrap: anywhere;
+}
+
+.doc--scan .video-preview-id {
+    display: inline-block;
+    width: fit-content;
+
+    color: var(--ink-soft);
+    text-decoration: underline;
+    text-decoration-style: dotted;
+    text-underline-offset: 2px;
+
+    cursor: pointer;
+}
+
+.doc--scan a.video-preview-id:hover {
+    color: var(--ink);
+    text-decoration-style: solid;
+}
+
+/* Video — asset viewer link */
+.doc--scan .video-preview-id {
+    display: inline-block;
+    margin-top: 0.35rem;
+    text-decoration: none;
+}
+
+
+/* Video — asset viewer link */
+.doc--scan .video-preview-meta a.video-preview-id,
+.doc--scan .video-preview-meta a.video-preview-id:visited {
+    color: var(--ink);
+    text-decoration: none;
+    border-bottom: 1px solid var(--line);
+}
+
+.doc--scan .video-preview-meta a.video-preview-id:hover {
+    color: var(--ink);
+    border-bottom-color: var(--ink);
+    background: var(--tint-soft);
+    text-decoration: none;
+}
+
+.doc--scan .video-preview-meta a.video-preview-id:focus-visible {
+    color: var(--ink);
+    outline: 1px dashed var(--ink);
+    outline-offset: 3px;
+}
+
+/* =========================================================
+   Aether Wiki — Scan Media
+   Постепенное проявление кадров контактного листа
+   ========================================================= */
+
+/*
+ * Ячейки существуют с самого начала.
+ * Их геометрия не меняется при добавлении изображений.
+ */
+
+.doc--scan .video-preview-frame {
+    position: relative;
+    overflow: hidden;
+
+    background: var(--ink, #191919);
+
+    isolation: isolate;
+}
+
+
+/*
+ * Заглушка до появления кадра.
+ * Ненавязчивая разметка напоминает пустую ячейку скана.
+ */
+
+.doc--scan .video-preview-frame--pending::before {
+    content: "";
+
+    position: absolute;
+    inset: 0;
+
+    z-index: 1;
+
+    pointer-events: none;
+
+    background:
+        linear-gradient(
+            90deg,
+            transparent calc(50% - 1px),
+            var(--ink) 50%,
+            transparent calc(50% + 1px)
+        ),
+        linear-gradient(
+            0deg,
+            transparent calc(50% - 1px),
+            var(--ink) 50%,
+            transparent calc(50% + 1px)
+        );
+
+    opacity: 1;
+
+    transition: opacity 900ms ease;
+}
+
+
+/*
+ * Изображение сначала приглушено.
+ * По мере проявления возвращаются контраст и яркость.
+ */
+
+.doc--scan .video-preview-image {
+    display: block;
+
+    width: 100%;
+    height: 100%;
+
+    object-fit: contain;
+
+    opacity: 0;
+
+    filter:
+        grayscale(1)
+        contrast(0.65)
+        brightness(0.65);
+
+    transform: scale(1.015);
+
+    transition:
+        opacity 1100ms ease,
+        filter 1500ms ease,
+        transform 1500ms ease;
+
+    will-change: opacity, filter;
+}
+
+
+/*
+ * Кадр декодирован и проявляется.
+ */
+
+.doc--scan .video-preview-frame--revealed .video-preview-image {
+    opacity: 1;
+
+    filter:
+        grayscale(0)
+        contrast(1)
+        brightness(1);
+
+    transform: scale(1);
+}
+
+
+/*
+ * Разметка пустой ячейки постепенно исчезает.
+ */
+
+.doc--scan .video-preview-frame--revealed::before {
+    opacity: 0;
+}
+
+
+/*
+ * Временная метка появляется вместе с изображением.
+ */
+
+.doc--scan .video-preview-time {
+    opacity: 0;
+
+    transition: opacity 600ms ease 350ms;
+}
+
+.doc--scan .video-preview-frame--revealed .video-preview-time {
+    opacity: 1;
+}
+
+
+/*
+ * Ошибка загрузки отдельного кадра не должна
+ * ломать размеры остальных ячеек.
+ */
+
+.doc--scan .video-preview-frame--error {
+    background: var(--ink, #191919);
+}
+
+.doc--scan .video-preview-frame--error::after {
+    content: "";
+
+    position: absolute;
+    inset: 0;
+
+    pointer-events: none;
+
+    border: 1px solid var(--ink);
+}
+
+
+/*
+ * Учитываем настройку пользователя на уменьшение анимации.
+ */
+
+@media (prefers-reduced-motion: reduce) {
+    .doc--scan .video-preview-image,
+    .doc--scan .video-preview-frame--pending::before,
+    .doc--scan .video-preview-time {
+        transition: none;
+    }
+
+    .doc--scan .video-preview-frame--revealed .video-preview-image {
+        opacity: 1;
+
+        filter: none;
+
+        transform: none;
+    }
+
+    .doc--scan .video-preview-frame--revealed::before {
+        opacity: 0;
+    }
+
+    .doc--scan .video-preview-frame--revealed .video-preview-time {
+        opacity: 1;
+    }
+}
+
+
+/* -------------------------------------------------- */
+/* File: учётная этикетка с штрихкодом                */
+/* -------------------------------------------------- */
+
+/*
+ * Разметка виджета (documents/widgets.py, _render_file):
+ *   <div class="widget widget--file" data-barcode data-id>
+ *     <a class="file-main" download data-filename>подпись</a>
+ *     <span class="file-dots"></span>
+ *     <span class="file-size">2.3 МБ</span>
+ *     <a class="file-open">Открыть</a>      (если у ассета есть вьювер)
+ *   </div>
+ *
+ * Сверху штрихкод (::after) и ID (::before) по центру, ниже пунктирный
+ * разделитель с подписью «ПРИЛОЖЕНИЕ» (.file-dots), затем строка
+ * «название (размер)» от руки. Название берётся из data-filename,
+ * исходный текст ссылки скрыт.
+ * Этикетка стоит по центру листа, ширина по содержимому.
+ * Клик по этикетке открывает вьювер (как сканирование кода); без вьювера
+ * тот же клик скачивает файл.
+ */
+
+.doc--scan .widget--file {
+    position: relative;
+
+    display: grid;
+    grid-template-columns: auto auto;
+    grid-template-areas:
+        "bars bars"
+        "cap  cap"
+        "tag  tag"
+        "name size";
+    justify-content: center;
+    justify-items: center;
+    row-gap: 0;
+
+    width: fit-content;
+    min-width: min(24rem, 100%);
+    max-width: 100%;
+    box-sizing: border-box;
+
+    margin-left: auto;
+    margin-right: auto;
+    padding: 0.8rem 1.6rem 0.65rem;
+
+    /* Этикетка: отдельный клочок бумаги, вклеенный в лист */
+    background-color: #efecdf;
+    background-image:
+        radial-gradient(
+            ellipse at 45% 30%,
+            rgba(255, 252, 235, 0.38),
+            transparent 75%
+        );
+
+    border: 1px solid rgba(75, 63, 43, 0.42);
+
+    box-shadow:
+        1px 2px 2px rgba(39, 32, 21, 0.14),
+        2px 3px 5px rgba(39, 32, 21, 0.08),
+        inset 0 0 0 1px rgba(255, 250, 229, 0.25);
+
+    transform: rotate(-0.35deg);
+}
+
+
+/* Штрихкод: крупный, растянут по высоте от нижнего края штрихов */
+.doc--scan .widget--file[data-barcode]::after {
+    --bc-size: 2rem;     /* ширина кода */
+    --bc-k: 2.6;                      /* было 3.4 */
+    --bc-foot: 0.8;      /* где в строке кончаются штрихи: 0.7–0.9 */
+
+    content: "*" attr(data-barcode) "*";
+
+    grid-area: bars;
+
+    color: var(--ink);
+
+    font-family: var(--font-barcode);
+    font-size: var(--bc-size);
+    line-height: 1;
+    text-transform: uppercase;
+    white-space: nowrap;
+
+    transform: scaleY(var(--bc-k));
+    transform-origin: 50% calc(var(--bc-foot) * 100%);
+
+    /* место под часть, выросшую вверх */
+    margin-top: calc((var(--bc-k) - 1) * var(--bc-foot) * var(--bc-size));
+}
+
+
+/* ID: почти вплотную к штрихам */
+.doc--scan .widget--file[data-barcode]::before {
+    content: attr(data-id);
+    --id-pull: -0.7rem;   /* ещё ближе: -0.9rem, дальше: -0.4rem */
+
+    grid-area: cap;
+
+    margin-top: var(--id-pull);
+    padding-bottom: 0.55rem;
+
+    color: var(--ink-soft);
+
+    font-family: var(--ff-cousine);
+    font-size: 0.6rem;
+    letter-spacing: 0.06em;
+    line-height: 1.2;
+    text-transform: none;
+    text-align: center;
+    overflow-wrap: anywhere;
+}
+
+
+/* Пунктирный разделитель и подпись «ПРИЛОЖЕНИЕ» (пустой span .file-dots) */
+.doc--scan .widget--file .file-dots {
+    grid-area: tag;
+
+    display: block;
+    width: 100%;
+    box-sizing: border-box;
+
+    padding-top: 0.5rem;
+    margin-bottom: 0.1rem;
+
+    border-top: 1px dashed var(--line);
+}
+
+
+.doc--scan .widget--file .file-dots::before {
+    content: "ПРИЛОЖЕНИЕ";
+
+    display: block;
+
+    color: var(--ink-soft);
+
+    font-family: var(--ff-cousine);
+    font-size: 0.62rem;
+    font-weight: 700;
+    letter-spacing: 0.14em;
+    line-height: 1.4;
+    text-align: center;
+}
+
+
+/* Без штрихкода (пустой ID): остаётся только строка приложения */
+.doc--scan .widget--file:not([data-barcode]) .file-dots {
+    padding-top: 0;
+
+    border-top: 0;
+}
+
+
+/* Название: от руки; исходный текст ссылки (label) скрыт */
+.doc--scan .widget--file .file-main {
+    grid-area: name;
+    align-self: baseline;
+    justify-self: end;
+
+    min-width: 0;
+
+    border: 0;
+    background: transparent;
+    color: transparent;
+
+    font-size: 0;
+    line-height: 1.2;
+    text-decoration: none;
+    overflow-wrap: anywhere;
+}
+
+
+.doc--scan .widget--file .file-main::before {
+    content: attr(data-filename);
+
+    color: #29385c;
+
+    font-family: var(--font-hand, cursive);
+    font-size: 1.45rem;
+    font-weight: 400;
+    line-height: 1.2;
+
+    text-shadow: none;
+}
+
+
+/* Размер: от руки, тем же цветом */
+.doc--scan .widget--file .file-size {
+    grid-area: size;
+    align-self: baseline;
+    justify-self: start;
+
+    color: #29385c;
+
+    font-family: var(--font-hand, cursive);
+    font-size: 1.15rem;
+    letter-spacing: 0;
+    line-height: 1.2;
+    text-transform: none;
+    white-space: nowrap;
+
+    text-shadow: none;
+}
+
+
+.doc--scan .widget--file .file-size::before {
+    content: " (";                    /* пробел перед скобкой */
+}
+
+
+.doc--scan .widget--file .file-size::after {
+    content: ")";
+}
+
+
+/* Клик: ссылка растягивается на всю этикетку. Вьювер, если он есть,
+   иначе скачивание. */
+.doc--scan .widget--file .file-open,
+.doc--scan .widget--file:not(:has(.file-open)) .file-main::after {
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+
+    padding: 0;
+
+    border: 0;
+    background: transparent;
+    color: transparent;
+
+    font-size: 0;
+    line-height: 0;
+
+    text-decoration: none;
+    cursor: pointer;
+}
+
+.doc--scan .widget--file:not(:has(.file-open)) .file-main::after {
+    content: "";
+}
+
+
+.doc--scan .widget--file .file-open:hover,
+.doc--scan .widget--file .file-open:focus-visible,
+.doc--scan .widget--file:not(:has(.file-open)) .file-main:hover::after,
+.doc--scan .widget--file:not(:has(.file-open)) .file-main:focus-visible::after {
+    background: var(--tint-soft);
+}
+
+
+.doc--scan .widget--file .file-open:focus-visible,
+.doc--scan .widget--file:not(:has(.file-open)) .file-main:focus-visible::after {
+    outline: 1px dashed var(--ink);
+    outline-offset: 2px;
+}
+
+@media print {
+    .doc--scan .widget--file {
+        transform: none;
+        box-shadow: none;
+    }
+}
+
+/* -------------------------------------------------- */
+/* Missing asset                                      */
+/* -------------------------------------------------- */
+
+/* Ассет не найден, URL недоступен или тип не совпал */
+.doc--scan .widget--asset-missing {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+
+    gap: 0.25rem 1ch;
+
+    box-sizing: border-box;
+    min-width: 0;
+
+    margin: 0.8rem 0;
+    padding: 0.4rem 0.65rem;
+
+    border: 1px dashed var(--line);
+
+    background: var(--tint-soft);
+
+    font-family: var(--ff-cousine);
+    font-size: 0.7rem;
+    line-height: 1.5;
+}
+
+
+.doc--scan .asset-missing-text {
+    flex: 0 0 auto;
+
+    color: var(--ink);
+
+    font-weight: 700;
+    letter-spacing: 0.045em;
+}
+
+
+.doc--scan .asset-missing-ref {
+    flex: 1 1 8rem;
+    min-width: 0;
+
+    color: var(--ink-soft);
+
+    overflow-wrap: anywhere;
+    word-break: break-word;
+}
+
+/* -------------------------------------------------- */
+/* Печать                                             */
+/* -------------------------------------------------- */
+
+@media print {
+    .doc--scan .audio-el,
+    .doc--scan .video-el {
+        max-width: 100%;
+    }
+}
+
+
+/* -------------------------------------------------- */
+/* Divider (разделитель)                              */
+/* -------------------------------------------------- */
+
+.doc--scan .widget--divider {
+    display: flex;
+    align-items: center;
+
+    gap: 1.5ch;
+
+    margin: 1rem 0;
+}
+
+
+.doc--scan .divider-line {
+    flex: 1 1 auto;
+
+    height: 0;
+
+    border-top: 1px solid var(--line);
+}
+
+
+.doc--scan .divider-label {
+    flex: 0 0 auto;
+
+    color: var(--ink-soft);
+
+    font-family: var(--ff-cousine);
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+
+    text-transform: uppercase;
+}
+
+
+.doc--scan .divider--double .divider-line {
+    border-top: 3px double var(--line);
+}
+
+
+.doc--scan .divider--dashed .divider-line {
+    border-top-style: dashed;
+}
+
+
+.doc--scan .divider--dotted .divider-line {
+    border-top-style: dotted;
+}
+
+
+.doc--scan .divider--thick .divider-line {
+    border-top: 3px solid var(--ink);
+}
+
+
+.doc--scan .divider--stars {
+    justify-content: center;
+}
+
+
+.doc--scan .divider-mark {
+    color: var(--ink-soft);
+
+    font-family: var(--ff-cousine);
+    letter-spacing: 0.5em;
+}
+
+
+/* -------------------------------------------------- */
+/* Infobox                                            */
+/* -------------------------------------------------- */
+
+.doc--scan .md--infobox {
+    padding: 0.8rem 1rem;
+
+    background: var(--paper);
+    color: var(--ink);
+
+    font-family: var(--ff-cousine);
+    font-size: 0.85rem;
+    line-height: 1.45;
+}
+
+
+.doc--scan .md--infobox p {
+    color: inherit;
+}
+
+
+/* -------------------------------------------------- */
+/* Узкое окно                                         */
+/* -------------------------------------------------- */
+
+/*
+ * Лист не сжимается: правая часть просто уходит за край окна.
+ */
+@media (max-width: 900px) {
+    .doc--scan .page {
+        overflow-x: hidden;
+    }
+
+    .doc--scan .sheet {
+        margin-left: 0;
+        margin-right: 0.75rem;
+    }
+}
+
+
+/* -------------------------------------------------- */
+/* Печать                                             */
+/* -------------------------------------------------- */
+
+@media print {
+    .doc--scan {
+        background: #fff;
+
+        /* Фильтр чернил и кайма при печати не нужны */
+        --ink-filter: none;
+        --fringe: none;
+    }
+
+    .doc--scan .page,
+    .doc--scan .md--body {
+        width: auto;
+        max-width: none;
+
+        overflow: visible;
+
+        padding: 0;
+    }
+
+    .doc--scan .sheet {
+        width: 210mm;
+        min-width: 210mm;
+
+        margin: 0;
+
+        filter: none;
+        transform: none;
+
+        box-shadow: none;
+
+        break-after: page;
+        page-break-after: always;
+    }
+
+    .doc--scan .sheet:last-child {
+        break-after: auto;
+        page-break-after: auto;
+    }
+
+    .doc--scan .sheet::before,
+    .doc--scan .sheet::after {
+        display: none;
+    }
+}
+
+
+
+
+
+/* =========================================================
+   Aether Wiki — Scan Audio Card
+   Physical archive label attached to a scanned document
+   ========================================================= */
+
+
+/* ---------------------------------------------------------
+   Card / paper label
+   --------------------------------------------------------- */
+
+.doc--scan .widget--audio .audio-card {
+    position: relative;
+    isolation: isolate;
+
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+
+    width: 100%;
+    box-sizing: border-box;
+    padding: 12px 14px 10px;
+
+    color: #292820;
+    font-family: var(--ff-cousine, "JetBrains Mono", monospace);
+
+    /* Separate paper surface */
+    background-color: #eeece4;
+    background-image:
+        linear-gradient(
+            105deg,
+            rgba(255, 255, 255, 0.20),
+            transparent 38%,
+            rgba(80, 70, 48, 0.025) 100%
+        );
+
+    border: 1px solid rgba(55, 50, 39, 0.48);
+    border-radius: 0;
+
+    /* Slightly lifted from the scanned paper */
+    box-shadow:
+        1px 2px 2px rgba(27, 24, 18, 0.12),
+        2px 4px 5px rgba(27, 24, 18, 0.075),
+        inset 0 0 0 1px rgba(255, 255, 255, 0.28);
+
+    transform: rotate(-0.12deg);
+}
+
+
+/* ---------------------------------------------------------
+   Field layout
+   --------------------------------------------------------- */
+
+.doc--scan .widget--audio .audio-card-field {
+    display: flex;
+    align-items: baseline;
+    gap: 7px;
+
+    min-width: 0;
+    box-sizing: border-box;
+}
+
+
+/* ---------------------------------------------------------
+   Machine-printed labels: TITLE, ID, TYPE, DURATION
+   --------------------------------------------------------- */
+
+.doc--scan .widget--audio .audio-card-label {
+    flex: 0 0 auto;
+
+    color: rgba(45, 43, 35, 0.72);
+
+    font-family: var(--ff-cousine, "JetBrains Mono", monospace);
+    font-size: 9px;
+    font-weight: 400;
+    line-height: 1.5;
+    letter-spacing: 0.055em;
+    text-transform: uppercase;
+}
+
+
+
+/* =========================================================
+   Aether Wiki — Scan Audio Card
+   Taped handwritten archive label
+   ========================================================= */
+
+
+/* ---------------------------------------------------------
+   Paper label
+   --------------------------------------------------------- */
+
+.doc--scan .widget--audio .audio-card {
+    position: relative;
+    isolation: isolate;
+
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+
+    width: 100%;
+    box-sizing: border-box;
+    padding: 15px 14px 10px;
+
+    color: #292820;
+    font-family: var(--ff-cousine, "JetBrains Mono", monospace);
+
+    background-color: #e8e4d7;
+    background-image:
+        radial-gradient(
+            ellipse at 45% 35%,
+            rgba(255, 252, 235, 0.34),
+            transparent 76%
+        );
+
+    border: 1px solid rgba(75, 63, 43, 0.44);
+    border-radius: 0;
+
+    box-shadow:
+        1px 2px 2px rgba(39, 32, 21, 0.15),
+        3px 4px 6px rgba(39, 32, 21, 0.09),
+        inset 0 0 0 1px rgba(255, 250, 229, 0.22);
+
+    transform: rotate(-0.65deg);
+}
+
+
+/* ---------------------------------------------------------
+   Tape — upper left and lower right
+   --------------------------------------------------------- */
+
+.doc--scan .widget--audio .audio-card::before,
+.doc--scan .widget--audio .audio-card::after {
+    content: "";
+    position: absolute;
+    z-index: 2;
+
+    width: 62px;
+    height: 17px;
+
+    pointer-events: none;
+
+    background-color: rgba(190, 174, 126, 0.38);
+    background-image:
+        linear-gradient(
+            180deg,
+            rgba(255, 255, 230, 0.27),
+            rgba(154, 133, 88, 0.08)
+        );
+
+    border-top: 1px solid rgba(135, 116, 77, 0.20);
+    border-bottom: 1px solid rgba(135, 116, 77, 0.16);
+
+    box-shadow:
+        0 1px 1px rgba(45, 36, 22, 0.08),
+        inset 0 0 2px rgba(255, 255, 230, 0.14);
+
+    opacity: 0.92;
+}
+
+/* Upper-left tape */
+.doc--scan .widget--audio .audio-card::before {
+    top: -7px;
+    left: 14px;
+    transform: rotate(-8deg);
+}
+
+/* Lower-right tape */
+.doc--scan .widget--audio .audio-card::after {
+    right: 13px;
+    bottom: -7px;
+    transform: rotate(-8deg);
+}
+
+
+/* ---------------------------------------------------------
+   Field layout
+   --------------------------------------------------------- */
+
+.doc--scan .widget--audio .audio-card-field {
+    display: flex;
+    align-items: baseline;
+    gap: 7px;
+
+    min-width: 0;
+    box-sizing: border-box;
+}
+
+
+/* ---------------------------------------------------------
+   Machine-printed labels
+   --------------------------------------------------------- */
+
+.doc--scan .widget--audio .audio-card-label {
+    flex: 0 0 auto;
+
+    color: rgba(45, 43, 35, 0.72);
+
+    font-family: var(--ff-cousine, "JetBrains Mono", monospace);
+    font-size: 9px;
+    font-weight: 400;
+    line-height: 1.5;
+    letter-spacing: 0.055em;
+    text-transform: uppercase;
+}
+
+
+/* ---------------------------------------------------------
+   Handwritten values
+   Text sits directly on the field rule
+   --------------------------------------------------------- */
+
+.doc--scan .widget--audio .audio-card-value {
+    display: inline-block;
+    flex: 1 1 auto;
+
+    min-width: 0;
+    box-sizing: border-box;
+
+    /*
+     * The writing baseline aligns with the underline.
+     * No extra bottom padding pushing the rule below the text.
+     */
+    padding: 0 2px 0;
+
+    color: #29385c;
+
+    font-family: var(--font-hand, cursive);
+    font-size: 21px;
+    font-weight: 400;
+    line-height: 1.15;
+
+    border-bottom: 1px solid rgba(41, 56, 92, 0.34);
+
+    overflow-wrap: anywhere;
+    text-shadow: none;
+}
+
+
+/* ---------------------------------------------------------
+   Title — centered, larger handwriting
+   --------------------------------------------------------- */
+
+.doc--scan .widget--audio .audio-card-field--title {
+    width: 100%;
+    align-items: baseline;
+    justify-content: center;
+    gap: 9px;
+}
+
+.doc--scan .widget--audio .audio-card-field--title .audio-card-label {
+    align-self: center;
+}
+
+.doc--scan .widget--audio .audio-card-title {
+    flex: 0 1 auto;
+
+    font-family: var(--font-hand, cursive);
+    font-size: 27px;
+    font-weight: 400;
+    line-height: 1.2;
+
+    text-align: center;
+    color: #29385c;
+}
+
+
+/* ---------------------------------------------------------
+   Metadata grid: ID / TYPE / DURATION
+   --------------------------------------------------------- */
+
+.doc--scan .widget--audio .audio-card-meta {
+    display: grid;
+    grid-template-columns: minmax(0, 1.2fr) minmax(0, 0.7fr);
+    gap: 8px 14px;
+
+    width: 100%;
+    min-width: 0;
+}
+
+.doc--scan .widget--audio .audio-card-field--id {
+    grid-column: 1 / -1;
+}
+
+.doc--scan .widget--audio .audio-card-field--type,
+.doc--scan .widget--audio .audio-card-field--duration {
+    min-width: 0;
+}
+
+/* ID remains machine-printed */
+.doc--scan .widget--audio .audio-card-field--id .audio-card-value {
+    font-family: var(--ff-cousine, "JetBrains Mono", monospace);
+    font-size: 10px;
+    font-weight: 500;
+    line-height: 1.6;
+    color: var(--scan-ink, #292820);
+
+    padding: 0 2px 2px;
+    border-bottom-color: rgba(45, 43, 35, 0.38);
+}
+
+/* Duration stays on one line */
+.doc--scan .widget--audio .audio-card-field--duration .audio-card-value {
+    white-space: nowrap;
+}
+
+
+/* ---------------------------------------------------------
+   ID link
+   --------------------------------------------------------- */
+
+.doc--scan .widget--audio .audio-id-link {
+    color: inherit;
+    text-decoration: none;
+    border-bottom: none;
+}
+
+.doc--scan .widget--audio .audio-id-link:hover {
+    text-decoration: underline;
+    text-decoration-thickness: 1px;
+    text-underline-offset: 2px;
+}
+
+
+/* ---------------------------------------------------------
+   Audio waveform — machine-printed
+   --------------------------------------------------------- */
+
+.doc--scan .widget--audio .audio-card-waveform {
+    width: 100%;
+    height: 36px;
+    min-height: 36px;
+    margin-top: 2px;
+
+    overflow: hidden;
+
+    border-top: 1px solid rgba(62, 54, 39, 0.24);
+    color: rgba(45, 43, 35, 0.82);
+    opacity: 0.88;
+}
+
+.doc--scan .widget--audio .audio-waveform-svg {
+    display: block;
+    width: 100%;
+    height: 100%;
+}
+
+.doc--scan .widget--audio .audio-waveform-line {
+    stroke: currentColor;
+    stroke-width: 1.4;
+    stroke-linecap: round;
+}
+
+.doc--scan .widget--audio .audio-waveform-baseline {
+    stroke: rgba(45, 43, 35, 0.28);
+    stroke-width: 0.7;
+}
+
+
+/* ---------------------------------------------------------
+   Narrow documents
+   --------------------------------------------------------- */
+
+@media (max-width: 420px) {
+    .doc--scan .widget--audio .audio-card {
+        padding: 13px 10px 10px;
+        gap: 8px;
+        transform: rotate(-0.4deg);
+    }
+
+    .doc--scan .widget--audio .audio-card::before,
+    .doc--scan .widget--audio .audio-card::after {
+        width: 48px;
+        height: 14px;
+    }
+
+    .doc--scan .widget--audio .audio-card-label {
+        font-size: 8px;
+    }
+
+    .doc--scan .widget--audio .audio-card-value {
+        font-size: 18px;
+    }
+
+    .doc--scan .widget--audio .audio-card-title {
+        font-size: 23px;
+    }
+
+    .doc--scan .widget--audio .audio-card-field--id .audio-card-value {
+        font-size: 9px;
+    }
+
+    .doc--scan .widget--audio .audio-card-meta {
+        gap: 7px 10px;
+    }
+}
+
+
+/* ---------------------------------------------------------
+   Print
+   --------------------------------------------------------- */
+
+@media print {
+    .doc--scan .widget--audio .audio-card {
+        transform: none;
+        box-shadow: none;
+    }
+
+    .doc--scan .widget--audio .audio-card::before,
+    .doc--scan .widget--audio .audio-card::after {
+        display: none;
+    }
+}
+
+.doc--scan .widget--audio .audio-title,
+.doc--scan .widget--audio .audio-el {
+    display: none;
+}

@@ -51,7 +51,7 @@ class FormatConditionTests(SimpleTestCase):
 
     def test_roundtrip_through_the_expression_parser(self):
         from secure.access import format_condition
-        from wiki.markup import parse_expr
+        from documents.markup import parse_expr
 
         for text in [
             "key_a",

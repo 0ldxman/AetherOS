@@ -1,0 +1,14 @@
+{% extends "documents/base.html" %}
+{% load static %}
+{% block document_title %}{{ doc.title }}{% endblock %}
+{% block head %}<link rel="stylesheet" href="{% static 'document/'|add:doc.type|add:'.css' %}">{% endblock %}
+{% block body_class %}doc doc--{{ doc.type }}{% endblock %}
+{% block content %}
+{% if infobox_url %}
+<div id="auto-infobox" hidden
+     data-id="{{ doc.pk }}"
+     data-title="{{ doc.title }}"
+     data-url="{{ infobox_url }}"></div>
+{% endif %}
+{{ body_html }}
+{% endblock %}

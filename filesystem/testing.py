@@ -189,7 +189,8 @@ def give_keys(user, *slugs):
         session = Session.objects.create(user=user, profile=profile)
         from filesystem.models import Volume
 
-        wiki_sections(machine, list(Volume.objects.order_by("pk")))                       # вики машины видна целиком
+        # вики машины видна целиком, кроме корней других машин: иначе файл вики этой машины снёс бы чужой (remove_apps_named)
+        wiki_sections(machine, list(Volume.objects.exclude(mounts__mount_path="/").order_by("pk")))
     machine = session.profile.machine
     root_volume(machine)
     view = MachineView(machine, user)

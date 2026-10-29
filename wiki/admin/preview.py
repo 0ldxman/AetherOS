@@ -13,7 +13,7 @@
   (шаблон admin/wiki/document/change_form.html, static wiki/editor.js);
 - эндпоинт preview/ принимает JSON с ещё не сохранённым текстом и отдаёт
   готовые html-страницы документа и инфобокса. Рендер тот же, что у игрока
-  (markup.render и шаблоны wiki/document.html, wiki/infobox.html), поэтому
+  (markup.render и шаблоны documents/document.html, documents/infobox.html), поэтому
   закрытые спойлеры замазываются на сервере, а не в браузере;
 - «смотреть как»: набор ключей игрока задаётся в запросе, проверка доступа
   к записи в предпросмотре не выполняется (это админка).
@@ -47,7 +47,7 @@ from assets.models import Asset
 from assets.services import asset_widget_kind
 from secure.keys import key_rows
 
-from wiki import markup
+from documents import markup
 from secure.requestkeys import keys_for_mode
 
 DOC_TYPES = ("doc", "scan", "web", "rec")
@@ -177,10 +177,10 @@ class DocumentPreviewMixin:
             body_html = mark_safe(markup.render(_text(data.get("body")), keys, "body"))
             infobox_html = mark_safe(markup.render(_text(data.get("infobox")), keys, "infobox"))
             page_body = render_to_string(
-                "wiki/document.html", {"doc": doc, "body_html": body_html}
+                "documents/document.html", {"doc": doc, "body_html": body_html}
             )
             page_infobox = render_to_string(
-                "wiki/infobox.html", {"doc": doc, "infobox_html": infobox_html}
+                "documents/infobox.html", {"doc": doc, "infobox_html": infobox_html}
             )
         except Exception as exc:  # предпросмотр не должен ронять админку
             logger.exception("Ошибка предпросмотра записи вики")

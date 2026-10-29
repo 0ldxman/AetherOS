@@ -49,7 +49,7 @@ const THEMES = {
 const THEME_STYLE = THEMES[THEME] || null;
 
 // Цвета выделения и меток из разметки виджета (red, blue...). Те же имена и значения у легенды
-// в wiki/static/wiki/blocks.css (--mc-*): при правке менять оба места, тест следит за совпадением.
+// в documents/static/documents/blocks.css (--mc-*): при правке менять оба места, тест следит за совпадением.
 const MARK_COLORS = {
   maps: {
     red: '#d93025', blue: '#1a73e8', green: '#188038', orange: '#e8710a',

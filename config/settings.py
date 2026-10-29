@@ -60,6 +60,7 @@ INSTALLED_APPS = [
     'machines',
     'users',
     'mail',
+    'documents',
     'wiki',
     'desktop',
     'monitor',

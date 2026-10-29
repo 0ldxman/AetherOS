@@ -50,5 +50,5 @@ class LogSource(Source):
         text, mark = render(machine, view.user if view is not None else None)
         return Payload(kind="log", layout="raw", body=text.encode(), real=False, stamp=f"log:{entry.item.pk}:{mark}")
 
-    def window(self, entry):
-        return text_window(entry.path)
+    def window(self, entry, address):
+        return text_window(address)

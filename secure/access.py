@@ -56,7 +56,7 @@ def validate_requirements(req):
 def format_condition(req):
     """Условие из поля requirements -> читаемая строка: key_a and (key_b or not key_c).
 
-    Обратное к wiki.markup.parse_expr; пустое условие даёт пустую строку.
+    Обратное к documents.markup.parse_expr; пустое условие даёт пустую строку.
     """
     return _format(req, 0)
 

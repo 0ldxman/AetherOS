@@ -1,22 +1,15 @@
 {% extends "ui/base.html" %}
-{% load static wiki_extras %}
+{% load static view_as %}
 
 {% block title %}{% block wiki_title %}aether.db{% endblock %}{% endblock %}
 
 {% block css %}
 <link rel="stylesheet" href="{% static 'wiki/wiki.css' %}">
-<link rel="stylesheet" href="{% static 'wiki/blocks.css' %}">
 {% block head %}{% endblock %}
 {% endblock %}
 
 {% block head_extra %}
 <script src="{% static 'wiki/wiki.js' %}" defer></script>
-<script src="{% static 'wiki/blocks.js' %}" defer></script>
-<script src="{% static 'wiki/scan-media.js' %}" defer></script>
-<script src="{% static 'wiki/audio-waveform.js' %}" defer></script>
-<script src="{% static 'ui/player-core.js' %}" defer></script>
-<script src="{% static 'wiki/video-widget.js' %}" defer></script>
-<script src="{% static 'wiki/audio-widget.js' %}" defer></script>
 {% endblock %}
 
 {% block body_attrs %} class="{% block body_class %}{% endblock %}"{% endblock %}

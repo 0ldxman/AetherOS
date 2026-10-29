@@ -76,8 +76,6 @@
      * Открывается запись двойным кликом, по названию или кнопкой open.
      * Работает и для таблицы раздела, и для таблицы результатов поиска.
      */
-    const INFOBOX_WINDOW = { width: 320, height: 440 };
-
     const readerBox = document.getElementById("reader");
     const propsEmpty = document.getElementById("props-empty");
     const readerTitle = document.getElementById("reader-title");
@@ -112,20 +110,7 @@
         /* расширение зависит от типа записи: .doc, .snp */
         const windowTitle = title + (row.dataset.ext || ".doc");
 
-        /*
-         * Сначала инфобокс, потом документ:
-         * окно документа открывается последним
-         * и остаётся сверху.
-         */
-        if (row.dataset.infoboxUrl) {
-            desktop.openApp(
-                "info-" + id,
-                title + ".info",
-                row.dataset.infoboxUrl,
-                INFOBOX_WINDOW
-            );
-        }
-
+        /* врезку документа открывает само окно документа (documents/document.js) */
         desktop.openApp(
             "doc-" + id,
             windowTitle,
@@ -369,26 +354,6 @@
 
 
     /* ================================================== */
-    /* Document: инфобокс открывается вместе с документом  */
-    /* ================================================== */
-
-    const autoInfobox = document.getElementById("auto-infobox");
-
-    if (autoInfobox) {
-        const desktop = getDesktop();
-
-        if (desktop) {
-            desktop.openApp(
-                "info-" + autoInfobox.dataset.id,
-                autoInfobox.dataset.title + ".info",
-                autoInfobox.dataset.url,
-                INFOBOX_WINDOW
-            );
-        }
-    }
-
-
-    /* ================================================== */
     /* Search: запрос к «базе», выдача подменяет список    */
     /* ================================================== */
 
@@ -425,7 +390,7 @@
      * Запрос к серверу. Возвращает список строк:
      *
      *     {
-     *         id, title, ext, open, url, infobox_url,
+     *         id, title, ext, open, url,
      *         path: "~/Technologies/Weapon/"
      *     }
      *
@@ -496,10 +461,6 @@
             tr.dataset.etag = item.etag || "-";
             tr.dataset.access = item.open ? "open" : "locked";
             tr.dataset.excerpt = item.excerpt || "";
-
-            if (item.infobox_url) {
-                tr.dataset.infoboxUrl = item.infobox_url;
-            }
 
             /* название + приглушённое расширение */
             const nameCell = el("td");

@@ -30,6 +30,6 @@ def payload_for(entry, view=None, keys=frozenset(), reader=None, viewer=None):
     return source_for(entry).payload(entry, view, keys, reader, viewer)
 
 
-def window_for(entry):
-    """Окно, которое открывает cnt для файла, если слои его не закрывают."""
-    return source_for(entry).window(entry)
+def window_for(entry, address=None):
+    """Окно файла, если слои его не закрывают. address: адрес файла для вьювера; без него это файл игрока по пути."""
+    return source_for(entry).window(entry, address if address is not None else {"path": entry.path})

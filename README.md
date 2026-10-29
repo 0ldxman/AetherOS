@@ -16,7 +16,8 @@
 | **Что видит игрок** | |
 | `desktop/` | рабочий стол и экран загрузки |
 | `terminal/` | терминал: `engine/` (команды), `scenes/` (анимации вокруг ответов), `views` |
-| `wiki/` | вики: `markup/` (разметка), `widgets/`, `library` (разделы по хостам), `admin/` |
+| `documents/` | свои форматы (.doc, .scan, .snp, .rec): парсер `markup/`, `widgets/`, окно документа `/view/doc/`, стили `static/document/` |
+| `wiki/` | вики как проводник: `library` (разделы по хостам), дерево, список, поиск; файл открывается окном по своему формату; `admin/` |
 | `mail/` | почта |
 | `map/` | карта и редактор сцен |
 | `monitor/` | окно сессий |
@@ -40,7 +41,7 @@ python manage.py runserver
 Тесты (в песочнице у приложения `map` есть 8 падающих тестов, они падали и до рефакторинга):
 
 ```
-python manage.py test terminal filesystem machines desktop wiki mail config users secure assets scenes monitor
+python manage.py test terminal filesystem machines desktop documents wiki mail config users secure assets scenes monitor
 ```
 
 ## С чего читать код

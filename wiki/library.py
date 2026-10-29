@@ -10,13 +10,13 @@
 import itertools
 import posixpath
 
+from django.core import signing
+
 from filesystem import rights
 from filesystem.models import Placement, Volume
+from documents.kinds import doc_type
 from filesystem.content.rawview import registry
 
-# формат записи -> тип записи вики (так их называют шаблоны и значки)
-DOC_TYPES = {"doc": "doc", "scan": "scan", "snp": "web", "rec": "rec"}
-DEFAULT_TYPE = "doc"
 FILE_TYPE = "file"                       # не страница: файл формата без разметки, открывается во вьювере
 
 
@@ -80,7 +80,7 @@ class Page:
         self.pk = placement.pk
         self.namespace = node
         self.title = item.name
-        self.type = DOC_TYPES.get(item.format, DEFAULT_TYPE) if self.markup else FILE_TYPE
+        self.type = doc_type(item.format) if self.markup else FILE_TYPE
         self.ext = fmt.extension if fmt is not None and fmt.extension else f".{self.type}"
         self.body = item.body if self.markup else ""
         self.infobox = item.meta if self.markup else ""
@@ -311,3 +311,56 @@ def library(request):
         found = build(request)
         request._wiki_library = found
     return found
+
+
+def link_checker():
+    """Проверка ссылок для линтера разметки (documents.markup.lint): по всем томам, как сводка автора; библиотека читается один раз."""
+    lib = build(None)
+    return lambda target: _link_exists(lib, target)
+
+
+def _link_exists(lib, target):
+    if target.startswith("go/"):
+        return target[3:].strip("/") in lib.by_slug
+    parts = [p for p in target.split("/") if p]
+    if not parts or parts == ["search"]:
+        return True
+    current = None
+    for part in parts[:-1]:
+        current = lib.by_name.get((current.pk if current else None, part))
+        if current is None:
+            return False
+    last = parts[-1]
+    if (current.pk if current else None, last) in lib.by_name:
+        return True
+    return current is not None and lib.page_at(current, last) is not None
+
+
+_SIGNER = signing.Signer(salt="wiki-file")
+
+
+def locate_file(request, value):
+    """Адрес ?wiki=<подписанный id> для вьюверов (filesystem.content.locate): файл раздела вики игрока, если он открыт.
+
+    Адрес выдаёт сама вики тому, кто файл видел (в том числе скрытый, по прямой ссылке), поэтому id подписан: перебором чужие
+    скрытые файлы не найти, а видимость второй раз не проверяется."""
+    from secure.requestkeys import request_keys
+    from wiki.access import document_state
+
+    try:
+        pk = int(_SIGNER.unsign(value))
+    except (signing.BadSignature, ValueError):
+        return None
+    page = next((page for page in library(request).pages if page.pk == pk and page.entry is not None), None)
+    if page is None or not document_state(page, request_keys(request), via_direct_link=True).open:
+        return None
+    return page.entry, page.view
+
+
+def window_of(page):
+    """Окно рабочего стола для файла раздела: документ, вьювер ассета, текст... (filesystem.content.window)."""
+    from filesystem.content.window import resolve_content
+
+    if page.entry is None:
+        return None
+    return resolve_content(page.entry, page.entry.path, posixpath.basename(page.entry.path), {"wiki": _SIGNER.sign(str(page.pk))})

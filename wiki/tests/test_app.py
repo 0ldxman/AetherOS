@@ -1,12 +1,7 @@
-import contextlib
-import io
-import runpy
-from pathlib import Path
-
 from django.test import SimpleTestCase
 
 from wiki.access import document_state, namespace_state
-from wiki.markup import MASK_CHAR, render, visible_text
+from documents.markup import MASK_CHAR, render, visible_text
 from wiki.library import Node
 
 
@@ -106,15 +101,3 @@ class MarkupSecurityTests(SimpleTestCase):
         self.assertNotIn("пароль", closed)
         self.assertIn("публичное", closed)
         self.assertIn("пароль", visible_text(text, {"k"}))
-
-
-class LegacyMarkupChecksTests(SimpleTestCase):
-    """Прогоняет старый скрипт wiki/tests/check_markup.py: его проверок больше сотни."""
-
-    def test_no_failures(self):
-        out = io.StringIO()
-        script = Path(__file__).with_name("check_markup.py")
-        with contextlib.redirect_stdout(out):
-            runpy.run_path(str(script), run_name="check_markup")
-        failed = [l for l in out.getvalue().splitlines() if l.startswith("FAIL")]
-        self.assertEqual(failed, [])

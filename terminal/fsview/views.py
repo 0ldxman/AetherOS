@@ -1,6 +1,7 @@
 """Вьювер raw для файлов файловой системы: те же байты, что показывают blk и txtx, в окне с hex, строками и поиском.
 
 Окно открывает cnt -r. Содержимое отдаётся диапазонами (HTTP Range), как у ассетов: вьювер читает файл кусками.
+Файл ищется по адресу запроса (filesystem.content.locate): ?path= это файл игрока (здесь), ?wiki= файл раздела вики.
 """
 import hashlib
 import posixpath
@@ -14,6 +15,7 @@ from django.urls import reverse
 from django.utils.http import urlencode
 from django.views.decorators.csrf import ensure_csrf_cookie
 
+from filesystem.content.locate import address_of, locate, query
 from filesystem.content.rawview import build_raw_cached, viewer_formats
 from filesystem.content.rawview.serve import serve
 from machines.network.bridge import terminal_session
@@ -27,15 +29,29 @@ def _entry(request):
     """Файл игрока по ?path=: его сессия, его слои, его ключи. Чужих и несуществующих путей нет."""
     if not is_player(request):
         raise PermissionDenied
+    found = _player_file(request, request.GET.get("path", ""))
+    if found is None:
+        raise Http404
+    return found
 
+
+def _player_file(request, path):
     session = terminal_session(request)
     context = TerminalContext(session=session, cwd="/home", request=request)
-    path = posixpath.normpath("/" + request.GET.get("path", "").lstrip("/"))
+    path = posixpath.normpath("/" + path.lstrip("/"))
     fs = VirtualFilesystem(context)
     entry = fs.get_file(path)
     if entry is None or fs.is_directory(path):
-        raise Http404
+        return None
     return entry, context
+
+
+def locate_player_file(request, path):
+    """Адрес ?path=: файл игрока в его сессии (filesystem.content.locate)."""
+    if not is_player(request):
+        raise PermissionDenied
+    found = _player_file(request, path)
+    return None if found is None else (found[0], found[1].view)
 
 
 def edit_url(path):
@@ -47,10 +63,10 @@ def raw_url(path):
 
 
 def raw_page(request):
-    entry, _ = _entry(request)
+    entry, _ = locate(request)
     name = posixpath.basename(entry.path)
-    identity = hashlib.sha1(f"{terminal_session(request).pk}:{entry.path}".encode()).hexdigest()[:12]
-    content = reverse("fsview:content") + "?" + urlencode({"path": entry.path})
+    identity = hashlib.sha1(f"{request.session.session_key}:{request.GET.urlencode()}".encode()).hexdigest()[:12]
+    content = reverse("fsview:content") + "?" + query(address_of(request))
     return render(
         request,
         "assets/viewers/raw.html",
@@ -59,19 +75,19 @@ def raw_page(request):
 
 
 def raw_content(request):
-    entry, context = _entry(request)
+    entry, view = locate(request)
     from mail.access import viewer_for
 
-    data = build_raw_cached(entry, context.view, request_keys(request), viewer=viewer_for(request))
+    data = build_raw_cached(entry, view, request_keys(request), viewer=viewer_for(request))
     return serve(request, data)
 
 
 def text_content(request):
     """Содержимое файла как текст (cnt): те же байты, что в raw, но в простом окне."""
-    entry, context = _entry(request)
+    entry, view = locate(request)
     from mail.access import viewer_for
 
-    data = build_raw_cached(entry, context.view, request_keys(request), viewer=viewer_for(request))
+    data = build_raw_cached(entry, view, request_keys(request), viewer=viewer_for(request))
     return HttpResponse(data.decode("utf-8", "replace"), content_type="text/plain; charset=utf-8", headers={"Cache-Control": "no-store"})
 
 

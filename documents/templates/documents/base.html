@@ -1,0 +1,29 @@
+{% extends "ui/base.html" %}
+{% load static view_as %}
+
+{% block title %}{% block document_title %}{% endblock %}{% endblock %}
+
+{% block css %}
+<link rel="stylesheet" href="{% static 'documents/page.css' %}">
+<link rel="stylesheet" href="{% static 'documents/blocks.css' %}">
+{% block head %}{% endblock %}
+{% endblock %}
+
+{% block head_extra %}
+<script src="{% static 'documents/document.js' %}" defer></script>
+<script src="{% static 'documents/blocks.js' %}" defer></script>
+<script src="{% static 'documents/scan-media.js' %}" defer></script>
+<script src="{% static 'documents/audio-waveform.js' %}" defer></script>
+<script src="{% static 'ui/player-core.js' %}" defer></script>
+<script src="{% static 'documents/video-widget.js' %}" defer></script>
+<script src="{% static 'documents/audio-widget.js' %}" defer></script>
+{% endblock %}
+
+{% block body_attrs %} class="{% block body_class %}{% endblock %}"{% endblock %}
+
+{% block body %}
+{% block view_as %}{% view_as_banner %}{% endblock %}
+<main class="page">
+{% block content %}{% endblock %}
+</main>
+{% endblock %}

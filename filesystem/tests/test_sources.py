@@ -148,7 +148,7 @@ class SourceKindTests(TestCase):
             def payload(self, entry, view, keys, reader, viewer):
                 return Payload(kind="note", layout="raw", body=b"hello", stamp="note:1")
 
-            def window(self, entry):
+            def window(self, entry, address):
                 return Content(url="/note-window/")
 
         with mock.patch.object(sources, "SOURCES", (Note(), *sources.SOURCES)):

@@ -1,9 +1,0 @@
-{% extends "wiki/base.html" %}
-{% load static %}
-{% block view_as %}{% endblock %}
-{% block title %}{{ doc.title }}{% endblock %}
-{% block head %}<link rel="stylesheet" href="{% static 'infobox/infobox.css' %}">{% endblock %}
-{% block body_class %}doc doc--{{ doc.type }} doc--infobox{% endblock %}
-{% block content %}
-<div class="infobox">{{ infobox_html }}</div>
-{% endblock %}

@@ -19,6 +19,9 @@ def _locked(entry, keys):
     return not all(satisfied(condition, keys) for condition in entry.conditions)
 
 
+document_window = None  # (address) -> Content: окно документа для форматов с разметкой; ставит приложение документов
+
+
 class OwnSource(Source):
     """Файл игрока без объекта: подпись (текст) или вырезка (байты)."""
 
@@ -31,8 +34,8 @@ class OwnSource(Source):
         body = entry.own_data if entry.own_data is not None else (entry.own_text or "").encode()
         return Payload(kind="own", layout="raw", body=body, stamp=f"own:{entry.player.pk}:{entry.player.updated_at.timestamp()}")
 
-    def window(self, entry):
-        return text_window(entry.path) if entry.own_text is not None else Content(error="empty")
+    def window(self, entry, address):
+        return text_window(address) if entry.own_text is not None else Content(error="empty")
 
 
 class ArchiveSource(Source):
@@ -76,7 +79,7 @@ class AssetSource(Source):
         return Payload(kind="asset", layout="asset", real=True, size=asset.size, stamp=f"asset:{asset.pk}:{asset.updated_at.isoformat()}",
                        meta={"asset": asset, "reader": reader})
 
-    def window(self, entry):
+    def window(self, entry, address):
         from django.urls import reverse
 
         return Content(url=reverse("asset_viewer:viewer", kwargs={"public_id": entry.item.asset.public_id}))
@@ -93,7 +96,7 @@ class LinkSource(Source):
     def payload(self, entry, view, keys, reader, viewer):
         return Payload(kind="link", layout="noise", stamp=f"link:{entry.item.pk}:{entry.item.updated_at.isoformat()}")
 
-    def window(self, entry):
+    def window(self, entry, address):
         return Content(url=entry.item.url)
 
 
@@ -119,7 +122,7 @@ class SceneSource(Source):
             stamp=f"map:{scene.pk}:{scene.updated_at.isoformat()}" if hasattr(scene, "updated_at") else f"map:{scene.pk}",
         )
 
-    def window(self, entry):
+    def window(self, entry, address):
         return Content(url=site_url(f"apps/map/?scene={entry.item.scene.slug}"))
 
 
@@ -148,7 +151,7 @@ class MessageSource(Source):
             },
         )
 
-    def window(self, entry):
+    def window(self, entry, address):
         message = entry.item.message
         return Content(url=site_url(f"apps/mail/?message={message.slug or message.pk}"))
 
@@ -170,8 +173,8 @@ class KeySource(Source):
         body = entry.body.encode() if entry.body.strip() else blocks.armor(item.slug, f"store:{item.slug}")
         return Payload(kind="key", layout="raw", body=body, stamp=f"key:{item.pk}:{item.updated_at.isoformat()}:{hash(body)}")
 
-    def window(self, entry):
-        return text_window(entry.path)
+    def window(self, entry, address):
+        return text_window(address)
 
 
 class TextSource(Source):
@@ -197,8 +200,13 @@ class TextSource(Source):
             locked=_locked(entry, keys), stamp=stamp,
         )
 
-    def window(self, entry):
-        return text_window(entry.path)
+    def window(self, entry, address):
+        from filesystem.content.rawview import registry
+
+        found = registry.format_named(entry.item.format) if entry.item.format else None
+        if found is not None and found.markup and document_window is not None:
+            return document_window(address)
+        return text_window(address)
 
 
 class BlankSource(Source):
@@ -213,5 +221,5 @@ class BlankSource(Source):
         stamp = f"blank:{entry.item.pk}:{entry.item.updated_at.isoformat()}" if entry.item is not None else f"blank:{entry.path}"
         return Payload(kind="none", layout="noise", locked=False, stamp=stamp)
 
-    def window(self, entry):
+    def window(self, entry, address):
         return Content(error="empty")

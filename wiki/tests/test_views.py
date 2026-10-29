@@ -4,6 +4,7 @@
 """
 
 import json
+from urllib.parse import urlsplit
 
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import AnonymousUser
@@ -12,6 +13,7 @@ from django.http import Http404
 from django.core.cache import cache
 from django.test import RequestFactory, TestCase
 from django.test.utils import CaptureQueriesContext
+from django.urls import get_script_prefix, resolve
 
 from filesystem.testing import key_item
 from filesystem.testing import give_keys
@@ -22,7 +24,7 @@ rf = RequestFactory()
 
 
 def call(fn, *args, user=None, params=None, session=None):
-    """(status, content, число SQL-запросов)."""
+    """(status, content, число SQL-запросов). Переход вики в окно (документ, вьювер) проходится: ответ это само окно."""
     request = rf.get("/", params or {})
     request.user = user or AnonymousUser()
     if session is not None:
@@ -30,6 +32,15 @@ def call(fn, *args, user=None, params=None, session=None):
     with CaptureQueriesContext(connection) as ctx:
         try:
             response = fn(request, *args)
+            if response.status_code == 302:
+                target = urlsplit(response["Location"])
+                path = "/" + target.path[len(get_script_prefix()):]
+                found = resolve(path)
+                request = rf.get(path + "?" + target.query)
+                request.user = user or AnonymousUser()
+                if session is not None:
+                    request.session = session
+                response = found.func(request, *found.args, **found.kwargs)
             return response.status_code, response.content.decode(), len(ctx)
         except Http404:
             return 404, "", len(ctx)
@@ -213,13 +224,13 @@ class WikiViewsTests(TestCase):
         self.assertNotIn("секретный текст", html)
 
     def test_open_document(self):
-        status, html, _ = call(views.resolve, "Общий/Открытая")
+        status, html, _ = call(views.resolve, "Общий/Открытая", user=self.player, session=self.held)
         self.assertEqual(status, 200)
         self.assertIn("общий текст", html)
 
     def test_hidden_document_is_404_by_path_but_open_by_direct_link(self):
-        self.assertEqual(call(views.resolve, "Общий/Скрытая")[0], 404)
-        status, html, _ = call(views.direct, "hidden-link")
+        self.assertEqual(call(views.resolve, "Общий/Скрытая", user=self.player, session=self.held)[0], 404)
+        status, html, _ = call(views.direct, "hidden-link", user=self.player, session=self.held)
         self.assertEqual(status, 200)
         self.assertIn("тайна", html)
 
@@ -240,9 +251,11 @@ class WikiViewsTests(TestCase):
     # ---------- спойлеры и поиск ----------
 
     def test_spoiler_open_only_with_key(self):
-        _, guest, _ = call(views.resolve, "Общий/Со спойлером")
+        stranger = get_user_model().objects.create_user("stranger")
+        _, other, _ = call(views.resolve, "Общий/Со спойлером", user=stranger, session=give_keys(stranger))
         _, player, _ = call(views.resolve, "Общий/Со спойлером", user=self.player, session=self.held)
-        self.assertNotIn("тайный текст", guest)
+        self.assertIn("открытая часть", other)
+        self.assertNotIn("тайный текст", other)
         self.assertIn("тайный текст", player)
 
     def test_search_respects_spoilers(self):
@@ -322,7 +335,7 @@ class ViewAsTests(TestCase):
 
     def test_document_page_shows_the_banner_too(self):
         make_document(make_namespace(name="Корень"), title="Открытая", body="текст")
-        html = call(views.resolve, "Корень/Открытая", user=self.staff, params={"as": "none"}, session={})[1]
+        html = call(views.resolve, "Корень/Открытая", user=self.staff, params={"as": "none"}, session=give_keys(self.staff))[1]
         self.assertIn("Просмотр как игрок", html)
         self.assertIn("без ключей", html)
 

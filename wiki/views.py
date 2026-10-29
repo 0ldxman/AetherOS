@@ -5,16 +5,15 @@ from collections import defaultdict
 from django.core.cache import cache
 from django.db.models import Q
 from django.http import Http404, JsonResponse
-from django.shortcuts import render
+from django.shortcuts import redirect, render
 from django.urls import reverse
-from django.utils.safestring import mark_safe
 
 from secure.access import satisfied
 
 from wiki.access import document_state, namespace_state
 from secure.requestkeys import request_keys
-from wiki.markup import render as render_markup, visible_text
-from wiki.library import library
+from documents.markup import visible_text
+from wiki.library import library, window_of
 from wiki.versioning import WIKI_COUNTS_TTL, WIKI_VERSION_KEY
 
 SEARCH_LIMIT = 100
@@ -211,10 +210,10 @@ def _doc_row(doc, state, keys):
     Размер, контрольная сумма, дата и класс хранения показываются только у открытой записи:
     у закрытой видны лишь название и тип.
     """
-    url = _doc_url(doc)
+    window = window_of(doc) if state.open else None
+    url = window.url if window is not None and window.url else _doc_url(doc)
     # тип вне списка (записан вручную) считается обычным документом
     kind_type = doc.type if doc.type in KIND_LABELS else "doc"
-    has_infobox = state.open and bool(doc.infobox.strip())
 
     size = etag = modified = storage = None
     modified_sort = ""
@@ -251,7 +250,6 @@ def _doc_row(doc, state, keys):
         "excerpt": excerpt,
         "open": state.open,
         "url": url,
-        "infobox_url": f"{url}?infobox=1" if has_infobox else None,
     }
 
 
@@ -409,72 +407,10 @@ def _document_page(request, doc, via_direct_link=False):
     if not state.open:
         return _locked(request, None if via_direct_link else doc.title, crumbs)
 
-    # ?infobox=1: страница для отдельного окна с инфобоксом
-    if request.GET.get("infobox"):
-        if not doc.infobox.strip():
-            raise Http404
-        infobox_html = mark_safe(render_markup(doc.infobox, keys, "infobox"))
-        return render(
-            request,
-            "wiki/infobox.html",
-            {"doc": doc, "infobox_html": infobox_html},
-        )
-
-    infobox_url = None
-    if via_direct_link and doc.infobox.strip():
-        infobox_url = (
-            reverse("wiki:direct", kwargs={"link": doc.direct_link})
-            + "?infobox=1"
-        )
-
-    if not doc.markup:
-        return _file_page(request, doc)
-
-    body_html = mark_safe(render_markup(doc.body, keys, "body"))
-    return render(
-        request,
-        "wiki/document.html",
-        {
-            "doc": doc,
-            "crumbs": crumbs,
-            "body_html": body_html,
-            "infobox_url": infobox_url,
-        },
-    )
-
-
-def _file_page(request, doc):
-    """Файл без разметки: открывается во вьювере своего формата (тот же, что у файлов игрока)."""
-    from types import SimpleNamespace
-
-    from filesystem.content.rawview import viewer_formats
-
-    identity = hashlib.sha1(f"wiki:{doc.pk}".encode()).hexdigest()[:12]
-    return render(
-        request,
-        "assets/viewers/raw.html",
-        {
-            "asset": SimpleNamespace(name=doc.title + doc.ext, public_id=identity),
-            "content_url": reverse("wiki:file", kwargs={"pk": doc.pk}),
-            "formats_json": viewer_formats(),
-        },
-    )
-
-
-def file_bytes(request, pk):
-    """Байты файла раздела так, как их видит игрок: те же слои и ключи, что у вьювера файлов."""
-    from filesystem.content.rawview import build_raw_cached
-    from filesystem.content.rawview.serve import serve
-    from mail.access import viewer_for
-
-    doc = next((page for page in library(request).pages if page.pk == pk and page.entry is not None), None)
-    if doc is None:
-        raise Http404
-    keys = _keys(request)
-    state = document_state(doc, keys)
-    if not (state.visible and state.open):
-        raise Http404
-    return serve(request, build_raw_cached(doc.entry, doc.view, keys, viewer=viewer_for(request)))
+    window = window_of(doc)
+    if window is None or not window.url:
+        raise Http404                  # у файла нет окна (пустой) или сводка автора без вида машины
+    return redirect(window.url)
 
 
 def resolve(request, path=""):

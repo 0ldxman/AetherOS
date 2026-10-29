@@ -27,7 +27,7 @@ from django.urls import NoReverseMatch, get_script_prefix, reverse
 from secure.access import satisfied, validate_requirements
 
 from map.icons import ICON_NAMES
-from wiki.markup.expr import SpoilerSyntaxError, parse_expr
+from documents.markup.expr import SpoilerSyntaxError, parse_expr
 
 FILL_STYLES = ("solid", "hatch")
 FEATURE_TYPES = ("marker", "line", "arrow", "polygon", "circle", "text", "callout", "region")

@@ -13,7 +13,7 @@ from django.template.loader import render_to_string
 from django.utils.html import escape
 from django.utils.safestring import mark_safe
 
-from wiki import markup
+from documents import markup
 from wiki.admin.preview import (
     DOC_TYPES, MAX_REQUEST_BYTES, MAX_TITLE_LEN, DocumentPreviewMixin, _error, _lint_fields, _preview_keys, _text,
 )
@@ -73,8 +73,8 @@ class ItemPreviewMixin(DocumentPreviewMixin):
             else:
                 body_html = mark_safe(f"<pre style=\"white-space:pre-wrap;font:13px/1.5 monospace\">{escape(body)}</pre>")
             infobox_html = mark_safe(markup.render(meta, keys, "infobox"))
-            page_body = render_to_string("wiki/document.html", {"doc": doc, "body_html": body_html})
-            page_meta = render_to_string("wiki/infobox.html", {"doc": doc, "infobox_html": infobox_html})
+            page_body = render_to_string("documents/document.html", {"doc": doc, "body_html": body_html})
+            page_meta = render_to_string("documents/infobox.html", {"doc": doc, "infobox_html": infobox_html})
         except Exception as exc:                                              # предпросмотр не должен ронять админку
             logger.exception("Ошибка предпросмотра объекта")
             return _error(f"{type(exc).__name__}: {exc}"[:300], 500)
