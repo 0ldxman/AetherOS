@@ -85,7 +85,11 @@ export interface paths {
         /** Volumes */
         get: operations["studio_api_volumes_volumes"];
         put?: never;
-        post?: never;
+        /**
+         * Create
+         * @description Новый том (пустой или по шаблону файловой структуры), по желанию сразу смонтированный на машину.
+         */
+        post: operations["studio_api_volumes_create"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1263,6 +1267,40 @@ export interface components {
             folders: number;
             /** Mounts */
             mounts: components["schemas"]["Mount"][];
+        };
+        /** VolumeMade */
+        VolumeMade: {
+            /** Id */
+            id: number;
+        };
+        /** NewVolume */
+        NewVolume: {
+            /** Slug */
+            slug: string;
+            /**
+             * Name
+             * @default
+             */
+            name: string;
+            /**
+             * Label
+             * @default
+             */
+            label: string;
+            /**
+             * Uuid
+             * @default
+             */
+            uuid: string;
+            /** Template */
+            template?: number | null;
+            /** Machine */
+            machine?: number | null;
+            /**
+             * Mount Path
+             * @default
+             */
+            mount_path: string;
         };
         /** ItemBrief */
         ItemBrief: {
@@ -2985,6 +3023,30 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["VolumeRow"][];
+                };
+            };
+        };
+    };
+    studio_api_volumes_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NewVolume"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VolumeMade"];
                 };
             };
         };

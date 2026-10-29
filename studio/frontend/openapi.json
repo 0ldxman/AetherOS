@@ -156,6 +156,42 @@
       "SessionAuthIsStaff": []
      }
     ]
+   },
+   "post": {
+    "operationId": "studio_api_volumes_create",
+    "summary": "Create",
+    "parameters": [],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/VolumeMade"
+        }
+       }
+      }
+     }
+    },
+    "description": "Новый том (пустой или по шаблону файловой структуры), по желанию сразу смонтированный на машину.",
+    "tags": [
+     "volumes"
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/NewVolume"
+       }
+      }
+     },
+     "required": true
+    },
+    "security": [
+     {
+      "SessionAuthIsStaff": []
+     }
+    ]
    }
   },
   "/studio/api/volumes/{volume_id}": {
@@ -3931,6 +3967,74 @@
      "mounts"
     ],
     "title": "VolumeRow",
+    "type": "object"
+   },
+   "VolumeMade": {
+    "properties": {
+     "id": {
+      "title": "Id",
+      "type": "integer"
+     }
+    },
+    "required": [
+     "id"
+    ],
+    "title": "VolumeMade",
+    "type": "object"
+   },
+   "NewVolume": {
+    "properties": {
+     "slug": {
+      "title": "Slug",
+      "type": "string"
+     },
+     "name": {
+      "default": "",
+      "title": "Name",
+      "type": "string"
+     },
+     "label": {
+      "default": "",
+      "title": "Label",
+      "type": "string"
+     },
+     "uuid": {
+      "default": "",
+      "title": "Uuid",
+      "type": "string"
+     },
+     "template": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Template"
+     },
+     "machine": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Machine"
+     },
+     "mount_path": {
+      "default": "",
+      "title": "Mount Path",
+      "type": "string"
+     }
+    },
+    "required": [
+     "slug"
+    ],
+    "title": "NewVolume",
     "type": "object"
    },
    "ItemBrief": {

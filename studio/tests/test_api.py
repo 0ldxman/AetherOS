@@ -63,6 +63,21 @@ class StudioApiTests(TestCase):
         tree = self.call("get", f"/volumes/{self.volume.pk}")[1]
         self.assertEqual(sorted(r["name"] for r in tree["rows"]), ["manifest.txt", "ports"])
 
+    def test_a_new_volume_can_come_from_a_template_and_be_mounted(self):
+        from filesystem.models import VolumeTemplate
+        from machines.models import Machine, MachineMount
+
+        template = VolumeTemplate.objects.create(name="small", folders="var/log\nhome")
+        machine = Machine.objects.create(name="Core", hostname="core")
+        status, made = self.call("post", "/volumes", {
+            "slug": "core-root", "name": "Core root", "template": template.pk, "machine": machine.pk, "mount_path": "/",
+        })
+        self.assertEqual(status, 200)
+        volume = Volume.objects.get(pk=made["id"])
+        self.assertEqual(sorted(volume.placements.values_list("name", flat=True)), ["home", "log", "var"])
+        self.assertEqual(list(MachineMount.objects.filter(volume=volume).values_list("machine", "mount_path")), [(machine.pk, "/")])
+        self.assertEqual(self.call("post", "/volumes", {"slug": "core-root"})[0], 400)       # слаг занят
+
     def test_refusals_come_back_as_messages(self):
         self.call("post", f"/volumes/{self.volume.pk}/folders", {"name": "ports"})
         status, answer = self.call("post", f"/volumes/{self.volume.pk}/folders", {"name": "ports"})

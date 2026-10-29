@@ -22,6 +22,21 @@ def _slug(base):
 
 
 @transaction.atomic
+def create_volume(slug, name="", label="", uuid=None, template=None, machine=None, mount_path=""):
+    """Новый том: пустой или по шаблону файловой структуры (template: pk VolumeTemplate), по желанию сразу смонтированный на машину."""
+    disk = Volume(slug=slug.strip(), name=name.strip(), label=label.strip())
+    if uuid:
+        disk.uuid = uuid
+    disk.full_clean()
+    disk.save()
+    apply_template(disk, VolumeTemplate.objects.get(pk=template) if template else None)
+    if machine:
+        MachineMount(machine=Machine.objects.get(pk=machine), volume=disk, mount_path=mount_path).full_clean()
+        MachineMount.objects.create(machine_id=machine, volume=disk, mount_path=mount_path)
+    return disk
+
+
+@transaction.atomic
 def create_machine(hostname, name, system, status=Machine.Status.OFFLINE, root="empty", template=None, volume=None):
     """root: empty (корень появится при первой записи), template (новый том по шаблону VolumeTemplate) или volume (готовый том)."""
     machine = Machine(hostname=hostname or None, name=name or hostname, system=system, status=status)

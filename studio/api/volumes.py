@@ -6,6 +6,7 @@ from ninja import Router, Schema
 
 from filesystem.manager import filemanager
 from filesystem.models import Placement, Volume
+from machines.world.create import create_volume
 from studio.api.protection import Dump, Layer, Problem
 
 router = Router(tags=["volumes"])
@@ -115,6 +116,27 @@ def volumes(request):
         VolumeRow(id=v.pk, slug=v.slug, name=v.name, label=v.label, files=v.files, folders=v.folders, mounts=_mounts(v))
         for v in found
     ]
+
+
+class NewVolume(Schema):
+    slug: str
+    name: str = ""
+    label: str = ""
+    uuid: str = ""              # пусто: сгенерируется
+    template: int | None = None
+    machine: int | None = None  # сразу смонтировать на машину
+    mount_path: str = ""
+
+
+class VolumeMade(Schema):
+    id: int
+
+
+@router.post("", response=VolumeMade)
+def create(request, body: NewVolume):
+    """Новый том (пустой или по шаблону файловой структуры), по желанию сразу смонтированный на машину."""
+    disk = create_volume(body.slug, body.name, body.label, body.uuid or None, body.template, body.machine, body.mount_path)
+    return VolumeMade(id=disk.pk)
 
 
 @router.get("/{int:volume_id}", response=VolumeTree)
