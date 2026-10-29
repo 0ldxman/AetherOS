@@ -12,6 +12,7 @@
   import Machine from "./routes/Machine.svelte";
   import Policies from "./routes/Policies.svelte";
   import Systems from "./routes/Systems.svelte";
+  import World from "./routes/World.svelte";
 
   let user = $state("");
 
@@ -29,7 +30,8 @@
     | { name: "machines" }
     | { name: "machine"; id: number; tab: string; sub: number | null }
     | { name: "policies"; id: number | null }
-    | { name: "systems"; code: string | null; tab: string };
+    | { name: "systems"; code: string | null; tab: string }
+    | { name: "world" };
 
   const page: Page = $derived.by((): Page => {
     let found;
@@ -45,6 +47,7 @@
     if (match("/machines", route.path)) return { name: "machines" };
     if ((found = match("/policies/:id", route.path))) return { name: "policies", id: +found.id };
     if (match("/policies", route.path)) return { name: "policies", id: null };
+    if (match("/world", route.path)) return { name: "world" };
     if ((found = match("/systems/:code/:tab", route.path))) return { name: "systems", code: found.code, tab: found.tab };
     if ((found = match("/systems/:code", route.path))) return { name: "systems", code: found.code, tab: "overview" };
     if (match("/systems", route.path)) return { name: "systems", code: null, tab: "overview" };
@@ -57,6 +60,7 @@
     { href: "#/machines", label: "Машины", section: ["machines", "machine"] },
     { href: "#/policies", label: "Политики входа", section: ["policies"] },
     { href: "#/systems", label: "Операционные системы", section: ["systems"] },
+    { href: "#/world", label: "Мир", section: ["world"] },
   ];
 </script>
 
@@ -89,6 +93,8 @@
       {#key page.id}<Item id={page.id} view={page.view} />{/key}
     {:else if page.name === "items"}
       <Items />
+    {:else if page.name === "world"}
+      <World />
     {:else if page.name === "systems"}
       {#key page.code}<Systems code={page.code} tab={page.tab} />{/key}
     {:else if page.name === "policies"}

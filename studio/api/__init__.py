@@ -24,7 +24,7 @@ def _invalid(request, exc):
     return api.create_response(request, {"detail": "Проверьте поля.", "fields": fields}, status=400)
 
 
-from studio.api import accounts, catalog, disks, groups, items, machines, policies, protection, systems, volumes  # noqa: E402
+from studio.api import accounts, catalog, disks, groups, items, machines, policies, protection, systems, volumes, world  # noqa: E402
 
 api.add_router("/", catalog.router)
 api.add_router("/volumes", volumes.router)
@@ -36,3 +36,4 @@ api.add_router("/machines", groups.router)
 api.add_router("/machines", disks.router)
 api.add_router("/policies", policies.router)
 api.add_router("/systems", systems.router)
+api.add_router("/world", world.router)

@@ -45,7 +45,7 @@ import hashlib
 
 from scenes.engine import Option, Scene
 from machines.world.identity import CORE_HOST
-from machines.world.dates import BEACON_LAST_SYNC, CERT_NOT_AFTER, CORE_LAST_CONTACT, GAME_DATE, days_since
+from machines.world.dates import days_since, world
 
 STAGES = 9
 
@@ -95,8 +95,6 @@ BRIDGES = (
     ("hermes", 702, "offline", "no carrier"),
 )
 BRIDGE_STYLES = {"offline": "error", "no answer": "warning", "degraded": "warning", "reachable": "success"}
-STATIONS_KNOWN = 31
-STATIONS_REACHABLE = 17
 
 # Фразы незнакомца, от первого лица. Первая выбирается случайно при каждом заходе,
 # а если игрок молчит, текст стирается и набирается одна из следующих.
@@ -126,7 +124,6 @@ LOGO = tuple(r"""
 /_/   \_\_____| |_| |_| |_|_____|_| \_\
 """.strip("\n").split("\n"))
 LAST_LOGIN = "2027-10-29 23:41 UTC"     # последний вход на узел перед тем, как центр замолчал
-EVENTS_PER_DAY = 34                      # сколько записей аудита узел копирует локально за сутки
 
 
 # ---------- общие куски ----------
@@ -202,7 +199,7 @@ def _bridge(s, ident, known, client_key):
     if not known:
         s.row("client key", client_key, "dim", width=11)
     s.say(
-        f"directory {len(BRIDGES)} bridges, last sync {BEACON_LAST_SYNC} ({days_since(BEACON_LAST_SYNC)} d ago)",
+        f"directory {len(BRIDGES)} bridges, last sync {world().beacon_last_sync} ({days_since(world().beacon_last_sync)} d ago)",
         style="warning",
     )
     if known:
@@ -240,7 +237,7 @@ def _tune(s, ident, known, client_key):
         s.task("earth     electrode 2.8 ohm ", "ok", style="success", ms=(300, 700))
     s.task(f"beacons   {ident.hostname} ", f"{ident.address} MHz", style="dim", ms=(350, 800))
     s.say(
-        f"          cached entry, last sync {BEACON_LAST_SYNC} ({days_since(BEACON_LAST_SYNC)} d ago)",
+        f"          cached entry, last sync {world().beacon_last_sync} ({days_since(world().beacon_last_sync)} d ago)",
         style="warning",
     )
     s.task(f"scan      {_scan_range(ident.address)} MHz ", "3 carriers", style="dim", ms=(900, 1600))
@@ -253,7 +250,7 @@ def _tune(s, ident, known, client_key):
 def _path(s, ident, known, client_key):
     _header(s, ident)
     _stage(s, 3, "path")
-    s.say(f"stations  directory {STATIONS_KNOWN}, reachable {STATIONS_REACHABLE}", style="dim")
+    s.say(f"stations  directory {world().stations_known}, reachable {world().stations_reachable}", style="dim")
     s.say("path      probing stations (max 12 hops)")
     _route(s)
     if not known:
@@ -328,8 +325,8 @@ def _identity(s, ident, known, client_key):
         ("      names     ", (ident.hostname, "dim")),
         ("      usage     ", ("session, key agreement", "dim")),
         ("      algorithm ", ("ed25519 / sha256", "dim")),
-        ("      valid     ", ("2019-11-02 .. " + str(CERT_NOT_AFTER), "dim"),
-         (f"  expired {days_since(CERT_NOT_AFTER)} d ago", "warning")),
+        ("      valid     ", ("2019-11-02 .. " + str(world().cert_not_after), "dim"),
+         (f"  expired {days_since(world().cert_not_after)} d ago", "warning")),
         ("  [1] subject   ", (mask, None)),
         ("      usage     ", ("certificate signing", "dim")),
         ("      algorithm ", ("ed25519 / sha256", "dim")),
@@ -365,12 +362,12 @@ def _node(s, ident, known, client_key):
     s.row("serial", ident.serial, "dim")
     s.row("owner", Scene.mask(OWNER_MASK), note="[restricted]")
     s.row("accounts", Scene.mask(4) + " registered", "dim")
-    s.row("date", f"{GAME_DATE}  03:12 UTC  (beacon)", "dim")
+    s.row("date", f"{world().game_date}  03:12 UTC  (beacon)", "dim")
     if not known:
         s.row("timezone", "UTC  ·  locale en_US.UTF-8", "dim")
         s.row("features", "shell, files, relay, sessions", "dim")
     s.task(f"uplink    {CORE_HOST} ", "unreachable", style="warning", ms=(900, 1800))
-    s.row("contact", f"last {CORE_LAST_CONTACT}  ({days_since(CORE_LAST_CONTACT)} d ago)", "warning")
+    s.row("contact", f"last {world().core_last_contact}  ({days_since(world().core_last_contact)} d ago)", "warning")
     s.row("reset", "3 min ago  ·  remote request", "dim")
     if not known:
         s.row("policy", "audit full  ·  recording on  ·  default deny", "dim")
@@ -425,8 +422,8 @@ def _mail_line(s, mail):
 
 def _motd(s, ident, login, mail=None, *, short=False, read=True):
     """Приветствие узла после входа: большое, с информацией и следами мира."""
-    days_core = days_since(CORE_LAST_CONTACT)
-    events = (GAME_DATE - CORE_LAST_CONTACT).days * EVENTS_PER_DAY + _metric(ident, "events", 0, 99)
+    days_core = days_since(world().core_last_contact)
+    events = (world().game_date - world().core_last_contact).days * world().audit_per_day + _metric(ident, "events", 0, 99)
     s.blank()
     if not short:
         for line in LOGO:
@@ -434,10 +431,10 @@ def _motd(s, ident, login, mail=None, *, short=False, read=True):
         s.blank()
     s.say(f" Welcome to {SYSTEM}  {KERNEL}  [via {BRIDGE}]")
     s.blank()
-    s.say(f"  System information as of {GAME_DATE} 03:14 UTC", style="dim")
+    s.say(f"  System information as of {world().game_date} 03:14 UTC", style="dim")
     s.blank()
     s.say("  " + _pair("Link load:", f"{_metric(ident, 'load', 3, 19)} %", "Sessions:", "1  (you)"))
-    s.say("  " + _pair("Radio:", f"rf0 {ident.address} MHz locked", "Stations:", f"{STATIONS_REACHABLE} of {STATIONS_KNOWN}"))
+    s.say("  " + _pair("Radio:", f"rf0 {ident.address} MHz locked", "Stations:", f"{world().stations_reachable} of {world().stations_known}"))
     s.say("  " + _pair("Vault usage:", f"{_metric(ident, 'vault', 31, 58)} % of 4 TB", "Memory:", f"{_metric(ident, 'mem', 14, 37)} % of 64 GiB"))
     s.say("  " + _pair("Processes:", f"{_metric(ident, 'proc', 180, 260)}", "Temperature:", f"{_metric(ident, 'temp', 36, 47)} C"))
     s.say("  " + _pair("Uptime:", "3 min", "Core:", "unreachable"))
@@ -449,7 +446,7 @@ def _motd(s, ident, login, mail=None, *, short=False, read=True):
         s.blank()
     s.say(f" * Standalone mode: the core has not answered for {days_core} days.")
     s.say(f" * Audit: {events:,} events buffered in the vault, none delivered.")
-    s.say(f" * Directory: bridges and stations last updated {BEACON_LAST_SYNC}.")
+    s.say(f" * Directory: bridges and stations last updated {world().beacon_last_sync}.")
     s.say(" * Updates: no channel (core unreachable).")
     s.blank()
     s.say("  Last login: ", (f"{LAST_LOGIN} as ", None), (Scene.mask(6), None), "  through aether-core")

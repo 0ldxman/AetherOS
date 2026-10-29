@@ -8,7 +8,8 @@ import hashlib
 
 from scenes.engine import Scene
 from scenes import markup
-from scenes.gateway import GAME_DATE, _motd
+from machines.world.dates import days_since, world
+from scenes.gateway import _metric, _motd
 
 
 def _stable(seed, low, high):
@@ -369,7 +370,10 @@ def wipe_scene(count):
 # что можно подставить в приветствие ОС: имя -> подпись для студии
 GREETING_PARAMS = {
     "host": "имя машины", "login": "логин учётки", "os": "код ОС", "os_name": "название ОС", "address": "адрес узла (частота или сетевой)", "serial": "серийный номер",
-    "hid": "hid машины", "host_key": "отпечаток ключа узла", "freq": "частота учётки, под которой вошли", "date": "дата в мире", "last_login": "прошлый вход этой учётки",
+    "hid": "hid машины", "host_key": "отпечаток ключа узла", "time": "время в мире (UTC)",
+    "core_days": "сколько дней молчит центр", "core_last_contact": "дата последнего контакта с центром",
+    "beacon_last_sync": "дата обновления списков станций", "stations": "станций отвечает из каталога (17 of 31)",
+    "stations_known": "станций в каталоге", "stations_reachable": "станций отвечает", "audit_events": "накопленных записей аудита", "freq": "частота учётки, под которой вошли", "date": "дата в мире", "last_login": "прошлый вход этой учётки",
     "uptime": "сколько работает машина", "accounts": "число учёток машины", "sessions": "сколько игроков на машине сейчас",
     "unread": "число непрочитанных писем", "mail": "строка про непрочитанную почту", "volumes": "тома машины", "note": "заметка машины",
 }
@@ -383,12 +387,24 @@ def _mail_text(mail):
     return f"{unread} unread {'message' if unread == 1 else 'messages'} ({latest})"
 
 
+def _world_params(ident):
+    """Что зависит от настроек мира (machines.World)."""
+    now = world()
+    events = (now.game_date - now.core_last_contact).days * now.audit_per_day + _metric(ident, "events", 0, 99)
+    return {
+        "core_days": days_since(now.core_last_contact), "core_last_contact": now.core_last_contact, "beacon_last_sync": now.beacon_last_sync,
+        "stations": f"{now.stations_reachable} of {now.stations_known}", "stations_known": now.stations_known,
+        "stations_reachable": now.stations_reachable, "audit_events": f"{events:,}",
+    }
+
+
 def greeting_params(ident, login, mail=None, system=None, facts=None):
     """Значения для приветствия. facts: то, что берётся из базы (machines.world.facts); без него остаются условные."""
     facts = {"accounts": 0, "sessions": 0, "last_login": "never", "uptime": "unknown", "note": "", "volumes": "none", "freq": None, **(facts or {})}
     return {
         "host": ident.hostname, "login": login, "os": system.code if system else "", "os_name": system.name if system else "",
-        "address": ident.address, "serial": ident.serial, "hid": ident.hid, "host_key": ident.host_key, "date": GAME_DATE,
+        "address": ident.address, "serial": ident.serial, "hid": ident.hid, "host_key": ident.host_key, "date": world().game_date, "time": f"{world().game_now:%H:%M} UTC",
+        **_world_params(ident),
         "unread": (mail or {}).get("unread", 0), "mail": _mail_text(mail), **{**facts, "freq": facts["freq"] or ident.address},
     }
 

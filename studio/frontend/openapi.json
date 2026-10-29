@@ -3978,6 +3978,68 @@
      }
     ]
    }
+  },
+  "/studio/api/world": {
+   "get": {
+    "operationId": "studio_api_world_read",
+    "summary": "Read",
+    "parameters": [],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/WorldOut"
+        }
+       }
+      }
+     }
+    },
+    "tags": [
+     "world"
+    ],
+    "security": [
+     {
+      "SessionAuthIsStaff": []
+     }
+    ]
+   },
+   "put": {
+    "operationId": "studio_api_world_save",
+    "summary": "Save",
+    "parameters": [],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/WorldOut"
+        }
+       }
+      }
+     }
+    },
+    "tags": [
+     "world"
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/WorldOut"
+       }
+      }
+     },
+     "required": true
+    },
+    "security": [
+     {
+      "SessionAuthIsStaff": []
+     }
+    ]
+   }
   }
  },
  "components": {
@@ -8745,6 +8807,53 @@
      "greeting"
     ],
     "title": "GreetingIn",
+    "type": "object"
+   },
+   "WorldOut": {
+    "properties": {
+     "game_now": {
+      "format": "date-time",
+      "title": "Game Now",
+      "type": "string"
+     },
+     "core_last_contact": {
+      "format": "date",
+      "title": "Core Last Contact",
+      "type": "string"
+     },
+     "beacon_last_sync": {
+      "format": "date",
+      "title": "Beacon Last Sync",
+      "type": "string"
+     },
+     "cert_not_after": {
+      "format": "date",
+      "title": "Cert Not After",
+      "type": "string"
+     },
+     "stations_known": {
+      "title": "Stations Known",
+      "type": "integer"
+     },
+     "stations_reachable": {
+      "title": "Stations Reachable",
+      "type": "integer"
+     },
+     "audit_per_day": {
+      "title": "Audit Per Day",
+      "type": "integer"
+     }
+    },
+    "required": [
+     "game_now",
+     "core_last_contact",
+     "beacon_last_sync",
+     "cert_not_after",
+     "stations_known",
+     "stations_reachable",
+     "audit_per_day"
+    ],
+    "title": "WorldOut",
     "type": "object"
    }
   },

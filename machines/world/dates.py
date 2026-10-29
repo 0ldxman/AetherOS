@@ -33,14 +33,22 @@ def clearance_code(level):
     return CLEARANCE.get(level, ("???", "unknown"))[0]
 
 
+def world():
+    """Настройки мира (machines.World): одна запись; один раз за запрос. Константы выше только начальные значения."""
+    from machines import memo
+    from machines.models import World
+
+    return memo.cached(("world",), World.current)
+
+
 def days_since(day):
     """Сколько дней прошло с этой даты до игровой, с разделителем тысяч: «1,169»."""
-    return f"{(GAME_DATE - day).days:,}"
+    return f"{(world().game_date - day).days:,}"
 
 
 def ago(moment):
     """Сколько прошло от момента до игровых «сейчас»: «3 min», «5 h», «2 d», «1,114 d»."""
-    seconds = int((GAME_NOW - moment).total_seconds())
+    seconds = int((world().game_now - moment).total_seconds())
     if seconds < 60:
         return "just now"
     if seconds < 3600:

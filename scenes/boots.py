@@ -21,7 +21,7 @@ import hashlib
 
 from scenes.engine import Scene
 from machines.world.identity import CORE_HOST
-from machines.world.dates import BEACON_LAST_SYNC, CORE_LAST_CONTACT, GAME_DATE, clearance_code, days_since
+from machines.world.dates import clearance_code, days_since, world
 
 WIDTH = 12          # ширина подписей в таблицах прошивки
 
@@ -45,10 +45,10 @@ def _unit_groups(ident):
         )),
         ("radio", (
             ("rfd", f"radio daemon, rf0 locked at {ident.address} MHz", "OK", (400, 900)),
-            ("beacond", f"beacon directory stale, last sync {days_since(BEACON_LAST_SYNC)} d ago", "WARN", (500, 1100)),
+            ("beacond", f"beacon directory stale, last sync {days_since(world().beacon_last_sync)} d ago", "WARN", (500, 1100)),
             ("gate", "frame policy loaded, 214 rules", "OK", (250, 650)),
             ("linkd", "link supervisor, 1 of 2 radios active", "OK", (200, 550)),
-            ("uplink", f"{CORE_HOST} unreachable, last contact {CORE_LAST_CONTACT}", "WARN", (1200, 2300)),
+            ("uplink", f"{CORE_HOST} unreachable, last contact {world().core_last_contact}", "WARN", (1200, 2300)),
             ("telemetry", "7 of 12 sectors silent", "WARN", (700, 1300)),
         )),
         ("services", (
@@ -151,7 +151,7 @@ def _firmware(s, ident):
     s.row("antenna", "loop 40 m  vswr 1.3", "dim", width=WIDTH)
     s.row("earth", "electrode 2.8 ohm", "dim", width=WIDTH)
     s.row("hwid", ident.hid, "dim", width=WIDTH)
-    s.row("date", f"{GAME_DATE}  03:12:08 UTC  (beacon)", "dim", width=WIDTH)
+    s.row("date", f"{world().game_date}  03:12:08 UTC  (beacon)", "dim", width=WIDTH)
     s.row("bmc", "aemc 1.7  online", width=WIDTH)
     s.row("pci", "14 devices, 2 bridges", "dim", width=WIDTH)
     s.row("boot order", "nvme0, radio (disabled)", "dim", width=WIDTH)
@@ -200,7 +200,7 @@ def _kernel(s, ident):
     s.task(f"{'vault':<7} unlocking /dev/vault0 using tpm-bound key ...", "OK", at=0.801544)
     s.task(f"{'vault':<7} verifying system image .......", "OK", at=1.120377)
     s.log(1.204910, "fs", "aefs vault0: mounted, journal clean")
-    s.log(1.299410, "fs", f"aefs vault0: 3 snapshots, last {CORE_LAST_CONTACT}")
+    s.log(1.299410, "fs", f"aefs vault0: 3 snapshots, last {world().core_last_contact}")
     s.log(1.340200, "sec", "policy loaded: 214 rules, default deny")
     s.log(1.377002, "gate", "default policy drop (inbound)")
     s.log(1.402118, "audit", f"logging enabled, sink {CORE_HOST} unreachable, buffering to vault")

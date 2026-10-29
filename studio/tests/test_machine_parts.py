@@ -255,6 +255,19 @@ class CreateAndSystemsTests(TestCase):
         self.core.refresh_from_db()
         self.assertEqual(twin.hid, self.core.hid)
 
+    def test_world_settings_drive_dates_and_the_greeting(self):
+        from machines.world.dates import days_since, world
+
+        data = self.call("get", "/world")[1]
+        self.assertEqual((data["stations_known"], data["core_last_contact"]), (31, "2027-10-29"))
+        data["game_now"], data["stations_reachable"] = "2030-11-15T03:14:00Z", 20
+        self.assertEqual(self.call("put", "/world", data)[0], 200)
+        self.assertEqual(days_since(world().core_last_contact), "1,113")
+        status, shown = self.call("post", "/systems/AETHER/greeting/preview", {"greeting": "{core_days} {stations} {date} {time} {audit_events}"})
+        self.assertEqual(shown["errors"], [])
+        text = "".join(part["text"] for part in shown["lines"][0])
+        self.assertTrue(text.startswith("1,113 20 of 31 2030-11-15 03:14 UTC "), text)
+
     def test_the_system_image_is_laid_under_the_machine_mounts(self):
         from filesystem.machine_view import MachineView
 

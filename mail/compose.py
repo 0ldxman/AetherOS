@@ -8,7 +8,7 @@ from dataclasses import dataclass
 from django.db import transaction
 from django.utils import timezone
 
-from machines.world.dates import GAME_NOW
+from machines.world.dates import world
 from secure.access import satisfied
 
 from mail.delivery import deliver
@@ -117,7 +117,7 @@ def _attempt(user, task, text, now):
         recipients=task.recipients,
         subject=task.subject,
         body=normalize(text),
-        sent_at=GAME_NOW,
+        sent_at=world().game_now,
         slug=f"sent-{task.pk}-{user.pk}",    # копия видна только тому, кому её доставили
     )
     deliver(user, copy, delay=0, now=now)
