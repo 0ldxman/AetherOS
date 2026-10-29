@@ -33,7 +33,7 @@ from secure.access import satisfied
 
 from machines.access import entry
 from machines.current import SESSION_KEY, active_session
-from machines.models import Machine, MachineProfile, MachineProfileToken, Session
+from machines.models import LoginEvent, Machine, MachineProfile, MachineProfileToken, Session
 
 TREE_KEY = "bridge_tree"
 MAX_DEPTH = 4           # самая длинная цепочка подключений от корня
@@ -165,27 +165,59 @@ def locked_for(user, profile):
     return max(0, int((until - timezone.now()).total_seconds()) + 1)
 
 
+SEEN_EVERY = 30            # раз в сколько секунд терминал отмечает, что игрок в сессиях (для «кто сейчас на машине»)
+
+
+def _mark_seen(request, tree):
+    from django.core.cache import cache
+
+    stamp = f"bridge-seen:{request.session.session_key}"
+    if request.session.session_key and not cache.get(stamp):
+        Session.objects.filter(pk__in=[node["session"] for node in tree["nodes"].values()]).update(seen_at=timezone.now())
+        cache.set(stamp, 1, SEEN_EVERY)
+
+
+def request_kick(user, profile):
+    """Автор просит выкинуть игрока с учётки: подключение закроется при его следующем запросе (expire). Сколько сессий помечено."""
+    return Session.objects.filter(user=user, profile=profile).update(kick_at=timezone.now())
+
+
 def expire(request, now=None):
-    """Закрыть подключения, у которых вышел срок: как kick, но по времени. Возвращает список обрывов для показа игроку
-    (они же копятся в сессии, пока их не заберёт take_kicks). Запись с cooldown после обрыва не принимает игрока."""
+    """Закрыть подключения, у которых вышел срок или которые автор попросил закрыть (kick_at): как kick. Возвращает список обрывов
+    для показа игроку (они же копятся в сессии, пока их не заберёт take_kicks). Запись с cooldown после обрыва по сроку не
+    принимает игрока; после обрыва автором блокировки нет."""
     now = now or time.time()
     kicks = []
+    tree = _tree(request, create=False)
+    if tree:
+        _mark_seen(request, tree)
+        kicked = set(Session.objects.filter(
+            pk__in=[node["session"] for node in tree["nodes"].values() if node["parent"] is not None], kick_at__isnull=False,
+        ).values_list("pk", flat=True))
+    else:
+        kicked = set()
     while True:
         tree = _tree(request, create=False)
         if not tree:
             break
         due = [key for key, node in tree["nodes"].items() if node.get("deadline") and node["deadline"] <= now]
-        if not due:
+        by_author = [key for key, node in tree["nodes"].items() if node["session"] in kicked and node["parent"] is not None]
+        if not due and not by_author:
             break
-        node = min(due, key=lambda key: tree["nodes"][key]["deadline"])
+        node = by_author[0] if by_author else min(due, key=lambda key: tree["nodes"][key]["deadline"])
         closed = close(request, node)
         if closed is None or not closed.sessions:
             break
         left = closed.sessions[0]
         profile = left.profile
-        lock = entry.lock_seconds_of(profile)
-        if lock:
-            Session.objects.filter(pk=left.pk).update(blocked_until=timezone.now() + timedelta(seconds=lock))
+        if by_author:
+            kicked.discard(left.pk)
+            Session.objects.filter(pk=left.pk).update(kick_at=None)
+            entry.record(profile, request.user, LoginEvent.Kind.KICKED, detail="studio")
+        else:
+            lock = entry.lock_seconds_of(profile)
+            if lock:
+                Session.objects.filter(pk=left.pk).update(blocked_until=timezone.now() + timedelta(seconds=lock))
         kicks.append({
             "label": f"{profile.login}@{profile.machine.hostname}",
             "host": profile.machine.hostname,
@@ -224,6 +256,8 @@ def open_child(request, profile, desktop, cwd):
     """Подключение profile от узла терминала. cwd это папка терминала сейчас (вернётся при выходе). desktop: сменить и рабочий стол."""
     tree = _tree(request)
     session = session_for(request.user, profile)
+    # игрок здесь с этой минуты; старая просьба автора выкинуть к новому входу не относится
+    Session.objects.filter(pk=session.pk).update(kick_at=None, seen_at=timezone.now())
     parent = tree["terminal"]
     tree["nodes"][parent]["cwd"] = cwd
     key = str(tree["next"])

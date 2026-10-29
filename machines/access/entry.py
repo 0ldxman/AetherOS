@@ -70,8 +70,10 @@ def locked_seconds(user, profile):
     policy = policy_of(profile)
     if policy is None or not policy.max_attempts:
         return 0
-    last = LoginEvent.objects.filter(profile=profile, user=user, kind=LoginEvent.Kind.LOCKED).order_by("-at").first()
-    if last is None:
+    last = LoginEvent.objects.filter(
+        profile=profile, user=user, kind__in=(LoginEvent.Kind.LOCKED, LoginEvent.Kind.UNLOCKED),
+    ).order_by("-at", "-id").first()
+    if last is None or last.kind == LoginEvent.Kind.UNLOCKED:
         return 0
     return max(0, int((last.at + timedelta(seconds=policy.lock_seconds) - timezone.now()).total_seconds()) + 1)
 
@@ -91,7 +93,7 @@ def after_failure(profile, user, source=""):
     if policy is None or not policy.max_attempts:
         return False
     since = timezone.now() - timedelta(seconds=policy.attempts_window)
-    marks = LoginEvent.objects.filter(profile=profile, user=user, kind__in=(LoginEvent.Kind.OK, LoginEvent.Kind.LOCKED)).order_by("-at").first()
+    marks = LoginEvent.objects.filter(profile=profile, user=user, kind__in=LoginEvent.MARKS).order_by("-at").first()
     failures = LoginEvent.objects.filter(profile=profile, user=user, kind__in=LoginEvent.FAILURES, at__gte=since)
     if marks is not None:
         failures = failures.filter(at__gt=marks.at)
@@ -99,6 +101,14 @@ def after_failure(profile, user, source=""):
         record(profile, user, LoginEvent.Kind.LOCKED, source, f"{policy.max_attempts} failed attempts")
         return True
     return False
+
+
+def unlock(profile, user):
+    """Автор снимает с игрока блокировку учётки: и по ошибкам входа, и после обрыва по сроку. Ошибки до неё больше не считаются."""
+    from machines.models import Session
+
+    Session.objects.filter(user=user, profile=profile).update(blocked_until=None)
+    return record(profile, user, LoginEvent.Kind.UNLOCKED, detail="studio")
 
 
 def host_matches(name, patterns):

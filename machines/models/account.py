@@ -184,5 +184,13 @@ class Session(models.Model):
         help_text="Запись не принимает игрока до этого момента (после обрыва по сроку).",
     )
 
+    seen_at = models.DateTimeField(
+        null=True, blank=True, help_text="Когда игрок последний раз работал в этой сессии (терминал отмечает раз в полминуты).",
+    )
+
+    kick_at = models.DateTimeField(
+        null=True, blank=True, help_text="Автор попросил выкинуть игрока: подключение закроется при его следующем запросе.",
+    )
+
     def __str__(self):
         return f"{self.user} @ {self.profile}"

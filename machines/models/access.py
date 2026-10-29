@@ -81,8 +81,11 @@ class LoginEvent(models.Model):
         ROUTE = "route", "Не через тот хост"
         WINDOW = "window", "Вне окна времени"
         LOCKED = "locked", "Блокировка"
+        UNLOCKED = "unlocked", "Разблокирован автором"
+        KICKED = "kicked", "Выкинут автором"
 
     FAILURES = ("bad_password", "bad_key")
+    MARKS = ("ok", "locked", "unlocked")          # после них ошибки входа считаются заново
 
     profile = models.ForeignKey("machines.MachineProfile", on_delete=models.CASCADE, related_name="events")
     user = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL, related_name="login_events")

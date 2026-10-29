@@ -232,3 +232,103 @@ class JournalTests(TestCase):
         entry.record(self.account, self.ivan, "locked", "aether-main")
         self.assertIn("Account vault locked", self.text(self.ivan))
         self.assertNotEqual(before, self.text(self.ivan))
+
+
+@override_settings(FORCE_SCRIPT_NAME=None)
+class StudioActionsTests(TerminalClient, TestCase):
+    """Проверка входа «всухую», разблокировка и выкидывание игрока автором."""
+
+    @classmethod
+    def setUpTestData(cls):
+        cls.main = Machine.objects.create(name="Main", hostname="aether-main")
+        cls.core = Machine.objects.create(name="Core", hostname="aether-core")
+        make_app(cls.main, label="console", glyph=">_", path="/apps/terminal/")
+        cls.user = get_user_model().objects.create_user("ivan", password="pw")
+        MachineProfile.objects.create(machine=cls.main, user=cls.user, name="Ivan", login="ivan", freq=1)
+        key_item("cardkey")
+
+    def setUp(self):
+        previous = get_script_prefix()
+        set_script_prefix("/")
+        self.addCleanup(set_script_prefix, previous)
+        cache.clear()
+        self.client.force_login(self.user)
+
+    def vault(self, **policy):
+        policy = EntryPolicy.objects.create(name=f"p{EntryPolicy.objects.count()}", **policy)
+        return MachineProfile.objects.create(
+            machine=self.core, login="vault", name="vault", freq=14, password_hash=make_password("right"),
+            key_condition={"all": ["cardkey"]}, entry_policy=policy,
+        )
+
+    def test_the_check_explains_the_policy_step_by_step_and_writes_nothing(self):
+        from machines.access.check import check
+
+        profile = self.vault(sources="gw-*", windows="mon-fri: 9:00-17:00")
+        monday = datetime(2026, 11, 2, 10, 0)
+        verdict = check(profile, source="aether-main", at=monday)
+        self.assertEqual((verdict.admitted, verdict.kind), (False, "source"))
+        self.assertIn("gw-*", verdict.steps[-1].text)
+
+        verdict = check(profile, source="gw-02", at=datetime(2026, 11, 7, 10, 0))           # суббота
+        self.assertEqual(verdict.kind, "window")
+        verdict = check(profile, source="gw-02", at=monday)
+        self.assertIsNone(verdict.admitted)                                                     # способы входа не проверялись
+        self.assertEqual([step.name for step in verdict.steps], ["policy", "source", "window", "mode"])
+        self.assertFalse(LoginEvent.objects.exists())
+
+    def test_the_check_tries_the_password_and_the_keys_by_the_mode(self):
+        from machines.access.check import check
+
+        profile = self.vault()
+        self.assertFalse(check(profile, password="right").admitted)                  # ключа нет, а нужны оба
+        self.assertTrue(check(profile, password="right", keys={"cardkey"}).admitted)
+        self.assertEqual(check(profile, password="wrong", keys={"cardkey"}).kind, "bad_password")
+        EntryPolicy.objects.filter(pk=profile.entry_policy_id).update(mode="any")
+        profile.refresh_from_db()
+        self.assertTrue(check(profile, keys={"cardkey"}).admitted)                   # хватает ключа
+
+    def test_the_check_takes_a_token_without_spending_it(self):
+        from machines.access.check import check
+        from machines.models import MachineProfileToken
+
+        profile = self.vault()
+        token = MachineProfileToken.objects.create(profile=profile, token="tk-1", max_usage=1)
+        self.assertTrue(check(profile, token="tk-1").admitted)
+        token.refresh_from_db()
+        self.assertEqual(token.usage, 0)
+        self.assertEqual(check(profile, token="nope").kind, "bad_token")
+
+    def test_the_check_sees_the_lock_of_a_player(self):
+        from machines.access.check import check
+
+        profile = self.vault(max_attempts=1, lock_seconds=600)
+        self.run_command("rshell vault@aether-core")
+        self.answer("wrong")
+        verdict = check(profile, player=self.user, password="right", keys={"cardkey"})
+        self.assertEqual(verdict.kind, "locked")
+
+    def test_the_author_unlocks_a_player_and_the_count_starts_over(self):
+        profile = self.vault(max_attempts=1, lock_seconds=600)
+        self.run_command("rshell vault@aether-core")
+        self.answer("wrong")
+        self.assertGreater(entry.locked_seconds(self.user, profile), 0)
+        entry.unlock(profile, self.user)
+        self.assertEqual(entry.locked_seconds(self.user, profile), 0)
+        self.assertEqual(LoginEvent.objects.filter(profile=profile).last().kind, "unlocked")
+
+    def test_the_author_kicks_a_player_on_the_next_request(self):
+        from machines.network import bridge
+
+        profile = MachineProfile.objects.create(machine=self.core, login="guest", name="guest", freq=14, ttl=None)
+        self.assertEqual(self.run_command("rcon guest@aether-core")["exit_code"], 0)
+        session = Session.objects.get(user=self.user, profile=profile)
+        self.assertIsNotNone(session.seen_at)                                      # терминал отметил, что игрок здесь
+        bridge.request_kick(self.user, profile)
+        data = self.run_command("whoami")
+        self.assertTrue(data.get("kicks"), data)
+        self.assertEqual(LoginEvent.objects.filter(profile=profile).last().kind, "kicked")
+        session.refresh_from_db()
+        self.assertIsNone(session.kick_at)
+        self.assertIsNone(session.blocked_until)                                   # после обрыва автором блокировки нет
+        self.assertEqual(self.run_command("rcon guest@aether-core")["exit_code"], 0)

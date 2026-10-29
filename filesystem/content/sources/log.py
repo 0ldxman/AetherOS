@@ -19,6 +19,8 @@ PHRASES = {
     "route": "Refused {login} from {source}: wrong route",
     "window": "Refused {login} from {source}: outside permitted hours",
     "locked": "Account {login} locked after repeated failures",
+    "unlocked": "Account {login} unlocked by administrator",
+    "kicked": "Session of {login} closed by administrator",
 }
 
 
