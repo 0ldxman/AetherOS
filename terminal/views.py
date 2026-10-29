@@ -173,8 +173,8 @@ def _server_effects(request, session, effects):
 
         host = session.profile.machine.hostname
         system = session.profile.machine.system
-        out.append({"op": "play", "scene": scenes.kick_scene(system, host)})
         kicked = session.profile
+        out.append({"op": "play", "scene": scenes.kick_scene(system, host, entry.kick_text_of(kicked))})
         closed = bridge.close(request, cwd=request.session.get(CWD_KEY, DEFAULT_CWD))
         if closed is None:
             out.append({"op": "lock", "url": reverse("lock")})

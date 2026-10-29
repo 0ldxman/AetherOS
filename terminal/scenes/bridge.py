@@ -42,9 +42,9 @@ def connect_scene(system, host, profile, cut=True, opened=True):
     return s.to_dict()
 
 
-def denied_scene(system, host, login, endpoint=None):
+def denied_scene(system, host, login, endpoint=None, reason=""):
     """Соединение дошло, но вход не принят."""
-    own = slots.custom("bridge.denied", system, host=host, login=login, endpoint=endpoint or "", freq="", os=system)
+    own = slots.custom("bridge.denied", system, host=host, login=login, endpoint=endpoint or "", freq="", os=system, reason=reason)
     if own is not None:
         return own
     s = Scene()
@@ -115,9 +115,9 @@ def warning_text(system, host):
     return f"[{host}] security: this session will be terminated in {{n}} s"
 
 
-def locked_scene(system, host, login):
+def locked_scene(system, host, login, reason=""):
     """Запись заблокирована после обрыва: проверка безопасности идёт."""
-    own = slots.custom("bridge.locked", system, host=host, login=login, os=system)
+    own = slots.custom("bridge.locked", system, host=host, login=login, os=system, reason=reason)
     if own is not None:
         return own
     s = Scene()
@@ -127,9 +127,9 @@ def locked_scene(system, host, login):
     return s.to_dict()
 
 
-def kick_scene(system, host):
+def kick_scene(system, host, reason=""):
     """Игрока выбросило: связь оборвали с той стороны."""
-    own = slots.custom("bridge.kick", system, host=host, os=system)
+    own = slots.custom("bridge.kick", system, host=host, os=system, reason=reason)
     if own is not None:
         return own
     s = Scene()

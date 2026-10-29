@@ -11,7 +11,7 @@ from scenes.script import compile_script
 
 router = Router(tags=["scenes"])
 
-SAMPLE = {"host": "aether-core", "login": "ivan", "endpoint": "14.230 MHz", "freq": "14.230", "os": "AETHER"}
+SAMPLE = {"host": "aether-core", "login": "ivan", "endpoint": "14.230 MHz", "freq": "14.230", "os": "AETHER", "reason": "Trace complete."}
 
 
 class SceneRow(Schema):

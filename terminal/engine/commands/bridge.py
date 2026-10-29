@@ -28,7 +28,7 @@ PENDING_KEY = "bridge_pending"
 def _denied(profile, system, host, endpoint=None, text=""):
     listed = ",".join(bridge.methods(profile)) or "none"
     return CommandResult(
-        "\n".join(filter(None, [f"Permission denied ({listed}).", text])), 1, scene=scenes.denied_scene(system, host, profile.login, endpoint)
+        "\n".join(filter(None, [f"Permission denied ({listed}).", text])), 1, scene=scenes.denied_scene(system, host, profile.login, endpoint, text)
     )
 
 
@@ -37,7 +37,7 @@ def _locked(profile, user_name, wait, text="", prefix=""):
         "\n".join(filter(None, [
             f"{prefix}account locked, security review in progress (retry in {wait // 60:02d}:{wait % 60:02d})", text,
         ])),
-        1, scene=scenes.locked_scene(profile.machine.system, profile.machine.hostname, user_name),
+        1, scene=scenes.locked_scene(profile.machine.system, profile.machine.hostname, user_name, text),
     )
 
 
@@ -166,7 +166,7 @@ class EntryCommand(BaseCommand):
             if token is None:
                 entry.record(profile, user, LoginEvent.Kind.BAD_TOKEN, source)
                 return CommandResult(
-                    f"{self.name}: token rejected", 1, scene=scenes.denied_scene(profile.machine.system, host, login, endpoint_text)
+                    f"{self.name}: token rejected", 1, scene=scenes.denied_scene(profile.machine.system, host, login, endpoint_text, _policy_text(profile, "denied_text"))
                 )
             bridge.spend_token(token)
             return self._admit(context, profile, args, "token")

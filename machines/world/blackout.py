@@ -6,7 +6,10 @@ from scenes import markup
 
 EVENTS = {"arrive": "Подключение", "leave": "Закрытие подключения", "kick": "Обрыв по сроку"}
 TONES = ("success", "warning", "error", "dim")
-PARAMS = {"label": "учётка@хост", "host": "хост", "login": "логин", "os": "код ОС", "os_name": "название ОС"}
+PARAMS = {
+    "label": "учётка@хост", "host": "хост", "login": "логин", "os": "код ОС", "os_name": "название ОС",
+    "reason": "текст обрыва из учётки или политики входа (пусто, если не задан; только у обрыва)",
+}
 
 RADIO = "AETHER"          # у Aether радио, у остальных ОС обычная сеть
 _TONE = {"arrive": "success", "leave": "dim", "kick": "error"}
@@ -60,16 +63,18 @@ def values(event, system):
 
 
 def resolve(event, profile, message=""):
-    """Данные чёрного экрана для браузера. message: свой текст записи (важнее текста ОС)."""
+    """Данные чёрного экрана для браузера. message: текст обрыва записи или политики. Он подставляется в {reason}; если текст ОС
+    его не использует, message заменяет текст целиком (как было до параметра)."""
     machine = profile.machine
     found = values(event, machine.system)
     system = machine.system_type
     params = {
         "label": f"{profile.login}@{machine.hostname}", "host": machine.hostname, "login": profile.login,
-        "os": machine.system, "os_name": system.name if system else "",
+        "os": machine.system, "os_name": system.name if system else "", "reason": message,
     }
+    text = _plain(found["text"], params) if (not message or "{reason}" in found["text"]) else message
     return {
-        "title": _plain(found["title"], params), "text": message or _plain(found["text"], params), "tone": found["tone"],
+        "title": _plain(found["title"], params), "text": text, "tone": found["tone"],
         "delay": found["delay_ms"], "speed": found["speed_ms"], "hold": found["hold_ms"],
     }
 

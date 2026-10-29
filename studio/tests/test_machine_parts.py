@@ -336,6 +336,28 @@ class CreateAndSystemsTests(TestCase):
         self.assertEqual(slots.account_scene(profile, values)[0]["value"], f"own {profile.login} on {self.core.hostname}")
         self.assertEqual(self.call("put", f"/machines/{self.core.pk}/accounts/{profile.pk}", body | {"login_scene": "nope"})[0], 400)
 
+    def test_the_reason_text_goes_into_blackouts_and_scenes(self):
+        from machines.world import blackout
+        from terminal.scenes.bridge import denied_scene, kick_scene, locked_scene
+
+        profile = self.core.profiles.first() or MachineProfile.objects.create(machine=self.core, login="guest", freq="1")
+        self.assertEqual(blackout.resolve("kick", profile, "Trace complete.")["text"], "Trace complete.")      # шаблон ОС без {reason}: причина целиком
+        self.call("put", "/systems/AETHER/blackouts/kick", {"text": "carrier lost: {host}\n{reason}"})
+        self.assertEqual(blackout.resolve("kick", profile, "Trace complete.")["text"], f"carrier lost: {self.core.hostname}\nTrace complete.")
+        self.assertEqual(blackout.resolve("kick", profile)["text"], f"carrier lost: {self.core.hostname}\n")
+        self.call("put", "/systems/AETHER/blackouts/kick", {})
+
+        self.call("post", "/scenes", {"slug": "why", "body": "access denied: {reason}"})
+        for slot, play in (
+            ("bridge.denied", lambda: denied_scene("AETHER", "h", "ivan", "1 MHz", "Not from here.")),
+            ("bridge.locked", lambda: locked_scene("AETHER", "h", "ivan", "Not from here.")),
+            ("bridge.kick", lambda: kick_scene("AETHER", "h", "Not from here.")),
+        ):
+            self.assertEqual(self.call("put", f"/systems/AETHER/scenes/{slot}", {"script": "why"})[0], 200)
+            self.assertEqual(play()[0]["value"], "access denied: Not from here.")
+            self.call("put", f"/systems/AETHER/scenes/{slot}", {"script": None})
+        self.assertEqual(self.call("put", "/systems/AETHER/scenes/bridge.unreachable", {"script": "why"})[0], 400)   # у этого события причины нет
+
     def test_the_system_image_is_laid_under_the_machine_mounts(self):
         from filesystem.machine_view import MachineView
 
