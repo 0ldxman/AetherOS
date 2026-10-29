@@ -1,4 +1,4 @@
-{% load static %}<!doctype html>
+{% load static os_style %}{% os_style_slug as os_slug %}<!doctype html>
 {% comment %}
   Aether OS — базовый шаблон. Путь в проекте: templates/ui/base.html
   Все страницы (оболочка рабочего стола, boot/login, вики, sessions, карта, почта...)
@@ -6,7 +6,7 @@
 
   Что делает база:
     * подключает static/ui/tokens.css ПЕРВЫМ — дочерние шаблоны сами его не подключают;
-    * ставит тему машины на <html> (если во view/context processor есть machine_theme);
+    * ставит стиль ОС машины на <html> (data-theme), подключает его css и переназначенные токены (machines/templatetags/os_style.py);
     * даёт блоки, в которые страницы кладут свои css/js.
 
   Блоки:
@@ -18,7 +18,7 @@
     body        — содержимое страницы
     js          — скрипты в конце <body>
 {% endcomment %}
-<html lang="{% block lang %}ru{% endblock %}"{% if machine_theme %} data-theme="{{ machine_theme }}"{% endif %}{% block html_attrs %}{% endblock %}>
+<html lang="{% block lang %}ru{% endblock %}" data-theme="{{ os_slug }}"{% block html_attrs %}{% endblock %}>
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -33,14 +33,16 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="{% static 'ui/fonts.css' %}">
 
-  {# Тема машины — поверх токенов. Пока machine_theme нигде не задаётся, блок ничего не выводит. #}
-  {% if machine_theme %}<link rel="stylesheet" href="{% static 'ui/themes/'|add:machine_theme|add:'.css' %}">{% endif %}
+  {# Стиль ОС машины (раскладка и вид элементов) — поверх токенов; у основного стиля своего файла нет. #}
+  {% os_theme %}
 
   {# Общие помощники (Aether.formatTime и др.): defer сохраняет порядок, поэтому они раньше скриптов страниц #}
   <script src="{% static 'ui/utils.js' %}" defer></script>
 
   {% block css %}{% endblock %}
   {% block head_extra %}{% endblock %}
+  {# Токены, переназначенные автором ОС: последними, чтобы перекрыть и тему, и страницу. #}
+  {% os_tokens %}
 </head>
 <body{% block body_attrs %}{% endblock %}>
 {% block body %}{% endblock %}

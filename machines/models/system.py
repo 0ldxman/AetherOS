@@ -21,6 +21,13 @@ class SystemType(models.Model):
         help_text="Для машин этого типа, у которых своей политики нет. Пусто: без ограничений.",
     )
 
+    style = models.CharField(
+        "Стиль", max_length=32, default="aether",
+        help_text="Готовый стиль рабочего стола и окон: раскладка и вид элементов. Список в machines/world/styles.py.",
+    )
+    style_tokens = models.JSONField(
+        "Токены стиля", default=dict, blank=True, help_text="Переопределения токенов (цвета, шрифты, форма) поверх стиля: {\"--accent\": \"#ff8800\"}.",
+    )
     greeting = models.TextField(
         "Приветствие", blank=True,
         help_text="Что видит игрок, когда открывается оболочка. Цвета: <dim>, <success>, <warning>, <error>; подстановки: {host}, {login}... "
@@ -40,6 +47,11 @@ class SystemType(models.Model):
         from scenes import markup
         from terminal.scenes.shell import GREETING_PARAMS
 
+        from machines.world import styles
+
+        looks = styles.problems(self.style, self.style_tokens)
+        if looks:
+            raise ValidationError({"style": looks})
         found = markup.check(self.greeting, GREETING_PARAMS)
         if found:
             raise ValidationError({"greeting": [f"Строка {number}: {text}" for number, text in found]})

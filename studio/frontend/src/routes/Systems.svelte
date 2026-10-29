@@ -23,11 +23,11 @@
 
   const TABS = [
     { key: "overview", label: "Обзор" },
-    { key: "paths", label: "Системные пути" },
-    { key: "disk", label: "Образ системного диска" },
+    { key: "disk", label: "Диск" },
     { key: "groups", label: "Группы и политики" },
     { key: "scenes", label: "Сцены событий" },
     { key: "screen", label: "Смена экрана" },
+    { key: "style", label: "Стиль" },
   ];
   const SHOWN = 8;
   let showMachines = $state(false);
@@ -59,6 +59,69 @@
   }
 
   const number = (value: string) => (value === "" ? null : Math.max(0, Math.round(+value)));
+
+  let treePath = $state("/");
+  let listing = $state<Schemas["ImageListing"] | null>(null);
+  let picking = $state<string | null>(null);
+
+  async function loadTree(path: string) {
+    if (!system) return;
+    treePath = path;
+    listing = (await api.GET("/studio/api/systems/{code}/tree", { params: { path: { code: system.code }, query: { path } } })).data ?? null;
+  }
+
+  // дерево обновляется, когда меняется образ (тома, точки, порядок) или открывается вкладка
+  $effect(() => {
+    if ((tab === "disk" || tab === "paths") && system) {
+      JSON.stringify(system.image);
+      loadTree(treePath);
+    }
+  });
+
+  const crumbs = $derived.by(() => {
+    const parts = treePath.split("/").filter(Boolean);
+    return [{ name: "/", path: "/" }, ...parts.map((name, i) => ({ name, path: "/" + parts.slice(0, i + 1).join("/") }))];
+  });
+
+  // шаблон места -> регулярное выражение: {home} раскрывается шаблоном home, {login} любым именем
+  function template(name: string) {
+    return places[name] || system?.places.find((row) => row.name === name)?.default || "";
+  }
+
+  function pattern(text: string, depth = 0): string {
+    if (depth > 5) return "";
+    return text.split(/(\{home\}|\{login\})/).map((part) =>
+      part === "{login}" ? "[^/]+" : part === "{home}" ? pattern(template("home"), depth + 1) : part.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"),
+    ).join("");
+  }
+
+  const matchers = $derived(system ? system.places.map((row) => ({ name: row.name, re: new RegExp("^" + pattern(template(row.name)) + "$") })) : []);
+  const placesAt = (path: string) => matchers.filter((m) => m.re.test(path)).map((m) => m.name);
+
+  function pickFolder(path: string) {
+    if (picking === null) return;
+    places = { ...places, [picking]: path };
+    picking = null;
+  }
+
+  let look = $state({ style: "aether", tokens: {} as Record<string, string> });
+  let lookSaved = $state("");
+  const lookDirty = $derived(JSON.stringify(look) !== lookSaved);
+  const groups = $derived(system ? [...new Set(system.token_info.map((t) => t.group))] : []);
+  const HEX6 = /^#[0-9a-fA-F]{6}$/;
+
+  async function saveLook() {
+    if (!system) return;
+    const { data, error } = await api.PUT("/studio/api/systems/{code}/style", { params: { path: { code: system.code } }, body: look });
+    done(data, error, "Стиль сохранён.");
+  }
+
+  function setToken(name: string, value: string) {
+    look.tokens = value.trim() ? { ...look.tokens, [name]: value } : Object.fromEntries(Object.entries(look.tokens).filter(([key]) => key !== name));
+  }
+
+  const pickerValue = (token: Schemas["TokenInfo"]) => (HEX6.test(look.tokens[token.name] ?? "") ? look.tokens[token.name] : HEX6.test(token.default) ? token.default : "#000000");
+  const desktopUrl = $derived(system ? `${(window as unknown as { STUDIO: { site: string } }).STUDIO.site}?preview_os=${system.code}` : "#");
 
   let preview = $state<Schemas["GreetingPreview"] | null>(null);
   let previewTimer: ReturnType<typeof setTimeout>;
@@ -96,6 +159,8 @@
     places = Object.fromEntries(data.places.map((row) => [row.name, row.path]));
     placesSaved = JSON.stringify(places);
     errors = {};
+    look = { style: data.style, tokens: { ...data.style_tokens } };
+    lookSaved = JSON.stringify(look);
     blackouts = Object.fromEntries(data.blackouts.map((row) => [row.event, { ...row.own }]));
     blackoutsSaved = JSON.stringify(blackouts);
   }
@@ -233,20 +298,9 @@
         {/each}
       </nav>
 
-      {#if tab === "paths"}
-      <div class="block">
-        <h3>Системные пути <button class="btn ghost" onclick={() => (dialog = "place")}>+ Путь</button></h3>
-        <p class="muted small">Шаблоны путей для машин ОС: {"{login}"} — логин учётки, {"{home}"} — место home. Пусто: как у движка.</p>
-        <div class="places">
-          {#each system.places as row (row.name)}
-            <span class="mono pname">{row.name}</span>
-            <input class="field mono" bind:value={places[row.name]} placeholder={row.default || "—"} class:bad={errors[row.name]} />
-            <span class="muted small">{row.machines.length ? `своё у ${row.machines.join(", ")}` : ""}{errors[row.name] ? errors[row.name].join(" ") : ""}</span>
-          {/each}
-        </div>
-        <div><button class="btn primary" disabled={!placesDirty} onclick={savePlaces}>Сохранить пути</button></div>
-      </div>
-      {:else if tab === "disk"}
+      {#if tab === "disk" || tab === "paths"}
+      <div class="diskgrid">
+        <div class="col">
         <div class="block">
           <h3>Образ системного диска <button class="btn ghost" onclick={() => editLayer(null)}>+ Том</button></h3>
           <p class="muted small">Тома, которые получают все машины ОС ({system.machines.length}). Лежат под монтированиями самой машины: на одну точку они складываются стопкой, файлы машины перекрывают файлы образа.</p>
@@ -263,6 +317,48 @@
             <p class="muted">Образа нет: у машин только их собственные тома.</p>
           {/each}
         </div>
+
+      <div class="block">
+        <h3>Системные пути <button class="btn ghost" onclick={() => (dialog = "place")}>+ Путь</button></h3>
+        <p class="muted small">Шаблоны путей для машин ОС: {"{login}"} — логин учётки, {"{home}"} — место home. Пусто: как у движка. «Выбрать» подставляет папку, на которую нажмёте в дереве диска; {"{login}"} дописывается руками.</p>
+        <div class="places">
+          {#each system.places as row (row.name)}
+            <span class="mono pname">{row.name}</span>
+            <input class="field mono" bind:value={places[row.name]} placeholder={row.default || "—"} class:bad={errors[row.name]} class:picking={picking === row.name} />
+            <button class="btn ghost" class:on={picking === row.name} onclick={() => (picking = picking === row.name ? null : row.name)} title="Выбрать папку на диске справа">Выбрать</button>
+            <span class="muted small">{row.machines.length ? `своё у ${row.machines.join(", ")}` : ""}{errors[row.name] ? errors[row.name].join(" ") : ""}</span>
+          {/each}
+        </div>
+        <div><button class="btn primary" disabled={!placesDirty} onclick={savePlaces}>Сохранить пути</button></div>
+      </div>
+        </div>
+      <div class="block tree">
+        <h3>Дисковое пространство ОС</h3>
+        <p class="muted small">Как сложится файловая система машины ОС без её собственных монтирований: тома образа слоями. Папки, совпавшие с системными путями, подписаны.</p>
+        {#if picking}<div class="banner">Выберите папку для «{picking}» <button class="btn ghost" onclick={() => (picking = null)}>Отмена</button></div>{/if}
+        <nav class="crumbs">
+          {#each crumbs as crumb, i}{#if i > 1}<span class="sep">/</span>{/if}<button onclick={() => loadTree(crumb.path)}>{crumb.name}</button>{/each}
+          {#if picking}<button class="btn ghost" onclick={() => pickFolder(treePath)}>Выбрать эту папку</button>{/if}
+        </nav>
+        <div class="nodes">
+          {#each listing?.nodes ?? [] as node (node.path)}
+            <div class="node" class:dir={node.is_dir}>
+              {#if node.is_dir}
+                <button class="nodename" onclick={() => loadTree(node.path)}>▸ {node.name}</button>
+              {:else}
+                <span class="nodename file">{node.name}</span>
+              {/if}
+              {#each placesAt(node.path) as name}<span class="chip mono">{name}</span>{/each}
+              {#if node.mount}<span class="chip">монтирование</span>{/if}
+              <span class="spacer"></span>
+              {#if picking && node.is_dir}<button class="btn ghost" onclick={() => pickFolder(node.path)}>Выбрать</button>{/if}
+            </div>
+          {:else}
+            <p class="muted small">{system.image.length ? "Папка пуста." : "Образа нет: добавьте тома слева, и здесь появится дерево."}</p>
+          {/each}
+        </div>
+      </div>
+      </div>
       {:else if tab === "scenes"}
         <div class="block">
           <h3>Сцены событий <a class="more" href="#/scenes">библиотека →</a></h3>
@@ -284,6 +380,49 @@
             </div>
           {/each}
         </div>
+      {:else if tab === "style"}
+        <div class="block">
+          <h3>Стиль рабочего стола и окон <a class="more" href={desktopUrl} target="_blank" rel="noopener">посмотреть на рабочем столе →</a></h3>
+          <p class="muted small">Стиль задаёт раскладку и вид элементов: панель, окна, кнопки, иконки. Стили готовятся в коде, здесь выбирается один из них. Токены ниже переназначают цвета, шрифты и форму поверх выбранного стиля.</p>
+          <div class="styles">
+            {#each system.styles as item}
+              <label class="stylecard" class:on={look.style === item.slug}>
+                <input type="radio" name="style" value={item.slug} bind:group={look.style} />
+                <b>{item.label}</b>
+                <span class="muted small">{item.description}</span>
+              </label>
+            {/each}
+          </div>
+        </div>
+
+        {#each groups as group}
+          <div class="block">
+            <h3>{group}</h3>
+            <div class="tokens">
+              {#each system.token_info.filter((t) => t.group === group) as token (token.name)}
+                <div class="token" class:own={look.tokens[token.name]}>
+                  <span>{token.label}<span class="mono muted small"> {token.name}</span></span>
+                  {#if token.kind === "font"}
+                    <select class="field" value={look.tokens[token.name] ?? ""} onchange={(e) => setToken(token.name, e.currentTarget.value)}>
+                      <option value="">как в стиле ({token.default})</option>
+                      {#each system.fonts as font}<option value={font.value}>{font.label}</option>{/each}
+                    </select>
+                  {:else}
+                    <div class="tokeninput">
+                      {#if token.kind === "color"}
+                        <input class="picker" type="color" value={pickerValue(token)} oninput={(e) => setToken(token.name, e.currentTarget.value)} />
+                      {/if}
+                      <input class="field mono" placeholder={token.default} value={look.tokens[token.name] ?? ""} oninput={(e) => setToken(token.name, e.currentTarget.value)} class:bad={errors.style} />
+                    </div>
+                  {/if}
+                  <button class="btn ghost" disabled={!look.tokens[token.name]} onclick={() => setToken(token.name, "")} title="Как в стиле">×</button>
+                </div>
+              {/each}
+            </div>
+          </div>
+        {/each}
+        {#if errors.style}{#each errors.style as text}<p class="warn small">{text}</p>{/each}{/if}
+        <div><button class="btn primary" disabled={!lookDirty} onclick={saveLook}>Сохранить стиль</button></div>
       {:else if tab === "screen"}
         <div class="block">
           <h3>Чёрный экран рабочего стола</h3>
@@ -456,7 +595,21 @@
   .tick:hover { background: var(--panel-2); }
   .tick.on { color: var(--ok); }
   .acts { justify-content: flex-end; }
-  .places { display: grid; grid-template-columns: 120px minmax(240px, 420px) 1fr; gap: 8px 12px; align-items: center; }
+  .places { display: grid; grid-template-columns: 100px minmax(200px, 1fr) max-content minmax(60px, auto); gap: 8px 10px; align-items: center; }
+  .diskgrid { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(300px, 1fr); gap: 14px; align-items: start; }
+  .diskgrid > .col { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+  .tree { position: sticky; top: 8px; max-height: calc(100vh - 140px); overflow: auto; }
+  .banner { display: flex; align-items: center; gap: 8px; padding: 6px 10px; border-radius: var(--radius-s); background: var(--accent-soft); color: var(--accent); font-size: 13px; }
+  .crumbs { display: flex; flex-wrap: wrap; align-items: center; gap: 2px; }
+  .crumbs button { border: 0; background: none; color: var(--accent); cursor: pointer; padding: 2px 4px; }
+  .crumbs .sep { color: var(--faint); }
+  .nodes { display: flex; flex-direction: column; }
+  .node { display: flex; align-items: center; gap: 8px; padding: 4px 6px; border-bottom: 1px solid var(--line-soft); }
+  .node:hover { background: var(--panel-2); }
+  .nodename { border: 0; background: none; color: var(--text); cursor: pointer; text-align: left; padding: 0; }
+  .nodename.file { color: var(--muted); cursor: default; }
+  .field.picking { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+  .btn.on { background: var(--accent-soft); color: var(--accent); }
   .pname { color: var(--muted); }
   .field.bad { border-color: var(--danger); }
   .empty { padding: 24px; }
@@ -476,6 +629,15 @@
   .slotpick { display: flex; gap: 8px; align-items: center; }
   .slotpick select { flex: 1; min-width: 0; }
   .more { margin-left: auto; font-size: 12px; text-transform: none; letter-spacing: 0; }
+  .styles { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 10px; }
+  .stylecard { display: flex; flex-direction: column; gap: 4px; padding: 12px 14px; border: 1px solid var(--line-soft); border-radius: var(--radius-s); cursor: pointer; }
+  .stylecard.on { border-color: var(--accent); background: var(--accent-soft); }
+  .stylecard input { display: none; }
+  .tokens { display: flex; flex-direction: column; gap: 6px; }
+  .token { display: grid; grid-template-columns: minmax(220px, 1fr) minmax(220px, 340px) max-content; gap: 12px; align-items: center; padding: 4px 0; }
+  .token.own > span:first-child { color: var(--accent); }
+  .tokeninput { display: flex; gap: 6px; align-items: center; }
+  .picker { width: 34px; height: 32px; padding: 0; border: 1px solid var(--line); border-radius: var(--radius-s); background: none; cursor: pointer; }
   .bo { display: flex; flex-direction: column; gap: 8px; padding: 10px 0; border-top: 1px solid var(--line-soft); }
   .bo-head { display: flex; align-items: center; gap: 8px; }
   .bo-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 0.9fr); gap: 12px; align-items: start; }

@@ -4082,6 +4082,102 @@
     ]
    }
   },
+  "/studio/api/systems/{code}/style": {
+   "put": {
+    "operationId": "studio_api_systems_save_style",
+    "summary": "Save Style",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "code",
+      "schema": {
+       "title": "Code",
+       "type": "string"
+      },
+      "required": true
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/SystemOut"
+        }
+       }
+      }
+     }
+    },
+    "description": "Стиль ОС и переопределённые токены. Пустое значение токена значит «как в стиле».",
+    "tags": [
+     "systems"
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/StyleIn"
+       }
+      }
+     },
+     "required": true
+    },
+    "security": [
+     {
+      "SessionAuthIsStaff": []
+     }
+    ]
+   }
+  },
+  "/studio/api/systems/{code}/tree": {
+   "get": {
+    "operationId": "studio_api_systems_image_tree",
+    "summary": "Image Tree",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "code",
+      "schema": {
+       "title": "Code",
+       "type": "string"
+      },
+      "required": true
+     },
+     {
+      "in": "query",
+      "name": "path",
+      "schema": {
+       "default": "/",
+       "title": "Path",
+       "type": "string"
+      },
+      "required": false
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ImageListing"
+        }
+       }
+      }
+     }
+    },
+    "description": "Дисковое пространство ОС, как оно сложится у машины без своих монтирований: тома образа слоями. Права не проверяются: это взгляд автора.",
+    "tags": [
+     "systems"
+    ],
+    "security": [
+     {
+      "SessionAuthIsStaff": []
+     }
+    ]
+   }
+  },
   "/studio/api/world": {
    "get": {
     "operationId": "studio_api_world_read",
@@ -8829,6 +8925,24 @@
     "title": "BlackoutValues",
     "type": "object"
    },
+   "FontChoice": {
+    "properties": {
+     "value": {
+      "title": "Value",
+      "type": "string"
+     },
+     "label": {
+      "title": "Label",
+      "type": "string"
+     }
+    },
+    "required": [
+     "value",
+     "label"
+    ],
+    "title": "FontChoice",
+    "type": "object"
+   },
    "GreetingParam": {
     "properties": {
      "name": {
@@ -8948,6 +9062,29 @@
     "title": "SlotRow",
     "type": "object"
    },
+   "StyleChoice": {
+    "properties": {
+     "slug": {
+      "title": "Slug",
+      "type": "string"
+     },
+     "label": {
+      "title": "Label",
+      "type": "string"
+     },
+     "description": {
+      "title": "Description",
+      "type": "string"
+     }
+    },
+    "required": [
+     "slug",
+     "label",
+     "description"
+    ],
+    "title": "StyleChoice",
+    "type": "object"
+   },
    "SystemOut": {
     "properties": {
      "code": {
@@ -8970,6 +9107,38 @@
        "$ref": "#/components/schemas/BlackoutRow"
       },
       "title": "Blackouts",
+      "type": "array"
+     },
+     "style": {
+      "title": "Style",
+      "type": "string"
+     },
+     "style_tokens": {
+      "additionalProperties": {
+       "type": "string"
+      },
+      "title": "Style Tokens",
+      "type": "object"
+     },
+     "styles": {
+      "items": {
+       "$ref": "#/components/schemas/StyleChoice"
+      },
+      "title": "Styles",
+      "type": "array"
+     },
+     "token_info": {
+      "items": {
+       "$ref": "#/components/schemas/TokenInfo"
+      },
+      "title": "Token Info",
+      "type": "array"
+     },
+     "fonts": {
+      "items": {
+       "$ref": "#/components/schemas/FontChoice"
+      },
+      "title": "Fonts",
       "type": "array"
      },
      "scenes": {
@@ -9067,6 +9236,11 @@
      "greeting",
      "greeting_params",
      "blackouts",
+     "style",
+     "style_tokens",
+     "styles",
+     "token_info",
+     "fonts",
      "scenes",
      "scene_library",
      "blackout_params",
@@ -9082,6 +9256,39 @@
      "volumes"
     ],
     "title": "SystemOut",
+    "type": "object"
+   },
+   "TokenInfo": {
+    "properties": {
+     "name": {
+      "title": "Name",
+      "type": "string"
+     },
+     "label": {
+      "title": "Label",
+      "type": "string"
+     },
+     "group": {
+      "title": "Group",
+      "type": "string"
+     },
+     "kind": {
+      "title": "Kind",
+      "type": "string"
+     },
+     "default": {
+      "type": "string",
+      "title": "Default"
+     }
+    },
+    "required": [
+     "name",
+     "label",
+     "group",
+     "kind",
+     "default"
+    ],
+    "title": "TokenInfo",
     "type": "object"
    },
    "TypeGroup": {
@@ -9340,6 +9547,76 @@
      }
     },
     "title": "SlotIn",
+    "type": "object"
+   },
+   "StyleIn": {
+    "properties": {
+     "style": {
+      "title": "Style",
+      "type": "string"
+     },
+     "tokens": {
+      "additionalProperties": {
+       "type": "string"
+      },
+      "default": {},
+      "title": "Tokens",
+      "type": "object"
+     }
+    },
+    "required": [
+     "style"
+    ],
+    "title": "StyleIn",
+    "type": "object"
+   },
+   "ImageListing": {
+    "properties": {
+     "path": {
+      "title": "Path",
+      "type": "string"
+     },
+     "nodes": {
+      "items": {
+       "$ref": "#/components/schemas/ImageNode"
+      },
+      "title": "Nodes",
+      "type": "array"
+     }
+    },
+    "required": [
+     "path",
+     "nodes"
+    ],
+    "title": "ImageListing",
+    "type": "object"
+   },
+   "ImageNode": {
+    "properties": {
+     "name": {
+      "title": "Name",
+      "type": "string"
+     },
+     "path": {
+      "title": "Path",
+      "type": "string"
+     },
+     "is_dir": {
+      "title": "Is Dir",
+      "type": "boolean"
+     },
+     "mount": {
+      "title": "Mount",
+      "type": "boolean"
+     }
+    },
+    "required": [
+     "name",
+     "path",
+     "is_dir",
+     "mount"
+    ],
+    "title": "ImageNode",
     "type": "object"
    },
    "WorldOut": {

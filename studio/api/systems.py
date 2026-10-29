@@ -13,9 +13,11 @@ from ninja import Router, Schema
 
 from machines.access import groups
 from machines.access.privileges import PRIVILEGES
+from filesystem.machine_view import MachineView
 from filesystem.models import Volume
 from machines.models import EntryPolicy, Group, Machine, Place, SceneScript, SystemBlackout, SystemScene, SystemType, SystemVolume
 from machines.world import blackout as blackouts
+from machines.world import styles
 from machines.world.dates import world
 from machines.world.slots import SLOTS
 from machines.world.facts import facts
@@ -96,6 +98,42 @@ class SlotIn(Schema):
     script: str | None = None
 
 
+class StyleChoice(Schema):
+    slug: str
+    label: str
+    description: str
+
+
+class TokenInfo(Schema):
+    name: str
+    label: str
+    group: str
+    kind: str
+    default: str
+
+
+class StyleIn(Schema):
+    style: str
+    tokens: dict[str, str] = {}
+
+
+class FontChoice(Schema):
+    value: str
+    label: str
+
+
+class ImageNode(Schema):
+    name: str
+    path: str
+    is_dir: bool
+    mount: bool        # здесь начинается монтирование образа
+
+
+class ImageListing(Schema):
+    path: str
+    nodes: list[ImageNode]
+
+
 class GreetingParam(Schema):
     name: str
     label: str
@@ -126,6 +164,11 @@ class SystemOut(Schema):
     greeting: str
     greeting_params: list[GreetingParam]
     blackouts: list[BlackoutRow]
+    style: str
+    style_tokens: dict[str, str]
+    styles: list[StyleChoice]
+    token_info: list[TokenInfo]
+    fonts: list[FontChoice]
     scenes: list[SlotRow]
     scene_library: list[SceneChoice]
     blackout_params: list[GreetingParam]
@@ -189,6 +232,10 @@ def _out(system):
         code=system.code, name=system.name, greeting=system.greeting,
         greeting_params=[GreetingParam(name=name, label=label) for name, label in GREETING_PARAMS.items()],
         blackouts=_blackouts(system),
+        style=system.style, style_tokens={name: str(value) for name, value in (system.style_tokens or {}).items()},
+        styles=[StyleChoice(slug=slug, label=item.label, description=item.description) for slug, item in styles.STYLES.items()],
+        token_info=[TokenInfo(name=t.name, label=t.label, group=t.group, kind=t.kind, default=styles.defaults().get(t.name, "")) for t in styles.TOKENS],
+        fonts=[FontChoice(value=value, label=label) for value, label in styles.fonts().items()],
         scenes=_slots(system), scene_library=choices(),
         blackout_params=[GreetingParam(name=name, label=label) for name, label in blackouts.PARAMS.items()],
         path_style=system.path_style, entry_policy=system.entry_policy_id,
@@ -377,3 +424,27 @@ def save_scene(request, code: str, slot: str, body: SlotIn):
     row.full_clean()
     row.save()
     return _out(system)
+
+
+@router.put("/{code}/style", response=SystemOut)
+def save_style(request, code: str, body: StyleIn):
+    """Стиль ОС и переопределённые токены. Пустое значение токена значит «как в стиле»."""
+    system = _system(code)
+    system.style = body.style
+    system.style_tokens = {name: value.strip() for name, value in body.tokens.items() if value.strip()}
+    system.full_clean()
+    system.save()
+    return _out(system)
+
+
+@router.get("/{code}/tree", response=ImageListing)
+def image_tree(request, code: str, path: str = "/"):
+    """Дисковое пространство ОС, как оно сложится у машины без своих монтирований: тома образа слоями. Права не проверяются: это взгляд автора."""
+    system = _system(code)
+    view = MachineView(Machine(pk=-1, name="image", system=system.code))      # несохранённая машина-образец: своих монтирований у неё нет
+    path = "/" + "/".join(part for part in path.split("/") if part)
+    points = {layer.point for layer in view.layers}
+    return ImageListing(
+        path=path,
+        nodes=[ImageNode(name=entry.name, path=entry.path, is_dir=entry.is_dir, mount=entry.path in points) for entry in view.children(path)],
+    )

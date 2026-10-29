@@ -1287,6 +1287,46 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/studio/api/systems/{code}/style": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Save Style
+         * @description Стиль ОС и переопределённые токены. Пустое значение токена значит «как в стиле».
+         */
+        put: operations["studio_api_systems_save_style"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/studio/api/systems/{code}/tree": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Image Tree
+         * @description Дисковое пространство ОС, как оно сложится у машины без своих монтирований: тома образа слоями. Права не проверяются: это взгляд автора.
+         */
+        get: operations["studio_api_systems_image_tree"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/studio/api/world": {
         parameters: {
             query?: never;
@@ -3054,6 +3094,13 @@ export interface components {
             /** Hold Ms */
             hold_ms?: number | null;
         };
+        /** FontChoice */
+        FontChoice: {
+            /** Value */
+            value: string;
+            /** Label */
+            label: string;
+        };
         /** GreetingParam */
         GreetingParam: {
             /** Name */
@@ -3095,6 +3142,15 @@ export interface components {
             /** Script */
             script: string | null;
         };
+        /** StyleChoice */
+        StyleChoice: {
+            /** Slug */
+            slug: string;
+            /** Label */
+            label: string;
+            /** Description */
+            description: string;
+        };
         /** SystemOut */
         SystemOut: {
             /** Code */
@@ -3105,6 +3161,18 @@ export interface components {
             greeting_params: components["schemas"]["GreetingParam"][];
             /** Blackouts */
             blackouts: components["schemas"]["BlackoutRow"][];
+            /** Style */
+            style: string;
+            /** Style Tokens */
+            style_tokens: {
+                [key: string]: string;
+            };
+            /** Styles */
+            styles: components["schemas"]["StyleChoice"][];
+            /** Token Info */
+            token_info: components["schemas"]["TokenInfo"][];
+            /** Fonts */
+            fonts: components["schemas"]["FontChoice"][];
             /** Scenes */
             scenes: components["schemas"]["SlotRow"][];
             /** Scene Library */
@@ -3131,6 +3199,19 @@ export interface components {
             image: components["schemas"]["ImageRow"][];
             /** Volumes */
             volumes: components["schemas"]["Ref"][];
+        };
+        /** TokenInfo */
+        TokenInfo: {
+            /** Name */
+            name: string;
+            /** Label */
+            label: string;
+            /** Group */
+            group: string;
+            /** Kind */
+            kind: string;
+            /** Default */
+            default: string;
         };
         /** TypeGroup */
         TypeGroup: {
@@ -3227,6 +3308,36 @@ export interface components {
         SlotIn: {
             /** Script */
             script?: string | null;
+        };
+        /** StyleIn */
+        StyleIn: {
+            /** Style */
+            style: string;
+            /**
+             * Tokens
+             * @default {}
+             */
+            tokens: {
+                [key: string]: string;
+            };
+        };
+        /** ImageListing */
+        ImageListing: {
+            /** Path */
+            path: string;
+            /** Nodes */
+            nodes: components["schemas"]["ImageNode"][];
+        };
+        /** ImageNode */
+        ImageNode: {
+            /** Name */
+            name: string;
+            /** Path */
+            path: string;
+            /** Is Dir */
+            is_dir: boolean;
+            /** Mount */
+            mount: boolean;
         };
         /** WorldOut */
         WorldOut: {
@@ -5599,6 +5710,56 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["SystemOut"];
+                };
+            };
+        };
+    };
+    studio_api_systems_save_style: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                code: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StyleIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SystemOut"];
+                };
+            };
+        };
+    };
+    studio_api_systems_image_tree: {
+        parameters: {
+            query?: {
+                path?: string;
+            };
+            header?: never;
+            path: {
+                code: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ImageListing"];
                 };
             };
         };

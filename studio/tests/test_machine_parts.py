@@ -358,6 +358,52 @@ class CreateAndSystemsTests(TestCase):
             self.call("put", f"/systems/AETHER/scenes/{slot}", {"script": None})
         self.assertEqual(self.call("put", "/systems/AETHER/scenes/bridge.unreachable", {"script": "why"})[0], 400)   # у этого события причины нет
 
+    def test_an_os_style_and_token_overrides_reach_the_page_of_its_machine(self):
+        from django.template import Context, Template
+        from django.test import RequestFactory
+
+        from machines.world import styles
+
+        data = self.call("get", "/systems/AETHER")[1]
+        self.assertEqual((data["style"], data["style_tokens"], [s["slug"] for s in data["styles"]]), ("aether", {}, ["aether"]))
+        self.assertTrue({t["name"] for t in data["token_info"]} >= {"--bg", "--accent", "--radius", "--font-main"})
+        self.assertEqual({t["name"]: t["default"] for t in data["token_info"]}["--bg"], "#191919")
+        self.assertIn("var(--ff-doto)", [f["value"] for f in data["fonts"]])
+
+        tokens = {"--accent": "#ff8800", "--radius": "4px", "--font-main": "var(--ff-doto)", "--bg": ""}
+        data = self.call("put", "/systems/AETHER/style", {"style": "aether", "tokens": tokens})[1]
+        self.assertEqual(data["style_tokens"], {"--accent": "#ff8800", "--radius": "4px", "--font-main": "var(--ff-doto)"})
+        for bad in ({"--accent": "red; x"}, {"--radius": "big"}, {"--font-main": "Comic Sans"}, {"--nope": "1"}):
+            self.assertEqual(self.call("put", "/systems/AETHER/style", {"style": "aether", "tokens": bad})[0], 400)
+        self.assertEqual(self.call("put", "/systems/AETHER/style", {"style": "nope", "tokens": {}})[0], 400)
+        self.assertEqual(styles.css({"--accent": "#ff8800"}), ":root { --accent: #ff8800; }")
+
+        from django.contrib.auth.models import AnonymousUser
+
+        Machine.objects.create(name="Main", hostname="aether-main")          # без сессии стиль берётся у входного узла
+        request = RequestFactory().get("/")
+        request.user = AnonymousUser()
+        request.session = {}
+        html = Template("{% load os_style %}{% os_style_slug %}|{% os_tokens %}").render(Context({"request": request}))
+        self.assertIn("aether|", html)
+        self.assertIn("--accent: #ff8800", html)
+
+    def test_the_image_tree_shows_what_the_layers_make_together(self):
+        from filesystem.testing import make_file
+        from filesystem.models import Placement
+
+        base, extra = Volume.objects.create(slug="img-base"), Volume.objects.create(slug="img-extra")
+        Placement.objects.create(volume=base, kind=Placement.Kind.FOLDER, name="etc")
+        Placement.objects.create(volume=base, kind=Placement.Kind.FOLDER, name="home")
+        Placement.objects.create(volume=extra, kind=Placement.Kind.FOLDER, name="srv")
+        self.call("post", "/systems/AETHER/image", {"volume": base.pk, "mount_path": "/"})
+        self.call("post", "/systems/AETHER/image", {"volume": extra.pk, "mount_path": "/mnt/extra"})
+        root = self.call("get", "/systems/AETHER/tree?path=/")[1]
+        self.assertEqual([(n["name"], n["is_dir"]) for n in root["nodes"]], [("etc", True), ("home", True), ("mnt", True)])
+        mount = self.call("get", "/systems/AETHER/tree?path=/mnt")[1]
+        self.assertEqual([(n["path"], n["mount"]) for n in mount["nodes"]], [("/mnt/extra", True)])
+        self.assertEqual([n["path"] for n in self.call("get", "/systems/AETHER/tree?path=mnt/extra")[1]["nodes"]], ["/mnt/extra/srv"])
+
     def test_the_system_image_is_laid_under_the_machine_mounts(self):
         from filesystem.machine_view import MachineView
 

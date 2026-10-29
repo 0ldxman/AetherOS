@@ -283,7 +283,7 @@ class WikiViewsTests(TestCase):
         }
         # потолки с запасом; главное - не растут с глубиной пути
         for name, limit in {
-            "home": 5,
+            "home": 6,                     # страница на базовом шаблоне: +1 запрос на стиль ОС (os_style)
             "namespace": 5,
             "document": 5,
             "deep_document": 5,
