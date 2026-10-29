@@ -83,7 +83,7 @@ class MachineProfileAdmin(ConditionFieldsMixin, admin.ModelAdmin):
 
     fieldsets = (
         (
-            "Profile",
+            "Запись",
             {
                 "fields": (
                     "id",
@@ -94,7 +94,7 @@ class MachineProfileAdmin(ConditionFieldsMixin, admin.ModelAdmin):
             },
         ),
         (
-            "Endpoint",
+            "Адрес",
             {
                 "fields": (
                     "login",
@@ -104,7 +104,7 @@ class MachineProfileAdmin(ConditionFieldsMixin, admin.ModelAdmin):
             },
         ),
         (
-            "Authentication",
+            "Пароль и ключи",
             {
                 "fields": (
                     "password_state",
@@ -115,7 +115,7 @@ class MachineProfileAdmin(ConditionFieldsMixin, admin.ModelAdmin):
             },
         ),
         (
-            "Rights",
+            "Права",
             {
                 "fields": (
                     "groups",
@@ -124,7 +124,7 @@ class MachineProfileAdmin(ConditionFieldsMixin, admin.ModelAdmin):
             },
         ),
         (
-            "Entry policy",
+            "Политика входа",
             {
                 "fields": (
                     "entry_policy",
@@ -133,7 +133,7 @@ class MachineProfileAdmin(ConditionFieldsMixin, admin.ModelAdmin):
             },
         ),
         (
-            "Connection limit",
+            "Срок подключения",
             {
                 "fields": (
                     "ttl",

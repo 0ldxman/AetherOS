@@ -46,12 +46,17 @@ def permits(principal, owner, group, mode, action):
     return bool(int(digit) & ACTION[action])
 
 
-def rights_of(view, entry):
-    """(владелец, группа, режим) записи вида: свои, иначе дом чужой записи, иначе пусто (открыто)."""
-    if entry.mode:
+def rights_at(view, path, entry=None):
+    """(владелец, группа, режим) по пути: права записи вида, иначе дом чужой записи, иначе пусто (открыто)."""
+    entry = entry if entry is not None else view.get(path)
+    if entry is not None and entry.mode:
         return entry.owner, entry.group, entry.mode
-    home = view.home_owner(entry.path)
+    home = view.home_owner(path)
     return (home, "", "700") if home else ("", "", "")
+
+
+def rights_of(view, entry):
+    return rights_at(view, entry.path, entry)
 
 
 def _ancestors(path):
@@ -73,16 +78,10 @@ def check(view, principal, path, action):
     if principal.root:
         return
     for ancestor in _ancestors(path):
-        found = view.get(ancestor)
-        owner, group, mode = rights_of(view, found) if found is not None else (view.home_owner(ancestor), "", "700" if view.home_owner(ancestor) else "")
+        owner, group, mode = rights_at(view, ancestor)
         if mode and not permits(principal, owner, group, mode, "x"):
             raise Denied(ancestor)
-    found = view.get(path)
-    if found is not None:
-        owner, group, mode = rights_of(view, found)
-    else:
-        home = view.home_owner(path)
-        owner, group, mode = (home, "", "700") if home else ("", "", "")
+    owner, group, mode = rights_at(view, path)
     if not permits(principal, owner, group, mode, action):
         raise Denied(path)
 

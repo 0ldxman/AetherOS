@@ -19,9 +19,17 @@ DEFAULT_TYPE = "doc"
 
 
 def _machine(request):
-    from .mounts import _machine as machine_of
+    """Машина игрока для этого запроса или None (служебный вызов, нет сессии, нет такой машины)."""
+    if not hasattr(request, "session") or not hasattr(request, "user"):
+        return None
 
-    return machine_of(request)
+    from machines.current import current_machine
+    from machines.models import Machine
+
+    try:
+        return current_machine(request)
+    except Machine.DoesNotExist:
+        return None
 
 
 class Node:

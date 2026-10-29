@@ -197,10 +197,9 @@ class PlayerLayerTests(TestCase):
         cls.instance = VolumeInstance.objects.create(volume=cls.volume, host=cls.machine)
         cls.item = Item.objects.create(slug="n", name="n", format="txt", body="x")
 
-    def test_an_instance_is_unique_per_host_and_unique_when_external(self):
+    def test_an_instance_is_unique_per_host_and_always_has_one(self):
         with self.assertRaises(IntegrityError), transaction.atomic():
             VolumeInstance.objects.create(volume=self.volume, host=self.machine)
-        VolumeInstance.objects.create(volume=self.volume, host=None)
         with self.assertRaises(IntegrityError), transaction.atomic():
             VolumeInstance.objects.create(volume=self.volume, host=None)
 

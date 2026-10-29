@@ -79,7 +79,7 @@ def record(profile, user, kind, source="", detail=""):
     event = LoginEvent.objects.create(
         profile=profile, user=user, kind=kind, source=source, detail=detail, shown_at=clock.now(profile.machine, user),
     )
-    LoginEvent.objects.filter(profile=profile, user=user, at__lt=timezone.now() - KEEP).delete()
+    LoginEvent.objects.filter(at__lt=timezone.now() - KEEP).delete()                 # старое убирается у всех, а не только у этой пары
     return event
 
 

@@ -11,10 +11,11 @@ from django.urls import get_script_prefix, reverse, set_script_prefix
 from filesystem.models import Item, Placement
 from filesystem.testing import make_app, make_file
 from machines.models import Machine, MachineProfile
+from terminal.testing import TerminalClient
 
 
 @override_settings(FORCE_SCRIPT_NAME=None)
-class EditTests(TestCase):
+class EditTests(TerminalClient, TestCase):
     @classmethod
     def setUpTestData(cls):
         cls.main = Machine.objects.create(name="Main", hostname="aether-main")
@@ -33,10 +34,6 @@ class EditTests(TestCase):
         set_script_prefix("/")
         self.addCleanup(set_script_prefix, previous)
         self.client.force_login(self.user)
-
-    def run_command(self, text):
-        response = self.client.post(reverse("terminal:execute"), data=json.dumps({"command": text}), content_type="application/json")
-        return json.loads(response.content)
 
     def edit_url(self, path):
         return reverse("fsview:edit") + "?path=" + path

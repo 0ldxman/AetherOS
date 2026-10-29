@@ -2,8 +2,6 @@
 
 Запуск: python manage.py test machines.test_clock_mounts
 """
-import json
-
 from django.contrib.auth import get_user_model
 from django.contrib.auth.hashers import make_password
 from django.core.cache import cache
@@ -14,11 +12,12 @@ from django.utils import timezone
 from filesystem.models import Item, Placement, Volume
 from filesystem.testing import make_app
 from machines import clock
+from terminal.testing import TerminalClient
 from machines.models import EntryPolicy, Export, Group, LoginEvent, Machine, MachineMount, MachineProfile, PlayerMount
 
 
 @override_settings(FORCE_SCRIPT_NAME=None)
-class WorldCase(TestCase):
+class WorldCase(TerminalClient, TestCase):
     @classmethod
     def setUpTestData(cls):
         cls.main = Machine.objects.create(name="Main", hostname="aether-main")
@@ -45,15 +44,6 @@ class WorldCase(TestCase):
     def allow(self, *privileges):
         Group.objects.create(machine=self.main, name="users", privileges=["bridge", "transfer", *privileges], everyone=True)
 
-    def post(self, payload):
-        response = self.client.post(reverse("terminal:execute"), data=json.dumps(payload), content_type="application/json")
-        return json.loads(response.content)
-
-    def run_command(self, text):
-        return self.post({"command": text})
-
-    def answer(self, text):
-        return self.post({"answer": text})
 
 
 class ClockTests(WorldCase):

@@ -587,16 +587,15 @@ class Placement(models.Model):
 class VolumeInstance(models.Model):
     """Экземпляр тома: пара (том, хост). Место, где живёт состояние игрока.
 
-    local-монтирование тома на машине M даёт экземпляр (том, M); remote указывает на экземпляр хоста. Хост пуст у тома, который
-    отдаёт не машина (внешний источник)."""
+    Локальное монтирование тома на машине M даёт экземпляр (том, M). Сетевое подключение своего экземпляра не имеет: игрок
+    работает с экземплярами самого хоста."""
 
     volume = models.ForeignKey(Volume, on_delete=models.CASCADE, related_name="instances")
-    host = models.ForeignKey("machines.Machine", null=True, blank=True, on_delete=models.CASCADE, related_name="hosted_volumes")
+    host = models.ForeignKey("machines.Machine", on_delete=models.CASCADE, related_name="hosted_volumes")
 
     class Meta:
         constraints = [
-            models.UniqueConstraint(fields=("volume", "host"), condition=Q(host__isnull=False), name="unique_instance_host"),
-            models.UniqueConstraint(fields=("volume",), condition=Q(host__isnull=True), name="unique_instance_external"),
+            models.UniqueConstraint(fields=("volume", "host"), name="unique_instance_host"),
         ]
         verbose_name = "Экземпляр тома"
         verbose_name_plural = "Экземпляры томов"

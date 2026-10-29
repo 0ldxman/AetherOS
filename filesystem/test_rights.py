@@ -11,6 +11,7 @@ from django.urls import get_script_prefix, reverse, set_script_prefix
 from filesystem.models import Placement
 from filesystem.testing import make_app, make_file
 from machines.models import Group, Machine, MachineProfile
+from terminal.testing import TerminalClient
 
 
 def secure(made, owner="", group="", mode=""):
@@ -19,7 +20,7 @@ def secure(made, owner="", group="", mode=""):
 
 
 @override_settings(FORCE_SCRIPT_NAME=None)
-class RightsTests(TestCase):
+class RightsTests(TerminalClient, TestCase):
     @classmethod
     def setUpTestData(cls):
         cls.main = Machine.objects.create(name="Main", hostname="aether-main")
@@ -39,10 +40,6 @@ class RightsTests(TestCase):
         set_script_prefix("/")
         self.addCleanup(set_script_prefix, previous)
         self.client.force_login(self.user)
-
-    def run_command(self, text):
-        response = self.client.post(reverse("terminal:execute"), data=json.dumps({"command": text}), content_type="application/json")
-        return json.loads(response.content)
 
     def output(self, text):
         return self.run_command(text)["output"]
@@ -118,7 +115,7 @@ class RightsTests(TestCase):
 
 
 @override_settings(FORCE_SCRIPT_NAME=None)
-class FolderRightsTests(TestCase):
+class FolderRightsTests(TerminalClient, TestCase):
     @classmethod
     def setUpTestData(cls):
         cls.main = Machine.objects.create(name="Main", hostname="aether-main")
@@ -133,10 +130,6 @@ class FolderRightsTests(TestCase):
         set_script_prefix("/")
         self.addCleanup(set_script_prefix, previous)
         self.client.force_login(self.user)
-
-    def run_command(self, text):
-        response = self.client.post(reverse("terminal:execute"), data=json.dumps({"command": text}), content_type="application/json")
-        return json.loads(response.content)
 
     def test_a_folder_gets_its_rights_from_perm_and_they_decide_listing_and_creating(self):
         self.assertEqual(self.run_command("perm 555 /work")["exit_code"], 0)

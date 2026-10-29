@@ -17,6 +17,7 @@ from unittest import mock
 from filesystem.testing import give_key_to_session, key_item, make_app
 from machines import entry, windows
 from machines.models import EntryPolicy, LoginEvent, Machine, MachineProfile, Session, SystemType
+from terminal.testing import TerminalClient
 
 
 class WindowTests(TestCase):
@@ -57,7 +58,7 @@ class WindowTests(TestCase):
 
 
 @override_settings(FORCE_SCRIPT_NAME=None)
-class EntryTests(TestCase):
+class EntryTests(TerminalClient, TestCase):
     @classmethod
     def setUpTestData(cls):
         cls.main = Machine.objects.create(name="Main", hostname="aether-main")
@@ -81,14 +82,6 @@ class EntryTests(TestCase):
         self.addCleanup(set_script_prefix, previous)
         cache.clear()
         self.client.force_login(self.user)
-
-    def run_command(self, text):
-        response = self.client.post(reverse("terminal:execute"), data=json.dumps({"command": text}), content_type="application/json")
-        return json.loads(response.content)
-
-    def answer(self, text):
-        response = self.client.post(reverse("terminal:execute"), data=json.dumps({"answer": text}), content_type="application/json")
-        return json.loads(response.content)
 
     def kinds(self, profile):
         return list(LoginEvent.objects.filter(profile=profile).values_list("kind", flat=True))

@@ -5,8 +5,6 @@
 отдаваемого пути, их содержимое доступно клиенту по учётке монтирования хоста (цепочка); циклов нет: машина, уже стоящая в цепочке,
 второй раз не подключается.
 """
-import posixpath
-
 from machines.groups import principal_for
 from machines.models import Export
 
@@ -39,7 +37,3 @@ def connect(client, host, host_path, account, user, trail=frozenset()):
     if account is None or account.machine_id != host.pk:
         return None
     return MachineView(host, user, principal_for(account), trail=chain)
-
-
-def parent_of(path):
-    return posixpath.dirname(path.rstrip("/")) or "/"

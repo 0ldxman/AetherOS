@@ -86,7 +86,7 @@ class LoginEvent(models.Model):
 
     profile = models.ForeignKey("machines.MachineProfile", on_delete=models.CASCADE, related_name="events")
     user = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL, related_name="login_events")
-    at = models.DateTimeField(default=timezone.now)
+    at = models.DateTimeField(default=timezone.now, db_index=True)
     shown_at = models.DateTimeField(
         "Время на машине", default=timezone.now, help_text="Время, которое показывали часы машины игрока, когда это случилось (журнал пишет его).",
     )

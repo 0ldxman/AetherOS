@@ -11,6 +11,7 @@ from django.urls import get_script_prefix, reverse, set_script_prefix
 from filesystem.testing import embed_key, key_item, make_file, make_app, remove_apps
 from machines.models import Machine
 from users.aether_auth import AUTH_REQUIRED
+from terminal.testing import TerminalClient
 
 
 @override_settings(FORCE_SCRIPT_NAME=None)
@@ -80,7 +81,7 @@ class AnonymousTerminalTests(TestCase):
 
 
 @override_settings(FORCE_SCRIPT_NAME=None)
-class TerminalSceneTests(TestCase):
+class TerminalSceneTests(TerminalClient, TestCase):
     """Сцены терминала: работа команды играет до ответа, приветствие приходит со страницей."""
 
     @classmethod
@@ -105,12 +106,6 @@ class TerminalSceneTests(TestCase):
         set_script_prefix("/")
         self.addCleanup(set_script_prefix, previous)
         self.client.force_login(self.user)
-
-    def run_command(self, text):
-        response = self.client.post(
-            reverse("terminal:execute"), data=json.dumps({"command": text}), content_type="application/json"
-        )
-        return json.loads(response.content)
 
     def ops(self, scene):
         return [step["op"] for step in scene]
@@ -286,7 +281,7 @@ class TerminalSceneTests(TestCase):
 
 
 @override_settings(FORCE_SCRIPT_NAME=None)
-class BridgeFixture(TestCase):
+class BridgeFixture(TerminalClient, TestCase):
     """Машины, записи и помощники для проверки входа на другие машины."""
 
     @classmethod
@@ -335,18 +330,6 @@ class BridgeFixture(TestCase):
 
         cache.clear()
         self.client.force_login(self.user)
-
-    def run_command(self, text):
-        response = self.client.post(
-            reverse("terminal:execute"), data=json.dumps({"command": text}), content_type="application/json"
-        )
-        return json.loads(response.content)
-
-    def answer(self, text):
-        response = self.client.post(
-            reverse("terminal:execute"), data=json.dumps({"answer": text}), content_type="application/json"
-        )
-        return json.loads(response.content)
 
     def where(self):
         from django.test import RequestFactory
@@ -970,7 +953,7 @@ class ConnectionLimitTests(BridgeFixture):
 
 
 @override_settings(FORCE_SCRIPT_NAME=None)
-class NetTests(TestCase):
+class NetTests(TerminalClient, TestCase):
     """nreq и nget: внутриигровые серверы с узлами по путям, файлы приходят в сессию игрока."""
 
     @classmethod
@@ -1016,12 +999,6 @@ class NetTests(TestCase):
         set_script_prefix("/")
         self.addCleanup(set_script_prefix, previous)
         self.client.force_login(self.user)
-
-    def run_command(self, text):
-        response = self.client.post(
-            reverse("terminal:execute"), data=json.dumps({"command": text}), content_type="application/json"
-        )
-        return json.loads(response.content)
 
     def test_the_address_is_a_url_and_the_listing_tag_marks_the_place(self):
         data = self.run_command("nreq https://apollo.com")
@@ -1295,7 +1272,7 @@ class TrashTests(TestCase):
 
 
 @override_settings(FORCE_SCRIPT_NAME=None)
-class FileOpsTests(TestCase):
+class FileOpsTests(TerminalClient, TestCase):
     """mv и cp: перенос и копирование файлов и папок в сессии."""
 
     @classmethod
@@ -1318,12 +1295,6 @@ class FileOpsTests(TestCase):
         set_script_prefix("/")
         self.addCleanup(set_script_prefix, previous)
         self.client.force_login(self.user)
-
-    def run_command(self, text):
-        response = self.client.post(
-            reverse("terminal:execute"), data=json.dumps({"command": text}), content_type="application/json"
-        )
-        return json.loads(response.content)
 
     def ls(self, path="/home"):
         return self.run_command(f"ls {path}")["output"].split()
@@ -1385,7 +1356,7 @@ class FileOpsTests(TestCase):
 
 
 @override_settings(FORCE_SCRIPT_NAME=None)
-class RawCommandTests(TestCase):
+class RawCommandTests(TerminalClient, TestCase):
     """blk, txtx и cvt работают с настоящими данными файла (запись вики) и слоями поверх них."""
 
     BODY = "Cargo manifest altered.\n\nRef A-113."
@@ -1417,12 +1388,6 @@ class RawCommandTests(TestCase):
         set_script_prefix("/")
         self.addCleanup(set_script_prefix, previous)
         self.client.force_login(self.user)
-
-    def run_command(self, text):
-        response = self.client.post(
-            reverse("terminal:execute"), data=json.dumps({"command": text}), content_type="application/json"
-        )
-        return json.loads(response.content)
 
     def test_txtx_prints_the_real_text_of_the_record(self):
         data = self.run_command("txtx /home/report.rec")
@@ -1747,7 +1712,7 @@ class RawCommandTests(TestCase):
 
 
 @override_settings(FORCE_SCRIPT_NAME=None)
-class ArchiveTests(TestCase):
+class ArchiveTests(TerminalClient, TestCase):
     """Архив это файл с расширением, под путём которого лежат другие файлы: pak l, pak x, pak pass."""
 
     BODY = "Cargo manifest altered.\n\nRef A-113."
@@ -1784,12 +1749,6 @@ class ArchiveTests(TestCase):
         set_script_prefix("/")
         self.addCleanup(set_script_prefix, previous)
         self.client.force_login(self.user)
-
-    def run_command(self, text):
-        response = self.client.post(
-            reverse("terminal:execute"), data=json.dumps({"command": text}), content_type="application/json"
-        )
-        return json.loads(response.content)
 
     def raw(self, path):
         return self.client.get(reverse("fsview:content") + f"?path={path}").content
@@ -1885,7 +1844,7 @@ class ArchiveTests(TestCase):
 
 
 @override_settings(FORCE_SCRIPT_NAME=None)
-class SignatureTests(TestCase):
+class SignatureTests(TerminalClient, TestCase):
     """Подписи: блоки в байтах файла (ward verify) и подпись игрока ключом из /home/.secrets (ward sign)."""
 
     BODY = "Cargo manifest altered.\n\nRef A-113."
@@ -1927,12 +1886,6 @@ class SignatureTests(TestCase):
         set_script_prefix("/")
         self.addCleanup(set_script_prefix, previous)
         self.client.force_login(self.user)
-
-    def run_command(self, text):
-        response = self.client.post(
-            reverse("terminal:execute"), data=json.dumps({"command": text}), content_type="application/json"
-        )
-        return json.loads(response.content)
 
     def raw(self, path):
         return self.client.get(reverse("fsview:content") + f"?path={path}").content
@@ -2018,7 +1971,7 @@ class SignatureTests(TestCase):
 
 
 @override_settings(FORCE_SCRIPT_NAME=None)
-class WardKeyTests(TestCase):
+class WardKeyTests(TerminalClient, TestCase):
     """ward расшифровывает паролем или ключом из /home/.secrets; зашифрованный файл в байтах выглядит как PGP."""
 
     BODY = "Cargo manifest altered.\n\nRef A-113."
@@ -2051,12 +2004,6 @@ class WardKeyTests(TestCase):
         set_script_prefix("/")
         self.addCleanup(set_script_prefix, previous)
         self.client.force_login(self.user)
-
-    def run_command(self, text):
-        response = self.client.post(
-            reverse("terminal:execute"), data=json.dumps({"command": text}), content_type="application/json"
-        )
-        return json.loads(response.content)
 
     def raw(self, path):
         return self.client.get(reverse("fsview:content") + f"?path={path}").content
@@ -2175,7 +2122,7 @@ class WardKeyTests(TestCase):
 
 
 @override_settings(FORCE_SCRIPT_NAME=None)
-class HelpTests(TestCase):
+class HelpTests(TerminalClient, TestCase):
     @classmethod
     def setUpTestData(cls):
         from machines.models import MachineProfile
@@ -2191,12 +2138,6 @@ class HelpTests(TestCase):
         set_script_prefix("/")
         self.addCleanup(set_script_prefix, previous)
         self.client.force_login(self.user)
-
-    def run_command(self, text):
-        response = self.client.post(
-            reverse("terminal:execute"), data=json.dumps({"command": text}), content_type="application/json"
-        )
-        return json.loads(response.content)
 
     def test_every_command_of_the_system_has_help_text(self):
         from terminal.engine.commands import COMMANDS
@@ -2238,7 +2179,7 @@ class HelpTests(TestCase):
 
 
 @override_settings(FORCE_SCRIPT_NAME=None)
-class HomeFolderTests(TestCase):
+class HomeFolderTests(TerminalClient, TestCase):
     """Оболочка начинается в домашней папке записи (место home), а если её нет, в /home."""
 
     @classmethod
@@ -2255,12 +2196,6 @@ class HomeFolderTests(TestCase):
         set_script_prefix("/")
         self.addCleanup(set_script_prefix, previous)
         self.client.force_login(self.user)
-
-    def run_command(self, text):
-        response = self.client.post(
-            reverse("terminal:execute"), data=json.dumps({"command": text}), content_type="application/json"
-        )
-        return json.loads(response.content)
 
     def test_without_a_home_folder_the_shell_starts_in_home(self):
         page = self.client.get(reverse("terminal:index"))
