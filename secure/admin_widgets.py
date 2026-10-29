@@ -1,7 +1,7 @@
 """Поле и виджет условий по ключам для форм админки.
 
 Показывает тот же визуальный редактор, что и страница записи вики
-(wiki/static/wiki/condition_editor.js), вместо сырого JSON, и проверяет
+(secure/static/secure/condition_editor.js), вместо сырого JSON, и проверяет
 значение так же, как поля access/visibility вики (validate_requirements).
 
 Подключение: примесь ConditionFieldsMixin и список полей.
@@ -22,8 +22,8 @@ class ConditionWidget(forms.Textarea):
     """Textarea, из которой condition_init.js делает редактор условий."""
 
     class Media:
-        css = {"all": ("wiki/condition_editor.css",)}
-        js = ("wiki/condition_editor.js", "wiki/condition_init.js")
+        css = {"all": ("secure/condition_editor.css",)}
+        js = ("secure/condition_editor.js", "secure/condition_init.js")
 
     def __init__(self, title="", attrs=None):
         super().__init__({"rows": 3, "data-condition-editor": "1", "data-label": title, **(attrs or {})})

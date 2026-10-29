@@ -71,7 +71,7 @@ import {
   aetherHighlightStyle,
 } from "./editor/aether-theme.js";
 
-import "./condition_editor.js";
+import "../secure/condition_editor.js";
 
 (function () {
   "use strict";

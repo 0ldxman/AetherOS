@@ -1,16 +1,9 @@
-"""Предпросмотр записи вики в админке (редактор, шаг 1).
+"""Редактор документа в админке: предпросмотр разметки и поиск ассетов для вставки.
 
-Подключается к DocumentAdmin как примесь, поэтому save_model и остальной
-код админки не трогаются:
-
-    from wiki.admin.preview import DocumentPreviewMixin
-
-    class DocumentAdmin(DocumentPreviewMixin, admin.ModelAdmin):
-        ...
+Подключается к админке как примесь (у объекта это filesystem.admin.preview.ItemPreviewMixin, она же задаёт шаблон
+страницы с редактором documents/editor.js), поэтому save_model и остальной код админки не трогаются.
 
 Что делает:
-- страница записи в админке получает панель предпросмотра справа
-  (шаблон admin/wiki/document/change_form.html, static wiki/editor.js);
 - эндпоинт preview/ принимает JSON с ещё не сохранённым текстом и отдаёт
   готовые html-страницы документа и инфобокса. Рендер тот же, что у игрока
   (markup.render и шаблоны documents/document.html, documents/infobox.html), поэтому
@@ -86,7 +79,7 @@ def _lint_fields(data):
         try:
             result[field] = [i.as_dict() for i in markup.lint(_text(data.get(field)))]
         except Exception:
-            logger.exception("Ошибка проверки текста записи вики (%s)", field)
+            logger.exception("Ошибка проверки текста документа (%s)", field)
             result[field] = []
     return result
 
@@ -101,8 +94,6 @@ def _asset_item(asset):
 
 
 class DocumentPreviewMixin:
-    change_form_template = "admin/wiki/document/change_form.html"
-
     def _url_name(self, suffix):
         opts = self.model._meta
         return f"{opts.app_label}_{opts.model_name}_{suffix}"
@@ -183,7 +174,7 @@ class DocumentPreviewMixin:
                 "documents/infobox.html", {"doc": doc, "infobox_html": infobox_html}
             )
         except Exception as exc:  # предпросмотр не должен ронять админку
-            logger.exception("Ошибка предпросмотра записи вики")
+            logger.exception("Ошибка предпросмотра документа")
             return _error(f"{type(exc).__name__}: {exc}"[:300], 500)
 
         return JsonResponse(

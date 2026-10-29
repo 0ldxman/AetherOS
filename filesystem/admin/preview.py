@@ -1,6 +1,6 @@
-"""Предпросмотр объекта в админке: тот же редактор и рендер, что у записи вики (wiki.admin.preview), поля объекта вместо полей записи.
+"""Предпросмотр объекта в админке: тот же редактор и рендер, что у окна документа (documents.editor), поля объекта вместо полей записи.
 
-Редактор вики ищет поля формы по id (title, type, body, infobox); у объекта они называются name, format, body, meta, и
+Редактор документа ищет поля формы по id (title, type, body, infobox); у объекта они называются name, format, body, meta, и
 filesystem/static/filesystem/item_admin.js переименовывает их до запуска редактора. Для форматов, которые умеют быть страницей вики
 (FileFormat.markup), текст рендерится разметкой вики; остальные показываются как есть.
 """
@@ -14,7 +14,7 @@ from django.utils.html import escape
 from django.utils.safestring import mark_safe
 
 from documents import markup
-from wiki.admin.preview import (
+from documents.editor import (
     DOC_TYPES, MAX_REQUEST_BYTES, MAX_TITLE_LEN, DocumentPreviewMixin, _error, _lint_fields, _preview_keys, _text,
 )
 
