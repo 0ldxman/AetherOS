@@ -6,6 +6,12 @@ class WikiConfig(AppConfig):
     name = 'wiki'
 
     def ready(self):
+        from filesystem.content.rawview import flatten as file_flatten
+        from secure import usage
+        from wiki import flatten, key_usage
+
+        file_flatten.register(flatten.flatten)
+        usage.register(key_usage.key_usage)
         from wiki.versioning import bump_version
 
         from filesystem.models import Item, Placement, Volume

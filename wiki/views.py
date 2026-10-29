@@ -11,7 +11,8 @@ from django.utils.safestring import mark_safe
 
 from secure.access import satisfied
 
-from wiki.access import document_state, namespace_state, request_keys
+from wiki.access import document_state, namespace_state
+from secure.requestkeys import request_keys
 from wiki.markup import render as render_markup, visible_text
 from wiki.library import library
 from wiki.versioning import WIKI_COUNTS_TTL, WIKI_VERSION_KEY

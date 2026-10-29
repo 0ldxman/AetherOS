@@ -9,6 +9,10 @@ class MailConfig(AppConfig):
 
         from mail.models import Delivered, Message, MessageRead, Trashed
         from mail.pulse_cache import bump_version
+        from mail.usage import key_usage, key_conditions
+        from secure import usage
+
+        usage.register(key_usage, key_conditions)
 
         for model in (Message, Delivered, MessageRead, Trashed):
             post_save.connect(lambda **kw: bump_version(), sender=model, weak=False, dispatch_uid=f"mail-bump-{model.__name__}")

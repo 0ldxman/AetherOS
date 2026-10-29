@@ -19,7 +19,7 @@ from machines.network.bridge import terminal_session
 from terminal.engine.context import TerminalContext
 from terminal.engine.filesystem import VirtualFilesystem
 from users.aether_auth import is_player
-from wiki.access import request_keys
+from secure.requestkeys import request_keys
 
 RANGE = re.compile(r"^bytes=(\d*)-(\d*)$")
 

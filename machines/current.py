@@ -6,7 +6,7 @@ from urllib.parse import urlsplit
 from django.urls import Resolver404, resolve
 
 from secure.access import satisfied
-from wiki.access import request_keys
+from secure.requestkeys import request_keys
 
 NULL_HOSTNAME = "aether-null"
 MAIN_HOSTNAME = "aether-main"

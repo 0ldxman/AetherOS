@@ -1,6 +1,6 @@
 from django.urls import path
 
-from filesystem import views
+from terminal.fsview import views
 
 app_name = "fsview"
 

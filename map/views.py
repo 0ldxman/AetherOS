@@ -87,7 +87,7 @@ def timeline_dates(request):
 def _visible_scenes(request, light=False):
     """Сохранённые карты, открытые игроку по ключам. light не грузит пометки и миниатюру (списку они не нужны)."""
     from secure.access import satisfied
-    from wiki.access import request_keys
+    from secure.requestkeys import request_keys
 
     from map.models import MapScene
 

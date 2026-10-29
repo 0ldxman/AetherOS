@@ -48,7 +48,7 @@ from assets.services import asset_widget_kind
 from secure.keys import key_rows
 
 from wiki import markup
-from wiki.access import keys_for_mode
+from secure.requestkeys import keys_for_mode
 
 DOC_TYPES = ("doc", "scan", "web", "rec")
 

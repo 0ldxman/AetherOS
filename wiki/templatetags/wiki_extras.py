@@ -1,6 +1,6 @@
 from django import template
 
-from wiki.access import VIEW_AS_SESSION
+from secure.requestkeys import VIEW_AS_SESSION
 
 register = template.Library()
 

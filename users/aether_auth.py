@@ -63,7 +63,7 @@ def _mail_summary(request):
     from mail.access import Viewer, guest_address, session_key_of, summary, viewer_for
     from machines.current import NULL_HOSTNAME
     from machines.models import Machine
-    from wiki.access import request_keys
+    from secure.requestkeys import request_keys
 
     try:
         viewer = viewer_for(request)

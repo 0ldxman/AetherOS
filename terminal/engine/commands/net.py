@@ -10,7 +10,7 @@ from terminal.scenes import net as scenes
 from terminal.engine.commands.basic import BaseCommand
 from terminal.engine.result import CommandResult
 from terminal.engine.transfer import place_item
-from wiki.access import request_keys
+from secure.requestkeys import request_keys
 
 
 class Site:

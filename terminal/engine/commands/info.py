@@ -108,7 +108,7 @@ class CntCommand(BaseCommand):
 
         if raw_view:
             # cnt -r: сырые байты файла во вьювере raw; слои и хуки read не трогаются (это не «открыть», а «заглянуть внутрь»)
-            from filesystem.views import raw_url
+            from terminal.fsview.views import raw_url
 
             return CommandResult(
                 f"cnt: {target}: opened in the raw viewer ({size_of(context, entry)} bytes)",
@@ -153,7 +153,7 @@ class EdtCommand(BaseCommand):
 
     def execute(self, context, args):
         from filesystem import edit
-        from filesystem.views import edit_url
+        from terminal.fsview.views import edit_url
 
         if len(args) != 1:
             return CommandResult("usage: edt file", 2)

@@ -171,7 +171,7 @@ def attachment_text(request, pk):
     from django.http import HttpResponse
 
     from filesystem.content.rawview import build_raw_cached
-    from wiki.access import request_keys
+    from secure.requestkeys import request_keys
 
     viewer = _viewer_or_404(request)
     attachment = Attachment.objects.filter(pk=pk, kind=Attachment.Kind.FILE).select_related("item").first()

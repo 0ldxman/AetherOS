@@ -18,35 +18,34 @@ class Usage:
     url: str
 
 
-def _json_conditions():
-    """(объект, вид, условие) для всех JSON-условий вне вики."""
-    from mail.models import Message
+_providers = []
+
+
+def register(usage, conditions=None):
+    """Приложение называет свои места с ключами. Так secure не знает ни вики, ни почты.
+
+    usage(slug) -> [Usage]: где ключ назван; conditions() -> [условие]: все его JSON-условия (для списка занятых ключей).
+    """
+    _providers.append((usage, conditions))
+
+
+def _profiles(slug):
     from machines.models import MachineProfile
 
-    for profile in MachineProfile.objects.select_related("machine").exclude(key_condition=None):
-        yield profile, "профиль", profile.key_condition
-    for message in Message.objects.exclude(key_condition=None):
-        yield message, "письмо", message.key_condition
-
-
-_ADMIN = {
-    "профиль": "admin:machines_machineprofile_change",
-    "письмо": "admin:mail_message_change",
-}
+    return [
+        Usage("профиль", str(profile), reverse("admin:machines_machineprofile_change", args=[profile.pk]))
+        for profile in MachineProfile.objects.select_related("machine").exclude(key_condition=None)
+        if slug in condition_slugs(profile.key_condition)
+    ]
 
 
 def key_usage(slug):
     """Список Usage для ключа: вики, машины, файлы."""
     from filesystem.models import Item, ItemKey, ItemSignature, Placement, Volume
-    from wiki.key_usage import key_usage as wiki_usage
 
-    found = []
-    found += [
-        Usage("запись", item.name, reverse("admin:filesystem_item_change", args=[item.pk])) for item in wiki_usage(slug)
-    ]
-    for obj, kind, condition in _json_conditions():
-        if slug in condition_slugs(condition):
-            found.append(Usage(kind, str(obj), reverse(_ADMIN[kind], args=[obj.pk])))
+    found = _profiles(slug)
+    for usage, _ in _providers:
+        found += usage(slug)
     for link in ItemKey.objects.filter(key__slug=slug).select_related("item"):
         found.append(Usage("объект", str(link.item), reverse("admin:filesystem_item_change", args=[link.item_id])))
     for link in ItemSignature.objects.filter(key__slug=slug).select_related("item"):
@@ -63,8 +62,13 @@ def used_slugs():
     from filesystem.models import Item, ItemKey, ItemSignature, Placement, Volume
 
     slugs = set()
-    for _, _, condition in _json_conditions():
+    from machines.models import MachineProfile
+
+    for condition in MachineProfile.objects.exclude(key_condition=None).values_list("key_condition", flat=True):
         slugs.update(condition_slugs(condition))
+    for _, conditions in _providers:
+        for condition in conditions() if conditions else ():
+            slugs.update(condition_slugs(condition))
     slugs.update(ItemKey.objects.values_list("key__slug", flat=True))
     slugs.update(ItemSignature.objects.values_list("key__slug", flat=True))
     for model in (Item, Placement, Volume):

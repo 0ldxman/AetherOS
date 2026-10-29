@@ -6,7 +6,10 @@
 import json
 import re
 
+from django.urls import reverse
+
 from filesystem.models import Item
+from secure.usage import Usage
 from wiki.library import _pages_formats
 
 
@@ -15,10 +18,14 @@ def _mentions(slug, *texts):
     return any(pattern.search(t or "") for t in texts)
 
 
-def key_usage(slug):
+def pages(slug):
     """Объекты страниц, в тексте или врезке которых упомянут ключ."""
     candidates = Item.objects.filter(body__contains=slug) | Item.objects.filter(meta__contains=slug)
     return [
         item for item in candidates.distinct()
         if item.format in _pages_formats() and _mentions(slug, item.body, json.dumps(item.meta))
     ]
+
+
+def key_usage(slug):
+    return [Usage("запись", item.name, reverse("admin:filesystem_item_change", args=[item.pk])) for item in pages(slug)]

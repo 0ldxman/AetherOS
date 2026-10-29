@@ -2,7 +2,7 @@
 from filesystem.machine_view import MachineView
 from filesystem.content.rawview import build_raw
 from filesystem.content.size import file_size
-from wiki.access import request_keys
+from secure.requestkeys import request_keys
 
 
 def keys_of(context):
