@@ -12,7 +12,7 @@
   let creating = $state(false);
   let templates = $state<Schemas["Template"][]>([]);
   let machines = $state<Schemas["MachineRow"][]>([]);
-  let form = $state({ name: "", slug: "", label: "", uuid: "", template: null as number | null, machine: null as number | null, mount_path: "/" });
+  let form = $state({ name: "", slug: "", label: "", uuid: "", template: null as number | null, machine: null as number | null, mount_path: "/", capacity_gb: null as number | null, used_gb: null as number | null });
   let slugTouched = false;
   let errors = $state<Record<string, string[]>>({});
 
@@ -22,13 +22,20 @@
   }
 
   async function openCreate() {
-    form = { name: "", slug: "", label: "", uuid: "", template: null, machine: null, mount_path: "/" };
+    form = { name: "", slug: "", label: "", uuid: "", template: null, machine: null, mount_path: "/", capacity_gb: null, used_gb: null };
     slugTouched = false;
     errors = {};
     creating = true;
     const [t, m] = await Promise.all([api.GET("/studio/api/templates"), api.GET("/studio/api/machines")]);
     templates = t.data ?? [];
     machines = m.data ?? [];
+  }
+
+  const gb = (value: string) => (value === "" ? null : Math.max(0, Math.round(+value)));
+
+  // занято условно: от 20 до 70 % ёмкости
+  function randomUsed() {
+    if (form.capacity_gb) form.used_gb = Math.round((form.capacity_gb * (20 + Math.random() * 50)) / 100);
   }
 
   async function create() {
@@ -125,12 +132,22 @@
       </label>
       {#if errors.mount_path}<p class="err">{errors.mount_path.join(" ")}</p>{/if}
     {/if}
+    <div class="two">
+      <label><span class="label">Ёмкость, ГБ (декор)</span><input class="field" type="number" min="0" value={form.capacity_gb ?? ""} oninput={(e) => (form.capacity_gb = gb(e.currentTarget.value))} /></label>
+      <label><span class="label">Занято, ГБ</span>
+        <span class="inline"><input class="field" type="number" min="0" value={form.used_gb ?? ""} oninput={(e) => (form.used_gb = gb(e.currentTarget.value))} />
+          <button type="button" class="btn ghost" disabled={!form.capacity_gb} onclick={randomUsed}>Случайно</button></span>
+      </label>
+    </div>
+    {#if errors.used_gb}<p class="err">{errors.used_gb.join(" ")}</p>{/if}
     <label><span class="label">UUID (пусто: сгенерируется)</span><input class="field mono" bind:value={form.uuid} class:bad={errors.uuid} /></label>
     {#if errors.uuid}<p class="err">{errors.uuid.join(" ")}</p>{/if}
   </Dialog>
 {/if}
 
 <style>
+  .two { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .inline { display: flex; gap: 6px; }
   .err { margin: 0; color: var(--danger); font-size: 12px; }
   .field.bad { border-color: var(--danger); }
   .head { display: flex; justify-content: space-between; align-items: flex-end; gap: 24px; padding: 28px 32px 18px; }

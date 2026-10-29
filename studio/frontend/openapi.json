@@ -195,6 +195,52 @@
    }
   },
   "/studio/api/volumes/{volume_id}": {
+   "put": {
+    "operationId": "studio_api_volumes_save",
+    "summary": "Save",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "volume_id",
+      "schema": {
+       "title": "Volume Id",
+       "type": "integer"
+      },
+      "required": true
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/VolumeTree"
+        }
+       }
+      }
+     }
+    },
+    "description": "Свойства тома: слаг, название диска, метка, UUID, условные ёмкость и занятое место.",
+    "tags": [
+     "volumes"
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/VolumeProps"
+       }
+      }
+     },
+     "required": true
+    },
+    "security": [
+     {
+      "SessionAuthIsStaff": []
+     }
+    ]
+   },
    "get": {
     "operationId": "studio_api_volumes_tree",
     "summary": "Tree",
@@ -4268,6 +4314,28 @@
       "default": "",
       "title": "Mount Path",
       "type": "string"
+     },
+     "capacity_gb": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Capacity Gb"
+     },
+     "used_gb": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Used Gb"
      }
     },
     "required": [
@@ -4424,6 +4492,28 @@
       "title": "Uuid",
       "type": "string"
      },
+     "capacity_gb": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Capacity Gb"
+     },
+     "used_gb": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Used Gb"
+     },
      "rows": {
       "items": {
        "$ref": "#/components/schemas/Node"
@@ -4438,9 +4528,61 @@
      "name",
      "label",
      "uuid",
+     "capacity_gb",
+     "used_gb",
      "rows"
     ],
     "title": "VolumeTree",
+    "type": "object"
+   },
+   "VolumeProps": {
+    "properties": {
+     "slug": {
+      "title": "Slug",
+      "type": "string"
+     },
+     "name": {
+      "default": "",
+      "title": "Name",
+      "type": "string"
+     },
+     "label": {
+      "default": "",
+      "title": "Label",
+      "type": "string"
+     },
+     "uuid": {
+      "title": "Uuid",
+      "type": "string"
+     },
+     "capacity_gb": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Capacity Gb"
+     },
+     "used_gb": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Used Gb"
+     }
+    },
+    "required": [
+     "slug",
+     "uuid"
+    ],
+    "title": "VolumeProps",
     "type": "object"
    },
    "NewFolder": {

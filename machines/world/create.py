@@ -22,9 +22,9 @@ def _slug(base):
 
 
 @transaction.atomic
-def create_volume(slug, name="", label="", uuid=None, template=None, machine=None, mount_path=""):
+def create_volume(slug, name="", label="", uuid=None, template=None, machine=None, mount_path="", capacity_gb=None, used_gb=None):
     """Новый том: пустой или по шаблону файловой структуры (template: pk VolumeTemplate), по желанию сразу смонтированный на машину."""
-    disk = Volume(slug=slug.strip(), name=name.strip(), label=label.strip())
+    disk = Volume(slug=slug.strip(), name=name.strip(), label=label.strip(), capacity_gb=capacity_gb, used_gb=used_gb)
     if uuid:
         disk.uuid = uuid
     disk.full_clean()

@@ -57,6 +57,8 @@ class VolumeTree(Schema):
     name: str
     label: str
     uuid: str
+    capacity_gb: int | None
+    used_gb: int | None
     rows: list[Node]
 
 
@@ -126,6 +128,17 @@ class NewVolume(Schema):
     template: int | None = None
     machine: int | None = None  # сразу смонтировать на машину
     mount_path: str = ""
+    capacity_gb: int | None = None
+    used_gb: int | None = None
+
+
+class VolumeProps(Schema):
+    slug: str
+    name: str = ""
+    label: str = ""
+    uuid: str
+    capacity_gb: int | None = None
+    used_gb: int | None = None
 
 
 class VolumeMade(Schema):
@@ -135,8 +148,19 @@ class VolumeMade(Schema):
 @router.post("", response=VolumeMade)
 def create(request, body: NewVolume):
     """Новый том (пустой или по шаблону файловой структуры), по желанию сразу смонтированный на машину."""
-    disk = create_volume(body.slug, body.name, body.label, body.uuid or None, body.template, body.machine, body.mount_path)
+    disk = create_volume(body.slug, body.name, body.label, body.uuid or None, body.template, body.machine, body.mount_path, body.capacity_gb, body.used_gb)
     return VolumeMade(id=disk.pk)
+
+
+@router.put("/{int:volume_id}", response=VolumeTree)
+def save(request, volume_id: int, body: VolumeProps):
+    """Свойства тома: слаг, название диска, метка, UUID, условные ёмкость и занятое место."""
+    volume = get_object_or_404(Volume, pk=volume_id)
+    volume.slug, volume.name, volume.label, volume.uuid = body.slug.strip(), body.name.strip(), body.label.strip(), body.uuid.strip()
+    volume.capacity_gb, volume.used_gb = body.capacity_gb, body.used_gb
+    volume.full_clean()
+    volume.save()
+    return tree(request, volume_id)
 
 
 @router.get("/{int:volume_id}", response=VolumeTree)
@@ -144,7 +168,7 @@ def tree(request, volume_id: int):
     volume = get_object_or_404(Volume, pk=volume_id)
     return VolumeTree(
         id=volume.pk, slug=volume.slug, name=volume.name, label=volume.label, uuid=str(volume.uuid),
-        rows=filemanager.data(volume)["rows"],
+        capacity_gb=volume.capacity_gb, used_gb=volume.used_gb, rows=filemanager.data(volume)["rows"],
     )
 
 

@@ -78,6 +78,28 @@ class StudioApiTests(TestCase):
         self.assertEqual(list(MachineMount.objects.filter(volume=volume).values_list("machine", "mount_path")), [(machine.pk, "/")])
         self.assertEqual(self.call("post", "/volumes", {"slug": "core-root"})[0], 400)       # слаг занят
 
+    def test_volume_properties_and_the_decorative_size(self):
+        tree = self.call("get", f"/volumes/{self.volume.pk}")[1]
+        self.assertEqual((tree["capacity_gb"], tree["used_gb"]), (None, None))
+        body = {"slug": "harbor", "name": "Harbor disk", "label": "x", "uuid": tree["uuid"], "capacity_gb": 4000, "used_gb": 1700}
+        status, saved = self.call("put", f"/volumes/{self.volume.pk}", body)
+        self.assertEqual((status, saved["name"], saved["capacity_gb"], saved["used_gb"]), (200, "Harbor disk", 4000, 1700))
+        self.assertEqual(self.call("put", f"/volumes/{self.volume.pk}", {**body, "used_gb": 5000})[0], 400)       # занято больше ёмкости
+        self.assertEqual(self.call("put", f"/volumes/{self.volume.pk}", {**body, "uuid": "oops"})[0], 400)
+
+    def test_the_greeting_counts_the_disks_of_a_machine(self):
+        from machines.models import Machine, MachineMount
+        from machines.world.facts import disks_text, size_text
+
+        self.assertEqual((size_text(512), size_text(4000), size_text(1500), size_text(12000)), ("512 GB", "4 TB", "1.5 TB", "12 TB"))
+        machine = Machine.objects.create(name="Core", hostname="core")
+        self.assertIsNone(disks_text(machine))
+        other = Volume.objects.create(slug="other", capacity_gb=1000, used_gb=250)
+        Volume.objects.filter(pk=self.volume.pk).update(capacity_gb=3000, used_gb=750)
+        MachineMount.objects.create(machine=machine, volume=self.volume, mount_path="/")
+        MachineMount.objects.create(machine=machine, volume=other, mount_path="/mnt/other")
+        self.assertEqual(disks_text(machine), ("4 TB", "1 TB", "25"))
+
     def test_refusals_come_back_as_messages(self):
         self.call("post", f"/volumes/{self.volume.pk}/folders", {"name": "ports"})
         status, answer = self.call("post", f"/volumes/{self.volume.pk}/folders", {"name": "ports"})

@@ -469,6 +469,12 @@ class Volume(models.Model):
         "Доступ", default=dict, blank=True, validators=[validate_requirements],
         help_text="Условие по слагам ключей, закрывающее весь том. Пусто: всем.",
     )
+    capacity_gb = models.PositiveIntegerField(
+        "Ёмкость, ГБ", null=True, blank=True, help_text="Условный размер диска, декор: показывается в приветствии ОС ({disk_total}). Пусто: не задан.",
+    )
+    used_gb = models.PositiveIntegerField(
+        "Занято, ГБ", null=True, blank=True, help_text="Сколько на диске условно занято (декор, {disk_used} и {disk_percent}). Пусто: не задано.",
+    )
 
     class Meta:
         ordering = ("slug",)
@@ -477,6 +483,11 @@ class Volume(models.Model):
 
     def __str__(self):
         return f"{self.slug} ({self.label})" if self.label else self.slug
+
+    def clean(self):
+        super().clean()
+        if self.capacity_gb is not None and self.used_gb is not None and self.used_gb > self.capacity_gb:
+            raise ValidationError({"used_gb": "Занято больше, чем ёмкость диска."})
 
 
 class Placement(models.Model):

@@ -14,6 +14,34 @@
   let formats = $state<Schemas["Format"][]>([]);
   let selected = $state<Set<number>>(new Set());
   let opened = $state<Set<number>>(new Set());
+  let propsOpen = $state(false);
+  let props_ = $state({ slug: "", name: "", label: "", uuid: "", capacity_gb: null as number | null, used_gb: null as number | null });
+  let propErrors = $state<Record<string, string[]>>({});
+
+  function openProps() {
+    if (!volume) return;
+    props_ = { slug: volume.slug, name: volume.name, label: volume.label, uuid: volume.uuid, capacity_gb: volume.capacity_gb ?? null, used_gb: volume.used_gb ?? null };
+    propErrors = {};
+    propsOpen = true;
+  }
+
+  async function saveProps() {
+    const { data, error } = await api.PUT("/studio/api/volumes/{volume_id}", { params: { path: { volume_id: id } }, body: props_ });
+    if (error || !data) {
+      propErrors = (error as { fields?: Record<string, string[]> } | undefined)?.fields ?? {};
+      return toast(problem(error, "Не сохранилось."), "error");
+    }
+    if (volume) volume = { ...volume, ...data, rows: volume.rows };
+    propsOpen = false;
+    toast("Свойства тома сохранены.");
+  }
+
+  const gbOf = (value: string) => (value === "" ? null : Math.max(0, Math.round(+value)));
+
+  function randomUsed() {
+    if (props_.capacity_gb) props_.used_gb = Math.round((props_.capacity_gb * (20 + Math.random() * 50)) / 100);
+  }
+
   let dialog = $state<null | { kind: "folder" | "file" | "rename" | "delete"; name: string; format: string }>(null);
   let busy = $state(false);
   let dragging = $state<number[]>([]);
@@ -239,6 +267,7 @@
         {/each}
       </nav>
       <div class="actions">
+        <button class="btn ghost" onclick={openProps}>Свойства</button>
         <button class="btn" onclick={() => (dialog = { kind: "folder", name: "", format: "" })}>Новая папка</button>
         <button class="btn primary" onclick={() => (dialog = { kind: "file", name: "", format: "" })}>Новый файл</button>
       </div>
@@ -295,6 +324,25 @@
   </section>
 </div>
 
+{#if propsOpen}
+  <Dialog title="Свойства тома" confirm="Сохранить" onsubmit={saveProps} onclose={() => (propsOpen = false)}>
+    <label><span class="label">Название диска (как в игре)</span><input class="field" bind:value={props_.name} /></label>
+    <label><span class="label">Слаг</span><input class="field mono" bind:value={props_.slug} class:bad={propErrors.slug} /></label>
+    {#if propErrors.slug}<p class="err">{propErrors.slug.join(" ")}</p>{/if}
+    <label><span class="label">Метка для студии</span><input class="field" bind:value={props_.label} /></label>
+    <div class="two">
+      <label><span class="label">Ёмкость, ГБ (декор)</span><input class="field" type="number" min="0" value={props_.capacity_gb ?? ""} oninput={(e) => (props_.capacity_gb = gbOf(e.currentTarget.value))} /></label>
+      <label><span class="label">Занято, ГБ</span>
+        <span class="inline"><input class="field" type="number" min="0" value={props_.used_gb ?? ""} oninput={(e) => (props_.used_gb = gbOf(e.currentTarget.value))} />
+          <button type="button" class="btn ghost" disabled={!props_.capacity_gb} onclick={randomUsed}>Случайно</button></span>
+      </label>
+    </div>
+    {#if propErrors.used_gb}<p class="err">{propErrors.used_gb.join(" ")}</p>{/if}
+    <label><span class="label">UUID</span><input class="field mono" bind:value={props_.uuid} class:bad={propErrors.uuid} /></label>
+    {#if propErrors.uuid}<p class="err">{propErrors.uuid.join(" ")}</p>{/if}
+  </Dialog>
+{/if}
+
 {#if dialog?.kind === "folder"}
   <Dialog title="Новая папка" confirm="Создать" {busy} onsubmit={submit} onclose={() => (dialog = null)}>
     <input class="field" placeholder="Имя папки" bind:value={dialog.name} />
@@ -322,6 +370,10 @@
 {/if}
 
 <style>
+  .two { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .inline { display: flex; gap: 6px; }
+  .err { margin: 0; color: var(--danger); font-size: 12px; }
+  .field.bad { border-color: var(--danger); }
   .volume { display: grid; grid-template-columns: 250px 1fr; height: 100%; }
   .tree { padding: 12px 8px; border-right: 1px solid var(--line-soft); overflow: auto; background: var(--panel); }
   .back { margin: 0 0 10px 6px; background: none; border: 0; color: var(--muted); cursor: pointer; padding: 4px; }

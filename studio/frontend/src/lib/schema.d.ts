@@ -105,7 +105,11 @@ export interface paths {
         };
         /** Tree */
         get: operations["studio_api_volumes_tree"];
-        put?: never;
+        /**
+         * Save
+         * @description Свойства тома: слаг, название диска, метка, UUID, условные ёмкость и занятое место.
+         */
+        put: operations["studio_api_volumes_save"];
         post?: never;
         delete?: never;
         options?: never;
@@ -1380,6 +1384,10 @@ export interface components {
              * @default
              */
             mount_path: string;
+            /** Capacity Gb */
+            capacity_gb?: number | null;
+            /** Used Gb */
+            used_gb?: number | null;
         };
         /** ItemBrief */
         ItemBrief: {
@@ -1434,8 +1442,33 @@ export interface components {
             label: string;
             /** Uuid */
             uuid: string;
+            /** Capacity Gb */
+            capacity_gb: number | null;
+            /** Used Gb */
+            used_gb: number | null;
             /** Rows */
             rows: components["schemas"]["Node"][];
+        };
+        /** VolumeProps */
+        VolumeProps: {
+            /** Slug */
+            slug: string;
+            /**
+             * Name
+             * @default
+             */
+            name: string;
+            /**
+             * Label
+             * @default
+             */
+            label: string;
+            /** Uuid */
+            uuid: string;
+            /** Capacity Gb */
+            capacity_gb?: number | null;
+            /** Used Gb */
+            used_gb?: number | null;
         };
         /** NewFolder */
         NewFolder: {
@@ -3257,6 +3290,32 @@ export interface operations {
             cookie?: never;
         };
         requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VolumeTree"];
+                };
+            };
+        };
+    };
+    studio_api_volumes_save: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                volume_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["VolumeProps"];
+            };
+        };
         responses: {
             /** @description OK */
             200: {

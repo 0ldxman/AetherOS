@@ -375,6 +375,7 @@ GREETING_PARAMS = {
     "beacon_last_sync": "дата обновления списков станций", "stations": "станций отвечает из каталога (17 of 31)",
     "stations_known": "станций в каталоге", "stations_reachable": "станций отвечает", "audit_events": "накопленных записей аудита", "freq": "частота учётки, под которой вошли", "date": "дата в мире", "last_login": "прошлый вход этой учётки",
     "uptime": "сколько работает машина", "accounts": "число учёток машины", "sessions": "сколько игроков на машине сейчас",
+    "disk_total": "условная ёмкость дисков", "disk_used": "занято на дисках", "disk_percent": "занято, %",
     "unread": "число непрочитанных писем", "mail": "строка про непрочитанную почту", "volumes": "тома машины", "note": "заметка машины",
 }
 
@@ -400,7 +401,7 @@ def _world_params(ident):
 
 def greeting_params(ident, login, mail=None, system=None, facts=None):
     """Значения для приветствия. facts: то, что берётся из базы (machines.world.facts); без него остаются условные."""
-    facts = {"accounts": 0, "sessions": 0, "last_login": "never", "uptime": "unknown", "note": "", "volumes": "none", "freq": None, **(facts or {})}
+    facts = {"accounts": 0, "sessions": 0, "last_login": "never", "uptime": "unknown", "note": "", "volumes": "none", "disk_total": "unknown", "disk_used": "unknown", "disk_percent": "?", "freq": None, **(facts or {})}
     return {
         "host": ident.hostname, "login": login, "os": system.code if system else "", "os_name": system.name if system else "",
         "address": ident.address, "serial": ident.serial, "hid": ident.hid, "host_key": ident.host_key, "date": world().game_date, "time": f"{world().game_now:%H:%M} UTC",
