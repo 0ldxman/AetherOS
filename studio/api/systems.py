@@ -308,11 +308,9 @@ def preview_greeting(request, code: str, body: GreetingIn):
     machine = Machine.objects.filter(system=system.code).order_by("hostname").first()
     host = machine.hostname if machine else "host"
     params = greeting_params(identity_of(host), "player", None, system, facts(machine) if machine else None)
-    lines, errors = [], []
-    for number, line in enumerate(body.greeting.splitlines(), 1):
-        parts, found = markup.parse_line(line, params)
-        lines.append([GreetingPart(text=text, style=style) for text, style in parts])
-        errors += [GreetingError(line=number, text=text) for text in found]
+    rows, found = markup.compile_lines(body.greeting, params)
+    lines = [[GreetingPart(text=text, style=style) for text, style in parts] for parts in rows]
+    errors = [GreetingError(line=number, text=text) for number, text in found]
     return GreetingPreview(lines=lines, errors=errors, machine=machine.hostname if machine else None)
 
 

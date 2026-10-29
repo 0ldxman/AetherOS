@@ -349,7 +349,7 @@
         </div>
         <div class="block">
           <h3>Приветствие при подключении</h3>
-          <p class="muted small">Что видит игрок, когда открывается оболочка этой ОС. Пусто: общее приветствие движка. Цвета: <code>&lt;dim&gt;</code>, <code>&lt;success&gt;</code>, <code>&lt;warning&gt;</code>, <code>&lt;error&gt;</code> (закрываются в той же строке). Случайное число: <code>&lt;rand&gt;21-41&lt;/rand&gt;</code>. Скобки: <code>{"{{"}</code> и <code>{"}}"}</code>.</p>
+          <p class="muted small">Что видит игрок, когда открывается оболочка этой ОС. Пусто: общее приветствие движка. Цвета: <code>&lt;dim&gt;</code>, <code>&lt;success&gt;</code>, <code>&lt;warning&gt;</code>, <code>&lt;error&gt;</code> (закрываются в той же строке). Случайное число: <code>&lt;rand&gt;21-41&lt;/rand&gt;</code>. Колонки: <code>&lt;table&gt;</code> … <code>&lt;/table&gt;</code>, ячейки через <code>|</code>, ширина считается сама (<code>&lt;table gap=4&gt;</code> — пробелов между колонками; сам знак: <code>&amp;pipe;</code>). Скобки: <code>{"{{"}</code> и <code>{"}}"}</code>.</p>
           <div class="greet">
             <div class="col">
               <textarea class="field mono" rows="12" wrap="off" spellcheck="false" bind:value={props_.greeting} class:bad={errors.greeting}></textarea>
