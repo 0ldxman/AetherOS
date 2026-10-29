@@ -555,8 +555,9 @@ body {
 }
 
 
-/* Обрыв подключения по сроку: чёрный экран с окном под консоль */
+/* Чёрный экран при смене рабочего стола: окно под консоль, цвет по тону события */
 .blackout {
+  --tone: var(--term-error);
   position: fixed;
   inset: 0;
   z-index: 100000;
@@ -568,15 +569,19 @@ body {
   transition: opacity 0.45s ease-in;
 }
 
+.blackout--success { --tone: var(--term-ok); }
+.blackout--warning { --tone: var(--term-warn); }
+.blackout--dim { --tone: var(--term-dim); }
+
 .blackout--on {
   opacity: 1;
 }
 
 .blackout-window {
   width: min(560px, 86vw);
-  border: 1px solid var(--term-error);
+  border: 1px solid var(--tone);
   background: var(--bg-sunken);
-  box-shadow: 0 0 40px color-mix(in srgb, var(--term-error) 35%, transparent);
+  box-shadow: 0 0 40px color-mix(in srgb, var(--tone) 35%, transparent);
   font-family: var(--font-console, monospace);
   font-size: var(--fs-console, 16px);
   opacity: 0;
@@ -591,7 +596,7 @@ body {
 
 .blackout-title {
   padding: 4px 10px;
-  background: var(--term-error);
+  background: var(--tone);
   color: black;
 }
 
@@ -600,7 +605,7 @@ body {
   font: inherit;
   min-height: 5.5em;
   padding: 14px 16px;
-  color: var(--term-error);
+  color: var(--tone);
   white-space: pre-wrap;
   word-break: break-word;
 }
@@ -611,7 +616,7 @@ body {
   height: 1em;
   margin-left: 2px;
   vertical-align: text-bottom;
-  background: var(--term-error);
+  background: var(--tone);
   animation: blackout-blink 0.8s steps(2) infinite;
 }
 

@@ -215,6 +215,24 @@ class CreateAndSystemsTests(TestCase):
         self.assertEqual("".join(part["text"] for part in data["lines"][0]), "5 % Check the vault KEY-1")
         self.assertEqual(self.call("post", "/systems/AETHER/greeting/preview", {"greeting": "<rand>x</rand>"})[1]["errors"][0]["line"], 1)
 
+    def test_a_blackout_takes_the_os_values_over_the_engine_ones(self):
+        from machines.world import blackout
+
+        profile = self.core.profiles.first() or MachineProfile.objects.create(machine=self.core, login="guest", freq="1")
+        shown = blackout.resolve("arrive", profile)
+        self.assertEqual((shown["tone"], shown["title"]), ("success", f"{profile.login}@{self.core.hostname} - connection established"))
+        status, data = self.call("put", "/systems/AETHER/blackouts/arrive", {"title": "{host}", "text": "hello {login}", "tone": "warning", "hold_ms": 100})
+        self.assertEqual(status, 200)
+        row = {r["event"]: r for r in data["blackouts"]}["arrive"]
+        self.assertEqual((row["own"]["tone"], row["default"]["tone"]), ("warning", "success"))
+        shown = blackout.resolve("arrive", profile)
+        self.assertEqual((shown["title"], shown["text"], shown["tone"], shown["hold"], shown["delay"]), (self.core.hostname, f"hello {profile.login}", "warning", 100, 500))
+        self.assertEqual(blackout.resolve("arrive", profile, "own text")["text"], "own text")
+        self.assertEqual(self.call("put", "/systems/AETHER/blackouts/arrive", {"text": "<dim>x</dim>"})[0], 400)
+        self.assertEqual(self.call("put", "/systems/AETHER/blackouts/arrive", {"text": "{nope}"})[0], 400)
+        self.assertEqual(self.call("put", "/systems/AETHER/blackouts/arrive", {})[0], 200)
+        self.assertEqual(blackout.resolve("arrive", profile)["tone"], "success")
+
     def test_the_system_image_is_laid_under_the_machine_mounts(self):
         from filesystem.machine_view import MachineView
 

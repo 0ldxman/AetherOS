@@ -34,6 +34,7 @@ from secure.access import satisfied
 from machines.access import entry
 from machines.current import SESSION_KEY, active_session
 from machines.models import LoginEvent, Machine, MachineProfile, MachineProfileToken, Session
+from machines.world import blackout
 
 TREE_KEY = "bridge_tree"
 MAX_DEPTH = 4           # самая длинная цепочка подключений от корня
@@ -223,6 +224,7 @@ def expire(request, now=None):
             "host": profile.machine.hostname,
             "system": profile.machine.system,
             "message": entry.kick_text_of(profile),
+            "blackout": blackout.resolve("kick", profile, entry.kick_text_of(profile)),
             "desktop": closed.desktop_moved,
             "cwd": closed.cwd,
         })

@@ -195,7 +195,7 @@
 
         for (const kick of kicks || []) {
             if (kick.desktop && api && api.blackout) {
-                api.blackout(kick);
+                api.blackout(kick.blackout);
             } else {
                 appendLine(`connection to ${kick.host} closed: ${kick.message.split("\n")[0]}`, "terminal-error");
             }
@@ -317,6 +317,8 @@
 
         if (effect.op === "play") {
             await playScene(effect.scene);
+        } else if (effect.op === "blackout") {
+            if (api && api.blackout) api.blackout(effect); else window.location.reload();
         } else if (effect.op === "switch") {
             if (api && api.reload) api.reload(); else window.location.reload();
         } else if (effect.op === "lock") {

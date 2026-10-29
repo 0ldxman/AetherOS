@@ -30,6 +30,28 @@
   const SHOWN = 8;
   let showMachines = $state(false);
 
+  type Blackout = Schemas["BlackoutValues"];
+  let blackouts = $state<Record<string, Blackout>>({});
+  let blackoutsSaved = $state("");
+  const TONES: Record<string, string> = { "": "как у движка", success: "зелёный", warning: "жёлтый", error: "красный", dim: "серый" };
+  const TONE_COLOR: Record<string, string> = { success: "var(--ok)", warning: "var(--warn)", error: "var(--danger)", dim: "var(--faint)" };
+
+  const blackoutDirty = (event: string) => JSON.stringify(blackouts[event]) !== JSON.stringify(blackoutsSaved ? JSON.parse(blackoutsSaved)[event] : null);
+
+  async function saveBlackout(event: string) {
+    if (!system) return;
+    const { data, error } = await api.PUT("/studio/api/systems/{code}/blackouts/{event}", { params: { path: { code: system.code, event } }, body: blackouts[event] });
+    done(data, error, "Чёрный экран сохранён.");
+  }
+
+  async function resetBlackout(event: string) {
+    if (!system) return;
+    const { data, error } = await api.DELETE("/studio/api/systems/{code}/blackouts/{event}", { params: { path: { code: system.code, event } } });
+    done(data, error, "Сброшено до умолчаний движка.");
+  }
+
+  const number = (value: string) => (value === "" ? null : Math.max(0, Math.round(+value)));
+
   let preview = $state<Schemas["GreetingPreview"] | null>(null);
   let previewTimer: ReturnType<typeof setTimeout>;
   const STYLE_COLOR: Record<string, string> = { dim: "var(--faint)", success: "var(--ok)", warning: "var(--warn)", error: "var(--danger)" };
@@ -66,6 +88,8 @@
     places = Object.fromEntries(data.places.map((row) => [row.name, row.path]));
     placesSaved = JSON.stringify(places);
     errors = {};
+    blackouts = Object.fromEntries(data.blackouts.map((row) => [row.event, { ...row.own }]));
+    blackoutsSaved = JSON.stringify(blackouts);
   }
 
   async function load(target: string | null) {
@@ -285,6 +309,45 @@
         <div><button class="btn primary" disabled={!propsDirty} onclick={saveProps}>Сохранить</button></div>
       </div>
         <div class="block">
+          <h3>Чёрный экран рабочего стола</h3>
+          <p class="muted small">Что показывается, когда рабочий стол меняется. Пустое поле: как у движка (серым в подсказке). Подстановки:
+            {#each system.blackout_params as param}<code title={param.label}>{"{"}{param.name}{"}"}</code>{" "}{/each}. Цвет окна один на всё окно. У учётки может
+            быть свой текст обрыва: он важнее текста здесь.</p>
+          {#each system.blackouts as row (row.event)}
+            {@const own = blackouts[row.event]}
+            {#if own}
+              <div class="bo">
+                <div class="bo-head"><b>{row.label}</b>
+                  <span class="spacer"></span>
+                  <button class="btn ghost" disabled={!blackoutDirty(row.event)} onclick={() => saveBlackout(row.event)}>Сохранить</button>
+                  <button class="btn ghost danger" onclick={() => resetBlackout(row.event)}>Сбросить</button>
+                </div>
+                <div class="bo-grid">
+                  <div class="col">
+                    <input class="field" placeholder={row.default.title} bind:value={own.title} />
+                    <textarea class="field mono" rows="3" spellcheck="false" placeholder={row.default.text} bind:value={own.text}></textarea>
+                    {#if errors.text}<p class="warn small">{errors.text.join(" ")}</p>{/if}
+                  </div>
+                  <div class="col">
+                    <select class="field" bind:value={own.tone}>
+                      {#each Object.entries(TONES) as [value, label]}<option {value}>{label}{value === "" ? ` (${TONES[row.default.tone]})` : ""}</option>{/each}
+                    </select>
+                    <div class="three">
+                      <label><span class="label">Пауза до окна, мс</span><input class="field" type="number" min="0" placeholder={String(row.default.delay_ms)} value={own.delay_ms ?? ""} oninput={(e) => (own.delay_ms = number(e.currentTarget.value))} /></label>
+                      <label><span class="label">Печать, мс/буква</span><input class="field" type="number" min="0" placeholder={String(row.default.speed_ms)} value={own.speed_ms ?? ""} oninput={(e) => (own.speed_ms = number(e.currentTarget.value))} /></label>
+                      <label><span class="label">Пауза после, мс</span><input class="field" type="number" min="0" placeholder={String(row.default.hold_ms)} value={own.hold_ms ?? ""} oninput={(e) => (own.hold_ms = number(e.currentTarget.value))} /></label>
+                    </div>
+                  </div>
+                  <div class="bo-mock" style:--tone={TONE_COLOR[own.tone || row.default.tone]}>
+                    <div class="bo-title">{own.title || row.default.title}</div>
+                    <pre class="bo-body">{own.text || row.default.text}</pre>
+                  </div>
+                </div>
+              </div>
+            {/if}
+          {/each}
+        </div>
+        <div class="block">
           <h3>Приветствие при подключении</h3>
           <p class="muted small">Что видит игрок, когда открывается оболочка этой ОС. Пусто: общее приветствие движка. Цвета: <code>&lt;dim&gt;</code>, <code>&lt;success&gt;</code>, <code>&lt;warning&gt;</code>, <code>&lt;error&gt;</code> (закрываются в той же строке). Случайное число: <code>&lt;rand&gt;21-41&lt;/rand&gt;</code>. Скобки: <code>{"{{"}</code> и <code>{"}}"}</code>.</p>
           <div class="greet">
@@ -374,6 +437,12 @@
   .chips { display: flex; flex-wrap: wrap; gap: 4px; }
   .chips .chip { cursor: pointer; }
   .term { margin: 0; min-height: 200px; padding: 10px 12px; border-radius: var(--radius-s); background: #0b0d10; color: #cfd6dd; font-size: 12px; line-height: 1.4; overflow: auto; }
+  .bo { display: flex; flex-direction: column; gap: 8px; padding: 10px 0; border-top: 1px solid var(--line-soft); }
+  .bo-head { display: flex; align-items: center; gap: 8px; }
+  .bo-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 0.9fr); gap: 12px; align-items: start; }
+  .bo-mock { border: 1px solid var(--tone); background: #0b0d10; font-size: 12px; }
+  .bo-title { padding: 3px 8px; background: var(--tone); color: black; }
+  .bo-body { margin: 0; padding: 10px 12px; min-height: 5em; color: var(--tone); white-space: pre-wrap; font-family: inherit; }
   .spacer { flex: 1; }
   .warn { color: var(--warn); margin: 0; }
   .tabs { display: flex; gap: 2px; border-bottom: 1px solid var(--line-soft); }

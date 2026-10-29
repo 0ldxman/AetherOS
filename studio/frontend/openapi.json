@@ -3801,6 +3801,107 @@
      }
     ]
    }
+  },
+  "/studio/api/systems/{code}/blackouts/{event}": {
+   "put": {
+    "operationId": "studio_api_systems_save_blackout",
+    "summary": "Save Blackout",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "code",
+      "schema": {
+       "title": "Code",
+       "type": "string"
+      },
+      "required": true
+     },
+     {
+      "in": "path",
+      "name": "event",
+      "schema": {
+       "title": "Event",
+       "type": "string"
+      },
+      "required": true
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/SystemOut"
+        }
+       }
+      }
+     }
+    },
+    "description": "Свои тексты и оформление чёрного экрана. Всё пустое: своей записи нет, как у движка.",
+    "tags": [
+     "systems"
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/BlackoutValues"
+       }
+      }
+     },
+     "required": true
+    },
+    "security": [
+     {
+      "SessionAuthIsStaff": []
+     }
+    ]
+   },
+   "delete": {
+    "operationId": "studio_api_systems_drop_blackout",
+    "summary": "Drop Blackout",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "code",
+      "schema": {
+       "title": "Code",
+       "type": "string"
+      },
+      "required": true
+     },
+     {
+      "in": "path",
+      "name": "event",
+      "schema": {
+       "title": "Event",
+       "type": "string"
+      },
+      "required": true
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/SystemOut"
+        }
+       }
+      }
+     }
+    },
+    "tags": [
+     "systems"
+    ],
+    "security": [
+     {
+      "SessionAuthIsStaff": []
+     }
+    ]
+   }
   }
  },
  "components": {
@@ -7929,6 +8030,86 @@
     "title": "SystemRow",
     "type": "object"
    },
+   "BlackoutRow": {
+    "properties": {
+     "event": {
+      "title": "Event",
+      "type": "string"
+     },
+     "label": {
+      "title": "Label",
+      "type": "string"
+     },
+     "own": {
+      "$ref": "#/components/schemas/BlackoutValues"
+     },
+     "default": {
+      "$ref": "#/components/schemas/BlackoutValues"
+     }
+    },
+    "required": [
+     "event",
+     "label",
+     "own",
+     "default"
+    ],
+    "title": "BlackoutRow",
+    "type": "object"
+   },
+   "BlackoutValues": {
+    "properties": {
+     "title": {
+      "default": "",
+      "title": "Title",
+      "type": "string"
+     },
+     "text": {
+      "default": "",
+      "title": "Text",
+      "type": "string"
+     },
+     "tone": {
+      "default": "",
+      "title": "Tone",
+      "type": "string"
+     },
+     "delay_ms": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Delay Ms"
+     },
+     "speed_ms": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Speed Ms"
+     },
+     "hold_ms": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Hold Ms"
+     }
+    },
+    "title": "BlackoutValues",
+    "type": "object"
+   },
    "GreetingParam": {
     "properties": {
      "name": {
@@ -8027,6 +8208,20 @@
       "title": "Greeting Params",
       "type": "array"
      },
+     "blackouts": {
+      "items": {
+       "$ref": "#/components/schemas/BlackoutRow"
+      },
+      "title": "Blackouts",
+      "type": "array"
+     },
+     "blackout_params": {
+      "items": {
+       "$ref": "#/components/schemas/GreetingParam"
+      },
+      "title": "Blackout Params",
+      "type": "array"
+     },
      "name": {
       "title": "Name",
       "type": "string"
@@ -8100,6 +8295,8 @@
      "code",
      "greeting",
      "greeting_params",
+     "blackouts",
+     "blackout_params",
      "name",
      "path_style",
      "entry_policy",

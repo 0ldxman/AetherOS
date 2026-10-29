@@ -14,7 +14,8 @@ from ninja import Router, Schema
 from machines.access import groups
 from machines.access.privileges import PRIVILEGES
 from filesystem.models import Volume
-from machines.models import EntryPolicy, Group, Machine, Place, SystemType, SystemVolume
+from machines.models import EntryPolicy, Group, Machine, Place, SystemBlackout, SystemType, SystemVolume
+from machines.world import blackout as blackouts
 from machines.world.facts import facts
 from machines.world.identity import identity_of
 from machines.world.places import DEFAULTS
@@ -65,6 +66,22 @@ class ImageIn(Schema):
     order: int = 0
 
 
+class BlackoutValues(Schema):
+    title: str = ""
+    text: str = ""
+    tone: str = ""
+    delay_ms: int | None = None
+    speed_ms: int | None = None
+    hold_ms: int | None = None
+
+
+class BlackoutRow(Schema):
+    event: str
+    label: str
+    own: BlackoutValues         # своё значение ОС (пусто или null: как у движка)
+    default: BlackoutValues     # что движок показывает для этой ОС
+
+
 class GreetingParam(Schema):
     name: str
     label: str
@@ -94,6 +111,8 @@ class SystemOut(Schema):
     code: str
     greeting: str
     greeting_params: list[GreetingParam]
+    blackouts: list[BlackoutRow]
+    blackout_params: list[GreetingParam]
     name: str
     path_style: str
     entry_policy: int | None
@@ -127,6 +146,18 @@ def _system(code):
     return get_object_or_404(SystemType, code=code)
 
 
+def _blackouts(system):
+    own = {row.event: row for row in system.blackouts.all()}
+    fields = list(BlackoutValues.model_fields)
+    return [
+        BlackoutRow(
+            event=event, label=label, default=BlackoutValues(**blackouts.defaults(event, system.code)),
+            own=BlackoutValues(**{name: getattr(own[event], name) for name in fields}) if event in own else BlackoutValues(),
+        )
+        for event, label in blackouts.EVENTS.items()
+    ]
+
+
 def _out(system):
     own = {place.name: place.path for place in system.places.all()}
     overridden = {}
@@ -136,6 +167,8 @@ def _out(system):
     return SystemOut(
         code=system.code, name=system.name, greeting=system.greeting,
         greeting_params=[GreetingParam(name=name, label=label) for name, label in GREETING_PARAMS.items()],
+        blackouts=_blackouts(system),
+        blackout_params=[GreetingParam(name=name, label=label) for name, label in blackouts.PARAMS.items()],
         path_style=system.path_style, entry_policy=system.entry_policy_id,
         machines=list(Machine.objects.filter(system=system.code).order_by("hostname").values_list("hostname", flat=True)),
         places=[PlaceRow(name=name, path=own.get(name, ""), default=DEFAULTS.get(name, ""), machines=sorted(overridden.get(name, [])))
@@ -281,3 +314,29 @@ def preview_greeting(request, code: str, body: GreetingIn):
         lines.append([GreetingPart(text=text, style=style) for text, style in parts])
         errors += [GreetingError(line=number, text=text) for text in found]
     return GreetingPreview(lines=lines, errors=errors, machine=machine.hostname if machine else None)
+
+
+@router.put("/{code}/blackouts/{event}", response=SystemOut)
+@transaction.atomic
+def save_blackout(request, code: str, event: str, body: BlackoutValues):
+    """Свои тексты и оформление чёрного экрана. Всё пустое: своей записи нет, как у движка."""
+    system = _system(code)
+    if event not in blackouts.EVENTS:
+        raise ValidationError({"event": ["Нет такого события."]})
+    values = {name: getattr(body, name) for name in BlackoutValues.model_fields}
+    if not any(value not in ("", None) for value in values.values()):
+        system.blackouts.filter(event=event).delete()
+        return _out(system)
+    row = system.blackouts.filter(event=event).first() or SystemBlackout(system_type=system, event=event)
+    for name, value in values.items():
+        setattr(row, name, value)
+    row.full_clean()
+    row.save()
+    return _out(system)
+
+
+@router.delete("/{code}/blackouts/{event}", response=SystemOut)
+def drop_blackout(request, code: str, event: str):
+    system = _system(code)
+    system.blackouts.filter(event=event).delete()
+    return _out(system)

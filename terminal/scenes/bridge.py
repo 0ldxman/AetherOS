@@ -95,13 +95,6 @@ def transfer_scene(name, size_seed, ok=True, connect=None, hops=None, hop_ms=Non
     return s.to_dict()
 
 
-def default_kick_text(system, host):
-    """Сообщение в окне на чёрном экране, если у записи свой текст не задан."""
-    if system == AETHER:
-        return f"carrier lost: {host}\nsession time limit exceeded"
-    return f"Connection to {host} closed by remote host.\nsession time limit exceeded"
-
-
 def warning_text(system, host):
     """Предупреждение терминала перед обрывом; {n} подставляет браузер."""
     if system == AETHER:

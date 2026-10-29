@@ -12,6 +12,7 @@ from filesystem import keystore, rights
 from machines.network import bridge
 from machines.access import entry
 from machines.models import LoginEvent
+from machines.world import blackout
 from terminal.scenes import bridge as scenes
 from terminal.engine.commands.basic import BaseCommand
 from terminal.engine.context import TerminalContext
@@ -22,7 +23,6 @@ from terminal.engine.rawinfo import size_of
 from terminal.engine.transfer import copy_file, hop_seconds
 
 PENDING_KEY = "bridge_pending"
-SWITCH = [{"op": "switch"}]
 
 
 def _denied(profile, system, host, endpoint=None, text=""):
@@ -246,7 +246,8 @@ class BridgeCommand(EntryCommand):
         bridge.open_child(context.request, profile, True, context.cwd)
         context.cwd = home_of(bridge.terminal_session(context.request))
         return CommandResult(
-            scene=scenes.connect_scene(profile.machine.system, profile.machine.hostname, profile), effects=SWITCH
+            scene=scenes.connect_scene(profile.machine.system, profile.machine.hostname, profile, cut=False),
+            effects=[blackout.effect("arrive", profile)],
         )
 
 
@@ -483,8 +484,8 @@ class ExitCommand(BaseCommand):
         left = closed.sessions[0]
         host = left.profile.machine.hostname
         return CommandResult(
-            scene=scenes.disconnect_scene(left.profile.machine.system, host, cut=closed.desktop_moved),
-            effects=SWITCH if closed.desktop_moved else None,
+            scene=scenes.disconnect_scene(left.profile.machine.system, host, cut=False),
+            effects=[blackout.effect("leave", left.profile)] if closed.desktop_moved else None,
         )
 
 
@@ -499,4 +500,5 @@ class BridgeCloseCommand(BaseCommand):
         left, moved = bridge.close_all(request)
         context.cwd = home_of(bridge.terminal_session(request)) if moved else context.cwd
         host = left.profile.machine.hostname
-        return CommandResult(scene=scenes.disconnect_scene(left.profile.machine.system, host, cut=moved), effects=SWITCH if moved else None)
+        return CommandResult(scene=scenes.disconnect_scene(left.profile.machine.system, host, cut=False),
+                             effects=[blackout.effect("leave", left.profile)] if moved else None)

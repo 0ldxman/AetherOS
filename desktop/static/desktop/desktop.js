@@ -724,21 +724,22 @@ if (mailUrl && mailPulseUrl) {
   document.addEventListener("visibilitychange", pollMail);
 }
 
-// Обрыв подключения по сроку: чёрный экран на пару секунд, посреди него окно под консоль с сообщением записи, потом
-// стол возвращается на машину, откуда игрок пришёл
+// Чёрный экран при смене рабочего стола (подключение, закрытие подключения, обрыв по сроку): чёрная накладка, посреди неё окно
+// под консоль с текстом, потом страница перезагружается и стол оказывается на нужной машине. Оформление и тексты приходят с сервера:
+// {title, text, tone, delay, speed, hold}
 let blackoutRunning = false;
 
-function blackout(kick) {
+function blackout(shown) {
   if (blackoutRunning) return;
   blackoutRunning = true;
 
   const cover = document.createElement("div");
-  cover.className = "blackout";
+  cover.className = `blackout blackout--${shown.tone || "error"}`;
   const box = document.createElement("div");
   box.className = "blackout-window";
   const title = document.createElement("div");
   title.className = "blackout-title";
-  title.textContent = `${kick.label} - connection closed`;
+  title.textContent = shown.title || "connection closed";
   const body = document.createElement("pre");
   body.className = "blackout-body";
   const cursor = document.createElement("span");
@@ -748,29 +749,30 @@ function blackout(kick) {
   document.body.append(cover);
   requestAnimationFrame(() => cover.classList.add("blackout--on"));
 
-  const text = kick.message || "connection closed";
-  let shown = 0;
+  const text = shown.text || "";
+  const speed = shown.speed ?? 32;
+  let count = 0;
 
   function type() {
-    body.textContent = text.slice(0, shown);
+    body.textContent = text.slice(0, count);
     body.append(cursor);
-    if (shown < text.length) {
-      shown += 1;
-      setTimeout(type, text[shown - 1] === "\n" ? 380 : 32);
+    if (count < text.length) {
+      count += 1;
+      setTimeout(type, text[count - 1] === "\n" ? speed * 12 : speed);
     } else {
-      setTimeout(() => window.location.reload(), 2600);
+      setTimeout(() => window.location.reload(), shown.hold ?? 2600);
     }
   }
 
   setTimeout(() => {
     box.classList.add("blackout-window--on");
     type();
-  }, 1500);
+  }, shown.delay ?? 1500);
 }
 
 function handleKicks(kicks) {
   const hit = (kicks || []).find((kick) => kick.desktop);
-  if (hit) blackout(hit);
+  if (hit) blackout(hit.blackout);
 }
 
 // Срок подключения, на котором открыт этот стол: в нужный момент просим сервер закрыть вышедшее

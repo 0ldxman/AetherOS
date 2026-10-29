@@ -134,3 +134,46 @@ class SystemVolume(models.Model):
             id=-(10**9 + self.pk), machine_id=machine_id, volume_id=self.volume_id, volume_path=self.volume_path,
             mount_path=self.mount_path, mode=MachineMount.Mode.LOCAL, order=self.order - 100000,
         )
+
+
+class SystemBlackout(models.Model):
+    """Чёрный экран рабочего стола при подключении, закрытии подключения и обрыве по сроку: свои тексты и оформление ОС.
+
+    Пустое поле значит «как у движка» (machines/world/blackout.py), своей записи нет: всё по умолчанию."""
+
+    class Event(models.TextChoices):
+        ARRIVE = "arrive", "Подключение"
+        LEAVE = "leave", "Закрытие подключения"
+        KICK = "kick", "Обрыв по сроку"
+
+    class Tone(models.TextChoices):
+        SUCCESS = "success", "Зелёный"
+        WARNING = "warning", "Жёлтый"
+        ERROR = "error", "Красный"
+        DIM = "dim", "Серый"
+
+    system_type = models.ForeignKey("machines.SystemType", on_delete=models.CASCADE, related_name="blackouts")
+    event = models.CharField("Событие", max_length=8, choices=Event.choices)
+    title = models.CharField("Заголовок окна", max_length=128, blank=True, help_text="Подстановки: {label}, {host}, {login}, {os}, {os_name}.")
+    text = models.TextField("Текст", blank=True, help_text="Те же подстановки. У записи может быть свой текст обрыва: он важнее.")
+    tone = models.CharField("Цвет", max_length=8, choices=Tone.choices, blank=True)
+    delay_ms = models.PositiveIntegerField("Пауза до окна, мс", null=True, blank=True)
+    speed_ms = models.PositiveIntegerField("Печать, мс на букву", null=True, blank=True)
+    hold_ms = models.PositiveIntegerField("Пауза после текста, мс", null=True, blank=True)
+
+    class Meta:
+        ordering = ("system_type", "event")
+        verbose_name = "Чёрный экран ОС"
+        verbose_name_plural = "Чёрные экраны ОС"
+        constraints = [models.UniqueConstraint(fields=("system_type", "event"), name="unique_system_blackout")]
+
+    def __str__(self):
+        return f"{self.system_type.code}: {self.event}"
+
+    def clean(self):
+        super().clean()
+        from machines.world import blackout
+
+        problems = blackout.check(self.title, self.text)
+        if problems:
+            raise ValidationError({"text": problems})

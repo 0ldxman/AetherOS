@@ -10,7 +10,9 @@ from machines.current import active_session, current_machine
 from users.aether_auth import AUTH_REQUIRED, is_player
 from django.urls import get_script_prefix, reverse
 
+from machines.access import entry
 from machines.network import bridge
+from machines.world import blackout
 from terminal.engine.commands.bridge import PENDING_KEY, answer_prompt
 from terminal.engine.commands.trash import CONFIRM_KEY, answer_confirm
 from terminal.engine.context import CWD_KEY, DEFAULT_CWD
@@ -45,7 +47,7 @@ def _kicks(request):
     if kicks:
         request.session[CWD_KEY] = kicks[-1]["cwd"]
     return [
-        {**item, "message": item["message"] or scenes.default_kick_text(item["system"], item["host"])}
+        {**item, "message": item["blackout"]["text"]}
         for item in kicks
     ]
 
@@ -172,13 +174,14 @@ def _server_effects(request, session, effects):
         host = session.profile.machine.hostname
         system = session.profile.machine.system
         out.append({"op": "play", "scene": scenes.kick_scene(system, host)})
+        kicked = session.profile
         closed = bridge.close(request, cwd=request.session.get(CWD_KEY, DEFAULT_CWD))
         if closed is None:
             out.append({"op": "lock", "url": reverse("lock")})
             continue
         request.session[CWD_KEY] = closed.cwd
         if closed.desktop_moved:
-            out.append({"op": "switch"})
+            out.append(blackout.effect("kick", kicked, entry.kick_text_of(kicked)))
     return out
 
 
@@ -250,7 +253,7 @@ def tab_desktop(request):
     node = _tab_node(request)
     if not node or not bridge.move_desktop(request, node):
         return JsonResponse({"error": "No such connection"}, status=404)
-    return _tab_payload(request, {"effects": [{"op": "switch"}]})
+    return _tab_payload(request, {"effects": [blackout.effect("arrive", active_session(request).profile)]})
 
 
 @require_POST
@@ -267,8 +270,8 @@ def tab_close(request):
         return JsonResponse({"error": "No such connection"}, status=404)
     request.session[CWD_KEY] = closed.cwd
     left = closed.sessions[0]
-    scene = scenes.disconnect_scene(left.profile.machine.system, left.profile.machine.hostname, cut=closed.desktop_moved)
-    return _tab_payload(request, {"scene": scene, "effects": [{"op": "switch"}] if closed.desktop_moved else []})
+    scene = scenes.disconnect_scene(left.profile.machine.system, left.profile.machine.hostname, cut=False)
+    return _tab_payload(request, {"scene": scene, "effects": [blackout.effect("leave", left.profile)] if closed.desktop_moved else []})
 
 
 def _home(request):

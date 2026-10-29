@@ -1202,6 +1202,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/studio/api/systems/{code}/blackouts/{event}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Save Blackout
+         * @description Свои тексты и оформление чёрного экрана. Всё пустое: своей записи нет, как у движка.
+         */
+        put: operations["studio_api_systems_save_blackout"];
+        post?: never;
+        /** Drop Blackout */
+        delete: operations["studio_api_systems_drop_blackout"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -2768,6 +2789,39 @@ export interface components {
             /** Machines */
             machines: number;
         };
+        /** BlackoutRow */
+        BlackoutRow: {
+            /** Event */
+            event: string;
+            /** Label */
+            label: string;
+            own: components["schemas"]["BlackoutValues"];
+            default: components["schemas"]["BlackoutValues"];
+        };
+        /** BlackoutValues */
+        BlackoutValues: {
+            /**
+             * Title
+             * @default
+             */
+            title: string;
+            /**
+             * Text
+             * @default
+             */
+            text: string;
+            /**
+             * Tone
+             * @default
+             */
+            tone: string;
+            /** Delay Ms */
+            delay_ms?: number | null;
+            /** Speed Ms */
+            speed_ms?: number | null;
+            /** Hold Ms */
+            hold_ms?: number | null;
+        };
         /** GreetingParam */
         GreetingParam: {
             /** Name */
@@ -2806,6 +2860,10 @@ export interface components {
             greeting: string;
             /** Greeting Params */
             greeting_params: components["schemas"]["GreetingParam"][];
+            /** Blackouts */
+            blackouts: components["schemas"]["BlackoutRow"][];
+            /** Blackout Params */
+            blackout_params: components["schemas"]["GreetingParam"][];
             /** Name */
             name: string;
             /** Path Style */
@@ -5019,6 +5077,56 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["GreetingPreview"];
+                };
+            };
+        };
+    };
+    studio_api_systems_save_blackout: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                code: string;
+                event: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BlackoutValues"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SystemOut"];
+                };
+            };
+        };
+    };
+    studio_api_systems_drop_blackout: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                code: string;
+                event: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SystemOut"];
                 };
             };
         };

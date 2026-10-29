@@ -120,13 +120,13 @@ class BridgeTests(BridgeFixture):
     def test_an_open_account_lets_the_player_in_and_exit_brings_them_back(self):
         data = self.run_command("rcon guest@aether-core")
         self.assertEqual(data["exit_code"], 0)
-        self.assertEqual(data["effects"], [{"op": "switch"}])
+        self.assertEqual([e["op"] for e in data["effects"]], ["blackout"])
         self.assertTrue(any(step["op"] == "dots" for step in data["scene"]))
         self.assertEqual(self.where().login, "guest")
         self.assertEqual(self.depth(), 1)
 
         data = self.run_command("exit")
-        self.assertEqual(data["effects"], [{"op": "switch"}])
+        self.assertEqual([e["op"] for e in data["effects"]], ["blackout"])
         self.assertEqual(self.where().login, "ivan")
         self.assertEqual(self.depth(), 0)
         self.assertEqual(self.run_command("exit")["exit_code"], 1)               # выходить некуда
@@ -148,7 +148,7 @@ class BridgeTests(BridgeFixture):
 
         self.run_command("rcon root@aether-core")
         data = self.answer("s3cret")
-        self.assertEqual(data["effects"], [{"op": "switch"}])
+        self.assertEqual([e["op"] for e in data["effects"]], ["blackout"])
         self.assertEqual(self.where().login, "root")
 
     def test_a_key_account_needs_the_key_from_the_secrets_folder(self):
@@ -183,7 +183,7 @@ class BridgeTests(BridgeFixture):
         self.assertIn("Permission denied", self.answer("nope")["output"])        # ключ есть, пароль неверный
 
         self.run_command("rcon -i cardkey ops@aether-core")
-        self.assertEqual(self.answer("s3cret")["effects"], [{"op": "switch"}])
+        self.assertEqual([e["op"] for e in self.answer("s3cret")["effects"]], ["blackout"])
 
     def test_a_token_replaces_password_and_key_and_is_spent(self):
         data = self.run_command("rcon --token golden tok@aether-core")
@@ -306,7 +306,7 @@ class BridgeTests(BridgeFixture):
         make_file(self.core, "/home/trap.bin",
                                    state="> encrypted hunter2 attempts=1\non fail: kick")
         data = self.run_command("ward /home/trap.bin nope")
-        self.assertEqual([e["op"] for e in data["effects"]], ["play", "switch"])
+        self.assertEqual([e["op"] for e in data["effects"]], ["play", "blackout"])
         self.assertEqual((self.depth(), self.where().login), (0, "ivan"))
 
     def test_the_kick_hook_at_the_base_machine_sends_the_player_to_the_entry_screen(self):
@@ -369,7 +369,7 @@ class RshellTests(BridgeFixture):
     def test_rcon_inside_a_shell_grows_from_the_shell_and_moves_the_desktop_there(self):
         self.run_command("rshell guest@aether-core")
         data = self.run_command("rcon dig@aether-deep")
-        self.assertEqual(data["effects"], [{"op": "switch"}])
+        self.assertEqual([e["op"] for e in data["effects"]], ["blackout"])
         self.assertEqual(self.where().login, "dig")
         self.assertEqual([row["label"] for row in data["tabs"]], ["ivan@aether-main", "guest@aether-core", "dig@aether-deep"])
         self.run_command("rcon-close")
@@ -379,7 +379,7 @@ class RshellTests(BridgeFixture):
         self.assertEqual(self.run_command("rshell dig@aether-deep")["exit_code"], 0)
         self.assertEqual((self.depth(), self.shells()), (1, 1))
         self.assertEqual(self.run_command("exit")["login"], "guest")            # сначала оболочка
-        self.assertEqual(self.run_command("exit")["effects"], [{"op": "switch"}])   # потом мост
+        self.assertEqual([e["op"] for e in self.run_command("exit")["effects"]], ["blackout"])   # потом мост
 
     def test_xfer_downloads_a_file_into_the_players_session_with_its_layers(self):
         self.run_command("rshell guest@aether-core")
@@ -506,7 +506,7 @@ class TabsTests(BridgeFixture):
         data = self.chain()
         ids = {row["label"]: row["id"] for row in data["tabs"]}
         code, data = self.post("tab_desktop", ids["dig@aether-deep"])
-        self.assertEqual(data["effects"], [{"op": "switch"}])
+        self.assertEqual([e["op"] for e in data["effects"]], ["blackout"])
         self.assertEqual(self.where().login, "dig")
         self.assertEqual(self.depth(), 2)
         self.assertEqual(self.post("tab_desktop", ids["dig@aether-deep"])[0], 404)         # он и так там
@@ -517,7 +517,7 @@ class TabsTests(BridgeFixture):
         code, data = self.post("tab_close", ids["guest@aether-core"])
         self.assertEqual(code, 200)
         self.assertEqual([row["label"] for row in data["tabs"]], [])                       # остался только корень
-        self.assertEqual(data["effects"], [{"op": "switch"}])                              # рабочий стол был под закрытым
+        self.assertEqual([e["op"] for e in data["effects"]], ["blackout"])                              # рабочий стол был под закрытым
         self.assertEqual(self.where().login, "ivan")
         self.assertEqual((data["login"], data["hostname"]), ("ivan", "aether-main"))
         self.assertEqual(self.post("tab_close", "0")[0], 404)                              # корень не закрывается
