@@ -301,7 +301,8 @@ def _greeting(request, hostname, mail=True):
     from terminal.scenes.shell import greeting_scene
 
     try:
-        return greeting_scene(identity_of(hostname), _login(request), _mail_summary(request) if mail else None)
+        system = Machine.objects.get(hostname=hostname).system_type
+        return greeting_scene(identity_of(hostname), _login(request), _mail_summary(request) if mail else None, system)
     except Machine.DoesNotExist:
         return None
 

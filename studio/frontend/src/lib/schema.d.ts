@@ -1178,6 +1178,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/studio/api/systems/{code}/greeting/preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Preview Greeting
+         * @description Как приветствие выглядит у игрока: значения берутся с первой машины ОС (или с запасных значений, если машин нет).
+         */
+        post: operations["studio_api_systems_preview_greeting"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -2692,6 +2712,13 @@ export interface components {
             /** Machines */
             machines: number;
         };
+        /** GreetingParam */
+        GreetingParam: {
+            /** Name */
+            name: string;
+            /** Label */
+            label: string;
+        };
         /** ImageRow */
         ImageRow: {
             /** Id */
@@ -2719,6 +2746,10 @@ export interface components {
         SystemOut: {
             /** Code */
             code: string;
+            /** Greeting */
+            greeting: string;
+            /** Greeting Params */
+            greeting_params: components["schemas"]["GreetingParam"][];
             /** Name */
             name: string;
             /** Path Style */
@@ -2764,6 +2795,11 @@ export interface components {
         SystemIn: {
             /** Code */
             code?: string | null;
+            /**
+             * Greeting
+             * @default
+             */
+            greeting: string;
             /** Name */
             name: string;
             /**
@@ -2797,6 +2833,34 @@ export interface components {
              * @default 0
              */
             order: number;
+        };
+        /** GreetingError */
+        GreetingError: {
+            /** Line */
+            line: number;
+            /** Text */
+            text: string;
+        };
+        /** GreetingPart */
+        GreetingPart: {
+            /** Text */
+            text: string;
+            /** Style */
+            style: string | null;
+        };
+        /** GreetingPreview */
+        GreetingPreview: {
+            /** Lines */
+            lines: components["schemas"]["GreetingPart"][][];
+            /** Errors */
+            errors: components["schemas"]["GreetingError"][];
+            /** Machine */
+            machine: string | null;
+        };
+        /** GreetingIn */
+        GreetingIn: {
+            /** Greeting */
+            greeting: string;
         };
     };
     responses: never;
@@ -4849,6 +4913,32 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["SystemOut"];
+                };
+            };
+        };
+    };
+    studio_api_systems_preview_greeting: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                code: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GreetingIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GreetingPreview"];
                 };
             };
         };

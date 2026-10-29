@@ -7,7 +7,8 @@
 import hashlib
 
 from scenes.engine import Scene
-from scenes.gateway import _motd
+from scenes import markup
+from scenes.gateway import GAME_DATE, LAST_LOGIN, _metric, _motd
 
 
 def _stable(seed, low, high):
@@ -365,7 +366,38 @@ def wipe_scene(count):
 
 # ---------- приветствие ----------
 
-def greeting_scene(ident, login, mail=None):
+# что можно подставить в приветствие ОС: имя -> подпись для студии
+GREETING_PARAMS = {
+    "host": "имя машины", "login": "логин учётки", "os": "код ОС", "os_name": "название ОС", "address": "адрес узла", "serial": "серийный номер",
+    "callsign": "позывной", "freq": "частота, МГц", "date": "дата в мире", "load": "нагрузка канала, %", "mem": "память, %",
+    "last_login": "последний вход", "mail": "строка про непрочитанную почту",
+}
+
+
+def _mail_text(mail):
+    unread = (mail or {}).get("unread", 0)
+    if not unread:
+        return "no new messages"
+    latest = f"latest from {mail['sender']}, {mail['ago']} ago" if mail["sender"] else f"latest {mail['ago']} ago"
+    return f"{unread} unread {'message' if unread == 1 else 'messages'} ({latest})"
+
+
+def greeting_params(ident, login, mail=None, system=None):
+    return {
+        "host": ident.hostname, "login": login, "os": system.code if system else "", "os_name": system.name if system else "",
+        "address": ident.address, "serial": ident.serial, "callsign": ident.callsign, "freq": ident.freq, "date": GAME_DATE,
+        "load": _metric(ident, "load", 3, 19), "mem": _metric(ident, "mem", 14, 37), "last_login": LAST_LOGIN, "mail": _mail_text(mail),
+    }
+
+
+def greeting_scene(ident, login, mail=None, system=None):
+    """Оболочка открылась. Если у ОС задано своё приветствие (SystemType.greeting), показывается оно, иначе общее ниже."""
+    if system is not None and system.greeting.strip():
+        return markup.render(system.greeting, greeting_params(ident, login, mail, system)).to_dict()
+    return _default_greeting(ident, login, mail)
+
+
+def _default_greeting(ident, login, mail=None):
     """Оболочка открылась: шапка сеанса, то же приветствие узла, что после входа (логотип, нагрузка, радио,
     уведомления, последний вход, почта) и подсказка. Каждое окно терминала начинается так; любая клавиша доигрывает."""
     s = Scene()

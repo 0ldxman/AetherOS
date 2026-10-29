@@ -3717,6 +3717,54 @@
      }
     ]
    }
+  },
+  "/studio/api/systems/{code}/greeting/preview": {
+   "post": {
+    "operationId": "studio_api_systems_preview_greeting",
+    "summary": "Preview Greeting",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "code",
+      "schema": {
+       "title": "Code",
+       "type": "string"
+      },
+      "required": true
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/GreetingPreview"
+        }
+       }
+      }
+     }
+    },
+    "description": "Как приветствие выглядит у игрока: значения берутся с первой машины ОС (или с запасных значений, если машин нет).",
+    "tags": [
+     "systems"
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/GreetingIn"
+       }
+      }
+     },
+     "required": true
+    },
+    "security": [
+     {
+      "SessionAuthIsStaff": []
+     }
+    ]
+   }
   }
  },
  "components": {
@@ -7732,6 +7780,24 @@
     "title": "SystemRow",
     "type": "object"
    },
+   "GreetingParam": {
+    "properties": {
+     "name": {
+      "title": "Name",
+      "type": "string"
+     },
+     "label": {
+      "title": "Label",
+      "type": "string"
+     }
+    },
+    "required": [
+     "name",
+     "label"
+    ],
+    "title": "GreetingParam",
+    "type": "object"
+   },
    "ImageRow": {
     "properties": {
      "id": {
@@ -7800,6 +7866,17 @@
      "code": {
       "title": "Code",
       "type": "string"
+     },
+     "greeting": {
+      "title": "Greeting",
+      "type": "string"
+     },
+     "greeting_params": {
+      "items": {
+       "$ref": "#/components/schemas/GreetingParam"
+      },
+      "title": "Greeting Params",
+      "type": "array"
      },
      "name": {
       "title": "Name",
@@ -7872,6 +7949,8 @@
     },
     "required": [
      "code",
+     "greeting",
+     "greeting_params",
      "name",
      "path_style",
      "entry_policy",
@@ -7956,6 +8035,11 @@
       ],
       "title": "Code"
      },
+     "greeting": {
+      "default": "",
+      "title": "Greeting",
+      "type": "string"
+     },
      "name": {
       "title": "Name",
       "type": "string"
@@ -8025,6 +8109,101 @@
      "mount_path"
     ],
     "title": "ImageIn",
+    "type": "object"
+   },
+   "GreetingError": {
+    "properties": {
+     "line": {
+      "title": "Line",
+      "type": "integer"
+     },
+     "text": {
+      "title": "Text",
+      "type": "string"
+     }
+    },
+    "required": [
+     "line",
+     "text"
+    ],
+    "title": "GreetingError",
+    "type": "object"
+   },
+   "GreetingPart": {
+    "properties": {
+     "text": {
+      "title": "Text",
+      "type": "string"
+     },
+     "style": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Style"
+     }
+    },
+    "required": [
+     "text",
+     "style"
+    ],
+    "title": "GreetingPart",
+    "type": "object"
+   },
+   "GreetingPreview": {
+    "properties": {
+     "lines": {
+      "items": {
+       "items": {
+        "$ref": "#/components/schemas/GreetingPart"
+       },
+       "type": "array"
+      },
+      "title": "Lines",
+      "type": "array"
+     },
+     "errors": {
+      "items": {
+       "$ref": "#/components/schemas/GreetingError"
+      },
+      "title": "Errors",
+      "type": "array"
+     },
+     "machine": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Machine"
+     }
+    },
+    "required": [
+     "lines",
+     "errors",
+     "machine"
+    ],
+    "title": "GreetingPreview",
+    "type": "object"
+   },
+   "GreetingIn": {
+    "properties": {
+     "greeting": {
+      "title": "Greeting",
+      "type": "string"
+     }
+    },
+    "required": [
+     "greeting"
+    ],
+    "title": "GreetingIn",
     "type": "object"
    }
   },

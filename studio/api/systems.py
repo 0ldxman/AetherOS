@@ -15,7 +15,10 @@ from machines.access import groups
 from machines.access.privileges import PRIVILEGES
 from filesystem.models import Volume
 from machines.models import EntryPolicy, Group, Machine, Place, SystemType, SystemVolume
+from machines.world.identity import identity_of
 from machines.world.places import DEFAULTS
+from scenes import markup
+from terminal.scenes.shell import GREETING_PARAMS, greeting_params
 from studio.api.disks import Ref
 from studio.api.groups import GroupIn, Privilege
 from studio.api.machines import Policy
@@ -61,8 +64,35 @@ class ImageIn(Schema):
     order: int = 0
 
 
+class GreetingParam(Schema):
+    name: str
+    label: str
+
+
+class GreetingPart(Schema):
+    text: str
+    style: str | None
+
+
+class GreetingError(Schema):
+    line: int
+    text: str
+
+
+class GreetingPreview(Schema):
+    lines: list[list[GreetingPart]]
+    errors: list[GreetingError]
+    machine: str | None         # на какой машине посчитаны значения
+
+
+class GreetingIn(Schema):
+    greeting: str
+
+
 class SystemOut(Schema):
     code: str
+    greeting: str
+    greeting_params: list[GreetingParam]
     name: str
     path_style: str
     entry_policy: int | None
@@ -77,6 +107,7 @@ class SystemOut(Schema):
 
 class SystemIn(Schema):
     code: str | None = None     # пусто или тот же: код не меняется
+    greeting: str = ""
     name: str
     path_style: str = "unix"
     entry_policy: int | None = None
@@ -102,7 +133,9 @@ def _out(system):
         overridden.setdefault(name, []).append(host or "")
     names = sorted(set(DEFAULTS) | set(own))
     return SystemOut(
-        code=system.code, name=system.name, path_style=system.path_style, entry_policy=system.entry_policy_id,
+        code=system.code, name=system.name, greeting=system.greeting,
+        greeting_params=[GreetingParam(name=name, label=label) for name, label in GREETING_PARAMS.items()],
+        path_style=system.path_style, entry_policy=system.entry_policy_id,
         machines=list(Machine.objects.filter(system=system.code).order_by("hostname").values_list("hostname", flat=True)),
         places=[PlaceRow(name=name, path=own.get(name, ""), default=DEFAULTS.get(name, ""), machines=sorted(overridden.get(name, [])))
                 for name in names],
@@ -148,6 +181,7 @@ def save(request, code: str, body: SystemIn):
     new_code = (body.code or code).strip().upper()
     system.code = new_code
     system.name, system.path_style, system.entry_policy_id = body.name, body.path_style, body.entry_policy
+    system.greeting = body.greeting
     system.full_clean()
     system.save()
     if new_code != code:
@@ -231,3 +265,18 @@ def drop_image(request, code: str, row_id: int):
     system = _system(code)
     get_object_or_404(SystemVolume, pk=row_id, system_type=system).delete()
     return _out(system)
+
+
+@router.post("/{code}/greeting/preview", response=GreetingPreview)
+def preview_greeting(request, code: str, body: GreetingIn):
+    """Как приветствие выглядит у игрока: значения берутся с первой машины ОС (или с запасных значений, если машин нет)."""
+    system = _system(code)
+    machine = Machine.objects.filter(system=system.code).order_by("hostname").first()
+    host = machine.hostname if machine else "host"
+    params = greeting_params(identity_of(host), "player", None, system)
+    lines, errors = [], []
+    for number, line in enumerate(body.greeting.splitlines(), 1):
+        parts, found = markup.parse_line(line, params)
+        lines.append([GreetingPart(text=text, style=style) for text, style in parts])
+        errors += [GreetingError(line=number, text=text) for text in found]
+    return GreetingPreview(lines=lines, errors=errors, machine=machine.hostname if machine else None)

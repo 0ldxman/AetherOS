@@ -12,7 +12,7 @@
 
   let rows = $state<Schemas["SystemRow"][]>([]);
   let system = $state<System | null>(null);
-  let props_ = $state({ code: "", name: "", path_style: "unix", entry_policy: null as number | null });
+  let props_ = $state({ code: "", greeting: "", name: "", path_style: "unix", entry_policy: null as number | null });
   let places = $state<Record<string, string>>({});
   let placesSaved = $state("");
   let propsSaved = $state("");
@@ -30,6 +30,27 @@
   const SHOWN = 8;
   let showMachines = $state(false);
 
+  let preview = $state<Schemas["GreetingPreview"] | null>(null);
+  let previewTimer: ReturnType<typeof setTimeout>;
+  const STYLE_COLOR: Record<string, string> = { dim: "var(--faint)", success: "var(--ok)", warning: "var(--warn)", error: "var(--danger)" };
+
+  async function showPreview() {
+    if (!system) return;
+    const { data } = await api.POST("/studio/api/systems/{code}/greeting/preview", { params: { path: { code: system.code } }, body: { greeting: props_.greeting } });
+    preview = data ?? null;
+  }
+
+  $effect(() => {
+    props_.greeting;
+    clearTimeout(previewTimer);
+    previewTimer = setTimeout(showPreview, 300);
+    return () => clearTimeout(previewTimer);
+  });
+
+  function insert(name: string) {
+    props_.greeting += `{${name}}`;
+  }
+
   const current = $derived(code ?? rows[0]?.code ?? null);
   const placesDirty = $derived(JSON.stringify(places) !== placesSaved);
   const propsDirty = $derived(JSON.stringify(props_) !== propsSaved);
@@ -40,7 +61,7 @@
 
   function fill(data: System) {
     system = data;
-    props_ = { code: data.code, name: data.name, path_style: data.path_style, entry_policy: data.entry_policy ?? null };
+    props_ = { code: data.code, greeting: data.greeting, name: data.name, path_style: data.path_style, entry_policy: data.entry_policy ?? null };
     propsSaved = JSON.stringify(props_);
     places = Object.fromEntries(data.places.map((row) => [row.name, row.path]));
     placesSaved = JSON.stringify(places);
@@ -263,6 +284,27 @@
         {/if}
         <div><button class="btn primary" disabled={!propsDirty} onclick={saveProps}>Сохранить</button></div>
       </div>
+        <div class="block">
+          <h3>Приветствие при подключении</h3>
+          <p class="muted small">Что видит игрок, когда открывается оболочка этой ОС. Пусто: общее приветствие движка. Цвета: <code>&lt;dim&gt;</code>, <code>&lt;success&gt;</code>, <code>&lt;warning&gt;</code>, <code>&lt;error&gt;</code> (закрываются в той же строке). Скобки: <code>{"{{"}</code> и <code>{"}}"}</code>.</p>
+          <div class="greet">
+            <div class="col">
+              <textarea class="field mono" rows="14" bind:value={props_.greeting} class:bad={errors.greeting}></textarea>
+              <div class="chips">
+                {#each system.greeting_params as param}
+                  <button class="chip mono" title={param.label} onclick={() => insert(param.name)}>{"{"}{param.name}{"}"}</button>
+                {/each}
+              </div>
+            </div>
+            <div class="col">
+              <pre class="term">{#each preview?.lines ?? [] as line}{#each line as part}<span style:color={part.style ? STYLE_COLOR[part.style] : null}>{part.text}</span>{/each}
+{/each}</pre>
+              <p class="muted small">{preview?.machine ? `Значения с машины ${preview.machine}.` : "Машин у ОС нет: значения условные."}</p>
+              {#each preview?.errors ?? [] as error}<p class="warn small">Строка {error.line}: {error.text}</p>{/each}
+            </div>
+          </div>
+          <div><button class="btn primary" disabled={!propsDirty} onclick={saveProps}>Сохранить</button></div>
+        </div>
       {/if}
     </section>
   {:else}
@@ -326,6 +368,11 @@
   .empty { padding: 24px; }
   .layer { display: flex; align-items: center; gap: 10px; padding: 6px 0; border-bottom: 1px solid var(--line-soft); }
   .point { min-width: 90px; }
+  .greet { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .col { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+  .chips { display: flex; flex-wrap: wrap; gap: 4px; }
+  .chips .chip { cursor: pointer; }
+  .term { margin: 0; min-height: 200px; padding: 10px 12px; border-radius: var(--radius-s); background: #0b0d10; color: #cfd6dd; font-size: 12px; line-height: 1.4; overflow: auto; }
   .spacer { flex: 1; }
   .warn { color: var(--warn); margin: 0; }
   .tabs { display: flex; gap: 2px; border-bottom: 1px solid var(--line-soft); }

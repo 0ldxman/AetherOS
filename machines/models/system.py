@@ -21,6 +21,12 @@ class SystemType(models.Model):
         help_text="Для машин этого типа, у которых своей политики нет. Пусто: без ограничений.",
     )
 
+    greeting = models.TextField(
+        "Приветствие", blank=True,
+        help_text="Что видит игрок, когда открывается оболочка. Цвета: <dim>, <success>, <warning>, <error>; подстановки: {host}, {login}... "
+                  "Пусто: общее приветствие.",
+    )
+
     class Meta:
         ordering = ("code",)
         verbose_name = "Тип системы"
@@ -28,6 +34,15 @@ class SystemType(models.Model):
 
     def __str__(self):
         return f"{self.name} ({self.code})"
+
+    def clean(self):
+        super().clean()
+        from scenes import markup
+        from terminal.scenes.shell import GREETING_PARAMS
+
+        found = markup.check(self.greeting, GREETING_PARAMS)
+        if found:
+            raise ValidationError({"greeting": [f"Строка {number}: {text}" for number, text in found]})
 
 
 class Place(models.Model):

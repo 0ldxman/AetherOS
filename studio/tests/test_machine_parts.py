@@ -181,6 +181,22 @@ class CreateAndSystemsTests(TestCase):
         self.assertEqual(self.core.system, "NOVA")
         self.assertEqual(data["machines"], [self.core.hostname])
 
+    def test_the_greeting_of_an_os_is_validated_previewed_and_shown(self):
+        body = {"name": "Aether", "greeting": "Hi <success>{login}</success> on {host}\n{nope}"}
+        status, data = self.call("put", "/systems/AETHER", body)
+        self.assertEqual(status, 400)
+        body["greeting"] = "Hi <success>{login}</success> on {host}"
+        status, data = self.call("put", "/systems/AETHER", body)
+        self.assertEqual((status, data["greeting"]), (200, body["greeting"]))
+        status, data = self.call("post", "/systems/AETHER/greeting/preview", {"greeting": "<dim>{os}</dim> {host}\n{x}"})
+        self.assertEqual([part["text"] for part in data["lines"][0]], ["AETHER", f" {self.core.hostname}"])
+        self.assertEqual([e["line"] for e in data["errors"]], [2])
+        from terminal.scenes.shell import greeting_scene
+        from machines.world.identity import identity_of
+        system = SystemType.objects.get(code="AETHER")
+        shown = [s.get("value") for s in greeting_scene(identity_of(self.core.hostname), "ivan", None, system) if s["op"] == "text"]
+        self.assertEqual(shown, ["Hi ", "ivan", f" on {self.core.hostname}"])
+
     def test_the_system_image_is_laid_under_the_machine_mounts(self):
         from filesystem.machine_view import MachineView
 
