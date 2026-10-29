@@ -122,14 +122,14 @@
 
 <div class="split">
   <aside class="list">
-    <h1>ОС</h1>
+    <h1>Операционные системы</h1>
     {#each rows as row (row.code)}
       <a class="item" class:on={row.code === current} href="#/systems/{row.code}/{tab}">
         <b class="mono">{row.code}</b>
         <span class="muted small">{row.name} · машин {row.machines}</span>
       </a>
     {/each}
-    <button class="btn add" onclick={() => (dialog = "type")}>+ ОС</button>
+    <button class="btn add" onclick={() => (dialog = "type")}>+ Операционная система</button>
   </aside>
 
   {#if system}
@@ -231,7 +231,7 @@
 </div>
 
 {#if dialog === "type"}
-  <Dialog title="Новая ОС" confirm="Создать" onsubmit={createType} onclose={() => (dialog = null)}>
+  <Dialog title="Новая операционная система" confirm="Создать" onsubmit={createType} onclose={() => (dialog = null)}>
     <input class="field mono" placeholder="КОД (латиницей, по нему выбираются сцены и команды)" bind:value={draft.code} />
     <input class="field" placeholder="название" bind:value={draft.name} />
   </Dialog>

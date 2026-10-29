@@ -56,7 +56,7 @@
     { href: "#/items", label: "Объекты", section: ["items", "item"] },
     { href: "#/machines", label: "Машины", section: ["machines", "machine"] },
     { href: "#/policies", label: "Политики входа", section: ["policies"] },
-    { href: "#/systems", label: "ОС", section: ["systems"] },
+    { href: "#/systems", label: "Операционные системы", section: ["systems"] },
   ];
 </script>
 
