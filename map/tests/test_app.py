@@ -1,9 +1,18 @@
-from django.test import TestCase
+from django.test import TestCase, override_settings
+from django.urls import get_script_prefix, set_script_prefix
 
 from map.models import MapScene
 
-# Create your tests here.
 
+@override_settings(FORCE_SCRIPT_NAME=None)
+class SiteTestCase(TestCase):
+    """Адреса без префикса прокси (/proxy/8000): тестовый клиент ходит мимо прокси, и reverse должен давать то же."""
+
+    def setUp(self):
+        super().setUp()
+        previous = get_script_prefix()
+        set_script_prefix("/")
+        self.addCleanup(set_script_prefix, previous)
 
 
 class MapSceneTests(TestCase):
@@ -117,7 +126,7 @@ REVISIONS_FORM = {"revisions-TOTAL_FORMS": 0, "revisions-INITIAL_FORMS": 0,
                   "revisions-MIN_NUM_FORMS": 0, "revisions-MAX_NUM_FORMS": 0}
 
 
-class MapSceneAdminTests(TestCase):
+class MapSceneAdminTests(SiteTestCase):
     def test_editor_page_renders_for_staff_and_keys_accept_expressions(self):
         from django.contrib.auth import get_user_model
         from django.urls import reverse
@@ -180,7 +189,7 @@ class ProvinceLinkTests(TestCase):
         self.assertEqual(link_of("", ""), "")
 
 
-class RegionLookupTests(TestCase):
+class RegionLookupTests(SiteTestCase):
     def test_lookup_finds_provinces_and_countries_for_staff_only(self):
         from datetime import date
 
@@ -240,8 +249,9 @@ class SceneApiTests(TestCase):
         self.assertEqual(self.client.get("/apps/map/api/scenes/open/?date=bad").status_code, 400)
 
 
-class SceneHistoryTests(TestCase):
+class SceneHistoryTests(SiteTestCase):
     def setUp(self):
+        super().setUp()
         from django.contrib.auth import get_user_model
 
         self.boss = get_user_model().objects.create_superuser("boss", password="pw")
@@ -330,7 +340,7 @@ class SceneHistoryTests(TestCase):
         self.assertTrue(MapScene.objects.filter(slug="z").exists())
 
 
-class SceneFindTests(TestCase):
+class SceneFindTests(SiteTestCase):
     def test_find_lists_scenes_for_the_wiki_editor(self):
         from django.contrib.auth import get_user_model
         from django.urls import reverse
@@ -516,12 +526,19 @@ class OutlineDiagnosticsTests(TestCase):
         self.assertEqual((data["coordinates"], data["provinces"]), ([], 0))
 
 
-class SceneLinkTests(TestCase):
+class SceneLinkTests(SiteTestCase):
     def test_a_scene_link_is_a_plain_internal_path(self):
         from map.scenes import internal_url
 
         self.assertEqual(internal_url("/apps/map/?scene=operation-vistula"), "/apps/map/?scene=operation-vistula")
         self.assertEqual(internal_url("https://evil.example/?scene=x"), "")
+
+    def test_behind_the_proxy_the_link_gets_the_prefix_once(self):
+        from map.scenes import internal_url
+
+        set_script_prefix("/proxy/8000/")
+        self.assertEqual(internal_url("/apps/map/?scene=x"), "/proxy/8000/apps/map/?scene=x")
+        self.assertEqual(internal_url("/proxy/8000/apps/map/?scene=x"), "/proxy/8000/apps/map/?scene=x")
 
     def test_the_map_page_has_no_scene_picker(self):
         from django.contrib.auth import get_user_model
