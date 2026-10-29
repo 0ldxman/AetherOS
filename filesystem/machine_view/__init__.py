@@ -9,7 +9,7 @@
 Запись (put, remove, move, copy...) идёт в слой игрока: новый файл в верхний слой, покрывающий путь, правка существующего в
 слой, откуда пришла запись. База не меняется.
 """
-from filesystem.machine_view.entries import DATA_LIMIT, DIR, FILE, ITEM_PREFETCH, Entry, Layer, Occupied, ReadOnly, inner_paths
+from filesystem.machine_view.entries import DATA_LIMIT, DIR, FILE, ITEM_PREFETCH, BadName, Entry, Layer, Occupied, ReadOnly, inner_paths
 from filesystem.machine_view.view import MachineView, view_for
 
-__all__ = ["DATA_LIMIT", "DIR", "Entry", "FILE", "ITEM_PREFETCH", "Layer", "MachineView", "Occupied", "ReadOnly", "inner_paths", "view_for"]
+__all__ = ["DATA_LIMIT", "BadName", "DIR", "Entry", "FILE", "ITEM_PREFETCH", "Layer", "MachineView", "Occupied", "ReadOnly", "inner_paths", "view_for"]

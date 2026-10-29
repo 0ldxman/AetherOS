@@ -1,8 +1,12 @@
 """Запись в слой игрока: проверка прав, новые файлы, правка, удаление, копирование."""
+import posixpath
+
+from django.core.exceptions import ValidationError
 from django.utils import timezone
 
 from filesystem import instances, rights
-from filesystem.machine_view.entries import DATA_LIMIT, Occupied, ReadOnly
+from filesystem.names import validate_name
+from filesystem.machine_view.entries import DATA_LIMIT, BadName, Occupied, ReadOnly
 from filesystem.models import PlayerFile
 
 
@@ -33,6 +37,11 @@ class WriteMixin:
         path = self._clean(path)
         if path in {layer.point for layer in self.layers}:
             raise Occupied(path)
+        if self.get(path) is None:
+            try:
+                validate_name(posixpath.basename(path))             # новое имя; путь до него уже есть (C: в нём допустимо)
+            except ValidationError:
+                raise BadName(path) from None
         for attempt in range(2):
             for layer in reversed(self.layers):
                 inner = layer.inner_path(path)

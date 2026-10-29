@@ -6,6 +6,7 @@ from terminal.engine.parser import (
     parse_command,
 )
 from filesystem import rights
+from filesystem.machine_view import BadName, Occupied, ReadOnly
 from terminal.engine.result import CommandResult
 
 
@@ -55,6 +56,12 @@ class TerminalExecutor:
             return CommandResult(f"{parsed.name}: {denied.path}: Permission denied", 1), context.cwd
         except rights.NotPermitted:
             return CommandResult(f"{parsed.name}: Operation not permitted", 1), context.cwd
+        except BadName as bad:
+            return CommandResult(f"{parsed.name}: {bad}: Invalid argument", 1), context.cwd
+        except ReadOnly as where:
+            return CommandResult(f"{parsed.name}: {where}: Read-only file system", 1), context.cwd
+        except Occupied as where:
+            return CommandResult(f"{parsed.name}: {where}: Device or resource busy", 1), context.cwd
         except Exception:
             import logging
 

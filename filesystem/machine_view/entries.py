@@ -18,6 +18,10 @@ class Occupied(Exception):
     """Путь занят точкой монтирования."""
 
 
+class BadName(Exception):
+    """Имя нового файла не годится (filesystem.names.validate_name)."""
+
+
 @dataclass(frozen=True)
 class Layer:
     """Монтирование в виде машины: куда оно смонтировано и какой у него экземпляр."""

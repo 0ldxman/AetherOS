@@ -12,7 +12,8 @@ DRIVE = re.compile(r"^[A-Za-z]:$")
 
 
 def validate_name(value):
-    """Имя файла или папки: без слэшей, двоеточия (оно разделяет путь в ссылках и обозначает диск), служебных точек."""
+    """Имя файла или папки: без слэшей, двоеточия (оно разделяет путь в ссылках и обозначает диск), служебных точек и управляющих
+    символов. Правило одно для автора (админка) и игрока (новые файлы в терминале)."""
     if not value or not value.strip():
         raise ValidationError("Имя не может быть пустым.")
     if value != value.strip():
@@ -21,9 +22,11 @@ def validate_name(value):
         raise ValidationError("Имя не может быть «.» или «..».")
     if len(value) > MAX_NAME:
         raise ValidationError(f"Имя длиннее {MAX_NAME} символов.")
-    for bad in ("/", "\\", ":", "\x00"):
+    for bad in ("/", "\\", ":"):
         if bad in value:
             raise ValidationError(f"В имени запрещён символ {bad!r}.")
+    if any(ord(char) < 32 or ord(char) == 127 for char in value):
+        raise ValidationError("В имени запрещены управляющие символы.")
 
 
 def split(path):

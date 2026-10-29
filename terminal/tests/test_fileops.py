@@ -39,6 +39,14 @@ class FileOpsTests(TerminalClient, TestCase):
     def ls(self, path="/home"):
         return self.run_command(f"ls {path}")["output"].split()
 
+    def test_a_new_name_follows_the_rules_of_names(self):
+        for name in ('"x:y"', '" lead"'):
+            data = self.run_command(f"cp /home/a.txt /home/{name}")
+            self.assertEqual(data["exit_code"], 1, name)
+            self.assertIn("Invalid argument", data["output"])
+        self.assertNotIn("x:y", self.run_command("ls /home")["output"])
+        self.assertEqual(self.run_command("cp /home/a.txt /home/fine.txt")["exit_code"], 0)
+
     def test_mv_renames_a_file_and_moves_it_into_a_folder(self):
         self.assertEqual(self.run_command("mv /home/a.txt /home/c.txt")["exit_code"], 0)
         self.assertIn("c.txt", self.ls())
