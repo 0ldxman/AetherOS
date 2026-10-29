@@ -235,18 +235,20 @@ BOOTS = {"AETHER": aether_boot}
 
 
 def boot_scenes(ident, system="AETHER"):
-    """Полная и короткая загрузка для страницы: {"full": [...], "short": [...]}. Своя сцена ОС (слот machine.boot) заменяет обе."""
+    """Полная и короткая загрузка для страницы: {"full": [...], "short": [...]}.
+
+    Своя сцена ОС (слоты machine.boot и machine.boot_short) заменяет встроенную; если задана только полная, она же играет вместо короткой."""
     from machines.world import slots
 
     now = world()
-    own = slots.custom(
-        "machine.boot", system, host=ident.hostname, hid=ident.hid, serial=ident.serial, address=ident.address, host_key=ident.host_key,
-        os=system, os_name=_os_name(system), date=now.game_date, time=f"{now.game_now:%H:%M} UTC",
+    values = dict(
+        host=ident.hostname, hid=ident.hid, serial=ident.serial, address=ident.address, host_key=ident.host_key, os=system,
+        os_name=_os_name(system), date=now.game_date, time=f"{now.game_now:%H:%M} UTC", pcr=_pcr_digest(ident),
     )
-    if own is not None:
-        return {"full": own, "short": own}
+    full = slots.custom("machine.boot", system, **values)
+    short = slots.custom("machine.boot_short", system, **values) or full
     build = BOOTS.get(system) or aether_boot
-    return {"full": build(ident).to_dict(), "short": build(ident, short=True).to_dict()}
+    return {"full": full or build(ident).to_dict(), "short": short or build(ident, short=True).to_dict()}
 
 
 def _os_name(system):

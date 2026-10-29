@@ -1,0 +1,4 @@
+# Всё, что только в полной загрузке: прошивка, загрузчик, ядро.
+@include boot-firmware
+@include boot-loader
+@include boot-kernel

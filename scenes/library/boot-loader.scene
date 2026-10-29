@@ -1,0 +1,16 @@
+# Загрузчик (aeboot).
+@cut
+AEBOOT 2.1<dim>  ·  signed loader</dim>
+
+@rows width=12
+  entry | aether 9.1 (halcyon) | | default
+  kernel | aek 5.8.14-hal  vault=/dev/vault0 | dim
+recovery    <dim>aether 9.1 recovery  </dim><error>[clearance ARC required]</error>
+diagnostics <dim>memory, vault  </dim><warning>[locked]</warning>
+
+@bar loading aek 5.8.14-hal   | 900-1600
+@task verifying image signature | OK | 400-800
+@task measuring into pcr 8-9 | OK | 200-500
+@rows width=12
+  handoff | aek entry 0xffffffff81000000 | dim
+@read

@@ -113,3 +113,30 @@ class IncludeTests(SimpleTestCase):
         _, errors = ops("@include ghost\n@include loop", {}, self.LIBRARY.get)
         self.assertEqual([n for n, _ in errors], [1, 2])
         self.assertIn("по кругу", errors[1][1])
+
+
+class ExtensionTests(SimpleTestCase):
+    def test_comments_are_skipped_and_can_be_escaped(self):
+        steps, errors = ops("# a note\nreal\n\\# hash")
+        self.assertEqual(errors, [])
+        self.assertEqual([s["value"] for s in steps if s["op"] == "text"], ["real", "# hash"])
+
+    def test_rows_align_labels_to_one_width(self):
+        steps, errors = ops("@rows width=8\n  node | {host}\n  | second | dim | note", {"host": "core"})
+        self.assertEqual(errors, [])
+        texts = [(s["value"], s.get("style")) for s in steps if s["op"] == "text"]
+        self.assertEqual(texts, [("node    ", None), ("core", None), ("        ", None), ("second", "dim"), ("  note", "dim")])
+
+    def test_task_width_pads_the_label_and_options_may_come_anywhere(self):
+        steps, errors = ops("@task cpu | ok | 300-800 | width=10 | style=success\n@task vault unlocking | OK | at=0.8")
+        self.assertEqual(errors, [])
+        self.assertEqual((steps[0]["label"], steps[0]["style"]), ("cpu       ", "success"))
+        self.assertEqual(steps[2]["op"], "spin")
+
+    def test_unit_cursor(self):
+        steps, errors = ops("&gt; <cursor/><type>x</type>\n@unit logd | log daemon | OK | 120-400")
+        self.assertEqual(errors, [])
+        self.assertTrue(steps[0].get("cursor"))
+        spin = [s for s in steps if s["op"] == "spin"][0]
+        self.assertEqual(spin["done"][0][0], "[  up  ] ")
+        self.assertEqual((spin["pending"][0][0], spin["done"][1][0]), ("[  ..  ] logd       starting", "logd       log daemon"))

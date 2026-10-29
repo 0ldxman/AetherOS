@@ -1,0 +1,33 @@
+# Службы (aeinit): общий кусок и полной, и короткой загрузки.
+~ aeinit  runlevel 3
+~ -- base --
+@unit logd | log daemon | OK | 120-400
+@unit timesync | clock synced from beacon (stratum 2) | OK | 300-800
+@unit devd | device manager, 14 devices | OK | 150-450
+@unit entropyd | entropy daemon, pool 4096 bits | OK | 120-350
+@unit schedd | job scheduler, 11 jobs | OK | 150-450
+@unit keyagent | secure key agent | OK | 150-500
+@unit authd | clearance daemon | OK | 200-600
+@unit sessiond | session broker | OK | 150-450
+@unit compatd | compatibility engine, 4,212 adapters | OK | 500-1200
+~ -- storage --
+@unit vaultd | vault manager, 3 snapshots | OK | 200-600
+@unit archive | /archive mounted (read-only) | OK | 250-700
+~ -- radio --
+@unit rfd | radio daemon, rf0 locked at {address} MHz | OK | 400-900
+@unit beacond | beacon directory stale, last sync <since>2027-10-27 | days</since> d ago | WARN | 500-1100
+@unit gate | frame policy loaded, 214 rules | OK | 250-650
+@unit linkd | link supervisor, 1 of 2 radios active | OK | 200-550
+@unit uplink | aether-core unreachable, last contact 2027-10-29 | WARN | 1200-2300
+@unit telemetry | 7 of 12 sectors silent | WARN | 700-1300
+~ -- services --
+@unit relay | message relay | OK | 150-500
+@unit intercom | mail service | OK | 200-550
+@unit mapd | map service | OK | 200-550
+@unit aether-db | knowledge base index | OK | 400-1000
+@unit indexd | search index, 3 collections | OK | 250-700
+@unit notifyd | notification bus | OK | 150-450
+@unit archived | archive service | OK | 200-600
+@unit watcher | legacy watcher exited (code 0x0f) | FAIL | 300-800
+@unit desktop | target reached | OK | 250-600
+@read min=1200

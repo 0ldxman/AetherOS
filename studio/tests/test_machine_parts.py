@@ -313,8 +313,13 @@ class CreateAndSystemsTests(TestCase):
         self.assertGreater(len(boot_scenes(identity_of(self.core.hostname), "AETHER")["full"]), 10)
         self.call("put", "/systems/AETHER/scenes/machine.boot", {"script": "boot-mine"})
         shown = boot_scenes(identity_of(self.core.hostname), "AETHER")
-        self.assertEqual(shown["full"], shown["short"])
+        self.assertEqual(shown["full"], shown["short"])                       # задана только полная: она же вместо короткой
         self.assertEqual(shown["full"][0]["label"], f"power on {self.core.hostname} ")
+        self.call("post", "/scenes", {"slug": "boot-quick", "body": "@task quick {host} | OK | 100"})
+        self.call("put", "/systems/AETHER/scenes/machine.boot_short", {"script": "boot-quick"})
+        shown = boot_scenes(identity_of(self.core.hostname), "AETHER")
+        self.assertNotEqual(shown["full"], shown["short"])
+        self.assertEqual(shown["short"][0]["label"], f"quick {self.core.hostname} ")
 
         profile = self.core.profiles.first() or MachineProfile.objects.create(machine=self.core, login="guest", freq="1")
         values = greeting_params(identity_of(self.core.hostname), profile.login, None, self.core.system_type)

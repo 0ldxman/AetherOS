@@ -146,12 +146,15 @@
 
       <details class="help">
         <summary>Шпаргалка по языку сцен</summary>
-        <pre class="mono small">строка текста         вывод: цвета &lt;success&gt;…&lt;/success&gt;, {"{host}"}, &lt;rand&gt;1-9&lt;/rand&gt;, &lt;since&gt;2027-10-29&lt;/since&gt;, &lt;table&gt;
+        <pre class="mono small"># текст                комментарий (\# в начале: сама строка)
+строка текста         вывод: цвета &lt;success&gt;…&lt;/success&gt;, {"{host}"}, &lt;rand&gt;1-9&lt;/rand&gt;, &lt;since&gt;2027-10-29&lt;/since&gt;, &lt;table&gt;
 ~ текст               тусклая строка         \@ или \~ в начале: сама строка
 &lt;count to=64000 unit=K ms=600-1100/&gt;   число растёт в строке
+&lt;cursor/&gt;                      курсор после приглашения (&amp;gt; &lt;cursor/&gt;&lt;type&gt;…&lt;/type&gt;)
 &lt;type human typo&gt;текст&lt;/type&gt;      печатается побуквенно
 &lt;mark имя&gt;текст&lt;/mark&gt;            пометка для @glitch
-@task метка | OK | 200-450        look=unit|kernel note= done= style= at=
+@task метка | OK | 200-450        look=unit|kernel note= done= style= at= width=20
+@unit имя | описание | OK | мс     служба aeinit
 @bar метка | мс                    width=24
 @count метка | до | единица | мс   result=OK note=
 @log сек | тег | сообщение
@@ -159,6 +162,7 @@
 @countdown Старт через {"{n}"}с | секунд
 @wait 450   @read   @clear   @cut   @flash   @blank 2
 @include слаг                      вставить другую сцену
+@rows width=12   (строки с отступом: подпись | значение | стиль | пояснение)
 @bars width=14   (строки с отступом: подпись | мс | результат | стоп%)
 @burst gap=8-45  (строки с отступом: обычные строки вывода)</pre>
       </details>

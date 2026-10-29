@@ -1,0 +1,47 @@
+# Прошивка: платформа, безопасность, самопроверка.
+@cut
+@wait 200-400
+AETHER FIRMWARE 2.4.1<dim>  ·  uefi 2.8  ·  build 2020-02-18</dim>
+
+@rows width=12
+  node | {host}
+  serial | {serial}
+
+~ -- platform --
+@rows width=12
+  cpu | AETHER QX-9  8 cores  3.8 GHz
+  cache | l1 32k  l2 1m  l3 24m | dim
+memory      <count to=64 unit=" GiB" ms=600-1100/>  <dim>ecc, 4 channels</dim>
+@rows width=12
+  storage | nvme0  AETHER-VAULT 4 TB  encrypted
+  | nvme1  not present | dim
+radio       rf0 aether wideband 2-30 MHz  {address} MHz locked
+            rf1 <warning>no carrier</warning>
+@rows width=12
+  antenna | loop 40 m  vswr 1.3 | dim
+  earth | electrode 2.8 ohm | dim
+  hwid | {hid} | dim
+  date | {date}  03:12:08 UTC  (beacon) | dim
+  bmc | aemc 1.7  online
+  pci | 14 devices, 2 bridges | dim
+  boot order | nvme0, radio (disabled) | dim
+@wait 200-400
+
+~ -- security --
+@task secure boot | enabled | 300-800 | width=20 | style=success
+@task tpm 2.0 | present | 300-800 | width=20 | style=success
+@task measured boot | sealed | 300-800 | width=20 | style=success
+@rows width=12
+  pcr 0-7 | {pcr} | dim
+@task firmware signature | verified | 300-800 | width=20 | style=success
+@task chassis intrusion | none | 300-800 | width=20 | style=success
+@task boot keys (db) | 3 loaded | 300-800 | width=20 | style=success
+
+~ -- self test --
+@task cpu | 8 of 8 cores | 300-800 | width=20 | style=success
+@task memory (quick) | pass | 300-800 | width=20 | style=success
+@task nvme0 smart | ok, 0 media errors | 300-800 | width=20 | style=success
+@task rf0 loopback | pass | 300-800 | width=20 | style=success
+@task earth bond | 2.8 ohm | 300-800 | width=20 | style=success
+@task rf1 loopback | skipped, no carrier | 300-700 | width=20 | style=warning
+@read

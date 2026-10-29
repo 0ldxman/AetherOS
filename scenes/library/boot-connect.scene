@@ -1,0 +1,12 @@
+# Подключение к консоли управления (aemc): общий кусок и полной, и короткой загрузки.
+&gt; <cursor/><type speed=30>aemc attach {host}</type>
+~ aemc 1.7  ·  management controller
+@wait 200-450
+@task authenticating | OK | 300-700
+@task opening channel | OK | 500-1100
+~ console attached (escape: ~.)
+~ power state: on  ·  reset by remote request, 3 min ago
+~ requested by ██████████  [restricted]
+@wait 150-350
+@task waiting for console | OK | 900-1900
+@read

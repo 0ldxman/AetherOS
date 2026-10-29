@@ -1,0 +1,48 @@
+# Журнал ядра (aek): время от старта ядра, подсистема, текст.
+@cut
+@log 0.000000 | aek | aether kernel 5.8.14-hal (forge-03) #1 smp 2020-09-02
+@log 0.000000 | aek | cmdline: vault=/dev/vault0 ro console=com1 quiet=2
+@log 0.000000 | aek | mitigations: smep smap nx
+@log 0.001870 | efi | boot services exited, memory map 38 entries
+@log 0.002400 | efi | secure boot enabled, setup mode off
+@log 0.003100 | cpu | mitigations: retpoline, stibp off
+@log 0.004211 | cpu | AETHER QX-9, 8 cores, microcode 0x0a201009
+@log 0.004680 | cpu | caches: l1 32k, l2 1m, l3 24m, smt on
+@log 0.006200 | cpu | microcode revision 0x0a201009 loaded
+@log 0.007803 | mem | 64 GiB ecc, 4 channels, 0 errors
+@log 0.008900 | mem | hugepages: 0 reserved
+@log 0.011302 | acpi | tables ok (rsdp 0x00000000000f6a90)
+@log 0.012005 | timer | tsc stable, clocksource tsc, 3.8 GHz
+@log 0.013600 | timer | tsc calibrated 3800.012 MHz
+@log 0.014400 | irq | apic enabled, 24 vectors routed
+@log 0.015900 | smp | bringing up 7 secondary cores
+@log 0.016400 | sched | scheduler: 8 cpus, 1 domain
+@log 0.017900 | rcu | callback offloading on
+@log 0.018700 | smp | 8 cores online
+@log 0.019870 | pci | 0000:00 enumerated, 14 devices, 2 bridges
+@log 0.021300 | iommu | enabled, 3 groups
+@log 0.022800 | pci | 0000:03:00.0 nvme controller
+@log 0.023400 | pci | 0000:05:00.0 radio controller (rf0)
+@log 0.024115 | nvme | nvme0: AETHER-VAULT 4 TB, 1 namespace, queue depth 1024
+@log 0.026950 | usb | xhci: 2 ports, no devices
+@log 0.028100 | hid | keyboard, mouse: none attached
+@log 0.031440 | rf | rf0: hwid {hid}, carrier {address} MHz, link up 38 Mbit/s
+@log 0.031902 | rf | rf1: no carrier
+@log 0.033500 | rf | rf0: ofdm 1024 carriers, fec ldpc 3/4, frame 1452
+@log 0.034100 | rf | rf0: earth electrode 2.8 ohm, vswr 1.3
+@log 0.058230 | tpm | tpm0: 2.0, pcr banks sha256, measured boot log 18 events
+@log 0.060100 | tpm | tpm0: pcr 0-7 extended
+@log 0.071200 | aemc | bmc channel up, console on com1
+@log 0.312874 | tamper | chassis seal intact
+@log 0.314400 | tamper | lid sensor ok
+@log 0.318002 | rng | entropy pool seeded (hwrng)
+@log 0.322500 | crypto | self-tests passed (chacha20, ed25519, sha256)
+@task vault   unlocking /dev/vault0 using tpm-bound key ... | OK | at=0.801544
+@task vault   verifying system image ....... | OK | at=1.120377
+@log 1.204910 | fs | aefs vault0: mounted, journal clean
+@log 1.299410 | fs | aefs vault0: 3 snapshots, last 2027-10-29
+@log 1.340200 | sec | policy loaded: 214 rules, default deny
+@log 1.377002 | gate | default policy drop (inbound)
+@log 1.402118 | audit | logging enabled, sink aether-core unreachable, buffering to vault
+@log 1.409300 | aek | handing over to aeinit
+@blank

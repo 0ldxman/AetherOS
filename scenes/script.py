@@ -1,5 +1,6 @@
 """Язык сцен для автора: текст, который превращается в обычную сцену (scenes.engine.Scene).
 
+# текст                            комментарий (в сцену не попадает); \# в начале даёт саму строку
 Строка без префикса это вывод (say): цвета, {параметры}, <rand>, <since> и <table> как в приветствии (scenes.markup).
     ~ текст                          тусклая строка целиком
     \\@ текст, \\~ текст              строка, которая начинается с @ или ~
@@ -7,9 +8,11 @@
     <count to=64000 unit=K ms=600-1100/>   число растёт до значения прямо в строке; итог пишется текстом рядом
     <type speed=22 human typo chunk=3>текст</type>   текст печатается побуквенно
     <mark имя>текст</mark>                 пометка, которую потом портит @glitch имя | новый текст
+    <cursor/>                              курсор в конце уже выведенного (приглашение ввода)
 Шаги, по строке на шаг (части разделяются |, необязательное после них ключ=значение):
     @blank [n]   @wait мс   @read [per_char=5 min=900 max=4500]   @clear   @cut   @flash
-    @task метка | результат | мс      look=unit|kernel  note=…  done=…  style=…  at=секунды
+    @task метка | результат | мс      look=unit|kernel  note=…  done=…  style=…  at=секунды  width=20 (метка до ширины)
+    @unit имя | описание | результат | мс   служба aeinit: «[ .. ] имя starting» -> «[  up  ] имя  описание»
     @bar метка | мс                   width=24
     @count метка | до | единица | мс  result=OK  note=…     (число с подписью отдельной строкой)
     @log секунды | тег | сообщение    style=…
@@ -17,7 +20,8 @@
     @countdown Старт через {n}с... | секунд
     @include слаг                     вставить другую сцену
 Блоки (строки блока начинаются с пробела):
-    @bars width=14                    @burst gap=8-45
+    @rows width=12                    @bars width=14                    @burst gap=8-45
+      подпись | значение | стиль | пояснение   (@rows: строки «подпись   значение (пояснение)» одной ширины)
       подпись | мс | результат | стоп%        строки с разметкой, как обычный вывод
 Время мс: число или диапазон 200-450 (при каждом показе своё)."""
 import re
@@ -32,10 +36,14 @@ _PROBE = datetime(2030, 1, 1, tzinfo=timezone.utc)
 _COUNT = re.compile(r"<count\b([^>]*?)/>")
 _TYPE = re.compile(r"<type\b([^>]*)>(.*?)</type>")
 _MARK = re.compile(r"<mark\s+(\w+)>")
+_CURSOR = "<cursor/>"
 _MARK_END = "</mark>"
 _ATTR = re.compile(r'(\w+)(?:=("[^"]*"|\S+))?')
 _SPLIT = re.compile("(\\d+)|(\\d+)|")
 _STEP = re.compile(r"^@(\w+)\s*(.*)$")
+
+
+TASK_OPTIONS = ("look", "style", "note", "done", "at", "width")
 
 
 class ScriptError(ValueError):
@@ -114,6 +122,12 @@ class _Compiler:
             items.append(("mark", match.group(1)))
             return f"{len(items) - 1}"
 
+        def cursor(_):
+            items.append(("cursor", None))
+            return f"\ue000{len(items) - 1}\ue001"
+
+        line = line.replace(_CURSOR, "\0cursor\0")
+        line = re.sub("\0cursor\0", cursor, line)
         line = _COUNT.sub(count, line)
         line = _TYPE.sub(typing, line)
         line = _MARK.sub(mark, line).replace(_MARK_END, "")
@@ -138,6 +152,10 @@ class _Compiler:
                     flush()
                     kind, data = items[int(found.group(1))]
                     tmp = Scene()
+                    if kind == "cursor":
+                        if self.scene.steps and self.scene.steps[-1]["op"] == "text":
+                            self.scene.steps[-1]["cursor"] = True
+                        continue
                     if kind == "count":
                         tmp.count("", data["to"], unit=data["unit"], ms=data["ms"], width=0)
                     else:
@@ -187,7 +205,9 @@ class _Compiler:
             for parts in rows:
                 self.scene.say(*parts) if parts else self.scene.blank()
             return (end + 1) if end is not None else len(lines)
-        elif line.startswith("\\@") or line.startswith("\\~"):
+        elif line.startswith("#"):
+            pass
+        elif line.startswith("\\@") or line.startswith("\\~") or line.startswith("\\#"):
             self.say(line[1:], number)
         elif line.startswith("~ ") or line == "~":
             self.say(line[2:], number, style="dim")
@@ -213,14 +233,17 @@ class _Compiler:
         pieces = [piece.strip() for piece in markup._cells(rest)] if rest else []
         options = {}
 
-        def split_options(count):
-            """Позиционные части (первые count) и ключ=значение после них."""
-            positional = pieces[:count]
-            for piece in pieces[count:]:
+        def split_options(count, known=()):
+            """Позиционные части (до count) и ключ=значение: известные ключи узнаются в любом месте, лишнее после позиционных это ошибка."""
+            positional = []
+            for piece in pieces:
                 key, _, value = piece.partition("=")
-                if not value or not key.strip().isidentifier():
+                if value and key.strip() in known:
+                    options[key.strip()] = value.strip()
+                elif len(positional) < count:
+                    positional.append(piece)
+                else:
                     raise ScriptError(f"@{name}: лишняя часть «{piece}»; необязательное пишется ключ=значение")
-                options[key.strip()] = value.strip()
             return positional
 
         def pad(values, count):
@@ -240,7 +263,7 @@ class _Compiler:
         elif name in ("clear", "cut", "flash"):
             getattr(s, name)()
         elif name == "task":
-            label, result, ms = pad(split_options(3), 3)
+            label, result, ms = pad(split_options(3, TASK_OPTIONS), 3)
             if not label:
                 raise ScriptError("@task: нужна метка")
             kwargs = {"ms": _delay(ms) if ms else 600}
@@ -249,25 +272,35 @@ class _Compiler:
             for key in ("look", "style", "note", "done"):
                 if key in options:
                     kwargs[key] = self.plain(options[key], number)
-            s.task(self.plain(label, number).rstrip() + " ", self.plain(result or "OK", number), **kwargs)
+            text = self.plain(label, number)
+            dots = (options.get("look") or ("kernel" if "at" in options else "dots")) == "dots"      # у остальных видов пробел ставит движок
+            text = text.ljust(_int(options["width"], "width")) if "width" in options else text.rstrip() + (" " if dots else "")
+            s.task(text, self.plain(result or "OK", number), **kwargs)
+        elif name == "unit":
+            unit, description, result, ms = pad(split_options(4), 4)
+            if not unit or description is None:
+                raise ScriptError("@unit: @unit имя | описание | результат | мс")
+            label = f"{self.plain(unit, number):<10} "
+            s.task(label + "starting", self.plain(result or "OK", number), look="unit", done=label + self.plain(description, number),
+                   ms=_delay(ms) if ms else 600)
         elif name == "bar":
-            label, ms = pad(split_options(2), 2)
+            label, ms = pad(split_options(2, ("width",)), 2)
             if not label:
                 raise ScriptError("@bar: нужна метка")
             s.bar(self.plain(label, number).rstrip() + " ", ms=_delay(ms) if ms else 1200, width=_int(options.get("width", 24), "width"))
         elif name == "count":
-            label, to, unit, ms = pad(split_options(4), 4)
+            label, to, unit, ms = pad(split_options(4, ("result", "note")), 4)
             if not label or to is None:
                 raise ScriptError("@count: нужны метка и число: @count метка | до | единица | мс")
             s.count(self.plain(label, number), _int(to, "@count"), unit=unit or "", ms=_delay(ms) if ms else 1400,
                     result=options.get("result"), note=self.plain(options["note"], number) if "note" in options else None)
         elif name == "log":
-            at, tag, message = pad(split_options(3), 3)
+            at, tag, message = pad(split_options(3, ("style",)), 3)
             if None in (at, tag, message):
                 raise ScriptError("@log: @log секунды | тег | сообщение")
             s.log(_float(at, "@log"), self.plain(tag, number), self.plain(message, number), style=options.get("style"))
         elif name == "glitch":
-            target, to = pad(split_options(2), 2)
+            target, to = pad(split_options(2, ("frames",)), 2)
             if not target or to is None:
                 raise ScriptError("@glitch: @glitch имя | новый текст")
             s.glitch(target, self.plain(to, number), frames=_int(options.get("frames", 14), "frames"))
@@ -278,14 +311,24 @@ class _Compiler:
             s.countdown(self.plain(template, number, {"n": "{n}"}), _int(seconds, "@countdown"))
         elif name == "include":
             self.include(rest, number)
-        elif name in ("bars", "burst"):
+        elif name in ("bars", "burst", "rows"):
             for piece in rest.split():
                 key, _, value = piece.partition("=")
                 options[key] = value
             rows, index = self.block(lines, index)
             if not rows:
                 raise ScriptError(f"@{name}: после шага нужны строки блока (с отступом)")
-            if name == "bars":
+            if name == "rows":
+                width = _int(options.get("width", 10), "width")
+                for row_number, text in rows:
+                    cells = [cell.strip() for cell in markup._cells(text)]
+                    label, value, style, note = pad(cells, 4)
+                    if value is None:
+                        self.errors.append((row_number, "строка @rows: подпись | значение | стиль | пояснение"))
+                        continue
+                    s.row(self.plain(label, row_number), self.plain(value, row_number), style or None, width=width,
+                          note=self.plain(note, row_number) if note else None)
+            elif name == "bars":
                 table = []
                 for row_number, text in rows:
                     cells = [cell.strip() for cell in markup._cells(text)]

@@ -1,0 +1,4 @@
+# Загрузка Aether, короткая (повторный заход): слот machine.boot_short.
+@include boot-connect
+@include boot-units
+@cut

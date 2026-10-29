@@ -1,0 +1,5 @@
+# Загрузка Aether, полная (первый заход в сессии): слот machine.boot.
+@include boot-connect
+@include boot-hardware
+@include boot-units
+@cut
