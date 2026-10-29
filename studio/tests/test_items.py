@@ -7,6 +7,7 @@ import json
 
 from django.contrib.auth import get_user_model
 from django.test import TestCase, override_settings
+from django.utils import timezone
 from django.urls import get_script_prefix, set_script_prefix
 
 from filesystem.models import FileFormat, Item, ItemMember, ItemRevision, Placement, Volume
@@ -94,3 +95,85 @@ class ItemsApiTests(TestCase):
         restored = self.call("post", f"/items/{self.report.pk}/revisions/{first.pk}/restore")[1]
         self.assertEqual((restored["body"], restored["updated_by"]), ("Груз ушёл", "boss"))
         self.assertEqual(ItemRevision.objects.filter(item=self.report).count(), 3)
+
+
+@override_settings(FORCE_SCRIPT_NAME=None)
+class ProtectionApiTests(TestCase):
+    @classmethod
+    def setUpTestData(cls):
+        from assets.models import Asset
+        from mail.models import Message
+        from map.models import MapScene
+
+        cls.boss = get_user_model().objects.create_user("boss", password="pw", is_staff=True)
+        FileFormat.objects.update_or_create(name="txt", defaults={"extension": ".txt", "kind": "text", "content": "text"})
+        FileFormat.objects.update_or_create(name="png", defaults={"extension": ".png", "kind": "signature", "content": "asset"})
+        FileFormat.objects.update_or_create(name="key", defaults={"extension": ".key", "kind": "text", "content": "text"})
+        cls.door = Item.objects.create(slug="door", name="door", format="txt", body="код двери 4471")
+        cls.card = Item.objects.create(slug="cardkey", name="cardkey", format="key")
+        cls.alarm = Item.objects.create(slug="alarm", name="alarm", format="key")
+        cls.asset = Asset.objects.create(name="Фото порта", file_id="1", size=11)
+        cls.scene = MapScene.objects.create(slug="harbor", title="Порт")
+        cls.message = Message.objects.create(subject="Груз", sender="ops@aether-core", recipients="*", sent_at=timezone.now())
+
+    def setUp(self):
+        previous = get_script_prefix()
+        set_script_prefix("/")
+        self.addCleanup(set_script_prefix, previous)
+        self.client.force_login(self.boss)
+
+    call = ItemsApiTests.call
+
+    def test_the_preview_names_bad_layers_with_their_lines_and_shows_the_bytes_both_ways(self):
+        answer = self.call("post", f"/items/{self.door.pk}/protection/preview", {"state": "> encrypted hunter2", "access": "cardkey and not alarm"})[1]
+        self.assertEqual(answer["problems"], [])
+        self.assertEqual([layer["name"] for layer in answer["layers"]], ["encrypted"])
+        self.assertEqual(answer["keys"], ["alarm", "cardkey"])
+        self.assertTrue(answer["plain"]["rows"])
+        self.assertNotEqual(answer["plain"]["rows"][0]["hex"], answer["layered"]["rows"][0]["hex"])         # слой меняет байты
+        self.assertGreater(answer["plain"]["printable"], answer["layered"]["printable"])                      # без слоя читается текст
+
+        bad = self.call("post", f"/items/{self.door.pk}/protection/preview", {"state": "> encrypted hunter2\n> nosuchlayer", "access": "a and ("})[1]
+        self.assertEqual([p["line"] for p in bad["problems"]], [2])
+        self.assertTrue(bad["access_error"])
+        self.assertIsNone(bad["layered"])
+
+    def test_the_protection_is_saved_with_a_version_and_a_key_that_is_not_in_the_registry_is_named(self):
+        data = self.call("get", f"/items/{self.door.pk}/protection")[1]
+        status, saved = self.call("put", f"/items/{self.door.pk}/protection", {**data, "access": "cardkey", "state": "> encrypted pw"})
+        self.assertEqual((status, saved["access"], saved["state"]), (200, "cardkey", "> encrypted pw"))
+        self.assertEqual(Item.objects.get(pk=self.door.pk).access, "cardkey")        # одиночный ключ secure.access хранит строкой
+        status, conflict = self.call("put", f"/items/{self.door.pk}/protection", {**data, "access": ""})
+        self.assertEqual(status, 409)
+        status, answer = self.call("put", f"/items/{self.door.pk}/protection", {**saved, "access": "a and ("})
+        self.assertEqual((status, "access" in answer["fields"]), (400, True))
+        unknown = self.call("post", f"/items/{self.door.pk}/protection/preview", {"access": "ghost"})[1]
+        self.assertEqual(unknown["unknown_keys"], ["ghost"])
+
+    def test_keys_and_signatures_are_taken_from_the_registry_and_a_key_shows_where_it_is_required(self):
+        status, data = self.call("put", f"/items/{self.door.pk}/keys", {
+            "embedded": ["cardkey"], "signatures": [{"slug": "alarm", "valid": False, "date": "2041-03-12"}],
+        })
+        self.assertEqual(status, 200, data)
+        self.assertEqual([k["slug"] for k in data["embedded"]], ["cardkey"])
+        self.assertEqual((data["signatures"][0]["slug"], data["signatures"][0]["valid"]), ("alarm", False))
+        self.assertEqual(self.call("put", f"/items/{self.door.pk}/keys", {"embedded": ["ghost"]})[0], 400)
+        self.assertEqual(self.call("put", f"/items/{self.door.pk}/keys", {})[1]["embedded"], [])           # пустой список убирает
+
+        self.call("put", f"/items/{self.door.pk}/protection", {"access": "cardkey", "state": "", "version": Item.objects.get(pk=self.door.pk).updated_at.isoformat()})
+        keyed = self.call("get", f"/items/{self.card.pk}/keys")[1]
+        self.assertTrue(keyed["is_key"])
+        self.assertIn("door", " ".join(u["label"] for u in keyed["required_by"]))
+
+    def test_the_content_comes_from_an_asset_a_scene_a_message_or_a_link_and_text_is_not_wiped_silently(self):
+        picture = Item.objects.create(slug="pic", name="pic", format="png")
+        self.assertEqual([r["label"] for r in self.call("get", "/items/pick/assets?q=порта")[1]], ["Фото порта"])
+        self.assertEqual([r["sub"] for r in self.call("get", "/items/pick/scenes")[1]], ["harbor"])
+        self.assertEqual(self.call("get", "/items/pick/messages?q=Груз")[1][0]["sub"], "ops@aether-core")
+        data = self.call("put", f"/items/{picture.pk}/content", {"kind": "asset", "asset": self.asset.pk})[1]
+        self.assertEqual((data["kind"], data["asset"]["label"]), ("asset", "Фото порта"))
+        self.assertEqual(self.call("put", f"/items/{picture.pk}/content", {"kind": "scene", "scene": self.scene.pk})[0], 400)    # png: сцена не подходит
+        self.assertEqual(self.call("put", f"/items/{picture.pk}/content", {"kind": "text"})[0], 400)      # png обязан иметь ассет
+        status, answer = self.call("put", f"/items/{self.door.pk}/content", {"kind": "link", "url": "https://example.org"})
+        self.assertEqual(status, 400)                                                                   # у объекта есть текст
+        self.assertIn("очистите", answer["fields"]["__all__"][0])
