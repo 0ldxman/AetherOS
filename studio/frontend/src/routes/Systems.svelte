@@ -383,7 +383,7 @@
           <p class="muted small">Что видит игрок, когда открывается оболочка этой ОС. Пусто: общее приветствие движка. Цвета: <code>&lt;dim&gt;</code>, <code>&lt;success&gt;</code>, <code>&lt;warning&gt;</code>, <code>&lt;error&gt;</code> (закрываются в той же строке). Случайное число: <code>&lt;rand&gt;21-41&lt;/rand&gt;</code>. Время с даты: <code>&lt;since&gt;2027-10-29 | days&lt;/since&gt;</code> (форматы: days, hours, minutes, years, ymd, ago; считается от «сейчас» в мире). Колонки: <code>&lt;table&gt;</code> … <code>&lt;/table&gt;</code>, ячейки через <code>|</code>, ширина считается сама (<code>&lt;table gap=4&gt;</code> — пробелов между колонками; сам знак: <code>&amp;pipe;</code>). Скобки: <code>{"{{"}</code> и <code>{"}}"}</code>.</p>
           <div class="greet">
             <div class="col">
-              <textarea class="field mono" rows="12" wrap="off" spellcheck="false" bind:value={props_.greeting} class:bad={errors.greeting}></textarea>
+              <textarea class="field mono greeting" rows="22" wrap="off" spellcheck="false" bind:value={props_.greeting} class:bad={errors.greeting}></textarea>
               <div class="chips">
                 {#each system.greeting_params as param}
                   <button class="chip mono" title={param.label} onclick={() => insert(param.name)}>{"{"}{param.name}{"}"}</button>

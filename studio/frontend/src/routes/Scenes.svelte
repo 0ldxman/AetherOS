@@ -205,7 +205,7 @@
   .slotbar { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
   .slotbar select { width: auto; }
   .chip { cursor: pointer; }
-  .body { width: 100%; box-sizing: border-box; resize: vertical; white-space: pre; overflow: auto; }
+  .body { white-space: pre; overflow: auto; min-height: 30em; }
   .bad { border-color: var(--danger); }
   .warn { color: var(--warn); margin: 0; }
   .screen {

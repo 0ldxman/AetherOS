@@ -61,6 +61,8 @@ button, input, select, textarea { font: inherit; color: inherit; }
   border: 1px solid var(--line); border-radius: var(--radius-s);
   background: var(--bg); outline: none;
 }
+/* Многострочное поле: не шире своей колонки и не сплющивается flex-контейнером (ни в гриде, ни в колонке) */
+textarea.field { display: block; height: auto; padding: 8px 10px; line-height: 1.4; width: 100%; min-width: 0; box-sizing: border-box; flex: none; resize: vertical; min-height: 5.5em; }
 .field:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
 
 .label { display: block; margin-bottom: 4px; color: var(--muted); font-size: 12px; }
