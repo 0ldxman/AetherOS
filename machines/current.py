@@ -88,7 +88,7 @@ def _machine_apps(request, machine):
 
 def desktop_entries(request, machine):
     """Файлы рабочего стола записи (без папок и скрытого): приложения и обычные файлы. За запрос читаются один раз."""
-    from filesystem.machine_view import MachineView
+    from filesystem.machine_view import view_for
     from machines import places
     from users.aether_auth import GUEST_LOGIN
 
@@ -97,7 +97,7 @@ def desktop_entries(request, machine):
         signed = request.user.is_authenticated
         login = active_session(request).profile.login if signed else GUEST_LOGIN
         desktop = places.resolve(machine, "desktop", login)
-        view = MachineView(machine, request.user if signed else None)
+        view = view_for(machine, request.user if signed else None)
         cache[machine.pk] = [] if desktop is None else [
             entry for entry in view.children(desktop) if not entry.is_dir and not entry.hidden
         ]

@@ -8,7 +8,10 @@
 """
 import re
 
+from django.db.models import Q
+
 from filesystem.names import normalize_mount
+from machines import memo
 from machines.models import Place
 
 DEFAULTS = {
@@ -25,13 +28,21 @@ _VARIABLE = re.compile(r"\{(\w+)\}")
 _DEPTH = 5            # вложенность подстановок {home} внутри {home}: защита от циклов
 
 
+def _templates(machine):
+    """Все заданные места машины: тип системы, поверх него переопределения машины (один запрос на запрос игрока)."""
+    def load():
+        found = {}
+        rows = Place.objects.filter(Q(machine=machine) | Q(system_type__code=machine.system)).values_list("machine_id", "name", "path")
+        for machine_id, name, path in sorted(rows, key=lambda row: row[0] is not None):               # места машины идут после типа
+            found[name] = path
+        return found
+
+    return memo.cached(("places", machine.pk, machine.system), load)
+
+
 def template(machine, name):
     """Шаблон места: машина, тип системы, умолчание. None, если такого места нет нигде."""
-    found = Place.objects.filter(machine=machine, name=name).first()
-    if found is None:
-        system = machine.system_type
-        found = Place.objects.filter(system_type=system, name=name).first() if system else None
-    return found.path if found else DEFAULTS.get(name)
+    return _templates(machine).get(name, DEFAULTS.get(name))
 
 
 def resolve(machine, name, login=None, _depth=0):

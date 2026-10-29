@@ -13,9 +13,9 @@ def secrets_dir(machine, login):
 
 
 def _view(session):
-    from filesystem.machine_view import MachineView
+    from filesystem.machine_view import view_for
 
-    return MachineView(session.profile.machine, session.user)
+    return view_for(session.profile.machine, session.user)
 
 
 def slugs_of(session):

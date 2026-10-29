@@ -3,19 +3,25 @@
 Группы типа системы действуют на всех его машинах; у машины одноимённая группа заменяет группу типа, а отключённая прячет её.
 Пока ни у типа, ни у машины групп нет совсем, действуют DEFAULT_GROUPS (как места: умолчание в коде).
 """
-from machines.models import Group, SystemType
+from django.db.models import Q
+
+from machines import memo
+from machines.models import Group
 from machines.privileges import DEFAULT_GROUPS, PRIVILEGES, Principal
 
 
 def effective(machine):
     """{имя: (привилегии, все записи)} групп, действующих на машине."""
-    system = SystemType.objects.filter(code=machine.system).first()
+    return memo.cached(("groups", machine.pk, machine.system), lambda: _load(machine))
+
+
+def _load(machine):
     found = {}
-    rows = list(Group.objects.filter(system_type=system)) if system else []
-    rows += list(Group.objects.filter(machine=machine))
+    rows = list(Group.objects.filter(Q(system_type__code=machine.system) | Q(machine=machine)).order_by("machine_id"))
+    rows.sort(key=lambda row: row.machine_id is not None)                # группы машины идут после групп типа и заменяют их
     if not rows:
         return {name: (frozenset(spec["privileges"]), spec["everyone"]) for name, spec in DEFAULT_GROUPS.items()}
-    for row in rows:                                                     # группы машины идут после групп типа и заменяют их
+    for row in rows:
         if row.disabled:
             found.pop(row.name, None)
         else:

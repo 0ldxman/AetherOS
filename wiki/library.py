@@ -124,7 +124,7 @@ def _sections(request, machine):
 
     from django.urls import Resolver404, resolve
 
-    from filesystem.machine_view import MachineView
+    from filesystem.machine_view import view_for
     from machines import connection
     from machines.current import active_session, visible_apps
     from machines.groups import principal_for
@@ -152,7 +152,7 @@ def _sections(request, machine):
             account = connection.account_of(host, line.user or "guest") if host is not None else None
             view = connection.connect(machine, host, line.path, account, user) if account is not None else None
         else:
-            view = MachineView(machine, user, principal_for(profile) if profile is not None else None)
+            view = view_for(machine, user, principal_for(profile) if profile is not None else None)
         if view is not None and view.is_directory(line.path):
             sections.append((line.title or posixpath.basename(line.path) or line.host or machine.label, view, line.path))
     return sections

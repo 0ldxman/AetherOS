@@ -216,14 +216,25 @@ def _drop(entries, path):
 class MachineView:
     """Вид машины для игрока (user=None: только база, без слоя игрока)."""
 
-    def __init__(self, machine, user=None, principal=None, trail=frozenset()):
+    generation = 0                          # растёт при каждой записи через любой вид: собранное раньше устарело
+
+    def __init__(self, machine, user=None, principal=None, trail=frozenset(), _state=None):
         self.machine = machine
         self.user = user
         self.principal = principal          # кто действует (filesystem/rights.py); None: система, права не проверяются
         self.trail = trail                  # машины, через которые пришло подключение (чтобы цепочка не замкнулась)
-        self._built = None
-        self._homes = None
-        self._hosts = {}
+        self._state = _state if _state is not None else {}          # собранное: общее у копий вида с разными правами
+
+    def fork(self, principal):
+        """Тот же вид (собранное общее) с другими правами."""
+        return MachineView(self.machine, self.user, principal, self.trail, self._state)
+
+    def _cache(self):
+        """Собранное состояние, если оно не старше последней записи, иначе пустое."""
+        if self._state.get("generation") != MachineView.generation:
+            self._state.clear()
+            self._state["generation"] = MachineView.generation
+        return self._state
 
     # ---- сборка ---------------------------------------------------------------------------------------------------
 
@@ -316,12 +327,13 @@ class MachineView:
     def _host_view(self, layer):
         """Вид хоста для сетевого подключения или None (нельзя подключиться): один на сборку."""
         key = layer.mount.pk
-        if key not in self._hosts:
+        hosts = self._cache().setdefault("hosts", {})
+        if key not in hosts:
             from machines import connection
 
             mount = layer.mount
-            self._hosts[key] = None if mount.host_id is None else connection.connect(self.machine, mount.host, mount.host_path, mount.account, self.user, self.trail)
-        return self._hosts[key]
+            hosts[key] = None if mount.host_id is None else connection.connect(self.machine, mount.host, mount.host_path, mount.account, self.user, self.trail)
+        return hosts[key]
 
     def _lay_remote(self, entries, layer):
         """Поддерево хоста ложится под точку подключения: записи те же, что видит на хосте учётка подключения."""
@@ -371,18 +383,19 @@ class MachineView:
 
     @property
     def entries(self):
-        if self._built is None:
-            self._built = self._build()
-        return self._built[0]
+        state = self._cache()
+        if "built" not in state:
+            state["built"] = self._build()
+        return state["built"][0]
 
     @property
     def layers(self):
         self.entries
-        return self._built[1]
+        return self._state["built"][1]
 
     def invalidate(self):
-        self._built = None
-        self._hosts = {}
+        MachineView.generation += 1
+        self._state.clear()
 
     def layer_paths(self, layer):
         """Пути на машине, которые слой занимает своими размещениями (без слоя игрока и без надгробий): {путь: размещение}."""
@@ -446,14 +459,15 @@ class MachineView:
 
     def home_owner(self, path):
         """Логин записи этой машины, чья домашняя папка содержит path, или None."""
-        if self._homes is None:
+        homes = self._cache()
+        if "homes" not in homes:
             from machines import places
 
             template = places.resolve(self.machine, "home", rights.HOME_LOGIN)
             prefix, _, suffix = (template or "").partition(rights.HOME_LOGIN)
             logins = set(self.machine.profiles.values_list("login", flat=True)) if template else set()
-            self._homes = (prefix, suffix, logins)
-        prefix, suffix, logins = self._homes
+            homes["homes"] = (prefix, suffix, logins)
+        prefix, suffix, logins = homes["homes"]
         if not logins or not path.startswith(prefix):
             return None
         login = path[len(prefix):].split("/")[0]
@@ -676,3 +690,11 @@ class MachineView:
             self.put_data(path, found.own_data, found.progress, carried)
         else:
             self.put_text(path, found.own_text or "", found.progress, carried)
+
+
+def view_for(machine, user=None, principal=None):
+    """Вид машины для игрока: за запрос собирается один раз, а права (principal) накладываются копией, собранное у копий общее."""
+    from machines import memo
+
+    base = memo.cached(("view", machine.pk, user.pk if user is not None else None), lambda: MachineView(machine, user))
+    return base if principal is None else base.fork(principal)

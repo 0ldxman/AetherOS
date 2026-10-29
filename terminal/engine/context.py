@@ -66,9 +66,9 @@ class TerminalContext:
     def view(self):
         """Вид файловой системы машины для игрока: общий для команд одного запроса (после записи его сбрасывает invalidate)."""
         if getattr(self, "_view", None) is None:
-            from filesystem.machine_view import MachineView
+            from filesystem.machine_view import view_for
 
-            self._view = MachineView(self.machine, self.user, self.principal)
+            self._view = view_for(self.machine, self.user, self.principal)
         return self._view
 
     def invalidate(self):

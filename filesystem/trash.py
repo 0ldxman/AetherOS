@@ -6,6 +6,7 @@
 """
 from django.utils import timezone
 
+from filesystem.machine_view import MachineView
 from filesystem.models import PlayerFile
 
 def in_trash(path, trash_dir):
@@ -27,6 +28,8 @@ def purge_expired(user=None):
         rows = rows.filter(user=user)
     count = rows.count()
     rows.delete()
+    if count:
+        MachineView.generation += 1                 # собранные за запрос виды устарели
     return count
 
 

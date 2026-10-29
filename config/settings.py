@@ -77,6 +77,7 @@ INSTALLED_APPS += [
 ]
 
 MIDDLEWARE = [
+    'machines.memo.MemoMiddleware',
     'django.middleware.security.SecurityMiddleware',
     'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.middleware.gzip.GZipMiddleware',

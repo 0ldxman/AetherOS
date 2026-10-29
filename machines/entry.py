@@ -11,7 +11,7 @@ from datetime import timedelta
 
 from django.utils import timezone
 
-from machines import clock, windows
+from machines import clock, memo, windows
 from machines.models import EntryPolicy, LoginEvent, SystemType
 
 KEEP = timedelta(days=30)
@@ -33,7 +33,7 @@ def policy_of(profile):
         return profile.entry_policy
     if machine.entry_policy_id:
         return machine.entry_policy
-    system = SystemType.objects.filter(code=machine.system).select_related("entry_policy").first()
+    system = memo.cached(("system-policy", machine.system), lambda: SystemType.objects.filter(code=machine.system).select_related("entry_policy").first())
     return system.entry_policy if system is not None else None
 
 

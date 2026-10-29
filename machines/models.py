@@ -75,7 +75,9 @@ class Machine(models.Model):
     @property
     def system_type(self):
         """Запись типа системы этой машины или None, если такого кода в БД нет."""
-        return SystemType.objects.filter(code=self.system).first()
+        from machines import memo
+
+        return memo.cached(("system-type", self.system), lambda: SystemType.objects.filter(code=self.system).first())
 
     @property
     def path_style(self):

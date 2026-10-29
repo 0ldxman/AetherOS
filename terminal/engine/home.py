@@ -8,10 +8,10 @@ LEGACY_HOME = "/home"
 
 
 def home_of(session):
-    from filesystem.machine_view import MachineView
+    from filesystem.machine_view import view_for
 
     machine = session.profile.machine
     found = places.resolve(machine, "home", session.profile.login)
-    if found and MachineView(machine, session.user).is_directory(found):
+    if found and view_for(machine, session.user).is_directory(found):
         return found
     return LEGACY_HOME

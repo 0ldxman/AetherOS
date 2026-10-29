@@ -3,7 +3,7 @@ import posixpath
 
 from django.urls import get_script_prefix, reverse
 
-from filesystem.machine_view import FILE, Entry, MachineView
+from filesystem.machine_view import FILE, Entry, MachineView, view_for
 from machines import places
 
 from .models import Attachment
@@ -28,7 +28,7 @@ def saved_entry(session, attachment):
     """Файл вложения в виде машины игрока, если он уже сохранён (по назначенному пути лежит этот объект), иначе None."""
     if session is None:
         return None
-    found = MachineView(session.profile.machine, session.user).get(target_path(session, attachment))
+    found = view_for(session.profile.machine, session.user).get(target_path(session, attachment))
     return found if found is not None and found.item is not None and found.item.pk == attachment.item_id else None
 
 
@@ -74,7 +74,7 @@ def save_to_machine(session, attachment):
     if attachment.kind != Attachment.Kind.FILE or attachment.item is None:
         raise SaveError("this attachment cannot be saved to the machine", 400)
 
-    view = MachineView(session.profile.machine, session.user)
+    view = view_for(session.profile.machine, session.user)
     path = target_path(session, attachment)
     found = view.get(path)
     if found is not None:
