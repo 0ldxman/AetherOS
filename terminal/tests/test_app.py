@@ -179,7 +179,7 @@ class TerminalSceneTests(TerminalClient, TestCase):
         self.assertIn("Something rustles inside.", data["output"])
 
     def test_the_open_action_checks_its_address(self):
-        from filesystem.states.compiler import StateError, compile_text
+        from filesystem.layers.compiler import StateError, compile_text
 
         for good in ("open apps/wiki/go/a/", 'open "apps/map/?scene=harbor"', "open view/0c1a/"):
             compile_text(f"> binary utf16\non read: {good}")
@@ -1826,7 +1826,7 @@ class ArchiveTests(TerminalClient, TestCase):
             self.assertEqual(self.run_command(command)["exit_code"], 2, command)
 
     def test_the_bytes_of_an_archive_are_a_table_and_the_data_of_its_members(self):
-        from filesystem.rawview import formats
+        from filesystem.content.rawview import formats
 
         data = self.raw("/home/pack.zip")
         self.assertTrue(data.startswith(formats.magic("pak")))
@@ -2021,7 +2021,7 @@ class WardKeyTests(TerminalClient, TestCase):
         give_key_to_session(active_session(request), slug)
 
     def test_an_encrypted_file_looks_like_a_pgp_packet_and_ftyp_says_so(self):
-        from filesystem.rawview import keys
+        from filesystem.content.rawview import keys
 
         pw = self.raw("/home/pass.rec")
         self.assertTrue(pw.startswith(b"\x8c\x0d\x04\x09\x03\x08"))
@@ -2070,7 +2070,7 @@ class WardKeyTests(TerminalClient, TestCase):
         self.assertIn("alarm", data["output"])
 
     def test_ward_keys_lists_the_keys_with_their_ids(self):
-        from filesystem.rawview import keys
+        from filesystem.content.rawview import keys
 
         self.assertIn("no keys", self.run_command("ward keys")["output"])
         self.give_key("director")

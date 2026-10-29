@@ -4,11 +4,11 @@ from django.test import TestCase, override_settings
 from django.urls import get_script_prefix, set_script_prefix
 
 from assets.models import Asset
-from filesystem.content import resolve_content
+from filesystem.content.window import resolve_content
 from filesystem.machine_view import MachineView
 from filesystem.models import FileFormat, Item
-from filesystem.rawview import build_raw, formats
-from filesystem.sources import payload_for, source_for
+from filesystem.content.rawview import build_raw, formats
+from filesystem.content.sources import payload_for, source_for
 from filesystem.testing import embed_key, make_file
 from machines.models import Machine
 
@@ -77,7 +77,7 @@ class SourceKindTests(TestCase):
     # --- байты -------------------------------------------------------------------------------------------------
 
     def test_a_key_is_the_block_of_its_slug_when_it_has_no_text(self):
-        from filesystem.rawview import keys
+        from filesystem.content.rawview import keys
 
         data = payload_for(self.entry("/k", key="alpha")).body
         self.assertEqual(data, keys.armor("alpha", "store:alpha"))
@@ -136,8 +136,8 @@ class SourceKindTests(TestCase):
     def test_a_new_kind_is_one_class_in_the_registry(self):
         from unittest import mock
 
-        from filesystem import sources
-        from filesystem.sources.base import Content, Payload, Source
+        from filesystem.content import sources
+        from filesystem.content.sources.base import Content, Payload, Source
 
         class Note(Source):
             name = "note"

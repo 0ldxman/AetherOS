@@ -780,7 +780,7 @@ class HookMailActionTests(TestCase):
         )
 
     def compile(self, text):
-        from filesystem.states.compiler import StateError, compile_text
+        from filesystem.layers.compiler import StateError, compile_text
 
         try:
             return compile_text(text), []
@@ -790,7 +790,7 @@ class HookMailActionTests(TestCase):
     # ---------- язык ----------
 
     def test_the_action_is_part_of_the_language(self):
-        from filesystem.states.hooks import ACTIONS
+        from filesystem.layers.hooks import ACTIONS
 
         self.assertIn("mail", ACTIONS)
 
@@ -819,7 +819,7 @@ class HookMailActionTests(TestCase):
     # ---------- выполнение ----------
 
     def test_the_executor_collects_the_letter_and_its_delay(self):
-        from filesystem.states.attempt import attempt_remove
+        from filesystem.layers.attempt import attempt_remove
 
         outcome = attempt_remove(
             "> encrypted hunter2\non remove: mail door_open delay=45", "", path="/a", name="a", given={"password": "hunter2"}
@@ -827,7 +827,7 @@ class HookMailActionTests(TestCase):
         self.assertEqual([(m.slug, m.delay) for m in outcome.hooks.mails], [("door_open", 45)])
 
     def test_nothing_is_sent_when_the_layer_stays(self):
-        from filesystem.states.attempt import attempt_remove
+        from filesystem.layers.attempt import attempt_remove
 
         outcome = attempt_remove(self.LAYERED, "", path="/a", name="a", given={"password": "wrong"})
         self.assertEqual(outcome.hooks.mails, [])
@@ -836,7 +836,7 @@ class HookMailActionTests(TestCase):
 
     def test_removing_the_layer_delivers_the_letter_to_the_player(self):
         from filesystem.machine_view import MachineView
-        from filesystem.unlock import unlock_file
+        from filesystem.layers.unlock import unlock_file
 
         result = unlock_file(MachineView(self.machine, self.user), "/home/door.bin", {"password": "hunter2"})
         self.assertTrue(result.result.removed)
@@ -846,7 +846,7 @@ class HookMailActionTests(TestCase):
 
     def test_a_wrong_password_delivers_nothing(self):
         from filesystem.machine_view import MachineView
-        from filesystem.unlock import unlock_file
+        from filesystem.layers.unlock import unlock_file
 
         result = unlock_file(MachineView(self.machine, self.user), "/home/door.bin", {"password": "nope"})
         self.assertFalse(result.result.removed)
@@ -856,7 +856,7 @@ class HookMailActionTests(TestCase):
     def test_an_unknown_letter_in_a_hook_does_not_break_the_unlock(self):
         from filesystem.machine_view import MachineView
         from filesystem.testing import make_file
-        from filesystem.unlock import unlock_file
+        from filesystem.layers.unlock import unlock_file
 
         make_file(self.machine, "/home/b.bin", state="> encrypted hunter2\non remove: mail missing_letter")
         result = unlock_file(MachineView(self.machine, self.user), "/home/b.bin", {"password": "hunter2"})

@@ -5,7 +5,7 @@
 слоями файл сначала открывают.
 """
 from filesystem.models import KEY_FORMAT
-from filesystem.rawview import registry
+from filesystem.content.rawview import registry
 
 
 def refusal(entry):

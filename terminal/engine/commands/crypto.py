@@ -1,7 +1,8 @@
 from dataclasses import replace
 
-from filesystem import archives, keystore
-from filesystem.rawview import keys, signatures
+from filesystem import keystore
+from filesystem.content import archives
+from filesystem.content.rawview import keys, signatures
 from filesystem.models import KEY_FORMAT, Item
 from terminal.engine.rawinfo import raw_of
 from terminal.scenes import key_scene, sign_scene, verify_scene

@@ -74,7 +74,7 @@ def _identity(request, machine):
 
 def _file_icons(request, machine):
     """Обычные файлы стола: значок открывает окно файла по его виду. Закрытый слоями файл виден, но не открывается, пока слои не сняты."""
-    from filesystem.content import resolve_content
+    from filesystem.content.window import resolve_content
 
     icons = []
     for entry in desktop_entries(request, machine):

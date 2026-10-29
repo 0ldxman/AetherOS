@@ -11,8 +11,8 @@ from types import SimpleNamespace
 from filesystem.machine_view import MachineView
 from filesystem.models import Item
 from filesystem.testing import embed_key, make_file, make_page
-from filesystem.rawview import build_raw, encodings, formats
-from filesystem.size import file_size
+from filesystem.content.rawview import build_raw, encodings, formats
+from filesystem.content.size import file_size
 from machines.models import Machine
 
 BODY = "Cargo manifest altered.\n\nRef A-113."
@@ -31,7 +31,7 @@ class RawViewTests(TestCase):
         cls.asset = Asset.objects.create(name="pic", file_id="1", size=11)
 
     def setUp(self):
-        from filesystem.rawview.registry import invalidate
+        from filesystem.content.rawview.registry import invalidate
 
         invalidate()                                  # откат транзакции теста не сбрасывает запомненный реестр
         self.addCleanup(invalidate)
@@ -120,7 +120,7 @@ class RawViewTests(TestCase):
         self.assertNotEqual(hurt, plain)
 
     def test_a_removed_layer_stops_changing_the_view(self):
-        from filesystem.states.stack import Progress, canonical_hash
+        from filesystem.layers.stack import Progress, canonical_hash
 
         file = self.make("/a", "apps/wiki/Harbor/Report", "> binary base64")
         done = Progress(canonical_hash=canonical_hash("> binary base64"), removed=1).dump()
@@ -185,7 +185,7 @@ class RawViewTests(TestCase):
         from filesystem.models import FileFormat
 
         FileFormat.objects.filter(name="rec").update(template="REC:{body}")
-        from filesystem.rawview.registry import invalidate
+        from filesystem.content.rawview.registry import invalidate
 
         invalidate()
         self.assertTrue(self.raw(self.make("/a", "apps/wiki/Harbor/Report")).data.startswith(b"REC:Cargo"))
@@ -202,7 +202,7 @@ class RawViewTests(TestCase):
     def test_viewer_formats_list_the_registry(self):
         import json
 
-        from filesystem.rawview import viewer_formats
+        from filesystem.content.rawview import viewer_formats
 
         listed = {item["name"]: item for item in json.loads(viewer_formats())}
         self.assertEqual(listed["SCAN image + OCR text"]["bytes"][:5], [0x9E, 0x53, 0x43, 0x41, 0x4E])
@@ -241,7 +241,7 @@ class RegistryAdminTests(TestCase):
         cls.staff = get_user_model().objects.create_superuser("boss", "b@example.com", "pw")
 
     def setUp(self):
-        from filesystem.rawview.registry import invalidate
+        from filesystem.content.rawview.registry import invalidate
 
         previous = get_script_prefix()
         set_script_prefix("/")
@@ -323,13 +323,13 @@ class MoreFormatsTests(TestCase):
     SAMPLE = "Cargo <manifest> & \"altered\".\nRef A-113. Груз {7}."
 
     def setUp(self):
-        from filesystem.rawview.registry import invalidate
+        from filesystem.content.rawview.registry import invalidate
 
         invalidate()
         self.addCleanup(invalidate)
 
     def test_aliases_find_the_same_format(self):
-        from filesystem.rawview import registry
+        from filesystem.content.rawview import registry
 
         self.assertEqual(registry.format_named("jpeg").name, "jpg")
         self.assertEqual(registry.format_named(".JPE").name, "jpg")
@@ -339,7 +339,7 @@ class MoreFormatsTests(TestCase):
         self.assertIsNone(registry.format_named("nonsense"))
 
     def test_the_disguised_layer_accepts_an_alias_of_its_format(self):
-        from filesystem.states.layers import Disguised
+        from filesystem.layers.layers import Disguised
 
         self.assertEqual(Disguised.check_unlock({"format": "jpg"}, {"format": "jpeg"}), ())
         self.assertEqual(Disguised.check_unlock({"format": "jpeg"}, {"format": ".JPG"}), ())
@@ -439,18 +439,18 @@ class KeyBlockTests(TestCase):
     SLUGS = ["secret_a", "secret_b"]
 
     def setUp(self):
-        from filesystem.rawview.registry import invalidate
+        from filesystem.content.rawview.registry import invalidate
 
         invalidate()
         self.addCleanup(invalidate)
 
     def found(self, data):
-        from filesystem.rawview import keys
+        from filesystem.content.rawview import keys
 
         return [(m.start(), keys.parse(data, m.start())) for m in __import__("re").finditer(rb"-----BEGIN ACCESS KEY-----", data)]
 
     def test_a_block_is_pem_like_with_the_keyname_in_the_header_and_has_no_system_name(self):
-        from filesystem.rawview import keys
+        from filesystem.content.rawview import keys
 
         block = keys.armor("secret_a", "seed")
         text = block.decode()
@@ -463,7 +463,7 @@ class KeyBlockTests(TestCase):
         self.assertIsNone(keys.parse(b"xx" + block, 1))                              # только с начала блока
 
     def test_jpeg_keeps_its_structure_and_each_key_lies_in_a_comment_segment(self):
-        from filesystem.rawview import keys
+        from filesystem.content.rawview import keys
 
         data = keys.embed(_jpeg(), self.SLUGS, "s", real=True)
         self.assertEqual([slug for _, slug in self.found(data)], self.SLUGS if self.found(data)[0][1] == "secret_a" else self.SLUGS[::-1])
@@ -479,7 +479,7 @@ class KeyBlockTests(TestCase):
         import struct
         import zlib
 
-        from filesystem.rawview import keys
+        from filesystem.content.rawview import keys
 
         data = keys.embed(_png(), self.SLUGS, "s", real=True)
         pos, kinds = 8, []
@@ -495,7 +495,7 @@ class KeyBlockTests(TestCase):
         import io
         import zipfile
 
-        from filesystem.rawview import keys
+        from filesystem.content.rawview import keys
 
         archive = zipfile.ZipFile(io.BytesIO(keys.embed(formats.build("docx", b"text"), self.SLUGS, "s")))
         self.assertIsNone(archive.testzip())
@@ -505,7 +505,7 @@ class KeyBlockTests(TestCase):
         self.assertIn(b"%Keyname: secret_b", pdf)
 
     def test_own_containers_take_the_key_as_their_own_part(self):
-        from filesystem.rawview import keys
+        from filesystem.content.rawview import keys
 
         scan = keys.embed(formats.build("scan", b"text", seed="x"), ["secret_a"], "s")
         self.assertIn(b"KEY -----BEGIN ACCESS KEY-----", scan)
@@ -522,8 +522,8 @@ class KeyBlockTests(TestCase):
         self.assertEqual(spread.count("-----BEGIN ACCESS KEY-----"), 3)
 
     def test_unknown_data_gets_the_block_at_the_end_when_real_and_inside_when_noise(self):
-        from filesystem.rawview import keys
-        from filesystem.rawview.noise import noise
+        from filesystem.content.rawview import keys
+        from filesystem.content.rawview.noise import noise
 
         real = b"\x00\x01binary-asset" * 20
         self.assertTrue(keys.embed(real, ["secret_a"], "s", real=True).startswith(real))
@@ -567,7 +567,7 @@ class SignatureBlockTests(TestCase):
     """Блоки подписей: хеш по содержимому, любая правка ломает, шум при закрытом источнике."""
 
     def test_a_block_checks_against_the_content_it_was_made_for(self):
-        from filesystem.rawview import signatures
+        from filesystem.content.rawview import signatures
 
         content = b"Cargo manifest altered.\n"
         data = signatures.embed(content, [("director", None, True), ("other", None, False)], "s")
@@ -580,7 +580,7 @@ class SignatureBlockTests(TestCase):
         self.assertEqual(data, signatures.embed(content, [("director", None, True), ("other", None, False)], "s"))
 
     def test_a_closed_source_shows_noise_of_the_same_length_and_no_blocks(self):
-        from filesystem.rawview import signatures
+        from filesystem.content.rawview import signatures
 
         open_data = signatures.embed(b"text\n", [("director", None, True)], "s")
         closed = signatures.embed(b"text\n", [("director", None, True)], "s", locked=True)
@@ -602,7 +602,7 @@ class SignatureBlockTests(TestCase):
         self.assertNotIn(b"\n", url)
         self.assertEqual(encodings.valid_param("base64", "url,nowrap"), None)
         self.assertIn("только", encodings.valid_param("base64", "gzip"))
-        from filesystem.states.registry import registry
+        from filesystem.layers.registry import registry
 
         self.assertIsNone(registry.get("base64"))                                    # слой base64 убран
 

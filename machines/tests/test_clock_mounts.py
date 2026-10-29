@@ -91,7 +91,7 @@ class ClockTests(WorldCase):
 
     def log_text(self):
         from filesystem.machine_view import MachineView
-        from filesystem.rawview import build_raw
+        from filesystem.content.rawview import build_raw
         from filesystem.testing import make_file
 
         made = make_file(self.core, "/var/log/auth.log", format="log")

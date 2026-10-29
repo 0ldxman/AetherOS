@@ -39,7 +39,7 @@ class WriteMixin:
                 if inner:
                     return layer, inner
             if attempt == 0 and not any(layer.point == "/" for layer in self.layers):
-                from filesystem.provision import ensure_root
+                from filesystem.manager.provision import ensure_root
 
                 ensure_root(self.machine)                    # у машины ещё нет корня: он появляется с первой записью
                 self.invalidate()

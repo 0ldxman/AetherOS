@@ -1,7 +1,7 @@
 """Размер и сырые байты файла для команд терминала: с учётом ключей игрока и прогресса его сессии по слоям."""
 from filesystem.machine_view import MachineView
-from filesystem.rawview import build_raw
-from filesystem.size import file_size
+from filesystem.content.rawview import build_raw
+from filesystem.content.size import file_size
 from wiki.access import request_keys
 
 

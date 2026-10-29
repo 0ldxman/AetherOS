@@ -1,10 +1,10 @@
 import re
 import posixpath
 
-from filesystem.content import resolve_content
-from filesystem.rawview import detect
-from filesystem.states.attempt import top_answer
-from filesystem.unlock import fire_file_event
+from filesystem.content.window import resolve_content
+from filesystem.content.rawview import detect
+from filesystem.layers.attempt import top_answer
+from filesystem.layers.unlock import fire_file_event
 from terminal.engine.commands.basic import BaseCommand
 from terminal.engine.filesystem import VirtualFilesystem
 from terminal.engine.rawinfo import raw_of, size_of

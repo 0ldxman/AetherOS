@@ -1,5 +1,5 @@
 from filesystem import rights
-from filesystem.size import DIRECTORY_SIZE, human_size
+from filesystem.content.size import DIRECTORY_SIZE, human_size
 from terminal.engine.rawinfo import size_of
 from terminal.engine.filesystem import VirtualFilesystem
 from terminal.engine.result import CommandResult

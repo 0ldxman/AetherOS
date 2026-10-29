@@ -1,7 +1,7 @@
 import posixpath
 
-from filesystem.rawview.registry import format_for_extension
-from filesystem.states.attempt import peek_top
+from filesystem.content.rawview.registry import format_for_extension
+from filesystem.layers.attempt import peek_top
 from terminal.engine import fileops
 from terminal.engine.commands.layered import LayerCommand
 from terminal.engine.filesystem import VirtualFilesystem

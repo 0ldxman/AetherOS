@@ -8,7 +8,8 @@ from django.contrib.auth.hashers import make_password
 from django.core.management.base import BaseCommand
 from django.db import transaction
 
-from filesystem import appfile, filemanager
+from filesystem import appfile
+from filesystem.manager import filemanager
 from filesystem.models import FileFormat, Item, ItemKey, ItemMember, Placement, Volume, VolumeTemplate
 from machines.models import Export, Machine, MachineMount, MachineProfile, Place, SystemType
 

@@ -11,7 +11,7 @@ import posixpath
 
 from filesystem import rights
 from filesystem.models import Placement, Volume
-from filesystem.rawview import registry
+from filesystem.content.rawview import registry
 
 # формат записи -> тип записи вики (так их называют шаблоны и значки)
 DOC_TYPES = {"doc": "doc", "scan": "scan", "snp": "web", "rec": "rec"}

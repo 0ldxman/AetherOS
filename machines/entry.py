@@ -3,7 +3,7 @@
 Политика (EntryPolicy) назначается типу системы, машине или профилю, действует самая конкретная. Профиль перекрывает политику своими
 ttl, cooldown и kick_message, если они заполнены. Пароль, ключи и токены остаются у профиля (machines/bridge.py), здесь только то,
 что вокруг них: кто, откуда, когда, сколько раз ошибся. Каждое событие пишется в LoginEvent: из него считается блокировка, и это же
-журнал хоста для игрока (filesystem/sources/log.py).
+журнал хоста для игрока (filesystem/content/sources/log.py).
 """
 import fnmatch
 from dataclasses import dataclass

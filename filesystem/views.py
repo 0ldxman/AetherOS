@@ -14,7 +14,7 @@ from django.urls import reverse
 from django.utils.http import urlencode
 from django.views.decorators.csrf import ensure_csrf_cookie
 
-from filesystem.rawview import build_raw_cached, viewer_formats
+from filesystem.content.rawview import build_raw_cached, viewer_formats
 from machines.bridge import terminal_session
 from terminal.engine.context import TerminalContext
 from terminal.engine.filesystem import VirtualFilesystem

@@ -7,9 +7,9 @@ from datetime import timedelta
 from django.conf import settings
 from django.utils import timezone
 
-from filesystem.states.stack import load_progress
+from filesystem.layers.stack import load_progress
 from filesystem.trash import trashed
-from filesystem.unlock import fire_file_event
+from filesystem.layers.unlock import fire_file_event
 from terminal.engine.filesystem import VirtualFilesystem
 
 

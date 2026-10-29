@@ -1,4 +1,4 @@
-"""Формат файла журнала (.log): его текст строится из событий входа на машине, см. filesystem/sources/log.py."""
+"""Формат файла журнала (.log): его текст строится из событий входа на машине, см. filesystem/content/sources/log.py."""
 from django.db import migrations
 
 

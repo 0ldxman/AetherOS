@@ -9,8 +9,8 @@ from django.views.decorators.http import require_GET, require_POST
 
 from django.urls import reverse
 
-from filesystem.content import resolve_content
-from filesystem.sources import Content
+from filesystem.content.window import resolve_content
+from filesystem.content.sources import Content
 from machines.current import active_session
 from users.aether_auth import AUTH_REQUIRED, is_player
 
@@ -170,7 +170,7 @@ def attachment_text(request, pk):
     """Текст вложения-файла, пока он не сохранён у игрока (сохранённый открывается из его файловой системы)."""
     from django.http import HttpResponse
 
-    from filesystem.rawview import build_raw_cached
+    from filesystem.content.rawview import build_raw_cached
     from wiki.access import request_keys
 
     viewer = _viewer_or_404(request)

@@ -5,8 +5,8 @@ from types import SimpleNamespace
 from django.utils.text import slugify
 
 from filesystem import keystore
-from filesystem.archives import has_extension
-from filesystem.filemanager import unique_slug
+from filesystem.content.archives import has_extension
+from filesystem.manager.filemanager import unique_slug
 from filesystem.machine_view import MachineView
 from filesystem.models import KEY_FORMAT, Item, ItemKey, ItemMember, Placement, Volume
 from machines.models import MachineMount, Place
@@ -14,7 +14,7 @@ from machines.models import MachineMount, Place
 
 def root_volume(machine):
     """Том, смонтированный на корень машины (создаётся при первом обращении): в нём лежат файлы, созданные make_file."""
-    from filesystem.provision import ensure_root
+    from filesystem.manager.provision import ensure_root
 
     volume = ensure_root(machine)
     Place.objects.get_or_create(machine=machine, name="secrets", defaults={"path": "/home/.secrets"})     # у тестов одна папка секретов
@@ -37,7 +37,7 @@ def page_slug(path):
 
 def make_page(path, type="doc", body="", access=None, created_by=None, **fields):
     """Страница, на которую ссылается адрес `apps/wiki/<путь>` в make_file (путь: Раздел/Название)."""
-    from filesystem.rawview.registry import format_for_extension
+    from filesystem.content.rawview.registry import format_for_extension
 
     name = path.rsplit("/", 1)[-1]
     return Item.objects.create(

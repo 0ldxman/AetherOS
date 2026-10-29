@@ -256,7 +256,7 @@ def convert_scene(path, size, value, ok, out):
     расширение заменяется). Решение уже принято сервером: неверное название обрывается на разборе входа, и по сцене
     ничего не узнать раньше ответа. Единицы разбора берутся из формата: у записи поля, у страницы узлы, у документа и
     скана их части (каждая своей полосой)."""
-    from filesystem.rawview import registry
+    from filesystem.content.rawview import registry
 
     s = Scene()
     s.row("cvt", path, width=8)
@@ -290,7 +290,7 @@ def convert_scene(path, size, value, ok, out):
 def decode_scene(path, size, value, ok):
     """cvt enc: раскодирование слоя binary из названной кодировки. Решение уже принято сервером: неверная кодировка
     обрывается на проверке потока, и по сцене ничего не узнать раньше ответа. Шаги и единицы зависят от вида кодировки."""
-    from filesystem.rawview import registry
+    from filesystem.content.rawview import registry
 
     found = registry.encoding_named(value.lower())
     unit, check = ENCODING_STEPS.get(found.kind if found else "", ("units", "checking stream"))

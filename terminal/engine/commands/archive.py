@@ -8,8 +8,8 @@
 """
 import posixpath
 
-from filesystem import archives
-from filesystem.states.attempt import peek_top, top_answer
+from filesystem.content import archives
+from filesystem.layers.attempt import peek_top, top_answer
 from filesystem.trash import in_trash
 from terminal.engine import trash
 from terminal.engine.commands.layered import LayerCommand
@@ -17,7 +17,7 @@ from terminal.engine.filesystem import VirtualFilesystem
 from terminal.engine.rawinfo import keys_of, viewer_of
 from terminal.engine.result import CommandResult
 from terminal.scenes import pak_extract_scene, pak_list_scene
-from filesystem.size import file_size
+from filesystem.content.size import file_size
 
 USAGE = "usage: pak l archive\n       pak x archive [member...] [-d dir]\n       pak pass archive password"
 

@@ -7,8 +7,9 @@ from django.core.exceptions import ValidationError
 from django.test import TestCase
 from django.urls import get_script_prefix, reverse, set_script_prefix
 
-from filesystem import filemanager, overlay
-from filesystem.filemanager import FileManagerError
+from filesystem.manager import overlay
+from filesystem.manager import filemanager
+from filesystem.manager.filemanager import FileManagerError
 from filesystem.machine_view import MachineView
 from filesystem.models import FileFormat, Item, ItemKey, Placement, Volume, VolumeTemplate
 from machines.models import Machine, MachineMount

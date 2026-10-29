@@ -2,9 +2,9 @@
 {% load static %}
 
 {% block extrahead %}{{ block.super }}
-<link rel="stylesheet" href="{% static 'filesystem/filemanager.css' %}">
+<link rel="stylesheet" href="{% static 'filesystem/manager/filemanager.css' %}">
 {{ config|json_script:"fm-config" }}
-<script defer src="{% static 'filesystem/filemanager.js' %}"></script>
+<script defer src="{% static 'filesystem/manager/filemanager.js' %}"></script>
 {% endblock %}
 
 {% block bodyclass %}{{ block.super }} fm-page{% endblock %}

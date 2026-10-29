@@ -4,7 +4,7 @@ from django.db.models import Count
 from django.urls import reverse
 from django.utils.html import format_html
 
-from filesystem.admin_files import MachineFiles
+from filesystem.admin.files import MachineFiles
 
 from machines.admin.groups import MachineGroupInline
 from machines.models import Export, Machine, MachineMount, MachineProfile, Place, SystemType

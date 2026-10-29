@@ -3,7 +3,7 @@
 del и wipe спрашивают подтверждение (del -f и wipe -f без вопроса). Вопрос это prompt вида confirm, ответ приходит
 отдельным запросом (terminal.views.execute), а что собирались сделать, лежит в Django-сессии.
 """
-from filesystem.unlock import fire_file_event
+from filesystem.layers.unlock import fire_file_event
 from filesystem.trash import empty_trash, in_trash, trashed
 from terminal.engine import trash
 from terminal.engine.commands.basic import BaseCommand

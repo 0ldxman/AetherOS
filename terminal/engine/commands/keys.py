@@ -1,6 +1,6 @@
 """kex: достать ключ из байтов файла. Игрок находит блок ключа (txtx, blk, вьювер raw) и называет его смещение."""
 from filesystem import keystore
-from filesystem.rawview import keys
+from filesystem.content.rawview import keys
 from filesystem.models import KEY_FORMAT, Item
 from terminal.engine.commands.basic import BaseCommand
 from terminal.engine.filesystem import VirtualFilesystem

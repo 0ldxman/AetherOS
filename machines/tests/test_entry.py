@@ -213,7 +213,7 @@ class JournalTests(TestCase):
 
     def text(self, user):
         from filesystem.machine_view import MachineView
-        from filesystem.rawview import build_raw
+        from filesystem.content.rawview import build_raw
 
         view = MachineView(self.core, user)
         return build_raw(view.get(self.made.path), view).data.decode()

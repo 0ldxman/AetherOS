@@ -8,7 +8,7 @@ class FilesystemConfig(AppConfig):
     def ready(self):
         # реестр форматов запоминается на минуту; правка в админке сбрасывает запомненное сразу
         from filesystem.models import FileEncoding, FileFormat, FormatPart
-        from filesystem.rawview.registry import invalidate
+        from filesystem.content.rawview.registry import invalidate
 
         from django.db.models.signals import post_save as saved
 

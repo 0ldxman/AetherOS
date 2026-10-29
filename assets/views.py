@@ -15,7 +15,7 @@ from django.shortcuts import get_object_or_404, render
 from django.urls import reverse
 from django.utils.http import content_disposition_header
 
-from filesystem.rawview import viewer_formats
+from filesystem.content.rawview import viewer_formats
 
 from assets.models import Asset
 from assets.nextcloud import NextcloudClient

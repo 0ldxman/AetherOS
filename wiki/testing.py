@@ -1,9 +1,9 @@
 """Помощники для тестов вики: разделы и страницы на томах (раньше это были Namespace и Document)."""
 from types import SimpleNamespace
 
-from filesystem.filemanager import unique_slug
+from filesystem.manager.filemanager import unique_slug
 from filesystem.models import Item, Placement, Volume
-from filesystem.rawview.registry import format_for_extension
+from filesystem.content.rawview.registry import format_for_extension
 
 TYPE_EXT = {"doc": ".doc", "scan": ".scan", "web": ".snp", "rec": ".rec"}
 
