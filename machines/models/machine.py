@@ -45,12 +45,19 @@ class Machine(models.Model):
 
     hid = models.CharField(
         max_length=17,
-        unique=True,
         blank=True,
+        help_text="MAC основного адаптера. У клонов (одна машина под двумя именами) он общий. Пусто: сгенерируется.",
     )
 
-    callsign = models.CharField(
-        "Позывной", max_length=32, blank=True, help_text="Как узел называет себя в эфире. Пусто: считается из hid.",
+    address = models.CharField(
+        "Адрес", max_length=64, blank=True,
+        help_text="Частота узла в МГц (радио-ОС, 18.979) или сетевой адрес (10.40.7.12). Пусто: выводится из hid.",
+    )
+
+    serial = models.CharField("Серийный номер", max_length=32, blank=True, help_text="Пусто: выводится из hid.")
+
+    host_key = models.CharField(
+        "Ключ узла", max_length=64, blank=True, help_text="Отпечаток вида SHA256:… Пусто: выводится из hid. По нему рисуется картинка отпечатка.",
     )
 
     note = models.TextField(
@@ -96,6 +103,13 @@ class Machine(models.Model):
         if self.hostname and self.hostname != self.name:
             return f"{self.name} ({self.hostname})"
         return self.name
+
+    def clean(self):
+        super().clean()
+        from machines.world.identity import FINGERPRINT
+
+        if self.host_key and not FINGERPRINT.match(self.host_key):
+            raise ValidationError({"host_key": "Отпечаток выглядит так: SHA256: и 43 символа base64 (A-Z a-z 0-9 + /)."})
 
     def save(self, *args, **kwargs):
         if not self.hid:

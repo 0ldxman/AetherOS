@@ -8,7 +8,7 @@
 
   let { machine, onchange }: { machine: Schemas["Overview"]; onchange: () => void } = $props();
 
-  let form = $state({ hostname: "", name: "", system: "", status: "", callsign: "", note: "", booted_at: "", entry_policy: null as number | null });
+  let form = $state({ hostname: "", name: "", system: "", status: "", hid: "", address: "", serial: "", host_key: "", note: "", booted_at: "", entry_policy: null as number | null });
   let saving = $state(false);
   let errors = $state<Record<string, string[]>>({});
   let dialog = $state<null | "delete" | "copy">(null);
@@ -31,15 +31,34 @@
 
   $effect(() => {
     form = {
-      hostname: machine.hostname, name: machine.name, system: machine.system, status: machine.status, callsign: machine.callsign,
+      hostname: machine.hostname, name: machine.name, system: machine.system, status: machine.status, hid: machine.hid, address: machine.address, serial: machine.serial, host_key: machine.host_key,
       note: machine.note, booted_at: local(machine.booted_at ?? null), entry_policy: machine.policy?.id ?? null,
     };
   });
   const dirty = $derived(
     form.hostname !== machine.hostname || form.name !== machine.name || form.system !== machine.system ||
-      form.status !== machine.status || form.entry_policy !== (machine.policy?.id ?? null) || form.callsign !== machine.callsign ||
+      form.status !== machine.status || form.entry_policy !== (machine.policy?.id ?? null) || form.hid !== machine.hid || form.address !== machine.address || form.serial !== machine.serial || form.host_key !== machine.host_key ||
       form.note !== machine.note || form.booted_at !== local(machine.booted_at ?? null),
   );
+
+  let art = $state<{ valid: boolean; lines: string[] }>({ valid: true, lines: [] });
+  let artTimer: ReturnType<typeof setTimeout>;
+
+  // картинка отпечатка следует за тем, что в поле (пусто: за ключом, который выводится из hid)
+  $effect(() => {
+    const key = form.host_key.trim() || machine.auto_host_key;
+    clearTimeout(artTimer);
+    artTimer = setTimeout(async () => {
+      const { data } = await api.POST("/studio/api/machines/randomart", { body: { host_key: key } });
+      if (data) art = { valid: data.valid || !form.host_key.trim(), lines: data.lines };
+    }, 200);
+    return () => clearTimeout(artTimer);
+  });
+
+  async function generate(field: "hid" | "address" | "serial" | "host_key") {
+    const { data } = await api.POST("/studio/api/machines/generate", { body: { field, system: form.system } });
+    if (data) form[field] = data.value;
+  }
 
   async function save() {
     saving = true;
@@ -128,11 +147,30 @@
       </label>
     </div>
     <div class="pair">
-      <label><span class="label">Позывной</span><input class="field mono" placeholder="пусто: считается из hid" bind:value={form.callsign} /></label>
       <label><span class="label">Включена с</span><input class="field" type="datetime-local" bind:value={form.booted_at} /></label>
     </div>
     <label><span class="label">Заметка</span><textarea class="field" rows="3" bind:value={form.note}></textarea></label>
     <p class="muted small">Заметка и «включена с» попадают в приветствие ОС как <code>{"{note}"}</code> и <code>{"{uptime}"}</code>.</p>
+    <h3 class="sub">Идентичность</h3>
+    <p class="muted small">Пустое поле: значение выводится из hid. Можно вписать своё или сгенерировать. Одинаковый hid у двух машин нормален: так клон выглядит той же машиной.</p>
+    <div class="idrow">
+      <label><span class="label">hid</span><input class="field mono" bind:value={form.hid} class:bad={errors.hid} /></label>
+      <button class="btn ghost" onclick={() => generate("hid")}>Сгенерировать</button>
+    </div>
+    <div class="idrow">
+      <label><span class="label">Адрес (частота МГц или сетевой)</span><input class="field mono" placeholder={machine.auto_address} bind:value={form.address} /></label>
+      <button class="btn ghost" onclick={() => generate("address")}>Сгенерировать</button>
+    </div>
+    <div class="idrow">
+      <label><span class="label">Серийный номер</span><input class="field mono" placeholder={machine.auto_serial} bind:value={form.serial} /></label>
+      <button class="btn ghost" onclick={() => generate("serial")}>Сгенерировать</button>
+    </div>
+    <div class="idrow">
+      <label><span class="label">Ключ узла (host key)</span><input class="field mono" placeholder={machine.auto_host_key} bind:value={form.host_key} class:bad={errors.host_key || !art.valid} /></label>
+      <button class="btn ghost" onclick={() => generate("host_key")}>Перегенерировать</button>
+    </div>
+    {#if errors.host_key}<p class="err">{errors.host_key.join(" ")}</p>{:else if form.host_key && !art.valid}<p class="err">Отпечаток выглядит так: SHA256: и 43 символа base64.</p>{/if}
+    <pre class="art mono">{art.lines.join("\n")}</pre>
     <label><span class="label">Политика входа машины</span>
       <select class="field" bind:value={form.entry_policy}>
         <option value={null}>от типа системы</option>
@@ -159,6 +197,9 @@
 {/if}
 
 <style>
+  .idrow { display: grid; grid-template-columns: 1fr max-content; gap: 8px; align-items: end; }
+  .sub { margin: 8px 0 0; font-size: 12px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.4px; }
+  .art { margin: 0; padding: 8px 10px; border-radius: var(--radius-s); background: #0b0d10; color: var(--muted); font-size: 12px; line-height: 1.15; overflow: auto; }
   .grid { display: grid; grid-template-columns: 1fr 340px; gap: 16px; padding: 16px 20px 24px; align-items: start; }
   .col { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
   .card { border: 1px solid var(--line-soft); border-radius: var(--radius); background: var(--panel); padding: 14px 16px; }

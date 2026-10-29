@@ -244,7 +244,7 @@ class GatewayScenesTests(TestCase):
         intro = self.scenes()["intro"]
         first_cut = next(i for i, step in enumerate(intro) if step["op"] == "cut")
         bridge, radio = spoken(intro[:first_cut]), spoken(intro[first_cut:])
-        for word in ("rf0", "MHz", "carrier", "stations", "dBm", "ofdm", "ldpc", "ground wave", "callsign",
+        for word in ("rf0", "MHz", "carrier", "stations", "dBm", "ofdm", "ldpc", "ground wave",
                      "alp/3.2", "certificate chain", "host key", "key id", "[ED25519 256]",
                      "auth      offered by node", "no client key", "38 Mbit/s"):
             self.assertIn(word, radio)

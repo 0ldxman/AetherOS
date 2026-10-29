@@ -368,8 +368,8 @@ def wipe_scene(count):
 
 # что можно подставить в приветствие ОС: имя -> подпись для студии
 GREETING_PARAMS = {
-    "host": "имя машины", "login": "логин учётки", "os": "код ОС", "os_name": "название ОС", "address": "адрес узла", "serial": "серийный номер",
-    "callsign": "позывной машины", "freq": "частота учётки, под которой вошли", "date": "дата в мире", "last_login": "прошлый вход этой учётки",
+    "host": "имя машины", "login": "логин учётки", "os": "код ОС", "os_name": "название ОС", "address": "адрес узла (частота или сетевой)", "serial": "серийный номер",
+    "hid": "hid машины", "host_key": "отпечаток ключа узла", "freq": "частота учётки, под которой вошли", "date": "дата в мире", "last_login": "прошлый вход этой учётки",
     "uptime": "сколько работает машина", "accounts": "число учёток машины", "sessions": "сколько игроков на машине сейчас",
     "unread": "число непрочитанных писем", "mail": "строка про непрочитанную почту", "volumes": "тома машины", "note": "заметка машины",
 }
@@ -388,8 +388,8 @@ def greeting_params(ident, login, mail=None, system=None, facts=None):
     facts = {"accounts": 0, "sessions": 0, "last_login": "never", "uptime": "unknown", "note": "", "volumes": "none", "freq": None, **(facts or {})}
     return {
         "host": ident.hostname, "login": login, "os": system.code if system else "", "os_name": system.name if system else "",
-        "address": ident.address, "serial": ident.serial, "callsign": ident.callsign, "date": GAME_DATE,
-        "unread": (mail or {}).get("unread", 0), "mail": _mail_text(mail), **{**facts, "freq": facts["freq"] or ident.freq},
+        "address": ident.address, "serial": ident.serial, "hid": ident.hid, "host_key": ident.host_key, "date": GAME_DATE,
+        "unread": (mail or {}).get("unread", 0), "mail": _mail_text(mail), **{**facts, "freq": facts["freq"] or ident.address},
     }
 
 

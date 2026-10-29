@@ -2074,6 +2074,82 @@
     ]
    }
   },
+  "/studio/api/machines/generate": {
+   "post": {
+    "operationId": "studio_api_machines_generate",
+    "summary": "Generate",
+    "parameters": [],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Generated"
+        }
+       }
+      }
+     }
+    },
+    "description": "Случайное значение для поля идентичности: подставляется в форму, сохраняется кнопкой «Сохранить».",
+    "tags": [
+     "machines"
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/GenerateIn"
+       }
+      }
+     },
+     "required": true
+    },
+    "security": [
+     {
+      "SessionAuthIsStaff": []
+     }
+    ]
+   }
+  },
+  "/studio/api/machines/randomart": {
+   "post": {
+    "operationId": "studio_api_machines_randomart",
+    "summary": "Randomart",
+    "parameters": [],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Art"
+        }
+       }
+      }
+     }
+    },
+    "description": "Картинка отпечатка для показа, пока ключ правят в форме.",
+    "tags": [
+     "machines"
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/ArtIn"
+       }
+      }
+     },
+     "required": true
+    },
+    "security": [
+     {
+      "SessionAuthIsStaff": []
+     }
+    ]
+   }
+  },
   "/studio/api/machines/{machine_id}/check": {
    "post": {
     "operationId": "studio_api_machines_check",
@@ -6470,9 +6546,36 @@
       "title": "Hid",
       "type": "string"
      },
-     "callsign": {
-      "title": "Callsign",
+     "address": {
+      "title": "Address",
       "type": "string"
+     },
+     "serial": {
+      "title": "Serial",
+      "type": "string"
+     },
+     "host_key": {
+      "title": "Host Key",
+      "type": "string"
+     },
+     "auto_address": {
+      "title": "Auto Address",
+      "type": "string"
+     },
+     "auto_serial": {
+      "title": "Auto Serial",
+      "type": "string"
+     },
+     "auto_host_key": {
+      "title": "Auto Host Key",
+      "type": "string"
+     },
+     "randomart": {
+      "items": {
+       "type": "string"
+      },
+      "title": "Randomart",
+      "type": "array"
      },
      "note": {
       "title": "Note",
@@ -6568,7 +6671,13 @@
      "system",
      "status",
      "hid",
-     "callsign",
+     "address",
+     "serial",
+     "host_key",
+     "auto_address",
+     "auto_serial",
+     "auto_host_key",
+     "randomart",
      "note",
      "booted_at",
      "is_system",
@@ -6661,9 +6770,30 @@
       "title": "Status",
       "type": "string"
      },
-     "callsign": {
+     "hid": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Hid"
+     },
+     "address": {
       "default": "",
-      "title": "Callsign",
+      "title": "Address",
+      "type": "string"
+     },
+     "serial": {
+      "default": "",
+      "title": "Serial",
+      "type": "string"
+     },
+     "host_key": {
+      "default": "",
+      "title": "Host Key",
       "type": "string"
      },
      "note": {
@@ -6702,6 +6832,71 @@
      "status"
     ],
     "title": "MachineIn",
+    "type": "object"
+   },
+   "Generated": {
+    "properties": {
+     "value": {
+      "title": "Value",
+      "type": "string"
+     }
+    },
+    "required": [
+     "value"
+    ],
+    "title": "Generated",
+    "type": "object"
+   },
+   "GenerateIn": {
+    "properties": {
+     "field": {
+      "title": "Field",
+      "type": "string"
+     },
+     "system": {
+      "default": "",
+      "title": "System",
+      "type": "string"
+     }
+    },
+    "required": [
+     "field"
+    ],
+    "title": "GenerateIn",
+    "type": "object"
+   },
+   "Art": {
+    "properties": {
+     "valid": {
+      "title": "Valid",
+      "type": "boolean"
+     },
+     "lines": {
+      "items": {
+       "type": "string"
+      },
+      "title": "Lines",
+      "type": "array"
+     }
+    },
+    "required": [
+     "valid",
+     "lines"
+    ],
+    "title": "Art",
+    "type": "object"
+   },
+   "ArtIn": {
+    "properties": {
+     "host_key": {
+      "title": "Host Key",
+      "type": "string"
+     }
+    },
+    "required": [
+     "host_key"
+    ],
+    "title": "ArtIn",
     "type": "object"
    },
    "Step": {

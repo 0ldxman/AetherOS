@@ -708,6 +708,46 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/studio/api/machines/generate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Generate
+         * @description Случайное значение для поля идентичности: подставляется в форму, сохраняется кнопкой «Сохранить».
+         */
+        post: operations["studio_api_machines_generate"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/studio/api/machines/randomart": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Randomart
+         * @description Картинка отпечатка для показа, пока ключ правят в форме.
+         */
+        post: operations["studio_api_machines_randomart"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/studio/api/machines/{machine_id}/check": {
         parameters: {
             query?: never;
@@ -2212,8 +2252,20 @@ export interface components {
             status: string;
             /** Hid */
             hid: string;
-            /** Callsign */
-            callsign: string;
+            /** Address */
+            address: string;
+            /** Serial */
+            serial: string;
+            /** Host Key */
+            host_key: string;
+            /** Auto Address */
+            auto_address: string;
+            /** Auto Serial */
+            auto_serial: string;
+            /** Auto Host Key */
+            auto_host_key: string;
+            /** Randomart */
+            randomart: string[];
             /** Note */
             note: string;
             /** Booted At */
@@ -2266,11 +2318,23 @@ export interface components {
             system: string;
             /** Status */
             status: string;
+            /** Hid */
+            hid?: string | null;
             /**
-             * Callsign
+             * Address
              * @default
              */
-            callsign: string;
+            address: string;
+            /**
+             * Serial
+             * @default
+             */
+            serial: string;
+            /**
+             * Host Key
+             * @default
+             */
+            host_key: string;
             /**
              * Note
              * @default
@@ -2280,6 +2344,33 @@ export interface components {
             booted_at?: string | null;
             /** Entry Policy */
             entry_policy?: number | null;
+        };
+        /** Generated */
+        Generated: {
+            /** Value */
+            value: string;
+        };
+        /** GenerateIn */
+        GenerateIn: {
+            /** Field */
+            field: string;
+            /**
+             * System
+             * @default
+             */
+            system: string;
+        };
+        /** Art */
+        Art: {
+            /** Valid */
+            valid: boolean;
+            /** Lines */
+            lines: string[];
+        };
+        /** ArtIn */
+        ArtIn: {
+            /** Host Key */
+            host_key: string;
         };
         /** Step */
         Step: {
@@ -4158,6 +4249,54 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+        };
+    };
+    studio_api_machines_generate: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GenerateIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Generated"];
+                };
+            };
+        };
+    };
+    studio_api_machines_randomart: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ArtIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Art"];
+                };
             };
         };
     };

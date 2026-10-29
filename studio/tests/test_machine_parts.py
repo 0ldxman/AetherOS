@@ -203,16 +203,16 @@ class CreateAndSystemsTests(TestCase):
         from django.utils import timezone
 
         from machines.world.facts import facts
+        from machines.world.identity import identity_of
 
-        self.core.callsign, self.core.note = "KEY-1", "Check the vault"
+        self.core.note = "Check the vault"
         self.core.booted_at = timezone.now() - timedelta(days=2, hours=3)
         self.core.save()
         known = facts(self.core)
         self.assertEqual((known["accounts"], known["note"], known["last_login"]), (self.core.profiles.count(), "Check the vault", "never"))
         self.assertTrue(known["uptime"].startswith("2 days"))
-        self.assertEqual(self.call("get", f"/machines/{self.core.pk}")[1]["callsign"], "KEY-1")
-        status, data = self.call("post", "/systems/AETHER/greeting/preview", {"greeting": "<rand>5-5</rand> % {note} {callsign}"})
-        self.assertEqual("".join(part["text"] for part in data["lines"][0]), "5 % Check the vault KEY-1")
+        status, data = self.call("post", "/systems/AETHER/greeting/preview", {"greeting": "<rand>5-5</rand> % {note} {serial}"})
+        self.assertEqual("".join(part["text"] for part in data["lines"][0]), f"5 % Check the vault {identity_of(self.core.hostname).serial}")
         self.assertEqual(self.call("post", "/systems/AETHER/greeting/preview", {"greeting": "<rand>x</rand>"})[1]["errors"][0]["line"], 1)
 
     def test_a_blackout_takes_the_os_values_over_the_engine_ones(self):
@@ -232,6 +232,28 @@ class CreateAndSystemsTests(TestCase):
         self.assertEqual(self.call("put", "/systems/AETHER/blackouts/arrive", {"text": "{nope}"})[0], 400)
         self.assertEqual(self.call("put", "/systems/AETHER/blackouts/arrive", {})[0], 200)
         self.assertEqual(blackout.resolve("arrive", profile)["tone"], "success")
+
+    def test_the_identity_of_a_machine_can_be_typed_or_generated(self):
+        from machines.world.identity import generate_host_key
+
+        data = self.call("get", f"/machines/{self.core.pk}")[1]
+        self.assertEqual((data["address"], data["host_key"], len(data["randomart"])), ("", "", 11))
+        key = self.call("post", "/machines/generate", {"field": "host_key"})[1]["value"]
+        self.assertTrue(key.startswith("SHA256:"))
+        self.assertEqual(self.call("post", "/machines/generate", {"field": "nope"})[0], 400)
+        self.assertRegex(self.call("post", "/machines/generate", {"field": "address", "system": "AETHER"})[1]["value"], r"^\d{1,2}\.\d{3}$")
+        art = self.call("post", "/machines/randomart", {"host_key": key})[1]
+        self.assertEqual((art["valid"], len(art["lines"])), (True, 11))
+        self.assertFalse(self.call("post", "/machines/randomart", {"host_key": "oops"})[1]["valid"])
+
+        body = {"hostname": "aether-core", "name": "Core", "system": "AETHER", "status": "ONLINE", "hid": "AA:BB:CC:DD:EE:FF",
+                "address": "14.230", "serial": "AE-1111-2222-3", "host_key": key}
+        data = self.call("put", f"/machines/{self.core.pk}", body)[1]
+        self.assertEqual((data["hid"], data["address"], data["host_key"]), ("aa:bb:cc:dd:ee:ff", "14.230", key))
+        self.assertEqual(self.call("put", f"/machines/{self.core.pk}", {**body, "host_key": "oops"})[0], 400)
+        twin = Machine.objects.create(name="Twin", hostname="twin", hid="aa:bb:cc:dd:ee:ff")        # клон с тем же hid
+        self.core.refresh_from_db()
+        self.assertEqual(twin.hid, self.core.hid)
 
     def test_the_system_image_is_laid_under_the_machine_mounts(self):
         from filesystem.machine_view import MachineView

@@ -172,7 +172,10 @@ def _route(s):
 
 def _scan_range(freq):
     """Диапазон поиска вокруг частоты узла: «14.000-14.500»."""
-    low = int(float(freq) * 2) / 2
+    try:
+        low = int(float(freq) * 2) / 2
+    except ValueError:
+        return str(freq)                     # адрес задан не частотой: вокруг него нечего искать
     return f"{low:.3f}-{low + 0.5:.3f}"
 
 
@@ -235,15 +238,13 @@ def _tune(s, ident, known, client_key):
     if not known:
         s.row("antenna", "loop 40 m  ·  vswr 1.3", "dim")
         s.task("earth     electrode 2.8 ohm ", "ok", style="success", ms=(300, 700))
-    s.task(f"beacons   {ident.hostname} ", f"{ident.freq} MHz", style="dim", ms=(350, 800))
+    s.task(f"beacons   {ident.hostname} ", f"{ident.address} MHz", style="dim", ms=(350, 800))
     s.say(
         f"          cached entry, last sync {BEACON_LAST_SYNC} ({days_since(BEACON_LAST_SYNC)} d ago)",
         style="warning",
     )
-    if not known:
-        s.row("callsign", ident.callsign, "dim")
-    s.task(f"scan      {_scan_range(ident.freq)} MHz ", "3 carriers", style="dim", ms=(900, 1600))
-    s.task(f"carrier   {ident.freq} MHz ", "locked", ms=(500, 1000), style="success")
+    s.task(f"scan      {_scan_range(ident.address)} MHz ", "3 carriers", style="dim", ms=(900, 1600))
+    s.task(f"carrier   {ident.address} MHz ", "locked", ms=(500, 1000), style="success")
     s.row("noise", "-112 dBm  ·  snr 31 dB", "dim")
     if not known:
         s.row("mode", "ground wave + skywave", "dim")
@@ -324,7 +325,7 @@ def _identity(s, ident, known, client_key):
         ("  [0] subject   ", ident.hostname),
         ("      issuer    ", (mask, None), ("  [restricted]", "dim")),
         ("      serial    ", ("0x4f21a7c93b05", "dim")),
-        ("      names     ", (f"{ident.hostname}, {ident.callsign}", "dim")),
+        ("      names     ", (ident.hostname, "dim")),
         ("      usage     ", ("session, key agreement", "dim")),
         ("      algorithm ", ("ed25519 / sha256", "dim")),
         ("      valid     ", ("2019-11-02 .. " + str(CERT_NOT_AFTER), "dim"),
@@ -362,7 +363,6 @@ def _node(s, ident, known, client_key):
     if not known:
         s.row("build", "forge-03  2020-09-02", "dim")
     s.row("serial", ident.serial, "dim")
-    s.row("callsign", ident.callsign, "dim")
     s.row("owner", Scene.mask(OWNER_MASK), note="[restricted]")
     s.row("accounts", Scene.mask(4) + " registered", "dim")
     s.row("date", f"{GAME_DATE}  03:12 UTC  (beacon)", "dim")
@@ -437,13 +437,13 @@ def _motd(s, ident, login, mail=None, *, short=False, read=True):
     s.say(f"  System information as of {GAME_DATE} 03:14 UTC", style="dim")
     s.blank()
     s.say("  " + _pair("Link load:", f"{_metric(ident, 'load', 3, 19)} %", "Sessions:", "1  (you)"))
-    s.say("  " + _pair("Radio:", f"rf0 {ident.freq} MHz locked", "Stations:", f"{STATIONS_REACHABLE} of {STATIONS_KNOWN}"))
+    s.say("  " + _pair("Radio:", f"rf0 {ident.address} MHz locked", "Stations:", f"{STATIONS_REACHABLE} of {STATIONS_KNOWN}"))
     s.say("  " + _pair("Vault usage:", f"{_metric(ident, 'vault', 31, 58)} % of 4 TB", "Memory:", f"{_metric(ident, 'mem', 14, 37)} % of 64 GiB"))
     s.say("  " + _pair("Processes:", f"{_metric(ident, 'proc', 180, 260)}", "Temperature:", f"{_metric(ident, 'temp', 36, 47)} C"))
     s.say("  " + _pair("Uptime:", "3 min", "Core:", "unreachable"))
     s.blank()
     if not short:
-        s.say("  " + _pair("Node:", f"{ident.hostname}  ·  callsign {ident.callsign}"))
+        s.say("  " + _pair("Node:", ident.hostname))
         s.say("  " + _pair("Serial:", ident.serial))
         s.say("  " + _pair("Radio gear:", "rf0 wideband 2-30 MHz  ·  rf1 not present"))
         s.blank()

@@ -4,7 +4,10 @@
 """
 from django.test import TestCase
 
-from machines.world.identity import UNKNOWN_HID, address_for, callsign_for, client_fingerprint, fingerprint_for, freq_for, identity_of, randomart_for, serial_for
+from machines.world.identity import (
+    FINGERPRINT, UNKNOWN_HID, address_for, address_of, client_fingerprint, fingerprint_for, freq_for, generate_address, generate_host_key,
+    generate_serial, identity_of, randomart_for, randomart_of, serial_for,
+)
 from machines.world.dates import CLEARANCE, CORE_LAST_CONTACT, GAME_DATE, clearance_code, days_since
 from machines.models import Machine
 
@@ -15,7 +18,8 @@ class IdentityTests(TestCase):
         ident = identity_of()
         self.assertEqual((ident.hostname, ident.hid), ("aether-main", machine.hid))
         self.assertEqual(ident.serial, serial_for(machine.hid))
-        self.assertEqual(ident.address, address_for(machine.hid))
+        self.assertEqual(ident.address, freq_for(machine.hid))                 # ОС по умолчанию радио: адрес это частота
+        self.assertEqual(address_of(machine.hid, "WIN"), address_for(machine.hid))
 
     def test_a_missing_machine_gets_a_placeholder_not_an_error(self):
         self.assertEqual(identity_of().hid, UNKNOWN_HID)
@@ -67,15 +71,33 @@ class RadioIdentityTests(TestCase):
             self.assertRegex(freq, r"^\d{1,2}\.\d{3}$")
             self.assertTrue(3.0 <= float(freq) < 30.0, freq)
 
-    def test_the_frequency_and_callsign_follow_the_hid(self):
+    def test_the_frequency_follows_the_hid(self):
         self.assertEqual(freq_for("7e:4b:c4:d4:d9:a3"), freq_for("7e:4b:c4:d4:d9:a3"))
         self.assertNotEqual(freq_for("7e:4b:c4:d4:d9:a3"), freq_for("7e:4b:c4:d4:d9:a4"))
-        self.assertRegex(callsign_for("7e:4b:c4:d4:d9:a3"), r"^AEM-[0-9A-F]{3}$")
 
-    def test_identity_carries_the_radio_data(self):
-        machine = Machine.objects.create(name="Main", hostname="aether-main")
+
+class OwnIdentityTests(TestCase):
+    def test_own_values_of_the_machine_win_over_the_ones_from_hid(self):
+        key = generate_host_key()
+        Machine.objects.create(name="Main", hostname="aether-main", address="12.345", serial="AE-0000-0000-0", host_key=key)
         ident = identity_of()
-        self.assertEqual((ident.freq, ident.callsign), (freq_for(machine.hid), callsign_for(machine.hid)))
+        self.assertEqual((ident.address, ident.serial, ident.host_key), ("12.345", "AE-0000-0000-0", key))
+        self.assertEqual(ident.randomart, randomart_of(key))
+
+    def test_machines_may_share_a_hid(self):
+        Machine.objects.create(name="Main", hostname="aether-main", hid="aa:bb:cc:dd:ee:ff")
+        Machine.objects.create(name="Null", hostname="aether-null", hid="aa:bb:cc:dd:ee:ff")
+        self.assertEqual(identity_of("aether-main").host_key, identity_of("aether-null").host_key)
+
+    def test_generated_values_look_right(self):
+        self.assertRegex(generate_serial(), r"^AE-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]$")
+        self.assertRegex(generate_address("WIN"), r"^10\.40\.\d{1,3}\.\d{1,3}$")
+        self.assertTrue(3.0 <= float(generate_address("AETHER")) < 30.0)
+        self.assertRegex(generate_host_key(), FINGERPRINT.pattern)
+        self.assertNotEqual(generate_host_key(), generate_host_key())
+
+    def test_a_typed_fingerprint_draws_the_same_picture_as_the_one_from_hid(self):
+        self.assertEqual(randomart_of(fingerprint_for("7e:4b:c4:d4:d9:a3")), randomart_for("7e:4b:c4:d4:d9:a3"))
 
 
 class WorldTests(TestCase):

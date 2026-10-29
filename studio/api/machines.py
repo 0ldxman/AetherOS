@@ -15,6 +15,8 @@ from machines.access import check as checking
 from machines.access import entry, groups
 from machines.models import EntryPolicy, LoginEvent, Machine, MachineProfile, Session, SystemType
 from machines.network import bridge
+from machines.models.machine import generate_hid
+from machines.world import identity
 from machines.world.facts import ONLINE
 
 router = Router(tags=["machines"])
@@ -89,7 +91,13 @@ class Overview(Schema):
     system: str
     status: str
     hid: str
-    callsign: str
+    address: str
+    serial: str
+    host_key: str
+    auto_address: str           # что подставится, если поле пусто
+    auto_serial: str
+    auto_host_key: str
+    randomart: list[str]        # картинка того ключа, который действует сейчас
     note: str
     booted_at: datetime | None
     is_system: bool
@@ -109,7 +117,10 @@ class MachineIn(Schema):
     name: str
     system: str
     status: str
-    callsign: str = ""
+    hid: str | None = None      # None: не менять
+    address: str = ""
+    serial: str = ""
+    host_key: str = ""
     note: str = ""
     booted_at: datetime | None = None
     entry_policy: int | None = None
@@ -237,6 +248,52 @@ def delete(request, machine_id: int):
     return {}
 
 
+def _auto(machine):
+    """Значения, которые действуют, пока поле пусто, и картинка действующего ключа."""
+    hid = machine.hid
+    return {
+        "auto_address": identity.address_of(hid, machine.system), "auto_serial": identity.serial_for(hid),
+        "auto_host_key": identity.fingerprint_for(hid), "randomart": list(identity.of_machine(machine).randomart),
+    }
+
+
+class GenerateIn(Schema):
+    field: str          # hid | address | serial | host_key
+    system: str = ""    # у радио-ОС адрес это частота
+
+
+class Generated(Schema):
+    value: str
+
+
+class ArtIn(Schema):
+    host_key: str
+
+
+class Art(Schema):
+    valid: bool
+    lines: list[str]
+
+
+@router.post("/generate", response=Generated)
+def generate(request, body: GenerateIn):
+    """Случайное значение для поля идентичности: подставляется в форму, сохраняется кнопкой «Сохранить»."""
+    makers = {
+        "hid": generate_hid, "serial": identity.generate_serial, "host_key": identity.generate_host_key,
+        "address": lambda: identity.generate_address(body.system),
+    }
+    if body.field not in makers:
+        raise ValidationError({"field": ["Нет такого поля."]})
+    return Generated(value=makers[body.field]())
+
+
+@router.post("/randomart", response=Art)
+def randomart(request, body: ArtIn):
+    """Картинка отпечатка для показа, пока ключ правят в форме."""
+    key = body.host_key.strip()
+    return Art(valid=bool(identity.FINGERPRINT.match(key)), lines=list(identity.randomart_of(key)))
+
+
 @router.get("/{int:machine_id}", response=Overview)
 def overview(request, machine_id: int):
     machine = _machine(machine_id)
@@ -248,7 +305,8 @@ def overview(request, machine_id: int):
     machine_policy = machine.entry_policy if machine.entry_policy_id else None
     return Overview(
         id=machine.pk, hostname=machine.hostname or "", name=machine.name, system=machine.system, status=machine.status, hid=machine.hid,
-        callsign=machine.callsign, note=machine.note, booted_at=machine.booted_at,
+        address=machine.address, serial=machine.serial, host_key=machine.host_key, **_auto(machine),
+        note=machine.note, booted_at=machine.booted_at,
         is_system=machine.is_system,
         policy=Policy(id=machine_policy.pk, name=machine_policy.name, origin="machine") if machine_policy else None,
         accounts=[_account_row(profile) for profile in accounts],
@@ -273,7 +331,10 @@ def save(request, machine_id: int, body: MachineIn):
     machine.name = body.name
     machine.system = body.system
     machine.status = body.status
-    machine.callsign, machine.note, machine.booted_at = body.callsign.strip(), body.note, body.booted_at
+    machine.address, machine.serial, machine.host_key = body.address.strip(), body.serial.strip(), body.host_key.strip()
+    machine.note, machine.booted_at = body.note, body.booted_at
+    if body.hid is not None:
+        machine.hid = body.hid.strip().lower()
     machine.entry_policy_id = body.entry_policy
     machine.full_clean()
     machine.save()

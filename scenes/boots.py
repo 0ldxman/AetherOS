@@ -44,7 +44,7 @@ def _unit_groups(ident):
             ("archive", "/archive mounted (read-only)", "OK", (250, 700)),
         )),
         ("radio", (
-            ("rfd", f"radio daemon, rf0 locked at {ident.freq} MHz", "OK", (400, 900)),
+            ("rfd", f"radio daemon, rf0 locked at {ident.address} MHz", "OK", (400, 900)),
             ("beacond", f"beacon directory stale, last sync {days_since(BEACON_LAST_SYNC)} d ago", "WARN", (500, 1100)),
             ("gate", "frame policy loaded, 214 rules", "OK", (250, 650)),
             ("linkd", "link supervisor, 1 of 2 radios active", "OK", (200, 550)),
@@ -94,7 +94,7 @@ def _kernel_lines(ident):
         (0.024115, "nvme", "nvme0: AETHER-VAULT 4 TB, 1 namespace, queue depth 1024"),
         (0.026950, "usb", "xhci: 2 ports, no devices"),
         (0.028100, "hid", "keyboard, mouse: none attached"),
-        (0.031440, "rf", f"rf0: hwid {ident.hid}, carrier {ident.freq} MHz, link up 38 Mbit/s"),
+        (0.031440, "rf", f"rf0: hwid {ident.hid}, carrier {ident.address} MHz, link up 38 Mbit/s"),
         (0.031902, "rf", "rf1: no carrier"),
         (0.033500, "rf", "rf0: ofdm 1024 carriers, fec ldpc 3/4, frame 1452"),
         (0.034100, "rf", "rf0: earth electrode 2.8 ohm, vswr 1.3"),
@@ -146,7 +146,7 @@ def _firmware(s, ident):
     s.count("memory", 64, unit=" GiB", ms=(600, 1100), width=WIDTH, note="ecc, 4 channels")
     s.row("storage", "nvme0  AETHER-VAULT 4 TB  encrypted", width=WIDTH)
     s.row("", "nvme1  not present", "dim", width=WIDTH)
-    s.say("radio".ljust(WIDTH), f"rf0 aether wideband 2-30 MHz  {ident.freq} MHz locked")
+    s.say("radio".ljust(WIDTH), f"rf0 aether wideband 2-30 MHz  {ident.address} MHz locked")
     s.say(" " * WIDTH, "rf1 ", ("no carrier", "warning"))
     s.row("antenna", "loop 40 m  vswr 1.3", "dim", width=WIDTH)
     s.row("earth", "electrode 2.8 ohm", "dim", width=WIDTH)
