@@ -6,6 +6,7 @@
 <link rel="stylesheet" href="{% static 'secure/condition_editor.css' %}">
 {{ formats|json_script:"item-formats" }}
 <script defer src="{% static 'filesystem/item_admin.js' %}"></script>
+<script defer src="{% static 'documents/draft.js' %}"></script>
 <script type="module" src="{% static 'documents/editor.js' %}"></script>
 {% if lock_url %}<script src="{% static 'documents/doc_lock.js' %}" defer></script>{% endif %}
 {% endblock %}

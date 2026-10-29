@@ -46,6 +46,7 @@ class ItemAdminTests(AdminCase):
     def test_the_form_has_the_editor_a_format_list_and_the_table_of_formats(self):
         page = self.client.get(reverse("admin:filesystem_item_add"))
         self.assertContains(page, "documents/editor.js")
+        self.assertContains(page, "documents/draft.js")                   # черновик текста в браузере, после переименования полей
         self.assertContains(page, "item_admin.js")
         self.assertContains(page, 'id="wp-split"')
         self.assertContains(page, 'value="rec"')
