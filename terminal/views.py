@@ -10,7 +10,7 @@ from machines.current import active_session, current_machine
 from users.aether_auth import AUTH_REQUIRED, is_player
 from django.urls import get_script_prefix, reverse
 
-from machines import bridge
+from machines.network import bridge
 from terminal.engine.commands.bridge import PENDING_KEY, answer_prompt
 from terminal.engine.commands.trash import CONFIRM_KEY, answer_confirm
 from terminal.engine.context import CWD_KEY, DEFAULT_CWD
@@ -294,7 +294,7 @@ def _login(request):
 
 def _greeting(request, hostname, mail=True):
     """Сцена приветствия оболочки (или None, если машину не описать). Почта в ней своя только у рабочего стола."""
-    from machines.identity import identity_of
+    from machines.world.identity import identity_of
     from machines.models import Machine
     from users.aether_auth import _mail_summary
 

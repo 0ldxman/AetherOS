@@ -71,7 +71,7 @@ class MachineProfileAdmin(ConditionFieldsMixin, admin.ModelAdmin):
 
     @admin.display(description="Действует")
     def effective_policy(self, obj):
-        from machines import entry
+        from machines.access import entry
 
         if obj.pk is None:
             return "—"

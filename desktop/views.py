@@ -7,7 +7,7 @@ from django.views.decorators.csrf import ensure_csrf_cookie
 
 from secure.access import satisfied
 
-from machines.identity import identity_of
+from machines.world.identity import identity_of
 from users.aether_auth import GUEST_LOGIN
 
 from desktop.boots import boot_scenes
@@ -87,7 +87,7 @@ def _file_icons(request, machine):
 
 @ensure_csrf_cookie  # меню «disconnect» шлёт POST на выход
 def desktop(request):
-    from machines import bridge
+    from machines.network import bridge
     from terminal.views import _clock, _kicks
 
     kicks = _kicks(request) if request.user.is_authenticated else []
@@ -118,7 +118,7 @@ def desktop(request):
     has_mail = any(item["url"] == mail_url for item in apps)
 
     # мост: игрок на чужой машине, и терминал-«дыра» открыт на столе сразу
-    from machines import bridge
+    from machines.network import bridge
 
     tunnel = None
     limit = None

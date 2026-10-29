@@ -1,7 +1,7 @@
 """Экземпляр тома для монтирования: где живёт состояние игрока.
 
 Локальное монтирование на машине M даёт экземпляр (том, M). Сетевое подключение своего экземпляра не имеет: игрок работает с видом
-хоста, то есть с экземплярами самого хоста (filesystem/machine_view.py, machines/connection.py).
+хоста, то есть с экземплярами самого хоста (filesystem/machine_view.py, machines/network/connection.py).
 """
 from filesystem.models import VolumeInstance
 

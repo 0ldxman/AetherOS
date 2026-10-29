@@ -363,13 +363,13 @@ class BridgeFixture(TerminalClient, TestCase):
 
     def depth(self):
         """Подключений до рабочего стола."""
-        from machines import bridge
+        from machines.network import bridge
 
         return bridge.depth(self.request())
 
     def shells(self):
         """Подключений от рабочего стола до терминала (оболочки, у которых рабочий стол остался позади)."""
-        from machines import bridge
+        from machines.network import bridge
 
         request = self.request()
         tree = request.session.get(bridge.TREE_KEY)
@@ -855,7 +855,7 @@ class ConnectionLimitTests(BridgeFixture):
         from unittest import mock
 
         self.now = [1_000_000.0]
-        patcher = mock.patch("machines.bridge.time", SimpleNamespace(time=lambda: self.now[0]))
+        patcher = mock.patch("machines.network.bridge.time", SimpleNamespace(time=lambda: self.now[0]))
         patcher.start()
         self.addCleanup(patcher.stop)
         self.core_profile = type(self.open_account).objects.get(pk=self.open_account.pk)

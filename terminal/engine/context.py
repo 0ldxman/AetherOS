@@ -25,7 +25,7 @@ class TerminalContext:
     def principal(self):
         """Кто действует: запись, её группы и привилегии."""
         if getattr(self, "_principal", None) is None:
-            from machines.groups import principal_for
+            from machines.access.groups import principal_for
 
             self._principal = principal_for(self.profile)
         return self._principal
@@ -54,7 +54,7 @@ class TerminalContext:
     @property
     def trash_dir(self):
         """Корзина записи: место trash машины (по умолчанию {home}/.trash)."""
-        from machines import places
+        from machines.world import places
 
         return places.resolve(self.machine, "trash", self.profile.login) or "/trash"
 

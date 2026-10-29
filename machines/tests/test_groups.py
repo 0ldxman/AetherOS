@@ -4,7 +4,7 @@
 """
 from django.test import TestCase
 
-from machines.groups import effective, principal_for
+from machines.access.groups import effective, principal_for
 from machines.models import Group, Machine, MachineProfile, SystemType
 
 

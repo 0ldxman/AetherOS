@@ -4,8 +4,8 @@ from django.db import IntegrityError, transaction
 from django.test import SimpleTestCase, TestCase
 
 from filesystem.models import Volume
-from machines import places
-from machines.dialect import to_canonical, to_display
+from machines.world import places
+from machines.world.dialect import to_canonical, to_display
 from machines.models import Machine, MachineMount, Place, SystemType
 
 

@@ -8,7 +8,7 @@ from django.utils import timezone
 class EntryPolicy(models.Model):
     """Политика входа: правила, по которым запись принимает игрока. Назначается типу системы, машине или профилю; действует самая
     конкретная. Пароль, условие по ключам и токены остаются у профиля: политика говорит, как их сочетать и когда, откуда и сколько раз
-    можно входить. Решение принимает machines/entry.py."""
+    можно входить. Решение принимает machines/access/entry.py."""
 
     class Mode(models.TextChoices):
         ALL = "all", "Нужны и пароль, и ключ"
@@ -59,7 +59,7 @@ class EntryPolicy(models.Model):
         return [line.split("#", 1)[0].strip() for line in (text or "").splitlines() if line.split("#", 1)[0].strip()]
 
     def clean(self):
-        from machines import windows
+        from machines.access import windows
 
         try:
             windows.parse(self.windows)
@@ -107,7 +107,7 @@ class LoginEvent(models.Model):
 class Group(models.Model):
     """Группа записей: набор привилегий. Умолчание задаёт тип системы, машина может переопределить группу или отключить её.
 
-    Какие группы есть у машины, см. machines/groups.py."""
+    Какие группы есть у машины, см. machines/access/groups.py."""
 
     system_type = models.ForeignKey("machines.SystemType", null=True, blank=True, on_delete=models.CASCADE, related_name="groups")
     machine = models.ForeignKey("machines.Machine", null=True, blank=True, on_delete=models.CASCADE, related_name="groups")
@@ -135,7 +135,7 @@ class Group(models.Model):
         return f"{self.system_type or self.machine}: {self.name}"
 
     def clean(self):
-        from machines.privileges import PRIVILEGES
+        from machines.access.privileges import PRIVILEGES
 
         unknown = [code for code in self.privileges if code not in PRIVILEGES]
         if unknown:

@@ -18,7 +18,7 @@ from django.shortcuts import render
 from django.views.decorators.csrf import ensure_csrf_cookie
 from django.views.decorators.http import require_POST
 
-from machines.world import CLEARANCE
+from machines.world.dates import CLEARANCE
 
 
 # =========================================================
@@ -79,7 +79,7 @@ def _mail_summary(request):
 
 def gateway_scenes(request):
     """Сцены экрана входа для этого посетителя (словарь имя -> список шагов)."""
-    from machines.identity import client_fingerprint, identity_of
+    from machines.world.identity import client_fingerprint, identity_of
 
     from users import gateway
 

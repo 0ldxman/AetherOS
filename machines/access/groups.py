@@ -7,7 +7,7 @@ from django.db.models import Q
 
 from machines import memo
 from machines.models import Group
-from machines.privileges import DEFAULT_GROUPS, PRIVILEGES, Principal
+from machines.access.privileges import DEFAULT_GROUPS, PRIVILEGES, Principal
 
 
 def effective(machine):

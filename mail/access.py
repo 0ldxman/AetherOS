@@ -19,7 +19,7 @@ from django.db.models import Q
 from django.utils import timezone
 
 from machines.current import active_session, current_machine
-from machines.world import ago
+from machines.world.dates import ago
 from secure.access import satisfied
 from users.aether_auth import GUEST_LOGIN
 from wiki.access import request_keys

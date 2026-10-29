@@ -5,7 +5,7 @@
 отдаваемого пути, их содержимое доступно клиенту по учётке монтирования хоста (цепочка); циклов нет: машина, уже стоящая в цепочке,
 второй раз не подключается.
 """
-from machines.groups import principal_for
+from machines.access.groups import principal_for
 from machines.models import Export
 
 MAX_CHAIN = 6

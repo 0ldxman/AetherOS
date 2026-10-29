@@ -84,7 +84,7 @@ class CntCommand(BaseCommand):
 
         request = context.request
         if request is not None and request.user.is_authenticated:
-            from machines import bridge
+            from machines.network import bridge
 
             if bridge.terminal_id(request) != bridge.desktop_id(request):
                 return CommandResult("cnt: no display: the desktop is on another machine", 1)    # окно открылось бы не на той машине
@@ -159,7 +159,7 @@ class EdtCommand(BaseCommand):
             return CommandResult("usage: edt file", 2)
         request = context.request
         if request is not None and request.user.is_authenticated:
-            from machines import bridge
+            from machines.network import bridge
 
             if bridge.terminal_id(request) != bridge.desktop_id(request):
                 return CommandResult("edt: no display: the desktop is on another machine", 1)

@@ -99,7 +99,7 @@ class BuildMixin:
         key = layer.mount.pk
         hosts = self._cache().setdefault("hosts", {})
         if key not in hosts:
-            from machines import connection
+            from machines.network import connection
 
             mount = layer.mount
             hosts[key] = None if mount.host_id is None else connection.connect(self.machine, mount.host, mount.host_path, mount.account, self.user, self.trail)

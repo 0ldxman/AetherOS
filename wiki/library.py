@@ -133,9 +133,9 @@ def _sections(request, machine):
     from django.urls import Resolver404, resolve
 
     from filesystem.machine_view import view_for
-    from machines import connection
+    from machines.network import connection
     from machines.current import active_session, visible_apps
-    from machines.groups import principal_for
+    from machines.access.groups import principal_for
     from machines.models import Machine
 
     apps = []

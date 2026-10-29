@@ -34,7 +34,7 @@ class Place(models.Model):
     """Системный путь: именованное место, имя и шаблон пути (secrets, desktop, trash, config, logs, temp...).
 
     Значения типа системы задают умолчание, машина может переопределить. Какие имена знает движок и что в них по умолчанию,
-    см. machines/places.py. В шаблоне: {login} (логин записи) и {home} (место home)."""
+    см. machines/world/places.py. В шаблоне: {login} (логин записи) и {home} (место home)."""
 
     system_type = models.ForeignKey("machines.SystemType", null=True, blank=True, on_delete=models.CASCADE, related_name="places")
     machine = models.ForeignKey("machines.Machine", null=True, blank=True, on_delete=models.CASCADE, related_name="places")
@@ -59,7 +59,7 @@ class Place(models.Model):
 
     def clean(self):
         super().clean()
-        from machines.dialect import to_canonical
+        from machines.world.dialect import to_canonical
 
         if (self.system_type_id is None) == (self.machine_id is None):
             raise ValidationError("Место задаётся либо для типа системы, либо для машины.")
@@ -68,7 +68,7 @@ class Place(models.Model):
             raise ValidationError({"path": "Укажите путь."})
 
     def save(self, *args, **kwargs):
-        from machines.dialect import to_canonical
+        from machines.world.dialect import to_canonical
 
         self.path = to_canonical(self.path)
         super().save(*args, **kwargs)

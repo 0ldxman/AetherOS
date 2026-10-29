@@ -11,7 +11,7 @@ from django.utils import timezone
 
 from filesystem.models import Item, Placement, Volume
 from filesystem.testing import make_app
-from machines import clock
+from machines.world import clock
 from terminal.testing import TerminalClient
 from machines.models import EntryPolicy, Export, Group, LoginEvent, Machine, MachineMount, MachineProfile, PlayerMount
 
@@ -81,7 +81,7 @@ class ClockTests(WorldCase):
         self.assertEqual(self.run_command("rshell shift@aether-core")["exit_code"], 0)
 
     def test_the_journal_keeps_the_time_the_clock_showed_when_it_happened(self):
-        from machines import entry
+        from machines.access import entry
 
         clock.set_offset(self.core, self.user, 5 * 86400)
         event = entry.record(self.reader, self.user, "ok", "aether-main")

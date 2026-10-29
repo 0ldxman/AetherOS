@@ -8,7 +8,7 @@ from django.conf import settings
 from django.db import models
 from django.db.models import Q
 
-from machines.paths import validate_internal_path
+from machines.world.paths import validate_internal_path
 
 from mail.addresses import split, validate_address, validate_masks
 

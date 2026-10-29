@@ -289,7 +289,7 @@ class GatewayScenesTests(TestCase):
     def test_the_client_key_is_personal(self):
         from django.contrib.auth import get_user_model
 
-        from machines.identity import client_fingerprint
+        from machines.world.identity import client_fingerprint
 
         first = get_user_model().objects.create_user("ivan", password="pw")
         second = get_user_model().objects.create_user("olga", password="pw")
@@ -307,7 +307,7 @@ class GatewayScenesTests(TestCase):
         self.assertIn("allowlisted", known)
 
     def test_the_node_frequency_comes_from_the_machine(self):
-        from machines.identity import freq_for
+        from machines.world.identity import freq_for
 
         text = spoken(self.scenes()["intro"])
         self.assertIn(f"{freq_for(self.machine.hid)} MHz", text)
@@ -321,7 +321,7 @@ class GatewayScenesTests(TestCase):
         self.assertIn("unreachable", text)       # центр не отвечает
 
     def test_the_world_is_after_the_hunt_dates_come_from_the_world_module(self):
-        from machines.world import CORE_LAST_CONTACT, GAME_DATE, days_since
+        from machines.world.dates import CORE_LAST_CONTACT, GAME_DATE, days_since
 
         text = spoken(self.scenes()["intro"])
         self.assertIn(str(GAME_DATE), text)
@@ -366,7 +366,7 @@ class GatewayScenesTests(TestCase):
             self.assertEqual(intro[index - 1]["op"], "read", f"перед cut №{index} нет read")
 
     def test_the_host_key_picture_belongs_to_the_machine(self):
-        from machines.identity import fingerprint_for, randomart_for
+        from machines.world.identity import fingerprint_for, randomart_for
 
         text = spoken(self.scenes()["intro"])
         self.assertIn(fingerprint_for(self.machine.hid), text)
@@ -407,7 +407,7 @@ class GatewayScenesTests(TestCase):
         self.assertIn(self.machine.hid, spoken(scenes["bypass"]))
 
     def test_hid_has_a_placeholder_when_the_machine_is_missing(self):
-        from machines.identity import UNKNOWN_HID
+        from machines.world.identity import UNKNOWN_HID
 
         Machine.objects.all().delete()
         self.assertIn(UNKNOWN_HID, spoken(self.scenes()["intro"]))
@@ -441,7 +441,7 @@ class GatewayScenesTests(TestCase):
     # ---------- имя узла глючит на месте ----------
 
     def test_only_main_turns_into_null_so_the_prefix_stays_put(self):
-        from machines.identity import ENTRY_HOST
+        from machines.world.identity import ENTRY_HOST
         from users.gateway import NULL_HOST
 
         host, null = ENTRY_HOST, NULL_HOST
@@ -499,7 +499,7 @@ class GatewayScenesTests(TestCase):
         return text
 
     def test_the_node_greets_the_player_after_the_session_opens(self):
-        from machines.world import GAME_DATE
+        from machines.world.dates import GAME_DATE
         from users.gateway import LOGO
 
         text = self.screen_text(self.scenes()["established"])
@@ -512,7 +512,7 @@ class GatewayScenesTests(TestCase):
         self.assertLess(text.index("Welcome to"), text.index("Loading workspace"))
 
     def test_the_greeting_carries_traces_of_the_world(self):
-        from machines.world import BEACON_LAST_SYNC, days_since, CORE_LAST_CONTACT
+        from machines.world.dates import BEACON_LAST_SYNC, days_since, CORE_LAST_CONTACT
 
         text = self.screen_text(self.scenes()["established"])
         self.assertIn(f"the core has not answered for {days_since(CORE_LAST_CONTACT)} days", text)
@@ -529,7 +529,7 @@ class GatewayScenesTests(TestCase):
         self.assertIn(f"rf0 {self.machine_freq()} MHz locked", first)
 
     def machine_freq(self):
-        from machines.identity import freq_for
+        from machines.world.identity import freq_for
 
         return freq_for(self.machine.hid)
 
@@ -624,7 +624,7 @@ class BootScreenTests(TestCase):
             self.assertIn(word, full)
 
     def test_the_hardware_is_radio_not_ethernet(self):
-        from machines.identity import freq_for
+        from machines.world.identity import freq_for
 
         full = spoken(self.scenes()["full"])
         for word in ("rf0", "rf1: no carrier", "antenna", "earth", "electrode", "ofdm", "compatd"):
@@ -636,7 +636,7 @@ class BootScreenTests(TestCase):
             self.assertIsNone(re.search(rf"\b{word}\b", full, re.IGNORECASE), word)
 
     def test_the_node_is_abandoned_the_core_is_gone_and_the_directory_is_stale(self):
-        from machines.world import CORE_LAST_CONTACT, GAME_DATE
+        from machines.world.dates import CORE_LAST_CONTACT, GAME_DATE
 
         full = spoken(self.scenes()["full"])
         self.assertIn(str(GAME_DATE), full)
@@ -661,7 +661,7 @@ class BootScreenTests(TestCase):
         self.assertNotIn("2061", full)
 
     def test_the_boot_shows_the_same_machine_as_the_entry_screen(self):
-        from machines.identity import serial_for
+        from machines.world.identity import serial_for
 
         full = spoken(self.scenes()["full"])
         self.assertIn("aether-main", full)

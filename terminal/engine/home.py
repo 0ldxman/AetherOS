@@ -1,8 +1,8 @@
 """Домашняя папка записи: с неё начинается оболочка и к ней ведёт «~» и «cd» без аргументов.
 
-Это место home машины (machines/places.py). Если такой папки в виде машины нет, оболочка начинается с /home, как раньше.
+Это место home машины (machines/world/places.py). Если такой папки в виде машины нет, оболочка начинается с /home, как раньше.
 """
-from machines import places
+from machines.world import places
 
 LEGACY_HOME = "/home"
 

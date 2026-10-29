@@ -48,7 +48,7 @@ def normalize_suffix(value):
 
 def parse(text):
     """AppSpec из текста файла; ValidationError, если чего-то нет или путь не ведёт внутрь проекта."""
-    from machines.paths import validate_internal_path
+    from machines.world.paths import validate_internal_path
 
     values, volumes = {}, []
     for line in (text or "").splitlines():

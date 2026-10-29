@@ -1,7 +1,7 @@
 """Команды входа на другую машину: rcon (войти с переключением рабочего стола), rshell (войти только в терминале),
 xfer (перенести файл между машинами), exit (на уровень выше), rcon-close (закрыть всё).
 
-Условия входа и стеки сессий в machines/bridge.py. Здесь разбор команды, имя ключа из папки секретов (-i), запрос пароля
+Условия входа и стеки сессий в machines/network/bridge.py. Здесь разбор команды, имя ключа из папки секретов (-i), запрос пароля
 и ответы в духе ssh. Отказ не говорит, какое условие не выполнено: только перечень способов записи,
 Permission denied (publickey,password). Нет машины или записи называется прямо.
 
@@ -9,7 +9,8 @@ Permission denied (publickey,password). Нет машины или записи 
 записью: rcon открывает мост и меняет рабочий стол, rshell вкладывает оболочку в терминал, xfer переносит файл.
 """
 from filesystem import keystore, rights
-from machines import bridge, entry
+from machines.network import bridge
+from machines.access import entry
 from machines.models import LoginEvent
 from terminal import bridge_scenes as scenes
 from terminal.engine.commands.basic import BaseCommand
@@ -420,7 +421,7 @@ class MntCommand(EntryCommand):
         return self.enter(context, opts, target, {"path": path.rstrip("/") or "/", "point": context.resolve_path(point)})
 
     def finish(self, context, profile, args):
-        from machines import connection
+        from machines.network import connection
         from machines.models import PlayerMount
 
         host, path, point = profile.machine, args["path"], args["point"]

@@ -8,7 +8,7 @@ from django.test import TestCase
 from filesystem.machine_view import MachineView, ReadOnly
 from filesystem.models import Item, Placement, Volume
 from filesystem import rights
-from machines.groups import principal_for
+from machines.access.groups import principal_for
 from machines.models import Export, Machine, MachineMount, MachineProfile
 
 

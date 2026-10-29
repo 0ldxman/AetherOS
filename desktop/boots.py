@@ -8,7 +8,7 @@
 
 Aether работает на радио, поэтому у узла не ethernet, а радиомодем (rf0, rf1), антенна
 и заземление. Данные машины (имя, hid, серийный номер, частота) берутся из
-machines/identity.py, даты из machines/world.py: загрузка и экран входа показывают одно
+machines/world/identity.py, даты из machines/world/dates.py: загрузка и экран входа показывают одно
 и то же железо и один и тот же мир (узел брошен, центр давно не отвечает).
 
 Viper, Essig и Shroud получат свои функции рядом (у кого-то система может быть
@@ -20,8 +20,8 @@ Viper, Essig и Shroud получат свои функции рядом (у к�
 import hashlib
 
 from console.scene import Scene
-from machines.identity import CORE_HOST
-from machines.world import BEACON_LAST_SYNC, CORE_LAST_CONTACT, GAME_DATE, clearance_code, days_since
+from machines.world.identity import CORE_HOST
+from machines.world.dates import BEACON_LAST_SYNC, CORE_LAST_CONTACT, GAME_DATE, clearance_code, days_since
 
 WIDTH = 12          # ширина подписей в таблицах прошивки
 

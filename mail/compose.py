@@ -8,7 +8,7 @@ from dataclasses import dataclass
 from django.db import transaction
 from django.utils import timezone
 
-from machines.world import GAME_NOW
+from machines.world.dates import GAME_NOW
 from secure.access import satisfied
 
 from mail.delivery import deliver

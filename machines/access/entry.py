@@ -1,7 +1,7 @@
 """Решение о входе на запись: политика, блокировка после ошибок, откуда и в какое время можно.
 
 Политика (EntryPolicy) назначается типу системы, машине или профилю, действует самая конкретная. Профиль перекрывает политику своими
-ttl, cooldown и kick_message, если они заполнены. Пароль, ключи и токены остаются у профиля (machines/bridge.py), здесь только то,
+ttl, cooldown и kick_message, если они заполнены. Пароль, ключи и токены остаются у профиля (machines/network/bridge.py), здесь только то,
 что вокруг них: кто, откуда, когда, сколько раз ошибся. Каждое событие пишется в LoginEvent: из него считается блокировка, и это же
 журнал хоста для игрока (filesystem/content/sources/log.py).
 """
@@ -11,7 +11,9 @@ from datetime import timedelta
 
 from django.utils import timezone
 
-from machines import clock, memo, windows
+from machines import memo
+from machines.access import windows
+from machines.world import clock
 from machines.models import EntryPolicy, LoginEvent, SystemType
 
 KEEP = timedelta(days=30)
@@ -59,7 +61,7 @@ def mode_of(profile):
 
 
 def machine_now(machine, user=None):
-    """Время на машине для этого игрока: мировое плюс сдвиг его часов (machines/clock.py)."""
+    """Время на машине для этого игрока: мировое плюс сдвиг его часов (machines/world/clock.py)."""
     return clock.now(machine, user)
 
 
@@ -107,7 +109,7 @@ def gate(profile, user, source_machine, chain):
     """Проверки до способов входа: блокировка, откуда, через что, когда. Decision отказа или None.
 
     source_machine это машина, с которой входят; chain это имена хостов цепочки мостов игрока от исходной машины до неё."""
-    from machines import bridge
+    from machines.network import bridge
 
     source = source_machine.hostname or source_machine.name
     wait = bridge.locked_for(user, profile)

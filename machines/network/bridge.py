@@ -31,7 +31,7 @@ from django.utils import timezone
 
 from secure.access import satisfied
 
-from machines import entry
+from machines.access import entry
 from machines.current import SESSION_KEY, active_session
 from machines.models import Machine, MachineProfile, MachineProfileToken, Session
 

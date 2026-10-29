@@ -2,7 +2,7 @@ from django import forms
 from django.contrib import admin
 
 from machines.models import Group
-from machines.privileges import PRIVILEGES
+from machines.access.privileges import PRIVILEGES
 
 
 class GroupForm(forms.ModelForm):

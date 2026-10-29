@@ -47,7 +47,7 @@ class ReadMixin:
         """Логин записи этой машины, чья домашняя папка содержит path, или None."""
         homes = self._cache()
         if "homes" not in homes:
-            from machines import places
+            from machines.world import places
 
             template = places.resolve(self.machine, "home", rights.HOME_LOGIN)
             prefix, _, suffix = (template or "").partition(rights.HOME_LOGIN)

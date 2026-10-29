@@ -19,7 +19,7 @@ def map_allows(request, match):
 
 def terminal_allows(request, match):
     """Окно-туннель открыто на чужой машине, где иконки терминала может и не быть: пока мост открыт, терминал можно."""
-    from machines import bridge
+    from machines.network import bridge
 
     return bridge.depth(request) > 0 or machine_has_app(request, "terminal")
 

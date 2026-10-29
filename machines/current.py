@@ -89,7 +89,7 @@ def _machine_apps(request, machine):
 def desktop_entries(request, machine):
     """Файлы рабочего стола записи (без папок и скрытого): приложения и обычные файлы. За запрос читаются один раз."""
     from filesystem.machine_view import view_for
-    from machines import places
+    from machines.world import places
     from users.aether_auth import GUEST_LOGIN
 
     cache = request.__dict__.setdefault("_desktop_entries", {})

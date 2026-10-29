@@ -39,13 +39,13 @@ tls), дальше только радио. Между этапами смена
 
 Организацию-владельца здесь НЕ указываем: поле owner и издатель сертификата замазаны,
 игрок должен сам догадаться, чья это машина. Сцена целиком видна в исходнике страницы.
-Даты (игровая, последний контакт с центром) берутся из machines/world.py.
+Даты (игровая, последний контакт с центром) берутся из machines/world/dates.py.
 """
 import hashlib
 
 from console.scene import Option, Scene
-from machines.identity import CORE_HOST
-from machines.world import BEACON_LAST_SYNC, CERT_NOT_AFTER, CORE_LAST_CONTACT, GAME_DATE, days_since
+from machines.world.identity import CORE_HOST
+from machines.world.dates import BEACON_LAST_SYNC, CERT_NOT_AFTER, CORE_LAST_CONTACT, GAME_DATE, days_since
 
 STAGES = 9
 

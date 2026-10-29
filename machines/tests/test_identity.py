@@ -4,8 +4,8 @@
 """
 from django.test import TestCase
 
-from machines.identity import UNKNOWN_HID, address_for, callsign_for, client_fingerprint, fingerprint_for, freq_for, identity_of, randomart_for, serial_for
-from machines.world import CLEARANCE, CORE_LAST_CONTACT, GAME_DATE, clearance_code, days_since
+from machines.world.identity import UNKNOWN_HID, address_for, callsign_for, client_fingerprint, fingerprint_for, freq_for, identity_of, randomart_for, serial_for
+from machines.world.dates import CLEARANCE, CORE_LAST_CONTACT, GAME_DATE, clearance_code, days_since
 from machines.models import Machine
 
 

@@ -1,5 +1,5 @@
-"""date и tmset: время машины. Часы свои у игрока на каждой машине (machines/clock.py), двигает их запись с привилегией clock."""
-from machines import clock
+"""date и tmset: время машины. Часы свои у игрока на каждой машине (machines/world/clock.py), двигает их запись с привилегией clock."""
+from machines.world import clock
 from terminal.engine.commands.basic import BaseCommand
 from terminal.engine.result import CommandResult
 
