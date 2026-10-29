@@ -13,8 +13,10 @@ from ninja import Router, Schema
 
 from machines.access import groups
 from machines.access.privileges import PRIVILEGES
-from machines.models import EntryPolicy, Group, Machine, Place, SystemType
+from filesystem.models import Volume
+from machines.models import EntryPolicy, Group, Machine, Place, SystemType, SystemVolume
 from machines.world.places import DEFAULTS
+from studio.api.disks import Ref
 from studio.api.groups import GroupIn, Privilege
 from studio.api.machines import Policy
 
@@ -44,6 +46,21 @@ class TypeGroup(Schema):
     machines: list[str]
 
 
+class ImageRow(Schema):
+    id: int
+    volume: Ref
+    volume_path: str
+    mount_path: str
+    order: int
+
+
+class ImageIn(Schema):
+    volume: int
+    volume_path: str = ""
+    mount_path: str
+    order: int = 0
+
+
 class SystemOut(Schema):
     code: str
     name: str
@@ -54,6 +71,8 @@ class SystemOut(Schema):
     privileges: list[Privilege]
     groups: list[TypeGroup]
     policies: list[Policy]
+    image: list[ImageRow]
+    volumes: list[Ref]
 
 
 class SystemIn(Schema):
@@ -90,6 +109,12 @@ def _out(system):
         privileges=[Privilege(code=code, label=label) for code, label in PRIVILEGES.items()],
         groups=[TypeGroup(**row) for row in groups.type_table(system)],
         policies=[Policy(id=p.pk, name=p.name) for p in EntryPolicy.objects.order_by("name")],
+        image=[
+            ImageRow(id=row.pk, volume=Ref(id=row.volume_id, label=row.volume.name or row.volume.slug), volume_path=row.volume_path,
+                     mount_path=row.mount_path, order=row.order)
+            for row in system.volumes.select_related("volume")
+        ],
+        volumes=[Ref(id=v.pk, label=f"{v.name or v.slug} ({v.slug})") for v in Volume.objects.order_by("slug")],
     )
 
 
@@ -177,4 +202,32 @@ def drop_group(request, code: str, name: str):
     system = _system(code)
     groups.make_explicit(system_type=system)
     Group.objects.filter(system_type=system, name=name).delete()
+    return _out(system)
+
+
+def _image_row(system, body, row=None):
+    row = row or SystemVolume(system_type=system)
+    row.volume_id, row.volume_path, row.mount_path, row.order = body.volume, body.volume_path, body.mount_path, body.order
+    row.full_clean()
+    row.save()
+
+
+@router.post("/{code}/image", response=SystemOut)
+def add_image(request, code: str, body: ImageIn):
+    system = _system(code)
+    _image_row(system, body)
+    return _out(system)
+
+
+@router.put("/{code}/image/{int:row_id}", response=SystemOut)
+def save_image(request, code: str, row_id: int, body: ImageIn):
+    system = _system(code)
+    _image_row(system, body, get_object_or_404(SystemVolume, pk=row_id, system_type=system))
+    return _out(system)
+
+
+@router.delete("/{code}/image/{int:row_id}", response=SystemOut)
+def drop_image(request, code: str, row_id: int):
+    system = _system(code)
+    get_object_or_404(SystemVolume, pk=row_id, system_type=system).delete()
     return _out(system)

@@ -181,6 +181,22 @@ class CreateAndSystemsTests(TestCase):
         self.assertEqual(self.core.system, "NOVA")
         self.assertEqual(data["machines"], [self.core.hostname])
 
+    def test_the_system_image_is_laid_under_the_machine_mounts(self):
+        from filesystem.machine_view import MachineView
+
+        base = Volume.objects.create(slug="base-image", name="Base")
+        own = Volume.objects.create(slug="own-disk", name="Own")
+        status, data = self.call("post", "/systems/AETHER/image", {"volume": base.pk, "mount_path": "/", "order": 5})
+        self.assertEqual((status, [(r["volume"]["id"], r["mount_path"]) for r in data["image"]]), (200, [(base.pk, "/")]))
+        self.assertEqual(self.call("post", "/systems/AETHER/image", {"volume": base.pk, "mount_path": ""})[0], 400)
+        MachineMount.objects.create(machine=self.core, volume=own, mount_path="/", order=0)
+        layers = MachineView(self.core, None, None).layers
+        self.assertEqual([l.mount.volume_id for l in layers], [base.pk, own.pk])
+        self.assertEqual([m["volume"]["id"] for m in self.call("get", f"/machines/{self.core.pk}/disks")[1]["inherited"]], [base.pk])
+        row = data["image"][0]["id"]
+        self.assertEqual(self.call("put", f"/systems/AETHER/image/{row}", {"volume": base.pk, "mount_path": "/srv", "order": 1})[1]["image"][0]["mount_path"], "/srv")
+        self.assertEqual(self.call("delete", f"/systems/AETHER/image/{row}")[1]["image"], [])
+
     def test_the_first_machine_group_keeps_the_default_ones(self):
         data = self.call("put", f"/machines/{self.core.pk}/groups/night", {"privileges": ["backup"]})[1]
         self.assertEqual(sorted(row["name"] for row in data["groups"]), ["night", "users"])

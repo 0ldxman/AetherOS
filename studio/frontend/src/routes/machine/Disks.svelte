@@ -86,6 +86,17 @@
   <div class="grid">
     <div class="col">
       <section class="card">
+        {#if disks.inherited.length}
+          <h2>Из образа ОС {machine.system}</h2>
+          {#each disks.inherited as row}
+            <div class="mount">
+              <span class="point mono">{row.mount_path}</span><span class="arrow">←</span>
+              <span><span class="chip">образ</span> {row.volume.label}{#if row.volume_path}<span class="mono muted"> /{row.volume_path}</span>{/if}</span>
+              <span class="spacer"></span>
+              <a href="#/systems/{machine.system}/disk">к ОС</a>
+            </div>
+          {/each}
+        {/if}
         <h2>Монтирования <button class="btn ghost" onclick={() => edit(null)}>+ Подключить</button></h2>
         {#each disks.mounts as mount (mount.id)}
           <div class="mount">

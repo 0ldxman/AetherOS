@@ -3570,6 +3570,153 @@
      }
     ]
    }
+  },
+  "/studio/api/systems/{code}/image": {
+   "post": {
+    "operationId": "studio_api_systems_add_image",
+    "summary": "Add Image",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "code",
+      "schema": {
+       "title": "Code",
+       "type": "string"
+      },
+      "required": true
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/SystemOut"
+        }
+       }
+      }
+     }
+    },
+    "tags": [
+     "systems"
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/ImageIn"
+       }
+      }
+     },
+     "required": true
+    },
+    "security": [
+     {
+      "SessionAuthIsStaff": []
+     }
+    ]
+   }
+  },
+  "/studio/api/systems/{code}/image/{row_id}": {
+   "put": {
+    "operationId": "studio_api_systems_save_image",
+    "summary": "Save Image",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "code",
+      "schema": {
+       "title": "Code",
+       "type": "string"
+      },
+      "required": true
+     },
+     {
+      "in": "path",
+      "name": "row_id",
+      "schema": {
+       "title": "Row Id",
+       "type": "integer"
+      },
+      "required": true
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/SystemOut"
+        }
+       }
+      }
+     }
+    },
+    "tags": [
+     "systems"
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/ImageIn"
+       }
+      }
+     },
+     "required": true
+    },
+    "security": [
+     {
+      "SessionAuthIsStaff": []
+     }
+    ]
+   },
+   "delete": {
+    "operationId": "studio_api_systems_drop_image",
+    "summary": "Drop Image",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "code",
+      "schema": {
+       "title": "Code",
+       "type": "string"
+      },
+      "required": true
+     },
+     {
+      "in": "path",
+      "name": "row_id",
+      "schema": {
+       "title": "Row Id",
+       "type": "integer"
+      },
+      "required": true
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/SystemOut"
+        }
+       }
+      }
+     }
+    },
+    "tags": [
+     "systems"
+    ],
+    "security": [
+     {
+      "SessionAuthIsStaff": []
+     }
+    ]
+   }
   }
  },
  "components": {
@@ -6901,6 +7048,13 @@
    },
    "Disks": {
     "properties": {
+     "inherited": {
+      "items": {
+       "$ref": "#/components/schemas/InheritedMount"
+      },
+      "title": "Inherited",
+      "type": "array"
+     },
      "mounts": {
       "items": {
        "$ref": "#/components/schemas/DiskMount"
@@ -6931,6 +7085,7 @@
      }
     },
     "required": [
+     "inherited",
      "mounts",
      "exports",
      "volumes",
@@ -6989,6 +7144,33 @@
      "exports"
     ],
     "title": "Host",
+    "type": "object"
+   },
+   "InheritedMount": {
+    "properties": {
+     "volume": {
+      "$ref": "#/components/schemas/Ref"
+     },
+     "volume_path": {
+      "title": "Volume Path",
+      "type": "string"
+     },
+     "mount_path": {
+      "title": "Mount Path",
+      "type": "string"
+     },
+     "order": {
+      "title": "Order",
+      "type": "integer"
+     }
+    },
+    "required": [
+     "volume",
+     "volume_path",
+     "mount_path",
+     "order"
+    ],
+    "title": "InheritedMount",
     "type": "object"
    },
    "Ref": {
@@ -7550,6 +7732,38 @@
     "title": "SystemRow",
     "type": "object"
    },
+   "ImageRow": {
+    "properties": {
+     "id": {
+      "title": "Id",
+      "type": "integer"
+     },
+     "volume": {
+      "$ref": "#/components/schemas/Ref"
+     },
+     "volume_path": {
+      "title": "Volume Path",
+      "type": "string"
+     },
+     "mount_path": {
+      "title": "Mount Path",
+      "type": "string"
+     },
+     "order": {
+      "title": "Order",
+      "type": "integer"
+     }
+    },
+    "required": [
+     "id",
+     "volume",
+     "volume_path",
+     "mount_path",
+     "order"
+    ],
+    "title": "ImageRow",
+    "type": "object"
+   },
    "PlaceRow": {
     "properties": {
      "name": {
@@ -7640,6 +7854,20 @@
       },
       "title": "Policies",
       "type": "array"
+     },
+     "image": {
+      "items": {
+       "$ref": "#/components/schemas/ImageRow"
+      },
+      "title": "Image",
+      "type": "array"
+     },
+     "volumes": {
+      "items": {
+       "$ref": "#/components/schemas/Ref"
+      },
+      "title": "Volumes",
+      "type": "array"
      }
     },
     "required": [
@@ -7651,7 +7879,9 @@
      "places",
      "privileges",
      "groups",
-     "policies"
+     "policies",
+     "image",
+     "volumes"
     ],
     "title": "SystemOut",
     "type": "object"
@@ -7767,6 +7997,34 @@
      "places"
     ],
     "title": "PlacesIn",
+    "type": "object"
+   },
+   "ImageIn": {
+    "properties": {
+     "volume": {
+      "title": "Volume",
+      "type": "integer"
+     },
+     "volume_path": {
+      "default": "",
+      "title": "Volume Path",
+      "type": "string"
+     },
+     "mount_path": {
+      "title": "Mount Path",
+      "type": "string"
+     },
+     "order": {
+      "default": 0,
+      "title": "Order",
+      "type": "integer"
+     }
+    },
+    "required": [
+     "volume",
+     "mount_path"
+    ],
+    "title": "ImageIn",
     "type": "object"
    }
   },

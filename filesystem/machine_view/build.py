@@ -4,12 +4,14 @@ import posixpath
 
 from filesystem.machine_view.entries import DIR, Entry, FILE, ITEM_PREFETCH, Layer, _depth, _drop, inner_paths
 from filesystem.models import Placement, PlayerFile, VolumeInstance
-from machines.models import MachineMount
+from machines.models import MachineMount, SystemVolume
 
 
 class BuildMixin:
     def _layers(self):
         mounts = list(MachineMount.objects.filter(machine=self.machine).exclude(mount_path="").select_related("volume", "host", "account"))
+        mounts += [row.as_mount(self.machine.pk) for row in SystemVolume.objects.filter(system_type__code=self.machine.system).select_related("volume")
+                   if row.mount_path]
         mounts += self._player_mounts()
         mounts.sort(key=lambda mount: (_depth(mount.mount_path), mount.order, mount.id))
         volume_ids = {mount.volume_id for mount in mounts if mount.mode == "local"}

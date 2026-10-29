@@ -382,4 +382,4 @@ class QueryTests(ViewCase):
         self.build(60)
         large = self.count()
         self.assertEqual(small, large)
-        self.assertLessEqual(large, 7)    # включая диски, которые игрок подключил сам
+        self.assertLessEqual(large, 8)    # включая образ системного диска ОС и диски, которые игрок подключил сам

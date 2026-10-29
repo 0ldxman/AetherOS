@@ -17,6 +17,7 @@
   let placesSaved = $state("");
   let propsSaved = $state("");
   let dialog = $state<null | "type" | "group" | "place">(null);
+  let layer = $state<null | { id: number | null; volume: number | null; volume_path: string; mount_path: string; order: number }>(null);
   let draft = $state({ code: "", name: "", group: "", place: "" });
   let errors = $state<Record<string, string[]>>({});
 
@@ -98,6 +99,30 @@
     done(data, error, `Группа ${row.name} удалена.`);
   }
 
+  function editLayer(row: Schemas["ImageRow"] | null) {
+    errors = {};
+    layer = row
+      ? { id: row.id, volume: row.volume.id, volume_path: row.volume_path, mount_path: row.mount_path, order: row.order }
+      : { id: null, volume: null, volume_path: "", mount_path: "/", order: 0 };
+  }
+
+  async function saveLayer() {
+    if (!system || !layer || layer.volume === null) return;
+    const { id, ...body } = layer;
+    const params = { path: { code: system.code } };
+    const { data, error } = id === null
+      ? await api.POST("/studio/api/systems/{code}/image", { params, body: { ...body, volume: layer.volume } })
+      : await api.PUT("/studio/api/systems/{code}/image/{row_id}", { params: { path: { ...params.path, row_id: id } }, body: { ...body, volume: layer.volume } });
+    done(data, error, "Образ сохранён.");
+    if (data) layer = null;
+  }
+
+  async function dropLayer(row: Schemas["ImageRow"]) {
+    if (!system) return;
+    const { data, error } = await api.DELETE("/studio/api/systems/{code}/image/{row_id}", { params: { path: { code: system.code, row_id: row.id } } });
+    done(data, error, "Том убран из образа.");
+  }
+
   async function createType() {
     const { data, error } = await api.POST("/studio/api/systems", { body: { code: draft.code, name: draft.name } });
     if (error || !data) return toast(problem(error, "ОС не создалась."), "error");
@@ -169,7 +194,22 @@
         <div><button class="btn primary" disabled={!placesDirty} onclick={savePlaces}>Сохранить пути</button></div>
       </div>
       {:else if tab === "disk"}
-        <div class="block"><h3>Образ системного диска</h3><p class="muted">Скоро.</p></div>
+        <div class="block">
+          <h3>Образ системного диска <button class="btn ghost" onclick={() => editLayer(null)}>+ Том</button></h3>
+          <p class="muted small">Тома, которые получают все машины ОС ({system.machines.length}). Лежат под монтированиями самой машины: на одну точку они складываются стопкой, файлы машины перекрывают файлы образа.</p>
+          {#each system.image as row (row.id)}
+            <div class="layer">
+              <span class="mono point">{row.mount_path}</span><span class="muted">←</span>
+              <span>{row.volume.label}{#if row.volume_path}<span class="mono muted"> /{row.volume_path}</span>{/if}</span>
+              {#if row.order}<span class="chip">слой {row.order}</span>{/if}
+              <span class="spacer"></span>
+              <button class="btn ghost" onclick={() => editLayer(row)}>Изменить</button>
+              <button class="btn ghost danger" onclick={() => dropLayer(row)}>Убрать</button>
+            </div>
+          {:else}
+            <p class="muted">Образа нет: у машин только их собственные тома.</p>
+          {/each}
+        </div>
       {:else if tab === "groups"}
       <div class="block">
         <h3>Политика входа</h3>
@@ -230,6 +270,18 @@
   {/if}
 </div>
 
+{#if layer}
+  <Dialog title={layer.id === null ? "Том в образе" : "Изменить том образа"} confirm="Сохранить" onsubmit={saveLayer} onclose={() => (layer = null)}>
+    <select class="field" bind:value={layer.volume}>
+      <option value={null}>— том —</option>
+      {#each system?.volumes ?? [] as volume}<option value={volume.id}>{volume.label}</option>{/each}
+    </select>
+    <input class="field mono" placeholder="папка тома (пусто: весь том)" bind:value={layer.volume_path} />
+    <input class="field mono" placeholder="точка монтирования: /" bind:value={layer.mount_path} />
+    <input class="field" type="number" min="0" placeholder="порядок" bind:value={layer.order} />
+    {#each Object.values(errors).flat() as text}<p class="warn small">{text}</p>{/each}
+  </Dialog>
+{/if}
 {#if dialog === "type"}
   <Dialog title="Новая операционная система" confirm="Создать" onsubmit={createType} onclose={() => (dialog = null)}>
     <input class="field mono" placeholder="КОД (латиницей, по нему выбираются сцены и команды)" bind:value={draft.code} />
@@ -272,6 +324,8 @@
   .pname { color: var(--muted); }
   .field.bad { border-color: var(--danger); }
   .empty { padding: 24px; }
+  .layer { display: flex; align-items: center; gap: 10px; padding: 6px 0; border-bottom: 1px solid var(--line-soft); }
+  .point { min-width: 90px; }
   .spacer { flex: 1; }
   .warn { color: var(--warn); margin: 0; }
   .tabs { display: flex; gap: 2px; border-bottom: 1px solid var(--line-soft); }

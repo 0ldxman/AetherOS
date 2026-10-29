@@ -1143,6 +1143,41 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/studio/api/systems/{code}/image": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Add Image */
+        post: operations["studio_api_systems_add_image"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/studio/api/systems/{code}/image/{row_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Save Image */
+        put: operations["studio_api_systems_save_image"];
+        post?: never;
+        /** Drop Image */
+        delete: operations["studio_api_systems_drop_image"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -2384,6 +2419,8 @@ export interface components {
         };
         /** Disks */
         Disks: {
+            /** Inherited */
+            inherited: components["schemas"]["InheritedMount"][];
             /** Mounts */
             mounts: components["schemas"]["DiskMount"][];
             /** Exports */
@@ -2410,6 +2447,16 @@ export interface components {
             accounts: components["schemas"]["Ref"][];
             /** Exports */
             exports: string[];
+        };
+        /** InheritedMount */
+        InheritedMount: {
+            volume: components["schemas"]["Ref"];
+            /** Volume Path */
+            volume_path: string;
+            /** Mount Path */
+            mount_path: string;
+            /** Order */
+            order: number;
         };
         /** Ref */
         Ref: {
@@ -2645,6 +2692,18 @@ export interface components {
             /** Machines */
             machines: number;
         };
+        /** ImageRow */
+        ImageRow: {
+            /** Id */
+            id: number;
+            volume: components["schemas"]["Ref"];
+            /** Volume Path */
+            volume_path: string;
+            /** Mount Path */
+            mount_path: string;
+            /** Order */
+            order: number;
+        };
         /** PlaceRow */
         PlaceRow: {
             /** Name */
@@ -2676,6 +2735,10 @@ export interface components {
             groups: components["schemas"]["TypeGroup"][];
             /** Policies */
             policies: components["schemas"]["Policy"][];
+            /** Image */
+            image: components["schemas"]["ImageRow"][];
+            /** Volumes */
+            volumes: components["schemas"]["Ref"][];
         };
         /** TypeGroup */
         TypeGroup: {
@@ -2717,6 +2780,23 @@ export interface components {
             places: {
                 [key: string]: string;
             };
+        };
+        /** ImageIn */
+        ImageIn: {
+            /** Volume */
+            volume: number;
+            /**
+             * Volume Path
+             * @default
+             */
+            volume_path: string;
+            /** Mount Path */
+            mount_path: string;
+            /**
+             * Order
+             * @default 0
+             */
+            order: number;
         };
     };
     responses: never;
@@ -4681,6 +4761,82 @@ export interface operations {
             path: {
                 code: string;
                 name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SystemOut"];
+                };
+            };
+        };
+    };
+    studio_api_systems_add_image: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                code: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ImageIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SystemOut"];
+                };
+            };
+        };
+    };
+    studio_api_systems_save_image: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                code: string;
+                row_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ImageIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SystemOut"];
+                };
+            };
+        };
+    };
+    studio_api_systems_drop_image: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                code: string;
+                row_id: number;
             };
             cookie?: never;
         };

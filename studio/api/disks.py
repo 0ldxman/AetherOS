@@ -11,7 +11,7 @@ from filesystem import rights
 from filesystem.machine_view import MachineView
 from filesystem.models import Volume
 from machines.access.groups import principal_for
-from machines.models import Export, Machine, MachineMount, MachineProfile
+from machines.models import Export, Machine, MachineMount, MachineProfile, SystemVolume
 
 router = Router(tags=["disks"])
 
@@ -45,7 +45,15 @@ class Host(Schema):
     exports: list[str]
 
 
+class InheritedMount(Schema):
+    volume: Ref
+    volume_path: str
+    mount_path: str
+    order: int
+
+
 class Disks(Schema):
+    inherited: list[InheritedMount]     # образ системного диска ОС машины: лежит под её монтированиями
     mounts: list[DiskMount]
     exports: list[ExportRow]
     volumes: list[Ref]
@@ -96,6 +104,10 @@ def _ref(obj, label):
 def _disks(machine):
     mounts = machine.mounts.select_related("volume", "host", "account").order_by("mount_path", "order", "id")
     return Disks(
+        inherited=[
+            InheritedMount(volume=Ref(id=r.volume_id, label=r.volume.name or r.volume.slug), volume_path=r.volume_path, mount_path=r.mount_path, order=r.order)
+            for r in SystemVolume.objects.filter(system_type__code=machine.system).select_related("volume")
+        ],
         mounts=[
             DiskMount(id=m.pk, mode=m.mode, volume=_ref(m.volume, m.volume.name or m.volume.slug if m.volume_id else ""), volume_path=m.volume_path,
                   host=_ref(m.host, m.host.label if m.host_id else ""), host_path=m.host_path,

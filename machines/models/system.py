@@ -72,3 +72,50 @@ class Place(models.Model):
 
         self.path = to_canonical(self.path)
         super().save(*args, **kwargs)
+
+
+class SystemVolume(models.Model):
+    """Образ системного диска: том, который получают все машины ОС, как будто они сами его смонтировали.
+
+    Лежит под монтированиями самой машины: на одну точку они складываются стопкой, файлы машины перекрывают файлы образа."""
+
+    system_type = models.ForeignKey("machines.SystemType", on_delete=models.CASCADE, related_name="volumes")
+    volume = models.ForeignKey("filesystem.Volume", on_delete=models.CASCADE, related_name="system_volumes")
+    volume_path = models.CharField("Папка тома", max_length=2048, blank=True, help_text="Какая папка внутри тома монтируется. Пусто: весь том.")
+    mount_path = models.CharField("Точка монтирования", max_length=2048, help_text="Куда монтируется на машине: / или диск C:.")
+    order = models.PositiveSmallIntegerField("Порядок", default=0, help_text="Если на одну точку несколько томов, больший порядок лежит выше.")
+
+    class Meta:
+        ordering = ("system_type", "mount_path", "order", "id")
+        verbose_name = "Образ системного диска"
+        verbose_name_plural = "Образы системных дисков"
+        constraints = [models.UniqueConstraint(fields=("system_type", "mount_path", "order"), name="unique_system_volume_layer")]
+
+    def __str__(self):
+        return f"{self.system_type.code}: {self.volume.slug} -> {self.mount_path}"
+
+    def normalize(self):
+        from filesystem.names import normalize_inner, normalize_mount
+
+        self.volume_path = normalize_inner(self.volume_path)
+        self.mount_path = normalize_mount(self.mount_path)
+
+    def clean(self):
+        super().clean()
+        self.normalize()
+        if not self.mount_path:
+            raise ValidationError({"mount_path": "Укажите точку монтирования."})
+
+    def save(self, *args, **kwargs):
+        self.normalize()
+        super().save(*args, **kwargs)
+
+    def as_mount(self, machine_id):
+        """Монтирование для вида машины: несохранённая запись MachineMount с отрицательным id (вне диапазона дисков игрока).
+        Порядок сдвинут вниз, чтобы свои монтирования машины всегда лежали выше образа."""
+        from machines.models.mounts import MachineMount
+
+        return MachineMount(
+            id=-(10**9 + self.pk), machine_id=machine_id, volume_id=self.volume_id, volume_path=self.volume_path,
+            mount_path=self.mount_path, mode=MachineMount.Mode.LOCAL, order=self.order - 100000,
+        )
