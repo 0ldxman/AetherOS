@@ -39,6 +39,9 @@ class Command(BaseCommand):
     @transaction.atomic
     def handle(self, *args, **options):
         FileFormat.objects.get_or_create(
+            name="log", defaults={"title": "LOG authentication log", "extension": ".log", "kind": "text", "template": "{body}", "content": "none"},
+        )
+        FileFormat.objects.get_or_create(
             name="app", defaults={"title": "APP application", "extension": ".app", "kind": "text", "template": "{body}", "content": "text"},
         )
         FileFormat.objects.update_or_create(
@@ -53,6 +56,7 @@ class Command(BaseCommand):
         put(base, "etc/hosts", "demo-hosts", "127.0.0.1 localhost\n10.0.0.2 aether-core\n")
         put(base, "etc/motd", "demo-motd", "Welcome to Aether.\n")
         put(base, "var/log/syslog", "demo-syslog", "boot ok\n")
+        put(base, "var/log/auth.log", "demo-auth", format="log", name="auth")
 
         # рабочий стол: файлы приложений в общем месте desktop системы
         Place.objects.update_or_create(system_type=system, name="desktop", defaults={"path": "/etc/desktop"})

@@ -216,3 +216,32 @@ class GroupAdminTests(AdminTestCase):
         self.assertContains(response, 'name="groups"')
         self.assertContains(response, 'name="root"')
         self.assertTrue(Group.objects.filter(system_type=system, name="users").exists())
+
+
+class EntryPolicyAdminTests(AdminTestCase):
+    def data(self, **extra):
+        data = {"name": "Strict", "description": "", "mode": "all", "sources": "", "via": "", "max_attempts": "", "attempts_window": 600,
+                "lock_seconds": 300, "ttl": "", "windows": "", "denied_text": "", "locked_text": "", "window_text": "", "kick_text": ""}
+        data.update(extra)
+        return data
+
+    def test_a_policy_is_added_and_a_broken_window_is_refused_with_its_line(self):
+        from machines.models import EntryPolicy
+
+        add = reverse("admin:machines_entrypolicy_add")
+        bad = self.client.post(add, self.data(windows="mon-fri 9:00-17:00"))
+        self.assertEqual(bad.status_code, 200)
+        self.assertContains(bad, "строка 1")
+        self.assertEqual(self.client.post(add, self.data(windows="mon-fri: 9:00-13:00 14:00-17:00", max_attempts=3)).status_code, 302)
+        self.assertEqual(EntryPolicy.objects.get().max_attempts, 3)
+
+    def test_the_profile_page_shows_which_policy_works(self):
+        from machines.models import EntryPolicy, MachineProfile
+
+        profile = MachineProfile.objects.create(machine=self.machine, login="ivan", name="I", freq=1)
+        page = self.client.get(reverse("admin:machines_machineprofile_change", args=[profile.pk]))
+        self.assertContains(page, "Политики нет")
+        policy = EntryPolicy.objects.create(name="Strict")
+        type(self.machine).objects.filter(pk=self.machine.pk).update(entry_policy=policy)
+        page = self.client.get(reverse("admin:machines_machineprofile_change", args=[profile.pk]))
+        self.assertContains(page, "«Strict» (машины)")

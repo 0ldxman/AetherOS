@@ -10,10 +10,11 @@ from filesystem.sources.base import READ_LIMIT, Content, Payload, page_window, s
 from filesystem.sources.items import (
     ArchiveSource, AssetSource, BlankSource, KeySource, LinkSource, MessageSource, OwnSource, SceneSource, TextSource,
 )
+from filesystem.sources.log import LogSource
 
 # порядок важен: пустой файл приходит последним, потому что принимает всё
 SOURCES = (
-    ArchiveSource(), OwnSource(), AssetSource(), LinkSource(), SceneSource(), MessageSource(), KeySource(), TextSource(), BlankSource(),
+    ArchiveSource(), OwnSource(), AssetSource(), LinkSource(), SceneSource(), MessageSource(), KeySource(), LogSource(), TextSource(), BlankSource(),
 )
 
 __all__ = ["READ_LIMIT", "SOURCES", "Content", "Payload", "page_window", "payload_for", "site_url", "source_for", "text_window", "window_for"]

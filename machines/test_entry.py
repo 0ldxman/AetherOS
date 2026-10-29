@@ -199,3 +199,42 @@ class EntryTests(TestCase):
         self.assertIn("Permission denied", self.run_command("rshell --token golden tok@aether-core")["output"])
         EntryPolicy.objects.filter(pk=profile.entry_policy_id).update(sources="")
         self.assertEqual(self.run_command("rshell --token golden tok@aether-core")["exit_code"], 0)
+
+
+@override_settings(FORCE_SCRIPT_NAME=None)
+class JournalTests(TestCase):
+    @classmethod
+    def setUpTestData(cls):
+        from filesystem.testing import make_file
+
+        cls.core = Machine.objects.create(name="Core", hostname="aether-core")
+        cls.other_machine = Machine.objects.create(name="Other", hostname="other")
+        cls.ivan = get_user_model().objects.create_user("ivan", password="pw")
+        cls.petr = get_user_model().objects.create_user("petr", password="pw")
+        cls.account = MachineProfile.objects.create(machine=cls.core, login="vault", name="v", freq=1)
+        cls.elsewhere = MachineProfile.objects.create(machine=cls.other_machine, login="vault", name="v", freq=1)
+        for user, kind, source in ((cls.ivan, "bad_password", "aether-main"), (cls.ivan, "ok", "aether-main"), (cls.petr, "window", "gw-02")):
+            entry.record(cls.account, user, kind, source)
+        entry.record(cls.elsewhere, cls.ivan, "ok", "aether-main")
+        cls.made = make_file(cls.core, "/var/log/auth.log", format="log")
+
+    def text(self, user):
+        from filesystem.machine_view import MachineView
+        from filesystem.rawview import build_raw
+
+        view = MachineView(self.core, user)
+        return build_raw(view.get(self.made.path), view).data.decode()
+
+    def test_the_journal_lists_the_entries_on_this_host_for_this_player_only(self):
+        mine = self.text(self.ivan)
+        self.assertIn("Failed password for vault from aether-main", mine)
+        self.assertIn("Accepted password for vault from aether-main", mine)
+        self.assertNotIn("outside permitted hours", mine)
+        self.assertEqual(len(mine.splitlines()), 2)                                  # события другой машины сюда не попадают
+        self.assertIn("Refused vault from gw-02: outside permitted hours", self.text(self.petr))
+
+    def test_a_new_event_changes_the_file(self):
+        before = self.text(self.ivan)
+        entry.record(self.account, self.ivan, "locked", "aether-main")
+        self.assertIn("Account vault locked", self.text(self.ivan))
+        self.assertNotEqual(before, self.text(self.ivan))
