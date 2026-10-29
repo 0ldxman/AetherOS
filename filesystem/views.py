@@ -12,6 +12,7 @@ from django.http import Http404, HttpResponse
 from django.shortcuts import render
 from django.urls import reverse
 from django.utils.http import urlencode
+from django.views.decorators.csrf import ensure_csrf_cookie
 
 from filesystem.rawview import build_raw_cached, viewer_formats
 from machines.bridge import terminal_session
@@ -105,6 +106,7 @@ def text_content(request):
 EDIT_LIMIT = 200_000
 
 
+@ensure_csrf_cookie        # страница сама токена не печатает, а сохранение шлёт его из куки
 def edit_page(request):
     """Редактор текста файла (edt): тот же вьювер, но с правкой. GET отдаёт страницу, POST сохраняет правку в слой игрока."""
     import json
