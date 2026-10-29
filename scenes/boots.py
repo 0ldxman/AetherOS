@@ -19,7 +19,7 @@ Viper, Essig и Shroud получат свои функции рядом (у к�
 """
 import hashlib
 
-from console.scene import Scene
+from scenes.engine import Scene
 from machines.world.identity import CORE_HOST
 from machines.world.dates import BEACON_LAST_SYNC, CORE_LAST_CONTACT, GAME_DATE, clearance_code, days_since
 

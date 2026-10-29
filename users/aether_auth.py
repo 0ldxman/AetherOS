@@ -42,7 +42,7 @@ DEFAULT_USER_LEVEL = 1
 # =========================================================
 # GATEWAY (экран входа)
 # ---------------------------------------------------------
-# Сцены экрана входа собирает users/gateway.py; здесь только данные,
+# Сцены экрана входа собирает scenes/gateway.py; здесь только данные,
 # которых нет в самих сценах: hid машины из базы и допуск гостя.
 # =========================================================
 
@@ -81,7 +81,7 @@ def gateway_scenes(request):
     """Сцены экрана входа для этого посетителя (словарь имя -> список шагов)."""
     from machines.world.identity import client_fingerprint, identity_of
 
-    from users import gateway
+    from scenes import gateway
 
     ident = identity_of()
     client_key = client_fingerprint(_visitor(request))

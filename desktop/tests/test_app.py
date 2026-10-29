@@ -260,7 +260,7 @@ class GatewayScenesTests(TestCase):
         self.assertLess(text.index("-- 1/9  bridge --"), text.index("-- 2/9  tune --"))
 
     def test_the_bridge_directory_lists_near_and_far_working_and_dead(self):
-        from users.gateway import BRIDGE, BRIDGES
+        from scenes.gateway import BRIDGE, BRIDGES
 
         distances = [km for _, km, _, _ in BRIDGES]
         self.assertEqual(distances, sorted(distances))                      # ближайшие первыми
@@ -275,7 +275,7 @@ class GatewayScenesTests(TestCase):
         self.assertIn(f"select    {BRIDGE}  (nearest reachable)", text)
 
     def test_the_bridge_names_are_greek_winds_and_messengers(self):
-        from users.gateway import BRIDGES
+        from scenes.gateway import BRIDGES
 
         self.assertEqual({name for name, *_ in BRIDGES}, {"zephyr", "boreas", "narthex", "notos", "euros", "iris", "hermes"})
 
@@ -339,7 +339,7 @@ class GatewayScenesTests(TestCase):
         self.assertIn("remote request", spoken(self.scenes()["intro"]))
 
     def test_key_exchange_has_a_progress_bar_and_a_key_id(self):
-        from users.gateway import KEY_ID
+        from scenes.gateway import KEY_ID
 
         intro = self.scenes()["intro"]
         self.assertEqual(len(steps(intro, "bar")), 1)
@@ -415,7 +415,7 @@ class GatewayScenesTests(TestCase):
     # ---------- вход и фраза незнакомца ----------
 
     def test_discord_is_immediate_and_the_stranger_text_arrives_later_in_place(self):
-        from users.gateway import VOICE, VOICE_AFTER_MS
+        from scenes.gateway import VOICE, VOICE_AFTER_MS
 
         (choice,) = [s for s in self.scenes()["intro"] if s["op"] == "choice"]
         discord, bypass = choice["options"]
@@ -425,7 +425,7 @@ class GatewayScenesTests(TestCase):
         self.assertEqual(bypass["label"], list(VOICE))   # случайная из набора, в первом лице
 
     def test_the_text_is_erased_and_typed_again_if_the_player_waits(self):
-        from users.gateway import VOICE_AGAIN, VOICE_AGAIN_MS
+        from scenes.gateway import VOICE_AGAIN, VOICE_AGAIN_MS
 
         (choice,) = [s for s in self.scenes()["intro"] if s["op"] == "choice"]
         rewrites = choice["options"][1]["rewrites"]
@@ -442,7 +442,7 @@ class GatewayScenesTests(TestCase):
 
     def test_only_main_turns_into_null_so_the_prefix_stays_put(self):
         from machines.world.identity import ENTRY_HOST
-        from users.gateway import NULL_HOST
+        from scenes.gateway import NULL_HOST
 
         host, null = ENTRY_HOST, NULL_HOST
         prefix = 0
@@ -500,7 +500,7 @@ class GatewayScenesTests(TestCase):
 
     def test_the_node_greets_the_player_after_the_session_opens(self):
         from machines.world.dates import GAME_DATE
-        from users.gateway import LOGO
+        from scenes.gateway import LOGO
 
         text = self.screen_text(self.scenes()["established"])
         for line in LOGO:
@@ -542,7 +542,7 @@ class GatewayScenesTests(TestCase):
         self.assertLess(scene.index(reads[0]), len(scene) - 1)     # после него ещё «Loading workspace»
 
     def test_a_returning_session_gets_a_short_greeting_without_the_logo(self):
-        from users.gateway import LOGO
+        from scenes.gateway import LOGO
 
         user = get_user_model().objects.create_user("ivan", password="pw")
         text = self.screen_text(self.scenes(user=user)["restored"])

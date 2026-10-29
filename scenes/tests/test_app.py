@@ -6,7 +6,7 @@ import json
 
 from django.test import SimpleTestCase
 
-from console.scene import Option, Scene, SceneError
+from scenes.engine import Option, Scene, SceneError
 
 
 def ops(scene):

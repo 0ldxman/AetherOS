@@ -10,7 +10,7 @@ from secure.access import satisfied
 from machines.world.identity import identity_of
 from users.aether_auth import GUEST_LOGIN
 
-from desktop.boots import boot_scenes
+from scenes.boots import boot_scenes
 from desktop.messages import catalog
 
 from machines.current import active_session, current_machine, desktop_entries, is_app, visible_apps

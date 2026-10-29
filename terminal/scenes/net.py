@@ -1,5 +1,5 @@
 """Сцены сетевых команд (nreq, nget). Вид зависит от системы машины игрока: у Aether это радио, у остальных обычная сеть."""
-from console.scene import Scene
+from scenes.engine import Scene
 
 AETHER = "AETHER"
 

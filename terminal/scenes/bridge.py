@@ -4,7 +4,7 @@
 говорит на обычном сетевом языке (порт, tcp, tls). Сцену собирает сервер уже после решения: в неё попадает
 только то, что игрок и так узнал бы из ответа.
 """
-from console.scene import Scene
+from scenes.engine import Scene
 
 AETHER = "AETHER"
 

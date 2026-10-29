@@ -1,6 +1,6 @@
 """Сцены экрана входа: игрок подключается к удалённой машине.
 
-Это сцены консоли (console/scene.py), а не страница: Python собирает их, браузер
+Это сцены консоли (scenes/engine.py), а не страница: Python собирает их, браузер
 проигрывает (static/ui/console.js, desktop/static/boot/lock.js).
 
 Aether это связь на радиоволнах, а у ПК игрока радио нет. Поэтому сначала ПК выходит
@@ -43,7 +43,7 @@ tls), дальше только радио. Между этапами смена
 """
 import hashlib
 
-from console.scene import Option, Scene
+from scenes.engine import Option, Scene
 from machines.world.identity import CORE_HOST
 from machines.world.dates import BEACON_LAST_SYNC, CERT_NOT_AFTER, CORE_LAST_CONTACT, GAME_DATE, days_since
 
