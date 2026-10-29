@@ -218,7 +218,7 @@
   .item { display: flex; flex-direction: column; height: 100%; }
   .head { display: flex; align-items: center; gap: 10px; padding: 12px 16px; border-bottom: 1px solid var(--line-soft); }
   .title {
-    flex: 0 1 420px; min-width: 120px; height: 34px; padding: 0 8px; border: 1px solid transparent; border-radius: var(--radius-s);
+    field-sizing: content; min-width: 120px; max-width: 520px; height: 34px; padding: 0 8px; border: 1px solid transparent; border-radius: var(--radius-s);
     background: transparent; font-size: 17px; font-weight: 600; outline: none;
   }
   .title:hover { border-color: var(--line); }

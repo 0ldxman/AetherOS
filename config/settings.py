@@ -49,6 +49,7 @@ AUTH_USER_MODEL = "users.User"
 
 INSTALLED_APPS = [
     "whitenoise.runserver_nostatic",
+    "studio",                       # сразу за whitenoise: её runserver наследует наш, и сервер собирает фронт студии
 
     'django.contrib.admin',
     'django.contrib.auth',
@@ -69,7 +70,6 @@ INSTALLED_APPS = [
     'filesystem',
     'terminal',
     'ninja',
-    'studio',
 ]
 INSTALLED_APPS += [
     "django.contrib.sites",

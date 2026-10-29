@@ -42,6 +42,8 @@ python manage.py runserver
 ```
 
 Студия (нужен Node 22): собранный фронт ложится в `studio/static/studio/app` и в git не хранится.
+`manage.py runserver` сам запускает сборку в режиме наблюдения (`npm run watch`), правки фронта видны после обновления
+страницы; `--no-studio` её отключает. Вручную:
 
 ```
 cd studio/frontend
