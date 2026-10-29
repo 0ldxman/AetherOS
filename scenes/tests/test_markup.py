@@ -26,3 +26,9 @@ class MarkupTests(SimpleTestCase):
 
     def test_a_missing_value_is_empty(self):
         self.assertEqual(texts(render("a{mail}b", {"mail": None}))[0][0], "ab")
+
+    def test_rand_picks_a_number_from_the_range_and_the_old_name_is_an_error(self):
+        self.assertEqual(texts(render("<rand>7-7</rand>%", {}))[0][0], "7%")
+        self.assertTrue(0 <= int(texts(render("<rand>0-9</rand>", {}))[0][0]) <= 9)
+        self.assertEqual([number for number, _ in check("<random>1-2</random>", [])], [1, 1])
+        self.assertTrue(check("<rand>x</rand>", []))

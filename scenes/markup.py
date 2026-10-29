@@ -1,7 +1,7 @@
 """Текст с разметкой для экранов, которые пишет автор (приветствие оболочки ОС): цвета тегами и подстановки в фигурных скобках.
 
     <dim>тусклый</dim>  <success>…</success>  <warning>…</warning>  <error>…</error>
-    <random>21-41</random>   целое число из диапазона, при каждом показе своё (нагрузки)
+    <rand>21-41</rand>   целое число из диапазона, при каждом показе своё (нагрузки)
     {host}              значение параметра; {{ и }} дают сами скобки; &lt; &gt; &amp; дают < > &
 
 Теги открываются и закрываются в одной строке, вкладываются (действует внутренний). Пустая строка остаётся пустой.
@@ -12,14 +12,14 @@ import re
 from scenes.engine import STYLES, Scene
 
 _TOKEN = re.compile(r"<(/?)(\w+)>|\{\{|\}\}|\{(\w*)\}|[{}<>]|&(?:lt|gt|amp);")
-_RANDOM = re.compile(r"<random>\s*(\d+)\s*-\s*(\d+)\s*</random>")
+_RAND = re.compile(r"<rand>\s*(\d+)\s*-\s*(\d+)\s*</rand>")
 _ENTITIES = {"&lt;": "<", "&gt;": ">", "&amp;": "&"}
 
 
 def parse_line(line, params):
     """Строка -> (части [(текст, стиль)], ошибки [текст]). params: допустимые имена -> значения (или None, чтобы только проверить)."""
     parts, errors, stack, position = [], [], [], 0
-    line = _RANDOM.sub(lambda m: str(random.randint(*sorted((int(m.group(1)), int(m.group(2)))))), line)
+    line = _RAND.sub(lambda m: str(random.randint(*sorted((int(m.group(1)), int(m.group(2)))))), line)
 
     def put(text):
         style = stack[-1] if stack else None
@@ -34,8 +34,8 @@ def parse_line(line, params):
         text = token.group()
         closing, tag, name = token.groups()
         if tag:
-            if tag == "random":
-                errors.append("Нужно <random>от-до</random>, например <random>21-41</random>.")
+            if tag == "rand":
+                errors.append("Нужно <rand>от-до</rand>, например <rand>21-41</rand>.")
             elif tag not in STYLES:
                 errors.append(f"Неизвестный тег <{tag}>; допустимы {', '.join(STYLES)}.")
             elif not closing:

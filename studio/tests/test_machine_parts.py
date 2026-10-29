@@ -211,9 +211,9 @@ class CreateAndSystemsTests(TestCase):
         self.assertEqual((known["accounts"], known["note"], known["last_login"]), (self.core.profiles.count(), "Check the vault", "never"))
         self.assertTrue(known["uptime"].startswith("2 days"))
         self.assertEqual(self.call("get", f"/machines/{self.core.pk}")[1]["callsign"], "KEY-1")
-        status, data = self.call("post", "/systems/AETHER/greeting/preview", {"greeting": "<random>5-5</random> % {note} {callsign}"})
+        status, data = self.call("post", "/systems/AETHER/greeting/preview", {"greeting": "<rand>5-5</rand> % {note} {callsign}"})
         self.assertEqual("".join(part["text"] for part in data["lines"][0]), "5 % Check the vault KEY-1")
-        self.assertEqual(self.call("post", "/systems/AETHER/greeting/preview", {"greeting": "<random>x</random>"})[1]["errors"][0]["line"], 1)
+        self.assertEqual(self.call("post", "/systems/AETHER/greeting/preview", {"greeting": "<rand>x</rand>"})[1]["errors"][0]["line"], 1)
 
     def test_the_system_image_is_laid_under_the_machine_mounts(self):
         from filesystem.machine_view import MachineView
