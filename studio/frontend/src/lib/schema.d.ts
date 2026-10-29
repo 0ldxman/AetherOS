@@ -315,26 +315,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/studio/api/machines/policies/{policy_id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Policy
-         * @description Политика входа с недельной сеткой окон (той же проверкой, что у входа).
-         */
-        get: operations["studio_api_machines_policy"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/studio/api/machines/{machine_id}": {
         parameters: {
             query?: never;
@@ -489,6 +469,230 @@ export interface paths {
         post?: never;
         /** Drop Token */
         delete: operations["studio_api_accounts_drop_token"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/studio/api/machines/{machine_id}/groups": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Table */
+        get: operations["studio_api_groups_table"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/studio/api/machines/{machine_id}/groups/{name}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Save
+         * @description Своя группа машины с этим именем: новая или переопределяющая группу типа.
+         */
+        put: operations["studio_api_groups_save"];
+        post?: never;
+        /**
+         * Revert
+         * @description Убрать то, что машина сделала с группой: своя группа исчезает, переопределённая или отключённая возвращается к типу.
+         */
+        delete: operations["studio_api_groups_revert"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/studio/api/machines/{machine_id}/groups/{name}/disable": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Disable
+         * @description Группа типа системы на этой машине не действует.
+         */
+        post: operations["studio_api_groups_disable"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/studio/api/machines/{machine_id}/disks": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Disks */
+        get: operations["studio_api_disks_disks"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/studio/api/machines/{machine_id}/mounts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** New Mount */
+        post: operations["studio_api_disks_new_mount"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/studio/api/machines/{machine_id}/mounts/{mount_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Save Mount */
+        put: operations["studio_api_disks_save_mount"];
+        post?: never;
+        /** Drop Mount */
+        delete: operations["studio_api_disks_drop_mount"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/studio/api/machines/{machine_id}/exports": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** New Export */
+        post: operations["studio_api_disks_new_export"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/studio/api/machines/{machine_id}/exports/{export_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Drop Export */
+        delete: operations["studio_api_disks_drop_export"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/studio/api/machines/{machine_id}/tree": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Tree
+         * @description Содержимое папки так, как его видит учётка: права, слои, ключи. Сеть идёт через хосты, как у игрока.
+         */
+        get: operations["studio_api_disks_tree"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/studio/api/policies": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Policies */
+        get: operations["studio_api_policies_policies"];
+        put?: never;
+        /** Create */
+        post: operations["studio_api_policies_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/studio/api/policies/{policy_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Read */
+        get: operations["studio_api_policies_read"];
+        /** Save */
+        put: operations["studio_api_policies_save"];
+        post?: never;
+        /** Delete */
+        delete: operations["studio_api_policies_delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/studio/api/policies/week": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Week
+         * @description Неделя окон для текста, который ещё не сохранён (редактор показывает её по мере набора).
+         */
+        post: operations["studio_api_policies_week"];
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -905,33 +1109,6 @@ export interface components {
             /** Refusals */
             refusals: number;
         };
-        /** PolicyOut */
-        PolicyOut: {
-            /** Id */
-            id: number;
-            /** Name */
-            name: string;
-            /** Description */
-            description: string;
-            /** Mode */
-            mode: string;
-            /** Sources */
-            sources: string[];
-            /** Via */
-            via: string[];
-            /** Max Attempts */
-            max_attempts: number | null;
-            /** Attempts Window */
-            attempts_window: number;
-            /** Lock Seconds */
-            lock_seconds: number;
-            /** Ttl */
-            ttl: number | null;
-            /** Windows */
-            windows: string;
-            /** Grid */
-            grid: boolean[][] | null;
-        };
         /** AccountRow */
         AccountRow: {
             /** Id */
@@ -1238,6 +1415,318 @@ export interface components {
             max_usage?: number | null;
             /** Expires At */
             expires_at?: string | null;
+        };
+        /** GroupRow */
+        GroupRow: {
+            /** Name */
+            name: string;
+            /** Privileges */
+            privileges: string[];
+            /** Everyone */
+            everyone: boolean;
+            /** Source */
+            source: string;
+            /** Overrides */
+            overrides: boolean;
+            /** Disabled */
+            disabled: boolean;
+            /** Members */
+            members: string[];
+        };
+        /** GroupTable */
+        GroupTable: {
+            /** Privileges */
+            privileges: components["schemas"]["Privilege"][];
+            /** Groups */
+            groups: components["schemas"]["GroupRow"][];
+        };
+        /** Privilege */
+        Privilege: {
+            /** Code */
+            code: string;
+            /** Label */
+            label: string;
+        };
+        /** GroupIn */
+        GroupIn: {
+            /**
+             * Privileges
+             * @default []
+             */
+            privileges: string[];
+            /**
+             * Everyone
+             * @default false
+             */
+            everyone: boolean;
+        };
+        /** DiskMount */
+        DiskMount: {
+            /** Id */
+            id: number;
+            /** Mode */
+            mode: string;
+            volume: components["schemas"]["Ref"] | null;
+            /** Volume Path */
+            volume_path: string;
+            host: components["schemas"]["Ref"] | null;
+            /** Host Path */
+            host_path: string;
+            account: components["schemas"]["Ref"] | null;
+            /** Mount Path */
+            mount_path: string;
+            /** Order */
+            order: number;
+        };
+        /** Disks */
+        Disks: {
+            /** Mounts */
+            mounts: components["schemas"]["DiskMount"][];
+            /** Exports */
+            exports: components["schemas"]["ExportRow"][];
+            /** Volumes */
+            volumes: components["schemas"]["Ref"][];
+            /** Hosts */
+            hosts: components["schemas"]["Host"][];
+        };
+        /** ExportRow */
+        ExportRow: {
+            /** Id */
+            id: number;
+            /** Path */
+            path: string;
+        };
+        /** Host */
+        Host: {
+            /** Id */
+            id: number;
+            /** Label */
+            label: string;
+            /** Accounts */
+            accounts: components["schemas"]["Ref"][];
+            /** Exports */
+            exports: string[];
+        };
+        /** Ref */
+        Ref: {
+            /** Id */
+            id: number;
+            /** Label */
+            label: string;
+        };
+        /** MountIn */
+        MountIn: {
+            /**
+             * Mode
+             * @default local
+             */
+            mode: string;
+            /** Volume */
+            volume?: number | null;
+            /**
+             * Volume Path
+             * @default
+             */
+            volume_path: string;
+            /** Host */
+            host?: number | null;
+            /**
+             * Host Path
+             * @default
+             */
+            host_path: string;
+            /** Account */
+            account?: number | null;
+            /**
+             * Mount Path
+             * @default
+             */
+            mount_path: string;
+            /**
+             * Order
+             * @default 0
+             */
+            order: number;
+        };
+        /** ExportIn */
+        ExportIn: {
+            /** Path */
+            path: string;
+        };
+        /** Listing */
+        Listing: {
+            /** Path */
+            path: string;
+            /** Readable */
+            readable: boolean;
+            /** Denied */
+            denied: string;
+            /** Nodes */
+            nodes: components["schemas"]["TreeNode"][];
+        };
+        /** TreeNode */
+        TreeNode: {
+            /** Name */
+            name: string;
+            /** Path */
+            path: string;
+            /** Is Dir */
+            is_dir: boolean;
+            /** Owner */
+            owner: string;
+            /** Group */
+            group: string;
+            /** Mode */
+            mode: string;
+            /** Readable */
+            readable: boolean;
+            /** Hidden */
+            hidden: boolean;
+            /** Layers */
+            layers: boolean;
+            /** Keys */
+            keys: boolean;
+            /** Format */
+            format: string;
+            /** Mount */
+            mount: string;
+        };
+        /** PolicyRow */
+        PolicyRow: {
+            /** Id */
+            id: number;
+            /** Name */
+            name: string;
+            /** Description */
+            description: string;
+            /** Systems */
+            systems: number;
+            /** Machines */
+            machines: number;
+            /** Accounts */
+            accounts: number;
+        };
+        /** PolicyOut */
+        PolicyOut: {
+            /** Id */
+            id: number;
+            /** Name */
+            name: string;
+            /** Description */
+            description: string;
+            /** Mode */
+            mode: string;
+            /** Sources */
+            sources: string;
+            /** Via */
+            via: string;
+            /** Max Attempts */
+            max_attempts: number | null;
+            /** Attempts Window */
+            attempts_window: number;
+            /** Lock Seconds */
+            lock_seconds: number;
+            /** Ttl */
+            ttl: number | null;
+            /** Windows */
+            windows: string;
+            /** Denied Text */
+            denied_text: string;
+            /** Locked Text */
+            locked_text: string;
+            /** Window Text */
+            window_text: string;
+            /** Kick Text */
+            kick_text: string;
+            /** Grid */
+            grid: boolean[][] | null;
+            /** Used By */
+            used_by: components["schemas"]["PolicyUse"][];
+        };
+        /** PolicyUse */
+        PolicyUse: {
+            /** Kind */
+            kind: string;
+            /** Label */
+            label: string;
+            /** Machine */
+            machine: number | null;
+        };
+        /** PolicyIn */
+        PolicyIn: {
+            /** Name */
+            name: string;
+            /**
+             * Description
+             * @default
+             */
+            description: string;
+            /**
+             * Mode
+             * @default all
+             */
+            mode: string;
+            /**
+             * Sources
+             * @default
+             */
+            sources: string;
+            /**
+             * Via
+             * @default
+             */
+            via: string;
+            /** Max Attempts */
+            max_attempts?: number | null;
+            /**
+             * Attempts Window
+             * @default 600
+             */
+            attempts_window: number;
+            /**
+             * Lock Seconds
+             * @default 300
+             */
+            lock_seconds: number;
+            /** Ttl */
+            ttl?: number | null;
+            /**
+             * Windows
+             * @default
+             */
+            windows: string;
+            /**
+             * Denied Text
+             * @default
+             */
+            denied_text: string;
+            /**
+             * Locked Text
+             * @default
+             */
+            locked_text: string;
+            /**
+             * Window Text
+             * @default
+             */
+            window_text: string;
+            /**
+             * Kick Text
+             * @default
+             */
+            kick_text: string;
+        };
+        /** Week */
+        Week: {
+            /** Grid */
+            grid: boolean[][] | null;
+            /** Error */
+            error: string;
+        };
+        /** WindowsIn */
+        WindowsIn: {
+            /** Windows */
+            windows: string;
         };
     };
     responses: never;
@@ -1725,28 +2214,6 @@ export interface operations {
             };
         };
     };
-    studio_api_machines_policy: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                policy_id: number;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["PolicyOut"];
-                };
-            };
-        };
-    };
     studio_api_machines_overview: {
         parameters: {
             query?: never;
@@ -2039,6 +2506,409 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+        };
+    };
+    studio_api_groups_table: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                machine_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GroupTable"];
+                };
+            };
+        };
+    };
+    studio_api_groups_save: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                machine_id: number;
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GroupIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GroupTable"];
+                };
+            };
+        };
+    };
+    studio_api_groups_revert: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                machine_id: number;
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GroupTable"];
+                };
+            };
+        };
+    };
+    studio_api_groups_disable: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                machine_id: number;
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GroupTable"];
+                };
+            };
+        };
+    };
+    studio_api_disks_disks: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                machine_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Disks"];
+                };
+            };
+        };
+    };
+    studio_api_disks_new_mount: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                machine_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MountIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Disks"];
+                };
+            };
+        };
+    };
+    studio_api_disks_save_mount: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                machine_id: number;
+                mount_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MountIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Disks"];
+                };
+            };
+        };
+    };
+    studio_api_disks_drop_mount: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                machine_id: number;
+                mount_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Disks"];
+                };
+            };
+        };
+    };
+    studio_api_disks_new_export: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                machine_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ExportIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Disks"];
+                };
+            };
+        };
+    };
+    studio_api_disks_drop_export: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                machine_id: number;
+                export_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Disks"];
+                };
+            };
+        };
+    };
+    studio_api_disks_tree: {
+        parameters: {
+            query: {
+                account: number;
+                path?: string;
+            };
+            header?: never;
+            path: {
+                machine_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Listing"];
+                };
+            };
+        };
+    };
+    studio_api_policies_policies: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PolicyRow"][];
+                };
+            };
+        };
+    };
+    studio_api_policies_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PolicyIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PolicyOut"];
+                };
+            };
+        };
+    };
+    studio_api_policies_read: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                policy_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PolicyOut"];
+                };
+            };
+        };
+    };
+    studio_api_policies_save: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                policy_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PolicyIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PolicyOut"];
+                };
+            };
+        };
+    };
+    studio_api_policies_delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                policy_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    studio_api_policies_week: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["WindowsIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Week"];
+                };
             };
         };
     };

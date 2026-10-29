@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { adminUrl, api, problem, type Schemas } from "../../lib/api";
+  import { api, problem, type Schemas } from "../../lib/api";
   import { toast } from "../../lib/toast.svelte";
   import WeekGrid from "../../lib/WeekGrid.svelte";
 
@@ -18,7 +18,7 @@
     const id = row?.policy?.id;
     policy = null;
     verdict = null;
-    if (id) api.GET("/studio/api/machines/policies/{policy_id}", { params: { path: { policy_id: id } } }).then(({ data }) => (policy = data ?? null));
+    if (id) api.GET("/studio/api/policies/{policy_id}", { params: { path: { policy_id: id } } }).then(({ data }) => (policy = data ?? null));
   });
 
   const mark = $derived.by(() => {
@@ -43,6 +43,7 @@
     verdict = data;
   }
 
+  const lines = (text: string) => text.split("\n").map((line) => line.trim()).filter(Boolean);
   const ORIGIN: Record<string, string> = { profile: "своя у учётки", machine: "от машины", system: "от типа системы" };
   const MODE: Record<string, string> = { all: "нужны и пароль, и ключ", any: "хватает пароля или ключа" };
 </script>
@@ -65,8 +66,8 @@
       {#if policy.description}<p class="muted">{policy.description}</p>{/if}
       <dl>
         <dt>Пароль и ключ</dt><dd>{MODE[policy.mode] ?? policy.mode}</dd>
-        <dt>Откуда</dt><dd>{#if policy.sources.length}{#each policy.sources as host}<code>{host}</code> {/each}{:else}откуда угодно{/if}</dd>
-        <dt>Только через</dt><dd>{#if policy.via.length}{#each policy.via as host}<code>{host}</code> {/each}{:else}—{/if}</dd>
+        <dt>Откуда</dt><dd>{#if lines(policy.sources).length}{#each lines(policy.sources) as host}<code>{host}</code> {/each}{:else}откуда угодно{/if}</dd>
+        <dt>Только через</dt><dd>{#if lines(policy.via).length}{#each lines(policy.via) as host}<code>{host}</code> {/each}{:else}—{/if}</dd>
         <dt>Ошибки</dt>
         <dd>{policy.max_attempts ? `${policy.max_attempts} за ${Math.round(policy.attempts_window / 60)} мин → блок на ${Math.round(policy.lock_seconds / 60)} мин` : "не блокируют"}</dd>
         <dt>Срок подключения</dt><dd>{policy.ttl ? `${policy.ttl} с` : "без ограничения"}</dd>
@@ -78,7 +79,7 @@
       {:else}
         <p class="muted small">Окон нет: в любое время.</p>
       {/if}
-      <p class="small"><a href={adminUrl(`machines/entrypolicy/${policy.id}/change/`)}>Править политику в старой админке</a></p>
+      <p class="small"><a href="#/policies/{policy.id}">Править политику</a></p>
     {:else}
       <p class="muted">Загрузка…</p>
     {/if}

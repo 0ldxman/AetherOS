@@ -801,44 +801,6 @@
     ]
    }
   },
-  "/studio/api/machines/policies/{policy_id}": {
-   "get": {
-    "operationId": "studio_api_machines_policy",
-    "summary": "Policy",
-    "parameters": [
-     {
-      "in": "path",
-      "name": "policy_id",
-      "schema": {
-       "title": "Policy Id",
-       "type": "integer"
-      },
-      "required": true
-     }
-    ],
-    "responses": {
-     "200": {
-      "description": "OK",
-      "content": {
-       "application/json": {
-        "schema": {
-         "$ref": "#/components/schemas/PolicyOut"
-        }
-       }
-      }
-     }
-    },
-    "description": "Политика входа с недельной сеткой окон (той же проверкой, что у входа).",
-    "tags": [
-     "machines"
-    ],
-    "security": [
-     {
-      "SessionAuthIsStaff": []
-     }
-    ]
-   }
-  },
   "/studio/api/machines/{machine_id}": {
    "get": {
     "operationId": "studio_api_machines_overview",
@@ -1417,6 +1379,740 @@
     "tags": [
      "accounts"
     ],
+    "security": [
+     {
+      "SessionAuthIsStaff": []
+     }
+    ]
+   }
+  },
+  "/studio/api/machines/{machine_id}/groups": {
+   "get": {
+    "operationId": "studio_api_groups_table",
+    "summary": "Table",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "machine_id",
+      "schema": {
+       "title": "Machine Id",
+       "type": "integer"
+      },
+      "required": true
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/GroupTable"
+        }
+       }
+      }
+     }
+    },
+    "tags": [
+     "groups"
+    ],
+    "security": [
+     {
+      "SessionAuthIsStaff": []
+     }
+    ]
+   }
+  },
+  "/studio/api/machines/{machine_id}/groups/{name}": {
+   "put": {
+    "operationId": "studio_api_groups_save",
+    "summary": "Save",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "machine_id",
+      "schema": {
+       "title": "Machine Id",
+       "type": "integer"
+      },
+      "required": true
+     },
+     {
+      "in": "path",
+      "name": "name",
+      "schema": {
+       "title": "Name",
+       "type": "string"
+      },
+      "required": true
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/GroupTable"
+        }
+       }
+      }
+     }
+    },
+    "description": "Своя группа машины с этим именем: новая или переопределяющая группу типа.",
+    "tags": [
+     "groups"
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/GroupIn"
+       }
+      }
+     },
+     "required": true
+    },
+    "security": [
+     {
+      "SessionAuthIsStaff": []
+     }
+    ]
+   },
+   "delete": {
+    "operationId": "studio_api_groups_revert",
+    "summary": "Revert",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "machine_id",
+      "schema": {
+       "title": "Machine Id",
+       "type": "integer"
+      },
+      "required": true
+     },
+     {
+      "in": "path",
+      "name": "name",
+      "schema": {
+       "title": "Name",
+       "type": "string"
+      },
+      "required": true
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/GroupTable"
+        }
+       }
+      }
+     }
+    },
+    "description": "Убрать то, что машина сделала с группой: своя группа исчезает, переопределённая или отключённая возвращается к типу.",
+    "tags": [
+     "groups"
+    ],
+    "security": [
+     {
+      "SessionAuthIsStaff": []
+     }
+    ]
+   }
+  },
+  "/studio/api/machines/{machine_id}/groups/{name}/disable": {
+   "post": {
+    "operationId": "studio_api_groups_disable",
+    "summary": "Disable",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "machine_id",
+      "schema": {
+       "title": "Machine Id",
+       "type": "integer"
+      },
+      "required": true
+     },
+     {
+      "in": "path",
+      "name": "name",
+      "schema": {
+       "title": "Name",
+       "type": "string"
+      },
+      "required": true
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/GroupTable"
+        }
+       }
+      }
+     }
+    },
+    "description": "Группа типа системы на этой машине не действует.",
+    "tags": [
+     "groups"
+    ],
+    "security": [
+     {
+      "SessionAuthIsStaff": []
+     }
+    ]
+   }
+  },
+  "/studio/api/machines/{machine_id}/disks": {
+   "get": {
+    "operationId": "studio_api_disks_disks",
+    "summary": "Disks",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "machine_id",
+      "schema": {
+       "title": "Machine Id",
+       "type": "integer"
+      },
+      "required": true
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Disks"
+        }
+       }
+      }
+     }
+    },
+    "tags": [
+     "disks"
+    ],
+    "security": [
+     {
+      "SessionAuthIsStaff": []
+     }
+    ]
+   }
+  },
+  "/studio/api/machines/{machine_id}/mounts": {
+   "post": {
+    "operationId": "studio_api_disks_new_mount",
+    "summary": "New Mount",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "machine_id",
+      "schema": {
+       "title": "Machine Id",
+       "type": "integer"
+      },
+      "required": true
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Disks"
+        }
+       }
+      }
+     }
+    },
+    "tags": [
+     "disks"
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/MountIn"
+       }
+      }
+     },
+     "required": true
+    },
+    "security": [
+     {
+      "SessionAuthIsStaff": []
+     }
+    ]
+   }
+  },
+  "/studio/api/machines/{machine_id}/mounts/{mount_id}": {
+   "put": {
+    "operationId": "studio_api_disks_save_mount",
+    "summary": "Save Mount",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "machine_id",
+      "schema": {
+       "title": "Machine Id",
+       "type": "integer"
+      },
+      "required": true
+     },
+     {
+      "in": "path",
+      "name": "mount_id",
+      "schema": {
+       "title": "Mount Id",
+       "type": "integer"
+      },
+      "required": true
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Disks"
+        }
+       }
+      }
+     }
+    },
+    "tags": [
+     "disks"
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/MountIn"
+       }
+      }
+     },
+     "required": true
+    },
+    "security": [
+     {
+      "SessionAuthIsStaff": []
+     }
+    ]
+   },
+   "delete": {
+    "operationId": "studio_api_disks_drop_mount",
+    "summary": "Drop Mount",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "machine_id",
+      "schema": {
+       "title": "Machine Id",
+       "type": "integer"
+      },
+      "required": true
+     },
+     {
+      "in": "path",
+      "name": "mount_id",
+      "schema": {
+       "title": "Mount Id",
+       "type": "integer"
+      },
+      "required": true
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Disks"
+        }
+       }
+      }
+     }
+    },
+    "tags": [
+     "disks"
+    ],
+    "security": [
+     {
+      "SessionAuthIsStaff": []
+     }
+    ]
+   }
+  },
+  "/studio/api/machines/{machine_id}/exports": {
+   "post": {
+    "operationId": "studio_api_disks_new_export",
+    "summary": "New Export",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "machine_id",
+      "schema": {
+       "title": "Machine Id",
+       "type": "integer"
+      },
+      "required": true
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Disks"
+        }
+       }
+      }
+     }
+    },
+    "tags": [
+     "disks"
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/ExportIn"
+       }
+      }
+     },
+     "required": true
+    },
+    "security": [
+     {
+      "SessionAuthIsStaff": []
+     }
+    ]
+   }
+  },
+  "/studio/api/machines/{machine_id}/exports/{export_id}": {
+   "delete": {
+    "operationId": "studio_api_disks_drop_export",
+    "summary": "Drop Export",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "machine_id",
+      "schema": {
+       "title": "Machine Id",
+       "type": "integer"
+      },
+      "required": true
+     },
+     {
+      "in": "path",
+      "name": "export_id",
+      "schema": {
+       "title": "Export Id",
+       "type": "integer"
+      },
+      "required": true
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Disks"
+        }
+       }
+      }
+     }
+    },
+    "tags": [
+     "disks"
+    ],
+    "security": [
+     {
+      "SessionAuthIsStaff": []
+     }
+    ]
+   }
+  },
+  "/studio/api/machines/{machine_id}/tree": {
+   "get": {
+    "operationId": "studio_api_disks_tree",
+    "summary": "Tree",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "machine_id",
+      "schema": {
+       "title": "Machine Id",
+       "type": "integer"
+      },
+      "required": true
+     },
+     {
+      "in": "query",
+      "name": "account",
+      "schema": {
+       "title": "Account",
+       "type": "integer"
+      },
+      "required": true
+     },
+     {
+      "in": "query",
+      "name": "path",
+      "schema": {
+       "default": "/",
+       "title": "Path",
+       "type": "string"
+      },
+      "required": false
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Listing"
+        }
+       }
+      }
+     }
+    },
+    "description": "Содержимое папки так, как его видит учётка: права, слои, ключи. Сеть идёт через хосты, как у игрока.",
+    "tags": [
+     "disks"
+    ],
+    "security": [
+     {
+      "SessionAuthIsStaff": []
+     }
+    ]
+   }
+  },
+  "/studio/api/policies": {
+   "get": {
+    "operationId": "studio_api_policies_policies",
+    "summary": "Policies",
+    "parameters": [],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "items": {
+          "$ref": "#/components/schemas/PolicyRow"
+         },
+         "title": "Response",
+         "type": "array"
+        }
+       }
+      }
+     }
+    },
+    "tags": [
+     "policies"
+    ],
+    "security": [
+     {
+      "SessionAuthIsStaff": []
+     }
+    ]
+   },
+   "post": {
+    "operationId": "studio_api_policies_create",
+    "summary": "Create",
+    "parameters": [],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/PolicyOut"
+        }
+       }
+      }
+     }
+    },
+    "tags": [
+     "policies"
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/PolicyIn"
+       }
+      }
+     },
+     "required": true
+    },
+    "security": [
+     {
+      "SessionAuthIsStaff": []
+     }
+    ]
+   }
+  },
+  "/studio/api/policies/{policy_id}": {
+   "get": {
+    "operationId": "studio_api_policies_read",
+    "summary": "Read",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "policy_id",
+      "schema": {
+       "title": "Policy Id",
+       "type": "integer"
+      },
+      "required": true
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/PolicyOut"
+        }
+       }
+      }
+     }
+    },
+    "tags": [
+     "policies"
+    ],
+    "security": [
+     {
+      "SessionAuthIsStaff": []
+     }
+    ]
+   },
+   "put": {
+    "operationId": "studio_api_policies_save",
+    "summary": "Save",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "policy_id",
+      "schema": {
+       "title": "Policy Id",
+       "type": "integer"
+      },
+      "required": true
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/PolicyOut"
+        }
+       }
+      }
+     }
+    },
+    "tags": [
+     "policies"
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/PolicyIn"
+       }
+      }
+     },
+     "required": true
+    },
+    "security": [
+     {
+      "SessionAuthIsStaff": []
+     }
+    ]
+   },
+   "delete": {
+    "operationId": "studio_api_policies_delete",
+    "summary": "Delete",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "policy_id",
+      "schema": {
+       "title": "Policy Id",
+       "type": "integer"
+      },
+      "required": true
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "OK"
+     }
+    },
+    "tags": [
+     "policies"
+    ],
+    "security": [
+     {
+      "SessionAuthIsStaff": []
+     }
+    ]
+   }
+  },
+  "/studio/api/policies/week": {
+   "post": {
+    "operationId": "studio_api_policies_week",
+    "summary": "Week",
+    "parameters": [],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Week"
+        }
+       }
+      }
+     }
+    },
+    "description": "Неделя окон для текста, который ещё не сохранён (редактор показывает её по мере набора).",
+    "tags": [
+     "policies"
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/WindowsIn"
+       }
+      }
+     },
+     "required": true
+    },
     "security": [
      {
       "SessionAuthIsStaff": []
@@ -2491,107 +3187,6 @@
     "title": "MachineRow",
     "type": "object"
    },
-   "PolicyOut": {
-    "properties": {
-     "id": {
-      "title": "Id",
-      "type": "integer"
-     },
-     "name": {
-      "title": "Name",
-      "type": "string"
-     },
-     "description": {
-      "title": "Description",
-      "type": "string"
-     },
-     "mode": {
-      "title": "Mode",
-      "type": "string"
-     },
-     "sources": {
-      "items": {
-       "type": "string"
-      },
-      "title": "Sources",
-      "type": "array"
-     },
-     "via": {
-      "items": {
-       "type": "string"
-      },
-      "title": "Via",
-      "type": "array"
-     },
-     "max_attempts": {
-      "anyOf": [
-       {
-        "type": "integer"
-       },
-       {
-        "type": "null"
-       }
-      ],
-      "title": "Max Attempts"
-     },
-     "attempts_window": {
-      "title": "Attempts Window",
-      "type": "integer"
-     },
-     "lock_seconds": {
-      "title": "Lock Seconds",
-      "type": "integer"
-     },
-     "ttl": {
-      "anyOf": [
-       {
-        "type": "integer"
-       },
-       {
-        "type": "null"
-       }
-      ],
-      "title": "Ttl"
-     },
-     "windows": {
-      "title": "Windows",
-      "type": "string"
-     },
-     "grid": {
-      "anyOf": [
-       {
-        "items": {
-         "items": {
-          "type": "boolean"
-         },
-         "type": "array"
-        },
-        "type": "array"
-       },
-       {
-        "type": "null"
-       }
-      ],
-      "title": "Grid"
-     }
-    },
-    "required": [
-     "id",
-     "name",
-     "description",
-     "mode",
-     "sources",
-     "via",
-     "max_attempts",
-     "attempts_window",
-     "lock_seconds",
-     "ttl",
-     "windows",
-     "grid"
-    ],
-    "title": "PolicyOut",
-    "type": "object"
-   },
    "AccountRow": {
     "properties": {
      "id": {
@@ -3449,6 +4044,798 @@
      }
     },
     "title": "TokenIn",
+    "type": "object"
+   },
+   "GroupRow": {
+    "properties": {
+     "name": {
+      "title": "Name",
+      "type": "string"
+     },
+     "privileges": {
+      "items": {
+       "type": "string"
+      },
+      "title": "Privileges",
+      "type": "array"
+     },
+     "everyone": {
+      "title": "Everyone",
+      "type": "boolean"
+     },
+     "source": {
+      "title": "Source",
+      "type": "string"
+     },
+     "overrides": {
+      "title": "Overrides",
+      "type": "boolean"
+     },
+     "disabled": {
+      "title": "Disabled",
+      "type": "boolean"
+     },
+     "members": {
+      "items": {
+       "type": "string"
+      },
+      "title": "Members",
+      "type": "array"
+     }
+    },
+    "required": [
+     "name",
+     "privileges",
+     "everyone",
+     "source",
+     "overrides",
+     "disabled",
+     "members"
+    ],
+    "title": "GroupRow",
+    "type": "object"
+   },
+   "GroupTable": {
+    "properties": {
+     "privileges": {
+      "items": {
+       "$ref": "#/components/schemas/Privilege"
+      },
+      "title": "Privileges",
+      "type": "array"
+     },
+     "groups": {
+      "items": {
+       "$ref": "#/components/schemas/GroupRow"
+      },
+      "title": "Groups",
+      "type": "array"
+     }
+    },
+    "required": [
+     "privileges",
+     "groups"
+    ],
+    "title": "GroupTable",
+    "type": "object"
+   },
+   "Privilege": {
+    "properties": {
+     "code": {
+      "title": "Code",
+      "type": "string"
+     },
+     "label": {
+      "title": "Label",
+      "type": "string"
+     }
+    },
+    "required": [
+     "code",
+     "label"
+    ],
+    "title": "Privilege",
+    "type": "object"
+   },
+   "GroupIn": {
+    "properties": {
+     "privileges": {
+      "default": [],
+      "items": {
+       "type": "string"
+      },
+      "title": "Privileges",
+      "type": "array"
+     },
+     "everyone": {
+      "default": false,
+      "title": "Everyone",
+      "type": "boolean"
+     }
+    },
+    "title": "GroupIn",
+    "type": "object"
+   },
+   "DiskMount": {
+    "properties": {
+     "id": {
+      "title": "Id",
+      "type": "integer"
+     },
+     "mode": {
+      "title": "Mode",
+      "type": "string"
+     },
+     "volume": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/Ref"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "volume_path": {
+      "title": "Volume Path",
+      "type": "string"
+     },
+     "host": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/Ref"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "host_path": {
+      "title": "Host Path",
+      "type": "string"
+     },
+     "account": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/Ref"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "mount_path": {
+      "title": "Mount Path",
+      "type": "string"
+     },
+     "order": {
+      "title": "Order",
+      "type": "integer"
+     }
+    },
+    "required": [
+     "id",
+     "mode",
+     "volume",
+     "volume_path",
+     "host",
+     "host_path",
+     "account",
+     "mount_path",
+     "order"
+    ],
+    "title": "DiskMount",
+    "type": "object"
+   },
+   "Disks": {
+    "properties": {
+     "mounts": {
+      "items": {
+       "$ref": "#/components/schemas/DiskMount"
+      },
+      "title": "Mounts",
+      "type": "array"
+     },
+     "exports": {
+      "items": {
+       "$ref": "#/components/schemas/ExportRow"
+      },
+      "title": "Exports",
+      "type": "array"
+     },
+     "volumes": {
+      "items": {
+       "$ref": "#/components/schemas/Ref"
+      },
+      "title": "Volumes",
+      "type": "array"
+     },
+     "hosts": {
+      "items": {
+       "$ref": "#/components/schemas/Host"
+      },
+      "title": "Hosts",
+      "type": "array"
+     }
+    },
+    "required": [
+     "mounts",
+     "exports",
+     "volumes",
+     "hosts"
+    ],
+    "title": "Disks",
+    "type": "object"
+   },
+   "ExportRow": {
+    "properties": {
+     "id": {
+      "title": "Id",
+      "type": "integer"
+     },
+     "path": {
+      "title": "Path",
+      "type": "string"
+     }
+    },
+    "required": [
+     "id",
+     "path"
+    ],
+    "title": "ExportRow",
+    "type": "object"
+   },
+   "Host": {
+    "properties": {
+     "id": {
+      "title": "Id",
+      "type": "integer"
+     },
+     "label": {
+      "title": "Label",
+      "type": "string"
+     },
+     "accounts": {
+      "items": {
+       "$ref": "#/components/schemas/Ref"
+      },
+      "title": "Accounts",
+      "type": "array"
+     },
+     "exports": {
+      "items": {
+       "type": "string"
+      },
+      "title": "Exports",
+      "type": "array"
+     }
+    },
+    "required": [
+     "id",
+     "label",
+     "accounts",
+     "exports"
+    ],
+    "title": "Host",
+    "type": "object"
+   },
+   "Ref": {
+    "properties": {
+     "id": {
+      "title": "Id",
+      "type": "integer"
+     },
+     "label": {
+      "title": "Label",
+      "type": "string"
+     }
+    },
+    "required": [
+     "id",
+     "label"
+    ],
+    "title": "Ref",
+    "type": "object"
+   },
+   "MountIn": {
+    "properties": {
+     "mode": {
+      "default": "local",
+      "title": "Mode",
+      "type": "string"
+     },
+     "volume": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Volume"
+     },
+     "volume_path": {
+      "default": "",
+      "title": "Volume Path",
+      "type": "string"
+     },
+     "host": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Host"
+     },
+     "host_path": {
+      "default": "",
+      "title": "Host Path",
+      "type": "string"
+     },
+     "account": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Account"
+     },
+     "mount_path": {
+      "default": "",
+      "title": "Mount Path",
+      "type": "string"
+     },
+     "order": {
+      "default": 0,
+      "title": "Order",
+      "type": "integer"
+     }
+    },
+    "title": "MountIn",
+    "type": "object"
+   },
+   "ExportIn": {
+    "properties": {
+     "path": {
+      "title": "Path",
+      "type": "string"
+     }
+    },
+    "required": [
+     "path"
+    ],
+    "title": "ExportIn",
+    "type": "object"
+   },
+   "Listing": {
+    "properties": {
+     "path": {
+      "title": "Path",
+      "type": "string"
+     },
+     "readable": {
+      "title": "Readable",
+      "type": "boolean"
+     },
+     "denied": {
+      "title": "Denied",
+      "type": "string"
+     },
+     "nodes": {
+      "items": {
+       "$ref": "#/components/schemas/TreeNode"
+      },
+      "title": "Nodes",
+      "type": "array"
+     }
+    },
+    "required": [
+     "path",
+     "readable",
+     "denied",
+     "nodes"
+    ],
+    "title": "Listing",
+    "type": "object"
+   },
+   "TreeNode": {
+    "properties": {
+     "name": {
+      "title": "Name",
+      "type": "string"
+     },
+     "path": {
+      "title": "Path",
+      "type": "string"
+     },
+     "is_dir": {
+      "title": "Is Dir",
+      "type": "boolean"
+     },
+     "owner": {
+      "title": "Owner",
+      "type": "string"
+     },
+     "group": {
+      "title": "Group",
+      "type": "string"
+     },
+     "mode": {
+      "title": "Mode",
+      "type": "string"
+     },
+     "readable": {
+      "title": "Readable",
+      "type": "boolean"
+     },
+     "hidden": {
+      "title": "Hidden",
+      "type": "boolean"
+     },
+     "layers": {
+      "title": "Layers",
+      "type": "boolean"
+     },
+     "keys": {
+      "title": "Keys",
+      "type": "boolean"
+     },
+     "format": {
+      "title": "Format",
+      "type": "string"
+     },
+     "mount": {
+      "title": "Mount",
+      "type": "string"
+     }
+    },
+    "required": [
+     "name",
+     "path",
+     "is_dir",
+     "owner",
+     "group",
+     "mode",
+     "readable",
+     "hidden",
+     "layers",
+     "keys",
+     "format",
+     "mount"
+    ],
+    "title": "TreeNode",
+    "type": "object"
+   },
+   "PolicyRow": {
+    "properties": {
+     "id": {
+      "title": "Id",
+      "type": "integer"
+     },
+     "name": {
+      "title": "Name",
+      "type": "string"
+     },
+     "description": {
+      "title": "Description",
+      "type": "string"
+     },
+     "systems": {
+      "title": "Systems",
+      "type": "integer"
+     },
+     "machines": {
+      "title": "Machines",
+      "type": "integer"
+     },
+     "accounts": {
+      "title": "Accounts",
+      "type": "integer"
+     }
+    },
+    "required": [
+     "id",
+     "name",
+     "description",
+     "systems",
+     "machines",
+     "accounts"
+    ],
+    "title": "PolicyRow",
+    "type": "object"
+   },
+   "PolicyOut": {
+    "properties": {
+     "id": {
+      "title": "Id",
+      "type": "integer"
+     },
+     "name": {
+      "title": "Name",
+      "type": "string"
+     },
+     "description": {
+      "title": "Description",
+      "type": "string"
+     },
+     "mode": {
+      "title": "Mode",
+      "type": "string"
+     },
+     "sources": {
+      "title": "Sources",
+      "type": "string"
+     },
+     "via": {
+      "title": "Via",
+      "type": "string"
+     },
+     "max_attempts": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Max Attempts"
+     },
+     "attempts_window": {
+      "title": "Attempts Window",
+      "type": "integer"
+     },
+     "lock_seconds": {
+      "title": "Lock Seconds",
+      "type": "integer"
+     },
+     "ttl": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Ttl"
+     },
+     "windows": {
+      "title": "Windows",
+      "type": "string"
+     },
+     "denied_text": {
+      "title": "Denied Text",
+      "type": "string"
+     },
+     "locked_text": {
+      "title": "Locked Text",
+      "type": "string"
+     },
+     "window_text": {
+      "title": "Window Text",
+      "type": "string"
+     },
+     "kick_text": {
+      "title": "Kick Text",
+      "type": "string"
+     },
+     "grid": {
+      "anyOf": [
+       {
+        "items": {
+         "items": {
+          "type": "boolean"
+         },
+         "type": "array"
+        },
+        "type": "array"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Grid"
+     },
+     "used_by": {
+      "items": {
+       "$ref": "#/components/schemas/PolicyUse"
+      },
+      "title": "Used By",
+      "type": "array"
+     }
+    },
+    "required": [
+     "id",
+     "name",
+     "description",
+     "mode",
+     "sources",
+     "via",
+     "max_attempts",
+     "attempts_window",
+     "lock_seconds",
+     "ttl",
+     "windows",
+     "denied_text",
+     "locked_text",
+     "window_text",
+     "kick_text",
+     "grid",
+     "used_by"
+    ],
+    "title": "PolicyOut",
+    "type": "object"
+   },
+   "PolicyUse": {
+    "properties": {
+     "kind": {
+      "title": "Kind",
+      "type": "string"
+     },
+     "label": {
+      "title": "Label",
+      "type": "string"
+     },
+     "machine": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Machine"
+     }
+    },
+    "required": [
+     "kind",
+     "label",
+     "machine"
+    ],
+    "title": "PolicyUse",
+    "type": "object"
+   },
+   "PolicyIn": {
+    "properties": {
+     "name": {
+      "title": "Name",
+      "type": "string"
+     },
+     "description": {
+      "default": "",
+      "title": "Description",
+      "type": "string"
+     },
+     "mode": {
+      "default": "all",
+      "title": "Mode",
+      "type": "string"
+     },
+     "sources": {
+      "default": "",
+      "title": "Sources",
+      "type": "string"
+     },
+     "via": {
+      "default": "",
+      "title": "Via",
+      "type": "string"
+     },
+     "max_attempts": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Max Attempts"
+     },
+     "attempts_window": {
+      "default": 600,
+      "title": "Attempts Window",
+      "type": "integer"
+     },
+     "lock_seconds": {
+      "default": 300,
+      "title": "Lock Seconds",
+      "type": "integer"
+     },
+     "ttl": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Ttl"
+     },
+     "windows": {
+      "default": "",
+      "title": "Windows",
+      "type": "string"
+     },
+     "denied_text": {
+      "default": "",
+      "title": "Denied Text",
+      "type": "string"
+     },
+     "locked_text": {
+      "default": "",
+      "title": "Locked Text",
+      "type": "string"
+     },
+     "window_text": {
+      "default": "",
+      "title": "Window Text",
+      "type": "string"
+     },
+     "kick_text": {
+      "default": "",
+      "title": "Kick Text",
+      "type": "string"
+     }
+    },
+    "required": [
+     "name"
+    ],
+    "title": "PolicyIn",
+    "type": "object"
+   },
+   "Week": {
+    "properties": {
+     "grid": {
+      "anyOf": [
+       {
+        "items": {
+         "items": {
+          "type": "boolean"
+         },
+         "type": "array"
+        },
+        "type": "array"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Grid"
+     },
+     "error": {
+      "title": "Error",
+      "type": "string"
+     }
+    },
+    "required": [
+     "grid",
+     "error"
+    ],
+    "title": "Week",
+    "type": "object"
+   },
+   "WindowsIn": {
+    "properties": {
+     "windows": {
+      "title": "Windows",
+      "type": "string"
+     }
+    },
+    "required": [
+     "windows"
+    ],
+    "title": "WindowsIn",
     "type": "object"
    }
   },

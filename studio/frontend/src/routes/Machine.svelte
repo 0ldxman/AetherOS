@@ -7,6 +7,8 @@
   import Accounts from "./machine/Accounts.svelte";
   import Access from "./machine/Access.svelte";
   import Journal from "./machine/Journal.svelte";
+  import Groups from "./machine/Groups.svelte";
+  import Disks from "./machine/Disks.svelte";
 
   let { id, tab, sub }: { id: number; tab: string; sub: number | null } = $props();
 
@@ -25,8 +27,8 @@
     { key: "accounts", label: "Учётки" },
     { key: "access", label: "Доступ" },
     { key: "journal", label: "Журнал" },
-    { key: "groups", label: "Группы", soon: true },
-    { key: "disks", label: "Диски", soon: true },
+    { key: "groups", label: "Группы" },
+    { key: "disks", label: "Диски" },
   ];
   const STATUS: Record<string, string> = { ONLINE: "online", OFFLINE: "offline", MAINTENANCE: "обслуживание" };
 </script>
@@ -49,15 +51,11 @@
 
     <nav class="tabs">
       {#each TABS as item}
-        {#if item.soon}
-          <span class="tab soon" title="Следующим шагом">{item.label}</span>
-        {:else}
-          <a class="tab" class:on={tab === item.key} href="#/machines/{id}/{item.key}">
+        <a class="tab" class:on={tab === item.key} href="#/machines/{id}/{item.key}">
             {item.label}
             {#if item.key === "accounts"}<span class="count">{machine.accounts.length}</span>{/if}
             {#if item.key === "overview" && machine.online.length}<span class="count live">{machine.online.length}</span>{/if}
           </a>
-        {/if}
       {/each}
     </nav>
 
@@ -66,6 +64,10 @@
         <Accounts {machine} selected={sub} onchange={reload} />
       {:else if tab === "access"}
         <Access {machine} account={sub} />
+      {:else if tab === "groups"}
+        <Groups {machine} onchange={reload} />
+      {:else if tab === "disks"}
+        <Disks {machine} />
       {:else if tab === "journal"}
         <Journal {machine} account={sub} />
       {:else}
@@ -88,7 +90,6 @@
   .tab { display: flex; align-items: center; gap: 6px; padding: 9px 12px; color: var(--muted); border-bottom: 2px solid transparent; margin-bottom: -1px; }
   .tab:hover { color: var(--text); text-decoration: none; }
   .tab.on { color: var(--text); border-bottom-color: var(--accent); }
-  .tab.soon { color: var(--faint); cursor: default; }
   .count { padding: 0 6px; border-radius: 999px; background: var(--raise); font-size: 11px; color: var(--muted); }
   .count.live { background: rgba(95, 208, 160, 0.15); color: var(--ok); }
   .body { flex: 1; min-height: 0; overflow: auto; }

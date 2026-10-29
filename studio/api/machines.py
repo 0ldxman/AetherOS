@@ -131,21 +131,6 @@ class Verdict(Schema):
     steps: list[Step]
 
 
-class PolicyOut(Schema):
-    id: int
-    name: str
-    description: str
-    mode: str
-    sources: list[str]
-    via: list[str]
-    max_attempts: int | None
-    attempts_window: int
-    lock_seconds: int
-    ttl: int | None
-    windows: str
-    grid: list[list[bool]] | None        # 7 дней (пн..вс) × 48 получасов: можно ли войти; None, если окон нет
-
-
 class PlayerAction(Schema):
     account: int
     player: str
@@ -207,27 +192,6 @@ def machines(request):
                    accounts=m.account_count, online=m.online_count, refusals=m.refusal_count)
         for m in rows
     ]
-
-
-@router.get("/policies/{int:policy_id}", response=PolicyOut)
-def policy(request, policy_id: int):
-    """Политика входа с недельной сеткой окон (той же проверкой, что у входа)."""
-    from machines.access import windows
-
-    found = get_object_or_404(EntryPolicy, pk=policy_id)
-    grid = None
-    if found.windows.strip():
-        rules = windows.parse(found.windows)
-        monday = datetime(2026, 11, 2)                                    # любой понедельник: важны только день недели и время
-        grid = [
-            [windows.allows(rules, monday + timedelta(days=day, minutes=30 * slot + 15)) for slot in range(48)]
-            for day in range(7)
-        ]
-    return PolicyOut(
-        id=found.pk, name=found.name, description=found.description, mode=found.mode, sources=EntryPolicy.lines(found.sources),
-        via=EntryPolicy.lines(found.via), max_attempts=found.max_attempts, attempts_window=found.attempts_window,
-        lock_seconds=found.lock_seconds, ttl=found.ttl, windows=found.windows, grid=grid,
-    )
 
 
 @router.get("/{int:machine_id}", response=Overview)

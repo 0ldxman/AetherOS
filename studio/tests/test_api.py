@@ -125,3 +125,23 @@ class StudioApiTests(TestCase):
         self.assertEqual(self.client.get("/studio/").status_code, 200)
         self.client.force_login(self.player)
         self.assertEqual(self.client.get("/studio/").status_code, 302)
+
+
+class SchemaNamesTests(TestCase):
+    def test_no_two_schemas_share_a_name(self):
+        """В OpenAPI схема называется по имени класса: одноимённые классы разных файлов затёрли бы друг друга в типах фронта."""
+        import importlib
+        import pkgutil
+        from collections import defaultdict
+
+        from pydantic import BaseModel
+
+        import studio.api as package
+
+        found = defaultdict(set)
+        for info in pkgutil.iter_modules(package.__path__):
+            module = importlib.import_module(f"studio.api.{info.name}")
+            for name, value in vars(module).items():
+                if isinstance(value, type) and issubclass(value, BaseModel) and value.__module__ == module.__name__:
+                    found[name].add(info.name)
+        self.assertEqual({name: files for name, files in found.items() if len(files) > 1}, {})

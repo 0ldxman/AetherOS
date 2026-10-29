@@ -92,3 +92,12 @@ def allows(rules, moment):
         return False
     allowed = [rule for rule in rules if not rule.exclude]
     return not allowed or any(_inside(rule, weekday, minute) for rule in allowed)
+
+
+def week(rules, step=30):
+    """Неделя для показа: 7 дней (пн..вс) × отрезки по step минут, можно ли войти в середине отрезка."""
+    from datetime import datetime, timedelta
+
+    monday = datetime(2026, 11, 2)                                # любой понедельник: важны только день недели и время
+    slots = 24 * 60 // step
+    return [[allows(rules, monday + timedelta(days=day, minutes=step * slot + step // 2)) for slot in range(slots)] for day in range(7)]
