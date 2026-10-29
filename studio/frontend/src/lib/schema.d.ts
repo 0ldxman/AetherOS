@@ -417,6 +417,135 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/studio/api/items/{item_id}/protection/preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Preview */
+        post: operations["studio_api_protection_preview"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/studio/api/items/{item_id}/protection": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Protection */
+        get: operations["studio_api_protection_protection"];
+        /** Save Protection */
+        put: operations["studio_api_protection_save_protection"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/studio/api/items/{item_id}/keys": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Keys */
+        get: operations["studio_api_protection_keys"];
+        /**
+         * Save Keys
+         * @description Встроенные ключи (их достаёт kex) и подписи (ward verify) целиком. Ключи берутся только из реестра.
+         */
+        put: operations["studio_api_protection_save_keys"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/studio/api/items/{item_id}/content": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Content */
+        get: operations["studio_api_protection_content"];
+        /**
+         * Set Content
+         * @description Откуда берётся содержимое: текст, ассет, ссылка, сцена карты или письмо. Остальные источники сбрасываются; текст при
+         *     смене на другой источник не стирается молча: сначала автор очищает его сам.
+         */
+        put: operations["studio_api_protection_set_content"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/studio/api/items/pick/assets": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Pick Assets */
+        get: operations["studio_api_protection_pick_assets"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/studio/api/items/pick/scenes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Pick Scenes */
+        get: operations["studio_api_protection_pick_scenes"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/studio/api/items/pick/messages": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Pick Messages */
+        get: operations["studio_api_protection_pick_messages"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/studio/api/machines": {
         parameters: {
             query?: never;
@@ -1151,6 +1280,8 @@ export interface components {
             world_creator: string;
             /** Version */
             version: string;
+            /** Protected */
+            protected: boolean;
             /** Updated By */
             updated_by: string | null;
             /**
@@ -1420,6 +1551,202 @@ export interface components {
             changes: {
                 [key: string]: unknown;
             };
+        };
+        /** Dump */
+        Dump: {
+            /** Size */
+            size: number;
+            /** Format */
+            format: string | null;
+            /** Rows */
+            rows: {
+                [key: string]: unknown;
+            }[];
+            /** Printable */
+            printable: number;
+        };
+        /** Layer */
+        Layer: {
+            /** Line */
+            line: number;
+            /** Name */
+            name: string;
+            /** Params */
+            params: {
+                [key: string]: string;
+            };
+        };
+        /** Preview */
+        Preview: {
+            /** Layers */
+            layers: components["schemas"]["Layer"][];
+            /** Problems */
+            problems: components["schemas"]["Problem"][];
+            /** Access Error */
+            access_error: string;
+            /** Keys */
+            keys: string[];
+            /** Unknown Keys */
+            unknown_keys: string[];
+            plain: components["schemas"]["Dump"] | null;
+            layered: components["schemas"]["Dump"] | null;
+        };
+        /** Problem */
+        Problem: {
+            /** Line */
+            line: number;
+            /** Message */
+            message: string;
+        };
+        /** ProtectionIn */
+        ProtectionIn: {
+            /**
+             * Access
+             * @default
+             */
+            access: string;
+            /**
+             * State
+             * @default
+             */
+            state: string;
+        };
+        /** ProtectionOut */
+        ProtectionOut: {
+            /** Access */
+            access: string;
+            /** State */
+            state: string;
+            /** Version */
+            version: string;
+        };
+        /** SaveIn */
+        SaveIn: {
+            /**
+             * Access
+             * @default
+             */
+            access: string;
+            /**
+             * State
+             * @default
+             */
+            state: string;
+            /** Version */
+            version: string;
+            /**
+             * Force
+             * @default false
+             */
+            force: boolean;
+        };
+        /** KeyRef */
+        KeyRef: {
+            /** Slug */
+            slug: string;
+            /** Name */
+            name: string;
+        };
+        /** KeysOut */
+        KeysOut: {
+            /** Embedded */
+            embedded: components["schemas"]["KeyRef"][];
+            /** Signatures */
+            signatures: components["schemas"]["Signature"][];
+            /** Is Key */
+            is_key: boolean;
+            /** Required By */
+            required_by: components["schemas"]["Usage"][];
+            /** Registry */
+            registry: components["schemas"]["KeyRef"][];
+        };
+        /** Signature */
+        Signature: {
+            /** Slug */
+            slug: string;
+            /** Name */
+            name: string;
+            /** Valid */
+            valid: boolean;
+            /** Date */
+            date: string | null;
+        };
+        /** Usage */
+        Usage: {
+            /** Kind */
+            kind: string;
+            /** Label */
+            label: string;
+            /** Url */
+            url: string;
+        };
+        /** KeysIn */
+        KeysIn: {
+            /**
+             * Embedded
+             * @default []
+             */
+            embedded: string[];
+            /**
+             * Signatures
+             * @default []
+             */
+            signatures: components["schemas"]["SignatureIn"][];
+        };
+        /** SignatureIn */
+        SignatureIn: {
+            /** Slug */
+            slug: string;
+            /**
+             * Valid
+             * @default true
+             */
+            valid: boolean;
+            /** Date */
+            date?: string | null;
+        };
+        /** ContentOut */
+        ContentOut: {
+            /** Kind */
+            kind: string;
+            asset: components["schemas"]["PickRef"] | null;
+            scene: components["schemas"]["PickRef"] | null;
+            message: components["schemas"]["PickRef"] | null;
+            /** Url */
+            url: string;
+        };
+        /** PickRef */
+        PickRef: {
+            /** Id */
+            id: number;
+            /** Label */
+            label: string;
+            /**
+             * Sub
+             * @default
+             */
+            sub: string;
+            /**
+             * Kind
+             * @default
+             */
+            kind: string;
+        };
+        /** ContentIn */
+        ContentIn: {
+            /** Kind */
+            kind: string;
+            /** Asset */
+            asset?: number | null;
+            /** Scene */
+            scene?: number | null;
+            /** Message */
+            message?: number | null;
+            /**
+             * Url
+             * @default
+             */
+            url: string;
         };
         /** MachineRow */
         MachineRow: {
@@ -2805,6 +3132,253 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ItemOut"];
+                };
+            };
+        };
+    };
+    studio_api_protection_preview: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                item_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ProtectionIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Preview"];
+                };
+            };
+        };
+    };
+    studio_api_protection_protection: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                item_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProtectionOut"];
+                };
+            };
+        };
+    };
+    studio_api_protection_save_protection: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                item_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SaveIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProtectionOut"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+        };
+    };
+    studio_api_protection_keys: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                item_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["KeysOut"];
+                };
+            };
+        };
+    };
+    studio_api_protection_save_keys: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                item_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["KeysIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["KeysOut"];
+                };
+            };
+        };
+    };
+    studio_api_protection_content: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                item_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ContentOut"];
+                };
+            };
+        };
+    };
+    studio_api_protection_set_content: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                item_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ContentIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ContentOut"];
+                };
+            };
+        };
+    };
+    studio_api_protection_pick_assets: {
+        parameters: {
+            query?: {
+                q?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PickRef"][];
+                };
+            };
+        };
+    };
+    studio_api_protection_pick_scenes: {
+        parameters: {
+            query?: {
+                q?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PickRef"][];
+                };
+            };
+        };
+    };
+    studio_api_protection_pick_messages: {
+        parameters: {
+            query?: {
+                q?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PickRef"][];
                 };
             };
         };

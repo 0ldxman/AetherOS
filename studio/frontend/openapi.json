@@ -1090,6 +1090,439 @@
     ]
    }
   },
+  "/studio/api/items/{item_id}/protection/preview": {
+   "post": {
+    "operationId": "studio_api_protection_preview",
+    "summary": "Preview",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "item_id",
+      "schema": {
+       "title": "Item Id",
+       "type": "integer"
+      },
+      "required": true
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Preview"
+        }
+       }
+      }
+     }
+    },
+    "tags": [
+     "protection"
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/ProtectionIn"
+       }
+      }
+     },
+     "required": true
+    },
+    "security": [
+     {
+      "SessionAuthIsStaff": []
+     }
+    ]
+   }
+  },
+  "/studio/api/items/{item_id}/protection": {
+   "get": {
+    "operationId": "studio_api_protection_protection",
+    "summary": "Protection",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "item_id",
+      "schema": {
+       "title": "Item Id",
+       "type": "integer"
+      },
+      "required": true
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ProtectionOut"
+        }
+       }
+      }
+     }
+    },
+    "tags": [
+     "protection"
+    ],
+    "security": [
+     {
+      "SessionAuthIsStaff": []
+     }
+    ]
+   },
+   "put": {
+    "operationId": "studio_api_protection_save_protection",
+    "summary": "Save Protection",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "item_id",
+      "schema": {
+       "title": "Item Id",
+       "type": "integer"
+      },
+      "required": true
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ProtectionOut"
+        }
+       }
+      }
+     },
+     "409": {
+      "description": "Conflict",
+      "content": {
+       "application/json": {
+        "schema": {
+         "additionalProperties": true,
+         "title": "Response",
+         "type": "object"
+        }
+       }
+      }
+     }
+    },
+    "tags": [
+     "protection"
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/SaveIn"
+       }
+      }
+     },
+     "required": true
+    },
+    "security": [
+     {
+      "SessionAuthIsStaff": []
+     }
+    ]
+   }
+  },
+  "/studio/api/items/{item_id}/keys": {
+   "get": {
+    "operationId": "studio_api_protection_keys",
+    "summary": "Keys",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "item_id",
+      "schema": {
+       "title": "Item Id",
+       "type": "integer"
+      },
+      "required": true
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/KeysOut"
+        }
+       }
+      }
+     }
+    },
+    "tags": [
+     "protection"
+    ],
+    "security": [
+     {
+      "SessionAuthIsStaff": []
+     }
+    ]
+   },
+   "put": {
+    "operationId": "studio_api_protection_save_keys",
+    "summary": "Save Keys",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "item_id",
+      "schema": {
+       "title": "Item Id",
+       "type": "integer"
+      },
+      "required": true
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/KeysOut"
+        }
+       }
+      }
+     }
+    },
+    "description": "Встроенные ключи (их достаёт kex) и подписи (ward verify) целиком. Ключи берутся только из реестра.",
+    "tags": [
+     "protection"
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/KeysIn"
+       }
+      }
+     },
+     "required": true
+    },
+    "security": [
+     {
+      "SessionAuthIsStaff": []
+     }
+    ]
+   }
+  },
+  "/studio/api/items/{item_id}/content": {
+   "get": {
+    "operationId": "studio_api_protection_content",
+    "summary": "Content",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "item_id",
+      "schema": {
+       "title": "Item Id",
+       "type": "integer"
+      },
+      "required": true
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ContentOut"
+        }
+       }
+      }
+     }
+    },
+    "tags": [
+     "protection"
+    ],
+    "security": [
+     {
+      "SessionAuthIsStaff": []
+     }
+    ]
+   },
+   "put": {
+    "operationId": "studio_api_protection_set_content",
+    "summary": "Set Content",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "item_id",
+      "schema": {
+       "title": "Item Id",
+       "type": "integer"
+      },
+      "required": true
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ContentOut"
+        }
+       }
+      }
+     }
+    },
+    "description": "Откуда берётся содержимое: текст, ассет, ссылка, сцена карты или письмо. Остальные источники сбрасываются; текст при\nсмене на другой источник не стирается молча: сначала автор очищает его сам.",
+    "tags": [
+     "protection"
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/ContentIn"
+       }
+      }
+     },
+     "required": true
+    },
+    "security": [
+     {
+      "SessionAuthIsStaff": []
+     }
+    ]
+   }
+  },
+  "/studio/api/items/pick/assets": {
+   "get": {
+    "operationId": "studio_api_protection_pick_assets",
+    "summary": "Pick Assets",
+    "parameters": [
+     {
+      "in": "query",
+      "name": "q",
+      "schema": {
+       "default": "",
+       "title": "Q",
+       "type": "string"
+      },
+      "required": false
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "items": {
+          "$ref": "#/components/schemas/PickRef"
+         },
+         "title": "Response",
+         "type": "array"
+        }
+       }
+      }
+     }
+    },
+    "tags": [
+     "protection"
+    ],
+    "security": [
+     {
+      "SessionAuthIsStaff": []
+     }
+    ]
+   }
+  },
+  "/studio/api/items/pick/scenes": {
+   "get": {
+    "operationId": "studio_api_protection_pick_scenes",
+    "summary": "Pick Scenes",
+    "parameters": [
+     {
+      "in": "query",
+      "name": "q",
+      "schema": {
+       "default": "",
+       "title": "Q",
+       "type": "string"
+      },
+      "required": false
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "items": {
+          "$ref": "#/components/schemas/PickRef"
+         },
+         "title": "Response",
+         "type": "array"
+        }
+       }
+      }
+     }
+    },
+    "tags": [
+     "protection"
+    ],
+    "security": [
+     {
+      "SessionAuthIsStaff": []
+     }
+    ]
+   }
+  },
+  "/studio/api/items/pick/messages": {
+   "get": {
+    "operationId": "studio_api_protection_pick_messages",
+    "summary": "Pick Messages",
+    "parameters": [
+     {
+      "in": "query",
+      "name": "q",
+      "schema": {
+       "default": "",
+       "title": "Q",
+       "type": "string"
+      },
+      "required": false
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "items": {
+          "$ref": "#/components/schemas/PickRef"
+         },
+         "title": "Response",
+         "type": "array"
+        }
+       }
+      }
+     }
+    },
+    "tags": [
+     "protection"
+    ],
+    "security": [
+     {
+      "SessionAuthIsStaff": []
+     }
+    ]
+   }
+  },
   "/studio/api/machines": {
    "get": {
     "operationId": "studio_api_machines_machines",
@@ -3542,6 +3975,10 @@
       "title": "Version",
       "type": "string"
      },
+     "protected": {
+      "title": "Protected",
+      "type": "boolean"
+     },
      "updated_by": {
       "anyOf": [
        {
@@ -3596,6 +4033,7 @@
      "world_updated_at",
      "world_creator",
      "version",
+     "protected",
      "updated_by",
      "updated_at",
      "created_at",
@@ -4186,6 +4624,527 @@
      "changes"
     ],
     "title": "RevisionOut",
+    "type": "object"
+   },
+   "Dump": {
+    "properties": {
+     "size": {
+      "title": "Size",
+      "type": "integer"
+     },
+     "format": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Format"
+     },
+     "rows": {
+      "items": {
+       "additionalProperties": true,
+       "type": "object"
+      },
+      "title": "Rows",
+      "type": "array"
+     },
+     "printable": {
+      "title": "Printable",
+      "type": "integer"
+     }
+    },
+    "required": [
+     "size",
+     "format",
+     "rows",
+     "printable"
+    ],
+    "title": "Dump",
+    "type": "object"
+   },
+   "Layer": {
+    "properties": {
+     "line": {
+      "title": "Line",
+      "type": "integer"
+     },
+     "name": {
+      "title": "Name",
+      "type": "string"
+     },
+     "params": {
+      "additionalProperties": {
+       "type": "string"
+      },
+      "title": "Params",
+      "type": "object"
+     }
+    },
+    "required": [
+     "line",
+     "name",
+     "params"
+    ],
+    "title": "Layer",
+    "type": "object"
+   },
+   "Preview": {
+    "properties": {
+     "layers": {
+      "items": {
+       "$ref": "#/components/schemas/Layer"
+      },
+      "title": "Layers",
+      "type": "array"
+     },
+     "problems": {
+      "items": {
+       "$ref": "#/components/schemas/Problem"
+      },
+      "title": "Problems",
+      "type": "array"
+     },
+     "access_error": {
+      "title": "Access Error",
+      "type": "string"
+     },
+     "keys": {
+      "items": {
+       "type": "string"
+      },
+      "title": "Keys",
+      "type": "array"
+     },
+     "unknown_keys": {
+      "items": {
+       "type": "string"
+      },
+      "title": "Unknown Keys",
+      "type": "array"
+     },
+     "plain": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/Dump"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "layered": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/Dump"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     }
+    },
+    "required": [
+     "layers",
+     "problems",
+     "access_error",
+     "keys",
+     "unknown_keys",
+     "plain",
+     "layered"
+    ],
+    "title": "Preview",
+    "type": "object"
+   },
+   "Problem": {
+    "properties": {
+     "line": {
+      "title": "Line",
+      "type": "integer"
+     },
+     "message": {
+      "title": "Message",
+      "type": "string"
+     }
+    },
+    "required": [
+     "line",
+     "message"
+    ],
+    "title": "Problem",
+    "type": "object"
+   },
+   "ProtectionIn": {
+    "properties": {
+     "access": {
+      "default": "",
+      "title": "Access",
+      "type": "string"
+     },
+     "state": {
+      "default": "",
+      "title": "State",
+      "type": "string"
+     }
+    },
+    "title": "ProtectionIn",
+    "type": "object"
+   },
+   "ProtectionOut": {
+    "properties": {
+     "access": {
+      "title": "Access",
+      "type": "string"
+     },
+     "state": {
+      "title": "State",
+      "type": "string"
+     },
+     "version": {
+      "title": "Version",
+      "type": "string"
+     }
+    },
+    "required": [
+     "access",
+     "state",
+     "version"
+    ],
+    "title": "ProtectionOut",
+    "type": "object"
+   },
+   "SaveIn": {
+    "properties": {
+     "access": {
+      "default": "",
+      "title": "Access",
+      "type": "string"
+     },
+     "state": {
+      "default": "",
+      "title": "State",
+      "type": "string"
+     },
+     "version": {
+      "title": "Version",
+      "type": "string"
+     },
+     "force": {
+      "default": false,
+      "title": "Force",
+      "type": "boolean"
+     }
+    },
+    "required": [
+     "version"
+    ],
+    "title": "SaveIn",
+    "type": "object"
+   },
+   "KeyRef": {
+    "properties": {
+     "slug": {
+      "title": "Slug",
+      "type": "string"
+     },
+     "name": {
+      "title": "Name",
+      "type": "string"
+     }
+    },
+    "required": [
+     "slug",
+     "name"
+    ],
+    "title": "KeyRef",
+    "type": "object"
+   },
+   "KeysOut": {
+    "properties": {
+     "embedded": {
+      "items": {
+       "$ref": "#/components/schemas/KeyRef"
+      },
+      "title": "Embedded",
+      "type": "array"
+     },
+     "signatures": {
+      "items": {
+       "$ref": "#/components/schemas/Signature"
+      },
+      "title": "Signatures",
+      "type": "array"
+     },
+     "is_key": {
+      "title": "Is Key",
+      "type": "boolean"
+     },
+     "required_by": {
+      "items": {
+       "$ref": "#/components/schemas/Usage"
+      },
+      "title": "Required By",
+      "type": "array"
+     },
+     "registry": {
+      "items": {
+       "$ref": "#/components/schemas/KeyRef"
+      },
+      "title": "Registry",
+      "type": "array"
+     }
+    },
+    "required": [
+     "embedded",
+     "signatures",
+     "is_key",
+     "required_by",
+     "registry"
+    ],
+    "title": "KeysOut",
+    "type": "object"
+   },
+   "Signature": {
+    "properties": {
+     "slug": {
+      "title": "Slug",
+      "type": "string"
+     },
+     "name": {
+      "title": "Name",
+      "type": "string"
+     },
+     "valid": {
+      "title": "Valid",
+      "type": "boolean"
+     },
+     "date": {
+      "anyOf": [
+       {
+        "format": "date",
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Date"
+     }
+    },
+    "required": [
+     "slug",
+     "name",
+     "valid",
+     "date"
+    ],
+    "title": "Signature",
+    "type": "object"
+   },
+   "Usage": {
+    "properties": {
+     "kind": {
+      "title": "Kind",
+      "type": "string"
+     },
+     "label": {
+      "title": "Label",
+      "type": "string"
+     },
+     "url": {
+      "title": "Url",
+      "type": "string"
+     }
+    },
+    "required": [
+     "kind",
+     "label",
+     "url"
+    ],
+    "title": "Usage",
+    "type": "object"
+   },
+   "KeysIn": {
+    "properties": {
+     "embedded": {
+      "default": [],
+      "items": {
+       "type": "string"
+      },
+      "title": "Embedded",
+      "type": "array"
+     },
+     "signatures": {
+      "default": [],
+      "items": {
+       "$ref": "#/components/schemas/SignatureIn"
+      },
+      "title": "Signatures",
+      "type": "array"
+     }
+    },
+    "title": "KeysIn",
+    "type": "object"
+   },
+   "SignatureIn": {
+    "properties": {
+     "slug": {
+      "title": "Slug",
+      "type": "string"
+     },
+     "valid": {
+      "default": true,
+      "title": "Valid",
+      "type": "boolean"
+     },
+     "date": {
+      "anyOf": [
+       {
+        "format": "date",
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Date"
+     }
+    },
+    "required": [
+     "slug"
+    ],
+    "title": "SignatureIn",
+    "type": "object"
+   },
+   "ContentOut": {
+    "properties": {
+     "kind": {
+      "title": "Kind",
+      "type": "string"
+     },
+     "asset": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/PickRef"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "scene": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/PickRef"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "message": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/PickRef"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "url": {
+      "title": "Url",
+      "type": "string"
+     }
+    },
+    "required": [
+     "kind",
+     "asset",
+     "scene",
+     "message",
+     "url"
+    ],
+    "title": "ContentOut",
+    "type": "object"
+   },
+   "PickRef": {
+    "properties": {
+     "id": {
+      "title": "Id",
+      "type": "integer"
+     },
+     "label": {
+      "title": "Label",
+      "type": "string"
+     },
+     "sub": {
+      "default": "",
+      "title": "Sub",
+      "type": "string"
+     },
+     "kind": {
+      "default": "",
+      "title": "Kind",
+      "type": "string"
+     }
+    },
+    "required": [
+     "id",
+     "label"
+    ],
+    "title": "PickRef",
+    "type": "object"
+   },
+   "ContentIn": {
+    "properties": {
+     "kind": {
+      "title": "Kind",
+      "type": "string"
+     },
+     "asset": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Asset"
+     },
+     "scene": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Scene"
+     },
+     "message": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Message"
+     },
+     "url": {
+      "default": "",
+      "title": "Url",
+      "type": "string"
+     }
+    },
+    "required": [
+     "kind"
+    ],
+    "title": "ContentIn",
     "type": "object"
    },
    "MachineRow": {

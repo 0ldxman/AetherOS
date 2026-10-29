@@ -46,6 +46,7 @@ class ItemOut(Schema):
     world_updated_at: date | None
     world_creator: str
     version: str
+    protected: bool            # есть условие доступа или слои
     updated_by: str | None
     updated_at: datetime
     created_at: datetime
@@ -198,7 +199,7 @@ def _out(item, user):
         scene=item.scene.slug if item.scene_id else None,
         message=str(item.message) if item.message_id else None,
         world_created_at=item.world_created_at, world_updated_at=item.world_updated_at, world_creator=item.world_creator,
-        version=item.updated_at.isoformat(), updated_by=item.updated_by.get_username() if item.updated_by_id else None,
+        version=item.updated_at.isoformat(), protected=bool(item.access) or bool(item.state.strip()), updated_by=item.updated_by.get_username() if item.updated_by_id else None,
         updated_at=item.updated_at, created_at=item.created_at,
         placements=[
             Where(volume=p.volume_id, volume_name=p.volume.name or p.volume.slug, placement=p.pk, path=p.path())

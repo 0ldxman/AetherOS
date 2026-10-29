@@ -6,6 +6,9 @@
   import { toast } from "../lib/toast.svelte";
   import ItemWhere from "./item/ItemWhere.svelte";
   import ItemHistory from "./item/ItemHistory.svelte";
+  import ItemKeys from "./item/ItemKeys.svelte";
+  import ItemProtection from "./item/ItemProtection.svelte";
+  import ContentPicker from "./item/ContentPicker.svelte";
 
   type Item = Schemas["ItemOut"];
 
@@ -147,11 +150,18 @@
     <nav class="pagetabs">
       <a class:on={view === "content"} href="#/items/{id}">Содержимое</a>
       <a class:on={view === "where"} href="#/items/{id}/where">Где лежит <span class="count">{item.placements.length}</span></a>
+      <a class:on={view === "protection"} href="#/items/{id}/protection">Защита
+        {#if item.protected}<span class="count lock">●</span>{/if}</a>
+      <a class:on={view === "keys"} href="#/items/{id}/keys">Ключи и подписи</a>
       <a class:on={view === "history"} href="#/items/{id}/history">История</a>
     </nav>
 
     {#if view === "where"}
       <ItemWhere {item} />
+    {:else if view === "protection"}
+      <ItemProtection {item} onsaved={load} />
+    {:else if view === "keys"}
+      <ItemKeys {item} />
     {:else if view === "history"}
       <ItemHistory {item} {dirty} onrestore={load} />
     {:else}
@@ -167,10 +177,11 @@
             {#if textual}
               <CodeEditor bind:value={draft.body} markup={format?.markup ?? false} onsave={() => save()} />
             {:else}
-              <div class="note muted">
-                {#if item.asset}Содержимое: ассет «{item.asset}».{:else if item.scene}Содержимое: сцена карты «{item.scene}».{:else if item.message}Содержимое: письмо «{item.message}».{:else}У формата нет текста.{/if}
-                Выбор ассета, сцены и письма пока в старой админке.
-              </div>
+              {#if format && format.content !== "none"}
+                <ContentPicker {item} {format} onchange={load} />
+              {:else}
+                <div class="note muted">У формата нет содержимого.</div>
+              {/if}
             {/if}
           {:else if tab === "meta"}
             <CodeEditor bind:value={draft.meta} markup onsave={() => save()} />
@@ -249,6 +260,7 @@
   .pagetabs a { display: flex; gap: 6px; align-items: center; padding: 8px 12px; color: var(--muted); border-bottom: 2px solid transparent; margin-bottom: -1px; }
   .pagetabs a:hover { color: var(--text); text-decoration: none; }
   .pagetabs a.on { color: var(--text); border-bottom-color: var(--accent); }
+  .count.lock { background: rgba(242, 198, 109, 0.18); color: var(--warn); font-size: 9px; }
   .count { padding: 0 6px; border-radius: 999px; background: var(--raise); font-size: 11px; color: var(--muted); }
   .split { flex: 1; min-height: 0; display: grid; grid-template-columns: 1fr 1fr; gap: 12px; padding: 12px 16px 16px; }
   .pane { display: flex; flex-direction: column; min-height: 0; border: 1px solid var(--line-soft); border-radius: var(--radius); overflow: hidden; background: var(--panel); }

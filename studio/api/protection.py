@@ -176,7 +176,7 @@ def preview(request, item_id: int, body: ProtectionIn):
     try:
         for compiled in compile_text(body.state) if body.state.strip() else []:
             layers.append(Layer(line=compiled.layer.line, name=compiled.state.name,
-                                params={key: str(value) for key, value in compiled.params.items()}))
+                                params={key: str(value) for key, value in compiled.params.items() if value is not None}))
     except StateError as exc:
         problems = [Problem(line=p.line, message=p.message) for p in exc.problems]
     access_error, slugs = "", []
