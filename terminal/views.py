@@ -12,7 +12,7 @@ from django.urls import get_script_prefix, reverse
 
 from machines.access import entry
 from machines.network import bridge
-from machines.world import blackout
+from machines.world import blackout, slots
 from terminal.engine.commands.bridge import PENDING_KEY, answer_prompt
 from terminal.engine.commands.trash import CONFIRM_KEY, answer_confirm
 from terminal.engine.context import CWD_KEY, DEFAULT_CWD
@@ -302,13 +302,16 @@ def _greeting(request, hostname, mail=True):
     from machines.models import Machine
     from users.aether_auth import _mail_summary
 
-    from terminal.scenes.shell import greeting_scene
+    from terminal.scenes.shell import greeting_params, greeting_scene
 
     try:
         machine = Machine.objects.get(hostname=hostname)
         profile = bridge.terminal_session(request).profile if is_player(request) else None
         known = facts(machine, profile, request.user if request.user.is_authenticated else None)
-        return greeting_scene(identity_of(hostname), _login(request), _mail_summary(request) if mail else None, machine.system_type, known)
+        ident, login, summary = identity_of(hostname), _login(request), _mail_summary(request) if mail else None
+        scene = greeting_scene(ident, login, summary, machine.system_type, known)
+        extra = slots.account_scene(profile, greeting_params(ident, login, summary, machine.system_type, known))
+        return scene + extra if extra else scene
     except Machine.DoesNotExist:
         return None
 

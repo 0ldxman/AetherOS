@@ -24,7 +24,7 @@
 
   function blank() {
     return { login: "", name: "", freq: "1", mail: "", groups: [] as string[], root: false, keys: "", entry_policy: null as number | null,
-             ttl: null as number | null, cooldown: null as number | null, kick_message: "" };
+             ttl: null as number | null, cooldown: null as number | null, kick_message: "", login_scene: null as string | null };
   }
 
   const dirty = $derived(JSON.stringify(form) !== saved || password !== "" || clearPassword);
@@ -43,7 +43,7 @@
     if (!data) return;
     account = data;
     form = { login: data.login, name: data.name, freq: data.freq, mail: data.mail, groups: [...data.groups], root: data.root, keys: data.keys,
-             entry_policy: data.entry_policy ?? null, ttl: data.ttl ?? null, cooldown: data.cooldown ?? null, kick_message: data.kick_message };
+             entry_policy: data.entry_policy ?? null, ttl: data.ttl ?? null, cooldown: data.cooldown ?? null, kick_message: data.kick_message, login_scene: data.login_scene ?? null };
     saved = JSON.stringify(form);
   }
 
@@ -201,6 +201,12 @@
             <label><span class="label">Блок после обрыва, с</span><input class="field" type="number" min="0" bind:value={form.cooldown} placeholder="из политики" /></label>
           </div>
           <label><span class="label">Сообщение при обрыве</span><input class="field" bind:value={form.kick_message} placeholder="стандартное для системы" /></label>
+          <label><span class="label">Сцена после входа</span>
+            <select class="field" bind:value={form.login_scene}>
+              <option value={null}>общая сцена ОС (или никакой)</option>
+              {#each account?.scene_library ?? [] as slug}<option value={slug}>{slug}</option>{/each}
+            </select>
+          </label>
         </div>
       </div>
 

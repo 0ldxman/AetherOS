@@ -235,6 +235,22 @@ BOOTS = {"AETHER": aether_boot}
 
 
 def boot_scenes(ident, system="AETHER"):
-    """Полная и короткая загрузка для страницы: {"full": [...], "short": [...]}."""
-    build = BOOTS[system]
+    """Полная и короткая загрузка для страницы: {"full": [...], "short": [...]}. Своя сцена ОС (слот machine.boot) заменяет обе."""
+    from machines.world import slots
+
+    now = world()
+    own = slots.custom(
+        "machine.boot", system, host=ident.hostname, hid=ident.hid, serial=ident.serial, address=ident.address, host_key=ident.host_key,
+        os=system, os_name=_os_name(system), date=now.game_date, time=f"{now.game_now:%H:%M} UTC",
+    )
+    if own is not None:
+        return {"full": own, "short": own}
+    build = BOOTS.get(system) or aether_boot
     return {"full": build(ident).to_dict(), "short": build(ident, short=True).to_dict()}
+
+
+def _os_name(system):
+    from machines.models import SystemType
+
+    found = SystemType.objects.filter(code=system).values_list("name", flat=True).first()
+    return found or ""

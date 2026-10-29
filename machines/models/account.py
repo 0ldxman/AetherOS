@@ -89,6 +89,11 @@ class MachineProfile(models.Model):
         help_text="Текст в окне на чёрном экране, когда игрока выбросило с рабочего стола этой записи. Пусто: стандартный для системы.",
     )
 
+    login_scene = models.ForeignKey(
+        "machines.SceneScript", null=True, blank=True, on_delete=models.SET_NULL, related_name="accounts", verbose_name="Сцена после входа",
+        help_text="Играет после приветствия, когда игрок входит под эту учётку. Пусто: общая сцена ОС (слот login.account), если она задана.",
+    )
+
     class Meta:
         ordering = ("machine", "login", "freq")
         constraints = [

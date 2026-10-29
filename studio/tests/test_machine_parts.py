@@ -302,6 +302,35 @@ class CreateAndSystemsTests(TestCase):
         broken = self.call("post", "/scenes", {"slug": "uses-login", "body": "{login}"})[1]
         self.assertEqual(self.call("put", "/systems/AETHER/scenes/bridge.unreachable", {"script": "uses-login"})[0], 400)  # логина у события нет
 
+    def test_boot_and_login_scenes_replace_the_built_in_ones(self):
+        from machines.models import SceneScript
+        from machines.world import slots
+        from machines.world.identity import identity_of
+        from scenes.boots import boot_scenes
+        from terminal.scenes.shell import greeting_params
+
+        self.call("post", "/scenes", {"slug": "boot-mine", "body": "@task power on {host} | OK | 100\n{os_name} {date}"})
+        self.assertGreater(len(boot_scenes(identity_of(self.core.hostname), "AETHER")["full"]), 10)
+        self.call("put", "/systems/AETHER/scenes/machine.boot", {"script": "boot-mine"})
+        shown = boot_scenes(identity_of(self.core.hostname), "AETHER")
+        self.assertEqual(shown["full"], shown["short"])
+        self.assertEqual(shown["full"][0]["label"], f"power on {self.core.hostname} ")
+
+        profile = self.core.profiles.first() or MachineProfile.objects.create(machine=self.core, login="guest", freq="1")
+        values = greeting_params(identity_of(self.core.hostname), profile.login, None, self.core.system_type)
+        self.assertIsNone(slots.account_scene(profile, values))
+        self.call("post", "/scenes", {"slug": "os-hello", "body": "hello {login}"})
+        self.call("put", "/systems/AETHER/scenes/login.account", {"script": "os-hello"})
+        self.assertEqual(slots.account_scene(profile, values)[0]["value"], f"hello {profile.login}")
+        self.call("post", "/scenes", {"slug": "own-hello", "body": "own {login} on {host}"})
+        data = self.call("get", f"/machines/{self.core.pk}/accounts/{profile.pk}")[1]
+        self.assertEqual((data["login_scene"], "own-hello" in data["scene_library"]), (None, True))
+        body = {k: data[k] for k in ("login", "name", "freq", "mail", "groups", "root")} | {"login_scene": "own-hello"}
+        self.assertEqual(self.call("put", f"/machines/{self.core.pk}/accounts/{profile.pk}", body)[1]["login_scene"], "own-hello")
+        profile.refresh_from_db()
+        self.assertEqual(slots.account_scene(profile, values)[0]["value"], f"own {profile.login} on {self.core.hostname}")
+        self.assertEqual(self.call("put", f"/machines/{self.core.pk}/accounts/{profile.pk}", body | {"login_scene": "nope"})[0], 400)
+
     def test_the_system_image_is_laid_under_the_machine_mounts(self):
         from filesystem.machine_view import MachineView
 

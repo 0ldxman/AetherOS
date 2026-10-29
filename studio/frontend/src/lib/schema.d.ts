@@ -2588,6 +2588,10 @@ export interface components {
             cooldown: number | null;
             /** Kick Message */
             kick_message: string;
+            /** Login Scene */
+            login_scene: string | null;
+            /** Scene Library */
+            scene_library: string[];
             /** Owner */
             owner: string | null;
             /** Tokens */
@@ -2663,6 +2667,8 @@ export interface components {
              * @default
              */
             kick_message: string;
+            /** Login Scene */
+            login_scene?: string | null;
         };
         /** TokenIn */
         TokenIn: {

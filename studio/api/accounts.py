@@ -12,7 +12,7 @@ from django.shortcuts import get_object_or_404
 from ninja import Router, Schema
 
 from documents.markup.expr import SpoilerSyntaxError, parse_expr
-from machines.models import EntryPolicy, Machine, MachineProfile, MachineProfileToken
+from machines.models import EntryPolicy, Machine, MachineProfile, MachineProfileToken, SceneScript
 from secure.access import format_condition
 from studio.api.machines import Policy, _policy
 
@@ -43,6 +43,8 @@ class AccountOut(Schema):
     ttl: int | None
     cooldown: int | None
     kick_message: str
+    login_scene: str | None
+    scene_library: list[str]
     owner: str | None
     tokens: list[Token]
 
@@ -61,6 +63,7 @@ class AccountIn(Schema):
     ttl: int | None = None
     cooldown: int | None = None
     kick_message: str = ""
+    login_scene: str | None = None       # слаг сцены после входа
 
 
 class TokenIn(Schema):
@@ -77,7 +80,8 @@ def _out(profile):
         id=profile.pk, login=profile.login, name=profile.name, freq=f"{profile.freq:.3f}", mail=profile.mail, groups=list(profile.groups or []),
         root=profile.root, has_password=bool(profile.password_hash), keys=format_condition(profile.key_condition) if profile.key_condition else "",
         entry_policy=profile.entry_policy_id, policy=_policy(profile), ttl=profile.ttl, cooldown=profile.cooldown,
-        kick_message=profile.kick_message, owner=profile.user.get_username() if profile.user_id else None,
+        kick_message=profile.kick_message, login_scene=profile.login_scene.slug if profile.login_scene_id else None,
+        scene_library=list(SceneScript.objects.values_list("slug", flat=True)), owner=profile.user.get_username() if profile.user_id else None,
         tokens=[Token(id=t.pk, token=t.token, usage=t.usage, max_usage=t.max_usage, expires_at=t.expires_at, created_at=t.created_at)
                 for t in profile.tokens.all()],
     )
@@ -103,6 +107,15 @@ def _apply(profile, body):
         errors["entry_policy"] = ["Такой политики нет."]
     profile.entry_policy_id = body.entry_policy
     profile.ttl, profile.cooldown, profile.kick_message = body.ttl, body.cooldown, body.kick_message
+    profile.login_scene = SceneScript.objects.filter(slug=body.login_scene).first() if body.login_scene else None
+    if body.login_scene and profile.login_scene is None:
+        errors["login_scene"] = ["Такой сцены нет."]
+    elif profile.login_scene is not None:
+        from machines.world.slots import SLOTS
+
+        found = profile.login_scene.problems(SLOTS["login.account"].params)
+        if found:
+            errors["login_scene"] = [f"Сцена не подходит: строка {n}: {t}" for n, t in found]
     try:
         profile.full_clean()
     except ValidationError as exc:

@@ -7,6 +7,7 @@ from django.views.decorators.csrf import ensure_csrf_cookie
 
 from secure.access import satisfied
 
+from machines.models import Machine
 from machines.world.identity import identity_of
 from users.aether_auth import GUEST_LOGIN
 
@@ -151,4 +152,6 @@ def desktop(request):
     })
 
 def boot(request):
-    return render(request, "boot/boot.html", {"boot_config": {"scenes": boot_scenes(identity_of())}})
+    ident = identity_of()
+    system = Machine.objects.filter(hostname=ident.hostname).values_list("system", flat=True).first() or "AETHER"
+    return render(request, "boot/boot.html", {"boot_config": {"scenes": boot_scenes(ident, system)}})

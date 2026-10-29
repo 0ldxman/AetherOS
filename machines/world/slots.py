@@ -13,6 +13,16 @@ class Slot:
     params: dict          # имя подстановки -> подпись для студии
 
 
+# что можно подставить в приветствие оболочки ОС и в сцену после входа под учётку: имя -> подпись для студии
+GREETING_PARAMS = {
+    "host": "имя машины", "login": "логин учётки", "os": "код ОС", "os_name": "название ОС", "address": "адрес узла (частота или сетевой)", "serial": "серийный номер",
+    "hid": "hid машины", "host_key": "отпечаток ключа узла", "time": "время в мире (UTC)", "freq": "частота учётки, под которой вошли", "date": "дата в мире", "last_login": "прошлый вход этой учётки",
+    "uptime": "сколько работает машина", "accounts": "число учёток машины", "sessions": "сколько игроков на машине сейчас",
+    "disk_total": "условная ёмкость дисков", "disk_used": "занято на дисках", "disk_percent": "занято, %",
+    "unread": "число непрочитанных писем", "mail": "строка про непрочитанную почту", "volumes": "тома машины", "note": "заметка машины",
+}
+
+
 _CONNECT = {"host": "хост, на который входят", "login": "логин учётки", "endpoint": "частота (радио) или порт", "freq": "частота учётки", "os": "код ОС хоста"}
 
 SLOTS = {
@@ -22,6 +32,11 @@ SLOTS = {
     "bridge.unreachable": Slot("Хост не найден", {"host": "хост", "os": "код ОС"}),
     "bridge.disconnect": Slot("Закрытие подключения", {"host": "хост, с которого уходят", "os": "код ОС хоста"}),
     "bridge.kick": Slot("Обрыв с той стороны", {"host": "хост", "os": "код ОС хоста"}),
+    "machine.boot": Slot("Загрузка машины", {
+        "host": "имя машины", "hid": "hid", "serial": "серийный номер", "address": "адрес узла", "host_key": "отпечаток ключа узла",
+        "os": "код ОС", "os_name": "название ОС", "date": "дата в мире", "time": "время в мире (UTC)",
+    }),
+    "login.account": Slot("После входа под учётку (идёт за приветствием)", GREETING_PARAMS),
 }
 
 
@@ -39,15 +54,24 @@ def _binding(system, slot):
     )
 
 
-def custom(slot, system, **values):
-    """Сцена ОС для события (список шагов) или None, если у ОС своей нет и играет встроенная."""
+def _play(script, slot, values):
     from machines.models.scenes import resolve_script
     from machines.world.dates import world
     from scenes.script import compile_script
 
-    found = _binding(system, slot)
-    if found is None:
-        return None
     params = {name: values.get(name, "") for name in SLOTS[slot].params}
-    scene, errors = compile_script(found.script.body, params, world().game_now, resolve_script)
+    scene, errors = compile_script(script.body, params, world().game_now, resolve_script)
     return None if errors else scene.to_dict()
+
+
+def custom(slot, system, **values):
+    """Сцена ОС для события (список шагов) или None, если у ОС своей нет и играет встроенная."""
+    found = _binding(system, slot)
+    return None if found is None else _play(found.script, slot, values)
+
+
+def account_scene(profile, values):
+    """Сцена после входа под учётку: своя у учётки, иначе общая у ОС; None, если ни той ни другой."""
+    if profile is not None and profile.login_scene_id:
+        return _play(profile.login_scene, "login.account", values)
+    return custom("login.account", profile.machine.system, **values) if profile is not None else None

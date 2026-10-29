@@ -9,6 +9,7 @@ import hashlib
 from scenes.engine import Scene
 from scenes import markup
 from machines.world.dates import world
+from machines.world.slots import GREETING_PARAMS
 from scenes.gateway import _motd
 
 
@@ -366,16 +367,6 @@ def wipe_scene(count):
 
 
 # ---------- приветствие ----------
-
-# что можно подставить в приветствие ОС: имя -> подпись для студии
-GREETING_PARAMS = {
-    "host": "имя машины", "login": "логин учётки", "os": "код ОС", "os_name": "название ОС", "address": "адрес узла (частота или сетевой)", "serial": "серийный номер",
-    "hid": "hid машины", "host_key": "отпечаток ключа узла", "time": "время в мире (UTC)", "freq": "частота учётки, под которой вошли", "date": "дата в мире", "last_login": "прошлый вход этой учётки",
-    "uptime": "сколько работает машина", "accounts": "число учёток машины", "sessions": "сколько игроков на машине сейчас",
-    "disk_total": "условная ёмкость дисков", "disk_used": "занято на дисках", "disk_percent": "занято, %",
-    "unread": "число непрочитанных писем", "mail": "строка про непрочитанную почту", "volumes": "тома машины", "note": "заметка машины",
-}
-
 
 def _mail_text(mail):
     unread = (mail or {}).get("unread", 0)

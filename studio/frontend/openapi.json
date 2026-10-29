@@ -7610,6 +7610,24 @@
       "title": "Kick Message",
       "type": "string"
      },
+     "login_scene": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Login Scene"
+     },
+     "scene_library": {
+      "items": {
+       "type": "string"
+      },
+      "title": "Scene Library",
+      "type": "array"
+     },
      "owner": {
       "anyOf": [
        {
@@ -7644,6 +7662,8 @@
      "ttl",
      "cooldown",
      "kick_message",
+     "login_scene",
+     "scene_library",
      "owner",
      "tokens"
     ],
@@ -7796,6 +7816,17 @@
       "default": "",
       "title": "Kick Message",
       "type": "string"
+     },
+     "login_scene": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Login Scene"
      }
     },
     "required": [
