@@ -4,6 +4,7 @@
 говорит на обычном сетевом языке (порт, tcp, tls). Сцену собирает сервер уже после решения: в неё попадает
 только то, что игрок и так узнал бы из ответа.
 """
+from machines.world import slots
 from scenes.engine import Scene
 
 AETHER = "AETHER"
@@ -19,6 +20,9 @@ def _endpoint(system, profile):
 def connect_scene(system, host, profile, cut=True, opened=True):
     """Игрок вошёл: соединение, обмен ключами, вход, и (cut) чёрный кадр перед сменой рабочего стола.
     rshell и xfer не меняют рабочий стол: для них cut=False, а xfer ещё и не говорит об открытой сессии."""
+    own = slots.custom("bridge.connect", system, host=host, login=profile.login, endpoint=_endpoint(system, profile), freq=f"{profile.freq:.3f}", os=system)
+    if own is not None:
+        return own
     s = Scene()
     if system == AETHER:
         s.task(f"resolving  {host} ", "OK", ms=(200, 450))
@@ -40,6 +44,9 @@ def connect_scene(system, host, profile, cut=True, opened=True):
 
 def denied_scene(system, host, login, endpoint=None):
     """Соединение дошло, но вход не принят."""
+    own = slots.custom("bridge.denied", system, host=host, login=login, endpoint=endpoint or "", freq="", os=system)
+    if own is not None:
+        return own
     s = Scene()
     if system == AETHER:
         s.task(f"resolving  {host} ", "OK", ms=(200, 450))
@@ -54,6 +61,9 @@ def denied_scene(system, host, login, endpoint=None):
 
 def unreachable_scene(system, host):
     """Такой машины нет."""
+    own = slots.custom("bridge.unreachable", system, host=host, os=system)
+    if own is not None:
+        return own
     s = Scene()
     s.task(f"resolving  {host} ", "FAIL", ms=(500, 1100))
     return s.to_dict()
@@ -61,6 +71,9 @@ def unreachable_scene(system, host):
 
 def disconnect_scene(system, host, cut=True):
     """Мост (или оболочка, тогда cut=False: рабочий стол не меняется) закрыт: возвращаемся на уровень выше."""
+    own = slots.custom("bridge.disconnect", system, host=host, os=system)
+    if own is not None:
+        return own
     s = Scene()
     s.task("session    closing ", "OK", ms=(250, 550))
     s.say(f"connection to {host} closed.", style="dim")
@@ -104,6 +117,9 @@ def warning_text(system, host):
 
 def locked_scene(system, host, login):
     """Запись заблокирована после обрыва: проверка безопасности идёт."""
+    own = slots.custom("bridge.locked", system, host=host, login=login, os=system)
+    if own is not None:
+        return own
     s = Scene()
     s.task(f"resolving  {host} ", "OK", ms=(150, 350))
     s.task(f"auth       {login} ", "FAIL", ms=(300, 600))
@@ -113,6 +129,9 @@ def locked_scene(system, host, login):
 
 def kick_scene(system, host):
     """Игрока выбросило: связь оборвали с той стороны."""
+    own = slots.custom("bridge.kick", system, host=host, os=system)
+    if own is not None:
+        return own
     s = Scene()
     s.wait(250)
     s.say(f"connection to {host} lost: reset by peer", style="error")

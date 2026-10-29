@@ -278,6 +278,30 @@ class CreateAndSystemsTests(TestCase):
         profile = self.core.profiles.first() or MachineProfile.objects.create(machine=self.core, login="guest", freq="1")
         self.assertEqual(blackout.resolve("leave", profile)["text"], "away 3 y")
 
+    def test_a_scene_script_is_stored_previewed_bound_to_an_os_and_played_instead_of_the_built_in(self):
+        from terminal.scenes.bridge import unreachable_scene
+
+        status, made = self.call("post", "/scenes", {"slug": "gone", "title": "Gone", "body": "@task looking for {host} | FAIL | 100\nnothing there"})
+        self.assertEqual((status, made["errors"]), (200, []))
+        self.assertEqual(self.call("post", "/scenes", {"slug": "bad", "body": "@nope"})[0], 400)
+        steps = self.call("post", "/scenes/preview", {"body": "@task {host} | OK", "slot": "bridge.unreachable"})[1]
+        self.assertEqual(steps["steps"][0]["label"], "aether-core ")
+        self.assertEqual(self.call("post", "/scenes/preview", {"body": "{login}", "slot": "bridge.unreachable"})[1]["errors"][0]["line"], 1)
+
+        self.assertNotIn("looking", str(unreachable_scene("AETHER", "ghost")))
+        data = self.call("put", "/systems/AETHER/scenes/bridge.unreachable", {"script": "gone"})[1]
+        self.assertEqual({row["slot"]: row["script"] for row in data["scenes"]}["bridge.unreachable"], "gone")
+        self.assertEqual(self.call("put", "/systems/AETHER/scenes/bridge.locked", {"script": "gone"})[0], 200)   # без подстановок host подходит и этому
+        steps = unreachable_scene("AETHER", "ghost")
+        self.assertEqual(steps[0]["label"], "looking for ghost ")
+        self.assertEqual(self.call("delete", "/scenes/gone")[0], 400)             # назначена событию
+        self.call("put", "/systems/AETHER/scenes/bridge.unreachable", {"script": None})
+        self.call("put", "/systems/AETHER/scenes/bridge.locked", {"script": None})
+        self.assertNotIn("looking", str(unreachable_scene("AETHER", "ghost")))
+        self.assertEqual(self.call("delete", "/scenes/gone")[0], 200)
+        broken = self.call("post", "/scenes", {"slug": "uses-login", "body": "{login}"})[1]
+        self.assertEqual(self.call("put", "/systems/AETHER/scenes/bridge.unreachable", {"script": "uses-login"})[0], 400)  # логина у события нет
+
     def test_the_system_image_is_laid_under_the_machine_mounts(self):
         from filesystem.machine_view import MachineView
 

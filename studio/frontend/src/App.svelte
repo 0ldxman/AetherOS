@@ -13,6 +13,7 @@
   import Policies from "./routes/Policies.svelte";
   import Systems from "./routes/Systems.svelte";
   import World from "./routes/World.svelte";
+  import Scenes from "./routes/Scenes.svelte";
 
   let user = $state("");
 
@@ -31,7 +32,8 @@
     | { name: "machine"; id: number; tab: string; sub: number | null }
     | { name: "policies"; id: number | null }
     | { name: "systems"; code: string | null; tab: string }
-    | { name: "world" };
+    | { name: "world" }
+    | { name: "scenes"; slug: string | null };
 
   const page: Page = $derived.by((): Page => {
     let found;
@@ -48,6 +50,8 @@
     if ((found = match("/policies/:id", route.path))) return { name: "policies", id: +found.id };
     if (match("/policies", route.path)) return { name: "policies", id: null };
     if (match("/world", route.path)) return { name: "world" };
+    if ((found = match("/scenes/:slug", route.path))) return { name: "scenes", slug: found.slug };
+    if (match("/scenes", route.path)) return { name: "scenes", slug: null };
     if ((found = match("/systems/:code/:tab", route.path))) return { name: "systems", code: found.code, tab: found.tab };
     if ((found = match("/systems/:code", route.path))) return { name: "systems", code: found.code, tab: "overview" };
     if (match("/systems", route.path)) return { name: "systems", code: null, tab: "overview" };
@@ -60,6 +64,7 @@
     { href: "#/machines", label: "Машины", section: ["machines", "machine"] },
     { href: "#/policies", label: "Политики входа", section: ["policies"] },
     { href: "#/systems", label: "Операционные системы", section: ["systems"] },
+    { href: "#/scenes", label: "Сцены", section: ["scenes"] },
     { href: "#/world", label: "Мир", section: ["world"] },
   ];
 </script>
@@ -93,6 +98,8 @@
       {#key page.id}<Item id={page.id} view={page.view} />{/key}
     {:else if page.name === "items"}
       <Items />
+    {:else if page.name === "scenes"}
+      {#key page.slug}<Scenes slug={page.slug} />{/key}
     {:else if page.name === "world"}
       <World />
     {:else if page.name === "systems"}

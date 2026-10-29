@@ -6,6 +6,8 @@
   <title>Студия</title>
   {% for css in styles %}<link rel="stylesheet" href="{% static css %}">
   {% endfor %}
+  <link rel="stylesheet" href="{% static 'ui/console.css' %}">
+  <script src="{% static 'ui/console.js' %}"></script>
   <script>
     window.STUDIO = {
       api: "{% url 'studio_api:api-root' %}",

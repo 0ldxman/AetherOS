@@ -4025,6 +4025,63 @@
     ]
    }
   },
+  "/studio/api/systems/{code}/scenes/{slot}": {
+   "put": {
+    "operationId": "studio_api_systems_save_scene",
+    "summary": "Save Scene",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "code",
+      "schema": {
+       "title": "Code",
+       "type": "string"
+      },
+      "required": true
+     },
+     {
+      "in": "path",
+      "name": "slot",
+      "schema": {
+       "title": "Slot",
+       "type": "string"
+      },
+      "required": true
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/SystemOut"
+        }
+       }
+      }
+     }
+    },
+    "description": "Какая сцена играет на событии ОС. Пусто: встроенная.",
+    "tags": [
+     "systems"
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/SlotIn"
+       }
+      }
+     },
+     "required": true
+    },
+    "security": [
+     {
+      "SessionAuthIsStaff": []
+     }
+    ]
+   }
+  },
   "/studio/api/world": {
    "get": {
     "operationId": "studio_api_world_read",
@@ -4080,6 +4137,220 @@
      },
      "required": true
     },
+    "security": [
+     {
+      "SessionAuthIsStaff": []
+     }
+    ]
+   }
+  },
+  "/studio/api/scenes": {
+   "get": {
+    "operationId": "studio_api_scenes_scenes",
+    "summary": "Scenes",
+    "parameters": [],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "items": {
+          "$ref": "#/components/schemas/SceneRow"
+         },
+         "title": "Response",
+         "type": "array"
+        }
+       }
+      }
+     }
+    },
+    "tags": [
+     "scenes"
+    ],
+    "security": [
+     {
+      "SessionAuthIsStaff": []
+     }
+    ]
+   },
+   "post": {
+    "operationId": "studio_api_scenes_create",
+    "summary": "Create",
+    "parameters": [],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/SceneOut"
+        }
+       }
+      }
+     }
+    },
+    "tags": [
+     "scenes"
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/SceneIn"
+       }
+      }
+     },
+     "required": true
+    },
+    "security": [
+     {
+      "SessionAuthIsStaff": []
+     }
+    ]
+   }
+  },
+  "/studio/api/scenes/preview": {
+   "post": {
+    "operationId": "studio_api_scenes_preview",
+    "summary": "Preview",
+    "parameters": [],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ScenePreview"
+        }
+       }
+      }
+     }
+    },
+    "description": "Шаги сцены для проигрывателя студии: подстановки условные, «сейчас» как в мире.",
+    "tags": [
+     "scenes"
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/ScenePreviewIn"
+       }
+      }
+     },
+     "required": true
+    },
+    "security": [
+     {
+      "SessionAuthIsStaff": []
+     }
+    ]
+   }
+  },
+  "/studio/api/scenes/{slug}": {
+   "get": {
+    "operationId": "studio_api_scenes_read",
+    "summary": "Read",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "slug",
+      "schema": {
+       "title": "Slug",
+       "type": "string"
+      },
+      "required": true
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/SceneOut"
+        }
+       }
+      }
+     }
+    },
+    "tags": [
+     "scenes"
+    ],
+    "security": [
+     {
+      "SessionAuthIsStaff": []
+     }
+    ]
+   },
+   "put": {
+    "operationId": "studio_api_scenes_save",
+    "summary": "Save",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "slug",
+      "schema": {
+       "title": "Slug",
+       "type": "string"
+      },
+      "required": true
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/SceneOut"
+        }
+       }
+      }
+     }
+    },
+    "tags": [
+     "scenes"
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/SceneIn"
+       }
+      }
+     },
+     "required": true
+    },
+    "security": [
+     {
+      "SessionAuthIsStaff": []
+     }
+    ]
+   },
+   "delete": {
+    "operationId": "studio_api_scenes_drop",
+    "summary": "Drop",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "slug",
+      "schema": {
+       "title": "Slug",
+       "type": "string"
+      },
+      "required": true
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "OK"
+     }
+    },
+    "tags": [
+     "scenes"
+    ],
     "security": [
      {
       "SessionAuthIsStaff": []
@@ -8590,6 +8861,44 @@
     "title": "PlaceRow",
     "type": "object"
    },
+   "SlotRow": {
+    "properties": {
+     "slot": {
+      "title": "Slot",
+      "type": "string"
+     },
+     "label": {
+      "title": "Label",
+      "type": "string"
+     },
+     "params": {
+      "items": {
+       "type": "string"
+      },
+      "title": "Params",
+      "type": "array"
+     },
+     "script": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Script"
+     }
+    },
+    "required": [
+     "slot",
+     "label",
+     "params",
+     "script"
+    ],
+    "title": "SlotRow",
+    "type": "object"
+   },
    "SystemOut": {
     "properties": {
      "code": {
@@ -8612,6 +8921,20 @@
        "$ref": "#/components/schemas/BlackoutRow"
       },
       "title": "Blackouts",
+      "type": "array"
+     },
+     "scenes": {
+      "items": {
+       "$ref": "#/components/schemas/SlotRow"
+      },
+      "title": "Scenes",
+      "type": "array"
+     },
+     "scene_library": {
+      "items": {
+       "type": "string"
+      },
+      "title": "Scene Library",
       "type": "array"
      },
      "blackout_params": {
@@ -8695,6 +9018,8 @@
      "greeting",
      "greeting_params",
      "blackouts",
+     "scenes",
+     "scene_library",
      "blackout_params",
      "name",
      "path_style",
@@ -8951,6 +9276,23 @@
     "title": "GreetingIn",
     "type": "object"
    },
+   "SlotIn": {
+    "properties": {
+     "script": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Script"
+     }
+    },
+    "title": "SlotIn",
+    "type": "object"
+   },
    "WorldOut": {
     "properties": {
      "game_now": {
@@ -8996,6 +9338,219 @@
      "audit_per_day"
     ],
     "title": "WorldOut",
+    "type": "object"
+   },
+   "SceneRow": {
+    "properties": {
+     "slug": {
+      "title": "Slug",
+      "type": "string"
+     },
+     "title": {
+      "title": "Title",
+      "type": "string"
+     },
+     "bindings": {
+      "title": "Bindings",
+      "type": "integer"
+     }
+    },
+    "required": [
+     "slug",
+     "title",
+     "bindings"
+    ],
+    "title": "SceneRow",
+    "type": "object"
+   },
+   "SceneBinding": {
+    "properties": {
+     "system": {
+      "title": "System",
+      "type": "string"
+     },
+     "slot": {
+      "title": "Slot",
+      "type": "string"
+     },
+     "label": {
+      "title": "Label",
+      "type": "string"
+     }
+    },
+    "required": [
+     "system",
+     "slot",
+     "label"
+    ],
+    "title": "SceneBinding",
+    "type": "object"
+   },
+   "SceneOut": {
+    "properties": {
+     "slug": {
+      "title": "Slug",
+      "type": "string"
+     },
+     "title": {
+      "title": "Title",
+      "type": "string"
+     },
+     "body": {
+      "title": "Body",
+      "type": "string"
+     },
+     "note": {
+      "title": "Note",
+      "type": "string"
+     },
+     "errors": {
+      "items": {
+       "$ref": "#/components/schemas/SceneProblem"
+      },
+      "title": "Errors",
+      "type": "array"
+     },
+     "bindings": {
+      "items": {
+       "$ref": "#/components/schemas/SceneBinding"
+      },
+      "title": "Bindings",
+      "type": "array"
+     },
+     "slots": {
+      "items": {
+       "$ref": "#/components/schemas/SlotInfo"
+      },
+      "title": "Slots",
+      "type": "array"
+     }
+    },
+    "required": [
+     "slug",
+     "title",
+     "body",
+     "note",
+     "errors",
+     "bindings",
+     "slots"
+    ],
+    "title": "SceneOut",
+    "type": "object"
+   },
+   "SceneProblem": {
+    "properties": {
+     "line": {
+      "title": "Line",
+      "type": "integer"
+     },
+     "text": {
+      "title": "Text",
+      "type": "string"
+     }
+    },
+    "required": [
+     "line",
+     "text"
+    ],
+    "title": "SceneProblem",
+    "type": "object"
+   },
+   "SlotInfo": {
+    "properties": {
+     "slot": {
+      "title": "Slot",
+      "type": "string"
+     },
+     "label": {
+      "title": "Label",
+      "type": "string"
+     },
+     "params": {
+      "items": {
+       "type": "string"
+      },
+      "title": "Params",
+      "type": "array"
+     }
+    },
+    "required": [
+     "slot",
+     "label",
+     "params"
+    ],
+    "title": "SlotInfo",
+    "type": "object"
+   },
+   "SceneIn": {
+    "properties": {
+     "slug": {
+      "title": "Slug",
+      "type": "string"
+     },
+     "title": {
+      "default": "",
+      "title": "Title",
+      "type": "string"
+     },
+     "body": {
+      "default": "",
+      "title": "Body",
+      "type": "string"
+     },
+     "note": {
+      "default": "",
+      "title": "Note",
+      "type": "string"
+     }
+    },
+    "required": [
+     "slug"
+    ],
+    "title": "SceneIn",
+    "type": "object"
+   },
+   "ScenePreview": {
+    "properties": {
+     "steps": {
+      "items": {
+       "additionalProperties": true,
+       "type": "object"
+      },
+      "title": "Steps",
+      "type": "array"
+     },
+     "errors": {
+      "items": {
+       "$ref": "#/components/schemas/SceneProblem"
+      },
+      "title": "Errors",
+      "type": "array"
+     }
+    },
+    "required": [
+     "steps",
+     "errors"
+    ],
+    "title": "ScenePreview",
+    "type": "object"
+   },
+   "ScenePreviewIn": {
+    "properties": {
+     "body": {
+      "title": "Body",
+      "type": "string"
+     },
+     "slot": {
+      "default": "",
+      "title": "Slot",
+      "type": "string"
+     }
+    },
+    "required": [
+     "body"
+    ],
+    "title": "ScenePreviewIn",
     "type": "object"
    }
   },

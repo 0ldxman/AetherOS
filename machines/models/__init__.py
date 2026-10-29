@@ -5,11 +5,12 @@ from machines.models.clock import MachineClock
 from machines.models.machine import Machine, generate_hid
 from machines.models.mounts import Export, MachineMount, PlayerMount
 from machines.models.net import LISTING_TAG, SCHEME, NetNode, NetResource, normalize_address, split_url
+from machines.models.scenes import SceneScript, SystemScene
 from machines.models.world import World
 from machines.models.system import Place, SystemBlackout, SystemType, SystemVolume
 
 __all__ = [
     "EntryPolicy", "Export", "Group", "LISTING_TAG", "LoginEvent", "Machine", "MachineClock", "MachineMount", "MachineProfile",
-    "MachineProfileToken", "NetNode", "NetResource", "Place", "PlayerMount", "SCHEME", "Session", "SystemBlackout", "SystemType", "SystemVolume", "World", "generate_hid",
+    "MachineProfileToken", "NetNode", "NetResource", "Place", "PlayerMount", "SCHEME", "Session", "SceneScript", "SystemBlackout", "SystemScene", "SystemType", "SystemVolume", "World", "generate_hid",
     "normalize_address", "split_url",
 ]

@@ -1267,6 +1267,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/studio/api/systems/{code}/scenes/{slot}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Save Scene
+         * @description Какая сцена играет на событии ОС. Пусто: встроенная.
+         */
+        put: operations["studio_api_systems_save_scene"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/studio/api/world": {
         parameters: {
             query?: never;
@@ -1280,6 +1300,63 @@ export interface paths {
         put: operations["studio_api_world_save"];
         post?: never;
         delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/studio/api/scenes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Scenes */
+        get: operations["studio_api_scenes_scenes"];
+        put?: never;
+        /** Create */
+        post: operations["studio_api_scenes_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/studio/api/scenes/preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Preview
+         * @description Шаги сцены для проигрывателя студии: подстановки условные, «сейчас» как в мире.
+         */
+        post: operations["studio_api_scenes_preview"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/studio/api/scenes/{slug}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Read */
+        get: operations["studio_api_scenes_read"];
+        /** Save */
+        put: operations["studio_api_scenes_save"];
+        post?: never;
+        /** Drop */
+        delete: operations["studio_api_scenes_drop"];
         options?: never;
         head?: never;
         patch?: never;
@@ -2994,6 +3071,17 @@ export interface components {
             /** Machines */
             machines: string[];
         };
+        /** SlotRow */
+        SlotRow: {
+            /** Slot */
+            slot: string;
+            /** Label */
+            label: string;
+            /** Params */
+            params: string[];
+            /** Script */
+            script: string | null;
+        };
         /** SystemOut */
         SystemOut: {
             /** Code */
@@ -3004,6 +3092,10 @@ export interface components {
             greeting_params: components["schemas"]["GreetingParam"][];
             /** Blackouts */
             blackouts: components["schemas"]["BlackoutRow"][];
+            /** Scenes */
+            scenes: components["schemas"]["SlotRow"][];
+            /** Scene Library */
+            scene_library: string[];
             /** Blackout Params */
             blackout_params: components["schemas"]["GreetingParam"][];
             /** Name */
@@ -3118,6 +3210,11 @@ export interface components {
             /** Greeting */
             greeting: string;
         };
+        /** SlotIn */
+        SlotIn: {
+            /** Script */
+            script?: string | null;
+        };
         /** WorldOut */
         WorldOut: {
             /**
@@ -3146,6 +3243,96 @@ export interface components {
             stations_reachable: number;
             /** Audit Per Day */
             audit_per_day: number;
+        };
+        /** SceneRow */
+        SceneRow: {
+            /** Slug */
+            slug: string;
+            /** Title */
+            title: string;
+            /** Bindings */
+            bindings: number;
+        };
+        /** SceneBinding */
+        SceneBinding: {
+            /** System */
+            system: string;
+            /** Slot */
+            slot: string;
+            /** Label */
+            label: string;
+        };
+        /** SceneOut */
+        SceneOut: {
+            /** Slug */
+            slug: string;
+            /** Title */
+            title: string;
+            /** Body */
+            body: string;
+            /** Note */
+            note: string;
+            /** Errors */
+            errors: components["schemas"]["SceneProblem"][];
+            /** Bindings */
+            bindings: components["schemas"]["SceneBinding"][];
+            /** Slots */
+            slots: components["schemas"]["SlotInfo"][];
+        };
+        /** SceneProblem */
+        SceneProblem: {
+            /** Line */
+            line: number;
+            /** Text */
+            text: string;
+        };
+        /** SlotInfo */
+        SlotInfo: {
+            /** Slot */
+            slot: string;
+            /** Label */
+            label: string;
+            /** Params */
+            params: string[];
+        };
+        /** SceneIn */
+        SceneIn: {
+            /** Slug */
+            slug: string;
+            /**
+             * Title
+             * @default
+             */
+            title: string;
+            /**
+             * Body
+             * @default
+             */
+            body: string;
+            /**
+             * Note
+             * @default
+             */
+            note: string;
+        };
+        /** ScenePreview */
+        ScenePreview: {
+            /** Steps */
+            steps: {
+                [key: string]: unknown;
+            }[];
+            /** Errors */
+            errors: components["schemas"]["SceneProblem"][];
+        };
+        /** ScenePreviewIn */
+        ScenePreviewIn: {
+            /** Body */
+            body: string;
+            /**
+             * Slot
+             * @default
+             */
+            slot: string;
         };
     };
     responses: never;
@@ -5376,6 +5563,33 @@ export interface operations {
             };
         };
     };
+    studio_api_systems_save_scene: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                code: string;
+                slot: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SlotIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SystemOut"];
+                };
+            };
+        };
+    };
     studio_api_world_read: {
         parameters: {
             query?: never;
@@ -5417,6 +5631,142 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["WorldOut"];
                 };
+            };
+        };
+    };
+    studio_api_scenes_scenes: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SceneRow"][];
+                };
+            };
+        };
+    };
+    studio_api_scenes_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SceneIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SceneOut"];
+                };
+            };
+        };
+    };
+    studio_api_scenes_preview: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ScenePreviewIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ScenePreview"];
+                };
+            };
+        };
+    };
+    studio_api_scenes_read: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SceneOut"];
+                };
+            };
+        };
+    };
+    studio_api_scenes_save: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SceneIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SceneOut"];
+                };
+            };
+        };
+    };
+    studio_api_scenes_drop: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
         };
     };

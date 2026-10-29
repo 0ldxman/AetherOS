@@ -50,6 +50,12 @@
     done(data, error, "Сброшено до умолчаний движка.");
   }
 
+  async function chooseScene(slot: string, script: string) {
+    if (!system) return;
+    const { data, error } = await api.PUT("/studio/api/systems/{code}/scenes/{slot}", { params: { path: { code: system.code, slot } }, body: { script: script || null } });
+    done(data, error, script ? "Сцена назначена." : "Играет встроенная сцена.");
+  }
+
   const number = (value: string) => (value === "" ? null : Math.max(0, Math.round(+value)));
 
   let preview = $state<Schemas["GreetingPreview"] | null>(null);
@@ -348,6 +354,20 @@
           {/each}
         </div>
         <div class="block">
+          <h3>Сцены событий <a class="more" href="#/scenes">библиотека →</a></h3>
+          <p class="muted small">Что играет в терминале на событии этой ОС. «Встроенная»: сцена движка. Свою пишут в разделе «Сцены».</p>
+          {#each system.scenes as row (row.slot)}
+            <div class="slotrow">
+              <span>{row.label}<span class="muted small mono"> {row.slot}</span></span>
+              <select class="field" value={row.script ?? ""} onchange={(e) => chooseScene(row.slot, e.currentTarget.value)}>
+                <option value="">встроенная</option>
+                {#each system.scene_library as slug}<option value={slug}>{slug}</option>{/each}
+              </select>
+            </div>
+          {/each}
+        </div>
+
+        <div class="block">
           <h3>Приветствие при подключении</h3>
           <p class="muted small">Что видит игрок, когда открывается оболочка этой ОС. Пусто: общее приветствие движка. Цвета: <code>&lt;dim&gt;</code>, <code>&lt;success&gt;</code>, <code>&lt;warning&gt;</code>, <code>&lt;error&gt;</code> (закрываются в той же строке). Случайное число: <code>&lt;rand&gt;21-41&lt;/rand&gt;</code>. Время с даты: <code>&lt;since&gt;2027-10-29 | days&lt;/since&gt;</code> (форматы: days, hours, minutes, years, ymd, ago; считается от «сейчас» в мире). Колонки: <code>&lt;table&gt;</code> … <code>&lt;/table&gt;</code>, ячейки через <code>|</code>, ширина считается сама (<code>&lt;table gap=4&gt;</code> — пробелов между колонками; сам знак: <code>&amp;pipe;</code>). Скобки: <code>{"{{"}</code> и <code>{"}}"}</code>.</p>
           <div class="greet">
@@ -437,6 +457,8 @@
   .chips { display: flex; flex-wrap: wrap; gap: 4px; }
   .chips .chip { cursor: pointer; }
   .term { margin: 0; min-height: 200px; padding: 10px 12px; border-radius: var(--radius-s); background: #0b0d10; color: #cfd6dd; font-size: 12px; line-height: 1.4; overflow: auto; }
+  .slotrow { display: grid; grid-template-columns: minmax(200px, 1fr) minmax(160px, 260px); gap: 12px; align-items: center; }
+  .more { margin-left: auto; font-size: 12px; text-transform: none; letter-spacing: 0; }
   .bo { display: flex; flex-direction: column; gap: 8px; padding: 10px 0; border-top: 1px solid var(--line-soft); }
   .bo-head { display: flex; align-items: center; gap: 8px; }
   .bo-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 0.9fr); gap: 12px; align-items: start; }

@@ -14,9 +14,10 @@ from ninja import Router, Schema
 from machines.access import groups
 from machines.access.privileges import PRIVILEGES
 from filesystem.models import Volume
-from machines.models import EntryPolicy, Group, Machine, Place, SystemBlackout, SystemType, SystemVolume
+from machines.models import EntryPolicy, Group, Machine, Place, SceneScript, SystemBlackout, SystemScene, SystemType, SystemVolume
 from machines.world import blackout as blackouts
 from machines.world.dates import world
+from machines.world.slots import SLOTS
 from machines.world.facts import facts
 from machines.world.identity import identity_of
 from machines.world.places import DEFAULTS
@@ -83,6 +84,17 @@ class BlackoutRow(Schema):
     default: BlackoutValues     # что движок показывает для этой ОС
 
 
+class SlotRow(Schema):
+    slot: str
+    label: str
+    params: list[str]
+    script: str | None      # слаг сцены, которая играет вместо встроенной
+
+
+class SlotIn(Schema):
+    script: str | None = None
+
+
 class GreetingParam(Schema):
     name: str
     label: str
@@ -113,6 +125,8 @@ class SystemOut(Schema):
     greeting: str
     greeting_params: list[GreetingParam]
     blackouts: list[BlackoutRow]
+    scenes: list[SlotRow]
+    scene_library: list[str]
     blackout_params: list[GreetingParam]
     name: str
     path_style: str
@@ -159,6 +173,11 @@ def _blackouts(system):
     ]
 
 
+def _slots(system):
+    chosen = {row.slot: row.script.slug for row in system.scenes.select_related("script")}
+    return [SlotRow(slot=key, label=slot.label, params=list(slot.params), script=chosen.get(key)) for key, slot in SLOTS.items()]
+
+
 def _out(system):
     own = {place.name: place.path for place in system.places.all()}
     overridden = {}
@@ -169,6 +188,7 @@ def _out(system):
         code=system.code, name=system.name, greeting=system.greeting,
         greeting_params=[GreetingParam(name=name, label=label) for name, label in GREETING_PARAMS.items()],
         blackouts=_blackouts(system),
+        scenes=_slots(system), scene_library=list(SceneScript.objects.values_list("slug", flat=True)),
         blackout_params=[GreetingParam(name=name, label=label) for name, label in blackouts.PARAMS.items()],
         path_style=system.path_style, entry_policy=system.entry_policy_id,
         machines=list(Machine.objects.filter(system=system.code).order_by("hostname").values_list("hostname", flat=True)),
@@ -338,4 +358,21 @@ def save_blackout(request, code: str, event: str, body: BlackoutValues):
 def drop_blackout(request, code: str, event: str):
     system = _system(code)
     system.blackouts.filter(event=event).delete()
+    return _out(system)
+
+
+@router.put("/{code}/scenes/{slot}", response=SystemOut)
+@transaction.atomic
+def save_scene(request, code: str, slot: str, body: SlotIn):
+    """Какая сцена играет на событии ОС. Пусто: встроенная."""
+    system = _system(code)
+    if slot not in SLOTS:
+        raise ValidationError({"slot": ["Нет такого события."]})
+    if not body.script:
+        system.scenes.filter(slot=slot).delete()
+        return _out(system)
+    row = system.scenes.filter(slot=slot).first() or SystemScene(system_type=system, slot=slot)
+    row.script = get_object_or_404(SceneScript, slug=body.script)
+    row.full_clean()
+    row.save()
     return _out(system)
