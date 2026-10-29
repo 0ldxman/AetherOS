@@ -204,7 +204,7 @@
           <label><span class="label">Сцена после входа</span>
             <select class="field" bind:value={form.login_scene}>
               <option value={null}>общая сцена ОС (или никакой)</option>
-              {#each account?.scene_library ?? [] as slug}<option value={slug}>{slug}</option>{/each}
+              {#each account?.scene_library ?? [] as item}<option value={item.slug}>{item.title ? `${item.title} · ${item.slug}` : item.slug}</option>{/each}
             </select>
           </label>
         </div>

@@ -14,6 +14,16 @@ router = Router(tags=["scenes"])
 SAMPLE = {"host": "aether-core", "login": "ivan", "endpoint": "14.230 MHz", "freq": "14.230", "os": "AETHER", "reason": "Trace complete."}
 
 
+class SceneChoice(Schema):
+    slug: str
+    title: str
+
+
+def choices():
+    """Сцены библиотеки для выбора (событие ОС, сцена учётки): слаг и название."""
+    return [SceneChoice(slug=slug, title=title) for slug, title in SceneScript.objects.values_list("slug", "title")]
+
+
 class SceneRow(Schema):
     slug: str
     title: str

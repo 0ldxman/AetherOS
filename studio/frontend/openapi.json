@@ -7623,7 +7623,7 @@
      },
      "scene_library": {
       "items": {
-       "type": "string"
+       "$ref": "#/components/schemas/SceneChoice"
       },
       "title": "Scene Library",
       "type": "array"
@@ -7668,6 +7668,24 @@
      "tokens"
     ],
     "title": "AccountOut",
+    "type": "object"
+   },
+   "SceneChoice": {
+    "properties": {
+     "slug": {
+      "title": "Slug",
+      "type": "string"
+     },
+     "title": {
+      "title": "Title",
+      "type": "string"
+     }
+    },
+    "required": [
+     "slug",
+     "title"
+    ],
+    "title": "SceneChoice",
     "type": "object"
    },
    "Token": {
@@ -8963,7 +8981,7 @@
      },
      "scene_library": {
       "items": {
-       "type": "string"
+       "$ref": "#/components/schemas/SceneChoice"
       },
       "title": "Scene Library",
       "type": "array"

@@ -24,6 +24,7 @@ from machines.world.places import DEFAULTS
 from scenes import markup
 from terminal.scenes.shell import GREETING_PARAMS, greeting_params
 from studio.api.disks import Ref
+from studio.api.scenes import SceneChoice, choices
 from studio.api.groups import GroupIn, Privilege
 from studio.api.machines import Policy
 
@@ -126,7 +127,7 @@ class SystemOut(Schema):
     greeting_params: list[GreetingParam]
     blackouts: list[BlackoutRow]
     scenes: list[SlotRow]
-    scene_library: list[str]
+    scene_library: list[SceneChoice]
     blackout_params: list[GreetingParam]
     name: str
     path_style: str
@@ -188,7 +189,7 @@ def _out(system):
         code=system.code, name=system.name, greeting=system.greeting,
         greeting_params=[GreetingParam(name=name, label=label) for name, label in GREETING_PARAMS.items()],
         blackouts=_blackouts(system),
-        scenes=_slots(system), scene_library=list(SceneScript.objects.values_list("slug", flat=True)),
+        scenes=_slots(system), scene_library=choices(),
         blackout_params=[GreetingParam(name=name, label=label) for name, label in blackouts.PARAMS.items()],
         path_style=system.path_style, entry_policy=system.entry_policy_id,
         machines=list(Machine.objects.filter(system=system.code).order_by("hostname").values_list("hostname", flat=True)),

@@ -2591,11 +2591,18 @@ export interface components {
             /** Login Scene */
             login_scene: string | null;
             /** Scene Library */
-            scene_library: string[];
+            scene_library: components["schemas"]["SceneChoice"][];
             /** Owner */
             owner: string | null;
             /** Tokens */
             tokens: components["schemas"]["Token"][];
+        };
+        /** SceneChoice */
+        SceneChoice: {
+            /** Slug */
+            slug: string;
+            /** Title */
+            title: string;
         };
         /** Token */
         Token: {
@@ -3101,7 +3108,7 @@ export interface components {
             /** Scenes */
             scenes: components["schemas"]["SlotRow"][];
             /** Scene Library */
-            scene_library: string[];
+            scene_library: components["schemas"]["SceneChoice"][];
             /** Blackout Params */
             blackout_params: components["schemas"]["GreetingParam"][];
             /** Name */
