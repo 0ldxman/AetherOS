@@ -8,7 +8,7 @@ from terminal.engine.filesystem import VirtualFilesystem
 from terminal.engine.commands.keys import parse_offset
 from terminal.engine.rawinfo import raw_of, size_of
 from terminal.engine.result import CommandResult
-from terminal.scenes import block_scene, convert_scene, decode_scene, repair_scene
+from terminal.scenes.shell import block_scene, convert_scene, decode_scene, repair_scene
 
 BLOCK = 512
 MAX_BLOCKS = 4

@@ -12,7 +12,7 @@ from filesystem import keystore, rights
 from machines.network import bridge
 from machines.access import entry
 from machines.models import LoginEvent
-from terminal import bridge_scenes as scenes
+from terminal.scenes import bridge as scenes
 from terminal.engine.commands.basic import BaseCommand
 from terminal.engine.context import TerminalContext
 from terminal.engine.home import home_of

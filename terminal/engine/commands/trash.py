@@ -11,7 +11,7 @@ from terminal.engine.report import hook_report
 from terminal.engine.context import TerminalContext
 from terminal.engine.filesystem import VirtualFilesystem
 from terminal.engine.result import CommandResult
-from terminal import scenes
+from terminal.scenes import shell as scenes
 
 CONFIRM_KEY = "confirm_pending"
 YES = {"y", "yes", "д", "да"}

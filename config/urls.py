@@ -20,7 +20,7 @@ from django.urls import re_path
 from django.conf import settings
 from django.contrib.staticfiles.views import serve as serve_static
 from desktop.views import boot
-from apps.views import sessions
+from monitor.views import sessions
 from users import aether_auth as auth_views
 
 urlpatterns = [
@@ -31,7 +31,7 @@ urlpatterns = [
     path("lock/", auth_views.lock_page, name="lock"),
     path("auth/guest/", auth_views.guest_api),
     path("auth/logout/", auth_views.logout_api, name="logout"),
-    path("apps/", include("apps.urls")),
+    path("apps/", include("monitor.urls")),
     path("apps/wiki/", include("wiki.urls")),
     path('apps/map/', include('map.urls')),
     path("apps/terminal/", include("terminal.urls")),

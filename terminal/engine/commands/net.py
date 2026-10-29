@@ -6,7 +6,7 @@ https://apollo.com/info/ и apollo.com/info это одно и то же. Сер
 """
 from machines.models import LISTING_TAG, NetNode, NetResource, split_url
 from secure.access import satisfied
-from terminal import net_scenes as scenes
+from terminal.scenes import net as scenes
 from terminal.engine.commands.basic import BaseCommand
 from terminal.engine.result import CommandResult
 from terminal.engine.transfer import place_item

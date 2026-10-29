@@ -3,7 +3,7 @@ from terminal.engine.commands.basic import BaseCommand
 from terminal.engine.filesystem import VirtualFilesystem
 from terminal.engine.rawinfo import raw_of
 from terminal.engine.result import CommandResult
-from terminal.scenes import strings_scene
+from terminal.scenes.shell import strings_scene
 
 MIN_LENGTH = 4
 MAX_LINES = 200

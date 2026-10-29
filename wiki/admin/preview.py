@@ -3,7 +3,7 @@
 Подключается к DocumentAdmin как примесь, поэтому save_model и остальной
 код админки не трогаются:
 
-    from wiki.admin_preview import DocumentPreviewMixin
+    from wiki.admin.preview import DocumentPreviewMixin
 
     class DocumentAdmin(DocumentPreviewMixin, admin.ModelAdmin):
         ...

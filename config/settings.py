@@ -62,7 +62,7 @@ INSTALLED_APPS = [
     'mail',
     'wiki',
     'desktop',
-    'apps',
+    'monitor',
     'map',
     'assets',
     'filesystem',

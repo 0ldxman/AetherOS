@@ -5,7 +5,7 @@ from filesystem.layers.unlock import unlock_file
 from terminal.engine.commands.basic import BaseCommand
 from terminal.engine.filesystem import VirtualFilesystem
 from terminal.engine.result import CommandResult
-from terminal.scenes import unlock_scene
+from terminal.scenes.shell import unlock_scene
 
 _TRUE = {"true", "yes", "1", "да", "вкл"}
 _FALSE = {"false", "no", "0", "нет", "выкл"}

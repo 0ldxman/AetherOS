@@ -6,7 +6,7 @@ from terminal.engine.commands.basic import BaseCommand
 from terminal.engine.filesystem import VirtualFilesystem
 from terminal.engine.rawinfo import raw_of
 from terminal.engine.result import CommandResult
-from terminal.scenes import extract_scene
+from terminal.scenes.shell import extract_scene
 
 WINDOW = 16          # блок может начинаться чуть правее названного смещения: txtx склеивает его с предыдущими печатными байтами
 

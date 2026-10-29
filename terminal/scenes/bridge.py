@@ -73,7 +73,7 @@ def transfer_scene(name, size_seed, ok=True, connect=None, hops=None, hop_ms=Non
     """Перенос файла: открытие канала, полоса передачи, проверка. connect это сцена соединения (xfer с явным адресом),
     hops метки узлов от отправителя к получателю (xfer между открытыми вкладками): файл идёт по цепочке, и на каждом
     прыжке своя полоса передачи, от узла к следующему."""
-    from terminal.scenes import _stable, _result
+    from terminal.scenes.shell import _stable, _result
 
     s = Scene()
     for step in (connect or []):

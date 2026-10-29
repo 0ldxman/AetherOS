@@ -10,7 +10,7 @@ from terminal.engine.filesystem import VirtualFilesystem
 from terminal.engine.rawinfo import raw_of, size_of
 from terminal.engine.report import hook_report
 from terminal.engine.result import CommandResult
-from terminal.scenes import ftyp_scene, open_scene
+from terminal.scenes.shell import ftyp_scene, open_scene
 
 
 # Что ftyp говорит о файле, на который не ответил ни один слой.

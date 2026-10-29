@@ -16,7 +16,7 @@ from terminal.engine.commands.layered import LayerCommand
 from terminal.engine.filesystem import VirtualFilesystem
 from terminal.engine.rawinfo import keys_of, viewer_of
 from terminal.engine.result import CommandResult
-from terminal.scenes import pak_extract_scene, pak_list_scene
+from terminal.scenes.shell import pak_extract_scene, pak_list_scene
 from filesystem.content.size import file_size
 
 USAGE = "usage: pak l archive\n       pak x archive [member...] [-d dir]\n       pak pass archive password"

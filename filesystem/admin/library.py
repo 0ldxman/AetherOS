@@ -14,7 +14,7 @@ from filesystem.manager import filemanager
 from filesystem.admin.files import VolumeFiles
 from filesystem.admin.history import ItemHistoryMixin, VersionedFormMixin
 from filesystem.admin.preview import ItemPreviewMixin
-from wiki.admin_dashboard import ItemDashboardMixin
+from wiki.admin.dashboard import ItemDashboardMixin
 
 from filesystem.models import KEY_FORMAT, FileFormat, Item, ItemKey, ItemMember, ItemSignature, Placement, Volume, VolumeTemplate
 from machines.models import MachineMount

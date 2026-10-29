@@ -1,5 +1,5 @@
 from django.urls import path
-from apps import views
+from monitor import views
 
 urlpatterns = [
     path("sessions/", views.sessions, name="sessions"),

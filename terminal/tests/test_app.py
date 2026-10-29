@@ -1648,7 +1648,7 @@ class RawCommandTests(TerminalClient, TestCase):
         self.assertNotIn("bar", [s["op"] for s in scene])
 
     def test_cvt_scene_speaks_the_language_of_the_format(self):
-        from terminal.scenes import convert_scene, decode_scene
+        from terminal.scenes.shell import convert_scene, decode_scene
 
         def text(fmt, kind="disguised"):
             steps = convert_scene("/a", 400, fmt, True, "/b") if kind == "disguised" else decode_scene("/a", 400, fmt, True)

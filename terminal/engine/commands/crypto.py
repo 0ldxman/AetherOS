@@ -5,7 +5,7 @@ from filesystem.content import archives
 from filesystem.content.rawview import keys, signatures
 from filesystem.models import KEY_FORMAT, Item
 from terminal.engine.rawinfo import raw_of
-from terminal.scenes import key_scene, sign_scene, verify_scene
+from terminal.scenes.shell import key_scene, sign_scene, verify_scene
 from terminal.engine.commands.layered import LayerCommand
 from terminal.engine.filesystem import VirtualFilesystem
 from terminal.engine.result import CommandResult
