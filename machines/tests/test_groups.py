@@ -1,6 +1,6 @@
 """Группы и привилегии записи.
 
-Запуск: python manage.py test machines.test_groups
+Запуск: python manage.py test machines.tests.test_groups
 """
 from django.test import TestCase
 

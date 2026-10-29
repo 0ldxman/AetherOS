@@ -1,6 +1,6 @@
 """Часы машины в мире игрока и диски, которые игрок подключает сам.
 
-Запуск: python manage.py test machines.test_clock_mounts
+Запуск: python manage.py test machines.tests.test_clock_mounts
 """
 from django.contrib.auth import get_user_model
 from django.contrib.auth.hashers import make_password

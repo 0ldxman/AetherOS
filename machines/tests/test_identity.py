@@ -1,6 +1,6 @@
 """Данные машины в консоли: имя, hid, серийный номер, адрес.
 
-Запуск: python manage.py test machines.test_identity
+Запуск: python manage.py test machines.tests.test_identity
 """
 from django.test import TestCase
 

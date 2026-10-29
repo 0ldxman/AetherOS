@@ -1,6 +1,6 @@
 """Файлы приложений: иконки рабочего стола.
 
-Запуск: python manage.py test filesystem.test_appfile
+Запуск: python manage.py test filesystem.tests.test_appfile
 """
 from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError

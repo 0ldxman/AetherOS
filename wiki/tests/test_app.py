@@ -109,7 +109,7 @@ class MarkupSecurityTests(SimpleTestCase):
 
 
 class LegacyMarkupChecksTests(SimpleTestCase):
-    """Прогоняет старый скрипт wiki/check_markup.py: его проверок больше сотни."""
+    """Прогоняет старый скрипт wiki/tests/check_markup.py: его проверок больше сотни."""
 
     def test_no_failures(self):
         out = io.StringIO()

@@ -419,13 +419,13 @@ class InboxApiTests(TestCase):
 
 class StylesTests(TestCase):
     def test_the_stylesheet_uses_only_design_tokens(self):
-        css = (Path(__file__).resolve().parent / "static/mail/mail.css").read_text(encoding="utf-8")
+        css = (Path(__file__).resolve().parent.parent / "static/mail/mail.css").read_text(encoding="utf-8")
         self.assertEqual(re.findall(r"#[0-9a-fA-F]{3,8}\b", css), [])
         self.assertNotIn(":root", css)
         self.assertNotRegex(css, r"rgba?\(")
 
     def test_the_script_never_writes_server_text_as_html(self):
-        js = (Path(__file__).resolve().parent / "static/mail/mail.js").read_text(encoding="utf-8")
+        js = (Path(__file__).resolve().parent.parent / "static/mail/mail.js").read_text(encoding="utf-8")
         self.assertNotIn("innerHTML", js)
         self.assertNotIn("insertAdjacentHTML", js)
 
@@ -434,7 +434,7 @@ class LookTests(TestCase):
     """Почта выглядит как остальные приложения (вики, карта), а не как терминал."""
 
     def css(self):
-        return (Path(__file__).resolve().parent / "static/mail/mail.css").read_text(encoding="utf-8")
+        return (Path(__file__).resolve().parent.parent / "static/mail/mail.css").read_text(encoding="utf-8")
 
     def test_the_window_uses_the_interface_font_size_and_colors(self):
         css = self.css()
@@ -453,12 +453,12 @@ class LookTests(TestCase):
             self.assertIn(f"var({token})", css)
 
     def test_the_script_renders_a_small_safe_markup(self):
-        js = (Path(__file__).resolve().parent / "static/mail/mail.js").read_text(encoding="utf-8")
+        js = (Path(__file__).resolve().parent.parent / "static/mail/mail.js").read_text(encoding="utf-8")
         for helper in ("renderBody", "md-strong", "md-quote", "md-list", "md-h"):
             self.assertIn(helper, js)
 
     def test_compose_is_a_real_composer_not_the_old_stub(self):
-        js = (Path(__file__).resolve().parent / "static/mail/mail.js").read_text(encoding="utf-8")
+        js = (Path(__file__).resolve().parent.parent / "static/mail/mail.js").read_text(encoding="utf-8")
         self.assertNotIn("core unreachable", js)
         self.assertIn("nothing to send from this mailbox", js)
 
@@ -1147,7 +1147,7 @@ class AttachmentSaveApiTests(TestCase):
         self.assertEqual(self.client.get(reverse("mail:open", args=[item.pk])).status_code, 404)
 
     def test_the_script_has_a_button_for_each_attachment_kind(self):
-        js = (Path(__file__).resolve().parent / "static/mail/mail.js").read_text(encoding="utf-8")
+        js = (Path(__file__).resolve().parent.parent / "static/mail/mail.js").read_text(encoding="utf-8")
         for word in ("downloadAttachment", "saveAttachment", "openFile", "save to machine", "item.download", "item.save", "item.open"):
             self.assertIn(word, js)
 
@@ -1404,9 +1404,9 @@ class ComposeApiTests(TestCase):
         self.assertEqual(self.client.post(reverse("mail:send", args=[other.pk]), data="{}", content_type="application/json").status_code, 404)
 
     def test_the_script_has_the_typing_machinery(self):
-        js = (Path(__file__).resolve().parent / "static/mail/mail.js").read_text(encoding="utf-8")
+        js = (Path(__file__).resolve().parent.parent / "static/mail/mail.js").read_text(encoding="utf-8")
         for word in ("t-wrong", "t-ghost", "t-done", "typing-input", '"paste"', "paintTyping", "sendComposed", "attempts left"):
             self.assertIn(word, js)
-        css = (Path(__file__).resolve().parent / "static/mail/mail.css").read_text(encoding="utf-8")
+        css = (Path(__file__).resolve().parent.parent / "static/mail/mail.css").read_text(encoding="utf-8")
         for word in (".t-wrong", ".t-ghost", ".t-caret", "var(--status-error)"):
             self.assertIn(word, css)

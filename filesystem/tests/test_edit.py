@@ -1,6 +1,6 @@
 """edt: правка текста файла в слое игрока.
 
-Запуск: python manage.py test filesystem.test_edit
+Запуск: python manage.py test filesystem.tests.test_edit
 """
 import json
 

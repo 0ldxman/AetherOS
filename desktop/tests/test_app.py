@@ -171,7 +171,7 @@ class LockScreenTests(TestCase):
         import re
         from pathlib import Path
 
-        root = Path(__file__).resolve().parent.parent
+        root = Path(__file__).resolve().parent.parent.parent
         for path in (root / "desktop/static/boot/lock.css", root / "static/ui/console.css"):
             css = path.read_text(encoding="utf-8")
             self.assertEqual(re.findall(r"#[0-9a-fA-F]{3,8}\b", css), [], path.name)
@@ -714,7 +714,7 @@ class BootScreenTests(TestCase):
     def test_the_old_engines_are_gone(self):
         from pathlib import Path
 
-        root = Path(__file__).resolve().parent / "static/boot"
+        root = Path(__file__).resolve().parent.parent / "static/boot"
         self.assertFalse((root / "login.js").exists())
         self.assertNotIn("function stageBios", (root / "boot.js").read_text(encoding="utf-8"))
 
@@ -723,7 +723,7 @@ class BootScreenTests(TestCase):
 class LoadingIndicatorTests(TestCase):
     """Круглый спиннер: общий стиль, заслон на окнах рабочего стола, загрузка внутри почты."""
 
-    root = Path(__file__).resolve().parent.parent
+    root = Path(__file__).resolve().parent.parent.parent
 
     def read(self, relative):
         return (self.root / relative).read_text(encoding="utf-8")
@@ -764,7 +764,7 @@ class LoadingIndicatorTests(TestCase):
 class SystemMessageTests(TestCase):
     """Окна ошибок и уведомления: каталог по системе машины, desktopAPI, вики."""
 
-    root = Path(__file__).resolve().parent.parent
+    root = Path(__file__).resolve().parent.parent.parent
 
     def read(self, relative):
         return (self.root / relative).read_text(encoding="utf-8")
@@ -820,7 +820,7 @@ class SystemMessageTests(TestCase):
 class WikiIconTests(TestCase):
     """Значки вики: залитые svg, цвет только из токенов."""
 
-    root = Path(__file__).resolve().parent.parent / "wiki/static/wiki"
+    root = Path(__file__).resolve().parent.parent.parent / "wiki/static/wiki"
 
     def test_every_icon_exists_and_is_a_plain_filled_shape(self):
         import re

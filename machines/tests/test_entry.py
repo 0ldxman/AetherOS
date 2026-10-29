@@ -1,6 +1,6 @@
 """Политика входа: источники, маршрут, окна времени, блокировка после ошибок, режим пароля и ключа, журнал.
 
-Запуск: python manage.py test machines.test_entry
+Запуск: python manage.py test machines.tests.test_entry
 """
 import json
 from datetime import datetime, timedelta

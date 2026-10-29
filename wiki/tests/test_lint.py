@@ -1,6 +1,6 @@
 """Проверка текста записи: структура блоков, ключи, ассеты, ссылки.
 
-Запуск: python manage.py test wiki.test_lint
+Запуск: python manage.py test wiki.tests.test_lint
 """
 
 from django.test import TestCase

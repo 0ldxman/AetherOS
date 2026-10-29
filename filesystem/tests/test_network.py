@@ -1,6 +1,6 @@
 """Сетевые диски: хост, путь, учётка, экспорт, цепочки.
 
-Запуск: python manage.py test filesystem.test_network
+Запуск: python manage.py test filesystem.tests.test_network
 """
 from django.contrib.auth import get_user_model
 from django.test import TestCase

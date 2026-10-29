@@ -1,4 +1,4 @@
-"""Проверка пакета wiki.markup. Запуск из корня проекта: python -m wiki.check_markup"""
+"""Проверка пакета wiki.markup. Запуск из корня проекта: python -m wiki.tests.check_markup"""
 
 from wiki.markup import (
     MASK_CHAR, SpoilerSyntaxError, parse_expr, render, visible_text,

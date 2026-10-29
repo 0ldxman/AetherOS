@@ -1,6 +1,6 @@
 """Вики подключается к хостам: строка volume файла вики называет хост, путь на нём и запись хоста.
 
-Запуск: python manage.py test wiki.test_network
+Запуск: python manage.py test wiki.tests.test_network
 """
 import json
 
@@ -13,7 +13,7 @@ from filesystem.testing import make_app
 from machines.current import SESSION_KEY
 from machines.models import Export, Machine, MachineMount, MachineProfile, Session
 from wiki import views
-from wiki.test_views import call
+from wiki.tests.test_views import call
 from wiki.testing import make_document, make_namespace
 
 

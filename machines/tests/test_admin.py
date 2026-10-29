@@ -1,6 +1,6 @@
 """Админка профилей машин: пароль только хэшем, токены с автогенерацией.
 
-Запуск: python manage.py test machines.test_admin
+Запуск: python manage.py test machines.tests.test_admin
 """
 from datetime import timedelta
 

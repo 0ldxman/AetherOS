@@ -1,6 +1,6 @@
 """Права файлов, привилегии и команды perm и own.
 
-Запуск: python manage.py test filesystem.test_rights
+Запуск: python manage.py test filesystem.tests.test_rights
 """
 import json
 

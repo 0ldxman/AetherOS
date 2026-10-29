@@ -1,6 +1,6 @@
 """Монтирование томов: машина видит в вики только свои тома.
 
-Запуск: python manage.py test wiki.test_mounts
+Запуск: python manage.py test wiki.tests.test_mounts
 """
 
 import json
@@ -11,7 +11,7 @@ from filesystem.models import Volume
 from filesystem.testing import wiki_sections
 from machines.models import Machine, MachineMount
 from wiki import views
-from wiki.test_views import call
+from wiki.tests.test_views import call
 from wiki.testing import make_document, make_namespace
 
 

@@ -1,6 +1,6 @@
 """Сводка автора: связи между записями, неиспользуемые ассеты и ключи.
 
-Запуск: python manage.py test wiki.test_dashboard
+Запуск: python manage.py test wiki.tests.test_dashboard
 """
 
 from django.contrib.auth import get_user_model

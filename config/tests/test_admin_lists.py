@@ -1,6 +1,6 @@
 """Админки машин, файлов, карты, ассетов и пользователей: названия и списки.
 
-Запуск: python manage.py test config.test_admin_lists
+Запуск: python manage.py test config.tests.test_admin_lists
 """
 from datetime import date
 

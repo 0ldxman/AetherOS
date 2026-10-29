@@ -1,6 +1,6 @@
 """Где используется ключ: вики, машины, файлы.
 
-Запуск: python manage.py test secure.test_usage
+Запуск: python manage.py test secure.tests.test_usage
 """
 from django.contrib.auth import get_user_model
 from django.test import TestCase, override_settings

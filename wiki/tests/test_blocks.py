@@ -165,7 +165,7 @@ class BlocksTests(TestCase):
         import re
         from pathlib import Path
 
-        root = Path(__file__).resolve().parents[1]
+        root = Path(__file__).resolve().parents[2]
         js = (root / "map/static/map.js").read_text(encoding="utf-8")
         css = (root / "wiki/static/wiki/blocks.css").read_text(encoding="utf-8")
         for theme, selector in (
