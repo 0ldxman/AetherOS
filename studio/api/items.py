@@ -5,7 +5,7 @@
 """
 from datetime import date, datetime
 
-from django.db.models import Q
+from django.db.models import Count, Q
 from django.shortcuts import get_object_or_404
 from ninja import Router, Schema
 
@@ -73,11 +73,80 @@ class Conflict(Schema):
     version: str
 
 
-class Found(Schema):
+class LibraryRow(Schema):
     id: int
     slug: str
     name: str
     format: str
+    kind: str                 # text | asset | link | scene | message | empty
+    size: int | None
+    places: int
+    archives: int
+    layers: bool
+    access: bool
+    updated_at: datetime
+    updated_by: str | None
+
+
+class Placed(Schema):
+    placement: int
+    volume: int
+    parent: int | None        # папка в томе (для перехода)
+    volume_name: str
+    path: str
+    owner: str
+    group: str
+    mode: str
+    hidden: bool
+    own_access: bool          # у места своё условие (или снятое) вместо объектного
+    own_state: bool           # у места свои слои (или снятые) вместо объектных
+
+
+class InArchive(Schema):
+    archive: int
+    name: str
+    path: str
+
+
+class Mention(Schema):
+    kind: str                 # письмо | сеть | вложен как ключ | подпись
+    label: str
+
+
+class Players(Schema):
+    copies: int               # файлов игроков, которые ссылаются на объект (копии, перенесённое)
+    edits: int                # из них с правкой текста игроком
+    users: list[str]
+
+
+class Whereabouts(Schema):
+    placements: list[Placed]
+    archives: list[InArchive]
+    members: list[InArchive]  # если объект сам архив
+    mentions: list[Mention]
+    players: Players
+    holders: list[Mention]    # что не даст удалить объект
+
+
+class PutIn(Schema):
+    volume: int
+    parent: int | None = None
+    name: str = ""
+
+
+class DetachIn(Schema):
+    placement: int
+
+
+class RevisionOut(Schema):
+    id: int
+    saved_at: datetime
+    saved_by: str | None
+    name: str
+    format: str
+    body: str
+    meta: str
+    changes: dict             # поле -> [было, стало] или [[вид, строка], ...] (filesystem.history.compare с текущим)
 
 
 class Revision(Schema):
@@ -142,12 +211,71 @@ def _item(item_id):
     return get_object_or_404(Item.objects.select_related("asset", "scene", "message", "updated_by"), pk=item_id)
 
 
-@router.get("", response=list[Found])
-def search(request, q: str = ""):
-    found = Item.objects.order_by("name")
-    if q.strip():
-        found = found.filter(Q(name__icontains=q.strip()) | Q(slug__icontains=q.strip()))
-    return [Found(id=i.pk, slug=i.slug, name=i.name, format=i.format) for i in found[:30]]
+KINDS = {
+    "text": Q(asset__isnull=True, url="", scene__isnull=True, message__isnull=True) & ~Q(body=""),
+    "asset": Q(asset__isnull=False),
+    "link": ~Q(url=""),
+    "scene": Q(scene__isnull=False),
+    "message": Q(message__isnull=False),
+    "empty": Q(asset__isnull=True, url="", scene__isnull=True, message__isnull=True, body=""),
+}
+
+
+@router.get("", response=list[LibraryRow])
+def library(request, q: str = "", format: str = "", kind: str = "", only: str = "", limit: int = 200):
+    """Библиотека объектов. only: orphans (нигде не лежит), shared (лежит в нескольких местах), layers (со слоями),
+    access (с условием доступа), keys (объекты-ключи), mine (правил я), recent (правили за неделю)."""
+    from datetime import timedelta
+
+    from django.utils import timezone
+
+    from filesystem.models import KEY_FORMAT
+
+    found = Item.objects.select_related("updated_by").annotate(
+        placement_count=Count("placements", distinct=True), archive_count=Count("in_archives", distinct=True),
+    )
+    words = q.strip()
+    if words:
+        found = found.filter(Q(name__icontains=words) | Q(slug__icontains=words) | Q(body__icontains=words))
+    if format:
+        found = found.filter(format=format)
+    if kind in KINDS:
+        found = found.filter(KINDS[kind])
+    if only == "orphans":
+        found = found.filter(placement_count=0, archive_count=0)
+    elif only == "shared":
+        found = found.filter(placement_count__gt=1)
+    elif only == "layers":
+        found = found.exclude(state="")
+    elif only == "access":
+        found = found.exclude(access={})
+    elif only == "keys":
+        found = found.filter(format=KEY_FORMAT)
+    elif only == "mine":
+        found = found.filter(updated_by=request.user)
+    elif only == "recent":
+        found = found.filter(updated_at__gte=timezone.now() - timedelta(days=7))
+    rows = found.order_by("-updated_at")[: max(1, min(limit, 500))]
+    return [
+        LibraryRow(
+            id=i.pk, slug=i.slug, name=i.name, format=i.format, kind=_kind(i), size=i.size if i.size is not None else (len(i.body.encode()) or None),
+            places=i.placement_count, archives=i.archive_count, layers=bool(i.state.strip()), access=bool(i.access),
+            updated_at=i.updated_at, updated_by=i.updated_by.get_username() if i.updated_by_id else None,
+        )
+        for i in rows
+    ]
+
+
+def _kind(item):
+    if item.asset_id:
+        return "asset"
+    if item.url:
+        return "link"
+    if item.scene_id:
+        return "scene"
+    if item.message_id:
+        return "message"
+    return "text" if item.body else "empty"
 
 
 @router.get("/{int:item_id}", response=ItemOut)
@@ -199,3 +327,72 @@ def revisions(request, item_id: int):
 def preview(request, body: PreviewIn):
     keys = keys_for_mode(body.keys.mode, body.keys.slugs[:MAX_KEYS])
     return render_preview(body.format, body.title[:MAX_TITLE_LEN], body.body, body.meta, keys)
+
+
+@router.get("/{int:item_id}/where", response=Whereabouts)
+def where(request, item_id: int):
+    """Где объект лежит и кто на него ссылается: тома, архивы, письма, сеть, файлы игроков."""
+    from filesystem.manager.filemanager import holders
+
+    item = _item(item_id)
+    placements = item.placements.select_related("volume", "parent")
+    mentions = [Mention(kind="письмо", label=str(a.message)) for a in item.mail_attachments.select_related("message")]
+    mentions += [Mention(kind="сеть", label=f"{n.resource.address}{n.path}") for n in item.net_nodes.select_related("resource")]
+    files = item.player_files.filter(deleted_at__isnull=True).select_related("user")
+    return Whereabouts(
+        placements=[
+            Placed(placement=p.pk, volume=p.volume_id, parent=p.parent_id, volume_name=p.volume.name or p.volume.slug, path=p.path(), owner=p.owner, group=p.group,
+                   mode=p.mode, hidden=p.hidden, own_access=p.access_mode != "inherit", own_state=p.state_mode != "inherit")
+            for p in placements
+        ],
+        archives=[InArchive(archive=m.archive_id, name=m.archive.name, path=m.path) for m in item.in_archives.select_related("archive")],
+        members=[InArchive(archive=m.item_id, name=m.item.name, path=m.path) for m in item.members.select_related("item")],
+        mentions=mentions,
+        players=Players(copies=files.count(), edits=files.exclude(content=None).count(),
+                        users=sorted({f.user.get_username() for f in files})),
+        holders=[Mention(kind=kind, label=label) for kind, label in holders(item)],
+    )
+
+
+@router.post("/{int:item_id}/placements", response=Whereabouts)
+def put(request, item_id: int, body: PutIn):
+    """Положить объект ещё в одно место (тот же объект, не копия)."""
+    from filesystem.manager import filemanager
+    from filesystem.models import Volume
+
+    filemanager.link(get_object_or_404(Volume, pk=body.volume), body.parent, item_id, body.name)
+    return where(request, item_id)
+
+
+@router.post("/{int:item_id}/detach")
+def detach(request, item_id: int, body: DetachIn):
+    """Своя копия объекта для одного места: дальше они правятся отдельно. Ответ: новый объект."""
+    from filesystem.manager.filemanager import detach as split
+    from filesystem.models import Placement
+
+    placement = get_object_or_404(Placement, pk=body.placement, item_id=item_id)
+    return {"id": split(placement, request.user).pk}
+
+
+@router.delete("/{int:item_id}")
+def delete(request, item_id: int):
+    from filesystem.manager.filemanager import delete_item
+
+    return {"placements": delete_item(_item(item_id))}
+
+
+@router.get("/{int:item_id}/revisions/{int:revision_id}", response=RevisionOut)
+def revision(request, item_id: int, revision_id: int):
+    found = get_object_or_404(ItemRevision.objects.select_related("saved_by"), pk=revision_id, item_id=item_id)
+    changes = history.compare(found, _item(item_id))
+    return RevisionOut(
+        id=found.pk, saved_at=found.saved_at, saved_by=found.saved_by.get_username() if found.saved_by_id else None, name=found.name,
+        format=found.format, body=found.body, meta=found.meta, changes={name: list(value) for name, value in changes.items()},
+    )
+
+
+@router.post("/{int:item_id}/revisions/{int:revision_id}/restore", response=ItemOut)
+def restore(request, item_id: int, revision_id: int):
+    found = get_object_or_404(ItemRevision, pk=revision_id, item_id=item_id)
+    history.restore(_item(item_id), found, request.user)
+    return _out(_item(item_id), request.user)

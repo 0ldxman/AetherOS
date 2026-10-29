@@ -295,3 +295,48 @@ def copy_volume(volume, slug, name="", label=""):
             break                                      # петля в дереве: оставшееся без родителя не копируется
         pending = left
     return copy
+
+
+ITEM_FIELDS = ("name", "format", "body", "asset", "url", "scene", "message", "access", "state", "size", "meta",
+               "world_created_at", "world_updated_at", "world_creator")
+
+
+@transaction.atomic
+def detach(placement, user=None):
+    """Своя копия объекта для одного места: новый объект с тем же содержимым, ключами, подписями и членами архива, размещение
+    переходит на него. Правки копии больше не трогают остальные места (и наоборот)."""
+    original = placement.item
+    if original is None:
+        raise FileManagerError("Здесь лежит папка, а не объект.")
+    copy = Item.objects.create(
+        slug=unique_slug(original.slug), created_by=user, updated_by=user, **{field: getattr(original, field) for field in ITEM_FIELDS},
+    )
+    for link in original.keys.all():
+        copy.keys.create(key=link.key)
+    for link in original.signatures.all():
+        copy.signatures.create(key=link.key, valid=link.valid, date=link.date)
+    for member in original.members.all():
+        copy.members.create(path=member.path, item=member.item)
+    placement.item = copy
+    placement.save(update_fields=["item"])
+    return copy
+
+
+def holders(item):
+    """Что не даёт удалить объект: архивы, где он член, и объекты, куда он вложен ключом или подписью. [(вид, название)]."""
+    found = [("архив", f"{member.archive.name} → {member.path}") for member in item.in_archives.select_related("archive")]
+    found += [("вложен как ключ", link.item.name) for link in item.embedded_in.select_related("item")]
+    found += [("подпись", link.item.name) for link in item.signed.select_related("item")]
+    return found
+
+
+@transaction.atomic
+def delete_item(item):
+    """Удалить объект вместе с его размещениями. Объект, который держат архивы, ключи или подписи, не удаляется."""
+    held = holders(item)
+    if held:
+        raise FileManagerError("Объект нужен: " + "; ".join(f"{kind} {name}" for kind, name in held) + ".")
+    count = item.placements.count()
+    item.placements.all().delete()
+    item.delete()
+    return count

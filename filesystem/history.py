@@ -73,6 +73,16 @@ def compare(old, new):
     return result
 
 
+def restore(item, revision, user):
+    """Вернуть объекту текст версии (название, формат, тело, врезку). Новая версия появится сама (on_item_saved)."""
+    for name in SNAPSHOT_FIELDS:
+        setattr(item, name, getattr(revision, name))
+    item.updated_by = user
+    item.full_clean(exclude=["created_by", "updated_by"])
+    item.save()
+    return item
+
+
 # ---- блокировка -----------------------------------------------------------------------------------------------------
 
 def is_active(lock, now):
