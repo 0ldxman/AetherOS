@@ -514,8 +514,8 @@
   },
   "/studio/api/items": {
    "get": {
-    "operationId": "studio_api_items_search",
-    "summary": "Search",
+    "operationId": "studio_api_items_library",
+    "summary": "Library",
     "parameters": [
      {
       "in": "query",
@@ -524,6 +524,46 @@
        "default": "",
        "title": "Q",
        "type": "string"
+      },
+      "required": false
+     },
+     {
+      "in": "query",
+      "name": "format",
+      "schema": {
+       "default": "",
+       "title": "Format",
+       "type": "string"
+      },
+      "required": false
+     },
+     {
+      "in": "query",
+      "name": "kind",
+      "schema": {
+       "default": "",
+       "title": "Kind",
+       "type": "string"
+      },
+      "required": false
+     },
+     {
+      "in": "query",
+      "name": "only",
+      "schema": {
+       "default": "",
+       "title": "Only",
+       "type": "string"
+      },
+      "required": false
+     },
+     {
+      "in": "query",
+      "name": "limit",
+      "schema": {
+       "default": 200,
+       "title": "Limit",
+       "type": "integer"
       },
       "required": false
      }
@@ -535,7 +575,7 @@
        "application/json": {
         "schema": {
          "items": {
-          "$ref": "#/components/schemas/Found"
+          "$ref": "#/components/schemas/LibraryRow"
          },
          "title": "Response",
          "type": "array"
@@ -544,6 +584,7 @@
       }
      }
     },
+    "description": "Библиотека объектов. only: orphans (нигде не лежит), shared (лежит в нескольких местах), layers (со слоями),\naccess (с условием доступа), keys (объекты-ключи), mine (правил я), recent (правили за неделю).",
     "tags": [
      "items"
     ],
@@ -639,6 +680,34 @@
      },
      "required": true
     },
+    "security": [
+     {
+      "SessionAuthIsStaff": []
+     }
+    ]
+   },
+   "delete": {
+    "operationId": "studio_api_items_delete",
+    "summary": "Delete",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "item_id",
+      "schema": {
+       "title": "Item Id",
+       "type": "integer"
+      },
+      "required": true
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "OK"
+     }
+    },
+    "tags": [
+     "items"
+    ],
     "security": [
      {
       "SessionAuthIsStaff": []
@@ -795,6 +864,225 @@
      },
      "required": true
     },
+    "security": [
+     {
+      "SessionAuthIsStaff": []
+     }
+    ]
+   }
+  },
+  "/studio/api/items/{item_id}/where": {
+   "get": {
+    "operationId": "studio_api_items_where",
+    "summary": "Where",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "item_id",
+      "schema": {
+       "title": "Item Id",
+       "type": "integer"
+      },
+      "required": true
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Whereabouts"
+        }
+       }
+      }
+     }
+    },
+    "description": "Где объект лежит и кто на него ссылается: тома, архивы, письма, сеть, файлы игроков.",
+    "tags": [
+     "items"
+    ],
+    "security": [
+     {
+      "SessionAuthIsStaff": []
+     }
+    ]
+   }
+  },
+  "/studio/api/items/{item_id}/placements": {
+   "post": {
+    "operationId": "studio_api_items_put",
+    "summary": "Put",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "item_id",
+      "schema": {
+       "title": "Item Id",
+       "type": "integer"
+      },
+      "required": true
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Whereabouts"
+        }
+       }
+      }
+     }
+    },
+    "description": "Положить объект ещё в одно место (тот же объект, не копия).",
+    "tags": [
+     "items"
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/PutIn"
+       }
+      }
+     },
+     "required": true
+    },
+    "security": [
+     {
+      "SessionAuthIsStaff": []
+     }
+    ]
+   }
+  },
+  "/studio/api/items/{item_id}/detach": {
+   "post": {
+    "operationId": "studio_api_items_detach",
+    "summary": "Detach",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "item_id",
+      "schema": {
+       "title": "Item Id",
+       "type": "integer"
+      },
+      "required": true
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "OK"
+     }
+    },
+    "description": "Своя копия объекта для одного места: дальше они правятся отдельно. Ответ: новый объект.",
+    "tags": [
+     "items"
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/DetachIn"
+       }
+      }
+     },
+     "required": true
+    },
+    "security": [
+     {
+      "SessionAuthIsStaff": []
+     }
+    ]
+   }
+  },
+  "/studio/api/items/{item_id}/revisions/{revision_id}": {
+   "get": {
+    "operationId": "studio_api_items_revision",
+    "summary": "Revision",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "item_id",
+      "schema": {
+       "title": "Item Id",
+       "type": "integer"
+      },
+      "required": true
+     },
+     {
+      "in": "path",
+      "name": "revision_id",
+      "schema": {
+       "title": "Revision Id",
+       "type": "integer"
+      },
+      "required": true
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/RevisionOut"
+        }
+       }
+      }
+     }
+    },
+    "tags": [
+     "items"
+    ],
+    "security": [
+     {
+      "SessionAuthIsStaff": []
+     }
+    ]
+   }
+  },
+  "/studio/api/items/{item_id}/revisions/{revision_id}/restore": {
+   "post": {
+    "operationId": "studio_api_items_restore",
+    "summary": "Restore",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "item_id",
+      "schema": {
+       "title": "Item Id",
+       "type": "integer"
+      },
+      "required": true
+     },
+     {
+      "in": "path",
+      "name": "revision_id",
+      "schema": {
+       "title": "Revision Id",
+       "type": "integer"
+      },
+      "required": true
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ItemOut"
+        }
+       }
+      }
+     }
+    },
+    "tags": [
+     "items"
+    ],
     "security": [
      {
       "SessionAuthIsStaff": []
@@ -3057,7 +3345,7 @@
     "title": "Selection",
     "type": "object"
    },
-   "Found": {
+   "LibraryRow": {
     "properties": {
      "id": {
       "title": "Id",
@@ -3074,15 +3362,70 @@
      "format": {
       "title": "Format",
       "type": "string"
+     },
+     "kind": {
+      "title": "Kind",
+      "type": "string"
+     },
+     "size": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Size"
+     },
+     "places": {
+      "title": "Places",
+      "type": "integer"
+     },
+     "archives": {
+      "title": "Archives",
+      "type": "integer"
+     },
+     "layers": {
+      "title": "Layers",
+      "type": "boolean"
+     },
+     "access": {
+      "title": "Access",
+      "type": "boolean"
+     },
+     "updated_at": {
+      "format": "date-time",
+      "title": "Updated At",
+      "type": "string"
+     },
+     "updated_by": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Updated By"
      }
     },
     "required": [
      "id",
      "slug",
      "name",
-     "format"
+     "format",
+     "kind",
+     "size",
+     "places",
+     "archives",
+     "layers",
+     "access",
+     "updated_at",
+     "updated_by"
     ],
-    "title": "Found",
+    "title": "LibraryRow",
     "type": "object"
    },
    "Holder": {
@@ -3550,6 +3893,299 @@
      }
     },
     "title": "PreviewIn",
+    "type": "object"
+   },
+   "InArchive": {
+    "properties": {
+     "archive": {
+      "title": "Archive",
+      "type": "integer"
+     },
+     "name": {
+      "title": "Name",
+      "type": "string"
+     },
+     "path": {
+      "title": "Path",
+      "type": "string"
+     }
+    },
+    "required": [
+     "archive",
+     "name",
+     "path"
+    ],
+    "title": "InArchive",
+    "type": "object"
+   },
+   "Mention": {
+    "properties": {
+     "kind": {
+      "title": "Kind",
+      "type": "string"
+     },
+     "label": {
+      "title": "Label",
+      "type": "string"
+     }
+    },
+    "required": [
+     "kind",
+     "label"
+    ],
+    "title": "Mention",
+    "type": "object"
+   },
+   "Placed": {
+    "properties": {
+     "placement": {
+      "title": "Placement",
+      "type": "integer"
+     },
+     "volume": {
+      "title": "Volume",
+      "type": "integer"
+     },
+     "parent": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Parent"
+     },
+     "volume_name": {
+      "title": "Volume Name",
+      "type": "string"
+     },
+     "volume_slug": {
+      "title": "Volume Slug",
+      "type": "string"
+     },
+     "path": {
+      "title": "Path",
+      "type": "string"
+     },
+     "owner": {
+      "title": "Owner",
+      "type": "string"
+     },
+     "group": {
+      "title": "Group",
+      "type": "string"
+     },
+     "mode": {
+      "title": "Mode",
+      "type": "string"
+     },
+     "hidden": {
+      "title": "Hidden",
+      "type": "boolean"
+     },
+     "own_access": {
+      "title": "Own Access",
+      "type": "boolean"
+     },
+     "own_state": {
+      "title": "Own State",
+      "type": "boolean"
+     }
+    },
+    "required": [
+     "placement",
+     "volume",
+     "parent",
+     "volume_name",
+     "volume_slug",
+     "path",
+     "owner",
+     "group",
+     "mode",
+     "hidden",
+     "own_access",
+     "own_state"
+    ],
+    "title": "Placed",
+    "type": "object"
+   },
+   "Players": {
+    "properties": {
+     "copies": {
+      "title": "Copies",
+      "type": "integer"
+     },
+     "edits": {
+      "title": "Edits",
+      "type": "integer"
+     },
+     "users": {
+      "items": {
+       "type": "string"
+      },
+      "title": "Users",
+      "type": "array"
+     }
+    },
+    "required": [
+     "copies",
+     "edits",
+     "users"
+    ],
+    "title": "Players",
+    "type": "object"
+   },
+   "Whereabouts": {
+    "properties": {
+     "placements": {
+      "items": {
+       "$ref": "#/components/schemas/Placed"
+      },
+      "title": "Placements",
+      "type": "array"
+     },
+     "archives": {
+      "items": {
+       "$ref": "#/components/schemas/InArchive"
+      },
+      "title": "Archives",
+      "type": "array"
+     },
+     "members": {
+      "items": {
+       "$ref": "#/components/schemas/InArchive"
+      },
+      "title": "Members",
+      "type": "array"
+     },
+     "mentions": {
+      "items": {
+       "$ref": "#/components/schemas/Mention"
+      },
+      "title": "Mentions",
+      "type": "array"
+     },
+     "players": {
+      "$ref": "#/components/schemas/Players"
+     },
+     "holders": {
+      "items": {
+       "$ref": "#/components/schemas/Mention"
+      },
+      "title": "Holders",
+      "type": "array"
+     }
+    },
+    "required": [
+     "placements",
+     "archives",
+     "members",
+     "mentions",
+     "players",
+     "holders"
+    ],
+    "title": "Whereabouts",
+    "type": "object"
+   },
+   "PutIn": {
+    "properties": {
+     "volume": {
+      "title": "Volume",
+      "type": "integer"
+     },
+     "parent": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Parent"
+     },
+     "name": {
+      "default": "",
+      "title": "Name",
+      "type": "string"
+     }
+    },
+    "required": [
+     "volume"
+    ],
+    "title": "PutIn",
+    "type": "object"
+   },
+   "DetachIn": {
+    "properties": {
+     "placement": {
+      "title": "Placement",
+      "type": "integer"
+     }
+    },
+    "required": [
+     "placement"
+    ],
+    "title": "DetachIn",
+    "type": "object"
+   },
+   "RevisionOut": {
+    "properties": {
+     "id": {
+      "title": "Id",
+      "type": "integer"
+     },
+     "saved_at": {
+      "format": "date-time",
+      "title": "Saved At",
+      "type": "string"
+     },
+     "saved_by": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Saved By"
+     },
+     "name": {
+      "title": "Name",
+      "type": "string"
+     },
+     "format": {
+      "title": "Format",
+      "type": "string"
+     },
+     "body": {
+      "title": "Body",
+      "type": "string"
+     },
+     "meta": {
+      "title": "Meta",
+      "type": "string"
+     },
+     "changes": {
+      "additionalProperties": true,
+      "title": "Changes",
+      "type": "object"
+     }
+    },
+    "required": [
+     "id",
+     "saved_at",
+     "saved_by",
+     "name",
+     "format",
+     "body",
+     "meta",
+     "changes"
+    ],
+    "title": "RevisionOut",
     "type": "object"
    },
    "MachineRow": {

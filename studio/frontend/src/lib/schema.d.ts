@@ -235,8 +235,12 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Search */
-        get: operations["studio_api_items_search"];
+        /**
+         * Library
+         * @description Библиотека объектов. only: orphans (нигде не лежит), shared (лежит в нескольких местах), layers (со слоями),
+         *     access (с условием доступа), keys (объекты-ключи), mine (правил я), recent (правили за неделю).
+         */
+        get: operations["studio_api_items_library"];
         put?: never;
         post?: never;
         delete?: never;
@@ -257,7 +261,8 @@ export interface paths {
         /** Save */
         put: operations["studio_api_items_save"];
         post?: never;
-        delete?: never;
+        /** Delete */
+        delete: operations["studio_api_items_delete"];
         options?: never;
         head?: never;
         patch?: never;
@@ -312,6 +317,100 @@ export interface paths {
         put?: never;
         /** Preview */
         post: operations["studio_api_items_preview"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/studio/api/items/{item_id}/where": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Where
+         * @description Где объект лежит и кто на него ссылается: тома, архивы, письма, сеть, файлы игроков.
+         */
+        get: operations["studio_api_items_where"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/studio/api/items/{item_id}/placements": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Put
+         * @description Положить объект ещё в одно место (тот же объект, не копия).
+         */
+        post: operations["studio_api_items_put"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/studio/api/items/{item_id}/detach": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Detach
+         * @description Своя копия объекта для одного места: дальше они правятся отдельно. Ответ: новый объект.
+         */
+        post: operations["studio_api_items_detach"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/studio/api/items/{item_id}/revisions/{revision_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Revision */
+        get: operations["studio_api_items_revision"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/studio/api/items/{item_id}/revisions/{revision_id}/restore": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Restore */
+        post: operations["studio_api_items_restore"];
         delete?: never;
         options?: never;
         head?: never;
@@ -982,8 +1081,8 @@ export interface components {
             /** Parent */
             parent?: number | null;
         };
-        /** Found */
-        Found: {
+        /** LibraryRow */
+        LibraryRow: {
             /** Id */
             id: number;
             /** Slug */
@@ -992,6 +1091,25 @@ export interface components {
             name: string;
             /** Format */
             format: string;
+            /** Kind */
+            kind: string;
+            /** Size */
+            size: number | null;
+            /** Places */
+            places: number;
+            /** Archives */
+            archives: number;
+            /** Layers */
+            layers: boolean;
+            /** Access */
+            access: boolean;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+            /** Updated By */
+            updated_by: string | null;
         };
         /** Holder */
         Holder: {
@@ -1195,6 +1313,113 @@ export interface components {
              *     }
              */
             keys: components["schemas"]["KeysSpec"];
+        };
+        /** InArchive */
+        InArchive: {
+            /** Archive */
+            archive: number;
+            /** Name */
+            name: string;
+            /** Path */
+            path: string;
+        };
+        /** Mention */
+        Mention: {
+            /** Kind */
+            kind: string;
+            /** Label */
+            label: string;
+        };
+        /** Placed */
+        Placed: {
+            /** Placement */
+            placement: number;
+            /** Volume */
+            volume: number;
+            /** Parent */
+            parent: number | null;
+            /** Volume Name */
+            volume_name: string;
+            /** Volume Slug */
+            volume_slug: string;
+            /** Path */
+            path: string;
+            /** Owner */
+            owner: string;
+            /** Group */
+            group: string;
+            /** Mode */
+            mode: string;
+            /** Hidden */
+            hidden: boolean;
+            /** Own Access */
+            own_access: boolean;
+            /** Own State */
+            own_state: boolean;
+        };
+        /** Players */
+        Players: {
+            /** Copies */
+            copies: number;
+            /** Edits */
+            edits: number;
+            /** Users */
+            users: string[];
+        };
+        /** Whereabouts */
+        Whereabouts: {
+            /** Placements */
+            placements: components["schemas"]["Placed"][];
+            /** Archives */
+            archives: components["schemas"]["InArchive"][];
+            /** Members */
+            members: components["schemas"]["InArchive"][];
+            /** Mentions */
+            mentions: components["schemas"]["Mention"][];
+            players: components["schemas"]["Players"];
+            /** Holders */
+            holders: components["schemas"]["Mention"][];
+        };
+        /** PutIn */
+        PutIn: {
+            /** Volume */
+            volume: number;
+            /** Parent */
+            parent?: number | null;
+            /**
+             * Name
+             * @default
+             */
+            name: string;
+        };
+        /** DetachIn */
+        DetachIn: {
+            /** Placement */
+            placement: number;
+        };
+        /** RevisionOut */
+        RevisionOut: {
+            /** Id */
+            id: number;
+            /**
+             * Saved At
+             * Format: date-time
+             */
+            saved_at: string;
+            /** Saved By */
+            saved_by: string | null;
+            /** Name */
+            name: string;
+            /** Format */
+            format: string;
+            /** Body */
+            body: string;
+            /** Meta */
+            meta: string;
+            /** Changes */
+            changes: {
+                [key: string]: unknown;
+            };
         };
         /** MachineRow */
         MachineRow: {
@@ -2264,10 +2489,14 @@ export interface operations {
             };
         };
     };
-    studio_api_items_search: {
+    studio_api_items_library: {
         parameters: {
             query?: {
                 q?: string;
+                format?: string;
+                kind?: string;
+                only?: string;
+                limit?: number;
             };
             header?: never;
             path?: never;
@@ -2281,7 +2510,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["Found"][];
+                    "application/json": components["schemas"]["LibraryRow"][];
                 };
             };
         };
@@ -2340,6 +2569,26 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["Conflict"];
                 };
+            };
+        };
+    };
+    studio_api_items_delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                item_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
         };
     };
@@ -2438,6 +2687,124 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["PreviewOut"];
+                };
+            };
+        };
+    };
+    studio_api_items_where: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                item_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Whereabouts"];
+                };
+            };
+        };
+    };
+    studio_api_items_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                item_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PutIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Whereabouts"];
+                };
+            };
+        };
+    };
+    studio_api_items_detach: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                item_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DetachIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    studio_api_items_revision: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                item_id: number;
+                revision_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RevisionOut"];
+                };
+            };
+        };
+    };
+    studio_api_items_restore: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                item_id: number;
+                revision_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ItemOut"];
                 };
             };
         };

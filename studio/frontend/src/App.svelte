@@ -6,6 +6,7 @@
   import Volumes from "./routes/Volumes.svelte";
   import Volume from "./routes/Volume.svelte";
   import Item from "./routes/Item.svelte";
+  import Items from "./routes/Items.svelte";
   import Machines from "./routes/Machines.svelte";
   import Machine from "./routes/Machine.svelte";
   import Policies from "./routes/Policies.svelte";
@@ -21,7 +22,8 @@
   type Page =
     | { name: "volumes" }
     | { name: "volume"; id: number; folder: number | null }
-    | { name: "item"; id: number }
+    | { name: "item"; id: number; view: string }
+    | { name: "items" }
     | { name: "machines" }
     | { name: "machine"; id: number; tab: string; sub: number | null }
     | { name: "policies"; id: number | null }
@@ -31,7 +33,9 @@
     let found;
     if ((found = match("/volumes/:id/:folder", route.path))) return { name: "volume", id: +found.id, folder: +found.folder || null };
     if ((found = match("/volumes/:id", route.path))) return { name: "volume", id: +found.id, folder: null };
-    if ((found = match("/items/:id", route.path))) return { name: "item", id: +found.id };
+    if ((found = match("/items/:id/:view", route.path))) return { name: "item", id: +found.id, view: found.view };
+    if ((found = match("/items/:id", route.path))) return { name: "item", id: +found.id, view: "content" };
+    if (match("/items", route.path)) return { name: "items" };
     if ((found = match("/machines/:id/:tab/:sub", route.path))) return { name: "machine", id: +found.id, tab: found.tab, sub: +found.sub || null };
     if ((found = match("/machines/:id/:tab", route.path))) return { name: "machine", id: +found.id, tab: found.tab, sub: null };
     if ((found = match("/machines/:id", route.path))) return { name: "machine", id: +found.id, tab: "overview", sub: null };
@@ -44,7 +48,8 @@
   });
 
   const NAV = [
-    { href: "#/volumes", label: "Тома и файлы", section: ["volumes", "volume", "item"] },
+    { href: "#/volumes", label: "Тома и файлы", section: ["volumes", "volume"] },
+    { href: "#/items", label: "Объекты", section: ["items", "item"] },
     { href: "#/machines", label: "Машины", section: ["machines", "machine"] },
     { href: "#/policies", label: "Политики входа", section: ["policies"] },
     { href: "#/systems", label: "Типы систем", section: ["systems"] },
@@ -75,7 +80,9 @@
     {#if page.name === "volume"}
       {#key page.id}<Volume id={page.id} folder={page.folder} />{/key}
     {:else if page.name === "item"}
-      {#key page.id}<Item id={page.id} />{/key}
+      {#key page.id}<Item id={page.id} view={page.view} />{/key}
+    {:else if page.name === "items"}
+      <Items />
     {:else if page.name === "systems"}
       {#key page.code}<Systems code={page.code} />{/key}
     {:else if page.name === "policies"}

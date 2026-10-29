@@ -4,10 +4,13 @@
   import CodeEditor from "../lib/CodeEditor.svelte";
   import { go } from "../lib/router.svelte";
   import { toast } from "../lib/toast.svelte";
+  import ItemWhere from "./item/ItemWhere.svelte";
+  import ItemHistory from "./item/ItemHistory.svelte";
 
   type Item = Schemas["ItemOut"];
 
-  let { id }: { id: number } = $props();
+  let { id, view = "content" }: { id: number; view?: string } = $props();
+
 
   let item = $state<Item | null>(null);
   let draft = $state({ name: "", format: "", body: "", meta: "", url: "", world_creator: "",
@@ -104,8 +107,7 @@
   });
 
   function back() {
-    const where = item?.placements[0];
-    go(where ? `/volumes/${where.volume}` : "/volumes");
+    go("/items");
   }
 
   function when(stamp: string) {
@@ -142,6 +144,17 @@
       <div class="banner warn">Сейчас этот объект правит <b>{holder.user}</b> (с {when(holder.since)}). Сохранить можно, но правки могут разойтись.</div>
     {/if}
 
+    <nav class="pagetabs">
+      <a class:on={view === "content"} href="#/items/{id}">Содержимое</a>
+      <a class:on={view === "where"} href="#/items/{id}/where">Где лежит <span class="count">{item.placements.length}</span></a>
+      <a class:on={view === "history"} href="#/items/{id}/history">История</a>
+    </nav>
+
+    {#if view === "where"}
+      <ItemWhere {item} />
+    {:else if view === "history"}
+      <ItemHistory {item} {dirty} onrestore={load} />
+    {:else}
     <div class="split">
       <section class="pane">
         <nav class="tabs">
@@ -210,6 +223,7 @@
         {/if}
       </section>
     </div>
+    {/if}
   </div>
 {/if}
 
@@ -231,6 +245,11 @@
   .banner.danger { background: var(--danger-soft); border: 1px solid rgba(255, 122, 122, 0.3); }
   .banner.danger span { flex: 1; }
   .banner.warn { background: rgba(242, 198, 109, 0.1); border: 1px solid rgba(242, 198, 109, 0.3); }
+  .pagetabs { display: flex; gap: 2px; padding: 0 16px; border-bottom: 1px solid var(--line-soft); }
+  .pagetabs a { display: flex; gap: 6px; align-items: center; padding: 8px 12px; color: var(--muted); border-bottom: 2px solid transparent; margin-bottom: -1px; }
+  .pagetabs a:hover { color: var(--text); text-decoration: none; }
+  .pagetabs a.on { color: var(--text); border-bottom-color: var(--accent); }
+  .count { padding: 0 6px; border-radius: 999px; background: var(--raise); font-size: 11px; color: var(--muted); }
   .split { flex: 1; min-height: 0; display: grid; grid-template-columns: 1fr 1fr; gap: 12px; padding: 12px 16px 16px; }
   .pane { display: flex; flex-direction: column; min-height: 0; border: 1px solid var(--line-soft); border-radius: var(--radius); overflow: hidden; background: var(--panel); }
   .tabs { display: flex; align-items: center; gap: 2px; padding: 6px; border-bottom: 1px solid var(--line-soft); }

@@ -93,6 +93,7 @@ class Placed(Schema):
     volume: int
     parent: int | None        # папка в томе (для перехода)
     volume_name: str
+    volume_slug: str
     path: str
     owner: str
     group: str
@@ -341,7 +342,7 @@ def where(request, item_id: int):
     files = item.player_files.filter(deleted_at__isnull=True).select_related("user")
     return Whereabouts(
         placements=[
-            Placed(placement=p.pk, volume=p.volume_id, parent=p.parent_id, volume_name=p.volume.name or p.volume.slug, path=p.path(), owner=p.owner, group=p.group,
+            Placed(placement=p.pk, volume=p.volume_id, parent=p.parent_id, volume_name=p.volume.name or p.volume.slug, volume_slug=p.volume.slug, path=p.path(), owner=p.owner, group=p.group,
                    mode=p.mode, hidden=p.hidden, own_access=p.access_mode != "inherit", own_state=p.state_mode != "inherit")
             for p in placements
         ],
