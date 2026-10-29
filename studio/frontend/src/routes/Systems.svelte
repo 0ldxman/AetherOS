@@ -8,17 +8,26 @@
   type System = Schemas["SystemOut"];
   type Row = Schemas["TypeGroup"];
 
-  let { code }: { code: string | null } = $props();
+  let { code, tab }: { code: string | null; tab: string } = $props();
 
   let rows = $state<Schemas["SystemRow"][]>([]);
   let system = $state<System | null>(null);
-  let props_ = $state({ name: "", path_style: "unix", entry_policy: null as number | null });
+  let props_ = $state({ code: "", name: "", path_style: "unix", entry_policy: null as number | null });
   let places = $state<Record<string, string>>({});
   let placesSaved = $state("");
   let propsSaved = $state("");
   let dialog = $state<null | "type" | "group" | "place">(null);
   let draft = $state({ code: "", name: "", group: "", place: "" });
   let errors = $state<Record<string, string[]>>({});
+
+  const TABS = [
+    { key: "overview", label: "Обзор" },
+    { key: "paths", label: "Системные пути" },
+    { key: "disk", label: "Образ системного диска" },
+    { key: "groups", label: "Группы и политики" },
+  ];
+  const SHOWN = 8;
+  let showMachines = $state(false);
 
   const current = $derived(code ?? rows[0]?.code ?? null);
   const placesDirty = $derived(JSON.stringify(places) !== placesSaved);
@@ -30,7 +39,7 @@
 
   function fill(data: System) {
     system = data;
-    props_ = { name: data.name, path_style: data.path_style, entry_policy: data.entry_policy ?? null };
+    props_ = { code: data.code, name: data.name, path_style: data.path_style, entry_policy: data.entry_policy ?? null };
     propsSaved = JSON.stringify(props_);
     places = Object.fromEntries(data.places.map((row) => [row.name, row.path]));
     placesSaved = JSON.stringify(places);
@@ -59,8 +68,10 @@
 
   async function saveProps() {
     if (!system) return;
-    const { data, error } = await api.PUT("/studio/api/systems/{code}", { params: { path: { code: system.code } }, body: props_ });
-    done(data, error, "Тип сохранён.");
+    const before = system.code;
+    const { data, error } = await api.PUT("/studio/api/systems/{code}", { params: { path: { code: before } }, body: props_ });
+    done(data, error, "ОС сохранена.");
+    if (data && data.code !== before) go(`/systems/${data.code}/${tab}`);
   }
 
   async function savePlaces() {
@@ -89,10 +100,10 @@
 
   async function createType() {
     const { data, error } = await api.POST("/studio/api/systems", { body: { code: draft.code, name: draft.name } });
-    if (error || !data) return toast(problem(error, "Тип не создался."), "error");
+    if (error || !data) return toast(problem(error, "ОС не создалась."), "error");
     dialog = null;
     await list();
-    go(`/systems/${data.code}`);
+    go(`/systems/${data.code}/overview`);
   }
 
   function addGroup() {
@@ -111,46 +122,70 @@
 
 <div class="split">
   <aside class="list">
-    <h1>Типы систем</h1>
+    <h1>ОС</h1>
     {#each rows as row (row.code)}
-      <a class="item" class:on={row.code === current} href="#/systems/{row.code}">
+      <a class="item" class:on={row.code === current} href="#/systems/{row.code}/{tab}">
         <b class="mono">{row.code}</b>
         <span class="muted small">{row.name} · машин {row.machines}</span>
       </a>
     {/each}
-    <button class="btn add" onclick={() => (dialog = "type")}>+ Тип</button>
+    <button class="btn add" onclick={() => (dialog = "type")}>+ ОС</button>
   </aside>
 
   {#if system}
     <section class="editor">
       <header class="top">
         <h2 class="mono">{system.code}</h2>
-        <span class="muted">{system.machines.length ? `машины: ${system.machines.join(", ")}` : "машин этого типа нет"}</span>
+        <span class="muted">{system.name}</span>
+        <span class="spacer"></span>
+        <span class="machines" role="group" onmouseenter={() => (showMachines = true)} onmouseleave={() => (showMachines = false)}>
+          <span class="chip">{system.machines.length} {system.machines.length === 1 ? "машина" : "машин"}</span>
+          {#if showMachines && system.machines.length}
+            <div class="pop">
+              {#each system.machines.slice(0, SHOWN) as host}<span class="mono">{host || "без хоста"}</span>{/each}
+              {#if system.machines.length > SHOWN}<span class="muted small">и ещё {system.machines.length - SHOWN} машин</span>{/if}
+            </div>
+          {/if}
+        </span>
       </header>
 
+      <nav class="tabs">
+        {#each TABS as item}
+          <a class="tab" class:on={tab === item.key} href="#/systems/{system.code}/{item.key}">{item.label}</a>
+        {/each}
+      </nav>
+
+      {#if tab === "paths"}
       <div class="block">
-        <h3>Свойства</h3>
-        <div class="three">
-          <label><span class="label">Название</span><input class="field" bind:value={props_.name} /></label>
-          <label><span class="label">Диалект путей</span>
-            <select class="field" bind:value={props_.path_style}>
-              <option value="unix">Unix (/home/ivan)</option><option value="windows">Windows (C:\Users\ivan)</option>
-            </select>
-          </label>
-          <label><span class="label">Политика входа</span>
+        <h3>Системные пути <button class="btn ghost" onclick={() => (dialog = "place")}>+ Путь</button></h3>
+        <p class="muted small">Шаблоны путей для машин ОС: {"{login}"} — логин учётки, {"{home}"} — место home. Пусто: как у движка.</p>
+        <div class="places">
+          {#each system.places as row (row.name)}
+            <span class="mono pname">{row.name}</span>
+            <input class="field mono" bind:value={places[row.name]} placeholder={row.default || "—"} class:bad={errors[row.name]} />
+            <span class="muted small">{row.machines.length ? `своё у ${row.machines.join(", ")}` : ""}{errors[row.name] ? errors[row.name].join(" ") : ""}</span>
+          {/each}
+        </div>
+        <div><button class="btn primary" disabled={!placesDirty} onclick={savePlaces}>Сохранить пути</button></div>
+      </div>
+      {:else if tab === "disk"}
+        <div class="block"><h3>Образ системного диска</h3><p class="muted">Скоро.</p></div>
+      {:else if tab === "groups"}
+      <div class="block">
+        <h3>Политика входа</h3>
+        <label><span class="label">Политика входа</span>
             <select class="field" bind:value={props_.entry_policy}>
               <option value={null}>без ограничений</option>
               {#each system.policies as policy}<option value={policy.id}>{policy.name}</option>{/each}
             </select>
           </label>
-        </div>
         <div><button class="btn primary" disabled={!propsDirty} onclick={saveProps}>Сохранить</button></div>
       </div>
 
       <div class="block">
-        <h3>Группы типа <button class="btn ghost" onclick={() => (dialog = "group")}>+ Группа</button></h3>
+        <h3>Группы ОС <button class="btn ghost" onclick={() => (dialog = "group")}>+ Группа</button></h3>
         {#if system.groups.some((row) => row.source === "default")}
-          <p class="muted small">Своих групп у типа нет: действуют группы движка по умолчанию. Первая правка запишет их в тип.</p>
+          <p class="muted small">Своих групп у ОС нет: действуют группы движка по умолчанию. Первая правка запишет их в ОС.</p>
         {/if}
         <div class="matrix" style:--cols={system.privileges.length}>
           <div class="cell head">Группа</div>
@@ -171,19 +206,24 @@
           {/each}
         </div>
       </div>
-
+      {:else}
       <div class="block">
-        <h3>Системные пути <button class="btn ghost" onclick={() => (dialog = "place")}>+ Путь</button></h3>
-        <p class="muted small">Шаблоны путей для машин типа: {"{login}"} — логин учётки, {"{home}"} — место home. Пусто: как у движка.</p>
-        <div class="places">
-          {#each system.places as row (row.name)}
-            <span class="mono pname">{row.name}</span>
-            <input class="field mono" bind:value={places[row.name]} placeholder={row.default || "—"} class:bad={errors[row.name]} />
-            <span class="muted small">{row.machines.length ? `своё у ${row.machines.join(", ")}` : ""}{errors[row.name] ? errors[row.name].join(" ") : ""}</span>
-          {/each}
+        <h3>Свойства</h3>
+        <div class="three">
+          <label><span class="label">Код</span><input class="field mono" bind:value={props_.code} /></label>
+          <label><span class="label">Название</span><input class="field" bind:value={props_.name} /></label>
+          <label><span class="label">Диалект путей</span>
+            <select class="field" bind:value={props_.path_style}>
+              <option value="unix">Unix (/home/ivan)</option><option value="windows">Windows (C:\Users\ivan)</option>
+            </select>
+          </label>
         </div>
-        <div><button class="btn primary" disabled={!placesDirty} onclick={savePlaces}>Сохранить пути</button></div>
+        {#if props_.code.trim().toUpperCase() !== system.code}
+          <p class="warn small">Код выбирает сцены и команды в Python. Машины ({system.machines.length}) переедут на новый код, но без сцен под него в движке будет поведение по умолчанию.</p>
+        {/if}
+        <div><button class="btn primary" disabled={!propsDirty} onclick={saveProps}>Сохранить</button></div>
       </div>
+      {/if}
     </section>
   {:else}
     <p class="muted empty">{rows.length ? "Загрузка…" : "Типов пока нет."}</p>
@@ -191,12 +231,12 @@
 </div>
 
 {#if dialog === "type"}
-  <Dialog title="Новый тип системы" confirm="Создать" onsubmit={createType} onclose={() => (dialog = null)}>
+  <Dialog title="Новая ОС" confirm="Создать" onsubmit={createType} onclose={() => (dialog = null)}>
     <input class="field mono" placeholder="КОД (латиницей, по нему выбираются сцены и команды)" bind:value={draft.code} />
     <input class="field" placeholder="название" bind:value={draft.name} />
   </Dialog>
 {:else if dialog === "group"}
-  <Dialog title="Новая группа типа" confirm="Создать" onsubmit={addGroup} onclose={() => (dialog = null)}>
+  <Dialog title="Новая группа ОС" confirm="Создать" onsubmit={addGroup} onclose={() => (dialog = null)}>
     <input class="field mono" placeholder="имя (латиницей)" bind:value={draft.group} />
   </Dialog>
 {:else if dialog === "place"}
@@ -232,4 +272,13 @@
   .pname { color: var(--muted); }
   .field.bad { border-color: var(--danger); }
   .empty { padding: 24px; }
+  .spacer { flex: 1; }
+  .warn { color: var(--warn); margin: 0; }
+  .tabs { display: flex; gap: 2px; border-bottom: 1px solid var(--line-soft); }
+  .tab { padding: 9px 12px; color: var(--muted); border-bottom: 2px solid transparent; margin-bottom: -1px; }
+  .tab:hover { color: var(--text); text-decoration: none; }
+  .tab.on { color: var(--text); border-bottom-color: var(--accent); }
+  .machines { position: relative; }
+  .machines .chip { cursor: default; }
+  .pop { position: absolute; right: 0; top: 100%; z-index: 5; display: flex; flex-direction: column; gap: 4px; min-width: 180px; padding: 10px 12px; border: 1px solid var(--line-soft); border-radius: var(--radius-s); background: var(--panel-2); box-shadow: 0 6px 20px rgba(0, 0, 0, 0.35); }
 </style>

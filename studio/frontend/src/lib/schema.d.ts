@@ -2699,6 +2699,8 @@ export interface components {
         };
         /** SystemIn */
         SystemIn: {
+            /** Code */
+            code?: string | null;
             /** Name */
             name: string;
             /**

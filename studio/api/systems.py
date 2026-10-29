@@ -1,6 +1,7 @@
-"""Типы систем: свойства, системные пути (места) и группы типа.
+"""ОС (SystemType): свойства, системные пути (места) и группы ОС.
 
-Код типа выбирает сцены и команды в Python, поэтому меняется только при создании. Места и группы типа действуют на всех его
+Код ОС выбирает сцены и команды в Python. Его можно сменить: машины с этим кодом переезжают на новый (Machine.system — строка).
+Но если в движке под новый код нет сцен, машины получат поведение по умолчанию. Места и группы ОС действуют на всех его
 машинах, машина может переопределить их своими (вкладка «Группы» машины). Умолчания движка (machines.world.places.DEFAULTS и
 machines.access.privileges.DEFAULT_GROUPS) показываются, пока у типа своих значений нет.
 """
@@ -56,6 +57,7 @@ class SystemOut(Schema):
 
 
 class SystemIn(Schema):
+    code: str | None = None     # пусто или тот же: код не меняется
     name: str
     path_style: str = "unix"
     entry_policy: int | None = None
@@ -115,11 +117,16 @@ def read(request, code: str):
 
 
 @router.put("/{code}", response=SystemOut)
+@transaction.atomic
 def save(request, code: str, body: SystemIn):
     system = _system(code)
+    new_code = (body.code or code).strip().upper()
+    system.code = new_code
     system.name, system.path_style, system.entry_policy_id = body.name, body.path_style, body.entry_policy
     system.full_clean()
     system.save()
+    if new_code != code:
+        Machine.objects.filter(system=code).update(system=new_code)
     return _out(system)
 
 

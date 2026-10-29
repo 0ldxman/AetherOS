@@ -171,6 +171,16 @@ class CreateAndSystemsTests(TestCase):
         self.assertEqual((places["home"]["path"], places["logs"]["path"]), ("/users/{login}", ""))
         self.assertEqual(self.call("get", "/systems")[1][0]["machines"], 1)
 
+    def test_a_system_code_can_be_changed_and_takes_the_machines_along(self):
+        SystemType.objects.create(code="OTHER", name="Other")
+        status, data = self.call("put", "/systems/AETHER", {"code": "other", "name": "Aether"})
+        self.assertEqual(status, 400)
+        status, data = self.call("put", "/systems/AETHER", {"code": "nova", "name": "Nova"})
+        self.assertEqual((status, data["code"]), (200, "NOVA"))
+        self.core.refresh_from_db()
+        self.assertEqual(self.core.system, "NOVA")
+        self.assertEqual(data["machines"], [self.core.hostname])
+
     def test_the_first_machine_group_keeps_the_default_ones(self):
         data = self.call("put", f"/machines/{self.core.pk}/groups/night", {"privileges": ["backup"]})[1]
         self.assertEqual(sorted(row["name"] for row in data["groups"]), ["night", "users"])

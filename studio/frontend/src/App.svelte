@@ -29,7 +29,7 @@
     | { name: "machines" }
     | { name: "machine"; id: number; tab: string; sub: number | null }
     | { name: "policies"; id: number | null }
-    | { name: "systems"; code: string | null };
+    | { name: "systems"; code: string | null; tab: string };
 
   const page: Page = $derived.by((): Page => {
     let found;
@@ -45,8 +45,9 @@
     if (match("/machines", route.path)) return { name: "machines" };
     if ((found = match("/policies/:id", route.path))) return { name: "policies", id: +found.id };
     if (match("/policies", route.path)) return { name: "policies", id: null };
-    if ((found = match("/systems/:code", route.path))) return { name: "systems", code: found.code };
-    if (match("/systems", route.path)) return { name: "systems", code: null };
+    if ((found = match("/systems/:code/:tab", route.path))) return { name: "systems", code: found.code, tab: found.tab };
+    if ((found = match("/systems/:code", route.path))) return { name: "systems", code: found.code, tab: "overview" };
+    if (match("/systems", route.path)) return { name: "systems", code: null, tab: "overview" };
     return { name: "volumes" };
   });
 
@@ -55,7 +56,7 @@
     { href: "#/items", label: "Объекты", section: ["items", "item"] },
     { href: "#/machines", label: "Машины", section: ["machines", "machine"] },
     { href: "#/policies", label: "Политики входа", section: ["policies"] },
-    { href: "#/systems", label: "Типы систем", section: ["systems"] },
+    { href: "#/systems", label: "ОС", section: ["systems"] },
   ];
 </script>
 
@@ -89,7 +90,7 @@
     {:else if page.name === "items"}
       <Items />
     {:else if page.name === "systems"}
-      {#key page.code}<Systems code={page.code} />{/key}
+      {#key page.code}<Systems code={page.code} tab={page.tab} />{/key}
     {:else if page.name === "policies"}
       <Policies id={page.id} />
     {:else if page.name === "machines"}

@@ -7715,6 +7715,17 @@
    },
    "SystemIn": {
     "properties": {
+     "code": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Code"
+     },
      "name": {
       "title": "Name",
       "type": "string"
