@@ -229,6 +229,7 @@ class MachineView:
 
     def _layers(self):
         mounts = list(MachineMount.objects.filter(machine=self.machine).exclude(mount_path="").select_related("volume", "host", "account"))
+        mounts += self._player_mounts()
         mounts.sort(key=lambda mount: (_depth(mount.mount_path), mount.order, mount.id))
         volume_ids = {mount.volume_id for mount in mounts if mount.mode == "local"}
         existing = {row.volume_id: row for row in VolumeInstance.objects.filter(volume_id__in=volume_ids, host=self.machine)}
@@ -239,6 +240,21 @@ class MachineView:
             else:
                 layers.append(Layer(mount, existing.get(mount.volume_id), mount.machine_id, mount.mount_path, mount.volume_path))
         return layers
+
+    def _player_mounts(self):
+        """Диски, которые игрок подключил сам (mnt): пока учётка хоста не сменила пароль, после этого диск пропал."""
+        if self.user is None:
+            return []
+        from machines.models import PlayerMount
+
+        found = []
+        for row in PlayerMount.objects.filter(machine=self.machine, user=self.user).select_related("host", "account"):
+            if row.account.password_hash != row.secret:
+                continue
+            mount = row.as_mount()
+            mount.host, mount.account = row.host, row.account
+            found.append(mount)
+        return found
 
     def _build(self):
         layers = self._layers()

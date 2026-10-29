@@ -297,6 +297,9 @@ class LoginEvent(models.Model):
     profile = models.ForeignKey("machines.MachineProfile", on_delete=models.CASCADE, related_name="events")
     user = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL, related_name="login_events")
     at = models.DateTimeField(default=timezone.now)
+    shown_at = models.DateTimeField(
+        "Время на машине", default=timezone.now, help_text="Время, которое показывали часы машины игрока, когда это случилось (журнал пишет его).",
+    )
     kind = models.CharField(max_length=16, choices=Kind.choices)
     source = models.CharField("Откуда", max_length=128, blank=True)
     detail = models.CharField(max_length=255, blank=True)
@@ -309,6 +312,50 @@ class LoginEvent(models.Model):
 
     def __str__(self):
         return f"{self.at:%Y-%m-%d %H:%M:%S} {self.profile.login} {self.kind}"
+
+
+class MachineClock(models.Model):
+    """Часы машины в мире игрока: сдвиг от мирового времени. Двигает их запись с привилегией clock (команда tmset)."""
+
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="machine_clocks")
+    machine = models.ForeignKey("machines.Machine", on_delete=models.CASCADE, related_name="clocks")
+    offset = models.BigIntegerField("Сдвиг, с", default=0)
+
+    class Meta:
+        verbose_name = "Часы машины"
+        verbose_name_plural = "Часы машин"
+        constraints = [models.UniqueConstraint(fields=("user", "machine"), name="unique_machine_clock")]
+
+    def __str__(self):
+        return f"{self.user_id}@{self.machine_id}: {self.offset:+d} с"
+
+
+class PlayerMount(models.Model):
+    """Сетевой диск, который игрок подключил на машине сам (mnt): виден только ему, пока учётка хоста не сменила пароль."""
+
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="player_mounts")
+    machine = models.ForeignKey("machines.Machine", on_delete=models.CASCADE, related_name="player_mounts")
+    host = models.ForeignKey("machines.Machine", on_delete=models.CASCADE, related_name="+")
+    host_path = models.CharField(max_length=2048)
+    account = models.ForeignKey("machines.MachineProfile", on_delete=models.CASCADE, related_name="+")
+    mount_path = models.CharField(max_length=2048)
+    secret = models.CharField("Отпечаток пароля", max_length=128, blank=True, help_text="Хэш пароля учётки в момент подключения: сменился, диск пропал.")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = "Диск игрока"
+        verbose_name_plural = "Диски игроков"
+        constraints = [models.UniqueConstraint(fields=("user", "machine", "mount_path"), name="unique_player_mount")]
+
+    def __str__(self):
+        return f"{self.user_id}@{self.machine_id}: {self.host_id}:{self.host_path} -> {self.mount_path}"
+
+    def as_mount(self):
+        """Монтирование для вида машины: несохранённая запись MachineMount с отрицательным id (уникальным среди обычных)."""
+        return MachineMount(
+            id=-self.pk, machine_id=self.machine_id, mode=MachineMount.Mode.REMOTE, host_id=self.host_id, host_path=self.host_path,
+            account_id=self.account_id, mount_path=self.mount_path, order=1000,
+        )
 
 
 class Group(models.Model):

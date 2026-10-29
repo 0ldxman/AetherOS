@@ -4,7 +4,9 @@ from terminal.engine.commands.basic import (
     LsCommand,
     PwdCommand,
 )
-from terminal.engine.commands.bridge import BridgeCloseCommand, BridgeCommand, ExitCommand, RshellCommand, XferCommand
+from terminal.engine.commands.bridge import (
+    BridgeCloseCommand, BridgeCommand, ExitCommand, MntCommand, RshellCommand, UmntCommand, XferCommand,
+)
 from terminal.engine.commands.archive import PakCommand
 from terminal.engine.commands.crypto import WardCommand
 from terminal.engine.commands.info import CntCommand, EdtCommand, FtypCommand
@@ -16,6 +18,7 @@ from terminal.engine.commands.keys import KexCommand
 from terminal.engine.commands.trash import Del, Rcvr, Wipe
 from terminal.engine.commands.raw import BlkCommand, CvtCommand, RprCommand
 from terminal.engine.commands.rights import OwnCommand, PermCommand
+from terminal.engine.commands.system import DateCommand, TmsetCommand
 
 # Общие для всех систем команды файловой системы.
 COMMON = (
@@ -43,6 +46,8 @@ COMMON = (
     EdtCommand,
     PermCommand,
     OwnCommand,
+    DateCommand,
+    TmsetCommand,
 )
 
 # У каждой системы свой набор и свои названия команд: у Aether мост это rcon, rcon-close и exit,
@@ -50,7 +55,7 @@ COMMON = (
 COMMANDS_BY_SYSTEM = {
     "AETHER": {
         command.name: command()
-        for command in (*COMMON, BridgeCommand, RshellCommand, XferCommand, BridgeCloseCommand, ExitCommand)
+        for command in (*COMMON, BridgeCommand, RshellCommand, XferCommand, BridgeCloseCommand, ExitCommand, MntCommand, UmntCommand)
     },
 }
 

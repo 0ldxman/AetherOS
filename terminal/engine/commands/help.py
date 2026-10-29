@@ -11,7 +11,8 @@ GROUPS = (
     ("files", ("ls", "cd", "pwd", "cnt", "edt", "mv", "cp", "del", "rcvr", "wipe", "perm", "own", "clear")),
     ("inspect and repair", ("ftyp", "txtx", "rpr", "cvt", "blk")),
     ("keys and archives", ("kex", "ward", "pak")),
-    ("network", ("nreq", "nget", "rcon", "rshell", "xfer", "exit", "rcon-close")),
+    ("network", ("nreq", "nget", "rcon", "rshell", "xfer", "mnt", "umnt", "exit", "rcon-close")),
+    ("system", ("date", "tmset")),
     ("other", ("help",)),
 )
 
@@ -119,6 +120,19 @@ HELP = {
         "Files that have stayed in the trash may not come back intact.",
     ),
     "wipe": ("empty the trash permanently", ("wipe [-f]",), "Asks for confirmation, -f does not."),
+    "date": ("print the time of this machine", ("date",), "Every machine keeps its own time for you."),
+    "tmset": (
+        "set the time of this machine",
+        ("tmset +3h", "tmset -1d", "tmset YYYY-MM-DD [HH:MM[:SS]]", "tmset reset"),
+        "Moves the clock of this machine for you. reset brings back the real time. Needs the privilege to change the clock.",
+    ),
+    "mnt": (
+        "attach a directory of another machine as a disk",
+        ("mnt [-i <keyname>] [--token <token>] <login>@<host>:<path> <mount point>", "mnt"),
+        "Signs in to the account like rshell does; the disk is then used with the rights of that account. "
+        "Without arguments lists the disks. Needs the privilege to mount.",
+    ),
+    "umnt": ("detach a disk you attached", ("umnt <mount point>",), "Disks set up by the machine itself cannot be detached."),
     "perm": (
         "change the permissions of a file",
         ("perm <mode> <file>...",),

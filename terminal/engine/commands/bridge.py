@@ -8,7 +8,7 @@ Permission denied (publickey,password). Нет машины или записи 
 Три команды входят одинаково (одни и те же условия, сцены и отказы) и различаются только тем, что делают с принятой
 записью: rcon открывает мост и меняет рабочий стол, rshell вкладывает оболочку в терминал, xfer переносит файл.
 """
-from filesystem import keystore
+from filesystem import keystore, rights
 from machines import bridge, entry
 from machines.models import LoginEvent
 from terminal import bridge_scenes as scenes
@@ -95,7 +95,7 @@ class EntryCommand(BaseCommand):
 
     def enter(self, context, opts, target, args=None):
         """Проверка входа на target (login@host). Возвращает CommandResult (отказ, ошибка, запрос пароля) или результат finish."""
-        context.need("transfer" if self.mode == "xfer" else "bridge")
+        context.need({"xfer": "transfer", "mnt": "mount"}.get(self.mode, "bridge"))
         request = context.request
         args = args or {}
         login, _, host = target.partition("@")
@@ -367,7 +367,87 @@ class XferCommand(EntryCommand):
             scene=scenes.transfer_scene(source_path, target, connect=connect, hops=hops, hop_ms=hop_ms),
         )
 
-ENTRY_COMMANDS = {"rcon": BridgeCommand, "rshell": RshellCommand, "xfer": XferCommand}
+class MntCommand(EntryCommand):
+    """mnt login@host:/путь /точка: подключить путь на другой машине как свой диск. Вход на запись хоста идёт как у rshell (пароль,
+    ключ, токен, политика входа), а работа с диском потом идёт от имени этой записи. Без аргументов показывает подключённые диски."""
+
+    name = "mnt"
+    mode = "mnt"
+    operands = 2
+    usage = "usage: mnt [-i keyname] [--token token] login@host:/path /mount/point\n       mnt   (list the disks)"
+
+    def execute(self, context, args):
+        if not args:
+            return self.listing(context)
+        return super().execute(context, args)
+
+    def listing(self, context):
+        rows = []
+        for layer in context.view.layers:
+            mount = layer.mount
+            if layer.remote:
+                account = mount.account.login if mount.account is not None else "guest"
+                rows.append(f"{mount.host.hostname or mount.host.name}:{mount.host_path} on {layer.point} type net ({account})")
+            else:
+                disk = mount.volume.label or mount.volume.name or str(mount.volume.uuid)
+                rows.append(f"{disk} on {layer.point} type disk")
+        return CommandResult("\n".join(rows))
+
+    def run(self, context, opts):
+        source, point = opts["operands"]
+        target, colon, path = source.partition(":")
+        if not colon or "@" not in target or not path.startswith("/"):
+            return CommandResult(self.usage, 2)
+        return self.enter(context, opts, target, {"path": path.rstrip("/") or "/", "point": context.resolve_path(point)})
+
+    def finish(self, context, profile, args):
+        from machines import connection
+        from machines.models import PlayerMount
+
+        host, path, point = profile.machine, args["path"], args["point"]
+        label = f"{profile.login}@{host.hostname or host.name}:{path}"
+        if host.pk == context.machine.pk:
+            return CommandResult(f"mnt: {label}: this machine cannot mount itself", 1)
+        view = connection.connect(context.machine, host, path, profile, context.user)
+        if view is None or not view.is_directory(path):
+            return CommandResult(f"mnt: {label}: not exported", 1)
+        if point == "/" or any(layer.point == point for layer in context.view.layers):
+            return CommandResult(f"mnt: {point}: mount point busy", 1)
+        existing = context.view.get(point)
+        if existing is not None and not existing.is_dir:
+            return CommandResult(f"mnt: {point}: not a directory", 1)
+        PlayerMount.objects.create(
+            user=context.user, machine=context.machine, host=host, host_path=path, account=profile, mount_path=point,
+            secret=profile.password_hash,
+        )
+        context.invalidate()
+        return CommandResult(f"mnt: {label} mounted on {point}")
+
+
+class UmntCommand(BaseCommand):
+    """umnt /точка: отключить диск, который вы подключили сами. Диски машины отключает только её автор."""
+
+    name = "umnt"
+    usage = "usage: umnt /mount/point"
+
+    def execute(self, context, args):
+        from machines.models import PlayerMount
+
+        if len(args) != 1:
+            return CommandResult(self.usage, 2)
+        context.need("mount")
+        point = context.resolve_path(args[0])
+        mine = PlayerMount.objects.filter(user=context.user, machine=context.machine, mount_path=point)
+        if mine.exists():
+            mine.delete()
+            context.invalidate()
+            return CommandResult(f"umnt: {point}: unmounted")
+        if any(layer.point == point for layer in context.view.layers):
+            raise rights.NotPermitted("mount")
+        return CommandResult(f"umnt: {point}: not mounted", 1)
+
+
+ENTRY_COMMANDS = {"rcon": BridgeCommand, "rshell": RshellCommand, "xfer": XferCommand, "mnt": MntCommand}
 
 
 class ExitCommand(BaseCommand):

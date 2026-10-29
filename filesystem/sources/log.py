@@ -3,6 +3,8 @@
 Игрок читает только то, что касается его самого: события, которые породили его входы. Так /var/log/auth.log и улика, и след,
 который игрок оставляет на чужих машинах.
 """
+from django.utils import timezone
+
 from filesystem.sources.base import Payload, Source, text_window
 
 LOG_FORMAT = "log"
@@ -29,7 +31,7 @@ def render(machine, user):
     events = list(LoginEvent.objects.filter(profile__machine=machine, user=user).select_related("profile").order_by("-at", "-id")[:LINES])[::-1]
     host = machine.hostname or machine.name
     lines = [
-        f"{event.at:%Y-%m-%d %H:%M:%S} {host} auth: "
+        f"{timezone.localtime(event.shown_at):%Y-%m-%d %H:%M:%S} {host} auth: "
         + PHRASES.get(event.kind, event.kind).format(login=event.profile.login, source=event.source or "local", method=event.detail or "password")
         for event in events
     ]

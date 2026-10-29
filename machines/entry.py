@@ -11,7 +11,7 @@ from datetime import timedelta
 
 from django.utils import timezone
 
-from machines import windows
+from machines import clock, windows
 from machines.models import EntryPolicy, LoginEvent, SystemType
 
 KEEP = timedelta(days=30)
@@ -59,8 +59,8 @@ def mode_of(profile):
 
 
 def machine_now(machine, user=None):
-    """Время на машине для этого игрока. Пока это мировое время; свои часы машины подключатся здесь."""
-    return timezone.localtime()
+    """Время на машине для этого игрока: мировое плюс сдвиг его часов (machines/clock.py)."""
+    return clock.now(machine, user)
 
 
 def locked_seconds(user, profile):
@@ -76,7 +76,9 @@ def locked_seconds(user, profile):
 
 def record(profile, user, kind, source="", detail=""):
     """Записать событие входа и убрать старое."""
-    event = LoginEvent.objects.create(profile=profile, user=user, kind=kind, source=source, detail=detail)
+    event = LoginEvent.objects.create(
+        profile=profile, user=user, kind=kind, source=source, detail=detail, shown_at=clock.now(profile.machine, user),
+    )
     LoginEvent.objects.filter(profile=profile, user=user, at__lt=timezone.now() - KEEP).delete()
     return event
 
