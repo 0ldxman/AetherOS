@@ -289,7 +289,7 @@
           <p class="muted small">Что видит игрок, когда открывается оболочка этой ОС. Пусто: общее приветствие движка. Цвета: <code>&lt;dim&gt;</code>, <code>&lt;success&gt;</code>, <code>&lt;warning&gt;</code>, <code>&lt;error&gt;</code> (закрываются в той же строке). Случайное число: <code>&lt;random&gt;21-41&lt;/random&gt;</code>. Скобки: <code>{"{{"}</code> и <code>{"}}"}</code>.</p>
           <div class="greet">
             <div class="col">
-              <textarea class="field mono" rows="14" bind:value={props_.greeting} class:bad={errors.greeting}></textarea>
+              <textarea class="field mono" rows="14" spellcheck="false" bind:value={props_.greeting} class:bad={errors.greeting}></textarea>
               <div class="chips">
                 {#each system.greeting_params as param}
                   <button class="chip mono" title={param.label} onclick={() => insert(param.name)}>{"{"}{param.name}{"}"}</button>
@@ -368,7 +368,8 @@
   .empty { padding: 24px; }
   .layer { display: flex; align-items: center; gap: 10px; padding: 6px 0; border-bottom: 1px solid var(--line-soft); }
   .point { min-width: 90px; }
-  .greet { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .greet { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 12px; }
+  .greet textarea { width: 100%; box-sizing: border-box; resize: vertical; }
   .col { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
   .chips { display: flex; flex-wrap: wrap; gap: 4px; }
   .chips .chip { cursor: pointer; }
