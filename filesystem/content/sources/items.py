@@ -177,6 +177,29 @@ class KeySource(Source):
         return text_window(address)
 
 
+def _text_payload(entry, body, fmt, stamp, meta, keys):
+    """Текст в контейнере своего формата (если формат известен), с видами разметки для документов; иначе как есть."""
+    from filesystem.content.rawview import flatten, formats, registry
+
+    found = registry.format_named(fmt) if fmt else None
+    if found is None or not formats.known(found.name):
+        return Payload(kind="text", layout="raw", body=body.encode(), locked=_locked(entry, keys), stamp=stamp)
+    views = flatten.views(body, keys) if found.markup else {}
+    return Payload(
+        kind="text", layout="format", fmt=found.name, default_fmt=found.name, body=body.encode(), views=views, meta=meta,
+        locked=_locked(entry, keys), stamp=stamp,
+    )
+
+
+def _text_window(entry, address):
+    from filesystem.content.rawview import registry
+
+    found = registry.format_named(entry.format) if entry.format else None
+    if found is not None and found.markup and document_window is not None:
+        return document_window(address)
+    return text_window(address)
+
+
 class TextSource(Source):
     """Текст объекта (с правкой игрока): в контейнере своего формата, если формат известен, иначе как есть."""
 
@@ -186,27 +209,32 @@ class TextSource(Source):
         return entry.item is not None and bool(entry.body.strip())
 
     def payload(self, entry, view, keys, reader, viewer):
-        from filesystem.content.rawview import flatten, formats, registry
-
         item = entry.item
         body = entry.body
-        found = registry.format_named(item.format) if item.format else None
-        stamp = f"text:{item.pk}:{item.updated_at.isoformat()}:{hash(body)}"
-        if found is None or not formats.known(found.name):
-            return Payload(kind="text", layout="raw", body=body.encode(), locked=_locked(entry, keys), stamp=stamp)
-        views = flatten.views(body, keys) if found.markup else {}
-        return Payload(
-            kind="text", layout="format", fmt=found.name, default_fmt=found.name, body=body.encode(), views=views, meta=_meta(item),
-            locked=_locked(entry, keys), stamp=stamp,
-        )
+        return _text_payload(entry, body, item.format, f"text:{item.pk}:{item.updated_at.isoformat()}:{hash(body)}", _meta(item), keys)
 
     def window(self, entry, address):
-        from filesystem.content.rawview import registry
+        return _text_window(entry, address)
 
-        found = registry.format_named(entry.item.format) if entry.item.format else None
-        if found is not None and found.markup and document_window is not None:
-            return document_window(address)
-        return text_window(address)
+
+class AuthoredSource(Source):
+    """Файл со своим текстом автора (размещение-файл или член архива), с правкой игрока поверх: как текстовый объект, но без него.
+
+    Формат по расширению имени; подстановки шаблона формата берутся из имени и места."""
+
+    name = "authored"
+
+    def accepts(self, entry):
+        return entry.authored and entry.own_data is None
+
+    def payload(self, entry, view, keys, reader, viewer):
+        body = entry.own_text or ""
+        where = entry.placement.pk if entry.placement is not None else entry.path
+        meta = {"who": "unknown", "when": "", "ref": entry.name, "src": f"file://{entry.name}", "at": "", "title": entry.name}
+        return _text_payload(entry, body, entry.format, f"authored:{where}:{hash(body)}", meta, keys)
+
+    def window(self, entry, address):
+        return _text_window(entry, address)
 
 
 class BlankSource(Source):

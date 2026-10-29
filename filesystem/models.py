@@ -332,7 +332,11 @@ class ItemMember(models.Model):
 
     archive = models.ForeignKey(Item, on_delete=models.CASCADE, related_name="members")
     path = models.CharField("Путь в архиве", max_length=1024, help_text="Например: docs/readme.txt")
-    item = models.ForeignKey(Item, on_delete=models.PROTECT, related_name="in_archives", verbose_name="Объект")
+    item = models.ForeignKey(
+        Item, null=True, blank=True, on_delete=models.PROTECT, related_name="in_archives", verbose_name="Объект",
+        help_text="Пусто: член со своим текстом (декорация внутри архива, без отдельного объекта).",
+    )
+    content = models.TextField("Текст", blank=True, help_text="Только у члена без объекта: его содержимое. Формат по расширению пути.")
 
     class Meta:
         ordering = ("path",)
@@ -354,6 +358,8 @@ class ItemMember(models.Model):
             raise ValidationError({"path": "Укажите путь в архиве."})
         if self.archive_id and self.item_id == self.archive_id:
             raise ValidationError({"item": "Архив не может содержать сам себя."})
+        if self.item_id is not None and self.content:
+            raise ValidationError({"content": "У члена либо объект, либо свой текст."})
 
 
 class ItemKey(models.Model):
@@ -479,6 +485,7 @@ class Placement(models.Model):
     class Kind(models.TextChoices):
         FOLDER = "folder", "Папка"
         ITEM = "item", "Объект"
+        FILE = "file", "Файл со своим текстом"
         WHITEOUT = "whiteout", "Надгробие"
 
     class Mode(models.TextChoices):
@@ -494,6 +501,11 @@ class Placement(models.Model):
         help_text="Имя в этом месте. Пусто: берётся имя объекта с расширением формата. Точка в начале скрывает файл.",
     )
     item = models.ForeignKey(Item, null=True, blank=True, on_delete=models.PROTECT, related_name="placements", verbose_name="Объект")
+    content = models.TextField(
+        "Текст", blank=True,
+        help_text="Только у файла со своим текстом: декорация и фон, которым не нужны общий объект, история, ключи и подписи. "
+                  "Формат берётся по расширению имени, защиту задают условие и слои этого места.",
+    )
     owner = models.CharField("Владелец", max_length=64, blank=True, help_text="Логин записи. Пусто: права не заданы, файл открыт всем.")
     group = models.CharField("Группа", max_length=64, blank=True)
     mode = models.CharField(
@@ -556,6 +568,8 @@ class Placement(models.Model):
             errors["item"] = "Укажите объект."
         if self.kind != self.Kind.ITEM and self.item_id is not None:
             errors["item"] = "Объект указывается только у размещения вида «Объект»."
+        if self.kind != self.Kind.FILE and self.content:
+            errors["content"] = "Свой текст бывает только у файла со своим текстом."
         if not self.name and self.item_id is None:
             errors["name"] = "Укажите имя."
         if self.parent_id is not None:

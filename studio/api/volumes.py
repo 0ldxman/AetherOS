@@ -6,6 +6,7 @@ from ninja import Router, Schema
 
 from filesystem.manager import filemanager
 from filesystem.models import Placement, Volume
+from studio.api.protection import Dump, Layer, Problem
 
 router = Router(tags=["volumes"])
 
@@ -176,3 +177,127 @@ def move(request, volume_id: int, body: Selection):
 @router.post("/{int:volume_id}/copy", response=Done)
 def copy(request, volume_id: int, body: Selection):
     return Done(count=filemanager.copy(get_object_or_404(Volume, pk=volume_id), body.ids, body.parent))
+
+
+# ---- файл со своим текстом (без объекта) -----------------------------------------------------------------------------
+
+class NewText(Schema):
+    parent: int | None = None
+    name: str
+    content: str = ""
+
+
+class TextFile(Schema):
+    id: int
+    volume: int
+    volume_name: str
+    parent: int | None
+    name: str
+    path: str
+    format: str
+    content: str
+    access: str
+    state: str
+
+
+class TextIn(Schema):
+    content: str = ""
+    access: str = ""
+    state: str = ""
+
+
+class TextPreview(Schema):
+    layers: list[Layer]
+    problems: list[Problem]
+    access_error: str
+    keys: list[str]
+    unknown_keys: list[str]
+    plain: Dump | None
+    layered: Dump | None
+
+
+class Converted(Schema):
+    item: int
+
+
+def _text_file(volume_id, placement_id):
+    return get_object_or_404(Placement.objects.select_related("volume"), pk=placement_id, volume_id=volume_id, kind=Placement.Kind.FILE)
+
+
+def _text_out(placement):
+    from secure.access import format_condition
+
+    from filesystem.machine_view.entries import FILE, Entry
+
+    return TextFile(
+        id=placement.pk, volume=placement.volume_id, volume_name=placement.volume.name or placement.volume.slug, parent=placement.parent_id,
+        name=placement.name, path=placement.path(), format=Entry(path=f"/{placement.name}", kind=FILE).format, content=placement.content,
+        access=format_condition(placement.access) if placement.access else "", state=placement.state,
+    )
+
+
+@router.post("/{int:volume_id}/text-files", response=TextFile)
+def new_text(request, volume_id: int, body: NewText):
+    placement = filemanager.new_text_file(get_object_or_404(Volume, pk=volume_id), body.parent, body.name, body.content)
+    return _text_out(placement)
+
+
+@router.get("/{int:volume_id}/text-files/{int:placement_id}", response=TextFile)
+def read_text(request, volume_id: int, placement_id: int):
+    return _text_out(_text_file(volume_id, placement_id))
+
+
+@router.put("/{int:volume_id}/text-files/{int:placement_id}", response=TextFile)
+def save_text(request, volume_id: int, placement_id: int, body: TextIn):
+    """Текст, условие и слои файла: защита у такого файла своя (у места), объекта над ним нет."""
+    from django.core.exceptions import ValidationError
+
+    from documents.markup.expr import SpoilerSyntaxError, parse_expr
+
+    placement = _text_file(volume_id, placement_id)
+    errors = {}
+    placement.content = body.content
+    try:
+        placement.access = parse_expr(body.access) if body.access.strip() else {}
+    except SpoilerSyntaxError as exc:
+        errors["access"] = [str(exc)]
+    placement.state = body.state
+    placement.access_mode = placement.state_mode = Placement.Mode.INHERIT
+    try:
+        from filesystem.layers.validators import validate_state_text
+
+        validate_state_text(body.state)
+    except ValidationError as exc:
+        errors["state"] = exc.messages
+    if errors:
+        raise ValidationError(errors)
+    placement.full_clean()
+    placement.save()
+    return _text_out(placement)
+
+
+@router.post("/{int:volume_id}/text-files/{int:placement_id}/preview", response=TextPreview)
+def preview_text(request, volume_id: int, placement_id: int, body: TextIn):
+    """Что игрок получит из этого файла (байты со слоями и без) и разбор слоёв и условия, ничего не сохраняя."""
+    from filesystem.machine_view.entries import FILE, Entry
+    from studio.api.protection import check_protection, entry_dump
+
+    placement = _text_file(volume_id, placement_id)
+    layers, problems, access_error, slugs, unknown = check_protection(body.state, body.access)
+    placement.content = body.content
+
+    def dump(state):
+        placement.state = state
+        found = entry_dump(Entry(path=f"/{placement.name}", kind=FILE, placement=placement, text=body.content))
+        return found
+
+    return TextPreview(
+        layers=layers, problems=problems, access_error=access_error,
+        keys=slugs, unknown_keys=unknown, plain=dump(""), layered=dump(body.state) if body.state.strip() and not problems else None,
+    )
+
+
+@router.post("/{int:volume_id}/text-files/{int:placement_id}/to-item", response=Converted)
+def to_item(request, volume_id: int, placement_id: int):
+    """Сделать объектом: текст, условие и слои переезжают в новый объект."""
+    return Converted(item=filemanager.to_item(_text_file(volume_id, placement_id), request.user).pk)

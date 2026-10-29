@@ -62,6 +62,22 @@
     go(`/items/${(made as { id: number }).id}/where`);
   }
 
+  let toText = $state<null | { placement: Schemas["Placed"]; reasons: string[] }>(null);
+
+  async function askText(placed: Schemas["Placed"]) {
+    const { data: found } = await api.GET("/studio/api/items/{item_id}/text-blockers", { params: { path } });
+    toText = { placement: placed, reasons: found?.reasons ?? [] };
+  }
+
+  async function makeText() {
+    if (!toText) return;
+    const { data: made, error } = await api.POST("/studio/api/items/{item_id}/to-text", { params: { path }, body: { placement: toText.placement.placement } });
+    toText = null;
+    if (error || !made) return toast(problem(error), "error");
+    toast("Теперь это свой текст места, объекта больше нет.");
+    go(`/volumes/${made.volume}/text/${made.placement}`);
+  }
+
   async function remove() {
     const { error } = await api.DELETE("/studio/api/items/{item_id}", { params: { path } });
     dialog = null;
@@ -88,6 +104,8 @@
           </span>
           {#if data.placements.length > 1}
             <button class="btn ghost" onclick={() => (detaching = placed)}>Своя копия здесь</button>
+          {:else}
+            <button class="btn ghost" onclick={() => askText(placed)}>Сделать своим текстом</button>
           {/if}
         </div>
       {:else}
@@ -161,6 +179,16 @@
       {#each data.holders as row}<p class="line"><span class="chip">{row.kind}</span> {row.label}</p>{/each}
     {:else}
       <p class="muted">Пропадёт из {data.placements.length} мест в томах{data.mentions.length ? `, из ${data.mentions.length} писем и ресурсов` : ""}{data.players.copies ? `, у игроков пропадут ${data.players.copies} файлов` : ""}. История версий удалится вместе с ним.</p>
+    {/if}
+  </Dialog>
+{:else if toText}
+  <Dialog title="Сделать своим текстом места?" confirm="Превратить" danger onsubmit={makeText} onclose={() => (toText = null)}>
+    {#if toText.reasons.length}
+      <p>Нельзя: объект нужен как объект.</p>
+      {#each toText.reasons as reason}<p class="line">{reason}</p>{/each}
+    {:else}
+      <p class="mono">{toText.placement.volume_name}:/{toText.placement.path}</p>
+      <p class="muted">Текст, условие и слои переедут в само место, объект и его история удалятся. Вернуть можно кнопкой «Сделать объектом».</p>
     {/if}
   </Dialog>
 {:else if detaching}

@@ -340,3 +340,87 @@ def delete_item(item):
     item.placements.all().delete()
     item.delete()
     return count
+
+
+# ---- файл со своим текстом -------------------------------------------------------------------------------------------
+
+@transaction.atomic
+def new_text_file(volume, parent_id, name, content=""):
+    """Файл со своим текстом (без объекта): декорация и фон. Формат определится по расширению имени."""
+    parent = folder_of(volume, parent_id)
+    name = clean_name(name)
+    check_free(volume, parent, name)
+    depth_ok(parent)
+    return Placement.objects.create(volume=volume, parent=parent, kind=Placement.Kind.FILE, name=name, content=content)
+
+
+def set_text(volume, placement_id, content):
+    placement = Placement.objects.filter(pk=placement_id, volume=volume, kind=Placement.Kind.FILE).first()
+    if placement is None:
+        raise FileManagerError("Это не файл со своим текстом.")
+    placement.content = content
+    placement.save(update_fields=["content"])
+    return placement
+
+
+@transaction.atomic
+def to_item(placement, user=None):
+    """Файл со своим текстом становится объектом: текст, условие и слои переезжают в объект, место ссылается на него.
+    Нужно, когда файл понадобился в нескольких местах, с историей, ключами или подписями."""
+    if placement.kind != Placement.Kind.FILE:
+        raise FileManagerError("Это не файл со своим текстом.")
+    stem, extension = posixpath.splitext(placement.name)
+    found = format_by_extension(extension) if extension and stem else None
+    item = Item.objects.create(
+        slug=unique_slug(placement.name), name=stem if found else placement.name, format=found.name if found else "",
+        body=placement.content, access=placement.access if placement.access_mode != Placement.Mode.NONE else {},
+        state=placement.state if placement.state_mode != Placement.Mode.NONE else "", created_by=user, updated_by=user,
+    )
+    placement.kind, placement.item, placement.content = Placement.Kind.ITEM, item, ""
+    placement.access, placement.state = {}, ""
+    placement.access_mode = placement.state_mode = Placement.Mode.INHERIT
+    placement.save()
+    return item
+
+
+def text_blockers(item):
+    """Почему объект нельзя превратить в свой текст места: [причина]."""
+    reasons = []
+    if item.placements.count() > 1:
+        reasons.append("лежит в нескольких местах")
+    if item.in_archives.exists():
+        reasons.append("входит в архив")
+    if item.members.exists():
+        reasons.append("это архив")
+    if item.keys.exists() or item.signatures.exists():
+        reasons.append("у него вложенные ключи или подписи")
+    if item.embedded_in.exists() or item.signed.exists() or item.format == "key":
+        reasons.append("это ключ")
+    if item.asset_id or item.url or item.scene_id or item.message_id:
+        reasons.append("его содержимое не текст")
+    if item.mail_attachments.exists() or item.net_nodes.exists():
+        reasons.append("на него ссылаются письма или сеть")
+    if item.player_files.exists():
+        reasons.append("у игроков есть его копии")
+    return reasons
+
+
+@transaction.atomic
+def to_text(placement):
+    """Объект, который лежит только здесь и ни с чем не связан, становится своим текстом места. История объекта пропадает."""
+    item = placement.item
+    if placement.kind != Placement.Kind.ITEM or item is None:
+        raise FileManagerError("Здесь лежит не объект.")
+    reasons = text_blockers(item)
+    if reasons:
+        raise FileManagerError("Нельзя: объект " + ", ".join(reasons) + ".")
+    if not placement.name:
+        placement.name = item.default_filename
+    if placement.access_mode == Placement.Mode.INHERIT:
+        placement.access = item.access
+    if placement.state_mode == Placement.Mode.INHERIT:
+        placement.state = item.state
+    placement.kind, placement.item, placement.content = Placement.Kind.FILE, None, item.body
+    placement.save()
+    item.delete()
+    return placement

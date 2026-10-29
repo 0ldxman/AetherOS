@@ -512,6 +512,258 @@
     ]
    }
   },
+  "/studio/api/volumes/{volume_id}/text-files": {
+   "post": {
+    "operationId": "studio_api_volumes_new_text",
+    "summary": "New Text",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "volume_id",
+      "schema": {
+       "title": "Volume Id",
+       "type": "integer"
+      },
+      "required": true
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/TextFile"
+        }
+       }
+      }
+     }
+    },
+    "tags": [
+     "volumes"
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/NewText"
+       }
+      }
+     },
+     "required": true
+    },
+    "security": [
+     {
+      "SessionAuthIsStaff": []
+     }
+    ]
+   }
+  },
+  "/studio/api/volumes/{volume_id}/text-files/{placement_id}": {
+   "get": {
+    "operationId": "studio_api_volumes_read_text",
+    "summary": "Read Text",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "volume_id",
+      "schema": {
+       "title": "Volume Id",
+       "type": "integer"
+      },
+      "required": true
+     },
+     {
+      "in": "path",
+      "name": "placement_id",
+      "schema": {
+       "title": "Placement Id",
+       "type": "integer"
+      },
+      "required": true
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/TextFile"
+        }
+       }
+      }
+     }
+    },
+    "tags": [
+     "volumes"
+    ],
+    "security": [
+     {
+      "SessionAuthIsStaff": []
+     }
+    ]
+   },
+   "put": {
+    "operationId": "studio_api_volumes_save_text",
+    "summary": "Save Text",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "volume_id",
+      "schema": {
+       "title": "Volume Id",
+       "type": "integer"
+      },
+      "required": true
+     },
+     {
+      "in": "path",
+      "name": "placement_id",
+      "schema": {
+       "title": "Placement Id",
+       "type": "integer"
+      },
+      "required": true
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/TextFile"
+        }
+       }
+      }
+     }
+    },
+    "description": "Текст, условие и слои файла: защита у такого файла своя (у места), объекта над ним нет.",
+    "tags": [
+     "volumes"
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/TextIn"
+       }
+      }
+     },
+     "required": true
+    },
+    "security": [
+     {
+      "SessionAuthIsStaff": []
+     }
+    ]
+   }
+  },
+  "/studio/api/volumes/{volume_id}/text-files/{placement_id}/preview": {
+   "post": {
+    "operationId": "studio_api_volumes_preview_text",
+    "summary": "Preview Text",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "volume_id",
+      "schema": {
+       "title": "Volume Id",
+       "type": "integer"
+      },
+      "required": true
+     },
+     {
+      "in": "path",
+      "name": "placement_id",
+      "schema": {
+       "title": "Placement Id",
+       "type": "integer"
+      },
+      "required": true
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/TextPreview"
+        }
+       }
+      }
+     }
+    },
+    "description": "Что игрок получит из этого файла (байты со слоями и без) и разбор слоёв и условия, ничего не сохраняя.",
+    "tags": [
+     "volumes"
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/TextIn"
+       }
+      }
+     },
+     "required": true
+    },
+    "security": [
+     {
+      "SessionAuthIsStaff": []
+     }
+    ]
+   }
+  },
+  "/studio/api/volumes/{volume_id}/text-files/{placement_id}/to-item": {
+   "post": {
+    "operationId": "studio_api_volumes_to_item",
+    "summary": "To Item",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "volume_id",
+      "schema": {
+       "title": "Volume Id",
+       "type": "integer"
+      },
+      "required": true
+     },
+     {
+      "in": "path",
+      "name": "placement_id",
+      "schema": {
+       "title": "Placement Id",
+       "type": "integer"
+      },
+      "required": true
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Converted"
+        }
+       }
+      }
+     }
+    },
+    "description": "Сделать объектом: текст, условие и слои переезжают в новый объект.",
+    "tags": [
+     "volumes"
+    ],
+    "security": [
+     {
+      "SessionAuthIsStaff": []
+     }
+    ]
+   }
+  },
   "/studio/api/items": {
    "get": {
     "operationId": "studio_api_items_library",
@@ -1083,6 +1335,92 @@
     "tags": [
      "items"
     ],
+    "security": [
+     {
+      "SessionAuthIsStaff": []
+     }
+    ]
+   }
+  },
+  "/studio/api/items/{item_id}/text-blockers": {
+   "get": {
+    "operationId": "studio_api_items_text_blockers",
+    "summary": "Text Blockers",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "item_id",
+      "schema": {
+       "title": "Item Id",
+       "type": "integer"
+      },
+      "required": true
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/TextBlockers"
+        }
+       }
+      }
+     }
+    },
+    "description": "Почему объект нельзя превратить в свой текст места (пусто: можно).",
+    "tags": [
+     "items"
+    ],
+    "security": [
+     {
+      "SessionAuthIsStaff": []
+     }
+    ]
+   }
+  },
+  "/studio/api/items/{item_id}/to-text": {
+   "post": {
+    "operationId": "studio_api_items_to_text",
+    "summary": "To Text",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "item_id",
+      "schema": {
+       "title": "Item Id",
+       "type": "integer"
+      },
+      "required": true
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/TextPlaced"
+        }
+       }
+      }
+     }
+    },
+    "description": "Объект, который лежит только здесь и ни с чем не связан, становится своим текстом места; история объекта пропадает.",
+    "tags": [
+     "items"
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/ToText"
+       }
+      }
+     },
+     "required": true
+    },
     "security": [
      {
       "SessionAuthIsStaff": []
@@ -3778,6 +4116,284 @@
     "title": "Selection",
     "type": "object"
    },
+   "TextFile": {
+    "properties": {
+     "id": {
+      "title": "Id",
+      "type": "integer"
+     },
+     "volume": {
+      "title": "Volume",
+      "type": "integer"
+     },
+     "volume_name": {
+      "title": "Volume Name",
+      "type": "string"
+     },
+     "parent": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Parent"
+     },
+     "name": {
+      "title": "Name",
+      "type": "string"
+     },
+     "path": {
+      "title": "Path",
+      "type": "string"
+     },
+     "format": {
+      "title": "Format",
+      "type": "string"
+     },
+     "content": {
+      "title": "Content",
+      "type": "string"
+     },
+     "access": {
+      "title": "Access",
+      "type": "string"
+     },
+     "state": {
+      "title": "State",
+      "type": "string"
+     }
+    },
+    "required": [
+     "id",
+     "volume",
+     "volume_name",
+     "parent",
+     "name",
+     "path",
+     "format",
+     "content",
+     "access",
+     "state"
+    ],
+    "title": "TextFile",
+    "type": "object"
+   },
+   "NewText": {
+    "properties": {
+     "parent": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Parent"
+     },
+     "name": {
+      "title": "Name",
+      "type": "string"
+     },
+     "content": {
+      "default": "",
+      "title": "Content",
+      "type": "string"
+     }
+    },
+    "required": [
+     "name"
+    ],
+    "title": "NewText",
+    "type": "object"
+   },
+   "TextIn": {
+    "properties": {
+     "content": {
+      "default": "",
+      "title": "Content",
+      "type": "string"
+     },
+     "access": {
+      "default": "",
+      "title": "Access",
+      "type": "string"
+     },
+     "state": {
+      "default": "",
+      "title": "State",
+      "type": "string"
+     }
+    },
+    "title": "TextIn",
+    "type": "object"
+   },
+   "Dump": {
+    "properties": {
+     "size": {
+      "title": "Size",
+      "type": "integer"
+     },
+     "format": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Format"
+     },
+     "rows": {
+      "items": {
+       "additionalProperties": true,
+       "type": "object"
+      },
+      "title": "Rows",
+      "type": "array"
+     },
+     "printable": {
+      "title": "Printable",
+      "type": "integer"
+     }
+    },
+    "required": [
+     "size",
+     "format",
+     "rows",
+     "printable"
+    ],
+    "title": "Dump",
+    "type": "object"
+   },
+   "Layer": {
+    "properties": {
+     "line": {
+      "title": "Line",
+      "type": "integer"
+     },
+     "name": {
+      "title": "Name",
+      "type": "string"
+     },
+     "params": {
+      "additionalProperties": {
+       "type": "string"
+      },
+      "title": "Params",
+      "type": "object"
+     }
+    },
+    "required": [
+     "line",
+     "name",
+     "params"
+    ],
+    "title": "Layer",
+    "type": "object"
+   },
+   "Problem": {
+    "properties": {
+     "line": {
+      "title": "Line",
+      "type": "integer"
+     },
+     "message": {
+      "title": "Message",
+      "type": "string"
+     }
+    },
+    "required": [
+     "line",
+     "message"
+    ],
+    "title": "Problem",
+    "type": "object"
+   },
+   "TextPreview": {
+    "properties": {
+     "layers": {
+      "items": {
+       "$ref": "#/components/schemas/Layer"
+      },
+      "title": "Layers",
+      "type": "array"
+     },
+     "problems": {
+      "items": {
+       "$ref": "#/components/schemas/Problem"
+      },
+      "title": "Problems",
+      "type": "array"
+     },
+     "access_error": {
+      "title": "Access Error",
+      "type": "string"
+     },
+     "keys": {
+      "items": {
+       "type": "string"
+      },
+      "title": "Keys",
+      "type": "array"
+     },
+     "unknown_keys": {
+      "items": {
+       "type": "string"
+      },
+      "title": "Unknown Keys",
+      "type": "array"
+     },
+     "plain": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/Dump"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "layered": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/Dump"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     }
+    },
+    "required": [
+     "layers",
+     "problems",
+     "access_error",
+     "keys",
+     "unknown_keys",
+     "plain",
+     "layered"
+    ],
+    "title": "TextPreview",
+    "type": "object"
+   },
+   "Converted": {
+    "properties": {
+     "item": {
+      "title": "Item",
+      "type": "integer"
+     }
+    },
+    "required": [
+     "item"
+    ],
+    "title": "Converted",
+    "type": "object"
+   },
    "LibraryRow": {
     "properties": {
      "id": {
@@ -4626,69 +5242,51 @@
     "title": "RevisionOut",
     "type": "object"
    },
-   "Dump": {
+   "TextBlockers": {
     "properties": {
-     "size": {
-      "title": "Size",
-      "type": "integer"
-     },
-     "format": {
-      "anyOf": [
-       {
-        "type": "string"
-       },
-       {
-        "type": "null"
-       }
-      ],
-      "title": "Format"
-     },
-     "rows": {
+     "reasons": {
       "items": {
-       "additionalProperties": true,
-       "type": "object"
-      },
-      "title": "Rows",
-      "type": "array"
-     },
-     "printable": {
-      "title": "Printable",
-      "type": "integer"
-     }
-    },
-    "required": [
-     "size",
-     "format",
-     "rows",
-     "printable"
-    ],
-    "title": "Dump",
-    "type": "object"
-   },
-   "Layer": {
-    "properties": {
-     "line": {
-      "title": "Line",
-      "type": "integer"
-     },
-     "name": {
-      "title": "Name",
-      "type": "string"
-     },
-     "params": {
-      "additionalProperties": {
        "type": "string"
       },
-      "title": "Params",
-      "type": "object"
+      "title": "Reasons",
+      "type": "array"
      }
     },
     "required": [
-     "line",
-     "name",
-     "params"
+     "reasons"
     ],
-    "title": "Layer",
+    "title": "TextBlockers",
+    "type": "object"
+   },
+   "TextPlaced": {
+    "properties": {
+     "volume": {
+      "title": "Volume",
+      "type": "integer"
+     },
+     "placement": {
+      "title": "Placement",
+      "type": "integer"
+     }
+    },
+    "required": [
+     "volume",
+     "placement"
+    ],
+    "title": "TextPlaced",
+    "type": "object"
+   },
+   "ToText": {
+    "properties": {
+     "placement": {
+      "title": "Placement",
+      "type": "integer"
+     }
+    },
+    "required": [
+     "placement"
+    ],
+    "title": "ToText",
     "type": "object"
    },
    "Preview": {
@@ -4756,24 +5354,6 @@
      "layered"
     ],
     "title": "Preview",
-    "type": "object"
-   },
-   "Problem": {
-    "properties": {
-     "line": {
-      "title": "Line",
-      "type": "integer"
-     },
-     "message": {
-      "title": "Message",
-      "type": "string"
-     }
-    },
-    "required": [
-     "line",
-     "message"
-    ],
-    "title": "Problem",
     "type": "object"
    },
    "ProtectionIn": {

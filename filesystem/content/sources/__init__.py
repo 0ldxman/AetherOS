@@ -1,20 +1,20 @@
 """Виды содержимого файлов машины.
 
-Что лежит в файле, определяют его объект (текст, ассет, ссылка, сцена карты, письмо, ключ) или собственное содержимое игрока
-(подпись, вырезка); папка-архив отдельный вид. Каждый вид описан одним классом (filesystem/content/sources/items.py), реестр ниже выбирает
+Что лежит в файле, определяют его объект (текст, ассет, ссылка, сцена карты, письмо, ключ), свой текст автора (файл без объекта)
+или собственное содержимое игрока (подпись, вырезка); папка-архив отдельный вид. Каждый вид описан одним классом (filesystem/content/sources/items.py), реестр ниже выбирает
 первый подходящий. Байты (rawview) и окно cnt (content) спрашивают реестр и сами содержимое не разбирают.
 
 Новый вид содержимого это новый класс и строка в SOURCES.
 """
 from filesystem.content.sources.base import READ_LIMIT, Content, Payload, page_window, site_url, text_window
 from filesystem.content.sources.items import (
-    ArchiveSource, AssetSource, BlankSource, KeySource, LinkSource, MessageSource, OwnSource, SceneSource, TextSource,
+    ArchiveSource, AssetSource, AuthoredSource, BlankSource, KeySource, LinkSource, MessageSource, OwnSource, SceneSource, TextSource,
 )
 from filesystem.content.sources.log import LogSource
 
 # порядок важен: пустой файл приходит последним, потому что принимает всё
 SOURCES = (
-    ArchiveSource(), OwnSource(), AssetSource(), LinkSource(), SceneSource(), MessageSource(), KeySource(), LogSource(), TextSource(), BlankSource(),
+    ArchiveSource(), AuthoredSource(), OwnSource(), AssetSource(), LinkSource(), SceneSource(), MessageSource(), KeySource(), LogSource(), TextSource(), BlankSource(),
 )
 
 __all__ = ["READ_LIMIT", "SOURCES", "Content", "Payload", "page_window", "payload_for", "site_url", "source_for", "text_window", "window_for"]

@@ -6,6 +6,7 @@
   import { toast } from "../lib/toast.svelte";
 
   type Node = Schemas["Node"];
+  const OWN = "-";                  // вместо формата: файл со своим текстом, без объекта
 
   let { id, folder }: { id: number; folder: number | null } = $props();
 
@@ -65,6 +66,7 @@
   function activate(node: Node) {
     if (node.kind === "folder") openFolder(node.id);
     else if (node.item) go(`/items/${node.item.id}`);
+    else if (node.kind === "file") go(`/volumes/${id}/text/${node.id}`);
   }
 
   function pick(node: Node, event: MouseEvent) {
@@ -104,6 +106,15 @@
     } else if (dialog.kind === "file") {
       const { name, format } = dialog;
       busy = true;
+      if (format === OWN) {
+        api.POST("/studio/api/volumes/{volume_id}/text-files", { params: { path }, body: { parent: folder, name, content: "" } }).then(({ data, error }) => {
+          busy = false;
+          if (error) return toast(problem(error), "error");
+          dialog = null;
+          if (data) go(`/volumes/${id}/text/${data.id}`);
+        });
+        return;
+      }
       api.POST("/studio/api/volumes/{volume_id}/files", { params: { path }, body: { parent: folder, name, format } }).then(({ data, error }) => {
         busy = false;
         if (error) return toast(problem(error), "error");
@@ -268,7 +279,7 @@
             <span class="ico" class:dir={node.kind === "folder"}>{node.kind === "folder" ? "▣" : "▤"}</span>
             {node.name}
           </span>
-          <span class="muted">{node.item?.format || (node.kind === "folder" ? "папка" : "—")}</span>
+          <span class="muted">{node.item?.format || (node.kind === "folder" ? "папка" : node.kind === "file" ? "текст места" : "—")}</span>
           <span class="muted mono">{size(node)}</span>
           <span class="muted mono">{node.owner || "—"}{node.group ? `:${node.group}` : ""} {node.mode}</span>
           <span class="flags">
@@ -295,6 +306,7 @@
       <span class="label">Формат</span>
       <select class="field" bind:value={dialog.format}>
         <option value="">по расширению</option>
+        <option value={OWN}>Свой текст места (без объекта)</option>
         {#each formats as found}<option value={found.name}>{found.name} — {found.title}</option>{/each}
       </select>
     </label>

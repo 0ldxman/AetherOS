@@ -1,4 +1,4 @@
-"""Архивы: объект, у которого есть члены (ItemMember), то есть другие объекты под путями внутри архива.
+"""Архивы: объект, у которого есть члены (ItemMember): другие объекты или тексты без объекта под путями внутри архива.
 
 Игрок видит архив одним файлом; его члены недоступны, пока он не распакует архив (pak). Архив это обычный файл: его копируют,
 переносят и защищают слоями (пароль, повреждение) как любой другой, а члены лежат у объекта и едут вместе с ним.
@@ -21,11 +21,16 @@ def members(view, archive):
     for row in archive.item.members.select_related("item").order_by("path"):
         found.append((row.path, Entry(
             path=f"{archive.path.rstrip('/')}/{row.path}", kind=FILE, layer=archive.layer, inner="", placement=None, item=row.item,
+            text=row.content if row.item_id is None else None,
         )))
     return found
 
 
 def stamp(found):
     """Что меняется вместе с содержимым архива: члены и время правки их объектов."""
-    parts = [f"{name}:{entry.item.pk}:{entry.item.updated_at.timestamp()}:{len(entry.item.members.all())}" for name, entry in found]
+    parts = [
+        f"{name}:{entry.item.pk}:{entry.item.updated_at.timestamp()}:{len(entry.item.members.all())}" if entry.item is not None
+        else f"{name}:text:{hash(entry.text)}"
+        for name, entry in found
+    ]
     return hashlib.sha256("|".join(parts).encode()).hexdigest()[:16]

@@ -91,7 +91,8 @@ class BuildMixin:
             else:
                 if machine_path in entries and entries[machine_path].is_dir:
                     _drop(entries, machine_path)
-                entries[machine_path] = Entry(machine_path, FILE, layer, ipath, placement, placement.item, None, True, gates_of(ipath))
+                text = placement.content if placement.kind == Placement.Kind.FILE else None
+                entries[machine_path] = Entry(machine_path, FILE, layer, ipath, placement, placement.item, None, True, gates_of(ipath), text=text)
         return gates_of
 
     def _host_view(self, layer):
@@ -135,9 +136,12 @@ class BuildMixin:
                     bool(base is not None and base.layer == layer and base.has_base), gates_of(row.path),
                 )
             elif row.content is not None or row.data is not None:
+                # правка игрока поверх файла со своим текстом: место (права, условие, слои) остаётся, текст игрока сверху
+                keeps_base = base is not None and base.layer == layer and base.authored and base.placement is not None
                 entries[machine_path] = Entry(
-                    machine_path, FILE, layer, row.path, None, None, row,
+                    machine_path, FILE, layer, row.path, base.placement if keeps_base else None, None, row,
                     bool(base is not None and base.layer == layer and base.has_base), gates_of(row.path),
+                    text=base.text if keeps_base else None,
                 )
             elif base is not None and base.layer == layer:
                 base.player = row                                    # только прогресс по слоям

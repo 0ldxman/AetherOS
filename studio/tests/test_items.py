@@ -177,3 +177,62 @@ class ProtectionApiTests(TestCase):
         status, answer = self.call("put", f"/items/{self.door.pk}/content", {"kind": "link", "url": "https://example.org"})
         self.assertEqual(status, 400)                                                                   # у объекта есть текст
         self.assertIn("очистите", answer["fields"]["__all__"][0])
+
+
+@override_settings(FORCE_SCRIPT_NAME=None)
+class TextFilesApiTests(TestCase):
+    """Файлы со своим текстом в студии: создание, правка с защитой, предпросмотр и превращение в объект и обратно."""
+
+    @classmethod
+    def setUpTestData(cls):
+        cls.boss = get_user_model().objects.create_user("boss", password="pw", is_staff=True)
+        FileFormat.objects.update_or_create(name="txt", defaults={"extension": ".txt", "kind": "text", "template": "{body}", "content": "text_asset", "editable": True})
+        cls.volume = Volume.objects.create(slug="harbor", name="Harbor")
+        cls.etc = Placement.objects.create(volume=cls.volume, kind="folder", name="etc")
+
+    def setUp(self):
+        previous = get_script_prefix()
+        set_script_prefix("/")
+        self.addCleanup(set_script_prefix, previous)
+        self.client.force_login(self.boss)
+
+    call = ItemsApiTests.call
+
+    def test_a_text_file_is_made_edited_and_previewed_without_an_object(self):
+        status, made = self.call("post", f"/volumes/{self.volume.pk}/text-files", {"parent": self.etc.pk, "name": "motd.txt", "content": "Welcome"})
+        self.assertEqual((status, made["path"], made["format"]), (200, "etc/motd.txt", "txt"))
+        self.assertFalse(Item.objects.exists())
+        base = f"/volumes/{self.volume.pk}/text-files/{made['id']}"
+        preview = self.call("post", f"{base}/preview", {"content": "Welcome aboard", "state": "> encrypted pw"})[1]
+        self.assertIn("Welcome", preview["plain"]["rows"][0]["ascii"])
+        self.assertNotIn("Welcome", preview["layered"]["rows"][0]["ascii"])
+        saved = self.call("put", base, {"content": "Welcome aboard", "access": "cardkey", "state": "> encrypted pw"})[1]
+        self.assertEqual((saved["content"], saved["access"], saved["state"]), ("Welcome aboard", "cardkey", "> encrypted pw"))
+        status, answer = self.call("put", base, {"content": "x", "state": "> nosuchlayer"})
+        self.assertEqual((status, "state" in answer["fields"]), (400, True))
+        tree = self.call("get", f"/volumes/{self.volume.pk}")[1]
+        self.assertEqual(next(r for r in tree["rows"] if r["name"] == "motd.txt")["kind"], "file")
+
+    def test_a_text_file_becomes_an_object_with_its_protection_and_back(self):
+        placement = Placement.objects.create(volume=self.volume, parent=self.etc, kind="file", name="motd.txt", content="Welcome",
+                                             state="> encrypted pw")
+        made = self.call("post", f"/volumes/{self.volume.pk}/text-files/{placement.pk}/to-item")[1]
+        item = Item.objects.get(pk=made["item"])
+        self.assertEqual((item.name, item.format, item.body, item.state), ("motd", "txt", "Welcome", "> encrypted pw"))
+        placement.refresh_from_db()
+        self.assertEqual((placement.kind, placement.item, placement.content, placement.state), ("item", item, "", ""))
+
+        self.assertEqual(self.call("get", f"/items/{item.pk}/text-blockers")[1], {"reasons": []})
+        back = self.call("post", f"/items/{item.pk}/to-text", {"placement": placement.pk})[1]
+        placement.refresh_from_db()
+        self.assertEqual((back["placement"], placement.kind, placement.content, placement.state), (placement.pk, "file", "Welcome", "> encrypted pw"))
+        self.assertFalse(Item.objects.filter(pk=item.pk).exists())
+
+    def test_a_shared_object_does_not_become_a_text(self):
+        item = Item.objects.create(slug="shared", name="shared", format="txt", body="x")
+        first = Placement.objects.create(volume=self.volume, name="a.txt", item=item)
+        Placement.objects.create(volume=self.volume, parent=self.etc, name="b.txt", item=item)
+        self.assertIn("лежит в нескольких местах", self.call("get", f"/items/{item.pk}/text-blockers")[1]["reasons"])
+        status, answer = self.call("post", f"/items/{item.pk}/to-text", {"placement": first.pk})
+        self.assertEqual(status, 400)
+        self.assertIn("нескольких местах", answer["detail"])

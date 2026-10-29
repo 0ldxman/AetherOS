@@ -398,3 +398,34 @@ def restore(request, item_id: int, revision_id: int):
     found = get_object_or_404(ItemRevision, pk=revision_id, item_id=item_id)
     history.restore(_item(item_id), found, request.user)
     return _out(_item(item_id), request.user)
+
+
+class ToText(Schema):
+    placement: int
+
+
+class TextPlaced(Schema):
+    volume: int
+    placement: int
+
+
+class TextBlockers(Schema):
+    reasons: list[str]
+
+
+@router.get("/{int:item_id}/text-blockers", response=TextBlockers)
+def text_blockers(request, item_id: int):
+    """Почему объект нельзя превратить в свой текст места (пусто: можно)."""
+    from filesystem.manager.filemanager import text_blockers as blockers
+
+    return {"reasons": blockers(_item(item_id))}
+
+
+@router.post("/{int:item_id}/to-text", response=TextPlaced)
+def to_text(request, item_id: int, body: ToText):
+    """Объект, который лежит только здесь и ни с чем не связан, становится своим текстом места; история объекта пропадает."""
+    from filesystem.manager.filemanager import to_text as convert
+    from filesystem.models import Placement
+
+    placement = convert(get_object_or_404(Placement, pk=body.placement, item_id=item_id))
+    return TextPlaced(volume=placement.volume_id, placement=placement.pk)

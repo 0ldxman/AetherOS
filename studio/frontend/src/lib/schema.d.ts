@@ -228,6 +228,84 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/studio/api/volumes/{volume_id}/text-files": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** New Text */
+        post: operations["studio_api_volumes_new_text"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/studio/api/volumes/{volume_id}/text-files/{placement_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Read Text */
+        get: operations["studio_api_volumes_read_text"];
+        /**
+         * Save Text
+         * @description Текст, условие и слои файла: защита у такого файла своя (у места), объекта над ним нет.
+         */
+        put: operations["studio_api_volumes_save_text"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/studio/api/volumes/{volume_id}/text-files/{placement_id}/preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Preview Text
+         * @description Что игрок получит из этого файла (байты со слоями и без) и разбор слоёв и условия, ничего не сохраняя.
+         */
+        post: operations["studio_api_volumes_preview_text"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/studio/api/volumes/{volume_id}/text-files/{placement_id}/to-item": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * To Item
+         * @description Сделать объектом: текст, условие и слои переезжают в новый объект.
+         */
+        post: operations["studio_api_volumes_to_item"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/studio/api/items": {
         parameters: {
             query?: never;
@@ -411,6 +489,46 @@ export interface paths {
         put?: never;
         /** Restore */
         post: operations["studio_api_items_restore"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/studio/api/items/{item_id}/text-blockers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Text Blockers
+         * @description Почему объект нельзя превратить в свой текст места (пусто: можно).
+         */
+        get: operations["studio_api_items_text_blockers"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/studio/api/items/{item_id}/to-text": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * To Text
+         * @description Объект, который лежит только здесь и ни с чем не связан, становится своим текстом места; история объекта пропадает.
+         */
+        post: operations["studio_api_items_to_text"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1210,6 +1328,110 @@ export interface components {
             /** Parent */
             parent?: number | null;
         };
+        /** TextFile */
+        TextFile: {
+            /** Id */
+            id: number;
+            /** Volume */
+            volume: number;
+            /** Volume Name */
+            volume_name: string;
+            /** Parent */
+            parent: number | null;
+            /** Name */
+            name: string;
+            /** Path */
+            path: string;
+            /** Format */
+            format: string;
+            /** Content */
+            content: string;
+            /** Access */
+            access: string;
+            /** State */
+            state: string;
+        };
+        /** NewText */
+        NewText: {
+            /** Parent */
+            parent?: number | null;
+            /** Name */
+            name: string;
+            /**
+             * Content
+             * @default
+             */
+            content: string;
+        };
+        /** TextIn */
+        TextIn: {
+            /**
+             * Content
+             * @default
+             */
+            content: string;
+            /**
+             * Access
+             * @default
+             */
+            access: string;
+            /**
+             * State
+             * @default
+             */
+            state: string;
+        };
+        /** Dump */
+        Dump: {
+            /** Size */
+            size: number;
+            /** Format */
+            format: string | null;
+            /** Rows */
+            rows: {
+                [key: string]: unknown;
+            }[];
+            /** Printable */
+            printable: number;
+        };
+        /** Layer */
+        Layer: {
+            /** Line */
+            line: number;
+            /** Name */
+            name: string;
+            /** Params */
+            params: {
+                [key: string]: string;
+            };
+        };
+        /** Problem */
+        Problem: {
+            /** Line */
+            line: number;
+            /** Message */
+            message: string;
+        };
+        /** TextPreview */
+        TextPreview: {
+            /** Layers */
+            layers: components["schemas"]["Layer"][];
+            /** Problems */
+            problems: components["schemas"]["Problem"][];
+            /** Access Error */
+            access_error: string;
+            /** Keys */
+            keys: string[];
+            /** Unknown Keys */
+            unknown_keys: string[];
+            plain: components["schemas"]["Dump"] | null;
+            layered: components["schemas"]["Dump"] | null;
+        };
+        /** Converted */
+        Converted: {
+            /** Item */
+            item: number;
+        };
         /** LibraryRow */
         LibraryRow: {
             /** Id */
@@ -1552,29 +1774,22 @@ export interface components {
                 [key: string]: unknown;
             };
         };
-        /** Dump */
-        Dump: {
-            /** Size */
-            size: number;
-            /** Format */
-            format: string | null;
-            /** Rows */
-            rows: {
-                [key: string]: unknown;
-            }[];
-            /** Printable */
-            printable: number;
+        /** TextBlockers */
+        TextBlockers: {
+            /** Reasons */
+            reasons: string[];
         };
-        /** Layer */
-        Layer: {
-            /** Line */
-            line: number;
-            /** Name */
-            name: string;
-            /** Params */
-            params: {
-                [key: string]: string;
-            };
+        /** TextPlaced */
+        TextPlaced: {
+            /** Volume */
+            volume: number;
+            /** Placement */
+            placement: number;
+        };
+        /** ToText */
+        ToText: {
+            /** Placement */
+            placement: number;
         };
         /** Preview */
         Preview: {
@@ -1590,13 +1805,6 @@ export interface components {
             unknown_keys: string[];
             plain: components["schemas"]["Dump"] | null;
             layered: components["schemas"]["Dump"] | null;
-        };
-        /** Problem */
-        Problem: {
-            /** Line */
-            line: number;
-            /** Message */
-            message: string;
         };
         /** ProtectionIn */
         ProtectionIn: {
@@ -2816,6 +3024,132 @@ export interface operations {
             };
         };
     };
+    studio_api_volumes_new_text: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                volume_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NewText"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TextFile"];
+                };
+            };
+        };
+    };
+    studio_api_volumes_read_text: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                volume_id: number;
+                placement_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TextFile"];
+                };
+            };
+        };
+    };
+    studio_api_volumes_save_text: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                volume_id: number;
+                placement_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TextIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TextFile"];
+                };
+            };
+        };
+    };
+    studio_api_volumes_preview_text: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                volume_id: number;
+                placement_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TextIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TextPreview"];
+                };
+            };
+        };
+    };
+    studio_api_volumes_to_item: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                volume_id: number;
+                placement_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Converted"];
+                };
+            };
+        };
+    };
     studio_api_items_library: {
         parameters: {
             query?: {
@@ -3132,6 +3466,54 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ItemOut"];
+                };
+            };
+        };
+    };
+    studio_api_items_text_blockers: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                item_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TextBlockers"];
+                };
+            };
+        };
+    };
+    studio_api_items_to_text: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                item_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ToText"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TextPlaced"];
                 };
             };
         };

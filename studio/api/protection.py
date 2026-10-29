@@ -157,36 +157,48 @@ def _dump(data, fmt):
     return Dump(size=len(data), format=fmt, rows=rows, printable=printable)
 
 
+def entry_dump(entry):
+    """Байты записи так, как их строит игра: без игрока, ключей и прогресса по слоям (слои стоят в полной силе)."""
+    try:
+        raw = build_raw(entry, keys=frozenset())
+    except Exception:                                   # предпросмотр не должен ронять студию
+        return None
+    return _dump(raw.data, raw.format)
+
+
 def _bytes(item, state):
-    """Байты объекта как их строит игре: без игрока, ключей и прогресса по слоям (слои стоят в полной силе)."""
     original = item.state
     item.state = state
     try:
-        return _dump(*(lambda raw: (raw.data, raw.format))(build_raw(Entry(path=f"/{item.name}", kind=FILE, item=item), keys=frozenset())))
-    except Exception:                                   # предпросмотр не должен ронять студию
-        return None
+        return entry_dump(Entry(path=f"/{item.name}", kind=FILE, item=item))
     finally:
         item.state = original
 
 
-@router.post("/{int:item_id}/protection/preview", response=Preview)
-def preview(request, item_id: int, body: ProtectionIn):
-    item = _item(item_id)
+def check_protection(state, access):
+    """(слои, проблемы слоёв, ошибка условия, ключи условия, неизвестные ключи) для текста слоёв и выражения условия."""
     layers, problems = [], []
     try:
-        for compiled in compile_text(body.state) if body.state.strip() else []:
+        for compiled in compile_text(state) if state.strip() else []:
             layers.append(Layer(line=compiled.layer.line, name=compiled.state.name,
                                 params={key: str(value) for key, value in compiled.params.items() if value is not None}))
     except StateError as exc:
         problems = [Problem(line=p.line, message=p.message) for p in exc.problems]
     access_error, slugs = "", []
     try:
-        slugs = sorted(condition_slugs(_expression(body.access)))
+        slugs = sorted(condition_slugs(_expression(access)))
     except SpoilerSyntaxError as exc:
         access_error = str(exc)
     known = set(key_slugs())
+    return layers, problems, access_error, slugs, [slug for slug in slugs if slug not in known]
+
+
+@router.post("/{int:item_id}/protection/preview", response=Preview)
+def preview(request, item_id: int, body: ProtectionIn):
+    item = _item(item_id)
+    layers, problems, access_error, slugs, unknown = check_protection(body.state, body.access)
     return Preview(
-        layers=layers, problems=problems, access_error=access_error, keys=slugs, unknown_keys=[slug for slug in slugs if slug not in known],
+        layers=layers, problems=problems, access_error=access_error, keys=slugs, unknown_keys=unknown,
         plain=_bytes(item, ""), layered=_bytes(item, body.state) if body.state.strip() and not problems else None,
     )
 

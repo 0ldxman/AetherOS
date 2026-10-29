@@ -79,6 +79,7 @@ class Entry:
     has_base: bool = False                   # под записью игрока лежит запись из базы (удалить = надгробие)
     gates: tuple = field(default_factory=tuple)   # условия доступа: том и папки вдоль пути
     via: object = None                       # сетевое подключение (Layer), через которое запись пришла с хоста
+    text: str | None = None                  # свой текст автора без объекта: у файла-размещения или члена архива
 
     @property
     def name(self):
@@ -113,7 +114,24 @@ class Entry:
                 return self.placement.state
             if self.placement.state_mode == Placement.Mode.NONE:
                 return ""
-        return self.item.state if self.item is not None else ""
+        if self.item is not None:
+            return self.item.state
+        return self.placement.state if self.placement is not None else ""            # у файла со своим текстом слои его же
+
+    @property
+    def authored(self):
+        """Файл со своим текстом автора (без объекта): размещение-файл или член архива."""
+        return self.item is None and self.text is not None
+
+    @property
+    def format(self):
+        """Формат файла: у объекта его, у файла без объекта по расширению имени (или пусто)."""
+        if self.item is not None:
+            return self.item.format
+        from filesystem.content.rawview.registry import format_for_extension
+
+        found = format_for_extension(posixpath.splitext(self.name)[1]) if posixpath.splitext(self.name)[1] else None
+        return found.name if found is not None else ""
 
     def _right(self, name):
         """Поле прав: своё у слоя игрока, иначе у размещения."""
@@ -144,7 +162,9 @@ class Entry:
                 return self.placement.access
             if self.placement.access_mode == Placement.Mode.NONE:
                 return {}
-        return self.item.access if self.item is not None else {}
+        if self.item is not None:
+            return self.item.access
+        return self.placement.access if self.placement is not None else {}           # у файла со своим текстом условие его же
 
     @property
     def conditions(self):
@@ -161,8 +181,12 @@ class Entry:
 
     @property
     def own_text(self):
-        """Текст файла игрока без объекта (подпись) или None."""
-        return self.player.content if self.player is not None and self.item is None else None
+        """Текст файла без объекта: правка или подпись игрока, иначе свой текст автора; None, если текста нет."""
+        if self.item is not None:
+            return None
+        if self.player is not None and self.player.content is not None:
+            return self.player.content
+        return self.text
 
     @property
     def own_data(self):
@@ -174,7 +198,9 @@ class Entry:
         """Текст файла с учётом правки игрока."""
         if self.player is not None and self.player.content is not None:
             return self.player.content
-        return self.item.body if self.item is not None else ""
+        if self.item is not None:
+            return self.item.body
+        return self.text or ""
 
 
 def inner_paths(placements):

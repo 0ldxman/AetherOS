@@ -38,6 +38,8 @@ def seed_of(entry):
     """Зерно шума файла: у объекта его слаг (копии и переносы дают те же байты), у файла игрока машина и путь."""
     if entry.item is not None:
         return f"item:{entry.item.slug}"
+    if entry.authored and entry.placement is not None:
+        return f"placement:{entry.placement.pk}"           # одно место: на любой машине, где том смонтирован, те же байты
     host = entry.machine.hostname if entry.machine is not None else ""
     return f"{host}:{entry.path}"
 

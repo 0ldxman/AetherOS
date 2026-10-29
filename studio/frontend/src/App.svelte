@@ -5,6 +5,7 @@
   import { toasts } from "./lib/toast.svelte";
   import Volumes from "./routes/Volumes.svelte";
   import Volume from "./routes/Volume.svelte";
+  import TextFile from "./routes/TextFile.svelte";
   import Item from "./routes/Item.svelte";
   import Items from "./routes/Items.svelte";
   import Machines from "./routes/Machines.svelte";
@@ -22,6 +23,7 @@
   type Page =
     | { name: "volumes" }
     | { name: "volume"; id: number; folder: number | null }
+    | { name: "text"; volume: number; id: number }
     | { name: "item"; id: number; view: string }
     | { name: "items" }
     | { name: "machines" }
@@ -31,6 +33,7 @@
 
   const page: Page = $derived.by((): Page => {
     let found;
+    if ((found = match("/volumes/:id/text/:pid", route.path))) return { name: "text", volume: +found.id, id: +found.pid };
     if ((found = match("/volumes/:id/:folder", route.path))) return { name: "volume", id: +found.id, folder: +found.folder || null };
     if ((found = match("/volumes/:id", route.path))) return { name: "volume", id: +found.id, folder: null };
     if ((found = match("/items/:id/:view", route.path))) return { name: "item", id: +found.id, view: found.view };
@@ -48,7 +51,7 @@
   });
 
   const NAV = [
-    { href: "#/volumes", label: "Тома и файлы", section: ["volumes", "volume"] },
+    { href: "#/volumes", label: "Тома и файлы", section: ["volumes", "volume", "text"] },
     { href: "#/items", label: "Объекты", section: ["items", "item"] },
     { href: "#/machines", label: "Машины", section: ["machines", "machine"] },
     { href: "#/policies", label: "Политики входа", section: ["policies"] },
@@ -79,6 +82,8 @@
   <main class="main">
     {#if page.name === "volume"}
       {#key page.id}<Volume id={page.id} folder={page.folder} />{/key}
+    {:else if page.name === "text"}
+      {#key page.id}<TextFile volume={page.volume} id={page.id} />{/key}
     {:else if page.name === "item"}
       {#key page.id}<Item id={page.id} view={page.view} />{/key}
     {:else if page.name === "items"}

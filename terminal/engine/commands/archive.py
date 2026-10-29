@@ -176,9 +176,12 @@ class PakCommand(LayerCommand):
             if fs.exists(posixpath.join(folder, name)):
                 return CommandResult(f"pak: '{posixpath.join(folder, name)}' exists, delete it first", 1)
 
-        for name, item in chosen:
+        for name, member in chosen:
             target = posixpath.join(folder, name)
-            context.view.put_item(target, item.item)
+            if member.item is not None:
+                context.view.put_item(target, member.item)
+            else:
+                context.view.put_text(target, member.text or "")              # член со своим текстом: у игрока свой файл
         context.invalidate()
 
         lines = [f"x {name}" for name, _ in chosen]
