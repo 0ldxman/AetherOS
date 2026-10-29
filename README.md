@@ -1,7 +1,7 @@
 # AetherOS
 
 Игра в виде операционной системы: рабочий стол, терминал, вики, почта и карта. Игрок подключается к машинам, читает файлы,
-добывает ключи и пароли. Мир описывают авторы через админку Django.
+добывает ключи и пароли. Мир описывают авторы в студии (`/studio/`) и, пока экраны переезжают, в админке Django.
 
 ## Карта проекта
 
@@ -25,6 +25,8 @@
 | `users/` | вход, гость, выход |
 | `scenes/` | движок консольных сцен и сцены экранов (загрузка, вход) |
 | `static/ui`, `templates/ui` | общая оболочка: стили, шрифты, базовый шаблон |
+| **Для авторов** | |
+| `studio/` | студия, новая админка: `api/` (django-ninja, `/studio/api/`, схема `/studio/api/docs`), `frontend/` (Svelte 5, TypeScript, Vite) |
 
 Тесты каждого приложения лежат в его папке `tests/`; общие помощники тестов: `filesystem/testing.py`, `terminal/testing.py`,
 `wiki/testing.py`.
@@ -32,16 +34,27 @@
 ## Запуск
 
 ```
+pip install -r requirements.txt
 cp .env.example .env              # настройки окружения
 python manage.py migrate
 python manage.py seed_demo        # демонстрационный мир: машины aether-main (ivan / demo) и aether-core
 python manage.py runserver
 ```
 
-Тесты (в песочнице у приложения `map` есть 8 падающих тестов, они падали и до рефакторинга):
+Студия (нужен Node 22): собранный фронт ложится в `studio/static/studio/app` и в git не хранится.
 
 ```
-python manage.py test terminal filesystem machines desktop documents wiki mail config users secure assets scenes monitor
+cd studio/frontend
+npm ci
+npm run build                     # один раз; во время работы над фронтом: npm run watch
+npm run api                       # после правки API: схема OpenAPI и типы TypeScript (src/lib/schema.d.ts)
+npm run check                     # проверка типов
+```
+
+Тесты:
+
+```
+python manage.py test
 ```
 
 ## С чего читать код

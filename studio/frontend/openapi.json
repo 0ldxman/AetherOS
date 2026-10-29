@@ -1,0 +1,1797 @@
+{
+ "openapi": "3.1.0",
+ "info": {
+  "title": "Aether Studio",
+  "version": "1",
+  "description": ""
+ },
+ "paths": {
+  "/studio/api/me": {
+   "get": {
+    "operationId": "studio_api_catalog_me",
+    "summary": "Me",
+    "parameters": [],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Me"
+        }
+       }
+      }
+     }
+    },
+    "tags": [
+     "catalog"
+    ],
+    "security": [
+     {
+      "SessionAuthIsStaff": []
+     }
+    ]
+   }
+  },
+  "/studio/api/formats": {
+   "get": {
+    "operationId": "studio_api_catalog_formats",
+    "summary": "Formats",
+    "parameters": [],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "items": {
+          "$ref": "#/components/schemas/Format"
+         },
+         "title": "Response",
+         "type": "array"
+        }
+       }
+      }
+     }
+    },
+    "tags": [
+     "catalog"
+    ],
+    "security": [
+     {
+      "SessionAuthIsStaff": []
+     }
+    ]
+   }
+  },
+  "/studio/api/keys": {
+   "get": {
+    "operationId": "studio_api_catalog_keys",
+    "summary": "Keys",
+    "parameters": [],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "items": {
+          "$ref": "#/components/schemas/Key"
+         },
+         "title": "Response",
+         "type": "array"
+        }
+       }
+      }
+     }
+    },
+    "tags": [
+     "catalog"
+    ],
+    "security": [
+     {
+      "SessionAuthIsStaff": []
+     }
+    ]
+   }
+  },
+  "/studio/api/volumes": {
+   "get": {
+    "operationId": "studio_api_volumes_volumes",
+    "summary": "Volumes",
+    "parameters": [],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "items": {
+          "$ref": "#/components/schemas/VolumeRow"
+         },
+         "title": "Response",
+         "type": "array"
+        }
+       }
+      }
+     }
+    },
+    "tags": [
+     "volumes"
+    ],
+    "security": [
+     {
+      "SessionAuthIsStaff": []
+     }
+    ]
+   }
+  },
+  "/studio/api/volumes/{volume_id}": {
+   "get": {
+    "operationId": "studio_api_volumes_tree",
+    "summary": "Tree",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "volume_id",
+      "schema": {
+       "title": "Volume Id",
+       "type": "integer"
+      },
+      "required": true
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/VolumeTree"
+        }
+       }
+      }
+     }
+    },
+    "tags": [
+     "volumes"
+    ],
+    "security": [
+     {
+      "SessionAuthIsStaff": []
+     }
+    ]
+   }
+  },
+  "/studio/api/volumes/{volume_id}/folders": {
+   "post": {
+    "operationId": "studio_api_volumes_new_folder",
+    "summary": "New Folder",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "volume_id",
+      "schema": {
+       "title": "Volume Id",
+       "type": "integer"
+      },
+      "required": true
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "OK"
+     }
+    },
+    "tags": [
+     "volumes"
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/NewFolder"
+       }
+      }
+     },
+     "required": true
+    },
+    "security": [
+     {
+      "SessionAuthIsStaff": []
+     }
+    ]
+   }
+  },
+  "/studio/api/volumes/{volume_id}/files": {
+   "post": {
+    "operationId": "studio_api_volumes_new_file",
+    "summary": "New File",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "volume_id",
+      "schema": {
+       "title": "Volume Id",
+       "type": "integer"
+      },
+      "required": true
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Created"
+        }
+       }
+      }
+     }
+    },
+    "tags": [
+     "volumes"
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/NewFile"
+       }
+      }
+     },
+     "required": true
+    },
+    "security": [
+     {
+      "SessionAuthIsStaff": []
+     }
+    ]
+   }
+  },
+  "/studio/api/volumes/{volume_id}/links": {
+   "post": {
+    "operationId": "studio_api_volumes_link",
+    "summary": "Link",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "volume_id",
+      "schema": {
+       "title": "Volume Id",
+       "type": "integer"
+      },
+      "required": true
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "OK"
+     }
+    },
+    "tags": [
+     "volumes"
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/Link"
+       }
+      }
+     },
+     "required": true
+    },
+    "security": [
+     {
+      "SessionAuthIsStaff": []
+     }
+    ]
+   }
+  },
+  "/studio/api/volumes/{volume_id}/placements/{placement_id}": {
+   "patch": {
+    "operationId": "studio_api_volumes_change",
+    "summary": "Change",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "volume_id",
+      "schema": {
+       "title": "Volume Id",
+       "type": "integer"
+      },
+      "required": true
+     },
+     {
+      "in": "path",
+      "name": "placement_id",
+      "schema": {
+       "title": "Placement Id",
+       "type": "integer"
+      },
+      "required": true
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "OK"
+     }
+    },
+    "tags": [
+     "volumes"
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/Change"
+       }
+      }
+     },
+     "required": true
+    },
+    "security": [
+     {
+      "SessionAuthIsStaff": []
+     }
+    ]
+   }
+  },
+  "/studio/api/volumes/{volume_id}/delete": {
+   "post": {
+    "operationId": "studio_api_volumes_delete",
+    "summary": "Delete",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "volume_id",
+      "schema": {
+       "title": "Volume Id",
+       "type": "integer"
+      },
+      "required": true
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Done"
+        }
+       }
+      }
+     }
+    },
+    "tags": [
+     "volumes"
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/Selection"
+       }
+      }
+     },
+     "required": true
+    },
+    "security": [
+     {
+      "SessionAuthIsStaff": []
+     }
+    ]
+   }
+  },
+  "/studio/api/volumes/{volume_id}/move": {
+   "post": {
+    "operationId": "studio_api_volumes_move",
+    "summary": "Move",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "volume_id",
+      "schema": {
+       "title": "Volume Id",
+       "type": "integer"
+      },
+      "required": true
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Done"
+        }
+       }
+      }
+     }
+    },
+    "tags": [
+     "volumes"
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/Selection"
+       }
+      }
+     },
+     "required": true
+    },
+    "security": [
+     {
+      "SessionAuthIsStaff": []
+     }
+    ]
+   }
+  },
+  "/studio/api/volumes/{volume_id}/copy": {
+   "post": {
+    "operationId": "studio_api_volumes_copy",
+    "summary": "Copy",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "volume_id",
+      "schema": {
+       "title": "Volume Id",
+       "type": "integer"
+      },
+      "required": true
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Done"
+        }
+       }
+      }
+     }
+    },
+    "tags": [
+     "volumes"
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/Selection"
+       }
+      }
+     },
+     "required": true
+    },
+    "security": [
+     {
+      "SessionAuthIsStaff": []
+     }
+    ]
+   }
+  },
+  "/studio/api/items": {
+   "get": {
+    "operationId": "studio_api_items_search",
+    "summary": "Search",
+    "parameters": [
+     {
+      "in": "query",
+      "name": "q",
+      "schema": {
+       "default": "",
+       "title": "Q",
+       "type": "string"
+      },
+      "required": false
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "items": {
+          "$ref": "#/components/schemas/Found"
+         },
+         "title": "Response",
+         "type": "array"
+        }
+       }
+      }
+     }
+    },
+    "tags": [
+     "items"
+    ],
+    "security": [
+     {
+      "SessionAuthIsStaff": []
+     }
+    ]
+   }
+  },
+  "/studio/api/items/{item_id}": {
+   "get": {
+    "operationId": "studio_api_items_read",
+    "summary": "Read",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "item_id",
+      "schema": {
+       "title": "Item Id",
+       "type": "integer"
+      },
+      "required": true
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ItemOut"
+        }
+       }
+      }
+     }
+    },
+    "tags": [
+     "items"
+    ],
+    "security": [
+     {
+      "SessionAuthIsStaff": []
+     }
+    ]
+   },
+   "put": {
+    "operationId": "studio_api_items_save",
+    "summary": "Save",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "item_id",
+      "schema": {
+       "title": "Item Id",
+       "type": "integer"
+      },
+      "required": true
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ItemOut"
+        }
+       }
+      }
+     },
+     "409": {
+      "description": "Conflict",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Conflict"
+        }
+       }
+      }
+     }
+    },
+    "tags": [
+     "items"
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/ItemIn"
+       }
+      }
+     },
+     "required": true
+    },
+    "security": [
+     {
+      "SessionAuthIsStaff": []
+     }
+    ]
+   }
+  },
+  "/studio/api/items/{item_id}/lock": {
+   "post": {
+    "operationId": "studio_api_items_lock",
+    "summary": "Lock",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "item_id",
+      "schema": {
+       "title": "Item Id",
+       "type": "integer"
+      },
+      "required": true
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "additionalProperties": true,
+         "title": "Response",
+         "type": "object"
+        }
+       }
+      }
+     },
+     "423": {
+      "description": "Locked",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Holder"
+        }
+       }
+      }
+     }
+    },
+    "description": "Занять объект на время правки (клиент повторяет раз в HEARTBEAT секунд). 423: объект правит другой.",
+    "tags": [
+     "items"
+    ],
+    "security": [
+     {
+      "SessionAuthIsStaff": []
+     }
+    ]
+   },
+   "delete": {
+    "operationId": "studio_api_items_unlock",
+    "summary": "Unlock",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "item_id",
+      "schema": {
+       "title": "Item Id",
+       "type": "integer"
+      },
+      "required": true
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "OK"
+     }
+    },
+    "tags": [
+     "items"
+    ],
+    "security": [
+     {
+      "SessionAuthIsStaff": []
+     }
+    ]
+   }
+  },
+  "/studio/api/items/{item_id}/revisions": {
+   "get": {
+    "operationId": "studio_api_items_revisions",
+    "summary": "Revisions",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "item_id",
+      "schema": {
+       "title": "Item Id",
+       "type": "integer"
+      },
+      "required": true
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "items": {
+          "$ref": "#/components/schemas/Revision"
+         },
+         "title": "Response",
+         "type": "array"
+        }
+       }
+      }
+     }
+    },
+    "tags": [
+     "items"
+    ],
+    "security": [
+     {
+      "SessionAuthIsStaff": []
+     }
+    ]
+   }
+  },
+  "/studio/api/items/preview": {
+   "post": {
+    "operationId": "studio_api_items_preview",
+    "summary": "Preview",
+    "parameters": [],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/PreviewOut"
+        }
+       }
+      }
+     }
+    },
+    "tags": [
+     "items"
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/PreviewIn"
+       }
+      }
+     },
+     "required": true
+    },
+    "security": [
+     {
+      "SessionAuthIsStaff": []
+     }
+    ]
+   }
+  }
+ },
+ "components": {
+  "schemas": {
+   "Me": {
+    "properties": {
+     "username": {
+      "title": "Username",
+      "type": "string"
+     },
+     "superuser": {
+      "title": "Superuser",
+      "type": "boolean"
+     }
+    },
+    "required": [
+     "username",
+     "superuser"
+    ],
+    "title": "Me",
+    "type": "object"
+   },
+   "Format": {
+    "properties": {
+     "name": {
+      "title": "Name",
+      "type": "string"
+     },
+     "title": {
+      "title": "Title",
+      "type": "string"
+     },
+     "extension": {
+      "title": "Extension",
+      "type": "string"
+     },
+     "markup": {
+      "title": "Markup",
+      "type": "boolean"
+     },
+     "content": {
+      "title": "Content",
+      "type": "string"
+     },
+     "editable": {
+      "title": "Editable",
+      "type": "boolean"
+     }
+    },
+    "required": [
+     "name",
+     "title",
+     "extension",
+     "markup",
+     "content",
+     "editable"
+    ],
+    "title": "Format",
+    "type": "object"
+   },
+   "Key": {
+    "properties": {
+     "slug": {
+      "title": "Slug",
+      "type": "string"
+     },
+     "description": {
+      "title": "Description",
+      "type": "string"
+     }
+    },
+    "required": [
+     "slug",
+     "description"
+    ],
+    "title": "Key",
+    "type": "object"
+   },
+   "Mount": {
+    "properties": {
+     "machine": {
+      "title": "Machine",
+      "type": "string"
+     },
+     "path": {
+      "title": "Path",
+      "type": "string"
+     }
+    },
+    "required": [
+     "machine",
+     "path"
+    ],
+    "title": "Mount",
+    "type": "object"
+   },
+   "VolumeRow": {
+    "properties": {
+     "id": {
+      "title": "Id",
+      "type": "integer"
+     },
+     "slug": {
+      "title": "Slug",
+      "type": "string"
+     },
+     "name": {
+      "title": "Name",
+      "type": "string"
+     },
+     "label": {
+      "title": "Label",
+      "type": "string"
+     },
+     "files": {
+      "title": "Files",
+      "type": "integer"
+     },
+     "folders": {
+      "title": "Folders",
+      "type": "integer"
+     },
+     "mounts": {
+      "items": {
+       "$ref": "#/components/schemas/Mount"
+      },
+      "title": "Mounts",
+      "type": "array"
+     }
+    },
+    "required": [
+     "id",
+     "slug",
+     "name",
+     "label",
+     "files",
+     "folders",
+     "mounts"
+    ],
+    "title": "VolumeRow",
+    "type": "object"
+   },
+   "ItemBrief": {
+    "properties": {
+     "id": {
+      "title": "Id",
+      "type": "integer"
+     },
+     "slug": {
+      "title": "Slug",
+      "type": "string"
+     },
+     "name": {
+      "title": "Name",
+      "type": "string"
+     },
+     "format": {
+      "title": "Format",
+      "type": "string"
+     },
+     "size": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Size"
+     },
+     "used": {
+      "title": "Used",
+      "type": "integer"
+     }
+    },
+    "required": [
+     "id",
+     "slug",
+     "name",
+     "format",
+     "size",
+     "used"
+    ],
+    "title": "ItemBrief",
+    "type": "object"
+   },
+   "Node": {
+    "properties": {
+     "id": {
+      "title": "Id",
+      "type": "integer"
+     },
+     "parent": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Parent"
+     },
+     "kind": {
+      "title": "Kind",
+      "type": "string"
+     },
+     "name": {
+      "title": "Name",
+      "type": "string"
+     },
+     "hidden": {
+      "title": "Hidden",
+      "type": "boolean"
+     },
+     "system": {
+      "title": "System",
+      "type": "boolean"
+     },
+     "owner": {
+      "title": "Owner",
+      "type": "string"
+     },
+     "group": {
+      "title": "Group",
+      "type": "string"
+     },
+     "mode": {
+      "title": "Mode",
+      "type": "string"
+     },
+     "access": {
+      "title": "Access",
+      "type": "string"
+     },
+     "state": {
+      "title": "State",
+      "type": "string"
+     },
+     "item": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/ItemBrief"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     }
+    },
+    "required": [
+     "id",
+     "parent",
+     "kind",
+     "name",
+     "hidden",
+     "system",
+     "owner",
+     "group",
+     "mode",
+     "access",
+     "state",
+     "item"
+    ],
+    "title": "Node",
+    "type": "object"
+   },
+   "VolumeTree": {
+    "properties": {
+     "id": {
+      "title": "Id",
+      "type": "integer"
+     },
+     "slug": {
+      "title": "Slug",
+      "type": "string"
+     },
+     "name": {
+      "title": "Name",
+      "type": "string"
+     },
+     "label": {
+      "title": "Label",
+      "type": "string"
+     },
+     "uuid": {
+      "title": "Uuid",
+      "type": "string"
+     },
+     "rows": {
+      "items": {
+       "$ref": "#/components/schemas/Node"
+      },
+      "title": "Rows",
+      "type": "array"
+     }
+    },
+    "required": [
+     "id",
+     "slug",
+     "name",
+     "label",
+     "uuid",
+     "rows"
+    ],
+    "title": "VolumeTree",
+    "type": "object"
+   },
+   "NewFolder": {
+    "properties": {
+     "parent": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Parent"
+     },
+     "name": {
+      "title": "Name",
+      "type": "string"
+     }
+    },
+    "required": [
+     "name"
+    ],
+    "title": "NewFolder",
+    "type": "object"
+   },
+   "Created": {
+    "properties": {
+     "item": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Item"
+     }
+    },
+    "title": "Created",
+    "type": "object"
+   },
+   "NewFile": {
+    "properties": {
+     "parent": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Parent"
+     },
+     "name": {
+      "title": "Name",
+      "type": "string"
+     },
+     "format": {
+      "default": "",
+      "title": "Format",
+      "type": "string"
+     }
+    },
+    "required": [
+     "name"
+    ],
+    "title": "NewFile",
+    "type": "object"
+   },
+   "Link": {
+    "properties": {
+     "parent": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Parent"
+     },
+     "item": {
+      "title": "Item",
+      "type": "integer"
+     },
+     "name": {
+      "default": "",
+      "title": "Name",
+      "type": "string"
+     }
+    },
+    "required": [
+     "item"
+    ],
+    "title": "Link",
+    "type": "object"
+   },
+   "Change": {
+    "properties": {
+     "name": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Name"
+     },
+     "hidden": {
+      "anyOf": [
+       {
+        "type": "boolean"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Hidden"
+     },
+     "system": {
+      "anyOf": [
+       {
+        "type": "boolean"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "System"
+     },
+     "owner": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Owner"
+     },
+     "group": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Group"
+     },
+     "mode": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Mode"
+     }
+    },
+    "title": "Change",
+    "type": "object"
+   },
+   "Done": {
+    "properties": {
+     "count": {
+      "title": "Count",
+      "type": "integer"
+     }
+    },
+    "required": [
+     "count"
+    ],
+    "title": "Done",
+    "type": "object"
+   },
+   "Selection": {
+    "properties": {
+     "ids": {
+      "items": {
+       "type": "integer"
+      },
+      "title": "Ids",
+      "type": "array"
+     },
+     "parent": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Parent"
+     }
+    },
+    "required": [
+     "ids"
+    ],
+    "title": "Selection",
+    "type": "object"
+   },
+   "Found": {
+    "properties": {
+     "id": {
+      "title": "Id",
+      "type": "integer"
+     },
+     "slug": {
+      "title": "Slug",
+      "type": "string"
+     },
+     "name": {
+      "title": "Name",
+      "type": "string"
+     },
+     "format": {
+      "title": "Format",
+      "type": "string"
+     }
+    },
+    "required": [
+     "id",
+     "slug",
+     "name",
+     "format"
+    ],
+    "title": "Found",
+    "type": "object"
+   },
+   "Holder": {
+    "properties": {
+     "user": {
+      "title": "User",
+      "type": "string"
+     },
+     "since": {
+      "format": "date-time",
+      "title": "Since",
+      "type": "string"
+     }
+    },
+    "required": [
+     "user",
+     "since"
+    ],
+    "title": "Holder",
+    "type": "object"
+   },
+   "ItemOut": {
+    "properties": {
+     "id": {
+      "title": "Id",
+      "type": "integer"
+     },
+     "slug": {
+      "title": "Slug",
+      "type": "string"
+     },
+     "name": {
+      "title": "Name",
+      "type": "string"
+     },
+     "format": {
+      "title": "Format",
+      "type": "string"
+     },
+     "body": {
+      "title": "Body",
+      "type": "string"
+     },
+     "meta": {
+      "title": "Meta",
+      "type": "string"
+     },
+     "url": {
+      "title": "Url",
+      "type": "string"
+     },
+     "asset": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Asset"
+     },
+     "scene": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Scene"
+     },
+     "message": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Message"
+     },
+     "world_created_at": {
+      "anyOf": [
+       {
+        "format": "date",
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "World Created At"
+     },
+     "world_updated_at": {
+      "anyOf": [
+       {
+        "format": "date",
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "World Updated At"
+     },
+     "world_creator": {
+      "title": "World Creator",
+      "type": "string"
+     },
+     "version": {
+      "title": "Version",
+      "type": "string"
+     },
+     "updated_by": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Updated By"
+     },
+     "updated_at": {
+      "format": "date-time",
+      "title": "Updated At",
+      "type": "string"
+     },
+     "created_at": {
+      "format": "date-time",
+      "title": "Created At",
+      "type": "string"
+     },
+     "placements": {
+      "items": {
+       "$ref": "#/components/schemas/Where"
+      },
+      "title": "Placements",
+      "type": "array"
+     },
+     "holder": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/Holder"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     }
+    },
+    "required": [
+     "id",
+     "slug",
+     "name",
+     "format",
+     "body",
+     "meta",
+     "url",
+     "asset",
+     "scene",
+     "message",
+     "world_created_at",
+     "world_updated_at",
+     "world_creator",
+     "version",
+     "updated_by",
+     "updated_at",
+     "created_at",
+     "placements",
+     "holder"
+    ],
+    "title": "ItemOut",
+    "type": "object"
+   },
+   "Where": {
+    "properties": {
+     "volume": {
+      "title": "Volume",
+      "type": "integer"
+     },
+     "volume_name": {
+      "title": "Volume Name",
+      "type": "string"
+     },
+     "placement": {
+      "title": "Placement",
+      "type": "integer"
+     },
+     "path": {
+      "title": "Path",
+      "type": "string"
+     }
+    },
+    "required": [
+     "volume",
+     "volume_name",
+     "placement",
+     "path"
+    ],
+    "title": "Where",
+    "type": "object"
+   },
+   "Conflict": {
+    "properties": {
+     "detail": {
+      "title": "Detail",
+      "type": "string"
+     },
+     "by": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "By"
+     },
+     "at": {
+      "format": "date-time",
+      "title": "At",
+      "type": "string"
+     },
+     "version": {
+      "title": "Version",
+      "type": "string"
+     }
+    },
+    "required": [
+     "detail",
+     "by",
+     "at",
+     "version"
+    ],
+    "title": "Conflict",
+    "type": "object"
+   },
+   "ItemIn": {
+    "properties": {
+     "name": {
+      "title": "Name",
+      "type": "string"
+     },
+     "format": {
+      "default": "",
+      "title": "Format",
+      "type": "string"
+     },
+     "body": {
+      "default": "",
+      "title": "Body",
+      "type": "string"
+     },
+     "meta": {
+      "default": "",
+      "title": "Meta",
+      "type": "string"
+     },
+     "url": {
+      "default": "",
+      "title": "Url",
+      "type": "string"
+     },
+     "world_created_at": {
+      "anyOf": [
+       {
+        "format": "date",
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "World Created At"
+     },
+     "world_updated_at": {
+      "anyOf": [
+       {
+        "format": "date",
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "World Updated At"
+     },
+     "world_creator": {
+      "default": "",
+      "title": "World Creator",
+      "type": "string"
+     },
+     "version": {
+      "title": "Version",
+      "type": "string"
+     },
+     "force": {
+      "default": false,
+      "title": "Force",
+      "type": "boolean"
+     }
+    },
+    "required": [
+     "name",
+     "version"
+    ],
+    "title": "ItemIn",
+    "type": "object"
+   },
+   "Revision": {
+    "properties": {
+     "id": {
+      "title": "Id",
+      "type": "integer"
+     },
+     "saved_at": {
+      "format": "date-time",
+      "title": "Saved At",
+      "type": "string"
+     },
+     "saved_by": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Saved By"
+     },
+     "name": {
+      "title": "Name",
+      "type": "string"
+     },
+     "format": {
+      "title": "Format",
+      "type": "string"
+     }
+    },
+    "required": [
+     "id",
+     "saved_at",
+     "saved_by",
+     "name",
+     "format"
+    ],
+    "title": "Revision",
+    "type": "object"
+   },
+   "Issue": {
+    "properties": {
+     "line": {
+      "title": "Line",
+      "type": "integer"
+     },
+     "level": {
+      "title": "Level",
+      "type": "string"
+     },
+     "code": {
+      "title": "Code",
+      "type": "string"
+     },
+     "message": {
+      "title": "Message",
+      "type": "string"
+     }
+    },
+    "required": [
+     "line",
+     "level",
+     "code",
+     "message"
+    ],
+    "title": "Issue",
+    "type": "object"
+   },
+   "PreviewOut": {
+    "properties": {
+     "body": {
+      "title": "Body",
+      "type": "string"
+     },
+     "infobox": {
+      "title": "Infobox",
+      "type": "string"
+     },
+     "issues": {
+      "additionalProperties": {
+       "items": {
+        "$ref": "#/components/schemas/Issue"
+       },
+       "type": "array"
+      },
+      "title": "Issues",
+      "type": "object"
+     }
+    },
+    "required": [
+     "body",
+     "infobox",
+     "issues"
+    ],
+    "title": "PreviewOut",
+    "type": "object"
+   },
+   "KeysSpec": {
+    "properties": {
+     "mode": {
+      "default": "all",
+      "title": "Mode",
+      "type": "string"
+     },
+     "slugs": {
+      "default": [],
+      "items": {
+       "type": "string"
+      },
+      "title": "Slugs",
+      "type": "array"
+     }
+    },
+    "title": "KeysSpec",
+    "type": "object"
+   },
+   "PreviewIn": {
+    "properties": {
+     "format": {
+      "default": "",
+      "title": "Format",
+      "type": "string"
+     },
+     "title": {
+      "default": "",
+      "title": "Title",
+      "type": "string"
+     },
+     "body": {
+      "default": "",
+      "title": "Body",
+      "type": "string"
+     },
+     "meta": {
+      "default": "",
+      "title": "Meta",
+      "type": "string"
+     },
+     "keys": {
+      "allOf": [
+       {
+        "$ref": "#/components/schemas/KeysSpec"
+       }
+      ],
+      "default": {
+       "mode": "all",
+       "slugs": []
+      }
+     }
+    },
+    "title": "PreviewIn",
+    "type": "object"
+   }
+  },
+  "securitySchemes": {
+   "SessionAuthIsStaff": {
+    "type": "apiKey",
+    "in": "cookie",
+    "name": "sessionid"
+   }
+  }
+ },
+ "servers": []
+}
