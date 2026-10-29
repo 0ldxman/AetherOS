@@ -7,7 +7,7 @@ import json
 import re
 
 from filesystem.models import Item
-from .library import _pages_formats
+from wiki.library import _pages_formats
 
 
 def _mentions(slug, *texts):

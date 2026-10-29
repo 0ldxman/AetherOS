@@ -78,10 +78,10 @@
 
     Fenced code blocks (``` / ~~~) при этом сохраняются как есть.
 """
-from .api import render, visible_text
-from .constants import MASK_CHAR, VARIANTS
-from .expr import SpoilerSyntaxError, parse_expr
-from .lint import lint
+from wiki.markup.api import render, visible_text
+from wiki.markup.constants import MASK_CHAR, VARIANTS
+from wiki.markup.expr import SpoilerSyntaxError, parse_expr
+from wiki.markup.lint import lint
 
 __all__ = [
     "MASK_CHAR",

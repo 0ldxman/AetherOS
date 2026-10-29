@@ -11,10 +11,10 @@ from django.utils.html import format_html
 from django.template.response import TemplateResponse
 from django.urls import path
 
-from .bounds import lookup_regions
-from .revisions import apply_data, export_scenes, import_scenes, record_revision
-from .models import Country, CountryLabel, MapScene, MapSceneRevision, Ownership, Province
-from .views import _latest_ownerships
+from map.bounds import lookup_regions
+from map.revisions import apply_data, export_scenes, import_scenes, record_revision
+from map.models import Country, CountryLabel, MapScene, MapSceneRevision, Ownership, Province
+from map.views import _latest_ownerships
 
 APPLY_MAX_PROVINCES = 10000
 
@@ -322,9 +322,9 @@ class MapSceneAdmin(admin.ModelAdmin):
     def render_change_form(self, request, context, *args, **kwargs):
         from secure.keys import key_rows
 
-        from .scenes import COLORS
+        from map.scenes import COLORS
 
-        from .icons import MARKER_ICONS
+        from map.icons import MARKER_ICONS
 
         context["marker_icons"] = MARKER_ICONS
         context["colors"] = COLORS

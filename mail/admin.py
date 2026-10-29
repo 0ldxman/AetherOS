@@ -5,8 +5,8 @@ from django.utils.html import format_html
 from secure.access import format_condition
 from secure.admin_widgets import ConditionFieldsMixin
 
-from .addresses import split
-from .models import Attachment, ComposeProgress, ComposeTask, Delivered, Message, MessageRead, Trashed
+from mail.addresses import split
+from mail.models import Attachment, ComposeProgress, ComposeTask, Delivered, Message, MessageRead, Trashed
 
 
 class AttachmentInline(admin.TabularInline):

@@ -3,7 +3,7 @@
 Подключается к DocumentAdmin как примесь, поэтому save_model и остальной
 код админки не трогаются:
 
-    from .admin_preview import DocumentPreviewMixin
+    from wiki.admin_preview import DocumentPreviewMixin
 
     class DocumentAdmin(DocumentPreviewMixin, admin.ModelAdmin):
         ...
@@ -47,8 +47,8 @@ from assets.models import Asset
 from assets.services import asset_widget_kind
 from secure.keys import key_rows
 
-from . import markup
-from .access import keys_for_mode
+from wiki import markup
+from wiki.access import keys_for_mode
 
 DOC_TYPES = ("doc", "scan", "web", "rec")
 

@@ -2,7 +2,7 @@ from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin
 from django.db.models import Count
 
-from .models import User
+from users.models import User
 
 
 @admin.register(User)

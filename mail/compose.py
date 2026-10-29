@@ -11,8 +11,8 @@ from django.utils import timezone
 from machines.world import GAME_NOW
 from secure.access import satisfied
 
-from .delivery import deliver
-from .models import ComposeProgress, ComposeTask, Message
+from mail.delivery import deliver
+from mail.models import ComposeProgress, ComposeTask, Message
 
 HIDDEN = re.compile(r"\{\{(.+?)\}\}", re.DOTALL)
 

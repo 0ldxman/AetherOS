@@ -14,8 +14,8 @@ import json
 from django import forms
 from django.db import models
 
-from .access import validate_requirements
-from .keys import key_rows
+from secure.access import validate_requirements
+from secure.keys import key_rows
 
 
 class ConditionWidget(forms.Textarea):

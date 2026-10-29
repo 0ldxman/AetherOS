@@ -5,7 +5,7 @@
 
 import re
 
-from .constants import EXPR_MAX_LEN
+from wiki.markup.constants import EXPR_MAX_LEN
 
 
 # =========================================================

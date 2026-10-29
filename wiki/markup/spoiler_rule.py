@@ -3,8 +3,8 @@
 Часть пакета wiki.markup (описание синтаксиса: wiki/markup/__init__.py).
 """
 
-from .expr import SpoilerSyntaxError, parse_expr
-from .lines import _OPEN, _is_aether_close_line, _is_aether_directive_line, _line, _opens_block
+from wiki.markup.expr import SpoilerSyntaxError, parse_expr
+from wiki.markup.lines import _OPEN, _is_aether_close_line, _is_aether_directive_line, _line, _opens_block
 
 
 # =========================================================

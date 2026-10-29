@@ -5,10 +5,10 @@
 
 from markdown_it import MarkdownIt
 
-from .container_rule import _container_rule
-from .inline_rule import _inline_spoiler_rule
-from .spoiler_rule import _spoiler_rule
-from .widget_rule import _widget_rule
+from wiki.markup.container_rule import _container_rule
+from wiki.markup.inline_rule import _inline_spoiler_rule
+from wiki.markup.spoiler_rule import _spoiler_rule
+from wiki.markup.widget_rule import _widget_rule
 
 
 # =========================================================

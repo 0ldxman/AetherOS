@@ -81,7 +81,7 @@ def gateway_scenes(request):
     """Сцены экрана входа для этого посетителя (словарь имя -> список шагов)."""
     from machines.identity import client_fingerprint, identity_of
 
-    from . import gateway
+    from users import gateway
 
     ident = identity_of()
     client_key = client_fingerprint(_visitor(request))

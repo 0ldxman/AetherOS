@@ -3,10 +3,10 @@
 Часть пакета wiki.markup (описание синтаксиса: wiki/markup/__init__.py).
 """
 
-from .constants import VARIANTS
-from .engine import _md
-from .pages import _render_sheets, _split_sheets
-from .process import _process
+from wiki.markup.constants import VARIANTS
+from wiki.markup.engine import _md
+from wiki.markup.pages import _render_sheets, _split_sheets
+from wiki.markup.process import _process
 
 
 # =========================================================

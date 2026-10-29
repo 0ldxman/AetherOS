@@ -4,12 +4,12 @@ from django.db import DatabaseError
 from django.http import Http404, JsonResponse
 from django.shortcuts import render
 
-from .cache import shared_json as _shared_json
-from .models import CountryLabel, Ownership
+from map.cache import shared_json as _shared_json
+from map.models import CountryLabel, Ownership
 
 
 def index(request):
-    from .icons import MARKER_ICONS
+    from map.icons import MARKER_ICONS
 
     return render(request, 'map.html', {"marker_icons": MARKER_ICONS})
 
@@ -89,7 +89,7 @@ def _visible_scenes(request, light=False):
     from secure.access import satisfied
     from wiki.access import request_keys
 
-    from .models import MapScene
+    from map.models import MapScene
 
     keys = request_keys(request)
     scenes = MapScene.objects.all()
@@ -109,7 +109,7 @@ def scene_list(request):
 
 def scene_detail(request, slug):
     """Сохранённая карта целиком: камера, дата и только те пометки, что видны игроку (закрытая сцена 404)."""
-    from .scenes import scene_payload
+    from map.scenes import scene_payload
 
     scenes, keys = _visible_scenes(request)
     scene = next((s for s in scenes if s.slug == slug), None)
@@ -140,7 +140,7 @@ def scene_detail(request, slug):
 
 def resolve_regions(request):
     """Для редактора сцен: какие провинции (adm1_code) выделяет каждый токен на дату (страна по владению на дату)."""
-    from .bounds import resolve_highlight
+    from map.bounds import resolve_highlight
 
     if not getattr(request.user, "is_staff", False):
         raise Http404
@@ -159,9 +159,9 @@ def resolve_regions(request):
 
 def region_outline(request):
     """Внешняя граница выделения: линии объединения провинций токена (страна без внутренних границ) на дату."""
-    from .bounds import resolve_highlight
-    from .models import ProvinceShape
-    from .outline import outline_for
+    from map.bounds import resolve_highlight
+    from map.models import ProvinceShape
+    from map.outline import outline_for
 
     raw = request.GET.get("date")
     try:

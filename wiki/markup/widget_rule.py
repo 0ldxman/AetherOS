@@ -7,8 +7,8 @@ import re
 
 from wiki.widgets import WIDGETS
 
-from .constants import CONTAINERS, PARAM_MAX_LEN, RAW_MAX_LEN
-from .lines import _is_aether_close_line, _is_aether_directive_line, _line, _widget_head
+from wiki.markup.constants import CONTAINERS, PARAM_MAX_LEN, RAW_MAX_LEN
+from wiki.markup.lines import _is_aether_close_line, _is_aether_directive_line, _line, _widget_head
 
 
 # =========================================================

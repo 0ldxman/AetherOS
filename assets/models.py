@@ -115,7 +115,7 @@ class Asset(models.Model):
         Сам объект не сохраняет: это делает вызывающий код.
         Бросает ValueError, если файла нет или это папка.
         """
-        from .nextcloud import NextcloudClient
+        from assets.nextcloud import NextcloudClient
 
         client = client or NextcloudClient.from_settings()
         file = client.get_file_by_id(self.file_id)
@@ -130,7 +130,7 @@ class Asset(models.Model):
 
         Возвращает True, если что-то изменилось. Не сохраняет объект.
         """
-        from .services import guess_content_type
+        from assets.services import guess_content_type
 
         values = {
             "filename": file.filename,

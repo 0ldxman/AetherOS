@@ -10,7 +10,7 @@ from django.db.models import Q
 
 from machines.paths import validate_internal_path
 
-from .addresses import split, validate_address, validate_masks
+from mail.addresses import split, validate_address, validate_masks
 
 
 class Message(models.Model):

@@ -6,7 +6,7 @@ class WikiConfig(AppConfig):
     name = 'wiki'
 
     def ready(self):
-        from .versioning import bump_version
+        from wiki.versioning import bump_version
 
         from filesystem.models import Item, Placement, Volume
         from machines.models import Export, MachineMount

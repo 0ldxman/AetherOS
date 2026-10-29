@@ -20,10 +20,10 @@ from secure.keys import key_items
 from map.icons import ICON_NAMES
 from wiki.widgets import MARK_COLORS, WIDGETS, parse_map_line, split_highlight_token
 
-from .constants import CONTAINERS
-from .expr import SpoilerSyntaxError, parse_expr
-from .lines import _FENCE_OPEN, _OPEN, _opens_block, _widget_head
-from .widget_rule import _parse_args, _parse_body
+from wiki.markup.constants import CONTAINERS
+from wiki.markup.expr import SpoilerSyntaxError, parse_expr
+from wiki.markup.lines import _FENCE_OPEN, _OPEN, _opens_block, _widget_head
+from wiki.markup.widget_rule import _parse_args, _parse_body
 
 ERROR = "error"
 WARNING = "warning"

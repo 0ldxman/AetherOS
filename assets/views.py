@@ -17,9 +17,9 @@ from django.utils.http import content_disposition_header
 
 from filesystem.rawview import viewer_formats
 
-from .models import Asset
-from .nextcloud import NextcloudClient
-from .services import guess_content_type, resolve_viewer_type
+from assets.models import Asset
+from assets.nextcloud import NextcloudClient
+from assets.services import guess_content_type, resolve_viewer_type
 
 logger = logging.getLogger(__name__)
 

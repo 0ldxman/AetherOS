@@ -24,8 +24,8 @@ from secure.access import satisfied
 from users.aether_auth import GUEST_LOGIN
 from wiki.access import request_keys
 
-from .addresses import matches_any, same
-from .models import Delivered, Message, MessageRead, Trashed
+from mail.addresses import matches_any, same
+from mail.models import Delivered, Message, MessageRead, Trashed
 
 FOLDERS = ("inbox", "drafts", "sent", "trash")
 

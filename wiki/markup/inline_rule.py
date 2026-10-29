@@ -5,7 +5,7 @@
 
 from markdown_it.helpers import parseLinkLabel
 
-from .expr import SpoilerSyntaxError, parse_expr
+from wiki.markup.expr import SpoilerSyntaxError, parse_expr
 
 
 # =========================================================

@@ -14,12 +14,12 @@ from filesystem.sources import Content
 from machines.current import active_session
 from users.aether_auth import AUTH_REQUIRED, is_player
 
-from .pulse_cache import cached_for_viewer, cached_pulse
-from .access import mark_read, mark_unread, read_ids, viewer_for, visible_messages
-from .addresses import recipients_line, split
-from .attachments import SaveError, payload, save_to_machine, saved_entry, virtual_entry
-from .compose import TaskError, available_tasks, public_segments, send
-from .models import Attachment, ComposeProgress
+from mail.pulse_cache import cached_for_viewer, cached_pulse
+from mail.access import mark_read, mark_unread, read_ids, viewer_for, visible_messages
+from mail.addresses import recipients_line, split
+from mail.attachments import SaveError, payload, save_to_machine, saved_entry, virtual_entry
+from mail.compose import TaskError, available_tasks, public_segments, send
+from mail.models import Attachment, ComposeProgress
 
 PREVIEW_LENGTH = 90
 

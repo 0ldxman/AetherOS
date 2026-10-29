@@ -3,7 +3,7 @@ from datetime import date
 from django.core.management.base import BaseCommand, CommandError
 from django.db import transaction
 
-from ...models import Country, Ownership, Province
+from map.models import Country, Ownership, Province
 
 
 class Command(BaseCommand):

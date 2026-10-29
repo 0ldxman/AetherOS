@@ -22,8 +22,8 @@ from django.utils import timezone
 from django.utils.formats import date_format
 from django.utils.html import format_html
 
-from . import history
-from .models import Item, ItemRevision
+from filesystem import history
+from filesystem.models import Item, ItemRevision
 
 
 class VersionedFormMixin(forms.ModelForm):

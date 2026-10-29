@@ -4,7 +4,7 @@ from pathlib import Path
 from django.conf import settings
 from django.core.management.base import BaseCommand
 
-from ...models import ProvinceShape
+from map.models import ProvinceShape
 
 DEFAULT_PATH = Path(settings.BASE_DIR) / "map" / "static" / "data" / "aether_provinces.geojson"
 

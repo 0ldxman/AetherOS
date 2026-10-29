@@ -3,7 +3,7 @@ from pathlib import Path
 
 from django.core.management.base import BaseCommand
 
-from ...bounds import BOUNDS_FILE
+from map.bounds import BOUNDS_FILE
 
 
 def _ring_bbox(ring):

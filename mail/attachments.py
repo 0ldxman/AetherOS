@@ -6,7 +6,7 @@ from django.urls import get_script_prefix, reverse
 from filesystem.machine_view import FILE, Entry, MachineView, view_for
 from machines import places
 
-from .models import Attachment
+from mail.models import Attachment
 
 
 def _prefix(path):

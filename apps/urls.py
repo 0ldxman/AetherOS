@@ -1,5 +1,5 @@
 from django.urls import path
-from . import views
+from apps import views
 
 urlpatterns = [
     path("sessions/", views.sessions, name="sessions"),

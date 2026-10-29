@@ -19,7 +19,7 @@ MAX_PROVINCES = 600
 
 def _owned_by(country_ids, on_date):
     """source_code провинций, которыми на дату (без даты: сейчас) владеет любая из стран."""
-    from .models import Ownership
+    from map.models import Ownership
 
     qs = Ownership.objects.all()
     if on_date is not None:
@@ -38,7 +38,7 @@ def resolve_highlight(tokens, on_date=None):
     -> (группы, неизвестные токены). Группа: словарь kind (province|country), token, name,
     codes (source_code провинций) и boxes (их рамки).
     """
-    from .models import Country, Province
+    from map.models import Country, Province
 
     wanted = [t.strip() for t in tokens if t.strip()]
     provinces = {p.code.upper(): p for p in Province.objects.all().only("code", "source_code", "name")}
@@ -115,7 +115,7 @@ def lookup_regions(query, limit=12):
     """
     from django.db.models import Q
 
-    from .models import Country, Province
+    from map.models import Country, Province
 
     query = (query or "").strip()
     if len(query) < 2:

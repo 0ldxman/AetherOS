@@ -5,9 +5,9 @@
 
 from secure.access import satisfied
 
-from .engine import _md
-from .lines import _normalize_editor_indentation
-from .masking import _mask_token, _resolve_inline
+from wiki.markup.engine import _md
+from wiki.markup.lines import _normalize_editor_indentation
+from wiki.markup.masking import _mask_token, _resolve_inline
 
 
 # =========================================================

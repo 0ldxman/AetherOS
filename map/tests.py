@@ -1,6 +1,6 @@
 from django.test import TestCase
 
-from .models import MapScene
+from map.models import MapScene
 
 # Create your tests here.
 
@@ -10,7 +10,7 @@ class MapSceneTests(TestCase):
     def test_features_are_validated_and_normalized(self):
         from django.core.exceptions import ValidationError
 
-        from .scenes import clean_features
+        from map.scenes import clean_features
 
         clean = clean_features([
             {"type": "marker", "coords": [19.94, 50.06], "label": "Краков", "color": "red", "junk": 1},
@@ -40,7 +40,7 @@ class MapSceneTests(TestCase):
 
         from django.core.exceptions import ValidationError
 
-        from .scenes import clean_features, visible_features
+        from map.scenes import clean_features, visible_features
 
         features = clean_features([
             {"type": "marker", "coords": [0, 0], "label": "всегда"},
@@ -61,7 +61,7 @@ class MapSceneTests(TestCase):
     def test_callouts_and_freehand_lines_are_validated(self):
         from django.core.exceptions import ValidationError
 
-        from .scenes import clean_features
+        from map.scenes import clean_features
 
         callout = clean_features([{"type": "callout", "coords": [1, 2], "text": " Склад ", "offset": [9999, -20]}])[0]
         self.assertEqual((callout["text"], callout["offset"]), ("Склад", [500, -20]))
@@ -81,7 +81,7 @@ class MapSceneTests(TestCase):
                 MapScene(slug="t", title="T", thumbnail=bad).full_clean()
 
     def test_visible_features_follow_keys_and_hide_the_key_field(self):
-        from .scenes import visible_features
+        from map.scenes import visible_features
 
         features = [
             {"type": "marker", "coords": [0, 0]},
@@ -93,7 +93,7 @@ class MapSceneTests(TestCase):
         self.assertNotIn("key", shown[1])
 
     def test_internal_url_accepts_site_and_wiki_paths_only(self):
-        from .scenes import internal_url
+        from map.scenes import internal_url
 
         self.assertTrue(internal_url("/apps/wiki/x").endswith("/apps/wiki/x"))
         self.assertIn("Technologies", internal_url("Technologies/Report"))
@@ -122,7 +122,7 @@ class MapSceneAdminTests(TestCase):
         from django.contrib.auth import get_user_model
         from django.urls import reverse
 
-        from .scenes import clean_features
+        from map.scenes import clean_features
 
         from filesystem.testing import key_item
 
@@ -172,7 +172,7 @@ class MapEditorAccessTests(TestCase):
 
 class ProvinceLinkTests(TestCase):
     def test_link_prefers_the_province_then_the_country_and_rejects_unsafe(self):
-        from .views import link_of
+        from map.views import link_of
 
         self.assertEqual(link_of("https://wiki.example/p", "https://wiki.example/c"), "https://wiki.example/p")
         self.assertEqual(link_of("", "/wiki/Poland"), "/wiki/Poland")
@@ -187,8 +187,8 @@ class RegionLookupTests(TestCase):
         from django.contrib.auth import get_user_model
         from django.urls import reverse
 
-        from .bounds import lookup_regions
-        from .models import Country, Province
+        from map.bounds import lookup_regions
+        from map.models import Country, Province
 
         Country.objects.create(code="POL-2013", name="Польша", valid_from=date(2013, 1, 1))
         Province.objects.create(code="POL-2", source_code="POL-3170", name="Малая Польша")
@@ -301,7 +301,7 @@ class SceneHistoryTests(TestCase):
 
         from django.urls import reverse
 
-        from .revisions import export_scenes, import_scenes
+        from map.revisions import export_scenes, import_scenes
 
         scene = MapScene.objects.create(slug="a", title="A", base_date="2041-03-12", flat=True,
                                         features=[{"type": "marker", "coords": [1, 2]}])
@@ -356,7 +356,7 @@ class MapCacheTests(TestCase):
         from django.db import connection
         from django.test.utils import CaptureQueriesContext
 
-        from .models import Country, Ownership, Province
+        from map.models import Country, Ownership, Province
 
         from django.contrib.auth import get_user_model
 
@@ -394,7 +394,7 @@ class RegionResolveTests(TestCase):
         from django.contrib.auth import get_user_model
         from django.core.cache import cache
 
-        from .models import Country, Ownership, Province
+        from map.models import Country, Ownership, Province
 
         cache.clear()
         self.staff = get_user_model().objects.create_user("boss", password="pw", is_staff=True)
@@ -416,7 +416,7 @@ class RegionResolveTests(TestCase):
         self.assertEqual(self.client.get("/apps/map/api/resolve-regions/?tokens=RUS").status_code, 403)
 
     def test_a_region_keeps_its_fill_flag_and_reaches_the_page(self):
-        from .scenes import clean_features, scene_payload
+        from map.scenes import clean_features, scene_payload
 
         features = clean_features([{"type": "region", "token": "RUS", "fill": False}])
         self.assertIs(features[0]["fill"], False)
@@ -431,7 +431,7 @@ class OutlineTests(TestCase):
     SQUARE_B = [[1, 0], [2, 0], [2, 1], [1, 1], [1, 0]]      # делит с A сторону x=1
 
     def test_the_shared_border_between_selected_provinces_disappears(self):
-        from .outline import outer_boundary
+        from map.outline import outer_boundary
 
         lines = outer_boundary({"a": [self.SQUARE_A], "b": [self.SQUARE_B]})
         self.assertEqual(len(lines), 1)
@@ -443,7 +443,7 @@ class OutlineTests(TestCase):
         self.assertEqual({tuple(p) for p in single[0]}, {(0, 0), (1, 0), (1, 1), (0, 1)})
 
     def test_an_enclave_keeps_its_own_ring(self):
-        from .outline import outer_boundary
+        from map.outline import outer_boundary
 
         hole = [[0.25, 0.25], [0.25, 0.75], [0.75, 0.75], [0.75, 0.25], [0.25, 0.25]]
         lines = outer_boundary({"a": [self.SQUARE_A, hole]})
@@ -454,7 +454,7 @@ class OutlineTests(TestCase):
 
         from django.core.cache import cache
 
-        from .models import Country, Ownership, Province, ProvinceShape
+        from map.models import Country, Ownership, Province, ProvinceShape
 
         cache.clear()
         country = Country.objects.create(code="AAA-2041", name="A", color="#aabbcc", valid_from=date(2000, 1, 1))
@@ -472,7 +472,7 @@ class OutlineTests(TestCase):
     def test_a_scene_region_with_outer_border_points_at_the_outline(self):
         from datetime import date
 
-        from .scenes import clean_features, scene_payload
+        from map.scenes import clean_features, scene_payload
 
         features = clean_features([{"type": "region", "token": "AAA", "border": "outer", "fill_color": "blue",
                                     "fill_style": "hatch", "color": "red"}])
@@ -480,7 +480,7 @@ class OutlineTests(TestCase):
         with self.assertRaises(Exception):
             clean_features([{"type": "polygon", "coords": [[0, 0], [1, 0], [1, 1]], "fill_style": "dots"}])
         # без провинций токен ничего не выделяет, поэтому на странице его нет: проверяем сам адрес через заготовку
-        from .models import Country, Ownership, Province
+        from map.models import Country, Ownership, Province
 
         country = Country.objects.create(code="AAA-2041", name="A", color="#aabbcc", valid_from=date(2000, 1, 1))
         province = Province.objects.create(code="AAA-1", source_code="aaa-1", name="A1")
@@ -498,7 +498,7 @@ class OutlineDiagnosticsTests(TestCase):
         from django.contrib.auth import get_user_model
         from django.core.cache import cache
 
-        from .models import Country, Ownership, Province
+        from map.models import Country, Ownership, Province
 
         cache.clear()
         self.client.force_login(get_user_model().objects.create_user("boss", password="pw", is_staff=True))
@@ -506,7 +506,7 @@ class OutlineDiagnosticsTests(TestCase):
         province = Province.objects.create(code="BBB-1", source_code="bbb-1", name="B1")
         Ownership.objects.create(province=province, country=country, date_from=date(2000, 1, 1), de_jure=True)
         # провинция есть, контура нет: сервер не пытается грузить файл, если таблица не пуста
-        from .models import ProvinceShape
+        from map.models import ProvinceShape
 
         ProvinceShape.objects.create(source_code="other", rings=[[[0, 0], [1, 0], [1, 1], [0, 0]]])
         data = self.client.get("/apps/map/api/outline/?token=BBB&date=2041-03-12").json()
@@ -518,7 +518,7 @@ class OutlineDiagnosticsTests(TestCase):
 
 class SceneLinkTests(TestCase):
     def test_a_scene_link_is_a_plain_internal_path(self):
-        from .scenes import internal_url
+        from map.scenes import internal_url
 
         self.assertEqual(internal_url("/apps/map/?scene=operation-vistula"), "/apps/map/?scene=operation-vistula")
         self.assertEqual(internal_url("https://evil.example/?scene=x"), "")

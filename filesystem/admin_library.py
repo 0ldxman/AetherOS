@@ -10,13 +10,13 @@ from django.utils.html import format_html
 
 from secure.admin_widgets import ConditionFieldsMixin, ConditionWidget
 
-from . import filemanager
-from .admin_files import VolumeFiles
-from .admin_history import ItemHistoryMixin, VersionedFormMixin
-from .admin_preview import ItemPreviewMixin
+from filesystem import filemanager
+from filesystem.admin_files import VolumeFiles
+from filesystem.admin_history import ItemHistoryMixin, VersionedFormMixin
+from filesystem.admin_preview import ItemPreviewMixin
 from wiki.admin_dashboard import ItemDashboardMixin
 
-from .models import KEY_FORMAT, FileFormat, Item, ItemKey, ItemMember, ItemSignature, Placement, Volume, VolumeTemplate
+from filesystem.models import KEY_FORMAT, FileFormat, Item, ItemKey, ItemMember, ItemSignature, Placement, Volume, VolumeTemplate
 from machines.models import MachineMount
 
 

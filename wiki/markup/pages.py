@@ -5,8 +5,8 @@
 
 import re
 
-from .engine import _md
-from .renderers import _Ctx
+from wiki.markup.engine import _md
+from wiki.markup.renderers import _Ctx
 
 
 # =========================================================

@@ -7,7 +7,7 @@ import re
 
 from wiki.widgets import WIDGETS
 
-from .constants import CONTAINERS
+from wiki.markup.constants import CONTAINERS
 
 
 # =========================================================

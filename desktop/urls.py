@@ -1,4 +1,4 @@
 from django.urls import path
-from . import views
+from desktop import views
 
 urlpatterns = [path("", views.desktop, name="desktop")]

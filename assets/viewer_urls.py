@@ -1,6 +1,6 @@
 from django.urls import path
 
-from .views import asset_content, asset_viewer
+from assets.views import asset_content, asset_viewer
 
 
 app_name = "asset_viewer"

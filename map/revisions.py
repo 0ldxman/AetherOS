@@ -4,7 +4,7 @@ from datetime import date
 from django.core.exceptions import ValidationError
 from django.db import transaction
 
-from .models import MapScene, MapSceneRevision
+from map.models import MapScene, MapSceneRevision
 
 FIELDS = (
     "title", "base_date", "mode", "lat", "lon", "zoom", "bounds", "min_zoom", "max_zoom",

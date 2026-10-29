@@ -5,9 +5,9 @@
 
 import re
 
-from .constants import BOX_FLAGS, CONTAINERS, GRID_MAX_CELLS, GRID_MAX_COLS, PARAM_MAX_LEN
-from .lines import _is_aether_close_line, _is_aether_directive_line, _line, _opens_block, _widget_head
-from .widget_rule import _ARG
+from wiki.markup.constants import BOX_FLAGS, CONTAINERS, GRID_MAX_CELLS, GRID_MAX_COLS, PARAM_MAX_LEN
+from wiki.markup.lines import _is_aether_close_line, _is_aether_directive_line, _line, _opens_block, _widget_head
+from wiki.markup.widget_rule import _ARG
 
 
 # =========================================================

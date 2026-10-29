@@ -8,7 +8,7 @@ from dataclasses import dataclass
 
 from django.urls import reverse
 
-from .access import condition_slugs
+from secure.access import condition_slugs
 
 
 @dataclass(frozen=True)

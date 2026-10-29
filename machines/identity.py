@@ -10,7 +10,7 @@ import base64
 import hashlib
 from dataclasses import dataclass
 
-from .models import Machine
+from machines.models import Machine
 
 UNKNOWN_HID = "00:00:00:00:00:00"
 ENTRY_HOST = "aether-main"

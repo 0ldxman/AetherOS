@@ -3,9 +3,9 @@ from django.template.defaultfilters import filesizeformat
 from django.urls import NoReverseMatch, reverse
 from django.utils.html import format_html
 
-from .forms import AssetAdminForm
-from .models import Asset
-from .services import asset_widget_kind
+from assets.forms import AssetAdminForm
+from assets.models import Asset
+from assets.services import asset_widget_kind
 
 
 @admin.register(Asset)

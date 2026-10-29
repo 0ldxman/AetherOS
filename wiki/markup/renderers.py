@@ -7,9 +7,9 @@ from html import escape
 
 from wiki.widgets import render_widget
 
-from .constants import FOLD_DEFAULT_TITLE
-from .engine import _md
-from .masking import _resolve_inline
+from wiki.markup.constants import FOLD_DEFAULT_TITLE
+from wiki.markup.engine import _md
+from wiki.markup.masking import _resolve_inline
 
 
 # =========================================================

@@ -1,6 +1,6 @@
 from django import forms
 
-from .models import Asset
+from assets.models import Asset
 
 
 class AssetAdminForm(forms.ModelForm):

@@ -92,7 +92,7 @@ def outer_boundary(rings_by_province):
 
 def outline_for(codes):
     """Линии внешней границы провинций с этими source_code (с кэшем: границы не меняются)."""
-    from .models import ProvinceShape
+    from map.models import ProvinceShape
 
     codes = sorted(set(codes))
     if not codes:
@@ -113,7 +113,7 @@ def ensure_shapes():
     Тот же результат даёт команда import_province_shapes; здесь страховка на случай, если её не запускали."""
     from django.core.management import call_command
 
-    from .models import ProvinceShape
+    from map.models import ProvinceShape
 
     if ProvinceShape.objects.exists() or not cache.add("map:shapes-importing", 1, 600):
         return

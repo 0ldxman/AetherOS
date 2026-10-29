@@ -26,7 +26,7 @@ from django.urls import NoReverseMatch, get_script_prefix, reverse
 
 from secure.access import satisfied, validate_requirements
 
-from .icons import ICON_NAMES
+from map.icons import ICON_NAMES
 from wiki.markup.expr import SpoilerSyntaxError, parse_expr
 
 FILL_STYLES = ("solid", "hatch")
@@ -196,7 +196,7 @@ def visible_features(features, keys, on_date=None):
 
 def scene_payload(scene, keys, on_date):
     """Пометки сцены для страницы: видимые игроку на дату, ссылки внутренние, выделения раскрыты в провинции."""
-    from .bounds import resolve_highlight
+    from map.bounds import resolve_highlight
 
     payload = []
     for item in visible_features(scene.features, keys, on_date):

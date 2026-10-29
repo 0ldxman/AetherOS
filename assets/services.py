@@ -11,7 +11,7 @@ import uuid
 from mimetypes import guess_type
 from pathlib import PurePosixPath
 
-from .models import Asset
+from assets.models import Asset
 
 TEXT_EXTENSIONS = frozenset(
     {
@@ -126,7 +126,7 @@ def find_asset(ref: str) -> Asset | None:
 
 def read_asset_bytes(asset, limit):
     """Байты ассета из Nextcloud (не больше limit; больше нельзя: вернётся None). Нужны для сырого вида файла."""
-    from .nextcloud import NextcloudClient
+    from assets.nextcloud import NextcloudClient
 
     client = NextcloudClient.from_settings()
     file = client.get_file_by_id(asset.file_id)

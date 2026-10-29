@@ -7,7 +7,7 @@
 from django.template.response import TemplateResponse
 from django.urls import path, reverse
 
-from . import dashboard
+from wiki import dashboard
 
 
 class ItemDashboardMixin:

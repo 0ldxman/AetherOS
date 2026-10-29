@@ -9,7 +9,7 @@ from datetime import timedelta
 
 from django.utils import timezone
 
-from .models import Delivered, Message
+from mail.models import Delivered, Message
 
 MAX_DELAY_SECONDS = 7 * 24 * 3600
 

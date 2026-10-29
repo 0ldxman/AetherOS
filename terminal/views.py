@@ -37,7 +37,7 @@ def _anonymous_answer(request):
 
 def _kicks(request):
     """Обрывы по сроку, которые случились с игроком (и ещё не показаны): для ответа браузеру. Папка терминала подстраивается."""
-    from . import bridge_scenes as scenes
+    from terminal import bridge_scenes as scenes
 
     bridge.remember_cwd(request, request.session.get(CWD_KEY, DEFAULT_CWD))
     bridge.expire(request)
@@ -52,7 +52,7 @@ def _kicks(request):
 
 def _tabs(request):
     """Вкладки для браузера: у вкладки со сроком ещё текст предупреждения ({n} подставит браузер)."""
-    from . import bridge_scenes as scenes
+    from terminal import bridge_scenes as scenes
 
     rows = bridge.tabs(request)
     for row in rows:
@@ -156,7 +156,7 @@ def execute(request):
 def _server_effects(request, session, effects):
     """Эффекты ответа для браузера. kick из хука выполняется здесь, на сервере: игрока выбрасывает на уровень выше
     (или на экран входа, если выше нет), а браузер получает сцену обрыва и смену рабочего стола."""
-    from . import bridge_scenes as scenes
+    from terminal import bridge_scenes as scenes
 
     out = []
     for effect in effects or []:
@@ -259,7 +259,7 @@ def tab_close(request):
     kicks = _kicks(request) if is_player(request) else []
     if kicks:
         return _tab_payload(request, {"kicks": kicks})
-    from . import bridge_scenes as scenes
+    from terminal import bridge_scenes as scenes
 
     node = _tab_node(request)
     closed = bridge.close(request, node, cwd=request.session.get(CWD_KEY, DEFAULT_CWD)) if node else None
@@ -298,7 +298,7 @@ def _greeting(request, hostname, mail=True):
     from machines.models import Machine
     from users.aether_auth import _mail_summary
 
-    from .scenes import greeting_scene
+    from terminal.scenes import greeting_scene
 
     try:
         return greeting_scene(identity_of(hostname), _login(request), _mail_summary(request) if mail else None)

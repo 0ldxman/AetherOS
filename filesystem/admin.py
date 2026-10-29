@@ -1,7 +1,7 @@
 from django.contrib import admin
 
-from .forms import FileEncodingForm, FileFormatForm, FormatPartFormSet
-from .models import FileEncoding, FileFormat, FormatPart
+from filesystem.forms import FileEncodingForm, FileFormatForm, FormatPartFormSet
+from filesystem.models import FileEncoding, FileFormat, FormatPart
 
 
 class FormatPartInline(admin.TabularInline):

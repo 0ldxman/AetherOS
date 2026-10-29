@@ -88,7 +88,7 @@ class AccessTests(TestCase):
 
 class SelfMailFolderTests(TestCase):
     def test_message_to_myself_is_in_inbox_and_sent(self):
-        from .access import Viewer, visible_messages
+        from mail.access import Viewer, visible_messages
         make_message(sender="me@aether-main", recipients="me@aether-main, *@aether-main")
         viewer = Viewer(address="me@aether-main", keys=frozenset())
         self.assertEqual([m.folder for m in visible_messages(viewer)], ["inbox", "sent"])
@@ -98,7 +98,7 @@ class SelfMailFolderTests(TestCase):
 
 class RecipientsLineTests(TestCase):
     def test_reader_sees_own_address_and_full_addresses_only(self):
-        from .addresses import recipients_line
+        from mail.addresses import recipients_line
         masks = "*@aether-main\n*@aether-null\njohn_snow@aether-core"
         self.assertEqual(
             recipients_line(masks, "oldman@aether-main"),
@@ -106,7 +106,7 @@ class RecipientsLineTests(TestCase):
         )
 
     def test_no_hidden_masks_no_tail(self):
-        from .addresses import recipients_line
+        from mail.addresses import recipients_line
         self.assertEqual(recipients_line("a@x, *@x", "a@x"), "a@x")
         self.assertEqual(recipients_line("*@y", "a@x"), "+1")
 

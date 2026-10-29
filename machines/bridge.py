@@ -31,9 +31,9 @@ from django.utils import timezone
 
 from secure.access import satisfied
 
-from . import entry
-from .current import SESSION_KEY, active_session
-from .models import Machine, MachineProfile, MachineProfileToken, Session
+from machines import entry
+from machines.current import SESSION_KEY, active_session
+from machines.models import Machine, MachineProfile, MachineProfileToken, Session
 
 TREE_KEY = "bridge_tree"
 MAX_DEPTH = 4           # самая длинная цепочка подключений от корня

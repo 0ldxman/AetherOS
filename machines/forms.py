@@ -3,7 +3,7 @@ import secrets
 from django import forms
 from django.contrib.auth.hashers import identify_hasher
 
-from .models import MachineProfile, MachineProfileToken
+from machines.models import MachineProfile, MachineProfileToken
 
 TOKEN_BYTES = 9  # ~12 символов: удобно диктовать и вводить
 

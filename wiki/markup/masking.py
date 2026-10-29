@@ -8,7 +8,7 @@ import re
 from markdown_it.token import Token
 from secure.access import satisfied
 
-from .constants import MASK_CHAR
+from wiki.markup.constants import MASK_CHAR
 
 
 # =========================================================

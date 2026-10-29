@@ -4,7 +4,7 @@ import random
 from django.core.management.base import BaseCommand
 from django.db import transaction
 
-from ...models import Country
+from map.models import Country
 
 DEFAULT_COLOR = "#cccccc"
 GOLDEN_RATIO = 0.618033988749895

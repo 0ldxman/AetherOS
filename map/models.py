@@ -186,7 +186,7 @@ class MapScene(models.Model):
 
         from secure.access import validate_requirements
 
-        from .scenes import clean_features
+        from map.scenes import clean_features
 
         self.features = clean_features(self.features)
         if self.thumbnail and not (

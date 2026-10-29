@@ -1,6 +1,6 @@
 from django.urls import path
 
-from .views import browse_nextcloud
+from assets.views import browse_nextcloud
 
 
 app_name = "assets"
