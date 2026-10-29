@@ -1,0 +1,28 @@
+{% load static %}<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Студия</title>
+  {% for css in styles %}<link rel="stylesheet" href="{% static css %}">
+  {% endfor %}
+  <script>
+    window.STUDIO = {
+      api: "{% url 'studio_api:api-root' %}",
+      admin: "{% url 'admin:index' %}",
+      site: "{% url 'desktop' %}",
+    };
+  </script>
+</head>
+<body>
+  <div id="app"></div>
+  {% if script %}
+  <script type="module" src="{% static script %}"></script>
+  {% else %}
+  <main style="font: 14px/1.6 system-ui; max-width: 40rem; margin: 4rem auto; color: #ddd; background: #111;">
+    <h1>Студия не собрана</h1>
+    <p>Соберите фронт: <code>cd studio/frontend && npm ci && npm run build</code> (или <code>npm run watch</code> во время работы).</p>
+  </main>
+  {% endif %}
+</body>
+</html>

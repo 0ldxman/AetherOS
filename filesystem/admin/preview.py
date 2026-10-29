@@ -6,17 +6,10 @@ filesystem/static/filesystem/item_admin.js переименовывает их �
 """
 import json
 import logging
-from types import SimpleNamespace
 
 from django.http import HttpResponseNotAllowed, JsonResponse
-from django.template.loader import render_to_string
-from django.utils.html import escape
-from django.utils.safestring import mark_safe
 
-from documents import markup
-from documents.editor import (
-    DOC_TYPES, MAX_REQUEST_BYTES, MAX_TITLE_LEN, DocumentPreviewMixin, _error, _lint_fields, _preview_keys, _text,
-)
+from documents.editor import MAX_REQUEST_BYTES, DocumentPreviewMixin, _error, _preview_keys, _text, render_preview
 
 from filesystem.models import KEY_FORMAT, FileFormat, Item
 
@@ -62,21 +55,13 @@ class ItemPreviewMixin(DocumentPreviewMixin):
         if not isinstance(data, dict):
             return _error("Некорректный запрос.", 400)
 
-        found = FileFormat.objects.filter(name=_text(data.get("type"))).first()
-        keys = _preview_keys(data.get("keys"))
-        doc = SimpleNamespace(title=_text(data.get("title"))[:MAX_TITLE_LEN], type=found.name if found and found.name in DOC_TYPES else "doc", pk="")
-        body, meta = _text(data.get("body")), _text(data.get("infobox"))
-
         try:
-            if found is not None and found.markup:
-                body_html = mark_safe(markup.render(body, keys, "body"))
-            else:
-                body_html = mark_safe(f"<pre style=\"white-space:pre-wrap;font:13px/1.5 monospace\">{escape(body)}</pre>")
-            infobox_html = mark_safe(markup.render(meta, keys, "infobox"))
-            page_body = render_to_string("documents/document.html", {"doc": doc, "body_html": body_html})
-            page_meta = render_to_string("documents/infobox.html", {"doc": doc, "infobox_html": infobox_html})
+            found = render_preview(
+                _text(data.get("type")), _text(data.get("title")), _text(data.get("body")), _text(data.get("infobox")),
+                _preview_keys(data.get("keys")),
+            )
         except Exception as exc:                                              # предпросмотр не должен ронять админку
             logger.exception("Ошибка предпросмотра объекта")
             return _error(f"{type(exc).__name__}: {exc}"[:300], 500)
 
-        return JsonResponse({"ok": True, "body": page_body, "infobox": page_meta, "issues": _lint_fields({"body": body, "infobox": meta})})
+        return JsonResponse({"ok": True, **found})

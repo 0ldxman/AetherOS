@@ -26,6 +26,7 @@ from users import aether_auth as auth_views
 urlpatterns = [
     path("admin/assets/", include("assets.urls")),
     path('admin/', admin.site.urls),
+    path("studio/", include("studio.urls")),
     path("desktop/", include("desktop.urls")),
     path("", boot, name="boot"),
     path("lock/", auth_views.lock_page, name="lock"),

@@ -14,3 +14,7 @@ db.sqlite3
 
 # collectstatic
 staticfiles/
+
+# студия: зависимости и сборка фронта (собирается npm run build)
+studio/frontend/node_modules/
+studio/static/studio/app/

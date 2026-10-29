@@ -68,6 +68,8 @@ INSTALLED_APPS = [
     'assets',
     'filesystem',
     'terminal',
+    'ninja',
+    'studio',
 ]
 INSTALLED_APPS += [
     "django.contrib.sites",
