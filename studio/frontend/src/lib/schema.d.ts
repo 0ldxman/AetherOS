@@ -298,6 +298,202 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/studio/api/machines": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Machines */
+        get: operations["studio_api_machines_machines"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/studio/api/machines/policies/{policy_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Policy
+         * @description Политика входа с недельной сеткой окон (той же проверкой, что у входа).
+         */
+        get: operations["studio_api_machines_policy"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/studio/api/machines/{machine_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Overview */
+        get: operations["studio_api_machines_overview"];
+        /** Save */
+        put: operations["studio_api_machines_save"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/studio/api/machines/{machine_id}/check": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Check
+         * @description Пустит ли учётка: те же правила, что у входа игрока, ничего не записывается.
+         */
+        post: operations["studio_api_machines_check"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/studio/api/machines/{machine_id}/events": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Events */
+        get: operations["studio_api_machines_events"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/studio/api/machines/{machine_id}/unlock": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Unlock */
+        post: operations["studio_api_machines_unlock"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/studio/api/machines/{machine_id}/kick": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Kick */
+        post: operations["studio_api_machines_kick"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/studio/api/machines/{machine_id}/accounts/{account_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Read */
+        get: operations["studio_api_accounts_read"];
+        /** Save */
+        put: operations["studio_api_accounts_save"];
+        post?: never;
+        /** Delete */
+        delete: operations["studio_api_accounts_delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/studio/api/machines/{machine_id}/accounts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Create */
+        post: operations["studio_api_accounts_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/studio/api/machines/{machine_id}/accounts/{account_id}/tokens": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** New Token */
+        post: operations["studio_api_accounts_new_token"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/studio/api/machines/{machine_id}/accounts/{account_id}/tokens/{token_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Drop Token */
+        delete: operations["studio_api_accounts_drop_token"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -687,6 +883,361 @@ export interface components {
              *     }
              */
             keys: components["schemas"]["KeysSpec"];
+        };
+        /** MachineRow */
+        MachineRow: {
+            /** Id */
+            id: number;
+            /** Hostname */
+            hostname: string;
+            /** Name */
+            name: string;
+            /** System */
+            system: string;
+            /** Status */
+            status: string;
+            /** Is System */
+            is_system: boolean;
+            /** Accounts */
+            accounts: number;
+            /** Online */
+            online: number;
+            /** Refusals */
+            refusals: number;
+        };
+        /** PolicyOut */
+        PolicyOut: {
+            /** Id */
+            id: number;
+            /** Name */
+            name: string;
+            /** Description */
+            description: string;
+            /** Mode */
+            mode: string;
+            /** Sources */
+            sources: string[];
+            /** Via */
+            via: string[];
+            /** Max Attempts */
+            max_attempts: number | null;
+            /** Attempts Window */
+            attempts_window: number;
+            /** Lock Seconds */
+            lock_seconds: number;
+            /** Ttl */
+            ttl: number | null;
+            /** Windows */
+            windows: string;
+            /** Grid */
+            grid: boolean[][] | null;
+        };
+        /** AccountRow */
+        AccountRow: {
+            /** Id */
+            id: number;
+            /** Login */
+            login: string;
+            /** Name */
+            name: string;
+            /** Freq */
+            freq: string;
+            /** Groups */
+            groups: string[];
+            /** Root */
+            root: boolean;
+            /** Has Password */
+            has_password: boolean;
+            /** Has Key */
+            has_key: boolean;
+            /** Tokens */
+            tokens: number;
+            policy: components["schemas"]["Policy"] | null;
+            /** Owner */
+            owner: string | null;
+        };
+        /** Event */
+        Event: {
+            /** Id */
+            id: number;
+            /**
+             * At
+             * Format: date-time
+             */
+            at: string;
+            /**
+             * Shown At
+             * Format: date-time
+             */
+            shown_at: string;
+            /** Kind */
+            kind: string;
+            /** Label */
+            label: string;
+            /** Login */
+            login: string;
+            /** Account */
+            account: number;
+            /** Player */
+            player: string | null;
+            /** Source */
+            source: string;
+            /** Detail */
+            detail: string;
+        };
+        /** Online */
+        Online: {
+            /** Session */
+            session: number;
+            /** Player */
+            player: string;
+            /** Account */
+            account: number;
+            /** Login */
+            login: string;
+            /**
+             * Seen At
+             * Format: date-time
+             */
+            seen_at: string;
+            /** Locked */
+            locked: number;
+        };
+        /** Overview */
+        Overview: {
+            /** Id */
+            id: number;
+            /** Hostname */
+            hostname: string;
+            /** Name */
+            name: string;
+            /** System */
+            system: string;
+            /** Status */
+            status: string;
+            /** Hid */
+            hid: string;
+            /** Is System */
+            is_system: boolean;
+            policy: components["schemas"]["Policy"] | null;
+            /** Accounts */
+            accounts: components["schemas"]["AccountRow"][];
+            /** Online */
+            online: components["schemas"]["Online"][];
+            /** Events */
+            events: components["schemas"]["Event"][];
+            /** Warnings */
+            warnings: components["schemas"]["Warning_"][];
+            /** Groups */
+            groups: string[];
+            /** Policies */
+            policies: components["schemas"]["Policy"][];
+            /** Systems */
+            systems: string[];
+            /** Statuses */
+            statuses: string[];
+        };
+        /** Policy */
+        Policy: {
+            /** Id */
+            id: number;
+            /** Name */
+            name: string;
+            /** Origin */
+            origin?: string | null;
+        };
+        /** Warning_ */
+        Warning_: {
+            /** Level */
+            level: string;
+            /** Text */
+            text: string;
+            /** Account */
+            account?: number | null;
+        };
+        /** MachineIn */
+        MachineIn: {
+            /** Hostname */
+            hostname: string;
+            /** Name */
+            name: string;
+            /** System */
+            system: string;
+            /** Status */
+            status: string;
+            /** Entry Policy */
+            entry_policy?: number | null;
+        };
+        /** Step */
+        Step: {
+            /** Name */
+            name: string;
+            /** Ok */
+            ok: boolean | null;
+            /** Text */
+            text: string;
+        };
+        /** Verdict */
+        Verdict: {
+            /** Admitted */
+            admitted: boolean | null;
+            /** Kind */
+            kind: string;
+            /** Steps */
+            steps: components["schemas"]["Step"][];
+        };
+        /** CheckIn */
+        CheckIn: {
+            /** Account */
+            account: number;
+            /**
+             * Source
+             * @default
+             */
+            source: string;
+            /**
+             * Chain
+             * @default []
+             */
+            chain: string[];
+            /** At */
+            at?: string | null;
+            /**
+             * Player
+             * @default
+             */
+            player: string;
+            /** Password */
+            password?: string | null;
+            /**
+             * Keys
+             * @default []
+             */
+            keys: string[];
+            /**
+             * Token
+             * @default
+             */
+            token: string;
+        };
+        /** PlayerAction */
+        PlayerAction: {
+            /** Account */
+            account: number;
+            /** Player */
+            player: string;
+        };
+        /** AccountOut */
+        AccountOut: {
+            /** Id */
+            id: number;
+            /** Login */
+            login: string;
+            /** Name */
+            name: string;
+            /** Freq */
+            freq: string;
+            /** Mail */
+            mail: string;
+            /** Groups */
+            groups: string[];
+            /** Root */
+            root: boolean;
+            /** Has Password */
+            has_password: boolean;
+            /** Keys */
+            keys: string;
+            /** Entry Policy */
+            entry_policy: number | null;
+            policy: components["schemas"]["Policy"] | null;
+            /** Ttl */
+            ttl: number | null;
+            /** Cooldown */
+            cooldown: number | null;
+            /** Kick Message */
+            kick_message: string;
+            /** Owner */
+            owner: string | null;
+            /** Tokens */
+            tokens: components["schemas"]["Token"][];
+        };
+        /** Token */
+        Token: {
+            /** Id */
+            id: number;
+            /** Token */
+            token: string;
+            /** Usage */
+            usage: number;
+            /** Max Usage */
+            max_usage: number | null;
+            /** Expires At */
+            expires_at: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+        };
+        /** AccountIn */
+        AccountIn: {
+            /** Login */
+            login: string;
+            /**
+             * Name
+             * @default
+             */
+            name: string;
+            /**
+             * Freq
+             * @default 1
+             */
+            freq: string;
+            /**
+             * Mail
+             * @default
+             */
+            mail: string;
+            /**
+             * Groups
+             * @default []
+             */
+            groups: string[];
+            /**
+             * Root
+             * @default false
+             */
+            root: boolean;
+            /** Password */
+            password?: string | null;
+            /**
+             * Clear Password
+             * @default false
+             */
+            clear_password: boolean;
+            /**
+             * Keys
+             * @default
+             */
+            keys: string;
+            /** Entry Policy */
+            entry_policy?: number | null;
+            /** Ttl */
+            ttl?: number | null;
+            /** Cooldown */
+            cooldown?: number | null;
+            /**
+             * Kick Message
+             * @default
+             */
+            kick_message: string;
+        };
+        /** TokenIn */
+        TokenIn: {
+            /** Max Usage */
+            max_usage?: number | null;
+            /** Expires At */
+            expires_at?: string | null;
         };
     };
     responses: never;
@@ -1151,6 +1702,343 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["PreviewOut"];
                 };
+            };
+        };
+    };
+    studio_api_machines_machines: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MachineRow"][];
+                };
+            };
+        };
+    };
+    studio_api_machines_policy: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                policy_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PolicyOut"];
+                };
+            };
+        };
+    };
+    studio_api_machines_overview: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                machine_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Overview"];
+                };
+            };
+        };
+    };
+    studio_api_machines_save: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                machine_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MachineIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Overview"];
+                };
+            };
+        };
+    };
+    studio_api_machines_check: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                machine_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CheckIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Verdict"];
+                };
+            };
+        };
+    };
+    studio_api_machines_events: {
+        parameters: {
+            query?: {
+                account?: number | null;
+                kind?: string;
+                player?: string;
+                days?: number;
+            };
+            header?: never;
+            path: {
+                machine_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Event"][];
+                };
+            };
+        };
+    };
+    studio_api_machines_unlock: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                machine_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PlayerAction"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    studio_api_machines_kick: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                machine_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PlayerAction"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    studio_api_accounts_read: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                machine_id: number;
+                account_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AccountOut"];
+                };
+            };
+        };
+    };
+    studio_api_accounts_save: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                machine_id: number;
+                account_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AccountIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AccountOut"];
+                };
+            };
+        };
+    };
+    studio_api_accounts_delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                machine_id: number;
+                account_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    studio_api_accounts_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                machine_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AccountIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AccountOut"];
+                };
+            };
+        };
+    };
+    studio_api_accounts_new_token: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                machine_id: number;
+                account_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TokenIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Token"];
+                };
+            };
+        };
+    };
+    studio_api_accounts_drop_token: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                machine_id: number;
+                account_id: number;
+                token_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
         };
     };

@@ -6,6 +6,8 @@
   import Volumes from "./routes/Volumes.svelte";
   import Volume from "./routes/Volume.svelte";
   import Item from "./routes/Item.svelte";
+  import Machines from "./routes/Machines.svelte";
+  import Machine from "./routes/Machine.svelte";
 
   let user = $state("");
 
@@ -14,18 +16,28 @@
     user = data?.username ?? "";
   });
 
-  type Page = { name: "volumes" } | { name: "volume"; id: number; folder: number | null } | { name: "item"; id: number };
+  type Page =
+    | { name: "volumes" }
+    | { name: "volume"; id: number; folder: number | null }
+    | { name: "item"; id: number }
+    | { name: "machines" }
+    | { name: "machine"; id: number; tab: string; sub: number | null };
 
   const page: Page = $derived.by((): Page => {
     let found;
     if ((found = match("/volumes/:id/:folder", route.path))) return { name: "volume", id: +found.id, folder: +found.folder || null };
     if ((found = match("/volumes/:id", route.path))) return { name: "volume", id: +found.id, folder: null };
     if ((found = match("/items/:id", route.path))) return { name: "item", id: +found.id };
+    if ((found = match("/machines/:id/:tab/:sub", route.path))) return { name: "machine", id: +found.id, tab: found.tab, sub: +found.sub || null };
+    if ((found = match("/machines/:id/:tab", route.path))) return { name: "machine", id: +found.id, tab: found.tab, sub: null };
+    if ((found = match("/machines/:id", route.path))) return { name: "machine", id: +found.id, tab: "overview", sub: null };
+    if (match("/machines", route.path)) return { name: "machines" };
     return { name: "volumes" };
   });
 
   const NAV = [
     { href: "#/volumes", label: "Тома и файлы", section: ["volumes", "volume", "item"] },
+    { href: "#/machines", label: "Машины", section: ["machines", "machine"] },
   ];
 </script>
 
@@ -39,7 +51,6 @@
       {#each NAV as item}
         <a class="nav" class:on={item.section.includes(page.name)} href={item.href}>{item.label}</a>
       {/each}
-      <span class="nav soon">Машины</span>
       <span class="nav soon">Карта</span>
       <span class="nav soon">Почта</span>
     </nav>
@@ -55,6 +66,10 @@
       {#key page.id}<Volume id={page.id} folder={page.folder} />{/key}
     {:else if page.name === "item"}
       {#key page.id}<Item id={page.id} />{/key}
+    {:else if page.name === "machines"}
+      <Machines />
+    {:else if page.name === "machine"}
+      {#key page.id}<Machine id={page.id} tab={page.tab} sub={page.sub} />{/key}
     {:else}
       <Volumes />
     {/if}

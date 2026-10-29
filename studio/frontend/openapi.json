@@ -769,6 +769,660 @@
      }
     ]
    }
+  },
+  "/studio/api/machines": {
+   "get": {
+    "operationId": "studio_api_machines_machines",
+    "summary": "Machines",
+    "parameters": [],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "items": {
+          "$ref": "#/components/schemas/MachineRow"
+         },
+         "title": "Response",
+         "type": "array"
+        }
+       }
+      }
+     }
+    },
+    "tags": [
+     "machines"
+    ],
+    "security": [
+     {
+      "SessionAuthIsStaff": []
+     }
+    ]
+   }
+  },
+  "/studio/api/machines/policies/{policy_id}": {
+   "get": {
+    "operationId": "studio_api_machines_policy",
+    "summary": "Policy",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "policy_id",
+      "schema": {
+       "title": "Policy Id",
+       "type": "integer"
+      },
+      "required": true
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/PolicyOut"
+        }
+       }
+      }
+     }
+    },
+    "description": "Политика входа с недельной сеткой окон (той же проверкой, что у входа).",
+    "tags": [
+     "machines"
+    ],
+    "security": [
+     {
+      "SessionAuthIsStaff": []
+     }
+    ]
+   }
+  },
+  "/studio/api/machines/{machine_id}": {
+   "get": {
+    "operationId": "studio_api_machines_overview",
+    "summary": "Overview",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "machine_id",
+      "schema": {
+       "title": "Machine Id",
+       "type": "integer"
+      },
+      "required": true
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Overview"
+        }
+       }
+      }
+     }
+    },
+    "tags": [
+     "machines"
+    ],
+    "security": [
+     {
+      "SessionAuthIsStaff": []
+     }
+    ]
+   },
+   "put": {
+    "operationId": "studio_api_machines_save",
+    "summary": "Save",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "machine_id",
+      "schema": {
+       "title": "Machine Id",
+       "type": "integer"
+      },
+      "required": true
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Overview"
+        }
+       }
+      }
+     }
+    },
+    "tags": [
+     "machines"
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/MachineIn"
+       }
+      }
+     },
+     "required": true
+    },
+    "security": [
+     {
+      "SessionAuthIsStaff": []
+     }
+    ]
+   }
+  },
+  "/studio/api/machines/{machine_id}/check": {
+   "post": {
+    "operationId": "studio_api_machines_check",
+    "summary": "Check",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "machine_id",
+      "schema": {
+       "title": "Machine Id",
+       "type": "integer"
+      },
+      "required": true
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Verdict"
+        }
+       }
+      }
+     }
+    },
+    "description": "Пустит ли учётка: те же правила, что у входа игрока, ничего не записывается.",
+    "tags": [
+     "machines"
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/CheckIn"
+       }
+      }
+     },
+     "required": true
+    },
+    "security": [
+     {
+      "SessionAuthIsStaff": []
+     }
+    ]
+   }
+  },
+  "/studio/api/machines/{machine_id}/events": {
+   "get": {
+    "operationId": "studio_api_machines_events",
+    "summary": "Events",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "machine_id",
+      "schema": {
+       "title": "Machine Id",
+       "type": "integer"
+      },
+      "required": true
+     },
+     {
+      "in": "query",
+      "name": "account",
+      "schema": {
+       "anyOf": [
+        {
+         "type": "integer"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Account"
+      },
+      "required": false
+     },
+     {
+      "in": "query",
+      "name": "kind",
+      "schema": {
+       "default": "",
+       "title": "Kind",
+       "type": "string"
+      },
+      "required": false
+     },
+     {
+      "in": "query",
+      "name": "player",
+      "schema": {
+       "default": "",
+       "title": "Player",
+       "type": "string"
+      },
+      "required": false
+     },
+     {
+      "in": "query",
+      "name": "days",
+      "schema": {
+       "default": 7,
+       "title": "Days",
+       "type": "integer"
+      },
+      "required": false
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "items": {
+          "$ref": "#/components/schemas/Event"
+         },
+         "title": "Response",
+         "type": "array"
+        }
+       }
+      }
+     }
+    },
+    "tags": [
+     "machines"
+    ],
+    "security": [
+     {
+      "SessionAuthIsStaff": []
+     }
+    ]
+   }
+  },
+  "/studio/api/machines/{machine_id}/unlock": {
+   "post": {
+    "operationId": "studio_api_machines_unlock",
+    "summary": "Unlock",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "machine_id",
+      "schema": {
+       "title": "Machine Id",
+       "type": "integer"
+      },
+      "required": true
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "OK"
+     }
+    },
+    "tags": [
+     "machines"
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/PlayerAction"
+       }
+      }
+     },
+     "required": true
+    },
+    "security": [
+     {
+      "SessionAuthIsStaff": []
+     }
+    ]
+   }
+  },
+  "/studio/api/machines/{machine_id}/kick": {
+   "post": {
+    "operationId": "studio_api_machines_kick",
+    "summary": "Kick",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "machine_id",
+      "schema": {
+       "title": "Machine Id",
+       "type": "integer"
+      },
+      "required": true
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "OK"
+     }
+    },
+    "tags": [
+     "machines"
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/PlayerAction"
+       }
+      }
+     },
+     "required": true
+    },
+    "security": [
+     {
+      "SessionAuthIsStaff": []
+     }
+    ]
+   }
+  },
+  "/studio/api/machines/{machine_id}/accounts/{account_id}": {
+   "get": {
+    "operationId": "studio_api_accounts_read",
+    "summary": "Read",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "machine_id",
+      "schema": {
+       "title": "Machine Id",
+       "type": "integer"
+      },
+      "required": true
+     },
+     {
+      "in": "path",
+      "name": "account_id",
+      "schema": {
+       "title": "Account Id",
+       "type": "integer"
+      },
+      "required": true
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/AccountOut"
+        }
+       }
+      }
+     }
+    },
+    "tags": [
+     "accounts"
+    ],
+    "security": [
+     {
+      "SessionAuthIsStaff": []
+     }
+    ]
+   },
+   "put": {
+    "operationId": "studio_api_accounts_save",
+    "summary": "Save",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "machine_id",
+      "schema": {
+       "title": "Machine Id",
+       "type": "integer"
+      },
+      "required": true
+     },
+     {
+      "in": "path",
+      "name": "account_id",
+      "schema": {
+       "title": "Account Id",
+       "type": "integer"
+      },
+      "required": true
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/AccountOut"
+        }
+       }
+      }
+     }
+    },
+    "tags": [
+     "accounts"
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/AccountIn"
+       }
+      }
+     },
+     "required": true
+    },
+    "security": [
+     {
+      "SessionAuthIsStaff": []
+     }
+    ]
+   },
+   "delete": {
+    "operationId": "studio_api_accounts_delete",
+    "summary": "Delete",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "machine_id",
+      "schema": {
+       "title": "Machine Id",
+       "type": "integer"
+      },
+      "required": true
+     },
+     {
+      "in": "path",
+      "name": "account_id",
+      "schema": {
+       "title": "Account Id",
+       "type": "integer"
+      },
+      "required": true
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "OK"
+     }
+    },
+    "tags": [
+     "accounts"
+    ],
+    "security": [
+     {
+      "SessionAuthIsStaff": []
+     }
+    ]
+   }
+  },
+  "/studio/api/machines/{machine_id}/accounts": {
+   "post": {
+    "operationId": "studio_api_accounts_create",
+    "summary": "Create",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "machine_id",
+      "schema": {
+       "title": "Machine Id",
+       "type": "integer"
+      },
+      "required": true
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/AccountOut"
+        }
+       }
+      }
+     }
+    },
+    "tags": [
+     "accounts"
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/AccountIn"
+       }
+      }
+     },
+     "required": true
+    },
+    "security": [
+     {
+      "SessionAuthIsStaff": []
+     }
+    ]
+   }
+  },
+  "/studio/api/machines/{machine_id}/accounts/{account_id}/tokens": {
+   "post": {
+    "operationId": "studio_api_accounts_new_token",
+    "summary": "New Token",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "machine_id",
+      "schema": {
+       "title": "Machine Id",
+       "type": "integer"
+      },
+      "required": true
+     },
+     {
+      "in": "path",
+      "name": "account_id",
+      "schema": {
+       "title": "Account Id",
+       "type": "integer"
+      },
+      "required": true
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Token"
+        }
+       }
+      }
+     }
+    },
+    "tags": [
+     "accounts"
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/TokenIn"
+       }
+      }
+     },
+     "required": true
+    },
+    "security": [
+     {
+      "SessionAuthIsStaff": []
+     }
+    ]
+   }
+  },
+  "/studio/api/machines/{machine_id}/accounts/{account_id}/tokens/{token_id}": {
+   "delete": {
+    "operationId": "studio_api_accounts_drop_token",
+    "summary": "Drop Token",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "machine_id",
+      "schema": {
+       "title": "Machine Id",
+       "type": "integer"
+      },
+      "required": true
+     },
+     {
+      "in": "path",
+      "name": "account_id",
+      "schema": {
+       "title": "Account Id",
+       "type": "integer"
+      },
+      "required": true
+     },
+     {
+      "in": "path",
+      "name": "token_id",
+      "schema": {
+       "title": "Token Id",
+       "type": "integer"
+      },
+      "required": true
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "OK"
+     }
+    },
+    "tags": [
+     "accounts"
+    ],
+    "security": [
+     {
+      "SessionAuthIsStaff": []
+     }
+    ]
+   }
   }
  },
  "components": {
@@ -1782,6 +2436,1019 @@
      }
     },
     "title": "PreviewIn",
+    "type": "object"
+   },
+   "MachineRow": {
+    "properties": {
+     "id": {
+      "title": "Id",
+      "type": "integer"
+     },
+     "hostname": {
+      "title": "Hostname",
+      "type": "string"
+     },
+     "name": {
+      "title": "Name",
+      "type": "string"
+     },
+     "system": {
+      "title": "System",
+      "type": "string"
+     },
+     "status": {
+      "title": "Status",
+      "type": "string"
+     },
+     "is_system": {
+      "title": "Is System",
+      "type": "boolean"
+     },
+     "accounts": {
+      "title": "Accounts",
+      "type": "integer"
+     },
+     "online": {
+      "title": "Online",
+      "type": "integer"
+     },
+     "refusals": {
+      "title": "Refusals",
+      "type": "integer"
+     }
+    },
+    "required": [
+     "id",
+     "hostname",
+     "name",
+     "system",
+     "status",
+     "is_system",
+     "accounts",
+     "online",
+     "refusals"
+    ],
+    "title": "MachineRow",
+    "type": "object"
+   },
+   "PolicyOut": {
+    "properties": {
+     "id": {
+      "title": "Id",
+      "type": "integer"
+     },
+     "name": {
+      "title": "Name",
+      "type": "string"
+     },
+     "description": {
+      "title": "Description",
+      "type": "string"
+     },
+     "mode": {
+      "title": "Mode",
+      "type": "string"
+     },
+     "sources": {
+      "items": {
+       "type": "string"
+      },
+      "title": "Sources",
+      "type": "array"
+     },
+     "via": {
+      "items": {
+       "type": "string"
+      },
+      "title": "Via",
+      "type": "array"
+     },
+     "max_attempts": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Max Attempts"
+     },
+     "attempts_window": {
+      "title": "Attempts Window",
+      "type": "integer"
+     },
+     "lock_seconds": {
+      "title": "Lock Seconds",
+      "type": "integer"
+     },
+     "ttl": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Ttl"
+     },
+     "windows": {
+      "title": "Windows",
+      "type": "string"
+     },
+     "grid": {
+      "anyOf": [
+       {
+        "items": {
+         "items": {
+          "type": "boolean"
+         },
+         "type": "array"
+        },
+        "type": "array"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Grid"
+     }
+    },
+    "required": [
+     "id",
+     "name",
+     "description",
+     "mode",
+     "sources",
+     "via",
+     "max_attempts",
+     "attempts_window",
+     "lock_seconds",
+     "ttl",
+     "windows",
+     "grid"
+    ],
+    "title": "PolicyOut",
+    "type": "object"
+   },
+   "AccountRow": {
+    "properties": {
+     "id": {
+      "title": "Id",
+      "type": "integer"
+     },
+     "login": {
+      "title": "Login",
+      "type": "string"
+     },
+     "name": {
+      "title": "Name",
+      "type": "string"
+     },
+     "freq": {
+      "title": "Freq",
+      "type": "string"
+     },
+     "groups": {
+      "items": {
+       "type": "string"
+      },
+      "title": "Groups",
+      "type": "array"
+     },
+     "root": {
+      "title": "Root",
+      "type": "boolean"
+     },
+     "has_password": {
+      "title": "Has Password",
+      "type": "boolean"
+     },
+     "has_key": {
+      "title": "Has Key",
+      "type": "boolean"
+     },
+     "tokens": {
+      "title": "Tokens",
+      "type": "integer"
+     },
+     "policy": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/Policy"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "owner": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Owner"
+     }
+    },
+    "required": [
+     "id",
+     "login",
+     "name",
+     "freq",
+     "groups",
+     "root",
+     "has_password",
+     "has_key",
+     "tokens",
+     "policy",
+     "owner"
+    ],
+    "title": "AccountRow",
+    "type": "object"
+   },
+   "Event": {
+    "properties": {
+     "id": {
+      "title": "Id",
+      "type": "integer"
+     },
+     "at": {
+      "format": "date-time",
+      "title": "At",
+      "type": "string"
+     },
+     "shown_at": {
+      "format": "date-time",
+      "title": "Shown At",
+      "type": "string"
+     },
+     "kind": {
+      "title": "Kind",
+      "type": "string"
+     },
+     "label": {
+      "title": "Label",
+      "type": "string"
+     },
+     "login": {
+      "title": "Login",
+      "type": "string"
+     },
+     "account": {
+      "title": "Account",
+      "type": "integer"
+     },
+     "player": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Player"
+     },
+     "source": {
+      "title": "Source",
+      "type": "string"
+     },
+     "detail": {
+      "title": "Detail",
+      "type": "string"
+     }
+    },
+    "required": [
+     "id",
+     "at",
+     "shown_at",
+     "kind",
+     "label",
+     "login",
+     "account",
+     "player",
+     "source",
+     "detail"
+    ],
+    "title": "Event",
+    "type": "object"
+   },
+   "Online": {
+    "properties": {
+     "session": {
+      "title": "Session",
+      "type": "integer"
+     },
+     "player": {
+      "title": "Player",
+      "type": "string"
+     },
+     "account": {
+      "title": "Account",
+      "type": "integer"
+     },
+     "login": {
+      "title": "Login",
+      "type": "string"
+     },
+     "seen_at": {
+      "format": "date-time",
+      "title": "Seen At",
+      "type": "string"
+     },
+     "locked": {
+      "title": "Locked",
+      "type": "integer"
+     }
+    },
+    "required": [
+     "session",
+     "player",
+     "account",
+     "login",
+     "seen_at",
+     "locked"
+    ],
+    "title": "Online",
+    "type": "object"
+   },
+   "Overview": {
+    "properties": {
+     "id": {
+      "title": "Id",
+      "type": "integer"
+     },
+     "hostname": {
+      "title": "Hostname",
+      "type": "string"
+     },
+     "name": {
+      "title": "Name",
+      "type": "string"
+     },
+     "system": {
+      "title": "System",
+      "type": "string"
+     },
+     "status": {
+      "title": "Status",
+      "type": "string"
+     },
+     "hid": {
+      "title": "Hid",
+      "type": "string"
+     },
+     "is_system": {
+      "title": "Is System",
+      "type": "boolean"
+     },
+     "policy": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/Policy"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "accounts": {
+      "items": {
+       "$ref": "#/components/schemas/AccountRow"
+      },
+      "title": "Accounts",
+      "type": "array"
+     },
+     "online": {
+      "items": {
+       "$ref": "#/components/schemas/Online"
+      },
+      "title": "Online",
+      "type": "array"
+     },
+     "events": {
+      "items": {
+       "$ref": "#/components/schemas/Event"
+      },
+      "title": "Events",
+      "type": "array"
+     },
+     "warnings": {
+      "items": {
+       "$ref": "#/components/schemas/Warning_"
+      },
+      "title": "Warnings",
+      "type": "array"
+     },
+     "groups": {
+      "items": {
+       "type": "string"
+      },
+      "title": "Groups",
+      "type": "array"
+     },
+     "policies": {
+      "items": {
+       "$ref": "#/components/schemas/Policy"
+      },
+      "title": "Policies",
+      "type": "array"
+     },
+     "systems": {
+      "items": {
+       "type": "string"
+      },
+      "title": "Systems",
+      "type": "array"
+     },
+     "statuses": {
+      "items": {
+       "type": "string"
+      },
+      "title": "Statuses",
+      "type": "array"
+     }
+    },
+    "required": [
+     "id",
+     "hostname",
+     "name",
+     "system",
+     "status",
+     "hid",
+     "is_system",
+     "policy",
+     "accounts",
+     "online",
+     "events",
+     "warnings",
+     "groups",
+     "policies",
+     "systems",
+     "statuses"
+    ],
+    "title": "Overview",
+    "type": "object"
+   },
+   "Policy": {
+    "properties": {
+     "id": {
+      "title": "Id",
+      "type": "integer"
+     },
+     "name": {
+      "title": "Name",
+      "type": "string"
+     },
+     "origin": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Origin"
+     }
+    },
+    "required": [
+     "id",
+     "name"
+    ],
+    "title": "Policy",
+    "type": "object"
+   },
+   "Warning_": {
+    "properties": {
+     "level": {
+      "title": "Level",
+      "type": "string"
+     },
+     "text": {
+      "title": "Text",
+      "type": "string"
+     },
+     "account": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Account"
+     }
+    },
+    "required": [
+     "level",
+     "text"
+    ],
+    "title": "Warning_",
+    "type": "object"
+   },
+   "MachineIn": {
+    "properties": {
+     "hostname": {
+      "title": "Hostname",
+      "type": "string"
+     },
+     "name": {
+      "title": "Name",
+      "type": "string"
+     },
+     "system": {
+      "title": "System",
+      "type": "string"
+     },
+     "status": {
+      "title": "Status",
+      "type": "string"
+     },
+     "entry_policy": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Entry Policy"
+     }
+    },
+    "required": [
+     "hostname",
+     "name",
+     "system",
+     "status"
+    ],
+    "title": "MachineIn",
+    "type": "object"
+   },
+   "Step": {
+    "properties": {
+     "name": {
+      "title": "Name",
+      "type": "string"
+     },
+     "ok": {
+      "anyOf": [
+       {
+        "type": "boolean"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Ok"
+     },
+     "text": {
+      "title": "Text",
+      "type": "string"
+     }
+    },
+    "required": [
+     "name",
+     "ok",
+     "text"
+    ],
+    "title": "Step",
+    "type": "object"
+   },
+   "Verdict": {
+    "properties": {
+     "admitted": {
+      "anyOf": [
+       {
+        "type": "boolean"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Admitted"
+     },
+     "kind": {
+      "title": "Kind",
+      "type": "string"
+     },
+     "steps": {
+      "items": {
+       "$ref": "#/components/schemas/Step"
+      },
+      "title": "Steps",
+      "type": "array"
+     }
+    },
+    "required": [
+     "admitted",
+     "kind",
+     "steps"
+    ],
+    "title": "Verdict",
+    "type": "object"
+   },
+   "CheckIn": {
+    "properties": {
+     "account": {
+      "title": "Account",
+      "type": "integer"
+     },
+     "source": {
+      "default": "",
+      "title": "Source",
+      "type": "string"
+     },
+     "chain": {
+      "default": [],
+      "items": {
+       "type": "string"
+      },
+      "title": "Chain",
+      "type": "array"
+     },
+     "at": {
+      "anyOf": [
+       {
+        "format": "date-time",
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "At"
+     },
+     "player": {
+      "default": "",
+      "title": "Player",
+      "type": "string"
+     },
+     "password": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Password"
+     },
+     "keys": {
+      "default": [],
+      "items": {
+       "type": "string"
+      },
+      "title": "Keys",
+      "type": "array"
+     },
+     "token": {
+      "default": "",
+      "title": "Token",
+      "type": "string"
+     }
+    },
+    "required": [
+     "account"
+    ],
+    "title": "CheckIn",
+    "type": "object"
+   },
+   "PlayerAction": {
+    "properties": {
+     "account": {
+      "title": "Account",
+      "type": "integer"
+     },
+     "player": {
+      "title": "Player",
+      "type": "string"
+     }
+    },
+    "required": [
+     "account",
+     "player"
+    ],
+    "title": "PlayerAction",
+    "type": "object"
+   },
+   "AccountOut": {
+    "properties": {
+     "id": {
+      "title": "Id",
+      "type": "integer"
+     },
+     "login": {
+      "title": "Login",
+      "type": "string"
+     },
+     "name": {
+      "title": "Name",
+      "type": "string"
+     },
+     "freq": {
+      "title": "Freq",
+      "type": "string"
+     },
+     "mail": {
+      "title": "Mail",
+      "type": "string"
+     },
+     "groups": {
+      "items": {
+       "type": "string"
+      },
+      "title": "Groups",
+      "type": "array"
+     },
+     "root": {
+      "title": "Root",
+      "type": "boolean"
+     },
+     "has_password": {
+      "title": "Has Password",
+      "type": "boolean"
+     },
+     "keys": {
+      "title": "Keys",
+      "type": "string"
+     },
+     "entry_policy": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Entry Policy"
+     },
+     "policy": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/Policy"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "ttl": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Ttl"
+     },
+     "cooldown": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Cooldown"
+     },
+     "kick_message": {
+      "title": "Kick Message",
+      "type": "string"
+     },
+     "owner": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Owner"
+     },
+     "tokens": {
+      "items": {
+       "$ref": "#/components/schemas/Token"
+      },
+      "title": "Tokens",
+      "type": "array"
+     }
+    },
+    "required": [
+     "id",
+     "login",
+     "name",
+     "freq",
+     "mail",
+     "groups",
+     "root",
+     "has_password",
+     "keys",
+     "entry_policy",
+     "policy",
+     "ttl",
+     "cooldown",
+     "kick_message",
+     "owner",
+     "tokens"
+    ],
+    "title": "AccountOut",
+    "type": "object"
+   },
+   "Token": {
+    "properties": {
+     "id": {
+      "title": "Id",
+      "type": "integer"
+     },
+     "token": {
+      "title": "Token",
+      "type": "string"
+     },
+     "usage": {
+      "title": "Usage",
+      "type": "integer"
+     },
+     "max_usage": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Max Usage"
+     },
+     "expires_at": {
+      "anyOf": [
+       {
+        "format": "date-time",
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Expires At"
+     },
+     "created_at": {
+      "format": "date-time",
+      "title": "Created At",
+      "type": "string"
+     }
+    },
+    "required": [
+     "id",
+     "token",
+     "usage",
+     "max_usage",
+     "expires_at",
+     "created_at"
+    ],
+    "title": "Token",
+    "type": "object"
+   },
+   "AccountIn": {
+    "properties": {
+     "login": {
+      "title": "Login",
+      "type": "string"
+     },
+     "name": {
+      "default": "",
+      "title": "Name",
+      "type": "string"
+     },
+     "freq": {
+      "default": "1",
+      "title": "Freq",
+      "type": "string"
+     },
+     "mail": {
+      "default": "",
+      "title": "Mail",
+      "type": "string"
+     },
+     "groups": {
+      "default": [],
+      "items": {
+       "type": "string"
+      },
+      "title": "Groups",
+      "type": "array"
+     },
+     "root": {
+      "default": false,
+      "title": "Root",
+      "type": "boolean"
+     },
+     "password": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Password"
+     },
+     "clear_password": {
+      "default": false,
+      "title": "Clear Password",
+      "type": "boolean"
+     },
+     "keys": {
+      "default": "",
+      "title": "Keys",
+      "type": "string"
+     },
+     "entry_policy": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Entry Policy"
+     },
+     "ttl": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Ttl"
+     },
+     "cooldown": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Cooldown"
+     },
+     "kick_message": {
+      "default": "",
+      "title": "Kick Message",
+      "type": "string"
+     }
+    },
+    "required": [
+     "login"
+    ],
+    "title": "AccountIn",
+    "type": "object"
+   },
+   "TokenIn": {
+    "properties": {
+     "max_usage": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Max Usage"
+     },
+     "expires_at": {
+      "anyOf": [
+       {
+        "format": "date-time",
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Expires At"
+     }
+    },
+    "title": "TokenIn",
     "type": "object"
    }
   },

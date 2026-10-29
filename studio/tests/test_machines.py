@@ -115,3 +115,12 @@ class MachinesApiTests(TestCase):
         own = MachineProfile.objects.create(machine=self.core, user=self.ivan, login="ivan", name="Ivan", freq=1)
         self.assertEqual(self.call("delete", f"/machines/{self.core.pk}/accounts/{own.pk}")[0], 400)
         self.assertEqual(self.call("delete", f"/machines/{self.core.pk}/accounts/{self.open.pk}")[0], 200)
+
+    def test_a_policy_comes_with_the_grid_of_its_windows(self):
+        shift = EntryPolicy.objects.create(name="shift", windows="mon-fri: 9:00-13:00")
+        data = self.call("get", f"/machines/policies/{shift.pk}")[1]
+        self.assertEqual(data["sources"], [])
+        monday, saturday = data["grid"][0], data["grid"][5]
+        self.assertEqual([slot for slot, open_ in enumerate(monday) if open_], list(range(18, 26)))     # 9:00..13:00 по получасам
+        self.assertFalse(any(saturday))
+        self.assertIsNone(self.call("get", f"/machines/policies/{self.policy.pk}")[1]["grid"])
