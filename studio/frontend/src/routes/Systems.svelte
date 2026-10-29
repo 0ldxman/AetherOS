@@ -286,7 +286,7 @@
       </div>
         <div class="block">
           <h3>Приветствие при подключении</h3>
-          <p class="muted small">Что видит игрок, когда открывается оболочка этой ОС. Пусто: общее приветствие движка. Цвета: <code>&lt;dim&gt;</code>, <code>&lt;success&gt;</code>, <code>&lt;warning&gt;</code>, <code>&lt;error&gt;</code> (закрываются в той же строке). Скобки: <code>{"{{"}</code> и <code>{"}}"}</code>.</p>
+          <p class="muted small">Что видит игрок, когда открывается оболочка этой ОС. Пусто: общее приветствие движка. Цвета: <code>&lt;dim&gt;</code>, <code>&lt;success&gt;</code>, <code>&lt;warning&gt;</code>, <code>&lt;error&gt;</code> (закрываются в той же строке). Случайное число: <code>&lt;random&gt;21-41&lt;/random&gt;</code>. Скобки: <code>{"{{"}</code> и <code>{"}}"}</code>.</p>
           <div class="greet">
             <div class="col">
               <textarea class="field mono" rows="14" bind:value={props_.greeting} class:bad={errors.greeting}></textarea>

@@ -2153,6 +2153,12 @@ export interface components {
             status: string;
             /** Hid */
             hid: string;
+            /** Callsign */
+            callsign: string;
+            /** Note */
+            note: string;
+            /** Booted At */
+            booted_at: string | null;
             /** Is System */
             is_system: boolean;
             policy: components["schemas"]["Policy"] | null;
@@ -2201,6 +2207,18 @@ export interface components {
             system: string;
             /** Status */
             status: string;
+            /**
+             * Callsign
+             * @default
+             */
+            callsign: string;
+            /**
+             * Note
+             * @default
+             */
+            note: string;
+            /** Booted At */
+            booted_at?: string | null;
             /** Entry Policy */
             entry_policy?: number | null;
         };

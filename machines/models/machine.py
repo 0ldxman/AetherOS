@@ -49,6 +49,18 @@ class Machine(models.Model):
         blank=True,
     )
 
+    callsign = models.CharField(
+        "Позывной", max_length=32, blank=True, help_text="Как узел называет себя в эфире. Пусто: считается из hid.",
+    )
+
+    note = models.TextField(
+        "Заметка", blank=True, help_text="Свободный текст о машине; ОС подставляет его в приветствие как {note}. Хорошее место для подсказки.",
+    )
+
+    booted_at = models.DateTimeField(
+        "Включена", null=True, blank=True, help_text="С какого момента работает машина; от него считается {uptime}. Пусто: неизвестно.",
+    )
+
     entry_policy = models.ForeignKey(
         "machines.EntryPolicy", null=True, blank=True, on_delete=models.SET_NULL, related_name="machines", verbose_name="Политика входа",
         help_text="Для записей машины, у которых своей политики нет. Пусто: политика типа системы.",

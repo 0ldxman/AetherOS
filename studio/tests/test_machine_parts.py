@@ -197,6 +197,24 @@ class CreateAndSystemsTests(TestCase):
         shown = [s.get("value") for s in greeting_scene(identity_of(self.core.hostname), "ivan", None, system) if s["op"] == "text"]
         self.assertEqual(shown, ["Hi ", "ivan", f" on {self.core.hostname}"])
 
+    def test_the_greeting_takes_real_facts_and_random_numbers(self):
+        from datetime import timedelta
+
+        from django.utils import timezone
+
+        from machines.world.facts import facts
+
+        self.core.callsign, self.core.note = "KEY-1", "Check the vault"
+        self.core.booted_at = timezone.now() - timedelta(days=2, hours=3)
+        self.core.save()
+        known = facts(self.core)
+        self.assertEqual((known["accounts"], known["note"], known["last_login"]), (self.core.profiles.count(), "Check the vault", "never"))
+        self.assertTrue(known["uptime"].startswith("2 days"))
+        self.assertEqual(self.call("get", f"/machines/{self.core.pk}")[1]["callsign"], "KEY-1")
+        status, data = self.call("post", "/systems/AETHER/greeting/preview", {"greeting": "<random>5-5</random> % {note} {callsign}"})
+        self.assertEqual("".join(part["text"] for part in data["lines"][0]), "5 % Check the vault KEY-1")
+        self.assertEqual(self.call("post", "/systems/AETHER/greeting/preview", {"greeting": "<random>x</random>"})[1]["errors"][0]["line"], 1)
+
     def test_the_system_image_is_laid_under_the_machine_mounts(self):
         from filesystem.machine_view import MachineView
 

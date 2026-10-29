@@ -8,7 +8,7 @@ import hashlib
 
 from scenes.engine import Scene
 from scenes import markup
-from scenes.gateway import GAME_DATE, LAST_LOGIN, _metric, _motd
+from scenes.gateway import GAME_DATE, _motd
 
 
 def _stable(seed, low, high):
@@ -369,8 +369,9 @@ def wipe_scene(count):
 # что можно подставить в приветствие ОС: имя -> подпись для студии
 GREETING_PARAMS = {
     "host": "имя машины", "login": "логин учётки", "os": "код ОС", "os_name": "название ОС", "address": "адрес узла", "serial": "серийный номер",
-    "callsign": "позывной", "freq": "частота, МГц", "date": "дата в мире", "load": "нагрузка канала, %", "mem": "память, %",
-    "last_login": "последний вход", "mail": "строка про непрочитанную почту",
+    "callsign": "позывной машины", "freq": "частота учётки, под которой вошли", "date": "дата в мире", "last_login": "прошлый вход этой учётки",
+    "uptime": "сколько работает машина", "accounts": "число учёток машины", "sessions": "сколько игроков на машине сейчас",
+    "unread": "число непрочитанных писем", "mail": "строка про непрочитанную почту", "volumes": "тома машины", "note": "заметка машины",
 }
 
 
@@ -382,18 +383,20 @@ def _mail_text(mail):
     return f"{unread} unread {'message' if unread == 1 else 'messages'} ({latest})"
 
 
-def greeting_params(ident, login, mail=None, system=None):
+def greeting_params(ident, login, mail=None, system=None, facts=None):
+    """Значения для приветствия. facts: то, что берётся из базы (machines.world.facts); без него остаются условные."""
+    facts = {"accounts": 0, "sessions": 0, "last_login": "never", "uptime": "unknown", "note": "", "volumes": "none", "freq": None, **(facts or {})}
     return {
         "host": ident.hostname, "login": login, "os": system.code if system else "", "os_name": system.name if system else "",
-        "address": ident.address, "serial": ident.serial, "callsign": ident.callsign, "freq": ident.freq, "date": GAME_DATE,
-        "load": _metric(ident, "load", 3, 19), "mem": _metric(ident, "mem", 14, 37), "last_login": LAST_LOGIN, "mail": _mail_text(mail),
+        "address": ident.address, "serial": ident.serial, "callsign": ident.callsign, "date": GAME_DATE,
+        "unread": (mail or {}).get("unread", 0), "mail": _mail_text(mail), **{**facts, "freq": facts["freq"] or ident.freq},
     }
 
 
-def greeting_scene(ident, login, mail=None, system=None):
+def greeting_scene(ident, login, mail=None, system=None, facts=None):
     """Оболочка открылась. Если у ОС задано своё приветствие (SystemType.greeting), показывается оно, иначе общее ниже."""
     if system is not None and system.greeting.strip():
-        return markup.render(system.greeting, greeting_params(ident, login, mail, system)).to_dict()
+        return markup.render(system.greeting, greeting_params(ident, login, mail, system, facts)).to_dict()
     return _default_greeting(ident, login, mail)
 
 

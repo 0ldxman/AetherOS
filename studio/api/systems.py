@@ -15,6 +15,7 @@ from machines.access import groups
 from machines.access.privileges import PRIVILEGES
 from filesystem.models import Volume
 from machines.models import EntryPolicy, Group, Machine, Place, SystemType, SystemVolume
+from machines.world.facts import facts
 from machines.world.identity import identity_of
 from machines.world.places import DEFAULTS
 from scenes import markup
@@ -273,7 +274,7 @@ def preview_greeting(request, code: str, body: GreetingIn):
     system = _system(code)
     machine = Machine.objects.filter(system=system.code).order_by("hostname").first()
     host = machine.hostname if machine else "host"
-    params = greeting_params(identity_of(host), "player", None, system)
+    params = greeting_params(identity_of(host), "player", None, system, facts(machine) if machine else None)
     lines, errors = [], []
     for number, line in enumerate(body.greeting.splitlines(), 1):
         parts, found = markup.parse_line(line, params)

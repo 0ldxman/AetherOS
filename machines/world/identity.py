@@ -100,8 +100,8 @@ def randomart_for(hid, title="ED25519 256", footer="SHA256"):
 
 def identity_of(hostname=ENTRY_HOST):
     """Данные машины с таким hostname; если её нет в базе, то запасные значения."""
-    hid = Machine.objects.filter(hostname=hostname).values_list("hid", flat=True).first() or UNKNOWN_HID
+    hid, callsign = Machine.objects.filter(hostname=hostname).values_list("hid", "callsign").first() or (UNKNOWN_HID, "")
     return Identity(
         hostname, hid, serial_for(hid), address_for(hid), fingerprint_for(hid), randomart_for(hid),
-        freq_for(hid), callsign_for(hid),
+        freq_for(hid), callsign or callsign_for(hid),
     )

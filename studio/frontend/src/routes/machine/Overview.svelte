@@ -8,7 +8,7 @@
 
   let { machine, onchange }: { machine: Schemas["Overview"]; onchange: () => void } = $props();
 
-  let form = $state({ hostname: "", name: "", system: "", status: "", entry_policy: null as number | null });
+  let form = $state({ hostname: "", name: "", system: "", status: "", callsign: "", note: "", booted_at: "", entry_policy: null as number | null });
   let saving = $state(false);
   let errors = $state<Record<string, string[]>>({});
   let dialog = $state<null | "delete" | "copy">(null);
@@ -21,18 +21,30 @@
     go("/machines");
   }
 
+  // datetime-local хочет «ГГГГ-ММ-ДДTЧЧ:ММ» по местному времени
+  function local(iso: string | null) {
+    if (!iso) return "";
+    const date = new Date(iso);
+    const pad = (n: number) => String(n).padStart(2, "0");
+    return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+  }
+
   $effect(() => {
-    form = { hostname: machine.hostname, name: machine.name, system: machine.system, status: machine.status, entry_policy: machine.policy?.id ?? null };
+    form = {
+      hostname: machine.hostname, name: machine.name, system: machine.system, status: machine.status, callsign: machine.callsign,
+      note: machine.note, booted_at: local(machine.booted_at ?? null), entry_policy: machine.policy?.id ?? null,
+    };
   });
   const dirty = $derived(
     form.hostname !== machine.hostname || form.name !== machine.name || form.system !== machine.system ||
-      form.status !== machine.status || form.entry_policy !== (machine.policy?.id ?? null),
+      form.status !== machine.status || form.entry_policy !== (machine.policy?.id ?? null) || form.callsign !== machine.callsign ||
+      form.note !== machine.note || form.booted_at !== local(machine.booted_at ?? null),
   );
 
   async function save() {
     saving = true;
     errors = {};
-    const { error } = await api.PUT("/studio/api/machines/{machine_id}", { params: { path: { machine_id: machine.id } }, body: form });
+    const { error } = await api.PUT("/studio/api/machines/{machine_id}", { params: { path: { machine_id: machine.id } }, body: { ...form, booted_at: form.booted_at ? new Date(form.booted_at).toISOString() : null } });
     saving = false;
     if (error) {
       errors = (error as { fields?: Record<string, string[]> }).fields ?? {};
@@ -115,6 +127,12 @@
         <select class="field" bind:value={form.status}>{#each machine.statuses as code}<option>{code}</option>{/each}</select>
       </label>
     </div>
+    <div class="pair">
+      <label><span class="label">Позывной</span><input class="field mono" placeholder="пусто: считается из hid" bind:value={form.callsign} /></label>
+      <label><span class="label">Включена с</span><input class="field" type="datetime-local" bind:value={form.booted_at} /></label>
+    </div>
+    <label><span class="label">Заметка</span><textarea class="field" rows="3" bind:value={form.note}></textarea></label>
+    <p class="muted small">Заметка и «включена с» попадают в приветствие ОС как <code>{"{note}"}</code> и <code>{"{uptime}"}</code>.</p>
     <label><span class="label">Политика входа машины</span>
       <select class="field" bind:value={form.entry_policy}>
         <option value={null}>от типа системы</option>

@@ -15,10 +15,10 @@ from machines.access import check as checking
 from machines.access import entry, groups
 from machines.models import EntryPolicy, LoginEvent, Machine, MachineProfile, Session, SystemType
 from machines.network import bridge
+from machines.world.facts import ONLINE
 
 router = Router(tags=["machines"])
 
-ONLINE = timedelta(minutes=2)          # сессия считается живой, если терминал отмечался недавно
 REFUSALS = ("bad_password", "bad_key", "bad_token", "source", "route", "window", "locked")
 
 
@@ -89,6 +89,9 @@ class Overview(Schema):
     system: str
     status: str
     hid: str
+    callsign: str
+    note: str
+    booted_at: datetime | None
     is_system: bool
     policy: Policy | None
     accounts: list[AccountRow]
@@ -106,6 +109,9 @@ class MachineIn(Schema):
     name: str
     system: str
     status: str
+    callsign: str = ""
+    note: str = ""
+    booted_at: datetime | None = None
     entry_policy: int | None = None
 
 
@@ -242,6 +248,7 @@ def overview(request, machine_id: int):
     machine_policy = machine.entry_policy if machine.entry_policy_id else None
     return Overview(
         id=machine.pk, hostname=machine.hostname or "", name=machine.name, system=machine.system, status=machine.status, hid=machine.hid,
+        callsign=machine.callsign, note=machine.note, booted_at=machine.booted_at,
         is_system=machine.is_system,
         policy=Policy(id=machine_policy.pk, name=machine_policy.name, origin="machine") if machine_policy else None,
         accounts=[_account_row(profile) for profile in accounts],
@@ -266,6 +273,7 @@ def save(request, machine_id: int, body: MachineIn):
     machine.name = body.name
     machine.system = body.system
     machine.status = body.status
+    machine.callsign, machine.note, machine.booted_at = body.callsign.strip(), body.note, body.booted_at
     machine.entry_policy_id = body.entry_policy
     machine.full_clean()
     machine.save()

@@ -294,6 +294,7 @@ def _login(request):
 
 def _greeting(request, hostname, mail=True):
     """Сцена приветствия оболочки (или None, если машину не описать). Почта в ней своя только у рабочего стола."""
+    from machines.world.facts import facts
     from machines.world.identity import identity_of
     from machines.models import Machine
     from users.aether_auth import _mail_summary
@@ -301,8 +302,10 @@ def _greeting(request, hostname, mail=True):
     from terminal.scenes.shell import greeting_scene
 
     try:
-        system = Machine.objects.get(hostname=hostname).system_type
-        return greeting_scene(identity_of(hostname), _login(request), _mail_summary(request) if mail else None, system)
+        machine = Machine.objects.get(hostname=hostname)
+        profile = bridge.terminal_session(request).profile if is_player(request) else None
+        known = facts(machine, profile, request.user if request.user.is_authenticated else None)
+        return greeting_scene(identity_of(hostname), _login(request), _mail_summary(request) if mail else None, machine.system_type, known)
     except Machine.DoesNotExist:
         return None
 
