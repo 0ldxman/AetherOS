@@ -38,7 +38,7 @@
   --grid-y: 16px;
   --frame: var(--line-bright);
   --tab-outside: 0;
-  --tui-shadow: 16px 16px 0 #2a2a2a;   /* тень как в BIOS: на две клетки вправо и одну вниз */
+  --tui-shadow: 8px 8px 0 #262626;   /* тень как в BIOS, но сдержанная: на одну клетку вправо и полклетки вниз */
 }
 
 [data-theme="tui"] body { font-size: 1rem; line-height: 1.25; }
