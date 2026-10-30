@@ -279,6 +279,9 @@ body {
 }
 
 
+/* нижняя кромка рамки: нужна только стилям, которые рисуют её сами */
+.wb-foot { display: none; }
+
 /* рамка окна */
 .winbox.aether {
   background: var(--bg);

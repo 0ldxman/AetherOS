@@ -12,6 +12,7 @@
      notices-toggle  кнопка центра уведомлений (внутри может быть notices-count с числом непрочитанных)
      notices-panel   панель центра уведомлений (атрибут hidden), в ней notices (список) и notices-clear (очистить)
      workspace       кнопка рабочего стола (data-space="1"…): окна привязаны к столу, чужие скрыты
+     apps[data-numbered]  список приложений, в котором цифра 1…9 открывает приложение (когда фокус не в поле ввода)
      data-hotkey     любой элемент, который нажимается клавишей: «F2», «Alt+1» (событие click)
    Горячая клавиша: отдельное нажатие Meta (Super) открывает и закрывает лаунчер.
    ================================================== */
@@ -343,6 +344,16 @@
 
     event.preventDefault();
     target.click();
+  });
+
+  // цифры открывают приложения в нумерованном списке (как в Midnight Commander)
+  document.addEventListener("keydown", (event) => {
+    if (!/^[1-9]$/.test(event.key) || event.altKey || event.ctrlKey || event.metaKey) return;
+    if (document.activeElement && document.activeElement !== document.body) return;
+
+    const list = document.querySelector('[data-shell="apps"][data-numbered]');
+    const target = list && list.children[Number(event.key) - 1];
+    if (target) target.click();
   });
 
   // Super: отдельное нажатие (без других клавиш) открывает и закрывает лаунчер

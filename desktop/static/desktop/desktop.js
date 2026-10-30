@@ -154,6 +154,18 @@ const TAB_OUTSIDE = rootStyle.getPropertyValue("--tab-outside").trim() !== "0";
 const BAR_TOP = taskbar.getBoundingClientRect().top < 1 ? taskbar.offsetHeight : 0;
 // Развёрнутое окно не заходит на панель снизу: либо это сама панель задач, либо отдельная полоса оболочки с data-reserve-bottom.
 const reserveBottom = document.querySelector("[data-reserve-bottom]");
+// Сетка знакомест (стиль ОС может задать --grid-x и --grid-y в пикселях): положение и размер окон кратны клетке.
+const GRID_X = parseFloat(rootStyle.getPropertyValue("--grid-x")) || 0;
+const GRID_Y = parseFloat(rootStyle.getPropertyValue("--grid-y")) || 0;
+
+function snapTo(value, grid) {
+  return grid ? Math.round(value / grid) * grid : value;
+}
+
+function snapGeometry(g) {
+  return { x: snapTo(g.x, GRID_X), y: snapTo(g.y, GRID_Y), width: snapTo(g.width, GRID_X), height: snapTo(g.height, GRID_Y) };
+}
+
 const WINDOW_BOTTOM = taskbar.getBoundingClientRect().top < 1 ? (reserveBottom ? reserveBottom.offsetHeight : 0) : taskbar.offsetHeight;
 const WINDOW_TOP = BAR_TOP + (TAB_OUTSIDE ? TAB_HEIGHT + 2 : 0);
 
@@ -166,12 +178,12 @@ function clampGeometry(g) {
   const width = Math.min(Math.max(g.width, MIN_WINDOW_W), maxW);
   const height = Math.min(Math.max(g.height, MIN_WINDOW_H), maxH);
 
-  return {
+  return snapGeometry({
     width,
     height,
     x: Math.min(Math.max(g.x, 0), Math.max(0, maxW - width)),
     y: Math.min(Math.max(g.y, WINDOW_TOP), Math.max(WINDOW_TOP, bottom - height)),
-  };
+  });
 }
 
 function isNumber(value) {
@@ -400,6 +412,29 @@ function attachLoader(win, label) {
   show();
 }
 
+function snapWindow(win) {
+  if ((!GRID_X && !GRID_Y) || win.max || win.min || win.hidden) return;
+
+  const g = snapGeometry({ x: win.x, y: win.y, width: win.width, height: win.height });
+
+  if (g.x !== win.x || g.y !== win.y) win.move(g.x, g.y);
+  if (g.width !== win.width || g.height !== win.height) win.resize(g.width, g.height);
+}
+
+// после перетаскивания и изменения размера окно встаёт на сетку
+if (GRID_X || GRID_Y) {
+  for (const type of ["pointerup", "mouseup"]) {
+    window.addEventListener(type, () => setTimeout(() => Object.values(openWindows).forEach(snapWindow), 0), true);
+  }
+}
+
+// Пустой элемент под телом окна: стиль может нарисовать им нижнюю кромку рамки (у основного стиля скрыт).
+// Не div: у WinBox все div после тела считаются ручками размера.
+function addFoot(win) {
+  const root = win.dom || win.window;
+  if (root) root.appendChild(document.createElement("i")).className = "wb-foot";
+}
+
 function openApp(id, label, url, options = {}) {
   const existing = openWindows[id];
 
@@ -440,11 +475,7 @@ function openApp(id, label, url, options = {}) {
 
     class: ["aether", "no-full"],
 
-    x: 120 + offset,
-    y: WINDOW_TOP + offset,
-
-    width: 480,
-    height: 320,
+    ...snapGeometry({ x: 120 + offset, y: WINDOW_TOP + offset, width: 480, height: 320 }),
 
     url: url,
 
@@ -473,6 +504,7 @@ function openApp(id, label, url, options = {}) {
     },
   });
 
+  addFoot(win);
   openWindows[id] = win;
   openMeta[id] = { id, label, url, options };
   noteFocus(id);
@@ -600,6 +632,7 @@ function showDialog(spec, params = {}, options = {}) {
     },
   });
 
+  addFoot(win);
   openDialogs[dedupe] = win;
 
   ok.addEventListener("click", () => win.close());

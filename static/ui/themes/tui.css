@@ -33,9 +33,12 @@
   --font-main: var(--ff-terminus);
   --radius: 0;
   --border-w: 3px;
-  --tab-h: 20px;
+  --tab-h: 16px;
+  --grid-x: 8px;                 /* клетка знакоместа: окна встают на неё */
+  --grid-y: 16px;
+  --frame: var(--line-bright);
   --tab-outside: 0;
-  --tui-shadow: 6px 6px 0 var(--line-faint);
+  --tui-shadow: 8px 8px 0 #262626;
 }
 
 [data-theme="tui"] body { font-size: 1rem; line-height: 1.25; }
@@ -47,30 +50,33 @@
     var(--bg);
 }
 
-[data-theme="tui"] .icon { color: var(--fg); }
+/* значков на столе нет: приложения в нумерованном списке справа (цифра открывает) и в меню F2 */
+[data-theme="tui"] #icons { visibility: hidden; pointer-events: none; }
 
-[data-theme="tui"] .icon-glyph {
-  width: 36px;
-  height: 36px;
-  line-height: 32px;
-  border: 3px double var(--fg);
+[data-theme="tui"] .tui-apps {
+  position: fixed;
+  top: 32px;
+  right: 16px;
+  z-index: 1;                    /* справа и под окнами: окна открываются слева */
+  min-width: 25ch;
   background: var(--bg);
+  border: 3px double var(--fg);
+  box-shadow: var(--tui-shadow);
   color: var(--fg);
 }
 
-[data-theme="tui"] .icon:hover .icon-glyph,
-[data-theme="tui"] .icon:focus-visible .icon-glyph { background: var(--fg); color: var(--font-dark); }
+[data-theme="tui"] .tui-apps-list { display: flex; flex-direction: column; padding: 0 4px; counter-reset: app; }
 
-[data-theme="tui"] .icon-label { padding: 0 4px; background: var(--bg); }
-[data-theme="tui"] .icon:hover .icon-label,
-[data-theme="tui"] .icon:focus-visible .icon-label { background: var(--fg); color: var(--font-dark); }
-[data-theme="tui"] .icon-badge { border-radius: 0; background: var(--fg); color: var(--font-dark); }
+[data-theme="tui"] .tui-apps-list .shell-app { counter-increment: app; }
+[data-theme="tui"] .tui-apps-list .shell-app::before { content: counter(app); width: 2ch; color: var(--font-light); }
+[data-theme="tui"] .tui-apps-hint { padding: 0 8px; border-top: 1px solid var(--line); color: var(--font-muted); }
 
 /* ---- строка меню: инверсия ---- */
 [data-theme="tui"] #taskbar {
-  flex: 0 0 22px;
+  flex: 0 0 16px;
   gap: 12px;
   padding: 0 4px;
+  line-height: 16px;
   background: var(--fg);
   color: var(--font-dark);
   font-size: 1rem;
@@ -122,7 +128,8 @@
 /* ---- полоса F-клавиш: номер на чёрном, подпись инверсией ---- */
 [data-theme="tui"] .fkeys {
   order: 2;
-  flex: 0 0 22px;
+  flex: 0 0 16px;
+  line-height: 16px;
   display: flex;
   align-items: stretch;
   gap: 4px;
@@ -240,21 +247,45 @@
 [data-theme="tui"] .shell-notice-text { grid-column: 1 / -1; color: var(--font-soft); }
 [data-theme="tui"] .shell-notice:hover .shell-notice-text { color: var(--font-dark); }
 
-/* ---- окна: двойная рамка, название в скобках по центру; активное ярче и с инверсным названием ---- */
+/* ---- окна: рамка рисуется символами ╔═╗║╚═╝, название вписано в верхнюю строку; окна стоят на сетке знакомест ---- */
 [data-theme="tui"] .winbox.aether {
   background: var(--bg);
-  border: 3px double var(--line-bright);
+  border: 0;
   box-shadow: var(--tui-shadow);
+  color: var(--frame);
+  font: 16px/16px var(--font-main);
   overflow: hidden;
+  transition: none;
 }
 
-[data-theme="tui"] .winbox.aether.focus { border-color: var(--font-light); }
+[data-theme="tui"] .winbox.aether.focus { --frame: var(--font-light); }
+
+/* боковые стороны: колонка символов ║ */
+[data-theme="tui"] .winbox.aether::before,
+[data-theme="tui"] .winbox.aether::after {
+  position: absolute;
+  top: 16px;
+  bottom: 16px;
+  width: 8px;
+  overflow: hidden;
+  white-space: pre;
+  content: "║\A║\A║\A║\A║\A║\A║\A║\A║\A║\A║\A║\A║\A║\A║\A║\A║\A║\A║\A║\A║\A║\A║\A║\A║\A║\A║\A║\A║\A║\A║\A║\A║\A║\A║\A║\A║\A║\A║\A║\A║\A║\A║\A║\A║\A║\A║\A║\A║\A║\A║\A║\A║\A║\A║\A║\A║\A║\A║\A║\A║\A║\A║\A║\A║\A║\A║\A║\A║\A║\A║\A║\A║\A║\A║\A║\A║\A║\A║\A║\A║\A║\A║\A║\A║\A║\A║\A║\A║\A║\A║\A║\A║\A║\A║\A║\A║\A║\A║\A║\A║\A║\A║\A║\A║\A║\A║\A║\A║\A║\A║\A║\A║\A║\A║\A║\A║\A║\A║\A║\A";
+  pointer-events: none;
+}
+
+[data-theme="tui"] .winbox.aether::before { left: 0; }
+[data-theme="tui"] .winbox.aether::after { right: 0; }
 
 [data-theme="tui"] .winbox.aether .wb-body {
-  top: var(--tab-h);
+  top: 16px;
+  left: 8px;
+  right: 8px;
+  bottom: 16px;
   background: var(--bg);
+  box-shadow: none;
 }
 
+/* верхняя строка: ╔ [■] ═══ [ название ] ═══ [↓][↑] ╗ */
 [data-theme="tui"] .winbox.aether .wb-header {
   position: absolute;
   top: 0;
@@ -264,23 +295,42 @@
   width: auto;
   min-width: 0;
   max-width: none;
+  height: 16px;
+  line-height: 16px;
+  display: flex;
+  align-items: center;
   box-sizing: border-box;
-  padding: 0 4px;
+  padding: 0;
   gap: 0;
   background: var(--bg);
   border: 0;
-  border-bottom: 1px solid var(--line-bright);
+  color: var(--frame);
 }
 
-[data-theme="tui"] .winbox.aether .wb-control { order: 0; }
-[data-theme="tui"] .winbox.aether .wb-drag { order: 1; text-align: center; }
+[data-theme="tui"] .winbox.aether .wb-header::before { content: "╔"; width: 8px; }
+[data-theme="tui"] .winbox.aether .wb-header::after { content: "╗"; width: 8px; text-align: right; }
+
+[data-theme="tui"] .winbox.aether .wb-control { order: 0; float: none; height: 16px; }
+[data-theme="tui"] .winbox.aether .wb-drag { order: 1; flex: 1; min-width: 0; display: flex; align-items: center; padding: 0; height: 16px; }
+
+[data-theme="tui"] .winbox.aether .wb-drag::before,
+[data-theme="tui"] .winbox.aether .wb-drag::after {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  content: "════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════";
+}
 
 [data-theme="tui"] .winbox.aether .wb-control > span {
-  width: auto;
-  padding: 0 2px;
+  width: 24px;
+  height: 16px;
+  padding: 0;
+  display: block;
   background: none;
-  color: var(--fg);
-  font-size: 1rem;
+  color: var(--frame);
+  font: 16px/16px var(--font-main);
+  text-align: center;
 }
 
 [data-theme="tui"] .winbox.aether .wb-control > span:hover { background: var(--fg); color: var(--font-dark); }
@@ -288,49 +338,94 @@
 [data-theme="tui"] .winbox.aether .wb-close::before { content: "[■]"; }
 [data-theme="tui"] .winbox.aether .wb-min,
 [data-theme="tui"] .winbox.aether .wb-max { position: absolute; top: 0; }
-[data-theme="tui"] .winbox.aether .wb-max { right: 4px; }
+[data-theme="tui"] .winbox.aether .wb-max { right: 8px; }
 [data-theme="tui"] .winbox.aether .wb-max::before { content: "[↑]"; }
-[data-theme="tui"] .winbox.aether .wb-min { right: 34px; }
+[data-theme="tui"] .winbox.aether .wb-min { right: 32px; }
 [data-theme="tui"] .winbox.aether .wb-min::before { content: "[↓]"; }
-[data-theme="tui"] .winbox.aether .wb-close { color: var(--fg); }
+[data-theme="tui"] .winbox.aether .wb-close { color: var(--frame); }
 
-[data-theme="tui"] .winbox.aether .wb-title { font-size: 1rem; color: var(--font-muted); }
-[data-theme="tui"] .winbox.aether .wb-title::before { content: "═[ "; color: var(--line-bright); }
-[data-theme="tui"] .winbox.aether .wb-title::after { content: " ]═"; color: var(--line-bright); }
-[data-theme="tui"] .winbox.aether.focus .wb-title { padding: 0 6px; background: var(--fg); color: var(--font-dark); font-weight: 700; }
-[data-theme="tui"] .winbox.aether.focus .wb-title::before,
-[data-theme="tui"] .winbox.aether.focus .wb-title::after { content: ""; }
+[data-theme="tui"] .winbox.aether .wb-title { flex: none; padding: 0; font: 16px/16px var(--font-main); color: var(--frame); }
+[data-theme="tui"] .winbox.aether .wb-title::before { content: "[ "; }
+[data-theme="tui"] .winbox.aether .wb-title::after { content: " ]"; }
+[data-theme="tui"] .winbox.aether.focus .wb-title { background: var(--fg); color: var(--font-dark); font-weight: 700; }
 
-[data-theme="tui"] .winbox.aether.max .wb-header { top: 0; left: 0; right: 0; bottom: auto; border: 0; border-bottom: 1px solid var(--line-bright); }
+/* нижняя строка: ╚═══╝ (элемент добавляет desktop.js) */
+[data-theme="tui"] .winbox.aether .wb-foot {
+  display: block;
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 16px;
+  overflow: hidden;
+  white-space: nowrap;
+  line-height: 16px;
+  color: var(--frame);
+  pointer-events: none;
+}
+
+[data-theme="tui"] .winbox.aether .wb-foot::before { content: "╚════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════"; }
+[data-theme="tui"] .winbox.aether .wb-foot::after { content: "╝"; position: absolute; right: 0; bottom: 0; background: var(--bg); }
+
+[data-theme="tui"] .winbox.aether.max { box-shadow: none; }
 
 [data-theme="tui"] .winbox.aether.min { background: var(--bg); }
-[data-theme="tui"] .winbox.aether.min .wb-header { top: 0; bottom: auto; }
+[data-theme="tui"] .winbox.aether.min::before,
+[data-theme="tui"] .winbox.aether.min::after { content: none; }
+[data-theme="tui"] .winbox.aether.min .wb-foot { display: none; }
 
-/* окна сообщений: рамка пунктиром у ошибки, название с [!] или [?] */
+/* окна сообщений: название с [!] или [?], рамка яркая */
 [data-theme="tui"] .winbox.aether.dialog-window--error,
-[data-theme="tui"] .winbox.aether.dialog-window--warning { background: var(--bg); border-color: var(--font-light); }
-[data-theme="tui"] .winbox.aether.dialog-window--error { border-style: dashed; }
-
-[data-theme="tui"] .winbox.aether.dialog-window--error .wb-header,
-[data-theme="tui"] .winbox.aether.dialog-window--warning .wb-header { background: var(--bg); }
+[data-theme="tui"] .winbox.aether.dialog-window--warning { --frame: var(--font-light); background: var(--bg); }
 
 [data-theme="tui"] .winbox.aether.dialog-window--error .wb-title,
-[data-theme="tui"] .winbox.aether.dialog-window--warning .wb-title { padding: 0 6px; background: var(--fg); color: var(--font-dark); font-weight: 700; }
+[data-theme="tui"] .winbox.aether.dialog-window--warning .wb-title { background: var(--fg); color: var(--font-dark); font-weight: 700; }
 
-[data-theme="tui"] .winbox.aether.dialog-window--error .wb-title::before { content: "[!] "; color: var(--font-dark); }
-[data-theme="tui"] .winbox.aether.dialog-window--warning .wb-title::before { content: "[?] "; color: var(--font-dark); }
+[data-theme="tui"] .winbox.aether.dialog-window--error .wb-title::before { content: "[!] "; }
+[data-theme="tui"] .winbox.aether.dialog-window--warning .wb-title::before { content: "[?] "; }
 [data-theme="tui"] .winbox.aether.dialog-window--error .wb-title::after,
 [data-theme="tui"] .winbox.aether.dialog-window--warning .wb-title::after { content: ""; }
 
 [data-theme="tui"] .winbox.aether.dialog-window--error .wb-control *,
-[data-theme="tui"] .winbox.aether.dialog-window--warning .wb-control * { color: var(--fg); }
+[data-theme="tui"] .winbox.aether.dialog-window--warning .wb-control * { color: var(--frame); }
+
+[data-theme="tui"] .winbox.aether.dialog-window--error .wb-header,
+[data-theme="tui"] .winbox.aether.dialog-window--warning .wb-header { background: var(--bg); border: 0; }
 
 [data-theme="tui"] .dialog { background: var(--bg); color: var(--fg); }
-[data-theme="tui"] .dialog-glyph { border: 2px solid var(--fg); background: var(--bg); color: var(--fg); }
+[data-theme="tui"] .dialog-glyph { display: flex; align-items: center; width: auto; height: auto; border: 0; background: none; color: var(--font-light); font-size: 1rem; }
+[data-theme="tui"] .dialog-glyph::before { content: "["; }
+[data-theme="tui"] .dialog-glyph::after { content: "]"; }
 [data-theme="tui"] .dialog-foot { border-top: 0; }
-[data-theme="tui"] .dialog-ok { border: 0; background: var(--fg); color: var(--font-dark); font-weight: 700; }
-[data-theme="tui"] .dialog-ok:hover { background: var(--font-light); color: var(--font-dark); }
 [data-theme="tui"] .dialog-code { color: var(--font-muted); opacity: 1; }
+
+/* кнопки и поля: [ OK ], блочный курсор, скроллбары из ▒ и █, спиннер | / - \ */
+[data-theme="tui"] .dialog-ok { min-width: 0; padding: 0; border: 0; background: none; color: var(--fg); font-weight: 400; }
+[data-theme="tui"] .dialog-ok::before { content: "[ "; }
+[data-theme="tui"] .dialog-ok::after { content: " ]"; }
+[data-theme="tui"] .dialog-ok:hover { background: var(--fg); color: var(--font-dark); }
+
+[data-theme="tui"] *,
+[data-theme="tui"] *::before,
+[data-theme="tui"] *::after { border-radius: 0 !important; }
+
+[data-theme="tui"] input,
+[data-theme="tui"] textarea { caret-shape: block; }
+
+[data-theme="tui"] ::-webkit-scrollbar { width: 8px; height: 16px; }
+[data-theme="tui"] ::-webkit-scrollbar-track { background: repeating-conic-gradient(var(--line-bright) 0 25%, transparent 0 50%) 0 0 / 2px 2px; }
+[data-theme="tui"] ::-webkit-scrollbar-thumb { background: var(--fg); }
+[data-theme="tui"] ::-webkit-scrollbar-corner { background: var(--bg); }
+
+[data-theme="tui"] .spinner { width: auto; height: auto; border: 0; animation: none; }
+[data-theme="tui"] .spinner::before { content: "|"; color: var(--fg); font: 16px/16px var(--font-main); animation: tui-spin 0.8s steps(1) infinite; }
+
+@keyframes tui-spin {
+  0% { content: "|"; }
+  25% { content: "/"; }
+  50% { content: "-"; }
+  75% { content: "\\"; }
+}
 
 /* ---- тосты ---- */
 [data-theme="tui"] #toasts { bottom: 40px; }
