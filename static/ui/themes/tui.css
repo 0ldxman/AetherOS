@@ -323,7 +323,7 @@
   height: 16px;
   padding: 0;
   display: block;
-  background: none;
+  background: var(--bg);
   color: var(--frame);
   font: 16px/16px var(--font-main);
   text-align: center;
@@ -342,11 +342,11 @@
 [data-theme="tui"] .winbox.aether .wb-max,
 [data-theme="tui"] .winbox.aether .wb-close { position: absolute; top: 0; }
 [data-theme="tui"] .winbox.aether .wb-close { right: 8px; }
-[data-theme="tui"] .winbox.aether .wb-close::before { content: "[×]"; }
+[data-theme="tui"] .winbox.aether .wb-close::before { content: "[x]"; }
 [data-theme="tui"] .winbox.aether .wb-max { right: 32px; }
-[data-theme="tui"] .winbox.aether .wb-max::before { content: "[□]"; }
+[data-theme="tui"] .winbox.aether .wb-max::before { content: "[+]"; }
 [data-theme="tui"] .winbox.aether .wb-min { right: 56px; }
-[data-theme="tui"] .winbox.aether .wb-min::before { content: "[–]"; }
+[data-theme="tui"] .winbox.aether .wb-min::before { content: "[-]"; }
 [data-theme="tui"] .winbox.aether .wb-close { color: var(--frame); }
 
 [data-theme="tui"] .winbox.aether .wb-title { flex: none; padding: 0; font: 16px/16px var(--font-main); color: var(--frame); }
