@@ -148,12 +148,16 @@ const MIN_WINDOW_H = 120;
 const taskbar = document.getElementById("taskbar");
 const TAB_HEIGHT =
   parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--tab-h")) || 26;
-const WINDOW_TOP = taskbar.offsetHeight + TAB_HEIGHT + 2;
+// Стиль ОС может поставить панель снизу (--tab-outside: 0 — заголовок внутри окна): тогда сверху отступа нет.
+const rootStyle = getComputedStyle(document.documentElement);
+const TAB_OUTSIDE = rootStyle.getPropertyValue("--tab-outside").trim() !== "0";
+const BAR_TOP = taskbar.getBoundingClientRect().top < 1 ? taskbar.offsetHeight : 0;
+const WINDOW_TOP = BAR_TOP + (TAB_OUTSIDE ? TAB_HEIGHT + 2 : 0);
 
 // Размер стола мог измениться с прошлого раза: окно не должно оказаться за краем
 function clampGeometry(g) {
   const maxW = desktop.clientWidth;
-  const bottom = taskbar.offsetHeight + desktop.clientHeight; // нижний край окна браузера
+  const bottom = BAR_TOP + desktop.clientHeight; // нижний край стола в координатах окна браузера
   const maxH = bottom - WINDOW_TOP;
 
   const width = Math.min(Math.max(g.width, MIN_WINDOW_W), maxW);

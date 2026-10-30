@@ -365,7 +365,7 @@ class CreateAndSystemsTests(TestCase):
         from machines.world import styles
 
         data = self.call("get", "/systems/AETHER")[1]
-        self.assertEqual((data["style"], data["style_tokens"], [s["slug"] for s in data["styles"]]), ("aether", {}, ["aether"]))
+        self.assertEqual((data["style"], data["style_tokens"], [s["slug"] for s in data["styles"]]), ("aether", {}, ["aether", "modern"]))
         self.assertTrue({t["name"] for t in data["token_info"]} >= {"--bg", "--accent", "--radius", "--font-main"})
         self.assertEqual({t["name"]: t["default"] for t in data["token_info"]}["--bg"], "#191919")
         self.assertIn("var(--ff-doto)", [f["value"] for f in data["fonts"]])
@@ -387,6 +387,13 @@ class CreateAndSystemsTests(TestCase):
         html = Template("{% load os_style %}{% os_style_slug %}|{% os_tokens %}").render(Context({"request": request}))
         self.assertIn("aether|", html)
         self.assertIn("--accent: #ff8800", html)
+        self.assertNotIn("themes/", html)
+        self.assertEqual(self.call("put", "/systems/AETHER/style", {"style": "modern", "tokens": {}})[0], 200)
+        request = RequestFactory().get("/")
+        request.user, request.session = AnonymousUser(), {}
+        html = Template("{% load os_style %}{% os_style_slug %}|{% os_theme %}").render(Context({"request": request}))
+        self.assertIn("modern|", html)
+        self.assertIn("ui/themes/modern.css", html)
 
     def test_the_image_tree_shows_what_the_layers_make_together(self):
         from filesystem.testing import make_file

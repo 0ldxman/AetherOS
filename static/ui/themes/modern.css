@@ -1,0 +1,223 @@
+/* ==========================================================================
+ * Стиль «modern»: оконный рабочий стол в духе современного Windows.
+ * Панель задач снизу, заголовок внутри окна с кнопками справа, скруглённые окна с тенью, плитки-иконки.
+ *
+ * Токены этого стиля стоят в :root (файл подключается только когда стиль выбран) и переопределяются блоком
+ * <style id="os-style"> из студии. Раскладка пишется с префиксом [data-theme], чтобы перебить desktop.css.
+ * ========================================================================== */
+
+:root {
+  --bg: #1b1f27;
+  --panel: #262b35;
+  --fg: #c9cdd6;
+  --font-light: #f1f3f7;
+  --font-dark: #10131a;
+  --font-soft: #99a0ae;
+  --font-muted: #6f7686;
+  --line: #333a47;
+  --line-faint: #20252e;
+  --line-bright: #4a5262;
+  --window-border: #3a4150;
+  --accent: #60cdff;
+  --accent-green: #6ccb5f;
+  --accent-warn: #fce100;
+  --accent-error: #ff6b6b;
+  --accent-error-darker: #e5484d;
+  --font-main: var(--ff-arimo);
+  --radius: 8px;
+  --tab-h: 36px;
+  --tab-outside: 0;              /* заголовок внутри окна, а не вкладкой над рамкой */
+  --cell: 96px;
+}
+
+/* ---- рабочий стол: плавный фон вместо сетки ---- */
+[data-theme="modern"] #desktop {
+  background:
+    radial-gradient(ellipse at 18% 12%, color-mix(in srgb, var(--accent) 22%, transparent), transparent 55%),
+    radial-gradient(ellipse at 85% 90%, color-mix(in srgb, var(--accent) 12%, transparent), transparent 50%),
+    var(--bg);
+}
+
+/* ---- панель задач снизу ---- */
+[data-theme="modern"] #taskbar {
+  order: 2;
+  flex: 0 0 44px;
+  padding: 0 14px;
+  background: color-mix(in srgb, var(--panel) 88%, transparent);
+  border-top: 1px solid var(--line);
+  font-size: 0.85rem;
+}
+
+[data-theme="modern"] .ping { margin-right: 96px; }
+
+[data-theme="modern"] .session-button {
+  padding: 6px 12px;
+  border-radius: var(--radius);
+  background: color-mix(in srgb, var(--fg) 8%, transparent);
+}
+
+[data-theme="modern"] .session-button:hover,
+[data-theme="modern"] .session-button[aria-expanded="true"] {
+  background: color-mix(in srgb, var(--fg) 16%, transparent);
+  border-color: transparent;
+}
+
+[data-theme="modern"] .session-menu {
+  top: auto;
+  bottom: calc(100% + 10px);
+  padding: 6px;
+  border-radius: calc(var(--radius) + 2px);
+  border: 1px solid var(--line);
+  box-shadow: 0 10px 32px rgba(0, 0, 0, 0.45);
+}
+
+[data-theme="modern"] .session-menu button {
+  padding: 8px 12px;
+  border-radius: calc(var(--radius) - 2px);
+}
+
+[data-theme="modern"] .session-menu button:hover,
+[data-theme="modern"] .session-menu button:focus-visible {
+  background: color-mix(in srgb, var(--fg) 14%, transparent);
+  color: var(--font-light);
+}
+
+[data-theme="modern"] .session-menu button[data-action="disconnect"] {
+  border-top: 0;
+  margin-top: 0;
+  padding-top: 8px;
+  color: var(--accent-error);
+}
+
+/* часы справа в панели, без «трапеции» */
+[data-theme="modern"] #clock-plate {
+  top: auto;
+  bottom: 0;
+  left: auto;
+  right: 14px;
+  transform: none;
+  width: auto;
+  height: 44px;
+  padding: 0 4px;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  text-align: right;
+  letter-spacing: 0;
+  background: none;
+  clip-path: none;
+  font-size: 0.8rem;
+  font-weight: 400;
+  line-height: 1.25;
+}
+
+[data-theme="modern"] #date { font-size: 0.75rem; letter-spacing: 0; color: var(--font-soft); }
+
+/* ---- иконки: скруглённые плитки ---- */
+[data-theme="modern"] .icon { padding: 8px 4px; border-radius: var(--radius); }
+
+[data-theme="modern"] .icon:hover { background: color-mix(in srgb, var(--fg) 10%, transparent); }
+
+[data-theme="modern"] .icon-glyph {
+  width: 44px;
+  height: 44px;
+  line-height: 44px;
+  margin-bottom: 8px;
+  border: 1px solid var(--line-bright);
+  border-radius: calc(var(--radius) + 4px);
+  background: var(--panel);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+[data-theme="modern"] .icon:hover .icon-glyph,
+[data-theme="modern"] .icon:focus-visible .icon-glyph {
+  background: color-mix(in srgb, var(--accent) 22%, var(--panel));
+  border-color: var(--accent);
+  color: var(--font-light);
+}
+
+[data-theme="modern"] .icon-badge { border-radius: 8px; color: var(--font-dark); }
+
+/* ---- окна: скруглённые, заголовок внутри, кнопки справа ---- */
+[data-theme="modern"] .winbox.aether {
+  background: var(--panel);
+  border-radius: calc(var(--radius) + 2px);
+  box-shadow: 0 0 0 1px var(--window-border), 0 16px 40px rgba(0, 0, 0, 0.5);
+  overflow: hidden;
+}
+
+[data-theme="modern"] .winbox.aether .wb-body {
+  top: var(--tab-h);
+  background: var(--bg);
+}
+
+[data-theme="modern"] .winbox.aether .wb-header {
+  position: absolute;
+  top: 0;
+  bottom: auto;
+  left: 0;
+  right: 0;
+  width: 100%;
+  min-width: 0;
+  max-width: none;
+  padding: 0 0 0 12px;
+  gap: 8px;
+  background: var(--panel);
+  border: 0;
+  border-bottom: 1px solid var(--line);
+}
+
+[data-theme="modern"] .winbox.aether .wb-drag { order: 0; }
+[data-theme="modern"] .winbox.aether .wb-control { order: 1; }
+
+[data-theme="modern"] .winbox.aether .wb-min   { order: 0; }
+[data-theme="modern"] .winbox.aether .wb-max   { order: 1; }
+[data-theme="modern"] .winbox.aether .wb-close { order: 2; }
+
+[data-theme="modern"] .winbox.aether .wb-control > span {
+  width: 46px;
+  color: var(--fg);
+}
+
+[data-theme="modern"] .winbox.aether .wb-control > span:hover {
+  background: color-mix(in srgb, var(--fg) 14%, transparent);
+  color: var(--font-light);
+}
+
+[data-theme="modern"] .winbox.aether .wb-control > .wb-close:hover {
+  background: var(--accent-error-darker);
+  color: #fff;
+}
+
+[data-theme="modern"] .winbox.aether .wb-close { color: inherit; }
+
+[data-theme="modern"] .winbox.aether .wb-title {
+  font-size: 0.85rem;
+  color: var(--font-light);
+}
+
+[data-theme="modern"] .winbox.aether.max { border-radius: 0; }
+[data-theme="modern"] .winbox.aether.max .wb-header { bottom: auto; left: 0; right: 0; border: 0; border-bottom: 1px solid var(--line); }
+
+[data-theme="modern"] .winbox.aether.min { background: var(--panel); box-shadow: 0 0 0 1px var(--window-border); }
+[data-theme="modern"] .winbox.aether.min .wb-header { top: 0; bottom: auto; }
+
+/* окна сообщений: цветной заголовок по виду сообщения, тело остаётся своим */
+[data-theme="modern"] .winbox.aether.dialog-window--error,
+[data-theme="modern"] .winbox.aether.dialog-window--warning { background: var(--panel); }
+
+[data-theme="modern"] .winbox.aether.dialog-window--error { box-shadow: 0 0 0 1px var(--status-error), 0 16px 40px rgba(0, 0, 0, 0.5); }
+[data-theme="modern"] .winbox.aether.dialog-window--warning { box-shadow: 0 0 0 1px var(--status-warn), 0 16px 40px rgba(0, 0, 0, 0.5); }
+
+[data-theme="modern"] .winbox.aether.dialog-window--error .wb-title,
+[data-theme="modern"] .winbox.aether.dialog-window--error .wb-control *,
+[data-theme="modern"] .winbox.aether.dialog-window--warning .wb-title { color: var(--font-dark); }
+
+/* ---- уведомления ---- */
+[data-theme="modern"] .toast {
+  border-radius: calc(var(--radius) + 2px);
+  border: 1px solid var(--line);
+  border-left-width: 3px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+}
