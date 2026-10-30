@@ -47,7 +47,7 @@
   font-size: 0.85rem;
 }
 
-[data-theme="modern"] .ping { margin-right: 96px; }
+[data-theme="modern"] .ping { margin-right: 4px; }
 
 /* вместо пинга значок проводного соединения (цвет по состоянию связи); число видно при наведении */
 [data-theme="modern"] .ping-dot {
@@ -437,3 +437,117 @@
 
 [data-theme="modern"] .launcher-foot button:hover { background: color-mix(in srgb, var(--fg) 14%, transparent); }
 [data-theme="modern"] .launcher-foot button[data-action="disconnect"] { color: var(--accent-error); }
+
+/* ---- центр уведомлений ---- */
+[data-theme="modern"] .bell {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  margin-right: 96px;            /* место под часы */
+  padding: 0;
+  background: none;
+  border: 0;
+  border-radius: var(--radius);
+  cursor: pointer;
+}
+
+[data-theme="modern"] .bell:hover,
+[data-theme="modern"] .bell[aria-expanded="true"] { background: color-mix(in srgb, var(--fg) 14%, transparent); }
+
+[data-theme="modern"] .bell-icon {
+  width: 18px;
+  height: 18px;
+  background: var(--fg);
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.8'%3E%3Cpath d='M6 16V11a6 6 0 0 1 12 0v5l1.5 2h-15zM10 20.5a2 2 0 0 0 4 0'/%3E%3C/svg%3E") center / contain no-repeat;
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.8'%3E%3Cpath d='M6 16V11a6 6 0 0 1 12 0v5l1.5 2h-15zM10 20.5a2 2 0 0 0 4 0'/%3E%3C/svg%3E") center / contain no-repeat;
+}
+
+[data-theme="modern"] .bell-count {
+  position: absolute;
+  top: 3px;
+  right: 3px;
+  min-width: 15px;
+  height: 15px;
+  padding: 0 3px;
+  box-sizing: border-box;
+  background: var(--accent);
+  border-radius: 8px;
+  color: var(--font-dark);
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 15px;
+  text-align: center;
+}
+
+[data-theme="modern"] .bell-count[hidden] { display: none; }
+
+[data-theme="modern"] .notices-panel[hidden] { display: none; }
+
+[data-theme="modern"] .notices-panel {
+  position: fixed;
+  right: 12px;
+  bottom: 56px;
+  z-index: 1001;
+  width: 360px;
+  max-height: min(480px, calc(100vh - 80px));
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+  background: color-mix(in srgb, var(--panel) 94%, transparent);
+  -webkit-backdrop-filter: blur(24px);
+  backdrop-filter: blur(24px);
+  border: 1px solid var(--line);
+  border-radius: calc(var(--radius) + 6px);
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.5);
+}
+
+[data-theme="modern"] .notices-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 16px 8px;
+  color: var(--font-light);
+  font-size: 0.85rem;
+}
+
+[data-theme="modern"] .notices-head button {
+  padding: 4px 8px;
+  background: none;
+  border: 0;
+  border-radius: calc(var(--radius) - 2px);
+  color: var(--accent);
+  font: inherit;
+  font-size: 0.75rem;
+  cursor: pointer;
+}
+
+[data-theme="modern"] .notices-head button:hover { background: color-mix(in srgb, var(--fg) 12%, transparent); }
+
+[data-theme="modern"] .notices-list { display: flex; flex-direction: column; gap: 6px; padding: 4px 12px 14px; overflow-y: auto; }
+
+[data-theme="modern"] .notices-list.is-empty::before { content: "No new notifications"; padding: 28px 0; color: var(--font-muted); font-size: 0.8rem; text-align: center; }
+
+[data-theme="modern"] .shell-notice {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 2px 8px;
+  padding: 10px 12px;
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--accent);
+  border-radius: calc(var(--radius) - 2px);
+  color: var(--fg);
+  font: inherit;
+  font-size: 0.8rem;
+  text-align: left;
+  cursor: pointer;
+}
+
+[data-theme="modern"] .shell-notice:hover { border-color: var(--line-bright); border-left-color: var(--accent); }
+[data-theme="modern"] .shell-notice--error { border-left-color: var(--status-error); }
+[data-theme="modern"] .shell-notice--warning { border-left-color: var(--status-warn); }
+[data-theme="modern"] .shell-notice-title { color: var(--font-light); }
+[data-theme="modern"] .shell-notice-time { color: var(--font-muted); font-size: 0.7rem; }
+[data-theme="modern"] .shell-notice-text { grid-column: 1 / -1; color: var(--font-soft); font-size: 0.75rem; }

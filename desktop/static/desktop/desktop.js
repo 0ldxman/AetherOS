@@ -637,6 +637,9 @@ function showToast(spec, params = {}, onClick = null, ms = TOAST_MS) {
   if (onClick) toast.classList.add("toast--action");
   stack.appendChild(toast);
   setTimeout(close, ms);
+
+  // оболочка копит историю уведомлений (центр уведомлений)
+  document.dispatchEvent(new CustomEvent("desktop:notice", { detail: { kind: msg.kind, title: msg.title, text: msg.text || "", onClick } }));
 }
 
 

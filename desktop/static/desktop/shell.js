@@ -8,6 +8,9 @@
      search          поле поиска по приложениям
      apps            список приложений стола; с data-dock отмечает запущенные
      tasks           список открытых окон: клик фокусирует, повторный клик сворачивает
+     notices-toggle  кнопка центра уведомлений (внутри может быть notices-count с числом непрочитанных)
+     notices-panel   панель центра уведомлений (атрибут hidden), в ней notices (список) и notices-clear (очистить)
+   Горячая клавиша: отдельное нажатие Meta (Super) открывает и закрывает лаунчер.
    ================================================== */
 
 (function () {
@@ -112,6 +115,7 @@
 
   function setLauncher(open) {
     if (!panel) return;
+    if (open && typeof setNotices === "function" && noticePanel && !noticePanel.hidden) setNotices(false);
     panel.hidden = !open;
     document.body.classList.toggle("launcher-open", open);
     openers.forEach((node) => node.setAttribute("aria-expanded", open ? "true" : "false"));
@@ -122,6 +126,69 @@
       search.focus();
     }
   }
+
+  /* ---------- центр уведомлений: история тостов ---------- */
+
+  const NOTICE_LIMIT = 30;
+  const noticePanel = document.querySelector('[data-shell="notices-panel"]');
+  const noticeTogglers = all('[data-shell="notices-toggle"]');
+  const history = [];
+  let unread = 0;
+
+  function renderNotices() {
+    all('[data-shell="notices"]').forEach((list) => {
+      list.replaceChildren(
+        ...history.map((item) => {
+          const node = part("button", "shell-notice shell-notice--" + item.kind);
+          node.type = "button";
+          node.append(part("strong", "shell-notice-title", item.title), part("span", "shell-notice-time", item.time));
+          if (item.text) node.append(part("span", "shell-notice-text", item.text));
+          node.addEventListener("click", () => {
+            setNotices(false);
+            if (item.onClick) item.onClick();
+          });
+          return node;
+        })
+      );
+      list.classList.toggle("is-empty", history.length === 0);
+    });
+
+    all('[data-shell="notices-count"]').forEach((node) => {
+      node.textContent = unread > 9 ? "9+" : String(unread);
+      node.hidden = unread === 0;
+    });
+  }
+
+  function setNotices(open) {
+    if (!noticePanel) return;
+    if (open) setLauncher(false);
+    noticePanel.hidden = !open;
+    noticeTogglers.forEach((node) => node.setAttribute("aria-expanded", open ? "true" : "false"));
+    if (open) {
+      unread = 0;
+      all("#toasts .toast").forEach((toast) => toast.remove()); // они уже есть в списке
+    }
+    renderNotices();
+  }
+
+  document.addEventListener("desktop:notice", (event) => {
+    const now = new Date();
+    history.unshift({ ...event.detail, time: now.toTimeString().slice(0, 5) });
+    history.length = Math.min(history.length, NOTICE_LIMIT);
+    if (!noticePanel || noticePanel.hidden) unread += 1;
+    renderNotices();
+  });
+
+  noticeTogglers.forEach((node) =>
+    node.addEventListener("click", () => setNotices(noticePanel ? noticePanel.hidden : false))
+  );
+
+  all('[data-shell="notices-clear"]').forEach((node) =>
+    node.addEventListener("click", () => {
+      history.length = 0;
+      renderNotices();
+    })
+  );
 
   document.addEventListener("desktop:windows", render);
   document.addEventListener("shell:close", () => setLauncher(false));
@@ -165,17 +232,39 @@
   }
 
   document.addEventListener("pointerdown", (event) => {
+    if (noticePanel && !noticePanel.hidden && !noticePanel.contains(event.target) && !noticeTogglers.some((node) => node.contains(event.target))) {
+      setNotices(false);
+    }
     if (panel && !panel.hidden && !panel.contains(event.target) && !openers.some((node) => node.contains(event.target))) {
       setLauncher(false);
     }
   });
 
   document.addEventListener("keydown", (event) => {
-    if (event.key === "Escape" && panel && !panel.hidden) setLauncher(false);
+    if (event.key === "Escape") {
+      if (panel && !panel.hidden) setLauncher(false);
+      if (noticePanel && !noticePanel.hidden) setNotices(false);
+    }
+  });
+
+  // Super: отдельное нажатие (без других клавиш) открывает и закрывает лаунчер
+  let superAlone = false;
+
+  document.addEventListener("keydown", (event) => {
+    superAlone = event.key === "Meta" && !event.repeat;
+  });
+
+  document.addEventListener("keyup", (event) => {
+    if (event.key === "Meta" && superAlone && panel) setLauncher(panel.hidden);
+    superAlone = false;
   });
 
   // клик внутри окна приложения (iframe) сюда не доходит, но снимает фокус с документа
-  window.addEventListener("blur", () => setLauncher(false));
+  window.addEventListener("blur", () => {
+    setLauncher(false);
+    setNotices(false);
+  });
 
   render();
+  renderNotices();
 })();

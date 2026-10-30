@@ -13,7 +13,16 @@
             <span id="ping-value">42</span>
             <span id="ping-unit">ms</span>
         </div>
+        <button type="button" class="bell" data-shell="notices-toggle" aria-haspopup="dialog" aria-expanded="false" aria-controls="notices-panel" title="Notifications">
+            <span class="bell-icon" aria-hidden="true"></span>
+            <span class="bell-count" data-shell="notices-count" hidden>0</span>
+        </button>
     </header>
+
+    <section id="notices-panel" class="notices-panel" data-shell="notices-panel" aria-label="Notifications" hidden>
+        <header class="notices-head"><strong>Notifications</strong><button type="button" data-shell="notices-clear">Clear all</button></header>
+        <div class="notices-list" data-shell="notices"></div>
+    </section>
 
     <section id="launcher" class="launcher" data-shell="launcher-panel" aria-label="Start" hidden>
         <input type="search" class="launcher-search" data-shell="search" placeholder="Search apps" autocomplete="off" aria-label="Search apps">

@@ -39,7 +39,13 @@
         <button type="button" class="dock-grid" data-shell="launcher" aria-label="Show all apps" aria-expanded="false" aria-controls="launcher"><span aria-hidden="true"></span></button>
     </div>
 
-    <div id="clock-plate">
+    <section id="notices-panel" class="notices-panel" data-shell="notices-panel" aria-label="Notifications" hidden>
+        <header class="notices-head"><strong>Notifications</strong><button type="button" data-shell="notices-clear">Clear</button></header>
+        <div class="notices-list" data-shell="notices"></div>
+    </section>
+
+    <div id="clock-plate" data-shell="notices-toggle" role="button" tabindex="0" aria-haspopup="dialog" aria-expanded="false" aria-controls="notices-panel">
         <span id="clock"></span>
         <span id="date"></span>
+        <span class="bell-count" data-shell="notices-count" hidden>0</span>
     </div>
