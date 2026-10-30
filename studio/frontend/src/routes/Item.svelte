@@ -195,7 +195,7 @@
         {#if dirty}<span class="dot"></span>Не сохранено{:else}Сохранено {when(item.updated_at)}{item.updated_by ? ` · ${item.updated_by}` : ""}{/if}
       </span>
       {#if item.view_url}
-        <div class="split">
+        <div class="openbtn">
           <a class="open" href="{item.view_url}&as=all" target="_blank" rel="noopener" title="Как увидит игрок (сохранённая версия)">Открыть в новой вкладке</a>
           <button class="caret" aria-label="Выбрать ключи" onclick={(event) => { event.stopPropagation(); menu = !menu; }}>▾</button>
           {#if menu}
@@ -316,12 +316,12 @@
 
 <style>
   .loading { padding: 32px; }
-  .split { position: relative; display: flex; align-items: stretch; height: 30px; border: 1px solid var(--line); border-radius: var(--radius-s); background: var(--panel-2); }
-  .split:hover { border-color: #343947; }
-  .split .open, .split .caret { display: flex; align-items: center; border: 0; background: none; color: var(--muted); cursor: pointer; text-decoration: none; white-space: nowrap; }
-  .split .open { padding: 0 10px 0 12px; border-radius: var(--radius-s) 0 0 var(--radius-s); }
-  .split .caret { padding: 0 8px; font-size: 11px; border-left: 1px solid var(--line-soft); border-radius: 0 var(--radius-s) var(--radius-s) 0; }
-  .split .open:hover, .split .caret:hover { background: var(--raise); color: var(--text); }
+  .openbtn { position: relative; display: flex; align-items: stretch; height: 30px; border: 1px solid var(--line); border-radius: var(--radius-s); background: var(--panel-2); }
+  .openbtn:hover { border-color: #343947; }
+  .openbtn .open, .openbtn .caret { display: flex; align-items: center; border: 0; background: none; color: var(--muted); cursor: pointer; text-decoration: none; white-space: nowrap; }
+  .openbtn .open { padding: 0 10px 0 12px; border-radius: var(--radius-s) 0 0 var(--radius-s); }
+  .openbtn .caret { padding: 0 8px; font-size: 11px; border-left: 1px solid var(--line-soft); border-radius: 0 var(--radius-s) var(--radius-s) 0; }
+  .openbtn .open:hover, .openbtn .caret:hover { background: var(--raise); color: var(--text); }
   .menu { position: absolute; top: 100%; right: -1px; z-index: 10; margin-top: 4px; min-width: 150px; padding: 4px; border: 1px solid var(--line); border-radius: var(--radius-s); background: var(--bg); box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35); }
   .menu a { display: block; padding: 6px 10px; border-radius: var(--radius-s); color: var(--text); text-decoration: none; }
   .menu a:hover { background: var(--panel); }
