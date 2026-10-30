@@ -140,6 +140,7 @@ def desktop(request):
         "mail_url": mail_url if has_mail else "",
         "mail_pulse_url": reverse("mail:pulse") if has_mail else "",
         "machine_name": machine.label,
+        "terminal_url": reverse("terminal:index"),
         "os_name": machine.system_type.name if machine.system_type else machine.system,
         "login": login,
         "layout_key": layout_key,

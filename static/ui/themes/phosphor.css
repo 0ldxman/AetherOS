@@ -1,43 +1,51 @@
 /* ==========================================================================
- * Стиль «phosphor»: янтарный монитор. Один цвет на чёрном, свечение текста, строки развёртки и виньетка на столе.
- * Оболочка общая (aether): меняются токены и вид, структура остаётся. Токены переопределяются из студии
- * (например, зелёный люминофор: --accent и родственные цвета).
+ * Стиль «phosphor»: прошивка устройства (сетевое оборудование, промышленный контроллер, киоск) на монохромном ЖК-экране.
+ * Серо-зелёный экран, тёмные «пиксели», пиксельная сетка, растровый шрифт, выбор инверсией. Окон нет: главное меню и панель
+ * сведений, приложение открывается на весь экран, Esc возвращает в меню. Разметка desktop/shells/phosphor.html.
+ * Токены переопределяются из студии (например, янтарная подсветка вместо зелёной).
  * ========================================================================== */
 
 :root {
-  --bg: #0b0800;
-  --panel: #140f00;
-  --fg: #d99200;
-  --font-light: #ffb000;
-  --font-dark: #0b0800;
-  --font-soft: #a56e00;
-  --font-muted: #6b4800;
-  --line: #3a2800;
-  --line-faint: #1c1400;
-  --line-bright: #7a5200;
-  --window-border: #ffb000;
-  --accent: #ffb000;
-  --accent-green: #ffcc33;
-  --accent-warn: #ffd966;
-  --accent-error: #ff5a1f;
-  --accent-error-darker: #ff7a45;
-  --term-fg: #ffb000;
-  --term-dim: #8a5d00;
-  --term-ok: #ffcc33;
-  --term-warn: #ffd966;
-  --term-error: #ff5a1f;
-  --term-info: #e6a100;
-  --font-main: var(--ff-terminus);
+  --bg: #b1c09c;
+  --panel: #a2b38d;
+  --fg: #1a2616;
+  --font-light: #0d150b;
+  --font-dark: #b1c09c;
+  --font-soft: #38492f;
+  --font-muted: #5f7253;
+  --line: #8a9c78;
+  --line-faint: #a5b591;
+  --line-bright: #3d5033;
+  --window-border: #1a2616;
+  --accent: #1a2616;
+  --accent-green: #1a2616;
+  --accent-warn: #1a2616;
+  --accent-error: #1a2616;
+  --accent-error-darker: #38492f;
+  --term-fg: #1a2616;
+  --term-dim: #5f7253;
+  --term-ok: #1a2616;
+  --term-warn: #1a2616;
+  --term-error: #1a2616;
+  --term-info: #1a2616;
+  --font-main: var(--ff-ast-premiumexec);
   --fs-base: 1rem;
   --radius: 0;
-  --border-w: 1px;
-  --tab-h: 26px;
+  --border-w: 2px;
+  --tab-h: 24px;
+  --tab-outside: 0;
+  --console-h: 40vh;             /* высота консоли (окна терминала) у нижнего края */
 }
 
-/* свечение: тень цвета текста, у каждого элемента своя */
-[data-theme="phosphor"] body { text-shadow: 0 0 5px color-mix(in srgb, currentColor 45%, transparent); }
+[data-theme="phosphor"] body { font-size: 1rem; line-height: 1.25; -webkit-font-smoothing: none; text-rendering: optimizeSpeed; }
 
-/* развёртка и виньетка поверх стола и окон */
+[data-theme="phosphor"] *,
+[data-theme="phosphor"] *::before,
+[data-theme="phosphor"] *::after { border-radius: 0 !important; }
+
+/* экран: ровная заливка и пиксельная сетка поверх всего стола, включая приложения */
+[data-theme="phosphor"] #desktop { background: var(--bg); }
+
 [data-theme="phosphor"] #desktop::after {
   content: "";
   position: absolute;
@@ -45,21 +53,276 @@
   z-index: 99999;
   pointer-events: none;
   background:
-    repeating-linear-gradient(0deg, rgba(0, 0, 0, 0.22) 0 1px, transparent 1px 3px),
-    radial-gradient(ellipse at center, transparent 55%, rgba(0, 0, 0, 0.55) 100%);
+    linear-gradient(rgba(26, 38, 22, 0.10) 1px, transparent 1px) 0 0 / 100% 3px,
+    linear-gradient(90deg, rgba(26, 38, 22, 0.10) 1px, transparent 1px) 0 0 / 3px 100%;
 }
 
-[data-theme="phosphor"] #taskbar { border-bottom: 1px solid var(--line-bright); }
+[data-theme="phosphor"] #icons { visibility: hidden; pointer-events: none; }
+
+/* ---- строка состояния сверху и подсказки снизу: инверсия ---- */
+[data-theme="phosphor"] #taskbar,
+[data-theme="phosphor"] .fw-hint {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  flex: 0 0 24px;
+  padding: 0 10px;
+  background: var(--fg);
+  color: var(--bg);
+  font-size: 1rem;
+  line-height: 24px;
+}
+
+[data-theme="phosphor"] .fw-hint { order: 2; }
+
+[data-theme="phosphor"] .fw-spacer { flex: 1; }
+[data-theme="phosphor"] .fw-model { font-weight: 700; text-transform: uppercase; }
+[data-theme="phosphor"] .fw-crumb { color: var(--bg); opacity: 0.85; }
+[data-theme="phosphor"] .fw-key { opacity: 0.7; }
+
+[data-theme="phosphor"] .ping { gap: 6px; font-family: inherit; font-size: 1rem; }
+[data-theme="phosphor"] .ping-dot { display: none; }
+[data-theme="phosphor"] #ping-value, [data-theme="phosphor"] #ping-unit { min-width: 0; color: var(--bg); }
 
 [data-theme="phosphor"] #clock-plate {
-  width: 150px;
-  background: var(--panel);
-  border: 1px solid var(--line-bright);
-  border-top: 0;
+  position: static;
+  transform: none;
+  width: auto;
+  padding: 0;
+  display: flex;
+  gap: 10px;
+  background: none;
+  clip-path: none;
+  color: var(--bg);
+  font-size: 1rem;
+  font-weight: 400;
+  letter-spacing: 0;
 }
 
-[data-theme="phosphor"] .icon-glyph { box-shadow: 0 0 8px color-mix(in srgb, var(--accent) 35%, transparent); }
+[data-theme="phosphor"] #clock, [data-theme="phosphor"] #date { display: inline; font-size: 1rem; letter-spacing: 0; }
 
-[data-theme="phosphor"] .winbox.aether { box-shadow: 0 0 0 1px var(--window-border), 0 0 18px color-mix(in srgb, var(--accent) 22%, transparent); }
+[data-theme="phosphor"] .fw-hint kbd { margin-right: 4px; padding: 0 5px; background: var(--bg); color: var(--fg); font: inherit; }
+[data-theme="phosphor"] .fw-user { opacity: 0.85; }
 
-[data-theme="phosphor"] .toast { border-color: var(--accent); }
+/* ---- главное меню и панель сведений ---- */
+[data-theme="phosphor"] .fw-menu,
+[data-theme="phosphor"] .fw-status {
+  position: fixed;
+  top: 40px;
+  bottom: 40px;
+  z-index: 1;                    /* под приложением на весь экран */
+  display: flex;
+  flex-direction: column;
+  border: 2px solid var(--fg);
+  color: var(--fg);
+  overflow: auto;
+}
+
+[data-theme="phosphor"] .fw-menu { left: 16px; width: 380px; }
+[data-theme="phosphor"] .fw-status { right: 16px; width: 320px; bottom: auto; }
+
+[data-theme="phosphor"] .fw-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin: 0;
+  padding: 0 10px;
+  background: var(--fg);
+  color: var(--bg);
+  font-size: 1rem;
+  font-weight: 700;
+  line-height: 22px;
+  text-transform: uppercase;
+}
+
+[data-theme="phosphor"] .fw-title button { padding: 0 6px; background: var(--bg); border: 0; color: var(--fg); font: inherit; cursor: pointer; }
+
+[data-theme="phosphor"] .fw-list { display: flex; flex-direction: column; padding: 4px 0; }
+
+[data-theme="phosphor"] .shell-app,
+[data-theme="phosphor"] .fw-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  height: 24px;
+  padding: 0 12px;
+  background: none;
+  border: 0;
+  color: var(--fg);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+[data-theme="phosphor"] .fw-list { counter-reset: item; }
+[data-theme="phosphor"] .shell-app { counter-increment: item; }
+[data-theme="phosphor"] .shell-app::before { content: counter(item); width: 2ch; }
+[data-theme="phosphor"] .shell-app .shell-glyph { width: 3ch; }
+[data-theme="phosphor"] .shell-app .shell-badge,
+[data-theme="phosphor"] .fw-count { margin-left: auto; padding: 0 6px; background: var(--fg); color: var(--bg); font-weight: 700; }
+[data-theme="phosphor"] .fw-count[hidden] { display: none; }
+
+/* выбор инверсией: под мышью и под курсором клавиатуры */
+[data-theme="phosphor"] .shell-app:hover,
+[data-theme="phosphor"] .shell-app:focus-visible,
+[data-theme="phosphor"] .fw-item:hover,
+[data-theme="phosphor"] .fw-item:focus-visible { background: var(--fg); color: var(--bg); outline: none; }
+
+[data-theme="phosphor"] .shell-app:hover .shell-badge,
+[data-theme="phosphor"] .fw-item:hover .fw-count { background: var(--bg); color: var(--fg); }
+
+[data-theme="phosphor"] .fw-rows { display: flex; flex-direction: column; margin: 0; padding: 8px 0; }
+[data-theme="phosphor"] .fw-rows div { display: flex; justify-content: space-between; gap: 12px; padding: 0 12px; }
+[data-theme="phosphor"] .fw-rows dt { color: var(--font-muted); text-transform: uppercase; }
+[data-theme="phosphor"] .fw-rows dd { margin: 0; text-align: right; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* ---- сообщения ---- */
+[data-theme="phosphor"] .notices-panel[hidden] { display: none; }
+
+[data-theme="phosphor"] .notices-panel {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  z-index: 1001;
+  width: 440px;
+  max-height: 60vh;
+  display: flex;
+  flex-direction: column;
+  transform: translate(-50%, -50%);
+  background: var(--bg);
+  border: 2px solid var(--fg);
+  box-shadow: 6px 6px 0 var(--fg);
+  color: var(--fg);
+}
+
+[data-theme="phosphor"] .notices-list { display: flex; flex-direction: column; overflow-y: auto; padding: 4px 0; }
+[data-theme="phosphor"] .notices-list.is-empty::before { content: "NO MESSAGES"; padding: 12px; text-align: center; color: var(--font-muted); }
+
+[data-theme="phosphor"] .shell-notice { display: grid; grid-template-columns: 1fr auto; padding: 0 12px; background: none; border: 0; color: var(--fg); font: inherit; text-align: left; cursor: pointer; }
+[data-theme="phosphor"] .shell-notice:hover { background: var(--fg); color: var(--bg); }
+[data-theme="phosphor"] .shell-notice--error .shell-notice-title::before { content: "! "; }
+[data-theme="phosphor"] .shell-notice--warning .shell-notice-title::before { content: "? "; }
+[data-theme="phosphor"] .shell-notice-time { color: var(--font-muted); }
+[data-theme="phosphor"] .shell-notice:hover .shell-notice-time,
+[data-theme="phosphor"] .shell-notice:hover .shell-notice-text { color: var(--bg); }
+[data-theme="phosphor"] .shell-notice-text { grid-column: 1 / -1; color: var(--font-soft); }
+
+/* ---- приложения: на весь экран между строкой состояния и подсказками, видно только верхнее ---- */
+[data-theme="phosphor"] .winbox.aether:not(.dialog-window) {
+  top: 24px !important;
+  bottom: 24px !important;
+  left: 0 !important;
+  right: 0 !important;
+  width: auto !important;
+  height: auto !important;
+  min-width: 0 !important;       /* desktop.js выставляет минимальную ширину по заголовку */
+  max-width: none !important;
+  transition: none;
+}
+
+[data-theme="phosphor"] .winbox.aether:not(.dialog-window):not(.app-terminal):not(.focus) { display: none; }
+
+[data-theme="phosphor"] .winbox.aether {
+  background: var(--bg);
+  border: 0;
+  box-shadow: none;
+  overflow: hidden;
+}
+
+/* консоль: окно терминала всегда рядом с приложением, прижато к нижнему краю; F1 сворачивает и возвращает */
+[data-theme="phosphor"] .winbox.aether.app-terminal {
+  top: auto !important;
+  bottom: 24px !important;
+  height: var(--console-h) !important;
+  border-top: 2px solid var(--fg);
+}
+
+[data-theme="phosphor"] .winbox.aether.app-terminal.min { display: none !important; }
+
+/* пока консоль открыта, приложение и меню занимают оставшееся место над ней */
+[data-theme="phosphor"]:has(.winbox.app-terminal:not(.min)) .winbox.aether:not(.dialog-window):not(.app-terminal) { bottom: calc(24px + var(--console-h)) !important; }
+[data-theme="phosphor"]:has(.winbox.app-terminal:not(.min)) .fw-menu { bottom: calc(40px + var(--console-h)); }
+
+[data-theme="phosphor"] .winbox.aether.app-terminal .wb-control > .wb-close::before { content: "[X] CLOSE"; }
+[data-theme="phosphor"] .winbox.aether.app-terminal .wb-title::before { content: "▸ "; }
+
+[data-theme="phosphor"] .fw-kbd { margin-left: auto; padding: 0 5px; background: var(--fg); color: var(--bg); font: inherit; }
+[data-theme="phosphor"] .fw-item:hover .fw-kbd { background: var(--bg); color: var(--fg); }
+
+/* заголовок страницы: инверсная полоса с названием и кнопкой «назад»; перетаскивания и размера нет */
+[data-theme="phosphor"] .winbox.aether .wb-header {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: auto;
+  width: auto;
+  min-width: 0;
+  max-width: none;
+  height: var(--tab-h);
+  box-sizing: border-box;
+  padding: 0 10px;
+  gap: 0;
+  background: var(--panel);
+  border: 0;
+  border-bottom: 2px solid var(--fg);
+}
+
+[data-theme="phosphor"] .winbox.aether .wb-body { top: var(--tab-h); left: 0; right: 0; bottom: 0; background: var(--bg); box-shadow: none; }
+
+[data-theme="phosphor"] .winbox.aether .wb-drag { order: 0; flex: 1; cursor: default; pointer-events: none; padding: 0; }
+[data-theme="phosphor"] .winbox.aether .wb-control { order: 1; max-width: none; }
+[data-theme="phosphor"] .winbox.aether .wb-body ~ div { display: none; }
+[data-theme="phosphor"] .winbox.aether .wb-min,
+[data-theme="phosphor"] .winbox.aether .wb-max,
+[data-theme="phosphor"] .winbox.aether .wb-full { display: none; }
+
+[data-theme="phosphor"] .winbox.aether .wb-title { font-size: 1rem; font-weight: 700; line-height: 22px; text-transform: uppercase; color: var(--fg); }
+
+[data-theme="phosphor"] .winbox.aether .wb-control > .wb-close {
+  display: block;
+  width: auto;
+  padding: 0 8px;
+  background: none;
+  color: var(--fg);
+  font: inherit;
+  line-height: 22px;
+  white-space: nowrap;
+}
+
+[data-theme="phosphor"] .winbox.aether .wb-control > .wb-close::before { content: "[ESC] BACK"; }
+[data-theme="phosphor"] .winbox.aether .wb-control > .wb-close:hover { background: var(--fg); color: var(--bg); }
+
+/* окна сообщений остаются всплывающими: рамка и инверсная шапка */
+[data-theme="phosphor"] .winbox.aether.dialog-window { border: 2px solid var(--fg); box-shadow: 6px 6px 0 var(--fg); }
+[data-theme="phosphor"] .winbox.aether.dialog-window .wb-header { background: var(--fg); border: 0; }
+[data-theme="phosphor"] .winbox.aether.dialog-window .wb-title { color: var(--bg); }
+[data-theme="phosphor"] .winbox.aether.dialog-window .wb-control { display: none; }
+[data-theme="phosphor"] .winbox.aether.dialog-window--error .wb-title::before { content: "[!] "; }
+[data-theme="phosphor"] .winbox.aether.dialog-window--warning .wb-title::before { content: "[?] "; }
+
+[data-theme="phosphor"] .dialog { background: var(--bg); color: var(--fg); }
+[data-theme="phosphor"] .dialog-glyph { width: auto; height: auto; border: 2px solid var(--fg); background: none; color: var(--fg); font-size: 1rem; padding: 0 8px; }
+[data-theme="phosphor"] .dialog-foot { border-top: 2px solid var(--fg); }
+[data-theme="phosphor"] .dialog-code { opacity: 1; color: var(--font-muted); }
+[data-theme="phosphor"] .dialog-ok { min-width: 0; padding: 0 12px; background: var(--fg); border: 0; color: var(--bg); font-weight: 700; }
+[data-theme="phosphor"] .dialog-ok:hover { background: var(--font-soft); }
+
+/* ---- тосты: инверсная строка над подсказками ---- */
+[data-theme="phosphor"] #toasts { right: 16px; bottom: 48px; }
+
+[data-theme="phosphor"] .toast {
+  background: var(--fg);
+  border: 0;
+  border-left-width: 0;
+  box-shadow: none;
+  color: var(--bg);
+}
+
+[data-theme="phosphor"] .toast-text { color: var(--bg); opacity: 0.8; }
+
+/* общее: растровые полосы прокрутки */
+[data-theme="phosphor"] ::-webkit-scrollbar { width: 8px; height: 8px; }
+[data-theme="phosphor"] ::-webkit-scrollbar-track { background: var(--panel); }
+[data-theme="phosphor"] ::-webkit-scrollbar-thumb { background: var(--fg); }

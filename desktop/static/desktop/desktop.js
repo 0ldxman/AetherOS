@@ -75,6 +75,13 @@ schedulePing();
 
 const desktop = document.getElementById("desktop");
 const template = document.getElementById("window-template");
+
+// Окно терминала получает класс app-terminal: стиль может показывать его иначе (консоль рядом с приложением).
+const terminalPath = desktop.dataset.terminalUrl ? new URL(desktop.dataset.terminalUrl, window.location.href).pathname : null;
+
+function isTerminalUrl(url) {
+  return Boolean(terminalPath) && new URL(url, window.location.href).pathname === terminalPath;
+}
 const openWindows = {};
 
 
@@ -473,7 +480,7 @@ function openApp(id, label, url, options = {}) {
     bottom: WINDOW_BOTTOM,
     root: desktop,
 
-    class: ["aether", "no-full"],
+    class: ["aether", "no-full", ...(isTerminalUrl(url) ? ["app-terminal"] : [])],
 
     ...snapGeometry({ x: 120 + offset, y: WINDOW_TOP + offset, width: 480, height: 320 }),
 

@@ -1,0 +1,64 @@
+{% comment %}
+  Оболочка стиля phosphor (прошивка устройства): строка состояния сверху с хлебными крошками, главное меню (приложения и
+  системные пункты), панель сведений справа, строка подсказок клавиш снизу. Окон нет: приложение открывается на весь экран
+  (это делает CSS стиля), Esc закрывает его и возвращает в меню. Ожидает от desktop.js #taskbar, #clock, #date, #ping-value;
+  меню, крошки и виджет оживляет shell.js по атрибутам data-shell, data-nav и data-esc-close.
+{% endcomment %}
+    <header id="taskbar">
+        <span class="fw-model">{{ os_name }}</span>
+        <span class="fw-crumb" data-shell="crumb">MAIN</span>
+        <span class="fw-spacer"></span>
+        <div class="ping">
+            <span class="ping-dot"></span>
+            <span class="fw-key">LINK</span>
+            <span id="ping-value">42</span>
+            <span id="ping-unit">ms</span>
+        </div>
+        <div id="clock-plate">
+            <span id="clock"></span>
+            <span id="date"></span>
+        </div>
+    </header>
+
+    <nav class="fw-menu" data-nav aria-label="Main menu">
+        <h2 class="fw-title">Main menu</h2>
+        <div class="fw-list" data-shell="apps" data-numbered></div>
+        <h2 class="fw-title">System</h2>
+        <div class="fw-list fw-system" data-actions>
+            <button type="button" class="fw-item" data-shell="console-toggle" data-hotkey="F1"><span>Console</span><kbd class="fw-kbd">F1</kbd></button>
+            <button type="button" class="fw-item" data-shell="notices-toggle" data-hotkey="F9" aria-haspopup="dialog" aria-expanded="false" aria-controls="notices-panel"><span>Messages</span><b class="fw-count" data-shell="notices-count" hidden>0</b></button>
+            {% if can_sessions %}<button type="button" class="fw-item" data-action="sessions" data-url="{{ sessions_url }}"><span>Sessions</span></button>{% endif %}
+            <button type="button" class="fw-item" data-action="reset-layout"><span>Reset layout</span></button>
+            <button type="button" class="fw-item" data-action="disconnect" data-logout-url="{{ logout_url }}" data-lock-url="{{ lock_url }}"><span>Log off</span></button>
+        </div>
+    </nav>
+
+    <aside class="fw-status" aria-label="Status">
+        <h2 class="fw-title">Status</h2>
+        <section data-shell="widget" data-widget="system">
+            <dl class="fw-rows">
+                <div><dt>host</dt><dd>{{ machine_name }}</dd></div>
+                <div><dt>firmware</dt><dd>{{ os_name }}</dd></div>
+                <div><dt>user</dt><dd>{{ login }}</dd></div>
+                <div><dt>link</dt><dd data-widget-field="ping"></dd></div>
+                <div><dt>uptime</dt><dd data-widget-field="session"></dd></div>
+                <div><dt>open</dt><dd data-widget-field="windows"></dd></div>
+            </dl>
+        </section>
+    </aside>
+
+    <section id="notices-panel" class="notices-panel" data-shell="notices-panel" aria-label="Messages" hidden>
+        <header class="fw-title"><span>Messages</span><button type="button" data-shell="notices-clear">Clear</button></header>
+        <div class="notices-list" data-shell="notices"></div>
+    </section>
+
+    <footer class="fw-hint" data-reserve-bottom data-esc-close>
+        <span><kbd>↑↓</kbd> select</span>
+        <span><kbd>Enter</kbd> open</span>
+        <span><kbd>1-9</kbd> app</span>
+        <span><kbd>Esc</kbd> back</span>
+        <span><kbd>F1</kbd> console</span>
+        <span><kbd>F9</kbd> messages</span>
+        <span class="fw-spacer"></span>
+        <span class="fw-user">{{ login }}@{{ machine_name }}</span>
+    </footer>

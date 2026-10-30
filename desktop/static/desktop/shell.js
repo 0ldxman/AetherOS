@@ -11,7 +11,11 @@
      widget          виджет стола (data-widget: clock, system, mail); значения подставляются в [data-widget-field]
      notices-toggle  кнопка центра уведомлений (внутри может быть notices-count с числом непрочитанных)
      notices-panel   панель центра уведомлений (атрибут hidden), в ней notices (список) и notices-clear (очистить)
+     crumb           хлебные крошки: «MAIN» или «MAIN > ПРИЛОЖЕНИЕ» (по верхнему окну)
+     data-nav        блок меню, по которому ходят стрелками и Home/End (кнопки внутри)
+     data-esc-close  любой элемент: пока он есть, Esc закрывает верхнее окно (экранные прошивки без окон)
      dtg             время в формате дата-время-группа (301405Z OCT 26), по UTC
+     console-toggle  кнопка консоли: открывает окно терминала, повторно сворачивает и возвращает его (не закрывая)
      workspace       кнопка рабочего стола (data-space="1"…): окна привязаны к столу, чужие скрыты
      apps[data-numbered]  список приложений, в котором цифра 1…9 открывает приложение (когда фокус не в поле ввода)
      data-hotkey     любой элемент, который нажимается клавишей: «F2», «Alt+1» (событие click)
@@ -113,9 +117,21 @@
     );
   }
 
+  function renderCrumb() {
+    const front = focusOrder[focusOrder.length - 1];
+    const win = front !== undefined ? openWindows[front] : null;
+    const meta = front !== undefined ? openMeta[front] : null;
+    const text = win && !win.min && meta ? "MAIN > " + String(meta.label).toUpperCase() : "MAIN";
+
+    all('[data-shell="crumb"]').forEach((node) => {
+      if (node.textContent !== text) node.textContent = text;
+    });
+  }
+
   function render() {
     all('[data-shell="apps"]').forEach(renderApps);
     all('[data-shell="tasks"]').forEach(renderTasks);
+    renderCrumb();
   }
 
   function setLauncher(open) {
@@ -337,9 +353,35 @@
   document.addEventListener("keydown", (event) => {
     if (event.key === "Escape") {
       if (panel && !panel.hidden) setLauncher(false);
-      if (noticePanel && !noticePanel.hidden) setNotices(false);
+      if (noticePanel && !noticePanel.hidden) {
+        setNotices(false);
+      } else if (!(panel && !panel.hidden) && document.querySelector("[data-esc-close]")) {
+        const front = focusOrder[focusOrder.length - 1];
+        if (front !== undefined && openWindows[front]) openWindows[front].close();
+      }
     }
   });
+
+  // консоль: окно терминала открывается, сворачивается и возвращается одной кнопкой
+  all('[data-shell="console-toggle"]').forEach((node) =>
+    node.addEventListener("click", () => {
+      const id = Object.keys(openWindows).find((key) => openMeta[key] && isTerminalUrl(openMeta[key].url));
+
+      if (id !== undefined) {
+        const win = openWindows[id];
+        if (win.min) {
+          win.restore();
+          win.focus();
+        } else {
+          win.minimize();
+        }
+        return;
+      }
+
+      const icon = all("#icons .icon").find((item) => isTerminalUrl(item.dataset.url));
+      if (icon) openApp(icon.dataset.app, icon.querySelector(".icon-label").textContent.trim(), icon.dataset.url);
+    })
+  );
 
   // горячие клавиши оболочки: F-клавиши и Alt+цифра нажимают элемент с data-hotkey
   document.addEventListener("keydown", (event) => {
@@ -353,10 +395,30 @@
     target.click();
   });
 
+  // меню со стрелками: Вверх и Вниз переводят фокус по кнопкам блока data-nav
+  const navRoot = document.querySelector("[data-nav]");
+
+  if (navRoot) {
+    document.addEventListener("keydown", (event) => {
+      if (!["ArrowDown", "ArrowUp", "Home", "End"].includes(event.key)) return;
+      if (document.activeElement && document.activeElement !== document.body && !navRoot.contains(document.activeElement)) return;
+
+      const items = all("button:not([hidden])", navRoot);
+      if (!items.length) return;
+
+      const at = items.indexOf(document.activeElement);
+      const next = event.key === "Home" ? 0 : event.key === "End" ? items.length - 1 : event.key === "ArrowDown" ? (at + 1) % items.length : (at <= 0 ? items.length : at) - 1;
+
+      event.preventDefault();
+      items[next].focus();
+    });
+  }
+
   // цифры открывают приложения в нумерованном списке (как в Midnight Commander)
   document.addEventListener("keydown", (event) => {
     if (!/^[1-9]$/.test(event.key) || event.altKey || event.ctrlKey || event.metaKey) return;
-    if (document.activeElement && document.activeElement !== document.body) return;
+    const active = document.activeElement;
+    if (active && active !== document.body && !(navRoot && navRoot.contains(active))) return;
 
     const list = document.querySelector('[data-shell="apps"][data-numbered]');
     const target = list && list.children[Number(event.key) - 1];
@@ -385,4 +447,5 @@
   renderNotices();
   updateWidgets();
   applySpaces();
+  if (navRoot) navRoot.querySelector("button") && navRoot.querySelector("button").focus({ preventScroll: true });
 })();
