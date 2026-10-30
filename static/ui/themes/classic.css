@@ -93,7 +93,7 @@
 }
 
 [data-theme="classic"] .sysmenu-mark { color: var(--accent); }
-[data-theme="classic"] #machine-name { font-weight: 700; }
+[data-theme="classic"] #machine-name { color: inherit; font-weight: 700; }   /* общий стол красит его в --font-light, а здесь это чёрный */
 
 [data-theme="classic"] .sysmenu:hover,
 [data-theme="classic"] .sysmenu[aria-expanded="true"],
