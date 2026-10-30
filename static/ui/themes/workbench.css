@@ -5,18 +5,18 @@
  * ========================================================================== */
 
 :root {
-  --bg: #c9ccd6;
-  --panel: #aeb2c3;
-  --fg: #1a1c24;
+  --bg: #cfd5da;
+  --panel: #a9b3ba;
+  --fg: #162027;
   --font-light: #000000;
   --font-dark: #ffffff;
-  --font-soft: #3a3f52;
-  --font-muted: #6a7088;
-  --line: #8a90a8;
-  --line-faint: #b8bccb;
-  --line-bright: #5a6078;
-  --window-border: #3a3f52;
-  --accent: #4a5f9a;
+  --font-soft: #34434d;
+  --font-muted: #62737e;
+  --line: #849098;
+  --line-faint: #b4bdc3;
+  --line-bright: #51606a;
+  --window-border: #34434d;
+  --accent: #2f7a86;
   --accent-green: #2f7a4a;
   --accent-warn: #9a7a1a;
   --accent-error: #a83a3a;
@@ -32,13 +32,13 @@
   --border-w: 2px;
   --tab-h: 22px;
   --tab-outside: 0;
-  --lit: #e4e7f1;
-  --shade: #6a7088;
+  --lit: #dde5e9;
+  --shade: #62737e;
   /* вместо объёма гравировка, как на панелях приборов: плоская заливка, тонкая линия, углубления с двойной «канавкой» */
   --raised: inset 0 0 0 1px var(--line-bright);
   --sunken: inset 0 0 0 1px var(--line-bright), inset 0 0 0 2px var(--lit);
   --keyline: inset 0 0 0 1px var(--line-bright), inset 0 0 0 3px var(--panel), inset 0 0 0 4px var(--line-bright);   /* рамка из двух тонких линий */
-  --desk: #4d5f78;
+  --desk: #44575f;
 }
 
 [data-theme="workbench"] body { font-size: 0.8rem; }
@@ -237,30 +237,27 @@
 
 [data-theme="workbench"] .winbox.aether.focus .wb-header { background: var(--accent); }
 
-[data-theme="workbench"] .winbox.aether .wb-control { order: 0; }
-[data-theme="workbench"] .winbox.aether .wb-drag { order: 1; text-align: center; }
+[data-theme="workbench"] .winbox.aether .wb-drag { order: 0; text-align: center; }
+[data-theme="workbench"] .winbox.aether .wb-control { order: 1; align-items: center; gap: 6px; padding-right: 8px; }
 
+[data-theme="workbench"] .winbox.aether .wb-min   { order: 0; --dot: #d6a93b; }
+[data-theme="workbench"] .winbox.aether .wb-max   { order: 1; --dot: #5aa06c; }
+[data-theme="workbench"] .winbox.aether .wb-close { order: 2; --dot: #c4574b; }
+
+/* кнопки окна: точки; у неактивного окна контур, у активного заливка своего цвета */
 [data-theme="workbench"] .winbox.aether .wb-control > span {
-  width: var(--tab-h);
-  height: var(--tab-h);
-  background: var(--panel);
-  box-shadow: var(--raised);
-  color: var(--fg);
-  font-size: 12px;
+  flex: none;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: none;
+  box-shadow: inset 0 0 0 1.5px var(--line-bright);
+  font-size: 0;
 }
 
-[data-theme="workbench"] .winbox.aether .wb-control > span:hover { background: var(--lit); color: var(--fg); }
-[data-theme="workbench"] .winbox.aether .wb-control > span:active { box-shadow: var(--sunken); }
-
-[data-theme="workbench"] .winbox.aether .wb-close::before { content: "▬"; }
-[data-theme="workbench"] .winbox.aether .wb-close { color: var(--fg); }
-
-/* свернуть и развернуть: у правого края заголовка */
-[data-theme="workbench"] .winbox.aether .wb-min,
-[data-theme="workbench"] .winbox.aether .wb-max { position: absolute; top: 0; }
-[data-theme="workbench"] .winbox.aether .wb-max { right: 0; }
-[data-theme="workbench"] .winbox.aether .wb-min { right: var(--tab-h); }
-[data-theme="workbench"] .winbox.aether .wb-min::before { content: "·"; font-size: 16px; }
+[data-theme="workbench"] .winbox.aether.focus .wb-control > span { background: var(--dot); box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.25); }
+[data-theme="workbench"] .winbox.aether .wb-control > span:hover { background: var(--dot); box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.4); filter: brightness(1.12); }
+[data-theme="workbench"] .winbox.aether .wb-control > span:active { filter: brightness(0.85); }
 
 [data-theme="workbench"] .winbox.aether .wb-title { font-size: 0.78rem; font-weight: 700; color: var(--fg); }
 [data-theme="workbench"] .winbox.aether.focus .wb-title { color: #fff; }
@@ -279,8 +276,8 @@
 [data-theme="workbench"] .winbox.aether.dialog-window--error .wb-title,
 [data-theme="workbench"] .winbox.aether.dialog-window--warning .wb-title { color: #fff; }
 
-[data-theme="workbench"] .winbox.aether.dialog-window--error .wb-control *,
-[data-theme="workbench"] .winbox.aether.dialog-window--warning .wb-control * { color: var(--fg); }
+[data-theme="workbench"] .winbox.aether.dialog-window--error .wb-control > span,
+[data-theme="workbench"] .winbox.aether.dialog-window--warning .wb-control > span { background: rgba(255, 255, 255, 0.85); box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.3); }
 
 [data-theme="workbench"] .dialog { background: var(--panel); color: var(--fg); }
 [data-theme="workbench"] .dialog-glyph { background: var(--tone); color: #fff; }
