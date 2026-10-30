@@ -1,0 +1,292 @@
+/* ==========================================================================
+ * Стиль «workbench»: Unix-станция с передней панелью. Панель снизу по центру (часы, четыре рабочих стола,
+ * быстрые запуски, выход), окна с толстой объёмной рамкой, меню окна слева и кнопками свернуть/развернуть справа.
+ * Разметка desktop/shells/workbench.html. Токены переопределяются из студии.
+ * ========================================================================== */
+
+:root {
+  --bg: #c9ccd6;
+  --panel: #aeb2c3;
+  --fg: #1a1c24;
+  --font-light: #000000;
+  --font-dark: #ffffff;
+  --font-soft: #3a3f52;
+  --font-muted: #6a7088;
+  --line: #8a90a8;
+  --line-faint: #b8bccb;
+  --line-bright: #5a6078;
+  --window-border: #3a3f52;
+  --accent: #4a5f9a;
+  --accent-green: #2f7a4a;
+  --accent-warn: #9a7a1a;
+  --accent-error: #a83a3a;
+  --accent-error-darker: #7a2020;
+  --term-fg: #d0d4e0;
+  --term-dim: #8890a8;
+  --term-ok: #6fd08a;
+  --term-warn: #e0c060;
+  --term-error: #ff7070;
+  --term-info: #80b8e0;
+  --font-main: var(--ff-arimo);
+  --radius: 0;
+  --border-w: 2px;
+  --tab-h: 22px;
+  --tab-outside: 0;
+  --lit: #e4e7f1;
+  --shade: #6a7088;
+  --raised: inset 1px 1px var(--lit), inset -1px -1px var(--shade), inset 2px 2px #c8cbd8, inset -2px -2px #8a90a8;
+  --sunken: inset 1px 1px var(--shade), inset -1px -1px var(--lit), inset 2px 2px #8a90a8, inset -2px -2px #c8cbd8;
+  --desk: #4d5f78;
+}
+
+[data-theme="workbench"] body { font-size: 0.8rem; }
+
+[data-theme="workbench"] #desktop { background: var(--desk); }
+
+[data-theme="workbench"] .icon { color: #fff; }
+
+[data-theme="workbench"] .icon-glyph {
+  width: 38px;
+  height: 38px;
+  line-height: 38px;
+  border: 0;
+  background: var(--panel);
+  box-shadow: var(--raised);
+  color: var(--accent);
+  font-weight: 700;
+}
+
+[data-theme="workbench"] .icon:hover .icon-glyph,
+[data-theme="workbench"] .icon:focus-visible .icon-glyph { background: var(--lit); color: var(--accent); }
+
+[data-theme="workbench"] .icon-label { width: fit-content; margin: 0 auto; padding: 1px 4px; background: rgba(0, 0, 0, 0.35); }
+[data-theme="workbench"] .icon-badge { border-radius: 0; color: #fff; }
+
+/* ---- передняя панель ---- */
+[data-theme="workbench"] #taskbar {
+  order: 2;
+  flex: 0 0 auto;
+  justify-content: center;
+  padding: 0 0 8px;
+  background: var(--desk);
+  font-size: 0.75rem;
+}
+
+[data-theme="workbench"] .front-panel {
+  display: flex;
+  align-items: stretch;
+  gap: 6px;
+  padding: 6px;
+  background: var(--panel);
+  box-shadow: var(--raised), 0 6px 14px rgba(0, 0, 0, 0.35);
+}
+
+[data-theme="workbench"] #clock-plate {
+  position: static;
+  transform: none;
+  width: 84px;
+  padding: 4px 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: #1a1c24;
+  box-shadow: var(--sunken);
+  clip-path: none;
+  color: #d8e8ff;
+  letter-spacing: 0;
+  font-size: 0.95rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+[data-theme="workbench"] #date { font-size: 0.62rem; font-weight: 400; letter-spacing: 0; color: #9fb0cc; }
+
+[data-theme="workbench"] .bell-count { position: absolute; margin: -34px 0 0 64px; min-width: 14px; padding: 0 3px; background: #d04040; color: #fff; font-size: 10px; line-height: 14px; text-align: center; }
+[data-theme="workbench"] .bell-count[hidden] { display: none; }
+
+[data-theme="workbench"] .fp-spaces {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 3px;
+  padding: 3px;
+  box-shadow: var(--sunken);
+}
+
+[data-theme="workbench"] .fp-spaces button {
+  width: 32px;
+  padding: 0;
+  background: var(--panel);
+  border: 0;
+  box-shadow: var(--raised);
+  color: var(--fg);
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+[data-theme="workbench"] .fp-spaces button.has-windows { color: var(--accent); }
+[data-theme="workbench"] .fp-spaces button.is-current { background: var(--accent); box-shadow: var(--sunken); color: #fff; }
+
+[data-theme="workbench"] .fp-apps { display: flex; align-items: stretch; gap: 3px; padding: 3px; box-shadow: var(--sunken); }
+
+[data-theme="workbench"] .fp-apps .shell-app {
+  position: relative;
+  width: 44px;
+  padding: 0;
+  background: var(--panel);
+  border: 0;
+  box-shadow: var(--raised);
+  color: var(--accent);
+  font: inherit;
+  cursor: pointer;
+}
+
+[data-theme="workbench"] .fp-apps .shell-app:hover { background: var(--lit); }
+[data-theme="workbench"] .fp-apps .shell-app:active { box-shadow: var(--sunken); }
+[data-theme="workbench"] .fp-apps .shell-glyph { font-size: 1.1rem; font-weight: 700; }
+[data-theme="workbench"] .fp-apps .shell-label { display: none; }
+[data-theme="workbench"] .fp-apps .shell-badge { position: absolute; top: 2px; right: 2px; padding: 0 3px; background: #d04040; color: #fff; font-size: 9px; }
+[data-theme="workbench"] .fp-apps .shell-app.is-open::after { content: ""; position: absolute; left: 6px; right: 6px; bottom: 3px; height: 3px; background: #3fbf6a; }
+
+[data-theme="workbench"] .fp-actions { display: grid; grid-template-columns: repeat(3, 28px); gap: 3px; padding: 3px; box-shadow: var(--sunken); }
+
+[data-theme="workbench"] .fp-actions button {
+  padding: 0;
+  background: var(--panel);
+  border: 0;
+  box-shadow: var(--raised);
+  color: var(--fg);
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+[data-theme="workbench"] .fp-actions button:active { box-shadow: var(--sunken); }
+[data-theme="workbench"] .fp-actions button[data-action="disconnect"] { color: #a83a3a; }
+
+[data-theme="workbench"] .ping { align-self: center; flex-direction: column; gap: 0; width: 44px; text-align: center; font-family: inherit; font-size: 0.7rem; }
+[data-theme="workbench"] .ping-dot { display: none; }
+[data-theme="workbench"] #ping-value, [data-theme="workbench"] #ping-unit { min-width: 0; text-align: center; color: var(--fg); }
+
+/* ---- уведомления ---- */
+[data-theme="workbench"] .notices-panel[hidden] { display: none; }
+
+[data-theme="workbench"] .notices-panel {
+  position: fixed;
+  left: 50%;
+  bottom: 96px;
+  z-index: 1001;
+  width: 320px;
+  max-height: 360px;
+  display: flex;
+  flex-direction: column;
+  transform: translateX(-50%);
+  padding: 4px;
+  background: var(--panel);
+  box-shadow: var(--raised), 0 6px 14px rgba(0, 0, 0, 0.35);
+  color: var(--fg);
+}
+
+[data-theme="workbench"] .notices-head { display: flex; align-items: center; justify-content: space-between; padding: 3px 6px; background: var(--accent); color: #fff; }
+[data-theme="workbench"] .notices-head button { padding: 1px 8px; background: var(--panel); border: 0; box-shadow: var(--raised); color: var(--fg); font: inherit; font-size: 0.7rem; cursor: pointer; }
+[data-theme="workbench"] .notices-list { display: flex; flex-direction: column; gap: 3px; margin-top: 4px; padding: 3px; overflow-y: auto; box-shadow: var(--sunken); background: var(--bg); }
+[data-theme="workbench"] .notices-list.is-empty::before { content: "No notifications"; padding: 16px; text-align: center; color: var(--font-muted); }
+
+[data-theme="workbench"] .shell-notice { display: grid; grid-template-columns: 1fr auto; gap: 1px 8px; padding: 5px 7px; background: var(--panel); border: 0; box-shadow: var(--raised); color: var(--fg); font: inherit; text-align: left; cursor: pointer; }
+[data-theme="workbench"] .shell-notice--error .shell-notice-title { color: var(--accent-error); }
+[data-theme="workbench"] .shell-notice-time { color: var(--font-muted); font-size: 0.68rem; }
+[data-theme="workbench"] .shell-notice-text { grid-column: 1 / -1; font-size: 0.72rem; color: var(--font-soft); }
+
+/* ---- окна: толстая рамка, меню слева, свернуть и развернуть справа ---- */
+[data-theme="workbench"] .winbox.aether {
+  background: var(--panel);
+  box-shadow: var(--raised), 0 0 0 1px #20232e;
+  overflow: hidden;
+}
+
+[data-theme="workbench"] .winbox.aether .wb-body {
+  top: calc(var(--tab-h) + 4px);
+  left: 4px;
+  right: 4px;
+  bottom: 4px;
+  background: var(--bg);
+  box-shadow: var(--sunken);
+}
+
+[data-theme="workbench"] .winbox.aether .wb-header {
+  position: absolute;
+  top: 4px;
+  left: 4px;
+  right: 4px;
+  bottom: auto;
+  width: auto;
+  min-width: 0;
+  max-width: none;
+  box-sizing: border-box;
+  padding: 0;
+  gap: 0;
+  background: var(--panel);
+  border: 0;
+  box-shadow: var(--raised);
+}
+
+[data-theme="workbench"] .winbox.aether.focus .wb-header { background: var(--accent); }
+
+[data-theme="workbench"] .winbox.aether .wb-control { order: 0; }
+[data-theme="workbench"] .winbox.aether .wb-drag { order: 1; text-align: center; }
+
+[data-theme="workbench"] .winbox.aether .wb-control > span {
+  width: var(--tab-h);
+  height: var(--tab-h);
+  background: var(--panel);
+  box-shadow: var(--raised);
+  color: var(--fg);
+  font-size: 12px;
+}
+
+[data-theme="workbench"] .winbox.aether .wb-control > span:hover { background: var(--lit); color: var(--fg); }
+[data-theme="workbench"] .winbox.aether .wb-control > span:active { box-shadow: var(--sunken); }
+
+[data-theme="workbench"] .winbox.aether .wb-close::before { content: "▬"; }
+[data-theme="workbench"] .winbox.aether .wb-close { color: var(--fg); }
+
+/* свернуть и развернуть: у правого края заголовка */
+[data-theme="workbench"] .winbox.aether .wb-min,
+[data-theme="workbench"] .winbox.aether .wb-max { position: absolute; top: 0; }
+[data-theme="workbench"] .winbox.aether .wb-max { right: 0; }
+[data-theme="workbench"] .winbox.aether .wb-min { right: var(--tab-h); }
+[data-theme="workbench"] .winbox.aether .wb-min::before { content: "·"; font-size: 16px; }
+
+[data-theme="workbench"] .winbox.aether .wb-title { font-size: 0.78rem; font-weight: 700; color: var(--fg); }
+[data-theme="workbench"] .winbox.aether.focus .wb-title { color: #fff; }
+
+[data-theme="workbench"] .winbox.aether.max .wb-header { top: 4px; left: 4px; right: 4px; bottom: auto; border: 0; }
+
+[data-theme="workbench"] .winbox.aether.min { background: var(--panel); box-shadow: var(--raised); }
+[data-theme="workbench"] .winbox.aether.min .wb-header { top: 4px; bottom: auto; }
+
+[data-theme="workbench"] .winbox.aether.dialog-window--error,
+[data-theme="workbench"] .winbox.aether.dialog-window--warning { background: var(--panel); box-shadow: var(--raised); }
+
+[data-theme="workbench"] .winbox.aether.dialog-window--error .wb-header { background: var(--accent-error); border: 0; }
+[data-theme="workbench"] .winbox.aether.dialog-window--warning .wb-header { background: var(--accent-warn); border: 0; }
+
+[data-theme="workbench"] .winbox.aether.dialog-window--error .wb-title,
+[data-theme="workbench"] .winbox.aether.dialog-window--warning .wb-title { color: #fff; }
+
+[data-theme="workbench"] .winbox.aether.dialog-window--error .wb-control *,
+[data-theme="workbench"] .winbox.aether.dialog-window--warning .wb-control * { color: var(--fg); }
+
+[data-theme="workbench"] .dialog { background: var(--panel); color: var(--fg); }
+[data-theme="workbench"] .dialog-glyph { background: var(--tone); color: #fff; }
+[data-theme="workbench"] .dialog-foot { justify-content: center; border-top: 0; }
+[data-theme="workbench"] .dialog-ok { min-width: 80px; border: 0; background: var(--panel); box-shadow: var(--raised); color: var(--fg); }
+[data-theme="workbench"] .dialog-ok:hover { background: var(--lit); color: var(--fg); }
+[data-theme="workbench"] .dialog-ok:active { box-shadow: var(--sunken); }
+[data-theme="workbench"] .dialog-code { display: none; }
+
+/* ---- тосты ---- */
+[data-theme="workbench"] #toasts { bottom: 100px; }
+[data-theme="workbench"] .toast { background: var(--panel); border: 0; box-shadow: var(--raised); color: var(--fg); }
+[data-theme="workbench"] .toast-text { color: var(--font-soft); }

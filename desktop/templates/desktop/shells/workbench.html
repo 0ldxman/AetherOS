@@ -1,0 +1,36 @@
+{% comment %}
+  Оболочка стиля workbench: передняя панель снизу по центру. Слева часы (клик открывает уведомления), затем четыре рабочих стола
+  (Alt+1…4; окна привязаны к столу), быстрые запуски со всеми приложениями, справа действия сессии и связь.
+  Ожидает от desktop.js #taskbar, #clock, #date, #ping-value; остальное оживляет shell.js по атрибутам data-shell.
+{% endcomment %}
+    <header id="taskbar">
+        <div class="front-panel" title="{{ login }}@{{ machine_name }}">
+            <div id="clock-plate" data-shell="notices-toggle" role="button" tabindex="0" aria-haspopup="dialog" aria-expanded="false" aria-controls="notices-panel" title="Notifications">
+                <span id="clock"></span>
+                <span id="date"></span>
+                <span class="bell-count" data-shell="notices-count" hidden>0</span>
+            </div>
+            <div class="fp-spaces" role="group" aria-label="Workspaces">
+                <button type="button" data-shell="workspace" data-space="1" data-hotkey="Alt+1">1</button>
+                <button type="button" data-shell="workspace" data-space="2" data-hotkey="Alt+2">2</button>
+                <button type="button" data-shell="workspace" data-space="3" data-hotkey="Alt+3">3</button>
+                <button type="button" data-shell="workspace" data-space="4" data-hotkey="Alt+4">4</button>
+            </div>
+            <div class="fp-apps" data-shell="apps" data-dock aria-label="Applications"></div>
+            <div class="fp-actions" data-actions>
+                {% if can_sessions %}<button type="button" data-action="sessions" data-url="{{ sessions_url }}" title="Sessions">S</button>{% endif %}
+                <button type="button" data-action="reset-layout" title="Reset layout">R</button>
+                <button type="button" data-action="disconnect" data-logout-url="{{ logout_url }}" data-lock-url="{{ lock_url }}" title="Exit">X</button>
+            </div>
+            <div class="ping">
+                <span class="ping-dot"></span>
+                <span id="ping-value">42</span>
+                <span id="ping-unit">ms</span>
+            </div>
+        </div>
+    </header>
+
+    <section id="notices-panel" class="notices-panel" data-shell="notices-panel" aria-label="Notifications" hidden>
+        <header class="notices-head"><strong>Notifications</strong><button type="button" data-shell="notices-clear">Clear</button></header>
+        <div class="notices-list" data-shell="notices"></div>
+    </section>

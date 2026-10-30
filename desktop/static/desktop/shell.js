@@ -11,6 +11,8 @@
      widget          виджет стола (data-widget: clock, system, mail); значения подставляются в [data-widget-field]
      notices-toggle  кнопка центра уведомлений (внутри может быть notices-count с числом непрочитанных)
      notices-panel   панель центра уведомлений (атрибут hidden), в ней notices (список) и notices-clear (очистить)
+     workspace       кнопка рабочего стола (data-space="1"…): окна привязаны к столу, чужие скрыты
+     data-hotkey     любой элемент, который нажимается клавишей: «F2», «Alt+1» (событие click)
    Горячая клавиша: отдельное нажатие Meta (Super) открывает и закрывает лаунчер.
    ================================================== */
 
@@ -101,7 +103,7 @@
     sync(
       container,
       "shell-task",
-      Object.keys(openWindows).map((id) => {
+      Object.keys(openWindows).filter((id) => !spaceButtons.length || (openWindows[id]._space || space) === space).map((id) => {
         const meta = openMeta[id] || {};
         const info = { id, label: meta.label || id, glyph: known[id] ? known[id].glyph : "▢", badge: "" };
         return { info, classes: openWindows[id].min ? ["is-min"] : id === front ? ["is-active"] : [] };
@@ -237,6 +239,38 @@
   setInterval(updateWidgets, 1000);
   document.addEventListener("desktop:windows", updateWidgets);
 
+  /* ---------- рабочие столы: окна привязаны к столу, окна других столов скрыты ---------- */
+
+  const spaceButtons = all('[data-shell="workspace"]');
+  let space = 1;
+
+  function applySpaces() {
+    if (!spaceButtons.length) return;
+
+    Object.values(openWindows).forEach((win) => {
+      if (!win._space) win._space = space;
+      if (win._space === space) win.show();
+      else win.hide();
+    });
+
+    spaceButtons.forEach((node) => {
+      const number = Number(node.dataset.space);
+      node.classList.toggle("is-current", number === space);
+      node.classList.toggle("has-windows", Object.values(openWindows).some((win) => win._space === number));
+      node.setAttribute("aria-pressed", number === space ? "true" : "false");
+    });
+  }
+
+  spaceButtons.forEach((node) =>
+    node.addEventListener("click", () => {
+      space = Number(node.dataset.space);
+      applySpaces();
+      render();
+    })
+  );
+
+  document.addEventListener("desktop:windows", applySpaces);
+
   document.addEventListener("desktop:windows", render);
   document.addEventListener("shell:close", () => setLauncher(false));
 
@@ -250,6 +284,11 @@
 
     if (appButton) {
       const icon = all("#icons .icon").find((item) => item.dataset.app === appButton.dataset.app);
+      const existing = icon && openWindows[icon.dataset.app];
+      if (existing && spaceButtons.length) {
+        existing._space = space;
+        existing.show();
+      }
       if (icon) openApp(icon.dataset.app, icon.querySelector(".icon-label").textContent.trim(), icon.dataset.url);
       setLauncher(false);
     } else if (taskButton) {
@@ -294,6 +333,18 @@
     }
   });
 
+  // горячие клавиши оболочки: F-клавиши и Alt+цифра нажимают элемент с data-hotkey
+  document.addEventListener("keydown", (event) => {
+    const code = (event.altKey ? "Alt+" : "") + event.key;
+    if (!/^(F\d+|Alt\+\d)$/.test(code)) return;
+
+    const target = document.querySelector('[data-hotkey="' + code + '"]');
+    if (!target) return;
+
+    event.preventDefault();
+    target.click();
+  });
+
   // Super: отдельное нажатие (без других клавиш) открывает и закрывает лаунчер
   let superAlone = false;
 
@@ -315,4 +366,5 @@
   render();
   renderNotices();
   updateWidgets();
+  applySpaces();
 })();

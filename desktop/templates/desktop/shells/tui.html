@@ -1,0 +1,39 @@
+{% comment %}
+  Оболочка стиля tui: строка меню сверху (бренд, окна как пункты меню, связь, часы) и полоса F-клавиш снизу
+  (F2 приложения, F4 sessions, F5 раскладка, F9 уведомления, F10 выход). Лаунчер и уведомления открываются текстовыми окнами.
+  Ожидает от desktop.js #taskbar, #clock, #date, #ping-value; остальное оживляет shell.js. Полоса снизу резервируется
+  атрибутом data-reserve-bottom: развёрнутые окна не заходят под неё.
+{% endcomment %}
+    <header id="taskbar">
+        <span class="tui-brand">≡ AetherOS</span>
+        <div class="tasks" data-shell="tasks"></div>
+        <div class="ping">
+            <span class="ping-dot"></span>
+            <span id="ping-value">42</span>
+            <span id="ping-unit">ms</span>
+        </div>
+        <div id="clock-plate">
+            <span id="clock"></span>
+            <span id="date"></span>
+        </div>
+    </header>
+
+    <section id="launcher" class="launcher" data-shell="launcher-panel" aria-label="Apps" hidden>
+        <header class="tui-title"><span>Apps</span></header>
+        <input type="search" class="launcher-search" data-shell="search" placeholder="search" autocomplete="off" aria-label="Search apps">
+        <div class="launcher-apps" data-shell="apps"></div>
+    </section>
+
+    <section id="notices-panel" class="notices-panel" data-shell="notices-panel" aria-label="Messages" hidden>
+        <header class="tui-title"><span>Messages</span><button type="button" data-shell="notices-clear">clear</button></header>
+        <div class="notices-list" data-shell="notices"></div>
+    </section>
+
+    <footer class="fkeys" data-reserve-bottom data-actions>
+        <button type="button" data-shell="launcher" data-hotkey="F2" aria-expanded="false" aria-controls="launcher"><i>2</i>Apps</button>
+        {% if can_sessions %}<button type="button" data-action="sessions" data-url="{{ sessions_url }}" data-hotkey="F4"><i>4</i>Sessions</button>{% endif %}
+        <button type="button" data-action="reset-layout" data-hotkey="F5"><i>5</i>Layout</button>
+        <button type="button" data-shell="notices-toggle" data-hotkey="F9" aria-expanded="false" aria-controls="notices-panel"><i>9</i>Msgs<b class="bell-count" data-shell="notices-count" hidden>0</b></button>
+        <span class="fkeys-user">{{ login }}@{{ machine_name }}</span>
+        <button type="button" data-action="disconnect" data-hotkey="F10" data-logout-url="{{ logout_url }}" data-lock-url="{{ lock_url }}"><i>10</i>Exit</button>
+    </footer>

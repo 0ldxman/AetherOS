@@ -1,0 +1,374 @@
+/* ==========================================================================
+ * Стиль «classic»: оконный стол конца 90-х. Объёмные серые рамки, синий заголовок активного окна, панель задач снизу
+ * с кнопкой «Start», вертикальное меню, значки на бирюзовом столе. Разметка desktop/shells/classic.html.
+ *
+ * Объём рисуется тенями (--raised, --sunken). Токены переопределяются из студии.
+ * ========================================================================== */
+
+:root {
+  --bg: #c0c0c0;
+  --panel: #c0c0c0;
+  --fg: #000000;
+  --font-light: #000000;
+  --font-dark: #ffffff;
+  --font-soft: #404040;
+  --font-muted: #808080;
+  --line: #808080;
+  --line-faint: #a0a0a0;
+  --line-bright: #404040;
+  --window-border: #000000;
+  --accent: #000080;
+  --accent-green: #008000;
+  --accent-warn: #808000;
+  --accent-error: #c00000;
+  --accent-error-darker: #800000;
+  --term-fg: #c0c0c0;
+  --term-dim: #808080;
+  --term-ok: #00c000;
+  --term-warn: #c0c000;
+  --term-error: #ff4040;
+  --term-info: #40c0c0;
+  --font-main: var(--ff-arimo);
+  --radius: 0;
+  --border-w: 2px;
+  --tab-h: 20px;
+  --tab-outside: 0;
+  --raised: inset -1px -1px #000, inset 1px 1px #fff, inset -2px -2px #808080, inset 2px 2px #dfdfdf;
+  --sunken: inset -1px -1px #fff, inset 1px 1px #808080, inset -2px -2px #dfdfdf, inset 2px 2px #000;
+  --desk: #008080;
+}
+
+[data-theme="classic"] body { font-size: 0.8rem; }
+
+/* ---- стол ---- */
+[data-theme="classic"] #desktop { background: var(--desk); }
+
+[data-theme="classic"] .icon { color: #fff; }
+
+[data-theme="classic"] .icon-glyph {
+  width: 36px;
+  height: 36px;
+  line-height: 36px;
+  border: 0;
+  background: #c0c0c0;
+  box-shadow: var(--raised);
+  color: #000080;
+  font-weight: 700;
+}
+
+[data-theme="classic"] .icon:hover .icon-glyph,
+[data-theme="classic"] .icon:focus-visible .icon-glyph { background: #c0c0c0; color: #000080; }
+
+[data-theme="classic"] .icon-label { padding: 1px 3px; text-shadow: none; }
+[data-theme="classic"] .icon:focus-visible .icon-label,
+[data-theme="classic"] .icon:hover .icon-label { background: #000080; outline: 1px dotted #ff0; }
+
+[data-theme="classic"] .icon-badge { border-radius: 0; color: #fff; }
+
+/* ---- панель задач ---- */
+[data-theme="classic"] #taskbar {
+  order: 2;
+  flex: 0 0 32px;
+  gap: 4px;
+  padding: 2px 3px;
+  background: var(--panel);
+  box-shadow: inset 0 1px #dfdfdf, inset 0 2px #fff;
+  font-size: 0.8rem;
+}
+
+[data-theme="classic"] .start-button,
+[data-theme="classic"] .shell-task {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 26px;
+  padding: 0 8px;
+  background: var(--panel);
+  border: 0;
+  box-shadow: var(--raised);
+  color: #000;
+  font: inherit;
+  cursor: pointer;
+}
+
+[data-theme="classic"] .start-button:active,
+[data-theme="classic"] .start-button[aria-expanded="true"] { box-shadow: var(--sunken); }
+
+[data-theme="classic"] .start-flag {
+  width: 16px;
+  height: 14px;
+  background:
+    linear-gradient(#e03020, #e03020) 0 0 / 7px 6px no-repeat,
+    linear-gradient(#20a030, #20a030) 9px 0 / 7px 6px no-repeat,
+    linear-gradient(#2040d0, #2040d0) 0 8px / 7px 6px no-repeat,
+    linear-gradient(#f0c020, #f0c020) 9px 8px / 7px 6px no-repeat;
+}
+
+[data-theme="classic"] .taskbar-sep { align-self: stretch; margin: 2px 2px; border-left: 1px solid #808080; border-right: 1px solid #fff; }
+
+[data-theme="classic"] .tasks { flex: 1; display: flex; gap: 3px; min-width: 0; }
+
+[data-theme="classic"] .shell-task { flex: 0 1 160px; min-width: 60px; }
+[data-theme="classic"] .shell-task .shell-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+[data-theme="classic"] .shell-task.is-active {
+  background: repeating-conic-gradient(#c0c0c0 0 25%, #fff 0 50%) 0 0 / 2px 2px;
+  box-shadow: var(--sunken);
+  font-weight: 700;
+}
+[data-theme="classic"] .shell-task.is-min { color: #404040; }
+
+/* трей: связь и часы в «утопленной» рамке */
+[data-theme="classic"] .tray {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 26px;
+  padding: 0 10px;
+  box-shadow: var(--sunken);
+}
+
+[data-theme="classic"] .ping { gap: 4px; font-family: inherit; font-size: 0.75rem; }
+[data-theme="classic"] .ping-dot { border-radius: 0; width: 6px; height: 6px; min-width: 6px; min-height: 6px; animation: none; }
+[data-theme="classic"] #ping-value, [data-theme="classic"] #ping-unit { color: #000; min-width: 0; }
+
+[data-theme="classic"] #clock-plate {
+  position: static;
+  transform: none;
+  width: auto;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: none;
+  clip-path: none;
+  color: #000;
+  font-size: 0.75rem;
+  font-weight: 400;
+  letter-spacing: 0;
+  cursor: default;
+}
+
+[data-theme="classic"] #clock, [data-theme="classic"] #date { display: inline; font-size: 0.75rem; letter-spacing: 0; }
+[data-theme="classic"] #clock { order: 0; }
+[data-theme="classic"] #date { display: none; }
+
+[data-theme="classic"] .bell-count { min-width: 14px; padding: 0 3px; background: #000080; color: #fff; font-size: 10px; line-height: 14px; text-align: center; }
+[data-theme="classic"] .bell-count[hidden] { display: none; }
+
+/* ---- меню «Start» ---- */
+[data-theme="classic"] .launcher[hidden] { display: none; }
+
+[data-theme="classic"] .launcher {
+  position: fixed;
+  left: 3px;
+  bottom: 32px;
+  z-index: 1001;
+  display: flex;
+  min-width: 240px;
+  background: #c0c0c0;
+  box-shadow: var(--raised);
+  padding: 3px;
+}
+
+[data-theme="classic"] .start-banner {
+  width: 26px;
+  background: linear-gradient(0deg, #000080, #1084d0);
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+}
+
+[data-theme="classic"] .start-banner span {
+  writing-mode: vertical-rl;
+  transform: rotate(180deg);
+  padding: 8px 0;
+  color: #c0c0c0;
+  font-size: 1.3rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+[data-theme="classic"] .start-banner b { color: #fff; font-weight: 700; }
+
+[data-theme="classic"] .start-body { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+
+[data-theme="classic"] .start-items { display: flex; flex-direction: column; }
+
+[data-theme="classic"] .start-body hr { margin: 3px 2px; border: 0; border-top: 1px solid #808080; border-bottom: 1px solid #fff; }
+
+[data-theme="classic"] .shell-app,
+[data-theme="classic"] .start-actions button {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 6px 14px 6px 8px;
+  background: none;
+  border: 0;
+  color: #000;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+[data-theme="classic"] .shell-app .shell-glyph { width: 24px; text-align: center; color: #000080; font-weight: 700; }
+[data-theme="classic"] .shell-app .shell-badge { margin-left: auto; padding: 0 4px; background: #000080; color: #fff; font-size: 10px; }
+
+[data-theme="classic"] .shell-app:hover,
+[data-theme="classic"] .shell-app:focus-visible,
+[data-theme="classic"] .start-actions button:hover { background: #000080; color: #fff; outline: none; }
+[data-theme="classic"] .shell-app:hover .shell-glyph { color: #fff; }
+
+[data-theme="classic"] .start-actions { display: flex; flex-direction: column; }
+[data-theme="classic"] .start-user { padding: 4px 8px; color: #404040; font-size: 0.75rem; }
+[data-theme="classic"] .start-actions button { padding-left: 44px; }
+
+/* ---- уведомления ---- */
+[data-theme="classic"] .notices-panel[hidden] { display: none; }
+
+[data-theme="classic"] .notices-panel {
+  position: fixed;
+  right: 3px;
+  bottom: 32px;
+  z-index: 1001;
+  width: 300px;
+  max-height: 360px;
+  display: flex;
+  flex-direction: column;
+  background: #ffffe1;
+  border: 1px solid #000;
+  box-shadow: 2px 2px 0 rgba(0, 0, 0, 0.5);
+  color: #000;
+}
+
+[data-theme="classic"] .notices-head { display: flex; align-items: center; justify-content: space-between; padding: 4px 6px; background: #000080; color: #fff; }
+[data-theme="classic"] .notices-head button { padding: 0 8px; background: #c0c0c0; border: 0; box-shadow: var(--raised); color: #000; font: inherit; font-size: 0.72rem; cursor: pointer; }
+[data-theme="classic"] .notices-list { display: flex; flex-direction: column; overflow-y: auto; }
+[data-theme="classic"] .notices-list.is-empty::before { content: "No notifications"; padding: 16px; text-align: center; color: #404040; }
+
+[data-theme="classic"] .shell-notice {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 1px 8px;
+  padding: 6px 8px;
+  background: none;
+  border: 0;
+  border-bottom: 1px solid #c8c8a8;
+  color: #000;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+[data-theme="classic"] .shell-notice:hover { background: #fff8b8; }
+[data-theme="classic"] .shell-notice--error .shell-notice-title { color: #c00000; }
+[data-theme="classic"] .shell-notice-time { color: #808080; font-size: 0.7rem; }
+[data-theme="classic"] .shell-notice-text { grid-column: 1 / -1; color: #404040; font-size: 0.75rem; }
+
+/* ---- окна: объёмная рамка, синий заголовок ---- */
+[data-theme="classic"] .winbox.aether {
+  background: #c0c0c0;
+  box-shadow: var(--raised);
+  overflow: hidden;
+}
+
+[data-theme="classic"] .winbox.aether .wb-body {
+  top: calc(var(--tab-h) + 3px);
+  left: 3px;
+  right: 3px;
+  bottom: 3px;
+  background: var(--bg);
+  box-shadow: var(--sunken);
+}
+
+[data-theme="classic"] .winbox.aether .wb-header {
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  right: 3px;
+  bottom: auto;
+  width: auto;
+  min-width: 0;
+  max-width: none;
+  box-sizing: border-box;
+  padding: 0 2px 0 4px;
+  gap: 4px;
+  background: linear-gradient(90deg, #808080, #b5b5b5);
+  border: 0;
+}
+
+[data-theme="classic"] .winbox.aether.focus .wb-header { background: linear-gradient(90deg, #000080, #1084d0); }
+
+[data-theme="classic"] .winbox.aether .wb-drag { order: 0; }
+[data-theme="classic"] .winbox.aether .wb-control { order: 1; align-items: center; gap: 2px; }
+[data-theme="classic"] .winbox.aether .wb-min   { order: 0; }
+[data-theme="classic"] .winbox.aether .wb-max   { order: 1; }
+[data-theme="classic"] .winbox.aether .wb-close { order: 2; margin-left: 2px; color: #000; }
+
+[data-theme="classic"] .winbox.aether .wb-control > span {
+  width: 16px;
+  height: 14px;
+  background: #c0c0c0;
+  box-shadow: var(--raised);
+  color: #000;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+[data-theme="classic"] .winbox.aether .wb-control > span:hover { background: #c0c0c0; color: #000; }
+[data-theme="classic"] .winbox.aether .wb-control > span:active { box-shadow: var(--sunken); }
+
+[data-theme="classic"] .winbox.aether .wb-title {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: #c0c0c0;
+}
+
+[data-theme="classic"] .winbox.aether.focus .wb-title { color: #fff; }
+
+[data-theme="classic"] .winbox.aether.max .wb-header { top: 3px; left: 3px; right: 3px; bottom: auto; border: 0; }
+
+[data-theme="classic"] .winbox.aether.min { background: #c0c0c0; box-shadow: var(--raised); }
+[data-theme="classic"] .winbox.aether.min .wb-header { top: 3px; bottom: auto; }
+
+/* окна сообщений: заголовок по виду сообщения, тело обычное */
+[data-theme="classic"] .winbox.aether.dialog-window--error,
+[data-theme="classic"] .winbox.aether.dialog-window--warning { background: #c0c0c0; box-shadow: var(--raised); }
+
+[data-theme="classic"] .winbox.aether.dialog-window--error .wb-header { background: linear-gradient(90deg, #800000, #c04040); border: 0; }
+[data-theme="classic"] .winbox.aether.dialog-window--warning .wb-header { background: linear-gradient(90deg, #808000, #c0c040); border: 0; }
+
+[data-theme="classic"] .winbox.aether.dialog-window--error .wb-title,
+[data-theme="classic"] .winbox.aether.dialog-window--warning .wb-title { color: #fff; }
+
+[data-theme="classic"] .winbox.aether.dialog-window--error .wb-control *,
+[data-theme="classic"] .winbox.aether.dialog-window--warning .wb-control * { color: #000; }
+
+[data-theme="classic"] .dialog { background: #c0c0c0; color: #000; }
+[data-theme="classic"] .dialog-glyph { border-radius: 50%; background: var(--tone); color: #fff; }
+[data-theme="classic"] .dialog-foot { justify-content: center; border-top: 0; }
+
+[data-theme="classic"] .dialog-ok {
+  min-width: 75px;
+  border: 0;
+  background: #c0c0c0;
+  box-shadow: var(--raised);
+  color: #000;
+}
+
+[data-theme="classic"] .dialog-ok:hover { background: #c0c0c0; color: #000; }
+[data-theme="classic"] .dialog-ok:active { box-shadow: var(--sunken); }
+[data-theme="classic"] .dialog-code { display: none; }
+
+/* ---- тосты ---- */
+[data-theme="classic"] #toasts { bottom: 40px; }
+
+[data-theme="classic"] .toast {
+  background: #ffffe1;
+  border: 1px solid #000;
+  border-left-width: 1px;
+  box-shadow: 2px 2px 0 rgba(0, 0, 0, 0.5);
+  color: #000;
+}
+
+[data-theme="classic"] .toast-text { color: #404040; }

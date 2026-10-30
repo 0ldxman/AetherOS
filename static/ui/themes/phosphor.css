@@ -1,0 +1,65 @@
+/* ==========================================================================
+ * Стиль «phosphor»: янтарный монитор. Один цвет на чёрном, свечение текста, строки развёртки и виньетка на столе.
+ * Оболочка общая (aether): меняются токены и вид, структура остаётся. Токены переопределяются из студии
+ * (например, зелёный люминофор: --accent и родственные цвета).
+ * ========================================================================== */
+
+:root {
+  --bg: #0b0800;
+  --panel: #140f00;
+  --fg: #d99200;
+  --font-light: #ffb000;
+  --font-dark: #0b0800;
+  --font-soft: #a56e00;
+  --font-muted: #6b4800;
+  --line: #3a2800;
+  --line-faint: #1c1400;
+  --line-bright: #7a5200;
+  --window-border: #ffb000;
+  --accent: #ffb000;
+  --accent-green: #ffcc33;
+  --accent-warn: #ffd966;
+  --accent-error: #ff5a1f;
+  --accent-error-darker: #ff7a45;
+  --term-fg: #ffb000;
+  --term-dim: #8a5d00;
+  --term-ok: #ffcc33;
+  --term-warn: #ffd966;
+  --term-error: #ff5a1f;
+  --term-info: #e6a100;
+  --font-main: var(--ff-terminus);
+  --fs-base: 1rem;
+  --radius: 0;
+  --border-w: 1px;
+  --tab-h: 26px;
+}
+
+/* свечение: тень цвета текста, у каждого элемента своя */
+[data-theme="phosphor"] body { text-shadow: 0 0 5px color-mix(in srgb, currentColor 45%, transparent); }
+
+/* развёртка и виньетка поверх стола и окон */
+[data-theme="phosphor"] #desktop::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 99999;
+  pointer-events: none;
+  background:
+    repeating-linear-gradient(0deg, rgba(0, 0, 0, 0.22) 0 1px, transparent 1px 3px),
+    radial-gradient(ellipse at center, transparent 55%, rgba(0, 0, 0, 0.55) 100%);
+}
+
+[data-theme="phosphor"] #taskbar { border-bottom: 1px solid var(--line-bright); }
+
+[data-theme="phosphor"] #clock-plate {
+  width: 150px;
+  background: var(--panel);
+  border: 1px solid var(--line-bright);
+  border-top: 0;
+}
+
+[data-theme="phosphor"] .icon-glyph { box-shadow: 0 0 8px color-mix(in srgb, var(--accent) 35%, transparent); }
+
+[data-theme="phosphor"] .winbox.aether { box-shadow: 0 0 0 1px var(--window-border), 0 0 18px color-mix(in srgb, var(--accent) 22%, transparent); }
+
+[data-theme="phosphor"] .toast { border-color: var(--accent); }

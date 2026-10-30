@@ -152,7 +152,9 @@ const TAB_HEIGHT =
 const rootStyle = getComputedStyle(document.documentElement);
 const TAB_OUTSIDE = rootStyle.getPropertyValue("--tab-outside").trim() !== "0";
 const BAR_TOP = taskbar.getBoundingClientRect().top < 1 ? taskbar.offsetHeight : 0;
-const WINDOW_BOTTOM = taskbar.getBoundingClientRect().top < 1 ? 0 : taskbar.offsetHeight; // развёрнутое окно не заходит на панель снизу
+// Развёрнутое окно не заходит на панель снизу: либо это сама панель задач, либо отдельная полоса оболочки с data-reserve-bottom.
+const reserveBottom = document.querySelector("[data-reserve-bottom]");
+const WINDOW_BOTTOM = taskbar.getBoundingClientRect().top < 1 ? (reserveBottom ? reserveBottom.offsetHeight : 0) : taskbar.offsetHeight;
 const WINDOW_TOP = BAR_TOP + (TAB_OUTSIDE ? TAB_HEIGHT + 2 : 0);
 
 // Размер стола мог измениться с прошлого раза: окно не должно оказаться за краем

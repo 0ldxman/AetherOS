@@ -49,10 +49,10 @@ class DesktopTests(TestCase):
             for element in ('id="taskbar"', 'id="clock"', 'id="date"', 'id="ping-value"', 'id="desktop"', 'id="icons"', "ivan@aether-main"):
                 self.assertIn(element, html, f"{slug}: {element}")
             self.assertIn(f'data-theme="{slug}"', html)
-            self.assertEqual('data-shell="launcher-panel"' in html, styles.STYLES[slug].shell, slug)
+            self.assertEqual('data-shell="launcher-panel"' in html, slug in ("modern", "classic", "tui", "gnome"), slug)
             self.assertEqual('data-widget="system"' in html, slug == "modern", slug)
             self.assertEqual('data-shell="notices-panel"' in html, styles.STYLES[slug].shell, slug)
-            self.assertEqual('id="session-menu-button"' in html, slug in ("aether", "gnome"), slug)
+            self.assertEqual('id="session-menu-button"' in html, slug in ("aether", "phosphor", "gnome"), slug)
             self.assertEqual("data-action=\"disconnect\"" in html, True, slug)
 
 
