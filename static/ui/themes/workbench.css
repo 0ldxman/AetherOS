@@ -238,26 +238,36 @@
 [data-theme="workbench"] .winbox.aether.focus .wb-header { background: var(--accent); }
 
 [data-theme="workbench"] .winbox.aether .wb-drag { order: 0; text-align: center; }
-[data-theme="workbench"] .winbox.aether .wb-control { order: 1; align-items: center; gap: 6px; padding-right: 8px; }
 
-[data-theme="workbench"] .winbox.aether .wb-min   { order: 0; --dot: #d6a93b; }
-[data-theme="workbench"] .winbox.aether .wb-max   { order: 1; --dot: #5aa06c; }
-[data-theme="workbench"] .winbox.aether .wb-close { order: 2; --dot: #c4574b; }
+/* кнопки окна: три одноцветные точки в углублённом пазу; цвет действия только при наведении */
+[data-theme="workbench"] .winbox.aether .wb-control {
+  order: 1;
+  align-items: center;
+  gap: 7px;
+  height: 14px;
+  margin: 3px 5px 3px 0;
+  padding: 0 8px;
+  border-radius: 7px;
+  background: var(--bg);
+  box-shadow: inset 0 0 0 1px var(--line-bright), inset 0 1px 2px rgba(0, 0, 0, 0.25);
+}
 
-/* кнопки окна: точки; у неактивного окна контур, у активного заливка своего цвета */
+[data-theme="workbench"] .winbox.aether .wb-min   { order: 0; --hot: var(--accent); }
+[data-theme="workbench"] .winbox.aether .wb-max   { order: 1; --hot: var(--accent); }
+[data-theme="workbench"] .winbox.aether .wb-close { order: 2; --hot: var(--accent-error); }
+
 [data-theme="workbench"] .winbox.aether .wb-control > span {
   flex: none;
-  width: 12px;
-  height: 12px;
+  width: 8px;
+  height: 8px;
   border-radius: 50%;
-  background: none;
-  box-shadow: inset 0 0 0 1.5px var(--line-bright);
+  background: var(--font-muted);
   font-size: 0;
 }
 
-[data-theme="workbench"] .winbox.aether.focus .wb-control > span { background: var(--dot); box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.25); }
-[data-theme="workbench"] .winbox.aether .wb-control > span:hover { background: var(--dot); box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.4); filter: brightness(1.12); }
-[data-theme="workbench"] .winbox.aether .wb-control > span:active { filter: brightness(0.85); }
+[data-theme="workbench"] .winbox.aether.focus .wb-control > span { background: var(--fg); }
+[data-theme="workbench"] .winbox.aether .wb-control > span:hover,
+[data-theme="workbench"] .winbox.aether.focus .wb-control > span:hover { background: var(--hot); box-shadow: 0 0 0 2px color-mix(in srgb, var(--hot) 30%, transparent); }
 
 [data-theme="workbench"] .winbox.aether .wb-title { font-size: 0.78rem; font-weight: 700; color: var(--fg); }
 [data-theme="workbench"] .winbox.aether.focus .wb-title { color: #fff; }
@@ -276,8 +286,11 @@
 [data-theme="workbench"] .winbox.aether.dialog-window--error .wb-title,
 [data-theme="workbench"] .winbox.aether.dialog-window--warning .wb-title { color: #fff; }
 
+[data-theme="workbench"] .winbox.aether.dialog-window--error .wb-control,
+[data-theme="workbench"] .winbox.aether.dialog-window--warning .wb-control { background: rgba(0, 0, 0, 0.25); box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.3); }
+
 [data-theme="workbench"] .winbox.aether.dialog-window--error .wb-control > span,
-[data-theme="workbench"] .winbox.aether.dialog-window--warning .wb-control > span { background: rgba(255, 255, 255, 0.85); box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.3); }
+[data-theme="workbench"] .winbox.aether.dialog-window--warning .wb-control > span { background: #fff; }
 
 [data-theme="workbench"] .dialog { background: var(--panel); color: var(--fg); }
 [data-theme="workbench"] .dialog-glyph { background: var(--tone); color: #fff; }
