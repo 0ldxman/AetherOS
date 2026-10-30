@@ -34,8 +34,10 @@
   --tab-outside: 0;
   --lit: #e4e7f1;
   --shade: #6a7088;
-  --raised: inset 1px 1px var(--lit), inset -1px -1px var(--shade), inset 2px 2px #c8cbd8, inset -2px -2px #8a90a8;
-  --sunken: inset 1px 1px var(--shade), inset -1px -1px var(--lit), inset 2px 2px #8a90a8, inset -2px -2px #c8cbd8;
+  /* вместо объёма гравировка, как на панелях приборов: плоская заливка, тонкая линия, углубления с двойной «канавкой» */
+  --raised: inset 0 0 0 1px var(--line-bright);
+  --sunken: inset 0 0 0 1px var(--line-bright), inset 0 0 0 2px var(--lit);
+  --keyline: inset 0 0 0 1px var(--line-bright), inset 0 0 0 3px var(--panel), inset 0 0 0 4px var(--line-bright);   /* рамка из двух тонких линий */
   --desk: #4d5f78;
 }
 
@@ -78,11 +80,13 @@
   gap: 6px;
   padding: 6px;
   background: var(--panel);
-  box-shadow: var(--raised), 0 6px 14px rgba(0, 0, 0, 0.35);
+  box-shadow: var(--keyline), 0 6px 14px rgba(0, 0, 0, 0.35);
 }
 
 [data-theme="workbench"] #clock-plate {
-  position: static;
+  position: relative;
+  top: auto;
+  left: auto;
   transform: none;
   width: 84px;
   padding: 4px 0;
@@ -102,7 +106,7 @@
 
 [data-theme="workbench"] #date { font-size: 0.62rem; font-weight: 400; letter-spacing: 0; color: #9fb0cc; }
 
-[data-theme="workbench"] .bell-count { position: absolute; margin: -34px 0 0 64px; min-width: 14px; padding: 0 3px; background: #d04040; color: #fff; font-size: 10px; line-height: 14px; text-align: center; }
+[data-theme="workbench"] .bell-count { position: absolute; top: -5px; right: -5px; margin: 0; min-width: 14px; padding: 0 3px; background: #d04040; color: #fff; font-size: 10px; line-height: 14px; text-align: center; }
 [data-theme="workbench"] .bell-count[hidden] { display: none; }
 
 [data-theme="workbench"] .fp-spaces {
@@ -201,7 +205,7 @@
 /* ---- окна: толстая рамка, меню слева, свернуть и развернуть справа ---- */
 [data-theme="workbench"] .winbox.aether {
   background: var(--panel);
-  box-shadow: var(--raised), 0 0 0 1px #20232e;
+  box-shadow: var(--keyline), 0 0 0 1px #20232e;
   overflow: hidden;
 }
 
