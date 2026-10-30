@@ -1,6 +1,8 @@
 <script lang="ts">
   import { onMount } from "svelte";
-  import { api, type Schemas } from "../lib/api";
+  import { api, problem, type Schemas } from "../lib/api";
+  import Dialog from "../lib/Dialog.svelte";
+  import { toast } from "../lib/toast.svelte";
   import { go } from "../lib/router.svelte";
   import { ago } from "../lib/time";
 
@@ -9,7 +11,26 @@
   let filters = $state({ q: "", format: "", kind: "", only: "" });
   let loading = $state(true);
 
-  onMount(async () => { formats = (await api.GET("/studio/api/formats")).data ?? []; });
+  let volumes = $state<Schemas["VolumeRow"][]>([]);
+  let dialog = $state<{ name: string; format: string; slug: string; volume: string } | null>(null);
+  let busy = $state(false);
+
+  onMount(async () => {
+    formats = (await api.GET("/studio/api/formats")).data ?? [];
+    volumes = (await api.GET("/studio/api/volumes")).data ?? [];
+  });
+
+  async function create() {
+    if (!dialog) return;
+    busy = true;
+    const { data, error } = await api.POST("/studio/api/items", {
+      body: { name: dialog.name, format: dialog.format, slug: dialog.slug, volume: dialog.volume ? Number(dialog.volume) : null },
+    });
+    busy = false;
+    if (error) return toast(problem(error), "error");
+    dialog = null;
+    if (data) go(`/items/${data.id}`);
+  }
 
   let timer: ReturnType<typeof setTimeout>;
   $effect(() => {
@@ -50,6 +71,7 @@
       {#each formats as found}<option value={found.name}>{found.name}</option>{/each}
     </select>
     <input class="field search" placeholder="Название, слаг или текст" bind:value={filters.q} />
+    <button class="btn primary" onclick={() => (dialog = { name: "", format: "", slug: "", volume: "" })}>Новый объект</button>
   </div>
 </header>
 
@@ -80,6 +102,27 @@
     {#if !loading}<p class="muted pad">Ничего не нашлось.</p>{/if}
   {/each}
 </section>
+
+{#if dialog}
+  <Dialog title="Новый объект" confirm="Создать и открыть" {busy} onsubmit={create} onclose={() => (dialog = null)}>
+    <label><span class="label">Название (расширение подберёт формат)</span><input class="field" placeholder="report.rec" bind:value={dialog.name} /></label>
+    <label>
+      <span class="label">Формат</span>
+      <select class="field" bind:value={dialog.format}>
+        <option value="">по расширению</option>
+        {#each formats as found}<option value={found.name}>{found.name} — {found.title}</option>{/each}
+      </select>
+    </label>
+    <label><span class="label">Слаг (пусто: по названию)</span><input class="field mono" bind:value={dialog.slug} /></label>
+    <label>
+      <span class="label">Сразу положить</span>
+      <select class="field" bind:value={dialog.volume}>
+        <option value="">никуда (положить позже в «Где лежит»)</option>
+        {#each volumes as found}<option value={found.id}>в корень тома «{found.name || found.slug}»</option>{/each}
+      </select>
+    </label>
+  </Dialog>
+{/if}
 
 <style>
   .head { display: flex; justify-content: space-between; align-items: flex-end; gap: 24px; padding: 28px 32px 12px; }

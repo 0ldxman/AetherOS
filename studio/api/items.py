@@ -280,6 +280,26 @@ def _kind(item):
     return "text" if item.body else "empty"
 
 
+class NewItem(Schema):
+    name: str
+    format: str = ""
+    slug: str = ""
+    volume: int | None = None     # сразу положить в корень этого тома
+
+
+class ItemCreated(Schema):
+    id: int
+
+
+@router.post("", response=ItemCreated)
+def create(request, body: NewItem):
+    from filesystem.manager import filemanager
+    from filesystem.models import Volume
+
+    volume = get_object_or_404(Volume, pk=body.volume) if body.volume else None
+    return ItemCreated(id=filemanager.new_item(body.name, body.format, body.slug, volume).pk)
+
+
 @router.get("/{int:item_id}", response=ItemOut)
 def read(request, item_id: int):
     return _out(_item(item_id), request.user)

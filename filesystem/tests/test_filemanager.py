@@ -63,6 +63,19 @@ class VolumeOpsTests(TestCase):
         self.assertEqual((plain.name, plain.item.format), ("README", ""))
         self.assertEqual(filemanager.new_file(self.volume, None, "archive.unknown").item.format, "")
 
+    def test_an_item_can_be_created_on_its_own_or_straight_into_a_volume(self):
+        alone = filemanager.new_item("notes.txt")
+        self.assertEqual((alone.name, alone.format, alone.slug, alone.placements.count()), ("notes", "txt", "notes", 0))
+        self.assertEqual(filemanager.new_item("notes.txt").slug, "notes-2")
+        own = filemanager.new_item("Report", slug="my_report")
+        self.assertEqual(own.slug, "my_report")
+        placed = filemanager.new_item("memo.txt", volume=self.volume)
+        self.assertEqual(placed.placements.get().name, "memo.txt")
+        for bad in ({"typed": "x", "slug": "my_report"}, {"typed": "x", "slug": "bad slug"}, {"typed": "memo.txt", "volume": self.volume}, {"typed": "a/b"}):
+            with self.assertRaises(FileManagerError):
+                filemanager.new_item(bad.pop("typed"), **bad)
+        self.assertFalse(Item.objects.filter(name="x").exists())
+
     def test_a_chosen_format_adds_its_extension_once(self):
         self.assertEqual(filemanager.new_file(self.volume, None, "memo", "txt").name, "memo.txt")
         self.assertEqual(filemanager.new_file(self.volume, None, "memo2.txt", "txt").name, "memo2.txt")

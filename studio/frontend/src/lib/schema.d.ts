@@ -328,7 +328,8 @@ export interface paths {
          */
         get: operations["studio_api_items_library"];
         put?: never;
-        post?: never;
+        /** Create */
+        post: operations["studio_api_items_create"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1783,6 +1784,28 @@ export interface components {
             updated_at: string;
             /** Updated By */
             updated_by: string | null;
+        };
+        /** ItemCreated */
+        ItemCreated: {
+            /** Id */
+            id: number;
+        };
+        /** NewItem */
+        NewItem: {
+            /** Name */
+            name: string;
+            /**
+             * Format
+             * @default
+             */
+            format: string;
+            /**
+             * Slug
+             * @default
+             */
+            slug: string;
+            /** Volume */
+            volume?: number | null;
         };
         /** Holder */
         Holder: {
@@ -3972,6 +3995,30 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["LibraryRow"][];
+                };
+            };
+        };
+    };
+    studio_api_items_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NewItem"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ItemCreated"];
                 };
             };
         };

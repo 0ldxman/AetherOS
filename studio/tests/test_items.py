@@ -63,6 +63,14 @@ class ItemsApiTests(TestCase):
         members = self.call("get", f"/items/{self.pack.pk}/where")[1]["members"]
         self.assertEqual([m["path"] for m in members], ["docs/report.txt"])
 
+    def test_an_item_is_created_alone_or_into_a_volume_and_a_taken_slug_is_refused(self):
+        status, data = self.call("post", "/items", {"name": "fresh.txt"})
+        self.assertEqual(status, 200)
+        self.assertEqual(Item.objects.get(pk=data["id"]).placements.count(), 0)
+        status, data = self.call("post", "/items", {"name": "other", "slug": "other-one", "volume": self.harbor.pk})
+        self.assertEqual(Item.objects.get(pk=data["id"]).placements.get().volume, self.harbor)
+        self.assertEqual(self.call("post", "/items", {"name": "again", "slug": "fresh"})[0], 400)
+
     def test_an_item_is_put_in_one_more_place(self):
         data = self.call("post", f"/items/{self.lonely.pk}/placements", {"volume": self.harbor.pk, "parent": self.ports.pk})[1]
         self.assertEqual([p["path"] for p in data["placements"]], ["ports/lonely.txt"])

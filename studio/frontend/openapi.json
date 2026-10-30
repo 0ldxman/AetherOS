@@ -927,6 +927,41 @@
       "SessionAuthIsStaff": []
      }
     ]
+   },
+   "post": {
+    "operationId": "studio_api_items_create",
+    "summary": "Create",
+    "parameters": [],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ItemCreated"
+        }
+       }
+      }
+     }
+    },
+    "tags": [
+     "items"
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/NewItem"
+       }
+      }
+     },
+     "required": true
+    },
+    "security": [
+     {
+      "SessionAuthIsStaff": []
+     }
+    ]
    }
   },
   "/studio/api/items/{item_id}": {
@@ -5522,6 +5557,53 @@
      "updated_by"
     ],
     "title": "LibraryRow",
+    "type": "object"
+   },
+   "ItemCreated": {
+    "properties": {
+     "id": {
+      "title": "Id",
+      "type": "integer"
+     }
+    },
+    "required": [
+     "id"
+    ],
+    "title": "ItemCreated",
+    "type": "object"
+   },
+   "NewItem": {
+    "properties": {
+     "name": {
+      "title": "Name",
+      "type": "string"
+     },
+     "format": {
+      "default": "",
+      "title": "Format",
+      "type": "string"
+     },
+     "slug": {
+      "default": "",
+      "title": "Slug",
+      "type": "string"
+     },
+     "volume": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Volume"
+     }
+    },
+    "required": [
+     "name"
+    ],
+    "title": "NewItem",
     "type": "object"
    },
    "Holder": {

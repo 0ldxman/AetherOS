@@ -141,6 +141,30 @@ def new_file(volume, parent_id, typed, format_name=""):
 
 
 @transaction.atomic
+def new_item(typed, format_name="", slug="", volume=None, parent_id=None):
+    """Новый пустой объект сам по себе (в библиотеке); если дан том, он сразу кладётся туда. Возвращает объект."""
+    title, found = split_file_name(typed, format_name)
+    slug = slug.strip()
+    if slug:
+        if Item.objects.filter(slug=slug).exists():
+            raise FileManagerError("Объект с таким слагом уже есть.")
+        item = Item(slug=slug, name=title, format=found.name if found else "")
+        try:
+            item.clean_fields(exclude=["name"])
+        except ValidationError as error:
+            raise FileManagerError(" ".join(error.message_dict.get("slug", error.messages)))
+    else:
+        item = Item(slug=unique_slug(title), name=title, format=found.name if found else "")
+    if volume is not None:
+        parent = folder_of(volume, parent_id)
+        check_free(volume, parent, item.default_filename)
+    item.save()
+    if volume is not None:
+        Placement.objects.create(volume=volume, parent=parent, kind=Placement.Kind.ITEM, item=item, name=item.default_filename)
+    return item
+
+
+@transaction.atomic
 def link(volume, parent_id, item_id, name=""):
     """Положить в папку уже существующий объект."""
     parent = folder_of(volume, parent_id)
