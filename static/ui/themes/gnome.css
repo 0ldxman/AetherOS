@@ -1,0 +1,294 @@
+/* ==========================================================================
+ * Стиль «gnome»: современный рабочий стол в духе GNOME / libadwaita (тёмный вариант).
+ * Тонкая чёрная верхняя панель: кнопка меню слева, часы по центру, состояние справа. Окна с крупными скруглениями,
+ * заголовок по центру с круглыми кнопками, мягкие тени, иконки-«приложения», скруглённые всплывающие меню.
+ *
+ * Токены в :root переопределяются блоком <style id="os-style"> из студии; раскладка с префиксом [data-theme].
+ * ========================================================================== */
+
+:root {
+  --bg: #242424;
+  --panel: #303030;
+  --fg: #ebebeb;
+  --font-light: #ffffff;
+  --font-dark: #1b1b1b;
+  --font-soft: #c0bfbc;
+  --font-muted: #9a9996;
+  --line: #3d3d3d;
+  --line-faint: #2c2c2c;
+  --line-bright: #5e5c64;
+  --window-border: #1a1a1a;
+  --accent: #78aeed;
+  --accent-green: #8ff0a4;
+  --accent-warn: #f8e45c;
+  --accent-error: #ff7b63;
+  --accent-error-darker: #e01b24;
+  --term-fg: #ebebeb;
+  --term-dim: #9a9996;
+  --term-ok: #8ff0a4;
+  --term-warn: #f8e45c;
+  --term-error: #ff7b63;
+  --term-info: #99c1f1;
+  --font-main: var(--ff-arimo);
+  --radius: 12px;
+  --border-w: 1px;
+  --tab-h: 42px;
+  --tab-outside: 0;              /* заголовок внутри окна */
+}
+
+/* ---- рабочий стол: глубокий градиент ---- */
+[data-theme="gnome"] #desktop {
+  background:
+    radial-gradient(ellipse at 20% 15%, rgba(120, 174, 237, 0.30), transparent 55%),
+    radial-gradient(ellipse at 85% 85%, rgba(192, 97, 203, 0.28), transparent 55%),
+    linear-gradient(160deg, #1d2a45, #2a1f3d 60%, #1c1c2b);
+}
+
+/* ---- верхняя панель ---- */
+[data-theme="gnome"] #taskbar {
+  flex: 0 0 32px;
+  padding: 0 6px;
+  background: #000;
+  color: #fff;
+  font-size: 0.85rem;
+  font-weight: 700;
+}
+
+[data-theme="gnome"] .connection > span:first-child,
+[data-theme="gnome"] .session-caret { display: none; }
+
+[data-theme="gnome"] .session-button {
+  height: 26px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: 13px;
+  font-weight: 700;
+}
+
+[data-theme="gnome"] .session-button::before {
+  content: "";
+  width: 8px;
+  height: 8px;
+  margin-right: 2px;
+  border-radius: 50%;
+  background: var(--accent);
+}
+
+[data-theme="gnome"] #machine-name { color: #fff; }
+
+[data-theme="gnome"] .session-button:hover,
+[data-theme="gnome"] .session-button[aria-expanded="true"] { background: rgba(255, 255, 255, 0.16); }
+
+[data-theme="gnome"] .session-menu {
+  top: calc(100% + 8px);
+  min-width: 210px;
+  padding: 6px;
+  background: #383838;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 14px;
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.6);
+  font-weight: 400;
+}
+
+[data-theme="gnome"] .session-menu button {
+  padding: 9px 12px;
+  border-radius: 8px;
+}
+
+[data-theme="gnome"] .session-menu button:hover,
+[data-theme="gnome"] .session-menu button:focus-visible {
+  background: rgba(255, 255, 255, 0.12);
+  color: #fff;
+}
+
+[data-theme="gnome"] .session-menu button[data-action="disconnect"] {
+  border-top: 0;
+  margin-top: 0;
+  padding-top: 9px;
+  color: var(--accent-error);
+}
+
+/* справа: состояние связи «таблеткой» */
+[data-theme="gnome"] .ping {
+  height: 26px;
+  padding: 0 12px;
+  gap: 6px;
+  border-radius: 13px;
+  font-family: inherit;
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
+[data-theme="gnome"] .ping:hover { background: rgba(255, 255, 255, 0.16); }
+
+/* часы по центру панели */
+[data-theme="gnome"] #clock-plate {
+  top: 0;
+  width: auto;
+  height: 32px;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  letter-spacing: 0;
+  background: none;
+  clip-path: none;
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: #fff;
+}
+
+[data-theme="gnome"] #clock, [data-theme="gnome"] #date { display: inline; }
+[data-theme="gnome"] #date { order: -1; font-size: 0.85rem; letter-spacing: 0; color: #fff; font-weight: 700; }
+
+/* ---- иконки: плитка-«приложение» ---- */
+[data-theme="gnome"] .icon { padding: 8px 4px; border-radius: 14px; }
+[data-theme="gnome"] .icon:hover { background: rgba(255, 255, 255, 0.10); }
+
+[data-theme="gnome"] .icon-glyph {
+  width: 52px;
+  height: 52px;
+  line-height: 52px;
+  margin-bottom: 8px;
+  border: 0;
+  border-radius: 14px;
+  background: linear-gradient(145deg, color-mix(in srgb, var(--accent) 80%, #fff), color-mix(in srgb, var(--accent) 60%, #000));
+  color: #fff;
+  font-weight: 700;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.4);
+}
+
+[data-theme="gnome"] .icon:hover .icon-glyph,
+[data-theme="gnome"] .icon:focus-visible .icon-glyph {
+  background: linear-gradient(145deg, color-mix(in srgb, var(--accent) 90%, #fff), color-mix(in srgb, var(--accent) 70%, #000));
+  color: #fff;
+}
+
+[data-theme="gnome"] .icon-label { color: #fff; text-shadow: 0 1px 3px rgba(0, 0, 0, 0.8); }
+[data-theme="gnome"] .icon-badge { border-radius: 9px; color: #fff; }
+
+/* ---- окна ---- */
+[data-theme="gnome"] .winbox.aether {
+  background: var(--bg);
+  border-radius: var(--radius);
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.07), 0 18px 48px rgba(0, 0, 0, 0.55);
+  overflow: hidden;
+}
+
+[data-theme="gnome"] .winbox.aether .wb-body {
+  top: var(--tab-h);
+  background: var(--bg);
+}
+
+/* заголовок: название по центру, круглые кнопки справа */
+[data-theme="gnome"] .winbox.aether .wb-header {
+  position: absolute;
+  top: 0;
+  bottom: auto;
+  left: 0;
+  right: 0;
+  width: 100%;
+  min-width: 0;
+  max-width: none;
+  box-sizing: border-box;
+  padding: 0 10px 0 0;
+  gap: 0;
+  background: color-mix(in srgb, var(--panel) 70%, var(--bg));
+  border: 0;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.45);
+}
+
+[data-theme="gnome"] .winbox.aether.focus .wb-header { background: var(--panel); }
+
+[data-theme="gnome"] .winbox.aether .wb-drag {
+  order: 0;
+  padding: 0 0 0 96px;           /* ширина кнопок справа: название остаётся по центру */
+  text-align: center;
+}
+
+[data-theme="gnome"] .winbox.aether .wb-title {
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: var(--font-muted);
+}
+
+[data-theme="gnome"] .winbox.aether.focus .wb-title { color: var(--font-light); }
+
+[data-theme="gnome"] .winbox.aether .wb-control { order: 1; align-items: center; gap: 6px; }
+
+[data-theme="gnome"] .winbox.aether .wb-min   { order: 0; }
+[data-theme="gnome"] .winbox.aether .wb-max   { order: 1; }
+[data-theme="gnome"] .winbox.aether .wb-close { order: 2; color: inherit; }
+
+[data-theme="gnome"] .winbox.aether .wb-control > span {
+  width: 26px;
+  height: 26px;
+  flex: none;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.10);
+  color: var(--font-light);
+}
+
+[data-theme="gnome"] .winbox.aether .wb-control > span:hover { background: rgba(255, 255, 255, 0.20); color: #fff; }
+[data-theme="gnome"] .winbox.aether .wb-control > .wb-close:hover { background: var(--accent-error-darker); color: #fff; }
+
+[data-theme="gnome"] .winbox.aether.max { border-radius: 0; }
+[data-theme="gnome"] .winbox.aether.max .wb-header { bottom: auto; left: 0; right: 0; }
+
+[data-theme="gnome"] .winbox.aether.min { background: var(--panel); }
+[data-theme="gnome"] .winbox.aether.min .wb-header { top: 0; bottom: auto; }
+
+/* ---- окна сообщений: обычное окно, цвет только у значка и кнопки ---- */
+[data-theme="gnome"] .winbox.aether.dialog-window--error,
+[data-theme="gnome"] .winbox.aether.dialog-window--warning { background: var(--bg); box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.07), 0 18px 48px rgba(0, 0, 0, 0.55); }
+
+[data-theme="gnome"] .winbox.aether.dialog-window--error .wb-header,
+[data-theme="gnome"] .winbox.aether.dialog-window--warning .wb-header { background: var(--panel); border-color: rgba(0, 0, 0, 0.45); }
+
+[data-theme="gnome"] .winbox.aether.dialog-window--error .wb-title,
+[data-theme="gnome"] .winbox.aether.dialog-window--warning .wb-title { color: var(--font-light); }
+
+[data-theme="gnome"] .winbox.aether.dialog-window--error .wb-control *,
+[data-theme="gnome"] .winbox.aether.dialog-window--warning .wb-control * { color: var(--font-light); }
+
+[data-theme="gnome"] .dialog { background: var(--bg); color: var(--fg); }
+
+[data-theme="gnome"] .dialog-glyph {
+  border-radius: 50%;
+  background: var(--tone);
+  color: var(--font-dark);
+}
+
+[data-theme="gnome"] .dialog-foot { border-top: 0; justify-content: flex-end; }
+[data-theme="gnome"] .dialog-code { margin-right: auto; color: var(--font-muted); }
+
+[data-theme="gnome"] .dialog-ok {
+  padding: 0.4rem 1.2rem;
+  border: 0;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.12);
+  color: var(--font-light);
+  font-weight: 700;
+}
+
+[data-theme="gnome"] .dialog-ok:hover { background: rgba(255, 255, 255, 0.2); color: #fff; }
+
+/* ---- уведомления: как в GNOME, сверху по центру ---- */
+[data-theme="gnome"] #toasts {
+  top: 44px;
+  bottom: auto;
+  left: 50%;
+  right: auto;
+  transform: translateX(-50%);
+}
+
+[data-theme="gnome"] .toast {
+  background: #383838;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 14px;
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.5);
+}
+
+[data-theme="gnome"] .toast--error,
+[data-theme="gnome"] .toast--warning,
+[data-theme="gnome"] .toast--info { border-left-width: 1px; }
