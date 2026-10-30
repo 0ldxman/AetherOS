@@ -1,110 +1,78 @@
 /* ==========================================================================
- * Стиль «linux»: рабочий стол в духе современных линукс-окружений (waybar, тайловые менеджеры).
- * Плавающая верхняя панель из «таблеток», по центру часы, окна с тонкой цветной рамкой и точками управления,
- * моноширинный шрифт, палитра тёмного пастельного семейства.
+ * Стиль «linux»: рабочий стол в духе тайловых менеджеров (i3, sway).
+ * Плоская строка статуса сверху, окна без скруглений с цветным заголовком у активного, тонкие рамки,
+ * моноширинный шрифт везде, тёплая палитра gruvbox. Ничего «стеклянного» и круглого.
  *
  * Токены в :root переопределяются блоком <style id="os-style"> из студии; раскладка с префиксом [data-theme].
  * ========================================================================== */
 
 :root {
-  --bg: #1e1e2e;
-  --panel: #181825;
-  --fg: #cdd6f4;
-  --font-light: #e6e9ff;
-  --font-dark: #11111b;
-  --font-soft: #a6adc8;
-  --font-muted: #6c7086;
-  --line: #313244;
-  --line-faint: #262637;
-  --line-bright: #45475a;
-  --window-border: #45475a;
-  --accent: #cba6f7;
-  --accent-green: #a6e3a1;
-  --accent-warn: #f9e2af;
-  --accent-error: #f38ba8;
-  --accent-error-darker: #eba0ac;
-  --term-fg: #cdd6f4;
-  --term-dim: #6c7086;
-  --term-ok: #a6e3a1;
-  --term-warn: #f9e2af;
-  --term-error: #f38ba8;
-  --term-info: #89dceb;
+  --bg: #282828;
+  --panel: #1d2021;
+  --fg: #ebdbb2;
+  --font-light: #fbf1c7;
+  --font-dark: #1d2021;
+  --font-soft: #a89984;
+  --font-muted: #7c6f64;
+  --line: #3c3836;
+  --line-faint: #32302f;
+  --line-bright: #504945;
+  --window-border: #504945;
+  --accent: #fe8019;
+  --accent-green: #b8bb26;
+  --accent-warn: #fabd2f;
+  --accent-error: #fb4934;
+  --accent-error-darker: #cc241d;
+  --term-fg: #ebdbb2;
+  --term-dim: #7c6f64;
+  --term-ok: #b8bb26;
+  --term-warn: #fabd2f;
+  --term-error: #fb4934;
+  --term-info: #83a598;
   --font-main: var(--ff-jetbrains-mono);
-  --radius: 10px;
+  --radius: 0;
   --border-w: 2px;
-  --tab-h: 30px;
+  --tab-h: 22px;
   --tab-outside: 0;              /* заголовок внутри окна */
 }
 
-/* ---- рабочий стол: мягкие пятна света и точечная сетка ---- */
-[data-theme="linux"] #desktop {
-  background:
-    radial-gradient(circle, color-mix(in srgb, var(--fg) 14%, transparent) 1px, transparent 1.5px) 0 0 / 32px 32px,
-    radial-gradient(ellipse at 80% 8%, color-mix(in srgb, var(--accent) 16%, transparent), transparent 55%),
-    radial-gradient(ellipse at 10% 95%, color-mix(in srgb, var(--accent-green) 10%, transparent), transparent 50%),
-    var(--bg);
-}
+/* ---- рабочий стол: ровный фон ---- */
+[data-theme="linux"] #desktop { background: var(--bg); }
 
-/* ---- верхняя панель: сплошная полоса, внутри таблетки ---- */
+/* ---- строка статуса ---- */
 [data-theme="linux"] #taskbar {
-  flex: 0 0 42px;
-  padding: 0 10px;
-  background: var(--bg);
-  font-size: 0.8rem;
-}
-
-[data-theme="linux"] .connection,
-[data-theme="linux"] .ping {
-  height: 28px;
-  padding: 0 4px;
-  box-sizing: border-box;
+  flex: 0 0 26px;
+  padding: 0 8px;
   background: var(--panel);
-  border: 1px solid var(--line);
-  border-radius: 14px;
+  border-bottom: 2px solid var(--accent);
+  font-size: 0.78rem;
 }
 
 [data-theme="linux"] .connection > span:first-child,
 [data-theme="linux"] .session-caret { display: none; }
 
-[data-theme="linux"] .session-button {
-  gap: 8px;
-  padding: 0 10px 0 6px;
-  height: 100%;
-  border-radius: 12px;
-  border-color: transparent;
-}
+[data-theme="linux"] .session-button { padding: 0 4px; border: 0; }
 
-[data-theme="linux"] .session-button::before {
-  content: "";
-  width: 16px;
-  height: 16px;
-  background: var(--accent);
-  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-linecap='round' stroke-linejoin='round' stroke-width='2.2'%3E%3Crect x='2.5' y='3.5' width='19' height='17' rx='4'/%3E%3Cpath d='M7 9l3.5 3L7 15M13 15h4'/%3E%3C/svg%3E") center / contain no-repeat;
-  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-linecap='round' stroke-linejoin='round' stroke-width='2.2'%3E%3Crect x='2.5' y='3.5' width='19' height='17' rx='4'/%3E%3Cpath d='M7 9l3.5 3L7 15M13 15h4'/%3E%3C/svg%3E") center / contain no-repeat;
-}
+/* имя машины в квадратных скобках: [root@core] */
+[data-theme="linux"] #machine-name { color: var(--accent); }
+[data-theme="linux"] #machine-name::before { content: "["; color: var(--font-muted); }
+[data-theme="linux"] #machine-name::after { content: "]"; color: var(--font-muted); }
 
 [data-theme="linux"] .session-button:hover,
-[data-theme="linux"] .session-button[aria-expanded="true"] {
-  background: color-mix(in srgb, var(--accent) 16%, transparent);
-  border-color: transparent;
-}
-
-[data-theme="linux"] #machine-name { color: var(--accent); }
-
-[data-theme="linux"] .ping { padding: 0 12px; gap: 6px; }
+[data-theme="linux"] .session-button[aria-expanded="true"] { background: var(--accent); }
+[data-theme="linux"] .session-button:hover #machine-name,
+[data-theme="linux"] .session-button[aria-expanded="true"] #machine-name { color: var(--font-dark); }
 
 [data-theme="linux"] .session-menu {
-  top: calc(100% + 10px);
-  padding: 6px;
-  border: 1px solid var(--line-bright);
-  border-radius: var(--radius);
-  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.5);
+  top: 100%;
+  left: 0;
+  margin-top: 2px;
+  padding: 0;
+  border: 2px solid var(--accent);
+  box-shadow: none;
 }
 
-[data-theme="linux"] .session-menu button {
-  padding: 7px 12px;
-  border-radius: calc(var(--radius) - 4px);
-}
+[data-theme="linux"] .session-menu button { padding: 4px 12px; }
 
 [data-theme="linux"] .session-menu button:hover,
 [data-theme="linux"] .session-menu button:focus-visible {
@@ -112,66 +80,61 @@
   color: var(--font-dark);
 }
 
-[data-theme="linux"] .session-menu button[data-action="disconnect"] {
-  border-top: 1px solid var(--line);
-  border-radius: 0 0 calc(var(--radius) - 4px) calc(var(--radius) - 4px);
-}
+[data-theme="linux"] .session-menu button[data-action="disconnect"] { margin-top: 0; padding-top: 4px; }
 
-/* часы: таблетка по центру панели */
+/* справа: «eth0 42 ms», как в строке статуса */
+[data-theme="linux"] .ping { gap: 6px; font-size: 0.78rem; }
+[data-theme="linux"] .ping::before { content: "eth0"; color: var(--font-muted); }
+[data-theme="linux"] .ping-dot { display: none; }
+[data-theme="linux"] #ping-value, [data-theme="linux"] #ping-unit { min-width: 0; }
+
+/* часы посередине строки, без плашки */
 [data-theme="linux"] #clock-plate {
-  top: 7px;
+  top: 0;
   width: auto;
-  height: 28px;
-  padding: 0 16px;
-  box-sizing: border-box;
+  height: 24px;
+  padding: 0;
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
   letter-spacing: 0;
-  background: var(--panel);
-  border: 1px solid var(--line);
-  border-radius: 14px;
+  background: none;
   clip-path: none;
-  font-size: 0.8rem;
+  font-size: 0.78rem;
   font-weight: 500;
-  color: var(--accent);
+  color: var(--font-light);
 }
 
 [data-theme="linux"] #clock, [data-theme="linux"] #date { display: inline; }
-[data-theme="linux"] #date { font-size: 0.8rem; letter-spacing: 0; color: var(--font-soft); }
+[data-theme="linux"] #date { font-size: 0.78rem; letter-spacing: 0; color: var(--font-soft); }
 
-/* ---- иконки: рамка-чип, акцент при наведении ---- */
-[data-theme="linux"] .icon { border-radius: var(--radius); padding: 8px 4px; }
-[data-theme="linux"] .icon:hover { background: color-mix(in srgb, var(--accent) 10%, transparent); }
-
+/* ---- иконки: только глиф и подпись ---- */
 [data-theme="linux"] .icon-glyph {
   width: 40px;
   height: 40px;
-  line-height: 38px;
-  border: var(--border-w) solid var(--line-bright);
-  border-radius: 12px;
-  background: var(--panel);
+  line-height: 40px;
+  border: 0;
+  background: none;
   color: var(--accent);
+  font-size: 1.8rem;
 }
 
 [data-theme="linux"] .icon:hover .icon-glyph,
-[data-theme="linux"] .icon:focus-visible .icon-glyph {
-  background: var(--accent);
-  border-color: var(--accent);
-  color: var(--font-dark);
-}
+[data-theme="linux"] .icon:focus-visible .icon-glyph { background: none; color: var(--font-light); }
 
-[data-theme="linux"] .icon-badge { border-radius: 8px; color: var(--font-dark); }
+[data-theme="linux"] .icon:hover .icon-label,
+[data-theme="linux"] .icon:focus-visible .icon-label { background: var(--accent); color: var(--font-dark); }
 
-/* ---- окна: цветная рамка у активного, точки управления ---- */
+[data-theme="linux"] .icon-badge { color: var(--font-dark); }
+
+/* ---- окна: плоские, заголовок цветной у активного ---- */
 [data-theme="linux"] .winbox.aether {
-  background: var(--panel);
-  border-radius: var(--radius);
-  box-shadow: 0 0 0 var(--border-w) var(--window-border), 0 14px 36px rgba(0, 0, 0, 0.45);
+  background: var(--bg);
+  box-shadow: 0 0 0 var(--border-w) var(--window-border);
   overflow: hidden;
 }
 
-[data-theme="linux"] .winbox.aether.focus { box-shadow: 0 0 0 var(--border-w) var(--accent), 0 14px 36px rgba(0, 0, 0, 0.5); }
+[data-theme="linux"] .winbox.aether.focus { box-shadow: 0 0 0 var(--border-w) var(--accent); }
 
 [data-theme="linux"] .winbox.aether .wb-body {
   top: var(--tab-h);
@@ -188,55 +151,50 @@
   min-width: 0;
   max-width: none;
   box-sizing: border-box;
-  padding: 0 10px 0 14px;
+  padding: 0 0 0 8px;
   gap: 8px;
-  background: var(--panel);
+  background: var(--line);
   border: 0;
 }
 
+[data-theme="linux"] .winbox.aether.focus .wb-header { background: var(--accent); }
+
 [data-theme="linux"] .winbox.aether .wb-drag { order: 0; }
-[data-theme="linux"] .winbox.aether .wb-control { order: 1; align-items: center; gap: 8px; }
+[data-theme="linux"] .winbox.aether .wb-control { order: 1; }
 
-[data-theme="linux"] .winbox.aether .wb-min   { order: 0; --dot: var(--accent-warn); }
-[data-theme="linux"] .winbox.aether .wb-max   { order: 1; --dot: var(--accent-green); }
-[data-theme="linux"] .winbox.aether .wb-close { order: 2; --dot: var(--accent-error); color: var(--font-dark); }
+[data-theme="linux"] .winbox.aether .wb-min   { order: 0; }
+[data-theme="linux"] .winbox.aether .wb-max   { order: 1; }
+[data-theme="linux"] .winbox.aether .wb-close { order: 2; color: inherit; }
 
-/* кнопки: цветные точки, символ появляется при наведении */
+/* кнопки: плоские символы без фона, по наведению цвет строки статуса */
 [data-theme="linux"] .winbox.aether .wb-control > span {
-  width: 14px;
-  height: 14px;
-  flex: none;
-  border-radius: 50%;
-  background: var(--dot);
-  opacity: 0.55;
-  color: var(--font-dark);
-  font-size: 11px;
-  line-height: 1;
-}
-
-[data-theme="linux"] .winbox.aether.focus .wb-control > span { opacity: 1; }
-[data-theme="linux"] .winbox.aether .wb-control > span::before { opacity: 0; }
-[data-theme="linux"] .winbox.aether .wb-control > span:hover { background: var(--dot); opacity: 1; color: var(--font-dark); }
-[data-theme="linux"] .winbox.aether .wb-control > span:hover::before { opacity: 1; }
-
-[data-theme="linux"] .winbox.aether .wb-title {
-  font-size: 0.78rem;
+  width: 24px;
   color: var(--font-soft);
 }
 
-[data-theme="linux"] .winbox.aether.focus .wb-title { color: var(--font-light); }
+[data-theme="linux"] .winbox.aether.focus .wb-control > span { color: var(--font-dark); }
 
-[data-theme="linux"] .winbox.aether.max { border-radius: 0; }
+[data-theme="linux"] .winbox.aether .wb-control > span:hover,
+[data-theme="linux"] .winbox.aether.focus .wb-control > span:hover { background: var(--font-dark); color: var(--accent); }
+
+[data-theme="linux"] .winbox.aether .wb-control > .wb-close:hover,
+[data-theme="linux"] .winbox.aether.focus .wb-control > .wb-close:hover { background: var(--accent-error); color: var(--font-dark); }
+
+[data-theme="linux"] .winbox.aether .wb-title {
+  font-size: 0.75rem;
+  color: var(--font-soft);
+}
+
+[data-theme="linux"] .winbox.aether.focus .wb-title { color: var(--font-dark); font-weight: 700; }
+
 [data-theme="linux"] .winbox.aether.max .wb-header { bottom: auto; left: 0; right: 0; border: 0; }
 
-[data-theme="linux"] .winbox.aether.min { background: var(--panel); }
+[data-theme="linux"] .winbox.aether.min { background: var(--bg); box-shadow: 0 0 0 var(--border-w) var(--window-border); }
 [data-theme="linux"] .winbox.aether.min .wb-header { top: 0; bottom: auto; }
 
-[data-theme="linux"] .winbox.aether.dialog-window--error,
-[data-theme="linux"] .winbox.aether.dialog-window--warning { background: var(--panel); }
-
-[data-theme="linux"] .winbox.aether.dialog-window--error { box-shadow: 0 0 0 var(--border-w) var(--status-error), 0 14px 36px rgba(0, 0, 0, 0.5); }
-[data-theme="linux"] .winbox.aether.dialog-window--warning { box-shadow: 0 0 0 var(--border-w) var(--status-warn), 0 14px 36px rgba(0, 0, 0, 0.5); }
+/* окна сообщений: заголовок по виду сообщения, тело своё */
+[data-theme="linux"] .winbox.aether.dialog-window--error { background: var(--bg); box-shadow: 0 0 0 var(--border-w) var(--status-error); }
+[data-theme="linux"] .winbox.aether.dialog-window--warning { background: var(--bg); box-shadow: 0 0 0 var(--border-w) var(--status-warn); }
 
 [data-theme="linux"] .winbox.aether.dialog-window--error .wb-title,
 [data-theme="linux"] .winbox.aether.dialog-window--warning .wb-title { color: var(--font-dark); }
@@ -245,8 +203,10 @@
 [data-theme="linux"] #toasts { bottom: 1rem; }
 
 [data-theme="linux"] .toast {
-  border-radius: var(--radius);
-  border: 1px solid var(--line-bright);
-  border-left-width: 3px;
-  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.45);
+  background: var(--panel);
+  border: 2px solid var(--line-bright);
+  border-left: 6px solid var(--accent);
 }
+
+[data-theme="linux"] .toast--error { border-left-color: var(--status-error); }
+[data-theme="linux"] .toast--warning { border-left-color: var(--status-warn); }
