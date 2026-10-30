@@ -21,6 +21,7 @@ _md = (
         {
             "html": False,
             "linkify": False,
+            "breaks": True,        # Enter в тексте даёт перенос строки, как в редакторе
         },
     )
     .enable("table")
