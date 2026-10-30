@@ -152,6 +152,7 @@ const TAB_HEIGHT =
 const rootStyle = getComputedStyle(document.documentElement);
 const TAB_OUTSIDE = rootStyle.getPropertyValue("--tab-outside").trim() !== "0";
 const BAR_TOP = taskbar.getBoundingClientRect().top < 1 ? taskbar.offsetHeight : 0;
+const WINDOW_BOTTOM = taskbar.getBoundingClientRect().top < 1 ? 0 : taskbar.offsetHeight; // развёрнутое окно не заходит на панель снизу
 const WINDOW_TOP = BAR_TOP + (TAB_OUTSIDE ? TAB_HEIGHT + 2 : 0);
 
 // Размер стола мог измениться с прошлого раза: окно не должно оказаться за краем
@@ -425,6 +426,7 @@ function openApp(id, label, url, options = {}) {
     id: "win-" + id,
 
     top: WINDOW_TOP,
+    bottom: WINDOW_BOTTOM,
     root: desktop,
 
     class: ["aether", "no-full"],
@@ -566,6 +568,7 @@ function showDialog(spec, params = {}, options = {}) {
     id: "dialog-" + dialogCount,
     root: desktop,
     top: WINDOW_TOP,
+    bottom: WINDOW_BOTTOM,
     class: [
       "aether",
       "no-full",

@@ -27,7 +27,6 @@
   --radius: 8px;
   --tab-h: 36px;
   --tab-outside: 0;              /* заголовок внутри окна, а не вкладкой над рамкой */
-  --cell: 96px;
 }
 
 /* ---- рабочий стол: плавный фон вместо сетки ---- */
@@ -161,6 +160,7 @@
   width: 100%;
   min-width: 0;
   max-width: none;
+  box-sizing: border-box;
   padding: 0 0 0 12px;
   gap: 8px;
   background: var(--panel);
