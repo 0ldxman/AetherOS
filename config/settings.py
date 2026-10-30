@@ -38,7 +38,7 @@ if not SECRET_KEY:
 
 # Значения по умолчанию рассчитаны на разработку через code-server.
 # На сервере задайте их в .env (см. .env.example).
-ALLOWED_HOSTS = env.list("ALLOWED_HOSTS", default=["localhost", "127.0.0.1"])
+ALLOWED_HOSTS = env.list("ALLOWED_HOSTS", default=["localhost", "127.0.0.1", "code.localhost"])
 CSRF_TRUSTED_ORIGINS = env.list("CSRF_TRUSTED_ORIGINS", default=["http://localhost:8443"])
 
 # Префикс адреса за прокси code-server. На сервере: FORCE_SCRIPT_NAME= (пусто).
