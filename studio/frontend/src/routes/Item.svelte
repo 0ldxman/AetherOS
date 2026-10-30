@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { onMount } from "svelte";
+  import { onMount, untrack } from "svelte";
   import { adminUrl, api, problem, type Schemas } from "../lib/api";
   import CodeEditor from "../lib/CodeEditor.svelte";
   import { go } from "../lib/router.svelte";
@@ -83,16 +83,41 @@
     holder = response.status === 423 ? (data as unknown as Schemas["Holder"]) : null;
   }
 
+  // Предпросмотр: запрос не чаще раза в полсекунды, устаревшие ответы отбрасываются, прокрутка страницы сохраняется
   let timer: ReturnType<typeof setTimeout>;
+  let asked = 0;
+  let last = "";
   $effect(() => {
     const snapshot = { format: draft.format, title: draft.name, body: draft.body, meta: draft.meta, mode: keysMode };
     clearTimeout(timer);
     timer = setTimeout(async () => {
+      const key = JSON.stringify(snapshot);
+      if (key === last) return;
+      last = key;
+      const mine = ++asked;
       const { data } = await api.POST("/studio/api/items/preview", {
         body: { format: snapshot.format, title: snapshot.title, body: snapshot.body, meta: snapshot.meta, keys: { mode: snapshot.mode, slugs: [] } },
       });
-      if (data) preview = data;
-    }, 350);
+      if (data && mine === asked) preview = data;
+    }, 500);
+  });
+
+  // страницы документов прячут горизонтальный выход за край; в предпросмотре его нужно уметь прокрутить
+  const SCROLLABLE = "<style>html,body{overflow-x:auto!important}.page,.md--body{overflow-x:visible!important}</style>";
+  const shown = $derived(preview ? (previewTab === "body" ? preview.body : preview.infobox) + SCROLLABLE : "");
+
+  let frame = $state<HTMLIFrameElement>();
+  let scroll = { x: 0, y: 0 };
+  function rememberScroll() {
+    const win = frame?.contentWindow;
+    if (win) scroll = { x: win.scrollX, y: win.scrollY };
+  }
+  function restoreScroll() {
+    frame?.contentWindow?.scrollTo(scroll.x, scroll.y);
+  }
+  $effect(() => {
+    shown;
+    untrack(rememberScroll);
   });
 
   onMount(() => {
@@ -193,6 +218,7 @@
                   {#each formats as found}<option value={found.name}>{found.name} — {found.title}</option>{/each}
                 </select>
               </label>
+              <p class="muted small hint">Расширение берётся из формата. Места, где файл называется по-старому, переименуются сами; свои имена остаются.</p>
               {#if linkable}
                 <label><span class="label">Ссылка</span><input class="field" bind:value={draft.url} placeholder="https://…" /></label>
               {/if}
@@ -224,7 +250,7 @@
             <option value="none">без ключей</option>
           </select>
         </nav>
-        <iframe title="Предпросмотр" srcdoc={preview ? (previewTab === "body" ? preview.body : preview.infobox) : ""}></iframe>
+        <iframe title="Предпросмотр" bind:this={frame} srcdoc={shown} onload={restoreScroll}></iframe>
         {#if issues.length}
           <ul class="issues">
             {#each issues as issue}
@@ -275,6 +301,7 @@
   .pair { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
   .where { display: block; padding: 2px 0; }
   .small { font-size: 12px; }
+  .hint { margin: -6px 0 0; }
   iframe { flex: 1; width: 100%; border: 0; background: #fff; }
   .issues { margin: 0; padding: 8px 12px; list-style: none; max-height: 140px; overflow: auto; border-top: 1px solid var(--line-soft); font-size: 12.5px; }
   .issues li { padding: 2px 0; }

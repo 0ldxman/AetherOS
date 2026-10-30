@@ -71,6 +71,16 @@ class ItemsApiTests(TestCase):
         self.assertEqual(Item.objects.get(pk=data["id"]).placements.get().volume, self.harbor)
         self.assertEqual(self.call("post", "/items", {"name": "again", "slug": "fresh"})[0], 400)
 
+    def test_changing_the_format_renames_the_files_that_carried_the_old_extension(self):
+        item = Item.objects.create(slug="memo", name="memo", format="txt")
+        place = Placement.objects.create(volume=self.harbor, kind=Placement.Kind.ITEM, item=item, name="memo.txt")
+        custom = Placement.objects.create(volume=self.harbor, kind=Placement.Kind.ITEM, item=item, name="mine.txt")
+        status, data = self.call("put", f"/items/{item.pk}", {"name": "memo", "format": "doc", "version": item.updated_at.isoformat()})
+        self.assertEqual(status, 200)
+        place.refresh_from_db()
+        custom.refresh_from_db()
+        self.assertEqual((place.name, custom.name), ("memo" + FileFormat.objects.get(name="doc").extension, "mine.txt"))
+
     def test_an_item_is_put_in_one_more_place(self):
         data = self.call("post", f"/items/{self.lonely.pk}/placements", {"volume": self.harbor.pk, "parent": self.ports.pk})[1]
         self.assertEqual([p["path"] for p in data["placements"]], ["ports/lonely.txt"])

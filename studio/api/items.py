@@ -11,6 +11,7 @@ from ninja import Router, Schema
 
 from documents.editor import MAX_KEYS, MAX_TITLE_LEN, render_preview
 from filesystem import history
+from filesystem.manager import filemanager
 from filesystem.models import Item, ItemRevision
 from secure.requestkeys import keys_for_mode
 
@@ -293,7 +294,6 @@ class ItemCreated(Schema):
 
 @router.post("", response=ItemCreated)
 def create(request, body: NewItem):
-    from filesystem.manager import filemanager
     from filesystem.models import Volume
 
     volume = get_object_or_404(Volume, pk=body.volume) if body.volume else None
@@ -313,11 +313,13 @@ def save(request, item_id: int, body: ItemIn):
         return 409, Conflict(
             detail="Объект изменён после того, как вы его открыли.", by=by, at=item.updated_at, version=item.updated_at.isoformat(),
         )
+    old_filename = item.default_filename
     for field in EDIT_FIELDS:
         setattr(item, field, getattr(body, field))
     item.updated_by = request.user
     item.full_clean()
     item.save()
+    filemanager.follow_filename(item, old_filename)
     return _out(_item(item_id), request.user)
 
 
@@ -379,7 +381,6 @@ def where(request, item_id: int):
 @router.post("/{int:item_id}/placements", response=Whereabouts)
 def put(request, item_id: int, body: PutIn):
     """Положить объект ещё в одно место (тот же объект, не копия)."""
-    from filesystem.manager import filemanager
     from filesystem.models import Volume
 
     filemanager.link(get_object_or_404(Volume, pk=body.volume), body.parent, item_id, body.name)

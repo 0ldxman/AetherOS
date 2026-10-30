@@ -164,6 +164,22 @@ def new_item(typed, format_name="", slug="", volume=None, parent_id=None):
     return item
 
 
+def follow_filename(item, old_filename):
+    """После смены формата или названия: места, где файл носил прежнее имя по умолчанию, получают новое.
+    Занятое имя в папке пропускается, возвращается число таких мест."""
+    new = item.default_filename
+    skipped = 0
+    if new == old_filename:
+        return 0
+    for placement in item.placements.filter(name=old_filename).select_related("volume"):
+        if siblings(placement.volume, placement.parent).filter(name=new).exclude(pk=placement.pk).exists():
+            skipped += 1
+            continue
+        placement.name = new
+        placement.save(update_fields=["name"])
+    return skipped
+
+
 @transaction.atomic
 def link(volume, parent_id, item_id, name=""):
     """Положить в папку уже существующий объект."""
