@@ -38,17 +38,13 @@
   --grid-y: 16px;
   --frame: var(--line-bright);
   --tab-outside: 0;
-  --tui-shadow: 8px 8px 0 #262626;
+  --tui-shadow: none;
 }
 
 [data-theme="tui"] body { font-size: 1rem; line-height: 1.25; }
 
-/* стол: точечная сетка знакомест */
-[data-theme="tui"] #desktop {
-  background:
-    radial-gradient(circle, var(--line) 1px, transparent 1.3px) 0 0 / 8px 8px,
-    var(--bg);
-}
+/* стол: ровный чёрный экран */
+[data-theme="tui"] #desktop { background: var(--bg); }
 
 /* значков на столе нет: приложения в нумерованном списке справа (цифра открывает) и в меню F2 */
 [data-theme="tui"] #icons { visibility: hidden; pointer-events: none; }
@@ -307,8 +303,8 @@
   color: var(--frame);
 }
 
-[data-theme="tui"] .winbox.aether .wb-header::before { content: "╔"; width: 8px; }
-[data-theme="tui"] .winbox.aether .wb-header::after { content: "╗"; width: 8px; text-align: right; }
+[data-theme="tui"] .winbox.aether .wb-header::before { content: "╔"; order: -1; width: 8px; }
+[data-theme="tui"] .winbox.aether .wb-header::after { content: "╗"; order: 2; width: 8px; text-align: right; }
 
 [data-theme="tui"] .winbox.aether .wb-control { order: 0; float: none; height: 16px; }
 [data-theme="tui"] .winbox.aether .wb-drag { order: 1; flex: 1; min-width: 0; display: flex; align-items: center; padding: 0; height: 16px; }
@@ -332,6 +328,13 @@
   font: 16px/16px var(--font-main);
   text-align: center;
 }
+
+/* скрытые кнопки: правило display выше их иначе перебило бы */
+[data-theme="tui"] .winbox.aether .wb-control > .wb-full,
+[data-theme="tui"] .winbox.aether.no-min .wb-min,
+[data-theme="tui"] .winbox.aether.no-max .wb-max,
+[data-theme="tui"] .winbox.aether.no-close .wb-close,
+[data-theme="tui"] .winbox.aether.no-full .wb-full { display: none; }
 
 [data-theme="tui"] .winbox.aether .wb-control > span:hover { background: var(--fg); color: var(--font-dark); }
 
@@ -376,7 +379,7 @@
 
 /* окна сообщений: название с [!] или [?], рамка яркая */
 [data-theme="tui"] .winbox.aether.dialog-window--error,
-[data-theme="tui"] .winbox.aether.dialog-window--warning { --frame: var(--font-light); background: var(--bg); }
+[data-theme="tui"] .winbox.aether.dialog-window--warning { --frame: var(--font-light); background: var(--bg); border: 0; box-shadow: none; }
 
 [data-theme="tui"] .winbox.aether.dialog-window--error .wb-title,
 [data-theme="tui"] .winbox.aether.dialog-window--warning .wb-title { background: var(--fg); color: var(--font-dark); font-weight: 700; }
