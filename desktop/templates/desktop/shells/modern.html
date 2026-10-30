@@ -1,0 +1,33 @@
+{% comment %}
+  Оболочка стиля modern: панель задач снизу с кнопкой «Пуск», списком открытых окон и значком связи;
+  меню «Пуск» (поиск, приложения, действия сессии). Ожидает от desktop.js элементы #taskbar, #clock, #date, #ping-value;
+  меню и список окон оживляет shell.js по атрибутам data-shell.
+{% endcomment %}
+    <header id="taskbar">
+        <button type="button" class="start-button" data-shell="launcher" aria-haspopup="dialog" aria-expanded="false" aria-controls="launcher" title="Start">
+            <span class="start-logo" aria-hidden="true"></span>
+        </button>
+        <div class="tasks" data-shell="tasks"></div>
+        <div class="ping">
+            <span class="ping-dot"></span>
+            <span id="ping-value">42</span>
+            <span id="ping-unit">ms</span>
+        </div>
+    </header>
+
+    <section id="launcher" class="launcher" data-shell="launcher-panel" aria-label="Start" hidden>
+        <input type="search" class="launcher-search" data-shell="search" placeholder="Search apps" autocomplete="off" aria-label="Search apps">
+        <h2 class="launcher-title">Apps</h2>
+        <div class="launcher-apps" data-shell="apps"></div>
+        <footer class="launcher-foot" data-actions>
+            <span class="launcher-user">{{ login }}@{{ machine_name }}</span>
+            {% if can_sessions %}<button type="button" data-action="sessions" data-url="{{ sessions_url }}">sessions.mon</button>{% endif %}
+            <button type="button" data-action="reset-layout">reset layout</button>
+            <button type="button" data-action="disconnect" data-logout-url="{{ logout_url }}" data-lock-url="{{ lock_url }}">disconnect</button>
+        </footer>
+    </section>
+
+    <div id="clock-plate">
+        <span id="clock"></span>
+        <span id="date"></span>
+    </div>

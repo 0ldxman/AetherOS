@@ -278,6 +278,7 @@
 
 /* ---- уведомления: как в GNOME, сверху по центру ---- */
 [data-theme="gnome"] #toasts {
+  z-index: 100000;
   top: 44px;
   bottom: auto;
   left: 50%;
@@ -297,3 +298,211 @@
 [data-theme="gnome"] .toast--error,
 [data-theme="gnome"] .toast--warning,
 [data-theme="gnome"] .toast--info { border-left-width: 1px; }
+
+/* ==========================================================================
+ * Оболочка (разметка desktop/shells/gnome.html): «Overview», обзор, док. Иконок на столе нет.
+ * ========================================================================== */
+
+[data-theme="gnome"] #icons { visibility: hidden; pointer-events: none; }
+
+[data-theme="gnome"] .status { display: flex; align-items: center; gap: 6px; }
+
+[data-theme="gnome"] .activities {
+  height: 26px;
+  padding: 0 14px;
+  background: none;
+  border: 0;
+  border-radius: 13px;
+  color: #fff;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+[data-theme="gnome"] .activities:hover,
+[data-theme="gnome"] .activities[aria-expanded="true"] { background: rgba(255, 255, 255, 0.16); }
+
+[data-theme="gnome"] .session-menu { left: auto; right: 0; }
+
+/* ---- обзор ---- */
+[data-theme="gnome"] .launcher[hidden] { display: none; }
+
+[data-theme="gnome"] .launcher {
+  position: fixed;
+  top: 32px;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 4999;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 28px;
+  padding: 36px 48px 120px;
+  overflow-y: auto;
+  background: rgba(14, 14, 18, 0.80);
+  -webkit-backdrop-filter: blur(32px);
+  backdrop-filter: blur(32px);
+}
+
+[data-theme="gnome"] .launcher-search {
+  width: min(440px, 100%);
+  height: 40px;
+  padding: 0 18px;
+  box-sizing: border-box;
+  background: rgba(255, 255, 255, 0.10);
+  border: 1px solid transparent;
+  border-radius: 20px;
+  color: #fff;
+  font: inherit;
+  outline: none;
+}
+
+[data-theme="gnome"] .launcher-search:focus { border-color: var(--accent); }
+[data-theme="gnome"] .launcher-search::placeholder { color: rgba(255, 255, 255, 0.5); }
+
+[data-theme="gnome"] .overview-windows { display: flex; flex-wrap: wrap; justify-content: center; gap: 16px; }
+[data-theme="gnome"] .overview-windows:empty { display: none; }
+
+[data-theme="gnome"] .shell-task {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  width: 200px;
+  height: 120px;
+  background: var(--bg);
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  border-radius: var(--radius);
+  color: var(--fg);
+  font: inherit;
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+
+[data-theme="gnome"] .shell-task .shell-glyph { font-size: 1.8rem; color: var(--accent); }
+[data-theme="gnome"] .shell-task:hover { border-color: rgba(255, 255, 255, 0.3); }
+[data-theme="gnome"] .shell-task.is-active { border-color: var(--accent); box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 40%, transparent); }
+[data-theme="gnome"] .shell-task.is-min { opacity: 0.6; }
+
+[data-theme="gnome"] .launcher-apps {
+  width: min(760px, 100%);
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(104px, 1fr));
+  gap: 12px 8px;
+}
+
+[data-theme="gnome"] .shell-app {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 4px;
+  background: none;
+  border: 0;
+  border-radius: var(--radius);
+  color: rgba(255, 255, 255, 0.9);
+  font: inherit;
+  font-size: 0.8rem;
+  cursor: pointer;
+}
+
+[data-theme="gnome"] .launcher-apps .shell-app:hover { background: rgba(255, 255, 255, 0.07); }
+
+[data-theme="gnome"] .shell-app .shell-glyph {
+  display: grid;
+  place-items: center;
+  width: 56px;
+  height: 56px;
+  background: var(--panel);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 16px;
+  color: var(--accent);
+  font-size: 1.3rem;
+  font-weight: 600;
+}
+
+[data-theme="gnome"] .shell-badge {
+  position: absolute;
+  top: 6px;
+  right: calc(50% - 36px);
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  box-sizing: border-box;
+  background: var(--status-error);
+  border-radius: 8px;
+  color: var(--font-dark);
+  font-size: 10px;
+  line-height: 16px;
+  text-align: center;
+}
+
+/* ---- док ---- */
+[data-theme="gnome"] .dock-wrap {
+  position: fixed;
+  bottom: 14px;
+  left: 50%;
+  z-index: 5000;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px;
+  transform: translateX(-50%);
+  background: rgba(30, 30, 36, 0.78);
+  -webkit-backdrop-filter: blur(20px);
+  backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 22px;
+  box-shadow: 0 10px 32px rgba(0, 0, 0, 0.4);
+}
+
+[data-theme="gnome"] .dock { display: flex; align-items: center; gap: 6px; }
+[data-theme="gnome"] .dock:empty { display: none; }
+
+[data-theme="gnome"] .dock .shell-app { padding: 0 0 8px; border-radius: 14px; }
+[data-theme="gnome"] .dock .shell-app .shell-label { display: none; }
+[data-theme="gnome"] .dock .shell-app .shell-glyph { width: 46px; height: 46px; }
+[data-theme="gnome"] .dock .shell-app:hover .shell-glyph { background: color-mix(in srgb, var(--accent) 22%, var(--panel)); color: var(--font-light); }
+[data-theme="gnome"] .dock .shell-badge { right: -2px; top: -2px; }
+
+/* точка под запущенным приложением */
+[data-theme="gnome"] .dock .shell-app.is-open::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  bottom: 1px;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--accent);
+  transform: translateX(-50%);
+}
+
+[data-theme="gnome"] .dock-grid {
+  display: grid;
+  place-items: center;
+  width: 46px;
+  height: 46px;
+  padding: 0;
+  background: none;
+  border: 0;
+  border-left: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 0 14px 14px 0;
+  cursor: pointer;
+}
+
+[data-theme="gnome"] .dock:empty + .dock-grid { border-left: 0; }
+
+[data-theme="gnome"] .dock-grid span {
+  width: 22px;
+  height: 22px;
+  background: radial-gradient(circle, #fff 2.2px, transparent 2.6px) 0 0 / 7.33px 7.33px;
+  opacity: 0.85;
+}
+
+[data-theme="gnome"] .dock-grid:hover span,
+[data-theme="gnome"] .dock-grid[aria-expanded="true"] span { opacity: 1; }

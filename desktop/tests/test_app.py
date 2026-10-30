@@ -38,6 +38,22 @@ class DesktopTests(TestCase):
         self.client.force_login(other)
         self.assertContains(self.page(), f'data-layout-key="u{other.pk}-m{self.main.pk}"')
 
+    def test_every_style_has_a_shell_with_the_elements_the_desktop_needs(self):
+        from machines.models import SystemType
+        from machines.world import styles
+
+        self.client.force_login(self.user)
+        for slug in styles.STYLES:
+            SystemType.objects.filter(code=self.main.system).update(style=slug)
+            html = self.page().content.decode()
+            for element in ('id="taskbar"', 'id="clock"', 'id="date"', 'id="ping-value"', 'id="desktop"', 'id="icons"', "ivan@aether-main"):
+                self.assertIn(element, html, f"{slug}: {element}")
+            self.assertIn(f'data-theme="{slug}"', html)
+            self.assertEqual('data-shell="launcher-panel"' in html, styles.STYLES[slug].shell, slug)
+            self.assertEqual('id="session-menu-button"' in html, slug in ("aether", "gnome"), slug)
+            self.assertEqual("data-action=\"disconnect\"" in html, True, slug)
+
+
     def test_player_menu_has_sessions_reset_and_disconnect(self):
         self.client.force_login(self.user)
         response = self.page()

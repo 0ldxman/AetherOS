@@ -1,5 +1,5 @@
 {% extends "ui/base.html" %}
-{% load static %}
+{% load static os_style %}
 
 {% block title %}Aether OS{% endblock %}
 
@@ -9,40 +9,7 @@
 {% endblock %}
 
 {% block body %}
-    <header id="taskbar">
-        <div class="connection">
-            <span>conn: </span>
-            <button
-                type="button"
-                id="session-menu-button"
-                class="session-button"
-                aria-haspopup="menu"
-                aria-expanded="false"
-                aria-controls="session-menu"
-            >
-                <span id="machine-name">{{ login }}@{{ machine_name }}</span>
-                <span class="session-caret" aria-hidden="true">▾</span>
-            </button>
-            <ul id="session-menu" class="session-menu" role="menu" hidden>
-                {% if can_sessions %}
-                <li role="none">
-                    <button type="button" role="menuitem" data-action="sessions" data-url="{{ sessions_url }}">sessions.mon</button>
-                </li>
-                {% endif %}
-                <li role="none">
-                    <button type="button" role="menuitem" data-action="reset-layout">reset layout</button>
-                </li>
-                <li role="none">
-                    <button type="button" role="menuitem" data-action="disconnect" data-logout-url="{{ logout_url }}" data-lock-url="{{ lock_url }}">disconnect</button>
-                </li>
-            </ul>
-        </div>
-        <div class="ping">
-                <span class="ping-dot"></span>
-                <span id="ping-value">42</span>
-                <span id="ping-unit">ms</span>
-        </div>
-    </header>
+    {% os_shell as shell %}{% include shell %}
     <main id="desktop" data-layout-key="{{ layout_key }}"{% if tunnel %} data-tunnel-label="{{ tunnel.label }}" data-tunnel-url="{{ tunnel.url }}" data-tunnel-close-url="{{ tunnel.close_url }}"{% endif %} data-mail-url="{{ mail_url }}" data-mail-pulse-url="{{ mail_pulse_url }}">
         <ul id="icons">
             {% for app in apps %}
@@ -71,10 +38,6 @@
             {% endfor %}
         </ul>
     </main>
-    <div id="clock-plate"> 
-        <span id='clock'></span>
-        <span id="date"></span>
-    </div>
 {% endblock %}
 
 {% block js %}
@@ -83,4 +46,5 @@
     {{ limit|json_script:"desktop-limit" }}
     <script src="{% static 'desktop/winbox/winbox.min.js' %}"></script>
     <script src="{% static 'desktop/desktop.js' %}"></script>
+    <script src="{% static 'desktop/shell.js' %}"></script>
 {% endblock %}

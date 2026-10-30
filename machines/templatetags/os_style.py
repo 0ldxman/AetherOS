@@ -56,6 +56,14 @@ def os_theme(context):
 
 
 @register.simple_tag(takes_context=True)
+def os_shell(context):
+    """Шаблон оболочки рабочего стола (панель, меню, док) для стиля ОС машины игрока."""
+    request = context.get("request")
+    slug = _state(request)[0] if request is not None else styles.DEFAULT_STYLE
+    return f"desktop/shells/{slug if styles.STYLES[slug].shell else styles.DEFAULT_STYLE}.html"
+
+
+@register.simple_tag(takes_context=True)
 def os_tokens(context):
     request = context.get("request")
     block = styles.css(_state(request)[1]) if request is not None else ""

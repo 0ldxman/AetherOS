@@ -229,16 +229,23 @@ function saveOpenWindows() {
   );
 }
 
+// Оболочка (shell.js) перерисовывает список окон и док по этому событию.
+function announceWindows() {
+  document.dispatchEvent(new CustomEvent("desktop:windows"));
+}
+
 function noteFocus(id) {
   focusOrder = focusOrder.filter((other) => other !== id);
   focusOrder.push(id);
   saveOpenWindows();
+  announceWindows();
 }
 
 function noteClosed(id) {
   focusOrder = focusOrder.filter((other) => other !== id);
   delete openMeta[id];
   saveOpenWindows();
+  announceWindows();
 }
 
 function makeDraggable(el, handle, ignore, onDrop) {
@@ -451,6 +458,9 @@ function openApp(id, label, url, options = {}) {
     },
 
     onfocus: () => noteFocus(id),
+    onblur: announceWindows,
+    onminimize: announceWindows,
+    onrestore: announceWindows,
 
     onclose: () => {
       if (win && win._minObserver) win._minObserver.disconnect();
@@ -668,6 +678,7 @@ function setMailBadge(count) {
 
   if (!count) {
     if (badge) badge.remove();
+    announceWindows();
     return;
   }
 
@@ -677,6 +688,7 @@ function setMailBadge(count) {
   }
 
   badge.textContent = count > 9 ? "9+" : String(count);
+  announceWindows();
 }
 
 async function pollMail() {
@@ -1024,9 +1036,11 @@ restoreOpenWindows();
 const menuButton = document.getElementById("session-menu-button");
 const menu = document.getElementById("session-menu");
 
+// В некоторых оболочках меню подключения нет (его действия лежат в меню лаунчера): тогда элементов может не быть.
 function setMenu(open) {
+  if (!menu) return;
   menu.hidden = !open;
-  menuButton.setAttribute("aria-expanded", open ? "true" : "false");
+  if (menuButton) menuButton.setAttribute("aria-expanded", open ? "true" : "false");
 }
 
 function getCookie(name) {
@@ -1074,16 +1088,20 @@ async function disconnect(button) {
   }
 }
 
-menuButton.addEventListener("click", () => {
-  setMenu(menu.hidden);
-});
+if (menuButton && menu) {
+  menuButton.addEventListener("click", () => {
+    setMenu(menu.hidden);
+  });
+}
 
-menu.addEventListener("click", (event) => {
-  const button = event.target.closest("button[data-action]");
+// Действия сессии (sessions, reset layout, disconnect) лежат в любом блоке с data-actions: в меню подключения или в меню лаунчера.
+document.addEventListener("click", (event) => {
+  const button = event.target.closest("[data-actions] button[data-action]");
 
   if (!button) return;
 
   setMenu(false);
+  document.dispatchEvent(new CustomEvent("shell:close"));
 
   if (button.dataset.action === "sessions") {
     openSessions(button);
@@ -1098,15 +1116,15 @@ menu.addEventListener("click", (event) => {
 });
 
 document.addEventListener("pointerdown", (event) => {
-  if (!menu.hidden && !menu.contains(event.target) && !menuButton.contains(event.target)) {
+  if (menu && !menu.hidden && !menu.contains(event.target) && !(menuButton && menuButton.contains(event.target))) {
     setMenu(false);
   }
 });
 
 document.addEventListener("keydown", (event) => {
-  if (event.key === "Escape" && !menu.hidden) {
+  if (event.key === "Escape" && menu && !menu.hidden) {
     setMenu(false);
-    menuButton.focus();
+    if (menuButton) menuButton.focus();
   }
 });
 

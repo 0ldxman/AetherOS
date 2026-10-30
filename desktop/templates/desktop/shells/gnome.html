@@ -1,0 +1,45 @@
+{% comment %}
+  Оболочка стиля gnome: верхняя панель («Overview», часы по центру, связь и меню сессии справа), режим обзора
+  (поиск, открытые окна, приложения) и док снизу с отметкой запущенных. Иконок на столе нет: приложения берутся
+  с них же, но стиль их прячет. Ожидает от desktop.js элементы #taskbar, #clock, #date, #ping-value, меню сессии;
+  обзор и док оживляет shell.js по атрибутам data-shell.
+{% endcomment %}
+    <header id="taskbar">
+        <button type="button" class="activities" data-shell="launcher" aria-haspopup="dialog" aria-expanded="false" aria-controls="launcher">Overview</button>
+        <div class="status">
+            <div class="ping">
+                <span class="ping-dot"></span>
+                <span id="ping-value">42</span>
+                <span id="ping-unit">ms</span>
+            </div>
+            <div class="connection">
+                <button type="button" id="session-menu-button" class="session-button" aria-haspopup="menu" aria-expanded="false" aria-controls="session-menu">
+                    <span id="machine-name">{{ login }}@{{ machine_name }}</span>
+                    <span class="session-caret" aria-hidden="true">▾</span>
+                </button>
+                <ul id="session-menu" class="session-menu" role="menu" data-actions hidden>
+                    {% if can_sessions %}
+                    <li role="none"><button type="button" role="menuitem" data-action="sessions" data-url="{{ sessions_url }}">sessions.mon</button></li>
+                    {% endif %}
+                    <li role="none"><button type="button" role="menuitem" data-action="reset-layout">reset layout</button></li>
+                    <li role="none"><button type="button" role="menuitem" data-action="disconnect" data-logout-url="{{ logout_url }}" data-lock-url="{{ lock_url }}">disconnect</button></li>
+                </ul>
+            </div>
+        </div>
+    </header>
+
+    <section id="launcher" class="launcher" data-shell="launcher-panel" aria-label="Overview" hidden>
+        <input type="search" class="launcher-search" data-shell="search" placeholder="Type to search" autocomplete="off" aria-label="Search apps">
+        <div class="overview-windows" data-shell="tasks"></div>
+        <div class="launcher-apps" data-shell="apps"></div>
+    </section>
+
+    <div class="dock-wrap">
+        <nav id="dock" class="dock" data-shell="apps" data-dock aria-label="Applications"></nav>
+        <button type="button" class="dock-grid" data-shell="launcher" aria-label="Show all apps" aria-expanded="false" aria-controls="launcher"><span aria-hidden="true"></span></button>
+    </div>
+
+    <div id="clock-plate">
+        <span id="clock"></span>
+        <span id="date"></span>
+    </div>

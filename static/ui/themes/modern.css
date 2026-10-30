@@ -49,21 +49,6 @@
 
 [data-theme="modern"] .ping { margin-right: 96px; }
 
-/* кнопка «Пуск»: логотип окон и имя машины; «conn:» и стрелка не нужны */
-[data-theme="modern"] .connection > span:first-child,
-[data-theme="modern"] .session-caret { display: none; }
-
-[data-theme="modern"] .session-button { gap: 10px; padding: 6px 14px 6px 10px; font-weight: 600; }
-
-[data-theme="modern"] .session-button::before {
-  content: "";
-  width: 18px;
-  height: 18px;
-  background: var(--accent);
-  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M2 2h9v9H2zM13 2h9v9h-9zM2 13h9v9H2zM13 13h9v9h-9z'/%3E%3C/svg%3E") center / contain no-repeat;
-  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M2 2h9v9H2zM13 2h9v9h-9zM2 13h9v9H2zM13 13h9v9h-9z'/%3E%3C/svg%3E") center / contain no-repeat;
-}
-
 /* вместо пинга значок проводного соединения (цвет по состоянию связи); число видно при наведении */
 [data-theme="modern"] .ping-dot {
   width: 24px;
@@ -256,3 +241,199 @@
   border-left-width: 3px;
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
 }
+
+/* ---- «Пуск» и список окон (разметка desktop/shells/modern.html) ---- */
+[data-theme="modern"] .start-button {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 36px;
+  padding: 0;
+  background: none;
+  border: 0;
+  border-radius: var(--radius);
+  cursor: pointer;
+}
+
+[data-theme="modern"] .start-button:hover,
+[data-theme="modern"] .start-button[aria-expanded="true"] { background: color-mix(in srgb, var(--fg) 14%, transparent); }
+
+[data-theme="modern"] .start-logo {
+  width: 20px;
+  height: 20px;
+  background: var(--accent);
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M2 2h9v9H2zM13 2h9v9h-9zM2 13h9v9H2zM13 13h9v9h-9z'/%3E%3C/svg%3E") center / contain no-repeat;
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M2 2h9v9H2zM13 2h9v9h-9zM2 13h9v9H2zM13 13h9v9h-9z'/%3E%3C/svg%3E") center / contain no-repeat;
+}
+
+[data-theme="modern"] .tasks {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+  margin: 0 8px;
+}
+
+[data-theme="modern"] .shell-task {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  max-width: 170px;
+  height: 36px;
+  padding: 0 12px;
+  background: color-mix(in srgb, var(--fg) 6%, transparent);
+  border: 0;
+  border-radius: var(--radius);
+  color: var(--fg);
+  font: inherit;
+  font-size: 0.8rem;
+  cursor: pointer;
+}
+
+[data-theme="modern"] .shell-task:hover { background: color-mix(in srgb, var(--fg) 14%, transparent); }
+[data-theme="modern"] .shell-task.is-active { background: color-mix(in srgb, var(--fg) 16%, transparent); color: var(--font-light); }
+[data-theme="modern"] .shell-task.is-min { opacity: 0.6; }
+
+/* полоска под окном: у активного длинная, у остальных короткая */
+[data-theme="modern"] .shell-task::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  bottom: 2px;
+  width: 8px;
+  height: 3px;
+  border-radius: 2px;
+  background: var(--font-muted);
+  transform: translateX(-50%);
+}
+
+[data-theme="modern"] .shell-task.is-active::after { width: 18px; background: var(--accent); }
+
+[data-theme="modern"] .shell-task .shell-glyph { color: var(--accent); }
+[data-theme="modern"] .shell-task .shell-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* ---- меню «Пуск» ---- */
+[data-theme="modern"] .launcher[hidden] { display: none; }
+
+[data-theme="modern"] .launcher {
+  position: fixed;
+  left: 12px;
+  bottom: 56px;
+  z-index: 1001;
+  width: 400px;
+  max-height: min(560px, calc(100vh - 80px));
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px;
+  box-sizing: border-box;
+  background: color-mix(in srgb, var(--panel) 94%, transparent);
+  -webkit-backdrop-filter: blur(24px);
+  backdrop-filter: blur(24px);
+  border: 1px solid var(--line);
+  border-radius: calc(var(--radius) + 6px);
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.5);
+}
+
+[data-theme="modern"] .launcher-search {
+  height: 36px;
+  padding: 0 14px;
+  box-sizing: border-box;
+  background: var(--bg);
+  border: 1px solid var(--line-bright);
+  border-radius: 18px;
+  color: var(--fg);
+  font: inherit;
+  font-size: 0.85rem;
+  outline: none;
+}
+
+[data-theme="modern"] .launcher-search:focus { border-color: var(--accent); }
+
+[data-theme="modern"] .launcher-title { margin: 4px 4px 0; color: var(--font-light); font-size: 0.85rem; font-weight: 600; }
+
+[data-theme="modern"] .launcher-apps {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 4px;
+  overflow-y: auto;
+}
+
+[data-theme="modern"] .shell-app {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 4px;
+  background: none;
+  border: 0;
+  border-radius: var(--radius);
+  color: var(--fg);
+  font: inherit;
+  font-size: 0.75rem;
+  cursor: pointer;
+}
+
+[data-theme="modern"] .shell-app:hover { background: color-mix(in srgb, var(--fg) 10%, transparent); }
+
+[data-theme="modern"] .shell-app .shell-glyph {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  background: var(--panel);
+  border: 1px solid var(--line-bright);
+  border-radius: calc(var(--radius) + 2px);
+  color: var(--font-light);
+  font-size: 1.1rem;
+}
+
+[data-theme="modern"] .shell-app .shell-label { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+[data-theme="modern"] .shell-badge {
+  position: absolute;
+  top: 6px;
+  right: 14px;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  box-sizing: border-box;
+  background: var(--status-error);
+  border-radius: 8px;
+  color: var(--font-dark);
+  font-size: 10px;
+  line-height: 16px;
+  text-align: center;
+}
+
+[data-theme="modern"] .launcher-foot {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin: 4px -16px -16px;
+  padding: 10px 16px;
+  background: color-mix(in srgb, var(--bg) 60%, transparent);
+  border-top: 1px solid var(--line);
+  border-radius: 0 0 calc(var(--radius) + 6px) calc(var(--radius) + 6px);
+}
+
+[data-theme="modern"] .launcher-user { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--font-light); font-size: 0.8rem; font-weight: 600; }
+
+[data-theme="modern"] .launcher-foot button {
+  flex: none;
+  white-space: nowrap;
+  padding: 6px 10px;
+  background: none;
+  border: 0;
+  border-radius: calc(var(--radius) - 2px);
+  color: var(--fg);
+  font: inherit;
+  font-size: 0.75rem;
+  cursor: pointer;
+}
+
+[data-theme="modern"] .launcher-foot button:hover { background: color-mix(in srgb, var(--fg) 14%, transparent); }
+[data-theme="modern"] .launcher-foot button[data-action="disconnect"] { color: var(--accent-error); }
