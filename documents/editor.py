@@ -84,10 +84,11 @@ def _lint_fields(data):
     return result
 
 
-def render_preview(format_name, title, body, meta, keys):
+def render_preview(format_name, title, body, meta, keys, only=""):
     """Страницы документа и врезки для предпросмотра (не сохранённый текст) и проблемы разметки.
 
-    Формат с разметкой рисуется парсером, остальные показываются текстом как есть. Общая для админки и студии."""
+    Формат с разметкой рисуется парсером, остальные показываются текстом как есть. Общая для админки и студии.
+    only="body" или "infobox" рисует только эту страницу (вторая приходит пустой): студии нужна открытая вкладка."""
     from django.utils.html import escape
 
     from documents.kinds import doc_type
@@ -95,14 +96,18 @@ def render_preview(format_name, title, body, meta, keys):
 
     found = FileFormat.objects.filter(name=format_name).first()
     doc = SimpleNamespace(title=title[:MAX_TITLE_LEN], type=doc_type(found.name) if found else "doc", pk="")
-    if found is not None and found.markup:
-        body_html = mark_safe(markup.render(body, keys, "body"))
-    else:
-        body_html = mark_safe(f"<pre style=\"white-space:pre-wrap;font:13px/1.5 monospace\">{escape(body)}</pre>")
-    infobox_html = mark_safe(markup.render(meta, keys, "infobox"))
+    page, infobox = "", ""
+    if only != "infobox":
+        if found is not None and found.markup:
+            body_html = mark_safe(markup.render(body, keys, "body"))
+        else:
+            body_html = mark_safe(f"<pre style=\"white-space:pre-wrap;font:13px/1.5 monospace\">{escape(body)}</pre>")
+        page = render_to_string("documents/document.html", {"doc": doc, "body_html": body_html})
+    if only != "body":
+        infobox = render_to_string("documents/infobox.html", {"doc": doc, "infobox_html": mark_safe(markup.render(meta, keys, "infobox"))})
     return {
-        "body": render_to_string("documents/document.html", {"doc": doc, "body_html": body_html}),
-        "infobox": render_to_string("documents/infobox.html", {"doc": doc, "infobox_html": infobox_html}),
+        "body": page,
+        "infobox": infobox,
         "issues": _lint_fields({"body": body, "infobox": meta}),
     }
 

@@ -2011,6 +2011,11 @@ export interface components {
              *     }
              */
             keys: components["schemas"]["KeysSpec"];
+            /**
+             * Only
+             * @default
+             */
+            only: string;
         };
         /** InArchive */
         InArchive: {

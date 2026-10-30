@@ -171,6 +171,7 @@ class PreviewIn(Schema):
     body: str = ""
     meta: str = ""
     keys: KeysSpec = KeysSpec()
+    only: str = ""               # body | infobox: рисовать только открытую страницу
 
 
 class Issue(Schema):
@@ -350,7 +351,7 @@ def revisions(request, item_id: int):
 @router.post("/preview", response=PreviewOut)
 def preview(request, body: PreviewIn):
     keys = keys_for_mode(body.keys.mode, body.keys.slugs[:MAX_KEYS])
-    return render_preview(body.format, body.title[:MAX_TITLE_LEN], body.body, body.meta, keys)
+    return render_preview(body.format, body.title[:MAX_TITLE_LEN], body.body, body.meta, keys, body.only)
 
 
 @router.get("/{int:item_id}/where", response=Whereabouts)

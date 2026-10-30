@@ -81,6 +81,14 @@ class ItemsApiTests(TestCase):
         custom.refresh_from_db()
         self.assertEqual((place.name, custom.name), ("memo" + FileFormat.objects.get(name="doc").extension, "mine.txt"))
 
+    def test_the_preview_draws_only_the_asked_page(self):
+        both = self.call("post", "/items/preview", {"format": "doc", "title": "t", "body": "text", "meta": "info"})[1]
+        self.assertTrue(both["body"] and both["infobox"])
+        only = self.call("post", "/items/preview", {"format": "doc", "title": "t", "body": "text", "meta": "info", "only": "infobox"})[1]
+        self.assertEqual((only["body"], bool(only["infobox"])), ("", True))
+        only = self.call("post", "/items/preview", {"format": "doc", "title": "t", "body": "text", "meta": "info", "only": "body"})[1]
+        self.assertEqual((bool(only["body"]), only["infobox"]), (True, ""))
+
     def test_an_item_is_put_in_one_more_place(self):
         data = self.call("post", f"/items/{self.lonely.pk}/placements", {"volume": self.harbor.pk, "parent": self.ports.pk})[1]
         self.assertEqual([p["path"] for p in data["placements"]], ["ports/lonely.txt"])

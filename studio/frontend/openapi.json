@@ -6073,6 +6073,11 @@
        "mode": "all",
        "slugs": []
       }
+     },
+     "only": {
+      "default": "",
+      "title": "Only",
+      "type": "string"
      }
     },
     "title": "PreviewIn",
