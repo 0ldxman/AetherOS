@@ -9,6 +9,7 @@ from django.core.exceptions import ValidationError
 from django.db import transaction
 from django.db.models import Count
 from django.shortcuts import get_object_or_404
+from django.urls import reverse
 from ninja import Router, Schema
 
 from machines.access import groups
@@ -169,6 +170,7 @@ class SystemOut(Schema):
     styles: list[StyleChoice]
     token_info: list[TokenInfo]
     style_defaults: dict[str, dict[str, str]]
+    preview_url: str
     fonts: list[FontChoice]
     scenes: list[SlotRow]
     scene_library: list[SceneChoice]
@@ -235,6 +237,7 @@ def _out(system):
         blackouts=_blackouts(system),
         style=system.style, style_tokens={name: str(value) for name, value in (system.style_tokens or {}).items()},
         styles=[StyleChoice(slug=slug, label=item.label, description=item.description) for slug, item in styles.STYLES.items()],
+        preview_url=reverse("studio_style_preview", kwargs={"code": system.code}),
         style_defaults={slug: {t.name: styles.style_defaults(slug).get(t.name, "") for t in styles.TOKENS} for slug in styles.STYLES},
         token_info=[TokenInfo(name=t.name, label=t.label, group=t.group, kind=t.kind, default=styles.defaults().get(t.name, "")) for t in styles.TOKENS],
         fonts=[FontChoice(value=value, label=label) for value, label in styles.fonts().items()],

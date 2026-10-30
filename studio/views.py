@@ -6,7 +6,8 @@ import json
 from pathlib import Path
 
 from django.contrib.admin.views.decorators import staff_member_required
-from django.shortcuts import render
+from django.shortcuts import get_object_or_404, render
+from django.urls import reverse
 from django.views.decorators.csrf import ensure_csrf_cookie
 
 BUILD = Path(__file__).resolve().parent / "static" / "studio" / "app"
@@ -33,3 +34,38 @@ def shell(request):
         "script": found[0] if found else None,
         "styles": found[1] if found else [],
     })
+
+
+PREVIEW_APPS = (("mail", "Mail", "✉"), ("wiki", "Wiki", "W"), ("terminal", "Terminal", ">_"), ("map", "Map", "◎"), ("files", "Files", "▤"))
+
+
+@staff_member_required
+def style_preview(request, code):
+    """Рабочий стол ОС для предпросмотра стиля в студии: настоящая страница стола с тестовыми приложениями и окнами-образцами.
+
+    Какой стиль и какие токены показывать, говорят параметры preview_os, preview_style и preview_tokens (читает os_style)."""
+    import secrets
+
+    from desktop.messages import catalog
+    from machines.models import SystemType
+
+    system = get_object_or_404(SystemType, code=code.upper())
+    query = request.GET.urlencode()
+    suffix = f"?{query}" if query else ""
+    apps = [{"id": index, "label": label, "glyph": glyph, "suffix": "", "url": reverse("studio_preview_page", kwargs={"kind": kind}) + suffix}
+            for index, (kind, label, glyph) in enumerate(PREVIEW_APPS)]
+    return render(request, "desktop/desktop.html", {
+        "preview": True, "tunnel": None, "limit": None, "kicks": [], "mail_url": "", "mail_pulse_url": "",
+        "machine_name": "preview", "os_name": system.name, "login": "operator",
+        "terminal_url": reverse("studio_preview_page", kwargs={"kind": "terminal"}),
+        "layout_key": f"studio-preview-{secrets.token_hex(3)}",
+        "apps": apps, "files": [], "can_sessions": True, "sessions_url": "#", "logout_url": "#", "lock_url": "#",
+        "system_messages": catalog(system.code),
+    })
+
+
+@staff_member_required
+def preview_page(request, kind):
+    """Страница-образец внутри окна предпросмотра: показывает, как токены стиля ложатся на обычное содержимое."""
+    titles = {key: label for key, label, _ in PREVIEW_APPS}
+    return render(request, "studio/preview_page.html", {"kind": kind, "title": titles.get(kind, "Page")})

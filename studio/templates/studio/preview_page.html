@@ -1,0 +1,57 @@
+{% extends "ui/base.html" %}
+{% comment %}
+  Страница-образец для предпросмотра стиля в студии: лежит в окне предпросмотра рабочего стола и показывает, как токены
+  стиля ложатся на обычное содержимое (заголовки, карточки, таблица, кнопки, терминал).
+{% endcomment %}
+{% block title %}{{ title }}{% endblock %}
+
+{% block css %}
+<style>
+  html, body { margin: 0; background: var(--bg); color: var(--fg); font-family: var(--font-main); font-size: var(--fs-small); }
+  main { padding: 14px 16px; }
+  h1 { margin: 0 0 10px; color: var(--font-light); font-size: var(--fs-midbig); }
+  .card { margin-bottom: 10px; padding: 10px 12px; background: var(--panel); border: var(--border-w) solid var(--line); border-radius: var(--radius); }
+  .muted { color: var(--font-muted); }
+  .soft { color: var(--font-soft); }
+  table { width: 100%; border-collapse: collapse; }
+  td, th { padding: 4px 8px; border-bottom: 1px solid var(--line); text-align: left; }
+  th { color: var(--font-soft); font-weight: 400; }
+  tr:hover td { background: var(--row-hover); }
+  .actions { display: flex; gap: 8px; margin-top: 10px; }
+  .btn { padding: 4px 12px; background: var(--accent); border: 0; border-radius: var(--radius); color: var(--font-dark); font: inherit; }
+  .btn.ghost { background: none; border: var(--border-w) solid var(--line-bright); color: var(--fg); }
+  .tag { padding: 0 6px; border-radius: var(--radius); font-size: var(--fs-smaller); color: var(--font-dark); }
+  .ok { background: var(--status-ok); } .warn { background: var(--status-warn); } .err { background: var(--status-error); }
+  pre.term { margin: 0; padding: 12px 14px; min-height: 100%; background: var(--bg-sunken); color: var(--term-fg); font-family: var(--font-console); font-size: var(--fs-console); line-height: var(--lh-console); }
+  .dim { color: var(--term-dim); } .tok { color: var(--term-ok); } .twarn { color: var(--term-warn); } .terr { color: var(--term-error); } .tinfo { color: var(--term-info); }
+</style>
+{% endblock %}
+
+{% block body %}
+{% if kind == "terminal" %}
+<pre class="term"><span class="dim">aether-main login: </span>operator
+<span class="tok">[ ok ]</span> session opened
+<span class="tinfo">[info]</span> 3 unread messages
+<span class="twarn">[warn]</span> link degraded (180 ms)
+<span class="terr">[fail]</span> /etc/shadow: access denied
+<span class="dim">operator@aether-main</span>:~$ <span>ls</span>
+</pre>
+{% else %}
+<main>
+  <h1>{{ title }}</h1>
+  <div class="card">
+    <div class="soft">Короткая сводка</div>
+    <div>Основной текст страницы и <span class="muted">приглушённая подпись</span>.</div>
+    <div class="actions"><button class="btn">Подтвердить</button><button class="btn ghost">Отмена</button></div>
+  </div>
+  <div class="card">
+    <table>
+      <tr><th>Объект</th><th>Состояние</th></tr>
+      <tr><td>node-01</td><td><span class="tag ok">ok</span></td></tr>
+      <tr><td>node-02</td><td><span class="tag warn">warn</span></td></tr>
+      <tr><td>node-03</td><td><span class="tag err">fail</span></td></tr>
+    </table>
+  </div>
+</main>
+{% endif %}
+{% endblock %}

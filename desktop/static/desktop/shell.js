@@ -443,6 +443,18 @@
     setNotices(false);
   });
 
+  // предпросмотр стиля в студии (data-preview): сразу показывает пару окон, уведомление и окно ошибки
+  if (desktop.dataset.preview) {
+    const named = (name) => all("#icons .icon").find((item) => item.querySelector(".icon-label").textContent.trim() === name);
+
+    ["Wiki", "Terminal"].forEach((name) => {
+      const icon = named(name);
+      if (icon) openApp(icon.dataset.app, name, icon.dataset.url);
+    });
+    showToast({ kind: "info", title: "New message", text: "operator: re: node-02" }, {});
+    showDialog({ kind: "error", code: "AE-0403", title: "Access denied", text: "/etc/shadow is sealed. No matching key." }, {});
+  }
+
   render();
   renderNotices();
   updateWidgets();

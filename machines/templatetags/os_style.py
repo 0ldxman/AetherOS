@@ -2,6 +2,8 @@
 
 ОС берётся у машины, на рабочем столе которой игрок сейчас; без сессии (вход, загрузка) у входного узла. Сотрудник студии может
 посмотреть чужой стиль: ?preview_os=КОД. Подключается только базовым шаблоном ui/base.html, поэтому админка и студия стиль не получают."""
+import json
+
 from django import template
 from django.db.models import Subquery
 from django.templatetags.static import static
@@ -36,8 +38,25 @@ def _state(request):
             system = machine.system_type
         else:                                                           # один запрос: ОС входного узла
             system = SystemType.objects.filter(code=Subquery(Machine.objects.filter(hostname=MAIN_HOSTNAME).values("system")[:1])).first()
-    found = request._os_style = (system.style, system.style_tokens) if system is not None and system.style in styles.STYLES else (styles.DEFAULT_STYLE, {})
+    found = (system.style, system.style_tokens) if system is not None and system.style in styles.STYLES else (styles.DEFAULT_STYLE, {})
+    if user is not None and user.is_authenticated and user.is_staff:          # предпросмотр несохранённого стиля в студии
+        found = _preview(request) or found
+    request._os_style = found
     return found
+
+
+def _preview(request):
+    """(слаг, токены) из preview_style и preview_tokens запроса сотрудника или None; невалидные токены отбрасываются."""
+    slug = request.GET.get("preview_style")
+    if slug not in styles.STYLES:
+        return None
+    try:
+        tokens = json.loads(request.GET.get("preview_tokens") or "{}")
+    except ValueError:
+        tokens = {}
+    if not isinstance(tokens, dict) or styles.problems(slug, tokens):
+        tokens = {}
+    return slug, tokens
 
 
 @register.simple_tag(takes_context=True)

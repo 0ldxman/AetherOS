@@ -10,7 +10,7 @@
 
 {% block body %}
     {% os_shell as shell %}{% include shell %}
-    <main id="desktop" data-layout-key="{{ layout_key }}"{% if tunnel %} data-tunnel-label="{{ tunnel.label }}" data-tunnel-url="{{ tunnel.url }}" data-tunnel-close-url="{{ tunnel.close_url }}"{% endif %} data-terminal-url="{{ terminal_url }}" data-mail-url="{{ mail_url }}" data-mail-pulse-url="{{ mail_pulse_url }}">
+    <main id="desktop" data-layout-key="{{ layout_key }}"{% if tunnel %} data-tunnel-label="{{ tunnel.label }}" data-tunnel-url="{{ tunnel.url }}" data-tunnel-close-url="{{ tunnel.close_url }}"{% endif %} data-terminal-url="{{ terminal_url }}"{% if preview %} data-preview="1"{% endif %} data-mail-url="{{ mail_url }}" data-mail-pulse-url="{{ mail_pulse_url }}">
         <ul id="icons">
             {% for app in apps %}
             <li>

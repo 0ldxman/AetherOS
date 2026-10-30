@@ -9144,6 +9144,10 @@
       "title": "Style Defaults",
       "type": "object"
      },
+     "preview_url": {
+      "title": "Preview Url",
+      "type": "string"
+     },
      "fonts": {
       "items": {
        "$ref": "#/components/schemas/FontChoice"
@@ -9251,6 +9255,7 @@
      "styles",
      "token_info",
      "style_defaults",
+     "preview_url",
      "fonts",
      "scenes",
      "scene_library",

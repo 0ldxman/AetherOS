@@ -120,6 +120,21 @@
     look.tokens = value.trim() ? { ...look.tokens, [name]: value } : Object.fromEntries(Object.entries(look.tokens).filter(([key]) => key !== name));
   }
 
+  // предпросмотр: настоящий рабочий стол в рамке, адрес с несохранёнными стилем и токенами; перезагружается с паузой, чтобы не мигать
+  let previewSrc = $state("");
+  let previewWidth = $state(0);
+  let deskTimer: ReturnType<typeof setTimeout>;
+  const PREVIEW_W = 1100;
+  const PREVIEW_H = 640;
+
+  $effect(() => {
+    if (!system || tab !== "style") return;
+    const url = `${system.preview_url}?preview_os=${encodeURIComponent(system.code)}&preview_style=${encodeURIComponent(look.style)}&preview_tokens=${encodeURIComponent(JSON.stringify(look.tokens))}`;
+    clearTimeout(deskTimer);
+    deskTimer = setTimeout(() => (previewSrc = url), 350);
+    return () => clearTimeout(deskTimer);
+  });
+
   // значения токенов у выбранного (а не сохранённого) стиля: у каждого стиля свои
   const styleDefaults = $derived(system?.style_defaults[look.style] ?? {});
   const def = (token: Schemas["TokenInfo"]) => styleDefaults[token.name] ?? token.default;
@@ -384,6 +399,8 @@
           {/each}
         </div>
       {:else if tab === "style"}
+        <div class="stylegrid">
+        <div class="stylemain">
         <div class="block">
           <h3>Стиль рабочего стола и окон <a class="more" href={desktopUrl} target="_blank" rel="noopener">посмотреть на рабочем столе →</a></h3>
           <p class="muted small">Стиль задаёт раскладку и вид элементов: панель, окна, кнопки, иконки. Стили готовятся в коде, здесь выбирается один из них. Токены ниже переназначают цвета, шрифты и форму поверх выбранного стиля.</p>
@@ -428,6 +445,19 @@
         {/each}
         {#if errors.style}{#each errors.style as text}<p class="warn small">{text}</p>{/each}{/if}
         <div><button class="btn primary" disabled={!lookDirty} onclick={saveLook}>Сохранить стиль</button></div>
+        </div>
+        <aside class="stylepreview">
+          <div class="block">
+            <h3>Предпросмотр <span class="muted small">с несохранёнными изменениями</span></h3>
+            <div class="pvframe" bind:clientWidth={previewWidth} style:height="{(previewWidth * PREVIEW_H) / PREVIEW_W}px">
+              {#if previewSrc}
+                <iframe title="Предпросмотр рабочего стола" src={previewSrc} style:width="{PREVIEW_W}px" style:height="{PREVIEW_H}px" style:transform="scale({previewWidth / PREVIEW_W})"></iframe>
+              {/if}
+            </div>
+            <p class="muted small">Настоящий рабочий стол с тестовыми приложениями. Внутри можно пользоваться меню и открывать окна.</p>
+          </div>
+        </aside>
+        </div>
       {:else if tab === "screen"}
         <div class="block">
           <h3>Чёрный экран рабочего стола</h3>
@@ -642,6 +672,12 @@
   .token { display: grid; grid-template-columns: minmax(220px, 1fr) minmax(220px, 340px) max-content; gap: 12px; align-items: center; padding: 4px 0; }
   .token.own > span:first-child { color: var(--accent); }
   .tokeninput { display: flex; gap: 6px; align-items: center; }
+  .stylegrid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(360px, 560px); gap: 16px; align-items: start; }
+  .stylemain { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+  .stylepreview { position: sticky; top: 8px; }
+  .pvframe { position: relative; overflow: hidden; border: 1px solid var(--line); border-radius: var(--radius-s); background: #000; }
+  .pvframe iframe { position: absolute; top: 0; left: 0; border: 0; transform-origin: 0 0; }
+  @media (max-width: 1280px) { .stylegrid { grid-template-columns: minmax(0, 1fr); } .stylepreview { position: static; } }
   .swatch { flex: none; width: 22px; height: 22px; border: 1px solid var(--line); border-radius: var(--radius-s); background-clip: padding-box; }
   .arrow { color: var(--muted); font-size: 0.8rem; }
   .arrow.dim { opacity: 0.35; }

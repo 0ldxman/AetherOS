@@ -3177,6 +3177,8 @@ export interface components {
                     [key: string]: string;
                 };
             };
+            /** Preview Url */
+            preview_url: string;
             /** Fonts */
             fonts: components["schemas"]["FontChoice"][];
             /** Scenes */
