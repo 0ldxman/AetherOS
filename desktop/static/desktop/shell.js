@@ -11,6 +11,7 @@
      widget          виджет стола (data-widget: clock, system, mail); значения подставляются в [data-widget-field]
      notices-toggle  кнопка центра уведомлений (внутри может быть notices-count с числом непрочитанных)
      notices-panel   панель центра уведомлений (атрибут hidden), в ней notices (список) и notices-clear (очистить)
+     dtg             время в формате дата-время-группа (301405Z OCT 26), по UTC
      workspace       кнопка рабочего стола (data-space="1"…): окна привязаны к столу, чужие скрыты
      apps[data-numbered]  список приложений, в котором цифра 1…9 открывает приложение (когда фокус не в поле ввода)
      data-hotkey     любой элемент, который нажимается клавишей: «F2», «Alt+1» (событие click)
@@ -200,6 +201,7 @@
   const pageStart = Date.now();
 
   const pad = (value) => String(value).padStart(2, "0");
+  const MONTHS = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"];
 
   function field(widget, name, text) {
     const node = widget.querySelector('[data-widget-field="' + name + '"]');
@@ -208,6 +210,11 @@
 
   function updateWidgets() {
     const now = new Date();
+
+    all('[data-shell="dtg"]').forEach((node) => {
+      const text = pad(now.getUTCDate()) + pad(now.getUTCHours()) + pad(now.getUTCMinutes()) + "Z " + MONTHS[now.getUTCMonth()] + " " + pad(now.getUTCFullYear() % 100);
+      if (node.textContent !== text) node.textContent = text;
+    });
 
     widgets.forEach((widget) => {
       const kind = widget.dataset.widget;

@@ -1,43 +1,46 @@
 {% comment %}
-  Оболочка стиля classic: панель задач снизу с кнопкой «Start», кнопками окон и треем (связь, часы с центром уведомлений),
-  вертикальное меню «Start» с приложениями и действиями сессии. Ожидает от desktop.js #taskbar, #clock, #date, #ping-value;
-  меню, список окон и уведомления оживляет shell.js по атрибутам data-shell.
+  Оболочка стиля classic («военная рабочая станция» 90-х): сверху системная панель с полосой классификации, кнопкой системного
+  меню (приложения и действия сессии), связью и временем в формате DTG (клик открывает журнал сообщений); снизу рейка с
+  открытыми окнами и именем узла. Ожидает от desktop.js #taskbar, #clock, #date, #ping-value; остальное оживляет shell.js.
+  Рейка снизу резервируется атрибутом data-reserve-bottom.
 {% endcomment %}
     <header id="taskbar">
-        <button type="button" class="start-button" data-shell="launcher" aria-haspopup="menu" aria-expanded="false" aria-controls="launcher">
-            <span class="start-flag" aria-hidden="true"></span><b>Start</b>
+        <div class="classbar" role="note">RESTRICTED</div>
+        <button type="button" class="sysmenu" data-shell="launcher" aria-haspopup="menu" aria-expanded="false" aria-controls="launcher">
+            <span class="sysmenu-mark" aria-hidden="true"></span><span id="machine-name">{{ machine_name }}</span><span class="sysmenu-caret" aria-hidden="true">▾</span>
         </button>
-        <span class="taskbar-sep" aria-hidden="true"></span>
-        <div class="tasks" data-shell="tasks"></div>
-        <div class="tray">
+        <div class="status">
             <div class="ping">
                 <span class="ping-dot"></span>
+                <span class="status-label">LINK</span>
                 <span id="ping-value">42</span>
                 <span id="ping-unit">ms</span>
             </div>
-            <div id="clock-plate" data-shell="notices-toggle" role="button" tabindex="0" aria-haspopup="dialog" aria-expanded="false" aria-controls="notices-panel" title="Notifications">
-                <span class="bell-count" data-shell="notices-count" hidden>0</span>
+            <div id="clock-plate" data-shell="notices-toggle" role="button" tabindex="0" aria-haspopup="dialog" aria-expanded="false" aria-controls="notices-panel" title="Messages">
+                <span class="dtg" data-shell="dtg"></span>
                 <span id="clock"></span>
                 <span id="date"></span>
+                <span class="bell-count" data-shell="notices-count" hidden>0</span>
             </div>
         </div>
     </header>
 
-    <section id="launcher" class="launcher" data-shell="launcher-panel" aria-label="Start" hidden>
-        <div class="start-banner" aria-hidden="true"><span>Aether<b>OS</b></span></div>
-        <div class="start-body">
-            <div class="start-items" data-shell="apps"></div>
-            <hr>
-            <div class="start-actions" data-actions>
-                <div class="start-user">{{ login }}@{{ machine_name }}</div>
-                {% if can_sessions %}<button type="button" data-action="sessions" data-url="{{ sessions_url }}">sessions.mon</button>{% endif %}
-                <button type="button" data-action="reset-layout">reset layout</button>
-                <button type="button" data-action="disconnect" data-logout-url="{{ logout_url }}" data-lock-url="{{ lock_url }}">Shut Down...</button>
-            </div>
+    <section id="launcher" class="launcher" data-shell="launcher-panel" aria-label="System menu" hidden>
+        <header class="menu-head">{{ login }}@{{ machine_name }}</header>
+        <div class="menu-apps" data-shell="apps"></div>
+        <div class="menu-actions" data-actions>
+            {% if can_sessions %}<button type="button" data-action="sessions" data-url="{{ sessions_url }}">sessions.mon</button>{% endif %}
+            <button type="button" data-action="reset-layout">reset layout</button>
+            <button type="button" data-action="disconnect" data-logout-url="{{ logout_url }}" data-lock-url="{{ lock_url }}">LOG OFF</button>
         </div>
     </section>
 
-    <section id="notices-panel" class="notices-panel" data-shell="notices-panel" aria-label="Notifications" hidden>
-        <header class="notices-head"><strong>Notifications</strong><button type="button" data-shell="notices-clear">Clear</button></header>
+    <section id="notices-panel" class="notices-panel" data-shell="notices-panel" aria-label="Messages" hidden>
+        <header class="menu-head"><span>MESSAGES</span><button type="button" data-shell="notices-clear">CLEAR</button></header>
         <div class="notices-list" data-shell="notices"></div>
     </section>
+
+    <footer class="taskrail" data-reserve-bottom>
+        <div class="tasks" data-shell="tasks"></div>
+        <span class="rail-user">{{ login }}@{{ machine_name }}</span>
+    </footer>
