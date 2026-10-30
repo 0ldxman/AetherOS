@@ -48,9 +48,7 @@
 [data-theme="gnome"] #taskbar {
   flex: 0 0 32px;
   padding: 0 6px;
-  background: rgba(15, 15, 18, 0.72);
-  -webkit-backdrop-filter: blur(18px);
-  backdrop-filter: blur(18px);
+  background: rgba(15, 15, 18, 0.84);   /* без размытия: оно сделало бы панель отдельным слоем, и меню сессии ушло бы под стол */
   color: #fff;
   font-size: 0.82rem;
   font-weight: 600;

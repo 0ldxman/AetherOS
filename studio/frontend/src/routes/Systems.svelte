@@ -121,6 +121,12 @@
   }
 
   // предпросмотр: настоящий рабочий стол в рамке, адрес с несохранёнными стилем и токенами; перезагружается с паузой, чтобы не мигать
+  const PV_KEY = "studio.styleDeskPreview";
+  let deskPreview = $state((() => { try { return localStorage.getItem(PV_KEY) !== "off"; } catch { return true; } })());
+  function toggleDeskPreview() {
+    deskPreview = !deskPreview;
+    try { localStorage.setItem(PV_KEY, deskPreview ? "on" : "off"); } catch { /* память браузера может быть закрыта */ }
+  }
   let previewSrc = $state("");
   let previewWidth = $state(0);
   let deskTimer: ReturnType<typeof setTimeout>;
@@ -128,7 +134,7 @@
   const PREVIEW_H = 640;
 
   $effect(() => {
-    if (!system || tab !== "style") return;
+    if (!system || tab !== "style" || !deskPreview) return;
     const url = `${system.preview_url}?preview_os=${encodeURIComponent(system.code)}&preview_style=${encodeURIComponent(look.style)}&preview_tokens=${encodeURIComponent(JSON.stringify(look.tokens))}`;
     clearTimeout(deskTimer);
     deskTimer = setTimeout(() => (previewSrc = url), 350);
@@ -399,10 +405,11 @@
           {/each}
         </div>
       {:else if tab === "style"}
-        <div class="stylegrid">
+        <div class="stylegrid" class:nopv={!deskPreview}>
         <div class="stylemain">
         <div class="block">
-          <h3>Стиль рабочего стола и окон <a class="more" href={desktopUrl} target="_blank" rel="noopener">посмотреть на рабочем столе →</a></h3>
+          <h3>Стиль рабочего стола и окон <a class="more" href={desktopUrl} target="_blank" rel="noopener">посмотреть на рабочем столе →</a>
+            {#if !deskPreview}<button class="btn ghost small" onclick={toggleDeskPreview}>Показать предпросмотр</button>{/if}</h3>
           <p class="muted small">Стиль задаёт раскладку и вид элементов: панель, окна, кнопки, иконки. Стили готовятся в коде, здесь выбирается один из них. Токены ниже переназначают цвета, шрифты и форму поверх выбранного стиля.</p>
           <div class="styles">
             {#each system.styles as item}
@@ -446,9 +453,10 @@
         {#if errors.style}{#each errors.style as text}<p class="warn small">{text}</p>{/each}{/if}
         <div><button class="btn primary" disabled={!lookDirty} onclick={saveLook}>Сохранить стиль</button></div>
         </div>
+        {#if deskPreview}
         <aside class="stylepreview">
           <div class="block">
-            <h3>Предпросмотр <span class="muted small">с несохранёнными изменениями</span></h3>
+            <h3>Предпросмотр <span class="muted small">с несохранёнными изменениями</span> <button class="btn ghost small hidepv" onclick={toggleDeskPreview}>Скрыть</button></h3>
             <div class="pvframe" bind:clientWidth={previewWidth} style:height="{(previewWidth * PREVIEW_H) / PREVIEW_W}px">
               {#if previewSrc}
                 <iframe title="Предпросмотр рабочего стола" src={previewSrc} style:width="{PREVIEW_W}px" style:height="{PREVIEW_H}px" style:transform="scale({previewWidth / PREVIEW_W})"></iframe>
@@ -457,6 +465,7 @@
             <p class="muted small">Настоящий рабочий стол с тестовыми приложениями. Внутри можно пользоваться меню и открывать окна.</p>
           </div>
         </aside>
+        {/if}
         </div>
       {:else if tab === "screen"}
         <div class="block">
@@ -669,9 +678,15 @@
   .stylecard.on { border-color: var(--accent); background: var(--accent-soft); }
   .stylecard input { display: none; }
   .tokens { display: flex; flex-direction: column; gap: 6px; }
-  .token { display: grid; grid-template-columns: minmax(220px, 1fr) minmax(220px, 340px) max-content; gap: 12px; align-items: center; padding: 4px 0; }
+  .token { display: grid; grid-template-columns: minmax(0, 1fr) max-content; gap: 4px 8px; align-items: center; padding: 6px 0; border-bottom: 1px solid var(--line-soft); }
+  .token:last-child { border-bottom: 0; }
+  .token > span:first-child { grid-column: 1 / -1; }
   .token.own > span:first-child { color: var(--accent); }
-  .tokeninput { display: flex; gap: 6px; align-items: center; }
+  .token select { width: 100%; min-width: 0; }
+  .tokeninput { display: flex; gap: 6px; align-items: center; min-width: 0; }
+  .tokeninput .field { flex: 1; min-width: 0; }
+  .hidepv { margin-left: auto; text-transform: none; letter-spacing: 0; }
+  .stylegrid.nopv { grid-template-columns: minmax(0, 1fr); }
   .stylegrid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(360px, 560px); gap: 16px; align-items: start; }
   .stylemain { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
   .stylepreview { position: sticky; top: 8px; }
