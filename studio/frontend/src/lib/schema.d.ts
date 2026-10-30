@@ -1864,6 +1864,8 @@ export interface components {
             /** Placements */
             placements: components["schemas"]["Where"][];
             holder: components["schemas"]["Holder"] | null;
+            /** View Url */
+            view_url: string | null;
         };
         /** Where */
         Where: {

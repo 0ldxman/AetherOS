@@ -5761,6 +5761,17 @@
         "type": "null"
        }
       ]
+     },
+     "view_url": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "View Url"
      }
     },
     "required": [
@@ -5783,7 +5794,8 @@
      "updated_at",
      "created_at",
      "placements",
-     "holder"
+     "holder",
+     "view_url"
     ],
     "title": "ItemOut",
     "type": "object"

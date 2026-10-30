@@ -89,6 +89,19 @@ class ItemsApiTests(TestCase):
         only = self.call("post", "/items/preview", {"format": "doc", "title": "t", "body": "text", "meta": "info", "only": "body"})[1]
         self.assertEqual((bool(only["body"]), only["infobox"]), (True, ""))
 
+    def test_a_staff_member_opens_the_item_in_the_real_viewer_with_or_without_keys(self):
+        FileFormat.objects.update_or_create(name="doc", defaults={"extension": ".doc", "kind": "text", "content": "text", "markup": True})
+        item = Item.objects.create(slug="note", name="note", format="doc", body="Первая\nВторая")
+        url = self.call("get", f"/items/{item.pk}")[1]["view_url"]
+        self.assertIsNotNone(url)
+        self.assertIsNone(self.call("get", f"/items/{self.lonely.pk}")[1]["view_url"])
+        page = self.client.get(url + "&as=none")
+        self.assertContains(page, "Вторая")
+        self.assertEqual(self.client.get(url + "&as=all").status_code, 200)
+        self.client.logout()
+        self.client.force_login(get_user_model().objects.create_user("player", password="pw"))
+        self.assertEqual(self.client.get(url).status_code, 404)
+
     def test_an_item_is_put_in_one_more_place(self):
         data = self.call("post", f"/items/{self.lonely.pk}/placements", {"volume": self.harbor.pk, "parent": self.ports.pk})[1]
         self.assertEqual([p["path"] for p in data["placements"]], ["ports/lonely.txt"])

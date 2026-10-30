@@ -130,6 +130,7 @@
   const LIVE = /widget|<audio|<video|map-embed|<script/;
   const sheets = (doc: Document) => [...doc.querySelectorAll("link[rel=stylesheet]")].map((link) => link.getAttribute("href")).join();
 
+  let menu = $state(false);
   let frame = $state<HTMLIFrameElement>();
   let loaded = false;
   let scroll = { x: 0, y: 0 };
@@ -180,7 +181,7 @@
   }
 </script>
 
-<svelte:window onkeydown={(event) => { if ((event.ctrlKey || event.metaKey) && event.key === "s") { event.preventDefault(); save(); } }} />
+<svelte:window onclick={() => (menu = false)} onkeydown={(event) => { if ((event.ctrlKey || event.metaKey) && event.key === "s") { event.preventDefault(); save(); } }} />
 
 {#if !item}
   <p class="muted loading">Загрузка…</p>
@@ -193,6 +194,18 @@
       <span class="status muted">
         {#if dirty}<span class="dot"></span>Не сохранено{:else}Сохранено {when(item.updated_at)}{item.updated_by ? ` · ${item.updated_by}` : ""}{/if}
       </span>
+      {#if item.view_url}
+        <div class="split">
+          <a class="btn ghost" href="{item.view_url}&as=all" target="_blank" rel="noopener" title="Как увидит игрок (сохранённая версия)">Открыть в новой вкладке</a>
+          <button class="btn ghost caret" aria-label="Выбрать ключи" onclick={(event) => { event.stopPropagation(); menu = !menu; }}>▾</button>
+          {#if menu}
+            <div class="menu">
+              <a href="{item.view_url}&as=all" target="_blank" rel="noopener">С ключами</a>
+              <a href="{item.view_url}&as=none" target="_blank" rel="noopener">Без ключей</a>
+            </div>
+          {/if}
+        </div>
+      {/if}
       <a class="btn ghost" href={adminUrl(`filesystem/item/${item.id}/change/`)}>В старой админке</a>
       <button class="btn primary" disabled={!dirty || saving} onclick={() => save()}>{saving ? "Сохраняю…" : "Сохранить"}</button>
     </header>
@@ -303,6 +316,12 @@
 
 <style>
   .loading { padding: 32px; }
+  .split { position: relative; display: flex; }
+  .split .btn:first-child { border-top-right-radius: 0; border-bottom-right-radius: 0; }
+  .split .caret { padding: 0 8px; border-left: 1px solid var(--line-soft); border-top-left-radius: 0; border-bottom-left-radius: 0; }
+  .menu { position: absolute; top: 100%; right: 0; z-index: 10; margin-top: 4px; min-width: 150px; padding: 4px; border: 1px solid var(--line); border-radius: var(--radius-s); background: var(--bg); box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35); }
+  .menu a { display: block; padding: 6px 10px; border-radius: var(--radius-s); color: var(--text); text-decoration: none; }
+  .menu a:hover { background: var(--panel); }
   .item { display: flex; flex-direction: column; height: 100%; }
   .head { display: flex; align-items: center; gap: 10px; padding: 12px 16px; border-bottom: 1px solid var(--line-soft); }
   .title {

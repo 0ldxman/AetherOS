@@ -14,6 +14,7 @@ from filesystem import history
 from filesystem.manager import filemanager
 from filesystem.models import Item, ItemRevision
 from secure.requestkeys import keys_for_mode
+from studio.viewing import view_url
 
 router = Router(tags=["items"])
 
@@ -53,6 +54,7 @@ class ItemOut(Schema):
     created_at: datetime
     placements: list[Where]
     holder: Holder | None
+    view_url: str | None       # вьювер документа (дописать &as=all или &as=none)
 
 
 class ItemIn(Schema):
@@ -208,6 +210,7 @@ def _out(item, user):
             for p in item.placements.select_related("volume", "parent")
         ],
         holder=_holder(item, user),
+        view_url=view_url(item),
     )
 
 
