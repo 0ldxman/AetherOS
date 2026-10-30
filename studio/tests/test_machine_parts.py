@@ -368,6 +368,9 @@ class CreateAndSystemsTests(TestCase):
         self.assertEqual((data["style"], data["style_tokens"], [s["slug"] for s in data["styles"]]), ("aether", {}, ["aether", "modern", "phosphor", "classic", "workbench", "tui", "gnome"]))
         self.assertTrue({t["name"] for t in data["token_info"]} >= {"--bg", "--accent", "--radius", "--font-main"})
         self.assertEqual({t["name"]: t["default"] for t in data["token_info"]}["--bg"], "#191919")
+        self.assertEqual((data["style_defaults"]["aether"]["--bg"], data["style_defaults"]["modern"]["--bg"], data["style_defaults"]["phosphor"]["--bg"]), ("#191919", "#1b1f27", "#b1c09c"))
+        self.assertEqual(data["style_defaults"]["tui"]["--font-main"], "var(--ff-terminus)")
+        self.assertTrue(all(row["--accent"].startswith("#") for row in data["style_defaults"].values()))
         self.assertIn("var(--ff-doto)", [f["value"] for f in data["fonts"]])
 
         tokens = {"--accent": "#ff8800", "--radius": "4px", "--font-main": "var(--ff-doto)", "--bg": ""}

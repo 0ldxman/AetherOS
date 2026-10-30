@@ -90,6 +90,20 @@ def defaults():
     return _defaults()
 
 
+@lru_cache(maxsize=None)
+def style_defaults(slug):
+    """Значения токенов у стиля: общие из tokens.css, поверх них первый блок :root из static/ui/themes/<слаг>.css (если он есть)."""
+    values = dict(_defaults())
+    style = STYLES.get(slug)
+    path = Path(settings.BASE_DIR) / "static" / "ui" / "themes" / f"{slug}.css"
+    if style is not None and style.css and path.exists():
+        found = re.search(r":root \{(.*?)\n\}", path.read_text(), re.S)
+        if found:
+            block = re.sub(r"/\*.*?\*/", "", found.group(1), flags=re.S)
+            values.update({name: value.strip() for name, value in re.findall(r"(--[a-z0-9-]+):\s*([^;]+);", block)})
+    return values
+
+
 def fonts():
     """Гарнитуры, из которых выбирается шрифт: var(--ff-…) -> подпись."""
     return {f"var({name})": name[len("--ff-"):].replace("-", " ") for name in _defaults() if name.startswith("--ff-")}

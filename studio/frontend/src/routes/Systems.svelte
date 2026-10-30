@@ -120,7 +120,10 @@
     look.tokens = value.trim() ? { ...look.tokens, [name]: value } : Object.fromEntries(Object.entries(look.tokens).filter(([key]) => key !== name));
   }
 
-  const pickerValue = (token: Schemas["TokenInfo"]) => (HEX6.test(look.tokens[token.name] ?? "") ? look.tokens[token.name] : HEX6.test(token.default) ? token.default : "#000000");
+  // значения токенов у выбранного (а не сохранённого) стиля: у каждого стиля свои
+  const styleDefaults = $derived(system?.style_defaults[look.style] ?? {});
+  const def = (token: Schemas["TokenInfo"]) => styleDefaults[token.name] ?? token.default;
+  const pickerValue = (token: Schemas["TokenInfo"]) => (HEX6.test(look.tokens[token.name] ?? "") ? look.tokens[token.name] : HEX6.test(def(token)) ? def(token) : "#000000");
   const desktopUrl = $derived(system ? `${(window as unknown as { STUDIO: { site: string } }).STUDIO.site}?preview_os=${system.code}` : "#");
 
   let preview = $state<Schemas["GreetingPreview"] | null>(null);
@@ -404,15 +407,17 @@
                   <span>{token.label}<span class="mono muted small"> {token.name}</span></span>
                   {#if token.kind === "font"}
                     <select class="field" value={look.tokens[token.name] ?? ""} onchange={(e) => setToken(token.name, e.currentTarget.value)}>
-                      <option value="">как в стиле ({token.default})</option>
+                      <option value="">как в стиле ({def(token)})</option>
                       {#each system.fonts as font}<option value={font.value}>{font.label}</option>{/each}
                     </select>
                   {:else}
                     <div class="tokeninput">
                       {#if token.kind === "color"}
-                        <input class="picker" type="color" value={pickerValue(token)} oninput={(e) => setToken(token.name, e.currentTarget.value)} />
+                        <span class="swatch" style:background={def(token)} title="В стиле: {def(token)}"></span>
+                        <span class="arrow" class:dim={!look.tokens[token.name]}>→</span>
+                        <input class="picker" type="color" value={pickerValue(token)} oninput={(e) => setToken(token.name, e.currentTarget.value)} title={look.tokens[token.name] ? `Свой: ${look.tokens[token.name]}` : "В стиле такой же, как слева"} />
                       {/if}
-                      <input class="field mono" placeholder={token.default} value={look.tokens[token.name] ?? ""} oninput={(e) => setToken(token.name, e.currentTarget.value)} class:bad={errors.style} />
+                      <input class="field mono" placeholder={def(token)} value={look.tokens[token.name] ?? ""} oninput={(e) => setToken(token.name, e.currentTarget.value)} class:bad={errors.style} />
                     </div>
                   {/if}
                   <button class="btn ghost" disabled={!look.tokens[token.name]} onclick={() => setToken(token.name, "")} title="Как в стиле">×</button>
@@ -637,6 +642,9 @@
   .token { display: grid; grid-template-columns: minmax(220px, 1fr) minmax(220px, 340px) max-content; gap: 12px; align-items: center; padding: 4px 0; }
   .token.own > span:first-child { color: var(--accent); }
   .tokeninput { display: flex; gap: 6px; align-items: center; }
+  .swatch { flex: none; width: 22px; height: 22px; border: 1px solid var(--line); border-radius: var(--radius-s); background-clip: padding-box; }
+  .arrow { color: var(--muted); font-size: 0.8rem; }
+  .arrow.dim { opacity: 0.35; }
   .picker { width: 34px; height: 32px; padding: 0; border: 1px solid var(--line); border-radius: var(--radius-s); background: none; cursor: pointer; }
   .bo { display: flex; flex-direction: column; gap: 8px; padding: 10px 0; border-top: 1px solid var(--line-soft); }
   .bo-head { display: flex; align-items: center; gap: 8px; }

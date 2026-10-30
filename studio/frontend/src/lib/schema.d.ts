@@ -3171,6 +3171,12 @@ export interface components {
             styles: components["schemas"]["StyleChoice"][];
             /** Token Info */
             token_info: components["schemas"]["TokenInfo"][];
+            /** Style Defaults */
+            style_defaults: {
+                [key: string]: {
+                    [key: string]: string;
+                };
+            };
             /** Fonts */
             fonts: components["schemas"]["FontChoice"][];
             /** Scenes */

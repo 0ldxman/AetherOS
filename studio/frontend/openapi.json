@@ -9134,6 +9134,16 @@
       "title": "Token Info",
       "type": "array"
      },
+     "style_defaults": {
+      "additionalProperties": {
+       "additionalProperties": {
+        "type": "string"
+       },
+       "type": "object"
+      },
+      "title": "Style Defaults",
+      "type": "object"
+     },
      "fonts": {
       "items": {
        "$ref": "#/components/schemas/FontChoice"
@@ -9240,6 +9250,7 @@
      "style_tokens",
      "styles",
      "token_info",
+     "style_defaults",
      "fonts",
      "scenes",
      "scene_library",
