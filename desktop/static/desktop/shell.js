@@ -8,6 +8,7 @@
      search          поле поиска по приложениям
      apps            список приложений стола; с data-dock отмечает запущенные
      tasks           список открытых окон: клик фокусирует, повторный клик сворачивает
+     widget          виджет стола (data-widget: clock, system, mail); значения подставляются в [data-widget-field]
      notices-toggle  кнопка центра уведомлений (внутри может быть notices-count с числом непрочитанных)
      notices-panel   панель центра уведомлений (атрибут hidden), в ней notices (список) и notices-clear (очистить)
    Горячая клавиша: отдельное нажатие Meta (Super) открывает и закрывает лаунчер.
@@ -190,6 +191,52 @@
     })
   );
 
+  /* ---------- виджеты стола ---------- */
+
+  const widgets = all('[data-shell="widget"]');
+  const pageStart = Date.now();
+
+  const pad = (value) => String(value).padStart(2, "0");
+
+  function field(widget, name, text) {
+    const node = widget.querySelector('[data-widget-field="' + name + '"]');
+    if (node && node.textContent !== text) node.textContent = text;
+  }
+
+  function updateWidgets() {
+    const now = new Date();
+
+    widgets.forEach((widget) => {
+      const kind = widget.dataset.widget;
+
+      if (kind === "clock") {
+        field(widget, "time", pad(now.getHours()) + ":" + pad(now.getMinutes()));
+        field(widget, "date", now.toLocaleDateString("sv-SE"));
+      } else if (kind === "system") {
+        const seconds = Math.floor((now - pageStart) / 1000);
+        const ping = document.getElementById("ping-value");
+
+        field(widget, "ping", ping ? ping.textContent + " ms" : "–");
+        field(widget, "session", pad(Math.floor(seconds / 3600)) + ":" + pad(Math.floor(seconds / 60) % 60) + ":" + pad(seconds % 60));
+        field(widget, "windows", String(Object.keys(openWindows).length));
+      } else if (kind === "mail") {
+        const icon = typeof mailIcon === "function" && mailUrl ? mailIcon() : null;
+        const badge = icon && icon.querySelector(".icon-badge");
+
+        widget.hidden = !icon;
+        field(widget, "unread", badge ? badge.textContent + " new" : "no new mail");
+        widget.classList.toggle("has-mail", Boolean(badge));
+      }
+    });
+  }
+
+  widgets.forEach((widget) => {
+    if (widget.dataset.widget === "mail") widget.addEventListener("click", () => typeof openMail === "function" && openMail());
+  });
+
+  setInterval(updateWidgets, 1000);
+  document.addEventListener("desktop:windows", updateWidgets);
+
   document.addEventListener("desktop:windows", render);
   document.addEventListener("shell:close", () => setLauncher(false));
 
@@ -267,4 +314,5 @@
 
   render();
   renderNotices();
+  updateWidgets();
 })();

@@ -50,6 +50,7 @@ class DesktopTests(TestCase):
                 self.assertIn(element, html, f"{slug}: {element}")
             self.assertIn(f'data-theme="{slug}"', html)
             self.assertEqual('data-shell="launcher-panel"' in html, styles.STYLES[slug].shell, slug)
+            self.assertEqual('data-widget="system"' in html, slug == "modern", slug)
             self.assertEqual('data-shell="notices-panel"' in html, styles.STYLES[slug].shell, slug)
             self.assertEqual('id="session-menu-button"' in html, slug in ("aether", "gnome"), slug)
             self.assertEqual("data-action=\"disconnect\"" in html, True, slug)

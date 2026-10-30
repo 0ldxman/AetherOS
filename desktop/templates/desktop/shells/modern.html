@@ -36,6 +36,28 @@
         </footer>
     </section>
 
+    <aside class="widgets" aria-label="Widgets">
+        <section class="widget widget--clock" data-shell="widget" data-widget="clock">
+            <div class="widget-time" data-widget-field="time"></div>
+            <div class="widget-date" data-widget-field="date"></div>
+        </section>
+        <section class="widget widget--system" data-shell="widget" data-widget="system">
+            <h2 class="widget-title">System</h2>
+            <dl class="widget-rows">
+                <div><dt>host</dt><dd>{{ machine_name }}</dd></div>
+                <div><dt>os</dt><dd>{{ os_name }}</dd></div>
+                <div><dt>user</dt><dd>{{ login }}</dd></div>
+                <div><dt>link</dt><dd data-widget-field="ping"></dd></div>
+                <div><dt>session</dt><dd data-widget-field="session"></dd></div>
+                <div><dt>windows</dt><dd data-widget-field="windows"></dd></div>
+            </dl>
+        </section>
+        <button type="button" class="widget widget--mail" data-shell="widget" data-widget="mail" hidden>
+            <span class="widget-title">Intercom</span>
+            <span class="widget-mail-count" data-widget-field="unread"></span>
+        </button>
+    </aside>
+
     <div id="clock-plate">
         <span id="clock"></span>
         <span id="date"></span>
