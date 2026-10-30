@@ -38,7 +38,7 @@
   --grid-y: 16px;
   --frame: var(--line-bright);
   --tab-outside: 0;
-  --tui-shadow: none;
+  --tui-shadow: 16px 16px 0 #2a2a2a;   /* тень как в BIOS: на две клетки вправо и одну вниз */
 }
 
 [data-theme="tui"] body { font-size: 1rem; line-height: 1.25; }
@@ -338,19 +338,21 @@
 
 [data-theme="tui"] .winbox.aether .wb-control > span:hover { background: var(--fg); color: var(--font-dark); }
 
-[data-theme="tui"] .winbox.aether .wb-close::before { content: "[■]"; }
 [data-theme="tui"] .winbox.aether .wb-min,
-[data-theme="tui"] .winbox.aether .wb-max { position: absolute; top: 0; }
-[data-theme="tui"] .winbox.aether .wb-max { right: 8px; }
-[data-theme="tui"] .winbox.aether .wb-max::before { content: "[↑]"; }
-[data-theme="tui"] .winbox.aether .wb-min { right: 32px; }
-[data-theme="tui"] .winbox.aether .wb-min::before { content: "[↓]"; }
+[data-theme="tui"] .winbox.aether .wb-max,
+[data-theme="tui"] .winbox.aether .wb-close { position: absolute; top: 0; }
+[data-theme="tui"] .winbox.aether .wb-close { right: 8px; }
+[data-theme="tui"] .winbox.aether .wb-close::before { content: "[×]"; }
+[data-theme="tui"] .winbox.aether .wb-max { right: 32px; }
+[data-theme="tui"] .winbox.aether .wb-max::before { content: "[□]"; }
+[data-theme="tui"] .winbox.aether .wb-min { right: 56px; }
+[data-theme="tui"] .winbox.aether .wb-min::before { content: "[–]"; }
 [data-theme="tui"] .winbox.aether .wb-close { color: var(--frame); }
 
 [data-theme="tui"] .winbox.aether .wb-title { flex: none; padding: 0; font: 16px/16px var(--font-main); color: var(--frame); }
-[data-theme="tui"] .winbox.aether .wb-title::before { content: "[ "; }
-[data-theme="tui"] .winbox.aether .wb-title::after { content: " ]"; }
-[data-theme="tui"] .winbox.aether.focus .wb-title { background: var(--fg); color: var(--font-dark); font-weight: 700; }
+[data-theme="tui"] .winbox.aether .wb-title::before { content: "╡ "; }
+[data-theme="tui"] .winbox.aether .wb-title::after { content: " ╞"; }
+[data-theme="tui"] .winbox.aether.focus .wb-title { color: var(--font-light); font-weight: 700; }
 
 /* нижняя строка: ╚═══╝ (элемент добавляет desktop.js) */
 [data-theme="tui"] .winbox.aether .wb-foot {
@@ -382,12 +384,12 @@
 [data-theme="tui"] .winbox.aether.dialog-window--warning { --frame: var(--font-light); background: var(--bg); border: 0; box-shadow: none; }
 
 [data-theme="tui"] .winbox.aether.dialog-window--error .wb-title,
-[data-theme="tui"] .winbox.aether.dialog-window--warning .wb-title { background: var(--fg); color: var(--font-dark); font-weight: 700; }
+[data-theme="tui"] .winbox.aether.dialog-window--warning .wb-title { color: var(--font-light); font-weight: 700; }
 
-[data-theme="tui"] .winbox.aether.dialog-window--error .wb-title::before { content: "[!] "; }
-[data-theme="tui"] .winbox.aether.dialog-window--warning .wb-title::before { content: "[?] "; }
+[data-theme="tui"] .winbox.aether.dialog-window--error .wb-title::before { content: "╡ [!] "; }
+[data-theme="tui"] .winbox.aether.dialog-window--warning .wb-title::before { content: "╡ [?] "; }
 [data-theme="tui"] .winbox.aether.dialog-window--error .wb-title::after,
-[data-theme="tui"] .winbox.aether.dialog-window--warning .wb-title::after { content: ""; }
+[data-theme="tui"] .winbox.aether.dialog-window--warning .wb-title::after { content: " ╞"; }
 
 [data-theme="tui"] .winbox.aether.dialog-window--error .wb-control *,
 [data-theme="tui"] .winbox.aether.dialog-window--warning .wb-control * { color: var(--frame); }
