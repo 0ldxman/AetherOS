@@ -2146,6 +2146,80 @@
     ]
    }
   },
+  "/studio/api/access/parse": {
+   "post": {
+    "operationId": "studio_api_access_parse",
+    "summary": "Parse",
+    "parameters": [],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/AccessParsed"
+        }
+       }
+      }
+     }
+    },
+    "tags": [
+     "access"
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/AccessSource"
+       }
+      }
+     },
+     "required": true
+    },
+    "security": [
+     {
+      "SessionAuthIsStaff": []
+     }
+    ]
+   }
+  },
+  "/studio/api/access/format": {
+   "post": {
+    "operationId": "studio_api_access_format_tree",
+    "summary": "Format Tree",
+    "parameters": [],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/AccessText"
+        }
+       }
+      }
+     }
+    },
+    "tags": [
+     "access"
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/AccessTreeIn"
+       }
+      }
+     },
+     "required": true
+    },
+    "security": [
+     {
+      "SessionAuthIsStaff": []
+     }
+    ]
+   }
+  },
   "/studio/api/machines": {
    "get": {
     "operationId": "studio_api_machines_machines",
@@ -7474,6 +7548,67 @@
      "layers"
     ],
     "title": "StackIn",
+    "type": "object"
+   },
+   "AccessParsed": {
+    "properties": {
+     "ok": {
+      "title": "Ok",
+      "type": "boolean"
+     },
+     "error": {
+      "title": "Error",
+      "type": "string"
+     },
+     "tree": {
+      "title": "Tree"
+     }
+    },
+    "required": [
+     "ok",
+     "error"
+    ],
+    "title": "AccessParsed",
+    "type": "object"
+   },
+   "AccessSource": {
+    "properties": {
+     "text": {
+      "title": "Text",
+      "type": "string"
+     }
+    },
+    "required": [
+     "text"
+    ],
+    "title": "AccessSource",
+    "type": "object"
+   },
+   "AccessText": {
+    "properties": {
+     "text": {
+      "title": "Text",
+      "type": "string"
+     },
+     "error": {
+      "title": "Error",
+      "type": "string"
+     }
+    },
+    "required": [
+     "text",
+     "error"
+    ],
+    "title": "AccessText",
+    "type": "object"
+   },
+   "AccessTreeIn": {
+    "properties": {
+     "tree": {
+      "title": "Tree"
+     }
+    },
+    "title": "AccessTreeIn",
     "type": "object"
    },
    "MachineRow": {

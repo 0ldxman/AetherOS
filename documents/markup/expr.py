@@ -117,3 +117,50 @@ def parse_expr(src):
         )
 
     return result
+
+
+def format_expr(node):
+    """Условие в формате secure/access.py (то, что отдаёт parse_expr) -> текст. Пустая группа и пустой ключ пропускаются,
+    пустое условие даёт "". Скобки ставятся только там, где без них смысл изменился бы: группа в группе, группа под not."""
+
+    if isinstance(node, str):
+        return node.strip()
+
+    if not isinstance(node, dict) or len(node) != 1:
+        raise SpoilerSyntaxError("Условие собрано неверно.")
+
+    (kind, inner), = node.items()
+
+    if kind == "not":
+        text = format_expr(inner)
+        return "" if not text else f"not ({text})" if _is_group(inner) else f"not {text}"
+
+    if kind not in ("all", "any") or not isinstance(inner, list):
+        raise SpoilerSyntaxError("Условие собрано неверно.")
+
+    word = " and " if kind == "all" else " or "
+    parts = []
+
+    for part in inner:
+        text = format_expr(part)
+
+        if text:
+            # and внутри or скобок не требует (он связывает сильнее); остальные группы в группе берутся в скобки
+            nested = _is_group(part) and len(_flat(part)) > 1
+            wrap = nested and not (kind == "any" and _kind(part) == "all")
+            parts.append(f"({text})" if wrap else text)
+
+    return word.join(parts)
+
+
+def _kind(node):
+    return next(iter(node)) if isinstance(node, dict) else ""
+
+
+def _is_group(node):
+    return _kind(node) in ("all", "any")
+
+
+def _flat(node):
+    """Непустые части группы (для решения о скобках)."""
+    return [part for part in node[_kind(node)] if format_expr(part)]

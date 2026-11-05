@@ -1,4 +1,5 @@
 <script lang="ts">
+  import AccessBuilder from "../lib/AccessBuilder.svelte";
   import LayerBuilder from "../lib/LayerBuilder.svelte";
   // Файл со своим текстом (без объекта): декорация и фон. Текст, защита этого места и то, что получит игрок.
   import { onMount } from "svelte";
@@ -91,7 +92,7 @@
         <section class="card">
           <h2>Защита этого файла</h2>
           <label><span class="label">Условие доступа (пусто: открыто)</span>
-            <input class="field mono" bind:value={form.access} class:bad={preview?.access_error || errors.access} placeholder="открыто всем" /></label>
+            <AccessBuilder bind:value={form.access} bad={!!(preview?.access_error || errors.access)} /></label>
           {#if preview?.access_error}<p class="err">{preview.access_error}</p>{/if}
           {#if preview?.unknown_keys.length}<p class="err">Нет в реестре: {preview.unknown_keys.join(", ")}</p>{/if}
           <span class="label">Слои защиты</span>
@@ -144,7 +145,6 @@
   .card { display: flex; flex-direction: column; gap: 8px; border: 1px solid var(--line-soft); border-radius: var(--radius); background: var(--panel); padding: 14px 16px; }
   h2 { margin: 0; font-size: 13px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.4px; }
   h3 { margin: 4px 0 0; font-size: 13px; }
-  .field.bad { border-color: var(--danger); }
   .err { margin: 0; color: var(--danger); font-size: 12px; }
   .problems { margin: 0; padding: 8px 12px; list-style: none; border-radius: var(--radius-s); background: var(--danger-soft); color: var(--danger); font-size: 12.5px; }
   .hex { font: 12px/1.7 var(--mono); background: var(--bg); border-radius: var(--radius-s); padding: 8px 10px; overflow-x: auto; }

@@ -1,4 +1,5 @@
 <script lang="ts">
+  import AccessBuilder from "../../lib/AccessBuilder.svelte";
   import LayerBuilder from "../../lib/LayerBuilder.svelte";
   import { guardUnsaved } from "../../lib/guard.svelte";
   // Защита объекта: условие по ключам и слои. Справа сразу видно, что игрок получит в blk и txtx со слоями и без них.
@@ -77,7 +78,7 @@
       <section class="card">
         <h2>Условие доступа</h2>
         <p class="muted small">Что должно лежать у игрока в секретах, чтобы он получил содержимое: <span class="mono">cardkey and (door or not alarm)</span>. Пусто: открыто.</p>
-        <input class="field mono" bind:value={form.access} class:bad={errors.access || preview?.access_error} placeholder="открыто всем" />
+        <AccessBuilder bind:value={form.access} bad={!!(errors.access || preview?.access_error)} />
         {#if preview?.access_error}<p class="err">{preview.access_error}</p>{:else if errors.access}<p class="err">{errors.access.join(" ")}</p>{/if}
         {#if preview?.keys.length}
           <div class="chips">
@@ -139,7 +140,6 @@
   .card { display: flex; flex-direction: column; gap: 8px; border: 1px solid var(--line-soft); border-radius: var(--radius); background: var(--panel); padding: 14px 16px; }
   h2 { margin: 0; font-size: 13px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.4px; }
   h3 { margin: 6px 0 0; font-size: 13px; }
-  .field.bad { border-color: var(--danger); }
   .err { margin: 0; color: var(--danger); font-size: 12px; }
   .chips { display: flex; flex-wrap: wrap; gap: 6px; }
   .chip.bad { background: var(--danger-soft); color: var(--danger); }

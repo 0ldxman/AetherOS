@@ -742,6 +742,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/studio/api/access/parse": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Parse */
+        post: operations["studio_api_access_parse"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/studio/api/access/format": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Format Tree */
+        post: operations["studio_api_access_format_tree"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/studio/api/machines": {
         parameters: {
             query?: never;
@@ -2536,6 +2570,32 @@ export interface components {
             preamble: string;
             /** Layers */
             layers: components["schemas"]["StackLayer"][];
+        };
+        /** AccessParsed */
+        AccessParsed: {
+            /** Ok */
+            ok: boolean;
+            /** Error */
+            error: string;
+            /** Tree */
+            tree?: unknown;
+        };
+        /** AccessSource */
+        AccessSource: {
+            /** Text */
+            text: string;
+        };
+        /** AccessText */
+        AccessText: {
+            /** Text */
+            text: string;
+            /** Error */
+            error: string;
+        };
+        /** AccessTreeIn */
+        AccessTreeIn: {
+            /** Tree */
+            tree?: unknown;
         };
         /** MachineRow */
         MachineRow: {
@@ -4935,6 +4995,54 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["StackText"];
+                };
+            };
+        };
+    };
+    studio_api_access_parse: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AccessSource"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AccessParsed"];
+                };
+            };
+        };
+    };
+    studio_api_access_format_tree: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AccessTreeIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AccessText"];
                 };
             };
         };
