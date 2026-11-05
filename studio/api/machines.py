@@ -19,6 +19,8 @@ from machines.models.machine import generate_hid
 from machines.world import identity
 from machines.world.facts import ONLINE
 
+STATUS_RU = {"ONLINE": "в сети", "OFFLINE": "не в сети", "MAINTENANCE": "обслуживание"}
+
 router = Router(tags=["machines"])
 
 REFUSALS = ("bad_password", "bad_key", "bad_token", "source", "route", "window", "locked")
@@ -207,7 +209,7 @@ def _warnings(machine, accounts):
     if not machine.hostname:
         found.append(Warning_(level="info", text="У машины нет имени хоста: к ней нельзя подключиться по имени."))
     if machine.status != Machine.Status.ONLINE:
-        found.append(Warning_(level="info", text=f"Машина в статусе {machine.get_status_display()}."))
+        found.append(Warning_(level="info", text=f"Машина в статусе «{STATUS_RU.get(machine.status, machine.status)}»."))
     return found
 
 

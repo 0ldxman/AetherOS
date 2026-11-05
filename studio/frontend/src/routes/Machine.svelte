@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { STATUS } from "../lib/labels";
   import { onMount } from "svelte";
   import { api, type Schemas } from "../lib/api";
   import { go } from "../lib/router.svelte";
@@ -25,12 +26,11 @@
   const TABS = [
     { key: "overview", label: "Обзор" },
     { key: "accounts", label: "Учётки" },
-    { key: "access", label: "Доступ" },
+    { key: "access", label: "Вход" },
     { key: "journal", label: "Журнал" },
     { key: "groups", label: "Группы" },
     { key: "disks", label: "Диски" },
   ];
-  const STATUS: Record<string, string> = { ONLINE: "online", OFFLINE: "offline", MAINTENANCE: "обслуживание" };
 </script>
 
 {#if !machine}

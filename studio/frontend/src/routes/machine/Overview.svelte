@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { STATUS } from "../../lib/labels";
   import { guardUnsaved } from "../../lib/guard.svelte";
   import { api, problem, type Schemas } from "../../lib/api";
   import { ago, span, when } from "../../lib/time";
@@ -141,11 +142,11 @@
     {#if errors.hostname}<p class="err">{errors.hostname.join(" ")}</p>{/if}
     <label><span class="label">Название</span><input class="field" bind:value={form.name} /></label>
     <div class="pair">
-      <label><span class="label">Тип системы</span>
+      <label><span class="label">ОС</span>
         <select class="field" bind:value={form.system}>{#each machine.systems as code}<option>{code}</option>{/each}</select>
       </label>
       <label><span class="label">Статус</span>
-        <select class="field" bind:value={form.status}>{#each machine.statuses as code}<option>{code}</option>{/each}</select>
+        <select class="field" bind:value={form.status}>{#each machine.statuses as code}<option value={code}>{STATUS[code] ?? code}</option>{/each}</select>
       </label>
     </div>
     <div class="pair">
@@ -175,11 +176,11 @@
     <pre class="art mono">{art.lines.join("\n")}</pre>
     <label><span class="label">Политика входа машины</span>
       <select class="field" bind:value={form.entry_policy}>
-        <option value={null}>от типа системы</option>
+        <option value={null}>от ОС</option>
         {#each machine.policies as policy}<option value={policy.id}>{policy.name}</option>{/each}
       </select>
     </label>
-    <p class="muted small">Учётка со своей политикой её перекрывает. Что действует для каждой учётки, видно на вкладке «Доступ».</p>
+    <p class="muted small">Учётка со своей политикой её перекрывает. Что действует для каждой учётки, видно на вкладке «Вход».</p>
     <button class="btn primary" disabled={!dirty || saving} onclick={save}>Сохранить</button>
     <div class="more-acts">
       <button class="btn ghost" onclick={() => (dialog = "copy")}>Новая машина по образцу этой</button>

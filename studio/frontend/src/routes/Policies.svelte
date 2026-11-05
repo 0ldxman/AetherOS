@@ -89,7 +89,7 @@
     go("/policies");
   }
 
-  const KIND: Record<string, string> = { system: "тип", machine: "машина", account: "учётка" };
+  const KIND: Record<string, string> = { system: "ОС", machine: "машина", account: "учётка" };
 </script>
 
 <div class="split">
@@ -99,7 +99,7 @@
       <a class="item" class:on={row.id === current} href="#/policies/{row.id}">
         <b>{row.name}</b>
         <span class="muted small">
-          {[row.systems && `типов ${row.systems}`, row.machines && `машин ${row.machines}`, row.accounts && `учёток ${row.accounts}`].filter(Boolean).join(" · ") || "не назначена"}
+          {[row.systems && `ОС ${row.systems}`, row.machines && `машин ${row.machines}`, row.accounts && `учёток ${row.accounts}`].filter(Boolean).join(" · ") || "не назначена"}
         </span>
       </a>
     {/each}
@@ -175,7 +175,7 @@
   </Dialog>
 {:else if dialog === "delete" && policy}
   <Dialog title="Удалить «{policy.name}»?" confirm="Удалить" danger disabled={policy.used_by.length > 0} onsubmit={remove} onclose={() => (dialog = null)}>
-    <p class="muted">{policy.used_by.length ? "Она назначена: сначала снимите её с типов, машин и учёток." : "Политика нигде не назначена."}</p>
+    <p class="muted">{policy.used_by.length ? "Она назначена: сначала снимите её с ОС, машин и учёток." : "Политика нигде не назначена."}</p>
   </Dialog>
 {/if}
 

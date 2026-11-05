@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { STATUS } from "../lib/labels";
   import { onMount } from "svelte";
   import { api, type Schemas } from "../lib/api";
   import { go } from "../lib/router.svelte";
@@ -24,7 +25,6 @@
     loading = false;
   });
 
-  const STATUS: Record<string, string> = { ONLINE: "online", OFFLINE: "offline", MAINTENANCE: "обслуживание" };
 </script>
 
 <header class="head">
@@ -37,14 +37,14 @@
       <option value="">все статусы</option>
       {#each Object.entries(STATUS) as [value, label]}<option {value}>{label}</option>{/each}
     </select>
-    <input class="field search" placeholder="Поиск по хосту, названию, типу" bind:value={query} />
+    <input class="field search" placeholder="Поиск по хосту, названию, ОС" bind:value={query} />
     <button class="btn primary" onclick={() => (creating = true)}>Новая машина</button>
   </div>
 </header>
 
 <section class="table">
   <div class="row head">
-    <span>Хост</span><span>Тип</span><span>Статус</span><span class="num">Учёток</span><span class="num">Сейчас</span><span class="num">Отказов за сутки</span>
+    <span>Хост</span><span>ОС</span><span>Статус</span><span class="num">Учёток</span><span class="num">Сейчас</span><span class="num">Отказов за сутки</span>
   </div>
   {#if loading}
     <p class="muted pad">Загрузка…</p>

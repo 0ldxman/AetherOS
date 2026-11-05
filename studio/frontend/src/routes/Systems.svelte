@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { plural } from "../lib/labels";
   import { ask } from "../lib/confirm.svelte";
   import { guardUnsaved } from "../lib/guard.svelte";
   import { onMount } from "svelte";
@@ -299,7 +300,7 @@
     {#each rows as row (row.code)}
       <a class="item" class:on={row.code === current} href="#/systems/{row.code}/{tab}">
         <b class="mono">{row.code}</b>
-        <span class="muted small">{row.name} · машин {row.machines}</span>
+        <span class="muted small">{row.name} · {row.machines} {plural(row.machines, "машина", "машины", "машин")}</span>
       </a>
     {/each}
     <button class="btn add" onclick={() => (dialog = "type")}>+ Операционная система</button>
@@ -312,11 +313,11 @@
         <span class="muted">{system.name}</span>
         <span class="spacer"></span>
         <span class="machines" role="group" onmouseenter={() => (showMachines = true)} onmouseleave={() => (showMachines = false)}>
-          <span class="chip">{system.machines.length} {system.machines.length === 1 ? "машина" : "машин"}</span>
+          <span class="chip">{system.machines.length} {plural(system.machines.length, "машина", "машины", "машин")}</span>
           {#if showMachines && system.machines.length}
             <div class="pop">
               {#each system.machines.slice(0, SHOWN) as host}<span class="mono">{host || "без хоста"}</span>{/each}
-              {#if system.machines.length > SHOWN}<span class="muted small">и ещё {system.machines.length - SHOWN} машин</span>{/if}
+              {#if system.machines.length > SHOWN}<span class="muted small">и ещё {system.machines.length - SHOWN} {plural(system.machines.length - SHOWN, "машина", "машины", "машин")}</span>{/if}
             </div>
           {/if}
         </span>

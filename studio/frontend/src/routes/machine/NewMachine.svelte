@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { STATUS } from "../../lib/labels";
   // Новая машина: с нуля (корень пустой, по шаблону, готовый том) или по образцу другой машины.
   import { onMount } from "svelte";
   import { api, problem, type Schemas } from "../../lib/api";
@@ -92,11 +93,11 @@
 
   {#if form.root !== "like"}
     <div class="pair">
-      <label><span class="label">Тип системы</span>
+      <label><span class="label">ОС</span>
         <select class="field" bind:value={form.system}>{#each systems as item}<option value={item.code}>{item.code} — {item.name}</option>{/each}</select>
       </label>
       <label><span class="label">Статус</span>
-        <select class="field" bind:value={form.status}><option>OFFLINE</option><option>ONLINE</option><option>MAINTENANCE</option></select>
+        <select class="field" bind:value={form.status}>{#each Object.entries(STATUS) as [code, label]}<option value={code}>{label}</option>{/each}</select>
       </label>
     </div>
   {/if}

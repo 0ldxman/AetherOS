@@ -129,8 +129,8 @@
         <input class="field mono slug" bind:value={form.slug} class:bad={errors.slug} />
         <span class="spacer"></span>
         <button class="btn" onclick={play} disabled={!preview?.steps.length}>▶ Играть</button>
-        <button class="btn primary" disabled={!dirty} onclick={save}>Сохранить</button>
         <button class="btn ghost danger" onclick={drop}>Удалить</button>
+        <button class="btn primary" disabled={!dirty} onclick={save}>Сохранить</button>
       </header>
       {#if errors.slug}<p class="warn small">{errors.slug.join(" ")}</p>{/if}
 
