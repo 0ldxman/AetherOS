@@ -86,3 +86,8 @@ textarea.field { display: block; height: auto; padding: 8px 10px; line-height: 1
 ::-webkit-scrollbar { width: 10px; height: 10px; }
 ::-webkit-scrollbar-thumb { background: #2b2f38; border-radius: 10px; border: 2px solid var(--bg); }
 ::-webkit-scrollbar-track { background: transparent; }
+
+/* Блок-карточка с заголовком: общий для вкладок */
+.block { display: flex; flex-direction: column; gap: 10px; padding: 14px 16px; border: 1px solid var(--line-soft); border-radius: var(--radius); background: var(--panel); }
+.block > h3 { display: flex; align-items: center; gap: 8px; margin: 0; font-size: 12px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.4px; }
+.block > h3 .btn { margin-left: auto; text-transform: none; letter-spacing: 0; }

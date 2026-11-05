@@ -1,6 +1,9 @@
 <script lang="ts">
   import ListDetail from "../lib/ListDetail.svelte";
   import Hint from "../lib/Hint.svelte";
+  import ScenesTab from "./system/ScenesTab.svelte";
+  import ScreenTab from "./system/ScreenTab.svelte";
+  import StyleTab from "./system/StyleTab.svelte";
   import { plural } from "../lib/labels";
   import { ask } from "../lib/confirm.svelte";
   import { guardUnsaved } from "../lib/guard.svelte";
@@ -36,35 +39,6 @@
   ];
   const SHOWN = 8;
   let showMachines = $state(false);
-
-  type Blackout = Schemas["BlackoutValues"];
-  let blackouts = $state<Record<string, Blackout>>({});
-  let blackoutsSaved = $state("");
-  const TONES: Record<string, string> = { "": "как у движка", success: "зелёный", warning: "жёлтый", error: "красный", dim: "серый" };
-  const TONE_COLOR: Record<string, string> = { success: "var(--ok)", warning: "var(--warn)", error: "var(--danger)", dim: "var(--faint)" };
-
-  const blackoutDirty = (event: string) => JSON.stringify(blackouts[event]) !== JSON.stringify(blackoutsSaved ? JSON.parse(blackoutsSaved)[event] : null);
-
-  async function saveBlackout(event: string) {
-    if (!system) return;
-    const { data, error } = await api.PUT("/studio/api/systems/{code}/blackouts/{event}", { params: { path: { code: system.code, event } }, body: blackouts[event] });
-    done(data, error, "Чёрный экран сохранён.");
-  }
-
-  async function resetBlackout(event: string) {
-    if (!system) return;
-    if (!(await ask("Сбросить к умолчаниям движка?", "Свои настройки этого события пропадут.", "Сбросить"))) return;
-    const { data, error } = await api.DELETE("/studio/api/systems/{code}/blackouts/{event}", { params: { path: { code: system.code, event } } });
-    done(data, error, "Сброшено до умолчаний движка.");
-  }
-
-  async function chooseScene(slot: string, script: string) {
-    if (!system) return;
-    const { data, error } = await api.PUT("/studio/api/systems/{code}/scenes/{slot}", { params: { path: { code: system.code, slot } }, body: { script: script || null } });
-    done(data, error, script ? "Сцена назначена." : "Играет встроенная сцена.");
-  }
-
-  const number = (value: string) => (value === "" ? null : Math.max(0, Math.round(+value)));
 
   let treePath = $state("/");
   let listing = $state<Schemas["ImageListing"] | null>(null);
@@ -110,49 +84,6 @@
     picking = null;
   }
 
-  let look = $state({ style: "aether", tokens: {} as Record<string, string> });
-  let lookSaved = $state("");
-  const lookDirty = $derived(JSON.stringify(look) !== lookSaved);
-  const groups = $derived(system ? [...new Set(system.token_info.map((t) => t.group))] : []);
-  const HEX6 = /^#[0-9a-fA-F]{6}$/;
-
-  async function saveLook() {
-    if (!system) return;
-    const { data, error } = await api.PUT("/studio/api/systems/{code}/style", { params: { path: { code: system.code } }, body: look });
-    done(data, error, "Стиль сохранён.");
-  }
-
-  function setToken(name: string, value: string) {
-    look.tokens = value.trim() ? { ...look.tokens, [name]: value } : Object.fromEntries(Object.entries(look.tokens).filter(([key]) => key !== name));
-  }
-
-  // предпросмотр: настоящий рабочий стол в рамке, адрес с несохранёнными стилем и токенами; перезагружается с паузой, чтобы не мигать
-  const PV_KEY = "studio.styleDeskPreview";
-  let deskPreview = $state((() => { try { return localStorage.getItem(PV_KEY) !== "off"; } catch { return true; } })());
-  function toggleDeskPreview() {
-    deskPreview = !deskPreview;
-    try { localStorage.setItem(PV_KEY, deskPreview ? "on" : "off"); } catch { /* память браузера может быть закрыта */ }
-  }
-  let previewSrc = $state("");
-  let previewWidth = $state(0);
-  let deskTimer: ReturnType<typeof setTimeout>;
-  const PREVIEW_W = 1100;
-  const PREVIEW_H = 640;
-
-  $effect(() => {
-    if (!system || tab !== "style" || !deskPreview) return;
-    const url = `${system.preview_url}?preview_os=${encodeURIComponent(system.code)}&preview_style=${encodeURIComponent(look.style)}&preview_tokens=${encodeURIComponent(JSON.stringify(look.tokens))}`;
-    clearTimeout(deskTimer);
-    deskTimer = setTimeout(() => (previewSrc = url), 350);
-    return () => clearTimeout(deskTimer);
-  });
-
-  // значения токенов у выбранного (а не сохранённого) стиля: у каждого стиля свои
-  const styleDefaults = $derived(system?.style_defaults[look.style] ?? {});
-  const def = (token: Schemas["TokenInfo"]) => styleDefaults[token.name] ?? token.default;
-  const pickerValue = (token: Schemas["TokenInfo"]) => (HEX6.test(look.tokens[token.name] ?? "") ? look.tokens[token.name] : HEX6.test(def(token)) ? def(token) : "#000000");
-  const desktopUrl = $derived(system ? `${(window as unknown as { STUDIO: { site: string } }).STUDIO.site}?preview_os=${system.code}` : "#");
-
   let preview = $state<Schemas["GreetingPreview"] | null>(null);
   let previewTimer: ReturnType<typeof setTimeout>;
   const STYLE_COLOR: Record<string, string> = { dim: "var(--faint)", success: "var(--ok)", warning: "var(--warn)", error: "var(--danger)" };
@@ -177,7 +108,7 @@
   const current = $derived(code ?? rows[0]?.code ?? null);
   const placesDirty = $derived(JSON.stringify(places) !== placesSaved);
   const propsDirty = $derived(JSON.stringify(props_) !== propsSaved);
-  guardUnsaved(() => (propsSaved !== "" && propsDirty) || (placesSaved !== "" && placesDirty) || (lookSaved !== "" && lookDirty), (next) => next.split("?")[0].split("/")[2] === system?.code);
+  guardUnsaved(() => (propsSaved !== "" && propsDirty) || (placesSaved !== "" && placesDirty), (next) => next.split("?")[0].split("/")[2] === system?.code);
 
   async function list() {
     rows = (await api.GET("/studio/api/systems")).data ?? [];
@@ -190,10 +121,6 @@
     places = Object.fromEntries(data.places.map((row) => [row.name, row.path]));
     placesSaved = JSON.stringify(places);
     errors = {};
-    look = { style: data.style, tokens: { ...data.style_tokens } };
-    lookSaved = JSON.stringify(look);
-    blackouts = Object.fromEntries(data.blackouts.map((row) => [row.event, { ...row.own }]));
-    blackoutsSaved = JSON.stringify(blackouts);
   }
 
   async function load(target: string | null) {
@@ -394,129 +321,11 @@
       </div>
       </div>
       {:else if tab === "scenes"}
-        <div class="block">
-          <h3>Сцены событий <a class="more" href="#/scenes">библиотека →</a></h3>
-          <p class="muted small">Что играет в терминале на событии этой ОС. «Встроенная»: сцена движка. Свою пишут в разделе «Сцены».</p>
-          {#each system.scenes as row (row.slot)}
-            <div class="slotrow" class:own={row.script}>
-              <div class="slotinfo">
-                <b>{row.label}</b>
-                <span class="mono muted small">{row.slot}</span>
-                <span class="params">{#each row.params as name}<code>{"{"}{name}{"}"}</code>{/each}</span>
-              </div>
-              <div class="slotpick">
-                <select class="field" value={row.script ?? ""} onchange={(e) => chooseScene(row.slot, e.currentTarget.value)}>
-                  <option value="">Встроенная (движок)</option>
-                  {#each system.scene_library as item}<option value={item.slug}>{item.title ? `${item.title} · ${item.slug}` : item.slug}</option>{/each}
-                </select>
-                {#if row.script}<a class="btn ghost" href="#/scenes/{row.script}">Открыть</a>{/if}
-              </div>
-            </div>
-          {/each}
-        </div>
+        <ScenesTab {system} {done} />
       {:else if tab === "style"}
-        <div class="stylegrid" class:nopv={!deskPreview}>
-        <div class="stylemain">
-        <div class="block">
-          <h3>Стиль рабочего стола и окон <a class="more" href={desktopUrl} target="_blank" rel="noopener">посмотреть на рабочем столе →</a>
-            {#if !deskPreview}<button class="btn ghost small" onclick={toggleDeskPreview}>Показать предпросмотр</button>{/if}</h3>
-          <p class="muted small">Стиль задаёт раскладку и вид элементов: панель, окна, кнопки, иконки. Стили готовятся в коде, здесь выбирается один из них. Токены ниже переназначают цвета, шрифты и форму поверх выбранного стиля.</p>
-          <div class="styles">
-            {#each system.styles as item}
-              <label class="stylecard" class:on={look.style === item.slug}>
-                <input type="radio" name="style" value={item.slug} bind:group={look.style} />
-                <b>{item.label}</b>
-                <span class="muted small">{item.description}</span>
-              </label>
-            {/each}
-          </div>
-        </div>
-
-        {#each groups as group}
-          <div class="block">
-            <h3>{group}</h3>
-            <div class="tokens">
-              {#each system.token_info.filter((t) => t.group === group) as token (token.name)}
-                <div class="token" class:own={look.tokens[token.name]}>
-                  <span>{token.label}<span class="mono muted small"> {token.name}</span></span>
-                  {#if token.kind === "font"}
-                    <select class="field" value={look.tokens[token.name] ?? ""} onchange={(e) => setToken(token.name, e.currentTarget.value)}>
-                      <option value="">как в стиле ({def(token)})</option>
-                      {#each system.fonts as font}<option value={font.value}>{font.label}</option>{/each}
-                    </select>
-                  {:else}
-                    <div class="tokeninput">
-                      {#if token.kind === "color"}
-                        <span class="swatch" style:background={def(token)} title="В стиле: {def(token)}"></span>
-                        <span class="arrow" class:dim={!look.tokens[token.name]}>→</span>
-                        <input class="picker" type="color" value={pickerValue(token)} oninput={(e) => setToken(token.name, e.currentTarget.value)} title={look.tokens[token.name] ? `Свой: ${look.tokens[token.name]}` : "В стиле такой же, как слева"} />
-                      {/if}
-                      <input class="field mono" placeholder={def(token)} value={look.tokens[token.name] ?? ""} oninput={(e) => setToken(token.name, e.currentTarget.value)} class:bad={errors.style} />
-                    </div>
-                  {/if}
-                  <button class="btn ghost" disabled={!look.tokens[token.name]} onclick={() => setToken(token.name, "")} title="Как в стиле">×</button>
-                </div>
-              {/each}
-            </div>
-          </div>
-        {/each}
-        {#if errors.style}{#each errors.style as text}<p class="warn small">{text}</p>{/each}{/if}
-        <div><button class="btn primary" disabled={!lookDirty} onclick={saveLook}>Сохранить стиль</button></div>
-        </div>
-        {#if deskPreview}
-        <aside class="stylepreview">
-          <div class="block">
-            <h3>Предпросмотр <span class="muted small">с несохранёнными изменениями</span> <button class="btn ghost small hidepv" onclick={toggleDeskPreview}>Скрыть</button></h3>
-            <div class="pvframe" bind:clientWidth={previewWidth} style:height="{(previewWidth * PREVIEW_H) / PREVIEW_W}px">
-              {#if previewSrc}
-                <iframe title="Предпросмотр рабочего стола" src={previewSrc} style:width="{PREVIEW_W}px" style:height="{PREVIEW_H}px" style:transform="scale({previewWidth / PREVIEW_W})"></iframe>
-              {/if}
-            </div>
-            <p class="muted small">Настоящий рабочий стол с тестовыми приложениями. Внутри можно пользоваться меню и открывать окна.</p>
-          </div>
-        </aside>
-        {/if}
-        </div>
+        <StyleTab {system} {errors} {done} />
       {:else if tab === "screen"}
-        <div class="block">
-          <h3>Чёрный экран рабочего стола</h3>
-          <p class="muted small">Что показывается, когда рабочий стол меняется. Пустое поле: как у движка (серым в подсказке). Подстановки:
-            {#each system.blackout_params as param}<code title={param.label}>{"{"}{param.name}{"}"}</code>{" "}{/each}. Цвет окна один на всё окно. У учётки может
-            быть свой текст обрыва: он важнее текста здесь.</p>
-          {#each system.blackouts as row (row.event)}
-            {@const own = blackouts[row.event]}
-            {#if own}
-              <div class="bo">
-                <div class="bo-head"><b>{row.label}</b>
-                  <span class="spacer"></span>
-                  <button class="btn ghost" disabled={!blackoutDirty(row.event)} onclick={() => saveBlackout(row.event)}>Сохранить</button>
-                  <button class="btn ghost danger" onclick={() => resetBlackout(row.event)}>Сбросить</button>
-                </div>
-                <div class="bo-grid">
-                  <div class="col">
-                    <input class="field" placeholder={row.default.title} bind:value={own.title} />
-                    <textarea class="field mono" rows="3" spellcheck="false" placeholder={row.default.text} bind:value={own.text}></textarea>
-                    {#if errors.text}<p class="warn small">{errors.text.join(" ")}</p>{/if}
-                  </div>
-                  <div class="col">
-                    <select class="field" bind:value={own.tone}>
-                      {#each Object.entries(TONES) as [value, label]}<option {value}>{label}{value === "" ? ` (${TONES[row.default.tone]})` : ""}</option>{/each}
-                    </select>
-                    <div class="three">
-                      <label><span class="label">Пауза до окна, мс</span><input class="field" type="number" min="0" placeholder={String(row.default.delay_ms)} value={own.delay_ms ?? ""} oninput={(e) => (own.delay_ms = number(e.currentTarget.value))} /></label>
-                      <label><span class="label">Печать, мс/буква</span><input class="field" type="number" min="0" placeholder={String(row.default.speed_ms)} value={own.speed_ms ?? ""} oninput={(e) => (own.speed_ms = number(e.currentTarget.value))} /></label>
-                      <label><span class="label">Пауза после, мс</span><input class="field" type="number" min="0" placeholder={String(row.default.hold_ms)} value={own.hold_ms ?? ""} oninput={(e) => (own.hold_ms = number(e.currentTarget.value))} /></label>
-                    </div>
-                  </div>
-                  <div class="bo-mock" style:--tone={TONE_COLOR[own.tone || row.default.tone]}>
-                    <div class="bo-title">{own.title || row.default.title}</div>
-                    <pre class="bo-body">{own.text || row.default.text}</pre>
-                  </div>
-                </div>
-              </div>
-            {/if}
-          {/each}
-        </div>
+        <ScreenTab {system} {errors} {done} />
       {:else if tab === "groups"}
       <div class="block">
         <h3>Политика входа</h3>
@@ -675,44 +484,6 @@
   .chips { display: flex; flex-wrap: wrap; gap: 4px; }
   .chips .chip { cursor: pointer; }
   .term { margin: 0; min-height: 200px; padding: 10px 12px; border-radius: var(--radius-s); background: #0b0d10; color: #cfd6dd; font-size: 12px; line-height: 1.4; overflow: auto; }
-  .slotrow { display: grid; grid-template-columns: minmax(220px, 1fr) minmax(260px, 420px); gap: 16px; align-items: center; padding: 10px 12px; border: 1px solid var(--line-soft); border-radius: var(--radius-s); }
-  .slotrow.own { border-color: var(--accent); background: var(--accent-soft); }
-  .slotinfo { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
-  .params { display: flex; flex-wrap: wrap; gap: 4px; }
-  .params code { padding: 0 5px; border-radius: 4px; background: var(--raise); color: var(--muted); font-size: 11px; }
-  .slotpick { display: flex; gap: 8px; align-items: center; }
-  .slotpick select { flex: 1; min-width: 0; }
-  .more { margin-left: auto; font-size: 12px; text-transform: none; letter-spacing: 0; }
-  .styles { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 10px; }
-  .stylecard { display: flex; flex-direction: column; gap: 4px; padding: 12px 14px; border: 1px solid var(--line-soft); border-radius: var(--radius-s); cursor: pointer; }
-  .stylecard.on { border-color: var(--accent); background: var(--accent-soft); }
-  .stylecard input { display: none; }
-  .tokens { display: flex; flex-direction: column; gap: 6px; }
-  .token { display: grid; grid-template-columns: minmax(0, 1fr) max-content; gap: 4px 8px; align-items: center; padding: 6px 0; border-bottom: 1px solid var(--line-soft); }
-  .token:last-child { border-bottom: 0; }
-  .token > span:first-child { grid-column: 1 / -1; }
-  .token.own > span:first-child { color: var(--accent); }
-  .token select { width: 100%; min-width: 0; }
-  .tokeninput { display: flex; gap: 6px; align-items: center; min-width: 0; }
-  .tokeninput .field { flex: 1; min-width: 0; }
-  .hidepv { margin-left: auto; text-transform: none; letter-spacing: 0; }
-  .stylegrid.nopv { grid-template-columns: minmax(0, 1fr); }
-  .stylegrid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(360px, 560px); gap: 16px; align-items: start; }
-  .stylemain { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
-  .stylepreview { position: sticky; top: 8px; }
-  .pvframe { position: relative; overflow: hidden; border: 1px solid var(--line); border-radius: var(--radius-s); background: #000; }
-  .pvframe iframe { position: absolute; top: 0; left: 0; border: 0; transform-origin: 0 0; }
-  @media (max-width: 1280px) { .stylegrid { grid-template-columns: minmax(0, 1fr); } .stylepreview { position: static; } }
-  .swatch { flex: none; width: 22px; height: 22px; border: 1px solid var(--line); border-radius: var(--radius-s); background-clip: padding-box; }
-  .arrow { color: var(--muted); font-size: 0.8rem; }
-  .arrow.dim { opacity: 0.35; }
-  .picker { width: 34px; height: 32px; padding: 0; border: 1px solid var(--line); border-radius: var(--radius-s); background: none; cursor: pointer; }
-  .bo { display: flex; flex-direction: column; gap: 8px; padding: 10px 0; border-top: 1px solid var(--line-soft); }
-  .bo-head { display: flex; align-items: center; gap: 8px; }
-  .bo-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 0.9fr); gap: 12px; align-items: start; }
-  .bo-mock { border: 1px solid var(--tone); background: #0b0d10; font-size: 12px; }
-  .bo-title { padding: 3px 8px; background: var(--tone); color: black; }
-  .bo-body { margin: 0; padding: 10px 12px; min-height: 5em; color: var(--tone); white-space: pre-wrap; font-family: inherit; }
   .spacer { flex: 1; }
   .warn { color: var(--warn); margin: 0; }
   .tabs { display: flex; gap: 2px; border-bottom: 1px solid var(--line-soft); }
