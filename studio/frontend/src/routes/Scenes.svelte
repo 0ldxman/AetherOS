@@ -1,4 +1,5 @@
 <script lang="ts">
+  import ListDetail from "../lib/ListDetail.svelte";
   import { ask } from "../lib/confirm.svelte";
   import { guardUnsaved } from "../lib/guard.svelte";
   import { onMount } from "svelte";
@@ -110,17 +111,18 @@
   const slotParams = $derived(scene?.slots.find((item) => item.slot === slot)?.params ?? []);
 </script>
 
-<div class="split">
-  <aside class="list">
-    <h1>Сцены</h1>
+<ListDetail title="Сцены">
+  {#snippet list()}
     {#each rows as row (row.slug)}
       <a class="item" class:on={row.slug === current} href="#/scenes/{row.slug}">
         <b class="mono">{row.slug}</b>
         <span class="muted small">{row.title || "без названия"}{row.bindings ? ` · событий ${row.bindings}` : ""}</span>
       </a>
     {/each}
+  {/snippet}
+  {#snippet add()}
     <button class="btn add" onclick={() => (creating = true)}>+ Сцена</button>
-  </aside>
+  {/snippet}
 
   {#if scene}
     <section class="editor">
@@ -191,7 +193,7 @@
       </div>
     {/if}
   {/if}
-</div>
+</ListDetail>
 
 {#if creating}
   <Dialog title="Новая сцена" confirm="Создать" onsubmit={create} onclose={() => (creating = false)}>
@@ -201,14 +203,7 @@
 {/if}
 
 <style>
-  .split { display: grid; grid-template-columns: 260px 1fr; min-height: 100%; }
-  .list { display: flex; flex-direction: column; gap: 2px; padding: 20px 8px; border-right: 1px solid var(--line-soft); }
-  h1 { margin: 0 10px 12px; font-size: 18px; }
-  .item { display: flex; flex-direction: column; padding: 8px 10px; border-radius: var(--radius-s); color: var(--text); }
-  .item:hover { background: var(--panel); text-decoration: none; }
-  .item.on { background: var(--accent-soft); }
   .small { font-size: 12px; margin: 0; }
-  .add { margin: 8px 4px 0; justify-content: center; }
   .editor { display: flex; flex-direction: column; gap: 10px; padding: 16px 20px 32px; min-width: 0; }
   .top { display: flex; align-items: center; gap: 8px; }
   .title { max-width: 320px; }

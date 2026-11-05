@@ -1,4 +1,5 @@
 <script lang="ts">
+  import PageHead from "../lib/PageHead.svelte";
   import { STATUS } from "../lib/labels";
   import { onMount } from "svelte";
   import { api, type Schemas } from "../lib/api";
@@ -27,20 +28,15 @@
 
 </script>
 
-<header class="head">
-  <div>
-    <h1>Машины</h1>
-    <p class="muted">Хосты мира: учётки, доступ, кто сейчас на них и что там происходило.</p>
-  </div>
-  <div class="tools">
+<PageHead title="Машины">
+  {#snippet sub()}Хосты мира: учётки, доступ, кто сейчас на них и что там происходило.{/snippet}
     <select class="field narrow" bind:value={status}>
       <option value="">все статусы</option>
       {#each Object.entries(STATUS) as [value, label]}<option {value}>{label}</option>{/each}
     </select>
     <input class="field search" placeholder="Поиск по хосту, названию, ОС" bind:value={query} />
     <button class="btn primary" onclick={() => (creating = true)}>Новая машина</button>
-  </div>
-</header>
+</PageHead>
 
 <section class="table">
   <div class="row head">
@@ -72,10 +68,6 @@
 {#if creating}<NewMachine machines={rows} onclose={() => (creating = false)} />{/if}
 
 <style>
-  .head { display: flex; justify-content: space-between; align-items: flex-end; gap: 24px; padding: 28px 32px 18px; }
-  h1 { margin: 0; font-size: 22px; font-weight: 650; }
-  .head p { margin: 4px 0 0; }
-  .tools { display: flex; gap: 8px; }
   .search { width: 280px; }
   .narrow { width: 150px; }
   .table { padding: 0 32px 32px; }

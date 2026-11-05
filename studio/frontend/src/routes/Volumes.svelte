@@ -1,4 +1,5 @@
 <script lang="ts">
+  import PageHead from "../lib/PageHead.svelte";
   import { onMount } from "svelte";
   import { api, problem, type Schemas } from "../lib/api";
   import Dialog from "../lib/Dialog.svelte";
@@ -64,16 +65,11 @@
   });
 </script>
 
-<header class="head">
-  <div>
-    <h1>Тома</h1>
-    <p class="muted">Диски мира: что на них лежит и куда они смонтированы.</p>
-  </div>
-  <div class="tools">
+<PageHead title="Тома">
+  {#snippet sub()}Диски мира: что на них лежит и куда они смонтированы.{/snippet}
     <input class="field search" placeholder="Поиск по названию, слагу, машине" bind:value={query} />
     <button class="btn primary" onclick={openCreate}>+ Новый том</button>
-  </div>
-</header>
+</PageHead>
 
 <section class="grid">
   {#if loading}
@@ -151,10 +147,6 @@
   .inline { display: flex; gap: 6px; }
   .err { margin: 0; color: var(--danger); font-size: 12px; }
   .field.bad { border-color: var(--danger); }
-  .head { display: flex; justify-content: space-between; align-items: flex-end; gap: 24px; padding: 28px 32px 18px; }
-  h1 { margin: 0; font-size: 22px; font-weight: 650; }
-  .head p { margin: 4px 0 0; }
-  .tools { display: flex; gap: 8px; }
   .search { width: 300px; }
   .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 12px; padding: 0 32px 32px; }
   .pad { padding: 8px 0; }

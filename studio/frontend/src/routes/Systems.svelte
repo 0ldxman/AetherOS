@@ -1,4 +1,5 @@
 <script lang="ts">
+  import ListDetail from "../lib/ListDetail.svelte";
   import Hint from "../lib/Hint.svelte";
   import { plural } from "../lib/labels";
   import { ask } from "../lib/confirm.svelte";
@@ -295,17 +296,18 @@
   }
 </script>
 
-<div class="split">
-  <aside class="list">
-    <h1>Операционные системы</h1>
+<ListDetail title="Операционные системы">
+  {#snippet list()}
     {#each rows as row (row.code)}
       <a class="item" class:on={row.code === current} href="#/systems/{row.code}/{tab}">
         <b class="mono">{row.code}</b>
         <span class="muted small">{row.name} · {row.machines} {plural(row.machines, "машина", "машины", "машин")}</span>
       </a>
     {/each}
+  {/snippet}
+  {#snippet add()}
     <button class="btn add" onclick={() => (dialog = "type")}>+ Операционная система</button>
-  </aside>
+  {/snippet}
 
   {#if system}
     <section class="editor">
@@ -602,7 +604,7 @@
       </div>
     {/if}
   {/if}
-</div>
+</ListDetail>
 
 {#if layer}
   <Dialog title={layer.id === null ? "Том в образе" : "Изменить том образа"} confirm="Сохранить" onsubmit={saveLayer} onclose={() => (layer = null)}>
@@ -632,14 +634,7 @@
 {/if}
 
 <style>
-  .split { display: grid; grid-template-columns: 260px 1fr; min-height: 100%; }
-  .list { display: flex; flex-direction: column; gap: 2px; padding: 20px 8px; border-right: 1px solid var(--line-soft); }
-  h1 { margin: 0 10px 12px; font-size: 18px; }
-  .item { display: flex; flex-direction: column; padding: 8px 10px; border-radius: var(--radius-s); color: var(--text); }
-  .item:hover { background: var(--panel); text-decoration: none; }
-  .item.on { background: var(--accent-soft); }
   .small { font-size: 12px; margin: 0; }
-  .add { margin: 8px 4px 0; justify-content: center; }
   .editor { display: flex; flex-direction: column; gap: 14px; padding: 16px 20px 32px; min-width: 0; }
   .top { display: flex; align-items: baseline; gap: 12px; }
   .top h2 { margin: 0; font-size: 20px; }

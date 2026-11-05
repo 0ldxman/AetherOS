@@ -1,4 +1,5 @@
 <script lang="ts">
+  import PageHead from "../lib/PageHead.svelte";
   import { onMount } from "svelte";
   import { api, problem, type Schemas } from "../lib/api";
   import Dialog from "../lib/Dialog.svelte";
@@ -65,29 +66,24 @@
   }
 </script>
 
-<header class="head">
-  <div>
-    <h1>Объекты</h1>
-    <p class="muted">Всё, что лежит в мире. Один объект может лежать в нескольких томах и архивах: правка видна везде.</p>
-  </div>
-  <div class="tools">
-    <select class="field" bind:value={filters.kind}>
+<PageHead title="Объекты">
+  {#snippet sub()}Всё, что лежит в мире. Один объект может лежать в нескольких томах и архивах: правка видна везде.{/snippet}
+    <select class="field auto" bind:value={filters.kind}>
       <option value="">любое содержимое</option>
       {#each Object.entries(KIND) as [value, label]}<option {value}>{label}</option>{/each}
     </select>
-    <select class="field" bind:value={filters.format}>
+    <select class="field auto" bind:value={filters.format}>
       <option value="">любой формат</option>
       <FormatOptions {formats} codeOnly />
     </select>
-    <select class="field" bind:value={filters.volume}>
+    <select class="field auto" bind:value={filters.volume}>
       <option value="">любой том</option>
       {#each volumes as found}<option value={found.id}>{found.name || found.slug}</option>{/each}
     </select>
     <input class="field path mono" placeholder="папка: ports/reports" title="Путь к папке внутри тома: покажет объекты из неё и из вложенных" bind:value={filters.path} />
     <input class="field search" placeholder="Название, слаг или текст" bind:value={filters.q} />
     <button class="btn primary" onclick={() => (dialog = { name: "", format: "", slug: "", volume: "" })}>Новый объект</button>
-  </div>
-</header>
+</PageHead>
 
 <nav class="chips">
   {#each ONLY as [value, label]}
@@ -113,7 +109,7 @@
         {#if row.where.length}
           <span class="mono">{row.where[0]}</span>{#if row.places > 1}<span class="muted">&nbsp;+{row.places - 1}</span>{/if}
         {:else if !row.archives}нигде{/if}
-        {#if row.archives}<span class="muted"> · арх. {row.archives}</span>{/if}
+        {#if row.archives}<span class="muted">{row.where.length ? " · " : ""}в архиве: {row.archives}</span>{/if}
       </span>
       <span class="flags">
         {#if row.layers}<span class="chip warnchip">слои</span>{/if}
@@ -149,11 +145,7 @@
 {/if}
 
 <style>
-  .head { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: flex-end; gap: 12px 24px; padding: 28px 32px 12px; }
-  h1 { margin: 0; font-size: 22px; font-weight: 650; }
-  .head p { margin: 4px 0 0; max-width: 640px; }
-  .tools { display: flex; flex-wrap: wrap; gap: 8px; }
-  .tools .field { width: auto; }
+  .auto { width: auto; }
   .search { width: 220px !important; }
   .path { width: 170px !important; }
   .sort { padding: 0; border: 0; background: none; color: inherit; font: inherit; cursor: pointer; }

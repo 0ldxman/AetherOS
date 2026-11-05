@@ -1,4 +1,5 @@
 <script lang="ts">
+  import ListDetail from "../lib/ListDetail.svelte";
   import Hint from "../lib/Hint.svelte";
   import { guardUnsaved } from "../lib/guard.svelte";
   import { onMount } from "svelte";
@@ -93,9 +94,8 @@
   const KIND: Record<string, string> = { system: "ОС", machine: "машина", account: "учётка" };
 </script>
 
-<div class="split">
-  <aside class="list">
-    <h1>Политики входа</h1>
+<ListDetail title="Политики входа">
+  {#snippet list()}
     {#each rows as row (row.id)}
       <a class="item" class:on={row.id === current} href="#/policies/{row.id}">
         <b>{row.name}</b>
@@ -104,8 +104,10 @@
         </span>
       </a>
     {/each}
+  {/snippet}
+  {#snippet add()}
     <button class="btn add" onclick={() => (dialog = "new")}>+ Политика</button>
-  </aside>
+  {/snippet}
 
   {#if policy}
     <section class="editor">
@@ -175,7 +177,7 @@
       </div>
     {/if}
   {/if}
-</div>
+</ListDetail>
 
 {#if dialog === "new"}
   <Dialog title="Новая политика" confirm="Создать" onsubmit={create} onclose={() => (dialog = null)}>
@@ -188,14 +190,7 @@
 {/if}
 
 <style>
-  .split { display: grid; grid-template-columns: 260px 1fr; min-height: 100%; }
-  .list { display: flex; flex-direction: column; gap: 2px; padding: 20px 8px; border-right: 1px solid var(--line-soft); }
-  h1 { margin: 0 10px 12px; font-size: 18px; }
-  .item { display: flex; flex-direction: column; padding: 8px 10px; border-radius: var(--radius-s); color: var(--text); }
-  .item:hover { background: var(--panel); text-decoration: none; }
-  .item.on { background: var(--accent-soft); }
   .small { font-size: 12px; margin: 0; }
-  .add { margin: 8px 4px 0; justify-content: center; }
   .editor { display: flex; flex-direction: column; gap: 12px; padding: 16px 20px 32px; min-width: 0; }
   .top { display: flex; align-items: center; gap: 10px; }
   .title { height: 36px; padding: 0 8px; border: 1px solid transparent; border-radius: var(--radius-s); background: none; font-size: 18px; font-weight: 600; outline: none; }

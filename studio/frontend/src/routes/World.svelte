@@ -1,4 +1,5 @@
 <script lang="ts">
+  import PageHead from "../lib/PageHead.svelte";
   import Hint from "../lib/Hint.svelte";
   import { guardUnsaved } from "../lib/guard.svelte";
   import { onMount } from "svelte";
@@ -44,10 +45,9 @@
   const num = (value: string) => Math.max(0, Math.round(+value) || 0);
 </script>
 
-<header class="head">
-  <h1>Мир</h1>
-  <p class="muted">Настройки мира: от них считаются даты и числа на экранах входа, загрузки и в приветствии ОС (<code>{"{date}"}</code>, <code>{"{core_days}"}</code>, <code>{"{stations}"}</code> и другие).</p>
-</header>
+<PageHead title="Мир">
+  {#snippet sub()}Настройки мира: от них считаются даты и числа на экранах входа, загрузки и в приветствии ОС (<code>{"{date}"}</code>, <code>{"{core_days}"}</code>, <code>{"{stations}"}</code> и другие).{/snippet}
+</PageHead>
 
 {#if world}
   <section class="card">
@@ -80,9 +80,6 @@
 {/if}
 
 <style>
-  .head { padding: 28px 32px 8px; }
-  h1 { margin: 0; font-size: 22px; font-weight: 650; }
-  .head p { margin: 4px 0 0; }
   .card { margin: 12px 32px; padding: 14px 16px; border: 1px solid var(--line-soft); border-radius: var(--radius); background: var(--panel); display: flex; flex-direction: column; gap: 10px; }
   h2 { margin: 0; font-size: 12px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.4px; }
   .row { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 10px; }
