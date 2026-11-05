@@ -541,11 +541,11 @@
           {#each system.groups as row (row.name)}
             <div class="cell"><b class="mono">{row.name}</b>{#if row.source === "default"}<span class="chip">движок</span>{/if}</div>
             {#each system.privileges as privilege}
-              <button class="cell tick" class:on={row.privileges.includes(privilege.code)} title={privilege.label} onclick={() => toggle(row, privilege.code)}>
-                {row.privileges.includes(privilege.code) ? "●" : "·"}
+              <button class="cell tick" class:on={row.privileges.includes(privilege.code)} title={privilege.label} aria-pressed={row.privileges.includes(privilege.code)} aria-label={privilege.label} onclick={() => toggle(row, privilege.code)}>
+                {row.privileges.includes(privilege.code) ? "✓" : "·"}
               </button>
             {/each}
-            <button class="cell tick" class:on={row.everyone} onclick={() => putGroup(row, row.privileges, !row.everyone)}>{row.everyone ? "да" : "—"}</button>
+            <button class="cell tick" class:on={row.everyone} aria-pressed={row.everyone} aria-label="Все учётки" onclick={() => putGroup(row, row.privileges, !row.everyone)}>{row.everyone ? "да" : "—"}</button>
             <div class="cell muted small mono">{row.machines.join(", ") || "—"}</div>
             <div class="cell acts"><button class="btn ghost danger" onclick={() => dropGroup(row)}>Удалить</button></div>
           {/each}

@@ -84,11 +84,11 @@
         </div>
         {#each table.privileges as privilege}
           <button class="cell tick" class:on={row.privileges.includes(privilege.code)} class:off={row.disabled} disabled={row.disabled}
-                  title={privilege.label} onclick={() => toggle(row, privilege.code)}>
-            {row.privileges.includes(privilege.code) ? "●" : "·"}
+                  title={privilege.label} aria-pressed={row.privileges.includes(privilege.code)} aria-label={privilege.label} onclick={() => toggle(row, privilege.code)}>
+            {row.privileges.includes(privilege.code) ? "✓" : "·"}
           </button>
         {/each}
-        <button class="cell tick" class:on={row.everyone} disabled={row.disabled} onclick={() => put(row, row.privileges, !row.everyone)}>
+        <button class="cell tick" class:on={row.everyone} disabled={row.disabled} aria-pressed={row.everyone} aria-label="Все учётки" onclick={() => put(row, row.privileges, !row.everyone)}>
           {row.everyone ? "да" : "—"}
         </button>
         <div class="cell members">

@@ -106,7 +106,7 @@
     <span><button class="sort" onclick={() => sortBy("updated_at")}>Правка{arrow("updated_at")}</button></span>
   </div>
   {#each rows as row (row.id)}
-    <button class="row" onclick={() => go(`/items/${row.id}`)}>
+    <a class="row" href="#/items/{row.id}">
       <span class="name"><b>{row.name}</b>{#if row.format}<span class="chip">{row.format}</span>{/if}<span class="mono slug">{row.slug}</span></span>
       <span class="muted">{KIND[row.kind]}</span>
       <span class="where" class:warn={row.places + row.archives === 0} title={row.where.join("\n")}>
@@ -121,7 +121,7 @@
       </span>
       <span class="num mono muted">{size(row.size)}</span>
       <span class="muted">{ago(row.updated_at)}{row.updated_by ? ` · ${row.updated_by}` : ""}</span>
-    </button>
+    </a>
   {:else}
     {#if !loading}<p class="muted pad">Ничего не нашлось.</p>{/if}
   {/each}
@@ -169,6 +169,7 @@
     display: grid; grid-template-columns: minmax(260px, 1fr) 90px minmax(220px, 1fr) 150px 80px 190px; align-items: center; gap: 12px;
     width: 100%; height: 40px; padding: 0 12px; border: 0; border-radius: var(--radius-s); background: none; text-align: left; cursor: pointer;
   }
+  a.row { color: inherit; text-decoration: none; }
   .row:not(.head):hover { background: var(--panel); }
   .row.head { height: 30px; color: var(--faint); font-size: 12px; border-bottom: 1px solid var(--line-soft); border-radius: 0; cursor: default; }
   .name { display: flex; align-items: center; gap: 8px; min-width: 0; white-space: nowrap; overflow: hidden; }

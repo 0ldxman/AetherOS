@@ -50,7 +50,7 @@
     <p class="muted pad">Загрузка…</p>
   {:else}
     {#each shown as row (row.id)}
-      <button class="row" onclick={() => go(`/machines/${row.id}`)}>
+      <a class="row" href="#/machines/{row.id}">
         <span class="host">
           <span class="dot {row.status.toLowerCase()}"></span>
           <span><b class="mono">{row.hostname || "—"}</b> <span class="muted">{row.name}</span></span>
@@ -61,7 +61,7 @@
         <span class="num">{row.accounts}</span>
         <span class="num" class:live={row.online > 0}>{row.online || "—"}</span>
         <span class="num" class:alarm={row.refusals > 0}>{row.refusals || "—"}</span>
-      </button>
+      </a>
     {:else}
       <p class="muted pad">{rows.length ? "Ничего не нашлось." : "Машин пока нет."}</p>
       {#if !rows.length}<button class="btn primary add-first" onclick={() => (creating = true)}>Новая машина</button>{/if}
@@ -84,6 +84,7 @@
     display: grid; grid-template-columns: minmax(260px, 1fr) 110px 120px 80px 80px 140px; align-items: center; gap: 12px;
     width: 100%; height: 42px; padding: 0 12px; border: 0; border-radius: var(--radius-s); background: none; text-align: left; cursor: pointer;
   }
+  a.row { color: inherit; text-decoration: none; }
   .row:not(.head):hover { background: var(--panel); }
   .row.head { height: 30px; color: var(--faint); font-size: 12px; border-bottom: 1px solid var(--line-soft); border-radius: 0; cursor: default; }
   .host { display: flex; align-items: center; gap: 10px; min-width: 0; white-space: nowrap; overflow: hidden; }

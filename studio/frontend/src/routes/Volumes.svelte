@@ -83,7 +83,7 @@
     {#if !rows.length}<button class="btn primary add-first" onclick={openCreate}>+ Новый том</button>{/if}
   {:else}
     {#each shown as row (row.id)}
-      <button class="card" onclick={() => go(`/volumes/${row.id}`)}>
+      <a class="card" href="#/volumes/{row.id}">
         <div class="title">
           <span class="name">{row.name || row.slug}</span>
           {#if row.label}<span class="chip">{row.label}</span>{/if}
@@ -100,7 +100,7 @@
             <span class="faint">не смонтирован</span>
           {/each}
         </div>
-      </button>
+      </a>
     {/each}
   {/if}
 </section>
@@ -164,8 +164,9 @@
     transition: border-color 0.12s, transform 0.12s, background 0.12s;
   }
   .card:hover { border-color: #39404d; background: var(--panel-2); transform: translateY(-1px); }
-  .title { display: flex; align-items: center; gap: 8px; }
-  .name { font-weight: 600; font-size: 15px; }
+  a.card { color: inherit; text-decoration: none; }
+  .title { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; min-width: 0; }
+  .name { font-weight: 600; font-size: 15px; overflow-wrap: anywhere; }
   .slug { color: var(--faint); }
   .stats { display: flex; gap: 14px; color: var(--muted); }
   .stats b { color: var(--text); font-weight: 600; }

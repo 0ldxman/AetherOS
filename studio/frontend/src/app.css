@@ -8,7 +8,7 @@
   --line-soft: #20232a;
   --text: #e6e8ec;
   --muted: #9097a3;
-  --faint: #5f6672;
+  --faint: #818996;          /* не ниже 4.5:1 на всех панелях */
   --accent: #7aa2ff;
   --accent-soft: rgba(122, 162, 255, 0.14);
   --ok: #5fd0a0;
@@ -40,6 +40,14 @@ a:hover { text-decoration: underline; }
 
 button, input, select, textarea { font: inherit; color: inherit; }
 
+/* Видимый фокус для клавиатуры: кнопки, ссылки, вкладки, сворачиваемые блоки */
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.field:focus-visible { outline: none; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { transition: none !important; animation: none !important; scroll-behavior: auto !important; }
+}
+
 .btn {
   display: inline-flex; align-items: center; gap: 6px;
   height: 30px; padding: 0 12px;
@@ -69,7 +77,7 @@ textarea.field { display: block; height: auto; padding: 8px 10px; line-height: 1
 
 .chip {
   display: inline-block; padding: 0 7px; border-radius: 999px;
-  background: var(--raise); color: var(--muted); font-size: 11.5px; line-height: 19px;
+  background: var(--raise); color: var(--muted); font-size: 11.5px; line-height: 19px; white-space: nowrap;
 }
 
 .muted { color: var(--muted); }
