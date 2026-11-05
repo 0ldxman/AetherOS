@@ -16,6 +16,7 @@
   let mode = $state<"build" | "text">("build");
   let model = $state<{ preamble: string; layers: Layer[] } | null>(null);
   let info = $state({ editable: true, unsupported: "", problems: [] as Schemas["StackProblem"][] });
+  let hookInfo = $state<Schemas["StackHooks"]>({ events: [], actions: [], commands: [] });
   let adding = $state(false);
   let shown = $state<Record<number, boolean>>({});
 
@@ -28,7 +29,10 @@
   onMount(async () => {
     kinds = (await api.GET("/studio/api/layers/catalog")).data ?? [];
     keys = (await api.GET("/studio/api/keys")).data ?? [];
+    hookInfo = (await api.GET("/studio/api/layers/hooks")).data ?? hookInfo;
   });
+
+  const actionOf = (name: string) => hookInfo.actions.find((item) => item.name === name);
 
   async function parse(text: string) {
     const mine = ++sequence;
@@ -55,6 +59,7 @@
     if (!model) return;
     const mine = ++sequence;
     const body = $state.snapshot(model);
+    for (const layer of body.layers) if (layer.answers) layer.answers = layer.answers.filter((row) => row.command.trim());   // недописанный ответ ждёт в форме
     const { data } = await api.POST("/studio/api/layers/build", { body });
     if (!data || mine !== sequence) return;
     lastBuilt = data.text;
@@ -73,7 +78,7 @@
   }
 
   function add(kind: Kind) {
-    model?.layers.unshift({ name: kind.name, values: {}, move: null, body: "" });
+    model?.layers.unshift({ name: kind.name, values: {}, move: null, body: "", answers: [], hooks: [] });
     adding = false;
     push();
   }
@@ -83,6 +88,25 @@
     const to = index + by;
     if (to < 0 || to >= model.layers.length) return;
     [model.layers[index], model.layers[to]] = [model.layers[to], model.layers[index]];
+    push();
+  }
+
+  function addAnswer(layer: Layer) {
+    layer.answers = [...(layer.answers ?? []), { command: "", text: "" }];
+  }
+
+  function addHook(layer: Layer) {
+    const used = new Set((layer.hooks ?? []).map((hook) => hook.event));
+    const free = hookInfo.events.find((event) => !used.has(event.name));
+    if (!free) return;
+    layer.hooks = [...(layer.hooks ?? []), { event: free.name, actions: [{ name: "say", value: "", quoted: false }] }];
+    push();
+  }
+
+  function setAction(action: Schemas["StackAction"], name: string) {
+    action.name = name;
+    action.quoted = false;
+    if (!actionOf(name)?.value_label) action.value = "";
     push();
   }
 
@@ -170,12 +194,60 @@
           {open ? "▾" : "▸"} Ответы и события{layer.body.trim() ? " (заполнено)" : ""}
         </button>
         {#if open}
-          <textarea
-            class="field mono body" rows="5" spellcheck="false" value={layer.body}
-            placeholder={'file: Header checksum mismatch\non remove: say "Готово"'}
-            oninput={(event) => { layer.body = event.currentTarget.value; push(); }}
-          ></textarea>
-          <p class="muted small">Своя реплика слоя на команду (<span class="mono">file: текст</span>) и хуки (<span class="mono">on remove:</span>, <span class="mono">on fail:</span>…). Пока пишется текстом.</p>
+          {#if layer.answers && layer.hooks}
+            <div class="sub">
+              <h4>Ответы на команды<Hint text="Что слой ответит игроку, когда тот спросит о файле командой (ftyp, cnt, ward…). Если ответа нет, слой отвечает по умолчанию." /></h4>
+              {#each layer.answers as answer, at (at)}
+                <div class="row">
+                  <input class="field mono cmd" list="layer-commands" placeholder="команда" value={answer.command}
+                    oninput={(event) => { answer.command = event.currentTarget.value.replace(/[^A-Za-z0-9_-]/g, ""); push(); }} />
+                  <textarea class="field grow" rows="1" placeholder="Что ответит слой. Можно {"{path}"}, {"{name}"}" value={answer.text}
+                    oninput={(event) => { answer.text = event.currentTarget.value; push(); }}></textarea>
+                  <button class="icon danger" aria-label="Убрать ответ" onclick={() => { layer.answers!.splice(at, 1); push(); }}>✕</button>
+                </div>
+              {/each}
+              <button class="link" onclick={() => addAnswer(layer)}>+ Ответ</button>
+
+              <h4>События<Hint text="Что произойдёт, когда с файлом что-то случится: слой снят, попытки кончились, файл открыт или удалён. У каждого события свой список действий." /></h4>
+              {#each layer.hooks as hook, hi (hi)}
+                <div class="hook">
+                  <div class="row">
+                    <select class="field" value={hook.event} onchange={(event) => { hook.event = event.currentTarget.value; push(); }}>
+                      {#each hookInfo.events as item (item.name)}
+                        <option value={item.name} disabled={item.name !== hook.event && layer.hooks.some((other) => other.event === item.name)}>{item.title}</option>
+                      {/each}
+                    </select>
+                    <span class="muted small grow">{hookInfo.events.find((item) => item.name === hook.event)?.help}</span>
+                    <button class="icon danger" aria-label="Убрать событие" onclick={() => { layer.hooks!.splice(hi, 1); push(); }}>✕</button>
+                  </div>
+                  {#each hook.actions as action, ci (ci)}
+                    {@const kind = actionOf(action.name)}
+                    <div class="row action">
+                      <select class="field" value={action.name} onchange={(event) => setAction(action, event.currentTarget.value)}>
+                        {#each hookInfo.actions as item (item.name)}<option value={item.name}>{item.title}</option>{/each}
+                      </select>
+                      {#if kind?.value_label}
+                        <input class="field grow" class:mono={!kind.text} placeholder="{kind.value_label}, например {kind.example}" aria-label={kind.value_label} value={action.value}
+                          title={kind.help} oninput={(event) => { action.value = event.currentTarget.value; push(); }} />
+                      {:else}
+                        <span class="muted small grow">{kind?.help}</span>
+                      {/if}
+                      <button class="icon danger" aria-label="Убрать действие" onclick={() => { hook.actions.splice(ci, 1); push(); }}>✕</button>
+                    </div>
+                  {/each}
+                  <button class="link" onclick={() => { hook.actions.push({ name: "say", value: "", quoted: false }); push(); }}>+ Действие</button>
+                </div>
+              {/each}
+              <button class="link" disabled={layer.hooks.length >= hookInfo.events.length} onclick={() => addHook(layer)}>+ Событие</button>
+            </div>
+          {:else}
+            <p class="muted small">В тексте этого слоя есть комментарии или нестандартные строки, поэтому ответы и события правятся текстом (так ничего не потеряется).</p>
+            <textarea
+              class="field mono body" rows="6" spellcheck="false" value={layer.body}
+              placeholder={'file: Header checksum mismatch\non remove: say "Готово"'}
+              oninput={(event) => { layer.body = event.currentTarget.value; push(); }}
+            ></textarea>
+          {/if}
         {/if}
       </section>
     {:else}
@@ -185,6 +257,7 @@
       <p class="muted small">Комментарии перед слоями сохраняются в тексте: <span class="mono">{model.preamble.split("\n")[0]}</span>{model.preamble.includes("\n") ? "…" : ""}</p>
     {/if}
   {/if}
+  <datalist id="layer-commands">{#each hookInfo.commands as name (name)}<option value={name}></option>{/each}</datalist>
   <datalist id="layer-keys">{#each keys as key (key.slug)}<option value={key.slug}>{key.description}</option>{/each}</datalist>
 </div>
 
@@ -217,4 +290,15 @@
   .more:hover { color: var(--text); }
   .body { width: 100%; resize: vertical; }
   .empty { padding: 12px 0; }
+  .sub { display: flex; flex-direction: column; gap: 8px; padding: 10px; border: 1px solid var(--line-soft); border-radius: var(--radius-s); background: var(--bg); }
+  .sub h4 { margin: 4px 0 0; color: var(--muted); font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; }
+  .row { display: flex; align-items: flex-start; gap: 8px; }
+  .row .field { width: auto; }
+  .row .grow { flex: 1; min-width: 0; }
+  .row textarea.field { resize: vertical; min-height: 32px; }
+  .cmd { width: 110px !important; }
+  .hook { display: flex; flex-direction: column; gap: 6px; padding: 8px; border: 1px solid var(--line-soft); border-radius: var(--radius-s); background: var(--panel-2); }
+  .action { padding-left: 14px; }
+  .link { align-self: flex-start; padding: 0; border: 0; background: none; color: var(--accent); cursor: pointer; }
+  .link:disabled { color: var(--faint); cursor: default; }
 </style>

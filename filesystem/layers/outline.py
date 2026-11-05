@@ -10,10 +10,30 @@
 """
 from dataclasses import dataclass, field
 
+from filesystem.layers.hooks import ACTIONS, EVENTS, TEXT_ACTIONS
 from filesystem.layers.parser import MOVE_OPERATORS, parse
 from filesystem.layers.registry import registry
 
 _TYPE_NAMES = {str: "str", int: "int", float: "float", bool: "bool"}
+
+
+@dataclass
+class Answer:
+    command: str
+    text: str
+
+
+@dataclass
+class Action:
+    name: str
+    value: str = ""
+    quoted: bool = False        # значение было в кавычках (для say и log кавычки ставятся всегда)
+
+
+@dataclass
+class Hook:
+    event: str
+    actions: list[Action] = field(default_factory=list)
 
 
 @dataclass
@@ -22,6 +42,8 @@ class OutlineLayer:
     values: dict[str, str] = field(default_factory=dict)       # имя аргумента -> значение (всё строками, как в тексте)
     move: tuple[str, str] | None = None                         # ("rename" | "copy", путь)
     body: str = ""                                              # ответы, хуки и комментарии под заголовком, как написано
+    answers: list[Answer] | None = None                         # ответы слоя на команды; None: тело нельзя разложить (комментарии и т. п.)
+    hooks: list[Hook] | None = None                             # события слоя с действиями; None вместе с answers
 
 
 @dataclass
@@ -74,10 +96,11 @@ def outline(text: str) -> Outline:
         if reason:
             result.unsupported = f"слой «{layer.name}»: {reason}"
             return result
+        body = "\n".join(lines[layer.line: end - 1]).strip("\n")
+        parts = structure_of(body)
         result.layers.append(OutlineLayer(
-            name=layer.name, values=values,
-            move=(layer.move.kind, layer.move.target) if layer.move else None,
-            body="\n".join(lines[layer.line: end - 1]).strip("\n"),
+            name=layer.name, values=values, move=(layer.move.kind, layer.move.target) if layer.move else None, body=body,
+            answers=parts[0] if parts else None, hooks=parts[1] if parts else None,
         ))
     return result
 
@@ -122,6 +145,110 @@ def build(preamble: str, layers: list[OutlineLayer]) -> str:
     rows = [preamble.rstrip()] if preamble.strip() else []
     for layer in layers:
         rows.append(header(layer))
-        if layer.body.strip():
-            rows.append(layer.body.strip("\n"))
+        body = _body(layer)
+        if body.strip():
+            rows.append(body.strip("\n"))
     return "\n".join(rows)
+
+
+# ---- ответы и события слоя ----
+
+def _quoted(text: str) -> str:
+    return '"' + text.replace("\\", "\\\\").replace('"', '\\"') + '"'
+
+
+def _answer_text(text: str) -> str:
+    plain = text != "" and "\n" not in text and not text.startswith('"') and text == text.strip()
+    return text if plain or text == "" else _quoted(text)
+
+
+def _action_value(action: Action) -> str:
+    value = action.value if "\n" in action.value else action.value.strip()
+    if action.name in TEXT_ACTIONS or action.quoted:
+        return _quoted(value) if value != "" or action.quoted else ""
+    return value
+
+
+def regen_body(answers: list[Answer], hooks: list[Hook]) -> str:
+    """Тело слоя из ответов и событий: сначала ответы, потом хуки (`on событие:` и по строке на действие)."""
+    rows = [f"{a.command}:" + (f" {_answer_text(a.text)}" if a.text != "" else "") for a in answers]
+    for hook in hooks:
+        rows.append(f"on {hook.event}:")
+        for action in hook.actions:
+            value = _action_value(action)
+            rows.append(f"- {action.name}" + (f" {value}" if value != "" else ""))
+    return "\n".join(rows)
+
+
+def _shape(layers):
+    return [
+        ([(o.command, o.text) for o in layer.overrides.values()],
+         [(h.event, [(a.name, a.value) for a in h.actions]) for h in layer.hooks])
+        for layer in layers
+    ]
+
+
+def structure_of(body: str) -> tuple[list[Answer], list[Hook]] | None:
+    """Ответы и события из тела слоя. None, если тело нельзя разложить и собрать обратно без потерь (есть комментарии,
+    непонятные строки): такое тело правится текстом."""
+    if any(row.strip().startswith("#") for row in body.splitlines()):
+        return None
+    layers, problems = parse("> x\n" + body)
+    if problems or len(layers) != 1:
+        return None
+    layer = layers[0]
+    answers = [Answer(o.command, o.text) for o in layer.overrides.values()]
+    hooks = [Hook(h.event, [Action(a.name, a.value, a.quoted) for a in h.actions]) for h in layer.hooks]
+    again, more = parse("> x\n" + regen_body(answers, hooks))
+    if more or _shape(again) != _shape(layers):
+        return None
+    return answers, hooks
+
+
+def _body(layer: OutlineLayer) -> str:
+    """Тело при сборке: если ответы и события не менялись, остаётся как написано; изменились: собирается заново."""
+    if layer.answers is None or layer.hooks is None:
+        return layer.body
+    if structure_of(layer.body) == (layer.answers, layer.hooks):
+        return layer.body
+    return regen_body(layer.answers, layer.hooks)
+
+
+# Подписи для формы. Сами события и действия описаны в hooks.py; здесь только человеческий язык.
+EVENT_TITLES = {
+    "remove": ("Слой снят", "Срабатывает один раз, когда игрок снял этот слой."),
+    "attempt": ("Неудачная попытка", "Срабатывает при каждой неверной попытке снять слой."),
+    "fail": ("Попытки кончились", "Срабатывает один раз, когда попытки закончились."),
+    "read": ("Файл открыт", "Игрок открыл файл командой cnt (каждый раз). Слой при этом остаётся."),
+    "delete": ("Файл удалён", "Игрок удалил файл командой del: он ушёл в корзину (каждый раз)."),
+    "restore": ("Файл возвращён из корзины", "Игрок вернул файл командой rcvr."),
+}
+
+# имя действия -> (название, подпись значения, пример, подсказка). Подпись пустая: у действия нет значения.
+ACTION_TITLES = {
+    "say": ("Сказать игроку", "Текст", "Готово. Осталось попыток: {attempts_left}", "Сообщение в терминале. Подстановки: {attempts_left}, {path}, {name}."),
+    "log": ("Записать в журнал", "Текст", "Файл вскрыт: {path}", "Запись в журнал событий машины."),
+    "add": ("Добавить слой", "Слой и его аргументы", "damaged", "Накладывает на файл ещё один слой, например damaged или encrypted pass."),
+    "drop": ("Удалить файл", "Путь", "/home/secret.dat", "Удаляет файл у игрока. Относительный путь считается от текущего файла."),
+    "rename": ("Переименовать файл", "Новый путь", "opened.txt", "Переименовывает файл у игрока."),
+    "copy": ("Скопировать файл", "Куда", "backup/copy.txt", "Копирует файл у игрока."),
+    "mail": ("Прислать письмо", "Письмо и задержка", "door_open delay=30", "Идентификатор письма из почты, затем при желании delay=секунды."),
+    "kick": ("Выбросить из сессии", "", "", "Игрока выбрасывает на уровень выше или на экран входа."),
+    "alert": ("Засыпать окнами ошибок", "Сообщение и параметры", "unreachable count=12 gap=300", "Сообщение из каталога системы, count — сколько окон, gap — пауза в мс."),
+    "open": ("Открыть окно", "Адрес", "apps/wiki/go/harbor/", "Внутренний адрес окна. Адрес с пробелами или «=» пишется в кавычках."),
+}
+
+# Команды игрока, на которые слой может отвечать по-своему (любую другую тоже можно вписать).
+ANSWER_COMMANDS = ("ftyp", "cnt", "ward", "pak", "rpr", "blk", "cvt")
+
+
+def hooks_catalog() -> dict:
+    return {
+        "events": [{"name": name, "title": EVENT_TITLES[name][0], "help": EVENT_TITLES[name][1]} for name in EVENTS],
+        "actions": [
+            {"name": name, "title": ACTION_TITLES[name][0], "value_label": ACTION_TITLES[name][1], "example": ACTION_TITLES[name][2],
+             "help": ACTION_TITLES[name][3], "text": name in TEXT_ACTIONS}
+            for name in ACTIONS
+        ],
+        "commands": list(ANSWER_COMMANDS),
+    }

@@ -2045,6 +2045,33 @@
     ]
    }
   },
+  "/studio/api/layers/hooks": {
+   "get": {
+    "operationId": "studio_api_layers_hooks",
+    "summary": "Hooks",
+    "parameters": [],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/StackHooks"
+        }
+       }
+      }
+     }
+    },
+    "tags": [
+     "layers"
+    ],
+    "security": [
+     {
+      "SessionAuthIsStaff": []
+     }
+    ]
+   }
+  },
   "/studio/api/layers/outline": {
    "post": {
     "operationId": "studio_api_layers_outline",
@@ -7108,6 +7135,161 @@
     "title": "StackParam",
     "type": "object"
    },
+   "StackActionKind": {
+    "properties": {
+     "name": {
+      "title": "Name",
+      "type": "string"
+     },
+     "title": {
+      "title": "Title",
+      "type": "string"
+     },
+     "value_label": {
+      "title": "Value Label",
+      "type": "string"
+     },
+     "example": {
+      "title": "Example",
+      "type": "string"
+     },
+     "help": {
+      "title": "Help",
+      "type": "string"
+     },
+     "text": {
+      "title": "Text",
+      "type": "boolean"
+     }
+    },
+    "required": [
+     "name",
+     "title",
+     "value_label",
+     "example",
+     "help",
+     "text"
+    ],
+    "title": "StackActionKind",
+    "type": "object"
+   },
+   "StackEvent": {
+    "properties": {
+     "name": {
+      "title": "Name",
+      "type": "string"
+     },
+     "title": {
+      "title": "Title",
+      "type": "string"
+     },
+     "help": {
+      "title": "Help",
+      "type": "string"
+     }
+    },
+    "required": [
+     "name",
+     "title",
+     "help"
+    ],
+    "title": "StackEvent",
+    "type": "object"
+   },
+   "StackHooks": {
+    "properties": {
+     "events": {
+      "items": {
+       "$ref": "#/components/schemas/StackEvent"
+      },
+      "title": "Events",
+      "type": "array"
+     },
+     "actions": {
+      "items": {
+       "$ref": "#/components/schemas/StackActionKind"
+      },
+      "title": "Actions",
+      "type": "array"
+     },
+     "commands": {
+      "items": {
+       "type": "string"
+      },
+      "title": "Commands",
+      "type": "array"
+     }
+    },
+    "required": [
+     "events",
+     "actions",
+     "commands"
+    ],
+    "title": "StackHooks",
+    "type": "object"
+   },
+   "StackAction": {
+    "properties": {
+     "name": {
+      "title": "Name",
+      "type": "string"
+     },
+     "value": {
+      "default": "",
+      "title": "Value",
+      "type": "string"
+     },
+     "quoted": {
+      "default": false,
+      "title": "Quoted",
+      "type": "boolean"
+     }
+    },
+    "required": [
+     "name"
+    ],
+    "title": "StackAction",
+    "type": "object"
+   },
+   "StackAnswer": {
+    "properties": {
+     "command": {
+      "title": "Command",
+      "type": "string"
+     },
+     "text": {
+      "title": "Text",
+      "type": "string"
+     }
+    },
+    "required": [
+     "command",
+     "text"
+    ],
+    "title": "StackAnswer",
+    "type": "object"
+   },
+   "StackHook": {
+    "properties": {
+     "event": {
+      "title": "Event",
+      "type": "string"
+     },
+     "actions": {
+      "items": {
+       "$ref": "#/components/schemas/StackAction"
+      },
+      "title": "Actions",
+      "type": "array"
+     }
+    },
+    "required": [
+     "event",
+     "actions"
+    ],
+    "title": "StackHook",
+    "type": "object"
+   },
    "StackLayer": {
     "properties": {
      "name": {
@@ -7135,6 +7317,34 @@
       "default": "",
       "title": "Body",
       "type": "string"
+     },
+     "answers": {
+      "anyOf": [
+       {
+        "items": {
+         "$ref": "#/components/schemas/StackAnswer"
+        },
+        "type": "array"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Answers"
+     },
+     "hooks": {
+      "anyOf": [
+       {
+        "items": {
+         "$ref": "#/components/schemas/StackHook"
+        },
+        "type": "array"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Hooks"
      }
     },
     "required": [

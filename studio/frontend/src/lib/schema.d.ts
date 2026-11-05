@@ -691,6 +691,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/studio/api/layers/hooks": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Hooks */
+        get: operations["studio_api_layers_hooks"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/studio/api/layers/outline": {
         parameters: {
             query?: never;
@@ -2392,6 +2409,68 @@ export interface components {
             /** Default */
             default: string | null;
         };
+        /** StackActionKind */
+        StackActionKind: {
+            /** Name */
+            name: string;
+            /** Title */
+            title: string;
+            /** Value Label */
+            value_label: string;
+            /** Example */
+            example: string;
+            /** Help */
+            help: string;
+            /** Text */
+            text: boolean;
+        };
+        /** StackEvent */
+        StackEvent: {
+            /** Name */
+            name: string;
+            /** Title */
+            title: string;
+            /** Help */
+            help: string;
+        };
+        /** StackHooks */
+        StackHooks: {
+            /** Events */
+            events: components["schemas"]["StackEvent"][];
+            /** Actions */
+            actions: components["schemas"]["StackActionKind"][];
+            /** Commands */
+            commands: string[];
+        };
+        /** StackAction */
+        StackAction: {
+            /** Name */
+            name: string;
+            /**
+             * Value
+             * @default
+             */
+            value: string;
+            /**
+             * Quoted
+             * @default false
+             */
+            quoted: boolean;
+        };
+        /** StackAnswer */
+        StackAnswer: {
+            /** Command */
+            command: string;
+            /** Text */
+            text: string;
+        };
+        /** StackHook */
+        StackHook: {
+            /** Event */
+            event: string;
+            /** Actions */
+            actions: components["schemas"]["StackAction"][];
+        };
         /** StackLayer */
         StackLayer: {
             /** Name */
@@ -2406,6 +2485,10 @@ export interface components {
              * @default
              */
             body: string;
+            /** Answers */
+            answers?: components["schemas"]["StackAnswer"][] | null;
+            /** Hooks */
+            hooks?: components["schemas"]["StackHook"][] | null;
         };
         /** StackMove */
         StackMove: {
@@ -4784,6 +4867,26 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["StackKind"][];
+                };
+            };
+        };
+    };
+    studio_api_layers_hooks: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StackHooks"];
                 };
             };
         };
