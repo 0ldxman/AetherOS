@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { ask } from "../../lib/confirm.svelte";
   import { onMount } from "svelte";
   import { api, problem, type Schemas } from "../../lib/api";
   import Dialog from "../../lib/Dialog.svelte";
@@ -40,6 +41,7 @@
   }
 
   async function revert(row: Row) {
+    if (!(await ask(`Удалить группу «${row.name}» этой машины?`, "Права и состав группы пропадут.", "Удалить"))) return;
     const { data, error } = await api.DELETE("/studio/api/machines/{machine_id}/groups/{name}", { params: { path: { ...path, name: row.name } } });
     done(data, error, row.overrides || row.disabled ? `Группа ${row.name} снова как у типа системы.` : `Группа ${row.name} удалена.`);
   }

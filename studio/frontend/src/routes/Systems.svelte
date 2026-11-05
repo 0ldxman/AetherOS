@@ -1,4 +1,6 @@
 <script lang="ts">
+  import { ask } from "../lib/confirm.svelte";
+  import { guardUnsaved } from "../lib/guard.svelte";
   import { onMount } from "svelte";
   import { api, problem, type Schemas } from "../lib/api";
   import Dialog from "../lib/Dialog.svelte";
@@ -48,6 +50,7 @@
 
   async function resetBlackout(event: string) {
     if (!system) return;
+    if (!(await ask("Сбросить к умолчаниям движка?", "Свои настройки этого события пропадут.", "Сбросить"))) return;
     const { data, error } = await api.DELETE("/studio/api/systems/{code}/blackouts/{event}", { params: { path: { code: system.code, event } } });
     done(data, error, "Сброшено до умолчаний движка.");
   }
@@ -171,6 +174,7 @@
   const current = $derived(code ?? rows[0]?.code ?? null);
   const placesDirty = $derived(JSON.stringify(places) !== placesSaved);
   const propsDirty = $derived(JSON.stringify(props_) !== propsSaved);
+  guardUnsaved(() => propsDirty || placesDirty || lookDirty, (next) => next.split("?")[0].split("/")[2] === system?.code);
 
   async function list() {
     rows = (await api.GET("/studio/api/systems")).data ?? [];
@@ -237,6 +241,7 @@
 
   async function dropGroup(row: Row) {
     if (!system) return;
+    if (!(await ask(`Удалить группу «${row.name}»?`, "Её привилегии и состав пропадут у всех машин этой ОС.", "Удалить"))) return;
     const { data, error } = await api.DELETE("/studio/api/systems/{code}/groups/{name}", { params: { path: { code: system.code, name: row.name } } });
     done(data, error, `Группа ${row.name} удалена.`);
   }
@@ -261,6 +266,7 @@
 
   async function dropLayer(row: Schemas["ImageRow"]) {
     if (!system) return;
+    if (!(await ask("Убрать том из образа?", "Сам том останется, но машины этой ОС перестанут получать его файлы.", "Убрать"))) return;
     const { data, error } = await api.DELETE("/studio/api/systems/{code}/image/{row_id}", { params: { path: { code: system.code, row_id: row.id } } });
     done(data, error, "Том убран из образа.");
   }

@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { guardUnsaved } from "../../lib/guard.svelte";
   // Защита объекта: условие по ключам и слои. Справа сразу видно, что игрок получит в blk и txtx со слоями и без них.
   import { onMount } from "svelte";
   import { api, problem, type Schemas } from "../../lib/api";
@@ -16,6 +17,7 @@
 
   const path = $derived({ item_id: item.id });
   const dirty = $derived(saved !== null && (form.access !== saved.access || form.state !== saved.state));
+  guardUnsaved(() => dirty);
 
   async function load() {
     const { data } = await api.GET("/studio/api/items/{item_id}/protection", { params: { path } });

@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { ask } from "../../lib/confirm.svelte";
   import { onMount } from "svelte";
   import { api, problem, type Schemas } from "../../lib/api";
   import Dialog from "../../lib/Dialog.svelte";
@@ -56,6 +57,7 @@
   }
 
   async function dropMount(mount: Mount) {
+    if (!(await ask(`Отключить «${mount.mount_path}»?`, "Том останется в мире, но пропадёт из файловой системы этой машины.", "Отключить"))) return;
     const { data } = await api.DELETE("/studio/api/machines/{machine_id}/mounts/{mount_id}", { params: { path: { ...path, mount_id: mount.id } } });
     if (data) disks = data;
   }
@@ -68,6 +70,7 @@
   }
 
   async function dropExport(id: number) {
+    if (!(await ask("Перестать отдавать путь по сети?", "Другие машины больше не смогут к нему подключиться.", "Убрать"))) return;
     const { data } = await api.DELETE("/studio/api/machines/{machine_id}/exports/{export_id}", { params: { path: { ...path, export_id: id } } });
     if (data) disks = data;
   }

@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { guardUnsaved } from "../lib/guard.svelte";
   import { onMount } from "svelte";
   import { api, problem, type Schemas } from "../lib/api";
   import { toast } from "../lib/toast.svelte";
@@ -13,6 +14,7 @@
 
   const body = $derived(world ? { ...world, game_now: `${day}T${time || "00:00"}:00Z` } : null);
   const dirty = $derived(JSON.stringify(body) !== saved);
+  guardUnsaved(() => dirty);
 
   function fill(data: World) {
     world = data;

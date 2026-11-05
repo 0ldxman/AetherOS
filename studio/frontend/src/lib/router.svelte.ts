@@ -1,3 +1,5 @@
+import { LEAVE_TEXT, unsavedFor } from "./guard.svelte";
+
 // Маршруты по hash (#/volumes/3): страницу /studio/ отдаёт Django, всё остальное решается здесь.
 export const route = $state({ path: read() });
 
@@ -5,8 +7,16 @@ function read(): string {
   return decodeURIComponent(location.hash.replace(/^#/, "")) || "/volumes";
 }
 
+let shown = location.hash;
+
 window.addEventListener("hashchange", () => {
-  route.path = read();
+  const next = read();
+  if (next !== route.path && unsavedFor(next) && !window.confirm(LEAVE_TEXT)) {
+    history.replaceState(null, "", location.pathname + location.search + shown);
+    return;
+  }
+  shown = location.hash;
+  route.path = next;
 });
 
 export function go(path: string): void {

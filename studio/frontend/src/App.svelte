@@ -2,6 +2,7 @@
   import { onMount } from "svelte";
   import { api } from "./lib/api";
   import { match, route } from "./lib/router.svelte";
+  import ConfirmHost from "./lib/ConfirmHost.svelte";
   import { toasts } from "./lib/toast.svelte";
   import Volumes from "./routes/Volumes.svelte";
   import Volume from "./routes/Volume.svelte";
@@ -67,6 +68,13 @@
     { href: "#/scenes", label: "Сцены", section: ["scenes"] },
     { href: "#/world", label: "Мир", section: ["world"] },
   ];
+
+  let toastBox: HTMLElement;
+  $effect(() => {
+    if (!toasts.length) return;
+    try { toastBox.hidePopover(); } catch {}
+    try { toastBox.showPopover(); } catch {}
+  });
 </script>
 
 <div class="shell">
@@ -116,7 +124,9 @@
   </main>
 </div>
 
-<div class="toasts" aria-live="polite">
+<ConfirmHost />
+
+<div class="toasts" popover="manual" bind:this={toastBox} aria-live="polite">
   {#each toasts as item (item.id)}
     <div class="toast" class:error={item.kind === "error"}>{item.text}</div>
   {/each}
@@ -138,7 +148,8 @@
   .nav.soon::after { content: " · скоро"; font-size: 11px; }
   .foot { margin-top: auto; display: flex; flex-direction: column; gap: 4px; padding: 0 10px; font-size: 12.5px; }
   .main { min-width: 0; overflow: auto; }
-  .toasts { position: fixed; right: 16px; bottom: 16px; display: flex; flex-direction: column; gap: 8px; z-index: 50; }
+  .toasts { position: fixed; inset: auto 16px 16px auto; margin: 0; padding: 0; border: 0; background: none; overflow: visible; width: max-content; display: flex; flex-direction: column; gap: 8px; z-index: 50; }
+  .toasts:not(:popover-open) { display: none; }
   .toast {
     padding: 9px 14px; border-radius: var(--radius); background: var(--raise); border: 1px solid var(--line);
     box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35); max-width: 420px;

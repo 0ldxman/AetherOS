@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { guardUnsaved } from "../lib/guard.svelte";
   import { onMount } from "svelte";
   import { api, problem, type Schemas } from "../lib/api";
   import Dialog from "../lib/Dialog.svelte";
@@ -25,6 +26,7 @@
   }
 
   const dirty = $derived(JSON.stringify(form) !== saved);
+  guardUnsaved(() => dirty);
   const current = $derived(id ?? rows[0]?.id ?? null);
 
   async function list() {
@@ -172,7 +174,7 @@
     <input class="field" placeholder="название" bind:value={newName} />
   </Dialog>
 {:else if dialog === "delete" && policy}
-  <Dialog title="Удалить «{policy.name}»?" confirm="Удалить" danger onsubmit={remove} onclose={() => (dialog = null)}>
+  <Dialog title="Удалить «{policy.name}»?" confirm="Удалить" danger disabled={policy.used_by.length > 0} onsubmit={remove} onclose={() => (dialog = null)}>
     <p class="muted">{policy.used_by.length ? "Она назначена: сначала снимите её с типов, машин и учёток." : "Политика нигде не назначена."}</p>
   </Dialog>
 {/if}

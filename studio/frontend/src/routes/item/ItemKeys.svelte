@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { guardUnsaved } from "../../lib/guard.svelte";
   // Ключи, вложенные в объект (их достаёт kex), подписи (ward verify) и, если сам объект ключ, где его требуют.
   import { onMount } from "svelte";
   import { adminUrl, api, problem, type Schemas } from "../../lib/api";
@@ -15,6 +16,7 @@
 
   const path = $derived({ item_id: item.id });
   const dirty = $derived(JSON.stringify({ embedded, signatures }) !== saved);
+  guardUnsaved(() => dirty);
   const name = (slug: string) => data?.registry.find((key) => key.slug === slug)?.name ?? slug;
 
   function fill(next: Schemas["KeysOut"]) {

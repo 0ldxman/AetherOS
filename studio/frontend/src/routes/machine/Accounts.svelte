@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { guardUnsaved } from "../../lib/guard.svelte";
   import { onMount } from "svelte";
   import { api, problem, type Schemas } from "../../lib/api";
   import Dialog from "../../lib/Dialog.svelte";
@@ -28,6 +29,7 @@
   }
 
   const dirty = $derived(JSON.stringify(form) !== saved || password !== "" || clearPassword);
+  guardUnsaved(() => dirty);
   const current = $derived(selected ?? machine.accounts[0]?.id ?? null);
 
   async function load(id: number | null) {

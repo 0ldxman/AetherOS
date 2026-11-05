@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { guardUnsaved } from "../../lib/guard.svelte";
   import { api, problem, type Schemas } from "../../lib/api";
   import { ago, span, when } from "../../lib/time";
   import Dialog from "../../lib/Dialog.svelte";
@@ -40,6 +41,7 @@
       form.status !== machine.status || form.entry_policy !== (machine.policy?.id ?? null) || form.hid !== machine.hid || form.address !== machine.address || form.serial !== machine.serial || form.host_key !== machine.host_key ||
       form.note !== machine.note || form.booted_at !== local(machine.booted_at ?? null),
   );
+  guardUnsaved(() => dirty);
 
   let art = $state<{ valid: boolean; lines: string[] }>({ valid: true, lines: [] });
   let artTimer: ReturnType<typeof setTimeout>;

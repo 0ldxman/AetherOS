@@ -1,32 +1,45 @@
+<script lang="ts" module>
+  let counter = 0;
+</script>
+
 <script lang="ts">
-  // Модальное окно на <dialog>: Esc и клик мимо закрывают, Enter в форме подтверждает.
+  // Модальное окно на <dialog>: Esc и клик мимо закрывают (если уже что-то введено, сначала спросят), Enter в форме подтверждает.
+  // Опасное (danger): фокус на «Отмене», а не на подтверждении.
   import type { Snippet } from "svelte";
 
-  let { title, confirm = "OK", danger = false, busy = false, onsubmit, onclose, children }: {
+  let { title, confirm = "Готово", danger = false, busy = false, disabled = false, onsubmit, onclose, children }: {
     title: string;
     confirm?: string;
     danger?: boolean;
     busy?: boolean;
+    disabled?: boolean;   // подтвердить нельзя (причина написана в теле окна)
     onsubmit: () => void;
     onclose: () => void;
     children?: Snippet;
   } = $props();
 
   let box: HTMLDialogElement;
+  let touched = false;
+  const heading = `dialog-title-${++counter}`;
+
+  function mayClose(): boolean {
+    return !touched || window.confirm("Закрыть окно? Введённое не сохранится.");
+  }
 
   $effect(() => {
     box.showModal();
-    box.querySelector<HTMLElement>("input, select, textarea")?.focus();
+    box.querySelector<HTMLElement>(danger ? ".cancel" : "input, select, textarea")?.focus();
   });
 </script>
 
-<dialog bind:this={box} onclose={onclose} onclick={(event) => event.target === box && box.close()}>
-  <form method="dialog" onsubmit={(event) => { event.preventDefault(); onsubmit(); }}>
-    <h2>{title}</h2>
+<dialog bind:this={box} aria-labelledby={heading} onclose={onclose} oncancel={(event) => { if (!mayClose()) event.preventDefault(); }}
+  onclick={(event) => event.target === box && mayClose() && box.close()}>
+  <form method="dialog" oninput={() => (touched = true)} onsubmit={(event) => { event.preventDefault(); onsubmit(); }}>
+    <h2 id={heading}>{title}</h2>
     {@render children?.()}
     <div class="actions">
-      <button type="button" class="btn ghost" onclick={() => box.close()}>Отмена</button>
-      <button type="submit" class="btn" class:primary={!danger} class:danger disabled={busy}>{confirm}</button>
+      <button type="button" class="btn ghost cancel" onclick={() => box.close()}>Отмена</button>
+      <button type="submit" class="btn" class:primary={!danger} class:danger disabled={busy || disabled}>{confirm}</button>
     </div>
   </form>
 </dialog>

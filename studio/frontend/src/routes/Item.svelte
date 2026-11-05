@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { guardUnsaved } from "../lib/guard.svelte";
   import { onMount, untrack } from "svelte";
   import { adminUrl, api, problem, type Schemas } from "../lib/api";
   import CodeEditor from "../lib/CodeEditor.svelte";
@@ -36,6 +37,7 @@
   const textual = $derived(!format || format.content === "text" || format.content === "text_asset");
   const linkable = $derived(format?.content === "link_asset");
   const dirty = $derived(JSON.stringify(draft) !== saved);
+  guardUnsaved(() => dirty, (next) => next.split("?")[0].split("/")[2] === String(id));
   const issues = $derived(preview ? [...(preview.issues.body ?? []), ...(preview.issues.infobox ?? [])] : []);
 
   function fill(found: Item) {
@@ -165,12 +167,9 @@
     load();
     heartbeat();
     const beat = setInterval(heartbeat, 25_000);
-    const leave = (event: BeforeUnloadEvent) => { if (dirty) event.preventDefault(); };
-    window.addEventListener("beforeunload", leave);
     return () => {
       clearTimeout(wake);
       clearInterval(beat);
-      window.removeEventListener("beforeunload", leave);
       api.DELETE("/studio/api/items/{item_id}/lock", { params: { path: { item_id: id } } });
     };
   });

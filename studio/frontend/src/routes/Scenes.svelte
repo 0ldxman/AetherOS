@@ -1,4 +1,6 @@
 <script lang="ts">
+  import { ask } from "../lib/confirm.svelte";
+  import { guardUnsaved } from "../lib/guard.svelte";
   import { onMount } from "svelte";
   import { api, problem, type Schemas } from "../lib/api";
   import Dialog from "../lib/Dialog.svelte";
@@ -24,6 +26,7 @@
 
   const current = $derived(slug ?? rows[0]?.slug ?? null);
   const dirty = $derived(JSON.stringify(form) !== saved);
+  guardUnsaved(() => dirty);
 
   async function list() {
     rows = (await api.GET("/studio/api/scenes")).data ?? [];
@@ -83,6 +86,8 @@
 
   async function drop() {
     if (!scene) return;
+    const used = scene.bindings.map((item) => `${item.system} · ${item.label}`);
+    if (!(await ask(`Удалить сцену «${scene.title || scene.slug}»?`, used.length ? `Она назначена на события: ${used.join(", ")}. Привязки пропадут.` : "Она ни к какому событию не привязана."))) return;
     const { error } = await api.DELETE("/studio/api/scenes/{slug}", { params: { path: { slug: scene.slug } } });
     if (error) return toast(problem(error, "Не удалилась."), "error");
     toast("Сцена удалена.");
