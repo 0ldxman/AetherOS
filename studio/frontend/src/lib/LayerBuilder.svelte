@@ -6,7 +6,7 @@
   import CodeEditor from "./CodeEditor.svelte";
   import Hint from "./Hint.svelte";
 
-  let { value = $bindable("") }: { value: string } = $props();
+  let { value = $bindable(""), onsave }: { value: string; onsave?: () => void } = $props();
 
   type Kind = Schemas["StackKind"];
   type Layer = Schemas["StackLayer"];
@@ -144,7 +144,7 @@
   {/if}
 
   {#if mode === "text" || !model}
-    <div class="editor"><CodeEditor bind:value /></div>
+    <div class="editor"><CodeEditor bind:value {onsave} /></div>
   {:else}
     <p class="muted small first">Слои идут сверху вниз: верхний игрок снимает первым.</p>
     {#each model.layers as layer, index (index)}

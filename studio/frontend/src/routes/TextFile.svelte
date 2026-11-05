@@ -1,4 +1,5 @@
 <script lang="ts">
+  import LayerBuilder from "../lib/LayerBuilder.svelte";
   // Файл со своим текстом (без объекта): декорация и фон. Текст, защита этого места и то, что получит игрок.
   import { onMount } from "svelte";
   import { api, problem, type Schemas } from "../lib/api";
@@ -94,7 +95,7 @@
           {#if preview?.access_error}<p class="err">{preview.access_error}</p>{/if}
           {#if preview?.unknown_keys.length}<p class="err">Нет в реестре: {preview.unknown_keys.join(", ")}</p>{/if}
           <span class="label">Слои защиты</span>
-          <div class="layers"><CodeEditor bind:value={form.state} onsave={save} /></div>
+          <LayerBuilder bind:value={form.state} onsave={save} />
           {#if preview?.problems.length}
             <ul class="problems">{#each preview.problems as bad}<li><span class="mono">стр. {bad.line}</span> {bad.message}</li>{/each}</ul>
           {/if}
@@ -143,7 +144,6 @@
   .card { display: flex; flex-direction: column; gap: 8px; border: 1px solid var(--line-soft); border-radius: var(--radius); background: var(--panel); padding: 14px 16px; }
   h2 { margin: 0; font-size: 13px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.4px; }
   h3 { margin: 4px 0 0; font-size: 13px; }
-  .layers { height: 110px; border: 1px solid var(--line); border-radius: var(--radius-s); overflow: hidden; }
   .field.bad { border-color: var(--danger); }
   .err { margin: 0; color: var(--danger); font-size: 12px; }
   .problems { margin: 0; padding: 8px 12px; list-style: none; border-radius: var(--radius-s); background: var(--danger-soft); color: var(--danger); font-size: 12.5px; }
