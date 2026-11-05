@@ -2014,6 +2014,111 @@
     ]
    }
   },
+  "/studio/api/layers/catalog": {
+   "get": {
+    "operationId": "studio_api_layers_catalog",
+    "summary": "Catalog",
+    "parameters": [],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "items": {
+          "$ref": "#/components/schemas/StackKind"
+         },
+         "title": "Response",
+         "type": "array"
+        }
+       }
+      }
+     }
+    },
+    "tags": [
+     "layers"
+    ],
+    "security": [
+     {
+      "SessionAuthIsStaff": []
+     }
+    ]
+   }
+  },
+  "/studio/api/layers/outline": {
+   "post": {
+    "operationId": "studio_api_layers_outline",
+    "summary": "Outline",
+    "parameters": [],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/StackOut"
+        }
+       }
+      }
+     }
+    },
+    "tags": [
+     "layers"
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/StackSource"
+       }
+      }
+     },
+     "required": true
+    },
+    "security": [
+     {
+      "SessionAuthIsStaff": []
+     }
+    ]
+   }
+  },
+  "/studio/api/layers/build": {
+   "post": {
+    "operationId": "studio_api_layers_build",
+    "summary": "Build",
+    "parameters": [],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/StackText"
+        }
+       }
+      }
+     }
+    },
+    "tags": [
+     "layers"
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/StackIn"
+       }
+      }
+     },
+     "required": true
+    },
+    "security": [
+     {
+      "SessionAuthIsStaff": []
+     }
+    ]
+   }
+  },
   "/studio/api/machines": {
    "get": {
     "operationId": "studio_api_machines_machines",
@@ -6915,6 +7020,250 @@
      "kind"
     ],
     "title": "ContentIn",
+    "type": "object"
+   },
+   "StackKind": {
+    "properties": {
+     "name": {
+      "title": "Name",
+      "type": "string"
+     },
+     "title": {
+      "title": "Title",
+      "type": "string"
+     },
+     "summary": {
+      "title": "Summary",
+      "type": "string"
+     },
+     "params": {
+      "items": {
+       "$ref": "#/components/schemas/StackParam"
+      },
+      "title": "Params",
+      "type": "array"
+     }
+    },
+    "required": [
+     "name",
+     "title",
+     "summary",
+     "params"
+    ],
+    "title": "StackKind",
+    "type": "object"
+   },
+   "StackParam": {
+    "properties": {
+     "name": {
+      "title": "Name",
+      "type": "string"
+     },
+     "label": {
+      "title": "Label",
+      "type": "string"
+     },
+     "type": {
+      "title": "Type",
+      "type": "string"
+     },
+     "required": {
+      "title": "Required",
+      "type": "boolean"
+     },
+     "positional": {
+      "title": "Positional",
+      "type": "boolean"
+     },
+     "unlock": {
+      "title": "Unlock",
+      "type": "boolean"
+     },
+     "help": {
+      "title": "Help",
+      "type": "string"
+     },
+     "default": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Default"
+     }
+    },
+    "required": [
+     "name",
+     "label",
+     "type",
+     "required",
+     "positional",
+     "unlock",
+     "help",
+     "default"
+    ],
+    "title": "StackParam",
+    "type": "object"
+   },
+   "StackLayer": {
+    "properties": {
+     "name": {
+      "title": "Name",
+      "type": "string"
+     },
+     "values": {
+      "additionalProperties": {
+       "type": "string"
+      },
+      "title": "Values",
+      "type": "object"
+     },
+     "move": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/StackMove"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "body": {
+      "default": "",
+      "title": "Body",
+      "type": "string"
+     }
+    },
+    "required": [
+     "name",
+     "values"
+    ],
+    "title": "StackLayer",
+    "type": "object"
+   },
+   "StackMove": {
+    "properties": {
+     "kind": {
+      "title": "Kind",
+      "type": "string"
+     },
+     "target": {
+      "title": "Target",
+      "type": "string"
+     }
+    },
+    "required": [
+     "kind",
+     "target"
+    ],
+    "title": "StackMove",
+    "type": "object"
+   },
+   "StackOut": {
+    "properties": {
+     "editable": {
+      "title": "Editable",
+      "type": "boolean"
+     },
+     "unsupported": {
+      "title": "Unsupported",
+      "type": "string"
+     },
+     "problems": {
+      "items": {
+       "$ref": "#/components/schemas/StackProblem"
+      },
+      "title": "Problems",
+      "type": "array"
+     },
+     "preamble": {
+      "title": "Preamble",
+      "type": "string"
+     },
+     "layers": {
+      "items": {
+       "$ref": "#/components/schemas/StackLayer"
+      },
+      "title": "Layers",
+      "type": "array"
+     }
+    },
+    "required": [
+     "editable",
+     "unsupported",
+     "problems",
+     "preamble",
+     "layers"
+    ],
+    "title": "StackOut",
+    "type": "object"
+   },
+   "StackProblem": {
+    "properties": {
+     "line": {
+      "title": "Line",
+      "type": "integer"
+     },
+     "message": {
+      "title": "Message",
+      "type": "string"
+     }
+    },
+    "required": [
+     "line",
+     "message"
+    ],
+    "title": "StackProblem",
+    "type": "object"
+   },
+   "StackSource": {
+    "properties": {
+     "text": {
+      "title": "Text",
+      "type": "string"
+     }
+    },
+    "required": [
+     "text"
+    ],
+    "title": "StackSource",
+    "type": "object"
+   },
+   "StackText": {
+    "properties": {
+     "text": {
+      "title": "Text",
+      "type": "string"
+     }
+    },
+    "required": [
+     "text"
+    ],
+    "title": "StackText",
+    "type": "object"
+   },
+   "StackIn": {
+    "properties": {
+     "preamble": {
+      "default": "",
+      "title": "Preamble",
+      "type": "string"
+     },
+     "layers": {
+      "items": {
+       "$ref": "#/components/schemas/StackLayer"
+      },
+      "title": "Layers",
+      "type": "array"
+     }
+    },
+    "required": [
+     "layers"
+    ],
+    "title": "StackIn",
     "type": "object"
    },
    "MachineRow": {

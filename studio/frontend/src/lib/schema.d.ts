@@ -674,6 +674,57 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/studio/api/layers/catalog": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Catalog */
+        get: operations["studio_api_layers_catalog"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/studio/api/layers/outline": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Outline */
+        post: operations["studio_api_layers_outline"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/studio/api/layers/build": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Build */
+        post: operations["studio_api_layers_build"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/studio/api/machines": {
         parameters: {
             query?: never;
@@ -2310,6 +2361,98 @@ export interface components {
              * @default
              */
             url: string;
+        };
+        /** StackKind */
+        StackKind: {
+            /** Name */
+            name: string;
+            /** Title */
+            title: string;
+            /** Summary */
+            summary: string;
+            /** Params */
+            params: components["schemas"]["StackParam"][];
+        };
+        /** StackParam */
+        StackParam: {
+            /** Name */
+            name: string;
+            /** Label */
+            label: string;
+            /** Type */
+            type: string;
+            /** Required */
+            required: boolean;
+            /** Positional */
+            positional: boolean;
+            /** Unlock */
+            unlock: boolean;
+            /** Help */
+            help: string;
+            /** Default */
+            default: string | null;
+        };
+        /** StackLayer */
+        StackLayer: {
+            /** Name */
+            name: string;
+            /** Values */
+            values: {
+                [key: string]: string;
+            };
+            move?: components["schemas"]["StackMove"] | null;
+            /**
+             * Body
+             * @default
+             */
+            body: string;
+        };
+        /** StackMove */
+        StackMove: {
+            /** Kind */
+            kind: string;
+            /** Target */
+            target: string;
+        };
+        /** StackOut */
+        StackOut: {
+            /** Editable */
+            editable: boolean;
+            /** Unsupported */
+            unsupported: string;
+            /** Problems */
+            problems: components["schemas"]["StackProblem"][];
+            /** Preamble */
+            preamble: string;
+            /** Layers */
+            layers: components["schemas"]["StackLayer"][];
+        };
+        /** StackProblem */
+        StackProblem: {
+            /** Line */
+            line: number;
+            /** Message */
+            message: string;
+        };
+        /** StackSource */
+        StackSource: {
+            /** Text */
+            text: string;
+        };
+        /** StackText */
+        StackText: {
+            /** Text */
+            text: string;
+        };
+        /** StackIn */
+        StackIn: {
+            /**
+             * Preamble
+             * @default
+             */
+            preamble: string;
+            /** Layers */
+            layers: components["schemas"]["StackLayer"][];
         };
         /** MachineRow */
         MachineRow: {
@@ -4621,6 +4764,74 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["PickRef"][];
+                };
+            };
+        };
+    };
+    studio_api_layers_catalog: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StackKind"][];
+                };
+            };
+        };
+    };
+    studio_api_layers_outline: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StackSource"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StackOut"];
+                };
+            };
+        };
+    };
+    studio_api_layers_build: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StackIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StackText"];
                 };
             };
         };

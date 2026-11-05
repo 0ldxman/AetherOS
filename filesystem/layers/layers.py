@@ -13,12 +13,14 @@ from filesystem.layers.registry import register
 @register
 class Corrupted(BaseState):
     name = "corrupted"
+    title = "Повреждён"
     summary = "Файл повреждён."
 
 
 @register
 class Damaged(BaseState):
     name = "damaged"
+    title = "Повреждён после ошибки игрока"
     summary = (
         "Файл повреждён по ошибке игрока (или после восстановления с диска). "
         "Обычно добавляется хуком: add damaged."
@@ -28,12 +30,14 @@ class Damaged(BaseState):
 @register
 class Encrypted(BaseState):
     name = "encrypted"
+    title = "Зашифрован"
     summary = "Файл зашифрован: снимается паролем (ward файл пароль) или ключом (ward -k ключ файл)."
     placeholders = ("attempts_left",)
     params = (
         Param(
             "password",
             str,
+            label="Пароль",
             positional=True,
             unlock=True,
             help="пароль, который нужно ввести (можно не задавать, если файл открывается ключом)",
@@ -41,12 +45,14 @@ class Encrypted(BaseState):
         Param(
             "key",
             str,
+            label="Ключ",
             unlock=True,
             help="slug ключа, которым файл расшифровывается (ключ игрок достаёт командой kex: ward -k)",
         ),
         Param(
             "attempts",
             int,
+            label="Попыток",
             default=3,
             help="сколько неверных попыток разрешено",
         ),
@@ -69,17 +75,19 @@ class Encrypted(BaseState):
 @register
 class Shifted(BaseState):
     name = "shifted"
+    title = "Данные со сдвигом"
     summary = "Настоящие данные лежат со сдвигом, перед ними шум: нужно найти, где они начинаются, и вырезать их командой blk."
     params = (
-        Param("skip", int, required=True, unlock=True, help="сколько блоков (по 512 байт) шума перед данными"),
-        Param("count", int, help="сколько блоков занимают данные (справка автору: снимает слой начало окна, а не его длина)"),
-        Param("out", str, help="имя файла, который получится при верной вырезке (blk): путь рядом с исходником или абсолютный"),
+        Param("skip", int, required=True, unlock=True, label="Пропустить блоков", help="сколько блоков (по 512 байт) шума перед данными"),
+        Param("count", int, label="Блоков данных", help="сколько блоков занимают данные (справка автору: снимает слой начало окна, а не его длина)"),
+        Param("out", str, label="Файл на выходе", help="имя файла, который получится при верной вырезке (blk): путь рядом с исходником или абсолютный"),
     )
 
 
 @register
 class Binary(BaseState):
     name = "binary"
+    title = "Необычная кодировка"
     summary = (
         "Внутри настоящий текст, но в необычной кодировке (utf16, hex, rot13, gzip, morse): нужно опознать её и "
         "раскодировать командой cvt enc <кодировка> <файл>."
@@ -88,6 +96,7 @@ class Binary(BaseState):
         Param(
             "encoding",
             str,
+            label="Кодировка",
             required=True,
             positional=True,
             unlock=True,
@@ -105,11 +114,13 @@ class Binary(BaseState):
 @register
 class Disguised(BaseState):
     name = "disguised"
+    title = "Замаскирован под другой формат"
     summary = "Файл выдаёт себя за один формат, а на деле другого: его нужно прочитать как настоящий (cvt ext <файл> <файл.формат>)."
     params = (
         Param(
             "format",
             str,
+            label="Настоящий формат",
             required=True,
             positional=True,
             unlock=True,

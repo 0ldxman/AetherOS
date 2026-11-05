@@ -1,4 +1,5 @@
 <script lang="ts">
+  import LayerBuilder from "../../lib/LayerBuilder.svelte";
   import { guardUnsaved } from "../../lib/guard.svelte";
   // Защита объекта: условие по ключам и слои. Справа сразу видно, что игрок получит в blk и txtx со слоями и без них.
   import { onMount } from "svelte";
@@ -91,9 +92,8 @@
 
       <section class="card grow">
         <h2>Слои защиты</h2>
-        <p class="muted small">Что игроку надо пройти (подобрать пароль, снять маскировку, подобрать смещение). Строка — слой, верхний слой первым:
-          <span class="mono">&gt; encrypted hunter2 attempts=3</span></p>
-        <div class="editor"><CodeEditor bind:value={form.state} /></div>
+        <p class="muted small">Что игроку надо пройти, чтобы получить содержимое: подобрать пароль, снять маскировку, найти сдвиг. Слои идут сверху вниз: верхний игрок снимает первым. Переключатель «Текст» показывает тот же стек строками, например <span class="mono">&gt; encrypted hunter2 attempts=3</span>.</p>
+        <LayerBuilder bind:value={form.state} />
         {#if preview?.problems.length}
           <ul class="problems">{#each preview.problems as bad}<li><span class="mono">стр. {bad.line}</span> {bad.message}</li>{/each}</ul>
         {:else if errors.state}
@@ -139,7 +139,6 @@
   .card { display: flex; flex-direction: column; gap: 8px; border: 1px solid var(--line-soft); border-radius: var(--radius); background: var(--panel); padding: 14px 16px; }
   h2 { margin: 0; font-size: 13px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.4px; }
   h3 { margin: 6px 0 0; font-size: 13px; }
-  .editor { height: 190px; border: 1px solid var(--line); border-radius: var(--radius-s); overflow: hidden; }
   .field.bad { border-color: var(--danger); }
   .err { margin: 0; color: var(--danger); font-size: 12px; }
   .chips { display: flex; flex-wrap: wrap; gap: 6px; }

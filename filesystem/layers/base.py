@@ -30,10 +30,12 @@ class Param:
     positional: bool = False
     unlock: bool = False
     help: str = ""
+    label: str = ""          # подпись поля в студии (по-русски); пусто: показывается имя
 
 
 class BaseState:
     name: ClassVar[str] = ""
+    title: ClassVar[str] = ""      # короткое название по-русски для студии
     summary: ClassVar[str] = ""
     params: ClassVar[tuple[Param, ...]] = ()
 
