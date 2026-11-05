@@ -431,6 +431,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/studio/api/items/{item_id}/placements/{placement_id}/protection": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Placement Protection
+         * @description Свои условие и слои этого места (заменяют объектные или снимают их).
+         */
+        get: operations["studio_api_items_placement_protection"];
+        /** Save Placement Protection */
+        put: operations["studio_api_items_save_placement_protection"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/studio/api/items/{item_id}/placements": {
         parameters: {
             query?: never;
@@ -2189,6 +2210,17 @@ export interface components {
             players: components["schemas"]["Players"];
             /** Holders */
             holders: components["schemas"]["Mention"][];
+        };
+        /** PlacementProtection */
+        PlacementProtection: {
+            /** Access Mode */
+            access_mode: string;
+            /** Access */
+            access: string;
+            /** State Mode */
+            state_mode: string;
+            /** State */
+            state: string;
         };
         /** PutIn */
         PutIn: {
@@ -4516,6 +4548,56 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Whereabouts"];
+                };
+            };
+        };
+    };
+    studio_api_items_placement_protection: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                item_id: number;
+                placement_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlacementProtection"];
+                };
+            };
+        };
+    };
+    studio_api_items_save_placement_protection: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                item_id: number;
+                placement_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PlacementProtection"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlacementProtection"];
                 };
             };
         };

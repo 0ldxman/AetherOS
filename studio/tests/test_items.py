@@ -69,6 +69,19 @@ class ItemsApiTests(TestCase):
         report = next(r for r in self.call("get", "/items")[1] if r["name"] == "report")
         self.assertEqual(sorted(report["where"]), ["harbor:/ports/report.txt", "home:/copy.txt"])
 
+    def test_a_place_can_have_its_own_condition_and_layers(self):
+        url = f"/items/{self.report.pk}/placements/{self.first.pk}/protection"
+        self.assertEqual(self.call("get", url)[1], {"access_mode": "inherit", "access": "", "state_mode": "inherit", "state": ""})
+        body = {"access_mode": "replace", "access": "a and not b", "state_mode": "replace", "state": "> corrupted"}
+        status, saved = self.call("put", url, body)
+        self.assertEqual((status, saved), (200, body))
+        row = next(p for p in self.call("get", f"/items/{self.report.pk}/where")[1]["placements"] if p["placement"] == self.first.pk)
+        self.assertEqual((row["own_access"], row["own_state"]), (True, True))
+        status, error = self.call("put", url, body | {"access": "a and"})
+        self.assertEqual(status, 400)
+        self.assertIn("access", error["fields"])
+        self.assertEqual(self.call("put", f"/items/{self.pack.pk}/placements/{self.first.pk}/protection", body)[0], 404)   # место чужого объекта
+
     def test_where_lists_places_archives_and_holders(self):
         data = self.call("get", f"/items/{self.report.pk}/where")[1]
         self.assertEqual(sorted(p["path"] for p in data["placements"]), ["copy.txt", "ports/report.txt"])

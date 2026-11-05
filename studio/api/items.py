@@ -108,6 +108,13 @@ class Placed(Schema):
     own_state: bool           # у места свои слои (или снятые) вместо объектных
 
 
+class PlacementProtection(Schema):
+    access_mode: str          # inherit | replace | none
+    access: str               # выражение условия (при replace)
+    state_mode: str
+    state: str                # слои защиты (при replace)
+
+
 class InArchive(Schema):
     archive: int
     name: str
@@ -413,6 +420,28 @@ def where(request, item_id: int):
                         users=sorted({f.user.get_username() for f in files})),
         holders=[Mention(kind=kind, label=label) for kind, label in holders(item)],
     )
+
+
+def _placement(item_id, placement_id):
+    from filesystem.models import Placement
+
+    return get_object_or_404(Placement, pk=placement_id, item_id=item_id)
+
+
+@router.get("/{int:item_id}/placements/{int:placement_id}/protection", response=PlacementProtection)
+def placement_protection(request, item_id: int, placement_id: int):
+    """Свои условие и слои этого места (заменяют объектные или снимают их)."""
+    from filesystem.manager import filemanager
+
+    return filemanager.protection_of(_placement(item_id, placement_id))
+
+
+@router.put("/{int:item_id}/placements/{int:placement_id}/protection", response=PlacementProtection)
+def save_placement_protection(request, item_id: int, placement_id: int, body: PlacementProtection):
+    from filesystem.manager import filemanager
+
+    placement = filemanager.set_protection(_placement(item_id, placement_id), body.access_mode, body.access, body.state_mode, body.state)
+    return filemanager.protection_of(placement)
 
 
 @router.post("/{int:item_id}/placements", response=Whereabouts)

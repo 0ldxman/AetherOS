@@ -67,8 +67,8 @@
 <div class="access">
   <div class="bar">
     <div class="seg" role="tablist">
-      <button class:on={mode === "build"} disabled={!!error} title={error} onclick={() => (mode = "build")}>Конструктор</button>
-      <button class:on={mode === "text"} onclick={() => (mode = "text")}>Текст</button>
+      <button type="button" class:on={mode === "build"} disabled={!!error} title={error} onclick={() => (mode = "build")}>Конструктор</button>
+      <button type="button" class:on={mode === "text"} onclick={() => (mode = "text")}>Текст</button>
     </div>
   </div>
   {#if error}<p class="warn small">Конструктор недоступен: {error} Поправьте текст, и он снова включится.</p>{/if}
@@ -78,7 +78,7 @@
     <p class="muted small">Ключи по слагу, <span class="mono">and</span>, <span class="mono">or</span>, <span class="mono">not</span> и скобки: <span class="mono">cardkey and (door or not alarm)</span>.</p>
   {:else if !model}
     <p class="muted small">Открыто всем: никаких проверок нет.</p>
-    <button class="btn" onclick={start}>+ Задать условие</button>
+    <button type="button" class="btn" onclick={start}>+ Задать условие</button>
   {:else}
     <AccessNode node={model} root onchange={push} onremove={clear} />
   {/if}

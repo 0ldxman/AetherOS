@@ -119,16 +119,16 @@
 <div class="builder">
   <div class="bar">
     <div class="seg" role="tablist">
-      <button class:on={mode === "build"} disabled={!info.editable} title={info.editable ? "" : info.unsupported || "В тексте есть ошибки"} onclick={() => (mode = "build")}>Конструктор</button>
-      <button class:on={mode === "text"} onclick={() => (mode = "text")}>Текст</button>
+      <button type="button" class:on={mode === "build"} disabled={!info.editable} title={info.editable ? "" : info.unsupported || "В тексте есть ошибки"} onclick={() => (mode = "build")}>Конструктор</button>
+      <button type="button" class:on={mode === "text"} onclick={() => (mode = "text")}>Текст</button>
     </div>
     {#if mode === "build" && model}
       <div class="add">
-        <button class="btn" onclick={() => (adding = !adding)}>+ Слой</button>
+        <button type="button" class="btn" onclick={() => (adding = !adding)}>+ Слой</button>
         {#if adding}
           <div class="palette">
             {#each kinds as kind (kind.name)}
-              <button class="kind" onclick={() => add(kind)}><b>{kind.title}</b><span class="muted small">{kind.summary}</span></button>
+              <button type="button" class="kind" onclick={() => add(kind)}><b>{kind.title}</b><span class="muted small">{kind.summary}</span></button>
             {/each}
           </div>
         {/if}
@@ -155,9 +155,9 @@
           <span class="num">{index + 1}</span>
           <b>{kind?.title ?? layer.name}</b>
           <span class="spacer"></span>
-          <button class="icon" aria-label="Выше" disabled={index === 0} onclick={() => shift(index, -1)}>↑</button>
-          <button class="icon" aria-label="Ниже" disabled={index === model.layers.length - 1} onclick={() => shift(index, 1)}>↓</button>
-          <button class="icon danger" aria-label="Убрать слой" onclick={() => remove(index)}>✕</button>
+          <button type="button" class="icon" aria-label="Выше" disabled={index === 0} onclick={() => shift(index, -1)}>↑</button>
+          <button type="button" class="icon" aria-label="Ниже" disabled={index === model.layers.length - 1} onclick={() => shift(index, 1)}>↓</button>
+          <button type="button" class="icon danger" aria-label="Убрать слой" onclick={() => remove(index)}>✕</button>
         </header>
         {#if kind?.summary}<p class="muted small">{kind.summary}</p>{/if}
         {#if kind?.params.length}
@@ -190,7 +190,7 @@
             </label>
           {/if}
         </div>
-        <button class="more" onclick={() => (shown[index] = !open)}>
+        <button type="button" class="more" onclick={() => (shown[index] = !open)}>
           {open ? "▾" : "▸"} Ответы и события{layer.body.trim() ? " (заполнено)" : ""}
         </button>
         {#if open}
@@ -203,10 +203,10 @@
                     oninput={(event) => { answer.command = event.currentTarget.value.replace(/[^A-Za-z0-9_-]/g, ""); push(); }} />
                   <textarea class="field grow" rows="1" placeholder="Что ответит слой. Можно {"{path}"}, {"{name}"}" value={answer.text}
                     oninput={(event) => { answer.text = event.currentTarget.value; push(); }}></textarea>
-                  <button class="icon danger" aria-label="Убрать ответ" onclick={() => { layer.answers!.splice(at, 1); push(); }}>✕</button>
+                  <button type="button" class="icon danger" aria-label="Убрать ответ" onclick={() => { layer.answers!.splice(at, 1); push(); }}>✕</button>
                 </div>
               {/each}
-              <button class="link" onclick={() => addAnswer(layer)}>+ Ответ</button>
+              <button type="button" class="link" onclick={() => addAnswer(layer)}>+ Ответ</button>
 
               <h4>События<Hint text="Что произойдёт, когда с файлом что-то случится: слой снят, попытки кончились, файл открыт или удалён. У каждого события свой список действий." /></h4>
               {#each layer.hooks as hook, hi (hi)}
@@ -218,7 +218,7 @@
                       {/each}
                     </select>
                     <span class="muted small grow">{hookInfo.events.find((item) => item.name === hook.event)?.help}</span>
-                    <button class="icon danger" aria-label="Убрать событие" onclick={() => { layer.hooks!.splice(hi, 1); push(); }}>✕</button>
+                    <button type="button" class="icon danger" aria-label="Убрать событие" onclick={() => { layer.hooks!.splice(hi, 1); push(); }}>✕</button>
                   </div>
                   {#each hook.actions as action, ci (ci)}
                     {@const kind = actionOf(action.name)}
@@ -232,13 +232,13 @@
                       {:else}
                         <span class="muted small grow">{kind?.help}</span>
                       {/if}
-                      <button class="icon danger" aria-label="Убрать действие" onclick={() => { hook.actions.splice(ci, 1); push(); }}>✕</button>
+                      <button type="button" class="icon danger" aria-label="Убрать действие" onclick={() => { hook.actions.splice(ci, 1); push(); }}>✕</button>
                     </div>
                   {/each}
-                  <button class="link" onclick={() => { hook.actions.push({ name: "say", value: "", quoted: false }); push(); }}>+ Действие</button>
+                  <button type="button" class="link" onclick={() => { hook.actions.push({ name: "say", value: "", quoted: false }); push(); }}>+ Действие</button>
                 </div>
               {/each}
-              <button class="link" disabled={layer.hooks.length >= hookInfo.events.length} onclick={() => addHook(layer)}>+ Событие</button>
+              <button type="button" class="link" disabled={layer.hooks.length >= hookInfo.events.length} onclick={() => addHook(layer)}>+ Событие</button>
             </div>
           {:else}
             <p class="muted small">В тексте этого слоя есть комментарии или нестандартные строки, поэтому ответы и события правятся текстом (так ничего не потеряется).</p>

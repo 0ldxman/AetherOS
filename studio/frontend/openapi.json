@@ -1314,6 +1314,107 @@
     ]
    }
   },
+  "/studio/api/items/{item_id}/placements/{placement_id}/protection": {
+   "get": {
+    "operationId": "studio_api_items_placement_protection",
+    "summary": "Placement Protection",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "item_id",
+      "schema": {
+       "title": "Item Id",
+       "type": "integer"
+      },
+      "required": true
+     },
+     {
+      "in": "path",
+      "name": "placement_id",
+      "schema": {
+       "title": "Placement Id",
+       "type": "integer"
+      },
+      "required": true
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/PlacementProtection"
+        }
+       }
+      }
+     }
+    },
+    "description": "Свои условие и слои этого места (заменяют объектные или снимают их).",
+    "tags": [
+     "items"
+    ],
+    "security": [
+     {
+      "SessionAuthIsStaff": []
+     }
+    ]
+   },
+   "put": {
+    "operationId": "studio_api_items_save_placement_protection",
+    "summary": "Save Placement Protection",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "item_id",
+      "schema": {
+       "title": "Item Id",
+       "type": "integer"
+      },
+      "required": true
+     },
+     {
+      "in": "path",
+      "name": "placement_id",
+      "schema": {
+       "title": "Placement Id",
+       "type": "integer"
+      },
+      "required": true
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/PlacementProtection"
+        }
+       }
+      }
+     }
+    },
+    "tags": [
+     "items"
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/PlacementProtection"
+       }
+      }
+     },
+     "required": true
+    },
+    "security": [
+     {
+      "SessionAuthIsStaff": []
+     }
+    ]
+   }
+  },
   "/studio/api/items/{item_id}/placements": {
    "post": {
     "operationId": "studio_api_items_put",
@@ -6537,6 +6638,34 @@
      "holders"
     ],
     "title": "Whereabouts",
+    "type": "object"
+   },
+   "PlacementProtection": {
+    "properties": {
+     "access_mode": {
+      "title": "Access Mode",
+      "type": "string"
+     },
+     "access": {
+      "title": "Access",
+      "type": "string"
+     },
+     "state_mode": {
+      "title": "State Mode",
+      "type": "string"
+     },
+     "state": {
+      "title": "State",
+      "type": "string"
+     }
+    },
+    "required": [
+     "access_mode",
+     "access",
+     "state_mode",
+     "state"
+    ],
+    "title": "PlacementProtection",
     "type": "object"
    },
    "PutIn": {

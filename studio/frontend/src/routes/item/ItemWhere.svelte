@@ -1,4 +1,5 @@
 <script lang="ts">
+  import PlacementProtection from "./PlacementProtection.svelte";
   import { onMount } from "svelte";
   import { api, problem, type Schemas } from "../../lib/api";
   import Dialog from "../../lib/Dialog.svelte";
@@ -10,6 +11,7 @@
   let data = $state<Schemas["Whereabouts"] | null>(null);
   let dialog = $state<null | "put" | "delete">(null);
   let detaching = $state<Schemas["Placed"] | null>(null);
+  let protecting = $state<Schemas["Placed"] | null>(null);
   let volumes = $state<Schemas["VolumeRow"][]>([]);
   let target = $state({ volume: null as number | null, parent: null as number | null, name: "" });
   let folders = $state<{ id: number; path: string }[]>([]);
@@ -101,6 +103,7 @@
             {#if placed.hidden}<span class="chip">скрыт</span>{/if}
             {#if placed.own_access}<span class="chip warnchip" title="Условие доступа этого места заменяет объектное">своё условие</span>{/if}
             {#if placed.own_state}<span class="chip warnchip" title="Слои этого места заменяют объектные">свои слои</span>{/if}
+            <button class="btn ghost" onclick={() => (protecting = placed)}>Защита места</button>
           </span>
           {#if data.placements.length > 1}
             <button class="btn ghost" onclick={() => (detaching = placed)}>Своя копия здесь</button>
@@ -198,6 +201,10 @@
     <p class="muted">Здесь будет лежать новый объект с тем же содержимым, ключами и подписями. Дальше правки этого места и остальных
       {data ? data.placements.length - 1 : ""} не будут влиять друг на друга.</p>
   </Dialog>
+{/if}
+
+{#if protecting}
+  <PlacementProtection itemId={item.id} placed={protecting} onclose={() => (protecting = null)} onsaved={load} />
 {/if}
 
 <style>

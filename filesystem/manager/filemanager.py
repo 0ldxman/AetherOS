@@ -464,3 +464,52 @@ def to_text(placement):
     placement.save()
     item.delete()
     return placement
+
+
+def protection_of(placement):
+    """Свои условие и слои места как текст и режимы: inherit (как у объекта), replace (заменить своими), none (снять)."""
+    from documents.markup.expr import format_expr
+
+    replace = Placement.Mode.REPLACE
+    return {
+        "access_mode": placement.access_mode,
+        "access": format_expr(placement.access) if placement.access_mode == replace and placement.access else "",
+        "state_mode": placement.state_mode,
+        "state": placement.state if placement.state_mode == replace else "",
+    }
+
+
+def set_protection(placement, access_mode, access, state_mode, state):
+    """Задать, чем защищено это место файла с объектом. Условие и слои раздельны: у каждого свой режим. Ошибки приходят
+    ValidationError с полями access, state, access_mode, state_mode."""
+    from documents.markup.expr import SpoilerSyntaxError, parse_expr
+    from filesystem.layers.validators import validate_state_text
+
+    replace = Placement.Mode.REPLACE
+    errors = {}
+    if placement.item_id is None:
+        raise ValidationError({"__all__": ["У файла со своим текстом защита правится на его странице: объекта над ним нет."]})
+    for field, mode in (("access_mode", access_mode), ("state_mode", state_mode)):
+        if mode not in Placement.Mode.values:
+            errors[field] = ["Режим: «как у объекта», «заменить» или «нет»."]
+    tree = {}
+    if access_mode == replace:
+        try:
+            tree = parse_expr(access)
+        except SpoilerSyntaxError as error:
+            errors["access"] = [str(error)]
+    if state_mode == replace:
+        if not state.strip():
+            errors["state"] = ["Слоёв нет: чтобы снять защиту совсем, выберите «Нет»."]
+        else:
+            try:
+                validate_state_text(state)
+            except ValidationError as error:
+                errors["state"] = error.messages
+    if errors:
+        raise ValidationError(errors)
+    placement.access_mode, placement.access = access_mode, tree if access_mode == replace else {}
+    placement.state_mode, placement.state = state_mode, state if state_mode == replace else ""
+    placement.full_clean(exclude=("name", "item", "parent", "volume"))
+    placement.save(update_fields=["access_mode", "access", "state_mode", "state"])
+    return placement

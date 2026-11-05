@@ -32,7 +32,7 @@
       class="field mono" list="access-keys" placeholder="ключ" aria-label="Ключ" value={node.key}
       oninput={(event) => { node.key = event.currentTarget.value.replace(/[^A-Za-z0-9_-]/g, ""); onchange(); }}
     />
-    <button class="icon danger" aria-label="Убрать ключ" onclick={onremove}>✕</button>
+    <button type="button" class="icon danger" aria-label="Убрать ключ" onclick={onremove}>✕</button>
   </div>
 {:else}
   <div class="group" class:root>
@@ -42,7 +42,7 @@
         <option value="all">нужны все из:</option>
         <option value="any">нужен любой из:</option>
       </select>
-      {#if onremove}<button class="icon danger" aria-label={root ? "Убрать условие" : "Убрать группу"} onclick={onremove}>✕</button>{/if}
+      {#if onremove}<button type="button" class="icon danger" aria-label={root ? "Убрать условие" : "Убрать группу"} onclick={onremove}>✕</button>{/if}
     </div>
     <div class="items">
       {#each node.items as child, at (at)}
@@ -52,8 +52,8 @@
       {/each}
     </div>
     <div class="adders">
-      <button class="link" onclick={() => { node.items.push({ kind: "key", key: "", negated: false }); onchange(); }}>+ Ключ</button>
-      <button class="link" onclick={() => { node.items.push({ kind: "any", items: [{ kind: "key", key: "", negated: false }], negated: false }); onchange(); }}>+ Группа</button>
+      <button type="button" class="link" onclick={() => { node.items.push({ kind: "key", key: "", negated: false }); onchange(); }}>+ Ключ</button>
+      <button type="button" class="link" onclick={() => { node.items.push({ kind: "any", items: [{ kind: "key", key: "", negated: false }], negated: false }); onchange(); }}>+ Группа</button>
     </div>
   </div>
 {/if}
