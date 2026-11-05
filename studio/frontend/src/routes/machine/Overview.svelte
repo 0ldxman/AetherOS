@@ -1,4 +1,5 @@
 <script lang="ts">
+  import Hint from "../../lib/Hint.svelte";
   import { STATUS } from "../../lib/labels";
   import { guardUnsaved } from "../../lib/guard.svelte";
   import { api, problem, type Schemas } from "../../lib/api";
@@ -157,7 +158,7 @@
     <h3 class="sub">Идентичность</h3>
     <p class="muted small">Пустое поле: значение выводится из hid. Можно вписать своё или сгенерировать. Одинаковый hid у двух машин нормален: так клон выглядит той же машиной.</p>
     <div class="idrow">
-      <label><span class="label">hid</span><input class="field mono" bind:value={form.hid} class:bad={errors.hid} /></label>
+      <label><span class="label">hid<Hint text="Аппаратный идентификатор машины. Одинаковый hid у двух машин значит, что одна из них клон другой." /></span><input class="field mono" bind:value={form.hid} class:bad={errors.hid} /></label>
       <button class="btn ghost" onclick={() => generate("hid")}>Сгенерировать</button>
     </div>
     <div class="idrow">

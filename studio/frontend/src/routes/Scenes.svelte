@@ -26,7 +26,7 @@
 
   const current = $derived(slug ?? rows[0]?.slug ?? null);
   const dirty = $derived(JSON.stringify(form) !== saved);
-  guardUnsaved(() => dirty);
+  guardUnsaved(() => saved !== "" && dirty);   // пока ничего не загружено, правок нет
 
   async function list() {
     rows = (await api.GET("/studio/api/scenes")).data ?? [];
@@ -182,13 +182,20 @@
       </div>
     </section>
   {:else}
-    <p class="muted empty">{rows.length ? "Загрузка…" : "Сцен пока нет."}</p>
+    {#if rows.length}
+      <p class="muted empty">Загрузка…</p>
+    {:else}
+      <div class="empty">
+        <p class="muted">Сцен пока нет. Сцена — короткий сценарий, который проигрывается на экране игрока.</p>
+        <button class="btn primary" onclick={() => (creating = true)}>+ Сцена</button>
+      </div>
+    {/if}
   {/if}
 </div>
 
 {#if creating}
   <Dialog title="Новая сцена" confirm="Создать" onsubmit={create} onclose={() => (creating = false)}>
-    <input class="field mono" placeholder="слаг (латиницей)" bind:value={draft.slug} />
+    <input class="field mono" placeholder="идентификатор сцены (латиницей)" bind:value={draft.slug} />
     <input class="field" placeholder="название" bind:value={draft.title} />
   </Dialog>
 {/if}

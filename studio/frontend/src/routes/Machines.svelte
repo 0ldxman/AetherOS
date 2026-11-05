@@ -64,6 +64,7 @@
       </button>
     {:else}
       <p class="muted pad">{rows.length ? "Ничего не нашлось." : "Машин пока нет."}</p>
+      {#if !rows.length}<button class="btn primary add-first" onclick={() => (creating = true)}>Новая машина</button>{/if}
     {/each}
   {/if}
 </section>
@@ -92,4 +93,5 @@
   .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--faint); flex: none; }
   .dot.online { background: var(--ok); box-shadow: 0 0 0 3px rgba(95, 208, 160, 0.15); }
   .dot.maintenance { background: var(--warn); }
+  .add-first { margin: 0 12px 12px; }
 </style>

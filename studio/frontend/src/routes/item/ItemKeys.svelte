@@ -16,7 +16,7 @@
 
   const path = $derived({ item_id: item.id });
   const dirty = $derived(JSON.stringify({ embedded, signatures }) !== saved);
-  guardUnsaved(() => dirty);
+  guardUnsaved(() => saved !== "" && dirty);   // пока ничего не загружено, правок нет
   const name = (slug: string) => data?.registry.find((key) => key.slug === slug)?.name ?? slug;
 
   function fill(next: Schemas["KeysOut"]) {

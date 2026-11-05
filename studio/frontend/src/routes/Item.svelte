@@ -37,7 +37,7 @@
   const textual = $derived(!format || format.content === "text" || format.content === "text_asset");
   const linkable = $derived(format?.content === "link_asset");
   const dirty = $derived(JSON.stringify(draft) !== saved);
-  guardUnsaved(() => dirty, (next) => next.split("?")[0].split("/")[2] === String(id));
+  guardUnsaved(() => saved !== "" && dirty, (next) => next.split("?")[0].split("/")[2] === String(id));
   const issues = $derived(preview ? [...(preview.issues.body ?? []), ...(preview.issues.infobox ?? [])] : []);
 
   function fill(found: Item) {

@@ -1,4 +1,5 @@
 <script lang="ts">
+  import Hint from "../lib/Hint.svelte";
   import { plural } from "../lib/labels";
   import { ask } from "../lib/confirm.svelte";
   import { guardUnsaved } from "../lib/guard.svelte";
@@ -175,7 +176,7 @@
   const current = $derived(code ?? rows[0]?.code ?? null);
   const placesDirty = $derived(JSON.stringify(places) !== placesSaved);
   const propsDirty = $derived(JSON.stringify(props_) !== propsSaved);
-  guardUnsaved(() => propsDirty || placesDirty || lookDirty, (next) => next.split("?")[0].split("/")[2] === system?.code);
+  guardUnsaved(() => (propsSaved !== "" && propsDirty) || (placesSaved !== "" && placesDirty) || (lookSaved !== "" && lookDirty), (next) => next.split("?")[0].split("/")[2] === system?.code);
 
   async function list() {
     rows = (await api.GET("/studio/api/systems")).data ?? [];
@@ -554,9 +555,9 @@
       <div class="block">
         <h3>Свойства</h3>
         <div class="three">
-          <label><span class="label">Код</span><input class="field mono" bind:value={props_.code} /></label>
+          <label><span class="label">Код<Hint text="Короткое имя ОС латиницей. По нему в игре выбираются сцены и команды: менять осторожно." /></span><input class="field mono" bind:value={props_.code} /></label>
           <label><span class="label">Название</span><input class="field" bind:value={props_.name} /></label>
-          <label><span class="label">Диалект путей</span>
+          <label><span class="label">Диалект путей<Hint text="Как в этой ОС выглядят пути к файлам: Unix (/home/ivan) или Windows (C:\Users\ivan)." /></span>
             <select class="field" bind:value={props_.path_style}>
               <option value="unix">Unix (/home/ivan)</option><option value="windows">Windows (C:\Users\ivan)</option>
             </select>
@@ -592,7 +593,14 @@
       {/if}
     </section>
   {:else}
-    <p class="muted empty">{rows.length ? "Загрузка…" : "Типов пока нет."}</p>
+    {#if rows.length}
+      <p class="muted empty">Загрузка…</p>
+    {:else}
+      <div class="empty">
+        <p class="muted">Операционных систем пока нет.</p>
+        <button class="btn primary" onclick={() => (dialog = "type")}>+ Операционная система</button>
+      </div>
+    {/if}
   {/if}
 </div>
 

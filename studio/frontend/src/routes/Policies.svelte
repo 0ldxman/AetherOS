@@ -1,4 +1,5 @@
 <script lang="ts">
+  import Hint from "../lib/Hint.svelte";
   import { guardUnsaved } from "../lib/guard.svelte";
   import { onMount } from "svelte";
   import { api, problem, type Schemas } from "../lib/api";
@@ -26,7 +27,7 @@
   }
 
   const dirty = $derived(JSON.stringify(form) !== saved);
-  guardUnsaved(() => dirty);
+  guardUnsaved(() => saved !== "" && dirty);   // пока ничего не загружено, правок нет
   const current = $derived(id ?? rows[0]?.id ?? null);
 
   async function list() {
@@ -126,22 +127,22 @@
               <option value="any">хватает пароля или ключа</option>
             </select>
           </label>
-          <label><span class="label">Откуда можно (хост в строке, * заменяет любые знаки; пусто: откуда угодно)</span>
+          <label><span class="label">Откуда можно<Hint text="Какие хосты вправе подключаться, по одному в строке. «*» заменяет любые знаки: aether-* подходит для всех хостов, начинающихся с aether-. Пусто: откуда угодно." /></span>
             <textarea class="field area mono" bind:value={form.sources} placeholder={"aether-*\ngw-02"}></textarea></label>
-          <label><span class="label">Только через (хосты цепочки мостов)</span>
+          <label><span class="label">Только через<Hint text="Подключение должно идти через эти хосты-мосты, по одному в строке. Пусто: путь не важен." /></span>
             <textarea class="field area mono" bind:value={form.via}></textarea></label>
           <h3>Ошибки и срок</h3>
           <div class="three">
-            <label><span class="label">Ошибок до блока</span><input class="field" type="number" min="1" bind:value={form.max_attempts} placeholder="не блокировать" /></label>
-            <label><span class="label">За, с</span><input class="field" type="number" min="1" bind:value={form.attempts_window} /></label>
-            <label><span class="label">Блок на, с</span><input class="field" type="number" min="1" bind:value={form.lock_seconds} /></label>
+            <label><span class="label">Ошибок до блока<Hint text="Сколько неверных попыток подряд допускается, прежде чем вход заблокируется. Пусто: не блокировать." /></span><input class="field" type="number" min="1" bind:value={form.max_attempts} placeholder="не блокировать" /></label>
+            <label><span class="label">За сколько секунд<Hint text="Окно, в котором считаются ошибки: например, 3 ошибки за 60 секунд." /></span><input class="field" type="number" min="1" bind:value={form.attempts_window} /></label>
+            <label><span class="label">Блок на сколько секунд<Hint text="Как долго вход закрыт после блокировки." /></span><input class="field" type="number" min="1" bind:value={form.lock_seconds} /></label>
           </div>
-          <label><span class="label">Срок подключения, с</span><input class="field" type="number" min="1" bind:value={form.ttl} placeholder="без ограничения" /></label>
+          <label><span class="label">Срок подключения, секунд<Hint text="Через сколько секунд сессия сама закончится. Пусто: без ограничения." /></span><input class="field" type="number" min="1" bind:value={form.ttl} placeholder="без ограничения" /></label>
         </div>
 
         <div class="block">
           <h3>Когда</h3>
-          <label><span class="label">Окна: «mon-fri: 9:00-13:00 14:00-18:00», «except sun: *», по строке на правило</span>
+          <label><span class="label">Окна<Hint text="Когда можно входить, по строке на правило. «mon-fri: 9:00-13:00 14:00-18:00» — по будням с 9 до 13 и с 14 до 18. «except sun: *» — кроме воскресенья. Дни: mon tue wed thu fri sat sun." /></span>
             <textarea class="field area mono" class:bad={errors.windows || week?.error} bind:value={form.windows} rows="4"></textarea></label>
           {#if week?.error}<p class="err">{week.error}</p>{:else if errors.windows}<p class="err">{errors.windows.join(" ")}</p>{/if}
           {#if week?.grid}<WeekGrid grid={week.grid} />{:else if !week?.error}<p class="muted small">Окон нет: входить можно в любое время.</p>{/if}
@@ -165,7 +166,14 @@
       </div>
     </section>
   {:else}
-    <p class="muted empty">{rows.length ? "Загрузка…" : "Политик пока нет."}</p>
+    {#if rows.length}
+      <p class="muted empty">Загрузка…</p>
+    {:else}
+      <div class="empty">
+        <p class="muted">Политик пока нет. Политика входа задаёт, кто, откуда и когда может войти на машину.</p>
+        <button class="btn primary" onclick={() => (dialog = "new")}>+ Политика</button>
+      </div>
+    {/if}
   {/if}
 </div>
 

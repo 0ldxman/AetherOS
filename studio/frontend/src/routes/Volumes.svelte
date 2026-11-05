@@ -79,7 +79,8 @@
   {#if loading}
     <p class="muted pad">Загрузка…</p>
   {:else if !shown.length}
-    <p class="muted pad">{rows.length ? "Ничего не нашлось." : "Томов пока нет."}</p>
+    <p class="muted pad">{rows.length ? "Ничего не нашлось." : "Томов пока нет. Том — это диск мира: на нём лежат файлы."}</p>
+    {#if !rows.length}<button class="btn primary add-first" onclick={openCreate}>+ Новый том</button>{/if}
   {:else}
     {#each shown as row (row.id)}
       <button class="card" onclick={() => go(`/volumes/${row.id}`)}>
@@ -171,4 +172,5 @@
   .mounts { display: flex; flex-wrap: wrap; gap: 6px; }
   .mount { padding: 1px 7px; border-radius: 4px; background: var(--bg); color: var(--muted); font-size: 11.5px; }
   .faint { color: var(--faint); font-size: 12px; }
+  .add-first { margin: 0 12px 12px; }
 </style>

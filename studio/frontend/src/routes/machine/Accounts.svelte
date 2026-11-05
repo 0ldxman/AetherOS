@@ -1,4 +1,5 @@
 <script lang="ts">
+  import Hint from "../../lib/Hint.svelte";
   import { guardUnsaved } from "../../lib/guard.svelte";
   import { onMount } from "svelte";
   import { api, problem, type Schemas } from "../../lib/api";
@@ -29,7 +30,7 @@
   }
 
   const dirty = $derived(JSON.stringify(form) !== saved || password !== "" || clearPassword);
-  guardUnsaved(() => dirty);
+  guardUnsaved(() => saved !== "" && dirty);   // пока ничего не загружено, правок нет
   const current = $derived(selected ?? machine.accounts[0]?.id ?? null);
 
   async function load(id: number | null) {
@@ -199,8 +200,8 @@
             </select>
           </label>
           <div class="pair">
-            <label><span class="label">Срок подключения, с</span><input class="field" type="number" min="0" bind:value={form.ttl} placeholder="из политики" /></label>
-            <label><span class="label">Блок после обрыва, с</span><input class="field" type="number" min="0" bind:value={form.cooldown} placeholder="из политики" /></label>
+            <label><span class="label">Срок подключения, секунд<Hint text="Через сколько секунд после входа сессия сама закончится. Пусто: берётся из политики входа." /></span><input class="field" type="number" min="0" bind:value={form.ttl} placeholder="из политики" /></label>
+            <label><span class="label">Блок после обрыва, секунд<Hint text="Сколько секунд игроку нельзя войти снова после обрыва связи. Пусто: берётся из политики входа." /></span><input class="field" type="number" min="0" bind:value={form.cooldown} placeholder="из политики" /></label>
           </div>
           <label><span class="label">Сообщение при обрыве</span><input class="field" bind:value={form.kick_message} placeholder="стандартное для системы" /></label>
           <label><span class="label">Сцена после входа</span>

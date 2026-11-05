@@ -1,4 +1,5 @@
 <script lang="ts">
+  import Hint from "../lib/Hint.svelte";
   import { guardUnsaved } from "../lib/guard.svelte";
   import { onMount } from "svelte";
   import { api, problem, type Schemas } from "../lib/api";
@@ -14,7 +15,7 @@
 
   const body = $derived(world ? { ...world, game_now: `${day}T${time || "00:00"}:00Z` } : null);
   const dirty = $derived(JSON.stringify(body) !== saved);
-  guardUnsaved(() => dirty);
+  guardUnsaved(() => saved !== "" && dirty);   // пока ничего не загружено, правок нет
 
   function fill(data: World) {
     world = data;
@@ -53,7 +54,7 @@
     <h2>Время</h2>
     <div class="row">
       <label><span class="label">«Сейчас» в мире: дата</span><input class="field" type="date" bind:value={day} /></label>
-      <label><span class="label">время (UTC)</span><input class="field" type="time" bind:value={time} /></label>
+      <label><span class="label">время (UTC)<Hint text="Мировое время по Гринвичу для даты слева. От этого момента считаются «N дней назад» и время писем." /></span><input class="field" type="time" bind:value={time} /></label>
     </div>
     <p class="muted small">От этой даты считаются «N дней назад» и время писем.</p>
   </section>
