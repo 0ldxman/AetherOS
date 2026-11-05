@@ -7577,6 +7577,13 @@
    },
    "StackOut": {
     "properties": {
+     "steps": {
+      "items": {
+       "type": "string"
+      },
+      "title": "Steps",
+      "type": "array"
+     },
      "editable": {
       "title": "Editable",
       "type": "boolean"
@@ -7605,6 +7612,7 @@
      }
     },
     "required": [
+     "steps",
      "editable",
      "unsupported",
      "problems",
@@ -7650,10 +7658,18 @@
      "text": {
       "title": "Text",
       "type": "string"
+     },
+     "steps": {
+      "items": {
+       "type": "string"
+      },
+      "title": "Steps",
+      "type": "array"
      }
     },
     "required": [
-     "text"
+     "text",
+     "steps"
     ],
     "title": "StackText",
     "type": "object"

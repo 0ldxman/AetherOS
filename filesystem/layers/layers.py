@@ -26,6 +26,10 @@ class Damaged(BaseState):
         "Обычно добавляется хуком: add damaged."
     )
 
+    @classmethod
+    def how(cls, params):
+        return "rpr <файл>"
+
 
 @register
 class Encrypted(BaseState):
@@ -59,6 +63,12 @@ class Encrypted(BaseState):
     )
 
     @classmethod
+    def how(cls, params):
+        password, key = str(params.get("password") or "").strip(), str(params.get("key") or "").strip()
+        ways = ([f"ward -k {key} <файл>"] if key else []) + ([f"ward <файл> {password}"] if password else [])
+        return " или ".join(ways)
+
+    @classmethod
     def check_unlock(cls, params, given):
         """Подходит пароль или ключ: названный ключ сравнивается с ключом слоя, иначе пароль с паролем слоя."""
         if given.get("key"):
@@ -83,6 +93,13 @@ class Shifted(BaseState):
         Param("out", str, label="Файл на выходе", help="имя файла, который получится при верной вырезке (blk): путь рядом с исходником или абсолютный"),
     )
 
+    @classmethod
+    def how(cls, params):
+        skip, count = str(params.get("skip") or "").strip(), str(params.get("count") or "").strip()
+        if not skip:
+            return ""
+        return f"blk <файл> skip={skip}" + (f" count={count}" if count else "")
+
 
 @register
 class Binary(BaseState):
@@ -103,6 +120,11 @@ class Binary(BaseState):
             help="кодировка, в которую завёрнут текст (регистр не важен)",
         ),
     )
+
+    @classmethod
+    def how(cls, params):
+        encoding = str(params.get("encoding") or "").strip()
+        return f"cvt enc {encoding} <файл>" if encoding else ""
 
     @classmethod
     def check_unlock(cls, params, given):
@@ -127,6 +149,11 @@ class Disguised(BaseState):
             help="настоящий формат, в который нужно преобразовать файл (регистр не важен)",
         ),
     )
+
+    @classmethod
+    def how(cls, params):
+        name = str(params.get("format") or "").strip().lstrip(".")
+        return f"cvt ext <файл> <файл.{name}>" if name else ""
 
     @classmethod
     def check_unlock(cls, params, given):

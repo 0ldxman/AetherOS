@@ -17,6 +17,9 @@
   let model = $state<{ preamble: string; layers: Layer[] } | null>(null);
   let info = $state({ editable: true, unsupported: "", problems: [] as Schemas["StackProblem"][] });
   let hookInfo = $state<Schemas["StackHooks"]>({ events: [], actions: [], commands: [] });
+  let steps = $state<string[]>([]);
+  let dragFrom = $state<number | null>(null);
+  let dragOver = $state<number | null>(null);
   let adding = $state(false);
   let shown = $state<Record<number, boolean>>({});
 
@@ -39,6 +42,7 @@
     const { data } = await api.POST("/studio/api/layers/outline", { body: { text } });
     if (!data || mine !== sequence) return;
     info = { editable: data.editable, unsupported: data.unsupported, problems: data.problems };
+    steps = data.steps;
     model = data.editable ? { preamble: data.preamble, layers: data.layers } : null;
     lastBuilt = text;
     if (!data.editable) mode = "text";
@@ -63,6 +67,7 @@
     const { data } = await api.POST("/studio/api/layers/build", { body });
     if (!data || mine !== sequence) return;
     lastBuilt = data.text;
+    steps = data.steps;
     value = data.text;
   }
 
@@ -80,6 +85,13 @@
   function add(kind: Kind) {
     model?.layers.unshift({ name: kind.name, values: {}, move: null, body: "", answers: [], hooks: [] });
     adding = false;
+    push();
+  }
+
+  function moveTo(from: number | null, to: number) {
+    if (!model || from === null || from === to) return;
+    const [row] = model.layers.splice(from, 1);
+    model.layers.splice(to, 0, row);
     push();
   }
 
@@ -150,8 +162,16 @@
     {#each model.layers as layer, index (index)}
       {@const kind = kindOf(layer.name)}
       {@const open = shown[index] ?? !!layer.body.trim()}
-      <section class="layer">
+      <section
+        class="layer" class:over={dragOver === index && dragFrom !== index} role="group" aria-label="Слой {index + 1}"
+        ondragover={(event) => { if (dragFrom !== null) { event.preventDefault(); dragOver = index; } }}
+        ondrop={(event) => { event.preventDefault(); moveTo(dragFrom, index); dragFrom = dragOver = null; }}
+      >
         <header>
+          <button
+            type="button" class="grip" draggable="true" aria-label="Перетащить слой" title="Перетащите, чтобы поменять порядок"
+            ondragstart={(event) => { dragFrom = index; event.dataTransfer?.setData("text/plain", String(index)); }} ondragend={() => (dragFrom = dragOver = null)}
+          >⠿</button>
           <span class="num">{index + 1}</span>
           <b>{kind?.title ?? layer.name}</b>
           <span class="spacer"></span>
@@ -160,6 +180,7 @@
           <button type="button" class="icon danger" aria-label="Убрать слой" onclick={() => remove(index)}>✕</button>
         </header>
         {#if kind?.summary}<p class="muted small">{kind.summary}</p>{/if}
+        {#if steps[index]}<p class="how small">Игрок снимет слой так: <span class="mono">{steps[index]}</span></p>{/if}
         {#if kind?.params.length}
           <div class="fields">
             {#each kind.params as param (param.name)}
@@ -278,6 +299,10 @@
   .layer { display: flex; flex-direction: column; gap: 8px; padding: 12px; border: 1px solid var(--line-soft); border-radius: var(--radius); background: var(--panel-2); }
   .layer header { display: flex; align-items: center; gap: 8px; }
   .layer p { margin: 0; }
+  .layer.over { border-color: var(--accent); background: var(--accent-soft); }
+  .grip { width: 18px; padding: 0; border: 0; background: none; color: var(--faint); font-size: 16px; line-height: 1; cursor: grab; }
+  .grip:active { cursor: grabbing; }
+  .how { color: var(--ok); }
   .num { display: inline-flex; align-items: center; justify-content: center; width: 20px; height: 20px; border-radius: 50%; background: var(--panel); color: var(--muted); font-size: 11px; }
   .spacer { flex: 1; }
   .icon { width: 26px; height: 26px; border: 1px solid var(--line); border-radius: var(--radius-s); background: none; color: var(--muted); cursor: pointer; }

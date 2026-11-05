@@ -6,7 +6,7 @@ from django.test import SimpleTestCase
 
 from filesystem.layers.hooks import ACTIONS, EVENTS
 from filesystem.layers.outline import (
-    ACTION_TITLES, EVENT_TITLES, Action, Answer, Hook, OutlineLayer, build, catalog, hooks_catalog, outline, regen_body, structure_of,
+    ACTION_TITLES, EVENT_TITLES, Action, Answer, Hook, OutlineLayer, build, catalog, hooks_catalog, outline, regen_body, steps, structure_of,
 )
 from filesystem.layers.parser import parse, tokenize
 
@@ -156,3 +156,22 @@ class BodyTests(SimpleTestCase):
         say = next(a for a in info["actions"] if a["name"] == "say")
         self.assertTrue(say["text"])
         self.assertIn("ftyp", info["commands"])
+
+
+class StepsTests(SimpleTestCase):
+    def test_every_layer_says_how_the_player_removes_it(self):
+        rows = steps([
+            OutlineLayer("encrypted", {"password": "hunter2"}),
+            OutlineLayer("encrypted", {"key": "cardkey", "password": "pw"}),
+            OutlineLayer("shifted", {"skip": "4", "count": "2"}),
+            OutlineLayer("binary", {"encoding": "utf16"}),
+            OutlineLayer("disguised", {"format": ".jpg"}),
+            OutlineLayer("damaged", {}),
+        ])
+        self.assertEqual(rows, [
+            "ward <файл> hunter2", "ward -k cardkey <файл> или ward <файл> pw", "blk <файл> skip=4 count=2",
+            "cvt enc utf16 <файл>", "cvt ext <файл> <файл.jpg>", "rpr <файл>",
+        ])
+
+    def test_nothing_is_promised_while_the_values_are_missing(self):
+        self.assertEqual(steps([OutlineLayer("encrypted", {}), OutlineLayer("shifted", {}), OutlineLayer("corrupted", {}), OutlineLayer("binary", {"encoding": " "})]), ["", "", "", ""])

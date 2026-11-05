@@ -126,6 +126,16 @@ def _quote(value: str) -> str:
     return value if plain else '"' + value.replace("\\", "\\\\").replace('"', '\\"') + '"'
 
 
+def steps(layers: list[OutlineLayer]) -> list[str]:
+    """Для каждого слоя: какой командой игрок его снимет (пусто, если сказать нечего). Порядок тот же, что у слоёв."""
+    rows = []
+    for layer in layers:
+        cls = registry._states.get(layer.name)
+        values = {k: ("" if v is None else str(v).strip()) for k, v in layer.values.items()}
+        rows.append(cls.how(values) if cls else "")
+    return rows
+
+
 def header(layer: OutlineLayer) -> str:
     cls = registry._states.get(layer.name)
     parts = [">", layer.name]

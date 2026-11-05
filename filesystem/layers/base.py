@@ -59,6 +59,12 @@ class BaseState:
     default_hooks: ClassVar[str] = ""
 
     @classmethod
+    def how(cls, params: Mapping[str, Any]) -> str:
+        """Какой командой игрок снимет слой с такими значениями (для подсказки автору в студии). Пусто: у слоя нет
+        отдельной команды или значений ещё не хватает."""
+        return ""
+
+    @classmethod
     def signature(cls) -> str:
         """Как слой пишется в тексте: `encrypted <password> [attempts=3]`."""
         parts = [cls.name]

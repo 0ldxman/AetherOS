@@ -2565,6 +2565,8 @@ export interface components {
         };
         /** StackOut */
         StackOut: {
+            /** Steps */
+            steps: string[];
             /** Editable */
             editable: boolean;
             /** Unsupported */
@@ -2592,6 +2594,8 @@ export interface components {
         StackText: {
             /** Text */
             text: string;
+            /** Steps */
+            steps: string[];
         };
         /** StackIn */
         StackIn: {

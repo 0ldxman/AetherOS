@@ -81,6 +81,7 @@ class StackProblem(Schema):
 
 
 class StackOut(Schema):
+    steps: list[str]           # по слою: чем игрок его снимет
     editable: bool
     unsupported: str
     problems: list[StackProblem]
@@ -95,6 +96,7 @@ class StackIn(Schema):
 
 class StackText(Schema):
     text: str
+    steps: list[str]
 
 
 class StackSource(Schema):
@@ -115,7 +117,7 @@ def hooks(request):
 def outline(request, body: StackSource):
     found = stack.outline(body.text)
     return StackOut(
-        editable=found.editable, unsupported=found.unsupported, problems=[StackProblem(line=n, message=m) for n, m in found.problems],
+        steps=stack.steps(found.layers), editable=found.editable, unsupported=found.unsupported, problems=[StackProblem(line=n, message=m) for n, m in found.problems],
         preamble=found.preamble,
         layers=[
             StackLayer(
@@ -140,4 +142,4 @@ def build(request, body: StackIn):
         )
         for row in body.layers
     ]
-    return StackText(text=stack.build(body.preamble, layers))
+    return StackText(text=stack.build(body.preamble, layers), steps=stack.steps(layers))
