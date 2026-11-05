@@ -55,6 +55,7 @@
       <button class="btn primary" disabled={!dirty} onclick={save}>Сохранить</button>
     </div>
 
+    <p class="muted small intro">Игровая механика: ключи, спрятанные в самом файле, и подписи для проверки подлинности. Для обычной статьи ничего заполнять не нужно.</p>
     <div class="cols">
       <section class="card">
         <h2>Вложенные ключи</h2>

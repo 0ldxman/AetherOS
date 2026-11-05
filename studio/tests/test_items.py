@@ -53,6 +53,22 @@ class ItemsApiTests(TestCase):
         row = next(r for r in self.call("get", "/items")[1] if r["name"] == "report")
         self.assertEqual((row["places"], row["archives"], row["layers"]), (2, 1, True))
 
+    def test_the_library_filters_by_markup_volume_and_folder_and_sorts(self):
+        FileFormat.objects.update_or_create(name="doc", defaults={"extension": ".doc", "kind": "text", "content": "text", "markup": True})
+        article = Item.objects.create(slug="article", name="article", format="doc", body="# Статья")
+        Placement.objects.create(volume=self.home, name="article.doc", item=article)
+        self.assertEqual(self.names("?only=markup"), ["article"])
+        self.assertEqual(self.names(f"?volume={self.harbor.pk}"), ["report"])
+        self.assertEqual(self.names(f"?volume={self.home.pk}"), ["article", "report"])
+        self.assertEqual(self.names("?path=ports"), ["report"])
+        self.assertEqual(self.names(f"?volume={self.home.pk}&path=ports"), [])
+        rows = self.call("get", "/items?sort=name")[1]
+        self.assertEqual([r["name"] for r in rows], sorted(r["name"] for r in rows))
+        rows = self.call("get", "/items?sort=-name")[1]
+        self.assertEqual([r["name"] for r in rows], sorted((r["name"] for r in rows), reverse=True))
+        report = next(r for r in self.call("get", "/items")[1] if r["name"] == "report")
+        self.assertEqual(sorted(report["where"]), ["harbor:/ports/report.txt", "home:/copy.txt"])
+
     def test_where_lists_places_archives_and_holders(self):
         data = self.call("get", f"/items/{self.report.pk}/where")[1]
         self.assertEqual(sorted(p["path"] for p in data["placements"]), ["copy.txt", "ports/report.txt"])

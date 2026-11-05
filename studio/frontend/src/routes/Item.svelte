@@ -2,6 +2,9 @@
   import { onMount, untrack } from "svelte";
   import { adminUrl, api, problem, type Schemas } from "../lib/api";
   import CodeEditor from "../lib/CodeEditor.svelte";
+  import FormatOptions from "../lib/FormatOptions.svelte";
+  import Hint from "../lib/Hint.svelte";
+  import MarkupHelp from "../lib/MarkupHelp.svelte";
   import { go } from "../lib/router.svelte";
   import { toast } from "../lib/toast.svelte";
   import ItemWhere from "./item/ItemWhere.svelte";
@@ -224,11 +227,11 @@
 
     <nav class="pagetabs">
       <a class:on={view === "content"} href="#/items/{id}">Содержимое</a>
-      <a class:on={view === "where"} href="#/items/{id}/where">Где лежит <span class="count">{item.placements.length}</span></a>
-      <a class:on={view === "protection"} href="#/items/{id}/protection">Защита
+      <a class:on={view === "where"} href="#/items/{id}/where" title="Тома и папки, где этот объект лежит. Один объект может лежать в нескольких местах: правка видна во всех.">Где лежит <span class="count">{item.placements.length}</span></a>
+      <a class:on={view === "protection"} href="#/items/{id}/protection" title="Как игрок получает содержимое: условие по ключам и слои защиты (пароль, маскировка). Для обычной открытой статьи не нужно.">Защита
         {#if item.protected}<span class="count lock">●</span>{/if}</a>
-      <a class:on={view === "keys"} href="#/items/{id}/keys">Ключи и подписи</a>
-      <a class:on={view === "history"} href="#/items/{id}/history">История</a>
+      <a class:on={view === "keys"} href="#/items/{id}/keys" title="Игровая механика: ключи, спрятанные в файле, и подписи для проверки подлинности. Для обычной статьи не нужно.">Ключи и подписи</a>
+      <a class:on={view === "history"} href="#/items/{id}/history" title="Прежние версии текста: можно сравнить и восстановить.">История</a>
     </nav>
 
     {#if view === "where"}
@@ -244,7 +247,7 @@
       <section class="pane">
         <nav class="tabs">
           <button class:on={tab === "body"} onclick={() => (tab = "body")}>Текст</button>
-          <button class:on={tab === "meta"} onclick={() => (tab = "meta")}>Врезка</button>
+          <button class:on={tab === "meta"} title="Врезка: карточка с краткими данными рядом со статьёй" onclick={() => (tab = "meta")}>Врезка</button>
           <button class:on={tab === "props"} onclick={() => (tab = "props")}>Свойства</button>
         </nav>
         <div class="pane-body">
@@ -265,14 +268,14 @@
               <label><span class="label">Формат</span>
                 <select class="field" bind:value={draft.format}>
                   <option value="">без формата</option>
-                  {#each formats as found}<option value={found.name}>{found.name} — {found.title}</option>{/each}
+                  <FormatOptions {formats} />
                 </select>
               </label>
               <p class="muted small hint">Расширение берётся из формата. Места, где файл называется по-старому, переименуются сами; свои имена остаются.</p>
               {#if linkable}
                 <label><span class="label">Ссылка</span><input class="field" bind:value={draft.url} placeholder="https://…" /></label>
               {/if}
-              <label><span class="label">Автор (в мире)</span><input class="field" bind:value={draft.world_creator} /></label>
+              <label><span class="label">Автор (в мире)<Hint text="Автор внутри вымышленного мира, не пользователь студии. Игрок увидит его в свойствах файла." /></span><input class="field" bind:value={draft.world_creator} /></label>
               <div class="pair">
                 <label><span class="label">Создан (в мире)</span><input class="field" type="date" bind:value={draft.world_created_at} /></label>
                 <label><span class="label">Изменён (в мире)</span><input class="field" type="date" bind:value={draft.world_updated_at} /></label>
@@ -289,6 +292,7 @@
             </div>
           {/if}
         </div>
+        {#if textual && format?.markup && tab !== "props"}<MarkupHelp />{/if}
       </section>
 
       <section class="pane preview">
@@ -299,6 +303,7 @@
             <option value="all">со всеми ключами</option>
             <option value="none">без ключей</option>
           </select>
+          <Hint text="Часть текста может быть скрыта от игрока, пока у него нет нужного ключа. «Со всеми ключами» показывает всё, «без ключей» то, что увидит игрок, у которого ключей ещё нет." />
         </nav>
         <iframe title="Предпросмотр" bind:this={frame} onload={framed}></iframe>
         {#if issues.length}

@@ -68,6 +68,7 @@
     <button class="btn primary" disabled={!dirty} onclick={() => save()}>Сохранить защиту</button>
   </div>
 
+  <p class="muted small intro">Здесь настраивается, как игрок получает содержимое: сначала проверяется условие по ключам, потом он проходит слои защиты. Для обычной открытой статьи ничего заполнять не нужно.</p>
   <div class="cols">
     <div class="col">
       <section class="card">

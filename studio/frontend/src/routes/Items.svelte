@@ -2,13 +2,15 @@
   import { onMount } from "svelte";
   import { api, problem, type Schemas } from "../lib/api";
   import Dialog from "../lib/Dialog.svelte";
+  import FormatOptions from "../lib/FormatOptions.svelte";
+  import Hint from "../lib/Hint.svelte";
   import { toast } from "../lib/toast.svelte";
   import { go } from "../lib/router.svelte";
   import { ago } from "../lib/time";
 
   let rows = $state<Schemas["LibraryRow"][]>([]);
   let formats = $state<Schemas["Format"][]>([]);
-  let filters = $state({ q: "", format: "", kind: "", only: "" });
+  let filters = $state({ q: "", format: "", kind: "", only: "", volume: "", path: "", sort: "-updated_at" });
   let loading = $state(true);
 
   let volumes = $state<Schemas["VolumeRow"][]>([]);
@@ -34,7 +36,7 @@
 
   let timer: ReturnType<typeof setTimeout>;
   $effect(() => {
-    const query = { ...filters };
+    const query = { ...filters, volume: filters.volume ? Number(filters.volume) : undefined };
     clearTimeout(timer);
     timer = setTimeout(async () => {
       loading = true;
@@ -44,10 +46,17 @@
   });
 
   const ONLY = [
-    ["", "все"], ["recent", "правили за неделю"], ["mine", "правил я"], ["shared", "в нескольких местах"],
+    ["", "все"], ["markup", "С разметкой"], ["recent", "правили за неделю"], ["mine", "правил я"], ["shared", "в нескольких местах"],
     ["orphans", "нигде не лежат"], ["layers", "со слоями"], ["access", "с условием"], ["keys", "ключи"],
   ];
   const KIND: Record<string, string> = { text: "текст", asset: "ассет", link: "ссылка", scene: "сцена", message: "письмо", empty: "пусто" };
+
+  const MARKUP_TIP = "Форматы с разметкой: подходят для статей и документов";
+
+  function sortBy(field: string) {
+    filters.sort = filters.sort === field ? `-${field}` : field;
+  }
+  const arrow = (field: string) => (filters.sort === field ? " ↑" : filters.sort === `-${field}` ? " ↓" : "");
 
   function size(bytes: number | null | undefined) {
     if (bytes == null) return "";
@@ -68,8 +77,13 @@
     </select>
     <select class="field" bind:value={filters.format}>
       <option value="">любой формат</option>
-      {#each formats as found}<option value={found.name}>{found.name}</option>{/each}
+      <FormatOptions {formats} codeOnly />
     </select>
+    <select class="field" bind:value={filters.volume}>
+      <option value="">любой том</option>
+      {#each volumes as found}<option value={found.id}>{found.name || found.slug}</option>{/each}
+    </select>
+    <input class="field path mono" placeholder="папка: ports/reports" title="Путь к папке внутри тома: покажет объекты из неё и из вложенных" bind:value={filters.path} />
     <input class="field search" placeholder="Название, слаг или текст" bind:value={filters.q} />
     <button class="btn primary" onclick={() => (dialog = { name: "", format: "", slug: "", volume: "" })}>Новый объект</button>
   </div>
@@ -77,19 +91,29 @@
 
 <nav class="chips">
   {#each ONLY as [value, label]}
-    <button class="pick" class:on={filters.only === value} onclick={() => (filters.only = value)}>{label}</button>
+    <button class="pick" class:on={filters.only === value} title={value === "markup" ? MARKUP_TIP : undefined} onclick={() => (filters.only = value)}>{value === "markup" ? "✎ " : ""}{label}</button>
   {/each}
   <span class="muted count">{loading ? "…" : rows.length >= 200 ? "первые 200" : `${rows.length}`}</span>
 </nav>
 
 <section class="table">
-  <div class="row head"><span>Объект</span><span>Содержимое</span><span class="num">Мест</span><span>Защита</span><span class="num">Размер</span><span>Правка</span></div>
+  <div class="row head">
+    <span><button class="sort" onclick={() => sortBy("name")}>Объект{arrow("name")}</button></span>
+    <span>Содержимое</span>
+    <span><button class="sort" onclick={() => sortBy("places")}>Где лежит{arrow("places")}</button><Hint text="Том и путь, где лежит объект. Один объект может лежать в нескольких местах сразу: правка видна во всех. «арх.» — входит в архив (zip и подобные)." /></span>
+    <span>Защита<Hint text="«слои» — шифрование и иные слои защиты содержимого. «условие» — правило, при котором игрок вообще получит доступ." /></span>
+    <span class="num"><button class="sort" onclick={() => sortBy("size")}>Размер{arrow("size")}</button></span>
+    <span><button class="sort" onclick={() => sortBy("updated_at")}>Правка{arrow("updated_at")}</button></span>
+  </div>
   {#each rows as row (row.id)}
     <button class="row" onclick={() => go(`/items/${row.id}`)}>
       <span class="name"><b>{row.name}</b>{#if row.format}<span class="chip">{row.format}</span>{/if}<span class="mono slug">{row.slug}</span></span>
       <span class="muted">{KIND[row.kind]}</span>
-      <span class="num" class:warn={row.places + row.archives === 0}>
-        {row.places}{#if row.archives}<span class="muted"> +{row.archives} арх.</span>{/if}
+      <span class="where" class:warn={row.places + row.archives === 0} title={row.where.join("\n")}>
+        {#if row.where.length}
+          <span class="mono">{row.where[0]}</span>{#if row.places > 1}<span class="muted">&nbsp;+{row.places - 1}</span>{/if}
+        {:else if !row.archives}нигде{/if}
+        {#if row.archives}<span class="muted"> · арх. {row.archives}</span>{/if}
       </span>
       <span class="flags">
         {#if row.layers}<span class="chip warnchip">слои</span>{/if}
@@ -110,10 +134,10 @@
       <span class="label">Формат</span>
       <select class="field" bind:value={dialog.format}>
         <option value="">по расширению</option>
-        {#each formats as found}<option value={found.name}>{found.name} — {found.title}</option>{/each}
+        <FormatOptions {formats} />
       </select>
     </label>
-    <label><span class="label">Слаг (пусто: по названию)</span><input class="field mono" bind:value={dialog.slug} /></label>
+    <label><span class="label">Слаг (пусто: по названию)<Hint text="Короткое имя объекта латиницей, уникальное во всём мире: по нему на объект ссылаются из других мест. Обычно хватает названия: слаг подставится сам." /></span><input class="field mono" bind:value={dialog.slug} /></label>
     <label>
       <span class="label">Сразу положить</span>
       <select class="field" bind:value={dialog.volume}>
@@ -125,12 +149,16 @@
 {/if}
 
 <style>
-  .head { display: flex; justify-content: space-between; align-items: flex-end; gap: 24px; padding: 28px 32px 12px; }
+  .head { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: flex-end; gap: 12px 24px; padding: 28px 32px 12px; }
   h1 { margin: 0; font-size: 22px; font-weight: 650; }
-  .head p { margin: 4px 0 0; max-width: 560px; }
-  .tools { display: flex; gap: 8px; }
+  .head p { margin: 4px 0 0; max-width: 640px; }
+  .tools { display: flex; flex-wrap: wrap; gap: 8px; }
   .tools .field { width: auto; }
-  .search { width: 260px !important; }
+  .search { width: 220px !important; }
+  .path { width: 170px !important; }
+  .sort { padding: 0; border: 0; background: none; color: inherit; font: inherit; cursor: pointer; }
+  .sort:hover { color: var(--text); }
+  .where { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12.5px; }
   .chips { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; padding: 0 32px 12px; }
   .pick { padding: 3px 12px; border: 1px solid var(--line); border-radius: 999px; background: var(--bg); color: var(--muted); cursor: pointer; }
   .pick.on { border-color: var(--accent); background: var(--accent-soft); color: var(--text); }
@@ -138,7 +166,7 @@
   .table { padding: 0 32px 32px; }
   .pad { padding: 12px 10px; }
   .row {
-    display: grid; grid-template-columns: minmax(280px, 1fr) 90px 90px 150px 80px 190px; align-items: center; gap: 12px;
+    display: grid; grid-template-columns: minmax(260px, 1fr) 90px minmax(220px, 1fr) 150px 80px 190px; align-items: center; gap: 12px;
     width: 100%; height: 40px; padding: 0 12px; border: 0; border-radius: var(--radius-s); background: none; text-align: left; cursor: pointer;
   }
   .row:not(.head):hover { background: var(--panel); }

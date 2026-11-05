@@ -2,6 +2,7 @@
   import { onMount } from "svelte";
   import { api, problem, type Schemas } from "../lib/api";
   import Dialog from "../lib/Dialog.svelte";
+  import FormatOptions from "../lib/FormatOptions.svelte";
   import { go } from "../lib/router.svelte";
   import { toast } from "../lib/toast.svelte";
 
@@ -279,7 +280,7 @@
       <button class="btn ghost" onclick={() => setHidden(true)}>Скрыть</button>
       <button class="btn ghost" onclick={() => setHidden(false)}>Показать</button>
       <button class="btn ghost danger" onclick={() => (dialog = { kind: "delete", name: "", format: "" })}>Удалить</button>
-      <span class="hint muted">Перетащите на папку, чтобы перенести (с Alt: скопировать)</span>
+      <span class="hint muted">Перетащите на папку, чтобы перенести (с Alt: скопировать). Клавиши: Enter открыть, F2 переименовать, Delete удалить, Ctrl+A выбрать всё</span>
     </div>
 
     <div class="table" role="grid">
@@ -355,7 +356,7 @@
       <select class="field" bind:value={dialog.format}>
         <option value="">по расширению</option>
         <option value={OWN}>Свой текст места (без объекта)</option>
-        {#each formats as found}<option value={found.name}>{found.name} — {found.title}</option>{/each}
+        <FormatOptions {formats} />
       </select>
     </label>
   </Dialog>

@@ -893,6 +893,42 @@
      },
      {
       "in": "query",
+      "name": "volume",
+      "schema": {
+       "anyOf": [
+        {
+         "type": "integer"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Volume"
+      },
+      "required": false
+     },
+     {
+      "in": "query",
+      "name": "path",
+      "schema": {
+       "default": "",
+       "title": "Path",
+       "type": "string"
+      },
+      "required": false
+     },
+     {
+      "in": "query",
+      "name": "sort",
+      "schema": {
+       "default": "-updated_at",
+       "title": "Sort",
+       "type": "string"
+      },
+      "required": false
+     },
+     {
+      "in": "query",
       "name": "limit",
       "schema": {
        "default": 200,
@@ -918,7 +954,7 @@
       }
      }
     },
-    "description": "Библиотека объектов. only: orphans (нигде не лежит), shared (лежит в нескольких местах), layers (со слоями),\naccess (с условием доступа), keys (объекты-ключи), mine (правил я), recent (правили за неделю).",
+    "description": "Библиотека объектов. only: orphans (нигде не лежит), shared (лежит в нескольких местах), layers (со слоями),\naccess (с условием доступа), keys (объекты-ключи), markup (формат с разметкой), mine (правил я), recent (правили за неделю).\nvolume и path: лежит в томе / в папке тома (с вложенными), хотя бы одним из мест. sort: поле со знаком «-» для убывания.",
     "tags": [
      "items"
     ],
@@ -5517,6 +5553,13 @@
       "title": "Archives",
       "type": "integer"
      },
+     "where": {
+      "items": {
+       "type": "string"
+      },
+      "title": "Where",
+      "type": "array"
+     },
      "layers": {
       "title": "Layers",
       "type": "boolean"
@@ -5551,6 +5594,7 @@
      "size",
      "places",
      "archives",
+     "where",
      "layers",
      "access",
      "updated_at",

@@ -324,7 +324,8 @@ export interface paths {
         /**
          * Library
          * @description Библиотека объектов. only: orphans (нигде не лежит), shared (лежит в нескольких местах), layers (со слоями),
-         *     access (с условием доступа), keys (объекты-ключи), mine (правил я), recent (правили за неделю).
+         *     access (с условием доступа), keys (объекты-ключи), markup (формат с разметкой), mine (правил я), recent (правили за неделю).
+         *     volume и path: лежит в томе / в папке тома (с вложенными), хотя бы одним из мест. sort: поле со знаком «-» для убывания.
          */
         get: operations["studio_api_items_library"];
         put?: never;
@@ -1773,6 +1774,8 @@ export interface components {
             places: number;
             /** Archives */
             archives: number;
+            /** Where */
+            where: string[];
             /** Layers */
             layers: boolean;
             /** Access */
@@ -3987,6 +3990,9 @@ export interface operations {
                 format?: string;
                 kind?: string;
                 only?: string;
+                volume?: number | null;
+                path?: string;
+                sort?: string;
                 limit?: number;
             };
             header?: never;

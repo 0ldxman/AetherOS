@@ -86,6 +86,7 @@ class LibraryRow(Schema):
     size: int | None
     places: int
     archives: int
+    where: list[str]          # «том:/путь» первых мест (всего places)
     layers: bool
     access: bool
     updated_at: datetime
@@ -228,15 +229,41 @@ KINDS = {
 }
 
 
+SORTS = {"name": "name", "format": "format", "size": "size", "places": "placement_count", "updated_at": "updated_at"}
+PLACES_SHOWN = 5
+
+
+def _within(volume, path):
+    """Места внутри тома (volume) и/или папки по пути; вложенные папки входят."""
+    from filesystem.models import Placement
+
+    scope = Placement.objects.all()
+    if volume is not None:
+        scope = scope.filter(volume_id=volume)
+    names = [part for part in path.split("/") if part.strip()]
+    if not names:
+        return scope
+    roots = [p.pk for p in scope.filter(kind="folder", name=names[-1]) if p.path() == "/".join(names)]
+    reached, level = set(roots), roots
+    while level:
+        level = list(Placement.objects.filter(parent_id__in=level).exclude(pk__in=reached).values_list("pk", flat=True))
+        reached.update(level)
+    return Placement.objects.filter(pk__in=reached)
+
+
 @router.get("", response=list[LibraryRow])
-def library(request, q: str = "", format: str = "", kind: str = "", only: str = "", limit: int = 200):
+def library(
+    request, q: str = "", format: str = "", kind: str = "", only: str = "", volume: int | None = None, path: str = "",
+    sort: str = "-updated_at", limit: int = 200,
+):
     """Библиотека объектов. only: orphans (нигде не лежит), shared (лежит в нескольких местах), layers (со слоями),
-    access (с условием доступа), keys (объекты-ключи), mine (правил я), recent (правили за неделю)."""
+    access (с условием доступа), keys (объекты-ключи), markup (формат с разметкой), mine (правил я), recent (правили за неделю).
+    volume и path: лежит в томе / в папке тома (с вложенными), хотя бы одним из мест. sort: поле со знаком «-» для убывания."""
     from datetime import timedelta
 
     from django.utils import timezone
 
-    from filesystem.models import KEY_FORMAT
+    from filesystem.models import KEY_FORMAT, FileFormat
 
     found = Item.objects.select_related("updated_by").annotate(
         placement_count=Count("placements", distinct=True), archive_count=Count("in_archives", distinct=True),
@@ -258,15 +285,21 @@ def library(request, q: str = "", format: str = "", kind: str = "", only: str = 
         found = found.exclude(access={})
     elif only == "keys":
         found = found.filter(format=KEY_FORMAT)
+    elif only == "markup":
+        found = found.filter(format__in=FileFormat.objects.filter(markup=True).values("name"))
     elif only == "mine":
         found = found.filter(updated_by=request.user)
     elif only == "recent":
         found = found.filter(updated_at__gte=timezone.now() - timedelta(days=7))
-    rows = found.order_by("-updated_at")[: max(1, min(limit, 500))]
+    if volume is not None or path.strip("/ "):
+        found = found.filter(placements__in=_within(volume, path)).distinct()
+    field = SORTS.get(sort.lstrip("-"), "updated_at")
+    order = f"-{field}" if sort.startswith("-") or sort.lstrip("-") not in SORTS else field
+    rows = found.prefetch_related("placements__volume").order_by(order, "-updated_at")[: max(1, min(limit, 500))]
     return [
         LibraryRow(
             id=i.pk, slug=i.slug, name=i.name, format=i.format, kind=_kind(i), size=i.size if i.size is not None else (len(i.body.encode()) or None),
-            places=i.placement_count, archives=i.archive_count, layers=bool(i.state.strip()), access=bool(i.access),
+            places=i.placement_count, archives=i.archive_count, where=[str(p) for p in list(i.placements.all())[:PLACES_SHOWN]], layers=bool(i.state.strip()), access=bool(i.access),
             updated_at=i.updated_at, updated_by=i.updated_by.get_username() if i.updated_by_id else None,
         )
         for i in rows
