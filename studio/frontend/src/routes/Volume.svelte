@@ -9,6 +9,9 @@
   import { go } from "../lib/router.svelte";
   import { toast } from "../lib/toast.svelte";
   import PutObject from "./volume/PutObject.svelte";
+  import ContextMenu, { type MenuItem } from "./volume/ContextMenu.svelte";
+  import Details from "./volume/Details.svelte";
+  import PlacementProtection from "./item/PlacementProtection.svelte";
 
   type Node = Schemas["Node"];
 
@@ -65,6 +68,16 @@
 
   type DialogKind = "folder" | "file" | "object" | "rename" | "delete";
   let putting = $state(false);
+  let menu = $state<null | { x: number; y: number; items: MenuItem[] }>(null);
+  let protect = $state<Node | null>(null);
+
+  // панель сведений справа: можно скрыть, выбор запоминается
+  const DETAILS_KEY = "studio.volumeDetails";
+  let showDetails = $state((() => { try { return localStorage.getItem(DETAILS_KEY) !== "off"; } catch { return true; } })());
+  function toggleDetails() {
+    showDetails = !showDetails;
+    try { localStorage.setItem(DETAILS_KEY, showDetails ? "on" : "off"); } catch { /* ничего */ }
+  }
   let dialog = $state<null | { kind: DialogKind; name: string; format: string }>(null);
   let busy = $state(false);
   let dragging = $state<number[]>([]);
@@ -152,6 +165,7 @@
     return chain;
   });
   const single = $derived(selected.size === 1 ? byId.get([...selected][0]) : undefined);
+  const selectedNodes = $derived([...selected].map((key) => byId.get(key)).filter((node): node is Node => !!node));
   const allHidden = $derived(selected.size > 0 && [...selected].every((key) => byId.get(key)?.hidden));
 
   function sortBy(key: "name" | "type" | "size") {
@@ -355,6 +369,68 @@
     event.preventDefault();
   }
 
+  // «Дублировать»: копия рядом с оригиналом (имя подбирается само)
+  function duplicate() {
+    const ids = [...selected];
+    run(async () => {
+      for (const key of ids) {
+        const answer = await api.POST("/studio/api/volumes/{volume_id}/copy", {
+          params: { path: { volume_id: id } }, body: { ids: [key], parent: byId.get(key)?.parent ?? null },
+        });
+        if (answer.error) return answer;
+      }
+      return {};
+    }, "Продублировано.");
+  }
+
+  function openMenu(node: Node, event: MouseEvent) {
+    event.preventDefault();
+    event.stopPropagation();
+    if (!selected.has(node.id)) selected = new Set([node.id]);
+    const hide = !selectedNodes.every((row) => row.hidden);
+    // у объектов (и папок с ними) копия остаётся тем же объектом, а не новым: так и подписано
+    const shares = selectedNodes.some((row) => row.item || row.kind === "folder");
+    const dup: MenuItem = { label: shares ? "Дублировать (объекты те же)" : "Дублировать", run: duplicate };
+    const remove: MenuItem = { label: "Удалить", danger: true, run: () => (dialog = { kind: "delete", name: "", format: "" }) };
+    const items: MenuItem[] = selected.size > 1
+      ? [dup, { label: hide ? "Скрыть" : "Показать", run: () => setHidden(hide) }, "sep", remove]
+      : [
+          { label: "Открыть", run: () => activate(node) },
+          { label: "Переименовать", run: () => (dialog = { kind: "rename", name: node.name, format: "" }) },
+          dup,
+          "sep",
+          { label: node.hidden ? "Показать" : "Скрыть", run: () => setHidden(!node.hidden) },
+          ...(node.item ? [{ label: "Защита места…", run: () => (protect = node) } satisfies MenuItem] : []),
+          ...(node.own ? [{ label: "Сделать объектом…", run: () => go(`/volumes/${id}/text/${node.id}`) } satisfies MenuItem] : []),
+          "sep",
+          remove,
+        ];
+    menu = { x: event.clientX, y: event.clientY, items };
+  }
+
+  // правый клик по пустому месту таблицы: создать
+  function emptyMenu(event: MouseEvent) {
+    if ((event.target as HTMLElement).closest(".row")) return;
+    event.preventDefault();
+    selected = new Set();
+    menu = {
+      x: event.clientX, y: event.clientY,
+      items: [
+        { label: "Новая папка", run: () => (dialog = { kind: "folder", name: "", format: "" }) },
+        { label: "Новый файл", run: () => (dialog = { kind: "file", name: "", format: "" }) },
+        { label: "Новый объект…", run: () => (dialog = { kind: "object", name: "", format: "" }) },
+        { label: "Положить объект…", run: () => (putting = true) },
+      ],
+    };
+  }
+
+  // место объекта для окна «Защита места» (нужны только номер, том и путь)
+  const placedOf = (node: Node) => ({
+    placement: node.id, volume: id, parent: node.parent, volume_name: volume?.name || volume?.slug || "", volume_slug: volume?.slug ?? "",
+    path: (paths.get(node.id) ?? "").replace(/^\//, ""), owner: node.owner, group: node.group, mode: node.mode, hidden: node.hidden,
+    own_access: node.access !== "inherit", own_state: node.state !== "inherit",
+  }) as Schemas["Placed"];
+
   function size(node: Node) {
     const bytes = node.size;
     if (bytes == null) return "";
@@ -438,13 +514,6 @@
       <button class="btn ghost" disabled={!single} onclick={() => single && (dialog = { kind: "rename", name: single.name, format: "" })}>Переименовать</button>
       <button class="btn ghost" disabled={!selected.size} onclick={() => setHidden(!allHidden)} title="Скрытый файл игрок не видит в списке">{allHidden ? "Показать" : "Скрыть"}</button>
       <button class="btn ghost danger" disabled={!selected.size} onclick={() => (dialog = { kind: "delete", name: "", format: "" })}>Удалить</button>
-      <span class="grow muted small">{selected.size ? `Выбрано: ${selected.size}` : ""}</span>
-      <input class="field search" placeholder="Поиск в томе" aria-label="Поиск в томе" bind:value={query} />
-      <button class="btn ghost small" class:on={showTech} onclick={toggleTech} title="Права и владелец: нужны только для игровых прав файла">Права</button>
-      <Hint align="right">
-        Перетащите файл или папку на папку (в таблице, в дереве или в пути сверху), чтобы перенести. С клавишей Alt: скопировать.<br />
-        Клавиши: Enter открыть, F2 переименовать, Delete удалить, Ctrl+A выбрать всё, Shift или Ctrl+клик выбрать несколько. В дереве: стрелки.
-      </Hint>
     </div>
 
     <div class="filters">
@@ -455,9 +524,18 @@
         <span class="muted small">Найдено: {listing.length}</span>
         <button class="link" onclick={clearSearch}>Сбросить</button>
       {/if}
+      <span class="grow"></span>
+      <input class="field search" placeholder="Поиск в томе" aria-label="Поиск в томе" bind:value={query} />
+      <button class="btn ghost small" class:on={showDetails} onclick={toggleDetails} title="Панель сведений справа">Сведения</button>
+      <button class="btn ghost small" class:on={showTech} onclick={toggleTech} title="Права и владелец: нужны только для игровых прав файла">Права</button>
+      <Hint align="right">
+        Перетащите файл или папку на папку (в таблице, в дереве или в пути сверху), чтобы перенести. С клавишей Alt: скопировать.<br />
+        Клавиши: Enter открыть, F2 переименовать, Delete удалить, Ctrl+A выбрать всё, Shift или Ctrl+клик выбрать несколько. В дереве: стрелки.
+      </Hint>
     </div>
 
-    <div class="table" class:tech={showTech} role="grid">
+    <div class="content">
+    <div class="table" class:tech={showTech} role="grid" tabindex="-1" oncontextmenu={emptyMenu}>
       <div class="row head" role="row">
         <span><button class="sort" onclick={() => sortBy("name")}>Имя{arrow("name")}</button></span>
         <span><button class="sort" onclick={() => sortBy("type")}>Тип{arrow("type")}</button></span>
@@ -477,6 +555,7 @@
           draggable="true"
           onclick={(event) => pick(node, event)}
           ondblclick={() => activate(node)}
+          oncontextmenu={(event) => openMenu(node, event)}
           onkeydown={() => {}}
           ondragstart={(event) => startDrag(node, event)}
           ondragend={endDrag}
@@ -512,8 +591,24 @@
         </div>
       {/each}
     </div>
+    {#if showDetails}
+      <Details
+        nodes={selectedNodes} folderNodes={listing} folderPath={searching ? "Результаты поиска" : folder === null ? "/" : paths.get(folder) ?? "/"}
+        kind={(node) => describe(node, formats, count(node.id))} pathOf={(node) => paths.get(node.id) ?? ""}
+        onopen={activate} onrename={(node) => { selected = new Set([node.id]); dialog = { kind: "rename", name: node.name, format: "" }; }} onprotect={(node) => (protect = node)}
+      />
+    {/if}
+    </div>
   </section>
 </div>
+
+{#if menu}
+  <ContextMenu x={menu.x} y={menu.y} items={menu.items} onclose={() => (menu = null)} />
+{/if}
+
+{#if protect?.item}
+  <PlacementProtection itemId={protect.item.id} placed={placedOf(protect)} onclose={() => (protect = null)} onsaved={load} />
+{/if}
 
 {#if putting}
   <PutObject volume={id} {folder} folderName={folder === null ? volume?.name || volume?.slug || "корень" : byId.get(folder)?.name ?? ""} onclose={() => (putting = false)} ondone={load} />
@@ -603,14 +698,16 @@
   .toolbar { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; margin: 0 24px 10px; padding: 6px 8px; border: 1px solid var(--line-soft); border-radius: var(--radius); background: var(--panel); }
   .vsep { width: 1px; align-self: stretch; margin: 2px 6px; background: var(--line); }
   .grow { flex: 1; }
-  .toolbar .search { width: 190px; height: 28px; }
+  .search { width: 190px; height: 28px; }
   .filters { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 0 24px 8px; }
   .pick { padding: 2px 12px; border: 1px solid var(--line); border-radius: 999px; background: var(--bg); color: var(--muted); cursor: pointer; }
   .pick.on { border-color: var(--accent); background: var(--accent-soft); color: var(--text); }
   .link { padding: 0; border: 0; background: none; color: var(--accent); cursor: pointer; }
   .where { margin-left: 6px; white-space: nowrap; }
   .btn.on { background: var(--accent-soft); color: var(--accent); }
-  .table { padding: 0 24px 24px; overflow: auto; }
+  .body { min-height: 0; }
+  .content { display: flex; flex: 1; min-height: 0; min-width: 0; }
+  .table { flex: 1; min-width: 0; padding: 0 24px 24px; overflow: auto; }
   .row {
     display: grid; grid-template-columns: minmax(240px, 1fr) 200px 130px 90px; align-items: center; gap: 12px;
     padding: 0 10px; height: 36px; border-radius: var(--radius-s); cursor: default; user-select: none;
