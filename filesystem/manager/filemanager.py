@@ -91,14 +91,36 @@ def depth_ok(parent):
         raise FileManagerError(f"Папки вложены не глубже {MAX_DEPTH} уровней.")
 
 
+def _protected(placement, item):
+    """Есть ли у файла слои и условие: у файла без объекта свои, у файла с объектом объектные или заменённые местом."""
+    replace, none = Placement.Mode.REPLACE, Placement.Mode.NONE
+    if item is None:
+        return bool(placement.state.strip()), bool(placement.access)
+    layers = bool(placement.state.strip()) if placement.state_mode == replace else False if placement.state_mode == none else bool(item.state.strip())
+    condition = bool(placement.access) if placement.access_mode == replace else False if placement.access_mode == none else bool(item.access)
+    return layers, condition
+
+
 def data(volume):
-    """Всё дерево тома для менеджера: размещения и список форматов (менеджер держит его у себя и рисует сам)."""
+    """Всё дерево тома для менеджера: размещения и список форматов (менеджер держит его у себя и рисует сам).
+    format: у объекта его формат, у файла без объекта формат по расширению имени, а если такого формата нет, пусто:
+    файл без объекта может носить любое расширение."""
+    from filesystem.content.rawview.registry import format_for_extension
+
     rows = []
     for placement in volume.placements.select_related("item"):
         item = placement.item
+        own = item is None and placement.kind == Placement.Kind.FILE
+        ext = posixpath.splitext(placement.name)[1] if own else ""
+        known = format_for_extension(ext) if ext else None
+        layers, condition = _protected(placement, item)
         rows.append({
             "id": placement.pk, "parent": placement.parent_id, "kind": placement.kind, "name": placement.name,
             "hidden": placement.hidden, "system": placement.system,
+            "own": own, "format": item.format if item is not None else (known.name if known else ""),
+            "size": (item.size if item.size is not None else (len(item.body.encode()) if item.body else None)) if item is not None
+                    else (len((placement.content or "").encode()) if own else None),
+            "layers": layers, "condition": condition,
             "owner": placement.owner, "group": placement.group, "mode": placement.mode,
             "access": placement.access_mode, "state": placement.state_mode,
             "item": None if item is None else {

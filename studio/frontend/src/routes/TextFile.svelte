@@ -73,7 +73,7 @@
     <header class="head">
       <button class="btn ghost" onclick={() => go(`/volumes/${volume}${file?.parent ? `/${file.parent}` : ""}`)}>←</button>
       <h1 class="mono">{file.name}</h1>
-      <span class="chip">{file.format || "без формата"}</span>
+      <span class="chip" title={file.format ? "Формат по расширению имени" : "Такого формата нет в каталоге: файл остаётся текстом"}>{file.format || (file.name.includes(".") && !file.name.startsWith(".") ? file.name.slice(file.name.lastIndexOf(".")) : "без формата")}</span>
       <span class="chip own">свой текст</span>
       <span class="muted mono path">{file.volume_name}:/{file.path}</span>
       <span class="spacer"></span>

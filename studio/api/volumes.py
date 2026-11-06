@@ -48,6 +48,11 @@ class Node(Schema):
     mode: str
     access: str
     state: str
+    own: bool                 # файл со своим текстом, без объекта
+    format: str               # формат (у файла без объекта по расширению; пусто, если такого формата нет)
+    size: int | None
+    layers: bool              # у файла есть слои защиты (объектные, места или свои)
+    condition: bool           # у файла есть условие доступа
     item: ItemBrief | None
 
 

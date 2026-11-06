@@ -366,6 +366,34 @@ class OverlayTests(TestCase):
         with self.assertRaises(FileManagerError):
             overlay.rename(self.machine, "/etc/hosts", "motd")                        # имя занято
 
+    def test_a_file_without_an_object_may_have_any_extension_and_the_data_says_what_it_is(self):
+        volume = Volume.objects.create(slug="own-files")
+        for name in ("notes.txt", "map.xyz", "README"):
+            filemanager.new_text_file(volume, None, name, "привет")
+        filemanager.new_folder(volume, None, "docs")
+        rows = {row["name"]: row for row in filemanager.data(volume)["rows"]}
+        self.assertEqual((rows["notes.txt"]["own"], rows["notes.txt"]["format"], rows["notes.txt"]["size"]), (True, "txt", len("привет".encode())))
+        self.assertEqual((rows["map.xyz"]["own"], rows["map.xyz"]["format"]), (True, ""))       # формата нет, файл всё равно создан
+        self.assertEqual((rows["README"]["own"], rows["README"]["format"]), (True, ""))
+        self.assertEqual((rows["docs"]["own"], rows["docs"]["format"], rows["docs"]["size"]), (False, "", None))
+
+    def test_the_data_tells_whether_a_file_has_layers_or_a_condition(self):
+        volume = Volume.objects.create(slug="guarded")
+        plain = filemanager.new_text_file(volume, None, "plain.txt", "x")
+        own = filemanager.new_text_file(volume, None, "locked.txt", "x")
+        own.state, own.access = "> corrupted", {"all": ["a", "b"]}
+        own.save()
+        item = Item.objects.create(slug="vault", name="vault", format="txt", body="x", state="> corrupted", access={"all": ["k", "m"]})
+        inherit = Placement.objects.create(volume=volume, name="inherit.txt", item=item)
+        open_place = Placement.objects.create(volume=volume, name="open.txt", item=item, state_mode="none", access_mode="none")
+        replaced = Placement.objects.create(volume=volume, name="replaced.txt", item=item, state_mode="replace", state="> encrypted pw", access_mode="none")
+        rows = {row["name"]: (row["layers"], row["condition"]) for row in filemanager.data(volume)["rows"]}
+        self.assertEqual(rows["plain.txt"], (False, False))
+        self.assertEqual(rows["locked.txt"], (True, True))
+        self.assertEqual(rows["inherit.txt"], (True, True))        # как у объекта
+        self.assertEqual(rows["open.txt"], (False, False))         # место сняло защиту объекта
+        self.assertEqual(rows["replaced.txt"], (True, False))      # свои слои, условие снято
+
     def test_the_data_marks_the_layers_and_who_owns_the_volume(self):
         overlay.override(self.machine, "/etc/hosts")
         overlay.new_file(self.machine, "/etc", "extra.txt")

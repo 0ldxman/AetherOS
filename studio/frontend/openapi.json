@@ -5187,6 +5187,33 @@
       "title": "State",
       "type": "string"
      },
+     "own": {
+      "title": "Own",
+      "type": "boolean"
+     },
+     "format": {
+      "title": "Format",
+      "type": "string"
+     },
+     "size": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Size"
+     },
+     "layers": {
+      "title": "Layers",
+      "type": "boolean"
+     },
+     "condition": {
+      "title": "Condition",
+      "type": "boolean"
+     },
      "item": {
       "anyOf": [
        {
@@ -5210,6 +5237,11 @@
      "mode",
      "access",
      "state",
+     "own",
+     "format",
+     "size",
+     "layers",
+     "condition",
      "item"
     ],
     "title": "Node",

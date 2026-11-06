@@ -1670,6 +1670,16 @@ export interface components {
             access: string;
             /** State */
             state: string;
+            /** Own */
+            own: boolean;
+            /** Format */
+            format: string;
+            /** Size */
+            size: number | null;
+            /** Layers */
+            layers: boolean;
+            /** Condition */
+            condition: boolean;
             item: components["schemas"]["ItemBrief"] | null;
         };
         /** VolumeTree */

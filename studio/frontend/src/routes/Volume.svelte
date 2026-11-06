@@ -2,22 +2,41 @@
   import { onMount } from "svelte";
   import { api, problem, type Schemas } from "../lib/api";
   import Dialog from "../lib/Dialog.svelte";
+  import FileIcon from "../lib/FileIcon.svelte";
   import FormatOptions from "../lib/FormatOptions.svelte";
+  import Hint from "../lib/Hint.svelte";
+  import { describe, typeHint } from "../lib/fileKind";
   import { go } from "../lib/router.svelte";
   import { toast } from "../lib/toast.svelte";
 
   type Node = Schemas["Node"];
-  const OWN = "-";                  // вместо формата: файл со своим текстом, без объекта
 
   let { id, folder }: { id: number; folder: number | null } = $props();
 
   let volume = $state<Schemas["VolumeTree"] | null>(null);
   let formats = $state<Schemas["Format"][]>([]);
   let selected = $state<Set<number>>(new Set());
-  let opened = $state<Set<number>>(new Set());
   let propsOpen = $state(false);
   let props_ = $state({ slug: "", name: "", label: "", uuid: "", capacity_gb: null as number | null, used_gb: null as number | null });
   let propErrors = $state<Record<string, string[]>>({});
+
+  // раскрытые папки дерева помнятся на время работы (по тому)
+  const openKey = () => `studio.tree.${id}`;
+  let opened = $state<Set<number>>(restore());
+  function restore(): Set<number> {
+    try { return new Set(JSON.parse(sessionStorage.getItem(openKey()) ?? "[]")); } catch { return new Set(); }
+  }
+  function remember() {
+    try { sessionStorage.setItem(openKey(), JSON.stringify([...opened])); } catch { /* память браузера закрыта: не страшно */ }
+  }
+
+  // технические колонки (права) спрятаны, пока не нужны
+  const TECH_KEY = "studio.volumeTech";
+  let showTech = $state((() => { try { return localStorage.getItem(TECH_KEY) === "on"; } catch { return false; } })());
+  function toggleTech() {
+    showTech = !showTech;
+    try { localStorage.setItem(TECH_KEY, showTech ? "on" : "off"); } catch { /* ничего */ }
+  }
 
   function openProps() {
     if (!volume) return;
@@ -43,10 +62,15 @@
     if (props_.capacity_gb) props_.used_gb = Math.round((props_.capacity_gb * (20 + Math.random() * 50)) / 100);
   }
 
-  let dialog = $state<null | { kind: "folder" | "file" | "rename" | "delete"; name: string; format: string }>(null);
+  type DialogKind = "folder" | "file" | "object" | "rename" | "delete";
+  let dialog = $state<null | { kind: DialogKind; name: string; format: string }>(null);
   let busy = $state(false);
   let dragging = $state<number[]>([]);
   let dropTarget = $state<number | null | undefined>(undefined);
+
+  // сортировка таблицы: папки всегда выше файлов
+  let sortKey = $state<"name" | "type" | "size">("name");
+  let sortDown = $state(false);
 
   const byId = $derived(new Map((volume?.rows ?? []).map((row) => [row.id, row])));
   const children = $derived.by(() => {
@@ -61,7 +85,18 @@
     }
     return found;
   });
-  const listing = $derived(children.get(folder) ?? []);
+  const count = (nodeId: number | null) => children.get(nodeId)?.length ?? 0;
+  const listing = $derived.by(() => {
+    const rows = [...(children.get(folder) ?? [])];
+    const sign = sortDown ? -1 : 1;
+    const key = (node: Node) => (sortKey === "size" ? node.size ?? -1 : sortKey === "type" ? describe(node, formats, count(node.id)).label : node.name);
+    return rows.sort((a, b) => {
+      const folders = (a.kind === "folder" ? 0 : 1) - (b.kind === "folder" ? 0 : 1);
+      if (folders) return folders;
+      const x = key(a), y = key(b);
+      return sign * (typeof x === "number" && typeof y === "number" ? x - y : String(x).localeCompare(String(y), "ru")) || a.name.localeCompare(b.name, "ru");
+    });
+  });
   const crumbs = $derived.by(() => {
     const chain: Node[] = [];
     let node = folder === null ? undefined : byId.get(folder);
@@ -72,6 +107,13 @@
     return chain;
   });
   const single = $derived(selected.size === 1 ? byId.get([...selected][0]) : undefined);
+  const allHidden = $derived(selected.size > 0 && [...selected].every((key) => byId.get(key)?.hidden));
+
+  function sortBy(key: "name" | "type" | "size") {
+    if (sortKey === key) sortDown = !sortDown;
+    else { sortKey = key; sortDown = false; }
+  }
+  const arrow = (key: string) => (sortKey === key ? (sortDown ? " ↓" : " ↑") : "");
 
   async function load() {
     const { data, error } = await api.GET("/studio/api/volumes/{volume_id}", { params: { path: { volume_id: id } } });
@@ -79,6 +121,7 @@
     volume = data;
     selected = new Set([...selected].filter((key) => data.rows.some((row) => row.id === key)));
     for (const node of crumbs) opened.add(node.id);
+    remember();
   }
 
   onMount(async () => {
@@ -115,6 +158,7 @@
     if (next.has(node.id)) next.delete(node.id);
     else next.add(node.id);
     opened = next;
+    remember();
   }
 
   async function run(action: () => Promise<{ error?: unknown }>, done: string) {
@@ -133,17 +177,17 @@
     if (dialog.kind === "folder") {
       run(() => api.POST("/studio/api/volumes/{volume_id}/folders", { params: { path }, body: { parent: folder, name: dialog!.name } }), "Папка создана.");
     } else if (dialog.kind === "file") {
+      // файл без объекта: любое имя и любое расширение, объект не создаётся
+      busy = true;
+      api.POST("/studio/api/volumes/{volume_id}/text-files", { params: { path }, body: { parent: folder, name: dialog.name, content: "" } }).then(({ data, error }) => {
+        busy = false;
+        if (error) return toast(problem(error), "error");
+        dialog = null;
+        if (data) go(`/volumes/${id}/text/${data.id}`);
+      });
+    } else if (dialog.kind === "object") {
       const { name, format } = dialog;
       busy = true;
-      if (format === OWN) {
-        api.POST("/studio/api/volumes/{volume_id}/text-files", { params: { path }, body: { parent: folder, name, content: "" } }).then(({ data, error }) => {
-          busy = false;
-          if (error) return toast(problem(error), "error");
-          dialog = null;
-          if (data) go(`/volumes/${id}/text/${data.id}`);
-        });
-        return;
-      }
       api.POST("/studio/api/volumes/{volume_id}/files", { params: { path }, body: { parent: folder, name, format } }).then(({ data, error }) => {
         busy = false;
         if (error) return toast(problem(error), "error");
@@ -172,20 +216,43 @@
     }, hidden ? "Скрыто." : "Видно.");
   }
 
+  // перетаскивание: тянуть можно строку таблицы и узел дерева; принимают папки, узлы дерева и звенья пути
   function startDrag(node: Node, event: DragEvent) {
     dragging = selected.has(node.id) ? [...selected] : [node.id];
     event.dataTransfer?.setData("text/plain", dragging.join(","));
+    if (event.dataTransfer) event.dataTransfer.effectAllowed = "copyMove";
+    const ghost = document.createElement("div");
+    ghost.textContent = dragging.length > 1 ? `Перенести: ${dragging.length}` : `Перенести «${node.name}»`;
+    Object.assign(ghost.style, { position: "fixed", top: "-100px", padding: "4px 10px", background: "#22262e", color: "#e6e8ec", border: "1px solid #7aa2ff", borderRadius: "6px", font: "13px sans-serif" });
+    document.body.append(ghost);
+    event.dataTransfer?.setDragImage(ghost, 12, 12);
+    setTimeout(() => ghost.remove(), 0);
+  }
+
+  function endDrag() {
+    dragging = [];
+    dropTarget = undefined;
   }
 
   function canDrop(target: number | null) {
     return dragging.length > 0 && !dragging.includes(target as number);
   }
 
+  function over(target: number | null, event: DragEvent) {
+    if (!canDrop(target)) return;
+    event.preventDefault();
+    if (event.dataTransfer) event.dataTransfer.dropEffect = event.altKey ? "copy" : "move";
+    dropTarget = target;
+  }
+
+  function leave(event: DragEvent) {
+    if (!(event.currentTarget as HTMLElement).contains(event.relatedTarget as globalThis.Node | null)) dropTarget = undefined;
+  }
+
   function drop(target: number | null, event: DragEvent) {
     event.preventDefault();
     const ids = dragging;
-    dragging = [];
-    dropTarget = undefined;
+    endDrag();
     if (!ids.length || ids.includes(target as number)) return;
     const copy = event.altKey;
     run(
@@ -200,15 +267,33 @@
     if (dialog || (event.target as HTMLElement).closest("input, textarea, select")) return;
     if (event.key === "Delete" && selected.size) dialog = { kind: "delete", name: "", format: "" };
     else if (event.key === "F2" && single) dialog = { kind: "rename", name: single.name, format: "" };
-    else if (event.key === "Enter" && single) activate(single);
+    else if (event.key === "Enter" && single && !(event.target as HTMLElement).closest(".tree")) activate(single);
     else if ((event.ctrlKey || event.metaKey) && event.key === "a") {
       event.preventDefault();
       selected = new Set(listing.map((row) => row.id));
     }
   }
 
+  // дерево с клавиатуры: ↑↓ между папками, → раскрыть, ← свернуть или перейти к родителю, Enter открыть папку
+  function treeKey(event: KeyboardEvent) {
+    const here = (event.target as HTMLElement).closest<HTMLElement>(".twig-name");
+    if (!here) return;
+    const names = [...(event.currentTarget as HTMLElement).querySelectorAll<HTMLElement>(".twig-name")];
+    const at = names.indexOf(here);
+    const nodeId = Number(here.closest<HTMLElement>(".twig")?.dataset.id ?? NaN);
+    const node = Number.isNaN(nodeId) ? undefined : byId.get(nodeId);
+    if (event.key === "ArrowDown") names[at + 1]?.focus();
+    else if (event.key === "ArrowUp") names[at - 1]?.focus();
+    else if (event.key === "ArrowRight" && node && !opened.has(node.id) && (children.get(node.id) ?? []).some((row) => row.kind === "folder")) toggle(node);
+    else if (event.key === "ArrowLeft" && node) {
+      if (opened.has(node.id)) toggle(node);
+      else (node.parent === null ? names[0] : (event.currentTarget as HTMLElement).querySelector<HTMLElement>(`.twig[data-id="${node.parent}"] .twig-name`))?.focus();
+    } else return;
+    event.preventDefault();
+  }
+
   function size(node: Node) {
-    const bytes = node.item?.size;
+    const bytes = node.size;
     if (bytes == null) return "";
     if (bytes < 1024) return `${bytes} Б`;
     if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} КБ`;
@@ -226,22 +311,29 @@
       class:on={folder === node.id}
       class:drop={dropTarget === node.id}
       style:padding-left="{10 + depth * 14}px"
+      data-id={node.id}
       role="treeitem"
       aria-selected={folder === node.id}
+      aria-expanded={kids ? opened.has(node.id) : undefined}
       tabindex="-1"
-      ondragover={(event) => { if (canDrop(node.id)) { event.preventDefault(); dropTarget = node.id; } }}
-      ondragleave={() => (dropTarget = undefined)}
+      draggable="true"
+      ondragstart={(event) => startDrag(node, event)}
+      ondragend={endDrag}
+      ondragover={(event) => over(node.id, event)}
+      ondragleave={leave}
       ondrop={(event) => drop(node.id, event)}
     >
-      <button class="arrow" class:open={opened.has(node.id)} class:none={!kids} onclick={() => toggle(node)} aria-label="Раскрыть">▸</button>
-      <button class="twig-name" class:hidden={node.hidden} onclick={() => openFolder(node.id)}>{node.name}</button>
+      <button class="arrow" class:open={opened.has(node.id)} class:none={!kids} onclick={() => toggle(node)} aria-label="Раскрыть" tabindex="-1">▸</button>
+      <button class="twig-name" class:hidden={node.hidden} onclick={() => openFolder(node.id)}><FileIcon kind="folder" size={14} /> <span class="tname">{node.name}</span></button>
+      {#if count(node.id)}<span class="count" title="Элементов внутри">{count(node.id)}</span>{/if}
     </div>
     {#if opened.has(node.id)}{@render branch(node.id, depth + 1)}{/if}
   {/each}
 {/snippet}
 
 <div class="volume">
-  <div class="tree" role="tree">
+  <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
+  <div class="tree" role="tree" tabindex="-1" onkeydown={treeKey}>
     <button class="back" onclick={() => go("/volumes")}>← Все тома</button>
     <div
       class="twig root"
@@ -250,11 +342,12 @@
       role="treeitem"
       aria-selected={folder === null}
       tabindex="-1"
-      ondragover={(event) => { if (canDrop(null)) { event.preventDefault(); dropTarget = null; } }}
-      ondragleave={() => (dropTarget = undefined)}
+      ondragover={(event) => over(null, event)}
+      ondragleave={leave}
       ondrop={(event) => drop(null, event)}
     >
-      <button class="twig-name" onclick={() => openFolder(null)}>{volume?.name || volume?.slug || "…"}</button>
+      <button class="twig-name" onclick={() => openFolder(null)}><FileIcon kind="folder" size={14} /> <span class="tname">{volume?.name || volume?.slug || "…"}</span></button>
+      {#if count(null)}<span class="count" title="Элементов в корне">{count(null)}</span>{/if}
     </div>
     {@render branch(null, 0)}
   </div>
@@ -262,32 +355,43 @@
   <section class="body">
     <header class="bar">
       <nav class="crumbs">
-        <button onclick={() => openFolder(null)}>{volume?.name || volume?.slug || "…"}</button>
+        <button class:drop={dropTarget === null} onclick={() => openFolder(null)} ondragover={(event) => over(null, event)} ondragleave={leave} ondrop={(event) => drop(null, event)}>{volume?.name || volume?.slug || "…"}</button>
         {#each crumbs as node (node.id)}
-          <span class="sep">/</span><button onclick={() => openFolder(node.id)}>{node.name}</button>
+          <span class="sep">/</span><button class:drop={dropTarget === node.id} onclick={() => openFolder(node.id)} ondragover={(event) => over(node.id, event)} ondragleave={leave} ondrop={(event) => drop(node.id, event)}>{node.name}</button>
         {/each}
       </nav>
       <div class="actions">
         <button class="btn ghost" onclick={openProps}>Свойства</button>
-        <button class="btn" onclick={() => (dialog = { kind: "folder", name: "", format: "" })}>Новая папка</button>
-        <button class="btn primary" onclick={() => (dialog = { kind: "file", name: "", format: "" })}>Новый файл</button>
       </div>
     </header>
 
-    <div class="selbar" class:show={selected.size > 0}>
-      <span>Выбрано: {selected.size}</span>
+    <div class="toolbar">
+      <button class="btn" onclick={() => (dialog = { kind: "folder", name: "", format: "" })}>Новая папка</button>
+      <button class="btn primary" onclick={() => (dialog = { kind: "file", name: "", format: "" })} title="Файл со своим текстом: лежит только здесь, объект не создаётся">Новый файл</button>
+      <button class="btn" onclick={() => (dialog = { kind: "object", name: "", format: "" })} title="Общий объект с форматом: его можно положить в несколько мест, у него есть история">Новый объект…</button>
+      <span class="vsep"></span>
+      <button class="btn ghost" disabled={!single} onclick={() => single && activate(single)}>Открыть</button>
       <button class="btn ghost" disabled={!single} onclick={() => single && (dialog = { kind: "rename", name: single.name, format: "" })}>Переименовать</button>
-      <button class="btn ghost" onclick={() => setHidden(true)}>Скрыть</button>
-      <button class="btn ghost" onclick={() => setHidden(false)}>Показать</button>
-      <button class="btn ghost danger" onclick={() => (dialog = { kind: "delete", name: "", format: "" })}>Удалить</button>
-      <span class="hint muted">Перетащите на папку, чтобы перенести (с Alt: скопировать). Клавиши: Enter открыть, F2 переименовать, Delete удалить, Ctrl+A выбрать всё</span>
+      <button class="btn ghost" disabled={!selected.size} onclick={() => setHidden(!allHidden)} title="Скрытый файл игрок не видит в списке">{allHidden ? "Показать" : "Скрыть"}</button>
+      <button class="btn ghost danger" disabled={!selected.size} onclick={() => (dialog = { kind: "delete", name: "", format: "" })}>Удалить</button>
+      <span class="grow muted small">{selected.size ? `Выбрано: ${selected.size}` : ""}</span>
+      <button class="btn ghost small" class:on={showTech} onclick={toggleTech} title="Права и владелец: нужны только для игровых прав файла">Права</button>
+      <Hint align="right">
+        Перетащите файл или папку на папку (в таблице, в дереве или в пути сверху), чтобы перенести. С клавишей Alt: скопировать.<br />
+        Клавиши: Enter открыть, F2 переименовать, Delete удалить, Ctrl+A выбрать всё, Shift или Ctrl+клик выбрать несколько. В дереве: стрелки.
+      </Hint>
     </div>
 
-    <div class="table" role="grid">
+    <div class="table" class:tech={showTech} role="grid">
       <div class="row head" role="row">
-        <span>Имя</span><span>Формат</span><span>Размер</span><span>Права</span><span></span>
+        <span><button class="sort" onclick={() => sortBy("name")}>Имя{arrow("name")}</button></span>
+        <span><button class="sort" onclick={() => sortBy("type")}>Тип{arrow("type")}</button></span>
+        <span>Защита<Hint text="«слои» — файл надо расшифровать, снять маскировку и т. п. «условие» — нужны определённые ключи. Видно и у объектов, и у файлов без объекта." /></span>
+        <span class="num"><button class="sort" onclick={() => sortBy("size")}>Размер{arrow("size")}</button></span>
+        {#if showTech}<span>Права</span>{/if}
       </div>
       {#each listing as node (node.id)}
+        {@const kind = describe(node, formats, count(node.id))}
         <div
           class="row"
           class:sel={selected.has(node.id)}
@@ -300,26 +404,31 @@
           ondblclick={() => activate(node)}
           onkeydown={() => {}}
           ondragstart={(event) => startDrag(node, event)}
-          ondragend={() => { dragging = []; dropTarget = undefined; }}
-          ondragover={(event) => { if (node.kind === "folder" && canDrop(node.id)) { event.preventDefault(); dropTarget = node.id; } }}
-          ondragleave={() => (dropTarget = undefined)}
+          ondragend={endDrag}
+          ondragover={(event) => node.kind === "folder" && over(node.id, event)}
+          ondragleave={leave}
           ondrop={(event) => node.kind === "folder" && drop(node.id, event)}
         >
           <span class="name">
-            <span class="ico" class:dir={node.kind === "folder"}>{node.kind === "folder" ? "▣" : "▤"}</span>
-            {node.name}
+            <FileIcon kind={kind.kind} own={kind.own} />
+            <span class="text">{node.name}</span>
+            {#if node.item && node.item.used > 1}<span class="chip" title="Тот же объект лежит в других местах: {node.item.used}">×{node.item.used}</span>{/if}
+            {#if node.hidden}<span class="chip" title="Игрок не видит этот файл в списке">скрыт</span>{/if}
+            {#if node.system}<span class="chip" title="Игрок не может удалить">системный</span>{/if}
           </span>
-          <span class="muted">{node.item?.format || (node.kind === "folder" ? "папка" : node.kind === "file" ? "текст места" : "—")}</span>
-          <span class="muted mono">{size(node)}</span>
-          <span class="muted mono">{node.owner || "—"}{node.group ? `:${node.group}` : ""} {node.mode}</span>
-          <span class="flags">
-            {#if node.hidden}<span class="chip">скрыт</span>{/if}
-            {#if node.system}<span class="chip">системный</span>{/if}
-            {#if node.item && node.item.used > 1}<span class="chip" title="Тот же объект лежит в других местах">×{node.item.used}</span>{/if}
+          <span class="muted type" class:obj={!kind.own && node.kind !== "folder"}>{kind.label}</span>
+          <span class="guard">
+            {#if node.layers}<span class="chip warnchip" title="У файла есть слои защиты">слои</span>{/if}
+            {#if node.condition}<span class="chip warnchip" title="Файл открывается только при условии по ключам">условие</span>{/if}
           </span>
+          <span class="muted mono num">{size(node)}</span>
+          {#if showTech}<span class="muted mono">{node.owner || "—"}{node.group ? `:${node.group}` : ""} {node.mode}</span>{/if}
         </div>
       {:else}
-        <p class="empty muted">Папка пуста. Создайте файл или перетащите сюда что-нибудь из дерева.</p>
+        <div class="empty muted">
+          <p>Папка пуста.</p>
+          <p class="small">Создайте файл или папку кнопками сверху или перетащите сюда что-нибудь из дерева.</p>
+        </div>
       {/each}
     </div>
   </section>
@@ -350,15 +459,21 @@
   </Dialog>
 {:else if dialog?.kind === "file"}
   <Dialog title="Новый файл" confirm="Создать и открыть" {busy} onsubmit={submit} onclose={() => (dialog = null)}>
-    <label><span class="label">Имя (расширение подберёт формат)</span><input class="field" placeholder="report.rec" bind:value={dialog.name} /></label>
+    <label><span class="label">Имя файла</span><input class="field" placeholder="notes.txt" bind:value={dialog.name} /></label>
+    <p class="muted small">{typeHint(dialog.name, formats)}</p>
+    <p class="muted small">Файл лежит только в этом месте и не создаёт объект. Нужна общая запись, история или несколько мест? Создайте объект кнопкой «Новый объект…».</p>
+  </Dialog>
+{:else if dialog?.kind === "object"}
+  <Dialog title="Новый объект" confirm="Создать и открыть" {busy} onsubmit={submit} onclose={() => (dialog = null)}>
+    <label><span class="label">Название (расширение подберёт формат)</span><input class="field" placeholder="report.rec" bind:value={dialog.name} /></label>
     <label>
       <span class="label">Формат</span>
       <select class="field" bind:value={dialog.format}>
         <option value="">по расширению</option>
-        <option value={OWN}>Свой текст места (без объекта)</option>
         <FormatOptions {formats} />
       </select>
     </label>
+    <p class="muted small">Объект общий: его можно положить в несколько мест, у него есть история и защита объекта. Для обычного файла, который нужен только здесь, используйте «Новый файл».</p>
   </Dialog>
 {:else if dialog?.kind === "rename"}
   <Dialog title="Переименовать" confirm="Сохранить" {busy} onsubmit={submit} onclose={() => (dialog = null)}>
@@ -375,44 +490,54 @@
   .inline { display: flex; gap: 6px; }
   .err { margin: 0; color: var(--danger); font-size: 12px; }
   .field.bad { border-color: var(--danger); }
-  .volume { display: grid; grid-template-columns: 250px 1fr; height: 100%; }
+  .small { font-size: 12px; margin: 0; }
+  .volume { display: grid; grid-template-columns: 260px 1fr; height: 100%; }
   .tree { padding: 12px 8px; border-right: 1px solid var(--line-soft); overflow: auto; background: var(--panel); }
   .back { margin: 0 0 10px 6px; background: none; border: 0; color: var(--muted); cursor: pointer; padding: 4px; }
   .back:hover { color: var(--text); }
   .twig { display: flex; align-items: center; gap: 2px; border-radius: var(--radius-s); }
   .twig.root { padding-left: 6px; font-weight: 600; }
+  .twig:hover { background: var(--panel-2); }
   .twig.on { background: var(--accent-soft); }
   .twig.drop, .row.drop { outline: 1px dashed var(--accent); background: var(--accent-soft); }
   .arrow { width: 18px; border: 0; background: none; color: var(--faint); cursor: pointer; transition: transform 0.12s; padding: 0; }
   .arrow.open { transform: rotate(90deg); }
   .arrow.none { visibility: hidden; }
-  .twig-name { flex: 1; min-width: 0; text-align: left; border: 0; background: none; padding: 5px 6px; cursor: pointer; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .twig-name { flex: 1; min-width: 0; display: flex; align-items: center; gap: 6px; text-align: left; border: 0; background: none; padding: 5px 6px; cursor: pointer; }
+  .tname { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .twig-name.hidden { color: var(--muted); font-style: italic; }
+  .count { margin: 0 6px 0 4px; color: var(--faint); font-size: 11.5px; font-variant-numeric: tabular-nums; }
   .body { display: flex; flex-direction: column; min-width: 0; }
-  .bar { display: flex; justify-content: space-between; align-items: center; gap: 16px; padding: 18px 24px 12px; }
+  .bar { display: flex; justify-content: space-between; align-items: center; gap: 16px; padding: 18px 24px 10px; }
   .crumbs { display: flex; align-items: center; gap: 4px; font-size: 15px; min-width: 0; flex-wrap: wrap; }
   .crumbs button { border: 0; background: none; cursor: pointer; padding: 2px 4px; border-radius: 4px; font-weight: 600; }
   .crumbs button:hover { background: var(--panel-2); }
+  .crumbs button.drop { outline: 1px dashed var(--accent); background: var(--accent-soft); }
   .sep { color: var(--faint); }
   .actions { display: flex; gap: 8px; }
-  .selbar {
-    display: flex; align-items: center; gap: 4px; margin: 0 24px; padding: 0 10px; height: 0; overflow: hidden;
-    border-radius: var(--radius); background: var(--panel-2); transition: height 0.15s, margin 0.15s;
-  }
-  .selbar.show { height: 40px; margin-bottom: 10px; }
-  .hint { margin-left: auto; font-size: 12px; }
+  .toolbar { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; margin: 0 24px 10px; padding: 6px 8px; border: 1px solid var(--line-soft); border-radius: var(--radius); background: var(--panel); }
+  .vsep { width: 1px; align-self: stretch; margin: 2px 6px; background: var(--line); }
+  .grow { flex: 1; }
+  .btn.on { background: var(--accent-soft); color: var(--accent); }
   .table { padding: 0 24px 24px; overflow: auto; }
   .row {
-    display: grid; grid-template-columns: minmax(220px, 1fr) 120px 90px 160px 170px; align-items: center; gap: 12px;
-    padding: 0 10px; height: 34px; border-radius: var(--radius-s); cursor: default; user-select: none;
+    display: grid; grid-template-columns: minmax(240px, 1fr) 200px 130px 90px; align-items: center; gap: 12px;
+    padding: 0 10px; height: 36px; border-radius: var(--radius-s); cursor: default; user-select: none;
   }
+  .table.tech .row { grid-template-columns: minmax(240px, 1fr) 200px 130px 90px 170px; }
   .row:not(.head):hover { background: var(--panel); }
   .row.sel { background: var(--accent-soft); }
   .row.dim .name { color: var(--muted); font-style: italic; }
   .row.head { color: var(--faint); font-size: 12px; height: 28px; border-bottom: 1px solid var(--line-soft); border-radius: 0; margin-bottom: 4px; }
-  .name { display: flex; align-items: center; gap: 8px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
-  .ico { color: var(--faint); font-size: 12px; }
-  .ico.dir { color: var(--warn); }
-  .flags { display: flex; gap: 4px; justify-content: flex-end; }
-  .empty { padding: 24px 10px; }
+  .sort { padding: 0; border: 0; background: none; color: inherit; font: inherit; cursor: pointer; }
+  .sort:hover { color: var(--text); }
+  .num { text-align: right; }
+  .name { display: flex; align-items: center; gap: 8px; min-width: 0; }
+  .text { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+  .type { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .type.obj { color: var(--accent); }
+  .guard { display: flex; gap: 4px; }
+  .chip.warnchip { background: rgba(242, 198, 109, 0.15); color: var(--warn); }
+  .empty { padding: 28px 10px; }
+  .empty p { margin: 0 0 4px; }
 </style>

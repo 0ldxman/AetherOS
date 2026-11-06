@@ -2,7 +2,7 @@
   import type { Snippet } from "svelte";
 
   /** Значок «?» с пояснением: по наведению, по фокусу и по касанию (кнопка переключает), Esc закрывает. */
-  let { text, children }: { text?: string; children?: Snippet } = $props();
+  let { text, align = "left", children }: { text?: string; align?: "left" | "right"; children?: Snippet } = $props();
   let open = $state(false);
 </script>
 
@@ -11,7 +11,7 @@
   onclick={() => (open = !open)} onblur={() => (open = false)} onkeydown={(event) => event.key === "Escape" && (open = false)}
 >
   ?
-  <span class="bubble" role="tooltip">{#if children}{@render children()}{:else}{text}{/if}</span>
+  <span class="bubble" class:right={align === "right"} role="tooltip">{#if children}{@render children()}{:else}{text}{/if}</span>
 </button>
 
 <style>
@@ -26,5 +26,6 @@
     padding: 8px 10px; border: 1px solid var(--line); border-radius: var(--radius-s); background: var(--panel);
     color: var(--text); font-size: 12px; font-weight: 400; line-height: 1.4; text-align: left; white-space: normal; box-shadow: 0 6px 20px rgba(0, 0, 0, 0.35);
   }
+  .bubble.right { left: auto; right: 0; }
   .hint:hover .bubble, .hint:focus-visible .bubble, .hint.open .bubble { display: block; }
 </style>
