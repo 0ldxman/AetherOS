@@ -8,6 +8,7 @@
   import { describe, typeHint } from "../lib/fileKind";
   import { go } from "../lib/router.svelte";
   import { toast } from "../lib/toast.svelte";
+  import PutObject from "./volume/PutObject.svelte";
 
   type Node = Schemas["Node"];
 
@@ -63,6 +64,7 @@
   }
 
   type DialogKind = "folder" | "file" | "object" | "rename" | "delete";
+  let putting = $state(false);
   let dialog = $state<null | { kind: DialogKind; name: string; format: string }>(null);
   let busy = $state(false);
   let dragging = $state<number[]>([]);
@@ -86,8 +88,51 @@
     return found;
   });
   const count = (nodeId: number | null) => children.get(nodeId)?.length ?? 0;
+  // путь каждой папки: нужен поиску, который показывает файлы всего тома
+  const paths = $derived.by(() => {
+    const found = new Map<number | null, string>([[null, "/"]]);
+    const walk = (node: Node): string => {
+      const known = found.get(node.id);
+      if (known !== undefined) return known;
+      const text = (node.parent === null ? "" : walk(byId.get(node.parent)!)).replace(/^\/$/, "") + "/" + node.name;
+      found.set(node.id, text);
+      return text;
+    };
+    for (const row of volume?.rows ?? []) walk(row);
+    return found;
+  });
+  const dirOf = (node: Node) => (node.parent === null ? "/" : paths.get(node.parent) ?? "/");
+
+  const FILTERS: [string, string, (node: Node) => boolean][] = [
+    ["guard", "С защитой", (node) => node.layers || node.condition],
+    ["hidden", "Скрытые", (node) => node.hidden],
+    ["system", "Системные", (node) => node.system],
+    ["object", "Объекты", (node) => !!node.item],
+    ["own", "Файлы без объекта", (node) => node.own],
+  ];
+  let query = $state("");
+  let active = $state<Set<string>>(new Set());
+  const searching = $derived(query.trim() !== "" || active.size > 0);
+  function toggleFilter(key: string) {
+    const next = new Set(active);
+    if (next.has(key)) next.delete(key);
+    else next.add(key);
+    active = next;
+  }
+  function clearSearch() {
+    query = "";
+    active = new Set();
+  }
+
   const listing = $derived.by(() => {
-    const rows = [...(children.get(folder) ?? [])];
+    let rows: Node[];
+    if (searching) {
+      const words = query.trim().toLowerCase();
+      const need = FILTERS.filter(([key]) => active.has(key));
+      rows = (volume?.rows ?? []).filter((node) =>
+        (!words || node.name.toLowerCase().includes(words) || (paths.get(node.id) ?? "").toLowerCase().includes(words)) && need.every(([, , test]) => test(node)),
+      );
+    } else rows = [...(children.get(folder) ?? [])];
     const sign = sortDown ? -1 : 1;
     const key = (node: Node) => (sortKey === "size" ? node.size ?? -1 : sortKey === "type" ? describe(node, formats, count(node.id)).label : node.name);
     return rows.sort((a, b) => {
@@ -132,6 +177,7 @@
 
   function openFolder(target: number | null) {
     selected = new Set();
+    clearSearch();
     go(target === null ? `/volumes/${id}` : `/volumes/${id}/${target}`);
   }
 
@@ -280,6 +326,7 @@
   }
 
   function onKey(event: KeyboardEvent) {
+    if (event.key === "Escape" && searching && (event.target as HTMLElement).closest("input.search")) { clearSearch(); return; }
     if (dialog || (event.target as HTMLElement).closest("input, textarea, select")) return;
     if (event.key === "Delete" && selected.size) dialog = { kind: "delete", name: "", format: "" };
     else if (event.key === "F2" && single) dialog = { kind: "rename", name: single.name, format: "" };
@@ -385,17 +432,29 @@
       <button class="btn" onclick={() => (dialog = { kind: "folder", name: "", format: "" })}>Новая папка</button>
       <button class="btn primary" onclick={() => (dialog = { kind: "file", name: "", format: "" })} title="Файл со своим текстом: лежит только здесь, объект не создаётся">Новый файл</button>
       <button class="btn" onclick={() => (dialog = { kind: "object", name: "", format: "" })} title="Общий объект с форматом: его можно положить в несколько мест, у него есть история">Новый объект…</button>
+      <button class="btn" onclick={() => (putting = true)} title="Положить сюда объект, который уже есть в библиотеке (тот же объект, не копия)">Положить объект…</button>
       <span class="vsep"></span>
       <button class="btn ghost" disabled={!single} onclick={() => single && activate(single)}>Открыть</button>
       <button class="btn ghost" disabled={!single} onclick={() => single && (dialog = { kind: "rename", name: single.name, format: "" })}>Переименовать</button>
       <button class="btn ghost" disabled={!selected.size} onclick={() => setHidden(!allHidden)} title="Скрытый файл игрок не видит в списке">{allHidden ? "Показать" : "Скрыть"}</button>
       <button class="btn ghost danger" disabled={!selected.size} onclick={() => (dialog = { kind: "delete", name: "", format: "" })}>Удалить</button>
       <span class="grow muted small">{selected.size ? `Выбрано: ${selected.size}` : ""}</span>
+      <input class="field search" placeholder="Поиск в томе" aria-label="Поиск в томе" bind:value={query} />
       <button class="btn ghost small" class:on={showTech} onclick={toggleTech} title="Права и владелец: нужны только для игровых прав файла">Права</button>
       <Hint align="right">
         Перетащите файл или папку на папку (в таблице, в дереве или в пути сверху), чтобы перенести. С клавишей Alt: скопировать.<br />
         Клавиши: Enter открыть, F2 переименовать, Delete удалить, Ctrl+A выбрать всё, Shift или Ctrl+клик выбрать несколько. В дереве: стрелки.
       </Hint>
+    </div>
+
+    <div class="filters">
+      {#each FILTERS as [key, label]}
+        <button class="pick" class:on={active.has(key)} onclick={() => toggleFilter(key)}>{label}</button>
+      {/each}
+      {#if searching}
+        <span class="muted small">Найдено: {listing.length}</span>
+        <button class="link" onclick={clearSearch}>Сбросить</button>
+      {/if}
     </div>
 
     <div class="table" class:tech={showTech} role="grid">
@@ -428,6 +487,7 @@
           <span class="name">
             <FileIcon kind={kind.kind} own={kind.own} />
             <span class="text">{node.name}</span>
+            {#if searching}<span class="where muted small" title="Где лежит">{dirOf(node)}</span>{/if}
             {#if node.item && node.item.used > 1}<span class="chip" title="Тот же объект лежит в других местах: {node.item.used}">×{node.item.used}</span>{/if}
             {#if node.hidden}<span class="chip" title="Игрок не видит этот файл в списке">скрыт</span>{/if}
             {#if node.system}<span class="chip" title="Игрок не может удалить">системный</span>{/if}
@@ -442,13 +502,22 @@
         </div>
       {:else}
         <div class="empty muted">
-          <p>Папка пуста.</p>
-          <p class="small">Создайте файл или папку кнопками сверху или перетащите сюда что-нибудь из дерева.</p>
+          {#if searching}
+            <p>Ничего не нашлось.</p>
+            <p class="small">Поиск идёт по всему тому: по имени и по пути. <button class="link" onclick={clearSearch}>Сбросить поиск</button></p>
+          {:else}
+            <p>Папка пуста.</p>
+            <p class="small">Создайте файл или папку кнопками сверху или перетащите сюда что-нибудь из дерева.</p>
+          {/if}
         </div>
       {/each}
     </div>
   </section>
 </div>
+
+{#if putting}
+  <PutObject volume={id} {folder} folderName={folder === null ? volume?.name || volume?.slug || "корень" : byId.get(folder)?.name ?? ""} onclose={() => (putting = false)} ondone={load} />
+{/if}
 
 {#if propsOpen}
   <Dialog title="Свойства тома" confirm="Сохранить" onsubmit={saveProps} onclose={() => (propsOpen = false)}>
@@ -534,6 +603,12 @@
   .toolbar { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; margin: 0 24px 10px; padding: 6px 8px; border: 1px solid var(--line-soft); border-radius: var(--radius); background: var(--panel); }
   .vsep { width: 1px; align-self: stretch; margin: 2px 6px; background: var(--line); }
   .grow { flex: 1; }
+  .toolbar .search { width: 190px; height: 28px; }
+  .filters { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 0 24px 8px; }
+  .pick { padding: 2px 12px; border: 1px solid var(--line); border-radius: 999px; background: var(--bg); color: var(--muted); cursor: pointer; }
+  .pick.on { border-color: var(--accent); background: var(--accent-soft); color: var(--text); }
+  .link { padding: 0; border: 0; background: none; color: var(--accent); cursor: pointer; }
+  .where { margin-left: 6px; white-space: nowrap; }
   .btn.on { background: var(--accent-soft); color: var(--accent); }
   .table { padding: 0 24px 24px; overflow: auto; }
   .row {
