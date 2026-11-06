@@ -199,8 +199,24 @@
         params: { path: { ...path, placement_id: single.id } }, body: { name: dialog!.name },
       }), "Переименовано.");
     } else if (dialog.kind === "delete") {
-      run(() => api.POST("/studio/api/volumes/{volume_id}/delete", { params: { path }, body: { ids: [...selected] } }), "Удалено.");
+      busy = true;
+      api.POST("/studio/api/volumes/{volume_id}/delete", { params: { path }, body: { ids: [...selected] } }).then(async ({ data, error }) => {
+        busy = false;
+        if (error || !data) return toast(problem(error), "error");
+        dialog = null;
+        selected = new Set();
+        await load();
+        toast(`Удалено: ${data.count}.`, "ok", data.undo ? { label: "Отменить", run: () => undo(data.undo) } : undefined);
+      });
     }
+  }
+
+  // вернуть удалённое по снимку, который прислал сервер
+  async function undo(snapshot: unknown) {
+    const { error } = await api.POST("/studio/api/volumes/{volume_id}/restore", { params: { path: { volume_id: id } }, body: { undo: snapshot } });
+    if (error) return toast(problem(error, "Не получилось вернуть."), "error");
+    toast("Возвращено.");
+    await load();
   }
 
   function setHidden(hidden: boolean) {
@@ -481,7 +497,7 @@
   </Dialog>
 {:else if dialog?.kind === "delete"}
   <Dialog title="Удалить {selected.size === 1 ? `«${single?.name}»` : `${selected.size} элементов`}?" confirm="Удалить" danger {busy} onsubmit={submit} onclose={() => (dialog = null)}>
-    <p class="muted">Папки удаляются вместе с содержимым. Объекты, которые лежат и в других местах, там останутся.</p>
+    <p class="muted">Папки удаляются вместе с содержимым. Объекты, которые лежат и в других местах, там останутся. После удаления будет 10 секунд, чтобы нажать «Отменить».</p>
   </Dialog>
 {/if}
 

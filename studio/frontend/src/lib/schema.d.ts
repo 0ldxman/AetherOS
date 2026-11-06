@@ -202,6 +202,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/studio/api/volumes/{volume_id}/restore": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Restore */
+        post: operations["studio_api_volumes_restore"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/studio/api/volumes/{volume_id}/move": {
         parameters: {
             query?: never;
@@ -1773,10 +1790,12 @@ export interface components {
             /** Mode */
             mode?: string | null;
         };
-        /** Done */
-        Done: {
+        /** Deleted */
+        Deleted: {
             /** Count */
             count: number;
+            /** Undo */
+            undo?: unknown;
         };
         /** Selection */
         Selection: {
@@ -1784,6 +1803,16 @@ export interface components {
             ids: number[];
             /** Parent */
             parent?: number | null;
+        };
+        /** Done */
+        Done: {
+            /** Count */
+            count: number;
+        };
+        /** RestoreIn */
+        RestoreIn: {
+            /** Undo */
+            undo: unknown;
         };
         /** TextFile */
         TextFile: {
@@ -4123,6 +4152,32 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["Selection"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Deleted"];
+                };
+            };
+        };
+    };
+    studio_api_volumes_restore: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                volume_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RestoreIn"];
             };
         };
         responses: {

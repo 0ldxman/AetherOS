@@ -236,6 +236,68 @@ def delete(volume, ids):
     return len(found)
 
 
+# Что запоминается об удалённом размещении, чтобы его можно было вернуть (id и родитель считаются отдельно)
+UNDO_FIELDS = ("kind", "name", "item_id", "content", "owner", "group", "mode", "hidden", "access_mode", "access", "state_mode", "state", "system")
+UNDO_LIMIT = 2000
+
+
+def _subtree(placements):
+    """Размещения и всё, что внутри них (папки), без повторов."""
+    seen, queue = {}, list(placements)
+    while queue:
+        node = queue.pop()
+        if node.pk in seen:
+            continue
+        seen[node.pk] = node
+        queue.extend(node.children.all())
+    return list(seen.values())
+
+
+@transaction.atomic
+def remove(volume, ids):
+    """Удалить, как delete(), и вернуть снимок удалённого: по нему restore() вернёт всё на место (тексты, условия, слои, права).
+    Объекты в библиотеке не затрагиваются, снимок хранит только ссылки на них."""
+    found = list(Placement.objects.filter(pk__in=ids, volume=volume))
+    if not found:
+        raise FileManagerError("Нечего удалять.")
+    nodes = _subtree(found)
+    inside = {node.pk for node in nodes}
+    rows = [
+        {"ref": node.pk, "parent": node.parent_id, "inner": node.parent_id in inside, **{field: getattr(node, field) for field in UNDO_FIELDS}}
+        for node in nodes
+    ]
+    for placement in found:
+        placement.delete()
+    return {"count": len(found), "undo": rows if len(rows) <= UNDO_LIMIT else None}
+
+
+@transaction.atomic
+def restore(volume, rows):
+    """Вернуть удалённое по снимку remove(): папки раньше содержимого. Если место или имя уже заняты, или объекта больше нет,
+    не возвращается ничего."""
+    if not isinstance(rows, list) or not rows:
+        raise FileManagerError("Нечего возвращать.")
+    pending = {row["ref"]: row for row in rows if isinstance(row, dict) and "ref" in row}
+    made, left = {}, dict(pending)
+    while left:
+        ready = [ref for ref, row in left.items() if not row.get("inner") or row["parent"] in made]
+        if not ready:
+            raise FileManagerError("Снимок повреждён.")
+        for ref in ready:
+            row = left.pop(ref)
+            parent = made[row["parent"]] if row.get("inner") else folder_of(volume, row["parent"])
+            name = clean_name(row["name"])
+            check_free(volume, parent, name)
+            depth_ok(parent)
+            if row.get("item_id") is not None and not Item.objects.filter(pk=row["item_id"]).exists():
+                raise FileManagerError(f"Объекта для «{name}» уже нет.")
+            placement = Placement(volume=volume, parent=parent, **{field: row.get(field) for field in UNDO_FIELDS if field != "name"}, name=name)
+            placement.full_clean(exclude=("volume", "parent", "item"))
+            placement.save()
+            made[ref] = placement
+    return len(made)
+
+
 @transaction.atomic
 def move(volume, ids, parent_id):
     parent = folder_of(volume, parent_id)

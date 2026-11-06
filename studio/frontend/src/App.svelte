@@ -3,7 +3,7 @@
   import { api } from "./lib/api";
   import { match, route } from "./lib/router.svelte";
   import ConfirmHost from "./lib/ConfirmHost.svelte";
-  import { toasts } from "./lib/toast.svelte";
+  import { dismiss, toasts } from "./lib/toast.svelte";
   import Volumes from "./routes/Volumes.svelte";
   import Volume from "./routes/Volume.svelte";
   import TextFile from "./routes/TextFile.svelte";
@@ -128,7 +128,10 @@
 
 <div class="toasts" popover="manual" bind:this={toastBox} aria-live="polite">
   {#each toasts as item (item.id)}
-    <div class="toast" class:error={item.kind === "error"}>{item.text}</div>
+    <div class="toast" class:error={item.kind === "error"}>
+      <span>{item.text}</span>
+      {#if item.action}<button class="toast-action" onclick={() => { const act = item.action; dismiss(item.id); act?.run(); }}>{item.action.label}</button>{/if}
+    </div>
   {/each}
 </div>
 
@@ -154,5 +157,8 @@
     padding: 9px 14px; border-radius: var(--radius); background: var(--raise); border: 1px solid var(--line);
     box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35); max-width: 420px;
   }
+  .toast { display: flex; align-items: center; gap: 14px; }
+  .toast-action { padding: 2px 10px; border: 1px solid var(--accent); border-radius: var(--radius-s); background: none; color: var(--accent); cursor: pointer; font-weight: 600; }
+  .toast-action:hover { background: var(--accent-soft); }
   .toast.error { border-color: rgba(255, 122, 122, 0.4); color: var(--danger); }
 </style>

@@ -474,7 +474,7 @@
       "content": {
        "application/json": {
         "schema": {
-         "$ref": "#/components/schemas/Done"
+         "$ref": "#/components/schemas/Deleted"
         }
        }
       }
@@ -488,6 +488,53 @@
       "application/json": {
        "schema": {
         "$ref": "#/components/schemas/Selection"
+       }
+      }
+     },
+     "required": true
+    },
+    "security": [
+     {
+      "SessionAuthIsStaff": []
+     }
+    ]
+   }
+  },
+  "/studio/api/volumes/{volume_id}/restore": {
+   "post": {
+    "operationId": "studio_api_volumes_restore",
+    "summary": "Restore",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "volume_id",
+      "schema": {
+       "title": "Volume Id",
+       "type": "integer"
+      },
+      "required": true
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Done"
+        }
+       }
+      }
+     }
+    },
+    "tags": [
+     "volumes"
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/RestoreIn"
        }
       }
      },
@@ -5533,17 +5580,20 @@
     "title": "Change",
     "type": "object"
    },
-   "Done": {
+   "Deleted": {
     "properties": {
      "count": {
       "title": "Count",
       "type": "integer"
+     },
+     "undo": {
+      "title": "Undo"
      }
     },
     "required": [
      "count"
     ],
-    "title": "Done",
+    "title": "Deleted",
     "type": "object"
    },
    "Selection": {
@@ -5571,6 +5621,31 @@
      "ids"
     ],
     "title": "Selection",
+    "type": "object"
+   },
+   "Done": {
+    "properties": {
+     "count": {
+      "title": "Count",
+      "type": "integer"
+     }
+    },
+    "required": [
+     "count"
+    ],
+    "title": "Done",
+    "type": "object"
+   },
+   "RestoreIn": {
+    "properties": {
+     "undo": {
+      "title": "Undo"
+     }
+    },
+    "required": [
+     "undo"
+    ],
+    "title": "RestoreIn",
     "type": "object"
    },
    "TextFile": {

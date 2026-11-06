@@ -1,4 +1,6 @@
 """Тома: список, дерево тома и действия над ним (filesystem.manager.filemanager, как у файлового менеджера админки)."""
+from typing import Any
+
 from django.db import transaction
 from django.db.models import Count, Q
 from django.shortcuts import get_object_or_404
@@ -215,9 +217,23 @@ def change(request, volume_id: int, placement_id: int, body: Change):
     return {}
 
 
-@router.post("/{int:volume_id}/delete", response=Done)
+class Deleted(Schema):
+    count: int
+    undo: Any = None          # снимок удалённого: его же отдают в /restore, чтобы вернуть всё как было
+
+
+class RestoreIn(Schema):
+    undo: Any
+
+
+@router.post("/{int:volume_id}/delete", response=Deleted)
 def delete(request, volume_id: int, body: Selection):
-    return Done(count=filemanager.delete(get_object_or_404(Volume, pk=volume_id), body.ids))
+    return filemanager.remove(get_object_or_404(Volume, pk=volume_id), body.ids)
+
+
+@router.post("/{int:volume_id}/restore", response=Done)
+def restore(request, volume_id: int, body: RestoreIn):
+    return Done(count=filemanager.restore(get_object_or_404(Volume, pk=volume_id), body.undo))
 
 
 @router.post("/{int:volume_id}/move", response=Done)

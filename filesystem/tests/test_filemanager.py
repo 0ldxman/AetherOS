@@ -394,6 +394,55 @@ class OverlayTests(TestCase):
         self.assertEqual(rows["open.txt"], (False, False))         # место сняло защиту объекта
         self.assertEqual(rows["replaced.txt"], (True, False))      # свои слои, условие снято
 
+    def test_a_deleted_folder_comes_back_with_everything_inside(self):
+        volume = Volume.objects.create(slug="undo")
+        docs = filemanager.new_folder(volume, None, "docs")
+        note = filemanager.new_text_file(volume, docs.pk, "note.xyz", "тайный текст")
+        note.state, note.access, note.hidden, note.owner = "> corrupted", {"all": ["a", "b"]}, True, "ivan"
+        note.save()
+        item = Item.objects.create(slug="shared", name="shared", format="txt", body="x")
+        linked = Placement.objects.create(volume=volume, parent=docs, kind="item", item=item, name="shared.txt", state_mode="replace", state="> corrupted")
+        inner = filemanager.new_folder(volume, docs.pk, "deep")
+        filemanager.new_text_file(volume, inner.pk, "leaf.txt", "лист")
+        result = filemanager.remove(volume, [docs.pk])
+        self.assertEqual((result["count"], len(result["undo"])), (1, 5))
+        self.assertEqual(Placement.objects.filter(volume=volume).count(), 0)
+        self.assertTrue(Item.objects.filter(pk=item.pk).exists())              # объект в библиотеке не тронут
+        self.assertEqual(filemanager.restore(volume, result["undo"]), 5)
+        back = {row.path(): row for row in Placement.objects.filter(volume=volume)}
+        self.assertEqual(sorted(back), ["docs", "docs/deep", "docs/deep/leaf.txt", "docs/note.xyz", "docs/shared.txt"])
+        again = back["docs/note.xyz"]
+        self.assertEqual((again.content, again.state, again.access, again.hidden, again.owner), ("тайный текст", "> corrupted", {"all": ["a", "b"]}, True, "ivan"))
+        self.assertEqual((back["docs/shared.txt"].item_id, back["docs/shared.txt"].state_mode, back["docs/deep/leaf.txt"].content), (item.pk, "replace", "лист"))
+
+    def test_undo_goes_into_the_same_parent_and_refuses_when_it_cannot_be_exact(self):
+        volume = Volume.objects.create(slug="undo2")
+        parent = filemanager.new_folder(volume, None, "parent")
+        file = filemanager.new_text_file(volume, parent.pk, "a.txt", "1")
+        snap = filemanager.remove(volume, [file.pk])["undo"]
+        filemanager.new_text_file(volume, parent.pk, "a.txt", "новый")                 # имя уже занято
+        with self.assertRaises(FileManagerError) as caught:
+            filemanager.restore(volume, snap)
+        self.assertIn("уже есть", str(caught.exception))
+        self.assertEqual(Placement.objects.filter(volume=volume).count(), 2)             # ничего лишнего не вернулось
+        Placement.objects.filter(volume=volume, name="a.txt").delete()
+        filemanager.delete(volume, [parent.pk])
+        with self.assertRaises(FileManagerError):
+            filemanager.restore(volume, snap)                                              # папки, где лежал файл, больше нет
+        for bad in (None, [], "x", [{"ref": 1, "parent": 99, "inner": True, "name": "z", "kind": "file"}]):
+            with self.assertRaises(FileManagerError):
+                filemanager.restore(volume, bad)
+
+    def test_a_returned_object_must_still_exist(self):
+        volume = Volume.objects.create(slug="undo3")
+        item = Item.objects.create(slug="gone", name="gone", format="txt", body="x")
+        place = Placement.objects.create(volume=volume, kind="item", item=item, name="gone.txt")
+        snap = filemanager.remove(volume, [place.pk])["undo"]
+        item.delete()
+        with self.assertRaises(FileManagerError) as caught:
+            filemanager.restore(volume, snap)
+        self.assertIn("уже нет", str(caught.exception))
+
     def test_the_data_marks_the_layers_and_who_owns_the_volume(self):
         overlay.override(self.machine, "/etc/hosts")
         overlay.new_file(self.machine, "/etc", "extra.txt")
