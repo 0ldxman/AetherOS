@@ -1,5 +1,5 @@
 <script lang="ts" module>
-  export type MenuItem = { label: string; run: () => void; danger?: boolean; disabled?: boolean } | "sep";
+  export type MenuItem = { label: string; run: () => void; hint?: string; danger?: boolean; disabled?: boolean } | "sep";
 </script>
 
 <script lang="ts">
@@ -40,7 +40,7 @@
     {#if item === "sep"}
       <div class="sep" role="separator"></div>
     {:else}
-      <button type="button" role="menuitem" class:danger={item.danger} disabled={item.disabled} onclick={() => pick(item)}>{item.label}</button>
+      <button type="button" role="menuitem" class:danger={item.danger} disabled={item.disabled} onclick={() => pick(item)}>{item.label}{#if item.hint}<span class="hint">{item.hint}</span>{/if}</button>
     {/if}
   {/each}
 </div>
@@ -54,5 +54,6 @@
   button:hover:not(:disabled), button:focus-visible { background: var(--accent-soft); outline: none; }
   button:disabled { color: var(--faint); cursor: default; }
   button.danger { color: var(--danger); }
+  .hint { display: block; color: var(--muted); font-size: 12px; }
   .sep { height: 1px; margin: 4px 2px; background: var(--line-soft); }
 </style>

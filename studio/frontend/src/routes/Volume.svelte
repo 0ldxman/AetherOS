@@ -34,14 +34,6 @@
     try { sessionStorage.setItem(openKey(), JSON.stringify([...opened])); } catch { /* память браузера закрыта: не страшно */ }
   }
 
-  // технические колонки (права) спрятаны, пока не нужны
-  const TECH_KEY = "studio.volumeTech";
-  let showTech = $state((() => { try { return localStorage.getItem(TECH_KEY) === "on"; } catch { return false; } })());
-  function toggleTech() {
-    showTech = !showTech;
-    try { localStorage.setItem(TECH_KEY, showTech ? "on" : "off"); } catch { /* ничего */ }
-  }
-
   function openProps() {
     if (!volume) return;
     props_ = { slug: volume.slug, name: volume.name, label: volume.label, uuid: volume.uuid, capacity_gb: volume.capacity_gb ?? null, used_gb: volume.used_gb ?? null };
@@ -66,10 +58,39 @@
     if (props_.capacity_gb) props_.used_gb = Math.round((props_.capacity_gb * (20 + Math.random() * 50)) / 100);
   }
 
-  type DialogKind = "folder" | "file" | "object" | "rename" | "delete";
+  type DialogKind = "folder" | "file" | "object" | "rename" | "delete" | "rights";
   let putting = $state(false);
   let menu = $state<null | { x: number; y: number; items: MenuItem[] }>(null);
   let protect = $state<Node | null>(null);
+
+  // права: владелец, группа и три цифры; при нескольких выбранных меняется только то, что тронули
+  type RightsKey = "owner" | "group" | "mode";
+  let rights = $state({ owner: "", group: "", mode: "" });
+  let touched = $state<Set<RightsKey>>(new Set());
+  const PRESETS: [string, string][] = [
+    ["644", "все читают, пишет владелец"], ["640", "читают владелец и группа"], ["600", "только владелец"],
+    ["755", "все читают и запускают"], ["700", "только владелец, с запуском"], ["", "открыто всем"],
+  ];
+  const sameOf = (key: RightsKey) => (new Set(selectedNodes.map((node) => node[key])).size === 1 ? selectedNodes[0][key] : "");
+  const mixed = (key: RightsKey) => selectedNodes.length > 1 && new Set(selectedNodes.map((node) => node[key])).size > 1;
+  function openRights() {
+    rights = { owner: sameOf("owner"), group: sameOf("group"), mode: sameOf("mode") };
+    touched = new Set();
+    dialog = { kind: "rights", name: "", format: "" };
+  }
+  function setRight(key: RightsKey, value: string) {
+    rights[key] = key === "mode" ? value.replace(/[^0-7]/g, "").slice(0, 3) : value;
+    touched = new Set([...touched, key]);
+  }
+  const WHO = ["Владелец", "Группа", "Остальные"];
+  const BITS: [number, string][] = [[4, "чтение"], [2, "запись"], [1, "запуск"]];
+  function decode(mode: string): string {
+    if (!/^[0-7]{3}$/.test(mode)) return mode ? "Нужны три цифры от 0 до 7, например 640." : "Права не заданы: файл открыт всем.";
+    return [...mode].map((digit, at) => {
+      const can = BITS.filter(([bit]) => (+digit & bit) !== 0).map(([, name]) => name);
+      return `${WHO[at]}: ${can.length ? can.join(", ") : "ничего"}`;
+    }).join(". ") + ".";
+  }
 
   // панель сведений справа: можно скрыть, выбор запоминается
   const DETAILS_KEY = "studio.volumeDetails";
@@ -258,6 +279,18 @@
       run(() => api.PATCH("/studio/api/volumes/{volume_id}/placements/{placement_id}", {
         params: { path: { ...path, placement_id: single.id } }, body: { name: dialog!.name },
       }), "Переименовано.");
+    } else if (dialog.kind === "rights") {
+      const body: Partial<Record<RightsKey, string>> = {};
+      for (const key of touched) body[key] = rights[key];
+      const ids = [...selected];
+      if (!Object.keys(body).length) { dialog = null; return; }
+      run(async () => {
+        for (const placement_id of ids) {
+          const answer = await api.PATCH("/studio/api/volumes/{volume_id}/placements/{placement_id}", { params: { path: { volume_id: id, placement_id } }, body });
+          if (answer.error) return answer;
+        }
+        return {};
+      }, "Права сохранены.");
     } else if (dialog.kind === "delete") {
       busy = true;
       api.POST("/studio/api/volumes/{volume_id}/delete", { params: { path }, body: { ids: [...selected] } }).then(async ({ data, error }) => {
@@ -408,20 +441,26 @@
     menu = { x: event.clientX, y: event.clientY, items };
   }
 
-  // правый клик по пустому месту таблицы: создать
+  const createItems = (): MenuItem[] => [
+    { label: "Новая папка", run: () => (dialog = { kind: "folder", name: "", format: "" }) },
+    { label: "Пустой файл", hint: "без объекта: лежит только здесь", run: () => (dialog = { kind: "file", name: "", format: "" }) },
+    { label: "Новый объект…", hint: "общий: с форматом, историей, несколькими местами", run: () => (dialog = { kind: "object", name: "", format: "" }) },
+    { label: "Положить объект…", hint: "уже существующий, из библиотеки", run: () => (putting = true) },
+  ];
+
+  // кнопка «Создать»: второй клик закрывает меню
+  function openCreate(event: MouseEvent) {
+    if (menu) { menu = null; return; }
+    const box = (event.currentTarget as HTMLElement).getBoundingClientRect();
+    menu = { x: box.left, y: box.bottom + 4, items: createItems() };
+  }
+
+  // правый клик по пустому месту таблицы: то же самое меню
   function emptyMenu(event: MouseEvent) {
     if ((event.target as HTMLElement).closest(".row")) return;
     event.preventDefault();
     selected = new Set();
-    menu = {
-      x: event.clientX, y: event.clientY,
-      items: [
-        { label: "Новая папка", run: () => (dialog = { kind: "folder", name: "", format: "" }) },
-        { label: "Новый файл", run: () => (dialog = { kind: "file", name: "", format: "" }) },
-        { label: "Новый объект…", run: () => (dialog = { kind: "object", name: "", format: "" }) },
-        { label: "Положить объект…", run: () => (putting = true) },
-      ],
-    };
+    menu = { x: event.clientX, y: event.clientY, items: createItems() };
   }
 
   // место объекта для окна «Защита места» (нужны только номер, том и путь)
@@ -505,14 +544,12 @@
     </header>
 
     <div class="toolbar">
-      <button class="btn" onclick={() => (dialog = { kind: "folder", name: "", format: "" })}>Новая папка</button>
-      <button class="btn primary" onclick={() => (dialog = { kind: "file", name: "", format: "" })} title="Файл со своим текстом: лежит только здесь, объект не создаётся">Новый файл</button>
-      <button class="btn" onclick={() => (dialog = { kind: "object", name: "", format: "" })} title="Общий объект с форматом: его можно положить в несколько мест, у него есть история">Новый объект…</button>
-      <button class="btn" onclick={() => (putting = true)} title="Положить сюда объект, который уже есть в библиотеке (тот же объект, не копия)">Положить объект…</button>
+      <button class="btn primary" aria-haspopup="menu" onmousedown={(event) => event.stopPropagation()} onclick={openCreate} title="Папка, файл, объект">Создать ▾</button>
       <span class="vsep"></span>
       <button class="btn ghost" disabled={!single} onclick={() => single && activate(single)}>Открыть</button>
       <button class="btn ghost" disabled={!single} onclick={() => single && (dialog = { kind: "rename", name: single.name, format: "" })}>Переименовать</button>
       <button class="btn ghost" disabled={!selected.size} onclick={() => setHidden(!allHidden)} title="Скрытый файл игрок не видит в списке">{allHidden ? "Показать" : "Скрыть"}</button>
+      <button class="btn ghost" disabled={!selected.size} onclick={openRights} title="Владелец, группа и права доступа игровых учёток">Права…</button>
       <button class="btn ghost danger" disabled={!selected.size} onclick={() => (dialog = { kind: "delete", name: "", format: "" })}>Удалить</button>
     </div>
 
@@ -527,7 +564,6 @@
       <span class="grow"></span>
       <input class="field search" placeholder="Поиск в томе" aria-label="Поиск в томе" bind:value={query} />
       <button class="btn ghost small" class:on={showDetails} onclick={toggleDetails} title="Панель сведений справа">Сведения</button>
-      <button class="btn ghost small" class:on={showTech} onclick={toggleTech} title="Права и владелец: нужны только для игровых прав файла">Права</button>
       <Hint align="right">
         Перетащите файл или папку на папку (в таблице, в дереве или в пути сверху), чтобы перенести. С клавишей Alt: скопировать.<br />
         Клавиши: Enter открыть, F2 переименовать, Delete удалить, Ctrl+A выбрать всё, Shift или Ctrl+клик выбрать несколько. В дереве: стрелки.
@@ -535,13 +571,12 @@
     </div>
 
     <div class="content">
-    <div class="table" class:tech={showTech} role="grid" tabindex="-1" oncontextmenu={emptyMenu}>
+    <div class="table" role="grid" tabindex="-1" oncontextmenu={emptyMenu}>
       <div class="row head" role="row">
         <span><button class="sort" onclick={() => sortBy("name")}>Имя{arrow("name")}</button></span>
         <span><button class="sort" onclick={() => sortBy("type")}>Тип{arrow("type")}</button></span>
         <span>Защита<Hint text="«слои» — файл надо расшифровать, снять маскировку и т. п. «условие» — нужны определённые ключи. Видно и у объектов, и у файлов без объекта." /></span>
         <span class="num"><button class="sort" onclick={() => sortBy("size")}>Размер{arrow("size")}</button></span>
-        {#if showTech}<span>Права</span>{/if}
       </div>
       {#each listing as node (node.id)}
         {@const kind = describe(node, formats, count(node.id))}
@@ -577,7 +612,6 @@
             {#if node.condition}<span class="chip warnchip" title="Файл открывается только при условии по ключам">условие</span>{/if}
           </span>
           <span class="muted mono num">{size(node)}</span>
-          {#if showTech}<span class="muted mono">{node.owner || "—"}{node.group ? `:${node.group}` : ""} {node.mode}</span>{/if}
         </div>
       {:else}
         <div class="empty muted">
@@ -638,10 +672,10 @@
     <input class="field" placeholder="Имя папки" bind:value={dialog.name} />
   </Dialog>
 {:else if dialog?.kind === "file"}
-  <Dialog title="Новый файл" confirm="Создать и открыть" {busy} onsubmit={submit} onclose={() => (dialog = null)}>
+  <Dialog title="Пустой файл" confirm="Создать и открыть" {busy} onsubmit={submit} onclose={() => (dialog = null)}>
     <label><span class="label">Имя файла</span><input class="field" placeholder="notes.txt" bind:value={dialog.name} /></label>
     <p class="muted small">{typeHint(dialog.name, formats)}</p>
-    <p class="muted small">Файл лежит только в этом месте и не создаёт объект. Нужна общая запись, история или несколько мест? Создайте объект кнопкой «Новый объект…».</p>
+    <p class="muted small">Файл лежит только в этом месте и не создаёт объект. Нужна общая запись, история или несколько мест? Создайте объект через «Создать → Новый объект…».</p>
   </Dialog>
 {:else if dialog?.kind === "object"}
   <Dialog title="Новый объект" confirm="Создать и открыть" {busy} onsubmit={submit} onclose={() => (dialog = null)}>
@@ -653,11 +687,35 @@
         <FormatOptions {formats} />
       </select>
     </label>
-    <p class="muted small">Объект общий: его можно положить в несколько мест, у него есть история и защита объекта. Для обычного файла, который нужен только здесь, используйте «Новый файл».</p>
+    <p class="muted small">Объект общий: его можно положить в несколько мест, у него есть история и защита объекта. Для обычного файла, который нужен только здесь, используйте «Пустой файл».</p>
   </Dialog>
 {:else if dialog?.kind === "rename"}
   <Dialog title="Переименовать" confirm="Сохранить" {busy} onsubmit={submit} onclose={() => (dialog = null)}>
     <input class="field" bind:value={dialog.name} />
+  </Dialog>
+{:else if dialog?.kind === "rights"}
+  <Dialog title="Права: {selected.size === 1 ? `«${single?.name}»` : `${selected.size} элементов`}" confirm="Сохранить" {busy} onsubmit={submit} onclose={() => (dialog = null)}>
+    <p class="muted small">Права нужны игровым учёткам: кто может читать, менять и запускать файл на машине. Пусто: права не заданы, файл открыт всем.</p>
+    <div class="two">
+      <label>
+        <span class="label">Владелец<Hint text="Логин учётки на машине, например ivan." /></span>
+        <input class="field mono" placeholder={mixed("owner") ? "разные" : "не задан"} value={rights.owner} oninput={(event) => setRight("owner", event.currentTarget.value)} />
+      </label>
+      <label>
+        <span class="label">Группа<Hint text="Группа учётки, например users." /></span>
+        <input class="field mono" placeholder={mixed("group") ? "разные" : "не задана"} value={rights.group} oninput={(event) => setRight("group", event.currentTarget.value)} />
+      </label>
+    </div>
+    <label>
+      <span class="label">Права<Hint text="Три цифры: владелец, группа, остальные. Чтение 4, запись 2, запуск или вход в папку 1, цифры складываются: 6 — чтение и запись, 5 — чтение и запуск." /></span>
+      <input class="field mono" maxlength="3" placeholder={mixed("mode") ? "разные" : "не заданы"} value={rights.mode} oninput={(event) => setRight("mode", event.currentTarget.value)} />
+    </label>
+    <div class="presets">
+      {#each PRESETS as [value, label]}
+        <button type="button" class="pick" class:on={touched.has("mode") && rights.mode === value} onclick={() => setRight("mode", value)}><b class="mono">{value || "—"}</b> {label}</button>
+      {/each}
+    </div>
+    <p class="muted small">{decode(rights.mode)}</p>
   </Dialog>
 {:else if dialog?.kind === "delete"}
   <Dialog title="Удалить {selected.size === 1 ? `«${single?.name}»` : `${selected.size} элементов`}?" confirm="Удалить" danger {busy} onsubmit={submit} onclose={() => (dialog = null)}>
@@ -698,6 +756,7 @@
   .toolbar { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; margin: 0 24px 10px; padding: 6px 8px; border: 1px solid var(--line-soft); border-radius: var(--radius); background: var(--panel); }
   .vsep { width: 1px; align-self: stretch; margin: 2px 6px; background: var(--line); }
   .grow { flex: 1; }
+  .presets { display: flex; flex-wrap: wrap; gap: 6px; }
   .search { width: 190px; height: 28px; }
   .filters { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 0 24px 8px; }
   .pick { padding: 2px 12px; border: 1px solid var(--line); border-radius: 999px; background: var(--bg); color: var(--muted); cursor: pointer; }
@@ -712,7 +771,6 @@
     display: grid; grid-template-columns: minmax(240px, 1fr) 200px 130px 90px; align-items: center; gap: 12px;
     padding: 0 10px; height: 36px; border-radius: var(--radius-s); cursor: default; user-select: none;
   }
-  .table.tech .row { grid-template-columns: minmax(240px, 1fr) 200px 130px 90px 170px; }
   .row:not(.head):hover { background: var(--panel); }
   .row.sel { background: var(--accent-soft); }
   .row.dim .name { color: var(--muted); font-style: italic; }
