@@ -5,6 +5,8 @@
   import { onMount } from "svelte";
   import { api, problem, type Schemas } from "../lib/api";
   import CodeEditor from "../lib/CodeEditor.svelte";
+  import DocPreview from "../lib/DocPreview.svelte";
+  import { guardUnsaved } from "../lib/guard.svelte";
   import Dialog from "../lib/Dialog.svelte";
   import { go } from "../lib/router.svelte";
   import { toast } from "../lib/toast.svelte";
@@ -21,7 +23,34 @@
 
   const path = $derived({ volume_id: volume, placement_id: id });
   const dirty = $derived(JSON.stringify(form) !== saved);
-  const markup = $derived(formats.find((found) => found.name === file?.format)?.markup ?? false);
+  guardUnsaved(() => saved !== "" && dirty);
+
+  const known = $derived(formats.find((found) => found.name === file?.format));
+  const markup = $derived(known?.markup ?? false);
+
+  // предпросмотр по формату: с разметкой это документ, остальное (и несуществующие форматы) как есть
+  let side = $state<"preview" | "guard" | "dump">("preview");
+  let issues = $state<Schemas["Issue"][]>([]);
+  const previewNote = $derived(
+    known?.markup ? `Рисуется как документ: формат «${known.title || known.name}».`
+      : known ? `У формата «${known.title || known.name}» нет разметки: текст показан как есть.`
+      : "Такого формата нет в каталоге: текст показан как есть.",
+  );
+
+  // путь к файлу: том и папки, каждая ведёт обратно к файлам
+  let tree = $state<Schemas["VolumeTree"] | null>(null);
+  const crumbs = $derived.by(() => {
+    const list = [{ name: file?.volume_name ?? "", href: `#/volumes/${volume}` }];
+    const chain: Schemas["Node"][] = [];
+    let node = file?.parent == null ? undefined : tree?.rows.find((row) => row.id === file!.parent);
+    while (node) {
+      chain.unshift(node);
+      const up: number | null = node.parent;
+      node = up == null ? undefined : tree?.rows.find((row) => row.id === up);
+    }
+    return [...list, ...chain.map((folder) => ({ name: folder.name, href: `#/volumes/${volume}/${folder.id}` }))];
+  });
+  const folderHref = $derived(`#/volumes/${volume}${file?.parent ? `/${file.parent}` : ""}`);
 
   function fill(data: Schemas["TextFile"]) {
     file = data;
@@ -34,6 +63,7 @@
     const { data } = await api.GET("/studio/api/volumes/{volume_id}/text-files/{placement_id}", { params: { path } });
     if (data) fill(data);
     else toast("Файл не найден.", "error");
+    tree = (await api.GET("/studio/api/volumes/{volume_id}", { params: { path: { volume_id: volume } } })).data ?? null;
   });
 
   let timer: ReturnType<typeof setTimeout>;
@@ -71,11 +101,13 @@
 {#if file}
   <div class="page">
     <header class="head">
-      <button class="btn ghost" onclick={() => go(`/volumes/${volume}${file?.parent ? `/${file.parent}` : ""}`)}>←</button>
-      <h1 class="mono">{file.name}</h1>
+      <a class="btn back" href={folderHref} title="Вернуться к файлам этой папки">← К файлам</a>
+      <nav class="crumbs" aria-label="Путь к файлу">
+        {#each crumbs as crumb}<a href={crumb.href}>{crumb.name}</a><span class="sep">/</span>{/each}
+        <h1 class="mono">{file.name}</h1>
+      </nav>
       <span class="chip" title={file.format ? "Формат по расширению имени" : "Такого формата нет в каталоге: файл остаётся текстом"}>{file.format || (file.name.includes(".") && !file.name.startsWith(".") ? file.name.slice(file.name.lastIndexOf(".")) : "без формата")}</span>
       <span class="chip own">свой текст</span>
-      <span class="muted mono path">{file.volume_name}:/{file.path}</span>
       <span class="spacer"></span>
       <span class="muted small">{dirty ? "Не сохранено" : "Сохранено"}</span>
       <button class="btn ghost" onclick={() => (converting = true)}>Сделать объектом</button>
@@ -89,6 +121,23 @@
       </section>
 
       <div class="side">
+        <div class="tabs" role="tablist">
+          <button class:on={side === "preview"} onclick={() => (side = "preview")}>Предпросмотр</button>
+          <button class:on={side === "guard"} onclick={() => (side = "guard")}>Защита{#if form.state.trim() || form.access.trim()} <span class="dot">●</span>{/if}</button>
+          <button class:on={side === "dump"} onclick={() => (side = "dump")}>Что получит игрок</button>
+        </div>
+
+        {#if side === "preview"}
+        <section class="card previewcard">
+          <p class="muted small note">{previewNote}</p>
+          <DocPreview format={file.format} title={file.name} body={form.content} bind:issues />
+          {#if issues.length}
+            <ul class="issues">
+              {#each issues as issue}<li class={issue.level}><span class="mono">стр. {issue.line}</span> {issue.message}</li>{/each}
+            </ul>
+          {/if}
+        </section>
+        {:else if side === "guard"}
         <section class="card">
           <h2>Защита этого файла</h2>
           <label><span class="label">Условие доступа (пусто: открыто)</span>
@@ -101,7 +150,7 @@
             <ul class="problems">{#each preview.problems as bad}<li><span class="mono">стр. {bad.line}</span> {bad.message}</li>{/each}</ul>
           {/if}
         </section>
-
+        {:else}
         <section class="card">
           <h2>Что получит игрок</h2>
           {#snippet dump(title: string, data: Schemas["Dump"] | null | undefined)}
@@ -114,6 +163,7 @@
           {@render dump("Без слоёв", preview?.plain)}
           {#if preview?.layered}{@render dump("Со слоями", preview.layered)}{/if}
         </section>
+        {/if}
       </div>
     </div>
   </div>
@@ -133,6 +183,20 @@
   .pad { padding: 24px; }
   .head { display: flex; align-items: center; gap: 10px; padding: 12px 16px; border-bottom: 1px solid var(--line-soft); }
   h1 { margin: 0; font-size: 17px; }
+  .back { text-decoration: none; color: var(--text); }
+  .back:hover { text-decoration: none; }
+  .crumbs { display: flex; align-items: center; flex-wrap: wrap; gap: 4px; min-width: 0; font-size: 13px; }
+  .crumbs .sep { color: var(--faint); }
+  .tabs { display: flex; gap: 2px; padding: 4px; border: 1px solid var(--line-soft); border-radius: var(--radius); background: var(--panel); }
+  .tabs button { flex: 1; padding: 6px 10px; border: 0; border-radius: var(--radius-s); background: none; color: var(--muted); cursor: pointer; }
+  .tabs button:hover { color: var(--text); }
+  .tabs button.on { background: var(--panel-2); color: var(--text); }
+  .dot { color: var(--warn); font-size: 9px; }
+  .previewcard { flex: 1; min-height: 320px; padding: 0; gap: 0; overflow: hidden; }
+  .note { padding: 8px 14px; border-bottom: 1px solid var(--line-soft); }
+  .issues { margin: 0; padding: 8px 12px; list-style: none; max-height: 120px; overflow: auto; border-top: 1px solid var(--line-soft); font-size: 12.5px; }
+  .issues .error { color: var(--danger); }
+  .issues .warning { color: var(--warn); }
   .chip.own { background: var(--accent-soft); color: var(--accent); }
   .path { font-size: 12px; }
   .spacer { flex: 1; }

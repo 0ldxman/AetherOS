@@ -4,6 +4,7 @@
   import { adminUrl, api, problem, type Schemas } from "../lib/api";
   import CodeEditor from "../lib/CodeEditor.svelte";
   import FormatOptions from "../lib/FormatOptions.svelte";
+  import DocPreview from "../lib/DocPreview.svelte";
   import Hint from "../lib/Hint.svelte";
   import MarkupHelp from "../lib/MarkupHelp.svelte";
   import { go } from "../lib/router.svelte";
@@ -28,7 +29,7 @@
   let saving = $state(false);
   let conflict = $state<Schemas["Conflict"] | null>(null);
   let holder = $state<Schemas["Holder"] | null>(null);
-  let preview = $state<Schemas["PreviewOut"] | null>(null);
+  let issues = $state<Schemas["Issue"][]>([]);
   let keysMode = $state<"all" | "none">("all");
   let previewTab = $state<"body" | "infobox">("body");
   let fieldErrors = $state<Record<string, string[]>>({});
@@ -38,7 +39,6 @@
   const linkable = $derived(format?.content === "link_asset");
   const dirty = $derived(JSON.stringify(draft) !== saved);
   guardUnsaved(() => saved !== "" && dirty, (next) => next.split("?")[0].split("/")[2] === String(id));
-  const issues = $derived(preview ? [...(preview.issues.body ?? []), ...(preview.issues.infobox ?? [])] : []);
 
   function fill(found: Item) {
     item = found;
@@ -88,79 +88,7 @@
     holder = response.status === 423 ? (data as unknown as Schemas["Holder"]) : null;
   }
 
-  // Предпросмотр. Рисуется только открытая вкладка. Запросы идут по одному и не чаще раза в 300 мс (первый сразу),
-  // ответ подменяет содержимое страницы в рамке на месте, без перезагрузки оформления и со своей прокруткой.
-  let busy = false;
-  let sentAt = 0;
-  let wake: ReturnType<typeof setTimeout>;
-  let latest: { format: string; title: string; body: string; meta: string; mode: string; only: "body" | "infobox" } | null = null;
-  let lastKey = "";
-
-  $effect(() => {
-    const snapshot = { format: draft.format, title: draft.name, body: draft.body, meta: draft.meta, mode: keysMode, only: previewTab };
-    const key = JSON.stringify(snapshot);
-    if (key === lastKey) return;
-    lastKey = key;
-    latest = snapshot;
-    untrack(pump);
-  });
-
-  function pump() {
-    if (busy || !latest) return;
-    const wait = sentAt + 300 - Date.now();
-    if (wait > 0) {
-      clearTimeout(wake);
-      wake = setTimeout(pump, wait);
-      return;
-    }
-    const sent = latest;
-    latest = null;
-    busy = true;
-    sentAt = Date.now();
-    api.POST("/studio/api/items/preview", {
-      body: { format: sent.format, title: sent.title, body: sent.body, meta: sent.meta, keys: { mode: sent.mode, slugs: [] }, only: sent.only },
-    }).then(({ data }) => {
-      busy = false;
-      if (data) {
-        preview = data;
-        show(sent.only === "body" ? data.body : data.infobox);
-      }
-      pump();
-    });
-  }
-
-  // страницы документов прячут горизонтальный выход за край; в предпросмотре его нужно уметь прокрутить
-  const SCROLLABLE = "<style>html,body{overflow-x:auto!important}.page,.md--body{overflow-x:visible!important}</style>";
-  // то, что оживляют скрипты страницы при загрузке: такую страницу подменять на месте нельзя
-  const LIVE = /widget|<audio|<video|map-embed|<script/;
-  const sheets = (doc: Document) => [...doc.querySelectorAll("link[rel=stylesheet]")].map((link) => link.getAttribute("href")).join();
-
   let menu = $state(false);
-  let frame = $state<HTMLIFrameElement>();
-  let loaded = false;
-  let scroll = { x: 0, y: 0 };
-
-  function reframe(html: string) {
-    const win = frame?.contentWindow;
-    if (win && loaded) scroll = { x: win.scrollX, y: win.scrollY };
-    loaded = false;
-    if (frame) frame.srcdoc = html + SCROLLABLE;
-  }
-
-  function show(html: string) {
-    const doc = frame?.contentDocument;
-    if (!frame || !doc || !loaded) return reframe(html);
-    const next = new DOMParser().parseFromString(html, "text/html");
-    if (sheets(next) !== sheets(doc) || LIVE.test(doc.body.innerHTML) || LIVE.test(next.body.innerHTML)) return reframe(html);
-    doc.body.className = next.body.className;
-    doc.body.innerHTML = next.body.innerHTML;
-  }
-
-  function framed() {
-    if (!frame?.srcdoc) return;
-    loaded = true;
-    frame?.contentWindow?.scrollTo(scroll.x, scroll.y);
-  }
 
   onMount(() => {
     api.GET("/studio/api/formats").then(({ data }) => (formats = data ?? []));
@@ -168,7 +96,6 @@
     heartbeat();
     const beat = setInterval(heartbeat, 25_000);
     return () => {
-      clearTimeout(wake);
       clearInterval(beat);
       api.DELETE("/studio/api/items/{item_id}/lock", { params: { path: { item_id: id } } });
     };
@@ -304,7 +231,7 @@
           </select>
           <Hint text="Часть текста может быть скрыта от игрока, пока у него нет нужного ключа. «Со всеми ключами» показывает всё, «без ключей» то, что увидит игрок, у которого ключей ещё нет." />
         </nav>
-        <iframe title="Предпросмотр" bind:this={frame} onload={framed}></iframe>
+        <DocPreview format={draft.format} title={draft.name} body={draft.body} meta={draft.meta} only={previewTab} {keysMode} bind:issues />
         {#if issues.length}
           <ul class="issues">
             {#each issues as issue}
@@ -365,7 +292,6 @@
   .where { display: block; padding: 2px 0; }
   .small { font-size: 12px; }
   .hint { margin: -6px 0 0; }
-  iframe { flex: 1; width: 100%; border: 0; background: #fff; }
   .issues { margin: 0; padding: 8px 12px; list-style: none; max-height: 140px; overflow: auto; border-top: 1px solid var(--line-soft); font-size: 12.5px; }
   .issues li { padding: 2px 0; }
   .issues li.error { color: var(--danger); }
