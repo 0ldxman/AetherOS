@@ -3,6 +3,7 @@
   import { onMount } from "svelte";
   import { api, problem, type Schemas } from "../../lib/api";
   import Dialog from "../../lib/Dialog.svelte";
+  import { plural } from "../../lib/labels";
   import { go } from "../../lib/router.svelte";
   import { toast } from "../../lib/toast.svelte";
 
@@ -112,7 +113,11 @@
           {/if}
         </div>
       {:else}
-        <p class="muted">Объект не лежит ни в одном томе.</p>
+        {#if data.archives.length}
+          <p class="muted">Не лежит в томах, но входит в {data.archives.length} {plural(data.archives.length, "архив", "архива", "архивов")} (ниже): игрок получит его, распаковав архив.</p>
+        {:else}
+          <p class="warn">Объект нигде не лежит: игрок его не увидит. Положите его в том кнопкой выше.</p>
+        {/if}
       {/each}
       {#if data.placements.length > 1}
         <p class="muted small">Это один объект: правка текста, слоёв или ключей видна во всех {data.placements.length} местах.</p>
@@ -217,6 +222,7 @@
   .place:last-of-type { border-bottom: 0; }
   .path { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .flags { display: flex; gap: 4px; }
+  p.warn { color: var(--warn); margin: 0; }
   .chip.warnchip { background: rgba(242, 198, 109, 0.15); color: var(--warn); }
   .line { margin: 0; display: flex; gap: 8px; align-items: baseline; }
   .small { font-size: 12px; margin: 0; }

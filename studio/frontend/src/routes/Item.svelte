@@ -90,6 +90,17 @@
 
   let menu = $state(false);
 
+  // защита и ключи сохраняются своими запросами, но кнопка одна: шапка сохраняет всё несохранённое на странице
+  let part = $state<{ isDirty(): boolean; saveNow(): Promise<void> | void } | undefined>();
+  const partDirty = $derived((view === "protection" || view === "keys") && !!part?.isDirty());
+  const anyDirty = $derived(dirty || partDirty);
+
+  async function saveAll() {
+    if (dirty) await save();
+    if (dirty) return;                      // не сохранилось (конфликт или ошибка): остальное не трогаем
+    if (partDirty) await part?.saveNow();
+  }
+
   onMount(() => {
     api.GET("/studio/api/formats").then(({ data }) => (formats = data ?? []));
     load();
@@ -110,18 +121,18 @@
   }
 </script>
 
-<svelte:window onclick={() => (menu = false)} onkeydown={(event) => { if ((event.ctrlKey || event.metaKey) && event.key === "s") { event.preventDefault(); save(); } }} />
+<svelte:window onclick={() => (menu = false)} onkeydown={(event) => { if ((event.ctrlKey || event.metaKey) && event.key === "s") { event.preventDefault(); saveAll(); } }} />
 
 {#if !item}
   <p class="muted loading">Загрузка…</p>
 {:else}
   <div class="item">
     <header class="head">
-      <button class="btn ghost" onclick={back}>←</button>
+      <button class="btn ghost" onclick={back} aria-label="К списку объектов" title="К списку объектов">←</button>
       <input class="title" bind:value={draft.name} aria-label="Название" class:bad={fieldErrors.name} />
-      <span class="chip">{draft.format || "без формата"}</span>
+      <span class="chip" title={draft.format ? "Формат объекта" : "Формат не выбран: объект показывается как обычный текст. Выбрать можно на вкладке «Содержимое», «Свойства»."}>{draft.format || "без формата"}</span>
       <span class="status muted">
-        {#if dirty}<span class="dot"></span>Не сохранено{:else}Сохранено {when(item.updated_at)}{item.updated_by ? ` · ${item.updated_by}` : ""}{/if}
+        {#if anyDirty}<span class="dot"></span>Не сохранено{:else}Сохранено {when(item.updated_at)}{item.updated_by ? ` · ${item.updated_by}` : ""}{/if}
       </span>
       {#if item.view_url}
         <div class="openbtn">
@@ -135,8 +146,8 @@
           {/if}
         </div>
       {/if}
-      <a class="btn ghost" href={adminUrl(`filesystem/item/${item.id}/change/`)}>В старой админке</a>
-      <button class="btn primary" disabled={!dirty || saving} onclick={() => save()}>{saving ? "Сохраняю…" : "Сохранить"}</button>
+      <a class="legacy" href={adminUrl(`filesystem/item/${item.id}/change/`)} title="Старая админка: на время переезда">старая админка</a>
+      <button class="btn primary" disabled={!anyDirty || saving} onclick={saveAll}>{saving ? "Сохраняю…" : "Сохранить"}</button>
     </header>
 
     {#if fieldErrors.name}<p class="error-line">{fieldErrors.name.join(" ")}</p>{/if}
@@ -152,20 +163,20 @@
     {/if}
 
     <nav class="pagetabs">
-      <a class:on={view === "content"} href="#/items/{id}">Содержимое</a>
-      <a class:on={view === "where"} href="#/items/{id}/where" title="Тома и папки, где этот объект лежит. Один объект может лежать в нескольких местах: правка видна во всех.">Где лежит <span class="count">{item.placements.length}</span></a>
+      <a class:on={view === "content"} href="#/items/{id}">Содержимое{#if dirty && view !== "content"}<span class="unsaved" title="В тексте есть несохранённые правки"></span>{/if}</a>
+      <a class:on={view === "where"} href="#/items/{id}/where" title="Тома и папки, где этот объект лежит. Один объект может лежать в нескольких местах: правка видна во всех. В счёт входят и архивы, в которые объект включён.">Где лежит <span class="count">{item.placements.length + item.in_archives}</span></a>
       <a class:on={view === "protection"} href="#/items/{id}/protection" title="Как игрок получает содержимое: условие по ключам и слои защиты (пароль, маскировка). Для обычной открытой статьи не нужно.">Защита
-        {#if item.protected}<span class="count lock">●</span>{/if}</a>
-      <a class:on={view === "keys"} href="#/items/{id}/keys" title="Игровая механика: ключи, спрятанные в файле, и подписи для проверки подлинности. Для обычной статьи не нужно.">Ключи и подписи</a>
+        {#if item.protected}<span class="count lock" title="Есть условие или слои">●</span>{/if}{#if partDirty && view === "protection"}<span class="unsaved" title="Есть несохранённые правки"></span>{/if}</a>
+      <a class:on={view === "keys"} href="#/items/{id}/keys" title="Игровая механика: ключи, спрятанные в файле, и подписи для проверки подлинности. Для обычной статьи не нужно.">Ключи и подписи{#if partDirty && view === "keys"}<span class="unsaved" title="Есть несохранённые правки"></span>{/if}</a>
       <a class:on={view === "history"} href="#/items/{id}/history" title="Прежние версии текста: можно сравнить и восстановить.">История</a>
     </nav>
 
     {#if view === "where"}
       <ItemWhere {item} />
     {:else if view === "protection"}
-      <ItemProtection {item} onsaved={load} />
+      <ItemProtection bind:this={part} {item} onsaved={load} />
     {:else if view === "keys"}
-      <ItemKeys {item} />
+      <ItemKeys bind:this={part} {item} />
     {:else if view === "history"}
       <ItemHistory {item} {dirty} onrestore={load} />
     {:else}
@@ -266,6 +277,9 @@
   .title:focus { border-color: var(--accent); background: var(--bg); }
   .title.bad { border-color: var(--danger); }
   .status { margin-left: auto; display: flex; align-items: center; gap: 6px; font-size: 12.5px; }
+  .unsaved { display: inline-block; width: 7px; height: 7px; margin-left: 6px; border-radius: 50%; background: var(--warn); vertical-align: middle; }
+  .legacy { color: var(--faint); font-size: 12px; }
+  .legacy:hover { color: var(--muted); }
   .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--warn); }
   .error-line { margin: 6px 16px 0; color: var(--danger); }
   .banner { display: flex; align-items: center; gap: 10px; margin: 10px 16px 0; padding: 9px 12px; border-radius: var(--radius); }

@@ -7,7 +7,8 @@
   import Hint from "../lib/Hint.svelte";
   import { toast } from "../lib/toast.svelte";
   import { go } from "../lib/router.svelte";
-  import { ago } from "../lib/time";
+  import { plural } from "../lib/labels";
+  import { ago, full } from "../lib/time";
 
   let rows = $state<Schemas["LibraryRow"][]>([]);
   let formats = $state<Schemas["Format"][]>([]);
@@ -37,7 +38,7 @@
 
   let timer: ReturnType<typeof setTimeout>;
   $effect(() => {
-    const query = { ...filters, volume: filters.volume ? Number(filters.volume) : undefined };
+    const query = { ...filters, only: active.join(","), volume: filters.volume ? Number(filters.volume) : undefined };
     clearTimeout(timer);
     timer = setTimeout(async () => {
       loading = true;
@@ -46,11 +47,15 @@
     }, 200);
   });
 
-  const ONLY = [
-    ["", "все"], ["markup", "С разметкой"], ["recent", "правили за неделю"], ["mine", "правил я"], ["shared", "в нескольких местах"],
-    ["orphans", "нигде не лежат"], ["layers", "со слоями"], ["access", "с условием"], ["keys", "ключи"],
+  // признаки можно сочетать: показываются объекты, подходящие под все выбранные
+  const GROUPS: { label: string; items: [string, string, string?][] }[] = [
+    { label: "Что показать", items: [["markup", "✎ С разметкой", "Форматы с разметкой: подходят для статей и документов"], ["keys", "Ключи"]] },
+    { label: "Правки", items: [["recent", "за неделю"], ["mine", "мои"]] },
+    { label: "Состояние", items: [["orphans", "нигде не лежат", "Нет ни в одном томе и ни в одном архиве"], ["shared", "в нескольких местах"], ["layers", "со слоями"], ["access", "с условием"]] },
   ];
-  const KIND: Record<string, string> = { text: "текст", asset: "ассет", link: "ссылка", scene: "сцена", message: "письмо", empty: "пусто" };
+  let active = $state<string[]>([]);
+  const toggle = (flag: string) => (active = active.includes(flag) ? active.filter((f) => f !== flag) : [...active, flag]);
+  const KIND: Record<string, string> = { text: "текст", asset: "ассет", link: "ссылка", scene: "сцена", message: "письмо", archive: "архив", key: "ключ", empty: "без текста" };
 
   const MARKUP_TIP = "Форматы с разметкой: подходят для статей и документов";
 
@@ -67,7 +72,7 @@
 </script>
 
 <PageHead title="Объекты">
-  {#snippet sub()}Всё, что лежит в мире. Один объект может лежать в нескольких томах и архивах: правка видна везде.{/snippet}
+  {#snippet sub()}Все объекты мира. Один объект может лежать в нескольких томах и архивах: правка видна везде. Файлы без объекта (пустые файлы, которые создаются в томах) здесь не показываются: их видно в разделе <a href="#/volumes">«Тома и файлы»</a>.{/snippet}
     <select class="field auto" bind:value={filters.kind}>
       <option value="">любое содержимое</option>
       {#each Object.entries(KIND) as [value, label]}<option {value}>{label}</option>{/each}
@@ -85,17 +90,22 @@
     <button class="btn primary" onclick={() => (dialog = { name: "", format: "", slug: "", volume: "" })}>Новый объект</button>
 </PageHead>
 
-<nav class="chips">
-  {#each ONLY as [value, label]}
-    <button class="pick" class:on={filters.only === value} title={value === "markup" ? MARKUP_TIP : undefined} onclick={() => (filters.only = value)}>{value === "markup" ? "✎ " : ""}{label}</button>
+<nav class="chips" aria-label="Признаки">
+  {#each GROUPS as group (group.label)}
+    <span class="group"><span class="glabel">{group.label}</span>
+      {#each group.items as [value, label, tip] (value)}
+        <button class="pick" class:on={active.includes(value)} aria-pressed={active.includes(value)} title={tip} onclick={() => toggle(value)}>{label}</button>
+      {/each}
+    </span>
   {/each}
-  <span class="muted count">{loading ? "…" : rows.length >= 200 ? "первые 200" : `${rows.length}`}</span>
+  {#if active.length}<button class="reset" onclick={() => (active = [])}>сбросить признаки</button>{/if}
+  <span class="muted count">{loading ? "…" : rows.length >= 200 ? "первые 200" : `${rows.length} ${plural(rows.length, "объект", "объекта", "объектов")}`}</span>
 </nav>
 
 <section class="table">
   <div class="row head">
     <span><button class="sort" onclick={() => sortBy("name")}>Объект{arrow("name")}</button></span>
-    <span>Содержимое</span>
+    <span>Тип</span>
     <span><button class="sort" onclick={() => sortBy("places")}>Где лежит{arrow("places")}</button><Hint text="Том и путь, где лежит объект. Один объект может лежать в нескольких местах сразу: правка видна во всех. «арх.» — входит в архив (zip и подобные)." /></span>
     <span>Защита<Hint text="«слои» — шифрование и иные слои защиты содержимого. «условие» — правило, при котором игрок вообще получит доступ." /></span>
     <span class="num"><button class="sort" onclick={() => sortBy("size")}>Размер{arrow("size")}</button></span>
@@ -116,10 +126,10 @@
         {#if row.access}<span class="chip warnchip">условие</span>{/if}
       </span>
       <span class="num mono muted">{size(row.size)}</span>
-      <span class="muted">{ago(row.updated_at)}{row.updated_by ? ` · ${row.updated_by}` : ""}</span>
+      <span class="muted" title={full(row.updated_at)}>{ago(row.updated_at)}{row.updated_by ? ` · ${row.updated_by}` : ""}</span>
     </a>
   {:else}
-    {#if !loading}<p class="muted pad">Ничего не нашлось.</p>{/if}
+    {#if !loading}<p class="muted pad">Ничего не нашлось.{#if active.length || filters.q || filters.format || filters.kind || filters.volume || filters.path} <button class="reset" onclick={() => { active = []; filters = { ...filters, q: "", format: "", kind: "", volume: "", path: "" }; }}>Сбросить фильтры</button>{/if}</p>{/if}
   {/each}
 </section>
 
@@ -155,6 +165,10 @@
   .pick { padding: 3px 12px; border: 1px solid var(--line); border-radius: 999px; background: var(--bg); color: var(--muted); cursor: pointer; }
   .pick.on { border-color: var(--accent); background: var(--accent-soft); color: var(--text); }
   .count { margin-left: auto; }
+  .group { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+  .group + .group { padding-left: 14px; margin-left: 8px; border-left: 1px solid var(--line-soft); }
+  .glabel { color: var(--faint); font-size: 12px; margin-right: 2px; }
+  .reset { border: 0; background: none; color: var(--accent); cursor: pointer; padding: 0 4px; }
   .table { padding: 0 32px 32px; }
   .pad { padding: 12px 10px; }
   .row {

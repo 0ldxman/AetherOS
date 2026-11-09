@@ -58,6 +58,10 @@
     onsaved();
   }
 
+  // шапка карточки объекта спрашивает, есть ли несохранённое, и сохраняет вместе с остальным
+  export function isDirty(): boolean { return dirty; }
+  export function saveNow() { return save(); }
+
   const PARAMS = (layer: Schemas["Layer"]) => Object.entries(layer.params).map(([key, value]) => `${key}=${value}`).join(" ");
 </script>
 
@@ -67,9 +71,6 @@
       <span class="warn">Объект уже сохранил {conflict}.</span>
       <button class="btn danger" onclick={() => save(true)}>Сохранить моё поверх</button>
     {/if}
-    <span class="spacer"></span>
-    <span class="muted small">{dirty ? "Не сохранено" : "Сохранено"}</span>
-    <button class="btn primary" disabled={!dirty} onclick={() => save()}>Сохранить защиту</button>
   </div>
 
   <p class="muted small intro">Здесь настраивается, как игрок получает содержимое: сначала проверяется условие по ключам, потом он проходит слои защиты. Для обычной открытой статьи ничего заполнять не нужно.</p>
@@ -93,7 +94,7 @@
 
       <section class="card grow">
         <h2>Слои защиты</h2>
-        <p class="muted small">Что игроку надо пройти, чтобы получить содержимое: подобрать пароль, снять маскировку, найти сдвиг. Слои идут сверху вниз: верхний игрок снимает первым. Переключатель «Текст» показывает тот же стек строками, например <span class="mono">&gt; encrypted hunter2 attempts=3</span>.</p>
+        <p class="muted small">Что игроку надо пройти, чтобы получить содержимое: подобрать пароль, снять маскировку, найти сдвиг. Переключатель «Текст» показывает тот же стек строками, например <span class="mono">&gt; encrypted hunter2 attempts=3</span>.</p>
         <LayerBuilder bind:value={form.state} />
         {#if preview?.problems.length}
           <ul class="problems">{#each preview.problems as bad}<li><span class="mono">стр. {bad.line}</span> {bad.message}</li>{/each}</ul>
@@ -132,7 +133,6 @@
 <style>
   .wrap { display: flex; flex-direction: column; gap: 12px; padding: 12px 20px 24px; min-height: 0; flex: 1; }
   .bar { display: flex; align-items: center; gap: 10px; }
-  .spacer { flex: 1; }
   .warn { color: var(--warn); }
   .small { font-size: 12px; margin: 0; }
   .cols { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; min-height: 0; flex: 1; align-items: start; }

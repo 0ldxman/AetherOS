@@ -53,6 +53,7 @@ class ItemOut(Schema):
     updated_at: datetime
     created_at: datetime
     placements: list[Where]
+    in_archives: int           # в скольких архивах объект лежит членом
     holder: Holder | None
     view_url: str | None       # вьювер документа (дописать &as=all или &as=none)
 
@@ -217,6 +218,7 @@ def _out(item, user):
             Where(volume=p.volume_id, volume_name=p.volume.name or p.volume.slug, placement=p.pk, path=p.path())
             for p in item.placements.select_related("volume", "parent")
         ],
+        in_archives=item.in_archives.count(),
         holder=_holder(item, user),
         view_url=view_url(item),
     )
@@ -233,6 +235,7 @@ KINDS = {
     "scene": Q(scene__isnull=False),
     "message": Q(message__isnull=False),
     "empty": Q(asset__isnull=True, url="", scene__isnull=True, message__isnull=True, body=""),
+    "archive": Q(members__isnull=False),
 }
 
 
@@ -263,7 +266,7 @@ def library(
     request, q: str = "", format: str = "", kind: str = "", only: str = "", volume: int | None = None, path: str = "",
     sort: str = "-updated_at", limit: int = 200,
 ):
-    """Библиотека объектов. only: orphans (нигде не лежит), shared (лежит в нескольких местах), layers (со слоями),
+    """Библиотека объектов. only: один признак или несколько через запятую (должны выполняться все): orphans (нигде не лежит), shared (лежит в нескольких местах), layers (со слоями),
     access (с условием доступа), keys (объекты-ключи), markup (формат с разметкой), mine (правил я), recent (правили за неделю).
     volume и path: лежит в томе / в папке тома (с вложенными), хотя бы одним из мест. sort: поле со знаком «-» для убывания."""
     from datetime import timedelta
@@ -274,30 +277,34 @@ def library(
 
     found = Item.objects.select_related("updated_by").annotate(
         placement_count=Count("placements", distinct=True), archive_count=Count("in_archives", distinct=True),
+        member_count=Count("members", distinct=True),
     )
     words = q.strip()
     if words:
         found = found.filter(Q(name__icontains=words) | Q(slug__icontains=words) | Q(body__icontains=words))
     if format:
         found = found.filter(format=format)
-    if kind in KINDS:
-        found = found.filter(KINDS[kind])
-    if only == "orphans":
-        found = found.filter(placement_count=0, archive_count=0)
-    elif only == "shared":
-        found = found.filter(placement_count__gt=1)
-    elif only == "layers":
-        found = found.exclude(state="")
-    elif only == "access":
-        found = found.exclude(access={})
-    elif only == "keys":
+    if kind == "key":
         found = found.filter(format=KEY_FORMAT)
-    elif only == "markup":
-        found = found.filter(format__in=FileFormat.objects.filter(markup=True).values("name"))
-    elif only == "mine":
-        found = found.filter(updated_by=request.user)
-    elif only == "recent":
-        found = found.filter(updated_at__gte=timezone.now() - timedelta(days=7))
+    elif kind in KINDS:
+        found = found.filter(KINDS[kind])
+    for flag in dict.fromkeys(part for part in only.split(",") if part):
+        if flag == "orphans":
+            found = found.filter(placement_count=0, archive_count=0)
+        elif flag == "shared":
+            found = found.filter(placement_count__gt=1)
+        elif flag == "layers":
+            found = found.exclude(state="")
+        elif flag == "access":
+            found = found.exclude(access={})
+        elif flag == "keys":
+            found = found.filter(format=KEY_FORMAT)
+        elif flag == "markup":
+            found = found.filter(format__in=FileFormat.objects.filter(markup=True).values("name"))
+        elif flag == "mine":
+            found = found.filter(updated_by=request.user)
+        elif flag == "recent":
+            found = found.filter(updated_at__gte=timezone.now() - timedelta(days=7))
     if volume is not None or path.strip("/ "):
         found = found.filter(placements__in=_within(volume, path)).distinct()
     field = SORTS.get(sort.lstrip("-"), "updated_at")
@@ -314,6 +321,12 @@ def library(
 
 
 def _kind(item):
+    from filesystem.models import KEY_FORMAT
+
+    if getattr(item, "member_count", 0):
+        return "archive"
+    if item.format == KEY_FORMAT:
+        return "key"
     if item.asset_id:
         return "asset"
     if item.url:

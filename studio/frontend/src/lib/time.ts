@@ -1,7 +1,14 @@
 // Даты и сроки для людей: «29.10 10:15», «2 мин назад», «4:12».
 export function when(stamp: string | null | undefined): string {
   if (!stamp) return "—";
-  return new Date(stamp).toLocaleString("ru-RU", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
+  const date = new Date(stamp);
+  const year = date.getFullYear() === new Date().getFullYear() ? {} : { year: "numeric" as const };
+  return date.toLocaleString("ru-RU", { day: "2-digit", month: "2-digit", ...year, hour: "2-digit", minute: "2-digit" });
+}
+
+/** Полная дата для подсказки. */
+export function full(stamp: string | null | undefined): string {
+  return stamp ? new Date(stamp).toLocaleString("ru-RU", { dateStyle: "long", timeStyle: "short" }) : "";
 }
 
 export function ago(stamp: string): string {

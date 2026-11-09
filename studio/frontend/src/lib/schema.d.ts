@@ -340,7 +340,7 @@ export interface paths {
         };
         /**
          * Library
-         * @description Библиотека объектов. only: orphans (нигде не лежит), shared (лежит в нескольких местах), layers (со слоями),
+         * @description Библиотека объектов. only: один признак или несколько через запятую (должны выполняться все): orphans (нигде не лежит), shared (лежит в нескольких местах), layers (со слоями),
          *     access (с условием доступа), keys (объекты-ключи), markup (формат с разметкой), mine (правил я), recent (правили за неделю).
          *     volume и path: лежит в томе / в папке тома (с вложенными), хотя бы одним из мест. sort: поле со знаком «-» для убывания.
          */
@@ -2550,6 +2550,8 @@ export interface components {
             created_at: string;
             /** Placements */
             placements: components["schemas"]["Where"][];
+            /** In Archives */
+            in_archives: number;
             holder: components["schemas"]["Holder"] | null;
             /** View Url */
             view_url: string | null;

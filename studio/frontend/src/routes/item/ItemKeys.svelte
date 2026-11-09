@@ -38,6 +38,10 @@
     toast("Ключи и подписи сохранены.");
   }
 
+  // шапка карточки объекта спрашивает, есть ли несохранённое, и сохраняет вместе с остальным
+  export function isDirty(): boolean { return dirty; }
+  export function saveNow() { return save(); }
+
   function addEmbedded() {
     if (pickEmbedded && !embedded.includes(pickEmbedded)) embedded = [...embedded, pickEmbedded];
     pickEmbedded = "";
@@ -51,12 +55,6 @@
 
 {#if data}
   <div class="wrap">
-    <div class="bar">
-      <span class="spacer"></span>
-      <span class="muted small">{dirty ? "Не сохранено" : "Сохранено"}</span>
-      <button class="btn primary" disabled={!dirty} onclick={save}>Сохранить</button>
-    </div>
-
     <p class="muted small intro">Игровая механика: ключи, спрятанные в самом файле, и подписи для проверки подлинности. Для обычной статьи ничего заполнять не нужно.</p>
     <div class="cols">
       <section class="card">
@@ -117,8 +115,6 @@
 <style>
   .wrap { display: flex; flex-direction: column; gap: 12px; padding: 12px 20px 24px; max-width: 1100px; }
   .pad { padding: 20px; }
-  .bar { display: flex; align-items: center; gap: 10px; }
-  .spacer { flex: 1; }
   .small { font-size: 12px; margin: 0; }
   .cols { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; align-items: start; }
   .card { display: flex; flex-direction: column; gap: 8px; border: 1px solid var(--line-soft); border-radius: var(--radius); background: var(--panel); padding: 14px 16px; }
