@@ -14,9 +14,8 @@ from django.urls import path
 from map.bounds import lookup_regions
 from map.revisions import apply_data, export_scenes, import_scenes, record_revision
 from map.models import Country, CountryLabel, MapScene, MapSceneRevision, Ownership, Province
+from map.territory import TerritoryError, apply_ownership
 from map.views import _latest_ownerships
-
-APPLY_MAX_PROVINCES = 10000
 
 
 class CountryLabelInline(admin.TabularInline):
@@ -185,75 +184,13 @@ class OwnershipAdmin(admin.ModelAdmin):
         except (ValueError, KeyError, TypeError):
             return JsonResponse({"error": "неверный запрос"}, status=400)
 
-        if not isinstance(codes, list) or not all(isinstance(c, str) for c in codes):
-            return JsonResponse({"error": "codes должен быть списком строк"}, status=400)
-        codes = list(dict.fromkeys(codes))  # без повторов, порядок сохраняется
-        if not codes:
-            return JsonResponse({"error": "ничего не выделено"}, status=400)
-        if len(codes) > APPLY_MAX_PROVINCES:
-            return JsonResponse(
-                {"error": f"слишком много провинций (максимум {APPLY_MAX_PROVINCES})"}, status=400
-            )
-        if not (de_jure or de_facto):
-            return JsonResponse({"error": "нужно выбрать de jure или de facto"}, status=400)
-
         country = Country.objects.filter(pk=country_id).first()
-        if country is None:
-            return JsonResponse({"error": "страна не найдена"}, status=404)
-        if on_date < country.valid_from or (country.valid_to and on_date > country.valid_to):
-            period = f"{country.valid_from} - {country.valid_to or '...'}"
-            return JsonResponse(
-                {"error": f"страна {country.code} существует {period}, дата {on_date} вне этого периода"},
-                status=400,
-            )
-
-        provinces = {p.source_code: p for p in Province.objects.filter(source_code__in=codes)}
-        missing = [c for c in codes if c not in provinces]
-
-        # история владений выбранных провинций: от новых записей к старым
-        by_province = {}
-        for o in Ownership.objects.filter(province__in=provinces.values()).order_by(
-            "province_id", "-date_from", "-id"
-        ):
-            by_province.setdefault(o.province_id, []).append(o)
-
-        wanted = (country.pk, de_jure, de_facto)
-        to_create, to_update = [], []
-        unchanged = later = 0
-
-        for province in provinces.values():
-            rows = by_province.get(province.pk, [])
-            exact = next((o for o in rows if o.date_from == on_date), None)
-            current = next((o for o in rows if o.date_from <= on_date), None)
-            if any(o.date_from > on_date for o in rows):
-                later += 1
-
-            if exact is not None:
-                if (exact.country_id, exact.de_jure, exact.de_facto) == wanted:
-                    unchanged += 1
-                else:
-                    exact.country = country
-                    exact.de_jure, exact.de_facto = de_jure, de_facto
-                    to_update.append(exact)
-            elif current is not None and (current.country_id, current.de_jure, current.de_facto) == wanted:
-                unchanged += 1  # на эту дату владение и так такое
-            else:
-                to_create.append(Ownership(
-                    province=province, country=country, date_from=on_date,
-                    de_jure=de_jure, de_facto=de_facto,
-                ))
-
-        with transaction.atomic():
-            Ownership.objects.bulk_create(to_create)
-            Ownership.objects.bulk_update(to_update, ["country", "de_jure", "de_facto"])
-
-        return JsonResponse({
-            "created": len(to_create),
-            "updated": len(to_update),
-            "unchanged": unchanged,
-            "later": later,
-            "missing": missing,
-        })
+        try:
+            if country is None and isinstance(codes, list) and codes:
+                raise TerritoryError("страна не найдена", 404)
+            return JsonResponse(apply_ownership(codes, country, on_date, de_jure, de_facto))
+        except TerritoryError as error:
+            return JsonResponse({"error": str(error)}, status=error.status)
 
 
 @admin.register(CountryLabel)
