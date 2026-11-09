@@ -56,7 +56,8 @@
       <span class="muted">{event.detail}</span>
     </div>
   {:else}
-    {#if !loading}<p class="muted empty">Событий за этот срок нет.</p>{/if}
+    {#if !loading}<p class="muted empty">Событий за этот срок нет. В журнал попадают входы, отказы (неверный пароль, нет ключа, не с того хоста, вне окна времени), блокировки и действия автора.
+      {#if filters.days < 30}<button class="more" onclick={() => (filters.days = 30)}>Показать за месяц</button>{/if}</p>{/if}
   {/each}
 </div>
 
@@ -72,4 +73,5 @@
   .kind.bad { color: var(--danger); }
   .kind.info { color: var(--accent); }
   .empty { padding: 16px 10px; }
+  .more { border: 0; background: none; color: var(--accent); cursor: pointer; padding: 0 0 0 6px; }
 </style>

@@ -9656,6 +9656,22 @@
      "refusals": {
       "title": "Refusals",
       "type": "integer"
+     },
+     "last_login": {
+      "anyOf": [
+       {
+        "format": "date-time",
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Last Login"
+     },
+     "warnings": {
+      "title": "Warnings",
+      "type": "integer"
      }
     },
     "required": [
@@ -9667,7 +9683,9 @@
      "is_system",
      "accounts",
      "online",
-     "refusals"
+     "refusals",
+     "last_login",
+     "warnings"
     ],
     "title": "MachineRow",
     "type": "object"

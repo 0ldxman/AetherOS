@@ -134,7 +134,7 @@
           {#if row.has_key}<span class="chip">ключ</span>{/if}
           {#if !row.has_password && !row.has_key && !row.owner}<span class="chip warnchip" title="Ни пароля, ни ключа">открыта</span>{/if}
         </span>
-        <span class="sub muted">{row.owner ? `игрок ${row.owner}` : row.groups.join(", ") || "без групп"}</span>
+        <span class="sub muted">{row.name && row.name !== row.login ? `${row.name} · ` : ""}{row.owner ? `игрок ${row.owner}` : row.groups.join(", ") || "без групп"}</span>
       </a>
     {/each}
     <button class="btn add" onclick={() => (dialog = "new")}>+ Учётка</button>
@@ -156,7 +156,7 @@
           <h3>Кто это</h3>
           <div class="pair">
             <label><span class="label">Логин</span><input class="field mono" bind:value={form.login} class:bad={errors.login} /></label>
-            <label><span class="label">Частота / порт</span><input class="field mono" bind:value={form.freq} class:bad={errors.freq} /></label>
+            <label><span class="label">Частота / порт<Hint text="Где слушает эта запись: у систем Aether частота в МГц (14.230), у остальных порт (22)." /></span><input class="field mono" bind:value={form.freq} class:bad={errors.freq} /></label>
           </div>
           <label><span class="label">Имя</span><input class="field" bind:value={form.name} /></label>
           <label><span class="label">Почта</span><input class="field mono" bind:value={form.mail} class:bad={errors.mail} placeholder="{form.login}@{machine.hostname}" /></label>
@@ -195,7 +195,7 @@
           <label>
             <span class="label">Политика входа · сейчас {account.policy ? `«${account.policy.name}», ${ORIGIN[account.policy.origin ?? ""]}` : "никакой"}</span>
             <select class="field" bind:value={form.entry_policy}>
-              <option value={null}>наследовать</option>
+              <option value={null}>как у машины</option>
               {#each machine.policies as policy}<option value={policy.id}>{policy.name}</option>{/each}
             </select>
           </label>

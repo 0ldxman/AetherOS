@@ -3,6 +3,7 @@
   import { STATUS } from "../../lib/labels";
   import { guardUnsaved } from "../../lib/guard.svelte";
   import { api, problem, type Schemas } from "../../lib/api";
+  import { plural } from "../../lib/labels";
   import { ago, span, when } from "../../lib/time";
   import Dialog from "../../lib/Dialog.svelte";
   import { go } from "../../lib/router.svelte";
@@ -86,108 +87,142 @@
   }
 
   const KIND_TONE: Record<string, string> = { ok: "ok", unlocked: "info", kicked: "info", locked: "bad" };
+
+  // «Сейчас на машине»: число и всплывающий список с действиями. Открывается по наведению и фокусу, остаётся, пока на нём курсор или фокус,
+  // закрывается по Esc; на касании открывается нажатием.
+  let pop = $state(false);
+  let popTimer: ReturnType<typeof setTimeout>;
+  const openPop = () => { clearTimeout(popTimer); pop = true; };
+  const closePop = () => { clearTimeout(popTimer); popTimer = setTimeout(() => (pop = false), 150); };
+
+  let idOpen = $state(false);
+  $effect(() => { if (errors.host_key || errors.hid || errors.address || errors.serial) idOpen = true; });
 </script>
 
+{#if machine.warnings.length}
+  <div class="alerts" role="status">
+    {#each machine.warnings as item}
+      <p class="warn {item.level}">
+        {item.text}
+        {#if item.account}<a href="#/machines/{machine.id}/accounts/{item.account}">открыть учётку</a>{/if}
+      </p>
+    {/each}
+  </div>
+{/if}
+
+<div class="savebar" class:dirty>
+  <span class="state">{#if dirty}<span class="dot"></span>Не сохранено{:else}<span class="muted">Изменений нет</span>{/if}</span>
+  <button class="btn primary" disabled={!dirty || saving} onclick={save}>{saving ? "Сохраняю…" : "Сохранить"}</button>
+</div>
+
+<svelte:window onkeydown={(event) => event.key === "Escape" && (pop = false)} />
+
 <div class="grid">
-  <div class="col">
-    {#if machine.warnings.length}
-      <section class="card">
-        <h2>Обратите внимание</h2>
-        {#each machine.warnings as item}
-          <p class="warn {item.level}">
-            {item.text}
-            {#if item.account}<a href="#/machines/{machine.id}/accounts/{item.account}">открыть учётку</a>{/if}
-          </p>
-        {/each}
-      </section>
-    {/if}
+  <div class="main">
+    <section class="card">
+      <h2>Основное</h2>
+      <div class="pair">
+        <label><span class="label">Хост</span><input class="field mono" bind:value={form.hostname} class:bad={errors.hostname} />
+          {#if errors.hostname}<span class="err">{errors.hostname.join(" ")}</span>{/if}</label>
+        <label><span class="label">Название</span><input class="field" bind:value={form.name} /></label>
+      </div>
+      <div class="pair">
+        <label><span class="label">ОС</span>
+          <select class="field" bind:value={form.system}>{#each machine.systems as code}<option>{code}</option>{/each}</select>
+        </label>
+        <label><span class="label">Статус</span>
+          <select class="field" bind:value={form.status}>{#each machine.statuses as code}<option value={code}>{STATUS[code] ?? code}</option>{/each}</select>
+        </label>
+      </div>
+      <label><span class="label">Политика входа машины<Hint text="Как проверяется вход на эту машину. Учётка со своей политикой её перекрывает. Что действует для каждой учётки, видно на вкладке «Проверка входа»." /></span>
+        <select class="field" bind:value={form.entry_policy}>
+          <option value={null}>от ОС</option>
+          {#each machine.policies as policy}<option value={policy.id}>{policy.name}</option>{/each}
+        </select>
+      </label>
+    </section>
 
     <section class="card">
-      <h2>Сейчас на машине</h2>
-      {#each machine.online as row (row.session)}
-        <div class="online">
-          <span class="live-dot"></span>
-          <span><b>{row.player}</b> <span class="muted">как</span> <a href="#/machines/{machine.id}/accounts/{row.account}" class="mono">{row.login}</a></span>
-          <span class="muted small">{ago(row.seen_at)}</span>
-          {#if row.locked}<span class="chip bad">блок {span(row.locked)}</span>{/if}
-          <span class="spacer"></span>
-          {#if row.locked}<button class="btn ghost" onclick={() => act("unlock", row)}>Разблокировать</button>{/if}
-          <button class="btn ghost danger" onclick={() => act("kick", row)}>Выкинуть</button>
+      <h2>Для приветствия ОС</h2>
+      <p class="muted small lead">Попадает в приветствие ОС как <code>{"{note}"}</code> и <code>{"{uptime}"}</code>.</p>
+      <div class="pair">
+        <label><span class="label">Включена с</span><input class="field" type="datetime-local" bind:value={form.booted_at} /></label>
+      </div>
+      <label><span class="label">Заметка</span><textarea class="field" rows="3" bind:value={form.note}></textarea></label>
+    </section>
+
+    <section class="card">
+      <details bind:open={idOpen}>
+        <summary>Идентичность <span class="muted small">hid, адрес, серийный номер, ключ узла</span></summary>
+        <p class="muted small lead">Пустое поле: значение выводится из hid. Можно вписать своё или сгенерировать. Одинаковый hid у двух машин нормален: так клон выглядит той же машиной.</p>
+        <div class="idrow">
+          <label><span class="label">hid<Hint text="Аппаратный идентификатор машины. Одинаковый hid у двух машин значит, что одна из них клон другой." /></span><input class="field mono" bind:value={form.hid} class:bad={errors.hid} /></label>
+          <button class="btn ghost" onclick={() => generate("hid")}>Сгенерировать</button>
         </div>
-      {:else}
-        <p class="muted">Никого: за последние две минуты здесь не работал ни один игрок.</p>
-      {/each}
+        <div class="idrow">
+          <label><span class="label">Адрес (частота МГц или сетевой)</span><input class="field mono" placeholder={machine.auto_address} bind:value={form.address} /></label>
+          <button class="btn ghost" onclick={() => generate("address")}>Сгенерировать</button>
+        </div>
+        <div class="idrow">
+          <label><span class="label">Серийный номер</span><input class="field mono" placeholder={machine.auto_serial} bind:value={form.serial} /></label>
+          <button class="btn ghost" onclick={() => generate("serial")}>Сгенерировать</button>
+        </div>
+        <div class="idrow">
+          <label><span class="label">Ключ узла (host key)</span><input class="field mono" placeholder={machine.auto_host_key} bind:value={form.host_key} class:bad={errors.host_key || !art.valid} /></label>
+          <button class="btn ghost" onclick={() => generate("host_key")}>Перегенерировать</button>
+        </div>
+        {#if errors.host_key}<p class="err">{errors.host_key.join(" ")}</p>{:else if form.host_key && !art.valid}<p class="err">Отпечаток выглядит так: SHA256: и 43 символа base64.</p>{/if}
+        <pre class="art mono">{art.lines.join("\n")}</pre>
+      </details>
+    </section>
+
+    <div class="more-acts">
+      <button class="btn ghost" onclick={() => (dialog = "copy")}>Новая машина по образцу этой</button>
+      {#if !machine.is_system}<button class="btn ghost danger" onclick={() => (dialog = "delete")}>Удалить машину</button>{/if}
+    </div>
+  </div>
+
+  <aside class="side">
+    <section class="card now" role="group" aria-label="Сейчас на машине" onmouseenter={openPop} onmouseleave={closePop} onfocusin={openPop}
+             onfocusout={(event) => { if (!event.currentTarget.contains(event.relatedTarget as Node | null)) closePop(); }}>
+      <button class="nowbtn" aria-haspopup="true" aria-expanded={pop && machine.online.length > 0} disabled={!machine.online.length}
+              onclick={() => (pop = !pop)}>
+        <span class="big" class:live={machine.online.length > 0}>{machine.online.length}</span>
+        <span class="lbl">{plural(machine.online.length, "игрок", "игрока", "игроков")} на машине<br />
+          <span class="muted small">{machine.online.length ? "наведите, чтобы увидеть, кто" : "за последние две минуты никого"}</span></span>
+        {#if machine.online.length}<span class="live-dot"></span>{/if}
+      </button>
+      {#if pop && machine.online.length}
+        <div class="pop" role="region" aria-label="Кто сейчас на машине">
+          {#each machine.online as row (row.session)}
+            <div class="online">
+              <span class="live-dot"></span>
+              <span><b>{row.player}</b> <span class="muted">как</span> <a href="#/machines/{machine.id}/accounts/{row.account}" class="mono">{row.login}</a></span>
+              <span class="muted small">{ago(row.seen_at)}</span>
+              {#if row.locked}<span class="chip bad">блок {span(row.locked)}</span>{/if}
+              <span class="spacer"></span>
+              {#if row.locked}<button class="btn ghost" onclick={() => act("unlock", row)}>Разблокировать</button>{/if}
+              <button class="btn ghost danger" onclick={() => act("kick", row)}>Выкинуть</button>
+            </div>
+          {/each}
+        </div>
+      {/if}
     </section>
 
     <section class="card">
       <h2>Последние события <a class="more" href="#/machines/{machine.id}/journal">весь журнал →</a></h2>
-      {#each machine.events as event (event.id)}
+      {#each machine.events.slice(0, 6) as event (event.id)}
         <div class="event">
-          <span class="when mono">{when(event.at)}</span>
-          <span class="kind {KIND_TONE[event.kind] ?? 'bad'}">{event.label}</span>
-          <span class="who">
-            <span class="mono">{event.login}</span>
-            {#if event.player}<span>· {event.player}</span>{/if}
-            {#if event.source}<span class="muted">с {event.source}</span>{/if}
+          <span class="line1"><span class="kind {KIND_TONE[event.kind] ?? 'bad'}">{event.label}</span><span class="when mono">{when(event.at)}</span></span>
+          <span class="who muted">
+            <span class="mono">{event.login}</span>{#if event.player}{" "}· {event.player}{/if}{#if event.source}{" "}· с {event.source}{/if}
           </span>
         </div>
       {:else}
         <p class="muted">Входов ещё не было.</p>
       {/each}
     </section>
-  </div>
-
-  <section class="card props">
-    <h2>Свойства</h2>
-    <label><span class="label">Хост</span><input class="field mono" bind:value={form.hostname} class:bad={errors.hostname} /></label>
-    {#if errors.hostname}<p class="err">{errors.hostname.join(" ")}</p>{/if}
-    <label><span class="label">Название</span><input class="field" bind:value={form.name} /></label>
-    <div class="pair">
-      <label><span class="label">ОС</span>
-        <select class="field" bind:value={form.system}>{#each machine.systems as code}<option>{code}</option>{/each}</select>
-      </label>
-      <label><span class="label">Статус</span>
-        <select class="field" bind:value={form.status}>{#each machine.statuses as code}<option value={code}>{STATUS[code] ?? code}</option>{/each}</select>
-      </label>
-    </div>
-    <div class="pair">
-      <label><span class="label">Включена с</span><input class="field" type="datetime-local" bind:value={form.booted_at} /></label>
-    </div>
-    <label><span class="label">Заметка</span><textarea class="field" rows="3" bind:value={form.note}></textarea></label>
-    <p class="muted small">Заметка и «включена с» попадают в приветствие ОС как <code>{"{note}"}</code> и <code>{"{uptime}"}</code>.</p>
-    <h3 class="sub">Идентичность</h3>
-    <p class="muted small">Пустое поле: значение выводится из hid. Можно вписать своё или сгенерировать. Одинаковый hid у двух машин нормален: так клон выглядит той же машиной.</p>
-    <div class="idrow">
-      <label><span class="label">hid<Hint text="Аппаратный идентификатор машины. Одинаковый hid у двух машин значит, что одна из них клон другой." /></span><input class="field mono" bind:value={form.hid} class:bad={errors.hid} /></label>
-      <button class="btn ghost" onclick={() => generate("hid")}>Сгенерировать</button>
-    </div>
-    <div class="idrow">
-      <label><span class="label">Адрес (частота МГц или сетевой)</span><input class="field mono" placeholder={machine.auto_address} bind:value={form.address} /></label>
-      <button class="btn ghost" onclick={() => generate("address")}>Сгенерировать</button>
-    </div>
-    <div class="idrow">
-      <label><span class="label">Серийный номер</span><input class="field mono" placeholder={machine.auto_serial} bind:value={form.serial} /></label>
-      <button class="btn ghost" onclick={() => generate("serial")}>Сгенерировать</button>
-    </div>
-    <div class="idrow">
-      <label><span class="label">Ключ узла (host key)</span><input class="field mono" placeholder={machine.auto_host_key} bind:value={form.host_key} class:bad={errors.host_key || !art.valid} /></label>
-      <button class="btn ghost" onclick={() => generate("host_key")}>Перегенерировать</button>
-    </div>
-    {#if errors.host_key}<p class="err">{errors.host_key.join(" ")}</p>{:else if form.host_key && !art.valid}<p class="err">Отпечаток выглядит так: SHA256: и 43 символа base64.</p>{/if}
-    <pre class="art mono">{art.lines.join("\n")}</pre>
-    <label><span class="label">Политика входа машины</span>
-      <select class="field" bind:value={form.entry_policy}>
-        <option value={null}>от ОС</option>
-        {#each machine.policies as policy}<option value={policy.id}>{policy.name}</option>{/each}
-      </select>
-    </label>
-    <p class="muted small">Учётка со своей политикой её перекрывает. Что действует для каждой учётки, видно на вкладке «Вход».</p>
-    <button class="btn primary" disabled={!dirty || saving} onclick={save}>Сохранить</button>
-    <div class="more-acts">
-      <button class="btn ghost" onclick={() => (dialog = "copy")}>Новая машина по образцу этой</button>
-      {#if !machine.is_system}<button class="btn ghost danger" onclick={() => (dialog = "delete")}>Удалить машину</button>{/if}
-    </div>
-  </section>
+  </aside>
 </div>
 
 {#if dialog === "delete"}
@@ -197,37 +232,55 @@
   </Dialog>
 {:else if dialog === "copy"}
   <NewMachine machines={[{ id: machine.id, hostname: machine.hostname, name: machine.name, system: machine.system, status: machine.status,
-                           is_system: machine.is_system, accounts: 0, online: 0, refusals: 0 }]} like={machine.id} onclose={() => (dialog = null)} />
+                           is_system: machine.is_system, accounts: 0, online: 0, refusals: 0, last_login: null, warnings: 0 }]} like={machine.id} onclose={() => (dialog = null)} />
 {/if}
 
 <style>
-  .idrow { display: grid; grid-template-columns: 1fr max-content; gap: 8px; align-items: end; }
-  .sub { margin: 8px 0 0; font-size: 12px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.4px; }
-  .art { margin: 0; padding: 8px 10px; border-radius: var(--radius-s); background: #0b0d10; color: var(--muted); font-size: 12px; line-height: 1.15; overflow: auto; }
+  .idrow { display: grid; grid-template-columns: 1fr max-content; gap: 8px; align-items: end; margin-top: 10px; }
+  summary { cursor: pointer; font-size: 13px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.4px; }
+  summary .small { text-transform: none; letter-spacing: 0; font-weight: 400; margin-left: 8px; }
+  details[open] summary { margin-bottom: 8px; }
+  .lead { margin: 0 0 10px; }
+  .art { margin: 10px 0 0; padding: 8px 10px; border-radius: var(--radius-s); background: #0b0d10; color: var(--muted); font-size: 12px; line-height: 1.15; overflow: auto; }
+  .alerts { padding: 12px 20px 0; }
+  .savebar { position: sticky; top: 0; z-index: 3; display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 8px 20px; background: var(--bg); border-bottom: 1px solid var(--line-soft); }
+  .savebar.dirty { background: color-mix(in srgb, var(--warn) 7%, var(--bg)); }
+  .state { display: inline-flex; align-items: center; gap: 8px; font-size: 12.5px; }
+  .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--warn); }
   .grid { display: grid; grid-template-columns: 1fr 340px; gap: 16px; padding: 16px 20px 24px; align-items: start; }
-  .col { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
-  .card { border: 1px solid var(--line-soft); border-radius: var(--radius); background: var(--panel); padding: 14px 16px; }
-  h2 { display: flex; align-items: baseline; margin: 0 0 10px; font-size: 13px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.4px; }
+  .main, .side { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+  .card { border: 1px solid var(--line-soft); border-radius: var(--radius); background: var(--panel); padding: 14px 16px; display: flex; flex-direction: column; gap: 10px; }
+  h2 { display: flex; align-items: baseline; margin: 0; font-size: 13px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.4px; }
   .more { margin-left: auto; font-size: 12px; text-transform: none; letter-spacing: 0; }
   .warn { margin: 0 0 6px; padding: 7px 10px; border-radius: var(--radius-s); background: rgba(242, 198, 109, 0.08); border-left: 3px solid var(--warn); }
   .warn.info { background: var(--panel-2); border-left-color: var(--accent); }
   .warn a { margin-left: 6px; }
-  .online { display: flex; align-items: center; gap: 10px; padding: 6px 0; border-bottom: 1px solid var(--line-soft); }
+  .now { position: relative; padding: 10px 12px; }
+  .nowbtn { display: flex; align-items: center; gap: 12px; width: 100%; padding: 0; border: 0; background: none; text-align: left; cursor: pointer; }
+  .nowbtn:disabled { cursor: default; }
+  .big { font-size: 30px; font-weight: 650; line-height: 1; min-width: 32px; text-align: center; color: var(--muted); }
+  .big.live { color: var(--ok); }
+  .lbl { line-height: 1.3; }
+  .pop { position: absolute; z-index: 5; top: calc(100% + 4px); left: 0; right: 0; padding: 8px 10px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--panel); box-shadow: 0 10px 28px rgba(0, 0, 0, 0.5); }
+  .online { display: flex; align-items: center; flex-wrap: wrap; gap: 4px 10px; padding: 6px 0; border-bottom: 1px solid var(--line-soft); }
   .online:last-child { border-bottom: 0; }
-  .live-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--ok); }
+  .live-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--ok); flex: none; margin-left: auto; }
+  .online .live-dot { margin-left: 0; }
   .spacer { flex: 1; }
   .small { font-size: 12px; }
   .chip.bad { background: var(--danger-soft); color: var(--danger); }
-  .event { display: grid; grid-template-columns: 96px 150px 1fr; gap: 10px; padding: 4px 0; align-items: center; }
-  .when { color: var(--faint); }
-  .who { display: flex; gap: 6px; align-items: baseline; }
+  .event { display: flex; flex-direction: column; padding: 4px 0; border-bottom: 1px solid var(--line-soft); }
+  .event:last-child { border-bottom: 0; }
+  .line1 { display: flex; justify-content: space-between; gap: 8px; }
+  .when { color: var(--faint); font-size: 12px; }
+  .who { font-size: 12.5px; }
   .kind { font-size: 12.5px; }
   .kind.ok { color: var(--ok); }
   .kind.bad { color: var(--danger); }
   .kind.info { color: var(--accent); }
-  .props { display: flex; flex-direction: column; gap: 12px; position: sticky; top: 16px; }
   .pair { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
   .field.bad { border-color: var(--danger); }
-  .err { margin: -6px 0 0; color: var(--danger); font-size: 12px; }
-  .more-acts { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; padding-top: 8px; border-top: 1px solid var(--line-soft); }
+  .err { color: var(--danger); font-size: 12px; }
+  .more-acts { display: flex; flex-wrap: wrap; gap: 4px; padding-top: 4px; }
+  @media (max-width: 1100px) { .grid { grid-template-columns: 1fr; } .side { order: -1; } }
 </style>

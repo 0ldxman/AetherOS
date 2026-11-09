@@ -3216,6 +3216,10 @@ export interface components {
             online: number;
             /** Refusals */
             refusals: number;
+            /** Last Login */
+            last_login: string | null;
+            /** Warnings */
+            warnings: number;
         };
         /** MachineCreated */
         MachineCreated: {

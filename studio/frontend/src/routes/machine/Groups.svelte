@@ -70,6 +70,7 @@
       Привилегии учётки складываются по её группам; у root есть всё. Клик по клетке группы ОС переопределяет её на этой машине
       (у остальных машин этой ОС она не меняется). Группы для всех машин ОС — в <a href="#/systems/{machine.system}">ОС {machine.system}</a>.
     </p>
+    <p class="muted small legend"><span class="mono">✓</span> привилегия есть · <span class="mono">·</span> нет · «все учётки: да» значит, что группа действует для всех учёток машины без явного членства.</p>
     <div class="matrix" style:--cols={table.privileges.length}>
       <div class="cell head name">Группа</div>
       {#each table.privileges as privilege}<div class="cell head priv" title={privilege.label}>{privilege.code}<small>{privilege.label}</small></div>{/each}
@@ -135,4 +136,5 @@
   .acts { justify-content: flex-end; gap: 4px; }
   .chip.machine { background: var(--accent-soft); color: var(--accent); }
   .add { margin-top: 12px; }
+  .legend { margin: -4px 0 10px; }
 </style>

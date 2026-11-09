@@ -6,7 +6,7 @@ from datetime import datetime, timedelta
 
 from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError
-from django.db.models import Count, Q
+from django.db.models import Count, Max, Q
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from ninja import Router, Schema
@@ -36,6 +36,8 @@ class MachineRow(Schema):
     accounts: int
     online: int
     refusals: int
+    last_login: datetime | None     # последний успешный вход на любую учётку
+    warnings: int                   # сколько замечаний у машины (то, что видно на обзоре)
 
 
 class Policy(Schema):
@@ -208,8 +210,6 @@ def _warnings(machine, accounts):
                                   text=f"У учётки {profile.login} группы, которых нет на машине: {', '.join(unknown)}."))
     if not machine.hostname:
         found.append(Warning_(level="info", text="У машины нет имени хоста: к ней нельзя подключиться по имени."))
-    if machine.status != Machine.Status.ONLINE:
-        found.append(Warning_(level="info", text=f"Машина в статусе «{STATUS_RU.get(machine.status, machine.status)}»."))
     return found
 
 
@@ -221,10 +221,12 @@ def machines(request):
         account_count=Count("profiles", distinct=True),
         online_count=Count("profiles__sessions", filter=Q(profiles__sessions__seen_at__gte=alive), distinct=True),
         refusal_count=Count("profiles__events", filter=Q(profiles__events__at__gte=since, profiles__events__kind__in=REFUSALS), distinct=True),
-    )
+        last_login=Max("profiles__events__at", filter=Q(profiles__events__kind=LoginEvent.Kind.OK)),
+    ).prefetch_related("profiles")
     return [
         MachineRow(id=m.pk, hostname=m.hostname or "", name=m.name, system=m.system, status=m.status, is_system=m.is_system,
-                   accounts=m.account_count, online=m.online_count, refusals=m.refusal_count)
+                   accounts=m.account_count, online=m.online_count, refusals=m.refusal_count, last_login=m.last_login,
+                   warnings=len(_warnings(m, list(m.profiles.all()))))
         for m in rows
     ]
 

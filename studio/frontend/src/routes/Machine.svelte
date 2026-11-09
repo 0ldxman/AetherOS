@@ -26,7 +26,7 @@
   const TABS = [
     { key: "overview", label: "Обзор" },
     { key: "accounts", label: "Учётки" },
-    { key: "access", label: "Вход" },
+    { key: "access", label: "Проверка входа" },
     { key: "journal", label: "Журнал" },
     { key: "groups", label: "Группы" },
     { key: "disks", label: "Диски" },
@@ -38,15 +38,12 @@
 {:else}
   <div class="machine">
     <header class="head">
-      <button class="btn ghost" onclick={() => go("/machines")}>←</button>
+      <button class="btn ghost" onclick={() => go("/machines")} aria-label="К списку машин" title="К списку машин">←</button>
       <span class="dot {machine.status.toLowerCase()}"></span>
       <h1 class="mono">{machine.hostname || "без хоста"}</h1>
       <span class="muted">{machine.name}</span>
       <span class="chip">{machine.system}</span>
       <span class="chip">{STATUS[machine.status] ?? machine.status}</span>
-      {#if machine.hid}<span class="chip mono">hid {machine.hid}</span>{/if}
-      <span class="spacer"></span>
-      <button class="btn" onclick={() => go(`/machines/${id}/access`)}>Проверить вход</button>
     </header>
 
     <nav class="tabs">

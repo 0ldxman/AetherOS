@@ -51,6 +51,13 @@ class MachinesApiTests(TestCase):
         LoginEvent.objects.create(profile=self.vault, user=self.ivan, kind="ok")
         row = self.call("get", "/machines")[1][0]
         self.assertEqual((row["hostname"], row["accounts"], row["online"], row["refusals"]), ("aether-core", 2, 1, 1))
+        self.assertIsNotNone(row["last_login"])
+        self.assertEqual(row["warnings"], len(self.call("get", f"/machines/{self.core.pk}")[1]["warnings"]))
+
+    def test_the_status_of_a_machine_is_not_a_warning(self):
+        Machine.objects.filter(pk=self.core.pk).update(status="OFFLINE")
+        texts = " ".join(w["text"] for w in self.call("get", f"/machines/{self.core.pk}")[1]["warnings"])
+        self.assertNotIn("в статусе", texts)
 
     def test_the_overview_warns_about_open_accounts_and_unknown_groups(self):
         status, data = self.call("get", f"/machines/{self.core.pk}")
