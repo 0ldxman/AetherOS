@@ -469,6 +469,10 @@ class Volume(models.Model):
         "Доступ", default=dict, blank=True, validators=[validate_requirements],
         help_text="Условие по слагам ключей, закрывающее весь том. Пусто: всем.",
     )
+    system = models.BooleanField(
+        "Системный", default=False,
+        help_text="Создан автоматически для одной машины и хранит её отличия от общих томов. Остальные тома это обычные диски мира.",
+    )
     capacity_gb = models.PositiveIntegerField(
         "Ёмкость, ГБ", null=True, blank=True, help_text="Условный размер диска, декор: показывается в приветствии ОС ({disk_total}). Пусто: не задан.",
     )

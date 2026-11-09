@@ -24,6 +24,7 @@ class VolumeRow(Schema):
     slug: str
     name: str
     label: str
+    system: bool            # создан автоматически для одной машины (отличия)
     files: int
     folders: int
     mounts: list[Mount]
@@ -122,7 +123,7 @@ def volumes(request):
         )
     )
     return [
-        VolumeRow(id=v.pk, slug=v.slug, name=v.name, label=v.label, files=v.files, folders=v.folders, mounts=_mounts(v))
+        VolumeRow(id=v.pk, slug=v.slug, name=v.name, label=v.label, system=v.system, files=v.files, folders=v.folders, mounts=_mounts(v))
         for v in found
     ]
 

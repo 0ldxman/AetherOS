@@ -50,7 +50,7 @@ def overlay_for(machine, point, create=True):
     while Volume.objects.filter(slug=slug).exists():
         number += 1
         slug = f"{base}-{number}"
-    volume = Volume.objects.create(slug=slug, label=f"Отличия {machine.label}")
+    volume = Volume.objects.create(slug=slug, label=f"Отличия {machine.label}", system=True)
     mount = MachineMount.objects.create(machine=machine, volume=volume, mount_path=point, order=(top.order + 1) if top else 0)
     return mount, volume
 

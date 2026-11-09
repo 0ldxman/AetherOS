@@ -6711,6 +6711,10 @@
       "title": "Label",
       "type": "string"
      },
+     "system": {
+      "title": "System",
+      "type": "boolean"
+     },
      "files": {
       "title": "Files",
       "type": "integer"
@@ -6732,6 +6736,7 @@
      "slug",
      "name",
      "label",
+     "system",
      "files",
      "folders",
      "mounts"

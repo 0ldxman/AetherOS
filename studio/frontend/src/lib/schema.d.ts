@@ -2101,6 +2101,8 @@ export interface components {
             name: string;
             /** Label */
             label: string;
+            /** System */
+            system: boolean;
             /** Files */
             files: number;
             /** Folders */

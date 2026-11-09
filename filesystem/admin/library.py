@@ -160,7 +160,7 @@ class VolumeForm(forms.ModelForm):
 
     class Meta:
         model = Volume
-        fields = ("slug", "name", "uuid", "label", "access")
+        fields = ("slug", "name", "uuid", "label", "system", "access")
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -184,11 +184,12 @@ class VolumeAdmin(KeyConditionsMixin, VolumeFiles, admin.ModelAdmin):
     condition_fields = ("access",)
     change_form_template = "admin/filesystem/volume/change_form.html"
     inlines = (VolumeMountInline,)
-    list_display = ("slug", "name", "label", "uuid", "placements_count", "mounts_count", "files_link")
+    list_display = ("slug", "name", "label", "system", "uuid", "placements_count", "mounts_count", "files_link")
+    list_filter = ("system",)
     search_fields = ("slug", "name", "label", "uuid")
 
     def get_fieldsets(self, request, obj=None):
-        fields = ["slug", "name", "uuid", "label", "access"]
+        fields = ["slug", "name", "uuid", "label", "system", "access"]
         if obj is None:
             fields.append("template")
         return ((None, {"fields": fields}),)
