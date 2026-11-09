@@ -68,6 +68,12 @@ class Machine(models.Model):
         "Включена", null=True, blank=True, help_text="С какого момента работает машина; от него считается {uptime}. Пусто: неизвестно.",
     )
 
+    overlay = models.OneToOneField(
+        "filesystem.Volume", null=True, blank=True, on_delete=models.SET_NULL, related_name="overlay_of", verbose_name="Том отличий",
+        help_text="Единственный том с отличиями этой машины от общих дисков. Лежит над всеми её дисками, на любых точках монтирования; "
+                  "сюда ложатся правки общих файлов. Пусто: создастся сам при первой правке.",
+    )
+
     entry_policy = models.ForeignKey(
         "machines.EntryPolicy", null=True, blank=True, on_delete=models.SET_NULL, related_name="machines", verbose_name="Политика входа",
         help_text="Для записей машины, у которых своей политики нет. Пусто: политика типа системы.",

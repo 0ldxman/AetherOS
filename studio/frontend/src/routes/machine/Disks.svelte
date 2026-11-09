@@ -62,6 +62,29 @@
     if (data) disks = data;
   }
 
+  let overlayBusy = $state(false);
+  async function setOverlay(volume: number | null) {
+    overlayBusy = true;
+    const { data, error } = await api.PUT("/studio/api/machines/{machine_id}/overlay", { params: { path }, body: { volume } });
+    overlayBusy = false;
+    if (error || !data) return toast(problem(error, "Не получилось."), "error");
+    disks = data;
+    toast(volume === null ? "Выбор тома отличий снят." : "Том отличий назначен.");
+    if (listing) open(listing.path);
+  }
+  async function changeOverlay(event: Event) {
+    const select = event.currentTarget as HTMLSelectElement;
+    const value = select.value === "" ? null : +select.value;
+    if (value === (disks?.overlay?.id ?? null)) return;
+    const had = disks?.overlay;
+    if (had && !(await ask(value === null ? "Снять том отличий?" : "Сменить том отличий?",
+        `Правки этой машины лежат в «${had.label}». После смены они пропадут из её файловой системы, а том останется в мире.`, "Сменить"))) {
+      select.value = String(had.id);
+      return;
+    }
+    setOverlay(value);
+  }
+
   async function addExport() {
     const { data, error } = await api.POST("/studio/api/machines/{machine_id}/exports", { params: { path }, body: { path: newExport } });
     if (error || !data) return toast(problem(error), "error");
@@ -100,6 +123,17 @@
             </div>
           {/each}
         {/if}
+        <h2>Том отличий</h2>
+        <p class="muted small">Один том, куда ложатся все правки этой машины: изменённые и новые файлы, скрытые файлы. Лежит над всеми её дисками, в том числе над общими на любых точках монтирования, поэтому общие диски других машин не затрагиваются.</p>
+        <div class="overlay">
+          <select class="field" value={disks.overlay?.id ?? ""} disabled={overlayBusy} onchange={changeOverlay} aria-label="Том отличий">
+            <option value="">{disks.overlay ? "— снять выбор —" : "— создастся при первой правке —"}</option>
+            {#if disks.overlay}<option value={disks.overlay.id}>{disks.overlay.label}</option>{/if}
+            {#each disks.overlay_choices as volume (volume.id)}<option value={volume.id}>{volume.label}</option>{/each}
+          </select>
+        </div>
+        {#if !disks.overlay}<p class="muted small">Выбора нет: том создастся сам (<span class="mono">{machine.hostname}-own</span>), когда вы впервые измените файл этой машины. Можно заранее назначить пустой том отсюда.</p>{/if}
+
         <h2>Монтирования <button class="btn ghost" onclick={() => edit(null)}>+ Подключить</button></h2>
         {#each disks.mounts as mount (mount.id)}
           <div class="mount">
@@ -111,10 +145,13 @@
             {:else}
               <span><span class="chip">том</span> {mount.volume?.label}{#if mount.volume_path}<span class="mono muted"> /{mount.volume_path}</span>{/if}</span>
             {/if}
-            {#if mount.order}<span class="chip">слой {mount.order}</span>{/if}
+            {#if mount.order && !mount.overlay}<span class="chip">слой {mount.order}</span>{/if}
+            {#if mount.overlay}<span class="chip" title="Том отличий этой машины. Меняется выбором выше.">отличия</span>{/if}
             <span class="spacer"></span>
-            <button class="btn ghost" onclick={() => edit(mount)}>Изменить</button>
-            <button class="btn ghost danger" onclick={() => dropMount(mount)}>Отключить</button>
+            {#if !mount.overlay}
+              <button class="btn ghost" onclick={() => edit(mount)}>Изменить</button>
+              <button class="btn ghost danger" onclick={() => dropMount(mount)}>Отключить</button>
+            {/if}
           </div>
         {:else}
           <p class="muted">Ничего не смонтировано: корень появится сам, когда на машину впервые что-то запишут.</p>
@@ -221,6 +258,7 @@
 {/if}
 
 <style>
+  .overlay { margin: 6px 0 12px; }
   .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; padding: 16px 20px 24px; align-items: start; }
   .col { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
   .pad { padding: 20px; }

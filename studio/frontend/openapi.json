@@ -3494,6 +3494,54 @@
     ]
    }
   },
+  "/studio/api/machines/{machine_id}/overlay": {
+   "put": {
+    "operationId": "studio_api_disks_set_overlay",
+    "summary": "Set Overlay",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "machine_id",
+      "schema": {
+       "title": "Machine Id",
+       "type": "integer"
+      },
+      "required": true
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Disks"
+        }
+       }
+      }
+     }
+    },
+    "description": "Выбрать том отличий машины (или снять выбор). Том ложится над всеми дисками машины; прежний остаётся в мире отдельным.",
+    "tags": [
+     "disks"
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/OverlayIn"
+       }
+      }
+     },
+     "required": true
+    },
+    "security": [
+     {
+      "SessionAuthIsStaff": []
+     }
+    ]
+   }
+  },
   "/studio/api/machines/{machine_id}/exports": {
    "post": {
     "operationId": "studio_api_disks_new_export",
@@ -6715,6 +6763,10 @@
       "title": "System",
       "type": "boolean"
      },
+     "overlay_of": {
+      "title": "Overlay Of",
+      "type": "string"
+     },
      "files": {
       "title": "Files",
       "type": "integer"
@@ -6737,6 +6789,7 @@
      "name",
      "label",
      "system",
+     "overlay_of",
      "files",
      "folders",
      "mounts"
@@ -10930,6 +10983,11 @@
      "order": {
       "title": "Order",
       "type": "integer"
+     },
+     "overlay": {
+      "default": false,
+      "title": "Overlay",
+      "type": "boolean"
      }
     },
     "required": [
@@ -10976,6 +11034,23 @@
       "title": "Volumes",
       "type": "array"
      },
+     "overlay": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/Ref"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "overlay_choices": {
+      "items": {
+       "$ref": "#/components/schemas/Ref"
+      },
+      "title": "Overlay Choices",
+      "type": "array"
+     },
      "hosts": {
       "items": {
        "$ref": "#/components/schemas/Host"
@@ -10989,6 +11064,8 @@
      "mounts",
      "exports",
      "volumes",
+     "overlay",
+     "overlay_choices",
      "hosts"
     ],
     "title": "Disks",
@@ -11153,6 +11230,23 @@
      }
     },
     "title": "MountIn",
+    "type": "object"
+   },
+   "OverlayIn": {
+    "properties": {
+     "volume": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Volume"
+     }
+    },
+    "title": "OverlayIn",
     "type": "object"
    },
    "ExportIn": {

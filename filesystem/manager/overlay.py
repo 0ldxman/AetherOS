@@ -10,7 +10,7 @@ import posixpath
 
 from django.core.exceptions import ValidationError
 from django.db import transaction
-from django.db.models import Count
+from django.db.models import Count, Max
 
 from filesystem.manager.filemanager import FileManagerError, check_free, clean_name, split_file_name, unique_slug
 from filesystem.machine_view import MachineView
@@ -37,12 +37,36 @@ def point_for(view, path):
     return max(covering, key=lambda point: point.count("/") if point != "/" else 0, default="/")
 
 
-def overlay_for(machine, point, create=True):
-    """(монтирование, том) отличий машины на этой точке; создаётся при первом обращении."""
-    mounts = list(MachineMount.objects.filter(machine=machine, mount_path=point).select_related("volume").order_by("order", "id"))
-    top = mounts[-1] if mounts else None
-    if top is not None and top.volume_path == "" and is_private(machine, top):
-        return top, top.volume
+class Home:
+    """Куда ложится правка пути: том (приватный диск на месте или том отличий машины), его монтирование и точка, от которой
+    считаются пути внутри тома (у тома отличий это «/»: в нём лежат полные пути машины)."""
+
+    def __init__(self, mount, volume, point, machine_wide):
+        self.mount, self.volume, self.point, self.machine_wide = mount, volume, point, machine_wide
+
+    def rel(self, path):
+        return rel_inner(self.point, path)
+
+
+def assign_overlay(machine, volume):
+    """Сделать том отличиями машины: он монтируется на «/» поверх всех её слоёв (сборка вида кладёт его последним).
+    Прежнее монтирование отличий снимается, сам прежний том остаётся в мире. -> (монтирование, том)."""
+    with transaction.atomic():
+        if machine.overlay_id and machine.overlay_id != volume.pk:
+            MachineMount.objects.filter(machine=machine, volume_id=machine.overlay_id, mount_path="/", volume_path="").delete()
+        machine.overlay = volume
+        machine.save(update_fields=["overlay"])
+        mount = MachineMount.objects.filter(machine=machine, volume=volume, mount_path="/", volume_path="").first()
+        if mount is None:
+            top = MachineMount.objects.filter(machine=machine, mount_path="/").aggregate(top=Max("order"))["top"]
+            mount = MachineMount.objects.create(machine=machine, volume=volume, mount_path="/", order=0 if top is None else top + 1)
+        return mount, volume
+
+
+def machine_overlay(machine, create=True):
+    """(монтирование, том) отличий машины: один на машину. Без выбора создаётся при первой правке (create) или (None, None)."""
+    if machine.overlay_id:
+        return assign_overlay(machine, machine.overlay)
     if not create:
         return None, None
     base = f"{machine.label}-own"
@@ -50,9 +74,27 @@ def overlay_for(machine, point, create=True):
     while Volume.objects.filter(slug=slug).exists():
         number += 1
         slug = f"{base}-{number}"
-    volume = Volume.objects.create(slug=slug, label=f"Отличия {machine.label}", system=True)
-    mount = MachineMount.objects.create(machine=machine, volume=volume, mount_path=point, order=(top.order + 1) if top else 0)
-    return mount, volume
+    return assign_overlay(machine, Volume.objects.create(slug=slug, label=f"Отличия {machine.label}"))
+
+
+def is_overlay_layer(machine, layer):
+    return layer is not None and machine.overlay_id is not None and layer.mount.volume_id == machine.overlay_id
+
+
+def home_for(machine, view, path, entry=None, create=True):
+    """Куда писать правку пути. Приватный диск, смонтированный на точку пути только на эту машину, правится на месте (так всегда
+    было); всё остальное, в том числе файлы общих дисков на любых точках, уходит в том отличий машины. -> Home или None
+    (нет тома отличий и create=False)."""
+    layer = entry.layer if entry is not None else None
+    if not is_overlay_layer(machine, layer):
+        point = layer.point if layer is not None else point_for(view, path)
+        mounts = MachineMount.objects.filter(machine=machine, mount_path=point).select_related("volume").order_by("order", "id")
+        mounts = [m for m in mounts if m.volume_id is None or m.volume_id != machine.overlay_id]
+        top = mounts[-1] if mounts else None
+        if top is not None and top.volume_path == "" and is_private(machine, top):
+            return Home(top, top.volume, point, False)
+    mount, volume = machine_overlay(machine, create)
+    return Home(mount, volume, "/", True) if volume is not None else None
 
 
 def find_placement(volume, rel):
@@ -107,10 +149,13 @@ def clone_item(item, machine):
     return copy
 
 
-def _lower_has(view, machine, point, overlay_mount, path):
-    """Есть ли путь в слоях ниже тома отличий на этой точке."""
+def _lower_has(view, machine, home, path):
+    """Есть ли путь в слоях ниже тома, куда ложится правка: у тома отличий это все остальные слои машины, у приватного диска
+    только слои под ним на той же точке."""
     for layer in view.layers:
-        if layer.point == point and layer.mount.order < overlay_mount.order and layer.mount.pk != overlay_mount.pk:
+        if layer.mount.pk == home.mount.pk or is_overlay_layer(machine, layer):
+            continue
+        if home.machine_wide or (layer.point == home.point and layer.mount.order < home.mount.order):
             if path in view.layer_paths(layer):
                 return True
     return False
@@ -135,9 +180,9 @@ def override(machine, path):
     mount = entry.layer.mount
     if mount.volume_path == "" and is_private(machine, mount):
         return entry.item                                              # файл уже из тома отличий: правится на месте
-    overlay_mount, volume = overlay_for(machine, entry.layer.point)
-    rel = rel_inner(entry.layer.point, path)
-    parent = ensure_folders(volume, posixpath.dirname(rel), view, entry.layer.point)
+    home = home_for(machine, view, path, entry)
+    volume, rel = home.volume, home.rel(path)
+    parent = ensure_folders(volume, posixpath.dirname(rel), view, home.point)
     existing = Placement.objects.filter(volume=volume, parent=parent, name=posixpath.basename(rel)).first()
     if existing is not None:
         if existing.kind == Placement.Kind.WHITEOUT:
@@ -163,16 +208,15 @@ def set_rights(machine, path, owner="", group="", mode=""):
     entry = _entry(view, path)
     owner, group, mode = (owner or "").strip(), (group or "").strip(), (mode or "").strip()
     if entry.is_dir:
-        point = entry.layer.point if entry.layer is not None else point_for(view, path)
-        _, volume = overlay_for(machine, point)
-        rel = rel_inner(point, path)
+        home = home_for(machine, view, path, entry)
+        rel = home.rel(path)
         if not rel:
             raise FileManagerError("Права точки монтирования задаёт сам том.")
-        placement = ensure_folders(volume, rel, view, point)
+        placement = ensure_folders(home.volume, rel, view, home.point)
     else:
         override(machine, path)
-        _, volume = overlay_for(machine, entry.layer.point)
-        placement = find_placement(volume, rel_inner(entry.layer.point, path))
+        home = home_for(machine, view, path, entry)
+        placement = find_placement(home.volume, home.rel(path))
     placement.owner, placement.group, placement.mode = owner, group, mode
     try:
         placement.full_clean(exclude=("name", "item", "parent", "volume", "access", "state"))
@@ -187,14 +231,13 @@ def delete(machine, path):
     """Убрать файл или папку из вида машины: свой файл удаляется, файл нижнего слоя скрывается надгробием."""
     view = MachineView(machine, None)
     entry = _entry(view, path)
-    point = entry.layer.point if entry.layer is not None else point_for(view, path)
-    overlay_mount, volume = overlay_for(machine, point)
-    rel = rel_inner(point, path)
+    home = home_for(machine, view, path, entry)
+    volume, rel = home.volume, home.rel(path)
     own = find_placement(volume, rel)
     if own is not None and own.kind != Placement.Kind.WHITEOUT:
         own.delete()
-    came_from_below = entry.layer is None or entry.layer.mount.pk != overlay_mount.pk
-    if came_from_below or _lower_has(view, machine, point, overlay_mount, path):
+    came_from_below = entry.layer is None or entry.layer.mount.pk != home.mount.pk
+    if came_from_below or _lower_has(view, machine, home, path):
         if find_placement(volume, rel) is None:
             parent = ensure_folders(volume, posixpath.dirname(rel))
             Placement.objects.create(volume=volume, parent=parent, kind=Placement.Kind.WHITEOUT, name=posixpath.basename(rel))
@@ -220,9 +263,8 @@ def reset(machine, path):
     """Сбросить перекрытие: убрать файл или папку из тома отличий, вернётся то, что лежит ниже."""
     view = MachineView(machine, None)
     entry = _entry(view, path)
-    point = entry.layer.point if entry.layer is not None else point_for(view, path)
-    overlay_mount, volume = overlay_for(machine, point, create=False)
-    found = find_placement(volume, rel_inner(point, path)) if volume is not None else None
+    home = home_for(machine, view, path, entry, create=False)
+    found = find_placement(home.volume, home.rel(path)) if home is not None else None
     if found is None or found.kind == Placement.Kind.WHITEOUT:
         raise FileManagerError("На этой машине этот путь не менялся.")
     found.delete()
@@ -234,19 +276,18 @@ def _target(machine, parent_path):
     parent_path = "/" + parent_path.strip("/")
     if parent_path != "/" and not view.is_directory(parent_path):
         raise FileManagerError("Такой папки нет.")
-    point = point_for(view, parent_path)
-    return view, point, parent_path
+    return view, parent_path
 
 
 @transaction.atomic
 def new_folder(machine, parent_path, name):
     name = clean_name(name)
-    view, point, parent_path = _target(machine, parent_path)
+    view, parent_path = _target(machine, parent_path)
     if view.exists(posixpath.join(parent_path, name)):
         raise FileManagerError(f"«{name}» уже есть в этой папке.")
-    overlay_mount, volume = overlay_for(machine, point)
-    parent = ensure_folders(volume, rel_inner(point, parent_path))
-    return Placement.objects.create(volume=volume, parent=parent, kind=Placement.Kind.FOLDER, name=name)
+    home = home_for(machine, view, posixpath.join(parent_path, name))
+    parent = ensure_folders(home.volume, home.rel(parent_path))
+    return Placement.objects.create(volume=home.volume, parent=parent, kind=Placement.Kind.FOLDER, name=name)
 
 
 @transaction.atomic
@@ -254,13 +295,13 @@ def new_file(machine, parent_path, typed, format_name=""):
     title, found = split_file_name(typed, format_name)
     item = Item(slug=unique_slug(title), name=title, format=found.name if found else "")
     filename = item.default_filename
-    view, point, parent_path = _target(machine, parent_path)
+    view, parent_path = _target(machine, parent_path)
     if view.exists(posixpath.join(parent_path, filename)):
         raise FileManagerError(f"«{filename}» уже есть в этой папке.")
-    overlay_mount, volume = overlay_for(machine, point)
-    parent = ensure_folders(volume, rel_inner(point, parent_path))
+    home = home_for(machine, view, posixpath.join(parent_path, filename))
+    parent = ensure_folders(home.volume, home.rel(parent_path))
     item.save()
-    return Placement.objects.create(volume=volume, parent=parent, kind=Placement.Kind.ITEM, item=item, name=filename)
+    return Placement.objects.create(volume=home.volume, parent=parent, kind=Placement.Kind.ITEM, item=item, name=filename)
 
 
 @transaction.atomic
@@ -272,9 +313,8 @@ def rename(machine, path, name):
     parent_path = posixpath.dirname("/" + path.strip("/")) or "/"
     if view.exists(posixpath.join(parent_path, name)):
         raise FileManagerError(f"«{name}» уже есть в этой папке.")
-    point = entry.layer.point if entry.layer is not None else point_for(view, path)
-    overlay_mount, volume = overlay_for(machine, point, create=False)
-    own = find_placement(volume, rel_inner(point, path)) if volume is not None and entry.layer is not None and entry.layer.mount.pk == overlay_mount.pk else None
+    home = home_for(machine, view, path, entry, create=False)
+    own = find_placement(home.volume, home.rel(path)) if home is not None and entry.layer is not None and entry.layer.mount.pk == home.mount.pk else None
     if own is not None:
         own.name = name
         own.save(update_fields=["name"])
@@ -282,9 +322,9 @@ def rename(machine, path, name):
     if entry.is_dir or entry.item is None:
         raise FileManagerError("Папку образа переименовать нельзя: создайте новую и перенесите файлы.")
     delete(machine, path)
-    overlay_mount, volume = overlay_for(machine, point)
-    parent = ensure_folders(volume, rel_inner(point, parent_path))
-    return Placement.objects.create(volume=volume, parent=parent, kind=Placement.Kind.ITEM, item=entry.item, name=name)
+    home = home_for(machine, view, path, entry)
+    parent = ensure_folders(home.volume, home.rel(parent_path))
+    return Placement.objects.create(volume=home.volume, parent=parent, kind=Placement.Kind.ITEM, item=entry.item, name=name)
 
 
 # ---- данные менеджера -----------------------------------------------------------------------------------------------
@@ -304,11 +344,21 @@ def machine_data(machine):
     """Собранное дерево машины для менеджера: файлы, папки и (красным) то, что скрыто надгробиями."""
     view = MachineView(machine, None)
     layers = [layer for layer in view.layers if not layer.remote]
+    overlay = [layer for layer in layers if is_overlay_layer(machine, layer)]
+    plain = [layer for layer in layers if not is_overlay_layer(machine, layer)]
     by_point, below_paths, whiteouts = {}, {}, {}
-    for layer in layers:
+    for layer in plain:
         by_point.setdefault(layer.point, []).append(layer)
+    for layer in layers:
         below_paths[layer.mount.pk] = view.layer_paths(layer)
         whiteouts[layer.mount.pk] = view.layer_paths_of_kind(layer, Placement.Kind.WHITEOUT)
+
+    def stack_below(layer):
+        """Слои под этим: у тома отличий все остальные слои машины, у прочих слои ниже на той же точке."""
+        if is_overlay_layer(machine, layer):
+            return list(plain)
+        return [other for other in by_point[layer.point] if other.mount.order < layer.mount.order]
+
     info = _items_info([entry.item for entry in view.entries.values() if entry.item is not None])
 
     rows = []
@@ -320,13 +370,13 @@ def machine_data(machine):
         if entry.via is not None:
             row.update(volume=f"{entry.via.mount.host.label}:{entry.via.mount.host_path}", mark="remote")
         elif entry.layer is not None:
-            stack = sorted(by_point[entry.layer.point], key=lambda layer: layer.mount.order)
-            below = [layer for layer in stack if layer.mount.order < entry.layer.mount.order]
+            below = stack_below(entry.layer)
+            stacked = len(below) + 1 + (0 if is_overlay_layer(machine, entry.layer) else len(overlay))
             row["volume"] = entry.layer.mount.volume.slug
             row["private"] = is_private(machine, entry.layer.mount)
             if not entry.is_dir:
                 if not below:
-                    row["mark"] = "base" if len(stack) > 1 else ""
+                    row["mark"] = "base" if stacked > 1 else ""
                 elif any(path in below_paths[layer.mount.pk] for layer in below):
                     row["mark"] = "override"
                 else:
@@ -337,7 +387,7 @@ def machine_data(machine):
 
     deleted = []
     for layer in layers:
-        stack = [other for other in by_point[layer.point] if other.mount.order < layer.mount.order]
+        stack = stack_below(layer)
         for path, placement in whiteouts[layer.mount.pk].items():
             if any(path in below_paths[other.mount.pk] for other in stack):
                 deleted.append({

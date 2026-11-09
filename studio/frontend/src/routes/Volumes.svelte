@@ -72,7 +72,7 @@
   const FILTERS: { key: Filter; label: string; hint: string }[] = [
     { key: "all", label: "Все", hint: "" },
     { key: "plain", label: "Тома", hint: "Обычные диски мира." },
-    { key: "system", label: "Системные", hint: "Созданы автоматически для одной машины: хранят её отличия от общих томов." },
+    { key: "system", label: "Системные", hint: "Тома отличий машин: каждая машина хранит в своём все свои правки общих дисков." },
     { key: "unmounted", label: "Не смонтированные", hint: "Том, который нигде не смонтирован, игрок не увидит: скорее всего, это ошибка." },
   ];
 
@@ -140,7 +140,7 @@
       <a class="card" class:lost={lost(row)} href="#/volumes/{row.id}">
         <div class="title">
           <span class="name">{row.name || row.slug}</span>
-          {#if row.system}<span class="chip sys" title="Создан автоматически для одной машины: хранит её отличия от общих томов.">Системный</span>{/if}
+          {#if row.system}<span class="chip sys" title="Том отличий машины {row.overlay_of}: все её правки общих дисков лежат здесь.">Системный · {row.overlay_of}</span>{/if}
           {#if row.label}<span class="chip lab" title={row.label}>{row.label}</span>{/if}
         </div>
         {#if row.name && row.name !== row.slug}<div class="slug mono">{row.slug}</div>{/if}

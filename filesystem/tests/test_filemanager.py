@@ -285,8 +285,8 @@ class OverlayTests(TestCase):
         self.assertEqual([row for row in overlay.machine_data(self.machine)["rows"] if row["kind"] == "deleted"], [])
 
     def test_a_whiteout_that_hides_nothing_is_not_shown(self):
-        own, _ = (lambda m: (m, None))(overlay.overlay_for(self.machine, "/"))
-        Placement.objects.create(volume=own[1], kind="whiteout", name="ghost")
+        _, own = overlay.machine_overlay(self.machine)
+        Placement.objects.create(volume=own, kind="whiteout", name="ghost")
         self.assertEqual([row for row in overlay.machine_data(self.machine)["rows"] if row["kind"] == "deleted"], [])
 
     def test_a_whole_folder_of_the_image_is_hidden(self):
@@ -336,16 +336,59 @@ class OverlayTests(TestCase):
         self.assertEqual(own.order, 2)
         self.assertFalse(Placement.objects.filter(volume=shared, name="mine").exists())
 
-    def test_a_mounted_library_is_overlaid_on_its_own_point(self):
+    def test_a_mounted_library_is_overlaid_by_the_one_volume_of_the_machine(self):
         library = Volume.objects.create(slug="library")
         put(library, "report", "r")
         MachineMount.objects.create(machine=self.machine, volume=library, mount_path="/mnt/lib", order=0)
         MachineMount.objects.create(machine=self.other, volume=library, mount_path="/mnt/lib", order=0)
         copy = overlay.override(self.machine, "/mnt/lib/report")
+        self.machine.refresh_from_db()
         own = MachineMount.objects.get(volume__slug="gw-02-own")
-        self.assertEqual((own.mount_path, own.order), ("/mnt/lib", 1))
+        self.assertEqual((own.mount_path, self.machine.overlay.slug), ("/", "gw-02-own"))
+        self.assertTrue(Placement.objects.filter(volume=self.machine.overlay, parent__name="lib", name="report").exists())      # полный путь машины
         self.assertEqual(self.view().get("/mnt/lib/report").item.pk, copy.pk)
         self.assertEqual(self.view(self.other).get("/mnt/lib/report").item.slug, "library-report")
+
+    def test_one_volume_covers_every_disk_of_the_machine(self):
+        library = Volume.objects.create(slug="library")
+        put(library, "report", "r")
+        MachineMount.objects.create(machine=self.machine, volume=library, mount_path="/mnt/lib", order=0)
+        MachineMount.objects.create(machine=self.other, volume=library, mount_path="/mnt/lib", order=0)
+        overlay.override(self.machine, "/etc/hosts")
+        overlay.override(self.machine, "/mnt/lib/report")
+        overlay.delete(self.machine, "/etc/motd")
+        overlay.new_file(self.machine, "/mnt/lib", "new.txt")
+        self.assertEqual(Volume.objects.filter(slug__endswith="-own").count(), 1)
+        self.assertEqual(MachineMount.objects.filter(machine=self.machine, volume__slug="gw-02-own").count(), 1)
+        view = self.view()
+        self.assertTrue(view.exists("/mnt/lib/new.txt"))
+        self.assertFalse(view.exists("/etc/motd"))
+        self.assertEqual(view.get("/etc/hosts").layer.mount.volume.slug, "gw-02-own")
+        self.assertEqual(view.get("/mnt/lib/report").layer.mount.volume.slug, "gw-02-own")
+        self.assertTrue(self.view(self.other).exists("/etc/motd"))
+        overlay.reset(self.machine, "/mnt/lib/report")
+        self.assertEqual(self.view().get("/mnt/lib/report").item.slug, "library-report")
+
+    def test_the_marks_of_the_manager_see_through_to_the_disks_below_the_overlay(self):
+        library = Volume.objects.create(slug="library")
+        put(library, "report", "r")
+        MachineMount.objects.create(machine=self.machine, volume=library, mount_path="/mnt/lib", order=0)
+        MachineMount.objects.create(machine=self.other, volume=library, mount_path="/mnt/lib", order=0)
+        overlay.override(self.machine, "/mnt/lib/report")
+        overlay.new_file(self.machine, "/mnt/lib", "new.txt")
+        rows = {row["path"]: row for row in overlay.machine_data(self.machine)["rows"]}
+        self.assertEqual((rows["/mnt/lib/report"]["mark"], rows["/mnt/lib/new.txt"]["mark"], rows["/etc/hosts"]["mark"]), ("override", "added", "base"))
+
+    def test_a_chosen_volume_becomes_the_overlay_and_the_old_one_is_unmounted(self):
+        first = overlay.machine_overlay(self.machine)[1]
+        chosen = Volume.objects.create(slug="chosen")
+        overlay.assign_overlay(self.machine, chosen)
+        self.machine.refresh_from_db()
+        self.assertEqual(self.machine.overlay, chosen)
+        self.assertEqual(list(MachineMount.objects.filter(machine=self.machine, mount_path="/").values_list("volume__slug", flat=True).order_by("order")), ["base", "chosen"])
+        self.assertTrue(Volume.objects.filter(pk=first.pk).exists())
+        overlay.new_file(self.machine, "/", "a.txt")
+        self.assertEqual(Placement.objects.filter(volume=chosen, name="a.txt").count(), 1)
 
     def test_a_rename_of_an_image_file_hides_the_old_name_and_adds_the_new(self):
         overlay.rename(self.machine, "/etc/motd", "motd.old")

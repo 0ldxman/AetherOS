@@ -13,7 +13,9 @@ class BuildMixin:
         mounts += [row.as_mount(self.machine.pk) for row in SystemVolume.objects.filter(system_type__code=self.machine.system).select_related("volume")
                    if row.mount_path]
         mounts += self._player_mounts()
-        mounts.sort(key=lambda mount: (_depth(mount.mount_path), mount.order, mount.id))
+        overlay = self.machine.overlay_id
+        # том отличий машины лежит над всеми её дисками, в том числе над теми, что смонтированы глубже его точки
+        mounts.sort(key=lambda mount: (overlay is not None and mount.volume_id == overlay, _depth(mount.mount_path), mount.order, mount.id))
         volume_ids = {mount.volume_id for mount in mounts if mount.mode == "local"}
         existing = {row.volume_id: row for row in VolumeInstance.objects.filter(volume_id__in=volume_ids, host=self.machine)}
         layers = []

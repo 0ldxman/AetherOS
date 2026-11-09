@@ -8,6 +8,7 @@ from ninja import Router, Schema
 
 from filesystem.manager import filemanager
 from filesystem.models import Placement, Volume
+from machines.models import Machine
 from machines.world.create import create_volume
 from studio.api.protection import Dump, Layer, Problem
 
@@ -24,7 +25,8 @@ class VolumeRow(Schema):
     slug: str
     name: str
     label: str
-    system: bool            # создан автоматически для одной машины (отличия)
+    system: bool            # том отличий какой-то машины
+    overlay_of: str         # чьи отличия: подпись машины
     files: int
     folders: int
     mounts: list[Mount]
@@ -122,8 +124,9 @@ def volumes(request):
             folders=Count("placements", filter=Q(placements__kind=Placement.Kind.FOLDER)),
         )
     )
+    owners = {volume_id: label for volume_id, label in ((m.overlay_id, m.label) for m in Machine.objects.filter(overlay__isnull=False))}
     return [
-        VolumeRow(id=v.pk, slug=v.slug, name=v.name, label=v.label, system=v.system, files=v.files, folders=v.folders, mounts=_mounts(v))
+        VolumeRow(id=v.pk, slug=v.slug, name=v.name, label=v.label, system=v.pk in owners, overlay_of=owners.get(v.pk, ""), files=v.files, folders=v.folders, mounts=_mounts(v))
         for v in found
     ]
 

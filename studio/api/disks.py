@@ -4,11 +4,13 @@
 слои защиты и условия по ключам. Ничего не меняется: это взгляд автора, а не вход игрока.
 """
 
+from django.core.exceptions import ValidationError
 from django.shortcuts import get_object_or_404
 from ninja import Router, Schema
 
 from filesystem import rights
 from filesystem.machine_view import MachineView
+from filesystem.manager.overlay import assign_overlay
 from filesystem.models import Volume
 from machines.access.groups import principal_for
 from machines.models import Export, Machine, MachineMount, MachineProfile, SystemVolume
@@ -31,6 +33,7 @@ class DiskMount(Schema):
     account: Ref | None
     mount_path: str
     order: int
+    overlay: bool = False     # монтирование тома отличий: меняется выбором «Том отличий», а не здесь
 
 
 class ExportRow(Schema):
@@ -57,7 +60,13 @@ class Disks(Schema):
     mounts: list[DiskMount]
     exports: list[ExportRow]
     volumes: list[Ref]
+    overlay: Ref | None                 # том отличий машины
+    overlay_choices: list[Ref]          # какие тома можно назначить отличиями
     hosts: list[Host]
+
+
+class OverlayIn(Schema):
+    volume: int | None = None
 
 
 class MountIn(Schema):
@@ -101,6 +110,19 @@ def _ref(obj, label):
     return Ref(id=obj.pk, label=label) if obj is not None else None
 
 
+def _is_overlay(machine, mount):
+    return machine.overlay_id is not None and mount.volume_id == machine.overlay_id and mount.mount_path == "/" and mount.volume_path == ""
+
+
+def _overlay_choices(machine):
+    """Тома, которые можно сделать отличиями этой машины: нигде больше не смонтированы, не образ ОС и не отличия другой машины."""
+    taken = set(MachineMount.objects.exclude(machine=machine).values_list("volume_id", flat=True))
+    taken |= set(SystemVolume.objects.values_list("volume_id", flat=True))
+    taken |= set(Machine.objects.exclude(pk=machine.pk).filter(overlay__isnull=False).values_list("overlay_id", flat=True))
+    elsewhere = set(machine.mounts.exclude(mount_path="/").values_list("volume_id", flat=True))
+    return [v for v in Volume.objects.order_by("slug") if v.pk not in taken and v.pk not in elsewhere]
+
+
 def _disks(machine):
     mounts = machine.mounts.select_related("volume", "host", "account").order_by("mount_path", "order", "id")
     return Disks(
@@ -111,11 +133,13 @@ def _disks(machine):
         mounts=[
             DiskMount(id=m.pk, mode=m.mode, volume=_ref(m.volume, m.volume.name or m.volume.slug if m.volume_id else ""), volume_path=m.volume_path,
                   host=_ref(m.host, m.host.label if m.host_id else ""), host_path=m.host_path,
-                  account=_ref(m.account, m.account.login if m.account_id else ""), mount_path=m.mount_path, order=m.order)
+                  account=_ref(m.account, m.account.login if m.account_id else ""), mount_path=m.mount_path, order=m.order, overlay=_is_overlay(machine, m))
             for m in mounts
         ],
         exports=[ExportRow(id=e.pk, path=e.path) for e in machine.exports.all()],
         volumes=[Ref(id=v.pk, label=f"{v.name or v.slug} ({v.slug})") for v in Volume.objects.order_by("slug")],
+        overlay=Ref(id=machine.overlay_id, label=f"{machine.overlay.name or machine.overlay.slug} ({machine.overlay.slug})") if machine.overlay_id else None,
+        overlay_choices=[Ref(id=v.pk, label=f"{v.name or v.slug} ({v.slug})") for v in _overlay_choices(machine)],
         hosts=[
             Host(id=h.pk, label=h.label, accounts=[Ref(id=p.pk, label=p.login) for p in h.profiles.all()],
                  exports=[e.path for e in h.exports.all()])
@@ -139,24 +163,51 @@ def _apply(mount, body):
     mount.save()
 
 
+OVERLAY_NOTE = "Это том отличий машины: он выбирается в блоке «Том отличий» выше."
+
+
 @router.post("/{int:machine_id}/mounts", response=Disks)
 def new_mount(request, machine_id: int, body: MountIn):
     machine = get_object_or_404(Machine, pk=machine_id)
+    if body.mode == MachineMount.Mode.LOCAL and machine.overlay_id and body.volume == machine.overlay_id:
+        raise ValidationError(OVERLAY_NOTE)
     _apply(MachineMount(machine=machine), body)
     return _disks(machine)
 
 
 @router.put("/{int:machine_id}/mounts/{int:mount_id}", response=Disks)
 def save_mount(request, machine_id: int, mount_id: int, body: MountIn):
-    mount = get_object_or_404(MachineMount, pk=mount_id, machine_id=machine_id)
+    mount = get_object_or_404(MachineMount.objects.select_related("machine"), pk=mount_id, machine_id=machine_id)
+    if _is_overlay(mount.machine, mount):
+        raise ValidationError(OVERLAY_NOTE)
     _apply(mount, body)
     return _disks(mount.machine)
 
 
 @router.delete("/{int:machine_id}/mounts/{int:mount_id}", response=Disks)
 def drop_mount(request, machine_id: int, mount_id: int):
-    get_object_or_404(MachineMount, pk=mount_id, machine_id=machine_id).delete()
+    mount = get_object_or_404(MachineMount.objects.select_related("machine"), pk=mount_id, machine_id=machine_id)
+    if _is_overlay(mount.machine, mount):
+        raise ValidationError(OVERLAY_NOTE)
+    mount.delete()
     return _disks(get_object_or_404(Machine, pk=machine_id))
+
+
+@router.put("/{int:machine_id}/overlay", response=Disks)
+def set_overlay(request, machine_id: int, body: OverlayIn):
+    """Выбрать том отличий машины (или снять выбор). Том ложится над всеми дисками машины; прежний остаётся в мире отдельным."""
+    machine = get_object_or_404(Machine, pk=machine_id)
+    if body.volume is None:
+        if machine.overlay_id:
+            machine.mounts.filter(volume_id=machine.overlay_id, mount_path="/", volume_path="").delete()
+            machine.overlay = None
+            machine.save(update_fields=["overlay"])
+        return _disks(machine)
+    volume = get_object_or_404(Volume, pk=body.volume)
+    if volume.pk not in {v.pk for v in _overlay_choices(machine)} and volume.pk != machine.overlay_id:
+        raise ValidationError("Этот том нельзя сделать отличиями: он смонтирован в другом месте, это образ ОС или отличия другой машины.")
+    assign_overlay(machine, volume)
+    return _disks(machine)
 
 
 @router.post("/{int:machine_id}/exports", response=Disks)

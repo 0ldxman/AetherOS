@@ -1148,6 +1148,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/studio/api/machines/{machine_id}/overlay": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Set Overlay
+         * @description Выбрать том отличий машины (или снять выбор). Том ложится над всеми дисками машины; прежний остаётся в мире отдельным.
+         */
+        put: operations["studio_api_disks_set_overlay"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/studio/api/machines/{machine_id}/exports": {
         parameters: {
             query?: never;
@@ -2103,6 +2123,8 @@ export interface components {
             label: string;
             /** System */
             system: boolean;
+            /** Overlay Of */
+            overlay_of: string;
             /** Files */
             files: number;
             /** Folders */
@@ -3679,6 +3701,11 @@ export interface components {
             mount_path: string;
             /** Order */
             order: number;
+            /**
+             * Overlay
+             * @default false
+             */
+            overlay: boolean;
         };
         /** Disks */
         Disks: {
@@ -3690,6 +3717,9 @@ export interface components {
             exports: components["schemas"]["ExportRow"][];
             /** Volumes */
             volumes: components["schemas"]["Ref"][];
+            overlay: components["schemas"]["Ref"] | null;
+            /** Overlay Choices */
+            overlay_choices: components["schemas"]["Ref"][];
             /** Hosts */
             hosts: components["schemas"]["Host"][];
         };
@@ -3761,6 +3791,11 @@ export interface components {
              * @default 0
              */
             order: number;
+        };
+        /** OverlayIn */
+        OverlayIn: {
+            /** Volume */
+            volume?: number | null;
         };
         /** ExportIn */
         ExportIn: {
@@ -6924,6 +6959,32 @@ export interface operations {
             cookie?: never;
         };
         requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Disks"];
+                };
+            };
+        };
+    };
+    studio_api_disks_set_overlay: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                machine_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["OverlayIn"];
+            };
+        };
         responses: {
             /** @description OK */
             200: {

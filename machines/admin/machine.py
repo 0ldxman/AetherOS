@@ -111,6 +111,7 @@ class MachineAdmin(MachineFiles, admin.ModelAdmin):
     readonly_fields = (
         "created_at",
         "updated_at",
+        "overlay",          # том отличий выбирается в Студии: там же ставится его монтирование
     )
 
     ordering = (
