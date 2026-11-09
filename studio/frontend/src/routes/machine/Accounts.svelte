@@ -5,7 +5,8 @@
   import { api, problem, type Schemas } from "../../lib/api";
   import Dialog from "../../lib/Dialog.svelte";
   import { go } from "../../lib/router.svelte";
-  import { when } from "../../lib/time";
+  import { ask } from "../../lib/confirm.svelte";
+  import { ago, span, when } from "../../lib/time";
   import { toast } from "../../lib/toast.svelte";
 
   type Account = Schemas["AccountOut"];
@@ -19,10 +20,17 @@
   let clearPassword = $state(false);
   let errors = $state<Record<string, string[]>>({});
   let keys = $state<Schemas["Key"][]>([]);
-  let dialog = $state<null | "new" | "delete" | "token">(null);
+  let dialog = $state<null | "new" | "delete" | "token" | "bind">(null);
   let newLogin = $state("");
   let tokenForm = $state({ max_usage: "" as string, expires_at: "" });
   let fresh = $state("");
+  let filter = $state("");
+  let playersOpen = $state(false);
+  let players = $state<Schemas["AccountPlayer"][]>([]);
+  let newKind = $state<"shared" | "player">("shared");
+  let playerQuery = $state("");
+  let found = $state<string[]>([]);
+  let chosenPlayer = $state("");
 
   function blank() {
     return { login: "", name: "", freq: "1", mail: "", groups: [] as string[], root: false, keys: "", entry_policy: null as number | null,
@@ -31,7 +39,63 @@
 
   const dirty = $derived(JSON.stringify(form) !== saved || password !== "" || clearPassword);
   guardUnsaved(() => saved !== "" && dirty);   // пока ничего не загружено, правок нет
-  const current = $derived(selected ?? machine.accounts[0]?.id ?? null);
+  const current = $derived(selected ?? machine.accounts.find((row) => !row.owner)?.id ?? machine.accounts[0]?.id ?? null);
+
+  // список: учётки автора сверху, рабочие учётки игроков отдельной группой (их столько, сколько игроков)
+  const matches = (row: Schemas["AccountRow"]) => {
+    const q = filter.trim().toLowerCase();
+    return !q || [row.login, row.name, row.owner ?? "", row.freq].some((text) => text.toLowerCase().includes(q));
+  };
+  const authored = $derived(machine.accounts.filter((row) => !row.owner && matches(row)));
+  const ofPlayers = $derived(machine.accounts.filter((row) => row.owner && matches(row)));
+  const playerTotal = $derived(machine.accounts.filter((row) => row.owner).length);
+  const showPlayers = $derived(playersOpen || !!filter.trim() || !!account?.owner);
+
+  async function loadPlayers(id: number) {
+    players = (await api.GET("/studio/api/machines/{machine_id}/accounts/{account_id}/players", { params: { path: { machine_id: machine.id, account_id: id } } })).data ?? [];
+  }
+
+  let findTimer: ReturnType<typeof setTimeout>;
+  $effect(() => {
+    const q = playerQuery;
+    clearTimeout(findTimer);
+    if (!(dialog === "bind" || (dialog === "new" && newKind === "player"))) return;
+    findTimer = setTimeout(async () => {
+      found = (await api.GET("/studio/api/machines/players", { params: { query: { q } } })).data ?? [];
+    }, 200);
+  });
+
+  const failure = (error: unknown, fallback: string) => {
+    const fields = (error as { fields?: Record<string, string[]> } | undefined)?.fields;
+    return fields ? Object.values(fields).flat().join(" ") : problem(error, fallback);
+  };
+
+  async function bindTo(player: string | null) {
+    if (!account) return;
+    const { data, error } = await api.POST("/studio/api/machines/{machine_id}/accounts/{account_id}/bind", {
+      params: { path: { machine_id: machine.id, account_id: account.id } }, body: { player },
+    });
+    if (error || !data) return toast(failure(error, "Не получилось."), "error");
+    dialog = null;
+    toast(player ? `Учётка отдана игроку ${player}.` : "Учётка больше не принадлежит игроку.");
+    await load(data.id);
+    onchange();
+  }
+
+  async function unbind() {
+    if (!account?.owner) return;
+    if (!(await ask(`Отвязать учётку от игрока ${account.owner}?`, "Она станет общей. Игрок получит новую рабочую учётку при следующем входе на машину.", "Отвязать"))) return;
+    bindTo(null);
+  }
+
+  async function act(kind: "unlock" | "kick", row: Schemas["AccountPlayer"]) {
+    if (!account) return;
+    const path = kind === "unlock" ? "/studio/api/machines/{machine_id}/unlock" : "/studio/api/machines/{machine_id}/kick";
+    const { error } = await api.POST(path, { params: { path: { machine_id: machine.id } }, body: { account: account.id, player: row.player } });
+    if (error) return toast(problem(error), "error");
+    toast(kind === "unlock" ? `${row.player} разблокирован.` : `${row.player} будет выкинут при следующем действии.`);
+    loadPlayers(account.id);
+  }
 
   async function load(id: number | null) {
     account = null;
@@ -39,6 +103,7 @@
     clearPassword = false;
     errors = {};
     fresh = "";
+    players = [];
     if (id === null) return;
     const { data } = await api.GET("/studio/api/machines/{machine_id}/accounts/{account_id}", {
       params: { path: { machine_id: machine.id, account_id: id } },
@@ -48,6 +113,7 @@
     form = { login: data.login, name: data.name, freq: data.freq, mail: data.mail, groups: [...data.groups], root: data.root, keys: data.keys,
              entry_policy: data.entry_policy ?? null, ttl: data.ttl ?? null, cooldown: data.cooldown ?? null, kick_message: data.kick_message, login_scene: data.login_scene ?? null };
     saved = JSON.stringify(form);
+    if (!data.owner) loadPlayers(data.id);
   }
 
   $effect(() => { load(current); });
@@ -71,11 +137,14 @@
 
   async function create() {
     const { data, error } = await api.POST("/studio/api/machines/{machine_id}/accounts", {
-      params: { path: { machine_id: machine.id } }, body: { ...blank(), login: newLogin, clear_password: false },
+      params: { path: { machine_id: machine.id } },
+      body: { ...blank(), login: newLogin, clear_password: false, player: newKind === "player" ? chosenPlayer : null },
     });
-    if (error || !data) return toast(problem(error, "Не создалась."), "error");
+    if (error || !data) return toast(failure(error, "Не создалась."), "error");
     dialog = null;
     newLogin = "";
+    newKind = "shared";
+    chosenPlayer = "";
     onchange();
     go(`/machines/${machine.id}/accounts/${data.id}`);
   }
@@ -125,19 +194,30 @@
 
 <div class="split">
   <aside class="list">
-    {#each machine.accounts as row (row.id)}
-      <a class="item" class:on={row.id === current} href="#/machines/{machine.id}/accounts/{row.id}">
-        <span class="login mono">{row.login}</span>
+    <input class="field" placeholder="Найти учётку или игрока…" bind:value={filter} aria-label="Поиск по учёткам" />
+    {#snippet row(item: Schemas["AccountRow"])}
+      <a class="item" class:on={item.id === current} href="#/machines/{machine.id}/accounts/{item.id}">
+        <span class="login mono">{item.login}<span class="muted at">@{item.freq}</span></span>
         <span class="marks">
-          {#if row.root}<span class="chip root">root</span>{/if}
-          {#if row.has_password}<span class="chip">пароль</span>{/if}
-          {#if row.has_key}<span class="chip">ключ</span>{/if}
-          {#if !row.has_password && !row.has_key && !row.owner}<span class="chip warnchip" title="Ни пароля, ни ключа">открыта</span>{/if}
+          {#if item.root}<span class="chip root">root</span>{/if}
+          {#if item.has_password}<span class="chip">пароль</span>{/if}
+          {#if item.has_key}<span class="chip">ключ</span>{/if}
+          {#if !item.has_password && !item.has_key && !item.owner}<span class="chip warnchip" title="Ни пароля, ни ключа">открыта</span>{/if}
         </span>
-        <span class="sub muted">{row.name && row.name !== row.login ? `${row.name} · ` : ""}{row.owner ? `игрок ${row.owner}` : row.groups.join(", ") || "без групп"}</span>
+        <span class="sub muted">{item.name && item.name !== item.login ? `${item.name} · ` : ""}{item.owner ? `игрок ${item.owner}` : item.groups.join(", ") || "без групп"}</span>
       </a>
-    {/each}
-    <button class="btn add" onclick={() => (dialog = "new")}>+ Учётка</button>
+    {/snippet}
+
+    <h3 class="group">Учётки автора <span class="n">{authored.length}</span></h3>
+    {#each authored as item (item.id)}{@render row(item)}{:else}<p class="muted small pad">{filter ? "Ничего не нашлось." : "Своих учёток нет."}</p>{/each}
+
+    {#if playerTotal}
+      <button class="group toggle" aria-expanded={showPlayers} onclick={() => (playersOpen = !playersOpen)} disabled={!!filter.trim() || !!account?.owner}>
+        <span>{showPlayers ? "▾" : "▸"} Рабочие учётки игроков</span><span class="n">{ofPlayers.length}{filter.trim() ? ` из ${playerTotal}` : ""}</span>
+      </button>
+      {#if showPlayers}{#each ofPlayers as item (item.id)}{@render row(item)}{/each}{/if}
+    {/if}
+    <button class="btn add" onclick={() => { newKind = "shared"; chosenPlayer = ""; playerQuery = ""; dialog = "new"; }}>+ Учётка</button>
   </aside>
 
   {#if account}
@@ -155,12 +235,23 @@
         <div class="block">
           <h3>Кто это</h3>
           <div class="pair">
-            <label><span class="label">Логин</span><input class="field mono" bind:value={form.login} class:bad={errors.login} /></label>
+            <label><span class="label">Логин{#if account.owner}<Hint text="Логин рабочей учётки игрока менять нельзя: он совпадает с его логином на сайте." />{/if}</span><input class="field mono" bind:value={form.login} class:bad={errors.login} disabled={!!account.owner} /></label>
             <label><span class="label">Частота / порт<Hint text="Где слушает эта запись: у систем Aether частота в МГц (14.230), у остальных порт (22)." /></span><input class="field mono" bind:value={form.freq} class:bad={errors.freq} /></label>
           </div>
           <label><span class="label">Имя</span><input class="field" bind:value={form.name} /></label>
           <label><span class="label">Почта</span><input class="field mono" bind:value={form.mail} class:bad={errors.mail} placeholder="{form.login}@{machine.hostname}" /></label>
           {#each Object.entries(errors).filter(([key]) => ["login", "freq", "mail", "__all__"].includes(key)) as [, list]}<p class="err">{list.join(" ")}</p>{/each}
+
+          <div class="ownerrow">
+            <span class="label">Игрок</span>
+            {#if account.owner}
+              <span><b>{account.owner}</b> <span class="muted small">рабочая учётка: удаляется вместе с игроком</span></span>
+              <button class="btn ghost" onclick={unbind}>Отвязать от игрока</button>
+            {:else}
+              <span class="muted">общая учётка (не принадлежит игроку)</span>
+              <button class="btn ghost" onclick={() => { chosenPlayer = ""; playerQuery = ""; dialog = "bind"; }}>Отдать игроку…</button>
+            {/if}
+          </div>
 
           <h3>Группы и права</h3>
           <div class="chips">
@@ -172,10 +263,14 @@
             {/each}
           </div>
           <label class="check"><input type="checkbox" bind:checked={form.root} /> root: все привилегии и обход прав файлов</label>
+          {#if account.owner && form.root}<p class="err">Игрок получит все привилегии и обход прав файлов на этой машине.</p>{/if}
         </div>
 
         <div class="block">
           <h3>Как войти</h3>
+          {#if account.owner}
+            <p class="muted small">Игрок входит через свой аккаунт на сайте, поэтому пароль, ключи, политика входа и токены у рабочей учётки не действуют. Здесь настраивается только то, что касается его сессии.</p>
+          {:else}
           <label>
             <span class="label">Пароль {account.has_password ? "(задан)" : "(не задан)"}</span>
             <input class="field" type="password" autocomplete="new-password" placeholder={account.has_password ? "новый пароль, чтобы сменить" : "задать пароль"}
@@ -199,6 +294,7 @@
               {#each machine.policies as policy}<option value={policy.id}>{policy.name}</option>{/each}
             </select>
           </label>
+          {/if}
           <div class="pair">
             <label><span class="label">Срок подключения, секунд<Hint text="Через сколько секунд после входа сессия сама закончится. Пусто: берётся из политики входа." /></span><input class="field" type="number" min="0" bind:value={form.ttl} placeholder="из политики" /></label>
             <label><span class="label">Блок после обрыва, секунд<Hint text="Сколько секунд игроку нельзя войти снова после обрыва связи. Пусто: берётся из политики входа." /></span><input class="field" type="number" min="0" bind:value={form.cooldown} placeholder="из политики" /></label>
@@ -213,6 +309,7 @@
         </div>
       </div>
 
+      {#if !account.owner}
       <div class="block tokens">
         <h3>Токены <button class="btn ghost" onclick={() => (dialog = "token")}>+ Токен</button></h3>
         {#if fresh}<p class="fresh">Новый токен: <code class="mono">{fresh}</code> — передайте его в мир (письмо, файл), токен пускает мимо пароля и ключей.</p>{/if}
@@ -228,8 +325,29 @@
         {/each}
       </div>
 
+      {/if}
+
       {#if !account.owner}
+        <div class="block players">
+          <h3>Игроки на этой учётке<Hint text="Кто входил под этой учёткой. Блокировка действует на пару «игрок и учётка»: у разных игроков она своя." /></h3>
+          {#each players as row (row.player)}
+            <div class="pl">
+              <span class="dot" class:on={row.online}></span>
+              <b>{row.player}</b>
+              <span class="muted small">{row.online && row.seen_at ? `сейчас на учётке · ${ago(row.seen_at)}` : row.last_login ? `входил ${ago(row.last_login)}` : "не входил"}</span>
+              {#if row.locked}<span class="chip bad">блок {span(row.locked)}</span>{/if}
+              {#if row.refusals}<span class="chip warnchip" title="Отказов за неделю">отказов {row.refusals}</span>{/if}
+              <span class="spacer"></span>
+              {#if row.locked}<button class="btn ghost" onclick={() => act("unlock", row)}>Разблокировать</button>{/if}
+              {#if row.online}<button class="btn ghost danger" onclick={() => act("kick", row)}>Выкинуть</button>{/if}
+            </div>
+          {:else}
+            <p class="muted">Никто ещё не входил под этой учёткой.</p>
+          {/each}
+        </div>
         <div class="danger-zone"><button class="btn ghost danger" onclick={() => (dialog = "delete")}>Удалить учётку</button></div>
+      {:else}
+        <p class="muted small ownernote">Рабочую учётку игрока нельзя удалить: она удалится вместе с ним. Чтобы освободить её, отвяжите от игрока.</p>
       {/if}
     </section>
   {:else}
@@ -238,8 +356,20 @@
 </div>
 
 {#if dialog === "new"}
-  <Dialog title="Новая учётка" confirm="Создать" onsubmit={create} onclose={() => (dialog = null)}>
+  <Dialog title="Новая учётка" confirm="Создать" onsubmit={create} onclose={() => (dialog = null)} disabled={!newLogin.trim() || (newKind === "player" && !chosenPlayer)}>
     <input class="field mono" placeholder="логин" bind:value={newLogin} />
+    <label class="radio"><input type="radio" bind:group={newKind} value="shared" /> общая: для загадок, в неё входят любые игроки</label>
+    <label class="radio"><input type="radio" bind:group={newKind} value="player" /> для игрока: станет его рабочей учёткой</label>
+    {#if newKind === "player"}
+      <input class="field" placeholder="Найти игрока…" bind:value={playerQuery} />
+      <div class="pickrow">{#each found as name (name)}<button class="pickbtn" class:on={chosenPlayer === name} onclick={() => (chosenPlayer = name)}>{name}</button>{:else}<span class="muted small">Игроков не найдено.</span>{/each}</div>
+    {/if}
+  </Dialog>
+{:else if dialog === "bind" && account}
+  <Dialog title="Отдать учётку {account.login} игроку" confirm="Отдать" onsubmit={() => bindTo(chosenPlayer)} onclose={() => (dialog = null)} disabled={!chosenPlayer}>
+    <p class="muted small">Учётка станет рабочей учётки игрока на этой машине: пароль, ключи и токены у неё перестанут действовать. У игрока на машине может быть только одна рабочая учётка.</p>
+    <input class="field" placeholder="Найти игрока…" bind:value={playerQuery} />
+    <div class="pickrow">{#each found as name (name)}<button class="pickbtn" class:on={chosenPlayer === name} onclick={() => (chosenPlayer = name)}>{name}</button>{:else}<span class="muted small">Игроков не найдено.</span>{/each}</div>
   </Dialog>
 {:else if dialog === "delete" && account}
   <Dialog title="Удалить учётку {account.login}?" confirm="Удалить" danger onsubmit={remove} onclose={() => (dialog = null)}>
@@ -286,4 +416,23 @@
   .fresh { margin: 0; padding: 8px 10px; border-radius: var(--radius-s); background: rgba(95, 208, 160, 0.1); border: 1px solid rgba(95, 208, 160, 0.3); }
   .danger-zone { margin-top: 16px; }
   .empty { padding: 24px; }
+  .group { display: flex; align-items: center; justify-content: space-between; margin: 10px 10px 2px; padding: 0; border: 0; background: none; color: var(--muted); font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.4px; text-align: left; }
+  button.group { cursor: pointer; width: calc(100% - 20px); }
+  button.group:disabled { cursor: default; }
+  .group .n { color: var(--faint); }
+  .at { margin-left: 2px; font-weight: 400; }
+  .pad { padding: 4px 10px; }
+  .ownerrow { display: grid; grid-template-columns: 70px 1fr auto; gap: 8px; align-items: center; }
+  .ownernote { margin: 4px 0 0; }
+  .players { margin-top: 14px; }
+  .pl { display: flex; align-items: center; flex-wrap: wrap; gap: 4px 10px; padding: 6px 0; border-bottom: 1px solid var(--line-soft); }
+  .pl:last-child { border-bottom: 0; }
+  .pl .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--faint); }
+  .pl .dot.on { background: var(--ok); }
+  .pl .spacer { flex: 1; }
+  .chip.bad { background: var(--danger-soft); color: var(--danger); }
+  .radio { display: flex; align-items: center; gap: 6px; }
+  .pickrow { display: flex; flex-wrap: wrap; gap: 6px; max-height: 140px; overflow: auto; }
+  .pickbtn { padding: 3px 12px; border: 1px solid var(--line); border-radius: 999px; background: var(--bg); cursor: pointer; }
+  .pickbtn.on { border-color: var(--accent); background: var(--accent-soft); }
 </style>

@@ -4,15 +4,22 @@
 secure.access. Пароль приходит открытым только при смене и сразу хешируется.
 """
 import secrets
-from datetime import datetime
+from datetime import datetime, timedelta
 
+from django.contrib.auth import get_user_model
 from django.contrib.auth.hashers import make_password
 from django.core.exceptions import ValidationError
+from django.db import transaction
+from django.db.models import Count
+from django.utils import timezone
 from django.shortcuts import get_object_or_404
 from ninja import Router, Schema
 
 from documents.markup.expr import SpoilerSyntaxError, parse_expr
-from machines.models import EntryPolicy, Machine, MachineProfile, MachineProfileToken, SceneScript
+from machines.access import entry
+from machines.models import EntryPolicy, LoginEvent, Machine, MachineProfile, MachineProfileToken, SceneScript, Session
+from machines.network import bridge
+from machines.world.facts import ONLINE
 from studio.api.scenes import SceneChoice, choices
 from secure.access import format_condition
 from studio.api.machines import Policy, _policy
@@ -65,6 +72,20 @@ class AccountIn(Schema):
     cooldown: int | None = None
     kick_message: str = ""
     login_scene: str | None = None       # слаг сцены после входа
+    player: str | None = None            # только при создании: учётка сразу для этого игрока (его логин на сайте)
+
+
+class AccountPlayer(Schema):
+    player: str
+    online: bool
+    seen_at: datetime | None
+    locked: int                          # секунд блокировки (0: нет)
+    last_login: datetime | None
+    refusals: int                        # отказов за неделю
+
+
+class BindIn(Schema):
+    player: str | None = None            # None: отвязать от игрока
 
 
 class TokenIn(Schema):
@@ -131,11 +152,72 @@ def read(request, machine_id: int, account_id: int):
     return _out(_profile(machine_id, account_id))
 
 
+def _player(machine, username, exclude=None):
+    """Игрок по логину; на одной машине у игрока одна учётка (её рабочая), вторая привязка отказывается."""
+    user = get_user_model().objects.filter(username=username).first()
+    if user is None:
+        raise ValidationError({"player": ["Такого игрока нет."]})
+    other = MachineProfile.objects.filter(machine=machine, user=user).exclude(pk=exclude).first()
+    if other is not None:
+        raise ValidationError({"player": [f"У игрока {username} уже есть учётка на этой машине: {other.login}."]})
+    return user
+
+
+@router.get("/players", response=list[str])
+def find_players(request, q: str = ""):
+    """Игроки по началу или части логина: для выбора, кому отдать учётку."""
+    found = get_user_model().objects.order_by("username")
+    if q.strip():
+        found = found.filter(username__icontains=q.strip())
+    return list(found.values_list("username", flat=True)[:15])
+
+
 @router.post("/{int:machine_id}/accounts", response=AccountOut)
 def create(request, machine_id: int, body: AccountIn):
-    profile = MachineProfile(machine=get_object_or_404(Machine, pk=machine_id))
-    _apply(profile, body)
+    machine = get_object_or_404(Machine, pk=machine_id)
+    user = _player(machine, body.player) if body.player else None
+    with transaction.atomic():
+        profile = MachineProfile(machine=machine)
+        _apply(profile, body)
+        if user is not None:
+            profile.user = user
+            profile.save(update_fields=["user"])
     return _out(_profile(machine_id, profile.pk))
+
+
+@router.post("/{int:machine_id}/accounts/{int:account_id}/bind", response=AccountOut)
+def bind(request, machine_id: int, account_id: int, body: BindIn):
+    """Привязать учётку к игроку (она станет его рабочей) или отвязать. Игрок без рабочей учётки получит новую при следующем входе."""
+    profile = _profile(machine_id, account_id)
+    profile.user = _player(profile.machine, body.player, exclude=profile.pk) if body.player else None
+    profile.save(update_fields=["user"])
+    return _out(_profile(machine_id, account_id))
+
+
+@router.get("/{int:machine_id}/accounts/{int:account_id}/players", response=list[AccountPlayer])
+def account_players(request, machine_id: int, account_id: int):
+    """Кто работает под этой учёткой: сейчас на ней, заблокирован, когда входил, отказы за неделю."""
+    profile = _profile(machine_id, account_id)
+    now = timezone.now()
+    week = now - timedelta(days=7)
+    seen = {s.user_id: s for s in Session.objects.filter(profile=profile).select_related("user")}
+    events = LoginEvent.objects.filter(profile=profile, user__isnull=False).select_related("user")
+    last = {}
+    for event in events.filter(kind=LoginEvent.Kind.OK).order_by("at"):
+        last[event.user_id] = event.at
+    refused = dict(events.filter(at__gte=week).exclude(kind__in=(LoginEvent.Kind.OK, LoginEvent.Kind.UNLOCKED, LoginEvent.Kind.KICKED))
+                   .values_list("user_id").annotate(n=Count("id")))
+    users = {s.user_id: s.user for s in seen.values()} | {e.user_id: e.user for e in events}
+    rows = []
+    for user_id, user in users.items():
+        session = seen.get(user_id)
+        locked = max(bridge.locked_for(user, profile), entry.locked_seconds(user, profile))
+        rows.append(AccountPlayer(
+            player=user.get_username(), online=bool(session and session.seen_at >= now - ONLINE), seen_at=session.seen_at if session else None,
+            locked=locked, last_login=last.get(user_id), refusals=refused.get(user_id, 0),
+        ))
+    rows.sort(key=lambda r: (not r.online, not r.locked, r.player))
+    return rows[:100]
 
 
 @router.put("/{int:machine_id}/accounts/{int:account_id}", response=AccountOut)

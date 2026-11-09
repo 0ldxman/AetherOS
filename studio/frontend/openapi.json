@@ -173,7 +173,7 @@
       }
      }
     },
-    "description": "Новый том (пустой или по шаблону файловой структуры), по желанию сразу смонтированный на машину.",
+    "description": "Новый диск (пустой или по шаблону файловой структуры), по желанию сразу смонтированный на машину.",
     "tags": [
      "volumes"
     ],
@@ -221,7 +221,7 @@
       }
      }
     },
-    "description": "Свойства тома: слаг, название диска, метка, UUID, условные ёмкость и занятое место.",
+    "description": "Свойства диска: слаг, название диска, метка, UUID, условные ёмкость и занятое место.",
     "tags": [
      "volumes"
     ],
@@ -1001,7 +1001,7 @@
       }
      }
     },
-    "description": "Библиотека объектов. only: один признак или несколько через запятую (должны выполняться все): orphans (нигде не лежит), shared (лежит в нескольких местах), layers (со слоями),\naccess (с условием доступа), keys (объекты-ключи), markup (формат с разметкой), mine (правил я), recent (правили за неделю).\nvolume и path: лежит в томе / в папке тома (с вложенными), хотя бы одним из мест. sort: поле со знаком «-» для убывания.",
+    "description": "Библиотека объектов. only: один признак или несколько через запятую (должны выполняться все): orphans (нигде не лежит), shared (лежит в нескольких местах), layers (со слоями),\naccess (с условием доступа), keys (объекты-ключи), markup (формат с разметкой), mine (правил я), recent (правили за неделю).\nvolume и path: лежит на диске / в папке диска (с вложенными), хотя бы одним из мест. sort: поле со знаком «-» для убывания.",
     "tags": [
      "items"
     ],
@@ -1350,7 +1350,7 @@
       }
      }
     },
-    "description": "Где объект лежит и кто на него ссылается: тома, архивы, письма, сеть, файлы игроков.",
+    "description": "Где объект лежит и кто на него ссылается: диски, архивы, письма, сеть, файлы игроков.",
     "tags": [
      "items"
     ],
@@ -2414,7 +2414,7 @@
       }
      }
     },
-    "description": "Новая машина: с нуля (корень пустой, по шаблону или готовый том) или по образцу другой машины (machines.world.create).",
+    "description": "Новая машина: с нуля (корень пустой, по шаблону или готовый диск) или по образцу другой машины (machines.world.create).",
     "tags": [
      "machines"
     ],
@@ -2973,6 +2973,49 @@
     ]
    }
   },
+  "/studio/api/machines/players": {
+   "get": {
+    "operationId": "studio_api_accounts_find_players",
+    "summary": "Find Players",
+    "parameters": [
+     {
+      "in": "query",
+      "name": "q",
+      "schema": {
+       "default": "",
+       "title": "Q",
+       "type": "string"
+      },
+      "required": false
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "items": {
+          "type": "string"
+         },
+         "title": "Response",
+         "type": "array"
+        }
+       }
+      }
+     }
+    },
+    "description": "Игроки по началу или части логина: для выбора, кому отдать учётку.",
+    "tags": [
+     "accounts"
+    ],
+    "security": [
+     {
+      "SessionAuthIsStaff": []
+     }
+    ]
+   }
+  },
   "/studio/api/machines/{machine_id}/accounts": {
    "post": {
     "operationId": "studio_api_accounts_create",
@@ -3013,6 +3056,114 @@
      },
      "required": true
     },
+    "security": [
+     {
+      "SessionAuthIsStaff": []
+     }
+    ]
+   }
+  },
+  "/studio/api/machines/{machine_id}/accounts/{account_id}/bind": {
+   "post": {
+    "operationId": "studio_api_accounts_bind",
+    "summary": "Bind",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "machine_id",
+      "schema": {
+       "title": "Machine Id",
+       "type": "integer"
+      },
+      "required": true
+     },
+     {
+      "in": "path",
+      "name": "account_id",
+      "schema": {
+       "title": "Account Id",
+       "type": "integer"
+      },
+      "required": true
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/AccountOut"
+        }
+       }
+      }
+     }
+    },
+    "description": "Привязать учётку к игроку (она станет его рабочей) или отвязать. Игрок без рабочей учётки получит новую при следующем входе.",
+    "tags": [
+     "accounts"
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/BindIn"
+       }
+      }
+     },
+     "required": true
+    },
+    "security": [
+     {
+      "SessionAuthIsStaff": []
+     }
+    ]
+   }
+  },
+  "/studio/api/machines/{machine_id}/accounts/{account_id}/players": {
+   "get": {
+    "operationId": "studio_api_accounts_account_players",
+    "summary": "Account Players",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "machine_id",
+      "schema": {
+       "title": "Machine Id",
+       "type": "integer"
+      },
+      "required": true
+     },
+     {
+      "in": "path",
+      "name": "account_id",
+      "schema": {
+       "title": "Account Id",
+       "type": "integer"
+      },
+      "required": true
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "items": {
+          "$ref": "#/components/schemas/AccountPlayer"
+         },
+         "title": "Response",
+         "type": "array"
+        }
+       }
+      }
+     }
+    },
+    "description": "Кто работает под этой учёткой: сейчас на ней, заблокирован, когда входил, отказы за неделю.",
+    "tags": [
+     "accounts"
+    ],
     "security": [
      {
       "SessionAuthIsStaff": []
@@ -3521,7 +3672,7 @@
       }
      }
     },
-    "description": "Выбрать том отличий машины (или снять выбор). Том ложится над всеми дисками машины; прежний остаётся в мире отдельным.",
+    "description": "Выбрать диск отличий машины (или снять выбор). Диск ложится над всеми дисками машины; прежний остаётся в мире отдельным.",
     "tags": [
      "disks"
     ],
@@ -4640,7 +4791,7 @@
       }
      }
     },
-    "description": "Дисковое пространство ОС, как оно сложится у машины без своих монтирований: тома образа слоями. Права не проверяются: это взгляд автора.",
+    "description": "Дисковое пространство ОС, как оно сложится у машины без своих монтирований: диски образа слоями. Права не проверяются: это взгляд автора.",
     "tags": [
      "systems"
     ],
@@ -10804,12 +10955,94 @@
        }
       ],
       "title": "Login Scene"
+     },
+     "player": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Player"
      }
     },
     "required": [
      "login"
     ],
     "title": "AccountIn",
+    "type": "object"
+   },
+   "BindIn": {
+    "properties": {
+     "player": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Player"
+     }
+    },
+    "title": "BindIn",
+    "type": "object"
+   },
+   "AccountPlayer": {
+    "properties": {
+     "player": {
+      "title": "Player",
+      "type": "string"
+     },
+     "online": {
+      "title": "Online",
+      "type": "boolean"
+     },
+     "seen_at": {
+      "anyOf": [
+       {
+        "format": "date-time",
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Seen At"
+     },
+     "locked": {
+      "title": "Locked",
+      "type": "integer"
+     },
+     "last_login": {
+      "anyOf": [
+       {
+        "format": "date-time",
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Last Login"
+     },
+     "refusals": {
+      "title": "Refusals",
+      "type": "integer"
+     }
+    },
+    "required": [
+     "player",
+     "online",
+     "seen_at",
+     "locked",
+     "last_login",
+     "refusals"
+    ],
+    "title": "AccountPlayer",
     "type": "object"
    },
    "TokenIn": {

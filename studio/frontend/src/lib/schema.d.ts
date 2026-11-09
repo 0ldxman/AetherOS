@@ -87,7 +87,7 @@ export interface paths {
         put?: never;
         /**
          * Create
-         * @description Новый том (пустой или по шаблону файловой структуры), по желанию сразу смонтированный на машину.
+         * @description Новый диск (пустой или по шаблону файловой структуры), по желанию сразу смонтированный на машину.
          */
         post: operations["studio_api_volumes_create"];
         delete?: never;
@@ -107,7 +107,7 @@ export interface paths {
         get: operations["studio_api_volumes_tree"];
         /**
          * Save
-         * @description Свойства тома: слаг, название диска, метка, UUID, условные ёмкость и занятое место.
+         * @description Свойства диска: слаг, название диска, метка, UUID, условные ёмкость и занятое место.
          */
         put: operations["studio_api_volumes_save"];
         post?: never;
@@ -342,7 +342,7 @@ export interface paths {
          * Library
          * @description Библиотека объектов. only: один признак или несколько через запятую (должны выполняться все): orphans (нигде не лежит), shared (лежит в нескольких местах), layers (со слоями),
          *     access (с условием доступа), keys (объекты-ключи), markup (формат с разметкой), mine (правил я), recent (правили за неделю).
-         *     volume и path: лежит в томе / в папке тома (с вложенными), хотя бы одним из мест. sort: поле со знаком «-» для убывания.
+         *     volume и path: лежит на диске / в папке диска (с вложенными), хотя бы одним из мест. sort: поле со знаком «-» для убывания.
          */
         get: operations["studio_api_items_library"];
         put?: never;
@@ -437,7 +437,7 @@ export interface paths {
         };
         /**
          * Where
-         * @description Где объект лежит и кто на него ссылается: тома, архивы, письма, сеть, файлы игроков.
+         * @description Где объект лежит и кто на него ссылается: диски, архивы, письма, сеть, файлы игроков.
          */
         get: operations["studio_api_items_where"];
         put?: never;
@@ -826,7 +826,7 @@ export interface paths {
         put?: never;
         /**
          * Create
-         * @description Новая машина: с нуля (корень пустой, по шаблону или готовый том) или по образцу другой машины (machines.world.create).
+         * @description Новая машина: с нуля (корень пустой, по шаблону или готовый диск) или по образцу другой машины (machines.world.create).
          */
         post: operations["studio_api_machines_create"];
         delete?: never;
@@ -984,6 +984,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/studio/api/machines/players": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Find Players
+         * @description Игроки по началу или части логина: для выбора, кому отдать учётку.
+         */
+        get: operations["studio_api_accounts_find_players"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/studio/api/machines/{machine_id}/accounts": {
         parameters: {
             query?: never;
@@ -995,6 +1015,46 @@ export interface paths {
         put?: never;
         /** Create */
         post: operations["studio_api_accounts_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/studio/api/machines/{machine_id}/accounts/{account_id}/bind": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Bind
+         * @description Привязать учётку к игроку (она станет его рабочей) или отвязать. Игрок без рабочей учётки получит новую при следующем входе.
+         */
+        post: operations["studio_api_accounts_bind"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/studio/api/machines/{machine_id}/accounts/{account_id}/players": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Account Players
+         * @description Кто работает под этой учёткой: сейчас на ней, заблокирован, когда входил, отказы за неделю.
+         */
+        get: operations["studio_api_accounts_account_players"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -1158,7 +1218,7 @@ export interface paths {
         get?: never;
         /**
          * Set Overlay
-         * @description Выбрать том отличий машины (или снять выбор). Том ложится над всеми дисками машины; прежний остаётся в мире отдельным.
+         * @description Выбрать диск отличий машины (или снять выбор). Диск ложится над всеми дисками машины; прежний остаётся в мире отдельным.
          */
         put: operations["studio_api_disks_set_overlay"];
         post?: never;
@@ -1478,7 +1538,7 @@ export interface paths {
         };
         /**
          * Image Tree
-         * @description Дисковое пространство ОС, как оно сложится у машины без своих монтирований: тома образа слоями. Права не проверяются: это взгляд автора.
+         * @description Дисковое пространство ОС, как оно сложится у машины без своих монтирований: диски образа слоями. Права не проверяются: это взгляд автора.
          */
         get: operations["studio_api_systems_image_tree"];
         put?: never;
@@ -3638,6 +3698,28 @@ export interface components {
             kick_message: string;
             /** Login Scene */
             login_scene?: string | null;
+            /** Player */
+            player?: string | null;
+        };
+        /** BindIn */
+        BindIn: {
+            /** Player */
+            player?: string | null;
+        };
+        /** AccountPlayer */
+        AccountPlayer: {
+            /** Player */
+            player: string;
+            /** Online */
+            online: boolean;
+            /** Seen At */
+            seen_at: string | null;
+            /** Locked */
+            locked: number;
+            /** Last Login */
+            last_login: string | null;
+            /** Refusals */
+            refusals: number;
         };
         /** TokenIn */
         TokenIn: {
@@ -6709,6 +6791,28 @@ export interface operations {
             };
         };
     };
+    studio_api_accounts_find_players: {
+        parameters: {
+            query?: {
+                q?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": string[];
+                };
+            };
+        };
+    };
     studio_api_accounts_create: {
         parameters: {
             query?: never;
@@ -6731,6 +6835,56 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["AccountOut"];
+                };
+            };
+        };
+    };
+    studio_api_accounts_bind: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                machine_id: number;
+                account_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BindIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AccountOut"];
+                };
+            };
+        };
+    };
+    studio_api_accounts_account_players: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                machine_id: number;
+                account_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AccountPlayer"][];
                 };
             };
         };
