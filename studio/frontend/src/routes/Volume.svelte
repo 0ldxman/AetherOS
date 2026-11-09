@@ -24,7 +24,7 @@
   let props_ = $state({ slug: "", name: "", label: "", uuid: "", capacity_gb: null as number | null, used_gb: null as number | null });
   let propErrors = $state<Record<string, string[]>>({});
 
-  // раскрытые папки дерева помнятся на время работы (по тому)
+  // раскрытые папки дерева помнятся на время работы (по диску)
   const openKey = () => `studio.tree.${id}`;
   let opened = $state<Set<number>>(restore());
   function restore(): Set<number> {
@@ -49,7 +49,7 @@
     }
     if (volume) volume = { ...volume, ...data, rows: volume.rows };
     propsOpen = false;
-    toast("Свойства тома сохранены.");
+    toast("Свойства диска сохранены.");
   }
 
   const gbOf = (value: string) => (value === "" ? null : Math.max(0, Math.round(+value)));
@@ -122,7 +122,7 @@
     return found;
   });
   const count = (nodeId: number | null) => children.get(nodeId)?.length ?? 0;
-  // путь каждой папки: нужен поиску, который показывает файлы всего тома
+  // путь каждой папки: нужен поиску, который показывает файлы всего диска
   const paths = $derived.by(() => {
     const found = new Map<number | null, string>([[null, "/"]]);
     const walk = (node: Node): string => {
@@ -197,7 +197,7 @@
 
   async function load() {
     const { data, error } = await api.GET("/studio/api/volumes/{volume_id}", { params: { path: { volume_id: id } } });
-    if (error || !data) return toast("Том не найден.", "error");
+    if (error || !data) return toast("Диск не найден.", "error");
     volume = data;
     selected = new Set([...selected].filter((key) => data.rows.some((row) => row.id === key)));
     for (const node of crumbs) opened.add(node.id);
@@ -463,7 +463,7 @@
     menu = { x: event.clientX, y: event.clientY, items: createItems() };
   }
 
-  // место объекта для окна «Защита места» (нужны только номер, том и путь)
+  // место объекта для окна «Защита места» (нужны только номер, диск и путь)
   const placedOf = (node: Node) => ({
     placement: node.id, volume: id, parent: node.parent, volume_name: volume?.name || volume?.slug || "", volume_slug: volume?.slug ?? "",
     path: (paths.get(node.id) ?? "").replace(/^\//, ""), owner: node.owner, group: node.group, mode: node.mode, hidden: node.hidden,
@@ -512,7 +512,7 @@
 <div class="volume">
   <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
   <div class="tree" role="tree" tabindex="-1" onkeydown={treeKey}>
-    <button class="back" onclick={() => go("/volumes")}>← Все тома</button>
+    <button class="back" onclick={() => go("/volumes")}>← Все диски</button>
     <div
       class="twig root"
       class:on={folder === null}
@@ -562,7 +562,7 @@
         <button class="link" onclick={clearSearch}>Сбросить</button>
       {/if}
       <span class="grow"></span>
-      <input class="field search" placeholder="Поиск в томе" aria-label="Поиск в томе" bind:value={query} />
+      <input class="field search" placeholder="Поиск на диске" aria-label="Поиск на диске" bind:value={query} />
       <button class="btn ghost small" class:on={showDetails} onclick={toggleDetails} title="Панель сведений справа">Сведения</button>
       <Hint align="right">
         Перетащите файл или папку на папку (в таблице, в дереве или в пути сверху), чтобы перенести. С клавишей Alt: скопировать.<br />
@@ -617,7 +617,7 @@
         <div class="empty muted">
           {#if searching}
             <p>Ничего не нашлось.</p>
-            <p class="small">Поиск идёт по всему тому: по имени и по пути. <button class="link" onclick={clearSearch}>Сбросить поиск</button></p>
+            <p class="small">Поиск идёт по всему диску: по имени и по пути. <button class="link" onclick={clearSearch}>Сбросить поиск</button></p>
           {:else}
             <p>Папка пуста.</p>
             <p class="small">Создайте файл или папку кнопками сверху или перетащите сюда что-нибудь из дерева.</p>
@@ -649,7 +649,7 @@
 {/if}
 
 {#if propsOpen}
-  <Dialog title="Свойства тома" confirm="Сохранить" onsubmit={saveProps} onclose={() => (propsOpen = false)}>
+  <Dialog title="Свойства диска" confirm="Сохранить" onsubmit={saveProps} onclose={() => (propsOpen = false)}>
     <label><span class="label">Название диска (как в игре)</span><input class="field" bind:value={props_.name} /></label>
     <label><span class="label">Слаг</span><input class="field mono" bind:value={props_.slug} class:bad={propErrors.slug} /></label>
     {#if propErrors.slug}<p class="err">{propErrors.slug.join(" ")}</p>{/if}

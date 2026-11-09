@@ -63,7 +63,7 @@ class MachineMount(models.Model):
         super().clean()
         self.normalize()
         if self.mode == self.Mode.LOCAL and not self.volume_id:
-            raise ValidationError({"volume": "Для локального монтирования нужен том."})
+            raise ValidationError({"volume": "Для локального монтирования нужен диск."})
         if self.mode == self.Mode.REMOTE:
             if not self.host_id:
                 raise ValidationError({"host": "Для монтирования по сети нужен хост."})

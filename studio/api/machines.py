@@ -233,7 +233,7 @@ def machines(request):
 
 @router.post("", response=MachineCreated)
 def create(request, body: NewMachine):
-    """Новая машина: с нуля (корень пустой, по шаблону или готовый том) или по образцу другой машины (machines.world.create)."""
+    """Новая машина: с нуля (корень пустой, по шаблону или готовый диск) или по образцу другой машины (machines.world.create)."""
     from machines.world.create import clone_machine, create_machine
 
     if body.root == "like":

@@ -1,6 +1,6 @@
 <script lang="ts">
   import { STATUS } from "../../lib/labels";
-  // Новая машина: с нуля (корень пустой, по шаблону, готовый том) или по образцу другой машины.
+  // Новая машина: с нуля (корень пустой, по шаблону, готовый диск) или по образцу другой машины.
   import { onMount } from "svelte";
   import { api, problem, type Schemas } from "../../lib/api";
   import Dialog from "../../lib/Dialog.svelte";
@@ -54,15 +54,15 @@
   <div class="options">
     <label class="option" class:on={form.root === "template"}>
       <input type="radio" bind:group={form.root} value="template" disabled={!templates.length} />
-      <span><b>Свой диск по шаблону</b><small>новый том с папками шаблона файловой структуры</small></span>
+      <span><b>Свой диск по шаблону</b><small>новый диск с папками шаблона файловой структуры</small></span>
     </label>
     <label class="option" class:on={form.root === "volume"}>
       <input type="radio" bind:group={form.root} value="volume" />
-      <span><b>Общий образ</b><small>готовый том на корне: его видят все машины, где он смонтирован</small></span>
+      <span><b>Общий образ</b><small>готовый диск на корне: его видят все машины, где он смонтирован</small></span>
     </label>
     <label class="option" class:on={form.root === "like"}>
       <input type="radio" bind:group={form.root} value="like" />
-      <span><b>По образцу машины</b><small>учётки, группы, пути, экспорты и диски; личные тома копируются</small></span>
+      <span><b>По образцу машины</b><small>учётки, группы, пути, экспорты и диски; личные диски копируются</small></span>
     </label>
     <label class="option" class:on={form.root === "empty"}>
       <input type="radio" bind:group={form.root} value="empty" />
@@ -76,7 +76,7 @@
     </label>
     {#if template}<p class="muted small mono">{template.folders.join("  ")}</p>{/if}
   {:else if form.root === "volume"}
-    <label><span class="label">Том</span>
+    <label><span class="label">Диск</span>
       <select class="field" bind:value={form.volume}>
         <option value={null}>—</option>
         {#each volumes as item}<option value={item.id}>{item.name || item.slug} ({item.slug})</option>{/each}

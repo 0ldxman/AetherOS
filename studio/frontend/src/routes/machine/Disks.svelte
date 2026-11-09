@@ -57,7 +57,7 @@
   }
 
   async function dropMount(mount: Mount) {
-    if (!(await ask(`Отключить «${mount.mount_path}»?`, "Том останется в мире, но пропадёт из файловой системы этой машины.", "Отключить"))) return;
+    if (!(await ask(`Отключить «${mount.mount_path}»?`, "Диск останется в мире, но пропадёт из файловой системы этой машины.", "Отключить"))) return;
     const { data } = await api.DELETE("/studio/api/machines/{machine_id}/mounts/{mount_id}", { params: { path: { ...path, mount_id: mount.id } } });
     if (data) disks = data;
   }
@@ -69,7 +69,7 @@
     overlayBusy = false;
     if (error || !data) return toast(problem(error, "Не получилось."), "error");
     disks = data;
-    toast(volume === null ? "Выбор тома отличий снят." : "Том отличий назначен.");
+    toast(volume === null ? "Выбор диска отличий снят." : "Диск отличий назначен.");
     if (listing) open(listing.path);
   }
   async function changeOverlay(event: Event) {
@@ -77,8 +77,8 @@
     const value = select.value === "" ? null : +select.value;
     if (value === (disks?.overlay?.id ?? null)) return;
     const had = disks?.overlay;
-    if (had && !(await ask(value === null ? "Снять том отличий?" : "Сменить том отличий?",
-        `Правки этой машины лежат в «${had.label}». После смены они пропадут из её файловой системы, а том останется в мире.`, "Сменить"))) {
+    if (had && !(await ask(value === null ? "Снять диск отличий?" : "Сменить диск отличий?",
+        `Правки этой машины лежат в «${had.label}». После смены они пропадут из её файловой системы, а диск останется в мире.`, "Сменить"))) {
       select.value = String(had.id);
       return;
     }
@@ -123,16 +123,16 @@
             </div>
           {/each}
         {/if}
-        <h2>Том отличий</h2>
-        <p class="muted small">Один том, куда ложатся все правки этой машины: изменённые и новые файлы, скрытые файлы. Лежит над всеми её дисками, в том числе над общими на любых точках монтирования, поэтому общие диски других машин не затрагиваются.</p>
+        <h2>Диск отличий</h2>
+        <p class="muted small">Один диск, куда ложатся все правки этой машины: изменённые и новые файлы, скрытые файлы. Лежит над всеми её дисками, в диск числе над общими на любых точках монтирования, поэтому общие диски других машин не затрагиваются.</p>
         <div class="overlay">
-          <select class="field" value={disks.overlay?.id ?? ""} disabled={overlayBusy} onchange={changeOverlay} aria-label="Том отличий">
+          <select class="field" value={disks.overlay?.id ?? ""} disabled={overlayBusy} onchange={changeOverlay} aria-label="Диск отличий">
             <option value="">{disks.overlay ? "— снять выбор —" : "— создастся при первой правке —"}</option>
             {#if disks.overlay}<option value={disks.overlay.id}>{disks.overlay.label}</option>{/if}
             {#each disks.overlay_choices as volume (volume.id)}<option value={volume.id}>{volume.label}</option>{/each}
           </select>
         </div>
-        {#if !disks.overlay}<p class="muted small">Выбора нет: том создастся сам (<span class="mono">{machine.hostname}-own</span>), когда вы впервые измените файл этой машины. Можно заранее назначить пустой том отсюда.</p>{/if}
+        {#if !disks.overlay}<p class="muted small">Выбора нет: диск создастся сам (<span class="mono">{machine.hostname}-own</span>), когда вы впервые измените файл этой машины. Можно заранее назначить пустой диск отсюда.</p>{/if}
 
         <h2>Монтирования <button class="btn ghost" onclick={() => edit(null)}>+ Подключить</button></h2>
         {#each disks.mounts as mount (mount.id)}
@@ -143,10 +143,10 @@
               <span><span class="chip net">сеть</span> <span class="mono">{mount.host?.label}:{mount.host_path}</span>
                 <span class="muted">как {mount.account?.label ?? "guest"}</span></span>
             {:else}
-              <span><span class="chip">том</span> {mount.volume?.label}{#if mount.volume_path}<span class="mono muted"> /{mount.volume_path}</span>{/if}</span>
+              <span><span class="chip">диск</span> {mount.volume?.label}{#if mount.volume_path}<span class="mono muted"> /{mount.volume_path}</span>{/if}</span>
             {/if}
             {#if mount.order && !mount.overlay}<span class="chip">слой {mount.order}</span>{/if}
-            {#if mount.overlay}<span class="chip" title="Том отличий этой машины. Меняется выбором выше.">отличия</span>{/if}
+            {#if mount.overlay}<span class="chip" title="Диск отличий этой машины. Меняется выбором выше.">отличия</span>{/if}
             <span class="spacer"></span>
             {#if !mount.overlay}
               <button class="btn ghost" onclick={() => edit(mount)}>Изменить</button>
@@ -219,18 +219,18 @@
 {#if editing}
   <Dialog title={editing.id === null ? "Подключить диск" : "Изменить монтирование"} confirm="Сохранить" onsubmit={saveMount} onclose={() => (editing = null)}>
     <div class="modes">
-      <label class="radio"><input type="radio" bind:group={editing.mode} value="local" /> том</label>
+      <label class="radio"><input type="radio" bind:group={editing.mode} value="local" /> диск</label>
       <label class="radio"><input type="radio" bind:group={editing.mode} value="remote" /> путь другой машины по сети</label>
     </div>
     {#if editing.mode === "local"}
-      <label><span class="label">Том</span>
+      <label><span class="label">Диск</span>
         <select class="field" bind:value={editing.volume}>
           <option value={null}>—</option>
           {#each disks?.volumes ?? [] as volume}<option value={volume.id}>{volume.label}</option>{/each}
         </select>
       </label>
       {#if fieldError("volume")}<p class="err">{fieldError("volume")}</p>{/if}
-      <label><span class="label">Папка тома (пусто: весь том)</span><input class="field mono" bind:value={editing.volume_path} /></label>
+      <label><span class="label">Папка диска (пусто: весь диск)</span><input class="field mono" bind:value={editing.volume_path} /></label>
     {:else}
       <label><span class="label">Хост</span>
         <select class="field" bind:value={editing.host}>

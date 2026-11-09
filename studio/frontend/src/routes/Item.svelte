@@ -164,7 +164,7 @@
 
     <nav class="pagetabs">
       <a class:on={view === "content"} href="#/items/{id}">Содержимое{#if dirty && view !== "content"}<span class="unsaved" title="В тексте есть несохранённые правки"></span>{/if}</a>
-      <a class:on={view === "where"} href="#/items/{id}/where" title="Тома и папки, где этот объект лежит. Один объект может лежать в нескольких местах: правка видна во всех. В счёт входят и архивы, в которые объект включён.">Где лежит <span class="count">{item.placements.length + item.in_archives}</span></a>
+      <a class:on={view === "where"} href="#/items/{id}/where" title="Диски и папки, где этот объект лежит. Один объект может лежать в нескольких местах: правка видна во всех. В счёт входят и архивы, в которые объект включён.">Где лежит <span class="count">{item.placements.length + item.in_archives}</span></a>
       <a class:on={view === "protection"} href="#/items/{id}/protection" title="Как игрок получает содержимое: условие по ключам и слои защиты (пароль, маскировка). Для обычной открытой статьи не нужно.">Защита
         {#if item.protected}<span class="count lock" title="Есть условие или слои">●</span>{/if}{#if partDirty && view === "protection"}<span class="unsaved" title="Есть несохранённые правки"></span>{/if}</a>
       <a class:on={view === "keys"} href="#/items/{id}/keys" title="Игровая механика: ключи, спрятанные в файле, и подписи для проверки подлинности. Для обычной статьи не нужно.">Ключи и подписи{#if partDirty && view === "keys"}<span class="unsaved" title="Есть несохранённые правки"></span>{/if}</a>

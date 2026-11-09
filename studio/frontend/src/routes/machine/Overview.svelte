@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { untrack } from "svelte";
   import Hint from "../../lib/Hint.svelte";
   import { STATUS } from "../../lib/labels";
   import { guardUnsaved } from "../../lib/guard.svelte";
@@ -96,6 +97,7 @@
   const closePop = () => { clearTimeout(popTimer); popTimer = setTimeout(() => (pop = false), 150); };
 
   let idOpen = $state(false);
+  let greetOpen = $state(untrack(() => !!(machine.note || machine.booted_at)));
   $effect(() => { if (errors.host_key || errors.hid || errors.address || errors.serial) idOpen = true; });
 </script>
 
@@ -143,15 +145,6 @@
     </section>
 
     <section class="card">
-      <h2>Для приветствия ОС</h2>
-      <p class="muted small lead">Попадает в приветствие ОС как <code>{"{note}"}</code> и <code>{"{uptime}"}</code>.</p>
-      <div class="pair">
-        <label><span class="label">Включена с</span><input class="field" type="datetime-local" bind:value={form.booted_at} /></label>
-      </div>
-      <label><span class="label">Заметка</span><textarea class="field" rows="3" bind:value={form.note}></textarea></label>
-    </section>
-
-    <section class="card">
       <details bind:open={idOpen}>
         <summary>Идентичность <span class="muted small">hid, адрес, серийный номер, ключ узла</span></summary>
         <p class="muted small lead">Пустое поле: значение выводится из hid. Можно вписать своё или сгенерировать. Одинаковый hid у двух машин нормален: так клон выглядит той же машиной.</p>
@@ -173,6 +166,16 @@
         </div>
         {#if errors.host_key}<p class="err">{errors.host_key.join(" ")}</p>{:else if form.host_key && !art.valid}<p class="err">Отпечаток выглядит так: SHA256: и 43 символа base64.</p>{/if}
         <pre class="art mono">{art.lines.join("\n")}</pre>
+      </details>
+    </section>
+    <section class="card">
+      <details bind:open={greetOpen}>
+        <summary>Для приветствия ОС <span class="muted small">включена с, заметка</span></summary>
+        <p class="muted small lead">Попадает в приветствие ОС как <code>{"{note}"}</code> и <code>{"{uptime}"}</code>.</p>
+        <div class="pair">
+          <label><span class="label">Включена с</span><input class="field" type="datetime-local" bind:value={form.booted_at} /></label>
+        </div>
+        <label><span class="label">Заметка</span><textarea class="field" rows="3" bind:value={form.note}></textarea></label>
       </details>
     </section>
 
@@ -227,8 +230,8 @@
 
 {#if dialog === "delete"}
   <Dialog title="Удалить {machine.hostname || machine.name}?" confirm="Удалить" danger onsubmit={remove} onclose={() => (dialog = null)}>
-    <p class="muted">Удалятся учётки, их сессии и журнал, монтирования, экспорты, свои группы и пути машины. Тома останутся: они могут быть
-      нужны другим машинам, лишние удалите в «Томах».</p>
+    <p class="muted">Удалятся учётки, их сессии и журнал, монтирования, экспорты, свои группы и пути машины. Диски останутся: они могут быть
+      нужны другим машинам, лишние удалите в «Дисках».</p>
   </Dialog>
 {:else if dialog === "copy"}
   <NewMachine machines={[{ id: machine.id, hostname: machine.hostname, name: machine.name, system: machine.system, status: machine.status,

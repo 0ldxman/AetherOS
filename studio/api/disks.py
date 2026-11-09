@@ -1,4 +1,4 @@
-"""Диски машины: монтирования (том локально или путь хоста по сети), экспорты и дерево файлов «глазами учётки».
+"""Диски машины: монтирования (диск локально или путь хоста по сети), экспорты и дерево файлов «глазами учётки».
 
 Дерево собирает вид машины (filesystem.machine_view) с правами выбранной учётки: что ей видно, что можно прочитать, где права,
 слои защиты и условия по ключам. Ничего не меняется: это взгляд автора, а не вход игрока.
@@ -33,7 +33,7 @@ class DiskMount(Schema):
     account: Ref | None
     mount_path: str
     order: int
-    overlay: bool = False     # монтирование тома отличий: меняется выбором «Том отличий», а не здесь
+    overlay: bool = False     # монтирование диска отличий: меняется выбором «Диск отличий», а не здесь
 
 
 class ExportRow(Schema):
@@ -60,8 +60,8 @@ class Disks(Schema):
     mounts: list[DiskMount]
     exports: list[ExportRow]
     volumes: list[Ref]
-    overlay: Ref | None                 # том отличий машины
-    overlay_choices: list[Ref]          # какие тома можно назначить отличиями
+    overlay: Ref | None                 # диск отличий машины
+    overlay_choices: list[Ref]          # какие диски можно назначить отличиями
     hosts: list[Host]
 
 
@@ -115,7 +115,7 @@ def _is_overlay(machine, mount):
 
 
 def _overlay_choices(machine):
-    """Тома, которые можно сделать отличиями этой машины: нигде больше не смонтированы, не образ ОС и не отличия другой машины."""
+    """Диски, которые можно сделать отличиями этой машины: нигде больше не смонтированы, не образ ОС и не отличия другой машины."""
     taken = set(MachineMount.objects.exclude(machine=machine).values_list("volume_id", flat=True))
     taken |= set(SystemVolume.objects.values_list("volume_id", flat=True))
     taken |= set(Machine.objects.exclude(pk=machine.pk).filter(overlay__isnull=False).values_list("overlay_id", flat=True))
@@ -163,7 +163,7 @@ def _apply(mount, body):
     mount.save()
 
 
-OVERLAY_NOTE = "Это том отличий машины: он выбирается в блоке «Том отличий» выше."
+OVERLAY_NOTE = "Это диск отличий машины: он выбирается в блоке «Диск отличий» выше."
 
 
 @router.post("/{int:machine_id}/mounts", response=Disks)
@@ -195,7 +195,7 @@ def drop_mount(request, machine_id: int, mount_id: int):
 
 @router.put("/{int:machine_id}/overlay", response=Disks)
 def set_overlay(request, machine_id: int, body: OverlayIn):
-    """Выбрать том отличий машины (или снять выбор). Том ложится над всеми дисками машины; прежний остаётся в мире отдельным."""
+    """Выбрать диск отличий машины (или снять выбор). Диск ложится над всеми дисками машины; прежний остаётся в мире отдельным."""
     machine = get_object_or_404(Machine, pk=machine_id)
     if body.volume is None:
         if machine.overlay_id:
@@ -205,7 +205,7 @@ def set_overlay(request, machine_id: int, body: OverlayIn):
         return _disks(machine)
     volume = get_object_or_404(Volume, pk=body.volume)
     if volume.pk not in {v.pk for v in _overlay_choices(machine)} and volume.pk != machine.overlay_id:
-        raise ValidationError("Этот том нельзя сделать отличиями: он смонтирован в другом месте, это образ ОС или отличия другой машины.")
+        raise ValidationError("Этот диск нельзя сделать отличиями: он смонтирован в другом месте, это образ ОС или отличия другой машины.")
     assign_overlay(machine, volume)
     return _disks(machine)
 

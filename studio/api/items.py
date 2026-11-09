@@ -87,7 +87,7 @@ class LibraryRow(Schema):
     size: int | None
     places: int
     archives: int
-    where: list[str]          # «том:/путь» первых мест (всего places)
+    where: list[str]          # «диск:/путь» первых мест (всего places)
     layers: bool
     access: bool
     updated_at: datetime
@@ -97,7 +97,7 @@ class LibraryRow(Schema):
 class Placed(Schema):
     placement: int
     volume: int
-    parent: int | None        # папка в томе (для перехода)
+    parent: int | None        # папка на диске (для перехода)
     volume_name: str
     volume_slug: str
     path: str
@@ -244,7 +244,7 @@ PLACES_SHOWN = 5
 
 
 def _within(volume, path):
-    """Места внутри тома (volume) и/или папки по пути; вложенные папки входят."""
+    """Места внутри диска (volume) и/или папки по пути; вложенные папки входят."""
     from filesystem.models import Placement
 
     scope = Placement.objects.all()
@@ -268,7 +268,7 @@ def library(
 ):
     """Библиотека объектов. only: один признак или несколько через запятую (должны выполняться все): orphans (нигде не лежит), shared (лежит в нескольких местах), layers (со слоями),
     access (с условием доступа), keys (объекты-ключи), markup (формат с разметкой), mine (правил я), recent (правили за неделю).
-    volume и path: лежит в томе / в папке тома (с вложенными), хотя бы одним из мест. sort: поле со знаком «-» для убывания."""
+    volume и path: лежит на диске / в папке диска (с вложенными), хотя бы одним из мест. sort: поле со знаком «-» для убывания."""
     from datetime import timedelta
 
     from django.utils import timezone
@@ -342,7 +342,7 @@ class NewItem(Schema):
     name: str
     format: str = ""
     slug: str = ""
-    volume: int | None = None     # сразу положить в корень этого тома
+    volume: int | None = None     # сразу положить в корень этого диска
 
 
 class ItemCreated(Schema):
@@ -412,7 +412,7 @@ def preview(request, body: PreviewIn):
 
 @router.get("/{int:item_id}/where", response=Whereabouts)
 def where(request, item_id: int):
-    """Где объект лежит и кто на него ссылается: тома, архивы, письма, сеть, файлы игроков."""
+    """Где объект лежит и кто на него ссылается: диски, архивы, письма, сеть, файлы игроков."""
     from filesystem.manager.filemanager import holders
 
     item = _item(item_id)

@@ -64,7 +64,7 @@
   });
 
   const NAV = [
-    { href: "#/volumes", label: "Тома и файлы", section: ["volumes", "volume", "text"] },
+    { href: "#/volumes", label: "Диски и файлы", section: ["volumes", "volume", "text"] },
     { href: "#/items", label: "Объекты", section: ["items", "item"] },
     { href: "#/machines", label: "Машины", section: ["machines", "machine"] },
     { href: "#/policies", label: "Политики входа", section: ["policies"] },

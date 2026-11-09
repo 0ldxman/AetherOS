@@ -50,7 +50,7 @@
     listing = (await api.GET("/studio/api/systems/{code}/tree", { params: { path: { code: system.code }, query: { path } } })).data ?? null;
   }
 
-  // дерево обновляется, когда меняется образ (тома, точки, порядок) или открывается вкладка
+  // дерево обновляется, когда меняется образ (диски, точки, порядок) или открывается вкладка
   $effect(() => {
     if ((tab === "disk" || tab === "paths") && system) {
       JSON.stringify(system.image);
@@ -196,9 +196,9 @@
 
   async function dropLayer(row: Schemas["ImageRow"]) {
     if (!system) return;
-    if (!(await ask("Убрать том из образа?", "Сам том останется, но машины этой ОС перестанут получать его файлы.", "Убрать"))) return;
+    if (!(await ask("Убрать диск из образа?", "Сам диск останется, но машины этой ОС перестанут получать его файлы.", "Убрать"))) return;
     const { data, error } = await api.DELETE("/studio/api/systems/{code}/image/{row_id}", { params: { path: { code: system.code, row_id: row.id } } });
-    done(data, error, "Том убран из образа.");
+    done(data, error, "Диск убран из образа.");
   }
 
   async function createType() {
@@ -263,8 +263,8 @@
       <div class="diskgrid">
         <div class="col">
         <div class="block">
-          <h3>Образ системного диска <button class="btn ghost" onclick={() => editLayer(null)}>+ Том</button></h3>
-          <p class="muted small">Тома, которые получают все машины ОС ({system.machines.length}). Лежат под монтированиями самой машины: на одну точку они складываются стопкой, файлы машины перекрывают файлы образа.</p>
+          <h3>Образ системного диска <button class="btn ghost" onclick={() => editLayer(null)}>+ Диск</button></h3>
+          <p class="muted small">Диски, которые получают все машины ОС ({system.machines.length}). Лежат под монтированиями самой машины: на одну точку они складываются стопкой, файлы машины перекрывают файлы образа.</p>
           {#each system.image as row (row.id)}
             <div class="layer">
               <span class="mono point">{row.mount_path}</span><span class="muted">←</span>
@@ -275,7 +275,7 @@
               <button class="btn ghost danger" onclick={() => dropLayer(row)}>Убрать</button>
             </div>
           {:else}
-            <p class="muted">Образа нет: у машин только их собственные тома.</p>
+            <p class="muted">Образа нет: у машин только их собственные диски.</p>
           {/each}
         </div>
 
@@ -295,7 +295,7 @@
         </div>
       <div class="block tree">
         <h3>Дисковое пространство ОС</h3>
-        <p class="muted small">Как сложится файловая система машины ОС без её собственных монтирований: тома образа слоями. Папки, совпавшие с системными путями, подписаны.</p>
+        <p class="muted small">Как сложится файловая система машины ОС без её собственных монтирований: диски образа слоями. Папки, совпавшие с системными путями, подписаны.</p>
         {#if picking}<div class="banner">Выберите папку для «{picking}» <button class="btn ghost" onclick={() => (picking = null)}>Отмена</button></div>{/if}
         <nav class="crumbs">
           {#each crumbs as crumb, i}{#if i > 1}<span class="sep">/</span>{/if}<button onclick={() => loadTree(crumb.path)}>{crumb.name}</button>{/each}
@@ -315,7 +315,7 @@
               {#if picking && node.is_dir}<button class="btn ghost" onclick={() => pickFolder(node.path)}>Выбрать</button>{/if}
             </div>
           {:else}
-            <p class="muted small">{system.image.length ? "Папка пуста." : "Образа нет: добавьте тома слева, и здесь появится дерево."}</p>
+            <p class="muted small">{system.image.length ? "Папка пуста." : "Образа нет: добавьте диски слева, и здесь появится дерево."}</p>
           {/each}
         </div>
       </div>
@@ -416,12 +416,12 @@
 </ListDetail>
 
 {#if layer}
-  <Dialog title={layer.id === null ? "Том в образе" : "Изменить том образа"} confirm="Сохранить" onsubmit={saveLayer} onclose={() => (layer = null)}>
+  <Dialog title={layer.id === null ? "Диск в образе" : "Изменить диск образа"} confirm="Сохранить" onsubmit={saveLayer} onclose={() => (layer = null)}>
     <select class="field" bind:value={layer.volume}>
-      <option value={null}>— том —</option>
+      <option value={null}>— диск —</option>
       {#each system?.volumes ?? [] as volume}<option value={volume.id}>{volume.label}</option>{/each}
     </select>
-    <input class="field mono" placeholder="папка тома (пусто: весь том)" bind:value={layer.volume_path} />
+    <input class="field mono" placeholder="папка диска (пусто: весь диск)" bind:value={layer.volume_path} />
     <input class="field mono" placeholder="точка монтирования: /" bind:value={layer.mount_path} />
     <input class="field" type="number" min="0" placeholder="порядок" bind:value={layer.order} />
     {#each Object.values(errors).flat() as text}<p class="warn small">{text}</p>{/each}

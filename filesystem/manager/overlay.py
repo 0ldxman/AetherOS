@@ -130,7 +130,7 @@ def ensure_folders(volume, rel_dir, view=None, point="/"):
                     fields = {key: getattr(below.placement, key) for key in FOLDER_FIELDS}
             node = Placement.objects.create(volume=volume, parent=parent, kind=Placement.Kind.FOLDER, name=name, **fields)
         elif node.kind != Placement.Kind.FOLDER:
-            raise FileManagerError(f"«{name}» в томе отличий не папка.")
+            raise FileManagerError(f"«{name}» на диске отличий не папка.")
         parent = node
     return parent
 
@@ -211,7 +211,7 @@ def set_rights(machine, path, owner="", group="", mode=""):
         home = home_for(machine, view, path, entry)
         rel = home.rel(path)
         if not rel:
-            raise FileManagerError("Права точки монтирования задаёт сам том.")
+            raise FileManagerError("Права точки монтирования задаёт сам диск.")
         placement = ensure_folders(home.volume, rel, view, home.point)
     else:
         override(machine, path)
@@ -252,7 +252,7 @@ def restore(machine, path):
         found = view.layer_paths_of_kind(layer, Placement.Kind.WHITEOUT).get("/" + path.strip("/"))
         if found is not None:
             if not is_private(machine, layer.mount):
-                raise FileManagerError(f"Надгробие лежит в общем томе «{layer.mount.volume.slug}»: уберите его в самом томе.")
+                raise FileManagerError(f"Надгробие лежит на общем диске «{layer.mount.volume.slug}»: уберите его на самом диске.")
             found.delete()
             return True
     raise FileManagerError("Это не скрыто.")

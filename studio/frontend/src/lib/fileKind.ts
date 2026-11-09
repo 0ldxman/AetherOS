@@ -14,7 +14,7 @@ export function extensionOf(name: string): string {
 
 export type Described = { kind: Kind; label: string; own: boolean };
 
-/** Значок и подпись узла тома. Файл без объекта и объект различаются: подпись начинается со слов «Файл» и «Объект». */
+/** Значок и подпись узла диска. Файл без объекта и объект различаются: подпись начинается со слов «Файл» и «Объект». */
 export function describe(node: Schemas["Node"], formats: Schemas["Format"][], count = 0): Described {
   if (node.kind === "folder") return { kind: "folder", own: false, label: count ? `Папка · ${count} ${plural(count)}` : "Папка · пусто" };
   const found = formats.find((item) => item.name === node.format);

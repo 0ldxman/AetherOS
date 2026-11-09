@@ -51,7 +51,7 @@
   const GROUPS: { label: string; items: [string, string, string?][] }[] = [
     { label: "Что показать", items: [["markup", "✎ С разметкой", "Форматы с разметкой: подходят для статей и документов"], ["keys", "Ключи"]] },
     { label: "Правки", items: [["recent", "за неделю"], ["mine", "мои"]] },
-    { label: "Состояние", items: [["orphans", "нигде не лежат", "Нет ни в одном томе и ни в одном архиве"], ["shared", "в нескольких местах"], ["layers", "со слоями"], ["access", "с условием"]] },
+    { label: "Состояние", items: [["orphans", "нигде не лежат", "Нет ни на одном диске и ни в одном архиве"], ["shared", "в нескольких местах"], ["layers", "со слоями"], ["access", "с условием"]] },
   ];
   let active = $state<string[]>([]);
   let pickerOpen = $state(false);
@@ -77,7 +77,7 @@
 <svelte:window onclick={() => (pickerOpen = false)} onkeydown={(event) => event.key === "Escape" && (pickerOpen = false)} />
 
 <PageHead title="Объекты">
-  {#snippet sub()}Все объекты мира. Один объект может лежать в нескольких томах и архивах: правка видна везде. Файлы без объекта (пустые файлы, которые создаются в томах) здесь не показываются: их видно в разделе <a href="#/volumes">«Тома и файлы»</a>.{/snippet}
+  {#snippet sub()}Все объекты мира. Один объект может лежать на нескольких дисках и архивах: правка видна везде. Файлы без объекта (пустые файлы, которые создаются на дисках) здесь не показываются: их видно в разделе <a href="#/volumes">«Диски и файлы»</a>.{/snippet}
     <select class="field auto" bind:value={filters.kind}>
       <option value="">любое содержимое</option>
       {#each Object.entries(KIND) as [value, label]}<option {value}>{label}</option>{/each}
@@ -87,10 +87,10 @@
       <FormatOptions {formats} codeOnly />
     </select>
     <select class="field auto" bind:value={filters.volume}>
-      <option value="">любой том</option>
+      <option value="">любой диск</option>
       {#each volumes as found}<option value={found.id}>{found.name || found.slug}</option>{/each}
     </select>
-    <input class="field path mono" placeholder="папка: ports/reports" title="Путь к папке внутри тома: покажет объекты из неё и из вложенных" bind:value={filters.path} />
+    <input class="field path mono" placeholder="папка: ports/reports" title="Путь к папке внутри диска: покажет объекты из неё и из вложенных" bind:value={filters.path} />
     <input class="field search" placeholder="Название, слаг или текст" bind:value={filters.q} />
     <button class="btn primary" onclick={() => (dialog = { name: "", format: "", slug: "", volume: "" })}>Новый объект</button>
 </PageHead>
@@ -126,7 +126,7 @@
   <div class="row head">
     <span><button class="sort" onclick={() => sortBy("name")}>Объект{arrow("name")}</button></span>
     <span>Тип</span>
-    <span><button class="sort" onclick={() => sortBy("places")}>Где лежит{arrow("places")}</button><Hint text="Том и путь, где лежит объект. Один объект может лежать в нескольких местах сразу: правка видна во всех. «арх.» — входит в архив (zip и подобные)." /></span>
+    <span><button class="sort" onclick={() => sortBy("places")}>Где лежит{arrow("places")}</button><Hint text="Диск и путь, где лежит объект. Один объект может лежать в нескольких местах сразу: правка видна во всех. «арх.» — входит в архив (zip и подобные)." /></span>
     <span>Защита<Hint text="«слои» — шифрование и иные слои защиты содержимого. «условие» — правило, при котором игрок вообще получит доступ." /></span>
     <span class="num"><button class="sort" onclick={() => sortBy("size")}>Размер{arrow("size")}</button></span>
     <span><button class="sort" onclick={() => sortBy("updated_at")}>Правка{arrow("updated_at")}</button></span>
@@ -168,7 +168,7 @@
       <span class="label">Сразу положить</span>
       <select class="field" bind:value={dialog.volume}>
         <option value="">никуда (положить позже в «Где лежит»)</option>
-        {#each volumes as found}<option value={found.id}>в корень тома «{found.name || found.slug}»</option>{/each}
+        {#each volumes as found}<option value={found.id}>в корень диска «{found.name || found.slug}»</option>{/each}
       </select>
     </label>
   </Dialog>

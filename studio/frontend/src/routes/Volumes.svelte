@@ -56,13 +56,13 @@
     const { data, error } = await api.POST("/studio/api/volumes", { body: { ...form, mount_path: form.machine ? form.mount_path : "" } });
     if (error || !data) {
       errors = (error as { fields?: Record<string, string[]> } | undefined)?.fields ?? {};
-      return toast(problem(error, "Том не создался."), "error");
+      return toast(problem(error, "Диск не создался."), "error");
     }
     creating = false;
     go(`/volumes/${data.id}`);
   }
 
-  const lost = (row: Row) => !row.mounts.length;          // том, который нигде не смонтирован, игроку не виден: это ошибка
+  const lost = (row: Row) => !row.mounts.length;          // диск, который нигде не смонтирован, игроку не виден: это ошибка
   const counts = $derived({
     all: rows.length,
     plain: rows.filter((r) => !r.system).length,
@@ -71,9 +71,9 @@
   });
   const FILTERS: { key: Filter; label: string; hint: string }[] = [
     { key: "all", label: "Все", hint: "" },
-    { key: "plain", label: "Тома", hint: "Обычные диски мира." },
-    { key: "system", label: "Системные", hint: "Тома отличий машин: каждая машина хранит в своём все свои правки общих дисков." },
-    { key: "unmounted", label: "Не смонтированные", hint: "Том, который нигде не смонтирован, игрок не увидит: скорее всего, это ошибка." },
+    { key: "plain", label: "Обычные", hint: "Обычные диски мира." },
+    { key: "system", label: "Системные", hint: "Диски отличий машин: каждая машина хранит в своём все свои правки общих дисков." },
+    { key: "unmounted", label: "Не смонтированные", hint: "Диск, который нигде не смонтирован, игрок не увидит: скорее всего, это ошибка." },
   ];
 
   const shown = $derived.by(() => {
@@ -104,10 +104,10 @@
   onMount(load);
 </script>
 
-<PageHead title="Тома">
+<PageHead title="Диски">
   {#snippet sub()}Диски мира: что на них лежит и куда они смонтированы.{/snippet}
   <input class="field search" placeholder="Поиск по названию, слагу, машине" bind:value={query} aria-label="Поиск" />
-  <button class="btn primary" onclick={openCreate}>+ Новый том</button>
+  <button class="btn primary" onclick={openCreate}>+ Новый диск</button>
 </PageHead>
 
 {#if rows.length}
@@ -131,16 +131,16 @@
   {#if loading}
     <p class="muted pad">Загрузка…</p>
   {:else if failed}
-    <p class="muted pad">Тома не загрузились. <button class="btn" onclick={load}>Повторить</button></p>
+    <p class="muted pad">Диски не загрузились. <button class="btn" onclick={load}>Повторить</button></p>
   {:else if !shown.length}
-    <p class="muted pad">{rows.length ? "Ничего не нашлось." : "Томов пока нет. Том — это диск мира: на нём лежат файлы и папки, а машины монтируют его в свою файловую систему."}</p>
-    {#if !rows.length}<button class="btn primary add-first" onclick={openCreate}>+ Новый том</button>{/if}
+    <p class="muted pad">{rows.length ? "Ничего не нашлось." : "Дисков пока нет. Диск мира хранит файлы и папки, а машины монтируют его в свою файловую систему."}</p>
+    {#if !rows.length}<button class="btn primary add-first" onclick={openCreate}>+ Новый диск</button>{/if}
   {:else}
     {#each shown as row (row.id)}
       <a class="card" class:lost={lost(row)} href="#/volumes/{row.id}">
         <div class="title">
           <span class="name">{row.name || row.slug}</span>
-          {#if row.system}<span class="chip sys" title="Том отличий машины {row.overlay_of}: все её правки общих дисков лежат здесь.">Системный · {row.overlay_of}</span>{/if}
+          {#if row.system}<span class="chip sys" title="Диск отличий машины {row.overlay_of}: все её правки общих дисков лежат здесь.">Системный · {row.overlay_of}</span>{/if}
           {#if row.label}<span class="chip lab" title={row.label}>{row.label}</span>{/if}
         </div>
         {#if row.name && row.name !== row.slug}<div class="slug mono">{row.slug}</div>{/if}
@@ -152,7 +152,7 @@
           {#each row.mounts as mount}
             <span class="mount mono">{mount.machine}:{mount.path || "—"}</span>
           {:else}
-            <span class="alert" title="Том нигде не смонтирован, игрок его не увидит. Смонтируйте его на машину.">⚠ не смонтирован</span>
+            <span class="alert" title="Диск нигде не смонтирован, игрок его не увидит. Смонтируйте его на машину.">⚠ не смонтирован</span>
           {/each}
         </div>
       </a>
@@ -161,7 +161,7 @@
 </section>
 
 {#if creating}
-  <Dialog title="Новый том" confirm="Создать" onsubmit={create} onclose={() => (creating = false)} disabled={!form.slug.trim()}>
+  <Dialog title="Новый диск" confirm="Создать" onsubmit={create} onclose={() => (creating = false)} disabled={!form.slug.trim()}>
     <label><span class="label">Название диска (как в игре)</span>
       <input class="field" bind:value={form.name} oninput={suggest} placeholder="Harbor" />
     </label>
@@ -171,11 +171,11 @@
     {#if errors.slug}<p class="err">{errors.slug.join(" ")}</p>{/if}
     <label><span class="label">Структура</span>
       <select class="field" bind:value={form.template}>
-        <option value={null}>пустой том</option>
+        <option value={null}>пустой диск</option>
         {#each templates as item}<option value={item.id}>{item.name} ({item.folders.length} папок)</option>{/each}
       </select>
     </label>
-    <label><span class="label">Смонтировать на машину<Hint text="Том, который нигде не смонтирован, игрок не увидит. Монтировать можно и позже." /></span>
+    <label><span class="label">Смонтировать на машину<Hint text="Диск, который нигде не смонтирован, игрок не увидит. Монтировать можно и позже." /></span>
       <select class="field" bind:value={form.machine}>
         <option value={null}>не монтировать (потом)</option>
         {#each machines as item}<option value={item.id}>{item.hostname || item.name}</option>{/each}

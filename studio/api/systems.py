@@ -444,7 +444,7 @@ def save_style(request, code: str, body: StyleIn):
 
 @router.get("/{code}/tree", response=ImageListing)
 def image_tree(request, code: str, path: str = "/"):
-    """Дисковое пространство ОС, как оно сложится у машины без своих монтирований: тома образа слоями. Права не проверяются: это взгляд автора."""
+    """Дисковое пространство ОС, как оно сложится у машины без своих монтирований: диски образа слоями. Права не проверяются: это взгляд автора."""
     system = _system(code)
     view = MachineView(Machine(pk=-1, name="image", system=system.code))      # несохранённая машина-образец: своих монтирований у неё нет
     path = "/" + "/".join(part for part in path.split("/") if part)

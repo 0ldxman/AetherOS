@@ -1,4 +1,4 @@
-"""Тома: список, дерево тома и действия над ним (filesystem.manager.filemanager, как у файлового менеджера админки)."""
+"""Диски: список, дерево диска и действия над ним (filesystem.manager.filemanager, как у файлового менеджера админки)."""
 from typing import Any
 
 from django.db import transaction
@@ -25,7 +25,7 @@ class VolumeRow(Schema):
     slug: str
     name: str
     label: str
-    system: bool            # том отличий какой-то машины
+    system: bool            # диск отличий какой-то машины
     overlay_of: str         # чьи отличия: подпись машины
     files: int
     folders: int
@@ -158,14 +158,14 @@ class VolumeMade(Schema):
 
 @router.post("", response=VolumeMade)
 def create(request, body: NewVolume):
-    """Новый том (пустой или по шаблону файловой структуры), по желанию сразу смонтированный на машину."""
+    """Новый диск (пустой или по шаблону файловой структуры), по желанию сразу смонтированный на машину."""
     disk = create_volume(body.slug, body.name, body.label, body.uuid or None, body.template, body.machine, body.mount_path, body.capacity_gb, body.used_gb)
     return VolumeMade(id=disk.pk)
 
 
 @router.put("/{int:volume_id}", response=VolumeTree)
 def save(request, volume_id: int, body: VolumeProps):
-    """Свойства тома: слаг, название диска, метка, UUID, условные ёмкость и занятое место."""
+    """Свойства диска: слаг, название диска, метка, UUID, условные ёмкость и занятое место."""
     volume = get_object_or_404(Volume, pk=volume_id)
     volume.slug, volume.name, volume.label, volume.uuid = body.slug.strip(), body.name.strip(), body.label.strip(), body.uuid.strip()
     volume.capacity_gb, volume.used_gb = body.capacity_gb, body.used_gb

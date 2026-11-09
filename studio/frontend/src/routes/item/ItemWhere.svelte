@@ -93,7 +93,7 @@
 {#if data}
   <div class="wrap">
     <section class="card">
-      <h2>В томах <button class="btn ghost" onclick={openPut}>+ Положить ещё в…</button></h2>
+      <h2>На дисках <button class="btn ghost" onclick={openPut}>+ Положить ещё в…</button></h2>
       {#each data.placements as placed (placed.placement)}
         <div class="place">
           <a class="mono path" href="#/volumes/{placed.volume}{placed.parent ? `/${placed.parent}` : ''}">
@@ -114,9 +114,9 @@
         </div>
       {:else}
         {#if data.archives.length}
-          <p class="muted">Не лежит в томах, но входит в {data.archives.length} {plural(data.archives.length, "архив", "архива", "архивов")} (ниже): игрок получит его, распаковав архив.</p>
+          <p class="muted">Не лежит на дисках, но входит в {data.archives.length} {plural(data.archives.length, "архив", "архива", "архивов")} (ниже): игрок получит его, распаковав архив.</p>
         {:else}
-          <p class="warn">Объект нигде не лежит: игрок его не увидит. Положите его в том кнопкой выше.</p>
+          <p class="warn">Объект нигде не лежит: игрок его не увидит. Положите его на диск кнопкой выше.</p>
         {/if}
       {/each}
       {#if data.placements.length > 1}
@@ -166,7 +166,7 @@
 {#if dialog === "put"}
   <Dialog title="Положить «{item.name}» ещё в…" confirm="Положить" onsubmit={put} onclose={() => (dialog = null)}>
     <p class="muted small">Это тот же объект, не копия: правка будет видна в обоих местах.</p>
-    <label><span class="label">Том</span>
+    <label><span class="label">Диск</span>
       <select class="field" bind:value={target.volume}>
         <option value={null}>—</option>
         {#each volumes as volume}<option value={volume.id}>{volume.name || volume.slug}</option>{/each}
@@ -174,7 +174,7 @@
     </label>
     <label><span class="label">Папка</span>
       <select class="field mono" bind:value={target.parent} disabled={target.volume === null}>
-        <option value={null}>/ (корень тома)</option>
+        <option value={null}>/ (корень диска)</option>
         {#each folders as folder}<option value={folder.id}>{folder.path}</option>{/each}
       </select>
     </label>
@@ -186,7 +186,7 @@
       <p>Удалить нельзя: объект нужен.</p>
       {#each data.holders as row}<p class="line"><span class="chip">{row.kind}</span> {row.label}</p>{/each}
     {:else}
-      <p class="muted">Пропадёт из {data.placements.length} мест в томах{data.mentions.length ? `, из ${data.mentions.length} писем и ресурсов` : ""}{data.players.copies ? `, у игроков пропадут ${data.players.copies} файлов` : ""}. История версий удалится вместе с ним.</p>
+      <p class="muted">Пропадёт из {data.placements.length} мест на дисках{data.mentions.length ? `, из ${data.mentions.length} писем и ресурсов` : ""}{data.players.copies ? `, у игроков пропадут ${data.players.copies} файлов` : ""}. История версий удалится вместе с ним.</p>
     {/if}
   </Dialog>
 {:else if toText}
