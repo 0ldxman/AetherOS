@@ -1,0 +1,131 @@
+/* ==========================================================================
+ * Стиль «glitched»: сломанный Aether. Раскладка и оболочка те же, что у основного стиля (shell у него общий), меняется вид:
+ * мёртвая палитра с кислотным акцентом, цветные сдвиги у яркого текста и рамок, линии развёртки и редкая полоса помех поверх стола,
+ * заголовки окон иногда «дёргаются». Анимации спокойные и редкие, на тексте окон ничего не лежит, кроме тонких линий.
+ * Токены переопределяются из студии. При prefers-reduced-motion всё стоит на месте.
+ * ========================================================================== */
+
+:root {
+  --bg: #080d0e;
+  --panel: #0e1618;
+  --fg: #b4c3c0;
+  --font-light: #e4fffa;
+  --font-dark: #04100f;
+  --font-soft: #7f918e;
+  --font-muted: #5b6b69;
+  --line: #1c2d2f;
+  --line-faint: #0f1b1c;
+  --line-bright: #3f6663;
+  --window-border: #46e3d2;
+  --accent: #19f0ff;
+  --accent-green: #3dffb0;
+  --accent-warn: #ffd23f;
+  --accent-error: #ff2e6e;
+  --accent-error-darker: #c40d4a;
+  --term-fg: #b4c3c0;
+  --term-dim: #5b6b69;
+  --term-ok: #3dffb0;
+  --term-warn: #ffd23f;
+  --term-error: #ff4d7d;
+  --term-info: #19f0ff;
+  --font-main: var(--ff-jetbrains-mono);
+  --font-console: var(--ff-jetbrains-mono);
+  --radius: 0;
+  --border-w: 1px;
+  --gl-red: rgba(255, 30, 90, .75);   /* сдвиг каналов: красный влево, голубой вправо */
+  --gl-cyan: rgba(0, 255, 232, .7);
+  --gl-split: -1px 0 0 var(--gl-red), 1px 0 0 var(--gl-cyan);
+}
+
+/* ---- стол: сетка и мёртвые сектора ---- */
+[data-theme="glitched"] #desktop {
+  background:
+    linear-gradient(90deg, transparent 0 62%, rgba(255, 30, 90, .07) 62% 64%, transparent 64%) 0 18% / 100% 9px no-repeat,
+    linear-gradient(90deg, transparent 0 12%, rgba(0, 255, 232, .06) 12% 21%, transparent 21%) 0 71% / 100% 5px no-repeat,
+    linear-gradient(90deg, transparent 0 80%, rgba(0, 255, 232, .05) 80% 93%, transparent 93%) 0 44% / 100% 14px no-repeat,
+    linear-gradient(var(--line-faint) 1px, transparent 1px) 0 0 / var(--cell) var(--cell),
+    linear-gradient(90deg, var(--line-faint) 1px, transparent 1px) 0 0 / var(--cell) var(--cell);
+}
+
+/* ---- панель ---- */
+[data-theme="glitched"] #taskbar {
+  border-bottom: 1px solid var(--line-bright);
+  box-shadow: 0 1px 0 rgba(255, 30, 90, .25);
+}
+[data-theme="glitched"] #machine-name,
+[data-theme="glitched"] #clock,
+[data-theme="glitched"] #date { text-shadow: var(--gl-split); }
+
+/* ---- иконки ---- */
+[data-theme="glitched"] .icon-label { text-shadow: var(--gl-split); }
+[data-theme="glitched"] .icon-glyph {
+  border-color: var(--window-border);
+  box-shadow: -2px 0 0 var(--gl-red), 2px 0 0 var(--gl-cyan);
+  text-shadow: var(--gl-split);
+}
+[data-theme="glitched"] .icon:hover .icon-glyph,
+[data-theme="glitched"] .icon:focus-visible .icon-glyph {
+  text-shadow: none;
+  animation: gl-tear .35s steps(2, end) 1;
+}
+
+/* ---- окна ---- */
+[data-theme="glitched"] .winbox.aether {
+  box-shadow: 0 0 0 1px var(--window-border), -3px 0 0 1px rgba(255, 30, 90, .3), 3px 0 0 1px rgba(0, 255, 232, .25);
+}
+[data-theme="glitched"] .winbox.aether .wb-header {
+  background: var(--font-light);
+  border-color: var(--font-light);
+  box-shadow: -2px 0 0 var(--gl-red), 2px 0 0 var(--gl-cyan);
+  animation: gl-jitter 7s steps(1, end) infinite;
+}
+[data-theme="glitched"] .winbox.aether:nth-of-type(2n) .wb-header { animation-duration: 9s; animation-delay: -3s; }
+[data-theme="glitched"] .winbox.aether:nth-of-type(3n) .wb-header { animation-duration: 11s; animation-delay: -6s; }
+[data-theme="glitched"] .winbox.aether .wb-title { letter-spacing: .04em; }
+[data-theme="glitched"] .winbox.aether .wb-control > span:hover { box-shadow: var(--gl-split); }
+[data-theme="glitched"] .winbox.aether .wb-close { color: var(--accent-error); }
+
+/* ---- слой помех поверх всего: тонкие линии и редкая полоса ---- */
+[data-theme="glitched"] body::before,
+[data-theme="glitched"] body::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+}
+[data-theme="glitched"] body::before {
+  z-index: 2147483000;
+  background: repeating-linear-gradient(0deg, rgba(0, 0, 0, .15) 0 1px, transparent 1px 3px);
+  mix-blend-mode: multiply;
+}
+[data-theme="glitched"] body::after {
+  z-index: 2147483001;
+  inset: auto 0 auto 0;
+  top: -12%;
+  height: 10%;
+  background: linear-gradient(180deg, transparent, rgba(0, 255, 232, .07) 40%, rgba(255, 30, 90, .1) 60%, transparent);
+  animation: gl-band 8s linear infinite;
+}
+
+@keyframes gl-band {
+  0%, 62% { transform: translateY(0); opacity: 0; }
+  64% { opacity: 1; }
+  100% { transform: translateY(1250%); opacity: 1; }
+}
+
+/* вспышка раз в цикл: короткий сдвиг по горизонтали и обрез по высоте */
+@keyframes gl-jitter {
+  0%, 91%, 100% { transform: none; clip-path: none; }
+  92% { transform: translateX(-4px); clip-path: inset(0 0 55% 0); }
+  94% { transform: translateX(5px); clip-path: inset(45% 0 0 0); }
+  96% { transform: translateX(-2px); clip-path: none; }
+}
+@keyframes gl-tear {
+  0% { transform: translateX(-3px); }
+  50% { transform: translateX(3px); }
+  100% { transform: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [data-theme="glitched"] *, [data-theme="glitched"] body::after { animation: none !important; }
+}

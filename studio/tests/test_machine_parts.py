@@ -365,7 +365,7 @@ class CreateAndSystemsTests(TestCase):
         from machines.world import styles
 
         data = self.call("get", "/systems/AETHER")[1]
-        self.assertEqual((data["style"], data["style_tokens"], [s["slug"] for s in data["styles"]]), ("aether", {}, ["aether", "modern", "phosphor", "classic", "workbench", "tui", "gnome"]))
+        self.assertEqual((data["style"], data["style_tokens"], [s["slug"] for s in data["styles"]]), ("aether", {}, ["aether", "modern", "phosphor", "classic", "workbench", "tui", "gnome", "glitched"]))
         self.assertTrue({t["name"] for t in data["token_info"]} >= {"--bg", "--accent", "--radius", "--font-main"})
         self.assertEqual({t["name"]: t["default"] for t in data["token_info"]}["--bg"], "#191919")
         self.assertEqual((data["style_defaults"]["aether"]["--bg"], data["style_defaults"]["modern"]["--bg"], data["style_defaults"]["phosphor"]["--bg"]), ("#191919", "#1b1f27", "#b1c09c"))

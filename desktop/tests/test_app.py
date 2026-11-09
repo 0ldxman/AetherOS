@@ -53,7 +53,7 @@ class DesktopTests(TestCase):
             self.assertEqual('data-shell="launcher-panel"' in html, slug in ("modern", "classic", "tui", "gnome"), slug)
             self.assertEqual('data-widget="system"' in html, slug in ("modern", "phosphor"), slug)
             self.assertEqual('data-shell="notices-panel"' in html, styles.STYLES[slug].shell, slug)
-            self.assertEqual('id="session-menu-button"' in html, slug in ("aether", "gnome"), slug)
+            self.assertEqual('id="session-menu-button"' in html, slug in ("aether", "gnome", "glitched"), slug)
             self.assertEqual("data-action=\"disconnect\"" in html, True, slug)
 
 
