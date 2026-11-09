@@ -41,6 +41,12 @@ class MapScenesApiTests(TestCase):
         self.assertEqual((row["features"], row["keys"], row["base_date"]), (1, True, "2041-03-12"))
         self.assertEqual(self.call("get", f"/{scene['id']}")[1]["slug"], "port")
 
+    def test_the_key_of_a_feature_goes_in_and_out_as_text(self):
+        scene = self.make(features=[{**MARKER, "key": "key_a and not key_b"}, {**MARKER, "key": "single"}])[1]
+        self.assertEqual([f["key"] for f in scene["features"]], ["key_a and not key_b", "single"])
+        self.assertEqual([f["key"] for f in self.call("get", f"/{scene['id']}")[1]["features"]], ["key_a and not key_b", "single"])
+        self.assertEqual(self.make(slug="x2", features=[{**MARKER, "key": "a and"}])[0], 400)
+
     def test_bad_data_is_refused(self):
         self.assertEqual(self.make(features=[{"type": "marker", "coords": [999, 20]}])[0], 400)
         self.assertEqual(self.make(features=[{"type": "nope"}])[0], 400)
@@ -72,3 +78,15 @@ class MapScenesApiTests(TestCase):
         self.call("delete", f"/{scene['id']}")
         self.assertEqual(self.call("post", "/import", out)[1], {"created": 1, "updated": 0})
         self.assertEqual(self.call("post", "/import", {"items": [{"title": "no slug"}]})[0], 400)
+
+    def test_options_and_region_resolve(self):
+        from map.models import Country, Ownership, Province
+
+        options = self.call("get", "/options")[1]
+        self.assertEqual((options["colors"][0], options["icons"][0]["name"], options["max_features"]), ("red", "pin", 400))
+        country = Country.objects.create(code="AAA", name="Alpha", valid_from="1900-01-01")
+        province = Province.objects.create(code="AAA-1", source_code="s1", name="One")
+        Ownership.objects.create(province=province, country=country, date_from="1950-01-01", de_facto=True)
+        out = self.call("post", "/resolve", {"tokens": ["AAA-1", "AAA", "nope"], "date": "1960-01-01"})[1]
+        self.assertEqual(sorted((g["kind"], g["codes"]) for g in out["groups"]), [("country", ["s1"]), ("province", ["s1"])])
+        self.assertEqual(out["unknown"], ["nope"])

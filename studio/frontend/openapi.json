@@ -5981,6 +5981,72 @@
     ]
    }
   },
+  "/studio/api/map/scenes/options": {
+   "get": {
+    "operationId": "studio_api_mapscenes_options",
+    "summary": "Options",
+    "parameters": [],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/MapSceneOptions"
+        }
+       }
+      }
+     }
+    },
+    "description": "Что можно выбрать в редакторе: палитра, значки, виды заливки, режимы карты.",
+    "tags": [
+     "map-scenes"
+    ],
+    "security": [
+     {
+      "SessionAuthIsStaff": []
+     }
+    ]
+   }
+  },
+  "/studio/api/map/scenes/resolve": {
+   "post": {
+    "operationId": "studio_api_mapscenes_resolve",
+    "summary": "Resolve",
+    "parameters": [],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/MapResolveOut"
+        }
+       }
+      }
+     }
+    },
+    "description": "Какие провинции стоят за выделениями (RUS-32, POL, название страны) на дату: редактор красит их на карте.",
+    "tags": [
+     "map-scenes"
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/MapResolveIn"
+       }
+      }
+     },
+     "required": true
+    },
+    "security": [
+     {
+      "SessionAuthIsStaff": []
+     }
+    ]
+   }
+  },
   "/studio/api/map/scenes/{scene_id}": {
    "get": {
     "operationId": "studio_api_mapscenes_read",
@@ -13607,6 +13673,178 @@
      "title"
     ],
     "title": "MapSceneIn",
+    "type": "object"
+   },
+   "MapIcon": {
+    "properties": {
+     "name": {
+      "title": "Name",
+      "type": "string"
+     },
+     "label": {
+      "title": "Label",
+      "type": "string"
+     },
+     "d": {
+      "default": "",
+      "title": "D",
+      "type": "string"
+     },
+     "closed": {
+      "default": false,
+      "title": "Closed",
+      "type": "boolean"
+     },
+     "solid": {
+      "default": false,
+      "title": "Solid",
+      "type": "boolean"
+     }
+    },
+    "required": [
+     "name",
+     "label"
+    ],
+    "title": "MapIcon",
+    "type": "object"
+   },
+   "MapSceneOptions": {
+    "properties": {
+     "colors": {
+      "items": {
+       "type": "string"
+      },
+      "title": "Colors",
+      "type": "array"
+     },
+     "icons": {
+      "items": {
+       "$ref": "#/components/schemas/MapIcon"
+      },
+      "title": "Icons",
+      "type": "array"
+     },
+     "fill_styles": {
+      "items": {
+       "type": "string"
+      },
+      "title": "Fill Styles",
+      "type": "array"
+     },
+     "types": {
+      "items": {
+       "type": "string"
+      },
+      "title": "Types",
+      "type": "array"
+     },
+     "modes": {
+      "items": {
+       "items": {
+        "type": "string"
+       },
+       "type": "array"
+      },
+      "title": "Modes",
+      "type": "array"
+     },
+     "max_features": {
+      "title": "Max Features",
+      "type": "integer"
+     }
+    },
+    "required": [
+     "colors",
+     "icons",
+     "fill_styles",
+     "types",
+     "modes",
+     "max_features"
+    ],
+    "title": "MapSceneOptions",
+    "type": "object"
+   },
+   "MapRegion": {
+    "properties": {
+     "token": {
+      "title": "Token",
+      "type": "string"
+     },
+     "kind": {
+      "title": "Kind",
+      "type": "string"
+     },
+     "name": {
+      "title": "Name",
+      "type": "string"
+     },
+     "codes": {
+      "items": {
+       "type": "string"
+      },
+      "title": "Codes",
+      "type": "array"
+     }
+    },
+    "required": [
+     "token",
+     "kind",
+     "name",
+     "codes"
+    ],
+    "title": "MapRegion",
+    "type": "object"
+   },
+   "MapResolveOut": {
+    "properties": {
+     "groups": {
+      "items": {
+       "$ref": "#/components/schemas/MapRegion"
+      },
+      "title": "Groups",
+      "type": "array"
+     },
+     "unknown": {
+      "items": {
+       "type": "string"
+      },
+      "title": "Unknown",
+      "type": "array"
+     }
+    },
+    "required": [
+     "groups",
+     "unknown"
+    ],
+    "title": "MapResolveOut",
+    "type": "object"
+   },
+   "MapResolveIn": {
+    "properties": {
+     "tokens": {
+      "items": {
+       "type": "string"
+      },
+      "title": "Tokens",
+      "type": "array"
+     },
+     "date": {
+      "anyOf": [
+       {
+        "format": "date",
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Date"
+     }
+    },
+    "required": [
+     "tokens"
+    ],
+    "title": "MapResolveIn",
     "type": "object"
    },
    "MapRevisionRow": {

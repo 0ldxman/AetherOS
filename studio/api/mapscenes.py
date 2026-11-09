@@ -11,8 +11,11 @@ from django.shortcuts import get_object_or_404
 from ninja import Router, Schema
 
 from documents.markup.expr import SpoilerSyntaxError, parse_expr
+from map.bounds import resolve_highlight
+from map.icons import MARKER_ICONS
 from map.models import MapScene, MapSceneRevision
 from map.revisions import apply_data, export_scenes, import_scenes, record_revision
+from map.scenes import COLORS, FEATURE_TYPES, FILL_STYLES, MAX_FEATURES
 from secure.access import format_condition
 
 router = Router(tags=["map-scenes"])
@@ -68,10 +71,49 @@ class MapImportOut(Schema):
     updated: int
 
 
+class MapIcon(Schema):
+    name: str
+    label: str
+    d: str = ""            # контур в сетке 24x24 (у булавки пусто: её рисует страница)
+    closed: bool = False
+    solid: bool = False
+
+
+class MapSceneOptions(Schema):
+    colors: list[str]
+    icons: list[MapIcon]
+    fill_styles: list[str]
+    types: list[str]
+    modes: list[list[str]]
+    max_features: int
+
+
+class MapResolveIn(Schema):
+    tokens: list[str]
+    date: dt.date | None = None
+
+
+class MapRegion(Schema):
+    token: str
+    kind: str
+    name: str
+    codes: list[str]
+
+
+class MapResolveOut(Schema):
+    groups: list[MapRegion]
+    unknown: list[str]
+
+
+def _readable(features):
+    """Условие по ключам у пометок идёт обратно текстом (его правят и присылают текстом)."""
+    return [{**item, "key": format_condition(item["key"])} if item.get("key") else item for item in features or []]
+
+
 def _out(scene):
     return MapSceneOut(
         id=scene.pk, slug=scene.slug, title=scene.title, base_date=scene.base_date, mode=scene.mode, lat=scene.lat, lon=scene.lon,
-        zoom=scene.zoom, bounds=scene.bounds, min_zoom=scene.min_zoom, max_zoom=scene.max_zoom, flat=scene.flat, features=scene.features or [],
+        zoom=scene.zoom, bounds=scene.bounds, min_zoom=scene.min_zoom, max_zoom=scene.max_zoom, flat=scene.flat, features=_readable(scene.features),
         keys=format_condition(scene.key_condition) if scene.key_condition else "", updated_at=scene.updated_at, created_at=scene.created_at,
     )
 
@@ -101,6 +143,26 @@ def _save(scene, body, user):
     scene.save()
     record_revision(scene, user)
     return _out(scene)
+
+
+@router.get("/options", response=MapSceneOptions)
+def options(request):
+    """Что можно выбрать в редакторе: палитра, значки, виды заливки, режимы карты."""
+    return MapSceneOptions(
+        colors=list(COLORS), icons=[MapIcon(name="pin", label="Булавка")] + [
+            MapIcon(name=name, label=icon["label"], d=icon["d"], closed=icon.get("closed", False), solid=icon.get("solid", False)) for name, icon in MARKER_ICONS.items()
+        ],
+        fill_styles=list(FILL_STYLES), types=list(FEATURE_TYPES), modes=[list(choice) for choice in MapScene.Mode.choices], max_features=MAX_FEATURES,
+    )
+
+
+@router.post("/resolve", response=MapResolveOut)
+def resolve(request, body: MapResolveIn):
+    """Какие провинции стоят за выделениями (RUS-32, POL, название страны) на дату: редактор красит их на карте."""
+    groups, unknown = resolve_highlight(body.tokens, body.date)
+    return MapResolveOut(
+        groups=[MapRegion(token=g["token"], kind=g["kind"], name=g["name"], codes=list(g["codes"])) for g in groups], unknown=unknown,
+    )
 
 
 @router.get("/{int:scene_id}", response=MapSceneOut)

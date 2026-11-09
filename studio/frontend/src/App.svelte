@@ -15,7 +15,6 @@
   import Systems from "./routes/Systems.svelte";
   import World from "./routes/World.svelte";
   import Scenes from "./routes/Scenes.svelte";
-  import MapSection from "./routes/Map.svelte";
 
   let user = $state("");
 
@@ -116,7 +115,13 @@
     {:else if page.name === "world"}
       <World />
     {:else if page.name === "map"}
-      <MapSection tab={page.tab} id={page.id} />
+      {#await import("./routes/Map.svelte")}
+        <p class="muted" style="padding: 20px">Загрузка карты…</p>
+      {:then loaded}
+        <loaded.default tab={page.tab} id={page.id} />
+      {:catch}
+        <p class="muted" style="padding: 20px">Карта не загрузилась. Обновите страницу.</p>
+      {/await}
     {:else if page.name === "systems"}
       {#key page.code}<Systems code={page.code} tab={page.tab} />{/key}
     {:else if page.name === "policies"}

@@ -1835,6 +1835,46 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/studio/api/map/scenes/options": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Options
+         * @description Что можно выбрать в редакторе: палитра, значки, виды заливки, режимы карты.
+         */
+        get: operations["studio_api_mapscenes_options"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/studio/api/map/scenes/resolve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Resolve
+         * @description Какие провинции стоят за выделениями (RUS-32, POL, название страны) на дату: редактор красит их на карте.
+         */
+        post: operations["studio_api_mapscenes_resolve"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/studio/api/map/scenes/{scene_id}": {
         parameters: {
             query?: never;
@@ -4773,6 +4813,68 @@ export interface components {
              * @default
              */
             keys: string;
+        };
+        /** MapIcon */
+        MapIcon: {
+            /** Name */
+            name: string;
+            /** Label */
+            label: string;
+            /**
+             * D
+             * @default
+             */
+            d: string;
+            /**
+             * Closed
+             * @default false
+             */
+            closed: boolean;
+            /**
+             * Solid
+             * @default false
+             */
+            solid: boolean;
+        };
+        /** MapSceneOptions */
+        MapSceneOptions: {
+            /** Colors */
+            colors: string[];
+            /** Icons */
+            icons: components["schemas"]["MapIcon"][];
+            /** Fill Styles */
+            fill_styles: string[];
+            /** Types */
+            types: string[];
+            /** Modes */
+            modes: string[][];
+            /** Max Features */
+            max_features: number;
+        };
+        /** MapRegion */
+        MapRegion: {
+            /** Token */
+            token: string;
+            /** Kind */
+            kind: string;
+            /** Name */
+            name: string;
+            /** Codes */
+            codes: string[];
+        };
+        /** MapResolveOut */
+        MapResolveOut: {
+            /** Groups */
+            groups: components["schemas"]["MapRegion"][];
+            /** Unknown */
+            unknown: string[];
+        };
+        /** MapResolveIn */
+        MapResolveIn: {
+            /** Tokens */
+            tokens: string[];
+            /** Date */
+            date?: string | null;
         };
         /** MapRevisionRow */
         MapRevisionRow: {
@@ -8163,6 +8265,50 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["MapSceneOut"];
+                };
+            };
+        };
+    };
+    studio_api_mapscenes_options: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MapSceneOptions"];
+                };
+            };
+        };
+    };
+    studio_api_mapscenes_resolve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MapResolveIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MapResolveOut"];
                 };
             };
         };
