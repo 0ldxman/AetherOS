@@ -5,7 +5,7 @@ import type { components, paths } from "./schema";
 
 declare global {
   interface Window {
-    STUDIO: { api: string; admin: string; site: string };
+    STUDIO: { api: string; admin: string; site: string; mapData: string };
   }
 }
 

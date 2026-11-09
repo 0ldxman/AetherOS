@@ -15,6 +15,7 @@
   import Systems from "./routes/Systems.svelte";
   import World from "./routes/World.svelte";
   import Scenes from "./routes/Scenes.svelte";
+  import MapSection from "./routes/Map.svelte";
 
   let user = $state("");
 
@@ -34,6 +35,7 @@
     | { name: "policies"; id: number | null }
     | { name: "systems"; code: string | null; tab: string }
     | { name: "world" }
+    | { name: "map"; tab: string; id: number | null }
     | { name: "scenes"; slug: string | null };
 
   const page: Page = $derived.by((): Page => {
@@ -51,6 +53,9 @@
     if ((found = match("/policies/:id", route.path))) return { name: "policies", id: +found.id };
     if (match("/policies", route.path)) return { name: "policies", id: null };
     if (match("/world", route.path)) return { name: "world" };
+    if ((found = match("/map/:tab/:id", route.path))) return { name: "map", tab: found.tab, id: +found.id || null };
+    if ((found = match("/map/:tab", route.path))) return { name: "map", tab: found.tab, id: null };
+    if (match("/map", route.path)) return { name: "map", tab: "territory", id: null };
     if ((found = match("/scenes/:slug", route.path))) return { name: "scenes", slug: found.slug };
     if (match("/scenes", route.path)) return { name: "scenes", slug: null };
     if ((found = match("/systems/:code/:tab", route.path))) return { name: "systems", code: found.code, tab: found.tab };
@@ -67,6 +72,7 @@
     { href: "#/systems", label: "Операционные системы", section: ["systems"] },
     { href: "#/scenes", label: "Сцены", section: ["scenes"] },
     { href: "#/world", label: "Мир", section: ["world"] },
+    { href: "#/map", label: "Карта", section: ["map"] },
   ];
 
   let toastBox: HTMLElement;
@@ -87,7 +93,6 @@
       {#each NAV as item}
         <a class="nav" class:on={item.section.includes(page.name)} href={item.href}>{item.label}</a>
       {/each}
-      <span class="nav soon">Карта</span>
       <span class="nav soon">Почта</span>
     </nav>
     <div class="foot">
@@ -110,6 +115,8 @@
       {#key page.slug}<Scenes slug={page.slug} />{/key}
     {:else if page.name === "world"}
       <World />
+    {:else if page.name === "map"}
+      <MapSection tab={page.tab} id={page.id} />
     {:else if page.name === "systems"}
       {#key page.code}<Systems code={page.code} tab={page.tab} />{/key}
     {:else if page.name === "policies"}

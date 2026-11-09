@@ -4665,6 +4665,1633 @@
     ]
    }
   },
+  "/studio/api/map/countries": {
+   "get": {
+    "operationId": "studio_api_worldmap_countries",
+    "summary": "Countries",
+    "parameters": [
+     {
+      "in": "query",
+      "name": "q",
+      "schema": {
+       "default": "",
+       "title": "Q",
+       "type": "string"
+      },
+      "required": false
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "items": {
+          "$ref": "#/components/schemas/MapCountryRow"
+         },
+         "title": "Response",
+         "type": "array"
+        }
+       }
+      }
+     }
+    },
+    "tags": [
+     "map"
+    ],
+    "security": [
+     {
+      "SessionAuthIsStaff": []
+     }
+    ]
+   },
+   "post": {
+    "operationId": "studio_api_worldmap_create_country",
+    "summary": "Create Country",
+    "parameters": [],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/MapCountryOut"
+        }
+       }
+      }
+     }
+    },
+    "tags": [
+     "map"
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/MapCountryIn"
+       }
+      }
+     },
+     "required": true
+    },
+    "security": [
+     {
+      "SessionAuthIsStaff": []
+     }
+    ]
+   }
+  },
+  "/studio/api/map/countries/{country_id}": {
+   "get": {
+    "operationId": "studio_api_worldmap_read_country",
+    "summary": "Read Country",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "country_id",
+      "schema": {
+       "title": "Country Id",
+       "type": "integer"
+      },
+      "required": true
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/MapCountryOut"
+        }
+       }
+      }
+     }
+    },
+    "tags": [
+     "map"
+    ],
+    "security": [
+     {
+      "SessionAuthIsStaff": []
+     }
+    ]
+   },
+   "put": {
+    "operationId": "studio_api_worldmap_save_country",
+    "summary": "Save Country",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "country_id",
+      "schema": {
+       "title": "Country Id",
+       "type": "integer"
+      },
+      "required": true
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/MapCountryOut"
+        }
+       }
+      }
+     }
+    },
+    "tags": [
+     "map"
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/MapCountryIn"
+       }
+      }
+     },
+     "required": true
+    },
+    "security": [
+     {
+      "SessionAuthIsStaff": []
+     }
+    ]
+   },
+   "delete": {
+    "operationId": "studio_api_worldmap_delete_country",
+    "summary": "Delete Country",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "country_id",
+      "schema": {
+       "title": "Country Id",
+       "type": "integer"
+      },
+      "required": true
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "OK"
+     }
+    },
+    "tags": [
+     "map"
+    ],
+    "security": [
+     {
+      "SessionAuthIsStaff": []
+     }
+    ]
+   }
+  },
+  "/studio/api/map/labels": {
+   "get": {
+    "operationId": "studio_api_worldmap_labels",
+    "summary": "Labels",
+    "parameters": [
+     {
+      "in": "query",
+      "name": "q",
+      "schema": {
+       "default": "",
+       "title": "Q",
+       "type": "string"
+      },
+      "required": false
+     },
+     {
+      "in": "query",
+      "name": "country",
+      "schema": {
+       "anyOf": [
+        {
+         "type": "integer"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Country"
+      },
+      "required": false
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "items": {
+          "$ref": "#/components/schemas/MapLabelOut"
+         },
+         "title": "Response",
+         "type": "array"
+        }
+       }
+      }
+     }
+    },
+    "tags": [
+     "map"
+    ],
+    "security": [
+     {
+      "SessionAuthIsStaff": []
+     }
+    ]
+   }
+  },
+  "/studio/api/map/countries/{country_id}/labels": {
+   "post": {
+    "operationId": "studio_api_worldmap_create_label",
+    "summary": "Create Label",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "country_id",
+      "schema": {
+       "title": "Country Id",
+       "type": "integer"
+      },
+      "required": true
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/MapLabelOut"
+        }
+       }
+      }
+     }
+    },
+    "tags": [
+     "map"
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/MapLabelIn"
+       }
+      }
+     },
+     "required": true
+    },
+    "security": [
+     {
+      "SessionAuthIsStaff": []
+     }
+    ]
+   }
+  },
+  "/studio/api/map/labels/{label_id}": {
+   "put": {
+    "operationId": "studio_api_worldmap_save_label",
+    "summary": "Save Label",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "label_id",
+      "schema": {
+       "title": "Label Id",
+       "type": "integer"
+      },
+      "required": true
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/MapLabelOut"
+        }
+       }
+      }
+     }
+    },
+    "tags": [
+     "map"
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/MapLabelIn"
+       }
+      }
+     },
+     "required": true
+    },
+    "security": [
+     {
+      "SessionAuthIsStaff": []
+     }
+    ]
+   },
+   "delete": {
+    "operationId": "studio_api_worldmap_delete_label",
+    "summary": "Delete Label",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "label_id",
+      "schema": {
+       "title": "Label Id",
+       "type": "integer"
+      },
+      "required": true
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "OK"
+     }
+    },
+    "tags": [
+     "map"
+    ],
+    "security": [
+     {
+      "SessionAuthIsStaff": []
+     }
+    ]
+   }
+  },
+  "/studio/api/map/provinces": {
+   "get": {
+    "operationId": "studio_api_worldmap_provinces",
+    "summary": "Provinces",
+    "parameters": [
+     {
+      "in": "query",
+      "name": "q",
+      "schema": {
+       "default": "",
+       "title": "Q",
+       "type": "string"
+      },
+      "required": false
+     },
+     {
+      "in": "query",
+      "name": "owner",
+      "schema": {
+       "default": "",
+       "title": "Owner",
+       "type": "string"
+      },
+      "required": false
+     },
+     {
+      "in": "query",
+      "name": "on",
+      "schema": {
+       "anyOf": [
+        {
+         "format": "date",
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "On"
+      },
+      "required": false
+     },
+     {
+      "in": "query",
+      "name": "offset",
+      "schema": {
+       "default": 0,
+       "title": "Offset",
+       "type": "integer"
+      },
+      "required": false
+     },
+     {
+      "in": "query",
+      "name": "limit",
+      "schema": {
+       "default": 100,
+       "title": "Limit",
+       "type": "integer"
+      },
+      "required": false
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/MapProvincePage"
+        }
+       }
+      }
+     }
+    },
+    "description": "owner: id страны или none (без владельца); on: на какую дату считать владельца.",
+    "tags": [
+     "map"
+    ],
+    "security": [
+     {
+      "SessionAuthIsStaff": []
+     }
+    ]
+   },
+   "post": {
+    "operationId": "studio_api_worldmap_create_province",
+    "summary": "Create Province",
+    "parameters": [],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/MapProvinceOut"
+        }
+       }
+      }
+     }
+    },
+    "tags": [
+     "map"
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/MapProvinceIn"
+       }
+      }
+     },
+     "required": true
+    },
+    "security": [
+     {
+      "SessionAuthIsStaff": []
+     }
+    ]
+   }
+  },
+  "/studio/api/map/provinces/{province_id}": {
+   "get": {
+    "operationId": "studio_api_worldmap_read_province",
+    "summary": "Read Province",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "province_id",
+      "schema": {
+       "title": "Province Id",
+       "type": "integer"
+      },
+      "required": true
+     },
+     {
+      "in": "query",
+      "name": "on",
+      "schema": {
+       "anyOf": [
+        {
+         "format": "date",
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "On"
+      },
+      "required": false
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/MapProvinceOut"
+        }
+       }
+      }
+     }
+    },
+    "tags": [
+     "map"
+    ],
+    "security": [
+     {
+      "SessionAuthIsStaff": []
+     }
+    ]
+   },
+   "put": {
+    "operationId": "studio_api_worldmap_save_province",
+    "summary": "Save Province",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "province_id",
+      "schema": {
+       "title": "Province Id",
+       "type": "integer"
+      },
+      "required": true
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/MapProvinceOut"
+        }
+       }
+      }
+     }
+    },
+    "tags": [
+     "map"
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/MapProvinceIn"
+       }
+      }
+     },
+     "required": true
+    },
+    "security": [
+     {
+      "SessionAuthIsStaff": []
+     }
+    ]
+   },
+   "delete": {
+    "operationId": "studio_api_worldmap_delete_province",
+    "summary": "Delete Province",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "province_id",
+      "schema": {
+       "title": "Province Id",
+       "type": "integer"
+      },
+      "required": true
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "OK"
+     }
+    },
+    "tags": [
+     "map"
+    ],
+    "security": [
+     {
+      "SessionAuthIsStaff": []
+     }
+    ]
+   }
+  },
+  "/studio/api/map/provinces/by-code/{source_code}": {
+   "get": {
+    "operationId": "studio_api_worldmap_province_by_code",
+    "summary": "Province By Code",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "source_code",
+      "schema": {
+       "title": "Source Code",
+       "type": "string"
+      },
+      "required": true
+     },
+     {
+      "in": "query",
+      "name": "on",
+      "schema": {
+       "anyOf": [
+        {
+         "format": "date",
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "On"
+      },
+      "required": false
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/MapProvinceOut"
+        }
+       }
+      }
+     }
+    },
+    "description": "Провинция по коду из тайлов (то, что отдаёт клик по карте).",
+    "tags": [
+     "map"
+    ],
+    "security": [
+     {
+      "SessionAuthIsStaff": []
+     }
+    ]
+   }
+  },
+  "/studio/api/map/ownerships": {
+   "get": {
+    "operationId": "studio_api_worldmap_ownerships",
+    "summary": "Ownerships",
+    "parameters": [
+     {
+      "in": "query",
+      "name": "q",
+      "schema": {
+       "default": "",
+       "title": "Q",
+       "type": "string"
+      },
+      "required": false
+     },
+     {
+      "in": "query",
+      "name": "country",
+      "schema": {
+       "anyOf": [
+        {
+         "type": "integer"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Country"
+      },
+      "required": false
+     },
+     {
+      "in": "query",
+      "name": "province",
+      "schema": {
+       "anyOf": [
+        {
+         "type": "integer"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Province"
+      },
+      "required": false
+     },
+     {
+      "in": "query",
+      "name": "after",
+      "schema": {
+       "anyOf": [
+        {
+         "format": "date",
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "After"
+      },
+      "required": false
+     },
+     {
+      "in": "query",
+      "name": "before",
+      "schema": {
+       "anyOf": [
+        {
+         "format": "date",
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Before"
+      },
+      "required": false
+     },
+     {
+      "in": "query",
+      "name": "flag",
+      "schema": {
+       "default": "",
+       "title": "Flag",
+       "type": "string"
+      },
+      "required": false
+     },
+     {
+      "in": "query",
+      "name": "offset",
+      "schema": {
+       "default": 0,
+       "title": "Offset",
+       "type": "integer"
+      },
+      "required": false
+     },
+     {
+      "in": "query",
+      "name": "limit",
+      "schema": {
+       "default": 100,
+       "title": "Limit",
+       "type": "integer"
+      },
+      "required": false
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/MapOwnershipPage"
+        }
+       }
+      }
+     }
+    },
+    "description": "flag: jure | facto | split (только де-юре, только де-факто).",
+    "tags": [
+     "map"
+    ],
+    "security": [
+     {
+      "SessionAuthIsStaff": []
+     }
+    ]
+   },
+   "post": {
+    "operationId": "studio_api_worldmap_create_ownership",
+    "summary": "Create Ownership",
+    "parameters": [],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/MapOwnershipRow"
+        }
+       }
+      }
+     }
+    },
+    "tags": [
+     "map"
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/MapOwnershipIn"
+       }
+      }
+     },
+     "required": true
+    },
+    "security": [
+     {
+      "SessionAuthIsStaff": []
+     }
+    ]
+   }
+  },
+  "/studio/api/map/ownerships/{ownership_id}": {
+   "put": {
+    "operationId": "studio_api_worldmap_save_ownership",
+    "summary": "Save Ownership",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "ownership_id",
+      "schema": {
+       "title": "Ownership Id",
+       "type": "integer"
+      },
+      "required": true
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/MapOwnershipRow"
+        }
+       }
+      }
+     }
+    },
+    "tags": [
+     "map"
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/MapOwnershipIn"
+       }
+      }
+     },
+     "required": true
+    },
+    "security": [
+     {
+      "SessionAuthIsStaff": []
+     }
+    ]
+   },
+   "delete": {
+    "operationId": "studio_api_worldmap_delete_ownership",
+    "summary": "Delete Ownership",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "ownership_id",
+      "schema": {
+       "title": "Ownership Id",
+       "type": "integer"
+      },
+      "required": true
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "OK"
+     }
+    },
+    "tags": [
+     "map"
+    ],
+    "security": [
+     {
+      "SessionAuthIsStaff": []
+     }
+    ]
+   }
+  },
+  "/studio/api/map/ownerships/delete": {
+   "post": {
+    "operationId": "studio_api_worldmap_delete_ownerships",
+    "summary": "Delete Ownerships",
+    "parameters": [],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "additionalProperties": {
+          "type": "integer"
+         },
+         "title": "Response",
+         "type": "object"
+        }
+       }
+      }
+     }
+    },
+    "tags": [
+     "map"
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/MapIds"
+       }
+      }
+     },
+     "required": true
+    },
+    "security": [
+     {
+      "SessionAuthIsStaff": []
+     }
+    ]
+   }
+  },
+  "/studio/api/map/territory/owners": {
+   "get": {
+    "operationId": "studio_api_worldmap_owners",
+    "summary": "Owners",
+    "parameters": [
+     {
+      "in": "query",
+      "name": "date",
+      "schema": {
+       "anyOf": [
+        {
+         "format": "date",
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Date"
+      },
+      "required": false
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "additionalProperties": {
+          "$ref": "#/components/schemas/MapOwnerOnDate"
+         },
+         "title": "Response",
+         "type": "object"
+        }
+       }
+      }
+     }
+    },
+    "description": "Кто чем владеет на дату: по коду провинции из тайлов, для раскраски карты.",
+    "tags": [
+     "map"
+    ],
+    "security": [
+     {
+      "SessionAuthIsStaff": []
+     }
+    ]
+   }
+  },
+  "/studio/api/map/territory/dates": {
+   "get": {
+    "operationId": "studio_api_worldmap_dates",
+    "summary": "Dates",
+    "parameters": [],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "items": {
+          "format": "date",
+          "type": "string"
+         },
+         "title": "Response",
+         "type": "array"
+        }
+       }
+      }
+     }
+    },
+    "description": "Даты, в которые менялись границы.",
+    "tags": [
+     "map"
+    ],
+    "security": [
+     {
+      "SessionAuthIsStaff": []
+     }
+    ]
+   }
+  },
+  "/studio/api/map/territory/country/{country_id}": {
+   "get": {
+    "operationId": "studio_api_worldmap_country_provinces",
+    "summary": "Country Provinces",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "country_id",
+      "schema": {
+       "title": "Country Id",
+       "type": "integer"
+      },
+      "required": true
+     },
+     {
+      "in": "query",
+      "name": "date",
+      "schema": {
+       "anyOf": [
+        {
+         "format": "date",
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Date"
+      },
+      "required": false
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "items": {
+          "type": "string"
+         },
+         "title": "Response",
+         "type": "array"
+        }
+       }
+      }
+     }
+    },
+    "tags": [
+     "map"
+    ],
+    "security": [
+     {
+      "SessionAuthIsStaff": []
+     }
+    ]
+   }
+  },
+  "/studio/api/map/territory/apply": {
+   "post": {
+    "operationId": "studio_api_worldmap_apply",
+    "summary": "Apply",
+    "parameters": [],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/MapApplyOut"
+        }
+       }
+      }
+     }
+    },
+    "tags": [
+     "map"
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/MapApplyIn"
+       }
+      }
+     },
+     "required": true
+    },
+    "security": [
+     {
+      "SessionAuthIsStaff": []
+     }
+    ]
+   }
+  },
+  "/studio/api/map/territory/erase": {
+   "post": {
+    "operationId": "studio_api_worldmap_erase",
+    "summary": "Erase",
+    "parameters": [],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/MapEraseOut"
+        }
+       }
+      }
+     }
+    },
+    "tags": [
+     "map"
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/MapEraseIn"
+       }
+      }
+     },
+     "required": true
+    },
+    "security": [
+     {
+      "SessionAuthIsStaff": []
+     }
+    ]
+   }
+  },
+  "/studio/api/map/territory/transfer": {
+   "post": {
+    "operationId": "studio_api_worldmap_transfer",
+    "summary": "Transfer",
+    "parameters": [],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/MapApplyOut"
+        }
+       }
+      }
+     }
+    },
+    "tags": [
+     "map"
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/MapTransferIn"
+       }
+      }
+     },
+     "required": true
+    },
+    "security": [
+     {
+      "SessionAuthIsStaff": []
+     }
+    ]
+   }
+  },
+  "/studio/api/map/checks": {
+   "get": {
+    "operationId": "studio_api_worldmap_checks",
+    "summary": "Checks",
+    "parameters": [],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "items": {
+          "$ref": "#/components/schemas/MapCheck"
+         },
+         "title": "Response",
+         "type": "array"
+        }
+       }
+      }
+     }
+    },
+    "tags": [
+     "map"
+    ],
+    "security": [
+     {
+      "SessionAuthIsStaff": []
+     }
+    ]
+   }
+  },
+  "/studio/api/map/scenes": {
+   "get": {
+    "operationId": "studio_api_mapscenes_scenes",
+    "summary": "Scenes",
+    "parameters": [
+     {
+      "in": "query",
+      "name": "q",
+      "schema": {
+       "default": "",
+       "title": "Q",
+       "type": "string"
+      },
+      "required": false
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "items": {
+          "$ref": "#/components/schemas/MapSceneRow"
+         },
+         "title": "Response",
+         "type": "array"
+        }
+       }
+      }
+     }
+    },
+    "tags": [
+     "map-scenes"
+    ],
+    "security": [
+     {
+      "SessionAuthIsStaff": []
+     }
+    ]
+   },
+   "post": {
+    "operationId": "studio_api_mapscenes_create",
+    "summary": "Create",
+    "parameters": [],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/MapSceneOut"
+        }
+       }
+      }
+     }
+    },
+    "tags": [
+     "map-scenes"
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/MapSceneIn"
+       }
+      }
+     },
+     "required": true
+    },
+    "security": [
+     {
+      "SessionAuthIsStaff": []
+     }
+    ]
+   }
+  },
+  "/studio/api/map/scenes/{scene_id}": {
+   "get": {
+    "operationId": "studio_api_mapscenes_read",
+    "summary": "Read",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "scene_id",
+      "schema": {
+       "title": "Scene Id",
+       "type": "integer"
+      },
+      "required": true
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/MapSceneOut"
+        }
+       }
+      }
+     }
+    },
+    "tags": [
+     "map-scenes"
+    ],
+    "security": [
+     {
+      "SessionAuthIsStaff": []
+     }
+    ]
+   },
+   "put": {
+    "operationId": "studio_api_mapscenes_save",
+    "summary": "Save",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "scene_id",
+      "schema": {
+       "title": "Scene Id",
+       "type": "integer"
+      },
+      "required": true
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/MapSceneOut"
+        }
+       }
+      }
+     }
+    },
+    "tags": [
+     "map-scenes"
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/MapSceneIn"
+       }
+      }
+     },
+     "required": true
+    },
+    "security": [
+     {
+      "SessionAuthIsStaff": []
+     }
+    ]
+   },
+   "delete": {
+    "operationId": "studio_api_mapscenes_delete",
+    "summary": "Delete",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "scene_id",
+      "schema": {
+       "title": "Scene Id",
+       "type": "integer"
+      },
+      "required": true
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "OK"
+     }
+    },
+    "tags": [
+     "map-scenes"
+    ],
+    "security": [
+     {
+      "SessionAuthIsStaff": []
+     }
+    ]
+   }
+  },
+  "/studio/api/map/scenes/{scene_id}/copy": {
+   "post": {
+    "operationId": "studio_api_mapscenes_copy",
+    "summary": "Copy",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "scene_id",
+      "schema": {
+       "title": "Scene Id",
+       "type": "integer"
+      },
+      "required": true
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/MapSceneOut"
+        }
+       }
+      }
+     }
+    },
+    "description": "Копия сцены под новым слагом (-copy, -copy-2...).",
+    "tags": [
+     "map-scenes"
+    ],
+    "security": [
+     {
+      "SessionAuthIsStaff": []
+     }
+    ]
+   }
+  },
+  "/studio/api/map/scenes/{scene_id}/revisions": {
+   "get": {
+    "operationId": "studio_api_mapscenes_revisions",
+    "summary": "Revisions",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "scene_id",
+      "schema": {
+       "title": "Scene Id",
+       "type": "integer"
+      },
+      "required": true
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "items": {
+          "$ref": "#/components/schemas/MapRevisionRow"
+         },
+         "title": "Response",
+         "type": "array"
+        }
+       }
+      }
+     }
+    },
+    "tags": [
+     "map-scenes"
+    ],
+    "security": [
+     {
+      "SessionAuthIsStaff": []
+     }
+    ]
+   }
+  },
+  "/studio/api/map/scenes/{scene_id}/revisions/{revision_id}/restore": {
+   "post": {
+    "operationId": "studio_api_mapscenes_restore",
+    "summary": "Restore",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "scene_id",
+      "schema": {
+       "title": "Scene Id",
+       "type": "integer"
+      },
+      "required": true
+     },
+     {
+      "in": "path",
+      "name": "revision_id",
+      "schema": {
+       "title": "Revision Id",
+       "type": "integer"
+      },
+      "required": true
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/MapSceneOut"
+        }
+       }
+      }
+     }
+    },
+    "tags": [
+     "map-scenes"
+    ],
+    "security": [
+     {
+      "SessionAuthIsStaff": []
+     }
+    ]
+   }
+  },
+  "/studio/api/map/scenes/export": {
+   "get": {
+    "operationId": "studio_api_mapscenes_export",
+    "summary": "Export",
+    "parameters": [
+     {
+      "in": "query",
+      "name": "ids",
+      "schema": {
+       "default": "",
+       "title": "Ids",
+       "type": "string"
+      },
+      "required": false
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/MapSceneFile"
+        }
+       }
+      }
+     }
+    },
+    "description": "Выгрузка сцен (все или список id через запятую) списком словарей.",
+    "tags": [
+     "map-scenes"
+    ],
+    "security": [
+     {
+      "SessionAuthIsStaff": []
+     }
+    ]
+   }
+  },
+  "/studio/api/map/scenes/import": {
+   "post": {
+    "operationId": "studio_api_mapscenes_import_file",
+    "summary": "Import File",
+    "parameters": [],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/MapImportOut"
+        }
+       }
+      }
+     }
+    },
+    "tags": [
+     "map-scenes"
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/MapSceneFile"
+       }
+      }
+     },
+     "required": true
+    },
+    "security": [
+     {
+      "SessionAuthIsStaff": []
+     }
+    ]
+   }
+  },
   "/studio/api/scenes": {
    "get": {
     "operationId": "studio_api_scenes_scenes",
@@ -10769,6 +12396,1286 @@
      "audit_per_day"
     ],
     "title": "WorldOut",
+    "type": "object"
+   },
+   "MapCountryRow": {
+    "properties": {
+     "id": {
+      "title": "Id",
+      "type": "integer"
+     },
+     "code": {
+      "title": "Code",
+      "type": "string"
+     },
+     "name": {
+      "title": "Name",
+      "type": "string"
+     },
+     "color": {
+      "title": "Color",
+      "type": "string"
+     },
+     "valid_from": {
+      "format": "date",
+      "title": "Valid From",
+      "type": "string"
+     },
+     "valid_to": {
+      "anyOf": [
+       {
+        "format": "date",
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Valid To"
+     },
+     "predecessor": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Predecessor"
+     },
+     "predecessor_name": {
+      "title": "Predecessor Name",
+      "type": "string"
+     },
+     "provinces": {
+      "title": "Provinces",
+      "type": "integer"
+     },
+     "ownerships": {
+      "title": "Ownerships",
+      "type": "integer"
+     },
+     "labels": {
+      "title": "Labels",
+      "type": "integer"
+     }
+    },
+    "required": [
+     "id",
+     "code",
+     "name",
+     "color",
+     "valid_from",
+     "valid_to",
+     "predecessor",
+     "predecessor_name",
+     "provinces",
+     "ownerships",
+     "labels"
+    ],
+    "title": "MapCountryRow",
+    "type": "object"
+   },
+   "MapCountryOut": {
+    "properties": {
+     "id": {
+      "title": "Id",
+      "type": "integer"
+     },
+     "code": {
+      "title": "Code",
+      "type": "string"
+     },
+     "name": {
+      "title": "Name",
+      "type": "string"
+     },
+     "color": {
+      "title": "Color",
+      "type": "string"
+     },
+     "valid_from": {
+      "format": "date",
+      "title": "Valid From",
+      "type": "string"
+     },
+     "valid_to": {
+      "anyOf": [
+       {
+        "format": "date",
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Valid To"
+     },
+     "predecessor": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Predecessor"
+     },
+     "predecessor_name": {
+      "title": "Predecessor Name",
+      "type": "string"
+     },
+     "provinces": {
+      "title": "Provinces",
+      "type": "integer"
+     },
+     "ownerships": {
+      "title": "Ownerships",
+      "type": "integer"
+     },
+     "labels": {
+      "title": "Labels",
+      "type": "integer"
+     },
+     "wiki_url": {
+      "title": "Wiki Url",
+      "type": "string"
+     },
+     "successors": {
+      "items": {
+       "type": "string"
+      },
+      "title": "Successors",
+      "type": "array"
+     },
+     "label_list": {
+      "items": {
+       "$ref": "#/components/schemas/MapLabelOut"
+      },
+      "title": "Label List",
+      "type": "array"
+     }
+    },
+    "required": [
+     "id",
+     "code",
+     "name",
+     "color",
+     "valid_from",
+     "valid_to",
+     "predecessor",
+     "predecessor_name",
+     "provinces",
+     "ownerships",
+     "labels",
+     "wiki_url",
+     "successors",
+     "label_list"
+    ],
+    "title": "MapCountryOut",
+    "type": "object"
+   },
+   "MapLabelOut": {
+    "properties": {
+     "id": {
+      "title": "Id",
+      "type": "integer"
+     },
+     "country": {
+      "title": "Country",
+      "type": "integer"
+     },
+     "country_name": {
+      "title": "Country Name",
+      "type": "string"
+     },
+     "text": {
+      "title": "Text",
+      "type": "string"
+     },
+     "lng": {
+      "title": "Lng",
+      "type": "number"
+     },
+     "lat": {
+      "title": "Lat",
+      "type": "number"
+     },
+     "rank": {
+      "title": "Rank",
+      "type": "integer"
+     }
+    },
+    "required": [
+     "id",
+     "country",
+     "country_name",
+     "text",
+     "lng",
+     "lat",
+     "rank"
+    ],
+    "title": "MapLabelOut",
+    "type": "object"
+   },
+   "MapCountryIn": {
+    "properties": {
+     "code": {
+      "title": "Code",
+      "type": "string"
+     },
+     "name": {
+      "title": "Name",
+      "type": "string"
+     },
+     "color": {
+      "default": "#cccccc",
+      "title": "Color",
+      "type": "string"
+     },
+     "valid_from": {
+      "format": "date",
+      "title": "Valid From",
+      "type": "string"
+     },
+     "valid_to": {
+      "anyOf": [
+       {
+        "format": "date",
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Valid To"
+     },
+     "predecessor": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Predecessor"
+     },
+     "wiki_url": {
+      "default": "",
+      "title": "Wiki Url",
+      "type": "string"
+     }
+    },
+    "required": [
+     "code",
+     "name",
+     "valid_from"
+    ],
+    "title": "MapCountryIn",
+    "type": "object"
+   },
+   "MapLabelIn": {
+    "properties": {
+     "text": {
+      "default": "",
+      "title": "Text",
+      "type": "string"
+     },
+     "lng": {
+      "title": "Lng",
+      "type": "number"
+     },
+     "lat": {
+      "title": "Lat",
+      "type": "number"
+     },
+     "rank": {
+      "default": 2,
+      "title": "Rank",
+      "type": "integer"
+     }
+    },
+    "required": [
+     "lng",
+     "lat"
+    ],
+    "title": "MapLabelIn",
+    "type": "object"
+   },
+   "MapOwnerRef": {
+    "properties": {
+     "country": {
+      "title": "Country",
+      "type": "integer"
+     },
+     "country_name": {
+      "title": "Country Name",
+      "type": "string"
+     },
+     "color": {
+      "title": "Color",
+      "type": "string"
+     },
+     "since": {
+      "format": "date",
+      "title": "Since",
+      "type": "string"
+     },
+     "de_jure": {
+      "title": "De Jure",
+      "type": "boolean"
+     },
+     "de_facto": {
+      "title": "De Facto",
+      "type": "boolean"
+     }
+    },
+    "required": [
+     "country",
+     "country_name",
+     "color",
+     "since",
+     "de_jure",
+     "de_facto"
+    ],
+    "title": "MapOwnerRef",
+    "type": "object"
+   },
+   "MapProvincePage": {
+    "properties": {
+     "total": {
+      "title": "Total",
+      "type": "integer"
+     },
+     "rows": {
+      "items": {
+       "$ref": "#/components/schemas/MapProvinceRow"
+      },
+      "title": "Rows",
+      "type": "array"
+     }
+    },
+    "required": [
+     "total",
+     "rows"
+    ],
+    "title": "MapProvincePage",
+    "type": "object"
+   },
+   "MapProvinceRow": {
+    "properties": {
+     "id": {
+      "title": "Id",
+      "type": "integer"
+     },
+     "code": {
+      "title": "Code",
+      "type": "string"
+     },
+     "source_code": {
+      "title": "Source Code",
+      "type": "string"
+     },
+     "name": {
+      "title": "Name",
+      "type": "string"
+     },
+     "wiki_url": {
+      "title": "Wiki Url",
+      "type": "string"
+     },
+     "owner": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/MapOwnerRef"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "records": {
+      "title": "Records",
+      "type": "integer"
+     }
+    },
+    "required": [
+     "id",
+     "code",
+     "source_code",
+     "name",
+     "wiki_url",
+     "owner",
+     "records"
+    ],
+    "title": "MapProvinceRow",
+    "type": "object"
+   },
+   "MapHistoryRow": {
+    "properties": {
+     "id": {
+      "title": "Id",
+      "type": "integer"
+     },
+     "date_from": {
+      "format": "date",
+      "title": "Date From",
+      "type": "string"
+     },
+     "country": {
+      "title": "Country",
+      "type": "integer"
+     },
+     "country_name": {
+      "title": "Country Name",
+      "type": "string"
+     },
+     "country_code": {
+      "title": "Country Code",
+      "type": "string"
+     },
+     "color": {
+      "title": "Color",
+      "type": "string"
+     },
+     "de_jure": {
+      "title": "De Jure",
+      "type": "boolean"
+     },
+     "de_facto": {
+      "title": "De Facto",
+      "type": "boolean"
+     },
+     "current": {
+      "title": "Current",
+      "type": "boolean"
+     }
+    },
+    "required": [
+     "id",
+     "date_from",
+     "country",
+     "country_name",
+     "country_code",
+     "color",
+     "de_jure",
+     "de_facto",
+     "current"
+    ],
+    "title": "MapHistoryRow",
+    "type": "object"
+   },
+   "MapProvinceOut": {
+    "properties": {
+     "id": {
+      "title": "Id",
+      "type": "integer"
+     },
+     "code": {
+      "title": "Code",
+      "type": "string"
+     },
+     "source_code": {
+      "title": "Source Code",
+      "type": "string"
+     },
+     "name": {
+      "title": "Name",
+      "type": "string"
+     },
+     "wiki_url": {
+      "title": "Wiki Url",
+      "type": "string"
+     },
+     "owner": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/MapOwnerRef"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "records": {
+      "title": "Records",
+      "type": "integer"
+     },
+     "history": {
+      "items": {
+       "$ref": "#/components/schemas/MapHistoryRow"
+      },
+      "title": "History",
+      "type": "array"
+     }
+    },
+    "required": [
+     "id",
+     "code",
+     "source_code",
+     "name",
+     "wiki_url",
+     "owner",
+     "records",
+     "history"
+    ],
+    "title": "MapProvinceOut",
+    "type": "object"
+   },
+   "MapProvinceIn": {
+    "properties": {
+     "code": {
+      "title": "Code",
+      "type": "string"
+     },
+     "source_code": {
+      "title": "Source Code",
+      "type": "string"
+     },
+     "name": {
+      "title": "Name",
+      "type": "string"
+     },
+     "wiki_url": {
+      "default": "",
+      "title": "Wiki Url",
+      "type": "string"
+     }
+    },
+    "required": [
+     "code",
+     "source_code",
+     "name"
+    ],
+    "title": "MapProvinceIn",
+    "type": "object"
+   },
+   "MapOwnershipPage": {
+    "properties": {
+     "total": {
+      "title": "Total",
+      "type": "integer"
+     },
+     "rows": {
+      "items": {
+       "$ref": "#/components/schemas/MapOwnershipRow"
+      },
+      "title": "Rows",
+      "type": "array"
+     }
+    },
+    "required": [
+     "total",
+     "rows"
+    ],
+    "title": "MapOwnershipPage",
+    "type": "object"
+   },
+   "MapOwnershipRow": {
+    "properties": {
+     "id": {
+      "title": "Id",
+      "type": "integer"
+     },
+     "province": {
+      "title": "Province",
+      "type": "integer"
+     },
+     "province_name": {
+      "title": "Province Name",
+      "type": "string"
+     },
+     "province_code": {
+      "title": "Province Code",
+      "type": "string"
+     },
+     "country": {
+      "title": "Country",
+      "type": "integer"
+     },
+     "country_name": {
+      "title": "Country Name",
+      "type": "string"
+     },
+     "country_code": {
+      "title": "Country Code",
+      "type": "string"
+     },
+     "color": {
+      "title": "Color",
+      "type": "string"
+     },
+     "date_from": {
+      "format": "date",
+      "title": "Date From",
+      "type": "string"
+     },
+     "de_jure": {
+      "title": "De Jure",
+      "type": "boolean"
+     },
+     "de_facto": {
+      "title": "De Facto",
+      "type": "boolean"
+     }
+    },
+    "required": [
+     "id",
+     "province",
+     "province_name",
+     "province_code",
+     "country",
+     "country_name",
+     "country_code",
+     "color",
+     "date_from",
+     "de_jure",
+     "de_facto"
+    ],
+    "title": "MapOwnershipRow",
+    "type": "object"
+   },
+   "MapOwnershipIn": {
+    "properties": {
+     "province": {
+      "title": "Province",
+      "type": "integer"
+     },
+     "country": {
+      "title": "Country",
+      "type": "integer"
+     },
+     "date_from": {
+      "format": "date",
+      "title": "Date From",
+      "type": "string"
+     },
+     "de_jure": {
+      "default": true,
+      "title": "De Jure",
+      "type": "boolean"
+     },
+     "de_facto": {
+      "default": true,
+      "title": "De Facto",
+      "type": "boolean"
+     }
+    },
+    "required": [
+     "province",
+     "country",
+     "date_from"
+    ],
+    "title": "MapOwnershipIn",
+    "type": "object"
+   },
+   "MapIds": {
+    "properties": {
+     "ids": {
+      "items": {
+       "type": "integer"
+      },
+      "title": "Ids",
+      "type": "array"
+     }
+    },
+    "required": [
+     "ids"
+    ],
+    "title": "MapIds",
+    "type": "object"
+   },
+   "MapOwnerOnDate": {
+    "properties": {
+     "country": {
+      "title": "Country",
+      "type": "integer"
+     },
+     "color": {
+      "title": "Color",
+      "type": "string"
+     },
+     "de_jure": {
+      "title": "De Jure",
+      "type": "boolean"
+     },
+     "de_facto": {
+      "title": "De Facto",
+      "type": "boolean"
+     }
+    },
+    "required": [
+     "country",
+     "color",
+     "de_jure",
+     "de_facto"
+    ],
+    "title": "MapOwnerOnDate",
+    "type": "object"
+   },
+   "MapApplyOut": {
+    "properties": {
+     "created": {
+      "default": 0,
+      "title": "Created",
+      "type": "integer"
+     },
+     "updated": {
+      "default": 0,
+      "title": "Updated",
+      "type": "integer"
+     },
+     "unchanged": {
+      "default": 0,
+      "title": "Unchanged",
+      "type": "integer"
+     },
+     "later": {
+      "default": 0,
+      "title": "Later",
+      "type": "integer"
+     },
+     "moved": {
+      "default": 0,
+      "title": "Moved",
+      "type": "integer"
+     },
+     "missing": {
+      "default": [],
+      "items": {
+       "type": "string"
+      },
+      "title": "Missing",
+      "type": "array"
+     }
+    },
+    "title": "MapApplyOut",
+    "type": "object"
+   },
+   "MapApplyIn": {
+    "properties": {
+     "codes": {
+      "items": {
+       "type": "string"
+      },
+      "title": "Codes",
+      "type": "array"
+     },
+     "country": {
+      "title": "Country",
+      "type": "integer"
+     },
+     "date": {
+      "format": "date",
+      "title": "Date",
+      "type": "string"
+     },
+     "de_jure": {
+      "default": true,
+      "title": "De Jure",
+      "type": "boolean"
+     },
+     "de_facto": {
+      "default": true,
+      "title": "De Facto",
+      "type": "boolean"
+     }
+    },
+    "required": [
+     "codes",
+     "country",
+     "date"
+    ],
+    "title": "MapApplyIn",
+    "type": "object"
+   },
+   "MapEraseOut": {
+    "properties": {
+     "deleted": {
+      "title": "Deleted",
+      "type": "integer"
+     },
+     "none": {
+      "title": "None",
+      "type": "integer"
+     }
+    },
+    "required": [
+     "deleted",
+     "none"
+    ],
+    "title": "MapEraseOut",
+    "type": "object"
+   },
+   "MapEraseIn": {
+    "properties": {
+     "codes": {
+      "items": {
+       "type": "string"
+      },
+      "title": "Codes",
+      "type": "array"
+     },
+     "date": {
+      "format": "date",
+      "title": "Date",
+      "type": "string"
+     }
+    },
+    "required": [
+     "codes",
+     "date"
+    ],
+    "title": "MapEraseIn",
+    "type": "object"
+   },
+   "MapTransferIn": {
+    "properties": {
+     "source": {
+      "title": "Source",
+      "type": "integer"
+     },
+     "target": {
+      "title": "Target",
+      "type": "integer"
+     },
+     "date": {
+      "format": "date",
+      "title": "Date",
+      "type": "string"
+     },
+     "de_jure": {
+      "default": true,
+      "title": "De Jure",
+      "type": "boolean"
+     },
+     "de_facto": {
+      "default": true,
+      "title": "De Facto",
+      "type": "boolean"
+     }
+    },
+    "required": [
+     "source",
+     "target",
+     "date"
+    ],
+    "title": "MapTransferIn",
+    "type": "object"
+   },
+   "MapCheck": {
+    "properties": {
+     "code": {
+      "title": "Code",
+      "type": "string"
+     },
+     "level": {
+      "title": "Level",
+      "type": "string"
+     },
+     "title": {
+      "title": "Title",
+      "type": "string"
+     },
+     "count": {
+      "title": "Count",
+      "type": "integer"
+     },
+     "items": {
+      "items": {
+       "$ref": "#/components/schemas/MapCheckItem"
+      },
+      "title": "Items",
+      "type": "array"
+     }
+    },
+    "required": [
+     "code",
+     "level",
+     "title",
+     "count",
+     "items"
+    ],
+    "title": "MapCheck",
+    "type": "object"
+   },
+   "MapCheckItem": {
+    "properties": {
+     "kind": {
+      "title": "Kind",
+      "type": "string"
+     },
+     "id": {
+      "title": "Id",
+      "type": "integer"
+     },
+     "label": {
+      "title": "Label",
+      "type": "string"
+     }
+    },
+    "required": [
+     "kind",
+     "id",
+     "label"
+    ],
+    "title": "MapCheckItem",
+    "type": "object"
+   },
+   "MapSceneRow": {
+    "properties": {
+     "id": {
+      "title": "Id",
+      "type": "integer"
+     },
+     "slug": {
+      "title": "Slug",
+      "type": "string"
+     },
+     "title": {
+      "title": "Title",
+      "type": "string"
+     },
+     "base_date": {
+      "anyOf": [
+       {
+        "format": "date",
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Base Date"
+     },
+     "mode": {
+      "title": "Mode",
+      "type": "string"
+     },
+     "features": {
+      "title": "Features",
+      "type": "integer"
+     },
+     "keys": {
+      "title": "Keys",
+      "type": "boolean"
+     },
+     "updated_at": {
+      "format": "date-time",
+      "title": "Updated At",
+      "type": "string"
+     }
+    },
+    "required": [
+     "id",
+     "slug",
+     "title",
+     "base_date",
+     "mode",
+     "features",
+     "keys",
+     "updated_at"
+    ],
+    "title": "MapSceneRow",
+    "type": "object"
+   },
+   "MapSceneOut": {
+    "properties": {
+     "slug": {
+      "title": "Slug",
+      "type": "string"
+     },
+     "title": {
+      "title": "Title",
+      "type": "string"
+     },
+     "base_date": {
+      "anyOf": [
+       {
+        "format": "date",
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Base Date"
+     },
+     "mode": {
+      "default": "political",
+      "title": "Mode",
+      "type": "string"
+     },
+     "lat": {
+      "default": 20,
+      "title": "Lat",
+      "type": "number"
+     },
+     "lon": {
+      "default": 10,
+      "title": "Lon",
+      "type": "number"
+     },
+     "zoom": {
+      "default": 3,
+      "title": "Zoom",
+      "type": "number"
+     },
+     "bounds": {
+      "anyOf": [
+       {
+        "items": {
+         "type": "number"
+        },
+        "type": "array"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Bounds"
+     },
+     "min_zoom": {
+      "anyOf": [
+       {
+        "type": "number"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Min Zoom"
+     },
+     "max_zoom": {
+      "anyOf": [
+       {
+        "type": "number"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Max Zoom"
+     },
+     "flat": {
+      "default": false,
+      "title": "Flat",
+      "type": "boolean"
+     },
+     "features": {
+      "default": [],
+      "items": {
+       "additionalProperties": true,
+       "type": "object"
+      },
+      "title": "Features",
+      "type": "array"
+     },
+     "keys": {
+      "default": "",
+      "title": "Keys",
+      "type": "string"
+     },
+     "id": {
+      "title": "Id",
+      "type": "integer"
+     },
+     "updated_at": {
+      "format": "date-time",
+      "title": "Updated At",
+      "type": "string"
+     },
+     "created_at": {
+      "format": "date-time",
+      "title": "Created At",
+      "type": "string"
+     }
+    },
+    "required": [
+     "slug",
+     "title",
+     "id",
+     "updated_at",
+     "created_at"
+    ],
+    "title": "MapSceneOut",
+    "type": "object"
+   },
+   "MapSceneIn": {
+    "properties": {
+     "slug": {
+      "title": "Slug",
+      "type": "string"
+     },
+     "title": {
+      "title": "Title",
+      "type": "string"
+     },
+     "base_date": {
+      "anyOf": [
+       {
+        "format": "date",
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Base Date"
+     },
+     "mode": {
+      "default": "political",
+      "title": "Mode",
+      "type": "string"
+     },
+     "lat": {
+      "default": 20,
+      "title": "Lat",
+      "type": "number"
+     },
+     "lon": {
+      "default": 10,
+      "title": "Lon",
+      "type": "number"
+     },
+     "zoom": {
+      "default": 3,
+      "title": "Zoom",
+      "type": "number"
+     },
+     "bounds": {
+      "anyOf": [
+       {
+        "items": {
+         "type": "number"
+        },
+        "type": "array"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Bounds"
+     },
+     "min_zoom": {
+      "anyOf": [
+       {
+        "type": "number"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Min Zoom"
+     },
+     "max_zoom": {
+      "anyOf": [
+       {
+        "type": "number"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Max Zoom"
+     },
+     "flat": {
+      "default": false,
+      "title": "Flat",
+      "type": "boolean"
+     },
+     "features": {
+      "default": [],
+      "items": {
+       "additionalProperties": true,
+       "type": "object"
+      },
+      "title": "Features",
+      "type": "array"
+     },
+     "keys": {
+      "default": "",
+      "title": "Keys",
+      "type": "string"
+     }
+    },
+    "required": [
+     "slug",
+     "title"
+    ],
+    "title": "MapSceneIn",
+    "type": "object"
+   },
+   "MapRevisionRow": {
+    "properties": {
+     "id": {
+      "title": "Id",
+      "type": "integer"
+     },
+     "saved_at": {
+      "format": "date-time",
+      "title": "Saved At",
+      "type": "string"
+     },
+     "saved_by": {
+      "title": "Saved By",
+      "type": "string"
+     },
+     "features": {
+      "title": "Features",
+      "type": "integer"
+     },
+     "title": {
+      "title": "Title",
+      "type": "string"
+     }
+    },
+    "required": [
+     "id",
+     "saved_at",
+     "saved_by",
+     "features",
+     "title"
+    ],
+    "title": "MapRevisionRow",
+    "type": "object"
+   },
+   "MapSceneFile": {
+    "properties": {
+     "items": {
+      "items": {
+       "additionalProperties": true,
+       "type": "object"
+      },
+      "title": "Items",
+      "type": "array"
+     }
+    },
+    "required": [
+     "items"
+    ],
+    "title": "MapSceneFile",
+    "type": "object"
+   },
+   "MapImportOut": {
+    "properties": {
+     "created": {
+      "title": "Created",
+      "type": "integer"
+     },
+     "updated": {
+      "title": "Updated",
+      "type": "integer"
+     }
+    },
+    "required": [
+     "created",
+     "updated"
+    ],
+    "title": "MapImportOut",
     "type": "object"
    },
    "SceneRow": {

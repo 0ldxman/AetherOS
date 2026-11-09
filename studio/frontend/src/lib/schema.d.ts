@@ -1487,6 +1487,464 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/studio/api/map/countries": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Countries */
+        get: operations["studio_api_worldmap_countries"];
+        put?: never;
+        /** Create Country */
+        post: operations["studio_api_worldmap_create_country"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/studio/api/map/countries/{country_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Read Country */
+        get: operations["studio_api_worldmap_read_country"];
+        /** Save Country */
+        put: operations["studio_api_worldmap_save_country"];
+        post?: never;
+        /** Delete Country */
+        delete: operations["studio_api_worldmap_delete_country"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/studio/api/map/labels": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Labels */
+        get: operations["studio_api_worldmap_labels"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/studio/api/map/countries/{country_id}/labels": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Create Label */
+        post: operations["studio_api_worldmap_create_label"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/studio/api/map/labels/{label_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Save Label */
+        put: operations["studio_api_worldmap_save_label"];
+        post?: never;
+        /** Delete Label */
+        delete: operations["studio_api_worldmap_delete_label"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/studio/api/map/provinces": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Provinces
+         * @description owner: id страны или none (без владельца); on: на какую дату считать владельца.
+         */
+        get: operations["studio_api_worldmap_provinces"];
+        put?: never;
+        /** Create Province */
+        post: operations["studio_api_worldmap_create_province"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/studio/api/map/provinces/{province_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Read Province */
+        get: operations["studio_api_worldmap_read_province"];
+        /** Save Province */
+        put: operations["studio_api_worldmap_save_province"];
+        post?: never;
+        /** Delete Province */
+        delete: operations["studio_api_worldmap_delete_province"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/studio/api/map/provinces/by-code/{source_code}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Province By Code
+         * @description Провинция по коду из тайлов (то, что отдаёт клик по карте).
+         */
+        get: operations["studio_api_worldmap_province_by_code"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/studio/api/map/ownerships": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Ownerships
+         * @description flag: jure | facto | split (только де-юре, только де-факто).
+         */
+        get: operations["studio_api_worldmap_ownerships"];
+        put?: never;
+        /** Create Ownership */
+        post: operations["studio_api_worldmap_create_ownership"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/studio/api/map/ownerships/{ownership_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Save Ownership */
+        put: operations["studio_api_worldmap_save_ownership"];
+        post?: never;
+        /** Delete Ownership */
+        delete: operations["studio_api_worldmap_delete_ownership"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/studio/api/map/ownerships/delete": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Delete Ownerships */
+        post: operations["studio_api_worldmap_delete_ownerships"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/studio/api/map/territory/owners": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Owners
+         * @description Кто чем владеет на дату: по коду провинции из тайлов, для раскраски карты.
+         */
+        get: operations["studio_api_worldmap_owners"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/studio/api/map/territory/dates": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Dates
+         * @description Даты, в которые менялись границы.
+         */
+        get: operations["studio_api_worldmap_dates"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/studio/api/map/territory/country/{country_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Country Provinces */
+        get: operations["studio_api_worldmap_country_provinces"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/studio/api/map/territory/apply": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Apply */
+        post: operations["studio_api_worldmap_apply"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/studio/api/map/territory/erase": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Erase */
+        post: operations["studio_api_worldmap_erase"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/studio/api/map/territory/transfer": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Transfer */
+        post: operations["studio_api_worldmap_transfer"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/studio/api/map/checks": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Checks */
+        get: operations["studio_api_worldmap_checks"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/studio/api/map/scenes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Scenes */
+        get: operations["studio_api_mapscenes_scenes"];
+        put?: never;
+        /** Create */
+        post: operations["studio_api_mapscenes_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/studio/api/map/scenes/{scene_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Read */
+        get: operations["studio_api_mapscenes_read"];
+        /** Save */
+        put: operations["studio_api_mapscenes_save"];
+        post?: never;
+        /** Delete */
+        delete: operations["studio_api_mapscenes_delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/studio/api/map/scenes/{scene_id}/copy": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Copy
+         * @description Копия сцены под новым слагом (-copy, -copy-2...).
+         */
+        post: operations["studio_api_mapscenes_copy"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/studio/api/map/scenes/{scene_id}/revisions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Revisions */
+        get: operations["studio_api_mapscenes_revisions"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/studio/api/map/scenes/{scene_id}/revisions/{revision_id}/restore": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Restore */
+        post: operations["studio_api_mapscenes_restore"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/studio/api/map/scenes/export": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Export
+         * @description Выгрузка сцен (все или список id через запятую) списком словарей.
+         */
+        get: operations["studio_api_mapscenes_export"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/studio/api/map/scenes/import": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Import File */
+        post: operations["studio_api_mapscenes_import_file"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/studio/api/scenes": {
         parameters: {
             query?: never;
@@ -3769,6 +4227,582 @@ export interface components {
             stations_reachable: number;
             /** Audit Per Day */
             audit_per_day: number;
+        };
+        /** MapCountryRow */
+        MapCountryRow: {
+            /** Id */
+            id: number;
+            /** Code */
+            code: string;
+            /** Name */
+            name: string;
+            /** Color */
+            color: string;
+            /**
+             * Valid From
+             * Format: date
+             */
+            valid_from: string;
+            /** Valid To */
+            valid_to: string | null;
+            /** Predecessor */
+            predecessor: number | null;
+            /** Predecessor Name */
+            predecessor_name: string;
+            /** Provinces */
+            provinces: number;
+            /** Ownerships */
+            ownerships: number;
+            /** Labels */
+            labels: number;
+        };
+        /** MapCountryOut */
+        MapCountryOut: {
+            /** Id */
+            id: number;
+            /** Code */
+            code: string;
+            /** Name */
+            name: string;
+            /** Color */
+            color: string;
+            /**
+             * Valid From
+             * Format: date
+             */
+            valid_from: string;
+            /** Valid To */
+            valid_to: string | null;
+            /** Predecessor */
+            predecessor: number | null;
+            /** Predecessor Name */
+            predecessor_name: string;
+            /** Provinces */
+            provinces: number;
+            /** Ownerships */
+            ownerships: number;
+            /** Labels */
+            labels: number;
+            /** Wiki Url */
+            wiki_url: string;
+            /** Successors */
+            successors: string[];
+            /** Label List */
+            label_list: components["schemas"]["MapLabelOut"][];
+        };
+        /** MapLabelOut */
+        MapLabelOut: {
+            /** Id */
+            id: number;
+            /** Country */
+            country: number;
+            /** Country Name */
+            country_name: string;
+            /** Text */
+            text: string;
+            /** Lng */
+            lng: number;
+            /** Lat */
+            lat: number;
+            /** Rank */
+            rank: number;
+        };
+        /** MapCountryIn */
+        MapCountryIn: {
+            /** Code */
+            code: string;
+            /** Name */
+            name: string;
+            /**
+             * Color
+             * @default #cccccc
+             */
+            color: string;
+            /**
+             * Valid From
+             * Format: date
+             */
+            valid_from: string;
+            /** Valid To */
+            valid_to?: string | null;
+            /** Predecessor */
+            predecessor?: number | null;
+            /**
+             * Wiki Url
+             * @default
+             */
+            wiki_url: string;
+        };
+        /** MapLabelIn */
+        MapLabelIn: {
+            /**
+             * Text
+             * @default
+             */
+            text: string;
+            /** Lng */
+            lng: number;
+            /** Lat */
+            lat: number;
+            /**
+             * Rank
+             * @default 2
+             */
+            rank: number;
+        };
+        /** MapOwnerRef */
+        MapOwnerRef: {
+            /** Country */
+            country: number;
+            /** Country Name */
+            country_name: string;
+            /** Color */
+            color: string;
+            /**
+             * Since
+             * Format: date
+             */
+            since: string;
+            /** De Jure */
+            de_jure: boolean;
+            /** De Facto */
+            de_facto: boolean;
+        };
+        /** MapProvincePage */
+        MapProvincePage: {
+            /** Total */
+            total: number;
+            /** Rows */
+            rows: components["schemas"]["MapProvinceRow"][];
+        };
+        /** MapProvinceRow */
+        MapProvinceRow: {
+            /** Id */
+            id: number;
+            /** Code */
+            code: string;
+            /** Source Code */
+            source_code: string;
+            /** Name */
+            name: string;
+            /** Wiki Url */
+            wiki_url: string;
+            owner: components["schemas"]["MapOwnerRef"] | null;
+            /** Records */
+            records: number;
+        };
+        /** MapHistoryRow */
+        MapHistoryRow: {
+            /** Id */
+            id: number;
+            /**
+             * Date From
+             * Format: date
+             */
+            date_from: string;
+            /** Country */
+            country: number;
+            /** Country Name */
+            country_name: string;
+            /** Country Code */
+            country_code: string;
+            /** Color */
+            color: string;
+            /** De Jure */
+            de_jure: boolean;
+            /** De Facto */
+            de_facto: boolean;
+            /** Current */
+            current: boolean;
+        };
+        /** MapProvinceOut */
+        MapProvinceOut: {
+            /** Id */
+            id: number;
+            /** Code */
+            code: string;
+            /** Source Code */
+            source_code: string;
+            /** Name */
+            name: string;
+            /** Wiki Url */
+            wiki_url: string;
+            owner: components["schemas"]["MapOwnerRef"] | null;
+            /** Records */
+            records: number;
+            /** History */
+            history: components["schemas"]["MapHistoryRow"][];
+        };
+        /** MapProvinceIn */
+        MapProvinceIn: {
+            /** Code */
+            code: string;
+            /** Source Code */
+            source_code: string;
+            /** Name */
+            name: string;
+            /**
+             * Wiki Url
+             * @default
+             */
+            wiki_url: string;
+        };
+        /** MapOwnershipPage */
+        MapOwnershipPage: {
+            /** Total */
+            total: number;
+            /** Rows */
+            rows: components["schemas"]["MapOwnershipRow"][];
+        };
+        /** MapOwnershipRow */
+        MapOwnershipRow: {
+            /** Id */
+            id: number;
+            /** Province */
+            province: number;
+            /** Province Name */
+            province_name: string;
+            /** Province Code */
+            province_code: string;
+            /** Country */
+            country: number;
+            /** Country Name */
+            country_name: string;
+            /** Country Code */
+            country_code: string;
+            /** Color */
+            color: string;
+            /**
+             * Date From
+             * Format: date
+             */
+            date_from: string;
+            /** De Jure */
+            de_jure: boolean;
+            /** De Facto */
+            de_facto: boolean;
+        };
+        /** MapOwnershipIn */
+        MapOwnershipIn: {
+            /** Province */
+            province: number;
+            /** Country */
+            country: number;
+            /**
+             * Date From
+             * Format: date
+             */
+            date_from: string;
+            /**
+             * De Jure
+             * @default true
+             */
+            de_jure: boolean;
+            /**
+             * De Facto
+             * @default true
+             */
+            de_facto: boolean;
+        };
+        /** MapIds */
+        MapIds: {
+            /** Ids */
+            ids: number[];
+        };
+        /** MapOwnerOnDate */
+        MapOwnerOnDate: {
+            /** Country */
+            country: number;
+            /** Color */
+            color: string;
+            /** De Jure */
+            de_jure: boolean;
+            /** De Facto */
+            de_facto: boolean;
+        };
+        /** MapApplyOut */
+        MapApplyOut: {
+            /**
+             * Created
+             * @default 0
+             */
+            created: number;
+            /**
+             * Updated
+             * @default 0
+             */
+            updated: number;
+            /**
+             * Unchanged
+             * @default 0
+             */
+            unchanged: number;
+            /**
+             * Later
+             * @default 0
+             */
+            later: number;
+            /**
+             * Moved
+             * @default 0
+             */
+            moved: number;
+            /**
+             * Missing
+             * @default []
+             */
+            missing: string[];
+        };
+        /** MapApplyIn */
+        MapApplyIn: {
+            /** Codes */
+            codes: string[];
+            /** Country */
+            country: number;
+            /**
+             * Date
+             * Format: date
+             */
+            date: string;
+            /**
+             * De Jure
+             * @default true
+             */
+            de_jure: boolean;
+            /**
+             * De Facto
+             * @default true
+             */
+            de_facto: boolean;
+        };
+        /** MapEraseOut */
+        MapEraseOut: {
+            /** Deleted */
+            deleted: number;
+            /** None */
+            none: number;
+        };
+        /** MapEraseIn */
+        MapEraseIn: {
+            /** Codes */
+            codes: string[];
+            /**
+             * Date
+             * Format: date
+             */
+            date: string;
+        };
+        /** MapTransferIn */
+        MapTransferIn: {
+            /** Source */
+            source: number;
+            /** Target */
+            target: number;
+            /**
+             * Date
+             * Format: date
+             */
+            date: string;
+            /**
+             * De Jure
+             * @default true
+             */
+            de_jure: boolean;
+            /**
+             * De Facto
+             * @default true
+             */
+            de_facto: boolean;
+        };
+        /** MapCheck */
+        MapCheck: {
+            /** Code */
+            code: string;
+            /** Level */
+            level: string;
+            /** Title */
+            title: string;
+            /** Count */
+            count: number;
+            /** Items */
+            items: components["schemas"]["MapCheckItem"][];
+        };
+        /** MapCheckItem */
+        MapCheckItem: {
+            /** Kind */
+            kind: string;
+            /** Id */
+            id: number;
+            /** Label */
+            label: string;
+        };
+        /** MapSceneRow */
+        MapSceneRow: {
+            /** Id */
+            id: number;
+            /** Slug */
+            slug: string;
+            /** Title */
+            title: string;
+            /** Base Date */
+            base_date: string | null;
+            /** Mode */
+            mode: string;
+            /** Features */
+            features: number;
+            /** Keys */
+            keys: boolean;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+        };
+        /** MapSceneOut */
+        MapSceneOut: {
+            /** Slug */
+            slug: string;
+            /** Title */
+            title: string;
+            /** Base Date */
+            base_date?: string | null;
+            /**
+             * Mode
+             * @default political
+             */
+            mode: string;
+            /**
+             * Lat
+             * @default 20
+             */
+            lat: number;
+            /**
+             * Lon
+             * @default 10
+             */
+            lon: number;
+            /**
+             * Zoom
+             * @default 3
+             */
+            zoom: number;
+            /** Bounds */
+            bounds?: number[] | null;
+            /** Min Zoom */
+            min_zoom?: number | null;
+            /** Max Zoom */
+            max_zoom?: number | null;
+            /**
+             * Flat
+             * @default false
+             */
+            flat: boolean;
+            /**
+             * Features
+             * @default []
+             */
+            features: {
+                [key: string]: unknown;
+            }[];
+            /**
+             * Keys
+             * @default
+             */
+            keys: string;
+            /** Id */
+            id: number;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+        };
+        /** MapSceneIn */
+        MapSceneIn: {
+            /** Slug */
+            slug: string;
+            /** Title */
+            title: string;
+            /** Base Date */
+            base_date?: string | null;
+            /**
+             * Mode
+             * @default political
+             */
+            mode: string;
+            /**
+             * Lat
+             * @default 20
+             */
+            lat: number;
+            /**
+             * Lon
+             * @default 10
+             */
+            lon: number;
+            /**
+             * Zoom
+             * @default 3
+             */
+            zoom: number;
+            /** Bounds */
+            bounds?: number[] | null;
+            /** Min Zoom */
+            min_zoom?: number | null;
+            /** Max Zoom */
+            max_zoom?: number | null;
+            /**
+             * Flat
+             * @default false
+             */
+            flat: boolean;
+            /**
+             * Features
+             * @default []
+             */
+            features: {
+                [key: string]: unknown;
+            }[];
+            /**
+             * Keys
+             * @default
+             */
+            keys: string;
+        };
+        /** MapRevisionRow */
+        MapRevisionRow: {
+            /** Id */
+            id: number;
+            /**
+             * Saved At
+             * Format: date-time
+             */
+            saved_at: string;
+            /** Saved By */
+            saved_by: string;
+            /** Features */
+            features: number;
+            /** Title */
+            title: string;
+        };
+        /** MapSceneFile */
+        MapSceneFile: {
+            /** Items */
+            items: {
+                [key: string]: unknown;
+            }[];
+        };
+        /** MapImportOut */
+        MapImportOut: {
+            /** Created */
+            created: number;
+            /** Updated */
+            updated: number;
         };
         /** SceneRow */
         SceneRow: {
@@ -6445,6 +7479,871 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["WorldOut"];
+                };
+            };
+        };
+    };
+    studio_api_worldmap_countries: {
+        parameters: {
+            query?: {
+                q?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MapCountryRow"][];
+                };
+            };
+        };
+    };
+    studio_api_worldmap_create_country: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MapCountryIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MapCountryOut"];
+                };
+            };
+        };
+    };
+    studio_api_worldmap_read_country: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                country_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MapCountryOut"];
+                };
+            };
+        };
+    };
+    studio_api_worldmap_save_country: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                country_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MapCountryIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MapCountryOut"];
+                };
+            };
+        };
+    };
+    studio_api_worldmap_delete_country: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                country_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    studio_api_worldmap_labels: {
+        parameters: {
+            query?: {
+                q?: string;
+                country?: number | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MapLabelOut"][];
+                };
+            };
+        };
+    };
+    studio_api_worldmap_create_label: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                country_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MapLabelIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MapLabelOut"];
+                };
+            };
+        };
+    };
+    studio_api_worldmap_save_label: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                label_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MapLabelIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MapLabelOut"];
+                };
+            };
+        };
+    };
+    studio_api_worldmap_delete_label: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                label_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    studio_api_worldmap_provinces: {
+        parameters: {
+            query?: {
+                q?: string;
+                owner?: string;
+                on?: string | null;
+                offset?: number;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MapProvincePage"];
+                };
+            };
+        };
+    };
+    studio_api_worldmap_create_province: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MapProvinceIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MapProvinceOut"];
+                };
+            };
+        };
+    };
+    studio_api_worldmap_read_province: {
+        parameters: {
+            query?: {
+                on?: string | null;
+            };
+            header?: never;
+            path: {
+                province_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MapProvinceOut"];
+                };
+            };
+        };
+    };
+    studio_api_worldmap_save_province: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                province_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MapProvinceIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MapProvinceOut"];
+                };
+            };
+        };
+    };
+    studio_api_worldmap_delete_province: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                province_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    studio_api_worldmap_province_by_code: {
+        parameters: {
+            query?: {
+                on?: string | null;
+            };
+            header?: never;
+            path: {
+                source_code: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MapProvinceOut"];
+                };
+            };
+        };
+    };
+    studio_api_worldmap_ownerships: {
+        parameters: {
+            query?: {
+                q?: string;
+                country?: number | null;
+                province?: number | null;
+                after?: string | null;
+                before?: string | null;
+                flag?: string;
+                offset?: number;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MapOwnershipPage"];
+                };
+            };
+        };
+    };
+    studio_api_worldmap_create_ownership: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MapOwnershipIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MapOwnershipRow"];
+                };
+            };
+        };
+    };
+    studio_api_worldmap_save_ownership: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                ownership_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MapOwnershipIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MapOwnershipRow"];
+                };
+            };
+        };
+    };
+    studio_api_worldmap_delete_ownership: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                ownership_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    studio_api_worldmap_delete_ownerships: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MapIds"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: number;
+                    };
+                };
+            };
+        };
+    };
+    studio_api_worldmap_owners: {
+        parameters: {
+            query?: {
+                date?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: components["schemas"]["MapOwnerOnDate"];
+                    };
+                };
+            };
+        };
+    };
+    studio_api_worldmap_dates: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": string[];
+                };
+            };
+        };
+    };
+    studio_api_worldmap_country_provinces: {
+        parameters: {
+            query?: {
+                date?: string | null;
+            };
+            header?: never;
+            path: {
+                country_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": string[];
+                };
+            };
+        };
+    };
+    studio_api_worldmap_apply: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MapApplyIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MapApplyOut"];
+                };
+            };
+        };
+    };
+    studio_api_worldmap_erase: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MapEraseIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MapEraseOut"];
+                };
+            };
+        };
+    };
+    studio_api_worldmap_transfer: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MapTransferIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MapApplyOut"];
+                };
+            };
+        };
+    };
+    studio_api_worldmap_checks: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MapCheck"][];
+                };
+            };
+        };
+    };
+    studio_api_mapscenes_scenes: {
+        parameters: {
+            query?: {
+                q?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MapSceneRow"][];
+                };
+            };
+        };
+    };
+    studio_api_mapscenes_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MapSceneIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MapSceneOut"];
+                };
+            };
+        };
+    };
+    studio_api_mapscenes_read: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                scene_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MapSceneOut"];
+                };
+            };
+        };
+    };
+    studio_api_mapscenes_save: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                scene_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MapSceneIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MapSceneOut"];
+                };
+            };
+        };
+    };
+    studio_api_mapscenes_delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                scene_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    studio_api_mapscenes_copy: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                scene_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MapSceneOut"];
+                };
+            };
+        };
+    };
+    studio_api_mapscenes_revisions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                scene_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MapRevisionRow"][];
+                };
+            };
+        };
+    };
+    studio_api_mapscenes_restore: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                scene_id: number;
+                revision_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MapSceneOut"];
+                };
+            };
+        };
+    };
+    studio_api_mapscenes_export: {
+        parameters: {
+            query?: {
+                ids?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MapSceneFile"];
+                };
+            };
+        };
+    };
+    studio_api_mapscenes_import_file: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MapSceneFile"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MapImportOut"];
                 };
             };
         };
