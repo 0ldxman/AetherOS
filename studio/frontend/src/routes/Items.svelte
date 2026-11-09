@@ -54,6 +54,9 @@
     { label: "Состояние", items: [["orphans", "нигде не лежат", "Нет ни в одном томе и ни в одном архиве"], ["shared", "в нескольких местах"], ["layers", "со слоями"], ["access", "с условием"]] },
   ];
   let active = $state<string[]>([]);
+  let pickerOpen = $state(false);
+  const LABEL = Object.fromEntries(GROUPS.flatMap((group) => group.items.map(([value, label]) => [value, label.replace(/^✎ /, "")])));
+  const left = $derived(GROUPS.map((group) => ({ ...group, items: group.items.filter(([value]) => !active.includes(value)) })).filter((group) => group.items.length));
   const toggle = (flag: string) => (active = active.includes(flag) ? active.filter((f) => f !== flag) : [...active, flag]);
   const KIND: Record<string, string> = { text: "текст", asset: "ассет", link: "ссылка", scene: "сцена", message: "письмо", archive: "архив", key: "ключ", empty: "без текста" };
 
@@ -70,6 +73,8 @@
     return bytes < 1048576 ? `${(bytes / 1024).toFixed(1)} КБ` : `${(bytes / 1048576).toFixed(1)} МБ`;
   }
 </script>
+
+<svelte:window onclick={() => (pickerOpen = false)} onkeydown={(event) => event.key === "Escape" && (pickerOpen = false)} />
 
 <PageHead title="Объекты">
   {#snippet sub()}Все объекты мира. Один объект может лежать в нескольких томах и архивах: правка видна везде. Файлы без объекта (пустые файлы, которые создаются в томах) здесь не показываются: их видно в разделе <a href="#/volumes">«Тома и файлы»</a>.{/snippet}
@@ -90,17 +95,32 @@
     <button class="btn primary" onclick={() => (dialog = { name: "", format: "", slug: "", volume: "" })}>Новый объект</button>
 </PageHead>
 
-<nav class="chips" aria-label="Признаки">
-  {#each GROUPS as group (group.label)}
-    <span class="group"><span class="glabel">{group.label}</span>
-      {#each group.items as [value, label, tip] (value)}
-        <button class="pick" class:on={active.includes(value)} aria-pressed={active.includes(value)} title={tip} onclick={() => toggle(value)}>{label}</button>
-      {/each}
+<div class="filterbar">
+  <div class="fieldbox" role="group" aria-label="Выбранные признаки">
+    {#each active as flag (flag)}
+      <span class="tag">{LABEL[flag]}<button class="x" aria-label="Убрать признак «{LABEL[flag]}»" onclick={() => toggle(flag)}>×</button></span>
+    {:else}
+      <span class="faint">Признаки не выбраны: показаны все объекты</span>
+    {/each}
+    <span class="adder">
+      <button class="addbtn" aria-haspopup="menu" aria-expanded={pickerOpen} disabled={!left.length}
+              onclick={(event) => { event.stopPropagation(); pickerOpen = !pickerOpen; }}>+ Признак ▾</button>
+      {#if pickerOpen}
+        <div class="menu" role="menu">
+          {#each left as group (group.label)}
+            <div class="mgroup"><span class="mlabel">{group.label}</span>
+              {#each group.items as [value, label, tip] (value)}
+                <button role="menuitem" title={tip} onclick={() => { toggle(value); pickerOpen = false; }}>{label}</button>
+              {/each}
+            </div>
+          {/each}
+        </div>
+      {/if}
     </span>
-  {/each}
-  {#if active.length}<button class="reset" onclick={() => (active = [])}>сбросить признаки</button>{/if}
+  </div>
+  {#if active.length}<button class="reset" onclick={() => (active = [])}>сбросить</button>{/if}
   <span class="muted count">{loading ? "…" : rows.length >= 200 ? "первые 200" : `${rows.length} ${plural(rows.length, "объект", "объекта", "объектов")}`}</span>
-</nav>
+</div>
 
 <section class="table">
   <div class="row head">
@@ -161,13 +181,23 @@
   .sort { padding: 0; border: 0; background: none; color: inherit; font: inherit; cursor: pointer; }
   .sort:hover { color: var(--text); }
   .where { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12.5px; }
-  .chips { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; padding: 0 32px 12px; }
-  .pick { padding: 3px 12px; border: 1px solid var(--line); border-radius: 999px; background: var(--bg); color: var(--muted); cursor: pointer; }
-  .pick.on { border-color: var(--accent); background: var(--accent-soft); color: var(--text); }
+  .filterbar { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; padding: 0 32px 12px; }
   .count { margin-left: auto; }
-  .group { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 6px; }
-  .group + .group { padding-left: 14px; margin-left: 8px; border-left: 1px solid var(--line-soft); }
-  .glabel { color: var(--faint); font-size: 12px; margin-right: 2px; }
+  .fieldbox { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; min-height: 34px; min-width: 320px; padding: 3px 6px; border: 1px solid var(--line); border-radius: var(--radius-s); background: var(--bg); }
+  .tag { display: inline-flex; align-items: center; gap: 2px; padding: 1px 2px 1px 10px; border-radius: 999px; background: var(--accent-soft); border: 1px solid var(--accent); }
+  .x { width: 22px; height: 22px; border: 0; border-radius: 50%; background: none; color: var(--muted); cursor: pointer; font-size: 15px; line-height: 1; }
+  .x:hover { background: rgba(255, 255, 255, 0.12); color: var(--text); }
+  .faint { color: var(--faint); padding: 0 4px; }
+  .adder { position: relative; margin-left: auto; }
+  .addbtn { height: 26px; padding: 0 10px; border: 1px dashed var(--line-bright, var(--line)); border-radius: 999px; background: none; color: var(--accent); cursor: pointer; }
+  .addbtn:hover:not(:disabled) { background: var(--accent-soft); }
+  .addbtn:disabled { color: var(--faint); cursor: default; }
+  .menu { position: absolute; z-index: 5; top: calc(100% + 4px); right: 0; min-width: 240px; padding: 6px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--panel); box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45); }
+  .mgroup { display: flex; flex-direction: column; padding: 4px 0; }
+  .mgroup + .mgroup { border-top: 1px solid var(--line-soft); }
+  .mlabel { padding: 2px 8px; color: var(--faint); font-size: 11.5px; text-transform: uppercase; letter-spacing: 0.04em; }
+  .menu button { text-align: left; padding: 6px 8px; border: 0; border-radius: var(--radius-s); background: none; cursor: pointer; }
+  .menu button:hover, .menu button:focus-visible { background: var(--raise); outline: none; }
   .reset { border: 0; background: none; color: var(--accent); cursor: pointer; padding: 0 4px; }
   .table { padding: 0 32px 32px; }
   .pad { padding: 12px 10px; }

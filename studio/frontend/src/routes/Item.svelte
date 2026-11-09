@@ -31,7 +31,7 @@
   let holder = $state<Schemas["Holder"] | null>(null);
   let issues = $state<Schemas["Issue"][]>([]);
   let keysMode = $state<"all" | "none">("all");
-  let previewTab = $state<"body" | "infobox">("body");
+  const previewTab = $derived<"body" | "infobox">(tab === "meta" ? "infobox" : "body");   // предпросмотр следует за вкладкой редактора
   let fieldErrors = $state<Record<string, string[]>>({});
 
   const format = $derived(formats.find((found) => found.name === draft.format));
@@ -234,14 +234,14 @@
 
       <section class="pane preview">
         <nav class="tabs">
-          <button class:on={previewTab === "body"} onclick={() => (previewTab = "body")}>Документ</button>
-          <button class:on={previewTab === "infobox"} onclick={() => (previewTab = "infobox")}>Врезка</button>
+          <span class="ptitle">Предпросмотр: {previewTab === "infobox" ? "врезка" : "документ"}</span>
           <select class="keys" bind:value={keysMode} title="С какими ключами смотреть">
             <option value="all">со всеми ключами</option>
             <option value="none">без ключей</option>
           </select>
           <Hint text="Часть текста может быть скрыта от игрока, пока у него нет нужного ключа. «Со всеми ключами» показывает всё, «без ключей» то, что увидит игрок, у которого ключей ещё нет." />
         </nav>
+        {#if previewTab === "infobox" && !draft.meta.trim()}<p class="muted emptynote">Врезка пуста. Это карточка с краткими данными рядом со статьёй: заполните её в редакторе слева.</p>{/if}
         <DocPreview format={draft.format} title={draft.name} body={draft.body} meta={draft.meta} only={previewTab} {keysMode} bind:issues />
         {#if issues.length}
           <ul class="issues">
@@ -298,6 +298,8 @@
   .tabs button { border: 0; background: none; padding: 5px 10px; border-radius: var(--radius-s); color: var(--muted); cursor: pointer; }
   .tabs button:hover { color: var(--text); }
   .tabs button.on { background: var(--panel-2); color: var(--text); }
+  .emptynote { margin: 0; padding: 12px 14px; }
+  .ptitle { padding: 5px 10px; color: var(--muted); }
   .keys { margin-left: auto; height: 26px; border: 1px solid var(--line); border-radius: var(--radius-s); background: var(--bg); padding: 0 6px; }
   .pane-body { flex: 1; min-height: 0; }
   .note { padding: 16px; }
