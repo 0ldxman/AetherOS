@@ -1282,6 +1282,202 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/studio/api/machines/{machine_id}/files": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Files */
+        get: operations["studio_api_machinefiles_files"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/studio/api/machines/{machine_id}/files/open": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Open File */
+        post: operations["studio_api_machinefiles_open_file"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/studio/api/machines/{machine_id}/files/folder": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** New Folder */
+        post: operations["studio_api_machinefiles_new_folder"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/studio/api/machines/{machine_id}/files/file": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * New File
+         * @description Новый файл без объекта, любое имя и расширение.
+         */
+        post: operations["studio_api_machinefiles_new_file"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/studio/api/machines/{machine_id}/files/rename": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Rename */
+        post: operations["studio_api_machinefiles_rename"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/studio/api/machines/{machine_id}/files/move": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Move */
+        post: operations["studio_api_machinefiles_move"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/studio/api/machines/{machine_id}/files/copy": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Copy */
+        post: operations["studio_api_machinefiles_copy"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/studio/api/machines/{machine_id}/files/delete": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Delete
+         * @description Убрать из вида машины: свой файл удаляется, файл общего диска скрывается.
+         */
+        post: operations["studio_api_machinefiles_delete"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/studio/api/machines/{machine_id}/files/restore": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Restore */
+        post: operations["studio_api_machinefiles_restore"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/studio/api/machines/{machine_id}/files/reset": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Reset
+         * @description Сбросить правку: убрать копию из диска отличий, вернётся файл общего диска.
+         */
+        post: operations["studio_api_machinefiles_reset"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/studio/api/machines/{machine_id}/files/rights": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Rights */
+        post: operations["studio_api_machinefiles_rights"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/studio/api/policies": {
         parameters: {
             query?: never;
@@ -3927,6 +4123,135 @@ export interface components {
             format: string;
             /** Mount */
             mount: string;
+        };
+        /** MachineFileItem */
+        MachineFileItem: {
+            /** Id */
+            id: number;
+            /** Slug */
+            slug: string;
+            /** Name */
+            name: string;
+            /** Format */
+            format: string;
+            /** Used */
+            used: number;
+            /** Size */
+            size: number | null;
+        };
+        /** MachineFileRow */
+        MachineFileRow: {
+            /** Path */
+            path: string;
+            /** Name */
+            name: string;
+            /** Kind */
+            kind: string;
+            /** Volume */
+            volume: string;
+            /** Mark */
+            mark: string;
+            /** Private */
+            private: boolean;
+            /** Hidden */
+            hidden: boolean;
+            /** System */
+            system: boolean;
+            item: components["schemas"]["MachineFileItem"] | null;
+            /**
+             * Owner
+             * @default
+             */
+            owner: string;
+            /**
+             * Group
+             * @default
+             */
+            group: string;
+            /**
+             * Mode
+             * @default
+             */
+            mode: string;
+        };
+        /** MachineFiles */
+        MachineFiles: {
+            /** Rows */
+            rows: components["schemas"]["MachineFileRow"][];
+            /** Overlay */
+            overlay: number | null;
+            /** Changed */
+            changed: number;
+        };
+        /** MachineFileOpen */
+        MachineFileOpen: {
+            /** Kind */
+            kind: string;
+            /** Item */
+            item?: number | null;
+            /** Volume */
+            volume?: number | null;
+            /** Placement */
+            placement?: number | null;
+        };
+        /** MachineFilePath */
+        MachineFilePath: {
+            /** Path */
+            path: string;
+        };
+        /** MachineFileDone */
+        MachineFileDone: {
+            /**
+             * Ok
+             * @default true
+             */
+            ok: boolean;
+        };
+        /** MachineFileNew */
+        MachineFileNew: {
+            /**
+             * Parent
+             * @default /
+             */
+            parent: string;
+            /** Name */
+            name: string;
+        };
+        /** MachineFileRename */
+        MachineFileRename: {
+            /** Path */
+            path: string;
+            /** Name */
+            name: string;
+        };
+        /** MachineFileMove */
+        MachineFileMove: {
+            /** Path */
+            path: string;
+            /** Dest */
+            dest: string;
+            /** Name */
+            name?: string | null;
+        };
+        /** MachineFileRights */
+        MachineFileRights: {
+            /** Path */
+            path: string;
+            /**
+             * Owner
+             * @default
+             */
+            owner: string;
+            /**
+             * Group
+             * @default
+             */
+            group: string;
+            /**
+             * Mode
+             * @default
+             */
+            mode: string;
         };
         /** PolicyRow */
         PolicyRow: {
@@ -7227,6 +7552,288 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Listing"];
+                };
+            };
+        };
+    };
+    studio_api_machinefiles_files: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                machine_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MachineFiles"];
+                };
+            };
+        };
+    };
+    studio_api_machinefiles_open_file: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                machine_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MachineFilePath"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MachineFileOpen"];
+                };
+            };
+        };
+    };
+    studio_api_machinefiles_new_folder: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                machine_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MachineFileNew"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MachineFileDone"];
+                };
+            };
+        };
+    };
+    studio_api_machinefiles_new_file: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                machine_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MachineFileNew"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MachineFileOpen"];
+                };
+            };
+        };
+    };
+    studio_api_machinefiles_rename: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                machine_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MachineFileRename"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MachineFileDone"];
+                };
+            };
+        };
+    };
+    studio_api_machinefiles_move: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                machine_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MachineFileMove"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MachineFileDone"];
+                };
+            };
+        };
+    };
+    studio_api_machinefiles_copy: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                machine_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MachineFileMove"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MachineFileDone"];
+                };
+            };
+        };
+    };
+    studio_api_machinefiles_delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                machine_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MachineFilePath"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MachineFileDone"];
+                };
+            };
+        };
+    };
+    studio_api_machinefiles_restore: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                machine_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MachineFilePath"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MachineFileDone"];
+                };
+            };
+        };
+    };
+    studio_api_machinefiles_reset: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                machine_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MachineFilePath"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MachineFileDone"];
+                };
+            };
+        };
+    };
+    studio_api_machinefiles_rights: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                machine_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MachineFileRights"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MachineFileDone"];
                 };
             };
         };

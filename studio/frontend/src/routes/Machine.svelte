@@ -10,6 +10,7 @@
   import Journal from "./machine/Journal.svelte";
   import Groups from "./machine/Groups.svelte";
   import Disks from "./machine/Disks.svelte";
+  import Files from "./machine/Files.svelte";
 
   let { id, tab, sub }: { id: number; tab: string; sub: number | null } = $props();
 
@@ -29,6 +30,7 @@
     { key: "access", label: "Проверка входа" },
     { key: "journal", label: "Журнал" },
     { key: "groups", label: "Группы" },
+    { key: "files", label: "Файлы" },
     { key: "disks", label: "Диски" },
   ];
 </script>
@@ -63,6 +65,8 @@
         <Access {machine} account={sub} />
       {:else if tab === "groups"}
         <Groups {machine} onchange={reload} />
+      {:else if tab === "files"}
+        <Files {machine} />
       {:else if tab === "disks"}
         <Disks {machine} />
       {:else if tab === "journal"}

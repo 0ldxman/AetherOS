@@ -3843,6 +3843,516 @@
     ]
    }
   },
+  "/studio/api/machines/{machine_id}/files": {
+   "get": {
+    "operationId": "studio_api_machinefiles_files",
+    "summary": "Files",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "machine_id",
+      "schema": {
+       "title": "Machine Id",
+       "type": "integer"
+      },
+      "required": true
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/MachineFiles"
+        }
+       }
+      }
+     }
+    },
+    "tags": [
+     "machine-files"
+    ],
+    "security": [
+     {
+      "SessionAuthIsStaff": []
+     }
+    ]
+   }
+  },
+  "/studio/api/machines/{machine_id}/files/open": {
+   "post": {
+    "operationId": "studio_api_machinefiles_open_file",
+    "summary": "Open File",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "machine_id",
+      "schema": {
+       "title": "Machine Id",
+       "type": "integer"
+      },
+      "required": true
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/MachineFileOpen"
+        }
+       }
+      }
+     }
+    },
+    "tags": [
+     "machine-files"
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/MachineFilePath"
+       }
+      }
+     },
+     "required": true
+    },
+    "security": [
+     {
+      "SessionAuthIsStaff": []
+     }
+    ]
+   }
+  },
+  "/studio/api/machines/{machine_id}/files/folder": {
+   "post": {
+    "operationId": "studio_api_machinefiles_new_folder",
+    "summary": "New Folder",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "machine_id",
+      "schema": {
+       "title": "Machine Id",
+       "type": "integer"
+      },
+      "required": true
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/MachineFileDone"
+        }
+       }
+      }
+     }
+    },
+    "tags": [
+     "machine-files"
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/MachineFileNew"
+       }
+      }
+     },
+     "required": true
+    },
+    "security": [
+     {
+      "SessionAuthIsStaff": []
+     }
+    ]
+   }
+  },
+  "/studio/api/machines/{machine_id}/files/file": {
+   "post": {
+    "operationId": "studio_api_machinefiles_new_file",
+    "summary": "New File",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "machine_id",
+      "schema": {
+       "title": "Machine Id",
+       "type": "integer"
+      },
+      "required": true
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/MachineFileOpen"
+        }
+       }
+      }
+     }
+    },
+    "description": "Новый файл без объекта, любое имя и расширение.",
+    "tags": [
+     "machine-files"
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/MachineFileNew"
+       }
+      }
+     },
+     "required": true
+    },
+    "security": [
+     {
+      "SessionAuthIsStaff": []
+     }
+    ]
+   }
+  },
+  "/studio/api/machines/{machine_id}/files/rename": {
+   "post": {
+    "operationId": "studio_api_machinefiles_rename",
+    "summary": "Rename",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "machine_id",
+      "schema": {
+       "title": "Machine Id",
+       "type": "integer"
+      },
+      "required": true
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/MachineFileDone"
+        }
+       }
+      }
+     }
+    },
+    "tags": [
+     "machine-files"
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/MachineFileRename"
+       }
+      }
+     },
+     "required": true
+    },
+    "security": [
+     {
+      "SessionAuthIsStaff": []
+     }
+    ]
+   }
+  },
+  "/studio/api/machines/{machine_id}/files/move": {
+   "post": {
+    "operationId": "studio_api_machinefiles_move",
+    "summary": "Move",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "machine_id",
+      "schema": {
+       "title": "Machine Id",
+       "type": "integer"
+      },
+      "required": true
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/MachineFileDone"
+        }
+       }
+      }
+     }
+    },
+    "tags": [
+     "machine-files"
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/MachineFileMove"
+       }
+      }
+     },
+     "required": true
+    },
+    "security": [
+     {
+      "SessionAuthIsStaff": []
+     }
+    ]
+   }
+  },
+  "/studio/api/machines/{machine_id}/files/copy": {
+   "post": {
+    "operationId": "studio_api_machinefiles_copy",
+    "summary": "Copy",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "machine_id",
+      "schema": {
+       "title": "Machine Id",
+       "type": "integer"
+      },
+      "required": true
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/MachineFileDone"
+        }
+       }
+      }
+     }
+    },
+    "tags": [
+     "machine-files"
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/MachineFileMove"
+       }
+      }
+     },
+     "required": true
+    },
+    "security": [
+     {
+      "SessionAuthIsStaff": []
+     }
+    ]
+   }
+  },
+  "/studio/api/machines/{machine_id}/files/delete": {
+   "post": {
+    "operationId": "studio_api_machinefiles_delete",
+    "summary": "Delete",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "machine_id",
+      "schema": {
+       "title": "Machine Id",
+       "type": "integer"
+      },
+      "required": true
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/MachineFileDone"
+        }
+       }
+      }
+     }
+    },
+    "description": "Убрать из вида машины: свой файл удаляется, файл общего диска скрывается.",
+    "tags": [
+     "machine-files"
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/MachineFilePath"
+       }
+      }
+     },
+     "required": true
+    },
+    "security": [
+     {
+      "SessionAuthIsStaff": []
+     }
+    ]
+   }
+  },
+  "/studio/api/machines/{machine_id}/files/restore": {
+   "post": {
+    "operationId": "studio_api_machinefiles_restore",
+    "summary": "Restore",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "machine_id",
+      "schema": {
+       "title": "Machine Id",
+       "type": "integer"
+      },
+      "required": true
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/MachineFileDone"
+        }
+       }
+      }
+     }
+    },
+    "tags": [
+     "machine-files"
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/MachineFilePath"
+       }
+      }
+     },
+     "required": true
+    },
+    "security": [
+     {
+      "SessionAuthIsStaff": []
+     }
+    ]
+   }
+  },
+  "/studio/api/machines/{machine_id}/files/reset": {
+   "post": {
+    "operationId": "studio_api_machinefiles_reset",
+    "summary": "Reset",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "machine_id",
+      "schema": {
+       "title": "Machine Id",
+       "type": "integer"
+      },
+      "required": true
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/MachineFileDone"
+        }
+       }
+      }
+     }
+    },
+    "description": "Сбросить правку: убрать копию из диска отличий, вернётся файл общего диска.",
+    "tags": [
+     "machine-files"
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/MachineFilePath"
+       }
+      }
+     },
+     "required": true
+    },
+    "security": [
+     {
+      "SessionAuthIsStaff": []
+     }
+    ]
+   }
+  },
+  "/studio/api/machines/{machine_id}/files/rights": {
+   "post": {
+    "operationId": "studio_api_machinefiles_rights",
+    "summary": "Rights",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "machine_id",
+      "schema": {
+       "title": "Machine Id",
+       "type": "integer"
+      },
+      "required": true
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/MachineFileDone"
+        }
+       }
+      }
+     }
+    },
+    "tags": [
+     "machine-files"
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/MachineFileRights"
+       }
+      }
+     },
+     "required": true
+    },
+    "security": [
+     {
+      "SessionAuthIsStaff": []
+     }
+    ]
+   }
+  },
   "/studio/api/policies": {
    "get": {
     "operationId": "studio_api_policies_policies",
@@ -11615,6 +12125,321 @@
      "mount"
     ],
     "title": "TreeNode",
+    "type": "object"
+   },
+   "MachineFileItem": {
+    "properties": {
+     "id": {
+      "title": "Id",
+      "type": "integer"
+     },
+     "slug": {
+      "title": "Slug",
+      "type": "string"
+     },
+     "name": {
+      "title": "Name",
+      "type": "string"
+     },
+     "format": {
+      "title": "Format",
+      "type": "string"
+     },
+     "used": {
+      "title": "Used",
+      "type": "integer"
+     },
+     "size": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Size"
+     }
+    },
+    "required": [
+     "id",
+     "slug",
+     "name",
+     "format",
+     "used",
+     "size"
+    ],
+    "title": "MachineFileItem",
+    "type": "object"
+   },
+   "MachineFileRow": {
+    "properties": {
+     "path": {
+      "title": "Path",
+      "type": "string"
+     },
+     "name": {
+      "title": "Name",
+      "type": "string"
+     },
+     "kind": {
+      "title": "Kind",
+      "type": "string"
+     },
+     "volume": {
+      "title": "Volume",
+      "type": "string"
+     },
+     "mark": {
+      "title": "Mark",
+      "type": "string"
+     },
+     "private": {
+      "title": "Private",
+      "type": "boolean"
+     },
+     "hidden": {
+      "title": "Hidden",
+      "type": "boolean"
+     },
+     "system": {
+      "title": "System",
+      "type": "boolean"
+     },
+     "item": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/MachineFileItem"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "owner": {
+      "default": "",
+      "title": "Owner",
+      "type": "string"
+     },
+     "group": {
+      "default": "",
+      "title": "Group",
+      "type": "string"
+     },
+     "mode": {
+      "default": "",
+      "title": "Mode",
+      "type": "string"
+     }
+    },
+    "required": [
+     "path",
+     "name",
+     "kind",
+     "volume",
+     "mark",
+     "private",
+     "hidden",
+     "system",
+     "item"
+    ],
+    "title": "MachineFileRow",
+    "type": "object"
+   },
+   "MachineFiles": {
+    "properties": {
+     "rows": {
+      "items": {
+       "$ref": "#/components/schemas/MachineFileRow"
+      },
+      "title": "Rows",
+      "type": "array"
+     },
+     "overlay": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Overlay"
+     },
+     "changed": {
+      "title": "Changed",
+      "type": "integer"
+     }
+    },
+    "required": [
+     "rows",
+     "overlay",
+     "changed"
+    ],
+    "title": "MachineFiles",
+    "type": "object"
+   },
+   "MachineFileOpen": {
+    "properties": {
+     "kind": {
+      "title": "Kind",
+      "type": "string"
+     },
+     "item": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Item"
+     },
+     "volume": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Volume"
+     },
+     "placement": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Placement"
+     }
+    },
+    "required": [
+     "kind"
+    ],
+    "title": "MachineFileOpen",
+    "type": "object"
+   },
+   "MachineFilePath": {
+    "properties": {
+     "path": {
+      "title": "Path",
+      "type": "string"
+     }
+    },
+    "required": [
+     "path"
+    ],
+    "title": "MachineFilePath",
+    "type": "object"
+   },
+   "MachineFileDone": {
+    "properties": {
+     "ok": {
+      "default": true,
+      "title": "Ok",
+      "type": "boolean"
+     }
+    },
+    "title": "MachineFileDone",
+    "type": "object"
+   },
+   "MachineFileNew": {
+    "properties": {
+     "parent": {
+      "default": "/",
+      "title": "Parent",
+      "type": "string"
+     },
+     "name": {
+      "title": "Name",
+      "type": "string"
+     }
+    },
+    "required": [
+     "name"
+    ],
+    "title": "MachineFileNew",
+    "type": "object"
+   },
+   "MachineFileRename": {
+    "properties": {
+     "path": {
+      "title": "Path",
+      "type": "string"
+     },
+     "name": {
+      "title": "Name",
+      "type": "string"
+     }
+    },
+    "required": [
+     "path",
+     "name"
+    ],
+    "title": "MachineFileRename",
+    "type": "object"
+   },
+   "MachineFileMove": {
+    "properties": {
+     "path": {
+      "title": "Path",
+      "type": "string"
+     },
+     "dest": {
+      "title": "Dest",
+      "type": "string"
+     },
+     "name": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Name"
+     }
+    },
+    "required": [
+     "path",
+     "dest"
+    ],
+    "title": "MachineFileMove",
+    "type": "object"
+   },
+   "MachineFileRights": {
+    "properties": {
+     "path": {
+      "title": "Path",
+      "type": "string"
+     },
+     "owner": {
+      "default": "",
+      "title": "Owner",
+      "type": "string"
+     },
+     "group": {
+      "default": "",
+      "title": "Group",
+      "type": "string"
+     },
+     "mode": {
+      "default": "",
+      "title": "Mode",
+      "type": "string"
+     }
+    },
+    "required": [
+     "path"
+    ],
+    "title": "MachineFileRights",
     "type": "object"
    },
    "PolicyRow": {

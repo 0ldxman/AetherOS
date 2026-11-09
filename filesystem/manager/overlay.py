@@ -327,6 +327,124 @@ def rename(machine, path, name):
     return Placement.objects.create(volume=home.volume, parent=parent, kind=Placement.Kind.ITEM, item=entry.item, name=name)
 
 
+# ---- редактор файлов машины: открытие, новые файлы без объекта, перенос и копия ---------------------------------------
+
+_PLACE_FIELDS = ("hidden", "system", "owner", "group", "mode", "access_mode", "access", "state_mode", "state")
+
+
+def _carry(source):
+    return {key: getattr(source, key) for key in _PLACE_FIELDS} if source is not None else {}
+
+
+def _free(view, target):
+    if view.exists(target):
+        raise FileManagerError(f"«{posixpath.basename(target)}» уже есть в этой папке.")
+
+
+@transaction.atomic
+def open_for_edit(machine, path):
+    """Подготовить файл к правке на этой машине и сказать, где его править.
+    -> {"kind": "item", "item": id} (объект: открывается в редакторе объектов) или
+       {"kind": "text", "volume": id, "placement": id} (файл со своим текстом: в диске отличий или в своём приватном диске)."""
+    view = MachineView(machine, None)
+    entry = _entry(view, path)
+    if entry.is_dir:
+        raise FileManagerError("Папку не открыть на правку: откройте файл в ней.")
+    if entry.item is not None:
+        return {"kind": "item", "item": override(machine, path).pk}
+    if entry.text is None and (entry.placement is None or entry.placement.kind != Placement.Kind.FILE):
+        raise FileManagerError("Этот файл не правится как текст.")
+    home = home_for(machine, view, path, entry)
+    if entry.layer is not None and entry.layer.mount.pk == home.mount.pk and entry.placement is not None:
+        return {"kind": "text", "volume": home.volume.pk, "placement": entry.placement.pk}
+    rel = home.rel(path)
+    parent = ensure_folders(home.volume, posixpath.dirname(rel), view, home.point)
+    existing = Placement.objects.filter(volume=home.volume, parent=parent, name=posixpath.basename(rel)).first()
+    if existing is not None and existing.kind == Placement.Kind.WHITEOUT:
+        existing.delete()
+        existing = None
+    if existing is None:
+        existing = Placement.objects.create(
+            volume=home.volume, parent=parent, kind=Placement.Kind.FILE, name=posixpath.basename(rel),
+            content=entry.text if entry.text is not None else entry.placement.content, **_carry(entry.placement),
+        )
+    return {"kind": "text", "volume": home.volume.pk, "placement": existing.pk}
+
+
+@transaction.atomic
+def new_text_file(machine, parent_path, name):
+    """Новый файл без объекта любого формата (даже несуществующего): лежит в диске отличий (или в приватном диске на месте)."""
+    name = clean_name(name)
+    view, parent_path = _target(machine, parent_path)
+    target = posixpath.join(parent_path, name)
+    _free(view, target)
+    home = home_for(machine, view, target)
+    parent = ensure_folders(home.volume, home.rel(parent_path))
+    return Placement.objects.create(volume=home.volume, parent=parent, kind=Placement.Kind.FILE, name=name, content="")
+
+
+@transaction.atomic
+def move(machine, path, dest_dir, name=None):
+    """Перенести файл или свою папку в другую папку (и, если нужно, под другим именем). Файл общего диска: старое место скрывается,
+    новое создаётся в диске отличий. Папку общего диска перенести нельзя."""
+    view = MachineView(machine, None)
+    entry = _entry(view, path)
+    path = "/" + path.strip("/")
+    name = clean_name(name or posixpath.basename(path))
+    dest = "/" + dest_dir.strip("/")
+    if dest != "/" and not view.is_directory(dest):
+        raise FileManagerError("Такой папки нет.")
+    if dest == path or dest.startswith(path + "/"):
+        raise FileManagerError("Папку нельзя перенести в саму себя.")
+    target = posixpath.join(dest, name)
+    if target == path:
+        return None
+    _free(view, target)
+    home = home_for(machine, view, path, entry, create=False)
+    own = find_placement(home.volume, home.rel(path)) if home is not None and entry.layer is not None and entry.layer.mount.pk == home.mount.pk else None
+    new_home = home_for(machine, view, target, None)
+    if own is not None and new_home.volume.pk == own.volume_id:
+        own.parent = ensure_folders(new_home.volume, new_home.rel(dest), view, new_home.point)
+        own.name = name
+        own.save(update_fields=["parent", "name"])
+        return own
+    if entry.is_dir:
+        raise FileManagerError("Папку общего диска перенести нельзя: создайте новую и перенесите в неё файлы.")
+    delete(machine, path)
+    new_home = home_for(machine, view, target, None)
+    parent = ensure_folders(new_home.volume, new_home.rel(dest), view, new_home.point)
+    if entry.item is not None:
+        return Placement.objects.create(volume=new_home.volume, parent=parent, kind=Placement.Kind.ITEM, item=entry.item, name=name, **_carry(entry.placement))
+    text = entry.text if entry.text is not None else (entry.placement.content if entry.placement is not None else "")
+    return Placement.objects.create(volume=new_home.volume, parent=parent, kind=Placement.Kind.FILE, name=name, content=text, **_carry(entry.placement))
+
+
+@transaction.atomic
+def copy(machine, path, dest_dir, name=None):
+    """Копия файла (объект копируется отдельным объектом, чтобы правки не расходились по обоим файлам)."""
+    view = MachineView(machine, None)
+    entry = _entry(view, path)
+    if entry.is_dir:
+        raise FileManagerError("Папку копировать нельзя: создайте новую и скопируйте в неё файлы.")
+    path = "/" + path.strip("/")
+    dest = "/" + dest_dir.strip("/")
+    if dest != "/" and not view.is_directory(dest):
+        raise FileManagerError("Такой папки нет.")
+    base = name or posixpath.basename(path)
+    stem, ext = posixpath.splitext(base)
+    target, number = posixpath.join(dest, clean_name(base)), 1
+    while view.exists(target):
+        number += 1
+        target = posixpath.join(dest, clean_name(f"{stem} копия{'' if number == 2 else f' {number - 1}'}{ext}"))
+    home = home_for(machine, view, target, None)
+    parent = ensure_folders(home.volume, home.rel(dest), view, home.point)
+    final = posixpath.basename(target)
+    if entry.item is not None:
+        return Placement.objects.create(volume=home.volume, parent=parent, kind=Placement.Kind.ITEM, item=clone_item(entry.item, machine), name=final, **_carry(entry.placement))
+    text = entry.text if entry.text is not None else (entry.placement.content if entry.placement is not None else "")
+    return Placement.objects.create(volume=home.volume, parent=parent, kind=Placement.Kind.FILE, name=final, content=text, **_carry(entry.placement))
+
+
 # ---- данные менеджера -----------------------------------------------------------------------------------------------
 
 def _items_info(items):
