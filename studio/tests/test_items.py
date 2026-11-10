@@ -290,6 +290,21 @@ class TextFilesApiTests(TestCase):
 
     call = ItemsApiTests.call
 
+    def test_a_text_file_saved_over_a_newer_change_is_a_conflict_unless_forced(self):
+        _, made = self.call("post", f"/volumes/{self.volume.pk}/text-files", {"parent": self.etc.pk, "name": "race.txt", "content": "one"})
+        base = f"/volumes/{self.volume.pk}/text-files/{made['id']}"
+        mine = self.call("get", base)[1]
+        self.assertTrue(mine["version"])
+        self.assertEqual(self.call("put", base, {"content": "theirs", "version": mine["version"]})[0], 200)       # первый сохранил
+        status, answer = self.call("put", base, {"content": "mine", "version": mine["version"]})
+        self.assertEqual(status, 409)                                                                           # второй со старым отпечатком
+        self.assertIn("изменили", answer["detail"])
+        self.assertEqual(self.call("get", base)[1]["content"], "theirs")
+        status, saved = self.call("put", base, {"content": "mine", "version": mine["version"], "force": True})
+        self.assertEqual((status, saved["content"]), (200, "mine"))
+        self.assertNotEqual(saved["version"], mine["version"])
+        self.assertEqual(self.call("put", base, {"content": "no check"})[0], 200)                                # без отпечатка проверки нет
+
     def test_a_text_file_is_made_edited_and_previewed_without_an_object(self):
         status, made = self.call("post", f"/volumes/{self.volume.pk}/text-files", {"parent": self.etc.pk, "name": "motd.txt", "content": "Welcome"})
         self.assertEqual((status, made["path"], made["format"]), (200, "etc/motd.txt", "txt"))

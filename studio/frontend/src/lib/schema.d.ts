@@ -3013,6 +3013,8 @@ export interface components {
             access: string;
             /** State */
             state: string;
+            /** Version */
+            version: string;
         };
         /** NewText */
         NewText: {
@@ -3025,6 +3027,13 @@ export interface components {
              * @default
              */
             content: string;
+        };
+        /** TextConflict */
+        TextConflict: {
+            /** Detail */
+            detail: string;
+            /** Version */
+            version: string;
         };
         /** TextIn */
         TextIn: {
@@ -3043,6 +3052,16 @@ export interface components {
              * @default
              */
             state: string;
+            /**
+             * Version
+             * @default
+             */
+            version: string;
+            /**
+             * Force
+             * @default false
+             */
+            force: boolean;
         };
         /** Dump */
         Dump: {
@@ -6653,6 +6672,15 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["TextFile"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TextConflict"];
                 };
             };
         };

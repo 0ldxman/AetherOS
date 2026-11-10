@@ -20,6 +20,7 @@
   let formats = $state<Schemas["Format"][]>([]);
   let errors = $state<Record<string, string[]>>({});
   let converting = $state(false);
+  let conflict = $state<Schemas["TextConflict"] | null>(null);
 
   const path = $derived({ volume_id: volume, placement_id: id });
   const dirty = $derived(JSON.stringify(form) !== saved);
@@ -69,22 +70,35 @@
 
   let timer: ReturnType<typeof setTimeout>;
   $effect(() => {
-    const body = { ...form };
+    const body = { ...form, version: "", force: false };
     clearTimeout(timer);
     timer = setTimeout(async () => {
       preview = (await api.POST("/studio/api/volumes/{volume_id}/text-files/{placement_id}/preview", { params: { path }, body })).data ?? null;
     }, 300);
   });
 
-  async function save() {
+  async function save(force = false) {
     errors = {};
-    const { data, error } = await api.PUT("/studio/api/volumes/{volume_id}/text-files/{placement_id}", { params: { path }, body: form });
+    const { data, error, response } = await api.PUT("/studio/api/volumes/{volume_id}/text-files/{placement_id}", {
+      params: { path }, body: { ...form, version: file?.version ?? "", force },
+    });
+    if (response.status === 409) {
+      conflict = error as unknown as Schemas["TextConflict"];
+      return;
+    }
     if (error || !data) {
       errors = (error as { fields?: Record<string, string[]> } | undefined)?.fields ?? {};
       return toast(problem(error, "Не сохранилось."), "error");
     }
+    conflict = null;
     fill(data);
     toast("Сохранено.");
+  }
+
+  async function reload() {
+    conflict = null;
+    const { data } = await api.GET("/studio/api/volumes/{volume_id}/text-files/{placement_id}", { params: { path } });
+    if (data) fill(data);
   }
 
   async function toItem() {
@@ -112,13 +126,21 @@
       <span class="spacer"></span>
       <span class="muted small">{dirty ? "Не сохранено" : "Сохранено"}</span>
       <button class="btn ghost" onclick={() => (converting = true)}>Сделать объектом</button>
-      <button class="btn primary" disabled={!dirty} onclick={save}>Сохранить</button>
+      <button class="btn primary" disabled={!dirty} onclick={() => save()}>Сохранить</button>
     </header>
+
+    {#if conflict}
+      <div class="banner" role="alert">
+        <span>{conflict.detail}</span>
+        <button class="btn" onclick={reload}>Открыть их версию</button>
+        <button class="btn danger" onclick={() => save(true)}>Сохранить моё поверх</button>
+      </div>
+    {/if}
 
     <div class="cols">
       <section class="pane">
         <h2>Текст</h2>
-        <div class="editor"><CodeEditor bind:value={form.content} {markup} onsave={save} /></div>
+        <div class="editor"><CodeEditor bind:value={form.content} {markup} onsave={() => save()} /></div>
       </section>
 
       <div class="side">
@@ -146,7 +168,7 @@
           {#if preview?.access_error}<p class="err">{preview.access_error}</p>{/if}
           {#if preview?.unknown_keys.length}<p class="err">Нет в реестре: {preview.unknown_keys.join(", ")}</p>{/if}
           <span class="label">Слои защиты</span>
-          <LayerBuilder bind:value={form.state} onsave={save} />
+          <LayerBuilder bind:value={form.state} onsave={() => save()} />
           {#if preview?.problems.length}
             <ul class="problems">{#each preview.problems as bad}<li><span class="mono">стр. {bad.line}</span> {bad.message}</li>{/each}</ul>
           {/if}
@@ -182,6 +204,8 @@
 <style>
   .page { display: flex; flex-direction: column; height: 100%; }
   .pad { padding: 24px; }
+  .banner { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin: 12px 16px 0; padding: 10px 14px; border: 1px solid rgba(255, 122, 122, 0.3); border-radius: var(--radius); background: var(--danger-soft); }
+  .banner span { flex: 1; }
   .head { display: flex; align-items: center; gap: 10px; padding: 12px 16px; border-bottom: 1px solid var(--line-soft); }
   h1 { margin: 0; font-size: 17px; }
   .back { text-decoration: none; color: var(--text); }

@@ -269,12 +269,20 @@ class TextFile(Schema):
     content: str
     access: str
     state: str
+    version: str                 # отпечаток текста, условия и слоёв: по нему видно, что файл успели изменить
 
 
 class TextIn(Schema):
     content: str = ""
     access: str = ""
     state: str = ""
+    version: str = ""            # отпечаток, который был у автора при открытии; пусто: не проверять
+    force: bool = False          # сохранить поверх чужой правки
+
+
+class TextConflict(Schema):
+    detail: str
+    version: str                 # отпечаток того, что лежит сейчас
 
 
 class TextPreview(Schema):
@@ -303,8 +311,16 @@ def _text_out(placement):
     return TextFile(
         id=placement.pk, volume=placement.volume_id, volume_name=placement.volume.name or placement.volume.slug, parent=placement.parent_id,
         name=placement.name, path=placement.path(), format=Entry(path=f"/{placement.name}", kind=FILE).format, content=placement.content,
-        access=format_condition(placement.access) if placement.access else "", state=placement.state,
+        access=format_condition(placement.access) if placement.access else "", state=placement.state, version=_text_version(placement),
     )
+
+
+def _text_version(placement):
+    import hashlib
+    import json
+
+    raw = json.dumps([placement.content, placement.access, placement.state], sort_keys=True, ensure_ascii=False)
+    return hashlib.sha1(raw.encode()).hexdigest()[:16]
 
 
 @router.post("/{int:volume_id}/text-files", response=TextFile)
@@ -318,7 +334,7 @@ def read_text(request, volume_id: int, placement_id: int):
     return _text_out(_text_file(volume_id, placement_id))
 
 
-@router.put("/{int:volume_id}/text-files/{int:placement_id}", response=TextFile)
+@router.put("/{int:volume_id}/text-files/{int:placement_id}", response={200: TextFile, 409: TextConflict})
 def save_text(request, volume_id: int, placement_id: int, body: TextIn):
     """Текст, условие и слои файла: защита у такого файла своя (у места), объекта над ним нет."""
     from django.core.exceptions import ValidationError
@@ -326,6 +342,8 @@ def save_text(request, volume_id: int, placement_id: int, body: TextIn):
     from documents.markup.expr import SpoilerSyntaxError, parse_expr
 
     placement = _text_file(volume_id, placement_id)
+    if body.version and not body.force and body.version != _text_version(placement):
+        return 409, TextConflict(detail="Пока вы правили, этот файл уже изменили.", version=_text_version(placement))
     errors = {}
     placement.content = body.content
     try:

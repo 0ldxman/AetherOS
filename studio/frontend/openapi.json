@@ -1199,6 +1199,16 @@
         }
        }
       }
+     },
+     "409": {
+      "description": "Conflict",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/TextConflict"
+        }
+       }
+      }
      }
     },
     "description": "Текст, условие и слои файла: защита у такого файла своя (у места), объекта над ним нет.",
@@ -9094,6 +9104,10 @@
      "state": {
       "title": "State",
       "type": "string"
+     },
+     "version": {
+      "title": "Version",
+      "type": "string"
      }
     },
     "required": [
@@ -9106,7 +9120,8 @@
      "format",
      "content",
      "access",
-     "state"
+     "state",
+     "version"
     ],
     "title": "TextFile",
     "type": "object"
@@ -9140,6 +9155,24 @@
     "title": "NewText",
     "type": "object"
    },
+   "TextConflict": {
+    "properties": {
+     "detail": {
+      "title": "Detail",
+      "type": "string"
+     },
+     "version": {
+      "title": "Version",
+      "type": "string"
+     }
+    },
+    "required": [
+     "detail",
+     "version"
+    ],
+    "title": "TextConflict",
+    "type": "object"
+   },
    "TextIn": {
     "properties": {
      "content": {
@@ -9156,6 +9189,16 @@
       "default": "",
       "title": "State",
       "type": "string"
+     },
+     "version": {
+      "default": "",
+      "title": "Version",
+      "type": "string"
+     },
+     "force": {
+      "default": false,
+      "title": "Force",
+      "type": "boolean"
      }
     },
     "title": "TextIn",
