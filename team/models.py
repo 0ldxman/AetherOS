@@ -82,3 +82,22 @@ class Comment(models.Model):
 
     def __str__(self):
         return f"{self.username}: {self.text[:40]}"
+
+
+class Draft(models.Model):
+    """Общий черновик сущности при совместной правке (team.collab): состояние документа Yjs комнаты.
+
+    Мир меняет только «Сохранить» в редакторе; черновик держит несохранённое, пока его не сохранят или не отменят."""
+
+    room = models.CharField("Комната", max_length=512, unique=True)               # путь API сущности: machines/3
+    state = models.BinaryField("Состояние Yjs")
+    dirty = models.BooleanField("Есть несохранённое", default=False, db_index=True)
+    editors = models.JSONField("Кто правил", default=list, blank=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "Черновик"
+        verbose_name_plural = "Черновики"
+
+    def __str__(self):
+        return self.room

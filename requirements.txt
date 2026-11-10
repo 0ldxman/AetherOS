@@ -1,12 +1,14 @@
 annotated-types==0.8.0
 asgiref==3.12.1
 certifi==2026.7.22
+channels==4.3.2
 charset-normalizer==3.5.2
 Django==6.1.1
 django-allauth==65.19.6
 django-environ==0.14.0
 django-htmx==1.29.0
 django-ninja==1.7.2
+daphne==4.2.3
 esprima==4.0.1
 gunicorn==26.2.0
 idna==3.20
@@ -14,6 +16,7 @@ Markdown==3.11
 markdown-it-py==4.2.0
 mdurl==0.1.2
 nh3==0.3.7
+pycrdt==0.14.13
 psycopg==3.3.6
 psycopg-binary==3.3.6
 pydantic==2.14.1

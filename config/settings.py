@@ -96,6 +96,9 @@ MIDDLEWARE = [
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
 
+# ASGI: обычные запросы и WebSocket совместной правки Студии (config/asgi.py, team.collab); runserver идёт через daphne
+ASGI_APPLICATION = "config.asgi.application"
+
 MACHINE_APP_NAMESPACES = ["terminal", "map", "wiki", "mail"]
 
 MIDDLEWARE += ["allauth.account.middleware.AccountMiddleware"]

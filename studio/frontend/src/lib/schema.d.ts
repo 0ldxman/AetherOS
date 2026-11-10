@@ -2585,6 +2585,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/studio/api/team/live": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Live
+         * @description Сущности в работе: на странице кто-то есть или в черновике осталось несохранённое.
+         */
+        get: operations["studio_api_team_live"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/studio/api/dashboard": {
         parameters: {
             query?: never;
@@ -6457,6 +6477,25 @@ export interface components {
             link: string;
             /** Restorable */
             restorable: boolean;
+        };
+        /** TeamLive */
+        TeamLive: {
+            /** Room */
+            room: string;
+            /** Kind */
+            kind: string;
+            /** Label */
+            label: string;
+            /** Link */
+            link: string;
+            /** People */
+            people: string[];
+            /** Dirty */
+            dirty: boolean;
+            /** Editors */
+            editors: string[];
+            /** Updated At */
+            updated_at: string | null;
         };
         /** DashOut */
         DashOut: {
@@ -11245,6 +11284,26 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["TeamChange"][];
+                };
+            };
+        };
+    };
+    studio_api_team_live: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TeamLive"][];
                 };
             };
         };

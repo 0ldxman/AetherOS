@@ -23,6 +23,7 @@
   import { level, loadMe, me } from "./lib/me.svelte";
   import Discussion from "./lib/Discussion.svelte";
   import { discussion, targetOf } from "./lib/discussion.svelte";
+  import { enter, presence } from "./lib/collab.svelte";
 
   const user = $derived(me.data?.username ?? "");
 
@@ -102,6 +103,8 @@
   // обсуждение сущности, на которой автор сейчас: число открытых веток на кнопке
   const target = $derived(targetOf(route.path));
   let talks = $state(0);
+  // комната совместной правки той же сущности: кто ещё здесь
+  $effect(() => { enter(target, me.data?.username ?? ""); });
   $effect(() => {
     const now = target;
     talks = 0;
@@ -136,6 +139,14 @@
       <span class="nav soon">Почта</span>
       <a class="nav team" class:on={page.name === "team"} href="#/team">Команда</a>
     </nav>
+    {#if target && presence.peers.length}
+      <div class="here" aria-label="Кто ещё на этой странице">
+        <span class="muted">Здесь ещё:</span>
+        {#each presence.peers as peer (peer.id)}
+          <span class="peer" style="--peer: {peer.color}" title={peer.field ? `${peer.name}: правит «${peer.field}»` : peer.name}>{peer.name}</span>
+        {/each}
+      </div>
+    {/if}
     {#if target}
       <button class="talk" class:on={discussion.open} aria-pressed={discussion.open} onclick={() => (discussion.open = !discussion.open)}>
         Обсуждение{#if talks}<span class="count">{talks}</span>{/if}
@@ -235,6 +246,10 @@
   .talk:hover, .talk.on { background: var(--accent-soft); }
   .count { min-width: 18px; padding: 0 6px; border-radius: 999px; background: var(--accent); color: var(--bg, #111); font-size: 11.5px; font-weight: 700; text-align: center; }
   .talk + .foot { margin-top: 0; }
+  .here { margin-top: auto; display: flex; flex-wrap: wrap; align-items: center; gap: 4px 6px; padding: 0 4px; font-size: 12px; }
+  .here + .talk { margin-top: 0; }
+  .peer { display: inline-flex; align-items: center; gap: 5px; padding: 1px 8px 1px 6px; border-radius: 999px; border: 1px solid var(--peer); }
+  .peer::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: var(--peer); }
   .foot { margin-top: auto; display: flex; flex-direction: column; gap: 4px; padding: 0 10px; font-size: 12.5px; }
   .main { min-width: 0; overflow: auto; }
   .toasts { position: fixed; inset: auto 16px 16px auto; margin: 0; padding: 0; border: 0; background: none; overflow: visible; width: max-content; display: flex; flex-direction: column; gap: 8px; z-index: 50; }

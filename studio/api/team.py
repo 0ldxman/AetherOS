@@ -164,3 +164,32 @@ def change_feed(request, author: int | None = None, section: str = "", before: i
         )
         for c in changes.feed(author=author, section=section, before=before, limit=min(limit, 200))
     ]
+
+
+class TeamLive(Schema):
+    room: str
+    kind: str
+    label: str
+    link: str
+    people: list[str]            # кто сейчас на странице сущности
+    dirty: bool                  # в черновике есть несохранённое
+    editors: list[str]           # кто правил черновик
+    updated_at: dt.datetime | None
+
+
+@router.get("/live", response=list[TeamLive])
+def live(request):
+    """Сущности в работе: на странице кто-то есть или в черновике осталось несохранённое."""
+    from team import changes, collab
+    from team.models import Draft
+
+    present = collab.live()
+    drafts = {d.room: d for d in Draft.objects.filter(dirty=True)}
+    rows = []
+    for room in sorted(set(present) | set(drafts)):
+        kind, label, link, _, _ = changes.describe(room)
+        draft = drafts.get(room)
+        rows.append(TeamLive(room=room, kind=kind, label=label, link=link, people=present.get(room, []),
+                             dirty=draft is not None, editors=draft.editors if draft else [], updated_at=draft.updated_at if draft else None))
+    rows.sort(key=lambda r: (not r.people, not r.dirty, r.label))
+    return rows

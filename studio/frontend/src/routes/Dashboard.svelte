@@ -17,6 +17,7 @@
   let loading = $state(false);
   let sections = $state<Schemas["TeamSection"][]>([]);
   let inbox = $state<Schemas["CmInbox"] | null>(null);
+  let live = $state<Schemas["TeamLive"][] | null>(null);
 
   async function loadFeed(append = false) {
     loading = true;
@@ -30,7 +31,8 @@
   }
 
   onMount(async () => {
-    const [d, t, c] = await Promise.all([api.GET("/studio/api/dashboard"), api.GET("/studio/api/team"), api.GET("/studio/api/comments/inbox")]);
+    const [d, t, c, l] = await Promise.all([api.GET("/studio/api/dashboard"), api.GET("/studio/api/team"), api.GET("/studio/api/comments/inbox"), api.GET("/studio/api/team/live")]);
+    live = l.data ?? [];
     dash = d.data ?? null;
     inbox = c.data ?? null;
     sections = t.data?.sections ?? [];
@@ -124,6 +126,29 @@
   </section>
 
   <div class="side">
+    <section class="panel">
+      <header class="panel-head"><h2>В работе</h2></header>
+      {#if !live}
+        <p class="muted empty">Загрузка…</p>
+      {:else if !live.length}
+        <p class="muted empty">Сейчас никто ничего не правит, несохранённых черновиков нет.</p>
+      {:else}
+        <ul class="rows">
+          {#each live as r (r.room)}
+            <li class="problem">
+              <span class="talk-head">
+                {#if r.link}<a href={r.link}>{r.kind} {r.label}</a>{:else}<span>{r.kind} {r.label}</span>{/if}
+                {#if r.dirty}<span class="badge new">не сохранено</span>{/if}
+              </span>
+              <span class="muted">
+                {#if r.people.length}сейчас: {r.people.join(", ")}{/if}{#if r.people.length && r.dirty} · {/if}{#if r.dirty}правили: {r.editors.join(", ") || "—"}{/if}
+              </span>
+            </li>
+          {/each}
+        </ul>
+      {/if}
+    </section>
+
     <section class="panel">
       <header class="panel-head"><h2>Обсуждения</h2><span class="spacer"></span>{#if inbox}<span class="muted small-note">открыто всего: {inbox.open_total}</span>{/if}</header>
       {#if !inbox}

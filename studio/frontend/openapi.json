@@ -8111,6 +8111,38 @@
     ]
    }
   },
+  "/studio/api/team/live": {
+   "get": {
+    "operationId": "studio_api_team_live",
+    "summary": "Live",
+    "parameters": [],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "items": {
+          "$ref": "#/components/schemas/TeamLive"
+         },
+         "title": "Response",
+         "type": "array"
+        }
+       }
+      }
+     }
+    },
+    "description": "Сущности в работе: на странице кто-то есть или в черновике осталось несохранённое.",
+    "tags": [
+     "team"
+    ],
+    "security": [
+     {
+      "StudioAuth": []
+     }
+    ]
+   }
+  },
   "/studio/api/dashboard": {
    "get": {
     "operationId": "studio_api_dashboard_dashboard",
@@ -17910,6 +17942,68 @@
      "restorable"
     ],
     "title": "TeamChange",
+    "type": "object"
+   },
+   "TeamLive": {
+    "properties": {
+     "room": {
+      "title": "Room",
+      "type": "string"
+     },
+     "kind": {
+      "title": "Kind",
+      "type": "string"
+     },
+     "label": {
+      "title": "Label",
+      "type": "string"
+     },
+     "link": {
+      "title": "Link",
+      "type": "string"
+     },
+     "people": {
+      "items": {
+       "type": "string"
+      },
+      "title": "People",
+      "type": "array"
+     },
+     "dirty": {
+      "title": "Dirty",
+      "type": "boolean"
+     },
+     "editors": {
+      "items": {
+       "type": "string"
+      },
+      "title": "Editors",
+      "type": "array"
+     },
+     "updated_at": {
+      "anyOf": [
+       {
+        "format": "date-time",
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Updated At"
+     }
+    },
+    "required": [
+     "room",
+     "kind",
+     "label",
+     "link",
+     "people",
+     "dirty",
+     "editors",
+     "updated_at"
+    ],
+    "title": "TeamLive",
     "type": "object"
    },
    "DashOut": {

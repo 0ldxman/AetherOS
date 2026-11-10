@@ -10,7 +10,7 @@ import subprocess
 import threading
 from pathlib import Path
 
-from django.contrib.staticfiles.management.commands.runserver import Command as RunserverCommand
+from daphne.management.commands.runserver import Command as RunserverCommand     # ASGI: WebSocket совместной правки
 
 FRONTEND = Path(__file__).resolve().parents[2] / "frontend"
 LOCAL_NODE = Path.home() / ".local" / "node" / "bin"
