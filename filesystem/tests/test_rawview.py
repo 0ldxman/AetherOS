@@ -4,7 +4,6 @@ from django.contrib.auth import get_user_model
 from django.test import TestCase, override_settings
 from django.urls import get_script_prefix, set_script_prefix
 
-from assets.models import Asset
 from dataclasses import replace
 from types import SimpleNamespace
 
@@ -28,7 +27,7 @@ class RawViewTests(TestCase):
         cls.web_doc = make_page("Harbor/Site", "web", BODY)
         cls.word_doc = make_page("Harbor/Letter", "doc", BODY)
         cls.closed = make_page("Harbor/Closed", "rec", BODY, access={"all": ["k1"]})
-        cls.asset = Asset.objects.create(name="pic", file_id="1", size=11)
+        cls.asset = Item.objects.create(slug="pic-src", name="pic-src", file_id="1", file_size=11)
 
     def setUp(self):
         from filesystem.content.rawview.registry import invalidate
@@ -158,7 +157,7 @@ class RawViewTests(TestCase):
 
     def test_the_size_of_an_asset_without_layers_needs_no_download(self):
         file = self.make("/a", f"view/{self.asset.public_id}/")
-        self.assertEqual(file_size(self.entry(file)), 11)                                     # Asset.size, без чтения из Nextcloud
+        self.assertEqual(file_size(self.entry(file)), 11)                                     # file_size, без чтения из Nextcloud
 
     def test_broken_layer_text_does_not_break_the_view(self):
         file = self.make("/a", "", "> binary")                                    # у слоя нет обязательной кодировки

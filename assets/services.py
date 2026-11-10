@@ -1,131 +1,99 @@
-"""Общая логика ассетов: определение типа и поиск по ссылке.
+"""Файлы в хранилище (Nextcloud) как содержимое объектов: определение вида и поиск по ссылке.
 
-Используется и вьюхами (assets/views.py), и виджетами документов (documents/widgets),
-поэтому тип файла определяется в одном месте.
+Используется и вьюхами (assets/views.py), и виджетами документов (documents/widgets), поэтому вид файла определяется в одном месте.
+Файл это содержимое объекта (Item.file_id): отдельной таблицы ассетов нет.
 """
 
 from __future__ import annotations
 
 import re
 import uuid
+from dataclasses import dataclass
 from mimetypes import guess_type
 from pathlib import PurePosixPath
 
-from assets.models import Asset
+TEXT_EXTENSIONS = frozenset({".txt", ".log", ".md", ".csv", ".json", ".xml", ".yaml", ".yml", ".ini", ".cfg", ".conf", ".sh", ".py", ".sql"})
+TEXT_CONTENT_TYPES = frozenset({"application/json", "application/xml"})
 
-TEXT_EXTENSIONS = frozenset(
-    {
-        ".txt", ".log", ".md", ".csv", ".json", ".xml",
-        ".yaml", ".yml", ".ini", ".cfg", ".conf",
-        ".sh", ".py", ".sql",
-    }
-)
+AUDIO, VIDEO, IMAGE, PDF, TEXT, RAW = "AUDIO", "VIDEO", "IMAGE", "PDF", "TEXT", "RAW"
 
-TEXT_CONTENT_TYPES = frozenset(
-    {"application/json", "application/xml"}
-)
-
-# Виды, для которых в вики есть собственный виджет.
-# Всё остальное рисуется как «скачать файл».
-WIDGET_KIND_BY_VIEWER = {
-    Asset.ViewerType.AUDIO: "audio",
-    Asset.ViewerType.VIDEO: "video",
-    Asset.ViewerType.IMAGE: "image",
-}
+# Виды, для которых в вики есть собственный виджет. Всё остальное рисуется как «скачать файл».
+WIDGET_KIND_BY_VIEWER = {AUDIO: "audio", VIDEO: "video", IMAGE: "image"}
 FILE_KIND = "file"
 
-# asset:<slug или UUID>. Группы через ":" пока не поддерживаются.
+# asset:<слаг или UUID> (слаг объекта). Группы через ":" пока не поддерживаются.
 _REF = re.compile(r"(?:asset:)?([a-z0-9][a-z0-9_-]{0,63})")
+
+
+@dataclass
+class AssetRef:
+    """Файл объекта так, как его видят виджеты вики: имя, слаг, публичный адрес, имя файла, тип и размер."""
+
+    item: object
+    name: str
+    slug: str
+    public_id: uuid.UUID
+    filename: str
+    content_type: str
+    size: int | None
+
+
+def asset_ref(item) -> AssetRef:
+    return AssetRef(item=item, name=item.name, slug=item.slug, public_id=item.public_id, filename=item.file_name, content_type=item.file_type, size=item.file_size)
 
 
 def guess_content_type(filename: str) -> str:
     return guess_type(filename)[0] or "application/octet-stream"
 
 
-def resolve_viewer_type(
-    asset: Asset,
-    filename: str,
-    content_type: str,
-) -> str:
-    """AUTO -> подходящий viewer по типу файла.
-
-    Явно заданный у ассета viewer_type имеет приоритет.
-    """
-    if asset.viewer_type != Asset.ViewerType.AUTO:
-        return asset.viewer_type
-
+def resolve_viewer_type(filename: str, content_type: str) -> str:
+    """Вид просмотра по типу и имени файла."""
     extension = PurePosixPath(filename).suffix.lower()
-
     if content_type.startswith("audio/"):
-        return Asset.ViewerType.AUDIO
-
+        return AUDIO
     if content_type.startswith("video/"):
-        return Asset.ViewerType.VIDEO
-
+        return VIDEO
     if content_type.startswith("image/"):
-        return Asset.ViewerType.IMAGE
-
+        return IMAGE
     if content_type == "application/pdf" or extension == ".pdf":
-        return Asset.ViewerType.PDF
-
-    if (
-        content_type.startswith("text/")
-        or extension in TEXT_EXTENSIONS
-        or content_type in TEXT_CONTENT_TYPES
-    ):
-        return Asset.ViewerType.TEXT
-
-    return Asset.ViewerType.RAW
+        return PDF
+    if content_type.startswith("text/") or extension in TEXT_EXTENSIONS or content_type in TEXT_CONTENT_TYPES:
+        return TEXT
+    return RAW
 
 
-def asset_viewer_type(asset: Asset) -> str:
-    """Тип ассета по закэшированным метаданным, без похода в Nextcloud.
-
-    Если метаданные ещё не заполнены (filename пуст), AUTO даёт RAW,
-    то есть «скачать». Явный viewer_type работает и без метаданных.
-    """
-    return resolve_viewer_type(
-        asset,
-        asset.filename,
-        asset.content_type,
-    )
+def asset_viewer_type(asset) -> str:
+    """Вид по закэшированным сведениям о файле, без похода в Nextcloud. Пока сведений нет, это RAW («скачать»)."""
+    if hasattr(asset, "file_name"):
+        return resolve_viewer_type(asset.file_name, asset.file_type)
+    return resolve_viewer_type(asset.filename, asset.content_type)
 
 
-def asset_widget_kind(asset: Asset) -> str:
+def asset_widget_kind(asset) -> str:
     """'audio' | 'video' | 'image' | 'file': какой виджет рисовать."""
-    return WIDGET_KIND_BY_VIEWER.get(
-        asset_viewer_type(asset),
-        FILE_KIND,
-    )
+    return WIDGET_KIND_BY_VIEWER.get(asset_viewer_type(asset), FILE_KIND)
 
 
-def find_asset(ref: str) -> Asset | None:
-    """Ассет по ссылке из разметки: 'asset:theme-01', 'theme-01' или UUID.
+def find_asset(ref: str) -> AssetRef | None:
+    """Объект с файлом по ссылке из разметки: 'asset:theme-01', 'theme-01' (слаг объекта) или UUID. Один-два запроса в БД."""
+    from filesystem.models import Item
 
-    Один запрос в БД. Мусор и несуществующие ссылки дают None.
-    """
     match = _REF.fullmatch((ref or "").strip().lower())
     if not match:
         return None
-
     key = match.group(1)
-
-    # Сначала slug (он не может быть валидным UUID с дефисами в 8-4-4-4-12,
-    # но на всякий случай slug проверяем первым).
-    asset = Asset.objects.filter(slug=key).first()
-    if asset is not None:
-        return asset
-
-    try:
-        public_id = uuid.UUID(key)
-    except ValueError:
-        return None
-
-    return Asset.objects.filter(public_id=public_id).first()
+    found = Item.objects.exclude(file_id="").filter(slug=key).first()
+    if found is None:
+        try:
+            public_id = uuid.UUID(key)
+        except ValueError:
+            return None
+        found = Item.objects.exclude(file_id="").filter(public_id=public_id).first()
+    return asset_ref(found) if found is not None else None
 
 
 def read_asset_bytes(asset, limit):
-    """Байты ассета из Nextcloud (не больше limit; больше нельзя: вернётся None). Нужны для сырого вида файла."""
+    """Байты файла из Nextcloud (не больше limit; больше нельзя: вернётся None). Нужны для сырого вида файла."""
     from assets.nextcloud import NextcloudClient
 
     client = NextcloudClient.from_settings()
@@ -142,3 +110,30 @@ def read_asset_bytes(asset, limit):
         response.close()
     return data if len(data) <= limit else None
 
+
+ROOT_FOLDER = "AETHER"
+
+
+def list_folder(path=ROOT_FOLDER):
+    """Содержимое папки Nextcloud внутри AETHER для выбора файла: {"path": "/AETHER/...", "items": [...]}.
+    ValueError: путь вне AETHER. RuntimeError: Nextcloud не ответил."""
+    import logging
+
+    from assets.nextcloud import NextcloudClient
+
+    path = (path or ROOT_FOLDER).strip("/")
+    if not path or (path != ROOT_FOLDER and not path.startswith(ROOT_FOLDER + "/")):
+        raise ValueError("Invalid path.")
+    try:
+        found = NextcloudClient.from_settings().list(path)
+    except Exception as exc:
+        logging.getLogger(__name__).exception("Nextcloud browse failed: %s", path)
+        raise RuntimeError("Nextcloud request failed.") from exc
+
+    result = []
+    if path != ROOT_FOLDER:
+        result.append({"file_id": None, "name": "..", "path": "/" + path.rsplit("/", 1)[0], "is_directory": True, "is_parent": True})
+    for entry in found:
+        result.append({"file_id": entry.file_id, "name": entry.filename, "path": entry.path, "is_directory": entry.is_directory, "is_parent": False})
+    result.sort(key=lambda row: (not row["is_directory"], not row["is_parent"], row["name"].lower()))
+    return {"path": "/" + path, "items": result}

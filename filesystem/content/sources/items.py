@@ -72,17 +72,17 @@ class AssetSource(Source):
     name = "asset"
 
     def accepts(self, entry):
-        return entry.item is not None and entry.item.asset_id is not None
+        return entry.item is not None and bool(entry.item.file_id)
 
     def payload(self, entry, view, keys, reader, viewer):
-        asset = entry.item.asset
-        return Payload(kind="asset", layout="asset", real=True, size=asset.size, stamp=f"asset:{asset.pk}:{asset.updated_at.isoformat()}",
+        asset = entry.item
+        return Payload(kind="asset", layout="asset", real=True, size=asset.file_size, stamp=f"asset:{asset.pk}:{asset.file_id}:{asset.file_size}:{asset.file_name}",
                        meta={"asset": asset, "reader": reader})
 
     def window(self, entry, address):
         from django.urls import reverse
 
-        return Content(url=reverse("asset_viewer:viewer", kwargs={"public_id": entry.item.asset.public_id}))
+        return Content(url=reverse("asset_viewer:viewer", kwargs={"public_id": entry.item.public_id}))
 
 
 class LinkSource(Source):

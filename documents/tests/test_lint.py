@@ -5,7 +5,7 @@
 
 from django.test import TestCase
 
-from assets.models import Asset
+from filesystem.models import Item
 from filesystem.testing import key_item
 from documents.markup import lint
 from wiki.testing import make_document, make_namespace
@@ -66,9 +66,7 @@ class KeyTests(TestCase):
 class AssetTests(TestCase):
     @classmethod
     def setUpTestData(cls):
-        Asset.objects.create(
-            name="Theme", slug="theme-01", file_id="f1", viewer_type=Asset.ViewerType.AUDIO,
-        )
+        Item.objects.create(name="Theme", slug="theme-01", file_id="f1", file_name="theme.mp3", file_type="audio/mpeg")
 
     def test_known_asset_passes(self):
         self.assertEqual(codes("::audio theme-01 title=\"Тема\"\n"), [])

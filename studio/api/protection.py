@@ -12,7 +12,6 @@ from django.db.models import Q
 from django.shortcuts import get_object_or_404
 from ninja import Router, Schema
 
-from assets.models import Asset
 from assets.services import asset_widget_kind
 from documents.markup.expr import SpoilerSyntaxError, parse_expr
 from filesystem.content.rawview import build_raw
@@ -121,9 +120,28 @@ class PickRef(Schema):
     kind: str = ""
 
 
+class FilePick(Schema):
+    file_id: str                # ID файла в Nextcloud
+    label: str                  # имя файла
+    kind: str = ""              # audio | video | image | file: каким виджетом покажет вики
+
+
+class NextcloudEntry(Schema):
+    file_id: str | None
+    name: str
+    path: str
+    is_directory: bool
+    is_parent: bool
+
+
+class NextcloudFolder(Schema):
+    path: str
+    items: list[NextcloudEntry]
+
+
 class ContentOut(Schema):
     kind: str                   # text | asset | link | scene | message
-    asset: PickRef | None
+    asset: FilePick | None
     scene: PickRef | None
     message: PickRef | None
     url: str
@@ -131,7 +149,7 @@ class ContentOut(Schema):
 
 class ContentIn(Schema):
     kind: str
-    asset: int | None = None
+    file_id: str = ""
     scene: int | None = None
     message: int | None = None
     url: str = ""
@@ -271,11 +289,10 @@ def save_keys(request, item_id: int, body: KeysIn):
 # ---- содержимое из других приложений ---------------------------------------------------------------------------------
 
 def _content(item):
-    kind = "asset" if item.asset_id else "scene" if item.scene_id else "message" if item.message_id else "link" if item.url else "text"
+    kind = "asset" if item.file_id else "scene" if item.scene_id else "message" if item.message_id else "link" if item.url else "text"
     return ContentOut(
         kind=kind,
-        asset=PickRef(id=item.asset_id, label=item.asset.name, sub=item.asset.filename or item.asset.slug or "", kind=asset_widget_kind(item.asset))
-        if item.asset_id else None,
+        asset=FilePick(file_id=item.file_id, label=item.file_name or item.file_id, kind=asset_widget_kind(item)) if item.file_id else None,
         scene=PickRef(id=item.scene_id, label=item.scene.title, sub=item.scene.slug) if item.scene_id else None,
         message=PickRef(id=item.message_id, label=item.message.subject or "(без темы)", sub=item.message.sender) if item.message_id else None,
         url=item.url,
@@ -284,19 +301,25 @@ def _content(item):
 
 @router.get("/{int:item_id}/content", response=ContentOut)
 def content(request, item_id: int):
-    return _content(Item.objects.select_related("asset", "scene", "message").get(pk=item_id))
+    return _content(Item.objects.select_related("scene", "message").get(pk=item_id))
 
 
 @router.put("/{int:item_id}/content", response=ContentOut)
 def set_content(request, item_id: int, body: ContentIn):
     """Откуда берётся содержимое: текст, ассет, ссылка, сцена карты или письмо. Остальные источники сбрасываются; текст при
     смене на другой источник не стирается молча: сначала автор очищает его сам."""
-    item = Item.objects.select_related("asset", "scene", "message").get(pk=item_id)
+    item = Item.objects.select_related("scene", "message").get(pk=item_id)
     if body.kind not in ("text", "asset", "link", "scene", "message"):
         raise ValidationError({"kind": ["Неизвестный источник."]})
     if body.kind != "text" and item.body.strip():
         raise ValidationError({"__all__": ["У объекта есть текст: очистите его на вкладке «Содержимое», потом выбирайте источник."]})
-    item.asset = get_object_or_404(Asset, pk=body.asset) if body.kind == "asset" and body.asset else None
+    item.file_id, item.file_name, item.file_type, item.file_size = "", "", "", None
+    if body.kind == "asset" and body.file_id.strip():
+        item.file_id = body.file_id.strip()
+        try:
+            item.refresh_file()
+        except Exception:
+            raise ValidationError({"__all__": ["Такого файла нет в Nextcloud или хранилище не отвечает."]})
     item.scene = get_object_or_404(MapScene, pk=body.scene) if body.kind == "scene" and body.scene else None
     item.message = get_object_or_404(Message, pk=body.message) if body.kind == "message" and body.message else None
     item.url = body.url.strip() if body.kind == "link" else ""
@@ -306,12 +329,17 @@ def set_content(request, item_id: int, body: ContentIn):
     return _content(item)
 
 
-@router.get("/pick/assets", response=list[PickRef])
-def pick_assets(request, q: str = ""):
-    found = Asset.objects.order_by("name")
-    if q.strip():
-        found = found.filter(Q(name__icontains=q.strip()) | Q(slug__icontains=q.strip()) | Q(filename__icontains=q.strip()))
-    return [PickRef(id=a.pk, label=a.name, sub=a.filename or a.slug or "", kind=asset_widget_kind(a)) for a in found[:30]]
+@router.get("/nextcloud", response=NextcloudFolder)
+def nextcloud(request, path: str = "AETHER"):
+    """Папка хранилища (Nextcloud) для выбора файла объекта: только внутри AETHER."""
+    from assets.services import list_folder
+
+    try:
+        return list_folder(path)
+    except ValueError:
+        raise ValidationError({"__all__": ["Папка вне хранилища AETHER."]})
+    except RuntimeError:
+        raise ValidationError({"__all__": ["Хранилище не отвечает."]})
 
 
 @router.get("/pick/scenes", response=list[PickRef])

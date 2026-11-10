@@ -2036,17 +2036,17 @@
     ]
    }
   },
-  "/studio/api/items/pick/assets": {
+  "/studio/api/items/nextcloud": {
    "get": {
-    "operationId": "studio_api_protection_pick_assets",
-    "summary": "Pick Assets",
+    "operationId": "studio_api_protection_nextcloud",
+    "summary": "Nextcloud",
     "parameters": [
      {
       "in": "query",
-      "name": "q",
+      "name": "path",
       "schema": {
-       "default": "",
-       "title": "Q",
+       "default": "AETHER",
+       "title": "Path",
        "type": "string"
       },
       "required": false
@@ -2058,16 +2058,13 @@
       "content": {
        "application/json": {
         "schema": {
-         "items": {
-          "$ref": "#/components/schemas/PickRef"
-         },
-         "title": "Response",
-         "type": "array"
+         "$ref": "#/components/schemas/NextcloudFolder"
         }
        }
       }
      }
     },
+    "description": "Папка хранилища (Nextcloud) для выбора файла объекта: только внутри AETHER.",
     "tags": [
      "protection"
     ],
@@ -9703,7 +9700,7 @@
      "asset": {
       "anyOf": [
        {
-        "$ref": "#/components/schemas/PickRef"
+        "$ref": "#/components/schemas/FilePick"
        },
        {
         "type": "null"
@@ -9745,6 +9742,29 @@
     "title": "ContentOut",
     "type": "object"
    },
+   "FilePick": {
+    "properties": {
+     "file_id": {
+      "title": "File Id",
+      "type": "string"
+     },
+     "label": {
+      "title": "Label",
+      "type": "string"
+     },
+     "kind": {
+      "default": "",
+      "title": "Kind",
+      "type": "string"
+     }
+    },
+    "required": [
+     "file_id",
+     "label"
+    ],
+    "title": "FilePick",
+    "type": "object"
+   },
    "PickRef": {
     "properties": {
      "id": {
@@ -9779,16 +9799,10 @@
       "title": "Kind",
       "type": "string"
      },
-     "asset": {
-      "anyOf": [
-       {
-        "type": "integer"
-       },
-       {
-        "type": "null"
-       }
-      ],
-      "title": "Asset"
+     "file_id": {
+      "default": "",
+      "title": "File Id",
+      "type": "string"
      },
      "scene": {
       "anyOf": [
@@ -9822,6 +9836,67 @@
      "kind"
     ],
     "title": "ContentIn",
+    "type": "object"
+   },
+   "NextcloudEntry": {
+    "properties": {
+     "file_id": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "File Id"
+     },
+     "name": {
+      "title": "Name",
+      "type": "string"
+     },
+     "path": {
+      "title": "Path",
+      "type": "string"
+     },
+     "is_directory": {
+      "title": "Is Directory",
+      "type": "boolean"
+     },
+     "is_parent": {
+      "title": "Is Parent",
+      "type": "boolean"
+     }
+    },
+    "required": [
+     "file_id",
+     "name",
+     "path",
+     "is_directory",
+     "is_parent"
+    ],
+    "title": "NextcloudEntry",
+    "type": "object"
+   },
+   "NextcloudFolder": {
+    "properties": {
+     "path": {
+      "title": "Path",
+      "type": "string"
+     },
+     "items": {
+      "items": {
+       "$ref": "#/components/schemas/NextcloudEntry"
+      },
+      "title": "Items",
+      "type": "array"
+     }
+    },
+    "required": [
+     "path",
+     "items"
+    ],
+    "title": "NextcloudFolder",
     "type": "object"
    },
    "StackKind": {

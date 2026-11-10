@@ -4,7 +4,6 @@ from django.core.exceptions import ValidationError
 from django.db import IntegrityError, transaction
 from django.test import TestCase
 
-from assets.models import Asset
 from filesystem.models import (
     MAX_DEPTH, FileFormat, Item, ItemKey, ItemSignature, PlayerFile, Placement, Volume, VolumeInstance,
 )
@@ -25,7 +24,6 @@ class ItemTests(TestCase):
         make_format("mp3", ".mp3", "asset")
         make_format("key", ".key", "text")
         make_format("blank", ".dat", "none")
-        cls.asset = Asset.objects.create(name="pic", file_id="1")
 
     def item(self, slug, **fields):
         fields.setdefault("name", slug)
@@ -42,14 +40,14 @@ class ItemTests(TestCase):
 
     def test_a_text_format_takes_a_body_or_an_asset_but_not_both(self):
         self.item("a", format="txt", body="hello").full_clean()
-        self.item("b", format="txt", asset=self.asset).full_clean()
+        self.item("b", format="txt", file_id="1").full_clean()
         self.item("c", format="txt").full_clean()                                      # пустой файл допустим
         with self.assertRaises(ValidationError):
-            self.item("d", format="txt", body="hello", asset=self.asset).full_clean()
+            self.item("d", format="txt", body="hello", file_id="1").full_clean()
 
     def test_an_image_takes_a_link_or_an_asset_and_needs_one(self):
         self.item("a", format="png", url="https://example.com/a.png").full_clean()
-        self.item("b", format="png", asset=self.asset).full_clean()
+        self.item("b", format="png", file_id="1").full_clean()
         with self.assertRaises(ValidationError):
             self.item("c", format="png").full_clean()
         with self.assertRaises(ValidationError):
@@ -62,11 +60,11 @@ class ItemTests(TestCase):
             self.item("b", format="png", url="file:///etc/passwd").full_clean()
 
     def test_an_asset_only_format_refuses_text_and_needs_the_asset(self):
-        self.item("a", format="mp3", asset=self.asset).full_clean()
+        self.item("a", format="mp3", file_id="1").full_clean()
         with self.assertRaises(ValidationError):
             self.item("b", format="mp3").full_clean()
         with self.assertRaises(ValidationError):
-            self.item("c", format="mp3", body="x", asset=self.asset).full_clean()
+            self.item("c", format="mp3", body="x", file_id="1").full_clean()
 
     def test_a_format_without_content_refuses_everything(self):
         self.item("a", format="blank", size=100).full_clean()

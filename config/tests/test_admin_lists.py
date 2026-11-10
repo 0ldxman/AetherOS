@@ -11,8 +11,7 @@ from django.test import TestCase, override_settings
 from django.test.utils import CaptureQueriesContext
 from django.urls import get_script_prefix, reverse, set_script_prefix
 
-from assets.models import Asset
-from filesystem.models import ItemKey
+from filesystem.models import Item, ItemKey
 from filesystem.testing import embed_key, make_file, make_app, remove_apps
 from machines.models import Machine, MachineProfile, Session
 from map.models import Country, CountryLabel, Ownership, Province
@@ -33,7 +32,7 @@ def build(i, user, key):
     province = Province.objects.create(code=f"P{i}", source_code=f"S{i}", name=f"Пров {i}")
     Ownership.objects.create(province=province, country=country, date_from=date(2000, 1, 1), de_jure=True)
     CountryLabel.objects.create(country=country, lng=1, lat=1)
-    Asset.objects.create(name=f"Ассет {i}", slug=f"asset-{i}", file_id=f"f{i}", viewer_type=Asset.ViewerType.AUDIO)
+    Item.objects.create(name=f"Ассет {i}", slug=f"asset-{i}", file_id=f"f{i}", file_name="a.mp3", file_type="audio/mpeg")
 
 
 class NamesTests(TestCase):
@@ -116,7 +115,3 @@ class ListsTests(TestCase):
         row = next(u for u in response.context["cl"].result_list if u.pk == self.user.pk)
         self.assertEqual(row._profiles, 1)
 
-    def test_asset_list_shows_snippet_and_size(self):
-        build(1, self.user, self.key)
-        response = self.client.get(reverse("admin:assets_asset_changelist"))
-        self.assertContains(response, "::audio asset-1")

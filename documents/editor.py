@@ -36,7 +36,7 @@ from django.template.loader import render_to_string
 from django.urls import path, reverse
 from django.utils.safestring import mark_safe
 
-from assets.models import Asset
+from filesystem.models import Item
 from assets.services import asset_widget_kind
 from secure.keys import key_rows
 
@@ -114,9 +114,9 @@ def render_preview(format_name, title, body, meta, keys, only=""):
 
 def _asset_item(asset):
     return {
-        "ref": asset.slug or str(asset.public_id),
+        "ref": asset.slug,
         "name": asset.name,
-        "filename": asset.filename,
+        "filename": asset.file_name,
         "kind": asset_widget_kind(asset),
     }
 
@@ -161,12 +161,12 @@ class DocumentPreviewMixin:
         if not (self.has_add_permission(request) or self.has_change_permission(request)):
             return _error("Нет прав на редактирование записей.", 403)
         query = request.GET.get("q", "").strip()[:100]
-        found = Asset.objects.order_by("name")
+        found = Item.objects.exclude(file_id="").order_by("name")
         if query:
             found = found.filter(
                 Q(name__icontains=query)
                 | Q(slug__icontains=query)
-                | Q(filename__icontains=query)
+                | Q(file_name__icontains=query)
             )
         items = [_asset_item(a) for a in found[:MAX_ASSET_RESULTS]]
         return JsonResponse({"ok": True, "items": items})

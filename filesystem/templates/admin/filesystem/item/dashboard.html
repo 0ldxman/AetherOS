@@ -68,7 +68,7 @@
       <table>
         {% for asset in data.unused_assets|slice:":50" %}
         <tr>
-          <td><a href="{% url 'admin:assets_asset_change' asset.pk %}">{{ asset.name }}</a></td>
+          <td><a href="{% url 'admin:filesystem_item_change' asset.pk %}">{{ asset.name }}</a></td>
           <td>{{ asset.slug|default:"—" }}</td>
         </tr>
         {% empty %}<tr><td>Таких нет.</td></tr>{% endfor %}

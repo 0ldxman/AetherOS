@@ -10,7 +10,7 @@ from dataclasses import dataclass, field
 
 from django.contrib.auth import get_user_model
 
-from assets.models import Asset
+from filesystem.models import Item
 from secure.access import condition_slugs
 from secure.keys import key_items
 from secure.usage import used_slugs
@@ -91,15 +91,15 @@ def build():
     result.orphans.sort(key=lambda row: row[1])
     result.broken = [(d, d.path(), count) for d, count in broken]
     result.unused_assets = [
-        a for a in Asset.objects.order_by("name")
-        if (a.slug or "") not in asset_refs and str(a.public_id) not in asset_refs
+        a for a in Item.objects.exclude(file_id="").order_by("name")
+        if a.slug not in asset_refs and str(a.public_id) not in asset_refs
     ]
     key_slugs |= used_slugs()  # условия машин и ключи файлов
     result.unused_keys = list(key_items().exclude(slug__in=key_slugs).order_by("slug"))
     result.totals = {
         "documents": len(documents),
         "namespaces": len(lib.nodes),
-        "assets": Asset.objects.count(),
+        "assets": Item.objects.exclude(file_id="").count(),
         "keys": key_items().count(),
         "authors": get_user_model().objects.filter(is_staff=True).count(),
     }

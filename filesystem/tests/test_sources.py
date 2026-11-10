@@ -3,7 +3,6 @@ from django.contrib.auth import get_user_model
 from django.test import TestCase, override_settings
 from django.urls import get_script_prefix, set_script_prefix
 
-from assets.models import Asset
 from filesystem.content.window import resolve_content
 from filesystem.machine_view import MachineView
 from filesystem.models import FileFormat, Item
@@ -19,7 +18,7 @@ class SourceKindTests(TestCase):
     def setUpTestData(cls):
         cls.machine = Machine.objects.create(name="Main", hostname="aether-main")
         cls.user = get_user_model().objects.create_user("marsh", password="x")
-        cls.asset = Asset.objects.create(name="pic", file_id="1", size=11)
+        cls.asset = Item.objects.create(slug="pic-src", name="pic-src", file_id="1", file_size=11)
         FileFormat.objects.update_or_create(name="rec", defaults={"extension": ".rec", "content": "text", "markup": True})
 
     def setUp(self):
@@ -120,7 +119,8 @@ class SourceKindTests(TestCase):
     # --- окно cnt ----------------------------------------------------------------------------------------------
 
     def test_the_window_of_each_kind(self):
-        self.assertEqual(self.window(self.entry("/asset", url=f"view/{self.asset.public_id}/")).url, f"/view/{self.asset.public_id}/")
+        entry = self.entry("/asset", url=f"view/{self.asset.public_id}/")
+        self.assertEqual(self.window(entry).url, f"/view/{entry.item.public_id}/")
         self.assertEqual(self.window(self.entry("/link", url="apps/x/")).url, "https://example.com/x")
         self.assertIn("/text/?path=%2Ftext", self.window(self.entry("/text", body="hello")).url)
         self.assertIn("/text/?path=%2Fkey", self.window(self.entry("/key", key="alpha")).url)

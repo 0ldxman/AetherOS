@@ -17,9 +17,8 @@ from django.utils.http import content_disposition_header
 
 from filesystem.content.rawview import viewer_formats
 
-from assets.models import Asset
 from assets.nextcloud import NextcloudClient
-from assets.services import guess_content_type, resolve_viewer_type
+from assets.services import asset_ref, guess_content_type, list_folder, resolve_viewer_type
 
 logger = logging.getLogger(__name__)
 
@@ -28,130 +27,64 @@ STREAM_CHUNK_SIZE = 64 * 1024
 
 @staff_member_required
 def browse_nextcloud(request):
-    path = request.GET.get(
-        "path",
-        "AETHER",
-    )
-
-    path = path.strip("/")
-
-    if not path or (
-        path != "AETHER"
-        and not path.startswith("AETHER/")
-    ):
-        return JsonResponse(
-            {"error": "Invalid path."},
-            status=400,
-        )
-
-    client = NextcloudClient.from_settings()
-
     try:
-        items = client.list(path)
-    except Exception:
-        logger.exception("Nextcloud browse failed: %s", path)
-        return JsonResponse(
-            {"error": "Nextcloud request failed."},
-            status=502,
-        )
+        return JsonResponse(list_folder(request.GET.get("path", "AETHER")))
+    except ValueError:
+        return JsonResponse({"error": "Invalid path."}, status=400)
+    except RuntimeError:
+        return JsonResponse({"error": "Nextcloud request failed."}, status=502)
 
-    result = []
 
-    if path != "AETHER":
-        parent = path.rsplit(
-            "/",
-            1,
-        )[0]
+def _asset_item(request, public_id):
+    """Объект с файлом по публичному адресу. Условие доступа объекта действует и на прямую ссылку: без нужных ключей 403."""
+    from django.core.exceptions import PermissionDenied
 
-        result.append(
-            {
-                "file_id": None,
-                "name": "..",
-                "path": "/" + parent,
-                "is_directory": True,
-                "is_parent": True,
-            }
-        )
+    from filesystem.models import Item
+    from secure.access import satisfied
+    from secure.requestkeys import request_keys
 
-    for item in items:
-        result.append(
-            {
-                "file_id": item.file_id,
-                "name": item.filename,
-                "path": item.path,
-                "is_directory": item.is_directory,
-                "is_parent": False,
-            }
-        )
-
-    result.sort(
-        key=lambda item: (
-            not item["is_directory"],
-            not item["is_parent"],
-            item["name"].lower(),
-        )
-    )
-
-    return JsonResponse(
-        {
-            "path": "/" + path,
-            "items": result,
-        }
-    )
+    item = get_object_or_404(Item.objects.exclude(file_id=""), public_id=public_id)
+    if item.access and not request.user.is_staff and not satisfied(item.access, request_keys(request)):
+        raise PermissionDenied
+    return item
 
 
 def asset_content(request, public_id):
-    """Serve asset contents using its public UUID."""
-    asset = get_object_or_404(Asset, public_id=public_id)
-    return _serve_asset_file(request, asset)
+    """Байты файла по публичному адресу объекта."""
+    return _serve_asset_file(request, _asset_item(request, public_id))
 
 
 def asset_viewer(request, public_id):
-    """Render the viewer page for an asset.
+    """Страница просмотра файла объекта.
 
-    Имя и тип файла берутся из закэшированных метаданных ассета:
-    Nextcloud опрашивается только если кэш ещё пуст.
+    Имя и тип файла берутся из кэша объекта: Nextcloud опрашивается только если кэш ещё пуст.
     """
-    asset = get_object_or_404(Asset, public_id=public_id)
+    item = _asset_item(request, public_id)
 
-    if not asset.filename:
+    if not item.file_name:
         try:
-            asset.refresh_metadata()
+            item.refresh_file()
         except Exception as exc:
             raise Http404("Unable to locate asset file.") from exc
-        asset.save(
-            update_fields=[
-                "filename",
-                "content_type",
-                "size",
-                "updated_at",
-            ]
-        )
+        item.save(update_fields=["file_name", "file_type", "file_size"])
 
-    viewer_type = resolve_viewer_type(
-        asset,
-        asset.filename,
-        asset.content_type,
-    )
+    viewer_type = resolve_viewer_type(item.file_name, item.file_type)
 
     return render(
         request,
         f"assets/viewers/{viewer_type.lower()}.html",
         {
-            "asset": asset,
-            "filename": asset.filename,
-            "content_type": asset.content_type,
+            "asset": asset_ref(item),
+            "filename": item.file_name,
+            "content_type": item.file_type,
             "viewer_type": viewer_type,
-            "content_url": reverse(
-                "asset_viewer:content",
-                kwargs={"public_id": asset.public_id},
-            ),
+            "content_url": reverse("asset_viewer:content", kwargs={"public_id": item.public_id}),
             "formats_json": viewer_formats(),
         },
     )
 
 
-def _find_file(client, asset: Asset):
+def _find_file(client, asset):
     """Файл ассета в Nextcloud или Http404."""
     try:
         file = client.get_file_by_id(asset.file_id)
@@ -178,7 +111,7 @@ def _apply_file_headers(response, file, content_type=None, as_attachment=False):
     return response
 
 
-def _serve_asset_file(request, asset: Asset):
+def _serve_asset_file(request, asset):
     """Stream an asset from Nextcloud to the client."""
     if request.method not in {"GET", "HEAD"}:
         return HttpResponse(
@@ -193,14 +126,7 @@ def _serve_asset_file(request, asset: Asset):
     # Файл уже получен из Nextcloud, поэтому заодно держим кэш метаданных
     # актуальным (переименование, подмена файла). Пишем только при изменении.
     if asset.apply_file(file):
-        asset.save(
-            update_fields=[
-                "filename",
-                "content_type",
-                "size",
-                "updated_at",
-            ]
-        )
+        asset.save(update_fields=["file_name", "file_type", "file_size"])
 
     if (
         file.etag

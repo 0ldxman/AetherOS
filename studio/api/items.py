@@ -208,7 +208,7 @@ def _holder(item, user):
 def _out(item, user):
     return ItemOut(
         id=item.pk, slug=item.slug, name=item.name, format=item.format, body=item.body, meta=item.meta, url=item.url,
-        asset=item.asset.name if item.asset_id else None,
+        asset=(item.file_name or item.file_id) if item.file_id else None,
         scene=item.scene.slug if item.scene_id else None,
         message=str(item.message) if item.message_id else None,
         world_created_at=item.world_created_at, world_updated_at=item.world_updated_at, world_creator=item.world_creator,
@@ -225,16 +225,16 @@ def _out(item, user):
 
 
 def _item(item_id):
-    return get_object_or_404(Item.objects.select_related("asset", "scene", "message", "updated_by"), pk=item_id)
+    return get_object_or_404(Item.objects.select_related("scene", "message", "updated_by"), pk=item_id)
 
 
 KINDS = {
-    "text": Q(asset__isnull=True, url="", scene__isnull=True, message__isnull=True) & ~Q(body=""),
-    "asset": Q(asset__isnull=False),
+    "text": Q(file_id="", url="", scene__isnull=True, message__isnull=True) & ~Q(body=""),
+    "asset": ~Q(file_id=""),
     "link": ~Q(url=""),
     "scene": Q(scene__isnull=False),
     "message": Q(message__isnull=False),
-    "empty": Q(asset__isnull=True, url="", scene__isnull=True, message__isnull=True, body=""),
+    "empty": Q(file_id="", url="", scene__isnull=True, message__isnull=True, body=""),
     "archive": Q(members__isnull=False),
 }
 
@@ -327,7 +327,7 @@ def _kind(item):
         return "archive"
     if item.format == KEY_FORMAT:
         return "key"
-    if item.asset_id:
+    if item.file_id:
         return "asset"
     if item.url:
         return "link"

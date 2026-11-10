@@ -1,38 +1,30 @@
 from django.core.management.base import BaseCommand
 
-from assets.models import Asset
 from assets.nextcloud import NextcloudClient
+from filesystem.models import Item
 
 
 class Command(BaseCommand):
-    help = "Заполняет filename / content_type / size у существующих ассетов."
+    help = "Заполняет имя, тип и размер файла у объектов с файлом в хранилище."
 
     def add_arguments(self, parser):
-        parser.add_argument(
-            "--all",
-            action="store_true",
-            help="Обновить все ассеты, а не только с пустыми метаданными.",
-        )
+        parser.add_argument("--all", action="store_true", help="Обновить все объекты с файлом, а не только с пустыми сведениями.")
 
     def handle(self, *args, **options):
-        qs = Asset.objects.all()
+        found = Item.objects.exclude(file_id="")
         if not options["all"]:
-            qs = qs.filter(filename="")
+            found = found.filter(file_name="")
 
         client = NextcloudClient.from_settings()
         ok = failed = 0
-
-        for asset in qs:
+        for item in found:
             try:
-                asset.refresh_metadata(client=client)
+                item.refresh_file(client=client)
             except Exception as exc:
                 failed += 1
-                self.stderr.write(f"[{asset.pk}] {asset.name}: {exc}")
+                self.stderr.write(f"[{item.pk}] {item.name}: {exc}")
                 continue
-
-            asset.save(
-                update_fields=["filename", "content_type", "size", "updated_at"]
-            )
+            item.save(update_fields=["file_name", "file_type", "file_size"])
             ok += 1
 
         self.stdout.write(self.style.SUCCESS(f"Обновлено: {ok}, ошибок: {failed}"))

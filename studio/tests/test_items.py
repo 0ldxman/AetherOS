@@ -169,7 +169,6 @@ class ItemsApiTests(TestCase):
 class ProtectionApiTests(TestCase):
     @classmethod
     def setUpTestData(cls):
-        from assets.models import Asset
         from mail.models import Message
         from map.models import MapScene
 
@@ -180,7 +179,6 @@ class ProtectionApiTests(TestCase):
         cls.door = Item.objects.create(slug="door", name="door", format="txt", body="код двери 4471")
         cls.card = Item.objects.create(slug="cardkey", name="cardkey", format="key")
         cls.alarm = Item.objects.create(slug="alarm", name="alarm", format="key")
-        cls.asset = Asset.objects.create(name="Фото порта", file_id="1", size=11)
         cls.scene = MapScene.objects.create(slug="harbor", title="Порт")
         cls.message = Message.objects.create(subject="Груз", sender="ops@aether-core", recipients="*", sent_at=timezone.now())
 
@@ -235,16 +233,37 @@ class ProtectionApiTests(TestCase):
 
     def test_the_content_comes_from_an_asset_a_scene_a_message_or_a_link_and_text_is_not_wiped_silently(self):
         picture = Item.objects.create(slug="pic", name="pic", format="png")
-        self.assertEqual([r["label"] for r in self.call("get", "/items/pick/assets?q=порта")[1]], ["Фото порта"])
         self.assertEqual([r["sub"] for r in self.call("get", "/items/pick/scenes")[1]], ["harbor"])
         self.assertEqual(self.call("get", "/items/pick/messages?q=Груз")[1][0]["sub"], "ops@aether-core")
-        data = self.call("put", f"/items/{picture.pk}/content", {"kind": "asset", "asset": self.asset.pk})[1]
-        self.assertEqual((data["kind"], data["asset"]["label"]), ("asset", "Фото порта"))
+        from unittest import mock
+
+        def found(item, client=None):
+            item.file_name, item.file_type, item.file_size = "port.png", "image/png", 11
+
+        with mock.patch.object(Item, "refresh_file", found):
+            data = self.call("put", f"/items/{picture.pk}/content", {"kind": "asset", "file_id": "1"})[1]
+        self.assertEqual((data["kind"], data["asset"]["label"], data["asset"]["kind"]), ("asset", "port.png", "image"))
+        self.assertEqual(Item.objects.get(pk=picture.pk).file_size, 11)
         self.assertEqual(self.call("put", f"/items/{picture.pk}/content", {"kind": "scene", "scene": self.scene.pk})[0], 400)    # png: сцена не подходит
-        self.assertEqual(self.call("put", f"/items/{picture.pk}/content", {"kind": "text"})[0], 400)      # png обязан иметь ассет
+        self.assertEqual(self.call("put", f"/items/{picture.pk}/content", {"kind": "text"})[0], 400)      # png обязан иметь файл
         status, answer = self.call("put", f"/items/{self.door.pk}/content", {"kind": "link", "url": "https://example.org"})
         self.assertEqual(status, 400)                                                                   # у объекта есть текст
         self.assertIn("очистите", answer["fields"]["__all__"][0])
+
+
+    def test_the_storage_is_browsed_inside_aether_only_and_a_missing_file_is_refused(self):
+        from unittest import mock
+
+        folder = {"path": "/AETHER", "items": [{"file_id": "7", "name": "a.png", "path": "/AETHER/a.png", "is_directory": False, "is_parent": False}]}
+        with mock.patch("assets.services.NextcloudClient", create=True), mock.patch("assets.services.list_folder", return_value=folder):
+            status, data = self.call("get", "/items/nextcloud")
+        self.assertEqual((status, data["items"][0]["file_id"]), (200, "7"))
+        self.assertEqual(self.call("get", "/items/nextcloud?path=etc")[0], 400)                      # вне AETHER
+        picture = Item.objects.create(slug="pic2", name="pic2", format="png")
+        with mock.patch.object(Item, "refresh_file", side_effect=ValueError("нет")):
+            status, answer = self.call("put", f"/items/{picture.pk}/content", {"kind": "asset", "file_id": "404"})
+        self.assertEqual(status, 400)
+        self.assertIn("Nextcloud", answer["fields"]["__all__"][0])
 
 
 @override_settings(FORCE_SCRIPT_NAME=None)

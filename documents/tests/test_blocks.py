@@ -1,6 +1,7 @@
 from django.test import TestCase
 
-from assets.models import Asset
+from filesystem.models import Item
+
 from documents.markup import render
 from documents.markup.lint import lint
 
@@ -12,9 +13,9 @@ def codes(text):
 class BlocksTests(TestCase):
     @classmethod
     def setUpTestData(cls):
-        cls.one = Asset.objects.create(name="One", slug="pic-1", file_id="1", viewer_type=Asset.ViewerType.IMAGE)
-        cls.two = Asset.objects.create(name="Two", slug="pic-2", file_id="2", viewer_type=Asset.ViewerType.IMAGE)
-        cls.doc = Asset.objects.create(name="Report", slug="rep-1", file_id="3", viewer_type=Asset.ViewerType.RAW)
+        cls.one = Item.objects.create(name="One", slug="pic-1", file_id="1", file_name="one.png", file_type="image/png")
+        cls.two = Item.objects.create(name="Two", slug="pic-2", file_id="2", file_name="two.png", file_type="image/png")
+        cls.doc = Item.objects.create(name="Report", slug="rep-1", file_id="3", file_name="report.bin", file_type="application/octet-stream")
 
     def test_gallery_renders_each_picture_with_its_caption(self):
         html = render("::gallery cols=3\npic-1 | Вход\npic-2 | Двор\n::\n")

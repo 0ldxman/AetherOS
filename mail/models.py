@@ -154,22 +154,13 @@ class Attachment(models.Model):
         help_text="Для ссылки: внутренний путь от корня сайта, например /apps/wiki/.",
     )
 
-    asset = models.ForeignKey(
-        "assets.Asset",
-        on_delete=models.CASCADE,
-        null=True,
-        blank=True,
-        related_name="mail_attachments",
-        help_text="Для файла из хранилища.",
-    )
-
     item = models.ForeignKey(
         "filesystem.Item",
         on_delete=models.CASCADE,
         null=True,
         blank=True,
         related_name="mail_attachments",
-        help_text="Для файла на машину: объект, который игрок может сохранить к себе.",
+        help_text="Объект: для файла на машину (игрок сохраняет его к себе) или для файла из хранилища (объект с файлом в Nextcloud).",
     )
 
     save_path = models.CharField(
@@ -194,8 +185,8 @@ class Attachment(models.Model):
             if not self.path:
                 raise ValidationError({"path": "Для ссылки нужен путь."})
             validate_internal_path(self.path)
-        elif self.kind == self.Kind.ASSET and self.asset_id is None:
-            raise ValidationError({"asset": "Выберите файл из хранилища."})
+        elif self.kind == self.Kind.ASSET and (self.item_id is None or not self.item.file_id):
+            raise ValidationError({"item": "Выберите объект с файлом из хранилища."})
         elif self.kind == self.Kind.FILE and self.item_id is None:
             raise ValidationError({"item": "Выберите объект."})
 

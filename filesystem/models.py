@@ -175,9 +175,9 @@ MAX_DEPTH = 16                 # самая глубокая вложеннос�
 REQUIRED_CONTENT = {"asset", "link_asset", "scene", "message"}       # этим форматам без содержимого делать нечего
 ALLOWED_CONTENT = {                                                  # какие поля объекта использует формат (FileFormat.content)
     "text": {"body"},
-    "text_asset": {"body", "asset"},
-    "asset": {"asset"},
-    "link_asset": {"url", "asset"},
+    "text_asset": {"body", "file"},
+    "asset": {"file"},
+    "link_asset": {"url", "file"},
     "scene": {"scene"},
     "message": {"message"},
     "none": set(),
@@ -199,9 +199,12 @@ class Item(models.Model):
 
     # содержимое
     body = models.TextField("Текст", blank=True)
-    asset = models.ForeignKey(
-        "assets.Asset", null=True, blank=True, on_delete=models.PROTECT, related_name="items", verbose_name="Ассет",
-    )
+    # файл в хранилище (Nextcloud): сами байты там, здесь только ссылка и кэш сведений о файле
+    file_id = models.CharField("Файл в хранилище", max_length=255, blank=True, db_index=True, help_text="ID файла в Nextcloud (папка AETHER).")
+    file_name = models.CharField("Имя файла", max_length=255, blank=True, editable=False)
+    file_type = models.CharField("Тип файла", max_length=127, blank=True, editable=False)
+    file_size = models.PositiveBigIntegerField("Размер файла", null=True, blank=True, editable=False)
+    public_id = models.UUIDField("Публичный адрес", default=uuid.uuid4, unique=True, editable=False, help_text="Адрес окна просмотра файла: /view/<адрес>/.")
     url = models.CharField(
         "Ссылка", max_length=2048, blank=True,
         validators=[URLValidator(schemes=["http", "https"])],
@@ -259,6 +262,25 @@ class Item(models.Model):
         found = self.file_format()
         return self.name + (found.extension if found else "")
 
+    def apply_file(self, file):
+        """Кэш сведений о файле из ответа Nextcloud. True, если что-то изменилось. Не сохраняет."""
+        from assets.services import guess_content_type
+
+        values = {"file_name": file.filename, "file_type": guess_content_type(file.filename), "file_size": file.size}
+        changed = any(getattr(self, key) != value for key, value in values.items())
+        for key, value in values.items():
+            setattr(self, key, value)
+        return changed
+
+    def refresh_file(self, client=None):
+        """Подтянуть имя, тип и размер файла из Nextcloud. ValueError, если файла нет или это папка. Не сохраняет."""
+        from assets.nextcloud import NextcloudClient
+
+        found = (client or NextcloudClient.from_settings()).get_file_by_id(self.file_id)
+        if found is None or found.is_directory:
+            raise ValueError("Файл в Nextcloud не найден.")
+        self.apply_file(found)
+
     def clean(self):
         super().clean()
         found = self.file_format()
@@ -267,13 +289,13 @@ class Item(models.Model):
 
         used = {
             "body": bool(self.body.strip()),
-            "asset": self.asset_id is not None,
+            "file": bool(self.file_id),
             "url": bool(self.url),
             "scene": self.scene_id is not None,
             "message": self.message_id is not None,
         }
         allowed = ALLOWED_CONTENT[found.content if found else "text_asset"]
-        labels = {"body": "текст", "asset": "ассет", "url": "ссылка", "scene": "сцена карты", "message": "письмо"}
+        labels = {"body": "текст", "file": "файл", "url": "ссылка", "scene": "сцена карты", "message": "письмо"}
 
         errors = {}
         if self.format == "app" and self.body.strip():

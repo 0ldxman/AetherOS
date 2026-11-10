@@ -47,8 +47,8 @@ def payload(attachment, session=None):
     data = {"id": attachment.pk, "kind": attachment.kind, "label": attachment.label}
 
     if attachment.kind == Attachment.Kind.ASSET:
-        viewer_url = reverse("asset_viewer:viewer", kwargs={"public_id": attachment.asset.public_id})
-        content_url = reverse("asset_viewer:content", kwargs={"public_id": attachment.asset.public_id})
+        viewer_url = reverse("asset_viewer:viewer", kwargs={"public_id": attachment.item.public_id})
+        content_url = reverse("asset_viewer:content", kwargs={"public_id": attachment.item.public_id})
         data.update({"open": viewer_url, "download": content_url + "?download=1"})
     elif attachment.kind == Attachment.Kind.FILE:
         data.update({

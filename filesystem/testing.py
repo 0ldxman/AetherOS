@@ -65,10 +65,11 @@ def _item_for(name, state, size, body, format, key, url):
                 access=found.access, world_updated_at=found.world_updated_at, world_creator=found.world_creator, state=state, size=size,
             )
     elif parts[:1] == ["view"] and len(parts) >= 2:
-        from assets.models import Asset
-
-        asset = Asset.objects.filter(public_id=uuidlib.UUID(parts[1])).first()
-        return Item.objects.create(slug=unique_slug(name), name=name, asset=asset, state=state, size=size)
+        source = Item.objects.filter(public_id=uuidlib.UUID(parts[1])).first()
+        return Item.objects.create(
+            slug=unique_slug(name), name=name, state=state, size=size, file_id=source.file_id if source else "",
+            file_name=source.file_name if source else "", file_type=source.file_type if source else "", file_size=source.file_size if source else None,
+        )
     elif parts[:2] == ["apps", "map"]:
         from map.models import MapScene
 

@@ -7,7 +7,7 @@ from django.contrib.auth import get_user_model
 from django.test import TestCase, override_settings
 from django.urls import get_script_prefix, reverse, set_script_prefix
 
-from assets.models import Asset
+from filesystem.models import Item
 from filesystem.testing import key_item
 from wiki import dashboard
 from wiki.testing import make_document, make_namespace
@@ -30,8 +30,8 @@ class DashboardDataTests(TestCase):
         key_item("key_gate")
         key_item("key_idle")
 
-        Asset.objects.create(name="Использован", slug="in-use", file_id="1", viewer_type=Asset.ViewerType.AUDIO)
-        Asset.objects.create(name="Лишний", slug="idle", file_id="2")
+        Item.objects.create(name="Использован", slug="in-use", file_id="1", file_name="a.mp3", file_type="audio/mpeg")
+        Item.objects.create(name="Лишний", slug="idle", file_id="2")
         make_document(free, "С ассетом", body="::audio in-use title=Т\n")
 
         cls.data = dashboard.build()

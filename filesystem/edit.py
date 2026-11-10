@@ -21,7 +21,7 @@ def refusal(entry):
             if found is None or not found.editable:
                 return "this format cannot be edited"
         return None
-    if item.asset_id or item.url or item.scene_id or item.message_id or item.format == KEY_FORMAT or entry.archive:
+    if item.file_id or item.url or item.scene_id or item.message_id or item.format == KEY_FORMAT or entry.archive:
         return "not a text file"
     if item.format:
         found = registry.format_named(item.format)

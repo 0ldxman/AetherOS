@@ -5,7 +5,6 @@ from django.contrib.auth import get_user_model
 from django.test import TestCase
 from django.urls import get_script_prefix, reverse, set_script_prefix
 
-from assets.models import Asset
 from filesystem.models import FileFormat, Item, Placement, Volume, VolumeTemplate
 from machines.models import Machine, MachineMount, Place, SystemType
 
@@ -69,13 +68,9 @@ class ItemAdminTests(AdminCase):
         bad = post_item(self.client, slug="p2", name="p2", format="png", body="text")
         self.assertContains(bad, "это поле не используется")
 
-    def test_an_asset_is_chosen_with_a_search_and_an_add_link(self):
-        asset = Asset.objects.create(name="Harbor photo", file_id="9", slug="harbor")
+    def test_a_file_of_the_storage_is_set_by_its_id(self):
         page = self.client.get(reverse("admin:filesystem_item_add"))
-        self.assertContains(page, "autocomplete")
-        found = self.client.get(reverse("admin:autocomplete"), {"term": "Harbor", "app_label": "filesystem", "model_name": "item", "field_name": "asset"})
-        self.assertEqual(found.status_code, 200)
-        self.assertEqual([row["id"] for row in found.json()["results"]], [str(asset.pk)])
+        self.assertContains(page, 'name="file_id"')
 
     def test_the_condition_editor_offers_the_keys_that_are_objects(self):
         Item.objects.create(slug="alpha", name="Alpha key", format="key", body="k")

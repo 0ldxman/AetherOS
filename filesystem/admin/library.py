@@ -100,12 +100,12 @@ class ItemAdmin(ItemDashboardMixin, ItemHistoryMixin, KeyConditionsMixin, ItemPr
     list_display_links = ("slug", "name")
     list_filter = ("format",)
     search_fields = ("slug", "name", "meta", "body")
-    autocomplete_fields = ("asset", "scene", "message")
-    list_select_related = ("asset", "scene", "message", "lock__user")
+    autocomplete_fields = ("scene", "message")
+    list_select_related = ("scene", "message", "lock__user")
     readonly_fields = ("created_at", "updated_at", "created_by", "updated_by")
     fieldsets = (
         ("Основное", {"fields": ("slug", "name", "format", "base_version")}),
-        ("Содержимое", {"fields": ("body", "asset", "url", "scene", "message"), "description": "Что вводится, зависит от формата."}),
+        ("Содержимое", {"fields": ("body", "file_id", "url", "scene", "message"), "description": "Что вводится, зависит от формата."}),
         ("Доступ", {"fields": ("access",)}),
         ("Слои защиты", {"fields": ("state",), "classes": ("collapse",)}),
         ("Метаданные", {"fields": ("size", "meta", "world_created_at", "world_updated_at", "world_creator"), "classes": ("collapse",)}),
@@ -117,8 +117,8 @@ class ItemAdmin(ItemDashboardMixin, ItemHistoryMixin, KeyConditionsMixin, ItemPr
 
     @admin.display(description="Содержимое")
     def content_summary(self, obj):
-        if obj.asset_id:
-            return f"ассет: {obj.asset.name}"
+        if obj.file_id:
+            return f"файл: {obj.file_name or obj.file_id}"
         if obj.url:
             return "ссылка"
         if obj.scene_id:

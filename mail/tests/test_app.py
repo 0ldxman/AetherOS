@@ -890,13 +890,12 @@ class AttachmentKindTests(TestCase):
 
     @classmethod
     def setUpTestData(cls):
-        from assets.models import Asset
         from filesystem.models import Item, Placement
         from machines.models import MachineProfile, Session
 
         cls.machine = Machine.objects.create(name="Staff", hostname="apollo-staff")
         cls.elsewhere = Machine.objects.create(name="Lab", hostname="apollo-lab")
-        cls.asset = Asset.objects.create(name="photo", file_id="42")
+        cls.asset = Item.objects.create(slug="photo", name="photo", file_id="42")
         cls.file = Item.objects.create(slug="evidence", name="evidence.dat")
         cls.user = get_user_model().objects.create_user("ivan", password="pw")
         profile = MachineProfile.objects.create(machine=cls.machine, user=cls.user, name="I", login="will_smith", freq=1)
@@ -916,7 +915,7 @@ class AttachmentKindTests(TestCase):
         for kind in (Attachment.Kind.LINK, Attachment.Kind.ASSET, Attachment.Kind.FILE):
             with self.assertRaises(ValidationError, msg=kind):
                 Attachment(message=self.message, label="x", kind=kind).full_clean()
-        Attachment(message=self.message, label="x", kind="asset", asset=self.asset).full_clean()
+        Attachment(message=self.message, label="x", kind="asset", item=self.asset).full_clean()
         Attachment(message=self.message, label="x", kind="file", item=self.file).full_clean()
 
     # ---------- что видит окно почты ----------
@@ -924,7 +923,7 @@ class AttachmentKindTests(TestCase):
     def test_an_asset_opens_in_the_viewer_and_downloads_as_a_file(self):
         from mail.attachments import payload
 
-        data = payload(self.attach(kind="asset", asset=self.asset))
+        data = payload(self.attach(kind="asset", item=self.asset))
         self.assertEqual(data["open"], f"/view/{self.asset.public_id}/")
         self.assertEqual(data["download"], f"/view/{self.asset.public_id}/content/?download=1")
 
@@ -1007,7 +1006,7 @@ class AttachmentKindTests(TestCase):
         from mail.attachments import SaveError, save_to_machine
 
         with self.assertRaises(SaveError):
-            save_to_machine(self.session, self.attach(kind="asset", asset=self.asset))
+            save_to_machine(self.session, self.attach(kind="asset", item=self.asset))
 
     def test_a_delivered_only_file_is_not_on_the_machine_until_it_is_saved(self):
         from terminal.engine.executor import TerminalExecutor

@@ -661,15 +661,18 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/studio/api/items/pick/assets": {
+    "/studio/api/items/nextcloud": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        /** Pick Assets */
-        get: operations["studio_api_protection_pick_assets"];
+        /**
+         * Nextcloud
+         * @description Папка хранилища (Nextcloud) для выбора файла объекта: только внутри AETHER.
+         */
+        get: operations["studio_api_protection_nextcloud"];
         put?: never;
         post?: never;
         delete?: never;
@@ -3246,11 +3249,23 @@ export interface components {
         ContentOut: {
             /** Kind */
             kind: string;
-            asset: components["schemas"]["PickRef"] | null;
+            asset: components["schemas"]["FilePick"] | null;
             scene: components["schemas"]["PickRef"] | null;
             message: components["schemas"]["PickRef"] | null;
             /** Url */
             url: string;
+        };
+        /** FilePick */
+        FilePick: {
+            /** File Id */
+            file_id: string;
+            /** Label */
+            label: string;
+            /**
+             * Kind
+             * @default
+             */
+            kind: string;
         };
         /** PickRef */
         PickRef: {
@@ -3273,8 +3288,11 @@ export interface components {
         ContentIn: {
             /** Kind */
             kind: string;
-            /** Asset */
-            asset?: number | null;
+            /**
+             * File Id
+             * @default
+             */
+            file_id: string;
             /** Scene */
             scene?: number | null;
             /** Message */
@@ -3284,6 +3302,26 @@ export interface components {
              * @default
              */
             url: string;
+        };
+        /** NextcloudEntry */
+        NextcloudEntry: {
+            /** File Id */
+            file_id: string | null;
+            /** Name */
+            name: string;
+            /** Path */
+            path: string;
+            /** Is Directory */
+            is_directory: boolean;
+            /** Is Parent */
+            is_parent: boolean;
+        };
+        /** NextcloudFolder */
+        NextcloudFolder: {
+            /** Path */
+            path: string;
+            /** Items */
+            items: components["schemas"]["NextcloudEntry"][];
         };
         /** StackKind */
         StackKind: {
@@ -6624,10 +6662,10 @@ export interface operations {
             };
         };
     };
-    studio_api_protection_pick_assets: {
+    studio_api_protection_nextcloud: {
         parameters: {
             query?: {
-                q?: string;
+                path?: string;
             };
             header?: never;
             path?: never;
@@ -6641,7 +6679,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["PickRef"][];
+                    "application/json": components["schemas"]["NextcloudFolder"];
                 };
             };
         };
