@@ -15,6 +15,7 @@
   import ItemProtection from "./item/ItemProtection.svelte";
   import ContentPicker from "./item/ContentPicker.svelte";
   import AppIcon from "./item/AppIcon.svelte";
+  import AppVolumes from "./item/AppVolumes.svelte";
 
   type Item = Schemas["ItemOut"];
 
@@ -206,6 +207,7 @@
               {#if draft.format === "app"}
                 <div class="stack">
                   <AppIcon bind:body={draft.body} />
+                  <AppVolumes bind:body={draft.body} />
                   <div class="grow"><CodeEditor bind:value={draft.body} markup={false} onsave={() => save()} /></div>
                 </div>
               {:else}

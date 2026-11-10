@@ -163,15 +163,58 @@ def _sections(request, machine):
 
     sections = []
     for line in lines:
-        if line.host:
-            host = hosts.get(line.host)
-            account = connection.account_of(host, line.user or "guest") if host is not None else None
-            view = connection.connect(machine, host, line.path, account, user) if account is not None else None
-        else:
-            view = view_for(machine, user, principal_for(profile) if profile is not None else None)
-        if view is not None and view.is_directory(line.path):
+        view, _ = connect_line(machine, line, user, principal_for(profile) if profile is not None else None, hosts)
+        if view is not None:
             sections.append((line.title or posixpath.basename(line.path) or line.host or machine.label, view, line.path))
     return sections
+
+
+REASONS = {
+    "no_host": "Хоста с таким именем нет.",
+    "no_account": "У хоста нет такой учётной записи.",
+    "not_exported": "Хост не отдаёт этот путь: добавьте его в экспорты хоста.",
+    "chain": "Подключение зациклено или цепочка хостов слишком длинная.",
+    "no_folder": "По этому пути нет папки.",
+    "empty": "В папке нет страниц, которые эта учётка вправе читать.",
+}
+
+
+def connect_line(machine, line, user, principal, hosts=None):
+    """Вид, который даёт строка volume, и причина отказа: (вид, "") или (None, код из REASONS).
+
+    Со строкой без хоста берётся своя машина с правами игрока (principal); с хостом вики подключается к нему как клиент."""
+    from filesystem.machine_view import view_for
+    from machines.models import Machine
+    from machines.network import connection
+
+    if line.host:
+        host = (hosts or {}).get(line.host) or Machine.objects.filter(hostname=line.host).first()
+        if host is None:
+            return None, "no_host"
+        account = connection.account_of(host, line.user or "guest")
+        if account is None:
+            return None, "no_account"
+        if not connection.exported(host, line.path):
+            return None, "not_exported"
+        view = connection.connect(machine, host, line.path, account, user)
+        if view is None:
+            return None, "chain"
+    else:
+        view = view_for(machine, user, principal)
+    return (view, "") if view.is_directory(line.path) else (None, "no_folder")
+
+
+def check_line(machine, line, user=None, principal=None):
+    """Что вики сделает со строкой volume: {"ok", "reason", "message", "title", "pages", "closed"}. Нужна автору (Студия): игрок причину не видит."""
+    view, reason = connect_line(machine, line, user, principal)
+    title = line.title or posixpath.basename(line.path) or line.host or machine.label
+    if view is None:
+        return {"ok": False, "reason": reason, "message": REASONS[reason], "title": title, "pages": 0, "closed": 0}
+    library = _from_views(_formats(), [(title, view, line.path)])
+    files = sum(1 for entry in view.under(line.path)[1:] if not entry.is_dir and entry.item is not None and entry.placement is not None)
+    if not library.pages:
+        return {"ok": False, "reason": "empty", "message": REASONS["empty"], "title": title, "pages": 0, "closed": files}
+    return {"ok": True, "reason": "", "message": "", "title": title, "pages": len(library.pages), "closed": max(0, files - len(library.pages))}
 
 
 def build(request=None):

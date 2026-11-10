@@ -487,6 +487,79 @@
     ]
    }
   },
+  "/studio/api/wiki-volumes/hosts": {
+   "get": {
+    "operationId": "studio_api_wikivolumes_hosts",
+    "summary": "Hosts",
+    "parameters": [],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "items": {
+          "$ref": "#/components/schemas/WvHost"
+         },
+         "title": "Response",
+         "type": "array"
+        }
+       }
+      }
+     }
+    },
+    "description": "Машины, к которым можно подключиться: имя хоста, что он отдаёт и под какими учётками можно войти.",
+    "tags": [
+     "wiki-volumes"
+    ],
+    "security": [
+     {
+      "SessionAuthIsStaff": []
+     }
+    ]
+   }
+  },
+  "/studio/api/wiki-volumes/check": {
+   "post": {
+    "operationId": "studio_api_wikivolumes_check",
+    "summary": "Check",
+    "parameters": [],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "items": {
+          "$ref": "#/components/schemas/WvResult"
+         },
+         "title": "Response",
+         "type": "array"
+        }
+       }
+      }
+     }
+    },
+    "tags": [
+     "wiki-volumes"
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/WvCheckIn"
+       }
+      }
+     },
+     "required": true
+    },
+    "security": [
+     {
+      "SessionAuthIsStaff": []
+     }
+    ]
+   }
+  },
   "/studio/api/volumes": {
    "get": {
     "operationId": "studio_api_volumes_volumes",
@@ -8145,6 +8218,156 @@
      "kind"
     ],
     "title": "EncIn",
+    "type": "object"
+   },
+   "WvAccount": {
+    "properties": {
+     "login": {
+      "title": "Login",
+      "type": "string"
+     },
+     "freq": {
+      "title": "Freq",
+      "type": "string"
+     }
+    },
+    "required": [
+     "login",
+     "freq"
+    ],
+    "title": "WvAccount",
+    "type": "object"
+   },
+   "WvHost": {
+    "properties": {
+     "hostname": {
+      "title": "Hostname",
+      "type": "string"
+     },
+     "label": {
+      "title": "Label",
+      "type": "string"
+     },
+     "exports": {
+      "items": {
+       "type": "string"
+      },
+      "title": "Exports",
+      "type": "array"
+     },
+     "accounts": {
+      "items": {
+       "$ref": "#/components/schemas/WvAccount"
+      },
+      "title": "Accounts",
+      "type": "array"
+     }
+    },
+    "required": [
+     "hostname",
+     "label",
+     "exports",
+     "accounts"
+    ],
+    "title": "WvHost",
+    "type": "object"
+   },
+   "WvResult": {
+    "properties": {
+     "ok": {
+      "title": "Ok",
+      "type": "boolean"
+     },
+     "reason": {
+      "title": "Reason",
+      "type": "string"
+     },
+     "message": {
+      "title": "Message",
+      "type": "string"
+     },
+     "title": {
+      "title": "Title",
+      "type": "string"
+     },
+     "pages": {
+      "title": "Pages",
+      "type": "integer"
+     },
+     "closed": {
+      "title": "Closed",
+      "type": "integer"
+     },
+     "duplicate": {
+      "title": "Duplicate",
+      "type": "boolean"
+     }
+    },
+    "required": [
+     "ok",
+     "reason",
+     "message",
+     "title",
+     "pages",
+     "closed",
+     "duplicate"
+    ],
+    "title": "WvResult",
+    "type": "object"
+   },
+   "WvCheckIn": {
+    "properties": {
+     "lines": {
+      "items": {
+       "$ref": "#/components/schemas/WvLine"
+      },
+      "title": "Lines",
+      "type": "array"
+     },
+     "machine": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Machine"
+     }
+    },
+    "required": [
+     "lines"
+    ],
+    "title": "WvCheckIn",
+    "type": "object"
+   },
+   "WvLine": {
+    "properties": {
+     "host": {
+      "default": "",
+      "title": "Host",
+      "type": "string"
+     },
+     "path": {
+      "title": "Path",
+      "type": "string"
+     },
+     "title": {
+      "default": "",
+      "title": "Title",
+      "type": "string"
+     },
+     "user": {
+      "default": "",
+      "title": "User",
+      "type": "string"
+     }
+    },
+    "required": [
+     "path"
+    ],
+    "title": "WvLine",
     "type": "object"
    },
    "Mount": {

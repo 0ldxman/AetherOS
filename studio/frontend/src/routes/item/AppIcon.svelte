@@ -7,6 +7,7 @@
 
   let catalog = $state<Schemas["AppIcons"] | null>(null);
   let style = $state("aether");
+  let open = $state(false);
   onMount(async () => { catalog = (await api.GET("/studio/api/app-icons")).data ?? null; });
 
   const LINE = /^icon[ \t]+(\S+)[ \t]*$/im;
@@ -26,23 +27,25 @@
       <b>Иконка</b>
       <span class="muted small">{current ? catalog.icons.find((i) => i.name === current)?.title ?? `«${current}» нет в каталоге` : "не выбрана"}</span>
       <span class="spacer"></span>
-      <label class="muted small">Как выглядит в стиле
-        <select class="field" bind:value={style}>{#each catalog.styles as s}<option value={s.slug}>{s.label}</option>{/each}</select></label>
+      {#if open}<label class="muted small">Как выглядит в стиле
+        <select class="field" bind:value={style}>{#each catalog.styles as s}<option value={s.slug}>{s.label}</option>{/each}</select></label>{/if}
+      <button class="btn" aria-expanded={open} onclick={() => (open = !open)}>{open ? "Свернуть" : "Выбрать…"}</button>
     </header>
-    <div class="grid" role="radiogroup" aria-label="Иконки">
+    {#if open}<div class="grid" role="radiogroup" aria-label="Иконки">
       {#each catalog.icons as icon (icon.name)}
         <button type="button" role="radio" aria-checked={current === icon.name} class:on={current === icon.name} title={icon.title} onclick={() => pick(icon.name)}>
           {#if urls[icon.name]}<i style="--icon:url('{urls[icon.name]}')"></i>{:else}<span class="mono ascii">{icon.ascii}</span>{/if}
           <span class="muted small">{icon.name}</span>
         </button>
       {/each}
-    </div>
+    </div>{/if}
   </section>
 {/if}
 
 <style>
   .icons { padding: 10px 14px; border-bottom: 1px solid var(--line-soft); background: var(--panel); }
-  header { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+  header { display: flex; align-items: center; gap: 10px; }
+  header + .grid { margin-top: 8px; }
   .spacer { flex: 1; }
   .small { font-size: 12px; }
   .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(72px, 1fr)); gap: 6px; }
