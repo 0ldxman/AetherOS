@@ -29,6 +29,15 @@ class HelpTests(TerminalClient, TestCase):
         self.addCleanup(set_script_prefix, previous)
         self.client.force_login(self.user)
 
+    def test_the_help_names_the_real_key_folder_of_the_account(self):
+        from machines.models import Place
+
+        Place.objects.filter(machine=self.main, name="secrets").update(path="{home}/.keys")
+        for name in ("kex", "ward", "rcon"):
+            output = self.run_command(f"help {name}")["output"]
+            self.assertIn("/home/ivan/.keys", output, name)
+            self.assertNotIn(".secrets", output, name)
+
     def test_every_command_of_the_system_has_help_text(self):
         from terminal.engine.commands import COMMANDS
         from terminal.engine.commands.help import HELP

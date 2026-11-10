@@ -73,6 +73,40 @@ class WikiNetworkTests(TestCase):
         self.wiki("/wiki/local as Local")
         self.assertEqual(self.get(views.resolve, "Local/Манифест")[0], 200)
 
+    def test_two_players_with_sections_of_the_same_name_see_their_own_files(self):
+        self.wiki("archive-srv:/srv/harbor as Harbor user=reader")
+        other_user = get_user_model().objects.create_user("olga", password="pw")
+        other_machine = Machine.objects.create(name="Other", hostname="other-ws")
+        profile = MachineProfile.objects.create(machine=other_machine, user=other_user, name="Olga", login="olga", freq=1)
+        other_session = {SESSION_KEY: Session.objects.create(user=other_user, profile=profile).pk}
+        own = make_namespace("Свой архив")
+        make_document(own, "Чужое", body="своё")
+        MachineMount.objects.create(machine=other_machine, volume=own.volume, mount_path="/wiki/own")
+        make_app(other_machine, "wiki", "book", "/apps/wiki/", volumes=["/wiki/own as Harbor"])
+
+        _, html, _ = self.get(views.resolve, "Harbor")
+        self.assertIn("Манифест", html)
+        _, html, _ = call(views.resolve, "Harbor", user=other_user, session=other_session)
+        self.assertIn("Чужое", html)
+        self.assertNotIn("Манифест", html)                                       # строки первого игрока не достались второму
+
+    def test_a_page_closed_by_its_layers_is_listed_as_sealed_and_shows_no_text(self):
+        from filesystem.models import Item
+
+        Item.objects.filter(pk=self.page.item.pk).update(state="> encrypted hunter2")
+        self.wiki("archive-srv:/srv/harbor as Harbor user=reader")
+        _, html, _ = self.get(views.resolve, "Harbor")
+        line = next(l for l in html.splitlines() if "data-doc-id" in l and "Манифест" in l)
+        self.assertIn('data-access="sealed"', line)
+        self.assertNotIn("груз", html)                                           # ни выдержки, ни размера
+        status, html, _ = self.get(views.resolve, "Harbor/Манифест")
+        self.assertEqual(status, 403)
+        self.assertIn("Содержимое файла закрыто", html)
+        _, body, _ = self.get(views.search, params={"q": "груз"})
+        self.assertEqual(json.loads(body)["rows"], [])                           # текст под слоями не ищется
+        _, body, _ = self.get(views.search, params={"q": "Манифест"})
+        self.assertEqual([row["sealed"] for row in json.loads(body)["rows"]], [True])
+
     def test_the_file_of_the_wiki_is_validated(self):
         from django.core.exceptions import ValidationError
 

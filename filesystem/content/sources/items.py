@@ -81,8 +81,11 @@ class AssetSource(Source):
 
     def window(self, entry, address):
         from django.urls import reverse
+        from django.utils.http import urlencode
 
-        return Content(url=reverse("asset_viewer:viewer", kwargs={"public_id": entry.item.public_id}))
+        # адрес файла (?path=, ?wiki=) идёт вьюверу: доступ решают условия места, а не одно условие объекта
+        url = reverse("asset_viewer:viewer", kwargs={"public_id": entry.item.public_id})
+        return Content(url=url + "?" + urlencode(address) if address else url)
 
 
 class LinkSource(Source):

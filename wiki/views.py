@@ -14,10 +14,10 @@ from wiki.access import document_state, namespace_state
 from secure.requestkeys import request_keys
 from documents.markup import visible_text
 from wiki.library import library, window_of
-from wiki.versioning import WIKI_COUNTS_TTL, WIKI_VERSION_KEY
 
 SEARCH_LIMIT = 100
 SEARCH_MAX_LEN = 80
+TEXT_TTL = 600
 
 
 def _keys(request):
@@ -211,6 +211,9 @@ def _doc_row(doc, state, keys):
     у закрытой видны лишь название и тип.
     """
     window = window_of(doc) if state.open else None
+    # ключи подходят, но содержимое ещё закрыто слоями файла (как cnt: content is locked)
+    sealed = window is not None and window.error == "locked"
+    readable = state.open and not sealed
     url = window.url if window is not None and window.url else _doc_url(doc)
     # тип вне списка (записан вручную) считается обычным документом
     kind_type = doc.type if doc.type in KIND_LABELS else "doc"
@@ -219,16 +222,11 @@ def _doc_row(doc, state, keys):
     modified_sort = ""
     nbytes = 0
     summary, excerpt = "restricted", ""
-    if state.open:
+    if readable:
         modified, modified_sort = _modified(doc)
         storage = doc.storage_class
-        visible = visible_text(doc.body, keys)
-        raw = visible.encode("utf-8")
-        nbytes = len(raw)
+        nbytes, etag, summary, excerpt = _text_stats(doc, keys)
         size = _size_text(nbytes)
-        etag = hashlib.sha1(raw).hexdigest()[:10]
-        plain = _plain(visible, doc.title)
-        summary, excerpt = _summary(plain), _cut(plain, 520)
 
     return {
         "id": doc.pk,
@@ -248,27 +246,36 @@ def _doc_row(doc, state, keys):
         "etag": etag,
         "summary": summary,
         "excerpt": excerpt,
-        "open": state.open,
+        "open": readable,
+        "sealed": sealed,
         "url": url,
     }
 
 
-def _doc_rows(request, ns, keys):
-    """Строки таблицы документов неймспейса (только видимые).
+def _text_stats(doc, keys):
+    """Размер, ETag, сводка и выдержка по видимому тексту записи.
 
-    Строка зависит только от записи и набора ключей (размер, сумма и выдержка считаются по видимому тексту),
-    поэтому готовые строки общие для всех с теми же ключами, пока вики не менялась.
+    Разбор разметки дорогой, поэтому итог кэшируется по самому тексту и набору ключей: от игрока, машины и раздела
+    он не зависит, и чужой текст под этим ключом лежать не может.
     """
-    who = hashlib.md5(str(sorted(keys)).encode()).hexdigest()
-    cache_key = f"wiki:rows:{cache.get(WIKI_VERSION_KEY, 0)}:{ns.pk if ns else 0}:{who}"
-    rows = cache.get(cache_key)
-    if rows is None:
-        rows = _build_doc_rows(request, ns, keys)
-        cache.set(cache_key, rows, WIKI_COUNTS_TTL)
-    return rows
+    who = hashlib.sha1(f"{sorted(keys)}|{doc.title}|{doc.body}".encode()).hexdigest()
+    cache_key = f"wiki:text:{who}"
+    found = cache.get(cache_key)
+    if found is None:
+        visible = visible_text(doc.body, keys)
+        raw = visible.encode("utf-8")
+        plain = _plain(visible, doc.title)
+        found = (len(raw), hashlib.sha1(raw).hexdigest()[:10], _summary(plain), _cut(plain, 520))
+        cache.set(cache_key, found, TEXT_TTL)
+    return found
 
 
-def _build_doc_rows(request, ns, keys):
+def _doc_rows(request, ns, keys):
+    """Строки таблицы документов раздела (только видимые).
+
+    Строки не кэшируются целиком: они зависят от машины, учётки и снятых игроком слоёв, а номера разделов на сетевых дисках
+    временные и у разных игроков совпадают. Кэшируется только разбор текста (_text_stats).
+    """
     rows = []
     for doc in library(request).pages_in(ns):
         s = document_state(doc, keys)
@@ -282,15 +289,9 @@ def _article_counts(request, keys):
     """Сколько видимых записей в каждом неймспейсе (с вложенными) и всего.
 
     Считаются только записи, которые игрок видит: скрытое и несмонтированное не попадает
-    даже в число. Результат общий для всех с одним набором ключей и монтирований, пока вики не менялась.
+    даже в число. Считается в памяти по уже собранной библиотеке запроса, без общего кэша.
     """
     lib = library(request)
-    who = hashlib.md5(f"{sorted(keys)}|{sorted(lib.by_pk)}".encode()).hexdigest()
-    cache_key = f"wiki:counts:{cache.get(WIKI_VERSION_KEY, 0)}:{who}"
-    found = cache.get(cache_key)
-    if found is not None:
-        counts, total = found
-        return defaultdict(int, counts), total
 
     # условия цепочки считаются один раз на неймспейс, а не на каждую запись в нём
     visible_ns = {pk: namespace_state(n, keys).visible for pk, n in lib.by_pk.items()}
@@ -305,7 +306,6 @@ def _article_counts(request, keys):
         for node in page.namespace.chain():
             counts[node.pk] += 1
 
-    cache.set(cache_key, (dict(counts), total), WIKI_COUNTS_TTL)
     return counts, total
 
 
@@ -338,11 +338,11 @@ def _path_bar(ns):
     return [{"name": "Buckets", "url": reverse("wiki:home")}] + _crumbs(ns)
 
 
-def _locked(request, title, crumbs=None):
+def _locked(request, title, crumbs=None, sealed=False):
     return render(
         request,
         "wiki/locked.html",
-        {"title": title, "crumbs": crumbs},
+        {"title": title, "crumbs": crumbs, "sealed": sealed},
         status=403,
     )
 
@@ -408,6 +408,8 @@ def _document_page(request, doc, via_direct_link=False):
         return _locked(request, None if via_direct_link else doc.title, crumbs)
 
     window = window_of(doc)
+    if window is not None and window.error == "locked":
+        return _locked(request, None if via_direct_link else doc.title, crumbs, sealed=True)
     if window is None or not window.url:
         raise Http404                  # у файла нет окна (пустой) или сводка автора без вида машины
     return redirect(window.url)
@@ -499,8 +501,6 @@ def search(request):
         # раздел и все его потомки (chain() каждого содержит раздел)
         candidates = [page for page in candidates if any(x.pk == scope.pk for x in page.namespace.chain())]
 
-    needle = word.casefold()
-
     rows = []
     for doc in candidates:
         if doc.namespace is not None:
@@ -513,12 +513,14 @@ def search(request):
             continue
 
         found = needle in doc.title.casefold()
+        row = None
         if not found and s.open:
-            found = needle in _searchable_text(doc, keys).casefold()
+            row = _doc_row(doc, s, keys)
+            found = row["open"] and needle in _searchable_text(doc, keys).casefold()
         if not found:
             continue
 
-        row = _doc_row(doc, s, keys)
+        row = row or _doc_row(doc, s, keys)
         row.pop("updated", None)  # в выдаче не нужно, и datetime лишний в JSON
         row["path"] = _key(doc.namespace, "")
         rows.append(row)

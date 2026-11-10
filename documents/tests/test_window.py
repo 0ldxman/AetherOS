@@ -56,6 +56,22 @@ class DocumentWindowTests(TerminalClient, TestCase):
         self.assertIn("Доступ закрыт", html)
         self.assertNotIn("закрыто", html.replace("Доступ закрыт", ""))
 
+    def test_an_asset_opened_from_a_place_follows_the_conditions_of_the_place(self):
+        from filesystem.models import Item, Placement
+
+        photo = make_file(self.main, "/home/photo.png", format="png")
+        Item.objects.filter(pk=photo.item.pk).update(file_id="7", file_name="photo.png", file_type="image/png", access="door_key")
+        Placement.objects.filter(pk=photo.placement.pk).update(access_mode="none")              # место снимает условие объекта
+        url = self.window("/home/photo.png")
+        self.assertIn("?path=", url)
+        self.assertEqual(self.client.get(url).status_code, 200)
+        public = url.split("?")[0]
+        self.assertEqual(self.client.get(public).status_code, 403)                     # голая ссылка: условие объекта
+        self.assertEqual(self.client.get(public + "?path=/home/notes.txt").status_code, 404)   # адрес другого файла
+
+        Item.objects.filter(pk=photo.item.pk).update(state="> encrypted pw")
+        self.assertEqual(self.client.get(url).status_code, 403)                        # слои ещё не сняты
+
     def test_a_missing_or_foreign_address_is_404(self):
         self.assertEqual(self.client.get("/view/doc/?path=/home/none.rec").status_code, 404)
         self.assertEqual(self.client.get("/view/doc/").status_code, 404)

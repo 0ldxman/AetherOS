@@ -1,7 +1,7 @@
 """Демонстрационный мир: создаётся целиком, повторный запуск ничего не дублирует, и в нём можно играть."""
 from django.contrib.auth import get_user_model
 from django.core.management import call_command
-from django.test import TestCase
+from django.test import TestCase, override_settings
 
 from filesystem.machine_view import MachineView
 from filesystem.models import Item, Placement, Volume
@@ -32,6 +32,17 @@ class SeedDemoTests(TestCase):
         self.assertFalse(view.exists("/etc/motd"))                                       # скрыто надгробием
         self.assertTrue(view.exists("/var/log/syslog"))                                  # осталось от образа
         self.assertTrue(view.exists("/mnt/harbor/ports/manifest.txt"))                  # смонтирован общий том
+
+    @override_settings(FORCE_SCRIPT_NAME=None)
+    def test_a_guest_lands_on_the_null_machine(self):
+        from django.urls import get_script_prefix, set_script_prefix
+
+        self.addCleanup(set_script_prefix, get_script_prefix())
+        set_script_prefix("/")
+        self.client.post("/auth/guest/")
+        response = self.client.get("/desktop/")
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "witness@aether-null")
 
     def test_the_player_can_work_in_it(self):
         self.assertIn("door.bin", self.run_command("ls /home/ivan").output)

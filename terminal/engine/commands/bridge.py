@@ -76,7 +76,7 @@ def _policy_text(profile, field):
 
 
 class EntryCommand(BaseCommand):
-    """Общая часть rcon, rshell и xfer: разбор -p, -i (имя ключа из /home/.secrets), --token, поиск записи и проверка условий входа."""
+    """Общая часть rcon, rshell и xfer: разбор -p, -i (имя ключа из ~/.secrets), --token, поиск записи и проверка условий входа."""
 
     mode = ""
 

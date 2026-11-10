@@ -78,7 +78,7 @@ HELP = {
         "import a key from the bytes of a file",
         ("kex <file> <offset>",),
         "Reads the file at the given offset and imports the key block found there (-----BEGIN ACCESS KEY-----) "
-        "into the key store /home/.secrets/<keyname>.\n"
+        "into the key store ~/.secrets/<keyname>.\n"
         "The offset is decimal or 0x hexadecimal, like the ones txtx prints.",
     ),
     "ward": (
@@ -88,8 +88,8 @@ HELP = {
             "ward verify [<signature>] <file>", "ward sign -k <keyname> <file>",
         ),
         "<file> <password>  decrypt with a passphrase\n"
-        "-k <keyname>       decrypt with a key from /home/.secrets\n"
-        "keys               list the keys in /home/.secrets: ID, keyname and the file that holds it\n"
+        "-k <keyname>       decrypt with a key from ~/.secrets\n"
+        "keys               list the keys in ~/.secrets: ID, keyname and the file that holds it\n"
         "verify             check the signatures inside a file, or a detached signature (.sig) against a file\n"
         "sign               write <file>.sig, signed with a key you hold\n"
         "Archives are not handled here, see pak.",
@@ -157,7 +157,7 @@ HELP = {
         "open a remote console on another machine",
         ("rcon [-p <freq>] [-i <keyname>] [--token <token>] <login>@<host>",),
         "-p  endpoint (frequency) when the login is served on several\n"
-        "-i  key from /home/.secrets to present\n"
+        "-i  key from ~/.secrets to present\n"
         "The console opens on the machine this terminal is on and the desktop moves to the new one. Every open connection "
         "is a tab at the top of the terminal: a click moves the terminal there, the tab menu moves the desktop or closes "
         "the connection with everything opened from it. exit closes the current connection, rcon-close closes them all.",
@@ -196,7 +196,7 @@ class HelpCommand(BaseCommand):
         if len(args) > 1:
             return CommandResult("usage: help [command]", 2)
         if args:
-            return self.one(args[0], available)
+            return self.one(args[0], available, self.secrets(context))
         return self.listing(available)
 
     def listing(self, available):
@@ -216,7 +216,15 @@ class HelpCommand(BaseCommand):
         lines += ["", "help <command> shows the usage of a command."]
         return CommandResult("\n".join(lines).lstrip("\n"), 0)
 
-    def one(self, name, available):
+    @staticmethod
+    def secrets(context):
+        """Настоящая папка ключей текущей записи: в справке вместо ~/.secrets (у системы место может быть своим)."""
+        from filesystem.keystore import secrets_dir
+
+        profile = getattr(context, "profile", None)
+        return secrets_dir(context.machine, profile.login) if profile is not None else None
+
+    def one(self, name, available, secrets=None):
         if name not in available:
             return CommandResult(f"help: no such command '{name}'", 1)
         text = HELP.get(name)
@@ -226,4 +234,5 @@ class HelpCommand(BaseCommand):
         lines = [f"{name}: {summary}", "", "usage:", *(f"  {line}" for line in synopsis)]
         if details:
             lines += ["", *details.splitlines()]
-        return CommandResult("\n".join(lines), 0)
+        text = "\n".join(lines)
+        return CommandResult(text.replace("~/.secrets", secrets) if secrets else text, 0)

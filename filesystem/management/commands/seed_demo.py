@@ -2,7 +2,8 @@
 
     python manage.py seed_demo
 
-Команду можно запускать повторно: уже созданное не дублируется. Игрок входит под записью ivan на aether-main (пароль demo).
+Команду можно запускать повторно: уже созданное не дублируется. Игрок входит под записью ivan на aether-main (пароль demo),
+гость без входа (witness) попадает на aether-null.
 """
 from django.contrib.auth.hashers import make_password
 from django.core.management.base import BaseCommand
@@ -85,6 +86,9 @@ class Command(BaseCommand):
         mount(core, base, "/", 0)
         mount(core, harbor, "/srv/harbor", 0)
 
+        null, _ = Machine.objects.get_or_create(hostname="aether-null", defaults={"name": "Null", "system": system.code})
+        mount(null, base, "/", 0)                                             # машина гостя (witness): только образ
+
         main, _ = Machine.objects.get_or_create(hostname="aether-main", defaults={"name": "Main", "system": system.code})
         own, _ = Volume.objects.get_or_create(slug="aether-main-own", defaults={"label": "Отличия aether-main"})
         mount(main, base, "/", 0)
@@ -120,6 +124,6 @@ class Command(BaseCommand):
         ItemMember.objects.get_or_create(archive=inner, path="key.txt", defaults={"item": secret})
 
         self.stdout.write(self.style.SUCCESS(
-            "demo ready: machines aether-main (login ivan, password demo) and aether-core; "
+            "demo ready: machines aether-main (login ivan, password demo), aether-core and aether-null (guest); "
             f"{Item.objects.count()} objects, {Volume.objects.count()} volumes"
         ))

@@ -90,9 +90,14 @@
         const desktop = getDesktop();
 
         /* закрытая запись не открывается: система отвечает окном ошибки */
-        if (row.dataset.access === "locked") {
+        if (row.dataset.access === "locked" || row.dataset.access === "sealed") {
             if (desktop && desktop.error) {
-                desktop.error("access_denied", { object: row.dataset.key });
+                /* sealed: ключи подходят, но содержимое ещё закрыто слоями файла */
+                if (row.dataset.access === "sealed") {
+                    desktop.error("content_locked", { object: row.dataset.key });
+                } else {
+                    desktop.error("access_denied", { object: row.dataset.key });
+                }
             }
 
             return;
@@ -133,7 +138,7 @@
     /* панель свойств: поля объекта и начало его текста (то, что игрок вправе видеть) */
     function showProps(row) {
         const data = row.dataset;
-        const locked = data.access === "locked";
+        const locked = data.access !== "open";
 
         readerTitle.textContent = data.key;
         propsGrid.replaceChildren();
@@ -154,7 +159,7 @@
         });
 
         readerText.textContent = locked
-            ? "> restricted: no matching key"
+            ? (data.access === "sealed" ? "> restricted: content is locked" : "> restricted: no matching key")
             : data.excerpt || "";
 
         propsEmpty.hidden = true;
@@ -459,7 +464,7 @@
             tr.dataset.storage = item.storage || "-";
             tr.dataset.node = item.node || "";
             tr.dataset.etag = item.etag || "-";
-            tr.dataset.access = item.open ? "open" : "locked";
+            tr.dataset.access = item.open ? "open" : (item.sealed ? "sealed" : "locked");
             tr.dataset.excerpt = item.excerpt || "";
 
             /* название + приглушённое расширение */

@@ -146,29 +146,23 @@ class WikiViewsTests(TestCase):
         self.assertIn('data-objects="2"', line)  # «Секретная» и «Вложенная»
         self.assertNotIn("Скрытая", html)
 
-    def test_bucket_count_follows_new_and_removed_articles_despite_the_cache(self):
+    def test_bucket_count_follows_new_and_removed_articles(self):
         def objects():
             _, html, _ = call(views.resolve, "")
             return next(l for l in html.splitlines() if 'data-class="Bucket"' in l and 'data-key="Общий/"' in l)
 
         self.assertIn('data-objects="2"', objects())             # «Открытая» и «Со спойлером»; «Скрытая» не видна
-        self.assertIn('data-objects="2"', objects())           # из кэша
         added = make_document(namespace=self.root, title="Ещё одна", body="x")
         self.assertIn('data-objects="3"', objects())
         added.placement.delete()
         self.assertIn('data-objects="2"', objects())
 
-    def test_cached_rows_follow_an_edited_article(self):
+    def test_rows_follow_an_edited_article(self):
         _, html, _ = call(views.resolve, "Общий")
         self.assertIn("Открытая", html)
-        call(views.resolve, "Общий")                                  # из кэша
-        pass
         from filesystem.models import Item
 
         Item.objects.filter(pk=self.open_doc.item.pk).update(name="Переименована")
-        from wiki.versioning import bump_version
-
-        bump_version()
         _, html, _ = call(views.resolve, "Общий")
         self.assertIn("Переименована", html)
         self.assertNotIn(">Открытая<", html)

@@ -120,7 +120,7 @@ class SourceKindTests(TestCase):
 
     def test_the_window_of_each_kind(self):
         entry = self.entry("/asset", url=f"view/{self.asset.public_id}/")
-        self.assertEqual(self.window(entry).url, f"/view/{entry.item.public_id}/")
+        self.assertEqual(self.window(entry).url, f"/view/{entry.item.public_id}/?path=%2Fasset")          # адрес файла идёт вьюверу
         self.assertEqual(self.window(self.entry("/link", url="apps/x/")).url, "https://example.com/x")
         self.assertIn("/text/?path=%2Ftext", self.window(self.entry("/text", body="hello")).url)
         self.assertIn("/text/?path=%2Fkey", self.window(self.entry("/key", key="alpha")).url)

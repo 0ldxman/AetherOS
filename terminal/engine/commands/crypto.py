@@ -16,7 +16,7 @@ class WardCommand(LayerCommand):
 
     ward verify <файл>                  проверить подписи, лежащие в самом файле
     ward verify <подпись> <файл>        проверить отдельный файл подписи (.sig)
-    ward sign -k <ключ> <файл>          подписать файл ключом из /home/.secrets, подпись ляжет рядом (<файл>.sig)"""
+    ward sign -k <ключ> <файл>          подписать файл ключом из ~/.secrets, подпись ляжет рядом (<файл>.sig)"""
 
     name = "ward"
     layer = "encrypted"
@@ -58,7 +58,7 @@ class WardCommand(LayerCommand):
         return keystore.secrets_dir(context.machine, context.profile.login)
 
     def held_key(self, context, name):
-        """slug ключа с таким именем в /home/.secrets или None."""
+        """slug ключа с таким именем в ~/.secrets или None."""
         return name if name in keystore.slugs_of(context.session) else None
 
     def with_key(self, context, args):

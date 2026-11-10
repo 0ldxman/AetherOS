@@ -2,5 +2,5 @@
 {% block title %}Доступ закрыт{% endblock %}
 {% block content %}
 <h1>{% if title %}{{ title }} {% endif %}🔒</h1>
-<p>Доступ закрыт.</p>
+<p>{% if sealed %}Содержимое файла закрыто.{% else %}Доступ закрыт.{% endif %}</p>
 {% endblock %}

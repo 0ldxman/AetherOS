@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import logging
-from urllib.parse import quote
 
 from django.contrib.admin.views.decorators import (
     staff_member_required,
@@ -16,6 +15,7 @@ from django.shortcuts import get_object_or_404, render
 from django.urls import reverse
 from django.utils.http import content_disposition_header
 
+from filesystem.content.locate import address_of, query
 from filesystem.content.rawview import viewer_formats
 
 from assets.nextcloud import NextcloudClient
@@ -37,15 +37,32 @@ def browse_nextcloud(request):
 
 
 def _asset_item(request, public_id):
-    """Объект с файлом по публичному адресу. Условие доступа объекта действует и на прямую ссылку: без нужных ключей 403."""
+    """Объект с файлом по публичному адресу.
+
+    Открытый из файлов игрока или раздела вики (?path=, ?wiki=, filesystem.content.locate) файл проверяется как место:
+    условия папок и места (оно может заменить условие объекта или снять его) и слои с прогрессом игрока, как у cnt.
+    По голой ссылке (картинка в документе) действует условие самого объекта. Без нужных ключей 403.
+    """
     from django.core.exceptions import PermissionDenied
 
+    from filesystem.content.locate import address_of, locate
+    from filesystem.content.window import layers_block
     from filesystem.models import Item
     from secure.access import satisfied
     from secure.requestkeys import request_keys
 
     item = get_object_or_404(Item.objects.exclude(file_id=""), public_id=public_id)
-    if item.access and not request.user.is_staff and not satisfied(item.access, request_keys(request)):
+    if request.user.is_staff:
+        return item
+    keys = request_keys(request)
+    if address_of(request):
+        entry, _ = locate(request)
+        if entry.item is None or entry.item.pk != item.pk:
+            raise Http404
+        if layers_block(entry) or not all(satisfied(condition, keys) for condition in entry.conditions):
+            raise PermissionDenied
+        return item
+    if item.access and not satisfied(item.access, keys):
         raise PermissionDenied
     return item
 
@@ -79,7 +96,7 @@ def asset_viewer(request, public_id):
             "filename": item.file_name,
             "content_type": item.file_type,
             "viewer_type": viewer_type,
-            "content_url": reverse("asset_viewer:content", kwargs={"public_id": item.public_id}) + f"?v={quote(item.file_id)}",
+            "content_url": reverse("asset_viewer:content", kwargs={"public_id": item.public_id}) + "?" + query(address_of(request), v=item.file_id),
             "formats_json": viewer_formats(),
         },
     )
