@@ -1,5 +1,7 @@
 <script lang="ts">
   // CodeMirror с нашей разметкой (подсветка, сворачивание блоков) или простым текстом. Ctrl+S зовёт onsave.
+  // shared: общий текст комнаты (team.collab): правка идёт прямо в него, видны курсоры и выделения других авторов.
+  // Такой редактор пересоздаётся, если сменился общий текст (снаружи: {#key}).
   import { onMount } from "svelte";
   import { Compartment, EditorState } from "@codemirror/state";
   import { EditorView, drawSelection, highlightActiveLine, highlightActiveLineGutter, keymap, lineNumbers } from "@codemirror/view";
@@ -12,12 +14,17 @@
   import { aetherFoldGutter, aetherFoldService } from "$documents/editor/aether-fold.js";
   // @ts-expect-error то же
   import { aetherHighlightStyle } from "$documents/editor/aether-theme.js";
+  import * as Y from "yjs";
+  import { yCollab, yUndoManagerKeymap } from "y-codemirror.next";
+  import { focusField, roomAwareness } from "./collab.svelte";
 
-  let { value = $bindable(""), markup = false, readonly = false, onsave }: {
+  let { value = $bindable(""), markup = false, readonly = false, onsave, shared = null, field = "" }: {
     value?: string;
     markup?: boolean;
     readonly?: boolean;
     onsave?: () => void;
+    shared?: Y.Text | null;
+    field?: string;               // как поле назвать другим авторам, когда здесь фокус
   } = $props();
 
   let host: HTMLDivElement;
@@ -44,18 +51,24 @@
   }
 
   onMount(() => {
+    const awareness = roomAwareness();
+    const together = shared && awareness
+      ? [yCollab(shared, awareness, { undoManager: new Y.UndoManager(shared) }), keymap.of(yUndoManagerKeymap)]
+      : [history(), keymap.of(historyKeymap)];
     view = new EditorView({
       parent: host,
       state: EditorState.create({
-        doc: value,
+        doc: shared && awareness ? shared.toString() : value,
         extensions: [
-          lineNumbers(), history(), drawSelection(), highlightActiveLine(), highlightActiveLineGutter(), highlightSelectionMatches(),
+          lineNumbers(), drawSelection(), highlightActiveLine(), highlightActiveLineGutter(), highlightSelectionMatches(),
+          together,
+          EditorView.domEventHandlers({ focus: () => { if (field) focusField(field); }, blur: () => { if (field) focusField(""); } }),
           EditorView.lineWrapping, theme,
           language.of(languageFor(markup)),
           editable.of(EditorState.readOnly.of(readonly)),
           keymap.of([
             { key: "Mod-s", preventDefault: true, run: () => { onsave?.(); return true; } },
-            indentWithTab, ...defaultKeymap, ...historyKeymap, ...searchKeymap,
+            indentWithTab, ...defaultKeymap, ...searchKeymap,
           ]),
           EditorView.updateListener.of((update) => {
             if (update.docChanged) value = update.state.doc.toString();
@@ -68,7 +81,7 @@
 
   // снаружи пришёл другой текст (восстановили версию, перечитали объект): заменяем без потери положения прокрутки
   $effect(() => {
-    if (view && value !== view.state.doc.toString()) {
+    if (view && !shared && value !== view.state.doc.toString()) {      // общий текст правится через Yjs, не отсюда
       view.dispatch({ changes: { from: 0, to: view.state.doc.length, insert: value } });
     }
   });
@@ -84,4 +97,6 @@
 
 <style>
   .code { height: 100%; min-height: 0; overflow: hidden; }
+  .code :global(.cm-ySelectionInfo) { font: 600 10.5px/1.2 var(--sans, system-ui); padding: 1px 4px; border-radius: 3px 3px 3px 0; opacity: 1; top: -1.2em; }
+  .code :global(.cm-ySelectionCaret) { border-left-width: 2px; }
 </style>

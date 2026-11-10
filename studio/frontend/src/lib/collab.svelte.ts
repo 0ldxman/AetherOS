@@ -5,7 +5,10 @@ import { WebsocketProvider } from "y-websocket";
 
 export type Peer = { id: number; name: string; color: string; field: string };
 
-export const presence = $state<{ room: string; peers: Peer[]; connected: boolean }>({ room: "", peers: [], connected: false });
+// epoch растёт при каждой смене комнаты: по нему редакторы заново берут документ (roomDoc) и присутствие (roomAwareness)
+export const presence = $state<{ room: string; peers: Peer[]; connected: boolean; synced: boolean; epoch: number; me: string }>(
+  { room: "", peers: [], connected: false, synced: false, epoch: 0, me: "" },
+);
 
 let current: { room: string; doc: Y.Doc; provider: WebsocketProvider } | null = null;
 
@@ -32,7 +35,7 @@ export function enter(room: string, name: string): void {
   if (!room || !name) return;
   const doc = new Y.Doc();
   const provider = new WebsocketProvider(serverUrl(), room, doc, { disableBc: true });
-  provider.awareness.setLocalStateField("user", { name, color: colorOf(name) });
+  provider.awareness.setLocalStateField("user", { name, color: colorOf(name), colorLight: colorOf(name) + "33" });
   const update = () => {
     const peers: Peer[] = [];
     provider.awareness.getStates().forEach((state, id) => {
@@ -43,7 +46,10 @@ export function enter(room: string, name: string): void {
   };
   provider.awareness.on("change", update);
   provider.on("status", (event: { status: string }) => { presence.connected = event.status === "connected"; });
+  provider.on("sync", (synced: boolean) => { presence.synced = synced; });
   current = { room, doc, provider };
+  presence.me = name;
+  presence.epoch++;
 }
 
 export function leave(): void {
@@ -54,11 +60,17 @@ export function leave(): void {
   current = null;
   presence.peers = [];
   presence.connected = false;
+  presence.synced = false;
+  presence.epoch++;
 }
 
 /** Документ текущей комнаты (для редакторов, которые привязывают к нему поля). */
 export function roomDoc(): Y.Doc | null {
   return current?.doc ?? null;
+}
+
+export function roomAwareness(): WebsocketProvider["awareness"] | null {
+  return current?.provider.awareness ?? null;
 }
 
 /** Сообщить остальным, в каком поле фокус автора (пусто: ни в каком). */

@@ -16,6 +16,9 @@
   import ContentPicker from "./item/ContentPicker.svelte";
   import AppIcon from "./item/AppIcon.svelte";
   import AppVolumes from "./item/AppVolumes.svelte";
+  import { SharedForm } from "../lib/shared.svelte";
+  import { focusField, presence } from "../lib/collab.svelte";
+  import { ask } from "../lib/confirm.svelte";
 
   type Item = Schemas["ItemOut"];
 
@@ -26,11 +29,11 @@
   let draft = $state({ name: "", format: "", body: "", meta: "", url: "", world_creator: "",
     world_created_at: null as string | null, world_updated_at: null as string | null });
   let saved = $state("");
+  let base = $state<typeof draft | null>(null);              // сохранённое в мире: им наполняется общий черновик
   let formats = $state<Schemas["Format"][]>([]);
   let tab = $state<"body" | "meta" | "props">("body");
   let saving = $state(false);
   let conflict = $state<Schemas["Conflict"] | null>(null);
-  let holder = $state<Schemas["Holder"] | null>(null);
   let issues = $state<Schemas["Issue"][]>([]);
   let keysMode = $state<"all" | "none">("all");
   const previewTab = $derived<"body" | "infobox">(tab === "meta" ? "infobox" : "body");   // предпросмотр следует за вкладкой редактора
@@ -43,18 +46,44 @@
   const textual = $derived(!format || format.content === "text" || format.content === "text_asset");
   const linkable = $derived(format?.content === "link_asset");
   const dirty = $derived(JSON.stringify(draft) !== saved);
-  guardUnsaved(() => saved !== "" && dirty, (next) => next.split("?")[0].split("/")[2] === String(id));
+  // в совместном режиме черновик хранится на сервере: уйти со страницы можно без потерь
+  guardUnsaved(() => saved !== "" && dirty && !share.ready, (next) => next.split("?")[0].split("/")[2] === String(id));
 
-  function fill(found: Item) {
-    item = found;
-    draft = {
+  function values(found: Item) {
+    return {
       name: found.name, format: found.format, body: found.body, meta: found.meta, url: found.url, world_creator: found.world_creator,
       world_created_at: found.world_created_at ?? null, world_updated_at: found.world_updated_at ?? null,
     };
+  }
+
+  function fill(found: Item) {
+    item = found;
+    draft = values(found);
     saved = JSON.stringify(draft);
-    holder = found.holder ?? null;
+    base = values(found);
     source = found.asset ? "file" : "text";
   }
+
+  // кто-то в комнате сохранил: перечитать сохранённое (версию и дату), общий черновик не трогается
+  async function refreshSaved() {
+    const { data } = await api.GET("/studio/api/items/{item_id}", { params: { path: { item_id: id } } });
+    if (!data) return;
+    item = data;
+    saved = JSON.stringify(values(data));
+    base = values(data);
+    conflict = null;
+  }
+
+  // общий черновик комнаты объекта: тексты с курсорами других, остальное общими значениями
+  const share = new SharedForm({
+    room: () => `items/${id}`,
+    texts: ["name", "body", "meta", "url", "world_creator"],
+    values: ["format", "world_created_at", "world_updated_at"],
+    draft: () => draft,
+    base: () => base,
+    onRemoteSave: refreshSaved,
+  });
+
 
   async function load() {
     const { data, error } = await api.GET("/studio/api/items/{item_id}", { params: { path: { item_id: id } } });
@@ -80,18 +109,20 @@
     }
     conflict = null;
     fill(data);
+    share.markSaved();
     toast("Сохранено.");
+  }
+
+  async function discard() {
+    const who = share.editors.filter((name) => name !== presence.me);
+    const text = who.length ? `В черновике есть правки ${who.join(", ")}: они тоже пропадут.` : "Текст вернётся к сохранённому.";
+    if (!(await ask("Отменить правки черновика?", text, "Отменить правки"))) return;
+    share.discard();
   }
 
   async function reload() {
     conflict = null;
     await load();
-  }
-
-  // занятие: пока страница открыта, объект помечен как «правит такой-то»; другой автор видит это сразу
-  async function heartbeat() {
-    const { data, response } = await api.POST("/studio/api/items/{item_id}/lock", { params: { path: { item_id: id } } });
-    holder = response.status === 423 ? (data as unknown as Schemas["Holder"]) : null;
   }
 
   let menu = $state(false);
@@ -110,12 +141,6 @@
   onMount(() => {
     api.GET("/studio/api/formats").then(({ data }) => (formats = data ?? []));
     load();
-    heartbeat();
-    const beat = setInterval(heartbeat, 25_000);
-    return () => {
-      clearInterval(beat);
-      api.DELETE("/studio/api/items/{item_id}/lock", { params: { path: { item_id: id } } });
-    };
   });
 
   const origin = takeOrigin();
@@ -137,10 +162,10 @@
   <div class="item">
     <header class="head">
       <button class="btn ghost" onclick={back} aria-label={backLabel} title={backLabel}>←</button>
-      <input class="title" bind:value={draft.name} aria-label="Название" class:bad={fieldErrors.name} />
+      <input class="title" bind:value={draft.name} aria-label="Название" class:bad={fieldErrors.name} onfocus={() => focusField("Название")} onblur={() => focusField("")} />
       <span class="chip" title={draft.format ? "Формат объекта" : "Формат не выбран: объект показывается как обычный текст. Выбрать можно на вкладке «Содержимое», «Свойства»."}>{draft.format || "без формата"}</span>
       <span class="status muted">
-        {#if anyDirty}<span class="dot"></span>Не сохранено{:else}Сохранено {when(item.updated_at)}{item.updated_by ? ` · ${item.updated_by}` : ""}{/if}
+        {#if anyDirty}<span class="dot"></span>Не сохранено{#if share.editors.length}&nbsp;· правили: {share.editors.join(", ")}{/if}{:else}Сохранено {when(item.updated_at)}{item.updated_by ? ` · ${item.updated_by}` : ""}{/if}
       </span>
       {#if item.view_url}
         <div class="openbtn">
@@ -155,6 +180,7 @@
         </div>
       {/if}
       <a class="legacy" href={adminUrl(`filesystem/item/${item.id}/change/`)} title="Старая админка: на время переезда">старая админка</a>
+      {#if dirty && share.ready}<button class="btn ghost" onclick={discard} title="Вернуть сохранённое: правки черновика пропадут у всех">Отменить правки</button>{/if}
       <button class="btn primary" disabled={!anyDirty || saving} onclick={saveAll}>{saving ? "Сохраняю…" : "Сохранить"}</button>
     </header>
 
@@ -166,8 +192,6 @@
         <button class="btn" onclick={reload}>Открыть их версию</button>
         <button class="btn danger" onclick={() => save(true)}>Сохранить моё поверх</button>
       </div>
-    {:else if holder}
-      <div class="banner warn">Сейчас этот объект правит <b>{holder.user}</b> (с {when(holder.since)}). Сохранить можно, но правки могут разойтись.</div>
     {/if}
 
     <nav class="pagetabs">
@@ -208,10 +232,10 @@
                 <div class="stack">
                   <AppIcon bind:body={draft.body} />
                   <AppVolumes bind:body={draft.body} />
-                  <div class="grow"><CodeEditor bind:value={draft.body} markup={false} onsave={() => save()} /></div>
+                  <div class="grow">{#key share.texts.body}<CodeEditor bind:value={draft.body} shared={share.texts.body ?? null} field="Текст" markup={false} onsave={() => save()} />{/key}</div>
                 </div>
               {:else}
-                <CodeEditor bind:value={draft.body} markup={format?.markup ?? false} onsave={() => save()} />
+                {#key share.texts.body}<CodeEditor bind:value={draft.body} shared={share.texts.body ?? null} field="Текст" markup={format?.markup ?? false} onsave={() => save()} />{/key}
               {/if}
             {:else}
               {#if format && format.content !== "none"}
@@ -221,7 +245,7 @@
               {/if}
             {/if}
           {:else if tab === "meta"}
-            <CodeEditor bind:value={draft.meta} markup onsave={() => save()} />
+            {#key share.texts.meta}<CodeEditor bind:value={draft.meta} shared={share.texts.meta ?? null} field="Врезка" markup onsave={() => save()} />{/key}
           {:else}
             <div class="props">
               <label><span class="label">Формат</span>

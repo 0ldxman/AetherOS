@@ -10,12 +10,15 @@
   import Dialog from "../lib/Dialog.svelte";
   import { go, takeOrigin } from "../lib/router.svelte";
   import { toast } from "../lib/toast.svelte";
+  import { SharedForm } from "../lib/shared.svelte";
+  import { ask } from "../lib/confirm.svelte";
 
   let { volume, id }: { volume: number; id: number } = $props();
 
   let file = $state<Schemas["TextFile"] | null>(null);
   let form = $state({ content: "", access: "", state: "" });
   let saved = $state("");
+  let base = $state<typeof form | null>(null);               // сохранённое в мире: им наполняется общий черновик
   let preview = $state<Schemas["TextPreview"] | null>(null);
   let formats = $state<Schemas["Format"][]>([]);
   let errors = $state<Record<string, string[]>>({});
@@ -24,7 +27,7 @@
 
   const path = $derived({ volume_id: volume, placement_id: id });
   const dirty = $derived(JSON.stringify(form) !== saved);
-  guardUnsaved(() => saved !== "" && dirty);
+  guardUnsaved(() => saved !== "" && dirty && !share.ready);      // в совместном режиме черновик на сервере
 
   const known = $derived(formats.find((found) => found.name === file?.format));
   const markup = $derived(known?.markup ?? false);
@@ -58,7 +61,25 @@
     file = data;
     form = { content: data.content, access: data.access, state: data.state };
     saved = JSON.stringify(form);
+    base = { content: data.content, access: data.access, state: data.state };
   }
+
+  // общий черновик комнаты файла; кто-то сохранил: перечитать версию, черновик не трогается
+  const share = new SharedForm({
+    room: () => `volumes/${volume}/text-files/${id}`,
+    texts: ["content", "access", "state"],
+    values: [],
+    draft: () => form,
+    base: () => base,
+    onRemoteSave: async () => {
+      const { data } = await api.GET("/studio/api/volumes/{volume_id}/text-files/{placement_id}", { params: { path } });
+      if (!data) return;
+      file = data;
+      saved = JSON.stringify({ content: data.content, access: data.access, state: data.state });
+      base = { content: data.content, access: data.access, state: data.state };
+      conflict = null;
+    },
+  });
 
   onMount(async () => {
     formats = (await api.GET("/studio/api/formats")).data ?? [];
@@ -92,7 +113,13 @@
     }
     conflict = null;
     fill(data);
+    share.markSaved();
     toast("Сохранено.");
+  }
+
+  async function discard() {
+    if (!(await ask("Отменить правки черновика?", share.editors.length ? `Правили: ${share.editors.join(", ")}. Пропадёт у всех.` : "", "Отменить правки"))) return;
+    share.discard();
   }
 
   async function reload() {
@@ -124,8 +151,9 @@
       <span class="chip" title={file.format ? "Формат по расширению имени" : "Такого формата нет в каталоге: файл остаётся текстом"}>{file.format || (file.name.includes(".") && !file.name.startsWith(".") ? file.name.slice(file.name.lastIndexOf(".")) : "без формата")}</span>
       <span class="chip own">свой текст</span>
       <span class="spacer"></span>
-      <span class="muted small">{dirty ? "Не сохранено" : "Сохранено"}</span>
+      <span class="muted small">{dirty ? `Не сохранено${share.editors.length ? ` · правили: ${share.editors.join(", ")}` : ""}` : "Сохранено"}</span>
       <button class="btn ghost" onclick={() => (converting = true)}>Сделать объектом</button>
+      {#if dirty && share.ready}<button class="btn ghost" onclick={discard}>Отменить правки</button>{/if}
       <button class="btn primary" disabled={!dirty} onclick={() => save()}>Сохранить</button>
     </header>
 
@@ -140,7 +168,7 @@
     <div class="cols">
       <section class="pane">
         <h2>Текст</h2>
-        <div class="editor"><CodeEditor bind:value={form.content} {markup} onsave={() => save()} /></div>
+        <div class="editor">{#key share.texts.content}<CodeEditor bind:value={form.content} shared={share.texts.content ?? null} field="Текст" {markup} onsave={() => save()} />{/key}</div>
       </section>
 
       <div class="side">
