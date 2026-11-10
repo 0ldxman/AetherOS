@@ -5,6 +5,9 @@
   import PageHead from "../lib/PageHead.svelte";
   import { me } from "../lib/me.svelte";
   import { discussion } from "../lib/discussion.svelte";
+  import { priorityColor } from "../lib/tasks";
+  import { checkNotes, notes as noteState } from "../lib/notes.svelte";
+  import { untrack } from "svelte";
 
   type Change = Schemas["TeamChange"];
   const PAGE = 40;
@@ -18,6 +21,8 @@
   let sections = $state<Schemas["TeamSection"][]>([]);
   let inbox = $state<Schemas["CmInbox"] | null>(null);
   let live = $state<Schemas["TeamLive"][] | null>(null);
+  let notes = $state<Schemas["NtInbox"] | null>(null);
+  let myTasks = $state<Schemas["TkOut"][] | null>(null);
 
   async function loadFeed(append = false) {
     loading = true;
@@ -33,6 +38,7 @@
   onMount(async () => {
     const [d, t, c, l] = await Promise.all([api.GET("/studio/api/dashboard"), api.GET("/studio/api/team"), api.GET("/studio/api/comments/inbox"), api.GET("/studio/api/team/live")]);
     live = l.data ?? [];
+    await loadMine();
     dash = d.data ?? null;
     inbox = c.data ?? null;
     sections = t.data?.sections ?? [];
@@ -72,6 +78,21 @@
   });
 
   const ACTION_MARK: Record<string, string> = { create: "+", update: "✎", delete: "×", act: "•" };
+  const NOTE_MARK: Record<string, string> = { assigned: "→", mention: "@", due: "…", overdue: "!" };
+
+  async function readNotes(ids: number[]) {
+    const { data } = await api.POST("/studio/api/notifications/read", { body: { ids } });
+    if (data) notes = data;
+    checkNotes();
+  }
+
+  // уведомления и свои задачи; перечитываются, когда меняется число непрочитанных (новое назначение, срок, упоминание)
+  async function loadMine() {
+    const [n, m] = await Promise.all([api.GET("/studio/api/notifications"), api.GET("/studio/api/tasks", { params: { query: { mine: true, status: "open,doing,review" } } })]);
+    notes = n.data ?? null;
+    myTasks = (m.data ?? []).sort((a, b) => Number(b.overdue) - Number(a.overdue) || b.priority - a.priority);
+  }
+  $effect(() => { noteState.stamp; untrack(() => { if (notes) loadMine(); }); });
 </script>
 
 <PageHead title="Главная">
@@ -81,7 +102,7 @@
 <div class="stats">
   <div class="stat"><b>{dash?.online.length ?? "…"}</b><span>игроков в мире</span></div>
   <div class="stat"><b>{dash?.changes_today ?? "…"}</b><span>изменений сегодня</span></div>
-  <div class="stat"><b>{dash?.authors_today ?? "…"}</b><span>авторов работали сегодня</span></div>
+  <div class="stat"><b>{myTasks?.length ?? "…"}</b><span>моих открытых задач</span></div>
   <div class="stat" class:warn={!!dash?.problems.length}><b>{dash?.problems.length ?? "…"}</b><span>замечаний к миру</span></div>
 </div>
 
@@ -126,6 +147,44 @@
   </section>
 
   <div class="side">
+    <section class="panel">
+      <header class="panel-head"><h2>Уведомления{#if notes?.unread}<span class="badge new">{notes.unread}</span>{/if}</h2><span class="spacer"></span>
+        {#if notes?.unread}<button class="btn ghost tiny-btn" onclick={() => readNotes([])}>Прочитать все</button>{/if}</header>
+      {#if !notes}
+        <p class="muted empty">Загрузка…</p>
+      {:else if !notes.rows.length}
+        <p class="muted empty">Уведомлений нет: здесь появятся назначенные вам задачи, упоминания и сроки.</p>
+      {:else}
+        <ul class="rows">
+          {#each notes.rows.slice(0, 8) as note (note.id)}
+            <li class="note" class:unread={!note.read}>
+              <span class="mark {note.kind}" aria-hidden="true">{NOTE_MARK[note.kind] ?? "•"}</span>
+              {#if note.link}<a href={note.link} onclick={() => readNotes([note.id])}>{note.text}</a>{:else}<span>{note.text}</span>{/if}
+            </li>
+          {/each}
+        </ul>
+      {/if}
+    </section>
+
+    <section class="panel">
+      <header class="panel-head"><h2>Мои задачи</h2><span class="spacer"></span><a class="small-note" href="#/tasks">все задачи →</a></header>
+      {#if !myTasks}
+        <p class="muted empty">Загрузка…</p>
+      {:else if !myTasks.length}
+        <p class="muted empty">Открытых задач на вас нет.</p>
+      {:else}
+        <ul class="rows">
+          {#each myTasks.slice(0, 8) as task (task.id)}
+            <li class="row">
+              <span class="prio" style="--prio: {priorityColor(task.priority)}" title="Приоритет {task.priority}">{task.priority}</span>
+              <span class="what"><a href="#/tasks/{task.id}">{task.title}</a> <span class="muted">· {task.status_label}</span></span>
+              {#if task.due}<span class="when" class:late={task.overdue}>{task.overdue ? "просрочено" : new Date(task.due + "T00:00:00").toLocaleDateString("ru-RU", { day: "numeric", month: "short" })}</span>{/if}
+            </li>
+          {/each}
+        </ul>
+      {/if}
+    </section>
+
     <section class="panel">
       <header class="panel-head"><h2>В работе</h2></header>
       {#if !live}
@@ -245,6 +304,15 @@
   .badge { padding: 1px 7px; border-radius: 999px; background: var(--accent-soft); font-size: 11px; }
   .badge.new { background: none; border: 1px solid var(--accent); color: var(--accent); }
   .small-note { font-size: 12px; }
+  .tiny-btn { padding: 1px 8px; font-size: 12px; }
+  .panel-head .badge { margin-left: 6px; }
+  .note { display: flex; gap: 8px; align-items: baseline; padding: 5px 0; border-bottom: 1px solid var(--line-soft); }
+  .note:last-child { border-bottom: 0; }
+  .note:not(.unread) { opacity: 0.6; }
+  .note .mark { width: 16px; text-align: center; color: var(--accent); flex: none; font-weight: 700; }
+  .note .mark.overdue { color: var(--danger); }
+  .prio { flex: none; display: inline-grid; place-items: center; min-width: 20px; height: 20px; border-radius: 6px; background: color-mix(in srgb, var(--prio) 22%, transparent); color: var(--prio); font-size: 12px; font-weight: 700; align-self: center; }
+  .late { color: var(--danger); }
   .problem span { font-size: 12.5px; }
   .empty { margin: 6px 0; }
   .more { margin-top: 8px; }

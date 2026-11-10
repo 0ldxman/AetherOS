@@ -51,7 +51,8 @@ class BoardsTests(TestCase):
 
     def test_entities_are_found_by_name_for_cards(self):
         found = self.client.get("/studio/api/boards/entities?q=core").json()
-        self.assertIn({"kind": "Машина", "label": "aether-core", "link": f"#/machines/{Machine.objects.get().pk}"}, found)
+        pk = Machine.objects.get().pk
+        self.assertIn({"kind": "Машина", "label": "aether-core", "link": f"#/machines/{pk}", "target": f"machines/{pk}"}, found)
 
     def test_the_document_of_a_board_is_kept_without_unsaved_changes(self):
         board = Board.objects.get(main=True)

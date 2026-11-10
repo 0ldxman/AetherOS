@@ -2924,6 +2924,131 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/studio/api/tasks": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Task List */
+        get: operations["studio_api_tasks_task_list"];
+        put?: never;
+        /** Task Create */
+        post: operations["studio_api_tasks_task_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/studio/api/tasks/meta": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Task Meta
+         * @description Статусы, авторы (кого назначить) и уже встречавшиеся метки.
+         */
+        get: operations["studio_api_tasks_task_meta"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/studio/api/tasks/{task_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Task Get */
+        get: operations["studio_api_tasks_task_get"];
+        /** Task Update */
+        put: operations["studio_api_tasks_task_update"];
+        post?: never;
+        /** Task Delete */
+        delete: operations["studio_api_tasks_task_delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/studio/api/tasks/{task_id}/move": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Task Move */
+        post: operations["studio_api_tasks_task_move"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/studio/api/tasks/from-thread": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Task From Thread */
+        post: operations["studio_api_tasks_task_from_thread"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/studio/api/notifications": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Notification Inbox */
+        get: operations["studio_api_tasks_notification_inbox"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/studio/api/notifications/read": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Notification Read */
+        post: operations["studio_api_tasks_notification_read"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -6873,6 +6998,153 @@ export interface components {
             label: string;
             /** Link */
             link: string;
+            /** Target */
+            target: string;
+        };
+        /** TkLink */
+        TkLink: {
+            /** Target */
+            target: string;
+            /** Kind */
+            kind: string;
+            /** Label */
+            label: string;
+            /** Link */
+            link: string;
+        };
+        /** TkOut */
+        TkOut: {
+            /** Id */
+            id: number;
+            /** Title */
+            title: string;
+            /** Body */
+            body: string;
+            /** Status */
+            status: string;
+            /** Status Label */
+            status_label: string;
+            /** Priority */
+            priority: number;
+            /** Due */
+            due: string | null;
+            /** Overdue */
+            overdue: boolean;
+            /** Labels */
+            labels: string[];
+            /** Links */
+            links: components["schemas"]["TkLink"][];
+            /** Assignees */
+            assignees: number[];
+            /** Assignee Names */
+            assignee_names: string[];
+            /** Created By */
+            created_by: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+            /** Deletable */
+            deletable: boolean;
+        };
+        /** TkIn */
+        TkIn: {
+            /** Title */
+            title: string;
+            /**
+             * Body
+             * @default
+             */
+            body: string;
+            /**
+             * Status
+             * @default open
+             */
+            status: string;
+            /**
+             * Priority
+             * @default 5
+             */
+            priority: number;
+            /** Due */
+            due?: string | null;
+            /**
+             * Labels
+             * @default []
+             */
+            labels: string[];
+            /**
+             * Links
+             * @default []
+             */
+            links: string[];
+            /**
+             * Assignees
+             * @default []
+             */
+            assignees: number[];
+        };
+        /** TkMeta */
+        TkMeta: {
+            /** Statuses */
+            statuses: {
+                [key: string]: string;
+            }[];
+            /** Authors */
+            authors: {
+                [key: string]: string | number;
+            }[];
+            /** Labels */
+            labels: string[];
+        };
+        /** TkMove */
+        TkMove: {
+            /** Status */
+            status: string;
+        };
+        /** TkThread */
+        TkThread: {
+            /** Thread */
+            thread: number;
+        };
+        /** NtInbox */
+        NtInbox: {
+            /** Rows */
+            rows: components["schemas"]["NtRow"][];
+            /** Unread */
+            unread: number;
+        };
+        /** NtRow */
+        NtRow: {
+            /** Id */
+            id: number;
+            /** Kind */
+            kind: string;
+            /** Text */
+            text: string;
+            /** Link */
+            link: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Read */
+            read: boolean;
+        };
+        /** NtRead */
+        NtRead: {
+            /**
+             * Ids
+             * @default []
+             */
+            ids: number[];
         };
     };
     responses: never;
@@ -11907,6 +12179,240 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["BdEntity"][];
+                };
+            };
+        };
+    };
+    studio_api_tasks_task_list: {
+        parameters: {
+            query?: {
+                status?: string;
+                assignee?: number | null;
+                label?: string;
+                target?: string;
+                overdue?: boolean;
+                q?: string;
+                mine?: boolean;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TkOut"][];
+                };
+            };
+        };
+    };
+    studio_api_tasks_task_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TkIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TkOut"];
+                };
+            };
+        };
+    };
+    studio_api_tasks_task_meta: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TkMeta"];
+                };
+            };
+        };
+    };
+    studio_api_tasks_task_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                task_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TkOut"];
+                };
+            };
+        };
+    };
+    studio_api_tasks_task_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                task_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TkIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TkOut"];
+                };
+            };
+        };
+    };
+    studio_api_tasks_task_delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                task_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    studio_api_tasks_task_move: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                task_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TkMove"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TkOut"];
+                };
+            };
+        };
+    };
+    studio_api_tasks_task_from_thread: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TkThread"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TkOut"];
+                };
+            };
+        };
+    };
+    studio_api_tasks_notification_inbox: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NtInbox"];
+                };
+            };
+        };
+    };
+    studio_api_tasks_notification_read: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NtRead"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NtInbox"];
                 };
             };
         };

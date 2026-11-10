@@ -56,7 +56,11 @@ def post(user, target, text, parent_id=None):
     kind, label, link, _, _ = changes.describe(target)
     comment = Comment.objects.create(target=target, kind=kind, label=label[:200], link=link, parent=parent,
                                      author=user, username=user.get_username(), text=text)
-    comment.mentions.set(_mentioned(text))
+    mentioned = _mentioned(text)
+    comment.mentions.set(mentioned)
+    from team import notify
+
+    notify.mentioned(user, comment, mentioned)
     if parent is not None and parent.resolved_at:
         parent.resolved_at, parent.resolved_by = None, ""                 # ответ снова открывает обсуждение
         parent.save(update_fields=["resolved_at", "resolved_by"])

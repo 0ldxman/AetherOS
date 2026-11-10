@@ -63,6 +63,12 @@ def entities(text):
         found.append({"kind": "ОС", "label": system.code, "link": f"#/systems/{system.code}"})
     for scene in SceneScript.objects.filter(Q(slug__icontains=text) | Q(title__icontains=text))[:ENTITY_LIMIT]:
         found.append({"kind": "Сцена", "label": scene.title or scene.slug, "link": f"#/scenes/{scene.slug}"})
+    from team.models import Task
+
+    for task in Task.objects.filter(title__icontains=text)[:ENTITY_LIMIT]:
+        found.append({"kind": "Задача", "label": task.title, "link": f"#/tasks/{task.pk}"})
     for user in get_user_model().objects.filter(username__icontains=text, is_superuser=False)[:ENTITY_LIMIT]:
         found.append({"kind": "Игрок", "label": user.get_username(), "link": f"#/players/{user.pk}"})
+    for row in found:
+        row["target"] = row["link"].removeprefix("#/")             # путь API сущности: им задача ссылается на неё
     return found

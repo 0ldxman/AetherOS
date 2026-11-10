@@ -5,6 +5,8 @@
   import { ask } from "./confirm.svelte";
   import { discussion } from "./discussion.svelte";
   import { toast } from "./toast.svelte";
+  import { go } from "./router.svelte";
+  import { priorityColor } from "./tasks";
 
   let { target, onchange }: { target: string; onchange?: (open: number) => void } = $props();
 
@@ -22,6 +24,27 @@
   let typing: HTMLTextAreaElement | null = null;          // поле, в котором набирают упоминание
 
   const open = $derived(threads.filter((t) => !t.resolved_at));
+  const taskable = $derived(!target.startsWith("tasks") && target !== "tasks");
+
+  // задачи про эту сущность и новая задача про неё; задача из ветки обсуждения
+  let related = $state<Schemas["TkOut"][]>([]);
+  $effect(() => {
+    const now = target;
+    related = [];
+    if (now.startsWith("tasks")) return;
+    api.GET("/studio/api/tasks", { params: { query: { target: now } } }).then(({ data }) => { if (now === target) related = data ?? []; });
+  });
+  async function newTask() {
+    const { data, error } = await api.POST("/studio/api/tasks", { body: { title: "Новая задача", body: "", status: "open", priority: 5, due: null, labels: [], links: [target], assignees: [] } });
+    if (error || !data) return toast(problem(error, "Задача не создалась."), "error");
+    go(`/tasks/${data.id}`);
+  }
+  async function toTask(thread: Thread) {
+    const { data, error } = await api.POST("/studio/api/tasks/from-thread", { body: { thread: thread.id } });
+    if (error || !data) return toast(problem(error, "Задача не создалась."), "error");
+    toast("Задача создана, ссылка на неё оставлена в ветке.");
+    go(`/tasks/${data.id}`);
+  }
   const resolved = $derived(threads.filter((t) => t.resolved_at));
 
   async function load() {
@@ -165,6 +188,15 @@
     <button class="btn ghost tiny" onclick={() => (discussion.open = false)} aria-label="Закрыть обсуждение">✕</button>
   </header>
 
+  {#if taskable}
+    <section class="tasks">
+      <div class="row"><b class="small">Задачи про это{related.length ? ` · ${related.length}` : ""}</b><span class="spacer"></span><button class="btn ghost tiny" onclick={newTask}>+ Задача про это</button></div>
+      {#each related as task (task.id)}
+        <a class="task" href="#/tasks/{task.id}"><span class="prio" style="--prio: {priorityColor(task.priority)}">{task.priority}</span>{task.title}<span class="muted small">{task.status_label}</span></a>
+      {/each}
+    </section>
+  {/if}
+
   {@render composer("new", draft, (v) => (draft = v), start, "Начать обсуждение", "Что нужно обсудить?")}
 
   {#if !loaded}
@@ -182,6 +214,7 @@
         {:else}
           <button class="btn ghost tiny" onclick={() => (replying = thread.id)}>Ответить</button>
           <span class="spacer"></span>
+          {#if taskable}<button class="btn ghost tiny" onclick={() => toTask(thread)} title="Создать задачу из этой ветки">Сделать задачей</button>{/if}
           <button class="btn ghost tiny" onclick={() => setResolved(thread, true)}>✓ Решено</button>
         {/if}
       </div>
@@ -228,4 +261,8 @@
   .link.danger:hover { color: var(--danger); }
   .toggle { font-size: 12.5px; align-self: flex-start; }
   .foot { padding-top: 4px; }
+  .tasks { display: flex; flex-direction: column; gap: 4px; padding: 8px 10px; border: 1px solid var(--line-soft); border-radius: var(--radius); }
+  .task { display: flex; align-items: center; gap: 8px; padding: 3px 0; color: var(--text); }
+  .task .small { margin-left: auto; }
+  .prio { display: inline-grid; place-items: center; min-width: 18px; height: 18px; border-radius: 5px; background: color-mix(in srgb, var(--prio) 22%, transparent); color: var(--prio); font-size: 11px; font-weight: 700; }
 </style>

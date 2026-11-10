@@ -19,7 +19,7 @@ from team import rights
 from team.models import Change
 
 # пути, которые не пишутся в ленту: пульс мягкой блокировки объекта
-QUIET = re.compile(r"^(items/\d+/lock|comments(/.*)?|boards(/.*)?)$")              # и обсуждения: у них своя лента на Главной
+QUIET = re.compile(r"^(items/\d+/lock|comments(/.*)?|boards(/.*)?|notifications(/.*)?|tasks/from-thread)$")              # и обсуждения: у них своя лента на Главной
 # пути со своей, более подробной проверкой версии (тело запроса version)
 OWN_CHECK = re.compile(r"^(items/\d+(/.*)?|volumes/\d+/text-files/\d+(/.*)?)$")
 
@@ -35,7 +35,7 @@ TAIL_WORDS = {
     "folder": "папка", "file": "файл", "folders": "папка", "links": "ссылка", "rights": "права", "reset": "сброс", "open": "своя копия",
     "labels": "подпись", "disable": "отключение", "territory": "территории", "apply": "покраска", "erase": "ластик",
     "transfer": "передача", "roles": "роль", "authors": "автор", "import": "загрузка", "text-files": "файл",
-    "take": "забран", "ban": "вход", 
+    "take": "забран", "ban": "вход", "move": "статус", 
 }
 
 
@@ -71,6 +71,7 @@ ENTITIES = [
     (r"^map/ownerships/(\d+)", "Владение", "map.Ownership", "pk", "pk", "#/map/ownerships"),
     (r"^players/(\d+)", "Игрок", "users.User", "username", "pk", "#/players/{0}"),
     (r"^team/roles/(\d+)", "Роль", "team.Role", "name", "pk", "#/team/roles/{0}"),
+    (r"^tasks/(\d+)", "Задача", "team.Task", "title", "pk", "#/tasks/{0}"),
     (r"^team/authors/(\d+)", "Автор", "users.User", "username", "pk", "#/team"),
 ]
 # сущности без своего номера: весь раздел целиком
@@ -83,7 +84,7 @@ SINGLES = [
 COLLECTIONS = {
     "machines": "id", "items": "id", "volumes": "id", "policies": "id", "systems": "code", "scenes": "slug",
     "file-formats": "name", "file-encodings": "name", "map/scenes": "id", "map/countries": "id", "map/provinces": "id",
-    "team/roles": "id",
+    "team/roles": "id", "tasks": "id",
 }
 
 

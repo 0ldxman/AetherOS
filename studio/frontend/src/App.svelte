@@ -20,11 +20,14 @@
   import Team from "./routes/Team.svelte";
   import Dashboard from "./routes/Dashboard.svelte";
   import Players from "./routes/Players.svelte";
+  import Tasks from "./routes/Tasks.svelte";
+  import Task from "./routes/Task.svelte";
   import { level, loadMe, me } from "./lib/me.svelte";
   import Discussion from "./lib/Discussion.svelte";
   import { discussion, targetOf } from "./lib/discussion.svelte";
   import { claimed, enter, presence } from "./lib/collab.svelte";
   import PresenceMarks from "./lib/PresenceMarks.svelte";
+  import { checkNotes, notes, watchNotes } from "./lib/notes.svelte";
   import { labelOfKey } from "./lib/marks.svelte";
 
   const user = $derived(me.data?.username ?? "");
@@ -49,7 +52,9 @@
     | { name: "team"; role: number | null }
     | { name: "home" }
     | { name: "players"; id: number | null }
-    | { name: "boards"; id: number | null };
+    | { name: "boards"; id: number | null }
+    | { name: "tasks" }
+    | { name: "task"; id: number };
 
   const page: Page = $derived.by((): Page => {
     let found;
@@ -74,6 +79,8 @@
     if ((found = match("/map/:tab", route.path))) return { name: "map", tab: found.tab, id: null };
     if (match("/map", route.path)) return { name: "map", tab: "territory", id: null };
     if (match("/home", route.path)) return { name: "home" };
+    if ((found = match("/tasks/:id", route.path))) return { name: "task", id: +found.id };
+    if (match("/tasks", route.path)) return { name: "tasks" };
     if ((found = match("/boards/:id", route.path))) return { name: "boards", id: +found.id };
     if (match("/boards", route.path)) return { name: "boards", id: null };
     if ((found = match("/players/:id", route.path))) return { name: "players", id: +found.id };
@@ -92,6 +99,7 @@
   const NAV = [
     { href: "#/home", label: "Главная", section: ["home"], right: "" },
     { href: "#/boards", label: "Доска", section: ["boards"], right: "" },
+    { href: "#/tasks", label: "Задачи", section: ["tasks", "task"], right: "" },
     { href: "#/volumes", label: "Диски и файлы", section: ["volumes", "volume", "text"], right: "disks" },
     { href: "#/items", label: "Объекты", section: ["items", "item"], right: "items" },
     { href: "#/machines", label: "Машины", section: ["machines", "machine"], right: "machines" },
@@ -109,6 +117,10 @@
   // обсуждение сущности, на которой автор сейчас: число открытых веток на кнопке
   const target = $derived(claimed.room || targetOf(route.path));
   let talks = $state(0);
+  // непрочитанные уведомления на кнопке «Главная»
+  const unread = $derived(notes.unread);
+  $effect(() => { route.path; checkNotes(); });
+  onMount(watchNotes);
   // комната совместной правки той же сущности: кто ещё здесь
   $effect(() => { enter(target, me.data?.username ?? ""); });
   $effect(() => {
@@ -139,7 +151,7 @@
         {#if level(item.right) === "none"}
           <span class="nav off" title="Нет прав на этот раздел">{item.label}</span>
         {:else}
-          <a class="nav" class:on={item.section.includes(page.name)} href={item.href}>{item.label}</a>
+          <a class="nav" class:on={item.section.includes(page.name)} href={item.href}>{item.label}{#if item.href === "#/home" && unread}<span class="badge" title="Непрочитанные уведомления">{unread}</span>{/if}</a>
         {/if}
       {/each}
       <span class="nav soon">Почта</span>
@@ -171,6 +183,10 @@
     {/if}
     {#if current && level(current.right) === "none"}
       <p class="muted" style="padding: 20px">У вашей роли нет доступа к разделу «{current.label}».</p>
+    {:else if page.name === "tasks"}
+      <Tasks />
+    {:else if page.name === "task"}
+      {#key page.id}<Task id={page.id} />{/key}
     {:else if page.name === "boards"}
       {#await import("./routes/Board.svelte")}
         <p class="muted" style="padding: 20px">Загрузка доски…</p>
@@ -258,6 +274,7 @@
   .nav.soon { color: var(--faint); cursor: default; }
   .nav.off { color: var(--faint); cursor: not-allowed; }
   .nav.team { margin-top: 10px; }
+  .badge { margin-left: 6px; padding: 0 6px; border-radius: 999px; background: var(--accent); color: var(--bg, #111); font-size: 11px; font-weight: 700; }
   .readonly { padding: 6px 32px; background: var(--accent-soft); color: var(--muted); font-size: 12.5px; border-bottom: 1px solid var(--line-soft); }
   .nav.soon::after { content: " · скоро"; font-size: 11px; }
   .talk { margin-top: auto; display: flex; align-items: center; justify-content: space-between; padding: 7px 10px; border: 1px solid var(--line-soft);

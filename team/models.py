@@ -124,3 +124,55 @@ class Board(models.Model):
     @property
     def room(self):
         return f"boards/{self.pk}"
+
+
+class Task(models.Model):
+    """Задача команды (team.tasks): статус, исполнители, приоритет 1–10, срок, метки и ссылки на сущности мира."""
+
+    class Status(models.TextChoices):
+        OPEN = "open", "Открыта"
+        DOING = "doing", "В работе"
+        REVIEW = "review", "На проверке"
+        DONE = "done", "Готово"
+
+    title = models.CharField("Название", max_length=200)
+    body = models.TextField("Описание", blank=True)
+    status = models.CharField("Статус", max_length=16, choices=Status.choices, default=Status.OPEN, db_index=True)
+    priority = models.PositiveSmallIntegerField("Приоритет", default=5, help_text="1–10, 10 самый высокий")
+    due = models.DateField("Срок", null=True, blank=True)
+    labels = models.JSONField("Метки", default=list, blank=True)
+    links = models.JSONField("Сущности", default=list, blank=True, help_text="[{target, kind, label, link}]")
+    assignees = models.ManyToManyField(settings.AUTH_USER_MODEL, blank=True, related_name="tasks")
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL, related_name="created_tasks")
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-priority", "due", "pk"]
+        verbose_name = "Задача"
+        verbose_name_plural = "Задачи"
+
+    def __str__(self):
+        return self.title
+
+
+class Notification(models.Model):
+    """Уведомление автору на Главной: назначили задачу, упомянули в обсуждении, срок задачи подходит или прошёл.
+    key не даёт повторить одно и то же уведомление (срок напоминается один раз на задачу и день)."""
+
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="notifications")
+    kind = models.CharField(max_length=16)                  # assigned, mention, due, overdue
+    text = models.CharField(max_length=300)
+    link = models.CharField(max_length=255, blank=True)
+    key = models.CharField(max_length=120)
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+    read_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ["-created_at", "-pk"]
+        constraints = [models.UniqueConstraint(fields=("user", "key"), name="unique_notification_key")]
+        verbose_name = "Уведомление"
+        verbose_name_plural = "Уведомления"
+
+    def __str__(self):
+        return f"{self.user_id}: {self.text}"

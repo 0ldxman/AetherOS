@@ -30,7 +30,7 @@ def _invalid(request, exc):
     return api.create_response(request, {"detail": "Проверьте поля.", "fields": fields}, status=400)
 
 
-from studio.api import access, accounts, catalog, disks, groups, items, layers, machines, policies, protection, scenes, systems, volumes, world, worldmap, mapscenes, machinefiles, formats, wikivolumes, team, dashboard, players, comments, boards  # noqa: E402
+from studio.api import access, accounts, catalog, disks, groups, items, layers, machines, policies, protection, scenes, systems, volumes, world, worldmap, mapscenes, machinefiles, formats, wikivolumes, team, dashboard, players, comments, boards, tasks  # noqa: E402
 
 api.add_router("/", catalog.router)
 api.add_router("/", formats.router)
@@ -56,3 +56,5 @@ api.add_router("/dashboard", dashboard.router)
 api.add_router("/players", players.router)
 api.add_router("/comments", comments.router)
 api.add_router("/boards", boards.router)
+api.add_router("/tasks", tasks.router)
+api.add_router("/notifications", tasks.notifications)

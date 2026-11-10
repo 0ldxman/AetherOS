@@ -28,6 +28,7 @@ class BdEntity(Schema):
     kind: str
     label: str
     link: str
+    target: str                  # путь API сущности
 
 
 def _row(board, user):

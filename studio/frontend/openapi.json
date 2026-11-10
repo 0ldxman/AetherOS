@@ -9024,6 +9024,435 @@
      }
     ]
    }
+  },
+  "/studio/api/tasks": {
+   "get": {
+    "operationId": "studio_api_tasks_task_list",
+    "summary": "Task List",
+    "parameters": [
+     {
+      "in": "query",
+      "name": "status",
+      "schema": {
+       "default": "",
+       "title": "Status",
+       "type": "string"
+      },
+      "required": false
+     },
+     {
+      "in": "query",
+      "name": "assignee",
+      "schema": {
+       "anyOf": [
+        {
+         "type": "integer"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Assignee"
+      },
+      "required": false
+     },
+     {
+      "in": "query",
+      "name": "label",
+      "schema": {
+       "default": "",
+       "title": "Label",
+       "type": "string"
+      },
+      "required": false
+     },
+     {
+      "in": "query",
+      "name": "target",
+      "schema": {
+       "default": "",
+       "title": "Target",
+       "type": "string"
+      },
+      "required": false
+     },
+     {
+      "in": "query",
+      "name": "overdue",
+      "schema": {
+       "default": false,
+       "title": "Overdue",
+       "type": "boolean"
+      },
+      "required": false
+     },
+     {
+      "in": "query",
+      "name": "q",
+      "schema": {
+       "default": "",
+       "title": "Q",
+       "type": "string"
+      },
+      "required": false
+     },
+     {
+      "in": "query",
+      "name": "mine",
+      "schema": {
+       "default": false,
+       "title": "Mine",
+       "type": "boolean"
+      },
+      "required": false
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "items": {
+          "$ref": "#/components/schemas/TkOut"
+         },
+         "title": "Response",
+         "type": "array"
+        }
+       }
+      }
+     }
+    },
+    "tags": [
+     "tasks"
+    ],
+    "security": [
+     {
+      "StudioAuth": []
+     }
+    ]
+   },
+   "post": {
+    "operationId": "studio_api_tasks_task_create",
+    "summary": "Task Create",
+    "parameters": [],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/TkOut"
+        }
+       }
+      }
+     }
+    },
+    "tags": [
+     "tasks"
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/TkIn"
+       }
+      }
+     },
+     "required": true
+    },
+    "security": [
+     {
+      "StudioAuth": []
+     }
+    ]
+   }
+  },
+  "/studio/api/tasks/meta": {
+   "get": {
+    "operationId": "studio_api_tasks_task_meta",
+    "summary": "Task Meta",
+    "parameters": [],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/TkMeta"
+        }
+       }
+      }
+     }
+    },
+    "description": "Статусы, авторы (кого назначить) и уже встречавшиеся метки.",
+    "tags": [
+     "tasks"
+    ],
+    "security": [
+     {
+      "StudioAuth": []
+     }
+    ]
+   }
+  },
+  "/studio/api/tasks/{task_id}": {
+   "get": {
+    "operationId": "studio_api_tasks_task_get",
+    "summary": "Task Get",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "task_id",
+      "schema": {
+       "title": "Task Id",
+       "type": "integer"
+      },
+      "required": true
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/TkOut"
+        }
+       }
+      }
+     }
+    },
+    "tags": [
+     "tasks"
+    ],
+    "security": [
+     {
+      "StudioAuth": []
+     }
+    ]
+   },
+   "put": {
+    "operationId": "studio_api_tasks_task_update",
+    "summary": "Task Update",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "task_id",
+      "schema": {
+       "title": "Task Id",
+       "type": "integer"
+      },
+      "required": true
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/TkOut"
+        }
+       }
+      }
+     }
+    },
+    "tags": [
+     "tasks"
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/TkIn"
+       }
+      }
+     },
+     "required": true
+    },
+    "security": [
+     {
+      "StudioAuth": []
+     }
+    ]
+   },
+   "delete": {
+    "operationId": "studio_api_tasks_task_delete",
+    "summary": "Task Delete",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "task_id",
+      "schema": {
+       "title": "Task Id",
+       "type": "integer"
+      },
+      "required": true
+     }
+    ],
+    "responses": {
+     "204": {
+      "description": "No Content"
+     }
+    },
+    "tags": [
+     "tasks"
+    ],
+    "security": [
+     {
+      "StudioAuth": []
+     }
+    ]
+   }
+  },
+  "/studio/api/tasks/{task_id}/move": {
+   "post": {
+    "operationId": "studio_api_tasks_task_move",
+    "summary": "Task Move",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "task_id",
+      "schema": {
+       "title": "Task Id",
+       "type": "integer"
+      },
+      "required": true
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/TkOut"
+        }
+       }
+      }
+     }
+    },
+    "tags": [
+     "tasks"
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/TkMove"
+       }
+      }
+     },
+     "required": true
+    },
+    "security": [
+     {
+      "StudioAuth": []
+     }
+    ]
+   }
+  },
+  "/studio/api/tasks/from-thread": {
+   "post": {
+    "operationId": "studio_api_tasks_task_from_thread",
+    "summary": "Task From Thread",
+    "parameters": [],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/TkOut"
+        }
+       }
+      }
+     }
+    },
+    "tags": [
+     "tasks"
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/TkThread"
+       }
+      }
+     },
+     "required": true
+    },
+    "security": [
+     {
+      "StudioAuth": []
+     }
+    ]
+   }
+  },
+  "/studio/api/notifications": {
+   "get": {
+    "operationId": "studio_api_tasks_notification_inbox",
+    "summary": "Notification Inbox",
+    "parameters": [],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/NtInbox"
+        }
+       }
+      }
+     }
+    },
+    "tags": [
+     "notifications"
+    ],
+    "security": [
+     {
+      "StudioAuth": []
+     }
+    ]
+   }
+  },
+  "/studio/api/notifications/read": {
+   "post": {
+    "operationId": "studio_api_tasks_notification_read",
+    "summary": "Notification Read",
+    "parameters": [],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/NtInbox"
+        }
+       }
+      }
+     }
+    },
+    "tags": [
+     "notifications"
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/NtRead"
+       }
+      }
+     },
+     "required": true
+    },
+    "security": [
+     {
+      "StudioAuth": []
+     }
+    ]
+   }
   }
  },
  "components": {
@@ -19007,14 +19436,366 @@
      "link": {
       "title": "Link",
       "type": "string"
+     },
+     "target": {
+      "title": "Target",
+      "type": "string"
      }
     },
     "required": [
      "kind",
      "label",
-     "link"
+     "link",
+     "target"
     ],
     "title": "BdEntity",
+    "type": "object"
+   },
+   "TkLink": {
+    "properties": {
+     "target": {
+      "title": "Target",
+      "type": "string"
+     },
+     "kind": {
+      "title": "Kind",
+      "type": "string"
+     },
+     "label": {
+      "title": "Label",
+      "type": "string"
+     },
+     "link": {
+      "title": "Link",
+      "type": "string"
+     }
+    },
+    "required": [
+     "target",
+     "kind",
+     "label",
+     "link"
+    ],
+    "title": "TkLink",
+    "type": "object"
+   },
+   "TkOut": {
+    "properties": {
+     "id": {
+      "title": "Id",
+      "type": "integer"
+     },
+     "title": {
+      "title": "Title",
+      "type": "string"
+     },
+     "body": {
+      "title": "Body",
+      "type": "string"
+     },
+     "status": {
+      "title": "Status",
+      "type": "string"
+     },
+     "status_label": {
+      "title": "Status Label",
+      "type": "string"
+     },
+     "priority": {
+      "title": "Priority",
+      "type": "integer"
+     },
+     "due": {
+      "anyOf": [
+       {
+        "format": "date",
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Due"
+     },
+     "overdue": {
+      "title": "Overdue",
+      "type": "boolean"
+     },
+     "labels": {
+      "items": {
+       "type": "string"
+      },
+      "title": "Labels",
+      "type": "array"
+     },
+     "links": {
+      "items": {
+       "$ref": "#/components/schemas/TkLink"
+      },
+      "title": "Links",
+      "type": "array"
+     },
+     "assignees": {
+      "items": {
+       "type": "integer"
+      },
+      "title": "Assignees",
+      "type": "array"
+     },
+     "assignee_names": {
+      "items": {
+       "type": "string"
+      },
+      "title": "Assignee Names",
+      "type": "array"
+     },
+     "created_by": {
+      "title": "Created By",
+      "type": "string"
+     },
+     "created_at": {
+      "format": "date-time",
+      "title": "Created At",
+      "type": "string"
+     },
+     "updated_at": {
+      "format": "date-time",
+      "title": "Updated At",
+      "type": "string"
+     },
+     "deletable": {
+      "title": "Deletable",
+      "type": "boolean"
+     }
+    },
+    "required": [
+     "id",
+     "title",
+     "body",
+     "status",
+     "status_label",
+     "priority",
+     "due",
+     "overdue",
+     "labels",
+     "links",
+     "assignees",
+     "assignee_names",
+     "created_by",
+     "created_at",
+     "updated_at",
+     "deletable"
+    ],
+    "title": "TkOut",
+    "type": "object"
+   },
+   "TkIn": {
+    "properties": {
+     "title": {
+      "title": "Title",
+      "type": "string"
+     },
+     "body": {
+      "default": "",
+      "title": "Body",
+      "type": "string"
+     },
+     "status": {
+      "default": "open",
+      "title": "Status",
+      "type": "string"
+     },
+     "priority": {
+      "default": 5,
+      "title": "Priority",
+      "type": "integer"
+     },
+     "due": {
+      "anyOf": [
+       {
+        "format": "date",
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Due"
+     },
+     "labels": {
+      "default": [],
+      "items": {
+       "type": "string"
+      },
+      "title": "Labels",
+      "type": "array"
+     },
+     "links": {
+      "default": [],
+      "items": {
+       "type": "string"
+      },
+      "title": "Links",
+      "type": "array"
+     },
+     "assignees": {
+      "default": [],
+      "items": {
+       "type": "integer"
+      },
+      "title": "Assignees",
+      "type": "array"
+     }
+    },
+    "required": [
+     "title"
+    ],
+    "title": "TkIn",
+    "type": "object"
+   },
+   "TkMeta": {
+    "properties": {
+     "statuses": {
+      "items": {
+       "additionalProperties": {
+        "type": "string"
+       },
+       "type": "object"
+      },
+      "title": "Statuses",
+      "type": "array"
+     },
+     "authors": {
+      "items": {
+       "additionalProperties": {
+        "anyOf": [
+         {
+          "type": "string"
+         },
+         {
+          "type": "integer"
+         }
+        ]
+       },
+       "type": "object"
+      },
+      "title": "Authors",
+      "type": "array"
+     },
+     "labels": {
+      "items": {
+       "type": "string"
+      },
+      "title": "Labels",
+      "type": "array"
+     }
+    },
+    "required": [
+     "statuses",
+     "authors",
+     "labels"
+    ],
+    "title": "TkMeta",
+    "type": "object"
+   },
+   "TkMove": {
+    "properties": {
+     "status": {
+      "title": "Status",
+      "type": "string"
+     }
+    },
+    "required": [
+     "status"
+    ],
+    "title": "TkMove",
+    "type": "object"
+   },
+   "TkThread": {
+    "properties": {
+     "thread": {
+      "title": "Thread",
+      "type": "integer"
+     }
+    },
+    "required": [
+     "thread"
+    ],
+    "title": "TkThread",
+    "type": "object"
+   },
+   "NtInbox": {
+    "properties": {
+     "rows": {
+      "items": {
+       "$ref": "#/components/schemas/NtRow"
+      },
+      "title": "Rows",
+      "type": "array"
+     },
+     "unread": {
+      "title": "Unread",
+      "type": "integer"
+     }
+    },
+    "required": [
+     "rows",
+     "unread"
+    ],
+    "title": "NtInbox",
+    "type": "object"
+   },
+   "NtRow": {
+    "properties": {
+     "id": {
+      "title": "Id",
+      "type": "integer"
+     },
+     "kind": {
+      "title": "Kind",
+      "type": "string"
+     },
+     "text": {
+      "title": "Text",
+      "type": "string"
+     },
+     "link": {
+      "title": "Link",
+      "type": "string"
+     },
+     "created_at": {
+      "format": "date-time",
+      "title": "Created At",
+      "type": "string"
+     },
+     "read": {
+      "title": "Read",
+      "type": "boolean"
+     }
+    },
+    "required": [
+     "id",
+     "kind",
+     "text",
+     "link",
+     "created_at",
+     "read"
+    ],
+    "title": "NtRow",
+    "type": "object"
+   },
+   "NtRead": {
+    "properties": {
+     "ids": {
+      "default": [],
+      "items": {
+       "type": "integer"
+      },
+      "title": "Ids",
+      "type": "array"
+     }
+    },
+    "title": "NtRead",
     "type": "object"
    }
   },
