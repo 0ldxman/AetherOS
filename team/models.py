@@ -101,3 +101,26 @@ class Draft(models.Model):
 
     def __str__(self):
         return self.room
+
+
+class Board(models.Model):
+    """Доска команды (холст Excalidraw). Содержимое живёт в общем документе комнаты boards/<id> (team.collab, Draft):
+    доска пишется сама, без «Сохранить», и мир от неё не меняется. Основная доска одна, её не удалить."""
+
+    title = models.CharField("Название", max_length=120)
+    main = models.BooleanField("Основная", default=False)
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL, related_name="boards")
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-main", "title"]
+        verbose_name = "Доска"
+        verbose_name_plural = "Доски"
+
+    def __str__(self):
+        return self.title
+
+    @property
+    def room(self):
+        return f"boards/{self.pk}"

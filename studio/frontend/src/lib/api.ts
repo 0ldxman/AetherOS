@@ -7,7 +7,7 @@ import { touched } from "./collab.svelte";
 
 declare global {
   interface Window {
-    STUDIO: { api: string; admin: string; site: string; mapData: string };
+    STUDIO: { api: string; admin: string; site: string; mapData: string; assets: string };
   }
 }
 

@@ -15,6 +15,7 @@ const RULES: [RegExp, (m: RegExpMatchArray) => string][] = [
   [/^\/map\/(scenes|countries|provinces)\/(\d+)/, (m) => `map/${m[1]}/${m[2]}`],
   [/^\/map\/territory/, () => "map/territory"],
   [/^\/players\/(\d+)/, (m) => `players/${m[1]}`],
+  [/^\/boards\/(\d+)/, (m) => `boards/${m[1]}`],
   [/^\/team\/roles\/(\d+)/, (m) => `team/roles/${m[1]}`],
   [/^\/world/, () => "world"],
 ];

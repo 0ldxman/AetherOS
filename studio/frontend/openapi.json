@@ -8840,6 +8840,190 @@
      }
     ]
    }
+  },
+  "/studio/api/boards": {
+   "get": {
+    "operationId": "studio_api_boards_board_list",
+    "summary": "Board List",
+    "parameters": [],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "items": {
+          "$ref": "#/components/schemas/BdRow"
+         },
+         "title": "Response",
+         "type": "array"
+        }
+       }
+      }
+     }
+    },
+    "tags": [
+     "boards"
+    ],
+    "security": [
+     {
+      "StudioAuth": []
+     }
+    ]
+   },
+   "post": {
+    "operationId": "studio_api_boards_board_create",
+    "summary": "Board Create",
+    "parameters": [],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/BdRow"
+        }
+       }
+      }
+     }
+    },
+    "tags": [
+     "boards"
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/BdIn"
+       }
+      }
+     },
+     "required": true
+    },
+    "security": [
+     {
+      "StudioAuth": []
+     }
+    ]
+   }
+  },
+  "/studio/api/boards/{board_id}": {
+   "put": {
+    "operationId": "studio_api_boards_board_rename",
+    "summary": "Board Rename",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "board_id",
+      "schema": {
+       "title": "Board Id",
+       "type": "integer"
+      },
+      "required": true
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/BdRow"
+        }
+       }
+      }
+     }
+    },
+    "tags": [
+     "boards"
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/BdIn"
+       }
+      }
+     },
+     "required": true
+    },
+    "security": [
+     {
+      "StudioAuth": []
+     }
+    ]
+   },
+   "delete": {
+    "operationId": "studio_api_boards_board_delete",
+    "summary": "Board Delete",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "board_id",
+      "schema": {
+       "title": "Board Id",
+       "type": "integer"
+      },
+      "required": true
+     }
+    ],
+    "responses": {
+     "204": {
+      "description": "No Content"
+     }
+    },
+    "tags": [
+     "boards"
+    ],
+    "security": [
+     {
+      "StudioAuth": []
+     }
+    ]
+   }
+  },
+  "/studio/api/boards/entities": {
+   "get": {
+    "operationId": "studio_api_boards_board_entities",
+    "summary": "Board Entities",
+    "parameters": [
+     {
+      "in": "query",
+      "name": "q",
+      "schema": {
+       "default": "",
+       "title": "Q",
+       "type": "string"
+      },
+      "required": false
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "items": {
+          "$ref": "#/components/schemas/BdEntity"
+         },
+         "title": "Response",
+         "type": "array"
+        }
+       }
+      }
+     }
+    },
+    "description": "Сущности мира по названию: из них на доске делаются карточки со ссылкой.",
+    "tags": [
+     "boards"
+    ],
+    "security": [
+     {
+      "StudioAuth": []
+     }
+    ]
+   }
   }
  },
  "components": {
@@ -18756,6 +18940,81 @@
      "resolved"
     ],
     "title": "CmResolve",
+    "type": "object"
+   },
+   "BdRow": {
+    "properties": {
+     "id": {
+      "title": "Id",
+      "type": "integer"
+     },
+     "title": {
+      "title": "Title",
+      "type": "string"
+     },
+     "main": {
+      "title": "Main",
+      "type": "boolean"
+     },
+     "created_by": {
+      "title": "Created By",
+      "type": "string"
+     },
+     "updated_at": {
+      "format": "date-time",
+      "title": "Updated At",
+      "type": "string"
+     },
+     "deletable": {
+      "title": "Deletable",
+      "type": "boolean"
+     }
+    },
+    "required": [
+     "id",
+     "title",
+     "main",
+     "created_by",
+     "updated_at",
+     "deletable"
+    ],
+    "title": "BdRow",
+    "type": "object"
+   },
+   "BdIn": {
+    "properties": {
+     "title": {
+      "title": "Title",
+      "type": "string"
+     }
+    },
+    "required": [
+     "title"
+    ],
+    "title": "BdIn",
+    "type": "object"
+   },
+   "BdEntity": {
+    "properties": {
+     "kind": {
+      "title": "Kind",
+      "type": "string"
+     },
+     "label": {
+      "title": "Label",
+      "type": "string"
+     },
+     "link": {
+      "title": "Link",
+      "type": "string"
+     }
+    },
+    "required": [
+     "kind",
+     "label",
+     "link"
+    ],
+    "title": "BdEntity",
     "type": "object"
    }
   },

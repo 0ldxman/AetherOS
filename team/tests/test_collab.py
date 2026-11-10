@@ -99,6 +99,18 @@ class CollabTests(TransactionTestCase):
         async_to_sync(run)()
         self.assertFalse(Draft.objects.filter(room="machines/2").exists())
 
+    def test_a_room_is_found_behind_a_proxy_that_cuts_the_site_prefix(self):
+        from config.asgi import ProxyRootPath
+
+        async def run():
+            cookie = await sync_to_async(self.cookie)(self.anna)
+            socket = WebsocketCommunicator(ProxyRootPath(application), "/studio/ws/boards/1", headers=[(b"cookie", cookie.encode())])
+            socket.scope["root_path"] = "/proxy/8000"                    # daphne передаёт префикс, а прокси его срезал
+            connected, _ = await socket.connect()
+            self.assertTrue(connected)
+            await socket.disconnect()
+        async_to_sync(run)()
+
     def test_a_viewer_joins_but_cannot_change_and_a_player_is_refused(self):
         async def run():
             olga = Client(await sync_to_async(self.cookie)(self.olga), "machines/3")

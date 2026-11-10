@@ -17,6 +17,7 @@ from pycrdt import Awareness, Doc, Map, YMessageType, YSyncMessageType, create_s
 from team import rights
 
 SAVE_DELAY = 1.0            # секунд тишины перед записью черновика в базу
+KEEP = "boards/"            # комнаты, у которых документ и есть содержимое (доски): хранятся всегда
 
 _rooms = {}
 
@@ -138,7 +139,7 @@ class Room:
             self._save.cancel()
         self._save = None
         meta = meta_of(self.doc)
-        if meta["dirty"]:
+        if meta["dirty"] or self.name.startswith(KEEP):
             await sync_to_async(_store)(self.name, self.doc.get_update(), meta)
         elif not self.peers:
             await sync_to_async(_drop)(self.name)

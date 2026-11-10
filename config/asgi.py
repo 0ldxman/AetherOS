@@ -13,7 +13,25 @@ from channels.security.websocket import AllowedHostsOriginValidator  # noqa: E40
 
 from team.routing import websocket_urlpatterns  # noqa: E402
 
+
+class ProxyRootPath:
+    """Префикс сайта (FORCE_SCRIPT_NAME, например /proxy/8000 за code-server) прокси срезает из адреса WebSocket, а daphne
+    всё равно передаёт его в root_path. Channels тогда требует, чтобы адрес начинался с префикса, и отказывает: такой
+    root_path не нужен."""
+
+    def __init__(self, app):
+        self.app = app
+
+    async def __call__(self, scope, receive, send):
+        root = scope.get("root_path", "")
+        if root and not scope.get("path", "").startswith(root):
+            scope = dict(scope, root_path="")
+        return await self.app(scope, receive, send)
+
+
+websocket_application = ProxyRootPath(AllowedHostsOriginValidator(AuthMiddlewareStack(URLRouter(websocket_urlpatterns))))
+
 application = ProtocolTypeRouter({
     "http": django_application,
-    "websocket": AllowedHostsOriginValidator(AuthMiddlewareStack(URLRouter(websocket_urlpatterns))),
+    "websocket": websocket_application,
 })

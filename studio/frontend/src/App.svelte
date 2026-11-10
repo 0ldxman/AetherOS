@@ -48,7 +48,8 @@
     | { name: "scenes"; slug: string | null }
     | { name: "team"; role: number | null }
     | { name: "home" }
-    | { name: "players"; id: number | null };
+    | { name: "players"; id: number | null }
+    | { name: "boards"; id: number | null };
 
   const page: Page = $derived.by((): Page => {
     let found;
@@ -73,6 +74,8 @@
     if ((found = match("/map/:tab", route.path))) return { name: "map", tab: found.tab, id: null };
     if (match("/map", route.path)) return { name: "map", tab: "territory", id: null };
     if (match("/home", route.path)) return { name: "home" };
+    if ((found = match("/boards/:id", route.path))) return { name: "boards", id: +found.id };
+    if (match("/boards", route.path)) return { name: "boards", id: null };
     if ((found = match("/players/:id", route.path))) return { name: "players", id: +found.id };
     if (match("/players", route.path)) return { name: "players", id: null };
     if (match("/volumes", route.path)) return { name: "volumes" };
@@ -88,6 +91,7 @@
 
   const NAV = [
     { href: "#/home", label: "Главная", section: ["home"], right: "" },
+    { href: "#/boards", label: "Доска", section: ["boards"], right: "" },
     { href: "#/volumes", label: "Диски и файлы", section: ["volumes", "volume", "text"], right: "disks" },
     { href: "#/items", label: "Объекты", section: ["items", "item"], right: "items" },
     { href: "#/machines", label: "Машины", section: ["machines", "machine"], right: "machines" },
@@ -167,6 +171,14 @@
     {/if}
     {#if current && level(current.right) === "none"}
       <p class="muted" style="padding: 20px">У вашей роли нет доступа к разделу «{current.label}».</p>
+    {:else if page.name === "boards"}
+      {#await import("./routes/Board.svelte")}
+        <p class="muted" style="padding: 20px">Загрузка доски…</p>
+      {:then loaded}
+        {#key page.id}<loaded.default id={page.id} />{/key}
+      {:catch}
+        <p class="muted" style="padding: 20px">Доска не загрузилась. Обновите страницу.</p>
+      {/await}
     {:else if page.name === "players"}
       <Players id={page.id} />
     {:else if page.name === "home"}

@@ -19,7 +19,7 @@ from team import rights
 from team.models import Change
 
 # пути, которые не пишутся в ленту: пульс мягкой блокировки объекта
-QUIET = re.compile(r"^(items/\d+/lock|comments(/.*)?)$")              # и обсуждения: у них своя лента на Главной
+QUIET = re.compile(r"^(items/\d+/lock|comments(/.*)?|boards(/.*)?)$")              # и обсуждения: у них своя лента на Главной
 # пути со своей, более подробной проверкой версии (тело запроса version)
 OWN_CHECK = re.compile(r"^(items/\d+(/.*)?|volumes/\d+/text-files/\d+(/.*)?)$")
 
