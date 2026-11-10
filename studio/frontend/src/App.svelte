@@ -19,6 +19,7 @@
   import Encodings from "./routes/Encodings.svelte";
   import Team from "./routes/Team.svelte";
   import Dashboard from "./routes/Dashboard.svelte";
+  import Players from "./routes/Players.svelte";
   import { level, loadMe, me } from "./lib/me.svelte";
 
   const user = $derived(me.data?.username ?? "");
@@ -41,7 +42,8 @@
     | { name: "map"; tab: string; id: number | null }
     | { name: "scenes"; slug: string | null }
     | { name: "team"; role: number | null }
-    | { name: "home" };
+    | { name: "home" }
+    | { name: "players"; id: number | null };
 
   const page: Page = $derived.by((): Page => {
     let found;
@@ -66,6 +68,8 @@
     if ((found = match("/map/:tab", route.path))) return { name: "map", tab: found.tab, id: null };
     if (match("/map", route.path)) return { name: "map", tab: "territory", id: null };
     if (match("/home", route.path)) return { name: "home" };
+    if ((found = match("/players/:id", route.path))) return { name: "players", id: +found.id };
+    if (match("/players", route.path)) return { name: "players", id: null };
     if (match("/volumes", route.path)) return { name: "volumes" };
     if ((found = match("/team/roles/:id", route.path))) return { name: "team", role: +found.id };
     if (match("/team", route.path)) return { name: "team", role: null };
@@ -88,6 +92,7 @@
     { href: "#/scenes", label: "Сцены", section: ["scenes"], right: "scenes" },
     { href: "#/world", label: "Мир", section: ["world"], right: "world" },
     { href: "#/map", label: "Карта", section: ["map"], right: "map" },
+    { href: "#/players", label: "Игроки", section: ["players"], right: "players" },
   ];
 
   const current = $derived(NAV.find((item) => item.section.includes(page.name)) ?? null);
@@ -130,6 +135,8 @@
     {/if}
     {#if current && level(current.right) === "none"}
       <p class="muted" style="padding: 20px">У вашей роли нет доступа к разделу «{current.label}».</p>
+    {:else if page.name === "players"}
+      <Players id={page.id} />
     {:else if page.name === "home"}
       <Dashboard />
     {:else if page.name === "team"}

@@ -79,6 +79,8 @@ def rule_for(path, method):
     action = ""
     if section == "machines" and (last in PLAYER_ACTIONS or (len(parts) >= 2 and parts[-2] == "tokens")):
         action = "players"
+    elif section == "players":
+        action = "keys" if "keys" in parts else {"kick": "players", "unlock": "players", "reset": "reset", "ban": "ban"}.get(last, "")
     elif method == "DELETE" and last != "lock":
         action = "delete"
     return Rule(section, EDIT, action)

@@ -35,6 +35,7 @@ TAIL_WORDS = {
     "folder": "папка", "file": "файл", "folders": "папка", "links": "ссылка", "rights": "права", "reset": "сброс", "open": "своя копия",
     "labels": "подпись", "disable": "отключение", "territory": "территории", "apply": "покраска", "erase": "ластик",
     "transfer": "передача", "roles": "роль", "authors": "автор", "import": "загрузка", "text-files": "файл",
+    "take": "забран", "ban": "вход", 
 }
 
 
@@ -68,6 +69,7 @@ ENTITIES = [
     (r"^map/provinces/(\d+)", "Провинция", "map.Province", "name", "pk", "#/map/provinces/{0}"),
     (r"^map/labels/(\d+)", "Подпись карты", "map.CountryLabel", "text", "pk", "#/map/labels"),
     (r"^map/ownerships/(\d+)", "Владение", "map.Ownership", "pk", "pk", "#/map/ownerships"),
+    (r"^players/(\d+)", "Игрок", "users.User", "username", "pk", "#/players/{0}"),
     (r"^team/roles/(\d+)", "Роль", "team.Role", "name", "pk", "#/team/roles/{0}"),
     (r"^team/authors/(\d+)", "Автор", "users.User", "username", "pk", "#/team"),
 ]

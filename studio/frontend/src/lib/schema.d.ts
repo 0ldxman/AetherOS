@@ -2602,6 +2602,142 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/studio/api/players": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Player List */
+        get: operations["studio_api_players_player_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/studio/api/players/{player_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Player Card */
+        get: operations["studio_api_players_player_card"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/studio/api/players/{player_id}/kick": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Kick */
+        post: operations["studio_api_players_kick"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/studio/api/players/{player_id}/unlock": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Unlock */
+        post: operations["studio_api_players_unlock"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/studio/api/players/{player_id}/keys": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Give Key */
+        post: operations["studio_api_players_give_key"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/studio/api/players/{player_id}/keys/take": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Take Key */
+        post: operations["studio_api_players_take_key"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/studio/api/players/{player_id}/reset": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Reset */
+        post: operations["studio_api_players_reset"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/studio/api/players/{player_id}/ban": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Ban */
+        post: operations["studio_api_players_ban"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -6249,6 +6385,164 @@ export interface components {
             text: string;
             /** Link */
             link: string;
+        };
+        /** PlRow */
+        PlRow: {
+            /** Id */
+            id: number;
+            /** Username */
+            username: string;
+            /** Discord */
+            discord: string;
+            /** Staff */
+            staff: boolean;
+            /** Banned */
+            banned: boolean;
+            /** Online */
+            online: boolean;
+            /** Seen At */
+            seen_at: string | null;
+            /** Accounts */
+            accounts: number;
+            /** Files */
+            files: number;
+        };
+        /** PlAccount */
+        PlAccount: {
+            /** Id */
+            id: number;
+            /** Login */
+            login: string;
+            /** Hostname */
+            hostname: string;
+            /** Machine */
+            machine: number;
+            /** Own */
+            own: boolean;
+            /** Online */
+            online: boolean;
+            /** Seen At */
+            seen_at: string | null;
+            /** Locked */
+            locked: number;
+        };
+        /** PlCard */
+        PlCard: {
+            /** Id */
+            id: number;
+            /** Username */
+            username: string;
+            /** Discord */
+            discord: string;
+            /** Staff */
+            staff: boolean;
+            /** Banned */
+            banned: boolean;
+            /** Online */
+            online: boolean;
+            /**
+             * Joined
+             * Format: date-time
+             */
+            joined: string;
+            /** Last Login */
+            last_login: string | null;
+            /** Accounts */
+            accounts: components["schemas"]["PlAccount"][];
+            /** Keys */
+            keys: components["schemas"]["PlKey"][];
+            /** Machines */
+            machines: components["schemas"]["PlMachineFiles"][];
+            /** Files */
+            files: components["schemas"]["PlFile"][];
+            /** Events */
+            events: components["schemas"]["PlEvent"][];
+        };
+        /** PlEvent */
+        PlEvent: {
+            /**
+             * At
+             * Format: date-time
+             */
+            at: string;
+            /** Label */
+            label: string;
+            /** Login */
+            login: string;
+            /** Hostname */
+            hostname: string;
+            /** Source */
+            source: string;
+            /** Detail */
+            detail: string;
+        };
+        /** PlFile */
+        PlFile: {
+            /** Hostname */
+            hostname: string;
+            /** Volume */
+            volume: string;
+            /** Path */
+            path: string;
+            /** Kind */
+            kind: string;
+            /**
+             * At
+             * Format: date-time
+             */
+            at: string;
+        };
+        /** PlKey */
+        PlKey: {
+            /** Account */
+            account: number;
+            /** Login */
+            login: string;
+            /** Hostname */
+            hostname: string;
+            /** Name */
+            name: string;
+            /** Slug */
+            slug: string;
+        };
+        /** PlMachineFiles */
+        PlMachineFiles: {
+            /** Machine */
+            machine: number;
+            /** Hostname */
+            hostname: string;
+            /** Count */
+            count: number;
+        };
+        /** PlAccountIn */
+        PlAccountIn: {
+            /** Account */
+            account: number;
+        };
+        /** PlKeyIn */
+        PlKeyIn: {
+            /** Account */
+            account: number;
+            /**
+             * Key
+             * @default
+             */
+            key: string;
+            /**
+             * Name
+             * @default
+             */
+            name: string;
+        };
+        /** PlResetIn */
+        PlResetIn: {
+            /** Machine */
+            machine?: number | null;
+        };
+        /** PlBanIn */
+        PlBanIn: {
+            /** Banned */
+            banned: boolean;
         };
     };
     responses: never;
@@ -10768,6 +11062,207 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["DashOut"];
+                };
+            };
+        };
+    };
+    studio_api_players_player_list: {
+        parameters: {
+            query?: {
+                q?: string;
+                online?: boolean;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlRow"][];
+                };
+            };
+        };
+    };
+    studio_api_players_player_card: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                player_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlCard"];
+                };
+            };
+        };
+    };
+    studio_api_players_kick: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                player_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PlAccountIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlCard"];
+                };
+            };
+        };
+    };
+    studio_api_players_unlock: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                player_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PlAccountIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlCard"];
+                };
+            };
+        };
+    };
+    studio_api_players_give_key: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                player_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PlKeyIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlCard"];
+                };
+            };
+        };
+    };
+    studio_api_players_take_key: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                player_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PlKeyIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlCard"];
+                };
+            };
+        };
+    };
+    studio_api_players_reset: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                player_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PlResetIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlCard"];
+                };
+            };
+        };
+    };
+    studio_api_players_ban: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                player_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PlBanIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlCard"];
                 };
             };
         };

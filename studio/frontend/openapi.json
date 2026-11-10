@@ -8137,6 +8137,377 @@
      }
     ]
    }
+  },
+  "/studio/api/players": {
+   "get": {
+    "operationId": "studio_api_players_player_list",
+    "summary": "Player List",
+    "parameters": [
+     {
+      "in": "query",
+      "name": "q",
+      "schema": {
+       "default": "",
+       "title": "Q",
+       "type": "string"
+      },
+      "required": false
+     },
+     {
+      "in": "query",
+      "name": "online",
+      "schema": {
+       "default": false,
+       "title": "Online",
+       "type": "boolean"
+      },
+      "required": false
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "items": {
+          "$ref": "#/components/schemas/PlRow"
+         },
+         "title": "Response",
+         "type": "array"
+        }
+       }
+      }
+     }
+    },
+    "tags": [
+     "players"
+    ],
+    "security": [
+     {
+      "StudioAuth": []
+     }
+    ]
+   }
+  },
+  "/studio/api/players/{player_id}": {
+   "get": {
+    "operationId": "studio_api_players_player_card",
+    "summary": "Player Card",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "player_id",
+      "schema": {
+       "title": "Player Id",
+       "type": "integer"
+      },
+      "required": true
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/PlCard"
+        }
+       }
+      }
+     }
+    },
+    "tags": [
+     "players"
+    ],
+    "security": [
+     {
+      "StudioAuth": []
+     }
+    ]
+   }
+  },
+  "/studio/api/players/{player_id}/kick": {
+   "post": {
+    "operationId": "studio_api_players_kick",
+    "summary": "Kick",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "player_id",
+      "schema": {
+       "title": "Player Id",
+       "type": "integer"
+      },
+      "required": true
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/PlCard"
+        }
+       }
+      }
+     }
+    },
+    "tags": [
+     "players"
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/PlAccountIn"
+       }
+      }
+     },
+     "required": true
+    },
+    "security": [
+     {
+      "StudioAuth": []
+     }
+    ]
+   }
+  },
+  "/studio/api/players/{player_id}/unlock": {
+   "post": {
+    "operationId": "studio_api_players_unlock",
+    "summary": "Unlock",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "player_id",
+      "schema": {
+       "title": "Player Id",
+       "type": "integer"
+      },
+      "required": true
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/PlCard"
+        }
+       }
+      }
+     }
+    },
+    "tags": [
+     "players"
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/PlAccountIn"
+       }
+      }
+     },
+     "required": true
+    },
+    "security": [
+     {
+      "StudioAuth": []
+     }
+    ]
+   }
+  },
+  "/studio/api/players/{player_id}/keys": {
+   "post": {
+    "operationId": "studio_api_players_give_key",
+    "summary": "Give Key",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "player_id",
+      "schema": {
+       "title": "Player Id",
+       "type": "integer"
+      },
+      "required": true
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/PlCard"
+        }
+       }
+      }
+     }
+    },
+    "tags": [
+     "players"
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/PlKeyIn"
+       }
+      }
+     },
+     "required": true
+    },
+    "security": [
+     {
+      "StudioAuth": []
+     }
+    ]
+   }
+  },
+  "/studio/api/players/{player_id}/keys/take": {
+   "post": {
+    "operationId": "studio_api_players_take_key",
+    "summary": "Take Key",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "player_id",
+      "schema": {
+       "title": "Player Id",
+       "type": "integer"
+      },
+      "required": true
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/PlCard"
+        }
+       }
+      }
+     }
+    },
+    "tags": [
+     "players"
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/PlKeyIn"
+       }
+      }
+     },
+     "required": true
+    },
+    "security": [
+     {
+      "StudioAuth": []
+     }
+    ]
+   }
+  },
+  "/studio/api/players/{player_id}/reset": {
+   "post": {
+    "operationId": "studio_api_players_reset",
+    "summary": "Reset",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "player_id",
+      "schema": {
+       "title": "Player Id",
+       "type": "integer"
+      },
+      "required": true
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/PlCard"
+        }
+       }
+      }
+     }
+    },
+    "tags": [
+     "players"
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/PlResetIn"
+       }
+      }
+     },
+     "required": true
+    },
+    "security": [
+     {
+      "StudioAuth": []
+     }
+    ]
+   }
+  },
+  "/studio/api/players/{player_id}/ban": {
+   "post": {
+    "operationId": "studio_api_players_ban",
+    "summary": "Ban",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "player_id",
+      "schema": {
+       "title": "Player Id",
+       "type": "integer"
+      },
+      "required": true
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/PlCard"
+        }
+       }
+      }
+     }
+    },
+    "tags": [
+     "players"
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/PlBanIn"
+       }
+      }
+     },
+     "required": true
+    },
+    "security": [
+     {
+      "StudioAuth": []
+     }
+    ]
+   }
   }
  },
  "components": {
@@ -17335,6 +17706,415 @@
      "link"
     ],
     "title": "DashProblem",
+    "type": "object"
+   },
+   "PlRow": {
+    "properties": {
+     "id": {
+      "title": "Id",
+      "type": "integer"
+     },
+     "username": {
+      "title": "Username",
+      "type": "string"
+     },
+     "discord": {
+      "title": "Discord",
+      "type": "string"
+     },
+     "staff": {
+      "title": "Staff",
+      "type": "boolean"
+     },
+     "banned": {
+      "title": "Banned",
+      "type": "boolean"
+     },
+     "online": {
+      "title": "Online",
+      "type": "boolean"
+     },
+     "seen_at": {
+      "anyOf": [
+       {
+        "format": "date-time",
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Seen At"
+     },
+     "accounts": {
+      "title": "Accounts",
+      "type": "integer"
+     },
+     "files": {
+      "title": "Files",
+      "type": "integer"
+     }
+    },
+    "required": [
+     "id",
+     "username",
+     "discord",
+     "staff",
+     "banned",
+     "online",
+     "seen_at",
+     "accounts",
+     "files"
+    ],
+    "title": "PlRow",
+    "type": "object"
+   },
+   "PlAccount": {
+    "properties": {
+     "id": {
+      "title": "Id",
+      "type": "integer"
+     },
+     "login": {
+      "title": "Login",
+      "type": "string"
+     },
+     "hostname": {
+      "title": "Hostname",
+      "type": "string"
+     },
+     "machine": {
+      "title": "Machine",
+      "type": "integer"
+     },
+     "own": {
+      "title": "Own",
+      "type": "boolean"
+     },
+     "online": {
+      "title": "Online",
+      "type": "boolean"
+     },
+     "seen_at": {
+      "anyOf": [
+       {
+        "format": "date-time",
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Seen At"
+     },
+     "locked": {
+      "title": "Locked",
+      "type": "integer"
+     }
+    },
+    "required": [
+     "id",
+     "login",
+     "hostname",
+     "machine",
+     "own",
+     "online",
+     "seen_at",
+     "locked"
+    ],
+    "title": "PlAccount",
+    "type": "object"
+   },
+   "PlCard": {
+    "properties": {
+     "id": {
+      "title": "Id",
+      "type": "integer"
+     },
+     "username": {
+      "title": "Username",
+      "type": "string"
+     },
+     "discord": {
+      "title": "Discord",
+      "type": "string"
+     },
+     "staff": {
+      "title": "Staff",
+      "type": "boolean"
+     },
+     "banned": {
+      "title": "Banned",
+      "type": "boolean"
+     },
+     "online": {
+      "title": "Online",
+      "type": "boolean"
+     },
+     "joined": {
+      "format": "date-time",
+      "title": "Joined",
+      "type": "string"
+     },
+     "last_login": {
+      "anyOf": [
+       {
+        "format": "date-time",
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Last Login"
+     },
+     "accounts": {
+      "items": {
+       "$ref": "#/components/schemas/PlAccount"
+      },
+      "title": "Accounts",
+      "type": "array"
+     },
+     "keys": {
+      "items": {
+       "$ref": "#/components/schemas/PlKey"
+      },
+      "title": "Keys",
+      "type": "array"
+     },
+     "machines": {
+      "items": {
+       "$ref": "#/components/schemas/PlMachineFiles"
+      },
+      "title": "Machines",
+      "type": "array"
+     },
+     "files": {
+      "items": {
+       "$ref": "#/components/schemas/PlFile"
+      },
+      "title": "Files",
+      "type": "array"
+     },
+     "events": {
+      "items": {
+       "$ref": "#/components/schemas/PlEvent"
+      },
+      "title": "Events",
+      "type": "array"
+     }
+    },
+    "required": [
+     "id",
+     "username",
+     "discord",
+     "staff",
+     "banned",
+     "online",
+     "joined",
+     "last_login",
+     "accounts",
+     "keys",
+     "machines",
+     "files",
+     "events"
+    ],
+    "title": "PlCard",
+    "type": "object"
+   },
+   "PlEvent": {
+    "properties": {
+     "at": {
+      "format": "date-time",
+      "title": "At",
+      "type": "string"
+     },
+     "label": {
+      "title": "Label",
+      "type": "string"
+     },
+     "login": {
+      "title": "Login",
+      "type": "string"
+     },
+     "hostname": {
+      "title": "Hostname",
+      "type": "string"
+     },
+     "source": {
+      "title": "Source",
+      "type": "string"
+     },
+     "detail": {
+      "title": "Detail",
+      "type": "string"
+     }
+    },
+    "required": [
+     "at",
+     "label",
+     "login",
+     "hostname",
+     "source",
+     "detail"
+    ],
+    "title": "PlEvent",
+    "type": "object"
+   },
+   "PlFile": {
+    "properties": {
+     "hostname": {
+      "title": "Hostname",
+      "type": "string"
+     },
+     "volume": {
+      "title": "Volume",
+      "type": "string"
+     },
+     "path": {
+      "title": "Path",
+      "type": "string"
+     },
+     "kind": {
+      "title": "Kind",
+      "type": "string"
+     },
+     "at": {
+      "format": "date-time",
+      "title": "At",
+      "type": "string"
+     }
+    },
+    "required": [
+     "hostname",
+     "volume",
+     "path",
+     "kind",
+     "at"
+    ],
+    "title": "PlFile",
+    "type": "object"
+   },
+   "PlKey": {
+    "properties": {
+     "account": {
+      "title": "Account",
+      "type": "integer"
+     },
+     "login": {
+      "title": "Login",
+      "type": "string"
+     },
+     "hostname": {
+      "title": "Hostname",
+      "type": "string"
+     },
+     "name": {
+      "title": "Name",
+      "type": "string"
+     },
+     "slug": {
+      "title": "Slug",
+      "type": "string"
+     }
+    },
+    "required": [
+     "account",
+     "login",
+     "hostname",
+     "name",
+     "slug"
+    ],
+    "title": "PlKey",
+    "type": "object"
+   },
+   "PlMachineFiles": {
+    "properties": {
+     "machine": {
+      "title": "Machine",
+      "type": "integer"
+     },
+     "hostname": {
+      "title": "Hostname",
+      "type": "string"
+     },
+     "count": {
+      "title": "Count",
+      "type": "integer"
+     }
+    },
+    "required": [
+     "machine",
+     "hostname",
+     "count"
+    ],
+    "title": "PlMachineFiles",
+    "type": "object"
+   },
+   "PlAccountIn": {
+    "properties": {
+     "account": {
+      "title": "Account",
+      "type": "integer"
+     }
+    },
+    "required": [
+     "account"
+    ],
+    "title": "PlAccountIn",
+    "type": "object"
+   },
+   "PlKeyIn": {
+    "properties": {
+     "account": {
+      "title": "Account",
+      "type": "integer"
+     },
+     "key": {
+      "default": "",
+      "title": "Key",
+      "type": "string"
+     },
+     "name": {
+      "default": "",
+      "title": "Name",
+      "type": "string"
+     }
+    },
+    "required": [
+     "account"
+    ],
+    "title": "PlKeyIn",
+    "type": "object"
+   },
+   "PlResetIn": {
+    "properties": {
+     "machine": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Machine"
+     }
+    },
+    "title": "PlResetIn",
+    "type": "object"
+   },
+   "PlBanIn": {
+    "properties": {
+     "banned": {
+      "title": "Banned",
+      "type": "boolean"
+     }
+    },
+    "required": [
+     "banned"
+    ],
+    "title": "PlBanIn",
     "type": "object"
    }
   },
