@@ -4,7 +4,7 @@ import { LEAVE_TEXT, unsavedFor } from "./guard.svelte";
 export const route = $state({ path: read() });
 
 function read(): string {
-  return decodeURIComponent(location.hash.replace(/^#/, "")) || "/volumes";
+  return decodeURIComponent(location.hash.replace(/^#/, "")) || "/home";
 }
 
 let shown = location.hash;

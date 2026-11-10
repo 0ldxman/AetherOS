@@ -8110,12 +8110,43 @@
      }
     ]
    }
+  },
+  "/studio/api/dashboard": {
+   "get": {
+    "operationId": "studio_api_dashboard_dashboard",
+    "summary": "Dashboard",
+    "parameters": [],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/DashOut"
+        }
+       }
+      }
+     }
+    },
+    "tags": [
+     "dashboard"
+    ],
+    "security": [
+     {
+      "StudioAuth": []
+     }
+    ]
+   }
   }
  },
  "components": {
   "schemas": {
    "Me": {
     "properties": {
+     "id": {
+      "title": "Id",
+      "type": "integer"
+     },
      "username": {
       "title": "Username",
       "type": "string"
@@ -8129,6 +8160,7 @@
      }
     },
     "required": [
+     "id",
      "username",
      "superuser",
      "rights"
@@ -17207,6 +17239,102 @@
      "restorable"
     ],
     "title": "TeamChange",
+    "type": "object"
+   },
+   "DashOut": {
+    "properties": {
+     "online": {
+      "items": {
+       "$ref": "#/components/schemas/DashPlayer"
+      },
+      "title": "Online",
+      "type": "array"
+     },
+     "problems": {
+      "items": {
+       "$ref": "#/components/schemas/DashProblem"
+      },
+      "title": "Problems",
+      "type": "array"
+     },
+     "changes_today": {
+      "title": "Changes Today",
+      "type": "integer"
+     },
+     "authors_today": {
+      "title": "Authors Today",
+      "type": "integer"
+     }
+    },
+    "required": [
+     "online",
+     "problems",
+     "changes_today",
+     "authors_today"
+    ],
+    "title": "DashOut",
+    "type": "object"
+   },
+   "DashPlayer": {
+    "properties": {
+     "player": {
+      "title": "Player",
+      "type": "string"
+     },
+     "login": {
+      "title": "Login",
+      "type": "string"
+     },
+     "hostname": {
+      "title": "Hostname",
+      "type": "string"
+     },
+     "machine": {
+      "title": "Machine",
+      "type": "integer"
+     },
+     "seen_at": {
+      "format": "date-time",
+      "title": "Seen At",
+      "type": "string"
+     }
+    },
+    "required": [
+     "player",
+     "login",
+     "hostname",
+     "machine",
+     "seen_at"
+    ],
+    "title": "DashPlayer",
+    "type": "object"
+   },
+   "DashProblem": {
+    "properties": {
+     "kind": {
+      "title": "Kind",
+      "type": "string"
+     },
+     "title": {
+      "title": "Title",
+      "type": "string"
+     },
+     "text": {
+      "title": "Text",
+      "type": "string"
+     },
+     "link": {
+      "title": "Link",
+      "type": "string"
+     }
+    },
+    "required": [
+     "kind",
+     "title",
+     "text",
+     "link"
+    ],
+    "title": "DashProblem",
     "type": "object"
    }
   },

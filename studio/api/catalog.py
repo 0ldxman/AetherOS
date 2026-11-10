@@ -13,6 +13,7 @@ class MeRights(Schema):
 
 
 class Me(Schema):
+    id: int
     username: str
     superuser: bool
     rights: MeRights
@@ -53,7 +54,7 @@ class Key(Schema):
 def me(request):
     from team.rights import summary
 
-    return Me(username=request.user.get_username(), superuser=request.user.is_superuser, rights=MeRights(**summary(request.user)))
+    return Me(id=request.user.pk, username=request.user.get_username(), superuser=request.user.is_superuser, rights=MeRights(**summary(request.user)))
 
 
 @router.get("/app-icons", response=AppIcons)

@@ -18,6 +18,7 @@
   import Formats from "./routes/Formats.svelte";
   import Encodings from "./routes/Encodings.svelte";
   import Team from "./routes/Team.svelte";
+  import Dashboard from "./routes/Dashboard.svelte";
   import { level, loadMe, me } from "./lib/me.svelte";
 
   const user = $derived(me.data?.username ?? "");
@@ -39,7 +40,8 @@
     | { name: "encodings"; id: string | null }
     | { name: "map"; tab: string; id: number | null }
     | { name: "scenes"; slug: string | null }
-    | { name: "team"; role: number | null };
+    | { name: "team"; role: number | null }
+    | { name: "home" };
 
   const page: Page = $derived.by((): Page => {
     let found;
@@ -63,6 +65,8 @@
     if ((found = match("/map/:tab/:id", route.path))) return { name: "map", tab: found.tab, id: +found.id || null };
     if ((found = match("/map/:tab", route.path))) return { name: "map", tab: found.tab, id: null };
     if (match("/map", route.path)) return { name: "map", tab: "territory", id: null };
+    if (match("/home", route.path)) return { name: "home" };
+    if (match("/volumes", route.path)) return { name: "volumes" };
     if ((found = match("/team/roles/:id", route.path))) return { name: "team", role: +found.id };
     if (match("/team", route.path)) return { name: "team", role: null };
     if ((found = match("/scenes/:slug", route.path))) return { name: "scenes", slug: found.slug };
@@ -70,10 +74,11 @@
     if ((found = match("/systems/:code/:tab", route.path))) return { name: "systems", code: found.code, tab: found.tab };
     if ((found = match("/systems/:code", route.path))) return { name: "systems", code: found.code, tab: "overview" };
     if (match("/systems", route.path)) return { name: "systems", code: null, tab: "overview" };
-    return { name: "volumes" };
+    return { name: "home" };
   });
 
   const NAV = [
+    { href: "#/home", label: "Главная", section: ["home"], right: "" },
     { href: "#/volumes", label: "Диски и файлы", section: ["volumes", "volume", "text"], right: "disks" },
     { href: "#/items", label: "Объекты", section: ["items", "item"], right: "items" },
     { href: "#/machines", label: "Машины", section: ["machines", "machine"], right: "machines" },
@@ -125,6 +130,8 @@
     {/if}
     {#if current && level(current.right) === "none"}
       <p class="muted" style="padding: 20px">У вашей роли нет доступа к разделу «{current.label}».</p>
+    {:else if page.name === "home"}
+      <Dashboard />
     {:else if page.name === "team"}
       <Team role={page.role} />
     {:else if page.name === "volume"}

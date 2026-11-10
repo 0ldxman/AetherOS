@@ -2585,12 +2585,31 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/studio/api/dashboard": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Dashboard */
+        get: operations["studio_api_dashboard_dashboard"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
         /** Me */
         Me: {
+            /** Id */
+            id: number;
             /** Username */
             username: string;
             /** Superuser */
@@ -6192,6 +6211,44 @@ export interface components {
             link: string;
             /** Restorable */
             restorable: boolean;
+        };
+        /** DashOut */
+        DashOut: {
+            /** Online */
+            online: components["schemas"]["DashPlayer"][];
+            /** Problems */
+            problems: components["schemas"]["DashProblem"][];
+            /** Changes Today */
+            changes_today: number;
+            /** Authors Today */
+            authors_today: number;
+        };
+        /** DashPlayer */
+        DashPlayer: {
+            /** Player */
+            player: string;
+            /** Login */
+            login: string;
+            /** Hostname */
+            hostname: string;
+            /** Machine */
+            machine: number;
+            /**
+             * Seen At
+             * Format: date-time
+             */
+            seen_at: string;
+        };
+        /** DashProblem */
+        DashProblem: {
+            /** Kind */
+            kind: string;
+            /** Title */
+            title: string;
+            /** Text */
+            text: string;
+            /** Link */
+            link: string;
         };
     };
     responses: never;
@@ -10691,6 +10748,26 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["TeamChange"][];
+                };
+            };
+        };
+    };
+    studio_api_dashboard_dashboard: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DashOut"];
                 };
             };
         };
