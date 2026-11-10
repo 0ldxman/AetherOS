@@ -2,6 +2,7 @@
 
 Запуск: python manage.py test studio.tests.test_access_api
 """
+from team.testing import full_role
 import json
 
 from django.contrib.auth import get_user_model
@@ -15,7 +16,7 @@ API = "/studio/api/access"
 class AccessApiTests(TestCase):
     @classmethod
     def setUpTestData(cls):
-        cls.boss = get_user_model().objects.create_user("boss", password="pw", is_staff=True)
+        cls.boss = get_user_model().objects.create_user("boss", password="pw", is_staff=True, role=full_role())
 
     def setUp(self):
         previous = get_script_prefix()

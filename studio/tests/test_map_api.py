@@ -2,6 +2,7 @@
 
 Запуск: python manage.py test studio.tests.test_map_api
 """
+from team.testing import full_role
 import json
 
 from django.contrib.auth import get_user_model
@@ -17,7 +18,7 @@ API = "/studio/api/map"
 class MapApiTests(TestCase):
     @classmethod
     def setUpTestData(cls):
-        cls.boss = get_user_model().objects.create_user("boss", password="pw", is_staff=True)
+        cls.boss = get_user_model().objects.create_user("boss", password="pw", is_staff=True, role=full_role())
         cls.a = Country.objects.create(code="AAA", name="Alpha", valid_from="1900-01-01")
         cls.b = Country.objects.create(code="BBB", name="Beta", valid_from="1950-01-01")
         cls.p1 = Province.objects.create(code="P1", source_code="s1", name="One")

@@ -1,4 +1,5 @@
 """Предпросмотр стиля в студии: страница стола и страница-образец принимают несохранённые стиль и токены только от сотрудника."""
+from team.testing import full_role
 import json
 
 from django.contrib.auth import get_user_model
@@ -15,7 +16,7 @@ class StylePreviewTests(TestCase):
         set_script_prefix("/")
         self.addCleanup(set_script_prefix, previous)
         Machine.objects.create(name="Main", hostname="aether-main")
-        self.staff = get_user_model().objects.create_user("boss", password="pw", is_staff=True)
+        self.staff = get_user_model().objects.create_user("boss", password="pw", is_staff=True, role=full_role())
         self.query = {"preview_os": "AETHER", "preview_style": "modern", "preview_tokens": json.dumps({"--accent": "#e0709a"})}
 
     def test_the_desktop_preview_shows_the_unsaved_style_and_tokens(self):

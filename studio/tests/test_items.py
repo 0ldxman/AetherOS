@@ -3,6 +3,7 @@
 
 Запуск: python manage.py test studio.tests.test_items
 """
+from team.testing import full_role
 import json
 
 from django.contrib.auth import get_user_model
@@ -19,7 +20,7 @@ API = "/studio/api"
 class ItemsApiTests(TestCase):
     @classmethod
     def setUpTestData(cls):
-        cls.boss = get_user_model().objects.create_user("boss", password="pw", is_staff=True)
+        cls.boss = get_user_model().objects.create_user("boss", password="pw", is_staff=True, role=full_role())
         FileFormat.objects.update_or_create(name="txt", defaults={"extension": ".txt", "kind": "text", "content": "text"})
         cls.harbor = Volume.objects.create(slug="harbor", name="Harbor")
         cls.home = Volume.objects.create(slug="home")
@@ -172,7 +173,7 @@ class ProtectionApiTests(TestCase):
         from mail.models import Message
         from map.models import MapScene
 
-        cls.boss = get_user_model().objects.create_user("boss", password="pw", is_staff=True)
+        cls.boss = get_user_model().objects.create_user("boss", password="pw", is_staff=True, role=full_role())
         FileFormat.objects.update_or_create(name="txt", defaults={"extension": ".txt", "kind": "text", "content": "text"})
         FileFormat.objects.update_or_create(name="png", defaults={"extension": ".png", "kind": "signature", "content": "asset"})
         FileFormat.objects.update_or_create(name="key", defaults={"extension": ".key", "kind": "text", "content": "text"})
@@ -277,7 +278,7 @@ class TextFilesApiTests(TestCase):
 
     @classmethod
     def setUpTestData(cls):
-        cls.boss = get_user_model().objects.create_user("boss", password="pw", is_staff=True)
+        cls.boss = get_user_model().objects.create_user("boss", password="pw", is_staff=True, role=full_role())
         FileFormat.objects.update_or_create(name="txt", defaults={"extension": ".txt", "kind": "text", "template": "{body}", "content": "text_asset", "editable": True})
         cls.volume = Volume.objects.create(slug="harbor", name="Harbor")
         cls.etc = Placement.objects.create(volume=cls.volume, kind="folder", name="etc")

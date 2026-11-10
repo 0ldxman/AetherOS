@@ -2,6 +2,7 @@
 
 Запуск: python manage.py test studio.tests.test_volume_system
 """
+from team.testing import full_role
 import json
 
 from django.contrib.auth import get_user_model
@@ -19,7 +20,7 @@ class MachineOverlayApiTests(TestCase):
         previous = get_script_prefix()
         set_script_prefix("/")
         self.addCleanup(set_script_prefix, previous)
-        self.client.force_login(get_user_model().objects.create_user("boss", password="pw", is_staff=True))
+        self.client.force_login(get_user_model().objects.create_user("boss", password="pw", is_staff=True, role=full_role()))
         self.core = Machine.objects.create(name="Core", hostname="core")
         self.edge = Machine.objects.create(name="Edge", hostname="edge")
         self.base = Volume.objects.create(slug="base")

@@ -2,6 +2,7 @@
 
 Запуск: python manage.py test studio.tests.test_library
 """
+from team.testing import full_role
 import json
 
 from django.contrib.auth import get_user_model
@@ -17,7 +18,7 @@ class LibraryFilterTests(TestCase):
         previous = get_script_prefix()
         set_script_prefix("/")
         self.addCleanup(set_script_prefix, previous)
-        self.boss = get_user_model().objects.create_user("boss", password="pw", is_staff=True)
+        self.boss = get_user_model().objects.create_user("boss", password="pw", is_staff=True, role=full_role())
         self.client.force_login(self.boss)
         FileFormat.objects.get_or_create(name="txt", defaults={"extension": ".txt"})
         self.volume = Volume.objects.create(slug="v")

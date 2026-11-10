@@ -1,3 +1,4 @@
+from team.testing import full_role
 import json
 
 from django.contrib.auth import get_user_model
@@ -11,7 +12,7 @@ from filesystem.models import FileEncoding, FileFormat, Item, ItemRevision
 class FormatsApiTests(TestCase):
     @classmethod
     def setUpTestData(cls):
-        cls.boss = get_user_model().objects.create_user("boss", password="pw", is_staff=True)
+        cls.boss = get_user_model().objects.create_user("boss", password="pw", is_staff=True, role=full_role())
 
     def setUp(self):
         previous = get_script_prefix()

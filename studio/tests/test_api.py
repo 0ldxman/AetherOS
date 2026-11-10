@@ -2,6 +2,7 @@
 
 Запуск: python manage.py test studio
 """
+from team.testing import full_role
 import json
 
 from django.contrib.auth import get_user_model
@@ -18,8 +19,8 @@ class StudioApiTests(TestCase):
     @classmethod
     def setUpTestData(cls):
         users = get_user_model()
-        cls.boss = users.objects.create_user("boss", password="pw", is_staff=True)
-        cls.other = users.objects.create_user("anna", password="pw", is_staff=True)
+        cls.boss = users.objects.create_user("boss", password="pw", is_staff=True, role=full_role())
+        cls.other = users.objects.create_user("anna", password="pw", is_staff=True, role=full_role())
         cls.player = users.objects.create_user("ivan", password="pw")
         FileFormat.objects.update_or_create(name="rec", defaults={"extension": ".rec", "content": "text", "markup": True, "editable": True})
         FileFormat.objects.update_or_create(name="txt", defaults={"extension": ".txt", "kind": "text", "content": "text", "editable": True})
@@ -42,7 +43,8 @@ class StudioApiTests(TestCase):
         self.client.force_login(self.player)
         self.assertEqual(self.call("get", "/volumes")[0], 401)
         self.client.force_login(self.boss)
-        self.assertEqual(self.call("get", "/me"), (200, {"username": "boss", "superuser": False}))
+        status, me = self.call("get", "/me")
+        self.assertEqual((status, me["username"], me["superuser"]), (200, "boss", False))
 
     def test_a_write_needs_the_csrf_token(self):
         from django.test import Client

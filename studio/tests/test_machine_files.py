@@ -2,6 +2,7 @@
 
 Запуск: python manage.py test studio.tests.test_machine_files
 """
+from team.testing import full_role
 import json
 
 from django.contrib.auth import get_user_model
@@ -18,7 +19,7 @@ class MachineFilesApiTests(TestCase):
         previous = get_script_prefix()
         set_script_prefix("/")
         self.addCleanup(set_script_prefix, previous)
-        self.client.force_login(get_user_model().objects.create_user("boss", password="pw", is_staff=True))
+        self.client.force_login(get_user_model().objects.create_user("boss", password="pw", is_staff=True, role=full_role()))
         FileFormat.objects.get_or_create(name="txt", defaults={"extension": ".txt"})
         self.core = Machine.objects.create(name="Core", hostname="core")
         self.edge = Machine.objects.create(name="Edge", hostname="edge")

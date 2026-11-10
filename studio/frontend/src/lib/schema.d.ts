@@ -2475,6 +2475,96 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/studio/api/team": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Team */
+        get: operations["studio_api_team_team"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/studio/api/team/roles": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Create Role */
+        post: operations["studio_api_team_create_role"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/studio/api/team/roles/{role_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Update Role */
+        put: operations["studio_api_team_update_role"];
+        post?: never;
+        /** Delete Role */
+        delete: operations["studio_api_team_delete_role"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/studio/api/team/candidates": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Candidates
+         * @description Пользователи не из команды: кого можно сделать автором.
+         */
+        get: operations["studio_api_team_candidates"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/studio/api/team/authors/{user_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Set Author */
+        put: operations["studio_api_team_set_author"];
+        post?: never;
+        /** Remove Author */
+        delete: operations["studio_api_team_remove_author"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -2485,6 +2575,18 @@ export interface components {
             username: string;
             /** Superuser */
             superuser: boolean;
+            rights: components["schemas"]["MeRights"];
+        };
+        /** MeRights */
+        MeRights: {
+            /** Sections */
+            sections: {
+                [key: string]: string;
+            };
+            /** Actions */
+            actions: string[];
+            /** Team */
+            team: string;
         };
         /** AppIcon */
         AppIcon: {
@@ -5945,6 +6047,99 @@ export interface components {
              * @default
              */
             slot: string;
+        };
+        /** TeamAction */
+        TeamAction: {
+            /** Name */
+            name: string;
+            /** Label */
+            label: string;
+        };
+        /** TeamAuthor */
+        TeamAuthor: {
+            /** Id */
+            id: number;
+            /** Username */
+            username: string;
+            /** Superuser */
+            superuser: boolean;
+            /** Role */
+            role: number | null;
+            /** Last Login */
+            last_login: string | null;
+        };
+        /** TeamOut */
+        TeamOut: {
+            /** Sections */
+            sections: components["schemas"]["TeamSection"][];
+            /** Actions */
+            actions: components["schemas"]["TeamAction"][];
+            /** Levels */
+            levels: {
+                [key: string]: string;
+            };
+            /** Roles */
+            roles: components["schemas"]["TeamRole"][];
+            /** Authors */
+            authors: components["schemas"]["TeamAuthor"][];
+        };
+        /** TeamRole */
+        TeamRole: {
+            /** Id */
+            id: number;
+            /** Name */
+            name: string;
+            /** Note */
+            note: string;
+            /** Sections */
+            sections: {
+                [key: string]: string;
+            };
+            /** Actions */
+            actions: string[];
+            /** Authors */
+            authors: number;
+        };
+        /** TeamSection */
+        TeamSection: {
+            /** Name */
+            name: string;
+            /** Label */
+            label: string;
+        };
+        /** TeamRoleIn */
+        TeamRoleIn: {
+            /** Name */
+            name: string;
+            /**
+             * Note
+             * @default
+             */
+            note: string;
+            /**
+             * Sections
+             * @default {}
+             */
+            sections: {
+                [key: string]: string;
+            };
+            /**
+             * Actions
+             * @default []
+             */
+            actions: string[];
+        };
+        /** TeamCandidate */
+        TeamCandidate: {
+            /** Id */
+            id: number;
+            /** Username */
+            username: string;
+        };
+        /** TeamAuthorIn */
+        TeamAuthorIn: {
+            /** Role */
+            role?: number | null;
         };
     };
     responses: never;
@@ -10258,6 +10453,164 @@ export interface operations {
         responses: {
             /** @description OK */
             200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    studio_api_team_team: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TeamOut"];
+                };
+            };
+        };
+    };
+    studio_api_team_create_role: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TeamRoleIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TeamRole"];
+                };
+            };
+        };
+    };
+    studio_api_team_update_role: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                role_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TeamRoleIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TeamRole"];
+                };
+            };
+        };
+    };
+    studio_api_team_delete_role: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                role_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    studio_api_team_candidates: {
+        parameters: {
+            query?: {
+                q?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TeamCandidate"][];
+                };
+            };
+        };
+    };
+    studio_api_team_set_author: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                user_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TeamAuthorIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TeamAuthor"];
+                };
+            };
+        };
+    };
+    studio_api_team_remove_author: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                user_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No Content */
+            204: {
                 headers: {
                     [name: string]: unknown;
                 };

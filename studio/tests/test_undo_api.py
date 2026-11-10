@@ -2,6 +2,7 @@
 
 Запуск: python manage.py test studio.tests.test_undo_api
 """
+from team.testing import full_role
 import json
 
 from django.contrib.auth import get_user_model
@@ -18,7 +19,7 @@ API = "/studio/api/volumes"
 class UndoApiTests(TestCase):
     @classmethod
     def setUpTestData(cls):
-        cls.boss = get_user_model().objects.create_user("boss", password="pw", is_staff=True)
+        cls.boss = get_user_model().objects.create_user("boss", password="pw", is_staff=True, role=full_role())
         cls.volume = Volume.objects.create(slug="undo-api")
 
     def setUp(self):

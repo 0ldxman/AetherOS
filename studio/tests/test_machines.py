@@ -2,6 +2,7 @@
 
 Запуск: python manage.py test studio.tests.test_machines
 """
+from team.testing import full_role
 import json
 from datetime import datetime, timedelta
 
@@ -23,7 +24,7 @@ class MachinesApiTests(TestCase):
     @classmethod
     def setUpTestData(cls):
         users = get_user_model()
-        cls.boss = users.objects.create_user("boss", password="pw", is_staff=True)
+        cls.boss = users.objects.create_user("boss", password="pw", is_staff=True, role=full_role())
         cls.ivan = users.objects.create_user("ivan", password="pw")
         cls.core = Machine.objects.create(name="Core", hostname="aether-core", status=Machine.Status.ONLINE)
         cls.policy = EntryPolicy.objects.create(name="strict", sources="gw-*", max_attempts=1, lock_seconds=600)

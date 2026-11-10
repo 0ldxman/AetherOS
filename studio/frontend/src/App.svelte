@@ -17,13 +17,12 @@
   import Scenes from "./routes/Scenes.svelte";
   import Formats from "./routes/Formats.svelte";
   import Encodings from "./routes/Encodings.svelte";
+  import Team from "./routes/Team.svelte";
+  import { level, loadMe, me } from "./lib/me.svelte";
 
-  let user = $state("");
+  const user = $derived(me.data?.username ?? "");
 
-  onMount(async () => {
-    const { data } = await api.GET("/studio/api/me");
-    user = data?.username ?? "";
-  });
+  onMount(loadMe);
 
   type Page =
     | { name: "volumes" }
@@ -39,7 +38,8 @@
     | { name: "formats"; id: string | null }
     | { name: "encodings"; id: string | null }
     | { name: "map"; tab: string; id: number | null }
-    | { name: "scenes"; slug: string | null };
+    | { name: "scenes"; slug: string | null }
+    | { name: "team"; role: number | null };
 
   const page: Page = $derived.by((): Page => {
     let found;
@@ -63,6 +63,8 @@
     if ((found = match("/map/:tab/:id", route.path))) return { name: "map", tab: found.tab, id: +found.id || null };
     if ((found = match("/map/:tab", route.path))) return { name: "map", tab: found.tab, id: null };
     if (match("/map", route.path)) return { name: "map", tab: "territory", id: null };
+    if ((found = match("/team/roles/:id", route.path))) return { name: "team", role: +found.id };
+    if (match("/team", route.path)) return { name: "team", role: null };
     if ((found = match("/scenes/:slug", route.path))) return { name: "scenes", slug: found.slug };
     if (match("/scenes", route.path)) return { name: "scenes", slug: null };
     if ((found = match("/systems/:code/:tab", route.path))) return { name: "systems", code: found.code, tab: found.tab };
@@ -72,16 +74,18 @@
   });
 
   const NAV = [
-    { href: "#/volumes", label: "Диски и файлы", section: ["volumes", "volume", "text"] },
-    { href: "#/items", label: "Объекты", section: ["items", "item"] },
-    { href: "#/machines", label: "Машины", section: ["machines", "machine"] },
-    { href: "#/formats", label: "Форматы", section: ["formats", "encodings"] },
-    { href: "#/policies", label: "Политики входа", section: ["policies"] },
-    { href: "#/systems", label: "Операционные системы", section: ["systems"] },
-    { href: "#/scenes", label: "Сцены", section: ["scenes"] },
-    { href: "#/world", label: "Мир", section: ["world"] },
-    { href: "#/map", label: "Карта", section: ["map"] },
+    { href: "#/volumes", label: "Диски и файлы", section: ["volumes", "volume", "text"], right: "disks" },
+    { href: "#/items", label: "Объекты", section: ["items", "item"], right: "items" },
+    { href: "#/machines", label: "Машины", section: ["machines", "machine"], right: "machines" },
+    { href: "#/formats", label: "Форматы", section: ["formats", "encodings"], right: "formats" },
+    { href: "#/policies", label: "Политики входа", section: ["policies"], right: "policies" },
+    { href: "#/systems", label: "Операционные системы", section: ["systems"], right: "systems" },
+    { href: "#/scenes", label: "Сцены", section: ["scenes"], right: "scenes" },
+    { href: "#/world", label: "Мир", section: ["world"], right: "world" },
+    { href: "#/map", label: "Карта", section: ["map"], right: "map" },
   ];
+
+  const current = $derived(NAV.find((item) => item.section.includes(page.name)) ?? null);
 
   let toastBox: HTMLElement;
   $effect(() => {
@@ -99,9 +103,14 @@
     </div>
     <nav>
       {#each NAV as item}
-        <a class="nav" class:on={item.section.includes(page.name)} href={item.href}>{item.label}</a>
+        {#if level(item.right) === "none"}
+          <span class="nav off" title="Нет прав на этот раздел">{item.label}</span>
+        {:else}
+          <a class="nav" class:on={item.section.includes(page.name)} href={item.href}>{item.label}</a>
+        {/if}
       {/each}
       <span class="nav soon">Почта</span>
+      <a class="nav team" class:on={page.name === "team"} href="#/team">Команда</a>
     </nav>
     <div class="foot">
       <a href={window.STUDIO.admin}>Старая админка</a>
@@ -111,7 +120,14 @@
   </aside>
 
   <main class="main">
-    {#if page.name === "volume"}
+    {#if current && level(current.right) === "read"}
+      <div class="readonly" role="status">Только просмотр: у вашей роли нет права править раздел «{current.label}».</div>
+    {/if}
+    {#if current && level(current.right) === "none"}
+      <p class="muted" style="padding: 20px">У вашей роли нет доступа к разделу «{current.label}».</p>
+    {:else if page.name === "team"}
+      <Team role={page.role} />
+    {:else if page.name === "volume"}
       {#key page.id}<Volume id={page.id} folder={page.folder} />{/key}
     {:else if page.name === "text"}
       {#key page.id}<TextFile volume={page.volume} id={page.id} />{/key}
@@ -173,6 +189,9 @@
   .nav:hover { background: var(--panel-2); color: var(--text); text-decoration: none; }
   .nav.on { background: var(--accent-soft); color: var(--text); }
   .nav.soon { color: var(--faint); cursor: default; }
+  .nav.off { color: var(--faint); cursor: not-allowed; }
+  .nav.team { margin-top: 10px; }
+  .readonly { padding: 6px 32px; background: var(--accent-soft); color: var(--muted); font-size: 12.5px; border-bottom: 1px solid var(--line-soft); }
   .nav.soon::after { content: " · скоро"; font-size: 11px; }
   .foot { margin-top: auto; display: flex; flex-direction: column; gap: 4px; padding: 0 10px; font-size: 12.5px; }
   .main { min-width: 0; overflow: auto; }

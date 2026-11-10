@@ -60,6 +60,7 @@ INSTALLED_APPS = [
     'secure',
     'machines',
     'users',
+    'team',
     'mail',
     'documents',
     'wiki',

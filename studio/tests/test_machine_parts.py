@@ -2,6 +2,7 @@
 
 Запуск: python manage.py test studio.tests.test_machine_parts
 """
+from team.testing import full_role
 import json
 
 from django.contrib.auth import get_user_model
@@ -19,7 +20,7 @@ API = "/studio/api"
 class MachinePartsTests(TestCase):
     @classmethod
     def setUpTestData(cls):
-        cls.boss = get_user_model().objects.create_user("boss", password="pw", is_staff=True)
+        cls.boss = get_user_model().objects.create_user("boss", password="pw", is_staff=True, role=full_role())
         cls.system, _ = SystemType.objects.get_or_create(code="AETHER", defaults={"name": "Aether"})
         cls.core = Machine.objects.create(name="Core", hostname="aether-core")
         cls.archive = Machine.objects.create(name="Archive", hostname="archive-srv")
@@ -122,7 +123,7 @@ class MachinePartsTests(TestCase):
 class CreateAndSystemsTests(TestCase):
     @classmethod
     def setUpTestData(cls):
-        cls.boss = get_user_model().objects.create_user("boss", password="pw", is_staff=True)
+        cls.boss = get_user_model().objects.create_user("boss", password="pw", is_staff=True, role=full_role())
         cls.system, _ = SystemType.objects.get_or_create(code="AETHER", defaults={"name": "Aether"})
         Group.objects.filter(system_type=cls.system).delete()
         cls.core = Machine.objects.create(name="Core", hostname="aether-core")

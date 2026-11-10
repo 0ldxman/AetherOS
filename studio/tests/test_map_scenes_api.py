@@ -2,6 +2,7 @@
 
 Запуск: python manage.py test studio.tests.test_map_scenes_api
 """
+from team.testing import full_role
 import json
 
 from django.contrib.auth import get_user_model
@@ -18,7 +19,7 @@ MARKER = {"type": "marker", "coords": [10, 20], "label": "Порт", "color": "r
 class MapScenesApiTests(TestCase):
     @classmethod
     def setUpTestData(cls):
-        cls.boss = get_user_model().objects.create_user("boss", password="pw", is_staff=True)
+        cls.boss = get_user_model().objects.create_user("boss", password="pw", is_staff=True, role=full_role())
 
     def setUp(self):
         previous = get_script_prefix()

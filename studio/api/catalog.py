@@ -6,9 +6,16 @@ from secure.keys import key_rows
 router = Router(tags=["catalog"])
 
 
+class MeRights(Schema):
+    sections: dict[str, str]     # раздел -> none|read|edit
+    actions: list[str]           # опасные действия, которые разрешены
+    team: str                    # read|edit: управлять командой может только суперадмин
+
+
 class Me(Schema):
     username: str
     superuser: bool
+    rights: MeRights
 
 
 class Format(Schema):
@@ -44,7 +51,9 @@ class Key(Schema):
 
 @router.get("/me", response=Me)
 def me(request):
-    return Me(username=request.user.get_username(), superuser=request.user.is_superuser)
+    from team.rights import summary
+
+    return Me(username=request.user.get_username(), superuser=request.user.is_superuser, rights=MeRights(**summary(request.user)))
 
 
 @router.get("/app-icons", response=AppIcons)

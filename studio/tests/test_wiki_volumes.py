@@ -1,3 +1,4 @@
+from team.testing import full_role
 import json
 
 from django.contrib.auth import get_user_model
@@ -14,7 +15,7 @@ from wiki.testing import make_document, make_namespace
 class WikiVolumesApiTests(TestCase):
     @classmethod
     def setUpTestData(cls):
-        cls.boss = get_user_model().objects.create_user("boss", password="pw", is_staff=True)
+        cls.boss = get_user_model().objects.create_user("boss", password="pw", is_staff=True, role=full_role())
         cls.main = Machine.objects.create(name="Main", hostname="aether-main")
         cls.host = Machine.objects.create(name="Archive", hostname="archive-srv")
         MachineProfile.objects.create(machine=cls.host, login="reader", name="Reader", freq=1)

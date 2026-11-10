@@ -2,6 +2,7 @@
 
 Запуск: python manage.py test studio.tests.test_accounts_players
 """
+from team.testing import full_role
 import json
 
 from django.contrib.auth import get_user_model
@@ -19,7 +20,7 @@ class AccountPlayersTests(TestCase):
         set_script_prefix("/")
         self.addCleanup(set_script_prefix, previous)
         User = get_user_model()
-        self.boss = User.objects.create_user("boss", password="pw", is_staff=True)
+        self.boss = User.objects.create_user("boss", password="pw", is_staff=True, role=full_role())
         self.ivan = User.objects.create_user("ivan", password="pw")
         self.petr = User.objects.create_user("petr", password="pw")
         self.client.force_login(self.boss)
