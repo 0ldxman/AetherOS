@@ -8,6 +8,8 @@
   import { ask } from "../../lib/confirm.svelte";
   import { ago, span, when } from "../../lib/time";
   import { toast } from "../../lib/toast.svelte";
+  import DraftState from "../../lib/DraftState.svelte";
+  import { SharedForm } from "../../lib/shared.svelte";
 
   type Account = Schemas["AccountOut"];
 
@@ -16,6 +18,7 @@
   let account = $state<Account | null>(null);
   let form = $state(blank());
   let saved = $state("");
+  let base = $state<ReturnType<typeof blank> | null>(null);      // сохранённое: им наполняется общий черновик учётки
   let password = $state("");
   let clearPassword = $state(false);
   let errors = $state<Record<string, string[]>>({});
@@ -38,7 +41,7 @@
   }
 
   const dirty = $derived(JSON.stringify(form) !== saved || password !== "" || clearPassword);
-  guardUnsaved(() => saved !== "" && dirty);   // пока ничего не загружено, правок нет
+  guardUnsaved(() => saved !== "" && dirty && !share.ready);   // пока ничего не загружено, правок нет; черновик на сервере
   const current = $derived(selected ?? machine.accounts.find((row) => !row.owner)?.id ?? machine.accounts[0]?.id ?? null);
 
   // список: учётки автора сверху, рабочие учётки игроков отдельной группой (их столько, сколько игроков)
@@ -99,6 +102,7 @@
 
   async function load(id: number | null) {
     account = null;
+    base = null;
     password = "";
     clearPassword = false;
     errors = {};
@@ -110,11 +114,34 @@
     });
     if (!data) return;
     account = data;
-    form = { login: data.login, name: data.name, freq: data.freq, mail: data.mail, groups: [...data.groups], root: data.root, keys: data.keys,
-             entry_policy: data.entry_policy ?? null, ttl: data.ttl ?? null, cooldown: data.cooldown ?? null, kick_message: data.kick_message, login_scene: data.login_scene ?? null };
+    form = valuesOf(data);
     saved = JSON.stringify(form);
+    base = valuesOf(data);
     if (!data.owner) loadPlayers(data.id);
   }
+
+  function valuesOf(data: Account) {
+    return { login: data.login, name: data.name, freq: data.freq, mail: data.mail, groups: [...data.groups], root: data.root, keys: data.keys,
+             entry_policy: data.entry_policy ?? null, ttl: data.ttl ?? null, cooldown: data.cooldown ?? null, kick_message: data.kick_message, login_scene: data.login_scene ?? null };
+  }
+
+  // общий черновик учётки в комнате машины (своя область у каждой учётки); пароль в черновик не попадает
+  const share = new SharedForm({
+    room: () => `machines/${machine.id}`,
+    scope: () => `account:${account?.id ?? 0}`,
+    texts: ["kick_message", "keys"],
+    draft: () => form,
+    base: () => base,
+    onRemoteSave: async () => {
+      if (!account) return;
+      const { data } = await api.GET("/studio/api/machines/{machine_id}/accounts/{account_id}", { params: { path: { machine_id: machine.id, account_id: account.id } } });
+      if (!data) return;
+      account = data;
+      saved = JSON.stringify(valuesOf(data));
+      base = valuesOf(data);
+      onchange();
+    },
+  });
 
   $effect(() => { load(current); });
   onMount(async () => { keys = (await api.GET("/studio/api/keys")).data ?? []; });
@@ -130,6 +157,7 @@
       errors = (error as { fields?: Record<string, string[]> }).fields ?? {};
       return toast(problem(error, "Не сохранилось."), "error");
     }
+    share.markSaved();
     toast("Учётка сохранена.");
     await load(data.id);
     onchange();
@@ -228,6 +256,7 @@
         <span class="spacer"></span>
         <a class="btn ghost" href="#/machines/{machine.id}/access/{account.id}">Проверить вход</a>
         <a class="btn ghost" href="#/machines/{machine.id}/journal/{account.id}">Журнал</a>
+        <DraftState {share} dirty={JSON.stringify(form) !== saved} saved="" />
         <button class="btn primary" disabled={!dirty} onclick={save}>Сохранить</button>
       </header>
 

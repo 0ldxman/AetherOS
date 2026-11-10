@@ -7,6 +7,7 @@
   import { api, problem, type Schemas } from "../../lib/api";
   import CodeEditor from "../../lib/CodeEditor.svelte";
   import { toast } from "../../lib/toast.svelte";
+  import { SharedForm } from "../../lib/shared.svelte";
 
   let { item, onsaved }: { item: Schemas["ItemOut"]; onsaved: () => void } = $props();
 
@@ -19,13 +20,30 @@
 
   const path = $derived({ item_id: item.id });
   const dirty = $derived(saved !== null && (form.access !== saved.access || form.state !== saved.state));
-  guardUnsaved(() => dirty);
+  guardUnsaved(() => dirty && !share.ready);                 // в совместном режиме черновик на сервере
+  let base = $state<{ access: string; state: string } | null>(null);
+  // общий черновик защиты в комнате объекта; кто-то сохранил: перечитать сохранённое, черновик не трогается
+  const share = new SharedForm({
+    room: () => `items/${item.id}`,
+    scope: () => "protection",
+    texts: ["access", "state"],
+    draft: () => form,
+    base: () => base,
+    onRemoteSave: async () => {
+      const { data } = await api.GET("/studio/api/items/{item_id}/protection", { params: { path } });
+      if (!data) return;
+      saved = data;
+      base = { access: data.access, state: data.state };
+      conflict = null;
+    },
+  });
 
   async function load() {
     const { data } = await api.GET("/studio/api/items/{item_id}/protection", { params: { path } });
     if (!data) return;
     saved = data;
     form = { access: data.access, state: data.state };
+    base = { access: data.access, state: data.state };
   }
   onMount(load);
 
@@ -54,6 +72,8 @@
     }
     conflict = null;
     saved = data;
+    base = { access: data.access, state: data.state };
+    share.markSaved();
     toast("Защита сохранена.");
     onsaved();
   }

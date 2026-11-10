@@ -10,6 +10,8 @@
   import { go } from "../../lib/router.svelte";
   import { toast } from "../../lib/toast.svelte";
   import NewMachine from "./NewMachine.svelte";
+  import DraftState from "../../lib/DraftState.svelte";
+  import { SharedForm } from "../../lib/shared.svelte";
 
   let { machine, onchange }: { machine: Schemas["Overview"]; onchange: () => void } = $props();
 
@@ -34,18 +36,22 @@
     return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
   }
 
+  const base = $derived({
+    hostname: machine.hostname, name: machine.name, system: machine.system, status: machine.status, hid: machine.hid, address: machine.address, serial: machine.serial, host_key: machine.host_key,
+    note: machine.note, booted_at: local(machine.booted_at ?? null), entry_policy: machine.policy?.id ?? null,
+  });
+  // общий черновик обзора машины: пока он не подключён, форма берётся из сохранённого, потом её ведёт черновик
+  const share = new SharedForm({ room: () => `machines/${machine.id}`, texts: ["note"], draft: () => form, base: () => base, onRemoteSave: () => onchange() });
   $effect(() => {
-    form = {
-      hostname: machine.hostname, name: machine.name, system: machine.system, status: machine.status, hid: machine.hid, address: machine.address, serial: machine.serial, host_key: machine.host_key,
-      note: machine.note, booted_at: local(machine.booted_at ?? null), entry_policy: machine.policy?.id ?? null,
-    };
+    const next = base;
+    if (!untrack(() => share.ready)) form = { ...next };
   });
   const dirty = $derived(
     form.hostname !== machine.hostname || form.name !== machine.name || form.system !== machine.system ||
       form.status !== machine.status || form.entry_policy !== (machine.policy?.id ?? null) || form.hid !== machine.hid || form.address !== machine.address || form.serial !== machine.serial || form.host_key !== machine.host_key ||
       form.note !== machine.note || form.booted_at !== local(machine.booted_at ?? null),
   );
-  guardUnsaved(() => dirty);
+  guardUnsaved(() => dirty && !share.ready);
 
   let art = $state<{ valid: boolean; lines: string[] }>({ valid: true, lines: [] });
   let artTimer: ReturnType<typeof setTimeout>;
@@ -75,6 +81,7 @@
       errors = (error as { fields?: Record<string, string[]> }).fields ?? {};
       return toast(problem(error, "Не сохранилось."), "error");
     }
+    share.markSaved();
     toast("Сохранено.");
     onchange();
   }
@@ -113,7 +120,7 @@
 {/if}
 
 <div class="savebar" class:dirty>
-  <span class="state">{#if dirty}<span class="dot"></span>Не сохранено{:else}<span class="muted">Изменений нет</span>{/if}</span>
+  <span class="state"><DraftState {share} {dirty} /></span>
   <button class="btn primary" disabled={!dirty || saving} onclick={save}>{saving ? "Сохраняю…" : "Сохранить"}</button>
 </div>
 

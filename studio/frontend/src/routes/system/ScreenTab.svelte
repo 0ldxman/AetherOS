@@ -3,6 +3,7 @@
   import { api, type Schemas } from "../../lib/api";
   import { ask } from "../../lib/confirm.svelte";
   import { guardUnsaved } from "../../lib/guard.svelte";
+  import { SharedForm } from "../../lib/shared.svelte";
 
   type System = Schemas["SystemOut"];
   type Done = (data: System | undefined, error: unknown, text: string) => void;
@@ -12,6 +13,9 @@
   type Blackout = Schemas["BlackoutValues"];
   let blackouts = $state<Record<string, Blackout>>({});
   let blackoutsSaved = $state("");
+  let base = $state<Record<string, Blackout> | null>(null);      // сохранённое: им наполняется общий черновик
+  // общий черновик чёрных экранов ОС (каждое событие общим значением)
+  const share = new SharedForm({ room: () => `systems/${system.code}`, scope: () => "blackouts", draft: () => blackouts, base: () => base });
   const TONES: Record<string, string> = { "": "как у движка", success: "зелёный", warning: "жёлтый", error: "красный", dim: "серый" };
   const TONE_COLOR: Record<string, string> = { success: "var(--ok)", warning: "var(--warn)", error: "var(--danger)", dim: "var(--faint)" };
 
@@ -19,6 +23,7 @@
 
   async function saveBlackout(event: string) {
     const { data, error } = await api.PUT("/studio/api/systems/{code}/blackouts/{event}", { params: { path: { code: system.code, event } }, body: blackouts[event] });
+    if (data && !Object.keys(blackouts).some((other) => other !== event && blackoutDirty(other))) share.markSaved();
     done(data, error, "Чёрный экран сохранён.");
   }
 
@@ -34,12 +39,14 @@
   $effect(() => {
     const rows = system.blackouts;
     untrack(() => {
-      blackouts = Object.fromEntries(rows.map((row) => [row.event, { ...row.own }]));
-      blackoutsSaved = JSON.stringify(blackouts);
+      const next = Object.fromEntries(rows.map((row) => [row.event, { ...row.own }]));
+      if (!share.ready) blackouts = JSON.parse(JSON.stringify(next));
+      blackoutsSaved = JSON.stringify(next);
+      base = next;
     });
   });
 
-  guardUnsaved(() => blackoutsSaved !== "" && Object.keys(blackouts).some(blackoutDirty));
+  guardUnsaved(() => !share.ready && blackoutsSaved !== "" && Object.keys(blackouts).some(blackoutDirty));
 </script>
 
   <div class="block">

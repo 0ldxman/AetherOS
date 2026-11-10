@@ -9,6 +9,7 @@
   import { canAct, canEdit } from "../lib/me.svelte";
   import { go } from "../lib/router.svelte";
   import { toast } from "../lib/toast.svelte";
+  import { RoomPing } from "../lib/shared.svelte";
 
   let { id }: { id: number | null } = $props();
 
@@ -41,6 +42,15 @@
     if (id === null && rows.length) go(`/players/${rows[0].id}`);
   });
   $effect(() => { open(id); });
+  // действие другого автора с этим игроком: карточка перечитывается
+  new RoomPing({
+    room: () => `players/${id}`,
+    onPing: async () => {
+      if (id === null) return;
+      card = (await api.GET("/studio/api/players/{player_id}", { params: { path: { player_id: id } } })).data ?? card;
+      await list();
+    },
+  });
 
   let timer: ReturnType<typeof setTimeout> | undefined;
   function search() {

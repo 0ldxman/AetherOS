@@ -1,7 +1,7 @@
 <script lang="ts">
   // Команда авторов: кто в ней и с какой ролью, и сами роли (уровень по разделам, опасные действия).
   // Смотрят все авторы, правит только суперадмин.
-  import { onMount } from "svelte";
+  import { onMount, untrack } from "svelte";
   import { api, problem, type Schemas } from "../lib/api";
   import Dialog from "../lib/Dialog.svelte";
   import ListDetail from "../lib/ListDetail.svelte";
@@ -10,6 +10,8 @@
   import { isSuper } from "../lib/me.svelte";
   import { go } from "../lib/router.svelte";
   import { toast } from "../lib/toast.svelte";
+  import DraftState from "../lib/DraftState.svelte";
+  import { SharedForm } from "../lib/shared.svelte";
 
   let { role: roleId }: { role: number | null } = $props();
 
@@ -26,7 +28,10 @@
   const editable = $derived(isSuper());
   const role = $derived(team?.roles.find((r) => r.id === roleId) ?? null);
   const dirty = $derived(!!role && JSON.stringify(form) !== saved);
-  guardUnsaved(() => dirty);
+  guardUnsaved(() => dirty && !share.ready);                 // в совместном режиме черновик на сервере
+  let base = $state<Schemas["TeamRoleIn"] | null>(null);
+  // общий черновик роли (суперадмин правит, остальные видят его правки вживую)
+  const share = new SharedForm({ room: () => `team/roles/${roleId}`, texts: ["name", "note"], draft: () => form, base: () => base, onRemoteSave: () => load() });
   const roleName = (id: number | null | undefined) => team?.roles.find((r) => r.id === id)?.name ?? "без роли";
 
   async function load() { team = (await api.GET("/studio/api/team")).data ?? null; }
@@ -35,8 +40,9 @@
   $effect(() => {
     if (role) {
       const next = { name: role.name, note: role.note, sections: { ...role.sections }, actions: [...role.actions] };
-      form = next;
+      if (!untrack(() => share.ready) || untrack(() => base?.name) === undefined) form = JSON.parse(JSON.stringify(next));
       saved = JSON.stringify(next);
+      base = JSON.parse(saved);
     }
   });
 
@@ -54,6 +60,7 @@
     const { error } = await api.PUT("/studio/api/team/roles/{role_id}", { params: { path: { role_id: role.id } }, body: $state.snapshot(form) });
     busy = false;
     if (error) return toast(problem(error, "Роль не сохранилась."), "error");
+    share.markSaved();
     toast("Роль сохранена.");
     await load();
   }
@@ -169,6 +176,7 @@
         <span class="spacer"></span>
         {#if editable}
           <button class="btn ghost danger" onclick={removeRole}>Удалить</button>
+          <DraftState {share} {dirty} saved="" />
           <button class="btn primary" disabled={!dirty || busy || !form.name.trim()} onclick={saveRole}>Сохранить</button>
         {/if}
       </header>

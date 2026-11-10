@@ -12,6 +12,8 @@
   import Dialog from "../lib/Dialog.svelte";
   import { go } from "../lib/router.svelte";
   import { toast } from "../lib/toast.svelte";
+  import DraftState from "../lib/DraftState.svelte";
+  import { RoomPing, SharedForm } from "../lib/shared.svelte";
 
   type System = Schemas["SystemOut"];
   type Row = Schemas["TypeGroup"];
@@ -24,6 +26,8 @@
   let places = $state<Record<string, string>>({});
   let placesSaved = $state("");
   let propsSaved = $state("");
+  let propsBase = $state<typeof props_ | null>(null);           // сохранённое: им наполняются общие черновики
+  let placesBase = $state<Record<string, string> | null>(null);
   let dialog = $state<null | "type" | "group" | "place">(null);
   let layer = $state<null | { id: number | null; volume: number | null; volume_path: string; mount_path: string; order: number }>(null);
   let draft = $state({ code: "", name: "", group: "", place: "" });
@@ -108,23 +112,41 @@
   const current = $derived(code ?? rows[0]?.code ?? null);
   const placesDirty = $derived(JSON.stringify(places) !== placesSaved);
   const propsDirty = $derived(JSON.stringify(props_) !== propsSaved);
-  guardUnsaved(() => (propsSaved !== "" && propsDirty) || (placesSaved !== "" && placesDirty), (next) => next.split("?")[0].split("/")[2] === system?.code);
+  guardUnsaved(() => !propsShare.ready && ((propsSaved !== "" && propsDirty) || (placesSaved !== "" && placesDirty)), (next) => next.split("?")[0].split("/")[2] === system?.code);
 
   async function list() {
     rows = (await api.GET("/studio/api/systems")).data ?? [];
   }
 
+  // сохранённое приходит после любого действия; поля формы берутся из него, только пока черновик не подключён
   function fill(data: System) {
     system = data;
-    props_ = { code: data.code, greeting: data.greeting, name: data.name, path_style: data.path_style, entry_policy: data.entry_policy ?? null };
-    propsSaved = JSON.stringify(props_);
-    places = Object.fromEntries(data.places.map((row) => [row.name, row.path]));
-    placesSaved = JSON.stringify(places);
+    const props = { code: data.code, greeting: data.greeting, name: data.name, path_style: data.path_style, entry_policy: data.entry_policy ?? null };
+    const paths = Object.fromEntries(data.places.map((row) => [row.name, row.path]));
+    if (!propsShare.ready) props_ = { ...props };
+    if (!placesShare.ready) places = { ...paths };
+    propsSaved = JSON.stringify(props);
+    placesSaved = JSON.stringify(paths);
+    propsBase = props;
+    placesBase = paths;
     errors = {};
   }
 
+  // общие черновики ОС: обзор с приветствием и пути; группы, образ и сцены применяются сразу (остальные перечитывают)
+  const propsShare = new SharedForm({ room: () => `systems/${current}`, scope: () => "props", texts: ["greeting", "name"], draft: () => props_, base: () => propsBase });
+  const placesShare = new SharedForm({ room: () => `systems/${current}`, scope: () => "places", draft: () => places, base: () => placesBase });
+  new RoomPing({
+    room: () => `systems/${current}`,
+    onPing: async () => {
+      if (!current) return;
+      const { data } = await api.GET("/studio/api/systems/{code}", { params: { path: { code: current } } });
+      if (data) fill(data);
+    },
+  });
+
   async function load(target: string | null) {
     system = null;
+    propsBase = placesBase = null;
     if (target === null) return;
     const { data } = await api.GET("/studio/api/systems/{code}", { params: { path: { code: target } } });
     if (data) fill(data);
@@ -147,6 +169,7 @@
     if (!system) return;
     const before = system.code;
     const { data, error } = await api.PUT("/studio/api/systems/{code}", { params: { path: { code: before } }, body: props_ });
+    if (data) propsShare.markSaved();
     done(data, error, "ОС сохранена.");
     if (data && data.code !== before) go(`/systems/${data.code}/${tab}`);
   }
@@ -154,6 +177,7 @@
   async function savePlaces() {
     if (!system) return;
     const { data, error } = await api.PUT("/studio/api/systems/{code}/places", { params: { path: { code: system.code } }, body: { places } });
+    if (data) placesShare.markSaved();
     done(data, error, "Пути сохранены.");
   }
 
@@ -290,7 +314,7 @@
             <span class="muted small">{row.machines.length ? `своё у ${row.machines.join(", ")}` : ""}{errors[row.name] ? errors[row.name].join(" ") : ""}</span>
           {/each}
         </div>
-        <div><button class="btn primary" disabled={!placesDirty} onclick={savePlaces}>Сохранить пути</button></div>
+        <div class="saverow"><DraftState share={placesShare} dirty={placesDirty} saved="" /><button class="btn primary" disabled={!placesDirty} onclick={savePlaces}>Сохранить пути</button></div>
       </div>
         </div>
       <div class="block tree">
@@ -335,7 +359,7 @@
               {#each system.policies as policy}<option value={policy.id}>{policy.name}</option>{/each}
             </select>
           </label>
-        <div><button class="btn primary" disabled={!propsDirty} onclick={saveProps}>Сохранить</button></div>
+        <div class="saverow"><DraftState share={propsShare} dirty={propsDirty} saved="" /><button class="btn primary" disabled={!propsDirty} onclick={saveProps}>Сохранить</button></div>
       </div>
 
       <div class="block">
@@ -377,7 +401,7 @@
         {#if props_.code.trim().toUpperCase() !== system.code}
           <p class="warn small">Код выбирает сцены и команды в Python. Машины ({system.machines.length}) переедут на новый код, но без сцен под него в движке будет поведение по умолчанию.</p>
         {/if}
-        <div><button class="btn primary" disabled={!propsDirty} onclick={saveProps}>Сохранить</button></div>
+        <div class="saverow"><DraftState share={propsShare} dirty={propsDirty} saved="" /><button class="btn primary" disabled={!propsDirty} onclick={saveProps}>Сохранить</button></div>
       </div>
 
         <div class="block">
@@ -399,7 +423,7 @@
               {#each preview?.errors ?? [] as error}<p class="warn small">Строка {error.line}: {error.text}</p>{/each}
             </div>
           </div>
-          <div><button class="btn primary" disabled={!propsDirty} onclick={saveProps}>Сохранить</button></div>
+          <div class="saverow"><DraftState share={propsShare} dirty={propsDirty} saved="" /><button class="btn primary" disabled={!propsDirty} onclick={saveProps}>Сохранить</button></div>
         </div>
       {/if}
     </section>
@@ -443,6 +467,7 @@
 {/if}
 
 <style>
+  .saverow { display: flex; align-items: center; justify-content: flex-end; gap: 12px; }
   .small { font-size: 12px; margin: 0; }
   .editor { display: flex; flex-direction: column; gap: 14px; padding: 16px 20px 32px; min-width: 0; }
   .top { display: flex; align-items: baseline; gap: 12px; }

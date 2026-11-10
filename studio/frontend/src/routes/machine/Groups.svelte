@@ -4,6 +4,7 @@
   import { api, problem, type Schemas } from "../../lib/api";
   import Dialog from "../../lib/Dialog.svelte";
   import { toast } from "../../lib/toast.svelte";
+  import { RoomPing } from "../../lib/shared.svelte";
 
   type Row = Schemas["GroupRow"];
 
@@ -19,6 +20,8 @@
     table = (await api.GET("/studio/api/machines/{machine_id}/groups", { params: { path } })).data ?? null;
   }
   onMount(load);
+  // правка группы применяется сразу: остальные на этой странице перечитывают таблицу
+  new RoomPing({ room: () => `machines/${machine.id}`, onPing: load });
 
   function done(data: Schemas["GroupTable"] | undefined, error: unknown, text: string) {
     if (error || !data) return toast(problem(error), "error");

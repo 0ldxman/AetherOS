@@ -1,6 +1,8 @@
 <script lang="ts">
   // Кодировки слоя binary: во что завёрнут настоящий текст. Игрок называет кодировку в cvt по имени.
-  import { onMount } from "svelte";
+  import { onMount, untrack } from "svelte";
+  import DraftState from "../lib/DraftState.svelte";
+  import { SharedForm } from "../lib/shared.svelte";
   import { api, problem, type Schemas } from "../lib/api";
   import Dialog from "../lib/Dialog.svelte";
   import Hint from "../lib/Hint.svelte";
@@ -28,6 +30,7 @@
   let rows = $state<Schemas["EncRow"][]>([]);
   let form = $state<Form>({ name: "", title: "", kind: "codec", param: "" });
   let saved = $state("");
+  let base = $state<Form | null>(null);                    // сохранённое: им наполняется общий черновик
   let errors = $state<Record<string, string[]>>({});
   let query = $state("");
   let dialog = $state<null | "new">(null);
@@ -37,7 +40,7 @@
   const current = $derived(name ?? rows[0]?.name ?? null);
   const row = $derived(rows.find((r) => r.name === current) ?? null);
   const dirty = $derived(JSON.stringify(form) !== saved);
-  guardUnsaved(() => saved !== "" && dirty);
+  guardUnsaved(() => saved !== "" && dirty && !share.ready);      // в совместном режиме черновик на сервере
   const shown = $derived(rows.filter((r) => !query.trim() || `${r.name} ${r.title}`.toLowerCase().includes(query.trim().toLowerCase())));
   const hint = $derived(KINDS.find((k) => k[0] === form.kind)?.[2] ?? "");
 
@@ -46,11 +49,15 @@
   $effect(() => {
     if (row) {
       const next = { name: row.name, title: row.title, kind: row.kind, param: row.param };
-      form = next;
+      if (!untrack(() => share.ready) || untrack(() => base?.name) !== next.name) form = { ...next };
       saved = JSON.stringify(next);
+      base = { ...next };
       errors = {};
     }
   });
+
+  // общий черновик кодировки; кто-то сохранил: список перечитается, сохранённое обновится, черновик не трогается
+  const share = new SharedForm({ room: () => `file-encodings/${current}`, texts: ["title", "param"], draft: () => form, base: () => base, onRemoteSave: list });
 
   async function save() {
     if (!row) return;
@@ -62,6 +69,7 @@
       errors = (error as { fields?: Record<string, string[]> }).fields ?? {};
       return toast(problem(error, "Не сохранилось."), "error");
     }
+    share.markSaved();
     toast("Кодировка сохранена.");
     await list();
   }
@@ -112,6 +120,7 @@
         <b class="mono big">{row.name}</b>
         <span class="spacer"></span>
         <button class="btn ghost danger" onclick={remove}>Удалить</button>
+        <DraftState {share} {dirty} saved="" />
         <button class="btn primary" disabled={!dirty || busy} onclick={save}>Сохранить</button>
       </header>
       <div class="block">

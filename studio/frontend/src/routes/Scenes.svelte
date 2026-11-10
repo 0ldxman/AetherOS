@@ -3,6 +3,8 @@
   import { ask } from "../lib/confirm.svelte";
   import { guardUnsaved } from "../lib/guard.svelte";
   import { onMount } from "svelte";
+  import DraftState from "../lib/DraftState.svelte";
+  import { SharedForm } from "../lib/shared.svelte";
   import { api, problem, type Schemas } from "../lib/api";
   import Dialog from "../lib/Dialog.svelte";
   import { go } from "../lib/router.svelte";
@@ -16,6 +18,7 @@
   let scene = $state<Scene | null>(null);
   let form = $state({ slug: "", title: "", body: "", note: "" });
   let saved = $state("");
+  let base = $state<typeof form | null>(null);              // сохранённое: им наполняется общий черновик
   let errors = $state<Record<string, string[]>>({});
   let preview = $state<Schemas["ScenePreview"] | null>(null);
   let slot = $state("");
@@ -27,7 +30,7 @@
 
   const current = $derived(slug ?? rows[0]?.slug ?? null);
   const dirty = $derived(JSON.stringify(form) !== saved);
-  guardUnsaved(() => saved !== "" && dirty);   // пока ничего не загружено, правок нет
+  guardUnsaved(() => saved !== "" && dirty && !share.ready);   // пока ничего не загружено, правок нет; черновик на сервере
 
   async function list() {
     rows = (await api.GET("/studio/api/scenes")).data ?? [];
@@ -37,11 +40,30 @@
     scene = data;
     form = { slug: data.slug, title: data.title, body: data.body, note: data.note };
     saved = JSON.stringify(form);
+    base = JSON.parse(saved);
     errors = {};
   }
 
+  // общий черновик сцены; кто-то сохранил: перечитать сохранённое, черновик не трогается
+  const share = new SharedForm({
+    room: () => `scenes/${current}`,
+    texts: ["title", "body", "note"],
+    draft: () => form,
+    base: () => base,
+    onRemoteSave: async () => {
+      if (!current) return;
+      const { data } = await api.GET("/studio/api/scenes/{slug}", { params: { path: { slug: current } } });
+      if (!data) return;
+      scene = data;
+      saved = JSON.stringify({ slug: data.slug, title: data.title, body: data.body, note: data.note });
+      base = JSON.parse(saved);
+      list();
+    },
+  });
+
   async function load(target: string | null) {
     scene = null;
+    base = null;
     if (target === null) return;
     const { data } = await api.GET("/studio/api/scenes/{slug}", { params: { path: { slug: target } } });
     if (data) fill(data);
@@ -71,6 +93,7 @@
     }
     const renamed = data.slug !== scene.slug;
     fill(data);
+    share.markSaved();
     toast("Сцена сохранена.");
     await list();
     if (renamed) go(`/scenes/${data.slug}`);
@@ -132,6 +155,7 @@
         <span class="spacer"></span>
         <button class="btn" onclick={play} disabled={!preview?.steps.length}>▶ Играть</button>
         <button class="btn ghost danger" onclick={drop}>Удалить</button>
+        <DraftState {share} {dirty} saved="" />
         <button class="btn primary" disabled={!dirty} onclick={save}>Сохранить</button>
       </header>
       {#if errors.slug}<p class="warn small">{errors.slug.join(" ")}</p>{/if}

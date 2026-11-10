@@ -10,6 +10,8 @@
   import { api, problem, type Schemas } from "../../lib/api";
   import { ask } from "../../lib/confirm.svelte";
   import { guardUnsaved } from "../../lib/guard.svelte";
+  import DraftState from "../../lib/DraftState.svelte";
+  import { SharedForm } from "../../lib/shared.svelte";
   import { bearing, hex, isPath, isPoint, pathOf, pointOf, title, toGeoJSON, TYPE_LABEL, type Feature, type Point } from "../../lib/sceneGeo";
   import { toast } from "../../lib/toast.svelte";
   import { fieldErrors, showDate } from "./shared";
@@ -36,6 +38,7 @@
   let scene = $state<Schemas["MapSceneOut"] | null>(null);
   let form = $state<Form | null>(null);
   let saved = $state("");
+  let base = $state<Form | null>(null);                    // сохранённое: им наполняется общий черновик
   let errors = $state<Record<string, string[]>>({});
   let tool = $state<Tool>("select");
   let selected = $state<number | null>(null);
@@ -52,7 +55,7 @@
 
   const features = $derived((form?.features ?? []) as Feature[]);
   const dirty = $derived(form !== null && JSON.stringify(form) !== saved);
-  guardUnsaved(() => saved !== "" && dirty);
+  guardUnsaved(() => saved !== "" && dirty && !share.ready);      // в совместном режиме черновик на сервере
   const current = $derived(selected !== null ? features[selected] ?? null : null);
 
   async function load() {
@@ -63,10 +66,26 @@
     const { id: _id, updated_at: _u, created_at: _c, ...fields } = b.data;
     form = fields;
     saved = JSON.stringify(form);
+    base = JSON.parse(saved);
     selected = null;
     draft = [];
   }
   onMount(load);
+  // общий черновик сцены карты (пометки целиком общим значением: побеждает последнее изменение)
+  const share = new SharedForm({
+    room: () => `map/scenes/${id}`,
+    texts: ["title"],
+    draft: () => form ?? ({} as Form),
+    base: () => base,
+    onRemoteSave: async () => {
+      const { data } = await api.GET("/studio/api/map/scenes/{scene_id}", { params: { path: { scene_id: id } } });
+      if (!data) return;
+      scene = data;
+      const { id: _id, updated_at: _u, created_at: _c, ...fields } = data;
+      saved = JSON.stringify(fields);
+      base = JSON.parse(saved);
+    },
+  });
 
   async function save() {
     if (!form || !scene) return;
@@ -79,6 +98,7 @@
       const text = Object.values(errors).flat().join(" ");
       return toast(text || problem(error, "Не сохранилось."), "error");
     }
+    share.markSaved();
     toast("Сцена сохранена.");
     const keep = selected;
     await load();
@@ -386,6 +406,7 @@
           <input class="title" bind:value={form.title} class:bad={errors.title} aria-label="Название" />
           <code class="muted">{form.slug}</code>
         </div>
+        <DraftState {share} {dirty} saved="" />
         <button class="btn primary" disabled={!dirty || busy} onclick={save}>Сохранить</button>
       </header>
       <div class="tabs" role="tablist">

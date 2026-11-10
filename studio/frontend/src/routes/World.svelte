@@ -5,26 +5,41 @@
   import { onMount } from "svelte";
   import { api, problem, type Schemas } from "../lib/api";
   import { toast } from "../lib/toast.svelte";
+  import DraftState from "../lib/DraftState.svelte";
+  import { SharedForm } from "../lib/shared.svelte";
 
   type World = Schemas["WorldOut"];
 
   let world = $state<World | null>(null);
-  let day = $state("");
-  let time = $state("");
+  let clock = $state({ day: "", time: "" });
   let saved = $state("");
+  let base = $state<World | null>(null);                   // сохранённое: им наполняются общие черновики
+  let clockBase = $state<{ day: string; time: string } | null>(null);
   let errors = $state<Record<string, string[]>>({});
 
-  const body = $derived(world ? { ...world, game_now: `${day}T${time || "00:00"}:00Z` } : null);
+  const body = $derived(world ? { ...world, game_now: `${clock.day}T${clock.time || "00:00"}:00Z` } : null);
   const dirty = $derived(JSON.stringify(body) !== saved);
-  guardUnsaved(() => saved !== "" && dirty);   // пока ничего не загружено, правок нет
+  guardUnsaved(() => saved !== "" && dirty && !share.ready);   // пока ничего не загружено, правок нет; черновик на сервере
 
-  function fill(data: World) {
-    world = data;
-    day = data.game_now.slice(0, 10);
-    time = data.game_now.slice(11, 16);
-    saved = JSON.stringify({ ...data, game_now: `${day}T${time}:00Z` });
+  function fill(data: World, keepDraft = false) {
+    const next = { day: data.game_now.slice(0, 10), time: data.game_now.slice(11, 16) };
+    if (!keepDraft) {
+      world = { ...data };
+      clock = { ...next };
+    }
+    saved = JSON.stringify({ ...data, game_now: `${next.day}T${next.time}:00Z` });
+    base = { ...data };
+    clockBase = next;
     errors = {};
   }
+
+  // общий черновик мира (поля и отдельно «сейчас»); кто-то сохранил: перечитать сохранённое, черновик не трогается
+  async function refresh() {
+    const { data } = await api.GET("/studio/api/world");
+    if (data) fill(data, true);
+  }
+  const share = new SharedForm({ room: () => "world", draft: () => world ?? {}, base: () => base, onRemoteSave: refresh });
+  const clockShare = new SharedForm({ room: () => "world", scope: () => "clock", draft: () => clock, base: () => clockBase, onRemoteSave: refresh });
 
   onMount(async () => {
     const { data } = await api.GET("/studio/api/world");
@@ -39,6 +54,8 @@
       return toast(problem(error, "Не сохранилось."), "error");
     }
     fill(data);
+    share.markSaved();
+    clockShare.markSaved();
     toast("Мир сохранён.");
   }
 
@@ -53,8 +70,8 @@
   <section class="card">
     <h2>Время</h2>
     <div class="row">
-      <label><span class="label">«Сейчас» в мире: дата</span><input class="field" type="date" bind:value={day} /></label>
-      <label><span class="label">время (UTC)<Hint text="Мировое время по Гринвичу для даты слева. От этого момента считаются «N дней назад» и время писем." /></span><input class="field" type="time" bind:value={time} /></label>
+      <label><span class="label">«Сейчас» в мире: дата</span><input class="field" type="date" bind:value={clock.day} /></label>
+      <label><span class="label">время (UTC)<Hint text="Мировое время по Гринвичу для даты слева. От этого момента считаются «N дней назад» и время писем." /></span><input class="field" type="time" bind:value={clock.time} /></label>
     </div>
     <p class="muted small">От этой даты считаются «N дней назад» и время писем.</p>
   </section>
@@ -74,7 +91,7 @@
     {#each Object.values(errors).flat() as text}<p class="err">{text}</p>{/each}
   </section>
 
-  <div class="actions"><button class="btn primary" disabled={!dirty} onclick={save}>Сохранить</button></div>
+  <div class="actions"><DraftState {share} {dirty} saved="" /><button class="btn primary" disabled={!dirty} onclick={save}>Сохранить</button></div>
 {:else}
   <p class="muted pad">Загрузка…</p>
 {/if}
@@ -85,6 +102,6 @@
   .row { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 10px; }
   .small { font-size: 12px; margin: 0; }
   .err { margin: 0; color: var(--danger); font-size: 12px; }
-  .actions { padding: 0 32px 32px; }
+  .actions { padding: 0 32px 32px; display: flex; align-items: center; justify-content: flex-end; gap: 12px; }
   .pad { padding: 24px 32px; }
 </style>

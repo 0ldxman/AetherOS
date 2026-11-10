@@ -3,6 +3,8 @@
   import Hint from "../lib/Hint.svelte";
   import { guardUnsaved } from "../lib/guard.svelte";
   import { onMount } from "svelte";
+  import DraftState from "../lib/DraftState.svelte";
+  import { SharedForm } from "../lib/shared.svelte";
   import { api, problem, type Schemas } from "../lib/api";
   import Dialog from "../lib/Dialog.svelte";
   import { go } from "../lib/router.svelte";
@@ -17,6 +19,7 @@
   let policy = $state<Schemas["PolicyOut"] | null>(null);
   let form = $state<Form>(blank(""));
   let saved = $state("");
+  let base = $state<Form | null>(null);                    // сохранённое: им наполняется общий черновик
   let errors = $state<Record<string, string[]>>({});
   let week = $state<Schemas["Week"] | null>(null);
   let dialog = $state<null | "new" | "delete">(null);
@@ -28,7 +31,7 @@
   }
 
   const dirty = $derived(JSON.stringify(form) !== saved);
-  guardUnsaved(() => saved !== "" && dirty);   // пока ничего не загружено, правок нет
+  guardUnsaved(() => saved !== "" && dirty && !share.ready);   // пока ничего не загружено, правок нет; черновик на сервере
   const current = $derived(id ?? rows[0]?.id ?? null);
 
   async function list() {
@@ -37,6 +40,7 @@
 
   async function load(target: number | null) {
     policy = null;
+    base = null;
     errors = {};
     if (target === null) return;
     const { data } = await api.GET("/studio/api/policies/{policy_id}", { params: { path: { policy_id: target } } });
@@ -45,7 +49,26 @@
     const { grid: _grid, used_by: _used, id: _id, ...fields } = data;
     form = fields;
     saved = JSON.stringify(form);
+    base = JSON.parse(saved);
   }
+
+  // общий черновик политики; кто-то сохранил: перечитать сохранённое, черновик не трогается
+  const share = new SharedForm({
+    room: () => `policies/${current}`,
+    texts: ["description", "sources", "via", "windows", "denied_text", "locked_text", "window_text", "kick_text"],
+    draft: () => form,
+    base: () => base,
+    onRemoteSave: async () => {
+      if (current === null) return;
+      const { data } = await api.GET("/studio/api/policies/{policy_id}", { params: { path: { policy_id: current } } });
+      if (!data) return;
+      policy = data;
+      const { grid: _grid, used_by: _used, id: _id, ...fields } = data;
+      saved = JSON.stringify(fields);
+      base = JSON.parse(saved);
+      list();
+    },
+  });
 
   onMount(list);
   $effect(() => { load(current); });
@@ -67,6 +90,7 @@
       errors = (error as { fields?: Record<string, string[]> }).fields ?? {};
       return toast(problem(error, "Не сохранилось."), "error");
     }
+    share.markSaved();
     toast("Политика сохранена.");
     await load(data.id);
     list();
@@ -115,6 +139,7 @@
         <input class="title" bind:value={form.name} class:bad={errors.name} />
         <span class="spacer"></span>
         <button class="btn ghost danger" onclick={() => (dialog = "delete")}>Удалить</button>
+        <DraftState {share} {dirty} saved="" />
         <button class="btn primary" disabled={!dirty} onclick={save}>Сохранить</button>
       </header>
       {#if errors.name}<p class="err">{errors.name.join(" ")}</p>{/if}

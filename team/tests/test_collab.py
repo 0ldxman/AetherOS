@@ -73,8 +73,8 @@ class CollabTests(TransactionTestCase):
             def write(doc):
                 doc.get("name", type=Text).insert(0, "Главная")
                 meta = doc.get("_meta", type=Map)
-                meta["dirty"] = True
-                meta["editors"] = ["anna"]
+                meta["main"] = {"dirty": True, "editors": ["anna"]}
+                meta["account:4"] = {"dirty": False, "editors": []}
             await anna.edit(write)
             await other.drain()
             self.assertEqual(str(other.doc.get("name", type=Text)), "Главная")

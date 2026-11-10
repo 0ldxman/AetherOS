@@ -3,6 +3,7 @@
 import createClient from "openapi-fetch";
 import type { components, paths } from "./schema";
 import { ask } from "./confirm.svelte";
+import { touched } from "./collab.svelte";
 
 declare global {
   interface Window {
@@ -63,12 +64,14 @@ api.use({
     return request;
   },
   async onResponse({ request, response }) {
+    if (request.method === "POST" && response.ok) touched(apiPath(request.url));
     const id = request.headers.get("X-Studio-Request") ?? "";
     const retry = retries.get(id);
     retries.delete(id);
     const remember = (answer: Response) => {
       const version = answer.headers.get("X-Version");
       if (answer.ok && version) versions.set(apiPath(request.url), +version);
+      if (answer.ok && request.method !== "GET") touched(apiPath(request.url));
     };
     if (response.status !== 409 || !retry) {
       remember(response);

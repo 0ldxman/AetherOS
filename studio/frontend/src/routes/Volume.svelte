@@ -12,6 +12,7 @@
   import ContextMenu, { type MenuItem } from "./volume/ContextMenu.svelte";
   import Details from "./volume/Details.svelte";
   import PlacementProtection from "./item/PlacementProtection.svelte";
+  import { RoomPing } from "../lib/shared.svelte";
 
   type Node = Schemas["Node"];
 
@@ -194,6 +195,9 @@
     else { sortKey = key; sortDown = false; }
   }
   const arrow = (key: string) => (sortKey === key ? (sortDown ? " ↓" : " ↑") : "");
+
+  // правки файлового менеджера применяются сразу: остальные на этом диске перечитывают дерево
+  new RoomPing({ room: () => `volumes/${id}`, onPing: () => load() });
 
   async function load() {
     const { data, error } = await api.GET("/studio/api/volumes/{volume_id}", { params: { path: { volume_id: id } } });

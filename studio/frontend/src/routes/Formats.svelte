@@ -1,6 +1,8 @@
 <script lang="ts">
   // Форматы файлов: как выглядит формат (расширение, байты, устройство) и что вводится у объекта этого формата.
   import { onMount } from "svelte";
+  import DraftState from "../lib/DraftState.svelte";
+  import { SharedForm } from "../lib/shared.svelte";
   import { api, problem, type Schemas } from "../lib/api";
   import Dialog from "../lib/Dialog.svelte";
   import Hint from "../lib/Hint.svelte";
@@ -35,6 +37,7 @@
   let found = $state<Schemas["FmtDetail"] | null>(null);
   let form = $state<Form>(blank(""));
   let saved = $state("");
+  let base = $state<Form | null>(null);                    // сохранённое: им наполняется общий черновик
   let errors = $state<Record<string, string[]>>({});
   let query = $state("");
   let dialog = $state<null | "new">(null);
@@ -46,7 +49,7 @@
   }
 
   const dirty = $derived(JSON.stringify(form) !== saved);
-  guardUnsaved(() => saved !== "" && dirty);
+  guardUnsaved(() => saved !== "" && dirty && !share.ready);      // в совместном режиме черновик на сервере
   const shown = $derived(rows.filter((row) => !query.trim() || `${row.name} ${row.title} ${row.extension} ${row.aliases}`.toLowerCase().includes(query.trim().toLowerCase())));
   const current = $derived(name ?? rows[0]?.name ?? null);
   const hasMagic = $derived(["signature", "chunks", "package"].includes(form.kind));
@@ -57,6 +60,7 @@
   }
   async function load(target: string | null) {
     found = null;
+    base = null;
     errors = {};
     if (!target) return;
     const { data } = await api.GET("/studio/api/file-formats/{name}", { params: { path: { name: target } } });
@@ -65,7 +69,25 @@
     const { used: _used, ...fields } = data;
     form = fields;
     saved = JSON.stringify(form);
+    base = JSON.parse(saved);
   }
+  // общий черновик формата; кто-то сохранил: перечитать сохранённое, черновик не трогается
+  const share = new SharedForm({
+    room: () => `file-formats/${current}`,
+    texts: ["title", "template", "magic", "aliases"],
+    draft: () => form,
+    base: () => base,
+    onRemoteSave: async () => {
+      if (!current) return;
+      const { data } = await api.GET("/studio/api/file-formats/{name}", { params: { path: { name: current } } });
+      if (!data) return;
+      found = data;
+      const { used: _used, ...fields } = data;
+      saved = JSON.stringify(fields);
+      base = JSON.parse(saved);
+      list();
+    },
+  });
   onMount(list);
   $effect(() => { load(current); });
 
@@ -79,6 +101,7 @@
       errors = (error as { fields?: Record<string, string[]> }).fields ?? {};
       return toast(problem(error, "Не сохранилось."), "error");
     }
+    share.markSaved();
     toast(data.name !== found.name && found.used ? `Формат переименован, объектов обновлено: ${found.used}.` : "Формат сохранён.");
     await list();
     if (data.name !== found.name) go(`/formats/${data.name}`);
@@ -144,6 +167,7 @@
         <span class="muted small">объектов с этим форматом: {found.used}</span>
         <span class="spacer"></span>
         <button class="btn ghost danger" disabled={found.used > 0} title={found.used ? "Формат есть у объектов: сначала смените им формат" : ""} onclick={remove}>Удалить</button>
+        <DraftState {share} {dirty} saved="" />
         <button class="btn primary" disabled={!dirty || busy} onclick={save}>Сохранить</button>
       </header>
       {#if errors.__all__}<p class="err">{errors.__all__.join(" ")}</p>{/if}

@@ -12,6 +12,7 @@
   import ContextMenu, { type MenuItem } from "../volume/ContextMenu.svelte";
   import PlacementProtection from "../item/PlacementProtection.svelte";
   import FileDetails from "./FileDetails.svelte";
+  import { RoomPing } from "../../lib/shared.svelte";
 
   type Row = Schemas["MachineFileRow"];
   let { machine }: { machine: Schemas["Overview"] } = $props();
@@ -49,6 +50,8 @@
     sel = new Set([...sel].filter((path) => rows.some((r) => r.path === path)));
   }
   onMount(load);
+  // правки файлов машины применяются сразу: остальные на этой машине перечитывают дерево
+  new RoomPing({ room: () => `machines/${machine.id}`, onPing: () => load() });
 
   const parentOf = (path: string) => path.slice(0, path.lastIndexOf("/")) || "/";
   const dirs = $derived(rows.filter((r) => r.kind === "dir"));

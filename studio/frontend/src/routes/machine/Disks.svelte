@@ -4,6 +4,7 @@
   import { api, problem, type Schemas } from "../../lib/api";
   import Dialog from "../../lib/Dialog.svelte";
   import { toast } from "../../lib/toast.svelte";
+  import { RoomPing } from "../../lib/shared.svelte";
 
   type Mount = Schemas["DiskMount"];
 
@@ -26,6 +27,14 @@
   });
 
   $effect(() => { if (viewer !== null) open("/"); });
+  // монтирования и экспорт применяются сразу: остальные на этой странице перечитывают диски
+  new RoomPing({
+    room: () => `machines/${machine.id}`,
+    onPing: async () => {
+      disks = (await api.GET("/studio/api/machines/{machine_id}/disks", { params: { path } })).data ?? disks;
+      if (listing) await open(listing.path);
+    },
+  });
 
   async function open(target: string) {
     if (viewer === null) return;

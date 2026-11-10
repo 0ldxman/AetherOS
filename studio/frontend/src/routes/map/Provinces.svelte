@@ -1,6 +1,8 @@
 <script lang="ts">
   // Провинции: таблица с поиском и фильтром по владельцу на дату; справа карточка выбранной с историей владений.
   import { onMount } from "svelte";
+  import DraftState from "../../lib/DraftState.svelte";
+  import { SharedForm } from "../../lib/shared.svelte";
   import { api, problem, type Schemas } from "../../lib/api";
   import Dialog from "../../lib/Dialog.svelte";
   import Hint from "../../lib/Hint.svelte";
@@ -23,12 +25,13 @@
   let province = $state<Schemas["MapProvinceOut"] | null>(null);
   let form = $state<Form>({ code: "", source_code: "", name: "", wiki_url: "" });
   let saved = $state("");
+  let base = $state<Form | null>(null);                    // сохранённое: им наполняется общий черновик
   let errors = $state<Record<string, string[]>>({});
   let dialog = $state(false);
   let draft = $state<Form>({ code: "", source_code: "", name: "", wiki_url: "" });
 
   const dirty = $derived(JSON.stringify(form) !== saved);
-  guardUnsaved(() => saved !== "" && dirty);
+  guardUnsaved(() => saved !== "" && dirty && !share.ready);      // в совместном режиме черновик на сервере
   const pages = $derived(Math.max(1, Math.ceil(data.total / SIZE)));
 
   async function list() {
@@ -42,6 +45,7 @@
 
   async function load(target: number | null) {
     province = null;
+    base = null;
     errors = {};
     if (target === null) return;
     const { data: found } = await api.GET("/studio/api/map/provinces/{province_id}", { params: { path: { province_id: target }, query: on ? { on } : {} } });
@@ -49,7 +53,24 @@
     province = found;
     form = { code: found.code, source_code: found.source_code, name: found.name, wiki_url: found.wiki_url };
     saved = JSON.stringify(form);
+    base = JSON.parse(saved);
   }
+  // общий черновик провинции; кто-то сохранил: перечитать сохранённое, черновик не трогается
+  const share = new SharedForm({
+    room: () => `map/provinces/${id}`,
+    texts: ["name", "wiki_url"],
+    draft: () => form,
+    base: () => base,
+    onRemoteSave: async () => {
+      if (id === null) return;
+      const { data: found } = await api.GET("/studio/api/map/provinces/{province_id}", { params: { path: { province_id: id }, query: on ? { on } : {} } });
+      if (!found) return;
+      province = found;
+      saved = JSON.stringify({ code: found.code, source_code: found.source_code, name: found.name, wiki_url: found.wiki_url });
+      base = JSON.parse(saved);
+      list();
+    },
+  });
   $effect(() => { load(id); });
   onMount(async () => { countries = (await api.GET("/studio/api/map/countries")).data ?? []; });
 
@@ -58,6 +79,7 @@
     errors = {};
     const { data: out, error } = await api.PUT("/studio/api/map/provinces/{province_id}", { params: { path: { province_id: province.id } }, body: form });
     if (error || !out) { errors = fieldErrors(error); return toast(problem(error, "Не сохранилось."), "error"); }
+    share.markSaved();
     toast("Провинция сохранена.");
     await load(out.id);
     list();
@@ -140,6 +162,7 @@
         <div class="row">
           <button class="btn ghost danger" onclick={remove}>Удалить</button>
           <span class="spacer"></span>
+          <DraftState {share} {dirty} saved="" />
           <button class="btn primary" disabled={!dirty} onclick={save}>Сохранить</button>
         </div>
       </div>

@@ -2,6 +2,8 @@
   import { untrack } from "svelte";
   import { api, type Schemas } from "../../lib/api";
   import { guardUnsaved } from "../../lib/guard.svelte";
+  import DraftState from "../../lib/DraftState.svelte";
+  import { SharedForm } from "../../lib/shared.svelte";
 
   type System = Schemas["SystemOut"];
   type Done = (data: System | undefined, error: unknown, text: string) => void;
@@ -10,12 +12,15 @@
 
   let look = $state({ style: "aether", tokens: {} as Record<string, string> });
   let lookSaved = $state("");
+  let base = $state<typeof look | null>(null);                  // сохранённое: им наполняется общий черновик
+  const share = new SharedForm({ room: () => `systems/${system.code}`, scope: () => "style", draft: () => look, base: () => base });
   const lookDirty = $derived(JSON.stringify(look) !== lookSaved);
   const groups = $derived([...new Set(system.token_info.map((t) => t.group))]);
   const HEX6 = /^#[0-9a-fA-F]{6}$/;
 
   async function saveLook() {
     const { data, error } = await api.PUT("/studio/api/systems/{code}/style", { params: { path: { code: system.code } }, body: look });
+    if (data) share.markSaved();
     done(data, error, "Стиль сохранён.");
   }
 
@@ -54,12 +59,14 @@
   $effect(() => {
     const data = system;
     untrack(() => {
-      look = { style: data.style, tokens: { ...data.style_tokens } };
-      lookSaved = JSON.stringify(look);
+      const next = { style: data.style, tokens: { ...data.style_tokens } };
+      if (!share.ready) look = { style: next.style, tokens: { ...next.tokens } };
+      lookSaved = JSON.stringify(next);
+      base = next;
     });
   });
 
-  guardUnsaved(() => lookSaved !== "" && lookDirty);
+  guardUnsaved(() => !share.ready && lookSaved !== "" && lookDirty);
 </script>
 
   <div class="stylegrid" class:nopv={!deskPreview}>
@@ -108,7 +115,7 @@
     </div>
   {/each}
   {#if errors.style}{#each errors.style as text}<p class="warn small">{text}</p>{/each}{/if}
-  <div><button class="btn primary" disabled={!lookDirty} onclick={saveLook}>Сохранить стиль</button></div>
+  <div class="saverow"><DraftState {share} dirty={lookDirty} saved="" /><button class="btn primary" disabled={!lookDirty} onclick={saveLook}>Сохранить стиль</button></div>
   </div>
   {#if deskPreview}
   <aside class="stylepreview">
@@ -126,6 +133,7 @@
   </div>
 
 <style>
+  .saverow { display: flex; align-items: center; justify-content: flex-end; gap: 12px; }
   .small { font-size: 12px; margin: 0; }
   .warn { color: var(--warn); margin: 0; }
   .more { margin-left: auto; font-size: 12px; text-transform: none; letter-spacing: 0; }

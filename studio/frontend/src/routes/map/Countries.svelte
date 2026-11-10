@@ -1,6 +1,8 @@
 <script lang="ts">
   // Страны: список слева, карточка справа (цвет, годы жизни, предшественник) и подписи страны на карте.
   import { onMount } from "svelte";
+  import DraftState from "../../lib/DraftState.svelte";
+  import { SharedForm } from "../../lib/shared.svelte";
   import { api, problem, type Schemas } from "../../lib/api";
   import Dialog from "../../lib/Dialog.svelte";
   import Hint from "../../lib/Hint.svelte";
@@ -19,6 +21,7 @@
   let country = $state<Schemas["MapCountryOut"] | null>(null);
   let form = $state<Form>(blank());
   let saved = $state("");
+  let base = $state<Form | null>(null);                    // сохранённое: им наполняется общий черновик
   let errors = $state<Record<string, string[]>>({});
   let labels = $state<Schemas["MapLabelOut"][]>([]);
   let labelSaved = $state<Record<number, string>>({});
@@ -29,7 +32,7 @@
     return { code: "", name: "", color: "#9aa5b1", valid_from: today(), valid_to: null, predecessor: null, wiki_url: "" };
   }
   const dirty = $derived(JSON.stringify(form) !== saved);
-  guardUnsaved(() => saved !== "" && dirty);
+  guardUnsaved(() => saved !== "" && dirty && !share.ready);      // в совместном режиме черновик на сервере
   const current = $derived(id ?? rows[0]?.id ?? null);
 
   async function list() {
@@ -40,6 +43,7 @@
 
   async function load(target: number | null) {
     country = null;
+    base = null;
     errors = {};
     if (target === null) return;
     const { data } = await api.GET("/studio/api/map/countries/{country_id}", { params: { path: { country_id: target } } });
@@ -48,10 +52,28 @@
     const { id: _id, provinces: _p, ownerships: _o, labels: _l, predecessor_name: _n, successors: _s, label_list, ...fields } = data;
     form = fields;
     saved = JSON.stringify(form);
+    base = JSON.parse(saved);
     labels = label_list;
     labelSaved = Object.fromEntries(label_list.map((l) => [l.id, JSON.stringify(pure(l))]));
   }
   $effect(() => { load(current); });
+  // общий черновик страны; кто-то сохранил: перечитать сохранённое, черновик не трогается
+  const share = new SharedForm({
+    room: () => `map/countries/${current}`,
+    texts: ["name", "wiki_url"],
+    draft: () => form,
+    base: () => base,
+    onRemoteSave: async () => {
+      if (current === null) return;
+      const { data } = await api.GET("/studio/api/map/countries/{country_id}", { params: { path: { country_id: current } } });
+      if (!data) return;
+      country = data;
+      const { id: _id, provinces: _p, ownerships: _o, labels: _l, predecessor_name: _n, successors: _s, label_list: _ll, ...fields } = data;
+      saved = JSON.stringify(fields);
+      base = JSON.parse(saved);
+      list();
+    },
+  });
   onMount(list);
 
   const pure = (l: Schemas["MapLabelOut"]) => ({ text: l.text, lng: l.lng, lat: l.lat, rank: l.rank });
@@ -61,6 +83,7 @@
     errors = {};
     const { data, error } = await api.PUT("/studio/api/map/countries/{country_id}", { params: { path: { country_id: country.id } }, body: form });
     if (error || !data) { errors = fieldErrors(error); return toast(problem(error, "Не сохранилось."), "error"); }
+    share.markSaved();
     toast("Страна сохранена.");
     await load(data.id);
     list();
@@ -133,6 +156,7 @@
         <h2>{form.name || "Без названия"}</h2>
         <span class="spacer"></span>
         <button class="btn ghost danger" onclick={remove}>Удалить</button>
+        <DraftState {share} {dirty} saved="" />
         <button class="btn primary" disabled={!dirty} onclick={save}>Сохранить</button>
       </header>
 

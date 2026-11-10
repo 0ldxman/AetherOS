@@ -23,7 +23,9 @@
   import { level, loadMe, me } from "./lib/me.svelte";
   import Discussion from "./lib/Discussion.svelte";
   import { discussion, targetOf } from "./lib/discussion.svelte";
-  import { enter, presence } from "./lib/collab.svelte";
+  import { claimed, enter, presence } from "./lib/collab.svelte";
+  import PresenceMarks from "./lib/PresenceMarks.svelte";
+  import { labelOfKey } from "./lib/marks.svelte";
 
   const user = $derived(me.data?.username ?? "");
 
@@ -101,7 +103,7 @@
   const current = $derived(NAV.find((item) => item.section.includes(page.name)) ?? null);
 
   // обсуждение сущности, на которой автор сейчас: число открытых веток на кнопке
-  const target = $derived(targetOf(route.path));
+  const target = $derived(claimed.room || targetOf(route.path));
   let talks = $state(0);
   // комната совместной правки той же сущности: кто ещё здесь
   $effect(() => { enter(target, me.data?.username ?? ""); });
@@ -143,7 +145,7 @@
       <div class="here" aria-label="Кто ещё на этой странице">
         <span class="muted">Здесь ещё:</span>
         {#each presence.peers as peer (peer.id)}
-          <span class="peer" style="--peer: {peer.color}" title={peer.field ? `${peer.name}: правит «${peer.field}»` : peer.name}>{peer.name}</span>
+          <span class="peer" style="--peer: {peer.color}" title={peer.field ? `${peer.name}: в поле «${labelOfKey(peer.field)}»` : peer.name}>{peer.name}</span>
         {/each}
       </div>
     {/if}
@@ -213,6 +215,7 @@
   {#key target}<Discussion {target} onchange={(open) => (talks = open)} />{/key}
 {/if}
 
+<PresenceMarks />
 <ConfirmHost />
 
 <div class="toasts" popover="manual" bind:this={toastBox} aria-live="polite">
@@ -225,6 +228,10 @@
 </div>
 
 <style>
+  /* поле, которое только что изменил другой автор */
+  :global(.remote-changed) { animation: remote-changed 1.4s ease-out; }
+  @keyframes -global-remote-changed { from { box-shadow: 0 0 0 3px rgba(122, 162, 255, 0.55); background-color: rgba(122, 162, 255, 0.14); } to { box-shadow: 0 0 0 3px transparent; } }
+  @media (prefers-reduced-motion: reduce) { :global(.remote-changed) { animation: none; outline: 2px solid rgba(122, 162, 255, 0.55); } }
   .shell { display: grid; grid-template-columns: 220px 1fr; height: 100%; }
   .side {
     display: flex; flex-direction: column; gap: 18px;

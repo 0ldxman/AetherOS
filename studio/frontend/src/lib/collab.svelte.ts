@@ -12,6 +12,15 @@ export const presence = $state<{ room: string; peers: Peer[]; connected: boolean
 
 let current: { room: string; doc: Y.Doc; provider: WebsocketProvider } | null = null;
 
+// комнату заявляет редактор на экране (список с первой записью по умолчанию: в адресе её нет); без заявки берётся адрес
+export const claimed = $state({ room: "" });
+
+/** Редактор заявляет свою комнату; возвращает отказ от заявки (при уходе с экрана). */
+export function claim(room: string): () => void {
+  claimed.room = room;
+  return () => { if (claimed.room === room) claimed.room = ""; };
+}
+
 const COLORS = ["#e5484d", "#f76b15", "#ffc53d", "#46a758", "#12a594", "#0090ff", "#8e4ec6", "#d6409f"];
 
 /** Цвет автора: один и тот же у одного имени на всех страницах. */
@@ -44,7 +53,8 @@ export function enter(room: string, name: string): void {
     });
     presence.peers = peers;
   };
-  provider.awareness.on("change", update);
+  // присутствие меняется и посреди перерисовки (поле с фокусом удаляется при уходе со страницы): обновляем после неё
+  provider.awareness.on("change", () => queueMicrotask(update));
   provider.on("status", (event: { status: string }) => { presence.connected = event.status === "connected"; });
   provider.on("sync", (synced: boolean) => { presence.synced = synced; });
   current = { room, doc, provider };
@@ -73,7 +83,18 @@ export function roomAwareness(): WebsocketProvider["awareness"] | null {
   return current?.provider.awareness ?? null;
 }
 
+/** Своя правка через API в текущей комнате (её адрес или под ним): остальные на странице перечитают данные (RoomPing). */
+// пути, которые ничего не меняют (как SAFE_POST в team.rights) и пульс: о них комнате не сообщается
+const QUIET = new Set(["preview", "parse", "format", "check", "outline", "build", "resolve", "generate", "randomart", "week", "lock"]);
+
+export function touched(path: string): void {
+  if (!current || !(path === current.room || path.startsWith(current.room + "/"))) return;
+  if (QUIET.has(path.split("/").pop() ?? "")) return;
+  current.doc.getMap("pings").set("writes", Date.now());
+}
+
 /** Сообщить остальным, в каком поле фокус автора (пусто: ни в каком). */
 export function focusField(field: string): void {
-  current?.provider.awareness.setLocalStateField("field", field);
+  const room = current;
+  queueMicrotask(() => { if (room && room === current) room.provider.awareness.setLocalStateField("field", field); });
 }
