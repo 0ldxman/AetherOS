@@ -33,6 +33,34 @@
     ]
    }
   },
+  "/studio/api/app-icons": {
+   "get": {
+    "operationId": "studio_api_catalog_app_icons",
+    "summary": "App Icons",
+    "parameters": [],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/AppIcons"
+        }
+       }
+      }
+     }
+    },
+    "description": "Каталог иконок приложений рабочего стола и их картинки по стилям ОС.",
+    "tags": [
+     "catalog"
+    ],
+    "security": [
+     {
+      "SessionAuthIsStaff": []
+     }
+    ]
+   }
+  },
   "/studio/api/formats": {
    "get": {
     "operationId": "studio_api_catalog_formats",
@@ -7345,6 +7373,79 @@
      "superuser"
     ],
     "title": "Me",
+    "type": "object"
+   },
+   "AppIcon": {
+    "properties": {
+     "name": {
+      "title": "Name",
+      "type": "string"
+     },
+     "title": {
+      "title": "Title",
+      "type": "string"
+     },
+     "ascii": {
+      "title": "Ascii",
+      "type": "string"
+     }
+    },
+    "required": [
+     "name",
+     "title",
+     "ascii"
+    ],
+    "title": "AppIcon",
+    "type": "object"
+   },
+   "AppIconStyle": {
+    "properties": {
+     "slug": {
+      "title": "Slug",
+      "type": "string"
+     },
+     "label": {
+      "title": "Label",
+      "type": "string"
+     },
+     "urls": {
+      "additionalProperties": {
+       "type": "string"
+      },
+      "title": "Urls",
+      "type": "object"
+     }
+    },
+    "required": [
+     "slug",
+     "label",
+     "urls"
+    ],
+    "title": "AppIconStyle",
+    "type": "object"
+   },
+   "AppIcons": {
+    "properties": {
+     "icons": {
+      "items": {
+       "$ref": "#/components/schemas/AppIcon"
+      },
+      "title": "Icons",
+      "type": "array"
+     },
+     "styles": {
+      "items": {
+       "$ref": "#/components/schemas/AppIconStyle"
+      },
+      "title": "Styles",
+      "type": "array"
+     }
+    },
+    "required": [
+     "icons",
+     "styles"
+    ],
+    "title": "AppIcons",
     "type": "object"
    },
    "Format": {

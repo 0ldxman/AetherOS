@@ -1,7 +1,7 @@
 """Файл приложения: объект формата app. Его текст это строки «ключ значение», по одной на параметр:
 
     label console
-    glyph >_
+    icon terminal
     suffix .sh
     path /apps/terminal/
     order 3
@@ -33,7 +33,7 @@ class VolumeLine:
 @dataclass(frozen=True)
 class AppSpec:
     label: str
-    glyph: str
+    icon: str
     suffix: str
     path: str
     order: int = 0
@@ -64,11 +64,15 @@ def parse(text):
                 continue
             values.setdefault(key.lower(), value.strip())
 
-    for key, title in (("label", "название"), ("glyph", "значок"), ("path", "адрес")):
+    for key, title in (("label", "название"), ("icon", "иконка"), ("path", "адрес")):
         if not values.get(key):
             raise ValidationError({"body": f"В файле приложения нет строки «{key}» ({title})."})
-    if len(values["label"]) > 64 or len(values["glyph"]) > 8:
-        raise ValidationError({"body": "Название длиннее 64 знаков или значок длиннее 8."})
+    if len(values["label"]) > 64:
+        raise ValidationError({"body": "Название длиннее 64 знаков."})
+    from desktop.icons import NAMES
+
+    if values["icon"].lower() not in NAMES:
+        raise ValidationError({"body": f"Иконки «{values['icon']}» нет в каталоге: {', '.join(NAMES)}."})
     try:
         order = int(values.get("order") or 0)
     except ValueError:
@@ -78,12 +82,12 @@ def parse(text):
         validate_internal_path(values["path"])
     except ValidationError as error:
         raise ValidationError({"body": error.message_dict["path"]})
-    return AppSpec(values["label"], values["glyph"], normalize_suffix(values.get("suffix")), values["path"], order, tuple(volumes))
+    return AppSpec(values["label"], values["icon"].lower(), normalize_suffix(values.get("suffix")), values["path"], order, tuple(volumes))
 
 
-def render(label, glyph, path, suffix="", order=0, volumes=()):
+def render(label, icon, path, suffix="", order=0, volumes=()):
     """Текст файла приложения (volumes: готовые строки после слова volume)."""
-    lines = [f"label {label}", f"glyph {glyph}", f"path {path}", *(f"volume {line}" for line in volumes)]
+    lines = [f"label {label}", f"icon {icon}", f"path {path}", *(f"volume {line}" for line in volumes)]
     if suffix:
         lines.append(f"suffix {normalize_suffix(suffix)}")
     if order:

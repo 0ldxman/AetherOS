@@ -218,7 +218,7 @@ class InboxApiTests(TestCase):
         cls.main = Machine.objects.create(name="Main", hostname="aether-main")
         cls.null = Machine.objects.create(name="Null", hostname="aether-null")
         for machine in (cls.main, cls.null):
-            make_app(machine, label="intercom", glyph="@", path="/apps/mail/")
+            make_app(machine, label="intercom", icon="mail", path="/apps/mail/")
 
     def setUp(self):
         cache.clear()      # кэш пережил бы откат базы между тестами
@@ -1034,7 +1034,7 @@ class AttachmentSaveApiTests(TestCase):
         from machines.models import MachineProfile, Session
 
         cls.machine = Machine.objects.create(name="Staff", hostname="apollo-staff")
-        make_app(cls.machine, label="intercom", glyph="@", path="/apps/mail/")
+        make_app(cls.machine, label="intercom", icon="mail", path="/apps/mail/")
         cls.file = Item.objects.create(slug="evidence", name="evidence.dat")
         cls.user = get_user_model().objects.create_user("ivan", password="pw")
         cls.profile = MachineProfile.objects.create(machine=cls.machine, user=cls.user, name="I", login="will_smith", freq=1)
@@ -1081,7 +1081,7 @@ class AttachmentSaveApiTests(TestCase):
         from users.aether_auth import AUTH_REQUIRED
 
         null = Machine.objects.create(name="Null", hostname="aether-null")
-        make_app(null, label="intercom", glyph="@", path="/apps/mail/")
+        make_app(null, label="intercom", icon="mail", path="/apps/mail/")
         session = self.client.session
         session["guest"] = True
         session.save()
@@ -1310,7 +1310,7 @@ class ComposeApiTests(TestCase):
         from mail.models import ComposeTask
 
         cls.machine = Machine.objects.create(name="Staff", hostname="apollo-staff")
-        make_app(cls.machine, label="intercom", glyph="@", path="/apps/mail/")
+        make_app(cls.machine, label="intercom", icon="mail", path="/apps/mail/")
         cls.user = get_user_model().objects.create_user("ivan", password="pw")
         cls.profile = MachineProfile.objects.create(machine=cls.machine, user=cls.user, name="I", login="will_smith", freq=1)
         cls.reply = make_message(slug="r1", recipients="will_smith@apollo-staff", subject="re")
@@ -1358,7 +1358,7 @@ class ComposeApiTests(TestCase):
         session["guest"] = True
         session.save()
         null = Machine.objects.create(name="Null", hostname="aether-null")
-        make_app(null, label="intercom", glyph="@", path="/apps/mail/")
+        make_app(null, label="intercom", icon="mail", path="/apps/mail/")
         for response in (self.client.get(reverse("mail:tasks")), self.client.post(reverse("mail:send", args=[self.task.pk]))):
             self.assertEqual(response.status_code, 403)
             self.assertEqual(json.loads(response.content)["error"], AUTH_REQUIRED)

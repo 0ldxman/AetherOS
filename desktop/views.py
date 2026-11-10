@@ -12,51 +12,12 @@ from machines.world.identity import identity_of
 from users.aether_auth import GUEST_LOGIN
 
 from scenes.boots import boot_scenes
+from desktop.icons import glyph
 from desktop.messages import catalog
 
 from machines.current import active_session, current_machine, desktop_entries, is_app, visible_apps
 
 # Create your views here.
-
-APPS = [
-    {
-        "id": "wiki",
-        "label": "aether",
-        "glyph": "W",
-        "suffix": ".db",
-        "url_name": "wiki:home",
-    },
-    {
-        "id": "mail",
-        "label": "intercom",
-        "glyph": "@",
-        "suffix": ".conn",
-        "url_name": "sessions",
-    },
-    {
-        "id": "terminal",
-        "label": "console",
-        "glyph": ">_",
-        "suffix": ".sh",
-        "url_name": "sessions",
-    },
-    {
-        "id": "sessions",
-        "label": "sessions",
-        "glyph": "S",
-        "suffix": ".mon",
-        "url_name": "sessions",
-    },
-    {
-        "id": "map",
-        "label": "world",
-        "glyph": "M",
-        "suffix": ".map",
-        "url_name": "map:index",
-    },
-]
-
-
 
 def _identity(request, machine):
     """Кто подключён и куда: (логин на машине, ключ раскладки стола).
@@ -82,7 +43,7 @@ def _file_icons(request, machine):
         if is_app(entry):
             continue
         content = resolve_content(entry, entry.path, entry.name)
-        icons.append({"id": f"file:{entry.path}", "label": entry.name, "glyph": "▤", "url": content.url or "", "closed": not content.url})
+        icons.append({"id": f"file:{entry.path}", "label": entry.name, "icon": "file", "ascii": glyph("file"), "url": content.url or "", "closed": not content.url})
     return icons
 
 
@@ -105,7 +66,8 @@ def desktop(request):
         {
             "id": app.pk,
             "label": app.label,
-            "glyph": app.glyph,
+            "icon": app.icon,
+            "ascii": glyph(app.icon),
             "suffix": app.suffix,
             "url": prefix + app.path,
         }

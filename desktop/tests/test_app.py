@@ -874,7 +874,7 @@ class DesktopFileTests(TestCase):
         self.main = Machine.objects.create(name="Main", hostname="aether-main")
         self.user = get_user_model().objects.create_user("ivan", password="pw")
         self.client.force_login(self.user)
-        make_app(self.main, "console", ">_", "/apps/terminal/")
+        make_app(self.main, "console", "terminal", "/apps/terminal/")
         self.make_file, self.dir = make_file, APPS_DIR
 
     def icons(self):

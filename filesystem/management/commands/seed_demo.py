@@ -61,14 +61,14 @@ class Command(BaseCommand):
 
         # рабочий стол: файлы приложений в общем месте desktop системы
         Place.objects.update_or_create(system_type=system, name="desktop", defaults={"path": "/etc/desktop"})
-        for slug, label, glyph, path, suffix in (
-            ("app-console", "console", ">_", "/apps/terminal/", ".sh"),
-            ("app-intercom", "intercom", "@", "/apps/mail/", ".conn"),
-            ("app-aether", "aether", "W", "/apps/wiki/", ".db"),
-            ("app-world", "world", "M", "/apps/map/", ".map"),
+        for slug, label, icon, path, suffix in (
+            ("app-console", "console", "terminal", "/apps/terminal/", ".sh"),
+            ("app-intercom", "intercom", "mail", "/apps/mail/", ".conn"),
+            ("app-aether", "aether", "book", "/apps/wiki/", ".db"),
+            ("app-world", "world", "map", "/apps/map/", ".map"),
         ):
             volumes = ("aether-core:/srv/harbor as Harbor user=reader",) if label == "aether" else ()       # вики подключает архив порта
-            put(base, f"etc/desktop/{label}.app", slug, appfile.render(label, glyph, path, suffix, volumes=volumes), format="app")
+            put(base, f"etc/desktop/{label}.app", slug, appfile.render(label, icon, path, suffix, volumes=volumes), format="app")
 
         put(base, "etc/desktop/readme.txt", "demo-readme", "Welcome. Files on the desktop open by their kind.\n")
 

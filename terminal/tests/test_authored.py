@@ -22,7 +22,7 @@ class AuthoredFileTests(TerminalClient, TestCase):
         FileFormat.objects.update_or_create(name="txt", defaults={"extension": ".txt", "kind": "text", "template": "{body}", "content": "text_asset", "editable": True})
         FileFormat.objects.update_or_create(name="zip", defaults={"extension": ".zip", "kind": "zip", "content": "none"})
         cls.main = Machine.objects.create(name="Main", hostname="aether-main")
-        make_app(cls.main, label="console", glyph=">_", path="/apps/terminal/")
+        make_app(cls.main, label="console", icon="terminal", path="/apps/terminal/")
         cls.user = get_user_model().objects.create_user("ivan", password="pw")
         MachineProfile.objects.create(machine=cls.main, user=cls.user, name="Ivan", login="ivan", freq=1, mail="ivan@aether-main")
         volume = root_volume(cls.main)

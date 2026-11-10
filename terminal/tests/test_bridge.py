@@ -28,7 +28,7 @@ class BridgeFixture(TerminalClient, TestCase):
         cls.main = Machine.objects.create(name="Main", hostname="aether-main", hid="AA:00:00:00:00:01")
         cls.core = Machine.objects.create(name="Core", hostname="aether-core", hid="AA:00:00:00:00:02")
         cls.deep = Machine.objects.create(name="Deep", hostname="aether-deep", hid="AA:00:00:00:00:03")
-        make_app(cls.main, label="console", glyph=">_", path="/apps/terminal/")
+        make_app(cls.main, label="console", icon="terminal", path="/apps/terminal/")
         cls.user = get_user_model().objects.create_user("ivan", password="pw")
         cls.home = MachineProfile.objects.create(machine=cls.main, user=cls.user, name="Ivan", login="ivan",
                                                  freq=1, mail="ivan@aether-main")

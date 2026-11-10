@@ -20,6 +20,23 @@ class Format(Schema):
     editable: bool
 
 
+class AppIcon(Schema):
+    name: str
+    title: str
+    ascii: str                   # текстовый значок: его рисует стиль tui
+
+
+class AppIconStyle(Schema):
+    slug: str
+    label: str
+    urls: dict[str, str]         # имя иконки -> адрес картинки в наборе этого стиля (пусто у стилей без картинок)
+
+
+class AppIcons(Schema):
+    icons: list[AppIcon]
+    styles: list[AppIconStyle]
+
+
 class Key(Schema):
     slug: str
     description: str
@@ -28,6 +45,18 @@ class Key(Schema):
 @router.get("/me", response=Me)
 def me(request):
     return Me(username=request.user.get_username(), superuser=request.user.is_superuser)
+
+
+@router.get("/app-icons", response=AppIcons)
+def app_icons(request):
+    """Каталог иконок приложений рабочего стола и их картинки по стилям ОС."""
+    from desktop import icons
+    from machines.world.styles import STYLES
+
+    return AppIcons(
+        icons=[AppIcon(name=name, title=title, ascii=text) for name, title, text in icons.CATALOG],
+        styles=[AppIconStyle(slug=slug, label=style.label, urls={name: icons.icon_url(slug, name) for name in icons.NAMES}) for slug, style in STYLES.items()],
+    )
 
 
 @router.get("/formats", response=list[Format])

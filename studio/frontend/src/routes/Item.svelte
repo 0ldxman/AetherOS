@@ -14,6 +14,7 @@
   import ItemKeys from "./item/ItemKeys.svelte";
   import ItemProtection from "./item/ItemProtection.svelte";
   import ContentPicker from "./item/ContentPicker.svelte";
+  import AppIcon from "./item/AppIcon.svelte";
 
   type Item = Schemas["ItemOut"];
 
@@ -192,7 +193,14 @@
         <div class="pane-body">
           {#if tab === "body"}
             {#if textual}
-              <CodeEditor bind:value={draft.body} markup={format?.markup ?? false} onsave={() => save()} />
+              {#if draft.format === "app"}
+                <div class="stack">
+                  <AppIcon bind:body={draft.body} />
+                  <div class="grow"><CodeEditor bind:value={draft.body} markup={false} onsave={() => save()} /></div>
+                </div>
+              {:else}
+                <CodeEditor bind:value={draft.body} markup={format?.markup ?? false} onsave={() => save()} />
+              {/if}
             {:else}
               {#if format && format.content !== "none"}
                 <ContentPicker {item} {format} onchange={load} />
@@ -304,6 +312,8 @@
   .ptitle { padding: 5px 10px; color: var(--muted); }
   .keys { margin-left: auto; height: 26px; border: 1px solid var(--line); border-radius: var(--radius-s); background: var(--bg); padding: 0 6px; }
   .pane-body { flex: 1; min-height: 0; }
+  .stack { display: flex; flex-direction: column; height: 100%; }
+  .grow { flex: 1; min-height: 0; }
   .note { padding: 16px; }
   .props { display: flex; flex-direction: column; gap: 14px; padding: 16px; overflow: auto; height: 100%; }
   .pair { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }

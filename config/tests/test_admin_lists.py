@@ -27,7 +27,7 @@ def build(i, user, key):
     session = Session.objects.create(user=user, profile=profile)
     made = make_file(machine, f"/docs/{i}.txt")
     embed_key(made.item, key.slug)
-    make_app(machine, label="wiki", glyph="W", path="/apps/wiki/")
+    make_app(machine, label="wiki", icon="book", path="/apps/wiki/")
     country = Country.objects.create(code=f"C{i}", name=f"Страна {i}", valid_from=date(2000, 1, 1))
     province = Province.objects.create(code=f"P{i}", source_code=f"S{i}", name=f"Пров {i}")
     Ownership.objects.create(province=province, country=country, date_from=date(2000, 1, 1), de_jure=True)
@@ -44,7 +44,7 @@ class NamesTests(TestCase):
     def test_machine_without_hostname_does_not_print_none(self):
         machine = Machine.objects.create(name="Безымянный")
         profile = MachineProfile.objects.create(machine=machine, name="p", login="l", freq=1)
-        app = make_app(machine, label="wiki", glyph="W", path="/apps/wiki/")
+        app = make_app(machine, label="wiki", icon="book", path="/apps/wiki/")
         made = make_file(machine, "/a")
         for obj in (profile, app.item, made.item):
             self.assertNotIn("None", str(obj))

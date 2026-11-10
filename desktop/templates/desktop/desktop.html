@@ -19,7 +19,7 @@
                     data-app="{{ app.id }}"
                     data-url="{{ app.url }}"
                 >
-                    <span class="icon-glyph">{{ app.glyph }}</span>
+                    {% app_icon app.icon as art %}<span class="icon-glyph{% if art %} has-icon{% endif %}"{% if art %} style="--icon:url('{{ art }}')"{% endif %}>{{ app.ascii }}</span>
                     <span class="icon-label">{{ app.label }}{{ app.suffix }}</span>
                 </button>
             </li>
@@ -31,7 +31,7 @@
                     data-app="{{ file.id }}"
                     data-url="{{ file.url }}"
                 >
-                    <span class="icon-glyph">{{ file.glyph }}</span>
+                    {% app_icon file.icon as art %}<span class="icon-glyph{% if art %} has-icon{% endif %}"{% if art %} style="--icon:url('{{ art }}')"{% endif %}>{{ file.ascii }}</span>
                     <span class="icon-label">{{ file.label }}</span>
                 </button>
             </li>

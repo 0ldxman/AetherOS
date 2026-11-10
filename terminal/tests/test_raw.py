@@ -24,7 +24,7 @@ class RawCommandTests(TerminalClient, TestCase):
         from filesystem.testing import make_page
 
         cls.main = Machine.objects.create(name="Main", hostname="aether-main")
-        make_app(cls.main, label="console", glyph=">_", path="/apps/terminal/")
+        make_app(cls.main, label="console", icon="terminal", path="/apps/terminal/")
         cls.user = get_user_model().objects.create_user("ivan", password="pw")
         MachineProfile.objects.create(machine=cls.main, user=cls.user, name="Ivan", login="ivan", freq=1,
                                       mail="ivan@aether-main")

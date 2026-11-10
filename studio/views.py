@@ -36,7 +36,7 @@ def shell(request):
     })
 
 
-PREVIEW_APPS = (("mail", "Mail", "✉"), ("wiki", "Wiki", "W"), ("terminal", "Terminal", ">_"), ("map", "Map", "◎"), ("files", "Files", "▤"))
+PREVIEW_APPS = (("mail", "Mail", "mail"), ("wiki", "Wiki", "book"), ("terminal", "Terminal", "terminal"), ("map", "Map", "map"), ("files", "Files", "folder"))
 
 
 @staff_member_required
@@ -52,8 +52,10 @@ def style_preview(request, code):
     system = get_object_or_404(SystemType, code=code.upper())
     query = request.GET.urlencode()
     suffix = f"?{query}" if query else ""
-    apps = [{"id": index, "label": label, "glyph": glyph, "suffix": "", "url": reverse("studio_preview_page", kwargs={"kind": kind}) + suffix}
-            for index, (kind, label, glyph) in enumerate(PREVIEW_APPS)]
+    from desktop.icons import glyph
+
+    apps = [{"id": index, "label": label, "icon": icon, "ascii": glyph(icon), "suffix": "", "url": reverse("studio_preview_page", kwargs={"kind": kind}) + suffix}
+            for index, (kind, label, icon) in enumerate(PREVIEW_APPS)]
     return render(request, "desktop/desktop.html", {
         "preview": True, "tunnel": None, "limit": None, "kicks": [], "mail_url": "", "mail_pulse_url": "",
         "machine_name": "preview", "os_name": system.name, "login": "operator",

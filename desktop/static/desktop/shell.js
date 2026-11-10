@@ -39,6 +39,7 @@
         id: icon.dataset.app,
         url: icon.dataset.url,
         label: icon.querySelector(".icon-label").textContent.trim(),
+        icon: glyph.classList.contains("has-icon") ? glyph.style.getPropertyValue("--icon") : "",
         glyph: Array.from(glyph.childNodes).filter((node) => node.nodeType === Node.TEXT_NODE).map((node) => node.textContent).join("").trim(),
         badge: badge ? badge.textContent : "",
       };
@@ -63,7 +64,11 @@
   // Обновляет кнопку на месте: перерисовка на каждый blur окна заменяла бы кнопку между нажатием и отпусканием, и клик терялся бы.
   function fill(node, info, classes) {
     node.title = info.label;
-    node.querySelector(".shell-glyph").textContent = info.glyph;
+    const glyph = node.querySelector(".shell-glyph");
+    glyph.textContent = info.icon ? "" : info.glyph;
+    glyph.classList.toggle("has-icon", !!info.icon);
+    if (info.icon) glyph.style.setProperty("--icon", info.icon);
+    else glyph.style.removeProperty("--icon");
     node.querySelector(".shell-label").textContent = info.label;
 
     let badge = node.querySelector(".shell-badge");
@@ -111,7 +116,7 @@
       "shell-task",
       Object.keys(openWindows).filter((id) => !spaceButtons.length || (openWindows[id]._space || space) === space).map((id) => {
         const meta = openMeta[id] || {};
-        const info = { id, label: meta.label || id, glyph: known[id] ? known[id].glyph : "▢", badge: "" };
+        const info = { id, label: meta.label || id, glyph: known[id] ? known[id].glyph : "▢", icon: known[id] ? known[id].icon : "", badge: "" };
         return { info, classes: openWindows[id].min ? ["is-min"] : id === front ? ["is-active"] : [] };
       })
     );

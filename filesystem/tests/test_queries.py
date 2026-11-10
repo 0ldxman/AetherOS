@@ -56,7 +56,7 @@ class RequestBudgetTests(TestCase):
         self.addCleanup(set_script_prefix, previous)
         self.machine = Machine.objects.create(name="Main", hostname="aether-main")
         self.host = Machine.objects.create(name="Core", hostname="aether-core")
-        make_app(self.machine, label="console", glyph=">_", path="/apps/terminal/")
+        make_app(self.machine, label="console", icon="terminal", path="/apps/terminal/")
         self.user = get_user_model().objects.create_user("ivan", password="pw")
         MachineProfile.objects.create(machine=self.machine, user=self.user, name="Ivan", login="ivan", freq=1)
         reader = MachineProfile.objects.create(machine=self.host, login="reader", name="Reader", freq=1)

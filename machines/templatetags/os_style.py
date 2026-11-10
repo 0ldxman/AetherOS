@@ -66,6 +66,16 @@ def os_style_slug(context):
 
 
 @register.simple_tag(takes_context=True)
+def app_icon(context, name):
+    """Адрес картинки иконки приложения в стиле ОС машины игрока (пусто: рисуется текстовый значок)."""
+    from desktop.icons import icon_url
+
+    request = context.get("request")
+    slug = _state(request)[0] if request is not None else styles.DEFAULT_STYLE
+    return icon_url(slug, name)
+
+
+@register.simple_tag(takes_context=True)
 def os_theme(context):
     request = context.get("request")
     slug = _state(request)[0] if request is not None else styles.DEFAULT_STYLE

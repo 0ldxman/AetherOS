@@ -16,7 +16,7 @@ class DocumentWindowTests(TerminalClient, TestCase):
     @classmethod
     def setUpTestData(cls):
         cls.main = Machine.objects.create(name="Main", hostname="aether-main")
-        make_app(cls.main, label="console", glyph=">_", path="/apps/terminal/")
+        make_app(cls.main, label="console", icon="terminal", path="/apps/terminal/")
         cls.user = get_user_model().objects.create_user("ivan", password="pw")
         MachineProfile.objects.create(machine=cls.main, user=cls.user, name="Ivan", login="ivan", freq=1, mail="ivan@aether-main")
         make_file(cls.main, "/home/report.rec", body="Отчёт.\n\n::spoiler door_key\nкод двери\n::", format="rec")

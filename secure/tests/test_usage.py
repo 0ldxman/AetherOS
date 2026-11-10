@@ -20,7 +20,7 @@ class UsageTests(TestCase):
         for slug in ("key_a", "key_ab", "key_idle", "key_file", "key_prof", "key_doc"):
             key_item(slug)
         machine = Machine.objects.create(name="Main", hostname="main")
-        make_app(machine, "wiki", "W", "/apps/wiki/", key_condition={"all": ["key_a", {"not": "key_x"}]})
+        make_app(machine, "wiki", "book", "/apps/wiki/", key_condition={"all": ["key_a", {"not": "key_x"}]})
         MachineProfile.objects.create(machine=machine, name="P", login="l", freq=1, key_condition="key_prof")
         embed_key(make_file(machine, "/secret.txt").item, "key_file")
         make_document(make_namespace("Раздел"), "Док", body="[x]{key_doc}")
@@ -65,7 +65,7 @@ class KeyPageTests(TestCase):
     def test_key_page_lists_every_kind_with_links(self):
         key = key_item("key_a")
         machine = Machine.objects.create(name="Main", hostname="main")
-        app = make_app(machine, "wiki", "W", "/apps/wiki/", key_condition="key_a")
+        app = make_app(machine, "wiki", "book", "/apps/wiki/", key_condition="key_a")
         item = embed_key(make_file(machine, "/s.txt").item, "key_a").item
         response = self.client.get(reverse("admin:filesystem_item_change", args=[key.pk]))
         self.assertContains(response, reverse("admin:filesystem_item_change", args=[app.item.pk]))

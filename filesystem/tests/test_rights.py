@@ -24,7 +24,7 @@ class RightsTests(TerminalClient, TestCase):
     @classmethod
     def setUpTestData(cls):
         cls.main = Machine.objects.create(name="Main", hostname="aether-main")
-        make_app(cls.main, label="console", glyph=">_", path="/apps/terminal/")
+        make_app(cls.main, label="console", icon="terminal", path="/apps/terminal/")
         cls.user = get_user_model().objects.create_user("ivan", password="pw")
         cls.profile = MachineProfile.objects.create(machine=cls.main, user=cls.user, name="Ivan", login="ivan", freq=1)
         MachineProfile.objects.create(machine=cls.main, login="admin", name="Admin", freq=2)
@@ -119,7 +119,7 @@ class FolderRightsTests(TerminalClient, TestCase):
     @classmethod
     def setUpTestData(cls):
         cls.main = Machine.objects.create(name="Main", hostname="aether-main")
-        make_app(cls.main, label="console", glyph=">_", path="/apps/terminal/")
+        make_app(cls.main, label="console", icon="terminal", path="/apps/terminal/")
         cls.user = get_user_model().objects.create_user("ivan", password="pw")
         MachineProfile.objects.create(machine=cls.main, user=cls.user, name="Ivan", login="ivan", freq=1)
         cls.folder = make_file(cls.main, "/work", directory=True)

@@ -21,6 +21,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/studio/api/app-icons": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * App Icons
+         * @description Каталог иконок приложений рабочего стола и их картинки по стилям ОС.
+         */
+        get: operations["studio_api_catalog_app_icons"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/studio/api/formats": {
         parameters: {
             query?: never;
@@ -2352,6 +2372,33 @@ export interface components {
             username: string;
             /** Superuser */
             superuser: boolean;
+        };
+        /** AppIcon */
+        AppIcon: {
+            /** Name */
+            name: string;
+            /** Title */
+            title: string;
+            /** Ascii */
+            ascii: string;
+        };
+        /** AppIconStyle */
+        AppIconStyle: {
+            /** Slug */
+            slug: string;
+            /** Label */
+            label: string;
+            /** Urls */
+            urls: {
+                [key: string]: string;
+            };
+        };
+        /** AppIcons */
+        AppIcons: {
+            /** Icons */
+            icons: components["schemas"]["AppIcon"][];
+            /** Styles */
+            styles: components["schemas"]["AppIconStyle"][];
         };
         /** Format */
         Format: {
@@ -5561,6 +5608,26 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Me"];
+                };
+            };
+        };
+    };
+    studio_api_catalog_app_icons: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AppIcons"];
                 };
             };
         };

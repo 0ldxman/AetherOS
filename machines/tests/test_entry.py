@@ -65,7 +65,7 @@ class EntryTests(TerminalClient, TestCase):
         cls.main = Machine.objects.create(name="Main", hostname="aether-main")
         cls.gate = Machine.objects.create(name="Gate", hostname="gw-02")
         cls.core = Machine.objects.create(name="Core", hostname="aether-core")
-        make_app(cls.main, label="console", glyph=">_", path="/apps/terminal/")
+        make_app(cls.main, label="console", icon="terminal", path="/apps/terminal/")
         cls.user = get_user_model().objects.create_user("ivan", password="pw")
         cls.home = MachineProfile.objects.create(machine=cls.main, user=cls.user, name="Ivan", login="ivan", freq=1)
         cls.gate_account = MachineProfile.objects.create(machine=cls.gate, login="relay", name="relay", freq=1)
@@ -242,7 +242,7 @@ class StudioActionsTests(TerminalClient, TestCase):
     def setUpTestData(cls):
         cls.main = Machine.objects.create(name="Main", hostname="aether-main")
         cls.core = Machine.objects.create(name="Core", hostname="aether-core")
-        make_app(cls.main, label="console", glyph=">_", path="/apps/terminal/")
+        make_app(cls.main, label="console", icon="terminal", path="/apps/terminal/")
         cls.user = get_user_model().objects.create_user("ivan", password="pw")
         MachineProfile.objects.create(machine=cls.main, user=cls.user, name="Ivan", login="ivan", freq=1)
         key_item("cardkey")

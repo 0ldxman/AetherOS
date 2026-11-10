@@ -37,7 +37,7 @@ class WikiNetworkTests(TestCase):
         cache.clear()
 
     def wiki(self, *lines):
-        make_app(self.client_machine, "wiki", "W", "/apps/wiki/", volumes=lines)
+        make_app(self.client_machine, "wiki", "book", "/apps/wiki/", volumes=lines)
 
     def get(self, fn, *args, **kwargs):
         return call(fn, *args, user=self.user, session=self.session, **kwargs)
@@ -79,4 +79,4 @@ class WikiNetworkTests(TestCase):
         from filesystem import appfile
 
         with self.assertRaises(ValidationError):
-            appfile.parse("label w\nglyph W\npath /apps/wiki/\nvolume not a line")
+            appfile.parse("label w\nicon book\npath /apps/wiki/\nvolume not a line")

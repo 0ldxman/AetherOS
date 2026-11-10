@@ -242,6 +242,18 @@ body {
   position: relative;
 }
 
+/* картинка иконки из набора стиля ОС (static/ui/icons/<стиль>): рисуется маской цветом текста, поэтому темы красят её сами */
+.icon-glyph.has-icon { font-size: 0; }
+.icon-glyph.has-icon::before,
+.shell-glyph.has-icon::before {
+  content: "";
+  background: currentColor;
+  -webkit-mask: var(--icon) center / contain no-repeat;
+  mask: var(--icon) center / contain no-repeat;
+}
+.icon-glyph.has-icon::before { position: absolute; inset: 17%; }
+.shell-glyph.has-icon::before { display: inline-block; width: 1.3em; height: 1.3em; vertical-align: -0.3em; }
+
 /* счётчик непрочитанных на иконке */
 .icon-badge {
   position: absolute;

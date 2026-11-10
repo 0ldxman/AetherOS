@@ -18,7 +18,7 @@ class AnonymousTerminalTests(TestCase):
     @classmethod
     def setUpTestData(cls):
         cls.null = Machine.objects.create(name="Null", hostname="aether-null")
-        make_app(cls.null, label="console", glyph=">_", path="/apps/terminal/")
+        make_app(cls.null, label="console", icon="terminal", path="/apps/terminal/")
 
     def setUp(self):
         previous = get_script_prefix()
@@ -71,7 +71,7 @@ class AnonymousTerminalTests(TestCase):
     def test_a_signed_in_player_still_gets_a_real_terminal(self):
         user = get_user_model().objects.create_user("ivan", password="pw")
         main = Machine.objects.create(name="Main", hostname="aether-main")
-        make_app(main, label="console", glyph=">_", path="/apps/terminal/")
+        make_app(main, label="console", icon="terminal", path="/apps/terminal/")
         self.client.force_login(user)
         response, data = self.run_command("pwd")
         self.assertEqual(response.status_code, 200)

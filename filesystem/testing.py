@@ -219,7 +219,7 @@ def wiki_sections(machine, volumes):
         MachineMount.objects.get_or_create(machine=machine, mount_path=f"/wiki/{volume.slug}", defaults={"volume": volume, "order": order})
         lines.append(f"/wiki/{volume.slug} as {volume.name or volume.slug}")
     remove_apps_named(machine, "wiki")
-    return make_app(machine, "wiki", "W", "/apps/wiki/", volumes=lines)
+    return make_app(machine, "wiki", "book", "/apps/wiki/", volumes=lines)
 
 
 def remove_apps_named(machine, label):
@@ -231,12 +231,12 @@ def remove_apps_named(machine, label):
     Item.objects.filter(pk__in=items).delete()
 
 
-def make_app(machine, label, glyph, path, suffix="", key_condition=None, order=0, volumes=()):
+def make_app(machine, label, icon, path, suffix="", key_condition=None, order=0, volumes=()):
     """Иконка на столе машины: файл приложения в общем месте desktop (у машины оно одно на всех записей)."""
     from filesystem import appfile
 
     Place.objects.get_or_create(machine=machine, name="desktop", defaults={"path": APPS_DIR})
-    made = make_file(machine, f"{APPS_DIR}/{label}.app", body=appfile.render(label, glyph, path, suffix, order, volumes), format="app")
+    made = make_file(machine, f"{APPS_DIR}/{label}.app", body=appfile.render(label, icon, path, suffix, order, volumes), format="app")
     if key_condition:
         made.item.access = key_condition
         made.item.save(update_fields=["access"])
