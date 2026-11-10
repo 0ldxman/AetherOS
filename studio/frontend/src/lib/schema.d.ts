@@ -2738,6 +2738,116 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/studio/api/comments": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Comment Threads */
+        get: operations["studio_api_comments_comment_threads"];
+        put?: never;
+        /** Comment Post */
+        post: operations["studio_api_comments_comment_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/studio/api/comments/counts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Comment Counts
+         * @description Открытые ветки по сущностям: targets через запятую.
+         */
+        get: operations["studio_api_comments_comment_counts"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/studio/api/comments/inbox": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Comment Inbox */
+        get: operations["studio_api_comments_comment_inbox"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/studio/api/comments/authors": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Comment Authors
+         * @description Кого можно упомянуть: авторы команды.
+         */
+        get: operations["studio_api_comments_comment_authors"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/studio/api/comments/{comment_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Comment Edit */
+        put: operations["studio_api_comments_comment_edit"];
+        post?: never;
+        /** Comment Delete */
+        delete: operations["studio_api_comments_comment_delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/studio/api/comments/{comment_id}/resolve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Comment Resolve */
+        post: operations["studio_api_comments_comment_resolve"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -6543,6 +6653,99 @@ export interface components {
         PlBanIn: {
             /** Banned */
             banned: boolean;
+        };
+        /** CmMessage */
+        CmMessage: {
+            /** Id */
+            id: number;
+            /** Username */
+            username: string;
+            /** Text */
+            text: string;
+            /** Mentions */
+            mentions: string[];
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Edited At */
+            edited_at: string | null;
+            /** Own */
+            own: boolean;
+        };
+        /** CmThread */
+        CmThread: {
+            /** Id */
+            id: number;
+            /** Resolved At */
+            resolved_at: string | null;
+            /** Resolved By */
+            resolved_by: string;
+            /** Messages */
+            messages: components["schemas"]["CmMessage"][];
+        };
+        /** CmIn */
+        CmIn: {
+            /**
+             * Target
+             * @default
+             */
+            target: string;
+            /** Text */
+            text: string;
+            /** Parent */
+            parent?: number | null;
+        };
+        /** CmInbox */
+        CmInbox: {
+            /** Rows */
+            rows: components["schemas"]["CmInboxRow"][];
+            /** Open Total */
+            open_total: number;
+        };
+        /** CmInboxRow */
+        CmInboxRow: {
+            /** Thread */
+            thread: number;
+            /** Target */
+            target: string;
+            /** Kind */
+            kind: string;
+            /** Label */
+            label: string;
+            /** Link */
+            link: string;
+            /** Count */
+            count: number;
+            /** Last By */
+            last_by: string;
+            /** Last Text */
+            last_text: string;
+            /**
+             * Last At
+             * Format: date-time
+             */
+            last_at: string;
+            /** Mentioned */
+            mentioned: boolean;
+            /** Waiting */
+            waiting: boolean;
+        };
+        /** CmAuthor */
+        CmAuthor: {
+            /** Username */
+            username: string;
+        };
+        /** CmEdit */
+        CmEdit: {
+            /** Text */
+            text: string;
+        };
+        /** CmResolve */
+        CmResolve: {
+            /** Resolved */
+            resolved: boolean;
         };
     };
     responses: never;
@@ -11263,6 +11466,188 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["PlCard"];
+                };
+            };
+        };
+    };
+    studio_api_comments_comment_threads: {
+        parameters: {
+            query: {
+                target: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CmThread"][];
+                };
+            };
+        };
+    };
+    studio_api_comments_comment_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CmIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CmThread"];
+                };
+            };
+        };
+    };
+    studio_api_comments_comment_counts: {
+        parameters: {
+            query?: {
+                targets?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: number;
+                    };
+                };
+            };
+        };
+    };
+    studio_api_comments_comment_inbox: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CmInbox"];
+                };
+            };
+        };
+    };
+    studio_api_comments_comment_authors: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CmAuthor"][];
+                };
+            };
+        };
+    };
+    studio_api_comments_comment_edit: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                comment_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CmEdit"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CmMessage"];
+                };
+            };
+        };
+    };
+    studio_api_comments_comment_delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                comment_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    studio_api_comments_comment_resolve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                comment_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CmResolve"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CmThread"];
                 };
             };
         };

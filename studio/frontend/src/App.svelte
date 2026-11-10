@@ -21,6 +21,8 @@
   import Dashboard from "./routes/Dashboard.svelte";
   import Players from "./routes/Players.svelte";
   import { level, loadMe, me } from "./lib/me.svelte";
+  import Discussion from "./lib/Discussion.svelte";
+  import { discussion, targetOf } from "./lib/discussion.svelte";
 
   const user = $derived(me.data?.username ?? "");
 
@@ -97,6 +99,18 @@
 
   const current = $derived(NAV.find((item) => item.section.includes(page.name)) ?? null);
 
+  // обсуждение сущности, на которой автор сейчас: число открытых веток на кнопке
+  const target = $derived(targetOf(route.path));
+  let talks = $state(0);
+  $effect(() => {
+    const now = target;
+    talks = 0;
+    if (!now) return;
+    api.GET("/studio/api/comments/counts", { params: { query: { targets: now } } }).then(({ data }) => {
+      if (now === target) talks = data?.[now] ?? 0;
+    });
+  });
+
   let toastBox: HTMLElement;
   $effect(() => {
     if (!toasts.length) return;
@@ -122,6 +136,11 @@
       <span class="nav soon">Почта</span>
       <a class="nav team" class:on={page.name === "team"} href="#/team">Команда</a>
     </nav>
+    {#if target}
+      <button class="talk" class:on={discussion.open} aria-pressed={discussion.open} onclick={() => (discussion.open = !discussion.open)}>
+        Обсуждение{#if talks}<span class="count">{talks}</span>{/if}
+      </button>
+    {/if}
     <div class="foot">
       <a href={window.STUDIO.admin}>Старая админка</a>
       <a href={window.STUDIO.site}>Игра</a>
@@ -179,6 +198,10 @@
   </main>
 </div>
 
+{#if discussion.open && target}
+  {#key target}<Discussion {target} onchange={(open) => (talks = open)} />{/key}
+{/if}
+
 <ConfirmHost />
 
 <div class="toasts" popover="manual" bind:this={toastBox} aria-live="polite">
@@ -207,6 +230,11 @@
   .nav.team { margin-top: 10px; }
   .readonly { padding: 6px 32px; background: var(--accent-soft); color: var(--muted); font-size: 12.5px; border-bottom: 1px solid var(--line-soft); }
   .nav.soon::after { content: " · скоро"; font-size: 11px; }
+  .talk { margin-top: auto; display: flex; align-items: center; justify-content: space-between; padding: 7px 10px; border: 1px solid var(--line-soft);
+          border-radius: var(--radius-s); background: none; color: var(--text); cursor: pointer; font: inherit; }
+  .talk:hover, .talk.on { background: var(--accent-soft); }
+  .count { min-width: 18px; padding: 0 6px; border-radius: 999px; background: var(--accent); color: var(--bg, #111); font-size: 11.5px; font-weight: 700; text-align: center; }
+  .talk + .foot { margin-top: 0; }
   .foot { margin-top: auto; display: flex; flex-direction: column; gap: 4px; padding: 0 10px; font-size: 12.5px; }
   .main { min-width: 0; overflow: auto; }
   .toasts { position: fixed; inset: auto 16px 16px auto; margin: 0; padding: 0; border: 0; background: none; overflow: visible; width: max-content; display: flex; flex-direction: column; gap: 8px; z-index: 50; }

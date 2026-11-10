@@ -4,6 +4,7 @@
   import { api, type Schemas } from "../lib/api";
   import PageHead from "../lib/PageHead.svelte";
   import { me } from "../lib/me.svelte";
+  import { discussion } from "../lib/discussion.svelte";
 
   type Change = Schemas["TeamChange"];
   const PAGE = 40;
@@ -15,6 +16,7 @@
   let more = $state(false);
   let loading = $state(false);
   let sections = $state<Schemas["TeamSection"][]>([]);
+  let inbox = $state<Schemas["CmInbox"] | null>(null);
 
   async function loadFeed(append = false) {
     loading = true;
@@ -28,8 +30,9 @@
   }
 
   onMount(async () => {
-    const [d, t] = await Promise.all([api.GET("/studio/api/dashboard"), api.GET("/studio/api/team")]);
+    const [d, t, c] = await Promise.all([api.GET("/studio/api/dashboard"), api.GET("/studio/api/team"), api.GET("/studio/api/comments/inbox")]);
     dash = d.data ?? null;
+    inbox = c.data ?? null;
     sections = t.data?.sections ?? [];
     await loadFeed();
   });
@@ -122,6 +125,28 @@
 
   <div class="side">
     <section class="panel">
+      <header class="panel-head"><h2>Обсуждения</h2><span class="spacer"></span>{#if inbox}<span class="muted small-note">открыто всего: {inbox.open_total}</span>{/if}</header>
+      {#if !inbox}
+        <p class="muted empty">Загрузка…</p>
+      {:else if !inbox.rows.length}
+        <p class="muted empty">Обсуждений с вашим участием нет. Начать можно на любой странице: кнопка «Обсуждение» слева внизу.</p>
+      {:else}
+        <ul class="rows">
+          {#each inbox.rows as r (r.thread)}
+            <li class="problem">
+              <span class="talk-head">
+                {#if r.link}<a href={r.link} onclick={() => (discussion.open = true)}>{r.kind} {r.label}</a>{:else}<span>{r.kind} {r.label}</span>{/if}
+                {#if r.mentioned}<span class="badge">вас упомянули</span>{/if}
+                {#if r.waiting}<span class="badge new">ждёт ответа</span>{/if}
+              </span>
+              <span class="muted"><b>{r.last_by}:</b> {r.last_text}</span>
+            </li>
+          {/each}
+        </ul>
+      {/if}
+    </section>
+
+    <section class="panel">
       <header class="panel-head"><h2>Игроки в мире</h2></header>
       {#if !dash}
         <p class="muted empty">Загрузка…</p>
@@ -191,6 +216,10 @@
   .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--ok, #6fcf97); flex: none; align-self: center; }
   .problem { display: flex; flex-direction: column; gap: 2px; padding: 6px 0; border-bottom: 1px solid var(--line-soft); }
   .problem:last-child { border-bottom: 0; }
+  .talk-head { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+  .badge { padding: 1px 7px; border-radius: 999px; background: var(--accent-soft); font-size: 11px; }
+  .badge.new { background: none; border: 1px solid var(--accent); color: var(--accent); }
+  .small-note { font-size: 12px; }
   .problem span { font-size: 12.5px; }
   .empty { margin: 6px 0; }
   .more { margin-top: 8px; }

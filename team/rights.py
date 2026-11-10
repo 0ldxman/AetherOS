@@ -53,7 +53,7 @@ class Rule:
 def _section_of(parts):
     """Раздел по частям пути после /studio/api/."""
     head = parts[0] if parts else ""
-    if head in ("", "me", "app-icons", "formats", "templates", "keys", "access", "layers", "dashboard"):
+    if head in ("", "me", "app-icons", "formats", "templates", "keys", "access", "layers", "dashboard", "comments"):
         return FREE
     if head in ("file-formats", "file-encodings"):
         return "formats"
@@ -81,7 +81,7 @@ def rule_for(path, method):
         action = "players"
     elif section == "players":
         action = "keys" if "keys" in parts else {"kick": "players", "unlock": "players", "reset": "reset", "ban": "ban"}.get(last, "")
-    elif method == "DELETE" and last != "lock":
+    elif method == "DELETE" and last != "lock" and section != FREE:           # снять свою метку, удалить своё сообщение
         action = "delete"
     return Rule(section, EDIT, action)
 

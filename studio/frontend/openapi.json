@@ -8508,6 +8508,306 @@
      }
     ]
    }
+  },
+  "/studio/api/comments": {
+   "get": {
+    "operationId": "studio_api_comments_comment_threads",
+    "summary": "Comment Threads",
+    "parameters": [
+     {
+      "in": "query",
+      "name": "target",
+      "schema": {
+       "title": "Target",
+       "type": "string"
+      },
+      "required": true
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "items": {
+          "$ref": "#/components/schemas/CmThread"
+         },
+         "title": "Response",
+         "type": "array"
+        }
+       }
+      }
+     }
+    },
+    "tags": [
+     "comments"
+    ],
+    "security": [
+     {
+      "StudioAuth": []
+     }
+    ]
+   },
+   "post": {
+    "operationId": "studio_api_comments_comment_post",
+    "summary": "Comment Post",
+    "parameters": [],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/CmThread"
+        }
+       }
+      }
+     }
+    },
+    "tags": [
+     "comments"
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/CmIn"
+       }
+      }
+     },
+     "required": true
+    },
+    "security": [
+     {
+      "StudioAuth": []
+     }
+    ]
+   }
+  },
+  "/studio/api/comments/counts": {
+   "get": {
+    "operationId": "studio_api_comments_comment_counts",
+    "summary": "Comment Counts",
+    "parameters": [
+     {
+      "in": "query",
+      "name": "targets",
+      "schema": {
+       "default": "",
+       "title": "Targets",
+       "type": "string"
+      },
+      "required": false
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "additionalProperties": {
+          "type": "integer"
+         },
+         "title": "Response",
+         "type": "object"
+        }
+       }
+      }
+     }
+    },
+    "description": "Открытые ветки по сущностям: targets через запятую.",
+    "tags": [
+     "comments"
+    ],
+    "security": [
+     {
+      "StudioAuth": []
+     }
+    ]
+   }
+  },
+  "/studio/api/comments/inbox": {
+   "get": {
+    "operationId": "studio_api_comments_comment_inbox",
+    "summary": "Comment Inbox",
+    "parameters": [],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/CmInbox"
+        }
+       }
+      }
+     }
+    },
+    "tags": [
+     "comments"
+    ],
+    "security": [
+     {
+      "StudioAuth": []
+     }
+    ]
+   }
+  },
+  "/studio/api/comments/authors": {
+   "get": {
+    "operationId": "studio_api_comments_comment_authors",
+    "summary": "Comment Authors",
+    "parameters": [],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "items": {
+          "$ref": "#/components/schemas/CmAuthor"
+         },
+         "title": "Response",
+         "type": "array"
+        }
+       }
+      }
+     }
+    },
+    "description": "Кого можно упомянуть: авторы команды.",
+    "tags": [
+     "comments"
+    ],
+    "security": [
+     {
+      "StudioAuth": []
+     }
+    ]
+   }
+  },
+  "/studio/api/comments/{comment_id}": {
+   "put": {
+    "operationId": "studio_api_comments_comment_edit",
+    "summary": "Comment Edit",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "comment_id",
+      "schema": {
+       "title": "Comment Id",
+       "type": "integer"
+      },
+      "required": true
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/CmMessage"
+        }
+       }
+      }
+     }
+    },
+    "tags": [
+     "comments"
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/CmEdit"
+       }
+      }
+     },
+     "required": true
+    },
+    "security": [
+     {
+      "StudioAuth": []
+     }
+    ]
+   },
+   "delete": {
+    "operationId": "studio_api_comments_comment_delete",
+    "summary": "Comment Delete",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "comment_id",
+      "schema": {
+       "title": "Comment Id",
+       "type": "integer"
+      },
+      "required": true
+     }
+    ],
+    "responses": {
+     "204": {
+      "description": "No Content"
+     }
+    },
+    "tags": [
+     "comments"
+    ],
+    "security": [
+     {
+      "StudioAuth": []
+     }
+    ]
+   }
+  },
+  "/studio/api/comments/{comment_id}/resolve": {
+   "post": {
+    "operationId": "studio_api_comments_comment_resolve",
+    "summary": "Comment Resolve",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "comment_id",
+      "schema": {
+       "title": "Comment Id",
+       "type": "integer"
+      },
+      "required": true
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/CmThread"
+        }
+       }
+      }
+     }
+    },
+    "tags": [
+     "comments"
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/CmResolve"
+       }
+      }
+     },
+     "required": true
+    },
+    "security": [
+     {
+      "StudioAuth": []
+     }
+    ]
+   }
   }
  },
  "components": {
@@ -18115,6 +18415,253 @@
      "banned"
     ],
     "title": "PlBanIn",
+    "type": "object"
+   },
+   "CmMessage": {
+    "properties": {
+     "id": {
+      "title": "Id",
+      "type": "integer"
+     },
+     "username": {
+      "title": "Username",
+      "type": "string"
+     },
+     "text": {
+      "title": "Text",
+      "type": "string"
+     },
+     "mentions": {
+      "items": {
+       "type": "string"
+      },
+      "title": "Mentions",
+      "type": "array"
+     },
+     "created_at": {
+      "format": "date-time",
+      "title": "Created At",
+      "type": "string"
+     },
+     "edited_at": {
+      "anyOf": [
+       {
+        "format": "date-time",
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Edited At"
+     },
+     "own": {
+      "title": "Own",
+      "type": "boolean"
+     }
+    },
+    "required": [
+     "id",
+     "username",
+     "text",
+     "mentions",
+     "created_at",
+     "edited_at",
+     "own"
+    ],
+    "title": "CmMessage",
+    "type": "object"
+   },
+   "CmThread": {
+    "properties": {
+     "id": {
+      "title": "Id",
+      "type": "integer"
+     },
+     "resolved_at": {
+      "anyOf": [
+       {
+        "format": "date-time",
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Resolved At"
+     },
+     "resolved_by": {
+      "title": "Resolved By",
+      "type": "string"
+     },
+     "messages": {
+      "items": {
+       "$ref": "#/components/schemas/CmMessage"
+      },
+      "title": "Messages",
+      "type": "array"
+     }
+    },
+    "required": [
+     "id",
+     "resolved_at",
+     "resolved_by",
+     "messages"
+    ],
+    "title": "CmThread",
+    "type": "object"
+   },
+   "CmIn": {
+    "properties": {
+     "target": {
+      "default": "",
+      "title": "Target",
+      "type": "string"
+     },
+     "text": {
+      "title": "Text",
+      "type": "string"
+     },
+     "parent": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Parent"
+     }
+    },
+    "required": [
+     "text"
+    ],
+    "title": "CmIn",
+    "type": "object"
+   },
+   "CmInbox": {
+    "properties": {
+     "rows": {
+      "items": {
+       "$ref": "#/components/schemas/CmInboxRow"
+      },
+      "title": "Rows",
+      "type": "array"
+     },
+     "open_total": {
+      "title": "Open Total",
+      "type": "integer"
+     }
+    },
+    "required": [
+     "rows",
+     "open_total"
+    ],
+    "title": "CmInbox",
+    "type": "object"
+   },
+   "CmInboxRow": {
+    "properties": {
+     "thread": {
+      "title": "Thread",
+      "type": "integer"
+     },
+     "target": {
+      "title": "Target",
+      "type": "string"
+     },
+     "kind": {
+      "title": "Kind",
+      "type": "string"
+     },
+     "label": {
+      "title": "Label",
+      "type": "string"
+     },
+     "link": {
+      "title": "Link",
+      "type": "string"
+     },
+     "count": {
+      "title": "Count",
+      "type": "integer"
+     },
+     "last_by": {
+      "title": "Last By",
+      "type": "string"
+     },
+     "last_text": {
+      "title": "Last Text",
+      "type": "string"
+     },
+     "last_at": {
+      "format": "date-time",
+      "title": "Last At",
+      "type": "string"
+     },
+     "mentioned": {
+      "title": "Mentioned",
+      "type": "boolean"
+     },
+     "waiting": {
+      "title": "Waiting",
+      "type": "boolean"
+     }
+    },
+    "required": [
+     "thread",
+     "target",
+     "kind",
+     "label",
+     "link",
+     "count",
+     "last_by",
+     "last_text",
+     "last_at",
+     "mentioned",
+     "waiting"
+    ],
+    "title": "CmInboxRow",
+    "type": "object"
+   },
+   "CmAuthor": {
+    "properties": {
+     "username": {
+      "title": "Username",
+      "type": "string"
+     }
+    },
+    "required": [
+     "username"
+    ],
+    "title": "CmAuthor",
+    "type": "object"
+   },
+   "CmEdit": {
+    "properties": {
+     "text": {
+      "title": "Text",
+      "type": "string"
+     }
+    },
+    "required": [
+     "text"
+    ],
+    "title": "CmEdit",
+    "type": "object"
+   },
+   "CmResolve": {
+    "properties": {
+     "resolved": {
+      "title": "Resolved",
+      "type": "boolean"
+     }
+    },
+    "required": [
+     "resolved"
+    ],
+    "title": "CmResolve",
     "type": "object"
    }
   },

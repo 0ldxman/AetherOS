@@ -56,3 +56,29 @@ class Change(models.Model):
 
     def __str__(self):
         return f"{self.username} {self.action} {self.path}"
+
+
+class Comment(models.Model):
+    """Сообщение в обсуждении сущности Студии (team.comments). Ветка: корневое сообщение и ответы на него (parent)."""
+
+    target = models.CharField("Сущность", max_length=512, db_index=True)       # путь API, как у ленты: machines/3
+    kind = models.CharField("Вид", max_length=64, blank=True)
+    label = models.CharField("Что", max_length=200, blank=True)
+    link = models.CharField("Ссылка в Студии", max_length=255, blank=True)
+    parent = models.ForeignKey("self", null=True, blank=True, on_delete=models.CASCADE, related_name="replies")
+    author = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, on_delete=models.SET_NULL, related_name="comments")
+    username = models.CharField("Имя автора", max_length=150)
+    text = models.TextField("Текст")
+    mentions = models.ManyToManyField(settings.AUTH_USER_MODEL, blank=True, related_name="mentioned_in")
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+    edited_at = models.DateTimeField(null=True, blank=True)
+    resolved_at = models.DateTimeField(null=True, blank=True)       # у корня ветки: обсуждение решено
+    resolved_by = models.CharField(max_length=150, blank=True)
+
+    class Meta:
+        ordering = ["created_at", "pk"]
+        verbose_name = "Комментарий"
+        verbose_name_plural = "Комментарии"
+
+    def __str__(self):
+        return f"{self.username}: {self.text[:40]}"
