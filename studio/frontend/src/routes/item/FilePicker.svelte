@@ -71,7 +71,7 @@
     {#if asset}
       <div class="thumb">
         {#if asset.shown === "image" && item.file_url && !thumbBroken}
-          <img src="{item.file_url}content/" alt="" onerror={() => (thumbBroken = true)} />
+          <img src="{item.file_url}content/?v={encodeURIComponent(asset.file_id)}" alt="" onerror={() => (thumbBroken = true)} />
         {:else}
           <FileIcon kind={asset.shown === "image" ? "image" : asset.shown === "text" || asset.shown === "pdf" ? "doc" : "file"} size={30} />
         {/if}

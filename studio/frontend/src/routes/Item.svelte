@@ -263,7 +263,7 @@
         </nav>
         {#if previewTab === "infobox" && !draft.meta.trim()}<p class="muted emptynote">Врезка пуста. Это карточка с краткими данными рядом со статьёй: заполните её в редакторе слева.</p>{/if}
         {#if (fileMode || !textual) && item.file_url}
-          <iframe class="fileview" src={item.file_url} title="Просмотр файла"></iframe>
+          {#key item.version}<iframe class="fileview" src="{item.file_url}?v={encodeURIComponent(item.version)}" title="Просмотр файла"></iframe>{/key}
         {:else}
           <DocPreview format={draft.format} title={draft.name} body={draft.body} meta={draft.meta} only={previewTab} {keysMode} bind:issues />
         {/if}

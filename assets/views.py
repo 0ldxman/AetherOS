@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+from urllib.parse import quote
 
 from django.contrib.admin.views.decorators import (
     staff_member_required,
@@ -78,7 +79,7 @@ def asset_viewer(request, public_id):
             "filename": item.file_name,
             "content_type": item.file_type,
             "viewer_type": viewer_type,
-            "content_url": reverse("asset_viewer:content", kwargs={"public_id": item.public_id}),
+            "content_url": reverse("asset_viewer:content", kwargs={"public_id": item.public_id}) + f"?v={quote(item.file_id)}",
             "formats_json": viewer_formats(),
         },
     )
