@@ -16,7 +16,7 @@
 
 <style>
   .split { display: grid; grid-template-columns: 260px 1fr; min-height: 100%; }
-  .list { display: flex; flex-direction: column; gap: 2px; padding: 20px 8px; border-right: 1px solid var(--line-soft); }
+  .list { display: flex; flex-direction: column; gap: 2px; padding: 20px 8px; border-right: 1px solid var(--line-soft); position: sticky; top: 0; align-self: start; max-height: 100vh; overflow-y: auto; box-sizing: border-box; }
   h1 { margin: 0 10px 12px; font-size: 18px; }
   .list :global(.item) { display: flex; flex-direction: column; padding: 8px 10px; border-radius: var(--radius-s); color: var(--text); }
   .list :global(.item:hover) { background: var(--panel); text-decoration: none; }

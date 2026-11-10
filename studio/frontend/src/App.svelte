@@ -15,6 +15,8 @@
   import Systems from "./routes/Systems.svelte";
   import World from "./routes/World.svelte";
   import Scenes from "./routes/Scenes.svelte";
+  import Formats from "./routes/Formats.svelte";
+  import Encodings from "./routes/Encodings.svelte";
 
   let user = $state("");
 
@@ -34,6 +36,8 @@
     | { name: "policies"; id: number | null }
     | { name: "systems"; code: string | null; tab: string }
     | { name: "world" }
+    | { name: "formats"; id: string | null }
+    | { name: "encodings"; id: string | null }
     | { name: "map"; tab: string; id: number | null }
     | { name: "scenes"; slug: string | null };
 
@@ -52,6 +56,10 @@
     if ((found = match("/policies/:id", route.path))) return { name: "policies", id: +found.id };
     if (match("/policies", route.path)) return { name: "policies", id: null };
     if (match("/world", route.path)) return { name: "world" };
+    if ((found = match("/formats/:id", route.path))) return { name: "formats", id: decodeURIComponent(found.id) };
+    if (match("/formats", route.path)) return { name: "formats", id: null };
+    if ((found = match("/encodings/:id", route.path))) return { name: "encodings", id: decodeURIComponent(found.id) };
+    if (match("/encodings", route.path)) return { name: "encodings", id: null };
     if ((found = match("/map/:tab/:id", route.path))) return { name: "map", tab: found.tab, id: +found.id || null };
     if ((found = match("/map/:tab", route.path))) return { name: "map", tab: found.tab, id: null };
     if (match("/map", route.path)) return { name: "map", tab: "territory", id: null };
@@ -67,6 +75,7 @@
     { href: "#/volumes", label: "Диски и файлы", section: ["volumes", "volume", "text"] },
     { href: "#/items", label: "Объекты", section: ["items", "item"] },
     { href: "#/machines", label: "Машины", section: ["machines", "machine"] },
+    { href: "#/formats", label: "Форматы", section: ["formats", "encodings"] },
     { href: "#/policies", label: "Политики входа", section: ["policies"] },
     { href: "#/systems", label: "Операционные системы", section: ["systems"] },
     { href: "#/scenes", label: "Сцены", section: ["scenes"] },
@@ -114,6 +123,10 @@
       {#key page.slug}<Scenes slug={page.slug} />{/key}
     {:else if page.name === "world"}
       <World />
+    {:else if page.name === "formats"}
+      <Formats name={page.id} />
+    {:else if page.name === "encodings"}
+      <Encodings name={page.id} />
     {:else if page.name === "map"}
       {#await import("./routes/Map.svelte")}
         <p class="muted" style="padding: 20px">Загрузка карты…</p>

@@ -7,6 +7,7 @@ from datetime import date, datetime
 
 from django.db.models import Count, Q
 from django.shortcuts import get_object_or_404
+from django.urls import reverse
 from ninja import Router, Schema
 
 from documents.editor import MAX_KEYS, MAX_TITLE_LEN, render_preview
@@ -56,6 +57,7 @@ class ItemOut(Schema):
     in_archives: int           # в скольких архивах объект лежит членом
     holder: Holder | None
     view_url: str | None       # вьювер документа (дописать &as=all или &as=none)
+    file_url: str | None       # окно просмотра файла из хранилища
 
 
 class ItemIn(Schema):
@@ -221,6 +223,7 @@ def _out(item, user):
         in_archives=item.in_archives.count(),
         holder=_holder(item, user),
         view_url=view_url(item),
+        file_url=reverse("asset_viewer:viewer", kwargs={"public_id": item.public_id}) if item.file_id else None,
     )
 
 

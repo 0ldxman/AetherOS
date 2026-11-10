@@ -32,6 +32,29 @@ def _check_template(text, label):
         raise forms.ValidationError(f"{label}: шаблон не разбирается ({exc}); фигурные скобки текста удваиваются: {{{{ }}}}")
 
 
+def part_errors(kind, name, source, value):
+    """Что не так с частью формата: список (поле, сообщение). Правило одно для админки и Студии."""
+    found = []
+    if kind == "chunks" and len(name) != 4:
+        found.append(("name", "Метка блока ровно 4 символа."))
+    if kind == "package" and len(name) > 8:
+        found.append(("name", "Имя части пакета до 8 символов."))
+    if not name.isascii():
+        found.append(("name", "Только латиница и цифры."))
+    try:
+        if source == "hex":
+            _check_hex(value, "Значение")
+        elif source == "template":
+            _check_template(value, "Значение")
+        elif source == "noise":
+            int(value or 0)
+    except forms.ValidationError as exc:
+        found.append(("value", exc.messages[0]))
+    except ValueError:
+        found.append(("value", "Для шума нужна длина числом."))
+    return found
+
+
 class FileFormatForm(forms.ModelForm):
     class Meta:
         model = FileFormat
@@ -88,23 +111,8 @@ class FormatPartFormSet(forms.BaseInlineFormSet):
 
         for form in live:
             name, source, value = (form.cleaned_data.get(k, "") for k in ("name", "source", "value"))
-            if kind == "chunks" and len(name) != 4:
-                form.add_error("name", "Метка блока ровно 4 символа.")
-            if kind == "package" and len(name) > 8:
-                form.add_error("name", "Имя части пакета до 8 символов.")
-            if not name.isascii():
-                form.add_error("name", "Только латиница и цифры.")
-            try:
-                if source == "hex":
-                    _check_hex(value, "Значение")
-                elif source == "template":
-                    _check_template(value, "Значение")
-                elif source == "noise":
-                    int(value or 0)
-            except forms.ValidationError as exc:
-                form.add_error("value", exc)
-            except ValueError:
-                form.add_error("value", "Для шума нужна длина числом.")
+            for field, message in part_errors(kind, name, source, value):
+                form.add_error(field, message)
 
 
 class FileEncodingForm(forms.ModelForm):

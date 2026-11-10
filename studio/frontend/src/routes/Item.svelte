@@ -36,6 +36,9 @@
   let fieldErrors = $state<Record<string, string[]>>({});
 
   const format = $derived(formats.find((found) => found.name === draft.format));
+  let source = $state<"text" | "file">("text");                   // у формата «текст или ассет»: что сейчас правится
+  const canFile = $derived(format?.content === "text_asset");
+  const fileMode = $derived(canFile ? source === "file" : false);
   const textual = $derived(!format || format.content === "text" || format.content === "text_asset");
   const linkable = $derived(format?.content === "link_asset");
   const dirty = $derived(JSON.stringify(draft) !== saved);
@@ -49,6 +52,7 @@
     };
     saved = JSON.stringify(draft);
     holder = found.holder ?? null;
+    source = found.asset ? "file" : "text";
   }
 
   async function load() {
@@ -192,7 +196,13 @@
         </nav>
         <div class="pane-body">
           {#if tab === "body"}
-            {#if textual}
+            {#if canFile}
+              <div class="srcswitch" role="tablist" aria-label="Откуда содержимое">
+                <button role="tab" aria-selected={source === "text"} class:on={source === "text"} onclick={() => (source = "text")}>Текст</button>
+                <button role="tab" aria-selected={source === "file"} class:on={source === "file"} onclick={() => (source = "file")}>Файл из хранилища</button>
+              </div>
+            {/if}
+            {#if textual && !fileMode}
               {#if draft.format === "app"}
                 <div class="stack">
                   <AppIcon bind:body={draft.body} />
@@ -244,7 +254,7 @@
 
       <section class="pane preview">
         <nav class="tabs">
-          <span class="ptitle">Предпросмотр: {previewTab === "infobox" ? "врезка" : "документ"}</span>
+          <span class="ptitle">Предпросмотр: {fileMode && item.file_url ? "файл" : previewTab === "infobox" ? "врезка" : "документ"}</span>
           <select class="keys" bind:value={keysMode} title="С какими ключами смотреть">
             <option value="all">со всеми ключами</option>
             <option value="none">без ключей</option>
@@ -252,7 +262,11 @@
           <Hint text="Часть текста может быть скрыта от игрока, пока у него нет нужного ключа. «Со всеми ключами» показывает всё, «без ключей» то, что увидит игрок, у которого ключей ещё нет." />
         </nav>
         {#if previewTab === "infobox" && !draft.meta.trim()}<p class="muted emptynote">Врезка пуста. Это карточка с краткими данными рядом со статьёй: заполните её в редакторе слева.</p>{/if}
-        <DocPreview format={draft.format} title={draft.name} body={draft.body} meta={draft.meta} only={previewTab} {keysMode} bind:issues />
+        {#if (fileMode || !textual) && item.file_url}
+          <iframe class="fileview" src={item.file_url} title="Просмотр файла"></iframe>
+        {:else}
+          <DocPreview format={draft.format} title={draft.name} body={draft.body} meta={draft.meta} only={previewTab} {keysMode} bind:issues />
+        {/if}
         {#if issues.length}
           <ul class="issues">
             {#each issues as issue}
@@ -312,6 +326,10 @@
   .ptitle { padding: 5px 10px; color: var(--muted); }
   .keys { margin-left: auto; height: 26px; border: 1px solid var(--line); border-radius: var(--radius-s); background: var(--bg); padding: 0 6px; }
   .pane-body { flex: 1; min-height: 0; }
+  .srcswitch { display: flex; gap: 4px; padding: 8px 14px 0; }
+  .srcswitch button { padding: 3px 12px; border: 1px solid var(--line); border-radius: 999px; background: var(--bg); color: var(--muted); cursor: pointer; }
+  .srcswitch button.on { border-color: var(--accent); background: var(--accent-soft); color: var(--text); }
+  .fileview { flex: 1; min-height: 0; width: 100%; border: 0; background: #fff; }
   .stack { display: flex; flex-direction: column; height: 100%; }
   .grow { flex: 1; min-height: 0; }
   .note { padding: 16px; }

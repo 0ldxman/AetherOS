@@ -155,6 +155,338 @@
     ]
    }
   },
+  "/studio/api/file-formats": {
+   "get": {
+    "operationId": "studio_api_formats_rows",
+    "summary": "Rows",
+    "parameters": [],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "items": {
+          "$ref": "#/components/schemas/FmtRow"
+         },
+         "title": "Response",
+         "type": "array"
+        }
+       }
+      }
+     }
+    },
+    "tags": [
+     "file-formats"
+    ],
+    "security": [
+     {
+      "SessionAuthIsStaff": []
+     }
+    ]
+   },
+   "post": {
+    "operationId": "studio_api_formats_create",
+    "summary": "Create",
+    "parameters": [],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/FmtDetail"
+        }
+       }
+      }
+     }
+    },
+    "tags": [
+     "file-formats"
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/FmtIn"
+       }
+      }
+     },
+     "required": true
+    },
+    "security": [
+     {
+      "SessionAuthIsStaff": []
+     }
+    ]
+   }
+  },
+  "/studio/api/file-formats/{name}": {
+   "get": {
+    "operationId": "studio_api_formats_detail",
+    "summary": "Detail",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "name",
+      "schema": {
+       "title": "Name",
+       "type": "string"
+      },
+      "required": true
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/FmtDetail"
+        }
+       }
+      }
+     }
+    },
+    "tags": [
+     "file-formats"
+    ],
+    "security": [
+     {
+      "SessionAuthIsStaff": []
+     }
+    ]
+   },
+   "put": {
+    "operationId": "studio_api_formats_update",
+    "summary": "Update",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "name",
+      "schema": {
+       "title": "Name",
+       "type": "string"
+      },
+      "required": true
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/FmtDetail"
+        }
+       }
+      }
+     }
+    },
+    "tags": [
+     "file-formats"
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/FmtIn"
+       }
+      }
+     },
+     "required": true
+    },
+    "security": [
+     {
+      "SessionAuthIsStaff": []
+     }
+    ]
+   },
+   "delete": {
+    "operationId": "studio_api_formats_remove",
+    "summary": "Remove",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "name",
+      "schema": {
+       "title": "Name",
+       "type": "string"
+      },
+      "required": true
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/FmtDone"
+        }
+       }
+      }
+     }
+    },
+    "tags": [
+     "file-formats"
+    ],
+    "security": [
+     {
+      "SessionAuthIsStaff": []
+     }
+    ]
+   }
+  },
+  "/studio/api/file-encodings": {
+   "get": {
+    "operationId": "studio_api_formats_encodings",
+    "summary": "Encodings",
+    "parameters": [],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "items": {
+          "$ref": "#/components/schemas/EncRow"
+         },
+         "title": "Response",
+         "type": "array"
+        }
+       }
+      }
+     }
+    },
+    "tags": [
+     "file-formats"
+    ],
+    "security": [
+     {
+      "SessionAuthIsStaff": []
+     }
+    ]
+   },
+   "post": {
+    "operationId": "studio_api_formats_create_encoding",
+    "summary": "Create Encoding",
+    "parameters": [],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/EncRow"
+        }
+       }
+      }
+     }
+    },
+    "tags": [
+     "file-formats"
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/EncIn"
+       }
+      }
+     },
+     "required": true
+    },
+    "security": [
+     {
+      "SessionAuthIsStaff": []
+     }
+    ]
+   }
+  },
+  "/studio/api/file-encodings/{name}": {
+   "put": {
+    "operationId": "studio_api_formats_update_encoding",
+    "summary": "Update Encoding",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "name",
+      "schema": {
+       "title": "Name",
+       "type": "string"
+      },
+      "required": true
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/EncRow"
+        }
+       }
+      }
+     }
+    },
+    "description": "Имя кодировки не меняется: игроки называют её в командах и слоях.",
+    "tags": [
+     "file-formats"
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/EncIn"
+       }
+      }
+     },
+     "required": true
+    },
+    "security": [
+     {
+      "SessionAuthIsStaff": []
+     }
+    ]
+   },
+   "delete": {
+    "operationId": "studio_api_formats_remove_encoding",
+    "summary": "Remove Encoding",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "name",
+      "schema": {
+       "title": "Name",
+       "type": "string"
+      },
+      "required": true
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/FmtDone"
+        }
+       }
+      }
+     }
+    },
+    "tags": [
+     "file-formats"
+    ],
+    "security": [
+     {
+      "SessionAuthIsStaff": []
+     }
+    ]
+   }
+  },
   "/studio/api/volumes": {
    "get": {
     "operationId": "studio_api_volumes_volumes",
@@ -7530,6 +7862,291 @@
     "title": "Key",
     "type": "object"
    },
+   "FmtRow": {
+    "properties": {
+     "name": {
+      "title": "Name",
+      "type": "string"
+     },
+     "title": {
+      "title": "Title",
+      "type": "string"
+     },
+     "extension": {
+      "title": "Extension",
+      "type": "string"
+     },
+     "aliases": {
+      "title": "Aliases",
+      "type": "string"
+     },
+     "kind": {
+      "title": "Kind",
+      "type": "string"
+     },
+     "content": {
+      "title": "Content",
+      "type": "string"
+     },
+     "markup": {
+      "title": "Markup",
+      "type": "boolean"
+     },
+     "editable": {
+      "title": "Editable",
+      "type": "boolean"
+     },
+     "used": {
+      "title": "Used",
+      "type": "integer"
+     },
+     "part_count": {
+      "title": "Part Count",
+      "type": "integer"
+     }
+    },
+    "required": [
+     "name",
+     "title",
+     "extension",
+     "aliases",
+     "kind",
+     "content",
+     "markup",
+     "editable",
+     "used",
+     "part_count"
+    ],
+    "title": "FmtRow",
+    "type": "object"
+   },
+   "FmtDetail": {
+    "properties": {
+     "name": {
+      "title": "Name",
+      "type": "string"
+     },
+     "title": {
+      "title": "Title",
+      "type": "string"
+     },
+     "extension": {
+      "title": "Extension",
+      "type": "string"
+     },
+     "aliases": {
+      "title": "Aliases",
+      "type": "string"
+     },
+     "kind": {
+      "title": "Kind",
+      "type": "string"
+     },
+     "magic": {
+      "title": "Magic",
+      "type": "string"
+     },
+     "template": {
+      "title": "Template",
+      "type": "string"
+     },
+     "content": {
+      "title": "Content",
+      "type": "string"
+     },
+     "markup": {
+      "title": "Markup",
+      "type": "boolean"
+     },
+     "editable": {
+      "title": "Editable",
+      "type": "boolean"
+     },
+     "used": {
+      "title": "Used",
+      "type": "integer"
+     },
+     "part_list": {
+      "items": {
+       "$ref": "#/components/schemas/FmtPart"
+      },
+      "title": "Part List",
+      "type": "array"
+     }
+    },
+    "required": [
+     "name",
+     "title",
+     "extension",
+     "aliases",
+     "kind",
+     "magic",
+     "template",
+     "content",
+     "markup",
+     "editable",
+     "used",
+     "part_list"
+    ],
+    "title": "FmtDetail",
+    "type": "object"
+   },
+   "FmtPart": {
+    "properties": {
+     "name": {
+      "title": "Name",
+      "type": "string"
+     },
+     "source": {
+      "title": "Source",
+      "type": "string"
+     },
+     "value": {
+      "default": "",
+      "title": "Value",
+      "type": "string"
+     }
+    },
+    "required": [
+     "name",
+     "source"
+    ],
+    "title": "FmtPart",
+    "type": "object"
+   },
+   "FmtIn": {
+    "properties": {
+     "name": {
+      "title": "Name",
+      "type": "string"
+     },
+     "title": {
+      "default": "",
+      "title": "Title",
+      "type": "string"
+     },
+     "extension": {
+      "default": "",
+      "title": "Extension",
+      "type": "string"
+     },
+     "aliases": {
+      "default": "",
+      "title": "Aliases",
+      "type": "string"
+     },
+     "kind": {
+      "default": "signature",
+      "title": "Kind",
+      "type": "string"
+     },
+     "magic": {
+      "default": "",
+      "title": "Magic",
+      "type": "string"
+     },
+     "template": {
+      "default": "",
+      "title": "Template",
+      "type": "string"
+     },
+     "content": {
+      "default": "text_asset",
+      "title": "Content",
+      "type": "string"
+     },
+     "markup": {
+      "default": false,
+      "title": "Markup",
+      "type": "boolean"
+     },
+     "editable": {
+      "default": false,
+      "title": "Editable",
+      "type": "boolean"
+     },
+     "part_list": {
+      "default": [],
+      "items": {
+       "$ref": "#/components/schemas/FmtPart"
+      },
+      "title": "Part List",
+      "type": "array"
+     }
+    },
+    "required": [
+     "name"
+    ],
+    "title": "FmtIn",
+    "type": "object"
+   },
+   "FmtDone": {
+    "properties": {
+     "ok": {
+      "default": true,
+      "title": "Ok",
+      "type": "boolean"
+     }
+    },
+    "title": "FmtDone",
+    "type": "object"
+   },
+   "EncRow": {
+    "properties": {
+     "name": {
+      "title": "Name",
+      "type": "string"
+     },
+     "title": {
+      "title": "Title",
+      "type": "string"
+     },
+     "kind": {
+      "title": "Kind",
+      "type": "string"
+     },
+     "param": {
+      "title": "Param",
+      "type": "string"
+     }
+    },
+    "required": [
+     "name",
+     "title",
+     "kind",
+     "param"
+    ],
+    "title": "EncRow",
+    "type": "object"
+   },
+   "EncIn": {
+    "properties": {
+     "name": {
+      "title": "Name",
+      "type": "string"
+     },
+     "title": {
+      "default": "",
+      "title": "Title",
+      "type": "string"
+     },
+     "kind": {
+      "title": "Kind",
+      "type": "string"
+     },
+     "param": {
+      "default": "",
+      "title": "Param",
+      "type": "string"
+     }
+    },
+    "required": [
+     "name",
+     "kind"
+    ],
+    "title": "EncIn",
+    "type": "object"
+   },
    "Mount": {
     "properties": {
      "machine": {
@@ -8792,6 +9409,17 @@
        }
       ],
       "title": "View Url"
+     },
+     "file_url": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "File Url"
      }
     },
     "required": [
@@ -8816,7 +9444,8 @@
      "placements",
      "in_archives",
      "holder",
-     "view_url"
+     "view_url",
+     "file_url"
     ],
     "title": "ItemOut",
     "type": "object"

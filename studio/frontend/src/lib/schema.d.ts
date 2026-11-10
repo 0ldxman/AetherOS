@@ -95,6 +95,82 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/studio/api/file-formats": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Rows */
+        get: operations["studio_api_formats_rows"];
+        put?: never;
+        /** Create */
+        post: operations["studio_api_formats_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/studio/api/file-formats/{name}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Detail */
+        get: operations["studio_api_formats_detail"];
+        /** Update */
+        put: operations["studio_api_formats_update"];
+        post?: never;
+        /** Remove */
+        delete: operations["studio_api_formats_remove"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/studio/api/file-encodings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Encodings */
+        get: operations["studio_api_formats_encodings"];
+        put?: never;
+        /** Create Encoding */
+        post: operations["studio_api_formats_create_encoding"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/studio/api/file-encodings/{name}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Update Encoding
+         * @description Имя кодировки не меняется: игроки называют её в командах и слоях.
+         */
+        put: operations["studio_api_formats_update_encoding"];
+        post?: never;
+        /** Remove Encoding */
+        delete: operations["studio_api_formats_remove_encoding"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/studio/api/volumes": {
         parameters: {
             query?: never;
@@ -2431,6 +2507,159 @@ export interface components {
             /** Description */
             description: string;
         };
+        /** FmtRow */
+        FmtRow: {
+            /** Name */
+            name: string;
+            /** Title */
+            title: string;
+            /** Extension */
+            extension: string;
+            /** Aliases */
+            aliases: string;
+            /** Kind */
+            kind: string;
+            /** Content */
+            content: string;
+            /** Markup */
+            markup: boolean;
+            /** Editable */
+            editable: boolean;
+            /** Used */
+            used: number;
+            /** Part Count */
+            part_count: number;
+        };
+        /** FmtDetail */
+        FmtDetail: {
+            /** Name */
+            name: string;
+            /** Title */
+            title: string;
+            /** Extension */
+            extension: string;
+            /** Aliases */
+            aliases: string;
+            /** Kind */
+            kind: string;
+            /** Magic */
+            magic: string;
+            /** Template */
+            template: string;
+            /** Content */
+            content: string;
+            /** Markup */
+            markup: boolean;
+            /** Editable */
+            editable: boolean;
+            /** Used */
+            used: number;
+            /** Part List */
+            part_list: components["schemas"]["FmtPart"][];
+        };
+        /** FmtPart */
+        FmtPart: {
+            /** Name */
+            name: string;
+            /** Source */
+            source: string;
+            /**
+             * Value
+             * @default
+             */
+            value: string;
+        };
+        /** FmtIn */
+        FmtIn: {
+            /** Name */
+            name: string;
+            /**
+             * Title
+             * @default
+             */
+            title: string;
+            /**
+             * Extension
+             * @default
+             */
+            extension: string;
+            /**
+             * Aliases
+             * @default
+             */
+            aliases: string;
+            /**
+             * Kind
+             * @default signature
+             */
+            kind: string;
+            /**
+             * Magic
+             * @default
+             */
+            magic: string;
+            /**
+             * Template
+             * @default
+             */
+            template: string;
+            /**
+             * Content
+             * @default text_asset
+             */
+            content: string;
+            /**
+             * Markup
+             * @default false
+             */
+            markup: boolean;
+            /**
+             * Editable
+             * @default false
+             */
+            editable: boolean;
+            /**
+             * Part List
+             * @default []
+             */
+            part_list: components["schemas"]["FmtPart"][];
+        };
+        /** FmtDone */
+        FmtDone: {
+            /**
+             * Ok
+             * @default true
+             */
+            ok: boolean;
+        };
+        /** EncRow */
+        EncRow: {
+            /** Name */
+            name: string;
+            /** Title */
+            title: string;
+            /** Kind */
+            kind: string;
+            /** Param */
+            param: string;
+        };
+        /** EncIn */
+        EncIn: {
+            /** Name */
+            name: string;
+            /**
+             * Title
+             * @default
+             */
+            title: string;
+            /** Kind */
+            kind: string;
+            /**
+             * Param
+             * @default
+             */
+            param: string;
+        };
         /** Mount */
         Mount: {
             /** Machine */
@@ -2882,6 +3111,8 @@ export interface components {
             holder: components["schemas"]["Holder"] | null;
             /** View Url */
             view_url: string | null;
+            /** File Url */
+            file_url: string | null;
         };
         /** Where */
         Where: {
@@ -5688,6 +5919,212 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Key"][];
+                };
+            };
+        };
+    };
+    studio_api_formats_rows: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FmtRow"][];
+                };
+            };
+        };
+    };
+    studio_api_formats_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FmtIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FmtDetail"];
+                };
+            };
+        };
+    };
+    studio_api_formats_detail: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FmtDetail"];
+                };
+            };
+        };
+    };
+    studio_api_formats_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FmtIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FmtDetail"];
+                };
+            };
+        };
+    };
+    studio_api_formats_remove: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FmtDone"];
+                };
+            };
+        };
+    };
+    studio_api_formats_encodings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EncRow"][];
+                };
+            };
+        };
+    };
+    studio_api_formats_create_encoding: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EncIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EncRow"];
+                };
+            };
+        };
+    };
+    studio_api_formats_update_encoding: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EncIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EncRow"];
+                };
+            };
+        };
+    };
+    studio_api_formats_remove_encoding: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FmtDone"];
                 };
             };
         };

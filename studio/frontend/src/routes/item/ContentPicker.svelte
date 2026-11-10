@@ -76,9 +76,11 @@
 </script>
 
 <div class="picker">
-  <div class="kinds">
-    {#each allowed as option}<button class="pick" class:on={kind === option} onclick={() => (kind = option)}>{LABEL[option]}</button>{/each}
-  </div>
+  {#if allowed.length > 1}
+    <div class="kinds">
+      {#each allowed as option}<button class="pick" class:on={kind === option} onclick={() => (kind = option)}>{LABEL[option]}</button>{/each}
+    </div>
+  {/if}
 
   {#if content && content.kind !== "text"}
     <div class="now">
@@ -120,6 +122,9 @@
       <select class="field" bind:value={view} onchange={() => content?.asset && choose(null, content.asset.file_id)} disabled={!content?.asset}>
         {#each VIEWS as [value, text]}<option {value}>{text}</option>{/each}
       </select></label>
+    {#if content?.asset && format?.content === "text_asset"}
+      <button class="btn ghost" onclick={() => { kind = "text"; choose(null); kind = "asset"; }}>Убрать файл</button>
+    {/if}
     <p class="muted small">Файлы лежат в Nextcloud, в папке AETHER. Сам файл здесь не загружается: положите его туда и выберите.</p>
   {:else}
     <input class="field" placeholder="Поиск" bind:value={query} />
