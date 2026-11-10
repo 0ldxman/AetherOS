@@ -204,6 +204,17 @@ class Item(models.Model):
     file_name = models.CharField("Имя файла", max_length=255, blank=True, editable=False)
     file_type = models.CharField("Тип файла", max_length=127, blank=True, editable=False)
     file_size = models.PositiveBigIntegerField("Размер файла", null=True, blank=True, editable=False)
+
+    class FileView(models.TextChoices):
+        AUTO = "", "Авто (по типу файла)"
+        AUDIO = "audio", "Аудио"
+        VIDEO = "video", "Видео"
+        IMAGE = "image", "Картинка"
+        PDF = "pdf", "PDF"
+        TEXT = "text", "Текст"
+        RAW = "raw", "Сырой файл (скачать)"
+
+    file_view = models.CharField("Показывать как", max_length=8, blank=True, choices=FileView.choices, default="", help_text="Пусто: вид определяется по типу и имени файла.")
     public_id = models.UUIDField("Публичный адрес", default=uuid.uuid4, unique=True, editable=False, help_text="Адрес окна просмотра файла: /view/<адрес>/.")
     url = models.CharField(
         "Ссылка", max_length=2048, blank=True,

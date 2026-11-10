@@ -124,6 +124,7 @@ class FilePick(Schema):
     file_id: str                # ID файла в Nextcloud
     label: str                  # имя файла
     kind: str = ""              # audio | video | image | file: каким виджетом покажет вики
+    view: str = ""              # как показывать: пусто (по типу файла) | audio | video | image | pdf | text | raw
 
 
 class NextcloudEntry(Schema):
@@ -150,6 +151,7 @@ class ContentOut(Schema):
 class ContentIn(Schema):
     kind: str
     file_id: str = ""
+    view: str = ""
     scene: int | None = None
     message: int | None = None
     url: str = ""
@@ -292,7 +294,7 @@ def _content(item):
     kind = "asset" if item.file_id else "scene" if item.scene_id else "message" if item.message_id else "link" if item.url else "text"
     return ContentOut(
         kind=kind,
-        asset=FilePick(file_id=item.file_id, label=item.file_name or item.file_id, kind=asset_widget_kind(item)) if item.file_id else None,
+        asset=FilePick(file_id=item.file_id, label=item.file_name or item.file_id, kind=asset_widget_kind(item), view=item.file_view) if item.file_id else None,
         scene=PickRef(id=item.scene_id, label=item.scene.title, sub=item.scene.slug) if item.scene_id else None,
         message=PickRef(id=item.message_id, label=item.message.subject or "(без темы)", sub=item.message.sender) if item.message_id else None,
         url=item.url,
@@ -313,13 +315,19 @@ def set_content(request, item_id: int, body: ContentIn):
         raise ValidationError({"kind": ["Неизвестный источник."]})
     if body.kind != "text" and item.body.strip():
         raise ValidationError({"__all__": ["У объекта есть текст: очистите его на вкладке «Содержимое», потом выбирайте источник."]})
-    item.file_id, item.file_name, item.file_type, item.file_size = "", "", "", None
+    same = body.kind == "asset" and body.file_id.strip() == item.file_id
+    cached = (item.file_name, item.file_type, item.file_size)
+    item.file_id, item.file_name, item.file_type, item.file_size, item.file_view = "", "", "", None, ""
     if body.kind == "asset" and body.file_id.strip():
         item.file_id = body.file_id.strip()
-        try:
-            item.refresh_file()
-        except Exception:
-            raise ValidationError({"__all__": ["Такого файла нет в Nextcloud или хранилище не отвечает."]})
+        item.file_view = body.view
+        if same:                                                      # тот же файл: меняется только вид, в Nextcloud не ходим
+            item.file_name, item.file_type, item.file_size = cached
+        else:
+            try:
+                item.refresh_file()
+            except Exception:
+                raise ValidationError({"__all__": ["Такого файла нет в Nextcloud или хранилище не отвечает."]})
     item.scene = get_object_or_404(MapScene, pk=body.scene) if body.kind == "scene" and body.scene else None
     item.message = get_object_or_404(Message, pk=body.message) if body.kind == "message" and body.message else None
     item.url = body.url.strip() if body.kind == "link" else ""

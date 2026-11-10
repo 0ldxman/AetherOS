@@ -421,7 +421,7 @@ def copy_volume(volume, slug, name="", label=""):
     return copy
 
 
-ITEM_FIELDS = ("name", "format", "body", "file_id", "file_name", "file_type", "file_size", "url", "scene", "message", "access", "state", "size", "meta",
+ITEM_FIELDS = ("name", "format", "body", "file_id", "file_name", "file_type", "file_size", "file_view", "url", "scene", "message", "access", "state", "size", "meta",
                "world_created_at", "world_updated_at", "world_creator")
 
 

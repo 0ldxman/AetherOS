@@ -3266,6 +3266,11 @@ export interface components {
              * @default
              */
             kind: string;
+            /**
+             * View
+             * @default
+             */
+            view: string;
         };
         /** PickRef */
         PickRef: {
@@ -3293,6 +3298,11 @@ export interface components {
              * @default
              */
             file_id: string;
+            /**
+             * View
+             * @default
+             */
+            view: string;
             /** Scene */
             scene?: number | null;
             /** Message */

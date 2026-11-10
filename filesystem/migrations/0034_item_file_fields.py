@@ -18,5 +18,12 @@ class Migration(migrations.Migration):
         migrations.AddField(model_name="item", name="file_name", field=models.CharField(blank=True, editable=False, max_length=255, verbose_name="Имя файла")),
         migrations.AddField(model_name="item", name="file_type", field=models.CharField(blank=True, editable=False, max_length=127, verbose_name="Тип файла")),
         migrations.AddField(model_name="item", name="file_size", field=models.PositiveBigIntegerField(blank=True, editable=False, null=True, verbose_name="Размер файла")),
+        migrations.AddField(
+            model_name="item", name="file_view",
+            field=models.CharField(
+                blank=True, choices=[("", "Авто (по типу файла)"), ("audio", "Аудио"), ("video", "Видео"), ("image", "Картинка"), ("pdf", "PDF"), ("text", "Текст"), ("raw", "Сырой файл (скачать)")],
+                default="", help_text="Пусто: вид определяется по типу и имени файла.", max_length=8, verbose_name="Показывать как",
+            ),
+        ),
         migrations.AddField(model_name="item", name="public_id", field=models.UUIDField(editable=False, null=True, verbose_name="Публичный адрес")),
     ]

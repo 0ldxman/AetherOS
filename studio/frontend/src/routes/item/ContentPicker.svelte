@@ -27,6 +27,7 @@
     if (!data) return;
     content = data;
     url = data.url;
+    view = data.asset?.view ?? "";
     kind = data.kind !== "text" ? data.kind : allowed[0] ?? "asset";
   }
   onMount(load);
@@ -56,8 +57,11 @@
   }
   $effect(() => { if (kind === "asset" && !folder && !loadingFolder && !folderError) browse("AETHER"); });
 
+  const VIEWS: [string, string][] = [["", "Авто (по типу файла)"], ["image", "Картинка"], ["audio", "Аудио"], ["video", "Видео"], ["pdf", "PDF"], ["text", "Текст"], ["raw", "Сырой файл (скачать)"]];
+  let view = $state("");
+
   async function choose(id: number | null, fileId = "") {
-    const body = { kind, file_id: kind === "asset" ? fileId : "", scene: kind === "scene" ? id : null, message: kind === "message" ? id : null, url: kind === "link" ? url : "" };
+    const body = { kind, file_id: kind === "asset" ? fileId : "", view: kind === "asset" ? view : "", scene: kind === "scene" ? id : null, message: kind === "message" ? id : null, url: kind === "link" ? url : "" };
     const { data, error } = await api.PUT("/studio/api/items/{item_id}/content", { params: { path }, body });
     if (error || !data) {
       const fields = (error as { fields?: Record<string, string[]> } | undefined)?.fields;
@@ -112,6 +116,10 @@
         {/each}
       </div>
     {/if}
+    <label class="how"><span class="muted small">Показывать как</span>
+      <select class="field" bind:value={view} onchange={() => content?.asset && choose(null, content.asset.file_id)} disabled={!content?.asset}>
+        {#each VIEWS as [value, text]}<option {value}>{text}</option>{/each}
+      </select></label>
     <p class="muted small">Файлы лежат в Nextcloud, в папке AETHER. Сам файл здесь не загружается: положите его туда и выберите.</p>
   {:else}
     <input class="field" placeholder="Поиск" bind:value={query} />
@@ -137,6 +145,8 @@
   .small { font-size: 12px; margin: 0; }
   .err { margin: 0; color: var(--danger); }
   .busy { opacity: 0.5; }
+  .how { display: flex; align-items: center; gap: 8px; }
+  .how select { width: auto; }
   .found { display: flex; flex-direction: column; gap: 2px; }
   .ref { display: flex; align-items: baseline; gap: 10px; padding: 7px 10px; border: 0; border-radius: var(--radius-s); background: none; text-align: left; cursor: pointer; }
   .ref:hover { background: var(--panel-2); }

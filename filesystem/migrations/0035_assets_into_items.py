@@ -39,7 +39,8 @@ def forward(apps, schema_editor):
         item.save(update_fields=["public_id"])
 
     for asset in Asset.objects.order_by("pk"):
-        fields = {"file_id": asset.file_id, "file_name": asset.filename, "file_type": asset.content_type, "file_size": asset.size}
+        fields = {"file_id": asset.file_id, "file_name": asset.filename, "file_type": asset.content_type, "file_size": asset.size,
+              "file_view": "" if asset.viewer_type == "AUTO" else asset.viewer_type.lower()}
         items = list(Item.objects.filter(asset=asset).order_by("pk"))
         for item in items:
             for key, value in fields.items():

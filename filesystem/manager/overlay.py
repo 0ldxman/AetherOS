@@ -139,7 +139,7 @@ def clone_item(item, machine):
     """Копия объекта для этой машины: содержимое, доступ, слои, ключи и подписи."""
     copy = Item.objects.create(
         slug=unique_slug(f"{item.slug}-{machine.label}"), name=item.name, format=item.format, body=item.body,
-        file_id=item.file_id, file_name=item.file_name, file_type=item.file_type, file_size=item.file_size,
+        file_id=item.file_id, file_name=item.file_name, file_type=item.file_type, file_size=item.file_size, file_view=item.file_view,
         url=item.url, scene=item.scene, message=item.message, access=item.access, state=item.state, size=item.size, meta=item.meta,
         world_created_at=item.world_created_at, world_updated_at=item.world_updated_at, world_creator=item.world_creator,
     )

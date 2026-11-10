@@ -9756,6 +9756,11 @@
       "default": "",
       "title": "Kind",
       "type": "string"
+     },
+     "view": {
+      "default": "",
+      "title": "View",
+      "type": "string"
      }
     },
     "required": [
@@ -9802,6 +9807,11 @@
      "file_id": {
       "default": "",
       "title": "File Id",
+      "type": "string"
+     },
+     "view": {
+      "default": "",
+      "title": "View",
       "type": "string"
      },
      "scene": {

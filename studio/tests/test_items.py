@@ -244,6 +244,11 @@ class ProtectionApiTests(TestCase):
             data = self.call("put", f"/items/{picture.pk}/content", {"kind": "asset", "file_id": "1"})[1]
         self.assertEqual((data["kind"], data["asset"]["label"], data["asset"]["kind"]), ("asset", "port.png", "image"))
         self.assertEqual(Item.objects.get(pk=picture.pk).file_size, 11)
+        with mock.patch.object(Item, "refresh_file", side_effect=AssertionError("тот же файл: в Nextcloud ходить не нужно")):
+            data = self.call("put", f"/items/{picture.pk}/content", {"kind": "asset", "file_id": "1", "view": "raw"})[1]
+        self.assertEqual((data["asset"]["view"], data["asset"]["label"]), ("raw", "port.png"))
+        self.assertEqual(self.call("put", f"/items/{picture.pk}/content", {"kind": "asset", "file_id": "1", "view": "nonsense"})[0], 400)
+        self.call("put", f"/items/{picture.pk}/content", {"kind": "asset", "file_id": "1", "view": ""})
         self.assertEqual(self.call("put", f"/items/{picture.pk}/content", {"kind": "scene", "scene": self.scene.pk})[0], 400)    # png: сцена не подходит
         self.assertEqual(self.call("put", f"/items/{picture.pk}/content", {"kind": "text"})[0], 400)      # png обязан иметь файл
         status, answer = self.call("put", f"/items/{self.door.pk}/content", {"kind": "link", "url": "https://example.org"})

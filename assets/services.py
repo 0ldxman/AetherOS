@@ -36,10 +36,11 @@ class AssetRef:
     filename: str
     content_type: str
     size: int | None
+    view: str = ""
 
 
 def asset_ref(item) -> AssetRef:
-    return AssetRef(item=item, name=item.name, slug=item.slug, public_id=item.public_id, filename=item.file_name, content_type=item.file_type, size=item.file_size)
+    return AssetRef(item=item, name=item.name, slug=item.slug, public_id=item.public_id, filename=item.file_name, content_type=item.file_type, size=item.file_size, view=item.file_view)
 
 
 def guess_content_type(filename: str) -> str:
@@ -65,8 +66,8 @@ def resolve_viewer_type(filename: str, content_type: str) -> str:
 def asset_viewer_type(asset) -> str:
     """Вид по закэшированным сведениям о файле, без похода в Nextcloud. Пока сведений нет, это RAW («скачать»)."""
     if hasattr(asset, "file_name"):
-        return resolve_viewer_type(asset.file_name, asset.file_type)
-    return resolve_viewer_type(asset.filename, asset.content_type)
+        return asset.file_view.upper() if asset.file_view else resolve_viewer_type(asset.file_name, asset.file_type)
+    return asset.view.upper() if asset.view else resolve_viewer_type(asset.filename, asset.content_type)
 
 
 def asset_widget_kind(asset) -> str:

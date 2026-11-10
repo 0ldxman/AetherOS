@@ -34,6 +34,16 @@ class AssetObjectTests(TestCase):
         self.assertEqual(resolve_viewer_type("a.log", "application/octet-stream"), "TEXT")
         self.assertEqual(asset_widget_kind(Item(file_id="3")), "file")                       # сведений о файле ещё нет
 
+    def test_a_chosen_view_beats_the_type_of_the_file(self):
+        odd = Item.objects.create(slug="odd", name="odd", file_id="9", file_name="dump.dat", file_type="application/octet-stream", file_view="text")
+        self.assertEqual(asset_widget_kind(odd), "file")
+        self.assertEqual(resolve_viewer_type("dump.dat", "application/octet-stream"), "RAW")
+        from assets.services import asset_viewer_type
+        self.assertEqual(asset_viewer_type(odd), "TEXT")
+        pic = Item.objects.create(slug="pic-as-file", name="p", file_id="8", file_name="p.png", file_type="image/png", file_view="raw")
+        self.assertEqual(asset_widget_kind(pic), "file")
+        self.assertEqual(self.client.get(f"/view/{odd.public_id}/").status_code, 200)
+
     def test_the_viewer_opens_by_the_public_id(self):
         page = self.client.get(f"/view/{self.photo.public_id}/")
         self.assertEqual(page.status_code, 200)

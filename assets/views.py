@@ -18,7 +18,7 @@ from django.utils.http import content_disposition_header
 from filesystem.content.rawview import viewer_formats
 
 from assets.nextcloud import NextcloudClient
-from assets.services import asset_ref, guess_content_type, list_folder, resolve_viewer_type
+from assets.services import asset_ref, asset_viewer_type, guess_content_type, list_folder
 
 logger = logging.getLogger(__name__)
 
@@ -68,7 +68,7 @@ def asset_viewer(request, public_id):
             raise Http404("Unable to locate asset file.") from exc
         item.save(update_fields=["file_name", "file_type", "file_size"])
 
-    viewer_type = resolve_viewer_type(item.file_name, item.file_type)
+    viewer_type = asset_viewer_type(item)
 
     return render(
         request,
