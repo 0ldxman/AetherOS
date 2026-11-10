@@ -3549,6 +3549,13 @@ export interface components {
              * @default
              */
             view: string;
+            /** Size */
+            size?: number | null;
+            /**
+             * Shown
+             * @default
+             */
+            shown: string;
         };
         /** PickRef */
         PickRef: {
@@ -3603,6 +3610,13 @@ export interface components {
             is_directory: boolean;
             /** Is Parent */
             is_parent: boolean;
+            /** Size */
+            size?: number | null;
+            /**
+             * Kind
+             * @default
+             */
+            kind: string;
         };
         /** NextcloudFolder */
         NextcloudFolder: {

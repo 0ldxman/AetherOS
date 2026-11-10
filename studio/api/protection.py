@@ -12,7 +12,7 @@ from django.db.models import Q
 from django.shortcuts import get_object_or_404
 from ninja import Router, Schema
 
-from assets.services import asset_widget_kind
+from assets.services import asset_viewer_type, asset_widget_kind
 from documents.markup.expr import SpoilerSyntaxError, parse_expr
 from filesystem.content.rawview import build_raw
 from filesystem.layers.compiler import StateError, compile_text
@@ -125,6 +125,8 @@ class FilePick(Schema):
     label: str                  # имя файла
     kind: str = ""              # audio | video | image | file: каким виджетом покажет вики
     view: str = ""              # как показывать: пусто (по типу файла) | audio | video | image | pdf | text | raw
+    size: int | None = None
+    shown: str = ""             # как файл показывается сейчас: audio | video | image | pdf | text | raw
 
 
 class NextcloudEntry(Schema):
@@ -133,6 +135,8 @@ class NextcloudEntry(Schema):
     path: str
     is_directory: bool
     is_parent: bool
+    size: int | None = None
+    kind: str = ""               # audio | video | image | pdf | text | raw (у папок пусто)
 
 
 class NextcloudFolder(Schema):
@@ -294,7 +298,7 @@ def _content(item):
     kind = "asset" if item.file_id else "scene" if item.scene_id else "message" if item.message_id else "link" if item.url else "text"
     return ContentOut(
         kind=kind,
-        asset=FilePick(file_id=item.file_id, label=item.file_name or item.file_id, kind=asset_widget_kind(item), view=item.file_view) if item.file_id else None,
+        asset=FilePick(file_id=item.file_id, label=item.file_name or item.file_id, kind=asset_widget_kind(item), view=item.file_view, size=item.file_size, shown=asset_viewer_type(item).lower()) if item.file_id else None,
         scene=PickRef(id=item.scene_id, label=item.scene.title, sub=item.scene.slug) if item.scene_id else None,
         message=PickRef(id=item.message_id, label=item.message.subject or "(без темы)", sub=item.message.sender) if item.message_id else None,
         url=item.url,

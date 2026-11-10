@@ -133,8 +133,9 @@ def list_folder(path=ROOT_FOLDER):
 
     result = []
     if path != ROOT_FOLDER:
-        result.append({"file_id": None, "name": "..", "path": "/" + path.rsplit("/", 1)[0], "is_directory": True, "is_parent": True})
+        result.append({"file_id": None, "name": "..", "path": "/" + path.rsplit("/", 1)[0], "is_directory": True, "is_parent": True, "size": None, "kind": ""})
     for entry in found:
-        result.append({"file_id": entry.file_id, "name": entry.filename, "path": entry.path, "is_directory": entry.is_directory, "is_parent": False})
+        kind = "" if entry.is_directory else resolve_viewer_type(entry.filename, guess_content_type(entry.filename)).lower()
+        result.append({"file_id": entry.file_id, "name": entry.filename, "path": entry.path, "is_directory": entry.is_directory, "is_parent": False, "size": entry.size, "kind": kind})
     result.sort(key=lambda row: (not row["is_directory"], not row["is_parent"], row["name"].lower()))
     return {"path": "/" + path, "items": result}

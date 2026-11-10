@@ -10491,6 +10491,22 @@
       "default": "",
       "title": "View",
       "type": "string"
+     },
+     "size": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Size"
+     },
+     "shown": {
+      "default": "",
+      "title": "Shown",
+      "type": "string"
      }
     },
     "required": [
@@ -10606,6 +10622,22 @@
      "is_parent": {
       "title": "Is Parent",
       "type": "boolean"
+     },
+     "size": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Size"
+     },
+     "kind": {
+      "default": "",
+      "title": "Kind",
+      "type": "string"
      }
     },
     "required": [
