@@ -92,7 +92,11 @@ class MachineFilesApiTests(TestCase):
         self.assertEqual(self.rows()["/docs/motd.xyz"]["mark"], "added")
         self.assertEqual(self.call("post", "files/copy", {"path": "/etc/motd.xyz", "dest": "/docs"})[0], 200)
         self.assertIn("/docs/motd копия.xyz", self.rows())
-        self.assertEqual(self.call("post", "files/move", {"path": "/etc", "dest": "/docs"})[0], 400)           # папку общего диска нельзя
+        self.assertEqual(self.call("post", "files/move", {"path": "/etc", "dest": "/docs"})[0], 200)           # папка общего диска переезжает целиком
+        rows = self.rows()
+        self.assertEqual((rows["/docs/etc/motd.xyz"]["mark"], rows["/etc"]["kind"]), ("added", "deleted"))
+        self.assertNotIn("/etc/motd.xyz", rows)
+        self.assertEqual(self.client.get(f"/studio/api/machines/{self.edge.pk}/files").json()["rows"][-1]["volume"], "base")   # другая машина не тронута
         self.assertEqual(self.call("post", "files/move", {"path": "/docs", "dest": "/docs/x"})[0], 400)
 
     def test_rename_and_rights(self):
@@ -101,3 +105,16 @@ class MachineFilesApiTests(TestCase):
         self.assertEqual(self.call("post", "files/rights", {"path": "/hosts.old", "owner": "root", "group": "root", "mode": "640"})[0], 200)
         row = self.rows()["/hosts.old"]
         self.assertEqual((row["owner"], row["group"], row["mode"]), ("root", "root", "640"))
+
+    def test_protection_of_a_shared_file_goes_to_a_copy_for_this_machine(self):
+        status, target = self.call("post", "files/protect", {"path": "/hosts"})
+        self.assertEqual(status, 200)
+        self.assertNotEqual(Item.objects.get(pk=target["item"]).slug, "hosts")
+        self.assertEqual(Placement.objects.get(pk=target["placement"]).volume.slug, "core-own")
+        status, _ = self.client.put(
+            f"/studio/api/items/{target['item']}/placements/{target['placement']}/protection",
+            data=json.dumps({"access_mode": "replace", "access": "root", "state_mode": "inherit", "state": ""}), content_type="application/json").status_code, None
+        self.assertEqual(status, 200)
+        self.assertTrue(self.rows()["/hosts"]["condition"])
+        edge = self.client.get(f"/studio/api/machines/{self.edge.pk}/files").json()["rows"]
+        self.assertFalse({r["path"]: r for r in edge}["/hosts"]["condition"])

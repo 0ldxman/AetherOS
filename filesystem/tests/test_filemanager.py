@@ -403,9 +403,15 @@ class OverlayTests(TestCase):
         self.assertEqual([entry.name for entry in self.view().children("/") if entry.name.endswith(".txt")], ["b.txt"])
         self.assertFalse(Placement.objects.filter(kind="whiteout").exists())
 
-    def test_a_folder_of_the_image_cannot_be_renamed(self):
-        with self.assertRaises(FileManagerError):
-            overlay.rename(self.machine, "/bin", "binary")
+    def test_a_folder_of_the_image_is_renamed_with_everything_inside(self):
+        before = sorted(p for p in self.view().entries if p.startswith("/bin/"))
+        self.assertTrue(before)
+        overlay.rename(self.machine, "/bin", "binary")
+        view = self.view()
+        self.assertFalse(view.exists("/bin"))
+        self.assertEqual(sorted(p for p in view.entries if p.startswith("/binary/")), [p.replace("/bin/", "/binary/", 1) for p in before])
+
+    def test_a_name_that_is_taken_is_refused(self):
         with self.assertRaises(FileManagerError):
             overlay.rename(self.machine, "/etc/hosts", "motd")                        # имя занято
 

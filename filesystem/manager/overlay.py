@@ -227,6 +227,16 @@ def set_rights(machine, path, owner="", group="", mode=""):
 
 
 @transaction.atomic
+def protection_target(machine, path):
+    """Место объекта, защиту которого правят на этой машине: файл общего диска сначала перекрывается копией. -> (объект, место)."""
+    item = override(machine, path)
+    entry = _entry(MachineView(machine, None), path)
+    if entry.placement is None or entry.placement.item_id != item.pk:
+        raise FileManagerError("У этого файла нет своего места для защиты.")
+    return item, entry.placement
+
+
+@transaction.atomic
 def delete(machine, path):
     """Убрать файл или папку из вида машины: свой файл удаляется, файл нижнего слоя скрывается надгробием."""
     view = MachineView(machine, None)
@@ -319,12 +329,7 @@ def rename(machine, path, name):
         own.name = name
         own.save(update_fields=["name"])
         return own
-    if entry.is_dir or entry.item is None:
-        raise FileManagerError("Папку образа переименовать нельзя: создайте новую и перенесите файлы.")
-    delete(machine, path)
-    home = home_for(machine, view, path, entry)
-    parent = ensure_folders(home.volume, home.rel(parent_path))
-    return Placement.objects.create(volume=home.volume, parent=parent, kind=Placement.Kind.ITEM, item=entry.item, name=name)
+    return move(machine, path, parent_path, name)
 
 
 # ---- редактор файлов машины: открытие, новые файлы без объекта, перенос и копия ---------------------------------------
@@ -385,8 +390,8 @@ def new_text_file(machine, parent_path, name):
 
 @transaction.atomic
 def move(machine, path, dest_dir, name=None):
-    """Перенести файл или свою папку в другую папку (и, если нужно, под другим именем). Файл общего диска: старое место скрывается,
-    новое создаётся в диске отличий. Папку общего диска перенести нельзя."""
+    """Перенести файл или папку в другую папку (и, если нужно, под другим именем). Своё переезжает на месте; из общего диска старое
+    место скрывается, а новое создаётся в диске отличий (папка переезжает вместе со всем, что в ней)."""
     view = MachineView(machine, None)
     entry = _entry(view, path)
     path = "/" + path.strip("/")
@@ -409,14 +414,34 @@ def move(machine, path, dest_dir, name=None):
         own.save(update_fields=["parent", "name"])
         return own
     if entry.is_dir:
-        raise FileManagerError("Папку общего диска перенести нельзя: создайте новую и перенесите в неё файлы.")
+        # папка нижнего слоя: новая папка со всем содержимым в диске отличий, старая скрывается одним надгробием
+        inside = [(p, e) for p, e in sorted(view.entries.items()) if p.startswith(path + "/") and e.via is None]
+        _place(machine, view, target, entry)
+        for old_path, old_entry in inside:
+            _place(machine, view, target + old_path[len(path):], old_entry)
+        delete(machine, path)
+        return None
     delete(machine, path)
-    new_home = home_for(machine, view, target, None)
-    parent = ensure_folders(new_home.volume, new_home.rel(dest), view, new_home.point)
+    return _place(machine, view, target, entry)
+
+
+def _place(machine, view, target, entry):
+    """Создать на новом месте копию записи (папка, объект или текст) с теми же правами и защитой."""
+    home = home_for(machine, view, target, None)
+    rel = home.rel(target)
+    parent = ensure_folders(home.volume, posixpath.dirname(rel), view, home.point)
+    name = posixpath.basename(rel)
+    if entry.is_dir:
+        found = Placement.objects.filter(volume=home.volume, parent=parent, name=name).first()
+        if found is not None and found.kind == Placement.Kind.FOLDER:
+            return found
+        if found is not None:
+            found.delete()
+        return Placement.objects.create(volume=home.volume, parent=parent, kind=Placement.Kind.FOLDER, name=name, **_carry(entry.placement))
     if entry.item is not None:
-        return Placement.objects.create(volume=new_home.volume, parent=parent, kind=Placement.Kind.ITEM, item=entry.item, name=name, **_carry(entry.placement))
+        return Placement.objects.create(volume=home.volume, parent=parent, kind=Placement.Kind.ITEM, item=entry.item, name=name, **_carry(entry.placement))
     text = entry.text if entry.text is not None else (entry.placement.content if entry.placement is not None else "")
-    return Placement.objects.create(volume=new_home.volume, parent=parent, kind=Placement.Kind.FILE, name=name, content=text, **_carry(entry.placement))
+    return Placement.objects.create(volume=home.volume, parent=parent, kind=Placement.Kind.FILE, name=name, content=text, **_carry(entry.placement))
 
 
 @transaction.atomic
@@ -456,6 +481,14 @@ def _items_info(items):
         }
         for item in items
     }
+
+
+def _protection(entry):
+    """(есть слои, есть условие) у файла с учётом того, что место может заменить или снять защиту объекта."""
+    place, item = entry.placement, entry.item
+    state = place.state if place is not None and place.state_mode == Placement.Mode.REPLACE else ("" if place is not None and place.state_mode == Placement.Mode.NONE else (item.state if item is not None else (place.state if place is not None else "")))
+    access = place.access if place is not None and place.access_mode == Placement.Mode.REPLACE else ({} if place is not None and place.access_mode == Placement.Mode.NONE else (item.access if item is not None else (place.access if place is not None else {})))
+    return bool((state or "").strip()), bool(access)
 
 
 def machine_data(machine):
@@ -501,6 +534,8 @@ def machine_data(machine):
                     row["mark"] = "added"
         if entry.item is not None:
             row["item"] = info[entry.item.pk]
+        if not entry.is_dir:
+            row["layers"], row["condition"] = _protection(entry)
         rows.append(row)
 
     deleted = []

@@ -8,7 +8,7 @@
   import DocPreview from "../lib/DocPreview.svelte";
   import { guardUnsaved } from "../lib/guard.svelte";
   import Dialog from "../lib/Dialog.svelte";
-  import { go } from "../lib/router.svelte";
+  import { go, takeOrigin } from "../lib/router.svelte";
   import { toast } from "../lib/toast.svelte";
 
   let { volume, id }: { volume: number; id: number } = $props();
@@ -50,7 +50,8 @@
     }
     return [...list, ...chain.map((folder) => ({ name: folder.name, href: `#/volumes/${volume}/${folder.id}` }))];
   });
-  const folderHref = $derived(`#/volumes/${volume}${file?.parent ? `/${file.parent}` : ""}`);
+  const origin = takeOrigin();
+  const folderHref = $derived(origin.path ? `#${origin.path}` : `#/volumes/${volume}${file?.parent ? `/${file.parent}` : ""}`);
 
   function fill(data: Schemas["TextFile"]) {
     file = data;
@@ -101,7 +102,7 @@
 {#if file}
   <div class="page">
     <header class="head">
-      <a class="btn back" href={folderHref} title="Вернуться к файлам этой папки">← К файлам</a>
+      <a class="btn back" href={folderHref} title={origin.label || "Вернуться к файлам этой папки"}>← К файлам</a>
       <nav class="crumbs" aria-label="Путь к файлу">
         {#each crumbs as crumb}<a href={crumb.href}>{crumb.name}</a><span class="sep">/</span>{/each}
         <h1 class="mono">{file.name}</h1>

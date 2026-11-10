@@ -1478,6 +1478,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/studio/api/machines/{machine_id}/files/protect": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Protect
+         * @description Место, защиту которого правят на этой машине (файл общего диска перекрывается копией). Саму защиту сохраняет
+         *     PUT /items/{item}/placements/{placement}/protection.
+         */
+        post: operations["studio_api_machinefiles_protect"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/studio/api/policies": {
         parameters: {
             query?: never;
@@ -4173,6 +4194,16 @@ export interface components {
              * @default
              */
             mode: string;
+            /**
+             * Layers
+             * @default false
+             */
+            layers: boolean;
+            /**
+             * Condition
+             * @default false
+             */
+            condition: boolean;
         };
         /** MachineFiles */
         MachineFiles: {
@@ -4252,6 +4283,17 @@ export interface components {
              * @default
              */
             mode: string;
+        };
+        /** MachineFileProtect */
+        MachineFileProtect: {
+            /** Item */
+            item: number;
+            /** Placement */
+            placement: number;
+            /** Volume Name */
+            volume_name: string;
+            /** Path */
+            path: string;
         };
         /** PolicyRow */
         PolicyRow: {
@@ -7834,6 +7876,32 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["MachineFileDone"];
+                };
+            };
+        };
+    };
+    studio_api_machinefiles_protect: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                machine_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MachineFilePath"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MachineFileProtect"];
                 };
             };
         };

@@ -34,6 +34,8 @@ class MachineFileRow(Schema):
     owner: str = ""
     group: str = ""
     mode: str = ""
+    layers: bool = False         # у файла есть слои защиты
+    condition: bool = False      # у файла есть условие доступа
 
 
 class MachineFiles(Schema):
@@ -74,6 +76,13 @@ class MachineFileOpen(Schema):
     item: int | None = None
     volume: int | None = None
     placement: int | None = None
+
+
+class MachineFileProtect(Schema):
+    item: int
+    placement: int
+    volume_name: str
+    path: str
 
 
 class MachineFileDone(Schema):
@@ -155,3 +164,11 @@ def reset(request, machine_id: int, body: MachineFilePath):
 def rights(request, machine_id: int, body: MachineFileRights):
     overlay.set_rights(_machine(machine_id), body.path, body.owner, body.group, body.mode)
     return MachineFileDone()
+
+
+@router.post("/{int:machine_id}/files/protect", response=MachineFileProtect)
+def protect(request, machine_id: int, body: MachineFilePath):
+    """Место, защиту которого правят на этой машине (файл общего диска перекрывается копией). Саму защиту сохраняет
+    PUT /items/{item}/placements/{placement}/protection."""
+    item, placement = overlay.protection_target(_machine(machine_id), body.path)
+    return MachineFileProtect(item=item.pk, placement=placement.pk, volume_name=placement.volume.name or placement.volume.slug, path=body.path)

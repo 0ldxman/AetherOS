@@ -7,7 +7,7 @@
   import DocPreview from "../lib/DocPreview.svelte";
   import Hint from "../lib/Hint.svelte";
   import MarkupHelp from "../lib/MarkupHelp.svelte";
-  import { go } from "../lib/router.svelte";
+  import { go, takeOrigin } from "../lib/router.svelte";
   import { toast } from "../lib/toast.svelte";
   import ItemWhere from "./item/ItemWhere.svelte";
   import ItemHistory from "./item/ItemHistory.svelte";
@@ -112,8 +112,10 @@
     };
   });
 
+  const origin = takeOrigin();
+  const backLabel = origin.label || "К списку объектов";
   function back() {
-    go("/items");
+    go(origin.path || "/items");
   }
 
   function when(stamp: string) {
@@ -128,7 +130,7 @@
 {:else}
   <div class="item">
     <header class="head">
-      <button class="btn ghost" onclick={back} aria-label="К списку объектов" title="К списку объектов">←</button>
+      <button class="btn ghost" onclick={back} aria-label={backLabel} title={backLabel}>←</button>
       <input class="title" bind:value={draft.name} aria-label="Название" class:bad={fieldErrors.name} />
       <span class="chip" title={draft.format ? "Формат объекта" : "Формат не выбран: объект показывается как обычный текст. Выбрать можно на вкладке «Содержимое», «Свойства»."}>{draft.format || "без формата"}</span>
       <span class="status muted">

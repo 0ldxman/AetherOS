@@ -4353,6 +4353,54 @@
     ]
    }
   },
+  "/studio/api/machines/{machine_id}/files/protect": {
+   "post": {
+    "operationId": "studio_api_machinefiles_protect",
+    "summary": "Protect",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "machine_id",
+      "schema": {
+       "title": "Machine Id",
+       "type": "integer"
+      },
+      "required": true
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/MachineFileProtect"
+        }
+       }
+      }
+     }
+    },
+    "description": "Место, защиту которого правят на этой машине (файл общего диска перекрывается копией). Саму защиту сохраняет\nPUT /items/{item}/placements/{placement}/protection.",
+    "tags": [
+     "machine-files"
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/MachineFilePath"
+       }
+      }
+     },
+     "required": true
+    },
+    "security": [
+     {
+      "SessionAuthIsStaff": []
+     }
+    ]
+   }
+  },
   "/studio/api/policies": {
    "get": {
     "operationId": "studio_api_policies_policies",
@@ -12230,6 +12278,16 @@
       "default": "",
       "title": "Mode",
       "type": "string"
+     },
+     "layers": {
+      "default": false,
+      "title": "Layers",
+      "type": "boolean"
+     },
+     "condition": {
+      "default": false,
+      "title": "Condition",
+      "type": "boolean"
      }
     },
     "required": [
@@ -12440,6 +12498,34 @@
      "path"
     ],
     "title": "MachineFileRights",
+    "type": "object"
+   },
+   "MachineFileProtect": {
+    "properties": {
+     "item": {
+      "title": "Item",
+      "type": "integer"
+     },
+     "placement": {
+      "title": "Placement",
+      "type": "integer"
+     },
+     "volume_name": {
+      "title": "Volume Name",
+      "type": "string"
+     },
+     "path": {
+      "title": "Path",
+      "type": "string"
+     }
+    },
+    "required": [
+     "item",
+     "placement",
+     "volume_name",
+     "path"
+    ],
+    "title": "MachineFileProtect",
     "type": "object"
    },
    "PolicyRow": {

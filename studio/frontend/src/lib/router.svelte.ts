@@ -35,3 +35,17 @@ export function match(pattern: string, path: string): Record<string, string> | n
   }
   return params;
 }
+
+/** Откуда пришли в редактор: его стрелка «назад» возвращает туда. Редактор забирает значение при открытии и сбрасывает его. */
+const from = { path: "", label: "" };
+
+export function comeFrom(path: string, label: string): void {
+  from.path = path;
+  from.label = label;
+}
+
+export function takeOrigin(): { path: string; label: string } {
+  const taken = { ...from };
+  from.path = from.label = "";
+  return taken;
+}
