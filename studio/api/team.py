@@ -132,3 +132,35 @@ def remove_author(request, user_id: int):
     user = get_object_or_404(get_user_model(), pk=user_id, is_staff=True)
     _refused(lambda: members.remove_author(request.user, user))
     return 204, None
+
+
+class TeamChange(Schema):
+    id: int
+    at: dt.datetime
+    user: int | None
+    username: str
+    section: str
+    section_label: str
+    action: str
+    action_label: str
+    kind: str
+    label: str
+    summary: str
+    link: str
+    restorable: bool             # есть снимок удалённой сущности
+
+
+@router.get("/changes", response=list[TeamChange])
+def change_feed(request, author: int | None = None, section: str = "", before: int | None = None, limit: int = 50):
+    """Лента изменений Студии: новые сверху, по автору и разделу, страницами по before."""
+    from team import changes
+
+    return [
+        TeamChange(
+            id=c.pk, at=c.at, user=c.user_id, username=c.username, section=c.section,
+            section_label=rights.SECTIONS.get(c.section, "Команда" if c.section == rights.TEAM else c.section),
+            action=c.action, action_label=changes.ACTION_LABELS.get(c.action, c.action), kind=c.kind, label=c.label,
+            summary=c.summary, link=c.link if c.action != "delete" else "", restorable=c.snapshot is not None,
+        )
+        for c in changes.feed(author=author, section=section, before=before, limit=min(limit, 200))
+    ]

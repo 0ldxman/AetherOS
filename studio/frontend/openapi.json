@@ -8025,6 +8025,91 @@
      }
     ]
    }
+  },
+  "/studio/api/team/changes": {
+   "get": {
+    "operationId": "studio_api_team_change_feed",
+    "summary": "Change Feed",
+    "parameters": [
+     {
+      "in": "query",
+      "name": "author",
+      "schema": {
+       "anyOf": [
+        {
+         "type": "integer"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Author"
+      },
+      "required": false
+     },
+     {
+      "in": "query",
+      "name": "section",
+      "schema": {
+       "default": "",
+       "title": "Section",
+       "type": "string"
+      },
+      "required": false
+     },
+     {
+      "in": "query",
+      "name": "before",
+      "schema": {
+       "anyOf": [
+        {
+         "type": "integer"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Before"
+      },
+      "required": false
+     },
+     {
+      "in": "query",
+      "name": "limit",
+      "schema": {
+       "default": 50,
+       "title": "Limit",
+       "type": "integer"
+      },
+      "required": false
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "items": {
+          "$ref": "#/components/schemas/TeamChange"
+         },
+         "title": "Response",
+         "type": "array"
+        }
+       }
+      }
+     }
+    },
+    "description": "Лента изменений Студии: новые сверху, по автору и разделу, страницами по before.",
+    "tags": [
+     "team"
+    ],
+    "security": [
+     {
+      "StudioAuth": []
+     }
+    ]
+   }
   }
  },
  "components": {
@@ -17041,6 +17126,87 @@
      }
     },
     "title": "TeamAuthorIn",
+    "type": "object"
+   },
+   "TeamChange": {
+    "properties": {
+     "id": {
+      "title": "Id",
+      "type": "integer"
+     },
+     "at": {
+      "format": "date-time",
+      "title": "At",
+      "type": "string"
+     },
+     "user": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "User"
+     },
+     "username": {
+      "title": "Username",
+      "type": "string"
+     },
+     "section": {
+      "title": "Section",
+      "type": "string"
+     },
+     "section_label": {
+      "title": "Section Label",
+      "type": "string"
+     },
+     "action": {
+      "title": "Action",
+      "type": "string"
+     },
+     "action_label": {
+      "title": "Action Label",
+      "type": "string"
+     },
+     "kind": {
+      "title": "Kind",
+      "type": "string"
+     },
+     "label": {
+      "title": "Label",
+      "type": "string"
+     },
+     "summary": {
+      "title": "Summary",
+      "type": "string"
+     },
+     "link": {
+      "title": "Link",
+      "type": "string"
+     },
+     "restorable": {
+      "title": "Restorable",
+      "type": "boolean"
+     }
+    },
+    "required": [
+     "id",
+     "at",
+     "user",
+     "username",
+     "section",
+     "section_label",
+     "action",
+     "action_label",
+     "kind",
+     "label",
+     "summary",
+     "link",
+     "restorable"
+    ],
+    "title": "TeamChange",
     "type": "object"
    }
   },

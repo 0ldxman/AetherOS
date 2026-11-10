@@ -1,4 +1,5 @@
 """Команда авторов: роли с правами по разделам Студии (team.rights)."""
+from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.db import models
 
@@ -30,3 +31,28 @@ class Role(models.Model):
             errors["actions"] = "Неизвестные действия: " + ", ".join(unknown)
         if errors:
             raise ValidationError(errors)
+
+
+class Change(models.Model):
+    """Запись ленты: автор что-то изменил в Студии (team.changes). Номер записи служит версией при сохранении."""
+
+    at = models.DateTimeField("Когда", auto_now_add=True, db_index=True)
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, on_delete=models.SET_NULL, related_name="changes", verbose_name="Автор")
+    username = models.CharField("Имя автора", max_length=150)            # остаётся, если автора удалят
+    method = models.CharField(max_length=8)
+    path = models.CharField("Путь", max_length=512, db_index=True)        # адрес сущности в API: он же ключ версии
+    section = models.CharField("Раздел", max_length=32, blank=True, db_index=True)
+    action = models.CharField("Действие", max_length=16)                 # create, update, delete, act
+    kind = models.CharField("Вид", max_length=64, blank=True)
+    label = models.CharField("Что", max_length=200, blank=True)
+    link = models.CharField("Ссылка в Студии", max_length=255, blank=True)
+    summary = models.CharField("Что именно", max_length=200, blank=True)
+    snapshot = models.JSONField("Снимок до удаления", null=True, blank=True)
+
+    class Meta:
+        ordering = ["-pk"]
+        verbose_name = "Изменение"
+        verbose_name_plural = "Лента изменений"
+
+    def __str__(self):
+        return f"{self.username} {self.action} {self.path}"

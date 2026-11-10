@@ -2565,6 +2565,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/studio/api/team/changes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Change Feed
+         * @description Лента изменений Студии: новые сверху, по автору и разделу, страницами по before.
+         */
+        get: operations["studio_api_team_change_feed"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -6140,6 +6160,38 @@ export interface components {
         TeamAuthorIn: {
             /** Role */
             role?: number | null;
+        };
+        /** TeamChange */
+        TeamChange: {
+            /** Id */
+            id: number;
+            /**
+             * At
+             * Format: date-time
+             */
+            at: string;
+            /** User */
+            user: number | null;
+            /** Username */
+            username: string;
+            /** Section */
+            section: string;
+            /** Section Label */
+            section_label: string;
+            /** Action */
+            action: string;
+            /** Action Label */
+            action_label: string;
+            /** Kind */
+            kind: string;
+            /** Label */
+            label: string;
+            /** Summary */
+            summary: string;
+            /** Link */
+            link: string;
+            /** Restorable */
+            restorable: boolean;
         };
     };
     responses: never;
@@ -10615,6 +10667,31 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+        };
+    };
+    studio_api_team_change_feed: {
+        parameters: {
+            query?: {
+                author?: number | null;
+                section?: string;
+                before?: number | null;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TeamChange"][];
+                };
             };
         };
     };
