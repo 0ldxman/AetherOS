@@ -1,4 +1,5 @@
 from filesystem.trash import purge_expired
+from machines.world.dialect import PathSyntax
 from terminal.engine.commands import commands_for
 from terminal.engine.context import DEFAULT_CWD, TerminalContext
 from terminal.engine.parser import (
@@ -32,7 +33,7 @@ class TerminalExecutor:
         purge_expired(session.user)     # срок файлов в корзине вышел: они удаляются насовсем
 
         try:
-            parsed = parse_command(source)
+            parsed = parse_command(source, context.style)
         except CommandParseError as exc:
             return CommandResult(
                 f"terminal: syntax error: {exc}",
@@ -52,8 +53,10 @@ class TerminalExecutor:
 
         try:
             result = command.execute(context, parsed.args)
+        except PathSyntax as bad:
+            return CommandResult(f"{parsed.name}: {bad}", 2), context.cwd
         except rights.Denied as denied:
-            return CommandResult(f"{parsed.name}: {denied.path}: Permission denied", 1), context.cwd
+            return CommandResult(f"{parsed.name}: {context.show(denied.path)}: Permission denied", 1), context.cwd
         except rights.NotPermitted:
             return CommandResult(f"{parsed.name}: Operation not permitted", 1), context.cwd
         except BadName as bad:

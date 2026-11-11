@@ -5,6 +5,17 @@ from terminal.engine.filesystem import VirtualFilesystem
 from terminal.engine.result import CommandResult
 
 
+
+def listed_name(style, name, is_dir):
+    """Имя в списке ls по обычаю диалекта: unix «папка/», VMS «ПАПКА.DIR;1» и «ФАЙЛ.TXT;1», мейнфрейм БОЛЬШИМИ."""
+    from machines.world.dialect import MVS, VMS
+
+    if style == VMS:
+        return f"{name.upper()}.DIR;1" if is_dir else f"{name.upper()};1"
+    if style == MVS:
+        return name.upper()
+    return name + ("/" if is_dir else "")
+
 class BaseCommand:
     name = ""
 
@@ -19,7 +30,7 @@ class PwdCommand(BaseCommand):
         if args:
             return CommandResult("pwd: too many arguments", 2)
 
-        return CommandResult(context.cwd)
+        return CommandResult(context.show(context.cwd))
 
 
 class LsCommand(BaseCommand):
@@ -48,13 +59,13 @@ class LsCommand(BaseCommand):
 
         if not fs.exists(path):
             return CommandResult(
-                f"ls: cannot access '{path}': No such file or directory",
+                f"ls: cannot access '{paths[0] if paths else context.show(path)}': No such file or directory",
                 2,
             )
 
         if not fs.is_directory(path):
             file = fs.get_file(path)
-            name = file.path.rsplit("/", 1)[-1]
+            name = listed_name(context.style, file.path.rsplit("/", 1)[-1], False)
             return CommandResult(self._long([(size_of(context, file), self._rights(context, file), name)], "h" in flags) if "l" in flags else name)
 
         context.require(path, "r")
@@ -68,8 +79,7 @@ class LsCommand(BaseCommand):
 
         if "a" not in flags:
             entries = [entry for entry in entries if not entry["hidden"]]      # скрытое (флаг или точка в имени) видно только с -a
-        names = [entry["name"] + ("/" if entry["is_directory"] else "")
-                 for entry in entries]
+        names = [listed_name(context.style, entry["name"], entry["is_directory"]) for entry in entries]
 
         if "l" in flags:
             rows = [

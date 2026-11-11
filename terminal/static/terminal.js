@@ -18,6 +18,7 @@
     // Только для приглашения: настоящая папка хранится на сервере в сессии.
     let cwd = terminal.dataset.cwd || "/home";
     let home = terminal.dataset.home || "/home";
+    let shellPrompt = terminal.dataset.shellPrompt || "";      // приглашение по диалекту путей машины (считает сервер)
     let busy = false;
 
     // У каждой вкладки своя лента вывода и своя история команд. Ленты неактивных вкладок лежат отдельно, пока терминал
@@ -57,6 +58,7 @@
     }
 
     function updatePrompt() {
+        if (shellPrompt) { prompt.textContent = shellPrompt; return; }
         // логин@машина:путь$, путь как в Linux: домашняя папка это ~, внутри неё ~/папка (папку называет сервер)
         const shown = cwd === home ? "~" : cwd.startsWith(home + "/") ? "~" + cwd.slice(home.length) : cwd;
         prompt.textContent = `${login}@${hostname}:${shown}$`;
@@ -206,6 +208,7 @@
         syncClock(data);
         cwd = data.cwd || cwd;
         home = data.home || home;
+        shellPrompt = data.shell_prompt || shellPrompt;
         hostname = data.hostname || hostname;
         login = data.login || login;
         renderTabs(data.tabs);
@@ -357,6 +360,7 @@
 
         cwd = data.cwd || cwd;
         home = data.home || home;
+        shellPrompt = data.shell_prompt || shellPrompt;
         hostname = data.hostname || hostname;     // rshell меняет машину и логин оболочки
         login = data.login || login;
         syncClock(data);

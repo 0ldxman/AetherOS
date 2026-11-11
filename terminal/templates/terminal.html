@@ -18,6 +18,7 @@
         data-login="{{ login }}"
         data-cwd="{{ cwd }}"
         data-home="{{ home }}"
+        data-shell-prompt="{{ shell_prompt }}"
         data-tab-focus-url="{{ tab_urls.focus }}"
         data-tab-desktop-url="{{ tab_urls.desktop }}"
         data-tab-close-url="{{ tab_urls.close }}"
@@ -29,7 +30,7 @@
 
         <form id="terminal-form" autocomplete="off">
             <label id="terminal-prompt" for="terminal-input">
-                {{ login }}@{{ hostname }}:{{ prompt_path }}$
+                {{ shell_prompt }}
             </label>
             <input
                 id="terminal-input"

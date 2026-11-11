@@ -9,6 +9,7 @@ from django.core.exceptions import ValidationError
 
 MAX_NAME = 255
 DRIVE = re.compile(r"^[A-Za-z]:$")
+DEVICE = re.compile(r"^[A-Za-z][A-Za-z0-9$_]{1,14}:$")      # устройство VMS: DSK0:, SYS$DISK: (machines.world.dialect)
 
 
 def validate_name(value):
@@ -49,10 +50,10 @@ def normalize_mount(path):
         return ""
     parts = split(path)
     for index, part in enumerate(parts):
-        if DRIVE.match(part):
+        if DRIVE.match(part) or DEVICE.match(part):
             if index:
-                raise ValidationError("Диск (C:) может быть только в начале пути.")
-            parts[index] = part[0].upper() + ":"
+                raise ValidationError("Диск (C:) или устройство (DSK0:) может быть только в начале пути.")
+            parts[index] = part.upper()
         elif ":" in part:
-            raise ValidationError("Двоеточие допустимо только в обозначении диска (C:).")
+            raise ValidationError("Двоеточие допустимо только в обозначении диска (C:) или устройства (DSK0:).")
     return "/" + "/".join(parts)

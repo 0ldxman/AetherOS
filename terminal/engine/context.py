@@ -75,30 +75,33 @@ class TerminalContext:
         if getattr(self, "_view", None) is not None:
             self._view.invalidate()
 
+    @property
+    def style(self):
+        """Диалект путей машины (machines.world.dialect): как игрок пишет пути и как терминал их показывает. Читается раз на команду."""
+        if getattr(self, "_style", None) is None:
+            self._style = self.machine.path_style
+        return self._style
+
     def resolve_path(self, path: str) -> str:
-        """Превращает путь (абсолютный или относительный) в нормальный
-        абсолютный: сворачивает '.', '..' и лишние слэши.
-        '..' в корне остаётся корнем, выйти выше / нельзя.
-        """
-        path = path.strip()
+        """Путь, как его ввёл игрок в диалекте машины (абсолютный или относительный к cwd), -> канонический абсолютный.
+        '..' в корне (и выше диска) остаётся там же. В диалектах без регистра имя сверяется с файлами без учёта регистра.
+        Неразборчивый путь: PathSyntax (исполнитель печатает её как ошибку команды)."""
+        from machines.world.dialect import CASELESS, parse
 
-        if not path:
-            return self.cwd
+        found = parse(path, self.style, self.cwd)
+        return self._real_case(found) if self.style in CASELESS else found
 
-        if path.startswith("/"):
-            parts = []
-        else:
-            parts = [p for p in self.cwd.split("/") if p]
-
-        for part in path.split("/"):
-            if part in ("", "."):
-                continue
-
-            if part == "..":
-                if parts:
-                    parts.pop()
-                continue
-
-            parts.append(part)
-
+    def _real_case(self, path):
+        """Каждая часть пути в написании настоящего файла, если такой есть (иначе как ввели: для новых файлов)."""
+        parts, here = [], "/"
+        for part in (p for p in path.split("/") if p):
+            names = {entry.name.casefold(): entry.name for entry in self.view.children(here)}
+            parts.append(part if part in names.values() else names.get(part.casefold(), part))
+            here = "/" + "/".join(parts)
         return "/" + "/".join(parts)
+
+    def show(self, path, is_dir=True):
+        """Канонический путь в диалекте машины (для вывода игроку)."""
+        from machines.world.dialect import to_display
+
+        return to_display(path, self.style, is_dir)

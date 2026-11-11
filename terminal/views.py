@@ -147,6 +147,8 @@ def execute(request):
         "prompt": result.prompt,
         "cwd": new_cwd,
         "home": _home(request),
+        "shell_prompt": shell_prompt(bridge.terminal_session(request).profile.machine, bridge.terminal_session(request).profile.login,
+                                     bridge.terminal_session(request).profile.machine.hostname, new_cwd, _home(request)),
         "hostname": bridge.terminal_session(request).profile.machine.hostname,
         "login": bridge.terminal_session(request).profile.login,
         "tabs": _tabs(request),
@@ -198,9 +200,11 @@ def bridge_close(request):
 
 def _tab_payload(request, extra=None):
     session = bridge.terminal_session(request)
+    cwd = request.session.get(CWD_KEY, DEFAULT_CWD)
     return JsonResponse({
-        "cwd": request.session.get(CWD_KEY, DEFAULT_CWD),
+        "cwd": cwd,
         "home": home_of(session),
+        "shell_prompt": shell_prompt(session.profile.machine, session.profile.login, session.profile.machine.hostname, cwd, home_of(session)),
         "hostname": session.profile.machine.hostname,
         "login": session.profile.login,
         "tabs": _tabs(request),
@@ -279,6 +283,21 @@ def _home(request):
     return home_of(bridge.terminal_session(request)) if is_player(request) else DEFAULT_CWD
 
 
+def shell_prompt(machine, login, hostname, cwd, home):
+    """Приглашение оболочки по обычаю диалекта: unix login@host:~/путь$, Windows C:\\Users\\ivan>,
+    VMS HOST::DSK0:[OPS.IVAN] $, мейнфрейм OPS.IVAN READY."""
+    from machines.world.dialect import MVS, VMS, WINDOWS, to_display
+
+    style = machine.path_style if machine is not None else "unix"
+    if style == WINDOWS:
+        return f"{to_display(cwd, style)}>"
+    if style == VMS:
+        return f"{hostname.upper()}::{to_display(cwd, style)} $"
+    if style == MVS:
+        return f"{to_display(cwd, style)} READY"
+    return f"{login}@{hostname}:{prompt_path(cwd, home)}$"
+
+
 def prompt_path(cwd, home=DEFAULT_CWD):
     """Путь для приглашения, как в Linux: домашняя папка это ~, внутри неё ~/папка, остальное полным путём."""
     if cwd == home:
@@ -320,7 +339,8 @@ def terminal_page(request):
     kicks = _kicks(request) if is_player(request) else []
     if is_player(request):
         bridge.terminal_reset(request)     # новое окно это новая оболочка на машине рабочего стола
-        hostname = active_session(request).profile.machine.hostname
+        machine = active_session(request).profile.machine
+        hostname = machine.hostname
     else:
         machine = current_machine(request)
 
@@ -344,6 +364,7 @@ def terminal_page(request):
             "cwd": home,
             "home": home,
             "prompt_path": prompt_path(home, home),
+            "shell_prompt": shell_prompt(machine, _login(request), hostname, home, home),
             "greeting": greeting,
             "tabs": _tabs(request) if is_player(request) else [],
             "boot": {"kicks": kicks, "now": _clock(), "warn_at": bridge.WARN_AT},
