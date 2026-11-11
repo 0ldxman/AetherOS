@@ -6,7 +6,7 @@
 import datetime as dt
 
 from django.core.exceptions import ValidationError
-from django.db.models import Count, ProtectedError, Q
+from django.db.models import Count, Max, ProtectedError, Q
 from django.shortcuts import get_object_or_404
 from ninja import Router, Schema
 
@@ -227,6 +227,17 @@ class MapOwnerRef(Schema):
     de_facto: bool
 
 
+class MapChange(Schema):
+    """Последняя смена владельца провинции: кто был (пусто у первой записи), кто стал, с какой даты и по какому праву."""
+    date: dt.date
+    old: str | None
+    old_color: str | None
+    new: str
+    new_color: str
+    de_jure: bool
+    de_facto: bool
+
+
 class MapProvinceRow(Schema):
     id: int
     bounds: list[float] | None = None     # рамка [запад, юг, восток, север] для перехода камеры
@@ -236,6 +247,7 @@ class MapProvinceRow(Schema):
     wiki_url: str
     owner: MapOwnerRef | None
     records: int
+    last_change: MapChange | None = None
 
 
 class MapProvincePage(Schema):
@@ -277,10 +289,33 @@ def _owner(o):
     return MapOwnerRef(country=o.country_id, country_name=o.country.name, color=o.country.color, since=o.date_from, de_jure=o.de_jure, de_facto=o.de_facto)
 
 
+PROVINCE_SORTS = {"name": ("name", "id"), "code": ("code",), "records": ("records", "name"), "last": ("last_date", "name")}
+
+
+def _last_changes(ids, on):
+    """Последняя смена владельца для каждой провинции из ids (на дату on, без даты: самая свежая)."""
+    qs = Ownership.objects.filter(province_id__in=ids).select_related("country")
+    if on is not None:
+        qs = qs.filter(date_from__lte=on)
+    rows = {}
+    for o in qs.order_by("province_id", "-date_from", "-id"):
+        rows.setdefault(o.province_id, []).append(o)
+    out = {}
+    for pid, chain in rows.items():
+        last, before = chain[0], (chain[1] if len(chain) > 1 else None)
+        out[pid] = MapChange(
+            date=last.date_from, old=before.country.name if before else None, old_color=before.country.color if before else None,
+            new=last.country.name, new_color=last.country.color, de_jure=last.de_jure, de_facto=last.de_facto,
+        )
+    return out
+
+
 @router.get("/provinces", response=MapProvincePage)
-def provinces(request, q: str = "", owner: str = "", on: dt.date | None = None, offset: int = 0, limit: int = PAGE):
-    """owner: id страны или none (без владельца); on: на какую дату считать владельца."""
-    rows = Province.objects.annotate(records=Count("ownerships")).order_by("name", "id")
+def provinces(request, q: str = "", owner: str = "", on: dt.date | None = None, offset: int = 0, limit: int = PAGE, sort: str = "name"):
+    """owner: id страны или none (без владельца); on: на какую дату считать владельца; sort: name, code, records, last (со знаком «-» по убыванию)."""
+    rows = Province.objects.annotate(records=Count("ownerships", distinct=True), last_date=Max("ownerships__date_from"))
+    fields = PROVINCE_SORTS.get(sort.lstrip("-"), PROVINCE_SORTS["name"])
+    rows = rows.order_by(*[("-" + f if sort.startswith("-") else f) for f in fields], "id")
     if q.strip():
         rows = rows.filter(Q(name__icontains=q.strip()) | Q(code__icontains=q.strip()) | Q(source_code__icontains=q.strip()))
     now = territory.latest(on)
@@ -290,8 +325,10 @@ def provinces(request, q: str = "", owner: str = "", on: dt.date | None = None, 
         rows = rows.filter(pk__in=[pid for pid, o in now.items() if o.country_id == int(owner)])
     total = rows.count()
     page = list(rows[max(offset, 0): max(offset, 0) + min(max(limit, 1), 500)])
+    changes = _last_changes([p.pk for p in page], on)
     return MapProvincePage(total=total, rows=[
-        MapProvinceRow(id=p.pk, bounds=bounds_of(p.source_code), code=p.code, source_code=p.source_code, name=p.name, wiki_url=p.wiki_url, owner=_owner(now.get(p.pk)), records=p.records)
+        MapProvinceRow(id=p.pk, bounds=bounds_of(p.source_code), code=p.code, source_code=p.source_code, name=p.name, wiki_url=p.wiki_url, owner=_owner(now.get(p.pk)),
+                       records=p.records, last_change=changes.get(p.pk))
         for p in page
     ])
 

@@ -21,6 +21,7 @@
   let owner = $state("");              // "" все, "none" без владельца, иначе id страны
   let on = $state("");
   let page = $state(0);
+  let sort = $state("name");                // name, code, records, last; со знаком «-» по убыванию
   let data = $state<Schemas["MapProvincePage"]>({ total: 0, rows: [] });
   let countries = $state<Country[]>([]);
   let province = $state<Schemas["MapProvinceOut"] | null>(null);
@@ -33,16 +34,22 @@
 
   const dirty = $derived(JSON.stringify(form) !== saved);
   guardUnsaved(() => saved !== "" && dirty && !share.ready);      // в совместном режиме черновик на сервере
+  // щелчок по заголовку: сначала по возрастанию (у «изменений» и «последнего» по убыванию), второй щелчок меняет направление
+  function sortBy(key: string) {
+    const first = key === "records" || key === "last" ? `-${key}` : key;
+    sort = sort === first ? (first.startsWith("-") ? key : `-${key}`) : first;
+  }
+  const arrow = (key: string) => (sort === key ? "↑" : sort === `-${key}` ? "↓" : "");
   const pages = $derived(Math.max(1, Math.ceil(data.total / SIZE)));
 
   async function list() {
-    const query: { q: string; owner: string; on?: string; offset: number; limit: number } = { q, owner, offset: page * SIZE, limit: SIZE };
+    const query: { q: string; owner: string; on?: string; offset: number; limit: number; sort: string } = { q, owner, offset: page * SIZE, limit: SIZE, sort };
     if (on) query.on = on;
     data = (await api.GET("/studio/api/map/provinces", { params: { query } })).data ?? { total: 0, rows: [] };
   }
   let timer: ReturnType<typeof setTimeout>;
-  $effect(() => { q; owner; on; page; clearTimeout(timer); timer = setTimeout(list, 200); });
-  $effect(() => { q; owner; on; page = 0; });
+  $effect(() => { q; owner; on; page; sort; clearTimeout(timer); timer = setTimeout(list, 200); });
+  $effect(() => { q; owner; on; sort; page = 0; });
 
   async function load(target: number | null) {
     province = null;
@@ -124,19 +131,43 @@
     </header>
 
     <table>
-      <thead><tr><th>Название</th><th>Код</th><th>Код тайлов<Hint text="Идентификатор провинции в файле границ (adm1_code). По нему карта красится." /></th><th>Владелец</th><th>С даты</th><th class="r">Записей</th></tr></thead>
+      <thead>
+        <tr>
+          <th><button class="sort" class:on={sort.replace("-", "") === "name"} onclick={() => sortBy("name")}>Название {arrow("name")}</button></th>
+          <th><button class="sort" class:on={sort.replace("-", "") === "code"} onclick={() => sortBy("code")}>Код {arrow("code")}</button></th>
+          <th class="r"><button class="sort" class:on={sort.replace("-", "") === "records"} onclick={() => sortBy("records")}>Всего изменений владения {arrow("records")}</button></th>
+          <th><button class="sort" class:on={sort.replace("-", "") === "last"} onclick={() => sortBy("last")}>Последнее изменение {arrow("last")}</button></th>
+        </tr>
+      </thead>
       <tbody>
         {#each data.rows as row (row.id)}
           <tr class:on={row.id === id} onclick={() => go(`/map/provinces/${row.id}`)}>
             <td><b>{row.name}</b></td>
-            <td class="mono">{row.code}</td>
-            <td class="mono muted">{row.source_code}</td>
-            <td>{#if row.owner}<i style="background:{row.owner.color || NO_COLOR}"></i>{row.owner.country_name}{:else}<span class="muted">—</span>{/if}</td>
-            <td class="muted">{row.owner ? showDate(row.owner.since) : ""}</td>
-            <td class="r">{row.records}</td>
+            <td>
+              <button type="button" class="codecell" aria-label="Код {row.code}, код тайла {row.source_code}">
+                <code>{row.code}</code>
+                <span class="pop" role="tooltip">
+                  <span class="muted">Код провинции</span><code>{row.code}</code>
+                  <span class="muted">Код тайла</span><code>{row.source_code}</code>
+                </span>
+              </button>
+            </td>
+            <td class="r num">{row.records}</td>
+            <td>
+              {#if row.last_change}
+                {@const c = row.last_change}
+                <span class="change">
+                  {#if c.old}<i style="background:{c.old_color || NO_COLOR}"></i>{c.old}{:else}<span class="muted">нет владельца</span>{/if}
+                  <span class="muted arrow">→</span>
+                  <i style="background:{c.new_color || NO_COLOR}"></i><b>{c.new}</b>
+                  <span class="muted when">{showDate(c.date)}</span>
+                  {#if c.de_jure}<span class="tag">де-юре</span>{/if}{#if c.de_facto}<span class="tag">де-факто</span>{/if}
+                </span>
+              {:else}<span class="muted">изменений нет</span>{/if}
+            </td>
           </tr>
         {:else}
-          <tr><td colspan="6" class="muted empty">Ничего не найдено.</td></tr>
+          <tr><td colspan="4" class="muted empty">Ничего не найдено.</td></tr>
         {/each}
       </tbody>
     </table>
@@ -208,6 +239,20 @@
   tbody tr:hover { background: var(--panel); }
   tbody tr.on { background: var(--accent-soft); }
   .r { text-align: right; }
+  .num { font-variant-numeric: tabular-nums; }
+  .sort { padding: 0; border: 0; background: none; color: inherit; font: inherit; cursor: pointer; }
+  .sort:hover, .sort.on { color: var(--text); }
+  .sort:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .codecell { position: relative; display: inline-block; padding: 1px 4px; margin: -1px -4px; border: 0; border-radius: 4px; background: none; color: inherit; font: inherit; text-align: left; cursor: help; }
+  .codecell code { font-family: var(--mono); font-size: 12.5px; }
+  .codecell .pop { display: none; position: absolute; z-index: 5; left: 0; top: calc(100% + 4px); grid-template-columns: auto auto; gap: 2px 12px; padding: 8px 10px; border: 1px solid var(--line); border-radius: var(--radius-s); background: var(--raise); box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35); white-space: nowrap; font-size: 12px; }
+  .codecell:hover .pop, .codecell:focus-visible .pop { display: grid; }
+  .codecell:focus-visible { outline: 2px solid var(--accent); }
+  .change { display: inline-flex; align-items: center; gap: 4px; flex-wrap: wrap; }
+  .change i { margin-right: 4px; }
+  .change .arrow { margin: 0 2px; }
+  .change .when { margin-left: 8px; font-variant-numeric: tabular-nums; }
+  .tag { padding: 0 7px; margin-left: 4px; border-radius: 999px; background: var(--raise); color: var(--muted); font-size: 11.5px; }
   .empty { padding: 24px; text-align: center; }
   .pager { display: flex; gap: 14px; align-items: center; justify-content: center; padding: 14px; }
   .side { border-left: 1px solid var(--line-soft); padding: 16px; display: flex; flex-direction: column; gap: 12px; overflow: auto; }

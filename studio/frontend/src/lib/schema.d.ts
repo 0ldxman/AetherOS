@@ -2001,7 +2001,7 @@ export interface paths {
         };
         /**
          * Provinces
-         * @description owner: id страны или none (без владельца); on: на какую дату считать владельца.
+         * @description owner: id страны или none (без владельца); on: на какую дату считать владельца; sort: name, code, records, last (со знаком «-» по убыванию).
          */
         get: operations["studio_api_worldmap_provinces"];
         put?: never;
@@ -6254,6 +6254,29 @@ export interface components {
              */
             rank: number;
         };
+        /**
+         * MapChange
+         * @description Последняя смена владельца провинции: кто был (пусто у первой записи), кто стал, с какой даты и по какому праву.
+         */
+        MapChange: {
+            /**
+             * Date
+             * Format: date
+             */
+            date: string;
+            /** Old */
+            old: string | null;
+            /** Old Color */
+            old_color: string | null;
+            /** New */
+            new: string;
+            /** New Color */
+            new_color: string;
+            /** De Jure */
+            de_jure: boolean;
+            /** De Facto */
+            de_facto: boolean;
+        };
         /** MapOwnerRef */
         MapOwnerRef: {
             /** Country */
@@ -6296,6 +6319,7 @@ export interface components {
             owner: components["schemas"]["MapOwnerRef"] | null;
             /** Records */
             records: number;
+            last_change?: components["schemas"]["MapChange"] | null;
         };
         /** MapHistoryRow */
         MapHistoryRow: {
@@ -6338,6 +6362,7 @@ export interface components {
             owner: components["schemas"]["MapOwnerRef"] | null;
             /** Records */
             records: number;
+            last_change?: components["schemas"]["MapChange"] | null;
             /** Show Info */
             show_info: boolean;
             /** Material */
@@ -11547,6 +11572,7 @@ export interface operations {
                 on?: string | null;
                 offset?: number;
                 limit?: number;
+                sort?: string;
             };
             header?: never;
             path?: never;

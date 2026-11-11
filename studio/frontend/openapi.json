@@ -6248,6 +6248,16 @@
        "type": "integer"
       },
       "required": false
+     },
+     {
+      "in": "query",
+      "name": "sort",
+      "schema": {
+       "default": "name",
+       "title": "Sort",
+       "type": "string"
+      },
+      "required": false
      }
     ],
     "responses": {
@@ -6262,7 +6272,7 @@
       }
      }
     },
-    "description": "owner: id страны или none (без владельца); on: на какую дату считать владельца.",
+    "description": "owner: id страны или none (без владельца); on: на какую дату считать владельца; sort: name, code, records, last (со знаком «-» по убыванию).",
     "tags": [
      "map"
     ],
@@ -17853,6 +17863,65 @@
     "title": "MapLabelIn",
     "type": "object"
    },
+   "MapChange": {
+    "description": "Последняя смена владельца провинции: кто был (пусто у первой записи), кто стал, с какой даты и по какому праву.",
+    "properties": {
+     "date": {
+      "format": "date",
+      "title": "Date",
+      "type": "string"
+     },
+     "old": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Old"
+     },
+     "old_color": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Old Color"
+     },
+     "new": {
+      "title": "New",
+      "type": "string"
+     },
+     "new_color": {
+      "title": "New Color",
+      "type": "string"
+     },
+     "de_jure": {
+      "title": "De Jure",
+      "type": "boolean"
+     },
+     "de_facto": {
+      "title": "De Facto",
+      "type": "boolean"
+     }
+    },
+    "required": [
+     "date",
+     "old",
+     "old_color",
+     "new",
+     "new_color",
+     "de_jure",
+     "de_facto"
+    ],
+    "title": "MapChange",
+    "type": "object"
+   },
    "MapOwnerRef": {
     "properties": {
      "country": {
@@ -17962,6 +18031,16 @@
      "records": {
       "title": "Records",
       "type": "integer"
+     },
+     "last_change": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/MapChange"
+       },
+       {
+        "type": "null"
+       }
+      ]
      }
     },
     "required": [
@@ -18079,6 +18158,16 @@
      "records": {
       "title": "Records",
       "type": "integer"
+     },
+     "last_change": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/MapChange"
+       },
+       {
+        "type": "null"
+       }
+      ]
      },
      "show_info": {
       "title": "Show Info",
