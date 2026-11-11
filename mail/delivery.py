@@ -1,6 +1,6 @@
 """Доставка писем по хуку слоя: «mail <идентификатор> [delay=секунды]» кладёт письмо в ящик учётки игрока.
 
-Письмо это объект формата msg с этим слагом. Приходит в ящик учётки, под которой игрок сейчас работает (последняя
+Идентификатор сценария переписки (mail.talk) начинает переписку с первого шага, иначе это слаг объекта формата msg. Приходит в ящик учётки, под которой игрок сейчас работает (последняя
 сессия), сразу или через очередь. Безымянный игрок (witness) писем по триггеру не получает.
 """
 from dataclasses import dataclass
@@ -31,12 +31,19 @@ def deliver_by_slug(user, slug, *, delay=0, profile=None):
 
     if user is None or not getattr(user, "is_authenticated", False):
         return DeliveryResult(slug, False, reason="no signed-in player")
-    item = Item.objects.filter(slug=slug, format=LETTER_FORMAT).first()
-    if item is None:
-        return DeliveryResult(slug, False, reason=f"no letter {slug!r}")
+    from mail.models import Conversation
+    from mail.talk import start
+
     profile = profile or current_profile(user)
     if profile is None:
         return DeliveryResult(slug, False, reason="no account")
     delay = max(0, min(int(delay), MAX_DELAY_SECONDS))
+    conversation = Conversation.objects.filter(slug=slug).first()
+    if conversation is not None:                                     # слаг сценария: переписка начинается с первого шага
+        start(user, conversation, profile, delay)
+        return DeliveryResult(slug, True, immediate=delay == 0)
+    item = Item.objects.filter(slug=slug, format=LETTER_FORMAT).first()
+    if item is None:
+        return DeliveryResult(slug, False, reason=f"no letter {slug!r}")
     Box.of_profile(profile, user).queue(item, delay)
     return DeliveryResult(slug, True, immediate=delay == 0)

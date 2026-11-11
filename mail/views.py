@@ -106,3 +106,133 @@ def message_trash(request):
     folder = box.folder_of(path)
     target = box.restore(path) if folder == "trash" else box.trash(path)
     return JsonResponse({"path": target})
+
+
+# ---- ответ, новое письмо, пересылка (mail.talk) ---------------------------------------------------------------------------
+
+def _keys(request):
+    from secure.requestkeys import request_keys
+
+    return request_keys(request)
+
+
+def _offer(offer):
+    from mail.talk import public
+
+    variant = offer.variant
+    if not offer.open:
+        return {"id": variant.pk, "title": "???", "open": False, "segments": [], "attach": False}
+    return {"id": variant.pk, "title": variant.title, "open": True, "segments": public(variant.text) if variant.text.strip() else [],
+            "attach": bool(variant.attachment)}
+
+
+def _letter_item(box, path):
+    entry = box.view.get(path) if path else None
+    return entry.item if entry is not None else None
+
+
+@require_GET
+def compose_options(request):
+    """Что игрок может написать: ответ на письмо (reply=путь), новое письмо (to=адрес) или пересылку (forward=путь, to=адрес)."""
+    from mail import talk
+
+    box = _box(request)
+    if box.user is None:
+        return JsonResponse({"error": "sign in to send mail"}, status=403)
+    keys = _keys(request)
+    reply, forward, to = request.GET.get("reply", ""), request.GET.get("forward", ""), request.GET.get("to", "").strip()
+    subject, offers, persona = "", [], None
+    if reply:
+        row = box.letter(reply)
+        if row is None:
+            raise Http404
+        to = to or row.letter.sender
+        subject = row.letter.subject if row.letter.subject.lower().startswith("re:") else f"Re: {row.letter.subject}"
+        persona, offers = talk.offers_for_reply(box.user, box.profile, keys, _letter_item(box, reply))
+        if not offers:
+            persona, offers = talk.offers_for_address(box.user, box.profile, keys, to)
+    elif forward:
+        row = box.letter(forward)
+        if row is None:
+            raise Http404
+        subject = f"Fwd: {row.letter.subject}"
+        if to:
+            persona, offers = talk.offers_for_forward(box.user, box.profile, keys, to, _letter_item(box, forward))
+    elif to:
+        persona, offers = talk.offers_for_address(box.user, box.profile, keys, to)
+    return JsonResponse({
+        "from": box.address, "to": to, "subject": subject,
+        "persona": {"address": persona.address, "name": persona.name} if persona else None,
+        "offers": [_offer(offer) for offer in offers],
+    })
+
+
+def _browser_effects(effects):
+    from django.urls import get_script_prefix
+
+    out = []
+    for effect in effects:
+        if effect.get("op") == "open":
+            url = get_script_prefix().rstrip("/") + "/" + effect["url"]
+            out.append({**effect, "url": url, "id": "hook-" + re.sub(r"\W+", "-", effect["url"]).strip("-")})
+        else:
+            out.append(effect)
+    return out
+
+
+@require_POST
+def send_letter(request):
+    """Отправить письмо: вариант набран (сверяет сервер), вложение по пути, ответ или пересылка письма ящика."""
+    from mail import talk
+    from mail.models import Variant
+
+    box = _box(request)
+    if box.user is None:
+        return JsonResponse({"error": "sign in to send mail"}, status=403)
+    data = json.loads(request.body or b"{}")
+    variant = Variant.objects.select_related("step__conversation").filter(pk=data.get("variant")).first() if data.get("variant") else None
+    attachment = None
+    if data.get("attachment"):
+        attachment = box.view.get(str(data["attachment"]))
+        if attachment is None or attachment.is_dir:
+            return JsonResponse({"error": "no such file to attach"}, status=400)
+    reply_item = _letter_item(box, data.get("reply", "")) if data.get("reply") else None
+    forward_item = _letter_item(box, data.get("forward", "")) if data.get("forward") else None
+    if data.get("forward") and forward_item is None and box.letter(data["forward"]) is None:
+        raise Http404
+    result = talk.send(box, _keys(request), to=data.get("to", ""), subject=data.get("subject", ""), typed=data.get("text", ""),
+                       variant=variant, attachment=attachment, reply_item=reply_item, forward_item=forward_item)
+    status = 400 if result.kind in ("mismatch", "closed") else 200
+    return JsonResponse({"kind": result.kind, "path": result.path, "left": result.left, "effects": _browser_effects(result.effects),
+                         "error": result.detail if status == 400 else ""}, status=status)
+
+
+@require_GET
+def files(request):
+    """Папка машины игрока для выбора вложения: папки и файлы, которые он вправе читать."""
+    from filesystem import rights
+
+    box = _box(request)
+    if box.user is None:
+        return JsonResponse({"error": "sign in to send mail"}, status=403)
+    from machines.world import places
+
+    path = request.GET.get("path") or places.resolve(box.machine, "home", box.login) or "/"
+    if not box.view.is_directory(path):
+        raise Http404
+    from machines.access.groups import principal_for
+
+    principal = principal_for(box.profile) if box.profile is not None else None
+    rows = []
+    for entry in box.view.children(path):
+        if entry.hidden:
+            continue
+        if principal is not None:
+            try:
+                rights.check(box.view, principal, entry.path, "r")
+            except rights.Denied:
+                continue
+        rows.append({"name": entry.name, "path": entry.path, "dir": entry.is_dir})
+    rows.sort(key=lambda row: (not row["dir"], row["name"].lower()))
+    parent = (path.rsplit("/", 1)[0] or "/") if path != "/" else ""
+    return JsonResponse({"path": path, "parent": parent, "entries": rows})

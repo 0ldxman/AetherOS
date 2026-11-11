@@ -11,4 +11,7 @@ urlpatterns = [
     path("api/message/", views.message_detail, name="message"),
     path("api/message/unread/", views.message_unread, name="unread"),
     path("api/message/trash/", views.message_trash, name="trash"),
+    path("api/compose/", views.compose_options, name="compose"),
+    path("api/send/", views.send_letter, name="send"),
+    path("api/files/", views.files, name="files"),
 ]

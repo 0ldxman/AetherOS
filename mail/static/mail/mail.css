@@ -209,6 +209,31 @@ body { font-size: 1rem; line-height: 1.5; }
 .t-wrong { background: var(--status-error); color: var(--font-dark); }
 .t-caret { box-shadow: inset 2px 0 0 var(--accent); }
 
+/* выбор слова: пока не начато, видны все варианты; подсказка других вариантов, пока слово не дописано */
+.t-choice { padding: 0 0.3rem; border: 1px dashed var(--line-bright); border-radius: var(--radius); color: var(--font-muted); }
+.t-hint { color: var(--font-muted); font-size: 0.9em; }
+
+/* ---------- письмо игрока: варианты ответа, адрес, вложение ---------- */
+
+.compose-place { display: flex; flex-direction: column; gap: 0.8rem; margin-top: 0.6rem; }
+.compose-note { margin: 0; color: var(--font-muted); }
+.compose-input { width: 100%; padding: 0.2rem 0.5rem; border: 1px solid var(--line-bright); border-radius: var(--radius); background: var(--bg); color: var(--fg); font: inherit; }
+.compose-input:focus { outline: 1px solid var(--accent); }
+.offers { display: flex; flex-direction: column; gap: 0.4rem; margin: 0; padding: 0; list-style: none; }
+.offer { width: 100%; padding: 0.4rem 0.8rem; border: 1px solid var(--line-bright); border-radius: var(--radius); background: var(--panel); color: var(--fg); font: inherit; text-align: left; cursor: pointer; }
+.offer:hover:not(:disabled) { border-color: var(--accent); color: var(--accent); }
+.offer.is-chosen { border-color: var(--accent); background: var(--row-selected); }
+.offer.is-closed { color: var(--font-muted); cursor: default; letter-spacing: 0.2em; }
+.free-input { width: 100%; padding: 0.5rem; border: 1px solid var(--line-bright); border-radius: var(--radius); background: var(--bg); color: var(--fg); font: inherit; resize: vertical; }
+.attach { margin-top: 0.4rem; }
+.picker { margin: 0; padding: 0.4rem; list-style: none; border: 1px solid var(--line-bright); border-radius: var(--radius); max-height: 14rem; overflow-y: auto; }
+.picker-path { color: var(--font-muted); padding: 0 0.3rem 0.3rem; }
+.picker-row { width: 100%; padding: 0.1rem 0.4rem; border: 0; background: none; color: var(--fg); font: inherit; text-align: left; cursor: pointer; }
+.picker-row:hover { background: var(--row-hover); }
+.picker-row.is-dir { color: var(--accent); }
+.picked { color: var(--status-ok); }
+.mail-actions { margin-top: 1rem; }
+
 /* ---------- нижняя строка ---------- */
 
 #mail-status {

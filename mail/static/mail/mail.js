@@ -365,6 +365,16 @@
         trash.type = "button";
         trash.addEventListener("click", () => moveToTrash(data.id));
 
+        const answer = el("button", "mail-button", "reply");
+        answer.type = "button";
+        answer.addEventListener("click", () => openComposer("reply", data));
+
+        const forward = el("button", "mail-button", "forward");
+        forward.type = "button";
+        forward.addEventListener("click", () => openComposer("forward", data));
+
+        if (data.folder === "inbox") bar.append(answer);
+        if (data.folder !== "trash") bar.append(forward);
         bar.append(unread, trash);
         reader.appendChild(bar);
         return back;
@@ -453,100 +463,268 @@
         }, 3500);
     }
 
-    /* ---------- набор письма «от чужого имени» ---------- */
+    /* ---------- письмо игрока: ответ, новое письмо, пересылка ---------- */
 
-    // Целевой текст виден бледным слоем, набранное закрашивается, неверная буква получает красный фон.
-    // Скрытые части ({{...}}) приходят только числом символов: про них браузер ничего не знает,
-    // верность проверяет сервер при отправке.
-    const composer = { task: null, typed: "", box: null, input: null, send: null };
+    // Игрок не пишет что угодно: он выбирает вариант ответа и набирает его. Целевой текст виден бледным слоем,
+    // набранное закрашивается, неверная буква получает красный фон. Секрет ({{...}}) приходит только длиной,
+    // выбор слова ([[a|b]]) показан вариантами, пока игрок не начал его набирать. Верность проверяет сервер.
+    // Если персонажу ответить нечего (адрес не его или вариантов нет), письмо пишется свободно: его просто отправят.
+    const composer = { mode: "", segments: null, typed: "", box: null, input: null, send: null, offers: [], variant: null,
+                       attachment: "", reply: "", forward: "", to: "", subject: "" };
 
-    function totalLength(task) {
-        return task.segments.reduce((sum, seg) => sum + (seg.text !== undefined ? Array.from(seg.text).length : seg.hidden), 0);
-    }
-
-    function typingChar(shown, state) {
-        const node = el("span", "t-char " + state, shown);
-        return node;
-    }
-
-    function paintTyping() {
-        const task = composer.task;
-        const typed = Array.from(composer.typed);
+    function layout(segments, typedText) {
+        const typed = Array.from(typedText);
+        const tokens = [];
         let index = 0;
         let mistakes = 0;
+        let complete = true;
 
-        composer.box.replaceChildren();
-
-        function put(expected, hidden) {
-            const entered = index < typed.length;
-            let state = "t-ghost";
+        function char(expected, hidden) {
             let shown = hidden ? "•" : expected;
-
-            if (entered) {
+            let stateName = "t-ghost";
+            if (index < typed.length) {
                 shown = typed[index];
-                if (hidden) state = "t-done t-secret";
-                else if (typed[index] === expected) state = "t-done";
-                else {
-                    state = "t-wrong";
-                    mistakes += 1;
-                }
+                if (hidden) stateName = "t-done t-secret";
+                else if (typed[index] === expected) stateName = "t-done";
+                else { stateName = "t-wrong"; mistakes += 1; }
+            } else {
+                complete = false;
             }
-
-            if (index === typed.length) state += " t-caret";
-
-            const isBreak = shown === "\n";
-            composer.box.appendChild(typingChar(isBreak ? "↵" : shown, state));
-            if (isBreak) composer.box.appendChild(document.createElement("br"));
+            tokens.push({ shown, state: stateName + (index === typed.length ? " t-caret" : "") });
             index += 1;
         }
 
-        task.segments.forEach(function (seg) {
-            if (seg.text !== undefined) Array.from(seg.text).forEach(ch => put(ch, false));
-            else for (let n = 0; n < seg.hidden; n++) put("•", true);
+        segments.forEach(function (seg) {
+            if (seg.text !== undefined) {
+                Array.from(seg.text).forEach(ch => char(ch, false));
+            } else if (seg.hidden !== undefined) {
+                for (let n = 0; n < seg.hidden; n++) char("•", true);
+            } else {
+                const rest = typed.slice(index);
+                const options = seg.choices.map(option => Array.from(option));
+                const done = options.filter(o => o.length <= rest.length && o.every((c, k) => c === rest[k])).sort((a, b) => b.length - a.length)[0];
+                const partial = options.filter(o => rest.length < o.length && rest.every((c, k) => c === o[k]));
+                if (!rest.length) {
+                    // ещё не начато: варианты слова видны все сразу
+                    tokens.push({ choice: seg.choices, state: index === typed.length ? "t-caret" : "" });
+                    complete = false;
+                    index += Math.max(...options.map(o => o.length));
+                } else if (done) {
+                    done.forEach(ch => char(ch, false));
+                } else if (partial.length) {
+                    partial[0].forEach(ch => char(ch, false));
+                    const others = seg.choices.filter(option => option !== partial[0].join(""));
+                    if (others.length) tokens.push({ hint: others });
+                } else {
+                    options[0].forEach(ch => char(ch, false));
+                }
+            }
         });
+        if (typed.length > index) {
+            mistakes += typed.length - index;
+            typed.slice(index).forEach(ch => tokens.push({ shown: ch, state: "t-wrong" }));
+        }
+        return { tokens, mistakes, complete: complete && mistakes === 0 && typed.length >= index };
+    }
 
-        composer.send.disabled = !(typed.length === totalLength(task) && mistakes === 0);
-        composer.mistakes = mistakes;
+    function paintTyping() {
+        if (!composer.segments) {
+            composer.send.disabled = !composer.typed.trim();
+            return;
+        }
+        const plan = layout(composer.segments, composer.typed);
+        composer.box.replaceChildren();
+        plan.tokens.forEach(function (token) {
+            if (token.choice) {
+                const chip = el("span", "t-choice " + token.state, token.choice.join(" / "));
+                composer.box.appendChild(chip);
+            } else if (token.hint) {
+                composer.box.appendChild(el("span", "t-hint", " (или " + token.hint.join(", ") + ")"));
+            } else {
+                const isBreak = token.shown === "\n";
+                composer.box.appendChild(el("span", "t-char " + token.state, isBreak ? "↵" : token.shown));
+                if (isBreak) composer.box.appendChild(document.createElement("br"));
+            }
+        });
+        composer.send.disabled = !(plan.complete && (!composer.variant || !composer.variant.attach || composer.attachment));
     }
 
     function closeComposer() {
-        composer.task = null;
+        composer.mode = "";
         view.replaceChildren(el("p", "mail-empty", "select a message"));
         reader.querySelectorAll(".mail-toolbar").forEach(node => node.remove());
         root.classList.remove("is-reading");
     }
 
+    function runEffects(effects) {
+        const api = desktop();
+        (effects || []).forEach(async function (effect) {
+            if (effect.op === "open" && api && api.openApp) {
+                api.openApp(effect.id, effect.title, effect.url);
+            } else if (effect.op === "alert" && api && api.error) {
+                for (let i = 0; i < effect.count; i++) {
+                    api.error(effect.message, { object: `0x${(4096 + Math.floor(Math.random() * 61000)).toString(16)}` }, { stack: true });
+                    await new Promise(resolve => setTimeout(resolve, effect.gap * (0.6 + Math.random() * 0.8)));
+                }
+            }
+        });
+    }
+
+    const RESULT = {
+        ok: "message sent", sent: "message sent", wrong: "message sent", exhausted: "message sent",
+        bounced: "message returned: recipient unknown"
+    };
+
     async function sendComposed() {
         composer.send.disabled = true;
-
+        const body = {
+            to: composer.to, subject: composer.subject, text: composer.typed, variant: composer.variant ? composer.variant.id : null,
+            attachment: composer.attachment, reply: composer.reply, forward: composer.forward
+        };
         try {
-            const response = await fetch(composer.task.sendUrl, {
-                method: "POST",
-                credentials: "same-origin",
-                headers: { "X-CSRFToken": csrf(), "Content-Type": "application/json" },
-                body: JSON.stringify({ text: composer.typed })
-            });
-            const data = await response.json().catch(() => ({}));
-
-            if (!response.ok) {
-                const left = data.attempts_left;
-                notice((data.error || `error ${response.status}`) + (left === undefined || left === null ? "" : `  ·  ${left} attempts left`));
-                paintTyping();
-                return;
-            }
-
-            notice("message sent");
+            const data = await postJson(root.dataset.sendUrl, body);
+            notice(RESULT[data.kind] || "message sent");
+            runEffects(data.effects);
             closeComposer();
             await loadMessages();
-            state.folder = { type: "sent", value: "" };
             renderAll();
         } catch (error) {
-            notice("could not reach the machine");
+            notice(`send: ${error.message}`);
             paintTyping();
         }
     }
 
-    function openComposer(task, from) {
+    // выбор файла для вложения: папки машины, которые игрок вправе читать
+    async function pickAttachment(target, path) {
+        let data;
+        try {
+            data = await getJson(root.dataset.filesUrl + (path ? "?path=" + encodeURIComponent(path) : ""));
+        } catch (error) {
+            notice("could not list files");
+            return;
+        }
+        const list = el("ul", "picker");
+        list.appendChild(el("li", "picker-path", data.path));
+        if (data.parent) {
+            const up = el("button", "picker-row", "..");
+            up.type = "button";
+            up.addEventListener("click", () => pickAttachment(target, data.parent));
+            list.appendChild(el("li")).appendChild(up);
+        }
+        data.entries.forEach(function (entry) {
+            const row = el("button", "picker-row" + (entry.dir ? " is-dir" : ""), entry.dir ? entry.name + "/" : entry.name);
+            row.type = "button";
+            row.addEventListener("click", function () {
+                if (entry.dir) return pickAttachment(target, entry.path);
+                composer.attachment = entry.path;
+                target.replaceChildren(el("span", "picked", "attached: " + entry.path));
+                paintTyping();
+            });
+            list.appendChild(el("li")).appendChild(row);
+        });
+        target.replaceChildren(list);
+    }
+
+    function chooseVariant(offer, area) {
+        composer.variant = offer;
+        composer.segments = offer.segments.length ? offer.segments : [];
+        composer.typed = "";
+        composer.attachment = "";
+        area.replaceChildren();
+
+        const wrap = el("div", "typing");
+        const box = el("div", "typing-text");
+        const input = el("textarea", "typing-input");
+        input.setAttribute("aria-label", "type the message");
+        input.spellcheck = false;
+        input.autocomplete = "off";
+        wrap.append(box, input);
+        area.appendChild(wrap);
+        Object.assign(composer, { box, input });
+
+        if (offer.attach) {
+            const files = el("div", "attach");
+            const button = el("button", "mail-button", "attach a file");
+            button.type = "button";
+            button.addEventListener("click", () => pickAttachment(files));
+            files.appendChild(button);
+            area.appendChild(files);
+        }
+
+        input.addEventListener("input", function () {
+            composer.typed = input.value.replace(/\r\n/g, "\n").slice(0, 4000);
+            if (input.value !== composer.typed) input.value = composer.typed;
+            paintTyping();
+        });
+        ["paste", "drop"].forEach(name => input.addEventListener(name, event => event.preventDefault()));
+        wrap.addEventListener("click", () => input.focus());
+        paintTyping();
+        input.focus();
+    }
+
+    function freeText(area) {
+        composer.variant = null;
+        composer.segments = null;
+        composer.typed = "";
+        const input = el("textarea", "free-input");
+        input.setAttribute("aria-label", "message");
+        input.rows = 6;
+        input.addEventListener("input", function () {
+            composer.typed = input.value.slice(0, 4000);
+            paintTyping();
+        });
+        area.replaceChildren(input);
+        composer.input = input;
+        paintTyping();
+    }
+
+    function renderOffers(data, place) {
+        const area = el("div", "compose-area");
+        place.replaceChildren();
+        composer.offers = data.offers;
+        if (data.offers.length) {
+            const list = el("ul", "offers");
+            data.offers.forEach(function (offer) {
+                const button = el("button", "offer" + (offer.open ? "" : " is-closed"), offer.title);
+                button.type = "button";
+                button.disabled = !offer.open;
+                if (!offer.open) button.title = "not available yet";
+                button.addEventListener("click", function () {
+                    list.querySelectorAll(".offer").forEach(node => node.classList.remove("is-chosen"));
+                    button.classList.add("is-chosen");
+                    chooseVariant(offer, area);
+                });
+                list.appendChild(el("li")).appendChild(button);
+            });
+            place.append(el("p", "compose-note", "choose what to answer"), list, area);
+        } else {
+            place.append(el("p", "compose-note", data.persona ? "nothing to answer for now" : "write your message"), area);
+            if (!data.persona || composer.mode === "new") freeText(area);
+        }
+    }
+
+    async function loadOffers(place) {
+        const params = new URLSearchParams();
+        if (composer.reply) params.set("reply", composer.reply);
+        if (composer.forward) params.set("forward", composer.forward);
+        if (composer.to) params.set("to", composer.to);
+        try {
+            const data = await getJson(root.dataset.composeUrl + "?" + params.toString());
+            if (!composer.to) composer.to = data.to;
+            if (data.subject && !composer.subject) composer.subject = data.subject;
+            renderOffers(data, place);
+            return data;
+        } catch (error) {
+            notice(error.message === "403" ? "sign in to send mail" : "could not prepare the message");
+            return null;
+        }
+    }
+
+    // mode: reply (на письмо), forward (переслать письмо), new (новое письмо)
+    async function openComposer(mode, letter) {
+        Object.assign(composer, { mode, reply: mode === "reply" ? letter.id : "", forward: mode === "forward" ? letter.id : "",
+                                  to: mode === "reply" ? letter.from : "", subject: "", variant: null, segments: null, typed: "", attachment: "" });
+
         const bar = el("div", "mail-toolbar");
         const cancel = el("button", "mail-button", "cancel");
         cancel.type = "button";
@@ -556,44 +734,59 @@
         reader.appendChild(bar);
 
         const fields = el("dl", "mail-fields");
-        [["from", from], ["to", task.to], ["subject", task.subject || "(no subject)"]].forEach(function (pair) {
-            fields.append(el("dt", "", pair[0]), el("dd", "", pair[1]));
-        });
+        const toField = el("dd");
+        const subjectField = el("dd");
+        fields.append(el("dt", "", "from"), el("dd", "", document.getElementById("mail-address").textContent),
+                      el("dt", "", "to"), toField, el("dt", "", "subject"), subjectField);
 
-        const wrap = el("div", "typing");
-        const box = el("div", "typing-text");
-        const input = el("textarea", "typing-input");
-        input.setAttribute("aria-label", "type the message");
-        input.spellcheck = false;
-        input.autocomplete = "off";
-        wrap.append(box, input);
-
+        const place = el("div", "compose-place");
         const send = el("button", "mail-button", "send");
         send.type = "button";
         send.disabled = true;
         send.addEventListener("click", sendComposed);
+        composer.send = send;
 
-        view.replaceChildren(fields, wrap, el("div", "mail-actions"));
+        view.replaceChildren(el("h2", "mail-title", mode === "new" ? "new message" : mode === "forward" ? "forward" : "reply"), fields, place,
+                             el("div", "mail-actions"));
         view.lastChild.appendChild(send);
-
-        Object.assign(composer, { task, typed: "", box, input, send });
-
-        input.addEventListener("input", function () {
-            composer.typed = Array.from(input.value.replace(/\r\n/g, "\n")).slice(0, totalLength(task)).join("");
-            if (input.value !== composer.typed) input.value = composer.typed;
-            paintTyping();
-        });
-        ["paste", "drop"].forEach(name => input.addEventListener(name, event => event.preventDefault()));
-        wrap.addEventListener("click", () => input.focus());
-
         root.classList.add("is-reading");
-        paintTyping();
-        input.focus();
+
+        if (mode === "reply") {
+            toField.textContent = letter.from;
+            const data = await loadOffers(place);
+            subjectField.textContent = composer.subject || (data && data.subject) || "";
+            return;
+        }
+        // новое письмо и пересылка: адрес вводит игрок, варианты появляются для найденного адреса
+        const to = el("input", "compose-input");
+        to.placeholder = "address@host";
+        to.setAttribute("aria-label", "recipient");
+        toField.appendChild(to);
+        if (mode === "new") {
+            const subject = el("input", "compose-input");
+            subject.setAttribute("aria-label", "subject");
+            subject.addEventListener("input", () => (composer.subject = subject.value));
+            subjectField.appendChild(subject);
+        } else {
+            subjectField.textContent = "Fwd: " + letter.subject;
+            composer.subject = "Fwd: " + letter.subject;
+        }
+        // варианты перечитываются, только если адрес правда сменился: уход фокуса с поля тоже шлёт change
+        let checked = "";
+        const check = async function () {
+            composer.to = to.value.trim();
+            if (!composer.to.includes("@") || composer.to === checked) return;
+            checked = composer.to;
+            await loadOffers(place);
+        };
+        to.addEventListener("change", check);
+        to.addEventListener("keydown", event => { if (event.key === "Enter") { event.preventDefault(); check(); } });
+        place.appendChild(el("p", "compose-note", "type the address and press Enter"));
+        to.focus();
     }
 
-    // своё письмо игрок пишет в ответ на письмо персонажа (варианты ответа появятся вместе с перепиской)
     function compose() {
-        notice("nothing to send from this mailbox");
+        openComposer("new", null);
     }
 
     document.getElementById("mail-compose").addEventListener("click", compose);

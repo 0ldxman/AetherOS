@@ -35,6 +35,34 @@ def mount(machine, volume, path, order=0):
     MachineMount.objects.get_or_create(machine=machine, volume=volume, mount_path=path, defaults={"order": order})
 
 
+def demo_conversation():
+    """Переписка с охраной порта: игрок пишет первым, называет пароль из door.bin и выбирает док; ошибки ведут дальше."""
+    from mail.models import Conversation, Persona, Step, Variant
+
+    def letter(slug, subject, body):
+        return Item.objects.get_or_create(slug=slug, defaults={
+            "name": f"{slug}.msg", "format": "msg", "body": f"From: guard@aether-core\nTo: {{to}}\nSubject: {subject}\nX-Label: security\n\n{body}\n"})[0]
+
+    guard, _ = Persona.objects.get_or_create(address="guard@aether-core", defaults={"name": "Harbor security"})
+    talk, made = Conversation.objects.get_or_create(slug="harbor-door", defaults={"persona": guard, "title": "Dock access"})
+    if not made:
+        return
+    hello = Step.objects.create(conversation=talk, name="hello", order=0, opening=True)
+    ask = Step.objects.create(conversation=talk, name="ask", order=1, letter=letter("guard-ask", "Identify yourself", "State the door password and the dock you need."))
+    Step.objects.create(conversation=talk, name="open", order=2, letter=letter("guard-open", "Access granted", "Dock 7 confirmed. The gate is open."))
+    Step.objects.create(conversation=talk, name="closed", order=3, letter=letter("guard-closed", "Access denied", "Too many errors. This address is blocked."))
+    letter("guard-wrong", "Wrong password", "That is not the password. Try again.")
+    letter("guard-nine", "Dock 9", "Dock 9 is under repair. Use dock 7 instead.")
+    Variant.objects.create(step=hello, title="Ask for dock access", text="I need access to the docks.", outcomes={"ok": [{"do": "goto", "step": "ask"}]})
+    Variant.objects.create(
+        step=ask, title="Give the password", text="Password: {{hunter2}}. Dock [[7|9]], please.", max_attempts=3,
+        outcomes={"word:7": [{"do": "goto", "step": "open"}, {"do": "flag", "name": "dock-open"}],
+                  "word:9": [{"do": "letter", "item": "guard-nine"}],
+                  "wrong": [{"do": "letter", "item": "guard-wrong"}], "exhausted": [{"do": "goto", "step": "closed"}]},
+    )
+    Variant.objects.create(step=ask, title="Mention the tunnel", text="I know about the tunnel.", need_flags=["tunnel"], closed="mystery")
+
+
 class Command(BaseCommand):
     help = "Создаёт демонстрационный мир (машины, тома, объекты, ключи)."
 
@@ -113,7 +141,9 @@ class Command(BaseCommand):
         # почта: письмо в ящике учётки ivan (видит любой, кто вошёл как ivan)
         put(own, "var/mail/ivan/inbox/welcome.msg", "ivan-welcome",
             "From: harbor-office@aether-core\nTo: {to}\nSubject: Shipment 7\nX-Label: work\n\n"
-            "{login}, the cargo report is in your home folder.\nCheck the door code before the night shift.\n", format="msg")
+            "{login}, the cargo report is in your home folder.\nCheck the door code before the night shift.\n"
+            "If you need dock access, write to guard@aether-core.\n", format="msg")
+        demo_conversation()
         report = put(own, "home/ivan/report.rec", "ivan-report", "Cargo manifest altered.\n\nRef A-113.\n", format="rec")
         ItemKey.objects.get_or_create(item=report, key=alpha)                       # ключ лежит в байтах отчёта (kex)
         put(own, "home/ivan/door.bin", "ivan-door", state="> encrypted hunter2 attempts=3", size=2048)
