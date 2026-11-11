@@ -100,7 +100,7 @@ class SupportApiTests(TestCase):
         self.assertEqual((answered["status"], answered["messages"][-1]["files"][0]["name"]), ("waiting", "a.txt"))
         studio.post(f"/studio/api/support/{ticket_id}/reply", {"text": "note", "internal": "true"})
         self.assertEqual(len(self.client.get(f"/apps/support/api/tickets/{ticket_id}/").json()["messages"]), 2)
-        self.assertEqual(self.client.get(f"/apps/support/api/tickets/{ticket_id}/").json()["messages"][1]["author"], "AETHER ASSIST")
+        self.assertEqual(self.client.get(f"/apps/support/api/tickets/{ticket_id}/").json()["messages"][1]["author"], "AETHER AGENT")
         renamed = studio.put(f"/studio/api/support/{ticket_id}", data=json.dumps({"responder": " HELIX "}), content_type="application/json").json()
         self.assertEqual(renamed["responder"], "HELIX")
         self.assertEqual(self.client.get(f"/apps/support/api/tickets/{ticket_id}/").json()["messages"][1]["author"], "HELIX")

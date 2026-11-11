@@ -14,7 +14,7 @@ from django.utils import timezone
 
 from support.models import IMAGE_TYPES, Ticket, TicketFile, TicketMessage
 
-DEFAULT_RESPONDER = "AETHER ASSIST"      # для игрока ему отвечает ИИ узла, а не люди команды
+DEFAULT_RESPONDER = "AETHER AGENT"      # для игрока ему отвечает ИИ узла, а не люди команды
 MAX_FILES = 5
 MAX_SIZE = 5 * 1024 * 1024
 MAX_TEXT = 5000
