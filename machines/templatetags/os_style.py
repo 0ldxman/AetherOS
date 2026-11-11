@@ -120,5 +120,9 @@ def os_wallpaper(context):
     data = wallpaper.clean(picture)
     from django.urls import reverse
 
-    url = reverse("os_wallpaper", kwargs={"code": code}) + "?" + urlencode({"v": data["file_id"]})
+    query = {"v": data["file_id"]}
+    user = getattr(request, "user", None)
+    if user is not None and user.is_authenticated and user.is_staff:          # сотрудник видит и ещё не сохранённый файл (предпросмотр в студии)
+        query["file"] = data["file_id"]
+    url = reverse("os_wallpaper", kwargs={"code": code}) + "?" + urlencode(query)
     return wallpaper.render(url, data)

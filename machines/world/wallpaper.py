@@ -88,11 +88,12 @@ def tile(pattern, color, size):
 
 def render(url, data):
     """HTML слоёв (стиль и два элемента) или пустая строка; url это адрес картинки с версией.
-    Слои лежат внутри #desktop: над его собственным фоном стиля, под значками и окнами."""
+    Слои лежат внутри #desktop, под значками и окнами. Собственный рисунок фона стиля (сетка, градиенты) снимается: картинка и узор
+    его заменяют, цвет фона (--bg) остаётся."""
     data = clean(data)
     if problems(data) or is_empty(data):
         return ""
-    rules, blocks = ["#desktop{isolation:isolate}#os-wallpaper,#os-pattern{position:absolute;inset:0;z-index:-1;pointer-events:none}"], []
+    rules, blocks = ["#desktop{isolation:isolate;background-image:none!important}#os-wallpaper,#os-pattern{position:absolute;inset:0;z-index:-1;pointer-events:none}"], []
     if data["file_id"]:
         fit = "scale-down" if data["mode"] == "center" else "cover"
         rules.append(f"#os-wallpaper{{opacity:{data['opacity'] / 100:g}}}#os-wallpaper img{{display:block;width:100%;height:100%;object-fit:{fit}}}")

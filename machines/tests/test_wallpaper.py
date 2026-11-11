@@ -70,6 +70,8 @@ class PageTests(TestCase):
         self.assertIn('id="os-wallpaper"', html)
         self.assertIn(reverse("os_wallpaper", kwargs={"code": "AETHER"}) + "?v=42", html)
         self.assertIn('id="os-pattern"', html)
+        self.assertIn("?v=42&amp;file=42", html)          # сотрудник просит файл и до сохранения
+        self.assertIn("background-image:none", html)   # рисунок фона стиля снят
 
     def test_the_preview_shows_unsaved_values_and_drops_invalid_ones(self):
         self.client.force_login(self.staff)
