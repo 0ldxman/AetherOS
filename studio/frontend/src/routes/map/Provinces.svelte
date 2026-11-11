@@ -135,7 +135,7 @@
         <tr>
           <th><button class="sort" class:on={sort.replace("-", "") === "name"} onclick={() => sortBy("name")}>Название {arrow("name")}</button></th>
           <th><button class="sort" class:on={sort.replace("-", "") === "code"} onclick={() => sortBy("code")}>Код {arrow("code")}</button></th>
-          <th class="r"><button class="sort" class:on={sort.replace("-", "") === "records"} onclick={() => sortBy("records")}>Всего изменений владения {arrow("records")}</button></th>
+          <th class="r"><button class="sort" class:on={sort.replace("-", "") === "records"} onclick={() => sortBy("records")}>Всего изменений {arrow("records")}</button></th>
           <th><button class="sort" class:on={sort.replace("-", "") === "last"} onclick={() => sortBy("last")}>Последнее изменение {arrow("last")}</button></th>
         </tr>
       </thead>
@@ -157,11 +157,15 @@
               {#if row.last_change}
                 {@const c = row.last_change}
                 <span class="change">
-                  {#if c.old}<i style="background:{c.old_color || NO_COLOR}"></i>{c.old}{:else}<span class="muted">нет владельца</span>{/if}
-                  <span class="muted arrow">→</span>
-                  <i style="background:{c.new_color || NO_COLOR}"></i><b>{c.new}</b>
-                  <span class="muted when">{showDate(c.date)}</span>
-                  {#if c.de_jure}<span class="tag">де-юре</span>{/if}{#if c.de_facto}<span class="tag">де-факто</span>{/if}
+                  <span class="line1">
+                    <span class="muted when">{showDate(c.date)}</span>
+                    {#if c.old}<i style="background:{c.old_color || NO_COLOR}"></i>{c.old}{:else}<span class="muted">нет владельца</span>{/if}
+                    <span class="muted arrow">→</span>
+                    <i style="background:{c.new_color || NO_COLOR}"></i><b>{c.new}</b>
+                  </span>
+                  <span class="line2">
+                    {#if c.de_jure}<span class="tag jure">де-юре</span>{/if}{#if c.de_facto}<span class="tag facto">де-факто</span>{/if}
+                  </span>
                 </span>
               {:else}<span class="muted">изменений нет</span>{/if}
             </td>
@@ -248,11 +252,15 @@
   .codecell .pop { display: none; position: absolute; z-index: 5; left: 0; top: calc(100% + 4px); grid-template-columns: auto auto; gap: 2px 12px; padding: 8px 10px; border: 1px solid var(--line); border-radius: var(--radius-s); background: var(--raise); box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35); white-space: nowrap; font-size: 12px; }
   .codecell:hover .pop, .codecell:focus-visible .pop { display: grid; }
   .codecell:focus-visible { outline: 2px solid var(--accent); }
-  .change { display: inline-flex; align-items: center; gap: 4px; flex-wrap: wrap; }
-  .change i { margin-right: 4px; }
-  .change .arrow { margin: 0 2px; }
-  .change .when { margin-left: 8px; font-variant-numeric: tabular-nums; }
-  .tag { padding: 0 7px; margin-left: 4px; border-radius: 999px; background: var(--raise); color: var(--muted); font-size: 11.5px; }
+  .change { display: flex; flex-direction: column; gap: 3px; }
+  .line1 { display: flex; align-items: center; gap: 4px; flex-wrap: wrap; }
+  .line1 i { margin-right: 4px; }
+  .line1 .arrow { margin: 0 2px; }
+  .line1 .when { margin-right: 8px; font-variant-numeric: tabular-nums; }
+  .line2 { display: flex; gap: 6px; }
+  .tag { padding: 0 8px; border-radius: 999px; font-size: 11.5px; font-weight: 600; }
+  .tag.jure { background: rgba(122, 162, 255, 0.16); color: var(--accent); }
+  .tag.facto { background: rgba(242, 198, 109, 0.16); color: var(--warn); }
   .empty { padding: 24px; text-align: center; }
   .pager { display: flex; gap: 14px; align-items: center; justify-content: center; padding: 14px; }
   .side { border-left: 1px solid var(--line-soft); padding: 16px; display: flex; flex-direction: column; gap: 12px; overflow: auto; }
