@@ -16,6 +16,7 @@ class Me(Schema):
     id: int
     username: str
     superuser: bool
+    role: str                    # название роли в Студии; у суперадмина и автора без роли пусто
     rights: MeRights
 
 
@@ -54,7 +55,7 @@ class Key(Schema):
 def me(request):
     from team.rights import summary
 
-    return Me(id=request.user.pk, username=request.user.get_username(), superuser=request.user.is_superuser, rights=MeRights(**summary(request.user)))
+    return Me(id=request.user.pk, username=request.user.get_username(), superuser=request.user.is_superuser, role=role.name if (role := getattr(request.user, "role", None)) else "", rights=MeRights(**summary(request.user)))
 
 
 @router.get("/app-icons", response=AppIcons)

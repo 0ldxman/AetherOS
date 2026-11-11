@@ -1,7 +1,7 @@
 <script lang="ts">
   import { guardUnsaved } from "../lib/guard.svelte";
   import { onMount, untrack } from "svelte";
-  import { adminUrl, api, problem, type Schemas } from "../lib/api";
+  import { api, problem, type Schemas } from "../lib/api";
   import CodeEditor from "../lib/CodeEditor.svelte";
   import FormatOptions from "../lib/FormatOptions.svelte";
   import DocPreview from "../lib/DocPreview.svelte";
@@ -179,7 +179,6 @@
           {/if}
         </div>
       {/if}
-      <a class="legacy" href={adminUrl(`filesystem/item/${item.id}/change/`)} title="Старая админка: на время переезда">старая админка</a>
       {#if dirty && share.ready}<button class="btn ghost" onclick={discard} title="Вернуть сохранённое: правки черновика пропадут у всех">Отменить правки</button>{/if}
       <button class="btn primary" disabled={!anyDirty || saving} onclick={saveAll}>{saving ? "Сохраняю…" : "Сохранить"}</button>
     </header>
@@ -328,8 +327,6 @@
   .title.bad { border-color: var(--danger); }
   .status { margin-left: auto; display: flex; align-items: center; gap: 6px; font-size: 12.5px; }
   .unsaved { display: inline-block; width: 7px; height: 7px; margin-left: 6px; border-radius: 50%; background: var(--warn); vertical-align: middle; }
-  .legacy { color: var(--faint); font-size: 12px; }
-  .legacy:hover { color: var(--muted); }
   .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--warn); }
   .error-line { margin: 6px 16px 0; color: var(--danger); }
   .banner { display: flex; align-items: center; gap: 10px; margin: 10px 16px 0; padding: 9px 12px; border-radius: var(--radius); }

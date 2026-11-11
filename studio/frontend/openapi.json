@@ -10391,6 +10391,10 @@
       "title": "Superuser",
       "type": "boolean"
      },
+     "role": {
+      "title": "Role",
+      "type": "string"
+     },
      "rights": {
       "$ref": "#/components/schemas/MeRights"
      }
@@ -10399,6 +10403,7 @@
      "id",
      "username",
      "superuser",
+     "role",
      "rights"
     ],
     "title": "Me",

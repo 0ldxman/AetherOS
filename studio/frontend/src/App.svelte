@@ -33,8 +33,10 @@
   import PresenceMarks from "./lib/PresenceMarks.svelte";
   import { checkNotes, notes, watchNotes } from "./lib/notes.svelte";
   import { labelOfKey } from "./lib/marks.svelte";
-
-  const user = $derived(me.data?.username ?? "");
+  import AuthorCard from "./lib/AuthorCard.svelte";
+  import Icon from "./lib/Icon.svelte";
+  import { NAV } from "./lib/nav";
+  import SideNav from "./lib/SideNav.svelte";
 
   onMount(loadMe);
 
@@ -114,26 +116,6 @@
     return { name: "home" };
   });
 
-  const NAV = [
-    { href: "#/home", label: "Главная", section: ["home"], right: "" },
-    { href: "#/boards", label: "Доска", section: ["boards"], right: "" },
-    { href: "#/tasks", label: "Задачи", section: ["tasks", "task"], right: "" },
-    { href: "#/volumes", label: "Диски и файлы", section: ["volumes", "volume", "text"], right: "disks" },
-    { href: "#/items", label: "Объекты", section: ["items", "item"], right: "items" },
-    { href: "#/machines", label: "Машины", section: ["machines", "machine"], right: "machines" },
-    { href: "#/formats", label: "Форматы", section: ["formats", "encodings"], right: "formats" },
-    { href: "#/policies", label: "Политики входа", section: ["policies"], right: "policies" },
-    { href: "#/systems", label: "Операционные системы", section: ["systems"], right: "systems" },
-    { href: "#/scenes", label: "Сцены", section: ["scenes"], right: "scenes" },
-    { href: "#/world", label: "Мир", section: ["world"], right: "world" },
-    { href: "#/map", label: "Карта", section: ["map"], right: "map" },
-    { href: "#/players", label: "Игроки", section: ["players"], right: "players" },
-    { href: "#/mail", label: "Почта", section: ["mail", "talk"], right: "mail" },
-    { href: "#/news", label: "Новости", section: ["news"], right: "news" },
-    { href: "#/support", label: "Поддержка", section: ["support"], right: "support" },
-    { href: "#/guide", label: "Справка", section: ["guide"], right: "" },
-  ];
-
   const current = $derived(NAV.find((item) => item.section.includes(page.name)) ?? null);
 
   // обсуждение сущности, на которой автор сейчас: число открытых веток на кнопке
@@ -168,16 +150,8 @@
       <span class="mark">◆</span>
       <span>Студия</span>
     </div>
-    <nav>
-      {#each NAV as item}
-        {#if level(item.right) === "none"}
-          <span class="nav off" title="Нет прав на этот раздел">{item.label}</span>
-        {:else}
-          <a class="nav" class:on={item.section.includes(page.name)} href={item.href}>{item.label}{#if item.href === "#/home" && unread}<span class="badge" title="Непрочитанные уведомления">{unread}</span>{/if}</a>
-        {/if}
-      {/each}
-      <a class="nav team" class:on={page.name === "team"} href="#/team">Команда</a>
-    </nav>
+    <SideNav page={page.name} />
+
     {#if target && presence.peers.length}
       <div class="here" aria-label="Кто ещё на этой странице">
         <span class="muted">Здесь ещё:</span>
@@ -188,14 +162,11 @@
     {/if}
     {#if target}
       <button class="talk" class:on={discussion.open} aria-pressed={discussion.open} onclick={() => (discussion.open = !discussion.open)}>
-        Обсуждение{#if talks}<span class="count">{talks}</span>{/if}
+        <span class="talk-name"><Icon name="chat" />Обсуждение</span>{#if talks}<span class="count">{talks}</span>{/if}
       </button>
     {/if}
-    <div class="foot">
-      <a href={window.STUDIO.admin}>Старая админка</a>
-      <a href={window.STUDIO.site}>Игра</a>
-      {#if user}<span class="muted">{user}</span>{/if}
-    </div>
+    <AuthorCard />
+
   </aside>
 
   <main class="main">
@@ -299,29 +270,20 @@
   @media (prefers-reduced-motion: reduce) { :global(.remote-changed) { animation: none; outline: 2px solid rgba(122, 162, 255, 0.55); } }
   .shell { display: grid; grid-template-columns: 220px 1fr; height: 100%; }
   .side {
-    display: flex; flex-direction: column; gap: 18px;
+    display: flex; flex-direction: column; gap: 14px; min-height: 0;
     padding: 16px 12px; border-right: 1px solid var(--line-soft); background: var(--panel);
   }
   .brand { display: flex; align-items: center; gap: 8px; padding: 0 8px; font-weight: 650; letter-spacing: 0.2px; }
   .mark { color: var(--accent); }
-  nav { display: flex; flex-direction: column; gap: 2px; }
-  .nav { padding: 6px 10px; border-radius: var(--radius-s); color: var(--muted); }
-  .nav:hover { background: var(--panel-2); color: var(--text); text-decoration: none; }
-  .nav.on { background: var(--accent-soft); color: var(--text); }
-  .nav.off { color: var(--faint); cursor: not-allowed; }
-  .nav.team { margin-top: 10px; }
-  .badge { margin-left: 6px; padding: 0 6px; border-radius: 999px; background: var(--accent); color: var(--bg, #111); font-size: 11px; font-weight: 700; }
   .readonly { padding: 6px 32px; background: var(--accent-soft); color: var(--muted); font-size: 12.5px; border-bottom: 1px solid var(--line-soft); }
-  .talk { margin-top: auto; display: flex; align-items: center; justify-content: space-between; padding: 7px 10px; border: 1px solid var(--line-soft);
+  .talk { display: flex; align-items: center; justify-content: space-between; padding: 7px 10px; border: 1px solid var(--line-soft);
           border-radius: var(--radius-s); background: none; color: var(--text); cursor: pointer; font: inherit; }
   .talk:hover, .talk.on { background: var(--accent-soft); }
   .count { min-width: 18px; padding: 0 6px; border-radius: 999px; background: var(--accent); color: var(--bg, #111); font-size: 11.5px; font-weight: 700; text-align: center; }
-  .talk + .foot { margin-top: 0; }
-  .here { margin-top: auto; display: flex; flex-wrap: wrap; align-items: center; gap: 4px 6px; padding: 0 4px; font-size: 12px; }
-  .here + .talk { margin-top: 0; }
+  .talk-name { display: inline-flex; align-items: center; gap: 10px; }
+  .here { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 6px; padding: 0 4px; font-size: 12px; }
   .peer { display: inline-flex; align-items: center; gap: 5px; padding: 1px 8px 1px 6px; border-radius: 999px; border: 1px solid var(--peer); }
   .peer::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: var(--peer); }
-  .foot { margin-top: auto; display: flex; flex-direction: column; gap: 4px; padding: 0 10px; font-size: 12.5px; }
   .main { min-width: 0; overflow: auto; }
   .toasts { position: fixed; inset: auto 16px 16px auto; margin: 0; padding: 0; border: 0; background: none; overflow: visible; width: max-content; display: flex; flex-direction: column; gap: 8px; z-index: 50; }
   .toasts:not(:popover-open) { display: none; }

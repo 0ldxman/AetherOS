@@ -3360,6 +3360,8 @@ export interface components {
             username: string;
             /** Superuser */
             superuser: boolean;
+            /** Role */
+            role: string;
             rights: components["schemas"]["MeRights"];
         };
         /** MeRights */

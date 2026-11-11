@@ -7,7 +7,7 @@ import { touched } from "./collab.svelte";
 
 declare global {
   interface Window {
-    STUDIO: { api: string; admin: string; site: string; mapData: string; assets: string };
+    STUDIO: { api: string; site: string; mapData: string; assets: string };
   }
 }
 
@@ -94,7 +94,3 @@ export function problem(error: unknown, fallback = "Что-то пошло не 
   return fallback;
 }
 
-/** Адрес страницы старой админки (на время переезда экранов). */
-export function adminUrl(path: string): string {
-  return window.STUDIO.admin + path.replace(/^\//, "");
-}

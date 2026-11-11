@@ -2,7 +2,7 @@
   import { guardUnsaved } from "../../lib/guard.svelte";
   // Ключи, вложенные в объект (их достаёт kex), подписи (ward verify) и, если сам объект ключ, где его требуют.
   import { onMount } from "svelte";
-  import { adminUrl, api, problem, type Schemas } from "../../lib/api";
+  import { api, problem, type Schemas } from "../../lib/api";
   import { toast } from "../../lib/toast.svelte";
   import { SharedForm } from "../../lib/shared.svelte";
 
@@ -70,6 +70,12 @@
     if (pickSigned && !k.signatures.some((sign) => sign.slug === pickSigned)) k.signatures = [...k.signatures, { slug: pickSigned, valid: true, date: null }];
     pickSigned = "";
   }
+
+  // Где ключ требуется: сервер отдаёт адреса страниц админки, Студия ведёт на свои экраны, а где их нет, показывает просто название
+  function studioLink(url: string): string {
+    const found = url.match(/\/filesystem\/(item|volume)\/(\d+)\/change\/?$/);
+    return found ? `#/${found[1] === "item" ? "items" : "volumes"}/${found[2]}` : "";
+  }
 </script>
 
 {#if data}
@@ -120,7 +126,7 @@
       <section class="card">
         <h2>Где этот ключ требуется</h2>
         {#each data.required_by as use}
-          <div class="line"><span class="chip">{use.kind}</span> <a href={use.url.startsWith("/") ? use.url : adminUrl(use.url)}>{use.label}</a></div>
+          <div class="line"><span class="chip">{use.kind}</span> {#if studioLink(use.url)}<a href={studioLink(use.url)}>{use.label}</a>{:else}<span>{use.label}</span>{/if}</div>
         {:else}
           <p class="muted">Нигде: ключ никому не нужен. Ключ, который нигде не требуется, игрок найдёт, но он ничего не откроет.</p>
         {/each}
