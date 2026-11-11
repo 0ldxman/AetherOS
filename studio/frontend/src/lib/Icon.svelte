@@ -44,6 +44,8 @@
     stop: '<rect x="6" y="6" width="12" height="12" rx="1.5"/>',
     help: '<circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><path d="M12 17h.01"/>',
     close: '<path d="M18 6 6 18"/><path d="m6 6 12 12"/>',
+    key: '<path d="m15.5 7.5 2.3 2.3a1 1 0 0 0 1.4 0l2.1-2.1a1 1 0 0 0 0-1.4L19 4"/><path d="m21 2-9.6 9.6"/><circle cx="7.5" cy="15.5" r="5.5"/>',
+    lock: '<rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>',
     chevron: '<path d="m6 9 6 6 6-6"/>',
     updown: '<path d="m7 15 5 5 5-5"/><path d="m7 9 5-5 5 5"/>',
   };

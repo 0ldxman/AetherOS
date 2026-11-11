@@ -9,7 +9,12 @@
   import Dialog from "../lib/Dialog.svelte";
   import { go } from "../lib/router.svelte";
   import { toast } from "../lib/toast.svelte";
-  import WeekGrid from "../lib/WeekGrid.svelte";
+  import ChipList from "../lib/ChipList.svelte";
+  import Duration from "../lib/Duration.svelte";
+  import Icon from "../lib/Icon.svelte";
+  import Switch from "../lib/Switch.svelte";
+  import WeekPaint from "../lib/WeekPaint.svelte";
+  import { PRESETS, duration, fullGrid, gridToText, windowsInWords } from "../lib/policy";
 
   type Form = Schemas["PolicyIn"];
 
@@ -116,16 +121,32 @@
   }
 
   const KIND: Record<string, string> = { system: "ОС", machine: "машина", account: "учётка" };
+
+  const TEXTS = [
+    { key: "denied_text", label: "Отказ", when: "Не тот хост или не тот путь через мосты." },
+    { key: "locked_text", label: "Блокировка", when: "Слишком много ошибок подряд: вход закрыт на время блока." },
+    { key: "window_text", label: "Вне окна", when: "Вход пробуют вне разрешённых часов." },
+    { key: "kick_text", label: "Обрыв по сроку", when: "Сессия закончилась по сроку подключения." },
+  ] as const;
+  let textTab = $state<(typeof TEXTS)[number]["key"]>("denied_text");
+  let textMode = $state(false);
+
+  // неделя для сетки: сервер считает её по тексту; пустой текст значит «всегда открыто»
+  const paintGrid = $derived(week?.grid ?? fullGrid());
+  const list_ = (text: string) => text.split("\n").map((item) => item.trim()).filter(Boolean);
+  const sourcesList = $derived(list_(form.sources));
+  const viaList = $derived(list_(form.via));
+  const firstMachine = $derived(policy?.used_by.find((where) => where.machine)?.machine ?? null);
+  const plural = (n: number, one: string, few: string, many: string) => (n % 10 === 1 && n % 100 !== 11 ? one : n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 12 || n % 100 > 14) ? few : many);
 </script>
 
 <ListDetail title="Политики входа">
   {#snippet list()}
     {#each rows as row (row.id)}
+      {@const used = [row.systems && `ОС ${row.systems}`, row.machines && `машин ${row.machines}`, row.accounts && `учёток ${row.accounts}`].filter(Boolean).join(" · ")}
       <a class="item" class:on={row.id === current} href="#/policies/{row.id}">
         <b>{row.name}</b>
-        <span class="muted small">
-          {[row.systems && `ОС ${row.systems}`, row.machines && `машин ${row.machines}`, row.accounts && `учёток ${row.accounts}`].filter(Boolean).join(" · ") || "не назначена"}
-        </span>
+        <span class="small" class:muted={used} class:idle={!used}>{used || "не назначена"}</span>
       </a>
     {/each}
   {/snippet}
@@ -136,60 +157,124 @@
   {#if policy}
     <section class="editor">
       <header class="top">
-        <input class="title" bind:value={form.name} class:bad={errors.name} />
+        <input class="title" bind:value={form.name} class:bad={errors.name} aria-label="Название политики" />
         <span class="spacer"></span>
         <button class="btn ghost danger" onclick={() => (dialog = "delete")}>Удалить</button>
         <DraftState {share} {dirty} saved="" />
         <button class="btn primary" disabled={!dirty} onclick={save}>Сохранить</button>
       </header>
       {#if errors.name}<p class="err">{errors.name.join(" ")}</p>{/if}
-      <input class="field note" placeholder="Заметка для авторов (игрок её не видит)" bind:value={form.description} />
+      <input class="field note" placeholder="Заметка для авторов (игрок её не видит)" bind:value={form.description} aria-label="Заметка" />
 
-      <div class="cols">
-        <div class="block">
-          <h3>Кто и откуда</h3>
-          <label><span class="label">Пароль и ключ</span>
-            <select class="field" bind:value={form.mode}>
-              <option value="all">нужны и пароль, и ключ</option>
-              <option value="any">хватает пароля или ключа</option>
-            </select>
-          </label>
-          <label><span class="label">Откуда можно<Hint text="Какие хосты вправе подключаться, по одному в строке. «*» заменяет любые знаки: aether-* подходит для всех хостов, начинающихся с aether-. Пусто: откуда угодно." /></span>
-            <textarea class="field area mono" bind:value={form.sources} placeholder={"aether-*\ngw-02"}></textarea></label>
-          <label><span class="label">Только через<Hint text="Подключение должно идти через эти хосты-мосты, по одному в строке. Пусто: путь не важен." /></span>
-            <textarea class="field area mono" bind:value={form.via}></textarea></label>
-          <h3>Ошибки и срок</h3>
-          <div class="three">
-            <label><span class="label">Ошибок до блока<Hint text="Сколько неверных попыток подряд допускается, прежде чем вход заблокируется. Пусто: не блокировать." /></span><input class="field" type="number" min="1" bind:value={form.max_attempts} placeholder="не блокировать" /></label>
-            <label><span class="label">За сколько секунд<Hint text="Окно, в котором считаются ошибки: например, 3 ошибки за 60 секунд." /></span><input class="field" type="number" min="1" bind:value={form.attempts_window} /></label>
-            <label><span class="label">Блок на сколько секунд<Hint text="Как долго вход закрыт после блокировки." /></span><input class="field" type="number" min="1" bind:value={form.lock_seconds} /></label>
-          </div>
-          <label><span class="label">Срок подключения, секунд<Hint text="Через сколько секунд сессия сама закончится. Пусто: без ограничения." /></span><input class="field" type="number" min="1" bind:value={form.ttl} placeholder="без ограничения" /></label>
+      <div class="work">
+        <div class="main">
+          <section class="card">
+            <h3><span class="ico"><Icon name="key" size={16} /></span>Кому пускать</h3>
+            <div class="seg" role="radiogroup" aria-label="Пароль и ключ">
+              <button role="radio" aria-checked={form.mode === "all"} class:on={form.mode === "all"} onclick={() => (form.mode = "all")}>Нужны пароль и ключ</button>
+              <button role="radio" aria-checked={form.mode === "any"} class:on={form.mode === "any"} onclick={() => (form.mode = "any")}>Хватает пароля или ключа</button>
+            </div>
+            <p class="muted small">Токен пускает мимо обоих. Что именно предъявлять, определяет учётка.</p>
+            <div class="field-row">
+              <span class="label">Откуда можно<Hint text="Какие хосты вправе подключаться. «*» заменяет любые знаки: aether-* подходит для всех хостов, чьё имя начинается с aether-. Пусто: откуда угодно." /></span>
+              <ChipList label="Откуда можно" value={form.sources} placeholder="aether-*  gw-02 (пусто: откуда угодно)" onchange={(next) => (form.sources = next)} />
+            </div>
+            <div class="field-row">
+              <span class="label">Только через<Hint text="Подключение должно пройти через эти хосты-мосты. Пусто: путь не важен." /></span>
+              <ChipList label="Только через" value={form.via} placeholder="хост-мост (пусто: путь не важен)" onchange={(next) => (form.via = next)} />
+            </div>
+          </section>
+
+          <section class="card">
+            <h3><span class="ico"><Icon name="clock" size={16} /></span>Когда</h3>
+            <div class="presets" role="group" aria-label="Готовые окна">
+              {#each PRESETS as preset (preset.label)}
+                <button class="preset" class:on={form.windows.trim() === preset.text} aria-pressed={form.windows.trim() === preset.text} title={preset.hint} onclick={() => (form.windows = preset.text)}>{preset.label}</button>
+              {/each}
+              <span class="spacer"></span>
+              <button class="link" onclick={() => (textMode = !textMode)} aria-expanded={textMode}>{textMode ? "Скрыть текст" : "Править текстом"}</button>
+            </div>
+            {#if week?.error}
+              <p class="err">Окна записаны с ошибкой: {week.error} Исправьте текст ниже.</p>
+            {:else}
+              <WeekPaint grid={paintGrid} onchange={(next) => (form.windows = gridToText(next))} />
+            {/if}
+            {#if textMode || week?.error}
+              <label><span class="label">Правила<Hint text="По строке на правило: «mon-fri: 9:00-13:00 14:00-18:00» это будни с 9 до 13 и с 14 до 18, «except sun: *» исключает воскресенье, «*» вместо времени означает весь день. Дни: mon…sun, перечисление через запятую или диапазон mon-fri." /></span>
+                <textarea class="field area mono" class:bad={errors.windows || week?.error} bind:value={form.windows} rows="4" placeholder={"mon-fri: 9:00-18:00"}></textarea></label>
+              {#if errors.windows}<p class="err">{errors.windows.join(" ")}</p>{/if}
+              {#if /#|except/i.test(form.windows)}<p class="muted small">Если нарисовать окна на сетке, правила запишутся заново равнозначным текстом: комментарии и «except» пропадут.</p>{/if}
+            {/if}
+          </section>
+
+          <section class="card">
+            <h3><span class="ico"><Icon name="lock" size={16} /></span>Ошибки и срок</h3>
+            <div class="line">
+              <Switch checked={form.max_attempts != null} label="Блокировать после неверных попыток" onchange={(on) => (form.max_attempts = on ? 3 : null)} />
+            </div>
+            {#if form.max_attempts != null}
+              <p class="sentence">
+                После <input class="field num" type="number" min="1" bind:value={form.max_attempts} aria-label="Ошибок до блока" /> {plural(form.max_attempts ?? 0, "ошибки", "ошибок", "ошибок")}
+                за <Duration label="Окно подсчёта ошибок" value={form.attempts_window} onchange={(v) => (form.attempts_window = v)} />
+                закрыть вход на <Duration label="Длительность блока" value={form.lock_seconds} onchange={(v) => (form.lock_seconds = v)} />
+              </p>
+            {:else}
+              <p class="muted small">Сколько бы ни ошибались, вход не закрывается.</p>
+            {/if}
+            <div class="line">
+              <Switch checked={form.ttl != null} label="Обрывать сессию по сроку" onchange={(on) => (form.ttl = on ? 1800 : null)} />
+            </div>
+            {#if form.ttl != null}
+              <p class="sentence">Сессия обрывается через <Duration label="Срок подключения" value={form.ttl} onchange={(v) => (form.ttl = v)} /> после входа. Блок после обрыва задаётся блокировкой выше.</p>
+            {:else}
+              <p class="muted small">Подключение живёт, пока игрок сам не выйдет.</p>
+            {/if}
+          </section>
+
+          <section class="card">
+            <h3><span class="ico"><Icon name="eye" size={16} /></span>Что видит игрок</h3>
+            <p class="muted small">Игрок не узнаёт, какое именно условие не выполнено. Свой текст заменяет стандартный текст системы.</p>
+            <div class="tabs" role="tablist">
+              {#each TEXTS as item (item.key)}
+                <button role="tab" aria-selected={textTab === item.key} class:on={textTab === item.key} onclick={() => (textTab = item.key)}>{item.label}{#if form[item.key]}<span class="dot" title="Свой текст"></span>{/if}</button>
+              {/each}
+            </div>
+            {#each TEXTS.filter((item) => item.key === textTab) as item (item.key)}
+              <p class="muted small">{item.when}</p>
+              <input class="field" bind:value={form[item.key]} placeholder="стандартный текст системы" aria-label={item.label} />
+              <div class="screen" aria-label="Как это увидит игрок">
+                <div class="dim">$ ssh ivan@aether-core</div>
+                {#if form[item.key]}<div class="err-line">{form[item.key]}</div>{:else}<div class="dim">Покажется стандартный текст системы.</div>{/if}
+              </div>
+            {/each}
+          </section>
         </div>
 
-        <div class="block">
-          <h3>Когда</h3>
-          <label><span class="label">Окна<Hint text="Когда можно входить, по строке на правило. «mon-fri: 9:00-13:00 14:00-18:00» — по будням с 9 до 13 и с 14 до 18. «except sun: *» — кроме воскресенья. Дни: mon tue wed thu fri sat sun." /></span>
-            <textarea class="field area mono" class:bad={errors.windows || week?.error} bind:value={form.windows} rows="4"></textarea></label>
-          {#if week?.error}<p class="err">{week.error}</p>{:else if errors.windows}<p class="err">{errors.windows.join(" ")}</p>{/if}
-          {#if week?.grid}<WeekGrid grid={week.grid} />{:else if !week?.error}<p class="muted small">Окон нет: входить можно в любое время.</p>{/if}
-
-          <h3>Что видит игрок</h3>
-          <label><span class="label">Отказ (не тот хост, не тот путь)</span><input class="field" bind:value={form.denied_text} placeholder="стандартный текст системы" /></label>
-          <label><span class="label">Блокировка</span><input class="field" bind:value={form.locked_text} placeholder="стандартный текст системы" /></label>
-          <label><span class="label">Вне окна</span><input class="field" bind:value={form.window_text} placeholder="стандартный текст системы" /></label>
-          <label><span class="label">Обрыв по сроку</span><input class="field" bind:value={form.kick_text} placeholder="стандартный текст системы" /></label>
-        </div>
-      </div>
-
-      <div class="block used">
-        <h3>Где назначена</h3>
-        {#each policy.used_by as where}
-          {#if where.machine}<a href="#/machines/{where.machine}/access"><span class="chip">{KIND[where.kind]}</span> {where.label}</a>
-          {:else}<span><span class="chip">{KIND[where.kind]}</span> {where.label}</span>{/if}
-        {:else}
-          <span class="muted">Нигде. Назначьте её машине (Обзор → Свойства) или учётке.</span>
-        {/each}
+        <aside class="summary">
+          <section class="card">
+            <h3>Итог</h3>
+            <ul>
+              <li><span class="k">Вход</span>{form.mode === "all" ? "нужны и пароль, и ключ" : "хватает пароля или ключа"}</li>
+              <li><span class="k">Откуда</span>{sourcesList.length ? sourcesList.join(", ") : "откуда угодно"}</li>
+              {#if viaList.length}<li><span class="k">Через</span>{viaList.join(", ")}</li>{/if}
+              <li><span class="k">Когда</span>{week?.error ? "окна записаны с ошибкой" : windowsInWords(paintGrid)}</li>
+              <li><span class="k">Ошибки</span>{form.max_attempts != null ? `${form.max_attempts} за ${duration(form.attempts_window)}: блок на ${duration(form.lock_seconds)}` : "блокировки нет"}</li>
+              <li><span class="k">Сессия</span>{form.ttl != null ? `до ${duration(form.ttl)}` : "без ограничения"}</li>
+            </ul>
+          </section>
+          <section class="card">
+            <h3>Где назначена</h3>
+            {#each policy.used_by as where}
+              <div class="where">
+                <span class="chip">{KIND[where.kind]}</span>
+                {#if where.machine}<a href="#/machines/{where.machine}/access">{where.label}</a>{:else}<span>{where.label}</span>{/if}
+              </div>
+            {:else}
+              <p class="warnbox">Нигде. Политика не действует, пока её не назначат: машине (Обзор → Свойства), ОС или учётке.</p>
+            {/each}
+            {#if firstMachine}<a class="btn check" href="#/machines/{firstMachine}/access">Проверить вход</a>{/if}
+          </section>
+        </aside>
       </div>
     </section>
   {:else}
@@ -216,23 +301,53 @@
 
 <style>
   .small { font-size: 12px; margin: 0; }
+  .idle { color: var(--warn); }
   .editor { display: flex; flex-direction: column; gap: 12px; padding: 16px 20px 32px; min-width: 0; }
   .top { display: flex; align-items: center; gap: 10px; }
-  .title { height: 36px; padding: 0 8px; border: 1px solid transparent; border-radius: var(--radius-s); background: none; font-size: 18px; font-weight: 600; outline: none; }
+  .top :global(.draft) { flex-wrap: nowrap; white-space: nowrap; }
+  .title { height: 36px; min-width: 0; flex: 1 1 200px; max-width: 420px; padding: 0 8px; border: 1px solid transparent; border-radius: var(--radius-s); background: none; color: var(--text); font-size: 18px; font-weight: 600; outline: none; }
   .title:hover { border-color: var(--line); }
   .title:focus { border-color: var(--accent); background: var(--bg); }
   .title.bad { border-color: var(--danger); }
   .spacer { flex: 1; }
   .note { max-width: 640px; }
-  .cols { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
-  .block { display: flex; flex-direction: column; gap: 10px; padding: 14px 16px; border: 1px solid var(--line-soft); border-radius: var(--radius); background: var(--panel); }
-  h3 { margin: 6px 0 0; font-size: 12px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.4px; }
-  h3:first-child { margin-top: 0; }
+  .work { display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: 16px; align-items: start; }
+  .main { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+  .card { display: flex; flex-direction: column; gap: 10px; padding: 14px 16px; border: 1px solid var(--line-soft); border-radius: var(--radius); background: var(--panel); min-width: 0; }
+  .card h3 { display: flex; align-items: center; gap: 8px; margin: 0 0 2px; font-size: 14px; font-weight: 650; }
+  .ico { display: grid; place-items: center; width: 26px; height: 26px; border-radius: 8px; background: var(--accent-soft); color: var(--accent); }
+  .seg { display: inline-flex; align-self: flex-start; border: 1px solid var(--line-soft); border-radius: 999px; overflow: hidden; }
+  .seg button { padding: 5px 14px; border: 0; background: none; color: var(--muted); font: inherit; font-size: 13px; cursor: pointer; }
+  .seg button.on { background: var(--accent-soft); color: var(--text); }
+  .field-row { display: flex; flex-direction: column; gap: 4px; }
+  .presets { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+  .preset { padding: 4px 12px; border: 1px solid var(--line-soft); border-radius: 999px; background: none; color: var(--muted); font: inherit; font-size: 12.5px; cursor: pointer; }
+  .preset:hover { border-color: var(--line); color: var(--text); }
+  .preset.on { border-color: var(--accent); background: var(--accent-soft); color: var(--text); }
+  .link { padding: 0; border: 0; background: none; color: var(--accent); font: inherit; font-size: 12.5px; cursor: pointer; }
+  .link:hover { text-decoration: underline; }
   .area { height: auto; min-height: 64px; padding: 8px 10px; resize: vertical; }
-  .three { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+  .line { margin-top: 2px; }
+  .sentence { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 6px; margin: 0 0 4px 40px; font-size: 13.5px; }
+  .num { width: 60px; height: 30px; padding: 2px 8px; }
+  .tabs { display: flex; gap: 2px; border-bottom: 1px solid var(--line-soft); }
+  .tabs button { display: inline-flex; align-items: center; gap: 6px; padding: 7px 12px; margin-bottom: -1px; border: 0; border-bottom: 2px solid transparent; background: none; color: var(--muted); font: inherit; font-size: 13px; cursor: pointer; }
+  .tabs button:hover { color: var(--text); }
+  .tabs button.on { color: var(--text); border-bottom-color: var(--accent); }
+  .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--accent); }
+  .screen { padding: 10px 12px; border: 1px solid var(--line-soft); border-radius: var(--radius-s); background: #0b0d10; font: 13px/1.4 ui-monospace, "DejaVu Sans Mono", monospace; }
+  .screen .dim { color: #767676; }
+  .screen .err-line { color: #e74856; }
+  .summary { position: sticky; top: 12px; display: flex; flex-direction: column; gap: 14px; }
+  .summary ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; font-size: 13px; }
+  .summary li { display: flex; flex-direction: column; gap: 1px; overflow-wrap: anywhere; }
+  .k { font-size: 11px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--faint); }
+  .where { display: flex; align-items: center; gap: 8px; font-size: 13px; }
+  .chip { padding: 0 8px; border-radius: 999px; background: var(--raise); color: var(--muted); font-size: 11.5px; }
+  .warnbox { margin: 0; padding: 8px 10px; border-radius: var(--radius-s); background: rgba(242, 198, 109, 0.1); color: var(--warn); font-size: 12.5px; }
+  .check { display: inline-flex; align-items: center; justify-content: center; gap: 6px; margin-top: 2px; text-decoration: none; }
   .field.bad { border-color: var(--danger); }
-  .err { margin: -4px 0 0; color: var(--danger); font-size: 12px; }
-  .used { flex-direction: row; flex-wrap: wrap; align-items: center; gap: 12px; }
-  .used h3 { margin: 0 8px 0 0; }
+  .err { margin: 0; color: var(--danger); font-size: 12.5px; }
   .empty { padding: 24px; }
+  @media (max-width: 1100px) { .work { grid-template-columns: 1fr; } .summary { position: static; } }
 </style>
