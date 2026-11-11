@@ -3,6 +3,8 @@ from dataclasses import replace
 import posixpath
 
 from filesystem.machine_view.entries import DIR, Entry, FILE, ITEM_PREFETCH, Layer, _depth, _drop, inner_paths
+
+TEMPLATE = "{login}"        # папка-шаблон в томе: у каждой учётки на её месте свой логин (/home/{login}/Desktop -> /home/ivan/Desktop)
 from filesystem.models import Placement, PlayerFile, VolumeInstance
 from machines.models import MachineMount, SystemVolume
 
@@ -71,8 +73,28 @@ class BuildMixin:
         self._add_directories(entries)
         return entries, layers
 
+    def _concrete(self, rows):
+        """Пути тома с подставленным логином учётки вместо папок {login}.
+
+        Шаблонные записи ложатся раньше настоящих с тем же путём: настоящая папка (/home/ivan) главнее шаблона. Правка игрока
+        пишется в его слой по настоящему пути, поэтому у остальных учёток шаблон не меняется. Вид автора (без игрока и логина)
+        показывает шаблон как есть; игроку без известного логина шаблон не виден."""
+        if not any(TEMPLATE in ipath.split("/") for ipath, _ in rows):
+            return rows
+        found = []
+        for ipath, placement in rows:
+            parts = ipath.split("/")
+            if TEMPLATE not in parts:
+                found.append((ipath, placement, 1))
+            elif self.login:
+                found.append(("/".join(self.login if part == TEMPLATE else part for part in parts), placement, 0))
+            elif self.user is None:
+                found.append((ipath, placement, 0))
+        found.sort(key=lambda row: (row[0].count("/"), row[2], row[0]))
+        return [(ipath, placement) for ipath, placement, _ in found]
+
     def _lay(self, entries, layer, placements):
-        rows = inner_paths(placements)
+        rows = self._concrete(inner_paths(placements))
         folders = {}
         for ipath, placement in rows:
             if placement.kind == Placement.Kind.FOLDER:
@@ -187,7 +209,7 @@ class BuildMixin:
             return {}
         placements = list(Placement.objects.filter(volume_id=layer.mount.volume_id).select_related("item"))
         found = {}
-        for ipath, placement in inner_paths(placements):
+        for ipath, placement in self._concrete(inner_paths(placements)):
             machine_path = layer.machine_path(ipath)
             if machine_path is not None and machine_path != layer.point and keep(placement):
                 found[machine_path] = placement

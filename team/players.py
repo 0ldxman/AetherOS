@@ -78,7 +78,7 @@ def _keys(user, accounts):
     rows = []
     for row in accounts:
         profile = row["profile"]
-        view = view_for(profile.machine, user)
+        view = view_for(profile.machine, user, login=profile.login)
         for name, slug in keystore.held(view, profile.machine, profile.login):
             rows.append({"profile": profile, "name": name, "slug": slug})
     return rows
@@ -156,7 +156,7 @@ def give_key(user, profile_id, slug):
         raise PlayerError(f"Ключа «{slug}» нет в реестре.")
     if not keystore.secrets_dir(profile.machine, profile.login):
         raise PlayerError("У этой учётки нет папки секретов.")
-    path, made = keystore.put(view_for(profile.machine, user), profile.machine, profile.login, item)
+    path, made = keystore.put(view_for(profile.machine, user, login=profile.login), profile.machine, profile.login, item)
     if not made:
         raise PlayerError("Этот ключ у игрока уже есть.")
     return path
@@ -169,7 +169,7 @@ def take_key(user, profile_id, name):
 
     profile = _profile_of(user, profile_id)
     folder = keystore.secrets_dir(profile.machine, profile.login)
-    view = view_for(profile.machine, user)
+    view = view_for(profile.machine, user, login=profile.login)
     if not folder or name not in {held for held, _ in keystore.held(view, profile.machine, profile.login)}:
         raise PlayerError("Такого ключа у игрока нет.")
     view.remove(f"{folder}/{name}")

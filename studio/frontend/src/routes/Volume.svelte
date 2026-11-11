@@ -481,6 +481,9 @@
     if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} КБ`;
     return `${(bytes / 1024 / 1024).toFixed(1)} МБ`;
   }
+  // папка-шаблон {login}: у каждой учётки на её месте логин учётки (filesystem/machine_view/build.py)
+  const TEMPLATE = "{login}";
+  const TPL_TIP = "Шаблон: у каждой учётки на месте этой папки её логин (/home/{login} → /home/ivan). Правки игрока остаются только у него.";
 </script>
 
 <svelte:window onkeydown={onKey} />
@@ -506,7 +509,7 @@
       ondrop={(event) => drop(node.id, event)}
     >
       <button class="arrow" class:open={opened.has(node.id)} class:none={!kids} onclick={() => toggle(node)} aria-label="Раскрыть" tabindex="-1">▸</button>
-      <button class="twig-name" class:hidden={node.hidden} onclick={() => openFolder(node.id)}><FileIcon kind="folder" size={14} /> <span class="tname">{node.name}</span></button>
+      <button class="twig-name" class:hidden={node.hidden} onclick={() => openFolder(node.id)}><FileIcon kind="folder" size={14} /> <span class="tname">{node.name}</span>{#if node.name === TEMPLATE}<span class="tpl" title={TPL_TIP}>шаблон</span>{/if}</button>
       {#if count(node.id)}<span class="count" title="Элементов внутри">{count(node.id)}</span>{/if}
     </div>
     {#if opened.has(node.id)}{@render branch(node.id, depth + 1)}{/if}
@@ -609,6 +612,7 @@
             {#if node.item && node.item.used > 1}<span class="chip" title="Тот же объект лежит в других местах: {node.item.used}">×{node.item.used}</span>{/if}
             {#if node.hidden}<span class="chip" title="Игрок не видит этот файл в списке">скрыт</span>{/if}
             {#if node.system}<span class="chip" title="Игрок не может удалить">системный</span>{/if}
+            {#if node.name === TEMPLATE}<span class="chip" title={TPL_TIP}>шаблон: у каждой учётки свой логин</span>{/if}
           </span>
           <span class="muted type" class:obj={!kind.own && node.kind !== "folder"}>{kind.label}</span>
           <span class="guard">
@@ -728,6 +732,7 @@
 {/if}
 
 <style>
+  .tpl { margin-left: 6px; padding: 0 6px; border-radius: 999px; background: var(--accent-soft); color: var(--text); font-size: 10.5px; }
   .two { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
   .inline { display: flex; gap: 6px; }
   .err { margin: 0; color: var(--danger); font-size: 12px; }

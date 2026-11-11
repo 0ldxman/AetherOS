@@ -44,7 +44,7 @@ class Box:
 
         self.machine, self.login, self.address = machine, login, address
         self.user, self.session_key, self.profile = user, session_key, profile
-        self.view = view_for(machine, user)
+        self.view = view_for(machine, user, login=login)
         self.root = places.resolve(machine, "mail", login) or DEFAULT_ROOT.format(login=login)
 
     @classmethod
