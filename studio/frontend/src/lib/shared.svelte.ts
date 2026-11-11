@@ -61,7 +61,7 @@ export class SharedForm<T extends Values> {
       const snapshot: Values = {};
       for (const key of Object.keys(draft)) snapshot[key] = $state.snapshot(draft[key]);
       if (!this.ready) return;
-      untrack(() => this.push(snapshot));
+      untrack(() => { this.push(snapshot); this.settle(snapshot); });
     });
     $effect(() => () => this.detach());
   }
@@ -209,6 +209,19 @@ export class SharedForm<T extends Values> {
         if (!same(fields.get(key), value)) fields.set(key, value);
       }
     });
+  }
+
+  /** Черновик равен сохранённому (правку вернули руками или метка осталась от прошлого раза): метка «не сохранено» снимается.
+   *  Иначе кнопка «Сохранить» молчит, потому что сохранять нечего, а метка висит у всех. */
+  private settle(snapshot: Values) {
+    const mark = this.mark();
+    const base = this.options.base() as Values | null;
+    if (!mark.dirty || !base) return;
+    const texts = new Set(this.textKeys());
+    const keys = [...texts, ...this.valueKeys(base as T)];
+    const equal = keys.every((key) => (texts.has(key) ? String(snapshot[key] ?? "") === String(base[key] ?? "") : same(copy(snapshot[key]), copy(base[key]))));
+    if (!equal || (this.options.open && Object.keys(snapshot).some((key) => !(key in base)))) return;
+    this.setMark({ dirty: false, editors: [], saved: mark.saved ?? 0 }, "saved");
   }
 
   private setMark(next: Mark, origin: string) {

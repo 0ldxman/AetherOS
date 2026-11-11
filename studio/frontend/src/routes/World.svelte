@@ -63,6 +63,10 @@
 </script>
 
 <PageHead title="Мир">
+  {#if world}
+    <DraftState {share} {dirty} saved="" />
+    <button class="btn primary" disabled={!dirty} onclick={save}>Сохранить</button>
+  {/if}
   {#snippet sub()}Настройки мира: от них считаются даты и числа на экранах входа, загрузки и в приветствии ОС (<code>{"{date}"}</code>, <code>{"{core_days}"}</code>, <code>{"{stations}"}</code> и другие).{/snippet}
 </PageHead>
 
@@ -91,7 +95,6 @@
     {#each Object.values(errors).flat() as text}<p class="err">{text}</p>{/each}
   </section>
 
-  <div class="actions"><DraftState {share} {dirty} saved="" /><button class="btn primary" disabled={!dirty} onclick={save}>Сохранить</button></div>
 {:else}
   <p class="muted pad">Загрузка…</p>
 {/if}
@@ -102,6 +105,5 @@
   .row { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 10px; }
   .small { font-size: 12px; margin: 0; }
   .err { margin: 0; color: var(--danger); font-size: 12px; }
-  .actions { padding: 0 32px 32px; display: flex; align-items: center; justify-content: flex-end; gap: 12px; }
   .pad { padding: 24px 32px; }
 </style>

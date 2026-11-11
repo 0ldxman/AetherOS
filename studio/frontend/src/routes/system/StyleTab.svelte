@@ -8,7 +8,7 @@
   type System = Schemas["SystemOut"];
   type Done = (data: System | undefined, error: unknown, text: string) => void;
 
-  let { system, errors, done }: { system: System; errors: Record<string, string[]>; done: Done } = $props();
+  let { system, errors, done, onstate }: { system: System; errors: Record<string, string[]>; done: Done; onstate: (state: { dirty: boolean; share: typeof share; save: () => unknown } | null) => void } = $props();
 
   let look = $state({ style: "aether", tokens: {} as Record<string, string> });
   let lookSaved = $state("");
@@ -66,6 +66,12 @@
     });
   });
 
+  // кнопка «Сохранить» живёт в шапке ОС: вкладка сообщает ей своё состояние
+  $effect(() => {
+    onstate({ dirty: lookDirty, share, save: saveLook });
+    return () => onstate(null);
+  });
+
   guardUnsaved(() => !share.ready && lookSaved !== "" && lookDirty);
 </script>
 
@@ -115,7 +121,6 @@
     </div>
   {/each}
   {#if errors.style}{#each errors.style as text}<p class="warn small">{text}</p>{/each}{/if}
-  <div class="saverow"><DraftState {share} dirty={lookDirty} saved="" /><button class="btn primary" disabled={!lookDirty} onclick={saveLook}>Сохранить стиль</button></div>
   </div>
   {#if deskPreview}
   <aside class="stylepreview">
@@ -133,7 +138,6 @@
   </div>
 
 <style>
-  .saverow { display: flex; align-items: center; justify-content: flex-end; gap: 12px; }
   .small { font-size: 12px; margin: 0; }
   .warn { color: var(--warn); margin: 0; }
   .more { margin-left: auto; font-size: 12px; text-transform: none; letter-spacing: 0; }

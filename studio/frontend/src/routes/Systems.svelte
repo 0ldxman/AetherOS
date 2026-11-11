@@ -110,6 +110,20 @@
   }
 
   const current = $derived(code ?? rows[0]?.code ?? null);
+  // сохранение в шапке: что сохраняет кнопка, зависит от вкладки (свойства, пути или форма вкладки «Стиль»/«Смена экрана»)
+  type Bar = { dirty: boolean; share: { editors: string[]; ready: boolean; discard(): void }; save: () => unknown } | null;
+  let child = $state.raw<Bar>(null);
+  let saving = $state(false);
+  const bar = $derived.by((): Bar => {
+    if (tab === "scenes") return null;
+    if (tab === "style" || tab === "screen") return child;
+    if (tab === "disk" || tab === "paths") return { dirty: placesDirty, share: placesShare, save: savePlaces };
+    return { dirty: propsDirty, share: propsShare, save: saveProps };
+  });
+  async function saveBar() {
+    saving = true;
+    try { await bar?.save(); } finally { saving = false; }
+  }
   const placesDirty = $derived(JSON.stringify(places) !== placesSaved);
   const propsDirty = $derived(JSON.stringify(props_) !== propsSaved);
   guardUnsaved(() => !propsShare.ready && ((propsSaved !== "" && propsDirty) || (placesSaved !== "" && placesDirty)), (next) => next.split("?")[0].split("/")[2] === system?.code);
@@ -275,6 +289,10 @@
             </div>
           {/if}
         </span>
+        {#if bar}
+          <DraftState share={bar.share} dirty={bar.dirty} saved="" />
+          <button class="btn primary" disabled={!bar.dirty || saving} onclick={saveBar}>{saving ? "Сохраняю…" : "Сохранить"}</button>
+        {/if}
       </header>
 
       <nav class="tabs">
@@ -314,7 +332,6 @@
             <span class="muted small">{row.machines.length ? `своё у ${row.machines.join(", ")}` : ""}{errors[row.name] ? errors[row.name].join(" ") : ""}</span>
           {/each}
         </div>
-        <div class="saverow"><DraftState share={placesShare} dirty={placesDirty} saved="" /><button class="btn primary" disabled={!placesDirty} onclick={savePlaces}>Сохранить пути</button></div>
       </div>
         </div>
       <div class="block tree">
@@ -347,9 +364,9 @@
       {:else if tab === "scenes"}
         <ScenesTab {system} {done} />
       {:else if tab === "style"}
-        <StyleTab {system} {errors} {done} />
+        <StyleTab {system} {errors} {done} onstate={(next) => (child = next)} />
       {:else if tab === "screen"}
-        <ScreenTab {system} {errors} {done} />
+        <ScreenTab {system} {errors} {done} onstate={(next) => (child = next)} />
       {:else if tab === "groups"}
       <div class="block">
         <h3>Политика входа</h3>
@@ -359,7 +376,6 @@
               {#each system.policies as policy}<option value={policy.id}>{policy.name}</option>{/each}
             </select>
           </label>
-        <div class="saverow"><DraftState share={propsShare} dirty={propsDirty} saved="" /><button class="btn primary" disabled={!propsDirty} onclick={saveProps}>Сохранить</button></div>
       </div>
 
       <div class="block">
@@ -401,7 +417,6 @@
         {#if props_.code.trim().toUpperCase() !== system.code}
           <p class="warn small">Код выбирает сцены и команды в Python. Машины ({system.machines.length}) переедут на новый код, но без сцен под него в движке будет поведение по умолчанию.</p>
         {/if}
-        <div class="saverow"><DraftState share={propsShare} dirty={propsDirty} saved="" /><button class="btn primary" disabled={!propsDirty} onclick={saveProps}>Сохранить</button></div>
       </div>
 
         <div class="block">
@@ -423,7 +438,6 @@
               {#each preview?.errors ?? [] as error}<p class="warn small">Строка {error.line}: {error.text}</p>{/each}
             </div>
           </div>
-          <div class="saverow"><DraftState share={propsShare} dirty={propsDirty} saved="" /><button class="btn primary" disabled={!propsDirty} onclick={saveProps}>Сохранить</button></div>
         </div>
       {/if}
     </section>
@@ -467,10 +481,9 @@
 {/if}
 
 <style>
-  .saverow { display: flex; align-items: center; justify-content: flex-end; gap: 12px; }
   .small { font-size: 12px; margin: 0; }
   .editor { display: flex; flex-direction: column; gap: 14px; padding: 16px 20px 32px; min-width: 0; }
-  .top { display: flex; align-items: baseline; gap: 12px; }
+  .top { display: flex; align-items: center; gap: 12px; }
   .top h2 { margin: 0; font-size: 20px; }
   .block { display: flex; flex-direction: column; gap: 10px; padding: 14px 16px; border: 1px solid var(--line-soft); border-radius: var(--radius); background: var(--panel); }
   h3 { display: flex; align-items: center; gap: 8px; margin: 0; font-size: 12px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.4px; }

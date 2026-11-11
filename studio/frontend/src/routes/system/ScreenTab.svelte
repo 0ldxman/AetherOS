@@ -8,7 +8,7 @@
   type System = Schemas["SystemOut"];
   type Done = (data: System | undefined, error: unknown, text: string) => void;
 
-  let { system, errors, done }: { system: System; errors: Record<string, string[]>; done: Done } = $props();
+  let { system, errors, done, onstate }: { system: System; errors: Record<string, string[]>; done: Done; onstate: (state: { dirty: boolean; share: typeof share; save: () => unknown } | null) => void } = $props();
 
   type Blackout = Schemas["BlackoutValues"];
   let blackouts = $state<Record<string, Blackout>>({});
@@ -21,10 +21,19 @@
 
   const blackoutDirty = (event: string) => JSON.stringify(blackouts[event]) !== JSON.stringify(blackoutsSaved ? JSON.parse(blackoutsSaved)[event] : null);
 
-  async function saveBlackout(event: string) {
-    const { data, error } = await api.PUT("/studio/api/systems/{code}/blackouts/{event}", { params: { path: { code: system.code, event } }, body: blackouts[event] });
-    if (data && !Object.keys(blackouts).some((other) => other !== event && blackoutDirty(other))) share.markSaved();
-    done(data, error, "Чёрный экран сохранён.");
+  const anyDirty = $derived(Object.keys(blackouts).some(blackoutDirty));
+
+  // сохраняются все изменённые события разом; ответ последнего содержит их все
+  async function saveAll() {
+    let last: System | undefined;
+    for (const event of Object.keys(blackouts).filter(blackoutDirty)) {
+      const { data, error } = await api.PUT("/studio/api/systems/{code}/blackouts/{event}", { params: { path: { code: system.code, event } }, body: blackouts[event] });
+      if (error || !data) return done(undefined, error, "");
+      last = data;
+    }
+    if (!last) return;
+    share.markSaved();
+    done(last, undefined, "Чёрные экраны сохранены.");
   }
 
   async function resetBlackout(event: string) {
@@ -46,6 +55,12 @@
     });
   });
 
+  // кнопка «Сохранить» живёт в шапке ОС: вкладка сообщает ей своё состояние
+  $effect(() => {
+    onstate({ dirty: anyDirty, share, save: saveAll });
+    return () => onstate(null);
+  });
+
   guardUnsaved(() => !share.ready && blackoutsSaved !== "" && Object.keys(blackouts).some(blackoutDirty));
 </script>
 
@@ -60,7 +75,7 @@
         <div class="bo">
           <div class="bo-head"><b>{row.label}</b>
             <span class="spacer"></span>
-            <button class="btn ghost" disabled={!blackoutDirty(row.event)} onclick={() => saveBlackout(row.event)}>Сохранить</button>
+            {#if blackoutDirty(row.event)}<span class="muted small">изменено</span>{/if}
             <button class="btn ghost danger" onclick={() => resetBlackout(row.event)}>Сбросить</button>
           </div>
           <div class="bo-grid">
