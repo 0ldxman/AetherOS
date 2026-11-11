@@ -15,68 +15,65 @@
           data-scan-url="{% url 'air:scan' %}" data-callsign-url="{% url 'air:callsign' %}" data-report-url="{% url 'air:report' %}">
         {{ state|json_script:"air-state" }}
 
-        {# передняя панель: лампы, шкала частоты, S-метр, подпись канала и свой позывной #}
-        <header class="panel">
-            <div class="lamps" aria-hidden="true">
-                <span id="air-rx" class="lamp lamp-rx on">RX</span>
-                <span id="air-txlamp" class="lamp lamp-tx">TX</span>
+        {# шапка как у вьюверов: тег, канал, строка сведений, статус справа #}
+        <header class="air-head">
+            <div class="air-meta">
+                <div class="air-title"><span class="air-tag">[AIR]</span><h1 id="air-label"></h1></div>
+                <div class="air-info">
+                    <span class="air-item"><span class="air-key">CALL:</span><button type="button" id="air-call" class="air-call" title="change callsign (once a week)"></button></span>
+                    <span class="air-item"><span class="air-key">SIGNAL:</span><span id="air-bars" class="air-bars" aria-hidden="true"></span><span id="air-s" class="air-val">S0</span></span>
+                    <span class="air-item"><span class="air-key">RX SINCE:</span><span id="air-since" class="air-val"></span></span>
+                </div>
             </div>
-            <div class="vfo-box">
-                <div id="air-vfo" class="vfo" tabindex="0" role="spinbutton" aria-label="frequency, MHz"
-                     title="wheel over a digit tunes that digit · ↑↓ step · click to type"></div>
-                <input id="air-freq" class="vfo-input" inputmode="decimal" spellcheck="false" autocomplete="off" aria-label="type frequency, MHz" hidden>
-                <span class="unit">MHz</span>
-            </div>
-            <div class="smeter" aria-label="signal strength">
-                <div id="air-bars" class="bars"></div>
-                <span id="air-s" class="sval">S0</span>
-            </div>
-            <div class="sub">
-                <span id="air-label" class="chan"></span>
-                <span id="air-inhibit" class="inhibit" hidden>TX INHIBIT</span>
-            </div>
-            <div class="mycall">
-                <span class="cap">MY CALL</span>
-                <button type="button" id="air-call" class="callsign" title="change callsign (once a week)"></button>
-            </div>
+            <div id="air-mode" class="air-status">RX</div>
         </header>
 
-        {# панорама: где на участке ±0.25 МГц был эфир за 15 минут; щелчок выводит на частоту #}
-        <section class="pano" aria-label="band scope">
-            <div id="air-scope" class="scope" title="click to tune">
-                <div class="floor"></div>
-                <div id="air-peaks" class="peaks"></div>
-                <div id="air-cursor" class="cursor"></div>
-                <div id="air-hover" class="hover" hidden></div>
-            </div>
-            <div id="air-scale" class="scale"></div>
-            <span id="air-sweep" class="sweep"></span>
+        {# панорама: где на участке ±250 кГц был эфир за 15 минут; щелчок выводит на частоту #}
+        <section class="air-stage" aria-label="band scope">
+            <canvas id="air-scope" class="air-scope"></canvas>
+            <span id="air-hover" class="air-hover" hidden></span>
+            <span id="air-sweep" class="air-sweep">SCOPE / SWEEPING</span>
         </section>
+        <div class="air-ruler" aria-hidden="true">
+            <div class="air-line"></div>
+            <div id="air-ticks" class="air-ticks"></div>
+            <div id="air-thumb" class="air-thumb"></div>
+            <div id="air-labels" class="air-labels"></div>
+        </div>
 
-        <nav class="keys" aria-label="tuning">
-            <div class="mem" id="air-mem"></div>
-            <div class="tuning">
-                <label class="cap" for="air-step">STEP</label>
-                <select id="air-step" class="stepsel">
-                    <option value="0.005">5 kHz</option>
-                    <option value="0.025">25 kHz</option>
-                    <option value="0.100">100 kHz</option>
-                    <option value="1.000">1 MHz</option>
-                </select>
-                <button type="button" class="key" data-step="-1" aria-label="tune down">◀</button>
-                <button type="button" class="key" data-step="1" aria-label="tune up">▶</button>
+        {# перестройка: как линия времени карты — ◀ значение ▶; справа память #}
+        <nav class="air-tuning" aria-label="tuning">
+            <div class="air-dial">
+                <button type="button" class="air-arrow" data-step="-1" aria-label="tune down">◀</button>
+                <div id="air-vfo" class="air-vfo" tabindex="0" role="spinbutton" aria-label="frequency, MHz"
+                     title="wheel over a digit tunes it · ↑ ↓ step · click to type"></div>
+                <input id="air-freq" class="air-vfo-input" inputmode="decimal" spellcheck="false" autocomplete="off" aria-label="type frequency, MHz" hidden>
+                <span class="air-unit">MHz</span>
+                <button type="button" class="air-arrow" data-step="1" aria-label="tune up">▶</button>
+                <label class="air-steplabel"><span class="air-key">STEP</span>
+                    <select id="air-step" class="air-select">
+                        <option value="0.005">5 kHz</option>
+                        <option value="0.025">25 kHz</option>
+                        <option value="0.100">100 kHz</option>
+                        <option value="1.000">1 MHz</option>
+                    </select>
+                </label>
             </div>
+            <div id="air-mem" class="air-mem" aria-label="memory channels"></div>
         </nav>
 
-        <section id="air-log" class="log" aria-live="polite" aria-label="received"></section>
+        <section class="air-logbox" aria-label="received">
+            <div class="air-logtitle"><span>air.log</span><span id="air-freqtitle" class="air-dim"></span></div>
+            <div id="air-log" class="air-log" aria-live="polite"></div>
+        </section>
 
-        <form id="air-tx" class="tx">
-            <span class="prompt">TX›</span>
-            <input id="air-text" class="field" maxlength="280" autocomplete="off" aria-label="transmission">
-            <span id="air-count" class="count">0/280</span>
-            <button type="submit" id="air-ptt" class="ptt">PTT</button>
+        <form id="air-tx" class="air-tx">
+            <label for="air-text" id="air-prompt" class="air-prompt"></label>
+            <input id="air-text" class="air-input" maxlength="280" autocomplete="off">
+            <span id="air-count" class="air-count">0/280</span>
+            <button type="submit" id="air-ptt" class="air-btn">transmit</button>
         </form>
-        <footer class="status"><span id="air-status"></span><span id="air-since"></span></footer>
+        <footer class="status"><span>↑ ↓  tune   ·   wheel over a digit   ·   click the scope to jump   ·   enter  transmit</span><span id="air-status"></span></footer>
     </main>
     {% csrf_token %}
 {% endblock %}

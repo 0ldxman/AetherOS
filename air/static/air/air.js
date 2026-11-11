@@ -1,4 +1,4 @@
-// Эфир: передняя панель трансивера. Слышно то, что пришло после выхода на частоту; опрос раз в 2 секунды.
+// Эфир: приёмник. Слышно то, что пришло после выхода на частоту; опрос раз в 2 секунды.
 // Панорама сама обходит участок ±250 кГц вокруг частоты (сервер пускает обход не чаще раза в 10 секунд).
 (function () {
     "use strict";
@@ -8,16 +8,17 @@
     const state = JSON.parse(document.getElementById("air-state").textContent);
     const $ = (id) => document.getElementById(id);
     const vfo = $("air-vfo"), input = $("air-freq"), log = $("air-log"), text = $("air-text"), ptt = $("air-ptt");
-    const callButton = $("air-call"), scope = $("air-scope"), peaks = $("air-peaks"), cursor = $("air-cursor"), hover = $("air-hover");
+    const callButton = $("air-call"), canvas = $("air-scope"), hover = $("air-hover"), mode = $("air-mode");
     const calm = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
     // частоты считаем в килогерцах целыми, чтобы не копить ошибки округления
     const GRID = 5;
     const LOW = kHz(state.low), HIGH = kHz(state.high), WIDTH = kHz(state.scan_width);
     const SCAN_EVERY = 12000, POLL_EVERY = 2000;
-    function kHz(value) { return Math.round(parseFloat(value) * 1000); }
+    function kHz(value) { return Math.round(parseFloat(String(value).replace(",", ".")) * 1000); }
     function mhz(k) { return (k / 1000).toFixed(3); }
     function snap(k) { return Math.min(HIGH, Math.max(LOW, Math.round(k / GRID) * GRID)); }
+    function clock(date) { return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: false }); }
 
     let shown = kHz(state.freq);     // что на шкале (при вращении колесом опережает настроенное)
     let last = 0;
@@ -33,31 +34,30 @@
         return data;
     }
     function status(line) { $("air-status").textContent = line; }
-    function clock(date) { return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: false }); }
 
     // ---------- шкала частоты: каждая цифра крутится колесом в своём разряде ----------
     const PLACES = [10000, 1000, null, 100, 10, GRID];          // десятки МГц, МГц, точка, сотни, десятки, единицы кГц
     function drawVfo() {
-        const textFreq = mhz(shown).padStart(6, " ");
         vfo.replaceChildren();
-        [...textFreq].forEach((ch, i) => {
+        [...mhz(shown).padStart(6, " ")].forEach((ch, i) => {
             if (ch === ".") { vfo.append(el("span", "dot", ".")); return; }
             const digit = el("span", "d" + (ch === " " ? " lead" : ""), ch === " " ? "0" : ch);
             digit.dataset.place = PLACES[i];
             vfo.append(digit);
         });
-        vfo.append(el("span", "d small lead", ".00"));
         vfo.setAttribute("aria-valuenow", mhz(shown));
         vfo.setAttribute("aria-valuetext", mhz(shown) + " MHz");
-        cursorAt();
+        drawRuler();
         markMemory();
     }
     function retune(k, now) {
         shown = snap(k);
         drawVfo();
+        draw();
         clearTimeout(tuneTimer);
         tuneTimer = setTimeout(() => tune(mhz(shown)), now ? 0 : 350);
     }
+    function stepK() { return Math.round(parseFloat($("air-step").value) * 1000); }
     vfo.addEventListener("wheel", (event) => {
         event.preventDefault();
         const place = Number(event.target.dataset?.place) || stepK();
@@ -65,7 +65,7 @@
     }, { passive: false });
     vfo.addEventListener("click", () => openInput(""));
     vfo.addEventListener("keydown", (event) => {
-        const moves = { ArrowUp: stepK(), ArrowDown: -stepK(), PageUp: 100, PageDown: -100 };
+        const moves = { ArrowUp: stepK(), ArrowDown: -stepK(), ArrowRight: stepK(), ArrowLeft: -stepK(), PageUp: 100, PageDown: -100 };
         if (event.key in moves) { event.preventDefault(); retune(shown + moves[event.key]); }
         else if (event.key === "Enter") { event.preventDefault(); openInput(""); }
         else if (/^[0-9.,]$/.test(event.key)) { event.preventDefault(); openInput(event.key); }
@@ -81,7 +81,7 @@
         if (input.hidden) return;
         input.hidden = true;
         vfo.hidden = false;
-        if (apply && input.value.trim() && kHz(input.value.replace(",", ".")) !== kHz(state.freq)) tune(input.value);
+        if (apply && input.value.trim() && kHz(input.value) !== kHz(state.freq)) tune(input.value);
         vfo.focus();
     }
     input.addEventListener("keydown", (event) => {
@@ -89,57 +89,65 @@
         else if (event.key === "Escape") closeInput(false);
     });
     input.addEventListener("blur", () => closeInput(true));
-
-    function stepK() { return Math.round(parseFloat($("air-step").value) * 1000); }
-    root.querySelectorAll(".key[data-step]").forEach((button) =>
+    root.querySelectorAll(".air-arrow").forEach((button) =>
         button.addEventListener("click", () => retune(shown + Number(button.dataset.step) * stepK(), true)));
+    // стрелки работают и без фокуса на шкале, если игрок не печатает
+    document.addEventListener("keydown", (event) => {
+        if (event.target.closest("input, select, textarea, button, [contenteditable]") || event.target === vfo) return;
+        if (event.key === "ArrowUp" || event.key === "ArrowDown") { event.preventDefault(); retune(shown + (event.key === "ArrowUp" ? 1 : -1) * stepK()); }
+    });
 
-    // ---------- состояние панели ----------
+    // ---------- состояние ----------
     function show() {
         shown = kHz(state.freq);
         drawVfo();
-        $("air-label").textContent = state.label || "";
-        $("air-inhibit").hidden = !state.inhibit;
-        callButton.textContent = state.callsign || "— listener —";
+        $("air-label").textContent = state.label || "open channel";
+        $("air-freqtitle").textContent = state.freq + " MHz";
+        callButton.textContent = state.callsign || "listener";
         callButton.disabled = !state.can_tx;
         const live = state.can_tx && !state.inhibit;
         ptt.disabled = !live;
         text.disabled = !live;
-        $("air-tx").setAttribute("aria-disabled", live ? "false" : "true");
-        text.placeholder = !state.can_tx ? "receive only: sign in to transmit" : state.inhibit ? "transmit inhibited on this band" : "type, then PTT or Enter";
-        $("air-txlamp").classList.toggle("off", !live);
-        $("air-since").textContent = "rx since " + clock(new Date(state.since));
+        $("air-prompt").textContent = (state.callsign || "listener") + "@" + state.freq + " ›";
+        text.placeholder = !state.can_tx ? "receive only: sign in to transmit" : state.inhibit ? "transmit inhibited on this band" : "message, then Enter";
+        text.setAttribute("aria-label", "transmission on " + state.freq + " MHz");
+        $("air-since").textContent = clock(new Date(state.since));
+        setMode(state.inhibit ? "RX · TX INHIBIT" : "RX");
+    }
+    function setMode(label, tx) {
+        mode.textContent = label;
+        mode.classList.toggle("tx", !!tx);
     }
 
-    // ---------- приём: окно декодера ----------
-    function line(row, fresh) {
-        const node = el("div", "line" + (row.station ? " station" : "") + (row.mine ? " mine" : "") + (row.hidden ? " noise" : "") + (fresh ? " fresh" : ""));
-        node.append(el("span", "at", row.at), el("span", "who", row.callsign), el("span", "text", row.text));
-        const flag = el("button", "flag", "report");
+    // ---------- журнал приёма ----------
+    function row(item) {
+        const node = el("div", "air-row" + (item.station ? " station" : "") + (item.mine ? " mine" : "") + (item.hidden ? " noise" : ""));
+        node.append(el("span", "at", item.at), el("span", "who", item.callsign), el("span", "text", item.text));
+        const flag = el("button", "flag", "REPORT");
         flag.type = "button";
         flag.title = "report this transmission to the operators";
-        flag.hidden = row.mine || row.station || row.hidden || !state.can_tx;
+        flag.hidden = item.mine || item.station || item.hidden || !state.can_tx;
         flag.addEventListener("click", async () => {
-            try { await call(urls.reportUrl, { id: row.id, reason: "" }); flag.remove(); notice("report sent"); } catch (error) { notice(error.message); }
+            try { await call(urls.reportUrl, { id: item.id, reason: "" }); flag.remove(); notice("report sent"); } catch (error) { notice(error.message); }
         });
         node.append(flag);
         return node;
     }
-    function mark(textLine, cls) {
-        log.append(el("p", "mark " + (cls || ""), textLine));
+    function note(line) {
+        log.append(el("p", "air-note", line));
         log.scrollTop = log.scrollHeight;
     }
+    function started() { note("— tuned " + state.freq + " MHz at " + clock(new Date(state.since)) + ", listening —"); }
 
-    async function poll(first) {
+    async function poll() {
         try {
             const data = await call(urls.listenUrl + "?after=" + last);
             if (data.freq !== state.freq) return;
             if (data.rows.length) {
-                log.querySelector(".mark.wait")?.remove();
                 const near = log.scrollHeight - log.scrollTop - log.clientHeight < 40;
-                data.rows.forEach((row) => {
-                    log.append(line(row, !first));
-                    if (!row.mine) kick(row.station ? 11 : 6 + Math.random() * 3);
+                data.rows.forEach((item) => {
+                    log.append(row(item));
+                    if (!item.mine) kick(item.station ? 11 : 6 + Math.random() * 3);
                 });
                 last = data.rows[data.rows.length - 1].id;
                 if (near) log.scrollTop = log.scrollHeight;
@@ -157,124 +165,160 @@
             const moved = data.freq !== state.freq;
             Object.assign(state, data);
             show();
-            if (moved || !log.children.length) {
-                last = 0;
-                mark("tuned " + state.freq + " MHz · " + clock(new Date(state.since)), "tune");
-                mark("listening…", "wait");
-                rescope();
-            }
-            poll(true);
+            if (moved) { last = 0; started(); sweep(); }
+            poll();
         } catch (error) {
             notice(error.message);
             shown = kHz(state.freq);
             drawVfo();
+            draw();
         }
     }
 
-    // ---------- S-метр: шум и всплески принятых передач ----------
-    const SEGMENTS = 12;
-    const bars = $("air-bars");
-    for (let i = 0; i < SEGMENTS; i++) {
-        const bar = el("i", i >= 9 ? "hot-slot" : "");
-        bar.style.height = (35 + i * 6) + "%";
-        bars.append(bar);
-    }
+    // ---------- S-метр ----------
     let level = 1.5;
     function kick(value) { level = Math.max(level, value); }
     function meter() {
         const floor = calm ? 1.5 : 1.2 + Math.random() * 0.9;
         level = Math.max(floor, level - 0.18);
-        const lit = Math.round(level);
-        [...bars.children].forEach((bar, i) => {
-            bar.classList.toggle("lit", i < lit);
-            bar.classList.toggle("hot", i < lit && i >= 9);
-        });
-        $("air-s").textContent = lit <= 9 ? "S" + lit : "+" + (lit - 9) * 20;
+        const lit = Math.min(12, Math.round(level));
+        const bars = $("air-bars");
+        if (!bars.children.length) for (let i = 0; i < 12; i++) bars.append(el("i", i >= 9 ? "over" : ""));
+        [...bars.children].forEach((bar, i) => bar.classList.toggle("lit", i < lit));
+        $("air-s").textContent = lit <= 9 ? "S" + lit : "S9+" + (lit - 9) * 20;
     }
-    setInterval(meter, 120);
 
     // ---------- панорама ----------
     let found = [];
     let scannedAt = 0;
     let scanTimer = null;
-    function windowAround(k) {
-        const low = Math.max(LOW, Math.min(HIGH - WIDTH, k - WIDTH / 2));
+    let hoverK = null;
+    function view() {
+        const low = Math.max(LOW, Math.min(HIGH - WIDTH, kHz(state.freq) - WIDTH / 2));
         return { low, high: low + WIDTH };
     }
-    function share(k, view) { return ((k - view.low) / (view.high - view.low)) * 100; }
-    function cursorAt() {
-        const view = windowAround(kHz(state.freq));
-        cursor.style.left = share(shown, view) + "%";
-    }
-    function drawScale(view) {
-        const scale = $("air-scale");
-        scale.replaceChildren();
-        for (let k = Math.ceil(view.low / 100) * 100; k <= view.high; k += 100) {
-            const tick = el("span", "", mhz(k));
-            tick.style.left = share(k, view) + "%";
-            scale.append(tick);
+    function gutter() { return parseFloat(getComputedStyle(root).getPropertyValue("--air-gutter")) || 22; }
+    function share(k, range) { return (k - range.low) / (range.high - range.low); }
+
+    function drawRuler() {
+        const range = view();
+        const ticks = $("air-ticks"), labels = $("air-labels");
+        ticks.replaceChildren();
+        labels.replaceChildren();
+        for (let k = Math.ceil(range.low / 25) * 25; k <= range.high; k += 25) {
+            const tick = el("i", k % 100 ? "minor" : "");
+            tick.style.left = share(k, range) * 100 + "%";
+            ticks.append(tick);
+            if (k % 100 === 0) {
+                const label = el("span", "", mhz(k));
+                label.style.left = share(k, range) * 100 + "%";
+                labels.append(label);
+            }
         }
+        $("air-thumb").style.left = share(shown, range) * 100 + "%";
     }
-    function drawPeaks() {
-        const view = windowAround(kHz(state.freq));
-        drawScale(view);
-        peaks.replaceChildren(...found.filter((row) => row.k >= view.low && row.k <= view.high).map((row) => {
-            const peak = el("div", "peak" + (row.k === kHz(state.freq) ? " here" : ""));
-            peak.style.left = share(row.k, view) + "%";
-            peak.style.height = Math.min(92, 28 + Math.log2(1 + row.count) * 18) + "%";
-            peak.style.opacity = Math.max(0.35, 1 - row.ago / 15);
-            peak.title = mhz(row.k) + " · " + row.count + " tx · " + (row.ago ? row.ago + " min ago" : "just now");
-            return peak;
-        }));
-        cursorAt();
+
+    const COLUMNS = WIDTH / GRID + 1;
+    let noise = new Float32Array(COLUMNS);
+    function shake() { for (let i = 0; i < COLUMNS; i++) noise[i] = noise[i] * 0.6 + (0.03 + Math.random() * Math.random() * 0.09) * 0.4; }
+    function draw() {
+        const ratio = window.devicePixelRatio || 1;
+        const width = canvas.clientWidth, height = canvas.clientHeight;
+        if (!width || !height) return;
+        if (canvas.width !== Math.round(width * ratio)) { canvas.width = Math.round(width * ratio); canvas.height = Math.round(height * ratio); }
+        const ctx = canvas.getContext("2d");
+        ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
+        ctx.clearRect(0, 0, width, height);
+        const css = getComputedStyle(canvas);
+        const light = css.color, muted = getComputedStyle(root).getPropertyValue("--font-muted").trim() || light;
+        const accent = getComputedStyle(root).getPropertyValue("--accent").trim() || light;
+        const range = view();
+        const pad = gutter(), usable = width - pad * 2, column = usable / (COLUMNS - 1), bar = Math.max(1, Math.min(3, column * 0.6));
+        const base = height - 6;
+        const heat = new Map(found.map((item) => [item.k, item]));
+        // сетка: еле заметные горизонтали
+        ctx.globalAlpha = 0.12;
+        ctx.fillStyle = light;
+        for (let y = base; y > 6; y -= (base - 6) / 4) ctx.fillRect(pad, Math.round(y), usable, 1);
+        for (let i = 0; i < COLUMNS; i++) {
+            const k = range.low + i * GRID;
+            const x = Math.round(pad + i * column - bar / 2);
+            const hit = heat.get(k);
+            let value = noise[i];
+            if (k === kHz(state.freq)) value = Math.max(value, (level - 1) / 12 * 0.9);
+            ctx.fillStyle = muted;
+            ctx.globalAlpha = 0.55;
+            ctx.fillRect(x, base - value * (base - 8), bar, value * (base - 8));
+            if (hit) {
+                const peak = Math.min(0.92, 0.28 + Math.log2(1 + hit.count) * 0.17);
+                ctx.fillStyle = light;
+                ctx.globalAlpha = Math.max(0.35, 1 - hit.ago / 15);
+                ctx.fillRect(x, base - peak * (base - 8), bar, peak * (base - 8));
+            }
+        }
+        // курсор настроенной частоты и наведённая частота
+        ctx.globalAlpha = 1;
+        ctx.fillStyle = accent;
+        ctx.fillRect(Math.round(pad + share(shown, range) * usable), 0, 1, height);
+        if (hoverK !== null) {
+            ctx.globalAlpha = 0.5;
+            ctx.fillStyle = light;
+            ctx.fillRect(Math.round(pad + share(hoverK, range) * usable), 0, 1, height);
+        }
+        ctx.globalAlpha = 1;
     }
+
     async function sweep() {
         clearTimeout(scanTimer);
         const wait = scannedAt + 10500 - Date.now();
         if (wait > 0) { scanTimer = setTimeout(sweep, wait); return; }
-        const view = windowAround(kHz(state.freq));
+        const range = view();
+        $("air-sweep").textContent = "SCOPE / SWEEPING";
         try {
-            const data = await call(urls.scanUrl + "?low=" + mhz(view.low) + "&high=" + mhz(view.high));
-            found = data.rows.map((row) => ({ k: kHz(row.freq), count: row.count, ago: row.ago }));
+            const data = await call(urls.scanUrl + "?low=" + mhz(range.low) + "&high=" + mhz(range.high));
+            found = data.rows.map((item) => ({ k: kHz(item.freq), count: item.count, ago: item.ago }));
             scannedAt = Date.now();
-            $("air-sweep").textContent = "scope ±" + WIDTH / 2 + " kHz · " + clock(new Date());
-            drawPeaks();
+            $("air-sweep").textContent = "SCOPE ±" + WIDTH / 2 + " KHZ · 15 MIN · " + clock(new Date());
+            draw();
         } catch (error) {
-            if (error.status === 429) { scannedAt = Date.now(); scanTimer = setTimeout(sweep, 10500); return; }
+            scannedAt = Date.now();
+            if (error.status === 429) { scanTimer = setTimeout(sweep, 10500); return; }
+            $("air-sweep").textContent = "SCOPE / NO DATA";
         }
         scanTimer = setTimeout(sweep, SCAN_EVERY);
     }
-    function rescope() { drawPeaks(); sweep(); }
 
+    // курсор мыши: точка под мышью, а рядом со всплеском — сам всплеск
     function freqAt(event) {
-        const box = scope.getBoundingClientRect();
-        const view = windowAround(kHz(state.freq));
-        return snap(view.low + ((event.clientX - box.left) / box.width) * (view.high - view.low));
+        const box = canvas.getBoundingClientRect();
+        const range = view();
+        const k = snap(range.low + ((event.clientX - box.left - gutter()) / (box.width - 2 * gutter())) * WIDTH);
+        const close = found.reduce((best, item) => (Math.abs(item.k - k) <= 10 && (!best || Math.abs(item.k - k) < Math.abs(best.k - k)) ? item : best), null);
+        return close ? close.k : k;
     }
-    scope.addEventListener("mousemove", (event) => {
+    canvas.addEventListener("mousemove", (event) => {
+        hoverK = freqAt(event);
+        const hit = found.find((item) => item.k === hoverK);
         hover.hidden = false;
-        hover.textContent = mhz(freqAt(event));
-        hover.style.left = ((event.clientX - scope.getBoundingClientRect().left) / scope.clientWidth) * 100 + "%";
+        hover.textContent = mhz(hoverK) + (hit ? " · " + hit.count + " tx · " + (hit.ago ? hit.ago + " min ago" : "now") : "");
+        const box = canvas.getBoundingClientRect();
+        hover.style.left = Math.min(box.width - 60, Math.max(60, event.clientX - box.left)) + "px";
+        draw();
     });
-    scope.addEventListener("mouseleave", () => { hover.hidden = true; });
-    scope.addEventListener("click", (event) => {
-        // щелчок рядом со всплеском ловит его точно
-        const k = freqAt(event);
-        const close = found.reduce((best, row) => (Math.abs(row.k - k) <= 6 && (!best || Math.abs(row.k - k) < Math.abs(best.k - k)) ? row : best), null);
-        retune(close ? close.k : k, true);
-    });
+    canvas.addEventListener("mouseleave", () => { hover.hidden = true; hoverK = null; draw(); });
+    canvas.addEventListener("click", (event) => retune(freqAt(event), true));
 
     // ---------- память: M1–M3 и вызывной канал ----------
     const MEM_KEY = "air-memory";
     let memory = [null, null, null];
     try { const saved = JSON.parse(localStorage.getItem(MEM_KEY) || "null"); if (Array.isArray(saved)) memory = [0, 1, 2].map((i) => saved[i] || null); } catch (error) { /* без памяти браузера каналы живут до закрытия */ }
     function keep() { try { localStorage.setItem(MEM_KEY, JSON.stringify(memory)); } catch (error) { /* не сохранилось: не беда */ } }
-    function memKey(label, value, onPick, onStore) {
-        const button = el("button", "key" + (value ? " set" : " empty"));
+    function memButton(label, value, onPick, onStore) {
+        const button = el("button", value ? "" : "blank");
         button.type = "button";
-        button.append(el("b", "", label), document.createTextNode(value || "———"));
+        button.append(el("span", "air-key", label), document.createTextNode(value || "---.---"));
         button.dataset.freq = value || "";
-        button.title = onStore ? (value ? "click: go to " + value + " · hold: store current" : "click: store current frequency") : "calling channel";
+        button.title = onStore ? (value ? "go to " + value + " · right click or hold: store current" : "store current frequency") : "calling channel";
         let held = null, stored = false;
         if (onStore) {
             const store = () => { stored = true; onStore(); };
@@ -286,23 +330,19 @@
         return button;
     }
     function drawMemory() {
-        const box = $("air-mem");
-        box.replaceChildren(...memory.map((value, i) => memKey("M" + (i + 1), value,
+        $("air-mem").replaceChildren(...memory.map((value, i) => memButton("M" + (i + 1), value,
             () => (value ? retune(kHz(value), true) : save(i)), () => save(i))),
-            memKey("CALL", state.calling, () => retune(kHz(state.calling), true)));
+            memButton("CALL", state.calling, () => retune(kHz(state.calling), true)));
         markMemory();
     }
     function save(i) {
         memory[i] = mhz(shown);
         keep();
         drawMemory();
-        const button = $("air-mem").children[i];
-        button.classList.add("saved");
-        setTimeout(() => button.classList.remove("saved"), 700);
-        notice("M" + (i + 1) + " ← " + memory[i]);
+        notice("M" + (i + 1) + " stored: " + memory[i] + " MHz");
     }
     function markMemory() {
-        $("air-mem")?.querySelectorAll(".key").forEach((button) => button.classList.toggle("cur", button.dataset.freq === mhz(shown)));
+        $("air-mem").querySelectorAll("button").forEach((button) => button.classList.toggle("cur", button.dataset.freq === mhz(shown)));
     }
 
     // ---------- передача ----------
@@ -315,20 +355,20 @@
         event.preventDefault();
         const value = text.value.trim();
         if (!value || ptt.disabled) return;
-        const lamp = $("air-txlamp"), rx = $("air-rx");
-        lamp.classList.add("on"); rx.classList.remove("on"); ptt.classList.add("keyed");
+        setMode("TX · ON AIR", true);
+        ptt.classList.add("keyed");
         try {
             await call(urls.txUrl, { text: value });
             text.value = "";
             text.dispatchEvent(new Event("input"));
             await poll();
         } catch (error) { notice(error.message); }
-        setTimeout(() => { lamp.classList.remove("on"); rx.classList.add("on"); ptt.classList.remove("keyed"); }, 450);
+        setTimeout(() => { setMode(state.inhibit ? "RX · TX INHIBIT" : "RX"); ptt.classList.remove("keyed"); }, 450);
     });
 
     // ---------- позывной: щелчок превращает его в поле, Enter сохраняет, Esc отменяет ----------
     callButton.addEventListener("click", () => {
-        const field = el("input", "field callinput");
+        const field = el("input", "air-callinput");
         field.value = state.callsign;
         field.maxLength = 12;
         field.setAttribute("aria-label", "new callsign (once a week)");
@@ -352,10 +392,13 @@
 
     show();
     drawMemory();
-    mark("tuned " + state.freq + " MHz · " + clock(new Date(state.since)), "tune");
-    mark("listening…", "wait");
-    rescope();
-    poll(true);
+    started();
+    shake();
+    draw();
+    sweep();
+    poll();
     setInterval(poll, POLL_EVERY);
+    setInterval(() => { meter(); if (!calm) shake(); draw(); }, calm ? 600 : 160);
+    window.addEventListener("resize", draw);
     document.addEventListener("visibilitychange", () => { if (!document.hidden) poll(); });
 })();
