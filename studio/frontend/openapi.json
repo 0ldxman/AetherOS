@@ -17473,17 +17473,17 @@
       "type": "string"
      },
      "pattern_color": {
-      "default": "#ffffff",
+      "default": "",
       "title": "Pattern Color",
       "type": "string"
      },
      "pattern_size": {
-      "default": 24,
+      "default": 0,
       "title": "Pattern Size",
       "type": "integer"
      },
      "pattern_opacity": {
-      "default": 15,
+      "default": 100,
       "title": "Pattern Opacity",
       "type": "integer"
      }

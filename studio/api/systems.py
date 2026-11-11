@@ -119,9 +119,9 @@ class WallpaperValue(Schema):
     mode: str = "center"
     opacity: int = 100
     pattern: str = "none"
-    pattern_color: str = "#ffffff"
-    pattern_size: int = 24
-    pattern_opacity: int = 15
+    pattern_color: str = ""          # пусто: цвет сетки стиля (--line-faint)
+    pattern_size: int = 0            # 0: шаг сетки стиля (--cell)
+    pattern_opacity: int = 100
 
 
 class StyleIn(Schema):

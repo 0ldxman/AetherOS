@@ -52,6 +52,39 @@ class ValuesTests(TestCase):
         self.assertEqual(wallpaper.render("/u", {"pattern": "grid", "pattern_color": "red; x"}), "")      # невалидное не попадает в страницу
 
 
+class LikeTheStyleTests(TestCase):
+    def test_the_default_pattern_repeats_the_grid_of_the_style(self):
+        self.assertEqual((wallpaper.DEFAULT["pattern_size"], wallpaper.DEFAULT["pattern_color"], wallpaper.DEFAULT["pattern_opacity"]), (0, "", 100))
+        self.assertEqual(wallpaper.problems({"pattern": "grid"}), [])
+        aether = wallpaper.style_look("aether", {})
+        self.assertEqual(aether, {"size": 48, "color": "#212121"})
+        self.assertEqual(wallpaper.style_look("modern", {})["color"], "#20252e")
+        self.assertEqual(wallpaper.style_look("aether", {"--cell": "32px", "--line-faint": "#112233"}), {"size": 32, "color": "#112233"})
+        self.assertEqual(wallpaper.style_look("aether", {"--cell": "2rem", "--line-faint": "rgb(1, 2, 3)"}), aether)      # что не разобрать, по умолчанию
+        html = wallpaper.render("/u", {"pattern": "grid"}, {"size": 32, "color": "#112233"})
+        self.assertIn("32px 32px", html)
+        self.assertIn("%23112233", html)
+        self.assertIn("opacity:1", html)
+        own = wallpaper.render("/u", {"pattern": "grid", "pattern_size": 20, "pattern_color": "#ff0000"}, {"size": 32, "color": "#112233"})
+        self.assertIn("20px 20px", own)
+        self.assertIn("%23ff0000", own)
+
+    def test_old_defaults_become_like_the_style(self):
+        import importlib
+
+        from django.apps import apps
+
+        system = SystemType.objects.get(code="AETHER")
+        system.wallpaper = {"pattern": "grid", "pattern_size": 24, "pattern_color": "#ffffff", "pattern_opacity": 15}
+        system.save()
+        other = SystemType.objects.create(code="OTHER", name="Other", wallpaper={"pattern": "dots", "pattern_size": 30, "pattern_color": "#ffffff", "pattern_opacity": 15})
+        importlib.import_module("machines.migrations.0038_wallpaper_pattern_like_style").like_style(apps, None)
+        system.refresh_from_db()
+        other.refresh_from_db()
+        self.assertEqual((system.wallpaper["pattern_size"], system.wallpaper["pattern_color"], system.wallpaper["pattern_opacity"]), (0, "", 100))
+        self.assertEqual(other.wallpaper["pattern_size"], 30)          # свои значения не трогаются
+
+
 @override_settings(FORCE_SCRIPT_NAME=None)
 class PageTests(TestCase):
     def setUp(self):

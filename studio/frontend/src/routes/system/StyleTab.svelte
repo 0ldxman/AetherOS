@@ -58,6 +58,9 @@
   const pickerValue = (token: Schemas["TokenInfo"]) => (HEX6.test(look.tokens[token.name] ?? "") ? look.tokens[token.name] : HEX6.test(def(token)) ? def(token) : "#000000");
   // картинка рабочего стола: сотрудник видит и ещё не сохранённый файл (?file=)
   const wallUrl = (fileId: string) => `${(window as unknown as { STUDIO: { site: string } }).STUDIO.site}wallpaper/${encodeURIComponent(system.code)}/?file=${encodeURIComponent(fileId)}`;
+  // сетка выбранного стиля: с неё начинается узор (шаг --cell и цвет --line-faint с учётом токенов ниже)
+  const gridCell = $derived(Math.round(parseFloat(look.tokens["--cell"] ?? styleDefaults["--cell"] ?? "48")) || 48);
+  const gridColor = $derived.by(() => { const value = look.tokens["--line-faint"] ?? styleDefaults["--line-faint"] ?? ""; return HEX6.test(value) ? value : "#212121"; });
   const desktopUrl = $derived(`${(window as unknown as { STUDIO: { site: string } }).STUDIO.site}?preview_os=${system.code}`);
 
   // сервер вернул ОС заново (после сохранения): берём значения оттуда
@@ -138,11 +141,21 @@
         </div>
         {#if look.wallpaper.pattern !== "none"}
           <span class="wlabel">Цвет</span>
-          <input class="picker" type="color" bind:value={look.wallpaper.pattern_color} aria-label="Цвет узора" />
+          <div class="range">
+            <input class="picker" type="color" value={look.wallpaper.pattern_color || gridColor} oninput={(e) => (look.wallpaper.pattern_color = e.currentTarget.value)} aria-label="Цвет узора" />
+            <output class="same">{look.wallpaper.pattern_color ? look.wallpaper.pattern_color : "как у сетки стиля"}</output>
+            <button class="btn ghost" disabled={!look.wallpaper.pattern_color} onclick={() => (look.wallpaper.pattern_color = "")} title="Цвет сетки стиля">×</button>
+          </div>
           <span class="wlabel">Шаг</span>
-          <div class="range"><input type="range" min="8" max="120" step="2" bind:value={look.wallpaper.pattern_size} aria-label="Шаг узора" /><output>{look.wallpaper.pattern_size} px</output></div>
+          <div class="range">
+            <input type="range" min="8" max="120" step="2" value={look.wallpaper.pattern_size || gridCell} oninput={(e) => (look.wallpaper.pattern_size = +e.currentTarget.value)} aria-label="Шаг узора" />
+            <output>{look.wallpaper.pattern_size || gridCell} px</output>
+            <button class="btn ghost" disabled={!look.wallpaper.pattern_size} onclick={() => (look.wallpaper.pattern_size = 0)} title="Шаг сетки стиля">×</button>
+          </div>
           <span class="wlabel">Прозрачность</span>
           <div class="range"><input type="range" min="0" max="100" step="5" bind:value={look.wallpaper.pattern_opacity} aria-label="Прозрачность узора" /><output>{look.wallpaper.pattern_opacity}%</output></div>
+          <span class="wlabel"></span>
+          <p class="muted small">Пока цвет и шаг не заданы, узор повторяет сетку выбранного стиля ({gridCell} px), и замена получается незаметной.</p>
         {/if}
       </div>
       {#if errors.wallpaper}{#each errors.wallpaper as text}<p class="warn small">{text}</p>{/each}{/if}
@@ -243,6 +256,8 @@
   .seg button.on { background: var(--accent-soft); color: var(--text); }
   .range { display: flex; align-items: center; gap: 10px; }
   .range input { flex: 1; max-width: 280px; accent-color: var(--accent); }
+  .range input.picker { flex: none; max-width: none; width: 34px; }
+  .range output.same { min-width: 0; }
   .range output { min-width: 52px; font-variant-numeric: tabular-nums; color: var(--muted); font-size: 12.5px; }
   .patterns { display: flex; gap: 8px; flex-wrap: wrap; }
   .pat { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 6px 10px; border: 1px solid var(--line-soft); border-radius: var(--radius-s); background: none; color: var(--muted); font: inherit; font-size: 12px; cursor: pointer; }

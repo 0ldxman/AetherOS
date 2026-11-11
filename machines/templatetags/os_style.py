@@ -114,7 +114,7 @@ def os_wallpaper(context):
     request = context.get("request")
     if request is None:
         return ""
-    _slug, _tokens, code, picture = _state(request)
+    slug, tokens, code, picture = _state(request)
     if not code:
         return ""
     data = wallpaper.clean(picture)
@@ -125,4 +125,4 @@ def os_wallpaper(context):
     if user is not None and user.is_authenticated and user.is_staff:          # сотрудник видит и ещё не сохранённый файл (предпросмотр в студии)
         query["file"] = data["file_id"]
     url = reverse("os_wallpaper", kwargs={"code": code}) + "?" + urlencode(query)
-    return wallpaper.render(url, data)
+    return wallpaper.render(url, data, wallpaper.style_look(slug, tokens))

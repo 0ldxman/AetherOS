@@ -4,7 +4,7 @@ export type Wallpaper = {
   pattern: string; pattern_color: string; pattern_size: number; pattern_opacity: number;
 };
 
-export const WALLPAPER_DEFAULT: Wallpaper = { file_id: "", file_name: "", mode: "center", opacity: 100, pattern: "none", pattern_color: "#ffffff", pattern_size: 24, pattern_opacity: 15 };
+export const WALLPAPER_DEFAULT: Wallpaper = { file_id: "", file_name: "", mode: "center", opacity: 100, pattern: "none", pattern_color: "", pattern_size: 0, pattern_opacity: 100 };      // цвет "" и шаг 0: как сетка стиля
 export const WALL_MODES: { key: string; label: string; hint: string }[] = [
   { key: "center", label: "По центру", hint: "Реальный размер по центру экрана, большая картинка уменьшается, чтобы влезть. Подходит для логотипа." },
   { key: "cover", label: "Растянуть", hint: "Картинка заполняет весь экран, лишнее по краям обрезается." },

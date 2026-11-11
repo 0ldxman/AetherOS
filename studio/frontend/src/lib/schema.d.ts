@@ -6061,17 +6061,17 @@ export interface components {
             pattern: string;
             /**
              * Pattern Color
-             * @default #ffffff
+             * @default
              */
             pattern_color: string;
             /**
              * Pattern Size
-             * @default 24
+             * @default 0
              */
             pattern_size: number;
             /**
              * Pattern Opacity
-             * @default 15
+             * @default 100
              */
             pattern_opacity: number;
         };

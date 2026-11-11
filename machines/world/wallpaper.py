@@ -15,7 +15,9 @@ MODES = {"center": "По центру", "cover": "Растянуть"}
 PATTERNS = {"none": "Нет", "grid": "Сетка", "dots": "Точки", "plus": "Плюсики"}
 SIZE_MIN, SIZE_MAX = 8, 200
 
-DEFAULT = {"file_id": "", "file_name": "", "mode": "center", "opacity": 100, "pattern": "none", "pattern_color": "#ffffff", "pattern_size": 24, "pattern_opacity": 15}
+# Узор по умолчанию повторяет сетку стола у стиля ОС: пустой цвет и шаг 0 значат «как в стиле» (--line-faint и --cell), прозрачность 100%.
+STYLE_LOOK = {"size": 48, "color": "#212121"}
+DEFAULT = {"file_id": "", "file_name": "", "mode": "center", "opacity": 100, "pattern": "none", "pattern_color": "", "pattern_size": 0, "pattern_opacity": 100}
 _COLOR = re.compile(r"^#[0-9a-fA-F]{6}$")
 _FILE_ID = re.compile(r"^[\w.-]{1,64}$")
 
@@ -37,11 +39,13 @@ def problems(data):
         found.append(f"Режим картинки: {', '.join(MODES)}.")
     if data["pattern"] not in PATTERNS:
         found.append(f"Узор: {', '.join(PATTERNS)}.")
-    if not (isinstance(data["pattern_color"], str) and _COLOR.match(data["pattern_color"])):
-        found.append("Цвет узора пишется как #1a2b3c.")
+    if data["pattern_color"] != "" and not (isinstance(data["pattern_color"], str) and _COLOR.match(data["pattern_color"])):
+        found.append("Цвет узора пишется как #1a2b3c или остаётся пустым («как в стиле»).")
     for name, label, low, high in (("opacity", "Прозрачность картинки", 0, 100), ("pattern_opacity", "Прозрачность узора", 0, 100),
-                                   ("pattern_size", "Шаг узора", SIZE_MIN, SIZE_MAX)):
+                                   ("pattern_size", "Шаг узора (0: как в стиле)", SIZE_MIN, SIZE_MAX)):
         value = data[name]
+        if name == "pattern_size" and value == 0:          # как в стиле
+            continue
         if isinstance(value, bool) or not isinstance(value, int) or not low <= value <= high:
             found.append(f"{label}: целое число от {low} до {high}.")
     return found
@@ -86,20 +90,37 @@ def tile(pattern, color, size):
     return "data:image/svg+xml," + quote(svg, safe="")
 
 
-def render(url, data):
+def render(url, data, look=None):
     """HTML слоёв (стиль и два элемента) или пустая строка; url это адрес картинки с версией.
     Слои лежат внутри #desktop, под значками и окнами. Собственный рисунок фона стиля (сетка, градиенты) снимается: картинка и узор
     его заменяют, цвет фона (--bg) остаётся."""
     data = clean(data)
     if problems(data) or is_empty(data):
         return ""
+    look = {**STYLE_LOOK, **(look or {})}
     rules, blocks = ["#desktop{isolation:isolate;background-image:none!important}#os-wallpaper,#os-pattern{position:absolute;inset:0;z-index:-1;pointer-events:none}"], []
     if data["file_id"]:
         fit = "scale-down" if data["mode"] == "center" else "cover"
         rules.append(f"#os-wallpaper{{opacity:{data['opacity'] / 100:g}}}#os-wallpaper img{{display:block;width:100%;height:100%;object-fit:{fit}}}")
         blocks.append(format_html('<div id="os-wallpaper" aria-hidden="true"><img src="{}" alt=""></div>', url))
     if data["pattern"] != "none":
-        size = data["pattern_size"]
-        rules.append(f'#os-pattern{{opacity:{data["pattern_opacity"] / 100:g};background:url("{tile(data["pattern"], data["pattern_color"], size)}") 0 0/{size}px {size}px}}')
+        size = data["pattern_size"] or look["size"]
+        color = data["pattern_color"] or look["color"]
+        rules.append(f'#os-pattern{{opacity:{data["pattern_opacity"] / 100:g};background:url("{tile(data["pattern"], color, size)}") 0 0/{size}px {size}px}}')
         blocks.append(mark_safe('<div id="os-pattern" aria-hidden="true"></div>'))
     return mark_safe(f'<style id="os-wallpaper-style">{"".join(rules)}</style>') + mark_safe("".join(str(b) for b in blocks))
+
+
+def style_look(slug, tokens):
+    """Шаг и цвет сетки стола у стиля с учётом токенов автора: {size, color}. Что не разобрать (var(...)), берётся по умолчанию."""
+    from machines.world import styles
+
+    values = {**styles.style_defaults(slug), **{name: str(value).strip() for name, value in (tokens or {}).items()}}
+    look = dict(STYLE_LOOK)
+    match = re.match(r"^(\d+(?:\.\d+)?)px$", values.get("--cell", ""))
+    if match and SIZE_MIN <= float(match.group(1)) <= SIZE_MAX:
+        look["size"] = round(float(match.group(1)))
+    color = values.get("--line-faint", "")
+    if re.match(r"^#[0-9a-fA-F]{6}$", color):
+        look["color"] = color
+    return look
