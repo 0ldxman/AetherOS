@@ -63,7 +63,7 @@ async function authorState(browser) {
     let ctx, page, video;
     try {
       ctx = await browser.newContext({
-        viewport: size, deviceScaleFactor: 1, storageState: script.as === "player" ? undefined : author,
+        viewport: size, deviceScaleFactor: 1, storageState: script.as === "author" ? author : undefined,
         ...(clip ? { recordVideo: { dir: tmp, size } } : {}),
       });
       if (script.as === "player") await ctx.addCookies([{ name: "sessionid", value: world.player_cookie, url: base }]);

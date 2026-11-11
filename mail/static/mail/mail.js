@@ -796,8 +796,9 @@
 
     document.addEventListener("keydown", function (event) {
         if (event.ctrlKey || event.metaKey || event.altKey) return;
-        if (document.activeElement && document.activeElement.tagName === "TEXTAREA") {
-            if (event.key === "Escape") closeComposer();
+        const typing = document.activeElement && ["TEXTAREA", "INPUT", "SELECT"].includes(document.activeElement.tagName);
+        if (typing) {                                       // в поле адреса и темы буквы j, k, u, c это текст, а не команды списка
+            if (event.key === "Escape" && document.activeElement.tagName === "TEXTAREA") closeComposer();
             return;
         }
 

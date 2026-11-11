@@ -36,6 +36,14 @@ async function click(page, locator, ms = 800) {
   await page.mouse.up();
 }
 
+/** Подводит курсор к элементу и делает двойной щелчок (открыть ярлык). */
+async function dblclick(page, locator, ms = 800) {
+  const { x, y } = await center(locator);
+  await glide(page, x, y, ms);
+  await page.waitForTimeout(180);
+  await page.mouse.dblclick(x, y);
+}
+
 /** Печатает в поле по символу, как живой человек. */
 async function type(page, locator, text, delay = 55) {
   await click(page, locator, 600);
@@ -80,4 +88,4 @@ async function zoomMap(page, x, y, notches = 4) {
   await page.waitForTimeout(500);
 }
 
-module.exports = { glide, click, type, drag, camera, zoomMap, center };
+module.exports = { glide, click, dblclick, type, drag, camera, zoomMap, center };
