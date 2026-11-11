@@ -3496,6 +3496,220 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/studio/api/air/feed": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Feed
+         * @description Передачи всех частот за последние 24 часа, свежие сверху. after: только новее этой (живая лента).
+         */
+        get: operations["studio_api_air_feed"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/studio/api/air/transmissions/{tx_id}/hide": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Hide */
+        post: operations["studio_api_air_hide"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/studio/api/air/transmissions/{tx_id}/unhide": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Unhide */
+        post: operations["studio_api_air_unhide"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/studio/api/air/transmit": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Transmit
+         * @description Передать от станции или персонажа (без лимитов игрока, в любой полосе).
+         */
+        post: operations["studio_api_air_transmit"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/studio/api/air/callsigns": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Callsigns */
+        get: operations["studio_api_air_callsigns"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/studio/api/air/callsigns/{user_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Callsign */
+        get: operations["studio_api_air_callsign"];
+        /** Change Callsign */
+        put: operations["studio_api_air_change_callsign"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/studio/api/air/stations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Stations */
+        get: operations["studio_api_air_stations"];
+        put?: never;
+        /** Add Station */
+        post: operations["studio_api_air_add_station"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/studio/api/air/stations/{station_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Delete Station */
+        delete: operations["studio_api_air_delete_station"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/studio/api/air/bands": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Bands */
+        get: operations["studio_api_air_bands"];
+        put?: never;
+        /** Add Band */
+        post: operations["studio_api_air_add_band"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/studio/api/air/bands/{band_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Change Band */
+        put: operations["studio_api_air_change_band"];
+        post?: never;
+        /** Delete Band */
+        delete: operations["studio_api_air_delete_band"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/studio/api/air/reports": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Reports */
+        get: operations["studio_api_air_reports"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/studio/api/air/reports/{report_id}/dismiss": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Dismiss */
+        post: operations["studio_api_air_dismiss"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -8442,6 +8656,170 @@ export interface components {
             open: boolean;
             /** Player */
             player: string;
+        };
+        /** AirPlayer */
+        AirPlayer: {
+            /** Id */
+            id: number;
+            /** Username */
+            username: string;
+            /** Discord */
+            discord: string;
+        };
+        /** AirRow */
+        AirRow: {
+            /** Id */
+            id: number;
+            /** Freq */
+            freq: string;
+            /** Callsign */
+            callsign: string;
+            /** Station */
+            station: boolean;
+            player: components["schemas"]["AirPlayer"] | null;
+            /** Sandbox */
+            sandbox: boolean;
+            /** Text */
+            text: string;
+            /**
+             * At
+             * Format: date-time
+             */
+            at: string;
+            /** Hidden */
+            hidden: boolean;
+            /** Hidden Reason */
+            hidden_reason: string;
+            /** Reports */
+            reports: number;
+        };
+        /** AirHide */
+        AirHide: {
+            /**
+             * Reason
+             * @default
+             */
+            reason: string;
+        };
+        /** AirTx */
+        AirTx: {
+            /** Station */
+            station: number;
+            /** Freq */
+            freq: string;
+            /** Text */
+            text: string;
+        };
+        /** AirChange */
+        AirChange: {
+            /** Old */
+            old: string;
+            /** New */
+            new: string;
+            /**
+             * At
+             * Format: date-time
+             */
+            at: string;
+            /** By */
+            by: string;
+        };
+        /** AirSign */
+        AirSign: {
+            player: components["schemas"]["AirPlayer"];
+            /** Name */
+            name: string;
+            /** Changed At */
+            changed_at: string | null;
+            /** Muted Until */
+            muted_until: string | null;
+            /** Rx Only */
+            rx_only: boolean;
+            /** History */
+            history: components["schemas"]["AirChange"][];
+        };
+        /** AirSignIn */
+        AirSignIn: {
+            /** Name */
+            name?: string | null;
+            /** Rx Only */
+            rx_only?: boolean | null;
+            /** Mute Minutes */
+            mute_minutes?: number | null;
+        };
+        /** AirStation */
+        AirStation: {
+            /** Id */
+            id: number;
+            /** Name */
+            name: string;
+            /** Label */
+            label: string;
+            /** Kind */
+            kind: string;
+        };
+        /** AirStationIn */
+        AirStationIn: {
+            /** Name */
+            name: string;
+            /**
+             * Label
+             * @default
+             */
+            label: string;
+            /**
+             * Kind
+             * @default station
+             */
+            kind: string;
+        };
+        /** AirBand */
+        AirBand: {
+            /** Id */
+            id: number;
+            /** Low */
+            low: string;
+            /** High */
+            high: string;
+            /** Kind */
+            kind: string;
+            /** Condition */
+            condition?: unknown;
+            /** Label */
+            label: string;
+        };
+        /** AirBandIn */
+        AirBandIn: {
+            /** Low */
+            low: string;
+            /** High */
+            high: string;
+            /**
+             * Kind
+             * @default reserved
+             */
+            kind: string;
+            /** Condition */
+            condition?: unknown;
+            /**
+             * Label
+             * @default
+             */
+            label: string;
+        };
+        /** AirReport */
+        AirReport: {
+            /** Id */
+            id: number;
+            transmission: components["schemas"]["AirRow"];
+            reporter: components["schemas"]["AirPlayer"];
+            /** Reason */
+            reason: string;
+            /**
+             * At
+             * Format: date-time
+             */
+            at: string;
         };
     };
     responses: never;
@@ -14453,6 +14831,367 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["SbState"];
                 };
+            };
+        };
+    };
+    studio_api_air_feed: {
+        parameters: {
+            query?: {
+                freq?: string;
+                q?: string;
+                after?: number;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AirRow"][];
+                };
+            };
+        };
+    };
+    studio_api_air_hide: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                tx_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AirHide"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AirRow"];
+                };
+            };
+        };
+    };
+    studio_api_air_unhide: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                tx_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AirRow"];
+                };
+            };
+        };
+    };
+    studio_api_air_transmit: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AirTx"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AirRow"];
+                };
+            };
+        };
+    };
+    studio_api_air_callsigns: {
+        parameters: {
+            query?: {
+                q?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AirSign"][];
+                };
+            };
+        };
+    };
+    studio_api_air_callsign: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                user_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AirSign"];
+                };
+            };
+        };
+    };
+    studio_api_air_change_callsign: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                user_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AirSignIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AirSign"];
+                };
+            };
+        };
+    };
+    studio_api_air_stations: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AirStation"][];
+                };
+            };
+        };
+    };
+    studio_api_air_add_station: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AirStationIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AirStation"];
+                };
+            };
+        };
+    };
+    studio_api_air_delete_station: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                station_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    studio_api_air_bands: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AirBand"][];
+                };
+            };
+        };
+    };
+    studio_api_air_add_band: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AirBandIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AirBand"];
+                };
+            };
+        };
+    };
+    studio_api_air_change_band: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                band_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AirBandIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AirBand"];
+                };
+            };
+        };
+    };
+    studio_api_air_delete_band: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                band_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    studio_api_air_reports: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AirReport"][];
+                };
+            };
+        };
+    };
+    studio_api_air_dismiss: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                report_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
         };
     };
