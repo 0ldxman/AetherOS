@@ -22,6 +22,7 @@
   import Players from "./routes/Players.svelte";
   import Tasks from "./routes/Tasks.svelte";
   import Task from "./routes/Task.svelte";
+  import Mail from "./routes/Mail.svelte";
   import { level, loadMe, me } from "./lib/me.svelte";
   import Discussion from "./lib/Discussion.svelte";
   import { discussion, targetOf } from "./lib/discussion.svelte";
@@ -54,7 +55,9 @@
     | { name: "players"; id: number | null }
     | { name: "boards"; id: number | null }
     | { name: "tasks" }
-    | { name: "task"; id: number };
+    | { name: "task"; id: number }
+    | { name: "mail"; id: number | null }
+    | { name: "talk"; id: number };
 
   const page: Page = $derived.by((): Page => {
     let found;
@@ -79,6 +82,9 @@
     if ((found = match("/map/:tab", route.path))) return { name: "map", tab: found.tab, id: null };
     if (match("/map", route.path)) return { name: "map", tab: "territory", id: null };
     if (match("/home", route.path)) return { name: "home" };
+    if ((found = match("/mail/personas/:id", route.path))) return { name: "mail", id: +found.id };
+    if ((found = match("/mail/:id", route.path))) return { name: "talk", id: +found.id };
+    if (match("/mail", route.path)) return { name: "mail", id: null };
     if ((found = match("/tasks/:id", route.path))) return { name: "task", id: +found.id };
     if (match("/tasks", route.path)) return { name: "tasks" };
     if ((found = match("/boards/:id", route.path))) return { name: "boards", id: +found.id };
@@ -110,6 +116,7 @@
     { href: "#/world", label: "Мир", section: ["world"], right: "world" },
     { href: "#/map", label: "Карта", section: ["map"], right: "map" },
     { href: "#/players", label: "Игроки", section: ["players"], right: "players" },
+    { href: "#/mail", label: "Почта", section: ["mail", "talk"], right: "mail" },
   ];
 
   const current = $derived(NAV.find((item) => item.section.includes(page.name)) ?? null);
@@ -154,7 +161,6 @@
           <a class="nav" class:on={item.section.includes(page.name)} href={item.href}>{item.label}{#if item.href === "#/home" && unread}<span class="badge" title="Непрочитанные уведомления">{unread}</span>{/if}</a>
         {/if}
       {/each}
-      <span class="nav soon">Почта</span>
       <a class="nav team" class:on={page.name === "team"} href="#/team">Команда</a>
     </nav>
     {#if target && presence.peers.length}
@@ -194,6 +200,16 @@
         {#key page.id}<loaded.default id={page.id} />{/key}
       {:catch}
         <p class="muted" style="padding: 20px">Доска не загрузилась. Обновите страницу.</p>
+      {/await}
+    {:else if page.name === "mail"}
+      {#key page.id}<Mail id={page.id} />{/key}
+    {:else if page.name === "talk"}
+      {#await import("./routes/mail/Talk.svelte")}
+        <p class="muted" style="padding: 20px">Загрузка сценария…</p>
+      {:then loaded}
+        {#key page.id}<loaded.default id={page.id} />{/key}
+      {:catch}
+        <p class="muted" style="padding: 20px">Редактор сценария не загрузился. Обновите страницу.</p>
       {/await}
     {:else if page.name === "players"}
       <Players id={page.id} />
@@ -271,12 +287,10 @@
   .nav { padding: 6px 10px; border-radius: var(--radius-s); color: var(--muted); }
   .nav:hover { background: var(--panel-2); color: var(--text); text-decoration: none; }
   .nav.on { background: var(--accent-soft); color: var(--text); }
-  .nav.soon { color: var(--faint); cursor: default; }
   .nav.off { color: var(--faint); cursor: not-allowed; }
   .nav.team { margin-top: 10px; }
   .badge { margin-left: 6px; padding: 0 6px; border-radius: 999px; background: var(--accent); color: var(--bg, #111); font-size: 11px; font-weight: 700; }
   .readonly { padding: 6px 32px; background: var(--accent-soft); color: var(--muted); font-size: 12.5px; border-bottom: 1px solid var(--line-soft); }
-  .nav.soon::after { content: " · скоро"; font-size: 11px; }
   .talk { margin-top: auto; display: flex; align-items: center; justify-content: space-between; padding: 7px 10px; border: 1px solid var(--line-soft);
           border-radius: var(--radius-s); background: none; color: var(--text); cursor: pointer; font: inherit; }
   .talk:hover, .talk.on { background: var(--accent-soft); }

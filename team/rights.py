@@ -24,6 +24,7 @@ SECTIONS = {
     "world": "Мир",
     "map": "Карта",
     "players": "Игроки",
+    "mail": "Почта",
 }
 
 ACTIONS = {
@@ -38,7 +39,7 @@ TEAM = "team"                  # раздел команды: смотреть �
 FREE = "free"                  # справочники и разборщики без данных мира: доступны любому автору
 
 # последние части пути POST-запросов, которые ничего не меняют (предпросмотр, разбор, проверка, генерация)
-SAFE_POST = {"preview", "parse", "format", "check", "outline", "build", "resolve", "generate", "randomart", "week"}
+SAFE_POST = {"preview", "parse", "format", "check", "outline", "build", "resolve", "generate", "randomart", "week", "try"}
 # последние части пути, которым нужно действие с игроками
 PLAYER_ACTIONS = {"kick", "unlock", "bind", "tokens"}
 
@@ -61,7 +62,7 @@ def _section_of(parts):
         return "disks"
     if head in ("items", "wiki-volumes"):
         return "items"
-    if head in ("machines", "policies", "systems", "world", "map", "scenes", "players", TEAM):
+    if head in ("machines", "policies", "systems", "world", "map", "scenes", "players", "mail", TEAM):
         return head
     return None
 

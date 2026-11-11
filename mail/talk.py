@@ -215,12 +215,16 @@ def _bounce(box, to, subject, reason):
 
 
 def _attached_ok(variant, entry):
-    need = variant.attachment or {}
+    return attachment_fits(variant.attachment, None if entry is None else entry.item)
+
+
+def attachment_fits(need, item):
+    """Подходит ли приложенный объект к требованию варианта ({"item"|"key"|"signed": слаг}; пустое: ничего не нужно)."""
+    need = need or {}
     if not need:
         return True
-    if entry is None or entry.item is None:
+    if item is None:
         return False
-    item = entry.item
     if "item" in need:
         return item.slug == need["item"]
     if "key" in need:
@@ -290,6 +294,47 @@ def _effects(text, box):
     return out
 
 
+@dataclass
+class Turn:
+    kind: str                        # ok | wrong | exhausted
+    sockets: list                    # какие исходы сработали (ok, word:<слово>, wrong, exhausted)
+    actions: list
+    left: int | None = None
+
+
+def decide(outcomes, max_attempts, verdict, used=0):
+    """Что случится после ответа: исход по сверке (verdict) и числу уже потраченных попыток варианта (used).
+    Свои исходы выбранных слов важнее общего ok; exhausted без своих действий берёт действия wrong."""
+    outcomes = outcomes or {}
+    if verdict.verdict == "ok":
+        sockets = [f"word:{word}" for word in verdict.words if outcomes.get(f"word:{word}")]
+        actions = [action for socket in sockets for action in outcomes[socket]]
+        if not sockets:
+            sockets, actions = ["ok"], list(outcomes.get("ok", []))
+        return Turn("ok", sockets, actions)
+    spent = used + 1
+    if max_attempts and spent >= max_attempts:
+        socket = "exhausted" if outcomes.get("exhausted") else "wrong"
+        return Turn("exhausted", [socket], list(outcomes.get(socket, [])), 0)
+    return Turn("wrong", ["wrong"], list(outcomes.get("wrong", [])), max_attempts - spent if max_attempts else None)
+
+
+def sockets(text, attachment=None, max_attempts=0):
+    """Выходы варианта на карте: ok, по слову каждого выбора, wrong (если есть что угадать или приложить), exhausted."""
+    out = ["ok"]
+    secret = bool(attachment)
+    for kind, value in segments(text):
+        if kind == "choice":
+            out += [f"word:{option}" for option in value if f"word:{option}" not in out]
+        elif kind == "secret":
+            secret = True
+    if secret or max_attempts:
+        out.append("wrong")
+    if max_attempts:
+        out.append("exhausted")
+    return out
+
+
 @transaction.atomic
 def send(box, keys, *, to, subject="", typed="", variant=None, attachment=None, reply_item=None, forward_item=None):
     """Отправить письмо игрока. Его копия ложится в «отправленные», дальше решает адрес: персонаж (вариант и исходы),
@@ -356,25 +401,12 @@ def send(box, keys, *, to, subject="", typed="", variant=None, attachment=None, 
     if verdict.verdict == "ok" and not _attached_ok(variant, attachment):
         verdict = Check("wrong", verdict.words)
 
-    left = None
-    if verdict.verdict == "ok":
-        actions = []
-        for word in verdict.words:
-            actions += (variant.outcomes or {}).get(f"word:{word}", [])
-        if not actions:
-            actions = (variant.outcomes or {}).get("ok", [])
-        kind = "ok"
-    else:
-        attempts = dict(state.attempts or {})
-        attempts[str(variant.pk)] = attempts.get(str(variant.pk), 0) + 1
-        state.attempts = attempts
+    used = (state.attempts or {}).get(str(variant.pk), 0)
+    if verdict.verdict != "ok":
+        state.attempts = {**(state.attempts or {}), str(variant.pk): used + 1}
         state.save(update_fields=["attempts", "updated_at"])
-        if variant.max_attempts and attempts[str(variant.pk)] >= variant.max_attempts:
-            kind, actions = "exhausted", (variant.outcomes or {}).get("exhausted") or (variant.outcomes or {}).get("wrong", [])
-            left = 0
-        else:
-            kind, actions = "wrong", (variant.outcomes or {}).get("wrong", [])
-            left = variant.max_attempts - attempts[str(variant.pk)] if variant.max_attempts else None
+    turn = decide(variant.outcomes, variant.max_attempts, verdict, used)
+    kind, actions, left = turn.kind, turn.actions, turn.left
     _apply(actions, state, box, effects)
     if any(effect.get("bounce") for effect in effects):
         _bounce(box, to, subject, "mailbox unavailable")

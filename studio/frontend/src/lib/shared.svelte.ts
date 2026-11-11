@@ -21,6 +21,7 @@ type Options<T> = {
   scope?: () => string;             // область формы в комнате (по умолчанию main)
   texts?: (keyof T & string)[];
   values?: (keyof T & string)[];    // по умолчанию все остальные поля сохранённого
+  open?: boolean;                   // набор полей не задан заранее (записи вида s:<ключ>): поля добавляются и пропадают
   draft: () => T;
   base: () => T | null;
   onRemoteSave?: () => void;
@@ -73,7 +74,18 @@ export class SharedForm<T extends Values> {
   private valueKeys(base: Values | null): string[] {
     if (this.options.values) return this.options.values;
     const texts = new Set(this.textKeys());
-    return Object.keys(base ?? this.options.base() ?? this.options.draft()).filter((key) => !texts.has(key));
+    const keys = new Set(Object.keys(base ?? this.options.base() ?? this.options.draft()));
+    if (this.options.open) {
+      for (const key of Object.keys(this.options.draft())) keys.add(key);
+      for (const key of this.fields?.keys() ?? []) keys.add(key);
+    }
+    return [...keys].filter((key) => !texts.has(key));
+  }
+
+  /** Открытая форма: поля черновика, которых нет в сохранённом (новые записи), убираются из общего черновика. */
+  private dropExtra(base: T) {
+    if (!this.options.open || !this.fields) return;
+    for (const key of [...this.fields.keys()]) if (!(key in base)) this.fields.delete(key);
   }
 
   private mark(): Mark {
@@ -147,7 +159,9 @@ export class SharedForm<T extends Values> {
         if (!(found instanceof Y.Text)) fields.set(key, new Y.Text(value));
         else if (clean && found.toString() !== value) replaceText(found, value);
       }
+      if (clean) this.dropExtra(base);
       for (const key of this.valueKeys(base)) {
+        if (!(key in base) && this.options.open) continue;
         const value = copy(base[key]);
         if (!fields.has(key) || (clean && !same(fields.get(key), value))) fields.set(key, value);
       }
@@ -169,7 +183,10 @@ export class SharedForm<T extends Values> {
       }
     }
     for (const key of this.valueKeys(null)) {
-      if (!fields.has(key)) continue;
+      if (!fields.has(key)) {
+        if (this.options.open && key in draft) delete (draft as Values)[key];
+        continue;
+      }
       const value = fields.get(key);
       if (!same(draft[key], value)) (draft as Values)[key] = copy(value);
     }
@@ -218,7 +235,8 @@ export class SharedForm<T extends Values> {
         const found = fields.get(key);
         if (found instanceof Y.Text) replaceText(found, String(base[key] ?? ""));
       }
-      for (const key of this.valueKeys(base)) fields.set(key, copy(base[key]));
+      this.dropExtra(base);
+      for (const key of this.valueKeys(base)) if (key in base) fields.set(key, copy(base[key]));
     }, "saved");
     this.setMark({ dirty: false, editors: [], saved: this.mark().saved ?? 0 }, "saved");
     this.pull();

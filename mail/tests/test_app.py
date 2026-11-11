@@ -148,6 +148,17 @@ class MailAppTests(TestCase):
         self.assertEqual(self.client.get("/apps/mail/api/messages/").json()["messages"][0]["folder"], "inbox")
         self.assertEqual(self.client.get("/apps/mail/api/message/", {"path": "/etc/hosts"}).status_code, 404)   # не из ящика
 
+    def test_an_attachment_opens_in_a_window_from_the_mail(self):
+        letter = Item.objects.create(slug="with-report", name="r.msg", format="msg", body="From: boss@port\nSubject: Отчёт\n\nсм. вложение")
+        ItemMember.objects.create(archive=letter, path="report.txt", item=Item.objects.create(slug="report", name="report.txt", body="отчёт"))
+        path = Box.of_profile(self.profile, self.ivan).deliver(letter)
+        found = self.client.get("/apps/mail/api/message/", {"path": path}).json()["attachments"][0]
+        window = self.client.get(found["open"]).json()
+        self.assertEqual(window["title"], "report.txt")
+        self.assertContains(self.client.get(window["url"]), "")                         # вьювер находит файл по адресу ?mail=
+        self.assertEqual(self.client.get("/apps/mail/api/attachment/", {"path": path + "/other.txt"}).status_code, 404)
+        self.assertEqual(self.client.get("/apps/mail/api/attachment/", {"path": "/etc/hosts"}).status_code, 404)
+
     def test_cnt_on_a_letter_opens_it_in_the_mail_app(self):
         response = self.client.post("/apps/terminal/execute/", data=json.dumps({"command": "cnt /var/mail/ivan/inbox/hello.msg"}), content_type="application/json")
         window = response.json()["window"]

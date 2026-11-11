@@ -111,6 +111,18 @@ class Box:
             return None
         return self._row(entry, self._marks(), self.context())
 
+    def attachment(self, path):
+        """Вложение письма ящика по пути «письмо/имя» как запись файла (её открывают вьюверы) или None. Закрытое слоями письмо
+        своих вложений не показывает."""
+        from filesystem.content import archives
+
+        letter_path, _, name = (path or "").rstrip("/").rpartition("/")
+        row = self.letter(letter_path) if name else None
+        if row is None or row.locked:
+            return None
+        entry = self.view.get(letter_path)
+        return next((found for member, found in archives.members(self.view, entry) if member == name), None)
+
     def unread(self):
         return sum(1 for row in self.letters_in("inbox") if not row.read)
 

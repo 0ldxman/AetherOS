@@ -91,6 +91,8 @@ class Step(models.Model):
     letter = models.ForeignKey("filesystem.Item", null=True, blank=True, on_delete=models.SET_NULL, related_name="talk_steps",
                                verbose_name="Письмо персонажа", help_text="Приходит игроку, когда он попадает на шаг.")
     letter_delay = models.PositiveIntegerField("Задержка письма, с", default=0)
+    x = models.FloatField("Положение на карте, x", default=0)
+    y = models.FloatField("Положение на карте, y", default=0)
     opening = models.BooleanField("Начало переписки", default=False,
                                   help_text="Его варианты видит игрок, который сам пишет на адрес персонажа (переписки ещё нет).")
 

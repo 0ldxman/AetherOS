@@ -165,7 +165,7 @@
                 button.disabled = true;
             }
         } else if (item.kind === "member") {
-            make(item.label, () => notice(`attachment ${item.label}: open ${item.path} from the terminal`));
+            make(item.label, () => openFile(item));
         } else {
             make(item.label, () => openAttachment(item));
         }

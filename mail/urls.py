@@ -14,4 +14,5 @@ urlpatterns = [
     path("api/compose/", views.compose_options, name="compose"),
     path("api/send/", views.send_letter, name="send"),
     path("api/files/", views.files, name="files"),
+    path("api/attachment/", views.attachment, name="attachment"),
 ]

@@ -2,7 +2,10 @@
 import json
 import re
 
+from urllib.parse import urlencode
+
 from django.http import Http404, JsonResponse
+from django.urls import reverse
 from django.shortcuts import render
 from django.views.decorators.csrf import ensure_csrf_cookie
 from django.views.decorators.http import require_GET, require_POST
@@ -83,7 +86,8 @@ def message_detail(request):
     data.update({
         "from": row.letter.sender, "to": row.letter.to, "body": row.letter.body,
         "headers": [[name, value] for name, value in row.letter.headers],
-        "attachments": [{"kind": "member", "label": member.path, "path": f"{row.path}/{member.path}"} for member in row.attachments],
+        "attachments": [{"kind": "member", "label": member.path, "path": f"{row.path}/{member.path}",
+                         "open": reverse("mail:attachment") + "?" + urlencode({"path": f"{row.path}/{member.path}"})} for member in row.attachments],
     })
     return JsonResponse(data)
 
@@ -236,3 +240,22 @@ def files(request):
     rows.sort(key=lambda row: (not row["dir"], row["name"].lower()))
     parent = (path.rsplit("/", 1)[0] or "/") if path != "/" else ""
     return JsonResponse({"path": path, "parent": parent, "entries": rows})
+
+
+@require_GET
+def attachment(request):
+    """Открыть вложение письма из ящика: окно по виду содержимого, как cnt в терминале (закрытое слоями не откроется)."""
+    from filesystem.content.window import resolve_content
+
+    box = _box(request)
+    path = (request.GET.get("path") or "").rstrip("/")
+    entry = box.attachment(path)
+    if entry is None:
+        raise Http404
+    name = path.rsplit("/", 1)[-1]
+    content = resolve_content(entry, path, name, {"mail": path})
+    if content.error == "locked":
+        return JsonResponse({"error": f"{name}: content is locked"}, status=403)
+    if content.error or not content.url:
+        return JsonResponse({"error": f"{name}: no content"}, status=400)
+    return JsonResponse({"id": "mail-" + re.sub(r"\W+", "-", path).strip("-"), "title": name, "url": content.url})

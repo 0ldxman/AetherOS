@@ -3032,6 +3032,148 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/studio/api/mail": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Index */
+        get: operations["studio_api_mail_index"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/studio/api/mail/personas": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Persona Create */
+        post: operations["studio_api_mail_persona_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/studio/api/mail/personas/{persona_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Persona Update */
+        put: operations["studio_api_mail_persona_update"];
+        post?: never;
+        /** Persona Delete */
+        delete: operations["studio_api_mail_persona_delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/studio/api/mail/conversations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Talk Create */
+        post: operations["studio_api_mail_talk_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/studio/api/mail/conversations/{talk_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Talk Detail */
+        get: operations["studio_api_mail_talk_detail"];
+        /** Talk Update */
+        put: operations["studio_api_mail_talk_update"];
+        post?: never;
+        /** Talk Delete */
+        delete: operations["studio_api_mail_talk_delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/studio/api/mail/check": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Check */
+        post: operations["studio_api_mail_check"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/studio/api/mail/try": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Trial */
+        post: operations["studio_api_mail_trial"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/studio/api/mail/picks": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Picks
+         * @description Что можно выбрать в редакторе: объекты (письма, ключи, любые) по поиску, учётки, известные метки.
+         */
+        get: operations["studio_api_mail_picks"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -7123,6 +7265,336 @@ export interface components {
              * @default []
              */
             ids: number[];
+        };
+        /** MlPersona */
+        MlPersona: {
+            /** Id */
+            id: number;
+            /** Address */
+            address: string;
+            /** Name */
+            name: string;
+            /** Signature */
+            signature: string;
+            /** Note */
+            note: string;
+            /** Conversations */
+            conversations: components["schemas"]["MlTalkRow"][];
+        };
+        /** MlTalkRow */
+        MlTalkRow: {
+            /** Id */
+            id: number;
+            /** Slug */
+            slug: string;
+            /** Title */
+            title: string;
+            /** Steps */
+            steps: number;
+            /** Persona */
+            persona: number;
+        };
+        /** MlPersonaIn */
+        MlPersonaIn: {
+            /** Address */
+            address: string;
+            /**
+             * Name
+             * @default
+             */
+            name: string;
+            /**
+             * Signature
+             * @default
+             */
+            signature: string;
+            /**
+             * Note
+             * @default
+             */
+            note: string;
+        };
+        /** MlNewTalk */
+        MlNewTalk: {
+            /** Persona */
+            persona: number;
+            /** Title */
+            title: string;
+            /** Slug */
+            slug: string;
+        };
+        /** MlAttachment */
+        MlAttachment: {
+            /**
+             * Kind
+             * @default
+             */
+            kind: string;
+            /**
+             * Slug
+             * @default
+             */
+            slug: string;
+        };
+        /** MlDoc */
+        MlDoc: {
+            /** Title */
+            title: string;
+            /** Slug */
+            slug: string;
+            /**
+             * Note
+             * @default
+             */
+            note: string;
+            /** Persona */
+            persona: number;
+            /**
+             * Steps
+             * @default []
+             */
+            steps: components["schemas"]["MlStep"][];
+        };
+        /** MlLetter */
+        MlLetter: {
+            /** Item */
+            item?: string | null;
+            /**
+             * Subject
+             * @default
+             */
+            subject: string;
+            /**
+             * Text
+             * @default
+             */
+            text: string;
+        };
+        /** MlProblem */
+        MlProblem: {
+            /** Level */
+            level: string;
+            /** Step */
+            step: string | null;
+            /** Variant */
+            variant: number | null;
+            /** Text */
+            text: string;
+        };
+        /** MlStep */
+        MlStep: {
+            /** Id */
+            id?: number | null;
+            /** Name */
+            name: string;
+            /**
+             * X
+             * @default 0
+             */
+            x: number;
+            /**
+             * Y
+             * @default 0
+             */
+            y: number;
+            /**
+             * Opening
+             * @default false
+             */
+            opening: boolean;
+            /**
+             * @default {
+             *       "item": null,
+             *       "subject": "",
+             *       "text": ""
+             *     }
+             */
+            letter: components["schemas"]["MlLetter"];
+            /**
+             * Letter Delay
+             * @default 0
+             */
+            letter_delay: number;
+            /**
+             * Variants
+             * @default []
+             */
+            variants: components["schemas"]["MlVariant"][];
+        };
+        /** MlTalk */
+        MlTalk: {
+            /** Id */
+            id: number;
+            doc: components["schemas"]["MlDoc"];
+            /** Problems */
+            problems: components["schemas"]["MlProblem"][];
+        };
+        /** MlVariant */
+        MlVariant: {
+            /** Id */
+            id?: number | null;
+            /**
+             * Title
+             * @default
+             */
+            title: string;
+            /**
+             * Mode
+             * @default reply
+             */
+            mode: string;
+            /**
+             * Text
+             * @default
+             */
+            text: string;
+            /** Forward Of */
+            forward_of?: string | null;
+            /**
+             * Condition
+             * @default
+             */
+            condition: string;
+            /**
+             * Need Flags
+             * @default []
+             */
+            need_flags: string[];
+            /**
+             * Deny Flags
+             * @default []
+             */
+            deny_flags: string[];
+            /** Account */
+            account?: number | null;
+            /**
+             * Closed
+             * @default mystery
+             */
+            closed: string;
+            /**
+             * @default {
+             *       "kind": "",
+             *       "slug": ""
+             *     }
+             */
+            attachment: components["schemas"]["MlAttachment"];
+            /**
+             * Max Attempts
+             * @default 0
+             */
+            max_attempts: number;
+            /**
+             * Outcomes
+             * @default {}
+             */
+            outcomes: {
+                [key: string]: {
+                    [key: string]: unknown;
+                }[];
+            };
+        };
+        /** MlOffer */
+        MlOffer: {
+            /** Index */
+            index: number;
+            /** Title */
+            title: string;
+            /** Shown */
+            shown: string;
+            /** Layout */
+            layout: {
+                [key: string]: unknown;
+            }[];
+        };
+        /** MlResult */
+        MlResult: {
+            /** Kind */
+            kind: string;
+            /** Verdict */
+            verdict: string;
+            /** Words */
+            words: string[];
+            /** Sockets */
+            sockets: string[];
+            /** Actions */
+            actions: {
+                [key: string]: unknown;
+            }[];
+            /** Left */
+            left: number | null;
+        };
+        /** MlTrial */
+        MlTrial: {
+            /** Offers */
+            offers: components["schemas"]["MlOffer"][];
+            result: components["schemas"]["MlResult"] | null;
+        };
+        /** MlTry */
+        MlTry: {
+            /** Variants */
+            variants: components["schemas"]["MlVariant"][];
+            /**
+             * Keys
+             * @default []
+             */
+            keys: string[];
+            /**
+             * Flags
+             * @default []
+             */
+            flags: string[];
+            /** Account */
+            account?: number | null;
+            /** Pick */
+            pick?: number | null;
+            /**
+             * Typed
+             * @default
+             */
+            typed: string;
+            /**
+             * Used
+             * @default 0
+             */
+            used: number;
+            /** Attachment */
+            attachment?: string | null;
+        };
+        /** MlAccount */
+        MlAccount: {
+            /** Id */
+            id: number;
+            /** Label */
+            label: string;
+        };
+        /** MlPick */
+        MlPick: {
+            /** Slug */
+            slug: string;
+            /** Label */
+            label: string;
+            /** Format */
+            format: string;
+            /**
+             * Subject
+             * @default
+             */
+            subject: string;
+            /**
+             * Text
+             * @default
+             */
+            text: string;
+        };
+        /** MlPicks */
+        MlPicks: {
+            /** Items */
+            items: components["schemas"]["MlPick"][];
+            /** Accounts */
+            accounts: components["schemas"]["MlAccount"][];
+            /** Flags */
+            flags: string[];
         };
     };
     responses: never;
@@ -12369,6 +12841,259 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["NtInbox"];
+                };
+            };
+        };
+    };
+    studio_api_mail_index: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MlPersona"][];
+                };
+            };
+        };
+    };
+    studio_api_mail_persona_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MlPersonaIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MlPersona"];
+                };
+            };
+        };
+    };
+    studio_api_mail_persona_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                persona_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MlPersonaIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MlPersona"];
+                };
+            };
+        };
+    };
+    studio_api_mail_persona_delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                persona_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    studio_api_mail_talk_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MlNewTalk"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MlTalkRow"];
+                };
+            };
+        };
+    };
+    studio_api_mail_talk_detail: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                talk_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MlTalk"];
+                };
+            };
+        };
+    };
+    studio_api_mail_talk_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                talk_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MlDoc"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MlTalk"];
+                };
+            };
+        };
+    };
+    studio_api_mail_talk_delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                talk_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    studio_api_mail_check: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MlDoc"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MlProblem"][];
+                };
+            };
+        };
+    };
+    studio_api_mail_trial: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MlTry"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MlTrial"];
+                };
+            };
+        };
+    };
+    studio_api_mail_picks: {
+        parameters: {
+            query?: {
+                q?: string;
+                kind?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MlPicks"];
                 };
             };
         };

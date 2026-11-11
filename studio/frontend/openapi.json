@@ -9411,6 +9411,423 @@
      }
     ]
    }
+  },
+  "/studio/api/mail": {
+   "get": {
+    "operationId": "studio_api_mail_index",
+    "summary": "Index",
+    "parameters": [],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "items": {
+          "$ref": "#/components/schemas/MlPersona"
+         },
+         "title": "Response",
+         "type": "array"
+        }
+       }
+      }
+     }
+    },
+    "tags": [
+     "mail"
+    ],
+    "security": [
+     {
+      "StudioAuth": []
+     }
+    ]
+   }
+  },
+  "/studio/api/mail/personas": {
+   "post": {
+    "operationId": "studio_api_mail_persona_create",
+    "summary": "Persona Create",
+    "parameters": [],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/MlPersona"
+        }
+       }
+      }
+     }
+    },
+    "tags": [
+     "mail"
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/MlPersonaIn"
+       }
+      }
+     },
+     "required": true
+    },
+    "security": [
+     {
+      "StudioAuth": []
+     }
+    ]
+   }
+  },
+  "/studio/api/mail/personas/{persona_id}": {
+   "put": {
+    "operationId": "studio_api_mail_persona_update",
+    "summary": "Persona Update",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "persona_id",
+      "schema": {
+       "title": "Persona Id",
+       "type": "integer"
+      },
+      "required": true
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/MlPersona"
+        }
+       }
+      }
+     }
+    },
+    "tags": [
+     "mail"
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/MlPersonaIn"
+       }
+      }
+     },
+     "required": true
+    },
+    "security": [
+     {
+      "StudioAuth": []
+     }
+    ]
+   },
+   "delete": {
+    "operationId": "studio_api_mail_persona_delete",
+    "summary": "Persona Delete",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "persona_id",
+      "schema": {
+       "title": "Persona Id",
+       "type": "integer"
+      },
+      "required": true
+     }
+    ],
+    "responses": {
+     "204": {
+      "description": "No Content"
+     }
+    },
+    "tags": [
+     "mail"
+    ],
+    "security": [
+     {
+      "StudioAuth": []
+     }
+    ]
+   }
+  },
+  "/studio/api/mail/conversations": {
+   "post": {
+    "operationId": "studio_api_mail_talk_create",
+    "summary": "Talk Create",
+    "parameters": [],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/MlTalkRow"
+        }
+       }
+      }
+     }
+    },
+    "tags": [
+     "mail"
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/MlNewTalk"
+       }
+      }
+     },
+     "required": true
+    },
+    "security": [
+     {
+      "StudioAuth": []
+     }
+    ]
+   }
+  },
+  "/studio/api/mail/conversations/{talk_id}": {
+   "get": {
+    "operationId": "studio_api_mail_talk_detail",
+    "summary": "Talk Detail",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "talk_id",
+      "schema": {
+       "title": "Talk Id",
+       "type": "integer"
+      },
+      "required": true
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/MlTalk"
+        }
+       }
+      }
+     }
+    },
+    "tags": [
+     "mail"
+    ],
+    "security": [
+     {
+      "StudioAuth": []
+     }
+    ]
+   },
+   "put": {
+    "operationId": "studio_api_mail_talk_update",
+    "summary": "Talk Update",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "talk_id",
+      "schema": {
+       "title": "Talk Id",
+       "type": "integer"
+      },
+      "required": true
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/MlTalk"
+        }
+       }
+      }
+     }
+    },
+    "tags": [
+     "mail"
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/MlDoc"
+       }
+      }
+     },
+     "required": true
+    },
+    "security": [
+     {
+      "StudioAuth": []
+     }
+    ]
+   },
+   "delete": {
+    "operationId": "studio_api_mail_talk_delete",
+    "summary": "Talk Delete",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "talk_id",
+      "schema": {
+       "title": "Talk Id",
+       "type": "integer"
+      },
+      "required": true
+     }
+    ],
+    "responses": {
+     "204": {
+      "description": "No Content"
+     }
+    },
+    "tags": [
+     "mail"
+    ],
+    "security": [
+     {
+      "StudioAuth": []
+     }
+    ]
+   }
+  },
+  "/studio/api/mail/check": {
+   "post": {
+    "operationId": "studio_api_mail_check",
+    "summary": "Check",
+    "parameters": [],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "items": {
+          "$ref": "#/components/schemas/MlProblem"
+         },
+         "title": "Response",
+         "type": "array"
+        }
+       }
+      }
+     }
+    },
+    "tags": [
+     "mail"
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/MlDoc"
+       }
+      }
+     },
+     "required": true
+    },
+    "security": [
+     {
+      "StudioAuth": []
+     }
+    ]
+   }
+  },
+  "/studio/api/mail/try": {
+   "post": {
+    "operationId": "studio_api_mail_trial",
+    "summary": "Trial",
+    "parameters": [],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/MlTrial"
+        }
+       }
+      }
+     }
+    },
+    "tags": [
+     "mail"
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/MlTry"
+       }
+      }
+     },
+     "required": true
+    },
+    "security": [
+     {
+      "StudioAuth": []
+     }
+    ]
+   }
+  },
+  "/studio/api/mail/picks": {
+   "get": {
+    "operationId": "studio_api_mail_picks",
+    "summary": "Picks",
+    "parameters": [
+     {
+      "in": "query",
+      "name": "q",
+      "schema": {
+       "default": "",
+       "title": "Q",
+       "type": "string"
+      },
+      "required": false
+     },
+     {
+      "in": "query",
+      "name": "kind",
+      "schema": {
+       "default": "",
+       "title": "Kind",
+       "type": "string"
+      },
+      "required": false
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/MlPicks"
+        }
+       }
+      }
+     }
+    },
+    "description": "Что можно выбрать в редакторе: объекты (письма, ключи, любые) по поиску, учётки, известные метки.",
+    "tags": [
+     "mail"
+    ],
+    "security": [
+     {
+      "StudioAuth": []
+     }
+    ]
+   }
   }
  },
  "components": {
@@ -19720,6 +20137,721 @@
      }
     },
     "title": "NtRead",
+    "type": "object"
+   },
+   "MlPersona": {
+    "properties": {
+     "id": {
+      "title": "Id",
+      "type": "integer"
+     },
+     "address": {
+      "title": "Address",
+      "type": "string"
+     },
+     "name": {
+      "title": "Name",
+      "type": "string"
+     },
+     "signature": {
+      "title": "Signature",
+      "type": "string"
+     },
+     "note": {
+      "title": "Note",
+      "type": "string"
+     },
+     "conversations": {
+      "items": {
+       "$ref": "#/components/schemas/MlTalkRow"
+      },
+      "title": "Conversations",
+      "type": "array"
+     }
+    },
+    "required": [
+     "id",
+     "address",
+     "name",
+     "signature",
+     "note",
+     "conversations"
+    ],
+    "title": "MlPersona",
+    "type": "object"
+   },
+   "MlTalkRow": {
+    "properties": {
+     "id": {
+      "title": "Id",
+      "type": "integer"
+     },
+     "slug": {
+      "title": "Slug",
+      "type": "string"
+     },
+     "title": {
+      "title": "Title",
+      "type": "string"
+     },
+     "steps": {
+      "title": "Steps",
+      "type": "integer"
+     },
+     "persona": {
+      "title": "Persona",
+      "type": "integer"
+     }
+    },
+    "required": [
+     "id",
+     "slug",
+     "title",
+     "steps",
+     "persona"
+    ],
+    "title": "MlTalkRow",
+    "type": "object"
+   },
+   "MlPersonaIn": {
+    "properties": {
+     "address": {
+      "title": "Address",
+      "type": "string"
+     },
+     "name": {
+      "default": "",
+      "title": "Name",
+      "type": "string"
+     },
+     "signature": {
+      "default": "",
+      "title": "Signature",
+      "type": "string"
+     },
+     "note": {
+      "default": "",
+      "title": "Note",
+      "type": "string"
+     }
+    },
+    "required": [
+     "address"
+    ],
+    "title": "MlPersonaIn",
+    "type": "object"
+   },
+   "MlNewTalk": {
+    "properties": {
+     "persona": {
+      "title": "Persona",
+      "type": "integer"
+     },
+     "title": {
+      "title": "Title",
+      "type": "string"
+     },
+     "slug": {
+      "title": "Slug",
+      "type": "string"
+     }
+    },
+    "required": [
+     "persona",
+     "title",
+     "slug"
+    ],
+    "title": "MlNewTalk",
+    "type": "object"
+   },
+   "MlAttachment": {
+    "properties": {
+     "kind": {
+      "default": "",
+      "title": "Kind",
+      "type": "string"
+     },
+     "slug": {
+      "default": "",
+      "title": "Slug",
+      "type": "string"
+     }
+    },
+    "title": "MlAttachment",
+    "type": "object"
+   },
+   "MlDoc": {
+    "properties": {
+     "title": {
+      "title": "Title",
+      "type": "string"
+     },
+     "slug": {
+      "title": "Slug",
+      "type": "string"
+     },
+     "note": {
+      "default": "",
+      "title": "Note",
+      "type": "string"
+     },
+     "persona": {
+      "title": "Persona",
+      "type": "integer"
+     },
+     "steps": {
+      "default": [],
+      "items": {
+       "$ref": "#/components/schemas/MlStep"
+      },
+      "title": "Steps",
+      "type": "array"
+     }
+    },
+    "required": [
+     "title",
+     "slug",
+     "persona"
+    ],
+    "title": "MlDoc",
+    "type": "object"
+   },
+   "MlLetter": {
+    "properties": {
+     "item": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Item"
+     },
+     "subject": {
+      "default": "",
+      "title": "Subject",
+      "type": "string"
+     },
+     "text": {
+      "default": "",
+      "title": "Text",
+      "type": "string"
+     }
+    },
+    "title": "MlLetter",
+    "type": "object"
+   },
+   "MlProblem": {
+    "properties": {
+     "level": {
+      "title": "Level",
+      "type": "string"
+     },
+     "step": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Step"
+     },
+     "variant": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Variant"
+     },
+     "text": {
+      "title": "Text",
+      "type": "string"
+     }
+    },
+    "required": [
+     "level",
+     "step",
+     "variant",
+     "text"
+    ],
+    "title": "MlProblem",
+    "type": "object"
+   },
+   "MlStep": {
+    "properties": {
+     "id": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Id"
+     },
+     "name": {
+      "title": "Name",
+      "type": "string"
+     },
+     "x": {
+      "default": 0,
+      "title": "X",
+      "type": "number"
+     },
+     "y": {
+      "default": 0,
+      "title": "Y",
+      "type": "number"
+     },
+     "opening": {
+      "default": false,
+      "title": "Opening",
+      "type": "boolean"
+     },
+     "letter": {
+      "allOf": [
+       {
+        "$ref": "#/components/schemas/MlLetter"
+       }
+      ],
+      "default": {
+       "item": null,
+       "subject": "",
+       "text": ""
+      }
+     },
+     "letter_delay": {
+      "default": 0,
+      "title": "Letter Delay",
+      "type": "integer"
+     },
+     "variants": {
+      "default": [],
+      "items": {
+       "$ref": "#/components/schemas/MlVariant"
+      },
+      "title": "Variants",
+      "type": "array"
+     }
+    },
+    "required": [
+     "name"
+    ],
+    "title": "MlStep",
+    "type": "object"
+   },
+   "MlTalk": {
+    "properties": {
+     "id": {
+      "title": "Id",
+      "type": "integer"
+     },
+     "doc": {
+      "$ref": "#/components/schemas/MlDoc"
+     },
+     "problems": {
+      "items": {
+       "$ref": "#/components/schemas/MlProblem"
+      },
+      "title": "Problems",
+      "type": "array"
+     }
+    },
+    "required": [
+     "id",
+     "doc",
+     "problems"
+    ],
+    "title": "MlTalk",
+    "type": "object"
+   },
+   "MlVariant": {
+    "properties": {
+     "id": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Id"
+     },
+     "title": {
+      "default": "",
+      "title": "Title",
+      "type": "string"
+     },
+     "mode": {
+      "default": "reply",
+      "title": "Mode",
+      "type": "string"
+     },
+     "text": {
+      "default": "",
+      "title": "Text",
+      "type": "string"
+     },
+     "forward_of": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Forward Of"
+     },
+     "condition": {
+      "default": "",
+      "title": "Condition",
+      "type": "string"
+     },
+     "need_flags": {
+      "default": [],
+      "items": {
+       "type": "string"
+      },
+      "title": "Need Flags",
+      "type": "array"
+     },
+     "deny_flags": {
+      "default": [],
+      "items": {
+       "type": "string"
+      },
+      "title": "Deny Flags",
+      "type": "array"
+     },
+     "account": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Account"
+     },
+     "closed": {
+      "default": "mystery",
+      "title": "Closed",
+      "type": "string"
+     },
+     "attachment": {
+      "allOf": [
+       {
+        "$ref": "#/components/schemas/MlAttachment"
+       }
+      ],
+      "default": {
+       "kind": "",
+       "slug": ""
+      }
+     },
+     "max_attempts": {
+      "default": 0,
+      "title": "Max Attempts",
+      "type": "integer"
+     },
+     "outcomes": {
+      "additionalProperties": {
+       "items": {
+        "additionalProperties": true,
+        "type": "object"
+       },
+       "type": "array"
+      },
+      "default": {},
+      "title": "Outcomes",
+      "type": "object"
+     }
+    },
+    "title": "MlVariant",
+    "type": "object"
+   },
+   "MlOffer": {
+    "properties": {
+     "index": {
+      "title": "Index",
+      "type": "integer"
+     },
+     "title": {
+      "title": "Title",
+      "type": "string"
+     },
+     "shown": {
+      "title": "Shown",
+      "type": "string"
+     },
+     "layout": {
+      "items": {
+       "additionalProperties": true,
+       "type": "object"
+      },
+      "title": "Layout",
+      "type": "array"
+     }
+    },
+    "required": [
+     "index",
+     "title",
+     "shown",
+     "layout"
+    ],
+    "title": "MlOffer",
+    "type": "object"
+   },
+   "MlResult": {
+    "properties": {
+     "kind": {
+      "title": "Kind",
+      "type": "string"
+     },
+     "verdict": {
+      "title": "Verdict",
+      "type": "string"
+     },
+     "words": {
+      "items": {
+       "type": "string"
+      },
+      "title": "Words",
+      "type": "array"
+     },
+     "sockets": {
+      "items": {
+       "type": "string"
+      },
+      "title": "Sockets",
+      "type": "array"
+     },
+     "actions": {
+      "items": {
+       "additionalProperties": true,
+       "type": "object"
+      },
+      "title": "Actions",
+      "type": "array"
+     },
+     "left": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Left"
+     }
+    },
+    "required": [
+     "kind",
+     "verdict",
+     "words",
+     "sockets",
+     "actions",
+     "left"
+    ],
+    "title": "MlResult",
+    "type": "object"
+   },
+   "MlTrial": {
+    "properties": {
+     "offers": {
+      "items": {
+       "$ref": "#/components/schemas/MlOffer"
+      },
+      "title": "Offers",
+      "type": "array"
+     },
+     "result": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/MlResult"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     }
+    },
+    "required": [
+     "offers",
+     "result"
+    ],
+    "title": "MlTrial",
+    "type": "object"
+   },
+   "MlTry": {
+    "properties": {
+     "variants": {
+      "items": {
+       "$ref": "#/components/schemas/MlVariant"
+      },
+      "title": "Variants",
+      "type": "array"
+     },
+     "keys": {
+      "default": [],
+      "items": {
+       "type": "string"
+      },
+      "title": "Keys",
+      "type": "array"
+     },
+     "flags": {
+      "default": [],
+      "items": {
+       "type": "string"
+      },
+      "title": "Flags",
+      "type": "array"
+     },
+     "account": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Account"
+     },
+     "pick": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Pick"
+     },
+     "typed": {
+      "default": "",
+      "title": "Typed",
+      "type": "string"
+     },
+     "used": {
+      "default": 0,
+      "title": "Used",
+      "type": "integer"
+     },
+     "attachment": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Attachment"
+     }
+    },
+    "required": [
+     "variants"
+    ],
+    "title": "MlTry",
+    "type": "object"
+   },
+   "MlAccount": {
+    "properties": {
+     "id": {
+      "title": "Id",
+      "type": "integer"
+     },
+     "label": {
+      "title": "Label",
+      "type": "string"
+     }
+    },
+    "required": [
+     "id",
+     "label"
+    ],
+    "title": "MlAccount",
+    "type": "object"
+   },
+   "MlPick": {
+    "properties": {
+     "slug": {
+      "title": "Slug",
+      "type": "string"
+     },
+     "label": {
+      "title": "Label",
+      "type": "string"
+     },
+     "format": {
+      "title": "Format",
+      "type": "string"
+     },
+     "subject": {
+      "default": "",
+      "title": "Subject",
+      "type": "string"
+     },
+     "text": {
+      "default": "",
+      "title": "Text",
+      "type": "string"
+     }
+    },
+    "required": [
+     "slug",
+     "label",
+     "format"
+    ],
+    "title": "MlPick",
+    "type": "object"
+   },
+   "MlPicks": {
+    "properties": {
+     "items": {
+      "items": {
+       "$ref": "#/components/schemas/MlPick"
+      },
+      "title": "Items",
+      "type": "array"
+     },
+     "accounts": {
+      "items": {
+       "$ref": "#/components/schemas/MlAccount"
+      },
+      "title": "Accounts",
+      "type": "array"
+     },
+     "flags": {
+      "items": {
+       "type": "string"
+      },
+      "title": "Flags",
+      "type": "array"
+     }
+    },
+    "required": [
+     "items",
+     "accounts",
+     "flags"
+    ],
+    "title": "MlPicks",
     "type": "object"
    }
   },
