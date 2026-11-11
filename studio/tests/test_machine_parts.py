@@ -399,6 +399,13 @@ class CreateAndSystemsTests(TestCase):
         self.assertIn("modern|", html)
         self.assertIn("ui/themes/modern.css", html)
 
+    def test_every_token_says_where_it_shows(self):
+        from machines.world import styles
+
+        self.assertTrue(all(t.hint.strip().endswith((".", ")")) for t in styles.TOKENS), [t.name for t in styles.TOKENS if not t.hint.strip()])
+        info = {t["name"]: t for t in self.call("get", "/systems/AETHER")[1]["token_info"]}
+        self.assertIn("сетка", info["--line-faint"]["hint"].lower())
+
     def test_the_wallpaper_is_saved_with_the_style_and_checked(self):
         from unittest import mock
 

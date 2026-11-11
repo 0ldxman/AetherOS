@@ -6018,6 +6018,11 @@ export interface components {
             kind: string;
             /** Default */
             default: string;
+            /**
+             * Hint
+             * @default
+             */
+            hint: string;
         };
         /** TypeGroup */
         TypeGroup: {

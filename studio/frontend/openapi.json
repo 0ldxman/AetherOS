@@ -17394,6 +17394,11 @@
      "default": {
       "type": "string",
       "title": "Default"
+     },
+     "hint": {
+      "default": "",
+      "title": "Hint",
+      "type": "string"
      }
     },
     "required": [

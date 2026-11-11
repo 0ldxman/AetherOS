@@ -3,6 +3,8 @@
   import { api, type Schemas } from "../../lib/api";
   import { guardUnsaved } from "../../lib/guard.svelte";
   import DraftState from "../../lib/DraftState.svelte";
+  import { ask } from "../../lib/confirm.svelte";
+  import Icon from "../../lib/Icon.svelte";
   import { SharedForm } from "../../lib/shared.svelte";
   import { tileUrl, WALL_MODES, WALL_PATTERNS, WALLPAPER_DEFAULT, type Wallpaper } from "../../lib/wallpaper";
   import WallpaperPicker from "./WallpaperPicker.svelte";
@@ -81,6 +83,39 @@
   });
 
   guardUnsaved(() => !share.ready && lookSaved !== "" && lookDirty);
+
+  // ---------- разделы: «Картинка и узор» и группы токенов, по одному на экране ----------
+  const SECTION_KEY = "studio.styleSection";
+  const GROUP_NOTE: Record<string, string> = {
+    "Цвета": "Основная палитра стола: фон, панели и четыре вида текста.",
+    "Линии": "Разделители, рамки и сетка рабочего стола.",
+    "Акценты": "Цвет интерфейса и статусов: выбранное, успех, предупреждение, ошибка.",
+    "Терминал": "Цвета консоли терминала и экрана входа.",
+    "Шрифты": "Гарнитуры и размер букв.",
+    "Форма": "Скругление, толщина рамок и размеры элементов.",
+  };
+  let section = $state((() => { try { return localStorage.getItem(SECTION_KEY) ?? "wall"; } catch { return "wall"; } })());
+  const sections = $derived(["wall", ...groups]);
+  $effect(() => { if (!sections.includes(section)) section = "wall"; });
+  $effect(() => { const value = section; try { localStorage.setItem(SECTION_KEY, value); } catch { /* память браузера может быть закрыта */ } });
+  let find = $state("");
+  let onlyOwn = $state(false);
+
+  const ownIn = (group: string) => system.token_info.filter((t) => t.group === group && look.tokens[t.name]).length;
+  const totalOwn = $derived(system.token_info.filter((t) => look.tokens[t.name]).length);
+  const wallChanged = $derived(JSON.stringify({ ...look.wallpaper, file_name: "" }) !== JSON.stringify({ ...WALLPAPER_DEFAULT, file_name: "" }));
+  // токены на экране: при поиске по всем группам, иначе выбранная группа; «только изменённые» оставляет переопределённые
+  const query = $derived(find.trim().toLowerCase());
+  const shown = $derived(system.token_info.filter((t) =>
+    (query ? `${t.label} ${t.name} ${t.hint}`.toLowerCase().includes(query) : t.group === section) && (!onlyOwn || look.tokens[t.name])));
+  const palette = (slug: string) => ["--bg", "--panel", "--accent"].map((name) => system.style_defaults[slug]?.[name] ?? "#000000");
+  const colorOf = (token: Schemas["TokenInfo"]) => look.tokens[token.name] ?? def(token);
+  const isColor = (value: string) => /^(#[0-9a-fA-F]{3,8}|rgba?\(|hsla?\()/.test(value);
+
+  async function resetAll() {
+    if (!(await ask("Вернуть все токены к стилю?", `Переопределённых токенов: ${totalOwn}. Картинка и узор не меняются. Пока не нажато «Сохранить», это можно отменить.`, "Вернуть"))) return;
+    look.tokens = {};
+  }
 </script>
 
   <div class="stylegrid" class:nopv={!deskPreview}>
@@ -88,21 +123,48 @@
   <div class="block">
     <h3>Стиль рабочего стола и окон <a class="more" href={desktopUrl} target="_blank" rel="noopener">посмотреть на рабочем столе →</a>
       {#if !deskPreview}<button class="btn ghost small" onclick={toggleDeskPreview}>Показать предпросмотр</button>{/if}</h3>
-    <p class="muted small">Стиль задаёт раскладку и вид элементов: панель, окна, кнопки, иконки. Стили готовятся в коде, здесь выбирается один из них. Токены ниже переназначают цвета, шрифты и форму поверх выбранного стиля.</p>
-    <div class="styles">
-      {#each system.styles as item}
-        <label class="stylecard" class:on={look.style === item.slug}>
+    <div class="styles" role="radiogroup" aria-label="Стиль">
+      {#each system.styles as item (item.slug)}
+        <label class="stylecard" class:on={look.style === item.slug} title={item.description}>
           <input type="radio" name="style" value={item.slug} bind:group={look.style} />
+          <span class="dots" aria-hidden="true">{#each palette(item.slug) as color}<i style:background={color}></i>{/each}</span>
           <b>{item.label}</b>
-          <span class="muted small">{item.description}</span>
         </label>
       {/each}
     </div>
+    <p class="muted small desc">{system.styles.find((x) => x.slug === look.style)?.description} Стиль задаёт раскладку и вид элементов, токены ниже переназначают цвета, шрифты и форму поверх него.</p>
   </div>
 
-  <div class="block">
-    <h3>Картинка и узор</h3>
-    <p class="muted small">Лежат под окнами и значками, не зависят от выбранного стиля. Цвет под ними это токен «Фон рабочего стола» ниже.</p>
+  <div class="settings">
+    <nav class="rail" aria-label="Разделы настроек">
+      {#each sections as key (key)}
+        {@const own = key === "wall" ? (wallChanged ? 1 : 0) : ownIn(key)}
+        <button class="rail-item" class:on={!query && section === key} aria-current={!query && section === key ? "true" : undefined} onclick={() => { section = key; find = ""; }}>
+          <span>{key === "wall" ? "Картинка и узор" : key}</span>
+          {#if own}<span class="badge" title={key === "wall" ? "Картинка или узор заданы" : `Изменено токенов: ${own}`}>{key === "wall" ? "●" : own}</span>{/if}
+        </button>
+      {/each}
+      <div class="rail-foot">
+        <span class="muted small">Изменено токенов: <b>{totalOwn}</b></span>
+        <button class="btn ghost small" disabled={!totalOwn} onclick={resetAll}>Сбросить всё к стилю</button>
+      </div>
+    </nav>
+
+    <section class="panelbox" aria-label={section === "wall" ? "Картинка и узор" : section}>
+      <header class="phead">
+        <div>
+          <h3>{query ? "Поиск по токенам" : section === "wall" ? "Картинка и узор" : section}</h3>
+          <p class="muted small">{query ? `Найдено: ${shown.length}` : section === "wall" ? "Лежат под окнами и значками, не зависят от выбранного стиля. Цвет под ними это токен «Фон рабочего стола» в разделе «Цвета»." : GROUP_NOTE[section]}</p>
+        </div>
+        <div class="tools">
+          {#if section !== "wall" || query}
+            <label class="find"><Icon name="search" size={14} /><input placeholder="Найти токен" bind:value={find} aria-label="Поиск токена" /></label>
+            <label class="check small"><input type="checkbox" bind:checked={onlyOwn} /> только изменённые</label>
+          {/if}
+        </div>
+      </header>
+
+      {#if section === "wall" && !query}
     <div class="wall">
       <div class="wallrow">
         <div class="wthumb" class:empty={!look.wallpaper.file_id}>
@@ -160,36 +222,37 @@
       </div>
       {#if errors.wallpaper}{#each errors.wallpaper as text}<p class="warn small">{text}</p>{/each}{/if}
     </div>
-  </div>
-
-  {#each groups as group}
-    <div class="block">
-      <h3>{group}</h3>
-      <div class="tokens">
-        {#each system.token_info.filter((t) => t.group === group) as token (token.name)}
-          <div class="token" class:own={look.tokens[token.name]}>
-            <span>{token.label}<span class="mono muted small"> {token.name}</span></span>
-            {#if token.kind === "font"}
-              <select class="field" value={look.tokens[token.name] ?? ""} onchange={(e) => setToken(token.name, e.currentTarget.value)}>
-                <option value="">как в стиле ({def(token)})</option>
-                {#each system.fonts as font}<option value={font.value}>{font.label}</option>{/each}
-              </select>
-            {:else}
-              <div class="tokeninput">
+      {:else}
+        <div class="tokens">
+          {#each shown as token (token.name)}
+            <div class="tok" class:changed={look.tokens[token.name]}>
+              <div class="thead">
                 {#if token.kind === "color"}
-                  <span class="swatch" style:background={def(token)} title="В стиле: {def(token)}"></span>
-                  <span class="arrow" class:dim={!look.tokens[token.name]}>→</span>
-                  <input class="picker" type="color" value={pickerValue(token)} oninput={(e) => setToken(token.name, e.currentTarget.value)} title={look.tokens[token.name] ? `Свой: ${look.tokens[token.name]}` : "В стиле такой же, как слева"} />
+                  <label class="sw" title="Выбрать цвет">
+                    <span class="swfill" style:background={isColor(colorOf(token)) ? colorOf(token) : "transparent"}></span>
+                    <input type="color" value={pickerValue(token)} oninput={(e) => setToken(token.name, e.currentTarget.value)} aria-label="Цвет: {token.label}" />
+                  </label>
                 {/if}
-                <input class="field mono" placeholder={def(token)} value={look.tokens[token.name] ?? ""} oninput={(e) => setToken(token.name, e.currentTarget.value)} class:bad={errors.style} />
+                <div class="tname"><b>{token.label}</b><code class="muted">{token.name}</code></div>
+                <button class="btn ghost reset" disabled={!look.tokens[token.name]} onclick={() => setToken(token.name, "")} title="Вернуть значение стиля ({def(token)})" aria-label="Вернуть значение стиля">×</button>
               </div>
-            {/if}
-            <button class="btn ghost" disabled={!look.tokens[token.name]} onclick={() => setToken(token.name, "")} title="Как в стиле">×</button>
-          </div>
-        {/each}
-      </div>
-    </div>
-  {/each}
+              <p class="thint muted small">{token.hint}</p>
+              {#if token.kind === "font"}
+                <select class="field" value={look.tokens[token.name] ?? ""} onchange={(e) => setToken(token.name, e.currentTarget.value)} aria-label={token.label}>
+                  <option value="">как в стиле ({def(token)})</option>
+                  {#each system.fonts as font}<option value={font.value}>{font.label}</option>{/each}
+                </select>
+              {:else}
+                <input class="field mono" placeholder={def(token)} value={look.tokens[token.name] ?? ""} oninput={(e) => setToken(token.name, e.currentTarget.value)} class:bad={errors.style} aria-label={token.label} />
+              {/if}
+            </div>
+          {:else}
+            <p class="muted small pad">{onlyOwn ? "Здесь ничего не изменено." : "Ничего не нашлось."}</p>
+          {/each}
+        </div>
+      {/if}
+    </section>
+  </div>
   {#if errors.style}{#each errors.style as text}<p class="warn small">{text}</p>{/each}{/if}
   </div>
   {#if deskPreview}
@@ -217,27 +280,52 @@
   .warn { color: var(--warn); margin: 0; }
   .more { margin-left: auto; font-size: 12px; text-transform: none; letter-spacing: 0; }
   .hidepv { margin-left: auto; text-transform: none; letter-spacing: 0; }
-  .styles { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 10px; }
-  .stylecard { display: flex; flex-direction: column; gap: 4px; padding: 12px 14px; border: 1px solid var(--line-soft); border-radius: var(--radius-s); cursor: pointer; }
+  .styles { display: grid; grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); gap: 8px; }
+  .stylecard { display: flex; flex-direction: column; gap: 6px; padding: 8px 10px; border: 1px solid var(--line-soft); border-radius: var(--radius-s); cursor: pointer; }
+  .stylecard:hover { border-color: var(--line); }
   .stylecard.on { border-color: var(--accent); background: var(--accent-soft); }
-  .stylecard input { display: none; }
-  .tokens { display: flex; flex-direction: column; gap: 6px; }
-  .token { display: grid; grid-template-columns: minmax(0, 1fr) max-content; gap: 4px 8px; align-items: center; padding: 6px 0; border-bottom: 1px solid var(--line-soft); }
-  .token:last-child { border-bottom: 0; }
-  .token > span:first-child { grid-column: 1 / -1; }
-  .token.own > span:first-child { color: var(--accent); }
-  .token select { width: 100%; min-width: 0; }
-  .tokeninput { display: flex; gap: 6px; align-items: center; min-width: 0; }
-  .tokeninput .field { flex: 1; min-width: 0; }
+  .stylecard:has(input:focus-visible) { outline: 2px solid var(--accent); outline-offset: 1px; }
+  .stylecard input { position: absolute; opacity: 0; pointer-events: none; }
+  .dots { display: flex; }
+  .dots i { width: 22px; height: 22px; border: 1px solid var(--line); margin-right: -6px; border-radius: 50%; }
+  .desc { margin-top: 8px; }
+  .settings { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+  .rail { display: flex; flex-wrap: wrap; align-items: center; gap: 2px; padding-bottom: 8px; border-bottom: 1px solid var(--line-soft); }
+  .rail-item { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 8px 10px; border: 0; border-radius: var(--radius-s); background: none; color: var(--muted); font: inherit; text-align: left; cursor: pointer; }
+  .rail-item:hover { background: var(--panel-2); color: var(--text); }
+  .rail-item.on { background: var(--accent-soft); color: var(--text); }
+  .rail-item:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+  .badge { min-width: 18px; padding: 0 6px; border-radius: 999px; background: var(--accent); color: var(--bg); font-size: 11px; text-align: center; line-height: 18px; }
+  .rail-foot { display: flex; align-items: center; gap: 8px; margin-left: auto; }
+  .panelbox { display: flex; flex-direction: column; gap: 14px; min-width: 0; padding: 14px 16px; border: 1px solid var(--line-soft); border-radius: var(--radius); background: var(--panel); }
+  .phead { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; flex-wrap: wrap; }
+  .phead h3 { margin: 0 0 2px; font-size: 15px; text-transform: none; letter-spacing: 0; }
+  .tools { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+  .find { display: flex; align-items: center; gap: 8px; padding: 0 10px; border: 1px solid var(--line-soft); border-radius: var(--radius-s); background: var(--bg); color: var(--muted); }
+  .find:focus-within { border-color: var(--accent); }
+  .find input { width: 150px; padding: 5px 0; border: 0; outline: 0; background: none; color: var(--text); font: inherit; font-size: 13px; }
+  .check { display: flex; align-items: center; gap: 6px; }
+  .pad { padding: 8px; }
+  .tokens { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 10px; }
+  .tok { display: flex; flex-direction: column; gap: 6px; padding: 10px 12px; border: 1px solid var(--line-soft); border-radius: var(--radius-s); background: var(--bg); }
+  .tok.changed { border-color: var(--accent); }
+  .thead { display: flex; align-items: center; gap: 10px; }
+  .sw { position: relative; flex: none; width: 34px; height: 34px; border: 1px solid var(--line-bright); border-radius: var(--radius-s); overflow: hidden; cursor: pointer; background: repeating-conic-gradient(var(--panel-2) 0 25%, var(--bg) 0 50%) 0 0 / 8px 8px; }
+  .sw:focus-within { outline: 2px solid var(--accent); outline-offset: 1px; }
+  .swfill { position: absolute; inset: 0; }
+  .sw input { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; }
+  .tname { display: flex; flex-direction: column; min-width: 0; flex: 1; }
+  .tname b { font-weight: 600; overflow-wrap: anywhere; }
+  .tname code { font-size: 11px; }
+  .reset { padding: 0 8px; height: 26px; }
+  .thint { margin: 0; line-height: 1.4; }
+  .tok .field { width: 100%; min-width: 0; }
   .stylegrid.nopv { grid-template-columns: minmax(0, 1fr); }
-  .stylegrid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(360px, 560px); gap: 16px; align-items: start; }
+  .stylegrid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(380px, 520px); gap: 16px; align-items: start; }
   .stylemain { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
   .stylepreview { position: sticky; top: 8px; }
   .pvframe { position: relative; overflow: hidden; border: 1px solid var(--line); border-radius: var(--radius-s); background: #000; }
   .pvframe iframe { position: absolute; top: 0; left: 0; border: 0; transform-origin: 0 0; }
-  .swatch { flex: none; width: 22px; height: 22px; border: 1px solid var(--line); border-radius: var(--radius-s); background-clip: padding-box; }
-  .arrow { color: var(--muted); font-size: 0.8rem; }
-  .arrow.dim { opacity: 0.35; }
   .picker { width: 34px; height: 32px; padding: 0; border: 1px solid var(--line); border-radius: var(--radius-s); background: none; cursor: pointer; }
   .field.bad { border-color: var(--danger); }
   .wall { display: flex; flex-direction: column; gap: 12px; }

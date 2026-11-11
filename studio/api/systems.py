@@ -111,6 +111,7 @@ class TokenInfo(Schema):
     group: str
     kind: str
     default: str
+    hint: str = ""
 
 
 class WallpaperValue(Schema):
@@ -253,7 +254,7 @@ def _out(system):
         styles=[StyleChoice(slug=slug, label=item.label, description=item.description) for slug, item in styles.STYLES.items()],
         preview_url=reverse("studio_style_preview", kwargs={"code": system.code}),
         style_defaults={slug: {t.name: styles.style_defaults(slug).get(t.name, "") for t in styles.TOKENS} for slug in styles.STYLES},
-        token_info=[TokenInfo(name=t.name, label=t.label, group=t.group, kind=t.kind, default=styles.defaults().get(t.name, "")) for t in styles.TOKENS],
+        token_info=[TokenInfo(name=t.name, label=t.label, group=t.group, kind=t.kind, default=styles.defaults().get(t.name, ""), hint=t.hint) for t in styles.TOKENS],
         fonts=[FontChoice(value=value, label=label) for value, label in styles.fonts().items()],
         scenes=_slots(system), scene_library=choices(),
         blackout_params=[GreetingParam(name=name, label=label) for name, label in blackouts.PARAMS.items()],
