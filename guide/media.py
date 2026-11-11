@@ -73,6 +73,7 @@ def prepare_world():
     store[SESSION_KEY] = machine_session.pk
     store.save()
     _furnish_studio()
+    _furnish_team()
     return {"author": {"username": AUTHOR[0], "password": AUTHOR[1]}, "player_cookie": store.session_key}
 
 
@@ -88,3 +89,37 @@ def _furnish_studio():
         "sources": "aether-*", "max_attempts": 3, "attempts_window": 600, "lock_seconds": 300, "ttl": 1800,
         "windows": "mon-fri: 9:00-13:00 14:00-18:00"})
     Machine.objects.filter(hostname="aether-core").update(entry_policy=policy)
+
+
+def _furnish_team():
+    """Живая команда для снимков: второй автор, задачи, обращение игрока и обсуждение на машине."""
+    from datetime import timedelta
+
+    from django.contrib.auth import get_user_model
+    from django.utils import timezone
+
+    from machines.models import Machine
+    from support import desk
+    from team import comments, tasks
+    from team.models import Task
+    from team.testing import full_role
+
+    User = get_user_model()
+    author = User.objects.get(username=AUTHOR[0])
+    editor, _ = User.objects.get_or_create(username="docs-editor", defaults={"is_staff": True, "role": full_role()})
+    machine = Machine.objects.get(hostname="aether-core")
+    if not Task.objects.exists():
+        today = timezone.localdate()
+        for title, status, priority, due, who, target in (
+            ("Дописать сценарий охраны порта", "doing", 8, today + timedelta(days=1), [author], f"machines/{machine.pk}"),
+            ("Проверить пароль в door.bin", "open", 5, today + timedelta(days=5), [editor], None),
+            ("Новость про техработы", "review", 3, None, [author, editor], None),
+            ("Спрятать ключ alpha в отчёте", "done", 6, None, [editor], None),
+        ):
+            tasks.save(editor, Task(), {"title": title, "status": status, "priority": priority, "due": due, "assignees": [u.pk for u in who],
+                                         "labels": ["почта"] if "сценарий" in title else [], "links": [target] if target else []})
+    if not comments.threads(f"machines/{machine.pk}"):
+        comments.post(editor, f"machines/{machine.pk}", f"@{author.username} на этой машине нужен экспорт /srv/harbor, сделаешь?")
+    if not desk.Ticket.objects.exists():
+        player = User.objects.get(username=PLAYER)
+        desk.open_ticket(player, subject="Door code does not work", category="stuck", text="I typed the password from the report, but the guard does not answer.")
