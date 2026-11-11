@@ -18993,6 +18993,13 @@
       },
       "title": "Slots",
       "type": "array"
+     },
+     "samples": {
+      "additionalProperties": {
+       "type": "string"
+      },
+      "title": "Samples",
+      "type": "object"
      }
     },
     "required": [
@@ -19002,7 +19009,8 @@
      "note",
      "errors",
      "bindings",
-     "slots"
+     "slots",
+     "samples"
     ],
     "title": "SceneOut",
     "type": "object"

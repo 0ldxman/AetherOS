@@ -37,6 +37,11 @@
     circle: '<circle cx="12" cy="12" r="9"/>',
     clock: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
     eye: '<path d="M2.06 12.35a1 1 0 0 1 0-.7 10.75 10.75 0 0 1 19.88 0 1 1 0 0 1 0 .7 10.75 10.75 0 0 1-19.88 0"/><circle cx="12" cy="12" r="3"/>',
+    run: '<polygon points="6 3 20 12 6 21 6 3"/>',
+    redo: '<path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/>',
+    braces: '<path d="M8 3H7a2 2 0 0 0-2 2v5a2 2 0 0 1-2 2 2 2 0 0 1 2 2v5c0 1.1.9 2 2 2h1"/><path d="M16 21h1a2 2 0 0 0 2-2v-5c0-1.1.9-2 2-2a2 2 0 0 1-2-2V5a2 2 0 0 0-2-2h-1"/>',
+    terminal: '<path d="m4 17 6-6-6-6"/><path d="M12 19h8"/>',
+    stop: '<rect x="6" y="6" width="12" height="12" rx="1.5"/>',
     chevron: '<path d="m6 9 6 6 6-6"/>',
     updown: '<path d="m7 15 5 5 5-5"/><path d="m7 9 5-5 5 5"/>',
   };

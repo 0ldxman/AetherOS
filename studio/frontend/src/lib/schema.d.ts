@@ -6774,6 +6774,10 @@ export interface components {
             bindings: components["schemas"]["SceneBinding"][];
             /** Slots */
             slots: components["schemas"]["SlotInfo"][];
+            /** Samples */
+            samples: {
+                [key: string]: string;
+            };
         };
         /** SceneProblem */
         SceneProblem: {

@@ -9,6 +9,11 @@
   import Dialog from "../lib/Dialog.svelte";
   import { go } from "../lib/router.svelte";
   import { toast } from "../lib/toast.svelte";
+  import CodeEditor from "../lib/CodeEditor.svelte";
+  import Icon from "../lib/Icon.svelte";
+  import Insert from "./scenes/Insert.svelte";
+  import Reference from "./scenes/Reference.svelte";
+  import Stage from "./scenes/Stage.svelte";
 
   type Scene = Schemas["SceneOut"];
 
@@ -24,8 +29,7 @@
   let slot = $state("");
   let creating = $state(false);
   let draft = $state({ slug: "", title: "" });
-  let screen: HTMLElement | undefined = $state();
-  let term: { play: (steps: unknown[], opts?: unknown) => Promise<unknown> } | null = null;
+  let editor: { insertSnippet(template: string): void; insertText(text: string): void; goto(line: number): void } | undefined = $state();
   let timer: ReturnType<typeof setTimeout>;
 
   const current = $derived(slug ?? rows[0]?.slug ?? null);
@@ -119,19 +123,10 @@
     go("/scenes");
   }
 
-  async function play() {
-    if (!screen || !preview) return;
-    const aether = (window as unknown as { Aether?: { console: { create: (el: HTMLElement) => typeof term } } }).Aether;
-    if (!aether) return toast("Проигрыватель не загружен.", "error");
-    term ??= aether.console.create(screen);
-    await term!.play([{ op: "clear" }, ...preview.steps]);
-  }
-
-  function insert(name: string) {
-    form.body += `{${name}}`;
-  }
-
-  const slotParams = $derived(scene?.slots.find((item) => item.slot === slot)?.params ?? []);
+  // подстановки выбранного события; «все»: любые, что есть хотя бы у одного
+  const params = $derived(slot ? (scene?.slots.find((item) => item.slot === slot)?.params ?? []) : [...new Set(scene?.slots.flatMap((item) => item.params) ?? [])]);
+  const problems = $derived(preview?.errors ?? []);
+  const firstProblem = $derived(problems.length ? Math.min(...problems.map((item) => item.line)) : 0);
 </script>
 
 <ListDetail title="Сцены">
@@ -150,61 +145,38 @@
   {#if scene}
     <section class="editor">
       <header class="top">
-        <input class="field title" placeholder="название" bind:value={form.title} />
-        <input class="field mono slug" bind:value={form.slug} class:bad={errors.slug} />
+        <input class="field title" placeholder="название" bind:value={form.title} aria-label="Название сцены" />
+        <input class="field mono slug" bind:value={form.slug} class:bad={errors.slug} aria-label="Идентификатор сцены" />
         <span class="spacer"></span>
-        <button class="btn" onclick={play} disabled={!preview?.steps.length}>▶ Играть</button>
         <button class="btn ghost danger" onclick={drop}>Удалить</button>
         <DraftState {share} {dirty} saved="" />
         <button class="btn primary" disabled={!dirty} onclick={save}>Сохранить</button>
       </header>
       {#if errors.slug}<p class="warn small">{errors.slug.join(" ")}</p>{/if}
 
-      <div class="slotbar">
-        <span class="muted small">Подстановки события:</span>
-        <select class="field" bind:value={slot}>
-          <option value="">все</option>
-          {#each scene.slots as item}<option value={item.slot}>{item.label}</option>{/each}
-        </select>
-        {#each slotParams as name}<button class="chip mono" onclick={() => insert(name)}>{"{"}{name}{"}"}</button>{/each}
-      </div>
+      <div class="work">
+        <div class="left">
+          <div class="toolbar">
+            <Insert {params} samples={scene.samples} onsnippet={(template) => editor?.insertSnippet(template)} ontext={(text) => editor?.insertText(text)} />
+            <span class="spacer"></span>
+            {#if problems.length}
+              <button class="problems bad" onclick={() => editor?.goto(firstProblem)} title="Ошибок: {problems.length}. Перейти к первой"><Icon name="alert" size={14} />{problems.length}</button>
+            {:else if preview}
+              <span class="problems ok" title="Ошибок нет"><Icon name="check" size={16} /></span>
+            {/if}
+          </div>
+          <div class="code" class:bad={problems.length || errors.body}>
+            {#key share.texts.body}<CodeEditor bind:this={editor} bind:value={form.body} shared={share.texts.body ?? null} field="Текст сцены" scene={{ problems, params }} onsave={save} />{/key}
+          </div>
+          {#each problems.slice(0, 4) as error}<p class="warn small"><button class="line" onclick={() => editor?.goto(error.line)}>Строка {error.line}</button>{error.text}</p>{/each}
+          {#if problems.length > 4}<p class="muted small">…и ещё {problems.length - 4}: они подчёркнуты в тексте.</p>{/if}
+          {#if errors.body && !problems.length}<p class="warn small">{errors.body.join(" ")}</p>{/if}
+        </div>
 
-      <textarea class="field mono body" rows="22" wrap="off" spellcheck="false" bind:value={form.body} class:bad={errors.body}></textarea>
-      {#each preview?.errors ?? [] as error}<p class="warn small">Строка {error.line}: {error.text}</p>{/each}
-      {#if errors.body && !(preview?.errors.length)}<p class="warn small">{errors.body.join(" ")}</p>{/if}
-
-      <div class="screen" bind:this={screen}></div>
-
-      <details class="help">
-        <summary>Шпаргалка по языку сцен</summary>
-        <pre class="mono small"># текст                комментарий (\# в начале: сама строка)
-строка текста         вывод: цвета &lt;success&gt;…&lt;/success&gt;, {"{host}"}, &lt;rand&gt;1-9&lt;/rand&gt;, &lt;since&gt;2027-10-29&lt;/since&gt;, &lt;table&gt;
-~ текст               тусклая строка         \@ или \~ в начале: сама строка
-&lt;count to=64000 unit=K ms=600-1100/&gt;   число растёт в строке
-&lt;cursor/&gt;                      курсор после приглашения (&amp;gt; &lt;cursor/&gt;&lt;type&gt;…&lt;/type&gt;)
-&lt;type human typo&gt;текст&lt;/type&gt;      печатается побуквенно
-&lt;mark имя&gt;текст&lt;/mark&gt;            пометка для @glitch
-@task метка | OK | 200-450        look=unit|kernel note= done= style= at= width=20
-@unit имя | описание | OK | мс     служба aeinit
-@bar метка | мс                    width=24
-@count метка | до | единица | мс   result=OK note=
-@log сек | тег | сообщение
-@glitch имя | новый текст          frames=14
-@countdown Старт через {"{n}"}с | секунд
-@wait 450   @read   @clear   @cut   @flash   @blank 2
-@include слаг                      вставить другую сцену
-@rows width=12   (строки с отступом: подпись | значение | стиль | пояснение)
-@bars width=14   (строки с отступом: подпись | мс | результат | стоп%)
-@burst gap=8-45  (строки с отступом: обычные строки вывода)</pre>
-      </details>
-
-      <div class="used">
-        <h3>Где играет</h3>
-        {#each scene.bindings as item}
-          <span class="chip"><a href="#/systems/{item.system}/overview">{item.system}</a> · {item.label}</span>
-        {:else}
-          <span class="muted small">Ни к какому событию не привязана: назначьте её в «Операционные системы → Обзор → Сцены».</span>
-        {/each}
+        <aside class="right">
+          {#key scene.slug}<Stage steps={preview?.steps ?? null} slots={scene.slots} bind:slot failed={problems.length > 0} />{/key}
+          <Reference {params} samples={scene.samples} bindings={scene.bindings} onsnippet={(template) => editor?.insertSnippet(template)} ontext={(text) => editor?.insertText(text)} />
+        </aside>
       </div>
     </section>
   {:else}
@@ -228,24 +200,26 @@
 
 <style>
   .small { font-size: 12px; margin: 0; }
-  .editor { display: flex; flex-direction: column; gap: 10px; padding: 16px 20px 32px; min-width: 0; }
+  .editor { display: flex; flex-direction: column; gap: 12px; padding: 16px 20px 24px; min-width: 0; }
   .top { display: flex; align-items: center; gap: 8px; }
+  .top :global(.draft) { flex-wrap: nowrap; white-space: nowrap; }
+  .title, .slug { min-width: 0; flex: 1 1 160px; }
   .title { max-width: 320px; }
   .slug { max-width: 200px; }
   .spacer { flex: 1; }
-  .slotbar { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
-  .slotbar select { width: auto; }
-  .chip { cursor: pointer; }
-  .body { white-space: pre; overflow: auto; min-height: 30em; }
+  .work { display: grid; grid-template-columns: minmax(0, 1fr) 380px; gap: 16px; align-items: start; }
+  .left { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+  .toolbar { display: flex; align-items: center; gap: 8px; }
+  .problems { white-space: nowrap; display: inline-flex; align-items: center; gap: 6px; padding: 3px 10px; border-radius: 999px; font: inherit; font-size: 12.5px; border: 0; background: none; }
+  .problems.ok { color: var(--ok); }
+  .problems.bad { color: var(--warn); background: rgba(242, 198, 109, 0.12); cursor: pointer; }
+  .code { height: calc(100vh - 230px); min-height: 420px; border: 1px solid var(--line-soft); border-radius: var(--radius); overflow: hidden; background: var(--bg); }
+  .code:focus-within { border-color: var(--accent); }
+  .code.bad { border-color: color-mix(in srgb, var(--warn) 55%, var(--line-soft)); }
+  .right { position: sticky; top: 12px; display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+  .warn { margin: 0; color: var(--warn); }
+  .line { margin-right: 8px; padding: 0; border: 0; background: none; color: inherit; font: inherit; font-weight: 600; text-decoration: underline; text-underline-offset: 2px; cursor: pointer; }
   .bad { border-color: var(--danger); }
-  .warn { color: var(--warn); margin: 0; }
-  .screen {
-    --term-fg: #cccccc; --term-dim: #767676; --term-ok: #16c60c; --term-warn: #f9f1a5; --term-error: #e74856; --term-info: #61d6d6; --bg: #0b0d10;
-    min-height: 220px; max-height: 420px; overflow: auto; padding: 10px 12px; background: #0b0d10; color: #cccccc; border-radius: var(--radius-s);
-    font: 14px/1.25 ui-monospace, "DejaVu Sans Mono", monospace; white-space: pre-wrap;
-  }
-  .help pre { margin: 8px 0 0; padding: 10px 12px; background: var(--panel); border-radius: var(--radius-s); overflow: auto; }
-  .used { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
-  .used h3 { margin: 0 8px 0 0; font-size: 12px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.4px; }
   .empty { padding: 24px; }
+  @media (max-width: 1100px) { .work { grid-template-columns: 1fr; } .right { position: static; } }
 </style>

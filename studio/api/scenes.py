@@ -55,6 +55,7 @@ class SceneOut(Schema):
     errors: list[SceneProblem]
     bindings: list[SceneBinding]
     slots: list[SlotInfo]
+    samples: dict[str, str]     # условные значения подстановок: как их видит предпросмотр
 
 
 class SceneIn(Schema):
@@ -84,6 +85,7 @@ def _out(script):
         errors=[SceneProblem(line=n, text=t) for n, t in script.problems(all_params())],
         bindings=[SceneBinding(system=b.system_type.code, slot=b.slot, label=SLOTS[b.slot].label) for b in script.bindings.select_related("system_type") if b.slot in SLOTS],
         slots=[SlotInfo(slot=key, label=slot.label, params=list(slot.params)) for key, slot in SLOTS.items()],
+        samples={name: SAMPLE.get(name, name) for name in all_params()},
     )
 
 

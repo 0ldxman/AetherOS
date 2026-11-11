@@ -38,6 +38,8 @@
 
     function create(container, options) {
         options = options || {};
+        const skipOnInput = options.skipOnInput !== false;     // редактор сцен не пропускает анимацию, пока автор печатает
+        const runs = new Set();
 
         let current = null;          // строка, в которую дописываем
         let cursor = null;
@@ -636,11 +638,11 @@
                 if (handler(event)) return;
             }
 
-            if (playing) skipping = true;
+            if (playing && skipOnInput) skipping = true;
         });
 
         document.addEventListener("pointerdown", () => {
-            if (playing) skipping = true;
+            if (playing && skipOnInput) skipping = true;
         });
 
         async function play(scene, opts) {
@@ -649,10 +651,11 @@
             const run = { aborted: false };
             const result = {};
 
-            skipping = REDUCED;
+            skipping = REDUCED || !!opts.instant;
             speed = opts.speed || 1;
             variance = opts.variance === undefined ? 0.15 : opts.variance;
             playing += 1;
+            runs.add(run);
 
             try {
                 await runSteps(scene, run, opts.vars, result);
@@ -660,12 +663,18 @@
                 if (!(error instanceof Abort)) throw error;
             } finally {
                 playing -= 1;
+                runs.delete(run);
             }
 
             return result;
         }
 
-        return { play, container };
+        // остановить всё, что сейчас играет (редактор сцен: правка текста, «заново»)
+        function stop() {
+            for (const run of runs) run.aborted = true;
+        }
+
+        return { play, stop, container };
     }
 
     Aether.console = { create };
