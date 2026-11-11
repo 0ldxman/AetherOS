@@ -67,6 +67,13 @@
   const colors = $derived(Object.fromEntries(Object.entries(owners)
     .filter(([, own]) => rights === "all" || (rights === "jure" ? own.de_jure : own.de_facto))
     .map(([code, own]) => [code, own.color])));
+  // карта в её приложении (просмотрщик игры): та же дата, режим и стиль, что выбраны здесь
+  const viewerUrl = $derived.by(() => {
+    const root = window.STUDIO.api.replace(/studio\/api\/?$/, "");
+    const query = new URLSearchParams({ mode: view, theme: look });
+    if (date) query.set("date", date);
+    return `${new URL("apps/map/", new URL(root, location.href)).pathname}?${query}`;
+  });
   const dateIndex = $derived(Math.max(0, dates.findLastIndex((d) => d <= date)));
   const byId = $derived(new Map(countries.map((c) => [c.id, c])));
   const shown = $derived(countries.filter((c) => !filter.trim() || `${c.name} ${c.code}`.toLowerCase().includes(filter.trim().toLowerCase())));
@@ -263,6 +270,7 @@
             {#each RIGHTS as item (item.key)}<option value={item.key}>{item.label}</option>{/each}
           </select>
         </label>
+        <a class="ghost view" href={viewerUrl} target="_blank" rel="noopener" title="Открыть карту в приложении игры: на выбранную дату, в этом режиме и стиле"><Icon name="play" size={14} />Посмотреть</a>
       </div>
     </section>
 
@@ -422,6 +430,8 @@
   .ghost { height: 30px; padding: 0 10px; border: 1px solid var(--line-soft); border-radius: var(--radius-s); background: none; color: var(--muted); font: inherit; font-size: 12.5px; cursor: pointer; }
   .ghost:hover:not(:disabled) { color: var(--text); border-color: var(--line); }
   .ghost:disabled { opacity: 0.4; cursor: default; }
+  .view { display: inline-flex; align-items: center; gap: 6px; margin-left: auto; padding-top: 0; text-decoration: none; line-height: 28px; }
+  .view:hover { text-decoration: none; }
   .line { display: flex; align-items: center; gap: 8px; min-width: 200px; flex: 1; }
   .line input[type="range"] { flex: 1; min-width: 120px; accent-color: var(--accent); }
   .looks { padding-top: 8px; border-top: 1px solid var(--line-soft); }
