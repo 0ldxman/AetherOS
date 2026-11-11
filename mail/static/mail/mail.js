@@ -38,8 +38,21 @@
         return box;
     }
 
+    // письмо называется своим путём на машине (/var/mail/ivan/inbox/door.msg)
     function url(template, id) {
-        return template.replace("/0/", "/" + id + "/");
+        return template + "?path=" + encodeURIComponent(id);
+    }
+
+    async function postJson(address, body) {
+        const response = await fetch(address, {
+            method: "POST",
+            credentials: "same-origin",
+            headers: { "X-CSRFToken": csrf(), "Content-Type": "application/json" },
+            body: JSON.stringify(body)
+        });
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(data.error || String(response.status));
+        return data;
     }
 
     function csrf() {
@@ -151,6 +164,8 @@
                 button.textContent = `saved to ${item.path}`;
                 button.disabled = true;
             }
+        } else if (item.kind === "member") {
+            make(item.label, () => notice(`attachment ${item.label}: open ${item.path} from the terminal`));
         } else {
             make(item.label, () => openAttachment(item));
         }
@@ -270,7 +285,6 @@
         folders.replaceChildren(
             folderRow("inbox", "", "inbox", inFolderCount("inbox")),
             folderRow("unread", "", "unread", unread),
-            folderRow("drafts", "", "drafts", inFolderCount("drafts")),
             folderRow("sent", "", "sent", inFolderCount("sent")),
             folderRow("trash", "", "trash", inFolderCount("trash"))
         );
@@ -347,7 +361,11 @@
         unread.type = "button";
         unread.addEventListener("click", () => markUnread(data.id));
 
-        bar.append(unread);
+        const trash = el("button", "mail-button", data.folder === "trash" ? "restore" : "delete");
+        trash.type = "button";
+        trash.addEventListener("click", () => moveToTrash(data.id));
+
+        bar.append(unread, trash);
         reader.appendChild(bar);
         return back;
     }
@@ -395,12 +413,23 @@
         renderAll();
     }
 
+    // в корзину и обратно: письмо переезжает в другую папку ящика (у других игроков оно на месте)
+    async function moveToTrash(id) {
+        try {
+            await postJson(root.dataset.trashUrl, { path: id });
+        } catch (error) {
+            notice(error.message === "403" ? "sign in to manage mail" : `delete: ${error.message}`);
+            return;
+        }
+        state.selected = null;
+        view.replaceChildren(el("p", "mail-empty", "select a message"));
+        root.classList.remove("is-reading");
+        await loadMessages();
+        renderAll();
+    }
+
     async function markUnread(id) {
-        await fetch(url(root.dataset.unreadUrl, id), {
-            method: "POST",
-            credentials: "same-origin",
-            headers: { "X-CSRFToken": csrf() }
-        });
+        await postJson(root.dataset.unreadUrl, { path: id }).catch(() => null);
 
         const row = state.messages.find(m => m.id === id);
         if (row) row.unread = true;
@@ -562,27 +591,9 @@
         input.focus();
     }
 
-    async function compose() {
-        try {
-            const response = await fetch(root.dataset.tasksUrl, { credentials: "same-origin" });
-            const data = await response.json().catch(() => ({}));
-
-            if (!response.ok) {
-                notice(data.error ? `compose: ${data.error}` : `error ${response.status}`);
-                return;
-            }
-
-            if (!data.tasks.length) {
-                notice("nothing to send from this mailbox");
-                return;
-            }
-
-            const task = data.tasks[0];
-            task.sendUrl = url(root.dataset.sendUrl, task.id);
-            openComposer(task, data.from);
-        } catch (error) {
-            notice("could not reach the machine");
-        }
+    // своё письмо игрок пишет в ответ на письмо персонажа (варианты ответа появятся вместе с перепиской)
+    function compose() {
+        notice("nothing to send from this mailbox");
     }
 
     document.getElementById("mail-compose").addEventListener("click", compose);
@@ -630,6 +641,11 @@
         .then(function () {
             renderAll();
 
+            // письмо, открытое из терминала (cnt) или с рабочего стола, сразу на экране
+            if (root.dataset.file) {
+                open(root.dataset.file);
+                return;
+            }
             const shown = visible();
             const first = shown.find(m => m.unread) || shown[0];
             if (first && window.matchMedia("(min-width: 761px)").matches) open(first.id);

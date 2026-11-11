@@ -45,16 +45,12 @@ class SourceKindTests(TestCase):
         self.assertEqual(self.kind("/link", url="apps/terminal/"), "link")
         self.assertEqual(self.kind("/asset", url=f"view/{self.asset.public_id}/"), "asset")
 
-    def test_a_map_and_a_letter_come_from_their_records(self):
-        from django.utils import timezone
-
-        from mail.models import Message
+    def test_a_map_comes_from_its_record_and_a_letter_is_a_msg_file(self):
         from map.models import MapScene
 
         MapScene.objects.create(slug="harbor", title="Harbor", features=[])
-        Message.objects.create(sender="a@b", recipients="*", subject="S", body="B", slug="m1", sent_at=timezone.now())
         self.assertEqual(self.kind("/map", url="apps/map/?scene=harbor"), "map")
-        self.assertEqual(self.kind("/mail", url="apps/mail/?message=m1"), "mail")
+        self.assertEqual(self.kind("/var/mail/a/inbox/m.msg", body="From: a@b\n\nB", format="msg"), "letter")
 
     def test_an_archive_is_an_object_with_members(self):
         made = make_file(self.machine, "/pack.zip/a.txt")

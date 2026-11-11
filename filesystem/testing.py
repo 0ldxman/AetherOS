@@ -75,11 +75,6 @@ def _item_for(name, state, size, body, format, key, url):
 
         slug = url.split("scene=")[-1]
         return Item.objects.create(slug=unique_slug(name), name=name, scene=MapScene.objects.filter(slug=slug).first(), state=state, size=size)
-    elif parts[:2] == ["apps", "mail"]:
-        from mail.models import Message
-
-        ref = url.split("message=")[-1]
-        return Item.objects.create(slug=unique_slug(name), name=name, message=Message.objects.filter(slug=ref).first(), state=state, size=size)
     if parts[:1] == ["apps"]:                                                      # приложение как таковое: у файла есть окно
         return Item.objects.create(slug=unique_slug(name), name=name, url="https://example.com/" + "/".join(parts[1:]), state=state, size=size)
     return Item.objects.create(slug=unique_slug(name), name=name, **fields)

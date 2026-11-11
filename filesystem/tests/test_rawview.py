@@ -208,26 +208,9 @@ class RawViewTests(TestCase):
         self.assertEqual(listed["SNP page snapshot"]["prefix"], "<!--SNP\nsrc:  ")
         self.assertEqual(listed["REC record"]["prefix"], "\u00a7rec\nwho: ")
 
-    def test_a_mail_message_becomes_the_text_of_a_letter(self):
-        from django.utils import timezone
-
-        from mail.models import Message
-
-        Message.objects.create(sender="cmd@neweden.mail", recipients="*", subject="Cargo", body="Shipment 7 left.", slug="cargo",
-                               sent_at=timezone.now())
-        locked = self.raw(self.make("/m", "apps/mail/?message=cargo"))               # читателя нет: письмо закрыто шумом
-        self.assertTrue(locked.data.startswith(b"From: cmd@neweden.mail\nTo: *\nSubject: Cargo"))
-        self.assertNotIn(b"Shipment 7", locked.data)
-
-        class Reader:                                                              # читатель, которому письмо видно
-            address, keys, profile, user, session_key = "ivan@aether-main", frozenset(), None, None, ""
-
-        from unittest import mock
-
-        with mock.patch("mail.access.visible_messages", return_value=[object()]):
-            opened = self.raw(self.make("/n", "apps/mail/?message=cargo"), viewer=Reader())
-        self.assertIn(b"Shipment 7 left.", opened.data)
-        self.assertEqual(opened.size, locked.size)                                  # размер не зависит от доступа
+    def test_a_letter_file_is_its_own_text_with_headers(self):
+        letter = self.raw(self.make("/var/mail/ivan/inbox/cargo.msg", body="From: cmd@neweden.mail\nSubject: Cargo\n\nShipment 7 left.", format="msg"))
+        self.assertTrue(letter.data.startswith(b"From: cmd@neweden.mail\nSubject: Cargo\n\nShipment 7 left."))
 
 
 

@@ -22,6 +22,7 @@ DEFAULTS = {
     "config": "/etc/aether",
     "logs": "/var/log",
     "temp": "/tmp",
+    "mail": "/var/mail/{login}",   # ящик учётки: inbox, sent, trash (mail.boxes)
 }
 
 _VARIABLE = re.compile(r"\{(\w+)\}")

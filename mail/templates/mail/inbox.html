@@ -10,10 +10,10 @@
 {% block body %}
     <main id="mail"
           data-list-url="{% url 'mail:messages' %}"
-          data-message-url="{% url 'mail:message' 0 %}"
-          data-unread-url="{% url 'mail:unread' 0 %}"
-          data-tasks-url="{% url 'mail:tasks' %}"
-          data-send-url="{% url 'mail:send' 0 %}">
+          data-message-url="{% url 'mail:message' %}"
+          data-unread-url="{% url 'mail:unread' %}"
+          data-trash-url="{% url 'mail:trash' %}"
+          data-file="{{ file }}">
 
         <div id="mail-panes">
             <section class="pane" id="mail-side" aria-label="folders">

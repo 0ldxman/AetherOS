@@ -170,7 +170,6 @@ class ItemsApiTests(TestCase):
 class ProtectionApiTests(TestCase):
     @classmethod
     def setUpTestData(cls):
-        from mail.models import Message
         from map.models import MapScene
 
         cls.boss = get_user_model().objects.create_user("boss", password="pw", is_staff=True, role=full_role())
@@ -181,7 +180,6 @@ class ProtectionApiTests(TestCase):
         cls.card = Item.objects.create(slug="cardkey", name="cardkey", format="key")
         cls.alarm = Item.objects.create(slug="alarm", name="alarm", format="key")
         cls.scene = MapScene.objects.create(slug="harbor", title="Порт")
-        cls.message = Message.objects.create(subject="Груз", sender="ops@aether-core", recipients="*", sent_at=timezone.now())
 
     def setUp(self):
         previous = get_script_prefix()
@@ -232,10 +230,9 @@ class ProtectionApiTests(TestCase):
         self.assertTrue(keyed["is_key"])
         self.assertIn("door", " ".join(u["label"] for u in keyed["required_by"]))
 
-    def test_the_content_comes_from_an_asset_a_scene_a_message_or_a_link_and_text_is_not_wiped_silently(self):
+    def test_the_content_comes_from_an_asset_a_scene_or_a_link_and_text_is_not_wiped_silently(self):
         picture = Item.objects.create(slug="pic", name="pic", format="png")
         self.assertEqual([r["sub"] for r in self.call("get", "/items/pick/scenes")[1]], ["harbor"])
-        self.assertEqual(self.call("get", "/items/pick/messages?q=Груз")[1][0]["sub"], "ops@aether-core")
         from unittest import mock
 
         def found(item, client=None):

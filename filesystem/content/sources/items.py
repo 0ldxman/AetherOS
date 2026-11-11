@@ -129,34 +129,27 @@ class SceneSource(Source):
         return Content(url=site_url(f"apps/map/?scene={entry.item.scene.slug}"))
 
 
-class MessageSource(Source):
-    """Письмо: текст с заголовками. Не доступное читателю закрыто шумом."""
+class LetterSource(Source):
+    """Письмо (формат msg): байты это его текст целиком, заголовки и тело; окно открывает письмо в почте.
 
-    name = "mail"
+    Стоит раньше архивов: вложения письма это члены его объекта, но открывается письмо, а не архив."""
+
+    name = "letter"
 
     def accepts(self, entry):
-        return entry.item is not None and entry.item.message_id is not None
+        return entry.format == "msg" and (entry.item is not None or entry.authored or entry.player is not None)
 
     def payload(self, entry, view, keys, reader, viewer):
-        from mail.access import visible_messages
-
-        message = entry.item.message
-        seen = bool(viewer) and bool(visible_messages(viewer, pk=message.pk, attachments=False))
-        return Payload(
-            kind="mail", layout="format", default_fmt="msg", body=message.body.encode(), locked=not seen,
-            stamp=f"mail:{message.pk}:{message.updated_at.isoformat()}",
-            meta={
-                "sender": message.sender,
-                "recipients": ", ".join(line.strip() for line in message.recipients.splitlines() if line.strip()),
-                "subject": message.subject,
-                "date": message.sent_at.strftime("%a, %d %b %Y %H:%M:%S +0000"),
-                "id": message.slug or str(message.pk),
-            },
-        )
+        body = entry.body
+        stamp = f"letter:{entry.item.pk}:{entry.item.updated_at.isoformat()}:{hash(body)}" if entry.item is not None else f"letter:{entry.path}:{hash(body)}"
+        return _text_payload(entry, body, "msg", stamp, _meta(entry.item) if entry.item is not None else {}, keys)
 
     def window(self, entry, address):
-        message = entry.item.message
-        return Content(url=site_url(f"apps/mail/?message={message.slug or message.pk}"))
+        from django.utils.http import urlencode
+
+        if "path" in address:
+            return Content(url=site_url("apps/mail/?" + urlencode({"file": address["path"]})))
+        return _text_window(entry, address)
 
 
 class KeySource(Source):

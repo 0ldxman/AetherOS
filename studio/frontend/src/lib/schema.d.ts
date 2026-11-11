@@ -783,7 +783,7 @@ export interface paths {
         get: operations["studio_api_protection_content"];
         /**
          * Set Content
-         * @description Откуда берётся содержимое: текст, ассет, ссылка, сцена карты или письмо. Остальные источники сбрасываются; текст при
+         * @description Откуда берётся содержимое: текст, ассет, ссылка или сцена карты. Остальные источники сбрасываются; текст при
          *     смене на другой источник не стирается молча: сначала автор очищает его сам.
          */
         put: operations["studio_api_protection_set_content"];
@@ -823,23 +823,6 @@ export interface paths {
         };
         /** Pick Scenes */
         get: operations["studio_api_protection_pick_scenes"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/studio/api/items/pick/messages": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Pick Messages */
-        get: operations["studio_api_protection_pick_messages"];
         put?: never;
         post?: never;
         delete?: never;
@@ -3786,8 +3769,6 @@ export interface components {
             asset: string | null;
             /** Scene */
             scene: string | null;
-            /** Message */
-            message: string | null;
             /** World Created At */
             world_created_at: string | null;
             /** World Updated At */
@@ -4235,7 +4216,6 @@ export interface components {
             kind: string;
             asset: components["schemas"]["FilePick"] | null;
             scene: components["schemas"]["PickRef"] | null;
-            message: components["schemas"]["PickRef"] | null;
             /** Url */
             url: string;
         };
@@ -4296,8 +4276,6 @@ export interface components {
             view: string;
             /** Scene */
             scene?: number | null;
-            /** Message */
-            message?: number | null;
             /**
              * Url
              * @default
@@ -8584,28 +8562,6 @@ export interface operations {
         };
     };
     studio_api_protection_pick_scenes: {
-        parameters: {
-            query?: {
-                q?: string;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["PickRef"][];
-                };
-            };
-        };
-    };
-    studio_api_protection_pick_messages: {
         parameters: {
             query?: {
                 q?: string;

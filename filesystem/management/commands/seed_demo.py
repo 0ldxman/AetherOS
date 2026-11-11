@@ -110,6 +110,10 @@ class Command(BaseCommand):
         put(own, "etc/hosts", "main-hosts", "127.0.0.1 localhost\n10.0.0.2 aether-core\n10.0.0.9 aether-deep\n")
 
         put(own, "home/ivan/notes.txt", "ivan-notes", "Door code is in the report.\n")
+        # почта: письмо в ящике учётки ivan (видит любой, кто вошёл как ivan)
+        put(own, "var/mail/ivan/inbox/welcome.msg", "ivan-welcome",
+            "From: harbor-office@aether-core\nTo: {to}\nSubject: Shipment 7\nX-Label: work\n\n"
+            "{login}, the cargo report is in your home folder.\nCheck the door code before the night shift.\n", format="msg")
         report = put(own, "home/ivan/report.rec", "ivan-report", "Cargo manifest altered.\n\nRef A-113.\n", format="rec")
         ItemKey.objects.get_or_create(item=report, key=alpha)                       # ключ лежит в байтах отчёта (kex)
         put(own, "home/ivan/door.bin", "ivan-door", state="> encrypted hunter2 attempts=3", size=2048)

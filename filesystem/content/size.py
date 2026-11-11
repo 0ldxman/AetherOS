@@ -30,7 +30,7 @@ def file_size(entry, view=None, keys=frozenset(), viewer=None):
     held = keys_in_file(entry.item)                                    # блоки ключей меняют длину байтов
     layered = bool((entry.state or "").strip() or (entry.progress or "").strip()) or bool(held)
     item = entry.item
-    declared = item is not None and item.size is not None and not item.body.strip() and not (item.file_id or item.scene_id or item.message_id) \
+    declared = item is not None and item.size is not None and not item.body.strip() and not (item.file_id or item.scene_id) \
         and entry.player is None
     if declared and not layered:
         return item.size

@@ -16,10 +16,10 @@
 
   const path = $derived({ item_id: item.id });
   const ALLOWED: Record<string, string[]> = {
-    text: [], text_asset: ["asset"], asset: ["asset"], link_asset: ["link", "asset"], scene: ["scene"], message: ["message"], none: [],
+    text: [], text_asset: ["asset"], asset: ["asset"], link_asset: ["link", "asset"], scene: ["scene"], none: [],
   };
   const allowed = $derived(ALLOWED[format?.content ?? "text_asset"] ?? []);
-  const LABEL: Record<string, string> = { asset: "Файл", link: "Ссылка", scene: "Сцена карты", message: "Письмо" };
+  const LABEL: Record<string, string> = { asset: "Файл", link: "Ссылка", scene: "Сцена карты" };
 
   async function load() {
     const { data } = await api.GET("/studio/api/items/{item_id}/content", { params: { path } });
@@ -36,8 +36,7 @@
     clearTimeout(timer);
     if (which === "link" || which === "asset") return;
     timer = setTimeout(async () => {
-      const route = which === "scene" ? "/studio/api/items/pick/scenes" : "/studio/api/items/pick/messages";
-      found = (await api.GET(route, { params: { query: { q: text } } })).data ?? [];
+      found = (await api.GET("/studio/api/items/pick/scenes", { params: { query: { q: text } } })).data ?? [];
     }, 200);
   });
 
@@ -55,11 +54,11 @@
   }
 
   const choose = (id: number | null) =>
-    put({ kind, file_id: "", view: "", scene: kind === "scene" ? id : null, message: kind === "message" ? id : null, url: kind === "link" ? url : "" }, "Содержимое выбрано.");
-  const pickFile = (fileId: string, view: string) => put({ kind: "asset", file_id: fileId, view, scene: null, message: null, url: "" }, view && content?.asset?.file_id === fileId ? "Вид показа сохранён." : "Файл выбран.");
-  const clearFile = () => put({ kind: "text", file_id: "", view: "", scene: null, message: null, url: "" }, "Файл убран.");
+    put({ kind, file_id: "", view: "", scene: kind === "scene" ? id : null, url: kind === "link" ? url : "" }, "Содержимое выбрано.");
+  const pickFile = (fileId: string, view: string) => put({ kind: "asset", file_id: fileId, view, scene: null, url: "" }, view && content?.asset?.file_id === fileId ? "Вид показа сохранён." : "Файл выбран.");
+  const clearFile = () => put({ kind: "text", file_id: "", view: "", scene: null, url: "" }, "Файл убран.");
 
-  const current = $derived(content && (content.kind === "scene" || content.kind === "message") ? (content[content.kind] ?? null) : null);
+  const current = $derived(content && content.kind === "scene" ? (content.scene ?? null) : null);
 </script>
 
 <div class="picker" class:flush={kind === "asset"}>

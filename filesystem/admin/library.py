@@ -100,12 +100,12 @@ class ItemAdmin(ItemDashboardMixin, ItemHistoryMixin, KeyConditionsMixin, ItemPr
     list_display_links = ("slug", "name")
     list_filter = ("format",)
     search_fields = ("slug", "name", "meta", "body")
-    autocomplete_fields = ("scene", "message")
-    list_select_related = ("scene", "message", "lock__user")
+    autocomplete_fields = ("scene",)
+    list_select_related = ("scene", "lock__user")
     readonly_fields = ("created_at", "updated_at", "created_by", "updated_by")
     fieldsets = (
         ("Основное", {"fields": ("slug", "name", "format", "base_version")}),
-        ("Содержимое", {"fields": ("body", "file_id", "url", "scene", "message"), "description": "Что вводится, зависит от формата."}),
+        ("Содержимое", {"fields": ("body", "file_id", "url", "scene"), "description": "Что вводится, зависит от формата."}),
         ("Доступ", {"fields": ("access",)}),
         ("Слои защиты", {"fields": ("state",), "classes": ("collapse",)}),
         ("Метаданные", {"fields": ("size", "meta", "world_created_at", "world_updated_at", "world_creator"), "classes": ("collapse",)}),
@@ -123,8 +123,6 @@ class ItemAdmin(ItemDashboardMixin, ItemHistoryMixin, KeyConditionsMixin, ItemPr
             return "ссылка"
         if obj.scene_id:
             return f"сцена: {obj.scene.slug}"
-        if obj.message_id:
-            return "письмо"
         return f"текст, {len(obj.body)} зн." if obj.body else "пусто"
 
     @admin.display(description="Размещений", ordering="_placements")

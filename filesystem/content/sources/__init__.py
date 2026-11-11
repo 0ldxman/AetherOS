@@ -8,13 +8,13 @@
 """
 from filesystem.content.sources.base import READ_LIMIT, Content, Payload, page_window, site_url, text_window
 from filesystem.content.sources.items import (
-    ArchiveSource, AssetSource, AuthoredSource, BlankSource, KeySource, LinkSource, MessageSource, OwnSource, SceneSource, TextSource,
+    ArchiveSource, AssetSource, AuthoredSource, BlankSource, KeySource, LetterSource, LinkSource, OwnSource, SceneSource, TextSource,
 )
 from filesystem.content.sources.log import LogSource
 
 # порядок важен: пустой файл приходит последним, потому что принимает всё
 SOURCES = (
-    ArchiveSource(), AuthoredSource(), OwnSource(), AssetSource(), LinkSource(), SceneSource(), MessageSource(), KeySource(), LogSource(), TextSource(), BlankSource(),
+    LetterSource(), ArchiveSource(), AuthoredSource(), OwnSource(), AssetSource(), LinkSource(), SceneSource(), KeySource(), LogSource(), TextSource(), BlankSource(),
 )
 
 __all__ = ["READ_LIMIT", "SOURCES", "Content", "Payload", "page_window", "payload_for", "site_url", "source_for", "text_window", "window_for"]

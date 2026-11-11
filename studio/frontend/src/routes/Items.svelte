@@ -58,7 +58,7 @@
   const LABEL = Object.fromEntries(GROUPS.flatMap((group) => group.items.map(([value, label]) => [value, label.replace(/^✎ /, "")])));
   const left = $derived(GROUPS.map((group) => ({ ...group, items: group.items.filter(([value]) => !active.includes(value)) })).filter((group) => group.items.length));
   const toggle = (flag: string) => (active = active.includes(flag) ? active.filter((f) => f !== flag) : [...active, flag]);
-  const KIND: Record<string, string> = { text: "текст", asset: "ассет", link: "ссылка", scene: "сцена", message: "письмо", archive: "архив", key: "ключ", empty: "без текста" };
+  const KIND: Record<string, string> = { text: "текст", asset: "ассет", link: "ссылка", scene: "сцена", archive: "архив", key: "ключ", empty: "без текста" };
 
   const MARKUP_TIP = "Форматы с разметкой: подходят для статей и документов";
 

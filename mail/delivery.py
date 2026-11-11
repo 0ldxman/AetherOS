@@ -1,52 +1,42 @@
-"""Доставка писем по триггеру: хук «mail <slug> [delay=секунды]» кладёт письмо игроку.
+"""Доставка писем по хуку слоя: «mail <идентификатор> [delay=секунды]» кладёт письмо в ящик учётки игрока.
 
-Письмо с идентификатором (slug) не видно никому, пока его не доставили. Доставка это запись
-(письмо, игрок, время, когда оно появится). Повторная доставка того же письма тому же игроку
-ничего не меняет. Безымянный игрок (witness) не решает загадки и писем по триггеру не получает.
+Письмо это объект формата msg с этим слагом. Приходит в ящик учётки, под которой игрок сейчас работает (последняя
+сессия), сразу или через очередь. Безымянный игрок (witness) писем по триггеру не получает.
 """
 from dataclasses import dataclass
-from datetime import timedelta
-
-from django.utils import timezone
-
-from mail.models import Delivered, Message
 
 MAX_DELAY_SECONDS = 7 * 24 * 3600
+LETTER_FORMAT = "msg"
 
 
 @dataclass(frozen=True)
 class DeliveryResult:
     slug: str
-    delivered: bool          # письмо поставлено в очередь этому игроку (или уже было)
+    delivered: bool          # письмо поставлено игроку (или уже было)
     immediate: bool = False  # оно сразу видно (без задержки)
     reason: str = ""         # если не доставлено: почему
 
 
-def deliver(user, message, *, delay=0, now=None):
-    """Доставить письмо игроку. Возвращает (Delivered, создана ли запись)."""
-    if user is None or not getattr(user, "is_authenticated", False):
-        raise ValueError("письма по триггеру получают только вошедшие игроки")
+def current_profile(user):
+    """Учётка, под которой игрок работал последней."""
+    from machines.models import Session
 
-    delay = max(0, min(int(delay), MAX_DELAY_SECONDS))
-    now = now or timezone.now()
-
-    return Delivered.objects.get_or_create(
-        message=message,
-        user=user,
-        defaults={"available_at": now + timedelta(seconds=delay)},
-    )
+    session = Session.objects.filter(user=user).select_related("profile__machine").order_by("-seen_at", "-pk").first()
+    return session.profile if session is not None else None
 
 
-def deliver_by_slug(user, slug, *, delay=0, now=None):
-    """То же по идентификатору письма (так его называет хук)."""
+def deliver_by_slug(user, slug, *, delay=0, profile=None):
+    from filesystem.models import Item
+    from mail.boxes import Box
+
     if user is None or not getattr(user, "is_authenticated", False):
         return DeliveryResult(slug, False, reason="no signed-in player")
-
-    message = Message.objects.filter(slug=slug).first()
-
-    if message is None:
+    item = Item.objects.filter(slug=slug, format=LETTER_FORMAT).first()
+    if item is None:
         return DeliveryResult(slug, False, reason=f"no letter {slug!r}")
-
-    record, created = deliver(user, message, delay=delay, now=now)
-    immediate = record.available_at <= (now or timezone.now())
-    return DeliveryResult(slug, True, immediate=immediate)
+    profile = profile or current_profile(user)
+    if profile is None:
+        return DeliveryResult(slug, False, reason="no account")
+    delay = max(0, min(int(delay), MAX_DELAY_SECONDS))
+    Box.of_profile(profile, user).queue(item, delay)
+    return DeliveryResult(slug, True, immediate=delay == 0)

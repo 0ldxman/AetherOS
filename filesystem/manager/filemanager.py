@@ -421,7 +421,7 @@ def copy_volume(volume, slug, name="", label=""):
     return copy
 
 
-ITEM_FIELDS = ("name", "format", "body", "file_id", "file_name", "file_type", "file_size", "file_view", "url", "scene", "message", "access", "state", "size", "meta",
+ITEM_FIELDS = ("name", "format", "body", "file_id", "file_name", "file_type", "file_size", "file_view", "url", "scene", "access", "state", "size", "meta",
                "world_created_at", "world_updated_at", "world_creator")
 
 
@@ -520,10 +520,10 @@ def text_blockers(item):
         reasons.append("у него вложенные ключи или подписи")
     if item.embedded_in.exists() or item.signed.exists() or item.format == "key":
         reasons.append("это ключ")
-    if item.file_id or item.url or item.scene_id or item.message_id:
+    if item.file_id or item.url or item.scene_id:
         reasons.append("его содержимое не текст")
-    if item.mail_attachments.exists() or item.net_nodes.exists():
-        reasons.append("на него ссылаются письма или сеть")
+    if item.in_archives.exists() or item.net_nodes.exists():
+        reasons.append("на него ссылаются архивы, письма или сеть")
     if item.player_files.exists():
         reasons.append("у игроков есть его копии")
     return reasons

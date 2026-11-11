@@ -44,7 +44,6 @@ class ItemOut(Schema):
     url: str
     asset: str | None
     scene: str | None
-    message: str | None
     world_created_at: date | None
     world_updated_at: date | None
     world_creator: str
@@ -85,7 +84,7 @@ class LibraryRow(Schema):
     slug: str
     name: str
     format: str
-    kind: str                 # text | asset | link | scene | message | empty
+    kind: str                 # text | asset | link | scene | empty
     size: int | None
     places: int
     archives: int
@@ -212,7 +211,6 @@ def _out(item, user):
         id=item.pk, slug=item.slug, name=item.name, format=item.format, body=item.body, meta=item.meta, url=item.url,
         asset=(item.file_name or item.file_id) if item.file_id else None,
         scene=item.scene.slug if item.scene_id else None,
-        message=str(item.message) if item.message_id else None,
         world_created_at=item.world_created_at, world_updated_at=item.world_updated_at, world_creator=item.world_creator,
         version=item.updated_at.isoformat(), protected=bool(item.access) or bool(item.state.strip()), updated_by=item.updated_by.get_username() if item.updated_by_id else None,
         updated_at=item.updated_at, created_at=item.created_at,
@@ -228,16 +226,15 @@ def _out(item, user):
 
 
 def _item(item_id):
-    return get_object_or_404(Item.objects.select_related("scene", "message", "updated_by"), pk=item_id)
+    return get_object_or_404(Item.objects.select_related("scene", "updated_by"), pk=item_id)
 
 
 KINDS = {
-    "text": Q(file_id="", url="", scene__isnull=True, message__isnull=True) & ~Q(body=""),
+    "text": Q(file_id="", url="", scene__isnull=True) & ~Q(body=""),
     "asset": ~Q(file_id=""),
     "link": ~Q(url=""),
     "scene": Q(scene__isnull=False),
-    "message": Q(message__isnull=False),
-    "empty": Q(file_id="", url="", scene__isnull=True, message__isnull=True, body=""),
+    "empty": Q(file_id="", url="", scene__isnull=True, body=""),
     "archive": Q(members__isnull=False),
 }
 
@@ -336,8 +333,6 @@ def _kind(item):
         return "link"
     if item.scene_id:
         return "scene"
-    if item.message_id:
-        return "message"
     return "text" if item.body else "empty"
 
 
@@ -420,8 +415,7 @@ def where(request, item_id: int):
 
     item = _item(item_id)
     placements = item.placements.select_related("volume", "parent")
-    mentions = [Mention(kind="письмо", label=str(a.message)) for a in item.mail_attachments.select_related("message")]
-    mentions += [Mention(kind="сеть", label=f"{n.resource.address}{n.path}") for n in item.net_nodes.select_related("resource")]
+    mentions = [Mention(kind="сеть", label=f"{n.resource.address}{n.path}") for n in item.net_nodes.select_related("resource")]
     files = item.player_files.filter(deleted_at__isnull=True).select_related("user")
     return Whereabouts(
         placements=[

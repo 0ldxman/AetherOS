@@ -76,18 +76,14 @@ def raw_page(request):
 
 def raw_content(request):
     entry, view = locate(request)
-    from mail.access import viewer_for
-
-    data = build_raw_cached(entry, view, request_keys(request), viewer=viewer_for(request))
+    data = build_raw_cached(entry, view, request_keys(request))
     return serve(request, data)
 
 
 def text_content(request):
     """Содержимое файла как текст (cnt): те же байты, что в raw, но в простом окне."""
     entry, view = locate(request)
-    from mail.access import viewer_for
-
-    data = build_raw_cached(entry, view, request_keys(request), viewer=viewer_for(request))
+    data = build_raw_cached(entry, view, request_keys(request))
     return HttpResponse(data.decode("utf-8", "replace"), content_type="text/plain; charset=utf-8", headers={"Cache-Control": "no-store"})
 
 

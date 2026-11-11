@@ -60,21 +60,23 @@ def _visitor(request):
 
 def _mail_summary(request):
     """Непрочитанная почта игрока для приветствия узла (или None, если читать негде)."""
-    from mail.access import Viewer, guest_address, session_key_of, summary, viewer_for
+    from mail.boxes import Box, box_for, summary
     from machines.current import NULL_HOSTNAME
     from machines.models import Machine
-    from secure.requestkeys import request_keys
 
     try:
-        viewer = viewer_for(request)
-        if viewer is None:
+        box = box_for(request)
+        if box is None:
             # ещё не подключён: пойдёт на aether-null безымянным (witness)
             machine = Machine.objects.get(hostname=NULL_HOSTNAME)
-            viewer = Viewer(guest_address(machine), request_keys(request), session_key=session_key_of(request.session))
+            session = request.session
+            if getattr(session, "session_key", None) is None and hasattr(session, "save"):
+                session.save()
+            box = Box(machine, GUEST_LOGIN, f"{GUEST_LOGIN}@{machine.label}", session_key=getattr(session, "session_key", "") or "")
     except Machine.DoesNotExist:
         return None
 
-    return summary(viewer)
+    return summary(box)
 
 
 def gateway_scenes(request):

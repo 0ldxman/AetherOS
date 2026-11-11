@@ -2458,7 +2458,7 @@
       }
      }
     },
-    "description": "Откуда берётся содержимое: текст, ассет, ссылка, сцена карты или письмо. Остальные источники сбрасываются; текст при\nсмене на другой источник не стирается молча: сначала автор очищает его сам.",
+    "description": "Откуда берётся содержимое: текст, ассет, ссылка или сцена карты. Остальные источники сбрасываются; текст при\nсмене на другой источник не стирается молча: сначала автор очищает его сам.",
     "tags": [
      "protection"
     ],
@@ -2522,48 +2522,6 @@
    "get": {
     "operationId": "studio_api_protection_pick_scenes",
     "summary": "Pick Scenes",
-    "parameters": [
-     {
-      "in": "query",
-      "name": "q",
-      "schema": {
-       "default": "",
-       "title": "Q",
-       "type": "string"
-      },
-      "required": false
-     }
-    ],
-    "responses": {
-     "200": {
-      "description": "OK",
-      "content": {
-       "application/json": {
-        "schema": {
-         "items": {
-          "$ref": "#/components/schemas/PickRef"
-         },
-         "title": "Response",
-         "type": "array"
-        }
-       }
-      }
-     }
-    },
-    "tags": [
-     "protection"
-    ],
-    "security": [
-     {
-      "StudioAuth": []
-     }
-    ]
-   }
-  },
-  "/studio/api/items/pick/messages": {
-   "get": {
-    "operationId": "studio_api_protection_pick_messages",
-    "summary": "Pick Messages",
     "parameters": [
      {
       "in": "query",
@@ -11299,17 +11257,6 @@
       ],
       "title": "Scene"
      },
-     "message": {
-      "anyOf": [
-       {
-        "type": "string"
-       },
-       {
-        "type": "null"
-       }
-      ],
-      "title": "Message"
-     },
      "world_created_at": {
       "anyOf": [
        {
@@ -11421,7 +11368,6 @@
      "url",
      "asset",
      "scene",
-     "message",
      "world_created_at",
      "world_updated_at",
      "world_creator",
@@ -12436,16 +12382,6 @@
        }
       ]
      },
-     "message": {
-      "anyOf": [
-       {
-        "$ref": "#/components/schemas/PickRef"
-       },
-       {
-        "type": "null"
-       }
-      ]
-     },
      "url": {
       "title": "Url",
       "type": "string"
@@ -12455,7 +12391,6 @@
      "kind",
      "asset",
      "scene",
-     "message",
      "url"
     ],
     "title": "ContentOut",
@@ -12559,17 +12494,6 @@
        }
       ],
       "title": "Scene"
-     },
-     "message": {
-      "anyOf": [
-       {
-        "type": "integer"
-       },
-       {
-        "type": "null"
-       }
-      ],
-      "title": "Message"
      },
      "url": {
       "default": "",

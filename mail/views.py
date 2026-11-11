@@ -1,31 +1,23 @@
+"""Приложение «Почта» игрока: ящик учётки на машине (mail.boxes). Письмо называется своим путём в виде машины."""
 import json
 import re
-from datetime import timezone
 
 from django.http import Http404, JsonResponse
 from django.shortcuts import render
 from django.views.decorators.csrf import ensure_csrf_cookie
 from django.views.decorators.http import require_GET, require_POST
 
-from django.urls import reverse
-
-from filesystem.content.window import resolve_content
-from filesystem.content.sources import Content
-from machines.current import active_session
-from users.aether_auth import AUTH_REQUIRED, is_player
-
-from mail.pulse_cache import cached_for_viewer, cached_pulse
-from mail.access import mark_read, mark_unread, read_ids, viewer_for, visible_messages
-from mail.addresses import recipients_line, split
-from mail.attachments import SaveError, payload, save_to_machine, saved_entry, virtual_entry
-from mail.compose import TaskError, available_tasks, public_segments, send
-from mail.models import Attachment, ComposeProgress
+from mail.boxes import FOLDERS, box_for
 
 PREVIEW_LENGTH = 90
+PULSE_LIMIT = 20
 
 
-def _when(moment):
-    return moment.astimezone(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
+def _box(request):
+    box = box_for(request)
+    if box is None:
+        raise Http404
+    return box
 
 
 def _plain(text):
@@ -34,231 +26,83 @@ def _plain(text):
     return " ".join(re.sub(r"(\*\*|\*|`)", "", text).split())
 
 
-def _row(message, unread):
-    body = _plain(message.body[:PREVIEW_LENGTH * 6])      # превью не нужен весь текст письма
+def _when(row):
+    if row.arrived is not None:
+        return f"{row.arrived:%Y-%m-%d %H:%M}"
+    return row.letter.get("Date")
+
+
+def _row(row):
+    body = _plain(row.letter.body[:PREVIEW_LENGTH * 6])
     return {
-        "id": message.pk,
-        "sender": message.sender,
-        "subject": message.subject or "(no subject)",
-        "when": _when(message.sent_at),
-        "unread": unread,
-        "folder": getattr(message, "folder", "inbox"),
-        "label": message.label,
-        "tone": message.label_tone,
-        "preview": body[:PREVIEW_LENGTH] + ("…" if len(body) > PREVIEW_LENGTH else ""),
-        "attachments": len(message.attachments.all()),
+        "id": row.path, "folder": row.folder, "sender": row.letter.sender or "unknown", "subject": row.subject, "when": _when(row),
+        "unread": row.folder == "inbox" and not row.read, "label": row.letter.get("X-Label"), "tone": row.letter.get("X-Label-Tone") or "dim",
+        "preview": "" if row.locked else body[:PREVIEW_LENGTH] + ("…" if len(body) > PREVIEW_LENGTH else ""),
+        "attachments": len(row.attachments), "locked": row.locked,
     }
 
 
-def _viewer_or_404(request):
-    viewer = viewer_for(request)
-    if viewer is None:
+def _path(request):
+    data = request.GET if request.method == "GET" else json.loads(request.body or b"{}")
+    path = (data.get("path") or "").strip()
+    if not path:
         raise Http404
-    return viewer
+    return path
 
 
 @ensure_csrf_cookie
 def inbox(request):
-    viewer = _viewer_or_404(request)
-    return render(request, "mail/inbox.html", {"address": viewer.address})
+    box = _box(request)
+    return render(request, "mail/inbox.html", {"address": box.address, "file": request.GET.get("file", "")})
 
 
 @require_GET
 def message_list(request):
-    viewer = _viewer_or_404(request)
-
-    def compute():
-        done = read_ids(viewer)
-        # непрочитанность важна только во входящих: черновики и отправленное «прочитаны» всегда
-        return {
-            "address": viewer.address,
-            "messages": [_row(m, m.folder == "inbox" and m.pk not in done) for m in visible_messages(viewer)],
-        }
-
-    return JsonResponse(cached_for_viewer("list", viewer, compute))
-
-
-PULSE_LIMIT = 20
+    box = _box(request)
+    rows = [row for folder in FOLDERS for row in box.letters_in(folder)]
+    return JsonResponse({"address": box.address, "messages": [_row(row) for row in rows]})
 
 
 @require_GET
 def pulse(request):
     """Что нового во входящих: рабочий стол опрашивает это ради бейджа и уведомления."""
-    viewer = _viewer_or_404(request)
-
-    def compute():
-        done = read_ids(viewer)
-        fresh = [m for m in visible_messages(viewer, "inbox", attachments=False) if m.pk not in done]
-        return {
-            "unread": len(fresh),
-            "messages": [
-                {"id": m.pk, "sender": m.sender, "subject": m.subject or "(no subject)"}
-                for m in fresh[:PULSE_LIMIT]
-            ],
-        }
-
-    return JsonResponse(cached_pulse(viewer, compute))
-
-
-def _find(viewer, pk):
-    for message in visible_messages(viewer, pk=pk):
-        return message
-    raise Http404     # чужое и скрытое письмо выглядит как несуществующее
+    box = _box(request)
+    fresh = [row for row in box.letters_in("inbox") if not row.read]
+    return JsonResponse({"unread": len(fresh), "messages": [{"id": row.path, "sender": row.letter.sender, "subject": row.subject} for row in fresh[:PULSE_LIMIT]]})
 
 
 @require_GET
-def message_detail(request, pk):
+def message_detail(request):
     """Письмо целиком. Открытие отмечает его прочитанным."""
-    viewer = _viewer_or_404(request)
-    message = _find(viewer, pk)
-    mark_read(viewer, message)
-
-    session = active_session(request) if is_player(request) else None
-    data = _row(message, False)
+    box = _box(request)
+    row = box.letter(_path(request))
+    if row is None:
+        raise Http404
+    box.mark(row.path, True)
+    data = _row(row)
     data.update({
-        "from": message.sender,
-        "to": recipients_line(message.recipients, viewer.address),
-        "body": message.body,
-        "attachments": [payload(item, session) for item in message.attachments.all()],
+        "from": row.letter.sender, "to": row.letter.to, "body": row.letter.body,
+        "headers": [[name, value] for name, value in row.letter.headers],
+        "attachments": [{"kind": "member", "label": member.path, "path": f"{row.path}/{member.path}"} for member in row.attachments],
     })
     return JsonResponse(data)
 
 
 @require_POST
-def message_unread(request, pk):
-    viewer = _viewer_or_404(request)
-    mark_unread(viewer, _find(viewer, pk))
-    return JsonResponse({"unread": True})
-
-
-OPEN_ERRORS = {
-    "locked": ("content_locked", 423),
-    "empty": ("no_content", 404),
-    "bad_path": ("no_content", 404),
-}
-
-
-@require_GET
-def attachment_open(request, pk):
-    """Адрес вьювера файла-вложения по тем же правилам, что у cnt: пока на файле есть слои, он закрыт."""
-    viewer = _viewer_or_404(request)
-
-    attachment = Attachment.objects.filter(pk=pk, kind=Attachment.Kind.FILE).select_related("item").first()
-    if attachment is None or not visible_messages(viewer, pk=attachment.message_id, attachments=False):
-        raise Http404
-
-    session = active_session(request) if is_player(request) else None
-    entry = saved_entry(session, attachment) or virtual_entry(session, attachment)
-    path = entry.path
-
-    content = resolve_content(entry, path, path.rsplit("/", 1)[-1])
-    if content.error:
-        code, status = OPEN_ERRORS[content.error]
-        return JsonResponse({"error": code}, status=status)
-    if entry.layer is None and content.url.startswith(reverse("fsview:text")):       # не сохранён: текст отдаёт само вложение
-        content = Content(url=reverse("mail:attachment_text", args=[attachment.pk]))
-
-    return JsonResponse({
-        "id": f"mail-file-{attachment.pk}",
-        "title": path.rsplit("/", 1)[-1],
-        "url": content.url,
-    })
-
-
-@require_GET
-def attachment_text(request, pk):
-    """Текст вложения-файла, пока он не сохранён у игрока (сохранённый открывается из его файловой системы)."""
-    from django.http import HttpResponse
-
-    from filesystem.content.rawview import build_raw_cached
-    from secure.requestkeys import request_keys
-
-    viewer = _viewer_or_404(request)
-    attachment = Attachment.objects.filter(pk=pk, kind=Attachment.Kind.FILE).select_related("item").first()
-    if attachment is None or not visible_messages(viewer, pk=attachment.message_id, attachments=False):
-        raise Http404
-
-    session = active_session(request) if is_player(request) else None
-    entry = virtual_entry(session, attachment)
-    if resolve_content(entry, entry.path, entry.name).error:
-        raise Http404
-    data = build_raw_cached(entry, None, request_keys(request), viewer=viewer)
-    return HttpResponse(data.decode("utf-8", "replace"), content_type="text/plain; charset=utf-8", headers={"Cache-Control": "no-store"})
+def message_unread(request):
+    box = _box(request)
+    box.mark(_path(request), False)
+    return JsonResponse({"ok": True})
 
 
 @require_POST
-def attachment_save(request, pk):
-    """Сохранить файл вложения в файловую систему игрока (только вошедшему через Discord)."""
-    viewer = _viewer_or_404(request)
-
-    attachment = Attachment.objects.filter(pk=pk).select_related("item", "message").first()
-    if attachment is None or not visible_messages(viewer, pk=attachment.message_id, attachments=False):
+def message_trash(request):
+    box = _box(request)
+    if box.user is None:
+        return JsonResponse({"error": "sign in to manage mail"}, status=403)
+    path = _path(request)
+    if box.letter(path) is None:
         raise Http404
-
-    if not is_player(request):
-        return JsonResponse({"error": AUTH_REQUIRED}, status=403)
-
-    try:
-        path = save_to_machine(active_session(request), attachment)
-    except SaveError as error:
-        return JsonResponse({"error": str(error)}, status=error.status)
-
-    return JsonResponse({"saved": True, "path": path})
-
-
-@require_GET
-def task_list(request):
-    """Задачи на набор, доступные игроку на этом ящике (только вошедшему через Discord)."""
-    viewer = _viewer_or_404(request)
-
-    if not is_player(request):
-        return JsonResponse({"error": AUTH_REQUIRED}, status=403)
-
-    tasks = available_tasks(viewer)
-    used = dict(
-        ComposeProgress.objects.filter(user=viewer.user, task__in=tasks).values_list("task_id", "attempts")
-    )
-
-    return JsonResponse({
-        "from": viewer.address,
-        "tasks": [
-            {
-                "id": task.pk,
-                "to": ", ".join(split(task.recipients)),
-                "subject": task.subject,
-                "segments": public_segments(task),
-                "attempts_left": (
-                    max(0, task.max_attempts - used.get(task.pk, 0)) if task.max_attempts else None
-                ),
-            }
-            for task in tasks
-        ],
-    })
-
-
-@require_POST
-def task_send(request, pk):
-    """Отправить набранный текст. Сервер сам сверяет его с целевым."""
-    viewer = _viewer_or_404(request)
-
-    if not is_player(request):
-        return JsonResponse({"error": AUTH_REQUIRED}, status=403)
-
-    task = next((t for t in available_tasks(viewer) if t.pk == pk), None)
-    if task is None:
-        raise Http404
-
-    try:
-        payload_in = json.loads(request.body)
-        text = payload_in["text"]
-        if not isinstance(text, str) or len(text) > 20000:
-            raise ValueError
-    except (ValueError, KeyError, TypeError):
-        return JsonResponse({"error": "invalid message"}, status=400)
-
-    try:
-        send(request.user, task, text)
-    except TaskError as error:
-        return JsonResponse({"error": str(error), **error.extra}, status=error.status)
-
-    return JsonResponse({"sent": True})
+    folder = box.folder_of(path)
+    target = box.restore(path) if folder == "trash" else box.trash(path)
+    return JsonResponse({"path": target})

@@ -26,12 +26,7 @@ def viewer_of(context):
 def _viewer(request):
     if request is None:
         return None
-    try:
-        from mail.access import viewer_for
-
-        return viewer_for(request)
-    except Exception:
-        return None
+    return None                       # писем в байтах файлов больше нет: письмо это сам файл формата msg
 
 
 def size_of(context, entry):

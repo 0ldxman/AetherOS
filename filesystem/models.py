@@ -63,7 +63,6 @@ class FileFormat(models.Model):
         ASSET = "asset", "Ассет"
         LINK_ASSET = "link_asset", "Ссылка или ассет"
         SCENE = "scene", "Сцена карты"
-        MESSAGE = "message", "Письмо"
         NONE = "none", "Без содержимого"
 
     content = models.CharField(
@@ -172,14 +171,13 @@ KEY_FORMAT = "key"             # объект этого формата это �
 MAX_DEPTH = 16                 # самая глубокая вложенность папок в томе
 
 
-REQUIRED_CONTENT = {"asset", "link_asset", "scene", "message"}       # этим форматам без содержимого делать нечего
+REQUIRED_CONTENT = {"asset", "link_asset", "scene"}       # этим форматам без содержимого делать нечего
 ALLOWED_CONTENT = {                                                  # какие поля объекта использует формат (FileFormat.content)
     "text": {"body"},
     "text_asset": {"body", "file"},
     "asset": {"file"},
     "link_asset": {"url", "file"},
     "scene": {"scene"},
-    "message": {"message"},
     "none": set(),
 }
 
@@ -223,9 +221,6 @@ class Item(models.Model):
     )
     scene = models.ForeignKey(
         "map.MapScene", null=True, blank=True, on_delete=models.PROTECT, related_name="items", verbose_name="Сцена карты",
-    )
-    message = models.ForeignKey(
-        "mail.Message", null=True, blank=True, on_delete=models.PROTECT, related_name="items", verbose_name="Письмо",
     )
 
     # доступ и внутренности
@@ -303,10 +298,9 @@ class Item(models.Model):
             "file": bool(self.file_id),
             "url": bool(self.url),
             "scene": self.scene_id is not None,
-            "message": self.message_id is not None,
         }
         allowed = ALLOWED_CONTENT[found.content if found else "text_asset"]
-        labels = {"body": "текст", "file": "файл", "url": "ссылка", "scene": "сцена карты", "message": "письмо"}
+        labels = {"body": "текст", "file": "файл", "url": "ссылка", "scene": "сцена карты"}
 
         errors = {}
         if self.format == "app" and self.body.strip():
