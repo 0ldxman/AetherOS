@@ -117,3 +117,7 @@ class MapApiTests(TestCase):
     def test_checks_report_problems(self):
         codes = {c["code"] for c in self.call("get", "/checks")[1]}
         self.assertIn("no-owner", codes)
+        status, page = self.call("get", "/checks/no-owner")
+        self.assertEqual(status, 200)
+        self.assertEqual(page["total"], len(page["rows"]))
+        self.assertEqual(self.call("get", "/checks/nope")[0], 404)

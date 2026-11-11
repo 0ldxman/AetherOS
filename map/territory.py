@@ -145,48 +145,75 @@ def province_info(province, on_date=None):
     }
 
 
-def checks():
-    """Что в данных карты выглядит неправильно: список {code, level, title, count, items} (items не больше SAMPLE)."""
-    found = []
-
-    def add(code, level, title, rows):
-        if rows:
-            found.append({"code": code, "level": level, "title": title, "count": len(rows), "items": rows[:SAMPLE]})
-
+def _no_owner():
     owned = set(Ownership.objects.values_list("province_id", flat=True))
-    add("no-owner", "warning", "Провинции без единого владельца", [
-        {"kind": "province", "id": p.pk, "label": f"{p.name} ({p.code})"} for p in Province.objects.exclude(pk__in=owned).order_by("name")
-    ])
+    return [{"kind": "province", "id": p.pk, "label": f"{p.name} ({p.code})", "province_id": p.pk}
+            for p in Province.objects.exclude(pk__in=owned).order_by("name")]
 
+
+def _outside_life():
     outside = Ownership.objects.select_related("province", "country").filter(
         Q(date_from__lt=F("country__valid_from")) | Q(country__valid_to__isnull=False, date_from__gt=F("country__valid_to"))
     ).order_by("country__code", "date_from")
-    add("outside-life", "error", "Владение вне лет жизни страны", [
-        {"kind": "ownership", "id": o.pk, "label": f"{o.province.code} → {o.country.code} с {o.date_from}"} for o in outside
-    ])
+    return [{"kind": "ownership", "id": o.pk, "label": f"{o.province.code} → {o.country.code} с {o.date_from}",
+             "province_id": o.province_id, "country_id": o.country_id} for o in outside]
 
-    dup = (
-        Ownership.objects.values("province_id", "date_from").annotate(n=Count("id")).filter(n__gt=1).order_by("date_from")
-    )
+
+def _same_day():
+    dup = Ownership.objects.values("province_id", "date_from").annotate(n=Count("id")).filter(n__gt=1).order_by("date_from")
     names = dict(Province.objects.filter(pk__in=[d["province_id"] for d in dup]).values_list("id", "code"))
-    add("same-day", "error", "Провинция записана двум странам на одну дату", [
-        {"kind": "province", "id": d["province_id"], "label": f"{names.get(d['province_id'], '?')} на {d['date_from']}"} for d in dup
-    ])
+    return [{"kind": "province", "id": d["province_id"], "label": f"{names.get(d['province_id'], '?')} на {d['date_from']}", "province_id": d["province_id"]}
+            for d in dup]
 
-    ended = [
-        {"kind": "province", "id": pid, "label": f"{o.province.code}: {o.country.code} закончилась {o.country.valid_to}"}
-        for pid, o in latest_with_province().items() if o.country.valid_to is not None
-    ]
-    add("dead-owner", "warning", "Последний владелец уже не существует", ended)
 
-    add("idle-country", "info", "Страны без единого владения", [
-        {"kind": "country", "id": c.pk, "label": f"{c.name} ({c.code})"} for c in Country.objects.filter(owned_provinces__isnull=True).order_by("name")
-    ])
-    add("no-label", "info", "Страны с владениями, но без подписи", [
-        {"kind": "country", "id": c.pk, "label": f"{c.name} ({c.code})"}
-        for c in Country.objects.filter(owned_provinces__isnull=False, labels__isnull=True).distinct().order_by("name")
-    ])
+def _dead_owner():
+    return [{"kind": "province", "id": pid, "label": f"{o.province.code}: {o.country.code} закончилась {o.country.valid_to}",
+             "province_id": pid, "country_id": o.country_id}
+            for pid, o in latest_with_province().items() if o.country.valid_to is not None]
+
+
+def _idle_country():
+    return [{"kind": "country", "id": c.pk, "label": f"{c.name} ({c.code})", "country_id": c.pk}
+            for c in Country.objects.filter(owned_provinces__isnull=True).order_by("name")]
+
+
+def _no_label():
+    return [{"kind": "country", "id": c.pk, "label": f"{c.name} ({c.code})", "country_id": c.pk}
+            for c in Country.objects.filter(owned_provinces__isnull=False, labels__isnull=True).distinct().order_by("name")]
+
+
+# код проверки: (уровень, название, функция находок); порядок задаёт порядок на экране
+CHECKS = {
+    "no-owner": ("warning", "Провинции без единого владельца", _no_owner),
+    "outside-life": ("error", "Владение вне лет жизни страны", _outside_life),
+    "same-day": ("error", "Провинция записана двум странам на одну дату", _same_day),
+    "dead-owner": ("warning", "Последний владелец уже не существует", _dead_owner),
+    "idle-country": ("info", "Страны без единого владения", _idle_country),
+    "no-label": ("info", "Страны с владениями, но без подписи", _no_label),
+}
+
+
+def checks():
+    """Что в данных карты выглядит неправильно: список {code, level, title, count, items} (items не больше SAMPLE).
+    Проверки без находок не попадают в список."""
+    found = []
+    for code, (level, title, run) in CHECKS.items():
+        rows = run()
+        if rows:
+            found.append({"code": code, "level": level, "title": title, "count": len(rows), "items": rows[:SAMPLE]})
     return found
+
+
+def check_items(code, query="", offset=0, limit=50):
+    """Находки одной проверки целиком, с поиском по тексту: {total, rows}. Неизвестный код это 404."""
+    if code not in CHECKS:
+        raise TerritoryError("Такой проверки нет.", 404)
+    rows = CHECKS[code][2]()
+    text = query.strip().lower()
+    if text:
+        rows = [row for row in rows if text in row["label"].lower()]
+    limit = max(1, min(limit, 200))
+    return {"total": len(rows), "rows": rows[max(0, offset):max(0, offset) + limit]}
 
 
 def latest_with_province():

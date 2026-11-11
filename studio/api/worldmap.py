@@ -7,6 +7,7 @@ import datetime as dt
 
 from django.core.exceptions import ValidationError
 from django.db import transaction
+from django.http import Http404
 from django.db.models import Count, Exists, F, Max, OuterRef, ProtectedError, Q
 from django.shortcuts import get_object_or_404
 from ninja import Router, Schema
@@ -810,6 +811,13 @@ class MapCheckItem(Schema):
     kind: str
     id: int
     label: str
+    province_id: int | None = None       # куда вести: карточка провинции
+    country_id: int | None = None        # и карточка страны
+
+
+class MapCheckPage(Schema):
+    total: int
+    rows: list[MapCheckItem]
 
 
 class MapCheck(Schema):
@@ -823,3 +831,11 @@ class MapCheck(Schema):
 @router.get("/checks", response=list[MapCheck])
 def checks(request):
     return territory.checks()
+
+
+@router.get("/checks/{code}", response=MapCheckPage)
+def check_items(request, code: str, q: str = "", offset: int = 0, limit: int = 50):
+    try:
+        return territory.check_items(code, q, offset, limit)
+    except territory.TerritoryError as error:
+        raise Http404(str(error))

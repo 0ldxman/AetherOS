@@ -85,6 +85,20 @@ class ChecksTests(TestCase):
         labels = {c["code"]: c for c in territory.checks()}["no-label"]
         self.assertEqual([i["label"] for i in labels["items"]], ["Beta (BBB)"])
 
+    def test_check_items_give_all_findings_with_search_and_targets(self):
+        a, b, p1, p2 = make()
+        territory.apply_ownership(["s1"], a, D(1960, 1, 1))
+        page = territory.check_items("no-owner")
+        self.assertEqual(page["total"], 1)
+        self.assertEqual(page["rows"][0]["province_id"], p2.pk)
+        self.assertEqual(territory.check_items("no-owner", "нет такого")["total"], 0)
+        idle = territory.check_items("idle-country")
+        self.assertEqual([r["country_id"] for r in idle["rows"]], [b.pk])
+        self.assertEqual(territory.check_items("idle-country", limit=1, offset=1)["rows"], [])
+        with self.assertRaises(territory.TerritoryError) as caught:
+            territory.check_items("nope")
+        self.assertEqual(caught.exception.status, 404)
+
 
 class AdminApplyTests(TestCase):
     def test_the_old_admin_endpoint_keeps_its_answers(self):

@@ -7312,6 +7312,73 @@
     ]
    }
   },
+  "/studio/api/map/checks/{code}": {
+   "get": {
+    "operationId": "studio_api_worldmap_check_items",
+    "summary": "Check Items",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "code",
+      "schema": {
+       "title": "Code",
+       "type": "string"
+      },
+      "required": true
+     },
+     {
+      "in": "query",
+      "name": "q",
+      "schema": {
+       "default": "",
+       "title": "Q",
+       "type": "string"
+      },
+      "required": false
+     },
+     {
+      "in": "query",
+      "name": "offset",
+      "schema": {
+       "default": 0,
+       "title": "Offset",
+       "type": "integer"
+      },
+      "required": false
+     },
+     {
+      "in": "query",
+      "name": "limit",
+      "schema": {
+       "default": 50,
+       "title": "Limit",
+       "type": "integer"
+      },
+      "required": false
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/MapCheckPage"
+        }
+       }
+      }
+     }
+    },
+    "tags": [
+     "map"
+    ],
+    "security": [
+     {
+      "StudioAuth": []
+     }
+    ]
+   }
+  },
   "/studio/api/map/scenes": {
    "get": {
     "operationId": "studio_api_mapscenes_scenes",
@@ -19179,6 +19246,28 @@
      "label": {
       "title": "Label",
       "type": "string"
+     },
+     "province_id": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Province Id"
+     },
+     "country_id": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Country Id"
      }
     },
     "required": [
@@ -19187,6 +19276,27 @@
      "label"
     ],
     "title": "MapCheckItem",
+    "type": "object"
+   },
+   "MapCheckPage": {
+    "properties": {
+     "total": {
+      "title": "Total",
+      "type": "integer"
+     },
+     "rows": {
+      "items": {
+       "$ref": "#/components/schemas/MapCheckItem"
+      },
+      "title": "Rows",
+      "type": "array"
+     }
+    },
+    "required": [
+     "total",
+     "rows"
+    ],
+    "title": "MapCheckPage",
     "type": "object"
    },
    "MapSceneRow": {
