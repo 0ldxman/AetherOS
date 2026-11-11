@@ -1,0 +1,49 @@
+{% load static %}
+<article class="mi" data-code="{{ info.province.source_code }}">
+  <header class="mi-head">
+    <h2 class="mi-title">{{ info.province.name }}</h2>
+    <code class="mi-code">{{ info.province.code }}</code>
+  </header>
+
+  <section class="mi-block">
+    <h3 class="mi-sub">Владелец{% if info.date %} на {{ info.date|date:"Y-m-d" }}{% endif %}</h3>
+    {% if info.owner %}
+      <p class="mi-owner"><i class="mi-dot" style="background: {{ info.owner.color }}"></i><b>{{ info.owner.name }}</b> <code>{{ info.owner.code }}</code></p>
+      <p class="mi-muted">с {{ info.owner.since|date:"Y-m-d" }} · {{ info.owner.rights }}</p>
+    {% else %}
+      <p class="mi-muted">на эту дату владельца нет</p>
+    {% endif %}
+  </section>
+
+  {% if info.history %}
+  <section class="mi-block">
+    <h3 class="mi-sub">История владений</h3>
+    <ul class="mi-history">
+      {% for row in info.history %}
+        <li class="{% if row.current %}now{% endif %}{% if row.future %} future{% endif %}">
+          <i class="mi-dot" style="background: {{ row.color }}"></i>
+          <span class="mi-date">{{ row.date_from|date:"Y-m-d" }}</span>
+          <span>{{ row.name }}</span>
+          <small class="mi-muted">{{ row.rights }}</small>
+        </li>
+      {% endfor %}
+    </ul>
+  </section>
+  {% endif %}
+
+  {% if info.country %}
+  <section class="mi-block">
+    <h3 class="mi-sub">Страна</h3>
+    <p class="mi-owner"><i class="mi-dot" style="background: {{ info.country.color }}"></i><b>{{ info.country.name }}</b> <code>{{ info.country.code }}</code></p>
+    <p class="mi-muted">{{ info.country.valid_from|date:"Y-m-d" }} — {% if info.country.valid_to %}{{ info.country.valid_to|date:"Y-m-d" }}{% else %}по сей день{% endif %} · провинций: {{ info.country.provinces }}</p>
+    {% if info.country.predecessor %}<p class="mi-muted">выросла из: {{ info.country.predecessor }}</p>{% endif %}
+    {% if info.country.successors %}<p class="mi-muted">наследники: {{ info.country.successors|join:", " }}</p>{% endif %}
+  </section>
+  {% endif %}
+
+  {% if info.material %}
+    <a class="mi-open" href="{{ info.material.url }}" data-open data-label="{{ info.material.title }}">Открыть материал: {{ info.material.title }}</a>
+  {% elif info.link %}
+    <a class="mi-open" href="{{ info.link }}" data-open data-label="{{ info.province.name }}">Открыть ссылку</a>
+  {% endif %}
+</article>

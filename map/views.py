@@ -14,6 +14,31 @@ def index(request):
     return render(request, 'map.html', {"marker_icons": MARKER_ICONS})
 
 
+def info(request):
+    """Карточка провинции (?code=adm1_code&date=ГГГГ-ММ-ДД): окно-инфобокс целиком или (?fragment=1) только содержимое боковой панели."""
+    from django.http import HttpResponse
+    from map.info import card
+
+    on_date = None
+    raw = request.GET.get("date", "")
+    if raw:
+        try:
+            on_date = date.fromisoformat(raw)
+        except ValueError:
+            on_date = None
+    data = card(request, request.GET.get("code", ""), on_date)
+    if data is None:
+        return HttpResponse(status=204) if request.GET.get("fragment") else _no_info(request)
+    template = "_map_info.html" if request.GET.get("fragment") else "map_info.html"
+    return render(request, template, {"info": data})
+
+
+def _no_info(request):
+    from django.http import HttpResponse
+
+    return HttpResponse("Нет сведений.", status=404, content_type="text/plain; charset=utf-8")
+
+
 def _latest_ownerships(request):
     """Последнее владение каждой провинции на дату из ?date=YYYY-MM-DD
     (без параметра - самое свежее). Возвращает (queryset, None)

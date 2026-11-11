@@ -1,0 +1,17 @@
+{% extends "ui/base.html" %}
+{% load static %}
+
+{% block title %}{{ info.province.name }}{% endblock %}
+
+{% block css %}
+  <link href="{% static 'ui/apps.css' %}" rel="stylesheet">
+  <link href="{% static 'map_info.css' %}" rel="stylesheet">
+{% endblock %}
+
+{% block body %}
+  <main class="mi-window">{% include "_map_info.html" %}</main>
+{% endblock %}
+
+{% block js %}
+  <script src="{% static 'map_info.js' %}"></script>
+{% endblock %}

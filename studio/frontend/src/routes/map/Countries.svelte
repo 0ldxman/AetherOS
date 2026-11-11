@@ -10,6 +10,7 @@
   import { ask } from "../../lib/confirm.svelte";
   import Icon from "../../lib/Icon.svelte";
   import LifeLine from "./LifeLine.svelte";
+  import MaterialField from "./MaterialField.svelte";
   import { guardUnsaved } from "../../lib/guard.svelte";
   import { go } from "../../lib/router.svelte";
   import { toast } from "../../lib/toast.svelte";
@@ -31,7 +32,7 @@
   let draft = $state<Form>(blank());
 
   function blank(): Form {
-    return { code: "", name: "", color: "#9aa5b1", valid_from: today(), valid_to: null, predecessor: null, wiki_url: "" };
+    return { code: "", name: "", color: "#9aa5b1", valid_from: today(), valid_to: null, predecessor: null, wiki_url: "", show_info: true, material: null };
   }
   // ---------- фильтр списка по датам жизни страны ----------
   let fmode = $state<"all" | "on" | "range">("all");
@@ -102,7 +103,7 @@
     const { data } = await api.GET("/studio/api/map/countries/{country_id}", { params: { path: { country_id: target } } });
     if (!data) return;
     country = data;
-    const { id: _id, provinces: _p, ownerships: _o, labels: _l, predecessor_name: _n, successors: _s, label_list, ...fields } = data;
+    const { id: _id, provinces: _p, ownerships: _o, labels: _l, predecessor_name: _n, successors: _s, successor_ids: _si, material_info: _mi, label_list, ...fields } = data;
     form = fields;
     saved = JSON.stringify(form);
     base = JSON.parse(saved);
@@ -121,7 +122,7 @@
       const { data } = await api.GET("/studio/api/map/countries/{country_id}", { params: { path: { country_id: current } } });
       if (!data) return;
       country = data;
-      const { id: _id, provinces: _p, ownerships: _o, labels: _l, predecessor_name: _n, successors: _s, label_list: _ll, ...fields } = data;
+      const { id: _id, provinces: _p, ownerships: _o, labels: _l, predecessor_name: _n, successors: _s, successor_ids: _si, material_info: _mi, label_list: _ll, ...fields } = data;
       saved = JSON.stringify(fields);
       base = JSON.parse(saved);
       list();
@@ -240,7 +241,6 @@
         <label class="swatch" style="background:{form.color}" title="Цвет на карте"><input type="color" bind:value={form.color} aria-label="Цвет на карте" /></label>
         <input class="title" class:bad={errors.name} bind:value={form.name} placeholder="Название страны" aria-label="Название страны" />
         <code class="codechip">{form.code}</code>
-        <span class="status" class:gone={!!form.valid_to}>{form.valid_to ? `существовала ${showDate(form.valid_from)} — ${showDate(form.valid_to)}` : `существует с ${showDate(form.valid_from)}`}</span>
         <span class="spacer"></span>
         <button class="btn ghost danger" onclick={remove}>Удалить</button>
         <DraftState {share} {dirty} saved="" />
@@ -249,6 +249,7 @@
       {#if errors.name}<p class="err">{errors.name.join(" ")}</p>{/if}
 
       <section class="life">
+        <span class="status" class:gone={!!form.valid_to}>{form.valid_to ? `существовала ${showDate(form.valid_from)} — ${showDate(form.valid_to)}` : `существует с ${showDate(form.valid_from)}`}</span>
         <LifeLine from={form.valid_from} to={form.valid_to ?? null} min={axis.min} max={axis.max} color={form.color} tall />
         <div class="ticks"><span>{year(new Date(axis.min).toISOString())}</span><span>{lived}</span><span>{year(new Date(axis.max).toISOString())}</span></div>
         <div class="stats">
@@ -307,9 +308,9 @@
         </section>
 
         <section class="card">
-          <h3>Вики</h3>
-          <label><span class="label">Страница в вики<Hint text="Куда ведёт клик по провинциям страны, у которых нет своей страницы." /></span>
-            <input class="field" bind:value={form.wiki_url} placeholder="/wiki/…" />{#if errors.wiki_url}<span class="err">{errors.wiki_url.join(" ")}</span>{/if}</label>
+          <h3>Материал</h3>
+          <MaterialField scope="country" material={form.material} info={country.material_info} showInfo={form.show_info ?? true} url={form.wiki_url ?? ""} error={errors.material?.join(" ")}
+                         onmaterial={(id) => (form.material = id)} onshow={(v) => (form.show_info = v)} onurl={(v) => (form.wiki_url = v)} />
         </section>
       </div>
 
@@ -395,7 +396,7 @@
   .title:focus { border-color: var(--accent); background: var(--bg); }
   .title.bad { border-color: var(--danger); }
   .codechip { padding: 1px 8px; border-radius: 999px; background: var(--raise); color: var(--muted); font-size: 12px; }
-  .status { padding: 2px 10px; border-radius: 999px; background: rgba(95, 208, 160, 0.14); color: var(--ok); font-size: 12.5px; white-space: nowrap; }
+  .status { align-self: flex-start; padding: 2px 10px; border-radius: 999px; background: rgba(95, 208, 160, 0.14); color: var(--ok); font-size: 12.5px; white-space: nowrap; }
   .status.gone { background: var(--raise); color: var(--muted); }
   .spacer { flex: 1; }
 

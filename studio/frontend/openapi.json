@@ -17602,6 +17602,31 @@
       "title": "Wiki Url",
       "type": "string"
      },
+     "show_info": {
+      "title": "Show Info",
+      "type": "boolean"
+     },
+     "material": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Material"
+     },
+     "material_info": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/MapMaterial"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
      "successors": {
       "items": {
        "type": "string"
@@ -17637,6 +17662,9 @@
      "ownerships",
      "labels",
      "wiki_url",
+     "show_info",
+     "material",
+     "material_info",
      "successors",
      "successor_ids",
      "label_list"
@@ -17687,6 +17715,43 @@
     "title": "MapLabelOut",
     "type": "object"
    },
+   "MapMaterial": {
+    "description": "Объект, привязанный к стране или провинции: что игрок откроет из карточки на карте.",
+    "properties": {
+     "id": {
+      "title": "Id",
+      "type": "integer"
+     },
+     "slug": {
+      "title": "Slug",
+      "type": "string"
+     },
+     "name": {
+      "title": "Name",
+      "type": "string"
+     },
+     "format": {
+      "title": "Format",
+      "type": "string"
+     },
+     "where": {
+      "items": {
+       "type": "string"
+      },
+      "title": "Where",
+      "type": "array"
+     }
+    },
+    "required": [
+     "id",
+     "slug",
+     "name",
+     "format",
+     "where"
+    ],
+    "title": "MapMaterial",
+    "type": "object"
+   },
    "MapCountryIn": {
     "properties": {
      "code": {
@@ -17734,6 +17799,22 @@
       "default": "",
       "title": "Wiki Url",
       "type": "string"
+     },
+     "show_info": {
+      "default": true,
+      "title": "Show Info",
+      "type": "boolean"
+     },
+     "material": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Material"
      }
     },
     "required": [
@@ -17999,6 +18080,31 @@
       "title": "Records",
       "type": "integer"
      },
+     "show_info": {
+      "title": "Show Info",
+      "type": "boolean"
+     },
+     "material": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Material"
+     },
+     "material_info": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/MapMaterial"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
      "history": {
       "items": {
        "$ref": "#/components/schemas/MapHistoryRow"
@@ -18015,6 +18121,9 @@
      "wiki_url",
      "owner",
      "records",
+     "show_info",
+     "material",
+     "material_info",
      "history"
     ],
     "title": "MapProvinceOut",
@@ -18038,6 +18147,22 @@
       "default": "",
       "title": "Wiki Url",
       "type": "string"
+     },
+     "show_info": {
+      "default": true,
+      "title": "Show Info",
+      "type": "boolean"
+     },
+     "material": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Material"
      }
     },
     "required": [

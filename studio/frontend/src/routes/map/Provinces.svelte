@@ -11,6 +11,7 @@
   import { go } from "../../lib/router.svelte";
   import { toast } from "../../lib/toast.svelte";
   import { fieldErrors, NO_COLOR, showDate, type Country } from "./shared";
+  import MaterialField from "./MaterialField.svelte";
 
   const SIZE = 100;
   type Form = Schemas["MapProvinceIn"];
@@ -23,12 +24,12 @@
   let data = $state<Schemas["MapProvincePage"]>({ total: 0, rows: [] });
   let countries = $state<Country[]>([]);
   let province = $state<Schemas["MapProvinceOut"] | null>(null);
-  let form = $state<Form>({ code: "", source_code: "", name: "", wiki_url: "" });
+  let form = $state<Form>({ code: "", source_code: "", name: "", wiki_url: "", show_info: true, material: null });
   let saved = $state("");
   let base = $state<Form | null>(null);                    // сохранённое: им наполняется общий черновик
   let errors = $state<Record<string, string[]>>({});
   let dialog = $state(false);
-  let draft = $state<Form>({ code: "", source_code: "", name: "", wiki_url: "" });
+  let draft = $state<Form>({ code: "", source_code: "", name: "", wiki_url: "", show_info: true, material: null });
 
   const dirty = $derived(JSON.stringify(form) !== saved);
   guardUnsaved(() => saved !== "" && dirty && !share.ready);      // в совместном режиме черновик на сервере
@@ -51,7 +52,7 @@
     const { data: found } = await api.GET("/studio/api/map/provinces/{province_id}", { params: { path: { province_id: target }, query: on ? { on } : {} } });
     if (!found) return;
     province = found;
-    form = { code: found.code, source_code: found.source_code, name: found.name, wiki_url: found.wiki_url };
+    form = { code: found.code, source_code: found.source_code, name: found.name, wiki_url: found.wiki_url, show_info: found.show_info, material: found.material };
     saved = JSON.stringify(form);
     base = JSON.parse(saved);
   }
@@ -66,7 +67,7 @@
       const { data: found } = await api.GET("/studio/api/map/provinces/{province_id}", { params: { path: { province_id: id }, query: on ? { on } : {} } });
       if (!found) return;
       province = found;
-      saved = JSON.stringify({ code: found.code, source_code: found.source_code, name: found.name, wiki_url: found.wiki_url });
+      saved = JSON.stringify({ code: found.code, source_code: found.source_code, name: found.name, wiki_url: found.wiki_url, show_info: found.show_info, material: found.material });
       base = JSON.parse(saved);
       list();
     },
@@ -119,7 +120,7 @@
         <input class="field" type="date" bind:value={on} /></label>
       <span class="spacer"></span>
       <span class="muted">{data.total} шт.</span>
-      <button class="btn" onclick={() => { draft = { code: "", source_code: "", name: "", wiki_url: "" }; errors = {}; dialog = true; }}>+ Провинция</button>
+      <button class="btn" onclick={() => { draft = { code: "", source_code: "", name: "", wiki_url: "", show_info: true, material: null }; errors = {}; dialog = true; }}>+ Провинция</button>
     </header>
 
     <table>
@@ -158,7 +159,8 @@
         <label><span class="label">Название</span><input class="field" class:bad={errors.name} bind:value={form.name} />{#if errors.name}<span class="err">{errors.name.join(" ")}</span>{/if}</label>
         <label><span class="label">Код<Hint text="Читаемый код вида RUS-32: его пишут в виджетах и пометках сцен." /></span><input class="field mono" class:bad={errors.code} bind:value={form.code} />{#if errors.code}<span class="err">{errors.code.join(" ")}</span>{/if}</label>
         <label><span class="label">Код тайлов</span><input class="field mono" class:bad={errors.source_code} bind:value={form.source_code} />{#if errors.source_code}<span class="err">{errors.source_code.join(" ")}</span>{/if}</label>
-        <label><span class="label">Страница в вики</span><input class="field" bind:value={form.wiki_url} placeholder="/wiki/…" /></label>
+        <MaterialField scope="province" material={form.material} info={province.material_info} showInfo={form.show_info ?? true} url={form.wiki_url ?? ""} error={errors.material?.join(" ")}
+                       onmaterial={(id) => (form.material = id)} onshow={(v) => (form.show_info = v)} onurl={(v) => (form.wiki_url = v)} />
         <div class="row">
           <button class="btn ghost danger" onclick={remove}>Удалить</button>
           <span class="spacer"></span>

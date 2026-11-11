@@ -194,7 +194,7 @@
   }
   async function split() {
     errors = {};
-    const { data, error } = await api.POST("/studio/api/map/countries", { body: { ...draft, valid_from: date, wiki_url: "" } });
+    const { data, error } = await api.POST("/studio/api/map/countries", { body: { ...draft, valid_from: date, wiki_url: "", show_info: true } });
     if (error || !data) { errors = fieldErrors(error); return toast(problem(error, "Страна не создалась."), "error"); }
     await loadCountries();
     const made = byId.get(data.id);

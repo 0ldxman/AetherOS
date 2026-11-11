@@ -22,7 +22,12 @@ class Country(models.Model):
         related_name="successors",
     )
 
-    wiki_url = models.URLField(blank=True)
+    wiki_url = models.URLField(blank=True, help_text="Внешняя ссылка: запасной вариант, когда материала нет.")
+    material = models.ForeignKey(
+        "filesystem.Item", null=True, blank=True, on_delete=models.SET_NULL, related_name="+", verbose_name="Материал",
+        help_text="Объект, который игрок откроет из карточки провинции этой страны (если у самой провинции нет своего).",
+    )
+    show_info = models.BooleanField("Показывать карточку игроку", default=True, help_text="Выключено: в карточке провинции нет блока страны и её материала.")
 
     class Meta:
         ordering = ["name"]
@@ -42,7 +47,12 @@ class Province(models.Model):
     source_code = models.CharField(max_length=64, unique=True)
     name = models.CharField(max_length=128)
 
-    wiki_url = models.URLField(blank=True)
+    wiki_url = models.URLField(blank=True, help_text="Внешняя ссылка: запасной вариант, когда материала нет.")
+    material = models.ForeignKey(
+        "filesystem.Item", null=True, blank=True, on_delete=models.SET_NULL, related_name="+", verbose_name="Материал",
+        help_text="Объект, который игрок откроет из карточки провинции.",
+    )
+    show_info = models.BooleanField("Показывать карточку игроку", default=True, help_text="Выключено: клик по провинции в приложении карты ничего не открывает.")
 
     class Meta:
         ordering = ["name"]

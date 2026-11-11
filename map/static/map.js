@@ -472,9 +472,13 @@ map.on('load', () => {
 
   // Клик по провинции в основной карте открывает её ссылку (страница провинции или страны, поле wiki_url)
   if (!EMBED && !EDIT_MODE && !PICK_MODE) {
+    // Клик по провинции открывает её карточку: окном-инфобоксом на рабочем столе (карта в iframe) или боковой панелью (карта на весь экран)
     map.on('click', 'adm1-fill', (e) => {
-      const url = provinceLinks[e.features[0].properties.adm1_code];
-      if (url) openProvinceLink(url);
+      const feature = e.features[0];
+      showInfo(feature.properties.adm1_code, feature.properties.name);
+    });
+    map.on('click', (e) => {
+      if (!map.queryRenderedFeatures(e.point, { layers: ['adm1-fill'] }).length) closeInfo();
     });
     map.on('mousemove', 'adm1-fill', (e) => {
       map.getCanvas().style.cursor = provinceLinks[e.features[0].properties.adm1_code] ? 'pointer' : '';
@@ -1802,6 +1806,78 @@ if (SCENE_EDIT) {
   map.once('idle', () => editor.render());
 }
 
+
+// ---------------------------------------------------------------------------
+// Карточка провинции (map/info.py): сервер сам решает, что показать игроку и какой материал ему доступен
+// ---------------------------------------------------------------------------
+function desktopWindows() {
+  try {
+    const api = window.parent !== window && window.parent.desktopAPI;
+    return api && typeof api.openApp === 'function' ? api : null;
+  } catch (error) {
+    return null;
+  }
+}
+
+function infoParams(code) {
+  const params = new URLSearchParams({ code });
+  const date = getUrlDate();
+  if (date) params.set('date', date);
+  return params;
+}
+
+function closeInfo() {
+  const panel = document.getElementById('info-panel');
+  if (panel) panel.classList.remove('open');
+  if (map.getLayer('info-hl')) map.setFilter('info-hl', ['==', ['get', 'adm1_code'], '']);
+}
+
+function highlightProvince(code) {
+  if (!map.getLayer('info-hl')) {
+    map.addLayer({
+      id: 'info-hl', type: 'line', source: 'adm1', 'source-layer': 'aether_provinces',
+      filter: ['==', ['get', 'adm1_code'], code],
+      paint: { 'line-color': SELECT_COLOR, 'line-width': 2.2 },
+    });
+  } else {
+    map.setFilter('info-hl', ['==', ['get', 'adm1_code'], code]);
+  }
+}
+
+async function showInfo(code, name) {
+  if (!code) return;
+  const params = infoParams(code);
+  params.set('fragment', '1');
+  let html = '';
+  try {
+    const response = await fetch(`${INFO_URL}?${params}`, { credentials: 'same-origin' });
+    if (response.status === 204 || !response.ok) { closeInfo(); return; }   // автор скрыл карточку этой провинции
+    html = await response.text();
+  } catch (error) {
+    return;
+  }
+  highlightProvince(code);
+  const desktop = desktopWindows();
+  if (desktop) {
+    // карта в окне рабочего стола: карточка открывается отдельным окном
+    const date = getUrlDate() || '';
+    desktop.openApp(`map-info-${code}-${date}`, name || provinceCodes[code] || code, `${INFO_URL}?${infoParams(code)}`);
+    return;
+  }
+  const panel = document.getElementById('info-panel');
+  panel.querySelector('.ip-body').innerHTML = html;
+  panel.classList.add('open');
+  panel.querySelectorAll('a[data-open]').forEach((link) => {
+    link.addEventListener('click', (event) => {
+      event.preventDefault();
+      const url = link.getAttribute('href');
+      if (url) openProvinceLink(url, link.dataset.label);
+    });
+  });
+}
+
+document.querySelector('#info-panel .ip-close')?.addEventListener('click', closeInfo);
+document.addEventListener('keydown', (event) => { if (event.key === 'Escape') closeInfo(); });
 
 // Ссылка провинции: путь сайта открывается окном рабочего стола, внешний адрес в новой вкладке
 function openProvinceLink(url, label) {

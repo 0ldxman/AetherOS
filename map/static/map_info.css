@@ -1,0 +1,29 @@
+/* Карточка провинции: окно-инфобокс на рабочем столе и боковая панель карты на весь экран. Цвета берутся из токенов интерфейса. */
+.mi { display: flex; flex-direction: column; gap: 0.9rem; font-family: var(--font-main); color: var(--fg); font-size: 0.92rem; line-height: 1.45; }
+.mi-head { display: flex; align-items: baseline; gap: 0.6rem; flex-wrap: wrap; padding-bottom: 0.6rem; border-bottom: 1px solid var(--line); }
+.mi-title { margin: 0; font-size: 1.15rem; font-weight: 600; color: var(--font-light, var(--fg)); }
+.mi-code, .mi code { font-family: inherit; color: var(--font-muted); font-size: 0.85em; }
+.mi-block { display: flex; flex-direction: column; gap: 0.25rem; }
+.mi-sub { margin: 0; font-size: 0.78em; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--font-muted); }
+.mi p { margin: 0; }
+.mi-owner { display: flex; align-items: center; gap: 0.5rem; }
+.mi-muted { color: var(--font-muted); font-size: 0.88em; }
+.mi-dot { display: inline-block; width: 0.7rem; height: 0.7rem; border-radius: 2px; flex: none; border: 1px solid rgba(255, 255, 255, 0.25); }
+.mi-history { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 0.15rem; }
+.mi-history li { display: flex; align-items: baseline; gap: 0.5rem; padding: 0.15rem 0.3rem; border-radius: 3px; }
+.mi-history li.now { background: var(--row-selected); }
+.mi-history li.future { opacity: 0.5; }
+.mi-date { font-variant-numeric: tabular-nums; color: var(--font-muted); }
+.mi-open { align-self: flex-start; padding: 0.35rem 0.7rem; border: 1px solid var(--line-bright); border-radius: var(--radius); color: var(--accent); text-decoration: none; }
+.mi-open:hover, .mi-open:focus-visible { background: var(--row-selected); outline: none; }
+.mi-window { padding: 1rem 1.1rem 1.4rem; }
+
+/* боковая панель в приложении на весь экран */
+#info-panel { position: fixed; top: 0; right: 0; bottom: 0; z-index: 20; width: min(360px, 92vw); display: none; flex-direction: column; background: var(--bg); border-left: 1px solid var(--line-bright); box-shadow: -12px 0 32px rgba(0, 0, 0, 0.4); }
+#info-panel.open { display: flex; }
+#info-panel .ip-bar { display: flex; justify-content: space-between; align-items: center; padding: 0.5rem 0.8rem; border-bottom: 1px solid var(--line); color: var(--font-muted); font-size: 0.78em; letter-spacing: 0.08em; text-transform: uppercase; }
+#info-panel .ip-close { border: 1px solid var(--line-bright); border-radius: var(--radius); background: none; color: var(--fg); padding: 0 0.5rem; cursor: pointer; font: inherit; }
+#info-panel .ip-body { flex: 1; overflow: auto; padding: 0.9rem 1rem 1.4rem; }
+#info-panel, #info-panel * { cursor: auto !important; }
+#info-panel .ip-close, #info-panel a { cursor: pointer !important; }
+@media (max-width: 640px) { #info-panel { top: auto; width: 100%; max-height: 62vh; border-left: 0; border-top: 1px solid var(--line-bright); } }

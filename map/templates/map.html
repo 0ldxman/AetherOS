@@ -7,6 +7,7 @@
   <link href="https://unpkg.com/maplibre-gl@5/dist/maplibre-gl.css" rel="stylesheet">
   <link href="{% static 'map.css' %}" rel="stylesheet">
   <link href="{% static 'timeline.css' %}" rel="stylesheet">
+  <link href="{% static 'map_info.css' %}" rel="stylesheet">
 {% endblock %}
 
 {% block body %}
@@ -16,6 +17,10 @@
     <button type="button" data-mode="political">political</button>
     <button type="button" data-mode="physical">physical</button>
   </div>
+  <aside id="info-panel" aria-label="Карточка провинции">
+    <div class="ip-bar"><span>map.info</span><button type="button" class="ip-close" aria-label="Закрыть">×</button></div>
+    <div class="ip-body"></div>
+  </aside>
 {% endblock %}
 
 {% block js %}
@@ -31,6 +36,7 @@
     const SCENES_URL = "{% url 'map:scene_list' %}";
     const RESOLVE_URL = "{% url 'map:resolve_regions' %}";
     const OUTLINE_URL = "{% url 'map:outline' %}";
+    const INFO_URL = "{% url 'map:info' %}";
   </script>
   <script src="{% static 'map.js' %}"></script>
   <script src="{% static 'timeline.js' %}"></script>

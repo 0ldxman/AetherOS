@@ -6159,6 +6159,11 @@ export interface components {
             labels: number;
             /** Wiki Url */
             wiki_url: string;
+            /** Show Info */
+            show_info: boolean;
+            /** Material */
+            material: number | null;
+            material_info: components["schemas"]["MapMaterial"] | null;
             /** Successors */
             successors: string[];
             /** Successor Ids */
@@ -6182,6 +6187,22 @@ export interface components {
             lat: number;
             /** Rank */
             rank: number;
+        };
+        /**
+         * MapMaterial
+         * @description Объект, привязанный к стране или провинции: что игрок откроет из карточки на карте.
+         */
+        MapMaterial: {
+            /** Id */
+            id: number;
+            /** Slug */
+            slug: string;
+            /** Name */
+            name: string;
+            /** Format */
+            format: string;
+            /** Where */
+            where: string[];
         };
         /** MapCountryIn */
         MapCountryIn: {
@@ -6208,6 +6229,13 @@ export interface components {
              * @default
              */
             wiki_url: string;
+            /**
+             * Show Info
+             * @default true
+             */
+            show_info: boolean;
+            /** Material */
+            material?: number | null;
         };
         /** MapLabelIn */
         MapLabelIn: {
@@ -6310,6 +6338,11 @@ export interface components {
             owner: components["schemas"]["MapOwnerRef"] | null;
             /** Records */
             records: number;
+            /** Show Info */
+            show_info: boolean;
+            /** Material */
+            material: number | null;
+            material_info: components["schemas"]["MapMaterial"] | null;
             /** History */
             history: components["schemas"]["MapHistoryRow"][];
         };
@@ -6326,6 +6359,13 @@ export interface components {
              * @default
              */
             wiki_url: string;
+            /**
+             * Show Info
+             * @default true
+             */
+            show_info: boolean;
+            /** Material */
+            material?: number | null;
         };
         /** MapOwnershipPage */
         MapOwnershipPage: {

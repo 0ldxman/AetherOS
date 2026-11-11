@@ -5,6 +5,7 @@ app_name = 'map'
 
 urlpatterns = [
     path('', views.index, name='index'),
+    path("info/", views.info, name="info"),
     path("api/province-colors/", views.province_colors, name="province_colors"),
     path("api/country-labels/", views.country_labels, name="country_labels"),
     path("timeline/", views.timeline_dates, name="timeline_dates"),

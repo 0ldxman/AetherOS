@@ -16,8 +16,34 @@ from map.models import Country, CountryLabel, Ownership, Province
 
 router = Router(tags=["map"])
 
-COUNTRY_FIELDS = ("code", "name", "color", "valid_from", "valid_to", "wiki_url")
+COUNTRY_FIELDS = ("code", "name", "color", "valid_from", "valid_to", "wiki_url", "show_info")
 PAGE = 100
+
+
+class MapMaterial(Schema):
+    """Объект, привязанный к стране или провинции: что игрок откроет из карточки на карте."""
+    id: int
+    slug: str
+    name: str
+    format: str
+    where: list[str]          # «диск:/путь» мест, где объект лежит; пусто: игрок его не откроет
+
+
+def _material(item):
+    if item is None:
+        return None
+    return MapMaterial(id=item.pk, slug=item.slug, name=item.name, format=item.format, where=[str(p) for p in list(item.placements.all())[:6]])
+
+
+def _item_or_error(pk):
+    from filesystem.models import Item
+
+    if not pk:
+        return None
+    item = Item.objects.filter(pk=pk).first()
+    if item is None:
+        raise ValidationError({"material": ["Такого объекта нет."]})
+    return item
 
 
 # ---------- страны и подписи ----------
@@ -55,6 +81,9 @@ class MapCountryRow(Schema):
 
 class MapCountryOut(MapCountryRow):
     wiki_url: str
+    show_info: bool
+    material: int | None
+    material_info: MapMaterial | None
     successors: list[str]
     successor_ids: list[int]
     label_list: list[MapLabelOut]
@@ -68,6 +97,8 @@ class MapCountryIn(Schema):
     valid_to: dt.date | None = None
     predecessor: int | None = None
     wiki_url: str = ""
+    show_info: bool = True
+    material: int | None = None
 
 
 def _label(label):
@@ -109,7 +140,7 @@ def _country_out(country):
     country = _countries().get(pk=country.pk)
     successors = list(country.successors.order_by("name").values_list("name", "pk"))
     return MapCountryOut(
-        **_row(country, _now(), None), wiki_url=country.wiki_url,
+        **_row(country, _now(), None), wiki_url=country.wiki_url, show_info=country.show_info, material=country.material_id, material_info=_material(country.material),
         successors=[name for name, _ in successors], successor_ids=[pk for _, pk in successors],
         label_list=[_label(label) for label in country.labels.select_related("country")],
     )
@@ -119,6 +150,7 @@ def _save_country(country, body):
     for name in COUNTRY_FIELDS:
         setattr(country, name, getattr(body, name))
     country.predecessor = Country.objects.filter(pk=body.predecessor).first() if body.predecessor else None
+    country.material = _item_or_error(body.material)
     if country.predecessor_id and country.predecessor_id == country.pk:
         raise ValidationError({"predecessor": ["Страна не может быть своим предшественником."]})
     country.full_clean()
@@ -216,6 +248,8 @@ class MapProvinceIn(Schema):
     source_code: str
     name: str
     wiki_url: str = ""
+    show_info: bool = True
+    material: int | None = None
 
 
 class MapHistoryRow(Schema):
@@ -231,6 +265,9 @@ class MapHistoryRow(Schema):
 
 
 class MapProvinceOut(MapProvinceRow):
+    show_info: bool
+    material: int | None
+    material_info: MapMaterial | None
     history: list[MapHistoryRow]
 
 
@@ -264,7 +301,7 @@ def _province_out(province, on):
     now = info["owner"]
     return MapProvinceOut(
         id=province.pk, bounds=bounds_of(province.source_code), code=province.code, source_code=province.source_code, name=province.name, wiki_url=province.wiki_url,
-        owner=_owner(now), records=len(info["history"]),
+        owner=_owner(now), records=len(info["history"]), show_info=province.show_info, material=province.material_id, material_info=_material(province.material),
         history=[
             MapHistoryRow(id=o.pk, date_from=o.date_from, country=o.country_id, country_name=o.country.name, country_code=o.country.code,
                           color=o.country.color, de_jure=o.de_jure, de_facto=o.de_facto, current=current)
@@ -285,8 +322,9 @@ def province_by_code(request, source_code: str, on: dt.date | None = None):
 
 
 def _save_province(province, body):
-    for name in ("code", "source_code", "name", "wiki_url"):
+    for name in ("code", "source_code", "name", "wiki_url", "show_info"):
         setattr(province, name, getattr(body, name))
+    province.material = _item_or_error(body.material)
     province.full_clean()
     province.save()
     return _province_out(province, None)
