@@ -24,6 +24,7 @@
   import Task from "./routes/Task.svelte";
   import Mail from "./routes/Mail.svelte";
   import News from "./routes/News.svelte";
+  import Guide from "./routes/Guide.svelte";
   import Support from "./routes/Support.svelte";
   import { level, loadMe, me } from "./lib/me.svelte";
   import Discussion from "./lib/Discussion.svelte";
@@ -61,7 +62,8 @@
     | { name: "mail"; id: number | null }
     | { name: "talk"; id: number }
     | { name: "news"; id: number | null }
-    | { name: "support"; id: number | null };
+    | { name: "support"; id: number | null }
+    | { name: "guide"; slug: string | null };
 
   const page: Page = $derived.by((): Page => {
     let found;
@@ -91,6 +93,8 @@
     if (match("/mail", route.path)) return { name: "mail", id: null };
     if ((found = match("/news/:id", route.path))) return { name: "news", id: +found.id };
     if (match("/news", route.path)) return { name: "news", id: null };
+    if ((found = match("/guide/:slug", route.path))) return { name: "guide", slug: found.slug };
+    if (match("/guide", route.path)) return { name: "guide", slug: null };
     if ((found = match("/support/:id", route.path))) return { name: "support", id: +found.id };
     if (match("/support", route.path)) return { name: "support", id: null };
     if ((found = match("/tasks/:id", route.path))) return { name: "task", id: +found.id };
@@ -127,6 +131,7 @@
     { href: "#/mail", label: "Почта", section: ["mail", "talk"], right: "mail" },
     { href: "#/news", label: "Новости", section: ["news"], right: "news" },
     { href: "#/support", label: "Поддержка", section: ["support"], right: "support" },
+    { href: "#/guide", label: "Справка", section: ["guide"], right: "" },
   ];
 
   const current = $derived(NAV.find((item) => item.section.includes(page.name)) ?? null);
@@ -215,6 +220,8 @@
       {#key page.id}<News id={page.id} />{/key}
     {:else if page.name === "support"}
       {#key page.id}<Support id={page.id} />{/key}
+    {:else if page.name === "guide"}
+      {#key page.slug}<Guide slug={page.slug} />{/key}
     {:else if page.name === "mail"}
       {#key page.id}<Mail id={page.id} />{/key}
     {:else if page.name === "talk"}

@@ -6,7 +6,7 @@ Django 6.1, игра-ОС. Пользователь пишет по-русски
 - Python: `.venv/bin/python manage.py ...`
 - Тесты только на sqlite (у базы по умолчанию нет прав создавать тестовую):
   `DATABASE_URL=sqlite:////tmp/t.sqlite3 .venv/bin/python manage.py test <приложения> 2>&1 | tail -5`
-- По ходу работы гонять затронутые приложения, полный набор (`terminal filesystem machines desktop wiki mail config users secure assets scenes documents map monitor studio team news support`) один раз в конце куска.
+- По ходу работы гонять затронутые приложения, полный набор (`terminal filesystem machines desktop wiki mail config users secure assets scenes documents map monitor studio team news support guide`) один раз в конце куска.
 - Node 22 в `/config/.local/node/bin` (добавить в PATH). Студия: `cd studio/frontend && npm run api && npm run check && npm run build`.
 - `manage.py runserver` сам запускает `npm run watch` (`--no-studio` отключает). С `--noreload` сервер перезапускать после правок бэкенда. `pkill` runserver ронял оболочку: запускать отдельным вызовом, сервер стартовать через nohup тоже отдельным.
 - Скриншоты: браузеру нужны шрифты (FONTCONFIG_FILE с DejaVu), playwright и LD_LIBRARY_PATH из scratchpad (`pw`, `env.sh`). Снимать только новые экраны.

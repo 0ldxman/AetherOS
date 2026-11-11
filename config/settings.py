@@ -64,6 +64,7 @@ INSTALLED_APPS = [
     'mail',
     'news',
     'support',
+    'guide',
     'documents',
     'wiki',
     'desktop',

@@ -9412,6 +9412,116 @@
     ]
    }
   },
+  "/studio/api/guide": {
+   "get": {
+    "operationId": "studio_api_guide_index",
+    "summary": "Index",
+    "parameters": [],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "items": {
+          "$ref": "#/components/schemas/GdSection"
+         },
+         "title": "Response",
+         "type": "array"
+        }
+       }
+      }
+     }
+    },
+    "tags": [
+     "guide"
+    ],
+    "security": [
+     {
+      "StudioAuth": []
+     }
+    ]
+   }
+  },
+  "/studio/api/guide/search": {
+   "get": {
+    "operationId": "studio_api_guide_find",
+    "summary": "Find",
+    "parameters": [
+     {
+      "in": "query",
+      "name": "q",
+      "schema": {
+       "default": "",
+       "title": "Q",
+       "type": "string"
+      },
+      "required": false
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "items": {
+          "$ref": "#/components/schemas/GdHit"
+         },
+         "title": "Response",
+         "type": "array"
+        }
+       }
+      }
+     }
+    },
+    "tags": [
+     "guide"
+    ],
+    "security": [
+     {
+      "StudioAuth": []
+     }
+    ]
+   }
+  },
+  "/studio/api/guide/{slug}": {
+   "get": {
+    "operationId": "studio_api_guide_page",
+    "summary": "Page",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "slug",
+      "schema": {
+       "title": "Slug",
+       "type": "string"
+      },
+      "required": true
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/GdOut"
+        }
+       }
+      }
+     }
+    },
+    "tags": [
+     "guide"
+    ],
+    "security": [
+     {
+      "StudioAuth": []
+     }
+    ]
+   }
+  },
   "/studio/api/mail": {
    "get": {
     "operationId": "studio_api_mail_index",
@@ -20572,6 +20682,159 @@
      }
     },
     "title": "NtRead",
+    "type": "object"
+   },
+   "GdPage": {
+    "properties": {
+     "slug": {
+      "title": "Slug",
+      "type": "string"
+     },
+     "title": {
+      "title": "Title",
+      "type": "string"
+     }
+    },
+    "required": [
+     "slug",
+     "title"
+    ],
+    "title": "GdPage",
+    "type": "object"
+   },
+   "GdSection": {
+    "properties": {
+     "title": {
+      "title": "Title",
+      "type": "string"
+     },
+     "pages": {
+      "items": {
+       "$ref": "#/components/schemas/GdPage"
+      },
+      "title": "Pages",
+      "type": "array"
+     }
+    },
+    "required": [
+     "title",
+     "pages"
+    ],
+    "title": "GdSection",
+    "type": "object"
+   },
+   "GdHit": {
+    "properties": {
+     "slug": {
+      "title": "Slug",
+      "type": "string"
+     },
+     "title": {
+      "title": "Title",
+      "type": "string"
+     },
+     "section": {
+      "title": "Section",
+      "type": "string"
+     },
+     "snippet": {
+      "title": "Snippet",
+      "type": "string"
+     }
+    },
+    "required": [
+     "slug",
+     "title",
+     "section",
+     "snippet"
+    ],
+    "title": "GdHit",
+    "type": "object"
+   },
+   "GdHead": {
+    "properties": {
+     "id": {
+      "title": "Id",
+      "type": "string"
+     },
+     "title": {
+      "title": "Title",
+      "type": "string"
+     },
+     "level": {
+      "title": "Level",
+      "type": "integer"
+     }
+    },
+    "required": [
+     "id",
+     "title",
+     "level"
+    ],
+    "title": "GdHead",
+    "type": "object"
+   },
+   "GdOut": {
+    "properties": {
+     "slug": {
+      "title": "Slug",
+      "type": "string"
+     },
+     "title": {
+      "title": "Title",
+      "type": "string"
+     },
+     "section": {
+      "title": "Section",
+      "type": "string"
+     },
+     "html": {
+      "title": "Html",
+      "type": "string"
+     },
+     "heads": {
+      "items": {
+       "$ref": "#/components/schemas/GdHead"
+      },
+      "title": "Heads",
+      "type": "array"
+     },
+     "prev": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/GdPage"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "next": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/GdPage"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "missing": {
+      "title": "Missing",
+      "type": "integer"
+     }
+    },
+    "required": [
+     "slug",
+     "title",
+     "section",
+     "html",
+     "heads",
+     "prev",
+     "next",
+     "missing"
+    ],
+    "title": "GdOut",
     "type": "object"
    },
    "MlPersona": {

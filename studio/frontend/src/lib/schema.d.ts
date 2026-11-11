@@ -3032,6 +3032,57 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/studio/api/guide": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Index */
+        get: operations["studio_api_guide_index"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/studio/api/guide/search": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Find */
+        get: operations["studio_api_guide_find"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/studio/api/guide/{slug}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Page */
+        get: operations["studio_api_guide_page"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/studio/api/mail": {
         parameters: {
             query?: never;
@@ -7388,6 +7439,57 @@ export interface components {
              * @default []
              */
             ids: number[];
+        };
+        /** GdPage */
+        GdPage: {
+            /** Slug */
+            slug: string;
+            /** Title */
+            title: string;
+        };
+        /** GdSection */
+        GdSection: {
+            /** Title */
+            title: string;
+            /** Pages */
+            pages: components["schemas"]["GdPage"][];
+        };
+        /** GdHit */
+        GdHit: {
+            /** Slug */
+            slug: string;
+            /** Title */
+            title: string;
+            /** Section */
+            section: string;
+            /** Snippet */
+            snippet: string;
+        };
+        /** GdHead */
+        GdHead: {
+            /** Id */
+            id: string;
+            /** Title */
+            title: string;
+            /** Level */
+            level: number;
+        };
+        /** GdOut */
+        GdOut: {
+            /** Slug */
+            slug: string;
+            /** Title */
+            title: string;
+            /** Section */
+            section: string;
+            /** Html */
+            html: string;
+            /** Heads */
+            heads: components["schemas"]["GdHead"][];
+            prev: components["schemas"]["GdPage"] | null;
+            next: components["schemas"]["GdPage"] | null;
+            /** Missing */
+            missing: number;
         };
         /** MlPersona */
         MlPersona: {
@@ -13169,6 +13271,70 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["NtInbox"];
+                };
+            };
+        };
+    };
+    studio_api_guide_index: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GdSection"][];
+                };
+            };
+        };
+    };
+    studio_api_guide_find: {
+        parameters: {
+            query?: {
+                q?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GdHit"][];
+                };
+            };
+        };
+    };
+    studio_api_guide_page: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GdOut"];
                 };
             };
         };
