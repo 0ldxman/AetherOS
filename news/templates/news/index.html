@@ -1,0 +1,34 @@
+{% extends "ui/base.html" %}
+{% load static %}
+
+{% block lang %}en{% endblock %}
+{% block title %}news{% endblock %}
+
+{% block css %}
+    <link rel="stylesheet" href="{% static 'ui/apps.css' %}">
+{% endblock %}
+
+{% block body %}
+    <main id="news" class="app2"
+          data-posts-url="{% url 'news:posts' %}"
+          data-read-url="{% url 'news:read' %}">
+        <div class="panes">
+            <section class="pane list-pane" aria-label="news">
+                <h2 class="pane-title">news</h2>
+                <button type="button" id="news-all" class="app-button" hidden>mark all as read</button>
+                <ol id="news-list" class="cards"></ol>
+            </section>
+            <section class="pane reader-pane" aria-label="post" aria-live="polite">
+                <h2 class="pane-title">read</h2>
+                <article id="news-view"><p class="empty">select a post</p></article>
+            </section>
+        </div>
+        <footer class="status"><span>j / k  move   ·   announcements from the Aether team</span><span id="news-count"></span></footer>
+    </main>
+    {% csrf_token %}
+{% endblock %}
+
+{% block js %}
+    <script src="{% static 'ui/apps.js' %}" defer></script>
+    <script src="{% static 'news/news.js' %}" defer></script>
+{% endblock %}

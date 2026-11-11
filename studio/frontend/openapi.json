@@ -9828,6 +9828,441 @@
      }
     ]
    }
+  },
+  "/studio/api/news": {
+   "get": {
+    "operationId": "studio_api_news_index",
+    "summary": "Index",
+    "parameters": [],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "items": {
+          "$ref": "#/components/schemas/NwRow"
+         },
+         "title": "Response",
+         "type": "array"
+        }
+       }
+      }
+     }
+    },
+    "tags": [
+     "news"
+    ],
+    "security": [
+     {
+      "StudioAuth": []
+     }
+    ]
+   },
+   "post": {
+    "operationId": "studio_api_news_create",
+    "summary": "Create",
+    "parameters": [],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/NwOut"
+        }
+       }
+      }
+     }
+    },
+    "tags": [
+     "news"
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/NwIn"
+       }
+      }
+     },
+     "required": true
+    },
+    "security": [
+     {
+      "StudioAuth": []
+     }
+    ]
+   }
+  },
+  "/studio/api/news/{post_id}": {
+   "get": {
+    "operationId": "studio_api_news_detail",
+    "summary": "Detail",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "post_id",
+      "schema": {
+       "title": "Post Id",
+       "type": "integer"
+      },
+      "required": true
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/NwOut"
+        }
+       }
+      }
+     }
+    },
+    "tags": [
+     "news"
+    ],
+    "security": [
+     {
+      "StudioAuth": []
+     }
+    ]
+   },
+   "put": {
+    "operationId": "studio_api_news_update",
+    "summary": "Update",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "post_id",
+      "schema": {
+       "title": "Post Id",
+       "type": "integer"
+      },
+      "required": true
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/NwOut"
+        }
+       }
+      }
+     }
+    },
+    "tags": [
+     "news"
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/NwIn"
+       }
+      }
+     },
+     "required": true
+    },
+    "security": [
+     {
+      "StudioAuth": []
+     }
+    ]
+   },
+   "delete": {
+    "operationId": "studio_api_news_delete",
+    "summary": "Delete",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "post_id",
+      "schema": {
+       "title": "Post Id",
+       "type": "integer"
+      },
+      "required": true
+     }
+    ],
+    "responses": {
+     "204": {
+      "description": "No Content"
+     }
+    },
+    "tags": [
+     "news"
+    ],
+    "security": [
+     {
+      "StudioAuth": []
+     }
+    ]
+   }
+  },
+  "/studio/api/support/meta": {
+   "get": {
+    "operationId": "studio_api_support_meta",
+    "summary": "Meta",
+    "parameters": [],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/SpMeta"
+        }
+       }
+      }
+     }
+    },
+    "tags": [
+     "support"
+    ],
+    "security": [
+     {
+      "StudioAuth": []
+     }
+    ]
+   }
+  },
+  "/studio/api/support": {
+   "get": {
+    "operationId": "studio_api_support_index",
+    "summary": "Index",
+    "parameters": [
+     {
+      "in": "query",
+      "name": "status",
+      "schema": {
+       "default": "",
+       "title": "Status",
+       "type": "string"
+      },
+      "required": false
+     },
+     {
+      "in": "query",
+      "name": "mine",
+      "schema": {
+       "default": false,
+       "title": "Mine",
+       "type": "boolean"
+      },
+      "required": false
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "items": {
+          "$ref": "#/components/schemas/SpRow"
+         },
+         "title": "Response",
+         "type": "array"
+        }
+       }
+      }
+     }
+    },
+    "tags": [
+     "support"
+    ],
+    "security": [
+     {
+      "StudioAuth": []
+     }
+    ]
+   }
+  },
+  "/studio/api/support/{ticket_id}": {
+   "get": {
+    "operationId": "studio_api_support_detail",
+    "summary": "Detail",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "ticket_id",
+      "schema": {
+       "title": "Ticket Id",
+       "type": "integer"
+      },
+      "required": true
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/SpTicket"
+        }
+       }
+      }
+     }
+    },
+    "tags": [
+     "support"
+    ],
+    "security": [
+     {
+      "StudioAuth": []
+     }
+    ]
+   },
+   "put": {
+    "operationId": "studio_api_support_change",
+    "summary": "Change",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "ticket_id",
+      "schema": {
+       "title": "Ticket Id",
+       "type": "integer"
+      },
+      "required": true
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/SpTicket"
+        }
+       }
+      }
+     }
+    },
+    "tags": [
+     "support"
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/SpChange"
+       }
+      }
+     },
+     "required": true
+    },
+    "security": [
+     {
+      "StudioAuth": []
+     }
+    ]
+   }
+  },
+  "/studio/api/support/{ticket_id}/reply": {
+   "post": {
+    "operationId": "studio_api_support_reply",
+    "summary": "Reply",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "ticket_id",
+      "schema": {
+       "title": "Ticket Id",
+       "type": "integer"
+      },
+      "required": true
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/SpTicket"
+        }
+       }
+      }
+     }
+    },
+    "tags": [
+     "support"
+    ],
+    "requestBody": {
+     "content": {
+      "multipart/form-data": {
+       "schema": {
+        "title": "MultiPartBodyParams",
+        "type": "object",
+        "properties": {
+         "text": {
+          "default": "",
+          "title": "Text",
+          "type": "string"
+         },
+         "internal": {
+          "default": false,
+          "title": "Internal",
+          "type": "boolean"
+         },
+         "files": {
+          "items": {
+           "format": "binary",
+           "type": "string"
+          },
+          "title": "Files",
+          "type": "array"
+         }
+        }
+       }
+      }
+     },
+     "required": true
+    },
+    "security": [
+     {
+      "StudioAuth": []
+     }
+    ]
+   }
+  },
+  "/studio/api/support/files/{file_id}": {
+   "get": {
+    "operationId": "studio_api_support_file",
+    "summary": "File",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "file_id",
+      "schema": {
+       "title": "File Id",
+       "type": "integer"
+      },
+      "required": true
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "OK"
+     }
+    },
+    "tags": [
+     "support"
+    ],
+    "security": [
+     {
+      "StudioAuth": []
+     }
+    ]
+   }
   }
  },
  "components": {
@@ -20852,6 +21287,477 @@
      "flags"
     ],
     "title": "MlPicks",
+    "type": "object"
+   },
+   "NwRow": {
+    "properties": {
+     "id": {
+      "title": "Id",
+      "type": "integer"
+     },
+     "title": {
+      "title": "Title",
+      "type": "string"
+     },
+     "status": {
+      "title": "Status",
+      "type": "string"
+     },
+     "publish_at": {
+      "anyOf": [
+       {
+        "format": "date-time",
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Publish At"
+     },
+     "pinned": {
+      "title": "Pinned",
+      "type": "boolean"
+     },
+     "important": {
+      "title": "Important",
+      "type": "boolean"
+     },
+     "reads": {
+      "title": "Reads",
+      "type": "integer"
+     },
+     "author": {
+      "title": "Author",
+      "type": "string"
+     }
+    },
+    "required": [
+     "id",
+     "title",
+     "status",
+     "publish_at",
+     "pinned",
+     "important",
+     "reads",
+     "author"
+    ],
+    "title": "NwRow",
+    "type": "object"
+   },
+   "NwOut": {
+    "properties": {
+     "id": {
+      "title": "Id",
+      "type": "integer"
+     },
+     "title": {
+      "title": "Title",
+      "type": "string"
+     },
+     "status": {
+      "title": "Status",
+      "type": "string"
+     },
+     "publish_at": {
+      "anyOf": [
+       {
+        "format": "date-time",
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Publish At"
+     },
+     "pinned": {
+      "title": "Pinned",
+      "type": "boolean"
+     },
+     "important": {
+      "title": "Important",
+      "type": "boolean"
+     },
+     "reads": {
+      "title": "Reads",
+      "type": "integer"
+     },
+     "author": {
+      "title": "Author",
+      "type": "string"
+     },
+     "body": {
+      "title": "Body",
+      "type": "string"
+     },
+     "updated_at": {
+      "format": "date-time",
+      "title": "Updated At",
+      "type": "string"
+     }
+    },
+    "required": [
+     "id",
+     "title",
+     "status",
+     "publish_at",
+     "pinned",
+     "important",
+     "reads",
+     "author",
+     "body",
+     "updated_at"
+    ],
+    "title": "NwOut",
+    "type": "object"
+   },
+   "NwIn": {
+    "properties": {
+     "title": {
+      "title": "Title",
+      "type": "string"
+     },
+     "body": {
+      "default": "",
+      "title": "Body",
+      "type": "string"
+     },
+     "publish_at": {
+      "anyOf": [
+       {
+        "format": "date-time",
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Publish At"
+     },
+     "pinned": {
+      "default": false,
+      "title": "Pinned",
+      "type": "boolean"
+     },
+     "important": {
+      "default": false,
+      "title": "Important",
+      "type": "boolean"
+     }
+    },
+    "required": [
+     "title"
+    ],
+    "title": "NwIn",
+    "type": "object"
+   },
+   "SpMeta": {
+    "properties": {
+     "statuses": {
+      "items": {
+       "additionalProperties": {
+        "type": "string"
+       },
+       "type": "object"
+      },
+      "title": "Statuses",
+      "type": "array"
+     },
+     "categories": {
+      "items": {
+       "additionalProperties": {
+        "type": "string"
+       },
+       "type": "object"
+      },
+      "title": "Categories",
+      "type": "array"
+     },
+     "authors": {
+      "items": {
+       "additionalProperties": {
+        "anyOf": [
+         {
+          "type": "string"
+         },
+         {
+          "type": "integer"
+         }
+        ]
+       },
+       "type": "object"
+      },
+      "title": "Authors",
+      "type": "array"
+     }
+    },
+    "required": [
+     "statuses",
+     "categories",
+     "authors"
+    ],
+    "title": "SpMeta",
+    "type": "object"
+   },
+   "SpRow": {
+    "properties": {
+     "id": {
+      "title": "Id",
+      "type": "integer"
+     },
+     "subject": {
+      "title": "Subject",
+      "type": "string"
+     },
+     "category": {
+      "title": "Category",
+      "type": "string"
+     },
+     "status": {
+      "title": "Status",
+      "type": "string"
+     },
+     "player": {
+      "title": "Player",
+      "type": "string"
+     },
+     "player_id": {
+      "title": "Player Id",
+      "type": "integer"
+     },
+     "assignee": {
+      "title": "Assignee",
+      "type": "string"
+     },
+     "assignee_id": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Assignee Id"
+     },
+     "updated_at": {
+      "format": "date-time",
+      "title": "Updated At",
+      "type": "string"
+     },
+     "waiting_on_team": {
+      "title": "Waiting On Team",
+      "type": "boolean"
+     }
+    },
+    "required": [
+     "id",
+     "subject",
+     "category",
+     "status",
+     "player",
+     "player_id",
+     "assignee",
+     "assignee_id",
+     "updated_at",
+     "waiting_on_team"
+    ],
+    "title": "SpRow",
+    "type": "object"
+   },
+   "SpFile": {
+    "properties": {
+     "id": {
+      "title": "Id",
+      "type": "integer"
+     },
+     "name": {
+      "title": "Name",
+      "type": "string"
+     },
+     "size": {
+      "title": "Size",
+      "type": "integer"
+     },
+     "image": {
+      "title": "Image",
+      "type": "boolean"
+     }
+    },
+    "required": [
+     "id",
+     "name",
+     "size",
+     "image"
+    ],
+    "title": "SpFile",
+    "type": "object"
+   },
+   "SpMessage": {
+    "properties": {
+     "id": {
+      "title": "Id",
+      "type": "integer"
+     },
+     "staff": {
+      "title": "Staff",
+      "type": "boolean"
+     },
+     "internal": {
+      "title": "Internal",
+      "type": "boolean"
+     },
+     "author": {
+      "title": "Author",
+      "type": "string"
+     },
+     "text": {
+      "title": "Text",
+      "type": "string"
+     },
+     "created_at": {
+      "format": "date-time",
+      "title": "Created At",
+      "type": "string"
+     },
+     "files": {
+      "items": {
+       "$ref": "#/components/schemas/SpFile"
+      },
+      "title": "Files",
+      "type": "array"
+     }
+    },
+    "required": [
+     "id",
+     "staff",
+     "internal",
+     "author",
+     "text",
+     "created_at",
+     "files"
+    ],
+    "title": "SpMessage",
+    "type": "object"
+   },
+   "SpTicket": {
+    "properties": {
+     "id": {
+      "title": "Id",
+      "type": "integer"
+     },
+     "subject": {
+      "title": "Subject",
+      "type": "string"
+     },
+     "category": {
+      "title": "Category",
+      "type": "string"
+     },
+     "status": {
+      "title": "Status",
+      "type": "string"
+     },
+     "player": {
+      "title": "Player",
+      "type": "string"
+     },
+     "player_id": {
+      "title": "Player Id",
+      "type": "integer"
+     },
+     "assignee": {
+      "title": "Assignee",
+      "type": "string"
+     },
+     "assignee_id": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Assignee Id"
+     },
+     "updated_at": {
+      "format": "date-time",
+      "title": "Updated At",
+      "type": "string"
+     },
+     "waiting_on_team": {
+      "title": "Waiting On Team",
+      "type": "boolean"
+     },
+     "context": {
+      "additionalProperties": true,
+      "title": "Context",
+      "type": "object"
+     },
+     "created_at": {
+      "format": "date-time",
+      "title": "Created At",
+      "type": "string"
+     },
+     "messages": {
+      "items": {
+       "$ref": "#/components/schemas/SpMessage"
+      },
+      "title": "Messages",
+      "type": "array"
+     }
+    },
+    "required": [
+     "id",
+     "subject",
+     "category",
+     "status",
+     "player",
+     "player_id",
+     "assignee",
+     "assignee_id",
+     "updated_at",
+     "waiting_on_team",
+     "context",
+     "created_at",
+     "messages"
+    ],
+    "title": "SpTicket",
+    "type": "object"
+   },
+   "SpChange": {
+    "properties": {
+     "status": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Status"
+     },
+     "assignee": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Assignee"
+     },
+     "unassign": {
+      "default": false,
+      "title": "Unassign",
+      "type": "boolean"
+     }
+    },
+    "title": "SpChange",
     "type": "object"
    }
   },

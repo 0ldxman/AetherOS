@@ -63,6 +63,17 @@ def demo_conversation():
     Variant.objects.create(step=ask, title="Mention the tunnel", text="I know about the tunnel.", need_flags=["tunnel"], closed="mystery")
 
 
+def demo_news():
+    """Объявление команды в приложении news."""
+    from django.utils import timezone
+    from news.models import Post
+
+    Post.objects.get_or_create(title="Welcome to Aether", defaults={
+        "body": "# Hello, operator\n\nThis is the **news** feed of the Aether team.\n\n- Updates and maintenance windows land here.\n"
+                "- Stuck or found a bug? Open **support** on your desktop.",
+        "publish_at": timezone.now(), "pinned": True, "important": True})
+
+
 class Command(BaseCommand):
     help = "Создаёт демонстрационный мир (машины, тома, объекты, ключи)."
 
@@ -95,10 +106,13 @@ class Command(BaseCommand):
             ("app-intercom", "intercom", "mail", "/apps/mail/", ".conn"),
             ("app-aether", "aether", "book", "/apps/wiki/", ".db"),
             ("app-world", "world", "map", "/apps/map/", ".map"),
+            ("app-news", "news", "radio", "/apps/news/", ".feed"),
+            ("app-support", "support", "chat", "/apps/support/", ".help"),
         ):
             volumes = ("aether-core:/srv/harbor as Harbor user=reader",) if label == "aether" else ()       # вики подключает архив порта
             put(base, f"etc/desktop/{label}.app", slug, appfile.render(label, icon, path, suffix, volumes=volumes), format="app")
 
+        demo_news()
         put(base, "etc/desktop/readme.txt", "demo-readme", "Welcome. Files on the desktop open by their kind.\n")
 
         # ключи

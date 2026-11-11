@@ -69,6 +69,18 @@ MESSAGES = {
             "title": "New message",
             "text": "{sender}: {subject}",
         },
+        "news_new": {
+            "kind": "info",
+            "code": "",
+            "title": "News",
+            "text": "{title}",
+        },
+        "support_new": {
+            "kind": "info",
+            "code": "",
+            "title": "Support answered",
+            "text": "{title}",
+        },
     },
 }
 

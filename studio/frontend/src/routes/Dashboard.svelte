@@ -3,7 +3,7 @@
   import { onMount } from "svelte";
   import { api, type Schemas } from "../lib/api";
   import PageHead from "../lib/PageHead.svelte";
-  import { me } from "../lib/me.svelte";
+  import { level, me } from "../lib/me.svelte";
   import { discussion } from "../lib/discussion.svelte";
   import { priorityColor } from "../lib/tasks";
   import { checkNotes, notes as noteState } from "../lib/notes.svelte";
@@ -23,6 +23,7 @@
   let live = $state<Schemas["TeamLive"][] | null>(null);
   let notes = $state<Schemas["NtInbox"] | null>(null);
   let myTasks = $state<Schemas["TkOut"][] | null>(null);
+  let support = $state<Schemas["SpRow"][] | null>(null);
 
   async function loadFeed(append = false) {
     loading = true;
@@ -38,6 +39,7 @@
   onMount(async () => {
     const [d, t, c, l] = await Promise.all([api.GET("/studio/api/dashboard"), api.GET("/studio/api/team"), api.GET("/studio/api/comments/inbox"), api.GET("/studio/api/team/live")]);
     live = l.data ?? [];
+    if (level("support") !== "none") support = (await api.GET("/studio/api/support", { params: { query: { status: "active" } } })).data ?? [];
     await loadMine();
     dash = d.data ?? null;
     inbox = c.data ?? null;
@@ -207,6 +209,26 @@
         </ul>
       {/if}
     </section>
+
+    {#if support}
+      {@const waiting = support.filter((t) => t.waiting_on_team)}
+      <section class="panel">
+        <header class="panel-head"><h2>Поддержка{#if waiting.length}<span class="badge new">{waiting.length}</span>{/if}</h2><span class="spacer"></span>
+          <a class="small-note" href="#/support">все обращения →</a></header>
+        {#if !waiting.length}
+          <p class="muted empty">Игроки ничего не ждут от команды.{#if support.length} Открытых обращений: {support.length}.{/if}</p>
+        {:else}
+          <ul class="rows">
+            {#each waiting.slice(0, 6) as t (t.id)}
+              <li class="problem">
+                <span class="talk-head"><a href={`#/support/${t.id}`}>#{t.id} {t.subject}</a>{#if t.status === "new"}<span class="badge new">новое</span>{/if}</span>
+                <span class="muted">{t.player} · {ago(t.updated_at)}{t.assignee ? ` · исполнитель: ${t.assignee}` : " · никто не взял"}</span>
+              </li>
+            {/each}
+          </ul>
+        {/if}
+      </section>
+    {/if}
 
     <section class="panel">
       <header class="panel-head"><h2>Обсуждения</h2><span class="spacer"></span>{#if inbox}<span class="muted small-note">открыто всего: {inbox.open_total}</span>{/if}</header>

@@ -1,0 +1,37 @@
+{% extends "ui/base.html" %}
+{% load static %}
+
+{% block lang %}en{% endblock %}
+{% block title %}support{% endblock %}
+
+{% block css %}
+    <link rel="stylesheet" href="{% static 'ui/apps.css' %}">
+{% endblock %}
+
+{% block body %}
+    <main id="support" class="app2"
+          data-tickets-url="{% url 'support:tickets' %}"
+          data-create-url="{% url 'support:create' %}"
+          data-base-url="{% url 'support:index' %}"
+          data-max-files="{{ limits.files }}" data-max-size="{{ limits.size }}"
+          {% if guest %}data-guest="1"{% endif %}>
+        <div class="panes">
+            <section class="pane list-pane" aria-label="tickets">
+                <h2 class="pane-title">support</h2>
+                <button type="button" id="support-new" class="app-button primary">new request</button>
+                <ol id="support-list" class="cards"></ol>
+            </section>
+            <section class="pane reader-pane" aria-label="conversation" aria-live="polite">
+                <h2 class="pane-title" id="support-title">request</h2>
+                <div id="support-view"></div>
+            </section>
+        </div>
+        <footer class="status"><span>talk to the Aether team: bugs, being stuck, anything else</span><span id="support-count"></span></footer>
+    </main>
+    {% csrf_token %}
+{% endblock %}
+
+{% block js %}
+    <script src="{% static 'ui/apps.js' %}" defer></script>
+    <script src="{% static 'support/support.js' %}" defer></script>
+{% endblock %}

@@ -23,6 +23,8 @@
   import Tasks from "./routes/Tasks.svelte";
   import Task from "./routes/Task.svelte";
   import Mail from "./routes/Mail.svelte";
+  import News from "./routes/News.svelte";
+  import Support from "./routes/Support.svelte";
   import { level, loadMe, me } from "./lib/me.svelte";
   import Discussion from "./lib/Discussion.svelte";
   import { discussion, targetOf } from "./lib/discussion.svelte";
@@ -57,7 +59,9 @@
     | { name: "tasks" }
     | { name: "task"; id: number }
     | { name: "mail"; id: number | null }
-    | { name: "talk"; id: number };
+    | { name: "talk"; id: number }
+    | { name: "news"; id: number | null }
+    | { name: "support"; id: number | null };
 
   const page: Page = $derived.by((): Page => {
     let found;
@@ -85,6 +89,10 @@
     if ((found = match("/mail/personas/:id", route.path))) return { name: "mail", id: +found.id };
     if ((found = match("/mail/:id", route.path))) return { name: "talk", id: +found.id };
     if (match("/mail", route.path)) return { name: "mail", id: null };
+    if ((found = match("/news/:id", route.path))) return { name: "news", id: +found.id };
+    if (match("/news", route.path)) return { name: "news", id: null };
+    if ((found = match("/support/:id", route.path))) return { name: "support", id: +found.id };
+    if (match("/support", route.path)) return { name: "support", id: null };
     if ((found = match("/tasks/:id", route.path))) return { name: "task", id: +found.id };
     if (match("/tasks", route.path)) return { name: "tasks" };
     if ((found = match("/boards/:id", route.path))) return { name: "boards", id: +found.id };
@@ -117,6 +125,8 @@
     { href: "#/map", label: "Карта", section: ["map"], right: "map" },
     { href: "#/players", label: "Игроки", section: ["players"], right: "players" },
     { href: "#/mail", label: "Почта", section: ["mail", "talk"], right: "mail" },
+    { href: "#/news", label: "Новости", section: ["news"], right: "news" },
+    { href: "#/support", label: "Поддержка", section: ["support"], right: "support" },
   ];
 
   const current = $derived(NAV.find((item) => item.section.includes(page.name)) ?? null);
@@ -201,6 +211,10 @@
       {:catch}
         <p class="muted" style="padding: 20px">Доска не загрузилась. Обновите страницу.</p>
       {/await}
+    {:else if page.name === "news"}
+      {#key page.id}<News id={page.id} />{/key}
+    {:else if page.name === "support"}
+      {#key page.id}<Support id={page.id} />{/key}
     {:else if page.name === "mail"}
       {#key page.id}<Mail id={page.id} />{/key}
     {:else if page.name === "talk"}

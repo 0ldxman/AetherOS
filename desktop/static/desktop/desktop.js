@@ -788,6 +788,84 @@ if (mailUrl && mailPulseUrl) {
   document.addEventListener("visibilitychange", pollMail);
 }
 
+
+/* ==================================================
+   Новости и поддержка: бейдж непрочитанного на иконке и уведомление о новом.
+   Пульс приложения: {unread, items: [{id, title, important?}]}. Первый опрос только запоминает лежащее,
+   кроме важных новостей: о них стол напоминает и сразу после входа.
+   ================================================== */
+
+const FEED_POLL_MS = 30000;
+
+function feedIcon(url) {
+  const path = new URL(url, window.location.href).pathname;
+  return Array.from(document.querySelectorAll(".icon")).find(
+    (item) => new URL(item.dataset.url, window.location.href).pathname === path
+  );
+}
+
+function watchFeed(feed) {
+  const known = new Set();
+  let seeded = false;
+  let failures = 0;
+
+  function open() {
+    const icon = feedIcon(feed.url);
+    if (icon) openApp(icon.dataset.app, icon.querySelector(".icon-label").textContent, icon.dataset.url);
+  }
+
+  function badge(count) {
+    const icon = feedIcon(feed.url);
+    if (!icon) return;
+    let mark = icon.querySelector(".icon-badge");
+    if (!count) {
+      if (mark) mark.remove();
+      return;
+    }
+    if (!mark) {
+      mark = el("span", "icon-badge");
+      icon.querySelector(".icon-glyph").appendChild(mark);
+    }
+    mark.textContent = count > 9 ? "9+" : String(count);
+  }
+
+  async function poll() {
+    if (document.hidden) return;
+    let data;
+    try {
+      const response = await fetch(feed.pulse, { credentials: "same-origin" });
+      if (!response.ok) { failures += 1; return; }
+      data = await response.json();
+    } catch (error) {
+      failures += 1;
+      return;
+    }
+    failures = 0;
+    badge(data.unread);
+    const fresh = data.items.filter((item) => !known.has(item.id) && (seeded || item.important));
+    data.items.forEach((item) => known.add(item.id));
+    seeded = true;
+    fresh.slice(0, 2).forEach((item) => showToast(feed.toast, { title: item.title }, open, MAIL_TOAST_MS));
+  }
+
+  function schedule() {
+    setTimeout(async () => {
+      await poll();
+      schedule();
+    }, Math.min(FEED_POLL_MS * 2 ** failures, 300000) + Math.random() * 5000);
+  }
+
+  poll();
+  schedule();
+  document.addEventListener("visibilitychange", poll);
+}
+
+try {
+  JSON.parse(document.getElementById("desktop-feeds")?.textContent || "[]").forEach(watchFeed);
+} catch (error) {
+  /* стол работает и без лент */
+}
+
 // Чёрный экран при смене рабочего стола (подключение, закрытие подключения, обрыв по сроку): чёрная накладка, посреди неё окно
 // под консоль с текстом, потом страница перезагружается и стол оказывается на нужной машине. Оформление и тексты приходят с сервера:
 // {title, text, tone, delay, speed, hold}

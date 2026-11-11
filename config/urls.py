@@ -37,6 +37,8 @@ urlpatterns = [
     path('apps/map/', include('map.urls')),
     path("apps/terminal/", include("terminal.urls")),
     path("apps/mail/", include("mail.urls")),
+    path("apps/news/", include("news.urls")),
+    path("apps/support/", include("support.urls")),
     path("view/fs/", include("terminal.fsview.urls")),
     path("view/doc/", include("documents.urls")),
     path("view/", include("assets.viewer_urls")),

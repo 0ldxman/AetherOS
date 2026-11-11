@@ -62,6 +62,8 @@ INSTALLED_APPS = [
     'users',
     'team',
     'mail',
+    'news',
+    'support',
     'documents',
     'wiki',
     'desktop',
@@ -99,7 +101,7 @@ MIDDLEWARE = [
 # ASGI: обычные запросы и WebSocket совместной правки Студии (config/asgi.py, team.collab); runserver идёт через daphne
 ASGI_APPLICATION = "config.asgi.application"
 
-MACHINE_APP_NAMESPACES = ["terminal", "map", "wiki", "mail"]
+MACHINE_APP_NAMESPACES = ["terminal", "map", "wiki", "mail", "news", "support"]
 
 MIDDLEWARE += ["allauth.account.middleware.AccountMiddleware"]
 

@@ -95,7 +95,15 @@ def desktop(request):
             "close_url": reverse("terminal:bridge_close"),
         }
 
+    # новости и поддержка: бейдж и уведомление, если их приложение есть на этом столе
+    feeds = []
+    for name in ("news", "support"):
+        url = reverse(f"{name}:index")
+        if any(item["url"] == url for item in apps):
+            feeds.append({"url": url, "pulse": reverse(f"{name}:pulse"), "toast": f"{name}_new"})
+
     return render(request, "desktop/desktop.html", {
+        "feeds": feeds,
         "tunnel": tunnel,
         "limit": limit,
         "kicks": kicks,

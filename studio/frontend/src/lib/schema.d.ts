@@ -3174,6 +3174,129 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/studio/api/news": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Index */
+        get: operations["studio_api_news_index"];
+        put?: never;
+        /** Create */
+        post: operations["studio_api_news_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/studio/api/news/{post_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Detail */
+        get: operations["studio_api_news_detail"];
+        /** Update */
+        put: operations["studio_api_news_update"];
+        post?: never;
+        /** Delete */
+        delete: operations["studio_api_news_delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/studio/api/support/meta": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Meta */
+        get: operations["studio_api_support_meta"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/studio/api/support": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Index */
+        get: operations["studio_api_support_index"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/studio/api/support/{ticket_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Detail */
+        get: operations["studio_api_support_detail"];
+        /** Change */
+        put: operations["studio_api_support_change"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/studio/api/support/{ticket_id}/reply": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Reply */
+        post: operations["studio_api_support_reply"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/studio/api/support/files/{file_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** File */
+        get: operations["studio_api_support_file"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -7595,6 +7718,194 @@ export interface components {
             accounts: components["schemas"]["MlAccount"][];
             /** Flags */
             flags: string[];
+        };
+        /** NwRow */
+        NwRow: {
+            /** Id */
+            id: number;
+            /** Title */
+            title: string;
+            /** Status */
+            status: string;
+            /** Publish At */
+            publish_at: string | null;
+            /** Pinned */
+            pinned: boolean;
+            /** Important */
+            important: boolean;
+            /** Reads */
+            reads: number;
+            /** Author */
+            author: string;
+        };
+        /** NwOut */
+        NwOut: {
+            /** Id */
+            id: number;
+            /** Title */
+            title: string;
+            /** Status */
+            status: string;
+            /** Publish At */
+            publish_at: string | null;
+            /** Pinned */
+            pinned: boolean;
+            /** Important */
+            important: boolean;
+            /** Reads */
+            reads: number;
+            /** Author */
+            author: string;
+            /** Body */
+            body: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+        };
+        /** NwIn */
+        NwIn: {
+            /** Title */
+            title: string;
+            /**
+             * Body
+             * @default
+             */
+            body: string;
+            /** Publish At */
+            publish_at?: string | null;
+            /**
+             * Pinned
+             * @default false
+             */
+            pinned: boolean;
+            /**
+             * Important
+             * @default false
+             */
+            important: boolean;
+        };
+        /** SpMeta */
+        SpMeta: {
+            /** Statuses */
+            statuses: {
+                [key: string]: string;
+            }[];
+            /** Categories */
+            categories: {
+                [key: string]: string;
+            }[];
+            /** Authors */
+            authors: {
+                [key: string]: string | number;
+            }[];
+        };
+        /** SpRow */
+        SpRow: {
+            /** Id */
+            id: number;
+            /** Subject */
+            subject: string;
+            /** Category */
+            category: string;
+            /** Status */
+            status: string;
+            /** Player */
+            player: string;
+            /** Player Id */
+            player_id: number;
+            /** Assignee */
+            assignee: string;
+            /** Assignee Id */
+            assignee_id: number | null;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+            /** Waiting On Team */
+            waiting_on_team: boolean;
+        };
+        /** SpFile */
+        SpFile: {
+            /** Id */
+            id: number;
+            /** Name */
+            name: string;
+            /** Size */
+            size: number;
+            /** Image */
+            image: boolean;
+        };
+        /** SpMessage */
+        SpMessage: {
+            /** Id */
+            id: number;
+            /** Staff */
+            staff: boolean;
+            /** Internal */
+            internal: boolean;
+            /** Author */
+            author: string;
+            /** Text */
+            text: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Files */
+            files: components["schemas"]["SpFile"][];
+        };
+        /** SpTicket */
+        SpTicket: {
+            /** Id */
+            id: number;
+            /** Subject */
+            subject: string;
+            /** Category */
+            category: string;
+            /** Status */
+            status: string;
+            /** Player */
+            player: string;
+            /** Player Id */
+            player_id: number;
+            /** Assignee */
+            assignee: string;
+            /** Assignee Id */
+            assignee_id: number | null;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+            /** Waiting On Team */
+            waiting_on_team: boolean;
+            /** Context */
+            context: {
+                [key: string]: unknown;
+            };
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Messages */
+            messages: components["schemas"]["SpMessage"][];
+        };
+        /** SpChange */
+        SpChange: {
+            /** Status */
+            status?: string | null;
+            /** Assignee */
+            assignee?: number | null;
+            /**
+             * Unassign
+             * @default false
+             */
+            unassign: boolean;
         };
     };
     responses: never;
@@ -13095,6 +13406,268 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["MlPicks"];
                 };
+            };
+        };
+    };
+    studio_api_news_index: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NwRow"][];
+                };
+            };
+        };
+    };
+    studio_api_news_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NwIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NwOut"];
+                };
+            };
+        };
+    };
+    studio_api_news_detail: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                post_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NwOut"];
+                };
+            };
+        };
+    };
+    studio_api_news_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                post_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NwIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NwOut"];
+                };
+            };
+        };
+    };
+    studio_api_news_delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                post_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    studio_api_support_meta: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SpMeta"];
+                };
+            };
+        };
+    };
+    studio_api_support_index: {
+        parameters: {
+            query?: {
+                status?: string;
+                mine?: boolean;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SpRow"][];
+                };
+            };
+        };
+    };
+    studio_api_support_detail: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                ticket_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SpTicket"];
+                };
+            };
+        };
+    };
+    studio_api_support_change: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                ticket_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SpChange"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SpTicket"];
+                };
+            };
+        };
+    };
+    studio_api_support_reply: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                ticket_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": {
+                    /**
+                     * Text
+                     * @default
+                     */
+                    text?: string;
+                    /**
+                     * Internal
+                     * @default false
+                     */
+                    internal?: boolean;
+                    /** Files */
+                    files?: string[];
+                };
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SpTicket"];
+                };
+            };
+        };
+    };
+    studio_api_support_file: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                file_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
         };
     };
