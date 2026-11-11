@@ -191,7 +191,7 @@
 
 </script>
 
-<ListDetail title="Страны">
+<ListDetail title="Страны" addOnTop>
   {#snippet list()}
     <div class="filter">
       <label class="find"><Icon name="search" size={14} /><input placeholder="Название или код" bind:value={query} aria-label="Поиск страны" /></label>
