@@ -306,8 +306,8 @@
         </div>
       </FilterChip>
       <FilterChip label="Период" value={after || before ? `${after ? showDate(after) : "…"} — ${before ? showDate(before) : "…"}` : ""}>
-        <label class="lbl">С<input class="field" type="date" bind:value={after} /></label>
-        <label class="lbl">По<input class="field" type="date" bind:value={before} /></label>
+        <label class="fld">С<input class="field" type="date" bind:value={after} /></label>
+        <label class="fld">По<input class="field" type="date" bind:value={before} /></label>
         <button class="link" onclick={() => { after = ""; before = ""; }}>Сбросить период</button>
       </FilterChip>
       <FilterChip label="Права" value={FLAGS[flag] ?? ""}>
@@ -454,9 +454,9 @@
         <button type="button" role="radio" aria-checked={b.mode === "date"} class:on={b.mode === "date"} onclick={() => (b.mode = "date")}>Новая дата</button>
       </div>
       {#if b.mode === "shift"}
-        <label class="lbl">Дней (минус: раньше)<input class="field" type="number" bind:value={b.shift} /></label>
+        <label class="fld">Дней (минус: раньше)<input class="field" type="number" bind:value={b.shift} /></label>
       {:else}
-        <label class="lbl">Новая дата<input class="field" type="date" bind:value={b.date} /></label>
+        <label class="fld">Новая дата<input class="field" type="date" bind:value={b.date} /></label>
       {/if}
     {:else if b.kind === "rights"}
       <label class="opt"><input type="checkbox" bind:checked={b.jure} /> де-юре</label>
@@ -513,7 +513,7 @@
   .seg button { padding: 4px 12px; border: 0; background: none; color: var(--muted); font: inherit; font-size: 12.5px; cursor: pointer; }
   .seg button.on { background: var(--accent-soft); color: var(--text); }
   .seg.wide button { padding: 5px 16px; }
-  .lbl { display: flex; flex-direction: column; gap: 4px; font-size: 12.5px; color: var(--muted); }
+  .fld { display: flex; flex-direction: column; gap: 4px; font-size: 12.5px; color: var(--muted); }
   .opt { display: flex; align-items: center; gap: 8px; font-size: 13px; }
   .opt.dim { color: var(--faint); }
   .n { margin-left: auto; padding: 0 7px; border-radius: 999px; background: var(--panel-2); color: var(--muted); font-size: 11.5px; }

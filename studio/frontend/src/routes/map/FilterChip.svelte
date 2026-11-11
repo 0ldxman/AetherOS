@@ -15,7 +15,7 @@
   });
 </script>
 
-<div class="chip" bind:this={root} onkeydown={(event) => event.key === "Escape" && (open = false)} role="presentation">
+<div class="fchip" bind:this={root} onkeydown={(event) => event.key === "Escape" && (open = false)} role="presentation">
   <button class:on={!!value} aria-expanded={open} aria-haspopup="dialog" onclick={() => (open = !open)}>
     <span>{label}{#if value}<span class="v">: <b>{value}</b></span>{/if}</span><Icon name="chevron" size={12} />
   </button>
@@ -23,7 +23,7 @@
 </div>
 
 <style>
-  .chip { position: relative; }
+  .fchip { position: relative; }
   button { display: inline-flex; align-items: center; gap: 6px; height: 30px; padding: 0 10px; border: 1px solid var(--line-soft); border-radius: 999px; background: var(--panel); color: var(--muted); font: inherit; font-size: 13px; cursor: pointer; white-space: nowrap; }
   button:hover, button[aria-expanded="true"] { border-color: var(--line); color: var(--text); }
   button.on { border-color: var(--accent); background: var(--accent-soft); color: var(--text); }
