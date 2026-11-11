@@ -27,6 +27,8 @@ def last_login(profile, user):
     if profile is None:
         return "never"
     events = LoginEvent.objects.filter(profile=profile, kind=LoginEvent.Kind.OK)
+    if user is None or not getattr(user, "sandbox_of_id", None):      # песочный игрок автора не оставляет следов у настоящих игроков
+        events = events.exclude(user__sandbox_of__isnull=False)
     if user is not None:
         events = events.filter(user=user)
     previous = events.order_by("-at", "-id").values_list("shown_at", flat=True)[1:2]
@@ -69,8 +71,8 @@ def facts(machine, profile=None, user=None):
     if machine.booted_at:
         uptime = uptime_text(clock.now(machine, user) - machine.booted_at)
     return {
-        "accounts": machine.profiles.count(),
-        "sessions": Session.objects.filter(profile__machine=machine, seen_at__gte=timezone.now() - ONLINE).count(),
+        "accounts": machine.profiles.exclude(user__sandbox_of__isnull=False).count(),
+        "sessions": Session.objects.filter(profile__machine=machine, seen_at__gte=timezone.now() - ONLINE, user__sandbox_of__isnull=True).count(),
         "last_login": last_login(profile, user),
         "uptime": uptime or "unknown",
         "note": machine.note,

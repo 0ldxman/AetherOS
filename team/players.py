@@ -31,7 +31,7 @@ def _discord(user):
 def players(query="", online=False, limit=200):
     """Список игроков: последний вход, в мире ли сейчас, сколько учёток и изменённых файлов."""
     alive = timezone.now() - ONLINE
-    found = get_user_model().objects.filter(is_superuser=False).annotate(
+    found = get_user_model().objects.filter(is_superuser=False, sandbox_of__isnull=True).annotate(
         seen=Max("sessions__seen_at"),
         accounts=Count("sessions__profile", distinct=True),
         files=Count("player_files", distinct=True),

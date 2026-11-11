@@ -10693,6 +10693,117 @@
      }
     ]
    }
+  },
+  "/studio/api/sandbox": {
+   "get": {
+    "operationId": "studio_api_sandbox_state",
+    "summary": "State",
+    "parameters": [],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/SbState"
+        }
+       }
+      }
+     }
+    },
+    "tags": [
+     "sandbox"
+    ],
+    "security": [
+     {
+      "StudioAuth": []
+     }
+    ]
+   }
+  },
+  "/studio/api/sandbox/open": {
+   "post": {
+    "operationId": "studio_api_sandbox_open_",
+    "summary": "Open ",
+    "parameters": [],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/SbState"
+        }
+       }
+      }
+     }
+    },
+    "description": "Включить песочницу: игровые страницы в этом браузере пойдут от песочного игрока автора.",
+    "tags": [
+     "sandbox"
+    ],
+    "security": [
+     {
+      "StudioAuth": []
+     }
+    ]
+   }
+  },
+  "/studio/api/sandbox/close": {
+   "post": {
+    "operationId": "studio_api_sandbox_close",
+    "summary": "Close",
+    "parameters": [],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/SbState"
+        }
+       }
+      }
+     }
+    },
+    "description": "Выключить песочницу. Состояние песочного игрока остаётся до «Начать заново».",
+    "tags": [
+     "sandbox"
+    ],
+    "security": [
+     {
+      "StudioAuth": []
+     }
+    ]
+   }
+  },
+  "/studio/api/sandbox/reset": {
+   "post": {
+    "operationId": "studio_api_sandbox_reset",
+    "summary": "Reset",
+    "parameters": [],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/SbState"
+        }
+       }
+      }
+     }
+    },
+    "description": "Начать заново: песочный игрок со всем состоянием стирается, его сессия тоже.",
+    "tags": [
+     "sandbox"
+    ],
+    "security": [
+     {
+      "StudioAuth": []
+     }
+    ]
+   }
   }
  },
  "components": {
@@ -23055,6 +23166,24 @@
      }
     },
     "title": "SpChange",
+    "type": "object"
+   },
+   "SbState": {
+    "properties": {
+     "open": {
+      "title": "Open",
+      "type": "boolean"
+     },
+     "player": {
+      "title": "Player",
+      "type": "string"
+     }
+    },
+    "required": [
+     "open",
+     "player"
+    ],
+    "title": "SbState",
     "type": "object"
    }
   },

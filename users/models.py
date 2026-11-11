@@ -5,3 +5,5 @@ from django.db import models
 class User(AbstractUser):
     # роль автора в Студии (team.rights); у игрока и суперадмина пусто
     role = models.ForeignKey("team.Role", null=True, blank=True, on_delete=models.SET_NULL, related_name="users", verbose_name="Роль в Студии")
+    # песочный игрок автора (users/sandbox.py): играет по настоящим машинам, его состояние видно только ему, а в Студии и мире он не виден
+    sandbox_of = models.OneToOneField("self", null=True, blank=True, on_delete=models.CASCADE, related_name="sandbox", verbose_name="Песочница автора")

@@ -16,6 +16,9 @@ def _player(request):
     return request.user
 
 
+SANDBOX_REFUSAL = "Support is not available in the author sandbox."
+
+
 def _ticket(request, ticket_id):
     found = Ticket.objects.filter(pk=ticket_id, user=_player(request)).first()
     if found is None:
@@ -62,6 +65,8 @@ def ticket(request, ticket_id):
 
 @require_POST
 def create(request):
+    if getattr(request.user, "sandbox_of_id", None):
+        return JsonResponse({"error": SANDBOX_REFUSAL}, status=400)
     try:
         found = desk.open_ticket(_player(request), subject=request.POST.get("subject", ""), category=request.POST.get("category", ""),
                                  text=request.POST.get("text", ""), uploads=request.FILES.getlist("files"), context=desk.context_of(request))
@@ -72,6 +77,8 @@ def create(request):
 
 @require_POST
 def reply(request, ticket_id):
+    if getattr(request.user, "sandbox_of_id", None):
+        return JsonResponse({"error": SANDBOX_REFUSAL}, status=400)
     found = _ticket(request, ticket_id)
     try:
         desk.player_reply(found, request.user, request.POST.get("text", ""), request.FILES.getlist("files"))

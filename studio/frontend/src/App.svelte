@@ -3,6 +3,8 @@
   import { api } from "./lib/api";
   import { match, route } from "./lib/router.svelte";
   import ConfirmHost from "./lib/ConfirmHost.svelte";
+  import SandboxHost from "./lib/SandboxHost.svelte";
+  import { loadSandbox } from "./lib/sandbox.svelte";
   import { dismiss, toasts } from "./lib/toast.svelte";
   import Volumes from "./routes/Volumes.svelte";
   import Volume from "./routes/Volume.svelte";
@@ -39,6 +41,7 @@
   import SideNav from "./lib/SideNav.svelte";
 
   onMount(loadMe);
+  onMount(loadSandbox);
 
   type Page =
     | { name: "volumes" }
@@ -258,6 +261,7 @@
 
 <PresenceMarks />
 <ConfirmHost />
+<SandboxHost />
 
 <div class="toasts" popover="manual" bind:this={toastBox} aria-live="polite">
   {#each toasts as item (item.id)}

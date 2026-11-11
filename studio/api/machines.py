@@ -302,10 +302,10 @@ def randomart(request, body: ArtIn):
 def overview(request, machine_id: int):
     machine = _machine(machine_id)
     accounts = list(
-        machine.profiles.select_related("user", "entry_policy", "machine__entry_policy").annotate(token_count=Count("tokens")).order_by("login", "freq")
+        machine.profiles.exclude(user__sandbox_of__isnull=False).select_related("user", "entry_policy", "machine__entry_policy").annotate(token_count=Count("tokens")).order_by("login", "freq")
     )
-    sessions = Session.objects.filter(profile__machine=machine, seen_at__gte=timezone.now() - ONLINE).select_related("user", "profile")
-    events = LoginEvent.objects.filter(profile__machine=machine).select_related("profile", "user").order_by("-at", "-id")[:15]
+    sessions = Session.objects.filter(profile__machine=machine, seen_at__gte=timezone.now() - ONLINE, user__sandbox_of__isnull=True).select_related("user", "profile")
+    events = LoginEvent.objects.filter(profile__machine=machine).exclude(user__sandbox_of__isnull=False).select_related("profile", "user").order_by("-at", "-id")[:15]
     machine_policy = machine.entry_policy if machine.entry_policy_id else None
     return Overview(
         id=machine.pk, hostname=machine.hostname or "", name=machine.name, system=machine.system, status=machine.status, hid=machine.hid,
@@ -359,7 +359,7 @@ def check(request, machine_id: int, body: CheckIn):
 
 @router.get("/{int:machine_id}/events", response=list[Event])
 def events(request, machine_id: int, account: int | None = None, kind: str = "", player: str = "", days: int = 7):
-    found = LoginEvent.objects.filter(profile__machine_id=machine_id, at__gte=timezone.now() - timedelta(days=max(1, min(days, 30))))
+    found = LoginEvent.objects.filter(profile__machine_id=machine_id, at__gte=timezone.now() - timedelta(days=max(1, min(days, 30)))).exclude(user__sandbox_of__isnull=False)
     if account:
         found = found.filter(profile_id=account)
     if kind:

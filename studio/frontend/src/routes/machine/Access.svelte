@@ -1,5 +1,7 @@
 <script lang="ts">
   import { api, problem, type Schemas } from "../../lib/api";
+  import Icon from "../../lib/Icon.svelte";
+  import { openSandbox } from "../../lib/sandbox.svelte";
   import { toast } from "../../lib/toast.svelte";
   import WeekGrid from "../../lib/WeekGrid.svelte";
 
@@ -86,6 +88,17 @@
   </section>
 
   <section class="card">
+    <div class="trybox">
+      <div>
+        <h2>Попробовать войти</h2>
+        <p class="muted small">Настоящий рабочий стол вашего песочного игрока: вход набирается руками в терминале, работают политика, блокировки и обрывы.
+          Мир и настоящие игроки не затрагиваются.</p>
+      </div>
+      <button class="btn primary" disabled={!row} onclick={() => openSandbox(`вход на ${machine.hostname}`, row ? `rcon ${row.login}@${machine.hostname}` : "")}><Icon name="play" size={14} />Открыть песочницу</button>
+    </div>
+  </section>
+
+  <section class="card">
     <h2>Проверить вход</h2>
     <p class="muted small">Те же правила, что у игрока. Ничего не записывается: ни событий, ни расхода токена, ни блокировки.</p>
     <div class="pair">
@@ -120,6 +133,9 @@
 </div>
 
 <style>
+  .trybox { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+  .trybox p { margin: 4px 0 0; max-width: 560px; }
+  .trybox h2 { margin: 0; }
   .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; padding: 16px 20px 24px; align-items: start; }
   .card { display: flex; flex-direction: column; gap: 12px; border: 1px solid var(--line-soft); border-radius: var(--radius); background: var(--panel); padding: 14px 16px; }
   .pickrow { max-width: 260px; }

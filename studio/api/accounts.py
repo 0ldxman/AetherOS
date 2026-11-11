@@ -200,8 +200,8 @@ def account_players(request, machine_id: int, account_id: int):
     profile = _profile(machine_id, account_id)
     now = timezone.now()
     week = now - timedelta(days=7)
-    seen = {s.user_id: s for s in Session.objects.filter(profile=profile).select_related("user")}
-    events = LoginEvent.objects.filter(profile=profile, user__isnull=False).select_related("user")
+    seen = {s.user_id: s for s in Session.objects.filter(profile=profile, user__sandbox_of__isnull=True).select_related("user")}
+    events = LoginEvent.objects.filter(profile=profile, user__isnull=False, user__sandbox_of__isnull=True).select_related("user")
     last = {}
     for event in events.filter(kind=LoginEvent.Kind.OK).order_by("at"):
         last[event.user_id] = event.at

@@ -37,7 +37,7 @@ def dashboard(request):
     from team.models import Change
     from wiki import dashboard as wiki_dashboard
 
-    sessions = (Session.objects.filter(seen_at__gte=timezone.now() - ONLINE)
+    sessions = (Session.objects.filter(seen_at__gte=timezone.now() - ONLINE, user__sandbox_of__isnull=True)
                 .select_related("user", "profile__machine").order_by("-seen_at")[:50])
     online = [DashPlayer(player=s.user.get_username(), login=s.profile.login, hostname=s.profile.machine.hostname,
                          machine=s.profile.machine_id, seen_at=s.seen_at) for s in sessions]

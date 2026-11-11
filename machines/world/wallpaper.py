@@ -102,7 +102,7 @@ def render(url, data, look=None):
     if data["file_id"]:
         fit = "scale-down" if data["mode"] == "center" else "cover"
         rules.append(f"#os-wallpaper{{opacity:{data['opacity'] / 100:g}}}#os-wallpaper img{{display:block;width:100%;height:100%;object-fit:{fit}}}")
-        blocks.append(format_html('<div id="os-wallpaper" aria-hidden="true"><img src="{}" alt=""></div>', url))
+        blocks.append(format_html('<div id="os-wallpaper" aria-hidden="true"><img src="{}" alt="" onerror="this.remove()"></div>', url))
     if data["pattern"] != "none":
         size = data["pattern_size"] or look["size"]
         color = data["pattern_color"] or look["color"]
