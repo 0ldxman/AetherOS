@@ -152,23 +152,27 @@
     </div>
     <SideNav page={page.name} />
 
-    {#if target && presence.peers.length}
-      <div class="here" aria-label="Кто ещё на этой странице">
-        <span class="muted">Здесь ещё:</span>
-        {#each presence.peers as peer (peer.id)}
-          <span class="peer" style="--peer: {peer.color}" title={peer.field ? `${peer.name}: в поле «${labelOfKey(peer.field)}»` : peer.name}>{peer.name}</span>
-        {/each}
-      </div>
-    {/if}
-    {#if target}
-      <button class="talk" class:on={discussion.open} aria-pressed={discussion.open} onclick={() => (discussion.open = !discussion.open)}>
-        <span class="talk-name"><Icon name="chat" />Обсуждение</span>{#if talks}<span class="count">{talks}</span>{/if}
-      </button>
-    {/if}
     <AuthorCard />
 
   </aside>
 
+  <div class="col">
+  {#if target}
+    <div class="collab">
+      {#if presence.peers.length}
+        <div class="here" aria-label="Кто ещё на этой странице">
+          <span class="muted">Здесь ещё:</span>
+          {#each presence.peers.slice(0, 4) as peer (peer.id)}
+            <span class="peer" style="--peer: {peer.color}" title={peer.field ? `${peer.name}: в поле «${labelOfKey(peer.field)}»` : peer.name}>{peer.name}</span>
+          {/each}
+          {#if presence.peers.length > 4}<span class="muted" title={presence.peers.slice(4).map((peer) => peer.name).join(", ")}>и ещё {presence.peers.length - 4}</span>{/if}
+        </div>
+      {/if}
+      <button class="talk" class:on={discussion.open} aria-pressed={discussion.open} onclick={() => (discussion.open = !discussion.open)}>
+        <span class="talk-name"><Icon name="chat" />Обсуждение</span>{#if talks}<span class="count">{talks}</span>{/if}
+      </button>
+    </div>
+  {/if}
   <main class="main">
     {#if current && level(current.right) === "read"}
       <div class="readonly" role="status">Только просмотр: у вашей роли нет права править раздел «{current.label}».</div>
@@ -245,6 +249,7 @@
       <Volumes />
     {/if}
   </main>
+  </div>
 </div>
 
 {#if discussion.open && target}
@@ -276,15 +281,16 @@
   .brand { display: flex; align-items: center; gap: 8px; padding: 0 8px; font-weight: 650; letter-spacing: 0.2px; }
   .mark { color: var(--accent); }
   .readonly { padding: 6px 32px; background: var(--accent-soft); color: var(--muted); font-size: 12.5px; border-bottom: 1px solid var(--line-soft); }
-  .talk { display: flex; align-items: center; justify-content: space-between; padding: 7px 10px; border: 1px solid var(--line-soft);
-          border-radius: var(--radius-s); background: none; color: var(--text); cursor: pointer; font: inherit; }
+  .talk { display: inline-flex; align-items: center; gap: 8px; padding: 4px 10px; border: 1px solid var(--line-soft); border-radius: var(--radius-s); background: none; color: var(--text); cursor: pointer; font: inherit; font-size: 12.5px; }
   .talk:hover, .talk.on { background: var(--accent-soft); }
   .count { min-width: 18px; padding: 0 6px; border-radius: 999px; background: var(--accent); color: var(--bg, #111); font-size: 11.5px; font-weight: 700; text-align: center; }
   .talk-name { display: inline-flex; align-items: center; gap: 10px; }
-  .here { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 6px; padding: 0 4px; font-size: 12px; }
+  .col { display: flex; flex-direction: column; min-width: 0; min-height: 0; height: 100%; }
+  .collab { flex: none; display: flex; align-items: center; justify-content: flex-end; gap: 16px; padding: 6px 20px; border-bottom: 1px solid var(--line-soft); background: var(--bg); }
+  .here { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 6px; font-size: 12px; }
   .peer { display: inline-flex; align-items: center; gap: 5px; padding: 1px 8px 1px 6px; border-radius: 999px; border: 1px solid var(--peer); }
   .peer::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: var(--peer); }
-  .main { min-width: 0; overflow: auto; }
+  .main { flex: 1; min-width: 0; min-height: 0; overflow: auto; }
   .toasts { position: fixed; inset: auto 16px 16px auto; margin: 0; padding: 0; border: 0; background: none; overflow: visible; width: max-content; display: flex; flex-direction: column; gap: 8px; z-index: 50; }
   .toasts:not(:popover-open) { display: none; }
   .toast {
