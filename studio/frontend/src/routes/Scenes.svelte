@@ -12,7 +12,7 @@
   import CodeEditor from "../lib/CodeEditor.svelte";
   import Icon from "../lib/Icon.svelte";
   import Insert from "./scenes/Insert.svelte";
-  import Reference from "./scenes/Reference.svelte";
+  import Help from "./scenes/Help.svelte";
   import Stage from "./scenes/Stage.svelte";
 
   type Scene = Schemas["SceneOut"];
@@ -28,6 +28,7 @@
   let preview = $state<Schemas["ScenePreview"] | null>(null);
   let slot = $state("");
   let creating = $state(false);
+  let help = $state(false);
   let draft = $state({ slug: "", title: "" });
   let editor: { insertSnippet(template: string): void; insertText(text: string): void; goto(line: number): void } | undefined = $state();
   let timer: ReturnType<typeof setTimeout>;
@@ -158,6 +159,7 @@
         <div class="left">
           <div class="toolbar">
             <Insert {params} samples={scene.samples} onsnippet={(template) => editor?.insertSnippet(template)} ontext={(text) => editor?.insertText(text)} />
+            <button class="helpbtn" onclick={() => (help = true)} aria-label="Справка по языку сцен" title="Справка по языку сцен: синтаксис и подстановки"><Icon name="help" size={16} /></button>
             <span class="spacer"></span>
             {#if problems.length}
               <button class="problems bad" onclick={() => editor?.goto(firstProblem)} title="Ошибок: {problems.length}. Перейти к первой"><Icon name="alert" size={14} />{problems.length}</button>
@@ -175,7 +177,14 @@
 
         <aside class="right">
           {#key scene.slug}<Stage steps={preview?.steps ?? null} slots={scene.slots} bind:slot failed={problems.length > 0} />{/key}
-          <Reference {params} samples={scene.samples} bindings={scene.bindings} onsnippet={(template) => editor?.insertSnippet(template)} ontext={(text) => editor?.insertText(text)} />
+          <div class="used">
+            <h3>Где играет</h3>
+            {#each scene.bindings as item (item.system + item.slot)}
+              <a class="chip" href="#/systems/{item.system}/scenes">{item.system} · {item.label}</a>
+            {:else}
+              <span class="warn small">Не назначена ни одному событию: игрок её не увидит. Назначьте в «Операционные системы», вкладка «Сцены событий».</span>
+            {/each}
+          </div>
         </aside>
       </div>
     </section>
@@ -190,6 +199,10 @@
     {/if}
   {/if}
 </ListDetail>
+
+{#if help && scene}
+  <Help slots={scene.slots} samples={scene.samples} onclose={() => (help = false)} onsnippet={(template) => editor?.insertSnippet(template)} ontext={(text) => editor?.insertText(text)} />
+{/if}
 
 {#if creating}
   <Dialog title="Новая сцена" confirm="Создать" onsubmit={create} onclose={() => (creating = false)}>
@@ -216,6 +229,12 @@
   .code { height: calc(100vh - 230px); min-height: 420px; border: 1px solid var(--line-soft); border-radius: var(--radius); overflow: hidden; background: var(--bg); }
   .code:focus-within { border-color: var(--accent); }
   .code.bad { border-color: color-mix(in srgb, var(--warn) 55%, var(--line-soft)); }
+  .helpbtn { display: grid; place-items: center; width: 30px; height: 30px; border: 1px solid var(--line-soft); border-radius: var(--radius-s); background: var(--panel); color: var(--muted); cursor: pointer; }
+  .helpbtn:hover { border-color: var(--line); color: var(--text); }
+  .helpbtn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .used { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding: 10px 12px; border: 1px solid var(--line-soft); border-radius: var(--radius); background: var(--panel); }
+  .used h3 { margin: 0 6px 0 0; font-size: 11px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--faint); }
+  .chip { padding: 2px 10px; border-radius: 999px; background: var(--accent-soft); font-size: 12.5px; }
   .right { position: sticky; top: 12px; display: flex; flex-direction: column; gap: 12px; min-width: 0; }
   .warn { margin: 0; color: var(--warn); }
   .line { margin-right: 8px; padding: 0; border: 0; background: none; color: inherit; font: inherit; font-weight: 600; text-decoration: underline; text-underline-offset: 2px; cursor: pointer; }
