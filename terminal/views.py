@@ -286,7 +286,7 @@ def _home(request):
 def shell_prompt(machine, login, hostname, cwd, home):
     """Приглашение оболочки по обычаю диалекта: unix login@host:~/путь$, Windows C:\\Users\\ivan>,
     VMS HOST::DSK0:[OPS.IVAN] $, мейнфрейм OPS.IVAN READY."""
-    from machines.world.dialect import MVS, VMS, WINDOWS, to_display
+    from machines.world.dialect import CPM, MAC, MULTICS, MVS, PRIMOS, VMS, WINDOWS, to_display
 
     style = machine.path_style if machine is not None else "unix"
     if style == WINDOWS:
@@ -295,6 +295,14 @@ def shell_prompt(machine, login, hostname, cwd, home):
         return f"{hostname.upper()}::{to_display(cwd, style)} $"
     if style == MVS:
         return f"{to_display(cwd, style)} READY"
+    if style == MULTICS:
+        return f"{to_display(cwd, style)} r"
+    if style == CPM:
+        return to_display(cwd, style).rstrip(":") + ">"
+    if style == PRIMOS:
+        return f"{to_display(cwd, style)} OK,"
+    if style == MAC:
+        return f"{to_display(cwd, style)} %"
     return f"{login}@{hostname}:{prompt_path(cwd, home)}$"
 
 

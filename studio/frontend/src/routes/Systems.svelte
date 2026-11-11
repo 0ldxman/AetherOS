@@ -412,6 +412,9 @@
             <select class="field" bind:value={props_.path_style}>
               <option value="unix">Unix (/home/ivan)</option><option value="windows">Windows (C:\Users\ivan)</option>
               <option value="vms">VMS (DSK0:[OPS.IVAN]FILE.TXT;1)</option><option value="mvs">Мейнфрейм (OPS.IVAN.FILE)</option>
+              <option value="multics">Multics (&gt;udd&gt;Ops&gt;Ivan&gt;note)</option><option value="cpm">CP/M (A3:NOTE.TXT)</option>
+              <option value="primos">PRIMOS (&lt;DISK0&gt;OPS&gt;IVAN&gt;NOTE)</option>
+              <option value="mac">Classic Mac (Macintosh HD:System Folder:Finder)</option>
             </select>
           </label>
         </div>

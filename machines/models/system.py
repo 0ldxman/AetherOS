@@ -11,6 +11,10 @@ class SystemType(models.Model):
         WINDOWS = "windows", "Windows (C:\\Users\\ivan)"
         VMS = "vms", "VMS (DSK0:[OPS.IVAN]FILE.TXT;1)"
         MVS = "mvs", "Мейнфрейм (OPS.IVAN.FILE)"
+        MULTICS = "multics", "Multics (>udd>Ops>Ivan>note)"
+        CPM = "cpm", "CP/M (A3:NOTE.TXT)"
+        PRIMOS = "primos", "PRIMOS (<DISK0>OPS>IVAN>NOTE)"
+        MAC = "mac", "Classic Mac (Macintosh HD:System Folder:Finder)"
 
     code = models.CharField("Код", max_length=32, unique=True, help_text="Большими буквами: AETHER. По нему выбираются сцены и команды.")
     name = models.CharField("Название", max_length=128)

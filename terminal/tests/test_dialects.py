@@ -65,6 +65,40 @@ class DialectTerminalTests(TerminalClient, TestCase):
         self.assertEqual(self.run_command("ls \\Windows")["output"], "system.ini")
         self.assertEqual(self.run_command("ls ..\\..\\..\\..")["exit_code"], 0)          # выше диска не уйти
 
+    def test_multics(self):
+        self.machine("multics", "/udd/Ops/ivan", ["/udd/Ops/ivan/note", "/udd/Ops/olga/plan"])
+        self.assertEqual(self.run_command("pwd")["output"], ">udd>Ops>ivan")
+        moved = self.run_command("cd <olga")
+        self.assertEqual((moved["cwd"], moved["shell_prompt"]), ("/udd/Ops/olga", ">udd>Ops>olga r"))
+        self.assertEqual(self.run_command("ls >udd>Ops>ivan")["output"], "note")
+        self.assertIn("incorrect pathname syntax", self.run_command("ls a<b")["output"])
+
+    def test_cpm(self):
+        self.machine("cpm", "/A:/0", ["/A:/0/NOTE.TXT", "/A:/3/SECRET.DAT", "/B:/0/GAME.COM"])
+        self.assertEqual(self.run_command("pwd")["output"], "A:")
+        self.assertEqual(self.run_command("ls")["output"], "NOTE.TXT")
+        moved = self.run_command("cd 3:")
+        self.assertEqual((moved["cwd"], moved["shell_prompt"]), ("/A:/3", "A3>"))
+        self.assertEqual(self.run_command("ls B:")["output"], "GAME.COM")
+        self.assertEqual(self.run_command("cnt secret.dat")["exit_code"], 0)
+        self.assertIn("bad file name", self.run_command("ls TOOLONGNAME.TXT")["output"])
+
+    def test_primos(self):
+        self.machine("primos", "/DISK0/OPS/IVAN", ["/DISK0/OPS/IVAN/DESK/CONSOLE", "/DISK1/LOGS/ACCESS"])
+        self.assertEqual(self.run_command("pwd")["output"], "<DISK0>OPS>IVAN")
+        moved = self.run_command("cd *>desk")
+        self.assertEqual((moved["cwd"], moved["shell_prompt"]), ("/DISK0/OPS/IVAN/DESK", "<DISK0>OPS>IVAN>DESK OK,"))
+        self.assertEqual(self.run_command("ls <DISK1>LOGS")["output"], "ACCESS")
+
+    def test_classic_mac(self):
+        self.machine("mac", "/Macintosh HD/Users/Ivan", ["/Macintosh HD/Users/Ivan/Desk/Note", "/Macintosh HD/System Folder/Finder"])
+        self.assertEqual(self.run_command("pwd")["output"], "Macintosh HD:Users:Ivan:")
+        self.assertEqual(self.run_command("ls")["output"], "Desk:")
+        moved = self.run_command('cd "Macintosh HD:System Folder"')
+        self.assertEqual((moved["cwd"], moved["shell_prompt"]), ("/Macintosh HD/System Folder", "Macintosh HD:System Folder: %"))
+        self.assertEqual(self.run_command("cd ::Users:ivan:desk")["cwd"], "/Macintosh HD/Users/Ivan/Desk")    # регистр не важен
+        self.assertEqual(self.run_command("ls")["output"], "Note")
+
     def test_the_page_starts_with_the_dialect_prompt(self):
         self.machine("vms", "/DSK0:/OPS/ivan", ["/DSK0:/OPS/ivan/note.txt"])
         html = self.client.get(reverse("terminal:index")).content.decode()

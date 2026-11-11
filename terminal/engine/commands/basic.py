@@ -8,12 +8,14 @@ from terminal.engine.result import CommandResult
 
 def listed_name(style, name, is_dir):
     """Имя в списке ls по обычаю диалекта: unix «папка/», VMS «ПАПКА.DIR;1» и «ФАЙЛ.TXT;1», мейнфрейм БОЛЬШИМИ."""
-    from machines.world.dialect import MVS, VMS
+    from machines.world.dialect import CPM, MAC, MVS, PRIMOS, VMS
 
     if style == VMS:
         return f"{name.upper()}.DIR;1" if is_dir else f"{name.upper()};1"
-    if style == MVS:
+    if style in (MVS, CPM, PRIMOS):
         return name.upper()
+    if style == MAC:
+        return name + (":" if is_dir else "")
     return name + ("/" if is_dir else "")
 
 class BaseCommand:

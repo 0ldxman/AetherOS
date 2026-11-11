@@ -75,6 +75,65 @@ class DialectSyntaxTests(SimpleTestCase):
             with self.assertRaises(PathSyntax):
                 parse(bad, MVS, "/")
 
+    def test_multics_pathnames(self):
+        from machines.world.dialect import MULTICS, PathSyntax, parse
+
+        here = "/udd/Ops/Ivan"
+        self.assertEqual(parse(">udd>Ops>Olga>note", MULTICS, here), "/udd/Ops/Olga/note")
+        self.assertEqual(parse("Desk>console", MULTICS, here), "/udd/Ops/Ivan/Desk/console")
+        self.assertEqual(parse("<Olga", MULTICS, here), "/udd/Ops/Olga")
+        self.assertEqual(parse("<<", MULTICS, here), "/udd")
+        self.assertEqual(parse(">", MULTICS, here), "/")
+        self.assertEqual(to_display("/udd/Ops/Ivan", "multics"), ">udd>Ops>Ivan")
+        self.assertEqual(to_display("/", "multics"), ">")
+        for bad in (">a>>b", "a<b", "><a", "a>"):
+            with self.assertRaises(PathSyntax):
+                parse(bad, MULTICS, here)
+
+    def test_cpm_drives_and_user_areas(self):
+        from machines.world.dialect import CPM, PathSyntax, parse
+
+        here = "/A:/3"
+        self.assertEqual(parse("NOTE.TXT", CPM, here), "/A:/3/NOTE.TXT")
+        self.assertEqual(parse("B:", CPM, here), "/B:/0")                        # другой диск: область 0
+        self.assertEqual(parse("A:", CPM, here), "/A:/3")                        # тот же диск: область остаётся
+        self.assertEqual(parse("B5:DATA.DAT", CPM, here), "/B:/5/DATA.DAT")
+        self.assertEqual(parse("0:", CPM, here), "/A:/0")
+        self.assertEqual(to_display("/A:/3/note.txt", "cpm"), "A3:NOTE.TXT")
+        self.assertEqual(to_display("/A:/0", "cpm"), "A:")
+        for bad in ("TOOLONGNAME.TXT", "A:NOTE.TEXT", "A16:", "Q:X", "A:B:C"):
+            with self.assertRaises(PathSyntax):
+                parse(bad, CPM, here)
+
+    def test_primos_pathnames(self):
+        from machines.world.dialect import PRIMOS, PathSyntax, parse
+
+        here = "/DISK0/OPS/IVAN"
+        self.assertEqual(parse("<DISK1>LOGS>ACCESS", PRIMOS, here), "/DISK1/LOGS/ACCESS")
+        self.assertEqual(parse("*>DESK>CONSOLE", PRIMOS, here), "/DISK0/OPS/IVAN/DESK/CONSOLE")
+        self.assertEqual(parse("NOTE", PRIMOS, here), "/DISK0/OPS/IVAN/NOTE")
+        self.assertEqual(parse("*", PRIMOS, here), here)
+        self.assertEqual(to_display("/DISK0/ops/ivan", "primos"), "<DISK0>OPS>IVAN")
+        self.assertEqual(to_display("/DISK0", "primos"), "<DISK0>")
+        for bad in ("<>X", "A>>B", "<D>..>X"):
+            with self.assertRaises(PathSyntax):
+                parse(bad, PRIMOS, here)
+
+    def test_classic_mac_paths(self):
+        from machines.world.dialect import MAC, PathSyntax, parse
+
+        here = "/Macintosh HD/Users/Ivan"
+        self.assertEqual(parse("Macintosh HD:System Folder:Finder", MAC, here), "/Macintosh HD/System Folder/Finder")
+        self.assertEqual(parse(":Desk:Note", MAC, here), "/Macintosh HD/Users/Ivan/Desk/Note")
+        self.assertEqual(parse("::Olga:", MAC, here), "/Macintosh HD/Users/Olga")
+        self.assertEqual(parse(":::", MAC, here), "/Macintosh HD")
+        self.assertEqual(parse("Note", MAC, here), "/Macintosh HD/Users/Ivan/Note")
+        self.assertEqual(parse("Archive:", MAC, here), "/Archive")                  # имя с двоеточием в конце это том
+        self.assertEqual(to_display("/Macintosh HD/Users/Ivan", "mac"), "Macintosh HD:Users:Ivan:")
+        self.assertEqual(to_display("/Macintosh HD/Users/Ivan/Note", "mac", is_dir=False), "Macintosh HD:Users:Ivan:Note")
+        self.assertEqual(to_display("/Macintosh HD", "mac", is_dir=False), "Macintosh HD:")
+        self.assertEqual(to_display("/", "mac"), "Desktop")
+
     def test_unix_joins_relative_paths(self):
         from machines.world.dialect import UNIX, parse
 
