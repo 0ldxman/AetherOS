@@ -68,9 +68,9 @@
   {#if path}
     <div class="two">
       <label><span class="label">Толщина</span><input class="field" type="number" min="1" max="8" step="0.5" bind:value={f.width} placeholder="3" /></label>
-      <label class="check low"><input type="checkbox" bind:checked={f.dash} /> пунктир</label>
+      <label class="check low"><input type="checkbox" checked={!!f.dash} onchange={(e) => (f.dash = e.currentTarget.checked)} /> пунктир</label>
     </div>
-    <label class="check"><input type="checkbox" bind:checked={f.smooth} /> нарисована от руки<Hint text="Линия без вершин для правки: сглаженная, как от руки. Из панели её точки не двигаются." /></label>
+    <label class="check"><input type="checkbox" checked={!!f.smooth} onchange={(e) => (f.smooth = e.currentTarget.checked)} /> нарисована от руки<Hint text="Линия без вершин для правки: сглаженная, как от руки. Из панели её точки не двигаются." /></label>
   {/if}
 
   {#if f.type === "circle"}

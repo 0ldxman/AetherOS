@@ -3,6 +3,7 @@
   import { onMount } from "svelte";
   import { api, problem, type Schemas } from "../../lib/api";
   import Dialog from "../../lib/Dialog.svelte";
+  import Icon from "../../lib/Icon.svelte";
   import { ask } from "../../lib/confirm.svelte";
   import { go } from "../../lib/router.svelte";
   import { slugify } from "../../lib/sceneGeo";
@@ -19,6 +20,7 @@
   let slugTouched = false;
   let errors = $state<Record<string, string[]>>({});
   let upload: HTMLInputElement;
+  let open = $state(false);
 
   async function list() {
     rows = (await api.GET("/studio/api/map/scenes", { params: { query: { q: query } } })).data ?? [];
@@ -88,42 +90,66 @@
   }
 </script>
 
-<div class="screen">
-  <aside class="list">
-    <h2>Сцены</h2>
-    <input class="field" placeholder="Найти…" bind:value={query} />
-    <div class="items">
-      {#each rows as row (row.id)}
-        <a class="item" class:on={row.id === id} href="#/map/scenes/{row.id}">
-          <b>{row.title}</b>
-          <span class="muted small">{row.slug} · {row.features} пометок{row.base_date ? ` · ${showDate(row.base_date)}` : ""}{row.keys ? " · по ключам" : ""}</span>
-        </a>
-      {:else}
-        <p class="muted small pad">Сцен нет.</p>
-      {/each}
-    </div>
-    <div class="foot">
-      <button class="btn" onclick={openNew}>+ Сцена</button>
-      <div class="two">
-        <button class="btn ghost" onclick={() => upload.click()}>Загрузить…</button>
-        <button class="btn ghost" onclick={() => exportAll(id ? String(id) : "")} disabled={!rows.length}>{id ? "Выгрузить эту" : "Выгрузить все"}</button>
-      </div>
-      <input bind:this={upload} type="file" accept="application/json,.json" hidden onchange={importFile} />
-    </div>
-  </aside>
-
-  <section class="work">
-    {#if id}
-      {#key id}<SceneEditor {id} onsaved={list} oncopy={copy} onremove={remove} />{/key}
-    {:else}
-      <div class="empty">
-        <p><b>Сохранённые карты</b></p>
-        <p class="muted">Сцена это карта на дату с пометками: метками, линиями, областями, текстом и выделенными странами. Их показывают игроку в окне карты и в статьях вики через ::map.</p>
-        <p class="muted">Выберите сцену слева или создайте новую.</p>
+{#snippet switcher()}
+  <div class="switch">
+    <button class="pick" onclick={(e) => { e.stopPropagation(); open = !open; }} aria-haspopup="listbox" aria-expanded={open} title="Другая сцена">
+      <Icon name="scenes" size={16} /><span>Сцены</span><Icon name="chevron" size={14} />
+    </button>
+    {#if open}
+      <!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
+      <div class="pop panel" onclick={(e) => e.stopPropagation()}>
+        <label class="find"><Icon name="search" size={14} /><input placeholder="Найти сцену" bind:value={query} aria-label="Поиск сцены" /></label>
+        <ul class="plist" role="listbox">
+          {#each rows as row (row.id)}
+            <li><a class="prow" class:on={row.id === id} href="#/map/scenes/{row.id}" onclick={() => (open = false)}>
+              <b>{row.title}</b><span class="muted small">{row.slug} · {row.features} пометок{row.keys ? " · по ключам" : ""}</span></a></li>
+          {:else}
+            <li class="muted small pad">Сцен нет.</li>
+          {/each}
+        </ul>
+        <div class="pfoot">
+          <button class="btn" onclick={() => { open = false; openNew(); }}><Icon name="plus" size={14} />Сцена</button>
+          <button class="btn ghost" onclick={() => { open = false; go("/map/scenes"); }}>Все сцены</button>
+        </div>
       </div>
     {/if}
-  </section>
-</div>
+  </div>
+{/snippet}
+
+<svelte:window onclick={() => (open = false)} />
+
+{#if id}
+  {#key id}<SceneEditor {id} {switcher} onsaved={list} oncopy={copy} onremove={remove} />{/key}
+{:else}
+  <div class="cards-page">
+    <header class="chead">
+      <h2>Сцены</h2>
+      <label class="find"><Icon name="search" size={14} /><input placeholder="Найти сцену" bind:value={query} aria-label="Поиск сцены" /></label>
+      <span class="grow"></span>
+      <button class="btn ghost" onclick={() => upload.click()}><Icon name="upload" size={14} />Загрузить…</button>
+      <button class="btn ghost" onclick={() => exportAll()} disabled={!rows.length}><Icon name="download" size={14} />Выгрузить все</button>
+      <button class="btn primary" onclick={openNew}><Icon name="plus" size={14} />Сцена</button>
+    </header>
+    <p class="muted intro">Сцена это карта на дату с пометками: метками, линиями, областями, текстом и выделенными странами. Игрок видит её в окне карты и в статьях вики через <code>::map</code>.</p>
+    <div class="grid">
+      {#each rows as row (row.id)}
+        <a class="card" href="#/map/scenes/{row.id}">
+          <b class="ct">{row.title}</b>
+          <code class="muted">{row.slug}</code>
+          <span class="tags">
+            <span class="tag"><Icon name="calendar" size={12} />{row.base_date ? showDate(row.base_date) : "последние границы"}</span>
+            <span class="tag"><Icon name="pin" size={12} />{row.features}</span>
+            <span class="tag">{row.mode === "physical" ? "Физическая" : "Политическая"}</span>
+            {#if row.keys}<span class="tag key"><Icon name="lock" size={12} />по ключам</span>{/if}
+          </span>
+        </a>
+      {:else}
+        <p class="muted pad">{query.trim() ? "Ничего не нашлось." : "Сцен пока нет. Создайте первую кнопкой «Сцена»."}</p>
+      {/each}
+    </div>
+  </div>
+{/if}
+<input bind:this={upload} type="file" accept="application/json,.json" hidden onchange={importFile} />
 
 {#if dialog}
   <Dialog title="Новая сцена" confirm="Создать" onsubmit={create} onclose={() => (dialog = false)} disabled={!draft.title.trim() || !draft.slug.trim()}>
@@ -135,19 +161,36 @@
 {/if}
 
 <style>
-  .screen { display: grid; grid-template-columns: 260px 1fr; height: 100%; min-height: 0; }
-  .list { display: flex; flex-direction: column; gap: 8px; padding: 14px 10px; border-right: 1px solid var(--line-soft); min-height: 0; }
-  h2 { margin: 0 6px 4px; font-size: 16px; }
-  .items { flex: 1; overflow: auto; display: flex; flex-direction: column; gap: 2px; }
-  .item { display: flex; flex-direction: column; padding: 7px 10px; border-radius: var(--radius-s); color: var(--text); }
-  .item:hover { background: var(--panel); text-decoration: none; }
-  .item.on { background: var(--accent-soft); }
-  .foot { display: flex; flex-direction: column; gap: 6px; }
-  .two { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
-  .work { min-width: 0; min-height: 0; }
-  .empty { max-width: 520px; padding: 40px; }
+  .cards-page { padding: 18px 24px; display: flex; flex-direction: column; gap: 12px; overflow: auto; height: 100%; }
+  .chead { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  h2 { margin: 0 8px 0 0; font-size: 18px; }
+  .grow { flex: 1; }
+  .intro { margin: 0; max-width: 720px; }
+  .find { display: flex; align-items: center; gap: 8px; padding: 0 10px; border: 1px solid var(--line-soft); border-radius: var(--radius-s); background: var(--bg); color: var(--muted); }
+  .find:focus-within { border-color: var(--accent); }
+  .find input { flex: 1; min-width: 0; padding: 6px 0; border: 0; outline: 0; background: none; color: var(--text); font: inherit; font-size: 13px; }
+  .chead .find { width: 260px; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 12px; }
+  .card { display: flex; flex-direction: column; gap: 6px; padding: 14px; border: 1px solid var(--line-soft); border-radius: var(--radius); background: var(--panel); color: var(--text); }
+  .card:hover { border-color: var(--accent); text-decoration: none; background: var(--panel-2); }
+  .ct { font-size: 15px; }
+  .tags { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 4px; }
+  .tag { display: inline-flex; align-items: center; gap: 5px; padding: 1px 8px; border-radius: 999px; background: var(--raise); color: var(--muted); font-size: 12px; }
+  .tag.key { color: var(--warn); }
   .pad { padding: 8px; }
+  .small { font-size: 12px; }
   .err { color: var(--danger); font-size: 12px; }
   .bad { border-color: var(--danger); }
   .mono { font-family: var(--mono); }
+  code { font-family: var(--mono); font-size: 12px; }
+
+  .switch { position: relative; flex: none; }
+  .pick { display: inline-flex; align-items: center; gap: 6px; height: 30px; padding: 0 10px; border: 1px solid var(--line-soft); border-radius: var(--radius-s); background: var(--panel-2); color: var(--text); font: inherit; font-size: 13px; cursor: pointer; }
+  .pick:hover { border-color: var(--line); background: var(--raise); }
+  .pop { position: absolute; z-index: 20; left: 0; top: 36px; width: 300px; display: flex; flex-direction: column; gap: 8px; padding: 10px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--panel); box-shadow: 0 10px 30px rgba(0, 0, 0, 0.45); }
+  .plist { list-style: none; margin: 0; padding: 0; max-height: 280px; overflow: auto; border: 1px solid var(--line-soft); border-radius: var(--radius-s); }
+  .prow { display: flex; flex-direction: column; padding: 6px 10px; color: var(--text); }
+  .prow:hover { background: var(--panel-2); text-decoration: none; }
+  .prow.on { background: var(--accent-soft); }
+  .pfoot { display: flex; gap: 6px; justify-content: space-between; }
 </style>

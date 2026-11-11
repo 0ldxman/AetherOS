@@ -3,9 +3,11 @@
   // Точечные пометки (метка, текст, выноска) и ручки вершин рисуются HTML-метками, линии, площади и круги слоем карты.
   import maplibregl from "maplibre-gl";
   import type { Feature as GeoFeature } from "geojson";
-  import { onDestroy, onMount, untrack } from "svelte";
+  import { onDestroy, onMount, untrack, type Snippet } from "svelte";
   import AccessBuilder from "../../lib/AccessBuilder.svelte";
   import Hint from "../../lib/Hint.svelte";
+  import Icon from "../../lib/Icon.svelte";
+  import { LOOKS, VIEWS, type MapView as MapViewKind } from "../../lib/mapLooks";
   import MapView from "../../lib/MapView.svelte";
   import { api, problem, type Schemas } from "../../lib/api";
   import { ask } from "../../lib/confirm.svelte";
@@ -20,19 +22,29 @@
   type Form = Schemas["MapSceneIn"];
   type Tool = "select" | "marker" | "line" | "arrow" | "polygon" | "circle" | "text" | "callout" | "region";
 
-  let { id, onsaved, oncopy, onremove }: { id: number; onsaved: () => void; oncopy: (id: number) => void; onremove: () => void } = $props();
+  let { id, switcher, onsaved, oncopy, onremove }: { id: number; switcher: Snippet; onsaved: () => void; oncopy: (id: number) => void; onremove: () => void } = $props();
 
-  const TOOLS: { key: Tool; label: string; hint: string }[] = [
-    { key: "select", label: "Выбор", hint: "Выбирать пометки кликом и двигать их и их вершины мышью." },
-    { key: "marker", label: "Метка", hint: "Клик по карте ставит метку со значком." },
-    { key: "line", label: "Линия", hint: "Кликами ставьте вершины, Enter или «Готово» завершает." },
-    { key: "arrow", label: "Стрелка", hint: "Как линия, на конце наконечник." },
-    { key: "polygon", label: "Область", hint: "Кликами ставьте вершины (от трёх), Enter завершает." },
-    { key: "circle", label: "Круг", hint: "Клик ставит центр, радиус задаётся справа в километрах." },
-    { key: "text", label: "Текст", hint: "Клик ставит надпись прямо на карте." },
-    { key: "callout", label: "Выноска", hint: "Плашка с текстом, от неё линия к месту клика." },
-    { key: "region", label: "Выделение", hint: "Клик по провинции выделяет её цветом. Страну целиком можно задать справа кодом." },
+  const TOOLS: { key: Tool; label: string; hint: string; icon: string; hotkey: string }[] = [
+    { key: "select", label: "Выбор", icon: "cursor", hotkey: "v", hint: "Выбирать пометки кликом и двигать их и их вершины мышью." },
+    { key: "marker", label: "Метка", icon: "pin", hotkey: "m", hint: "Клик по карте ставит метку со значком." },
+    { key: "line", label: "Линия", icon: "line", hotkey: "l", hint: "Кликами ставьте вершины, Enter или «Готово» завершает." },
+    { key: "arrow", label: "Стрелка", icon: "arrow", hotkey: "a", hint: "Как линия, на конце наконечник." },
+    { key: "polygon", label: "Область", icon: "polygon", hotkey: "p", hint: "Кликами ставьте вершины (от трёх), Enter завершает." },
+    { key: "circle", label: "Круг", icon: "circle", hotkey: "o", hint: "Клик ставит центр, радиус задаётся справа в километрах." },
+    { key: "text", label: "Текст", icon: "text", hotkey: "t", hint: "Клик ставит надпись прямо на карте." },
+    { key: "callout", label: "Выноска", icon: "callout", hotkey: "c", hint: "Плашка с текстом, от неё линия к месту клика." },
+    { key: "region", label: "Выделение", icon: "region", hotkey: "r", hint: "Клик по провинции выделяет её цветом. Страну целиком можно задать справа кодом." },
   ];
+
+  // стиль карты нужен только для просмотра здесь, в сцене он не хранится
+  const LOOK_KEY = "studio.sceneLook";
+  let look = $state((() => { try { const v = localStorage.getItem(LOOK_KEY) ?? ""; return v in LOOKS ? v : "dark"; } catch { return "dark"; } })());
+  $effect(() => { const v = look; try { localStorage.setItem(LOOK_KEY, v); } catch { /* память браузера закрыта */ } });
+  let mapView: { zoomBy(delta: number): void } | undefined = $state();
+
+  // даты, когда менялись границы: по ним шагает дата мира сцены
+  let dates = $state<string[]>([]);
+  onMount(async () => { dates = (await api.GET("/studio/api/map/territory/dates")).data ?? []; });
 
   let options = $state<Schemas["MapSceneOptions"] | null>(null);
   let scene = $state<Schemas["MapSceneOut"] | null>(null);
@@ -57,6 +69,18 @@
   const dirty = $derived(form !== null && JSON.stringify(form) !== saved);
   guardUnsaved(() => saved !== "" && dirty && !share.ready);      // в совместном режиме черновик на сервере
   const current = $derived(selected !== null ? features[selected] ?? null : null);
+
+  const shownDate = $derived(form?.base_date || dates.at(-1) || "");
+  const dateIndex = $derived(Math.max(0, dates.findLastIndex((d) => d <= shownDate)));
+  function step(direction: -1 | 1) {
+    const to = direction < 0 ? [...dates].reverse().find((d) => d < shownDate) : dates.find((d) => d > shownDate);
+    if (to && form) form.base_date = to;
+  }
+  const viewerUrl = $derived.by(() => {
+    const root = window.STUDIO.api.replace(/studio\/api\/?$/, "");
+    const query = new URLSearchParams({ scene: form?.slug ?? "", theme: look });
+    return `${new URL("apps/map/", new URL(root, location.href)).pathname}?${query}`;
+  });
 
   async function load() {
     const [a, b] = await Promise.all([api.GET("/studio/api/map/scenes/options"), api.GET("/studio/api/map/scenes/{scene_id}", { params: { path: { scene_id: id } } })]);
@@ -124,12 +148,13 @@
 
   // ---------- содержимое карты ----------
   async function loadOwners() {
-    const query = form?.base_date ? { date: form.base_date } : {};
+    const date = form?.base_date || dates.at(-1);          // пусто: последние границы
+    const query = date ? { date } : {};
     owners = (await api.GET("/studio/api/map/territory/owners", { params: { query } })).data ?? {};
   }
   let ownersFor = "";
   $effect(() => {
-    const date = form?.base_date ?? "";
+    const date = form?.base_date || dates.at(-1) || "";
     if (form && date !== ownersFor) { ownersFor = date; loadOwners(); }
   });
 
@@ -336,6 +361,10 @@
   function key(event: KeyboardEvent) {
     const target = event.target as HTMLElement;
     if (["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName) || target.isContentEditable) return;
+    if (!event.ctrlKey && !event.metaKey && !event.altKey) {
+      const found = TOOLS.find((item) => item.hotkey === event.key.toLowerCase());
+      if (found) { tool = found.key; draft = []; return; }
+    }
     if (event.key === "Enter" && draft.length) { event.preventDefault(); finish(); }
     else if (event.key === "Escape") cancel();
     else if (event.key === "Backspace" && draft.length) { event.preventDefault(); draft = draft.slice(0, -1); }
@@ -379,161 +408,257 @@
 <svelte:window onkeydown={key} />
 
 {#if form && scene && options}
-  <div class="editor">
-    <div class="mapcol">
-      <div class="toolbar">
-        <div class="tools" role="radiogroup" aria-label="Инструмент">
-          {#each TOOLS as t (t.key)}
-            <button class="tool" class:on={tool === t.key} role="radio" aria-checked={tool === t.key} title={t.hint} onclick={() => { tool = t.key; draft = []; }}>{t.label}</button>
-          {/each}
-        </div>
-        <span class="spacer"></span>
-        {#if drawing && draft.length}
-          <span class="muted small">точек: {draft.length}</span>
-          <button class="btn" onclick={() => (draft = draft.slice(0, -1))}>Убрать точку</button>
-          <button class="btn primary" onclick={finish}>Готово</button>
-        {/if}
-      </div>
-      <div class="mapbox">
-        <MapView {colors} selected={markedCodes} flat={form.flat} center={[form.lon, form.lat]} zoom={form.zoom} {onpick} {onready} oncamera={(v) => (view = v)} />
-        <p class="tip">{TOOLS.find((t) => t.key === tool)?.hint}</p>
-      </div>
+  <div class="terr">
+    <div class="mapbox">
+      <MapView bind:this={mapView} {colors} selected={markedCodes} flat={form.flat} center={[form.lon, form.lat]} zoom={form.zoom} look={look} view={form.mode as MapViewKind}
+               {onpick} {onready} oncamera={(v) => (view = v)} />
     </div>
 
-    <aside class="side">
-      <header class="top">
-        <div class="names">
-          <input class="title" bind:value={form.title} class:bad={errors.title} aria-label="Название" />
-          <code class="muted">{form.slug}</code>
+    <div class="overlay">
+      <section class="panel top" aria-label="Сцена, дата и вид карты">
+        <div class="row head">
+          {@render switcher()}
+          <input class="title" bind:value={form.title} class:bad={errors.title} aria-label="Название сцены" />
+          <code class="muted slug">{form.slug}</code>
+          <span class="grow"></span>
+          <DraftState {share} {dirty} saved="" />
+          <button class="btn primary" disabled={!dirty || busy} onclick={save} title="Сохранить сцену (Ctrl+S)">{busy ? "Сохраняю…" : "Сохранить"}</button>
         </div>
-        <DraftState {share} {dirty} saved="" />
-        <button class="btn primary" disabled={!dirty || busy} onclick={save}>Сохранить</button>
-      </header>
-      <div class="tabs" role="tablist">
-        <button role="tab" aria-selected={side === "marks"} class:on={side === "marks"} onclick={() => (side = "marks")}>Пометки <span class="chip">{features.length}</span></button>
-        <button role="tab" aria-selected={side === "scene"} class:on={side === "scene"} onclick={() => (side = "scene")}>Сцена</button>
-        <button role="tab" aria-selected={side === "history"} class:on={side === "history"} onclick={() => (side = "history")}>История</button>
-      </div>
-
-      <div class="panel">
-        {#if side === "marks"}
-          {#if !features.length}<p class="muted small">Пометок нет. Выберите инструмент над картой и кликните по ней.</p>{/if}
-          <ul class="marks">
-            {#each features as f, i (i)}
-              <li class:on={i === selected}>
-                <button class="mark" onclick={() => { selected = i; tool = "select"; }}>
-                  <i style="background:{hex(f.color)}"></i><span class="kind">{TYPE_LABEL[f.type]}</span><span class="name">{title(f)}</span>
-                </button>
-                {#if i === selected}
-                  <button class="btn ghost" onclick={() => swap(i, -1)} disabled={i === 0} aria-label="Выше">↑</button>
-                  <button class="btn ghost" onclick={() => swap(i, 1)} disabled={i === features.length - 1} aria-label="Ниже">↓</button>
-                {/if}
-              </li>
-            {/each}
-          </ul>
-          {#if current && selected !== null}
-            <FeatureForm bind:f={() => features[selected!], (v) => (form!.features[selected!] = v)} {options} unknown={regionUnknown} onduplicate={() => duplicate(selected!)} onremove={() => remove(selected!)} />
-          {/if}
-          {#if errors.features}<p class="err">{errors.features.join(" ")}</p>{/if}
-        {:else if side === "scene"}
-          <div class="form">
-            <label><span class="label">Название</span><input class="field" bind:value={form.title} /></label>
-            <label><span class="label">Слаг<Hint text="По нему сцену подключают в вики и ссылках: ::map scene=слаг. Латиница, цифры и дефис." /></span>
-              <input class="field mono" class:bad={errors.slug} bind:value={form.slug} />{#if errors.slug}<span class="err">{errors.slug.join(" ")}</span>{/if}</label>
-            <label><span class="label">Дата мира<Hint text="Какие владения показывать: на эту дату. Пусто: самые свежие." /></span>
-              <input class="field" type="date" bind:value={form.base_date} /></label>
-            <label><span class="label">Режим карты</span>
-              <select class="field" bind:value={form.mode}>{#each options.modes as [value, label] (value)}<option {value}>{label}</option>{/each}</select></label>
-            <label class="check"><input type="checkbox" bind:checked={form.flat} /> плоская карта (без глобуса)</label>
-
-            <h4>Камера</h4>
-            <div class="three">
-              <label><span class="label">Долгота</span><input class="field" type="number" step="0.01" bind:value={form.lon} /></label>
-              <label><span class="label">Широта</span><input class="field" type="number" step="0.01" bind:value={form.lat} /></label>
-              <label><span class="label">Зум</span><input class="field" type="number" step="0.1" bind:value={form.zoom} /></label>
-            </div>
-            <div class="row"><button class="btn" onclick={takeView}>Взять из карты</button><button class="btn ghost" onclick={fly}>Показать</button></div>
-            {#each ["lon", "lat", "zoom"] as name (name)}{#if errors[name]}<span class="err">{errors[name].join(" ")}</span>{/if}{/each}
-
-            <h4>Пределы<Hint text="За эти пределы игрок не уведёт камеру." /></h4>
-            <div class="two">
-              <label><span class="label">Мин. зум</span><input class="field" type="number" step="0.1" bind:value={form.min_zoom} /></label>
-              <label><span class="label">Макс. зум</span><input class="field" type="number" step="0.1" bind:value={form.max_zoom} /></label>
-            </div>
-            <p class="small mono">{form.bounds ? `границы: ${form.bounds.join(", ")}` : "границы не заданы"}</p>
-            <div class="row"><button class="btn" onclick={takeBounds}>Границы по виду карты</button>{#if form.bounds}<button class="btn ghost" onclick={() => (form!.bounds = null)}>Снять</button>{/if}</div>
-            {#if errors.bounds || errors.max_zoom}<span class="err">{[...(errors.bounds ?? []), ...(errors.max_zoom ?? [])].join(" ")}</span>{/if}
-
-            <h4>Кто видит сцену<Hint text="Условие по ключам: пока оно не выполнено, сцена игроку недоступна. Пусто: всем." /></h4>
-            <AccessBuilder bind:value={form.keys} bad={!!errors.keys} />
-            {#if errors.keys}<span class="err">{errors.keys.join(" ")}</span>{/if}
-
-            <h4>Действия</h4>
-            <div class="row">
-              <button class="btn" onclick={() => oncopy(scene!.id)}>Сделать копию</button>
-              <button class="btn ghost danger" onclick={onremove}>Удалить сцену</button>
-            </div>
+        <div class="row">
+          <div class="when">
+            <button class="icon" onclick={() => step(-1)} disabled={!dates.some((d) => d < shownDate)} aria-label="Предыдущее изменение границ" title="Предыдущее изменение границ"><Icon name="chevron" size={16} /></button>
+            <input class="field date" type="date" bind:value={form.base_date} aria-label="Дата мира" />
+            <button class="icon next" onclick={() => step(1)} disabled={!dates.some((d) => d > shownDate)} aria-label="Следующее изменение границ" title="Следующее изменение границ"><Icon name="chevron" size={16} /></button>
+            <button class="ghost" class:on={!form.base_date} aria-pressed={!form.base_date} onclick={() => (form!.base_date = null)} title="Показывать самые свежие границы, без привязки к дате">Последние границы</button>
           </div>
-        {:else}
-          <p class="muted small">Каждое сохранение оставляет снимок (последние 50). Восстановление само записывается новым снимком.</p>
-          <ul class="revs">
-            {#each revisions as r, n (r.id)}
-              <li>
-                <div><b>{showDate(r.saved_at.slice(0, 10))}</b> <span class="muted">{r.saved_at.slice(11, 16)}</span>{#if r.saved_by} <span class="muted">· {r.saved_by}</span>{/if}
-                  <div class="muted small">{r.title}, пометок: {r.features}{n === 0 ? " · последний" : ""}</div></div>
-                {#if n > 0}<button class="btn" onclick={() => restore(r)}>Восстановить</button>{/if}
-              </li>
-            {:else}
-              <li class="muted small">Снимков нет.</li>
+          <div class="line">
+            <input type="range" min="0" max={Math.max(0, dates.length - 1)} step="1" value={dateIndex} disabled={dates.length < 2} oninput={(e) => (form!.base_date = dates[+e.currentTarget.value] ?? null)}
+                   aria-label="Изменения границ по порядку" />
+            <span class="muted small count">{#if form.base_date && dates.length}{dateIndex + 1} из {dates.length}{/if}</span>
+          </div>
+          <Hint text="Какие владения показывать под пометками. Пусто: самые свежие. Игрок видит сцену на эту дату, пока в ссылке не указана другая." />
+        </div>
+        <div class="row looks">
+          <div class="seg" role="radiogroup" aria-label="Стиль карты">
+            <span class="seglabel" title="Стиль карты"><Icon name="layers" size={14} /></span>
+            {#each Object.entries(LOOKS) as [key, item] (key)}
+              <button role="radio" aria-checked={look === key} class:on={look === key} title="{item.hint}. Только для просмотра здесь: в сцене стиль не хранится, игрок видит свой." onclick={() => (look = key)}>{item.label}</button>
             {/each}
-          </ul>
-        {/if}
+          </div>
+          <div class="seg" role="radiogroup" aria-label="Режим карты">
+            {#each VIEWS as item (item.key)}
+              <button role="radio" aria-checked={form.mode === item.key} class:on={form.mode === item.key} title={item.hint} onclick={() => (form!.mode = item.key)}>{item.label}</button>
+            {/each}
+          </div>
+          <div class="seg" role="radiogroup" aria-label="Проекция">
+            <button role="radio" aria-checked={!form.flat} class:on={!form.flat} onclick={() => (form!.flat = false)}>Глобус</button>
+            <button role="radio" aria-checked={form.flat} class:on={form.flat} onclick={() => (form!.flat = true)}>Плоская</button>
+          </div>
+          <a class="ghost view" href={viewerUrl} target="_blank" rel="noopener" title={dirty ? "Откроется сохранённая версия: сохраните правки" : "Открыть сцену в приложении игры"}><Icon name="play" size={14} />Посмотреть</a>
+        </div>
+      </section>
+
+      <div class="tools panel" role="radiogroup" aria-label="Инструмент">
+        {#each TOOLS as t (t.key)}
+          <button class="tool" class:on={tool === t.key} role="radio" aria-checked={tool === t.key} title="{t.label} ({t.hotkey.toUpperCase()}): {t.hint}" onclick={() => { tool = t.key; draft = []; }}>
+            <Icon name={t.icon} size={18} /><kbd>{t.hotkey.toUpperCase()}</kbd>
+          </button>
+        {/each}
       </div>
-    </aside>
+
+      <aside class="side">
+        <section class="panel dock" aria-label="Пометки, сцена, история">
+          <div class="tabs" role="tablist">
+            <button role="tab" aria-selected={side === "marks"} class:on={side === "marks"} onclick={() => (side = "marks")}>Пометки<span class="n">{features.length}</span></button>
+            <button role="tab" aria-selected={side === "scene"} class:on={side === "scene"} onclick={() => (side = "scene")}>Сцена</button>
+            <button role="tab" aria-selected={side === "history"} class:on={side === "history"} onclick={() => (side = "history")}>История</button>
+          </div>
+
+          {#if side === "marks"}
+            {#if !features.length}<p class="muted small pad">Пометок нет. Выберите инструмент слева и кликните по карте.</p>{/if}
+            <ul class="marks">
+              {#each features as f, i (i)}
+                <li class:on={i === selected}>
+                  <button class="mark" onclick={() => { selected = i; tool = "select"; }}>
+                    <i style="background:{hex(f.color)}"></i><span class="kind">{TYPE_LABEL[f.type]}</span><span class="name">{title(f)}</span>
+                  </button>
+                  {#if i === selected}
+                    <button class="icon sm" onclick={() => swap(i, -1)} disabled={i === 0} aria-label="Выше" title="Выше"><Icon name="chevron" size={14} /></button>
+                    <button class="icon sm next" onclick={() => swap(i, 1)} disabled={i === features.length - 1} aria-label="Ниже" title="Ниже"><Icon name="chevron" size={14} /></button>
+                  {/if}
+                </li>
+              {/each}
+            </ul>
+            {#if errors.features}<p class="err">{errors.features.join(" ")}</p>{/if}
+          {:else if side === "scene"}
+            <div class="form">
+              <label><span class="label">Слаг<Hint text="По нему сцену подключают в вики и ссылках: ::map scene=слаг. Латиница, цифры и дефис." /></span>
+                <input class="field mono" class:bad={errors.slug} bind:value={form.slug} />{#if errors.slug}<span class="err">{errors.slug.join(" ")}</span>{/if}</label>
+
+              <h4>Камера</h4>
+              <div class="three">
+                <label><span class="label">Долгота</span><input class="field" type="number" step="0.01" bind:value={form.lon} /></label>
+                <label><span class="label">Широта</span><input class="field" type="number" step="0.01" bind:value={form.lat} /></label>
+                <label><span class="label">Зум</span><input class="field" type="number" step="0.1" bind:value={form.zoom} /></label>
+              </div>
+              <div class="row"><button class="btn" onclick={takeView}>Взять из карты</button><button class="btn ghost" onclick={fly}>Показать</button></div>
+              {#each ["lon", "lat", "zoom"] as name (name)}{#if errors[name]}<span class="err">{errors[name].join(" ")}</span>{/if}{/each}
+
+              <h4>Пределы<Hint text="За эти пределы игрок не уведёт камеру." /></h4>
+              <div class="two">
+                <label><span class="label">Мин. зум</span><input class="field" type="number" step="0.1" bind:value={form.min_zoom} /></label>
+                <label><span class="label">Макс. зум</span><input class="field" type="number" step="0.1" bind:value={form.max_zoom} /></label>
+              </div>
+              <p class="small mono">{form.bounds ? `границы: ${form.bounds.join(", ")}` : "границы не заданы"}</p>
+              <div class="row"><button class="btn" onclick={takeBounds}>Границы по виду карты</button>{#if form.bounds}<button class="btn ghost" onclick={() => (form!.bounds = null)}>Снять</button>{/if}</div>
+              {#if errors.bounds || errors.max_zoom}<span class="err">{[...(errors.bounds ?? []), ...(errors.max_zoom ?? [])].join(" ")}</span>{/if}
+
+              <h4>Кто видит сцену<Hint text="Условие по ключам: пока оно не выполнено, сцена игроку недоступна. Пусто: всем." /></h4>
+              <AccessBuilder bind:value={form.keys} bad={!!errors.keys} />
+              {#if errors.keys}<span class="err">{errors.keys.join(" ")}</span>{/if}
+
+              <h4>Действия</h4>
+              <div class="row">
+                <button class="btn" onclick={() => oncopy(scene!.id)}><Icon name="copy" size={14} />Сделать копию</button>
+                <button class="btn ghost danger" onclick={onremove}><Icon name="trash" size={14} />Удалить сцену</button>
+              </div>
+            </div>
+          {:else}
+            <p class="muted small">Каждое сохранение оставляет снимок (последние 50). Восстановление само записывается новым снимком.</p>
+            <ul class="revs">
+              {#each revisions as r, n (r.id)}
+                <li>
+                  <div><b>{showDate(r.saved_at.slice(0, 10))}</b> <span class="muted">{r.saved_at.slice(11, 16)}</span>{#if r.saved_by} <span class="muted">· {r.saved_by}</span>{/if}
+                    <div class="muted small">{r.title}, пометок: {r.features}{n === 0 ? " · последний" : ""}</div></div>
+                  {#if n > 0}<button class="btn" onclick={() => restore(r)}>Восстановить</button>{/if}
+                </li>
+              {:else}
+                <li class="muted small">Снимков нет.</li>
+              {/each}
+            </ul>
+          {/if}
+        </section>
+
+        {#if current && selected !== null && side === "marks"}
+          <section class="panel card">
+            <h3>Свойства<span class="spacer"></span>
+              <button class="x" onclick={() => (selected = null)} aria-label="Снять выбор" title="Снять выбор (Esc)"><Icon name="close" size={14} /></button></h3>
+            <div class="scroll">
+              <FeatureForm bind:f={() => features[selected!], (v) => (form!.features[selected!] = v)} {options} unknown={regionUnknown} onduplicate={() => duplicate(selected!)} onremove={() => remove(selected!)} />
+            </div>
+          </section>
+        {/if}
+      </aside>
+
+      <div class="foot">
+        <div class="tag" aria-live="polite">
+          {#if drawing && draft.length}
+            <span>точек: <b>{draft.length}</b></span>
+            <button class="btn" onclick={() => (draft = draft.slice(0, -1))}>Убрать точку</button>
+            <button class="btn primary" onclick={finish}>Готово</button>
+          {:else}
+            <span class="muted">{TOOLS.find((t) => t.key === tool)?.hint}</span>
+          {/if}
+        </div>
+        <div class="zoom panel">
+          <button class="icon" onclick={() => mapView?.zoomBy(1)} aria-label="Приблизить" title="Приблизить"><Icon name="plus" size={16} /></button>
+          <button class="icon" onclick={() => mapView?.zoomBy(-1)} aria-label="Отдалить" title="Отдалить"><Icon name="minus" size={16} /></button>
+          <button class="icon" onclick={fly} aria-label="Вернуть вид сцены" title="Вернуть сохранённый кадр сцены"><Icon name="home" size={16} /></button>
+          <button class="icon" onclick={takeView} aria-label="Зафиксировать кадр" title="Зафиксировать кадр: текущий вид карты станет камерой сцены"><Icon name="camera" size={16} /></button>
+        </div>
+      </div>
+    </div>
   </div>
 {:else}
   <p class="muted pad">Загрузка…</p>
 {/if}
 
 <style>
-  .editor { display: grid; grid-template-columns: 1fr 360px; height: 100%; min-height: 0; }
-  .mapcol { display: flex; flex-direction: column; min-width: 0; min-height: 0; }
-  .toolbar { display: flex; align-items: center; gap: 8px; padding: 8px 12px; border-bottom: 1px solid var(--line-soft); flex-wrap: wrap; }
-  .tools { display: flex; gap: 4px; flex-wrap: wrap; }
-  .tool { height: 28px; padding: 0 10px; border: 1px solid var(--line); border-radius: var(--radius-s); background: var(--panel-2); cursor: pointer; }
-  .tool:hover { background: var(--raise); }
-  .tool.on { background: var(--accent-soft); border-color: var(--accent); }
-  .spacer { flex: 1; }
-  .mapbox { position: relative; flex: 1; min-height: 0; }
-  .tip { position: absolute; left: 12px; bottom: 12px; margin: 0; padding: 5px 10px; border-radius: var(--radius-s); background: rgba(14, 15, 18, 0.86); border: 1px solid var(--line); pointer-events: none; font-size: 12px; max-width: 70%; }
-  .side { display: flex; flex-direction: column; border-left: 1px solid var(--line-soft); min-height: 0; }
-  .top { display: flex; align-items: center; gap: 8px; padding: 10px 12px; }
-  .names { flex: 1; display: flex; flex-direction: column; min-width: 0; }
-  .title { background: transparent; border: 1px solid transparent; font-size: 16px; font-weight: 650; padding: 2px 4px; border-radius: var(--radius-s); width: 100%; }
+  .terr { position: relative; height: 100%; min-height: 0; overflow: hidden; }
+  .mapbox { position: absolute; inset: 0; }
+  .overlay { position: absolute; inset: 0; display: grid; grid-template-columns: auto minmax(0, 1fr) 340px; grid-template-rows: auto minmax(0, 1fr) auto; gap: 10px; padding: 12px; pointer-events: none; }
+  .overlay > * { pointer-events: auto; }
+  .panel { padding: 10px 12px; border: 1px solid var(--line); border-radius: var(--radius); background: color-mix(in srgb, var(--panel) 95%, transparent); box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3); }
+  .top { grid-column: 1 / 3; grid-row: 1; display: flex; flex-direction: column; gap: 8px; justify-self: start; width: min(100%, 820px); }
+  .row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; }
+  .head { flex-wrap: nowrap; gap: 8px; }
+  .head :global(.draft) { flex: none; font-size: 12.5px; }
+  .grow { flex: 1; }
+  .slug { flex: none; }
+  .title { flex: 0 1 280px; min-width: 120px; background: transparent; border: 1px solid transparent; font-size: 16px; font-weight: 650; padding: 2px 6px; border-radius: var(--radius-s); color: var(--text); }
   .title:hover, .title:focus { border-color: var(--line); outline: none; }
-  .tabs { display: flex; gap: 2px; padding: 0 10px; border-bottom: 1px solid var(--line-soft); }
-  .tabs button { background: transparent; border: 0; border-bottom: 2px solid transparent; padding: 8px 10px; color: var(--muted); cursor: pointer; }
+  .when { display: flex; align-items: center; gap: 4px; }
+  .date { width: 150px; height: 30px; padding: 2px 8px; }
+  .icon { display: grid; place-items: center; width: 30px; height: 30px; padding: 0; border: 1px solid var(--line-soft); border-radius: var(--radius-s); background: var(--panel-2); color: var(--text); cursor: pointer; }
+  .icon:hover:not(:disabled) { border-color: var(--line); background: var(--raise); }
+  .icon:disabled { opacity: 0.4; cursor: default; }
+  .icon.sm { width: 24px; height: 24px; flex: none; }
+  .icon :global(svg) { transform: rotate(90deg); }
+  .icon.next :global(svg) { transform: rotate(-90deg); }
+  .zoom .icon :global(svg) { transform: none; }
+  .icon.sm :global(svg) { transform: rotate(180deg); }
+  .icon.sm.next :global(svg) { transform: none; }
+  .ghost { height: 30px; padding: 0 10px; border: 1px solid var(--line-soft); border-radius: var(--radius-s); background: none; color: var(--muted); font: inherit; font-size: 12.5px; cursor: pointer; }
+  .ghost:hover:not(:disabled) { color: var(--text); border-color: var(--line); }
+  .ghost:disabled { opacity: 0.4; cursor: default; }
+  .ghost.on { background: var(--accent-soft); border-color: var(--accent); color: var(--text); }
+  .view { display: inline-flex; align-items: center; gap: 6px; margin-left: auto; text-decoration: none; line-height: 28px; }
+  .view:hover { text-decoration: none; }
+  .line { display: flex; align-items: center; gap: 8px; min-width: 200px; flex: 1; }
+  .count { min-width: 44px; white-space: nowrap; }
+  .line input[type="range"] { flex: 1; min-width: 120px; accent-color: var(--accent); }
+  .looks { padding-top: 8px; border-top: 1px solid var(--line-soft); }
+  .seg { display: inline-flex; align-items: center; border: 1px solid var(--line-soft); border-radius: 999px; overflow: hidden; }
+  .seg button { padding: 4px 10px; border: 0; background: none; color: var(--muted); font: inherit; font-size: 12.5px; cursor: pointer; }
+  .seg button:hover { color: var(--text); }
+  .seg button.on { background: var(--accent-soft); color: var(--text); }
+  .seglabel { display: inline-flex; align-items: center; gap: 5px; padding: 0 4px 0 10px; color: var(--faint); font-size: 12px; }
+
+  .tools { grid-column: 1; grid-row: 2; align-self: start; display: flex; flex-direction: column; gap: 4px; padding: 6px; }
+  .tool { position: relative; display: grid; place-items: center; width: 40px; height: 40px; border: 1px solid transparent; border-radius: var(--radius-s); background: none; color: var(--muted); cursor: pointer; }
+  .tool:hover { background: var(--panel-2); color: var(--text); }
+  .tool.on { background: var(--accent-soft); border-color: var(--accent); color: var(--text); }
+  .tool kbd { position: absolute; right: 3px; bottom: 1px; font: 600 9px var(--mono); color: var(--faint); }
+  .tool:focus-visible, .seg button:focus-visible, .icon:focus-visible, .ghost:focus-visible, .mark:focus-visible, .tabs button:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+  .side { grid-column: 3; grid-row: 1 / 4; display: flex; flex-direction: column; gap: 10px; min-height: 0; }
+  .dock { flex: 1 1 0; min-height: 200px; display: flex; flex-direction: column; gap: 8px; overflow: auto; }
+  .tabs { flex: none; display: flex; gap: 2px; border-bottom: 1px solid var(--line-soft); margin: -4px -4px 0; padding: 0 4px; }
+  .tabs button { display: inline-flex; align-items: center; gap: 6px; padding: 7px 10px; margin-bottom: -1px; border: 0; border-bottom: 2px solid transparent; background: none; color: var(--muted); font: inherit; font-size: 13px; cursor: pointer; }
+  .tabs button:hover { color: var(--text); }
   .tabs button.on { color: var(--text); border-bottom-color: var(--accent); }
-  .panel { flex: 1; overflow: auto; padding: 12px; display: flex; flex-direction: column; gap: 12px; }
-  .marks { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; max-height: 260px; overflow: auto; }
-  .marks li { display: flex; align-items: center; border-radius: var(--radius-s); }
+  .n { padding: 0 6px; border-radius: 999px; background: var(--raise); color: var(--muted); font-size: 11px; }
+  .marks { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; overflow: auto; flex: 1 1 0; min-height: 60px; }
+  .marks li { display: flex; align-items: center; gap: 4px; border-radius: var(--radius-s); padding-right: 4px; }
   .marks li.on { background: var(--accent-soft); }
-  .mark { flex: 1; display: flex; align-items: center; gap: 8px; padding: 5px 8px; border: 0; background: transparent; text-align: left; cursor: pointer; min-width: 0; }
+  .mark { flex: 1; display: flex; align-items: center; gap: 8px; padding: 5px 8px; border: 0; background: transparent; color: var(--text); font: inherit; text-align: left; cursor: pointer; min-width: 0; }
+  .mark:hover { background: var(--panel-2); }
   .mark i { width: 10px; height: 10px; border-radius: 50%; flex: none; }
   .kind { color: var(--muted); font-size: 12px; flex: none; }
   .name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .pad { padding: 8px; }
   .form { display: flex; flex-direction: column; gap: 10px; }
   h4 { margin: 8px 0 0; font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; }
   .two { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
   .three { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; }
-  .row { display: flex; gap: 8px; }
-  .check { display: flex; align-items: center; gap: 6px; }
   .revs { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
   .revs li { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 6px 8px; border: 1px solid var(--line-soft); border-radius: var(--radius-s); }
+
+  .card { flex: none; max-height: 52%; display: flex; flex-direction: column; gap: 8px; min-height: 0; }
+  .card h3 { display: flex; align-items: center; gap: 8px; margin: 0; font-size: 14px; font-weight: 650; flex: none; }
+  .scroll { overflow: auto; min-height: 0; }
+  .spacer { flex: 1; }
+  .x { display: grid; place-items: center; width: 22px; height: 22px; padding: 0; border: 0; border-radius: 6px; background: none; color: var(--muted); cursor: pointer; }
+  .x:hover { background: var(--panel-2); color: var(--text); }
+
+  .foot { grid-column: 1 / 3; grid-row: 3; display: flex; align-items: flex-end; justify-content: space-between; gap: 10px; pointer-events: none; }
+  .foot > * { pointer-events: auto; }
+  .tag { display: flex; gap: 10px; align-items: center; padding: 6px 10px; border-radius: var(--radius-s); background: rgba(14, 15, 18, 0.86); border: 1px solid var(--line); max-width: 70%; font-size: 12.5px; }
+  .zoom { display: flex; flex-direction: column; gap: 4px; padding: 4px; }
+  .small { font-size: 12px; margin: 0; }
   .err { color: var(--danger); font-size: 12px; margin: 0; }
   .bad { border-color: var(--danger); }
   .mono { font-family: var(--mono); font-size: 12px; }
-  .pad { padding: 20px; }
   code { font-size: 11.5px; }
 
   :global(.m-marker) { display: flex; flex-direction: column; align-items: center; cursor: pointer; }
@@ -547,4 +672,5 @@
   :global(.m-vertex) { width: 12px; height: 12px; border-radius: 50%; background: #fff; border: 2px solid var(--accent); cursor: move; }
   :global(.m-mid) { width: 8px; height: 8px; border-radius: 50%; background: var(--accent); opacity: 0.7; cursor: copy; }
   :global(.m-head) { width: 0; height: 0; border-left: 7px solid transparent; border-right: 7px solid transparent; border-bottom: 16px solid; }
+  @media (max-width: 1000px) { .overlay { grid-template-columns: auto minmax(0, 1fr) 290px; } }
 </style>
