@@ -399,6 +399,30 @@ class CreateAndSystemsTests(TestCase):
         self.assertIn("modern|", html)
         self.assertIn("ui/themes/modern.css", html)
 
+    def test_the_wallpaper_is_saved_with_the_style_and_checked(self):
+        from unittest import mock
+
+        from assets.nextcloud import NextcloudFile
+
+        self.assertEqual(self.call("get", "/systems/AETHER")[1]["wallpaper"]["pattern"], "none")
+        client = mock.Mock()
+        client.get_file_by_id.return_value = NextcloudFile(file_id="42", path="AETHER/logo.png", filename="logo.png", is_directory=False)
+        body = {"file_id": "42", "mode": "cover", "opacity": 60, "pattern": "dots", "pattern_color": "#aabbcc", "pattern_size": 20, "pattern_opacity": 10}
+        with mock.patch("assets.nextcloud.NextcloudClient.from_settings", return_value=client):
+            status, data = self.call("put", "/systems/AETHER/style", {"style": "aether", "tokens": {}, "wallpaper": body})
+            self.assertEqual(status, 200)
+            self.assertEqual((data["wallpaper"]["file_name"], data["wallpaper"]["mode"], data["wallpaper"]["pattern"]), ("logo.png", "cover", "dots"))
+            client.get_file_by_id.reset_mock()
+            self.call("put", "/systems/AETHER/style", {"style": "aether", "tokens": {}, "wallpaper": {**body, "opacity": 30}})
+            client.get_file_by_id.assert_not_called()                          # тот же файл: в хранилище не ходим
+            self.assertEqual(self.call("put", "/systems/AETHER/style", {"style": "aether", "tokens": {}, "wallpaper": {**body, "mode": "tile"}})[0], 400)
+            client.get_file_by_id.return_value = None
+            self.assertEqual(self.call("put", "/systems/AETHER/style", {"style": "aether", "tokens": {}, "wallpaper": {**body, "file_id": "7"}})[0], 400)
+        kept = self.call("put", "/systems/AETHER/style", {"style": "aether", "tokens": {}})[1]          # без поля картинка не меняется
+        self.assertEqual((kept["wallpaper"]["file_id"], kept["wallpaper"]["opacity"]), ("42", 30))
+        cleared = self.call("put", "/systems/AETHER/style", {"style": "aether", "tokens": {}, "wallpaper": {"file_id": ""}})[1]
+        self.assertEqual((cleared["wallpaper"]["file_id"], cleared["wallpaper"]["file_name"]), ("", ""))
+
     def test_the_image_tree_shows_what_the_layers_make_together(self):
         from filesystem.testing import make_file
         from filesystem.models import Placement

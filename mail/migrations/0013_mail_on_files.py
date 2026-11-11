@@ -10,7 +10,7 @@ class Migration(migrations.Migration):
     dependencies = [
         ("mail", "0012_attachment_asset_removed"),
         ("filesystem", "0038_letters_are_items"),
-        ("machines", "__latest__"),
+        ("machines", "0036_machine_overlay"),
         migrations.swappable_dependency(settings.AUTH_USER_MODEL),
     ]
 

@@ -3,6 +3,7 @@
 ОС берётся у машины, на рабочем столе которой игрок сейчас; без сессии (вход, загрузка) у входного узла. Сотрудник студии может
 посмотреть чужой стиль: ?preview_os=КОД. Подключается только базовым шаблоном ui/base.html, поэтому админка и студия стиль не получают."""
 import json
+from urllib.parse import urlencode
 
 from django import template
 from django.db.models import Subquery
@@ -12,7 +13,7 @@ from django.utils.safestring import mark_safe
 
 from machines.current import MAIN_HOSTNAME, current_machine
 from machines.models import Machine, SystemType
-from machines.world import styles
+from machines.world import styles, wallpaper
 
 register = template.Library()
 
@@ -38,15 +39,15 @@ def _state(request):
             system = machine.system_type
         else:                                                           # один запрос: ОС входного узла
             system = SystemType.objects.filter(code=Subquery(Machine.objects.filter(hostname=MAIN_HOSTNAME).values("system")[:1])).first()
-    found = (system.style, system.style_tokens) if system is not None and system.style in styles.STYLES else (styles.DEFAULT_STYLE, {})
+    found = (system.style, system.style_tokens, system.code, system.wallpaper) if system is not None and system.style in styles.STYLES else (styles.DEFAULT_STYLE, {}, "", {})
     if user is not None and user.is_authenticated and user.is_staff:          # предпросмотр несохранённого стиля в студии
-        found = _preview(request) or found
+        found = _preview(request, found) or found
     request._os_style = found
     return found
 
 
-def _preview(request):
-    """(слаг, токены) из preview_style и preview_tokens запроса сотрудника или None; невалидные токены отбрасываются."""
+def _preview(request, found):
+    """(слаг, токены, код, картинка) из preview_style, preview_tokens и preview_wall запроса сотрудника или None; невалидное отбрасывается."""
     slug = request.GET.get("preview_style")
     if slug not in styles.STYLES:
         return None
@@ -56,7 +57,15 @@ def _preview(request):
         tokens = {}
     if not isinstance(tokens, dict) or styles.problems(slug, tokens):
         tokens = {}
-    return slug, tokens
+    picture = found[3]
+    if request.GET.get("preview_wall"):
+        try:
+            picture = json.loads(request.GET["preview_wall"])
+        except ValueError:
+            picture = {}
+        if wallpaper.problems(picture):
+            picture = found[3]
+    return slug, tokens, found[2], picture
 
 
 @register.simple_tag(takes_context=True)
@@ -97,3 +106,19 @@ def os_tokens(context):
     request = context.get("request")
     block = styles.css(_state(request)[1]) if request is not None else ""
     return mark_safe(f'<style id="os-style">{block}</style>') if block else ""
+
+
+@register.simple_tag(takes_context=True)
+def os_wallpaper(context):
+    """Картинка и узор рабочего стола ОС (в начале <body> оболочки); пусто, если автор их не задал."""
+    request = context.get("request")
+    if request is None:
+        return ""
+    _slug, _tokens, code, picture = _state(request)
+    if not code:
+        return ""
+    data = wallpaper.clean(picture)
+    from django.urls import reverse
+
+    url = reverse("os_wallpaper", kwargs={"code": code}) + "?" + urlencode({"v": data["file_id"]})
+    return wallpaper.render(url, data)

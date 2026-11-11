@@ -28,6 +28,10 @@ class SystemType(models.Model):
     style_tokens = models.JSONField(
         "Токены стиля", default=dict, blank=True, help_text="Переопределения токенов (цвета, шрифты, форма) поверх стиля: {\"--accent\": \"#ff8800\"}.",
     )
+    wallpaper = models.JSONField(
+        "Картинка и узор", default=dict, blank=True,
+        help_text="Картинка рабочего стола из Nextcloud (по центру или на весь экран) и узор поверх неё. Поля в machines/world/wallpaper.py.",
+    )
     greeting = models.TextField(
         "Приветствие", blank=True,
         help_text="Что видит игрок, когда открывается оболочка. Цвета: <dim>, <success>, <warning>, <error>; подстановки: {host}, {login}... "
@@ -52,6 +56,11 @@ class SystemType(models.Model):
         looks = styles.problems(self.style, self.style_tokens)
         if looks:
             raise ValidationError({"style": looks})
+        from machines.world import wallpaper
+
+        picture = wallpaper.problems(self.wallpaper)
+        if picture:
+            raise ValidationError({"wallpaper": picture})
         found = markup.check(self.greeting, GREETING_PARAMS)
         if found:
             raise ValidationError({"greeting": [f"Строка {number}: {text}" for number, text in found]})

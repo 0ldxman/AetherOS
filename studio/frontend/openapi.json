@@ -17215,6 +17215,9 @@
       "title": "Style Tokens",
       "type": "object"
      },
+     "wallpaper": {
+      "$ref": "#/components/schemas/WallpaperValue"
+     },
      "styles": {
       "items": {
        "$ref": "#/components/schemas/StyleChoice"
@@ -17347,6 +17350,7 @@
      "blackouts",
      "style",
      "style_tokens",
+     "wallpaper",
      "styles",
      "token_info",
      "style_defaults",
@@ -17439,6 +17443,52 @@
      "machines"
     ],
     "title": "TypeGroup",
+    "type": "object"
+   },
+   "WallpaperValue": {
+    "properties": {
+     "file_id": {
+      "default": "",
+      "title": "File Id",
+      "type": "string"
+     },
+     "file_name": {
+      "default": "",
+      "title": "File Name",
+      "type": "string"
+     },
+     "mode": {
+      "default": "center",
+      "title": "Mode",
+      "type": "string"
+     },
+     "opacity": {
+      "default": 100,
+      "title": "Opacity",
+      "type": "integer"
+     },
+     "pattern": {
+      "default": "none",
+      "title": "Pattern",
+      "type": "string"
+     },
+     "pattern_color": {
+      "default": "#ffffff",
+      "title": "Pattern Color",
+      "type": "string"
+     },
+     "pattern_size": {
+      "default": 24,
+      "title": "Pattern Size",
+      "type": "integer"
+     },
+     "pattern_opacity": {
+      "default": 15,
+      "title": "Pattern Opacity",
+      "type": "integer"
+     }
+    },
+    "title": "WallpaperValue",
     "type": "object"
    },
    "NewSystem": {
@@ -17673,6 +17723,16 @@
       "default": {},
       "title": "Tokens",
       "type": "object"
+     },
+     "wallpaper": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/WallpaperValue"
+       },
+       {
+        "type": "null"
+       }
+      ]
      }
     },
     "required": [

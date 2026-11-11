@@ -4,13 +4,16 @@
   import { guardUnsaved } from "../../lib/guard.svelte";
   import DraftState from "../../lib/DraftState.svelte";
   import { SharedForm } from "../../lib/shared.svelte";
+  import { tileUrl, WALL_MODES, WALL_PATTERNS, WALLPAPER_DEFAULT, type Wallpaper } from "../../lib/wallpaper";
+  import WallpaperPicker from "./WallpaperPicker.svelte";
 
   type System = Schemas["SystemOut"];
   type Done = (data: System | undefined, error: unknown, text: string) => void;
 
   let { system, errors, done, onstate }: { system: System; errors: Record<string, string[]>; done: Done; onstate: (state: { dirty: boolean; share: typeof share; save: () => unknown } | null) => void } = $props();
 
-  let look = $state({ style: "aether", tokens: {} as Record<string, string> });
+  let look = $state({ style: "aether", tokens: {} as Record<string, string>, wallpaper: { ...WALLPAPER_DEFAULT } as Wallpaper });
+  let picking = $state(false);
   let lookSaved = $state("");
   let base = $state<typeof look | null>(null);                  // сохранённое: им наполняется общий черновик
   const share = new SharedForm({ room: () => `systems/${system.code}`, scope: () => "style", draft: () => look, base: () => base });
@@ -43,7 +46,7 @@
 
   $effect(() => {
     if (!deskPreview) return;
-    const url = `${system.preview_url}?preview_os=${encodeURIComponent(system.code)}&preview_style=${encodeURIComponent(look.style)}&preview_tokens=${encodeURIComponent(JSON.stringify(look.tokens))}`;
+    const url = `${system.preview_url}?preview_os=${encodeURIComponent(system.code)}&preview_style=${encodeURIComponent(look.style)}&preview_tokens=${encodeURIComponent(JSON.stringify(look.tokens))}&preview_wall=${encodeURIComponent(JSON.stringify(look.wallpaper))}`;
     clearTimeout(deskTimer);
     deskTimer = setTimeout(() => (previewSrc = url), 350);
     return () => clearTimeout(deskTimer);
@@ -53,14 +56,16 @@
   const styleDefaults = $derived(system.style_defaults[look.style] ?? {});
   const def = (token: Schemas["TokenInfo"]) => styleDefaults[token.name] ?? token.default;
   const pickerValue = (token: Schemas["TokenInfo"]) => (HEX6.test(look.tokens[token.name] ?? "") ? look.tokens[token.name] : HEX6.test(def(token)) ? def(token) : "#000000");
+  // картинка рабочего стола: сотрудник видит и ещё не сохранённый файл (?file=)
+  const wallUrl = (fileId: string) => `${(window as unknown as { STUDIO: { site: string } }).STUDIO.site}wallpaper/${encodeURIComponent(system.code)}/?file=${encodeURIComponent(fileId)}`;
   const desktopUrl = $derived(`${(window as unknown as { STUDIO: { site: string } }).STUDIO.site}?preview_os=${system.code}`);
 
   // сервер вернул ОС заново (после сохранения): берём значения оттуда
   $effect(() => {
     const data = system;
     untrack(() => {
-      const next = { style: data.style, tokens: { ...data.style_tokens } };
-      if (!share.ready) look = { style: next.style, tokens: { ...next.tokens } };
+      const next = { style: data.style, tokens: { ...data.style_tokens }, wallpaper: { ...WALLPAPER_DEFAULT, ...data.wallpaper } };
+      if (!share.ready) look = { style: next.style, tokens: { ...next.tokens }, wallpaper: { ...next.wallpaper } };
       lookSaved = JSON.stringify(next);
       base = next;
     });
@@ -89,6 +94,58 @@
           <span class="muted small">{item.description}</span>
         </label>
       {/each}
+    </div>
+  </div>
+
+  <div class="block">
+    <h3>Картинка и узор</h3>
+    <p class="muted small">Лежат под окнами и значками, не зависят от выбранного стиля. Цвет под ними это токен «Фон рабочего стола» ниже.</p>
+    <div class="wall">
+      <div class="wallrow">
+        <div class="wthumb" class:empty={!look.wallpaper.file_id}>
+          {#if look.wallpaper.file_id}<img src={wallUrl(look.wallpaper.file_id)} alt="" />{:else}<span class="muted small">нет</span>{/if}
+        </div>
+        <div class="wmeta">
+          <b>{look.wallpaper.file_id ? look.wallpaper.file_name || "Файл выбран" : "Картинка не выбрана"}</b>
+          <span class="muted small">Файл из хранилища (Nextcloud, папка AETHER). Игрок видит его без проверки ключей.</span>
+          <div class="wacts">
+            <button class="btn" onclick={() => (picking = true)}>{look.wallpaper.file_id ? "Заменить…" : "Выбрать из Nextcloud…"}</button>
+            {#if look.wallpaper.file_id}<button class="btn ghost" onclick={() => { look.wallpaper.file_id = ""; look.wallpaper.file_name = ""; }}>Убрать</button>{/if}
+          </div>
+        </div>
+      </div>
+      {#if look.wallpaper.file_id}
+        <div class="wctl">
+          <span class="wlabel">Режим</span>
+          <div class="seg" role="radiogroup" aria-label="Режим картинки">
+            {#each WALL_MODES as item (item.key)}
+              <button type="button" role="radio" aria-checked={look.wallpaper.mode === item.key} class:on={look.wallpaper.mode === item.key} title={item.hint} onclick={() => (look.wallpaper.mode = item.key)}>{item.label}</button>
+            {/each}
+          </div>
+          <span class="wlabel">Прозрачность</span>
+          <div class="range"><input type="range" min="0" max="100" step="5" bind:value={look.wallpaper.opacity} aria-label="Прозрачность картинки" /><output>{look.wallpaper.opacity}%</output></div>
+        </div>
+      {/if}
+
+      <div class="wctl">
+        <span class="wlabel">Узор</span>
+        <div class="patterns" role="radiogroup" aria-label="Узор поверх картинки">
+          {#each WALL_PATTERNS as item (item.key)}
+            <button type="button" role="radio" aria-checked={look.wallpaper.pattern === item.key} class="pat" class:on={look.wallpaper.pattern === item.key} onclick={() => (look.wallpaper.pattern = item.key)}>
+              <span class="swatchpat" style:background-image={item.key === "none" ? "none" : `url("${tileUrl(item.key, "#b0b0b0", 16)}")`}></span>{item.label}
+            </button>
+          {/each}
+        </div>
+        {#if look.wallpaper.pattern !== "none"}
+          <span class="wlabel">Цвет</span>
+          <input class="picker" type="color" bind:value={look.wallpaper.pattern_color} aria-label="Цвет узора" />
+          <span class="wlabel">Шаг</span>
+          <div class="range"><input type="range" min="8" max="120" step="2" bind:value={look.wallpaper.pattern_size} aria-label="Шаг узора" /><output>{look.wallpaper.pattern_size} px</output></div>
+          <span class="wlabel">Прозрачность</span>
+          <div class="range"><input type="range" min="0" max="100" step="5" bind:value={look.wallpaper.pattern_opacity} aria-label="Прозрачность узора" /><output>{look.wallpaper.pattern_opacity}%</output></div>
+        {/if}
+      </div>
+      {#if errors.wallpaper}{#each errors.wallpaper as text}<p class="warn small">{text}</p>{/each}{/if}
     </div>
   </div>
 
@@ -137,6 +194,11 @@
   {/if}
   </div>
 
+{#if picking}
+  <WallpaperPicker current={look.wallpaper.file_id} previewUrl={wallUrl} onclose={() => (picking = false)}
+    onpick={(fileId, name) => { look.wallpaper.file_id = fileId; look.wallpaper.file_name = name; picking = false; }} />
+{/if}
+
 <style>
   .small { font-size: 12px; margin: 0; }
   .warn { color: var(--warn); margin: 0; }
@@ -165,5 +227,27 @@
   .arrow.dim { opacity: 0.35; }
   .picker { width: 34px; height: 32px; padding: 0; border: 1px solid var(--line); border-radius: var(--radius-s); background: none; cursor: pointer; }
   .field.bad { border-color: var(--danger); }
+  .wall { display: flex; flex-direction: column; gap: 12px; }
+  .wallrow { display: grid; grid-template-columns: auto 1fr; gap: 14px; align-items: center; }
+  .wthumb { width: 120px; height: 76px; display: grid; place-items: center; overflow: hidden; border-radius: var(--radius-s); border: 1px solid var(--line-soft); background: repeating-conic-gradient(var(--panel-2) 0 25%, var(--bg) 0 50%) 0 0 / 14px 14px; }
+  .wthumb.empty { border-style: dashed; }
+  .wthumb img { max-width: 100%; max-height: 100%; object-fit: contain; }
+  .wmeta { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+  .wmeta b { overflow-wrap: anywhere; }
+  .wacts { display: flex; gap: 8px; margin-top: 4px; }
+  .wctl { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 8px 14px; align-items: center; }
+  .wlabel { color: var(--muted); font-size: 12px; }
+  .seg { display: inline-flex; width: max-content; border: 1px solid var(--line-soft); border-radius: 999px; overflow: hidden; }
+  .seg button { padding: 4px 14px; border: 0; background: none; color: var(--muted); font: inherit; font-size: 12.5px; cursor: pointer; }
+  .seg button:hover { color: var(--text); }
+  .seg button.on { background: var(--accent-soft); color: var(--text); }
+  .range { display: flex; align-items: center; gap: 10px; }
+  .range input { flex: 1; max-width: 280px; accent-color: var(--accent); }
+  .range output { min-width: 52px; font-variant-numeric: tabular-nums; color: var(--muted); font-size: 12.5px; }
+  .patterns { display: flex; gap: 8px; flex-wrap: wrap; }
+  .pat { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 6px 10px; border: 1px solid var(--line-soft); border-radius: var(--radius-s); background: none; color: var(--muted); font: inherit; font-size: 12px; cursor: pointer; }
+  .pat:hover { color: var(--text); border-color: var(--line); }
+  .pat.on { border-color: var(--accent); background: var(--accent-soft); color: var(--text); }
+  .swatchpat { width: 48px; height: 32px; border-radius: 4px; background-color: var(--bg); background-size: 16px 16px; border: 1px solid var(--line-soft); }
   @media (max-width: 1280px) { .stylegrid { grid-template-columns: minmax(0, 1fr); } .stylepreview { position: static; } }
 </style>

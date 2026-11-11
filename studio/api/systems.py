@@ -18,7 +18,7 @@ from filesystem.machine_view import MachineView
 from filesystem.models import Volume
 from machines.models import EntryPolicy, Group, Machine, Place, SceneScript, SystemBlackout, SystemScene, SystemType, SystemVolume
 from machines.world import blackout as blackouts
-from machines.world import styles
+from machines.world import styles, wallpaper
 from machines.world.dates import world
 from machines.world.slots import SLOTS
 from machines.world.facts import facts
@@ -113,9 +113,21 @@ class TokenInfo(Schema):
     default: str
 
 
+class WallpaperValue(Schema):
+    file_id: str = ""
+    file_name: str = ""
+    mode: str = "center"
+    opacity: int = 100
+    pattern: str = "none"
+    pattern_color: str = "#ffffff"
+    pattern_size: int = 24
+    pattern_opacity: int = 15
+
+
 class StyleIn(Schema):
     style: str
     tokens: dict[str, str] = {}
+    wallpaper: WallpaperValue | None = None          # пусто: картинка и узор не меняются
 
 
 class FontChoice(Schema):
@@ -167,6 +179,7 @@ class SystemOut(Schema):
     blackouts: list[BlackoutRow]
     style: str
     style_tokens: dict[str, str]
+    wallpaper: WallpaperValue
     styles: list[StyleChoice]
     token_info: list[TokenInfo]
     style_defaults: dict[str, dict[str, str]]
@@ -236,6 +249,7 @@ def _out(system):
         greeting_params=[GreetingParam(name=name, label=label) for name, label in GREETING_PARAMS.items()],
         blackouts=_blackouts(system),
         style=system.style, style_tokens={name: str(value) for name, value in (system.style_tokens or {}).items()},
+        wallpaper=WallpaperValue(**wallpaper.clean(system.wallpaper)),
         styles=[StyleChoice(slug=slug, label=item.label, description=item.description) for slug, item in styles.STYLES.items()],
         preview_url=reverse("studio_style_preview", kwargs={"code": system.code}),
         style_defaults={slug: {t.name: styles.style_defaults(slug).get(t.name, "") for t in styles.TOKENS} for slug in styles.STYLES},
@@ -431,12 +445,28 @@ def save_scene(request, code: str, slot: str, body: SlotIn):
     return _out(system)
 
 
+def _wallpaper(system, data):
+    """Настройки картинки к сохранению: файл проверяется в хранилище, когда он новый, имя берётся оттуда."""
+    data = wallpaper.clean(data)
+    if wallpaper.problems(data):
+        raise ValidationError({"wallpaper": wallpaper.problems(data)})
+    if data["file_id"] and data["file_id"] != wallpaper.clean(system.wallpaper)["file_id"]:
+        data["file_name"] = wallpaper.stored_file_name(data["file_id"])
+    elif not data["file_id"]:
+        data["file_name"] = ""
+    else:
+        data["file_name"] = wallpaper.clean(system.wallpaper)["file_name"]
+    return data
+
+
 @router.put("/{code}/style", response=SystemOut)
 def save_style(request, code: str, body: StyleIn):
     """Стиль ОС и переопределённые токены. Пустое значение токена значит «как в стиле»."""
     system = _system(code)
     system.style = body.style
     system.style_tokens = {name: value.strip() for name, value in body.tokens.items() if value.strip()}
+    if body.wallpaper is not None:
+        system.wallpaper = _wallpaper(system, body.wallpaper.model_dump())
     system.full_clean()
     system.save()
     return _out(system)

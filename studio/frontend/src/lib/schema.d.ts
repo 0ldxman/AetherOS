@@ -5964,6 +5964,7 @@ export interface components {
             style_tokens: {
                 [key: string]: string;
             };
+            wallpaper: components["schemas"]["WallpaperValue"];
             /** Styles */
             styles: components["schemas"]["StyleChoice"][];
             /** Token Info */
@@ -6030,6 +6031,49 @@ export interface components {
             source: string;
             /** Machines */
             machines: string[];
+        };
+        /** WallpaperValue */
+        WallpaperValue: {
+            /**
+             * File Id
+             * @default
+             */
+            file_id: string;
+            /**
+             * File Name
+             * @default
+             */
+            file_name: string;
+            /**
+             * Mode
+             * @default center
+             */
+            mode: string;
+            /**
+             * Opacity
+             * @default 100
+             */
+            opacity: number;
+            /**
+             * Pattern
+             * @default none
+             */
+            pattern: string;
+            /**
+             * Pattern Color
+             * @default #ffffff
+             */
+            pattern_color: string;
+            /**
+             * Pattern Size
+             * @default 24
+             */
+            pattern_size: number;
+            /**
+             * Pattern Opacity
+             * @default 15
+             */
+            pattern_opacity: number;
         };
         /** NewSystem */
         NewSystem: {
@@ -6125,6 +6169,7 @@ export interface components {
             tokens: {
                 [key: string]: string;
             };
+            wallpaper?: components["schemas"]["WallpaperValue"] | null;
         };
         /** ImageListing */
         ImageListing: {

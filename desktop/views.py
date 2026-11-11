@@ -127,3 +127,34 @@ def boot(request):
     ident = identity_of()
     system = Machine.objects.filter(hostname=ident.hostname).values_list("system", flat=True).first() or "AETHER"
     return render(request, "boot/boot.html", {"boot_config": {"scenes": boot_scenes(ident, system)}})
+
+class _WallpaperFile:
+    """Файл картинки рабочего стола для отдачи из Nextcloud: кэша метаданных у него нет."""
+
+    def __init__(self, file_id):
+        self.file_id = file_id
+
+    def apply_file(self, file):
+        return False
+
+
+def wallpaper(request, code):
+    """Картинка рабочего стола ОС (SystemType.wallpaper). Ключи не проверяются: файл выбрал автор для этой ОС.
+    Сотрудник студии может посмотреть ещё не сохранённый файл: ?file=id (предпросмотр стиля)."""
+    from django.http import Http404
+    from django.shortcuts import get_object_or_404
+
+    from assets.views import _serve_asset_file
+    from machines.models import SystemType
+    from machines.world import wallpaper as picture
+
+    system = get_object_or_404(SystemType, code=code.upper())
+    data = picture.clean(system.wallpaper)
+    file_id = data["file_id"]
+    if request.user.is_staff and request.GET.get("file"):
+        file_id = request.GET["file"]
+    if not file_id or picture.problems({**data, "file_id": file_id}):
+        raise Http404
+    response = _serve_asset_file(request, _WallpaperFile(file_id))
+    response["Cache-Control"] = "public, max-age=3600"
+    return response
