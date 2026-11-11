@@ -13,14 +13,13 @@
   import { fieldErrors, NO_COLOR, showDate, type Country } from "./shared";
   import MaterialField from "./MaterialField.svelte";
 
-  const SIZE = 100;
+  const SIZE = 80;
   type Form = Schemas["MapProvinceIn"];
   let { id }: { id: number | null } = $props();
 
   let q = $state("");
   let owner = $state("");              // "" все, "none" без владельца, иначе id страны
   let on = $state("");
-  let page = $state(0);
   let sort = $state("name");                // name, code, records, last; со знаком «-» по убыванию
   let data = $state<Schemas["MapProvincePage"]>({ total: 0, rows: [] });
   let countries = $state<Country[]>([]);
@@ -40,16 +39,52 @@
     sort = sort === first ? (first.startsWith("-") ? key : `-${key}`) : first;
   }
   const arrow = (key: string) => (sort === key ? "↑" : sort === `-${key}` ? "↓" : "");
-  const pages = $derived(Math.max(1, Math.ceil(data.total / SIZE)));
+
+  // Бесконечный скролл: строки подгружаются, когда пустая метка под таблицей попадает в видимую область.
+  // Смена фильтра или порядка начинает список заново; list() после правки обновляет уже загруженное, не сбрасывая прокрутку.
+  let loading = $state(false);
+  let main: HTMLElement | undefined = $state();
+  let sentinel: HTMLElement | undefined = $state();
+  let generation = 0;
+  const query = (offset: number, limit: number) => {
+    const found: { q: string; owner: string; on?: string; offset: number; limit: number; sort: string } = { q, owner, offset, limit, sort };
+    if (on) found.on = on;
+    return found;
+  };
 
   async function list() {
-    const query: { q: string; owner: string; on?: string; offset: number; limit: number; sort: string } = { q, owner, offset: page * SIZE, limit: SIZE, sort };
-    if (on) query.on = on;
-    data = (await api.GET("/studio/api/map/provinces", { params: { query } })).data ?? { total: 0, rows: [] };
+    const mine = ++generation;
+    const result = (await api.GET("/studio/api/map/provinces", { params: { query: query(0, Math.min(500, Math.max(SIZE, data.rows.length))) } })).data;
+    if (mine === generation && result) data = result;
   }
+
+  async function more() {
+    if (loading || data.rows.length >= data.total) return;
+    loading = true;
+    const mine = generation;
+    const result = (await api.GET("/studio/api/map/provinces", { params: { query: query(data.rows.length, SIZE) } })).data;
+    loading = false;
+    if (mine !== generation || !result) return;
+    const seen = new Set(data.rows.map((row) => row.id));
+    data = { total: result.total, rows: [...data.rows, ...result.rows.filter((row) => !seen.has(row.id))] };
+  }
+
   let timer: ReturnType<typeof setTimeout>;
-  $effect(() => { q; owner; on; page; sort; clearTimeout(timer); timer = setTimeout(list, 200); });
-  $effect(() => { q; owner; on; sort; page = 0; });
+  $effect(() => {
+    q; owner; on; sort;
+    clearTimeout(timer);
+    timer = setTimeout(() => { data = { total: 0, rows: [] }; main?.scrollTo({ top: 0 }); list(); }, 200);
+  });
+
+  // метка в конце списка: видна, значит пора подгрузить следующую порцию (с запасом в экран)
+  $effect(() => {
+    if (!sentinel || !main) return;
+    const watcher = new IntersectionObserver((entries) => { if (entries.some((entry) => entry.isIntersecting)) more(); }, { root: main, rootMargin: "0px 0px 600px 0px" });
+    watcher.observe(sentinel);
+    return () => watcher.disconnect();
+  });
+  // порция пришла, а метка всё ещё видна (большой экран): просим следующую
+  $effect(() => { data.rows.length; queueMicrotask(() => { if (sentinel && main && sentinel.getBoundingClientRect().top < main.getBoundingClientRect().bottom + 600) more(); }); });
 
   async function load(target: number | null) {
     province = null;
@@ -114,7 +149,7 @@
 </script>
 
 <div class="screen" class:open={province}>
-  <section class="main">
+  <section class="main" bind:this={main}>
     <header class="bar">
       <input class="field q" placeholder="Название, код или код тайлов…" bind:value={q} />
       <label class="inline"><span class="muted">Владелец</span>
@@ -176,10 +211,9 @@
       </tbody>
     </table>
 
+    <div class="sentinel" bind:this={sentinel}></div>
     <footer class="pager">
-      <button class="btn ghost" disabled={page === 0} onclick={() => page--}>← назад</button>
-      <span class="muted">страница {page + 1} из {pages}</span>
-      <button class="btn ghost" disabled={page + 1 >= pages} onclick={() => page++}>дальше →</button>
+      <span class="muted">{#if loading}Загрузка…{:else if data.total > data.rows.length}Показано {data.rows.length} из {data.total}{:else if data.total}Показано всё: {data.total}{/if}</span>
     </footer>
   </section>
 
@@ -262,6 +296,7 @@
   .tag.jure { background: rgba(122, 162, 255, 0.16); color: var(--accent); }
   .tag.facto { background: rgba(242, 198, 109, 0.16); color: var(--warn); }
   .empty { padding: 24px; text-align: center; }
+  .sentinel { height: 1px; }
   .pager { display: flex; gap: 14px; align-items: center; justify-content: center; padding: 14px; }
   .side { border-left: 1px solid var(--line-soft); padding: 16px; display: flex; flex-direction: column; gap: 12px; overflow: auto; }
   .top { display: flex; align-items: center; gap: 8px; }
