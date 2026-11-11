@@ -6,7 +6,8 @@
 import datetime as dt
 
 from django.core.exceptions import ValidationError
-from django.db.models import Count, Max, ProtectedError, Q
+from django.db import transaction
+from django.db.models import Count, Exists, F, Max, OuterRef, ProtectedError, Q
 from django.shortcuts import get_object_or_404
 from ninja import Router, Schema
 
@@ -385,6 +386,14 @@ def delete_province(request, province_id: int):
 
 # ---------- владения ----------
 
+class MapPrev(Schema):
+    """Прежний владелец провинции перед этой записью."""
+    country: int
+    country_name: str
+    country_code: str
+    color: str
+
+
 class MapOwnershipRow(Schema):
     id: int
     province: int
@@ -397,6 +406,8 @@ class MapOwnershipRow(Schema):
     date_from: dt.date
     de_jure: bool
     de_facto: bool
+    previous: MapPrev | None = None
+    problem: str = ""        # early (до рождения страны), late (после распада), dup (две записи на одну дату), пусто: всё в порядке
 
 
 class MapOwnershipPage(Schema):
@@ -416,20 +427,67 @@ class MapIds(Schema):
     ids: list[int]
 
 
-def _ownership(o):
+def _prev_of(o):
+    if o is None:
+        return None
+    return MapPrev(country=o.country_id, country_name=o.country.name, country_code=o.country.code, color=o.country.color)
+
+
+def _ownership(o, previous=None, problem=""):
     return MapOwnershipRow(
         id=o.pk, province=o.province_id, province_name=o.province.name, province_code=o.province.code, country=o.country_id,
         country_name=o.country.name, country_code=o.country.code, color=o.country.color, date_from=o.date_from, de_jure=o.de_jure, de_facto=o.de_facto,
+        previous=_prev_of(previous), problem=problem,
     )
 
 
-@router.get("/ownerships", response=MapOwnershipPage)
-def ownerships(request, q: str = "", country: int | None = None, province: int | None = None, after: dt.date | None = None,
-               before: dt.date | None = None, flag: str = "", offset: int = 0, limit: int = PAGE):
-    """flag: jure | facto | split (только де-юре, только де-факто)."""
-    rows = Ownership.objects.select_related("province", "country").order_by("-date_from", "province__name", "id")
+def _previous_records(province_ids=None):
+    """{id записи: прежняя запись той же провинции с более ранней датой или None}. Без списка провинций: по всему миру."""
+    qs = Ownership.objects.select_related("country").order_by("province_id", "date_from", "id")
+    if province_ids is not None:
+        qs = qs.filter(province_id__in=province_ids)
+    chains = {}
+    for o in qs:
+        chains.setdefault(o.province_id, []).append(o)
+    found = {}
+    for chain in chains.values():
+        earlier = None
+        index = 0
+        for o in chain:
+            while index < len(chain) and chain[index].date_from < o.date_from:
+                earlier = chain[index]
+                index += 1
+            found[o.pk] = earlier
+    return found
+
+
+def _problems_of(rows):
+    """{id записи: early | late | dup} для записей на странице."""
+    pairs = {(o.province_id, o.date_from) for o in rows}
+    dup = set()
+    if pairs:
+        for row in Ownership.objects.filter(province_id__in={p for p, _ in pairs}).values("province_id", "date_from").annotate(n=Count("id")).filter(n__gt=1):
+            dup.add((row["province_id"], row["date_from"]))
+    out = {}
+    for o in rows:
+        c = o.country
+        if o.date_from < c.valid_from:
+            out[o.pk] = "early"
+        elif c.valid_to and o.date_from > c.valid_to:
+            out[o.pk] = "late"
+        elif (o.province_id, o.date_from) in dup:
+            out[o.pk] = "dup"
+    return out
+
+
+def _filtered_ownerships(q="", country=None, role="to", province=None, after=None, before=None, flag="", problem=""):
+    rows = Ownership.objects.select_related("province", "country")
     if country:
-        rows = rows.filter(country_id=country)
+        if role == "from":
+            ids = [pk for pk, prev in _previous_records().items() if prev is not None and prev.country_id == country]
+            rows = rows.filter(pk__in=ids)
+        else:
+            rows = rows.filter(country_id=country)
     if province:
         rows = rows.filter(province_id=province)
     if after:
@@ -443,9 +501,192 @@ def ownerships(request, q: str = "", country: int | None = None, province: int |
     elif flag == "both":
         rows = rows.filter(de_jure=True, de_facto=True)
     if q.strip():
-        rows = rows.filter(Q(province__name__icontains=q.strip()) | Q(province__code__icontains=q.strip()))
+        word = q.strip()
+        rows = rows.filter(Q(province__name__icontains=word) | Q(province__code__icontains=word) | Q(country__name__icontains=word) | Q(country__code__icontains=word))
+    if problem == "early":
+        rows = rows.filter(date_from__lt=F("country__valid_from"))
+    elif problem == "late":
+        rows = rows.filter(country__valid_to__isnull=False, date_from__gt=F("country__valid_to"))
+    elif problem == "dup":
+        rows = rows.filter(Exists(Ownership.objects.filter(province_id=OuterRef("province_id"), date_from=OuterRef("date_from")).exclude(pk=OuterRef("pk"))))
+    return rows
+
+
+@router.get("/ownerships", response=MapOwnershipPage)
+def ownerships(request, q: str = "", country: int | None = None, role: str = "to", province: int | None = None, after: dt.date | None = None,
+               before: dt.date | None = None, flag: str = "", problem: str = "", sort: str = "-date", offset: int = 0, limit: int = PAGE):
+    """flag: jure | facto | both. role: to (страна получила) или from (страна отдала). problem: early | late | dup. sort: date | -date | province."""
+    rows = _filtered_ownerships(q, country, role, province, after, before, flag, problem)
+    order = {"date": ("date_from", "province__name", "id"), "province": ("province__name", "-date_from", "id")}.get(sort, ("-date_from", "province__name", "id"))
+    rows = rows.order_by(*order)
     total = rows.count()
-    return MapOwnershipPage(total=total, rows=[_ownership(o) for o in rows[max(offset, 0): max(offset, 0) + min(max(limit, 1), 500)]])
+    page = list(rows[max(offset, 0): max(offset, 0) + min(max(limit, 1), 500)])
+    prev = _previous_records({o.province_id for o in page})
+    problems = _problems_of(page)
+    return MapOwnershipPage(total=total, rows=[_ownership(o, prev.get(o.pk), problems.get(o.pk, "")) for o in page])
+
+
+class MapProblemCounts(Schema):
+    early: int
+    late: int
+    dup: int
+
+
+@router.get("/ownerships/problems", response=MapProblemCounts)
+def ownership_problems(request):
+    return MapProblemCounts(
+        early=_filtered_ownerships(problem="early").count(), late=_filtered_ownerships(problem="late").count(), dup=_filtered_ownerships(problem="dup").count(),
+    )
+
+
+# ---------- события: записи одной даты и одной страны-получателя ----------
+
+class MapEventFrom(Schema):
+    name: str
+    color: str
+    count: int
+
+
+class MapEvent(Schema):
+    date: dt.date
+    country: int
+    country_name: str
+    country_code: str
+    color: str
+    count: int
+    jure: int                 # у скольких записей события есть де-юре
+    facto: int                # и де-факто (права у записей одного события могут быть разными)
+    froms: list[MapEventFrom]  # от кого перешли провинции (самые крупные первыми)
+    fresh: int                # записей без прежнего владельца
+
+
+class MapEventPage(Schema):
+    total: int                # событий
+    records: int              # записей в них
+    rows: list[MapEvent]
+
+
+@router.get("/ownerships/events", response=MapEventPage)
+def ownership_events(request, q: str = "", country: int | None = None, role: str = "to", after: dt.date | None = None, before: dt.date | None = None,
+                     flag: str = "", problem: str = "", sort: str = "-date", offset: int = 0, limit: int = PAGE):
+    """События: записи сгруппированы по дате и стране-получателю (права внутри события могут различаться)."""
+    base = _filtered_ownerships(q, country, role, None, after, before, flag, problem)
+    groups = base.order_by().values("date_from", "country_id").annotate(
+        count=Count("id"), jure=Count("id", filter=Q(de_jure=True)), facto=Count("id", filter=Q(de_facto=True)),
+    )
+    order = {"date": ("date_from", "country__name"), "count": ("count", "-date_from"), "-count": ("-count", "-date_from")}.get(sort, ("-date_from", "country__name"))
+    groups = groups.order_by(*order)
+    total = groups.count()
+    page = list(groups[max(offset, 0): max(offset, 0) + min(max(limit, 1), 500)])
+    countries = {c.pk: c for c in Country.objects.filter(pk__in={g["country_id"] for g in page})}
+    members = {}
+    if page:
+        wanted = Q()
+        for g in page:
+            wanted |= Q(date_from=g["date_from"], country_id=g["country_id"])
+        records = list(base.filter(wanted))
+        prev = _previous_records({o.province_id for o in records})
+        for o in records:
+            members.setdefault((o.date_from, o.country_id), []).append(prev.get(o.pk))
+    out = []
+    for g in page:
+        c = countries[g["country_id"]]
+        counted = {}
+        fresh = 0
+        for before_owner in members.get((g["date_from"], g["country_id"]), []):
+            if before_owner is None:
+                fresh += 1
+            else:
+                key = before_owner.country_id
+                name, color, n = counted.get(key, (before_owner.country.name, before_owner.country.color, 0))
+                counted[key] = (name, color, n + 1)
+        froms = [MapEventFrom(name=n, color=col, count=k) for n, col, k in sorted(counted.values(), key=lambda item: -item[2])]
+        out.append(MapEvent(date=g["date_from"], country=c.pk, country_name=c.name, country_code=c.code, color=c.color, count=g["count"],
+                            jure=g["jure"], facto=g["facto"], froms=froms, fresh=fresh))
+    return MapEventPage(total=total, records=base.count(), rows=out)
+
+
+# ---------- пачки: смена даты и прав, удаление ----------
+
+class MapEventKey(Schema):
+    date: dt.date
+    country: int
+
+
+class MapBulkIn(Schema):
+    ids: list[int] = []
+    events: list[MapEventKey] = []
+    action: str                          # update | delete
+    date: dt.date | None = None          # новая дата
+    shift_days: int | None = None        # или сдвиг на столько дней (может быть отрицательным)
+    de_jure: bool | None = None          # новые права (None: не менять)
+    de_facto: bool | None = None
+    dry_run: bool = False                # только посчитать, ничего не менять
+
+
+class MapBulkOut(Schema):
+    matched: int
+    changed: int
+    deleted: int
+    conflicts: int
+    examples: list[str]                  # первые несколько причин, почему запись пропущена
+
+
+@router.post("/ownerships/bulk", response=MapBulkOut)
+def ownerships_bulk(request, body: MapBulkIn):
+    import datetime as _dt
+
+    wanted = Q(pk__in=body.ids)
+    for event in body.events:
+        wanted |= Q(date_from=event.date, country_id=event.country)
+    rows = list(Ownership.objects.filter(wanted).select_related("province", "country")) if (body.ids or body.events) else []
+    if body.action == "delete":
+        deleted = 0
+        if rows and not body.dry_run:
+            with transaction.atomic():
+                deleted, _ = Ownership.objects.filter(pk__in=[o.pk for o in rows]).delete()
+        return MapBulkOut(matched=len(rows), changed=0, deleted=deleted if not body.dry_run else len(rows), conflicts=0, examples=[])
+    if body.action != "update":
+        raise ValidationError("Действие: update или delete.")
+    if body.date is None and not body.shift_days and body.de_jure is None and body.de_facto is None:
+        raise ValidationError("Укажите новую дату, сдвиг или права.")
+    moving = {o.pk for o in rows}
+    taken = set(Ownership.objects.exclude(pk__in=moving).values_list("province_id", "country_id", "date_from"))
+    slots, changes, examples, conflicts = set(), [], [], 0
+
+    def skip(text):
+        nonlocal conflicts
+        conflicts += 1
+        if len(examples) < 5:
+            examples.append(text)
+
+    for o in rows:
+        new_date = body.date or (o.date_from + _dt.timedelta(days=body.shift_days or 0))
+        jure = o.de_jure if body.de_jure is None else body.de_jure
+        facto = o.de_facto if body.de_facto is None else body.de_facto
+        if not (jure or facto):
+            skip(f"{o.province.code}: нужно оставить де-юре или де-факто")
+            continue
+        try:
+            territory.check_life(o.country, new_date)
+        except territory.TerritoryError as error:
+            skip(f"{o.province.code}: {error}")
+            continue
+        slot = (o.province_id, o.country_id, new_date)
+        if slot in taken or slot in slots:
+            skip(f"{o.province.code}: у провинции уже есть запись для {o.country.code} на {new_date}")
+            continue
+        slots.add(slot)
+        if (new_date, jure, facto) != (o.date_from, o.de_jure, o.de_facto):
+            o.date_from, o.de_jure, o.de_facto = new_date, jure, facto
+            changes.append(o)
+    if changes and not body.dry_run:
+        from map.cache import bump_version
+
+        with transaction.atomic():
+            Ownership.objects.bulk_update(changes, ["date_from", "de_jure", "de_facto"])
+        bump_version()
+    return MapBulkOut(matched=len(rows), changed=len(changes), deleted=0, conflicts=conflicts, examples=examples)
 
 
 def _save_ownership(row, body):

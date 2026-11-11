@@ -2061,12 +2061,66 @@ export interface paths {
         };
         /**
          * Ownerships
-         * @description flag: jure | facto | split (только де-юре, только де-факто).
+         * @description flag: jure | facto | both. role: to (страна получила) или from (страна отдала). problem: early | late | dup. sort: date | -date | province.
          */
         get: operations["studio_api_worldmap_ownerships"];
         put?: never;
         /** Create Ownership */
         post: operations["studio_api_worldmap_create_ownership"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/studio/api/map/ownerships/problems": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Ownership Problems */
+        get: operations["studio_api_worldmap_ownership_problems"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/studio/api/map/ownerships/events": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Ownership Events
+         * @description События: записи сгруппированы по дате и стране-получателю (права внутри события могут различаться).
+         */
+        get: operations["studio_api_worldmap_ownership_events"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/studio/api/map/ownerships/bulk": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Ownerships Bulk */
+        post: operations["studio_api_worldmap_ownerships_bulk"];
         delete?: never;
         options?: never;
         head?: never;
@@ -6426,6 +6480,26 @@ export interface components {
             de_jure: boolean;
             /** De Facto */
             de_facto: boolean;
+            previous?: components["schemas"]["MapPrev"] | null;
+            /**
+             * Problem
+             * @default
+             */
+            problem: string;
+        };
+        /**
+         * MapPrev
+         * @description Прежний владелец провинции перед этой записью.
+         */
+        MapPrev: {
+            /** Country */
+            country: number;
+            /** Country Name */
+            country_name: string;
+            /** Country Code */
+            country_code: string;
+            /** Color */
+            color: string;
         };
         /** MapOwnershipIn */
         MapOwnershipIn: {
@@ -6448,6 +6522,110 @@ export interface components {
              * @default true
              */
             de_facto: boolean;
+        };
+        /** MapProblemCounts */
+        MapProblemCounts: {
+            /** Early */
+            early: number;
+            /** Late */
+            late: number;
+            /** Dup */
+            dup: number;
+        };
+        /** MapEvent */
+        MapEvent: {
+            /**
+             * Date
+             * Format: date
+             */
+            date: string;
+            /** Country */
+            country: number;
+            /** Country Name */
+            country_name: string;
+            /** Country Code */
+            country_code: string;
+            /** Color */
+            color: string;
+            /** Count */
+            count: number;
+            /** Jure */
+            jure: number;
+            /** Facto */
+            facto: number;
+            /** Froms */
+            froms: components["schemas"]["MapEventFrom"][];
+            /** Fresh */
+            fresh: number;
+        };
+        /** MapEventFrom */
+        MapEventFrom: {
+            /** Name */
+            name: string;
+            /** Color */
+            color: string;
+            /** Count */
+            count: number;
+        };
+        /** MapEventPage */
+        MapEventPage: {
+            /** Total */
+            total: number;
+            /** Records */
+            records: number;
+            /** Rows */
+            rows: components["schemas"]["MapEvent"][];
+        };
+        /** MapBulkOut */
+        MapBulkOut: {
+            /** Matched */
+            matched: number;
+            /** Changed */
+            changed: number;
+            /** Deleted */
+            deleted: number;
+            /** Conflicts */
+            conflicts: number;
+            /** Examples */
+            examples: string[];
+        };
+        /** MapBulkIn */
+        MapBulkIn: {
+            /**
+             * Ids
+             * @default []
+             */
+            ids: number[];
+            /**
+             * Events
+             * @default []
+             */
+            events: components["schemas"]["MapEventKey"][];
+            /** Action */
+            action: string;
+            /** Date */
+            date?: string | null;
+            /** Shift Days */
+            shift_days?: number | null;
+            /** De Jure */
+            de_jure?: boolean | null;
+            /** De Facto */
+            de_facto?: boolean | null;
+            /**
+             * Dry Run
+             * @default false
+             */
+            dry_run: boolean;
+        };
+        /** MapEventKey */
+        MapEventKey: {
+            /**
+             * Date
+             * Format: date
+             */
+            date: string;
+            /** Country */
+            country: number;
         };
         /** MapIds */
         MapIds: {
@@ -11714,10 +11892,13 @@ export interface operations {
             query?: {
                 q?: string;
                 country?: number | null;
+                role?: string;
                 province?: number | null;
                 after?: string | null;
                 before?: string | null;
                 flag?: string;
+                problem?: string;
+                sort?: string;
                 offset?: number;
                 limit?: number;
             };
@@ -11758,6 +11939,81 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["MapOwnershipRow"];
+                };
+            };
+        };
+    };
+    studio_api_worldmap_ownership_problems: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MapProblemCounts"];
+                };
+            };
+        };
+    };
+    studio_api_worldmap_ownership_events: {
+        parameters: {
+            query?: {
+                q?: string;
+                country?: number | null;
+                role?: string;
+                after?: string | null;
+                before?: string | null;
+                flag?: string;
+                problem?: string;
+                sort?: string;
+                offset?: number;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MapEventPage"];
+                };
+            };
+        };
+    };
+    studio_api_worldmap_ownerships_bulk: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MapBulkIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MapBulkOut"];
                 };
             };
         };

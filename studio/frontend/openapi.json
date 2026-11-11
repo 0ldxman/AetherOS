@@ -6533,6 +6533,16 @@
      },
      {
       "in": "query",
+      "name": "role",
+      "schema": {
+       "default": "to",
+       "title": "Role",
+       "type": "string"
+      },
+      "required": false
+     },
+     {
+      "in": "query",
       "name": "province",
       "schema": {
        "anyOf": [
@@ -6593,6 +6603,26 @@
      },
      {
       "in": "query",
+      "name": "problem",
+      "schema": {
+       "default": "",
+       "title": "Problem",
+       "type": "string"
+      },
+      "required": false
+     },
+     {
+      "in": "query",
+      "name": "sort",
+      "schema": {
+       "default": "-date",
+       "title": "Sort",
+       "type": "string"
+      },
+      "required": false
+     },
+     {
+      "in": "query",
       "name": "offset",
       "schema": {
        "default": 0,
@@ -6624,7 +6654,7 @@
       }
      }
     },
-    "description": "flag: jure | facto | split (только де-юре, только де-факто).",
+    "description": "flag: jure | facto | both. role: to (страна получила) или from (страна отдала). problem: early | late | dup. sort: date | -date | province.",
     "tags": [
      "map"
     ],
@@ -6658,6 +6688,219 @@
       "application/json": {
        "schema": {
         "$ref": "#/components/schemas/MapOwnershipIn"
+       }
+      }
+     },
+     "required": true
+    },
+    "security": [
+     {
+      "StudioAuth": []
+     }
+    ]
+   }
+  },
+  "/studio/api/map/ownerships/problems": {
+   "get": {
+    "operationId": "studio_api_worldmap_ownership_problems",
+    "summary": "Ownership Problems",
+    "parameters": [],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/MapProblemCounts"
+        }
+       }
+      }
+     }
+    },
+    "tags": [
+     "map"
+    ],
+    "security": [
+     {
+      "StudioAuth": []
+     }
+    ]
+   }
+  },
+  "/studio/api/map/ownerships/events": {
+   "get": {
+    "operationId": "studio_api_worldmap_ownership_events",
+    "summary": "Ownership Events",
+    "parameters": [
+     {
+      "in": "query",
+      "name": "q",
+      "schema": {
+       "default": "",
+       "title": "Q",
+       "type": "string"
+      },
+      "required": false
+     },
+     {
+      "in": "query",
+      "name": "country",
+      "schema": {
+       "anyOf": [
+        {
+         "type": "integer"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Country"
+      },
+      "required": false
+     },
+     {
+      "in": "query",
+      "name": "role",
+      "schema": {
+       "default": "to",
+       "title": "Role",
+       "type": "string"
+      },
+      "required": false
+     },
+     {
+      "in": "query",
+      "name": "after",
+      "schema": {
+       "anyOf": [
+        {
+         "format": "date",
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "After"
+      },
+      "required": false
+     },
+     {
+      "in": "query",
+      "name": "before",
+      "schema": {
+       "anyOf": [
+        {
+         "format": "date",
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Before"
+      },
+      "required": false
+     },
+     {
+      "in": "query",
+      "name": "flag",
+      "schema": {
+       "default": "",
+       "title": "Flag",
+       "type": "string"
+      },
+      "required": false
+     },
+     {
+      "in": "query",
+      "name": "problem",
+      "schema": {
+       "default": "",
+       "title": "Problem",
+       "type": "string"
+      },
+      "required": false
+     },
+     {
+      "in": "query",
+      "name": "sort",
+      "schema": {
+       "default": "-date",
+       "title": "Sort",
+       "type": "string"
+      },
+      "required": false
+     },
+     {
+      "in": "query",
+      "name": "offset",
+      "schema": {
+       "default": 0,
+       "title": "Offset",
+       "type": "integer"
+      },
+      "required": false
+     },
+     {
+      "in": "query",
+      "name": "limit",
+      "schema": {
+       "default": 100,
+       "title": "Limit",
+       "type": "integer"
+      },
+      "required": false
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/MapEventPage"
+        }
+       }
+      }
+     }
+    },
+    "description": "События: записи сгруппированы по дате и стране-получателю (права внутри события могут различаться).",
+    "tags": [
+     "map"
+    ],
+    "security": [
+     {
+      "StudioAuth": []
+     }
+    ]
+   }
+  },
+  "/studio/api/map/ownerships/bulk": {
+   "post": {
+    "operationId": "studio_api_worldmap_ownerships_bulk",
+    "summary": "Ownerships Bulk",
+    "parameters": [],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/MapBulkOut"
+        }
+       }
+      }
+     }
+    },
+    "tags": [
+     "map"
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/MapBulkIn"
        }
       }
      },
@@ -18329,6 +18572,21 @@
      "de_facto": {
       "title": "De Facto",
       "type": "boolean"
+     },
+     "previous": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/MapPrev"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "problem": {
+      "default": "",
+      "title": "Problem",
+      "type": "string"
      }
     },
     "required": [
@@ -18345,6 +18603,35 @@
      "de_facto"
     ],
     "title": "MapOwnershipRow",
+    "type": "object"
+   },
+   "MapPrev": {
+    "description": "Прежний владелец провинции перед этой записью.",
+    "properties": {
+     "country": {
+      "title": "Country",
+      "type": "integer"
+     },
+     "country_name": {
+      "title": "Country Name",
+      "type": "string"
+     },
+     "country_code": {
+      "title": "Country Code",
+      "type": "string"
+     },
+     "color": {
+      "title": "Color",
+      "type": "string"
+     }
+    },
+    "required": [
+     "country",
+     "country_name",
+     "country_code",
+     "color"
+    ],
+    "title": "MapPrev",
     "type": "object"
    },
    "MapOwnershipIn": {
@@ -18379,6 +18666,274 @@
      "date_from"
     ],
     "title": "MapOwnershipIn",
+    "type": "object"
+   },
+   "MapProblemCounts": {
+    "properties": {
+     "early": {
+      "title": "Early",
+      "type": "integer"
+     },
+     "late": {
+      "title": "Late",
+      "type": "integer"
+     },
+     "dup": {
+      "title": "Dup",
+      "type": "integer"
+     }
+    },
+    "required": [
+     "early",
+     "late",
+     "dup"
+    ],
+    "title": "MapProblemCounts",
+    "type": "object"
+   },
+   "MapEvent": {
+    "properties": {
+     "date": {
+      "format": "date",
+      "title": "Date",
+      "type": "string"
+     },
+     "country": {
+      "title": "Country",
+      "type": "integer"
+     },
+     "country_name": {
+      "title": "Country Name",
+      "type": "string"
+     },
+     "country_code": {
+      "title": "Country Code",
+      "type": "string"
+     },
+     "color": {
+      "title": "Color",
+      "type": "string"
+     },
+     "count": {
+      "title": "Count",
+      "type": "integer"
+     },
+     "jure": {
+      "title": "Jure",
+      "type": "integer"
+     },
+     "facto": {
+      "title": "Facto",
+      "type": "integer"
+     },
+     "froms": {
+      "items": {
+       "$ref": "#/components/schemas/MapEventFrom"
+      },
+      "title": "Froms",
+      "type": "array"
+     },
+     "fresh": {
+      "title": "Fresh",
+      "type": "integer"
+     }
+    },
+    "required": [
+     "date",
+     "country",
+     "country_name",
+     "country_code",
+     "color",
+     "count",
+     "jure",
+     "facto",
+     "froms",
+     "fresh"
+    ],
+    "title": "MapEvent",
+    "type": "object"
+   },
+   "MapEventFrom": {
+    "properties": {
+     "name": {
+      "title": "Name",
+      "type": "string"
+     },
+     "color": {
+      "title": "Color",
+      "type": "string"
+     },
+     "count": {
+      "title": "Count",
+      "type": "integer"
+     }
+    },
+    "required": [
+     "name",
+     "color",
+     "count"
+    ],
+    "title": "MapEventFrom",
+    "type": "object"
+   },
+   "MapEventPage": {
+    "properties": {
+     "total": {
+      "title": "Total",
+      "type": "integer"
+     },
+     "records": {
+      "title": "Records",
+      "type": "integer"
+     },
+     "rows": {
+      "items": {
+       "$ref": "#/components/schemas/MapEvent"
+      },
+      "title": "Rows",
+      "type": "array"
+     }
+    },
+    "required": [
+     "total",
+     "records",
+     "rows"
+    ],
+    "title": "MapEventPage",
+    "type": "object"
+   },
+   "MapBulkOut": {
+    "properties": {
+     "matched": {
+      "title": "Matched",
+      "type": "integer"
+     },
+     "changed": {
+      "title": "Changed",
+      "type": "integer"
+     },
+     "deleted": {
+      "title": "Deleted",
+      "type": "integer"
+     },
+     "conflicts": {
+      "title": "Conflicts",
+      "type": "integer"
+     },
+     "examples": {
+      "items": {
+       "type": "string"
+      },
+      "title": "Examples",
+      "type": "array"
+     }
+    },
+    "required": [
+     "matched",
+     "changed",
+     "deleted",
+     "conflicts",
+     "examples"
+    ],
+    "title": "MapBulkOut",
+    "type": "object"
+   },
+   "MapBulkIn": {
+    "properties": {
+     "ids": {
+      "default": [],
+      "items": {
+       "type": "integer"
+      },
+      "title": "Ids",
+      "type": "array"
+     },
+     "events": {
+      "default": [],
+      "items": {
+       "$ref": "#/components/schemas/MapEventKey"
+      },
+      "title": "Events",
+      "type": "array"
+     },
+     "action": {
+      "title": "Action",
+      "type": "string"
+     },
+     "date": {
+      "anyOf": [
+       {
+        "format": "date",
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Date"
+     },
+     "shift_days": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Shift Days"
+     },
+     "de_jure": {
+      "anyOf": [
+       {
+        "type": "boolean"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "De Jure"
+     },
+     "de_facto": {
+      "anyOf": [
+       {
+        "type": "boolean"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "De Facto"
+     },
+     "dry_run": {
+      "default": false,
+      "title": "Dry Run",
+      "type": "boolean"
+     }
+    },
+    "required": [
+     "action"
+    ],
+    "title": "MapBulkIn",
+    "type": "object"
+   },
+   "MapEventKey": {
+    "properties": {
+     "date": {
+      "format": "date",
+      "title": "Date",
+      "type": "string"
+     },
+     "country": {
+      "title": "Country",
+      "type": "integer"
+     }
+    },
+    "required": [
+     "date",
+     "country"
+    ],
+    "title": "MapEventKey",
     "type": "object"
    },
    "MapIds": {
