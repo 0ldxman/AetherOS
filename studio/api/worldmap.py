@@ -56,6 +56,7 @@ class MapCountryRow(Schema):
 class MapCountryOut(MapCountryRow):
     wiki_url: str
     successors: list[str]
+    successor_ids: list[int]
     label_list: list[MapLabelOut]
 
 
@@ -106,9 +107,10 @@ def countries(request, q: str = ""):
 
 def _country_out(country):
     country = _countries().get(pk=country.pk)
+    successors = list(country.successors.order_by("name").values_list("name", "pk"))
     return MapCountryOut(
         **_row(country, _now(), None), wiki_url=country.wiki_url,
-        successors=list(country.successors.values_list("name", flat=True)),
+        successors=[name for name, _ in successors], successor_ids=[pk for _, pk in successors],
         label_list=[_label(label) for label in country.labels.select_related("country")],
     )
 

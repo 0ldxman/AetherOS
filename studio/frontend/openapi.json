@@ -17609,6 +17609,13 @@
       "title": "Successors",
       "type": "array"
      },
+     "successor_ids": {
+      "items": {
+       "type": "integer"
+      },
+      "title": "Successor Ids",
+      "type": "array"
+     },
      "label_list": {
       "items": {
        "$ref": "#/components/schemas/MapLabelOut"
@@ -17631,6 +17638,7 @@
      "labels",
      "wiki_url",
      "successors",
+     "successor_ids",
      "label_list"
     ],
     "title": "MapCountryOut",

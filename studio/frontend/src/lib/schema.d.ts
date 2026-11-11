@@ -6161,6 +6161,8 @@ export interface components {
             wiki_url: string;
             /** Successors */
             successors: string[];
+            /** Successor Ids */
+            successor_ids: number[];
             /** Label List */
             label_list: components["schemas"]["MapLabelOut"][];
         };

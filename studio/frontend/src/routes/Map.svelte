@@ -30,7 +30,7 @@
   </nav>
   <div class="body">
     {#if current === "territory"}<Territory />
-    {:else if current === "countries"}{#key id}<Countries {id} />{/key}
+    {:else if current === "countries"}<Countries {id} />
     {:else if current === "provinces"}{#key id}<Provinces {id} />{/key}
     {:else if current === "ownerships"}<Ownerships />
     {:else if current === "labels"}{#key id}<Labels {id} />{/key}
