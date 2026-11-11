@@ -72,4 +72,19 @@ def prepare_world():
     store["_auth_user_hash"] = player.get_session_auth_hash()
     store[SESSION_KEY] = machine_session.pk
     store.save()
+    _furnish_studio()
     return {"author": {"username": AUTHOR[0], "password": AUTHOR[1]}, "player_cookie": store.session_key}
+
+
+def _furnish_studio():
+    """Содержимое для съёмок Студии: сцены из библиотеки и политика входа, чтобы экраны не были пустыми."""
+    from django.core.management import call_command
+
+    from machines.models import EntryPolicy, Machine
+
+    call_command("seed_scenes", "--bind", "AETHER", verbosity=0)
+    policy, _ = EntryPolicy.objects.get_or_create(name="Ночная смена", defaults={
+        "description": "Склад пускает только в рабочие часы и после трёх ошибок закрывается на пять минут.",
+        "sources": "aether-*", "max_attempts": 3, "attempts_window": 600, "lock_seconds": 300, "ttl": 1800,
+        "windows": "mon-fri: 9:00-13:00 14:00-18:00"})
+    Machine.objects.filter(hostname="aether-core").update(entry_policy=policy)
