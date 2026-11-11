@@ -249,15 +249,28 @@
       {#if errors.name}<p class="err">{errors.name.join(" ")}</p>{/if}
 
       <section class="life">
-        <span class="status" class:gone={!!form.valid_to}>{form.valid_to ? `существовала ${showDate(form.valid_from)} — ${showDate(form.valid_to)}` : `существует с ${showDate(form.valid_from)}`}</span>
-        <LifeLine from={form.valid_from} to={form.valid_to ?? null} min={axis.min} max={axis.max} color={form.color} tall />
-        <div class="ticks"><span>{year(new Date(axis.min).toISOString())}</span><span>{lived}</span><span>{year(new Date(axis.max).toISOString())}</span></div>
-        <div class="stats">
-          <div class="stat"><b>{country.provinces}</b><span>провинций сейчас</span></div>
-          <a class="stat" href="#/map/ownerships"><b>{country.ownerships}</b><span>записей владения</span></a>
-          <div class="stat"><b>{labels.length}</b><span>{plural(labels.length, "подпись", "подписи", "подписей")} на карте</span></div>
+        <div class="tags">
+          <span class="tag start">с {showDate(form.valid_from)}</span>
+          {#if form.valid_to}
+            <span class="tag end">перестала существовать {showDate(form.valid_to)}</span>
+          {:else}
+            <span class="tag live">существует по сей день</span>
+          {/if}
+          {#if lived}<span class="tag">{lived.replace(/\.$/, "")}</span>{/if}
+          {#if country.predecessor_name}<a class="tag link" href="#/map/countries/{form.predecessor}">выросла из: {country.predecessor_name}</a>{/if}
+          {#if country.successors.length}<span class="tag">наследников: {country.successors.length}</span>{/if}
+          {#if country.material_info}<span class="tag">есть материал</span>{/if}
+          {#if form.show_info === false}<span class="tag warn">скрыта от игрока</span>{/if}
         </div>
+        <LifeLine from={form.valid_from} to={form.valid_to ?? null} min={axis.min} max={axis.max} color={form.color} tall />
+        <div class="ticks"><span>{year(new Date(axis.min).toISOString())}</span><span>{year(new Date(axis.max).toISOString())}</span></div>
       </section>
+
+      <div class="stats">
+        <div class="stat"><b>{country.provinces}</b><span>провинций сейчас</span></div>
+        <a class="stat" href="#/map/ownerships"><b>{country.ownerships}</b><span>записей владения</span></a>
+        <div class="stat"><b>{labels.length}</b><span>{plural(labels.length, "подпись", "подписи", "подписей")} на карте</span></div>
+      </div>
 
       <div class="cols">
         <section class="card">
@@ -396,15 +409,20 @@
   .title:focus { border-color: var(--accent); background: var(--bg); }
   .title.bad { border-color: var(--danger); }
   .codechip { padding: 1px 8px; border-radius: 999px; background: var(--raise); color: var(--muted); font-size: 12px; }
-  .status { align-self: flex-start; padding: 2px 10px; border-radius: 999px; background: rgba(95, 208, 160, 0.14); color: var(--ok); font-size: 12.5px; white-space: nowrap; }
-  .status.gone { background: var(--raise); color: var(--muted); }
+  .tags { display: flex; flex-wrap: wrap; gap: 6px; }
+  .tag { padding: 2px 10px; border-radius: 999px; background: var(--raise); color: var(--muted); font-size: 12.5px; white-space: nowrap; }
+  .tag.start { color: var(--text); }
+  .tag.live { background: rgba(95, 208, 160, 0.14); color: var(--ok); }
+  .tag.end { background: rgba(255, 122, 122, 0.12); color: var(--danger); }
+  .tag.warn { background: rgba(242, 198, 109, 0.14); color: var(--warn); }
+  .tag.link { color: var(--accent); }
+  .tag.link:hover { text-decoration: none; background: var(--accent-soft); }
   .spacer { flex: 1; }
 
   .life { display: flex; flex-direction: column; gap: 6px; padding: 14px 16px; border: 1px solid var(--line-soft); border-radius: var(--radius); background: var(--panel); }
   .ticks { display: flex; justify-content: space-between; font-size: 11.5px; color: var(--faint); font-variant-numeric: tabular-nums; }
-  .ticks span:nth-child(2) { color: var(--muted); }
-  .stats { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 4px; }
-  .stat { display: flex; flex-direction: column; min-width: 120px; padding: 8px 14px; border: 1px solid var(--line-soft); border-radius: var(--radius-s); background: var(--bg); color: var(--text); }
+  .stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
+  .stat { display: flex; flex-direction: column; gap: 2px; padding: 14px 16px; border: 1px solid var(--line-soft); border-radius: var(--radius); background: var(--panel); color: var(--text); }
   a.stat:hover { border-color: var(--line); text-decoration: none; }
   .stat b { font-size: 20px; line-height: 1.2; font-variant-numeric: tabular-nums; }
   .stat span { color: var(--muted); font-size: 12px; }
