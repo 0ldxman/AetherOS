@@ -7737,6 +7737,8 @@ export interface components {
             reads: number;
             /** Author */
             author: string;
+            /** Byline */
+            byline: string;
         };
         /** NwOut */
         NwOut: {
@@ -7756,8 +7758,12 @@ export interface components {
             reads: number;
             /** Author */
             author: string;
+            /** Byline */
+            byline: string;
             /** Body */
             body: string;
+            /** Default Byline */
+            default_byline: string;
             /**
              * Updated At
              * Format: date-time
@@ -7785,6 +7791,11 @@ export interface components {
              * @default false
              */
             important: boolean;
+            /**
+             * Byline
+             * @default
+             */
+            byline: string;
         };
         /** SpMeta */
         SpMeta: {

@@ -30,6 +30,13 @@ class FeedTests(TestCase):
         self.assertEqual(feed.mark_read(self.ivan, [self.old.pk, self.old.pk, 999]), 1)
         self.assertEqual(feed.pulse(self.ivan)["items"], [{"id": self.pinned.pk, "title": "Pinned", "important": True}])
 
+    def test_players_see_the_byline_not_the_author(self):
+        self.old.author = self.ivan
+        self.old.save()
+        self.assertEqual(feed.byline(self.old), "AETHER")
+        feed.save(self.old, title="Old", body="", publish_at=self.old.publish_at, pinned=False, important=False, byline=" OPS ")
+        self.assertEqual(feed.byline(self.old), "OPS")
+
     def test_drafts_and_scheduled_cannot_be_marked(self):
         draft = Post.objects.get(title="Draft")
         self.assertEqual(feed.mark_read(self.ivan, [draft.pk]), 0)
@@ -52,4 +59,6 @@ class StudioNewsTests(TestCase):
                                   content_type="application/json").json()
         self.assertEqual(changed["status"], "published")
         self.assertEqual(self.client.get("/studio/api/news").json()[0]["reads"], 0)
+        named = self.client.put(f"/studio/api/news/{made['id']}", data=json.dumps({"title": "Hi", "byline": " CORE "}), content_type="application/json").json()
+        self.assertEqual((named["byline"], named["default_byline"]), ("CORE", "AETHER"))
         self.assertEqual(self.client.delete(f"/studio/api/news/{made['id']}").status_code, 204)

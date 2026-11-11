@@ -21330,6 +21330,10 @@
      "author": {
       "title": "Author",
       "type": "string"
+     },
+     "byline": {
+      "title": "Byline",
+      "type": "string"
      }
     },
     "required": [
@@ -21340,7 +21344,8 @@
      "pinned",
      "important",
      "reads",
-     "author"
+     "author",
+     "byline"
     ],
     "title": "NwRow",
     "type": "object"
@@ -21387,8 +21392,16 @@
       "title": "Author",
       "type": "string"
      },
+     "byline": {
+      "title": "Byline",
+      "type": "string"
+     },
      "body": {
       "title": "Body",
+      "type": "string"
+     },
+     "default_byline": {
+      "title": "Default Byline",
       "type": "string"
      },
      "updated_at": {
@@ -21406,7 +21419,9 @@
      "important",
      "reads",
      "author",
+     "byline",
      "body",
+     "default_byline",
      "updated_at"
     ],
     "title": "NwOut",
@@ -21444,6 +21459,11 @@
       "default": false,
       "title": "Important",
       "type": "boolean"
+     },
+     "byline": {
+      "default": "",
+      "title": "Byline",
+      "type": "string"
      }
     },
     "required": [

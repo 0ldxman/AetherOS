@@ -20,7 +20,7 @@ def posts(request):
     return JsonResponse({"posts": [{
         "id": post.pk, "title": post.title, "body": post.body, "when": f"{post.publish_at:%Y-%m-%d %H:%M}",
         "pinned": post.pinned, "important": post.important, "unread": not read,
-        "author": post.author.get_username() if post.author_id else "",
+        "author": feed.byline(post),
     } for post, read in rows], "guest": not request.user.is_authenticated})
 
 

@@ -19,10 +19,12 @@ class NwRow(Schema):
     important: bool
     reads: int
     author: str
+    byline: str                  # подпись для игроков; пусто: общая (default_byline)
 
 
 class NwOut(NwRow):
     body: str
+    default_byline: str
     updated_at: dt.datetime
 
 
@@ -32,15 +34,16 @@ class NwIn(Schema):
     publish_at: dt.datetime | None = None
     pinned: bool = False
     important: bool = False
+    byline: str = ""
 
 
 def _row(post):
     return dict(id=post.pk, title=post.title, status=post.status, publish_at=post.publish_at, pinned=post.pinned, important=post.important,
-                reads=post.reads.count(), author=post.author.get_username() if post.author_id else "")
+                reads=post.reads.count(), author=post.author.get_username() if post.author_id else "", byline=post.byline)
 
 
 def _out(post):
-    return NwOut(**_row(post), body=post.body, updated_at=post.updated_at)
+    return NwOut(**_row(post), body=post.body, default_byline=feed.DEFAULT_BYLINE, updated_at=post.updated_at)
 
 
 @router.get("", response=list[NwRow])

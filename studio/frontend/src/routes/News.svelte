@@ -15,10 +15,10 @@
 
   let { id }: { id: number | null } = $props();
 
-  type Form = { title: string; body: string; mode: string; at: string; pinned: boolean; important: boolean };
+  type Form = { title: string; body: string; byline: string; mode: string; at: string; pinned: boolean; important: boolean };
   let rows = $state<Schemas["NwRow"][]>([]);
   let post = $state<Schemas["NwOut"] | null>(null);
-  let form = $state<Form>({ title: "", body: "", mode: "draft", at: "", pinned: false, important: false });
+  let form = $state<Form>({ title: "", body: "", byline: "", mode: "draft", at: "", pinned: false, important: false });
   let base = $state<Form | null>(null);
   let saved = $state("");
   let busy = $state(false);
@@ -34,7 +34,7 @@
     return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
   };
   const valuesOf = (p: Schemas["NwOut"]): Form => ({
-    title: p.title, body: p.body, mode: p.status === "draft" ? "draft" : p.status === "scheduled" ? "later" : "now",
+    title: p.title, body: p.body, byline: p.byline, mode: p.status === "draft" ? "draft" : p.status === "scheduled" ? "later" : "now",
     at: p.publish_at && p.status === "scheduled" ? local(p.publish_at) : "", pinned: p.pinned, important: p.important,
   });
 
@@ -57,7 +57,7 @@
     await load();
   });
 
-  const share = new SharedForm({ room: () => (id ? `news/${id}` : ""), texts: ["title", "body"], draft: () => form, base: () => base,
+  const share = new SharedForm({ room: () => (id ? `news/${id}` : ""), texts: ["title", "body", "byline"], draft: () => form, base: () => base,
                                  onRemoteSave: () => { load(true); loadList(); } });
 
   function publishAt(): string | null {
@@ -72,7 +72,7 @@
     if (form.mode === "now" && post?.status !== "published" && !(await ask("Опубликовать новость?", "Её сразу увидят все игроки с приложением news.", "Опубликовать"))) return;
     busy = true;
     const { data, error } = await api.PUT("/studio/api/news/{post_id}", { params: { path: { post_id: id } },
-      body: { title: form.title, body: form.body, publish_at: publishAt(), pinned: form.pinned, important: form.important } });
+      body: { title: form.title, body: form.body, byline: form.byline, publish_at: publishAt(), pinned: form.pinned, important: form.important } });
     busy = false;
     if (error || !data) return toast(problem(error, "Не сохранилось."), "error");
     post = data;
@@ -85,7 +85,7 @@
   }
 
   async function create() {
-    const { data, error } = await api.POST("/studio/api/news", { body: { title: "Новая новость", body: "", publish_at: null, pinned: false, important: false } });
+    const { data, error } = await api.POST("/studio/api/news", { body: { title: "Новая новость", body: "", byline: "", publish_at: null, pinned: false, important: false } });
     if (error || !data) return toast(problem(error, "Не создалось."), "error");
     go(`/news/${data.id}`);
   }
@@ -138,13 +138,15 @@
         {#if form.mode === "later"}<input class="field when" type="datetime-local" bind:value={form.at} aria-label="Когда публиковать" disabled={!editable} />{/if}
         <label class="check"><input type="checkbox" bind:checked={form.pinned} disabled={!editable} />Закрепить сверху</label>
         <label class="check" title="Всплывает уведомлением на столе, пока игрок не прочтёт"><input type="checkbox" bind:checked={form.important} disabled={!editable} />Важная</label>
+        <label class="by"><span class="muted small">Подпись для игроков</span>
+          <input class="field" bind:value={form.byline} placeholder={post.default_byline} maxlength="60" disabled={!editable} aria-label="Подпись для игроков" /></label>
         {#if post.status === "published"}<span class="muted small">Прочитали: {post.reads}</span>{/if}
       </div>
 
       <div class="body">
         {#key share.texts.body}<CodeEditor bind:value={form.body} shared={share.texts.body ?? null} field="Текст новости" onsave={save} />{/key}
       </div>
-      <p class="muted small hint">Разметка: <code># заголовок</code>, <code>- список</code>, <code>&gt; цитата</code>, <code>**жирный**</code>, <code>*курсив*</code>, <code>`код`</code>, ссылки http(s). Игроки читают на английском.</p>
+      <p class="muted small hint">Разметка: <code># заголовок</code>, <code>- список</code>, <code>&gt; цитата</code>, <code>**жирный**</code>, <code>*курсив*</code>, <code>`код`</code>, ссылки http(s). Игроки читают на английском; автора из Студии они не видят, только подпись.</p>
     </section>
   {/if}
 </ListDetail>
@@ -170,6 +172,8 @@
   .seg input { position: absolute; opacity: 0; pointer-events: none; }
   .seg label:focus-within { outline: 2px solid var(--accent); outline-offset: 2px; }
   .when { width: 210px; }
+  .by { display: inline-flex; align-items: center; gap: 8px; }
+  .by .field { width: 170px; }
   .check { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; }
   .body { flex: 1; min-height: 240px; border: 1px solid var(--line-soft); border-radius: var(--radius); overflow: hidden; }
   .hint { margin-bottom: 12px; }

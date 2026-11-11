@@ -5,6 +5,11 @@ from django.utils import timezone
 from news.models import Post, PostRead
 
 LIMIT = 100
+DEFAULT_BYLINE = "AETHER"       # игроки видят подпись, а не автора из Студии
+
+
+def byline(post):
+    return post.byline.strip() or DEFAULT_BYLINE
 
 
 def published(now=None):
@@ -44,8 +49,9 @@ def pulse(user):
     return {"unread": len(rows), "items": [{"id": post.pk, "title": post.title, "important": post.important} for post in rows[:20]]}
 
 
-def save(post, *, title, body, publish_at, pinned, important, author=None):
+def save(post, *, title, body, publish_at, pinned, important, byline="", author=None):
     post.title, post.body, post.publish_at, post.pinned, post.important = title.strip(), body, publish_at, pinned, important
+    post.byline = (byline or "").strip()[:60]
     if post.author_id is None and author is not None:
         post.author = author
     post.save()

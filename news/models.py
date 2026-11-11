@@ -8,6 +8,8 @@ class Post(models.Model):
     title = models.CharField("Заголовок", max_length=200)
     body = models.TextField("Текст", blank=True, help_text="Простая разметка: # заголовок, - список, > цитата, **жирный**, *курсив*, `код`.")
     author = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL, related_name="news_posts")
+    byline = models.CharField("Подпись для игроков", max_length=60, blank=True,
+                              help_text="От чьего имени новость видят игроки. Пусто: общее имя. Автор из Студии игрокам не показывается.")
     publish_at = models.DateTimeField("Публикация", null=True, blank=True, db_index=True, help_text="Пусто: черновик. В будущем: запланирована.")
     pinned = models.BooleanField("Закреплена", default=False)
     important = models.BooleanField("Важная", default=False, help_text="Всплывает уведомлением на столе, пока игрок её не прочтёт.")
