@@ -13,6 +13,7 @@ const world = JSON.parse(process.env.GUIDE_WORLD);
 
 // Видео playwright не рисует курсор: добавляем свой, он идёт за мышью.
 const CURSOR = `
+  try { document.documentElement.style.background = "#0e0f12"; } catch (e) {}      // без белой вспышки при загрузке
   addEventListener("DOMContentLoaded", () => {
     const dot = document.createElement("div");
     dot.style.cssText = "position:fixed;z-index:2147483647;width:16px;height:16px;margin:-3px 0 0 -3px;border-radius:50%;background:rgba(255,120,60,.85);border:2px solid #fff;pointer-events:none;left:-50px;top:-50px;transition:transform .08s";
@@ -60,6 +61,7 @@ async function authorState(browser) {
       if (script.as === "player") await ctx.addCookies([{ name: "sessionid", value: world.player_cookie, url: base }]);
       if (clip) await ctx.addInitScript(CURSOR);
       page = await ctx.newPage();
+      if (clip) await page.setContent('<body style="margin:0;background:#0e0f12"></body>');
       page.on("pageerror", (e) => console.log(`     pageerror: ${e.message.slice(0, 200)}`));
       await script.run({ page, base, pause: (ms) => page.waitForTimeout(ms) });
       if (clip) video = page.video();
