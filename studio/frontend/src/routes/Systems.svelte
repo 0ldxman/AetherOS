@@ -408,9 +408,10 @@
         <div class="three">
           <label><span class="label">Код<Hint text="Короткое имя ОС латиницей. По нему в игре выбираются сцены и команды: менять осторожно." /></span><input class="field mono" bind:value={props_.code} /></label>
           <label><span class="label">Название</span><input class="field" bind:value={props_.name} /></label>
-          <label><span class="label">Диалект путей<Hint text="Как в этой ОС выглядят пути к файлам: Unix (/home/ivan) или Windows (C:\Users\ivan)." /></span>
+          <label><span class="label">Диалект путей<Hint text="Как в этой ОС выглядят пути к файлам в терминале. Хранение от него не зависит: канонический путь внутри один." /></span>
             <select class="field" bind:value={props_.path_style}>
               <option value="unix">Unix (/home/ivan)</option><option value="windows">Windows (C:\Users\ivan)</option>
+              <option value="vms">VMS (DSK0:[OPS.IVAN]FILE.TXT;1)</option><option value="mvs">Мейнфрейм (OPS.IVAN.FILE)</option>
             </select>
           </label>
         </div>

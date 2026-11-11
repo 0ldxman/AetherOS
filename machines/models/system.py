@@ -9,6 +9,8 @@ class SystemType(models.Model):
     class PathStyle(models.TextChoices):
         UNIX = "unix", "Unix (/home/ivan)"
         WINDOWS = "windows", "Windows (C:\\Users\\ivan)"
+        VMS = "vms", "VMS (DSK0:[OPS.IVAN]FILE.TXT;1)"
+        MVS = "mvs", "Мейнфрейм (OPS.IVAN.FILE)"
 
     code = models.CharField("Код", max_length=32, unique=True, help_text="Большими буквами: AETHER. По нему выбираются сцены и команды.")
     name = models.CharField("Название", max_length=128)

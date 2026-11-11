@@ -26,6 +26,63 @@ class DialectTests(SimpleTestCase):
         self.assertEqual(to_canonical("{home}/.secrets"), "{home}/.secrets")
 
 
+class DialectSyntaxTests(SimpleTestCase):
+    def test_windows_reads_drives_relative_paths_and_parents(self):
+        from machines.world.dialect import WINDOWS, parse
+
+        self.assertEqual(parse("C:\\Users\\ivan", WINDOWS), "/C:/Users/ivan")
+        self.assertEqual(parse("d:", WINDOWS), "/D:")
+        self.assertEqual(parse("Desktop\\a.txt", WINDOWS, "/C:/Users/ivan"), "/C:/Users/ivan/Desktop/a.txt")
+        self.assertEqual(parse("..\\..\\..\\..", WINDOWS, "/C:/Users/ivan"), "/C:")          # выше диска не уйти
+        self.assertEqual(parse("\\Windows", WINDOWS, "/C:/Users/ivan"), "/C:/Windows")
+        self.assertEqual(to_display("/C:/Users/ivan", "windows"), "C:\\Users\\ivan")
+
+    def test_vms_specifications_round_trip(self):
+        from machines.world.dialect import VMS, parse
+
+        self.assertEqual(parse("DSK0:[OPS.IVAN.DESK]CONSOLE.APP;3", VMS), "/DSK0:/OPS/IVAN/DESK/CONSOLE.APP")
+        self.assertEqual(to_display("/DSK0:/OPS/IVAN/DESK/console.app", "vms", is_dir=False), "DSK0:[OPS.IVAN.DESK]CONSOLE.APP;1")
+        self.assertEqual(to_display("/DSK0:/OPS/IVAN", "vms"), "DSK0:[OPS.IVAN]")
+        self.assertEqual(to_display("/DSK0:", "vms"), "DSK0:[000000]")
+        self.assertEqual(to_display("/DSK0:/A.TXT", "vms", is_dir=False), "DSK0:[000000]A.TXT;1")
+        here = "/DSK0:/OPS/IVAN"
+        self.assertEqual(parse("[.DESK]", VMS, here), "/DSK0:/OPS/IVAN/DESK")
+        self.assertEqual(parse("[-]", VMS, here), "/DSK0:/OPS")
+        self.assertEqual(parse("[--]", VMS, here), "/DSK0:")
+        self.assertEqual(parse("[-.OLGA]NOTE.TXT", VMS, here), "/DSK0:/OPS/OLGA/NOTE.TXT")
+        self.assertEqual(parse("[LOGBOOK]", VMS, here), "/DSK0:/LOGBOOK")                        # с того же устройства
+        self.assertEqual(parse("NOTE.TXT;2", VMS, here), "/DSK0:/OPS/IVAN/NOTE.TXT")
+        self.assertEqual(parse("DSK1:[000000]", VMS, here), "/DSK1:")
+        self.assertEqual(parse("/DSK0:/OPS", VMS, here), "/DSK0:/OPS")                           # канонический путь понимают все
+
+    def test_vms_rejects_garbage(self):
+        from machines.world.dialect import VMS, PathSyntax, parse
+
+        for bad in ("DSK0:[OPS", "A:B:C", "[OPS]]X"):
+            with self.assertRaises(PathSyntax):
+                parse(bad, VMS, "/DSK0:")
+
+    def test_mainframe_names_follow_tso_rules(self):
+        from machines.world.dialect import MVS, PathSyntax, parse
+
+        self.assertEqual(parse("'SYS1.PARMLIB'", MVS, "/OPS/IVAN"), "/SYS1/PARMLIB")
+        self.assertEqual(parse("'SYS1.PARMLIB(IEASYS00)'", MVS), "/SYS1/PARMLIB/IEASYS00")
+        self.assertEqual(parse("DESK.CONSOLE", MVS, "/OPS/IVAN"), "/OPS/IVAN/DESK/CONSOLE")     # без кавычек: к префиксу
+        self.assertEqual(parse("*", MVS, "/OPS/IVAN"), "/")
+        self.assertEqual(to_display("/OPS/ivan/DESK", "mvs"), "OPS.IVAN.DESK")
+        self.assertEqual(to_display("/", "mvs"), "*")
+        for bad in ("'1BAD.NAME'", "TOOLONGNAME.X", "A..B", "'" + ".".join(["ABCDEFGH"] * 6) + "'"):
+            with self.assertRaises(PathSyntax):
+                parse(bad, MVS, "/")
+
+    def test_unix_joins_relative_paths(self):
+        from machines.world.dialect import UNIX, parse
+
+        self.assertEqual(parse("../olga/./a", UNIX, "/home/ivan"), "/home/olga/a")
+        self.assertEqual(parse("/../../etc", UNIX, "/home"), "/etc")
+        self.assertEqual(parse("", UNIX, "/home"), "/home")
+
+
 class PlaceTests(TestCase):
     @classmethod
     def setUpTestData(cls):
