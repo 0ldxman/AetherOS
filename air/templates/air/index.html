@@ -14,36 +14,67 @@
           data-tune-url="{% url 'air:tune' %}" data-listen-url="{% url 'air:listen' %}" data-tx-url="{% url 'air:tx' %}"
           data-scan-url="{% url 'air:scan' %}" data-callsign-url="{% url 'air:callsign' %}" data-report-url="{% url 'air:report' %}">
         {{ state|json_script:"air-state" }}
-        <header class="rig">
-            <div class="dial">
-                <button type="button" class="step" data-step="-1" aria-label="down one channel" title="down (↓)">−</button>
-                <input id="air-freq" class="readout" inputmode="decimal" aria-label="frequency, MHz" spellcheck="false" autocomplete="off">
-                <span class="unit">MHz</span>
-                <button type="button" class="step" data-step="1" aria-label="up one channel" title="up (↑)">+</button>
+
+        {# передняя панель: лампы, шкала частоты, S-метр, подпись канала и свой позывной #}
+        <header class="panel">
+            <div class="lamps" aria-hidden="true">
+                <span id="air-rx" class="lamp lamp-rx on">RX</span>
+                <span id="air-txlamp" class="lamp lamp-tx">TX</span>
             </div>
-            <div class="meta">
-                <span id="air-mode" class="mode">RX</span>
-                <button type="button" id="air-scan" class="app-button">scan</button>
-                <button type="button" id="air-call" class="callsign" title="your callsign"></button>
+            <div class="vfo-box">
+                <div id="air-vfo" class="vfo" tabindex="0" role="spinbutton" aria-label="frequency, MHz"
+                     title="wheel over a digit tunes that digit · ↑↓ step · click to type"></div>
+                <input id="air-freq" class="vfo-input" inputmode="decimal" spellcheck="false" autocomplete="off" aria-label="type frequency, MHz" hidden>
+                <span class="unit">MHz</span>
+            </div>
+            <div class="smeter" aria-label="signal strength">
+                <div id="air-bars" class="bars"></div>
+                <span id="air-s" class="sval">S0</span>
+            </div>
+            <div class="sub">
+                <span id="air-label" class="chan"></span>
+                <span id="air-inhibit" class="inhibit" hidden>TX INHIBIT</span>
+            </div>
+            <div class="mycall">
+                <span class="cap">MY CALL</span>
+                <button type="button" id="air-call" class="callsign" title="change callsign (once a week)"></button>
             </div>
         </header>
 
-        <section id="air-log" class="log" aria-live="polite" aria-label="received"></section>
-        <section id="air-scanner" class="scanner" hidden aria-label="scanner">
-            <form id="air-scan-form" class="scanrow">
-                <input id="air-low" class="field" inputmode="decimal" aria-label="from, MHz">
-                <span>–</span>
-                <input id="air-high" class="field" inputmode="decimal" aria-label="to, MHz">
-                <button type="submit" class="app-button primary">sweep</button>
-                <button type="button" id="air-scan-close" class="app-button">back</button>
-            </form>
-            <ol id="air-found" class="found"></ol>
+        {# панорама: где на участке ±0.25 МГц был эфир за 15 минут; щелчок выводит на частоту #}
+        <section class="pano" aria-label="band scope">
+            <div id="air-scope" class="scope" title="click to tune">
+                <div class="floor"></div>
+                <div id="air-peaks" class="peaks"></div>
+                <div id="air-cursor" class="cursor"></div>
+                <div id="air-hover" class="hover" hidden></div>
+            </div>
+            <div id="air-scale" class="scale"></div>
+            <span id="air-sweep" class="sweep"></span>
         </section>
+
+        <nav class="keys" aria-label="tuning">
+            <div class="mem" id="air-mem"></div>
+            <div class="tuning">
+                <label class="cap" for="air-step">STEP</label>
+                <select id="air-step" class="stepsel">
+                    <option value="0.005">5 kHz</option>
+                    <option value="0.025">25 kHz</option>
+                    <option value="0.100">100 kHz</option>
+                    <option value="1.000">1 MHz</option>
+                </select>
+                <button type="button" class="key" data-step="-1" aria-label="tune down">◀</button>
+                <button type="button" class="key" data-step="1" aria-label="tune up">▶</button>
+            </div>
+        </nav>
+
+        <section id="air-log" class="log" aria-live="polite" aria-label="received"></section>
 
         <form id="air-tx" class="tx">
             <span class="prompt">TX›</span>
             <input id="air-text" class="field" maxlength="280" autocomplete="off" aria-label="transmission">
-            <button type="submit" class="app-button primary">send</button>
+            <span id="air-count" class="count">0/280</span>
+            <button type="submit" id="air-ptt" class="ptt">PTT</button>
         </form>
         <footer class="status"><span id="air-status"></span><span id="air-since"></span></footer>
     </main>

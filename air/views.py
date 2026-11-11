@@ -43,8 +43,12 @@ def _tuned(request):
 def _state(request):
     freq, since = _tuned(request)
     player = _player(request)
+    band = radio.band_of(freq)
+    label = "calling channel" if freq == radio.CALLING else (band.label if band else "")
     return {"freq": f"{freq:.3f}", "since": since.isoformat(), "callsign": radio.callsign_of(player).name if player else "",
-            "can_tx": player is not None, "calling": f"{radio.CALLING:.3f}"}
+            "can_tx": player is not None, "calling": f"{radio.CALLING:.3f}", "label": label,
+            "inhibit": band is not None and band.kind == band.Kind.RESERVED,
+            "low": f"{radio.LOW:.3f}", "high": f"{radio.HIGH:.3f}", "scan_width": f"{radio.SCAN_WIDTH:.3f}"}
 
 
 def _row(row):
