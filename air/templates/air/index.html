@@ -1,0 +1,56 @@
+{% extends "ui/base.html" %}
+{% load static %}
+
+{% block lang %}en{% endblock %}
+{% block title %}air{% endblock %}
+
+{% block css %}
+    <link rel="stylesheet" href="{% static 'ui/apps.css' %}">
+    <link rel="stylesheet" href="{% static 'air/air.css' %}">
+{% endblock %}
+
+{% block body %}
+    <main id="air"
+          data-tune-url="{% url 'air:tune' %}" data-listen-url="{% url 'air:listen' %}" data-tx-url="{% url 'air:tx' %}"
+          data-scan-url="{% url 'air:scan' %}" data-callsign-url="{% url 'air:callsign' %}" data-report-url="{% url 'air:report' %}">
+        {{ state|json_script:"air-state" }}
+        <header class="rig">
+            <div class="dial">
+                <button type="button" class="step" data-step="-1" aria-label="down one channel" title="down (↓)">−</button>
+                <input id="air-freq" class="readout" inputmode="decimal" aria-label="frequency, MHz" spellcheck="false" autocomplete="off">
+                <span class="unit">MHz</span>
+                <button type="button" class="step" data-step="1" aria-label="up one channel" title="up (↑)">+</button>
+            </div>
+            <div class="meta">
+                <span id="air-mode" class="mode">RX</span>
+                <button type="button" id="air-scan" class="app-button">scan</button>
+                <button type="button" id="air-call" class="callsign" title="your callsign"></button>
+            </div>
+        </header>
+
+        <section id="air-log" class="log" aria-live="polite" aria-label="received"></section>
+        <section id="air-scanner" class="scanner" hidden aria-label="scanner">
+            <form id="air-scan-form" class="scanrow">
+                <input id="air-low" class="field" inputmode="decimal" aria-label="from, MHz">
+                <span>–</span>
+                <input id="air-high" class="field" inputmode="decimal" aria-label="to, MHz">
+                <button type="submit" class="app-button primary">sweep</button>
+                <button type="button" id="air-scan-close" class="app-button">back</button>
+            </form>
+            <ol id="air-found" class="found"></ol>
+        </section>
+
+        <form id="air-tx" class="tx">
+            <span class="prompt">TX›</span>
+            <input id="air-text" class="field" maxlength="280" autocomplete="off" aria-label="transmission">
+            <button type="submit" class="app-button primary">send</button>
+        </form>
+        <footer class="status"><span id="air-status"></span><span id="air-since"></span></footer>
+    </main>
+    {% csrf_token %}
+{% endblock %}
+
+{% block js %}
+    <script src="{% static 'ui/apps.js' %}" defer></script>
+    <script src="{% static 'air/air.js' %}" defer></script>
+{% endblock %}
