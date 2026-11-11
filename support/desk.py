@@ -14,6 +14,7 @@ from django.utils import timezone
 
 from support.models import IMAGE_TYPES, Ticket, TicketFile, TicketMessage
 
+DEFAULT_RESPONDER = "AETHER ASSIST"      # для игрока ему отвечает ИИ узла, а не люди команды
 MAX_FILES = 5
 MAX_SIZE = 5 * 1024 * 1024
 MAX_TEXT = 5000
@@ -102,6 +103,17 @@ def staff_reply(ticket, author, text, uploads=(), internal=False):
             fields.append("assignee")
     ticket.save(update_fields=fields)
     return message
+
+
+def responder(ticket):
+    """Чьё имя видит игрок у ответов команды в этом обращении."""
+    return ticket.responder.strip() or DEFAULT_RESPONDER
+
+
+def set_responder(ticket, name):
+    ticket.responder = (name or "").strip()[:60]
+    ticket.save(update_fields=["responder", "updated_at"])
+    return ticket
 
 
 def set_status(ticket, status):

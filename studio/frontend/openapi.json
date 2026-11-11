@@ -21691,6 +21691,14 @@
       "title": "Waiting On Team",
       "type": "boolean"
      },
+     "responder": {
+      "title": "Responder",
+      "type": "string"
+     },
+     "default_responder": {
+      "title": "Default Responder",
+      "type": "string"
+     },
      "context": {
       "additionalProperties": true,
       "title": "Context",
@@ -21720,6 +21728,8 @@
      "assignee_id",
      "updated_at",
      "waiting_on_team",
+     "responder",
+     "default_responder",
      "context",
      "created_at",
      "messages"
@@ -21755,6 +21765,17 @@
       "default": false,
       "title": "Unassign",
       "type": "boolean"
+     },
+     "responder": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Responder"
      }
     },
     "title": "SpChange",

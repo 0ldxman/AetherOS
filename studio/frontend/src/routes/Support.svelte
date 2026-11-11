@@ -141,7 +141,7 @@
       <div class="thread" bind:this={thread}>
         {#each ticket.messages as m (m.id)}
           <div class="msg" class:staff={m.staff && !m.internal} class:note={m.internal}>
-            <div class="msg-head"><b>{m.staff ? m.author : ticket.player}</b>{#if m.internal}<span class="tag">заметка команды</span>{/if}<span class="muted">{when(m.created_at)}</span></div>
+            <div class="msg-head"><b>{m.staff ? m.author : ticket.player}</b>{#if m.staff && !m.internal}<span class="muted">как {ticket.responder || ticket.default_responder}</span>{/if}{#if m.internal}<span class="tag">заметка команды</span>{/if}<span class="muted">{when(m.created_at)}</span></div>
             {#if m.text}<div class="msg-text">{m.text}</div>{/if}
             {#if m.files.length}
               <div class="files">
@@ -159,7 +159,7 @@
       </div>
       {#if editable}
         <form class="reply" class:note={internal} onsubmit={(e) => { e.preventDefault(); send(); }}>
-          <textarea class="field" rows="3" bind:value={text} placeholder={internal ? "Заметка для команды: игрок её не увидит" : "Ответ игроку (по-английски)"}
+          <textarea class="field" rows="3" bind:value={text} placeholder={internal ? "Заметка для команды: игрок её не увидит" : `Ответ игроку от имени ${ticket.responder || ticket.default_responder} (по-английски)`}
                     onkeydown={(e) => { if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) send(); }} aria-label="Сообщение"></textarea>
           {#if files.length}
             <div class="picked">
@@ -189,6 +189,10 @@
           {#each meta?.authors ?? [] as a (a.id)}<option value={a.id}>{a.username}</option>{/each}
         </select></label>
       {#if editable && ticket.assignee_id !== me.data?.id}<button class="btn ghost tiny" onclick={() => change({ assignee: me.data?.id as number })}>Взять себе</button>{/if}
+      <label><span class="label">Кто отвечает игроку</span>
+        <input class="field" value={ticket.responder} placeholder={ticket.default_responder} maxlength="60" disabled={!editable}
+               onchange={(e) => change({ responder: e.currentTarget.value })} />
+        <span class="muted small">Этим именем подписаны все ответы в диалоге: для игрока это ИИ узла. Пусто: {ticket.default_responder}.</span></label>
       <div class="block">
         <span class="label">Игрок</span>
         <a href={`#/players/${ticket.player_id}`}>{ticket.player}</a>

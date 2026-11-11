@@ -137,7 +137,7 @@
         for (const m of data.messages) {
             const box = el("div", "msg " + (m.staff ? "staff" : "mine"));
             const head = el("div", "msg-head");
-            head.append(el("b", "", m.staff ? "Aether team" : "you"), el("span", "", m.when));
+            head.append(el("b", "", m.author), el("span", "", m.when));
             box.append(head);
             if (m.text) box.append(el("div", "msg-text", m.text));
             if (m.files.length) box.append(showFiles(m.files));

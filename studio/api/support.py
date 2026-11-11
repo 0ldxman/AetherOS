@@ -44,6 +44,8 @@ class SpMessage(Schema):
 
 
 class SpTicket(SpRow):
+    responder: str               # имя для игрока; пусто: общее (default_responder)
+    default_responder: str
     context: dict
     created_at: dt.datetime
     messages: list[SpMessage]
@@ -59,6 +61,7 @@ class SpChange(Schema):
     status: str | None = None
     assignee: int | None = None
     unassign: bool = False
+    responder: str | None = None
 
 
 def _last_player(ticket):
@@ -76,7 +79,7 @@ def _ticket(ticket):
     messages = [SpMessage(id=m.pk, staff=m.staff, internal=m.internal, author=m.author.get_username() if m.author_id else "?", text=m.text,
                           created_at=m.created_at, files=[SpFile(id=f.pk, name=f.name, size=f.size, image=f.is_image) for f in m.files.all()])
                 for m in desk.visible(ticket, staff=True)]
-    return SpTicket(**_row(ticket), context=ticket.context or {}, created_at=ticket.created_at, messages=messages)
+    return SpTicket(**_row(ticket), responder=ticket.responder, default_responder=desk.DEFAULT_RESPONDER, context=ticket.context or {}, created_at=ticket.created_at, messages=messages)
 
 
 @router.get("/meta", response=SpMeta)
@@ -118,6 +121,8 @@ def change(request, ticket_id: int, body: SpChange):
     ticket = get_object_or_404(Ticket, pk=ticket_id)
     if body.status:
         desk.set_status(ticket, body.status)
+    if body.responder is not None:
+        desk.set_responder(ticket, body.responder)
     if body.unassign:
         desk.assign(ticket, None)
     elif body.assignee:

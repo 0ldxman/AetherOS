@@ -52,9 +52,10 @@ def _file(f):
 def ticket(request, ticket_id):
     found = _ticket(request, ticket_id)
     desk.seen(found)
+    name = desk.responder(found)
     return JsonResponse({
-        "id": found.pk, "subject": found.subject, "category": found.category, "status": found.status,
-        "messages": [{"id": m.pk, "staff": m.staff, "author": "support" if m.staff else "you", "text": m.text,
+        "id": found.pk, "subject": found.subject, "category": found.category, "status": found.status, "responder": name,
+        "messages": [{"id": m.pk, "staff": m.staff, "author": name if m.staff else "you", "text": m.text,
                       "when": f"{m.created_at:%Y-%m-%d %H:%M}", "files": [_file(f) for f in m.files.all()]} for m in desk.visible(found)],
     })
 

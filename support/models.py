@@ -19,6 +19,8 @@ class Ticket(models.Model):
     subject = models.CharField("Тема", max_length=200)
     category = models.CharField(max_length=8, choices=Category.choices, default=Category.OTHER)
     status = models.CharField(max_length=8, choices=Status.choices, default=Status.NEW, db_index=True)
+    responder = models.CharField("Кто отвечает игроку", max_length=60, blank=True,
+                                 help_text="Имя, которым подписаны все ответы команды в этом обращении (для игрока это ИИ узла). Пусто: общее имя.")
     assignee = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL, related_name="assigned_tickets")
     context = models.JSONField("Где был игрок", default=dict, blank=True)
     player_seen_at = models.DateTimeField(null=True, blank=True, help_text="Когда игрок последний раз открыл обращение.")

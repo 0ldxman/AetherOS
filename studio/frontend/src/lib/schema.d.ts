@@ -7883,6 +7883,10 @@ export interface components {
             updated_at: string;
             /** Waiting On Team */
             waiting_on_team: boolean;
+            /** Responder */
+            responder: string;
+            /** Default Responder */
+            default_responder: string;
             /** Context */
             context: {
                 [key: string]: unknown;
@@ -7906,6 +7910,8 @@ export interface components {
              * @default false
              */
             unassign: boolean;
+            /** Responder */
+            responder?: string | null;
         };
     };
     responses: never;
