@@ -15,12 +15,20 @@ const world = JSON.parse(process.env.GUIDE_WORLD);
 const CURSOR = `
   try { document.documentElement.style.background = "#0e0f12"; } catch (e) {}      // без белой вспышки при загрузке
   addEventListener("DOMContentLoaded", () => {
-    const dot = document.createElement("div");
-    dot.style.cssText = "position:fixed;z-index:2147483647;width:16px;height:16px;margin:-3px 0 0 -3px;border-radius:50%;background:rgba(255,120,60,.85);border:2px solid #fff;pointer-events:none;left:-50px;top:-50px;transition:transform .08s";
-    document.documentElement.append(dot);
-    addEventListener("mousemove", (e) => { dot.style.left = e.clientX + "px"; dot.style.top = e.clientY + "px"; }, true);
-    addEventListener("mousedown", () => (dot.style.transform = "scale(.7)"), true);
-    addEventListener("mouseup", () => (dot.style.transform = ""), true);
+    const arrow = document.createElement("div");
+    arrow.innerHTML = '<svg width="22" height="30" viewBox="0 0 22 30" xmlns="http://www.w3.org/2000/svg"><path d="M2 2 L2 23 L7.6 18 L11.4 27.2 L15 25.6 L11.2 16.6 L18.6 16.6 Z" fill="#fff" stroke="#111" stroke-width="1.6" stroke-linejoin="round"/></svg>';
+    arrow.style.cssText = "position:fixed;z-index:2147483647;left:-60px;top:-60px;width:22px;height:30px;pointer-events:none;transform-origin:2px 2px;transition:transform .09s;filter:drop-shadow(0 1px 2px rgba(0,0,0,.5))";
+    document.documentElement.append(arrow);
+    addEventListener("mousemove", (e) => { arrow.style.left = e.clientX - 2 + "px"; arrow.style.top = e.clientY - 2 + "px"; }, true);
+    addEventListener("mousedown", (e) => {
+      arrow.style.transform = "scale(.86)";
+      const ring = document.createElement("div");                                   // кольцо под местом нажатия
+      ring.style.cssText = "position:fixed;z-index:2147483646;width:28px;height:28px;border-radius:50%;border:2px solid rgba(122,162,255,.9);pointer-events:none;transition:transform .45s ease-out,opacity .45s ease-out;left:" + (e.clientX - 14) + "px;top:" + (e.clientY - 14) + "px";
+      document.documentElement.append(ring);
+      requestAnimationFrame(() => requestAnimationFrame(() => { ring.style.transform = "scale(2)"; ring.style.opacity = "0"; }));
+      setTimeout(() => ring.remove(), 600);
+    }, true);
+    addEventListener("mouseup", () => (arrow.style.transform = ""), true);
   });`;
 
 async function authorState(browser) {
