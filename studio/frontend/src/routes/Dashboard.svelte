@@ -34,6 +34,7 @@
     if (tab || !notes || !myTasks) return;
     tab = unread ? "notes" : myTasks.length ? "tasks" : "notes";
   });
+  let nowTab = $state<"edits" | "players">("edits");
   const waitingSupport = $derived(support?.filter((t) => t.waiting_on_team) ?? []);
   const attention = $derived((dash?.problems.length ?? 0) + waitingSupport.length);
 
@@ -272,28 +273,31 @@
 
     <section class="panel">
       <header class="panel-head"><h2>Сейчас</h2></header>
-      <h3 class="sub">Игроки в мире{#if dash?.online.length}<span class="count">{dash.online.length}</span>{/if}</h3>
-      {#if !dash}
-        <p class="muted empty">Загрузка…</p>
-      {:else if !dash.online.length}
-        <p class="muted empty">Никого нет.</p>
-      {:else}
-        <ul class="rows">
-          {#each dash.online as p (p.player + p.login + p.machine)}
-            <li class="row">
-              <span class="dot" aria-hidden="true"></span>
-              <span class="what"><b>{p.player}</b> <span class="muted">как</span> <a href="#/machines/{p.machine}/accounts">{p.login}@{p.hostname}</a></span>
-              <span class="muted when">{ago(p.seen_at)}</span>
-            </li>
-          {/each}
-        </ul>
-      {/if}
+      <div class="tabs" role="tablist">
+        <button role="tab" aria-selected={nowTab === "edits"} class:on={nowTab === "edits"} onclick={() => (nowTab = "edits")}>Правки{#if live?.length}<span class="badge">{live.length}</span>{/if}</button>
+        <button role="tab" aria-selected={nowTab === "players"} class:on={nowTab === "players"} onclick={() => (nowTab = "players")}>Игроки{#if dash?.online.length}<span class="badge">{dash.online.length}</span>{/if}</button>
+      </div>
 
-      <h3 class="sub">Авторы за правкой{#if live?.length}<span class="count">{live.length}</span>{/if}</h3>
-      {#if !live}
+      {#if nowTab === "players"}
+        {#if !dash}
+          <p class="muted empty">Загрузка…</p>
+        {:else if !dash.online.length}
+          <p class="muted empty">Сейчас в мире никого.</p>
+        {:else}
+          <ul class="rows">
+            {#each dash.online as p (p.player + p.login + p.machine)}
+              <li class="row">
+                <span class="dot" aria-hidden="true"></span>
+                <span class="what"><b>{p.player}</b> <span class="muted">как</span> <a href="#/machines/{p.machine}/accounts">{p.login}@{p.hostname}</a></span>
+                <span class="muted when">{ago(p.seen_at)}</span>
+              </li>
+            {/each}
+          </ul>
+        {/if}
+      {:else if !live}
         <p class="muted empty">Загрузка…</p>
       {:else if !live.length}
-        <p class="muted empty">Никто ничего не правит, черновиков нет.</p>
+        <p class="muted empty">Никто ничего не правит, несохранённых черновиков нет.</p>
       {:else}
         <ul class="rows">
           {#each live as r (r.room)}
@@ -344,9 +348,6 @@
   .scroll { max-height: 440px; overflow-y: auto; margin: 0 -8px; padding: 0 8px; }
   .day { margin: 12px 0 4px; font-size: 11px; text-transform: uppercase; letter-spacing: 0.6px; color: var(--faint); font-weight: 600; }
   .day:first-child { margin-top: 2px; }
-  .sub { display: flex; align-items: center; gap: 6px; margin: 12px 0 2px; font-size: 11px; text-transform: uppercase; letter-spacing: 0.6px; color: var(--faint); font-weight: 600; }
-  .sub:first-of-type { margin-top: 0; }
-  .count { padding: 0 6px; border-radius: 999px; background: var(--raise); color: var(--muted); font-size: 11px; letter-spacing: 0; }
   .rows { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
   .row { display: flex; align-items: baseline; gap: 10px; padding: 6px 0; border-bottom: 1px solid var(--line-soft); }
   .row:last-child { border-bottom: 0; }
