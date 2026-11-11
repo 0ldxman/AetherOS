@@ -123,11 +123,12 @@
   const KIND: Record<string, string> = { system: "ОС", machine: "машина", account: "учётка" };
 
   const TEXTS = [
-    { key: "denied_text", label: "Отказ", when: "Не тот хост или не тот путь через мосты." },
+    { key: "denied_text", label: "Отказ", when: "Не тот хост или не тот путь через мосты. Игрок получает обычный отказ." },
     { key: "locked_text", label: "Блокировка", when: "Слишком много ошибок подряд: вход закрыт на время блока." },
-    { key: "window_text", label: "Вне окна", when: "Вход пробуют вне разрешённых часов." },
-    { key: "kick_text", label: "Обрыв по сроку", when: "Сессия закончилась по сроку подключения." },
+    { key: "window_text", label: "Вне окна", when: "Вход пробуют вне разрешённых часов. Игрок получает тот же отказ, что и при неверных данных." },
+    { key: "kick_text", label: "Обрыв по сроку", when: "Сессия закончилась по сроку подключения: текст показывается в окне обрыва." },
   ] as const;
+  const mmss = (seconds: number) => `${String(Math.floor(seconds / 60)).padStart(2, "0")}:${String(seconds % 60).padStart(2, "0")}`;
   let textTab = $state<(typeof TEXTS)[number]["key"]>("denied_text");
   let textMode = $state(false);
 
@@ -216,7 +217,6 @@
               <p class="sentence">
                 После <input class="field num" type="number" min="1" bind:value={form.max_attempts} aria-label="Ошибок до блока" /> {plural(form.max_attempts ?? 0, "ошибки", "ошибок", "ошибок")}
                 за <Duration label="Окно подсчёта ошибок" value={form.attempts_window} onchange={(v) => (form.attempts_window = v)} />
-                закрыть вход на <Duration label="Длительность блока" value={form.lock_seconds} onchange={(v) => (form.lock_seconds = v)} />
               </p>
             {:else}
               <p class="muted small">Сколько бы ни ошибались, вход не закрывается.</p>
@@ -225,15 +225,23 @@
               <Switch checked={form.ttl != null} label="Обрывать сессию по сроку" onchange={(on) => (form.ttl = on ? 1800 : null)} />
             </div>
             {#if form.ttl != null}
-              <p class="sentence">Сессия обрывается через <Duration label="Срок подключения" value={form.ttl} onchange={(v) => (form.ttl = v)} /> после входа. Блок после обрыва задаётся блокировкой выше.</p>
+              <p class="sentence">Сессия обрывается через <Duration label="Срок подключения" value={form.ttl} onchange={(v) => (form.ttl = v)} /> после входа.</p>
             {:else}
               <p class="muted small">Подключение живёт, пока игрок сам не выйдет.</p>
+            {/if}
+            {#if form.max_attempts != null || form.ttl != null}
+              <p class="sentence lock">
+                <Icon name="lock" size={14} />Закрывать вход на <Duration label="Длительность блока" value={form.lock_seconds} onchange={(v) => (form.lock_seconds = v)} />
+                {#if form.max_attempts != null && form.ttl != null}после блокировки по ошибкам и после обрыва по сроку
+                {:else if form.max_attempts != null}после блокировки по ошибкам
+                {:else}после обрыва по сроку{/if}
+              </p>
             {/if}
           </section>
 
           <section class="card">
             <h3><span class="ico"><Icon name="eye" size={16} /></span>Что видит игрок</h3>
-            <p class="muted small">Игрок не узнаёт, какое именно условие не выполнено. Свой текст заменяет стандартный текст системы.</p>
+            <p class="muted small">Игрок не узнаёт, какое именно условие не выполнено. Свой текст показывается под стандартным ответом системы, а не вместо него.</p>
             <div class="tabs" role="tablist">
               {#each TEXTS as item (item.key)}
                 <button role="tab" aria-selected={textTab === item.key} class:on={textTab === item.key} onclick={() => (textTab = item.key)}>{item.label}{#if form[item.key]}<span class="dot" title="Свой текст"></span>{/if}</button>
@@ -241,10 +249,22 @@
             </div>
             {#each TEXTS.filter((item) => item.key === textTab) as item (item.key)}
               <p class="muted small">{item.when}</p>
-              <input class="field" bind:value={form[item.key]} placeholder="стандартный текст системы" aria-label={item.label} />
+              {#if item.key === "locked_text" && form.max_attempts == null}<p class="idle small">Блокировка по ошибкам выключена: этот текст не появится.</p>{/if}
+              {#if item.key === "kick_text" && form.ttl == null}<p class="idle small">Обрыв по сроку выключен: этот текст не появится.</p>{/if}
+              <input class="field" bind:value={form[item.key]} placeholder="без дополнительного текста" aria-label={item.label} />
               <div class="screen" aria-label="Как это увидит игрок">
-                <div class="dim">$ ssh ivan@aether-core</div>
-                {#if form[item.key]}<div class="err-line">{form[item.key]}</div>{:else}<div class="dim">Покажется стандартный текст системы.</div>{/if}
+                {#if item.key === "kick_text"}
+                  <div class="dim"># сессия закончилась по сроку, окно обрыва:</div>
+                  {#if form.kick_text}<div class="err-line">{form.kick_text}</div>{:else}<div class="dim">(только стандартный экран обрыва)</div>{/if}
+                {:else}
+                  <div class="dim">$ rcon ivan@aether-core</div>
+                  {#if item.key === "locked_text"}
+                    <div class="err-line">rcon: ivan@aether-core: account locked, security review in progress (retry in {mmss(form.lock_seconds ?? 300)})</div>
+                  {:else}
+                    <div class="err-line">Permission denied (publickey,password).</div>
+                  {/if}
+                  {#if form[item.key]}<div class="err-line">{form[item.key]}</div>{/if}
+                {/if}
               </div>
             {/each}
           </section>
@@ -258,8 +278,8 @@
               <li><span class="k">Откуда</span>{sourcesList.length ? sourcesList.join(", ") : "откуда угодно"}</li>
               {#if viaList.length}<li><span class="k">Через</span>{viaList.join(", ")}</li>{/if}
               <li><span class="k">Когда</span>{week?.error ? "окна записаны с ошибкой" : windowsInWords(paintGrid)}</li>
-              <li><span class="k">Ошибки</span>{form.max_attempts != null ? `${form.max_attempts} за ${duration(form.attempts_window)}: блок на ${duration(form.lock_seconds)}` : "блокировки нет"}</li>
-              <li><span class="k">Сессия</span>{form.ttl != null ? `до ${duration(form.ttl)}` : "без ограничения"}</li>
+              <li><span class="k">Ошибки</span>{form.max_attempts != null ? `${form.max_attempts} за ${duration(form.attempts_window)}, затем вход закрыт на ${duration(form.lock_seconds)}` : "блокировки нет"}</li>
+              <li><span class="k">Сессия</span>{form.ttl != null ? `до ${duration(form.ttl)}, после обрыва вход закрыт на ${duration(form.lock_seconds)}` : "без ограничения"}</li>
             </ul>
           </section>
           <section class="card">
@@ -329,6 +349,7 @@
   .area { height: auto; min-height: 64px; padding: 8px 10px; resize: vertical; }
   .line { margin-top: 2px; }
   .sentence { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 6px; margin: 0 0 4px 40px; font-size: 13.5px; }
+  .lock { margin-left: 0; padding-top: 8px; border-top: 1px solid var(--line-soft); color: var(--muted); }
   .num { width: 60px; height: 30px; padding: 2px 8px; }
   .tabs { display: flex; gap: 2px; border-bottom: 1px solid var(--line-soft); }
   .tabs button { display: inline-flex; align-items: center; gap: 6px; padding: 7px 12px; margin-bottom: -1px; border: 0; border-bottom: 2px solid transparent; background: none; color: var(--muted); font: inherit; font-size: 13px; cursor: pointer; }
