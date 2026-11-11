@@ -55,6 +55,20 @@
   export function getMap(): maplibregl.Map | undefined { return map; }
   export function flyTo(lng: number, lat: number, to?: number) { map?.flyTo({ center: [lng, lat], zoom: to ?? Math.max(map.getZoom(), 4), duration: 600 }); }
   export function zoomBy(delta: number) { map?.easeTo({ zoom: map.getZoom() + delta, duration: 200 }); }
+  export function fitBounds(bounds: [number, number, number, number]) {
+    map?.fitBounds([[bounds[0], bounds[1]], [bounds[2], bounds[3]]], { padding: { top: 140, left: 80, right: 360, bottom: 80 }, maxZoom: 7, duration: 600 });
+  }
+  /** Обвести провинцию на пару секунд (поиск в списке). */
+  let flashed: ReturnType<typeof setTimeout> | undefined;
+  let flashedCode: string | null = null;
+  export function flash(code: string) {
+    if (!map) return;
+    if (flashedCode) map.setFeatureState(ref(flashedCode), { focus: false });
+    clearTimeout(flashed);
+    map.setFeatureState(ref(code), { focus: true });
+    flashedCode = code;
+    flashed = setTimeout(() => { map?.setFeatureState(ref(code), { focus: false }); flashedCode = null; }, 2500);
+  }
   export function reset() { map?.flyTo({ center: home.center, zoom: home.zoom, duration: 600 }); }
 
   const ref = (id: string) => ({ source: SOURCE, sourceLayer: LAYER, id });
@@ -129,7 +143,7 @@
       m.addLayer({ id: "adm1-line", type: "line", ...src, paint: { "line-color": style.line, "line-width": ["interpolate", ["linear"], ["zoom"], 1, 0.3, 6, 1] } });
       m.addLayer({ id: "adm1-sel", type: "fill", ...src, paint: { "fill-color": style.pick, "fill-opacity": ["case", flag("selected"), 0.32, 0] } });
       m.addLayer({ id: "adm1-sel-line", type: "line", ...src, paint: { "line-color": style.pick, "line-width": ["case", flag("selected"), 2, 0] } });
-      m.addLayer({ id: "adm1-hover", type: "line", ...src, paint: { "line-color": style.hover, "line-width": ["case", flag("hover"), 2.5, 0] } });
+      m.addLayer({ id: "adm1-hover", type: "line", ...src, paint: { "line-color": style.hover, "line-width": ["case", ["any", flag("hover"), flag("focus")], 2.5, 0] } });
 
       m.on("mousemove", "adm1-fill", (e) => {
         const feature = e.features?.[0];

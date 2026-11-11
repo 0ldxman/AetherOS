@@ -6253,6 +6253,8 @@ export interface components {
         MapProvinceRow: {
             /** Id */
             id: number;
+            /** Bounds */
+            bounds?: number[] | null;
             /** Code */
             code: string;
             /** Source Code */
@@ -6293,6 +6295,8 @@ export interface components {
         MapProvinceOut: {
             /** Id */
             id: number;
+            /** Bounds */
+            bounds?: number[] | null;
             /** Code */
             code: string;
             /** Source Code */

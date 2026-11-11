@@ -40,8 +40,10 @@
     const value = JSON.stringify({ look, view, rights });
     try { localStorage.setItem(LOOK_KEY, value); } catch { /* память браузера может быть закрыта */ }
   });
-  let countriesOpen = $state(true);
-  let mapView: { zoomBy(d: number): void; reset(): void } | undefined = $state();
+  let tab = $state<"countries" | "provinces">("countries");
+  let pq = $state("");
+  let found = $state<Schemas["MapProvincePage"]>({ total: 0, rows: [] });
+  let mapView: { zoomBy(d: number): void; reset(): void; fitBounds(b: [number, number, number, number]): void; flash(code: string): void } | undefined = $state();
 
   let dates = $state<string[]>([]);
   let date = $state("");
@@ -71,6 +73,25 @@
   const activeCountry = $derived(active === null ? null : byId.get(active) ?? null);
   const hoverOwner = $derived(hover && owners[hover] ? byId.get(owners[hover].country) : null);
   const mayPaint = $derived(mode === "paint" && activeCountry !== null);
+
+  // поиск провинции: по названию и коду, владелец на выбранную дату
+  let findTimer: ReturnType<typeof setTimeout>;
+  $effect(() => {
+    const text = pq.trim();
+    const on = date;
+    clearTimeout(findTimer);
+    if (tab !== "provinces") return;
+    if (!text) { found = { total: 0, rows: [] }; return; }
+    findTimer = setTimeout(async () => {
+      found = (await api.GET("/studio/api/map/provinces", { params: { query: { q: text, on, limit: 40 } } })).data ?? { total: 0, rows: [] };
+    }, 200);
+  });
+  // показать провинцию из списка: камера на неё, обводка на пару секунд и карточка с историей
+  function focusProvince(row: Schemas["MapProvinceRow"]) {
+    if (row.bounds) mapView?.fitBounds(row.bounds as [number, number, number, number]);
+    mapView?.flash(row.source_code);
+    inspect(row.source_code);
+  }
 
   async function loadCountries() {
     countries = (await api.GET("/studio/api/map/countries")).data ?? [];
@@ -251,49 +272,59 @@
           <Icon name={item.icon} size={18} /><kbd>{item.hotkey.toUpperCase()}</kbd>
         </button>
       {/each}
-      <hr />
-      <button class="tool" class:on={countriesOpen} aria-pressed={countriesOpen} title="Список стран" onclick={() => (countriesOpen = !countriesOpen)}><Icon name="list" size={18} /></button>
     </div>
 
-    {#if countriesOpen}
-      <section class="countries-panel panel" aria-label="Страны">
-        <input class="field" placeholder="Найти страну…" bind:value={filter} aria-label="Поиск страны" />
-        <ul class="countries">
-          {#each shown as c (c.id)}
-            <li>
-              <button class="country" class:on={c.id === active} aria-pressed={c.id === active} onclick={() => (active = c.id === active ? null : c.id)}>
-                <i style="background:{c.color}"></i><span>{c.name}</span><code>{c.code}</code>
-              </button>
-            </li>
-          {:else}
-            <li class="muted small pad">{countries.length ? "Ничего не нашлось." : "Стран нет. Создайте их на вкладке «Страны»."}</li>
-          {/each}
-        </ul>
-        <button class="btn" onclick={openTransfer} disabled={countries.length < 2}>Передать страну целиком…</button>
-      </section>
-    {/if}
-
     <aside class="side">
-      <section class="panel">
-        <h3><Icon name={MODES.find((m) => m.key === mode)?.icon ?? "map"} size={16} />{MODES.find((m) => m.key === mode)?.label}</h3>
-        <p class="muted small">{MODES.find((m) => m.key === mode)?.hint}</p>
-        {#if mode === "paint"}
-          {#if activeCountry}
-            <div class="active"><i style="background:{activeCountry.color}"></i><b>{activeCountry.name}</b><code>{activeCountry.code}</code></div>
-          {:else}
-            <p class="warn small">Выберите страну в списке слева.</p>
+      <section class="panel dock" aria-label="Страны и провинции">
+        <div class="tabs" role="tablist">
+          <button role="tab" aria-selected={tab === "countries"} class:on={tab === "countries"} onclick={() => (tab = "countries")}>Страны<span class="n">{countries.length}</span></button>
+          <button role="tab" aria-selected={tab === "provinces"} class:on={tab === "provinces"} onclick={() => (tab = "provinces")}>Провинции</button>
+        </div>
+        <label class="find"><Icon name="search" size={14} />
+          {#if tab === "countries"}<input placeholder="Найти страну" bind:value={filter} aria-label="Поиск страны" />
+          {:else}<input placeholder="Название или код провинции" bind:value={pq} aria-label="Поиск провинции" />{/if}
+        </label>
+
+        {#if tab === "countries"}
+          <ul class="list">
+            {#each shown as c (c.id)}
+              <li>
+                <button class="row-btn" class:on={c.id === active} aria-pressed={c.id === active} onclick={() => (active = c.id === active ? null : c.id)}>
+                  <i style="background:{c.color}"></i><span>{c.name}</span><code>{c.code}</code>
+                </button>
+              </li>
+            {:else}
+              <li class="muted small pad">{countries.length ? "Ничего не нашлось." : "Стран нет. Создайте их на вкладке «Страны»."}</li>
+            {/each}
+          </ul>
+          {#if mode === "paint" || mode === "country"}
+            <div class="checks" aria-label="Права владения">
+              <span class="muted small">Права:</span>
+              <label class="check"><input type="checkbox" bind:checked={jure} /> де-юре<Hint text="Страна владеет провинцией по праву (признанные границы)." /></label>
+              <label class="check"><input type="checkbox" bind:checked={facto} /> де-факто<Hint text="Страна реально контролирует провинцию. Нужно отметить хотя бы одно из двух." /></label>
+            </div>
           {/if}
-        {/if}
-        {#if mode === "paint" || mode === "country"}
-          <div class="checks">
-            <label class="check"><input type="checkbox" bind:checked={jure} /> де-юре<Hint text="Страна владеет провинцией по праву (признанные границы)." /></label>
-            <label class="check"><input type="checkbox" bind:checked={facto} /> де-факто<Hint text="Страна реально контролирует провинцию. Нужно отметить хотя бы одно из двух." /></label>
-          </div>
+          <button class="btn" onclick={openTransfer} disabled={countries.length < 2}>Передать страну целиком…</button>
+        {:else}
+          <ul class="list">
+            {#each found.rows as row (row.id)}
+              <li>
+                <button class="row-btn" onclick={() => focusProvince(row)} title="Показать на карте">
+                  <i style="background:{row.owner?.color || NO_COLOR}"></i>
+                  <span class="two"><b>{row.name}</b><small class="muted">{row.owner ? row.owner.country_name : "без владельца"}</small></span>
+                  <code>{row.code}</code>
+                </button>
+              </li>
+            {:else}
+              <li class="muted small pad">{pq.trim() ? "Ничего не нашлось." : "Введите название или код провинции: она подсветится на карте, а справа откроется её история."}</li>
+            {/each}
+          </ul>
+          {#if found.total > found.rows.length}<p class="muted small more">Показано {found.rows.length} из {found.total}: уточните запрос.</p>{/if}
         {/if}
       </section>
 
       {#if selection.length}
-        <section class="panel">
+        <section class="panel card">
           <h3>Выделение <span class="chip">{selection.length}</span><span class="spacer"></span>
             <button class="btn ghost small" onclick={() => (selection = [])}>Очистить</button></h3>
           <div class="checks">
@@ -301,35 +332,31 @@
             <label class="check"><input type="checkbox" bind:checked={facto} /> де-факто</label>
           </div>
           <button class="btn primary" onclick={give} disabled={!activeCountry || !flagsOk || busy}>
-            {activeCountry ? `Передать «${activeCountry.name}» с ${showDate(date)}` : "Выберите страну слева"}
+            {activeCountry ? `Передать «${activeCountry.name}» с ${showDate(date)}` : "Выберите страну во вкладке «Страны»"}
           </button>
           <button class="btn" onclick={openSplit} disabled={busy}>В новую страну…</button>
           <button class="btn danger" onclick={() => erase(selection)} disabled={busy}>Убрать записи этой даты</button>
         </section>
       {/if}
 
-      {#if mode === "inspect"}
-        <section class="panel">
-          <h3>Провинция</h3>
-          {#if !province}
-            <p class="muted small">Кликните по провинции: здесь появится владелец и история.</p>
-          {:else}
-            <div class="who"><b>{province.name}</b> <code>{province.code}</code></div>
-            <div class="owner">
-              {#if province.owner}<i style="background:{province.owner.color || NO_COLOR}"></i>{province.owner.country_name}
-                <span class="muted small">с {showDate(province.owner.since)}</span>
-              {:else}<span class="muted">на {showDate(date)} владельца нет</span>{/if}
-            </div>
-            <ul class="history">
-              {#each province.history as row (row.id)}
-                <li class:now={row.current}>
-                  <i style="background:{row.color}"></i><span>{showDate(row.date_from)}</span><b>{row.country_code}</b>
-                  <small class="muted">{row.de_jure && row.de_facto ? "юре+факто" : row.de_jure ? "юре" : "факто"}</small>
-                </li>
-              {/each}
-            </ul>
-            <a class="small" href="#/map/provinces/{province.id}">Открыть в таблице</a>
-          {/if}
+      {#if province}
+        <section class="panel card">
+          <h3>Провинция<span class="spacer"></span><button class="x" onclick={() => (province = null)} aria-label="Закрыть карточку провинции"><Icon name="close" size={14} /></button></h3>
+          <div class="who"><b>{province.name}</b> <code>{province.code}</code></div>
+          <div class="owner">
+            {#if province.owner}<i style="background:{province.owner.color || NO_COLOR}"></i>{province.owner.country_name}
+              <span class="muted small">с {showDate(province.owner.since)}</span>
+            {:else}<span class="muted">на {showDate(date)} владельца нет</span>{/if}
+          </div>
+          <ul class="history">
+            {#each province.history as row (row.id)}
+              <li class:now={row.current}>
+                <i style="background:{row.color}"></i><span>{showDate(row.date_from)}</span><b>{row.country_code}</b>
+                <small class="muted">{row.de_jure && row.de_facto ? "юре+факто" : row.de_jure ? "юре" : "факто"}</small>
+              </li>
+            {/each}
+          </ul>
+          <a class="small" href="#/map/provinces/{province.id}">Открыть в таблице</a>
         </section>
       {/if}
     </aside>
@@ -340,7 +367,7 @@
           <b>{hover}</b>
           {#if hoverOwner}<span><i style="background:{hoverOwner.color}"></i>{hoverOwner.name}</span>{:else}<span class="muted">без владельца на {showDate(date)}</span>{/if}
         {:else}
-          <span class="muted">{mayPaint ? `Красим: ${activeCountry?.name}` : "Наведите на провинцию"}</span>
+          <span class="muted">{mayPaint ? `Красим: ${activeCountry?.name}` : `${MODES.find((m) => m.key === mode)?.label}: наведите на провинцию`}</span>
         {/if}
       </div>
       <div class="zoom panel">
@@ -379,10 +406,10 @@
 <style>
   .terr { position: relative; height: 100%; min-height: 0; overflow: hidden; }
   .mapbox { position: absolute; inset: 0; }
-  .overlay { position: absolute; inset: 0; display: grid; grid-template-columns: auto auto minmax(0, 1fr) 300px; grid-template-rows: auto minmax(0, 1fr) auto; gap: 10px 10px; padding: 12px; pointer-events: none; }
+  .overlay { position: absolute; inset: 0; display: grid; grid-template-columns: auto minmax(0, 1fr) 320px; grid-template-rows: auto minmax(0, 1fr) auto; gap: 10px; padding: 12px; pointer-events: none; }
   .overlay > * { pointer-events: auto; }
   .panel { padding: 10px 12px; border: 1px solid var(--line); border-radius: var(--radius); background: color-mix(in srgb, var(--panel) 95%, transparent); box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3); }
-  .top { grid-column: 1 / 4; grid-row: 1; display: flex; flex-direction: column; gap: 8px; justify-self: start; max-width: 100%; }
+  .top { grid-column: 1 / 3; grid-row: 1; display: flex; flex-direction: column; gap: 8px; justify-self: start; max-width: 100%; }
   .row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; }
   .when { display: flex; align-items: center; gap: 4px; }
   .date { width: 150px; height: 30px; padding: 2px 8px; }
@@ -407,42 +434,51 @@
   .rights select { width: auto; height: 30px; padding: 2px 8px; font-size: 12.5px; }
 
   .tools { grid-column: 1; grid-row: 2; align-self: start; display: flex; flex-direction: column; gap: 4px; padding: 6px; }
-  .tools hr { width: 100%; margin: 2px 0; border: 0; border-top: 1px solid var(--line-soft); }
   .tool { position: relative; display: grid; place-items: center; width: 40px; height: 40px; border: 1px solid transparent; border-radius: var(--radius-s); background: none; color: var(--muted); cursor: pointer; }
   .tool:hover { background: var(--panel-2); color: var(--text); }
   .tool.on { background: var(--accent-soft); border-color: var(--accent); color: var(--text); }
   .tool kbd { position: absolute; right: 3px; bottom: 1px; font: 600 9px var(--mono); color: var(--faint); }
-  .tool:focus-visible, .seg button:focus-visible, .icon:focus-visible, .ghost:focus-visible, .country:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+  .tool:focus-visible, .seg button:focus-visible, .icon:focus-visible, .ghost:focus-visible, .row-btn:focus-visible, .tabs button:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 
-  .countries-panel { grid-column: 2; grid-row: 2; align-self: start; display: flex; flex-direction: column; gap: 8px; width: 250px; max-height: 100%; min-height: 0; }
-  .countries-panel > :global(input), .countries-panel > :global(.btn) { flex: none; }
-  .countries { list-style: none; margin: 0; padding: 0; min-height: 60px; overflow: auto; border: 1px solid var(--line-soft); border-radius: var(--radius-s); }
-  .country { display: flex; align-items: center; gap: 8px; width: 100%; padding: 5px 8px; border: 0; background: transparent; color: var(--text); font: inherit; cursor: pointer; text-align: left; }
-  .country:hover { background: var(--panel-2); }
-  .country.on { background: var(--accent-soft); }
-  .country span { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .country code { color: var(--muted); font-size: 11px; }
+  .side { grid-column: 3; grid-row: 1 / 4; display: flex; flex-direction: column; gap: 10px; min-height: 0; }
+  .dock { flex: 1 1 0; min-height: 220px; display: flex; flex-direction: column; gap: 8px; overflow: hidden; }
+  .tabs { display: flex; gap: 2px; border-bottom: 1px solid var(--line-soft); margin: -4px -4px 0; padding: 0 4px; }
+  .tabs button { display: inline-flex; align-items: center; gap: 6px; padding: 7px 10px; margin-bottom: -1px; border: 0; border-bottom: 2px solid transparent; background: none; color: var(--muted); font: inherit; font-size: 13px; cursor: pointer; }
+  .tabs button:hover { color: var(--text); }
+  .tabs button.on { color: var(--text); border-bottom-color: var(--accent); }
+  .n { padding: 0 6px; border-radius: 999px; background: var(--raise); color: var(--muted); font-size: 11px; }
+  .find { flex: none; display: flex; align-items: center; gap: 8px; padding: 0 10px; border: 1px solid var(--line-soft); border-radius: var(--radius-s); background: var(--bg); color: var(--muted); }
+  .find:focus-within { border-color: var(--accent); }
+  .find input { flex: 1; min-width: 0; padding: 6px 0; border: 0; outline: 0; background: none; color: var(--text); font: inherit; font-size: 13px; }
+  .list { flex: 1 1 0; min-height: 60px; list-style: none; margin: 0; padding: 0; overflow: auto; border: 1px solid var(--line-soft); border-radius: var(--radius-s); }
+  .row-btn { display: flex; align-items: center; gap: 8px; width: 100%; padding: 5px 8px; border: 0; background: transparent; color: var(--text); font: inherit; cursor: pointer; text-align: left; }
+  .row-btn:hover { background: var(--panel-2); }
+  .row-btn.on { background: var(--accent-soft); }
+  .row-btn > span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .row-btn .two { display: flex; flex-direction: column; line-height: 1.25; }
+  .row-btn code { color: var(--muted); font-size: 11px; flex: none; }
   .pad { padding: 8px; }
-
-  .side { grid-column: 4; grid-row: 1 / 4; display: flex; flex-direction: column; gap: 10px; min-height: 0; overflow: auto; }
-  .side .panel { display: flex; flex-direction: column; gap: 8px; }
-  .side h3 { display: flex; align-items: center; gap: 8px; margin: 0; font-size: 14px; font-weight: 650; }
-  .spacer { flex: 1; }
-  .side .btn { white-space: normal; height: auto; min-height: 30px; padding: 6px 12px; text-align: left; }
-  .side .btn.small { min-height: 0; padding: 1px 8px; font-size: 12px; }
-  .chip { padding: 0 8px; border-radius: 999px; background: var(--raise); color: var(--muted); font-size: 12px; font-weight: 400; }
-  .checks { display: flex; gap: 14px; }
+  .more { margin: 0; flex: none; }
+  .dock > :global(.btn) { flex: none; white-space: normal; height: auto; min-height: 30px; padding: 6px 12px; text-align: left; }
+  .checks { flex: none; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
   .check { display: flex; align-items: center; gap: 6px; font-size: 13px; }
-  .active { display: flex; align-items: center; gap: 8px; }
-  .warn { color: var(--warn); margin: 0; }
+
+  .card { flex: none; display: flex; flex-direction: column; gap: 8px; }
+  .card h3 { display: flex; align-items: center; gap: 8px; margin: 0; font-size: 14px; font-weight: 650; }
+  .spacer { flex: 1; }
+  .x { display: grid; place-items: center; width: 22px; height: 22px; padding: 0; border: 0; border-radius: 6px; background: none; color: var(--muted); cursor: pointer; }
+  .x:hover { background: var(--panel-2); color: var(--text); }
+  .card .btn { white-space: normal; height: auto; min-height: 30px; padding: 6px 12px; text-align: left; }
+  .card .btn.small { min-height: 0; padding: 1px 8px; font-size: 12px; }
+  .chip { padding: 0 8px; border-radius: 999px; background: var(--raise); color: var(--muted); font-size: 12px; font-weight: 400; }
   .who { display: flex; gap: 8px; align-items: baseline; }
   .owner { display: flex; gap: 6px; align-items: center; }
-  .history { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; max-height: 240px; overflow: auto; }
+  .history { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; max-height: 200px; overflow: auto; }
   .history li { display: flex; gap: 8px; align-items: center; padding: 3px 6px; border-radius: var(--radius-s); }
   .history li.now { background: var(--accent-soft); }
   .history b { font-family: var(--mono); font-size: 12px; }
 
-  .foot { grid-column: 1 / 4; grid-row: 3; display: flex; align-items: flex-end; justify-content: space-between; gap: 10px; pointer-events: none; }
+  .foot { grid-column: 1 / 3; grid-row: 3; display: flex; align-items: flex-end; justify-content: space-between; gap: 10px; pointer-events: none; }
   .foot > * { pointer-events: auto; }
   .tag { display: flex; gap: 10px; align-items: center; padding: 6px 10px; border-radius: var(--radius-s); background: rgba(14, 15, 18, 0.86); border: 1px solid var(--line); pointer-events: none; }
   .tag span { display: inline-flex; gap: 6px; align-items: center; }
@@ -453,5 +489,5 @@
   .err { color: var(--danger); font-size: 12px; }
   .bad { border-color: var(--danger); }
   code { font-family: var(--mono); font-size: 12px; }
-  @media (max-width: 1000px) { .overlay { grid-template-columns: auto auto minmax(0, 1fr) 260px; } .top { grid-column: 1 / 5; } .side { grid-row: 2 / 4; } }
+  @media (max-width: 1000px) { .overlay { grid-template-columns: auto minmax(0, 1fr) 280px; } }
 </style>

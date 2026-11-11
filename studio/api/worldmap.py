@@ -11,6 +11,7 @@ from django.shortcuts import get_object_or_404
 from ninja import Router, Schema
 
 from map import territory
+from map.bounds import bounds_of
 from map.models import Country, CountryLabel, Ownership, Province
 
 router = Router(tags=["map"])
@@ -194,6 +195,7 @@ class MapOwnerRef(Schema):
 
 class MapProvinceRow(Schema):
     id: int
+    bounds: list[float] | None = None     # рамка [запад, юг, восток, север] для перехода камеры
     code: str
     source_code: str
     name: str
@@ -250,7 +252,7 @@ def provinces(request, q: str = "", owner: str = "", on: dt.date | None = None, 
     total = rows.count()
     page = list(rows[max(offset, 0): max(offset, 0) + min(max(limit, 1), 500)])
     return MapProvincePage(total=total, rows=[
-        MapProvinceRow(id=p.pk, code=p.code, source_code=p.source_code, name=p.name, wiki_url=p.wiki_url, owner=_owner(now.get(p.pk)), records=p.records)
+        MapProvinceRow(id=p.pk, bounds=bounds_of(p.source_code), code=p.code, source_code=p.source_code, name=p.name, wiki_url=p.wiki_url, owner=_owner(now.get(p.pk)), records=p.records)
         for p in page
     ])
 
@@ -259,7 +261,7 @@ def _province_out(province, on):
     info = territory.province_info(province, on)
     now = info["owner"]
     return MapProvinceOut(
-        id=province.pk, code=province.code, source_code=province.source_code, name=province.name, wiki_url=province.wiki_url,
+        id=province.pk, bounds=bounds_of(province.source_code), code=province.code, source_code=province.source_code, name=province.name, wiki_url=province.wiki_url,
         owner=_owner(now), records=len(info["history"]),
         history=[
             MapHistoryRow(id=o.pk, date_from=o.date_from, country=o.country_id, country_name=o.country.name, country_code=o.country.code,

@@ -14,6 +14,11 @@ def _bounds():
         return {}
 
 
+def bounds_of(source_code):
+    """Рамка провинции [запад, юг, восток, север] по её source_code или None."""
+    return _bounds().get(source_code)
+
+
 MAX_PROVINCES = 600
 
 

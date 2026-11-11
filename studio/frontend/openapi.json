@@ -17830,6 +17830,20 @@
       "title": "Id",
       "type": "integer"
      },
+     "bounds": {
+      "anyOf": [
+       {
+        "items": {
+         "type": "number"
+        },
+        "type": "array"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Bounds"
+     },
      "code": {
       "title": "Code",
       "type": "string"
@@ -17932,6 +17946,20 @@
      "id": {
       "title": "Id",
       "type": "integer"
+     },
+     "bounds": {
+      "anyOf": [
+       {
+        "items": {
+         "type": "number"
+        },
+        "type": "array"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Bounds"
      },
      "code": {
       "title": "Code",
