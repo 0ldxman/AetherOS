@@ -25,7 +25,7 @@
                     <span class="air-item"><span class="air-key">RX SINCE:</span><span id="air-since" class="air-val"></span></span>
                 </div>
             </div>
-            <div id="air-mode" class="air-status">RX</div>
+            <div id="air-mode" class="air-status">RX · LISTENING</div>
         </header>
 
         {# панорама: где на участке ±250 кГц был эфир за 15 минут; щелчок выводит на частоту #}
@@ -50,14 +50,11 @@
                 <input id="air-freq" class="air-vfo-input" inputmode="decimal" spellcheck="false" autocomplete="off" aria-label="type frequency, MHz" hidden>
                 <span class="air-unit">MHz</span>
                 <button type="button" class="air-arrow" data-step="1" aria-label="tune up">▶</button>
-                <label class="air-steplabel"><span class="air-key">STEP</span>
-                    <select id="air-step" class="air-select">
-                        <option value="0.005">5 kHz</option>
-                        <option value="0.025">25 kHz</option>
-                        <option value="0.100">100 kHz</option>
-                        <option value="1.000">1 MHz</option>
-                    </select>
-                </label>
+                <div class="air-steplabel"><span class="air-key">STEP</span>
+                    <div class="air-steps" role="group" aria-label="tuning step">
+                        <button type="button" data-k="5" aria-pressed="true">5k</button><button type="button" data-k="25" aria-pressed="false">25k</button><button type="button" data-k="100" aria-pressed="false">100k</button><button type="button" data-k="1000" aria-pressed="false">1M</button>
+                    </div>
+                </div>
             </div>
             <div id="air-mem" class="air-mem" aria-label="memory channels"></div>
         </nav>
@@ -73,7 +70,7 @@
             <span id="air-count" class="air-count">0/280</span>
             <button type="submit" id="air-ptt" class="air-btn">transmit</button>
         </form>
-        <footer class="status"><span>↑ ↓  tune   ·   wheel over a digit   ·   click the scope to jump   ·   enter  transmit</span><span id="air-status"></span></footer>
+        <footer class="status"><span>↑ ↓  tune   ·   wheel over a digit or the scope   ·   click a peak to jump   ·   enter  transmit</span><span id="air-status"></span></footer>
     </main>
     {% csrf_token %}
 {% endblock %}

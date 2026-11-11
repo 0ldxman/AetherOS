@@ -57,7 +57,9 @@
         clearTimeout(tuneTimer);
         tuneTimer = setTimeout(() => tune(mhz(shown)), now ? 0 : 350);
     }
-    function stepK() { return Math.round(parseFloat($("air-step").value) * 1000); }
+    function stepK() { return Number(root.querySelector(".air-steps [aria-pressed=true]").dataset.k); }
+    root.querySelectorAll(".air-steps button").forEach((button) => button.addEventListener("click", () =>
+        root.querySelectorAll(".air-steps button").forEach((other) => other.setAttribute("aria-pressed", String(other === button)))));
     vfo.addEventListener("wheel", (event) => {
         event.preventDefault();
         const place = Number(event.target.dataset?.place) || stepK();
@@ -112,8 +114,9 @@
         text.placeholder = !state.can_tx ? "receive only: sign in to transmit" : state.inhibit ? "transmit inhibited on this band" : "message, then Enter";
         text.setAttribute("aria-label", "transmission on " + state.freq + " MHz");
         $("air-since").textContent = clock(new Date(state.since));
-        setMode(state.inhibit ? "RX · TX INHIBIT" : "RX");
+        setMode(idle());
     }
+    function idle() { return !state.can_tx ? "RX ONLY · GUEST" : state.inhibit ? "RX · TX INHIBIT" : "RX · LISTENING"; }
     function setMode(label, tx) {
         mode.textContent = label;
         mode.classList.toggle("tx", !!tx);
@@ -229,41 +232,60 @@
         const ctx = canvas.getContext("2d");
         ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
         ctx.clearRect(0, 0, width, height);
-        const css = getComputedStyle(canvas);
-        const light = css.color, muted = getComputedStyle(root).getPropertyValue("--font-muted").trim() || light;
+        const light = getComputedStyle(canvas).color;
         const accent = getComputedStyle(root).getPropertyValue("--accent").trim() || light;
         const range = view();
-        const pad = gutter(), usable = width - pad * 2, column = usable / (COLUMNS - 1), bar = Math.max(1, Math.min(3, column * 0.6));
-        const base = height - 6;
-        const heat = new Map(found.map((item) => [item.k, item]));
-        // сетка: еле заметные горизонтали
-        ctx.globalAlpha = 0.12;
+        const pad = gutter(), usable = width - pad * 2, column = usable / (COLUMNS - 1);
+        const top = 18, base = height - 4, span = base - top;
+        // сетка: еле заметные горизонтали и вертикали через 25 кГц
+        ctx.globalAlpha = 0.1;
         ctx.fillStyle = light;
-        for (let y = base; y > 6; y -= (base - 6) / 4) ctx.fillRect(pad, Math.round(y), usable, 1);
-        for (let i = 0; i < COLUMNS; i++) {
-            const k = range.low + i * GRID;
-            const x = Math.round(pad + i * column - bar / 2);
-            const hit = heat.get(k);
-            let value = noise[i];
-            if (k === kHz(state.freq)) value = Math.max(value, (level - 1) / 12 * 0.9);
-            ctx.fillStyle = muted;
-            ctx.globalAlpha = 0.55;
-            ctx.fillRect(x, base - value * (base - 8), bar, value * (base - 8));
-            if (hit) {
-                const peak = Math.min(0.92, 0.28 + Math.log2(1 + hit.count) * 0.17);
-                ctx.fillStyle = light;
-                ctx.globalAlpha = Math.max(0.35, 1 - hit.ago / 15);
-                ctx.fillRect(x, base - peak * (base - 8), bar, peak * (base - 8));
+        for (let n = 0; n <= 4; n++) ctx.fillRect(pad, Math.round(top + (span * n) / 4), usable, 1);
+        for (let k = Math.ceil(range.low / 25) * 25; k <= range.high; k += 25) ctx.fillRect(Math.round(pad + share(k, range) * usable), top, 1, span);
+        // спектр: шум плюс мягкие горбы там, где был эфир (выше — чаще, ниже — давнее)
+        const value = Float32Array.from(noise);
+        const bump = (center, amp) => {
+            for (let d = -5; d <= 5; d++) {
+                const i = center + d;
+                if (i >= 0 && i < COLUMNS) value[i] = Math.max(value[i], amp * Math.exp(-(d * d) / 2.2) + noise[i] * 0.5);
             }
+        };
+        found.forEach((hit) => {
+            const i = Math.round((hit.k - range.low) / GRID);
+            const amp = Math.min(0.9, 0.3 + Math.log2(1 + hit.count) * 0.16) * (0.55 + 0.45 * Math.max(0, 1 - hit.ago / 15));
+            bump(i, amp);
+        });
+        const here = Math.round((kHz(state.freq) - range.low) / GRID);
+        if (level > 2.5) bump(here, Math.min(0.95, (level - 1) / 11));
+        const point = (i) => [pad + i * column, base - value[i] * span];
+        ctx.beginPath();
+        ctx.moveTo(...point(0));
+        for (let i = 1; i < COLUMNS; i++) {
+            const [x0, y0] = point(i - 1), [x1, y1] = point(i);
+            ctx.quadraticCurveTo(x0, y0, (x0 + x1) / 2, (y0 + y1) / 2);
         }
+        ctx.lineTo(...point(COLUMNS - 1));
+        ctx.globalAlpha = 0.9;
+        ctx.strokeStyle = light;
+        ctx.lineWidth = 1;
+        ctx.stroke();
+        ctx.lineTo(pad + usable, base);
+        ctx.lineTo(pad, base);
+        ctx.closePath();
+        ctx.globalAlpha = 0.14;
+        ctx.fillStyle = light;
+        ctx.fill();
         // курсор настроенной частоты и наведённая частота
-        ctx.globalAlpha = 1;
+        const cx = Math.round(pad + share(shown, range) * usable);
+        ctx.globalAlpha = 0.16;
         ctx.fillStyle = accent;
-        ctx.fillRect(Math.round(pad + share(shown, range) * usable), 0, 1, height);
+        ctx.fillRect(cx - Math.max(2, column), top, Math.max(4, column * 2), span);
+        ctx.globalAlpha = 1;
+        ctx.fillRect(cx, top - 6, 1, span + 6);
         if (hoverK !== null) {
             ctx.globalAlpha = 0.5;
             ctx.fillStyle = light;
-            ctx.fillRect(Math.round(pad + share(hoverK, range) * usable), 0, 1, height);
+            ctx.fillRect(Math.round(pad + share(hoverK, range) * usable), top, 1, span);
         }
         ctx.globalAlpha = 1;
     }
@@ -300,13 +322,15 @@
         hoverK = freqAt(event);
         const hit = found.find((item) => item.k === hoverK);
         hover.hidden = false;
+        $("air-sweep").hidden = true;
         hover.textContent = mhz(hoverK) + (hit ? " · " + hit.count + " tx · " + (hit.ago ? hit.ago + " min ago" : "now") : "");
         const box = canvas.getBoundingClientRect();
         hover.style.left = Math.min(box.width - 60, Math.max(60, event.clientX - box.left)) + "px";
         draw();
     });
-    canvas.addEventListener("mouseleave", () => { hover.hidden = true; hoverK = null; draw(); });
+    canvas.addEventListener("mouseleave", () => { hover.hidden = true; $("air-sweep").hidden = false; hoverK = null; draw(); });
     canvas.addEventListener("click", (event) => retune(freqAt(event), true));
+    canvas.addEventListener("wheel", (event) => { event.preventDefault(); retune(shown + (event.deltaY < 0 ? 1 : -1) * stepK()); }, { passive: false });
 
     // ---------- память: M1–M3 и вызывной канал ----------
     const MEM_KEY = "air-memory";
@@ -363,7 +387,7 @@
             text.dispatchEvent(new Event("input"));
             await poll();
         } catch (error) { notice(error.message); }
-        setTimeout(() => { setMode(state.inhibit ? "RX · TX INHIBIT" : "RX"); ptt.classList.remove("keyed"); }, 450);
+        setTimeout(() => { setMode(idle()); ptt.classList.remove("keyed"); }, 450);
     });
 
     // ---------- позывной: щелчок превращает его в поле, Enter сохраняет, Esc отменяет ----------

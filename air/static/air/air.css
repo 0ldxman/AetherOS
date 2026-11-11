@@ -24,15 +24,15 @@
 .air-bars i { width: 3px; height: 100%; background: var(--font-muted); opacity: 0.35; }
 .air-bars i.lit { background: var(--font-light); opacity: 1; }
 .air-bars i.over.lit { background: var(--accent-warn); }
-.air-status { flex: 0 0 auto; color: var(--font-muted); font-size: 9px; letter-spacing: 0.1em; white-space: nowrap; }
+.air-status { flex: 0 0 auto; color: var(--font-muted); font-size: 10px; letter-spacing: 0.1em; white-space: nowrap; }
 .air-status.tx { color: var(--accent-error); }
 
 /* ---- сцена панорамы ---- */
 .air-stage { position: relative; flex: 0 0 auto; height: 132px; background: #000; cursor: crosshair; }
 .air-scope { position: absolute; inset: 0; display: block; width: 100%; height: 100%; color: var(--font-light); }
-.air-hover { position: absolute; top: 8px; transform: translateX(-50%); padding: 1px 6px; border: 1px solid var(--air-dim); background: #000;
+.air-hover { position: absolute; top: 0; transform: translateX(-50%); padding: 0 6px; line-height: 16px; border: 1px solid var(--air-dim); background: #000;
              color: var(--font-light); font-size: 10px; letter-spacing: 0.04em; pointer-events: none; white-space: nowrap; }
-.air-sweep { position: absolute; right: var(--air-gutter); top: 8px; color: var(--font-muted); font-size: 9px; letter-spacing: 0.12em; pointer-events: none; }
+.air-sweep { position: absolute; right: var(--air-gutter); top: 3px; color: var(--font-muted); font-size: 9px; letter-spacing: 0.12em; pointer-events: none; }
 
 /* ---- линейка: как у линии времени карты ---- */
 .air-ruler { position: relative; flex: 0 0 auto; height: 40px; margin: 0 var(--air-gutter); user-select: none; }
@@ -48,7 +48,7 @@
 .air-tuning { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px 24px; padding: 10px var(--air-gutter) 14px;
               border-bottom: 1px solid var(--line); }
 .air-dial { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
-.air-arrow { width: 26px; height: 26px; padding: 0; border: 1px solid var(--air-dim); border-radius: 0; background: none; color: var(--font-light); cursor: pointer; font-size: 11px; }
+.air-arrow { width: 28px; height: 28px; padding: 0; border: 1px solid var(--air-dim); border-radius: 0; background: none; color: var(--font-light); cursor: pointer; font-size: 11px; }
 .air-arrow:hover { border-color: var(--font-light); }
 .air-arrow:focus-visible, .air-mem button:focus-visible, .air-btn:focus-visible { outline: 1px solid var(--accent); outline-offset: 2px; }
 .air-vfo { display: flex; align-items: baseline; padding: 0 2px; border-bottom: 1px solid var(--air-dim); font-size: 22px; letter-spacing: 0.06em;
@@ -61,10 +61,16 @@
                  font-size: 22px !important; letter-spacing: 0.06em; outline: none; }
 .air-unit { color: var(--font-muted); font-size: 11px; letter-spacing: 0.06em; }
 .air-steplabel { display: inline-flex; align-items: center; gap: 8px; margin-left: 10px; font-size: 10px; }
-.air-select { padding: 2px 4px; border: 1px solid var(--air-dim); border-radius: 0; background: var(--bg); color: var(--font-light); font-size: 11px !important; }
+.air-steps { display: inline-flex; }
+.air-steps button { height: 28px; padding: 0 10px; border: 1px solid var(--air-dim); border-radius: 0; background: none; color: var(--font-muted);
+                    font-size: 11px !important; cursor: pointer; }
+.air-steps button + button { border-left: 0; }
+.air-steps button:hover { color: var(--font-light); }
+.air-steps button[aria-pressed="true"] { background: var(--font-light); border-color: var(--font-light); color: var(--bg); }
+.air-steps button:focus-visible { outline: 1px solid var(--accent); outline-offset: 2px; position: relative; }
 
 .air-mem { display: flex; flex-wrap: wrap; gap: 8px; }
-.air-mem button { display: inline-flex; gap: 8px; align-items: baseline; padding: 4px 10px; border: 1px solid var(--air-dim); border-radius: 0; background: none;
+.air-mem button { display: inline-flex; gap: 8px; align-items: center; height: 28px; padding: 0 10px; border: 1px solid var(--air-dim); border-radius: 0; background: none;
                   color: var(--font-light); font-size: 11px !important; font-variant-numeric: tabular-nums; cursor: pointer; }
 .air-mem button:hover { border-color: var(--font-light); }
 .air-mem button .air-key { font-size: 10px; }
@@ -96,7 +102,7 @@
 .air-input:disabled { cursor: not-allowed; }
 .air-count { color: var(--font-muted); font-size: 10px; font-variant-numeric: tabular-nums; }
 .air-count.near { color: var(--accent-warn); }
-.air-btn { padding: 4px 12px; border: 1px solid var(--air-dim); border-radius: 0; background: none; color: var(--font-light); cursor: pointer; }
+.air-btn { height: 28px; padding: 0 14px; border: 1px solid var(--air-dim); border-radius: 0; background: none; color: var(--font-light); cursor: pointer; }
 .air-btn:hover:not(:disabled) { border-color: var(--font-light); }
 .air-btn.keyed { border-color: var(--accent-error); color: var(--accent-error); }
 .air-btn:disabled { color: var(--font-muted); border-color: var(--line); cursor: not-allowed; }
