@@ -13,6 +13,7 @@ GROUPS = (
     ("keys and archives", ("kex", "ward", "pak")),
     ("network", ("nreq", "nget", "rcon", "rshell", "xfer", "mnt", "umnt", "exit", "rcon-close")),
     ("system", ("date", "tmset")),
+    ("air", ("air",)),
     ("other", ("help",)),
 )
 
@@ -23,6 +24,14 @@ HELP = {
         "Without arguments lists every command of this system. With a command name shows its usage.",
     ),
     "pwd": ("print the working directory", ("pwd",), ""),
+    "air": (
+        "listen and transmit on the air",
+        ("air", "air tune <MHz>", "air tx <text>", "air log [n]", "air scan <from> <to>", "air call [callsign]"),
+        "The air is open: anyone can listen and transmit on almost any frequency from 3.000 to 30.000 MHz (step 0.005).\n"
+        "You only hear what arrives after you tune in; tuning again starts over. 14.230 is the calling channel.\n"
+        "scan shows where there was traffic in the last 15 minutes (up to 0.5 MHz at a time), but not what was said.\n"
+        "call shows or changes your callsign (once a week).",
+    ),
     "ls": (
         "list directory contents",
         ("ls [-a] [-l] [-h] [path]",),

@@ -19,6 +19,7 @@ from terminal.engine.commands.trash import Del, Rcvr, Wipe
 from terminal.engine.commands.raw import BlkCommand, CvtCommand, RprCommand
 from terminal.engine.commands.rights import OwnCommand, PermCommand
 from terminal.engine.commands.system import DateCommand, TmsetCommand
+from terminal.engine.commands.air import AirCommand
 
 # Общие для всех систем команды файловой системы.
 COMMON = (
@@ -48,6 +49,7 @@ COMMON = (
     OwnCommand,
     DateCommand,
     TmsetCommand,
+    AirCommand,
 )
 
 # У каждой системы свой набор и свои названия команд: у Aether мост это rcon, rcon-close и exit,
