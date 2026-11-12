@@ -5820,6 +5820,205 @@
     ]
    }
   },
+  "/studio/api/world/time": {
+   "get": {
+    "operationId": "studio_api_world_time",
+    "summary": "Time",
+    "parameters": [],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/TimeOut"
+        }
+       }
+      }
+     }
+    },
+    "tags": [
+     "world"
+    ],
+    "security": [
+     {
+      "StudioAuth": []
+     }
+    ]
+   },
+   "post": {
+    "operationId": "studio_api_world_add_anchor",
+    "summary": "Add Anchor",
+    "parameters": [],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/TimeOut"
+        }
+       }
+      }
+     }
+    },
+    "tags": [
+     "world"
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/AnchorIn"
+       }
+      }
+     },
+     "required": true
+    },
+    "security": [
+     {
+      "StudioAuth": []
+     }
+    ]
+   }
+  },
+  "/studio/api/world/time/{anchor_id}": {
+   "put": {
+    "operationId": "studio_api_world_change_anchor",
+    "summary": "Change Anchor",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "anchor_id",
+      "schema": {
+       "title": "Anchor Id",
+       "type": "integer"
+      },
+      "required": true
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/TimeOut"
+        }
+       }
+      }
+     }
+    },
+    "tags": [
+     "world"
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/AnchorIn"
+       }
+      }
+     },
+     "required": true
+    },
+    "security": [
+     {
+      "StudioAuth": []
+     }
+    ]
+   },
+   "delete": {
+    "operationId": "studio_api_world_remove_anchor",
+    "summary": "Remove Anchor",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "anchor_id",
+      "schema": {
+       "title": "Anchor Id",
+       "type": "integer"
+      },
+      "required": true
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/TimeOut"
+        }
+       }
+      }
+     }
+    },
+    "tags": [
+     "world"
+    ],
+    "security": [
+     {
+      "StudioAuth": []
+     }
+    ]
+   }
+  },
+  "/studio/api/world/time/check": {
+   "post": {
+    "operationId": "studio_api_world_check_anchor",
+    "summary": "Check Anchor",
+    "parameters": [
+     {
+      "in": "query",
+      "name": "skip",
+      "schema": {
+       "anyOf": [
+        {
+         "type": "integer"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Skip"
+      },
+      "required": false
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/TimeWarnings"
+        }
+       }
+      }
+     }
+    },
+    "description": "Что заметит мир от такой точки: сдвиг назад и записи, которые окажутся «в будущем». Ничего не сохраняет.",
+    "tags": [
+     "world"
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/AnchorIn"
+       }
+      }
+     },
+     "required": true
+    },
+    "security": [
+     {
+      "StudioAuth": []
+     }
+    ]
+   }
+  },
   "/studio/api/map/countries": {
    "get": {
     "operationId": "studio_api_worldmap_countries",
@@ -15511,6 +15710,14 @@
       ],
       "title": "Booted At"
      },
+     "time_zone": {
+      "title": "Time Zone",
+      "type": "string"
+     },
+     "local_now": {
+      "title": "Local Now",
+      "type": "string"
+     },
      "is_system": {
       "title": "Is System",
       "type": "boolean"
@@ -15598,6 +15805,8 @@
      "randomart",
      "note",
      "booted_at",
+     "time_zone",
+     "local_now",
      "is_system",
      "policy",
      "accounts",
@@ -15730,6 +15939,11 @@
        }
       ],
       "title": "Booted At"
+     },
+     "time_zone": {
+      "default": "UTC",
+      "title": "Time Zone",
+      "type": "string"
      },
      "entry_policy": {
       "anyOf": [
@@ -18525,11 +18739,6 @@
    },
    "WorldOut": {
     "properties": {
-     "game_now": {
-      "format": "date-time",
-      "title": "Game Now",
-      "type": "string"
-     },
      "core_last_contact": {
       "format": "date",
       "title": "Core Last Contact",
@@ -18559,7 +18768,6 @@
      }
     },
     "required": [
-     "game_now",
      "core_last_contact",
      "beacon_last_sync",
      "cert_not_after",
@@ -18568,6 +18776,171 @@
      "audit_per_day"
     ],
     "title": "WorldOut",
+    "type": "object"
+   },
+   "AnchorOut": {
+    "properties": {
+     "id": {
+      "title": "Id",
+      "type": "integer"
+     },
+     "real_at": {
+      "format": "date-time",
+      "title": "Real At",
+      "type": "string"
+     },
+     "game_at": {
+      "format": "date-time",
+      "title": "Game At",
+      "type": "string"
+     },
+     "rate": {
+      "title": "Rate",
+      "type": "number"
+     },
+     "note": {
+      "title": "Note",
+      "type": "string"
+     },
+     "past": {
+      "title": "Past",
+      "type": "boolean"
+     },
+     "current": {
+      "title": "Current",
+      "type": "boolean"
+     }
+    },
+    "required": [
+     "id",
+     "real_at",
+     "game_at",
+     "rate",
+     "note",
+     "past",
+     "current"
+    ],
+    "title": "AnchorOut",
+    "type": "object"
+   },
+   "TimeOut": {
+    "properties": {
+     "real_now": {
+      "format": "date-time",
+      "title": "Real Now",
+      "type": "string"
+     },
+     "game_now": {
+      "format": "date-time",
+      "title": "Game Now",
+      "type": "string"
+     },
+     "rate": {
+      "title": "Rate",
+      "type": "number"
+     },
+     "anchors": {
+      "items": {
+       "$ref": "#/components/schemas/AnchorOut"
+      },
+      "title": "Anchors",
+      "type": "array"
+     },
+     "zones": {
+      "items": {
+       "$ref": "#/components/schemas/ZoneRow"
+      },
+      "title": "Zones",
+      "type": "array"
+     }
+    },
+    "required": [
+     "real_now",
+     "game_now",
+     "rate",
+     "anchors",
+     "zones"
+    ],
+    "title": "TimeOut",
+    "type": "object"
+   },
+   "ZoneRow": {
+    "properties": {
+     "zone": {
+      "title": "Zone",
+      "type": "string"
+     },
+     "machines": {
+      "items": {
+       "type": "string"
+      },
+      "title": "Machines",
+      "type": "array"
+     }
+    },
+    "required": [
+     "zone",
+     "machines"
+    ],
+    "title": "ZoneRow",
+    "type": "object"
+   },
+   "AnchorIn": {
+    "properties": {
+     "real_at": {
+      "anyOf": [
+       {
+        "format": "date-time",
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Real At"
+     },
+     "game_at": {
+      "format": "date-time",
+      "title": "Game At",
+      "type": "string"
+     },
+     "rate": {
+      "default": 1,
+      "title": "Rate",
+      "type": "number"
+     },
+     "note": {
+      "default": "",
+      "title": "Note",
+      "type": "string"
+     }
+    },
+    "required": [
+     "game_at"
+    ],
+    "title": "AnchorIn",
+    "type": "object"
+   },
+   "TimeWarnings": {
+    "properties": {
+     "game_before": {
+      "format": "date-time",
+      "title": "Game Before",
+      "type": "string"
+     },
+     "items": {
+      "items": {
+       "type": "string"
+      },
+      "title": "Items",
+      "type": "array"
+     }
+    },
+    "required": [
+     "game_before",
+     "items"
+    ],
+    "title": "TimeWarnings",
     "type": "object"
    },
    "MapCountryRow": {

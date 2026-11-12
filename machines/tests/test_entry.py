@@ -126,10 +126,10 @@ class EntryTests(TerminalClient, TestCase):
     def test_outside_the_window_the_account_refuses_with_its_own_text(self):
         self.account("shift", entry_policy=self.policy(windows="mon-fri: 9:00-17:00", window_text="The office is closed."))
         night = timezone.make_aware(datetime(2026, 11, 2, 23, 0))
-        with mock.patch("machines.access.entry.timezone.localtime", return_value=night):
+        with mock.patch("machines.access.entry.machine_now", return_value=night):
             self.assertIn("The office is closed.", self.run_command("rshell shift@aether-core")["output"])
         day = timezone.make_aware(datetime(2026, 11, 2, 10, 0))
-        with mock.patch("machines.access.entry.timezone.localtime", return_value=day):
+        with mock.patch("machines.access.entry.machine_now", return_value=day):
             self.assertEqual(self.run_command("rshell shift@aether-core")["exit_code"], 0)
         self.assertEqual(self.kinds(MachineProfile.objects.get(login="shift")), ["window", "ok"])
 

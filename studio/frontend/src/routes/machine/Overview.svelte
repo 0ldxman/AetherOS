@@ -15,7 +15,7 @@
 
   let { machine, onchange }: { machine: Schemas["Overview"]; onchange: () => void } = $props();
 
-  let form = $state({ hostname: "", name: "", system: "", status: "", hid: "", address: "", serial: "", host_key: "", note: "", booted_at: "", entry_policy: null as number | null });
+  let form = $state({ hostname: "", name: "", system: "", status: "", hid: "", address: "", serial: "", host_key: "", note: "", booted_at: "", time_zone: "UTC", entry_policy: null as number | null });
   let saving = $state(false);
   let errors = $state<Record<string, string[]>>({});
   let dialog = $state<null | "delete" | "copy">(null);
@@ -28,17 +28,15 @@
     go("/machines");
   }
 
-  // datetime-local хочет «ГГГГ-ММ-ДДTЧЧ:ММ» по местному времени
+  // datetime-local: «ГГГГ-ММ-ДДTЧЧ:ММ», игровое время в UTC
   function local(iso: string | null) {
-    if (!iso) return "";
-    const date = new Date(iso);
-    const pad = (n: number) => String(n).padStart(2, "0");
-    return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+    return iso ? new Date(iso).toISOString().slice(0, 16) : "";
   }
+  const ZONES: string[] = (Intl as unknown as { supportedValuesOf?: (key: string) => string[] }).supportedValuesOf?.("timeZone") ?? ["UTC"];
 
   const base = $derived({
     hostname: machine.hostname, name: machine.name, system: machine.system, status: machine.status, hid: machine.hid, address: machine.address, serial: machine.serial, host_key: machine.host_key,
-    note: machine.note, booted_at: local(machine.booted_at ?? null), entry_policy: machine.policy?.id ?? null,
+    note: machine.note, booted_at: local(machine.booted_at ?? null), time_zone: machine.time_zone, entry_policy: machine.policy?.id ?? null,
   });
   // общий черновик обзора машины: пока он не подключён, форма берётся из сохранённого, потом её ведёт черновик
   const share = new SharedForm({ room: () => `machines/${machine.id}`, texts: ["note"], draft: () => form, base: () => base, onRemoteSave: () => onchange() });
@@ -49,7 +47,7 @@
   const dirty = $derived(
     form.hostname !== machine.hostname || form.name !== machine.name || form.system !== machine.system ||
       form.status !== machine.status || form.entry_policy !== (machine.policy?.id ?? null) || form.hid !== machine.hid || form.address !== machine.address || form.serial !== machine.serial || form.host_key !== machine.host_key ||
-      form.note !== machine.note || form.booted_at !== local(machine.booted_at ?? null),
+      form.note !== machine.note || form.booted_at !== local(machine.booted_at ?? null) || form.time_zone !== machine.time_zone,
   );
   guardUnsaved(() => dirty && !share.ready);
 
@@ -75,7 +73,7 @@
   async function save() {
     saving = true;
     errors = {};
-    const { error } = await api.PUT("/studio/api/machines/{machine_id}", { params: { path: { machine_id: machine.id } }, body: { ...form, booted_at: form.booted_at ? new Date(form.booted_at).toISOString() : null } });
+    const { error } = await api.PUT("/studio/api/machines/{machine_id}", { params: { path: { machine_id: machine.id } }, body: { ...form, booted_at: form.booted_at ? `${form.booted_at}:00Z` : null } });
     saving = false;
     if (error) {
       errors = (error as { fields?: Record<string, string[]> }).fields ?? {};
@@ -143,6 +141,12 @@
           <select class="field" bind:value={form.status}>{#each machine.statuses as code}<option value={code}>{STATUS[code] ?? code}</option>{/each}</select>
         </label>
       </div>
+      <label><span class="label">Часовой пояс<Hint text="В нём машина показывает время: date, журналы, почта, часы стола, окна входа. Игровое время одно на весь мир." /></span>
+        <input class="field mono" list="machine-zones" bind:value={form.time_zone} class:bad={errors.time_zone} placeholder="UTC, Europe/Moscow…" />
+        <datalist id="machine-zones">{#each ZONES as zone}<option value={zone}></option>{/each}</datalist>
+        <span class="muted small">сейчас на машине {machine.local_now}</span>
+      </label>
+      {#if errors.time_zone}<p class="err">{errors.time_zone.join(" ")}</p>{/if}
       <label><span class="label">Политика входа машины<Hint text="Как проверяется вход на эту машину. Учётка со своей политикой её перекрывает. Что действует для каждой учётки, видно на вкладке «Проверка входа»." /></span>
         <select class="field" bind:value={form.entry_policy}>
           <option value={null}>от ОС</option>
@@ -180,7 +184,7 @@
         <summary>Для приветствия ОС <span class="muted small">включена с, заметка</span></summary>
         <p class="muted small lead">Попадает в приветствие ОС как <code>{"{note}"}</code> и <code>{"{uptime}"}</code>.</p>
         <div class="pair">
-          <label><span class="label">Включена с</span><input class="field" type="datetime-local" bind:value={form.booted_at} /></label>
+          <label><span class="label">Включена с (игровое время, UTC)</span><input class="field" type="datetime-local" bind:value={form.booted_at} /></label>
         </div>
         <label><span class="label">Заметка</span><textarea class="field" rows="3" bind:value={form.note}></textarea></label>
       </details>

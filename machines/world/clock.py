@@ -1,4 +1,4 @@
-"""Часы машины в мире игрока: мировое время плюс сдвиг, который игрок задал командой tmset.
+"""Часы машины в мире игрока: игровое время (machines/world/chrono.py) в поясе машины плюс сдвиг, который игрок задал командой tmset.
 
 Сдвиг свой у каждой пары (игрок, машина). По этим часам работают окна времени входа и метки в журнале машины, поэтому сдвинуть
 время значит войти вне окна или подделать след в журнале. Привилегия clock нужна, чтобы двигать часы.
@@ -6,8 +6,6 @@
 import math
 import re
 from datetime import datetime, timedelta
-
-from django.utils import timezone
 
 from machines.models import MachineClock
 
@@ -23,8 +21,10 @@ def offset_of(machine, user):
 
 
 def now(machine, user=None):
-    """Время на машине для этого игрока (с часовым поясом проекта)."""
-    return timezone.localtime(timezone.now() + timedelta(seconds=offset_of(machine, user)))
+    """Время на машине для этого игрока: игровое «сейчас» плюс сдвиг его часов, в поясе машины."""
+    from machines.world import chrono
+
+    return chrono.in_zone(chrono.game_now() + timedelta(seconds=offset_of(machine, user)), machine)
 
 
 def set_offset(machine, user, seconds):
@@ -35,7 +35,9 @@ def set_offset(machine, user, seconds):
 
 
 def parse(text, machine, user):
-    """Новый сдвиг в секундах по тексту команды: +3h, -1d, 2026-11-02 10:30 или reset; None, если текст не понят."""
+    """Новый сдвиг в секундах по тексту команды: +3h, -1d, 2031-11-02 10:30 (время машины, в её поясе) или reset; None, если не понят."""
+    from machines.world import chrono
+
     text = text.strip()
     if text.lower() in ("reset", "sync"):
         return 0
@@ -45,8 +47,8 @@ def parse(text, machine, user):
         return offset_of(machine, user) + delta
     for fmt in FORMATS:
         try:
-            wanted = timezone.make_aware(datetime.strptime(text, fmt))
+            wanted = datetime.strptime(text, fmt).replace(tzinfo=chrono.zone(machine))
         except ValueError:
             continue
-        return math.ceil((wanted - timezone.now()).total_seconds())
+        return math.ceil((wanted - chrono.game_now()).total_seconds())
     return None

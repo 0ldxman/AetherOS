@@ -11,7 +11,7 @@ from django.urls import get_script_prefix, set_script_prefix
 
 from filesystem.testing import make_file
 from filesystem.models import Volume
-from machines.models import EntryPolicy, Export, Group, Machine, MachineMount, MachineProfile, SystemType
+from machines.models import EntryPolicy, Export, Group, Machine, MachineMount, MachineProfile, SystemType, World
 
 API = "/studio/api"
 
@@ -207,7 +207,7 @@ class CreateAndSystemsTests(TestCase):
         from machines.world.identity import identity_of
 
         self.core.note = "Check the vault"
-        self.core.booted_at = timezone.now() - timedelta(days=2, hours=3)
+        self.core.booted_at = World.current().game_now - timedelta(days=2, hours=3)
         self.core.save()
         known = facts(self.core)
         self.assertEqual((known["accounts"], known["note"], known["last_login"]), (self.core.profiles.count(), "Check the vault", "never"))
@@ -261,8 +261,9 @@ class CreateAndSystemsTests(TestCase):
 
         data = self.call("get", "/world")[1]
         self.assertEqual((data["stations_known"], data["core_last_contact"]), (31, "2027-10-29"))
-        data["game_now"], data["stations_reachable"] = "2030-11-15T03:14:00Z", 20
+        data["stations_reachable"] = 20
         self.assertEqual(self.call("put", "/world", data)[0], 200)
+        self.assertEqual(self.call("post", "/world/time", {"game_at": "2030-11-15T03:14:00Z", "rate": 0})[0], 200)
         self.assertEqual(days_since(world().core_last_contact), "1,113")
         status, shown = self.call("post", "/systems/AETHER/greeting/preview", {"greeting": "{date} {time} <since>2027-10-29</since>"})
         self.assertEqual(shown["errors"], [])

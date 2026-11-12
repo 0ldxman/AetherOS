@@ -32,6 +32,7 @@ export const GROUPS: NavGroup[] = [
   {
     id: "world", title: "Мир", items: [
       { href: "#/world", label: "Мир", section: ["world"], right: "world", icon: "world" },
+      { href: "#/time", label: "Время", section: ["time"], right: "world", icon: "clock" },
       { href: "#/map", label: "Карта", section: ["map"], right: "map", icon: "map" },
       { href: "#/scenes", label: "Сцены", section: ["scenes"], right: "scenes", icon: "scenes" },
       { href: "#/policies", label: "Политики входа", section: ["policies"], right: "policies", icon: "policies" },

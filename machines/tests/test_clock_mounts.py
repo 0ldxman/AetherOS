@@ -11,7 +11,7 @@ from django.utils import timezone
 
 from filesystem.models import Item, Placement, Volume
 from filesystem.testing import make_app
-from machines.world import clock
+from machines.world import chrono, clock
 from terminal.testing import TerminalClient
 from machines.models import EntryPolicy, Export, Group, LoginEvent, Machine, MachineMount, MachineProfile, PlayerMount
 
@@ -59,7 +59,7 @@ class ClockTests(WorldCase):
         self.assertEqual(clock.offset_of(self.main, self.other), 0)
         self.assertEqual(clock.offset_of(self.core, self.user), 0)
         shown = clock.now(self.main, self.user)
-        self.assertAlmostEqual((shown - timezone.localtime()).total_seconds(), 3 * 3600, delta=5)
+        self.assertAlmostEqual((shown - chrono.game_now()).total_seconds(), 3 * 3600, delta=5)
         self.run_command("tmset -1h")
         self.assertAlmostEqual(clock.offset_of(self.main, self.user), 2 * 3600, delta=2)
         self.run_command("tmset reset")
@@ -77,7 +77,7 @@ class ClockTests(WorldCase):
         MachineProfile.objects.create(machine=self.core, login="shift", name="s", freq=2, entry_policy=policy)
         self.assertIn("Permission denied", self.run_command("rshell shift@aether-core")["output"])
         monday = timezone.make_aware(timezone.datetime(2030, 5, 20, 9, 0, 30))          # 20 мая 2030 понедельник
-        clock.set_offset(self.core, self.user, int((monday - timezone.now()).total_seconds()))
+        clock.set_offset(self.core, self.user, int((monday - chrono.game_now()).total_seconds()))
         self.assertEqual(self.run_command("rshell shift@aether-core")["exit_code"], 0)
 
     def test_the_journal_keeps_the_time_the_clock_showed_when_it_happened(self):

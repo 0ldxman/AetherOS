@@ -1,6 +1,5 @@
 <script lang="ts">
   import PageHead from "../lib/PageHead.svelte";
-  import Hint from "../lib/Hint.svelte";
   import { guardUnsaved } from "../lib/guard.svelte";
   import { onMount } from "svelte";
   import { api, problem, type Schemas } from "../lib/api";
@@ -11,35 +10,27 @@
   type World = Schemas["WorldOut"];
 
   let world = $state<World | null>(null);
-  let clock = $state({ day: "", time: "" });
   let saved = $state("");
   let base = $state<World | null>(null);                   // сохранённое: им наполняются общие черновики
-  let clockBase = $state<{ day: string; time: string } | null>(null);
   let errors = $state<Record<string, string[]>>({});
 
-  const body = $derived(world ? { ...world, game_now: `${clock.day}T${clock.time || "00:00"}:00Z` } : null);
+  const body = $derived(world ? { ...world } : null);
   const dirty = $derived(JSON.stringify(body) !== saved);
   guardUnsaved(() => saved !== "" && dirty && !share.ready);   // пока ничего не загружено, правок нет; черновик на сервере
 
   function fill(data: World, keepDraft = false) {
-    const next = { day: data.game_now.slice(0, 10), time: data.game_now.slice(11, 16) };
-    if (!keepDraft) {
-      world = { ...data };
-      clock = { ...next };
-    }
-    saved = JSON.stringify({ ...data, game_now: `${next.day}T${next.time}:00Z` });
+    if (!keepDraft) world = { ...data };
+    saved = JSON.stringify({ ...data });
     base = { ...data };
-    clockBase = next;
     errors = {};
   }
 
-  // общий черновик мира (поля и отдельно «сейчас»); кто-то сохранил: перечитать сохранённое, черновик не трогается
+  // общий черновик мира; кто-то сохранил: перечитать сохранённое, черновик не трогается
   async function refresh() {
     const { data } = await api.GET("/studio/api/world");
     if (data) fill(data, true);
   }
   const share = new SharedForm({ room: () => "world", draft: () => world ?? {}, base: () => base, onRemoteSave: refresh });
-  const clockShare = new SharedForm({ room: () => "world", scope: () => "clock", draft: () => clock, base: () => clockBase, onRemoteSave: refresh });
 
   onMount(async () => {
     const { data } = await api.GET("/studio/api/world");
@@ -55,7 +46,6 @@
     }
     fill(data);
     share.markSaved();
-    clockShare.markSaved();
     toast("Мир сохранён.");
   }
 
@@ -73,11 +63,7 @@
 {#if world}
   <section class="card">
     <h2>Время</h2>
-    <div class="row">
-      <label><span class="label">«Сейчас» в мире: дата</span><input class="field" type="date" bind:value={clock.day} /></label>
-      <label><span class="label">время (UTC)<Hint text="Мировое время по Гринвичу для даты слева. От этого момента считаются «N дней назад» и время писем." /></span><input class="field" type="time" bind:value={clock.time} /></label>
-    </div>
-    <p class="muted small">От этой даты считаются «N дней назад» и время писем.</p>
+    <p class="muted">Игровое время, его ход и запланированные сдвиги: раздел <a href="#/time">Время</a>.</p>
   </section>
 
   <section class="card">
@@ -103,7 +89,6 @@
   .card { margin: 12px 32px; padding: 14px 16px; border: 1px solid var(--line-soft); border-radius: var(--radius); background: var(--panel); display: flex; flex-direction: column; gap: 10px; }
   h2 { margin: 0; font-size: 12px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.4px; }
   .row { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 10px; }
-  .small { font-size: 12px; margin: 0; }
   .err { margin: 0; color: var(--danger); font-size: 12px; }
   .pad { padding: 24px 32px; }
 </style>

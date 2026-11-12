@@ -19,6 +19,13 @@ def cached(key, factory):
     return store[key]
 
 
+def forget(key):
+    """Забыть значение в памяти запроса (его поменяли в этом же запросе)."""
+    store = _current.get()
+    if store is not None:
+        store.pop(key, None)
+
+
 class MemoMiddleware:
     def __init__(self, get_response):
         self.get_response = get_response

@@ -16,10 +16,11 @@ from machines.access import entry, groups
 from machines.models import EntryPolicy, LoginEvent, Machine, MachineProfile, Session, SystemType
 from machines.network import bridge
 from machines.models.machine import generate_hid
-from machines.world import identity
+from machines.world import chrono, identity
 from machines.world.facts import ONLINE
 
 STATUS_RU = {"ONLINE": "в сети", "OFFLINE": "не в сети", "MAINTENANCE": "обслуживание"}
+
 
 router = Router(tags=["machines"])
 
@@ -104,6 +105,8 @@ class Overview(Schema):
     randomart: list[str]        # картинка того ключа, который действует сейчас
     note: str
     booted_at: datetime | None
+    time_zone: str
+    local_now: str              # «2031-03-02 14:05 MSK»: время машины сейчас (без сдвига часов игрока)
     is_system: bool
     policy: Policy | None
     accounts: list[AccountRow]
@@ -127,6 +130,7 @@ class MachineIn(Schema):
     host_key: str = ""
     note: str = ""
     booted_at: datetime | None = None
+    time_zone: str = "UTC"
     entry_policy: int | None = None
 
 
@@ -310,7 +314,8 @@ def overview(request, machine_id: int):
     return Overview(
         id=machine.pk, hostname=machine.hostname or "", name=machine.name, system=machine.system, status=machine.status, hid=machine.hid,
         address=machine.address, serial=machine.serial, host_key=machine.host_key, **_auto(machine),
-        note=machine.note, booted_at=machine.booted_at,
+        note=machine.note, booted_at=machine.booted_at, time_zone=machine.time_zone,
+        local_now=f"{chrono.in_zone(chrono.game_now(), machine):%Y-%m-%d %H:%M %Z}",
         is_system=machine.is_system,
         policy=Policy(id=machine_policy.pk, name=machine_policy.name, origin="machine") if machine_policy else None,
         accounts=[_account_row(profile) for profile in accounts],
@@ -337,6 +342,10 @@ def save(request, machine_id: int, body: MachineIn):
     machine.status = body.status
     machine.address, machine.serial, machine.host_key = body.address.strip(), body.serial.strip(), body.host_key.strip()
     machine.note, machine.booted_at = body.note, body.booted_at
+    zone = body.time_zone.strip() or "UTC"
+    if not chrono.valid_zone(zone):
+        raise ValidationError({"time_zone": [f"Нет такого часового пояса: {zone}. Пишите как Europe/Moscow."]})
+    machine.time_zone = zone
     if body.hid is not None:
         machine.hid = body.hid.strip().lower()
     machine.entry_policy_id = body.entry_policy

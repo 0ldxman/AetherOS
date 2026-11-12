@@ -27,13 +27,14 @@ PHRASES = {
 def render(machine, user):
     """Строки журнала машины для игрока: по одной на событие, старые первыми."""
     from machines.models import LoginEvent
+    from machines.world import chrono
 
     if machine is None or user is None:
         return "", "empty"
     events = list(LoginEvent.objects.filter(profile__machine=machine, user=user).select_related("profile").order_by("-at", "-id")[:LINES])[::-1]
     host = machine.hostname or machine.name
     lines = [
-        f"{timezone.localtime(event.shown_at):%Y-%m-%d %H:%M:%S} {host} auth: "
+        f"{chrono.in_zone(event.shown_at, machine):%Y-%m-%d %H:%M:%S} {host} auth: "
         + PHRASES.get(event.kind, event.kind).format(login=event.profile.login, source=event.source or "local", method=event.detail or "password")
         for event in events
     ]

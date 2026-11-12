@@ -65,7 +65,13 @@ class Machine(models.Model):
     )
 
     booted_at = models.DateTimeField(
-        "Включена", null=True, blank=True, help_text="С какого момента работает машина; от него считается {uptime}. Пусто: неизвестно.",
+        "Включена", null=True, blank=True,
+        help_text="Игровой момент, с которого работает машина; от него считается {uptime}. Пусто: неизвестно.",
+    )
+
+    time_zone = models.CharField(
+        "Часовой пояс", max_length=64, default="UTC",
+        help_text="Пояс IANA (Europe/Moscow, Asia/Tokyo): в нём машина показывает время в date, журналах, почте и на столе.",
     )
 
     overlay = models.OneToOneField(

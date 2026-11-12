@@ -1903,6 +1903,62 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/studio/api/world/time": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Time */
+        get: operations["studio_api_world_time"];
+        put?: never;
+        /** Add Anchor */
+        post: operations["studio_api_world_add_anchor"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/studio/api/world/time/{anchor_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Change Anchor */
+        put: operations["studio_api_world_change_anchor"];
+        post?: never;
+        /** Remove Anchor */
+        delete: operations["studio_api_world_remove_anchor"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/studio/api/world/time/check": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Check Anchor
+         * @description Что заметит мир от такой точки: сдвиг назад и записи, которые окажутся «в будущем». Ничего не сохраняет.
+         */
+        post: operations["studio_api_world_check_anchor"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/studio/api/map/countries": {
         parameters: {
             query?: never;
@@ -5341,6 +5397,10 @@ export interface components {
             note: string;
             /** Booted At */
             booted_at: string | null;
+            /** Time Zone */
+            time_zone: string;
+            /** Local Now */
+            local_now: string;
             /** Is System */
             is_system: boolean;
             policy: components["schemas"]["Policy"] | null;
@@ -5413,6 +5473,11 @@ export interface components {
             note: string;
             /** Booted At */
             booted_at?: string | null;
+            /**
+             * Time Zone
+             * @default UTC
+             */
+            time_zone: string;
             /** Entry Policy */
             entry_policy?: number | null;
         };
@@ -6488,11 +6553,6 @@ export interface components {
         /** WorldOut */
         WorldOut: {
             /**
-             * Game Now
-             * Format: date-time
-             */
-            game_now: string;
-            /**
              * Core Last Contact
              * Format: date
              */
@@ -6513,6 +6573,85 @@ export interface components {
             stations_reachable: number;
             /** Audit Per Day */
             audit_per_day: number;
+        };
+        /** AnchorOut */
+        AnchorOut: {
+            /** Id */
+            id: number;
+            /**
+             * Real At
+             * Format: date-time
+             */
+            real_at: string;
+            /**
+             * Game At
+             * Format: date-time
+             */
+            game_at: string;
+            /** Rate */
+            rate: number;
+            /** Note */
+            note: string;
+            /** Past */
+            past: boolean;
+            /** Current */
+            current: boolean;
+        };
+        /** TimeOut */
+        TimeOut: {
+            /**
+             * Real Now
+             * Format: date-time
+             */
+            real_now: string;
+            /**
+             * Game Now
+             * Format: date-time
+             */
+            game_now: string;
+            /** Rate */
+            rate: number;
+            /** Anchors */
+            anchors: components["schemas"]["AnchorOut"][];
+            /** Zones */
+            zones: components["schemas"]["ZoneRow"][];
+        };
+        /** ZoneRow */
+        ZoneRow: {
+            /** Zone */
+            zone: string;
+            /** Machines */
+            machines: string[];
+        };
+        /** AnchorIn */
+        AnchorIn: {
+            /** Real At */
+            real_at?: string | null;
+            /**
+             * Game At
+             * Format: date-time
+             */
+            game_at: string;
+            /**
+             * Rate
+             * @default 1
+             */
+            rate: number;
+            /**
+             * Note
+             * @default
+             */
+            note: string;
+        };
+        /** TimeWarnings */
+        TimeWarnings: {
+            /**
+             * Game Before
+             * Format: date-time
+             */
+            game_before: string;
+            /** Items */
+            items: string[];
         };
         /** MapCountryRow */
         MapCountryRow: {
@@ -12069,6 +12208,124 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["WorldOut"];
+                };
+            };
+        };
+    };
+    studio_api_world_time: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TimeOut"];
+                };
+            };
+        };
+    };
+    studio_api_world_add_anchor: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AnchorIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TimeOut"];
+                };
+            };
+        };
+    };
+    studio_api_world_change_anchor: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                anchor_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AnchorIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TimeOut"];
+                };
+            };
+        };
+    };
+    studio_api_world_remove_anchor: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                anchor_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TimeOut"];
+                };
+            };
+        };
+    };
+    studio_api_world_check_anchor: {
+        parameters: {
+            query?: {
+                skip?: number | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AnchorIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TimeWarnings"];
                 };
             };
         };
