@@ -159,17 +159,74 @@ WINDOW_PRESETS = {
 }
 
 
+_LOOK_LABELS = {"aether": "Aether", "classic": "Classic", "modern": "Modern", "gnome": "GNOME", "workbench": "Workbench", "tui": "Terminal UI", "phosphor": "Phosphor"}
+
+# Док, сообщения и часы: те же параметры с вариантами, умолчания берутся у вида панели стиля (machines/world/panel.py, look_of)
+DOCK = {
+    "show": ("Док", {"on": "Есть", "off": "Нет"}),
+    "edge": ("Край", {"bottom": "Снизу", "left": "Слева", "right": "Справа"}),
+    "form": ("Форма", {"island": "Остров", "bar": "Во всю длину края"}),
+    "size": ("Размер значков", {"s": "Мелкие", "m": "Средние", "l": "Крупные"}),
+    "labels": ("Подписи", {"none": "Нет", "hover": "При наведении", "always": "Всегда"}),
+    "mark": ("Метка запущенных", {"dot": "Точка", "line": "Черта", "glow": "Подсветка"}),
+    "grid": ("Кнопка «все приложения»", {"on": "Есть", "off": "Нет"}),
+    "hide": ("Автоскрытие", {"off": "Нет", "on": "Прячется, пока не подвести мышь"}),
+}
+NOTICE = {
+    "look": ("Вид сообщений", _LOOK_LABELS),
+    "corner": ("Угол уведомлений", {"br": "Справа снизу", "tr": "Справа сверху", "tc": "Сверху по центру", "bl": "Слева снизу", "tl": "Слева сверху"}),
+    "errors": ("Ошибки", {"window": "Окном", "banner": "Полосой сверху", "screen": "На весь экран"}),
+}
+CLOCK = {
+    "hours": ("Формат", {"24": "24 часа", "12": "12 часов"}),
+    "seconds": ("Секунды", {"on": "Показывать", "off": "Нет"}),
+}
+GROUPS = {"window": WINDOW, "dock": DOCK, "notice": NOTICE, "clock": CLOCK}
+GROUP_LABELS = {"window": "окон", "dock": "дока", "notice": "сообщений", "clock": "часов"}
+
+_DEFAULTS = {
+    "dock": {"show": "off", "edge": "bottom", "form": "island", "size": "m", "labels": "hover", "mark": "dot", "grid": "off", "hide": "off"},
+    "notice": {"corner": "br", "errors": "window"},
+    "clock": {"hours": "24", "seconds": "on"},
+}
+_LOOK_PRESETS = {
+    "dock": {"gnome": {"show": "on", "labels": "none", "grid": "on"}},
+    "notice": {"gnome": {"corner": "tc"}},
+}
+
+
+def preset(group, slug):
+    """Параметры группы у стиля (без выбора автора)."""
+    from machines.world import panel
+
+    if group == "window":
+        return dict(WINDOW_PRESETS.get(slug, _AETHER_WINDOW))
+    look = panel.look_of(slug)
+    found = {**_DEFAULTS[group], **_LOOK_PRESETS.get(group, {}).get(look, {})}
+    if group == "notice":
+        found["look"] = look
+    return found
+
+
+def group_of(group, slug, custom=None):
+    """{параметр: вариант} группы: заготовка стиля, поверх неё выбор автора ОС."""
+    chosen = clean_parts(custom).get(group, {})
+    base = preset(group, chosen["look"]) if group == "notice" and "look" in chosen else preset(group, slug)     # чужой вид сообщений — с его углом
+    return {**base, **chosen}
+
+
 def clean_parts(data):
-    """Только известное: {"window": {параметр: вариант}, "panel": {...}}; пустые разделы отбрасываются."""
+    """Только известное: {"window"|"dock"|"notice"|"clock": {параметр: вариант}, "panel": {...}}; пустые разделы отбрасываются."""
     from machines.world import panel
 
     if not isinstance(data, dict):
         return {}
     out = {}
-    window = data.get("window")
-    found = {key: value for key, value in window.items() if key in WINDOW and value in WINDOW[key][1]} if isinstance(window, dict) else {}
-    if found:
-        out["window"] = found
+    for group, params in GROUPS.items():
+        chosen = data.get(group)
+        found = {key: value for key, value in chosen.items() if key in params and value in params[key][1]} if isinstance(chosen, dict) else {}
+        if found:
+            out[group] = found
     found = panel.clean(data.get("panel"))
     if found:
         out["panel"] = found
@@ -178,29 +235,36 @@ def clean_parts(data):
 
 def parts_problems(data):
     found = []
-    window = (data or {}).get("window") or {}
-    for key, value in window.items() if isinstance(window, dict) else ():
-        if key not in WINDOW:
-            found.append(f"У окон нет параметра {key}.")
-        elif value not in WINDOW[key][1]:
-            found.append(f"{WINDOW[key][0]}: нет варианта «{value}».")
+    for group, params in GROUPS.items():
+        chosen = (data or {}).get(group) or {}
+        for key, value in chosen.items() if isinstance(chosen, dict) else ():
+            if key not in params:
+                found.append(f"У {GROUP_LABELS[group]} нет параметра {key}.")
+            elif value not in params[key][1]:
+                found.append(f"{params[key][0]}: нет варианта «{value}».")
     return found
 
 
 def window_of(slug, custom=None):
     """{параметр окна: вариант}: заготовка стиля, поверх неё выбор автора ОС."""
-    base = WINDOW_PRESETS.get(slug, _AETHER_WINDOW)
-    return {**base, **clean_parts(custom).get("window", {})}
+    return group_of("window", slug, custom)
 
 
 def parts(slug, custom=None):
-    """{атрибут без data-: значение} для <html>: параметры окон, панель (machines/world/panel.py) и части, которые пока целиком у стиля."""
+    """{атрибут без data-: значение} для <html>: параметры окон, дока, сообщений и часов, панель (machines/world/panel.py)."""
     from machines.world import panel
 
     attrs = {f"win-{key}": value for key, value in window_of(slug, custom).items()}
     found = panel.attrs(slug, clean_parts(custom).get("panel"))
-    attrs.update({part: found["panel"] if part in ("panel", "dock") else slug for part in PARTS})      # док пока живёт в виде панели
+    notice = group_of("notice", slug, custom)
+    attrs.update({"notice": notice["look"], "panel": found["panel"], "dock": found["panel"]})       # док дорисовывает вид панели
     attrs.update(found)
+    attrs.update({f"dock-{key}": value for key, value in group_of("dock", slug, custom).items()})
+    attrs["toast-corner"] = notice["corner"]
+    if notice["corner"] != preset("notice", notice["look"])["corner"]:
+        attrs["toast-move"] = "1"                   # угол не тот, под который рассчитан вид сообщений
+    attrs["error-form"] = notice["errors"]
+    attrs.update({f"clock-{key}": value for key, value in group_of("clock", slug, custom).items()})
     return attrs
 
 

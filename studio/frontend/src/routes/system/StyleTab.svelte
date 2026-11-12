@@ -16,7 +16,7 @@
 
   let { system, errors, done, onstate }: { system: System; errors: Record<string, string[]>; done: Done; onstate: (state: { dirty: boolean; share: typeof share; save: () => unknown } | null) => void } = $props();
 
-  let look = $state({ style: "aether", tokens: {} as Record<string, string>, wallpaper: { ...WALLPAPER_DEFAULT } as Wallpaper, widgets: {} as Record<string, boolean>, places: {} as Record<string, string>, win: {} as Record<string, string>, panel: {} as Panel });
+  let look = $state({ style: "aether", tokens: {} as Record<string, string>, wallpaper: { ...WALLPAPER_DEFAULT } as Wallpaper, widgets: {} as Record<string, boolean>, places: {} as Record<string, string>, win: {} as Record<string, string>, panel: {} as Panel, parts: {} as Record<string, Record<string, string>> });
   let picking = $state(false);
   let lookSaved = $state("");
   let base = $state<typeof look | null>(null);                  // сохранённое: им наполняется общий черновик
@@ -26,7 +26,7 @@
   const HEX6 = /^#[0-9a-fA-F]{6}$/;
 
   async function saveLook() {
-    const body = { style: look.style, tokens: look.tokens, wallpaper: look.wallpaper, widgets: look.widgets, widget_places: look.places, window: look.win, panel: look.panel };
+    const body = { style: look.style, tokens: look.tokens, wallpaper: look.wallpaper, widgets: look.widgets, widget_places: look.places, window: look.win, panel: look.panel, parts: look.parts };
     const { data, error } = await api.PUT("/studio/api/systems/{code}/style", { params: { path: { code: system.code } }, body });
     if (data) share.markSaved();
     done(data, error, "Стиль сохранён.");
@@ -51,7 +51,7 @@
 
   $effect(() => {
     if (!deskPreview) return;
-    const url = `${system.preview_url}?preview_os=${encodeURIComponent(system.code)}&preview_style=${encodeURIComponent(look.style)}&preview_tokens=${encodeURIComponent(JSON.stringify(look.tokens))}&preview_wall=${encodeURIComponent(JSON.stringify(look.wallpaper))}&preview_widgets=${encodeURIComponent(JSON.stringify(look.widgets))}&preview_places=${encodeURIComponent(JSON.stringify(look.places))}&preview_parts=${encodeURIComponent(JSON.stringify({ window: look.win, panel: look.panel }))}`;
+    const url = `${system.preview_url}?preview_os=${encodeURIComponent(system.code)}&preview_style=${encodeURIComponent(look.style)}&preview_tokens=${encodeURIComponent(JSON.stringify(look.tokens))}&preview_wall=${encodeURIComponent(JSON.stringify(look.wallpaper))}&preview_widgets=${encodeURIComponent(JSON.stringify(look.widgets))}&preview_places=${encodeURIComponent(JSON.stringify(look.places))}&preview_parts=${encodeURIComponent(JSON.stringify({ window: look.win, panel: look.panel, ...look.parts }))}`;
     clearTimeout(deskTimer);
     deskTimer = setTimeout(() => (previewSrc = url), 350);
     return () => clearTimeout(deskTimer);
@@ -72,8 +72,8 @@
   $effect(() => {
     const data = system;
     untrack(() => {
-      const next = { style: data.style, tokens: { ...data.style_tokens }, wallpaper: { ...WALLPAPER_DEFAULT, ...data.wallpaper }, widgets: { ...data.widgets }, places: { ...data.widget_places }, win: { ...data.window }, panel: Object.fromEntries(Object.entries(data.panel).filter(([, v]) => v !== null)) as Panel };
-      if (!share.ready) look = { style: next.style, tokens: { ...next.tokens }, wallpaper: { ...next.wallpaper }, widgets: { ...next.widgets }, places: { ...next.places }, win: { ...next.win }, panel: structuredClone(next.panel) };
+      const next = { style: data.style, tokens: { ...data.style_tokens }, wallpaper: { ...WALLPAPER_DEFAULT, ...data.wallpaper }, widgets: { ...data.widgets }, places: { ...data.widget_places }, win: { ...data.window }, panel: Object.fromEntries(Object.entries(data.panel).filter(([, v]) => v !== null)) as Panel, parts: JSON.parse(JSON.stringify(data.parts)) };
+      if (!share.ready) look = { style: next.style, tokens: { ...next.tokens }, wallpaper: { ...next.wallpaper }, widgets: { ...next.widgets }, places: { ...next.places }, win: { ...next.win }, panel: JSON.parse(JSON.stringify(next.panel)), parts: JSON.parse(JSON.stringify(next.parts)) };
       lookSaved = JSON.stringify(next);
       base = next;
     });
@@ -98,8 +98,32 @@
     "Форма": "Скругление, толщина рамок и размеры элементов.",
   };
   let section = $state((() => { try { return localStorage.getItem(SECTION_KEY) ?? "wall"; } catch { return "wall"; } })());
-  const sections = $derived(["wall", "windows", "panel", "widgets", ...groups]);
-  const SECTION_LABEL: Record<string, string> = { wall: "Картинка и узор", windows: "Окна", panel: "Панель", widgets: "Элементы стола" };
+  const sections = $derived(["wall", "windows", "panel", "dock", "notice", "widgets", ...groups]);
+  const SECTION_LABEL: Record<string, string> = { wall: "Картинка и узор", windows: "Окна", panel: "Панель", dock: "Док", notice: "Сообщения", widgets: "Элементы стола" };
+
+  // ---------- док, сообщения, часы: параметры с вариантами, как у окон ----------
+  const groupPreset = (group: string): Record<string, string> => {
+    const by = system.part_presets[group] ?? {};
+    const chosenLook = group === "notice" ? look.parts.notice?.look : undefined;       // чужой вид сообщений приходит со своим углом
+    return by[chosenLook ?? look.style] ?? by[look.style] ?? {};
+  };
+  const partValue = (group: string, key: string) => look.parts[group]?.[key] ?? groupPreset(group)[key];
+  function setPart(group: string, key: string, value: string) {
+    const next = { ...(look.parts[group] ?? {}) };
+    if (group === "notice" && key === "look") {                  // другой вид сообщений — угол снова его, пока не выбран свой
+      delete next.corner;
+      if (value === system.part_presets.notice?.[look.style]?.look) delete next.look; else next.look = value;
+    } else if (value === groupPreset(group)[key]) delete next[key];
+    else next[key] = value;
+    look.parts = { ...look.parts, [group]: next };
+  }
+  const partOwn = (group: string) => Object.keys(look.parts[group] ?? {}).length;
+  const PART_NOTE: Record<string, string> = {
+    "notice:errors:banner": "Ошибка встаёт полосой под панелью, Enter или OK её закрывает. Окна не открываются.",
+    "notice:errors:screen": "Ошибка закрывает весь экран, как отказ прошивки; Enter или кнопка возвращают на стол.",
+    "dock:hide:on": "У края остаётся тонкая полоска; док выезжает, когда к нему подводят мышь или переходят клавишей Tab.",
+    "dock:grid:on": "Кнопка открывает меню запуска; если у вида панели его нет, стол добавит своё.",
+  };
 
   // ---------- панель: вид, край, форма и элементы в трёх слотах ----------
   const PI = $derived(system.panel_info);
@@ -157,7 +181,7 @@
   };
 
   // ---------- элементы стола: у каждого «как в стиле», «вкл», «выкл»; чего нет в оболочке стиля, то недоступно ----------
-  const widgetGroups = $derived([...new Set(system.widget_info.map((w) => w.group))]);
+  const widgetGroups = $derived([...new Set(system.widget_info.filter((w) => !["date", "toasts"].includes(w.key)).map((w) => w.group))]);
   const native = (w: Schemas["WidgetInfo"]) => w.native.includes(look.style);
   const isOn = (w: Schemas["WidgetInfo"]) => look.widgets[w.key] ?? native(w);
   function setPlace(key: string, value: string) { look.places = { ...look.places, [key]: value }; }
@@ -171,7 +195,7 @@
     if (["phosphor", "tui"].includes(curLook)) return "";
     const on = (key: string) => { const w = system.widget_info.find((x) => x.key === key); return !!w && isOn(w); };
     const inPanel = ["launcher", "search", "apps"].some((key) => placedKeys.has(key));
-    return !on("icons") && !on("dock") && !inPanel ? "Нет ни значков, ни дока, ни меню запуска или быстрого запуска на панели: приложения на этой ОС открыть нечем, кроме ссылок и хуков." : "";
+    return !on("icons") && partValue("dock", "show") !== "on" && !inPanel ? "Нет ни значков, ни дока, ни меню запуска или быстрого запуска на панели: приложения на этой ОС открыть нечем, кроме ссылок и хуков." : "";
   });
   $effect(() => { if (!sections.includes(section)) section = "wall"; });
   $effect(() => { const value = section; try { localStorage.setItem(SECTION_KEY, value); } catch { /* память браузера может быть закрыта */ } });
@@ -195,6 +219,52 @@
   }
 </script>
 
+{#snippet widgetRow(w: Schemas["WidgetInfo"])}
+  {@const value = look.widgets[w.key]}
+  {@const own = native(w)}
+  <div class="wrow">
+    <div class="wname">
+      <b>{w.label}<span class="wkind" class:own>{own ? "родной в стиле" : "добавляется"}</span></b>
+      <span class="muted small">{w.hint}</span>
+    </div>
+    <div class="wctl2">
+      {#if !own && isOn(w) && w.places.length}
+        <select class="field place" value={look.places[w.key] ?? w.places[0].value} onchange={(e) => setPlace(w.key, e.currentTarget.value)} aria-label="Где стоит: {w.label}">
+          {#each w.places as p (p.value)}<option value={p.value}>{p.label}</option>{/each}
+        </select>
+      {/if}
+      <div class="seg" role="radiogroup" aria-label={w.label}>
+        <button type="button" role="radio" aria-checked={value === undefined} class:on={value === undefined} onclick={() => setWidget(w.key, null)} title="Как в стиле: {own ? 'есть' : 'нет'}">стиль · {own ? "вкл" : "выкл"}</button>
+        <button type="button" role="radio" aria-checked={value === true} class:on={value === true} onclick={() => setWidget(w.key, true)}>вкл</button>
+        <button type="button" role="radio" aria-checked={value === false} class:on={value === false} onclick={() => setWidget(w.key, false)}>выкл</button>
+      </div>
+    </div>
+  </div>
+{/snippet}
+
+{#snippet params(group: string)}
+  {#each system.part_params[group] ?? [] as param (param.key)}
+    {@const value = partValue(group, param.key)}
+    {@const preset = group === "notice" && param.key === "look" ? system.part_presets.notice?.[look.style]?.look : groupPreset(group)[param.key]}
+    {@const off = group === "dock" && param.key !== "show" && partValue("dock", "show") !== "on"}
+    {@const note = PART_NOTE[`${group}:${param.key}:${value}`]}
+    <div class="wprow" class:muted={off}>
+      <div class="wphead">
+        <b>{param.label}</b>
+        {#if look.parts[group]?.[param.key] !== undefined}<button class="btn ghost small" onclick={() => setPart(group, param.key, preset)}>вернуть как в стиле</button>{/if}
+      </div>
+      <div class="chips" role="radiogroup" aria-label={param.label}>
+        {#each param.options as option (option.value)}
+          <button type="button" role="radio" class="chip" disabled={off} aria-checked={value === option.value} class:on={value === option.value} onclick={() => setPart(group, param.key, option.value)}>
+            {option.label}{#if option.value === preset}<span class="wkind own">стиль</span>{/if}
+          </button>
+        {/each}
+      </div>
+      {#if note && !off}<p class="muted small">{note}</p>{/if}
+    </div>
+  {/each}
+{/snippet}
+
   <div class="stylegrid" class:nopv={!deskPreview}>
   <div class="stylemain">
   <div class="block">
@@ -215,10 +285,10 @@
   <div class="settings">
     <nav class="rail" aria-label="Разделы настроек">
       {#each sections as key (key)}
-        {@const own = key === "wall" ? (wallChanged ? 1 : 0) : key === "widgets" ? widgetsOwn : key === "windows" ? winOwn : key === "panel" ? panelOwn : ownIn(key)}
+        {@const own = key === "wall" ? (wallChanged ? 1 : 0) : key === "widgets" ? widgetsOwn : key === "windows" ? winOwn : key === "panel" ? panelOwn + partOwn("clock") : key === "dock" || key === "notice" ? partOwn(key) : ownIn(key)}
         <button class="rail-item" class:on={!query && section === key} aria-current={!query && section === key ? "true" : undefined} onclick={() => { section = key; find = ""; }}>
           <span>{label(key)}</span>
-          {#if own}<span class="badge" title={key === "wall" ? "Картинка или узор заданы" : key === "widgets" ? `Изменено элементов: ${own}` : key === "windows" || key === "panel" ? `Изменено параметров: ${own}` : `Изменено токенов: ${own}`}>{key === "wall" ? "●" : own}</span>{/if}
+          {#if own}<span class="badge" title={key === "wall" ? "Картинка или узор заданы" : key === "widgets" ? `Изменено элементов: ${own}` : ["windows", "panel", "dock", "notice"].includes(key) ? `Изменено параметров: ${own}` : `Изменено токенов: ${own}`}>{key === "wall" ? "●" : own}</span>{/if}
         </button>
       {/each}
       <div class="rail-foot">
@@ -231,7 +301,7 @@
       <header class="phead">
         <div>
           <h3>{query ? "Поиск по токенам" : label(section)}</h3>
-          <p class="muted small">{query ? `Найдено: ${shown.length}` : section === "panel" ? "Главная панель стола: чей вид, у какого края и что в ней стоит. Элемент, который вид рисует сам на этом месте, выглядит родным; остальные добавляются в оформлении вида." : section === "windows" ? "Из чего собрано окно: заголовок, рамка и кнопки. Каждый параметр берётся у стиля, пока не выбран свой; цвета остаются от токенов." : section === "widgets" ? "Что лежит на самом столе: док, значки, бегущая строка, всплывающие уведомления. Вид у каждого от стиля; две ОС с одним стилем могут показывать разное." : section === "wall" ? "Лежат под окнами и значками, не зависят от выбранного стиля. Цвет под ними это токен «Фон рабочего стола» в разделе «Цвета»." : GROUP_NOTE[section]}</p>
+          <p class="muted small">{query ? `Найдено: ${shown.length}` : section === "dock" ? "Полоса приложений у края стола: запущенные отмечены. Вид дока берётся у вида панели." : section === "notice" ? "Всплывающие уведомления и ошибки: чей вид, в каком углу и как показывать ошибки." : section === "panel" ? "Главная панель стола: чей вид, у какого края и что в ней стоит. Элемент, который вид рисует сам на этом месте, выглядит родным; остальные добавляются в оформлении вида." : section === "windows" ? "Из чего собрано окно: заголовок, рамка и кнопки. Каждый параметр берётся у стиля, пока не выбран свой; цвета остаются от токенов." : section === "widgets" ? "Что лежит на самом столе: док, значки, бегущая строка, всплывающие уведомления. Вид у каждого от стиля; две ОС с одним стилем могут показывать разное." : section === "wall" ? "Лежат под окнами и значками, не зависят от выбранного стиля. Цвет под ними это токен «Фон рабочего стола» в разделе «Цвета»." : GROUP_NOTE[section]}</p>
         </div>
         <div class="tools">
           {#if !SECTION_LABEL[section] || query}
@@ -386,35 +456,25 @@
             </div>
             <p class="muted small">Порядок сверху вниз — слева направо на панели. Центр стоит посередине панели поверх распорки.</p>
           </div>
+          <h4 class="wgroup">Часы</h4>
+          {@render params("clock")}
+          {#each system.widget_info.filter((w) => w.key === "date") as w (w.key)}{@render widgetRow(w)}{/each}
           {#if noExit}<p class="warn small">Игроку не выйти из сеанса: оставьте на панели меню запуска, «Сеанс» или «Кнопки сеанса».</p>{/if}
           {#if errors.panel}{#each errors.panel as text}<p class="warn small">{text}</p>{/each}{/if}
+        </div>
+      {:else if (section === "dock" || section === "notice") && !query}
+        <div class="winparams">
+          {@render params(section)}
+          {#if section === "notice"}{#each system.widget_info.filter((w) => w.key === "toasts") as w (w.key)}{@render widgetRow(w)}{/each}{/if}
+          {#if errors.parts}{#each errors.parts as text}<p class="warn small">{text}</p>{/each}{/if}
         </div>
       {:else if section === "widgets" && !query}
         <div class="widgets">
           {#if widgetWarning}<p class="warn small">{widgetWarning}</p>{/if}
           {#each widgetGroups as group (group)}
             <h4 class="wgroup">{group === "Панель" ? "У часов на панели" : "На самом столе"}</h4>
-            {#each system.widget_info.filter((w) => w.group === group) as w (w.key)}
-              {@const value = look.widgets[w.key]}
-              {@const own = native(w)}
-              <div class="wrow">
-                <div class="wname">
-                  <b>{w.label}<span class="wkind" class:own>{own ? "родной в стиле" : "добавляется"}</span></b>
-                  <span class="muted small">{w.hint}</span>
-                </div>
-                <div class="wctl2">
-                  {#if !own && isOn(w) && w.places.length}
-                    <select class="field place" value={look.places[w.key] ?? w.places[0].value} onchange={(e) => setPlace(w.key, e.currentTarget.value)} aria-label="Где стоит: {w.label}">
-                      {#each w.places as p (p.value)}<option value={p.value}>{p.label}</option>{/each}
-                    </select>
-                  {/if}
-                  <div class="seg" role="radiogroup" aria-label={w.label}>
-                    <button type="button" role="radio" aria-checked={value === undefined} class:on={value === undefined} onclick={() => setWidget(w.key, null)} title="Как в стиле: {own ? 'есть' : 'нет'}">стиль · {own ? "вкл" : "выкл"}</button>
-                    <button type="button" role="radio" aria-checked={value === true} class:on={value === true} onclick={() => setWidget(w.key, true)}>вкл</button>
-                    <button type="button" role="radio" aria-checked={value === false} class:on={value === false} onclick={() => setWidget(w.key, false)}>выкл</button>
-                  </div>
-                </div>
-              </div>
+            {#each system.widget_info.filter((w) => w.group === group && !["date", "toasts"].includes(w.key)) as w (w.key)}
+              {@render widgetRow(w)}
             {/each}
           {/each}
         </div>

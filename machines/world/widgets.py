@@ -1,13 +1,9 @@
-"""Элементы самого стола, которые ОС включает и выключает независимо от стиля (SystemType.widgets, SystemType.widget_places).
+"""Элементы самого стола, которые ОС включает и выключает независимо от стиля (SystemType.widgets).
 
-Панель с её элементами раскладывается отдельно (machines/world/panel.py). Здесь то, что лежит на столе: док, значки, бегущая
-строка, всплывающие уведомления, и дата у часов. Если стиль рисует элемент сам (родной), переключатель его показывает или прячет;
-если не рисует, стол вставляет общий элемент (док из desktop/elements/desk.html).
+Панель раскладывается отдельно (machines/world/panel.py), док — параметрами (machines/world/styles.py, DOCK). Здесь то, что
+просто показывается или прячется: значки, бегущая строка, всплывающие уведомления и дата у часов.
 """
 from dataclasses import dataclass
-
-DOCK_PLACES = {"bottom": "снизу", "left": "слева", "right": "справа"}
-
 
 @dataclass(frozen=True)
 class Item:
@@ -24,7 +20,6 @@ ALL = ("aether", "classic", "gnome", "modern", "phosphor", "tui", "workbench")
 
 ITEMS = (
     Item("date", "Дата у часов", "Панель", "Дата под или рядом с часами.", ALL, "#date"),
-    Item("dock", "Док", "Стол", "Полоса приложений у края стола, запущенные отмечены.", ("gnome",), "#dock, .dock-wrap", DOCK_PLACES),
     Item("icons", "Значки на столе", "Стол", "Значки приложений и файлов на самом столе.", ALL, "#icons"),
     Item("ticker", "Бегущая строка событий", "Стол", "Жёлтая строка моментов мира у верхнего края стола.", ALL, ".moment-bar"),
     Item("toasts", "Всплывающие уведомления", "Стол", "Новости, почта, события. Выключено: в журнал сообщений они всё равно попадают.", ALL, "#toasts"),
@@ -63,13 +58,6 @@ def resolve(style, data):
     return {item.key: chosen.get(item.key, is_native(item.key, style)) for item in ITEMS}
 
 
-def dock_place(style, data, places):
-    """Где стол добавляет свой док ("" — не добавляет: выключен или стиль рисует его сам)."""
-    if not resolve(style, data)["dock"] or is_native("dock", style):
-        return ""
-    return (places or {}).get("dock") or next(iter(DOCK_PLACES))
-
-
 def hidden_css(style, data):
     """CSS, который прячет выключенные родные элементы стиля."""
     state = resolve(style, data)
@@ -77,15 +65,16 @@ def hidden_css(style, data):
     return "".join(f"{selector}{{display:none!important}}" for selector in off)
 
 
-def warnings(style, data, panel_data=None):
-    """Предупреждения для Студии: например, приложения открыть нечем."""
-    from machines.world import panel
+def warnings(style, data, parts=None):
+    """Предупреждения для Студии: например, приложения открыть нечем. parts — SystemType.style_parts."""
+    from machines.world import panel, styles
 
-    look = panel.of(style, panel_data)["look"]
+    chosen = styles.clean_parts(parts)
+    look = panel.of(style, chosen.get("panel"))["look"]
     if look in ("phosphor", "tui"):                 # главное меню прошивки и список приложений TUI всегда на месте
         return []
-    state = resolve(style, data)
-    placed = panel.placed(style, panel_data)
-    if not state["icons"] and not state["dock"] and not ({"launcher", "search", "apps"} & set(placed)):
+    placed = panel.placed(style, chosen.get("panel"))
+    dock = styles.group_of("dock", style, parts)["show"] == "on"
+    if not resolve(style, data)["icons"] and not dock and not ({"launcher", "search", "apps"} & set(placed)):
         return ["Нет ни значков, ни дока, ни меню запуска или быстрого запуска на панели: приложения на этой ОС открыть нечем, кроме ссылок и хуков."]
     return []

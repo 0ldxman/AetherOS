@@ -14,13 +14,9 @@ from team.testing import full_role
 class DeskWidgetsTests(TestCase):
     def test_resolve_and_css(self):
         state = widgets.resolve("gnome", {"icons": False, "nonsense": True})
-        self.assertEqual((state["icons"], state["dock"], state["toasts"]), (False, True, True))
-        self.assertFalse(widgets.resolve("aether", {})["dock"])          # у Aether своего дока нет
-        css = widgets.hidden_css("gnome", {"icons": False, "dock": False})
-        self.assertIn("#icons{display:none!important}", css)
-        self.assertIn("#dock, .dock-wrap{display:none!important}", css)
-        self.assertEqual(widgets.dock_place("aether", {"dock": True}, {"dock": "left"}), "left")
-        self.assertEqual(widgets.dock_place("gnome", {"dock": True}, {}), "")      # свой док стиля стол не дублирует
+        self.assertEqual((state["icons"], state["toasts"]), (False, True))
+        self.assertNotIn("dock", state)                                    # док теперь параметрами (styles.DOCK)
+        self.assertIn("#icons{display:none!important}", widgets.hidden_css("gnome", {"icons": False}))
 
     def test_the_desktop_hides_what_the_os_turned_off(self):
         system = SystemType.objects.create(code="KIOSK", name="Kiosk", style="aether", widgets={"date": False, "ticker": False})
@@ -34,20 +30,60 @@ class DeskWidgetsTests(TestCase):
 
     def test_warning_when_apps_cannot_be_opened(self):
         layout = {"start": ["machine"], "center": ["clock"], "end": ["ping"]}
-        self.assertTrue(widgets.warnings("aether", {"icons": False}, layout))
-        self.assertFalse(widgets.warnings("aether", {"icons": False}, {**layout, "end": ["apps"]}))
+        self.assertTrue(widgets.warnings("aether", {"icons": False}, {"panel": layout}))
+        self.assertFalse(widgets.warnings("aether", {"icons": False}, {"panel": {**layout, "end": ["apps"]}}))
+        self.assertFalse(widgets.warnings("aether", {"icons": False}, {"panel": layout, "dock": {"show": "on"}}))
+        self.assertFalse(widgets.warnings("gnome", {"icons": False}))           # у GNOME свой док
         self.assertFalse(widgets.warnings("phosphor", {"icons": False}))
 
     def test_studio_saves_widgets(self):
         self.client.force_login(get_user_model().objects.create_user("boss", password="pw", is_staff=True, role=full_role()))
         SystemType.objects.create(code="KIOSK", name="Kiosk", style="gnome")
-        data = self.client.get("/studio/api/systems/KIOSK").json()
-        info = {w["key"]: w for w in data["widget_info"]}
-        self.assertEqual(info["dock"]["native"], ["gnome"])
-        self.assertEqual([p["value"] for p in info["dock"]["places"]], ["bottom", "left", "right"])
-        body = {"style": "gnome", "tokens": {}, "widgets": {"icons": False, "dock": True, "ping": False}, "widget_places": {"dock": "left", "ping": "end"}}
+        body = {"style": "gnome", "tokens": {}, "widgets": {"icons": False, "dock": True, "ping": False}, "widget_places": {"dock": "left"}}
         saved = self.client.put("/studio/api/systems/KIOSK/style", data=json.dumps(body), content_type="application/json").json()
-        self.assertEqual((saved["widgets"], saved["widget_places"]), ({"icons": False, "dock": True}, {"dock": "left"}))
+        self.assertEqual((saved["widgets"], saved["widget_places"]), ({"icons": False}, {}))
+
+
+class PartGroupsTests(TestCase):
+    def test_presets_follow_the_look_of_the_style(self):
+        self.assertEqual(styles.preset("dock", "gnome")["show"], "on")
+        self.assertEqual(styles.preset("dock", "aether")["show"], "off")
+        self.assertEqual(styles.preset("notice", "glitched"), {"corner": "br", "errors": "window", "look": "aether"})
+        self.assertEqual(styles.group_of("notice", "aether", {"notice": {"look": "gnome"}})["corner"], "tc")      # чужой вид со своим углом
+        self.assertEqual(styles.group_of("clock", "aether", {"clock": {"hours": "12", "seconds": "x"}}), {"hours": "12", "seconds": "on"})
+
+    def test_attrs(self):
+        attrs = styles.parts("aether", {"dock": {"show": "on", "edge": "left"}, "notice": {"corner": "tl", "errors": "screen"}, "clock": {"seconds": "off"}})
+        self.assertEqual((attrs["dock-show"], attrs["dock-edge"], attrs["toast-corner"], attrs["toast-move"], attrs["error-form"], attrs["clock-seconds"]),
+                         ("on", "left", "tl", "1", "screen", "off"))
+        self.assertNotIn("toast-move", styles.parts("gnome"))
+
+    def test_desk_renders_the_dock_with_its_grid(self):
+        request = RequestFactory().get("/")
+        request.user = get_user_model()()
+        request._os_style = ("aether", {}, "AETHER", {})
+        request._os_widgets, request._os_places = {}, {}
+        request._os_parts = {"dock": {"show": "on", "grid": "on"}}
+        html = Template("{% load os_style %}{% os_slot 'desk' %}").render(Context({"request": request}))
+        self.assertIn('<nav class="dk"', html)
+        self.assertIn('class="dk-grid" data-shell="launcher"', html)
+        self.assertIn('id="launcher" class="el-pop', html)              # у Aether своего меню запуска нет: кнопке нужно меню
+        request._os_parts = {}
+        del request._os_style
+        request._os_style = ("aether", {}, "AETHER", {})
+        self.assertEqual(Template("{% load os_style %}{% os_slot 'desk' %}").render(Context({"request": request})), "")
+
+    def test_studio_saves_parts(self):
+        self.client.force_login(get_user_model().objects.create_user("boss", password="pw", is_staff=True, role=full_role()))
+        SystemType.objects.create(code="KIOSK", name="Kiosk", style="gnome")
+        put = lambda body: self.client.put("/studio/api/systems/KIOSK/style", data=json.dumps({"style": "gnome", "tokens": {}, **body}), content_type="application/json")
+        saved = put({"parts": {"dock": {"edge": "left"}, "clock": {"hours": "12"}}}).json()
+        self.assertEqual(saved["parts"], {"dock": {"edge": "left"}, "notice": {}, "clock": {"hours": "12"}})
+        self.assertEqual(saved["part_presets"]["dock"]["gnome"]["show"], "on")
+        saved = put({"parts": {"clock": {}}}).json()
+        self.assertEqual(saved["parts"], {"dock": {"edge": "left"}, "notice": {}, "clock": {}})
+        response = put({"parts": {"dock": {"edge": "top"}}})
+        self.assertEqual((response.status_code, response.json()["fields"]["parts"]), (400, ["Край: нет варианта «top»."]))
 
 
 class PanelTests(SimpleTestCase):

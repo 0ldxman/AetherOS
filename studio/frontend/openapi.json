@@ -19764,6 +19764,39 @@
      "panel": {
       "$ref": "#/components/schemas/PanelValue"
      },
+     "parts": {
+      "additionalProperties": {
+       "additionalProperties": {
+        "type": "string"
+       },
+       "type": "object"
+      },
+      "title": "Parts",
+      "type": "object"
+     },
+     "part_params": {
+      "additionalProperties": {
+       "items": {
+        "$ref": "#/components/schemas/WindowParam"
+       },
+       "type": "array"
+      },
+      "title": "Part Params",
+      "type": "object"
+     },
+     "part_presets": {
+      "additionalProperties": {
+       "additionalProperties": {
+        "additionalProperties": {
+         "type": "string"
+        },
+        "type": "object"
+       },
+       "type": "object"
+      },
+      "title": "Part Presets",
+      "type": "object"
+     },
      "panel_info": {
       "$ref": "#/components/schemas/PanelInfo"
      },
@@ -19908,6 +19941,9 @@
      "window_params",
      "window_presets",
      "panel",
+     "parts",
+     "part_params",
+     "part_presets",
      "panel_info",
      "styles",
      "token_info",
@@ -20454,6 +20490,23 @@
         "type": "null"
        }
       ]
+     },
+     "parts": {
+      "anyOf": [
+       {
+        "additionalProperties": {
+         "additionalProperties": {
+          "type": "string"
+         },
+         "type": "object"
+        },
+        "type": "object"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Parts"
      }
     },
     "required": [

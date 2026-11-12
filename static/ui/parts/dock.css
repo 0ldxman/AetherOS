@@ -1,0 +1,101 @@
+/* ==========================================================================
+ * Док стола (desktop/elements/dock.html). Параметры — атрибуты на <html> (machines/world/styles.py, DOCK):
+ *   data-dock-edge    bottom | left | right        data-dock-form   island | bar
+ *   data-dock-size    s | m | l                     data-dock-labels none | hover | always
+ *   data-dock-mark    dot | line | glow             data-dock-hide   off | on
+ * Общий вид на токенах; вид панели дорисовывает свой ([data-dock="<вид>"] .dk в static/ui/parts/dock/<вид>.css).
+ * Правила с :root сильнее плиток приложений вида панели ([data-panel] .shell-app), чтобы док оставался доком.
+ * ========================================================================== */
+
+.dk {
+  --dk: 46px;
+  --dk-pad: 8px;                      /* место под метку запущенного */
+  position: fixed;
+  z-index: 5000;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px;
+  background: var(--panel);
+  border: var(--border-w, 1px) solid var(--window-border, var(--line-bright));
+  border-radius: calc(var(--radius) * 2 + 4px);
+  box-shadow: 0 8px 24px color-mix(in srgb, var(--bg) 60%, transparent);
+  transition: transform 0.2s ease-out;
+}
+[data-dock-size="s"] .dk { --dk: 34px; }
+[data-dock-size="l"] .dk { --dk: 58px; }
+
+.dk-apps { display: flex; align-items: center; gap: inherit; }
+.dk-apps:empty { display: none; }
+
+/* ---- край и форма ---- */
+[data-dock-edge="bottom"] .dk { left: 50%; bottom: calc(var(--desk-bottom-auto, 0px) + 14px); transform: translateX(-50%); }
+[data-dock-edge="left"] .dk, [data-dock-edge="right"] .dk { top: 50%; transform: translateY(-50%); flex-direction: column; }
+[data-dock-edge="left"] .dk-apps, [data-dock-edge="right"] .dk-apps { flex-direction: column; }
+[data-dock-edge="left"] .dk { left: 12px; }
+[data-dock-edge="right"] .dk { right: 12px; }
+
+[data-dock-form="bar"] .dk { border-radius: 0; box-shadow: none; justify-content: center; }
+[data-dock-form="bar"][data-dock-edge="bottom"] .dk { left: 0; right: 0; bottom: var(--desk-bottom-auto, 0px); transform: none; border-width: var(--border-w, 1px) 0 0; }
+[data-dock-form="bar"][data-dock-edge="left"] .dk,
+[data-dock-form="bar"][data-dock-edge="right"] .dk { top: var(--desk-top-auto, 0px); bottom: var(--desk-bottom-auto, 0px); transform: none; }
+[data-dock-form="bar"][data-dock-edge="left"] .dk { left: 0; border-width: 0 var(--border-w, 1px) 0 0; }
+[data-dock-form="bar"][data-dock-edge="right"] .dk { right: 0; border-width: 0 0 0 var(--border-w, 1px); }
+
+/* автоскрытие: у края остаётся полоска, док выезжает под мышью или с фокусом клавиатуры */
+[data-dock-hide="on"][data-dock-edge="bottom"] .dk:not(:hover):not(:focus-within) { transform: translate(-50%, calc(100% + 8px)); }
+[data-dock-hide="on"][data-dock-edge="bottom"][data-dock-form="bar"] .dk:not(:hover):not(:focus-within) { transform: translateY(calc(100% - 6px)); }
+[data-dock-hide="on"][data-dock-edge="left"] .dk:not(:hover):not(:focus-within) { transform: translate(calc(-100% - 6px), -50%); }
+[data-dock-hide="on"][data-dock-edge="right"] .dk:not(:hover):not(:focus-within) { transform: translate(calc(100% + 6px), -50%); }
+[data-dock-hide="on"][data-dock-form="bar"][data-dock-edge="left"] .dk:not(:hover):not(:focus-within) { transform: translateX(calc(-100% + 6px)); }
+[data-dock-hide="on"][data-dock-form="bar"][data-dock-edge="right"] .dk:not(:hover):not(:focus-within) { transform: translateX(calc(100% - 6px)); }
+[data-dock-hide="on"] .dk::before { content: ""; position: absolute; inset: -14px; z-index: -1; }     /* зона, где мышь возвращает док */
+@media (prefers-reduced-motion: reduce) { .dk { transition: none; } }
+
+/* ---- значки ---- */
+:root:root .dk .shell-app {
+  position: relative; display: flex; flex-direction: column; align-items: center; gap: 4px;
+  padding: 0 0 var(--dk-pad); border: 0; border-radius: calc(var(--radius) + 2px); background: none; color: var(--fg); font: 11px var(--font-main); cursor: pointer;
+}
+:root:root[data-dock-edge="left"] .dk .shell-app { padding: 0 0 0 var(--dk-pad); }
+:root:root[data-dock-edge="right"] .dk .shell-app { padding: 0 var(--dk-pad) 0 0; }
+:root:root .dk .shell-glyph {
+  display: grid; place-items: center; width: var(--dk); height: var(--dk); margin: 0; padding: 0; border: var(--border-w, 1px) solid transparent;
+  border-radius: calc(var(--radius) + 2px); background: none; color: var(--fg); font: calc(var(--dk) * 0.38) / 1 var(--font-console);
+}
+:root:root .dk .shell-glyph img, :root:root .dk .shell-glyph svg { width: 55%; height: 55%; }
+:root:root .dk .shell-app:hover .shell-glyph, :root:root .dk .shell-app:focus-visible .shell-glyph { border-color: var(--line-bright); background: color-mix(in srgb, var(--fg) 8%, transparent); }
+:root:root .dk .shell-app:focus-visible { outline: none; }
+:root:root .dk .shell-badge { position: absolute; top: -2px; right: -2px; min-width: 14px; padding: 0 3px; border-radius: 999px; background: var(--accent-error); color: var(--font-dark); font-size: 9px; line-height: 14px; }
+
+/* подписи */
+:root:root .dk .shell-label { display: none; max-width: calc(var(--dk) + 24px); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+:root:root[data-dock-labels="always"] .dk .shell-label { display: block; }
+:root:root[data-dock-labels="hover"] .dk .shell-app:is(:hover, :focus-visible) .shell-label {
+  display: block; position: absolute; z-index: 1; max-width: none; padding: 3px 8px;
+  border: 1px solid var(--line-bright); border-radius: var(--radius); background: var(--panel); color: var(--fg); pointer-events: none;
+}
+:root:root[data-dock-labels="hover"][data-dock-edge="bottom"] .dk .shell-app:is(:hover, :focus-visible) .shell-label { bottom: calc(100% + 10px); left: 50%; transform: translateX(-50%); }
+:root:root[data-dock-labels="hover"][data-dock-edge="left"] .dk .shell-app:is(:hover, :focus-visible) .shell-label { left: calc(100% + 10px); top: 50%; transform: translateY(-50%); }
+:root:root[data-dock-labels="hover"][data-dock-edge="right"] .dk .shell-app:is(:hover, :focus-visible) .shell-label { right: calc(100% + 10px); top: 50%; transform: translateY(-50%); }
+
+/* метка запущенного: точка, черта под значком или подсветка самого значка */
+:root:root .dk .shell-app.is-open::after { content: ""; position: absolute; background: var(--accent); }
+:root:root[data-dock-mark="dot"] .dk .shell-app.is-open::after { width: 5px; height: 5px; border-radius: 50%; }
+:root:root[data-dock-mark="line"] .dk .shell-app.is-open::after { width: 16px; height: 3px; border-radius: 2px; }
+:root:root[data-dock-mark="line"]:is([data-dock-edge="left"], [data-dock-edge="right"]) .dk .shell-app.is-open::after { width: 3px; height: 16px; }
+:root:root[data-dock-edge="bottom"] .dk .shell-app.is-open::after { left: 50%; bottom: 1px; transform: translateX(-50%); }
+:root:root[data-dock-edge="left"] .dk .shell-app.is-open::after { left: 1px; top: 50%; transform: translateY(-50%); }
+:root:root[data-dock-edge="right"] .dk .shell-app.is-open::after { right: 1px; top: 50%; transform: translateY(-50%); }
+:root:root[data-dock-mark="glow"] .dk .shell-app.is-open::after { content: none; }
+:root:root[data-dock-mark="glow"] .dk .shell-app.is-open .shell-glyph { border-color: var(--accent); box-shadow: 0 0 10px color-mix(in srgb, var(--accent) 55%, transparent); }
+
+/* кнопка «все приложения»: открывает меню запуска */
+.dk-grid {
+  display: grid; place-items: center; width: var(--dk); height: var(--dk); padding: 0;
+  border: 0; border-left: 1px solid var(--line); border-radius: 0 calc(var(--radius) + 2px) calc(var(--radius) + 2px) 0; background: none; color: var(--fg); cursor: pointer;
+}
+:is([data-dock-edge="left"], [data-dock-edge="right"]) .dk-grid { border-left: 0; border-top: 1px solid var(--line); border-radius: 0 0 calc(var(--radius) + 2px) calc(var(--radius) + 2px); }
+.dk-apps:empty + .dk-grid { border: 0; }
+.dk-grid span { width: 22px; height: 22px; background: radial-gradient(circle, currentColor 2.2px, transparent 2.6px) 0 0 / 7.33px 7.33px; opacity: 0.85; }
+.dk-grid:hover span, .dk-grid[aria-expanded="true"] span, .dk-grid:focus-visible span { opacity: 1; }

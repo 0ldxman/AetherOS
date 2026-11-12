@@ -1,0 +1,51 @@
+/* ==========================================================================
+ * Сообщения стола: угол всплывающих уведомлений и ошибки без окна (machines/world/styles.py, NOTICE).
+ *   data-toast-corner  br | tr | tc | bl | tl   (data-toast-move — угол не тот, под который рассчитан вид сообщений)
+ *   data-error-form    window | banner | screen  (окном рисует WinBox и часть notice вида; здесь полоса и экран)
+ * Вид самих уведомлений и окон ошибок — static/ui/parts/notice/<вид>.css.
+ * ========================================================================== */
+
+[data-toast-move] #toasts { top: auto !important; bottom: auto !important; left: auto !important; right: auto !important; transform: none !important; }
+[data-toast-move][data-toast-corner^="b"] #toasts { bottom: calc(var(--desk-bottom-auto, 0px) + 16px) !important; }
+[data-toast-move][data-toast-corner^="t"] #toasts { top: calc(var(--desk-top-auto, 0px) + 16px) !important; }
+[data-toast-move][data-toast-corner$="r"] #toasts { right: 16px !important; }
+[data-toast-move][data-toast-corner$="l"] #toasts { left: 16px !important; }
+[data-toast-move][data-toast-corner="tc"] #toasts { left: 50% !important; transform: translateX(-50%) !important; }
+
+/* ---- ошибка полосой под панелью ---- */
+#err-banners { position: fixed; z-index: 100001; top: var(--desk-top-auto, 0px); left: 0; right: 0; display: flex; flex-direction: column; }
+.err-banner {
+  --tone: var(--accent-error);
+  display: flex; align-items: center; gap: 14px; padding: 10px 16px;
+  background: var(--bg); border-bottom: 2px solid var(--tone); color: var(--fg);      /* фон стола: у некоторых стилей панель светлая при светлом тексте */
+  box-shadow: 0 6px 18px color-mix(in srgb, var(--bg) 60%, transparent);
+  font-family: var(--font-main);
+}
+.err-banner.dialog--warning { --tone: var(--accent-warn); }
+.err-banner.dialog--info { --tone: var(--accent); }
+.err-banner .err-glyph { display: grid; place-items: center; flex: none; width: 26px; height: 26px; border-radius: 50%; background: var(--tone); color: var(--font-dark); font-weight: 700; }
+.err-banner .err-body { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px; flex: 1; min-width: 0; }
+.err-banner .err-title { color: var(--font-light); }
+.err-banner .err-text { margin: 0; color: var(--fg); }
+.err-banner .err-code { color: var(--font-muted); font-size: var(--fs-small, 0.85rem); }
+.err-banner .err-ok { flex: none; padding: 4px 16px; border: var(--border-w, 1px) solid var(--tone); border-radius: var(--radius); background: none; color: var(--font-light); font: inherit; cursor: pointer; }
+.err-banner .err-ok:hover, .err-banner .err-ok:focus-visible { background: var(--tone); color: var(--font-dark); outline: none; }
+
+/* ---- ошибка на весь экран, как отказ прошивки ---- */
+.err-screen {
+  --tone: var(--accent-error);
+  position: fixed; inset: 0; z-index: 100001; display: grid; place-items: center; padding: 24px;
+  background: color-mix(in srgb, var(--tone) 78%, #000); color: #fff; font: 16px/1.5 var(--font-console);
+}
+.err-screen.dialog--warning { --tone: var(--accent-warn); }
+.err-screen.dialog--info { --tone: var(--accent); }
+.err-screen .err-glyph { display: none; }
+.err-screen .err-body { display: flex; flex-direction: column; gap: 14px; max-width: 640px; }
+.err-screen .err-title { align-self: center; padding: 0 10px; background: #fff; color: color-mix(in srgb, var(--tone) 78%, #000); letter-spacing: 0.08em; }
+.err-screen .err-text { margin: 0; }
+.err-screen .err-code { opacity: 0.75; }
+.err-screen .err-ok { justify-self: center; margin-top: 18px; padding: 2px 8px; border: 0; background: none; color: #fff; font: inherit; cursor: pointer; }
+.err-screen .err-ok:hover, .err-screen .err-ok:focus-visible { background: #fff; color: color-mix(in srgb, var(--tone) 78%, #000); outline: none; }
+.err-screen .err-ok::after { content: "_"; animation: err-blink 1s steps(1) infinite; }
+@keyframes err-blink { 50% { opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .err-screen .err-ok::after { animation: none; } }

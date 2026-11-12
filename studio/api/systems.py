@@ -171,6 +171,9 @@ class PanelInfo(Schema):
     presets: dict[str, PanelLayout]
 
 
+PART_GROUPS = ("dock", "notice", "clock")
+
+
 class StyleIn(Schema):
     style: str
     tokens: dict[str, str] = {}
@@ -179,6 +182,7 @@ class StyleIn(Schema):
     widget_places: dict[str, str] | None = None
     window: dict[str, str] | None = None             # пусто: окна не меняются; нет ключа — как в стиле
     panel: PanelValue | None = None                 # пусто: панель не меняется; {} — как в стиле
+    parts: dict[str, dict[str, str]] | None = None   # док, сообщения, часы: {группа: {параметр: вариант}}; пустая группа — как в стиле
 
 
 class WidgetPlace(Schema):
@@ -253,6 +257,9 @@ class SystemOut(Schema):
     window_params: list[WindowParam]
     window_presets: dict[str, dict[str, str]]        # стиль -> его параметры окон
     panel: PanelValue                                # что у панели не как в стиле
+    parts: dict[str, dict[str, str]]                 # док, сообщения, часы: выбор автора
+    part_params: dict[str, list[WindowParam]]
+    part_presets: dict[str, dict[str, dict[str, str]]]   # группа -> стиль -> параметры
     panel_info: PanelInfo
     styles: list[StyleChoice]
     token_info: list[TokenInfo]
@@ -328,12 +335,16 @@ def _out(system):
         widget_info=[WidgetInfo(key=w.key, label=w.label, group=w.group, hint=w.hint,
                                 native=[slug for slug in styles.STYLES if widgets.is_native(w.key, slug)],
                                 places=[WidgetPlace(value=k, label=v) for k, v in (w.places or {}).items()]) for w in widgets.ITEMS],
-        widget_warnings=widgets.warnings(system.style, system.widgets, styles.clean_parts(system.style_parts).get("panel")),
+        widget_warnings=widgets.warnings(system.style, system.widgets, system.style_parts),
         window=styles.clean_parts(system.style_parts).get("window", {}),
         window_params=[WindowParam(key=key, label=label, options=[WindowOption(value=v, label=l) for v, l in options.items()])
                        for key, (label, options) in styles.WINDOW.items()],
         window_presets={slug: styles.window_of(slug) for slug in styles.STYLES},
         panel=PanelValue(**styles.clean_parts(system.style_parts).get("panel", {})),
+        parts={group: styles.clean_parts(system.style_parts).get(group, {}) for group in PART_GROUPS},
+        part_params={group: [WindowParam(key=key, label=label, options=[WindowOption(value=v, label=l) for v, l in options.items()])
+                             for key, (label, options) in styles.GROUPS[group].items()] for group in PART_GROUPS},
+        part_presets={group: {slug: styles.preset(group, slug) for slug in styles.STYLES} for group in PART_GROUPS},
         panel_info=PanelInfo(
             elements=[PanelElement(key=e.key, label=e.label, hint=e.hint) for e in panel.ELEMENTS],
             looks=[WindowOption(value=slug, label=styles.STYLES[slug].label) for slug in panel.LOOKS],
@@ -571,6 +582,14 @@ def save_style(request, code: str, body: StyleIn):
             raise ValidationError({"window": found})
         system.style_parts = {**(system.style_parts or {}), **styles.clean_parts({"window": body.window})} if body.window else \
             {key: value for key, value in (system.style_parts or {}).items() if key != "window"}
+    if body.parts is not None:
+        chosen = {group: values for group, values in body.parts.items() if group in PART_GROUPS}
+        found = styles.parts_problems(chosen) + [f"Нет такой группы: {group}." for group in body.parts if group not in PART_GROUPS]
+        if found:
+            raise ValidationError({"parts": found})
+        cleaned = styles.clean_parts(chosen)
+        kept = {k: v for k, v in (system.style_parts or {}).items() if k not in chosen}
+        system.style_parts = {**kept, **{group: cleaned[group] for group in chosen if group in cleaned}}
     if body.panel is not None:
         data = body.panel.model_dump(exclude_none=True)
         found = panel.problems(body.style, data)

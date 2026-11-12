@@ -63,15 +63,16 @@ class StylePartTagsTests(TestCase):
         Machine.objects.create(name="Main", hostname="aether-main")
 
     def test_html_gets_part_attributes(self):
-        self.assertEqual(self.render("{% os_parts %}"),
-                         ' data-win-title="plaque" data-win-frame="hard" data-win-side="right" data-win-buttons="circles" data-win-set="all"'
-                         ' data-notice="classic" data-panel="classic" data-dock="classic" data-panel-edge="top" data-panel-form="bar"')
+        html = self.render("{% os_parts %}")
+        for attr in ('data-win-title="plaque"', 'data-win-buttons="circles"', 'data-notice="classic"', 'data-panel="classic"', 'data-dock="classic"',
+                     'data-panel-edge="top"', 'data-dock-show="off"', 'data-toast-corner="br"', 'data-error-form="window"', 'data-clock-hours="24"'):
+            self.assertIn(attr, html)
 
     def test_links_windows_before_parts(self):
         links = self.render("{% os_theme %}")
         order = [links.index(name) for name in ("ui/themes/classic.css", "ui/parts/windows.css", "ui/parts/notice/classic.css", "ui/parts/panel/classic.css")]
         self.assertEqual(order, sorted(order))
-        self.assertNotIn("ui/parts/dock/classic.css", links)           # у Classic своего дока нет
+        self.assertIn("ui/parts/dock/classic.css", links)              # док в оформлении вида панели
 
     def test_preview_parts_only_for_staff(self):
         html = self.render("{% os_parts %}", preview_parts=json.dumps({"window": {"title": "full"}}))

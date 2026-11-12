@@ -1,16 +1,8 @@
-/* Часть «dock» стиля gnome: включается атрибутом data-dock="gnome" на <html>. */
+/* Док вида gnome: стекло, крупное скругление, плитки-значки и точка под запущенным. Параметры дока — static/ui/parts/dock.css. */
 
-/* ---- док ---- */
-[data-dock="gnome"] .dock-wrap {
-  position: fixed;
-  bottom: 14px;
-  left: 50%;
-  z-index: 5000;
-  display: flex;
-  align-items: center;
+[data-dock="gnome"] .dk {
   gap: 6px;
   padding: 8px;
-  transform: translateX(-50%);
   background: rgba(30, 30, 36, 0.78);
   -webkit-backdrop-filter: blur(20px);
   backdrop-filter: blur(20px);
@@ -18,50 +10,17 @@
   border-radius: 22px;
   box-shadow: 0 10px 32px rgba(0, 0, 0, 0.4);
 }
+[data-dock="gnome"][data-dock-form="bar"] .dk { border-radius: 0; box-shadow: none; }
 
-[data-dock="gnome"] .dock { display: flex; align-items: center; gap: 6px; }
-[data-dock="gnome"] .dock:empty { display: none; }
-
-[data-dock="gnome"] .dock .shell-app { padding: 0 0 8px; border-radius: 14px; }
-[data-dock="gnome"] .dock .shell-app .shell-label { display: none; }
-[data-dock="gnome"] .dock .shell-app .shell-glyph { width: 46px; height: 46px; }
-[data-dock="gnome"] .dock .shell-app:hover .shell-glyph { background: color-mix(in srgb, var(--accent) 22%, var(--panel)); color: var(--font-light); }
-[data-dock="gnome"] .dock .shell-badge { right: -2px; top: -2px; }
-
-/* точка под запущенным приложением */
-[data-dock="gnome"] .dock .shell-app.is-open::after {
-  content: "";
-  position: absolute;
-  left: 50%;
-  bottom: 1px;
-  width: 5px;
-  height: 5px;
-  border-radius: 50%;
-  background: var(--accent);
-  transform: translateX(-50%);
+:root:root[data-dock="gnome"] .dk .shell-app { gap: 8px; border-radius: 14px; color: rgba(255, 255, 255, 0.9); font-size: 0.8rem; }
+:root:root[data-dock="gnome"] .dk .shell-glyph {
+  background: var(--panel);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 16px;
+  color: var(--accent);
+  font-size: calc(var(--dk) * 0.4522);          /* 1.3rem при среднем размере */
+  font-weight: 600;
 }
+:root:root[data-dock="gnome"] .dk .shell-app:hover .shell-glyph { background: color-mix(in srgb, var(--accent) 22%, var(--panel)); color: var(--font-light); }
 
-[data-dock="gnome"] .dock-grid {
-  display: grid;
-  place-items: center;
-  width: 46px;
-  height: 46px;
-  padding: 0;
-  background: none;
-  border: 0;
-  border-left: 1px solid rgba(255, 255, 255, 0.12);
-  border-radius: 0 14px 14px 0;
-  cursor: pointer;
-}
-
-[data-dock="gnome"] .dock:empty + .dock-grid { border-left: 0; }
-
-[data-dock="gnome"] .dock-grid span {
-  width: 22px;
-  height: 22px;
-  background: radial-gradient(circle, #fff 2.2px, transparent 2.6px) 0 0 / 7.33px 7.33px;
-  opacity: 0.85;
-}
-
-[data-dock="gnome"] .dock-grid:hover span,
-[data-dock="gnome"] .dock-grid[aria-expanded="true"] span { opacity: 1; }
+[data-dock="gnome"] .dk-grid { border-left-color: rgba(255, 255, 255, 0.12); border-radius: 0 14px 14px 0; color: #fff; }

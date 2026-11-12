@@ -6848,6 +6848,24 @@ export interface components {
                 };
             };
             panel: components["schemas"]["PanelValue"];
+            /** Parts */
+            parts: {
+                [key: string]: {
+                    [key: string]: string;
+                };
+            };
+            /** Part Params */
+            part_params: {
+                [key: string]: components["schemas"]["WindowParam"][];
+            };
+            /** Part Presets */
+            part_presets: {
+                [key: string]: {
+                    [key: string]: {
+                        [key: string]: string;
+                    };
+                };
+            };
             panel_info: components["schemas"]["PanelInfo"];
             /** Styles */
             styles: components["schemas"]["StyleChoice"][];
@@ -7110,6 +7128,12 @@ export interface components {
                 [key: string]: string;
             } | null;
             panel?: components["schemas"]["PanelValue"] | null;
+            /** Parts */
+            parts?: {
+                [key: string]: {
+                    [key: string]: string;
+                };
+            } | null;
         };
         /** ImageListing */
         ImageListing: {

@@ -149,11 +149,13 @@ def os_slot(context, slot):
     found = panel.of(slug, data)
     look, placed = found["look"], panel.placed(slug, data)
     edge = found["edge"]
+    dock = styles.group_of("dock", slug, getattr(request, "_os_parts", {}))
     side = {"start": "left", "center": "center", "end": "right"}
     desk = {
         "edge": edge,
-        "dock": widgets.dock_place(look, getattr(request, "_os_widgets", {}), getattr(request, "_os_places", {})),
-        "launcher_panel": bool({"launcher", "search"} & set(placed)) and look not in panel.NATIVE_LAUNCHER_PANEL,
+        "dock": dock["show"] == "on",
+        "dock_grid": dock["show"] == "on" and dock["grid"] == "on",
+        "launcher_panel": (bool({"launcher", "search"} & set(placed)) or (dock["show"] == "on" and dock["grid"] == "on")) and look not in panel.NATIVE_LAUNCHER_PANEL,
         "notices_panel": "notices" in placed and look not in panel.NATIVE_NOTICES_PANEL,
         "search_in_panel": "search" not in placed,
         "launcher_side": side[placed.get("launcher", placed.get("search", "start"))],
@@ -192,7 +194,7 @@ def os_theme(context):
     request = context.get("request")
     slug = _state(request)[0] if request is not None else styles.DEFAULT_STYLE
     links = [f"ui/themes/{slug}.css"] if styles.STYLES[slug].css else []
-    links.append("ui/parts/windows.css")       # окна раньше частей: окна сообщений перекрашивает часть notice
+    links += ["ui/parts/windows.css", "ui/parts/dock.css", "ui/parts/messages.css"]     # раньше частей вида: их дорисовка сильнее
     chosen = styles.parts(slug, getattr(request, "_os_parts", {}) if request is not None else {})
     links += [path for path in (styles.part_file(part, chosen[part]) for part in styles.PARTS) if path]
     return mark_safe("".join(format_html('<link rel="stylesheet" href="{}">', static(path)) for path in links))

@@ -1,0 +1,7 @@
+/* Док вида tui: двойная рамка, инверсия при наведении, шрифт терминала. */
+[data-dock="tui"] .dk { border: 3px double var(--fg); border-radius: 0; background: var(--bg); box-shadow: none; }
+:root:root[data-dock="tui"] .dk .shell-app { border-radius: 0; color: var(--fg); font-family: var(--font-console); }
+:root:root[data-dock="tui"] .dk .shell-glyph { border-radius: 0; color: var(--fg); }
+:root:root[data-dock="tui"] .dk .shell-app:hover .shell-glyph { border-color: var(--fg); background: var(--fg); color: var(--bg); }
+:root:root[data-dock="tui"][data-dock-labels="hover"] .dk .shell-app:hover .shell-label { border-radius: 0; background: var(--fg); color: var(--bg); }
+[data-dock="tui"] .dk-grid { border-radius: 0; border-color: var(--fg); }

@@ -36,10 +36,19 @@ function formatDate(parts) {
   return `${parts.year}-${parts.month}-${parts.day}`;
 }
 
+// формат часов ОС: 24 или 12 часов, с секундами или без (data-clock-hours, data-clock-seconds на <html>)
+function clockText(parts) {
+  const root = document.documentElement.dataset;
+  const seconds = root.clockSeconds === "off" ? "" : `:${parts.second}`;
+  if (root.clockHours !== "12") return `${parts.hour}:${parts.minute}${seconds}`;
+  const hour = Number(parts.hour);
+  return `${hour % 12 || 12}:${parts.minute}${seconds} ${hour < 12 ? "AM" : "PM"}`;
+}
+
 function updateClock() {
   const parts = gameParts();
   if (clock) {                       // часов может не быть: автор ОС убрал их с панели
-    clock.textContent = `${parts.hour}:${parts.minute}:${parts.second}`;
+    clock.textContent = clockText(parts);
     clock.title = parts.zone;
   }
   if (dateEl) dateEl.textContent = formatDate(parts);
@@ -639,6 +648,12 @@ function showDialog(spec, params = {}, options = {}) {
     return;
   }
 
+  const form = document.documentElement.dataset.errorForm;
+  if (form === "banner" || form === "screen") {
+    showPlainError(form, msg, dedupe);
+    return;
+  }
+
   const body = el("div", "dialog dialog--" + msg.kind);
   const main = el("div", "dialog-main");
   const foot = el("div", "dialog-foot");
@@ -689,6 +704,47 @@ function showDialog(spec, params = {}, options = {}) {
     }
   });
 
+  ok.focus();
+}
+
+// ошибка без окна (стиль ОС, «Сообщения → Ошибки»): полосой под панелью или на весь экран; Enter, Esc или кнопка закрывают
+function showPlainError(form, msg, dedupe) {
+  let host = document.body;
+  if (form === "banner") {
+    host = document.getElementById("err-banners");
+    if (!host) {
+      host = el("div");
+      host.id = "err-banners";
+      document.body.appendChild(host);
+    }
+  }
+
+  const box = el("div", `err-${form} dialog--${msg.kind}`);
+  const body = el("div", "err-body");
+  const ok = el("button", "err-ok", form === "screen" ? "Press Enter to continue" : "OK");
+  box.setAttribute("role", "alertdialog");
+  box.setAttribute("aria-label", msg.title);
+  ok.type = "button";
+  body.append(
+    el("strong", "err-title", form === "screen" ? msg.title.toUpperCase() : msg.title),
+    el("p", "err-text", msg.text),
+    el("span", "err-code", msg.code ? "code " + msg.code : "")
+  );
+  box.append(el("span", "err-glyph", MESSAGE_GLYPH[msg.kind] || "!"), body, ok);
+
+  const close = () => {
+    box.remove();
+    delete openDialogs[dedupe];
+  };
+  openDialogs[dedupe] = { focus: () => ok.focus(), close };
+  ok.addEventListener("click", close);
+  box.addEventListener("keydown", (event) => {
+    if (event.key === "Escape" || event.key === "Enter") {
+      event.preventDefault();
+      close();
+    }
+  });
+  host.appendChild(box);
   ok.focus();
 }
 

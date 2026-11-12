@@ -1,0 +1,11 @@
+/* Док вида modern: стекло и крупные скругления. */
+[data-dock="modern"] .dk {
+  background: color-mix(in srgb, var(--panel) 88%, transparent);
+  -webkit-backdrop-filter: blur(24px);
+  backdrop-filter: blur(24px);
+  border: 1px solid var(--line);
+  border-radius: calc(var(--radius) + 8px);
+}
+[data-dock="modern"][data-dock-form="bar"] .dk { border-radius: 0; }
+:root:root[data-dock="modern"] .dk .shell-glyph { border-radius: calc(var(--radius) + 4px); }
+:root:root[data-dock="modern"] .dk .shell-app:hover .shell-glyph { border-color: transparent; background: color-mix(in srgb, var(--fg) 10%, transparent); }
