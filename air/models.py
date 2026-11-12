@@ -100,6 +100,9 @@ class Transmission(models.Model):
     broadcast = models.ForeignKey("air.Broadcast", null=True, blank=True, on_delete=models.SET_NULL, related_name="transmissions")
     slot = models.DateTimeField("Слот расписания (игровое UTC)", null=True, blank=True)
     condition = models.JSONField("Кому слышно", null=True, blank=True, help_text="Условие на ключи (secure.access). Пусто: всем.")
+    on_air = models.CharField("Как звучит в эфире", max_length=400, blank=True, help_text="Шифровка, если передали с ключом; пусто: открытый текст.")
+    key = models.CharField("Ключ шифра", max_length=32, blank=True, help_text="Видят только авторы.")
+    key_mark = models.CharField(max_length=16, blank=True, help_text="Отпечаток ключа: с тем же ключом слушатель видит открытый текст.")
 
     class Meta:
         ordering = ("created_at", "pk")
@@ -133,6 +136,7 @@ class Broadcast(models.Model):
     condition = models.JSONField("Кому слышно", null=True, blank=True, help_text="Условие на ключи (secure.access). Пусто: всем на частоте.")
     active = models.BooleanField("Включена", default=True)
     note = models.CharField("Заметка", max_length=200, blank=True)
+    key = models.CharField("Ключ шифра", max_length=32, blank=True, help_text="Пусто: открытым текстом. Иначе выпуск идёт шифровкой Виженера.")
     last_slot = models.DateTimeField("Последний выпуск (игровое UTC)", null=True, blank=True)
     turn = models.PositiveIntegerField("Номер следующего текста", default=0)
     created_at = models.DateTimeField(default=timezone.now)
@@ -158,6 +162,8 @@ class Responder(models.Model):
     reply = models.TextField("Ответ в эфир", blank=True, help_text="Можно {callsign}: позывной передавшего. Пусто: молча.")
     delay = models.PositiveIntegerField("Задержка ответа, с", default=5)
     actions = models.JSONField("Исходы", default=list, blank=True, help_text="Как в почте: flag, unflag, key, file, hook.")
+    key = models.CharField("Ключ шифра", max_length=32, blank=True,
+                           help_text="Станция слушает и отвечает этим ключом: шаблон сверяется с расшифровкой. Пусто: слышит эфир как есть.")
     active = models.BooleanField("Включён", default=True)
     note = models.CharField("Заметка", max_length=200, blank=True)
 
@@ -191,3 +197,4 @@ class PendingReply(models.Model):
     user = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.CASCADE, related_name="+",
                              help_text="Для песочницы: ответ слышит только песочный игрок.")
     sandbox = models.BooleanField(default=False)
+    key = models.CharField(max_length=32, blank=True)

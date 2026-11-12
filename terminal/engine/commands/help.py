@@ -26,11 +26,12 @@ HELP = {
     "pwd": ("print the working directory", ("pwd",), ""),
     "air": (
         "listen and transmit on the air",
-        ("air", "air tune <MHz>", "air tx <text>", "air log [n]", "air scan <from> <to>", "air call [callsign]"),
+        ("air", "air tune <MHz>", "air tx <text>", "air log [n]", "air scan <from> <to>", "air call [callsign]", "air key [word|-]"),
         "The air is open: anyone can listen and transmit on almost any frequency from 3.000 to 30.000 MHz (step 0.005).\n"
         "You only hear what arrives after you tune in; tuning again starts over. 14.230 is the calling channel.\n"
         "scan shows where there was traffic in the last 15 minutes (up to 0.5 MHz at a time), but not what was said.\n"
-        "call shows or changes your callsign (once a week).",
+        "call shows or changes your callsign (once a week).\n"
+        "key sets a Vigenere key for this frequency: you send in it and decode everything you hear with it. 'air key -' removes it.",
     ),
     "ls": (
         "list directory contents",

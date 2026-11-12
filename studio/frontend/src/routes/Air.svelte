@@ -65,7 +65,7 @@
   }
   async function transmit() {
     if (!say.station || !say.text.trim()) return;
-    const { data, error } = await api.POST("/studio/api/air/transmit", { body: { station: say.station, freq: say.freq, text: say.text } });
+    const { data, error } = await api.POST("/studio/api/air/transmit", { body: { station: say.station, freq: say.freq, text: say.text, key: "" } });
     if (error || !data) return toast(problem(error), "error");
     say.text = "";
     loadFeed(false);
@@ -160,6 +160,7 @@
           <span class="tx">{row.text}
             {#if row.hidden}<span class="badge">скрыто{row.hidden_reason ? `: ${row.hidden_reason}` : ""}</span>{/if}
             {#if row.sandbox}<span class="badge">песочница</span>{/if}
+            {#if row.key}<span class="badge" title="В эфире звучит: {row.on_air}">шифр {row.key}</span>{/if}
             {#if row.reports}<span class="badge warn">жалоб: {row.reports}</span>{/if}
           </span>
           <span class="acts">

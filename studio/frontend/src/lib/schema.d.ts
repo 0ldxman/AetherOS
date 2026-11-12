@@ -8921,6 +8921,16 @@ export interface components {
             hidden: boolean;
             /** Hidden Reason */
             hidden_reason: string;
+            /**
+             * Key
+             * @default
+             */
+            key: string;
+            /**
+             * On Air
+             * @default
+             */
+            on_air: string;
             /** Reports */
             reports: number;
         };
@@ -8940,6 +8950,11 @@ export interface components {
             freq: string;
             /** Text */
             text: string;
+            /**
+             * Key
+             * @default
+             */
+            key: string;
         };
         /** AirChange */
         AirChange: {
@@ -9088,6 +9103,8 @@ export interface components {
             active: boolean;
             /** Note */
             note: string;
+            /** Key */
+            key: string;
             /** Summary */
             summary: string;
             /** Last At */
@@ -9122,6 +9139,11 @@ export interface components {
              * @default
              */
             note: string;
+            /**
+             * Key
+             * @default
+             */
+            key: string;
         };
         /** AirResponder */
         AirResponder: {
@@ -9151,6 +9173,8 @@ export interface components {
             active: boolean;
             /** Note */
             note: string;
+            /** Key */
+            key: string;
             /** Fires */
             fires: number;
         };
@@ -9201,6 +9225,11 @@ export interface components {
              * @default
              */
             note: string;
+            /**
+             * Key
+             * @default
+             */
+            key: string;
         };
     };
     responses: never;

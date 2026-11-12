@@ -13,6 +13,7 @@ from air import radio
 from air.models import Transmission
 
 TUNE_KEY = "air_tune"            # {"freq": "14.230", "since": iso}
+CIPHER_KEY = "air_keys"          # {"14.230": "слово"}: ключ шифра приёмника на каждой частоте
 SCAN_KEY = "air_scanned_at"
 SCAN_EVERY = timedelta(seconds=10)
 
@@ -40,6 +41,10 @@ def _tuned(request):
     return radio.parse_freq(found["freq"]), datetime.fromisoformat(found["since"])
 
 
+def _cipher(request, freq):
+    return request.session.get(CIPHER_KEY, {}).get(f"{freq:.3f}", "")
+
+
 def _state(request):
     freq, since = _tuned(request)
     player = _player(request)
@@ -52,7 +57,7 @@ def _state(request):
     return {"freq": f"{freq:.3f}", "since": since.isoformat(), "callsign": radio.callsign_of(player).name if player else "",
             "can_tx": player is not None, "calling": f"{radio.CALLING:.3f}", "label": label,
             "inhibit": band is not None and band.kind == band.Kind.RESERVED,
-            "since_label": since_label, "low": f"{radio.LOW:.3f}", "high": f"{radio.HIGH:.3f}", "scan_width": f"{radio.SCAN_WIDTH:.3f}"}
+            "since_label": since_label, "key": _cipher(request, freq), "low": f"{radio.LOW:.3f}", "high": f"{radio.HIGH:.3f}", "scan_width": f"{radio.SCAN_WIDTH:.3f}"}
 
 
 def _row(row, machine=None):
@@ -92,7 +97,7 @@ def listen(request):
     after = int(request.GET.get("after") or 0) if str(request.GET.get("after") or "0").isdigit() else 0
     from machines.current import current_machine
 
-    rows = radio.listen(_player(request), freq, since, after, keys=_keys(request))
+    rows = radio.listen(_player(request), freq, since, after, keys=_keys(request), air_key=_cipher(request, freq))
     machine = current_machine(request)
     return JsonResponse({"freq": f"{freq:.3f}", "rows": [_row(row, machine) for row in rows]})
 
@@ -109,7 +114,8 @@ def transmit(request):
     try:
         from mail.boxes import box_for
 
-        sent = radio.transmit(player, freq, text if isinstance(text, str) else "", machine=current_machine(request), keys=_keys(request), box=box_for(request))
+        sent = radio.transmit(player, freq, text if isinstance(text, str) else "", machine=current_machine(request), keys=_keys(request), box=box_for(request),
+                             air_key=_cipher(request, freq))
     except radio.AirError as error:
         return _error(error)
     from mail.views import _browser_effects
@@ -133,6 +139,23 @@ def scan(request):
         {"freq": f"{row['freq']:.3f}", "count": row["count"], "ago": int((now - row["last"]).total_seconds() // 60)}
         for row in found if radio.can_listen(row["freq"], keys, guest=guest)
     ]})
+
+
+@require_POST
+def cipher_key(request):
+    """Ключ шифра приёмника на текущей частоте: пусто — без ключа. Хранится в сессии."""
+    from air import cipher
+
+    freq, _since = _tuned(request)
+    raw = json.loads(request.body or b"{}").get("key", "")
+    key = cipher.normalize(raw if isinstance(raw, str) else "")
+    found = dict(request.session.get(CIPHER_KEY, {}))
+    if key:
+        found[f"{freq:.3f}"] = key
+    else:
+        found.pop(f"{freq:.3f}", None)
+    request.session[CIPHER_KEY] = found
+    return JsonResponse(_state(request))
 
 
 @require_POST

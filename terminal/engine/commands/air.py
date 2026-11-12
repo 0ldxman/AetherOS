@@ -9,6 +9,7 @@ from terminal.engine.commands.basic import BaseCommand
 from terminal.engine.result import CommandResult
 
 TUNE_KEY = "air_term_tune"
+CIPHER = "air_term_keys"           # ключ шифра терминала на каждой частоте
 USAGE = "usage: air [tune <MHz> | tx <text> | log [n] | scan <from> <to> | call [callsign]]"
 
 
@@ -51,6 +52,8 @@ class AirCommand(BaseCommand):
                 return self._scan(context, user, rest)
             if sub == "call":
                 return self._call(user, rest)
+            if sub == "key":
+                return self._key(context, rest)
         except radio.AirError as error:
             return CommandResult(f"air: {error}", 1)
         return CommandResult(USAGE, 2)
@@ -90,7 +93,7 @@ class AirCommand(BaseCommand):
         if not rest:
             return CommandResult("usage: air tx <text>", 2)
         freq, _since = self._tuned(context)
-        radio.transmit(user, freq, " ".join(rest), machine=context.machine, keys=_keys(context))
+        radio.transmit(user, freq, " ".join(rest), machine=context.machine, keys=_keys(context), air_key=self._cipher(context, freq))
         return CommandResult(f"tx {freq:.3f} MHz ok")
 
     def _log(self, context, user, rest):
@@ -98,7 +101,7 @@ class AirCommand(BaseCommand):
             return CommandResult("usage: air log [n]", 2)
         count = int(rest[0]) if rest else 20
         freq, since = self._tuned(context)
-        rows = radio.listen(user, freq, since, keys=_keys(context))[-count:] if count else []
+        rows = radio.listen(user, freq, since, keys=_keys(context), air_key=self._cipher(context, freq))[-count:] if count else []
         if not rows:
             return CommandResult(f"no traffic on {freq:.3f} since {_hhmm(since, context.machine)}")
         width = max(len(row["callsign"]) for row in rows)
@@ -126,6 +129,31 @@ class AirCommand(BaseCommand):
             minutes = int((now - row["last"]).total_seconds() // 60)
             lines.append(f"{row['freq']:.3f}  {row['count']:>3} tx  {'just now' if not minutes else f'{minutes} min ago'}")
         return CommandResult("\n".join(lines))
+
+    def _cipher(self, context, freq):
+        session = _session(context)
+        return (session.get(CIPHER, {}) if session is not None else {}).get(f"{freq:.3f}", "")
+
+    def _key(self, context, rest):
+        """air key — показать ключ этой частоты, air key <слово> — задать, air key - — снять."""
+        from air import cipher
+
+        freq, _since = self._tuned(context)
+        session = _session(context)
+        found = dict(session.get(CIPHER, {})) if session is not None else {}
+        if not rest:
+            current = found.get(f"{freq:.3f}", "")
+            return CommandResult(f"key on {freq:.3f}: {current}" if current else f"no key on {freq:.3f}")
+        key = "" if rest == ["-"] else cipher.normalize(" ".join(rest))
+        if rest != ["-"] and not key:
+            raise radio.AirError("a key needs at least one letter or digit")
+        if key:
+            found[f"{freq:.3f}"] = key
+        else:
+            found.pop(f"{freq:.3f}", None)
+        if session is not None:
+            session[CIPHER] = found
+        return CommandResult(f"key on {freq:.3f}: {key}" if key else f"key removed on {freq:.3f}")
 
     def _call(self, user, rest):
         if user is None:

@@ -132,7 +132,15 @@ def _clean(text):
     return text
 
 
-def transmit(user, freq, text, machine=None, now=None, keys=frozenset(), box=None):
+def _keyed(text, key):
+    """Поля передачи для шифра: как звучит в эфире, ключ и его отпечаток."""
+    from air import cipher
+
+    key = cipher.normalize(key)
+    return {"on_air": cipher.encrypt(text, key)[:400], "key": key, "key_mark": cipher.mark(key)} if key else {}
+
+
+def transmit(user, freq, text, machine=None, now=None, keys=frozenset(), box=None, air_key=""):
     """Передача игрока. Ошибки: AirError с текстом для игрока. У вернувшейся передачи .effects: хуки ответчиков для браузера."""
     from air import events
     from machines.world import chrono
@@ -158,14 +166,16 @@ def transmit(user, freq, text, machine=None, now=None, keys=frozenset(), box=Non
     if mine.filter(created_at__gte=now - timedelta(minutes=1)).count() >= PER_MINUTE:
         raise AirError("too many transmissions, wait a minute")
     purge(now)
-    sent = Transmission.objects.create(freq=freq, user=user, callsign=sign.name, machine=machine, text=text, sandbox=is_sandbox(user), created_at=now)
+    sent = Transmission.objects.create(freq=freq, user=user, callsign=sign.name, machine=machine, text=text, sandbox=is_sandbox(user), created_at=now,
+                                       **_keyed(text, air_key))
     sent.effects = events.react(sent, keys, box, now)
     return sent
 
 
-def station_transmit(station, freq, text):
-    """Передача от станции или персонажа (Студия): без лимитов игрока, в любой полосе."""
-    return Transmission.objects.create(freq=parse_freq(freq), station=station, callsign=station.name, text=_clean(text))
+def station_transmit(station, freq, text, key=""):
+    """Передача от станции или персонажа (Студия): без лимитов игрока, в любой полосе; с ключом — шифровкой."""
+    text = _clean(text)
+    return Transmission.objects.create(freq=parse_freq(freq), station=station, callsign=station.name, text=text, **_keyed(text, key))
 
 
 # ---------- приём ----------
@@ -184,10 +194,10 @@ def _hears(row, keys):
     return not row.condition or satisfied(row.condition, keys)
 
 
-def listen(user, freq, since, after=0, now=None, keys=frozenset()):
+def listen(user, freq, since, after=0, now=None, keys=frozenset(), air_key=""):
     """Принятое на частоте после выхода на неё (since) и после передачи after: [{id, callsign, station, text, at, hidden, mine}].
     Сначала выходит наступившее (расписание станций, отложенные ответы). Вне окна полосы передача не слышна, у краёв рассыпается."""
-    from air import events
+    from air import cipher, events
     from machines.world import chrono
 
     now = now or timezone.now()
@@ -202,8 +212,10 @@ def listen(user, freq, since, after=0, now=None, keys=frozenset()):
         quality = events.propagation(band, chrono.to_game(row.created_at))
         if quality == 0 and row.station_id is not None:
             continue                                        # станция вне окна: не прошла
-        text = NOISE if row.hidden_at else events.degrade(row.text, quality, f"{row.pk}:{getattr(user, 'pk', 0)}")
+        shown, own_key = cipher.heard(row.on_air or row.text, row.key_mark, air_key)
+        text = NOISE if row.hidden_at else events.degrade(shown, quality, f"{row.pk}:{getattr(user, 'pk', 0)}")
         found.append({"id": row.pk, "callsign": row.callsign, "station": row.station_id is not None, "text": text, "at": row.created_at,
+                      "foreign": not own_key and not row.hidden_at,
                       "hidden": row.hidden_at is not None, "mine": user is not None and row.station_id is None and row.user_id == getattr(user, "pk", None)})
     return found
 

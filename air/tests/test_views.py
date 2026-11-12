@@ -77,3 +77,15 @@ class AirAppTests(TestCase):
         self.assertIn('"can_tx": false', html)
         self.assertEqual(self.post("tune", {"freq": "7.115"})[0], 403)
         self.assertEqual(self.post("tx", {"text": "hi"})[0], 403)
+
+    def test_the_receiver_keeps_a_key_per_frequency(self):
+        self.client.get(reverse("air:index"))
+        self.assertEqual(self.post("key", {"key": "  Orpheus "})[1]["key"], "Orpheus")
+        self.assertEqual(self.post("tune", {"freq": "7.115"})[1]["key"], "")
+        self.assertEqual(self.post("tune", {"freq": "14.230"})[1]["key"], "Orpheus")
+        self.post("tx", {"text": "meet at dawn"})
+        rows = self.listen()["rows"]
+        self.assertEqual((rows[-1]["text"], rows[-1]["foreign"]), ("meet at dawn", False))
+        self.assertEqual(Transmission.objects.last().on_air, radio._keyed("meet at dawn", "orpheus")["on_air"])
+        self.assertEqual(self.post("key", {"key": ""})[1]["key"], "")
+        self.assertTrue(self.listen()["rows"][-1]["foreign"])

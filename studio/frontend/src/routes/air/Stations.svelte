@@ -72,19 +72,19 @@
   }
 
   // ---------- передача по расписанию ----------
-  type BForm = { id: number | null; freq: string; schedule: string; time_zone: string; texts: string; condition: string; note: string; active: boolean };
+  type BForm = { id: number | null; freq: string; schedule: string; time_zone: string; texts: string; condition: string; note: string; active: boolean; key: string };
   let bform = $state<BForm | null>(null);
   let busy = $state(false);
   function editBroadcast(row: Broadcast | null) {
     bform = row
-      ? { id: row.id, freq: row.freq, schedule: row.schedule, time_zone: row.time_zone, texts: row.texts.join("\n"), condition: cond(row.condition), note: row.note, active: row.active }
-      : { id: null, freq: broadcasts[0]?.freq ?? responders[0]?.freq ?? "", schedule: "daily 21:00", time_zone: "UTC", texts: "", condition: "", note: "", active: true };
+      ? { id: row.id, freq: row.freq, schedule: row.schedule, time_zone: row.time_zone, texts: row.texts.join("\n"), condition: cond(row.condition), note: row.note, active: row.active, key: row.key }
+      : { id: null, freq: broadcasts[0]?.freq ?? responders[0]?.freq ?? "", schedule: "daily 21:00", time_zone: "UTC", texts: "", condition: "", note: "", active: true, key: "" };
   }
   async function saveBroadcast() {
     if (!bform || !station) return;
     busy = true;
     const body = { station: station.id, freq: bform.freq, schedule: bform.schedule, time_zone: bform.time_zone, texts: bform.texts.split("\n"),
-                   condition: bform.condition.trim() || null, note: bform.note, active: bform.active };
+                   condition: bform.condition.trim() || null, note: bform.note, active: bform.active, key: bform.key };
     const { error } = bform.id !== null
       ? await api.PUT("/studio/api/air/broadcasts/{broadcast_id}", { params: { path: { broadcast_id: bform.id } }, body })
       : await api.POST("/studio/api/air/broadcasts", { body });
@@ -95,7 +95,7 @@
     loadStation();
   }
   async function toggleBroadcast(row: Broadcast) {
-    const body = { station: row.station, freq: row.freq, schedule: row.schedule, time_zone: row.time_zone, texts: row.texts, condition: row.condition ?? null, note: row.note, active: !row.active };
+    const body = { station: row.station, freq: row.freq, schedule: row.schedule, time_zone: row.time_zone, texts: row.texts, condition: row.condition ?? null, note: row.note, active: !row.active, key: row.key };
     const { error } = await api.PUT("/studio/api/air/broadcasts/{broadcast_id}", { params: { path: { broadcast_id: row.id } }, body });
     if (error) return toast(problem(error), "error");
     loadStation();
@@ -112,20 +112,20 @@
   }
 
   // ---------- ответчик ----------
-  type RForm = { id: number | null; freq: string; pattern: string; regex: boolean; condition: string; cooldown: number; reply: string; delay: number; actions: Action[]; note: string; active: boolean };
+  type RForm = { id: number | null; freq: string; pattern: string; regex: boolean; condition: string; cooldown: number; reply: string; delay: number; actions: Action[]; note: string; active: boolean; key: string };
   let rform = $state<RForm | null>(null);
   const KINDS = ["flag", "unflag", "key", "file", "hook"];
   function editResponder(row: Responder | null) {
     rform = row
       ? { id: row.id, freq: row.freq, pattern: row.pattern, regex: row.regex, condition: cond(row.condition), cooldown: row.cooldown, reply: row.reply, delay: row.delay,
-          actions: (row.actions ?? []) as Action[], note: row.note, active: row.active }
-      : { id: null, freq: broadcasts[0]?.freq ?? responders[0]?.freq ?? "", pattern: "", regex: false, condition: "", cooldown: 10, reply: "{callsign} DE " + (station?.name ?? ""), delay: 5, actions: [], note: "", active: true };
+          actions: (row.actions ?? []) as Action[], note: row.note, active: row.active, key: row.key }
+      : { id: null, freq: broadcasts[0]?.freq ?? responders[0]?.freq ?? "", pattern: "", regex: false, condition: "", cooldown: 10, reply: "{callsign} DE " + (station?.name ?? ""), delay: 5, actions: [], note: "", active: true, key: "" };
   }
   async function saveResponder() {
     if (!rform || !station) return;
     busy = true;
     const body = { station: station.id, freq: rform.freq, pattern: rform.pattern, regex: rform.regex, condition: rform.condition.trim() || null,
-                   cooldown: rform.cooldown, reply: rform.reply, delay: rform.delay, actions: rform.actions as Record<string, unknown>[], note: rform.note, active: rform.active };
+                   cooldown: rform.cooldown, reply: rform.reply, delay: rform.delay, actions: rform.actions as Record<string, unknown>[], note: rform.note, active: rform.active, key: rform.key };
     const { error } = rform.id !== null
       ? await api.PUT("/studio/api/air/responders/{responder_id}", { params: { path: { responder_id: rform.id } }, body })
       : await api.POST("/studio/api/air/responders", { body });
@@ -181,7 +181,7 @@
           <div class="item" class:off={!b.active}>
             <div class="main">
               <div class="line1"><b class="mono">{b.freq}</b> <span>{b.summary || b.schedule}</span>{#if b.time_zone !== "UTC"}<span class="muted small"> · {b.time_zone}</span>{/if}
-                {#if !b.active}<span class="badge">выключена</span>{/if}{#if cond(b.condition)}<span class="badge">слышно с ключом {cond(b.condition)}</span>{/if}</div>
+                {#if !b.active}<span class="badge">выключена</span>{/if}{#if cond(b.condition)}<span class="badge">слышно с ключом {cond(b.condition)}</span>{/if}{#if b.key}<span class="badge">шифр {b.key}</span>{/if}</div>
               <div class="quote">«{b.texts[0]}»{#if b.texts.length > 1}<span class="muted small"> и ещё {b.texts.length - 1} по кругу</span>{/if}</div>
               <div class="muted small">{b.next_at ? `следующий выпуск ${game(b.next_at, b.time_zone)}` : b.active ? "больше не выйдет" : ""}{b.last_at ? ` · последний ${game(b.last_at, b.time_zone)}` : ""}{b.note ? ` · ${b.note}` : ""}</div>
             </div>
@@ -202,7 +202,7 @@
           <div class="item" class:off={!r.active}>
             <div class="main">
               <div class="line1"><b class="mono">{r.freq}</b> <span>на «{r.pattern.split("\n").filter(Boolean).join("» или «")}»</span>{#if r.regex}<span class="badge">regex</span>{/if}
-                {#if !r.active}<span class="badge">выключен</span>{/if}{#if cond(r.condition)}<span class="badge">только с ключом {cond(r.condition)}</span>{/if}</div>
+                {#if !r.active}<span class="badge">выключен</span>{/if}{#if cond(r.condition)}<span class="badge">только с ключом {cond(r.condition)}</span>{/if}{#if r.key}<span class="badge">слушает шифром {r.key}</span>{/if}</div>
               {#if r.reply}<div class="quote">→ «{r.reply}» <span class="muted small">через {r.delay} с</span></div>{/if}
               <div class="muted small">{r.actions.length ? `исходы: ${actionsText(r.actions)} · ` : ""}пауза для игрока {r.cooldown} мин · сработал {r.fires} раз{r.note ? ` · ${r.note}` : ""}</div>
             </div>
@@ -241,6 +241,7 @@
         <label><span class="label">Кому слышно<Hint text="Ключ (slug), без которого игрок эту передачу не услышит. Пусто: всем на частоте." /></span><input class="field mono" bind:value={bform.condition} placeholder="всем" /></label>
         <label><span class="label">Заметка</span><input class="field" bind:value={bform.note} /></label>
       </div>
+      <label><span class="label">Шифр (Виженер)<Hint text="Слово-ключ. Пусто: открытым текстом. С ключом выпуск звучит шифровкой: открытым его видит только тот, кто поставил на приёмнике этот ключ." /></span><input class="field mono" bind:value={bform.key} maxlength="32" placeholder="без шифра" /></label>
       <label class="check"><input type="checkbox" bind:checked={bform.active} /> Включена</label>
     </div>
   </Dialog>
@@ -254,6 +255,7 @@
         <label><span class="label">Слушает частоту, МГц</span><input class="field mono" bind:value={rform.freq} placeholder="7.115" /></label>
         <label><span class="label">Отвечает только с ключом</span><input class="field mono" bind:value={rform.condition} placeholder="всем" /></label>
       </div>
+      <label><span class="label">Шифр станции (Виженер)<Hint text="Станция слушает и отвечает этим словом-ключом: фразу поймёт, только если игрок передал её с тем же ключом, а ответ уйдёт шифровкой. Пусто: слышит эфир как есть." /></span><input class="field mono" bind:value={rform.key} maxlength="32" placeholder="без шифра" /></label>
       <label><span class="label">На что отвечает</span>
         <textarea class="field mono" rows="3" bind:value={rform.pattern} placeholder={"qrz boreas\nкто на частоте"}></textarea>
         <span class="muted small">По строке на вариант: слово или фраза целиком, регистр не важен.</span>

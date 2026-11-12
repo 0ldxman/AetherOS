@@ -24602,6 +24602,16 @@
       "title": "Hidden Reason",
       "type": "string"
      },
+     "key": {
+      "default": "",
+      "title": "Key",
+      "type": "string"
+     },
+     "on_air": {
+      "default": "",
+      "title": "On Air",
+      "type": "string"
+     },
      "reports": {
       "title": "Reports",
       "type": "integer"
@@ -24646,6 +24656,11 @@
      },
      "text": {
       "title": "Text",
+      "type": "string"
+     },
+     "key": {
+      "default": "",
+      "title": "Key",
       "type": "string"
      }
     },
@@ -24996,6 +25011,10 @@
       "title": "Note",
       "type": "string"
      },
+     "key": {
+      "title": "Key",
+      "type": "string"
+     },
      "summary": {
       "title": "Summary",
       "type": "string"
@@ -25034,6 +25053,7 @@
      "time_zone",
      "active",
      "note",
+     "key",
      "summary",
      "last_at",
      "next_at"
@@ -25078,6 +25098,11 @@
      "note": {
       "default": "",
       "title": "Note",
+      "type": "string"
+     },
+     "key": {
+      "default": "",
+      "title": "Key",
       "type": "string"
      }
     },
@@ -25143,6 +25168,10 @@
       "title": "Note",
       "type": "string"
      },
+     "key": {
+      "title": "Key",
+      "type": "string"
+     },
      "fires": {
       "title": "Fires",
       "type": "integer"
@@ -25160,6 +25189,7 @@
      "actions",
      "active",
      "note",
+     "key",
      "fires"
     ],
     "title": "AirResponder",
@@ -25219,6 +25249,11 @@
      "note": {
       "default": "",
       "title": "Note",
+      "type": "string"
+     },
+     "key": {
+      "default": "",
+      "title": "Key",
       "type": "string"
      }
     },

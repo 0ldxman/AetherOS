@@ -53,3 +53,14 @@ class AirCommandTests(TerminalClient, TestCase):
         self.assertEqual(self.out("air call zephyr-7"), "callsign ZEPHYR-7")
         self.assertIn("once a week", self.out("air call north"))
         self.assertIn("air tune <MHz>", self.out("help air"))
+
+    def test_a_key_ciphers_what_you_send_and_decodes_what_you_hear(self):
+        from air import cipher
+
+        self.out("air tune 7.115")
+        self.assertEqual(self.out("air key orpheus"), "key on 7.115: orpheus")
+        self.out("air tx meet at dawn")
+        self.assertTrue(self.out("air log").endswith("IVAN  meet at dawn"))
+        self.assertEqual(self.out("air key -"), "key removed on 7.115")
+        self.assertTrue(self.out("air log").endswith("IVAN  " + cipher.encrypt("meet at dawn", "orpheus")))
+        self.assertIn("no key on 7.115", self.out("air key"))

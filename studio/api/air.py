@@ -10,7 +10,7 @@ from ninja import Router, Schema
 
 from django.utils import timezone
 
-from air import events, radio, schedule
+from air import cipher, events, radio, schedule
 from air.models import Band, Broadcast, Callsign, CallsignChange, Report, Responder, Station, Transmission
 from machines.access import windows
 from machines.world import chrono
@@ -35,6 +35,8 @@ class AirRow(Schema):
     at: datetime
     hidden: bool
     hidden_reason: str
+    key: str = ""               # ключ шифра, если передали с ключом
+    on_air: str = ""            # как звучит в эфире (шифровка)
     reports: int
 
 
@@ -109,6 +111,7 @@ class AirBroadcast(Schema):
     condition: object = None
     active: bool
     note: str
+    key: str
     summary: str               # расписание словами
     last_at: datetime | None   # игровое UTC
     next_at: datetime | None
@@ -123,6 +126,7 @@ class AirBroadcastIn(Schema):
     condition: object = None
     active: bool = True
     note: str = ""
+    key: str = ""
 
 
 class AirResponder(Schema):
@@ -138,6 +142,7 @@ class AirResponder(Schema):
     actions: list[dict]
     active: bool
     note: str
+    key: str
     fires: int                 # сколько раз срабатывал
 
 
@@ -153,12 +158,14 @@ class AirResponderIn(Schema):
     actions: list[dict] = []
     active: bool = True
     note: str = ""
+    key: str = ""
 
 
 class AirTx(Schema):
     station: int
     freq: str
     text: str
+    key: str = ""
 
 
 class AirReport(Schema):
@@ -178,6 +185,7 @@ def _player(user):
 def _row(row):
     return AirRow(id=row.pk, freq=f"{row.freq:.3f}", callsign=row.callsign, station=row.station_id is not None, player=_player(row.user),
                   sandbox=row.sandbox, text=row.text, at=row.created_at, hidden=row.hidden_at is not None, hidden_reason=row.hidden_reason,
+                  key=row.key, on_air=row.on_air,
                   reports=getattr(row, "report_count", 0))
 
 
@@ -220,7 +228,7 @@ def unhide(request, tx_id: int):
 def transmit(request, body: AirTx):
     """Передать от станции или персонажа (без лимитов игрока, в любой полосе)."""
     try:
-        return _row(radio.station_transmit(get_object_or_404(Station, pk=body.station), body.freq, body.text))
+        return _row(radio.station_transmit(get_object_or_404(Station, pk=body.station), body.freq, body.text, key=body.key))
     except radio.AirError as error:
         _refuse(error)
 
@@ -363,7 +371,7 @@ def _broadcast(row):
     except schedule.ScheduleError:
         summary = ""
     return AirBroadcast(id=row.pk, station=row.station_id, freq=f"{row.freq:.3f}", texts=row.texts, schedule=row.schedule, time_zone=row.time_zone,
-                        condition=row.condition, active=row.active, note=row.note, summary=summary, last_at=row.last_slot,
+                        condition=row.condition, active=row.active, note=row.note, key=row.key, summary=summary, last_at=row.last_slot,
                         next_at=events.next_slot(row) if row.active else None)
 
 
@@ -380,7 +388,7 @@ def _broadcast_values(body):
     if found:
         _refuse(f"Расписание: {found[0]}")
     return {"station_id": body.station, "freq": freq, "texts": texts, "schedule": body.schedule.strip(), "time_zone": _zone(body.time_zone),
-            "condition": body.condition or None, "active": body.active, "note": body.note.strip()[:200]}
+            "condition": body.condition or None, "active": body.active, "note": body.note.strip()[:200], "key": cipher.normalize(body.key)}
 
 
 @router.get("/broadcasts", response=list[AirBroadcast])
@@ -414,7 +422,7 @@ def broadcast_now(request, broadcast_id: int):
     row = get_object_or_404(Broadcast, pk=broadcast_id)
     text = row.texts[row.turn % len(row.texts)] if row.texts else ""
     try:
-        sent = radio.station_transmit(row.station, row.freq, text)
+        sent = radio.station_transmit(row.station, row.freq, text, key=row.key)
     except radio.AirError as error:
         _refuse(error)
     sent.condition = row.condition
@@ -436,7 +444,7 @@ ACTIONS = {"flag", "unflag", "key", "file", "letter", "hook"}
 def _responder(row):
     return AirResponder(id=row.pk, station=row.station_id, freq=f"{row.freq:.3f}", pattern=row.pattern, regex=row.regex, condition=row.condition,
                         cooldown=row.cooldown, reply=row.reply, delay=row.delay, actions=row.actions or [], active=row.active, note=row.note,
-                        fires=row.fires.count())
+                        key=row.key, fires=row.fires.count())
 
 
 def _responder_values(body):
@@ -453,7 +461,7 @@ def _responder_values(body):
         _refuse("Ответчику нужен ответ в эфир или хотя бы один исход.")
     return {"station_id": body.station, "freq": freq, "pattern": body.pattern.strip(), "regex": body.regex, "condition": body.condition or None,
             "cooldown": max(0, body.cooldown), "reply": body.reply.strip()[:400], "delay": max(0, min(body.delay, 86400)), "actions": actions,
-            "active": body.active, "note": body.note.strip()[:200]}
+            "active": body.active, "note": body.note.strip()[:200], "key": cipher.normalize(body.key)}
 
 
 @router.get("/responders", response=list[AirResponder])

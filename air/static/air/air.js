@@ -113,6 +113,10 @@
         text.placeholder = !state.can_tx ? "receive only: sign in to transmit" : state.inhibit ? "transmit inhibited on this band" : "message, then Enter";
         text.setAttribute("aria-label", "transmission on " + state.freq + " MHz");
         $("air-since").textContent = state.since_label;
+        $("air-cipher").value = state.key || "";
+        $("air-keyform").classList.toggle("on", !!state.key);
+        $("air-keyshow").textContent = state.key ? state.key.toUpperCase() : "none";
+        $("air-keyshow").classList.toggle("on", !!state.key);
         setMode(idle());
     }
     function idle() { return !state.can_tx ? "RX ONLY · GUEST" : state.inhibit ? "RX · TX INHIBIT" : "RX · LISTENING"; }
@@ -123,7 +127,8 @@
 
     // ---------- журнал приёма ----------
     function row(item) {
-        const node = el("div", "air-row" + (item.station ? " station" : "") + (item.mine ? " mine" : "") + (item.hidden ? " noise" : ""));
+        const node = el("div", "air-row" + (item.station ? " station" : "") + (item.mine ? " mine" : "") + (item.hidden ? " noise" : "") + (item.foreign ? " foreign" : ""));
+        if (item.foreign) node.title = state.key ? "not in your key" : "ciphered: set a key to decode";
         node.append(el("span", "at", item.at), el("span", "who", item.callsign), el("span", "text", item.text));
         const flag = el("button", "flag", "REPORT");
         flag.type = "button";
@@ -141,17 +146,21 @@
     }
     function started() { note("— tuned " + state.freq + " MHz at " + state.since_label + ", listening —"); }
 
+    // эпоха приёма: смена частоты или ключа начинает новую, ответы старых опросов отбрасываются
+    let epoch = 0;
     async function poll() {
+        const mine = epoch;
         try {
             const data = await call(urls.listenUrl + "?after=" + last);
-            if (data.freq !== state.freq) return;
-            if (data.rows.length) {
+            if (data.freq !== state.freq || mine !== epoch) return;
+            const fresh = data.rows.filter((item) => item.id > last);      // два опроса подряд не задваивают строки
+            if (fresh.length) {
                 const near = log.scrollHeight - log.scrollTop - log.clientHeight < 40;
-                data.rows.forEach((item) => {
+                fresh.forEach((item) => {
                     log.append(row(item));
                     if (!item.mine) kick(item.station ? 11 : 6 + Math.random() * 3);
                 });
-                last = data.rows[data.rows.length - 1].id;
+                last = fresh[fresh.length - 1].id;
                 if (near) log.scrollTop = log.scrollHeight;
             }
             status("");
@@ -167,7 +176,7 @@
             const moved = data.freq !== state.freq;
             Object.assign(state, data);
             show();
-            if (moved) { last = 0; started(); sweep(); }
+            if (moved) { epoch++; last = 0; started(); sweep(); }
             poll();
         } catch (error) {
             notice(error.message);
@@ -388,6 +397,21 @@
             await poll();
         } catch (error) { notice(error.message); }
         setTimeout(() => { setMode(idle()); ptt.classList.remove("keyed"); }, 450);
+    });
+
+    // ключ шифра этой частоты: передаёшь им и им же расшифровываешь всё, что слышишь
+    $("air-keyform").addEventListener("submit", async (event) => {
+        event.preventDefault();
+        try {
+            const data = await call(urls.keyUrl, { key: $("air-cipher").value });
+            Object.assign(state, data);
+            show();
+            epoch++;
+            log.replaceChildren();
+            last = 0;
+            note(state.key ? "— key " + state.key.toUpperCase() + " on " + state.freq + ": decoding —" : "— key removed on " + state.freq + " —");
+            poll();
+        } catch (error) { notice(error.message); }
     });
 
     // хуки ответчиков станции: окна и ошибки на рабочем столе, как у почты

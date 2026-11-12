@@ -12,7 +12,7 @@
 {% block body %}
     <main id="air"
           data-tune-url="{% url 'air:tune' %}" data-listen-url="{% url 'air:listen' %}" data-tx-url="{% url 'air:tx' %}"
-          data-scan-url="{% url 'air:scan' %}" data-callsign-url="{% url 'air:callsign' %}" data-report-url="{% url 'air:report' %}">
+          data-scan-url="{% url 'air:scan' %}" data-callsign-url="{% url 'air:callsign' %}" data-key-url="{% url 'air:key' %}" data-report-url="{% url 'air:report' %}">
         {{ state|json_script:"air-state" }}
 
         {# шапка как у вьюверов: тег, канал, строка сведений, статус справа #}
@@ -22,6 +22,7 @@
                 <div class="air-info">
                     <span class="air-item"><span class="air-key">CALL:</span><button type="button" id="air-call" class="air-call" title="change callsign (once a week)"></button></span>
                     <span class="air-item"><span class="air-key">SIGNAL:</span><span id="air-bars" class="air-bars" aria-hidden="true"></span><span id="air-s" class="air-val">S0</span></span>
+                    <span class="air-item"><span class="air-key">KEY:</span><span id="air-keyshow" class="air-val">none</span></span>
                     <span class="air-item"><span class="air-key">RX SINCE:</span><span id="air-since" class="air-val"></span></span>
                 </div>
             </div>
@@ -56,6 +57,11 @@
                     </div>
                 </div>
             </div>
+            <form id="air-keyform" class="air-keyform" title="Vigenere key for this frequency: you send in it and decode everything you hear with it">
+                <label class="air-key" for="air-cipher">KEY</label>
+                <input id="air-cipher" class="air-keyfield" maxlength="32" spellcheck="false" autocomplete="off" placeholder="none">
+                <button type="submit" class="air-btn small">set</button>
+            </form>
             <div id="air-mem" class="air-mem" aria-label="memory channels"></div>
         </nav>
 
@@ -70,7 +76,7 @@
             <span id="air-count" class="air-count">0/280</span>
             <button type="submit" id="air-ptt" class="air-btn">transmit</button>
         </form>
-        <footer class="status"><span>↑ ↓  tune   ·   wheel over a digit or the scope   ·   click a peak to jump   ·   enter  transmit</span><span id="air-status"></span></footer>
+        <footer class="status"><span>↑ ↓  tune   ·   wheel over a digit or the scope   ·   click a peak to jump   ·   key: decode in your key   ·   enter  transmit</span><span id="air-status"></span></footer>
     </main>
     {% csrf_token %}
 {% endblock %}

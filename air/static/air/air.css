@@ -89,6 +89,14 @@
 .air-row.mine .who { color: var(--accent); }
 .air-row .text { color: var(--fg); overflow-wrap: anywhere; white-space: pre-wrap; }
 .air-row.noise .text { color: var(--font-muted); }
+.air-row.foreign .text, .air-row.foreign .who { opacity: 0.45; }
+.air-keyform { display: flex; align-items: center; gap: 8px; font-size: 10px; }
+.air-keyfield { width: 14ch; height: 28px; padding: 0 8px; border: 1px solid var(--air-dim); border-radius: 0; background: none; color: var(--font-light);
+                font-size: 12px !important; letter-spacing: 0.06em; outline: none; }
+.air-keyfield:focus { border-color: var(--accent); }
+.air-keyform.on .air-keyfield { border-color: var(--accent); color: var(--accent); }
+.air-btn.small { height: 28px; padding: 0 10px; font-size: 11px; }
+#air-keyshow.on { color: var(--accent); }
 .air-row .flag { visibility: hidden; padding: 0; border: 0; background: none; color: var(--font-muted); font-size: 10px; letter-spacing: 0.06em; cursor: pointer; }
 .air-row:hover .flag, .air-row .flag:focus-visible { visibility: visible; }
 .air-row .flag:hover { color: var(--accent-error); }

@@ -96,9 +96,11 @@ def flush_broadcasts(now=None):
                 continue                                    # слот был до появления передачи: только запомнить
             text = str(broadcast.texts[broadcast.turn % len(broadcast.texts)])[:400]
             real = max(_real_moment(slot, now, game_now), now - timedelta(hours=24))
+            from air.radio import _keyed
+
             Transmission.objects.get_or_create(broadcast=broadcast, slot=slot, defaults={
                 "freq": broadcast.freq, "station": broadcast.station, "callsign": broadcast.station.name, "text": text,
-                "created_at": real, "condition": broadcast.condition,
+                "created_at": real, "condition": broadcast.condition, **_keyed(text, broadcast.key),
             })
             made += 1
     return made
@@ -125,6 +127,14 @@ def next_slot(broadcast, now=None):
 
 def _norm(text):
     return " ".join((text or "").lower().split())
+
+
+def _heard_by(responder, sent):
+    """Что слышит станция: эфир как есть или расшифровка её ключом."""
+    from air import cipher
+
+    on_air = sent.on_air or sent.text
+    return cipher.decrypt(on_air, responder.key) if cipher.normalize(responder.key) else on_air
 
 
 def matches(responder, text):
@@ -165,7 +175,7 @@ def react(sent, keys=frozenset(), box=None, now=None):
         return []
     effects = []
     for responder in Responder.objects.filter(active=True, freq=sent.freq).select_related("station"):
-        if not matches(responder, sent.text):
+        if not matches(responder, _heard_by(responder, sent)):
             continue
         if responder.condition and not satisfied(responder.condition, keys):
             continue
@@ -176,7 +186,7 @@ def react(sent, keys=frozenset(), box=None, now=None):
         if responder.reply.strip():
             text = responder.reply.replace("{callsign}", sent.callsign).strip()[:400]
             PendingReply.objects.create(station=responder.station, freq=sent.freq, text=text, due_at=now + timedelta(seconds=responder.delay),
-                                        user=sent.user if sent.sandbox else None, sandbox=sent.sandbox)
+                                        user=sent.user if sent.sandbox else None, sandbox=sent.sandbox, key=responder.key)
         if responder.actions and box is not None:
             from mail import talk
 
@@ -192,8 +202,10 @@ def flush_replies(now=None):
         with transaction.atomic():
             if not PendingReply.objects.filter(pk=reply.pk).delete()[0]:
                 continue
+            from air.radio import _keyed
+
             Transmission.objects.create(freq=reply.freq, station=reply.station, callsign=reply.station.name, text=reply.text,
-                                        created_at=reply.due_at, user=reply.user, sandbox=reply.sandbox)
+                                        created_at=reply.due_at, user=reply.user, sandbox=reply.sandbox, **_keyed(reply.text, reply.key))
             made += 1
     return made
 
