@@ -31,17 +31,7 @@
 .el--clock #date { font-size: 10px; opacity: 0.7; }
 .pl-center .el--clock { align-items: center; }
 .el--actions { display: inline-flex; align-items: center; gap: 4px; flex: 0 0 auto; }
-.el--apps { display: inline-flex; align-items: center; gap: 2px; flex: 0 1 auto; min-width: 0; overflow: hidden; }
-#taskbar .el--apps .shell-app {
-  position: relative; display: grid; place-items: center; width: 28px; height: 24px; padding: 0; border: var(--border-w, 1px) solid transparent;
-  border-radius: var(--radius); background: transparent; color: inherit; font: 13px var(--font-console); cursor: pointer;
-}
-#taskbar .el--apps .shell-app:hover { border-color: color-mix(in srgb, currentColor 35%, transparent); }
-#taskbar .el--apps .shell-app .shell-label { display: none; }
-#taskbar .el--apps .shell-glyph { width: auto; height: auto; margin: 0; padding: 0; border: 0; border-radius: 0; background: none; box-shadow: none; font-size: 13px; line-height: 1; }
-#taskbar .el--apps .shell-glyph img, #taskbar .el--apps .shell-glyph svg { width: 16px; height: 16px; }
-#taskbar .el--apps .shell-app.is-open::after { content: ""; position: absolute; bottom: 1px; left: 50%; width: 10px; height: 2px; margin-left: -5px; background: var(--accent); }
-#taskbar .el--apps .shell-badge { position: absolute; top: -2px; right: -2px; min-width: 12px; padding: 0 2px; border-radius: 999px; background: var(--accent-error); color: var(--font-dark); font-size: 9px; line-height: 12px; }
+/* быстрый запуск и «все приложения» — static/ui/parts/panel2.css */
 
 .el-search {
   height: 24px; width: 15em; padding: 0 8px; border: var(--border-w, 1px) solid var(--line-bright); border-radius: var(--radius);

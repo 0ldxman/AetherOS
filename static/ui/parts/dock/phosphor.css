@@ -1,8 +1,8 @@
-/* Док вида phosphor: контур в цвет экрана, без скруглений, выбор инверсией. */
+/* Дополнительная панель (док) вида phosphor: контур в цвет экрана, без скруглений, выбор инверсией. */
 [data-dock="phosphor"] .dk { border: 2px solid var(--fg); border-radius: 0; background: var(--bg); box-shadow: none; }
 :root:root[data-dock="phosphor"] .dk .shell-app { border-radius: 0; color: var(--fg); font-family: var(--font-console); text-transform: uppercase; }
 :root:root[data-dock="phosphor"] .dk .shell-glyph { border-radius: 0; color: var(--fg); }
 :root:root[data-dock="phosphor"] .dk .shell-app:hover .shell-glyph { background: var(--fg); color: var(--bg); }
-:root:root[data-dock="phosphor"][data-dock-labels="hover"] .dk .shell-app:hover .shell-label { border-radius: 0; background: var(--fg); color: var(--bg); }
+:root:root[data-dock="phosphor"][data-apps-labels="hover"] .dk .shell-app:hover .shell-label { border-radius: 0; background: var(--fg); color: var(--bg); }
 :root:root[data-dock="phosphor"] .dk .shell-app.is-open::after { background: var(--fg); }
-[data-dock="phosphor"] .dk-grid { border-radius: 0; border-color: var(--fg); }
+[data-dock="phosphor"] .dk .el--allapps { border-radius: 0; border-color: var(--fg); }

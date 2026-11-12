@@ -136,32 +136,42 @@ def os_panel(context):
 
 @register.simple_tag(takes_context=True)
 def os_slot(context, slot):
-    """Что стол добавляет к виду панели (slot "desk"): свой док и всплывающие меню запуска и журнал, если у вида их нет."""
+    """Что стол добавляет к главной панели (slot "desk"): дополнительную панель и всплывающие меню запуска и журнал, если у вида их нет."""
     from django.template.loader import render_to_string
 
-    from machines.world import panel, widgets
+    from machines.world import panel
 
     request = context.get("request")
     if request is None or slot != "desk":
         return ""
     slug = _state(request)[0]
-    data = _panel(request)
-    found = panel.of(slug, data)
-    look, placed = found["look"], panel.placed(slug, data)
-    edge = found["edge"]
-    dock = styles.group_of("dock", slug, getattr(request, "_os_parts", {}))
-    side = {"start": "left", "center": "center", "end": "right"}
+    chosen = styles.clean_parts(getattr(request, "_os_parts", {}))
+    main, data2 = chosen.get("panel"), chosen.get("panel2")
+    found = panel.of(slug, main)
+    look, placed = found["look"], panel.placed(slug, main)
+    second = panel.of2(slug, data2, main)
+    everywhere = panel.placed_all(slug, main, data2)
+    second_slot = {key: slot for slot in panel.SLOTS for key in second[slot]}
+
+    def side(key, fallback):
+        """С какой стороны всплывает панель кнопки: по слоту на главной, у боковой дополнительной — с её стороны."""
+        if everywhere.get(key) == "panel2":
+            if second["edge"] in ("left", "right"):
+                return second["edge"]
+            return {"start": "left", "center": "center", "end": "right"}[second_slot[key]]
+        return {"start": "left", "center": "center", "end": "right"}[placed.get(key, fallback)]
+
+    launcher_key = next((key for key in ("launcher", "search", "allapps") if key in everywhere), "launcher")
     desk = {
-        "edge": edge,
-        "dock": dock["show"] == "on",
-        "dock_grid": dock["show"] == "on" and dock["grid"] == "on",
-        "launcher_panel": (bool({"launcher", "search"} & set(placed)) or (dock["show"] == "on" and dock["grid"] == "on")) and look not in panel.NATIVE_LAUNCHER_PANEL,
-        "notices_panel": "notices" in placed and look not in panel.NATIVE_NOTICES_PANEL,
-        "search_in_panel": "search" not in placed,
-        "launcher_side": side[placed.get("launcher", placed.get("search", "start"))],
-        "notices_side": side[placed.get("notices", "end")],
+        "edge": found["edge"],
+        "panel2": panel.elements2(slug, data2, main) if second["show"] == "on" and any(second[s] for s in panel.SLOTS) else None,
+        "launcher_panel": bool({"launcher", "search", "allapps"} & set(everywhere)) and look not in panel.NATIVE_LAUNCHER_PANEL,
+        "notices_panel": "notices" in everywhere and look not in panel.NATIVE_NOTICES_PANEL,
+        "search_in_panel": "search" not in everywhere,
+        "launcher_side": side(launcher_key, "start") if launcher_key in everywhere else "left",
+        "notices_side": side("notices", "end") if "notices" in everywhere else "right",
     }
-    if not (desk["dock"] or desk["launcher_panel"] or desk["notices_panel"]):
+    if not (desk["panel2"] or desk["launcher_panel"] or desk["notices_panel"]):
         return ""
     return mark_safe(render_to_string("desktop/elements/desk.html", {**context.flatten(), **desk}))
 
@@ -194,7 +204,7 @@ def os_theme(context):
     request = context.get("request")
     slug = _state(request)[0] if request is not None else styles.DEFAULT_STYLE
     links = [f"ui/themes/{slug}.css"] if styles.STYLES[slug].css else []
-    links += ["ui/parts/windows.css", "ui/parts/dock.css", "ui/parts/messages.css"]     # раньше частей вида: их дорисовка сильнее
+    links += ["ui/parts/windows.css", "ui/parts/panel2.css", "ui/parts/messages.css"]     # раньше частей вида: их дорисовка сильнее
     chosen = styles.parts(slug, getattr(request, "_os_parts", {}) if request is not None else {})
     links += [path for path in (styles.part_file(part, chosen[part]) for part in styles.PARTS) if path]
     return mark_safe("".join(format_html('<link rel="stylesheet" href="{}">', static(path)) for path in links))

@@ -159,6 +159,26 @@ class PanelElement(Schema):
     hint: str
 
 
+class Panel2Value(Schema):
+    show: str | None = None
+    edge: str | None = None
+    form: str | None = None
+    hide: str | None = None
+    start: list[str] | None = None
+    center: list[str] | None = None
+    end: list[str] | None = None
+
+
+class Panel2Layout(Schema):
+    show: str
+    edge: str
+    form: str
+    hide: str
+    start: list[str]
+    center: list[str]
+    end: list[str]
+
+
 class PanelInfo(Schema):
     elements: list[PanelElement]
     looks: list[WindowOption]
@@ -169,9 +189,14 @@ class PanelInfo(Schema):
     fixed_edge: list[str]                            # виды, у которых край не меняется
     look_of_style: dict[str, str]
     presets: dict[str, PanelLayout]
+    edges2: list[WindowOption]
+    forms2: list[WindowOption]
+    shows: list[WindowOption]
+    hides: list[WindowOption]
+    presets2: dict[str, Panel2Layout]                # вид главной панели -> заготовка дополнительной
 
 
-PART_GROUPS = ("dock", "notice", "clock")
+PART_GROUPS = ("apps", "notice", "clock")
 
 
 class StyleIn(Schema):
@@ -182,6 +207,7 @@ class StyleIn(Schema):
     widget_places: dict[str, str] | None = None
     window: dict[str, str] | None = None             # пусто: окна не меняются; нет ключа — как в стиле
     panel: PanelValue | None = None                 # пусто: панель не меняется; {} — как в стиле
+    panel2: Panel2Value | None = None               # дополнительная панель (раньше док), так же
     parts: dict[str, dict[str, str]] | None = None   # док, сообщения, часы: {группа: {параметр: вариант}}; пустая группа — как в стиле
 
 
@@ -257,6 +283,7 @@ class SystemOut(Schema):
     window_params: list[WindowParam]
     window_presets: dict[str, dict[str, str]]        # стиль -> его параметры окон
     panel: PanelValue                                # что у панели не как в стиле
+    panel2: Panel2Value
     parts: dict[str, dict[str, str]]                 # док, сообщения, часы: выбор автора
     part_params: dict[str, list[WindowParam]]
     part_presets: dict[str, dict[str, dict[str, str]]]   # группа -> стиль -> параметры
@@ -341,6 +368,7 @@ def _out(system):
                        for key, (label, options) in styles.WINDOW.items()],
         window_presets={slug: styles.window_of(slug) for slug in styles.STYLES},
         panel=PanelValue(**styles.clean_parts(system.style_parts).get("panel", {})),
+        panel2=Panel2Value(**styles.clean_parts(system.style_parts).get("panel2", {})),
         parts={group: styles.clean_parts(system.style_parts).get(group, {}) for group in PART_GROUPS},
         part_params={group: [WindowParam(key=key, label=label, options=[WindowOption(value=v, label=l) for v, l in options.items()])
                              for key, (label, options) in styles.GROUPS[group].items()] for group in PART_GROUPS},
@@ -354,6 +382,11 @@ def _out(system):
             exits=list(panel.EXITS) , fixed_edge=sorted(panel.FIXED_EDGE),
             look_of_style={slug: panel.look_of(slug) for slug in styles.STYLES},
             presets={look: PanelLayout(**preset) for look, preset in panel.PRESETS.items()},
+            edges2=[WindowOption(value=k, label=v) for k, v in panel.EDGES2.items()],
+            forms2=[WindowOption(value=k, label=v) for k, v in panel.FORMS2.items()],
+            shows=[WindowOption(value=k, label=v) for k, v in panel.SHOW.items()],
+            hides=[WindowOption(value=k, label=v) for k, v in panel.HIDE.items()],
+            presets2={look: Panel2Layout(**{**panel.PRESET2, **panel.PRESETS2.get(look, {})}) for look in panel.LOOKS},
         ),
         styles=[StyleChoice(slug=slug, label=item.label, description=item.description) for slug, item in styles.STYLES.items()],
         preview_url=reverse("studio_style_preview", kwargs={"code": system.code}),
@@ -590,13 +623,19 @@ def save_style(request, code: str, body: StyleIn):
         cleaned = styles.clean_parts(chosen)
         kept = {k: v for k, v in (system.style_parts or {}).items() if k not in chosen}
         system.style_parts = {**kept, **{group: cleaned[group] for group in chosen if group in cleaned}}
-    if body.panel is not None:
-        data = body.panel.model_dump(exclude_none=True)
-        found = panel.problems(body.style, data)
+    saved = styles.clean_parts(system.style_parts)
+    main = body.panel.model_dump(exclude_none=True) if body.panel is not None else saved.get("panel", {})
+    second = body.panel2.model_dump(exclude_none=True) if body.panel2 is not None else saved.get("panel2", {})
+    if body.panel is not None or body.panel2 is not None:
+        found = panel.problems(body.style, main, second)
         if found:
             raise ValidationError({"panel": found})
-        chosen = panel.clean(data)
-        system.style_parts = {**{k: v for k, v in (system.style_parts or {}).items() if k != "panel"}, **({"panel": chosen} if chosen else {})}
+        found = panel.problems2(body.style, second, main)
+        if found:
+            raise ValidationError({"panel2": found})
+        rest = {k: v for k, v in (system.style_parts or {}).items() if k not in ("panel", "panel2")}
+        cleaned = {"panel": panel.clean(main), "panel2": panel.clean2(second)}
+        system.style_parts = {**rest, **{k: v for k, v in cleaned.items() if v}}
     system.full_clean()
     system.save()
     return _out(system)

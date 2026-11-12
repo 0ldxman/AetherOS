@@ -65,7 +65,7 @@ class StylePartTagsTests(TestCase):
     def test_html_gets_part_attributes(self):
         html = self.render("{% os_parts %}")
         for attr in ('data-win-title="plaque"', 'data-win-buttons="circles"', 'data-notice="classic"', 'data-panel="classic"', 'data-dock="classic"',
-                     'data-panel-edge="top"', 'data-dock-show="off"', 'data-toast-corner="br"', 'data-error-form="window"', 'data-clock-hours="24"'):
+                     'data-panel-edge="top"', 'data-pl2-show="off"', 'data-apps-size="m"', 'data-toast-corner="br"', 'data-error-form="window"', 'data-clock-hours="24"'):
             self.assertIn(attr, html)
 
     def test_links_windows_before_parts(self):

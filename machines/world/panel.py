@@ -1,4 +1,10 @@
-"""Главная панель рабочего стола: вид, край, форма и три слота с элементами (SystemType.style_parts["panel"]).
+"""Панели рабочего стола: главная (SystemType.style_parts["panel"]) и дополнительная (style_parts["panel2"]).
+
+Главная: вид, край (сверху или снизу), форма и три слота с элементами; она занимает полосу стола.
+Дополнительная — то, что раньше было доком: есть или нет, край (любой из четырёх), форма, автоскрытие и те же три слота.
+Она висит поверх стола в оформлении вида главной (static/ui/parts/dock/<вид>.css) и рисует только общие элементы.
+Каждый элемент стоит не больше чем в одной панели и не больше одного раза.
+
 
 Вид панели берётся у одного из стилей (его разметка и CSS: desktop/panels/<вид>.html, static/ui/parts/panel/<вид>.css).
 Слоты «начало», «центр» и «конец» перечисляют элементы по порядку; каждый элемент стоит не больше одного раза.
@@ -30,7 +36,8 @@ ELEMENTS = (
     Element("tasks", "Панель задач", "Открытые окна пунктами."),
     Element("search", "Поиск приложений", "Поле поиска: набор открывает меню запуска с найденным."),
     Element("workspaces", "Рабочие столы", "Переключатель столов 1–4: окна живут на своём столе."),
-    Element("apps", "Быстрый запуск", "Значки приложений прямо на панели, запущенные отмечены."),
+    Element("apps", "Быстрый запуск", "Значки приложений прямо на панели, запущенные отмечены. Размер, подписи и метка — в «Быстром запуске»."),
+    Element("allapps", "Все приложения", "Кнопка-сетка: открывает меню запуска со всеми приложениями."),
     Element("notices", "Уведомления", "Кнопка журнала сообщений со счётчиком."),
     Element("console", "Кнопка консоли", "Быстро открыть и свернуть терминал."),
     Element("machine", "Сеанс", "Логин и машина; меню с выходом."),
@@ -102,7 +109,7 @@ def clean(data):
     return out
 
 
-def problems(style, data):
+def problems(style, data, data2=None):
     """Ошибки раскладки панели для Студии: неизвестное, повторы, нет выхода из сеанса."""
     found = []
     if not isinstance(data, dict):
@@ -118,8 +125,8 @@ def problems(style, data):
             elif key in seen:
                 found.append(f"{BY_KEY[key].label}: стоит на панели дважды.")
             seen.add(key)
-    if not found and not exits(style, data):
-        found.append("На панели нет выхода из сеанса: оставьте меню запуска, «Сеанс» или «Кнопки сеанса».")
+    if not found and not exits(style, data, data2):
+        found.append("На панелях нет выхода из сеанса: оставьте меню запуска, «Сеанс» или «Кнопки сеанса».")
     return found
 
 
@@ -133,11 +140,11 @@ def of(style, data=None):
     return found
 
 
-def exits(style, data=None):
-    panel = of(style, data)
-    if panel["look"] in EXIT_OUTSIDE:
+def exits(style, data=None, data2=None):
+    """Есть ли выход из сеанса: у вида вне панели, на главной или на показанной дополнительной."""
+    if of(style, data)["look"] in EXIT_OUTSIDE:
         return True
-    return any(key in panel[slot] for slot in SLOTS for key in EXITS)
+    return any(key in placed_all(style, data, data2) for key in EXITS)
 
 
 def native(look, key, slot, edge, form="bar"):
@@ -172,3 +179,76 @@ def placed(style, data=None):
     """{элемент: слот} для всего, что стоит на панели."""
     panel = of(style, data)
     return {key: slot for slot in SLOTS for key in panel[slot]}
+
+
+# ---------- дополнительная панель (раньше док) ----------
+EDGES2 = {"bottom": "Снизу", "top": "Сверху", "left": "Слева", "right": "Справа"}
+FORMS2 = {"island": "Остров", "bar": "Во всю длину края"}
+SHOW = {"on": "Есть", "off": "Нет"}
+HIDE = {"off": "Нет", "on": "Прячется, пока не подвести мышь"}
+PRESET2 = {"show": "off", "edge": "bottom", "form": "island", "hide": "off", "start": ["apps"], "center": [], "end": []}
+PRESETS2 = {"gnome": {"show": "on", "end": ["allapps"]}}
+
+
+def clean2(data):
+    """Только известное у дополнительной панели: show, edge, form, hide и три слота."""
+    if not isinstance(data, dict):
+        return {}
+    out = {name: data[name] for name, choices in (("show", SHOW), ("edge", EDGES2), ("form", FORMS2), ("hide", HIDE)) if data.get(name) in choices}
+    seen = set()
+    for slot in SLOTS:
+        if isinstance(data.get(slot), list):
+            keys = [key for key in data[slot] if key in BY_KEY and key not in seen]
+            seen.update(keys)
+            out[slot] = keys
+    return out
+
+
+def of2(style, data=None, main=None):
+    """Дополнительная панель: заготовка вида главной, поверх неё выбор автора; что стоит на главной, сюда не попадает."""
+    look = of(style, main)["look"]
+    found = {**PRESET2, **PRESETS2.get(look, {}), **clean2(data)}
+    taken = set(placed(style, main))
+    for slot in SLOTS:
+        found[slot] = [key for key in found[slot] if key not in taken]
+    return found
+
+
+def problems2(style, data, main=None):
+    found = []
+    if not isinstance(data, dict):
+        return ["Дополнительная панель задаётся объектом."]
+    for name, choices, label in (("show", SHOW, "значения «есть»"), ("edge", EDGES2, "края"), ("form", FORMS2, "формы"), ("hide", HIDE, "автоскрытия")):
+        if name in data and data[name] not in choices:
+            found.append(f"Нет такого {label}: {data[name]}.")
+    taken, seen = set(placed(style, main)), set()
+    for slot in SLOTS:
+        for key in data.get(slot) or []:
+            if key not in BY_KEY:
+                found.append(f"Нет такого элемента панели: {key}.")
+            elif key in seen:
+                found.append(f"{BY_KEY[key].label}: стоит на панели дважды.")
+            elif key in taken:
+                found.append(f"{BY_KEY[key].label}: уже стоит на главной панели.")
+            seen.add(key)
+    return found
+
+
+def attrs2(style, data=None, main=None):
+    found = of2(style, data, main)
+    return {"pl2-show": found["show"], "pl2-edge": found["edge"], "pl2-form": found["form"], "pl2-hide": found["hide"]}
+
+
+def elements2(style, data=None, main=None):
+    """{слот: [(ключ, шаблон)]} дополнительной панели: всегда общие элементы."""
+    found = of2(style, data, main)
+    return {slot: [(key, f"desktop/elements/{key}.html") for key in found[slot]] for slot in SLOTS}
+
+
+def placed_all(style, main=None, data2=None):
+    """{элемент: панель} по обеим панелям (дополнительная — если она есть)."""
+    out = {key: "panel" for key in placed(style, main)}
+    found = of2(style, data2, main)
+    if found["show"] == "on":
+        out.update({key: "panel2" for slot in SLOTS for key in found[slot]})
+    return out

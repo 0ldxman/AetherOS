@@ -1,0 +1,128 @@
+/* ==========================================================================
+ * Дополнительная панель (desktop/elements/panel2.html, раньше док) и элемент «Быстрый запуск» в любой панели.
+ *   data-pl2-edge  bottom | top | left | right     data-pl2-form  island | bar     data-pl2-hide  off | on
+ *   data-apps-size s | m | l     data-apps-labels none | hover | always     data-apps-mark dot | line | glow
+ * Дополнительная панель висит поверх стола в оформлении вида главной ([data-dock="<вид>"] .dk в static/ui/parts/dock/<вид>.css).
+ * Правила с :root:root сильнее плиток приложений вида панели ([data-panel] .shell-app), чтобы быстрый запуск оставался собой.
+ * ========================================================================== */
+
+.dk {
+  --dk: 46px;
+  --dk-pad: 8px;                      /* место под метку запущенного */
+  position: fixed;
+  z-index: 5000;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px;
+  background: var(--panel);
+  border: var(--border-w, 1px) solid var(--window-border, var(--line-bright));
+  border-radius: calc(var(--radius) * 2 + 4px);
+  box-shadow: 0 8px 24px color-mix(in srgb, var(--bg) 60%, transparent);
+  color: var(--fg);
+  font: 12px var(--font-main);
+  transition: transform 0.2s ease-out;
+}
+[data-apps-size="s"] .dk { --dk: 34px; }
+[data-apps-size="l"] .dk { --dk: 58px; }
+.pl2-fill { display: none; }
+[data-pl2-form="bar"] .pl2-fill { display: block; flex: 1 1 auto; }
+.dk > .el { flex: 0 0 auto; }
+
+/* ---- край и форма ---- */
+[data-pl2-edge="bottom"] .dk { left: 50%; bottom: calc(var(--desk-bottom-auto, 0px) + 14px); transform: translateX(-50%); }
+[data-pl2-edge="top"] .dk { left: 50%; top: calc(var(--desk-top-auto, 0px) + 14px); transform: translateX(-50%); }
+[data-pl2-edge="left"] .dk, [data-pl2-edge="right"] .dk {      /* по центру стола между панелями */
+  top: calc(var(--desk-top-auto, 0px) + (100vh - var(--desk-top-auto, 0px) - var(--desk-bottom-auto, 0px)) / 2); transform: translateY(-50%); flex-direction: column;
+}
+:is([data-pl2-edge="left"], [data-pl2-edge="right"]) .dk :is(.el--apps, .el--tasks, .el--spaces, .el--actions) { flex-direction: column; }
+[data-pl2-edge="left"] .dk { left: 12px; }
+[data-pl2-edge="right"] .dk { right: 12px; }
+
+[data-pl2-form="bar"] .dk { border-radius: 0; box-shadow: none; }
+[data-pl2-form="bar"]:is([data-pl2-edge="bottom"], [data-pl2-edge="top"]) .dk { left: 0; right: 0; transform: none; }
+[data-pl2-form="bar"][data-pl2-edge="bottom"] .dk { bottom: var(--desk-bottom-auto, 0px); border-width: var(--border-w, 1px) 0 0; }
+[data-pl2-form="bar"][data-pl2-edge="top"] .dk { top: var(--desk-top-auto, 0px); border-width: 0 0 var(--border-w, 1px); }
+[data-pl2-form="bar"]:is([data-pl2-edge="left"], [data-pl2-edge="right"]) .dk { top: var(--desk-top-auto, 0px); bottom: var(--desk-bottom-auto, 0px); transform: none; }
+[data-pl2-form="bar"][data-pl2-edge="left"] .dk { left: 0; border-width: 0 var(--border-w, 1px) 0 0; }
+[data-pl2-form="bar"][data-pl2-edge="right"] .dk { right: 0; border-width: 0 0 0 var(--border-w, 1px); }
+
+/* автоскрытие: у края остаётся полоска, панель выезжает под мышью или с фокусом клавиатуры */
+[data-pl2-hide="on"][data-pl2-edge="bottom"] .dk:not(:hover):not(:focus-within) { transform: translate(-50%, calc(100% + 8px)); }
+[data-pl2-hide="on"][data-pl2-edge="top"] .dk:not(:hover):not(:focus-within) { transform: translate(-50%, calc(-100% - 8px)); }
+[data-pl2-hide="on"][data-pl2-form="bar"][data-pl2-edge="bottom"] .dk:not(:hover):not(:focus-within) { transform: translateY(calc(100% - 6px)); }
+[data-pl2-hide="on"][data-pl2-form="bar"][data-pl2-edge="top"] .dk:not(:hover):not(:focus-within) { transform: translateY(calc(-100% + 6px)); }
+[data-pl2-hide="on"][data-pl2-edge="left"] .dk:not(:hover):not(:focus-within) { transform: translate(calc(-100% - 6px), -50%); }
+[data-pl2-hide="on"][data-pl2-edge="right"] .dk:not(:hover):not(:focus-within) { transform: translate(calc(100% + 6px), -50%); }
+[data-pl2-hide="on"][data-pl2-form="bar"][data-pl2-edge="left"] .dk:not(:hover):not(:focus-within) { transform: translateX(calc(-100% + 6px)); }
+[data-pl2-hide="on"][data-pl2-form="bar"][data-pl2-edge="right"] .dk:not(:hover):not(:focus-within) { transform: translateX(calc(100% - 6px)); }
+[data-pl2-hide="on"] .dk::before { content: ""; position: absolute; inset: -14px; z-index: -1; }     /* зона, где мышь возвращает панель */
+@media (prefers-reduced-motion: reduce) { .dk { transition: none; } }
+
+/* ==========================================================================
+ * Быстрый запуск: значки приложений, запущенные отмечены. В главной панели значки ниже: её высота задана видом.
+ * ========================================================================== */
+.el--apps { --dk: 46px; --dk-pad: 8px; display: inline-flex; align-items: center; gap: 6px; min-width: 0; }
+.el--apps:empty { display: none; }
+#taskbar .el--apps { --dk: 22px; --dk-pad: 4px; gap: 2px; overflow: hidden; }
+[data-apps-size="s"] #taskbar .el--apps { --dk: 18px; }
+[data-apps-size="l"] #taskbar .el--apps { --dk: 28px; }
+.dk .el--apps { --dk: inherit; --dk-pad: inherit; gap: inherit; }
+
+:root:root .el--apps .shell-app {
+  position: relative; display: flex; flex-direction: column; align-items: center; gap: 4px; width: auto; height: auto;
+  padding: 0 0 var(--dk-pad); margin: 0; border: 0; border-radius: calc(var(--radius) + 2px); background: none; color: inherit; font: 11px var(--font-main); cursor: pointer;
+}
+:root:root[data-pl2-edge="left"] .dk .el--apps .shell-app { padding: 0 0 0 var(--dk-pad); }
+:root:root[data-pl2-edge="right"] .dk .el--apps .shell-app { padding: 0 var(--dk-pad) 0 0; }
+:root:root .el--apps .shell-glyph {
+  display: grid; place-items: center; width: var(--dk); height: var(--dk); margin: 0; padding: 0; border: var(--border-w, 1px) solid transparent;
+  border-radius: calc(var(--radius) + 2px); background: none; box-shadow: none; color: inherit; font: calc(var(--dk) * 0.38) / 1 var(--font-console);
+}
+:root:root .el--apps .shell-glyph img, :root:root .el--apps .shell-glyph svg { width: 55%; height: 55%; }
+:root:root .el--apps .shell-app:hover .shell-glyph, :root:root .el--apps .shell-app:focus-visible .shell-glyph { border-color: var(--line-bright); background: color-mix(in srgb, currentColor 10%, transparent); }
+:root:root .el--apps .shell-app:focus-visible { outline: none; }
+:root:root .el--apps .shell-badge { position: absolute; top: -2px; right: -2px; min-width: 14px; padding: 0 3px; border-radius: 999px; background: var(--accent-error); color: var(--font-dark); font-size: 9px; line-height: 14px; }
+
+/* подписи: «всегда» — под значком (в главной панели — справа от него), «при наведении» — подсказкой к столу */
+:root:root .el--apps .shell-label { display: none; max-width: calc(var(--dk) + 24px); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+:root:root[data-apps-labels="always"] .el--apps .shell-label { display: block; }
+:root:root[data-apps-labels="always"] #taskbar .el--apps .shell-app { flex-direction: row; padding: 0 6px 0 0; }
+:root:root[data-apps-labels="hover"] .el--apps .shell-app:is(:hover, :focus-visible) .shell-label {
+  display: block; position: absolute; z-index: 1; max-width: none; padding: 3px 8px;
+  border: 1px solid var(--line-bright); border-radius: var(--radius); background: var(--panel); color: var(--fg); pointer-events: none;
+}
+:root:root[data-apps-labels="hover"] .el--apps .shell-app:is(:hover, :focus-visible) .shell-label { bottom: calc(100% + 10px); left: 50%; transform: translateX(-50%); }
+:root:root[data-apps-labels="hover"]:is([data-pl2-edge="top"]) .dk .el--apps .shell-app:is(:hover, :focus-visible) .shell-label,
+:root:root[data-apps-labels="hover"][data-panel-edge="top"] #taskbar .el--apps .shell-app:is(:hover, :focus-visible) .shell-label { top: calc(100% + 10px); bottom: auto; }
+:root:root[data-apps-labels="hover"][data-pl2-edge="left"] .dk .el--apps .shell-app:is(:hover, :focus-visible) .shell-label { left: calc(100% + 10px); top: 50%; bottom: auto; transform: translateY(-50%); }
+:root:root[data-apps-labels="hover"][data-pl2-edge="right"] .dk .el--apps .shell-app:is(:hover, :focus-visible) .shell-label { right: calc(100% + 10px); left: auto; top: 50%; bottom: auto; transform: translateY(-50%); }
+
+/* метка запущенного: точка, черта под значком или подсветка самого значка */
+:root:root .el--apps .shell-app.is-open::after { content: ""; position: absolute; left: 50%; bottom: 1px; transform: translateX(-50%); background: var(--accent); }
+:root:root[data-apps-mark="dot"] .el--apps .shell-app.is-open::after { width: 5px; height: 5px; border-radius: 50%; }
+:root:root[data-apps-mark="line"] .el--apps .shell-app.is-open::after { width: 16px; height: 3px; border-radius: 2px; }
+:root:root[data-pl2-edge="top"] .dk .el--apps .shell-app.is-open::after { bottom: 1px; }
+:root:root[data-pl2-edge="left"] .dk .el--apps .shell-app.is-open::after { left: 1px; top: 50%; bottom: auto; transform: translateY(-50%); }
+:root:root[data-pl2-edge="right"] .dk .el--apps .shell-app.is-open::after { left: auto; right: 1px; top: 50%; bottom: auto; transform: translateY(-50%); }
+:root:root[data-apps-mark="line"]:is([data-pl2-edge="left"], [data-pl2-edge="right"]) .dk .el--apps .shell-app.is-open::after { width: 3px; height: 16px; }
+:root:root[data-apps-mark="glow"] .el--apps .shell-app.is-open::after { content: none; }
+:root:root[data-apps-mark="glow"] .el--apps .shell-app.is-open .shell-glyph { border-color: var(--accent); box-shadow: 0 0 10px color-mix(in srgb, var(--accent) 55%, transparent); }
+
+/* ---- «Все приложения»: кнопка-сетка, открывает меню запуска ---- */
+.el--allapps {
+  display: grid; place-items: center; flex: 0 0 auto; width: var(--dk, 24px); height: var(--dk, 24px); padding: 0;
+  border: 0; border-radius: calc(var(--radius) + 2px); background: none; color: inherit; cursor: pointer;
+}
+#taskbar .el--allapps { --dk: 24px; }
+.el--allapps span { width: 22px; height: 22px; background: radial-gradient(circle, currentColor 2.2px, transparent 2.6px) 0 0 / 7.33px 7.33px; opacity: 0.85; }
+#taskbar .el--allapps span { width: 15px; height: 15px; background-size: 5px 5px; background-image: radial-gradient(circle, currentColor 1.5px, transparent 1.8px); }
+.el--allapps:hover span, .el--allapps[aria-expanded="true"] span, .el--allapps:focus-visible span { opacity: 1; }
+.dk .el--apps + .pl2-fill + .pl2-fill + .el--allapps,
+.dk .el--apps + .el--allapps { border-left: 1px solid var(--pl2-divider, var(--line)); border-radius: 0 var(--pl2-round, calc(var(--radius) + 2px)) var(--pl2-round, calc(var(--radius) + 2px)) 0; }
+:is([data-pl2-edge="left"], [data-pl2-edge="right"]) .dk .el--apps + .pl2-fill + .pl2-fill + .el--allapps { border-left: 0; border-top: 1px solid var(--pl2-divider, var(--line)); border-radius: 0 0 calc(var(--radius) + 2px) calc(var(--radius) + 2px); }
+
+/* боковая панель с подписями под значками бывает выше экрана: не выше стола, дальше прокрутка (подсказки при наведении так не обрезаются) */
+:is([data-pl2-edge="left"], [data-pl2-edge="right"])[data-apps-labels="always"] .dk {
+  max-height: calc(100vh - var(--desk-top-auto, 0px) - var(--desk-bottom-auto, 0px) - 24px); overflow-y: auto; scrollbar-width: thin;
+}

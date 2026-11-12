@@ -1,4 +1,4 @@
-/* Док вида gnome: стекло, крупное скругление, плитки-значки и точка под запущенным. Параметры дока — static/ui/parts/dock.css. */
+/* Дополнительная панель (док) вида gnome: стекло, крупное скругление, плитки-значки и точка под запущенным. Раскладка и параметры — static/ui/parts/panel2.css. */
 
 [data-dock="gnome"] .dk {
   gap: 6px;
@@ -10,7 +10,7 @@
   border-radius: 22px;
   box-shadow: 0 10px 32px rgba(0, 0, 0, 0.4);
 }
-[data-dock="gnome"][data-dock-form="bar"] .dk { border-radius: 0; box-shadow: none; }
+[data-dock="gnome"][data-pl2-form="bar"] .dk { border-radius: 0; box-shadow: none; }
 
 :root:root[data-dock="gnome"] .dk .shell-app { gap: 8px; border-radius: 14px; color: rgba(255, 255, 255, 0.9); font-size: 0.8rem; }
 :root:root[data-dock="gnome"] .dk .shell-glyph {
@@ -23,4 +23,5 @@
 }
 :root:root[data-dock="gnome"] .dk .shell-app:hover .shell-glyph { background: color-mix(in srgb, var(--accent) 22%, var(--panel)); color: var(--font-light); }
 
-[data-dock="gnome"] .dk-grid { border-left-color: rgba(255, 255, 255, 0.12); border-radius: 0 14px 14px 0; color: #fff; }
+[data-dock="gnome"] .dk { --pl2-divider: rgba(255, 255, 255, 0.12); --pl2-round: 14px; }
+[data-dock="gnome"] .dk .el--allapps { color: #fff; }

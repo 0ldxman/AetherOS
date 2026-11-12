@@ -32,8 +32,8 @@ class DeskWidgetsTests(TestCase):
         layout = {"start": ["machine"], "center": ["clock"], "end": ["ping"]}
         self.assertTrue(widgets.warnings("aether", {"icons": False}, {"panel": layout}))
         self.assertFalse(widgets.warnings("aether", {"icons": False}, {"panel": {**layout, "end": ["apps"]}}))
-        self.assertFalse(widgets.warnings("aether", {"icons": False}, {"panel": layout, "dock": {"show": "on"}}))
-        self.assertFalse(widgets.warnings("gnome", {"icons": False}))           # у GNOME свой док
+        self.assertFalse(widgets.warnings("aether", {"icons": False}, {"panel": layout, "panel2": {"show": "on"}}))     # быстрый запуск на дополнительной
+        self.assertFalse(widgets.warnings("gnome", {"icons": False}))           # у GNOME дополнительная панель по умолчанию
         self.assertFalse(widgets.warnings("phosphor", {"icons": False}))
 
     def test_studio_saves_widgets(self):
@@ -46,44 +46,57 @@ class DeskWidgetsTests(TestCase):
 
 class PartGroupsTests(TestCase):
     def test_presets_follow_the_look_of_the_style(self):
-        self.assertEqual(styles.preset("dock", "gnome")["show"], "on")
-        self.assertEqual(styles.preset("dock", "aether")["show"], "off")
+        self.assertEqual(panel.of2("gnome")["show"], "on")
+        self.assertEqual(panel.of2("gnome")["end"], ["allapps"])
+        self.assertEqual(panel.of2("aether")["show"], "off")
+        self.assertEqual(styles.preset("apps", "gnome")["labels"], "none")
         self.assertEqual(styles.preset("notice", "glitched"), {"corner": "br", "errors": "window", "look": "aether"})
         self.assertEqual(styles.group_of("notice", "aether", {"notice": {"look": "gnome"}})["corner"], "tc")      # чужой вид со своим углом
         self.assertEqual(styles.group_of("clock", "aether", {"clock": {"hours": "12", "seconds": "x"}}), {"hours": "12", "seconds": "on"})
 
+    def test_second_panel_never_repeats_the_main_one(self):
+        self.assertEqual(panel.of2("workbench", {"show": "on"})["start"], [])          # быстрый запуск уже на передней панели Workbench
+        self.assertEqual(panel.problems2("workbench", {"start": ["apps"]}), ["Быстрый запуск: уже стоит на главной панели."])
+        self.assertEqual(panel.problems2("aether", {"edge": "middle"}), ["Нет такого края: middle."])
+        main = {"start": ["clock"], "center": [], "end": ["ping"]}
+        self.assertFalse(panel.exits("aether", main))
+        self.assertTrue(panel.exits("aether", main, {"show": "on", "start": ["launcher"]}))        # выход на дополнительной тоже выход
+        self.assertFalse(panel.exits("aether", main, {"show": "off", "start": ["launcher"]}))
+
     def test_attrs(self):
-        attrs = styles.parts("aether", {"dock": {"show": "on", "edge": "left"}, "notice": {"corner": "tl", "errors": "screen"}, "clock": {"seconds": "off"}})
-        self.assertEqual((attrs["dock-show"], attrs["dock-edge"], attrs["toast-corner"], attrs["toast-move"], attrs["error-form"], attrs["clock-seconds"]),
-                         ("on", "left", "tl", "1", "screen", "off"))
+        attrs = styles.parts("aether", {"panel2": {"show": "on", "edge": "left"}, "apps": {"mark": "line"}, "notice": {"corner": "tl", "errors": "screen"}, "clock": {"seconds": "off"}})
+        self.assertEqual((attrs["pl2-show"], attrs["pl2-edge"], attrs["apps-mark"], attrs["toast-corner"], attrs["toast-move"], attrs["error-form"], attrs["clock-seconds"]),
+                         ("on", "left", "line", "tl", "1", "screen", "off"))
         self.assertNotIn("toast-move", styles.parts("gnome"))
 
-    def test_desk_renders_the_dock_with_its_grid(self):
-        request = RequestFactory().get("/")
-        request.user = get_user_model()()
-        request._os_style = ("aether", {}, "AETHER", {})
-        request._os_widgets, request._os_places = {}, {}
-        request._os_parts = {"dock": {"show": "on", "grid": "on"}}
-        html = Template("{% load os_style %}{% os_slot 'desk' %}").render(Context({"request": request}))
+    def test_desk_renders_the_second_panel(self):
+        def render(parts):
+            request = RequestFactory().get("/")
+            request.user = get_user_model()()
+            request._os_style = ("aether", {}, "AETHER", {})
+            request._os_widgets, request._os_places, request._os_parts = {}, {}, parts
+            return Template("{% load os_style %}{% os_slot 'desk' %}").render(Context({"request": request, "login": "ivan", "machine_name": "aether-main"}))
+        html = render({"panel2": {"show": "on", "start": ["apps"], "end": ["allapps", "clock"]}})
         self.assertIn('<nav class="dk"', html)
-        self.assertIn('class="dk-grid" data-shell="launcher"', html)
-        self.assertIn('id="launcher" class="el-pop', html)              # у Aether своего меню запуска нет: кнопке нужно меню
-        request._os_parts = {}
-        del request._os_style
-        request._os_style = ("aether", {}, "AETHER", {})
-        self.assertEqual(Template("{% load os_style %}{% os_slot 'desk' %}").render(Context({"request": request})), "")
+        self.assertIn('class="el el--apps"', html)
+        self.assertIn('class="el el--allapps" data-shell="launcher"', html)
+        self.assertNotIn('id="clock"', html)                               # часы уже на главной панели Aether
+        self.assertIn('id="launcher" class="el-pop', html)                # у Aether своего меню запуска нет: кнопке нужно меню
+        self.assertEqual(render({}), "")
+        self.assertEqual(render({"panel2": {"show": "on", "start": ["clock"]}}), "")      # всё уже на главной — пустую панель не рисуем
 
-    def test_studio_saves_parts(self):
+    def test_studio_saves_parts_and_second_panel(self):
         self.client.force_login(get_user_model().objects.create_user("boss", password="pw", is_staff=True, role=full_role()))
         SystemType.objects.create(code="KIOSK", name="Kiosk", style="gnome")
         put = lambda body: self.client.put("/studio/api/systems/KIOSK/style", data=json.dumps({"style": "gnome", "tokens": {}, **body}), content_type="application/json")
-        saved = put({"parts": {"dock": {"edge": "left"}, "clock": {"hours": "12"}}}).json()
-        self.assertEqual(saved["parts"], {"dock": {"edge": "left"}, "notice": {}, "clock": {"hours": "12"}})
-        self.assertEqual(saved["part_presets"]["dock"]["gnome"]["show"], "on")
-        saved = put({"parts": {"clock": {}}}).json()
-        self.assertEqual(saved["parts"], {"dock": {"edge": "left"}, "notice": {}, "clock": {}})
-        response = put({"parts": {"dock": {"edge": "top"}}})
-        self.assertEqual((response.status_code, response.json()["fields"]["parts"]), (400, ["Край: нет варианта «top»."]))
+        saved = put({"parts": {"apps": {"size": "l"}, "clock": {"hours": "12"}}, "panel2": {"edge": "left"}}).json()
+        self.assertEqual(saved["parts"], {"apps": {"size": "l"}, "notice": {}, "clock": {"hours": "12"}})
+        self.assertEqual({k: v for k, v in saved["panel2"].items() if v is not None}, {"edge": "left"})
+        self.assertEqual(saved["panel_info"]["presets2"]["gnome"]["end"], ["allapps"])
+        response = put({"panel2": {"start": ["launcher"]}})
+        self.assertEqual((response.status_code, response.json()["fields"]["panel2"]), (400, ["Меню запуска: уже стоит на главной панели."]))
+        response = put({"parts": {"apps": {"size": "xl"}}})
+        self.assertEqual((response.status_code, response.json()["fields"]["parts"]), (400, ["Размер значков: нет варианта «xl»."]))
 
 
 class PanelTests(SimpleTestCase):
@@ -109,7 +122,7 @@ class PanelTests(SimpleTestCase):
 
     def test_problems(self):
         self.assertEqual(panel.problems("aether", {"start": ["clock"], "center": [], "end": ["ping"]}),
-                         ["На панели нет выхода из сеанса: оставьте меню запуска, «Сеанс» или «Кнопки сеанса»."])
+                         ["На панелях нет выхода из сеанса: оставьте меню запуска, «Сеанс» или «Кнопки сеанса»."])
         self.assertEqual(panel.problems("tui", {"start": [], "center": [], "end": []}), [])            # выход в полосе F-клавиш
         self.assertIn("Пинг: стоит на панели дважды.", panel.problems("aether", {"start": ["ping"], "end": ["ping"]}))
         self.assertIn("Нет такого края: left.", panel.problems("aether", {"edge": "left"}))

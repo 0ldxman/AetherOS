@@ -1,6 +1,6 @@
 """Элементы самого стола, которые ОС включает и выключает независимо от стиля (SystemType.widgets).
 
-Панель раскладывается отдельно (machines/world/panel.py), док — параметрами (machines/world/styles.py, DOCK). Здесь то, что
+Панели раскладываются отдельно (machines/world/panel.py). Здесь то, что
 просто показывается или прячется: значки, бегущая строка, всплывающие уведомления и дата у часов.
 """
 from dataclasses import dataclass
@@ -73,8 +73,7 @@ def warnings(style, data, parts=None):
     look = panel.of(style, chosen.get("panel"))["look"]
     if look in ("phosphor", "tui"):                 # главное меню прошивки и список приложений TUI всегда на месте
         return []
-    placed = panel.placed(style, chosen.get("panel"))
-    dock = styles.group_of("dock", style, parts)["show"] == "on"
-    if not resolve(style, data)["icons"] and not dock and not ({"launcher", "search", "apps"} & set(placed)):
-        return ["Нет ни значков, ни дока, ни меню запуска или быстрого запуска на панели: приложения на этой ОС открыть нечем, кроме ссылок и хуков."]
+    placed = panel.placed_all(style, chosen.get("panel"), chosen.get("panel2"))
+    if not resolve(style, data)["icons"] and not ({"launcher", "search", "apps", "allapps"} & set(placed)):
+        return ["Нет ни значков, ни меню запуска или быстрого запуска на панелях: приложения на этой ОС открыть нечем, кроме ссылок и хуков."]
     return []

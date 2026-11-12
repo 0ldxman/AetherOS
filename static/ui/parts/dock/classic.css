@@ -1,7 +1,7 @@
-/* Док вида classic: плоский контур с жёсткой тенью, без скруглений, растровый шрифт. */
+/* Дополнительная панель (док) вида classic: плоский контур с жёсткой тенью, без скруглений, растровый шрифт. */
 [data-dock="classic"] .dk { border: 2px solid var(--ink, var(--window-border)); border-radius: 0; background: var(--cream, var(--font-dark)); box-shadow: 4px 4px 0 var(--ink, var(--window-border)); }
 :root:root[data-dock="classic"] .dk .shell-app { color: var(--ink, var(--window-border)); border-radius: 0; }
 :root:root[data-dock="classic"] .dk .shell-glyph { border-radius: 0; color: var(--ink, var(--window-border)); }
 :root:root[data-dock="classic"] .dk .shell-app:hover .shell-glyph { border-color: var(--ink, var(--window-border)); background: var(--accent); color: var(--cream, var(--font-dark)); }
-:root:root[data-dock="classic"][data-dock-labels="hover"] .dk .shell-app:hover .shell-label { border: 2px solid var(--ink, var(--window-border)); border-radius: 0; background: var(--cream, var(--font-dark)); color: var(--ink, var(--window-border)); }
-[data-dock="classic"] .dk-grid { border-color: var(--ink, var(--window-border)); border-radius: 0; color: var(--ink, var(--window-border)); }
+:root:root[data-dock="classic"][data-apps-labels="hover"] .dk .shell-app:hover .shell-label { border: 2px solid var(--ink, var(--window-border)); border-radius: 0; background: var(--cream, var(--font-dark)); color: var(--ink, var(--window-border)); }
+[data-dock="classic"] .dk .el--allapps { border-color: var(--ink, var(--window-border)); border-radius: 0; color: var(--ink, var(--window-border)); }

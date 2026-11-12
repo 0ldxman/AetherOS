@@ -6713,6 +6713,40 @@ export interface components {
             /** Order */
             order: number;
         };
+        /** Panel2Layout */
+        Panel2Layout: {
+            /** Show */
+            show: string;
+            /** Edge */
+            edge: string;
+            /** Form */
+            form: string;
+            /** Hide */
+            hide: string;
+            /** Start */
+            start: string[];
+            /** Center */
+            center: string[];
+            /** End */
+            end: string[];
+        };
+        /** Panel2Value */
+        Panel2Value: {
+            /** Show */
+            show?: string | null;
+            /** Edge */
+            edge?: string | null;
+            /** Form */
+            form?: string | null;
+            /** Hide */
+            hide?: string | null;
+            /** Start */
+            start?: string[] | null;
+            /** Center */
+            center?: string[] | null;
+            /** End */
+            end?: string[] | null;
+        };
         /** PanelElement */
         PanelElement: {
             /** Key */
@@ -6745,6 +6779,18 @@ export interface components {
             /** Presets */
             presets: {
                 [key: string]: components["schemas"]["PanelLayout"];
+            };
+            /** Edges2 */
+            edges2: components["schemas"]["WindowOption"][];
+            /** Forms2 */
+            forms2: components["schemas"]["WindowOption"][];
+            /** Shows */
+            shows: components["schemas"]["WindowOption"][];
+            /** Hides */
+            hides: components["schemas"]["WindowOption"][];
+            /** Presets2 */
+            presets2: {
+                [key: string]: components["schemas"]["Panel2Layout"];
             };
         };
         /** PanelLayout */
@@ -6848,6 +6894,7 @@ export interface components {
                 };
             };
             panel: components["schemas"]["PanelValue"];
+            panel2: components["schemas"]["Panel2Value"];
             /** Parts */
             parts: {
                 [key: string]: {
@@ -7128,6 +7175,7 @@ export interface components {
                 [key: string]: string;
             } | null;
             panel?: components["schemas"]["PanelValue"] | null;
+            panel2?: components["schemas"]["Panel2Value"] | null;
             /** Parts */
             parts?: {
                 [key: string]: {

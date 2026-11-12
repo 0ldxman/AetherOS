@@ -1,8 +1,0 @@
-{% comment %}
-  Док стола: значки приложений, запущенные отмечены; по желанию кнопка «все приложения» (открывает меню запуска).
-  Край, форма, размер, подписи, метка и автоскрытие — атрибуты data-dock-* на <html> (static/ui/parts/dock.css).
-{% endcomment %}
-    <nav class="dk" aria-label="Applications">
-        <div class="dk-apps" data-shell="apps" data-dock></div>{% if dock_grid %}
-        <button type="button" class="dk-grid" data-shell="launcher" aria-label="Show all apps" aria-expanded="false" aria-controls="launcher"><span aria-hidden="true"></span></button>{% endif %}
-    </nav>

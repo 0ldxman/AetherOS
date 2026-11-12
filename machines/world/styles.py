@@ -166,16 +166,11 @@ WINDOW_PRESETS = {
 
 _LOOK_LABELS = {"aether": "Aether", "classic": "Classic", "modern": "Modern", "gnome": "GNOME", "workbench": "Workbench", "tui": "Terminal UI", "phosphor": "Phosphor"}
 
-# Док, сообщения и часы: те же параметры с вариантами, умолчания берутся у вида панели стиля (machines/world/panel.py, look_of)
-DOCK = {
-    "show": ("Док", {"on": "Есть", "off": "Нет"}),
-    "edge": ("Край", {"bottom": "Снизу", "left": "Слева", "right": "Справа"}),
-    "form": ("Форма", {"island": "Остров", "bar": "Во всю длину края"}),
+# «Быстрый запуск» (элемент любой панели), сообщения и часы: те же параметры с вариантами, умолчания берутся у вида панели стиля (machines/world/panel.py, look_of)
+APPS = {
     "size": ("Размер значков", {"s": "Мелкие", "m": "Средние", "l": "Крупные"}),
     "labels": ("Подписи", {"none": "Нет", "hover": "При наведении", "always": "Всегда"}),
     "mark": ("Метка запущенных", {"dot": "Точка", "line": "Черта", "glow": "Подсветка"}),
-    "grid": ("Кнопка «все приложения»", {"on": "Есть", "off": "Нет"}),
-    "hide": ("Автоскрытие", {"off": "Нет", "on": "Прячется, пока не подвести мышь"}),
 }
 NOTICE = {
     "look": ("Вид сообщений", _LOOK_LABELS),
@@ -186,16 +181,16 @@ CLOCK = {
     "hours": ("Формат", {"24": "24 часа", "12": "12 часов"}),
     "seconds": ("Секунды", {"on": "Показывать", "off": "Нет"}),
 }
-GROUPS = {"window": WINDOW, "dock": DOCK, "notice": NOTICE, "clock": CLOCK}
-GROUP_LABELS = {"window": "окон", "dock": "дока", "notice": "сообщений", "clock": "часов"}
+GROUPS = {"window": WINDOW, "apps": APPS, "notice": NOTICE, "clock": CLOCK}
+GROUP_LABELS = {"window": "окон", "apps": "быстрого запуска", "notice": "сообщений", "clock": "часов"}
 
 _DEFAULTS = {
-    "dock": {"show": "off", "edge": "bottom", "form": "island", "size": "m", "labels": "hover", "mark": "dot", "grid": "off", "hide": "off"},
+    "apps": {"size": "m", "labels": "hover", "mark": "dot"},
     "notice": {"corner": "br", "errors": "window"},
     "clock": {"hours": "24", "seconds": "on"},
 }
 _LOOK_PRESETS = {
-    "dock": {"gnome": {"show": "on", "labels": "none", "grid": "on"}},
+    "apps": {"gnome": {"labels": "none"}},
     "notice": {"gnome": {"corner": "tc"}},
 }
 
@@ -235,6 +230,9 @@ def clean_parts(data):
     found = panel.clean(data.get("panel"))
     if found:
         out["panel"] = found
+    found = panel.clean2(data.get("panel2"))
+    if found:
+        out["panel2"] = found
     return out
 
 
@@ -262,9 +260,11 @@ def parts(slug, custom=None):
     attrs = {f"win-{key}": value for key, value in window_of(slug, custom).items()}
     found = panel.attrs(slug, clean_parts(custom).get("panel"))
     notice = group_of("notice", slug, custom)
-    attrs.update({"notice": notice["look"], "panel": found["panel"], "dock": found["panel"]})       # док дорисовывает вид панели
+    attrs.update({"notice": notice["look"], "panel": found["panel"], "dock": found["panel"]})       # дополнительную панель дорисовывает вид главной
     attrs.update(found)
-    attrs.update({f"dock-{key}": value for key, value in group_of("dock", slug, custom).items()})
+    chosen = clean_parts(custom)
+    attrs.update(panel.attrs2(slug, chosen.get("panel2"), chosen.get("panel")))
+    attrs.update({f"apps-{key}": value for key, value in group_of("apps", slug, custom).items()})
     attrs["toast-corner"] = notice["corner"]
     if notice["corner"] != preset("notice", notice["look"])["corner"]:
         attrs["toast-move"] = "1"                   # угол не тот, под который рассчитан вид сообщений

@@ -12,11 +12,13 @@
   type System = Schemas["SystemOut"];
   type Panel = { look?: string; edge?: string; form?: string; start?: string[]; center?: string[]; end?: string[] };
   type Slot = "start" | "center" | "end";
+  type Panel2 = { show?: string; edge?: string; form?: string; hide?: string; start?: string[]; center?: string[]; end?: string[] };
+  type Which = "panel" | "panel2";
   type Done = (data: System | undefined, error: unknown, text: string) => void;
 
   let { system, errors, done, onstate }: { system: System; errors: Record<string, string[]>; done: Done; onstate: (state: { dirty: boolean; share: typeof share; save: () => unknown } | null) => void } = $props();
 
-  let look = $state({ style: "aether", tokens: {} as Record<string, string>, wallpaper: { ...WALLPAPER_DEFAULT } as Wallpaper, widgets: {} as Record<string, boolean>, places: {} as Record<string, string>, win: {} as Record<string, string>, panel: {} as Panel, parts: {} as Record<string, Record<string, string>> });
+  let look = $state({ style: "aether", tokens: {} as Record<string, string>, wallpaper: { ...WALLPAPER_DEFAULT } as Wallpaper, widgets: {} as Record<string, boolean>, places: {} as Record<string, string>, win: {} as Record<string, string>, panel: {} as Panel, panel2: {} as Panel2, parts: {} as Record<string, Record<string, string>> });
   let picking = $state(false);
   let lookSaved = $state("");
   let base = $state<typeof look | null>(null);                  // сохранённое: им наполняется общий черновик
@@ -28,7 +30,7 @@
   const HEX6 = /^#[0-9a-fA-F]{6}$/;
 
   async function saveLook() {
-    const body = { style: look.style, tokens: look.tokens, wallpaper: look.wallpaper, widgets: look.widgets, widget_places: look.places, window: look.win, panel: look.panel, parts: look.parts };
+    const body = { style: look.style, tokens: look.tokens, wallpaper: look.wallpaper, widgets: look.widgets, widget_places: look.places, window: look.win, panel: look.panel, panel2: look.panel2, parts: look.parts };
     const { data, error } = await api.PUT("/studio/api/systems/{code}/style", { params: { path: { code: system.code } }, body });
     if (data) share.markSaved();
     done(data, error, "Стиль сохранён.");
@@ -53,7 +55,7 @@
 
   $effect(() => {
     if (!deskPreview) return;
-    const url = `${system.preview_url}?preview_os=${encodeURIComponent(system.code)}&preview_style=${encodeURIComponent(look.style)}&preview_tokens=${encodeURIComponent(JSON.stringify(look.tokens))}&preview_wall=${encodeURIComponent(JSON.stringify(look.wallpaper))}&preview_widgets=${encodeURIComponent(JSON.stringify(look.widgets))}&preview_places=${encodeURIComponent(JSON.stringify(look.places))}&preview_parts=${encodeURIComponent(JSON.stringify({ window: look.win, panel: look.panel, ...look.parts }))}`;
+    const url = `${system.preview_url}?preview_os=${encodeURIComponent(system.code)}&preview_style=${encodeURIComponent(look.style)}&preview_tokens=${encodeURIComponent(JSON.stringify(look.tokens))}&preview_wall=${encodeURIComponent(JSON.stringify(look.wallpaper))}&preview_widgets=${encodeURIComponent(JSON.stringify(look.widgets))}&preview_places=${encodeURIComponent(JSON.stringify(look.places))}&preview_parts=${encodeURIComponent(JSON.stringify({ window: look.win, panel: look.panel, panel2: look.panel2, ...look.parts }))}`;
     clearTimeout(deskTimer);
     deskTimer = setTimeout(() => (previewSrc = url), 350);
     return () => clearTimeout(deskTimer);
@@ -74,8 +76,8 @@
   $effect(() => {
     const data = system;
     untrack(() => {
-      const next = { style: data.style, tokens: { ...data.style_tokens }, wallpaper: { ...WALLPAPER_DEFAULT, ...data.wallpaper }, widgets: { ...data.widgets }, places: { ...data.widget_places }, win: { ...data.window }, panel: Object.fromEntries(Object.entries(data.panel).filter(([, v]) => v !== null)) as Panel, parts: JSON.parse(JSON.stringify(data.parts)) };
-      if (!share.ready) look = { style: next.style, tokens: { ...next.tokens }, wallpaper: { ...next.wallpaper }, widgets: { ...next.widgets }, places: { ...next.places }, win: { ...next.win }, panel: JSON.parse(JSON.stringify(next.panel)), parts: JSON.parse(JSON.stringify(next.parts)) };
+      const next = { style: data.style, tokens: { ...data.style_tokens }, wallpaper: { ...WALLPAPER_DEFAULT, ...data.wallpaper }, widgets: { ...data.widgets }, places: { ...data.widget_places }, win: { ...data.window }, panel: Object.fromEntries(Object.entries(data.panel).filter(([, v]) => v !== null)) as Panel, panel2: Object.fromEntries(Object.entries(data.panel2).filter(([, v]) => v !== null)) as Panel2, parts: JSON.parse(JSON.stringify(data.parts)) };
+      if (!share.ready) look = { style: next.style, tokens: { ...next.tokens }, wallpaper: { ...next.wallpaper }, widgets: { ...next.widgets }, places: { ...next.places }, win: { ...next.win }, panel: JSON.parse(JSON.stringify(next.panel)), panel2: JSON.parse(JSON.stringify(next.panel2)), parts: JSON.parse(JSON.stringify(next.parts)) };
       lookSaved = JSON.stringify(next);
       base = next;
     });
@@ -100,8 +102,8 @@
     "Форма": "Скругление, толщина рамок и размеры элементов.",
   };
   let section = $state((() => { try { return localStorage.getItem(SECTION_KEY) ?? "wall"; } catch { return "wall"; } })());
-  const sections = $derived(["wall", "windows", "panel", "dock", "notice", "widgets", ...groups]);
-  const SECTION_LABEL: Record<string, string> = { wall: "Картинка и узор", windows: "Окна", panel: "Панель", dock: "Док", notice: "Сообщения", widgets: "Элементы стола" };
+  const sections = $derived(["wall", "windows", "panel", "notice", "widgets", ...groups]);
+  const SECTION_LABEL: Record<string, string> = { wall: "Картинка и узор", windows: "Окна", panel: "Панели", notice: "Сообщения", widgets: "Элементы стола" };
 
   // ---------- док, сообщения, часы: параметры с вариантами, как у окон ----------
   const groupPreset = (group: string): Record<string, string> => {
@@ -123,8 +125,6 @@
   const PART_NOTE: Record<string, string> = {
     "notice:errors:banner": "Ошибка встаёт полосой под панелью, Enter или OK её закрывает. Окна не открываются.",
     "notice:errors:screen": "Ошибка закрывает весь экран, как отказ прошивки; Enter или кнопка возвращают на стол.",
-    "dock:hide:on": "У края остаётся тонкая полоска; док выезжает, когда к нему подводят мышь или переходят клавишей Tab.",
-    "dock:grid:on": "Кнопка открывает меню запуска; если у вида панели его нет, стол добавит своё.",
   };
 
   // ---------- панель: вид, край, форма и элементы в трёх слотах ----------
@@ -136,12 +136,19 @@
   const fixedEdge = $derived(PI.fixed_edge.includes(curLook));
   const curEdge = $derived(fixedEdge ? panelPreset.edge : look.panel.edge ?? panelPreset.edge);
   const curForm = $derived(look.panel.form ?? panelPreset.form);
-  const slotList = (slot: Slot): string[] => look.panel[slot] ?? panelPreset[slot];
-  const placedKeys = $derived(new Set(SLOTS.flatMap((s) => slotList(s))));
+  const panel2Preset = $derived(PI.presets2[curLook]);
+  const mainList = (slot: Slot): string[] => look.panel[slot] ?? panelPreset[slot];
+  const mainKeys = $derived(new Set(SLOTS.flatMap((s) => mainList(s))));
+  // на дополнительной панели не стоит то, что уже на главной (так же считает сервер)
+  const slotList = (w: Which, slot: Slot): string[] => w === "panel" ? mainList(slot) : (look.panel2[slot] ?? panel2Preset[slot]).filter((key) => !mainKeys.has(key));
+  const p2 = (key: "show" | "edge" | "form" | "hide") => look.panel2[key] ?? panel2Preset[key];
+  const placedKeys = $derived(new Set([...mainKeys, ...(p2("show") === "on" ? SLOTS.flatMap((s) => slotList("panel2", s)) : [])]));
+  const freeKeys = $derived(new Set([...mainKeys, ...SLOTS.flatMap((s) => slotList("panel2", s))]));
   const elLabel = (key: string) => PI.elements.find((e) => e.key === key)?.label ?? key;
   const elHint = (key: string) => PI.elements.find((e) => e.key === key)?.hint ?? "";
-  const panelOwn = $derived(Object.keys(look.panel).length);
+  const panelOwn = $derived(Object.keys(look.panel).length + Object.keys(look.panel2).length);
   const noExit = $derived(!["tui", "phosphor"].includes(curLook) && !PI.exits.some((key) => placedKeys.has(key)));
+  let panelTab = $state<Which>("panel");
   let adding = $state<Record<string, string>>({});
   function setLook(value: string) { look.panel = value === styleLook ? {} : { look: value }; }    // другой вид — его раскладка целиком
   function setPanel(key: "edge" | "form", value: string) {
@@ -149,21 +156,27 @@
     if (value === panelPreset[key]) delete next[key]; else next[key] = value;
     look.panel = next;
   }
-  function setSlots(lists: Record<Slot, string[]>) {
-    const next = { ...look.panel };
-    const same = SLOTS.every((s) => JSON.stringify(lists[s]) === JSON.stringify(panelPreset[s]));
+  function setPanel2(key: "show" | "edge" | "form" | "hide", value: string) {
+    const next = { ...look.panel2 };
+    if (value === panel2Preset[key]) delete next[key]; else next[key] = value;
+    look.panel2 = next;
+  }
+  function setSlots(w: Which, lists: Record<Slot, string[]>) {
+    const preset = w === "panel" ? panelPreset : panel2Preset;
+    const next: Record<string, unknown> = { ...look[w] };
+    const same = SLOTS.every((s) => JSON.stringify(lists[s]) === JSON.stringify(preset[s]));
     for (const s of SLOTS) { if (same) delete next[s]; else next[s] = lists[s]; }
-    look.panel = next;
+    if (w === "panel") look.panel = next as Panel; else look.panel2 = next as Panel2;
   }
-  function editSlots(change: (lists: Record<Slot, string[]>) => void) {
-    const lists = { start: [...slotList("start")], center: [...slotList("center")], end: [...slotList("end")] };
+  function editSlots(w: Which, change: (lists: Record<Slot, string[]>) => void) {
+    const lists = { start: [...slotList(w, "start")], center: [...slotList(w, "center")], end: [...slotList(w, "end")] };
     change(lists);
-    setSlots(lists);
+    setSlots(w, lists);
   }
-  const moveIn = (slot: Slot, i: number, dir: number) => editSlots((l) => { const j = i + dir; if (j < 0 || j >= l[slot].length) return; [l[slot][i], l[slot][j]] = [l[slot][j], l[slot][i]]; });
-  const moveTo = (slot: Slot, i: number, dir: number) => editSlots((l) => { const to = SLOTS[SLOTS.indexOf(slot) + dir]; if (!to) return; const [key] = l[slot].splice(i, 1); if (dir > 0) l[to].unshift(key); else l[to].push(key); });
-  const removeEl = (slot: Slot, i: number) => editSlots((l) => { l[slot].splice(i, 1); });
-  const addEl = (slot: Slot, key: string) => { if (key) editSlots((l) => { l[slot].push(key); }); adding = { ...adding, [slot]: "" }; };
+  const moveIn = (w: Which, slot: Slot, i: number, dir: number) => editSlots(w, (l) => { const j = i + dir; if (j < 0 || j >= l[slot].length) return; [l[slot][i], l[slot][j]] = [l[slot][j], l[slot][i]]; });
+  const moveTo = (w: Which, slot: Slot, i: number, dir: number) => editSlots(w, (l) => { const to = SLOTS[SLOTS.indexOf(slot) + dir]; if (!to) return; const [key] = l[slot].splice(i, 1); if (dir > 0) l[to].unshift(key); else l[to].push(key); });
+  const removeEl = (w: Which, slot: Slot, i: number) => editSlots(w, (l) => { l[slot].splice(i, 1); });
+  const addEl = (w: Which, slot: Slot, key: string) => { if (key) editSlots(w, (l) => { l[slot].push(key); }); adding = { ...adding, [w + slot]: "" }; };
   const label = (key: string) => SECTION_LABEL[key] ?? key;
 
   // ---------- окна: каждый параметр «как в стиле» или свой вариант ----------
@@ -196,8 +209,8 @@
   const widgetWarning = $derived.by(() => {
     if (["phosphor", "tui"].includes(curLook)) return "";
     const on = (key: string) => { const w = system.widget_info.find((x) => x.key === key); return !!w && isOn(w); };
-    const inPanel = ["launcher", "search", "apps"].some((key) => placedKeys.has(key));
-    return !on("icons") && partValue("dock", "show") !== "on" && !inPanel ? "Нет ни значков, ни дока, ни меню запуска или быстрого запуска на панели: приложения на этой ОС открыть нечем, кроме ссылок и хуков." : "";
+    const inPanel = ["launcher", "search", "apps", "allapps"].some((key) => placedKeys.has(key));
+    return !on("icons") && !inPanel ? "Нет ни значков, ни меню запуска или быстрого запуска на панелях: приложения на этой ОС открыть нечем, кроме ссылок и хуков." : "";
   });
   $effect(() => { if (!sections.includes(section)) section = "wall"; });
   $effect(() => { const value = section; try { localStorage.setItem(SECTION_KEY, value); } catch { /* память браузера может быть закрыта */ } });
@@ -244,11 +257,59 @@
   </div>
 {/snippet}
 
+{#snippet pick(title: string, options: { value: string; label: string }[], current: string, preset: string, onpick: (value: string) => void, off: boolean)}
+  <div class="wprow" class:muted={off}>
+    <div class="wphead"><b>{title}</b>{#if current !== preset}<button class="btn ghost small" onclick={() => onpick(preset)}>вернуть как в стиле</button>{/if}</div>
+    <div class="chips" role="radiogroup" aria-label={title}>
+      {#each options as option (option.value)}
+        <button type="button" role="radio" class="chip" disabled={off} aria-checked={current === option.value} class:on={current === option.value} onclick={() => onpick(option.value)}>
+          {option.label}{#if option.value === preset}<span class="wkind own">стиль</span>{/if}
+        </button>
+      {/each}
+    </div>
+  </div>
+{/snippet}
+
+{#snippet slotEditor(w: Which)}
+  {@const preset = w === "panel" ? panelPreset : panel2Preset}
+  <div class="wprow">
+    <div class="wphead"><b>Что стоит на панели</b>{#if look[w].start}<button class="btn ghost small" onclick={() => setSlots(w, { start: [...preset.start], center: [...preset.center], end: [...preset.end] })}>вернуть раскладку вида</button>{/if}</div>
+    <div class="slotgrid">
+      {#each SLOTS as slot, s (slot)}
+        <div class="slotcol">
+          <span class="wlabel">{PI.slots.find((x) => x.value === slot)?.label}</span>
+          {#each slotList(w, slot) as key, i (key)}
+            <div class="slotel" title={elHint(key)}>
+              <span class="slotname">{elLabel(key)}</span>
+              <span class="slotbtns">
+                <button type="button" class="ib" disabled={i === 0} onclick={() => moveIn(w, slot, i, -1)} aria-label="Выше: {elLabel(key)}">↑</button>
+                <button type="button" class="ib" disabled={i === slotList(w, slot).length - 1} onclick={() => moveIn(w, slot, i, 1)} aria-label="Ниже: {elLabel(key)}">↓</button>
+                <button type="button" class="ib" disabled={s === 0} onclick={() => moveTo(w, slot, i, -1)} aria-label="В слот левее: {elLabel(key)}">←</button>
+                <button type="button" class="ib" disabled={s === SLOTS.length - 1} onclick={() => moveTo(w, slot, i, 1)} aria-label="В слот правее: {elLabel(key)}">→</button>
+                <button type="button" class="ib" onclick={() => removeEl(w, slot, i)} aria-label="Убрать: {elLabel(key)}">×</button>
+              </span>
+            </div>
+          {:else}
+            <p class="muted small slotempty">пусто</p>
+          {/each}
+          {#if PI.elements.some((e) => !freeKeys.has(e.key))}
+            <select class="field addel" value={adding[w + slot] ?? ""} onchange={(e) => addEl(w, slot, e.currentTarget.value)} aria-label="Добавить в {PI.slots.find((x) => x.value === slot)?.label}">
+              <option value="">+ добавить…</option>
+              {#each PI.elements.filter((e) => !freeKeys.has(e.key)) as e (e.key)}<option value={e.key}>{e.label}</option>{/each}
+            </select>
+          {/if}
+        </div>
+      {/each}
+    </div>
+    <p class="muted small">{w === "panel" ? "Порядок сверху вниз — слева направо на панели. Центр стоит посередине панели поверх распорки." : "У боковой панели порядок сверху вниз. У острова слоты идут подряд, у полосы во всю длину они разнесены по краям и центру."}</p>
+  </div>
+{/snippet}
+
 {#snippet params(group: string)}
   {#each system.part_params[group] ?? [] as param (param.key)}
     {@const value = partValue(group, param.key)}
     {@const preset = group === "notice" && param.key === "look" ? system.part_presets.notice?.[look.style]?.look : groupPreset(group)[param.key]}
-    {@const off = group === "dock" && param.key !== "show" && partValue("dock", "show") !== "on"}
+    {@const off = false}
     {@const note = PART_NOTE[`${group}:${param.key}:${value}`]}
     <div class="wprow" class:muted={off}>
       <div class="wphead">
@@ -287,10 +348,10 @@
   <div class="settings">
     <nav class="rail" aria-label="Разделы настроек">
       {#each sections as key (key)}
-        {@const own = key === "wall" ? (wallChanged ? 1 : 0) : key === "widgets" ? widgetsOwn : key === "windows" ? winOwn : key === "panel" ? panelOwn + partOwn("clock") : key === "dock" || key === "notice" ? partOwn(key) : ownIn(key)}
+        {@const own = key === "wall" ? (wallChanged ? 1 : 0) : key === "widgets" ? widgetsOwn : key === "windows" ? winOwn : key === "panel" ? panelOwn + partOwn("clock") + partOwn("apps") : key === "notice" ? partOwn(key) : ownIn(key)}
         <button class="rail-item" class:on={!query && section === key} aria-current={!query && section === key ? "true" : undefined} onclick={() => { section = key; find = ""; }}>
           <span>{label(key)}</span>
-          {#if own}<span class="badge" title={key === "wall" ? "Картинка или узор заданы" : key === "widgets" ? `Изменено элементов: ${own}` : ["windows", "panel", "dock", "notice"].includes(key) ? `Изменено параметров: ${own}` : `Изменено токенов: ${own}`}>{key === "wall" ? "●" : own}</span>{/if}
+          {#if own}<span class="badge" title={key === "wall" ? "Картинка или узор заданы" : key === "widgets" ? `Изменено элементов: ${own}` : ["windows", "panel", "notice"].includes(key) ? `Изменено параметров: ${own}` : `Изменено токенов: ${own}`}>{key === "wall" ? "●" : own}</span>{/if}
         </button>
       {/each}
       <div class="rail-foot">
@@ -303,7 +364,7 @@
       <header class="phead">
         <div>
           <h3>{query ? "Поиск по токенам" : label(section)}</h3>
-          <p class="muted small">{query ? `Найдено: ${shown.length}` : section === "dock" ? "Полоса приложений у края стола: запущенные отмечены. Вид дока берётся у вида панели." : section === "notice" ? "Всплывающие уведомления и ошибки: чей вид, в каком углу и как показывать ошибки." : section === "panel" ? "Главная панель стола: чей вид, у какого края и что в ней стоит. Элемент, который вид рисует сам на этом месте, выглядит родным; остальные добавляются в оформлении вида." : section === "windows" ? "Из чего собрано окно: заголовок, рамка и кнопки. Каждый параметр берётся у стиля, пока не выбран свой; цвета остаются от токенов." : section === "widgets" ? "Что лежит на самом столе: док, значки, бегущая строка, всплывающие уведомления. Вид у каждого от стиля; две ОС с одним стилем могут показывать разное." : section === "wall" ? "Лежат под окнами и значками, не зависят от выбранного стиля. Цвет под ними это токен «Фон рабочего стола» в разделе «Цвета»." : GROUP_NOTE[section]}</p>
+          <p class="muted small">{query ? `Найдено: ${shown.length}` : section === "notice" ? "Всплывающие уведомления и ошибки: чей вид, в каком углу и как показывать ошибки." : section === "panel" ? "Главная панель занимает полосу стола; дополнительная (бывший док) висит поверх него у любого края. Обе собираются из одних элементов, каждый стоит только в одной. Вид у обеих от вида главной." : section === "windows" ? "Из чего собрано окно: заголовок, рамка и кнопки. Каждый параметр берётся у стиля, пока не выбран свой; цвета остаются от токенов." : section === "widgets" ? "Что лежит на самом столе: док, значки, бегущая строка, всплывающие уведомления. Вид у каждого от стиля; две ОС с одним стилем могут показывать разное." : section === "wall" ? "Лежат под окнами и значками, не зависят от выбранного стиля. Цвет под ними это токен «Фон рабочего стола» в разделе «Цвета»." : GROUP_NOTE[section]}</p>
         </div>
         <div class="tools">
           {#if !SECTION_LABEL[section] || query}
@@ -411,6 +472,11 @@
         </div>
       {:else if section === "panel" && !query}
         <div class="winparams">
+          <div class="seg ptabs" role="tablist" aria-label="Какая панель">
+            <button type="button" role="tab" aria-selected={panelTab === "panel"} class:on={panelTab === "panel"} onclick={() => (panelTab = "panel")}>Главная</button>
+            <button type="button" role="tab" aria-selected={panelTab === "panel2"} class:on={panelTab === "panel2"} onclick={() => (panelTab = "panel2")}>Дополнительная{#if p2("show") === "on"} · есть{/if}</button>
+          </div>
+          {#if panelTab === "panel"}
           <div class="wprow">
             <div class="wphead"><b>Вид панели</b>{#if look.panel.look}<button class="btn ghost small" onclick={() => setLook(styleLook)}>вернуть как в стиле</button>{/if}</div>
             <div class="chips" role="radiogroup" aria-label="Вид панели">
@@ -443,44 +509,27 @@
               {/each}
             </div>
           </div>
-          <div class="wprow">
-            <div class="wphead"><b>Что стоит на панели</b>{#if look.panel.start}<button class="btn ghost small" onclick={() => setSlots({ start: [...panelPreset.start], center: [...panelPreset.center], end: [...panelPreset.end] })}>вернуть раскладку вида</button>{/if}</div>
-            <div class="slotgrid">
-              {#each SLOTS as slot, s (slot)}
-                <div class="slotcol">
-                  <span class="wlabel">{PI.slots.find((x) => x.value === slot)?.label}</span>
-                  {#each slotList(slot) as key, i (key)}
-                    <div class="slotel" title={elHint(key)}>
-                      <span class="slotname">{elLabel(key)}</span>
-                      <span class="slotbtns">
-                        <button type="button" class="ib" disabled={i === 0} onclick={() => moveIn(slot, i, -1)} aria-label="Выше: {elLabel(key)}">↑</button>
-                        <button type="button" class="ib" disabled={i === slotList(slot).length - 1} onclick={() => moveIn(slot, i, 1)} aria-label="Ниже: {elLabel(key)}">↓</button>
-                        <button type="button" class="ib" disabled={s === 0} onclick={() => moveTo(slot, i, -1)} aria-label="В слот левее: {elLabel(key)}">←</button>
-                        <button type="button" class="ib" disabled={s === SLOTS.length - 1} onclick={() => moveTo(slot, i, 1)} aria-label="В слот правее: {elLabel(key)}">→</button>
-                        <button type="button" class="ib" onclick={() => removeEl(slot, i)} aria-label="Убрать: {elLabel(key)}">×</button>
-                      </span>
-                    </div>
-                  {:else}
-                    <p class="muted small slotempty">пусто</p>
-                  {/each}
-                  {#if PI.elements.some((e) => !placedKeys.has(e.key))}
-                    <select class="field addel" value={adding[slot] ?? ""} onchange={(e) => addEl(slot, e.currentTarget.value)} aria-label="Добавить в {PI.slots.find((x) => x.value === slot)?.label}">
-                      <option value="">+ добавить…</option>
-                      {#each PI.elements.filter((e) => !placedKeys.has(e.key)) as e (e.key)}<option value={e.key}>{e.label}</option>{/each}
-                    </select>
-                  {/if}
-                </div>
-              {/each}
-            </div>
-            <p class="muted small">Порядок сверху вниз — слева направо на панели. Центр стоит посередине панели поверх распорки.</p>
-          </div>
+          {@render slotEditor("panel")}
           <h4 class="wgroup">Часы</h4>
           {@render params("clock")}
           {#each system.widget_info.filter((w) => w.key === "date") as w (w.key)}{@render widgetRow(w)}{/each}
-          {#if noExit}<p class="warn small">Игроку не выйти из сеанса: оставьте на панели меню запуска, «Сеанс» или «Кнопки сеанса».</p>{/if}
+          {:else}
+          {@render pick("Дополнительная панель", PI.shows, p2("show"), panel2Preset.show, (v) => setPanel2("show", v), false)}
+          {@render pick("Край", PI.edges2, p2("edge"), panel2Preset.edge, (v) => setPanel2("edge", v), p2("show") !== "on")}
+          {@render pick("Форма", PI.forms2, p2("form"), panel2Preset.form, (v) => setPanel2("form", v), p2("show") !== "on")}
+          {@render pick("Автоскрытие", PI.hides, p2("hide"), panel2Preset.hide, (v) => setPanel2("hide", v), p2("show") !== "on")}
+          {#if p2("hide") === "on" && p2("show") === "on"}<p class="muted small">У края остаётся тонкая полоска; панель выезжает, когда к ней подводят мышь или переходят клавишей Tab.</p>{/if}
+          {#if p2("show") === "on"}{@render slotEditor("panel2")}{/if}
+          <p class="muted small">Висит поверх стола и окон не сдвигает. Её оформление берётся у вида главной панели.</p>
+          {/if}
+          <h4 class="wgroup">Быстрый запуск</h4>
+          <p class="muted small">Значки приложений в любой из панелей: размер, подписи и метка запущенных. В главной панели значки мельче — её высоту задаёт вид.</p>
+          {@render params("apps")}
+          {#if noExit}<p class="warn small">Игроку не выйти из сеанса: оставьте на одной из панелей меню запуска, «Сеанс» или «Кнопки сеанса».</p>{/if}
           {#if errors.panel}{#each errors.panel as text}<p class="warn small">{text}</p>{/each}{/if}
+          {#if errors.panel2}{#each errors.panel2 as text}<p class="warn small">{text}</p>{/each}{/if}
         </div>
-      {:else if (section === "dock" || section === "notice") && !query}
+      {:else if section === "notice" && !query}
         <div class="winparams">
           {@render params(section)}
           {#if section === "notice"}{#each system.widget_info.filter((w) => w.key === "toasts") as w (w.key)}{@render widgetRow(w)}{/each}{/if}
@@ -649,6 +698,8 @@
   .chip.on { border-color: var(--accent); background: var(--accent-soft); color: var(--text); }
   .chip:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
   .chip:disabled { opacity: 0.45; cursor: not-allowed; }
+  .ptabs { margin: 0 0 4px; }
+  .ptabs button { padding: 6px 16px; }
   .titlecolors { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 8px; }
   .tc { display: flex; align-items: center; gap: 8px; padding: 6px 8px; border: 1px solid var(--line-soft); border-radius: var(--radius-s); background: var(--bg); }
   .tc.changed { border-color: var(--accent); }

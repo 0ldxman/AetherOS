@@ -19353,6 +19353,150 @@
     "title": "ImageRow",
     "type": "object"
    },
+   "Panel2Layout": {
+    "properties": {
+     "show": {
+      "title": "Show",
+      "type": "string"
+     },
+     "edge": {
+      "title": "Edge",
+      "type": "string"
+     },
+     "form": {
+      "title": "Form",
+      "type": "string"
+     },
+     "hide": {
+      "title": "Hide",
+      "type": "string"
+     },
+     "start": {
+      "items": {
+       "type": "string"
+      },
+      "title": "Start",
+      "type": "array"
+     },
+     "center": {
+      "items": {
+       "type": "string"
+      },
+      "title": "Center",
+      "type": "array"
+     },
+     "end": {
+      "items": {
+       "type": "string"
+      },
+      "title": "End",
+      "type": "array"
+     }
+    },
+    "required": [
+     "show",
+     "edge",
+     "form",
+     "hide",
+     "start",
+     "center",
+     "end"
+    ],
+    "title": "Panel2Layout",
+    "type": "object"
+   },
+   "Panel2Value": {
+    "properties": {
+     "show": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Show"
+     },
+     "edge": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Edge"
+     },
+     "form": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Form"
+     },
+     "hide": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Hide"
+     },
+     "start": {
+      "anyOf": [
+       {
+        "items": {
+         "type": "string"
+        },
+        "type": "array"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Start"
+     },
+     "center": {
+      "anyOf": [
+       {
+        "items": {
+         "type": "string"
+        },
+        "type": "array"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Center"
+     },
+     "end": {
+      "anyOf": [
+       {
+        "items": {
+         "type": "string"
+        },
+        "type": "array"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "End"
+     }
+    },
+    "title": "Panel2Value",
+    "type": "object"
+   },
    "PanelElement": {
     "properties": {
      "key": {
@@ -19440,6 +19584,41 @@
       },
       "title": "Presets",
       "type": "object"
+     },
+     "edges2": {
+      "items": {
+       "$ref": "#/components/schemas/WindowOption"
+      },
+      "title": "Edges2",
+      "type": "array"
+     },
+     "forms2": {
+      "items": {
+       "$ref": "#/components/schemas/WindowOption"
+      },
+      "title": "Forms2",
+      "type": "array"
+     },
+     "shows": {
+      "items": {
+       "$ref": "#/components/schemas/WindowOption"
+      },
+      "title": "Shows",
+      "type": "array"
+     },
+     "hides": {
+      "items": {
+       "$ref": "#/components/schemas/WindowOption"
+      },
+      "title": "Hides",
+      "type": "array"
+     },
+     "presets2": {
+      "additionalProperties": {
+       "$ref": "#/components/schemas/Panel2Layout"
+      },
+      "title": "Presets2",
+      "type": "object"
      }
     },
     "required": [
@@ -19451,7 +19630,12 @@
      "exits",
      "fixed_edge",
      "look_of_style",
-     "presets"
+     "presets",
+     "edges2",
+     "forms2",
+     "shows",
+     "hides",
+     "presets2"
     ],
     "title": "PanelInfo",
     "type": "object"
@@ -19764,6 +19948,9 @@
      "panel": {
       "$ref": "#/components/schemas/PanelValue"
      },
+     "panel2": {
+      "$ref": "#/components/schemas/Panel2Value"
+     },
      "parts": {
       "additionalProperties": {
        "additionalProperties": {
@@ -19941,6 +20128,7 @@
      "window_params",
      "window_presets",
      "panel",
+     "panel2",
      "parts",
      "part_params",
      "part_presets",
@@ -20485,6 +20673,16 @@
       "anyOf": [
        {
         "$ref": "#/components/schemas/PanelValue"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "panel2": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/Panel2Value"
        },
        {
         "type": "null"
