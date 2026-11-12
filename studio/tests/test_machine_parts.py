@@ -400,6 +400,19 @@ class CreateAndSystemsTests(TestCase):
         self.assertIn("modern|", html)
         self.assertIn("ui/themes/modern.css", html)
 
+    def test_window_parts_are_saved_over_the_style(self):
+        status, data = self.call("put", "/systems/AETHER/style", {"style": "classic", "tokens": {}, "window": {"title": "bar", "side": "left"}})
+        self.assertEqual(status, 200)
+        self.assertEqual(data["window"], {"title": "bar", "side": "left"})
+        self.assertEqual(data["window_presets"]["classic"]["buttons"], "boxes")
+        self.assertIn("full", [o["value"] for o in next(p for p in data["window_params"] if p["key"] == "title")["options"]])
+        status, data = self.call("put", "/systems/AETHER/style", {"style": "classic", "tokens": {}})        # без window окна не трогаются
+        self.assertEqual(data["window"], {"title": "bar", "side": "left"})
+        status, data = self.call("put", "/systems/AETHER/style", {"style": "classic", "tokens": {}, "window": {"title": "round"}})
+        self.assertEqual((status, data["fields"]["window"]), (400, ["Заголовок: нет варианта «round»."]))
+        status, data = self.call("put", "/systems/AETHER/style", {"style": "classic", "tokens": {}, "window": {}})
+        self.assertEqual(data["window"], {})
+
     def test_every_token_says_where_it_shows(self):
         from machines.world import styles
 

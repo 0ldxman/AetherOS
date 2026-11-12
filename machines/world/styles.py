@@ -106,19 +106,88 @@ def style_defaults(slug):
     return values
 
 
-# Части стиля: каждая рисуется своим файлом static/ui/parts/<часть>/<вид>.css и включается атрибутом data-<часть> на <html>.
-# Вид каждой части пока совпадает со стилем; дальше автор ОС сможет выбирать их по отдельности.
+# Части стиля, которые пока целиком берутся у стиля: файл static/ui/parts/<часть>/<стиль>.css включает атрибут data-<часть> на <html>.
 PARTS = {
-    "window": "Окна",
     "notice": "Сообщения и уведомления",
     "panel": "Панель",
     "dock": "Док",
 }
 
+# Окна собираются из параметров (static/ui/parts/windows.css, атрибуты data-win-<параметр>). Первый вариант в списке не значит
+# «по умолчанию»: умолчания задаёт стиль (WINDOW_PRESETS), автор ОС меняет любой параметр по отдельности (SystemType.style_parts).
+WINDOW = {
+    "title": ("Заголовок", {
+        "tab": "Вкладка над окном",
+        "bar": "Полоса во всю ширину",
+        "center": "В цвет окна, название по центру",
+        "plaque": "Штриховка и табличка с названием",
+        "raised": "Выпуклая полоса, у активного окна цветная",
+        "ascii": "Строка рамки из символов, как в TUI",
+        "full": "Приложение на весь экран",
+    }),
+    "frame": ("Рамка", {
+        "line": "Тонкая линия",
+        "soft": "Скругление и мягкая тень",
+        "hard": "Контур с жёсткой тенью",
+        "double": "Две тонкие линии",
+        "ascii": "Из символов, как в TUI",
+        "none": "Без рамки",
+    }),
+    "side": ("Кнопки окна", {"left": "Слева", "right": "Справа"}),
+    "buttons": ("Вид кнопок", {
+        "icons": "Значки × □ –",
+        "squares": "Широкие поля",
+        "circles": "Кружки",
+        "traffic": "Цветные кружки",
+        "dots": "Точки в пазу",
+        "boxes": "Коробочки",
+        "text": "Текст [x]",
+    }),
+    "set": ("Набор кнопок", {"all": "Закрыть, развернуть, свернуть", "close": "Только закрыть"}),
+}
 
-def parts(slug):
-    """{часть: вид} для стиля: что ставится в data-<часть> на <html>."""
-    return {part: slug for part in PARTS}
+_AETHER_WINDOW = {"title": "tab", "frame": "line", "side": "left", "buttons": "icons", "set": "all"}
+WINDOW_PRESETS = {
+    "aether": _AETHER_WINDOW,
+    "glitched": _AETHER_WINDOW,
+    "modern": {"title": "bar", "frame": "soft", "side": "right", "buttons": "squares", "set": "all"},
+    "gnome": {"title": "center", "frame": "soft", "side": "right", "buttons": "circles", "set": "all"},
+    "classic": {"title": "plaque", "frame": "hard", "side": "right", "buttons": "boxes", "set": "all"},
+    "workbench": {"title": "raised", "frame": "double", "side": "right", "buttons": "dots", "set": "all"},
+    "tui": {"title": "ascii", "frame": "ascii", "side": "right", "buttons": "text", "set": "all"},
+    "phosphor": {"title": "full", "frame": "none", "side": "right", "buttons": "text", "set": "close"},
+}
+
+
+def clean_parts(data):
+    """Только известные параметры с допустимым значением: {"window": {параметр: вариант}}; пустые разделы отбрасываются."""
+    window = (data or {}).get("window") if isinstance(data, dict) else None
+    found = {key: value for key, value in (window or {}).items() if key in WINDOW and value in WINDOW[key][1]} if isinstance(window, dict) else {}
+    return {"window": found} if found else {}
+
+
+def parts_problems(data):
+    found = []
+    window = (data or {}).get("window") or {}
+    for key, value in window.items() if isinstance(window, dict) else ():
+        if key not in WINDOW:
+            found.append(f"У окон нет параметра {key}.")
+        elif value not in WINDOW[key][1]:
+            found.append(f"{WINDOW[key][0]}: нет варианта «{value}».")
+    return found
+
+
+def window_of(slug, custom=None):
+    """{параметр окна: вариант}: заготовка стиля, поверх неё выбор автора ОС."""
+    base = WINDOW_PRESETS.get(slug, _AETHER_WINDOW)
+    return {**base, **clean_parts(custom).get("window", {})}
+
+
+def parts(slug, custom=None):
+    """{атрибут без data-: значение} для <html>: параметры окон и части, которые пока целиком у стиля."""
+    attrs = {f"win-{key}": value for key, value in window_of(slug, custom).items()}
+    attrs.update({part: slug for part in PARTS})
+    return attrs
 
 
 @lru_cache(maxsize=None)

@@ -42,11 +42,17 @@ def _state(request):
     found = (system.style, system.style_tokens, system.code, system.wallpaper) if system is not None and system.style in styles.STYLES else (styles.DEFAULT_STYLE, {}, "", {})
     request._os_widgets = (system.widgets or {}) if system is not None else {}
     request._os_places = (system.widget_places or {}) if system is not None else {}
+    request._os_parts = (system.style_parts or {}) if system is not None else {}
     if user is not None and user.is_authenticated and user.is_staff:          # предпросмотр несохранённого стиля в студии
         found = _preview(request, found) or found
         if request.GET.get("preview_widgets"):
             try:
                 request._os_widgets = json.loads(request.GET["preview_widgets"])
+            except ValueError:
+                pass
+        if request.GET.get("preview_parts"):
+            try:
+                request._os_parts = json.loads(request.GET["preview_parts"])
             except ValueError:
                 pass
         if request.GET.get("preview_places"):
@@ -153,16 +159,18 @@ def os_theme(context):
     request = context.get("request")
     slug = _state(request)[0] if request is not None else styles.DEFAULT_STYLE
     links = [f"ui/themes/{slug}.css"] if styles.STYLES[slug].css else []
-    links += [path for path in (styles.part_file(part, kind) for part, kind in styles.parts(slug).items()) if path]
+    links.append("ui/parts/windows.css")       # окна раньше частей: окна сообщений перекрашивает часть notice
+    links += [path for path in (styles.part_file(part, slug) for part in styles.PARTS) if path]
     return mark_safe("".join(format_html('<link rel="stylesheet" href="{}">', static(path)) for path in links))
 
 
 @register.simple_tag(takes_context=True)
 def os_parts(context):
-    """Атрибуты частей стиля для <html>: data-window, data-notice, data-panel, data-dock (с ведущим пробелом)."""
+    """Атрибуты частей стиля для <html>: data-win-title, data-win-frame…, data-notice, data-panel, data-dock (с ведущим пробелом)."""
     request = context.get("request")
     slug = _state(request)[0] if request is not None else styles.DEFAULT_STYLE
-    return mark_safe("".join(format_html(' data-{}="{}"', part, kind) for part, kind in styles.parts(slug).items()))
+    custom = getattr(request, "_os_parts", {}) if request is not None else {}
+    return mark_safe("".join(format_html(' data-{}="{}"', part, kind) for part, kind in styles.parts(slug, custom).items()))
 
 
 @register.simple_tag(takes_context=True)

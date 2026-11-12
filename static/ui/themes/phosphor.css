@@ -33,7 +33,6 @@
   --radius: 0;
   --border-w: 2px;
   --tab-h: 24px;
-  --tab-outside: 0;
   --console-h: 40vh;             /* высота консоли (окна терминала) у нижнего края */
 }
 

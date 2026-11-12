@@ -1,5 +1,11 @@
 /* Часть «panel» стиля phosphor: включается атрибутом data-panel="phosphor" на <html>. */
 
+/* полосы сверху и снизу: приложение на весь экран (заголовок окна full) встаёт между ними */
+[data-panel="phosphor"] { --desk-top: 24px; --desk-bottom: 24px; }
+
+/* пока консоль открыта, меню занимает оставшееся место над ней */
+[data-panel="phosphor"]:has(.winbox.app-terminal:not(.min)) .fw-menu { bottom: calc(40px + var(--console-h)); }
+
 /* ---- строка состояния сверху и подсказки снизу: инверсия ---- */
 [data-panel="phosphor"] #taskbar,
 [data-panel="phosphor"] .fw-hint {

@@ -46,6 +46,10 @@ class SystemType(models.Model):
         "Места добавленных элементов", default=dict, blank=True,
         help_text="Где стоит элемент, которого стиль сам не рисует: {\"tasks\": \"end\", \"dock\": \"left\"}.",
     )
+    style_parts = models.JSONField(
+        "Части стиля", default=dict, blank=True,
+        help_text="Что у ОС не как в стиле: {\"window\": {\"title\": \"bar\", \"side\": \"right\"}} (machines/world/styles.py, WINDOW).",
+    )
     greeting = models.TextField(
         "Приветствие", blank=True,
         help_text="Что видит игрок, когда открывается оболочка. Цвета: <dim>, <success>, <warning>, <error>; подстановки: {host}, {login}... "

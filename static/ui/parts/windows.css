@@ -1,0 +1,389 @@
+/* ==========================================================================
+ * Окна рабочего стола по частям. Каждый параметр включается своим атрибутом на <html> (machines/world/styles.py, WINDOW):
+ *   data-win-title    заголовок:   tab | bar | center | plaque | raised | ascii | full
+ *   data-win-frame    рамка:       line | soft | hard | double | ascii | none
+ *   data-win-side     кнопки:      left | right
+ *   data-win-buttons  вид кнопок:  icons | squares | circles | traffic | dots | boxes | text
+ *   data-win-set      набор:       all | close
+ * Основа (tab + line + left + icons) лежит в desktop/static/desktop/desktop.css, здесь только отличия от неё.
+ *
+ * Части не знают друг о друге и сходятся на переменных окна:
+ *   --wb-head-bg, --wb-head-fg   цвет заголовка (его задаёт заголовок, кнопки красятся от него);
+ *   --wb-head-solid              сплошной цвет под кнопками, когда заголовок узорный;
+ *   --wb-head-space              сколько места заголовок занимает внутри рамки;
+ *   --wb-inset-top/-x/-bottom    отступ содержимого от края рамки (его задаёт рамка).
+ * Цвета берутся только из общих токенов; свои переменные стилей (--lit, --frame, …) лишь с запасным значением.
+ * ========================================================================== */
+
+/* ---------- общее для заголовков внутри рамки ---------- */
+:root[data-win-title="tab"] { --tab-outside: 1; }
+:root:not([data-win-title="tab"]) { --tab-outside: 0; }
+
+:root:not([data-win-title="tab"]) .winbox.aether { --wb-head-space: var(--tab-h); }
+
+:root .winbox.aether .wb-body {      /* :root: desktop.css грузится позже частей */
+  top: calc(var(--wb-head-space, 0px) + var(--wb-inset-top, 0px));
+  left: var(--wb-inset-x, 0px);
+  right: var(--wb-inset-x, 0px);
+  bottom: var(--wb-inset-bottom, 0px);
+}
+
+:is([data-win-title="bar"], [data-win-title="center"], [data-win-title="plaque"], [data-win-title="raised"], [data-win-title="ascii"], [data-win-title="full"]) .winbox.aether .wb-header,
+:is([data-win-title="bar"], [data-win-title="center"], [data-win-title="plaque"], [data-win-title="raised"], [data-win-title="ascii"], [data-win-title="full"]) .winbox.aether.max .wb-header,
+:is([data-win-title="bar"], [data-win-title="center"], [data-win-title="plaque"], [data-win-title="raised"], [data-win-title="ascii"], [data-win-title="full"]) .winbox.aether.min .wb-header {
+  position: absolute;
+  top: var(--wb-inset-top, 0px);
+  left: var(--wb-inset-x, 0px);
+  right: var(--wb-inset-x, 0px);
+  bottom: auto;
+  width: auto;
+  min-width: 0;
+  max-width: none;
+  box-sizing: border-box;
+  border: 0;
+  background: var(--wb-head-bg);
+}
+
+/* кнопки справа: название первым, кнопки в обычном порядке */
+[data-win-side="right"] .winbox.aether .wb-drag { order: 0; }
+[data-win-side="right"] .winbox.aether .wb-control { order: 1; }
+[data-win-side="right"] .winbox.aether .wb-min { order: 0; }
+[data-win-side="right"] .winbox.aether .wb-max { order: 1; }
+[data-win-side="right"] .winbox.aether .wb-close { order: 2; }
+
+/* только «закрыть» */
+[data-win-set="close"] .winbox.aether .wb-control > .wb-min,
+[data-win-set="close"] .winbox.aether .wb-control > .wb-max,
+[data-win-set="close"] .winbox.aether .wb-control > .wb-full { display: none !important; }
+
+
+/* ==========================================================================
+ * Заголовок
+ * ========================================================================== */
+
+/* ---- tab: вкладка над рамкой (основа в desktop.css) ---- */
+[data-win-title="tab"] .winbox.aether { --wb-head-bg: var(--font-light); --wb-head-fg: var(--font-dark); }
+
+/* ---- bar: полоса во всю ширину внутри окна ---- */
+[data-win-title="bar"] .winbox.aether { background: var(--panel); --wb-head-bg: var(--panel); --wb-head-fg: var(--fg); }
+[data-win-title="bar"] .winbox.aether .wb-header { padding: 0 0 0 12px; gap: 8px; border-bottom: 1px solid var(--line); }
+[data-win-title="bar"][data-win-side="left"] .winbox.aether .wb-header { padding: 0 12px 0 0; }
+[data-win-title="bar"] .winbox.aether.max .wb-header { border-bottom: 1px solid var(--line); }
+[data-win-title="bar"] .winbox.aether .wb-title { font-size: 0.85rem; color: var(--font-light); }
+[data-win-title="bar"] .winbox.aether.min { background: var(--panel); }
+
+/* ---- center: заголовок в цвет окна, название по центру ---- */
+[data-win-title="center"] .winbox.aether { background: var(--bg); --wb-head-bg: var(--bg); --wb-head-fg: var(--font-soft); }
+[data-win-title="center"] .winbox.aether .wb-header { padding: 0 10px 0 0; gap: 0; }
+[data-win-title="center"] .winbox.aether .wb-drag { padding: 0 0 0 96px; text-align: center; }    /* ширина кнопок с другой стороны: название по центру */
+[data-win-title="center"][data-win-side="left"] .winbox.aether .wb-header { padding: 0 0 0 10px; }
+[data-win-title="center"][data-win-side="left"] .winbox.aether .wb-drag { padding: 0 96px 0 0; }
+[data-win-title="center"] .winbox.aether .wb-title { font-size: 0.88rem; font-weight: 600; color: var(--font-muted); }
+[data-win-title="center"] .winbox.aether.focus .wb-title { color: var(--font-light); }
+[data-win-title="center"] .winbox.aether.min { background: var(--bg); }
+
+/* ---- plaque: штриховка, название на табличке; у активного окна сплошная полоса ---- */
+[data-win-title="plaque"] .winbox.aether {
+  background: var(--font-dark);
+  --wb-head-bg: repeating-linear-gradient(0deg, var(--window-border) 0 1px, var(--font-dark) 1px 3px);
+  --wb-head-fg: var(--window-border);
+  --wb-head-solid: var(--font-dark);
+}
+[data-win-title="plaque"] .winbox.aether.focus { --wb-head-bg: var(--window-border); --wb-head-fg: var(--font-dark); --wb-head-solid: var(--window-border); }
+[data-win-title="plaque"] .winbox.aether .wb-header { height: var(--tab-h); padding: 0 3px; gap: 6px; }
+[data-win-title="plaque"] .winbox.aether .wb-body { background: var(--bg); border-top: 2px solid var(--window-border); box-shadow: none; }
+[data-win-title="plaque"] .winbox.aether .wb-drag { flex: 1; display: flex; align-items: center; }
+[data-win-title="plaque"] .winbox.aether .wb-control { align-items: center; gap: 3px; }
+[data-win-title="plaque"] .winbox.aether .wb-title {
+  padding: 0 8px;
+  background: var(--wb-head-solid);
+  font-size: 1rem;
+  font-weight: 700;
+  line-height: 16px;
+  color: var(--wb-head-fg);
+}
+[data-win-title="plaque"] .winbox.aether.min { background: var(--font-dark); }
+
+/* ---- raised: выпуклая полоса, у активного окна в цвет акцента ---- */
+[data-win-title="raised"] .winbox.aether { background: var(--panel); --wb-head-bg: var(--panel); --wb-head-fg: var(--fg); }
+[data-win-title="raised"] .winbox.aether.focus { --wb-head-bg: var(--accent); --wb-head-fg: #fff; }
+[data-win-title="raised"] .winbox.aether .wb-header { padding: 0; gap: 0; box-shadow: inset 0 0 0 1px var(--line-bright); }
+[data-win-title="raised"] .winbox.aether .wb-drag { text-align: center; }
+[data-win-title="raised"] .winbox.aether .wb-title { font-size: 0.78rem; font-weight: 700; color: var(--wb-head-fg); }
+[data-win-title="raised"] .winbox.aether.min { background: var(--panel); box-shadow: inset 0 0 0 1px var(--line-bright); }
+
+/* ---- ascii: строка ╔ ═══ ╡ название ╞ ═══ ╗, кнопки вписаны в неё ---- */
+[data-win-title="ascii"] .winbox.aether { --wb-head-bg: var(--bg); --wb-head-fg: var(--frame, var(--line-bright)); }
+[data-win-title="ascii"] .winbox.aether .wb-header,
+[data-win-title="ascii"] .winbox.aether.max .wb-header,
+[data-win-title="ascii"] .winbox.aether.min .wb-header {
+  top: 0;
+  left: 0;
+  right: 0;
+  height: var(--tab-h);
+  line-height: var(--tab-h);
+  display: flex;
+  align-items: center;
+  padding: 0;
+  gap: 0;
+  color: var(--frame, var(--line-bright));
+  font: 16px / var(--tab-h) var(--font-main);      /* знакоместо 8×16: по нему нарисованы ╔═╗ */
+}
+[data-win-title="ascii"] .winbox.aether .wb-header::before { content: "╔"; order: -1; width: 8px; }
+[data-win-title="ascii"] .winbox.aether .wb-header::after { content: "╗"; order: 2; width: 8px; text-align: right; }
+[data-win-title="ascii"] .winbox.aether .wb-drag { order: 1; flex: 1; min-width: 0; display: flex; align-items: center; padding: 0; height: var(--tab-h); }
+[data-win-title="ascii"] .winbox.aether .wb-drag::before,
+[data-win-title="ascii"] .winbox.aether .wb-drag::after {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  content: "════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════";
+}
+[data-win-title="ascii"] .winbox.aether .wb-control { position: absolute; top: 0; right: 8px; float: none; height: var(--tab-h); }
+[data-win-title="ascii"][data-win-side="left"] .winbox.aether .wb-control { right: auto; left: 8px; }
+[data-win-title="ascii"] .winbox.aether .wb-title { flex: none; padding: 0; font: 16px / var(--tab-h) var(--font-main); color: var(--frame, var(--line-bright)); }
+[data-win-title="ascii"] .winbox.aether .wb-title::before { content: "╡ "; }
+[data-win-title="ascii"] .winbox.aether .wb-title::after { content: " ╞"; }
+[data-win-title="ascii"] .winbox.aether.focus .wb-title { color: var(--font-light); font-weight: 700; }
+
+/* ---- full: приложение на весь стол, видно только верхнее; полоса с названием и кнопкой «назад» ---- */
+[data-win-title="full"] .winbox.aether { --wb-head-bg: var(--panel); --wb-head-fg: var(--fg); }
+[data-win-title="full"] .winbox.aether:not(.dialog-window) {
+  top: var(--desk-top, var(--desk-top-auto, 0px)) !important;
+  bottom: var(--desk-bottom, var(--desk-bottom-auto, 0px)) !important;
+  left: 0 !important;
+  right: 0 !important;
+  width: auto !important;
+  height: auto !important;
+  min-width: 0 !important;       /* desktop.js выставляет минимальную ширину по заголовку */
+  max-width: none !important;
+  transition: none;
+}
+[data-win-title="full"] .winbox.aether:not(.dialog-window):not(.app-terminal):not(.focus) { display: none; }
+
+/* консоль: окно терминала всегда рядом с приложением, прижато к нижнему краю */
+[data-win-title="full"] .winbox.aether.app-terminal {
+  top: auto !important;
+  bottom: var(--desk-bottom, var(--desk-bottom-auto, 0px)) !important;
+  height: var(--console-h, 40vh) !important;
+  border-top: 2px solid var(--fg);
+}
+[data-win-title="full"] .winbox.aether.app-terminal.min { display: none !important; }
+[data-win-title="full"]:has(.winbox.app-terminal:not(.min)) .winbox.aether:not(.dialog-window):not(.app-terminal) { bottom: calc(var(--desk-bottom, var(--desk-bottom-auto, 0px)) + var(--console-h, 40vh)) !important; }
+[data-win-title="full"] .winbox.aether.app-terminal .wb-title::before { content: "▸ "; }
+
+[data-win-title="full"] .winbox.aether .wb-header { height: var(--tab-h); padding: 0 10px; gap: 0; border-bottom: 2px solid var(--fg); }
+[data-win-title="full"] .winbox.aether.max .wb-header { border-bottom: 2px solid var(--fg); }
+[data-win-title="full"] .winbox.aether .wb-drag { flex: 1; cursor: default; pointer-events: none; padding: 0; }
+[data-win-title="full"] .winbox.aether .wb-control { max-width: none; }
+[data-win-title="full"] .winbox.aether .wb-body ~ div { display: none; }     /* за края размер не меняется */
+[data-win-title="full"] .winbox.aether .wb-title { font-size: 1rem; font-weight: 700; line-height: 22px; text-transform: uppercase; color: var(--fg); }
+
+
+/* ==========================================================================
+ * Рамка
+ * ========================================================================== */
+
+/* ---- line: линия 1px (основа в desktop.css) ---- */
+
+/* ---- soft: скругление и мягкая тень ---- */
+[data-win-frame="soft"] .winbox.aether {
+  border-radius: calc(var(--radius) + var(--wb-round, 2px));
+  box-shadow: 0 0 0 1px var(--wb-ring, var(--window-border)), var(--wb-shadow, 0 16px 40px rgba(0, 0, 0, 0.5));
+  overflow: hidden;
+}
+[data-win-frame="soft"] .winbox.aether.max { border-radius: 0; }
+[data-win-frame="soft"] .winbox.aether.min { box-shadow: 0 0 0 1px var(--wb-ring, var(--window-border)); }
+
+/* ---- hard: контур 2px и жёсткая тень без размытия ---- */
+[data-win-frame="hard"] .winbox.aether { border: 2px solid var(--window-border); box-shadow: 4px 4px 0 var(--window-border); overflow: visible; }
+[data-win-frame="hard"] .winbox.aether.max { box-shadow: none; border-width: 0 0 2px; }
+
+/* ---- double: рамка из двух тонких линий, содержимое в углублении ---- */
+[data-win-frame="double"] .winbox.aether {
+  --wb-inset-top: 4px;
+  --wb-inset-x: 4px;
+  --wb-inset-bottom: 4px;
+  box-shadow: inset 0 0 0 1px var(--line-bright), inset 0 0 0 3px var(--panel), inset 0 0 0 4px var(--line-bright), 0 0 0 1px #20232e;
+  overflow: hidden;
+}
+[data-win-frame="double"] .winbox.aether .wb-body { box-shadow: inset 0 0 0 1px var(--line-bright), inset 0 0 0 2px var(--lit, var(--panel)); }
+
+/* ---- ascii: стороны ║ и низ ╚═╝ символами; окна встают на сетку знакомест ---- */
+:root[data-win-frame="ascii"] { --grid-x: 8px; --grid-y: 16px; }
+[data-win-frame="ascii"] .winbox.aether {
+  --wb-inset-x: 8px;
+  --wb-inset-bottom: 16px;
+  background: var(--bg);
+  border: 0;
+  box-shadow: var(--tui-shadow, 8px 8px 0 #262626);
+  color: var(--frame, var(--line-bright));
+  font: 16px/16px var(--font-main);
+  overflow: hidden;
+  transition: none;
+}
+[data-win-frame="ascii"] .winbox.aether.focus { --frame: var(--font-light); }
+[data-win-frame="ascii"] .winbox.aether::before,
+[data-win-frame="ascii"] .winbox.aether::after {
+  position: absolute;
+  top: 16px;
+  bottom: 16px;
+  width: 8px;
+  overflow: hidden;
+  white-space: pre;
+  content: "║\A║\A║\A║\A║\A║\A║\A║\A║\A║\A║\A║\A║\A║\A║\A║\A║\A║\A║\A║\A║\A║\A║\A║\A║\A║\A║\A║\A║\A║\A║\A║\A║\A║\A║\A║\A║\A║\A║\A║\A║\A║\A║\A║\A║\A║\A║\A║\A║\A║\A║\A║\A║\A║\A║\A║\A║\A║\A║\A║\A║\A║\A║\A║\A║\A║\A║\A║\A║\A║\A║\A║\A║\A║\A║\A║\A║\A║\A║\A║\A║\A║\A║\A║\A║\A║\A║\A║\A║\A║\A║\A║\A║\A║\A║\A║\A║\A║\A║\A║\A║\A║\A║\A║\A║\A║\A║\A║\A║\A║\A║\A║\A║\A║\A║\A║\A║\A║\A║\A║\A";
+  pointer-events: none;
+}
+[data-win-frame="ascii"] .winbox.aether::before { left: 0; }
+[data-win-frame="ascii"] .winbox.aether::after { right: 0; }
+[data-win-frame="ascii"] .winbox.aether .wb-body { background: var(--bg); box-shadow: none; }
+[data-win-frame="ascii"] .winbox.aether .wb-foot {      /* элемент добавляет desktop.js */
+  display: block;
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 16px;
+  overflow: hidden;
+  white-space: nowrap;
+  line-height: 16px;
+  color: var(--frame, var(--line-bright));
+  pointer-events: none;
+}
+[data-win-frame="ascii"] .winbox.aether .wb-foot::before { content: "╚════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════"; }
+[data-win-frame="ascii"] .winbox.aether .wb-foot::after { content: "╝"; position: absolute; right: 0; bottom: 0; background: var(--bg); }
+[data-win-frame="ascii"] .winbox.aether.max { box-shadow: none; }
+[data-win-frame="ascii"] .winbox.aether.min { background: var(--bg); }
+[data-win-frame="ascii"] .winbox.aether.min::before,
+[data-win-frame="ascii"] .winbox.aether.min::after { content: none; }
+[data-win-frame="ascii"] .winbox.aether.min .wb-foot { display: none; }
+
+/* ---- none: без рамки и тени ---- */
+[data-win-frame="none"] .winbox.aether { background: var(--bg); border: 0; box-shadow: none; overflow: hidden; }
+
+
+/* ==========================================================================
+ * Кнопки окна
+ * ========================================================================== */
+
+/* ---- icons: значки – □ × (основа в desktop.css); цвет от заголовка ---- */
+/* у вкладки цвет уже свой; на других заголовках значки красятся от заголовка (окна сообщений красит их часть) */
+[data-win-buttons="icons"]:not([data-win-title="tab"]) .winbox.aether:not(.dialog-window) .wb-control > span { color: var(--wb-head-fg); }
+[data-win-buttons="icons"]:not([data-win-title="tab"]) .winbox.aether:not(.dialog-window) .wb-close { color: #e5484d; }
+
+/* ---- squares: широкие поля на всю высоту заголовка ---- */
+[data-win-buttons="squares"] .winbox.aether .wb-control > span { width: 46px; color: var(--wb-head-fg); }
+[data-win-buttons="squares"] .winbox.aether .wb-close { color: inherit; }
+[data-win-buttons="squares"] .winbox.aether .wb-control > span:hover { background: color-mix(in srgb, var(--fg) 14%, transparent); color: var(--font-light); }
+[data-win-buttons="squares"] .winbox.aether .wb-control > .wb-close:hover { background: var(--accent-error-darker); color: #fff; }
+
+/* ---- circles: круглые кнопки, подсветка при наведении ---- */
+[data-win-buttons="circles"] .winbox.aether .wb-control { align-items: center; gap: 6px; }
+[data-win-buttons="circles"] .winbox.aether .wb-control > span {
+  width: 26px;
+  height: 26px;
+  flex: none;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--wb-head-fg);
+}
+[data-win-buttons="circles"] .winbox.aether .wb-close { color: inherit; }
+[data-win-buttons="circles"] .winbox.aether .wb-control > span:hover { background: color-mix(in srgb, var(--font-light) 10%, transparent); color: var(--font-light); }
+[data-win-buttons="circles"] .winbox.aether .wb-control > .wb-close:hover { background: var(--accent-error-darker); color: #fff; }
+
+/* ---- traffic: цветные кружки, знак проступает при наведении ---- */
+[data-win-buttons="traffic"] .winbox.aether .wb-control { align-items: center; gap: 8px; padding: 0 10px; }
+[data-win-buttons="traffic"] .winbox.aether .wb-control > span {
+  width: 12px;
+  height: 12px;
+  flex: none;
+  border-radius: 50%;
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.25);
+  font-size: 9px;
+  font-weight: 700;
+  line-height: 12px;
+  color: transparent;
+}
+[data-win-buttons="traffic"] .winbox.aether .wb-close { background: var(--accent-error); }
+[data-win-buttons="traffic"] .winbox.aether .wb-min { background: var(--accent-warn); }
+[data-win-buttons="traffic"] .winbox.aether .wb-max { background: var(--accent-green); }
+[data-win-buttons="traffic"] .winbox.aether:not(.focus) .wb-control > span { background: var(--font-muted); }
+[data-win-buttons="traffic"] .winbox.aether .wb-control:hover > span { color: rgba(0, 0, 0, 0.6); }
+[data-win-buttons="traffic"] .winbox.aether .wb-control:hover > .wb-close { background: var(--accent-error); }
+[data-win-buttons="traffic"] .winbox.aether .wb-control:hover > .wb-min { background: var(--accent-warn); }
+[data-win-buttons="traffic"] .winbox.aether .wb-control:hover > .wb-max { background: var(--accent-green); }
+
+/* ---- dots: три точки в углублённом пазу; цвет действия только при наведении ---- */
+[data-win-buttons="dots"] .winbox.aether .wb-control {
+  align-items: center;
+  gap: 7px;
+  height: 14px;
+  margin: 3px 5px 3px 0;
+  padding: 0 8px;
+  border-radius: 7px;
+  background: var(--bg);
+  box-shadow: inset 0 0 0 1px var(--line-bright), inset 0 1px 2px rgba(0, 0, 0, 0.25);
+}
+[data-win-buttons="dots"][data-win-side="left"] .winbox.aether .wb-control { margin: 3px 0 3px 5px; }
+[data-win-buttons="dots"] .winbox.aether .wb-min { --hot: var(--accent); }
+[data-win-buttons="dots"] .winbox.aether .wb-max { --hot: var(--accent); }
+[data-win-buttons="dots"] .winbox.aether .wb-close { --hot: var(--accent-error); }
+[data-win-buttons="dots"] .winbox.aether .wb-control > span {
+  flex: none;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--font-muted);
+  font-size: 0;
+}
+[data-win-buttons="dots"] .winbox.aether.focus .wb-control > span { background: var(--fg); }
+[data-win-buttons="dots"] .winbox.aether .wb-control > span:hover,
+[data-win-buttons="dots"] .winbox.aether.focus .wb-control > span:hover { background: var(--hot); box-shadow: 0 0 0 2px color-mix(in srgb, var(--hot) 30%, transparent); }
+
+/* ---- boxes: квадратные коробочки с контуром в цвет заголовка ---- */
+[data-win-buttons="boxes"] .winbox.aether .wb-control { align-items: center; gap: 3px; }
+[data-win-buttons="boxes"] .winbox.aether .wb-control > span {
+  width: 14px;
+  height: 14px;
+  background: var(--wb-head-solid, var(--wb-head-bg));
+  border: 2px solid var(--wb-head-fg);
+  box-sizing: border-box;
+  color: var(--wb-head-fg);
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 10px;
+}
+[data-win-buttons="boxes"] .winbox.aether .wb-close { color: var(--wb-head-fg); }
+[data-win-buttons="boxes"] .winbox.aether.focus .wb-control > span { color: var(--wb-head-fg); }     /* у активного окна сильнее, чем цвет кнопок окна сообщения */
+[data-win-buttons="boxes"] .winbox.aether .wb-control > span:hover { background: var(--wb-head-fg); color: var(--wb-head-solid, var(--wb-head-bg)); }
+[data-win-buttons="boxes"] .winbox.aether .wb-control > .wb-close:hover { background: var(--accent-error); }
+
+/* ---- text: [-] [+] [x] текстом; инверсия при наведении ---- */
+[data-win-buttons="text"] .winbox.aether .wb-control > span {
+  display: block;
+  width: auto;
+  height: var(--tab-h);
+  padding: 0;
+  background: var(--wb-head-bg);
+  color: var(--wb-head-fg);
+  font: 16px / var(--tab-h) var(--font-main);
+  text-align: center;
+  white-space: nowrap;
+}
+[data-win-buttons="text"] .winbox.aether .wb-control > .wb-full,
+[data-win-buttons="text"] .winbox.aether.no-min .wb-min,
+[data-win-buttons="text"] .winbox.aether.no-max .wb-max,
+[data-win-buttons="text"] .winbox.aether.no-close .wb-close,
+[data-win-buttons="text"] .winbox.aether.no-full .wb-full { display: none; }
+[data-win-buttons="text"] .winbox.aether .wb-control > span:hover { background: var(--fg); color: var(--font-dark); }
+[data-win-buttons="text"] .winbox.aether .wb-close { color: var(--wb-head-fg); }
+[data-win-buttons="text"] .winbox.aether .wb-close::before { content: "[x]"; }
+[data-win-buttons="text"] .winbox.aether .wb-max::before { content: "[+]"; }
+[data-win-buttons="text"] .winbox.aether .wb-min::before { content: "[-]"; }
+
+/* на весь экран: одна подпись «назад», как у прошивки */
+[data-win-title="full"][data-win-buttons="text"] .winbox.aether .wb-control > span { height: auto; padding: 0 8px; background: none; font: inherit; line-height: 22px; }
+[data-win-title="full"][data-win-buttons="text"] .winbox.aether .wb-control > span:hover { background: var(--fg); color: var(--bg); }
+[data-win-title="full"][data-win-buttons="text"] .winbox.aether .wb-control > .wb-close::before { content: "[ESC] BACK"; }
+[data-win-title="full"][data-win-buttons="text"] .winbox.aether.app-terminal .wb-control > .wb-close::before { content: "[X] CLOSE"; }

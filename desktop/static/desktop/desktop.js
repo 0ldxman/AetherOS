@@ -207,6 +207,9 @@ function snapGeometry(g) {
 
 const WINDOW_BOTTOM = taskbar.getBoundingClientRect().top < 1 ? (reserveBottom ? reserveBottom.offsetHeight : 0) : taskbar.offsetHeight;
 const WINDOW_TOP = BAR_TOP + (TAB_OUTSIDE ? TAB_HEIGHT + 2 : 0);
+// края стола под панелями: по ним окно «на весь экран» (заголовок full, static/ui/parts/windows.css)
+document.documentElement.style.setProperty("--desk-top-auto", BAR_TOP + "px");
+document.documentElement.style.setProperty("--desk-bottom-auto", WINDOW_BOTTOM + "px");
 
 // Размер стола мог измениться с прошлого раза: окно не должно оказаться за краем
 function clampGeometry(g) {
@@ -352,25 +355,26 @@ function getHeaderMinWidth(root) {
   const header = root.querySelector(".wb-header");
   if (!header) return 0;
 
-  // способ 1: реальная ширина содержимого заголовка
-  const byScroll = header.scrollWidth;
-
-  // способ 2: сумма натуральных ширин детей (текст меряем через Range)
-  let byChildren = 0;
-  for (const child of header.children) {
-    if (child.classList.contains("wb-title")) {
-      const range = document.createRange();
-      range.selectNodeContents(child);
-      byChildren += range.getBoundingClientRect().width;
-    } else {
-      byChildren += child.offsetWidth;
+  // естественная ширина содержимого: название по тексту, кнопки по размеру, плюс отступы и промежутки заголовка.
+  // scrollWidth не годится: у заголовка во всю ширину окна он равен ширине окна, и окно росло бы при каждом замере.
+  const style = getComputedStyle(header);
+  const shown = [...header.children].filter((child) => child.offsetWidth || child.querySelector(".wb-title"));
+  let width = parseFloat(style.paddingLeft) + parseFloat(style.paddingRight) + (parseFloat(style.columnGap) || 0) * Math.max(0, shown.length - 1);
+  for (const child of shown) {
+    const title = child.classList.contains("wb-title") ? child : child.querySelector(".wb-title");
+    if (!title) {
+      width += child.offsetWidth;
+      continue;
+    }
+    const range = document.createRange();
+    range.selectNodeContents(title);
+    width += range.getBoundingClientRect().width;
+    for (const node of new Set([child, title])) {
+      const own = getComputedStyle(node);
+      width += parseFloat(own.paddingLeft) + parseFloat(own.paddingRight);
     }
   }
-
-  const result = Math.ceil(Math.max(byScroll, byChildren) + 24);
-
-  console.log("[minwidth]", { byScroll, byChildren, result });
-  return result;
+  return Math.ceil(width + 24);
 }
 
 function applyHeaderMinWidth(win, root) {

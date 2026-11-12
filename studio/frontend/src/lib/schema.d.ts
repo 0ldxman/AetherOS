@@ -6773,6 +6773,18 @@ export interface components {
             widget_info: components["schemas"]["WidgetInfo"][];
             /** Widget Warnings */
             widget_warnings: string[];
+            /** Window */
+            window: {
+                [key: string]: string;
+            };
+            /** Window Params */
+            window_params: components["schemas"]["WindowParam"][];
+            /** Window Presets */
+            window_presets: {
+                [key: string]: {
+                    [key: string]: string;
+                };
+            };
             /** Styles */
             styles: components["schemas"]["StyleChoice"][];
             /** Token Info */
@@ -6912,6 +6924,22 @@ export interface components {
             /** Label */
             label: string;
         };
+        /** WindowOption */
+        WindowOption: {
+            /** Value */
+            value: string;
+            /** Label */
+            label: string;
+        };
+        /** WindowParam */
+        WindowParam: {
+            /** Key */
+            key: string;
+            /** Label */
+            label: string;
+            /** Options */
+            options: components["schemas"]["WindowOption"][];
+        };
         /** NewSystem */
         NewSystem: {
             /** Code */
@@ -7013,6 +7041,10 @@ export interface components {
             } | null;
             /** Widget Places */
             widget_places?: {
+                [key: string]: string;
+            } | null;
+            /** Window */
+            window?: {
                 [key: string]: string;
             } | null;
         };

@@ -19511,6 +19511,30 @@
       "title": "Widget Warnings",
       "type": "array"
      },
+     "window": {
+      "additionalProperties": {
+       "type": "string"
+      },
+      "title": "Window",
+      "type": "object"
+     },
+     "window_params": {
+      "items": {
+       "$ref": "#/components/schemas/WindowParam"
+      },
+      "title": "Window Params",
+      "type": "array"
+     },
+     "window_presets": {
+      "additionalProperties": {
+       "additionalProperties": {
+        "type": "string"
+       },
+       "type": "object"
+      },
+      "title": "Window Presets",
+      "type": "object"
+     },
      "styles": {
       "items": {
        "$ref": "#/components/schemas/StyleChoice"
@@ -19648,6 +19672,9 @@
      "widget_places",
      "widget_info",
      "widget_warnings",
+     "window",
+     "window_params",
+     "window_presets",
      "styles",
      "token_info",
      "style_defaults",
@@ -19861,6 +19888,50 @@
      "label"
     ],
     "title": "WidgetPlace",
+    "type": "object"
+   },
+   "WindowOption": {
+    "properties": {
+     "value": {
+      "title": "Value",
+      "type": "string"
+     },
+     "label": {
+      "title": "Label",
+      "type": "string"
+     }
+    },
+    "required": [
+     "value",
+     "label"
+    ],
+    "title": "WindowOption",
+    "type": "object"
+   },
+   "WindowParam": {
+    "properties": {
+     "key": {
+      "title": "Key",
+      "type": "string"
+     },
+     "label": {
+      "title": "Label",
+      "type": "string"
+     },
+     "options": {
+      "items": {
+       "$ref": "#/components/schemas/WindowOption"
+      },
+      "title": "Options",
+      "type": "array"
+     }
+    },
+    "required": [
+     "key",
+     "label",
+     "options"
+    ],
+    "title": "WindowParam",
     "type": "object"
    },
    "NewSystem": {
@@ -20133,6 +20204,20 @@
        }
       ],
       "title": "Widget Places"
+     },
+     "window": {
+      "anyOf": [
+       {
+        "additionalProperties": {
+         "type": "string"
+        },
+        "type": "object"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Window"
      }
     },
     "required": [

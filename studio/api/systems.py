@@ -131,6 +131,18 @@ class StyleIn(Schema):
     wallpaper: WallpaperValue | None = None          # пусто: картинка и узор не меняются
     widgets: dict[str, bool] | None = None           # пусто: элементы стола не меняются
     widget_places: dict[str, str] | None = None
+    window: dict[str, str] | None = None             # пусто: окна не меняются; нет ключа — как в стиле
+
+
+class WindowOption(Schema):
+    value: str
+    label: str
+
+
+class WindowParam(Schema):
+    key: str
+    label: str
+    options: list[WindowOption]
 
 
 class WidgetPlace(Schema):
@@ -202,6 +214,9 @@ class SystemOut(Schema):
     widget_places: dict[str, str]
     widget_info: list[WidgetInfo]
     widget_warnings: list[str]
+    window: dict[str, str]                           # параметры окон, выбранные автором; остальное как в стиле
+    window_params: list[WindowParam]
+    window_presets: dict[str, dict[str, str]]        # стиль -> его параметры окон
     styles: list[StyleChoice]
     token_info: list[TokenInfo]
     style_defaults: dict[str, dict[str, str]]
@@ -278,6 +293,10 @@ def _out(system):
                                 locked=[slug for slug in styles.STYLES if widgets.is_locked(w.key, slug)],
                                 places=[WidgetPlace(value=k, label=v) for k, v in (w.places or {}).items()]) for w in widgets.ITEMS],
         widget_warnings=widgets.warnings(system.style, system.widgets),
+        window=styles.clean_parts(system.style_parts).get("window", {}),
+        window_params=[WindowParam(key=key, label=label, options=[WindowOption(value=v, label=l) for v, l in options.items()])
+                       for key, (label, options) in styles.WINDOW.items()],
+        window_presets={slug: styles.window_of(slug) for slug in styles.STYLES},
         styles=[StyleChoice(slug=slug, label=item.label, description=item.description) for slug, item in styles.STYLES.items()],
         preview_url=reverse("studio_style_preview", kwargs={"code": system.code}),
         style_defaults={slug: {t.name: styles.style_defaults(slug).get(t.name, "") for t in styles.TOKENS} for slug in styles.STYLES},
@@ -499,6 +518,12 @@ def save_style(request, code: str, body: StyleIn):
         system.widgets = widgets.clean(body.widgets)
     if body.widget_places is not None:
         system.widget_places = widgets.clean_places(body.widget_places)
+    if body.window is not None:
+        found = styles.parts_problems({"window": body.window})
+        if found:
+            raise ValidationError({"window": found})
+        system.style_parts = {**(system.style_parts or {}), **styles.clean_parts({"window": body.window})} if body.window else \
+            {key: value for key, value in (system.style_parts or {}).items() if key != "window"}
     system.full_clean()
     system.save()
     return _out(system)

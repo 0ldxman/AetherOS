@@ -32,7 +32,6 @@
   --radius: 0;
   --border-w: 2px;
   --tab-h: 20px;
-  --tab-outside: 0;
   --ink: #1c1c28;
   --cream: #f3edd7;
   --hard: 4px 4px 0 var(--ink);  /* жёсткая тень без размытия */

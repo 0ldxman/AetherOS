@@ -14,7 +14,7 @@
 
   let { system, errors, done, onstate }: { system: System; errors: Record<string, string[]>; done: Done; onstate: (state: { dirty: boolean; share: typeof share; save: () => unknown } | null) => void } = $props();
 
-  let look = $state({ style: "aether", tokens: {} as Record<string, string>, wallpaper: { ...WALLPAPER_DEFAULT } as Wallpaper, widgets: {} as Record<string, boolean>, places: {} as Record<string, string> });
+  let look = $state({ style: "aether", tokens: {} as Record<string, string>, wallpaper: { ...WALLPAPER_DEFAULT } as Wallpaper, widgets: {} as Record<string, boolean>, places: {} as Record<string, string>, win: {} as Record<string, string> });
   let picking = $state(false);
   let lookSaved = $state("");
   let base = $state<typeof look | null>(null);                  // сохранённое: им наполняется общий черновик
@@ -24,7 +24,7 @@
   const HEX6 = /^#[0-9a-fA-F]{6}$/;
 
   async function saveLook() {
-    const body = { style: look.style, tokens: look.tokens, wallpaper: look.wallpaper, widgets: look.widgets, widget_places: look.places };
+    const body = { style: look.style, tokens: look.tokens, wallpaper: look.wallpaper, widgets: look.widgets, widget_places: look.places, window: look.win };
     const { data, error } = await api.PUT("/studio/api/systems/{code}/style", { params: { path: { code: system.code } }, body });
     if (data) share.markSaved();
     done(data, error, "Стиль сохранён.");
@@ -49,7 +49,7 @@
 
   $effect(() => {
     if (!deskPreview) return;
-    const url = `${system.preview_url}?preview_os=${encodeURIComponent(system.code)}&preview_style=${encodeURIComponent(look.style)}&preview_tokens=${encodeURIComponent(JSON.stringify(look.tokens))}&preview_wall=${encodeURIComponent(JSON.stringify(look.wallpaper))}&preview_widgets=${encodeURIComponent(JSON.stringify(look.widgets))}&preview_places=${encodeURIComponent(JSON.stringify(look.places))}`;
+    const url = `${system.preview_url}?preview_os=${encodeURIComponent(system.code)}&preview_style=${encodeURIComponent(look.style)}&preview_tokens=${encodeURIComponent(JSON.stringify(look.tokens))}&preview_wall=${encodeURIComponent(JSON.stringify(look.wallpaper))}&preview_widgets=${encodeURIComponent(JSON.stringify(look.widgets))}&preview_places=${encodeURIComponent(JSON.stringify(look.places))}&preview_parts=${encodeURIComponent(JSON.stringify({ window: look.win }))}`;
     clearTimeout(deskTimer);
     deskTimer = setTimeout(() => (previewSrc = url), 350);
     return () => clearTimeout(deskTimer);
@@ -70,8 +70,8 @@
   $effect(() => {
     const data = system;
     untrack(() => {
-      const next = { style: data.style, tokens: { ...data.style_tokens }, wallpaper: { ...WALLPAPER_DEFAULT, ...data.wallpaper }, widgets: { ...data.widgets }, places: { ...data.widget_places } };
-      if (!share.ready) look = { style: next.style, tokens: { ...next.tokens }, wallpaper: { ...next.wallpaper }, widgets: { ...next.widgets }, places: { ...next.places } };
+      const next = { style: data.style, tokens: { ...data.style_tokens }, wallpaper: { ...WALLPAPER_DEFAULT, ...data.wallpaper }, widgets: { ...data.widgets }, places: { ...data.widget_places }, win: { ...data.window } };
+      if (!share.ready) look = { style: next.style, tokens: { ...next.tokens }, wallpaper: { ...next.wallpaper }, widgets: { ...next.widgets }, places: { ...next.places }, win: { ...next.win } };
       lookSaved = JSON.stringify(next);
       base = next;
     });
@@ -96,7 +96,25 @@
     "Форма": "Скругление, толщина рамок и размеры элементов.",
   };
   let section = $state((() => { try { return localStorage.getItem(SECTION_KEY) ?? "wall"; } catch { return "wall"; } })());
-  const sections = $derived(["wall", "widgets", ...groups]);
+  const sections = $derived(["wall", "windows", "widgets", ...groups]);
+  const SECTION_LABEL: Record<string, string> = { wall: "Картинка и узор", windows: "Окна", widgets: "Элементы стола" };
+  const label = (key: string) => SECTION_LABEL[key] ?? key;
+
+  // ---------- окна: каждый параметр «как в стиле» или свой вариант ----------
+  const preset = $derived(system.window_presets[look.style] ?? {});
+  const winValue = (key: string) => look.win[key] ?? preset[key];
+  function setWin(key: string, value: string) {
+    const next = { ...look.win };
+    if (value === preset[key]) delete next[key]; else next[key] = value;
+    look.win = next;
+  }
+  const winOwn = $derived(Object.keys(look.win).length);
+  const WIN_NOTE: Record<string, string> = {
+    "title:full": "Окно занимает весь стол между панелями, видно только верхнее. Перетаскивать и менять размер нельзя, назад ведёт кнопка «закрыть».",
+    "title:tab": "Вкладка стоит над рамкой, поэтому окна открываются на высоту вкладки ниже панели.",
+    "frame:ascii": "Окна встают на сетку знакомест 8×16: положение и размер кратны клетке.",
+    "set:close": "Свернуть и развернуть окно на этой ОС нельзя.",
+  };
 
   // ---------- элементы стола: у каждого «как в стиле», «вкл», «выкл»; чего нет в оболочке стиля, то недоступно ----------
   const widgetGroups = $derived([...new Set(system.widget_info.map((w) => w.group))]);
@@ -157,10 +175,10 @@
   <div class="settings">
     <nav class="rail" aria-label="Разделы настроек">
       {#each sections as key (key)}
-        {@const own = key === "wall" ? (wallChanged ? 1 : 0) : key === "widgets" ? widgetsOwn : ownIn(key)}
+        {@const own = key === "wall" ? (wallChanged ? 1 : 0) : key === "widgets" ? widgetsOwn : key === "windows" ? winOwn : ownIn(key)}
         <button class="rail-item" class:on={!query && section === key} aria-current={!query && section === key ? "true" : undefined} onclick={() => { section = key; find = ""; }}>
-          <span>{key === "wall" ? "Картинка и узор" : key === "widgets" ? "Элементы стола" : key}</span>
-          {#if own}<span class="badge" title={key === "wall" ? "Картинка или узор заданы" : key === "widgets" ? `Изменено элементов: ${own}` : `Изменено токенов: ${own}`}>{key === "wall" ? "●" : own}</span>{/if}
+          <span>{label(key)}</span>
+          {#if own}<span class="badge" title={key === "wall" ? "Картинка или узор заданы" : key === "widgets" ? `Изменено элементов: ${own}` : key === "windows" ? `Изменено параметров: ${own}` : `Изменено токенов: ${own}`}>{key === "wall" ? "●" : own}</span>{/if}
         </button>
       {/each}
       <div class="rail-foot">
@@ -169,14 +187,14 @@
       </div>
     </nav>
 
-    <section class="panelbox" aria-label={section === "wall" ? "Картинка и узор" : section === "widgets" ? "Элементы стола" : section}>
+    <section class="panelbox" aria-label={label(section)}>
       <header class="phead">
         <div>
-          <h3>{query ? "Поиск по токенам" : section === "wall" ? "Картинка и узор" : section === "widgets" ? "Элементы стола" : section}</h3>
-          <p class="muted small">{query ? `Найдено: ${shown.length}` : section === "widgets" ? "Что показывает оболочка стиля на этой ОС. Вид у каждого элемента от стиля; две ОС с одним стилем могут показывать разное." : section === "wall" ? "Лежат под окнами и значками, не зависят от выбранного стиля. Цвет под ними это токен «Фон рабочего стола» в разделе «Цвета»." : GROUP_NOTE[section]}</p>
+          <h3>{query ? "Поиск по токенам" : label(section)}</h3>
+          <p class="muted small">{query ? `Найдено: ${shown.length}` : section === "windows" ? "Из чего собрано окно: заголовок, рамка и кнопки. Каждый параметр берётся у стиля, пока не выбран свой; цвета остаются от токенов." : section === "widgets" ? "Что показывает оболочка стиля на этой ОС. Вид у каждого элемента от стиля; две ОС с одним стилем могут показывать разное." : section === "wall" ? "Лежат под окнами и значками, не зависят от выбранного стиля. Цвет под ними это токен «Фон рабочего стола» в разделе «Цвета»." : GROUP_NOTE[section]}</p>
         </div>
         <div class="tools">
-          {#if (section !== "wall" && section !== "widgets") || query}
+          {#if !SECTION_LABEL[section] || query}
             <label class="find"><Icon name="search" size={14} /><input placeholder="Найти токен" bind:value={find} aria-label="Поиск токена" /></label>
             <label class="check small"><input type="checkbox" bind:checked={onlyOwn} /> только изменённые</label>
           {/if}
@@ -241,6 +259,28 @@
       </div>
       {#if errors.wallpaper}{#each errors.wallpaper as text}<p class="warn small">{text}</p>{/each}{/if}
     </div>
+      {:else if section === "windows" && !query}
+        <div class="winparams">
+          {#each system.window_params as param (param.key)}
+            {@const value = winValue(param.key)}
+            {@const note = WIN_NOTE[`${param.key}:${value}`]}
+            <div class="wprow">
+              <div class="wphead">
+                <b>{param.label}</b>
+                {#if look.win[param.key]}<button class="btn ghost small" onclick={() => setWin(param.key, preset[param.key])}>вернуть как в стиле</button>{/if}
+              </div>
+              <div class="chips" role="radiogroup" aria-label={param.label}>
+                {#each param.options as option (option.value)}
+                  <button type="button" role="radio" class="chip" aria-checked={value === option.value} class:on={value === option.value} onclick={() => setWin(param.key, option.value)}>
+                    {option.label}{#if option.value === preset[param.key]}<span class="wkind own">стиль</span>{/if}
+                  </button>
+                {/each}
+              </div>
+              {#if note}<p class="muted small">{note}</p>{/if}
+            </div>
+          {/each}
+          {#if errors.window}{#each errors.window as text}<p class="warn small">{text}</p>{/each}{/if}
+        </div>
       {:else if section === "widgets" && !query}
         <div class="widgets">
           {#if widgetWarning}<p class="warn small">{widgetWarning}</p>{/if}
@@ -413,4 +453,13 @@
   .wctl2 .place { width: auto; height: 26px; padding: 0 6px; font-size: 12px; }
   .wname { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
   .wrow .seg button:disabled { cursor: not-allowed; }
+  .winparams { display: flex; flex-direction: column; gap: 4px; }
+  .wprow { display: flex; flex-direction: column; gap: 8px; padding: 10px 4px; border-bottom: 1px solid var(--line-soft); }
+  .wprow:last-of-type { border-bottom: 0; }
+  .wphead { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 26px; }
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; }
+  .chip { display: inline-flex; align-items: center; gap: 4px; padding: 5px 12px; border: 1px solid var(--line-soft); border-radius: 999px; background: none; color: var(--muted); font: inherit; font-size: 12.5px; cursor: pointer; }
+  .chip:hover { color: var(--text); border-color: var(--line); }
+  .chip.on { border-color: var(--accent); background: var(--accent-soft); color: var(--text); }
+  .chip:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 </style>
