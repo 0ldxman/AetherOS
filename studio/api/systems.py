@@ -18,7 +18,7 @@ from filesystem.machine_view import MachineView
 from filesystem.models import Volume
 from machines.models import EntryPolicy, Group, Machine, Place, SceneScript, SystemBlackout, SystemScene, SystemType, SystemVolume
 from machines.world import blackout as blackouts
-from machines.world import styles, wallpaper, widgets
+from machines.world import panel, styles, wallpaper, widgets
 from machines.world.dates import world
 from machines.world.slots import SLOTS
 from machines.world.facts import facts
@@ -125,15 +125,6 @@ class WallpaperValue(Schema):
     pattern_opacity: int = 100
 
 
-class StyleIn(Schema):
-    style: str
-    tokens: dict[str, str] = {}
-    wallpaper: WallpaperValue | None = None          # пусто: картинка и узор не меняются
-    widgets: dict[str, bool] | None = None           # пусто: элементы стола не меняются
-    widget_places: dict[str, str] | None = None
-    window: dict[str, str] | None = None             # пусто: окна не меняются; нет ключа — как в стиле
-
-
 class WindowOption(Schema):
     value: str
     label: str
@@ -143,6 +134,51 @@ class WindowParam(Schema):
     key: str
     label: str
     options: list[WindowOption]
+
+
+class PanelValue(Schema):
+    look: str | None = None
+    edge: str | None = None
+    form: str | None = None
+    start: list[str] | None = None
+    center: list[str] | None = None
+    end: list[str] | None = None
+
+
+class PanelLayout(Schema):
+    edge: str
+    form: str
+    start: list[str]
+    center: list[str]
+    end: list[str]
+
+
+class PanelElement(Schema):
+    key: str
+    label: str
+    hint: str
+
+
+class PanelInfo(Schema):
+    elements: list[PanelElement]
+    looks: list[WindowOption]
+    edges: list[WindowOption]
+    forms: list[WindowOption]
+    slots: list[WindowOption]
+    exits: list[str]                                 # хотя бы один из них должен стоять на панели
+    fixed_edge: list[str]                            # виды, у которых край не меняется
+    look_of_style: dict[str, str]
+    presets: dict[str, PanelLayout]
+
+
+class StyleIn(Schema):
+    style: str
+    tokens: dict[str, str] = {}
+    wallpaper: WallpaperValue | None = None          # пусто: картинка и узор не меняются
+    widgets: dict[str, bool] | None = None           # пусто: элементы стола не меняются
+    widget_places: dict[str, str] | None = None
+    window: dict[str, str] | None = None             # пусто: окна не меняются; нет ключа — как в стиле
+    panel: PanelValue | None = None                 # пусто: панель не меняется; {} — как в стиле
 
 
 class WidgetPlace(Schema):
@@ -156,7 +192,6 @@ class WidgetInfo(Schema):
     group: str
     hint: str
     native: list[str]                                # стили, оболочка которых рисует его сама
-    locked: list[str]                                # стили, где выключить нельзя (в нём выход из сессии)
     places: list[WidgetPlace]                        # куда поставить, если стиль его сам не рисует
 
 
@@ -217,6 +252,8 @@ class SystemOut(Schema):
     window: dict[str, str]                           # параметры окон, выбранные автором; остальное как в стиле
     window_params: list[WindowParam]
     window_presets: dict[str, dict[str, str]]        # стиль -> его параметры окон
+    panel: PanelValue                                # что у панели не как в стиле
+    panel_info: PanelInfo
     styles: list[StyleChoice]
     token_info: list[TokenInfo]
     style_defaults: dict[str, dict[str, str]]
@@ -290,13 +327,23 @@ def _out(system):
         widgets=widgets.clean(system.widgets), widget_places=widgets.clean_places(system.widget_places),
         widget_info=[WidgetInfo(key=w.key, label=w.label, group=w.group, hint=w.hint,
                                 native=[slug for slug in styles.STYLES if widgets.is_native(w.key, slug)],
-                                locked=[slug for slug in styles.STYLES if widgets.is_locked(w.key, slug)],
                                 places=[WidgetPlace(value=k, label=v) for k, v in (w.places or {}).items()]) for w in widgets.ITEMS],
-        widget_warnings=widgets.warnings(system.style, system.widgets),
+        widget_warnings=widgets.warnings(system.style, system.widgets, styles.clean_parts(system.style_parts).get("panel")),
         window=styles.clean_parts(system.style_parts).get("window", {}),
         window_params=[WindowParam(key=key, label=label, options=[WindowOption(value=v, label=l) for v, l in options.items()])
                        for key, (label, options) in styles.WINDOW.items()],
         window_presets={slug: styles.window_of(slug) for slug in styles.STYLES},
+        panel=PanelValue(**styles.clean_parts(system.style_parts).get("panel", {})),
+        panel_info=PanelInfo(
+            elements=[PanelElement(key=e.key, label=e.label, hint=e.hint) for e in panel.ELEMENTS],
+            looks=[WindowOption(value=slug, label=styles.STYLES[slug].label) for slug in panel.LOOKS],
+            edges=[WindowOption(value=k, label=v) for k, v in panel.EDGES.items()],
+            forms=[WindowOption(value=k, label=v) for k, v in panel.FORMS.items()],
+            slots=[WindowOption(value=k, label=v) for k, v in panel.SLOTS.items()],
+            exits=list(panel.EXITS) , fixed_edge=sorted(panel.FIXED_EDGE),
+            look_of_style={slug: panel.look_of(slug) for slug in styles.STYLES},
+            presets={look: PanelLayout(**preset) for look, preset in panel.PRESETS.items()},
+        ),
         styles=[StyleChoice(slug=slug, label=item.label, description=item.description) for slug, item in styles.STYLES.items()],
         preview_url=reverse("studio_style_preview", kwargs={"code": system.code}),
         style_defaults={slug: {t.name: styles.style_defaults(slug).get(t.name, "") for t in styles.TOKENS} for slug in styles.STYLES},
@@ -524,6 +571,13 @@ def save_style(request, code: str, body: StyleIn):
             raise ValidationError({"window": found})
         system.style_parts = {**(system.style_parts or {}), **styles.clean_parts({"window": body.window})} if body.window else \
             {key: value for key, value in (system.style_parts or {}).items() if key != "window"}
+    if body.panel is not None:
+        data = body.panel.model_dump(exclude_none=True)
+        found = panel.problems(body.style, data)
+        if found:
+            raise ValidationError({"panel": found})
+        chosen = panel.clean(data)
+        system.style_parts = {**{k: v for k, v in (system.style_parts or {}).items() if k != "panel"}, **({"panel": chosen} if chosen else {})}
     system.full_clean()
     system.save()
     return _out(system)

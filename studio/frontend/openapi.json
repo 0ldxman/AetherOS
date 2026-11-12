@@ -19353,6 +19353,232 @@
     "title": "ImageRow",
     "type": "object"
    },
+   "PanelElement": {
+    "properties": {
+     "key": {
+      "title": "Key",
+      "type": "string"
+     },
+     "label": {
+      "title": "Label",
+      "type": "string"
+     },
+     "hint": {
+      "title": "Hint",
+      "type": "string"
+     }
+    },
+    "required": [
+     "key",
+     "label",
+     "hint"
+    ],
+    "title": "PanelElement",
+    "type": "object"
+   },
+   "PanelInfo": {
+    "properties": {
+     "elements": {
+      "items": {
+       "$ref": "#/components/schemas/PanelElement"
+      },
+      "title": "Elements",
+      "type": "array"
+     },
+     "looks": {
+      "items": {
+       "$ref": "#/components/schemas/WindowOption"
+      },
+      "title": "Looks",
+      "type": "array"
+     },
+     "edges": {
+      "items": {
+       "$ref": "#/components/schemas/WindowOption"
+      },
+      "title": "Edges",
+      "type": "array"
+     },
+     "forms": {
+      "items": {
+       "$ref": "#/components/schemas/WindowOption"
+      },
+      "title": "Forms",
+      "type": "array"
+     },
+     "slots": {
+      "items": {
+       "$ref": "#/components/schemas/WindowOption"
+      },
+      "title": "Slots",
+      "type": "array"
+     },
+     "exits": {
+      "items": {
+       "type": "string"
+      },
+      "title": "Exits",
+      "type": "array"
+     },
+     "fixed_edge": {
+      "items": {
+       "type": "string"
+      },
+      "title": "Fixed Edge",
+      "type": "array"
+     },
+     "look_of_style": {
+      "additionalProperties": {
+       "type": "string"
+      },
+      "title": "Look Of Style",
+      "type": "object"
+     },
+     "presets": {
+      "additionalProperties": {
+       "$ref": "#/components/schemas/PanelLayout"
+      },
+      "title": "Presets",
+      "type": "object"
+     }
+    },
+    "required": [
+     "elements",
+     "looks",
+     "edges",
+     "forms",
+     "slots",
+     "exits",
+     "fixed_edge",
+     "look_of_style",
+     "presets"
+    ],
+    "title": "PanelInfo",
+    "type": "object"
+   },
+   "PanelLayout": {
+    "properties": {
+     "edge": {
+      "title": "Edge",
+      "type": "string"
+     },
+     "form": {
+      "title": "Form",
+      "type": "string"
+     },
+     "start": {
+      "items": {
+       "type": "string"
+      },
+      "title": "Start",
+      "type": "array"
+     },
+     "center": {
+      "items": {
+       "type": "string"
+      },
+      "title": "Center",
+      "type": "array"
+     },
+     "end": {
+      "items": {
+       "type": "string"
+      },
+      "title": "End",
+      "type": "array"
+     }
+    },
+    "required": [
+     "edge",
+     "form",
+     "start",
+     "center",
+     "end"
+    ],
+    "title": "PanelLayout",
+    "type": "object"
+   },
+   "PanelValue": {
+    "properties": {
+     "look": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Look"
+     },
+     "edge": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Edge"
+     },
+     "form": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Form"
+     },
+     "start": {
+      "anyOf": [
+       {
+        "items": {
+         "type": "string"
+        },
+        "type": "array"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Start"
+     },
+     "center": {
+      "anyOf": [
+       {
+        "items": {
+         "type": "string"
+        },
+        "type": "array"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Center"
+     },
+     "end": {
+      "anyOf": [
+       {
+        "items": {
+         "type": "string"
+        },
+        "type": "array"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "End"
+     }
+    },
+    "title": "PanelValue",
+    "type": "object"
+   },
    "PlaceRow": {
     "properties": {
      "name": {
@@ -19535,6 +19761,12 @@
       "title": "Window Presets",
       "type": "object"
      },
+     "panel": {
+      "$ref": "#/components/schemas/PanelValue"
+     },
+     "panel_info": {
+      "$ref": "#/components/schemas/PanelInfo"
+     },
      "styles": {
       "items": {
        "$ref": "#/components/schemas/StyleChoice"
@@ -19675,6 +19907,8 @@
      "window",
      "window_params",
      "window_presets",
+     "panel",
+     "panel_info",
      "styles",
      "token_info",
      "style_defaults",
@@ -19845,13 +20079,6 @@
       "title": "Native",
       "type": "array"
      },
-     "locked": {
-      "items": {
-       "type": "string"
-      },
-      "title": "Locked",
-      "type": "array"
-     },
      "places": {
       "items": {
        "$ref": "#/components/schemas/WidgetPlace"
@@ -19866,7 +20093,6 @@
      "group",
      "hint",
      "native",
-     "locked",
      "places"
     ],
     "title": "WidgetInfo",
@@ -20218,6 +20444,16 @@
        }
       ],
       "title": "Window"
+     },
+     "panel": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/PanelValue"
+       },
+       {
+        "type": "null"
+       }
+      ]
      }
     },
     "required": [

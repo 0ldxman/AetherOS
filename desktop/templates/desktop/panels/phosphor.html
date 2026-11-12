@@ -1,25 +1,10 @@
 {% load os_style %}{% comment %}
-  Оболочка стиля phosphor (прошивка устройства): строка состояния сверху с хлебными крошками, главное меню (приложения и
-  системные пункты), панель сведений справа, строка подсказок клавиш снизу. Окон нет: приложение открывается на весь экран
-  (это делает CSS стиля), Esc закрывает его и возвращает в меню. Ожидает от desktop.js #taskbar, #clock, #date, #ping-value;
-  меню, крошки и виджет оживляет shell.js по атрибутам data-shell, data-nav и data-esc-close.
+  Вид панели «phosphor»: прошивка устройства: строка состояния сверху, главное меню и панель сведений, подсказки клавиш снизу; приложения на весь экран, Esc назад.
+  Элементы в слотах расставляет machines/world/panel.py (родная разметка вида — desktop/panels/phosphor/, общая — desktop/elements/).
+  Ожидает от desktop.js #taskbar; часы, пинг и меню сеанса — если стоят на панели. Остальное оживляет shell.js по data-shell.
 {% endcomment %}
     <header id="taskbar">
-        <span class="fw-model">{{ os_name }}</span>
-        <span class="fw-crumb" data-shell="crumb">MAIN</span>
-        {% os_slot "start" %}
-        <span class="fw-spacer"></span>
-        {% os_slot "end" %}
-        <div class="ping">
-            <span class="ping-dot"></span>
-            <span class="fw-key">LINK</span>
-            <span id="ping-value">42</span>
-            <span id="ping-unit">ms</span>
-        </div>
-        <div id="clock-plate">
-            <span id="clock"></span>
-            <span id="date"></span>
-        </div>
+        {% for key, tpl in panel.start %}{% include tpl %}{% endfor %}<span class="pl-fill fw-spacer"></span>{% if panel.center %}<span class="pl-center">{% for key, tpl in panel.center %}{% include tpl %}{% endfor %}</span>{% endif %}{% for key, tpl in panel.end %}{% include tpl %}{% endfor %}
     </header>
 
     <nav class="fw-menu" data-nav aria-label="Main menu">

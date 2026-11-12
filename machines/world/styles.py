@@ -18,7 +18,7 @@ class Style:
     label: str
     description: str
     css: bool = False       # есть файл static/ui/themes/<слаг>.css поверх токенов (у основного стиля нет)
-    shell: bool = False     # своя оболочка рабочего стола: шаблон desktop/shells/<слаг>.html (иначе общая, aether)
+    shell: bool = False     # свой вид панели и стола (machines/world/panel.py, desktop/panels/<слаг>.html); иначе как у aether
 
 
 STYLES = {
@@ -160,10 +160,20 @@ WINDOW_PRESETS = {
 
 
 def clean_parts(data):
-    """Только известные параметры с допустимым значением: {"window": {параметр: вариант}}; пустые разделы отбрасываются."""
-    window = (data or {}).get("window") if isinstance(data, dict) else None
-    found = {key: value for key, value in (window or {}).items() if key in WINDOW and value in WINDOW[key][1]} if isinstance(window, dict) else {}
-    return {"window": found} if found else {}
+    """Только известное: {"window": {параметр: вариант}, "panel": {...}}; пустые разделы отбрасываются."""
+    from machines.world import panel
+
+    if not isinstance(data, dict):
+        return {}
+    out = {}
+    window = data.get("window")
+    found = {key: value for key, value in window.items() if key in WINDOW and value in WINDOW[key][1]} if isinstance(window, dict) else {}
+    if found:
+        out["window"] = found
+    found = panel.clean(data.get("panel"))
+    if found:
+        out["panel"] = found
+    return out
 
 
 def parts_problems(data):
@@ -184,9 +194,13 @@ def window_of(slug, custom=None):
 
 
 def parts(slug, custom=None):
-    """{атрибут без data-: значение} для <html>: параметры окон и части, которые пока целиком у стиля."""
+    """{атрибут без data-: значение} для <html>: параметры окон, панель (machines/world/panel.py) и части, которые пока целиком у стиля."""
+    from machines.world import panel
+
     attrs = {f"win-{key}": value for key, value in window_of(slug, custom).items()}
-    attrs.update({part: slug for part in PARTS})
+    found = panel.attrs(slug, clean_parts(custom).get("panel"))
+    attrs.update({part: found["panel"] if part in ("panel", "dock") else slug for part in PARTS})      # док пока живёт в виде панели
+    attrs.update(found)
     return attrs
 
 

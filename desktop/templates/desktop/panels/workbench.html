@@ -1,0 +1,17 @@
+{% load os_style %}{% comment %}
+  Вид панели «workbench»: передняя панель островом снизу: часы (клик открывает уведомления), четыре стола, быстрые запуски, действия сеанса, связь.
+  Элементы в слотах расставляет machines/world/panel.py (родная разметка вида — desktop/panels/workbench/, общая — desktop/elements/).
+  Ожидает от desktop.js #taskbar; часы, пинг и меню сеанса — если стоят на панели. Остальное оживляет shell.js по data-shell.
+{% endcomment %}
+    <header id="taskbar">
+        <div class="front-panel" title="{{ login }}@{{ machine_name }}">
+            {% for key, tpl in panel.start %}{% include tpl %}{% endfor %}{% for key, tpl in panel.center %}{% include tpl %}{% endfor %}{% for key, tpl in panel.end %}{% include tpl %}{% endfor %}
+        </div>
+    </header>
+
+    <section id="notices-panel" class="notices-panel" data-shell="notices-panel" aria-label="Notifications" hidden>
+        <header class="notices-head"><strong>Notifications</strong><button type="button" data-shell="notices-clear">Clear</button></header>
+        <div class="notices-list" data-shell="notices"></div>
+    </section>
+
+    {% os_slot "desk" %}

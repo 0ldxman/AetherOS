@@ -1,0 +1,5 @@
+<div class="fp-actions" data-actions>
+                {% if can_sessions %}<button type="button" data-action="sessions" data-url="{{ sessions_url }}" title="Sessions">S</button>{% endif %}
+                <button type="button" data-action="reset-layout" title="Reset layout">R</button>
+                <button type="button" data-action="disconnect" data-logout-url="{{ logout_url }}" data-lock-url="{{ lock_url }}" title="Exit">X</button>
+            </div>

@@ -1,0 +1,9 @@
+{% load os_style %}{% comment %}
+  Вид панели «aether»: одна полоса сверху, часы табличкой по центру.
+  Элементы в слотах расставляет machines/world/panel.py (родная разметка вида — desktop/panels/aether/, общая — desktop/elements/).
+  Ожидает от desktop.js #taskbar; часы, пинг и меню сеанса — если стоят на панели. Остальное оживляет shell.js по data-shell.
+{% endcomment %}
+    <header id="taskbar">
+        {% for key, tpl in panel.start %}{% include tpl %}{% endfor %}<span class="pl-fill"></span>{% if panel.center %}<span class="pl-center">{% for key, tpl in panel.center %}{% include tpl %}{% endfor %}</span>{% endif %}{% for key, tpl in panel.end %}{% include tpl %}{% endfor %}
+    </header>
+    {% os_slot "desk" %}

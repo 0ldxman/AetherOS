@@ -2,45 +2,45 @@
 
 /* ---- окна сообщений: табличка заголовка по виду сообщения ---- */
 [data-notice="classic"] .winbox.aether.dialog-window--error,
-[data-notice="classic"] .winbox.aether.dialog-window--warning { background: var(--cream); border: 2px solid var(--ink); box-shadow: var(--hard); }
+[data-notice="classic"] .winbox.aether.dialog-window--warning { background: var(--cream, var(--font-dark)); border: 2px solid var(--ink, var(--window-border)); box-shadow: var(--hard, 4px 4px 0 var(--window-border)); }
 
 [data-notice="classic"] .winbox.aether.dialog-window--error .wb-header,
-[data-notice="classic"] .winbox.aether.dialog-window--warning .wb-header { background: repeating-linear-gradient(0deg, var(--ink) 0 1px, var(--cream) 1px 3px); border: 0; }
+[data-notice="classic"] .winbox.aether.dialog-window--warning .wb-header { background: repeating-linear-gradient(0deg, var(--ink, var(--window-border)) 0 1px, var(--cream, var(--font-dark)) 1px 3px); border: 0; }
 
-[data-notice="classic"] .winbox.aether.dialog-window--error .wb-title { background: var(--accent-error); color: var(--cream); }
-[data-notice="classic"] .winbox.aether.dialog-window--warning .wb-title { background: var(--accent-warn); color: var(--cream); }
+[data-notice="classic"] .winbox.aether.dialog-window--error .wb-title { background: var(--accent-error); color: var(--cream, var(--font-dark)); }
+[data-notice="classic"] .winbox.aether.dialog-window--warning .wb-title { background: var(--accent-warn); color: var(--cream, var(--font-dark)); }
 
 [data-notice="classic"] .winbox.aether.dialog-window--error .wb-control *,
-[data-notice="classic"] .winbox.aether.dialog-window--warning .wb-control * { color: var(--ink); }
+[data-notice="classic"] .winbox.aether.dialog-window--warning .wb-control * { color: var(--ink, var(--window-border)); }
 
-[data-notice="classic"] .dialog { background: var(--cream); color: var(--ink); }
-[data-notice="classic"] .dialog-glyph { border: 2px solid var(--ink); background: var(--tone); color: var(--cream); }
+[data-notice="classic"] .dialog { background: var(--cream, var(--font-dark)); color: var(--ink, var(--window-border)); }
+[data-notice="classic"] .dialog-glyph { border: 2px solid var(--ink, var(--window-border)); background: var(--tone); color: var(--cream, var(--font-dark)); }
 [data-notice="classic"] .dialog-foot { border-top: 0; }
 [data-notice="classic"] .dialog-code { opacity: 1; color: var(--font-muted); }
 
 [data-notice="classic"] .dialog-ok {
   min-width: 80px;
   padding: 1px 14px;
-  background: var(--cream);
-  border: 2px solid var(--ink);
-  box-shadow: 2px 2px 0 var(--ink);
-  color: var(--ink);
+  background: var(--cream, var(--font-dark));
+  border: 2px solid var(--ink, var(--window-border));
+  box-shadow: 2px 2px 0 var(--ink, var(--window-border));
+  color: var(--ink, var(--window-border));
 }
 
-[data-notice="classic"] .dialog-ok:hover { background: var(--ink); color: var(--cream); }
+[data-notice="classic"] .dialog-ok:hover { background: var(--ink, var(--window-border)); color: var(--cream, var(--font-dark)); }
 [data-notice="classic"] .dialog-ok:active { box-shadow: none; transform: translate(2px, 2px); }
 
 /* ---- тосты ---- */
 [data-notice="classic"] #toasts { bottom: 12px; }
 
 [data-notice="classic"] .toast {
-  background: var(--cream);
-  border: 2px solid var(--ink);
+  background: var(--cream, var(--font-dark));
+  border: 2px solid var(--ink, var(--window-border));
   border-left-width: 2px;
-  box-shadow: var(--hard);
-  color: var(--ink);
+  box-shadow: var(--hard, 4px 4px 0 var(--window-border));
+  color: var(--ink, var(--window-border));
 }
 
-[data-notice="classic"] .toast--error { background: var(--cream); }
+[data-notice="classic"] .toast--error { background: var(--cream, var(--font-dark)); }
 [data-notice="classic"] .toast-title { font-weight: 700; }
 [data-notice="classic"] .toast-text { color: var(--font-soft); }

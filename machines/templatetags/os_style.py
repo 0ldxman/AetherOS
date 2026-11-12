@@ -64,12 +64,24 @@ def _state(request):
     return found
 
 
+def _panel(request):
+    """Раскладка панели ОС этого запроса (её часть style_parts)."""
+    from machines.world import styles
+
+    return styles.clean_parts(getattr(request, "_os_parts", {})).get("panel")
+
+
+def _look(request):
+    from machines.world import panel
+
+    return panel.of(_state(request)[0], _panel(request))["look"]
+
+
 def widget_state(request):
-    """{элемент: включён} для оболочки ОС этого запроса (machines/world/widgets.py)."""
+    """{элемент стола: включён} для ОС этого запроса (machines/world/widgets.py); родное считается по виду панели."""
     from machines.world import widgets
 
-    slug = _state(request)[0]
-    return widgets.resolve(slug, getattr(request, "_os_widgets", {}))
+    return widgets.resolve(_look(request), getattr(request, "_os_widgets", {}))
 
 
 def _preview(request, found):
@@ -96,39 +108,60 @@ def _preview(request, found):
 
 @register.simple_tag(takes_context=True)
 def os_widgets_css(context):
-    """<style>, прячущий выключенные у ОС элементы оболочки (пусто, если всё включено)."""
+    """<style>, прячущий выключенные у ОС родные элементы стола (пусто, если всё включено)."""
     from machines.world import widgets
 
     request = context.get("request")
     if request is None:
         return ""
-    block = widgets.hidden_css(_state(request)[0], getattr(request, "_os_widgets", {}))
+    block = widgets.hidden_css(_look(request), getattr(request, "_os_widgets", {}))
     return mark_safe(f'<style id="os-widgets">{block}</style>') if block else ""
 
 
 @register.simple_tag(takes_context=True)
-def os_slot(context, slot):
-    """Слот оболочки: start / end на главной панели, desk — док и всплывающие панели. Пусто, если ОС ничего туда не добавила."""
+def os_panel(context):
+    """Главная панель: шаблон вида (desktop/panels/<вид>.html) с элементами в слотах (machines/world/panel.py)."""
     from django.template.loader import render_to_string
 
-    from machines.world import widgets
+    from machines.world import panel
 
     request = context.get("request")
-    if request is None:
+    slug = _state(request)[0] if request is not None else styles.DEFAULT_STYLE
+    data = _panel(request) if request is not None else None
+    look = panel.of(slug, data)["look"]
+    flat = context.flatten()
+    flat["panel"] = panel.elements(slug, data)
+    return mark_safe(render_to_string(f"desktop/panels/{look}.html", flat, request=request))
+
+
+@register.simple_tag(takes_context=True)
+def os_slot(context, slot):
+    """Что стол добавляет к виду панели (slot "desk"): свой док и всплывающие меню запуска и журнал, если у вида их нет."""
+    from django.template.loader import render_to_string
+
+    from machines.world import panel, widgets
+
+    request = context.get("request")
+    if request is None or slot != "desk":
         return ""
     slug = _state(request)[0]
-    data, places = getattr(request, "_os_widgets", {}), getattr(request, "_os_places", {})
-    found = widgets.slot_context(slug, data, places, slot)
-    if slot == "desk":
-        added = widgets.added(slug, data, places)
-        found["search_in_panel"] = "search" not in added and not widgets.is_native("search", slug)
-        found["launcher_side"] = "left" if added.get("launcher", "start") == "start" else "right"
-        found["notices_side"] = "left" if added.get("notices", "end") == "start" else "right"
-        if not (found["dock"] or found["launcher_panel"] or found["notices_panel"]):
-            return ""
-    elif not found["els"]:
+    data = _panel(request)
+    found = panel.of(slug, data)
+    look, placed = found["look"], panel.placed(slug, data)
+    edge = found["edge"]
+    side = {"start": "left", "center": "center", "end": "right"}
+    desk = {
+        "edge": edge,
+        "dock": widgets.dock_place(look, getattr(request, "_os_widgets", {}), getattr(request, "_os_places", {})),
+        "launcher_panel": bool({"launcher", "search"} & set(placed)) and look not in panel.NATIVE_LAUNCHER_PANEL,
+        "notices_panel": "notices" in placed and look not in panel.NATIVE_NOTICES_PANEL,
+        "search_in_panel": "search" not in placed,
+        "launcher_side": side[placed.get("launcher", placed.get("search", "start"))],
+        "notices_side": side[placed.get("notices", "end")],
+    }
+    if not (desk["dock"] or desk["launcher_panel"] or desk["notices_panel"]):
         return ""
-    return mark_safe(render_to_string("desktop/elements/slot.html", {**found, "login": context.get("login", ""), "machine_name": context.get("machine_name", "")}))
+    return mark_safe(render_to_string("desktop/elements/desk.html", {**context.flatten(), **desk}))
 
 
 @register.simple_tag(takes_context=True)
@@ -160,7 +193,8 @@ def os_theme(context):
     slug = _state(request)[0] if request is not None else styles.DEFAULT_STYLE
     links = [f"ui/themes/{slug}.css"] if styles.STYLES[slug].css else []
     links.append("ui/parts/windows.css")       # окна раньше частей: окна сообщений перекрашивает часть notice
-    links += [path for path in (styles.part_file(part, slug) for part in styles.PARTS) if path]
+    chosen = styles.parts(slug, getattr(request, "_os_parts", {}) if request is not None else {})
+    links += [path for path in (styles.part_file(part, chosen[part]) for part in styles.PARTS) if path]
     return mark_safe("".join(format_html('<link rel="stylesheet" href="{}">', static(path)) for path in links))
 
 
@@ -171,14 +205,6 @@ def os_parts(context):
     slug = _state(request)[0] if request is not None else styles.DEFAULT_STYLE
     custom = getattr(request, "_os_parts", {}) if request is not None else {}
     return mark_safe("".join(format_html(' data-{}="{}"', part, kind) for part, kind in styles.parts(slug, custom).items()))
-
-
-@register.simple_tag(takes_context=True)
-def os_shell(context):
-    """Шаблон оболочки рабочего стола (панель, меню, док) для стиля ОС машины игрока."""
-    request = context.get("request")
-    slug = _state(request)[0] if request is not None else styles.DEFAULT_STYLE
-    return f"desktop/shells/{slug if styles.STYLES[slug].shell else styles.DEFAULT_STYLE}.html"
 
 
 @register.simple_tag(takes_context=True)

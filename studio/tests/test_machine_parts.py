@@ -413,6 +413,19 @@ class CreateAndSystemsTests(TestCase):
         status, data = self.call("put", "/systems/AETHER/style", {"style": "classic", "tokens": {}, "window": {}})
         self.assertEqual(data["window"], {})
 
+    def test_panel_layout_is_saved_and_checked(self):
+        body = {"style": "aether", "tokens": {}, "panel": {"edge": "bottom", "start": ["launcher", "tasks"], "center": [], "end": ["ping", "clock"]}}
+        status, data = self.call("put", "/systems/AETHER/style", body)
+        self.assertEqual(status, 200)
+        self.assertEqual({k: v for k, v in data["panel"].items() if v is not None},
+                         {"edge": "bottom", "start": ["launcher", "tasks"], "center": [], "end": ["ping", "clock"]})
+        self.assertEqual(data["panel_info"]["presets"]["workbench"]["form"], "island")
+        self.assertEqual(data["panel_info"]["look_of_style"]["glitched"], "aether")
+        status, data = self.call("put", "/systems/AETHER/style", {"style": "aether", "tokens": {}, "panel": {"start": ["clock"], "center": [], "end": []}})
+        self.assertEqual((status, data["fields"]["panel"]), (400, ["На панели нет выхода из сеанса: оставьте меню запуска, «Сеанс» или «Кнопки сеанса»."]))
+        status, data = self.call("put", "/systems/AETHER/style", {"style": "aether", "tokens": {}, "panel": {}})
+        self.assertEqual({k for k, v in data["panel"].items() if v is not None}, set())
+
     def test_every_token_says_where_it_shows(self):
         from machines.world import styles
 

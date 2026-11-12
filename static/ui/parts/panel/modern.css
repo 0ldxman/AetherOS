@@ -96,7 +96,7 @@
 
 [data-panel="modern"] #date { font-size: 0.75rem; letter-spacing: 0; color: var(--font-soft); }
 
-/* ---- «Пуск» и список окон (разметка desktop/shells/modern.html) ---- */
+/* ---- «Пуск» и список окон (разметка desktop/panels/modern.html) ---- */
 [data-panel="modern"] .start-button {
   display: grid;
   place-items: center;
@@ -299,7 +299,6 @@
   place-items: center;
   width: 36px;
   height: 36px;
-  margin-right: 96px;            /* место под часы */
   padding: 0;
   background: none;
   border: 0;
@@ -405,3 +404,52 @@
 [data-panel="modern"] .shell-notice-title { color: var(--font-light); }
 [data-panel="modern"] .shell-notice-time { color: var(--font-muted); font-size: 0.7rem; }
 [data-panel="modern"] .shell-notice-text { grid-column: 1 / -1; color: var(--font-soft); font-size: 0.75rem; }
+
+/* ---- виджеты стола (разметка desktop/panels/modern.html) ---- */
+[data-panel="modern"] .widgets {
+  position: fixed;
+  top: 16px;
+  right: 16px;
+  z-index: 1;                    /* над фоном стола, под окнами */
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: 232px;
+}
+
+[data-panel="modern"] .widget {
+  box-sizing: border-box;
+  padding: 14px 16px;
+  background: color-mix(in srgb, var(--panel) 78%, transparent);
+  -webkit-backdrop-filter: blur(18px);
+  backdrop-filter: blur(18px);
+  border: 1px solid var(--line);
+  border-radius: calc(var(--radius) + 4px);
+  color: var(--fg);
+  font: inherit;
+  text-align: left;
+}
+
+[data-panel="modern"] .widget[hidden] { display: none; }
+
+[data-panel="modern"] .widget-time { color: var(--font-light); font-size: 2.2rem; font-weight: 300; line-height: 1.1; }
+[data-panel="modern"] .widget-date { margin-top: 2px; color: var(--font-soft); font-size: 0.8rem; }
+
+[data-panel="modern"] .widget-title { margin: 0 0 8px; color: var(--font-soft); font-size: 0.72rem; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; }
+
+[data-panel="modern"] .widget-rows { display: flex; flex-direction: column; gap: 5px; margin: 0; font-size: 0.78rem; }
+[data-panel="modern"] .widget-rows div { display: flex; justify-content: space-between; gap: 12px; }
+[data-panel="modern"] .widget-rows dt { color: var(--font-muted); }
+[data-panel="modern"] .widget-rows dd { margin: 0; color: var(--font-light); text-align: right; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+[data-panel="modern"] .widget--mail { display: flex; align-items: center; justify-content: space-between; cursor: pointer; }
+[data-panel="modern"] .widget--mail .widget-title { margin: 0; }
+[data-panel="modern"] .widget--mail:hover { border-color: var(--line-bright); }
+[data-panel="modern"] .widget-mail-count { color: var(--font-muted); font-size: 0.8rem; }
+[data-panel="modern"] .widget--mail.has-mail .widget-mail-count { color: var(--accent); font-weight: 700; }
+
+/* панель сверху: карточки ниже неё */
+[data-panel="modern"][data-panel-flip="top"] .widgets { top: calc(var(--pl-h, 44px) + 16px); }
+
+/* часы прибиты к правому краю панели: место под них оставляет сама панель, если они стоят на своём месте */
+[data-panel="modern"] #taskbar:has(#clock-plate) { padding-right: 110px; }

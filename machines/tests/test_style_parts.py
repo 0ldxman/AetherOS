@@ -65,7 +65,7 @@ class StylePartTagsTests(TestCase):
     def test_html_gets_part_attributes(self):
         self.assertEqual(self.render("{% os_parts %}"),
                          ' data-win-title="plaque" data-win-frame="hard" data-win-side="right" data-win-buttons="circles" data-win-set="all"'
-                         ' data-notice="classic" data-panel="classic" data-dock="classic"')
+                         ' data-notice="classic" data-panel="classic" data-dock="classic" data-panel-edge="top" data-panel-form="bar"')
 
     def test_links_windows_before_parts(self):
         links = self.render("{% os_theme %}")

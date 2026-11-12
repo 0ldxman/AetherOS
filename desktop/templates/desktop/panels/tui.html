@@ -1,23 +1,10 @@
 {% load os_style %}{% comment %}
-  Оболочка стиля tui: строка меню сверху (бренд, окна как пункты меню, связь, часы) и полоса F-клавиш снизу
-  (F2 приложения, F4 sessions, F5 раскладка, F9 уведомления, F10 выход). Лаунчер и уведомления открываются текстовыми окнами.
-  Ожидает от desktop.js #taskbar, #clock, #date, #ping-value; остальное оживляет shell.js. Полоса снизу резервируется
-  атрибутом data-reserve-bottom: развёрнутые окна не заходят под неё.
+  Вид панели «tui»: строка меню сверху и полоса F-клавиш снизу (F2 приложения, F4 sessions, F5 раскладка, F9 уведомления, F10 выход); полоса снизу резервируется data-reserve-bottom.
+  Элементы в слотах расставляет machines/world/panel.py (родная разметка вида — desktop/panels/tui/, общая — desktop/elements/).
+  Ожидает от desktop.js #taskbar; часы, пинг и меню сеанса — если стоят на панели. Остальное оживляет shell.js по data-shell.
 {% endcomment %}
     <header id="taskbar">
-        <span class="tui-brand">≡ AetherOS</span>
-        {% os_slot "start" %}
-        <div class="tasks" data-shell="tasks"></div>
-        {% os_slot "end" %}
-        <div class="ping">
-            <span class="ping-dot"></span>
-            <span id="ping-value">42</span>
-            <span id="ping-unit">ms</span>
-        </div>
-        <div id="clock-plate">
-            <span id="clock"></span>
-            <span id="date"></span>
-        </div>
+        {% for key, tpl in panel.start %}{% include tpl %}{% endfor %}<span class="pl-fill"></span>{% if panel.center %}<span class="pl-center">{% for key, tpl in panel.center %}{% include tpl %}{% endfor %}</span>{% endif %}{% for key, tpl in panel.end %}{% include tpl %}{% endfor %}
     </header>
 
     <nav class="tui-apps" aria-label="Applications">

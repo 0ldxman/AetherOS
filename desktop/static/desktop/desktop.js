@@ -38,9 +38,11 @@ function formatDate(parts) {
 
 function updateClock() {
   const parts = gameParts();
-  clock.textContent = `${parts.hour}:${parts.minute}:${parts.second}`;
-  clock.title = parts.zone;
-  dateEl.textContent = formatDate(parts);
+  if (clock) {                       // часов может не быть: автор ОС убрал их с панели
+    clock.textContent = `${parts.hour}:${parts.minute}:${parts.second}`;
+    clock.title = parts.zone;
+  }
+  if (dateEl) dateEl.textContent = formatDate(parts);
 }
 
 updateClock();
@@ -75,7 +77,7 @@ function updatePing() {
     ping = nextPing();
     const value = Math.round(ping);
 
-    pingValue.textContent = value;
+    if (pingValue) pingValue.textContent = value;          // пинга может не быть на панели
 
     if (value <= 90) {
         document.documentElement.style.setProperty(
@@ -209,6 +211,7 @@ const WINDOW_BOTTOM = taskbar.getBoundingClientRect().top < 1 ? (reserveBottom ?
 const WINDOW_TOP = BAR_TOP + (TAB_OUTSIDE ? TAB_HEIGHT + 2 : 0);
 // края стола под панелями: по ним окно «на весь экран» (заголовок full, static/ui/parts/windows.css)
 document.documentElement.style.setProperty("--desk-top-auto", BAR_TOP + "px");
+document.documentElement.style.setProperty("--pl-h", taskbar.offsetHeight + "px");      // высота панели: от неё всплывают меню
 document.documentElement.style.setProperty("--desk-bottom-auto", WINDOW_BOTTOM + "px");
 
 // Размер стола мог измениться с прошлого раза: окно не должно оказаться за краем

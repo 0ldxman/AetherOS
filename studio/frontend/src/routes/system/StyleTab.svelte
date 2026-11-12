@@ -10,11 +10,13 @@
   import WallpaperPicker from "./WallpaperPicker.svelte";
 
   type System = Schemas["SystemOut"];
+  type Panel = { look?: string; edge?: string; form?: string; start?: string[]; center?: string[]; end?: string[] };
+  type Slot = "start" | "center" | "end";
   type Done = (data: System | undefined, error: unknown, text: string) => void;
 
   let { system, errors, done, onstate }: { system: System; errors: Record<string, string[]>; done: Done; onstate: (state: { dirty: boolean; share: typeof share; save: () => unknown } | null) => void } = $props();
 
-  let look = $state({ style: "aether", tokens: {} as Record<string, string>, wallpaper: { ...WALLPAPER_DEFAULT } as Wallpaper, widgets: {} as Record<string, boolean>, places: {} as Record<string, string>, win: {} as Record<string, string> });
+  let look = $state({ style: "aether", tokens: {} as Record<string, string>, wallpaper: { ...WALLPAPER_DEFAULT } as Wallpaper, widgets: {} as Record<string, boolean>, places: {} as Record<string, string>, win: {} as Record<string, string>, panel: {} as Panel });
   let picking = $state(false);
   let lookSaved = $state("");
   let base = $state<typeof look | null>(null);                  // сохранённое: им наполняется общий черновик
@@ -24,7 +26,7 @@
   const HEX6 = /^#[0-9a-fA-F]{6}$/;
 
   async function saveLook() {
-    const body = { style: look.style, tokens: look.tokens, wallpaper: look.wallpaper, widgets: look.widgets, widget_places: look.places, window: look.win };
+    const body = { style: look.style, tokens: look.tokens, wallpaper: look.wallpaper, widgets: look.widgets, widget_places: look.places, window: look.win, panel: look.panel };
     const { data, error } = await api.PUT("/studio/api/systems/{code}/style", { params: { path: { code: system.code } }, body });
     if (data) share.markSaved();
     done(data, error, "Стиль сохранён.");
@@ -49,7 +51,7 @@
 
   $effect(() => {
     if (!deskPreview) return;
-    const url = `${system.preview_url}?preview_os=${encodeURIComponent(system.code)}&preview_style=${encodeURIComponent(look.style)}&preview_tokens=${encodeURIComponent(JSON.stringify(look.tokens))}&preview_wall=${encodeURIComponent(JSON.stringify(look.wallpaper))}&preview_widgets=${encodeURIComponent(JSON.stringify(look.widgets))}&preview_places=${encodeURIComponent(JSON.stringify(look.places))}&preview_parts=${encodeURIComponent(JSON.stringify({ window: look.win }))}`;
+    const url = `${system.preview_url}?preview_os=${encodeURIComponent(system.code)}&preview_style=${encodeURIComponent(look.style)}&preview_tokens=${encodeURIComponent(JSON.stringify(look.tokens))}&preview_wall=${encodeURIComponent(JSON.stringify(look.wallpaper))}&preview_widgets=${encodeURIComponent(JSON.stringify(look.widgets))}&preview_places=${encodeURIComponent(JSON.stringify(look.places))}&preview_parts=${encodeURIComponent(JSON.stringify({ window: look.win, panel: look.panel }))}`;
     clearTimeout(deskTimer);
     deskTimer = setTimeout(() => (previewSrc = url), 350);
     return () => clearTimeout(deskTimer);
@@ -70,8 +72,8 @@
   $effect(() => {
     const data = system;
     untrack(() => {
-      const next = { style: data.style, tokens: { ...data.style_tokens }, wallpaper: { ...WALLPAPER_DEFAULT, ...data.wallpaper }, widgets: { ...data.widgets }, places: { ...data.widget_places }, win: { ...data.window } };
-      if (!share.ready) look = { style: next.style, tokens: { ...next.tokens }, wallpaper: { ...next.wallpaper }, widgets: { ...next.widgets }, places: { ...next.places }, win: { ...next.win } };
+      const next = { style: data.style, tokens: { ...data.style_tokens }, wallpaper: { ...WALLPAPER_DEFAULT, ...data.wallpaper }, widgets: { ...data.widgets }, places: { ...data.widget_places }, win: { ...data.window }, panel: Object.fromEntries(Object.entries(data.panel).filter(([, v]) => v !== null)) as Panel };
+      if (!share.ready) look = { style: next.style, tokens: { ...next.tokens }, wallpaper: { ...next.wallpaper }, widgets: { ...next.widgets }, places: { ...next.places }, win: { ...next.win }, panel: structuredClone(next.panel) };
       lookSaved = JSON.stringify(next);
       base = next;
     });
@@ -96,8 +98,46 @@
     "Форма": "Скругление, толщина рамок и размеры элементов.",
   };
   let section = $state((() => { try { return localStorage.getItem(SECTION_KEY) ?? "wall"; } catch { return "wall"; } })());
-  const sections = $derived(["wall", "windows", "widgets", ...groups]);
-  const SECTION_LABEL: Record<string, string> = { wall: "Картинка и узор", windows: "Окна", widgets: "Элементы стола" };
+  const sections = $derived(["wall", "windows", "panel", "widgets", ...groups]);
+  const SECTION_LABEL: Record<string, string> = { wall: "Картинка и узор", windows: "Окна", panel: "Панель", widgets: "Элементы стола" };
+
+  // ---------- панель: вид, край, форма и элементы в трёх слотах ----------
+  const PI = $derived(system.panel_info);
+  const SLOTS: Slot[] = ["start", "center", "end"];
+  const styleLook = $derived(PI.look_of_style[look.style] ?? "aether");
+  const curLook = $derived(look.panel.look ?? styleLook);
+  const panelPreset = $derived(PI.presets[curLook]);
+  const fixedEdge = $derived(PI.fixed_edge.includes(curLook));
+  const curEdge = $derived(fixedEdge ? panelPreset.edge : look.panel.edge ?? panelPreset.edge);
+  const curForm = $derived(look.panel.form ?? panelPreset.form);
+  const slotList = (slot: Slot): string[] => look.panel[slot] ?? panelPreset[slot];
+  const placedKeys = $derived(new Set(SLOTS.flatMap((s) => slotList(s))));
+  const elLabel = (key: string) => PI.elements.find((e) => e.key === key)?.label ?? key;
+  const elHint = (key: string) => PI.elements.find((e) => e.key === key)?.hint ?? "";
+  const panelOwn = $derived(Object.keys(look.panel).length);
+  const noExit = $derived(!["tui", "phosphor"].includes(curLook) && !PI.exits.some((key) => placedKeys.has(key)));
+  let adding = $state<Record<string, string>>({});
+  function setLook(value: string) { look.panel = value === styleLook ? {} : { look: value }; }    // другой вид — его раскладка целиком
+  function setPanel(key: "edge" | "form", value: string) {
+    const next = { ...look.panel };
+    if (value === panelPreset[key]) delete next[key]; else next[key] = value;
+    look.panel = next;
+  }
+  function setSlots(lists: Record<Slot, string[]>) {
+    const next = { ...look.panel };
+    const same = SLOTS.every((s) => JSON.stringify(lists[s]) === JSON.stringify(panelPreset[s]));
+    for (const s of SLOTS) { if (same) delete next[s]; else next[s] = lists[s]; }
+    look.panel = next;
+  }
+  function editSlots(change: (lists: Record<Slot, string[]>) => void) {
+    const lists = { start: [...slotList("start")], center: [...slotList("center")], end: [...slotList("end")] };
+    change(lists);
+    setSlots(lists);
+  }
+  const moveIn = (slot: Slot, i: number, dir: number) => editSlots((l) => { const j = i + dir; if (j < 0 || j >= l[slot].length) return; [l[slot][i], l[slot][j]] = [l[slot][j], l[slot][i]]; });
+  const moveTo = (slot: Slot, i: number, dir: number) => editSlots((l) => { const to = SLOTS[SLOTS.indexOf(slot) + dir]; if (!to) return; const [key] = l[slot].splice(i, 1); if (dir > 0) l[to].unshift(key); else l[to].push(key); });
+  const removeEl = (slot: Slot, i: number) => editSlots((l) => { l[slot].splice(i, 1); });
+  const addEl = (slot: Slot, key: string) => { if (key) editSlots((l) => { l[slot].push(key); }); adding = { ...adding, [slot]: "" }; };
   const label = (key: string) => SECTION_LABEL[key] ?? key;
 
   // ---------- окна: каждый параметр «как в стиле» или свой вариант ----------
@@ -119,8 +159,7 @@
   // ---------- элементы стола: у каждого «как в стиле», «вкл», «выкл»; чего нет в оболочке стиля, то недоступно ----------
   const widgetGroups = $derived([...new Set(system.widget_info.map((w) => w.group))]);
   const native = (w: Schemas["WidgetInfo"]) => w.native.includes(look.style);
-  const locked = (w: Schemas["WidgetInfo"]) => w.locked.includes(look.style);
-  const isOn = (w: Schemas["WidgetInfo"]) => locked(w) || (look.widgets[w.key] ?? native(w));
+  const isOn = (w: Schemas["WidgetInfo"]) => look.widgets[w.key] ?? native(w);
   function setPlace(key: string, value: string) { look.places = { ...look.places, [key]: value }; }
   function setWidget(key: string, value: boolean | null) {
     const next = { ...look.widgets };
@@ -129,9 +168,10 @@
   }
   const widgetsOwn = $derived(Object.keys(look.widgets).length);
   const widgetWarning = $derived.by(() => {
-    if (look.style === "phosphor") return "";
+    if (["phosphor", "tui"].includes(curLook)) return "";
     const on = (key: string) => { const w = system.widget_info.find((x) => x.key === key); return !!w && isOn(w); };
-    return !on("icons") && !on("launcher") && !on("dock") ? "Выключены и значки, и меню запуска, и док: приложения на этой ОС открыть нечем, кроме ссылок и хуков." : "";
+    const inPanel = ["launcher", "search", "apps"].some((key) => placedKeys.has(key));
+    return !on("icons") && !on("dock") && !inPanel ? "Нет ни значков, ни дока, ни меню запуска или быстрого запуска на панели: приложения на этой ОС открыть нечем, кроме ссылок и хуков." : "";
   });
   $effect(() => { if (!sections.includes(section)) section = "wall"; });
   $effect(() => { const value = section; try { localStorage.setItem(SECTION_KEY, value); } catch { /* память браузера может быть закрыта */ } });
@@ -175,10 +215,10 @@
   <div class="settings">
     <nav class="rail" aria-label="Разделы настроек">
       {#each sections as key (key)}
-        {@const own = key === "wall" ? (wallChanged ? 1 : 0) : key === "widgets" ? widgetsOwn : key === "windows" ? winOwn : ownIn(key)}
+        {@const own = key === "wall" ? (wallChanged ? 1 : 0) : key === "widgets" ? widgetsOwn : key === "windows" ? winOwn : key === "panel" ? panelOwn : ownIn(key)}
         <button class="rail-item" class:on={!query && section === key} aria-current={!query && section === key ? "true" : undefined} onclick={() => { section = key; find = ""; }}>
           <span>{label(key)}</span>
-          {#if own}<span class="badge" title={key === "wall" ? "Картинка или узор заданы" : key === "widgets" ? `Изменено элементов: ${own}` : key === "windows" ? `Изменено параметров: ${own}` : `Изменено токенов: ${own}`}>{key === "wall" ? "●" : own}</span>{/if}
+          {#if own}<span class="badge" title={key === "wall" ? "Картинка или узор заданы" : key === "widgets" ? `Изменено элементов: ${own}` : key === "windows" || key === "panel" ? `Изменено параметров: ${own}` : `Изменено токенов: ${own}`}>{key === "wall" ? "●" : own}</span>{/if}
         </button>
       {/each}
       <div class="rail-foot">
@@ -191,7 +231,7 @@
       <header class="phead">
         <div>
           <h3>{query ? "Поиск по токенам" : label(section)}</h3>
-          <p class="muted small">{query ? `Найдено: ${shown.length}` : section === "windows" ? "Из чего собрано окно: заголовок, рамка и кнопки. Каждый параметр берётся у стиля, пока не выбран свой; цвета остаются от токенов." : section === "widgets" ? "Что показывает оболочка стиля на этой ОС. Вид у каждого элемента от стиля; две ОС с одним стилем могут показывать разное." : section === "wall" ? "Лежат под окнами и значками, не зависят от выбранного стиля. Цвет под ними это токен «Фон рабочего стола» в разделе «Цвета»." : GROUP_NOTE[section]}</p>
+          <p class="muted small">{query ? `Найдено: ${shown.length}` : section === "panel" ? "Главная панель стола: чей вид, у какого края и что в ней стоит. Элемент, который вид рисует сам на этом месте, выглядит родным; остальные добавляются в оформлении вида." : section === "windows" ? "Из чего собрано окно: заголовок, рамка и кнопки. Каждый параметр берётся у стиля, пока не выбран свой; цвета остаются от токенов." : section === "widgets" ? "Что лежит на самом столе: док, значки, бегущая строка, всплывающие уведомления. Вид у каждого от стиля; две ОС с одним стилем могут показывать разное." : section === "wall" ? "Лежат под окнами и значками, не зависят от выбранного стиля. Цвет под ними это токен «Фон рабочего стола» в разделе «Цвета»." : GROUP_NOTE[section]}</p>
         </div>
         <div class="tools">
           {#if !SECTION_LABEL[section] || query}
@@ -281,18 +321,86 @@
           {/each}
           {#if errors.window}{#each errors.window as text}<p class="warn small">{text}</p>{/each}{/if}
         </div>
+      {:else if section === "panel" && !query}
+        <div class="winparams">
+          <div class="wprow">
+            <div class="wphead"><b>Вид панели</b>{#if look.panel.look}<button class="btn ghost small" onclick={() => setLook(styleLook)}>вернуть как в стиле</button>{/if}</div>
+            <div class="chips" role="radiogroup" aria-label="Вид панели">
+              {#each PI.looks as option (option.value)}
+                <button type="button" role="radio" class="chip" aria-checked={curLook === option.value} class:on={curLook === option.value} onclick={() => setLook(option.value)}>
+                  {option.label}{#if option.value === styleLook}<span class="wkind own">стиль</span>{/if}
+                </button>
+              {/each}
+            </div>
+            <p class="muted small">Другой вид приходит со своей раскладкой; её можно поменять ниже.</p>
+          </div>
+          <div class="wprow">
+            <div class="wphead"><b>Край</b></div>
+            <div class="chips" role="radiogroup" aria-label="Край панели">
+              {#each PI.edges as option (option.value)}
+                <button type="button" role="radio" class="chip" disabled={fixedEdge && option.value !== panelPreset.edge} aria-checked={curEdge === option.value} class:on={curEdge === option.value} onclick={() => setPanel("edge", option.value)}>
+                  {option.label}{#if option.value === panelPreset.edge}<span class="wkind own">вид</span>{/if}
+                </button>
+              {/each}
+            </div>
+            {#if fixedEdge}<p class="muted small">У этого вида панель — строка состояния сверху, а снизу своя полоса клавиш: край не меняется.</p>{/if}
+          </div>
+          <div class="wprow">
+            <div class="wphead"><b>Форма</b></div>
+            <div class="chips" role="radiogroup" aria-label="Форма панели">
+              {#each PI.forms as option (option.value)}
+                <button type="button" role="radio" class="chip" aria-checked={curForm === option.value} class:on={curForm === option.value} onclick={() => setPanel("form", option.value)}>
+                  {option.label}{#if option.value === panelPreset.form}<span class="wkind own">вид</span>{/if}
+                </button>
+              {/each}
+            </div>
+          </div>
+          <div class="wprow">
+            <div class="wphead"><b>Что стоит на панели</b>{#if look.panel.start}<button class="btn ghost small" onclick={() => setSlots({ start: [...panelPreset.start], center: [...panelPreset.center], end: [...panelPreset.end] })}>вернуть раскладку вида</button>{/if}</div>
+            <div class="slotgrid">
+              {#each SLOTS as slot, s (slot)}
+                <div class="slotcol">
+                  <span class="wlabel">{PI.slots.find((x) => x.value === slot)?.label}</span>
+                  {#each slotList(slot) as key, i (key)}
+                    <div class="slotel" title={elHint(key)}>
+                      <span class="slotname">{elLabel(key)}</span>
+                      <span class="slotbtns">
+                        <button type="button" class="ib" disabled={i === 0} onclick={() => moveIn(slot, i, -1)} aria-label="Выше: {elLabel(key)}">↑</button>
+                        <button type="button" class="ib" disabled={i === slotList(slot).length - 1} onclick={() => moveIn(slot, i, 1)} aria-label="Ниже: {elLabel(key)}">↓</button>
+                        <button type="button" class="ib" disabled={s === 0} onclick={() => moveTo(slot, i, -1)} aria-label="В слот левее: {elLabel(key)}">←</button>
+                        <button type="button" class="ib" disabled={s === SLOTS.length - 1} onclick={() => moveTo(slot, i, 1)} aria-label="В слот правее: {elLabel(key)}">→</button>
+                        <button type="button" class="ib" onclick={() => removeEl(slot, i)} aria-label="Убрать: {elLabel(key)}">×</button>
+                      </span>
+                    </div>
+                  {:else}
+                    <p class="muted small slotempty">пусто</p>
+                  {/each}
+                  {#if PI.elements.some((e) => !placedKeys.has(e.key))}
+                    <select class="field addel" value={adding[slot] ?? ""} onchange={(e) => addEl(slot, e.currentTarget.value)} aria-label="Добавить в {PI.slots.find((x) => x.value === slot)?.label}">
+                      <option value="">+ добавить…</option>
+                      {#each PI.elements.filter((e) => !placedKeys.has(e.key)) as e (e.key)}<option value={e.key}>{e.label}</option>{/each}
+                    </select>
+                  {/if}
+                </div>
+              {/each}
+            </div>
+            <p class="muted small">Порядок сверху вниз — слева направо на панели. Центр стоит посередине панели поверх распорки.</p>
+          </div>
+          {#if noExit}<p class="warn small">Игроку не выйти из сеанса: оставьте на панели меню запуска, «Сеанс» или «Кнопки сеанса».</p>{/if}
+          {#if errors.panel}{#each errors.panel as text}<p class="warn small">{text}</p>{/each}{/if}
+        </div>
       {:else if section === "widgets" && !query}
         <div class="widgets">
           {#if widgetWarning}<p class="warn small">{widgetWarning}</p>{/if}
           {#each widgetGroups as group (group)}
-            <h4 class="wgroup">{group === "Панель" ? "На панелях оболочки" : "На самом столе"}</h4>
+            <h4 class="wgroup">{group === "Панель" ? "У часов на панели" : "На самом столе"}</h4>
             {#each system.widget_info.filter((w) => w.group === group) as w (w.key)}
               {@const value = look.widgets[w.key]}
               {@const own = native(w)}
               <div class="wrow">
                 <div class="wname">
                   <b>{w.label}<span class="wkind" class:own>{own ? "родной в стиле" : "добавляется"}</span></b>
-                  <span class="muted small">{locked(w) ? "Здесь выход из сессии: в этом стиле не выключается." : w.hint}</span>
+                  <span class="muted small">{w.hint}</span>
                 </div>
                 <div class="wctl2">
                   {#if !own && isOn(w) && w.places.length}
@@ -301,9 +409,9 @@
                     </select>
                   {/if}
                   <div class="seg" role="radiogroup" aria-label={w.label}>
-                    <button type="button" role="radio" aria-checked={value === undefined} disabled={locked(w)} class:on={value === undefined && !locked(w)} onclick={() => setWidget(w.key, null)} title="Как в стиле: {own ? 'есть' : 'нет'}">стиль · {own ? "вкл" : "выкл"}</button>
-                    <button type="button" role="radio" aria-checked={value === true || locked(w)} class:on={value === true || locked(w)} onclick={() => setWidget(w.key, true)}>вкл</button>
-                    <button type="button" role="radio" aria-checked={value === false} disabled={locked(w)} class:on={value === false} onclick={() => setWidget(w.key, false)}>выкл</button>
+                    <button type="button" role="radio" aria-checked={value === undefined} class:on={value === undefined} onclick={() => setWidget(w.key, null)} title="Как в стиле: {own ? 'есть' : 'нет'}">стиль · {own ? "вкл" : "выкл"}</button>
+                    <button type="button" role="radio" aria-checked={value === true} class:on={value === true} onclick={() => setWidget(w.key, true)}>вкл</button>
+                    <button type="button" role="radio" aria-checked={value === false} class:on={value === false} onclick={() => setWidget(w.key, false)}>выкл</button>
                   </div>
                 </div>
               </div>
@@ -462,4 +570,16 @@
   .chip:hover { color: var(--text); border-color: var(--line); }
   .chip.on { border-color: var(--accent); background: var(--accent-soft); color: var(--text); }
   .chip:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+  .chip:disabled { opacity: 0.45; cursor: not-allowed; }
+  .slotgrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 10px; }
+  .slotcol { display: flex; flex-direction: column; gap: 6px; min-width: 0; padding: 8px; border: 1px dashed var(--line-soft); border-radius: var(--radius-s); }
+  .slotel { display: flex; align-items: center; justify-content: space-between; gap: 6px; padding: 4px 4px 4px 10px; border: 1px solid var(--line-soft); border-radius: var(--radius-s); background: var(--bg); }
+  .slotname { flex: 1; min-width: 60px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12.5px; }
+  .slotbtns { display: inline-flex; flex: none; }
+  .ib { width: 22px; height: 22px; padding: 0; border: 0; border-radius: 4px; background: none; color: var(--muted); font: inherit; font-size: 12px; cursor: pointer; }
+  .ib:hover:not(:disabled) { background: var(--panel-2); color: var(--text); }
+  .ib:disabled { opacity: 0.3; cursor: default; }
+  .ib:focus-visible { outline: 2px solid var(--accent); }
+  .slotempty { padding: 4px 2px; }
+  .addel { width: 100%; height: 28px; font-size: 12px; }
 </style>

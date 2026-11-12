@@ -4,7 +4,7 @@
 [data-panel="phosphor"] { --desk-top: 24px; --desk-bottom: 24px; }
 
 /* пока консоль открыта, меню занимает оставшееся место над ней */
-[data-panel="phosphor"]:has(.winbox.app-terminal:not(.min)) .fw-menu { bottom: calc(40px + var(--console-h)); }
+[data-panel="phosphor"]:has(.winbox.app-terminal:not(.min)) .fw-menu { bottom: calc(40px + var(--console-h, 40vh)); }
 
 /* ---- строка состояния сверху и подсказки снизу: инверсия ---- */
 [data-panel="phosphor"] #taskbar,

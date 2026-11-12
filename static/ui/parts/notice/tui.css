@@ -13,7 +13,7 @@
 [data-notice="tui"] .winbox.aether.dialog-window--warning .wb-title::after { content: " ╞"; }
 
 [data-notice="tui"] .winbox.aether.dialog-window--error .wb-control *,
-[data-notice="tui"] .winbox.aether.dialog-window--warning .wb-control * { color: var(--frame); }
+[data-notice="tui"] .winbox.aether.dialog-window--warning .wb-control * { color: var(--frame, var(--line-bright)); }
 
 [data-notice="tui"] .winbox.aether.dialog-window--error .wb-header,
 [data-notice="tui"] .winbox.aether.dialog-window--warning .wb-header { background: var(--bg); border: 0; }
@@ -38,7 +38,7 @@
   background: var(--bg);
   border: 3px double var(--fg);
   border-left-width: 3px;
-  box-shadow: var(--tui-shadow);
+  box-shadow: var(--tui-shadow, 8px 8px 0 #262626);
   color: var(--fg);
 }
 

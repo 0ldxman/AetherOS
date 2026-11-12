@@ -8,7 +8,7 @@
   min-width: 25ch;
   background: var(--bg);
   border: 3px double var(--fg);
-  box-shadow: var(--tui-shadow);
+  box-shadow: var(--tui-shadow, 8px 8px 0 #262626);
   color: var(--fg);
 }
 
@@ -121,7 +121,7 @@
   max-height: 60vh;
   background: var(--bg);
   border: 3px double var(--fg);
-  box-shadow: var(--tui-shadow);
+  box-shadow: var(--tui-shadow, 8px 8px 0 #262626);
   color: var(--fg);
 }
 

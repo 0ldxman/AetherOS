@@ -6713,6 +6713,68 @@ export interface components {
             /** Order */
             order: number;
         };
+        /** PanelElement */
+        PanelElement: {
+            /** Key */
+            key: string;
+            /** Label */
+            label: string;
+            /** Hint */
+            hint: string;
+        };
+        /** PanelInfo */
+        PanelInfo: {
+            /** Elements */
+            elements: components["schemas"]["PanelElement"][];
+            /** Looks */
+            looks: components["schemas"]["WindowOption"][];
+            /** Edges */
+            edges: components["schemas"]["WindowOption"][];
+            /** Forms */
+            forms: components["schemas"]["WindowOption"][];
+            /** Slots */
+            slots: components["schemas"]["WindowOption"][];
+            /** Exits */
+            exits: string[];
+            /** Fixed Edge */
+            fixed_edge: string[];
+            /** Look Of Style */
+            look_of_style: {
+                [key: string]: string;
+            };
+            /** Presets */
+            presets: {
+                [key: string]: components["schemas"]["PanelLayout"];
+            };
+        };
+        /** PanelLayout */
+        PanelLayout: {
+            /** Edge */
+            edge: string;
+            /** Form */
+            form: string;
+            /** Start */
+            start: string[];
+            /** Center */
+            center: string[];
+            /** End */
+            end: string[];
+        };
+        /** PanelValue */
+        PanelValue: {
+            /** Look */
+            look?: string | null;
+            /** Edge */
+            edge?: string | null;
+            /** Form */
+            form?: string | null;
+            /** Start */
+            start?: string[] | null;
+            /** Center */
+            center?: string[] | null;
+            /** End */
+            end?: string[] | null;
+        };
         /** PlaceRow */
         PlaceRow: {
             /** Name */
@@ -6785,6 +6847,8 @@ export interface components {
                     [key: string]: string;
                 };
             };
+            panel: components["schemas"]["PanelValue"];
+            panel_info: components["schemas"]["PanelInfo"];
             /** Styles */
             styles: components["schemas"]["StyleChoice"][];
             /** Token Info */
@@ -6912,8 +6976,6 @@ export interface components {
             hint: string;
             /** Native */
             native: string[];
-            /** Locked */
-            locked: string[];
             /** Places */
             places: components["schemas"]["WidgetPlace"][];
         };
@@ -7047,6 +7109,7 @@ export interface components {
             window?: {
                 [key: string]: string;
             } | null;
+            panel?: components["schemas"]["PanelValue"] | null;
         };
         /** ImageListing */
         ImageListing: {

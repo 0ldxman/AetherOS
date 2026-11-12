@@ -1,24 +1,10 @@
 {% load os_style %}{% comment %}
-  Оболочка стиля modern: панель задач снизу с кнопкой «Пуск», списком открытых окон и значком связи;
-  меню «Пуск» (поиск, приложения, действия сессии). Ожидает от desktop.js элементы #taskbar, #clock, #date, #ping-value;
-  меню и список окон оживляет shell.js по атрибутам data-shell.
+  Вид панели «modern»: панель задач снизу: «Пуск», окна, связь, уведомления и часы; меню «Пуск» с поиском.
+  Элементы в слотах расставляет machines/world/panel.py (родная разметка вида — desktop/panels/modern/, общая — desktop/elements/).
+  Ожидает от desktop.js #taskbar; часы, пинг и меню сеанса — если стоят на панели. Остальное оживляет shell.js по data-shell.
 {% endcomment %}
     <header id="taskbar">
-        <button type="button" class="start-button" data-shell="launcher" aria-haspopup="dialog" aria-expanded="false" aria-controls="launcher" title="Start">
-            <span class="start-logo" aria-hidden="true"></span>
-        </button>
-        {% os_slot "start" %}
-        <div class="tasks" data-shell="tasks"></div>
-        {% os_slot "end" %}
-        <div class="ping">
-            <span class="ping-dot"></span>
-            <span id="ping-value">42</span>
-            <span id="ping-unit">ms</span>
-        </div>
-        <button type="button" class="bell" data-shell="notices-toggle" aria-haspopup="dialog" aria-expanded="false" aria-controls="notices-panel" title="Notifications">
-            <span class="bell-icon" aria-hidden="true"></span>
-            <span class="bell-count" data-shell="notices-count" hidden>0</span>
-        </button>
+        {% for key, tpl in panel.start %}{% include tpl %}{% endfor %}<span class="pl-fill"></span>{% if panel.center %}<span class="pl-center">{% for key, tpl in panel.center %}{% include tpl %}{% endfor %}</span>{% endif %}{% for key, tpl in panel.end %}{% include tpl %}{% endfor %}
     </header>
 
     <section id="notices-panel" class="notices-panel" data-shell="notices-panel" aria-label="Notifications" hidden>
@@ -59,10 +45,5 @@
             <span class="widget-mail-count" data-widget-field="unread"></span>
         </button>
     </aside>
-
-    <div id="clock-plate">
-        <span id="clock"></span>
-        <span id="date"></span>
-    </div>
 
     {% os_slot "desk" %}

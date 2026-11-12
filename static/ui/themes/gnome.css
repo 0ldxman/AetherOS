@@ -73,7 +73,7 @@
 [data-theme="gnome"] .icon-badge { border-radius: 9px; color: var(--font-dark); }
 
 /* ==========================================================================
- * Оболочка (разметка desktop/shells/gnome.html): «Overview», обзор, док. Иконок на столе нет.
+ * Оболочка (разметка desktop/panels/gnome.html): «Overview», обзор, док. Иконок на столе нет.
  * ========================================================================== */
 
 [data-theme="gnome"] #icons { visibility: hidden; pointer-events: none; }
