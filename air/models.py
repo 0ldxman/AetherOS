@@ -103,6 +103,7 @@ class Transmission(models.Model):
     on_air = models.CharField("Как звучит в эфире", max_length=400, blank=True, help_text="Шифровка, если передали с ключом; пусто: открытый текст.")
     key = models.CharField("Ключ шифра", max_length=32, blank=True, help_text="Видят только авторы.")
     key_mark = models.CharField(max_length=16, blank=True, help_text="Отпечаток ключа: с тем же ключом слушатель видит открытый текст.")
+    via = models.CharField("Откуда", max_length=16, blank=True, help_text="discord: пришло из канала Discord через мост.")
 
     class Meta:
         ordering = ("created_at", "pk")
@@ -198,3 +199,53 @@ class PendingReply(models.Model):
                              help_text="Для песочницы: ответ слышит только песочный игрок.")
     sandbox = models.BooleanField(default=False)
     key = models.CharField(max_length=32, blank=True)
+
+
+class BridgeLink(models.Model):
+    """Мост частоты с каналом Discord: передачи частоты уходят в канал, сообщения канала выходят в эфир от позывных игроков."""
+
+    freq = models.DecimalField("Частота", max_digits=6, decimal_places=3, unique=True)
+    channel_id = models.CharField("Канал Discord (ID)", max_length=32, unique=True)
+    label = models.CharField("Подпись для авторов", max_length=120, blank=True)
+    active = models.BooleanField("Включён", default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ("freq",)
+        verbose_name = "Мост с Discord"
+        verbose_name_plural = "Мосты с Discord"
+
+    def __str__(self):
+        return f"{self.freq} ↔ #{self.channel_id}"
+
+
+class BridgeMessage(models.Model):
+    """Сообщение моста: передача, ушедшая в Discord (out), или сообщение Discord, вышедшее в эфир (in). Бот берёт отсюда работу."""
+
+    class State(models.TextChoices):
+        QUEUED = "queued", "в очереди"
+        SENT = "sent", "в Discord"
+        DELETE = "delete", "удалить в Discord"
+        DELETED = "deleted", "удалено"
+        FAILED = "failed", "не ушло"
+
+    transmission = models.ForeignKey(Transmission, on_delete=models.CASCADE, related_name="bridged")
+    link = models.ForeignKey(BridgeLink, on_delete=models.CASCADE, related_name="messages")
+    inbound = models.BooleanField(default=False)
+    discord_id = models.CharField(max_length=32, blank=True)
+    state = models.CharField(max_length=16, choices=State.choices, default=State.QUEUED, db_index=True)
+    attempts = models.PositiveSmallIntegerField(default=0)
+    error = models.CharField(max_length=200, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ("pk",)
+
+
+class BridgeState(models.Model):
+    """Кто держит бота (одна запись): при нескольких процессах сайта к Discord подключается только один."""
+
+    holder = models.CharField(max_length=120, blank=True)
+    seen_at = models.DateTimeField(null=True, blank=True)
+    bot_name = models.CharField(max_length=120, blank=True)
+    error = models.CharField(max_length=300, blank=True)

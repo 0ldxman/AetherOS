@@ -11974,6 +11974,143 @@
      }
     ]
    }
+  },
+  "/studio/api/air/bridges": {
+   "get": {
+    "operationId": "studio_api_air_bridges",
+    "summary": "Bridges",
+    "parameters": [],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/AirBridges"
+        }
+       }
+      }
+     }
+    },
+    "tags": [
+     "air"
+    ],
+    "security": [
+     {
+      "StudioAuth": []
+     }
+    ]
+   },
+   "post": {
+    "operationId": "studio_api_air_add_bridge",
+    "summary": "Add Bridge",
+    "parameters": [],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/AirBridge"
+        }
+       }
+      }
+     }
+    },
+    "tags": [
+     "air"
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/AirBridgeIn"
+       }
+      }
+     },
+     "required": true
+    },
+    "security": [
+     {
+      "StudioAuth": []
+     }
+    ]
+   }
+  },
+  "/studio/api/air/bridges/{bridge_id}": {
+   "put": {
+    "operationId": "studio_api_air_change_bridge",
+    "summary": "Change Bridge",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "bridge_id",
+      "schema": {
+       "title": "Bridge Id",
+       "type": "integer"
+      },
+      "required": true
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/AirBridge"
+        }
+       }
+      }
+     }
+    },
+    "tags": [
+     "air"
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/AirBridgeIn"
+       }
+      }
+     },
+     "required": true
+    },
+    "security": [
+     {
+      "StudioAuth": []
+     }
+    ]
+   },
+   "delete": {
+    "operationId": "studio_api_air_delete_bridge",
+    "summary": "Delete Bridge",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "bridge_id",
+      "schema": {
+       "title": "Bridge Id",
+       "type": "integer"
+      },
+      "required": true
+     }
+    ],
+    "responses": {
+     "204": {
+      "description": "No Content"
+     }
+    },
+    "tags": [
+     "air"
+    ],
+    "security": [
+     {
+      "StudioAuth": []
+     }
+    ]
+   }
   }
  },
  "components": {
@@ -25263,6 +25400,143 @@
      "pattern"
     ],
     "title": "AirResponderIn",
+    "type": "object"
+   },
+   "AirBridge": {
+    "properties": {
+     "id": {
+      "title": "Id",
+      "type": "integer"
+     },
+     "freq": {
+      "title": "Freq",
+      "type": "string"
+     },
+     "channel_id": {
+      "title": "Channel Id",
+      "type": "string"
+     },
+     "label": {
+      "title": "Label",
+      "type": "string"
+     },
+     "active": {
+      "title": "Active",
+      "type": "boolean"
+     },
+     "sent": {
+      "title": "Sent",
+      "type": "integer"
+     },
+     "received": {
+      "title": "Received",
+      "type": "integer"
+     },
+     "failed": {
+      "title": "Failed",
+      "type": "integer"
+     }
+    },
+    "required": [
+     "id",
+     "freq",
+     "channel_id",
+     "label",
+     "active",
+     "sent",
+     "received",
+     "failed"
+    ],
+    "title": "AirBridge",
+    "type": "object"
+   },
+   "AirBridgeStatus": {
+    "properties": {
+     "token": {
+      "title": "Token",
+      "type": "boolean"
+     },
+     "online": {
+      "title": "Online",
+      "type": "boolean"
+     },
+     "bot": {
+      "title": "Bot",
+      "type": "string"
+     },
+     "seen_at": {
+      "anyOf": [
+       {
+        "format": "date-time",
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Seen At"
+     },
+     "error": {
+      "title": "Error",
+      "type": "string"
+     }
+    },
+    "required": [
+     "token",
+     "online",
+     "bot",
+     "seen_at",
+     "error"
+    ],
+    "title": "AirBridgeStatus",
+    "type": "object"
+   },
+   "AirBridges": {
+    "properties": {
+     "status": {
+      "$ref": "#/components/schemas/AirBridgeStatus"
+     },
+     "links": {
+      "items": {
+       "$ref": "#/components/schemas/AirBridge"
+      },
+      "title": "Links",
+      "type": "array"
+     }
+    },
+    "required": [
+     "status",
+     "links"
+    ],
+    "title": "AirBridges",
+    "type": "object"
+   },
+   "AirBridgeIn": {
+    "properties": {
+     "freq": {
+      "title": "Freq",
+      "type": "string"
+     },
+     "channel_id": {
+      "title": "Channel Id",
+      "type": "string"
+     },
+     "label": {
+      "default": "",
+      "title": "Label",
+      "type": "string"
+     },
+     "active": {
+      "default": true,
+      "title": "Active",
+      "type": "boolean"
+     }
+    },
+    "required": [
+     "freq",
+     "channel_id"
+    ],
+    "title": "AirBridgeIn",
     "type": "object"
    }
   },

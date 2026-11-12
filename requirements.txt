@@ -9,6 +9,7 @@ django-environ==0.14.0
 django-htmx==1.29.0
 django-ninja==1.7.2
 daphne==4.2.3
+discord.py==2.4.0
 esprima==4.0.1
 gunicorn==26.2.0
 idna==3.20

@@ -89,10 +89,34 @@
   let band = $state({ ...EMPTY_BAND });
   const ZONES: string[] = (Intl as unknown as { supportedValuesOf?: (key: string) => string[] }).supportedValuesOf?.("timeZone") ?? ["UTC"];
   const KIND = { open: "обычная", reserved: "зарезервирована", conditional: "по условию" } as Record<string, string>;
+  // мост с Discord
+  let bridges = $state<Schemas["AirBridges"] | null>(null);
+  let link = $state({ freq: "", channel_id: "", label: "" });
+  async function loadBridges() { bridges = (await api.GET("/studio/api/air/bridges")).data ?? null; }
+  async function addLink() {
+    const { error } = await api.POST("/studio/api/air/bridges", { body: { ...link, active: true } });
+    if (error) return toast(problem(error), "error");
+    toast(`Частота ${link.freq} связана с каналом.`);
+    link = { freq: "", channel_id: "", label: "" };
+    loadBridges();
+  }
+  async function toggleLink(l: Schemas["AirBridge"]) {
+    const { error } = await api.PUT("/studio/api/air/bridges/{bridge_id}", { params: { path: { bridge_id: l.id } }, body: { freq: l.freq, channel_id: l.channel_id, label: l.label, active: !l.active } });
+    if (error) return toast(problem(error), "error");
+    loadBridges();
+  }
+  async function dropLink(l: Schemas["AirBridge"]) {
+    if (!(await ask(`Убрать мост ${l.freq}?`, "Передачи частоты перестанут уходить в канал, а сообщения канала — в эфир. Уже отправленное останется в Discord."))) return;
+    await api.DELETE("/studio/api/air/bridges/{bridge_id}", { params: { path: { bridge_id: l.id } } });
+    loadBridges();
+  }
+  const ago = (iso: string | null) => { if (!iso) return ""; const s = Math.max(0, Math.round((Date.now() - Date.parse(iso)) / 1000)); return s < 60 ? `${s} с назад` : `${Math.round(s / 60)} мин назад`; };
+
   async function loadBands() {
     const [a, b] = await Promise.all([api.GET("/studio/api/air/bands"), api.GET("/studio/api/air/stations")]);
     bands = a.data ?? [];
     stations = b.data ?? [];
+    loadBridges();
     if (!say.station && stations.length) say.station = stations[0].id;
   }
   async function saveBand() {
@@ -257,6 +281,47 @@
       </form>
       <datalist id="band-zones">{#each ZONES as zone}<option value={zone}></option>{/each}</datalist>
     </section>
+
+    <section class="card">
+      <h3>Мост с Discord</h3>
+      <p class="muted small">Передачи частоты уходят в канал Discord (как их слышно без ключа: шифровка шифровкой), а сообщения канала выходят в эфир от позывных игроков, чей Discord привязан ко входу в игру.
+        Песочные, скрытые и передачи под условием на ключ в канал не попадают. Скрытие передачи здесь удаляет её и в Discord.</p>
+      {#if bridges}
+        {@const st = bridges.status}
+        <div class="botstate" class:ok={st.online} class:bad={st.token && !st.online}>
+          {#if !st.token}Бот не настроен: задайте переменную <code>DISCORD_BOT_TOKEN</code> и перезапустите сайт. Как завести бота — ниже.
+          {:else if st.online}На связи: <b>{st.bot}</b>, отметился {ago(st.seen_at)}.
+          {:else}Бот не на связи{st.seen_at ? `, последний раз ${ago(st.seen_at)}` : ""}.{st.error ? ` ${st.error}` : " Он поднимается вместе с сайтом через несколько секунд после старта."}{/if}
+        </div>
+        <table class="table">
+          <thead><tr><th>Частота</th><th>Канал Discord</th><th>Подпись</th><th>За сутки</th><th></th></tr></thead>
+          <tbody>
+            {#each bridges.links as l (l.id)}
+              <tr class:off={!l.active}><td class="mono">{l.freq}</td><td class="mono">#{l.channel_id}</td><td>{l.label}</td>
+                <td class="small">→ {l.sent} · ← {l.received}{#if l.failed}<span class="badge warn">не ушло: {l.failed}</span>{/if}</td>
+                <td class="acts"><button class="btn ghost small" onclick={() => toggleLink(l)}>{l.active ? "Выключить" : "Включить"}</button>
+                  <button class="btn ghost small danger" onclick={() => dropLink(l)}>Убрать</button></td></tr>
+            {:else}<tr><td colspan="5" class="muted">Мостов нет: эфир живёт только в игре.</td></tr>{/each}
+          </tbody>
+        </table>
+        <form class="row" onsubmit={(e) => { e.preventDefault(); addLink(); }}>
+          <input class="field mono w8" placeholder="МГц" bind:value={link.freq} aria-label="Частота" />
+          <input class="field mono w20" placeholder="ID канала Discord" bind:value={link.channel_id} aria-label="ID канала Discord" />
+          <input class="field grow" placeholder="подпись для авторов" bind:value={link.label} aria-label="Подпись" />
+          <button class="btn" disabled={!link.freq || !link.channel_id}>+ Мост</button>
+        </form>
+      {/if}
+      <details class="howto">
+        <summary>Как завести бота</summary>
+        <ol>
+          <li>discord.com/developers/applications → <b>New Application</b>, назовите (например, «AIR»).</li>
+          <li>Вкладка <b>Bot</b>: <b>Reset Token</b>, скопируйте токен. Там же включите <b>Message Content Intent</b>.</li>
+          <li>Вкладка <b>OAuth2 → URL Generator</b>: scope <code>bot</code>, права <i>View Channels, Send Messages, Read Message History, Manage Messages, Add Reactions</i>. Откройте ссылку и добавьте бота на сервер.</li>
+          <li>На сервере сайта задайте <code>DISCORD_BOT_TOKEN=…</code> (в .env рядом с остальными настройками) и перезапустите сайт: бот поднимется сам. Отдельно: <code>manage.py air_bridge</code>.</li>
+          <li>В Discord включите режим разработчика (Настройки → Расширенные), правой кнопкой по каналу → <b>Копировать ID канала</b>, впишите его здесь вместе с частотой.</li>
+        </ol>
+      </details>
+    </section>
   {:else if current === "stations"}
     <Stations onchange={loadBands} />
   {:else}
@@ -291,7 +356,8 @@
   .find input { width: 240px; padding: 6px 0; border: 0; outline: 0; background: none; color: var(--text); font: inherit; font-size: 13px; }
   .freq { width: 10ch; flex: none; }
   .row select, .say select { width: auto; flex: none; }
-  .row .w8 { flex: none; }
+  .row .w8, .row .w20 { flex: none; }
+  .w20 { width: 24ch; }
   .w8 { width: 9ch; }
   .mono { font-family: var(--mono); }
   .feed { list-style: none; margin: 0; padding: 0; border: 1px solid var(--line-soft); border-radius: var(--radius); max-height: calc(100vh - 330px); overflow: auto; }
@@ -326,4 +392,11 @@
   .state.shut { background: var(--raise); color: var(--muted); }
   .state.edge { background: color-mix(in srgb, var(--warn) 15%, transparent); color: var(--warn); }
   tr.editing td { background: var(--raise); }
+  tr.off td { opacity: 0.55; }
+  .botstate { padding: 8px 12px; border: 1px solid var(--line-soft); border-radius: var(--radius-s); background: var(--bg); font-size: 13px; }
+  .botstate.ok { border-color: color-mix(in srgb, var(--ok, #4cc38a) 50%, transparent); }
+  .botstate.bad { border-color: var(--warn); }
+  .howto summary { cursor: pointer; font-size: 13px; }
+  .howto ol { margin: 8px 0 0; padding-left: 20px; font-size: 13px; line-height: 1.6; }
+  code { font-family: var(--mono); font-size: 12px; }
 </style>

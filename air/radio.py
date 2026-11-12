@@ -140,7 +140,7 @@ def _keyed(text, key):
     return {"on_air": cipher.encrypt(text, key)[:400], "key": key, "key_mark": cipher.mark(key)} if key else {}
 
 
-def transmit(user, freq, text, machine=None, now=None, keys=frozenset(), box=None, air_key=""):
+def transmit(user, freq, text, machine=None, now=None, keys=frozenset(), box=None, air_key="", via=""):
     """Передача игрока. Ошибки: AirError с текстом для игрока. У вернувшейся передачи .effects: хуки ответчиков для браузера."""
     from air import events
     from machines.world import chrono
@@ -167,7 +167,7 @@ def transmit(user, freq, text, machine=None, now=None, keys=frozenset(), box=Non
         raise AirError("too many transmissions, wait a minute")
     purge(now)
     sent = Transmission.objects.create(freq=freq, user=user, callsign=sign.name, machine=machine, text=text, sandbox=is_sandbox(user), created_at=now,
-                                       **_keyed(text, air_key))
+                                       via=via, **_keyed(text, air_key))
     sent.effects = events.react(sent, keys, box, now)
     return sent
 
@@ -245,11 +245,17 @@ def hide(transmission, by, reason=""):
     transmission.hidden_at, transmission.hidden_by, transmission.hidden_reason = timezone.now(), by, reason[:200]
     transmission.save(update_fields=["hidden_at", "hidden_by", "hidden_reason"])
     Report.objects.filter(transmission=transmission, resolved_at=None).update(resolved_at=timezone.now())
+    from air import bridge
+
+    bridge.on_hide(transmission)
 
 
 def unhide(transmission):
     transmission.hidden_at, transmission.hidden_by, transmission.hidden_reason = None, None, ""
     transmission.save(update_fields=["hidden_at", "hidden_by", "hidden_reason"])
+    from air import bridge
+
+    bridge.on_unhide(transmission)
 
 
 def silence(user, minutes):

@@ -3858,6 +3858,42 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/studio/api/air/bridges": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Bridges */
+        get: operations["studio_api_air_bridges"];
+        put?: never;
+        /** Add Bridge */
+        post: operations["studio_api_air_add_bridge"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/studio/api/air/bridges/{bridge_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Change Bridge */
+        put: operations["studio_api_air_change_bridge"];
+        post?: never;
+        /** Delete Bridge */
+        delete: operations["studio_api_air_delete_bridge"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -9230,6 +9266,61 @@ export interface components {
              * @default
              */
             key: string;
+        };
+        /** AirBridge */
+        AirBridge: {
+            /** Id */
+            id: number;
+            /** Freq */
+            freq: string;
+            /** Channel Id */
+            channel_id: string;
+            /** Label */
+            label: string;
+            /** Active */
+            active: boolean;
+            /** Sent */
+            sent: number;
+            /** Received */
+            received: number;
+            /** Failed */
+            failed: number;
+        };
+        /** AirBridgeStatus */
+        AirBridgeStatus: {
+            /** Token */
+            token: boolean;
+            /** Online */
+            online: boolean;
+            /** Bot */
+            bot: string;
+            /** Seen At */
+            seen_at: string | null;
+            /** Error */
+            error: string;
+        };
+        /** AirBridges */
+        AirBridges: {
+            status: components["schemas"]["AirBridgeStatus"];
+            /** Links */
+            links: components["schemas"]["AirBridge"][];
+        };
+        /** AirBridgeIn */
+        AirBridgeIn: {
+            /** Freq */
+            freq: string;
+            /** Channel Id */
+            channel_id: string;
+            /**
+             * Label
+             * @default
+             */
+            label: string;
+            /**
+             * Active
+             * @default true
+             */
+            active: boolean;
         };
     };
     responses: never;
@@ -15915,6 +16006,96 @@ export interface operations {
             header?: never;
             path: {
                 responder_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    studio_api_air_bridges: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AirBridges"];
+                };
+            };
+        };
+    };
+    studio_api_air_add_bridge: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AirBridgeIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AirBridge"];
+                };
+            };
+        };
+    };
+    studio_api_air_change_bridge: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                bridge_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AirBridgeIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AirBridge"];
+                };
+            };
+        };
+    };
+    studio_api_air_delete_bridge: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                bridge_id: number;
             };
             cookie?: never;
         };

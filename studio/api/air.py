@@ -1,5 +1,5 @@
 """Эфир в Студии: живая лента всех частот, модерация, позывные с настоящими игроками, станции, полосы, жалобы. Логика в air/radio.py."""
-from datetime import datetime
+from datetime import datetime, timedelta
 from decimal import Decimal
 
 from django.contrib.auth import get_user_model
@@ -11,7 +11,7 @@ from ninja import Router, Schema
 from django.utils import timezone
 
 from air import cipher, events, radio, schedule
-from air.models import Band, Broadcast, Callsign, CallsignChange, Report, Responder, Station, Transmission
+from air.models import Band, BridgeLink, BridgeMessage, Broadcast, Callsign, CallsignChange, Report, Responder, Station, Transmission
 from machines.access import windows
 from machines.world import chrono
 
@@ -489,4 +489,87 @@ def change_responder(request, responder_id: int, body: AirResponderIn):
 @router.delete("/responders/{int:responder_id}", response={204: None})
 def delete_responder(request, responder_id: int):
     get_object_or_404(Responder, pk=responder_id).delete()
+    return 204, None
+
+
+# ---------- мост с Discord ----------
+
+class AirBridge(Schema):
+    id: int
+    freq: str
+    channel_id: str
+    label: str
+    active: bool
+    sent: int                  # ушло в Discord за сутки
+    received: int              # пришло из Discord за сутки
+    failed: int
+
+
+class AirBridgeIn(Schema):
+    freq: str
+    channel_id: str
+    label: str = ""
+    active: bool = True
+
+
+class AirBridgeStatus(Schema):
+    token: bool
+    online: bool
+    bot: str
+    seen_at: datetime | None
+    error: str
+
+
+class AirBridges(Schema):
+    status: AirBridgeStatus
+    links: list[AirBridge]
+
+
+def _bridge(row):
+    day = BridgeMessage.objects.filter(link=row, created_at__gte=timezone.now() - timedelta(days=1))
+    return AirBridge(id=row.pk, freq=f"{row.freq:.3f}", channel_id=row.channel_id, label=row.label, active=row.active,
+                     sent=day.filter(inbound=False, state=BridgeMessage.State.SENT).count(), received=day.filter(inbound=True).count(),
+                     failed=day.filter(state=BridgeMessage.State.FAILED).count())
+
+
+def _bridge_values(body, skip=None):
+    try:
+        freq = radio.parse_freq(body.freq)
+    except radio.AirError as error:
+        _refuse(error)
+    channel = body.channel_id.strip()
+    if not channel.isdigit() or not 15 <= len(channel) <= 22:
+        _refuse("ID канала Discord: 17–20 цифр (в Discord: правой кнопкой по каналу → «Копировать ID канала»).")
+    others = BridgeLink.objects.exclude(pk=skip)
+    if others.filter(freq=freq).exists():
+        _refuse(f"У частоты {freq} мост уже есть.")
+    if others.filter(channel_id=channel).exists():
+        _refuse("Этот канал уже связан с другой частотой.")
+    return {"freq": freq, "channel_id": channel, "label": body.label.strip()[:120], "active": body.active}
+
+
+@router.get("/bridges", response=AirBridges)
+def bridges(request):
+    from air import bridge
+
+    return AirBridges(status=AirBridgeStatus(**bridge.status()), links=[_bridge(row) for row in BridgeLink.objects.all()])
+
+
+@router.post("/bridges", response=AirBridge)
+def add_bridge(request, body: AirBridgeIn):
+    return _bridge(BridgeLink.objects.create(**_bridge_values(body)))
+
+
+@router.put("/bridges/{int:bridge_id}", response=AirBridge)
+def change_bridge(request, bridge_id: int, body: AirBridgeIn):
+    row = get_object_or_404(BridgeLink, pk=bridge_id)
+    for name, value in _bridge_values(body, skip=row.pk).items():
+        setattr(row, name, value)
+    row.save()
+    return _bridge(row)
+
+
+@router.delete("/bridges/{int:bridge_id}", response={204: None})
+def delete_bridge(request, bridge_id: int):
+    get_object_or_404(BridgeLink, pk=bridge_id).delete()
     return 204, None
