@@ -31,6 +31,25 @@ def find_block(data, offset):
     return (offset + at, slug) if slug else None
 
 
+class KjoinCommand(BaseCommand):
+    """kjoin <часть> <часть> ...: сложить ключ из частей, лежащих в папке секретов (рецепт на итоговом ключе, secure/recipes.py)."""
+
+    name = "kjoin"
+    usage = "usage: kjoin fragment fragment [...]"
+
+    def execute(self, context, args):
+        from secure import recipes
+
+        if len(args) < 2:
+            return CommandResult(self.usage, 2)
+        try:
+            key, saved, fresh = recipes.join(context.view, context.machine, context.profile.login, args)
+        except recipes.RecipeError as error:
+            return CommandResult(f"kjoin: {error}", 1)
+        context.invalidate()
+        return CommandResult(f"kjoin: {len(args)} fragments fit: key {key.slug} {'assembled in' if fresh else 'already in'} {saved}", 0)
+
+
 class KexCommand(BaseCommand):
     """kex <файл> <смещение>: если с этого места в файле (каким его видит игрок сейчас) начинается блок ключа, ключ
     попадает в папку секретов записи. Пока файл закрыт слоем, по смещению шум, и ничего не находится."""

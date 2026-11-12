@@ -3894,6 +3894,232 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/studio/api/world/state": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Read */
+        get: operations["studio_api_worldstate_read"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/studio/api/world/state/flags": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Save Flag */
+        post: operations["studio_api_worldstate_save_flag"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/studio/api/world/state/flags/{name}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Delete Flag */
+        delete: operations["studio_api_worldstate_delete_flag"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/studio/api/world/state/counters": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Save Counter */
+        post: operations["studio_api_worldstate_save_counter"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/studio/api/world/state/counters/{name}/add": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Add To Counter */
+        post: operations["studio_api_worldstate_add_to_counter"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/studio/api/world/state/counters/{name}/set": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Set Counter */
+        post: operations["studio_api_worldstate_set_counter"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/studio/api/world/state/counters/{name}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Delete Counter */
+        delete: operations["studio_api_worldstate_delete_counter"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/studio/api/world/state/triggers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Add Trigger */
+        post: operations["studio_api_worldstate_add_trigger"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/studio/api/world/state/triggers/{trigger_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Change Trigger */
+        put: operations["studio_api_worldstate_change_trigger"];
+        post?: never;
+        /** Delete Trigger */
+        delete: operations["studio_api_worldstate_delete_trigger"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/studio/api/world/state/triggers/{trigger_id}/fire": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Fire Trigger */
+        post: operations["studio_api_worldstate_fire_trigger"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/studio/api/world/state/triggers/{trigger_id}/reset": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Reset Trigger
+         * @description Сбросить «уже срабатывал»: однократный снова сработает, когда условие станет верным.
+         */
+        post: operations["studio_api_worldstate_reset_trigger"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/studio/api/world/state/keys/{slug}/recipe": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Recipe */
+        get: operations["studio_api_worldstate_recipe"];
+        /** Set Recipe */
+        put: operations["studio_api_worldstate_set_recipe"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/studio/api/world/state/keys/{slug}/split": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Split */
+        post: operations["studio_api_worldstate_split"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -9321,6 +9547,219 @@ export interface components {
              * @default true
              */
             active: boolean;
+        };
+        /** WsContribution */
+        WsContribution: {
+            /** Who */
+            who: string;
+            /** Delta */
+            delta: number;
+            /** Source */
+            source: string;
+            /**
+             * At
+             * Format: date-time
+             */
+            at: string;
+        };
+        /** WsCounter */
+        WsCounter: {
+            /** Name */
+            name: string;
+            /** Label */
+            label: string;
+            /** Mode */
+            mode: string;
+            /** Value */
+            value: number;
+            /** Changed At */
+            changed_at: string | null;
+            /** Thresholds */
+            thresholds: components["schemas"]["WsThreshold"][];
+            /** Recent */
+            recent: components["schemas"]["WsContribution"][];
+            /** Players */
+            players: number;
+        };
+        /** WsEvent */
+        WsEvent: {
+            /**
+             * At
+             * Format: date-time
+             */
+            at: string;
+            /** Kind */
+            kind: string;
+            /** Subject */
+            subject: string;
+            /** Text */
+            text: string;
+            /** Source */
+            source: string;
+        };
+        /** WsFlag */
+        WsFlag: {
+            /** Name */
+            name: string;
+            /** Label */
+            label: string;
+            /** On */
+            on: boolean;
+            /** Changed At */
+            changed_at: string | null;
+            /** Changed By */
+            changed_by: string;
+        };
+        /** WsState */
+        WsState: {
+            /** Flags */
+            flags: components["schemas"]["WsFlag"][];
+            /** Counters */
+            counters: components["schemas"]["WsCounter"][];
+            /** Triggers */
+            triggers: components["schemas"]["WsTrigger"][];
+            /** Events */
+            events: components["schemas"]["WsEvent"][];
+        };
+        /** WsThreshold */
+        WsThreshold: {
+            /** Value */
+            value: number;
+            /** Op */
+            op: string;
+            /** Trigger */
+            trigger: string;
+        };
+        /** WsTrigger */
+        WsTrigger: {
+            /** Id */
+            id: number;
+            /** Name */
+            name: string;
+            /** Label */
+            label: string;
+            /** Condition */
+            condition: unknown;
+            /** Condition Text */
+            condition_text: string;
+            /** Actions */
+            actions: {
+                [key: string]: unknown;
+            }[];
+            /** Repeat */
+            repeat: boolean;
+            /** Active */
+            active: boolean;
+            /** Was True */
+            was_true: boolean;
+            /** Fired At */
+            fired_at: string | null;
+            /** Fired Count */
+            fired_count: number;
+        };
+        /** WsFlagIn */
+        WsFlagIn: {
+            /** Name */
+            name: string;
+            /**
+             * Label
+             * @default
+             */
+            label: string;
+            /**
+             * On
+             * @default false
+             */
+            on: boolean;
+        };
+        /** WsCounterIn */
+        WsCounterIn: {
+            /** Name */
+            name: string;
+            /**
+             * Label
+             * @default
+             */
+            label: string;
+            /**
+             * Mode
+             * @default sum
+             */
+            mode: string;
+        };
+        /** WsAmount */
+        WsAmount: {
+            /** Value */
+            value: number;
+        };
+        /** WsTriggerIn */
+        WsTriggerIn: {
+            /** Name */
+            name: string;
+            /**
+             * Label
+             * @default
+             */
+            label: string;
+            /** Condition Text */
+            condition_text: string;
+            /**
+             * Actions
+             * @default []
+             */
+            actions: {
+                [key: string]: unknown;
+            }[];
+            /**
+             * Repeat
+             * @default false
+             */
+            repeat: boolean;
+            /**
+             * Active
+             * @default true
+             */
+            active: boolean;
+        };
+        /** WsPart */
+        WsPart: {
+            /** Slug */
+            slug: string;
+            /** Name */
+            name: string;
+            /** Sources */
+            sources: string[][];
+        };
+        /** WsRecipe */
+        WsRecipe: {
+            /** Slug */
+            slug: string;
+            /** Parts */
+            parts: components["schemas"]["WsPart"][];
+            /** Consume */
+            consume: boolean;
+            /** Part Of */
+            part_of: string[][];
+        };
+        /** WsRecipeIn */
+        WsRecipeIn: {
+            /** Parts */
+            parts: string[];
+            /**
+             * Consume
+             * @default false
+             */
+            consume: boolean;
+        };
+        /** WsSplit */
+        WsSplit: {
+            /** Count */
+            count: number;
+            /**
+             * Consume
+             * @default false
+             */
+            consume: boolean;
         };
     };
     responses: never;
@@ -16107,6 +16546,360 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+        };
+    };
+    studio_api_worldstate_read: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WsState"];
+                };
+            };
+        };
+    };
+    studio_api_worldstate_save_flag: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["WsFlagIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WsState"];
+                };
+            };
+        };
+    };
+    studio_api_worldstate_delete_flag: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WsState"];
+                };
+            };
+        };
+    };
+    studio_api_worldstate_save_counter: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["WsCounterIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WsState"];
+                };
+            };
+        };
+    };
+    studio_api_worldstate_add_to_counter: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["WsAmount"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WsState"];
+                };
+            };
+        };
+    };
+    studio_api_worldstate_set_counter: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["WsAmount"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WsState"];
+                };
+            };
+        };
+    };
+    studio_api_worldstate_delete_counter: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WsState"];
+                };
+            };
+        };
+    };
+    studio_api_worldstate_add_trigger: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["WsTriggerIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WsState"];
+                };
+            };
+        };
+    };
+    studio_api_worldstate_change_trigger: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                trigger_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["WsTriggerIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WsState"];
+                };
+            };
+        };
+    };
+    studio_api_worldstate_delete_trigger: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                trigger_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WsState"];
+                };
+            };
+        };
+    };
+    studio_api_worldstate_fire_trigger: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                trigger_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WsState"];
+                };
+            };
+        };
+    };
+    studio_api_worldstate_reset_trigger: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                trigger_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WsState"];
+                };
+            };
+        };
+    };
+    studio_api_worldstate_recipe: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WsRecipe"];
+                };
+            };
+        };
+    };
+    studio_api_worldstate_set_recipe: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["WsRecipeIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WsRecipe"];
+                };
+            };
+        };
+    };
+    studio_api_worldstate_split: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["WsSplit"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WsRecipe"];
+                };
             };
         };
     };

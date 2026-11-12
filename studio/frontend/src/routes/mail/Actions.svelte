@@ -38,6 +38,11 @@
           </select>
         {:else if action.do === "flag" || action.do === "unflag"}
           <input class="field" list="mail-flags" value={action.name ?? ""} oninput={(e) => set(index, { name: e.currentTarget.value.trim() })} placeholder="имя метки" aria-label="Метка" />
+        {:else if action.do === "world_flag" || action.do === "world_unflag"}
+          <input class="field mono" value={action.name ?? ""} oninput={(e) => set(index, { name: e.currentTarget.value.trim() })} placeholder="метка мира: core-online" aria-label="Метка мира" />
+        {:else if action.do === "world_count"}
+          <input class="field mono" value={action.name ?? ""} oninput={(e) => set(index, { name: e.currentTarget.value.trim() })} placeholder="счётчик: fragments" aria-label="Счётчик мира" />
+          <input class="field delay" type="number" value={action.delta ?? 1} oninput={(e) => set(index, { delta: +e.currentTarget.value || 1 })} aria-label="Сколько" title="Сколько прибавить" />
         {:else if action.do === "key"}
           <select class="field" value={action.slug ?? ""} onchange={(e) => set(index, { slug: e.currentTarget.value })} aria-label="Ключ">
             <option value="">— ключ —</option>
@@ -49,7 +54,7 @@
           <input class="field delay" type="number" min="0" value={action.delay ?? 0} oninput={(e) => set(index, { delay: Math.max(0, +e.currentTarget.value || 0) })} aria-label="Задержка, секунд" title="Задержка, секунд" />
           <span class="muted unit">с</span>
         {/if}
-        <button class="x" onclick={() => remove(index)} aria-label="Убрать действие" title="Убрать действие">✕</button>
+        <button type="button" class="x" onclick={() => remove(index)} aria-label="Убрать действие" title="Убрать действие">✕</button>
       </div>
       {#if action.do === "letter"}
         <div class="letter">
@@ -74,7 +79,7 @@
       {/if}
     </div>
   {/each}
-  <button class="btn ghost tiny" onclick={add}>+ действие</button>
+  <button type="button" class="btn ghost tiny" onclick={add}>+ действие</button>
 </div>
 
 <style>

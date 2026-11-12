@@ -114,7 +114,7 @@
   // ---------- ответчик ----------
   type RForm = { id: number | null; freq: string; pattern: string; regex: boolean; condition: string; cooldown: number; reply: string; delay: number; actions: Action[]; note: string; active: boolean; key: string };
   let rform = $state<RForm | null>(null);
-  const KINDS = ["flag", "unflag", "key", "file", "hook"];
+  const KINDS = ["flag", "unflag", "key", "file", "hook", "world_flag", "world_unflag", "world_count"];
   function editResponder(row: Responder | null) {
     rform = row
       ? { id: row.id, freq: row.freq, pattern: row.pattern, regex: row.regex, condition: cond(row.condition), cooldown: row.cooldown, reply: row.reply, delay: row.delay,
@@ -143,6 +143,7 @@
   const ACTION_TEXT: Record<string, (a: Record<string, unknown>) => string> = {
     flag: (a) => `метка ${a.name ?? ""}`, unflag: (a) => `снять метку ${a.name ?? ""}`, key: (a) => `ключ ${a.slug ?? ""}`,
     file: (a) => `файл ${a.item ?? ""} → ${a.path ?? ""}`, hook: () => "хук",
+    world_flag: (a) => `world:${a.name ?? ""}`, world_unflag: (a) => `снять world:${a.name ?? ""}`, world_count: (a) => `world:${a.name ?? ""} +${a.delta ?? 1}`,
   };
   const actionsText = (actions: Record<string, unknown>[]) => actions.map((a) => ACTION_TEXT[String(a.do)]?.(a) ?? String(a.do)).join(", ");
 </script>

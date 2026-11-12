@@ -269,6 +269,11 @@ def _apply(actions, state, box, effects):
             effects += _effects(action.get("text", ""), box)
         elif do == "bounce":
             effects.append({"bounce": True})
+        elif do in ("world_flag", "world_unflag", "world_count"):
+            from world import state as world
+
+            kind = {"world_flag": "flag", "world_unflag": "unflag", "world_count": "count"}[do]
+            world.run_action({**action, "do": kind}, "письмо" if state is not None else "ответчик", user=box.user)
 
 
 def run_actions(actions, box):

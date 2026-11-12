@@ -17,7 +17,7 @@ class SpoilerSyntaxError(ValueError):
 
 
 _KEYWORDS = {"and", "or", "not"}
-_SLUG = re.compile(r"[A-Za-z0-9_-]+")
+_SLUG = re.compile(r"[A-Za-z0-9_-]+|world:[a-z0-9][a-z0-9_-]{0,63}(?:(?:>=|<=|>|<|=)-?\d+)?")   # ключ или метка/счётчик мира
 
 
 def parse_expr(src):

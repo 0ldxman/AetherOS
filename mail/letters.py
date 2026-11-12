@@ -7,7 +7,7 @@ import re
 from dataclasses import dataclass, field
 
 HEADER = re.compile(r"^([A-Za-z][A-Za-z0-9-]*):[ \t]?(.*)$")
-PLACEHOLDER = re.compile(r"\{(player|login|to|date|address)\}")
+PLACEHOLDER = re.compile(r"\{(player|login|to|date|address|world_\w+)\}")     # world_<счётчик>: значение счётчика мира
 
 
 @dataclass
@@ -67,4 +67,12 @@ def compose(headers, body):
 
 def fill(text, context):
     """Подстановки игрока в тексте письма; неизвестные остаются как есть."""
-    return PLACEHOLDER.sub(lambda found: str(context.get(found.group(1), found.group(0))), text or "")
+    def value(found):
+        name = found.group(1)
+        if name.startswith("world_") and name not in context:
+            from world.state import params
+
+            return str(params().get(name, found.group(0)))
+        return str(context.get(name, found.group(0)))
+
+    return PLACEHOLDER.sub(value, text or "")

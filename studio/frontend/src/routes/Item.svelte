@@ -12,6 +12,7 @@
   import ItemWhere from "./item/ItemWhere.svelte";
   import ItemHistory from "./item/ItemHistory.svelte";
   import ItemKeys from "./item/ItemKeys.svelte";
+  import KeyRecipe from "./item/KeyRecipe.svelte";
   import ItemProtection from "./item/ItemProtection.svelte";
   import ContentPicker from "./item/ContentPicker.svelte";
   import AppIcon from "./item/AppIcon.svelte";
@@ -199,6 +200,7 @@
       <a class:on={view === "protection"} href="#/items/{id}/protection" title="Как игрок получает содержимое: условие по ключам и слои защиты (пароль, маскировка). Для обычной открытой статьи не нужно.">Защита
         {#if item.protected}<span class="count lock" title="Есть условие или слои">●</span>{/if}{#if partDirty && view === "protection"}<span class="unsaved" title="Есть несохранённые правки"></span>{/if}</a>
       <a class:on={view === "keys"} href="#/items/{id}/keys" title="Игровая механика: ключи, спрятанные в файле, и подписи для проверки подлинности. Для обычной статьи не нужно.">Ключи и подписи{#if partDirty && view === "keys"}<span class="unsaved" title="Есть несохранённые правки"></span>{/if}</a>
+      {#if item.format === "key"}<a class:on={view === "recipe"} href="#/items/{id}/recipe" title="Ключ, который игроки собирают из частей командой kjoin.">Сборка из частей</a>{/if}
       <a class:on={view === "history"} href="#/items/{id}/history" title="Прежние версии текста: можно сравнить и восстановить.">История</a>
     </nav>
 
@@ -210,6 +212,8 @@
       <ItemKeys bind:this={part} {item} />
     {:else if view === "history"}
       <ItemHistory {item} {dirty} onrestore={load} />
+    {:else if view === "recipe"}
+      <KeyRecipe {item} />
     {:else}
     <div class="split">
       <section class="pane">

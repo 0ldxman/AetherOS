@@ -10,7 +10,7 @@ from terminal.engine.result import CommandResult
 GROUPS = (
     ("files", ("ls", "cd", "pwd", "cnt", "edt", "mv", "cp", "del", "rcvr", "wipe", "perm", "own", "clear")),
     ("inspect and repair", ("ftyp", "txtx", "rpr", "cvt", "blk")),
-    ("keys and archives", ("kex", "ward", "pak")),
+    ("keys and archives", ("kex", "kjoin", "ward", "pak")),
     ("network", ("nreq", "nget", "rcon", "rshell", "xfer", "mnt", "umnt", "exit", "rcon-close")),
     ("system", ("date", "tmset")),
     ("air", ("air",)),
@@ -90,6 +90,12 @@ HELP = {
         "Reads the file at the given offset and imports the key block found there (-----BEGIN ACCESS KEY-----) "
         "into the key store ~/.secrets/<keyname>.\n"
         "The offset is decimal or 0x hexadecimal, like the ones txtx prints.",
+    ),
+    "kjoin": (
+        "join key fragments into one key",
+        ("kjoin <fragment> <fragment> [...]",),
+        "Takes key files from ~/.secrets and, if they are the fragments of one key, assembles that key into ~/.secrets.\n"
+        "All fragments of the key are needed; the order does not matter.",
     ),
     "ward": (
         "decrypt files, verify and make signatures",

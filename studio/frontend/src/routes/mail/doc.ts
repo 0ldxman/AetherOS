@@ -2,7 +2,7 @@
 // со своими вариантами. Так два автора правят разные шаги одновременно, не затирая друг друга. Удалённый шаг это null.
 import type { Schemas } from "../../lib/api";
 
-export type Action = { do: string; step?: string; item?: string; subject?: string; text?: string; delay?: number; name?: string; slug?: string; path?: string };
+export type Action = { do: string; step?: string; item?: string; subject?: string; text?: string; delay?: number; name?: string; slug?: string; path?: string; delta?: number };
 export type VariantDraft = Omit<Schemas["MlVariant"], "outcomes"> & { key: string; outcomes: Record<string, Action[]> };
 export type StepDraft = Omit<Schemas["MlStep"], "variants"> & { key: string; order: number; variants: VariantDraft[] };
 export type Head = { title: string; slug: string; note: string; persona: number };
@@ -121,6 +121,9 @@ export const ACTIONS: { value: string; label: string }[] = [
   { value: "file", label: "Положить файл" },
   { value: "hook", label: "Хук (alert, open, kick)" },
   { value: "bounce", label: "Вернуть как недоставленное" },
+  { value: "world_flag", label: "Поставить метку мира" },
+  { value: "world_unflag", label: "Снять метку мира" },
+  { value: "world_count", label: "Вклад в счётчик мира" },
 ];
 
 export function describe(action: Action): string {

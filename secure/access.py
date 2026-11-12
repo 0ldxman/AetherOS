@@ -11,6 +11,10 @@ def satisfied(req, keys):
     if not req:
         return True
     if isinstance(req, str):
+        if req.startswith("world:"):                # мировая метка или счётчик (world/state.py), одни на всех
+            from world.state import atom
+
+            return atom(req)
         return req in keys
     if "all" in req:
         return all(satisfied(r, keys) for r in req["all"])

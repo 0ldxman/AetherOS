@@ -12111,6 +12111,598 @@
      }
     ]
    }
+  },
+  "/studio/api/world/state": {
+   "get": {
+    "operationId": "studio_api_worldstate_read",
+    "summary": "Read",
+    "parameters": [],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/WsState"
+        }
+       }
+      }
+     }
+    },
+    "tags": [
+     "world-state"
+    ],
+    "security": [
+     {
+      "StudioAuth": []
+     }
+    ]
+   }
+  },
+  "/studio/api/world/state/flags": {
+   "post": {
+    "operationId": "studio_api_worldstate_save_flag",
+    "summary": "Save Flag",
+    "parameters": [],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/WsState"
+        }
+       }
+      }
+     }
+    },
+    "tags": [
+     "world-state"
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/WsFlagIn"
+       }
+      }
+     },
+     "required": true
+    },
+    "security": [
+     {
+      "StudioAuth": []
+     }
+    ]
+   }
+  },
+  "/studio/api/world/state/flags/{name}": {
+   "delete": {
+    "operationId": "studio_api_worldstate_delete_flag",
+    "summary": "Delete Flag",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "name",
+      "schema": {
+       "title": "Name",
+       "type": "string"
+      },
+      "required": true
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/WsState"
+        }
+       }
+      }
+     }
+    },
+    "tags": [
+     "world-state"
+    ],
+    "security": [
+     {
+      "StudioAuth": []
+     }
+    ]
+   }
+  },
+  "/studio/api/world/state/counters": {
+   "post": {
+    "operationId": "studio_api_worldstate_save_counter",
+    "summary": "Save Counter",
+    "parameters": [],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/WsState"
+        }
+       }
+      }
+     }
+    },
+    "tags": [
+     "world-state"
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/WsCounterIn"
+       }
+      }
+     },
+     "required": true
+    },
+    "security": [
+     {
+      "StudioAuth": []
+     }
+    ]
+   }
+  },
+  "/studio/api/world/state/counters/{name}/add": {
+   "post": {
+    "operationId": "studio_api_worldstate_add_to_counter",
+    "summary": "Add To Counter",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "name",
+      "schema": {
+       "title": "Name",
+       "type": "string"
+      },
+      "required": true
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/WsState"
+        }
+       }
+      }
+     }
+    },
+    "tags": [
+     "world-state"
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/WsAmount"
+       }
+      }
+     },
+     "required": true
+    },
+    "security": [
+     {
+      "StudioAuth": []
+     }
+    ]
+   }
+  },
+  "/studio/api/world/state/counters/{name}/set": {
+   "post": {
+    "operationId": "studio_api_worldstate_set_counter",
+    "summary": "Set Counter",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "name",
+      "schema": {
+       "title": "Name",
+       "type": "string"
+      },
+      "required": true
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/WsState"
+        }
+       }
+      }
+     }
+    },
+    "tags": [
+     "world-state"
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/WsAmount"
+       }
+      }
+     },
+     "required": true
+    },
+    "security": [
+     {
+      "StudioAuth": []
+     }
+    ]
+   }
+  },
+  "/studio/api/world/state/counters/{name}": {
+   "delete": {
+    "operationId": "studio_api_worldstate_delete_counter",
+    "summary": "Delete Counter",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "name",
+      "schema": {
+       "title": "Name",
+       "type": "string"
+      },
+      "required": true
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/WsState"
+        }
+       }
+      }
+     }
+    },
+    "tags": [
+     "world-state"
+    ],
+    "security": [
+     {
+      "StudioAuth": []
+     }
+    ]
+   }
+  },
+  "/studio/api/world/state/triggers": {
+   "post": {
+    "operationId": "studio_api_worldstate_add_trigger",
+    "summary": "Add Trigger",
+    "parameters": [],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/WsState"
+        }
+       }
+      }
+     }
+    },
+    "tags": [
+     "world-state"
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/WsTriggerIn"
+       }
+      }
+     },
+     "required": true
+    },
+    "security": [
+     {
+      "StudioAuth": []
+     }
+    ]
+   }
+  },
+  "/studio/api/world/state/triggers/{trigger_id}": {
+   "put": {
+    "operationId": "studio_api_worldstate_change_trigger",
+    "summary": "Change Trigger",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "trigger_id",
+      "schema": {
+       "title": "Trigger Id",
+       "type": "integer"
+      },
+      "required": true
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/WsState"
+        }
+       }
+      }
+     }
+    },
+    "tags": [
+     "world-state"
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/WsTriggerIn"
+       }
+      }
+     },
+     "required": true
+    },
+    "security": [
+     {
+      "StudioAuth": []
+     }
+    ]
+   },
+   "delete": {
+    "operationId": "studio_api_worldstate_delete_trigger",
+    "summary": "Delete Trigger",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "trigger_id",
+      "schema": {
+       "title": "Trigger Id",
+       "type": "integer"
+      },
+      "required": true
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/WsState"
+        }
+       }
+      }
+     }
+    },
+    "tags": [
+     "world-state"
+    ],
+    "security": [
+     {
+      "StudioAuth": []
+     }
+    ]
+   }
+  },
+  "/studio/api/world/state/triggers/{trigger_id}/fire": {
+   "post": {
+    "operationId": "studio_api_worldstate_fire_trigger",
+    "summary": "Fire Trigger",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "trigger_id",
+      "schema": {
+       "title": "Trigger Id",
+       "type": "integer"
+      },
+      "required": true
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/WsState"
+        }
+       }
+      }
+     }
+    },
+    "tags": [
+     "world-state"
+    ],
+    "security": [
+     {
+      "StudioAuth": []
+     }
+    ]
+   }
+  },
+  "/studio/api/world/state/triggers/{trigger_id}/reset": {
+   "post": {
+    "operationId": "studio_api_worldstate_reset_trigger",
+    "summary": "Reset Trigger",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "trigger_id",
+      "schema": {
+       "title": "Trigger Id",
+       "type": "integer"
+      },
+      "required": true
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/WsState"
+        }
+       }
+      }
+     }
+    },
+    "description": "Сбросить «уже срабатывал»: однократный снова сработает, когда условие станет верным.",
+    "tags": [
+     "world-state"
+    ],
+    "security": [
+     {
+      "StudioAuth": []
+     }
+    ]
+   }
+  },
+  "/studio/api/world/state/keys/{slug}/recipe": {
+   "get": {
+    "operationId": "studio_api_worldstate_recipe",
+    "summary": "Recipe",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "slug",
+      "schema": {
+       "title": "Slug",
+       "type": "string"
+      },
+      "required": true
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/WsRecipe"
+        }
+       }
+      }
+     }
+    },
+    "tags": [
+     "world-state"
+    ],
+    "security": [
+     {
+      "StudioAuth": []
+     }
+    ]
+   },
+   "put": {
+    "operationId": "studio_api_worldstate_set_recipe",
+    "summary": "Set Recipe",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "slug",
+      "schema": {
+       "title": "Slug",
+       "type": "string"
+      },
+      "required": true
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/WsRecipe"
+        }
+       }
+      }
+     }
+    },
+    "tags": [
+     "world-state"
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/WsRecipeIn"
+       }
+      }
+     },
+     "required": true
+    },
+    "security": [
+     {
+      "StudioAuth": []
+     }
+    ]
+   }
+  },
+  "/studio/api/world/state/keys/{slug}/split": {
+   "post": {
+    "operationId": "studio_api_worldstate_split",
+    "summary": "Split",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "slug",
+      "schema": {
+       "title": "Slug",
+       "type": "string"
+      },
+      "required": true
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/WsRecipe"
+        }
+       }
+      }
+     }
+    },
+    "tags": [
+     "world-state"
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/WsSplit"
+       }
+      }
+     },
+     "required": true
+    },
+    "security": [
+     {
+      "StudioAuth": []
+     }
+    ]
+   }
   }
  },
  "components": {
@@ -25537,6 +26129,515 @@
      "channel_id"
     ],
     "title": "AirBridgeIn",
+    "type": "object"
+   },
+   "WsContribution": {
+    "properties": {
+     "who": {
+      "title": "Who",
+      "type": "string"
+     },
+     "delta": {
+      "title": "Delta",
+      "type": "integer"
+     },
+     "source": {
+      "title": "Source",
+      "type": "string"
+     },
+     "at": {
+      "format": "date-time",
+      "title": "At",
+      "type": "string"
+     }
+    },
+    "required": [
+     "who",
+     "delta",
+     "source",
+     "at"
+    ],
+    "title": "WsContribution",
+    "type": "object"
+   },
+   "WsCounter": {
+    "properties": {
+     "name": {
+      "title": "Name",
+      "type": "string"
+     },
+     "label": {
+      "title": "Label",
+      "type": "string"
+     },
+     "mode": {
+      "title": "Mode",
+      "type": "string"
+     },
+     "value": {
+      "title": "Value",
+      "type": "integer"
+     },
+     "changed_at": {
+      "anyOf": [
+       {
+        "format": "date-time",
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Changed At"
+     },
+     "thresholds": {
+      "items": {
+       "$ref": "#/components/schemas/WsThreshold"
+      },
+      "title": "Thresholds",
+      "type": "array"
+     },
+     "recent": {
+      "items": {
+       "$ref": "#/components/schemas/WsContribution"
+      },
+      "title": "Recent",
+      "type": "array"
+     },
+     "players": {
+      "title": "Players",
+      "type": "integer"
+     }
+    },
+    "required": [
+     "name",
+     "label",
+     "mode",
+     "value",
+     "changed_at",
+     "thresholds",
+     "recent",
+     "players"
+    ],
+    "title": "WsCounter",
+    "type": "object"
+   },
+   "WsEvent": {
+    "properties": {
+     "at": {
+      "format": "date-time",
+      "title": "At",
+      "type": "string"
+     },
+     "kind": {
+      "title": "Kind",
+      "type": "string"
+     },
+     "subject": {
+      "title": "Subject",
+      "type": "string"
+     },
+     "text": {
+      "title": "Text",
+      "type": "string"
+     },
+     "source": {
+      "title": "Source",
+      "type": "string"
+     }
+    },
+    "required": [
+     "at",
+     "kind",
+     "subject",
+     "text",
+     "source"
+    ],
+    "title": "WsEvent",
+    "type": "object"
+   },
+   "WsFlag": {
+    "properties": {
+     "name": {
+      "title": "Name",
+      "type": "string"
+     },
+     "label": {
+      "title": "Label",
+      "type": "string"
+     },
+     "on": {
+      "title": "On",
+      "type": "boolean"
+     },
+     "changed_at": {
+      "anyOf": [
+       {
+        "format": "date-time",
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Changed At"
+     },
+     "changed_by": {
+      "title": "Changed By",
+      "type": "string"
+     }
+    },
+    "required": [
+     "name",
+     "label",
+     "on",
+     "changed_at",
+     "changed_by"
+    ],
+    "title": "WsFlag",
+    "type": "object"
+   },
+   "WsState": {
+    "properties": {
+     "flags": {
+      "items": {
+       "$ref": "#/components/schemas/WsFlag"
+      },
+      "title": "Flags",
+      "type": "array"
+     },
+     "counters": {
+      "items": {
+       "$ref": "#/components/schemas/WsCounter"
+      },
+      "title": "Counters",
+      "type": "array"
+     },
+     "triggers": {
+      "items": {
+       "$ref": "#/components/schemas/WsTrigger"
+      },
+      "title": "Triggers",
+      "type": "array"
+     },
+     "events": {
+      "items": {
+       "$ref": "#/components/schemas/WsEvent"
+      },
+      "title": "Events",
+      "type": "array"
+     }
+    },
+    "required": [
+     "flags",
+     "counters",
+     "triggers",
+     "events"
+    ],
+    "title": "WsState",
+    "type": "object"
+   },
+   "WsThreshold": {
+    "properties": {
+     "value": {
+      "title": "Value",
+      "type": "integer"
+     },
+     "op": {
+      "title": "Op",
+      "type": "string"
+     },
+     "trigger": {
+      "title": "Trigger",
+      "type": "string"
+     }
+    },
+    "required": [
+     "value",
+     "op",
+     "trigger"
+    ],
+    "title": "WsThreshold",
+    "type": "object"
+   },
+   "WsTrigger": {
+    "properties": {
+     "id": {
+      "title": "Id",
+      "type": "integer"
+     },
+     "name": {
+      "title": "Name",
+      "type": "string"
+     },
+     "label": {
+      "title": "Label",
+      "type": "string"
+     },
+     "condition": {
+      "title": "Condition"
+     },
+     "condition_text": {
+      "title": "Condition Text",
+      "type": "string"
+     },
+     "actions": {
+      "items": {
+       "additionalProperties": true,
+       "type": "object"
+      },
+      "title": "Actions",
+      "type": "array"
+     },
+     "repeat": {
+      "title": "Repeat",
+      "type": "boolean"
+     },
+     "active": {
+      "title": "Active",
+      "type": "boolean"
+     },
+     "was_true": {
+      "title": "Was True",
+      "type": "boolean"
+     },
+     "fired_at": {
+      "anyOf": [
+       {
+        "format": "date-time",
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Fired At"
+     },
+     "fired_count": {
+      "title": "Fired Count",
+      "type": "integer"
+     }
+    },
+    "required": [
+     "id",
+     "name",
+     "label",
+     "condition",
+     "condition_text",
+     "actions",
+     "repeat",
+     "active",
+     "was_true",
+     "fired_at",
+     "fired_count"
+    ],
+    "title": "WsTrigger",
+    "type": "object"
+   },
+   "WsFlagIn": {
+    "properties": {
+     "name": {
+      "title": "Name",
+      "type": "string"
+     },
+     "label": {
+      "default": "",
+      "title": "Label",
+      "type": "string"
+     },
+     "on": {
+      "default": false,
+      "title": "On",
+      "type": "boolean"
+     }
+    },
+    "required": [
+     "name"
+    ],
+    "title": "WsFlagIn",
+    "type": "object"
+   },
+   "WsCounterIn": {
+    "properties": {
+     "name": {
+      "title": "Name",
+      "type": "string"
+     },
+     "label": {
+      "default": "",
+      "title": "Label",
+      "type": "string"
+     },
+     "mode": {
+      "default": "sum",
+      "title": "Mode",
+      "type": "string"
+     }
+    },
+    "required": [
+     "name"
+    ],
+    "title": "WsCounterIn",
+    "type": "object"
+   },
+   "WsAmount": {
+    "properties": {
+     "value": {
+      "title": "Value",
+      "type": "integer"
+     }
+    },
+    "required": [
+     "value"
+    ],
+    "title": "WsAmount",
+    "type": "object"
+   },
+   "WsTriggerIn": {
+    "properties": {
+     "name": {
+      "title": "Name",
+      "type": "string"
+     },
+     "label": {
+      "default": "",
+      "title": "Label",
+      "type": "string"
+     },
+     "condition_text": {
+      "title": "Condition Text",
+      "type": "string"
+     },
+     "actions": {
+      "default": [],
+      "items": {
+       "additionalProperties": true,
+       "type": "object"
+      },
+      "title": "Actions",
+      "type": "array"
+     },
+     "repeat": {
+      "default": false,
+      "title": "Repeat",
+      "type": "boolean"
+     },
+     "active": {
+      "default": true,
+      "title": "Active",
+      "type": "boolean"
+     }
+    },
+    "required": [
+     "name",
+     "condition_text"
+    ],
+    "title": "WsTriggerIn",
+    "type": "object"
+   },
+   "WsPart": {
+    "properties": {
+     "slug": {
+      "title": "Slug",
+      "type": "string"
+     },
+     "name": {
+      "title": "Name",
+      "type": "string"
+     },
+     "sources": {
+      "items": {
+       "items": {
+        "type": "string"
+       },
+       "type": "array"
+      },
+      "title": "Sources",
+      "type": "array"
+     }
+    },
+    "required": [
+     "slug",
+     "name",
+     "sources"
+    ],
+    "title": "WsPart",
+    "type": "object"
+   },
+   "WsRecipe": {
+    "properties": {
+     "slug": {
+      "title": "Slug",
+      "type": "string"
+     },
+     "parts": {
+      "items": {
+       "$ref": "#/components/schemas/WsPart"
+      },
+      "title": "Parts",
+      "type": "array"
+     },
+     "consume": {
+      "title": "Consume",
+      "type": "boolean"
+     },
+     "part_of": {
+      "items": {
+       "items": {
+        "type": "string"
+       },
+       "type": "array"
+      },
+      "title": "Part Of",
+      "type": "array"
+     }
+    },
+    "required": [
+     "slug",
+     "parts",
+     "consume",
+     "part_of"
+    ],
+    "title": "WsRecipe",
+    "type": "object"
+   },
+   "WsRecipeIn": {
+    "properties": {
+     "parts": {
+      "items": {
+       "type": "string"
+      },
+      "title": "Parts",
+      "type": "array"
+     },
+     "consume": {
+      "default": false,
+      "title": "Consume",
+      "type": "boolean"
+     }
+    },
+    "required": [
+     "parts"
+    ],
+    "title": "WsRecipeIn",
+    "type": "object"
+   },
+   "WsSplit": {
+    "properties": {
+     "count": {
+      "title": "Count",
+      "type": "integer"
+     },
+     "consume": {
+      "default": false,
+      "title": "Consume",
+      "type": "boolean"
+     }
+    },
+    "required": [
+     "count"
+    ],
+    "title": "WsSplit",
     "type": "object"
    }
   },

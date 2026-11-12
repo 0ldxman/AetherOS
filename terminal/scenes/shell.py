@@ -383,7 +383,15 @@ def greeting_params(ident, login, mail=None, system=None, facts=None):
         "host": ident.hostname, "login": login, "os": system.code if system else "", "os_name": system.name if system else "",
         "address": ident.address, "serial": ident.serial, "hid": ident.hid, "host_key": ident.host_key, "date": world().game_date, "time": f"{world().game_now:%H:%M} UTC",
         "unread": (mail or {}).get("unread", 0), "mail": _mail_text(mail), **{**facts, "freq": facts["freq"] or ident.address},
+        **_world_params(),
     }
+
+
+def _world_params():
+    """{world_<счётчик>}: значения счётчиков мира для приветствия."""
+    from world.state import params
+
+    return params()
 
 
 def greeting_scene(ident, login, mail=None, system=None, facts=None):

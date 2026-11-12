@@ -438,7 +438,7 @@ def delete_broadcast(request, broadcast_id: int):
 
 # ---------- ответчики ----------
 
-ACTIONS = {"flag", "unflag", "key", "file", "letter", "hook"}
+ACTIONS = {"flag", "unflag", "key", "file", "letter", "hook", "world_flag", "world_unflag", "world_count"}
 
 
 def _responder(row):
