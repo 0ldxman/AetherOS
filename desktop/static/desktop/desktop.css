@@ -643,15 +643,18 @@ body {
 .icon--file.is-closed { opacity: 0.55; cursor: not-allowed; }
 
 
-/* Полоса моментов мира: тонкая строка у верхнего края стола, цвета из стиля ОС */
-.moment-bar { position: absolute; top: 0; left: 0; right: 0; z-index: 5; display: flex; justify-content: flex-end; gap: 24px; padding: 4px 20px;
-              border-bottom: 1px solid var(--accent-warn); background: color-mix(in srgb, var(--panel) 92%, var(--accent-warn) 8%);
-              color: var(--font-light); font: 12px/1.4 var(--font-console); letter-spacing: 0.08em; pointer-events: none; }
+/* Полоса моментов мира: жёлтая бегущая строка во всю ширину верхнего края стола, текст чёрный */
+.moment-bar { position: absolute; top: 0; left: 0; right: 0; z-index: 5; overflow: hidden; height: 24px; background: var(--accent-warn, #f2c230);
+              color: #0b0b0b; font: 700 12px/24px var(--font-console); letter-spacing: 0.1em; text-transform: uppercase; white-space: nowrap; pointer-events: none; }
 .moment-bar[hidden] { display: none; }
-.moment { display: inline-flex; gap: 12px; align-items: baseline; }
-.moment-tag { color: var(--accent-warn); font-weight: 700; }
-.moment--live .moment-tag { color: var(--accent-error); animation: moment-blink 1.2s steps(2) infinite; }
-.moment-time { font-variant-numeric: tabular-nums; color: var(--font-muted); }
-@keyframes moment-blink { 50% { opacity: 0.35; } }
-@media (prefers-reduced-motion: reduce) { .moment--live .moment-tag { animation: none; } }
+.moment-track { display: inline-flex; animation: moment-run var(--moment-time, 30s) linear infinite; will-change: transform; }
+.moment-group { display: inline-flex; }
+.moment { display: inline-flex; gap: 10px; align-items: baseline; padding-right: 10px; }
+.moment-dot, .moment-sep { opacity: 0.55; }
+.moment-sep { padding-left: 4px; letter-spacing: 0.2em; }
+.moment-time { font-variant-numeric: tabular-nums; }
+.moment--live .moment-tag { animation: moment-blink 1.2s steps(2) infinite; }
+@keyframes moment-run { from { transform: translateX(0); } to { transform: translateX(var(--moment-shift, -50%)); } }
+@keyframes moment-blink { 50% { opacity: 0.3; } }
+@media (prefers-reduced-motion: reduce) { .moment-track, .moment--live .moment-tag { animation: none; } }
 #desktop.has-moment-bar #icons { margin-top: 26px; }

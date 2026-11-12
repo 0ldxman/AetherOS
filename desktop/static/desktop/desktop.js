@@ -1255,8 +1255,9 @@ document.addEventListener("keydown", (event) => {
 window.addEventListener("blur", () => setMenu(false));
 
 
-// Полоса моментов мира: «INCOMING · BOREAS UPLINK · T-00:12:30» до начала, «LIVE · … · 00:12:00 LEFT» пока идёт.
+// Полоса моментов мира: бегущая строка «INCOMING · BOREAS UPLINK · T-00:12:30 /// …» до начала, «LIVE · … · 00:12:00 LEFT» пока идёт.
 // Сервер присылает остаток в игровых секундах и скорость времени; между опросами полоса считает сама.
+// Строка собирается заново только когда меняется набор событий, отсчёт обновляется на месте, и бег не сбивается.
 (function momentBar() {
   const url = desktop.dataset.momentsUrl;
   if (!url || desktop.dataset.preview) return;
@@ -1264,26 +1265,55 @@ window.addEventListener("blur", () => setMenu(false));
   bar.className = "moment-bar";
   bar.hidden = true;
   bar.setAttribute("role", "status");
+  const track = document.createElement("div");
+  track.className = "moment-track";
+  bar.appendChild(track);
   desktop.appendChild(bar);
-  let rows = [], rate = 1, got = Date.now();
+  let rows = [], rate = 1, got = Date.now(), shape = "";
   const pad = (n) => String(n).padStart(2, "0");
   function clock(seconds) {
     seconds = Math.max(0, Math.round(seconds));
     const d = Math.floor(seconds / 86400), h = Math.floor(seconds % 86400 / 3600), m = Math.floor(seconds % 3600 / 60), s = seconds % 60;
     return `${d ? d + "d " : ""}${pad(h)}:${pad(m)}:${pad(s)}`;
   }
-  function draw() {
+  function current() {
     const passed = (Date.now() - got) / 1000 * rate;
-    const shown = rows.map((row) => ({ ...row, now: row.left - passed })).filter((row) => row.state === "live" ? row.now > 0 : row.now > -60);
+    return rows.map((row) => {
+      const now = row.left - passed;
+      const live = row.state === "live" || now <= 0;
+      return { ...row, now, live, time: live ? (row.state === "live" ? `${clock(now)} LEFT` : "NOW") : `T-${clock(now)}` };
+    }).filter((row) => (row.state === "live" ? row.now > 0 : row.now > -60));
+  }
+  function segment(row) {
+    const item = el("span", "moment" + (row.live ? " moment--live" : ""));
+    item.dataset.name = row.name;
+    item.append(el("b", "moment-tag", row.live ? "LIVE" : "INCOMING"), el("span", "moment-dot", "·"), el("span", "moment-title", row.title),
+      el("span", "moment-dot", "·"), el("span", "moment-time", row.time), el("span", "moment-sep", "///"));
+    return item;
+  }
+  function build(shown) {
+    // одна группа сегментов повторяется, пока не заполнит ширину; вторая такая же копия даёт бесшовный круг
+    const group = el("span", "moment-group");
+    let guard = 0;
+    do { shown.forEach((row) => group.appendChild(segment(row))); guard++; } while (guard < 12 && group.children.length < 6);
+    const copy = group.cloneNode(true);
+    copy.setAttribute("aria-hidden", "true");
+    track.replaceChildren(group, copy);
+    requestAnimationFrame(() => {
+      const width = group.getBoundingClientRect().width;
+      track.style.setProperty("--moment-shift", `-${width}px`);
+      track.style.setProperty("--moment-time", `${Math.max(12, width / 60)}s`);    // ~60 px в секунду при любой длине
+    });
+  }
+  function draw() {
+    const shown = current();
     bar.hidden = !shown.length;
     desktop.classList.toggle("has-moment-bar", !bar.hidden);
-    bar.replaceChildren(...shown.slice(0, 2).map((row) => {
-      const item = el("span", `moment moment--${row.state === "live" || row.now <= 0 ? "live" : "soon"}`);
-      const live = row.state === "live" || row.now <= 0;
-      item.append(el("b", "moment-tag", live ? "LIVE" : "INCOMING"), el("span", "moment-title", row.title),
-        el("span", "moment-time", live ? (row.state === "live" ? `${clock(row.now)} LEFT` : "NOW") : `T-${clock(row.now)}`));
-      return item;
-    }));
+    if (!shown.length) { shape = ""; track.replaceChildren(); return; }
+    const next = shown.map((row) => `${row.name}:${row.live}`).join("|");
+    if (next !== shape) { shape = next; build(shown); }
+    const byName = Object.fromEntries(shown.map((row) => [row.name, row.time]));
+    track.querySelectorAll(".moment").forEach((item) => { item.querySelector(".moment-time").textContent = byName[item.dataset.name] ?? ""; });
   }
   async function poll() {
     try {
