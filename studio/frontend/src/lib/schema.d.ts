@@ -3766,6 +3766,98 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/studio/api/air/broadcasts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Broadcasts */
+        get: operations["studio_api_air_broadcasts"];
+        put?: never;
+        /** Add Broadcast */
+        post: operations["studio_api_air_add_broadcast"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/studio/api/air/broadcasts/{broadcast_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Change Broadcast */
+        put: operations["studio_api_air_change_broadcast"];
+        post?: never;
+        /** Delete Broadcast */
+        delete: operations["studio_api_air_delete_broadcast"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/studio/api/air/broadcasts/{broadcast_id}/now": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Broadcast Now
+         * @description Выпустить следующий текст сейчас, вне расписания (проверить, как звучит).
+         */
+        post: operations["studio_api_air_broadcast_now"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/studio/api/air/responders": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Responders */
+        get: operations["studio_api_air_responders"];
+        put?: never;
+        /** Add Responder */
+        post: operations["studio_api_air_add_responder"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/studio/api/air/responders/{responder_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Change Responder */
+        put: operations["studio_api_air_change_responder"];
+        post?: never;
+        /** Delete Responder */
+        delete: operations["studio_api_air_delete_responder"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -8926,6 +9018,12 @@ export interface components {
             condition?: unknown;
             /** Label */
             label: string;
+            /** Window */
+            window: string;
+            /** Time Zone */
+            time_zone: string;
+            /** Open Now */
+            open_now: number;
         };
         /** AirBandIn */
         AirBandIn: {
@@ -8945,6 +9043,16 @@ export interface components {
              * @default
              */
             label: string;
+            /**
+             * Window
+             * @default
+             */
+            window: string;
+            /**
+             * Time Zone
+             * @default UTC
+             */
+            time_zone: string;
         };
         /** AirReport */
         AirReport: {
@@ -8959,6 +9067,140 @@ export interface components {
              * Format: date-time
              */
             at: string;
+        };
+        /** AirBroadcast */
+        AirBroadcast: {
+            /** Id */
+            id: number;
+            /** Station */
+            station: number;
+            /** Freq */
+            freq: string;
+            /** Texts */
+            texts: string[];
+            /** Schedule */
+            schedule: string;
+            /** Time Zone */
+            time_zone: string;
+            /** Condition */
+            condition?: unknown;
+            /** Active */
+            active: boolean;
+            /** Note */
+            note: string;
+            /** Summary */
+            summary: string;
+            /** Last At */
+            last_at: string | null;
+            /** Next At */
+            next_at: string | null;
+        };
+        /** AirBroadcastIn */
+        AirBroadcastIn: {
+            /** Station */
+            station: number;
+            /** Freq */
+            freq: string;
+            /** Texts */
+            texts: string[];
+            /** Schedule */
+            schedule: string;
+            /**
+             * Time Zone
+             * @default UTC
+             */
+            time_zone: string;
+            /** Condition */
+            condition?: unknown;
+            /**
+             * Active
+             * @default true
+             */
+            active: boolean;
+            /**
+             * Note
+             * @default
+             */
+            note: string;
+        };
+        /** AirResponder */
+        AirResponder: {
+            /** Id */
+            id: number;
+            /** Station */
+            station: number;
+            /** Freq */
+            freq: string;
+            /** Pattern */
+            pattern: string;
+            /** Regex */
+            regex: boolean;
+            /** Condition */
+            condition?: unknown;
+            /** Cooldown */
+            cooldown: number;
+            /** Reply */
+            reply: string;
+            /** Delay */
+            delay: number;
+            /** Actions */
+            actions: {
+                [key: string]: unknown;
+            }[];
+            /** Active */
+            active: boolean;
+            /** Note */
+            note: string;
+            /** Fires */
+            fires: number;
+        };
+        /** AirResponderIn */
+        AirResponderIn: {
+            /** Station */
+            station: number;
+            /** Freq */
+            freq: string;
+            /** Pattern */
+            pattern: string;
+            /**
+             * Regex
+             * @default false
+             */
+            regex: boolean;
+            /** Condition */
+            condition?: unknown;
+            /**
+             * Cooldown
+             * @default 10
+             */
+            cooldown: number;
+            /**
+             * Reply
+             * @default
+             */
+            reply: string;
+            /**
+             * Delay
+             * @default 5
+             */
+            delay: number;
+            /**
+             * Actions
+             * @default []
+             */
+            actions: {
+                [key: string]: unknown;
+            }[];
+            /**
+             * Active
+             * @default true
+             */
+            active: boolean;
+            /**
+             * Note
+             * @default
+             */
+            note: string;
         };
     };
     responses: never;
@@ -15438,6 +15680,212 @@ export interface operations {
             header?: never;
             path: {
                 report_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    studio_api_air_broadcasts: {
+        parameters: {
+            query?: {
+                station?: number | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AirBroadcast"][];
+                };
+            };
+        };
+    };
+    studio_api_air_add_broadcast: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AirBroadcastIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AirBroadcast"];
+                };
+            };
+        };
+    };
+    studio_api_air_change_broadcast: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                broadcast_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AirBroadcastIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AirBroadcast"];
+                };
+            };
+        };
+    };
+    studio_api_air_delete_broadcast: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                broadcast_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    studio_api_air_broadcast_now: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                broadcast_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AirRow"];
+                };
+            };
+        };
+    };
+    studio_api_air_responders: {
+        parameters: {
+            query?: {
+                station?: number | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AirResponder"][];
+                };
+            };
+        };
+    };
+    studio_api_air_add_responder: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AirResponderIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AirResponder"];
+                };
+            };
+        };
+    };
+    studio_api_air_change_responder: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                responder_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AirResponderIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AirResponder"];
+                };
+            };
+        };
+    };
+    studio_api_air_delete_responder: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                responder_id: number;
             };
             cookie?: never;
         };

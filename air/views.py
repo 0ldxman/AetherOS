@@ -45,14 +45,20 @@ def _state(request):
     player = _player(request)
     band = radio.band_of(freq)
     label = "calling channel" if freq == radio.CALLING else (band.label if band else "")
+    from machines.current import current_machine
+    from machines.world import chrono
+
+    since_label = chrono.stamp(since, current_machine(request), "%H:%M")
     return {"freq": f"{freq:.3f}", "since": since.isoformat(), "callsign": radio.callsign_of(player).name if player else "",
             "can_tx": player is not None, "calling": f"{radio.CALLING:.3f}", "label": label,
             "inhibit": band is not None and band.kind == band.Kind.RESERVED,
-            "low": f"{radio.LOW:.3f}", "high": f"{radio.HIGH:.3f}", "scan_width": f"{radio.SCAN_WIDTH:.3f}"}
+            "since_label": since_label, "low": f"{radio.LOW:.3f}", "high": f"{radio.HIGH:.3f}", "scan_width": f"{radio.SCAN_WIDTH:.3f}"}
 
 
-def _row(row):
-    return {**row, "at": timezone.localtime(row["at"]).strftime("%H:%M:%S")}
+def _row(row, machine=None):
+    from machines.world import chrono
+
+    return {**row, "at": chrono.stamp(row["at"], machine, "%H:%M:%S")}
 
 
 def _error(error, status=400):
@@ -84,8 +90,11 @@ def tune(request):
 def listen(request):
     freq, since = _tuned(request)
     after = int(request.GET.get("after") or 0) if str(request.GET.get("after") or "0").isdigit() else 0
-    rows = radio.listen(_player(request), freq, since, after)
-    return JsonResponse({"freq": f"{freq:.3f}", "rows": [_row(row) for row in rows]})
+    from machines.current import current_machine
+
+    rows = radio.listen(_player(request), freq, since, after, keys=_keys(request))
+    machine = current_machine(request)
+    return JsonResponse({"freq": f"{freq:.3f}", "rows": [_row(row, machine) for row in rows]})
 
 
 @require_POST
@@ -98,10 +107,14 @@ def transmit(request):
     freq, _since = _tuned(request)
     text = json.loads(request.body or b"{}").get("text", "")
     try:
-        sent = radio.transmit(player, freq, text if isinstance(text, str) else "", machine=current_machine(request))
+        from mail.boxes import box_for
+
+        sent = radio.transmit(player, freq, text if isinstance(text, str) else "", machine=current_machine(request), keys=_keys(request), box=box_for(request))
     except radio.AirError as error:
         return _error(error)
-    return JsonResponse({"id": sent.pk})
+    from mail.views import _browser_effects
+
+    return JsonResponse({"id": sent.pk, "effects": _browser_effects(sent.effects)})
 
 
 @require_GET
@@ -111,7 +124,7 @@ def scan(request):
     if last and now - datetime.fromisoformat(last) < SCAN_EVERY:
         return _error("scanner busy, try again in a few seconds", 429)
     try:
-        found = radio.scan(_player(request), request.GET.get("low", ""), request.GET.get("high", ""), now=now)
+        found = radio.scan(_player(request), request.GET.get("low", ""), request.GET.get("high", ""), now=now, keys=_keys(request))
     except radio.AirError as error:
         return _error(error)
     request.session[SCAN_KEY] = now.isoformat()

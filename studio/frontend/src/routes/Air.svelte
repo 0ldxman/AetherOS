@@ -7,6 +7,7 @@
   import PageHead from "../lib/PageHead.svelte";
   import { ask } from "../lib/confirm.svelte";
   import { toast } from "../lib/toast.svelte";
+  import Stations from "./air/Stations.svelte";
 
   type Row = Schemas["AirRow"];
   let { tab }: { tab: string } = $props();
@@ -14,6 +15,7 @@
     { key: "live", label: "Живой эфир" },
     { key: "callsigns", label: "Позывные" },
     { key: "bands", label: "Частоты" },
+    { key: "stations", label: "Станции" },
     { key: "reports", label: "Жалобы" },
   ];
   const current = $derived(TABS.some((t) => t.key === tab) ? tab : "live");
@@ -83,34 +85,33 @@
 
   // ---------- частоты ----------
   let bands = $state<Schemas["AirBand"][]>([]);
-  let band = $state({ low: "", high: "", kind: "reserved", condition: "", label: "" });
-  let station = $state({ name: "", label: "", kind: "station" });
+  const EMPTY_BAND = { id: null as number | null, low: "", high: "", kind: "open", condition: "", label: "", window: "", time_zone: "UTC" };
+  let band = $state({ ...EMPTY_BAND });
+  const ZONES: string[] = (Intl as unknown as { supportedValuesOf?: (key: string) => string[] }).supportedValuesOf?.("timeZone") ?? ["UTC"];
+  const KIND = { open: "обычная", reserved: "зарезервирована", conditional: "по условию" } as Record<string, string>;
   async function loadBands() {
     const [a, b] = await Promise.all([api.GET("/studio/api/air/bands"), api.GET("/studio/api/air/stations")]);
     bands = a.data ?? [];
     stations = b.data ?? [];
     if (!say.station && stations.length) say.station = stations[0].id;
   }
-  async function addBand() {
-    const { error } = await api.POST("/studio/api/air/bands", { body: { ...band, condition: band.condition.trim() || null } });
+  async function saveBand() {
+    const body = { low: band.low, high: band.high, kind: band.kind, condition: band.condition.trim() || null, label: band.label, window: band.window, time_zone: band.time_zone };
+    const { error } = band.id !== null
+      ? await api.PUT("/studio/api/air/bands/{band_id}", { params: { path: { band_id: band.id } }, body })
+      : await api.POST("/studio/api/air/bands", { body });
     if (error) return toast(problem(error), "error");
-    band = { low: "", high: "", kind: "reserved", condition: "", label: "" };
+    toast(band.id !== null ? "Полоса сохранена." : "Полоса добавлена.");
+    band = { ...EMPTY_BAND };
     loadBands();
   }
+  function editBand(b: Schemas["AirBand"]) {
+    band = { id: b.id, low: b.low, high: b.high, kind: b.kind, condition: typeof b.condition === "string" ? b.condition : "", label: b.label, window: b.window, time_zone: b.time_zone };
+  }
+  const passing = (value: number) => (value >= 1 ? "проходит" : value <= 0 ? "тишина" : "на краю окна");
   async function dropBand(id: number) {
     if (!(await ask("Удалить полосу?", "Частоты станут обычными: передавать и слушать там смогут все."))) return;
     await api.DELETE("/studio/api/air/bands/{band_id}", { params: { path: { band_id: id } } });
-    loadBands();
-  }
-  async function addStation() {
-    const { error } = await api.POST("/studio/api/air/stations", { body: station });
-    if (error) return toast(problem(error), "error");
-    station = { name: "", label: "", kind: "station" };
-    loadBands();
-  }
-  async function dropStation(id: number) {
-    if (!(await ask("Удалить станцию?", "Её передачи за сутки тоже пропадут, а позывной освободится."))) return;
-    await api.DELETE("/studio/api/air/stations/{station_id}", { params: { path: { station_id: id } } });
     loadBands();
   }
 
@@ -181,7 +182,7 @@
         {#each stations as s (s.id)}<option value={s.id}>{s.name}{s.kind === "character" ? " (персонаж)" : ""}</option>{:else}<option value={0}>нет станций</option>{/each}
       </select>
       <input class="field mono freq" bind:value={say.freq} aria-label="Частота" />
-      <input class="field grow" bind:value={say.text} maxlength="280" placeholder={stations.length ? "Текст передачи" : "Сначала заведите станцию на вкладке «Частоты»"} aria-label="Текст" />
+      <input class="field grow" bind:value={say.text} maxlength="280" placeholder={stations.length ? "Текст передачи" : "Сначала заведите станцию на вкладке «Станции»"} aria-label="Текст" />
       <button class="btn primary" disabled={!stations.length || !say.text.trim()}>Передать</button>
     </form>
   {:else if current === "callsigns"}
@@ -220,42 +221,43 @@
   {:else if current === "bands"}
     <section class="card">
       <h3>Полосы</h3>
-      <p class="muted small">«Зарезервирована»: игроки слушают, но не передают (станции, маяки). «По условию»: слышно только с ключом.</p>
+      <p class="muted small">«Обычная»: только окно и подпись. «Зарезервирована»: игроки слушают, но не передают. «По условию»: слышно только с ключом.
+        Окно — когда полоса проходит по игровому времени; вне окна тишина, у краёв (±10 минут) текст рассыпается.</p>
       <table class="table">
-        <thead><tr><th>Частоты, МГц</th><th>Вид</th><th>Ключ</th><th>Подпись</th><th></th></tr></thead>
+        <thead><tr><th>Частоты, МГц</th><th>Вид</th><th>Окно</th><th>Сейчас</th><th>Подпись</th><th></th></tr></thead>
         <tbody>
           {#each bands as b (b.id)}
-            <tr><td class="mono">{b.low}–{b.high}</td><td>{b.kind === "reserved" ? "зарезервирована" : "по условию"}</td>
-              <td class="mono">{typeof b.condition === "string" ? b.condition : b.condition ? JSON.stringify(b.condition) : "—"}</td><td>{b.label}</td>
-              <td><button class="btn ghost small danger" onclick={() => dropBand(b.id)}>Удалить</button></td></tr>
-          {:else}<tr><td colspan="5" class="muted">Полос нет: весь диапазон 3–30 МГц открыт.</td></tr>{/each}
+            <tr class:editing={band.id === b.id}><td class="mono">{b.low}–{b.high}</td>
+              <td>{KIND[b.kind] ?? b.kind}{#if b.kind === "conditional"}<span class="muted small"> · ключ {typeof b.condition === "string" ? b.condition : JSON.stringify(b.condition)}</span>{/if}</td>
+              <td class="mono small">{#if b.window}{b.window.split("\n").join("; ")}{#if b.time_zone !== "UTC"}<span class="muted"> · {b.time_zone}</span>{/if}{:else}<span class="muted">всегда</span>{/if}</td>
+              <td><span class="state" class:shut={b.open_now <= 0} class:edge={b.open_now > 0 && b.open_now < 1}>{passing(b.open_now)}</span></td>
+              <td>{b.label}</td>
+              <td class="acts"><button class="btn ghost small" onclick={() => editBand(b)}>Изменить</button><button class="btn ghost small danger" onclick={() => dropBand(b.id)}>Удалить</button></td></tr>
+          {:else}<tr><td colspan="6" class="muted">Полос нет: весь диапазон 3–30 МГц открыт и проходит всегда.</td></tr>{/each}
         </tbody>
       </table>
-      <form class="row" onsubmit={(e) => { e.preventDefault(); addBand(); }}>
-        <input class="field mono w8" placeholder="с" bind:value={band.low} aria-label="С частоты" />
-        <input class="field mono w8" placeholder="по" bind:value={band.high} aria-label="По частоту" />
-        <select class="field" bind:value={band.kind} aria-label="Вид"><option value="reserved">зарезервирована</option><option value="conditional">по условию</option></select>
-        {#if band.kind === "conditional"}<input class="field mono" placeholder="ключ (slug)" bind:value={band.condition} aria-label="Ключ" />{/if}
-        <input class="field grow" placeholder="подпись" bind:value={band.label} aria-label="Подпись" />
-        <button class="btn" disabled={!band.low || !band.high}>+ Полоса</button>
+      <form class="bandform" onsubmit={(e) => { e.preventDefault(); saveBand(); }}>
+        <h4>{band.id !== null ? `Полоса ${band.low}–${band.high}` : "Новая полоса"}</h4>
+        <div class="row">
+          <input class="field mono w8" placeholder="с, МГц" bind:value={band.low} aria-label="С частоты" />
+          <input class="field mono w8" placeholder="по, МГц" bind:value={band.high} aria-label="По частоту" />
+          <select class="field" bind:value={band.kind} aria-label="Вид"><option value="open">обычная</option><option value="reserved">зарезервирована</option><option value="conditional">по условию</option></select>
+          {#if band.kind === "conditional"}<input class="field mono" placeholder="ключ (slug)" bind:value={band.condition} aria-label="Ключ" />{/if}
+          <input class="field grow" placeholder="подпись (её видит игрок)" bind:value={band.label} aria-label="Подпись" />
+        </div>
+        <div class="row">
+          <textarea class="field mono grow" rows="2" bind:value={band.window} placeholder={"окно: пусто — всегда\nmon-fri: 21:00-23:30"} aria-label="Окно прохождения"></textarea>
+          <input class="field mono zone" list="band-zones" bind:value={band.time_zone} aria-label="Часовой пояс окна" title="Часовой пояс окна" />
+        </div>
+        <div class="row">
+          <button class="btn" disabled={!band.low || !band.high}>{band.id !== null ? "Сохранить полосу" : "+ Полоса"}</button>
+          {#if band.id !== null}<button type="button" class="btn ghost" onclick={() => (band = { ...EMPTY_BAND })}>Отмена</button>{/if}
+        </div>
       </form>
+      <datalist id="band-zones">{#each ZONES as zone}<option value={zone}></option>{/each}</datalist>
     </section>
-    <section class="card">
-      <h3>Станции и персонажи</h3>
-      <p class="muted small">От их имени авторы передают в эфир. Позывной зарезервирован: игрок его не займёт, у игроков он выделен цветом.</p>
-      <ul class="stations">
-        {#each stations as s (s.id)}
-          <li><b class="mono">{s.name}</b><span class="muted small">{s.kind === "character" ? "персонаж" : "станция"}{s.label ? ` · ${s.label}` : ""}</span>
-            <button class="btn ghost small danger" onclick={() => dropStation(s.id)}>Удалить</button></li>
-        {:else}<li class="muted">Станций нет.</li>{/each}
-      </ul>
-      <form class="row" onsubmit={(e) => { e.preventDefault(); addStation(); }}>
-        <input class="field mono w12" placeholder="ПОЗЫВНОЙ" bind:value={station.name} maxlength="12" aria-label="Позывной" />
-        <select class="field" bind:value={station.kind} aria-label="Вид"><option value="station">станция</option><option value="character">персонаж</option></select>
-        <input class="field grow" placeholder="подпись для авторов" bind:value={station.label} aria-label="Подпись" />
-        <button class="btn" disabled={!station.name.trim()}>+ Станция</button>
-      </form>
-    </section>
+  {:else if current === "stations"}
+    <Stations onchange={loadBands} />
   {:else}
     <ol class="feed">
       {#each reports as r (r.id)}
@@ -288,8 +290,8 @@
   .find input { width: 240px; padding: 6px 0; border: 0; outline: 0; background: none; color: var(--text); font: inherit; font-size: 13px; }
   .freq { width: 10ch; flex: none; }
   .row select, .say select { width: auto; flex: none; }
-  .row .w8, .row .w12 { flex: none; }
-  .w8 { width: 9ch; } .w12 { width: 14ch; }
+  .row .w8 { flex: none; }
+  .w8 { width: 9ch; }
   .mono { font-family: var(--mono); }
   .feed { list-style: none; margin: 0; padding: 0; border: 1px solid var(--line-soft); border-radius: var(--radius); max-height: calc(100vh - 330px); overflow: auto; }
   .feed li { display: grid; grid-template-columns: 9ch 8ch 12ch minmax(0, 1fr) auto; gap: 12px; align-items: baseline; padding: 6px 12px; border-bottom: 1px solid var(--line-soft); }
@@ -315,7 +317,12 @@
   .card { display: flex; flex-direction: column; gap: 10px; padding: 14px 16px; border: 1px solid var(--line-soft); border-radius: var(--radius); background: var(--panel); }
   .card h3 { margin: 0; font-size: 15px; }
   .card p { margin: 0; }
-  .stations { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
-  .stations li { display: flex; align-items: center; gap: 10px; }
-  .stations li .btn { margin-left: auto; }
+  .bandform { display: flex; flex-direction: column; gap: 8px; padding-top: 10px; border-top: 1px solid var(--line-soft); }
+  .bandform h4 { margin: 0; font-size: 13px; }
+  .bandform textarea { resize: vertical; font-family: var(--mono); font-size: 12.5px; }
+  .zone { width: 22ch; flex: none; }
+  .state { padding: 1px 8px; border-radius: 999px; background: color-mix(in srgb, var(--ok, #4cc38a) 15%, transparent); color: var(--ok, #4cc38a); font-size: 12px; }
+  .state.shut { background: var(--raise); color: var(--muted); }
+  .state.edge { background: color-mix(in srgb, var(--warn) 15%, transparent); color: var(--warn); }
+  tr.editing td { background: var(--raise); }
 </style>

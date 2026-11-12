@@ -61,6 +61,7 @@ class Band(models.Model):
     """Полоса частот с особым правилом: зарезервирована (игроки не передают) или слышна только по условию на ключи."""
 
     class Kind(models.TextChoices):
+        OPEN = "open", "Обычная"
         RESERVED = "reserved", "Зарезервирована"
         CONDITIONAL = "conditional", "Слышна по условию"
 
@@ -69,6 +70,11 @@ class Band(models.Model):
     kind = models.CharField(max_length=16, choices=Kind.choices, default=Kind.RESERVED)
     condition = models.JSONField("Условие слушать", null=True, blank=True, help_text="Условие на ключи (secure.access). Пусто: слышат все.")
     label = models.CharField("Подпись", max_length=120, blank=True)
+    window = models.TextField(
+        "Окно прохождения", blank=True,
+        help_text="Когда полоса проходит, по игровому времени в поясе полосы: «mon-fri: 21:00-23:30», «except sun: *». "
+                  "Пусто: всегда. Вне окна тишина, у краёв (±10 минут) сигнал рассыпается.")
+    time_zone = models.CharField("Часовой пояс окна", max_length=64, default="UTC")
 
     class Meta:
         ordering = ("low",)
@@ -91,9 +97,13 @@ class Transmission(models.Model):
     hidden_by = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL, related_name="+")
     hidden_reason = models.CharField(max_length=200, blank=True)
     sandbox = models.BooleanField(default=False, help_text="Передал песочный игрок автора: слышит только его песочница.")
+    broadcast = models.ForeignKey("air.Broadcast", null=True, blank=True, on_delete=models.SET_NULL, related_name="transmissions")
+    slot = models.DateTimeField("Слот расписания (игровое UTC)", null=True, blank=True)
+    condition = models.JSONField("Кому слышно", null=True, blank=True, help_text="Условие на ключи (secure.access). Пусто: всем.")
 
     class Meta:
         ordering = ("created_at", "pk")
+        constraints = [models.UniqueConstraint(fields=("broadcast", "slot"), name="unique_air_broadcast_slot")]
         indexes = [models.Index(fields=("freq", "created_at"), name="air_freq_time_idx")]
 
     def __str__(self):
@@ -110,3 +120,74 @@ class Report(models.Model):
     class Meta:
         ordering = ("-created_at",)
         constraints = [models.UniqueConstraint(fields=("transmission", "user"), name="unique_air_report")]
+
+
+class Broadcast(models.Model):
+    """Передача станции по расписанию игрового времени. Выпуск появляется в эфире сам, когда наступает слот (air/events.py)."""
+
+    station = models.ForeignKey(Station, on_delete=models.CASCADE, related_name="broadcasts")
+    freq = models.DecimalField("Частота", max_digits=6, decimal_places=3)
+    texts = models.JSONField("Тексты", default=list, help_text="Один или несколько: выпуски идут по кругу.")
+    schedule = models.TextField("Расписание", help_text="Строки: «daily 21:00», «mon,fri 21:00 23:30», «hourly :15», «every 30m», «once 2031-03-01 21:00».")
+    time_zone = models.CharField("Часовой пояс расписания", max_length=64, default="UTC")
+    condition = models.JSONField("Кому слышно", null=True, blank=True, help_text="Условие на ключи (secure.access). Пусто: всем на частоте.")
+    active = models.BooleanField("Включена", default=True)
+    note = models.CharField("Заметка", max_length=200, blank=True)
+    last_slot = models.DateTimeField("Последний выпуск (игровое UTC)", null=True, blank=True)
+    turn = models.PositiveIntegerField("Номер следующего текста", default=0)
+    created_at = models.DateTimeField(default=timezone.now)
+
+    class Meta:
+        ordering = ("freq", "pk")
+        verbose_name = "Передача по расписанию"
+        verbose_name_plural = "Передачи по расписанию"
+
+    def __str__(self):
+        return f"{self.station.name} {self.freq}: {self.schedule.splitlines()[0] if self.schedule else ''}"
+
+
+class Responder(models.Model):
+    """Станция слушает частоту и отвечает на передачу игрока по шаблону. Ответ слышат все на частоте, исходы достаются передавшему."""
+
+    station = models.ForeignKey(Station, on_delete=models.CASCADE, related_name="responders")
+    freq = models.DecimalField("Частота", max_digits=6, decimal_places=3)
+    pattern = models.TextField("На что отвечает", help_text="Строки-варианты: слово или фраза целиком, без учёта регистра. Или регулярное выражение.")
+    regex = models.BooleanField("Регулярное выражение", default=False)
+    condition = models.JSONField("Кому отвечает", null=True, blank=True, help_text="Условие на ключи передавшего. Пусто: всем.")
+    cooldown = models.PositiveIntegerField("Пауза для игрока, мин", default=10)
+    reply = models.TextField("Ответ в эфир", blank=True, help_text="Можно {callsign}: позывной передавшего. Пусто: молча.")
+    delay = models.PositiveIntegerField("Задержка ответа, с", default=5)
+    actions = models.JSONField("Исходы", default=list, blank=True, help_text="Как в почте: flag, unflag, key, file, hook.")
+    active = models.BooleanField("Включён", default=True)
+    note = models.CharField("Заметка", max_length=200, blank=True)
+
+    class Meta:
+        ordering = ("freq", "pk")
+        verbose_name = "Ответчик"
+        verbose_name_plural = "Ответчики"
+
+    def __str__(self):
+        return f"{self.station.name} {self.freq}: {self.pattern.splitlines()[0] if self.pattern else ''}"
+
+
+class ResponderFire(models.Model):
+    """Когда ответчик сработал на игрока: для паузы."""
+
+    responder = models.ForeignKey(Responder, on_delete=models.CASCADE, related_name="fires")
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="+")
+    fired_at = models.DateTimeField(default=timezone.now)
+
+    class Meta:
+        indexes = [models.Index(fields=("responder", "user", "fired_at"), name="air_fire_idx")]
+
+
+class PendingReply(models.Model):
+    """Ответ станции, который выйдет в эфир позже (задержка ответчика). Выходит при первом приёме после due_at."""
+
+    station = models.ForeignKey(Station, on_delete=models.CASCADE, related_name="+")
+    freq = models.DecimalField(max_digits=6, decimal_places=3)
+    text = models.CharField(max_length=400)
+    due_at = models.DateTimeField(db_index=True)
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.CASCADE, related_name="+",
+                             help_text="Для песочницы: ответ слышит только песочный игрок.")
+    sandbox = models.BooleanField(default=False)

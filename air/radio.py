@@ -132,8 +132,10 @@ def _clean(text):
     return text
 
 
-def transmit(user, freq, text, machine=None, now=None):
-    """Передача игрока. Ошибки: AirError с текстом для игрока."""
+def transmit(user, freq, text, machine=None, now=None, keys=frozenset(), box=None):
+    """Передача игрока. Ошибки: AirError с текстом для игрока. У вернувшейся передачи .effects: хуки ответчиков для браузера."""
+    from air import events
+    from machines.world import chrono
     from users.sandbox import is_sandbox
 
     now = now or timezone.now()
@@ -146,6 +148,8 @@ def transmit(user, freq, text, machine=None, now=None):
     band = band_of(freq)
     if band is not None and band.kind == Band.Kind.RESERVED:
         raise AirError(f"{freq} is a reserved band")
+    if events.propagation(band, chrono.to_game(now)) == 0:
+        raise AirError(f"no propagation on {freq} now")
     text = _clean(text)
     mine = Transmission.objects.filter(user=user)
     last = mine.aggregate(last=Max("created_at"))["last"]
@@ -154,7 +158,9 @@ def transmit(user, freq, text, machine=None, now=None):
     if mine.filter(created_at__gte=now - timedelta(minutes=1)).count() >= PER_MINUTE:
         raise AirError("too many transmissions, wait a minute")
     purge(now)
-    return Transmission.objects.create(freq=freq, user=user, callsign=sign.name, machine=machine, text=text, sandbox=is_sandbox(user), created_at=now)
+    sent = Transmission.objects.create(freq=freq, user=user, callsign=sign.name, machine=machine, text=text, sandbox=is_sandbox(user), created_at=now)
+    sent.effects = events.react(sent, keys, box, now)
+    return sent
 
 
 def station_transmit(station, freq, text):
@@ -172,27 +178,51 @@ def _audible(user):
     return Transmission.objects.filter(visible)
 
 
-def listen(user, freq, since, after=0, now=None):
-    """Принятое на частоте после выхода на неё (since) и после передачи after: [{id, callsign, station, text, at, hidden}]."""
+def _hears(row, keys):
+    from secure.access import satisfied
+
+    return not row.condition or satisfied(row.condition, keys)
+
+
+def listen(user, freq, since, after=0, now=None, keys=frozenset()):
+    """Принятое на частоте после выхода на неё (since) и после передачи after: [{id, callsign, station, text, at, hidden, mine}].
+    Сначала выходит наступившее (расписание станций, отложенные ответы). Вне окна полосы передача не слышна, у краёв рассыпается."""
+    from air import events
+    from machines.world import chrono
+
     now = now or timezone.now()
     freq = parse_freq(freq)
-    rows = _audible(user).filter(freq=freq, created_at__gte=max(since, now - KEEP), pk__gt=after).order_by("created_at", "pk")[:200]
-    return [
-        {"id": row.pk, "callsign": row.callsign, "station": row.station_id is not None, "text": NOISE if row.hidden_at else row.text,
-         "at": row.created_at, "hidden": row.hidden_at is not None, "mine": user is not None and row.user_id == getattr(user, "pk", None)}
-        for row in rows
-    ]
+    events.flush(now)
+    band = band_of(freq)
+    rows = _audible(user).filter(freq=freq, created_at__gte=max(since, now - KEEP), created_at__lte=now, pk__gt=after).order_by("created_at", "pk")[:200]
+    found = []
+    for row in rows:
+        if not _hears(row, keys):
+            continue
+        quality = events.propagation(band, chrono.to_game(row.created_at))
+        if quality == 0 and row.station_id is not None:
+            continue                                        # станция вне окна: не прошла
+        text = NOISE if row.hidden_at else events.degrade(row.text, quality, f"{row.pk}:{getattr(user, 'pk', 0)}")
+        found.append({"id": row.pk, "callsign": row.callsign, "station": row.station_id is not None, "text": text, "at": row.created_at,
+                      "hidden": row.hidden_at is not None, "mine": user is not None and row.station_id is None and row.user_id == getattr(user, "pk", None)})
+    return found
 
 
-def scan(user, low, high, now=None):
+def scan(user, low, high, now=None, keys=frozenset()):
     """Где была активность за SCAN_WINDOW на участке до SCAN_WIDTH: [{freq, count, last}], без текста."""
+    from air import events
+    from secure.access import satisfied
+
     now = now or timezone.now()
+    events.flush(now)
     low, high = parse_freq(low), parse_freq(high)
     if high < low:
         low, high = high, low
     if high - low > SCAN_WIDTH:
         raise AirError(f"scan range wider than {SCAN_WIDTH} MHz")
-    rows = (_audible(user).filter(freq__gte=low, freq__lte=high, created_at__gte=now - SCAN_WINDOW)
+    heard = _audible(user).filter(freq__gte=low, freq__lte=high, created_at__gte=now - SCAN_WINDOW, created_at__lte=now)
+    allowed = [pk for pk, condition in heard.exclude(condition__isnull=True).values_list("pk", "condition") if satisfied(condition, keys)]
+    rows = (heard.filter(Q(condition__isnull=True) | Q(pk__in=allowed))
             .values("freq").annotate(count=Count("pk"), last=Max("created_at")).order_by("freq"))
     return [{"freq": row["freq"], "count": row["count"], "last": row["last"]} for row in rows]
 

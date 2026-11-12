@@ -18,7 +18,6 @@
     function kHz(value) { return Math.round(parseFloat(String(value).replace(",", ".")) * 1000); }
     function mhz(k) { return (k / 1000).toFixed(3); }
     function snap(k) { return Math.min(HIGH, Math.max(LOW, Math.round(k / GRID) * GRID)); }
-    function clock(date) { return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: false }); }
 
     let shown = kHz(state.freq);     // что на шкале (при вращении колесом опережает настроенное)
     let last = 0;
@@ -113,7 +112,7 @@
         $("air-prompt").textContent = (state.callsign || "listener") + "@" + state.freq + " ›";
         text.placeholder = !state.can_tx ? "receive only: sign in to transmit" : state.inhibit ? "transmit inhibited on this band" : "message, then Enter";
         text.setAttribute("aria-label", "transmission on " + state.freq + " MHz");
-        $("air-since").textContent = clock(new Date(state.since));
+        $("air-since").textContent = state.since_label;
         setMode(idle());
     }
     function idle() { return !state.can_tx ? "RX ONLY · GUEST" : state.inhibit ? "RX · TX INHIBIT" : "RX · LISTENING"; }
@@ -140,7 +139,7 @@
         log.append(el("p", "air-note", line));
         log.scrollTop = log.scrollHeight;
     }
-    function started() { note("— tuned " + state.freq + " MHz at " + clock(new Date(state.since)) + ", listening —"); }
+    function started() { note("— tuned " + state.freq + " MHz at " + state.since_label + ", listening —"); }
 
     async function poll() {
         try {
@@ -300,7 +299,7 @@
             const data = await call(urls.scanUrl + "?low=" + mhz(range.low) + "&high=" + mhz(range.high));
             found = data.rows.map((item) => ({ k: kHz(item.freq), count: item.count, ago: item.ago }));
             scannedAt = Date.now();
-            $("air-sweep").textContent = "SCOPE ±" + WIDTH / 2 + " KHZ · 15 MIN · " + clock(new Date());
+            $("air-sweep").textContent = "SCOPE ±" + WIDTH / 2 + " KHZ · LAST 15 MIN";
             draw();
         } catch (error) {
             scannedAt = Date.now();
@@ -382,13 +381,29 @@
         setMode("TX · ON AIR", true);
         ptt.classList.add("keyed");
         try {
-            await call(urls.txUrl, { text: value });
+            const sent = await call(urls.txUrl, { text: value });
+            runEffects(sent.effects);
             text.value = "";
             text.dispatchEvent(new Event("input"));
             await poll();
         } catch (error) { notice(error.message); }
         setTimeout(() => { setMode(idle()); ptt.classList.remove("keyed"); }, 450);
     });
+
+    // хуки ответчиков станции: окна и ошибки на рабочем столе, как у почты
+    function runEffects(effects) {
+        let api = null;
+        try { api = window.parent && window.parent.desktopAPI; } catch (error) { api = null; }
+        (effects || []).forEach(async (effect) => {
+            if (effect.op === "open" && api && api.openApp) api.openApp(effect.id, effect.title, effect.url);
+            else if (effect.op === "alert" && api && api.error) {
+                for (let i = 0; i < effect.count; i++) {
+                    api.error(effect.message, { object: "0x" + (4096 + Math.floor(Math.random() * 61000)).toString(16) }, { stack: true });
+                    await new Promise((resolve) => setTimeout(resolve, effect.gap * (0.6 + Math.random() * 0.8)));
+                }
+            }
+        });
+    }
 
     // ---------- позывной: щелчок превращает его в поле, Enter сохраняет, Esc отменяет ----------
     callButton.addEventListener("click", () => {

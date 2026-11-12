@@ -243,6 +243,8 @@ def _apply(actions, state, box, effects):
     for action in actions or []:
         do = action.get("do")
         if do == "goto":
+            if state is None:
+                continue
             step = state.conversation.steps.filter(name=action.get("step")).first()
             if step is not None:
                 enter(state, step, box, int(action.get("delay") or 0))
@@ -267,6 +269,13 @@ def _apply(actions, state, box, effects):
             effects += _effects(action.get("text", ""), box)
         elif do == "bounce":
             effects.append({"bounce": True})
+
+
+def run_actions(actions, box):
+    """Исходы вне переписки (ответчики эфира): flag, unflag, key, file, letter, hook. Возвращает эффекты хуков для браузера."""
+    effects = []
+    _apply(actions, None, box, effects)
+    return effects
 
 
 def _effects(text, box):

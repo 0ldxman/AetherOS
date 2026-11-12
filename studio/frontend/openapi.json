@@ -11620,6 +11620,360 @@
      }
     ]
    }
+  },
+  "/studio/api/air/broadcasts": {
+   "get": {
+    "operationId": "studio_api_air_broadcasts",
+    "summary": "Broadcasts",
+    "parameters": [
+     {
+      "in": "query",
+      "name": "station",
+      "schema": {
+       "anyOf": [
+        {
+         "type": "integer"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Station"
+      },
+      "required": false
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "items": {
+          "$ref": "#/components/schemas/AirBroadcast"
+         },
+         "title": "Response",
+         "type": "array"
+        }
+       }
+      }
+     }
+    },
+    "tags": [
+     "air"
+    ],
+    "security": [
+     {
+      "StudioAuth": []
+     }
+    ]
+   },
+   "post": {
+    "operationId": "studio_api_air_add_broadcast",
+    "summary": "Add Broadcast",
+    "parameters": [],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/AirBroadcast"
+        }
+       }
+      }
+     }
+    },
+    "tags": [
+     "air"
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/AirBroadcastIn"
+       }
+      }
+     },
+     "required": true
+    },
+    "security": [
+     {
+      "StudioAuth": []
+     }
+    ]
+   }
+  },
+  "/studio/api/air/broadcasts/{broadcast_id}": {
+   "put": {
+    "operationId": "studio_api_air_change_broadcast",
+    "summary": "Change Broadcast",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "broadcast_id",
+      "schema": {
+       "title": "Broadcast Id",
+       "type": "integer"
+      },
+      "required": true
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/AirBroadcast"
+        }
+       }
+      }
+     }
+    },
+    "tags": [
+     "air"
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/AirBroadcastIn"
+       }
+      }
+     },
+     "required": true
+    },
+    "security": [
+     {
+      "StudioAuth": []
+     }
+    ]
+   },
+   "delete": {
+    "operationId": "studio_api_air_delete_broadcast",
+    "summary": "Delete Broadcast",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "broadcast_id",
+      "schema": {
+       "title": "Broadcast Id",
+       "type": "integer"
+      },
+      "required": true
+     }
+    ],
+    "responses": {
+     "204": {
+      "description": "No Content"
+     }
+    },
+    "tags": [
+     "air"
+    ],
+    "security": [
+     {
+      "StudioAuth": []
+     }
+    ]
+   }
+  },
+  "/studio/api/air/broadcasts/{broadcast_id}/now": {
+   "post": {
+    "operationId": "studio_api_air_broadcast_now",
+    "summary": "Broadcast Now",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "broadcast_id",
+      "schema": {
+       "title": "Broadcast Id",
+       "type": "integer"
+      },
+      "required": true
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/AirRow"
+        }
+       }
+      }
+     }
+    },
+    "description": "Выпустить следующий текст сейчас, вне расписания (проверить, как звучит).",
+    "tags": [
+     "air"
+    ],
+    "security": [
+     {
+      "StudioAuth": []
+     }
+    ]
+   }
+  },
+  "/studio/api/air/responders": {
+   "get": {
+    "operationId": "studio_api_air_responders",
+    "summary": "Responders",
+    "parameters": [
+     {
+      "in": "query",
+      "name": "station",
+      "schema": {
+       "anyOf": [
+        {
+         "type": "integer"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Station"
+      },
+      "required": false
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "items": {
+          "$ref": "#/components/schemas/AirResponder"
+         },
+         "title": "Response",
+         "type": "array"
+        }
+       }
+      }
+     }
+    },
+    "tags": [
+     "air"
+    ],
+    "security": [
+     {
+      "StudioAuth": []
+     }
+    ]
+   },
+   "post": {
+    "operationId": "studio_api_air_add_responder",
+    "summary": "Add Responder",
+    "parameters": [],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/AirResponder"
+        }
+       }
+      }
+     }
+    },
+    "tags": [
+     "air"
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/AirResponderIn"
+       }
+      }
+     },
+     "required": true
+    },
+    "security": [
+     {
+      "StudioAuth": []
+     }
+    ]
+   }
+  },
+  "/studio/api/air/responders/{responder_id}": {
+   "put": {
+    "operationId": "studio_api_air_change_responder",
+    "summary": "Change Responder",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "responder_id",
+      "schema": {
+       "title": "Responder Id",
+       "type": "integer"
+      },
+      "required": true
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/AirResponder"
+        }
+       }
+      }
+     }
+    },
+    "tags": [
+     "air"
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/AirResponderIn"
+       }
+      }
+     },
+     "required": true
+    },
+    "security": [
+     {
+      "StudioAuth": []
+     }
+    ]
+   },
+   "delete": {
+    "operationId": "studio_api_air_delete_responder",
+    "summary": "Delete Responder",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "responder_id",
+      "schema": {
+       "title": "Responder Id",
+       "type": "integer"
+      },
+      "required": true
+     }
+    ],
+    "responses": {
+     "204": {
+      "description": "No Content"
+     }
+    },
+    "tags": [
+     "air"
+    ],
+    "security": [
+     {
+      "StudioAuth": []
+     }
+    ]
+   }
   }
  },
  "components": {
@@ -24502,6 +24856,18 @@
      "label": {
       "title": "Label",
       "type": "string"
+     },
+     "window": {
+      "title": "Window",
+      "type": "string"
+     },
+     "time_zone": {
+      "title": "Time Zone",
+      "type": "string"
+     },
+     "open_now": {
+      "title": "Open Now",
+      "type": "number"
      }
     },
     "required": [
@@ -24509,7 +24875,10 @@
      "low",
      "high",
      "kind",
-     "label"
+     "label",
+     "window",
+     "time_zone",
+     "open_now"
     ],
     "title": "AirBand",
     "type": "object"
@@ -24535,6 +24904,16 @@
      "label": {
       "default": "",
       "title": "Label",
+      "type": "string"
+     },
+     "window": {
+      "default": "",
+      "title": "Window",
+      "type": "string"
+     },
+     "time_zone": {
+      "default": "UTC",
+      "title": "Time Zone",
       "type": "string"
      }
     },
@@ -24575,6 +24954,280 @@
      "at"
     ],
     "title": "AirReport",
+    "type": "object"
+   },
+   "AirBroadcast": {
+    "properties": {
+     "id": {
+      "title": "Id",
+      "type": "integer"
+     },
+     "station": {
+      "title": "Station",
+      "type": "integer"
+     },
+     "freq": {
+      "title": "Freq",
+      "type": "string"
+     },
+     "texts": {
+      "items": {
+       "type": "string"
+      },
+      "title": "Texts",
+      "type": "array"
+     },
+     "schedule": {
+      "title": "Schedule",
+      "type": "string"
+     },
+     "time_zone": {
+      "title": "Time Zone",
+      "type": "string"
+     },
+     "condition": {
+      "title": "Condition"
+     },
+     "active": {
+      "title": "Active",
+      "type": "boolean"
+     },
+     "note": {
+      "title": "Note",
+      "type": "string"
+     },
+     "summary": {
+      "title": "Summary",
+      "type": "string"
+     },
+     "last_at": {
+      "anyOf": [
+       {
+        "format": "date-time",
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Last At"
+     },
+     "next_at": {
+      "anyOf": [
+       {
+        "format": "date-time",
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Next At"
+     }
+    },
+    "required": [
+     "id",
+     "station",
+     "freq",
+     "texts",
+     "schedule",
+     "time_zone",
+     "active",
+     "note",
+     "summary",
+     "last_at",
+     "next_at"
+    ],
+    "title": "AirBroadcast",
+    "type": "object"
+   },
+   "AirBroadcastIn": {
+    "properties": {
+     "station": {
+      "title": "Station",
+      "type": "integer"
+     },
+     "freq": {
+      "title": "Freq",
+      "type": "string"
+     },
+     "texts": {
+      "items": {
+       "type": "string"
+      },
+      "title": "Texts",
+      "type": "array"
+     },
+     "schedule": {
+      "title": "Schedule",
+      "type": "string"
+     },
+     "time_zone": {
+      "default": "UTC",
+      "title": "Time Zone",
+      "type": "string"
+     },
+     "condition": {
+      "title": "Condition"
+     },
+     "active": {
+      "default": true,
+      "title": "Active",
+      "type": "boolean"
+     },
+     "note": {
+      "default": "",
+      "title": "Note",
+      "type": "string"
+     }
+    },
+    "required": [
+     "station",
+     "freq",
+     "texts",
+     "schedule"
+    ],
+    "title": "AirBroadcastIn",
+    "type": "object"
+   },
+   "AirResponder": {
+    "properties": {
+     "id": {
+      "title": "Id",
+      "type": "integer"
+     },
+     "station": {
+      "title": "Station",
+      "type": "integer"
+     },
+     "freq": {
+      "title": "Freq",
+      "type": "string"
+     },
+     "pattern": {
+      "title": "Pattern",
+      "type": "string"
+     },
+     "regex": {
+      "title": "Regex",
+      "type": "boolean"
+     },
+     "condition": {
+      "title": "Condition"
+     },
+     "cooldown": {
+      "title": "Cooldown",
+      "type": "integer"
+     },
+     "reply": {
+      "title": "Reply",
+      "type": "string"
+     },
+     "delay": {
+      "title": "Delay",
+      "type": "integer"
+     },
+     "actions": {
+      "items": {
+       "additionalProperties": true,
+       "type": "object"
+      },
+      "title": "Actions",
+      "type": "array"
+     },
+     "active": {
+      "title": "Active",
+      "type": "boolean"
+     },
+     "note": {
+      "title": "Note",
+      "type": "string"
+     },
+     "fires": {
+      "title": "Fires",
+      "type": "integer"
+     }
+    },
+    "required": [
+     "id",
+     "station",
+     "freq",
+     "pattern",
+     "regex",
+     "cooldown",
+     "reply",
+     "delay",
+     "actions",
+     "active",
+     "note",
+     "fires"
+    ],
+    "title": "AirResponder",
+    "type": "object"
+   },
+   "AirResponderIn": {
+    "properties": {
+     "station": {
+      "title": "Station",
+      "type": "integer"
+     },
+     "freq": {
+      "title": "Freq",
+      "type": "string"
+     },
+     "pattern": {
+      "title": "Pattern",
+      "type": "string"
+     },
+     "regex": {
+      "default": false,
+      "title": "Regex",
+      "type": "boolean"
+     },
+     "condition": {
+      "title": "Condition"
+     },
+     "cooldown": {
+      "default": 10,
+      "title": "Cooldown",
+      "type": "integer"
+     },
+     "reply": {
+      "default": "",
+      "title": "Reply",
+      "type": "string"
+     },
+     "delay": {
+      "default": 5,
+      "title": "Delay",
+      "type": "integer"
+     },
+     "actions": {
+      "default": [],
+      "items": {
+       "additionalProperties": true,
+       "type": "object"
+      },
+      "title": "Actions",
+      "type": "array"
+     },
+     "active": {
+      "default": true,
+      "title": "Active",
+      "type": "boolean"
+     },
+     "note": {
+      "default": "",
+      "title": "Note",
+      "type": "string"
+     }
+    },
+    "required": [
+     "station",
+     "freq",
+     "pattern"
+    ],
+    "title": "AirResponderIn",
     "type": "object"
    }
   },

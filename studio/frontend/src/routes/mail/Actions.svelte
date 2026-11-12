@@ -3,7 +3,9 @@
   import type { Schemas } from "../../lib/api";
   import { ACTIONS, type Action } from "./doc";
 
-  let { actions = $bindable([]), steps, picks }: { actions: Action[]; steps: string[]; picks: Schemas["MlPicks"] | null } = $props();
+  // kinds: какие действия можно выбрать (эфир: без шагов и писем); по умолчанию все
+  let { actions = $bindable([]), steps, picks, kinds = null }: { actions: Action[]; steps: string[]; picks: Schemas["MlPicks"] | null; kinds?: string[] | null } = $props();
+  const allowed = $derived(kinds ? ACTIONS.filter((a) => kinds.includes(a.value)) : ACTIONS);
 
   const letters = $derived((picks?.items ?? []).filter((i) => i.format === "msg"));
   const keys = $derived((picks?.items ?? []).filter((i) => i.format === "key"));
@@ -15,7 +17,7 @@
     actions = actions.map((a, i) => (i === index ? { do: kind } : a));
   }
   function add() {
-    actions = [...actions, { do: "goto", step: "" }];
+    actions = [...actions, allowed[0]?.value === "goto" ? { do: "goto", step: "" } : { do: allowed[0]?.value ?? "flag" }];
   }
   function remove(index: number) {
     actions = actions.filter((_, i) => i !== index);
@@ -27,7 +29,7 @@
     <div class="action">
       <div class="row">
         <select class="field kind" value={action.do} onchange={(e) => change(index, e.currentTarget.value)} aria-label="Действие">
-          {#each ACTIONS as a (a.value)}<option value={a.value}>{a.label}</option>{/each}
+          {#each allowed as a (a.value)}<option value={a.value}>{a.label}</option>{/each}
         </select>
         {#if action.do === "goto"}
           <select class="field" value={action.step ?? ""} onchange={(e) => set(index, { step: e.currentTarget.value })} aria-label="Шаг">

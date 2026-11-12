@@ -26,8 +26,10 @@ def _keys(context):
     return request_keys(request)
 
 
-def _hhmm(moment):
-    return timezone.localtime(moment).strftime("%H:%M:%S")
+def _hhmm(moment, machine=None):
+    from machines.world import chrono
+
+    return chrono.stamp(moment, machine, "%H:%M:%S")
 
 
 class AirCommand(BaseCommand):
@@ -71,7 +73,7 @@ class AirCommand(BaseCommand):
     def _status(self, context, user):
         freq, since = self._tuned(context)
         who = radio.callsign_of(user).name if user is not None else "listener (sign in to transmit)"
-        return CommandResult(f"rx {freq:.3f} MHz since {_hhmm(since)}\ncallsign {who}")
+        return CommandResult(f"rx {freq:.3f} MHz since {_hhmm(since, context.machine)}\ncallsign {who}")
 
     def _tune(self, context, user, rest):
         if len(rest) != 1:
@@ -88,7 +90,7 @@ class AirCommand(BaseCommand):
         if not rest:
             return CommandResult("usage: air tx <text>", 2)
         freq, _since = self._tuned(context)
-        radio.transmit(user, freq, " ".join(rest), machine=context.machine)
+        radio.transmit(user, freq, " ".join(rest), machine=context.machine, keys=_keys(context))
         return CommandResult(f"tx {freq:.3f} MHz ok")
 
     def _log(self, context, user, rest):
@@ -96,11 +98,11 @@ class AirCommand(BaseCommand):
             return CommandResult("usage: air log [n]", 2)
         count = int(rest[0]) if rest else 20
         freq, since = self._tuned(context)
-        rows = radio.listen(user, freq, since)[-count:] if count else []
+        rows = radio.listen(user, freq, since, keys=_keys(context))[-count:] if count else []
         if not rows:
-            return CommandResult(f"no traffic on {freq:.3f} since {_hhmm(since)}")
+            return CommandResult(f"no traffic on {freq:.3f} since {_hhmm(since, context.machine)}")
         width = max(len(row["callsign"]) for row in rows)
-        return CommandResult("\n".join(f"{_hhmm(row['at'])}  {row['callsign']:<{width}}  {row['text']}" for row in rows))
+        return CommandResult("\n".join(f"{_hhmm(row['at'], context.machine)}  {row['callsign']:<{width}}  {row['text']}" for row in rows))
 
     def _scan(self, context, user, rest):
         if len(rest) != 2:
@@ -112,7 +114,7 @@ class AirCommand(BaseCommand):
         last = session.get(SCAN_KEY) if session is not None else None
         if last and now - datetime.fromisoformat(last) < SCAN_EVERY:
             raise radio.AirError("scanner busy, try again in a few seconds")
-        rows = radio.scan(user, rest[0], rest[1], now=now)
+        rows = radio.scan(user, rest[0], rest[1], now=now, keys=_keys(context))
         if session is not None:
             session[SCAN_KEY] = now.isoformat()
         keys = _keys(context)
