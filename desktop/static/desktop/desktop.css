@@ -563,6 +563,9 @@ body {
 .toast--error { border-left-color: var(--status-error); }
 .toast--warning { border-left-color: var(--status-warn); }
 .toast--info { border-left-color: var(--accent); }
+.toast--moment { background: var(--accent-warn); border-color: var(--accent-warn); color: var(--font-dark); font-family: var(--font-console); letter-spacing: 0.06em; }
+.toast--moment .toast-title { text-transform: uppercase; }
+.toast--moment .toast-text { color: var(--font-dark); opacity: 0.75; font-variant-numeric: tabular-nums; }
 
 .toast-text {
   color: var(--font-muted);

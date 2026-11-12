@@ -9718,8 +9718,12 @@ export interface components {
             time_zone: string;
             /** Duration */
             duration: number;
-            /** Public */
-            public: boolean;
+            /** In List */
+            in_list: boolean;
+            /** Ticker */
+            ticker: boolean;
+            /** Toast */
+            toast: boolean;
             /** Warn */
             warn: number;
             /** Systems */
@@ -9866,13 +9870,23 @@ export interface components {
              */
             duration: number;
             /**
-             * Public
+             * In List
              * @default false
              */
-            public: boolean;
+            in_list: boolean;
+            /**
+             * Ticker
+             * @default false
+             */
+            ticker: boolean;
+            /**
+             * Toast
+             * @default false
+             */
+            toast: boolean;
             /**
              * Warn
-             * @default 0
+             * @default 15
              */
             warn: number;
             /**

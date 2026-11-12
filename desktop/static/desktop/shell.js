@@ -198,8 +198,9 @@
   }
 
   document.addEventListener("desktop:notice", (event) => {
+    const parts = window.gameParts ? window.gameParts() : null;
     const now = new Date();
-    history.unshift({ ...event.detail, time: now.toTimeString().slice(0, 5) });
+    history.unshift({ ...event.detail, time: parts ? `${parts.hour}:${parts.minute}` : now.toTimeString().slice(0, 5) });
     history.length = Math.min(history.length, NOTICE_LIMIT);
     if (!noticePanel || noticePanel.hidden) unread += 1;
     renderNotices();
@@ -230,7 +231,8 @@
   }
 
   function updateWidgets() {
-    const now = new Date();
+    const now = window.gameNow ? window.gameNow() : new Date();          // игровое время; поля часов в поясе машины
+    const local = window.gameParts ? window.gameParts(now) : null;
 
     all('[data-shell="dtg"]').forEach((node) => {
       const text = pad(now.getUTCDate()) + pad(now.getUTCHours()) + pad(now.getUTCMinutes()) + "Z " + MONTHS[now.getUTCMonth()] + " " + pad(now.getUTCFullYear() % 100);
@@ -241,10 +243,10 @@
       const kind = widget.dataset.widget;
 
       if (kind === "clock") {
-        field(widget, "time", pad(now.getHours()) + ":" + pad(now.getMinutes()));
-        field(widget, "date", now.toLocaleDateString("sv-SE"));
+        field(widget, "time", local ? `${local.hour}:${local.minute}` : pad(now.getHours()) + ":" + pad(now.getMinutes()));
+        field(widget, "date", local ? `${local.year}-${local.month}-${local.day}` : now.toLocaleDateString("sv-SE"));
       } else if (kind === "system") {
-        const seconds = Math.floor((now - pageStart) / 1000);
+        const seconds = Math.floor((Date.now() - pageStart) / 1000);              // сессия идёт по реальному времени
         const ping = document.getElementById("ping-value");
 
         field(widget, "ping", ping ? ping.textContent + " ms" : "–");

@@ -88,7 +88,9 @@ class WsMoment(Schema):
     summary: str
     time_zone: str
     duration: int
-    public: bool
+    in_list: bool                # в at и {next_event}
+    ticker: bool                 # бегущая строка на столе
+    toast: bool                  # жёлтое уведомление на столе
     warn: int
     systems: list[str]
     machines: list[str]
@@ -109,8 +111,10 @@ class WsMomentIn(Schema):
     schedule: str
     time_zone: str = "UTC"
     duration: int = 30
-    public: bool = False
-    warn: int = 0
+    in_list: bool = False
+    ticker: bool = False
+    toast: bool = False
+    warn: int = 15
     systems: list[str] = []
     machines: list[str] = []
     groups: list[str] = []
@@ -183,7 +187,7 @@ def _moment(row):
         summary = ""
     upcoming = moments.next_start(row) if row.active else None
     return WsMoment(id=row.pk, name=row.name, label=row.label, title=row.title, schedule=row.schedule, summary=summary, time_zone=row.time_zone,
-                    duration=row.duration, public=row.public, warn=row.warn, systems=row.systems or [], machines=row.machines or [],
+                    duration=row.duration, in_list=row.in_list, ticker=row.ticker, toast=row.toast, warn=row.warn, systems=row.systems or [], machines=row.machines or [],
                     groups=row.groups or [], condition=row.condition, active=row.active, running=moments.running(row),
                     started_at=row.started_at, ends_at=row.ends_at, next_at=upcoming, next_real=chrono.to_real(upcoming) if upcoming else None)
 
@@ -303,7 +307,8 @@ def _moment_values(body):
             _refuse(f"Кому виден: {error}")
     clean = lambda items: [item.strip() for item in items if item.strip()]      # noqa: E731
     return {"name": name, "label": body.label.strip()[:200], "title": body.title.strip()[:80], "schedule": body.schedule.strip(), "time_zone": zone,
-            "duration": max(1, min(body.duration, 60 * 24 * 30)), "public": body.public, "warn": max(0, body.warn), "systems": clean(body.systems),
+            "duration": max(1, min(body.duration, 60 * 24 * 30)), "in_list": body.in_list, "ticker": body.ticker,
+            "toast": body.toast, "warn": max(0, body.warn), "systems": clean(body.systems),
             "machines": clean(body.machines), "groups": clean(body.groups), "condition": condition, "active": body.active}
 
 

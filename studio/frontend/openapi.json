@@ -26579,8 +26579,16 @@
       "title": "Duration",
       "type": "integer"
      },
-     "public": {
-      "title": "Public",
+     "in_list": {
+      "title": "In List",
+      "type": "boolean"
+     },
+     "ticker": {
+      "title": "Ticker",
+      "type": "boolean"
+     },
+     "toast": {
+      "title": "Toast",
       "type": "boolean"
      },
      "warn": {
@@ -26677,7 +26685,9 @@
      "summary",
      "time_zone",
      "duration",
-     "public",
+     "in_list",
+     "ticker",
+     "toast",
      "warn",
      "systems",
      "machines",
@@ -26948,13 +26958,23 @@
       "title": "Duration",
       "type": "integer"
      },
-     "public": {
+     "in_list": {
       "default": false,
-      "title": "Public",
+      "title": "In List",
+      "type": "boolean"
+     },
+     "ticker": {
+      "default": false,
+      "title": "Ticker",
+      "type": "boolean"
+     },
+     "toast": {
+      "default": false,
+      "title": "Toast",
       "type": "boolean"
      },
      "warn": {
-      "default": 0,
+      "default": 15,
       "title": "Warn",
       "type": "integer"
      },

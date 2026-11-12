@@ -1,14 +1,46 @@
 const clock = document.getElementById("clock");
 const dateEl = document.getElementById("date");
 
-function formatDate(now) {
-  return now.toLocaleDateString("sv-SE");
+// Игровое время машины (machines/world/chrono.client): сервер дал игровой момент, скорость и пояс машины, дальше часы идут сами.
+// Если впереди смена хода (прыжок, остановка), в её реальный момент часы переходят на неё без перезагрузки.
+const GAME_CLOCK = (() => {
+  try { return JSON.parse(document.getElementById("game-clock")?.textContent || "null"); } catch (error) { return null; }
+})();
+const clockLoaded = Date.now();
+
+function gameNow() {
+  if (!GAME_CLOCK) return new Date();
+  const real = GAME_CLOCK.real + (Date.now() - clockLoaded);
+  const next = GAME_CLOCK.next;
+  if (next && real >= next.real) return new Date(next.game + (real - next.real) * next.rate);
+  return new Date(GAME_CLOCK.game + (real - GAME_CLOCK.real) * GAME_CLOCK.rate);
+}
+
+// части даты и времени в поясе машины: {year, month, day, hour, minute, second, zone}
+function gameParts(date = gameNow()) {
+  const zone = GAME_CLOCK?.zone || "UTC";
+  try {
+    const parts = new Intl.DateTimeFormat("en-GB", { timeZone: zone, year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit",
+      minute: "2-digit", second: "2-digit", hourCycle: "h23", timeZoneName: "short" }).formatToParts(date);
+    const get = (type) => parts.find((part) => part.type === type)?.value || "";
+    return { year: get("year"), month: get("month"), day: get("day"), hour: get("hour"), minute: get("minute"), second: get("second"), zone: get("timeZoneName") };
+  } catch (error) {
+    const iso = date.toISOString();
+    return { year: iso.slice(0, 4), month: iso.slice(5, 7), day: iso.slice(8, 10), hour: iso.slice(11, 13), minute: iso.slice(14, 16), second: iso.slice(17, 19), zone: "UTC" };
+  }
+}
+window.gameNow = gameNow;
+window.gameParts = gameParts;
+
+function formatDate(parts) {
+  return `${parts.year}-${parts.month}-${parts.day}`;
 }
 
 function updateClock() {
-  const now = new Date();
-  clock.textContent = now.toTimeString().slice(0, 8);
-  dateEl.textContent = formatDate(now);
+  const parts = gameParts();
+  clock.textContent = `${parts.hour}:${parts.minute}:${parts.second}`;
+  clock.title = parts.zone;
+  dateEl.textContent = formatDate(parts);
 }
 
 updateClock();
@@ -1305,8 +1337,22 @@ window.addEventListener("blur", () => setMenu(false));
       track.style.setProperty("--moment-time", `${Math.max(12, width / 60)}s`);    // ~60 px в секунду при любой длине
     });
   }
+  // жёлтое уведомление: «скоро» при входе в окно предупреждения и «началось» в момент начала, каждое один раз за событие
+  const told = new Set(JSON.parse((() => { try { return sessionStorage.getItem("moment-told") || "[]"; } catch (error) { return "[]"; } })()));
+  function tell(rows) {
+    rows.filter((row) => row.toast).forEach((row) => {
+      const phase = row.live ? "live" : "soon";
+      const key = `${row.name}:${row.start}:${phase}`;
+      if (told.has(key)) return;
+      told.add(key);
+      try { sessionStorage.setItem("moment-told", JSON.stringify([...told].slice(-50))); } catch (error) { /* без памяти вкладки */ }
+      showToast({ kind: "moment", title: `${row.live ? "LIVE" : "INCOMING"}: ${row.title}`, text: row.live ? "" : `in ${clock(row.now)}` }, {}, null, 12000);
+    });
+  }
   function draw() {
-    const shown = current();
+    const all = current();
+    tell(all);
+    const shown = all.filter((row) => row.ticker);
     bar.hidden = !shown.length;
     desktop.classList.toggle("has-moment-bar", !bar.hidden);
     if (!shown.length) { shape = ""; track.replaceChildren(); return; }

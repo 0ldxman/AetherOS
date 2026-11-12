@@ -102,7 +102,10 @@ def desktop(request):
         if any(item["url"] == url for item in apps):
             feeds.append({"url": url, "pulse": reverse(f"{name}:pulse"), "toast": f"{name}_new"})
 
+    from machines.world import chrono
+
     return render(request, "desktop/desktop.html", {
+        "game_clock": chrono.client(machine, request.user if request.user.is_authenticated else None),
         "feeds": feeds,
         "tunnel": tunnel,
         "limit": limit,
@@ -171,9 +174,11 @@ def moments(request):
     machine = current_machine(request)
     profile = active_session(request).profile if request.user.is_authenticated and machine is not None else None
     game = chrono.game_now()
-    rows = [row for row in world_moments.board(machine, profile, request_keys(request)) if row["state"] in ("live", "soon")]
+    rows = [row for row in world_moments.board(machine, profile, request_keys(request), where=None)
+            if row["state"] in ("live", "soon") and (row["ticker"] or row["toast"])]
     return JsonResponse({"rate": chrono.rate_now(), "rows": [
-        {"name": row["name"], "title": row["title"], "state": row["state"],
+        {"name": row["name"], "title": row["title"], "state": row["state"], "ticker": row["ticker"], "toast": row["toast"],
+         "start": int(row["start"].timestamp()),
          "left": int(((row["end"] if row["state"] == "live" else row["start"]) - game).total_seconds())}
         for row in rows
     ]})

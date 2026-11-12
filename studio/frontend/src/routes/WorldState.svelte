@@ -90,15 +90,15 @@
   }
 
   // ---------- моменты ----------
-  type MForm = { id: number | null; name: string; label: string; title: string; schedule: string; time_zone: string; duration: number; public: boolean; warn: number;
+  type MForm = { id: number | null; name: string; label: string; title: string; schedule: string; time_zone: string; duration: number; in_list: boolean; ticker: boolean; toast: boolean; warn: number;
                  systems: string; machines: string; groups: string; condition_text: string; active: boolean };
   let mform = $state<MForm | null>(null);
   const ZONES: string[] = (Intl as unknown as { supportedValuesOf?: (key: string) => string[] }).supportedValuesOf?.("timeZone") ?? ["UTC"];
   const list = (text: string) => text.split(",").map((s) => s.trim()).filter(Boolean);
   function editMoment(m: Moment | null) {
-    mform = m ? { id: m.id, name: m.name, label: m.label, title: m.title, schedule: m.schedule, time_zone: m.time_zone, duration: m.duration, public: m.public, warn: m.warn,
+    mform = m ? { id: m.id, name: m.name, label: m.label, title: m.title, schedule: m.schedule, time_zone: m.time_zone, duration: m.duration, in_list: m.in_list, ticker: m.ticker, toast: m.toast, warn: m.warn,
                   systems: m.systems.join(", "), machines: m.machines.join(", "), groups: m.groups.join(", "), condition_text: condText(m.condition), active: m.active }
-              : { id: null, name: "", label: "", title: "", schedule: "once 2031-03-01 21:00", time_zone: "UTC", duration: 30, public: true, warn: 15,
+              : { id: null, name: "", label: "", title: "", schedule: "once 2031-03-01 21:00", time_zone: "UTC", duration: 30, in_list: true, ticker: true, toast: false, warn: 15,
                   systems: "", machines: "", groups: "", condition_text: "", active: true };
   }
   function condText(c: unknown): string {
@@ -114,7 +114,7 @@
   async function saveMoment() {
     if (!mform) return;
     busy = true;
-    const body = { name: mform.name, label: mform.label, title: mform.title, schedule: mform.schedule, time_zone: mform.time_zone, duration: mform.duration, public: mform.public,
+    const body = { name: mform.name, label: mform.label, title: mform.title, schedule: mform.schedule, time_zone: mform.time_zone, duration: mform.duration, in_list: mform.in_list, ticker: mform.ticker, toast: mform.toast,
                    warn: mform.warn, systems: list(mform.systems), machines: list(mform.machines), groups: list(mform.groups), condition_text: mform.condition_text, active: mform.active };
     const { data: next, error } = mform.id !== null
       ? await api.PUT("/studio/api/world/state/moments/{moment_id}", { params: { path: { moment_id: mform.id } }, body })
@@ -276,7 +276,7 @@
       <div class="trigger" class:off={!m.active}>
         <div class="tmain">
           <div class="line1"><b class="mono">{m.name}</b>{#if m.title}<span> · {m.title}</span>{/if}{#if m.label}<span class="muted"> · {m.label}</span>{/if}
-            {#if m.public}<span class="badge">виден игрокам{m.warn ? `, полоса за ${m.warn} мин` : ""}</span>{:else}<span class="badge">скрытый</span>{/if}
+            {#if m.in_list || m.ticker || m.toast}<span class="badge">{[m.in_list ? "at" : "", m.ticker ? "строка" : "", m.toast ? "уведомление" : ""].filter(Boolean).join(" · ")}{(m.ticker || m.toast) && m.warn ? `, за ${m.warn} мин` : ""}</span>{:else}<span class="badge">скрытый</span>{/if}
             <span class="state" class:live={m.running} class:wait={!m.running}>{m.running ? `идёт до ${inZone(m.ends_at, m.time_zone)}` : m.next_at ? `${inZone(m.next_at, m.time_zone)} · ${until(m.next_real)}` : "больше не наступит"}</span></div>
           <div class="muted small">{m.summary || m.schedule} · {m.duration} мин{m.time_zone !== "UTC" ? ` · ${m.time_zone}` : ""} · видят: {audience(m)}</div>
         </div>
@@ -350,10 +350,15 @@
         </div>
       </div>
       <datalist id="moment-zones">{#each ZONES as zone}<option value={zone}></option>{/each}</datalist>
-      <label class="check"><input type="checkbox" bind:checked={mform.public} /> Виден игрокам: в <code>at</code>, в <code>{"{next_event}"}</code> и полосой на столе</label>
-      {#if mform.public}
+      <div class="shownin">
+        <span class="label">Где видят игроки</span>
+        <label class="check"><input type="checkbox" bind:checked={mform.in_list} /> В <code>at</code> и в <code>{"{next_event}"}</code> приветствия</label>
+        <label class="check"><input type="checkbox" bind:checked={mform.ticker} /> Бегущая строка на столе: до начала и пока идёт</label>
+        <label class="check"><input type="checkbox" bind:checked={mform.toast} /> Жёлтое уведомление: «скоро» и в момент начала</label>
+      </div>
+      {#if mform.in_list || mform.ticker || mform.toast}
         <div class="two">
-          <label><span class="label">Полоса на столе за, минут<Hint text="0 — без полосы. Во время события полоса показывает LIVE и сколько осталось." /></span><input class="field mono" type="number" min="0" bind:value={mform.warn} /></label>
+          <label><span class="label">Предупреждать за, минут<Hint text="Когда появляются бегущая строка и уведомление «скоро». 0 — только в момент начала." /></span><input class="field mono" type="number" min="0" bind:value={mform.warn} /></label>
           <label><span class="label">Кому виден (условие)</span><input class="field mono" bind:value={mform.condition_text} placeholder="всем; или uplink-key and world:act>=2" /></label>
         </div>
         <div class="three">
@@ -472,6 +477,7 @@
   .state.live { background: color-mix(in srgb, var(--warn) 18%, transparent); color: var(--warn); }
   .three { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
   .col2 { display: flex; flex-direction: column; gap: 10px; }
+  .shownin { display: flex; flex-direction: column; gap: 6px; }
   .tacts { display: flex; gap: 4px; flex-wrap: wrap; justify-content: flex-end; align-content: flex-start; max-width: 340px; }
 
   .log { list-style: none; margin: 0; padding: 0; max-height: 320px; overflow: auto; display: flex; flex-direction: column; }

@@ -99,11 +99,18 @@ def stop_now(moment, source):
 
 # ---------- кому виден ----------
 
+SHOWN = ("in_list", "ticker", "toast")       # где игроки видят момент: at и {next_event}, бегущая строка, уведомление
+
+
+def shown(moment):
+    return [where for where in SHOWN if getattr(moment, where)]
+
+
 def visible(moment, machine=None, profile=None, keys=frozenset()):
-    """Виден ли публичный момент игроку на этой машине (фильтры ОС, машин, групп и условие)."""
+    """Виден ли момент этому игроку на этой машине хоть где-то (фильтры ОС, машин, групп и условие)."""
     from secure.access import satisfied
 
-    if not moment.public:
+    if not shown(moment):
         return False
     if moment.systems and (machine is None or (machine.system or "").upper() not in {s.upper() for s in moment.systems}):
         return False
@@ -119,24 +126,29 @@ def visible(moment, machine=None, profile=None, keys=frozenset()):
     return not moment.condition or satisfied(moment.condition, keys)
 
 
-def board(machine=None, profile=None, keys=frozenset()):
-    """Что видно игроку: [{name, title, state: live|soon|later, start, end, warn}] — идущие и предстоящие в горизонте, по времени."""
+def board(machine=None, profile=None, keys=frozenset(), where="in_list"):
+    """Что видно игроку там, где показывают where (in_list, ticker, toast или None — везде):
+    [{name, title, state: live|soon|later, start, end, warn, ticker, toast}] — идущие и предстоящие в горизонте, по времени."""
+    from django.db.models import Q
+
     tick()
     game = chrono.game_now()
     found = []
-    for moment in WorldMoment.objects.filter(active=True, public=True):
+    query = Q(**{where: True}) if where else Q(in_list=True) | Q(ticker=True) | Q(toast=True)
+    for moment in WorldMoment.objects.filter(query, active=True):
         if not visible(moment, machine, profile, keys):
             continue
         title = moment.title or moment.name.upper()
+        extra = {"warn": moment.warn, "ticker": moment.ticker, "toast": moment.toast}
         if running(moment):
-            found.append({"name": moment.name, "title": title, "state": "live", "start": moment.started_at, "end": moment.ends_at, "warn": moment.warn})
+            found.append({"name": moment.name, "title": title, "state": "live", "start": moment.started_at, "end": moment.ends_at, **extra})
             continue
         start = next_start(moment, game)
         if start is None or start - game > HORIZON:
             continue
         soon = bool(moment.warn) and start - game <= timedelta(minutes=moment.warn)
         found.append({"name": moment.name, "title": title, "state": "soon" if soon else "later", "start": start,
-                      "end": start + timedelta(minutes=moment.duration), "warn": moment.warn})
+                      "end": start + timedelta(minutes=moment.duration), **extra})
     return sorted(found, key=lambda row: (row["state"] != "live", row["start"]))
 
 

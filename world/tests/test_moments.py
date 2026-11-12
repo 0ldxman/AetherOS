@@ -40,7 +40,7 @@ class MomentClock(TestCase):
         moments.tick(force=True)
 
     def moment(self, **fields):
-        values = {"name": "uplink", "title": "BOREAS UPLINK", "schedule": "daily 12:30", "duration": 30, "public": True, "warn": 15, **fields}
+        values = {"name": "uplink", "title": "BOREAS UPLINK", "schedule": "daily 12:30", "duration": 30, "in_list": True, "ticker": True, "warn": 15, **fields}
         moment = WorldMoment.objects.create(**values)
         WorldMoment.objects.filter(pk=moment.pk).update(created_at=self.now - timedelta(hours=1))
         return WorldMoment.objects.get(pk=moment.pk)
@@ -87,7 +87,7 @@ class MomentTests(MomentClock):
         moment.groups, moment.condition = [], "uplink-key"
         self.assertFalse(moments.visible(moment, main, profile, set()))
         self.assertTrue(moments.visible(moment, main, profile, {"uplink-key"}))
-        moment.condition, moment.public = None, False
+        moment.condition, moment.in_list, moment.ticker = None, False, False
         self.assertFalse(moments.visible(moment, main))
 
     def test_manual_start_and_stop(self):
