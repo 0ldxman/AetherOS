@@ -6761,6 +6761,14 @@ export interface components {
                 [key: string]: string;
             };
             wallpaper: components["schemas"]["WallpaperValue"];
+            /** Widgets */
+            widgets: {
+                [key: string]: boolean;
+            };
+            /** Widget Info */
+            widget_info: components["schemas"]["WidgetInfo"][];
+            /** Widget Warnings */
+            widget_warnings: string[];
             /** Styles */
             styles: components["schemas"]["StyleChoice"][];
             /** Token Info */
@@ -6876,6 +6884,19 @@ export interface components {
              */
             pattern_opacity: number;
         };
+        /** WidgetInfo */
+        WidgetInfo: {
+            /** Key */
+            key: string;
+            /** Label */
+            label: string;
+            /** Group */
+            group: string;
+            /** Hint */
+            hint: string;
+            /** Styles */
+            styles: string[];
+        };
         /** NewSystem */
         NewSystem: {
             /** Code */
@@ -6971,6 +6992,10 @@ export interface components {
                 [key: string]: string;
             };
             wallpaper?: components["schemas"]["WallpaperValue"] | null;
+            /** Widgets */
+            widgets?: {
+                [key: string]: boolean;
+            } | null;
         };
         /** ImageListing */
         ImageListing: {

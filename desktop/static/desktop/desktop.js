@@ -1349,10 +1349,11 @@ window.addEventListener("blur", () => setMenu(false));
       showToast({ kind: "moment", title: `${row.live ? "LIVE" : "INCOMING"}: ${row.title}`, text: row.live ? "" : `in ${clock(row.now)}` }, {}, null, 12000);
     });
   }
+  const tickerOn = desktop.dataset.ticker !== "0", toastsOn = desktop.dataset.toasts !== "0";      // элементы стола у ОС
   function draw() {
     const all = current();
-    tell(all);
-    const shown = all.filter((row) => row.ticker);
+    if (toastsOn) tell(all);
+    const shown = tickerOn ? all.filter((row) => row.ticker) : [];
     bar.hidden = !shown.length;
     desktop.classList.toggle("has-moment-bar", !bar.hidden);
     if (!shown.length) { shape = ""; track.replaceChildren(); return; }

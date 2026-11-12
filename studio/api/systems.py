@@ -18,7 +18,7 @@ from filesystem.machine_view import MachineView
 from filesystem.models import Volume
 from machines.models import EntryPolicy, Group, Machine, Place, SceneScript, SystemBlackout, SystemScene, SystemType, SystemVolume
 from machines.world import blackout as blackouts
-from machines.world import styles, wallpaper
+from machines.world import styles, wallpaper, widgets
 from machines.world.dates import world
 from machines.world.slots import SLOTS
 from machines.world.facts import facts
@@ -129,6 +129,15 @@ class StyleIn(Schema):
     style: str
     tokens: dict[str, str] = {}
     wallpaper: WallpaperValue | None = None          # пусто: картинка и узор не меняются
+    widgets: dict[str, bool] | None = None           # пусто: элементы стола не меняются
+
+
+class WidgetInfo(Schema):
+    key: str
+    label: str
+    group: str
+    hint: str
+    styles: list[str]                                # оболочки стилей, в которых он есть
 
 
 class FontChoice(Schema):
@@ -181,6 +190,9 @@ class SystemOut(Schema):
     style: str
     style_tokens: dict[str, str]
     wallpaper: WallpaperValue
+    widgets: dict[str, bool]                         # выбор автора; нет ключа — как в стиле
+    widget_info: list[WidgetInfo]
+    widget_warnings: list[str]
     styles: list[StyleChoice]
     token_info: list[TokenInfo]
     style_defaults: dict[str, dict[str, str]]
@@ -251,6 +263,10 @@ def _out(system):
         blackouts=_blackouts(system),
         style=system.style, style_tokens={name: str(value) for name, value in (system.style_tokens or {}).items()},
         wallpaper=WallpaperValue(**wallpaper.clean(system.wallpaper)),
+        widgets=widgets.clean(system.widgets),
+        widget_info=[WidgetInfo(key=w.key, label=w.label, group=w.group, hint=w.hint,
+                                styles=[slug for slug in styles.STYLES if w.key in widgets.supported(slug)]) for w in widgets.ITEMS],
+        widget_warnings=widgets.warnings(system.style, system.widgets),
         styles=[StyleChoice(slug=slug, label=item.label, description=item.description) for slug, item in styles.STYLES.items()],
         preview_url=reverse("studio_style_preview", kwargs={"code": system.code}),
         style_defaults={slug: {t.name: styles.style_defaults(slug).get(t.name, "") for t in styles.TOKENS} for slug in styles.STYLES},
@@ -468,6 +484,8 @@ def save_style(request, code: str, body: StyleIn):
     system.style_tokens = {name: value.strip() for name, value in body.tokens.items() if value.strip()}
     if body.wallpaper is not None:
         system.wallpaper = _wallpaper(system, body.wallpaper.model_dump())
+    if body.widgets is not None:
+        system.widgets = widgets.clean(body.widgets)
     system.full_clean()
     system.save()
     return _out(system)

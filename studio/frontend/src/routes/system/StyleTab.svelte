@@ -14,7 +14,7 @@
 
   let { system, errors, done, onstate }: { system: System; errors: Record<string, string[]>; done: Done; onstate: (state: { dirty: boolean; share: typeof share; save: () => unknown } | null) => void } = $props();
 
-  let look = $state({ style: "aether", tokens: {} as Record<string, string>, wallpaper: { ...WALLPAPER_DEFAULT } as Wallpaper });
+  let look = $state({ style: "aether", tokens: {} as Record<string, string>, wallpaper: { ...WALLPAPER_DEFAULT } as Wallpaper, widgets: {} as Record<string, boolean> });
   let picking = $state(false);
   let lookSaved = $state("");
   let base = $state<typeof look | null>(null);                  // сохранённое: им наполняется общий черновик
@@ -48,7 +48,7 @@
 
   $effect(() => {
     if (!deskPreview) return;
-    const url = `${system.preview_url}?preview_os=${encodeURIComponent(system.code)}&preview_style=${encodeURIComponent(look.style)}&preview_tokens=${encodeURIComponent(JSON.stringify(look.tokens))}&preview_wall=${encodeURIComponent(JSON.stringify(look.wallpaper))}`;
+    const url = `${system.preview_url}?preview_os=${encodeURIComponent(system.code)}&preview_style=${encodeURIComponent(look.style)}&preview_tokens=${encodeURIComponent(JSON.stringify(look.tokens))}&preview_wall=${encodeURIComponent(JSON.stringify(look.wallpaper))}&preview_widgets=${encodeURIComponent(JSON.stringify(look.widgets))}`;
     clearTimeout(deskTimer);
     deskTimer = setTimeout(() => (previewSrc = url), 350);
     return () => clearTimeout(deskTimer);
@@ -69,8 +69,8 @@
   $effect(() => {
     const data = system;
     untrack(() => {
-      const next = { style: data.style, tokens: { ...data.style_tokens }, wallpaper: { ...WALLPAPER_DEFAULT, ...data.wallpaper } };
-      if (!share.ready) look = { style: next.style, tokens: { ...next.tokens }, wallpaper: { ...next.wallpaper } };
+      const next = { style: data.style, tokens: { ...data.style_tokens }, wallpaper: { ...WALLPAPER_DEFAULT, ...data.wallpaper }, widgets: { ...data.widgets } };
+      if (!share.ready) look = { style: next.style, tokens: { ...next.tokens }, wallpaper: { ...next.wallpaper }, widgets: { ...next.widgets } };
       lookSaved = JSON.stringify(next);
       base = next;
     });
@@ -95,7 +95,21 @@
     "Форма": "Скругление, толщина рамок и размеры элементов.",
   };
   let section = $state((() => { try { return localStorage.getItem(SECTION_KEY) ?? "wall"; } catch { return "wall"; } })());
-  const sections = $derived(["wall", ...groups]);
+  const sections = $derived(["wall", "widgets", ...groups]);
+
+  // ---------- элементы стола: у каждого «как в стиле», «вкл», «выкл»; чего нет в оболочке стиля, то недоступно ----------
+  const widgetGroups = $derived([...new Set(system.widget_info.map((w) => w.group))]);
+  const has = (w: Schemas["WidgetInfo"]) => w.styles.includes(look.style);
+  function setWidget(key: string, value: boolean | null) {
+    const next = { ...look.widgets };
+    if (value === null) delete next[key]; else next[key] = value;
+    look.widgets = next;
+  }
+  const widgetsOwn = $derived(Object.keys(look.widgets).filter((key) => system.widget_info.some((w) => w.key === key && has(w))).length);
+  const widgetWarning = $derived.by(() => {
+    const on = (key: string) => { const w = system.widget_info.find((x) => x.key === key); return !!w && has(w) && look.widgets[key] !== false; };
+    return !on("icons") && !on("launcher") && !on("dock") ? "Выключены и значки, и меню запуска: приложения на этой ОС открыть нечем, кроме ссылок и хуков." : "";
+  });
   $effect(() => { if (!sections.includes(section)) section = "wall"; });
   $effect(() => { const value = section; try { localStorage.setItem(SECTION_KEY, value); } catch { /* память браузера может быть закрыта */ } });
   let find = $state("");
@@ -138,10 +152,10 @@
   <div class="settings">
     <nav class="rail" aria-label="Разделы настроек">
       {#each sections as key (key)}
-        {@const own = key === "wall" ? (wallChanged ? 1 : 0) : ownIn(key)}
+        {@const own = key === "wall" ? (wallChanged ? 1 : 0) : key === "widgets" ? widgetsOwn : ownIn(key)}
         <button class="rail-item" class:on={!query && section === key} aria-current={!query && section === key ? "true" : undefined} onclick={() => { section = key; find = ""; }}>
-          <span>{key === "wall" ? "Картинка и узор" : key}</span>
-          {#if own}<span class="badge" title={key === "wall" ? "Картинка или узор заданы" : `Изменено токенов: ${own}`}>{key === "wall" ? "●" : own}</span>{/if}
+          <span>{key === "wall" ? "Картинка и узор" : key === "widgets" ? "Элементы стола" : key}</span>
+          {#if own}<span class="badge" title={key === "wall" ? "Картинка или узор заданы" : key === "widgets" ? `Изменено элементов: ${own}` : `Изменено токенов: ${own}`}>{key === "wall" ? "●" : own}</span>{/if}
         </button>
       {/each}
       <div class="rail-foot">
@@ -150,14 +164,14 @@
       </div>
     </nav>
 
-    <section class="panelbox" aria-label={section === "wall" ? "Картинка и узор" : section}>
+    <section class="panelbox" aria-label={section === "wall" ? "Картинка и узор" : section === "widgets" ? "Элементы стола" : section}>
       <header class="phead">
         <div>
-          <h3>{query ? "Поиск по токенам" : section === "wall" ? "Картинка и узор" : section}</h3>
-          <p class="muted small">{query ? `Найдено: ${shown.length}` : section === "wall" ? "Лежат под окнами и значками, не зависят от выбранного стиля. Цвет под ними это токен «Фон рабочего стола» в разделе «Цвета»." : GROUP_NOTE[section]}</p>
+          <h3>{query ? "Поиск по токенам" : section === "wall" ? "Картинка и узор" : section === "widgets" ? "Элементы стола" : section}</h3>
+          <p class="muted small">{query ? `Найдено: ${shown.length}` : section === "widgets" ? "Что показывает оболочка стиля на этой ОС. Вид у каждого элемента от стиля; две ОС с одним стилем могут показывать разное." : section === "wall" ? "Лежат под окнами и значками, не зависят от выбранного стиля. Цвет под ними это токен «Фон рабочего стола» в разделе «Цвета»." : GROUP_NOTE[section]}</p>
         </div>
         <div class="tools">
-          {#if section !== "wall" || query}
+          {#if (section !== "wall" && section !== "widgets") || query}
             <label class="find"><Icon name="search" size={14} /><input placeholder="Найти токен" bind:value={find} aria-label="Поиск токена" /></label>
             <label class="check small"><input type="checkbox" bind:checked={onlyOwn} /> только изменённые</label>
           {/if}
@@ -222,6 +236,25 @@
       </div>
       {#if errors.wallpaper}{#each errors.wallpaper as text}<p class="warn small">{text}</p>{/each}{/if}
     </div>
+      {:else if section === "widgets" && !query}
+        <div class="widgets">
+          {#if widgetWarning}<p class="warn small">{widgetWarning}</p>{/if}
+          {#each widgetGroups as group (group)}
+            <h4 class="wgroup">{group === "Панель" ? "На панелях оболочки" : "На самом столе"}</h4>
+            {#each system.widget_info.filter((w) => w.group === group) as w (w.key)}
+              {@const ok = has(w)}
+              {@const value = look.widgets[w.key]}
+              <div class="wrow" class:na={!ok}>
+                <div class="wname"><b>{w.label}</b><span class="muted small">{ok ? w.hint : `В стиле «${system.styles.find((s) => s.slug === look.style)?.label ?? look.style}» этого нет.`}</span></div>
+                <div class="seg" role="radiogroup" aria-label={w.label}>
+                  <button type="button" role="radio" aria-checked={value === undefined} disabled={!ok} class:on={value === undefined} onclick={() => setWidget(w.key, null)} title="Как в стиле: по умолчанию включено">стиль</button>
+                  <button type="button" role="radio" aria-checked={value === true} disabled={!ok} class:on={value === true} onclick={() => setWidget(w.key, true)}>вкл</button>
+                  <button type="button" role="radio" aria-checked={value === false} disabled={!ok} class:on={value === false} onclick={() => setWidget(w.key, false)}>выкл</button>
+                </div>
+              </div>
+            {/each}
+          {/each}
+        </div>
       {:else}
         <div class="tokens">
           {#each shown as token (token.name)}
@@ -353,4 +386,12 @@
   .pat.on { border-color: var(--accent); background: var(--accent-soft); color: var(--text); }
   .swatchpat { width: 48px; height: 32px; border-radius: 4px; background-color: var(--bg); background-size: 16px 16px; border: 1px solid var(--line-soft); }
   @media (max-width: 1280px) { .stylegrid { grid-template-columns: minmax(0, 1fr); } .stylepreview { position: static; } }
+  .widgets { display: flex; flex-direction: column; gap: 4px; }
+  .wgroup { margin: 10px 0 2px; font-size: 12px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.4px; }
+  .wrow { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 12px; padding: 6px 4px; border-bottom: 1px solid var(--line-soft); }
+  .wrow .seg { flex-shrink: 0; }
+  .wrow .seg button { padding: 4px 10px; white-space: nowrap; }
+  .wrow.na { opacity: 0.5; }
+  .wname { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+  .wrow .seg button:disabled { cursor: not-allowed; }
 </style>

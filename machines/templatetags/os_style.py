@@ -40,10 +40,24 @@ def _state(request):
         else:                                                           # один запрос: ОС входного узла
             system = SystemType.objects.filter(code=Subquery(Machine.objects.filter(hostname=MAIN_HOSTNAME).values("system")[:1])).first()
     found = (system.style, system.style_tokens, system.code, system.wallpaper) if system is not None and system.style in styles.STYLES else (styles.DEFAULT_STYLE, {}, "", {})
+    request._os_widgets = (system.widgets or {}) if system is not None else {}
     if user is not None and user.is_authenticated and user.is_staff:          # предпросмотр несохранённого стиля в студии
         found = _preview(request, found) or found
+        if request.GET.get("preview_widgets"):
+            try:
+                request._os_widgets = json.loads(request.GET["preview_widgets"])
+            except ValueError:
+                pass
     request._os_style = found
     return found
+
+
+def widget_state(request):
+    """{элемент: включён} для оболочки ОС этого запроса (machines/world/widgets.py)."""
+    from machines.world import widgets
+
+    slug = _state(request)[0]
+    return widgets.resolve(slug, getattr(request, "_os_widgets", {}))
 
 
 def _preview(request, found):
@@ -66,6 +80,25 @@ def _preview(request, found):
         if wallpaper.problems(picture):
             picture = found[3]
     return slug, tokens, found[2], picture
+
+
+@register.simple_tag(takes_context=True)
+def os_widgets_css(context):
+    """<style>, прячущий выключенные у ОС элементы оболочки (пусто, если всё включено)."""
+    from machines.world import widgets
+
+    request = context.get("request")
+    if request is None:
+        return ""
+    block = widgets.hidden_css(_state(request)[0], getattr(request, "_os_widgets", {}))
+    return mark_safe(f'<style id="os-widgets">{block}</style>') if block else ""
+
+
+@register.simple_tag(takes_context=True)
+def os_widget(context, key):
+    """Включён ли элемент оболочки у ОС: "1" или "0" (для data-атрибутов)."""
+    request = context.get("request")
+    return "1" if request is None or widget_state(request).get(key, True) else "0"
 
 
 @register.simple_tag(takes_context=True)

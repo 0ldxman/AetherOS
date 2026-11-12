@@ -19483,6 +19483,27 @@
      "wallpaper": {
       "$ref": "#/components/schemas/WallpaperValue"
      },
+     "widgets": {
+      "additionalProperties": {
+       "type": "boolean"
+      },
+      "title": "Widgets",
+      "type": "object"
+     },
+     "widget_info": {
+      "items": {
+       "$ref": "#/components/schemas/WidgetInfo"
+      },
+      "title": "Widget Info",
+      "type": "array"
+     },
+     "widget_warnings": {
+      "items": {
+       "type": "string"
+      },
+      "title": "Widget Warnings",
+      "type": "array"
+     },
      "styles": {
       "items": {
        "$ref": "#/components/schemas/StyleChoice"
@@ -19616,6 +19637,9 @@
      "style",
      "style_tokens",
      "wallpaper",
+     "widgets",
+     "widget_info",
+     "widget_warnings",
      "styles",
      "token_info",
      "style_defaults",
@@ -19759,6 +19783,42 @@
      }
     },
     "title": "WallpaperValue",
+    "type": "object"
+   },
+   "WidgetInfo": {
+    "properties": {
+     "key": {
+      "title": "Key",
+      "type": "string"
+     },
+     "label": {
+      "title": "Label",
+      "type": "string"
+     },
+     "group": {
+      "title": "Group",
+      "type": "string"
+     },
+     "hint": {
+      "title": "Hint",
+      "type": "string"
+     },
+     "styles": {
+      "items": {
+       "type": "string"
+      },
+      "title": "Styles",
+      "type": "array"
+     }
+    },
+    "required": [
+     "key",
+     "label",
+     "group",
+     "hint",
+     "styles"
+    ],
+    "title": "WidgetInfo",
     "type": "object"
    },
    "NewSystem": {
@@ -20003,6 +20063,20 @@
         "type": "null"
        }
       ]
+     },
+     "widgets": {
+      "anyOf": [
+       {
+        "additionalProperties": {
+         "type": "boolean"
+        },
+        "type": "object"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Widgets"
      }
     },
     "required": [

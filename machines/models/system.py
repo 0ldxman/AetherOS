@@ -38,6 +38,10 @@ class SystemType(models.Model):
         "Картинка и узор", default=dict, blank=True,
         help_text="Картинка рабочего стола из Nextcloud (по центру или на весь экран) и узор поверх неё. Поля в machines/world/wallpaper.py.",
     )
+    widgets = models.JSONField(
+        "Элементы стола", default=dict, blank=True,
+        help_text="Что из оболочки стиля показывать: {\"ping\": false, \"icons\": true}. Нет ключа: как в стиле (machines/world/widgets.py).",
+    )
     greeting = models.TextField(
         "Приветствие", blank=True,
         help_text="Что видит игрок, когда открывается оболочка. Цвета: <dim>, <success>, <warning>, <error>; подстановки: {host}, {login}... "
