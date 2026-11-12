@@ -644,8 +644,8 @@ body {
 
 
 /* Полоса моментов мира: жёлтая бегущая строка во всю ширину верхнего края стола, текст чёрный */
-.moment-bar { position: absolute; top: 0; left: 0; right: 0; z-index: 5; overflow: hidden; height: 24px; background: var(--accent-warn, #f2c230);
-              color: #0b0b0b; font: 700 12px/24px var(--font-console); letter-spacing: 0.1em; text-transform: uppercase; white-space: nowrap; pointer-events: none; }
+.moment-bar { position: absolute; top: 0; left: 0; right: 0; z-index: 5; overflow: hidden; height: 24px; background: var(--accent-warn);
+              color: var(--font-dark); font: 700 12px/24px var(--font-console); letter-spacing: 0.1em; text-transform: uppercase; white-space: nowrap; pointer-events: none; }
 .moment-bar[hidden] { display: none; }
 .moment-track { display: inline-flex; animation: moment-run var(--moment-time, 30s) linear infinite; will-change: transform; }
 .moment-group { display: inline-flex; }
