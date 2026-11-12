@@ -75,10 +75,10 @@
 
   function inZone(ms: number, zone: string) {
     try {
-      const parts = new Intl.DateTimeFormat("en-GB", { timeZone: zone, hour: "2-digit", minute: "2-digit", hourCycle: "h23", timeZoneName: "short", day: "numeric" }).formatToParts(d(ms));
+      const parts = new Intl.DateTimeFormat("en-GB", { timeZone: zone, year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", hourCycle: "h23", timeZoneName: "short" }).formatToParts(d(ms));
       const get = (type: string) => parts.find((p) => p.type === type)?.value ?? "";
-      return { clock: `${get("hour")}:${get("minute")}`, abbr: get("timeZoneName"), other: Number(get("day")) !== d(ms).getUTCDate() };
-    } catch { return { clock: hm(ms), abbr: zone, other: false }; }
+      return { clock: `${get("hour")}:${get("minute")}`, abbr: get("timeZoneName"), date: `${get("year")}-${get("month")}-${get("day")}` };
+    } catch { return { clock: hm(ms), abbr: zone, date: field(ms).slice(0, 10) }; }
   }
 
   async function load() {
@@ -213,6 +213,18 @@
     toast("Запланированное изменение отменено.");
   }
 
+  // часы машин: по одной строке, в поясе машины; «завтра/вчера», если там другие сутки
+  const machineClocks = $derived.by(() => {
+    if (!time) return [];
+    const utcDay = Date.UTC(d(gameNow).getUTCFullYear(), d(gameNow).getUTCMonth(), d(gameNow).getUTCDate());
+    return time.zones.flatMap((row) => {
+      const z = inZone(gameNow, row.zone);
+      const local = Date.parse(`${z.date}T00:00:00Z`);
+      const shift = local > utcDay ? "завтра" : local < utcDay ? "вчера" : "";
+      return row.machines.map((host) => ({ host, zone: row.zone, clock: z.clock, abbr: z.abbr, other: !!shift, shift }));
+    }).sort((a, b) => a.host.localeCompare(b.host));
+  });
+
   // ---------- шкала и списки ----------
   const items = $derived.by(() => {
     if (!time) return [];
@@ -265,26 +277,36 @@
 </PageHead>
 
 {#if time}
-  <section class="hero">
-    <div class="clock">
+  <div class="top">
+    <section class="hero">
       <div class="date">{longDay(gameNow)}</div>
       <div class="hms mono">{hm(gameNow)}<span class="sec">:{pad(d(gameNow).getUTCSeconds())}</span> <span class="utc">UTC</span></div>
       <div class="state"><span class="dot" class:stopped={rateNow === 0}></span>Время {goes(rateNow)}</div>
-      {#if time.zones.length}
-        <div class="zones">
-          {#each time.zones as row (row.zone)}
-            {@const z = inZone(gameNow, row.zone)}
-            <span class="zone" title="{row.zone}: {row.machines.join(', ')}"><b class="mono">{z.clock}</b> {z.abbr}{z.other ? " (другие сутки)" : ""} <span class="muted">{row.machines[0]}{row.machines.length > 1 ? ` и ещё ${row.machines.length - 1}` : ""}</span></span>
+      <div class="actions">
+        <button class="btn primary" onclick={() => open(false)}>Перевести часы…</button>
+        <button class="btn" onclick={toggle}>{rateNow === 0 ? "Пустить время" : "Остановить время"}</button>
+        <button class="btn" onclick={() => open(true)}>Запланировать…</button>
+      </div>
+    </section>
+
+    <section class="machines">
+      <h2>На машинах</h2>
+      {#if machineClocks.length}
+        <ul>
+          {#each machineClocks as m (m.host)}
+            <li>
+              <span class="host">{m.host}</span>
+              <span class="mclock"><b class="mono">{m.clock}</b>{#if m.other}<span class="muted small"> {m.shift}</span>{/if}</span>
+              <span class="muted small zname" title={m.zone}>{m.abbr} · {m.zone}</span>
+            </li>
           {/each}
-        </div>
+        </ul>
+      {:else}
+        <p class="muted small">Машин пока нет.</p>
       {/if}
-    </div>
-    <div class="actions">
-      <button class="btn primary" onclick={() => open(false)}>Перевести часы…</button>
-      <button class="btn" onclick={toggle}>{rateNow === 0 ? "Пустить время" : "Остановить время"}</button>
-      <button class="btn" onclick={() => open(true)}>Запланировать…</button>
-    </div>
-  </section>
+      <p class="muted small foot">Пояс машины меняется в её обзоре.</p>
+    </section>
+  </div>
 
   <section class="card">
     <h2>Ход времени</h2>
@@ -409,18 +431,26 @@
 {/if}
 
 <style>
-  .hero { display: flex; justify-content: space-between; align-items: flex-end; gap: 24px; flex-wrap: wrap; margin: 12px 32px; padding: 18px 20px;
-          border: 1px solid var(--line-soft); border-radius: var(--radius); background: var(--panel); }
-  .clock { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+  .top { display: grid; grid-template-columns: minmax(0, 1fr) minmax(260px, 340px); gap: 12px; margin: 12px 32px; }
+  .hero, .machines { border: 1px solid var(--line-soft); border-radius: var(--radius); background: var(--panel); }
+  .hero { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; padding: 22px 20px; text-align: center; }
   .date { font-size: 15px; color: var(--muted); }
-  .hms { font-size: 40px; font-weight: 600; line-height: 1.1; letter-spacing: 0.5px; }
+  .hms { font-size: 44px; font-weight: 600; line-height: 1.1; letter-spacing: 0.5px; }
   .sec { color: var(--muted); font-weight: 500; }
   .utc { font-size: 14px; color: var(--muted); font-weight: 500; }
   .state { display: flex; align-items: center; gap: 8px; font-size: 14px; }
   .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--ok, #4cc38a); }
   .dot.stopped { background: var(--warn, #e0b050); }
-  .zones { display: flex; flex-wrap: wrap; gap: 4px 18px; margin-top: 6px; font-size: 13px; }
-  .actions { display: flex; gap: 8px; flex-wrap: wrap; }
+  .actions { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; margin-top: 10px; }
+  .machines { display: flex; flex-direction: column; gap: 8px; padding: 14px 16px; min-width: 0; }
+  .machines ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; max-height: 168px; overflow-y: auto; }
+  .machines li { display: grid; grid-template-columns: minmax(0, 1fr) auto; grid-template-rows: auto auto; column-gap: 10px; padding: 6px 0; border-bottom: 1px solid var(--line-soft); }
+  .machines li:last-child { border-bottom: 0; }
+  .host { font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .mclock { grid-row: 1 / 3; grid-column: 2; align-self: center; font-size: 18px; text-align: right; }
+  .zname { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .foot { margin: auto 0 0; }
+  @media (max-width: 900px) { .top { grid-template-columns: 1fr; } }
 
   .card { margin: 12px 32px; padding: 14px 16px; border: 1px solid var(--line-soft); border-radius: var(--radius); background: var(--panel); display: flex; flex-direction: column; gap: 10px; }
   h2 { margin: 0; font-size: 12px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.4px; }
