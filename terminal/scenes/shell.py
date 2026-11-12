@@ -383,15 +383,27 @@ def greeting_params(ident, login, mail=None, system=None, facts=None):
         "host": ident.hostname, "login": login, "os": system.code if system else "", "os_name": system.name if system else "",
         "address": ident.address, "serial": ident.serial, "hid": ident.hid, "host_key": ident.host_key, "date": world().game_date, "time": f"{world().game_now:%H:%M} UTC",
         "unread": (mail or {}).get("unread", 0), "mail": _mail_text(mail), **{**facts, "freq": facts["freq"] or ident.address},
-        **_world_params(),
+        **_world_params(ident.hostname),
     }
 
 
-def _world_params():
-    """{world_<счётчик>}: значения счётчиков мира для приветствия."""
+def _world_params(hostname=None):
+    """{world_<счётчик>}: значения счётчиков мира; {next_event}: ближайший видимый момент на этой машине."""
+    from machines.models import Machine
+    from machines.world import chrono
+    from world import moments
     from world.state import params
 
-    return params()
+    found = params()
+    machine = Machine.objects.filter(hostname=hostname).first() if hostname else None
+    rows = moments.board(machine)
+    if rows:
+        row = rows[0]
+        found["next_event"] = f"{row['title']} now" if row["state"] == "live" else \
+            f"{row['title']} at {chrono.in_zone(row['start'], machine):%Y-%m-%d %H:%M %Z}"
+    else:
+        found["next_event"] = "nothing scheduled"
+    return found
 
 
 def greeting_scene(ident, login, mail=None, system=None, facts=None):

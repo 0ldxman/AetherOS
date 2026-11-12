@@ -13,7 +13,7 @@ GROUPS = (
     ("keys and archives", ("kex", "kjoin", "ward", "pak")),
     ("network", ("nreq", "nget", "rcon", "rshell", "xfer", "mnt", "umnt", "exit", "rcon-close")),
     ("system", ("date", "tmset")),
-    ("air", ("air",)),
+    ("air", ("air", "at")),
     ("other", ("help",)),
 )
 
@@ -90,6 +90,11 @@ HELP = {
         "Reads the file at the given offset and imports the key block found there (-----BEGIN ACCESS KEY-----) "
         "into the key store ~/.secrets/<keyname>.\n"
         "The offset is decimal or 0x hexadecimal, like the ones txtx prints.",
+    ),
+    "at": (
+        "list scheduled events on the network",
+        ("at",),
+        "Shows what is happening now and what is scheduled within a week, in the time of this machine, with a countdown.",
     ),
     "kjoin": (
         "join key fragments into one key",

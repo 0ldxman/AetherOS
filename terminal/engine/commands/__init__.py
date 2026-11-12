@@ -15,6 +15,7 @@ from terminal.engine.commands.files import Cp, Mv
 from terminal.engine.commands.inspect import TxtxCommand
 from terminal.engine.commands.help import HelpCommand
 from terminal.engine.commands.keys import KexCommand, KjoinCommand
+from terminal.engine.commands.world import AtCommand
 from terminal.engine.commands.trash import Del, Rcvr, Wipe
 from terminal.engine.commands.raw import BlkCommand, CvtCommand, RprCommand
 from terminal.engine.commands.rights import OwnCommand, PermCommand
@@ -34,6 +35,7 @@ COMMON = (
     TxtxCommand,
     KexCommand,
     KjoinCommand,
+    AtCommand,
     BlkCommand,
     CvtCommand,
     RprCommand,

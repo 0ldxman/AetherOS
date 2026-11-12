@@ -17,9 +17,12 @@ PULSE_LIMIT = 20
 
 
 def _box(request):
+    from world.letters import deliver
+
     box = box_for(request)
     if box is None:
         raise Http404
+    deliver(box)                    # письма мира всем: приходят при открытии почты
     return box
 
 

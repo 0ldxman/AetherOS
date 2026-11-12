@@ -12,7 +12,8 @@
   type State = Schemas["WsState"];
   type Counter = Schemas["WsCounter"];
   type Trigger = Schemas["WsTrigger"];
-  type Act = { do: string; name?: string; delta?: number; title?: string; text?: string; station?: string; freq?: string; key?: string; important?: boolean };
+  type Act = { do: string; name?: string; delta?: number; title?: string; text?: string; station?: string; freq?: string; key?: string; important?: boolean; item?: string; systems?: string; machines?: string };
+  type Moment = Schemas["WsMoment"];
 
   let data = $state<State | null>(null);
   let timer: ReturnType<typeof setInterval>;
@@ -69,10 +70,84 @@
     const { data: next, error } = await api.DELETE("/studio/api/world/state/counters/{name}", { params: { path: { name } } });
     take(next, error);
   }
+  let labeling = $state<{ name: string; text: string } | null>(null);
+  function openLabels(c: Counter) {
+    labeling = { name: c.name, text: Object.entries(c.labels).sort((a, b) => +a[0] - +b[0]).map(([k, v]) => `${k} = ${v}`).join("\n") };
+  }
+  async function saveLabels() {
+    if (!labeling) return;
+    const labels: Record<string, string> = {};
+    for (const line of labeling.text.split("\n")) {
+      const [k, ...rest] = line.split("=");
+      if (k && rest.length && /^-?\d+$/.test(k.trim())) labels[k.trim()] = rest.join("=").trim();
+    }
+    const { data: next, error } = await api.PUT("/studio/api/world/state/counters/{name}/labels", { params: { path: { name: labeling.name } }, body: { labels } });
+    if (take(next, error)) labeling = null;
+  }
   function scale(c: Counter) {
     const top = Math.max(c.value, ...c.thresholds.map((t) => t.value), 1);
     return (v: number) => Math.max(0, Math.min(100, (v / (top * 1.08)) * 100));
   }
+
+  // ---------- моменты ----------
+  type MForm = { id: number | null; name: string; label: string; title: string; schedule: string; time_zone: string; duration: number; public: boolean; warn: number;
+                 systems: string; machines: string; groups: string; condition_text: string; active: boolean };
+  let mform = $state<MForm | null>(null);
+  const ZONES: string[] = (Intl as unknown as { supportedValuesOf?: (key: string) => string[] }).supportedValuesOf?.("timeZone") ?? ["UTC"];
+  const list = (text: string) => text.split(",").map((s) => s.trim()).filter(Boolean);
+  function editMoment(m: Moment | null) {
+    mform = m ? { id: m.id, name: m.name, label: m.label, title: m.title, schedule: m.schedule, time_zone: m.time_zone, duration: m.duration, public: m.public, warn: m.warn,
+                  systems: m.systems.join(", "), machines: m.machines.join(", "), groups: m.groups.join(", "), condition_text: condText(m.condition), active: m.active }
+              : { id: null, name: "", label: "", title: "", schedule: "once 2031-03-01 21:00", time_zone: "UTC", duration: 30, public: true, warn: 15,
+                  systems: "", machines: "", groups: "", condition_text: "", active: true };
+  }
+  function condText(c: unknown): string {
+    if (!c) return "";
+    if (typeof c === "string") return c;
+    const o = c as Record<string, unknown>;
+    if (Array.isArray(o.all)) return o.all.map((x) => wrap(x)).join(" and ");
+    if (Array.isArray(o.any)) return o.any.map((x) => wrap(x)).join(" or ");
+    if (o.not !== undefined) return `not ${wrap(o.not)}`;
+    return "";
+  }
+  const wrap = (x: unknown) => (typeof x === "string" ? x : `(${condText(x)})`);
+  async function saveMoment() {
+    if (!mform) return;
+    busy = true;
+    const body = { name: mform.name, label: mform.label, title: mform.title, schedule: mform.schedule, time_zone: mform.time_zone, duration: mform.duration, public: mform.public,
+                   warn: mform.warn, systems: list(mform.systems), machines: list(mform.machines), groups: list(mform.groups), condition_text: mform.condition_text, active: mform.active };
+    const { data: next, error } = mform.id !== null
+      ? await api.PUT("/studio/api/world/state/moments/{moment_id}", { params: { path: { moment_id: mform.id } }, body })
+      : await api.POST("/studio/api/world/state/moments", { body });
+    busy = false;
+    if (take(next, error)) { toast(mform.id !== null ? "Момент сохранён." : "Момент добавлен."); mform = null; }
+  }
+  async function startStop(m: Moment) {
+    const { data: next, error } = m.running
+      ? await api.POST("/studio/api/world/state/moments/{moment_id}/stop", { params: { path: { moment_id: m.id } } })
+      : await api.POST("/studio/api/world/state/moments/{moment_id}/start", { params: { path: { moment_id: m.id } } });
+    if (take(next, error)) toast(m.running ? `${m.name} закончен.` : `${m.name} начался: world:${m.name} стоит.`);
+  }
+  async function dropMoment(m: Moment) {
+    if (!(await ask(`Удалить момент ${m.name}?`, "Метка world:" + m.name + " больше не будет ставиться по расписанию."))) return;
+    const { data: next, error } = await api.DELETE("/studio/api/world/state/moments/{moment_id}", { params: { path: { moment_id: m.id } } });
+    take(next, error);
+  }
+  function inZone(iso: string | null | undefined, zone: string) {
+    if (!iso) return "";
+    try {
+      return new Intl.DateTimeFormat("ru-RU", { timeZone: zone, day: "numeric", month: "short", hour: "2-digit", minute: "2-digit", timeZoneName: "short" }).format(new Date(iso));
+    } catch { return when(iso); }
+  }
+  function until(iso: string | null | undefined) {
+    if (!iso) return "";
+    const ms = Date.parse(iso) - Date.now();
+    if (ms <= 0) return "сейчас";
+    const m = Math.round(ms / 60000), d = Math.floor(m / 1440), h = Math.floor((m % 1440) / 60);
+    return d ? `через ${d} д ${h} ч` : h ? `через ${h} ч ${m % 60} мин` : `через ${m} мин`;
+  }
+  const audience = (m: Moment) => [m.systems.length ? `ОС ${m.systems.join(", ")}` : "", m.machines.length ? `машины ${m.machines.join(", ")}` : "",
+    m.groups.length ? `группы ${m.groups.join(", ")}` : "", m.condition ? `с условием ${condText(m.condition)}` : ""].filter(Boolean).join(" · ") || "все";
 
   // ---------- триггеры ----------
   type TForm = { id: number | null; name: string; label: string; condition_text: string; actions: Act[]; repeat: boolean; active: boolean };
@@ -80,7 +155,7 @@
   let busy = $state(false);
   const KINDS = [
     { value: "flag", label: "Поставить метку мира" }, { value: "unflag", label: "Снять метку мира" }, { value: "count", label: "Вклад в счётчик" },
-    { value: "news", label: "Опубликовать новость" }, { value: "air", label: "Передать в эфир" },
+    { value: "news", label: "Опубликовать новость" }, { value: "air", label: "Передать в эфир" }, { value: "letter", label: "Письмо всем" },
   ];
   function editTrigger(t: Trigger | null) {
     tform = t ? { id: t.id, name: t.name, label: t.label, condition_text: t.condition_text, actions: (t.actions as Act[]).map((a) => ({ ...a })), repeat: t.repeat, active: t.active }
@@ -117,6 +192,7 @@
       case "count": return `world:${a.name} ${(a.delta ?? 1) >= 0 ? "+" : ""}${a.delta ?? 1}`;
       case "news": return `новость «${a.title}»`;
       case "air": return `${(a.station ?? "").toUpperCase()} в эфир ${a.freq}${a.key ? " шифром" : ""}`;
+      case "letter": return `письмо всем «${a.item}»${a.machines ? ` на ${a.machines}` : ""}${a.systems ? ` (ОС ${a.systems})` : ""}`;
       default: return a.do;
     }
   }
@@ -161,7 +237,7 @@
           <div class="ctop">
             <div class="who"><b class="mono">world:{c.name}</b>{#if c.label}<span class="muted small">{c.label}</span>{/if}
               <span class="muted small">{c.mode === "players" ? `каждый игрок один раз · вложились ${c.players}` : "сумма вкладов"}</span></div>
-            <div class="value mono">{c.value}</div>
+            <div class="value"><span class="mono">{c.value}</span>{#if c.labels[String(c.value)]}<span class="vlabel">{c.labels[String(c.value)]}</span>{/if}</div>
           </div>
           <div class="bar" aria-hidden="true">
             <div class="fill" style="width:{x(c.value)}%"></div>
@@ -173,6 +249,7 @@
               <button class="btn small" onclick={() => bump(c.name, -1)}>−1</button>
               <button class="btn small" onclick={() => bump(c.name, 1)}>+1</button>
               <button class="btn ghost small" onclick={() => (setting = { name: c.name, value: c.value })}>Задать…</button>
+              <button class="btn ghost small" onclick={() => openLabels(c)} title="Подписи значений: акты, уровни тревоги">Подписи…</button>
             </div>
             <button class="x" onclick={() => dropCounter(c.name)} title="Удалить счётчик" aria-label="Удалить счётчик">✕</button>
           </div>
@@ -191,6 +268,26 @@
       </form>
     </section>
   </div>
+
+  <section class="card wide">
+    <div class="bhead"><h2>Моменты</h2><button class="btn" onclick={() => editMoment(null)}>+ Момент</button></div>
+    <p class="muted small">Событие в игровом времени. Пока идёт, стоит метка <code>world:имя</code>: на неё открываются узлы и файлы, а триггер с условием <code>world:имя</code> срабатывает на начале, с <code>not world:имя</code> — на конце.</p>
+    {#each data.moments as m (m.id)}
+      <div class="trigger" class:off={!m.active}>
+        <div class="tmain">
+          <div class="line1"><b class="mono">{m.name}</b>{#if m.title}<span> · {m.title}</span>{/if}{#if m.label}<span class="muted"> · {m.label}</span>{/if}
+            {#if m.public}<span class="badge">виден игрокам{m.warn ? `, полоса за ${m.warn} мин` : ""}</span>{:else}<span class="badge">скрытый</span>{/if}
+            <span class="state" class:live={m.running} class:wait={!m.running}>{m.running ? `идёт до ${inZone(m.ends_at, m.time_zone)}` : m.next_at ? `${inZone(m.next_at, m.time_zone)} · ${until(m.next_real)}` : "больше не наступит"}</span></div>
+          <div class="muted small">{m.summary || m.schedule} · {m.duration} мин{m.time_zone !== "UTC" ? ` · ${m.time_zone}` : ""} · видят: {audience(m)}</div>
+        </div>
+        <div class="tacts">
+          <button class="btn ghost small" onclick={() => startStop(m)}>{m.running ? "Закончить" : "Начать сейчас"}</button>
+          <button class="btn ghost small" onclick={() => editMoment(m)}>Изменить</button>
+          <button class="btn ghost small danger" onclick={() => dropMoment(m)}>Удалить</button>
+        </div>
+      </div>
+    {:else}<p class="muted small empty">Моментов нет.</p>{/each}
+  </section>
 
   <section class="card wide">
     <div class="bhead"><h2>Триггеры</h2><button class="btn" onclick={() => editTrigger(null)}>+ Триггер</button></div>
@@ -221,10 +318,52 @@
   </section>
 {:else}<p class="muted pad">Загрузка…</p>{/if}
 
+{#if labeling}
+  <Dialog title="Подписи значений world:{labeling.name}" confirm="Сохранить" onsubmit={saveLabels} onclose={() => (labeling = null)}>
+    <textarea class="field mono" rows="6" bind:value={labeling.text} placeholder={"1 = Тишина\n2 = Архив\n3 = Буря"}></textarea>
+    <p class="muted small">По строке: число = подпись. Так счётчик <code>act</code> становится актами: на пульте видно «2 · Архив», а контент акта открывается условием <code>world:act&gt;=2</code>.</p>
+  </Dialog>
+{/if}
+
 {#if setting}
   <Dialog title="Задать world:{setting.name}" confirm="Задать" onsubmit={setValue} onclose={() => (setting = null)}>
     <input class="field mono" type="number" bind:value={setting.value} aria-label="Значение" />
     <p class="muted small">Запишется вкладом автора на разницу. Триггеры проверятся сразу.</p>
+  </Dialog>
+{/if}
+
+{#if mform}
+  <Dialog wide title={mform.id !== null ? `Момент ${mform.name}` : "Новый момент"} confirm="Сохранить" {busy}
+    disabled={!mform.name.trim() || !mform.schedule.trim()} onsubmit={saveMoment} onclose={() => (mform = null)}>
+    <div class="form">
+      <div class="two">
+        <label><span class="label">Имя (метка мира)</span><input class="field mono" bind:value={mform.name} placeholder="boreas-online" /></label>
+        <label><span class="label">Название для игроков</span><input class="field mono" bind:value={mform.title} placeholder="BOREAS UPLINK" /></label>
+      </div>
+      <label><span class="label">Подпись для авторов</span><input class="field" bind:value={mform.label} /></label>
+      <div class="two">
+        <label><span class="label">Когда (игровое время)</span><textarea class="field mono" rows="2" bind:value={mform.schedule}></textarea>
+          <span class="muted small"><code>once 2031-03-01 21:00</code> · <code>daily 21:00</code> · <code>mon,fri 22:00</code></span></label>
+        <div class="col2">
+          <label><span class="label">Часовой пояс</span><input class="field mono" list="moment-zones" bind:value={mform.time_zone} /></label>
+          <label><span class="label">Длится, минут</span><input class="field mono" type="number" min="1" bind:value={mform.duration} /></label>
+        </div>
+      </div>
+      <datalist id="moment-zones">{#each ZONES as zone}<option value={zone}></option>{/each}</datalist>
+      <label class="check"><input type="checkbox" bind:checked={mform.public} /> Виден игрокам: в <code>at</code>, в <code>{"{next_event}"}</code> и полосой на столе</label>
+      {#if mform.public}
+        <div class="two">
+          <label><span class="label">Полоса на столе за, минут<Hint text="0 — без полосы. Во время события полоса показывает LIVE и сколько осталось." /></span><input class="field mono" type="number" min="0" bind:value={mform.warn} /></label>
+          <label><span class="label">Кому виден (условие)</span><input class="field mono" bind:value={mform.condition_text} placeholder="всем; или uplink-key and world:act>=2" /></label>
+        </div>
+        <div class="three">
+          <label><span class="label">Только ОС</span><input class="field mono" bind:value={mform.systems} placeholder="AETHER, VMS" /></label>
+          <label><span class="label">Только машины</span><input class="field mono" bind:value={mform.machines} placeholder="aether-main" /></label>
+          <label><span class="label">Только группы учётки</span><input class="field mono" bind:value={mform.groups} placeholder="ops, radio" /></label>
+        </div>
+      {/if}
+      <label class="check"><input type="checkbox" bind:checked={mform.active} /> Включён</label>
+    </div>
   </Dialog>
 {/if}
 
@@ -253,6 +392,13 @@
                   <input class="field" bind:value={a.title} placeholder="Заголовок" aria-label="Заголовок" />
                   <textarea class="field" rows="2" bind:value={a.text} placeholder="Текст новости" aria-label="Текст"></textarea>
                   <label class="check"><input type="checkbox" bind:checked={a.important} /> Важная: всплывает на столе</label>
+                </div>
+              {:else if a.do === "letter"}
+                <div class="stack">
+                  <input class="field mono" bind:value={a.item} placeholder="слаг объекта письма (.msg)" aria-label="Письмо" />
+                  <div class="row"><input class="field mono" bind:value={a.machines} placeholder="только машины: aether-main, …" aria-label="Машины" />
+                    <input class="field mono" bind:value={a.systems} placeholder="только ОС: AETHER, …" aria-label="ОС" /></div>
+                  <span class="muted small">Придёт каждому игроку один раз, когда он откроет почту на подходящей машине.</span>
                 </div>
               {:else if a.do === "air"}
                 <div class="stack">
@@ -303,7 +449,8 @@
 
   .counter { display: flex; flex-direction: column; gap: 6px; padding: 10px 0; border-bottom: 1px solid var(--line-soft); }
   .ctop { display: flex; justify-content: space-between; gap: 12px; }
-  .value { font-size: 24px; font-weight: 600; }
+  .value { display: flex; flex-direction: column; align-items: flex-end; font-size: 24px; font-weight: 600; }
+  .vlabel { font-size: 12px; font-weight: 500; color: var(--accent); }
   .bar { position: relative; height: 8px; margin: 8px 0 14px; border-radius: 999px; background: var(--bg); }
   .fill { position: absolute; inset: 0 auto 0 0; border-radius: 999px; background: var(--accent); }
   .mark { position: absolute; top: -4px; width: 2px; height: 16px; margin-left: -1px; background: var(--muted); }
@@ -322,6 +469,9 @@
   .state { margin-left: auto; padding: 0 8px; border-radius: 999px; font-size: 11px; background: var(--raise); color: var(--muted); }
   .state.done { background: color-mix(in srgb, var(--ok, #4cc38a) 15%, transparent); color: var(--ok, #4cc38a); }
   .state.wait { background: color-mix(in srgb, var(--accent) 12%, transparent); color: var(--accent); }
+  .state.live { background: color-mix(in srgb, var(--warn) 18%, transparent); color: var(--warn); }
+  .three { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
+  .col2 { display: flex; flex-direction: column; gap: 10px; }
   .tacts { display: flex; gap: 4px; flex-wrap: wrap; justify-content: flex-end; align-content: flex-start; max-width: 340px; }
 
   .log { list-style: none; margin: 0; padding: 0; max-height: 320px; overflow: auto; display: flex; flex-direction: column; }

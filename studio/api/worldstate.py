@@ -10,7 +10,8 @@ from filesystem.models import KEY_FORMAT, Item
 from secure import recipes
 from secure.access import format_condition
 from world import state
-from world.models import WorldContribution, WorldCounter, WorldEvent, WorldFlag, WorldTrigger
+from world import moments
+from world.models import WorldContribution, WorldCounter, WorldEvent, WorldFlag, WorldMoment, WorldTrigger
 
 router = Router(tags=["world-state"])
 
@@ -53,6 +54,7 @@ class WsCounter(Schema):
     thresholds: list[WsThreshold]
     recent: list[WsContribution]
     players: int                 # сколько разных игроков вложилось
+    labels: dict[str, str]       # подписи значений: {"2": "Архив"}
 
 
 class WsTrigger(Schema):
@@ -77,11 +79,56 @@ class WsEvent(Schema):
     source: str
 
 
+class WsMoment(Schema):
+    id: int
+    name: str
+    label: str
+    title: str
+    schedule: str
+    summary: str
+    time_zone: str
+    duration: int
+    public: bool
+    warn: int
+    systems: list[str]
+    machines: list[str]
+    groups: list[str]
+    condition: object = None
+    active: bool
+    running: bool
+    started_at: datetime | None
+    ends_at: datetime | None
+    next_at: datetime | None     # игровое UTC
+    next_real: datetime | None   # когда это будет по реальному времени
+
+
+class WsMomentIn(Schema):
+    name: str
+    label: str = ""
+    title: str = ""
+    schedule: str
+    time_zone: str = "UTC"
+    duration: int = 30
+    public: bool = False
+    warn: int = 0
+    systems: list[str] = []
+    machines: list[str] = []
+    groups: list[str] = []
+    condition_text: str = ""
+    active: bool = True
+
+
+class WsLabels(Schema):
+    labels: dict[str, str]
+
+
 class WsState(Schema):
     flags: list[WsFlag]
     counters: list[WsCounter]
     triggers: list[WsTrigger]
     events: list[WsEvent]
+    moments: list[WsMoment]
+    game_now: datetime
 
 
 class WsFlagIn(Schema):
@@ -122,7 +169,23 @@ def _counter(row):
     return WsCounter(name=row.name, label=row.label, mode=row.mode, value=row.value, changed_at=row.changed_at,
                      thresholds=[WsThreshold(value=v, op=op, trigger=t) for v, op, t in state.thresholds(row.name)],
                      recent=[WsContribution(who=_who(c), delta=c.delta, source=c.source, at=c.at) for c in recent],
-                     players=row.contributions.exclude(user=None).values("user").distinct().count())
+                     players=row.contributions.exclude(user=None).values("user").distinct().count(),
+                     labels={str(k): str(v) for k, v in (row.labels or {}).items()})
+
+
+def _moment(row):
+    from air import schedule
+    from machines.world import chrono
+
+    try:
+        summary = schedule.describe(schedule.parse(row.schedule))
+    except schedule.ScheduleError:
+        summary = ""
+    upcoming = moments.next_start(row) if row.active else None
+    return WsMoment(id=row.pk, name=row.name, label=row.label, title=row.title, schedule=row.schedule, summary=summary, time_zone=row.time_zone,
+                    duration=row.duration, public=row.public, warn=row.warn, systems=row.systems or [], machines=row.machines or [],
+                    groups=row.groups or [], condition=row.condition, active=row.active, running=moments.running(row),
+                    started_at=row.started_at, ends_at=row.ends_at, next_at=upcoming, next_real=chrono.to_real(upcoming) if upcoming else None)
 
 
 def _trigger(row):
@@ -133,7 +196,11 @@ def _trigger(row):
 
 @router.get("", response=WsState)
 def read(request):
+    from machines.world import chrono
+
+    moments.tick(force=True)
     return WsState(
+        moments=[_moment(m) for m in WorldMoment.objects.all()], game_now=chrono.game_now(),
         flags=[WsFlag(name=f.name, label=f.label, on=f.on, changed_at=f.changed_at, changed_by=f.changed_by) for f in WorldFlag.objects.all()],
         counters=[_counter(c) for c in WorldCounter.objects.all()],
         triggers=[_trigger(t) for t in WorldTrigger.objects.all()],
@@ -200,6 +267,85 @@ def set_counter(request, name: str, body: WsAmount):
 def delete_counter(request, name: str):
     get_object_or_404(WorldCounter, name=name).delete()
     state.forget()
+    return read(request)
+
+
+@router.put("/counters/{name}/labels", response=WsState)
+def counter_labels(request, name: str, body: WsLabels):
+    counter = get_object_or_404(WorldCounter, name=name)
+    counter.labels = {str(int(k)): v.strip()[:80] for k, v in body.labels.items() if str(k).lstrip("-").isdigit() and v.strip()}
+    counter.save(update_fields=["labels"])
+    return read(request)
+
+
+# ---------- моменты ----------
+
+def _moment_values(body):
+    from air import schedule
+    from documents.markup.expr import SpoilerSyntaxError, parse_expr
+    from machines.world import chrono
+
+    try:
+        name = state.check_name(body.name)
+    except state.WorldError as error:
+        _refuse(error)
+    found = schedule.problems(body.schedule)
+    if found:
+        _refuse(f"Когда: {found[0]}")
+    zone = (body.time_zone or "UTC").strip()
+    if not chrono.valid_zone(zone):
+        _refuse(f"Нет такого часового пояса: {zone}.")
+    condition = None
+    if body.condition_text.strip():
+        try:
+            condition = parse_expr(body.condition_text)
+        except SpoilerSyntaxError as error:
+            _refuse(f"Кому виден: {error}")
+    clean = lambda items: [item.strip() for item in items if item.strip()]      # noqa: E731
+    return {"name": name, "label": body.label.strip()[:200], "title": body.title.strip()[:80], "schedule": body.schedule.strip(), "time_zone": zone,
+            "duration": max(1, min(body.duration, 60 * 24 * 30)), "public": body.public, "warn": max(0, body.warn), "systems": clean(body.systems),
+            "machines": clean(body.machines), "groups": clean(body.groups), "condition": condition, "active": body.active}
+
+
+@router.post("/moments", response=WsState)
+def add_moment(request, body: WsMomentIn):
+    values = _moment_values(body)
+    if WorldMoment.objects.filter(name=values["name"]).exists():
+        _refuse(f"Момент {values['name']} уже есть.")
+    WorldMoment.objects.create(**values)
+    return read(request)
+
+
+@router.put("/moments/{int:moment_id}", response=WsState)
+def change_moment(request, moment_id: int, body: WsMomentIn):
+    row = get_object_or_404(WorldMoment, pk=moment_id)
+    values = _moment_values(body)
+    if WorldMoment.objects.filter(name=values["name"]).exclude(pk=row.pk).exists():
+        _refuse(f"Момент {values['name']} уже есть.")
+    for name, value in values.items():
+        setattr(row, name, value)
+    row.save()
+    return read(request)
+
+
+@router.post("/moments/{int:moment_id}/start", response=WsState)
+def start_moment(request, moment_id: int):
+    moments.start_now(get_object_or_404(WorldMoment, pk=moment_id), _author(request))
+    return read(request)
+
+
+@router.post("/moments/{int:moment_id}/stop", response=WsState)
+def stop_moment(request, moment_id: int):
+    moments.stop_now(get_object_or_404(WorldMoment, pk=moment_id), _author(request))
+    return read(request)
+
+
+@router.delete("/moments/{int:moment_id}", response=WsState)
+def delete_moment(request, moment_id: int):
+    row = get_object_or_404(WorldMoment, pk=moment_id)
+    if moments.running(row):
+        moments.stop_now(row, _author(request))
+    row.delete()
     return read(request)
 
 

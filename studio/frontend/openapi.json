@@ -12381,6 +12381,246 @@
     ]
    }
   },
+  "/studio/api/world/state/counters/{name}/labels": {
+   "put": {
+    "operationId": "studio_api_worldstate_counter_labels",
+    "summary": "Counter Labels",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "name",
+      "schema": {
+       "title": "Name",
+       "type": "string"
+      },
+      "required": true
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/WsState"
+        }
+       }
+      }
+     }
+    },
+    "tags": [
+     "world-state"
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/WsLabels"
+       }
+      }
+     },
+     "required": true
+    },
+    "security": [
+     {
+      "StudioAuth": []
+     }
+    ]
+   }
+  },
+  "/studio/api/world/state/moments": {
+   "post": {
+    "operationId": "studio_api_worldstate_add_moment",
+    "summary": "Add Moment",
+    "parameters": [],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/WsState"
+        }
+       }
+      }
+     }
+    },
+    "tags": [
+     "world-state"
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/WsMomentIn"
+       }
+      }
+     },
+     "required": true
+    },
+    "security": [
+     {
+      "StudioAuth": []
+     }
+    ]
+   }
+  },
+  "/studio/api/world/state/moments/{moment_id}": {
+   "put": {
+    "operationId": "studio_api_worldstate_change_moment",
+    "summary": "Change Moment",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "moment_id",
+      "schema": {
+       "title": "Moment Id",
+       "type": "integer"
+      },
+      "required": true
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/WsState"
+        }
+       }
+      }
+     }
+    },
+    "tags": [
+     "world-state"
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/WsMomentIn"
+       }
+      }
+     },
+     "required": true
+    },
+    "security": [
+     {
+      "StudioAuth": []
+     }
+    ]
+   },
+   "delete": {
+    "operationId": "studio_api_worldstate_delete_moment",
+    "summary": "Delete Moment",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "moment_id",
+      "schema": {
+       "title": "Moment Id",
+       "type": "integer"
+      },
+      "required": true
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/WsState"
+        }
+       }
+      }
+     }
+    },
+    "tags": [
+     "world-state"
+    ],
+    "security": [
+     {
+      "StudioAuth": []
+     }
+    ]
+   }
+  },
+  "/studio/api/world/state/moments/{moment_id}/start": {
+   "post": {
+    "operationId": "studio_api_worldstate_start_moment",
+    "summary": "Start Moment",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "moment_id",
+      "schema": {
+       "title": "Moment Id",
+       "type": "integer"
+      },
+      "required": true
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/WsState"
+        }
+       }
+      }
+     }
+    },
+    "tags": [
+     "world-state"
+    ],
+    "security": [
+     {
+      "StudioAuth": []
+     }
+    ]
+   }
+  },
+  "/studio/api/world/state/moments/{moment_id}/stop": {
+   "post": {
+    "operationId": "studio_api_worldstate_stop_moment",
+    "summary": "Stop Moment",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "moment_id",
+      "schema": {
+       "title": "Moment Id",
+       "type": "integer"
+      },
+      "required": true
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/WsState"
+        }
+       }
+      }
+     }
+    },
+    "tags": [
+     "world-state"
+    ],
+    "security": [
+     {
+      "StudioAuth": []
+     }
+    ]
+   }
+  },
   "/studio/api/world/state/triggers": {
    "post": {
     "operationId": "studio_api_worldstate_add_trigger",
@@ -26207,6 +26447,13 @@
      "players": {
       "title": "Players",
       "type": "integer"
+     },
+     "labels": {
+      "additionalProperties": {
+       "type": "string"
+      },
+      "title": "Labels",
+      "type": "object"
      }
     },
     "required": [
@@ -26217,7 +26464,8 @@
      "changed_at",
      "thresholds",
      "recent",
-     "players"
+     "players",
+     "labels"
     ],
     "title": "WsCounter",
     "type": "object"
@@ -26297,6 +26545,153 @@
     "title": "WsFlag",
     "type": "object"
    },
+   "WsMoment": {
+    "properties": {
+     "id": {
+      "title": "Id",
+      "type": "integer"
+     },
+     "name": {
+      "title": "Name",
+      "type": "string"
+     },
+     "label": {
+      "title": "Label",
+      "type": "string"
+     },
+     "title": {
+      "title": "Title",
+      "type": "string"
+     },
+     "schedule": {
+      "title": "Schedule",
+      "type": "string"
+     },
+     "summary": {
+      "title": "Summary",
+      "type": "string"
+     },
+     "time_zone": {
+      "title": "Time Zone",
+      "type": "string"
+     },
+     "duration": {
+      "title": "Duration",
+      "type": "integer"
+     },
+     "public": {
+      "title": "Public",
+      "type": "boolean"
+     },
+     "warn": {
+      "title": "Warn",
+      "type": "integer"
+     },
+     "systems": {
+      "items": {
+       "type": "string"
+      },
+      "title": "Systems",
+      "type": "array"
+     },
+     "machines": {
+      "items": {
+       "type": "string"
+      },
+      "title": "Machines",
+      "type": "array"
+     },
+     "groups": {
+      "items": {
+       "type": "string"
+      },
+      "title": "Groups",
+      "type": "array"
+     },
+     "condition": {
+      "title": "Condition"
+     },
+     "active": {
+      "title": "Active",
+      "type": "boolean"
+     },
+     "running": {
+      "title": "Running",
+      "type": "boolean"
+     },
+     "started_at": {
+      "anyOf": [
+       {
+        "format": "date-time",
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Started At"
+     },
+     "ends_at": {
+      "anyOf": [
+       {
+        "format": "date-time",
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Ends At"
+     },
+     "next_at": {
+      "anyOf": [
+       {
+        "format": "date-time",
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Next At"
+     },
+     "next_real": {
+      "anyOf": [
+       {
+        "format": "date-time",
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Next Real"
+     }
+    },
+    "required": [
+     "id",
+     "name",
+     "label",
+     "title",
+     "schedule",
+     "summary",
+     "time_zone",
+     "duration",
+     "public",
+     "warn",
+     "systems",
+     "machines",
+     "groups",
+     "active",
+     "running",
+     "started_at",
+     "ends_at",
+     "next_at",
+     "next_real"
+    ],
+    "title": "WsMoment",
+    "type": "object"
+   },
    "WsState": {
     "properties": {
      "flags": {
@@ -26326,13 +26721,27 @@
       },
       "title": "Events",
       "type": "array"
+     },
+     "moments": {
+      "items": {
+       "$ref": "#/components/schemas/WsMoment"
+      },
+      "title": "Moments",
+      "type": "array"
+     },
+     "game_now": {
+      "format": "date-time",
+      "title": "Game Now",
+      "type": "string"
      }
     },
     "required": [
      "flags",
      "counters",
      "triggers",
-     "events"
+     "events",
+     "moments",
+     "game_now"
     ],
     "title": "WsState",
     "type": "object"
@@ -26491,6 +26900,104 @@
      "value"
     ],
     "title": "WsAmount",
+    "type": "object"
+   },
+   "WsLabels": {
+    "properties": {
+     "labels": {
+      "additionalProperties": {
+       "type": "string"
+      },
+      "title": "Labels",
+      "type": "object"
+     }
+    },
+    "required": [
+     "labels"
+    ],
+    "title": "WsLabels",
+    "type": "object"
+   },
+   "WsMomentIn": {
+    "properties": {
+     "name": {
+      "title": "Name",
+      "type": "string"
+     },
+     "label": {
+      "default": "",
+      "title": "Label",
+      "type": "string"
+     },
+     "title": {
+      "default": "",
+      "title": "Title",
+      "type": "string"
+     },
+     "schedule": {
+      "title": "Schedule",
+      "type": "string"
+     },
+     "time_zone": {
+      "default": "UTC",
+      "title": "Time Zone",
+      "type": "string"
+     },
+     "duration": {
+      "default": 30,
+      "title": "Duration",
+      "type": "integer"
+     },
+     "public": {
+      "default": false,
+      "title": "Public",
+      "type": "boolean"
+     },
+     "warn": {
+      "default": 0,
+      "title": "Warn",
+      "type": "integer"
+     },
+     "systems": {
+      "default": [],
+      "items": {
+       "type": "string"
+      },
+      "title": "Systems",
+      "type": "array"
+     },
+     "machines": {
+      "default": [],
+      "items": {
+       "type": "string"
+      },
+      "title": "Machines",
+      "type": "array"
+     },
+     "groups": {
+      "default": [],
+      "items": {
+       "type": "string"
+      },
+      "title": "Groups",
+      "type": "array"
+     },
+     "condition_text": {
+      "default": "",
+      "title": "Condition Text",
+      "type": "string"
+     },
+     "active": {
+      "default": true,
+      "title": "Active",
+      "type": "boolean"
+     }
+    },
+    "required": [
+     "name",
+     "schedule"
+    ],
+    "title": "WsMomentIn",
     "type": "object"
    },
    "WsTriggerIn": {

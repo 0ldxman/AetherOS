@@ -98,6 +98,7 @@ MIDDLEWARE = [
     'users.middleware.SandboxMiddleware',
     'machines.middleware.MachineAppMiddleware',
     'team.middleware.ChangesMiddleware',
+    'world.middleware.WorldTickMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]

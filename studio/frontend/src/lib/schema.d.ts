@@ -4013,6 +4013,92 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/studio/api/world/state/counters/{name}/labels": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Counter Labels */
+        put: operations["studio_api_worldstate_counter_labels"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/studio/api/world/state/moments": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Add Moment */
+        post: operations["studio_api_worldstate_add_moment"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/studio/api/world/state/moments/{moment_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Change Moment */
+        put: operations["studio_api_worldstate_change_moment"];
+        post?: never;
+        /** Delete Moment */
+        delete: operations["studio_api_worldstate_delete_moment"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/studio/api/world/state/moments/{moment_id}/start": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Start Moment */
+        post: operations["studio_api_worldstate_start_moment"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/studio/api/world/state/moments/{moment_id}/stop": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Stop Moment */
+        post: operations["studio_api_worldstate_stop_moment"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/studio/api/world/state/triggers": {
         parameters: {
             query?: never;
@@ -9580,6 +9666,10 @@ export interface components {
             recent: components["schemas"]["WsContribution"][];
             /** Players */
             players: number;
+            /** Labels */
+            labels: {
+                [key: string]: string;
+            };
         };
         /** WsEvent */
         WsEvent: {
@@ -9610,6 +9700,49 @@ export interface components {
             /** Changed By */
             changed_by: string;
         };
+        /** WsMoment */
+        WsMoment: {
+            /** Id */
+            id: number;
+            /** Name */
+            name: string;
+            /** Label */
+            label: string;
+            /** Title */
+            title: string;
+            /** Schedule */
+            schedule: string;
+            /** Summary */
+            summary: string;
+            /** Time Zone */
+            time_zone: string;
+            /** Duration */
+            duration: number;
+            /** Public */
+            public: boolean;
+            /** Warn */
+            warn: number;
+            /** Systems */
+            systems: string[];
+            /** Machines */
+            machines: string[];
+            /** Groups */
+            groups: string[];
+            /** Condition */
+            condition?: unknown;
+            /** Active */
+            active: boolean;
+            /** Running */
+            running: boolean;
+            /** Started At */
+            started_at: string | null;
+            /** Ends At */
+            ends_at: string | null;
+            /** Next At */
+            next_at: string | null;
+            /** Next Real */
+            next_real: string | null;
+        };
         /** WsState */
         WsState: {
             /** Flags */
@@ -9620,6 +9753,13 @@ export interface components {
             triggers: components["schemas"]["WsTrigger"][];
             /** Events */
             events: components["schemas"]["WsEvent"][];
+            /** Moments */
+            moments: components["schemas"]["WsMoment"][];
+            /**
+             * Game Now
+             * Format: date-time
+             */
+            game_now: string;
         };
         /** WsThreshold */
         WsThreshold: {
@@ -9691,6 +9831,75 @@ export interface components {
         WsAmount: {
             /** Value */
             value: number;
+        };
+        /** WsLabels */
+        WsLabels: {
+            /** Labels */
+            labels: {
+                [key: string]: string;
+            };
+        };
+        /** WsMomentIn */
+        WsMomentIn: {
+            /** Name */
+            name: string;
+            /**
+             * Label
+             * @default
+             */
+            label: string;
+            /**
+             * Title
+             * @default
+             */
+            title: string;
+            /** Schedule */
+            schedule: string;
+            /**
+             * Time Zone
+             * @default UTC
+             */
+            time_zone: string;
+            /**
+             * Duration
+             * @default 30
+             */
+            duration: number;
+            /**
+             * Public
+             * @default false
+             */
+            public: boolean;
+            /**
+             * Warn
+             * @default 0
+             */
+            warn: number;
+            /**
+             * Systems
+             * @default []
+             */
+            systems: string[];
+            /**
+             * Machines
+             * @default []
+             */
+            machines: string[];
+            /**
+             * Groups
+             * @default []
+             */
+            groups: string[];
+            /**
+             * Condition Text
+             * @default
+             */
+            condition_text: string;
+            /**
+             * Active
+             * @default true
+             */
+            active: boolean;
         };
         /** WsTriggerIn */
         WsTriggerIn: {
@@ -16697,6 +16906,148 @@ export interface operations {
             header?: never;
             path: {
                 name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WsState"];
+                };
+            };
+        };
+    };
+    studio_api_worldstate_counter_labels: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["WsLabels"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WsState"];
+                };
+            };
+        };
+    };
+    studio_api_worldstate_add_moment: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["WsMomentIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WsState"];
+                };
+            };
+        };
+    };
+    studio_api_worldstate_change_moment: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                moment_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["WsMomentIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WsState"];
+                };
+            };
+        };
+    };
+    studio_api_worldstate_delete_moment: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                moment_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WsState"];
+                };
+            };
+        };
+    };
+    studio_api_worldstate_start_moment: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                moment_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WsState"];
+                };
+            };
+        };
+    };
+    studio_api_worldstate_stop_moment: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                moment_id: number;
             };
             cookie?: never;
         };

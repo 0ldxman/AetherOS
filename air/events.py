@@ -112,15 +112,8 @@ def next_slot(broadcast, now=None):
         lines = schedule.parse(broadcast.schedule)
     except schedule.ScheduleError:
         return None
-    zone = _zone(broadcast.time_zone)
-    start = chrono.to_game(now or timezone.now()).astimezone(zone).replace(second=0, microsecond=0)
-    current = schedule.latest(lines, start)
-    for minutes in range(1, 8 * 1440 + 1):
-        moment = start + timedelta(minutes=minutes)
-        found = schedule.latest(lines, moment)
-        if found is not None and found != current:
-            return found.astimezone(chrono.UTC)
-    return None
+    found = schedule.next_after(lines, chrono.to_game(now or timezone.now()).astimezone(_zone(broadcast.time_zone)))
+    return found.astimezone(chrono.UTC) if found else None
 
 
 # ---------- ответчики ----------

@@ -18,7 +18,7 @@ from world.models import WorldContribution, WorldCounter, WorldEvent, WorldFlag,
 NAME = re.compile(r"^[a-z0-9][a-z0-9_-]{0,63}$")
 ATOM = re.compile(r"^world:([a-z0-9][a-z0-9_-]{0,63})(?:(>=|<=|>|<|=)(-?\d+))?$")
 DEPTH = 8
-ACTIONS = ("flag", "unflag", "count", "news", "air")
+ACTIONS = ("flag", "unflag", "count", "news", "air", "letter")
 
 
 class WorldError(ValueError):
@@ -214,6 +214,8 @@ def run_action(action, source, _depth=0, user=None):
             _news(action, source)
         elif do == "air":
             _air(action, source)
+        elif do == "letter":
+            _letter(action, source)
     except (WorldError, ValueError) as error:
         _log("action", do or "", f"действие не выполнено: {error}", source)
 
@@ -241,6 +243,18 @@ def _air(action, source):
     _log("action", "air", f"{station.name} в эфире {action.get('freq')}", source)
 
 
+def _letter(action, source):
+    from filesystem.models import Item
+    from world import letters
+
+    item = Item.objects.filter(slug=action.get("item", "")).first()
+    if item is None:
+        raise WorldError(f"нет письма {action.get('item')}")
+    split = lambda text: [part.strip() for part in (text or "").split(",") if part.strip()]     # noqa: E731
+    letters.send_all(item, split(action.get("systems")), split(action.get("machines")), source)
+    _log("action", "letter", f"письмо всем: {item.slug}", source)
+
+
 def check_actions(actions):
     """Проблемы действий для Студии: [текст]."""
     out = []
@@ -257,6 +271,11 @@ def check_actions(actions):
             out.append(f"действие {number}: у новости нет заголовка")
         elif do == "air" and not (action.get("station") and action.get("freq") and (action.get("text") or "").strip()):
             out.append(f"действие {number}: нужны станция, частота и текст")
+        elif do == "letter":
+            from filesystem.models import Item
+
+            if not Item.objects.filter(slug=action.get("item", "")).exists():
+                out.append(f"действие {number}: нет письма «{action.get('item', '')}»")
     return out
 
 

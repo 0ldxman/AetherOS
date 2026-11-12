@@ -4,4 +4,5 @@ from desktop import views
 urlpatterns = [
     path("", views.desktop, name="desktop"),
     path("wallpaper/<str:code>/", views.wallpaper, name="os_wallpaper"),
+    path("moments/", views.moments, name="desktop_moments"),
 ]

@@ -120,6 +120,20 @@ def latest(lines, now):
     return max(found) if found else None
 
 
+def next_after(lines, start, days=8):
+    """Следующий слот после start (aware, в поясе расписания) не дальше days суток; None, если нет."""
+    from datetime import timedelta
+
+    start = start.replace(second=0, microsecond=0)
+    current = latest(lines, start)
+    for minutes in range(1, days * 1440 + 1):
+        moment = start + timedelta(minutes=minutes)
+        found = latest(lines, moment)
+        if found is not None and found != current:
+            return found
+    return None
+
+
 def describe(lines):
     """Коротко для Студии: «каждый день 21:00», «по :15»."""
     out = []

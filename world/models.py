@@ -31,6 +31,7 @@ class WorldCounter(models.Model):
     mode = models.CharField("Как считать", max_length=16, choices=Mode.choices, default=Mode.SUM)
     value = models.IntegerField("Значение", default=0)
     changed_at = models.DateTimeField("Изменён", null=True, blank=True)
+    labels = models.JSONField("Подписи значений", default=dict, blank=True, help_text="{\"1\": \"Тишина\", \"2\": \"Архив\"}: для актов и уровней тревоги.")
 
     class Meta:
         ordering = ("name",)
@@ -89,3 +90,55 @@ class WorldEvent(models.Model):
 
     class Meta:
         ordering = ("-at", "-pk")
+
+
+class WorldMoment(models.Model):
+    """Момент мира: событие в игровом времени (один раз или по расписанию). Пока идёт, стоит метка world:<имя>, по окончании снимается.
+    Видимый момент игроки видят заранее: команда at, полоса на столе, {next_event}. Логика в world/moments.py."""
+
+    name = models.SlugField("Имя (метка)", max_length=64, unique=True)
+    label = models.CharField("Подпись для авторов", max_length=200, blank=True)
+    title = models.CharField("Название для игроков", max_length=80, blank=True, help_text="Как его видят игроки: «BOREAS UPLINK».")
+    schedule = models.TextField("Когда", help_text="Как у станций: «once 2031-03-01 21:00», «daily 21:00», «mon,fri 22:00».")
+    time_zone = models.CharField("Часовой пояс", max_length=64, default="UTC")
+    duration = models.PositiveIntegerField("Длится, минут", default=30)
+    public = models.BooleanField("Виден игрокам", default=False)
+    warn = models.PositiveIntegerField("Предупреждать за, минут", default=0, help_text="Полоса на столе за столько минут до начала. 0: без полосы.")
+    systems = models.JSONField("Только ОС", default=list, blank=True)
+    machines = models.JSONField("Только машины", default=list, blank=True, help_text="Хосты.")
+    groups = models.JSONField("Только группы", default=list, blank=True, help_text="Группы учётки, с которой игрок сидит на машине.")
+    condition = models.JSONField("Кому виден", null=True, blank=True, help_text="Условие на ключи и мир. Пусто: всем, кто прошёл фильтры.")
+    active = models.BooleanField("Включён", default=True)
+    started_at = models.DateTimeField("Начался (игровое UTC)", null=True, blank=True)
+    ends_at = models.DateTimeField("Кончится (игровое UTC)", null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ("name",)
+        verbose_name = "Момент мира"
+        verbose_name_plural = "Моменты мира"
+
+    def __str__(self):
+        return self.name
+
+
+class WorldLetter(models.Model):
+    """Письмо всем по триггеру: приходит каждому игроку один раз, при следующем открытии почты на подходящей машине."""
+
+    item = models.ForeignKey("filesystem.Item", on_delete=models.CASCADE, related_name="+")
+    systems = models.JSONField(default=list, blank=True)
+    machines = models.JSONField(default=list, blank=True)
+    source = models.CharField(max_length=200, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ("pk",)
+
+
+class WorldLetterDelivery(models.Model):
+    letter = models.ForeignKey(WorldLetter, on_delete=models.CASCADE, related_name="deliveries")
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="+")
+    at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        constraints = [models.UniqueConstraint(fields=("letter", "user"), name="unique_world_letter_user")]

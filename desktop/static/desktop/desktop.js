@@ -1253,3 +1253,48 @@ document.addEventListener("keydown", (event) => {
 
 // клик внутри окна приложения (iframe) до этого документа не доходит, но снимает с него фокус
 window.addEventListener("blur", () => setMenu(false));
+
+
+// Полоса моментов мира: «INCOMING · BOREAS UPLINK · T-00:12:30» до начала, «LIVE · … · 00:12:00 LEFT» пока идёт.
+// Сервер присылает остаток в игровых секундах и скорость времени; между опросами полоса считает сама.
+(function momentBar() {
+  const url = desktop.dataset.momentsUrl;
+  if (!url || desktop.dataset.preview) return;
+  const bar = document.createElement("div");
+  bar.className = "moment-bar";
+  bar.hidden = true;
+  bar.setAttribute("role", "status");
+  desktop.appendChild(bar);
+  let rows = [], rate = 1, got = Date.now();
+  const pad = (n) => String(n).padStart(2, "0");
+  function clock(seconds) {
+    seconds = Math.max(0, Math.round(seconds));
+    const d = Math.floor(seconds / 86400), h = Math.floor(seconds % 86400 / 3600), m = Math.floor(seconds % 3600 / 60), s = seconds % 60;
+    return `${d ? d + "d " : ""}${pad(h)}:${pad(m)}:${pad(s)}`;
+  }
+  function draw() {
+    const passed = (Date.now() - got) / 1000 * rate;
+    const shown = rows.map((row) => ({ ...row, now: row.left - passed })).filter((row) => row.state === "live" ? row.now > 0 : row.now > -60);
+    bar.hidden = !shown.length;
+    desktop.classList.toggle("has-moment-bar", !bar.hidden);
+    bar.replaceChildren(...shown.slice(0, 2).map((row) => {
+      const item = el("span", `moment moment--${row.state === "live" || row.now <= 0 ? "live" : "soon"}`);
+      const live = row.state === "live" || row.now <= 0;
+      item.append(el("b", "moment-tag", live ? "LIVE" : "INCOMING"), el("span", "moment-title", row.title),
+        el("span", "moment-time", live ? (row.state === "live" ? `${clock(row.now)} LEFT` : "NOW") : `T-${clock(row.now)}`));
+      return item;
+    }));
+  }
+  async function poll() {
+    try {
+      const data = await fetch(url, { credentials: "same-origin" }).then((r) => r.json());
+      rows = data.rows || [];
+      rate = data.rate || 0;
+      got = Date.now();
+      draw();
+    } catch (error) { /* стол работает и без полосы */ }
+  }
+  poll();
+  setInterval(poll, 30000);
+  setInterval(draw, 1000);
+})();

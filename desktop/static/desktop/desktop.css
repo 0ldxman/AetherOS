@@ -641,3 +641,17 @@ body {
 
 /* файл на столе: закрытый слоями виден, но не открывается */
 .icon--file.is-closed { opacity: 0.55; cursor: not-allowed; }
+
+
+/* Полоса моментов мира: тонкая строка у верхнего края стола, цвета из стиля ОС */
+.moment-bar { position: absolute; top: 0; left: 0; right: 0; z-index: 5; display: flex; justify-content: flex-end; gap: 24px; padding: 4px 20px;
+              border-bottom: 1px solid var(--accent-warn); background: color-mix(in srgb, var(--panel) 92%, var(--accent-warn) 8%);
+              color: var(--font-light); font: 12px/1.4 var(--font-console); letter-spacing: 0.08em; pointer-events: none; }
+.moment-bar[hidden] { display: none; }
+.moment { display: inline-flex; gap: 12px; align-items: baseline; }
+.moment-tag { color: var(--accent-warn); font-weight: 700; }
+.moment--live .moment-tag { color: var(--accent-error); animation: moment-blink 1.2s steps(2) infinite; }
+.moment-time { font-variant-numeric: tabular-nums; color: var(--font-muted); }
+@keyframes moment-blink { 50% { opacity: 0.35; } }
+@media (prefers-reduced-motion: reduce) { .moment--live .moment-tag { animation: none; } }
+#desktop.has-moment-bar #icons { margin-top: 26px; }
