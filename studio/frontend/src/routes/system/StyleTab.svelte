@@ -14,7 +14,7 @@
 
   let { system, errors, done, onstate }: { system: System; errors: Record<string, string[]>; done: Done; onstate: (state: { dirty: boolean; share: typeof share; save: () => unknown } | null) => void } = $props();
 
-  let look = $state({ style: "aether", tokens: {} as Record<string, string>, wallpaper: { ...WALLPAPER_DEFAULT } as Wallpaper, widgets: {} as Record<string, boolean> });
+  let look = $state({ style: "aether", tokens: {} as Record<string, string>, wallpaper: { ...WALLPAPER_DEFAULT } as Wallpaper, widgets: {} as Record<string, boolean>, places: {} as Record<string, string> });
   let picking = $state(false);
   let lookSaved = $state("");
   let base = $state<typeof look | null>(null);                  // сохранённое: им наполняется общий черновик
@@ -24,7 +24,8 @@
   const HEX6 = /^#[0-9a-fA-F]{6}$/;
 
   async function saveLook() {
-    const { data, error } = await api.PUT("/studio/api/systems/{code}/style", { params: { path: { code: system.code } }, body: look });
+    const body = { style: look.style, tokens: look.tokens, wallpaper: look.wallpaper, widgets: look.widgets, widget_places: look.places };
+    const { data, error } = await api.PUT("/studio/api/systems/{code}/style", { params: { path: { code: system.code } }, body });
     if (data) share.markSaved();
     done(data, error, "Стиль сохранён.");
   }
@@ -48,7 +49,7 @@
 
   $effect(() => {
     if (!deskPreview) return;
-    const url = `${system.preview_url}?preview_os=${encodeURIComponent(system.code)}&preview_style=${encodeURIComponent(look.style)}&preview_tokens=${encodeURIComponent(JSON.stringify(look.tokens))}&preview_wall=${encodeURIComponent(JSON.stringify(look.wallpaper))}&preview_widgets=${encodeURIComponent(JSON.stringify(look.widgets))}`;
+    const url = `${system.preview_url}?preview_os=${encodeURIComponent(system.code)}&preview_style=${encodeURIComponent(look.style)}&preview_tokens=${encodeURIComponent(JSON.stringify(look.tokens))}&preview_wall=${encodeURIComponent(JSON.stringify(look.wallpaper))}&preview_widgets=${encodeURIComponent(JSON.stringify(look.widgets))}&preview_places=${encodeURIComponent(JSON.stringify(look.places))}`;
     clearTimeout(deskTimer);
     deskTimer = setTimeout(() => (previewSrc = url), 350);
     return () => clearTimeout(deskTimer);
@@ -69,8 +70,8 @@
   $effect(() => {
     const data = system;
     untrack(() => {
-      const next = { style: data.style, tokens: { ...data.style_tokens }, wallpaper: { ...WALLPAPER_DEFAULT, ...data.wallpaper }, widgets: { ...data.widgets } };
-      if (!share.ready) look = { style: next.style, tokens: { ...next.tokens }, wallpaper: { ...next.wallpaper }, widgets: { ...next.widgets } };
+      const next = { style: data.style, tokens: { ...data.style_tokens }, wallpaper: { ...WALLPAPER_DEFAULT, ...data.wallpaper }, widgets: { ...data.widgets }, places: { ...data.widget_places } };
+      if (!share.ready) look = { style: next.style, tokens: { ...next.tokens }, wallpaper: { ...next.wallpaper }, widgets: { ...next.widgets }, places: { ...next.places } };
       lookSaved = JSON.stringify(next);
       base = next;
     });
@@ -99,16 +100,20 @@
 
   // ---------- элементы стола: у каждого «как в стиле», «вкл», «выкл»; чего нет в оболочке стиля, то недоступно ----------
   const widgetGroups = $derived([...new Set(system.widget_info.map((w) => w.group))]);
-  const has = (w: Schemas["WidgetInfo"]) => w.styles.includes(look.style);
+  const native = (w: Schemas["WidgetInfo"]) => w.native.includes(look.style);
+  const locked = (w: Schemas["WidgetInfo"]) => w.locked.includes(look.style);
+  const isOn = (w: Schemas["WidgetInfo"]) => locked(w) || (look.widgets[w.key] ?? native(w));
+  function setPlace(key: string, value: string) { look.places = { ...look.places, [key]: value }; }
   function setWidget(key: string, value: boolean | null) {
     const next = { ...look.widgets };
     if (value === null) delete next[key]; else next[key] = value;
     look.widgets = next;
   }
-  const widgetsOwn = $derived(Object.keys(look.widgets).filter((key) => system.widget_info.some((w) => w.key === key && has(w))).length);
+  const widgetsOwn = $derived(Object.keys(look.widgets).length);
   const widgetWarning = $derived.by(() => {
-    const on = (key: string) => { const w = system.widget_info.find((x) => x.key === key); return !!w && has(w) && look.widgets[key] !== false; };
-    return !on("icons") && !on("launcher") && !on("dock") ? "Выключены и значки, и меню запуска: приложения на этой ОС открыть нечем, кроме ссылок и хуков." : "";
+    if (look.style === "phosphor") return "";
+    const on = (key: string) => { const w = system.widget_info.find((x) => x.key === key); return !!w && isOn(w); };
+    return !on("icons") && !on("launcher") && !on("dock") ? "Выключены и значки, и меню запуска, и док: приложения на этой ОС открыть нечем, кроме ссылок и хуков." : "";
   });
   $effect(() => { if (!sections.includes(section)) section = "wall"; });
   $effect(() => { const value = section; try { localStorage.setItem(SECTION_KEY, value); } catch { /* память браузера может быть закрыта */ } });
@@ -242,14 +247,24 @@
           {#each widgetGroups as group (group)}
             <h4 class="wgroup">{group === "Панель" ? "На панелях оболочки" : "На самом столе"}</h4>
             {#each system.widget_info.filter((w) => w.group === group) as w (w.key)}
-              {@const ok = has(w)}
               {@const value = look.widgets[w.key]}
-              <div class="wrow" class:na={!ok}>
-                <div class="wname"><b>{w.label}</b><span class="muted small">{ok ? w.hint : `В стиле «${system.styles.find((s) => s.slug === look.style)?.label ?? look.style}» этого нет.`}</span></div>
-                <div class="seg" role="radiogroup" aria-label={w.label}>
-                  <button type="button" role="radio" aria-checked={value === undefined} disabled={!ok} class:on={value === undefined} onclick={() => setWidget(w.key, null)} title="Как в стиле: по умолчанию включено">стиль</button>
-                  <button type="button" role="radio" aria-checked={value === true} disabled={!ok} class:on={value === true} onclick={() => setWidget(w.key, true)}>вкл</button>
-                  <button type="button" role="radio" aria-checked={value === false} disabled={!ok} class:on={value === false} onclick={() => setWidget(w.key, false)}>выкл</button>
+              {@const own = native(w)}
+              <div class="wrow">
+                <div class="wname">
+                  <b>{w.label}<span class="wkind" class:own>{own ? "родной в стиле" : "добавляется"}</span></b>
+                  <span class="muted small">{locked(w) ? "Здесь выход из сессии: в этом стиле не выключается." : w.hint}</span>
+                </div>
+                <div class="wctl2">
+                  {#if !own && isOn(w) && w.places.length}
+                    <select class="field place" value={look.places[w.key] ?? w.places[0].value} onchange={(e) => setPlace(w.key, e.currentTarget.value)} aria-label="Где стоит: {w.label}">
+                      {#each w.places as p (p.value)}<option value={p.value}>{p.label}</option>{/each}
+                    </select>
+                  {/if}
+                  <div class="seg" role="radiogroup" aria-label={w.label}>
+                    <button type="button" role="radio" aria-checked={value === undefined} disabled={locked(w)} class:on={value === undefined && !locked(w)} onclick={() => setWidget(w.key, null)} title="Как в стиле: {own ? 'есть' : 'нет'}">стиль · {own ? "вкл" : "выкл"}</button>
+                    <button type="button" role="radio" aria-checked={value === true || locked(w)} class:on={value === true || locked(w)} onclick={() => setWidget(w.key, true)}>вкл</button>
+                    <button type="button" role="radio" aria-checked={value === false} disabled={locked(w)} class:on={value === false} onclick={() => setWidget(w.key, false)}>выкл</button>
+                  </div>
                 </div>
               </div>
             {/each}
@@ -391,7 +406,10 @@
   .wrow { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 12px; padding: 6px 4px; border-bottom: 1px solid var(--line-soft); }
   .wrow .seg { flex-shrink: 0; }
   .wrow .seg button { padding: 4px 10px; white-space: nowrap; }
-  .wrow.na { opacity: 0.5; }
+  .wkind { margin-left: 8px; padding: 0 6px; border-radius: 999px; background: var(--raise); color: var(--muted); font-size: 10.5px; font-weight: 500; }
+  .wkind.own { color: var(--accent); }
+  .wctl2 { display: flex; align-items: center; gap: 6px; }
+  .wctl2 .place { width: auto; height: 26px; padding: 0 6px; font-size: 12px; }
   .wname { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
   .wrow .seg button:disabled { cursor: not-allowed; }
 </style>

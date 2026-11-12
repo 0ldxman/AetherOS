@@ -6765,6 +6765,10 @@ export interface components {
             widgets: {
                 [key: string]: boolean;
             };
+            /** Widget Places */
+            widget_places: {
+                [key: string]: string;
+            };
             /** Widget Info */
             widget_info: components["schemas"]["WidgetInfo"][];
             /** Widget Warnings */
@@ -6894,8 +6898,19 @@ export interface components {
             group: string;
             /** Hint */
             hint: string;
-            /** Styles */
-            styles: string[];
+            /** Native */
+            native: string[];
+            /** Locked */
+            locked: string[];
+            /** Places */
+            places: components["schemas"]["WidgetPlace"][];
+        };
+        /** WidgetPlace */
+        WidgetPlace: {
+            /** Value */
+            value: string;
+            /** Label */
+            label: string;
         };
         /** NewSystem */
         NewSystem: {
@@ -6995,6 +7010,10 @@ export interface components {
             /** Widgets */
             widgets?: {
                 [key: string]: boolean;
+            } | null;
+            /** Widget Places */
+            widget_places?: {
+                [key: string]: string;
             } | null;
         };
         /** ImageListing */

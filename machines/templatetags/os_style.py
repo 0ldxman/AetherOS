@@ -41,11 +41,17 @@ def _state(request):
             system = SystemType.objects.filter(code=Subquery(Machine.objects.filter(hostname=MAIN_HOSTNAME).values("system")[:1])).first()
     found = (system.style, system.style_tokens, system.code, system.wallpaper) if system is not None and system.style in styles.STYLES else (styles.DEFAULT_STYLE, {}, "", {})
     request._os_widgets = (system.widgets or {}) if system is not None else {}
+    request._os_places = (system.widget_places or {}) if system is not None else {}
     if user is not None and user.is_authenticated and user.is_staff:          # предпросмотр несохранённого стиля в студии
         found = _preview(request, found) or found
         if request.GET.get("preview_widgets"):
             try:
                 request._os_widgets = json.loads(request.GET["preview_widgets"])
+            except ValueError:
+                pass
+        if request.GET.get("preview_places"):
+            try:
+                request._os_places = json.loads(request.GET["preview_places"])
             except ValueError:
                 pass
     request._os_style = found
@@ -92,6 +98,31 @@ def os_widgets_css(context):
         return ""
     block = widgets.hidden_css(_state(request)[0], getattr(request, "_os_widgets", {}))
     return mark_safe(f'<style id="os-widgets">{block}</style>') if block else ""
+
+
+@register.simple_tag(takes_context=True)
+def os_slot(context, slot):
+    """Слот оболочки: start / end на главной панели, desk — док и всплывающие панели. Пусто, если ОС ничего туда не добавила."""
+    from django.template.loader import render_to_string
+
+    from machines.world import widgets
+
+    request = context.get("request")
+    if request is None:
+        return ""
+    slug = _state(request)[0]
+    data, places = getattr(request, "_os_widgets", {}), getattr(request, "_os_places", {})
+    found = widgets.slot_context(slug, data, places, slot)
+    if slot == "desk":
+        added = widgets.added(slug, data, places)
+        found["search_in_panel"] = "search" not in added and not widgets.is_native("search", slug)
+        found["launcher_side"] = "left" if added.get("launcher", "start") == "start" else "right"
+        found["notices_side"] = "left" if added.get("notices", "end") == "start" else "right"
+        if not (found["dock"] or found["launcher_panel"] or found["notices_panel"]):
+            return ""
+    elif not found["els"]:
+        return ""
+    return mark_safe(render_to_string("desktop/elements/slot.html", {**found, "login": context.get("login", ""), "machine_name": context.get("machine_name", "")}))
 
 
 @register.simple_tag(takes_context=True)

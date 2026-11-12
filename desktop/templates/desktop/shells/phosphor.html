@@ -1,4 +1,4 @@
-{% comment %}
+{% load os_style %}{% comment %}
   Оболочка стиля phosphor (прошивка устройства): строка состояния сверху с хлебными крошками, главное меню (приложения и
   системные пункты), панель сведений справа, строка подсказок клавиш снизу. Окон нет: приложение открывается на весь экран
   (это делает CSS стиля), Esc закрывает его и возвращает в меню. Ожидает от desktop.js #taskbar, #clock, #date, #ping-value;
@@ -7,7 +7,9 @@
     <header id="taskbar">
         <span class="fw-model">{{ os_name }}</span>
         <span class="fw-crumb" data-shell="crumb">MAIN</span>
+        {% os_slot "start" %}
         <span class="fw-spacer"></span>
+        {% os_slot "end" %}
         <div class="ping">
             <span class="ping-dot"></span>
             <span class="fw-key">LINK</span>
@@ -62,3 +64,5 @@
         <span class="fw-spacer"></span>
         <span class="fw-user">{{ login }}@{{ machine_name }}</span>
     </footer>
+
+    {% os_slot "desk" %}

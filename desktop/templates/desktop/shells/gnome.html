@@ -1,4 +1,4 @@
-{% comment %}
+{% load os_style %}{% comment %}
   Оболочка стиля gnome: верхняя панель («Overview», часы по центру, связь и меню сессии справа), режим обзора
   (поиск, открытые окна, приложения) и док снизу с отметкой запущенных. Иконок на столе нет: приложения берутся
   с них же, но стиль их прячет. Ожидает от desktop.js элементы #taskbar, #clock, #date, #ping-value, меню сессии;
@@ -6,7 +6,9 @@
 {% endcomment %}
     <header id="taskbar">
         <button type="button" class="activities" data-shell="launcher" aria-haspopup="dialog" aria-expanded="false" aria-controls="launcher">Overview</button>
+        {% os_slot "start" %}
         <div class="status">
+            {% os_slot "end" %}
             <div class="ping">
                 <span class="ping-dot"></span>
                 <span id="ping-value">42</span>
@@ -49,3 +51,5 @@
         <span id="date"></span>
         <span class="bell-count" data-shell="notices-count" hidden>0</span>
     </div>
+
+    {% os_slot "desk" %}

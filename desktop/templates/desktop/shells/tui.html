@@ -1,4 +1,4 @@
-{% comment %}
+{% load os_style %}{% comment %}
   Оболочка стиля tui: строка меню сверху (бренд, окна как пункты меню, связь, часы) и полоса F-клавиш снизу
   (F2 приложения, F4 sessions, F5 раскладка, F9 уведомления, F10 выход). Лаунчер и уведомления открываются текстовыми окнами.
   Ожидает от desktop.js #taskbar, #clock, #date, #ping-value; остальное оживляет shell.js. Полоса снизу резервируется
@@ -6,7 +6,9 @@
 {% endcomment %}
     <header id="taskbar">
         <span class="tui-brand">≡ AetherOS</span>
+        {% os_slot "start" %}
         <div class="tasks" data-shell="tasks"></div>
+        {% os_slot "end" %}
         <div class="ping">
             <span class="ping-dot"></span>
             <span id="ping-value">42</span>
@@ -43,3 +45,5 @@
         <span class="fkeys-user">{{ login }}@{{ machine_name }}</span>
         <button type="button" data-action="disconnect" data-hotkey="F10" data-logout-url="{{ logout_url }}" data-lock-url="{{ lock_url }}"><i>10</i>Exit</button>
     </footer>
+
+    {% os_slot "desk" %}

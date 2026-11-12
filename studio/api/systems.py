@@ -130,6 +130,12 @@ class StyleIn(Schema):
     tokens: dict[str, str] = {}
     wallpaper: WallpaperValue | None = None          # пусто: картинка и узор не меняются
     widgets: dict[str, bool] | None = None           # пусто: элементы стола не меняются
+    widget_places: dict[str, str] | None = None
+
+
+class WidgetPlace(Schema):
+    value: str
+    label: str
 
 
 class WidgetInfo(Schema):
@@ -137,7 +143,9 @@ class WidgetInfo(Schema):
     label: str
     group: str
     hint: str
-    styles: list[str]                                # оболочки стилей, в которых он есть
+    native: list[str]                                # стили, оболочка которых рисует его сама
+    locked: list[str]                                # стили, где выключить нельзя (в нём выход из сессии)
+    places: list[WidgetPlace]                        # куда поставить, если стиль его сам не рисует
 
 
 class FontChoice(Schema):
@@ -191,6 +199,7 @@ class SystemOut(Schema):
     style_tokens: dict[str, str]
     wallpaper: WallpaperValue
     widgets: dict[str, bool]                         # выбор автора; нет ключа — как в стиле
+    widget_places: dict[str, str]
     widget_info: list[WidgetInfo]
     widget_warnings: list[str]
     styles: list[StyleChoice]
@@ -263,9 +272,11 @@ def _out(system):
         blackouts=_blackouts(system),
         style=system.style, style_tokens={name: str(value) for name, value in (system.style_tokens or {}).items()},
         wallpaper=WallpaperValue(**wallpaper.clean(system.wallpaper)),
-        widgets=widgets.clean(system.widgets),
+        widgets=widgets.clean(system.widgets), widget_places=widgets.clean_places(system.widget_places),
         widget_info=[WidgetInfo(key=w.key, label=w.label, group=w.group, hint=w.hint,
-                                styles=[slug for slug in styles.STYLES if w.key in widgets.supported(slug)]) for w in widgets.ITEMS],
+                                native=[slug for slug in styles.STYLES if widgets.is_native(w.key, slug)],
+                                locked=[slug for slug in styles.STYLES if widgets.is_locked(w.key, slug)],
+                                places=[WidgetPlace(value=k, label=v) for k, v in (w.places or {}).items()]) for w in widgets.ITEMS],
         widget_warnings=widgets.warnings(system.style, system.widgets),
         styles=[StyleChoice(slug=slug, label=item.label, description=item.description) for slug, item in styles.STYLES.items()],
         preview_url=reverse("studio_style_preview", kwargs={"code": system.code}),
@@ -486,6 +497,8 @@ def save_style(request, code: str, body: StyleIn):
         system.wallpaper = _wallpaper(system, body.wallpaper.model_dump())
     if body.widgets is not None:
         system.widgets = widgets.clean(body.widgets)
+    if body.widget_places is not None:
+        system.widget_places = widgets.clean_places(body.widget_places)
     system.full_clean()
     system.save()
     return _out(system)

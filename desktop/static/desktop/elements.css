@@ -1,0 +1,144 @@
+/* ==================================================
+   Добавленные элементы стола (desktop/elements/slot.html): то, чего оболочка стиля сама не рисует, а ОС включила.
+   Общий вид на токенах стиля; ниже темы дорисовывают своё ([data-theme="…"]). Поведение — shell.js по data-shell.
+   ================================================== */
+
+.el-slot { display: inline-flex; align-items: center; gap: 6px; min-width: 0; flex: 0 1 auto; }
+.el-gap { flex: 1 1 auto; }
+.el { font-family: var(--font-main); }
+
+.el--btn {
+  display: inline-flex; align-items: center; gap: 6px; height: 24px; padding: 0 9px; flex: 0 0 auto;
+  border: var(--border-w, 1px) solid color-mix(in srgb, currentColor 35%, transparent); border-radius: var(--radius); background: transparent;
+  color: inherit; font: 12px/1 var(--font-main); cursor: pointer; white-space: nowrap;      /* цвет текста панели стиля */
+}
+.el--btn:hover, .el--btn:focus-visible, .el--btn[aria-expanded="true"] { border-color: var(--accent); outline: none; }
+.el--btn[aria-expanded="true"] { background: color-mix(in srgb, var(--accent) 18%, transparent); }
+.el-glyph { font-family: var(--font-console); font-size: 11px; opacity: 0.8; }
+.el-count { min-width: 16px; padding: 0 4px; border-radius: 999px; background: var(--accent-error); color: var(--font-dark); font-size: 10px; line-height: 16px; text-align: center; }
+.el-count[hidden] { display: none; }
+
+.el--machine { color: inherit; opacity: 0.75; font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 22ch; }
+
+.el-search {
+  height: 24px; width: 15em; padding: 0 8px; border: var(--border-w, 1px) solid var(--line-bright); border-radius: var(--radius);
+  background: var(--bg); color: var(--fg); font: 12px var(--font-main); outline: none;
+}
+.el-search:focus { border-color: var(--accent); }
+.el-search--panel { width: 100%; height: 28px; margin-bottom: 8px; }
+
+.el--tasks { display: inline-flex; align-items: center; gap: 4px; min-width: 0; overflow: hidden; }
+.el--tasks .shell-task {
+  display: inline-flex; align-items: center; gap: 6px; max-width: 170px; height: 24px; padding: 0 8px; flex: 0 1 auto;
+  border: var(--border-w, 1px) solid color-mix(in srgb, currentColor 22%, transparent); border-radius: var(--radius); background: transparent; color: inherit; font: 12px var(--font-main); cursor: pointer;
+}
+.el--tasks .shell-task .shell-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.el--tasks .shell-task:hover { border-color: color-mix(in srgb, currentColor 50%, transparent); }
+.el--tasks .shell-task.is-active { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 14%, transparent); }
+.el--tasks .shell-task.is-min { opacity: 0.55; }
+
+.el--spaces { display: inline-flex; flex: 0 0 auto; border: var(--border-w, 1px) solid color-mix(in srgb, currentColor 35%, transparent); border-radius: var(--radius); overflow: hidden; }
+.el--spaces button { width: 24px; height: 22px; border: 0; background: transparent; color: inherit; opacity: 0.6; font: 11px var(--font-console); cursor: pointer; }
+.el--spaces button + button { border-left: var(--border-w, 1px) solid color-mix(in srgb, currentColor 22%, transparent); }
+.el--spaces button:hover, .el--spaces button.has-windows { opacity: 1; }
+.el--spaces button.is-current { background: var(--accent); color: var(--font-dark); opacity: 1; }
+
+/* ---- док ---- */
+.el-dock {
+  position: fixed; z-index: 30; display: flex; gap: 4px; padding: 6px;
+  border: var(--border-w, 1px) solid var(--window-border, var(--line-bright)); border-radius: calc(var(--radius) * 2 + 4px); background: var(--panel);
+}
+.el-dock--bottom { left: 50%; bottom: var(--el-dock-offset, 14px); transform: translateX(-50%); }
+.el-dock--left, .el-dock--right { top: 50%; transform: translateY(-50%); flex-direction: column; }
+.el-dock--left { left: 12px; }
+.el-dock--right { right: 12px; }
+.el-dock--edge-bottom.el-dock--bottom { bottom: var(--el-dock-offset, 62px); }
+.el-dock .shell-app {
+  position: relative; display: grid; place-items: center; width: 40px; height: 40px; padding: 0; border: var(--border-w, 1px) solid transparent;
+  border-radius: calc(var(--radius) + 2px); background: transparent; color: var(--fg); font: 16px var(--font-console); cursor: pointer;
+}
+.el-dock .shell-app:hover { border-color: var(--line-bright); background: color-mix(in srgb, var(--fg) 8%, transparent); }
+.el-dock .shell-app .shell-label { display: none; }
+.el-dock .shell-app.is-open::after { content: ""; position: absolute; bottom: 2px; left: 50%; width: 4px; height: 4px; margin-left: -2px; border-radius: 50%; background: var(--accent); }
+.el-dock--left .shell-app.is-open::after { bottom: auto; top: 50%; left: 2px; margin: -2px 0 0; }
+.el-dock--right .shell-app.is-open::after { bottom: auto; top: 50%; left: auto; right: 2px; margin: -2px 0 0; }
+.el-dock .shell-badge { position: absolute; top: 0; right: 0; min-width: 14px; padding: 0 3px; border-radius: 999px; background: var(--accent-error); color: var(--font-dark); font-size: 9px; line-height: 14px; }
+
+/* ---- всплывающие панели: меню запуска и сообщения ---- */
+.el-pop {
+  position: fixed; z-index: 60; width: 300px; max-height: 70vh; overflow: auto; padding: 10px;
+  border: var(--border-w, 1px) solid var(--window-border, var(--line-bright)); border-radius: var(--radius); background: var(--panel); color: var(--fg);
+  box-shadow: 0 10px 30px color-mix(in srgb, var(--bg) 70%, transparent);
+}
+.el-pop[hidden] { display: none; }
+.el-pop--top { top: var(--el-pop-offset, 40px); }
+.el-pop--bottom { bottom: var(--el-pop-offset, 60px); }
+.el-pop--left { left: 12px; }
+.el-pop--right { right: 12px; }
+.el-pop-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; color: var(--font-muted);
+               font: 11px var(--font-console); letter-spacing: 0.08em; text-transform: uppercase; }
+.el-pop-head button { border: 0; background: none; color: var(--font-muted); font: inherit; cursor: pointer; }
+.el-pop-head button:hover { color: var(--font-light); }
+.el-apps { display: flex; flex-direction: column; gap: 2px; }
+.el-apps .shell-app {
+  display: flex; align-items: center; gap: 10px; width: 100%; padding: 6px 8px; border: 0; border-radius: var(--radius);
+  background: transparent; color: var(--fg); font: 13px var(--font-main); text-align: left; cursor: pointer;
+}
+.el-apps .shell-app:hover, .el-apps .shell-app:focus-visible { background: color-mix(in srgb, var(--accent) 16%, transparent); color: var(--font-light); outline: none; }
+.el-apps .shell-glyph { width: 1.6em; text-align: center; font-family: var(--font-console); }
+.el-notices-list { display: flex; flex-direction: column; gap: 4px; }
+.el-notices-list.is-empty::after { content: "no messages"; color: var(--font-muted); font-size: 12px; }
+.el-notices-list .shell-notice { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 2px 8px; width: 100%; padding: 6px 8px; border: 0;
+                                 border-left: 2px solid var(--line-bright); background: transparent; color: var(--fg); font: 12px var(--font-main); text-align: left; cursor: pointer; }
+.el-notices-list .shell-notice-time { color: var(--font-muted); }
+.el-notices-list .shell-notice-text { grid-column: 1 / -1; color: var(--font-muted); }
+.el-notices-list .shell-notice--warning, .el-notices-list .shell-notice--moment { border-left-color: var(--accent-warn); }
+.el-notices-list .shell-notice--error { border-left-color: var(--accent-error); }
+
+/* ==================================================
+   Дорисовка тем: те же элементы в языке стиля
+   ================================================== */
+
+/* Classic: плоские контуры с жёсткой тенью, растровый шрифт */
+[data-theme="classic"] .el--btn, [data-theme="classic"] .el--tasks .shell-task, [data-theme="classic"] .el--spaces, [data-theme="classic"] .el-search {
+  border-radius: 0; box-shadow: 2px 2px 0 var(--line-bright); }
+[data-theme="classic"] .el-dock, [data-theme="classic"] .el-pop { border-radius: 0; box-shadow: 4px 4px 0 var(--line-bright); }
+[data-theme="classic"] .el-dock .shell-app, [data-theme="classic"] .el-apps .shell-app { border-radius: 0; }
+[data-theme="classic"] .el-apps .shell-app:hover, [data-theme="classic"] .el--btn[aria-expanded="true"] { background: var(--accent); color: var(--font-dark); }
+
+/* Terminal UI: двойные рамки, инверсия вместо цвета, шрифт терминала */
+[data-theme="tui"] .el, [data-theme="tui"] .el-pop, [data-theme="tui"] .el-dock .shell-app, [data-theme="tui"] .el-apps .shell-app { font-family: var(--font-console); }
+[data-theme="tui"] .el--btn, [data-theme="tui"] .el--tasks .shell-task, [data-theme="tui"] .el--spaces, [data-theme="tui"] .el-search { border-radius: 0; }
+[data-theme="tui"] .el-pop, [data-theme="tui"] .el-dock { border-radius: 0; border-style: double; border-width: 3px; box-shadow: none; }
+[data-theme="tui"] .el-dock .shell-app, [data-theme="tui"] .el-apps .shell-app { border-radius: 0; }
+[data-theme="tui"] .el--btn:hover, [data-theme="tui"] .el--btn[aria-expanded="true"], [data-theme="tui"] .el-apps .shell-app:hover,
+[data-theme="tui"] .el--tasks .shell-task.is-active, [data-theme="tui"] .el-dock .shell-app:hover { background: var(--fg); color: var(--bg); border-color: var(--fg); }
+[data-theme="tui"] .el-dock--bottom { bottom: var(--el-dock-offset, 40px); }
+[data-theme="tui"] .el-dock { background: var(--bg); border-color: var(--fg); }
+[data-theme="tui"] .el-dock .shell-app { color: var(--fg); background: transparent; }
+[data-theme="tui"] .el-pop--top { top: 30px; }
+
+/* Phosphor: монохромный ЖК, выбор инверсией, растровая сетка */
+[data-theme="phosphor"] .el, [data-theme="phosphor"] .el-pop, [data-theme="phosphor"] .el-apps .shell-app { font-family: var(--font-console); text-transform: uppercase; }
+[data-theme="phosphor"] .el--btn, [data-theme="phosphor"] .el--tasks .shell-task, [data-theme="phosphor"] .el--spaces, [data-theme="phosphor"] .el-search,
+[data-theme="phosphor"] .el-pop, [data-theme="phosphor"] .el-dock, [data-theme="phosphor"] .el-dock .shell-app, [data-theme="phosphor"] .el-apps .shell-app { border-radius: 0; box-shadow: none; }
+[data-theme="phosphor"] .el--btn:hover, [data-theme="phosphor"] .el--btn[aria-expanded="true"], [data-theme="phosphor"] .el-apps .shell-app:hover,
+[data-theme="phosphor"] .el-dock .shell-app:hover, [data-theme="phosphor"] .el--tasks .shell-task.is-active { background: var(--fg); color: var(--bg); }
+[data-theme="phosphor"] .el-dock--bottom { bottom: var(--el-dock-offset, 44px); }
+[data-theme="phosphor"] .el-dock .shell-app { width: auto; min-width: 40px; height: auto; padding: 4px 6px; }
+
+/* Workbench: гравированные поля, толстая рамка из двух линий */
+[data-theme="workbench"] .el--btn, [data-theme="workbench"] .el--tasks .shell-task, [data-theme="workbench"] .el--spaces, [data-theme="workbench"] .el-search { border-style: groove; border-width: 2px; }
+[data-theme="workbench"] .el-pop, [data-theme="workbench"] .el-dock { border-style: double; border-width: 4px; box-shadow: none; }
+[data-theme="workbench"] .el-dock--bottom { bottom: var(--el-dock-offset, 84px); }
+[data-theme="workbench"] .el-pop--bottom { bottom: 84px; }
+
+/* Modern и GNOME: мягкие скругления и тени, плитки */
+[data-theme="modern"] .el--btn, [data-theme="gnome"] .el--btn, [data-theme="modern"] .el--tasks .shell-task, [data-theme="gnome"] .el--tasks .shell-task { border-color: transparent; border-radius: 999px; }
+[data-theme="modern"] .el--btn:hover, [data-theme="gnome"] .el--btn:hover { background: color-mix(in srgb, var(--fg) 10%, transparent); }
+[data-theme="modern"] .el-pop, [data-theme="gnome"] .el-pop, [data-theme="modern"] .el-dock, [data-theme="gnome"] .el-dock {
+  border-color: transparent; border-radius: calc(var(--radius) + 6px); box-shadow: 0 12px 36px color-mix(in srgb, var(--bg) 60%, transparent); }
+[data-theme="modern"] .el-dock .shell-app, [data-theme="gnome"] .el-dock .shell-app { border-radius: calc(var(--radius) + 4px); }
+[data-theme="modern"] .el-dock--bottom { bottom: var(--el-dock-offset, 60px); }
+[data-theme="gnome"] .el-pop--top { top: 36px; }
+[data-theme="gnome"] #taskbar .el-slot--start { margin-right: auto; margin-left: 8px; }    /* часы у GNOME по центру панели: начало прижато влево */

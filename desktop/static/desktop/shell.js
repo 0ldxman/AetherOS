@@ -139,14 +139,14 @@
     renderCrumb();
   }
 
-  function setLauncher(open) {
+  function setLauncher(open, keep = false) {
     if (!panel) return;
     if (open && typeof setNotices === "function" && noticePanel && !noticePanel.hidden) setNotices(false);
     panel.hidden = !open;
     document.body.classList.toggle("launcher-open", open);
     openers.forEach((node) => node.setAttribute("aria-expanded", open ? "true" : "false"));
 
-    if (open && search) {
+    if (open && search && !keep) {
       search.value = "";
       render();
       search.focus();
@@ -340,7 +340,11 @@
   });
 
   if (search) {
-    search.addEventListener("input", () => all('[data-shell="apps"]').forEach(renderApps));
+    search.addEventListener("input", () => {
+      // поиск на панели (вне меню запуска): набор открывает меню с найденным
+      if (panel && panel.hidden && !panel.contains(search) && search.value.trim()) setLauncher(true, true);
+      all('[data-shell="apps"]').forEach(renderApps);
+    });
     search.addEventListener("keydown", (event) => {
       if (event.key !== "Enter") return;
       const first = panel.querySelector(".shell-app");
@@ -352,7 +356,7 @@
     if (noticePanel && !noticePanel.hidden && !noticePanel.contains(event.target) && !noticeTogglers.some((node) => node.contains(event.target))) {
       setNotices(false);
     }
-    if (panel && !panel.hidden && !panel.contains(event.target) && !openers.some((node) => node.contains(event.target))) {
+    if (panel && !panel.hidden && !panel.contains(event.target) && !openers.some((node) => node.contains(event.target)) && !(search && search.contains(event.target))) {
       setLauncher(false);
     }
   });

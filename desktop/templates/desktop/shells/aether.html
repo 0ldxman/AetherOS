@@ -1,4 +1,4 @@
-    <header id="taskbar">
+{% load os_style %}    <header id="taskbar">
         <div class="connection">
             <span>conn: </span>
             <button
@@ -26,6 +26,7 @@
                 </li>
             </ul>
         </div>
+        {% os_slot "start" %}<span class="el-gap"></span>{% os_slot "end" %}
         <div class="ping">
                 <span class="ping-dot"></span>
                 <span id="ping-value">42</span>
@@ -37,3 +38,4 @@
         <span id="clock"></span>
         <span id="date"></span>
     </div>
+    {% os_slot "desk" %}

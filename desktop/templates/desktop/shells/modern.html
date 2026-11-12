@@ -1,4 +1,4 @@
-{% comment %}
+{% load os_style %}{% comment %}
   Оболочка стиля modern: панель задач снизу с кнопкой «Пуск», списком открытых окон и значком связи;
   меню «Пуск» (поиск, приложения, действия сессии). Ожидает от desktop.js элементы #taskbar, #clock, #date, #ping-value;
   меню и список окон оживляет shell.js по атрибутам data-shell.
@@ -7,7 +7,9 @@
         <button type="button" class="start-button" data-shell="launcher" aria-haspopup="dialog" aria-expanded="false" aria-controls="launcher" title="Start">
             <span class="start-logo" aria-hidden="true"></span>
         </button>
+        {% os_slot "start" %}
         <div class="tasks" data-shell="tasks"></div>
+        {% os_slot "end" %}
         <div class="ping">
             <span class="ping-dot"></span>
             <span id="ping-value">42</span>
@@ -62,3 +64,5 @@
         <span id="clock"></span>
         <span id="date"></span>
     </div>
+
+    {% os_slot "desk" %}

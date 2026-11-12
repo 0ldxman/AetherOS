@@ -11,17 +11,31 @@ from team.testing import full_role
 
 
 class WidgetTests(TestCase):
+    def test_slots_render_added_elements(self):
+        from django.template.loader import render_to_string
+
+        found = widgets.slot_context("aether", {"tasks": True, "dock": True, "launcher": True}, {}, "end")
+        self.assertEqual(found["els"], ["tasks"])
+        desk = widgets.slot_context("aether", {"dock": True, "launcher": True}, {}, "desk")
+        self.assertEqual((desk["dock"], desk["launcher_panel"], desk["notices_panel"]), ("bottom", True, False))
+        html = render_to_string("desktop/elements/slot.html", {**found, "login": "ivan", "machine_name": "m"})
+        self.assertIn('data-shell="tasks"', html)
+        self.assertEqual(widgets.slot_context("classic", {"launcher": True}, {}, "desk")["launcher_panel"], False)   # своя панель есть
+
     def test_support_resolve_and_css(self):
-        self.assertIn("workspaces", widgets.supported("workbench"))
-        self.assertNotIn("tasks", widgets.supported("aether"))
-        self.assertEqual(widgets.supported("glitched"), widgets.supported("aether"))          # своей оболочки нет: как у aether
-        state = widgets.resolve("aether", {"ping": False, "tasks": False, "bogus": False, "icons": "no"})
-        self.assertEqual((state["ping"], state["clock"], "tasks" in state), (False, True, False))
+        self.assertTrue(widgets.is_native("workspaces", "workbench"))
+        self.assertFalse(widgets.is_native("tasks", "aether"))
+        self.assertEqual(widgets.shell_of("glitched"), "aether")                              # своей оболочки нет: как у aether
+        state = widgets.resolve("aether", {"ping": False, "dock": True, "bogus": False, "icons": "no"})
+        self.assertEqual((state["ping"], state["clock"], state["tasks"], state["dock"]), (False, True, False, True))
+        self.assertEqual(widgets.added("aether", {"dock": True, "workspaces": True}, {"dock": "left"}), {"dock": "left", "workspaces": "end"})
+        self.assertTrue(widgets.resolve("classic", {"launcher": False})["launcher"])          # в нём выход: не выключается
         css = widgets.hidden_css("aether", {"ping": False, "icons": False})
         self.assertIn(".ping{display:none!important}", css)
         self.assertIn("#icons{display:none!important}", css)
         self.assertEqual(widgets.hidden_css("aether", {}), "")
         self.assertTrue(widgets.warnings("aether", {"icons": False}))                        # у aether нет меню запуска
+        self.assertEqual(widgets.warnings("aether", {"icons": False, "launcher": True}), [])
         self.assertEqual(widgets.warnings("gnome", {"icons": False}), [])
 
     def test_the_desktop_hides_what_the_os_turned_off(self):
@@ -42,8 +56,9 @@ class WidgetTests(TestCase):
         SystemType.objects.create(code="KIOSK", name="Kiosk", style="gnome")
         data = self.client.get("/studio/api/systems/KIOSK").json()
         info = {w["key"]: w for w in data["widget_info"]}
-        self.assertIn("gnome", info["dock"]["styles"])
-        self.assertNotIn("aether", info["dock"]["styles"])
-        body = {"style": "gnome", "tokens": {}, "widgets": {"ping": False, "dock": True, "nonsense": True}}
+        self.assertIn("gnome", info["dock"]["native"])
+        self.assertNotIn("aether", info["dock"]["native"])
+        self.assertEqual([p["value"] for p in info["dock"]["places"]], ["bottom", "left", "right"])
+        body = {"style": "gnome", "tokens": {}, "widgets": {"ping": False, "dock": True, "nonsense": True}, "widget_places": {"dock": "left", "ping": "end"}}
         saved = self.client.put("/studio/api/systems/KIOSK/style", data=json.dumps(body), content_type="application/json").json()
-        self.assertEqual(saved["widgets"], {"ping": False, "dock": True})
+        self.assertEqual((saved["widgets"], saved["widget_places"]), ({"ping": False, "dock": True}, {"dock": "left"}))

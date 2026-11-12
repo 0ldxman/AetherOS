@@ -42,6 +42,10 @@ class SystemType(models.Model):
         "Элементы стола", default=dict, blank=True,
         help_text="Что из оболочки стиля показывать: {\"ping\": false, \"icons\": true}. Нет ключа: как в стиле (machines/world/widgets.py).",
     )
+    widget_places = models.JSONField(
+        "Места добавленных элементов", default=dict, blank=True,
+        help_text="Где стоит элемент, которого стиль сам не рисует: {\"tasks\": \"end\", \"dock\": \"left\"}.",
+    )
     greeting = models.TextField(
         "Приветствие", blank=True,
         help_text="Что видит игрок, когда открывается оболочка. Цвета: <dim>, <success>, <warning>, <error>; подстановки: {host}, {login}... "

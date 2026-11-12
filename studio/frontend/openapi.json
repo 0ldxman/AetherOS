@@ -19490,6 +19490,13 @@
       "title": "Widgets",
       "type": "object"
      },
+     "widget_places": {
+      "additionalProperties": {
+       "type": "string"
+      },
+      "title": "Widget Places",
+      "type": "object"
+     },
      "widget_info": {
       "items": {
        "$ref": "#/components/schemas/WidgetInfo"
@@ -19638,6 +19645,7 @@
      "style_tokens",
      "wallpaper",
      "widgets",
+     "widget_places",
      "widget_info",
      "widget_warnings",
      "styles",
@@ -19803,11 +19811,25 @@
       "title": "Hint",
       "type": "string"
      },
-     "styles": {
+     "native": {
       "items": {
        "type": "string"
       },
-      "title": "Styles",
+      "title": "Native",
+      "type": "array"
+     },
+     "locked": {
+      "items": {
+       "type": "string"
+      },
+      "title": "Locked",
+      "type": "array"
+     },
+     "places": {
+      "items": {
+       "$ref": "#/components/schemas/WidgetPlace"
+      },
+      "title": "Places",
       "type": "array"
      }
     },
@@ -19816,9 +19838,29 @@
      "label",
      "group",
      "hint",
-     "styles"
+     "native",
+     "locked",
+     "places"
     ],
     "title": "WidgetInfo",
+    "type": "object"
+   },
+   "WidgetPlace": {
+    "properties": {
+     "value": {
+      "title": "Value",
+      "type": "string"
+     },
+     "label": {
+      "title": "Label",
+      "type": "string"
+     }
+    },
+    "required": [
+     "value",
+     "label"
+    ],
+    "title": "WidgetPlace",
     "type": "object"
    },
    "NewSystem": {
@@ -20077,6 +20119,20 @@
        }
       ],
       "title": "Widgets"
+     },
+     "widget_places": {
+      "anyOf": [
+       {
+        "additionalProperties": {
+         "type": "string"
+        },
+        "type": "object"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Widget Places"
      }
     },
     "required": [
