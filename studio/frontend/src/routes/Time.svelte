@@ -431,7 +431,7 @@
 {/if}
 
 <style>
-  .top { display: grid; grid-template-columns: minmax(0, 1fr) minmax(260px, 340px); gap: 12px; margin: 12px 32px; }
+  .top { display: grid; grid-template-columns: minmax(0, 3fr) minmax(280px, 2fr); gap: 12px; margin: 12px 32px; }
   .hero, .machines { border: 1px solid var(--line-soft); border-radius: var(--radius); background: var(--panel); }
   .hero { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; padding: 22px 20px; text-align: center; }
   .date { font-size: 15px; color: var(--muted); }
