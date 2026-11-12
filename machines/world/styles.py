@@ -72,6 +72,10 @@ TOKENS = (
     Token("--border-w", "Толщина рамок", "Форма", "length", "Толщина рамок окон и полей."),
     Token("--tab-h", "Высота заголовка окна", "Форма", "length", "Высота полосы с названием и кнопками у окна."),
     Token("--cell", "Шаг сетки рабочего стола", "Форма", "length", "Размер клетки сетки стола. Узор «Сетка» и значки выравниваются по нему."),
+    Token("--title-bg", "Фон заголовка", "Заголовок окна", "color", "Полоса или вкладка с названием окна. Пусто: как у выбранного заголовка."),
+    Token("--title-fg", "Текст заголовка", "Заголовок окна", "color", "Название окна, его кнопки; у заголовка из символов — сами символы рамки."),
+    Token("--title-bg-active", "Фон активного заголовка", "Заголовок окна", "color", "То же у окна, в котором сейчас работают."),
+    Token("--title-fg-active", "Текст активного заголовка", "Заголовок окна", "color", "Название и кнопки активного окна."),
 )
 BY_NAME = {token.name: token for token in TOKENS}
 
@@ -121,10 +125,11 @@ WINDOW = {
         "bar": "Полоса во всю ширину",
         "center": "В цвет окна, название по центру",
         "plaque": "Штриховка и табличка с названием",
-        "raised": "Выпуклая полоса, у активного окна цветная",
+        "raised": "Полоса с обводкой (как Workbench)",
         "ascii": "Строка рамки из символов, как в TUI",
         "full": "Приложение на весь экран",
     }),
+    "hatch": ("Узор штриховки", {"lines": "Горизонтальные линии", "diagonal": "Диагональ ////"}),
     "frame": ("Рамка", {
         "line": "Тонкая линия",
         "soft": "Скругление и мягкая тень",
@@ -146,16 +151,16 @@ WINDOW = {
     "set": ("Набор кнопок", {"all": "Закрыть, развернуть, свернуть", "close": "Только закрыть"}),
 }
 
-_AETHER_WINDOW = {"title": "tab", "frame": "line", "side": "left", "buttons": "icons", "set": "all"}
+_AETHER_WINDOW = {"title": "tab", "hatch": "lines", "frame": "line", "side": "left", "buttons": "icons", "set": "all"}
 WINDOW_PRESETS = {
     "aether": _AETHER_WINDOW,
     "glitched": _AETHER_WINDOW,
-    "modern": {"title": "bar", "frame": "soft", "side": "right", "buttons": "squares", "set": "all"},
-    "gnome": {"title": "center", "frame": "soft", "side": "right", "buttons": "circles", "set": "all"},
-    "classic": {"title": "plaque", "frame": "hard", "side": "right", "buttons": "boxes", "set": "all"},
-    "workbench": {"title": "raised", "frame": "double", "side": "right", "buttons": "dots", "set": "all"},
-    "tui": {"title": "ascii", "frame": "ascii", "side": "right", "buttons": "text", "set": "all"},
-    "phosphor": {"title": "full", "frame": "none", "side": "right", "buttons": "text", "set": "close"},
+    "modern": {"title": "bar", "hatch": "lines", "frame": "soft", "side": "right", "buttons": "squares", "set": "all"},
+    "gnome": {"title": "center", "hatch": "lines", "frame": "soft", "side": "right", "buttons": "circles", "set": "all"},
+    "classic": {"title": "plaque", "hatch": "lines", "frame": "hard", "side": "right", "buttons": "boxes", "set": "all"},
+    "workbench": {"title": "raised", "hatch": "lines", "frame": "double", "side": "right", "buttons": "dots", "set": "all"},
+    "tui": {"title": "ascii", "hatch": "lines", "frame": "ascii", "side": "right", "buttons": "text", "set": "all"},
+    "phosphor": {"title": "full", "hatch": "lines", "frame": "none", "side": "right", "buttons": "text", "set": "close"},
 }
 
 

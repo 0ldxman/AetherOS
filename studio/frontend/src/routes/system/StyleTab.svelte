@@ -22,7 +22,9 @@
   let base = $state<typeof look | null>(null);                  // сохранённое: им наполняется общий черновик
   const share = new SharedForm({ room: () => `systems/${system.code}`, scope: () => "style", draft: () => look, base: () => base });
   const lookDirty = $derived(JSON.stringify(look) !== lookSaved);
-  const groups = $derived([...new Set(system.token_info.map((t) => t.group))]);
+  const TITLE_GROUP = "Заголовок окна";                                   // эти токены живут в разделе «Окна», под заголовком
+  const groups = $derived([...new Set(system.token_info.map((t) => t.group))].filter((g) => g !== TITLE_GROUP));
+  const titleTokens = $derived(system.token_info.filter((t) => t.group === TITLE_GROUP));
   const HEX6 = /^#[0-9a-fA-F]{6}$/;
 
   async function saveLook() {
@@ -371,7 +373,7 @@
     </div>
       {:else if section === "windows" && !query}
         <div class="winparams">
-          {#each system.window_params as param (param.key)}
+          {#each system.window_params.filter((p) => p.key !== "hatch" || winValue("title") === "plaque") as param (param.key)}
             {@const value = winValue(param.key)}
             {@const note = WIN_NOTE[`${param.key}:${value}`]}
             <div class="wprow">
@@ -387,6 +389,22 @@
                 {/each}
               </div>
               {#if note}<p class="muted small">{note}</p>{/if}
+              {#if param.key === "title"}
+                <div class="titlecolors">
+                  {#each titleTokens as token (token.name)}
+                    <div class="tc" class:changed={look.tokens[token.name]}>
+                      <label class="sw" title="Выбрать цвет">
+                        <span class="swfill" style:background={isColor(look.tokens[token.name] ?? "") ? look.tokens[token.name] : "transparent"}></span>
+                        <input type="color" value={pickerValue(token)} oninput={(e) => setToken(token.name, e.currentTarget.value)} aria-label="Цвет: {token.label}" />
+                      </label>
+                      <div class="tname"><b>{token.label}</b>
+                        <input class="field mono" placeholder={def(token) || "как у заголовка"} value={look.tokens[token.name] ?? ""} oninput={(e) => setToken(token.name, e.currentTarget.value)} aria-label={token.label} /></div>
+                      <button class="btn ghost reset" disabled={!look.tokens[token.name]} onclick={() => setToken(token.name, "")} title="Как у заголовка" aria-label="Вернуть: {token.label}">×</button>
+                    </div>
+                  {/each}
+                </div>
+                <p class="muted small">Цвета подходят к любому заголовку; пусто — как задумано у выбранного. У заголовка из символов текст красит и символы рамки.</p>
+              {/if}
             </div>
           {/each}
           {#if errors.window}{#each errors.window as text}<p class="warn small">{text}</p>{/each}{/if}
@@ -631,6 +649,12 @@
   .chip.on { border-color: var(--accent); background: var(--accent-soft); color: var(--text); }
   .chip:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
   .chip:disabled { opacity: 0.45; cursor: not-allowed; }
+  .titlecolors { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 8px; }
+  .tc { display: flex; align-items: center; gap: 8px; padding: 6px 8px; border: 1px solid var(--line-soft); border-radius: var(--radius-s); background: var(--bg); }
+  .tc.changed { border-color: var(--accent); }
+  .tc .tname { gap: 4px; }
+  .tc .tname b { font-size: 12.5px; font-weight: 500; }
+  .tc .field { width: 100%; min-width: 0; height: 26px; font-size: 12px; }
   .slotgrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 10px; }
   .slotcol { display: flex; flex-direction: column; gap: 6px; min-width: 0; padding: 8px; border: 1px dashed var(--line-soft); border-radius: var(--radius-s); }
   .slotel { display: flex; align-items: center; justify-content: space-between; gap: 6px; padding: 4px 4px 4px 10px; border: 1px solid var(--line-soft); border-radius: var(--radius-s); background: var(--bg); }

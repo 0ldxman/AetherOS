@@ -32,7 +32,7 @@ class StylePartFilesTests(SimpleTestCase):
         used = set(re.findall(r'\[data-win-([a-z]+)="([a-z]+)"\]', text))
         known = {(key, value) for key, (_, options) in styles.WINDOW.items() for value in options}
         self.assertEqual(used - known, set())
-        base = {("title", "tab"), ("frame", "line"), ("side", "left"), ("buttons", "icons"), ("set", "all")}
+        base = {("title", "tab"), ("hatch", "lines"), ("frame", "line"), ("side", "left"), ("buttons", "icons"), ("set", "all")}
         self.assertEqual(known - used - base, set())
         self.assertNotIn("data-theme", text)
 

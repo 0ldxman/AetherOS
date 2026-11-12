@@ -26,6 +26,8 @@
   --font-main: var(--ff-arimo);
   --radius: 8px;
   --tab-h: 36px;
+  --title-bg: var(--panel);       /* заголовок окна в цвет панели, название ярким текстом */
+  --title-fg: var(--font-light);
 }
 
 /* ---- рабочий стол: плавный фон вместо сетки ---- */
