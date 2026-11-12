@@ -1,0 +1,47 @@
+/* Часть «notice» стиля tui: включается атрибутом data-notice="tui" на <html>. */
+
+/* окна сообщений: название с [!] или [?], рамка яркая */
+[data-notice="tui"] .winbox.aether.dialog-window--error,
+[data-notice="tui"] .winbox.aether.dialog-window--warning { --frame: var(--font-light); background: var(--bg); border: 0; box-shadow: none; }
+
+[data-notice="tui"] .winbox.aether.dialog-window--error .wb-title,
+[data-notice="tui"] .winbox.aether.dialog-window--warning .wb-title { color: var(--font-light); font-weight: 700; }
+
+[data-notice="tui"] .winbox.aether.dialog-window--error .wb-title::before { content: "╡ [!] "; }
+[data-notice="tui"] .winbox.aether.dialog-window--warning .wb-title::before { content: "╡ [?] "; }
+[data-notice="tui"] .winbox.aether.dialog-window--error .wb-title::after,
+[data-notice="tui"] .winbox.aether.dialog-window--warning .wb-title::after { content: " ╞"; }
+
+[data-notice="tui"] .winbox.aether.dialog-window--error .wb-control *,
+[data-notice="tui"] .winbox.aether.dialog-window--warning .wb-control * { color: var(--frame); }
+
+[data-notice="tui"] .winbox.aether.dialog-window--error .wb-header,
+[data-notice="tui"] .winbox.aether.dialog-window--warning .wb-header { background: var(--bg); border: 0; }
+
+[data-notice="tui"] .dialog { background: var(--bg); color: var(--fg); }
+[data-notice="tui"] .dialog-glyph { display: flex; align-items: center; width: auto; height: auto; border: 0; background: none; color: var(--font-light); font-size: 1rem; }
+[data-notice="tui"] .dialog-glyph::before { content: "["; }
+[data-notice="tui"] .dialog-glyph::after { content: "]"; }
+[data-notice="tui"] .dialog-foot { border-top: 0; }
+[data-notice="tui"] .dialog-code { color: var(--font-muted); opacity: 1; }
+
+/* кнопки и поля: [ OK ], блочный курсор, скроллбары из ▒ и █, спиннер | / - \ */
+[data-notice="tui"] .dialog-ok { min-width: 0; padding: 0; border: 0; background: none; color: var(--fg); font-weight: 400; }
+[data-notice="tui"] .dialog-ok::before { content: "[ "; }
+[data-notice="tui"] .dialog-ok::after { content: " ]"; }
+[data-notice="tui"] .dialog-ok:hover { background: var(--fg); color: var(--font-dark); }
+
+/* ---- тосты ---- */
+[data-notice="tui"] #toasts { bottom: 40px; }
+
+[data-notice="tui"] .toast {
+  background: var(--bg);
+  border: 3px double var(--fg);
+  border-left-width: 3px;
+  box-shadow: var(--tui-shadow);
+  color: var(--fg);
+}
+
+[data-notice="tui"] .toast--error { border-style: dashed; border-color: var(--font-light); }
+[data-notice="tui"] .toast--warning { border-color: var(--font-light); }
+[data-notice="tui"] .toast-text { color: var(--font-soft); }

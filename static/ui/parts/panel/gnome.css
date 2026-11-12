@@ -1,0 +1,323 @@
+/* Часть «panel» стиля gnome: включается атрибутом data-panel="gnome" на <html>. */
+
+/* ---- верхняя панель ---- */
+[data-panel="gnome"] #taskbar {
+  flex: 0 0 32px;
+  padding: 0 6px;
+  background: rgba(15, 15, 18, 0.84);   /* без размытия: оно сделало бы панель отдельным слоем, и меню сессии ушло бы под стол */
+  color: #fff;
+  font-size: 0.82rem;
+  font-weight: 600;
+}
+
+[data-panel="gnome"] .connection > span:first-child,
+[data-panel="gnome"] .session-caret { display: none; }
+
+[data-panel="gnome"] .session-button {
+  height: 26px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: 13px;
+  font-weight: 600;
+}
+
+[data-panel="gnome"] .session-button::before {
+  content: "";
+  width: 8px;
+  height: 8px;
+  margin-right: 2px;
+  border-radius: 50%;
+  background: var(--accent);
+}
+
+[data-panel="gnome"] #machine-name { color: #fff; }
+
+[data-panel="gnome"] .session-button:hover,
+[data-panel="gnome"] .session-button[aria-expanded="true"] { background: rgba(255, 255, 255, 0.16); }
+
+[data-panel="gnome"] .session-menu {
+  top: calc(100% + 8px);
+  min-width: 210px;
+  padding: 6px;
+  background: rgba(40, 40, 46, 0.92);
+  -webkit-backdrop-filter: blur(24px);
+  backdrop-filter: blur(24px);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 18px;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.45);
+  font-weight: 400;
+}
+
+[data-panel="gnome"] .session-menu button {
+  padding: 9px 12px;
+  border-radius: 10px;
+}
+
+[data-panel="gnome"] .session-menu button:hover,
+[data-panel="gnome"] .session-menu button:focus-visible {
+  background: rgba(255, 255, 255, 0.12);
+  color: #fff;
+}
+
+[data-panel="gnome"] .session-menu button[data-action="disconnect"] {
+  border-top: 0;
+  margin-top: 0;
+  padding-top: 9px;
+  color: var(--accent-error);
+}
+
+/* справа: состояние связи «таблеткой» */
+[data-panel="gnome"] .ping {
+  height: 26px;
+  padding: 0 12px;
+  gap: 6px;
+  border-radius: 13px;
+  font-family: inherit;
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+[data-panel="gnome"] .ping:hover { background: rgba(255, 255, 255, 0.16); }
+
+/* часы по центру панели */
+[data-panel="gnome"] #clock-plate {
+  top: 0;
+  width: auto;
+  height: 32px;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  letter-spacing: 0;
+  background: none;
+  clip-path: none;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: #fff;
+}
+
+[data-panel="gnome"] #clock,
+[data-panel="gnome"] #date { display: inline; }
+[data-panel="gnome"] #date { order: -1; font-size: 0.82rem; letter-spacing: 0; color: rgba(255, 255, 255, 0.7); font-weight: 400; }
+
+[data-panel="gnome"] .status { display: flex; align-items: center; gap: 6px; }
+
+[data-panel="gnome"] .activities {
+  height: 26px;
+  padding: 0 14px;
+  background: none;
+  border: 0;
+  border-radius: 13px;
+  color: #fff;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+[data-panel="gnome"] .activities:hover,
+[data-panel="gnome"] .activities[aria-expanded="true"] { background: rgba(255, 255, 255, 0.16); }
+
+[data-panel="gnome"] .session-menu { left: auto; right: 0; }
+
+/* ---- обзор ---- */
+[data-panel="gnome"] .launcher[hidden] { display: none; }
+
+[data-panel="gnome"] .launcher {
+  position: fixed;
+  top: 32px;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 4999;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 28px;
+  padding: 36px 48px 120px;
+  overflow-y: auto;
+  background: rgba(14, 14, 18, 0.80);
+  -webkit-backdrop-filter: blur(32px);
+  backdrop-filter: blur(32px);
+}
+
+[data-panel="gnome"] .launcher-search {
+  width: min(440px, 100%);
+  height: 40px;
+  padding: 0 18px;
+  box-sizing: border-box;
+  background: rgba(255, 255, 255, 0.10);
+  border: 1px solid transparent;
+  border-radius: 20px;
+  color: #fff;
+  font: inherit;
+  outline: none;
+}
+
+[data-panel="gnome"] .launcher-search:focus { border-color: var(--accent); }
+[data-panel="gnome"] .launcher-search::placeholder { color: rgba(255, 255, 255, 0.5); }
+
+[data-panel="gnome"] .overview-windows { display: flex; flex-wrap: wrap; justify-content: center; gap: 16px; }
+[data-panel="gnome"] .overview-windows:empty { display: none; }
+
+[data-panel="gnome"] .shell-task {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  width: 200px;
+  height: 120px;
+  background: var(--bg);
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  border-radius: var(--radius);
+  color: var(--fg);
+  font: inherit;
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+
+[data-panel="gnome"] .shell-task .shell-glyph { font-size: 1.8rem; color: var(--accent); }
+[data-panel="gnome"] .shell-task:hover { border-color: rgba(255, 255, 255, 0.3); }
+[data-panel="gnome"] .shell-task.is-active { border-color: var(--accent); box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 40%, transparent); }
+[data-panel="gnome"] .shell-task.is-min { opacity: 0.6; }
+
+[data-panel="gnome"] .launcher-apps {
+  width: min(760px, 100%);
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(104px, 1fr));
+  gap: 12px 8px;
+}
+
+[data-panel="gnome"] .shell-app {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 4px;
+  background: none;
+  border: 0;
+  border-radius: var(--radius);
+  color: rgba(255, 255, 255, 0.9);
+  font: inherit;
+  font-size: 0.8rem;
+  cursor: pointer;
+}
+
+[data-panel="gnome"] .launcher-apps .shell-app:hover { background: rgba(255, 255, 255, 0.07); }
+
+[data-panel="gnome"] .shell-app .shell-glyph {
+  display: grid;
+  place-items: center;
+  width: 56px;
+  height: 56px;
+  background: var(--panel);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 16px;
+  color: var(--accent);
+  font-size: 1.3rem;
+  font-weight: 600;
+}
+
+[data-panel="gnome"] .shell-badge {
+  position: absolute;
+  top: 6px;
+  right: calc(50% - 36px);
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  box-sizing: border-box;
+  background: var(--status-error);
+  border-radius: 8px;
+  color: var(--font-dark);
+  font-size: 10px;
+  line-height: 16px;
+  text-align: center;
+}
+
+/* ---- центр уведомлений: открывается по часам ---- */
+[data-panel="gnome"] #clock-plate { cursor: pointer; pointer-events: auto; padding: 0 12px; border-radius: 13px; height: 26px; top: 3px; }
+[data-panel="gnome"] #clock-plate:hover,
+[data-panel="gnome"] #clock-plate[aria-expanded="true"] { background: rgba(255, 255, 255, 0.16); }
+
+[data-panel="gnome"] .bell-count {
+  min-width: 8px;
+  height: 8px;
+  padding: 0;
+  overflow: hidden;
+  background: var(--accent);
+  border-radius: 50%;
+  color: transparent;
+  font-size: 0;
+}
+
+[data-panel="gnome"] .bell-count[hidden] { display: none; }
+
+[data-panel="gnome"] .notices-panel[hidden] { display: none; }
+
+[data-panel="gnome"] .notices-panel {
+  position: fixed;
+  top: 40px;
+  left: 50%;
+  z-index: 5001;
+  width: 380px;
+  max-height: min(520px, calc(100vh - 160px));
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+  transform: translateX(-50%);
+  background: rgba(40, 40, 46, 0.92);
+  -webkit-backdrop-filter: blur(24px);
+  backdrop-filter: blur(24px);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 18px;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.45);
+}
+
+[data-panel="gnome"] .notices-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 16px 6px;
+  color: #fff;
+}
+
+[data-panel="gnome"] .notices-head button {
+  padding: 4px 10px;
+  background: rgba(255, 255, 255, 0.10);
+  border: 0;
+  border-radius: 10px;
+  color: #fff;
+  font: inherit;
+  font-size: 0.78rem;
+  cursor: pointer;
+}
+
+[data-panel="gnome"] .notices-head button:hover { background: rgba(255, 255, 255, 0.2); }
+
+[data-panel="gnome"] .notices-list { display: flex; flex-direction: column; gap: 8px; padding: 6px 12px 14px; overflow-y: auto; }
+
+[data-panel="gnome"] .notices-list.is-empty::before { content: "No Notifications"; padding: 36px 0; color: rgba(255, 255, 255, 0.45); font-weight: 600; text-align: center; }
+
+[data-panel="gnome"] .shell-notice {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 2px 8px;
+  padding: 10px 14px;
+  background: rgba(255, 255, 255, 0.07);
+  border: 0;
+  border-radius: 14px;
+  color: var(--fg);
+  font: inherit;
+  font-size: 0.82rem;
+  text-align: left;
+  cursor: pointer;
+}
+
+[data-panel="gnome"] .shell-notice:hover { background: rgba(255, 255, 255, 0.12); }
+[data-panel="gnome"] .shell-notice--error .shell-notice-title { color: var(--accent-error); }
+[data-panel="gnome"] .shell-notice--warning .shell-notice-title { color: var(--accent-warn); }
+[data-panel="gnome"] .shell-notice-title { color: #fff; }
+[data-panel="gnome"] .shell-notice-time { color: rgba(255, 255, 255, 0.5); font-size: 0.72rem; }
+[data-panel="gnome"] .shell-notice-text { grid-column: 1 / -1; color: rgba(255, 255, 255, 0.7); font-size: 0.78rem; }

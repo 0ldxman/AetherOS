@@ -1,0 +1,59 @@
+/* Часть «notice» стиля gnome: включается атрибутом data-notice="gnome" на <html>. */
+
+/* ---- окна сообщений: обычное окно, цвет только у значка и кнопки ---- */
+[data-notice="gnome"] .winbox.aether.dialog-window--error,
+[data-notice="gnome"] .winbox.aether.dialog-window--warning { background: var(--bg); box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.11), 0 12px 40px rgba(0, 0, 0, 0.4); }
+
+[data-notice="gnome"] .winbox.aether.dialog-window--error .wb-header,
+[data-notice="gnome"] .winbox.aether.dialog-window--warning .wb-header { background: var(--bg); }
+
+[data-notice="gnome"] .winbox.aether.dialog-window--error .wb-title,
+[data-notice="gnome"] .winbox.aether.dialog-window--warning .wb-title { color: var(--font-light); }
+
+[data-notice="gnome"] .winbox.aether.dialog-window--error .wb-control *,
+[data-notice="gnome"] .winbox.aether.dialog-window--warning .wb-control * { color: var(--font-light); }
+
+[data-notice="gnome"] .dialog { background: var(--bg); color: var(--fg); }
+
+[data-notice="gnome"] .dialog-glyph {
+  border-radius: 50%;
+  background: var(--tone);
+  color: var(--font-dark);
+}
+
+[data-notice="gnome"] .dialog-foot { border-top: 0; justify-content: flex-end; }
+[data-notice="gnome"] .dialog-code { margin-right: auto; color: var(--font-muted); }
+
+[data-notice="gnome"] .dialog-ok {
+  padding: 0.4rem 1.2rem;
+  border: 0;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.10);
+  color: var(--font-light);
+  font-weight: 600;
+}
+
+[data-notice="gnome"] .dialog-ok:hover { background: rgba(255, 255, 255, 0.2); color: #fff; }
+
+/* ---- уведомления: как в GNOME, сверху по центру ---- */
+[data-notice="gnome"] #toasts {
+  z-index: 100000;
+  top: 44px;
+  bottom: auto;
+  left: 50%;
+  right: auto;
+  transform: translateX(-50%);
+}
+
+[data-notice="gnome"] .toast {
+  background: rgba(40, 40, 46, 0.92);
+  -webkit-backdrop-filter: blur(24px);
+  backdrop-filter: blur(24px);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 18px;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.45);
+}
+
+[data-notice="gnome"] .toast--error,
+[data-notice="gnome"] .toast--warning,
+[data-notice="gnome"] .toast--info { border-left-width: 1px; }

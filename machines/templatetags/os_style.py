@@ -152,9 +152,17 @@ def app_icon(context, name):
 def os_theme(context):
     request = context.get("request")
     slug = _state(request)[0] if request is not None else styles.DEFAULT_STYLE
-    if not styles.STYLES[slug].css:
-        return ""
-    return format_html('<link rel="stylesheet" href="{}">', static(f"ui/themes/{slug}.css"))
+    links = [f"ui/themes/{slug}.css"] if styles.STYLES[slug].css else []
+    links += [path for path in (styles.part_file(part, kind) for part, kind in styles.parts(slug).items()) if path]
+    return mark_safe("".join(format_html('<link rel="stylesheet" href="{}">', static(path)) for path in links))
+
+
+@register.simple_tag(takes_context=True)
+def os_parts(context):
+    """Атрибуты частей стиля для <html>: data-window, data-notice, data-panel, data-dock (с ведущим пробелом)."""
+    request = context.get("request")
+    slug = _state(request)[0] if request is not None else styles.DEFAULT_STYLE
+    return mark_safe("".join(format_html(' data-{}="{}"', part, kind) for part, kind in styles.parts(slug).items()))
 
 
 @register.simple_tag(takes_context=True)

@@ -1,0 +1,197 @@
+/* Часть «panel» стиля tui: включается атрибутом data-panel="tui" на <html>. */
+
+[data-panel="tui"] .tui-apps {
+  position: fixed;
+  top: 32px;
+  right: 16px;
+  z-index: 1;                    /* справа и под окнами: окна открываются слева */
+  min-width: 25ch;
+  background: var(--bg);
+  border: 3px double var(--fg);
+  box-shadow: var(--tui-shadow);
+  color: var(--fg);
+}
+
+[data-panel="tui"] .tui-apps-list { display: flex; flex-direction: column; padding: 0 4px; counter-reset: app; }
+
+[data-panel="tui"] .tui-apps-list .shell-app { counter-increment: app; }
+[data-panel="tui"] .tui-apps-list .shell-app::before { content: counter(app); width: 2ch; color: var(--font-light); }
+[data-panel="tui"] .tui-apps-hint { padding: 0 8px; border-top: 1px solid var(--line); color: var(--font-muted); }
+
+/* ---- строка меню: инверсия ---- */
+[data-panel="tui"] #taskbar {
+  flex: 0 0 16px;
+  gap: 12px;
+  padding: 0 4px;
+  line-height: 16px;
+  background: var(--fg);
+  color: var(--font-dark);
+  font-size: 1rem;
+}
+
+[data-panel="tui"] .tui-brand { padding: 0 6px; font-weight: 700; }
+
+[data-panel="tui"] .tasks { flex: 1; display: flex; gap: 2px; min-width: 0; }
+
+[data-panel="tui"] .shell-task {
+  display: flex;
+  gap: 6px;
+  max-width: 200px;
+  padding: 0 8px;
+  background: none;
+  border: 0;
+  color: var(--font-dark);
+  font: inherit;
+  cursor: pointer;
+}
+
+[data-panel="tui"] .shell-task .shell-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+[data-panel="tui"] .shell-task:hover,
+[data-panel="tui"] .shell-task.is-active { background: var(--bg); color: var(--fg); }
+[data-panel="tui"] .shell-task.is-min .shell-label { text-decoration: line-through; }
+
+[data-panel="tui"] .ping { gap: 4px; font-family: inherit; font-size: 1rem; }
+[data-panel="tui"] .ping-dot { display: none; }
+[data-panel="tui"] #ping-value,
+[data-panel="tui"] #ping-unit { min-width: 0; color: var(--font-dark); }
+
+[data-panel="tui"] #clock-plate {
+  position: static;
+  transform: none;
+  width: auto;
+  padding: 0 6px;
+  display: flex;
+  gap: 8px;
+  background: none;
+  clip-path: none;
+  color: var(--font-dark);
+  font-size: 1rem;
+  font-weight: 700;
+  letter-spacing: 0;
+}
+
+[data-panel="tui"] #clock,
+[data-panel="tui"] #date { display: inline; font-size: 1rem; letter-spacing: 0; }
+[data-panel="tui"] #date { font-weight: 400; }
+
+/* ---- полоса F-клавиш: номер на чёрном, подпись инверсией ---- */
+[data-panel="tui"] .fkeys {
+  order: 2;
+  flex: 0 0 16px;
+  line-height: 16px;
+  display: flex;
+  align-items: stretch;
+  gap: 4px;
+  padding: 0 4px;
+  background: var(--bg);
+  border-top: 1px solid var(--line-bright);
+  color: var(--fg);
+}
+
+[data-panel="tui"] .fkeys button {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  padding: 0 6px 0 0;
+  background: var(--fg);
+  border: 0;
+  color: var(--font-dark);
+  font: inherit;
+  cursor: pointer;
+}
+
+[data-panel="tui"] .fkeys button i { margin-right: 6px; padding: 0 4px; background: var(--bg); color: var(--fg); font-style: normal; }
+[data-panel="tui"] .fkeys button:hover { background: var(--font-light); }
+[data-panel="tui"] .fkeys-user { margin-left: auto; align-self: center; padding: 0 8px; }
+
+[data-panel="tui"] .bell-count { margin-left: 6px; padding: 0 4px; background: var(--bg); color: var(--fg); font-size: 1rem; }
+[data-panel="tui"] .bell-count[hidden] { display: none; }
+
+/* ---- текстовые окна: лаунчер и уведомления ---- */
+[data-panel="tui"] .launcher[hidden],
+[data-panel="tui"] .notices-panel[hidden] { display: none; }
+
+[data-panel="tui"] .launcher,
+[data-panel="tui"] .notices-panel {
+  position: fixed;
+  z-index: 1001;
+  display: flex;
+  flex-direction: column;
+  min-width: 300px;
+  max-height: 60vh;
+  background: var(--bg);
+  border: 3px double var(--fg);
+  box-shadow: var(--tui-shadow);
+  color: var(--fg);
+}
+
+[data-panel="tui"] .launcher { left: 12px; bottom: 34px; }
+[data-panel="tui"] .notices-panel { right: 12px; bottom: 34px; width: 380px; }
+
+[data-panel="tui"] .tui-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 8px;
+  background: var(--fg);
+  color: var(--font-dark);
+  font-weight: 700;
+}
+
+[data-panel="tui"] .tui-title button { padding: 0 6px; background: var(--bg); border: 0; color: var(--fg); font: inherit; cursor: pointer; }
+
+[data-panel="tui"] .launcher-search {
+  margin: 4px 6px;
+  padding: 0 6px;
+  background: var(--bg);
+  border: 1px solid var(--line-bright);
+  color: var(--font-light);
+  font: inherit;
+  outline: none;
+}
+
+[data-panel="tui"] .launcher-search:focus { border-color: var(--fg); }
+[data-panel="tui"] .launcher-search::placeholder { color: var(--font-muted); }
+[data-panel="tui"] .launcher-apps { display: flex; flex-direction: column; padding: 2px 6px 6px; overflow-y: auto; }
+
+[data-panel="tui"] .shell-app {
+  position: relative;
+  display: flex;
+  gap: 10px;
+  padding: 0 6px;
+  background: none;
+  border: 0;
+  color: var(--fg);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+[data-panel="tui"] .shell-app .shell-glyph { width: 28px; }
+[data-panel="tui"] .shell-app .shell-badge { margin-left: auto; padding: 0 4px; background: var(--fg); color: var(--font-dark); }
+[data-panel="tui"] .shell-app:hover,
+[data-panel="tui"] .shell-app:focus-visible { background: var(--fg); color: var(--font-dark); outline: none; }
+[data-panel="tui"] .shell-app:hover .shell-badge { background: var(--bg); color: var(--fg); }
+
+[data-panel="tui"] .notices-list { display: flex; flex-direction: column; padding: 4px 6px 6px; overflow-y: auto; }
+[data-panel="tui"] .notices-list.is-empty::before { content: "no messages"; padding: 8px 0; color: var(--font-muted); }
+
+[data-panel="tui"] .shell-notice {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  padding: 0 4px;
+  background: none;
+  border: 0;
+  color: var(--fg);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+[data-panel="tui"] .shell-notice:hover { background: var(--fg); color: var(--font-dark); }
+[data-panel="tui"] .shell-notice--error .shell-notice-title::before { content: "[!] "; }
+[data-panel="tui"] .shell-notice--warning .shell-notice-title::before { content: "[?] "; }
+[data-panel="tui"] .shell-notice-time { color: var(--font-muted); }
+[data-panel="tui"] .shell-notice:hover .shell-notice-time { color: var(--font-dark); }
+[data-panel="tui"] .shell-notice-text { grid-column: 1 / -1; color: var(--font-soft); }
+[data-panel="tui"] .shell-notice:hover .shell-notice-text { color: var(--font-dark); }

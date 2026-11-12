@@ -1,0 +1,155 @@
+/* Часть «panel» стиля phosphor: включается атрибутом data-panel="phosphor" на <html>. */
+
+/* ---- строка состояния сверху и подсказки снизу: инверсия ---- */
+[data-panel="phosphor"] #taskbar,
+[data-panel="phosphor"] .fw-hint {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  flex: 0 0 24px;
+  padding: 0 10px;
+  background: var(--fg);
+  color: var(--bg);
+  font-size: 1rem;
+  line-height: 24px;
+}
+
+[data-panel="phosphor"] .fw-hint { order: 2; }
+
+[data-panel="phosphor"] .fw-spacer { flex: 1; }
+[data-panel="phosphor"] .fw-model { font-weight: 700; text-transform: uppercase; }
+[data-panel="phosphor"] .fw-crumb { color: var(--bg); opacity: 0.85; }
+[data-panel="phosphor"] .fw-key { opacity: 0.7; }
+
+[data-panel="phosphor"] .ping { gap: 6px; font-family: inherit; font-size: 1rem; }
+[data-panel="phosphor"] .ping-dot { display: none; }
+[data-panel="phosphor"] #ping-value,
+[data-panel="phosphor"] #ping-unit { min-width: 0; color: var(--bg); }
+
+[data-panel="phosphor"] #clock-plate {
+  position: static;
+  transform: none;
+  width: auto;
+  padding: 0;
+  display: flex;
+  gap: 10px;
+  background: none;
+  clip-path: none;
+  color: var(--bg);
+  font-size: 1rem;
+  font-weight: 400;
+  letter-spacing: 0;
+}
+
+[data-panel="phosphor"] #clock,
+[data-panel="phosphor"] #date { display: inline; font-size: 1rem; letter-spacing: 0; }
+
+[data-panel="phosphor"] .fw-hint kbd { margin-right: 4px; padding: 0 5px; background: var(--bg); color: var(--fg); font: inherit; }
+[data-panel="phosphor"] .fw-user { opacity: 0.85; }
+
+/* ---- главное меню и панель сведений ---- */
+[data-panel="phosphor"] .fw-menu,
+[data-panel="phosphor"] .fw-status {
+  position: fixed;
+  top: 40px;
+  bottom: 40px;
+  z-index: 1;                    /* под приложением на весь экран */
+  display: flex;
+  flex-direction: column;
+  border: 2px solid var(--fg);
+  color: var(--fg);
+  overflow: auto;
+}
+
+[data-panel="phosphor"] .fw-menu { left: 16px; width: 380px; }
+[data-panel="phosphor"] .fw-status { right: 16px; width: 320px; bottom: auto; }
+
+[data-panel="phosphor"] .fw-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin: 0;
+  padding: 0 10px;
+  background: var(--fg);
+  color: var(--bg);
+  font-size: 1rem;
+  font-weight: 700;
+  line-height: 22px;
+  text-transform: uppercase;
+}
+
+[data-panel="phosphor"] .fw-title button { padding: 0 6px; background: var(--bg); border: 0; color: var(--fg); font: inherit; cursor: pointer; }
+
+[data-panel="phosphor"] .fw-list { display: flex; flex-direction: column; padding: 4px 0; }
+
+[data-panel="phosphor"] .shell-app,
+[data-panel="phosphor"] .fw-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  height: 24px;
+  padding: 0 12px;
+  background: none;
+  border: 0;
+  color: var(--fg);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+[data-panel="phosphor"] .fw-list { counter-reset: item; }
+[data-panel="phosphor"] .shell-app { counter-increment: item; }
+[data-panel="phosphor"] .shell-app::before { content: counter(item); width: 2ch; }
+[data-panel="phosphor"] .shell-app .shell-glyph { width: 3ch; }
+[data-panel="phosphor"] .shell-app .shell-badge,
+[data-panel="phosphor"] .fw-count { margin-left: auto; padding: 0 6px; background: var(--fg); color: var(--bg); font-weight: 700; }
+[data-panel="phosphor"] .fw-count[hidden] { display: none; }
+
+/* выбор инверсией: под мышью и под курсором клавиатуры */
+[data-panel="phosphor"] .shell-app:hover,
+[data-panel="phosphor"] .shell-app:focus-visible,
+[data-panel="phosphor"] .fw-item:hover,
+[data-panel="phosphor"] .fw-item:focus-visible { background: var(--fg); color: var(--bg); outline: none; }
+
+[data-panel="phosphor"] .shell-app:hover .shell-badge,
+[data-panel="phosphor"] .fw-item:hover .fw-count { background: var(--bg); color: var(--fg); }
+
+[data-panel="phosphor"] .fw-rows { display: flex; flex-direction: column; margin: 0; padding: 8px 0; }
+[data-panel="phosphor"] .fw-rows div { display: flex; justify-content: space-between; gap: 12px; padding: 0 12px; }
+[data-panel="phosphor"] .fw-rows dt { color: var(--font-muted); text-transform: uppercase; }
+[data-panel="phosphor"] .fw-rows dd { margin: 0; text-align: right; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* ---- сообщения ---- */
+[data-panel="phosphor"] .notices-panel[hidden] { display: none; }
+
+[data-panel="phosphor"] .notices-panel {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  z-index: 1001;
+  width: 440px;
+  max-height: 60vh;
+  display: flex;
+  flex-direction: column;
+  transform: translate(-50%, -50%);
+  background: var(--bg);
+  border: 2px solid var(--fg);
+  box-shadow: 6px 6px 0 var(--fg);
+  color: var(--fg);
+}
+
+[data-panel="phosphor"] .notices-list { display: flex; flex-direction: column; overflow-y: auto; padding: 4px 0; }
+[data-panel="phosphor"] .notices-list.is-empty::before { content: "NO MESSAGES"; padding: 12px; text-align: center; color: var(--font-muted); }
+
+[data-panel="phosphor"] .shell-notice { display: grid; grid-template-columns: 1fr auto; padding: 0 12px; background: none; border: 0; color: var(--fg); font: inherit; text-align: left; cursor: pointer; }
+[data-panel="phosphor"] .shell-notice:hover { background: var(--fg); color: var(--bg); }
+[data-panel="phosphor"] .shell-notice--error .shell-notice-title::before { content: "! "; }
+[data-panel="phosphor"] .shell-notice--warning .shell-notice-title::before { content: "? "; }
+[data-panel="phosphor"] .shell-notice-time { color: var(--font-muted); }
+[data-panel="phosphor"] .shell-notice:hover .shell-notice-time,
+[data-panel="phosphor"] .shell-notice:hover .shell-notice-text { color: var(--bg); }
+[data-panel="phosphor"] .shell-notice-text { grid-column: 1 / -1; color: var(--font-soft); }
+
+[data-panel="phosphor"] .fw-kbd { margin-left: auto; padding: 0 5px; background: var(--fg); color: var(--bg); font: inherit; }
+[data-panel="phosphor"] .fw-item:hover .fw-kbd { background: var(--bg); color: var(--fg); }

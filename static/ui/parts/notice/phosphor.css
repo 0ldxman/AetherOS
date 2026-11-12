@@ -1,0 +1,47 @@
+/* Часть «notice» стиля phosphor: включается атрибутом data-notice="phosphor" на <html>. */
+
+/* ---- приложения: на весь экран между строкой состояния и подсказками, видно только верхнее ---- */
+[data-notice="phosphor"] .winbox.aether:not(.dialog-window) {
+  top: 24px !important;
+  bottom: 24px !important;
+  left: 0 !important;
+  right: 0 !important;
+  width: auto !important;
+  height: auto !important;
+  min-width: 0 !important;       /* desktop.js выставляет минимальную ширину по заголовку */
+  max-width: none !important;
+  transition: none;
+}
+
+[data-notice="phosphor"] .winbox.aether:not(.dialog-window):not(.app-terminal):not(.focus) { display: none; }
+
+/* пока консоль открыта, приложение и меню занимают оставшееся место над ней */
+[data-notice="phosphor"]:has(.winbox.app-terminal:not(.min)) .winbox.aether:not(.dialog-window):not(.app-terminal) { bottom: calc(24px + var(--console-h)) !important; }
+
+/* окна сообщений остаются всплывающими: рамка и инверсная шапка */
+[data-notice="phosphor"] .winbox.aether.dialog-window { border: 2px solid var(--fg); box-shadow: 6px 6px 0 var(--fg); }
+[data-notice="phosphor"] .winbox.aether.dialog-window .wb-header { background: var(--fg); border: 0; }
+[data-notice="phosphor"] .winbox.aether.dialog-window .wb-title { color: var(--bg); }
+[data-notice="phosphor"] .winbox.aether.dialog-window .wb-control { display: none; }
+[data-notice="phosphor"] .winbox.aether.dialog-window--error .wb-title::before { content: "[!] "; }
+[data-notice="phosphor"] .winbox.aether.dialog-window--warning .wb-title::before { content: "[?] "; }
+
+[data-notice="phosphor"] .dialog { background: var(--bg); color: var(--fg); }
+[data-notice="phosphor"] .dialog-glyph { width: auto; height: auto; border: 2px solid var(--fg); background: none; color: var(--fg); font-size: 1rem; padding: 0 8px; }
+[data-notice="phosphor"] .dialog-foot { border-top: 2px solid var(--fg); }
+[data-notice="phosphor"] .dialog-code { opacity: 1; color: var(--font-muted); }
+[data-notice="phosphor"] .dialog-ok { min-width: 0; padding: 0 12px; background: var(--fg); border: 0; color: var(--bg); font-weight: 700; }
+[data-notice="phosphor"] .dialog-ok:hover { background: var(--font-soft); }
+
+/* ---- тосты: инверсная строка над подсказками ---- */
+[data-notice="phosphor"] #toasts { right: 16px; bottom: 48px; }
+
+[data-notice="phosphor"] .toast {
+  background: var(--fg);
+  border: 0;
+  border-left-width: 0;
+  box-shadow: none;
+  color: var(--bg);
+}
+
+[data-notice="phosphor"] .toast-text { color: var(--bg); opacity: 0.8; }

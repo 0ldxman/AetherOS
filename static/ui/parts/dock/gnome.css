@@ -1,0 +1,67 @@
+/* Часть «dock» стиля gnome: включается атрибутом data-dock="gnome" на <html>. */
+
+/* ---- док ---- */
+[data-dock="gnome"] .dock-wrap {
+  position: fixed;
+  bottom: 14px;
+  left: 50%;
+  z-index: 5000;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px;
+  transform: translateX(-50%);
+  background: rgba(30, 30, 36, 0.78);
+  -webkit-backdrop-filter: blur(20px);
+  backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 22px;
+  box-shadow: 0 10px 32px rgba(0, 0, 0, 0.4);
+}
+
+[data-dock="gnome"] .dock { display: flex; align-items: center; gap: 6px; }
+[data-dock="gnome"] .dock:empty { display: none; }
+
+[data-dock="gnome"] .dock .shell-app { padding: 0 0 8px; border-radius: 14px; }
+[data-dock="gnome"] .dock .shell-app .shell-label { display: none; }
+[data-dock="gnome"] .dock .shell-app .shell-glyph { width: 46px; height: 46px; }
+[data-dock="gnome"] .dock .shell-app:hover .shell-glyph { background: color-mix(in srgb, var(--accent) 22%, var(--panel)); color: var(--font-light); }
+[data-dock="gnome"] .dock .shell-badge { right: -2px; top: -2px; }
+
+/* точка под запущенным приложением */
+[data-dock="gnome"] .dock .shell-app.is-open::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  bottom: 1px;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--accent);
+  transform: translateX(-50%);
+}
+
+[data-dock="gnome"] .dock-grid {
+  display: grid;
+  place-items: center;
+  width: 46px;
+  height: 46px;
+  padding: 0;
+  background: none;
+  border: 0;
+  border-left: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 0 14px 14px 0;
+  cursor: pointer;
+}
+
+[data-dock="gnome"] .dock:empty + .dock-grid { border-left: 0; }
+
+[data-dock="gnome"] .dock-grid span {
+  width: 22px;
+  height: 22px;
+  background: radial-gradient(circle, #fff 2.2px, transparent 2.6px) 0 0 / 7.33px 7.33px;
+  opacity: 0.85;
+}
+
+[data-dock="gnome"] .dock-grid:hover span,
+[data-dock="gnome"] .dock-grid[aria-expanded="true"] span { opacity: 1; }

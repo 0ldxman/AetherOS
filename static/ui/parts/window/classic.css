@@ -1,0 +1,78 @@
+/* Часть «window» стиля classic: включается атрибутом data-window="classic" на <html>. */
+
+/* ---- окна: плоский контур, жёсткая тень, заголовок-табличка на штриховке ---- */
+[data-window="classic"] .winbox.aether {
+  background: var(--cream);
+  border: 2px solid var(--ink);
+  box-shadow: var(--hard);
+  overflow: visible;
+}
+
+[data-window="classic"] .winbox.aether .wb-body {
+  top: var(--tab-h);
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: var(--bg);
+  border-top: 2px solid var(--ink);
+  box-shadow: none;
+}
+
+[data-window="classic"] .winbox.aether .wb-header {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: auto;
+  width: auto;
+  min-width: 0;
+  max-width: none;
+  height: var(--tab-h);
+  box-sizing: border-box;
+  padding: 0 3px;
+  gap: 6px;
+  background: var(--cream);
+  border: 0;
+}
+
+/* неактивное: штриховка; активное: сплошная чернильная полоса */
+[data-window="classic"] .winbox.aether .wb-header { background: repeating-linear-gradient(0deg, var(--ink) 0 1px, var(--cream) 1px 3px); }
+[data-window="classic"] .winbox.aether.focus .wb-header { background: var(--ink); }
+
+[data-window="classic"] .winbox.aether .wb-drag { order: 0; flex: 1; display: flex; align-items: center; }
+[data-window="classic"] .winbox.aether .wb-control { order: 1; align-items: center; gap: 3px; }
+[data-window="classic"] .winbox.aether .wb-min { order: 0; }
+[data-window="classic"] .winbox.aether .wb-max { order: 1; }
+[data-window="classic"] .winbox.aether .wb-close { order: 2; color: var(--ink); }
+
+[data-window="classic"] .winbox.aether .wb-control > span {
+  width: 14px;
+  height: 14px;
+  background: var(--cream);
+  border: 2px solid var(--ink);
+  box-sizing: border-box;
+  color: var(--ink);
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 10px;
+}
+[data-window="classic"] .winbox.aether .wb-control > span:hover { background: var(--ink); color: var(--cream); }
+[data-window="classic"] .winbox.aether.focus .wb-control > span { border-color: var(--cream); background: var(--ink); color: var(--cream); }
+[data-window="classic"] .winbox.aether.focus .wb-control > span:hover { background: var(--cream); color: var(--ink); }
+[data-window="classic"] .winbox.aether .wb-control > .wb-close:hover { background: var(--accent-error); }
+
+[data-window="classic"] .winbox.aether .wb-title {
+  padding: 0 8px;
+  background: var(--cream);
+  font-size: 1rem;
+  font-weight: 700;
+  line-height: 16px;
+  color: var(--ink);
+}
+
+[data-window="classic"] .winbox.aether.focus .wb-title { background: var(--ink); color: var(--cream); }
+
+[data-window="classic"] .winbox.aether.max { box-shadow: none; border-width: 0 0 2px; }
+
+[data-window="classic"] .winbox.aether.min { background: var(--cream); }
+[data-window="classic"] .winbox.aether.min .wb-header { top: 0; bottom: auto; }

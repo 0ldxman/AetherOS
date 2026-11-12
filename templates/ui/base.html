@@ -6,7 +6,7 @@
 
   Что делает база:
     * подключает static/ui/tokens.css ПЕРВЫМ — дочерние шаблоны сами его не подключают;
-    * ставит стиль ОС машины на <html> (data-theme), подключает его css и переназначенные токены (machines/templatetags/os_style.py);
+    * ставит стиль ОС машины на <html> (data-theme и части стиля data-window, data-panel…), подключает его css и css частей и переназначенные токены (machines/templatetags/os_style.py);
     * даёт блоки, в которые страницы кладут свои css/js.
 
   Блоки:
@@ -18,7 +18,7 @@
     body        — содержимое страницы
     js          — скрипты в конце <body>
 {% endcomment %}
-<html lang="{% block lang %}ru{% endblock %}" data-theme="{{ os_slug }}"{% block html_attrs %}{% endblock %}>
+<html lang="{% block lang %}ru{% endblock %}" data-theme="{{ os_slug }}"{% os_parts %}{% block html_attrs %}{% endblock %}>
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">

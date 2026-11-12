@@ -106,6 +106,28 @@ def style_defaults(slug):
     return values
 
 
+# Части стиля: каждая рисуется своим файлом static/ui/parts/<часть>/<вид>.css и включается атрибутом data-<часть> на <html>.
+# Вид каждой части пока совпадает со стилем; дальше автор ОС сможет выбирать их по отдельности.
+PARTS = {
+    "window": "Окна",
+    "notice": "Сообщения и уведомления",
+    "panel": "Панель",
+    "dock": "Док",
+}
+
+
+def parts(slug):
+    """{часть: вид} для стиля: что ставится в data-<часть> на <html>."""
+    return {part: slug for part in PARTS}
+
+
+@lru_cache(maxsize=None)
+def part_file(part, kind):
+    """Путь к файлу части в static (ui/parts/<часть>/<вид>.css) или пусто, если у этого вида своего файла нет."""
+    rel = f"ui/parts/{part}/{kind}.css"
+    return rel if (Path(settings.BASE_DIR) / "static" / rel).exists() else ""
+
+
 def fonts():
     """Гарнитуры, из которых выбирается шрифт: var(--ff-…) -> подпись."""
     return {f"var({name})": name[len("--ff-"):].replace("-", " ") for name in _defaults() if name.startswith("--ff-")}

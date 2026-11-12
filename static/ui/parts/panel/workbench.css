@@ -1,0 +1,140 @@
+/* Часть «panel» стиля workbench: включается атрибутом data-panel="workbench" на <html>. */
+
+/* ---- передняя панель ---- */
+[data-panel="workbench"] #taskbar {
+  order: 2;
+  flex: 0 0 auto;
+  justify-content: center;
+  padding: 0 0 8px;
+  background: var(--desk);
+  font-size: 0.75rem;
+}
+
+[data-panel="workbench"] .front-panel {
+  display: flex;
+  align-items: stretch;
+  gap: 6px;
+  padding: 6px;
+  background: var(--panel);
+  box-shadow: var(--keyline), 0 6px 14px rgba(0, 0, 0, 0.35);
+}
+
+[data-panel="workbench"] #clock-plate {
+  position: relative;
+  top: auto;
+  left: auto;
+  transform: none;
+  width: 84px;
+  padding: 4px 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: #1a1c24;
+  box-shadow: var(--sunken);
+  clip-path: none;
+  color: #d8e8ff;
+  letter-spacing: 0;
+  font-size: 0.95rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+[data-panel="workbench"] #date { font-size: 0.62rem; font-weight: 400; letter-spacing: 0; color: #9fb0cc; }
+
+[data-panel="workbench"] .bell-count { position: absolute; top: -5px; right: -5px; margin: 0; min-width: 14px; padding: 0 3px; background: #d04040; color: #fff; font-size: 10px; line-height: 14px; text-align: center; }
+[data-panel="workbench"] .bell-count[hidden] { display: none; }
+
+[data-panel="workbench"] .fp-spaces {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 3px;
+  padding: 3px;
+  box-shadow: var(--sunken);
+}
+
+[data-panel="workbench"] .fp-spaces button {
+  width: 32px;
+  padding: 0;
+  background: var(--panel);
+  border: 0;
+  box-shadow: var(--raised);
+  color: var(--fg);
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+[data-panel="workbench"] .fp-spaces button.has-windows { color: var(--accent); }
+[data-panel="workbench"] .fp-spaces button.is-current { background: var(--accent); box-shadow: var(--sunken); color: #fff; }
+
+[data-panel="workbench"] .fp-apps { display: flex; align-items: stretch; gap: 3px; padding: 3px; box-shadow: var(--sunken); }
+
+[data-panel="workbench"] .fp-apps .shell-app {
+  position: relative;
+  width: 44px;
+  padding: 0;
+  background: var(--panel);
+  border: 0;
+  box-shadow: var(--raised);
+  color: var(--accent);
+  font: inherit;
+  cursor: pointer;
+}
+
+[data-panel="workbench"] .fp-apps .shell-app:hover { background: var(--lit); }
+[data-panel="workbench"] .fp-apps .shell-app:active { box-shadow: var(--sunken); }
+[data-panel="workbench"] .fp-apps .shell-glyph { font-size: 1.1rem; font-weight: 700; }
+[data-panel="workbench"] .fp-apps .shell-label { display: none; }
+[data-panel="workbench"] .fp-apps .shell-badge { position: absolute; top: 2px; right: 2px; padding: 0 3px; background: #d04040; color: #fff; font-size: 9px; }
+[data-panel="workbench"] .fp-apps .shell-app.is-open::after { content: ""; position: absolute; left: 6px; right: 6px; bottom: 3px; height: 3px; background: #3fbf6a; }
+
+[data-panel="workbench"] .fp-actions { display: grid; grid-template-columns: repeat(3, 28px); gap: 3px; padding: 3px; box-shadow: var(--sunken); }
+
+[data-panel="workbench"] .fp-actions button {
+  padding: 0;
+  background: var(--panel);
+  border: 0;
+  box-shadow: var(--raised);
+  color: var(--fg);
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+[data-panel="workbench"] .fp-actions button:active { box-shadow: var(--sunken); }
+[data-panel="workbench"] .fp-actions button[data-action="disconnect"] { color: #a83a3a; }
+
+[data-panel="workbench"] .ping { align-self: center; flex-direction: column; gap: 0; width: 44px; text-align: center; font-family: inherit; font-size: 0.7rem; }
+[data-panel="workbench"] .ping-dot { display: none; }
+[data-panel="workbench"] #ping-value,
+[data-panel="workbench"] #ping-unit { min-width: 0; text-align: center; color: var(--fg); }
+
+/* ---- уведомления ---- */
+[data-panel="workbench"] .notices-panel[hidden] { display: none; }
+
+[data-panel="workbench"] .notices-panel {
+  position: fixed;
+  left: 50%;
+  bottom: 96px;
+  z-index: 1001;
+  width: 320px;
+  max-height: 360px;
+  display: flex;
+  flex-direction: column;
+  transform: translateX(-50%);
+  padding: 4px;
+  background: var(--panel);
+  box-shadow: var(--raised), 0 6px 14px rgba(0, 0, 0, 0.35);
+  color: var(--fg);
+}
+
+[data-panel="workbench"] .notices-head { display: flex; align-items: center; justify-content: space-between; padding: 3px 6px; background: var(--accent); color: #fff; }
+[data-panel="workbench"] .notices-head button { padding: 1px 8px; background: var(--panel); border: 0; box-shadow: var(--raised); color: var(--fg); font: inherit; font-size: 0.7rem; cursor: pointer; }
+[data-panel="workbench"] .notices-list { display: flex; flex-direction: column; gap: 3px; margin-top: 4px; padding: 3px; overflow-y: auto; box-shadow: var(--sunken); background: var(--bg); }
+[data-panel="workbench"] .notices-list.is-empty::before { content: "No notifications"; padding: 16px; text-align: center; color: var(--font-muted); }
+
+[data-panel="workbench"] .shell-notice { display: grid; grid-template-columns: 1fr auto; gap: 1px 8px; padding: 5px 7px; background: var(--panel); border: 0; box-shadow: var(--raised); color: var(--fg); font: inherit; text-align: left; cursor: pointer; }
+[data-panel="workbench"] .shell-notice--error .shell-notice-title { color: var(--accent-error); }
+[data-panel="workbench"] .shell-notice-time { color: var(--font-muted); font-size: 0.68rem; }
+[data-panel="workbench"] .shell-notice-text { grid-column: 1 / -1; font-size: 0.72rem; color: var(--font-soft); }
