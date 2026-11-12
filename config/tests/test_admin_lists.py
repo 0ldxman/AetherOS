@@ -3,6 +3,7 @@
 Запуск: python manage.py test config.tests.test_admin_lists
 """
 from datetime import date
+from unittest import mock
 
 from django.contrib import admin
 from django.contrib.auth import get_user_model
@@ -81,7 +82,8 @@ class ListsTests(TestCase):
             self.assertEqual(response.status_code, 200, name)
             self.assertNotContains(response, "object (", msg_prefix=name)
 
-    def test_changelists_do_not_query_per_row(self):
+    @mock.patch("world.moments.tick")             # моменты мира наступают раз в 15 с на любом запросе: их запросы не про списки
+    def test_changelists_do_not_query_per_row(self, tick):
         build(1, self.user, self.key)
         before = {}
         for name in self.urls():
