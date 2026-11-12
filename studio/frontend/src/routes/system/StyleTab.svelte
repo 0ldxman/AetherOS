@@ -403,12 +403,13 @@
   @media (max-width: 1280px) { .stylegrid { grid-template-columns: minmax(0, 1fr); } .stylepreview { position: static; } }
   .widgets { display: flex; flex-direction: column; gap: 4px; }
   .wgroup { margin: 10px 0 2px; font-size: 12px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.4px; }
-  .wrow { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 12px; padding: 6px 4px; border-bottom: 1px solid var(--line-soft); }
+  .wrow { display: flex; flex-direction: column; gap: 6px; padding: 8px 4px; border-bottom: 1px solid var(--line-soft); }
   .wrow .seg { flex-shrink: 0; }
   .wrow .seg button { padding: 4px 10px; white-space: nowrap; }
-  .wkind { margin-left: 8px; padding: 0 6px; border-radius: 999px; background: var(--raise); color: var(--muted); font-size: 10.5px; font-weight: 500; }
+  .wkind { margin-left: 6px; white-space: nowrap; padding: 0 6px; border-radius: 999px; background: var(--raise); color: var(--muted); font-size: 10.5px; font-weight: 500; }
   .wkind.own { color: var(--accent); }
-  .wctl2 { display: flex; align-items: center; gap: 6px; }
+  .wctl2 { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+  .wname b { display: inline-flex; align-items: center; flex-wrap: wrap; gap: 2px; }
   .wctl2 .place { width: auto; height: 26px; padding: 0 6px; font-size: 12px; }
   .wname { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
   .wrow .seg button:disabled { cursor: not-allowed; }
