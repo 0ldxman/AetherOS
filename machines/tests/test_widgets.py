@@ -54,6 +54,12 @@ class PartGroupsTests(TestCase):
         self.assertEqual(styles.group_of("notice", "aether", {"notice": {"look": "gnome"}})["corner"], "tc")      # чужой вид со своим углом
         self.assertEqual(styles.group_of("clock", "aether", {"clock": {"hours": "12", "seconds": "x"}}), {"hours": "12", "seconds": "on"})
 
+    def test_main_panel_can_be_switched_off(self):
+        self.assertEqual(panel.elements("aether", {"show": "off"}), {"start": [], "center": [], "end": []})
+        self.assertEqual(panel.of2("aether", {"show": "on", "start": ["clock"]}, {"show": "off"})["start"], ["clock"])     # её элементы свободны
+        self.assertTrue(panel.problems("aether", {"show": "off"}))                                  # выхода нигде нет
+        self.assertEqual(panel.problems("aether", {"show": "off"}, {"show": "on", "start": ["launcher"]}), [])
+
     def test_second_panel_never_repeats_the_main_one(self):
         self.assertEqual(panel.of2("workbench", {"show": "on"})["start"], [])          # быстрый запуск уже на передней панели Workbench
         self.assertEqual(panel.problems2("workbench", {"start": ["apps"]}), ["Быстрый запуск: уже стоит на главной панели."])
@@ -129,14 +135,15 @@ class PanelTests(SimpleTestCase):
         self.assertIn("Нет такого края: left.", panel.problems("aether", {"edge": "left"}))
 
     def test_attrs_mark_a_foreign_edge_and_form(self):
-        self.assertEqual(panel.attrs("modern"), {"panel": "modern", "panel-edge": "bottom", "panel-form": "bar"})
-        self.assertEqual(panel.attrs("modern", {"edge": "top", "form": "island"}),
-                         {"panel": "modern", "panel-edge": "top", "panel-form": "island", "panel-flip": "top", "panel-reform": "island"})
+        self.assertEqual(panel.attrs("modern"), {"panel": "modern", "panel-show": "on", "panel-edge": "bottom", "panel-form": "bar"})
+        self.assertEqual(panel.attrs("modern", {"edge": "top", "form": "island"}),            # прежнее «остров» читается как док
+                         {"panel": "modern", "panel-show": "on", "panel-edge": "top", "panel-form": "dock", "panel-flip": "top", "panel-reform": "dock"})
+        self.assertEqual(panel.attrs("aether", {"form": "islands"})["panel-form"], "islands")
         self.assertEqual(panel.attrs("tui", {"edge": "bottom"})["panel-edge"], "top")                 # край у TUI не меняется
 
     def test_another_look_brings_its_layout(self):
         found = panel.of("aether", {"look": "workbench"})
-        self.assertEqual((found["edge"], found["form"], found["start"][0]), ("bottom", "island", "clock"))
+        self.assertEqual((found["edge"], found["form"], found["start"][0]), ("bottom", "dock", "clock"))
         self.assertEqual(styles.parts("aether", {"panel": {"look": "classic"}})["panel"], "classic")
         self.assertEqual(styles.parts("aether", {"panel": {"look": "classic"}})["dock"], "classic")
 
@@ -152,7 +159,7 @@ class PanelRenderTests(TestCase):
     def test_slots_render_in_order_and_desk_adds_popovers(self):
         html = self.render({"panel": {"start": ["launcher", "tasks"], "center": ["clock"], "end": ["notices", "machine"]}})
         self.assertLess(html.index('class="el el--btn el--launcher"'), html.index('class="el el--tasks"'))
-        self.assertIn('<span class="pl-center"><div id="clock-plate">', html)             # часы Aether на своём месте — родные
+        self.assertIn('<span class="pl-center"><span class="pl-group pl-group--center"><div id="clock-plate">', html)             # часы Aether на своём месте — родные
         self.assertIn('id="session-menu-button"', html)
         self.assertIn('class="el-pop el-pop--top el-pop--left el-launcher"', html)        # у Aether своего меню запуска нет
         self.assertIn('class="el-pop el-pop--top el-pop--right el-notices"', html)

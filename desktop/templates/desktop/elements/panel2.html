@@ -3,5 +3,5 @@
   край, форма и автоскрытие — атрибуты data-pl2-* на <html>, вид — у вида главной панели (static/ui/parts/panel2.css, parts/dock/<вид>.css).
 {% endcomment %}
     <nav class="dk" aria-label="Panel">
-        {% for key, tpl in panel2.start %}{% include tpl %}{% endfor %}<span class="pl2-fill"></span>{% for key, tpl in panel2.center %}{% include tpl %}{% endfor %}<span class="pl2-fill"></span>{% for key, tpl in panel2.end %}{% include tpl %}{% endfor %}
+        <span class="pl-group pl-group--start">{% for key, tpl in panel2.start %}{% include tpl %}{% endfor %}</span><span class="pl2-fill"></span><span class="pl-group pl-group--center">{% for key, tpl in panel2.center %}{% include tpl %}{% endfor %}</span><span class="pl2-fill"></span><span class="pl-group pl-group--end">{% for key, tpl in panel2.end %}{% include tpl %}{% endfor %}</span>
     </nav>

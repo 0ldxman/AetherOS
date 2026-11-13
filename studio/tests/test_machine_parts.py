@@ -419,7 +419,7 @@ class CreateAndSystemsTests(TestCase):
         self.assertEqual(status, 200)
         self.assertEqual({k: v for k, v in data["panel"].items() if v is not None},
                          {"edge": "bottom", "start": ["launcher", "tasks"], "center": [], "end": ["ping", "clock"]})
-        self.assertEqual(data["panel_info"]["presets"]["workbench"]["form"], "island")
+        self.assertEqual(data["panel_info"]["presets"]["workbench"]["form"], "dock")
         self.assertEqual(data["panel_info"]["look_of_style"]["glitched"], "aether")
         status, data = self.call("put", "/systems/AETHER/style", {"style": "aether", "tokens": {}, "panel": {"start": ["clock"], "center": [], "end": []}})
         self.assertEqual((status, data["fields"]["panel"]), (400, ["На панелях нет выхода из сеанса: оставьте меню запуска, «Сеанс» или «Кнопки сеанса»."]))

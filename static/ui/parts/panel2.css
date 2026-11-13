@@ -24,6 +24,7 @@
   transition: transform 0.2s ease-out;
 }
 [data-apps-size="s"] .dk { --dk: 34px; }
+.dk .pl-group { display: contents; }
 [data-apps-size="l"] .dk { --dk: 58px; }
 .pl2-fill { display: none; }
 [data-pl2-form="bar"] .pl2-fill { display: block; flex: 1 1 auto; }
@@ -126,3 +127,19 @@
 :is([data-pl2-edge="left"], [data-pl2-edge="right"])[data-apps-labels="always"] .dk {
   max-height: calc(100vh - var(--desk-top-auto, 0px) - var(--desk-bottom-auto, 0px) - 24px); overflow-y: auto; scrollbar-width: thin;
 }
+
+/* ---- «Острова»: каждый слот — свой остров в оформлении вида; сама панель прозрачна и тянется вдоль края ---- */
+[data-pl2-form="islands"] .dk {
+  background: none !important; border: 0 !important; box-shadow: none !important; -webkit-backdrop-filter: none !important; backdrop-filter: none !important;
+  padding: 0; pointer-events: none; justify-content: space-between;
+}
+[data-pl2-form="islands"]:is([data-pl2-edge="bottom"], [data-pl2-edge="top"]) .dk { left: 12px; right: 12px; transform: none; }
+[data-pl2-form="islands"]:is([data-pl2-edge="left"], [data-pl2-edge="right"]) .dk { top: calc(var(--desk-top-auto, 0px) + 12px); bottom: calc(var(--desk-bottom-auto, 0px) + 12px); transform: none; }
+[data-pl2-form="islands"] .dk .pl2-fill { display: none; }
+[data-pl2-form="islands"] .dk .pl-group:not(:empty) {
+  display: flex; align-items: center; gap: 6px; padding: 6px; pointer-events: auto;
+  background: var(--dk-bg, var(--panel)); border: var(--dk-edge, var(--border-w, 1px) solid var(--window-border, var(--line-bright)));
+  border-radius: var(--dk-round, calc(var(--radius) * 2 + 4px)); box-shadow: var(--dk-shadow, 0 8px 24px color-mix(in srgb, var(--bg) 60%, transparent));
+}
+[data-pl2-form="islands"]:is([data-pl2-edge="left"], [data-pl2-edge="right"]) .dk .pl-group { flex-direction: column; }
+[data-pl2-form="islands"] .dk .pl-group:empty { display: none; }

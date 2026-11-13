@@ -20,7 +20,10 @@ from dataclasses import dataclass
 
 SLOTS = {"start": "Начало", "center": "Центр", "end": "Конец"}
 EDGES = {"top": "Сверху", "bottom": "Снизу"}           # без панели нельзя: на ней выход из сеанса
-FORMS = {"bar": "Во всю ширину", "island": "Остров по центру"}
+FORMS = {"bar": "Полоса во всю ширину", "dock": "Док по центру", "islands": "Острова"}
+SHOW = {"on": "Есть", "off": "Нет"}
+HIDE = {"off": "Нет", "on": "Прячется, пока не подвести мышь"}
+LEGACY_FORMS = {"island": "dock"}                     # прежнее «остров» — это док
 
 
 @dataclass(frozen=True)
@@ -56,7 +59,7 @@ PRESETS = {
     "classic": {"edge": "top", "form": "bar", "start": ["launcher", "tasks"], "center": [], "end": ["ping", "clock"]},
     "modern": {"edge": "bottom", "form": "bar", "start": ["launcher", "tasks"], "center": [], "end": ["ping", "notices", "clock"]},
     "gnome": {"edge": "top", "form": "bar", "start": ["launcher"], "center": ["clock"], "end": ["ping", "machine"]},
-    "workbench": {"edge": "bottom", "form": "island", "start": ["clock", "workspaces", "apps", "actions"], "center": [], "end": ["ping"]},
+    "workbench": {"edge": "bottom", "form": "dock", "start": ["clock", "workspaces", "apps", "actions"], "center": [], "end": ["ping"]},
     "tui": {"edge": "top", "form": "bar", "start": ["brand", "tasks"], "center": [], "end": ["ping", "clock"]},
     "phosphor": {"edge": "top", "form": "bar", "start": ["brand"], "center": [], "end": ["ping", "clock"]},
 }
@@ -98,8 +101,11 @@ def clean(data):
         out["look"] = data["look"]
     if data.get("edge") in EDGES:
         out["edge"] = data["edge"]
-    if data.get("form") in FORMS:
-        out["form"] = data["form"]
+    form = LEGACY_FORMS.get(data.get("form"), data.get("form"))
+    if form in FORMS:
+        out["form"] = form
+    if data.get("show") in SHOW:
+        out["show"] = data["show"]
     seen = set()
     for slot in SLOTS:
         if isinstance(data.get(slot), list):
@@ -114,7 +120,8 @@ def problems(style, data, data2=None):
     found = []
     if not isinstance(data, dict):
         return ["Панель задаётся объектом."]
-    for name, choices, label in (("look", LOOKS, "вида панели"), ("edge", EDGES, "края"), ("form", FORMS, "формы")):
+    data = {**data, "form": LEGACY_FORMS.get(data["form"], data["form"])} if "form" in data else data
+    for name, choices, label in (("look", LOOKS, "вида панели"), ("show", SHOW, "значения «есть»"), ("edge", EDGES, "края"), ("form", FORMS, "формы")):
         if name in data and data[name] not in choices:
             found.append(f"Нет такого {label}: {data[name]}.")
     seen = set()
@@ -134,7 +141,7 @@ def of(style, data=None):
     """Панель ОС: заготовка вида, поверх неё выбор автора. Вид меняет заготовку раскладки целиком."""
     chosen = clean(data)
     look = chosen.get("look", look_of(style))
-    found = {"look": look, **PRESETS[look], **{key: value for key, value in chosen.items() if key != "look"}}
+    found = {"look": look, "show": "on", **PRESETS[look], **{key: value for key, value in chosen.items() if key != "look"}}
     if look in FIXED_EDGE:
         found["edge"] = PRESETS[look]["edge"]
     return found
@@ -159,7 +166,7 @@ def attrs(style, data=None):
     """{атрибут без data-: значение} для <html>: вид, край, форма и разворот (край не тот, на который вид рассчитан)."""
     panel = of(style, data)
     preset = PRESETS[panel["look"]]
-    out = {"panel": panel["look"], "panel-edge": panel["edge"], "panel-form": panel["form"]}
+    out = {"panel": panel["look"], "panel-show": panel["show"], "panel-edge": panel["edge"], "panel-form": panel["form"]}
     if panel["edge"] != preset["edge"]:
         out["panel-flip"] = panel["edge"]
     if panel["form"] != preset["form"]:
@@ -170,9 +177,16 @@ def attrs(style, data=None):
 def elements(style, data=None):
     """{слот: [(ключ, шаблон)]} для шаблона вида панели."""
     panel = of(style, data)
+    if panel["show"] == "off":                      # выключенная основная ничего не рисует: её элементы могут стоять на дополнительной
+        return {slot: [] for slot in SLOTS}
     look, edge, form = panel["look"], panel["edge"], panel["form"]
     return {slot: [(key, f"desktop/panels/{look}/{key}.html" if native(look, key, slot, edge, form) else f"desktop/elements/{key}.html")
                    for key in panel[slot]] for slot in SLOTS}
+
+
+def taken_by_main(style, data=None):
+    """Что занято основной панелью: её элементы, если она есть (выключенная ничего не держит)."""
+    return placed(style, data) if of(style, data)["show"] == "on" else {}
 
 
 def placed(style, data=None):
@@ -183,10 +197,8 @@ def placed(style, data=None):
 
 # ---------- дополнительная панель (раньше док) ----------
 EDGES2 = {"bottom": "Снизу", "top": "Сверху", "left": "Слева", "right": "Справа"}
-FORMS2 = {"island": "Остров", "bar": "Во всю длину края"}
-SHOW = {"on": "Есть", "off": "Нет"}
-HIDE = {"off": "Нет", "on": "Прячется, пока не подвести мышь"}
-PRESET2 = {"show": "off", "edge": "bottom", "form": "island", "hide": "off", "start": ["apps"], "center": [], "end": []}
+FORMS2 = {"bar": "Полоса во всю длину края", "dock": "Док по центру", "islands": "Острова"}
+PRESET2 = {"show": "off", "edge": "bottom", "form": "dock", "hide": "off", "start": ["apps"], "center": [], "end": []}
 PRESETS2 = {"gnome": {"show": "on", "end": ["allapps"]}}
 
 
@@ -194,6 +206,7 @@ def clean2(data):
     """Только известное у дополнительной панели: show, edge, form, hide и три слота."""
     if not isinstance(data, dict):
         return {}
+    data = {**data, "form": LEGACY_FORMS.get(data["form"], data["form"])} if "form" in data else data
     out = {name: data[name] for name, choices in (("show", SHOW), ("edge", EDGES2), ("form", FORMS2), ("hide", HIDE)) if data.get(name) in choices}
     seen = set()
     for slot in SLOTS:
@@ -208,7 +221,7 @@ def of2(style, data=None, main=None):
     """Дополнительная панель: заготовка вида главной, поверх неё выбор автора; что стоит на главной, сюда не попадает."""
     look = of(style, main)["look"]
     found = {**PRESET2, **PRESETS2.get(look, {}), **clean2(data)}
-    taken = set(placed(style, main))
+    taken = set(taken_by_main(style, main))
     for slot in SLOTS:
         found[slot] = [key for key in found[slot] if key not in taken]
     return found
@@ -221,7 +234,8 @@ def problems2(style, data, main=None):
     for name, choices, label in (("show", SHOW, "значения «есть»"), ("edge", EDGES2, "края"), ("form", FORMS2, "формы"), ("hide", HIDE, "автоскрытия")):
         if name in data and data[name] not in choices:
             found.append(f"Нет такого {label}: {data[name]}.")
-    taken, seen = set(placed(style, main)), set()
+    data = {**data, "form": LEGACY_FORMS.get(data["form"], data["form"])} if "form" in data else data
+    taken, seen = set(taken_by_main(style, main)), set()
     for slot in SLOTS:
         for key in data.get(slot) or []:
             if key not in BY_KEY:
@@ -246,8 +260,8 @@ def elements2(style, data=None, main=None):
 
 
 def placed_all(style, main=None, data2=None):
-    """{элемент: панель} по обеим панелям (дополнительная — если она есть)."""
-    out = {key: "panel" for key in placed(style, main)}
+    """{элемент: панель} по обеим панелям, которые есть."""
+    out = {key: "panel" for key in taken_by_main(style, main)}
     found = of2(style, data2, main)
     if found["show"] == "on":
         out.update({key: "panel2" for slot in SLOTS for key in found[slot]})

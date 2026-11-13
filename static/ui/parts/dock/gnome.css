@@ -25,3 +25,6 @@
 
 [data-dock="gnome"] .dk { --pl2-divider: rgba(255, 255, 255, 0.12); --pl2-round: 14px; }
 [data-dock="gnome"] .dk .el--allapps { color: #fff; }
+
+/* то же оформление для островов (форма «острова») */
+[data-dock="gnome"] .dk { --dk-bg: rgba(30, 30, 36, 0.9); --dk-edge: 1px solid rgba(255, 255, 255, 0.08); --dk-round: 22px; --dk-shadow: 0 10px 32px rgba(0, 0, 0, 0.4); }

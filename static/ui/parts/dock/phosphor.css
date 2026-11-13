@@ -6,3 +6,6 @@
 :root:root[data-dock="phosphor"][data-apps-labels="hover"] .dk .shell-app:hover .shell-label { border-radius: 0; background: var(--fg); color: var(--bg); }
 :root:root[data-dock="phosphor"] .dk .shell-app.is-open::after { background: var(--fg); }
 [data-dock="phosphor"] .dk .el--allapps { border-radius: 0; border-color: var(--fg); }
+
+/* то же оформление для островов (форма «острова») */
+[data-dock="phosphor"] .dk { --dk-bg: var(--bg); --dk-edge: 2px solid var(--fg); --dk-round: 0; --dk-shadow: none; }

@@ -5,7 +5,7 @@
 {% endcomment %}
     <header id="taskbar">
         <div class="front-panel" title="{{ login }}@{{ machine_name }}">
-            {% for key, tpl in panel.start %}{% include tpl %}{% endfor %}{% for key, tpl in panel.center %}{% include tpl %}{% endfor %}{% for key, tpl in panel.end %}{% include tpl %}{% endfor %}
+            <span class="pl-group pl-group--start">{% for key, tpl in panel.start %}{% include tpl %}{% endfor %}</span><span class="pl-group pl-group--center">{% for key, tpl in panel.center %}{% include tpl %}{% endfor %}</span><span class="pl-group pl-group--end">{% for key, tpl in panel.end %}{% include tpl %}{% endfor %}</span>
         </div>
     </header>
 

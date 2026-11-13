@@ -4,8 +4,8 @@
   Ожидает от desktop.js #taskbar; часы, пинг и меню сеанса — если стоят на панели. Остальное оживляет shell.js по data-shell.
 {% endcomment %}
     <header id="taskbar">
-        {% for key, tpl in panel.start %}{% include tpl %}{% endfor %}<span class="pl-fill"></span>{% if panel.center %}<span class="pl-center">{% for key, tpl in panel.center %}{% include tpl %}{% endfor %}</span>{% endif %}
-        <div class="status">{% for key, tpl in panel.end %}{% include tpl %}{% endfor %}</div>
+        <span class="pl-group pl-group--start">{% for key, tpl in panel.start %}{% include tpl %}{% endfor %}</span><span class="pl-fill"></span>{% if panel.center %}<span class="pl-center"><span class="pl-group pl-group--center">{% for key, tpl in panel.center %}{% include tpl %}{% endfor %}</span></span>{% endif %}
+        <div class="status"><span class="pl-group pl-group--end">{% for key, tpl in panel.end %}{% include tpl %}{% endfor %}</span></div>
     </header>
 
     <section id="launcher" class="launcher" data-shell="launcher-panel" aria-label="Overview" hidden>

@@ -6,6 +6,7 @@
 
 /* ---- раскладка панели: начало, распорка, центр поверх, конец ---- */
 .pl-fill { flex: 1 1 auto; min-width: 8px; }
+.pl-group { display: contents; }          /* слот; в форме «острова» он сам становится островом */
 .pl-center { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; gap: 6px; pointer-events: none; }
 .pl-center > * { pointer-events: auto; }
 #taskbar .pl-center > * { flex: 0 1 auto; }          /* растянутые элементы вида (задачи) в центре по своей ширине */
@@ -158,12 +159,12 @@
 [data-panel-flip="bottom"] .notices-panel { top: auto !important; bottom: calc(var(--pl-h, 32px) + 8px) !important; }
 [data-panel-edge="bottom"] .session-menu { top: auto; bottom: 100%; }
 
-[data-panel-reform="island"] #taskbar {
+[data-panel-reform="dock"] #taskbar {
   align-self: center; flex: 0 0 auto; width: max-content; max-width: calc(100% - 24px); margin: 8px auto;
   border: var(--border-w, 1px) solid var(--line); border-radius: calc(var(--radius) + 6px); box-shadow: 0 8px 24px color-mix(in srgb, var(--bg) 70%, transparent);
 }
-[data-panel-reform="island"] .pl-fill { flex: 0 0 16px; }
-[data-panel-reform="island"] .pl-center { position: static; pointer-events: auto; }
+[data-panel-reform="dock"] .pl-fill { flex: 0 0 16px; }
+[data-panel-reform="dock"] .pl-center { position: static; pointer-events: auto; }
 [data-panel="workbench"][data-panel-reform="bar"] #taskbar { padding: 0; }
 [data-panel="workbench"][data-panel-reform="bar"] .front-panel { flex: 1; }
 
@@ -182,3 +183,32 @@
   outline: 2px solid var(--accent);
   outline-offset: 2px;
 }
+
+/* ==================================================
+   Основная панель выключена; форма «острова»: каждый слот — свой остров, панель прозрачна и висит над столом
+   ================================================== */
+[data-panel-show="off"] #taskbar { display: none; }
+
+[data-panel] { --pl-bg: var(--panel); --pl-edge: 1px solid var(--line); --pl-round: calc(var(--radius) + 6px); --pl-shadow: 0 6px 18px color-mix(in srgb, var(--bg) 60%, transparent); }
+[data-panel="classic"] { --pl-bg: var(--ink, var(--window-border)); --pl-edge: 2px solid var(--cream, var(--font-dark)); --pl-round: 0; --pl-shadow: 3px 3px 0 var(--ink, var(--window-border)); }
+[data-panel="modern"] { --pl-bg: color-mix(in srgb, var(--panel) 92%, transparent); --pl-round: calc(var(--radius) + 6px); }
+[data-panel="gnome"] { --pl-bg: rgba(15, 15, 18, 0.9); --pl-edge: 1px solid rgba(255, 255, 255, 0.08); --pl-round: 16px; }
+[data-panel="tui"], [data-panel="phosphor"] { --pl-bg: var(--fg); --pl-edge: 0; --pl-round: 0; --pl-shadow: none; }
+[data-panel="workbench"] { --pl-edge: 0; --pl-round: 0;
+  --pl-shadow: var(--keyline, inset 0 0 0 1px var(--line-bright), inset 0 0 0 3px var(--panel), inset 0 0 0 4px var(--line-bright)), 0 6px 14px rgba(0, 0, 0, 0.35); }
+
+[data-panel-form="islands"] #taskbar {
+  position: absolute; left: 0; right: 0; z-index: 30; display: flex; align-items: center; justify-content: space-between;
+  height: auto; min-height: 0; padding: 8px 10px; background: transparent; border: 0; box-shadow: none; pointer-events: none;
+}
+[data-panel-form="islands"][data-panel-edge="top"] #taskbar { top: 0; }
+[data-panel-form="islands"][data-panel-edge="bottom"] #taskbar { bottom: 0; }
+[data-panel-form="islands"] :is(.status, .front-panel) { display: contents; }
+[data-panel-form="islands"] #taskbar .pl-fill { display: none; }
+[data-panel-form="islands"] #taskbar .pl-group:not(:empty) {
+  display: flex; align-items: center; gap: 6px; min-height: 30px; padding: 3px 10px; box-sizing: border-box;
+  background: var(--pl-bg); border: var(--pl-edge); border-radius: var(--pl-round); box-shadow: var(--pl-shadow); pointer-events: auto;
+}
+[data-panel-form="islands"] #taskbar .pl-group:empty { display: none; }
+[data-panel-form="islands"][data-panel-edge="top"] #icons { top: var(--pl-h, 40px); }
+[data-panel-form="islands"][data-panel-edge="bottom"] #icons { bottom: var(--pl-h, 40px); }

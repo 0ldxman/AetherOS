@@ -5,3 +5,6 @@
 :root:root[data-dock="tui"] .dk .shell-app:hover .shell-glyph { border-color: var(--fg); background: var(--fg); color: var(--bg); }
 :root:root[data-dock="tui"][data-apps-labels="hover"] .dk .shell-app:hover .shell-label { border-radius: 0; background: var(--fg); color: var(--bg); }
 [data-dock="tui"] .dk .el--allapps { border-radius: 0; border-color: var(--fg); }
+
+/* то же оформление для островов (форма «острова») */
+[data-dock="tui"] .dk { --dk-bg: var(--bg); --dk-edge: 3px double var(--fg); --dk-round: 0; --dk-shadow: none; }

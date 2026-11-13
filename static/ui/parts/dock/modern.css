@@ -9,3 +9,6 @@
 [data-dock="modern"][data-pl2-form="bar"] .dk { border-radius: 0; }
 :root:root[data-dock="modern"] .dk .shell-glyph { border-radius: calc(var(--radius) + 4px); }
 :root:root[data-dock="modern"] .dk .shell-app:hover .shell-glyph { border-color: transparent; background: color-mix(in srgb, var(--fg) 10%, transparent); }
+
+/* то же оформление для островов (форма «острова») */
+[data-dock="modern"] .dk { --dk-bg: color-mix(in srgb, var(--panel) 92%, transparent); --dk-edge: 1px solid var(--line); --dk-round: calc(var(--radius) + 8px); }
