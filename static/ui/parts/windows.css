@@ -63,11 +63,12 @@
  * ========================================================================== */
 
 /* ---- tab: вкладка над рамкой (основа в desktop.css) ---- */
-[data-win-title="tab"] .winbox.aether { --wb-head-bg: var(--title-bg, var(--font-light)); --wb-head-fg: var(--title-fg, var(--font-dark)); }
+/* неактивное окно: вкладка приглушена, чтобы стопка окон не читалась ступеньками одинаковых плашек */
+[data-win-title="tab"] .winbox.aether { --wb-head-bg: var(--title-bg, color-mix(in srgb, var(--font-light) 62%, var(--bg))); --wb-head-fg: var(--title-fg, var(--font-dark)); }
 [data-win-title="tab"] .winbox.aether.focus { --wb-head-bg: var(--title-bg-active, var(--title-bg, var(--font-light))); --wb-head-fg: var(--title-fg-active, var(--title-fg, var(--font-dark))); }
 [data-win-title="tab"] .winbox.aether .wb-header,
 [data-win-title="tab"] .winbox.aether.max .wb-header { background: var(--wb-head-bg); border-color: var(--wb-head-bg); }
-[data-win-title="tab"] .winbox.aether .wb-title { color: var(--wb-head-fg); }
+[data-win-title="tab"] .winbox.aether .wb-title { color: var(--wb-head-fg); font-size: 0.875rem; }     /* не крупнее текста внутри окна */
 [data-win-title="tab"] .winbox.aether .wb-control > span:not(.wb-close) { color: var(--wb-head-fg); }
 /* кнопки справа: вкладка зеркально у правого края рамки, название с отступом слева */
 [data-win-title="tab"][data-win-side="right"] .winbox.aether:not(.max) .wb-header { left: auto; right: -1px; }

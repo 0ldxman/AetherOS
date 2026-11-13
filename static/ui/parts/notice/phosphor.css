@@ -12,7 +12,7 @@
 [data-notice="phosphor"] .dialog-glyph { width: auto; height: auto; border: 2px solid var(--fg); background: none; color: var(--fg); font-size: 1rem; padding: 0 8px; }
 [data-notice="phosphor"] .dialog-foot { border-top: 2px solid var(--fg); }
 [data-notice="phosphor"] .dialog-code { opacity: 1; color: var(--font-muted); }
-[data-notice="phosphor"] .dialog-ok { min-width: 0; padding: 0 12px; background: var(--fg); border: 0; color: var(--bg); font-weight: 700; }
+[data-notice="phosphor"] .dialog-ok { min-width: 80px; padding: 0 12px; background: var(--fg); border: 0; color: var(--bg); font-weight: 700; }
 [data-notice="phosphor"] .dialog-ok:hover { background: var(--font-soft); }
 
 /* ---- тосты: инверсная строка над подсказками ---- */
