@@ -175,3 +175,10 @@
 [data-panel="phosphor"] #taskbar :is(.el--btn, .el--tasks .shell-task, .el--spaces button, .el--machine .session-button) { color: var(--bg); opacity: 1; }
 [data-panel="phosphor"] #taskbar :is(.el--btn:hover, .el--btn[aria-expanded="true"], .el--tasks .shell-task.is-active, .el--spaces button.is-current) { background: var(--bg); color: var(--fg); }
 #taskbar #machine-name { white-space: nowrap; }
+
+/* фокус с клавиатуры виден на всём, чем управляют панели, меню и стол (WCAG 2.4.7): обводка акцентом с отступом */
+:is(#taskbar, .dk, .launcher, .notices-panel, .el-pop, .session-menu, .fkeys, .fw-menu, .fw-hint, #toasts) :is(button, input, [role="button"], [tabindex]):focus-visible,
+#clock-plate:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
