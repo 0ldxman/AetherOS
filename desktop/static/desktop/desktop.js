@@ -605,6 +605,7 @@ const SYSTEM_MESSAGES = (function () {
 const FALLBACK_MESSAGE = { kind: "error", code: "", title: "Error", text: "" };
 const MESSAGE_GLYPH = { error: "!", warning: "!", info: "i" };
 const TOAST_MS = 4500;
+const TOAST_LIMIT = 3;
 const openDialogs = {};
 let dialogCount = 0;
 
@@ -761,9 +762,17 @@ function showToast(spec, params = {}, onClick = null, ms = TOAST_MS) {
   }
 
   const toast = el("div", "toast toast--" + msg.kind);
+  const head = el("span", "toast-head");
+  const now = gameParts();
+  const time = el("time", "toast-time", `${now.hour}:${now.minute}`);
+  const shut = el("button", "toast-close", "×");
 
-  toast.append(el("strong", "toast-title", msg.title));
+  shut.type = "button";
+  shut.setAttribute("aria-label", "Dismiss");
+  head.append(el("span", "toast-glyph", MESSAGE_GLYPH[msg.kind] || "i"), el("strong", "toast-title", msg.title), time);
+  toast.append(head);
   if (msg.text) toast.append(el("span", "toast-text", msg.text));
+  toast.append(shut);
 
   const close = () => toast.remove();
 
@@ -771,8 +780,14 @@ function showToast(spec, params = {}, onClick = null, ms = TOAST_MS) {
     close();
     if (onClick) onClick();
   });
+  shut.addEventListener("click", (event) => {
+    event.stopPropagation();
+    close();
+  });
   if (onClick) toast.classList.add("toast--action");
   stack.appendChild(toast);
+  // не больше трёх сразу: старые уходят раньше времени (они остаются в журнале сообщений)
+  while (stack.children.length > TOAST_LIMIT) stack.firstElementChild.remove();
   setTimeout(close, ms);
 
   // оболочка копит историю уведомлений (центр уведомлений)

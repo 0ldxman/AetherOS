@@ -49,3 +49,6 @@
 .err-screen .err-ok::after { content: "_"; animation: err-blink 1s steps(1) infinite; }
 @keyframes err-blink { 50% { opacity: 0; } }
 @media (prefers-reduced-motion: reduce) { .err-screen .err-ok::after { animation: none; } }
+
+/* знак уведомления квадратный у видов без скруглений */
+:is([data-notice="tui"], [data-notice="phosphor"], [data-notice="classic"], [data-notice="workbench"]) .toast-glyph { border-radius: 0; }
