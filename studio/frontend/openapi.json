@@ -12112,6 +12112,691 @@
     ]
    }
   },
+  "/studio/api/forum/spaces": {
+   "get": {
+    "operationId": "studio_api_forum_spaces",
+    "summary": "Spaces",
+    "parameters": [],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "items": {
+          "$ref": "#/components/schemas/FoSpaceRow"
+         },
+         "title": "Response",
+         "type": "array"
+        }
+       }
+      }
+     }
+    },
+    "tags": [
+     "forum"
+    ],
+    "security": [
+     {
+      "StudioAuth": []
+     }
+    ]
+   },
+   "post": {
+    "operationId": "studio_api_forum_create_space",
+    "summary": "Create Space",
+    "parameters": [],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/FoSpaceOut"
+        }
+       }
+      }
+     },
+     "400": {
+      "description": "Bad Request",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/FoErrors"
+        }
+       }
+      }
+     }
+    },
+    "tags": [
+     "forum"
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/FoSpaceIn"
+       }
+      }
+     },
+     "required": true
+    },
+    "security": [
+     {
+      "StudioAuth": []
+     }
+    ]
+   }
+  },
+  "/studio/api/forum/spaces/{slug}": {
+   "get": {
+    "operationId": "studio_api_forum_space_detail",
+    "summary": "Space Detail",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "slug",
+      "schema": {
+       "title": "Slug",
+       "type": "string"
+      },
+      "required": true
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/FoSpaceOut"
+        }
+       }
+      }
+     }
+    },
+    "tags": [
+     "forum"
+    ],
+    "security": [
+     {
+      "StudioAuth": []
+     }
+    ]
+   },
+   "put": {
+    "operationId": "studio_api_forum_update_space",
+    "summary": "Update Space",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "slug",
+      "schema": {
+       "title": "Slug",
+       "type": "string"
+      },
+      "required": true
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/FoSpaceOut"
+        }
+       }
+      }
+     },
+     "400": {
+      "description": "Bad Request",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/FoErrors"
+        }
+       }
+      }
+     }
+    },
+    "tags": [
+     "forum"
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/FoSpaceIn"
+       }
+      }
+     },
+     "required": true
+    },
+    "security": [
+     {
+      "StudioAuth": []
+     }
+    ]
+   },
+   "delete": {
+    "operationId": "studio_api_forum_delete_space",
+    "summary": "Delete Space",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "slug",
+      "schema": {
+       "title": "Slug",
+       "type": "string"
+      },
+      "required": true
+     }
+    ],
+    "responses": {
+     "204": {
+      "description": "No Content"
+     }
+    },
+    "tags": [
+     "forum"
+    ],
+    "security": [
+     {
+      "StudioAuth": []
+     }
+    ]
+   }
+  },
+  "/studio/api/forum/spaces/{slug}/sections": {
+   "post": {
+    "operationId": "studio_api_forum_create_section",
+    "summary": "Create Section",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "slug",
+      "schema": {
+       "title": "Slug",
+       "type": "string"
+      },
+      "required": true
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/FoSection"
+        }
+       }
+      }
+     },
+     "400": {
+      "description": "Bad Request",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/FoErrors"
+        }
+       }
+      }
+     }
+    },
+    "tags": [
+     "forum"
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/FoSectionIn"
+       }
+      }
+     },
+     "required": true
+    },
+    "security": [
+     {
+      "StudioAuth": []
+     }
+    ]
+   }
+  },
+  "/studio/api/forum/sections/{section_id}": {
+   "put": {
+    "operationId": "studio_api_forum_update_section",
+    "summary": "Update Section",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "section_id",
+      "schema": {
+       "title": "Section Id",
+       "type": "integer"
+      },
+      "required": true
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/FoSection"
+        }
+       }
+      }
+     },
+     "400": {
+      "description": "Bad Request",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/FoErrors"
+        }
+       }
+      }
+     }
+    },
+    "tags": [
+     "forum"
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/FoSectionIn"
+       }
+      }
+     },
+     "required": true
+    },
+    "security": [
+     {
+      "StudioAuth": []
+     }
+    ]
+   },
+   "delete": {
+    "operationId": "studio_api_forum_delete_section",
+    "summary": "Delete Section",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "section_id",
+      "schema": {
+       "title": "Section Id",
+       "type": "integer"
+      },
+      "required": true
+     }
+    ],
+    "responses": {
+     "204": {
+      "description": "No Content"
+     }
+    },
+    "tags": [
+     "forum"
+    ],
+    "security": [
+     {
+      "StudioAuth": []
+     }
+    ]
+   }
+  },
+  "/studio/api/forum/spaces/{slug}/topics": {
+   "get": {
+    "operationId": "studio_api_forum_topics",
+    "summary": "Topics",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "slug",
+      "schema": {
+       "title": "Slug",
+       "type": "string"
+      },
+      "required": true
+     },
+     {
+      "in": "query",
+      "name": "section",
+      "schema": {
+       "anyOf": [
+        {
+         "type": "integer"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Section"
+      },
+      "required": false
+     },
+     {
+      "in": "query",
+      "name": "hidden",
+      "schema": {
+       "default": false,
+       "title": "Hidden",
+       "type": "boolean"
+      },
+      "required": false
+     },
+     {
+      "in": "query",
+      "name": "q",
+      "schema": {
+       "default": "",
+       "title": "Q",
+       "type": "string"
+      },
+      "required": false
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "items": {
+          "$ref": "#/components/schemas/FoTopicRow"
+         },
+         "title": "Response",
+         "type": "array"
+        }
+       }
+      }
+     }
+    },
+    "tags": [
+     "forum"
+    ],
+    "security": [
+     {
+      "StudioAuth": []
+     }
+    ]
+   }
+  },
+  "/studio/api/forum/topics/{topic_id}": {
+   "get": {
+    "operationId": "studio_api_forum_topic_detail",
+    "summary": "Topic Detail",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "topic_id",
+      "schema": {
+       "title": "Topic Id",
+       "type": "integer"
+      },
+      "required": true
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/FoTopicOut"
+        }
+       }
+      }
+     }
+    },
+    "tags": [
+     "forum"
+    ],
+    "security": [
+     {
+      "StudioAuth": []
+     }
+    ]
+   },
+   "put": {
+    "operationId": "studio_api_forum_topic_flags",
+    "summary": "Topic Flags",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "topic_id",
+      "schema": {
+       "title": "Topic Id",
+       "type": "integer"
+      },
+      "required": true
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/FoTopicOut"
+        }
+       }
+      }
+     }
+    },
+    "tags": [
+     "forum"
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/FoFlags"
+       }
+      }
+     },
+     "required": true
+    },
+    "security": [
+     {
+      "StudioAuth": []
+     }
+    ]
+   }
+  },
+  "/studio/api/forum/topics": {
+   "post": {
+    "operationId": "studio_api_forum_author_topic",
+    "summary": "Author Topic",
+    "parameters": [],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/FoTopicOut"
+        }
+       }
+      }
+     },
+     "400": {
+      "description": "Bad Request",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/FoErrors"
+        }
+       }
+      }
+     }
+    },
+    "tags": [
+     "forum"
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/FoAuthorTopic"
+       }
+      }
+     },
+     "required": true
+    },
+    "security": [
+     {
+      "StudioAuth": []
+     }
+    ]
+   }
+  },
+  "/studio/api/forum/topics/{topic_id}/posts": {
+   "post": {
+    "operationId": "studio_api_forum_author_post",
+    "summary": "Author Post",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "topic_id",
+      "schema": {
+       "title": "Topic Id",
+       "type": "integer"
+      },
+      "required": true
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/FoTopicOut"
+        }
+       }
+      }
+     },
+     "400": {
+      "description": "Bad Request",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/FoErrors"
+        }
+       }
+      }
+     }
+    },
+    "tags": [
+     "forum"
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/FoAuthorPost"
+       }
+      }
+     },
+     "required": true
+    },
+    "security": [
+     {
+      "StudioAuth": []
+     }
+    ]
+   }
+  },
+  "/studio/api/forum/posts/{post_id}/hide": {
+   "post": {
+    "operationId": "studio_api_forum_hide",
+    "summary": "Hide",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "post_id",
+      "schema": {
+       "title": "Post Id",
+       "type": "integer"
+      },
+      "required": true
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/FoTopicOut"
+        }
+       }
+      }
+     }
+    },
+    "tags": [
+     "forum"
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/FoHide"
+       }
+      }
+     },
+     "required": true
+    },
+    "security": [
+     {
+      "StudioAuth": []
+     }
+    ]
+   }
+  },
+  "/studio/api/forum/posts/{post_id}/restore": {
+   "post": {
+    "operationId": "studio_api_forum_restore",
+    "summary": "Restore",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "post_id",
+      "schema": {
+       "title": "Post Id",
+       "type": "integer"
+      },
+      "required": true
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/FoTopicOut"
+        }
+       }
+      }
+     }
+    },
+    "tags": [
+     "forum"
+    ],
+    "security": [
+     {
+      "StudioAuth": []
+     }
+    ]
+   }
+  },
   "/studio/api/world/state": {
    "get": {
     "operationId": "studio_api_worldstate_read",
@@ -27186,6 +27871,640 @@
      "channel_id"
     ],
     "title": "AirBridgeIn",
+    "type": "object"
+   },
+   "FoSpaceRow": {
+    "properties": {
+     "slug": {
+      "title": "Slug",
+      "type": "string"
+     },
+     "title": {
+      "title": "Title",
+      "type": "string"
+     },
+     "sections": {
+      "title": "Sections",
+      "type": "integer"
+     },
+     "topics": {
+      "title": "Topics",
+      "type": "integer"
+     },
+     "machines": {
+      "title": "Machines",
+      "type": "integer"
+     },
+     "authors_only": {
+      "title": "Authors Only",
+      "type": "boolean"
+     }
+    },
+    "required": [
+     "slug",
+     "title",
+     "sections",
+     "topics",
+     "machines",
+     "authors_only"
+    ],
+    "title": "FoSpaceRow",
+    "type": "object"
+   },
+   "FoMachine": {
+    "properties": {
+     "id": {
+      "title": "Id",
+      "type": "integer"
+     },
+     "label": {
+      "title": "Label",
+      "type": "string"
+     },
+     "hostname": {
+      "title": "Hostname",
+      "type": "string"
+     }
+    },
+    "required": [
+     "id",
+     "label",
+     "hostname"
+    ],
+    "title": "FoMachine",
+    "type": "object"
+   },
+   "FoSection": {
+    "properties": {
+     "id": {
+      "title": "Id",
+      "type": "integer"
+     },
+     "parent": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Parent"
+     },
+     "title": {
+      "title": "Title",
+      "type": "string"
+     },
+     "about": {
+      "title": "About",
+      "type": "string"
+     },
+     "order": {
+      "title": "Order",
+      "type": "integer"
+     },
+     "read_if": {
+      "title": "Read If",
+      "type": "string"
+     },
+     "write": {
+      "title": "Write",
+      "type": "string"
+     },
+     "write_if": {
+      "title": "Write If",
+      "type": "string"
+     },
+     "archived": {
+      "title": "Archived",
+      "type": "boolean"
+     },
+     "topics": {
+      "title": "Topics",
+      "type": "integer"
+     }
+    },
+    "required": [
+     "id",
+     "parent",
+     "title",
+     "about",
+     "order",
+     "read_if",
+     "write",
+     "write_if",
+     "archived",
+     "topics"
+    ],
+    "title": "FoSection",
+    "type": "object"
+   },
+   "FoSpaceOut": {
+    "properties": {
+     "slug": {
+      "title": "Slug",
+      "type": "string"
+     },
+     "title": {
+      "title": "Title",
+      "type": "string"
+     },
+     "about": {
+      "title": "About",
+      "type": "string"
+     },
+     "order": {
+      "title": "Order",
+      "type": "integer"
+     },
+     "read_if": {
+      "title": "Read If",
+      "type": "string"
+     },
+     "write": {
+      "title": "Write",
+      "type": "string"
+     },
+     "write_if": {
+      "title": "Write If",
+      "type": "string"
+     },
+     "machines": {
+      "items": {
+       "type": "integer"
+      },
+      "title": "Machines",
+      "type": "array"
+     },
+     "machine_options": {
+      "items": {
+       "$ref": "#/components/schemas/FoMachine"
+      },
+      "title": "Machine Options",
+      "type": "array"
+     },
+     "sections": {
+      "items": {
+       "$ref": "#/components/schemas/FoSection"
+      },
+      "title": "Sections",
+      "type": "array"
+     }
+    },
+    "required": [
+     "slug",
+     "title",
+     "about",
+     "order",
+     "read_if",
+     "write",
+     "write_if",
+     "machines",
+     "machine_options",
+     "sections"
+    ],
+    "title": "FoSpaceOut",
+    "type": "object"
+   },
+   "FoErrors": {
+    "properties": {
+     "fields": {
+      "additionalProperties": {
+       "type": "string"
+      },
+      "title": "Fields",
+      "type": "object"
+     }
+    },
+    "required": [
+     "fields"
+    ],
+    "title": "FoErrors",
+    "type": "object"
+   },
+   "FoSpaceIn": {
+    "properties": {
+     "slug": {
+      "default": "",
+      "title": "Slug",
+      "type": "string"
+     },
+     "title": {
+      "title": "Title",
+      "type": "string"
+     },
+     "about": {
+      "default": "",
+      "title": "About",
+      "type": "string"
+     },
+     "order": {
+      "default": 0,
+      "title": "Order",
+      "type": "integer"
+     },
+     "read_if": {
+      "default": "",
+      "title": "Read If",
+      "type": "string"
+     },
+     "write": {
+      "default": "players",
+      "title": "Write",
+      "type": "string"
+     },
+     "write_if": {
+      "default": "",
+      "title": "Write If",
+      "type": "string"
+     },
+     "machines": {
+      "default": [],
+      "items": {
+       "type": "integer"
+      },
+      "title": "Machines",
+      "type": "array"
+     }
+    },
+    "required": [
+     "title"
+    ],
+    "title": "FoSpaceIn",
+    "type": "object"
+   },
+   "FoSectionIn": {
+    "properties": {
+     "title": {
+      "title": "Title",
+      "type": "string"
+     },
+     "parent": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Parent"
+     },
+     "about": {
+      "default": "",
+      "title": "About",
+      "type": "string"
+     },
+     "order": {
+      "default": 0,
+      "title": "Order",
+      "type": "integer"
+     },
+     "read_if": {
+      "default": "",
+      "title": "Read If",
+      "type": "string"
+     },
+     "write": {
+      "default": "inherit",
+      "title": "Write",
+      "type": "string"
+     },
+     "write_if": {
+      "default": "",
+      "title": "Write If",
+      "type": "string"
+     },
+     "archived": {
+      "default": false,
+      "title": "Archived",
+      "type": "boolean"
+     }
+    },
+    "required": [
+     "title"
+    ],
+    "title": "FoSectionIn",
+    "type": "object"
+   },
+   "FoTopicRow": {
+    "properties": {
+     "id": {
+      "title": "Id",
+      "type": "integer"
+     },
+     "title": {
+      "title": "Title",
+      "type": "string"
+     },
+     "section": {
+      "title": "Section",
+      "type": "integer"
+     },
+     "section_title": {
+      "title": "Section Title",
+      "type": "string"
+     },
+     "name": {
+      "title": "Name",
+      "type": "string"
+     },
+     "kind": {
+      "title": "Kind",
+      "type": "string"
+     },
+     "replies": {
+      "title": "Replies",
+      "type": "integer"
+     },
+     "pinned": {
+      "title": "Pinned",
+      "type": "boolean"
+     },
+     "locked": {
+      "title": "Locked",
+      "type": "boolean"
+     },
+     "hidden": {
+      "title": "Hidden",
+      "type": "boolean"
+     },
+     "created_at": {
+      "format": "date-time",
+      "title": "Created At",
+      "type": "string"
+     },
+     "bumped_at": {
+      "format": "date-time",
+      "title": "Bumped At",
+      "type": "string"
+     }
+    },
+    "required": [
+     "id",
+     "title",
+     "section",
+     "section_title",
+     "name",
+     "kind",
+     "replies",
+     "pinned",
+     "locked",
+     "hidden",
+     "created_at",
+     "bumped_at"
+    ],
+    "title": "FoTopicRow",
+    "type": "object"
+   },
+   "FoPost": {
+    "properties": {
+     "id": {
+      "title": "Id",
+      "type": "integer"
+     },
+     "parent": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Parent"
+     },
+     "root": {
+      "title": "Root",
+      "type": "boolean"
+     },
+     "name": {
+      "title": "Name",
+      "type": "string"
+     },
+     "kind": {
+      "title": "Kind",
+      "type": "string"
+     },
+     "player": {
+      "title": "Player",
+      "type": "string"
+     },
+     "text": {
+      "title": "Text",
+      "type": "string"
+     },
+     "hidden": {
+      "title": "Hidden",
+      "type": "boolean"
+     },
+     "hidden_reason": {
+      "title": "Hidden Reason",
+      "type": "string"
+     },
+     "created_at": {
+      "format": "date-time",
+      "title": "Created At",
+      "type": "string"
+     }
+    },
+    "required": [
+     "id",
+     "parent",
+     "root",
+     "name",
+     "kind",
+     "player",
+     "text",
+     "hidden",
+     "hidden_reason",
+     "created_at"
+    ],
+    "title": "FoPost",
+    "type": "object"
+   },
+   "FoTopicOut": {
+    "properties": {
+     "id": {
+      "title": "Id",
+      "type": "integer"
+     },
+     "title": {
+      "title": "Title",
+      "type": "string"
+     },
+     "section": {
+      "title": "Section",
+      "type": "integer"
+     },
+     "section_title": {
+      "title": "Section Title",
+      "type": "string"
+     },
+     "name": {
+      "title": "Name",
+      "type": "string"
+     },
+     "kind": {
+      "title": "Kind",
+      "type": "string"
+     },
+     "replies": {
+      "title": "Replies",
+      "type": "integer"
+     },
+     "pinned": {
+      "title": "Pinned",
+      "type": "boolean"
+     },
+     "locked": {
+      "title": "Locked",
+      "type": "boolean"
+     },
+     "hidden": {
+      "title": "Hidden",
+      "type": "boolean"
+     },
+     "created_at": {
+      "format": "date-time",
+      "title": "Created At",
+      "type": "string"
+     },
+     "bumped_at": {
+      "format": "date-time",
+      "title": "Bumped At",
+      "type": "string"
+     },
+     "posts": {
+      "items": {
+       "$ref": "#/components/schemas/FoPost"
+      },
+      "title": "Posts",
+      "type": "array"
+     }
+    },
+    "required": [
+     "id",
+     "title",
+     "section",
+     "section_title",
+     "name",
+     "kind",
+     "replies",
+     "pinned",
+     "locked",
+     "hidden",
+     "created_at",
+     "bumped_at",
+     "posts"
+    ],
+    "title": "FoTopicOut",
+    "type": "object"
+   },
+   "FoFlags": {
+    "properties": {
+     "pinned": {
+      "anyOf": [
+       {
+        "type": "boolean"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Pinned"
+     },
+     "locked": {
+      "anyOf": [
+       {
+        "type": "boolean"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Locked"
+     }
+    },
+    "title": "FoFlags",
+    "type": "object"
+   },
+   "FoAuthorTopic": {
+    "properties": {
+     "section": {
+      "title": "Section",
+      "type": "integer"
+     },
+     "name": {
+      "title": "Name",
+      "type": "string"
+     },
+     "title": {
+      "title": "Title",
+      "type": "string"
+     },
+     "text": {
+      "title": "Text",
+      "type": "string"
+     },
+     "kind": {
+      "default": "character",
+      "title": "Kind",
+      "type": "string"
+     }
+    },
+    "required": [
+     "section",
+     "name",
+     "title",
+     "text"
+    ],
+    "title": "FoAuthorTopic",
+    "type": "object"
+   },
+   "FoAuthorPost": {
+    "properties": {
+     "name": {
+      "title": "Name",
+      "type": "string"
+     },
+     "text": {
+      "title": "Text",
+      "type": "string"
+     },
+     "kind": {
+      "default": "character",
+      "title": "Kind",
+      "type": "string"
+     },
+     "parent": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Parent"
+     }
+    },
+    "required": [
+     "name",
+     "text"
+    ],
+    "title": "FoAuthorPost",
+    "type": "object"
+   },
+   "FoHide": {
+    "properties": {
+     "reason": {
+      "default": "",
+      "title": "Reason",
+      "type": "string"
+     }
+    },
+    "title": "FoHide",
     "type": "object"
    },
    "WsContribution": {

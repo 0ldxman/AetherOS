@@ -18,6 +18,7 @@ export const GROUPS: NavGroup[] = [
       { href: "#/news", label: "Новости", section: ["news"], right: "news", icon: "news" },
       { href: "#/support", label: "Поддержка", section: ["support"], right: "support", icon: "support" },
       { href: "#/air", label: "Эфир", section: ["air"], right: "air", icon: "radio" },
+      { href: "#/forum", label: "Форум", section: ["forum"], right: "forum", icon: "chat" },
     ],
   },
   {

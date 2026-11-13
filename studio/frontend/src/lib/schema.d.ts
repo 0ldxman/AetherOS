@@ -3894,6 +3894,181 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/studio/api/forum/spaces": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Spaces */
+        get: operations["studio_api_forum_spaces"];
+        put?: never;
+        /** Create Space */
+        post: operations["studio_api_forum_create_space"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/studio/api/forum/spaces/{slug}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Space Detail */
+        get: operations["studio_api_forum_space_detail"];
+        /** Update Space */
+        put: operations["studio_api_forum_update_space"];
+        post?: never;
+        /** Delete Space */
+        delete: operations["studio_api_forum_delete_space"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/studio/api/forum/spaces/{slug}/sections": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Create Section */
+        post: operations["studio_api_forum_create_section"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/studio/api/forum/sections/{section_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Update Section */
+        put: operations["studio_api_forum_update_section"];
+        post?: never;
+        /** Delete Section */
+        delete: operations["studio_api_forum_delete_section"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/studio/api/forum/spaces/{slug}/topics": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Topics */
+        get: operations["studio_api_forum_topics"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/studio/api/forum/topics/{topic_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Topic Detail */
+        get: operations["studio_api_forum_topic_detail"];
+        /** Topic Flags */
+        put: operations["studio_api_forum_topic_flags"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/studio/api/forum/topics": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Author Topic */
+        post: operations["studio_api_forum_author_topic"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/studio/api/forum/topics/{topic_id}/posts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Author Post */
+        post: operations["studio_api_forum_author_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/studio/api/forum/posts/{post_id}/hide": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Hide */
+        post: operations["studio_api_forum_hide"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/studio/api/forum/posts/{post_id}/restore": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Restore */
+        post: operations["studio_api_forum_restore"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/studio/api/world/state": {
         parameters: {
             query?: never;
@@ -9878,6 +10053,299 @@ export interface components {
              * @default true
              */
             active: boolean;
+        };
+        /** FoSpaceRow */
+        FoSpaceRow: {
+            /** Slug */
+            slug: string;
+            /** Title */
+            title: string;
+            /** Sections */
+            sections: number;
+            /** Topics */
+            topics: number;
+            /** Machines */
+            machines: number;
+            /** Authors Only */
+            authors_only: boolean;
+        };
+        /** FoMachine */
+        FoMachine: {
+            /** Id */
+            id: number;
+            /** Label */
+            label: string;
+            /** Hostname */
+            hostname: string;
+        };
+        /** FoSection */
+        FoSection: {
+            /** Id */
+            id: number;
+            /** Parent */
+            parent: number | null;
+            /** Title */
+            title: string;
+            /** About */
+            about: string;
+            /** Order */
+            order: number;
+            /** Read If */
+            read_if: string;
+            /** Write */
+            write: string;
+            /** Write If */
+            write_if: string;
+            /** Archived */
+            archived: boolean;
+            /** Topics */
+            topics: number;
+        };
+        /** FoSpaceOut */
+        FoSpaceOut: {
+            /** Slug */
+            slug: string;
+            /** Title */
+            title: string;
+            /** About */
+            about: string;
+            /** Order */
+            order: number;
+            /** Read If */
+            read_if: string;
+            /** Write */
+            write: string;
+            /** Write If */
+            write_if: string;
+            /** Machines */
+            machines: number[];
+            /** Machine Options */
+            machine_options: components["schemas"]["FoMachine"][];
+            /** Sections */
+            sections: components["schemas"]["FoSection"][];
+        };
+        /** FoErrors */
+        FoErrors: {
+            /** Fields */
+            fields: {
+                [key: string]: string;
+            };
+        };
+        /** FoSpaceIn */
+        FoSpaceIn: {
+            /**
+             * Slug
+             * @default
+             */
+            slug: string;
+            /** Title */
+            title: string;
+            /**
+             * About
+             * @default
+             */
+            about: string;
+            /**
+             * Order
+             * @default 0
+             */
+            order: number;
+            /**
+             * Read If
+             * @default
+             */
+            read_if: string;
+            /**
+             * Write
+             * @default players
+             */
+            write: string;
+            /**
+             * Write If
+             * @default
+             */
+            write_if: string;
+            /**
+             * Machines
+             * @default []
+             */
+            machines: number[];
+        };
+        /** FoSectionIn */
+        FoSectionIn: {
+            /** Title */
+            title: string;
+            /** Parent */
+            parent?: number | null;
+            /**
+             * About
+             * @default
+             */
+            about: string;
+            /**
+             * Order
+             * @default 0
+             */
+            order: number;
+            /**
+             * Read If
+             * @default
+             */
+            read_if: string;
+            /**
+             * Write
+             * @default inherit
+             */
+            write: string;
+            /**
+             * Write If
+             * @default
+             */
+            write_if: string;
+            /**
+             * Archived
+             * @default false
+             */
+            archived: boolean;
+        };
+        /** FoTopicRow */
+        FoTopicRow: {
+            /** Id */
+            id: number;
+            /** Title */
+            title: string;
+            /** Section */
+            section: number;
+            /** Section Title */
+            section_title: string;
+            /** Name */
+            name: string;
+            /** Kind */
+            kind: string;
+            /** Replies */
+            replies: number;
+            /** Pinned */
+            pinned: boolean;
+            /** Locked */
+            locked: boolean;
+            /** Hidden */
+            hidden: boolean;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Bumped At
+             * Format: date-time
+             */
+            bumped_at: string;
+        };
+        /** FoPost */
+        FoPost: {
+            /** Id */
+            id: number;
+            /** Parent */
+            parent: number | null;
+            /** Root */
+            root: boolean;
+            /** Name */
+            name: string;
+            /** Kind */
+            kind: string;
+            /** Player */
+            player: string;
+            /** Text */
+            text: string;
+            /** Hidden */
+            hidden: boolean;
+            /** Hidden Reason */
+            hidden_reason: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+        };
+        /** FoTopicOut */
+        FoTopicOut: {
+            /** Id */
+            id: number;
+            /** Title */
+            title: string;
+            /** Section */
+            section: number;
+            /** Section Title */
+            section_title: string;
+            /** Name */
+            name: string;
+            /** Kind */
+            kind: string;
+            /** Replies */
+            replies: number;
+            /** Pinned */
+            pinned: boolean;
+            /** Locked */
+            locked: boolean;
+            /** Hidden */
+            hidden: boolean;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Bumped At
+             * Format: date-time
+             */
+            bumped_at: string;
+            /** Posts */
+            posts: components["schemas"]["FoPost"][];
+        };
+        /** FoFlags */
+        FoFlags: {
+            /** Pinned */
+            pinned?: boolean | null;
+            /** Locked */
+            locked?: boolean | null;
+        };
+        /** FoAuthorTopic */
+        FoAuthorTopic: {
+            /** Section */
+            section: number;
+            /** Name */
+            name: string;
+            /** Title */
+            title: string;
+            /** Text */
+            text: string;
+            /**
+             * Kind
+             * @default character
+             */
+            kind: string;
+        };
+        /** FoAuthorPost */
+        FoAuthorPost: {
+            /** Name */
+            name: string;
+            /** Text */
+            text: string;
+            /**
+             * Kind
+             * @default character
+             */
+            kind: string;
+            /** Parent */
+            parent?: number | null;
+        };
+        /** FoHide */
+        FoHide: {
+            /**
+             * Reason
+             * @default
+             */
+            reason: string;
         };
         /** WsContribution */
         WsContribution: {
@@ -17014,6 +17482,416 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+        };
+    };
+    studio_api_forum_spaces: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FoSpaceRow"][];
+                };
+            };
+        };
+    };
+    studio_api_forum_create_space: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FoSpaceIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FoSpaceOut"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FoErrors"];
+                };
+            };
+        };
+    };
+    studio_api_forum_space_detail: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FoSpaceOut"];
+                };
+            };
+        };
+    };
+    studio_api_forum_update_space: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FoSpaceIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FoSpaceOut"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FoErrors"];
+                };
+            };
+        };
+    };
+    studio_api_forum_delete_space: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    studio_api_forum_create_section: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FoSectionIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FoSection"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FoErrors"];
+                };
+            };
+        };
+    };
+    studio_api_forum_update_section: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                section_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FoSectionIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FoSection"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FoErrors"];
+                };
+            };
+        };
+    };
+    studio_api_forum_delete_section: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                section_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    studio_api_forum_topics: {
+        parameters: {
+            query?: {
+                section?: number | null;
+                hidden?: boolean;
+                q?: string;
+            };
+            header?: never;
+            path: {
+                slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FoTopicRow"][];
+                };
+            };
+        };
+    };
+    studio_api_forum_topic_detail: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                topic_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FoTopicOut"];
+                };
+            };
+        };
+    };
+    studio_api_forum_topic_flags: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                topic_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FoFlags"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FoTopicOut"];
+                };
+            };
+        };
+    };
+    studio_api_forum_author_topic: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FoAuthorTopic"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FoTopicOut"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FoErrors"];
+                };
+            };
+        };
+    };
+    studio_api_forum_author_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                topic_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FoAuthorPost"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FoTopicOut"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FoErrors"];
+                };
+            };
+        };
+    };
+    studio_api_forum_hide: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                post_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FoHide"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FoTopicOut"];
+                };
+            };
+        };
+    };
+    studio_api_forum_restore: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                post_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FoTopicOut"];
+                };
             };
         };
     };
