@@ -122,9 +122,14 @@
 .fm-c { position: relative; display: grid; grid-template-columns: var(--fm-plate) minmax(0, 1fr); column-gap: 10px; margin-top: 14px; }
 .fm-c > .fm-plate { grid-row: 1; }
 .fm-c > .fm-cmain { grid-column: 2; min-width: 0; }
-.fm-line { grid-column: 1; grid-row: 2 / span 2; justify-self: center; width: 9px; margin-top: 4px; padding: 0; border: 0; background: none; cursor: pointer; }
+/* линия ветки идёт прямо от кода отправителя вниз, к ответам — короткие отводы */
+.fm-line { position: absolute; top: 20px; bottom: 0; left: calc(var(--fm-plate) / 2 - 5px); width: 11px; padding: 0; border: 0; background: none; cursor: pointer; }
 .fm-line::before { content: ""; display: block; width: 1px; height: 100%; margin: 0 auto; background: var(--line-bright); }
 .fm-line:hover::before { width: 3px; background: var(--accent); }
+.fm-kids > .fm-c::before { content: ""; position: absolute; top: 10px; left: calc(-10px - var(--fm-plate) / 2); width: calc(var(--fm-plate) / 2 + 8px); border-top: 1px solid var(--line-bright); pointer-events: none; }
+.fm-c:has(> .fm-line:hover) > .fm-kids > .fm-c::before { border-top-color: var(--accent); }
+/* у последнего ответа линия родителя заканчивается на его отводе: ниже её закрывает фон листа */
+.fm-kids > .fm-c:last-child::after { content: ""; position: absolute; top: 11px; bottom: 0; left: calc(-10px - var(--fm-plate) / 2 - 5px); width: 11px; background: var(--bg); pointer-events: none; }
 .fm-cmain .fm-text { margin-top: 3px; font-size: 13px; }
 .fm-cbox { padding: 8px 12px 6px; border: var(--ctl-border) solid var(--line); border-radius: var(--ctl-radius); background: color-mix(in srgb, var(--panel) 55%, var(--bg)); }
 .fm-c.mine > .fm-cmain > .fm-cbox { border-color: var(--line-bright); }
