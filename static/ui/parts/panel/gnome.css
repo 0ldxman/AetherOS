@@ -159,7 +159,7 @@
 [data-panel="gnome"] .overview-windows { display: flex; flex-wrap: wrap; justify-content: center; gap: 16px; }
 [data-panel="gnome"] .overview-windows:empty { display: none; }
 
-[data-panel="gnome"] .shell-task {
+[data-panel="gnome"] .overview-windows .shell-task {
   position: relative;
   display: flex;
   flex-direction: column;
@@ -177,10 +177,10 @@
   cursor: pointer;
 }
 
-[data-panel="gnome"] .shell-task .shell-glyph { font-size: 1.8rem; color: var(--accent); }
-[data-panel="gnome"] .shell-task:hover { border-color: rgba(255, 255, 255, 0.3); }
-[data-panel="gnome"] .shell-task.is-active { border-color: var(--accent); box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 40%, transparent); }
-[data-panel="gnome"] .shell-task.is-min { opacity: 0.6; }
+[data-panel="gnome"] .overview-windows .shell-task .shell-glyph { font-size: 1.8rem; color: var(--accent); }
+[data-panel="gnome"] .overview-windows .shell-task:hover { border-color: rgba(255, 255, 255, 0.3); }
+[data-panel="gnome"] .overview-windows .shell-task.is-active { border-color: var(--accent); box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 40%, transparent); }
+[data-panel="gnome"] .overview-windows .shell-task.is-min { opacity: 0.6; }
 
 [data-panel="gnome"] .launcher-apps {
   width: min(760px, 100%);

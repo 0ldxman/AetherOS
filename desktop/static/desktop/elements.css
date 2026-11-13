@@ -11,14 +11,14 @@
 #taskbar .pl-center > * { flex: 0 1 auto; }          /* растянутые элементы вида (задачи) в центре по своей ширине */
 .el { font-family: var(--font-main); }
 
+/* база: плоский пункт панели без обводки; вид ниже дорисовывает по-своему */
 .el--btn {
   display: inline-flex; align-items: center; gap: 6px; height: 24px; padding: 0 9px; flex: 0 0 auto;
-  border: var(--border-w, 1px) solid color-mix(in srgb, currentColor 35%, transparent); border-radius: var(--radius); background: transparent;
-  color: inherit; font: 12px/1 var(--font-main); cursor: pointer; white-space: nowrap;      /* цвет текста панели стиля */
+  border: 0; border-radius: var(--radius); background: transparent;
+  color: inherit; font: inherit; font-size: 12px; line-height: 1; cursor: pointer; white-space: nowrap;      /* цвет и шрифт панели вида */
 }
-.el--btn:hover, .el--btn:focus-visible, .el--btn[aria-expanded="true"] { border-color: var(--accent); outline: none; }
-.el--btn[aria-expanded="true"] { background: color-mix(in srgb, var(--accent) 18%, transparent); }
-.el-glyph { font-family: var(--font-console); font-size: 11px; opacity: 0.8; }
+.el--btn:hover, .el--btn[aria-expanded="true"] { background: color-mix(in srgb, currentColor 14%, transparent); }
+.el-glyph { font-family: var(--font-console); font-size: 12px; opacity: 0.85; }
 .el-count { min-width: 16px; padding: 0 4px; border-radius: 999px; background: var(--accent-error); color: var(--font-dark); font-size: 10px; line-height: 16px; text-align: center; }
 .el-count[hidden] { display: none; }
 
@@ -42,17 +42,17 @@
 
 .el--tasks { display: inline-flex; align-items: center; gap: 4px; min-width: 0; overflow: hidden; }
 .el--tasks .shell-task {
-  display: inline-flex; align-items: center; gap: 6px; max-width: 170px; height: 24px; padding: 0 8px; flex: 0 1 auto;
-  border: var(--border-w, 1px) solid color-mix(in srgb, currentColor 22%, transparent); border-radius: var(--radius); background: transparent; color: inherit; font: 12px var(--font-main); cursor: pointer;
+  position: relative; display: inline-flex; align-items: center; gap: 6px; max-width: 170px; height: 24px; padding: 0 8px; flex: 0 1 auto;
+  border: 0; border-radius: var(--radius); background: transparent; color: inherit; font: inherit; font-size: 12px; cursor: pointer;
 }
 .el--tasks .shell-task .shell-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.el--tasks .shell-task:hover { border-color: color-mix(in srgb, currentColor 50%, transparent); }
-.el--tasks .shell-task.is-active { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 14%, transparent); }
+.el--tasks .shell-task:hover { background: color-mix(in srgb, currentColor 10%, transparent); }
+.el--tasks .shell-task.is-active { background: color-mix(in srgb, currentColor 16%, transparent); }
+.el--tasks .shell-task.is-active::after { content: ""; position: absolute; left: 8px; right: 8px; bottom: 0; height: 2px; background: var(--accent); }
 .el--tasks .shell-task.is-min { opacity: 0.55; }
 
-.el--spaces { display: inline-flex; flex: 0 0 auto; border: var(--border-w, 1px) solid color-mix(in srgb, currentColor 35%, transparent); border-radius: var(--radius); overflow: hidden; }
-.el--spaces button { width: 24px; height: 22px; border: 0; background: transparent; color: inherit; opacity: 0.6; font: 11px var(--font-console); cursor: pointer; }
-.el--spaces button + button { border-left: var(--border-w, 1px) solid color-mix(in srgb, currentColor 22%, transparent); }
+.el--spaces { display: inline-flex; flex: 0 0 auto; gap: 2px; }
+.el--spaces button { width: 22px; height: 22px; border: 0; border-radius: var(--radius); background: color-mix(in srgb, currentColor 8%, transparent); color: inherit; opacity: 0.6; font: 11px var(--font-console); cursor: pointer; }
 .el--spaces button:hover, .el--spaces button.has-windows { opacity: 1; }
 .el--spaces button.is-current { background: var(--accent); color: var(--font-dark); opacity: 1; }
 
@@ -96,38 +96,56 @@
    Дорисовка тем: те же элементы в языке стиля
    ================================================== */
 
-/* Classic: плоские контуры с жёсткой тенью, растровый шрифт */
-[data-panel="classic"] .el--btn, [data-panel="classic"] .el--tasks .shell-task, [data-panel="classic"] .el--spaces, [data-panel="classic"] .el-search {
-  border-radius: 0; box-shadow: 2px 2px 0 var(--line-bright); }
+/* Classic: пункты меню панели — растровый шрифт, без скруглений, выбор инверсией на всю высоту панели */
+[data-panel="classic"] :is(.el--btn, .el--tasks .shell-task, .el--spaces button) { height: 22px; border-radius: 0; font-weight: 700; }
+[data-panel="classic"] :is(.el--btn:hover, .el--btn[aria-expanded="true"], .el--tasks .shell-task:hover, .el--tasks .shell-task.is-active, .el--spaces button.is-current) {
+  background: var(--cream, var(--font-dark)); color: var(--ink, var(--window-border)); }
+[data-panel="classic"] .el--tasks .shell-task.is-active::after { content: none; }
+[data-panel="classic"] .el-search { border-radius: 0; border: 2px solid var(--ink, var(--window-border)); background: var(--cream, var(--font-dark)); color: var(--ink, var(--window-border)); }
 [data-panel="classic"] .el-pop { border-radius: 0; box-shadow: 4px 4px 0 var(--line-bright); }
 [data-panel="classic"] .el-apps .shell-app { border-radius: 0; }
-[data-panel="classic"] .el-apps .shell-app:hover, [data-panel="classic"] .el--btn[aria-expanded="true"] { background: var(--accent); color: var(--font-dark); }
+[data-panel="classic"] .el-apps .shell-app:hover { background: var(--accent); color: var(--font-dark); }
 
-/* Terminal UI: двойные рамки, инверсия вместо цвета, шрифт терминала */
+/* Terminal UI: [ подпись ] в скобках, выбор инверсией, шрифт терминала */
 [data-panel="tui"] .el, [data-panel="tui"] .el-pop, [data-panel="tui"] .el-apps .shell-app { font-family: var(--font-console); }
-[data-panel="tui"] .el--btn, [data-panel="tui"] .el--tasks .shell-task, [data-panel="tui"] .el--spaces, [data-panel="tui"] .el-search { border-radius: 0; }
+[data-panel="tui"] :is(.el--btn, .el--tasks .shell-task, .el--spaces button, .el-search) { border-radius: 0; padding: 0 2px; height: 16px; background: none; }
+[data-panel="tui"] .el--btn .el-glyph { display: none; }
+[data-panel="tui"] .el--btn::before { content: "["; }
+[data-panel="tui"] .el--btn::after { content: "]"; }
+[data-panel="tui"] :is(.el--btn:hover, .el--btn[aria-expanded="true"], .el--tasks .shell-task:hover, .el--tasks .shell-task.is-active, .el--spaces button.is-current, .el-apps .shell-app:hover) { background: var(--fg); color: var(--bg); }
+[data-panel="tui"] .el--tasks .shell-task.is-active::after { content: none; }
 [data-panel="tui"] .el-pop { border-radius: 0; border-style: double; border-width: 3px; box-shadow: none; }
 [data-panel="tui"] .el-apps .shell-app { border-radius: 0; }
-[data-panel="tui"] .el--btn:hover, [data-panel="tui"] .el--btn[aria-expanded="true"], [data-panel="tui"] .el-apps .shell-app:hover, [data-panel="tui"] .el--tasks .shell-task.is-active { background: var(--fg); color: var(--bg); border-color: var(--fg); }
 [data-panel="tui"] .el-pop--top { top: 30px; }
 
-/* Phosphor: монохромный ЖК, выбор инверсией, растровая сетка */
+/* Phosphor: заглавные, без скруглений, выбор инверсией */
 [data-panel="phosphor"] .el, [data-panel="phosphor"] .el-pop, [data-panel="phosphor"] .el-apps .shell-app { font-family: var(--font-console); text-transform: uppercase; }
-[data-panel="phosphor"] .el--btn, [data-panel="phosphor"] .el--tasks .shell-task, [data-panel="phosphor"] .el--spaces, [data-panel="phosphor"] .el-search, [data-panel="phosphor"] .el-pop, [data-panel="phosphor"] .el-apps .shell-app { border-radius: 0; box-shadow: none; }
-[data-panel="phosphor"] .el--btn:hover, [data-panel="phosphor"] .el--btn[aria-expanded="true"], [data-panel="phosphor"] .el-apps .shell-app:hover, [data-panel="phosphor"] .el--tasks .shell-task.is-active { background: var(--fg); color: var(--bg); }
+[data-panel="phosphor"] :is(.el--btn, .el--tasks .shell-task, .el--spaces button, .el-search, .el-pop, .el-apps .shell-app) { border-radius: 0; box-shadow: none; }
+[data-panel="phosphor"] :is(.el--btn:hover, .el--btn[aria-expanded="true"], .el-apps .shell-app:hover, .el--tasks .shell-task.is-active, .el--spaces button.is-current) { background: var(--bg); color: var(--fg); }
+[data-panel="phosphor"] .el--tasks .shell-task.is-active::after { content: none; }
 
-/* Workbench: гравированные поля, толстая рамка из двух линий */
-[data-panel="workbench"] .el--btn, [data-panel="workbench"] .el--tasks .shell-task, [data-panel="workbench"] .el--spaces, [data-panel="workbench"] .el-search { border-style: groove; border-width: 2px; }
+/* Workbench: гравированные клавиши передней панели, нажатая — утоплена */
+[data-panel="workbench"] :is(.el--btn, .el--tasks .shell-task, .el--spaces button) {
+  border-radius: 0; background: var(--panel); box-shadow: var(--raised, inset 0 0 0 1px var(--line-bright)); font-weight: 700; }
+[data-panel="workbench"] :is(.el--btn:hover, .el--tasks .shell-task:hover) { background: var(--bg); }
+[data-panel="workbench"] :is(.el--btn[aria-expanded="true"], .el--tasks .shell-task.is-active, .el--spaces button.is-current) {
+  background: var(--bg); box-shadow: var(--sunken, inset 0 0 0 1px var(--line-bright), inset 0 0 0 2px var(--panel)); color: var(--fg); }
+[data-panel="workbench"] .el--tasks .shell-task.is-active::after { content: none; }
+[data-panel="workbench"] .el-search { border-radius: 0; box-shadow: var(--sunken, inset 0 0 0 1px var(--line-bright)); border: 0; }
 [data-panel="workbench"] .el-pop { border-style: double; border-width: 4px; box-shadow: none; }
 [data-panel="workbench"] .el-pop--bottom { bottom: 84px; }
 
-/* Modern и GNOME: мягкие скругления и тени, плитки */
-[data-panel="modern"] .el--btn, [data-panel="gnome"] .el--btn, [data-panel="modern"] .el--tasks .shell-task, [data-panel="gnome"] .el--tasks .shell-task { border-color: transparent; border-radius: 999px; }
-[data-panel="modern"] .el--btn:hover, [data-panel="gnome"] .el--btn:hover { background: color-mix(in srgb, var(--fg) 10%, transparent); }
+/* Modern и GNOME: мягкие плоские кнопки, подсветка при наведении */
+[data-panel="modern"] :is(.el--btn, .el--tasks .shell-task), [data-panel="gnome"] :is(.el--btn, .el--tasks .shell-task) { height: 30px; padding: 0 12px; border-radius: calc(var(--radius) + 2px); }
+[data-panel="gnome"] :is(.el--btn, .el--tasks .shell-task) { height: 26px; border-radius: 13px; font-weight: 600; }
+[data-panel="modern"] .el-search, [data-panel="gnome"] .el-search { border-radius: 999px; border-color: var(--line); height: 28px; padding: 0 14px; }
 [data-panel="modern"] .el-pop, [data-panel="gnome"] .el-pop {
   border-color: transparent; border-radius: calc(var(--radius) + 6px); box-shadow: 0 12px 36px color-mix(in srgb, var(--bg) 60%, transparent); }
 [data-panel="gnome"] .el-pop--top { top: 36px; }
-[data-panel="gnome"] #taskbar .el-slot--start { margin-right: auto; margin-left: 8px; }    /* часы у GNOME по центру панели: начало прижато влево */
+
+/* Aether: шрифт интерфейса, подписи строчными, выбранное подчёркнуто акцентом */
+[data-panel="aether"] .el--btn { text-transform: lowercase; }
+[data-panel="aether"] .el--btn[aria-expanded="true"] { box-shadow: inset 0 -2px 0 var(--accent); }
 
 /* ==================================================
    Край и форма панели, на которые вид не рассчитан (panel.attrs: data-panel-flip, data-panel-reform)
@@ -149,3 +167,11 @@
 [data-panel="workbench"][data-panel-reform="bar"] #taskbar { padding: 0; }
 [data-panel="workbench"][data-panel-reform="bar"] .front-panel { flex: 1; }
 
+
+/* общие задачи и сеанс на панели не берут оформление плиток обзора и меню вида */
+#taskbar .el--tasks .shell-task .shell-glyph { width: auto; height: auto; margin: 0; padding: 0; border: 0; background: none; box-shadow: none; color: inherit; font-size: 12px; }
+#taskbar .el--tasks .shell-task .shell-label { display: block; }
+.el--machine #machine-name, .el--machine .session-button { white-space: nowrap; }
+[data-panel="phosphor"] #taskbar :is(.el--btn, .el--tasks .shell-task, .el--spaces button, .el--machine .session-button) { color: var(--bg); opacity: 1; }
+[data-panel="phosphor"] #taskbar :is(.el--btn:hover, .el--btn[aria-expanded="true"], .el--tasks .shell-task.is-active, .el--spaces button.is-current) { background: var(--bg); color: var(--fg); }
+#taskbar #machine-name { white-space: nowrap; }
