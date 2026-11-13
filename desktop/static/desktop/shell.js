@@ -458,12 +458,26 @@
   if (desktop.dataset.preview) {
     const named = (name) => all("#icons .icon").find((item) => item.querySelector(".icon-label").textContent.trim() === name);
 
-    ["Wiki", "Terminal"].forEach((name) => {
-      const icon = named(name);
-      if (icon) openApp(icon.dataset.app, name, icon.dataset.url);
-    });
-    showToast({ kind: "info", title: "New message", text: "operator: re: node-02" }, {});
-    showDialog({ kind: "error", code: "AE-0403", title: "Access denied", text: "/etc/shadow is sealed. No matching key." }, {});
+    // что показать, говорит Студия (?preview_scene=windows,menu,error,toast,notices); без него — окна, уведомление и ошибка
+    const scene = new URLSearchParams(location.search).get("preview_scene");
+    const want = new Set((scene === null ? "windows,toast,error" : scene).split(",").filter(Boolean));
+    const visible = (node) => node.offsetParent !== null || getComputedStyle(node).position === "fixed";
+
+    if (want.has("windows")) {
+      ["Wiki", "Terminal"].forEach((name) => {
+        const icon = named(name);
+        if (icon) openApp(icon.dataset.app, name, icon.dataset.url);
+      });
+    }
+    if (want.has("toast")) showToast({ kind: "info", title: "New message", text: "operator: re: node-02" }, {});
+    if (want.has("error")) showDialog({ kind: "error", code: "AE-0403", title: "Access denied", text: "/etc/shadow is sealed. No matching key." }, {});
+    setTimeout(() => {
+      for (const [key, shell] of [["menu", "launcher"], ["notices", "notices-toggle"]]) {
+        if (!want.has(key)) continue;
+        const button = all(`[data-shell="${shell}"]`).find(visible);
+        if (button) button.click();
+      }
+    }, 400);
   }
 
   render();

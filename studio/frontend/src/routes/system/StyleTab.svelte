@@ -10,7 +10,7 @@
   import WallpaperPicker from "./WallpaperPicker.svelte";
 
   type System = Schemas["SystemOut"];
-  type Panel = { look?: string; edge?: string; form?: string; start?: string[]; center?: string[]; end?: string[] };
+  type Panel = { look?: string; show?: string; edge?: string; form?: string; start?: string[]; center?: string[]; end?: string[] };
   type Slot = "start" | "center" | "end";
   type Panel2 = { show?: string; edge?: string; form?: string; hide?: string; start?: string[]; center?: string[]; end?: string[] };
   type Which = "panel" | "panel2";
@@ -25,7 +25,6 @@
   const share = new SharedForm({ room: () => `systems/${system.code}`, scope: () => "style", draft: () => look, base: () => base });
   const lookDirty = $derived(JSON.stringify(look) !== lookSaved);
   const TITLE_GROUP = "Заголовок окна";                                   // эти токены живут в разделе «Окна», под заголовком
-  const groups = $derived([...new Set(system.token_info.map((t) => t.group))].filter((g) => g !== TITLE_GROUP));
   const titleTokens = $derived(system.token_info.filter((t) => t.group === TITLE_GROUP));
   const HEX6 = /^#[0-9a-fA-F]{6}$/;
 
@@ -55,7 +54,7 @@
 
   $effect(() => {
     if (!deskPreview) return;
-    const url = `${system.preview_url}?preview_os=${encodeURIComponent(system.code)}&preview_style=${encodeURIComponent(look.style)}&preview_tokens=${encodeURIComponent(JSON.stringify(look.tokens))}&preview_wall=${encodeURIComponent(JSON.stringify(look.wallpaper))}&preview_widgets=${encodeURIComponent(JSON.stringify(look.widgets))}&preview_places=${encodeURIComponent(JSON.stringify(look.places))}&preview_parts=${encodeURIComponent(JSON.stringify({ window: look.win, panel: look.panel, panel2: look.panel2, ...look.parts }))}`;
+    const url = `${system.preview_url}?preview_os=${encodeURIComponent(system.code)}&preview_style=${encodeURIComponent(look.style)}&preview_tokens=${encodeURIComponent(JSON.stringify(look.tokens))}&preview_wall=${encodeURIComponent(JSON.stringify(look.wallpaper))}&preview_widgets=${encodeURIComponent(JSON.stringify(look.widgets))}&preview_places=${encodeURIComponent(JSON.stringify(look.places))}&preview_parts=${encodeURIComponent(JSON.stringify({ window: look.win, panel: look.panel, panel2: look.panel2, ...look.parts }))}&preview_scene=${scene.join(",")}`;
     clearTimeout(deskTimer);
     deskTimer = setTimeout(() => (previewSrc = url), 350);
     return () => clearTimeout(deskTimer);
@@ -91,20 +90,37 @@
 
   guardUnsaved(() => !share.ready && lookSaved !== "" && lookDirty);
 
-  // ---------- разделы: «Картинка и узор» и группы токенов, по одному на экране ----------
+  // ---------- разделы: по тому, что видит игрок; токены лежат рядом с тем, что красят ----------
   const SECTION_KEY = "studio.styleSection";
-  const GROUP_NOTE: Record<string, string> = {
-    "Цвета": "Основная палитра стола: фон, панели и четыре вида текста.",
-    "Линии": "Разделители, рамки и сетка рабочего стола.",
-    "Акценты": "Цвет интерфейса и статусов: выбранное, успех, предупреждение, ошибка.",
-    "Терминал": "Цвета консоли терминала и экрана входа.",
-    "Шрифты": "Гарнитуры и размер букв.",
-    "Форма": "Скругление, толщина рамок и размеры элементов.",
-  };
-  let section = $state((() => { try { return localStorage.getItem(SECTION_KEY) ?? "wall"; } catch { return "wall"; } })());
-  const sections = $derived(["wall", "windows", "panel", "notice", "widgets", ...groups]);
-  const SECTION_LABEL: Record<string, string> = { wall: "Картинка и узор", windows: "Окна", panel: "Панели", notice: "Сообщения", widgets: "Элементы стола" };
+  const SECTIONS = [
+    { key: "base", label: "Основа", note: "Заготовка задаёт всё остальное по умолчанию. Здесь же видно, что у этой ОС изменено." },
+    { key: "desk", label: "Стол", note: "Картинка и узор, сетка, значки на столе, бегущая строка и курсор." },
+    { key: "windows", label: "Окна", note: "Заголовок, рамка и кнопки окна, их цвета." },
+    { key: "panel", label: "Панели", note: "Основная занимает полосу стола; дополнительная висит поверх у любого края. Обе — полоса, док или острова из одних элементов; каждый элемент стоит только в одной." },
+    { key: "notice", label: "Сообщения", note: "Всплывающие уведомления и окна ошибок: чей вид, где и как показывать." },
+    { key: "fx", label: "Эффекты", note: "Развёртка, шум, свечение, пиксельная сетка и сбои кадра поверх всего стола." },
+    { key: "colors", label: "Цвета и шрифты", note: "Общая палитра, линии, акценты, шрифты и форма. То, что красит одну часть, есть и в её разделе." },
+    { key: "terminal", label: "Терминал", note: "Цвета и шрифт консоли терминала и экрана входа." },
+  ];
+  const COLOR_GROUPS = ["Цвета", "Линии", "Акценты", "Шрифты", "Форма"];
+  const DESK_TOKENS = ["--bg", "--line-faint", "--cell"];
+  const WINDOW_TOKENS = ["--window-border", "--border-w", "--tab-h"];
+  const PANEL_TOKENS = ["--panel"];
+  let section = $state((() => { try { return localStorage.getItem(SECTION_KEY) ?? "base"; } catch { return "base"; } })());
+  const sections = SECTIONS.map((s) => s.key);
+  const sectionOf = (key: string) => SECTIONS.find((s) => s.key === key) ?? SECTIONS[0];
+  const tokenBy = (name: string) => system.token_info.find((t) => t.name === name);
+  const tokensNamed = (names: string[]) => names.map(tokenBy).filter((t): t is Schemas["TokenInfo"] => !!t);
 
+  // предпросмотр показывает то, что сейчас настраивается; кнопки над ним включают и выключают сцены вручную
+  const SCENES = [{ key: "windows", label: "Окна" }, { key: "menu", label: "Меню" }, { key: "error", label: "Ошибка" }, { key: "toast", label: "Уведомление" }];
+  const SCENE_OF: Record<string, string[]> = {
+    base: ["windows", "toast", "error"], desk: [], windows: ["windows"], panel: ["windows", "menu"],
+    notice: ["windows", "toast", "error"], fx: ["windows"], colors: ["windows", "toast", "error"], terminal: ["windows"],
+  };
+  let scene = $state<string[]>([]);
+  $effect(() => { const key = section; untrack(() => (scene = [...(SCENE_OF[key] ?? [])])); });
+  const toggleScene = (key: string) => (scene = scene.includes(key) ? scene.filter((s) => s !== key) : [...scene, key]);
   // ---------- док, сообщения, часы: параметры с вариантами, как у окон ----------
   const groupPreset = (group: string): Record<string, string> => {
     const by = system.part_presets[group] ?? {};
@@ -122,7 +138,25 @@
     look.parts = { ...look.parts, [group]: next };
   }
   const partOwn = (group: string) => Object.keys(look.parts[group] ?? {}).length;
+  // что изменено у ОС, по разделам: для бейджей и сводки в «Основе»
+  const tokOwn = (names: string[]) => names.filter((n) => look.tokens[n]).length;
+  const groupTokOwn = (groups: string[]) => system.token_info.filter((t) => groups.includes(t.group) && look.tokens[t.name]).length;
+  const sectionOwn = (key: string): number => ({
+    base: 0,
+    desk: (wallChanged ? 1 : 0) + widgetsOwn + partOwn("icons") + partOwn("cursor") + tokOwn(DESK_TOKENS),
+    windows: winOwn + tokOwn([...WINDOW_TOKENS, "--title-bg", "--title-fg", "--title-bg-active", "--title-fg-active"]),
+    panel: panelOwn + partOwn("clock") + partOwn("apps") + tokOwn(PANEL_TOKENS),
+    notice: partOwn("notice"),
+    fx: partOwn("fx"),
+    colors: groupTokOwn(COLOR_GROUPS),
+    terminal: groupTokOwn(["Терминал"]),
+  } as Record<string, number>)[key] ?? 0;
+  const allOwn = $derived(SECTIONS.reduce((sum, s) => sum + sectionOwn(s.key), 0));
   const PART_NOTE: Record<string, string> = {
+    "fx:glitch:on": "Дамп памяти на столе, порченые значки и окна, редкий рывок всего экрана. Это то, чем Glitched отличается от Aether.",
+    "fx:noise:on": "Зерно сигнала шевелится; при «уменьшить движение» в системе игрока замирает.",
+    "icons:look:ascii": "Вместо картинок — текстовый знак приложения, и в меню запуска тоже.",
+    "icons:set:text": "Картинок нет ни на столе, ни в меню: только текстовые знаки.",
     "notice:errors:banner": "Ошибка встаёт полосой под панелью, Enter или OK её закрывает. Окна не открываются.",
     "notice:errors:screen": "Ошибка закрывает весь экран, как отказ прошивки; Enter или кнопка возвращают на стол.",
   };
@@ -137,13 +171,14 @@
   const curEdge = $derived(fixedEdge ? panelPreset.edge : look.panel.edge ?? panelPreset.edge);
   const curForm = $derived(look.panel.form ?? panelPreset.form);
   const panel2Preset = $derived(PI.presets2[curLook]);
+  const mainOn = $derived((look.panel.show ?? "on") === "on");
   const mainList = (slot: Slot): string[] => look.panel[slot] ?? panelPreset[slot];
   const mainKeys = $derived(new Set(SLOTS.flatMap((s) => mainList(s))));
   // на дополнительной панели не стоит то, что уже на главной (так же считает сервер)
-  const slotList = (w: Which, slot: Slot): string[] => w === "panel" ? mainList(slot) : (look.panel2[slot] ?? panel2Preset[slot]).filter((key) => !mainKeys.has(key));
+  const slotList = (w: Which, slot: Slot): string[] => w === "panel" ? mainList(slot) : (look.panel2[slot] ?? panel2Preset[slot]).filter((key) => !mainOn || !mainKeys.has(key));
   const p2 = (key: "show" | "edge" | "form" | "hide") => look.panel2[key] ?? panel2Preset[key];
-  const placedKeys = $derived(new Set([...mainKeys, ...(p2("show") === "on" ? SLOTS.flatMap((s) => slotList("panel2", s)) : [])]));
-  const freeKeys = $derived(new Set([...mainKeys, ...SLOTS.flatMap((s) => slotList("panel2", s))]));
+  const placedKeys = $derived(new Set([...(mainOn ? mainKeys : []), ...(p2("show") === "on" ? SLOTS.flatMap((s) => slotList("panel2", s)) : [])]));
+  const freeKeys = $derived(new Set([...(mainOn ? mainKeys : []), ...SLOTS.flatMap((s) => slotList("panel2", s))]));
   const elLabel = (key: string) => PI.elements.find((e) => e.key === key)?.label ?? key;
   const elHint = (key: string) => PI.elements.find((e) => e.key === key)?.hint ?? "";
   const panelOwn = $derived(Object.keys(look.panel).length + Object.keys(look.panel2).length);
@@ -177,7 +212,6 @@
   const moveTo = (w: Which, slot: Slot, i: number, dir: number) => editSlots(w, (l) => { const to = SLOTS[SLOTS.indexOf(slot) + dir]; if (!to) return; const [key] = l[slot].splice(i, 1); if (dir > 0) l[to].unshift(key); else l[to].push(key); });
   const removeEl = (w: Which, slot: Slot, i: number) => editSlots(w, (l) => { l[slot].splice(i, 1); });
   const addEl = (w: Which, slot: Slot, key: string) => { if (key) editSlots(w, (l) => { l[slot].push(key); }); adding = { ...adding, [w + slot]: "" }; };
-  const label = (key: string) => SECTION_LABEL[key] ?? key;
 
   // ---------- окна: каждый параметр «как в стиле» или свой вариант ----------
   const preset = $derived(system.window_presets[look.style] ?? {});
@@ -212,25 +246,44 @@
     const inPanel = ["launcher", "search", "apps", "allapps"].some((key) => placedKeys.has(key));
     return !on("icons") && !inPanel ? "Нет ни значков, ни меню запуска или быстрого запуска на панелях: приложения на этой ОС открыть нечем, кроме ссылок и хуков." : "";
   });
-  $effect(() => { if (!sections.includes(section)) section = "wall"; });
+  $effect(() => { if (!sections.includes(section)) section = "base"; });
   $effect(() => { const value = section; try { localStorage.setItem(SECTION_KEY, value); } catch { /* память браузера может быть закрыта */ } });
   let find = $state("");
   let onlyOwn = $state(false);
 
-  const ownIn = (group: string) => system.token_info.filter((t) => t.group === group && look.tokens[t.name]).length;
   const totalOwn = $derived(system.token_info.filter((t) => look.tokens[t.name]).length);
   const wallChanged = $derived(JSON.stringify({ ...look.wallpaper, file_name: "" }) !== JSON.stringify({ ...WALLPAPER_DEFAULT, file_name: "" }));
-  // токены на экране: при поиске по всем группам, иначе выбранная группа; «только изменённые» оставляет переопределённые
+  // поиск по всем настройкам: токены редактируются прямо в результатах, параметры ведут в свой раздел
   const query = $derived(find.trim().toLowerCase());
-  const shown = $derived(system.token_info.filter((t) =>
-    (query ? `${t.label} ${t.name} ${t.hint}`.toLowerCase().includes(query) : t.group === section) && (!onlyOwn || look.tokens[t.name])));
+  const tokensIn = (groups: string[]) => system.token_info.filter((t) => groups.includes(t.group) && (!onlyOwn || look.tokens[t.name]));
+  const foundTokens = $derived(query ? system.token_info.filter((t) => `${t.label} ${t.name} ${t.hint}`.toLowerCase().includes(query)) : []);
+  const foundParams = $derived.by(() => {
+    if (!query) return [];
+    const out: { label: string; section: string }[] = [];
+    const add = (label: string, key: string) => { if (label.toLowerCase().includes(query)) out.push({ label, section: key }); };
+    system.window_params.forEach((p) => add(p.label, "windows"));
+    for (const [group, key] of [["notice", "notice"], ["fx", "fx"], ["icons", "desk"], ["cursor", "desk"], ["clock", "panel"], ["apps", "panel"]]) (system.part_params[group] ?? []).forEach((p) => add(p.label, key));
+    ["Вид панели", "Край", "Форма", "Дополнительная панель", "Автоскрытие", "Что стоит на панели"].forEach((l) => add(l, "panel"));
+    PI.elements.forEach((e) => add(e.label, "panel"));
+    system.widget_info.forEach((w) => add(w.label, w.key === "toasts" ? "notice" : w.key === "date" ? "panel" : "desk"));
+    ["Картинка", "Узор", "Курсор", "Значки"].forEach((l) => add(l, "desk"));
+    return out;
+  });
   const palette = (slug: string) => ["--bg", "--panel", "--accent"].map((name) => system.style_defaults[slug]?.[name] ?? "#000000");
   const colorOf = (token: Schemas["TokenInfo"]) => look.tokens[token.name] ?? def(token);
   const isColor = (value: string) => /^(#[0-9a-fA-F]{3,8}|rgba?\(|hsla?\()/.test(value);
+  let presetOpen = $state(false);
+  let openEl = $state<string | null>(null);         // элемент панели с раскрытыми настройками (часы, быстрый запуск)
+  const EL_SETTINGS: Record<string, string> = { clock: "clock", apps: "apps" };
 
   async function resetAll() {
-    if (!(await ask("Вернуть все токены к стилю?", `Переопределённых токенов: ${totalOwn}. Картинка и узор не меняются. Пока не нажато «Сохранить», это можно отменить.`, "Вернуть"))) return;
-    look.tokens = {};
+    if (!(await ask("Вернуть всё к заготовке?", `Изменений: ${allOwn}. Токены, окна, панели, сообщения, эффекты, значки, картинка и узор вернутся к стилю «${system.styles.find((s) => s.slug === look.style)?.label}». Пока не нажато «Сохранить», это можно отменить.`, "Вернуть всё"))) return;
+    look = { ...look, tokens: {}, wallpaper: { ...WALLPAPER_DEFAULT }, widgets: {}, places: {}, win: {}, panel: {}, panel2: {}, parts: {} };
+  }
+  function setMain(value: string) {
+    const next = { ...look.panel } as Record<string, unknown>;
+    if (value === "on") delete next.show; else next.show = value;
+    look.panel = next as Panel;
   }
 </script>
 
@@ -280,7 +333,11 @@
           <span class="wlabel">{PI.slots.find((x) => x.value === slot)?.label}</span>
           {#each slotList(w, slot) as key, i (key)}
             <div class="slotel" title={elHint(key)}>
-              <span class="slotname">{elLabel(key)}</span>
+              {#if EL_SETTINGS[key]}
+                <button type="button" class="slotname slotopen" aria-expanded={openEl === key} onclick={() => (openEl = openEl === key ? null : key)}>{elLabel(key)} <span aria-hidden="true">{openEl === key ? "▴" : "▾"}</span></button>
+              {:else}
+                <span class="slotname">{elLabel(key)}</span>
+              {/if}
               <span class="slotbtns">
                 <button type="button" class="ib" disabled={i === 0} onclick={() => moveIn(w, slot, i, -1)} aria-label="Выше: {elLabel(key)}">↑</button>
                 <button type="button" class="ib" disabled={i === slotList(w, slot).length - 1} onclick={() => moveIn(w, slot, i, 1)} aria-label="Ниже: {elLabel(key)}">↓</button>
@@ -289,6 +346,12 @@
                 <button type="button" class="ib" onclick={() => removeEl(w, slot, i)} aria-label="Убрать: {elLabel(key)}">×</button>
               </span>
             </div>
+            {#if openEl === key && EL_SETTINGS[key]}
+              <div class="elset">
+                {@render params(EL_SETTINGS[key])}
+                {#if key === "clock"}{#each system.widget_info.filter((x) => x.key === "date") as wd (wd.key)}{@render widgetRow(wd)}{/each}{/if}
+              </div>
+            {/if}
           {:else}
             <p class="muted small slotempty">пусто</p>
           {/each}
@@ -328,111 +391,192 @@
   {/each}
 {/snippet}
 
-  <div class="stylegrid" class:nopv={!deskPreview}>
-  <div class="stylemain">
-  <div class="block">
-    <h3>Стиль рабочего стола и окон <a class="more" href={desktopUrl} target="_blank" rel="noopener">посмотреть на рабочем столе →</a>
-      {#if !deskPreview}<button class="btn ghost small" onclick={toggleDeskPreview}>Показать предпросмотр</button>{/if}</h3>
-    <div class="styles" role="radiogroup" aria-label="Стиль">
-      {#each system.styles as item (item.slug)}
-        <label class="stylecard" class:on={look.style === item.slug} title={item.description}>
-          <input type="radio" name="style" value={item.slug} bind:group={look.style} />
-          <span class="dots" aria-hidden="true">{#each palette(item.slug) as color}<i style:background={color}></i>{/each}</span>
-          <b>{item.label}</b>
+{#snippet tokenTile(token: Schemas["TokenInfo"])}
+  <div class="tok" class:changed={look.tokens[token.name]}>
+    <div class="thead">
+      {#if token.kind === "color"}
+        <label class="sw" title="Выбрать цвет">
+          <span class="swfill" style:background={isColor(colorOf(token)) ? colorOf(token) : "transparent"}></span>
+          <input type="color" value={pickerValue(token)} oninput={(e) => setToken(token.name, e.currentTarget.value)} aria-label="Цвет: {token.label}" />
         </label>
-      {/each}
-    </div>
-    <p class="muted small desc">{system.styles.find((x) => x.slug === look.style)?.description} Стиль задаёт раскладку и вид элементов, токены ниже переназначают цвета, шрифты и форму поверх него.</p>
-  </div>
-
-  <div class="settings">
-    <nav class="rail" aria-label="Разделы настроек">
-      {#each sections as key (key)}
-        {@const own = key === "wall" ? (wallChanged ? 1 : 0) : key === "widgets" ? widgetsOwn : key === "windows" ? winOwn : key === "panel" ? panelOwn + partOwn("clock") + partOwn("apps") : key === "notice" ? partOwn(key) : ownIn(key)}
-        <button class="rail-item" class:on={!query && section === key} aria-current={!query && section === key ? "true" : undefined} onclick={() => { section = key; find = ""; }}>
-          <span>{label(key)}</span>
-          {#if own}<span class="badge" title={key === "wall" ? "Картинка или узор заданы" : key === "widgets" ? `Изменено элементов: ${own}` : ["windows", "panel", "notice"].includes(key) ? `Изменено параметров: ${own}` : `Изменено токенов: ${own}`}>{key === "wall" ? "●" : own}</span>{/if}
-        </button>
-      {/each}
-      <div class="rail-foot">
-        <span class="muted small">Изменено токенов: <b>{totalOwn}</b></span>
-        <button class="btn ghost small" disabled={!totalOwn} onclick={resetAll}>Сбросить всё к стилю</button>
-      </div>
-    </nav>
-
-    <section class="panelbox" aria-label={label(section)}>
-      <header class="phead">
-        <div>
-          <h3>{query ? "Поиск по токенам" : label(section)}</h3>
-          <p class="muted small">{query ? `Найдено: ${shown.length}` : section === "notice" ? "Всплывающие уведомления и ошибки: чей вид, в каком углу и как показывать ошибки." : section === "panel" ? "Главная панель занимает полосу стола; дополнительная (бывший док) висит поверх него у любого края. Обе собираются из одних элементов, каждый стоит только в одной. Вид у обеих от вида главной." : section === "windows" ? "Из чего собрано окно: заголовок, рамка и кнопки. Каждый параметр берётся у стиля, пока не выбран свой; цвета остаются от токенов." : section === "widgets" ? "Что лежит на самом столе: док, значки, бегущая строка, всплывающие уведомления. Вид у каждого от стиля; две ОС с одним стилем могут показывать разное." : section === "wall" ? "Лежат под окнами и значками, не зависят от выбранного стиля. Цвет под ними это токен «Фон рабочего стола» в разделе «Цвета»." : GROUP_NOTE[section]}</p>
-        </div>
-        <div class="tools">
-          {#if !SECTION_LABEL[section] || query}
-            <label class="find"><Icon name="search" size={14} /><input placeholder="Найти токен" bind:value={find} aria-label="Поиск токена" /></label>
-            <label class="check small"><input type="checkbox" bind:checked={onlyOwn} /> только изменённые</label>
-          {/if}
-        </div>
-      </header>
-
-      {#if section === "wall" && !query}
-    <div class="wall">
-      <div class="wallrow">
-        <div class="wthumb" class:empty={!look.wallpaper.file_id}>
-          {#if look.wallpaper.file_id}<img src={wallUrl(look.wallpaper.file_id)} alt="" />{:else}<span class="muted small">нет</span>{/if}
-        </div>
-        <div class="wmeta">
-          <b>{look.wallpaper.file_id ? look.wallpaper.file_name || "Файл выбран" : "Картинка не выбрана"}</b>
-          <span class="muted small">Файл из хранилища (Nextcloud, папка AETHER). Игрок видит его без проверки ключей.</span>
-          <div class="wacts">
-            <button class="btn" onclick={() => (picking = true)}>{look.wallpaper.file_id ? "Заменить…" : "Выбрать из Nextcloud…"}</button>
-            {#if look.wallpaper.file_id}<button class="btn ghost" onclick={() => { look.wallpaper.file_id = ""; look.wallpaper.file_name = ""; }}>Убрать</button>{/if}
-          </div>
-        </div>
-      </div>
-      {#if look.wallpaper.file_id}
-        <div class="wctl">
-          <span class="wlabel">Режим</span>
-          <div class="seg" role="radiogroup" aria-label="Режим картинки">
-            {#each WALL_MODES as item (item.key)}
-              <button type="button" role="radio" aria-checked={look.wallpaper.mode === item.key} class:on={look.wallpaper.mode === item.key} title={item.hint} onclick={() => (look.wallpaper.mode = item.key)}>{item.label}</button>
-            {/each}
-          </div>
-          <span class="wlabel">Прозрачность</span>
-          <div class="range"><input type="range" min="0" max="100" step="5" bind:value={look.wallpaper.opacity} aria-label="Прозрачность картинки" /><output>{look.wallpaper.opacity}%</output></div>
-        </div>
       {/if}
+      <div class="tname"><b>{token.label}</b><code class="muted">{token.name}</code></div>
+      <button class="btn ghost reset" disabled={!look.tokens[token.name]} onclick={() => setToken(token.name, "")} title="Вернуть значение стиля ({def(token)})" aria-label="Вернуть значение стиля: {token.label}">×</button>
+    </div>
+    <p class="thint muted small">{token.hint}</p>
+    {#if token.kind === "font"}
+      <select class="field" value={look.tokens[token.name] ?? ""} onchange={(e) => setToken(token.name, e.currentTarget.value)} aria-label={token.label}>
+        <option value="">как в стиле ({def(token)})</option>
+        {#each system.fonts as font}<option value={font.value}>{font.label}</option>{/each}
+      </select>
+    {:else}
+      <input class="field mono" placeholder={def(token)} value={look.tokens[token.name] ?? ""} oninput={(e) => setToken(token.name, e.currentTarget.value)} class:bad={errors.style} aria-label={token.label} />
+    {/if}
+  </div>
+{/snippet}
 
-      <div class="wctl">
-        <span class="wlabel">Узор</span>
-        <div class="patterns" role="radiogroup" aria-label="Узор поверх картинки">
-          {#each WALL_PATTERNS as item (item.key)}
-            <button type="button" role="radio" aria-checked={look.wallpaper.pattern === item.key} class="pat" class:on={look.wallpaper.pattern === item.key} onclick={() => (look.wallpaper.pattern = item.key)}>
-              <span class="swatchpat" style:background-image={item.key === "none" ? "none" : `url("${tileUrl(item.key, "#b0b0b0", 16)}")`}></span>{item.label}
-            </button>
+{#snippet tokenBlock(title: string, list: Schemas["TokenInfo"][])}
+  {#if list.length}
+    <h4 class="wgroup">{title}</h4>
+    <div class="tokens">{#each list as token (token.name)}{@render tokenTile(token)}{/each}</div>
+  {/if}
+{/snippet}
+
+<div class="stylepage" class:nopv={!deskPreview}>
+  <header class="stylehead">
+    <div class="presetpick">
+      <button type="button" class="presetbtn" aria-expanded={presetOpen} onclick={() => (presetOpen = !presetOpen)}>
+        <span class="dots" aria-hidden="true">{#each palette(look.style) as color}<i style:background={color}></i>{/each}</span>
+        <span class="pname"><span class="muted small">Заготовка</span><b>{system.styles.find((x) => x.slug === look.style)?.label}</b></span>
+        <span aria-hidden="true">▾</span>
+      </button>
+      {#if presetOpen}
+        <div class="presetpop" role="radiogroup" aria-label="Заготовка стиля">
+          {#each system.styles as item (item.slug)}
+            <label class="stylecard" class:on={look.style === item.slug}>
+              <input type="radio" name="style" value={item.slug} bind:group={look.style} onchange={() => (presetOpen = false)} />
+              <span class="dots" aria-hidden="true">{#each palette(item.slug) as color}<i style:background={color}></i>{/each}</span>
+              <b>{item.label}</b>
+              <span class="muted small">{item.description}</span>
+            </label>
           {/each}
         </div>
-        {#if look.wallpaper.pattern !== "none"}
-          <span class="wlabel">Цвет</span>
-          <div class="range">
-            <input class="picker" type="color" value={look.wallpaper.pattern_color || gridColor} oninput={(e) => (look.wallpaper.pattern_color = e.currentTarget.value)} aria-label="Цвет узора" />
-            <output class="same">{look.wallpaper.pattern_color ? look.wallpaper.pattern_color : "как у сетки стиля"}</output>
-            <button class="btn ghost" disabled={!look.wallpaper.pattern_color} onclick={() => (look.wallpaper.pattern_color = "")} title="Цвет сетки стиля">×</button>
-          </div>
-          <span class="wlabel">Шаг</span>
-          <div class="range">
-            <input type="range" min="8" max="120" step="2" value={look.wallpaper.pattern_size || gridCell} oninput={(e) => (look.wallpaper.pattern_size = +e.currentTarget.value)} aria-label="Шаг узора" />
-            <output>{look.wallpaper.pattern_size || gridCell} px</output>
-            <button class="btn ghost" disabled={!look.wallpaper.pattern_size} onclick={() => (look.wallpaper.pattern_size = 0)} title="Шаг сетки стиля">×</button>
-          </div>
-          <span class="wlabel">Прозрачность</span>
-          <div class="range"><input type="range" min="0" max="100" step="5" bind:value={look.wallpaper.pattern_opacity} aria-label="Прозрачность узора" /><output>{look.wallpaper.pattern_opacity}%</output></div>
-          <span class="wlabel"></span>
-          <p class="muted small">Пока цвет и шаг не заданы, узор повторяет сетку выбранного стиля ({gridCell} px), и замена получается незаметной.</p>
-        {/if}
-      </div>
-      {#if errors.wallpaper}{#each errors.wallpaper as text}<p class="warn small">{text}</p>{/each}{/if}
+      {/if}
     </div>
-      {:else if section === "windows" && !query}
+    <span class="muted small headnote">{system.styles.find((x) => x.slug === look.style)?.description}</span>
+    <span class="headtools">
+      <span class="muted small">Изменено: <b>{allOwn}</b></span>
+      <button class="btn ghost small" disabled={!allOwn} onclick={resetAll}>Вернуть всё к заготовке</button>
+      <a class="more" href={desktopUrl} target="_blank" rel="noopener">на рабочем столе →</a>
+      {#if !deskPreview}<button class="btn ghost small" onclick={toggleDeskPreview}>Показать предпросмотр</button>{/if}
+    </span>
+  </header>
+
+  <div class="stylegrid">
+    <nav class="snav" aria-label="Разделы стиля">
+      <label class="find"><Icon name="search" size={14} /><input placeholder="Найти настройку" bind:value={find} aria-label="Поиск по настройкам стиля" /></label>
+      {#each SECTIONS as s (s.key)}
+        {@const own = sectionOwn(s.key)}
+        <button class="snav-item" class:on={!query && section === s.key} aria-current={!query && section === s.key ? "page" : undefined} onclick={() => { section = s.key; find = ""; }}>
+          <span>{s.label}</span>{#if own}<span class="badge" title="Изменено: {own}">{own}</span>{/if}
+        </button>
+      {/each}
+    </nav>
+
+    <section class="panelbox" aria-label={query ? "Поиск" : sectionOf(section).label}>
+      <header class="phead">
+        <div>
+          <h3>{query ? `Поиск: «${find.trim()}»` : sectionOf(section).label}</h3>
+          <p class="muted small">{query ? `Параметров: ${foundParams.length}, токенов: ${foundTokens.length}` : sectionOf(section).note}</p>
+        </div>
+        {#if !query && (section === "colors" || section === "terminal")}
+          <label class="check small"><input type="checkbox" bind:checked={onlyOwn} /> только изменённые</label>
+        {/if}
+      </header>
+
+      {#if query}
+        {#if foundParams.length}
+          <div class="found">
+            {#each foundParams as item, i (i)}
+              <button class="chip" onclick={() => { section = item.section; find = ""; }}>{item.label} <span class="muted small">→ {sectionOf(item.section).label}</span></button>
+            {/each}
+          </div>
+        {/if}
+        <div class="tokens">{#each foundTokens as token (token.name)}{@render tokenTile(token)}{/each}</div>
+        {#if !foundParams.length && !foundTokens.length}<p class="muted small pad">Ничего не нашлось. Попробуйте слово попроще: «заголовок», «док», «шум».</p>{/if}
+
+      {:else if section === "base"}
+        <div class="winparams">
+          <div class="styles" role="radiogroup" aria-label="Заготовка">
+            {#each system.styles as item (item.slug)}
+              <label class="stylecard" class:on={look.style === item.slug} title={item.description}>
+                <input type="radio" name="style2" value={item.slug} bind:group={look.style} />
+                <span class="dots" aria-hidden="true">{#each palette(item.slug) as color}<i style:background={color}></i>{/each}</span>
+                <b>{item.label}</b>
+              </label>
+            {/each}
+          </div>
+          <p class="muted small">{system.styles.find((x) => x.slug === look.style)?.description} Всё, что ниже, берётся у заготовки, пока не выбрано своё.</p>
+          <h4 class="wgroup">Что изменено у этой ОС</h4>
+          <div class="summary">
+            {#each SECTIONS.filter((s) => s.key !== "base") as s (s.key)}
+              {@const own = sectionOwn(s.key)}
+              <button class="sumrow" onclick={() => (section = s.key)}><span>{s.label}</span><span class:muted={!own}>{own ? `изменено: ${own}` : "как в заготовке"}</span></button>
+            {/each}
+          </div>
+          {#if errors.style}{#each errors.style as text}<p class="warn small">{text}</p>{/each}{/if}
+        </div>
+
+      {:else if section === "desk"}
+        <h4 class="wgroup">Картинка и узор</h4>
+        <div class="wall">
+          <div class="wallrow">
+            <div class="wthumb" class:empty={!look.wallpaper.file_id}>
+              {#if look.wallpaper.file_id}<img src={wallUrl(look.wallpaper.file_id)} alt="" />{:else}<span class="muted small">нет</span>{/if}
+            </div>
+            <div class="wmeta">
+              <b>{look.wallpaper.file_id ? look.wallpaper.file_name || "Файл выбран" : "Картинка не выбрана"}</b>
+              <span class="muted small">Файл из хранилища (Nextcloud, папка AETHER). Игрок видит его без проверки ключей.</span>
+              <div class="wacts">
+                <button class="btn" onclick={() => (picking = true)}>{look.wallpaper.file_id ? "Заменить…" : "Выбрать из Nextcloud…"}</button>
+                {#if look.wallpaper.file_id}<button class="btn ghost" onclick={() => { look.wallpaper.file_id = ""; look.wallpaper.file_name = ""; }}>Убрать</button>{/if}
+              </div>
+            </div>
+          </div>
+          {#if look.wallpaper.file_id}
+            <div class="wctl">
+              <span class="wlabel">Режим</span>
+              <div class="seg" role="radiogroup" aria-label="Режим картинки">
+                {#each WALL_MODES as item (item.key)}
+                  <button type="button" role="radio" aria-checked={look.wallpaper.mode === item.key} class:on={look.wallpaper.mode === item.key} title={item.hint} onclick={() => (look.wallpaper.mode = item.key)}>{item.label}</button>
+                {/each}
+              </div>
+              <span class="wlabel">Прозрачность</span>
+              <div class="range"><input type="range" min="0" max="100" step="5" bind:value={look.wallpaper.opacity} aria-label="Прозрачность картинки" /><output>{look.wallpaper.opacity}%</output></div>
+            </div>
+          {/if}
+          <div class="wctl">
+            <span class="wlabel">Узор</span>
+            <div class="patterns" role="radiogroup" aria-label="Узор поверх картинки">
+              {#each WALL_PATTERNS as item (item.key)}
+                <button type="button" role="radio" aria-checked={look.wallpaper.pattern === item.key} class="pat" class:on={look.wallpaper.pattern === item.key} onclick={() => (look.wallpaper.pattern = item.key)}>
+                  <span class="swatchpat" style:background-image={item.key === "none" ? "none" : `url("${tileUrl(item.key, "#b0b0b0", 16)}")`}></span>{item.label}
+                </button>
+              {/each}
+            </div>
+            {#if look.wallpaper.pattern !== "none"}
+              <span class="wlabel">Цвет</span>
+              <div class="range">
+                <input class="picker" type="color" value={look.wallpaper.pattern_color || gridColor} oninput={(e) => (look.wallpaper.pattern_color = e.currentTarget.value)} aria-label="Цвет узора" />
+                <output class="same">{look.wallpaper.pattern_color ? look.wallpaper.pattern_color : "как у сетки стиля"}</output>
+                <button class="btn ghost" disabled={!look.wallpaper.pattern_color} onclick={() => (look.wallpaper.pattern_color = "")} title="Цвет сетки стиля">×</button>
+              </div>
+              <span class="wlabel">Шаг</span>
+              <div class="range">
+                <input type="range" min="8" max="120" step="2" value={look.wallpaper.pattern_size || gridCell} oninput={(e) => (look.wallpaper.pattern_size = +e.currentTarget.value)} aria-label="Шаг узора" />
+                <output>{look.wallpaper.pattern_size || gridCell} px</output>
+                <button class="btn ghost" disabled={!look.wallpaper.pattern_size} onclick={() => (look.wallpaper.pattern_size = 0)} title="Шаг сетки стиля">×</button>
+              </div>
+              <span class="wlabel">Прозрачность</span>
+              <div class="range"><input type="range" min="0" max="100" step="5" bind:value={look.wallpaper.pattern_opacity} aria-label="Прозрачность узора" /><output>{look.wallpaper.pattern_opacity}%</output></div>
+            {/if}
+          </div>
+          {#if errors.wallpaper}{#each errors.wallpaper as text}<p class="warn small">{text}</p>{/each}{/if}
+        </div>
+        {@render tokenBlock("Фон и сетка стола", tokensNamed(DESK_TOKENS))}
+        <h4 class="wgroup">Значки</h4>
+        {#if widgetWarning}<p class="warn small">{widgetWarning}</p>{/if}
+        <div class="winparams">
+          {#each system.widget_info.filter((w) => w.key === "icons") as w (w.key)}{@render widgetRow(w)}{/each}
+          {@render params("icons")}
+        </div>
+        <h4 class="wgroup">На столе</h4>
+        <div class="winparams">
+          {#each system.widget_info.filter((w) => !["icons", "date", "toasts"].includes(w.key)) as w (w.key)}{@render widgetRow(w)}{/each}
+          {@render params("cursor")}
+        </div>
+
+      {:else if section === "windows"}
         <div class="winparams">
           {#each system.window_params.filter((p) => p.key !== "hatch" || winValue("title") === "plaque") as param (param.key)}
             {@const value = winValue(param.key)}
@@ -468,130 +612,95 @@
               {/if}
             </div>
           {/each}
+          {@render tokenBlock("Рамка и размеры", tokensNamed(WINDOW_TOKENS))}
           {#if errors.window}{#each errors.window as text}<p class="warn small">{text}</p>{/each}{/if}
         </div>
-      {:else if section === "panel" && !query}
+
+      {:else if section === "panel"}
         <div class="winparams">
           <div class="seg ptabs" role="tablist" aria-label="Какая панель">
-            <button type="button" role="tab" aria-selected={panelTab === "panel"} class:on={panelTab === "panel"} onclick={() => (panelTab = "panel")}>Главная</button>
+            <button type="button" role="tab" aria-selected={panelTab === "panel"} class:on={panelTab === "panel"} onclick={() => (panelTab = "panel")}>Основная{#if !mainOn} · нет{/if}</button>
             <button type="button" role="tab" aria-selected={panelTab === "panel2"} class:on={panelTab === "panel2"} onclick={() => (panelTab = "panel2")}>Дополнительная{#if p2("show") === "on"} · есть{/if}</button>
           </div>
           {#if panelTab === "panel"}
-          <div class="wprow">
-            <div class="wphead"><b>Вид панели</b>{#if look.panel.look}<button class="btn ghost small" onclick={() => setLook(styleLook)}>вернуть как в стиле</button>{/if}</div>
-            <div class="chips" role="radiogroup" aria-label="Вид панели">
-              {#each PI.looks as option (option.value)}
-                <button type="button" role="radio" class="chip" aria-checked={curLook === option.value} class:on={curLook === option.value} onclick={() => setLook(option.value)}>
-                  {option.label}{#if option.value === styleLook}<span class="wkind own">стиль</span>{/if}
-                </button>
-              {/each}
+            {@render pick("Основная панель", PI.shows, look.panel.show ?? "on", "on", setMain, false)}
+            {#if !mainOn}<p class="muted small">Основной панели нет: её элементы можно поставить на дополнительную. Выход из сеанса должен остаться там.</p>{/if}
+            <div class="wprow" class:muted={!mainOn}>
+              <div class="wphead"><b>Вид панелей</b>{#if look.panel.look}<button class="btn ghost small" onclick={() => setLook(styleLook)}>вернуть как в стиле</button>{/if}</div>
+              <div class="chips" role="radiogroup" aria-label="Вид панелей">
+                {#each PI.looks as option (option.value)}
+                  <button type="button" role="radio" class="chip" aria-checked={curLook === option.value} class:on={curLook === option.value} onclick={() => setLook(option.value)}>
+                    {option.label}{#if option.value === styleLook}<span class="wkind own">стиль</span>{/if}
+                  </button>
+                {/each}
+              </div>
+              <p class="muted small">Оформление обеих панелей. Другой вид приходит со своей раскладкой; её можно поменять ниже.</p>
             </div>
-            <p class="muted small">Другой вид приходит со своей раскладкой; её можно поменять ниже.</p>
-          </div>
-          <div class="wprow">
-            <div class="wphead"><b>Край</b></div>
-            <div class="chips" role="radiogroup" aria-label="Край панели">
-              {#each PI.edges as option (option.value)}
-                <button type="button" role="radio" class="chip" disabled={fixedEdge && option.value !== panelPreset.edge} aria-checked={curEdge === option.value} class:on={curEdge === option.value} onclick={() => setPanel("edge", option.value)}>
-                  {option.label}{#if option.value === panelPreset.edge}<span class="wkind own">вид</span>{/if}
-                </button>
-              {/each}
-            </div>
-            {#if fixedEdge}<p class="muted small">У этого вида панель — строка состояния сверху, а снизу своя полоса клавиш: край не меняется.</p>{/if}
-          </div>
-          <div class="wprow">
-            <div class="wphead"><b>Форма</b></div>
-            <div class="chips" role="radiogroup" aria-label="Форма панели">
-              {#each PI.forms as option (option.value)}
-                <button type="button" role="radio" class="chip" aria-checked={curForm === option.value} class:on={curForm === option.value} onclick={() => setPanel("form", option.value)}>
-                  {option.label}{#if option.value === panelPreset.form}<span class="wkind own">вид</span>{/if}
-                </button>
-              {/each}
-            </div>
-          </div>
-          {@render slotEditor("panel")}
-          <h4 class="wgroup">Часы</h4>
-          {@render params("clock")}
-          {#each system.widget_info.filter((w) => w.key === "date") as w (w.key)}{@render widgetRow(w)}{/each}
+            {#if mainOn}
+              {@render pick("Край", PI.edges, curEdge, panelPreset.edge, (v) => setPanel("edge", v), fixedEdge)}
+              {#if fixedEdge}<p class="muted small">У этого вида панель — строка состояния сверху, а снизу своя полоса клавиш: край не меняется.</p>{/if}
+              {@render pick("Форма", PI.forms, curForm, panelPreset.form, (v) => setPanel("form", v), false)}
+              {#if curForm === "islands"}<p class="muted small">Каждая колонка ниже — свой остров: начало слева, центр по центру, конец справа.</p>{/if}
+              {@render slotEditor("panel")}
+            {/if}
           {:else}
-          {@render pick("Дополнительная панель", PI.shows, p2("show"), panel2Preset.show, (v) => setPanel2("show", v), false)}
-          {@render pick("Край", PI.edges2, p2("edge"), panel2Preset.edge, (v) => setPanel2("edge", v), p2("show") !== "on")}
-          {@render pick("Форма", PI.forms2, p2("form"), panel2Preset.form, (v) => setPanel2("form", v), p2("show") !== "on")}
-          {@render pick("Автоскрытие", PI.hides, p2("hide"), panel2Preset.hide, (v) => setPanel2("hide", v), p2("show") !== "on")}
-          {#if p2("hide") === "on" && p2("show") === "on"}<p class="muted small">У края остаётся тонкая полоска; панель выезжает, когда к ней подводят мышь или переходят клавишей Tab.</p>{/if}
-          {#if p2("show") === "on"}{@render slotEditor("panel2")}{/if}
-          <p class="muted small">Висит поверх стола и окон не сдвигает. Её оформление берётся у вида главной панели.</p>
+            {@render pick("Дополнительная панель", PI.shows, p2("show"), panel2Preset.show, (v) => setPanel2("show", v), false)}
+            {#if p2("show") === "on"}
+              {@render pick("Край", PI.edges2, p2("edge"), panel2Preset.edge, (v) => setPanel2("edge", v), false)}
+              {@render pick("Форма", PI.forms2, p2("form"), panel2Preset.form, (v) => setPanel2("form", v), false)}
+              {#if p2("form") === "islands"}<p class="muted small">Каждая колонка — свой остров; сбоку они идут сверху вниз.</p>{/if}
+              {@render pick("Автоскрытие", PI.hides, p2("hide"), panel2Preset.hide, (v) => setPanel2("hide", v), false)}
+              {#if p2("hide") === "on"}<p class="muted small">У края остаётся тонкая полоска; панель выезжает, когда к ней подводят мышь или переходят клавишей Tab.</p>{/if}
+              {@render slotEditor("panel2")}
+            {/if}
+            <p class="muted small">Висит поверх стола и окон не сдвигает. Её оформление берётся у вида панелей.</p>
           {/if}
-          <h4 class="wgroup">Быстрый запуск</h4>
-          <p class="muted small">Значки приложений в любой из панелей: размер, подписи и метка запущенных. В главной панели значки мельче — её высоту задаёт вид.</p>
-          {@render params("apps")}
+          {@render tokenBlock("Цвет панелей", tokensNamed(PANEL_TOKENS))}
           {#if noExit}<p class="warn small">Игроку не выйти из сеанса: оставьте на одной из панелей меню запуска, «Сеанс» или «Кнопки сеанса».</p>{/if}
           {#if errors.panel}{#each errors.panel as text}<p class="warn small">{text}</p>{/each}{/if}
           {#if errors.panel2}{#each errors.panel2 as text}<p class="warn small">{text}</p>{/each}{/if}
+          {#if errors.parts}{#each errors.parts as text}<p class="warn small">{text}</p>{/each}{/if}
         </div>
-      {:else if section === "notice" && !query}
+
+      {:else if section === "notice" || section === "fx"}
         <div class="winparams">
           {@render params(section)}
           {#if section === "notice"}{#each system.widget_info.filter((w) => w.key === "toasts") as w (w.key)}{@render widgetRow(w)}{/each}{/if}
           {#if errors.parts}{#each errors.parts as text}<p class="warn small">{text}</p>{/each}{/if}
         </div>
-      {:else if section === "widgets" && !query}
-        <div class="widgets">
-          {#if widgetWarning}<p class="warn small">{widgetWarning}</p>{/if}
-          {#each widgetGroups as group (group)}
-            <h4 class="wgroup">{group === "Панель" ? "У часов на панели" : "На самом столе"}</h4>
-            {#each system.widget_info.filter((w) => w.group === group && !["date", "toasts"].includes(w.key)) as w (w.key)}
-              {@render widgetRow(w)}
-            {/each}
-          {/each}
-        </div>
-      {:else}
-        <div class="tokens">
-          {#each shown as token (token.name)}
-            <div class="tok" class:changed={look.tokens[token.name]}>
-              <div class="thead">
-                {#if token.kind === "color"}
-                  <label class="sw" title="Выбрать цвет">
-                    <span class="swfill" style:background={isColor(colorOf(token)) ? colorOf(token) : "transparent"}></span>
-                    <input type="color" value={pickerValue(token)} oninput={(e) => setToken(token.name, e.currentTarget.value)} aria-label="Цвет: {token.label}" />
-                  </label>
-                {/if}
-                <div class="tname"><b>{token.label}</b><code class="muted">{token.name}</code></div>
-                <button class="btn ghost reset" disabled={!look.tokens[token.name]} onclick={() => setToken(token.name, "")} title="Вернуть значение стиля ({def(token)})" aria-label="Вернуть значение стиля">×</button>
-              </div>
-              <p class="thint muted small">{token.hint}</p>
-              {#if token.kind === "font"}
-                <select class="field" value={look.tokens[token.name] ?? ""} onchange={(e) => setToken(token.name, e.currentTarget.value)} aria-label={token.label}>
-                  <option value="">как в стиле ({def(token)})</option>
-                  {#each system.fonts as font}<option value={font.value}>{font.label}</option>{/each}
-                </select>
-              {:else}
-                <input class="field mono" placeholder={def(token)} value={look.tokens[token.name] ?? ""} oninput={(e) => setToken(token.name, e.currentTarget.value)} class:bad={errors.style} aria-label={token.label} />
-              {/if}
-            </div>
-          {:else}
-            <p class="muted small pad">{onlyOwn ? "Здесь ничего не изменено." : "Ничего не нашлось."}</p>
-          {/each}
-        </div>
+
+      {:else if section === "colors"}
+        {#each COLOR_GROUPS as group (group)}
+          {@render tokenBlock(group, tokensIn([group]))}
+        {/each}
+        {#if onlyOwn && !groupTokOwn(COLOR_GROUPS)}<p class="muted small pad">Здесь ничего не изменено.</p>{/if}
+
+      {:else if section === "terminal"}
+        <div class="tokens">{#each tokensIn(["Терминал"]) as token (token.name)}{@render tokenTile(token)}{/each}</div>
+        {#if onlyOwn && !groupTokOwn(["Терминал"])}<p class="muted small pad">Здесь ничего не изменено.</p>{/if}
       {/if}
     </section>
+
+    {#if deskPreview}
+      <aside class="stylepreview">
+        <div class="block">
+          <h3>Предпросмотр <span class="muted small">с несохранёнными изменениями</span> <button class="btn ghost small hidepv" onclick={toggleDeskPreview}>Скрыть</button></h3>
+          <div class="scenes" role="group" aria-label="Что показать в предпросмотре">
+            {#each SCENES as s (s.key)}
+              <button type="button" class="chip" aria-pressed={scene.includes(s.key)} class:on={scene.includes(s.key)} onclick={() => toggleScene(s.key)}>{s.label}</button>
+            {/each}
+          </div>
+          <div class="pvframe" bind:clientWidth={previewWidth} style:height="{(previewWidth * PREVIEW_H) / PREVIEW_W}px">
+            {#if previewSrc}
+              <iframe title="Предпросмотр рабочего стола" src={previewSrc} style:width="{PREVIEW_W}px" style:height="{PREVIEW_H}px" style:transform="scale({previewWidth / PREVIEW_W})"></iframe>
+            {/if}
+          </div>
+          <p class="muted small">Настоящий рабочий стол с тестовыми приложениями. Сцена подстраивается под раздел; внутри можно открывать меню и окна.</p>
+        </div>
+      </aside>
+    {/if}
   </div>
-  {#if errors.style}{#each errors.style as text}<p class="warn small">{text}</p>{/each}{/if}
-  </div>
-  {#if deskPreview}
-  <aside class="stylepreview">
-    <div class="block">
-      <h3>Предпросмотр <span class="muted small">с несохранёнными изменениями</span> <button class="btn ghost small hidepv" onclick={toggleDeskPreview}>Скрыть</button></h3>
-      <div class="pvframe" bind:clientWidth={previewWidth} style:height="{(previewWidth * PREVIEW_H) / PREVIEW_W}px">
-        {#if previewSrc}
-          <iframe title="Предпросмотр рабочего стола" src={previewSrc} style:width="{PREVIEW_W}px" style:height="{PREVIEW_H}px" style:transform="scale({previewWidth / PREVIEW_W})"></iframe>
-        {/if}
-      </div>
-      <p class="muted small">Настоящий рабочий стол с тестовыми приложениями. Внутри можно пользоваться меню и открывать окна.</p>
-    </div>
-  </aside>
-  {/if}
-  </div>
+</div>
 
 {#if picking}
   <WallpaperPicker current={look.wallpaper.file_id} previewUrl={wallUrl} onclose={() => (picking = false)}
@@ -611,19 +720,10 @@
   .stylecard input { position: absolute; opacity: 0; pointer-events: none; }
   .dots { display: flex; }
   .dots i { width: 22px; height: 22px; border: 1px solid var(--line); margin-right: -6px; border-radius: 50%; }
-  .desc { margin-top: 8px; }
-  .settings { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
-  .rail { display: flex; flex-wrap: wrap; align-items: center; gap: 2px; padding-bottom: 8px; border-bottom: 1px solid var(--line-soft); }
-  .rail-item { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 8px 10px; border: 0; border-radius: var(--radius-s); background: none; color: var(--muted); font: inherit; text-align: left; cursor: pointer; }
-  .rail-item:hover { background: var(--panel-2); color: var(--text); }
-  .rail-item.on { background: var(--accent-soft); color: var(--text); }
-  .rail-item:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
   .badge { min-width: 18px; padding: 0 6px; border-radius: 999px; background: var(--accent); color: var(--bg); font-size: 11px; text-align: center; line-height: 18px; }
-  .rail-foot { display: flex; align-items: center; gap: 8px; margin-left: auto; }
   .panelbox { display: flex; flex-direction: column; gap: 14px; min-width: 0; padding: 14px 16px; border: 1px solid var(--line-soft); border-radius: var(--radius); background: var(--panel); }
   .phead { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; flex-wrap: wrap; }
   .phead h3 { margin: 0 0 2px; font-size: 15px; text-transform: none; letter-spacing: 0; }
-  .tools { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
   .find { display: flex; align-items: center; gap: 8px; padding: 0 10px; border: 1px solid var(--line-soft); border-radius: var(--radius-s); background: var(--bg); color: var(--muted); }
   .find:focus-within { border-color: var(--accent); }
   .find input { width: 150px; padding: 5px 0; border: 0; outline: 0; background: none; color: var(--text); font: inherit; font-size: 13px; }
@@ -643,9 +743,36 @@
   .reset { padding: 0 8px; height: 26px; }
   .thint { margin: 0; line-height: 1.4; }
   .tok .field { width: 100%; min-width: 0; }
-  .stylegrid.nopv { grid-template-columns: minmax(0, 1fr); }
-  .stylegrid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(380px, 520px); gap: 16px; align-items: start; }
-  .stylemain { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+  .stylepage { display: flex; flex-direction: column; gap: 12px; }
+  .stylehead { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; padding: 10px 14px; border: 1px solid var(--line-soft); border-radius: var(--radius); background: var(--panel); }
+  .presetpick { position: relative; }
+  .presetbtn { display: flex; align-items: center; gap: 10px; padding: 6px 10px; border: 1px solid var(--line-soft); border-radius: var(--radius-s); background: var(--bg); color: var(--text); font: inherit; cursor: pointer; }
+  .presetbtn:hover, .presetbtn[aria-expanded="true"] { border-color: var(--accent); }
+  .pname { display: flex; flex-direction: column; align-items: flex-start; line-height: 1.2; }
+  .presetpop { position: absolute; z-index: 20; top: calc(100% + 6px); left: 0; width: min(560px, 80vw); display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; padding: 10px;
+               border: 1px solid var(--line); border-radius: var(--radius); background: var(--panel); box-shadow: 0 12px 32px rgba(0, 0, 0, 0.45); }
+  .headnote { flex: 1; min-width: 220px; }
+  .headtools { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+  .stylegrid { display: grid; grid-template-columns: 180px minmax(420px, 1fr) minmax(320px, 400px); gap: 16px; align-items: start; }
+  .stylepage.nopv .stylegrid { grid-template-columns: 200px minmax(0, 1fr); }
+  .snav { position: sticky; top: 8px; display: flex; flex-direction: column; gap: 2px; }
+  .snav .find { margin-bottom: 8px; }
+  .snav .find input { width: 100%; }
+  .snav-item { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 8px 10px; border: 0; border-radius: var(--radius-s); background: none; color: var(--muted); font: inherit; text-align: left; cursor: pointer; }
+  .snav-item:hover { background: var(--panel-2); color: var(--text); }
+  .snav-item.on { background: var(--accent-soft); color: var(--text); }
+  .snav-item:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+  .summary { display: flex; flex-direction: column; border: 1px solid var(--line-soft); border-radius: var(--radius-s); }
+  .sumrow { display: flex; justify-content: space-between; gap: 8px; padding: 8px 12px; border: 0; border-bottom: 1px solid var(--line-soft); background: none; color: var(--text); font: inherit; text-align: left; cursor: pointer; }
+  .sumrow:last-child { border-bottom: 0; }
+  .sumrow:hover { background: var(--panel-2); }
+  .found { display: flex; flex-wrap: wrap; gap: 6px; }
+  .scenes { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
+  .slotopen { border: 0; background: none; padding: 0; color: var(--text); font: inherit; text-align: left; cursor: pointer; }
+  .slotopen:hover { color: var(--accent); }
+  .elset { margin: -2px 0 4px; padding: 4px 10px 8px; border: 1px dashed var(--line-soft); border-radius: var(--radius-s); }
+  @media (max-width: 1400px) { .stylegrid { grid-template-columns: 180px minmax(0, 1fr); } .stylepreview { grid-column: 1 / -1; position: static; } }
+  @media (max-width: 760px) { .stylegrid { grid-template-columns: minmax(0, 1fr); } .snav { position: static; flex-direction: row; flex-wrap: wrap; } }
   .stylepreview { position: sticky; top: 8px; }
   .pvframe { position: relative; overflow: hidden; border: 1px solid var(--line); border-radius: var(--radius-s); background: #000; }
   .pvframe iframe { position: absolute; top: 0; left: 0; border: 0; transform-origin: 0 0; }
@@ -675,8 +802,7 @@
   .pat:hover { color: var(--text); border-color: var(--line); }
   .pat.on { border-color: var(--accent); background: var(--accent-soft); color: var(--text); }
   .swatchpat { width: 48px; height: 32px; border-radius: 4px; background-color: var(--bg); background-size: 16px 16px; border: 1px solid var(--line-soft); }
-  @media (max-width: 1280px) { .stylegrid { grid-template-columns: minmax(0, 1fr); } .stylepreview { position: static; } }
-  .widgets { display: flex; flex-direction: column; gap: 4px; }
+
   .wgroup { margin: 10px 0 2px; font-size: 12px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.4px; }
   .wrow { display: flex; flex-direction: column; gap: 6px; padding: 8px 4px; border-bottom: 1px solid var(--line-soft); }
   .wrow .seg { flex-shrink: 0; }
