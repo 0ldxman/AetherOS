@@ -39,6 +39,7 @@ urlpatterns = [
     path("apps/mail/", include("mail.urls")),
     path("apps/news/", include("news.urls")),
     path("apps/air/", include("air.urls")),
+    path("apps/forum/", include("forum.urls")),
     path("apps/support/", include("support.urls")),
     path("view/fs/", include("terminal.fsview.urls")),
     path("view/doc/", include("documents.urls")),

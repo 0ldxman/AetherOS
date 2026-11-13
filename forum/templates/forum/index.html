@@ -1,0 +1,32 @@
+{% extends "ui/base.html" %}
+{% load static %}
+
+{% block lang %}en{% endblock %}
+{% block title %}forum{% endblock %}
+
+{% block css %}
+    <link rel="stylesheet" href="{% static 'ui/apps.css' %}">
+    <link rel="stylesheet" href="{% static 'forum/forum.css' %}">
+{% endblock %}
+
+{% block body %}
+    <main id="forum"
+          data-spaces-url="{% url 'forum:spaces' %}" data-space-url="{% url 'forum:space' 'SLUG' %}" data-section-url="{% url 'forum:section' 0 %}"
+          data-topic-url="{% url 'forum:topic' 0 %}" data-new-topic-url="{% url 'forum:new_topic' %}" data-new-post-url="{% url 'forum:new_post' %}">
+        <header class="fm-head">
+            <div class="fm-title"><span class="fm-tag">[FORUM]</span><h1 id="fm-space">…</h1></div>
+            <div class="fm-info"><span class="fm-key">CALL:</span><span id="fm-call" class="fm-val">-</span></div>
+        </header>
+        <nav id="fm-crumbs" class="fm-crumbs" aria-label="path"></nav>
+        <div class="fm-body">
+            <aside id="fm-tree" class="fm-tree" aria-label="sections"></aside>
+            <section id="fm-main" class="fm-main" aria-live="polite"></section>
+        </div>
+        <div id="status"></div>
+    </main>
+{% endblock %}
+
+{% block js %}
+    <script src="{% static 'ui/apps.js' %}"></script>
+    <script src="{% static 'forum/forum.js' %}"></script>
+{% endblock %}
