@@ -54,6 +54,11 @@ class PartGroupsTests(TestCase):
         self.assertEqual(styles.group_of("notice", "aether", {"notice": {"look": "gnome"}})["corner"], "tc")      # чужой вид со своим углом
         self.assertEqual(styles.group_of("clock", "aether", {"clock": {"hours": "12", "seconds": "x"}}), {"hours": "12", "seconds": "on"})
 
+    def test_main_panel_on_a_side_uses_generic_elements(self):
+        self.assertEqual(panel.attrs("aether", {"edge": "left"})["panel-edge"], "left")
+        self.assertEqual(dict(panel.elements("aether", {"edge": "left"})["start"])["machine"], "desktop/elements/machine.html")
+        self.assertEqual(panel.attrs2("aether", {"show": "on", "reserve": "on"})["pl2-reserve"], "on")
+
     def test_main_panel_can_be_switched_off(self):
         self.assertEqual(panel.elements("aether", {"show": "off"}), {"start": [], "center": [], "end": []})
         self.assertEqual(panel.of2("aether", {"show": "on", "start": ["clock"]}, {"show": "off"})["start"], ["clock"])     # её элементы свободны
@@ -124,7 +129,7 @@ class PanelTests(SimpleTestCase):
         self.assertEqual(dict(panel.elements("aether", {"end": ["search"]})["end"])["search"], "desktop/elements/search.html")
 
     def test_clean_keeps_each_element_once(self):
-        self.assertEqual(panel.clean({"look": "nope", "edge": "left", "start": ["clock", "nope"], "end": ["clock", "ping"]}),
+        self.assertEqual(panel.clean({"look": "nope", "edge": "middle", "start": ["clock", "nope"], "end": ["clock", "ping"]}),
                          {"start": ["clock"], "end": ["ping"]})
 
     def test_problems(self):
@@ -132,7 +137,7 @@ class PanelTests(SimpleTestCase):
                          ["На панелях нет выхода из сеанса: оставьте меню запуска, «Сеанс» или «Кнопки сеанса»."])
         self.assertEqual(panel.problems("tui", {"start": [], "center": [], "end": []}), [])            # выход в полосе F-клавиш
         self.assertIn("Пинг: стоит на панели дважды.", panel.problems("aether", {"start": ["ping"], "end": ["ping"]}))
-        self.assertIn("Нет такого края: left.", panel.problems("aether", {"edge": "left"}))
+        self.assertIn("Нет такого края: middle.", panel.problems("aether", {"edge": "middle"}))
 
     def test_attrs_mark_a_foreign_edge_and_form(self):
         self.assertEqual(panel.attrs("modern"), {"panel": "modern", "panel-show": "on", "panel-edge": "bottom", "panel-form": "bar"})

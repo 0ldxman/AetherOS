@@ -6723,6 +6723,8 @@ export interface components {
             form: string;
             /** Hide */
             hide: string;
+            /** Reserve */
+            reserve: string;
             /** Start */
             start: string[];
             /** Center */
@@ -6740,6 +6742,8 @@ export interface components {
             form?: string | null;
             /** Hide */
             hide?: string | null;
+            /** Reserve */
+            reserve?: string | null;
             /** Start */
             start?: string[] | null;
             /** Center */
@@ -6788,6 +6792,8 @@ export interface components {
             shows: components["schemas"]["WindowOption"][];
             /** Hides */
             hides: components["schemas"]["WindowOption"][];
+            /** Reserves */
+            reserves: components["schemas"]["WindowOption"][];
             /** Presets2 */
             presets2: {
                 [key: string]: components["schemas"]["Panel2Layout"];

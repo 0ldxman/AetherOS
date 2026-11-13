@@ -201,7 +201,11 @@ const TAB_HEIGHT =
 // Стиль ОС может поставить панель снизу (--tab-outside: 0 — заголовок внутри окна): тогда сверху отступа нет.
 const rootStyle = getComputedStyle(document.documentElement);
 const TAB_OUTSIDE = rootStyle.getPropertyValue("--tab-outside").trim() !== "0";
-const BAR_TOP = taskbar.getBoundingClientRect().top < 1 ? taskbar.offsetHeight : 0;
+// где основная панель (machines/world/panel.py, data-panel-* на <html>): сверху, снизу, сбоку или её нет
+const ROOT_DATA = document.documentElement.dataset;
+const PANEL_EDGE = ROOT_DATA.panelShow === "off" ? "none" : ROOT_DATA.panelEdge || "top";
+const PANEL_SIDE = PANEL_EDGE === "left" || PANEL_EDGE === "right";
+let BAR_TOP = !PANEL_SIDE && taskbar.getBoundingClientRect().top < 1 ? taskbar.offsetHeight : 0;
 // Развёрнутое окно не заходит на панель снизу: либо это сама панель задач, либо отдельная полоса оболочки с data-reserve-bottom.
 const reserveBottom = document.querySelector("[data-reserve-bottom]");
 // Сетка знакомест (стиль ОС может задать --grid-x и --grid-y в пикселях): положение и размер окон кратны клетке.
@@ -216,16 +220,53 @@ function snapGeometry(g) {
   return { x: snapTo(g.x, GRID_X), y: snapTo(g.y, GRID_Y), width: snapTo(g.width, GRID_X), height: snapTo(g.height, GRID_Y) };
 }
 
-const WINDOW_BOTTOM = taskbar.getBoundingClientRect().top < 1 ? (reserveBottom ? reserveBottom.offsetHeight : 0) : taskbar.offsetHeight;
-const WINDOW_TOP = BAR_TOP + (TAB_OUTSIDE ? TAB_HEIGHT + 2 : 0);
-// края стола под панелями: по ним окно «на весь экран» (заголовок full, static/ui/parts/windows.css)
+let WINDOW_BOTTOM = PANEL_SIDE || taskbar.getBoundingClientRect().top < 1 ? (reserveBottom ? reserveBottom.offsetHeight : 0) : taskbar.offsetHeight;
+// края стола под основной панелью: от них встаёт дополнительная панель, уведомления и окна «на весь экран»
 document.documentElement.style.setProperty("--desk-top-auto", BAR_TOP + "px");
-document.documentElement.style.setProperty("--pl-h", taskbar.offsetHeight + "px");      // высота панели: от неё всплывают меню
+document.documentElement.style.setProperty("--pl-h", taskbar.offsetHeight + "px");      // размер панели: от неё всплывают меню
+document.documentElement.style.setProperty("--pl-w", taskbar.offsetWidth + "px");
 document.documentElement.style.setProperty("--desk-bottom-auto", WINDOW_BOTTOM + "px");
+// сбоку окна не заходят на основную панель, а если дополнительная «занимает место» — и на неё
+const MAIN_TOP = BAR_TOP;
+const MAIN_BOTTOM = WINDOW_BOTTOM;
+const MAIN_LEFT = PANEL_EDGE === "left" ? taskbar.getBoundingClientRect().right : 0;
+const MAIN_RIGHT = PANEL_EDGE === "right" ? window.innerWidth - taskbar.getBoundingClientRect().left : 0;
+let WINDOW_LEFT = MAIN_LEFT;
+let WINDOW_RIGHT = MAIN_RIGHT;
+let WINDOW_TOP = BAR_TOP + (TAB_OUTSIDE ? TAB_HEIGHT + 2 : 0);
+const secondPanel = document.querySelector(".dk");
+
+// границы для окон: основная панель плюс дополнительная, если она занимает место; пересчитываются, когда та меняет размер
+function computeBounds() {
+  BAR_TOP = MAIN_TOP;
+  WINDOW_BOTTOM = MAIN_BOTTOM;
+  WINDOW_LEFT = MAIN_LEFT;
+  WINDOW_RIGHT = MAIN_RIGHT;
+  if (secondPanel && ROOT_DATA.pl2Reserve === "on" && ROOT_DATA.pl2Hide !== "on") {
+    const box = secondPanel.getBoundingClientRect();
+    if (ROOT_DATA.pl2Edge === "bottom") WINDOW_BOTTOM = Math.max(WINDOW_BOTTOM, window.innerHeight - box.top);
+    if (ROOT_DATA.pl2Edge === "top") BAR_TOP = Math.max(BAR_TOP, box.bottom);
+    if (ROOT_DATA.pl2Edge === "left") WINDOW_LEFT = Math.max(WINDOW_LEFT, box.right);
+    if (ROOT_DATA.pl2Edge === "right") WINDOW_RIGHT = Math.max(WINDOW_RIGHT, window.innerWidth - box.left);
+  }
+  WINDOW_TOP = BAR_TOP + (TAB_OUTSIDE ? TAB_HEIGHT + 2 : 0);
+  for (const [name, value] of [["top", BAR_TOP], ["bottom", WINDOW_BOTTOM], ["left", WINDOW_LEFT], ["right", WINDOW_RIGHT]]) {
+    document.documentElement.style.setProperty(`--win-${name}-auto`, value + "px");      // свободное для окон место
+  }
+  for (const win of Object.values(openWindows)) {
+    win.top = WINDOW_TOP;
+    win.bottom = WINDOW_BOTTOM;
+    win.left = WINDOW_LEFT;
+    win.right = WINDOW_RIGHT;
+    if (win.max && typeof win.resize === "function") { win.max = false; win.maximize(); }
+  }
+}
+computeBounds();
+if (secondPanel && ROOT_DATA.pl2Reserve === "on" && typeof ResizeObserver === "function") new ResizeObserver(computeBounds).observe(secondPanel);
 
 // Размер стола мог измениться с прошлого раза: окно не должно оказаться за краем
 function clampGeometry(g) {
-  const maxW = desktop.clientWidth;
+  const maxW = window.innerWidth - WINDOW_LEFT - WINDOW_RIGHT;
   const bottom = BAR_TOP + desktop.clientHeight; // нижний край стола в координатах окна браузера
   const maxH = bottom - WINDOW_TOP;
 
@@ -235,7 +276,7 @@ function clampGeometry(g) {
   return snapGeometry({
     width,
     height,
-    x: Math.min(Math.max(g.x, 0), Math.max(0, maxW - width)),
+    x: Math.min(Math.max(g.x, WINDOW_LEFT), Math.max(WINDOW_LEFT, WINDOW_LEFT + maxW - width)),
     y: Math.min(Math.max(g.y, WINDOW_TOP), Math.max(WINDOW_TOP, bottom - height)),
   });
 }
@@ -526,11 +567,13 @@ function openApp(id, label, url, options = {}) {
 
     top: WINDOW_TOP,
     bottom: WINDOW_BOTTOM,
+    left: WINDOW_LEFT,
+    right: WINDOW_RIGHT,
     root: desktop,
 
     class: ["aether", "no-full", ...(isTerminalUrl(url) ? ["app-terminal"] : [])],
 
-    ...snapGeometry({ x: 120 + offset, y: WINDOW_TOP + offset, width: 480, height: 320 }),
+    ...snapGeometry({ x: WINDOW_LEFT + 120 + offset, y: WINDOW_TOP + offset, width: 480, height: 320 }),
 
     url: url,
 

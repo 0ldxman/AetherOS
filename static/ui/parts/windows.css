@@ -177,10 +177,10 @@
 [data-win-title="full"] .winbox.aether { --wb-head-bg: var(--title-bg, var(--panel)); --wb-head-fg: var(--title-fg, var(--fg)); }
 [data-win-title="full"] .winbox.aether.focus { --wb-head-bg: var(--title-bg-active, var(--title-bg, var(--panel))); --wb-head-fg: var(--title-fg-active, var(--title-fg, var(--fg))); }
 [data-win-title="full"] .winbox.aether:not(.dialog-window) {
-  top: var(--desk-top, var(--desk-top-auto, 0px)) !important;
-  bottom: var(--desk-bottom, var(--desk-bottom-auto, 0px)) !important;
-  left: 0 !important;
-  right: 0 !important;
+  top: var(--desk-top, var(--win-top-auto, var(--desk-top-auto, 0px))) !important;
+  bottom: var(--desk-bottom, var(--win-bottom-auto, var(--desk-bottom-auto, 0px))) !important;
+  left: var(--win-left-auto, 0px) !important;
+  right: var(--win-right-auto, 0px) !important;
   width: auto !important;
   height: auto !important;
   min-width: 0 !important;       /* desktop.js выставляет минимальную ширину по заголовку */
@@ -192,7 +192,7 @@
 /* консоль: окно терминала всегда рядом с приложением, прижато к нижнему краю */
 [data-win-title="full"] .winbox.aether.app-terminal {
   top: auto !important;
-  bottom: var(--desk-bottom, var(--desk-bottom-auto, 0px)) !important;
+  bottom: var(--desk-bottom, var(--win-bottom-auto, var(--desk-bottom-auto, 0px))) !important;
   height: var(--console-h, 40vh) !important;
   border-top: 2px solid var(--fg);
 }

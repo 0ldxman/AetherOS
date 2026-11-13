@@ -19,10 +19,11 @@ Modern не остаются на старом месте, когда их пе�
 from dataclasses import dataclass
 
 SLOTS = {"start": "Начало", "center": "Центр", "end": "Конец"}
-EDGES = {"top": "Сверху", "bottom": "Снизу"}           # без панели нельзя: на ней выход из сеанса
+EDGES = {"top": "Сверху", "bottom": "Снизу", "left": "Слева", "right": "Справа"}
 FORMS = {"bar": "Полоса во всю ширину", "dock": "Док по центру", "islands": "Острова"}
 SHOW = {"on": "Есть", "off": "Нет"}
 HIDE = {"off": "Нет", "on": "Прячется, пока не подвести мышь"}
+RESERVE = {"off": "Висит поверх окон", "on": "Окна не заходят под неё"}
 LEGACY_FORMS = {"island": "dock"}                     # прежнее «остров» — это док
 
 
@@ -156,7 +157,7 @@ def exits(style, data=None, data2=None):
 
 def native(look, key, slot, edge, form="bar"):
     rule = NATIVE.get(look, {}).get(key)
-    if rule is None:
+    if rule is None or edge in ("left", "right"):       # родная разметка видов рассчитана на горизонтальную панель
         return False
     slots, edges, forms = rule
     return (slots is None or slot in slots) and (edges is None or edge in edges) and (forms is None or form in forms)
@@ -198,7 +199,7 @@ def placed(style, data=None):
 # ---------- дополнительная панель (раньше док) ----------
 EDGES2 = {"bottom": "Снизу", "top": "Сверху", "left": "Слева", "right": "Справа"}
 FORMS2 = {"bar": "Полоса во всю длину края", "dock": "Док по центру", "islands": "Острова"}
-PRESET2 = {"show": "off", "edge": "bottom", "form": "dock", "hide": "off", "start": ["apps"], "center": [], "end": []}
+PRESET2 = {"show": "off", "edge": "bottom", "form": "dock", "hide": "off", "reserve": "off", "start": ["apps"], "center": [], "end": []}
 PRESETS2 = {"gnome": {"show": "on", "end": ["allapps"]}}
 
 
@@ -207,7 +208,7 @@ def clean2(data):
     if not isinstance(data, dict):
         return {}
     data = {**data, "form": LEGACY_FORMS.get(data["form"], data["form"])} if "form" in data else data
-    out = {name: data[name] for name, choices in (("show", SHOW), ("edge", EDGES2), ("form", FORMS2), ("hide", HIDE)) if data.get(name) in choices}
+    out = {name: data[name] for name, choices in (("show", SHOW), ("edge", EDGES2), ("form", FORMS2), ("hide", HIDE), ("reserve", RESERVE)) if data.get(name) in choices}
     seen = set()
     for slot in SLOTS:
         if isinstance(data.get(slot), list):
@@ -231,7 +232,7 @@ def problems2(style, data, main=None):
     found = []
     if not isinstance(data, dict):
         return ["Дополнительная панель задаётся объектом."]
-    for name, choices, label in (("show", SHOW, "значения «есть»"), ("edge", EDGES2, "края"), ("form", FORMS2, "формы"), ("hide", HIDE, "автоскрытия")):
+    for name, choices, label in (("show", SHOW, "значения «есть»"), ("edge", EDGES2, "края"), ("form", FORMS2, "формы"), ("hide", HIDE, "автоскрытия"), ("reserve", RESERVE, "места")):
         if name in data and data[name] not in choices:
             found.append(f"Нет такого {label}: {data[name]}.")
     data = {**data, "form": LEGACY_FORMS.get(data["form"], data["form"])} if "form" in data else data
@@ -250,7 +251,7 @@ def problems2(style, data, main=None):
 
 def attrs2(style, data=None, main=None):
     found = of2(style, data, main)
-    return {"pl2-show": found["show"], "pl2-edge": found["edge"], "pl2-form": found["form"], "pl2-hide": found["hide"]}
+    return {"pl2-show": found["show"], "pl2-edge": found["edge"], "pl2-form": found["form"], "pl2-hide": found["hide"], "pl2-reserve": found["reserve"]}
 
 
 def elements2(style, data=None, main=None):

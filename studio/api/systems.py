@@ -164,6 +164,7 @@ class Panel2Value(Schema):
     edge: str | None = None
     form: str | None = None
     hide: str | None = None
+    reserve: str | None = None
     start: list[str] | None = None
     center: list[str] | None = None
     end: list[str] | None = None
@@ -174,6 +175,7 @@ class Panel2Layout(Schema):
     edge: str
     form: str
     hide: str
+    reserve: str
     start: list[str]
     center: list[str]
     end: list[str]
@@ -193,6 +195,7 @@ class PanelInfo(Schema):
     forms2: list[WindowOption]
     shows: list[WindowOption]
     hides: list[WindowOption]
+    reserves: list[WindowOption]
     presets2: dict[str, Panel2Layout]                # вид главной панели -> заготовка дополнительной
 
 
@@ -386,6 +389,7 @@ def _out(system):
             forms2=[WindowOption(value=k, label=v) for k, v in panel.FORMS2.items()],
             shows=[WindowOption(value=k, label=v) for k, v in panel.SHOW.items()],
             hides=[WindowOption(value=k, label=v) for k, v in panel.HIDE.items()],
+            reserves=[WindowOption(value=k, label=v) for k, v in panel.RESERVE.items()],
             presets2={look: Panel2Layout(**{**panel.PRESET2, **panel.PRESETS2.get(look, {})}) for look in panel.LOOKS},
         ),
         styles=[StyleChoice(slug=slug, label=item.label, description=item.description) for slug, item in styles.STYLES.items()],

@@ -12,7 +12,7 @@
   type System = Schemas["SystemOut"];
   type Panel = { look?: string; show?: string; edge?: string; form?: string; start?: string[]; center?: string[]; end?: string[] };
   type Slot = "start" | "center" | "end";
-  type Panel2 = { show?: string; edge?: string; form?: string; hide?: string; start?: string[]; center?: string[]; end?: string[] };
+  type Panel2 = { show?: string; edge?: string; form?: string; hide?: string; reserve?: string; start?: string[]; center?: string[]; end?: string[] };
   type Which = "panel" | "panel2";
   type Done = (data: System | undefined, error: unknown, text: string) => void;
 
@@ -176,7 +176,7 @@
   const mainKeys = $derived(new Set(SLOTS.flatMap((s) => mainList(s))));
   // на дополнительной панели не стоит то, что уже на главной (так же считает сервер)
   const slotList = (w: Which, slot: Slot): string[] => w === "panel" ? mainList(slot) : (look.panel2[slot] ?? panel2Preset[slot]).filter((key) => !mainOn || !mainKeys.has(key));
-  const p2 = (key: "show" | "edge" | "form" | "hide") => look.panel2[key] ?? panel2Preset[key];
+  const p2 = (key: "show" | "edge" | "form" | "hide" | "reserve") => look.panel2[key] ?? panel2Preset[key];
   const placedKeys = $derived(new Set([...(mainOn ? mainKeys : []), ...(p2("show") === "on" ? SLOTS.flatMap((s) => slotList("panel2", s)) : [])]));
   const freeKeys = $derived(new Set([...(mainOn ? mainKeys : []), ...SLOTS.flatMap((s) => slotList("panel2", s))]));
   const elLabel = (key: string) => PI.elements.find((e) => e.key === key)?.label ?? key;
@@ -191,7 +191,7 @@
     if (value === panelPreset[key]) delete next[key]; else next[key] = value;
     look.panel = next;
   }
-  function setPanel2(key: "show" | "edge" | "form" | "hide", value: string) {
+  function setPanel2(key: "show" | "edge" | "form" | "hide" | "reserve", value: string) {
     const next = { ...look.panel2 };
     if (value === panel2Preset[key]) delete next[key]; else next[key] = value;
     look.panel2 = next;
@@ -649,11 +649,13 @@
               {@render pick("Край", PI.edges2, p2("edge"), panel2Preset.edge, (v) => setPanel2("edge", v), false)}
               {@render pick("Форма", PI.forms2, p2("form"), panel2Preset.form, (v) => setPanel2("form", v), false)}
               {#if p2("form") === "islands"}<p class="muted small">Каждая колонка — свой остров; сбоку они идут сверху вниз.</p>{/if}
+              {@render pick("Место", PI.reserves, p2("reserve"), panel2Preset.reserve, (v) => setPanel2("reserve", v), p2("hide") === "on")}
+              {#if p2("reserve") === "on" && p2("hide") !== "on"}<p class="muted small">Развёрнутые окна встают рядом с панелью и не заходят под неё.</p>{/if}
               {@render pick("Автоскрытие", PI.hides, p2("hide"), panel2Preset.hide, (v) => setPanel2("hide", v), false)}
               {#if p2("hide") === "on"}<p class="muted small">У края остаётся тонкая полоска; панель выезжает, когда к ней подводят мышь или переходят клавишей Tab.</p>{/if}
               {@render slotEditor("panel2")}
             {/if}
-            <p class="muted small">Висит поверх стола и окон не сдвигает. Её оформление берётся у вида панелей.</p>
+            <p class="muted small">Её оформление берётся у вида панелей.</p>
           {/if}
           {@render tokenBlock("Цвет панелей", tokensNamed(PANEL_TOKENS))}
           {#if noExit}<p class="warn small">Игроку не выйти из сеанса: оставьте на одной из панелей меню запуска, «Сеанс» или «Кнопки сеанса».</p>{/if}

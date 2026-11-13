@@ -19371,6 +19371,10 @@
       "title": "Hide",
       "type": "string"
      },
+     "reserve": {
+      "title": "Reserve",
+      "type": "string"
+     },
      "start": {
       "items": {
        "type": "string"
@@ -19398,6 +19402,7 @@
      "edge",
      "form",
      "hide",
+     "reserve",
      "start",
      "center",
      "end"
@@ -19450,6 +19455,17 @@
        }
       ],
       "title": "Hide"
+     },
+     "reserve": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Reserve"
      },
      "start": {
       "anyOf": [
@@ -19613,6 +19629,13 @@
       "title": "Hides",
       "type": "array"
      },
+     "reserves": {
+      "items": {
+       "$ref": "#/components/schemas/WindowOption"
+      },
+      "title": "Reserves",
+      "type": "array"
+     },
      "presets2": {
       "additionalProperties": {
        "$ref": "#/components/schemas/Panel2Layout"
@@ -19635,6 +19658,7 @@
      "forms2",
      "shows",
      "hides",
+     "reserves",
      "presets2"
     ],
     "title": "PanelInfo",
