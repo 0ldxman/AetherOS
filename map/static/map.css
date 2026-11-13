@@ -598,3 +598,17 @@ body.theme-scan .callout-line .anchor {
   stroke: var(--mc, #24366f);
   stroke-width: 1.7;
 }
+
+
+/* Подпись источников MapLibre: плашка в цвет панелей ОС вместо белой */
+.maplibregl-ctrl.maplibregl-ctrl-attrib {
+  background: color-mix(in srgb, var(--bg) 85%, transparent);
+  border: var(--ctl-border) solid var(--window-border);
+  border-radius: var(--ctl-radius);
+  color: var(--font-muted);
+  font-family: var(--font-main);
+}
+.maplibregl-ctrl-attrib a { color: var(--font-soft); }
+.maplibregl-ctrl-attrib a:hover { color: var(--accent); }
+.maplibregl-ctrl-attrib.maplibregl-compact::after,
+.maplibregl-ctrl-attrib-button { filter: invert(var(--attr-invert, 1)); }
