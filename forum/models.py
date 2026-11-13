@@ -129,3 +129,27 @@ class Attachment(models.Model):
 
     def __str__(self):
         return self.name
+
+
+class Reader(models.Model):
+    """Когда игрок впервые открыл форум: всё, что старше, для него не «новое»."""
+
+    user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="forum_reader")
+    since = models.DateTimeField(default=timezone.now)
+
+    class Meta:
+        verbose_name = "Читатель форума"
+        verbose_name_plural = "Читатели форума"
+
+
+class Visit(models.Model):
+    """Когда игрок последний раз открывал тему: что после этого, то для него новое."""
+
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="forum_visits")
+    topic = models.ForeignKey(Topic, on_delete=models.CASCADE, related_name="visits")
+    seen_at = models.DateTimeField(default=timezone.now)
+
+    class Meta:
+        constraints = [models.UniqueConstraint(fields=("user", "topic"), name="unique_forum_visit")]
+        verbose_name = "Просмотр темы"
+        verbose_name_plural = "Просмотры тем"

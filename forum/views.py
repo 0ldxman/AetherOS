@@ -1,7 +1,6 @@
 """Приложение «форум» у игрока: пространства машины, дерево разделов, темы, дерево ответов. Отдаёт JSON, страница одна (forum/static/forum/forum.js)."""
 import json
 
-from django.db.models import Count
 from django.http import Http404, JsonResponse
 from django.shortcuts import render
 from django.views.decorators.csrf import ensure_csrf_cookie
@@ -9,7 +8,7 @@ from django.views.decorators.http import require_GET, require_POST
 
 from filesystem import rights
 from filesystem.machine_view.entries import BadName, Occupied, ReadOnly
-from forum import attach, logic
+from forum import attach, logic, reading
 from forum.models import Attachment, Post, Section, Space, Topic
 
 
@@ -61,6 +60,21 @@ def _when(request, moment):
     return chrono.stamp(moment, machine, "%Y-%m-%d %H:%M")
 
 
+def _ago(moment):
+    """Сколько прошло по игровому времени: «12 min», «3 h», «2 d»."""
+    from machines.world import chrono
+    from machines.world.dates import ago
+
+    return ago(chrono.to_game(moment)) if moment else ""
+
+
+def _topic_row(request, topic, info):
+    return {"id": topic.pk, "title": topic.title, "name": topic.name, "kind": topic.kind, "pinned": topic.pinned, "locked": topic.locked,
+            "excerpt": info["excerpt"], "replies": info["replies"], "new": info["new"], "unseen": info["unseen"],
+            "at": _when(request, topic.created_at), "ago": _ago(topic.created_at),
+            "last_name": info["last_name"], "last_ago": _ago(info["last_at"])}
+
+
 def _error(error, status=400):
     return JsonResponse({"error": str(error)}, status=status)
 
@@ -91,10 +105,26 @@ def space(request, slug):
     _, keys = _context(request)
     player = _player(request)
 
-    counts = dict(Topic.objects.filter(section__space=found, hidden_at__isnull=True).values_list("section").annotate(n=Count("id")))
+    topics = list(Topic.objects.filter(section__space=found, hidden_at__isnull=True))
+    info = reading.summaries(topics, player)
+    per_section = {}
+    for item in topics:
+        row = per_section.setdefault(item.section_id, {"topics": 0, "new": 0, "last": None})
+        row["topics"] += 1
+        data = info[item.pk]
+        if data["new"] or data["unseen"]:
+            row["new"] += 1
+        if data["last_at"] and (row["last"] is None or data["last_at"] > row["last"][0]):
+            row["last"] = (data["last_at"], item, data["last_name"])
+
+    def summary(section):
+        row = per_section.get(section.pk, {"topics": 0, "new": 0, "last": None})
+        last = row["last"]
+        return {"topics": row["topics"], "new": row["new"],
+                "last": {"topic": last[1].pk, "title": last[1].title, "name": last[2], "ago": _ago(last[0])} if last else None}
 
     def convert(nodes):
-        return [{"id": n["section"].pk, "title": n["section"].title, "about": n["section"].about, "topics": counts.get(n["section"].pk, 0),
+        return [{"id": n["section"].pk, "title": n["section"].title, "about": n["section"].about, **summary(n["section"]),
                  "can_write": logic.can_write(n["section"], player, keys), "mine": logic.moderates(n["section"], player),
                  "children": convert(n["children"])} for n in nodes]
 
@@ -106,9 +136,10 @@ def space(request, slug):
 def section(request, pk):
     found = _section(request, pk)
     _, keys = _context(request)
-    topics = [{"id": t.pk, "title": t.title, "name": t.name, "kind": t.kind, "replies": t.replies, "pinned": t.pinned, "locked": t.locked,
-               "at": _when(request, t.created_at), "last": _when(request, t.bumped_at)} for t in logic.topics_in(found)]
     player = _player(request)
+    listed = list(logic.topics_in(found))
+    info = reading.summaries(listed, player)
+    topics = [_topic_row(request, t, info[t.pk]) for t in listed]
     return JsonResponse({"id": found.pk, "title": found.title, "about": found.about, "space": found.space.slug, "crumbs": _crumbs(found),
                          "can_write": logic.can_write(found, player, keys), "can_create": logic.can_create(found.space, found, player, keys),
                          "can_moderate": logic.moderates(found, player), "topics": topics})
@@ -120,7 +151,10 @@ def topic(request, pk):
     _, keys = _context(request)
     player = _player(request)
     moderator = logic.moderates(found.section, player)
+    fresh = reading.new_posts(found, player)
+    reading.mark_seen(found, player)
     posts = [{"id": p.pk, "parent": p.parent_id, "root": p.root, "name": p.name, "kind": p.kind, "at": _when(request, p.created_at),
+              "ago": _ago(p.created_at), "new": p.pk in fresh,
               "hidden": p.hidden_at is not None, "text": p.text if moderator or p.hidden_at is None else "",
               "files": [] if p.hidden_at is not None else [{"id": a.pk, "name": a.name, "size": a.size} for a in p.attachments.all()]}
              for p in logic.posts_of(found)]

@@ -16,31 +16,21 @@
           data-new-section-url="{% url 'forum:new_section' %}" data-archive-url="{% url 'forum:archive_section' %}" data-hide-url="{% url 'forum:hide_post' %}"
           data-restore-url="{% url 'forum:restore_post' %}" data-flags-url="{% url 'forum:topic_flags' %}" data-files-url="{% url 'forum:files' %}" data-save-url="{% url 'forum:save_attachment' %}">
 
-        {# шапка как у остальных приложений: тег, название, строка сведений, режим справа #}
+        {# шапка как у остальных приложений: тег и название слева, кто и с какого узла справа #}
         <header class="fm-head">
-            <div class="fm-meta">
-                <div class="fm-title"><span class="fm-tag">[FORUM]</span><h1 id="fm-space">…</h1></div>
-                <div class="fm-info">
-                    <span class="fm-item"><span class="fm-key">NODE:</span><span id="fm-node" class="fm-val">-</span></span>
-                    <span class="fm-item"><span class="fm-key">CALL:</span><span id="fm-call" class="fm-val">-</span></span>
-                    <span class="fm-item"><span class="fm-key">SECTIONS:</span><span id="fm-sections" class="fm-val">-</span></span>
-                    <span class="fm-item"><span class="fm-key">TOPICS:</span><span id="fm-topics" class="fm-val">-</span></span>
-                </div>
-            </div>
-            <div id="fm-mode" class="fm-mode">RO</div>
+            <div class="fm-title"><span class="fm-tag">[FORUM]</span><h1 id="fm-space">…</h1></div>
+            <div id="fm-who" class="fm-who"></div>
         </header>
 
-        <nav id="fm-path" class="fm-path" aria-label="path"></nav>
+        {# где игрок и что здесь можно сделать #}
+        <nav class="fm-bar" aria-label="location">
+            <div id="fm-crumbs" class="fm-crumbs"></div>
+            <div id="fm-actions" class="fm-actions"></div>
+        </nav>
 
-        <div class="fm-body">
-            <nav class="fm-tree" aria-label="sections">
-                <h2 class="fm-cap">SECTIONS</h2>
-                <div id="fm-tree"></div>
-            </nav>
-            <section id="fm-main" class="fm-main" aria-live="polite"></section>
-        </div>
+        <section class="fm-scroll"><div id="fm-page" class="fm-page" aria-live="polite"></div></section>
 
-        <div id="status" class="status" role="status"><span id="fm-hint" class="fm-hint"></span></div>
+        <div class="status" role="status"></div>
     </main>
 {% endblock %}
 

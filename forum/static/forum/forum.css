@@ -1,123 +1,127 @@
-/* Форум: журнал узла. Плоский терминальный интерфейс, как эфир и вьюверы: шапка с тегом и сведениями, путь вида узел:/раздел,
-   дерево разделов с ветками, темы строками таблицы, сообщения записями журнала с номерами. Только токены ОС: цвета, шрифт, форма (--ctl-*). */
-#forum { --fm-gutter: 22px; --fm-dim: color-mix(in srgb, var(--font-light) 45%, transparent);
+/* Форум: доска узла. Одна колонка для чтения: список разделов, темы с первой строкой, тема с ветками ответов.
+   Только токены ОС: цвета, шрифт, форма (--ctl-*). */
+#forum { --fm-gutter: 24px; --fm-read: 46rem;
          display: flex; flex-direction: column; height: 100vh; height: 100dvh; min-height: 0; overflow: hidden;
          background: var(--bg); color: var(--fg); font: 13px/1.5 var(--font-main); }
-#forum a { color: var(--accent); text-decoration: none; }
-#forum a:hover { text-decoration: underline; }
+#forum a { color: inherit; text-decoration: none; }
 #forum button, #forum input, #forum textarea { font: inherit; }
-.fm-key { color: var(--font-muted); letter-spacing: 0.04em; }
-.fm-dim { color: var(--font-muted); }
+#forum :focus-visible { outline: 1px solid var(--accent); outline-offset: 2px; }
+.fm-muted { color: var(--font-muted); }
 
 /* ---- шапка ---- */
-.fm-head { display: flex; align-items: center; justify-content: space-between; gap: 24px; padding: 14px var(--fm-gutter); border-bottom: 1px solid var(--line); }
-.fm-meta { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 28px; min-width: 0; }
+.fm-head { display: flex; align-items: baseline; justify-content: space-between; gap: 16px; padding: 14px var(--fm-gutter) 12px; border-bottom: 1px solid var(--line); }
 .fm-title { display: flex; align-items: baseline; gap: 10px; min-width: 0; }
 .fm-tag { font-size: 10px; font-weight: 700; letter-spacing: 0.08em; color: var(--accent); }
-.fm-title h1 { margin: 0; font-size: 14px; font-weight: 500; letter-spacing: 0.025em; text-transform: uppercase; overflow-wrap: anywhere; }
-.fm-info { display: flex; flex-wrap: wrap; gap: 4px 24px; font-size: 10px; letter-spacing: 0.04em; }
-.fm-item { display: inline-flex; align-items: baseline; gap: 8px; }
-.fm-val { font-variant-numeric: tabular-nums; letter-spacing: 0.06em; }
-.fm-mode { flex: 0 0 auto; color: var(--font-muted); font-size: 10px; letter-spacing: 0.1em; white-space: nowrap; }
-.fm-mode.rw { color: var(--status-ok); }
+.fm-title h1 { margin: 0; font-size: 14px; font-weight: 500; letter-spacing: 0.03em; text-transform: uppercase; overflow-wrap: anywhere; }
+.fm-who { color: var(--font-muted); font-size: 11px; letter-spacing: 0.04em; white-space: nowrap; }
+.fm-who b { color: var(--font-light); font-weight: 600; }
 
-/* ---- путь ---- */
-.fm-path { padding: 7px var(--fm-gutter); border-bottom: 1px solid var(--line); font-size: 11px; color: var(--font-muted); overflow-wrap: anywhere; }
-.fm-path a { color: var(--fg); }
-.fm-path .fm-here { color: var(--font-light); }
+/* ---- строка места и действий ---- */
+.fm-bar { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 40px; padding: 4px var(--fm-gutter); border-bottom: 1px solid var(--line); }
+.fm-crumbs { min-width: 0; font-size: 12px; color: var(--font-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#forum .fm-crumbs a { color: var(--fg); }
+#forum .fm-crumbs a:hover { color: var(--accent); }
+.fm-crumbs .fm-sep { padding: 0 6px; color: var(--font-muted); }
+.fm-crumbs .fm-here { color: var(--font-light); }
+.fm-actions { display: flex; gap: 8px; flex: 0 0 auto; }
+#forum .app-button { padding: 0.18rem 0.75rem; font-size: 12px; }
 
-/* ---- каркас ---- */
-.fm-body { flex: 1; display: grid; grid-template-columns: 230px minmax(0, 1fr); min-height: 0; }
-.fm-tree { overflow-y: auto; padding: 12px 0 20px; border-right: 1px solid var(--line); }
-.fm-cap { margin: 0 0 6px; padding: 0 var(--fm-gutter); font-size: 10px; font-weight: 700; letter-spacing: 0.1em; color: var(--font-muted); }
-.fm-main { overflow-y: auto; padding: 18px var(--fm-gutter) 48px; min-width: 0; }
+/* ---- лист для чтения ---- */
+.fm-scroll { flex: 1; min-height: 0; overflow-y: auto; }
+.fm-page { max-width: var(--fm-read); margin: 0 auto; padding: 18px var(--fm-gutter) 56px; }
+.fm-intro { margin: 0 0 18px; color: var(--font-soft); }
+.fm-intro p { margin: 0; }
+.fm-cap { margin: 22px 0 6px; font-size: 10px; font-weight: 700; letter-spacing: 0.1em; color: var(--font-muted); }
+.fm-cap:first-child { margin-top: 0; }
+.fm-void { margin: 20px 0; padding: 18px; border: 1px dashed var(--line); color: var(--font-muted); text-align: center; }
 
-/* ---- дерево разделов ---- */
-#forum .fm-node { display: flex; align-items: baseline; gap: 6px; padding: 3px var(--fm-gutter); color: var(--fg); white-space: nowrap; }
-#forum .fm-node:hover { background: var(--row-hover); text-decoration: none; }
-#forum .fm-node[aria-current="page"] { background: var(--row-selected); color: var(--font-light); box-shadow: inset 2px 0 var(--accent); }
-.fm-branch { color: var(--font-muted); white-space: pre; }
-.fm-label { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
-.fm-count { color: var(--font-muted); font-size: 11px; font-variant-numeric: tabular-nums; }
-.fm-flag { color: var(--font-muted); font-size: 10px; letter-spacing: 0.04em; }
-.fm-flag.mine { color: var(--accent); }
+/* ---- разделы ---- */
+.fm-boards { border-top: 1px solid var(--line); }
+#forum .fm-board { display: grid; grid-template-columns: 14px minmax(0, 1fr) auto; gap: 2px 10px; padding: 10px 6px; border-bottom: 1px solid var(--line); }
+#forum .fm-board:hover { background: var(--row-hover); }
+#forum .fm-board.sub { padding-left: 30px; }
+.fm-dot { grid-row: 1 / span 3; width: 7px; height: 7px; margin-top: 6px; border-radius: 50%; background: transparent; }
+.fm-dot.on { background: var(--accent); }
+.fm-board-title { color: var(--font-light); font-weight: 600; overflow-wrap: anywhere; }
+.fm-board.sub .fm-board-title::before { content: "└ "; color: var(--font-muted); font-weight: 400; }
+.fm-board-count { color: var(--font-muted); font-size: 11px; white-space: nowrap; text-align: right; }
+.fm-board-about { grid-column: 2 / span 2; color: var(--font-soft); font-size: 12px; }
+.fm-board-last { grid-column: 2 / span 2; color: var(--font-muted); font-size: 11px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.fm-board-last i { font-style: normal; color: var(--fg); }
 
-/* ---- заголовок раздела и действия ---- */
-.fm-sechead h2 { margin: 0; font-size: 15px; font-weight: 600; overflow-wrap: anywhere; }
-.fm-sechead p { margin: 4px 0 0; color: var(--font-soft); max-width: 60ch; }
-.fm-tools { display: flex; flex-wrap: wrap; gap: 8px; margin: 14px 0 6px; }
-#forum .app-button { padding: 0.2rem 0.7rem; font-size: 12px; letter-spacing: 0.04em; }
+/* ---- темы ---- */
+.fm-topics { border-top: 1px solid var(--line); }
+#forum .fm-topic { display: grid; grid-template-columns: 14px minmax(0, 1fr) auto; gap: 1px 10px; padding: 10px 6px; border-bottom: 1px solid var(--line); }
+#forum .fm-topic:hover { background: var(--row-hover); }
+.fm-mark { grid-row: 1 / span 3; padding-top: 1px; color: var(--accent); font-size: 10px; }
+.fm-mark .fm-dot { display: block; margin-top: 5px; }
+.fm-topic-title { color: var(--font-light); font-weight: 600; overflow-wrap: anywhere; }
+.fm-topic.read .fm-topic-title { font-weight: 500; }
+.fm-closed { margin-left: 8px; color: var(--font-muted); font-size: 11px; font-weight: 400; }
+.fm-by { font-size: 11px; letter-spacing: 0.04em; white-space: nowrap; text-align: right; }
+.fm-excerpt { grid-column: 2 / span 2; color: var(--font-soft); font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.fm-topic-meta { grid-column: 2 / span 2; display: flex; justify-content: space-between; gap: 10px; color: var(--font-muted); font-size: 11px; }
+.fm-new { padding: 0 6px; border-radius: var(--ctl-radius); background: var(--accent); color: var(--font-dark); font-size: 10px; font-weight: 700; letter-spacing: 0.04em; white-space: nowrap; }
 
-/* ---- темы: строки таблицы ---- */
-.fm-table { margin-top: 12px; }
-.fm-row { display: grid; grid-template-columns: 4.5rem minmax(0, 1fr) 8rem 3rem 10.5rem; gap: 0 14px; align-items: baseline; padding: 7px 8px; border-bottom: 1px solid var(--line); color: var(--font-light); }
-.fm-row.head { padding-top: 4px; padding-bottom: 4px; border-bottom-color: var(--line-bright); color: var(--font-muted); font-size: 10px; letter-spacing: 0.08em; }
-#forum a.fm-row { color: var(--font-light); }
-#forum a.fm-row:hover { background: var(--row-hover); text-decoration: none; }
-#forum a.fm-row:focus-visible { outline: 1px solid var(--accent); outline-offset: -1px; }
-.fm-row > * { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.fm-no, .fm-re, .fm-last { color: var(--font-muted); font-variant-numeric: tabular-nums; }
-.fm-re { text-align: right; }
-.fm-subject { font-weight: 600; }
-.fm-subject .fm-pin { color: var(--accent); margin-right: 6px; }
-.fm-subject .fm-closed { color: var(--font-muted); font-weight: 400; margin-left: 8px; }
-.fm-from { letter-spacing: 0.04em; }
-.fm-from { color: var(--fg); }
-.fm-from.kind-character { color: var(--accent-warn); }
-.fm-from.kind-system { color: var(--font-muted); }
-.fm-void { margin: 28px 0; color: var(--font-muted); letter-spacing: 0.04em; }
+/* подписи по тому, кто пишет */
+.fm-name { color: var(--font-light); font-weight: 700; letter-spacing: 0.04em; }
+.fm-by.kind-character, .fm-op.kind-character > .fm-meta .fm-name, .fm-c.kind-character > .fm-chead .fm-name { color: var(--accent-warn); }
+.fm-by.kind-system, .fm-op.kind-system > .fm-meta .fm-name, .fm-c.kind-system > .fm-chead .fm-name { color: var(--font-muted); font-weight: 400; }
 
-/* ---- сообщения: записи журнала ---- */
-.fm-topichead { display: flex; align-items: baseline; gap: 14px; flex-wrap: wrap; }
-.fm-topichead h2 { margin: 0; font-size: 15px; font-weight: 600; overflow-wrap: anywhere; }
-.fm-thread { margin-top: 14px; }
-.fm-entry { position: relative; padding: 8px 0 6px 12px; border-left: 2px solid var(--line); }
-.fm-entry.root { border-left-color: var(--accent); padding-bottom: 12px; }
-.fm-entry.kind-system { border-left-style: dashed; color: var(--font-soft); }
-.fm-entry.flash { animation: fm-flash 1.2s ease-out; }
-@keyframes fm-flash { from { background: var(--row-selected); } to { background: transparent; } }
-@media (prefers-reduced-motion: reduce) { .fm-entry.flash { animation: none; background: var(--row-selected); } }
-.fm-entryhead { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 12px; font-size: 11px; }
-.fm-entryhead .fm-name { font-size: 12px; font-weight: 700; letter-spacing: 0.05em; color: var(--font-light); }
-.kind-character > .fm-entryhead .fm-name { color: var(--accent-warn); }
-.kind-system > .fm-entryhead .fm-name { color: var(--font-muted); font-weight: 400; }
-.fm-ref { color: var(--font-muted); }
-.fm-entryhead .fm-refto { color: var(--font-muted); }
-.fm-entry .markup { margin-top: 3px; }
-.fm-entry .markup p { margin: 0 0 6px; overflow-wrap: anywhere; }
-.fm-entry .markup blockquote { margin: 0 0 6px; padding-left: 10px; border-left: 2px solid var(--line-bright); color: var(--font-soft); }
-.fm-gone { color: var(--font-muted); text-decoration: line-through; margin: 3px 0 0; }
-.fm-entryfoot { display: flex; flex-wrap: wrap; gap: 4px 14px; margin-top: 2px; font-size: 11px; }
-.fm-replies { margin: 2px 0 0 10px; }
-.fm-link { padding: 0; border: 0; background: none; color: var(--font-muted); font-size: 11px; letter-spacing: 0.03em; cursor: pointer; }
+/* ---- тема ---- */
+.fm-op { padding-bottom: 14px; border-bottom: 1px solid var(--line-bright); }
+.fm-op h2 { margin: 0 0 6px; font-size: 17px; font-weight: 600; line-height: 1.3; color: var(--font-light); overflow-wrap: anywhere; }
+.fm-meta { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 10px; color: var(--font-muted); font-size: 11px; }
+.fm-text { margin-top: 8px; font-size: 13.5px; line-height: 1.6; color: var(--fg); }
+.fm-text p { margin: 0 0 8px; overflow-wrap: anywhere; }
+.fm-text > .markup > :last-child { margin-bottom: 0; }
+.fm-text blockquote { margin: 0 0 8px; padding-left: 10px; border-left: 2px solid var(--line-bright); color: var(--font-soft); }
+.fm-text code { color: var(--font-light); }
+.fm-tools { display: flex; flex-wrap: wrap; gap: 4px 14px; margin-top: 4px; }
+.fm-link { padding: 0; border: 0; background: none; color: var(--font-muted); font-size: 11px; cursor: pointer; }
 .fm-link:hover { color: var(--accent); text-decoration: underline; }
-.fm-link:focus-visible, #forum .fm-node:focus-visible { outline: 1px solid var(--accent); outline-offset: 2px; }
 .fm-link.warn:hover { color: var(--accent-error); }
-.fm-files { display: flex; flex-direction: column; gap: 2px; margin-top: 4px; font-size: 11px; color: var(--font-soft); }
-.fm-file { overflow-wrap: anywhere; }
+.fm-files { display: flex; flex-direction: column; gap: 3px; margin-top: 6px; }
+.fm-file { display: inline-flex; align-items: baseline; gap: 10px; max-width: 100%; padding: 3px 8px; border: var(--ctl-border) solid var(--line); border-radius: var(--ctl-radius); font-size: 11px; color: var(--font-soft); }
+.fm-file b { color: var(--font-light); font-weight: 600; overflow-wrap: anywhere; }
 
-/* ---- ввод: строка терминала ---- */
-.fm-form { display: flex; flex-direction: column; gap: 8px; margin: 12px 0; max-width: 52rem; padding: 10px 12px; border: var(--ctl-border) solid var(--line-bright); border-radius: var(--ctl-radius); background: var(--bg-sunken); }
-.fm-form.reply { margin: 6px 0 8px; }
-.fm-prompt { display: flex; align-items: baseline; gap: 8px; }
-.fm-ps { flex: 0 0 auto; color: var(--accent); font-size: 11px; letter-spacing: 0.04em; white-space: nowrap; }
+/* ---- ответы: ветки с линией свёртки ---- */
+.fm-replies { margin-top: 6px; }
+.fm-c { position: relative; margin-top: 10px; }
+.fm-chead { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 10px; font-size: 11px; color: var(--font-muted); }
+.fm-fold { width: 18px; padding: 0; border: 0; background: none; color: var(--font-muted); font-size: 11px; cursor: pointer; }
+.fm-fold:hover { color: var(--accent); }
+.fm-cbody { padding-left: 28px; }
+.fm-cbody .fm-text { margin-top: 2px; font-size: 13px; }
+.fm-kids { margin-left: 8px; padding-left: 18px; border-left: 1px solid var(--line); }
+.fm-kids:hover { border-left-color: var(--line-bright); }
+.fm-kids.flat { margin-left: 0; padding-left: 0; border-left: 0; }
+.fm-c.fresh > .fm-chead::after { content: "new"; padding: 0 5px; border-radius: var(--ctl-radius); background: var(--accent); color: var(--font-dark); font-size: 9px; font-weight: 700; letter-spacing: 0.06em; }
+.fm-c.folded > .fm-cbody, .fm-c.folded > .fm-kids { display: none; }
+.fm-gone { color: var(--font-muted); font-style: italic; }
+.fm-flash { animation: fm-flash 1.4s ease-out; }
+@keyframes fm-flash { from { background: var(--row-selected); } to { background: transparent; } }
+@media (prefers-reduced-motion: reduce) { .fm-flash { animation: none; } }
+
+/* ---- ввод ---- */
+.fm-replybox { display: block; width: 100%; margin-top: 22px; padding: 9px 12px; border: var(--ctl-border) solid var(--line-bright); border-radius: var(--ctl-radius);
+               background: var(--bg-sunken); color: var(--font-muted); text-align: left; cursor: text; }
+.fm-replybox:hover { border-color: var(--accent); }
+.fm-form { display: flex; flex-direction: column; gap: 8px; margin: 12px 0; padding: 10px 12px; border: var(--ctl-border) solid var(--line-bright); border-radius: var(--ctl-radius); background: var(--bg-sunken); }
+.fm-form.inline { margin: 8px 0 4px; }
 .fm-form .field { background: var(--bg); }
-.fm-form textarea.field { min-height: 4.5rem; }
-.fm-form .fm-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
-.fm-attach { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px; }
-.fm-attach .fm-link { color: var(--accent); }
+.fm-form textarea.field { min-height: 5.5rem; resize: vertical; }
+.fm-form-foot { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
+.fm-form-foot .fm-hint { margin-left: auto; color: var(--font-muted); font-size: 10px; }
+.fm-attach { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; }
+.fm-attach > .fm-link { color: var(--accent); }
 .fm-chip { padding: 0 6px; border: var(--ctl-border) solid var(--line-bright); border-radius: var(--ctl-radius); font-size: 11px; }
 .fm-picker { flex-basis: 100%; max-height: 180px; overflow-y: auto; padding: 6px 8px; border: var(--ctl-border) solid var(--line); border-radius: var(--ctl-radius); background: var(--bg); }
 .fm-picker-list { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; }
+.fm-picker-list .fm-link { color: var(--fg); font-size: 12px; }
 
-/* ---- строка состояния ---- */
-.fm-hint { margin-left: auto; font-size: 10px; letter-spacing: 0.06em; }
-.status .notice { margin-right: 0; }
-
-@media (max-width: 760px) {
+@media (max-width: 640px) {
   #forum { --fm-gutter: 14px; }
-  .fm-body { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr); }
-  .fm-tree { max-height: 32vh; border-right: 0; border-bottom: 1px solid var(--line); }
-  .fm-row { grid-template-columns: minmax(0, 1fr) 6rem 2.5rem; }
-  .fm-row > .fm-no, .fm-row > .fm-last { display: none; }
+  .fm-who { display: none; }
+  .fm-kids { margin-left: 4px; padding-left: 10px; }
 }
