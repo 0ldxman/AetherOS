@@ -2,6 +2,7 @@
  * Сообщения стола: угол всплывающих уведомлений и ошибки без окна (machines/world/styles.py, NOTICE).
  *   data-toast-corner  br | tr | tc | bl | tl   (data-toast-move — угол не тот, под который рассчитан вид сообщений)
  *   data-error-form    window | banner | screen  (окном рисует WinBox и часть notice вида; здесь полоса и экран)
+ *   data-error-fill    standard | fill           (заливка: всё окно ошибки цвета сообщения)
  * Вид самих уведомлений и окон ошибок — static/ui/parts/notice/<вид>.css.
  * ========================================================================== */
 
@@ -51,4 +52,15 @@
 @media (prefers-reduced-motion: reduce) { .err-screen .err-ok::after { animation: none; } }
 
 /* знак уведомления квадратный у видов без скруглений */
-:is([data-notice="tui"], [data-notice="phosphor"], [data-notice="classic"], [data-notice="workbench"]) .toast-glyph { border-radius: 0; }
+:is([data-notice="aether"], [data-notice="tui"], [data-notice="phosphor"], [data-notice="classic"], [data-notice="workbench"]) .toast-glyph { border-radius: 0; }
+
+/* ---- «Заливка»: всё окно ошибки или предупреждения цвета сообщения, текст и кнопка в цвет стола ---- */
+:root[data-error-fill="fill"] .winbox.aether.dialog-window--error { background: var(--status-error); }
+:root[data-error-fill="fill"] .winbox.aether.dialog-window--warning { background: var(--status-warn); }
+:root[data-error-fill="fill"] .dialog { background: var(--tone); color: var(--bg); }
+:root[data-error-fill="fill"] .dialog-glyph { background: var(--bg); color: var(--tone); }
+:root[data-error-fill="fill"] .dialog-foot { border-top-color: var(--bg); }
+:root[data-error-fill="fill"] .dialog-code { color: var(--bg); opacity: 0.7; }
+:root[data-error-fill="fill"] .dialog-ok { background: none; border-color: var(--bg); color: var(--bg); box-shadow: none; }
+:root[data-error-fill="fill"] .dialog-ok:hover { background: var(--bg); color: var(--tone); }
+:root[data-error-fill="fill"] .dialog-ok:focus-visible { outline-color: var(--bg); }

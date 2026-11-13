@@ -176,6 +176,7 @@ NOTICE = {
     "look": ("Вид сообщений", _LOOK_LABELS),
     "corner": ("Угол уведомлений", {"br": "Справа снизу", "tr": "Справа сверху", "tc": "Сверху по центру", "bl": "Слева снизу", "tl": "Слева сверху"}),
     "errors": ("Ошибки", {"window": "Окном", "banner": "Полосой сверху", "screen": "На весь экран"}),
+    "fill": ("Цвет окна ошибки", {"standard": "Стандартный", "fill": "Заливка"}),
 }
 CLOCK = {
     "hours": ("Формат", {"24": "24 часа", "12": "12 часов"}),
@@ -186,7 +187,7 @@ GROUP_LABELS = {"window": "окон", "apps": "быстрого запуска",
 
 _DEFAULTS = {
     "apps": {"size": "m", "labels": "hover", "mark": "dot"},
-    "notice": {"corner": "br", "errors": "window"},
+    "notice": {"corner": "br", "errors": "window", "fill": "standard"},
     "clock": {"hours": "24", "seconds": "on"},
 }
 _LOOK_PRESETS = {
@@ -269,6 +270,7 @@ def parts(slug, custom=None):
     if notice["corner"] != preset("notice", notice["look"])["corner"]:
         attrs["toast-move"] = "1"                   # угол не тот, под который рассчитан вид сообщений
     attrs["error-form"] = notice["errors"]
+    attrs["error-fill"] = notice["fill"]
     attrs.update({f"clock-{key}": value for key, value in group_of("clock", slug, custom).items()})
     return attrs
 

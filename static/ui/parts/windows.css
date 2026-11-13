@@ -63,8 +63,10 @@
  * ========================================================================== */
 
 /* ---- tab: вкладка над рамкой (основа в desktop.css) ---- */
-/* неактивное окно: вкладка приглушена, чтобы стопка окон не читалась ступеньками одинаковых плашек */
-[data-win-title="tab"] .winbox.aether { --wb-head-bg: var(--title-bg, color-mix(in srgb, var(--font-light) 62%, var(--bg))); --wb-head-fg: var(--title-fg, var(--font-dark)); }
+[data-win-title="tab"] .winbox.aether { --wb-head-bg: var(--title-bg, var(--font-light)); --wb-head-fg: var(--title-fg, var(--font-dark)); }
+/* вкладка всегда яркая; окна в стопке различает лёгкая тень вкладки и рамки */
+[data-win-title="tab"] .winbox.aether:not(.dialog-window) .wb-header { box-shadow: 0 -3px 10px rgba(0, 0, 0, 0.45); }
+[data-win-title="tab"][data-win-frame="line"] .winbox.aether:not(.min):not(.dialog-window) { box-shadow: 0 0 0 1px var(--window-border), 0 10px 26px rgba(0, 0, 0, 0.45); }
 [data-win-title="tab"] .winbox.aether.focus { --wb-head-bg: var(--title-bg-active, var(--title-bg, var(--font-light))); --wb-head-fg: var(--title-fg-active, var(--title-fg, var(--font-dark))); }
 [data-win-title="tab"] .winbox.aether .wb-header,
 [data-win-title="tab"] .winbox.aether.max .wb-header { background: var(--wb-head-bg); border-color: var(--wb-head-bg); }

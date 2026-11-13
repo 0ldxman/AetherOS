@@ -50,7 +50,7 @@ class PartGroupsTests(TestCase):
         self.assertEqual(panel.of2("gnome")["end"], ["allapps"])
         self.assertEqual(panel.of2("aether")["show"], "off")
         self.assertEqual(styles.preset("apps", "gnome")["labels"], "none")
-        self.assertEqual(styles.preset("notice", "glitched"), {"corner": "br", "errors": "window", "look": "aether"})
+        self.assertEqual(styles.preset("notice", "glitched"), {"corner": "br", "errors": "window", "fill": "standard", "look": "aether"})
         self.assertEqual(styles.group_of("notice", "aether", {"notice": {"look": "gnome"}})["corner"], "tc")      # чужой вид со своим углом
         self.assertEqual(styles.group_of("clock", "aether", {"clock": {"hours": "12", "seconds": "x"}}), {"hours": "12", "seconds": "on"})
 
@@ -68,6 +68,7 @@ class PartGroupsTests(TestCase):
         self.assertEqual((attrs["pl2-show"], attrs["pl2-edge"], attrs["apps-mark"], attrs["toast-corner"], attrs["toast-move"], attrs["error-form"], attrs["clock-seconds"]),
                          ("on", "left", "line", "tl", "1", "screen", "off"))
         self.assertNotIn("toast-move", styles.parts("gnome"))
+        self.assertEqual(styles.parts("aether", {"notice": {"fill": "fill"}})["error-fill"], "fill")
 
     def test_desk_renders_the_second_panel(self):
         def render(parts):
