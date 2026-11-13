@@ -159,3 +159,6 @@
 
 [data-panel="phosphor"] .fw-kbd { margin-left: auto; padding: 0 5px; background: var(--fg); color: var(--bg); font: inherit; }
 [data-panel="phosphor"] .fw-item:hover .fw-kbd { background: var(--bg); color: var(--fg); }
+
+/* открытое приложение: меню и сведения прячутся (стол изолирован, иначе они легли бы поверх окна); Esc возвращает в меню */
+[data-panel="phosphor"]:has(#desktop .winbox:not(.dialog-window):not(.min):not(.app-terminal)) :is(.fw-menu, .fw-status) { visibility: hidden; }
