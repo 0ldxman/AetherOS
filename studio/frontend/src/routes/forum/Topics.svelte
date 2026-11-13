@@ -115,6 +115,7 @@
             <span class="muted small">#{post.id}</span>
           </div>
           <p>{post.text}</p>
+          {#if post.files.length}<p class="muted small">Вложения: {post.files.join(", ")}</p>{/if}
           {#if post.hidden}<p class="muted small">Скрыто{post.hidden_reason ? `: ${post.hidden_reason}` : ""}</p>{/if}
           {#if editable}
             <div class="tools">

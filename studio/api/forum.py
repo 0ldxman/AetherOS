@@ -119,6 +119,7 @@ class FoPost(Schema):
     hidden: bool
     hidden_reason: str
     created_at: dt.datetime
+    files: list[str]             # имена приложенных файлов
 
 
 class FoTopicOut(FoTopicRow):
@@ -320,7 +321,7 @@ def topics(request, slug: str, section: int | None = None, hidden: bool = False,
 def _post(post):
     return FoPost(id=post.pk, parent=post.parent_id, root=post.root, name=post.name, kind=post.kind,
                   player=post.author.get_username() if post.author_id else "", text=post.text, hidden=post.hidden_at is not None,
-                  hidden_reason=post.hidden_reason, created_at=post.created_at)
+                  hidden_reason=post.hidden_reason, created_at=post.created_at, files=[a.name for a in post.attachments.all()])
 
 
 def _topic_out(topic):

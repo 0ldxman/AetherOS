@@ -6,8 +6,10 @@ from django.shortcuts import render
 from django.views.decorators.csrf import ensure_csrf_cookie
 from django.views.decorators.http import require_GET, require_POST
 
-from forum import logic
-from forum.models import Post, Section, Space, Topic
+from filesystem import rights
+from filesystem.machine_view.entries import BadName, Occupied, ReadOnly
+from forum import attach, logic
+from forum.models import Attachment, Post, Section, Space, Topic
 
 
 def _context(request):
@@ -115,7 +117,9 @@ def topic(request, pk):
     player = _player(request)
     moderator = logic.moderates(found.section, player)
     posts = [{"id": p.pk, "parent": p.parent_id, "root": p.root, "name": p.name, "kind": p.kind, "at": _when(request, p.created_at),
-              "hidden": p.hidden_at is not None, "text": p.text if moderator or p.hidden_at is None else ""} for p in logic.posts_of(found)]
+              "hidden": p.hidden_at is not None, "text": p.text if moderator or p.hidden_at is None else "",
+              "files": [] if p.hidden_at is not None else [{"id": a.pk, "name": a.name, "size": a.size} for a in p.attachments.all()]}
+             for p in logic.posts_of(found)]
     can = logic.can_write(found.section, player, keys) and not found.locked
     return JsonResponse({"id": found.pk, "title": found.title, "locked": found.locked, "pinned": found.pinned, "section": found.section_id,
                          "space": found.section.space.slug, "crumbs": _crumbs(found.section), "can_reply": can, "can_moderate": moderator, "posts": posts})
@@ -129,13 +133,95 @@ def _body(request):
     return data if isinstance(data, dict) else {}
 
 
+def _box(request):
+    from mail.boxes import box_for
+
+    box = box_for(request)
+    if box is None:
+        raise Http404
+    return box
+
+
+def _snapshots(request, data, keys):
+    """Снимки файлов, которые игрок приложил (пути его вида машины): проверяются до создания записи."""
+    paths = [str(path) for path in (data.get("attachments") or []) if path][:attach.MAX_PER_POST + 1]
+    if not paths:
+        return []
+    if _player(request) is None:
+        raise logic.ForumError("файлы прикладывают только игроки")
+    from machines.access.groups import principal_for
+
+    box = _box(request)
+    principal = principal_for(box.profile) if box.profile is not None else None
+    found = []
+    for path in paths:
+        entry = box.view.get(path)
+        if entry is not None and principal is not None:
+            try:
+                rights.check(box.view, principal, entry.path, "r")
+            except rights.Denied:
+                raise logic.ForumError(f"{path}: нет доступа") from None
+        found.append(attach.snapshot(entry, keys))
+    return found
+
+
+@require_GET
+def files(request):
+    """Папка машины игрока для выбора вложения: те же правила, что у вложений почты."""
+    from machines.access.groups import principal_for
+    from machines.world import places
+
+    box = _box(request)
+    if box.user is None:
+        return _error("sign in to attach files", 403)
+    path = request.GET.get("path")
+    if not path:
+        path = places.resolve(box.machine, "home", box.login) or "/"
+        if not box.view.is_directory(path):                    # у записи может не быть домашней папки: тогда с корня
+            path = "/"
+    if not box.view.is_directory(path):
+        raise Http404
+    principal = principal_for(box.profile) if box.profile is not None else None
+    rows = []
+    for entry in box.view.children(path):
+        if entry.hidden:
+            continue
+        if principal is not None:
+            try:
+                rights.check(box.view, principal, entry.path, "r")
+            except rights.Denied:
+                continue
+        rows.append({"name": entry.name, "path": entry.path, "dir": entry.is_dir})
+    rows.sort(key=lambda row: (not row["dir"], row["name"].lower()))
+    parent = (path.rsplit("/", 1)[0] or "/") if path != "/" else ""
+    return JsonResponse({"path": path, "parent": parent, "entries": rows})
+
+
+@require_POST
+def save_attachment(request):
+    """Сохранить вложение на диск игрока: копия в его домашней папке."""
+    found = Attachment.objects.select_related("post__topic__section__space", "post__topic__section__parent").filter(pk=_body(request).get("attachment")).first()
+    if found is None or found.post.hidden_at is not None:
+        raise Http404
+    _topic(request, found.post.topic_id)
+    try:
+        path = attach.save_to_disk(_box(request), found)
+    except logic.ForumError as error:
+        return _error(error, 403)
+    except (ReadOnly, Occupied, BadName, rights.Denied, rights.NotPermitted):
+        return _error("cannot save the file here", 403)
+    return JsonResponse({"path": path})
+
+
 @require_POST
 def new_topic(request):
     data = _body(request)
     found = _section(request, data.get("section"))
     _, keys = _context(request)
     try:
+        snapshots = _snapshots(request, data, keys)
         created = logic.start_topic(found, _player(request), data.get("title"), data.get("text"), keys)
+        attach.attach(created.posts.get(root=True), snapshots)
     except logic.ForumError as error:
         return _error(error, 403)
     return JsonResponse({"id": created.pk})
@@ -148,7 +234,9 @@ def new_post(request):
     _, keys = _context(request)
     parent = Post.objects.filter(pk=data["parent"], topic=found).first() if data.get("parent") else None
     try:
+        snapshots = _snapshots(request, data, keys)
         created = logic.reply(found, _player(request), data.get("text"), keys, parent=parent)
+        attach.attach(created, snapshots)
     except logic.ForumError as error:
         return _error(error, 403)
     return JsonResponse({"id": created.pk})

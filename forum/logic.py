@@ -86,7 +86,7 @@ def topics_in(section):
 
 def posts_of(topic):
     """Сообщения темы в порядке времени; скрытое остаётся пустым местом, чтобы не рвать ветки."""
-    return list(Post.objects.filter(topic=topic).order_by("created_at", "id"))
+    return list(Post.objects.filter(topic=topic).prefetch_related("attachments").order_by("created_at", "id"))
 
 
 # ---- подписи ----

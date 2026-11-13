@@ -28351,6 +28351,13 @@
       "format": "date-time",
       "title": "Created At",
       "type": "string"
+     },
+     "files": {
+      "items": {
+       "type": "string"
+      },
+      "title": "Files",
+      "type": "array"
      }
     },
     "required": [
@@ -28363,7 +28370,8 @@
      "text",
      "hidden",
      "hidden_reason",
-     "created_at"
+     "created_at",
+     "files"
     ],
     "title": "FoPost",
     "type": "object"

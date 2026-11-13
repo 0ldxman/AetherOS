@@ -109,3 +109,23 @@ class Post(models.Model):
 
     def __str__(self):
         return f"{self.name}: {self.text[:40]}"
+
+
+class Attachment(models.Model):
+    """Файл, приложенный к сообщению: снимок на момент отправки (ссылка на общий объект или собственное содержимое)."""
+
+    post = models.ForeignKey(Post, on_delete=models.CASCADE, related_name="attachments")
+    name = models.CharField("Имя файла", max_length=128)
+    item = models.ForeignKey("filesystem.Item", null=True, blank=True, on_delete=models.SET_NULL, related_name="+")
+    content = models.TextField(null=True, blank=True, help_text="Своё тело: правка игрока или файл без объекта.")
+    data = models.BinaryField(null=True, blank=True)
+    size = models.PositiveIntegerField(default=0)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ("id",)
+        verbose_name = "Вложение"
+        verbose_name_plural = "Вложения"
+
+    def __str__(self):
+        return self.name

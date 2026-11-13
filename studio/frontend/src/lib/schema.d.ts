@@ -10296,6 +10296,8 @@ export interface components {
              * Format: date-time
              */
             created_at: string;
+            /** Files */
+            files: string[];
         };
         /** FoTopicOut */
         FoTopicOut: {

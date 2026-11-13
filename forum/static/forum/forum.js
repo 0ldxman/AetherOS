@@ -7,7 +7,7 @@
     const $ = (id) => document.getElementById(id);
     const MAX_FOLD = 3;                       // ветки глубже этого сворачиваются, если ответов много
 
-    let spaces = [], space = null;
+    let spaces = [], space = null, player = false;
 
     const addr = (template, key, value) => template.replace(key, value);
     const sectionUrl = (id) => urls.sectionUrl.replace(/0\/$/, id + "/");
@@ -24,6 +24,70 @@
     }
 
     function fail(error) { notice(error.message || String(error)); }
+
+    // ---------- вложения: выбор файла из своей машины ----------
+    function attachField() {
+        const wrap = el("div", "fm-attach");
+        const chosen = [];
+        const chips = el("span", "fm-chips");
+        const add = el("button", "fm-link", "attach file"); add.type = "button";
+        const picker = el("div", "fm-picker"); picker.hidden = true;
+        const MAX = 2;
+
+        function drawChips() {
+            chips.replaceChildren();
+            for (const file of chosen) {
+                const chip = el("span", "fm-chip", file.name + " ");
+                const drop = el("button", "fm-link", "×"); drop.type = "button"; drop.title = "remove";
+                drop.addEventListener("click", () => { chosen.splice(chosen.indexOf(file), 1); drawChips(); });
+                chip.append(drop);
+                chips.append(chip);
+            }
+            add.hidden = chosen.length >= MAX;
+        }
+        async function browse(path) {
+            try {
+                const data = await call(urls.filesUrl + (path ? "?path=" + encodeURIComponent(path) : ""));
+                picker.replaceChildren(el("div", "fm-dim", data.path));
+                const list = el("div", "fm-files-list");
+                if (data.parent) {
+                    const up = el("button", "fm-link", ".."); up.type = "button";
+                    up.addEventListener("click", () => browse(data.parent));
+                    list.append(up);
+                }
+                for (const row of data.entries) {
+                    const item = el("button", "fm-link", row.dir ? row.name + "/" : row.name); item.type = "button";
+                    item.addEventListener("click", () => {
+                        if (row.dir) return browse(row.path);
+                        if (!chosen.some((file) => file.path === row.path)) chosen.push({ path: row.path, name: row.name });
+                        picker.hidden = true;
+                        drawChips();
+                    });
+                    list.append(item);
+                }
+                picker.append(list);
+            } catch (error) { fail(error); picker.hidden = true; }
+        }
+        add.addEventListener("click", () => { picker.hidden = !picker.hidden; if (!picker.hidden) browse(""); });
+        wrap.append(add, chips, picker);
+        return { node: wrap, paths: () => chosen.map((file) => file.path) };
+    }
+
+    function fileLinks(post) {
+        const box = el("div", "fm-files");
+        for (const file of post.files || []) {
+            const row = el("span", "fm-file", "[" + file.name + "] " + file.size + " B ");
+            if (player) {
+                const save = el("button", "fm-link", "save to my disk"); save.type = "button";
+                save.addEventListener("click", async () => {
+                    try { const saved = await call(urls.saveUrl, { attachment: file.id }); notice("saved: " + saved.path); } catch (error) { fail(error); }
+                });
+                row.append(save);
+            }
+            box.append(row);
+        }
+        return box;
+    }
 
     // ---------- шапка и дерево ----------
     function crumbs(items) {
@@ -148,13 +212,16 @@
         const send = el("button", "app-button primary", "Post"); send.type = "submit";
         const cancel = el("button", "app-button", "Cancel"); cancel.type = "button";
         cancel.addEventListener("click", () => form.remove());
-        form.append(title, text, el("div", "fm-actions"));
+        const topicFiles = player ? attachField() : null;
+        form.append(title, text);
+        if (topicFiles) form.append(topicFiles.node);
+        form.append(el("div", "fm-actions"));
         form.lastChild.append(send, cancel);
         form.addEventListener("submit", async (event) => {
             event.preventDefault();
             send.disabled = true;
             try {
-                const made = await call(urls.newTopicUrl, { section: sectionId, title: title.value, text: text.value });
+                const made = await call(urls.newTopicUrl, { section: sectionId, title: title.value, text: text.value, attachments: topicFiles ? topicFiles.paths() : [] });
                 location.hash = "#/t/" + made.id;
             } catch (error) { fail(error); send.disabled = false; }
         });
@@ -194,7 +261,10 @@
             if (post.hidden) {
                 box.append(el("p", "fm-dim", "[deleted]"));
                 if (data.can_moderate && post.text) box.append(el("p", "fm-dim fm-gone", post.text));
-            } else box.append(markup(post.text));
+            } else {
+                box.append(markup(post.text));
+                if (post.files && post.files.length) box.append(fileLinks(post));
+            }
             const acts = el("div", "fm-actions");
             if (data.can_reply && !post.hidden) {
                 const reply = el("button", "fm-link", "reply"); reply.type = "button";
@@ -249,12 +319,15 @@
         cancel.addEventListener("click", () => form.remove());
         const acts = el("div", "fm-actions");
         acts.append(send, cancel);
-        form.append(text, acts);
+        const replyFiles = player ? attachField() : null;
+        form.append(text);
+        if (replyFiles) form.append(replyFiles.node);
+        form.append(acts);
         form.addEventListener("submit", async (event) => {
             event.preventDefault();
             send.disabled = true;
             try {
-                await call(urls.newPostUrl, { topic: topicId, parent: parentId, text: text.value });
+                await call(urls.newPostUrl, { topic: topicId, parent: parentId, text: text.value, attachments: replyFiles ? replyFiles.paths() : [] });
                 await route();
             } catch (error) { fail(error); send.disabled = false; }
         });
@@ -267,6 +340,7 @@
         const data = await call(urls.spacesUrl);
         spaces = data.spaces;
         $("fm-call").textContent = data.callsign || "guest";
+        player = !!data.callsign;
         if (!spaces.length) {
             $("fm-space").textContent = "forum";
             $("fm-main").append(el("p", "fm-dim", "no spaces on this machine"));
