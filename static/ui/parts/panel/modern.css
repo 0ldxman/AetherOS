@@ -456,3 +456,14 @@
 
 /* часы уже на панели задач: карточка часов на столе их не повторяет, пока часы стоят на панели */
 [data-panel="modern"]:has(#taskbar #clock) .widget--clock { display: none; }
+
+/* подвал «Пуска»: пользователь отдельной строкой целиком, действия ниже; выход не красный, а отделён и с знаком питания */
+[data-panel="modern"] .launcher-foot { flex-wrap: wrap; row-gap: 2px; }
+[data-panel="modern"] .launcher-user { flex: 1 0 100%; padding: 2px 10px 4px; }
+[data-panel="modern"] .launcher-foot button[data-action="disconnect"] { margin-left: auto; color: var(--fg); }
+[data-panel="modern"] .launcher-foot button[data-action="disconnect"] { display: inline-flex; align-items: center; gap: 6px; }
+[data-panel="modern"] .launcher-foot button[data-action="disconnect"]::before {
+  content: ""; width: 13px; height: 13px; background: currentColor;
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='black' stroke-width='1.6' stroke-linecap='round'%3E%3Cpath d='M8 1.5v6'/%3E%3Cpath d='M4.4 3.9a5.5 5.5 0 1 0 7.2 0'/%3E%3C/svg%3E") center / contain no-repeat; mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='black' stroke-width='1.6' stroke-linecap='round'%3E%3Cpath d='M8 1.5v6'/%3E%3Cpath d='M4.4 3.9a5.5 5.5 0 1 0 7.2 0'/%3E%3C/svg%3E") center / contain no-repeat;
+}
+[data-panel="modern"] .launcher-foot button[data-action="disconnect"]:hover { color: var(--accent-error); }
