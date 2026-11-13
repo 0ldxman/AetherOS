@@ -256,8 +256,8 @@
         const icon = typeof mailIcon === "function" && mailUrl ? mailIcon() : null;
         const badge = icon && icon.querySelector(".icon-badge");
 
-        widget.hidden = !icon;
-        field(widget, "unread", badge ? badge.textContent + " new" : "no new mail");
+        widget.hidden = !badge;                        // карточка почты появляется, только когда есть непрочитанное
+        field(widget, "unread", badge ? badge.textContent + " new" : "");
         widget.classList.toggle("has-mail", Boolean(badge));
       }
     });

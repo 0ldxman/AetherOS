@@ -453,3 +453,6 @@
 
 /* часы прибиты к правому краю панели: место под них оставляет сама панель, если они стоят на своём месте */
 [data-panel="modern"] #taskbar:has(#clock-plate) { padding-right: 110px; }
+
+/* часы уже на панели задач: карточка часов на столе их не повторяет, пока часы стоят на панели */
+[data-panel="modern"]:has(#taskbar #clock) .widget--clock { display: none; }
