@@ -51,3 +51,5 @@
   .fm-body { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr); }
   .fm-tree { max-height: 30vh; border-right: 0; border-bottom: 1px solid var(--line); }
 }
+.fm-tools { margin: 6px 0 10px; }
+.fm-gone { text-decoration: line-through; }

@@ -79,12 +79,19 @@
         head.append(el("h2", "", data.title));
         if (data.about) head.append(el("p", "fm-dim", data.about));
         main.append(head);
-        if (data.can_write) {
-            const button = el("button", "app-button", "New topic");
-            button.type = "button";
-            button.addEventListener("click", () => composeTopic(main, data.id));
-            main.append(button);
-        }
+        const tools = el("div", "fm-actions fm-tools");
+        if (data.can_write) tools.append(tool("New topic", () => composeTopic(main, data.id)));
+        if (data.can_create) tools.append(tool("New section", () => composeSection(main, data.id)));
+        if (data.can_moderate) tools.append(tool("Archive section", async () => {
+            if (!confirm("Archive this section? It disappears from the lists; posts are kept.")) return;
+            try {
+                await call(urls.archiveUrl, { section: data.id });
+                await loadSpace(space.slug);
+                const up = data.crumbs.length > 1 ? "#/c/" + data.crumbs[data.crumbs.length - 2].id : "#/s/" + space.slug;
+                if (location.hash === up) await route(); else location.hash = up;
+            } catch (error) { fail(error); }
+        }));
+        if (tools.children.length) main.append(tools);
         if (!data.topics.length) main.append(el("p", "fm-dim", "no topics yet"));
         const table = el("div", "fm-topics");
         for (const t of data.topics) {
@@ -96,6 +103,39 @@
             table.append(row);
         }
         main.append(table);
+    }
+
+    function tool(label, onclick) {
+        const button = el("button", "app-button", label);
+        button.type = "button";
+        button.addEventListener("click", onclick);
+        return button;
+    }
+
+    function composeSection(main, parentId) {
+        if (main.querySelector(".fm-form")) return;
+        const form = el("form", "fm-form");
+        const title = el("input", "field");
+        title.placeholder = "section name"; title.maxLength = 120; title.required = true;
+        const about = el("input", "field");
+        about.placeholder = "what is it for (optional)"; about.maxLength = 240;
+        const send = el("button", "app-button primary", "Create"); send.type = "submit";
+        const cancel = el("button", "app-button", "Cancel"); cancel.type = "button";
+        cancel.addEventListener("click", () => form.remove());
+        const acts = el("div", "fm-actions");
+        acts.append(send, cancel);
+        form.append(title, about, acts);
+        form.addEventListener("submit", async (event) => {
+            event.preventDefault();
+            send.disabled = true;
+            try {
+                const made = await call(urls.newSectionUrl, { space: space.slug, parent: parentId, title: title.value, about: about.value });
+                await loadSpace(space.slug);
+                location.hash = "#/c/" + made.id;
+            } catch (error) { fail(error); send.disabled = false; }
+        });
+        main.querySelector(".fm-sechead").after(form);
+        title.focus();
     }
 
     function composeTopic(main, sectionId) {
@@ -133,6 +173,12 @@
         const head = el("div", "fm-sechead");
         head.append(el("h2", "", (data.pinned ? "▲ " : "") + data.title + (data.locked ? " [closed]" : "")));
         main.append(head);
+        if (data.can_moderate) {
+            const bar = el("div", "fm-actions fm-tools");
+            bar.append(tool(data.pinned ? "Unpin" : "Pin", () => moderate(urls.flagsUrl, { topic: data.id, pinned: !data.pinned })),
+                       tool(data.locked ? "Open" : "Close", () => moderate(urls.flagsUrl, { topic: data.id, locked: !data.locked })));
+            main.append(bar);
+        }
         const children = new Map();
         for (const post of data.posts) {
             const key = post.parent || 0;
@@ -145,13 +191,23 @@
             const bar = el("div", "fm-postbar");
             bar.append(el("span", "fm-name", post.name || "system"), el("span", "fm-meta", post.at));
             box.append(bar);
-            if (post.hidden) box.append(el("p", "fm-dim", "[deleted]"));
-            else box.append(markup(post.text));
+            if (post.hidden) {
+                box.append(el("p", "fm-dim", "[deleted]"));
+                if (data.can_moderate && post.text) box.append(el("p", "fm-dim fm-gone", post.text));
+            } else box.append(markup(post.text));
             const acts = el("div", "fm-actions");
             if (data.can_reply && !post.hidden) {
                 const reply = el("button", "fm-link", "reply"); reply.type = "button";
                 reply.addEventListener("click", () => composeReply(box, data.id, post.id));
                 acts.append(reply);
+            }
+            if (data.can_moderate) {
+                const act = el("button", "fm-link", post.hidden ? "restore" : (post.root ? "delete topic" : "delete")); act.type = "button";
+                act.addEventListener("click", () => {
+                    if (post.root && !post.hidden && !confirm("Delete the whole topic?")) return;
+                    moderate(post.hidden ? urls.restoreUrl : urls.hideUrl, { post: post.id });
+                });
+                acts.append(act);
             }
             const kids = children.get(post.id) || [];
             let nest = null;
@@ -174,6 +230,13 @@
         const roots = children.get(0) || [];
         roots.forEach((post) => main.append(render(post, 0)));
         if (!data.can_reply) main.append(el("p", "fm-dim", data.locked ? "this topic is closed" : "read only"));
+    }
+
+    async function moderate(url, body) {
+        try {
+            await call(url, body);
+            await route();
+        } catch (error) { fail(error); }
     }
 
     function composeReply(box, topicId, parentId) {
@@ -228,6 +291,11 @@
             head.append(el("h2", "", space.title));
             if (space.about) head.append(markup(space.about));
             main.append(head);
+            if (space.can_create) {
+                const bar = el("div", "fm-actions fm-tools");
+                bar.append(tool("New section", () => composeSection(main, null)));
+                main.append(bar);
+            }
             if (spaces.length > 1) {
                 const list = el("div", "fm-topics");
                 for (const item of spaces) {

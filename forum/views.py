@@ -89,9 +89,11 @@ def space(request, slug):
 
     def convert(nodes):
         return [{"id": n["section"].pk, "title": n["section"].title, "about": n["section"].about,
-                 "can_write": logic.can_write(n["section"], player, keys), "children": convert(n["children"])} for n in nodes]
+                 "can_write": logic.can_write(n["section"], player, keys), "mine": logic.moderates(n["section"], player),
+                 "children": convert(n["children"])} for n in nodes]
 
-    return JsonResponse({"slug": found.slug, "title": found.title, "about": found.about, "tree": convert(logic.sections_of(found, keys))})
+    return JsonResponse({"slug": found.slug, "title": found.title, "about": found.about, "tree": convert(logic.sections_of(found, keys)),
+                         "can_create": logic.can_create(found, None, player, keys)})
 
 
 @require_GET
@@ -100,19 +102,23 @@ def section(request, pk):
     _, keys = _context(request)
     topics = [{"id": t.pk, "title": t.title, "name": t.name, "kind": t.kind, "replies": t.replies, "pinned": t.pinned, "locked": t.locked,
                "at": _when(request, t.created_at), "last": _when(request, t.bumped_at)} for t in logic.topics_in(found)]
+    player = _player(request)
     return JsonResponse({"id": found.pk, "title": found.title, "about": found.about, "space": found.space.slug, "crumbs": _crumbs(found),
-                         "can_write": logic.can_write(found, _player(request), keys), "topics": topics})
+                         "can_write": logic.can_write(found, player, keys), "can_create": logic.can_create(found.space, found, player, keys),
+                         "can_moderate": logic.moderates(found, player), "topics": topics})
 
 
 @require_GET
 def topic(request, pk):
     found = _topic(request, pk)
     _, keys = _context(request)
+    player = _player(request)
+    moderator = logic.moderates(found.section, player)
     posts = [{"id": p.pk, "parent": p.parent_id, "root": p.root, "name": p.name, "kind": p.kind, "at": _when(request, p.created_at),
-              "hidden": p.hidden_at is not None, "text": "" if p.hidden_at is not None else p.text} for p in logic.posts_of(found)]
-    can = logic.can_write(found.section, _player(request), keys) and not found.locked
+              "hidden": p.hidden_at is not None, "text": p.text if moderator or p.hidden_at is None else ""} for p in logic.posts_of(found)]
+    can = logic.can_write(found.section, player, keys) and not found.locked
     return JsonResponse({"id": found.pk, "title": found.title, "locked": found.locked, "pinned": found.pinned, "section": found.section_id,
-                         "space": found.section.space.slug, "crumbs": _crumbs(found.section), "can_reply": can, "posts": posts})
+                         "space": found.section.space.slug, "crumbs": _crumbs(found.section), "can_reply": can, "can_moderate": moderator, "posts": posts})
 
 
 def _body(request):
@@ -146,3 +152,67 @@ def new_post(request):
     except logic.ForumError as error:
         return _error(error, 403)
     return JsonResponse({"id": created.pk})
+
+
+@require_POST
+def new_section(request):
+    data = _body(request)
+    space = _space(request, data.get("space"))
+    _, keys = _context(request)
+    parent = _section(request, data["parent"]) if data.get("parent") else None
+    try:
+        created = logic.create_section(space, parent, _player(request), data.get("title"), data.get("about"), keys)
+    except logic.ForumError as error:
+        return _error(error, 403)
+    return JsonResponse({"id": created.pk})
+
+
+def _post_of(request, pk):
+    """Сообщение для модерации: тема видна игроку, а раздел он вправе модерировать."""
+    post = Post.objects.select_related("topic__section__space", "topic__section__parent").filter(pk=pk).first()
+    if post is None:
+        raise Http404
+    _section(request, post.topic.section_id)
+    return post
+
+
+@require_POST
+def hide_post(request):
+    data = _body(request)
+    post = _post_of(request, data.get("post"))
+    try:
+        logic.mod_hide(post, _player(request), str(data.get("reason") or ""))
+    except logic.ForumError as error:
+        return _error(error, 403)
+    return JsonResponse({"ok": True})
+
+
+@require_POST
+def restore_post(request):
+    post = _post_of(request, _body(request).get("post"))
+    try:
+        logic.mod_restore(post, _player(request))
+    except logic.ForumError as error:
+        return _error(error, 403)
+    return JsonResponse({"ok": True})
+
+
+@require_POST
+def topic_flags(request):
+    data = _body(request)
+    found = _topic(request, data.get("topic"))
+    try:
+        logic.mod_flags(found, _player(request), pinned=data.get("pinned"), locked=data.get("locked"))
+    except logic.ForumError as error:
+        return _error(error, 403)
+    return JsonResponse({"ok": True})
+
+
+@require_POST
+def archive_section(request):
+    found = _section(request, _body(request).get("section"))
+    try:
+        logic.mod_archive(found, _player(request))
+    except logic.ForumError as error:
+        return _error(error, 403)
+    return JsonResponse({"ok": True})
