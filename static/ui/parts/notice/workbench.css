@@ -25,5 +25,8 @@
 
 /* ---- тосты ---- */
 [data-notice="workbench"] #toasts { bottom: 100px; }
-[data-notice="workbench"] .toast { background: var(--panel); border: 0; box-shadow: var(--raised, inset 0 0 0 1px var(--line-bright)); color: var(--fg); }
+[data-notice="workbench"] .toast {
+  padding: 0.7rem 0.9rem; background: var(--panel); border: 0; color: var(--fg);
+  box-shadow: var(--keyline, inset 0 0 0 1px var(--line-bright), inset 0 0 0 3px var(--panel), inset 0 0 0 4px var(--line-bright)), 0 6px 14px rgba(0, 0, 0, 0.35);
+}
 [data-notice="workbench"] .toast-text { color: var(--font-soft); }

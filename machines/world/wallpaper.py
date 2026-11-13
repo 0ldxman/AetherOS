@@ -120,7 +120,7 @@ def style_look(slug, tokens):
     match = re.match(r"^(\d+(?:\.\d+)?)px$", values.get("--cell", ""))
     if match and SIZE_MIN <= float(match.group(1)) <= SIZE_MAX:
         look["size"] = round(float(match.group(1)))
-    color = values.get("--line-faint", "")
+    color = values.get("--desk-grid", "") or values.get("--line-faint", "")      # свой тон сетки стола у стиля важнее тонких линий окон
     if re.match(r"^#[0-9a-fA-F]{6}$", color):
         look["color"] = color
     return look

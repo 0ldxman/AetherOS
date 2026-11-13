@@ -14,6 +14,7 @@
   --font-muted: #62737e;
   --line: #849098;
   --line-faint: #b4bdc3;
+  --desk-grid: #52666f;           /* сетка стола: чуть светлее тёмного стола, а не светлые линии окон */
   --line-bright: #51606a;
   --window-border: #34434d;
   --accent: #2f7a86;
