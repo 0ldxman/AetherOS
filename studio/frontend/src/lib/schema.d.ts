@@ -10096,6 +10096,12 @@ export interface components {
             write: string;
             /** Write If */
             write_if: string;
+            /** Create */
+            create: string;
+            /** Create If */
+            create_if: string;
+            /** Created By */
+            created_by: string;
             /** Archived */
             archived: boolean;
             /** Topics */
@@ -10117,6 +10123,10 @@ export interface components {
             write: string;
             /** Write If */
             write_if: string;
+            /** Create */
+            create: string;
+            /** Create If */
+            create_if: string;
             /** Machines */
             machines: number[];
             /** Machine Options */
@@ -10166,6 +10176,16 @@ export interface components {
              */
             write_if: string;
             /**
+             * Create
+             * @default players
+             */
+            create: string;
+            /**
+             * Create If
+             * @default
+             */
+            create_if: string;
+            /**
              * Machines
              * @default []
              */
@@ -10202,6 +10222,16 @@ export interface components {
              * @default
              */
             write_if: string;
+            /**
+             * Create
+             * @default inherit
+             */
+            create: string;
+            /**
+             * Create If
+             * @default
+             */
+            create_if: string;
             /**
              * Archived
              * @default false

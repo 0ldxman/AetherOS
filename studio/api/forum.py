@@ -45,6 +45,9 @@ class FoSection(Schema):
     read_if: str
     write: str
     write_if: str
+    create: str
+    create_if: str
+    created_by: str              # логин игрока, если раздел создал игрок
     archived: bool
     topics: int
 
@@ -57,6 +60,8 @@ class FoSpaceOut(Schema):
     read_if: str
     write: str
     write_if: str
+    create: str
+    create_if: str
     machines: list[int]
     machine_options: list[FoMachine]
     sections: list[FoSection]
@@ -70,6 +75,8 @@ class FoSpaceIn(Schema):
     read_if: str = ""
     write: str = "players"
     write_if: str = ""
+    create: str = "players"
+    create_if: str = ""
     machines: list[int] = []
 
 
@@ -81,6 +88,8 @@ class FoSectionIn(Schema):
     read_if: str = ""
     write: str = "inherit"
     write_if: str = ""
+    create: str = "inherit"
+    create_if: str = ""
     archived: bool = False
 
 
@@ -162,14 +171,15 @@ def _bad(errors):
 
 def _section_row(row, counts):
     return FoSection(id=row.pk, parent=row.parent_id, title=row.title, about=row.about, order=row.order, read_if=_cond(row.read_if),
-                     write=row.write, write_if=_cond(row.write_if), archived=row.archived, topics=counts.get(row.pk, 0))
+                     write=row.write, write_if=_cond(row.write_if), create=row.create, create_if=_cond(row.create_if),
+                     created_by=row.created_by.get_username() if row.created_by_id else "", archived=row.archived, topics=counts.get(row.pk, 0))
 
 
 def _space_out(space):
     counts = dict(Topic.objects.filter(section__space=space).values_list("section").annotate(n=Count("id")))
-    sections = Section.objects.filter(space=space)
+    sections = Section.objects.filter(space=space).select_related("created_by")
     return FoSpaceOut(slug=space.slug, title=space.title, about=space.about, order=space.order, read_if=_cond(space.read_if), write=space.write,
-                      write_if=_cond(space.write_if), machines=list(space.machines.values_list("pk", flat=True)),
+                      write_if=_cond(space.write_if), create=space.create, create_if=_cond(space.create_if), machines=list(space.machines.values_list("pk", flat=True)),
                       machine_options=[FoMachine(id=m.pk, label=m.label, hostname=m.hostname) for m in Machine.objects.order_by("hostname")],
                       sections=[_section_row(row, counts) for row in sections])
 
@@ -180,11 +190,15 @@ def _apply_space(space, body, errors):
         errors["title"] = "Нужно название."
     if body.write not in ("players", "authors"):
         errors["write"] = "Режим записи: players или authors."
+    if body.create not in ("players", "authors"):
+        errors["create"] = "Режим создания разделов: players или authors."
     read_if, write_if = _parse(body.read_if, "read_if", errors), _parse(body.write_if, "write_if", errors)
+    create_if = _parse(body.create_if, "create_if", errors)
     if errors:
         return False
     space.title, space.about, space.order = title[:120], body.about, body.order
     space.read_if, space.write, space.write_if = read_if, body.write, write_if
+    space.create, space.create_if = body.create, create_if
     space.save()
     space.machines.set(Machine.objects.filter(pk__in=body.machines))
     return True
@@ -241,6 +255,8 @@ def _apply_section(section, space, body, errors):
         errors["title"] = "Нужно название."
     if body.write not in ("inherit", "players", "authors"):
         errors["write"] = "Режим записи: inherit, players или authors."
+    if body.create not in ("inherit", "players", "authors"):
+        errors["create"] = "Режим создания: inherit, players или authors."
     parent = None
     if body.parent is not None:
         parent = Section.objects.filter(pk=body.parent, space=space).first()
@@ -249,8 +265,10 @@ def _apply_section(section, space, body, errors):
         elif section.pk and any(item.pk == section.pk for item in logic._chain(parent)):
             errors["parent"] = "Раздел нельзя вложить в самого себя."
     read_if, write_if = _parse(body.read_if, "read_if", errors), _parse(body.write_if, "write_if", errors)
+    create_if = _parse(body.create_if, "create_if", errors)
     if errors:
         return False
+    section.create, section.create_if = body.create, create_if
     section.space, section.parent, section.title, section.about = space, parent, title[:120], body.about[:240]
     section.order, section.read_if, section.write, section.write_if, section.archived = body.order, read_if, body.write, write_if, body.archived
     section.save()

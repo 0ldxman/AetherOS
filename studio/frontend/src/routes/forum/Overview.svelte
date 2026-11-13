@@ -11,7 +11,7 @@
     space: Schemas["FoSpaceOut"]; editable: boolean; onsaved: (s: Schemas["FoSpaceOut"]) => void; ondeleted: () => void;
   } = $props();
 
-  const pick = (s: Schemas["FoSpaceOut"]) => ({ title: s.title, about: s.about, order: s.order, read_if: s.read_if, write: s.write, write_if: s.write_if, machines: [...s.machines] });
+  const pick = (s: Schemas["FoSpaceOut"]) => ({ title: s.title, about: s.about, order: s.order, read_if: s.read_if, write: s.write, write_if: s.write_if, create: s.create, create_if: s.create_if, machines: [...s.machines] });
   // экран пересоздаётся при смене пространства ({#key}), поэтому начальное значение здесь верно
   // svelte-ignore state_referenced_locally
   let form = $state(pick(space));
@@ -69,6 +69,11 @@
     <select class="field" bind:value={form.write} disabled={!editable}><option value="players">Игроки</option><option value="authors">Только авторы</option></select></label>
   <div class="row"><span class="label">Условие записи<Hint text="Дополнительное условие для игроков, поверх условия чтения. Пусто: без него." /></span>
     <AccessBuilder bind:value={form.write_if} bad={!!errors.write_if} />{#if errors.write_if}<span class="error small">{errors.write_if}</span>{/if}</div>
+
+  <label class="row"><span class="label">Кто создаёт разделы<Hint text="«Игроки»: любой, кто читает пространство, может создать раздел первых двух уровней (не больше трёх живых разделов на игрока) и становится его модератором. «Только авторы»: разделы создаёте вы." /></span>
+    <select class="field" bind:value={form.create} disabled={!editable}><option value="players">Игроки</option><option value="authors">Только авторы</option></select></label>
+  <div class="row"><span class="label">Условие создания<Hint text="Дополнительное условие для игроков, создающих разделы. Пусто: без него." /></span>
+    <AccessBuilder bind:value={form.create_if} bad={!!errors.create_if} />{#if errors.create_if}<span class="error small">{errors.create_if}</span>{/if}</div>
 
   <label class="row narrow"><span class="label">Порядок в списке</span><input class="field" type="number" bind:value={form.order} disabled={!editable} /></label>
 

@@ -27975,6 +27975,18 @@
       "title": "Write If",
       "type": "string"
      },
+     "create": {
+      "title": "Create",
+      "type": "string"
+     },
+     "create_if": {
+      "title": "Create If",
+      "type": "string"
+     },
+     "created_by": {
+      "title": "Created By",
+      "type": "string"
+     },
      "archived": {
       "title": "Archived",
       "type": "boolean"
@@ -27993,6 +28005,9 @@
      "read_if",
      "write",
      "write_if",
+     "create",
+     "create_if",
+     "created_by",
      "archived",
      "topics"
     ],
@@ -28029,6 +28044,14 @@
       "title": "Write If",
       "type": "string"
      },
+     "create": {
+      "title": "Create",
+      "type": "string"
+     },
+     "create_if": {
+      "title": "Create If",
+      "type": "string"
+     },
      "machines": {
       "items": {
        "type": "integer"
@@ -28059,6 +28082,8 @@
      "read_if",
      "write",
      "write_if",
+     "create",
+     "create_if",
      "machines",
      "machine_options",
      "sections"
@@ -28118,6 +28143,16 @@
       "title": "Write If",
       "type": "string"
      },
+     "create": {
+      "default": "players",
+      "title": "Create",
+      "type": "string"
+     },
+     "create_if": {
+      "default": "",
+      "title": "Create If",
+      "type": "string"
+     },
      "machines": {
       "default": [],
       "items": {
@@ -28173,6 +28208,16 @@
      "write_if": {
       "default": "",
       "title": "Write If",
+      "type": "string"
+     },
+     "create": {
+      "default": "inherit",
+      "title": "Create",
+      "type": "string"
+     },
+     "create_if": {
+      "default": "",
+      "title": "Create If",
       "type": "string"
      },
      "archived": {

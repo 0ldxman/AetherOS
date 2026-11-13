@@ -10,7 +10,7 @@
   type Section = Schemas["FoSection"];
   let { space, editable, onchanged }: { space: Schemas["FoSpaceOut"]; editable: boolean; onchanged: () => void } = $props();
 
-  type Form = { id: number | null; title: string; parent: number | null; about: string; order: number; read_if: string; write: string; write_if: string; archived: boolean };
+  type Form = { id: number | null; title: string; parent: number | null; about: string; order: number; read_if: string; write: string; write_if: string; create: string; create_if: string; archived: boolean };
   let form = $state<Form | null>(null);
   let errors = $state<Record<string, string>>({});
   let busy = $state(false);
@@ -25,8 +25,8 @@
     return out;
   });
 
-  const blank = (parent: number | null): Form => ({ id: null, title: "", parent, about: "", order: 0, read_if: "", write: "inherit", write_if: "", archived: false });
-  const open = (s: Section) => { form = { id: s.id, title: s.title, parent: s.parent, about: s.about, order: s.order, read_if: s.read_if, write: s.write, write_if: s.write_if, archived: s.archived }; errors = {}; };
+  const blank = (parent: number | null): Form => ({ id: null, title: "", parent, about: "", order: 0, read_if: "", write: "inherit", write_if: "", create: "inherit", create_if: "", archived: false });
+  const open = (s: Section) => { form = { id: s.id, title: s.title, parent: s.parent, about: s.about, order: s.order, read_if: s.read_if, write: s.write, write_if: s.write_if, create: s.create, create_if: s.create_if, archived: s.archived }; errors = {}; };
 
   // варианты родителя: любой раздел, кроме самого и его потомков
   function descendants(id: number): Set<number> {
@@ -39,7 +39,7 @@
   async function save() {
     if (!form) return;
     busy = true;
-    const body = { title: form.title, parent: form.parent, about: form.about, order: form.order, read_if: form.read_if, write: form.write, write_if: form.write_if, archived: form.archived };
+    const body = { title: form.title, parent: form.parent, about: form.about, order: form.order, read_if: form.read_if, write: form.write, write_if: form.write_if, create: form.create, create_if: form.create_if, archived: form.archived };
     const result = form.id === null
       ? await api.POST("/studio/api/forum/spaces/{slug}/sections", { params: { path: { slug: space.slug } }, body })
       : await api.PUT("/studio/api/forum/sections/{section_id}", { params: { path: { section_id: form.id } }, body });
@@ -70,7 +70,7 @@
     {#each flat as { s, depth } (s.id)}
       <button class="node" class:on={form?.id === s.id} style:padding-left={`${8 + depth * 14}px`} onclick={() => open(s)}>
         <span>{s.title}</span>
-        <span class="muted small">{s.topics}{s.write === "authors" ? " · авторы" : ""}{s.read_if ? " · закрыт" : ""}{s.archived ? " · архив" : ""}</span>
+        <span class="muted small">{s.topics}{s.created_by ? " · " + s.created_by : ""}{s.write === "authors" ? " · авторы" : ""}{s.read_if ? " · закрыт" : ""}{s.archived ? " · архив" : ""}</span>
       </button>
     {:else}
       <p class="muted small">Разделов пока нет.</p>
@@ -97,6 +97,11 @@
         <select class="field" bind:value={form.write} disabled={!editable}><option value="inherit">Как у родителя</option><option value="players">Игроки</option><option value="authors">Только авторы</option></select></label>
       <div class="row"><span class="label">Дополнительное условие записи</span>
         <AccessBuilder bind:value={form.write_if} bad={!!errors.write_if} />{#if errors.write_if}<span class="error small">{errors.write_if}</span>{/if}</div>
+      <label class="row"><span class="label">Кто создаёт подразделы<Hint text="«Как у родителя» берёт режим ближайшего раздела выше, а в корне пространства — режим пространства." /></span>
+        <select class="field" bind:value={form.create} disabled={!editable}><option value="inherit">Как у родителя</option><option value="players">Игроки</option><option value="authors">Только авторы</option></select></label>
+      <div class="row"><span class="label">Дополнительное условие создания</span>
+        <AccessBuilder bind:value={form.create_if} bad={!!errors.create_if} />{#if errors.create_if}<span class="error small">{errors.create_if}</span>{/if}</div>
+      {#if form.id}{@const made = space.sections.find((x) => x.id === form!.id)?.created_by}{#if made}<p class="muted small">Раздел создал игрок {made}: он его модератор.</p>{/if}{/if}
       <div class="inline">
         <label class="row narrow"><span class="label">Порядок</span><input class="field" type="number" bind:value={form.order} disabled={!editable} /></label>
         <label class="check"><input type="checkbox" bind:checked={form.archived} disabled={!editable} />В архиве<Hint text="Раздел пропадает из списков игрока, записи остаются." /></label>

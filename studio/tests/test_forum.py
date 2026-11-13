@@ -93,3 +93,17 @@ class ForumStudioTests(TestCase):
         self.client.force_login(reader)
         self.assertEqual(self.call("get", "/spaces")[0], 200)
         self.assertEqual(self.call("post", "/spaces", {"slug": "nope", "title": "x"})[0], 403)
+
+    def test_creation_rules_round_trip_and_player_sections_show_their_creator(self):
+        data = self.make_space()
+        self.assertEqual((data["create"], data["create_if"]), ("players", ""))
+        status, data = self.call("put", "/spaces/relay", {"title": "Relay", "create": "authors", "create_if": "member", "machines": [self.machine.pk]})
+        self.assertEqual((status, data["create"], data["create_if"]), (200, "authors", "member"))
+        self.assertIn("create", self.call("put", "/spaces/relay", {"title": "Relay", "create": "all"})[1]["fields"])
+        status, section = self.call("post", "/spaces/relay/sections", {"title": "Club", "create": "players", "create_if": "cipher"})
+        self.assertEqual((section["create"], section["create_if"], section["created_by"]), ("players", "cipher", ""))
+        owner = get_user_model().objects.create_user("owner")
+        Space.objects.filter(slug="relay").update(create="players", create_if=None)
+        made = logic.create_section(Space.objects.get(slug="relay"), None, owner, "Mine", "", set())
+        rows = {s["title"]: s for s in self.call("get", "/spaces/relay")[1]["sections"]}
+        self.assertEqual(rows["Mine"]["created_by"], "owner")
