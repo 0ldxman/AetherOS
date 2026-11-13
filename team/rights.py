@@ -29,6 +29,7 @@ SECTIONS = {
     "support": "Поддержка",
     "air": "Эфир",
     "forum": "Форум",
+    "characters": "Персонажи",
 }
 
 ACTIONS = {
@@ -66,7 +67,7 @@ def _section_of(parts):
         return "disks"
     if head in ("items", "wiki-volumes"):
         return "items"
-    if head in ("machines", "policies", "systems", "world", "map", "scenes", "players", "mail", "news", "support", "air", "forum", TEAM):
+    if head in ("machines", "policies", "systems", "world", "map", "scenes", "players", "mail", "news", "support", "air", "forum", "characters", TEAM):
         return head
     return None
 

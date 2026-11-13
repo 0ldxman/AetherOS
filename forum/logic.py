@@ -80,13 +80,13 @@ def sections_of(space, keys):
 
 def topics_in(section):
     """Видимые темы раздела: закреплённые, затем по свежести; с числом ответов и временем последнего сообщения."""
-    return (Topic.objects.filter(section=section, hidden_at__isnull=True)
+    return (Topic.objects.filter(section=section, hidden_at__isnull=True).select_related("character")
             .annotate(replies=Count("posts", filter=Q(posts__root=False, posts__hidden_at__isnull=True))))
 
 
 def posts_of(topic):
     """Сообщения темы в порядке времени; скрытое остаётся пустым местом, чтобы не рвать ветки."""
-    return list(Post.objects.filter(topic=topic).prefetch_related("attachments").order_by("created_at", "id"))
+    return list(Post.objects.filter(topic=topic).select_related("character").prefetch_related("attachments").order_by("created_at", "id"))
 
 
 # ---- подписи ----
@@ -137,22 +137,27 @@ def reply(topic, user, text, keys, parent=None):
 # ---- записи автора (Студия: персонаж или система) ----
 
 @transaction.atomic
-def author_topic(section, name, title, text, kind=Kind.CHARACTER):
-    return _create_topic(section, None, _clean(title, TITLE_MAX, "заголовок"), _clean(text, TEXT_MAX, "текст"), kind, name)
+def author_topic(section, name, title, text, kind=Kind.CHARACTER, character=None):
+    """Тема от персонажа (подпись берётся у него) или от системы (подпись как есть)."""
+    if character is not None:
+        name, kind = character.signature, Kind.CHARACTER
+    return _create_topic(section, None, _clean(title, TITLE_MAX, "заголовок"), _clean(text, TEXT_MAX, "текст"), kind, name[:16], character)
 
 
 @transaction.atomic
-def author_post(topic, name, text, kind=Kind.CHARACTER, parent=None):
-    return _add_post(topic, None, _clean(text, TEXT_MAX, "текст"), kind, name, parent)
+def author_post(topic, name, text, kind=Kind.CHARACTER, parent=None, character=None):
+    if character is not None:
+        name, kind = character.signature, Kind.CHARACTER
+    return _add_post(topic, None, _clean(text, TEXT_MAX, "текст"), kind, name[:16], parent, character)
 
 
-def _create_topic(section, user, title, text, kind, name):
-    topic = Topic.objects.create(section=section, title=title, author=user, name=name, kind=kind)
-    Post.objects.create(topic=topic, root=True, author=user, name=name, kind=kind, text=text, created_at=topic.created_at)
+def _create_topic(section, user, title, text, kind, name, character=None):
+    topic = Topic.objects.create(section=section, title=title, author=user, name=name, kind=kind, character=character)
+    Post.objects.create(topic=topic, root=True, author=user, name=name, kind=kind, text=text, created_at=topic.created_at, character=character)
     return topic
 
 
-def _add_post(topic, user, text, kind, name, parent):
+def _add_post(topic, user, text, kind, name, parent, character=None):
     first = topic.posts.filter(root=True).first()
     if parent is not None and parent.topic_id != topic.pk:
         raise ForumError("такого сообщения в теме нет")
@@ -166,7 +171,7 @@ def _add_post(topic, user, text, kind, name, parent):
         walk = walk.parent
     while depth >= MAX_DEPTH and parent.parent is not None:
         parent, depth = parent.parent, depth - 1
-    post = Post.objects.create(topic=topic, parent=parent, author=user, name=name, kind=kind, text=text)
+    post = Post.objects.create(topic=topic, parent=parent, author=user, name=name, kind=kind, text=text, character=character)
     Topic.objects.filter(pk=topic.pk).update(bumped_at=post.created_at)
     return post
 

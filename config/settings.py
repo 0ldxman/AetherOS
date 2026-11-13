@@ -61,6 +61,7 @@ INSTALLED_APPS = [
     'machines',
     'users',
     'team',
+    'characters',
     'mail',
     'news',
     'support',

@@ -134,17 +134,19 @@ class FoFlags(Schema):
 
 class FoAuthorTopic(Schema):
     section: int
-    name: str
+    name: str = ""
     title: str
     text: str
     kind: str = "character"
+    character: int | None = None     # персонаж: подпись и код берутся у него
 
 
 class FoAuthorPost(Schema):
-    name: str
+    name: str = ""
     text: str
     kind: str = "character"
     parent: int | None = None
+    character: int | None = None
 
 
 class FoHide(Schema):
@@ -343,6 +345,12 @@ def topic_flags(request, topic_id: int, body: FoFlags):
     return _topic_out(topic)
 
 
+def _character(body):
+    from characters.models import Character
+
+    return Character.objects.filter(pk=body.character).first() if body.character and body.kind != Kind.SYSTEM else None
+
+
 def _author_kind(kind):
     return kind if kind in (Kind.CHARACTER, Kind.SYSTEM) else Kind.CHARACTER
 
@@ -350,11 +358,12 @@ def _author_kind(kind):
 @router.post("/topics", response={200: FoTopicOut, 400: FoErrors})
 def author_topic(request, body: FoAuthorTopic):
     section = get_object_or_404(Section, pk=body.section)
+    character = _character(body)
     name = body.name.strip()[:16]
-    if not name:
-        return _bad({"name": "Нужна подпись персонажа."})
+    if character is None and not name:
+        return _bad({"name": "Выберите персонажа или задайте подпись."})
     try:
-        topic = logic.author_topic(section, name, body.title, body.text, _author_kind(body.kind))
+        topic = logic.author_topic(section, name, body.title, body.text, _author_kind(body.kind), character=character)
     except logic.ForumError as error:
         return _bad({"text": str(error)})
     return _topic_out(topic)
@@ -363,12 +372,13 @@ def author_topic(request, body: FoAuthorTopic):
 @router.post("/topics/{topic_id}/posts", response={200: FoTopicOut, 400: FoErrors})
 def author_post(request, topic_id: int, body: FoAuthorPost):
     topic = get_object_or_404(Topic.objects.select_related("section"), pk=topic_id)
+    character = _character(body)
     name = body.name.strip()[:16]
-    if not name:
-        return _bad({"name": "Нужна подпись персонажа."})
+    if character is None and not name:
+        return _bad({"name": "Выберите персонажа или задайте подпись."})
     parent = Post.objects.filter(pk=body.parent, topic=topic).first() if body.parent else None
     try:
-        logic.author_post(topic, name, body.text, _author_kind(body.kind), parent=parent)
+        logic.author_post(topic, name, body.text, _author_kind(body.kind), parent=parent, character=character)
     except logic.ForumError as error:
         return _bad({"text": str(error)})
     return _topic_out(topic)

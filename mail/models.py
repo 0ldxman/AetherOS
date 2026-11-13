@@ -51,6 +51,8 @@ class Persona(models.Model):
     name = models.CharField("Имя", max_length=120, blank=True)
     signature = models.TextField("Подпись", blank=True)
     note = models.TextField("Заметка автора", blank=True)
+    character = models.ForeignKey("characters.Character", null=True, blank=True, on_delete=models.SET_NULL, related_name="personas",
+                                  verbose_name="Персонаж", help_text="Чей это адрес: одно лицо во всех каналах.")
 
     class Meta:
         ordering = ("address",)

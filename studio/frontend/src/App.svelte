@@ -32,6 +32,7 @@
   import Support from "./routes/Support.svelte";
   import Air from "./routes/Air.svelte";
   import Forum from "./routes/Forum.svelte";
+  import Characters from "./routes/Characters.svelte";
   import { level, loadMe, me } from "./lib/me.svelte";
   import Discussion from "./lib/Discussion.svelte";
   import { discussion, targetOf } from "./lib/discussion.svelte";
@@ -76,6 +77,7 @@
     | { name: "support"; id: number | null }
     | { name: "air"; tab: string }
     | { name: "forum"; slug: string | null; tab: string }
+    | { name: "characters"; id: number | null }
     | { name: "guide"; slug: string | null };
 
   const page: Page = $derived.by((): Page => {
@@ -112,6 +114,8 @@
     if (match("/guide", route.path)) return { name: "guide", slug: null };
     if ((found = match("/support/:id", route.path))) return { name: "support", id: +found.id };
     if (match("/support", route.path)) return { name: "support", id: null };
+    if ((found = match("/characters/:id", route.path))) return { name: "characters", id: +found.id };
+    if (match("/characters", route.path)) return { name: "characters", id: null };
     if ((found = match("/forum/:slug/:tab", route.path))) return { name: "forum", slug: found.slug, tab: found.tab };
     if ((found = match("/forum/:slug", route.path))) return { name: "forum", slug: found.slug, tab: "overview" };
     if (match("/forum", route.path)) return { name: "forum", slug: null, tab: "overview" };
@@ -213,6 +217,8 @@
       {#key page.id}<News id={page.id} />{/key}
     {:else if page.name === "air"}
       <Air tab={page.tab} />
+    {:else if page.name === "characters"}
+      {#key page.id}<Characters id={page.id} />{/key}
     {:else if page.name === "forum"}
       {#key page.slug}<Forum slug={page.slug} tab={page.tab} />{/key}
     {:else if page.name === "support"}

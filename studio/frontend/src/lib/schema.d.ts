@@ -4069,6 +4069,60 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/studio/api/characters": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Index */
+        get: operations["studio_api_characters_index"];
+        put?: never;
+        /** Create */
+        post: operations["studio_api_characters_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/studio/api/characters/options": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Options */
+        get: operations["studio_api_characters_options"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/studio/api/characters/{character_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Detail */
+        get: operations["studio_api_characters_detail"];
+        /** Update */
+        put: operations["studio_api_characters_update"];
+        post?: never;
+        /** Delete */
+        delete: operations["studio_api_characters_delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/studio/api/world/state": {
         parameters: {
             query?: never;
@@ -10347,7 +10401,10 @@ export interface components {
         FoAuthorTopic: {
             /** Section */
             section: number;
-            /** Name */
+            /**
+             * Name
+             * @default
+             */
             name: string;
             /** Title */
             title: string;
@@ -10358,10 +10415,15 @@ export interface components {
              * @default character
              */
             kind: string;
+            /** Character */
+            character?: number | null;
         };
         /** FoAuthorPost */
         FoAuthorPost: {
-            /** Name */
+            /**
+             * Name
+             * @default
+             */
             name: string;
             /** Text */
             text: string;
@@ -10372,6 +10434,8 @@ export interface components {
             kind: string;
             /** Parent */
             parent?: number | null;
+            /** Character */
+            character?: number | null;
         };
         /** FoHide */
         FoHide: {
@@ -10380,6 +10444,151 @@ export interface components {
              * @default
              */
             reason: string;
+        };
+        /** ChRow */
+        ChRow: {
+            /** Id */
+            id: number;
+            /** Code */
+            code: string;
+            /** Name */
+            name: string;
+            /** Callsign */
+            callsign: string;
+            /** Color */
+            color: number;
+            /** Status */
+            status: string;
+            /** Owner */
+            owner: string;
+            /** Mail */
+            mail: string[];
+            /** Air */
+            air: string[];
+        };
+        /** ChOut */
+        ChOut: {
+            /** Id */
+            id: number;
+            /** Code */
+            code: string;
+            /** Name */
+            name: string;
+            /** Callsign */
+            callsign: string;
+            /** Color */
+            color: number;
+            /** Status */
+            status: string;
+            /** Owner */
+            owner: string;
+            /** Mail */
+            mail: string[];
+            /** Air */
+            air: string[];
+            /** About */
+            about: string;
+            /** Voice */
+            voice: string;
+            /** Knows */
+            knows: string;
+            /** Note */
+            note: string;
+            /** Owner Id */
+            owner_id: number | null;
+            /** Personas */
+            personas: number[];
+            /** Stations */
+            stations: number[];
+        };
+        /** ChErrors */
+        ChErrors: {
+            /** Fields */
+            fields: {
+                [key: string]: string;
+            };
+        };
+        /** ChIn */
+        ChIn: {
+            /** Name */
+            name: string;
+            /**
+             * Code
+             * @default
+             */
+            code: string;
+            /**
+             * Callsign
+             * @default
+             */
+            callsign: string;
+            /**
+             * Color
+             * @default 0
+             */
+            color: number;
+            /**
+             * Status
+             * @default active
+             */
+            status: string;
+            /**
+             * About
+             * @default
+             */
+            about: string;
+            /**
+             * Voice
+             * @default
+             */
+            voice: string;
+            /**
+             * Knows
+             * @default
+             */
+            knows: string;
+            /**
+             * Note
+             * @default
+             */
+            note: string;
+            /** Owner Id */
+            owner_id?: number | null;
+            /**
+             * Personas
+             * @default []
+             */
+            personas: number[];
+            /**
+             * Stations
+             * @default []
+             */
+            stations: number[];
+        };
+        /** ChAuthor */
+        ChAuthor: {
+            /** Id */
+            id: number;
+            /** Username */
+            username: string;
+        };
+        /** ChChannel */
+        ChChannel: {
+            /** Id */
+            id: number;
+            /** Label */
+            label: string;
+            /** Character */
+            character: number | null;
+        };
+        /** ChOptions */
+        ChOptions: {
+            /** Personas */
+            personas: components["schemas"]["ChChannel"][];
+            /** Stations */
+            stations: components["schemas"]["ChChannel"][];
+            /** Authors */
+            authors: components["schemas"]["ChAuthor"][];
         };
         /** WsContribution */
         WsContribution: {
@@ -17926,6 +18135,156 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["FoTopicOut"];
                 };
+            };
+        };
+    };
+    studio_api_characters_index: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChRow"][];
+                };
+            };
+        };
+    };
+    studio_api_characters_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ChIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChOut"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChErrors"];
+                };
+            };
+        };
+    };
+    studio_api_characters_options: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChOptions"];
+                };
+            };
+        };
+    };
+    studio_api_characters_detail: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                character_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChOut"];
+                };
+            };
+        };
+    };
+    studio_api_characters_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                character_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ChIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChOut"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChErrors"];
+                };
+            };
+        };
+    };
+    studio_api_characters_delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                character_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
         };
     };

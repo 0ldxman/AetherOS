@@ -68,8 +68,14 @@ def _ago(moment):
     return ago(chrono.to_game(moment)) if moment else ""
 
 
+def _face(row):
+    """Код и цвет персонажа, если запись от него: бейдж тот же во всех каналах."""
+    found = row.character
+    return {"code": found.code, "color": found.color} if found is not None else {}
+
+
 def _topic_row(request, topic, info):
-    return {"id": topic.pk, "title": topic.title, "name": topic.name, "kind": topic.kind, "pinned": topic.pinned, "locked": topic.locked,
+    return {**_face(topic), "id": topic.pk, "title": topic.title, "name": topic.name, "kind": topic.kind, "pinned": topic.pinned, "locked": topic.locked,
             "excerpt": info["excerpt"], "replies": info["replies"], "new": info["new"], "unseen": info["unseen"],
             "at": _when(request, topic.created_at), "ago": _ago(topic.created_at),
             "last_name": info["last_name"], "last_ago": _ago(info["last_at"])}
@@ -162,7 +168,7 @@ def topic(request, pk):
     fresh = reading.new_posts(found, player)
     reading.mark_seen(found, player)
     posts = [{"id": p.pk, "parent": p.parent_id, "root": p.root, "name": p.name, "kind": p.kind, "at": _when(request, p.created_at),
-              "ago": _ago(p.created_at), "new": p.pk in fresh, "useful": p.useful, "starter": p.author_id is not None and p.author_id == found.author_id,
+              "ago": _ago(p.created_at), "new": p.pk in fresh, **_face(p), "useful": p.useful, "starter": p.author_id is not None and p.author_id == found.author_id,
               "hidden": p.hidden_at is not None, "text": p.text if moderator or p.hidden_at is None else "",
               "files": [] if p.hidden_at is not None else [{"id": a.pk, "name": a.name, "size": a.size} for a in p.attachments.all()]}
              for p in logic.posts_of(found)]

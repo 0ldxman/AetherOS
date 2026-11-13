@@ -12797,6 +12797,229 @@
     ]
    }
   },
+  "/studio/api/characters": {
+   "get": {
+    "operationId": "studio_api_characters_index",
+    "summary": "Index",
+    "parameters": [],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "items": {
+          "$ref": "#/components/schemas/ChRow"
+         },
+         "title": "Response",
+         "type": "array"
+        }
+       }
+      }
+     }
+    },
+    "tags": [
+     "characters"
+    ],
+    "security": [
+     {
+      "StudioAuth": []
+     }
+    ]
+   },
+   "post": {
+    "operationId": "studio_api_characters_create",
+    "summary": "Create",
+    "parameters": [],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ChOut"
+        }
+       }
+      }
+     },
+     "400": {
+      "description": "Bad Request",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ChErrors"
+        }
+       }
+      }
+     }
+    },
+    "tags": [
+     "characters"
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/ChIn"
+       }
+      }
+     },
+     "required": true
+    },
+    "security": [
+     {
+      "StudioAuth": []
+     }
+    ]
+   }
+  },
+  "/studio/api/characters/options": {
+   "get": {
+    "operationId": "studio_api_characters_options",
+    "summary": "Options",
+    "parameters": [],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ChOptions"
+        }
+       }
+      }
+     }
+    },
+    "tags": [
+     "characters"
+    ],
+    "security": [
+     {
+      "StudioAuth": []
+     }
+    ]
+   }
+  },
+  "/studio/api/characters/{character_id}": {
+   "get": {
+    "operationId": "studio_api_characters_detail",
+    "summary": "Detail",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "character_id",
+      "schema": {
+       "title": "Character Id",
+       "type": "integer"
+      },
+      "required": true
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ChOut"
+        }
+       }
+      }
+     }
+    },
+    "tags": [
+     "characters"
+    ],
+    "security": [
+     {
+      "StudioAuth": []
+     }
+    ]
+   },
+   "put": {
+    "operationId": "studio_api_characters_update",
+    "summary": "Update",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "character_id",
+      "schema": {
+       "title": "Character Id",
+       "type": "integer"
+      },
+      "required": true
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ChOut"
+        }
+       }
+      }
+     },
+     "400": {
+      "description": "Bad Request",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ChErrors"
+        }
+       }
+      }
+     }
+    },
+    "tags": [
+     "characters"
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/ChIn"
+       }
+      }
+     },
+     "required": true
+    },
+    "security": [
+     {
+      "StudioAuth": []
+     }
+    ]
+   },
+   "delete": {
+    "operationId": "studio_api_characters_delete",
+    "summary": "Delete",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "character_id",
+      "schema": {
+       "title": "Character Id",
+       "type": "integer"
+      },
+      "required": true
+     }
+    ],
+    "responses": {
+     "204": {
+      "description": "No Content"
+     }
+    },
+    "tags": [
+     "characters"
+    ],
+    "security": [
+     {
+      "StudioAuth": []
+     }
+    ]
+   }
+  },
   "/studio/api/world/state": {
    "get": {
     "operationId": "studio_api_worldstate_read",
@@ -28494,6 +28717,7 @@
       "type": "integer"
      },
      "name": {
+      "default": "",
       "title": "Name",
       "type": "string"
      },
@@ -28509,11 +28733,21 @@
       "default": "character",
       "title": "Kind",
       "type": "string"
+     },
+     "character": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Character"
      }
     },
     "required": [
      "section",
-     "name",
      "title",
      "text"
     ],
@@ -28523,6 +28757,7 @@
    "FoAuthorPost": {
     "properties": {
      "name": {
+      "default": "",
       "title": "Name",
       "type": "string"
      },
@@ -28545,10 +28780,20 @@
        }
       ],
       "title": "Parent"
+     },
+     "character": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Character"
      }
     },
     "required": [
-     "name",
      "text"
     ],
     "title": "FoAuthorPost",
@@ -28563,6 +28808,348 @@
      }
     },
     "title": "FoHide",
+    "type": "object"
+   },
+   "ChRow": {
+    "properties": {
+     "id": {
+      "title": "Id",
+      "type": "integer"
+     },
+     "code": {
+      "title": "Code",
+      "type": "string"
+     },
+     "name": {
+      "title": "Name",
+      "type": "string"
+     },
+     "callsign": {
+      "title": "Callsign",
+      "type": "string"
+     },
+     "color": {
+      "title": "Color",
+      "type": "integer"
+     },
+     "status": {
+      "title": "Status",
+      "type": "string"
+     },
+     "owner": {
+      "title": "Owner",
+      "type": "string"
+     },
+     "mail": {
+      "items": {
+       "type": "string"
+      },
+      "title": "Mail",
+      "type": "array"
+     },
+     "air": {
+      "items": {
+       "type": "string"
+      },
+      "title": "Air",
+      "type": "array"
+     }
+    },
+    "required": [
+     "id",
+     "code",
+     "name",
+     "callsign",
+     "color",
+     "status",
+     "owner",
+     "mail",
+     "air"
+    ],
+    "title": "ChRow",
+    "type": "object"
+   },
+   "ChOut": {
+    "properties": {
+     "id": {
+      "title": "Id",
+      "type": "integer"
+     },
+     "code": {
+      "title": "Code",
+      "type": "string"
+     },
+     "name": {
+      "title": "Name",
+      "type": "string"
+     },
+     "callsign": {
+      "title": "Callsign",
+      "type": "string"
+     },
+     "color": {
+      "title": "Color",
+      "type": "integer"
+     },
+     "status": {
+      "title": "Status",
+      "type": "string"
+     },
+     "owner": {
+      "title": "Owner",
+      "type": "string"
+     },
+     "mail": {
+      "items": {
+       "type": "string"
+      },
+      "title": "Mail",
+      "type": "array"
+     },
+     "air": {
+      "items": {
+       "type": "string"
+      },
+      "title": "Air",
+      "type": "array"
+     },
+     "about": {
+      "title": "About",
+      "type": "string"
+     },
+     "voice": {
+      "title": "Voice",
+      "type": "string"
+     },
+     "knows": {
+      "title": "Knows",
+      "type": "string"
+     },
+     "note": {
+      "title": "Note",
+      "type": "string"
+     },
+     "owner_id": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Owner Id"
+     },
+     "personas": {
+      "items": {
+       "type": "integer"
+      },
+      "title": "Personas",
+      "type": "array"
+     },
+     "stations": {
+      "items": {
+       "type": "integer"
+      },
+      "title": "Stations",
+      "type": "array"
+     }
+    },
+    "required": [
+     "id",
+     "code",
+     "name",
+     "callsign",
+     "color",
+     "status",
+     "owner",
+     "mail",
+     "air",
+     "about",
+     "voice",
+     "knows",
+     "note",
+     "owner_id",
+     "personas",
+     "stations"
+    ],
+    "title": "ChOut",
+    "type": "object"
+   },
+   "ChErrors": {
+    "properties": {
+     "fields": {
+      "additionalProperties": {
+       "type": "string"
+      },
+      "title": "Fields",
+      "type": "object"
+     }
+    },
+    "required": [
+     "fields"
+    ],
+    "title": "ChErrors",
+    "type": "object"
+   },
+   "ChIn": {
+    "properties": {
+     "name": {
+      "title": "Name",
+      "type": "string"
+     },
+     "code": {
+      "default": "",
+      "title": "Code",
+      "type": "string"
+     },
+     "callsign": {
+      "default": "",
+      "title": "Callsign",
+      "type": "string"
+     },
+     "color": {
+      "default": 0,
+      "title": "Color",
+      "type": "integer"
+     },
+     "status": {
+      "default": "active",
+      "title": "Status",
+      "type": "string"
+     },
+     "about": {
+      "default": "",
+      "title": "About",
+      "type": "string"
+     },
+     "voice": {
+      "default": "",
+      "title": "Voice",
+      "type": "string"
+     },
+     "knows": {
+      "default": "",
+      "title": "Knows",
+      "type": "string"
+     },
+     "note": {
+      "default": "",
+      "title": "Note",
+      "type": "string"
+     },
+     "owner_id": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Owner Id"
+     },
+     "personas": {
+      "default": [],
+      "items": {
+       "type": "integer"
+      },
+      "title": "Personas",
+      "type": "array"
+     },
+     "stations": {
+      "default": [],
+      "items": {
+       "type": "integer"
+      },
+      "title": "Stations",
+      "type": "array"
+     }
+    },
+    "required": [
+     "name"
+    ],
+    "title": "ChIn",
+    "type": "object"
+   },
+   "ChAuthor": {
+    "properties": {
+     "id": {
+      "title": "Id",
+      "type": "integer"
+     },
+     "username": {
+      "title": "Username",
+      "type": "string"
+     }
+    },
+    "required": [
+     "id",
+     "username"
+    ],
+    "title": "ChAuthor",
+    "type": "object"
+   },
+   "ChChannel": {
+    "properties": {
+     "id": {
+      "title": "Id",
+      "type": "integer"
+     },
+     "label": {
+      "title": "Label",
+      "type": "string"
+     },
+     "character": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Character"
+     }
+    },
+    "required": [
+     "id",
+     "label",
+     "character"
+    ],
+    "title": "ChChannel",
+    "type": "object"
+   },
+   "ChOptions": {
+    "properties": {
+     "personas": {
+      "items": {
+       "$ref": "#/components/schemas/ChChannel"
+      },
+      "title": "Personas",
+      "type": "array"
+     },
+     "stations": {
+      "items": {
+       "$ref": "#/components/schemas/ChChannel"
+      },
+      "title": "Stations",
+      "type": "array"
+     },
+     "authors": {
+      "items": {
+       "$ref": "#/components/schemas/ChAuthor"
+      },
+      "title": "Authors",
+      "type": "array"
+     }
+    },
+    "required": [
+     "personas",
+     "stations",
+     "authors"
+    ],
+    "title": "ChOptions",
     "type": "object"
    },
    "WsContribution": {

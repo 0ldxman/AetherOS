@@ -12,8 +12,12 @@
   let hidden = $state(false);
   let q = $state("");
   let topic = $state<Schemas["FoTopicOut"] | null>(null);
-  let say = $state({ name: "SYSOP", kind: "character", text: "", parent: null as number | null });
-  let fresh = $state<{ section: number | ""; name: string; title: string; text: string; kind: string } | null>(null);
+  // от кого: "c:<id>" персонаж (подпись и код его), "system" показание с подписью name
+  let say = $state({ who: "", name: "SYSTEM", text: "", parent: null as number | null });
+  let fresh = $state<{ section: number | ""; who: string; name: string; title: string; text: string } | null>(null);
+  let cast = $state<Schemas["ChRow"][]>([]);
+  api.GET("/studio/api/characters").then((r) => { cast = r.data ?? []; if (!say.who && cast.length) say.who = `c:${cast[0].id}`; });
+  const voice = (who: string, name: string) => ({ kind: who === "system" ? "system" : "character", character: who.startsWith("c:") ? +who.slice(2) : null, name: who === "system" ? name : "" });
   let busy = $state(false);
 
   async function load() {
@@ -43,7 +47,7 @@
   async function reply() {
     if (!topic) return;
     busy = true;
-    const { data, error } = await api.POST("/studio/api/forum/topics/{topic_id}/posts", { params: { path: { topic_id: topic.id } }, body: { name: say.name, text: say.text, kind: say.kind, parent: say.parent } });
+    const { data, error } = await api.POST("/studio/api/forum/topics/{topic_id}/posts", { params: { path: { topic_id: topic.id } }, body: { ...voice(say.who, say.name), text: say.text, parent: say.parent } });
     busy = false;
     if (error || !data) return toast(Object.values((error as { fields?: Record<string, string> } | undefined)?.fields ?? {})[0] ?? problem(error), "error");
     say.text = "";
@@ -53,7 +57,7 @@
   async function start() {
     if (!fresh || fresh.section === "") return;
     busy = true;
-    const { data, error } = await api.POST("/studio/api/forum/topics", { body: { section: fresh.section, name: fresh.name, title: fresh.title, text: fresh.text, kind: fresh.kind } });
+    const { data, error } = await api.POST("/studio/api/forum/topics", { body: { section: fresh.section, ...voice(fresh.who, fresh.name), title: fresh.title, text: fresh.text } });
     busy = false;
     if (error || !data) return toast(Object.values((error as { fields?: Record<string, string> } | undefined)?.fields ?? {})[0] ?? problem(error), "error");
     fresh = null;
@@ -83,7 +87,7 @@
     {:else}
       <p class="muted small">Тем нет.</p>
     {/each}
-    {#if editable}<button class="btn" onclick={() => (fresh = { section: typeof section === "number" ? section : "", name: "SYSOP", title: "", text: "", kind: "character" })}>+ Тема от персонажа</button>{/if}
+    {#if editable}<button class="btn" onclick={() => (fresh = { section: typeof section === "number" ? section : "", who: say.who, name: "SYSTEM", title: "", text: "" })}>+ Тема от персонажа</button>{/if}
   </aside>
 
   <div class="view">
@@ -91,12 +95,12 @@
       <h3>Новая тема</h3>
       <label class="row"><span class="label">Раздел</span><select class="field" bind:value={fresh.section}><option value="">—</option>{#each flatSections as s (s.id)}<option value={s.id}>{" ".repeat(s.depth)}{s.title}</option>{/each}</select></label>
       <div class="inline">
-        <label class="row"><span class="label">Подпись</span><input class="field" bind:value={fresh.name} maxlength="16" /></label>
-        <label class="row"><span class="label">От кого</span><select class="field" bind:value={fresh.kind}><option value="character">Персонаж</option><option value="system">Система (показание)</option></select></label>
+        <label class="row"><span class="label">От кого</span><select class="field" bind:value={fresh.who}><option value="">—</option>{#each cast as c (c.id)}<option value={`c:${c.id}`}>{c.code} · {c.name}</option>{/each}<option value="system">Система (показание)</option></select></label>
+        {#if fresh.who === "system"}<label class="row"><span class="label">Подпись</span><input class="field" bind:value={fresh.name} maxlength="16" /></label>{/if}
       </div>
       <label class="row"><span class="label">Заголовок</span><input class="field" bind:value={fresh.title} maxlength="160" /></label>
       <label class="row"><span class="label">Текст</span><textarea class="field" rows="5" bind:value={fresh.text}></textarea></label>
-      <div class="tools"><button class="btn primary" disabled={busy || fresh.section === "" || !fresh.title.trim() || !fresh.text.trim()} onclick={start}>Опубликовать</button><button class="btn ghost" onclick={() => (fresh = null)}>Отмена</button></div>
+      <div class="tools"><button class="btn primary" disabled={busy || fresh.section === "" || !fresh.who || !fresh.title.trim() || !fresh.text.trim()} onclick={start}>Опубликовать</button><button class="btn ghost" onclick={() => (fresh = null)}>Отмена</button></div>
     {:else if topic}
       <header class="head">
         <h3>{topic.title}</h3>
@@ -130,11 +134,11 @@
         <div class="reply">
           <span class="muted small">{say.parent ? `Ответ на #${say.parent}` : "Ответ в тему"}{#if say.parent} <button class="link" onclick={() => (say.parent = null)}>сбросить</button>{/if}</span>
           <div class="inline">
-            <input class="field" bind:value={say.name} maxlength="16" aria-label="Подпись" />
-            <select class="field" bind:value={say.kind} aria-label="От кого"><option value="character">Персонаж</option><option value="system">Система</option></select>
+            <select class="field" bind:value={say.who} aria-label="От кого"><option value="">—</option>{#each cast as c (c.id)}<option value={`c:${c.id}`}>{c.code} · {c.name}</option>{/each}<option value="system">Система</option></select>
+            {#if say.who === "system"}<input class="field" bind:value={say.name} maxlength="16" aria-label="Подпись" />{/if}
           </div>
           <textarea class="field" rows="3" bind:value={say.text} placeholder="текст"></textarea>
-          <div class="tools"><button class="btn primary" disabled={busy || !say.text.trim() || !say.name.trim()} onclick={reply}>Отправить</button></div>
+          <div class="tools"><button class="btn primary" disabled={busy || !say.text.trim() || !say.who} onclick={reply}>Отправить</button></div>
         </div>
       {/if}
     {:else}

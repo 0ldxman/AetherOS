@@ -34,8 +34,9 @@
     const cap = (text, extra) => { const h = el("h2", "fm-cap", text); if (extra) h.append(extra); return h; };
 
     // код отправителя, как в заголовках узловой почты: три знака (MAPT → MAP, OPERATOR-7 → OP7), у системы SYS; свой цвет у каждого
-    function plate(name, kind) {
+    function plate(name, kind, face) {
         if (kind === "system" || !name) return el("span", "fm-plate sys", "SYS");
+        if (face && face.code) { const own = el("span", "fm-plate c" + (face.color || 0), face.code); own.setAttribute("aria-hidden", "true"); return own; }
         let hash = 0;
         for (const ch of name) hash = (hash * 31 + ch.charCodeAt(0)) >>> 0;
         const clean = name.toUpperCase().replace(/[^A-Z0-9]/g, "");
@@ -126,7 +127,7 @@
         const fresh = t.unseen || t.new > 0;
         const row = el("a", "fm-row" + (fresh ? "" : " read"));
         row.href = "#/t/" + t.id;
-        row.append(plate(t.name, t.kind));
+        row.append(plate(t.name, t.kind, t));
         const main = el("div", "fm-row-main");
         const title = el("div", "fm-row-title", t.title);
         if (t.pinned) title.append(el("span", "fm-pinned", "pinned"));
@@ -375,7 +376,7 @@
         const who = el("div", "fm-who-line");
         const when = el("span", "", ago(first.ago)); when.title = first.at;
         who.append(nameTag(first.name, first.kind), el("span", "fm-badge op", "TS"), when, el("span", "", "in " + (section ? section.title : "")));
-        author.append(plate(first.name, first.kind), who);
+        author.append(plate(first.name, first.kind, first), who);
         head.append(title, author);
         const body = el("div", "fm-op-body");
         body.append(textOf(first, data.can_moderate));
@@ -422,7 +423,7 @@
                                                             : link("delete", () => moderate(urls.hideUrl, { post: post.id }), "warn"));
             if (tools.children.length) cbox.append(tools);
             main.append(cbox);
-            item.append(plate(post.name, post.kind), main);
+            item.append(plate(post.name, post.kind, post), main);
             container.append(item);
 
             const children = kids.get(post.id) || [];

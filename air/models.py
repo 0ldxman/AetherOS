@@ -47,6 +47,8 @@ class Station(models.Model):
     name = models.CharField("Позывной", max_length=16, unique=True)
     label = models.CharField("Подпись для авторов", max_length=120, blank=True)
     kind = models.CharField(max_length=16, choices=Kind.choices, default=Kind.STATION)
+    character = models.ForeignKey("characters.Character", null=True, blank=True, on_delete=models.SET_NULL, related_name="stations",
+                                  verbose_name="Персонаж", help_text="Чей это позывной: одно лицо во всех каналах.")
 
     class Meta:
         ordering = ("name",)
