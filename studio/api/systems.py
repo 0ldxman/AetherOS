@@ -196,7 +196,7 @@ class PanelInfo(Schema):
     presets2: dict[str, Panel2Layout]                # вид главной панели -> заготовка дополнительной
 
 
-PART_GROUPS = ("apps", "notice", "clock")
+PART_GROUPS = ("apps", "notice", "clock", "fx", "icons", "cursor")
 
 
 class StyleIn(Schema):

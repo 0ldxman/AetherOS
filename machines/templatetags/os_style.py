@@ -196,7 +196,10 @@ def app_icon(context, name):
 
     request = context.get("request")
     slug = _state(request)[0] if request is not None else styles.DEFAULT_STYLE
-    return icon_url(slug, name)
+    chosen = styles.group_of("icons", slug, getattr(request, "_os_parts", {}) if request is not None else {})["set"]
+    if chosen == "text":                       # «без картинок»: рисуется текстовый знак
+        return ""
+    return icon_url(slug if chosen == "style" else chosen, name)
 
 
 @register.simple_tag(takes_context=True)
@@ -204,7 +207,7 @@ def os_theme(context):
     request = context.get("request")
     slug = _state(request)[0] if request is not None else styles.DEFAULT_STYLE
     links = [f"ui/themes/{slug}.css"] if styles.STYLES[slug].css else []
-    links += ["ui/parts/windows.css", "ui/parts/panel2.css", "ui/parts/messages.css"]     # раньше частей вида: их дорисовка сильнее
+    links += ["ui/parts/windows.css", "ui/parts/panel2.css", "ui/parts/messages.css", "ui/parts/effects.css", "ui/parts/desk.css"]     # раньше частей вида: их дорисовка сильнее
     chosen = styles.parts(slug, getattr(request, "_os_parts", {}) if request is not None else {})
     links += [path for path in (styles.part_file(part, chosen[part]) for part in styles.PARTS) if path]
     return mark_safe("".join(format_html('<link rel="stylesheet" href="{}">', static(path)) for path in links))

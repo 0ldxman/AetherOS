@@ -45,16 +45,6 @@
 /* экран: ровная заливка и пиксельная сетка поверх всего стола, включая приложения */
 [data-theme="phosphor"] #desktop { background: var(--bg); }
 
-[data-theme="phosphor"] #desktop::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  z-index: 99999;
-  pointer-events: none;
-  background:
-    linear-gradient(rgba(26, 38, 22, 0.10) 1px, transparent 1px) 0 0 / 100% 3px,
-    linear-gradient(90deg, rgba(26, 38, 22, 0.10) 1px, transparent 1px) 0 0 / 3px 100%;
-}
 
 [data-theme="phosphor"] #icons { visibility: hidden; pointer-events: none; }
 

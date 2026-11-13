@@ -182,13 +182,34 @@ CLOCK = {
     "hours": ("Формат", {"24": "24 часа", "12": "12 часов"}),
     "seconds": ("Секунды", {"on": "Показывать", "off": "Нет"}),
 }
-GROUPS = {"window": WINDOW, "apps": APPS, "notice": NOTICE, "clock": CLOCK}
-GROUP_LABELS = {"window": "окон", "apps": "быстрого запуска", "notice": "сообщений", "clock": "часов"}
+_ONOFF = {"off": "Нет", "on": "Есть"}
+FX = {
+    "scanlines": ("Строки развёртки", _ONOFF),
+    "noise": ("Шум сигнала", _ONOFF),
+    "glow": ("Свечение текста", _ONOFF),
+    "pixels": ("Пиксельная сетка", _ONOFF),
+    "glitch": ("Сбои кадра", _ONOFF),
+}
+ICONS = {
+    "set": ("Набор значков", {"style": "Как в стиле", **{slug: label for slug, label in _LOOK_LABELS.items() if slug != "tui"}, "text": "Без картинок, текстом"}),
+    "look": ("Вид значков", {"style": "Как в стиле", "tile": "Плитка", "outline": "Контур", "ascii": "Только знак"}),
+}
+CURSOR = {
+    "cursor": ("Курсор", {"default": "Обычный", "block": "Блочный", "cross": "Перекрестие"}),
+}
+GROUPS = {"window": WINDOW, "apps": APPS, "notice": NOTICE, "clock": CLOCK, "fx": FX, "icons": ICONS, "cursor": CURSOR}
+GROUP_LABELS = {"window": "окон", "apps": "быстрого запуска", "notice": "сообщений", "clock": "часов", "fx": "эффектов", "icons": "значков", "cursor": "курсора"}
 
 _DEFAULTS = {
     "apps": {"size": "m", "labels": "hover", "mark": "dot"},
     "notice": {"corner": "br", "errors": "window", "fill": "standard"},
     "clock": {"hours": "24", "seconds": "on"},
+    "fx": {"scanlines": "off", "noise": "off", "glow": "off", "pixels": "off", "glitch": "off"},
+    "icons": {"set": "style", "look": "style"},
+    "cursor": {"cursor": "default"},
+}
+_STYLE_PRESETS = {                       # у стилей, которые не совпадают с видом панели (Glitched — это Aether со сбоями)
+    "fx": {"glitched": {"glitch": "on"}, "phosphor": {"pixels": "on"}},
 }
 _LOOK_PRESETS = {
     "apps": {"gnome": {"labels": "none"}},
@@ -203,7 +224,7 @@ def preset(group, slug):
     if group == "window":
         return dict(WINDOW_PRESETS.get(slug, _AETHER_WINDOW))
     look = panel.look_of(slug)
-    found = {**_DEFAULTS[group], **_LOOK_PRESETS.get(group, {}).get(look, {})}
+    found = {**_DEFAULTS[group], **_LOOK_PRESETS.get(group, {}).get(look, {}), **_STYLE_PRESETS.get(group, {}).get(slug, {})}
     if group == "notice":
         found["look"] = look
     return found
@@ -272,6 +293,9 @@ def parts(slug, custom=None):
     attrs["error-form"] = notice["errors"]
     attrs["error-fill"] = notice["fill"]
     attrs.update({f"clock-{key}": value for key, value in group_of("clock", slug, custom).items()})
+    attrs.update({f"fx-{key}": value for key, value in group_of("fx", slug, custom).items()})
+    attrs["icons-look"] = group_of("icons", slug, custom)["look"]
+    attrs["cursor"] = group_of("cursor", slug, custom)["cursor"]
     return attrs
 
 

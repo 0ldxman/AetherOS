@@ -11,6 +11,7 @@
 
 {% block body %}
     {% os_panel %}{% os_widgets_css %}
+    <div class="fx-layer" aria-hidden="true"><i class="fx-scan"></i><i class="fx-noise"></i><i class="fx-grid"></i></div>
     <main id="desktop" data-layout-key="{{ layout_key }}"{% if tunnel %} data-tunnel-label="{{ tunnel.label }}" data-tunnel-url="{{ tunnel.url }}" data-tunnel-close-url="{{ tunnel.close_url }}"{% endif %} data-terminal-url="{{ terminal_url }}"{% if preview %} data-preview="1"{% endif %} data-mail-url="{{ mail_url }}" data-mail-pulse-url="{{ mail_pulse_url }}" data-moments-url="{% url 'desktop_moments' %}" data-ticker="{% os_widget 'ticker' %}" data-toasts="{% os_widget 'toasts' %}">
     {% os_wallpaper %}
     {{ feeds|json_script:"desktop-feeds" }}

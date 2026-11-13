@@ -1,0 +1,22 @@
+/* ==========================================================================
+ * Значки и курсор ОС (machines/world/styles.py, ICONS и CURSOR).
+ *   data-icons-look  style | tile | outline | ascii   (style — как рисует тема)
+ *   data-cursor      default | block | cross
+ * Набор картинок значков выбирает сервер (os_style.app_icon). Правила с :root:root сильнее оформления значков в темах.
+ * ========================================================================== */
+
+:root:root[data-icons-look="tile"] .icon-glyph {
+  width: 44px; height: 44px; line-height: 44px; border: 1px solid var(--line); border-radius: calc(var(--radius) + 8px);
+  background: var(--panel); color: var(--accent); box-shadow: none;
+}
+:root:root[data-icons-look="outline"] .icon-glyph {
+  border: var(--border-w, 1px) solid currentColor; border-radius: var(--radius); background: transparent; color: var(--font-light); box-shadow: none;
+}
+:root:root[data-icons-look="ascii"] .icon-glyph { border: 0; background: none; box-shadow: none; color: var(--font-light); font-family: var(--font-console); font-size: var(--fs-big); }
+:root:root[data-icons-look="ascii"] :is(.icon-glyph, .shell-glyph).has-icon { font-size: var(--fs-big); }
+:root:root[data-icons-look="ascii"] :is(.icon-glyph, .shell-glyph).has-icon::before { display: none; }
+:root:root[data-icons-look="tile"] .icon:hover .icon-glyph,
+:root:root[data-icons-look="outline"] .icon:hover .icon-glyph { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 14%, var(--panel)); }
+
+[data-cursor="block"] :is(body, body *:not(input):not(textarea):not([contenteditable])) { cursor: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='20'%3E%3Crect x='1' y='1' width='10' height='18' fill='white' stroke='black' stroke-width='1.5'/%3E%3C/svg%3E") 1 1, auto !important; }
+[data-cursor="cross"] :is(body, body *:not(input):not(textarea):not([contenteditable])) { cursor: crosshair !important; }

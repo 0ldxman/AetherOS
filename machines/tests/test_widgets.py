@@ -97,7 +97,7 @@ class PartGroupsTests(TestCase):
         SystemType.objects.create(code="KIOSK", name="Kiosk", style="gnome")
         put = lambda body: self.client.put("/studio/api/systems/KIOSK/style", data=json.dumps({"style": "gnome", "tokens": {}, **body}), content_type="application/json")
         saved = put({"parts": {"apps": {"size": "l"}, "clock": {"hours": "12"}}, "panel2": {"edge": "left"}}).json()
-        self.assertEqual(saved["parts"], {"apps": {"size": "l"}, "notice": {}, "clock": {"hours": "12"}})
+        self.assertEqual(saved["parts"], {"apps": {"size": "l"}, "notice": {}, "clock": {"hours": "12"}, "fx": {}, "icons": {}, "cursor": {}})
         self.assertEqual({k: v for k, v in saved["panel2"].items() if v is not None}, {"edge": "left"})
         self.assertEqual(saved["panel_info"]["presets2"]["gnome"]["end"], ["allapps"])
         response = put({"panel2": {"start": ["launcher"]}})
@@ -170,3 +170,22 @@ class PanelRenderTests(TestCase):
         self.assertIn('class="start-button"', html)
         self.assertIn('id="clock-plate"', html)
         self.assertNotIn("el-pop", html)
+
+
+class FxIconsCursorTests(TestCase):
+    def test_presets_and_attrs(self):
+        self.assertEqual(styles.preset("fx", "glitched")["glitch"], "on")          # сбои Glitched теперь эффект
+        self.assertEqual(styles.preset("fx", "phosphor")["pixels"], "on")
+        attrs = styles.parts("aether", {"fx": {"scanlines": "on"}, "icons": {"look": "ascii"}, "cursor": {"cursor": "block"}})
+        self.assertEqual((attrs["fx-scanlines"], attrs["fx-glitch"], attrs["icons-look"], attrs["cursor"]), ("on", "off", "ascii", "block"))
+
+    def test_icon_set_is_chosen_by_the_os(self):
+        def icon(parts):
+            request = RequestFactory().get("/")
+            request.user = get_user_model()()
+            request._os_style = ("aether", {}, "AETHER", {})
+            request._os_parts = parts
+            return Template("{% load os_style %}{% app_icon 'book' %}").render(Context({"request": request}))
+        self.assertIn("icons/aether/", icon({}))
+        self.assertIn("icons/classic/", icon({"icons": {"set": "classic"}}))
+        self.assertEqual(icon({"icons": {"set": "text"}}), "")
