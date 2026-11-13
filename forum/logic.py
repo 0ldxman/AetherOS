@@ -12,6 +12,8 @@ TITLE_MAX = 160
 TEXT_MAX = 4000
 RATE_COUNT, RATE_SECONDS = 6, 60            # не больше шести сообщений в минуту от одного игрока
 MAX_DEPTH = 6                               # глубже ответ цепляется к предку на этом уровне
+MAX_SECTION_DEPTH = 2                       # игрок создаёт разделы только на первых двух уровнях дерева
+PLAYER_SECTIONS = 3                         # сколько живых разделов в пространстве может быть у одного игрока
 
 
 class ForumError(Exception):
@@ -193,3 +195,81 @@ def set_flags(topic, pinned=None, locked=None):
         fields["locked"] = locked
     if fields:
         Topic.objects.filter(pk=topic.pk).update(**fields)
+
+
+# ---- разделы игроков ----
+
+def create_mode(space, parent):
+    """Кто создаёт разделы здесь: берётся у ближайшего раздела выше, где сказано, иначе у пространства."""
+    for item in reversed(_chain(parent) if parent is not None else []):
+        if item.create != "inherit":
+            return item.create
+    return space.create
+
+
+def create_problem(space, parent, user, keys):
+    """Почему игрок не может создать раздел здесь (текст) или пустая строка, если может."""
+    if user is None or not user.is_authenticated:
+        return "создавать разделы могут только игроки"
+    if parent is not None and (parent.archived or parent.space_id != space.pk):
+        return "в этот раздел добавлять нельзя"
+    if not (can_read(space, keys) if parent is None else can_read(parent, keys)):
+        return "раздела нет"
+    if create_mode(space, parent) != "players":
+        return "здесь разделы создают авторы"
+    conditions = [space.create_if] + [item.create_if for item in (_chain(parent) if parent is not None else [])]
+    if not all(satisfied(condition, keys) for condition in conditions):
+        return "пока недоступно"
+    if (len(_chain(parent)) if parent is not None else 0) + 1 > MAX_SECTION_DEPTH:
+        return f"глубже {MAX_SECTION_DEPTH} уровней разделы создавать нельзя"
+    if Section.objects.filter(space=space, created_by=user, archived=False).count() >= PLAYER_SECTIONS:
+        return f"не больше {PLAYER_SECTIONS} своих разделов: архивируйте лишний"
+    return ""
+
+
+def can_create(space, parent, user, keys):
+    return not create_problem(space, parent, user, keys)
+
+
+@transaction.atomic
+def create_section(space, parent, user, title, about, keys):
+    reason = create_problem(space, parent, user, keys)
+    if reason:
+        raise ForumError(reason)
+    title = _clean(title, 120, "название")
+    about = (about or "").strip()[:240]
+    if Section.objects.filter(space=space, parent=parent, archived=False, title__iexact=title).exists():
+        raise ForumError("раздел с таким названием уже есть")
+    return Section.objects.create(space=space, parent=parent, title=title, about=about, created_by=user)
+
+
+# ---- модерация создателем раздела ----
+
+def moderates(section, user):
+    """Создатель раздела (или любого раздела выше) модерирует его."""
+    return user is not None and user.is_authenticated and any(item.created_by_id == user.pk for item in _chain(section))
+
+
+def _need(section, user):
+    if not moderates(section, user):
+        raise ForumError("нет прав")
+
+
+def mod_hide(post, user, reason=""):
+    _need(post.topic.section, user)
+    hide_post(post, reason)
+
+
+def mod_restore(post, user):
+    _need(post.topic.section, user)
+    restore_post(post)
+
+
+def mod_flags(topic, user, pinned=None, locked=None):
+    _need(topic.section, user)
+    set_flags(topic, pinned=pinned, locked=locked)
+
+
+def mod_archive(section, user):
+    _need(section, user)
+    Section.objects.filter(pk=section.pk).update(archived=True)

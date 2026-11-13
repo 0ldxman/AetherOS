@@ -116,3 +116,82 @@ class ForumLogicTests(TestCase):
         reading = logic.author_topic(self.root, "SENSOR-4", "Counter", "act: 2", kind=Kind.SYSTEM)
         self.assertEqual((reading.kind, reading.author), (Kind.SYSTEM, None))
         self.assertEqual(fresh.kind, Kind.PLAYER)
+
+
+class PlayerSectionsTests(TestCase):
+    def setUp(self):
+        self.machine = Machine.objects.create(name="Core", hostname="aether-core")
+        self.space = Space.objects.create(slug="net", title="Net")
+        self.space.machines.add(self.machine)
+        self.root = Section.objects.create(space=self.space, title="General")
+        self.ivan = get_user_model().objects.create_user("ivan")
+        self.anna = get_user_model().objects.create_user("anna")
+
+    def test_a_player_creates_a_section_and_becomes_its_moderator(self):
+        mine = logic.create_section(self.space, None, self.ivan, "Ciphers", "all about ciphers", set())
+        self.assertEqual((mine.created_by, mine.parent), (self.ivan, None))
+        self.assertTrue(logic.moderates(mine, self.ivan))
+        self.assertFalse(logic.moderates(mine, self.anna))
+        self.assertFalse(logic.moderates(self.root, self.ivan))
+        sub = logic.create_section(self.space, mine, self.anna, "Vigenere", "", set())
+        self.assertTrue(logic.moderates(sub, self.ivan))          # создатель верхнего раздела модерирует и вложенные
+        self.assertTrue(logic.moderates(sub, self.anna))
+
+    def test_depth_limit_and_duplicate_titles(self):
+        one = logic.create_section(self.space, None, self.ivan, "One", "", set())
+        two = logic.create_section(self.space, one, self.ivan, "Two", "", set())
+        self.assertIn("глубже", logic.create_problem(self.space, two, self.anna, set()))
+        with self.assertRaises(logic.ForumError):
+            logic.create_section(self.space, None, self.anna, "one", "", set())
+
+    def test_per_player_limit_counts_only_live_sections(self):
+        made = [logic.create_section(self.space, None, self.ivan, f"S{n}", "", set()) for n in range(logic.PLAYER_SECTIONS)]
+        self.assertIn("не больше", logic.create_problem(self.space, None, self.ivan, set()))
+        logic.mod_archive(made[0], self.ivan)
+        self.assertEqual(logic.create_problem(self.space, None, self.ivan, set()), "")
+
+    def test_authors_can_close_creation_by_mode_and_condition(self):
+        self.space.create = "authors"
+        self.space.save()
+        self.assertIn("авторы", logic.create_problem(self.space, None, self.ivan, set()))
+        self.space.create = "players"
+        self.space.create_if = "member"
+        self.space.save()
+        self.assertEqual(logic.create_problem(self.space, None, self.ivan, set()), "пока недоступно")
+        self.assertEqual(logic.create_problem(self.space, None, self.ivan, {"member"}), "")
+        self.root.create = "authors"
+        self.root.save()
+        self.assertIn("авторы", logic.create_problem(self.space, self.root, self.ivan, {"member"}))
+
+    def test_unreadable_or_archived_parent_and_guests(self):
+        self.root.read_if = "secret"
+        self.root.save()
+        self.assertEqual(logic.create_problem(self.space, self.root, self.ivan, set()), "раздела нет")
+        self.root.read_if = None
+        self.root.archived = True
+        self.root.save()
+        self.assertIn("нельзя", logic.create_problem(self.space, self.root, self.ivan, set()))
+        from django.contrib.auth.models import AnonymousUser
+
+        self.assertIn("только игроки", logic.create_problem(self.space, None, AnonymousUser(), set()))
+
+    def test_moderator_hides_pins_locks_and_archives_only_in_their_section(self):
+        mine = logic.create_section(self.space, None, self.ivan, "Mine", "", set())
+        topic = logic.start_topic(mine, self.anna, "Hi", "hello", set())
+        reply = logic.reply(topic, self.anna, "spam", set())
+        logic.mod_hide(reply, self.ivan, "spam")
+        self.assertIsNotNone(Post.objects.get(pk=reply.pk).hidden_at)
+        logic.mod_restore(reply, self.ivan)
+        logic.mod_flags(topic, self.ivan, pinned=True, locked=True)
+        topic.refresh_from_db()
+        self.assertEqual((topic.pinned, topic.locked), (True, True))
+        foreign = logic.author_topic(self.root, "SYSOP", "Rules", "x")
+        with self.assertRaises(logic.ForumError):
+            logic.mod_flags(foreign, self.ivan, pinned=True)
+        with self.assertRaises(logic.ForumError):
+            logic.mod_hide(foreign.posts.get(root=True), self.ivan)
+        with self.assertRaises(logic.ForumError):
+            logic.mod_archive(mine, self.anna)
+        logic.mod_archive(mine, self.ivan)
+        mine.refresh_from_db()
+        self.assertTrue(mine.archived)

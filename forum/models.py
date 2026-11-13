@@ -24,6 +24,9 @@ class Space(models.Model):
     write = models.CharField("Кто пишет", max_length=8, choices=[("players", "Игроки"), ("authors", "Только авторы")], default="players")
     write_if = models.JSONField("Условие записи", null=True, blank=True, validators=[validate_requirements],
                                 help_text="Дополнительное условие для игроков. Пусто: без него.")
+    create = models.CharField("Кто создаёт разделы", max_length=8, choices=[("players", "Игроки"), ("authors", "Только авторы")], default="players")
+    create_if = models.JSONField("Условие создания", null=True, blank=True, validators=[validate_requirements],
+                                 help_text="Дополнительное условие для игроков, создающих разделы. Пусто: без него.")
     order = models.PositiveIntegerField("Порядок", default=0)
     created_at = models.DateTimeField(auto_now_add=True)
 
@@ -48,6 +51,8 @@ class Section(models.Model):
                                help_text="Дополнительное условие чтения поверх родительского. Пусто: как у родителя.")
     write = models.CharField("Кто пишет", max_length=8, choices=[("inherit", "Как у родителя"), ("players", "Игроки"), ("authors", "Только авторы")], default="inherit")
     write_if = models.JSONField("Условие записи", null=True, blank=True, validators=[validate_requirements])
+    create = models.CharField("Кто создаёт подразделы", max_length=8, choices=[("inherit", "Как у родителя"), ("players", "Игроки"), ("authors", "Только авторы")], default="inherit")
+    create_if = models.JSONField("Условие создания", null=True, blank=True, validators=[validate_requirements])
     created_by = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL, related_name="+")
     archived = models.BooleanField("В архиве", default=False, help_text="Раздел скрыт из списков, записи остаются.")
     created_at = models.DateTimeField(auto_now_add=True)
