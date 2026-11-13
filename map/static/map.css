@@ -103,7 +103,9 @@ body.theme-scan {
   flex-direction: column;
   min-width: 150px;
   background: color-mix(in srgb, var(--bg) 85%, transparent);
-  border: 1px solid var(--window-border);
+  border: var(--ctl-border) solid var(--window-border);
+  border-radius: var(--ctl-radius);
+  overflow: hidden;
   font-family: var(--font-main);
   font-size: 11px;
   color: var(--font-light);

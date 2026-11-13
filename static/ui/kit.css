@@ -1,0 +1,12 @@
+/* Общая форма приложений: то, что одинаково для вики, почты, карты и просмотрщиков (токены --ctl-* и --scroll-w, static/ui/tokens.css).
+   Кнопки и поля берут токены в своих файлах; здесь то, что нельзя привязать к одному приложению: полосы прокрутки. */
+
+@supports not selector(::-webkit-scrollbar) {
+  * { scrollbar-width: thin; scrollbar-color: var(--line-bright) var(--bg); }
+}
+
+::-webkit-scrollbar { width: var(--scroll-w); height: var(--scroll-w); }
+::-webkit-scrollbar-track { background: var(--bg); }
+::-webkit-scrollbar-thumb { background: var(--line-bright); border: min(var(--ctl-border), 2px) solid var(--bg); border-radius: var(--ctl-radius); }
+::-webkit-scrollbar-thumb:hover { background: var(--accent); }
+::-webkit-scrollbar-corner { background: var(--bg); }

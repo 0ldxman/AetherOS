@@ -39,14 +39,14 @@ body { font-size: 1rem; line-height: 1.5; }
 .markup code { padding: 0 0.25rem; border: 1px solid var(--line); border-radius: 3px; font-family: var(--font-console); }
 .markup a { color: var(--accent); }
 
-.app-button { align-self: flex-start; padding: 0.3rem 0.8rem; border: 1px solid var(--line-bright); border-radius: var(--radius); background: none;
+.app-button { align-self: flex-start; padding: 0.3rem 0.8rem; border: var(--ctl-border) solid var(--line-bright); border-radius: var(--ctl-radius); box-shadow: var(--ctl-shade) var(--ctl-shade) 0 var(--line-bright); background: none;
               color: var(--fg); font: inherit; cursor: pointer; }
 .app-button:hover:not(:disabled) { background: var(--row-hover); }
 .app-button.primary { border-color: var(--accent); color: var(--accent); }
 .app-button:disabled { opacity: 0.5; cursor: default; }
 .app-button:focus-visible { outline: 1px solid var(--accent); outline-offset: 2px; }
 
-.field { width: 100%; padding: 0.4rem 0.55rem; border: 1px solid var(--line-bright); border-radius: var(--radius); background: var(--bg-sunken, var(--bg));
+.field { width: 100%; padding: 0.4rem 0.55rem; border: var(--ctl-border) solid var(--line-bright); border-radius: var(--ctl-radius); background: var(--bg-sunken, var(--bg));
          color: var(--fg); font: inherit; }
 .field:focus { outline: 1px solid var(--accent); }
 textarea.field { resize: vertical; min-height: 6rem; }

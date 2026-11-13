@@ -32,6 +32,8 @@
   --font-main: var(--ff-arimo);
   --radius: 16px;
   --border-w: 1px;
+  --ctl-radius: 8px;
+  --scroll-w: 0.5rem;
   --tab-h: 46px;
   --wb-round: 0px;               /* окна (рамка soft): скругление ровно --radius, светлое кольцо и мягкая тень */
   --wb-ring: rgba(255, 255, 255, 0.11);

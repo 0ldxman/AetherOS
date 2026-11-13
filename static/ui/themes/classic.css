@@ -31,6 +31,9 @@
   --font-main: var(--ff-ibm-vga);
   --radius: 0;
   --border-w: 2px;
+  --ctl-border: 2px;
+  --ctl-shade: 2px;
+  --scroll-w: 0.9rem;
   --tab-h: 20px;
   --ink: #1c1c28;
   --cream: #f3edd7;

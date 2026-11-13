@@ -300,7 +300,9 @@ a {
     padding: 0.1rem 1.2ch;
 
     background: none;
-    border: 1px solid var(--line-bright);
+    border: var(--ctl-border) solid var(--line-bright);
+    border-radius: var(--ctl-radius);
+    box-shadow: var(--ctl-shade) var(--ctl-shade) 0 var(--line-bright);
 
     color: var(--font-light);
 
@@ -847,50 +849,6 @@ details[open] > summary .mark::before {
 }
 
 
-/* -------------------------------------------------- */
-/* Scrollbars                                         */
-/* -------------------------------------------------- */
-
-@supports not selector(::-webkit-scrollbar) {
-    .tree,
-    .viewer-body,
-    body {
-        scrollbar-width: thin;
-        scrollbar-color: var(--line-bright) var(--bg);
-    }
-}
-
-.tree::-webkit-scrollbar,
-.viewer-body::-webkit-scrollbar,
-body::-webkit-scrollbar {
-    width: 0.7rem;
-    height: 0.7rem;
-}
-
-.tree::-webkit-scrollbar-track,
-.viewer-body::-webkit-scrollbar-track,
-body::-webkit-scrollbar-track {
-    background: var(--bg);
-}
-
-.tree::-webkit-scrollbar-thumb,
-.viewer-body::-webkit-scrollbar-thumb,
-body::-webkit-scrollbar-thumb {
-    background: var(--line-bright);
-    border: 1px solid var(--bg);
-}
-
-.tree::-webkit-scrollbar-thumb:hover,
-.viewer-body::-webkit-scrollbar-thumb:hover,
-body::-webkit-scrollbar-thumb:hover {
-    background: var(--accent);
-}
-
-.tree::-webkit-scrollbar-corner,
-.viewer-body::-webkit-scrollbar-corner {
-    background: var(--bg);
-}
-
 /* Плашка подмены ключей для сотрудников (wiki/access.py: view_as) */
 .view-as {
   position: fixed;
@@ -932,7 +890,8 @@ body::-webkit-scrollbar-thumb:hover {
     padding: 0 0.8ch;
 
     background: none;
-    border: 1px solid var(--font-dark);
+    border: var(--ctl-border) solid var(--font-dark);
+    border-radius: var(--ctl-radius);
 
     color: var(--font-dark);
 

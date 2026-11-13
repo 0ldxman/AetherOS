@@ -33,6 +33,8 @@
   --font-main: var(--ff-terminus);
   --radius: 0;
   --border-w: 3px;
+  --ctl-border: 2px;
+  --scroll-w: 0.9em;
   --tab-h: 16px;
   --frame: var(--line-bright);
   --tui-shadow: 8px 8px 0 #262626;   /* тень как в BIOS, но сдержанная: на одну клетку вправо и полклетки вниз */

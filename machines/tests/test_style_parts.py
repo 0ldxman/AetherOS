@@ -77,3 +77,20 @@ class StylePartTagsTests(TestCase):
     def test_preview_parts_only_for_staff(self):
         html = self.render("{% os_parts %}", preview_parts=json.dumps({"window": {"title": "full"}}))
         self.assertIn('data-win-title="plaque"', html)                 # аноним не подменяет
+
+
+class AppFormTokensTests(SimpleTestCase):
+    """Форма приложений (--ctl-*, --scroll-w): у каждого стиля есть значение, а автор может его переопределить."""
+
+    def test_every_style_has_valid_values_and_authors_can_override(self):
+        names = ["--ctl-radius", "--ctl-border", "--ctl-shade", "--scroll-w"]
+        for slug in styles.STYLES:
+            found = styles.style_defaults(slug)
+            for name in names:
+                self.assertTrue(styles._LENGTH.match(found[name]), (slug, name))
+        self.assertEqual(styles.problems("aether", {"--ctl-radius": "6px", "--ctl-shade": "3px"}), [])
+        self.assertTrue(styles.problems("aether", {"--ctl-radius": "round"}))
+
+    def test_aether_keeps_sharp_flat_controls(self):
+        found = styles.style_defaults("aether")
+        self.assertEqual((found["--ctl-radius"], found["--ctl-border"], found["--ctl-shade"]), ("0px", "1px", "0px"))

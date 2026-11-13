@@ -32,6 +32,7 @@
   --fs-base: 1rem;
   --radius: 0;
   --border-w: 2px;
+  --ctl-border: 2px;
   --tab-h: 24px;
   --console-h: 40vh;             /* высота консоли (окна терминала) у нижнего края */
 }

@@ -31,6 +31,8 @@
   --font-main: var(--ff-arimo);
   --radius: 0;
   --border-w: 2px;
+  --ctl-border: 2px;
+  --scroll-w: 0.9rem;
   --tab-h: 22px;
   --lit: #dde5e9;
   --shade: #62737e;

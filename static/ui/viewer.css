@@ -141,8 +141,8 @@ body.av-page {
     height: 27px;
     margin: 0;
     padding: 0 9px;
-    border: 1px solid var(--av-muted);
-    border-radius: 0;
+    border: var(--ctl-border) solid var(--av-muted);
+    border-radius: var(--ctl-radius);
     outline: none;
     background: transparent;
     color: var(--av-fg);
@@ -152,7 +152,7 @@ body.av-page {
     line-height: 1;
     white-space: nowrap;
     cursor: pointer;
-    box-shadow: none;
+    box-shadow: var(--ctl-shade) var(--ctl-shade) 0 var(--av-muted);
     transition: none;
 }
 

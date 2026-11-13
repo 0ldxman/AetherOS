@@ -13,7 +13,8 @@
   box-sizing: border-box;
   padding: 8px 14px 10px;
   background: var(--tl-bg);
-  border: 1px solid var(--tl-dim);
+  border: var(--ctl-border) solid var(--tl-dim);
+  border-radius: var(--ctl-radius);
   color: var(--tl-fg);
   font: 11px/1.2 var(--font-main);
   z-index: 20;
@@ -125,8 +126,9 @@
 #timeline button {
   padding: 3px 9px;
   background: transparent;
-  border: 1px solid var(--window-border);
-  border-radius: 0;
+  border: var(--ctl-border) solid var(--window-border);
+  border-radius: var(--ctl-radius);
+  box-shadow: var(--ctl-shade) var(--ctl-shade) 0 var(--window-border);
   color: var(--tl-fg);
   font: inherit;
   cursor: pointer;
