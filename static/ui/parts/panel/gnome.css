@@ -321,3 +321,13 @@
 [data-panel="gnome"] .shell-notice-title { color: #fff; }
 [data-panel="gnome"] .shell-notice-time { color: rgba(255, 255, 255, 0.5); font-size: 0.72rem; }
 [data-panel="gnome"] .shell-notice-text { grid-column: 1 / -1; color: rgba(255, 255, 255, 0.7); font-size: 0.78rem; }
+
+/* одна точка — один смысл: связь показывает только точка (число задержки при наведении), у имени точки нет,
+   у часов вместо точки счётчик уведомлений с числом */
+[data-panel="gnome"] .session-button::before { content: none; }
+[data-panel="gnome"] .ping :is(#ping-value, #ping-unit, .fw-key) { display: none; }
+[data-panel="gnome"] .ping:hover :is(#ping-value, #ping-unit) { display: inline; }
+[data-panel="gnome"] .bell-count {
+  min-width: 16px; height: 16px; padding: 0 4px; box-sizing: border-box; border-radius: 8px;
+  color: var(--font-dark); font-size: 10px; font-weight: 700; line-height: 16px; text-align: center;
+}
