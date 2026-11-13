@@ -64,14 +64,22 @@
 
 /* ---- tab: вкладка над рамкой (основа в desktop.css) ---- */
 [data-win-title="tab"] .winbox.aether { --wb-head-bg: var(--title-bg, var(--font-light)); --wb-head-fg: var(--title-fg, var(--font-dark)); }
-/* вкладка всегда яркая; окна в стопке различает ступенчатая обводка: четыре кольца по 1px без размытия, к окну плотнее.
-   У вкладки низ обрезан, чтобы её кольца не ложились на верх окна */
-[data-win-title="tab"] .winbox.aether { --wb-steps: 0 0 0 1px rgba(0, 0, 0, 0.55), 0 0 0 2px rgba(0, 0, 0, 0.38), 0 0 0 3px rgba(0, 0, 0, 0.22), 0 0 0 4px rgba(0, 0, 0, 0.10); }
-[data-win-title="tab"] .winbox.aether:not(.dialog-window):not(.max) .wb-header { box-shadow: var(--wb-steps); clip-path: inset(-4px -4px 0 -4px); }
-[data-win-title="tab"][data-win-frame="line"] .winbox.aether:not(.min):not(.dialog-window) {
-  box-shadow: 0 0 0 1px var(--window-border), 0 0 0 2px rgba(0, 0, 0, 0.55), 0 0 0 3px rgba(0, 0, 0, 0.38), 0 0 0 4px rgba(0, 0, 0, 0.22), 0 0 0 5px rgba(0, 0, 0, 0.10);
+/* вкладка всегда яркая; окна в стопке различает ступенчатая обводка: три линии по 1px с зазорами, к окну плотнее.
+   У окна линии рисует служебный .wb-foot (рамка, outline и ::before), у вкладки — outline, ::before и его outline;
+   низ вкладки обрезан, чтобы её линии не ложились на окно, а вкладка стоит над линиями окна */
+[data-win-title="tab"][data-win-frame="line"] .winbox.aether:not(.min):not(.max):not(.dialog-window) .wb-foot {
+  display: block; position: absolute; inset: -3px; z-index: 0; pointer-events: none;
+  border: 1px solid rgba(0, 0, 0, 0.38); outline: 1px solid rgba(0, 0, 0, 0.22); outline-offset: 2px;
 }
-[data-win-title="tab"][data-win-frame="line"] .winbox.aether.max { box-shadow: 0 0 0 1px var(--window-border); }
+[data-win-title="tab"][data-win-frame="line"] .winbox.aether:not(.min):not(.max):not(.dialog-window) .wb-foot::before {
+  content: ""; position: absolute; inset: -7px; border: 1px solid rgba(0, 0, 0, 0.10);
+}
+[data-win-title="tab"] .winbox.aether:not(.dialog-window):not(.max) .wb-header {
+  z-index: 2; outline: 1px solid rgba(0, 0, 0, 0.38); outline-offset: 2px; clip-path: inset(-10px -10px 0 -10px);
+}
+[data-win-title="tab"] .winbox.aether:not(.dialog-window):not(.max) .wb-header::before {
+  content: ""; position: absolute; inset: -6px; border: 1px solid rgba(0, 0, 0, 0.22); outline: 1px solid rgba(0, 0, 0, 0.10); outline-offset: 2px; pointer-events: none;
+}
 [data-win-title="tab"] .winbox.aether.focus { --wb-head-bg: var(--title-bg-active, var(--title-bg, var(--font-light))); --wb-head-fg: var(--title-fg-active, var(--title-fg, var(--font-dark))); }
 [data-win-title="tab"] .winbox.aether .wb-header,
 [data-win-title="tab"] .winbox.aether.max .wb-header { background: var(--wb-head-bg); border-color: var(--wb-head-bg); }
