@@ -64,9 +64,14 @@
 
 /* ---- tab: вкладка над рамкой (основа в desktop.css) ---- */
 [data-win-title="tab"] .winbox.aether { --wb-head-bg: var(--title-bg, var(--font-light)); --wb-head-fg: var(--title-fg, var(--font-dark)); }
-/* вкладка всегда яркая; окна в стопке различает лёгкая тень вкладки и рамки */
-[data-win-title="tab"] .winbox.aether:not(.dialog-window) .wb-header { box-shadow: 0 -3px 10px rgba(0, 0, 0, 0.45); }
-[data-win-title="tab"][data-win-frame="line"] .winbox.aether:not(.min):not(.dialog-window) { box-shadow: 0 0 0 1px var(--window-border), 0 10px 26px rgba(0, 0, 0, 0.45); }
+/* вкладка всегда яркая; окна в стопке различает ступенчатая обводка: четыре кольца по 1px без размытия, к окну плотнее.
+   У вкладки низ обрезан, чтобы её кольца не ложились на верх окна */
+[data-win-title="tab"] .winbox.aether { --wb-steps: 0 0 0 1px rgba(0, 0, 0, 0.55), 0 0 0 2px rgba(0, 0, 0, 0.38), 0 0 0 3px rgba(0, 0, 0, 0.22), 0 0 0 4px rgba(0, 0, 0, 0.10); }
+[data-win-title="tab"] .winbox.aether:not(.dialog-window):not(.max) .wb-header { box-shadow: var(--wb-steps); clip-path: inset(-4px -4px 0 -4px); }
+[data-win-title="tab"][data-win-frame="line"] .winbox.aether:not(.min):not(.dialog-window) {
+  box-shadow: 0 0 0 1px var(--window-border), 0 0 0 2px rgba(0, 0, 0, 0.55), 0 0 0 3px rgba(0, 0, 0, 0.38), 0 0 0 4px rgba(0, 0, 0, 0.22), 0 0 0 5px rgba(0, 0, 0, 0.10);
+}
+[data-win-title="tab"][data-win-frame="line"] .winbox.aether.max { box-shadow: 0 0 0 1px var(--window-border); }
 [data-win-title="tab"] .winbox.aether.focus { --wb-head-bg: var(--title-bg-active, var(--title-bg, var(--font-light))); --wb-head-fg: var(--title-fg-active, var(--title-fg, var(--font-dark))); }
 [data-win-title="tab"] .winbox.aether .wb-header,
 [data-win-title="tab"] .winbox.aether.max .wb-header { background: var(--wb-head-bg); border-color: var(--wb-head-bg); }
