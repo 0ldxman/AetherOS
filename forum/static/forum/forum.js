@@ -1,13 +1,13 @@
-// Форум: доска узла. Одна колонка: разделы (#/s/слаг), темы раздела (#/c/раздел), тема с ветками ответов (#/t/тема).
+// Форум: доски узла. Слева доски пространства (как каналы), справа лист: обзор (#/s/слаг), раздел (#/c/id), тема (#/t/id).
 (function () {
     "use strict";
     const { el, csrf, markup, notice } = window.apps;
     const urls = document.getElementById("forum").dataset;
     const $ = (id) => document.getElementById(id);
-    const INDENT = 4;                          // глубже ветки не сдвигаются вправо, чтобы текст не сжимался
+    const INDENT = 4;                          // глубже ветки не сдвигаются: ответ встаёт рядом и подписан «→ имя»
     const FOLD_FROM = 3;                       // длинные ветки глубже этого свёрнуты сразу
 
-    let spaces = [], space = null, player = false, node = "", callsign = "";
+    let spaces = [], space = null, player = false, node = "", callsign = "", current = null;
 
     const slot = (template, id) => template.replace(/0\/$/, id + "/");
     const ago = (text) => (!text ? "" : text === "just now" ? text : text + " ago");
@@ -30,14 +30,56 @@
         return node;
     }
     const link = (label, onclick, extra) => button(label, onclick, "fm-link" + (extra ? " " + extra : ""));
-    function page() { const box = $("fm-page"); box.replaceChildren(); return box; }
+    const page = () => { const box = $("fm-page"); box.replaceChildren(); return box; };
+    const cap = (text, extra) => { const h = el("h2", "fm-cap", text); if (extra) h.append(extra); return h; };
 
-    // ---------- шапка, путь, действия ----------
+    // табличка позывного: две буквы и свой цвет у каждого автора
+    function plate(name, kind) {
+        if (kind === "system" || !name) return el("span", "fm-plate sys", "SY");
+        let hash = 0;
+        for (const ch of name) hash = (hash * 31 + ch.charCodeAt(0)) >>> 0;
+        // буква и цифра позывного (OPERATOR-7 → O7), без цифры две буквы (MAPT → MA): не путается с меткой OP
+        const clean = name.toUpperCase().replace(/[^A-Z0-9]/g, "");
+        const digit = clean.slice(1).match(/[0-9]/);
+        const box = el("span", "fm-plate c" + (hash % 4), (clean[0] || "?") + (digit ? digit[0] : clean[1] || ""));
+        box.setAttribute("aria-hidden", "true");
+        return box;
+    }
+    const nameTag = (name, kind) => el("span", "fm-name kind-" + kind, name || "SYSTEM");
+
+    // ---------- шапка, доски слева, строка места ----------
     function drawWho() {
         const who = $("fm-who");
         who.replaceChildren();
         if (callsign) who.append(el("b", "", callsign), " @ " + (node || "?"));
         else who.append("guest @ " + (node || "?") + " · read only");
+    }
+    function drawRail() {
+        const rail = $("fm-rail");
+        rail.replaceChildren();
+        if (!space) return;
+        const item = (href, label, active, extra, level) => {
+            const row = el("a", "fm-railitem" + (level ? " sub" : "") + (extra && extra.fresh ? " fresh" : ""));
+            row.href = href;
+            if (level) row.style.paddingLeft = (16 + level * 16) + "px";
+            if (active) row.setAttribute("aria-current", "page");
+            row.append(el("span", "fm-name-cut", label));
+            if (extra && extra.fresh) row.append(el("span", "fm-pill", String(extra.fresh)));
+            else if (extra && extra.count !== undefined) row.append(el("span", "fm-railcount", String(extra.count)));
+            return row;
+        };
+        rail.append(item("#/s/" + space.slug, "Overview", current === "space"));
+        rail.append(el("div", "fm-railcap", "BOARDS"));
+        const walk = (nodes, level) => nodes.forEach((n) => {
+            rail.append(item("#/c/" + n.id, n.title, current === n.id, { fresh: n.new, count: n.topics }, level));
+            walk(n.children, level + 1);
+        });
+        walk(space.tree, 0);
+        if (space.can_create) rail.append(link("+ new board", () => { location.hash = "#/s/" + space.slug; setTimeout(() => openSectionForm(null), 0); }, "fm-railadd strong"));
+        if (spaces.length > 1) {
+            rail.append(el("div", "fm-railcap", "SPACES"));
+            spaces.forEach((s) => rail.append(item("#/s/" + s.slug, s.title, false)));
+        }
     }
     function drawBar(crumbs, here, actions) {
         const bar = $("fm-crumbs");
@@ -59,28 +101,51 @@
         $("fm-space").textContent = space.title;
         return space;
     }
-    const findNode = (nodes, id) => { for (const item of nodes) { if (item.id === id) return item; const found = findNode(item.children, id); if (found) return found; } return null; };
+    const findNode = (nodes, id) => { for (const n of nodes) { if (n.id === id) return n; const f = findNode(n.children, id); if (f) return f; } return null; };
+    const allNodes = (nodes) => nodes.flatMap((n) => [n, ...allNodes(n.children)]);
 
-    // ---------- строки разделов ----------
-    function boardRow(item, sub) {
-        const row = el("a", "fm-board" + (sub ? " sub" : ""));
-        row.href = "#/c/" + item.id;
-        row.append(el("span", "fm-dot" + (item.new ? " on" : "")), el("span", "fm-board-title", item.title),
-                   el("span", "fm-board-count", (item.new ? item.new + " new · " : "") + plural(item.topics, "topic", "topics")));
-        if (item.about) row.append(el("span", "fm-board-about", item.about));
-        const last = el("span", "fm-board-last");
-        if (item.last) last.append("last: ", el("i", "", item.last.title), " · " + item.last.name + " · " + ago(item.last.ago));
-        else last.append(item.can_write ? "empty — start the first topic" : "empty");
-        row.append(last);
-        if (!item.can_write) row.title = "read only";
+    // ---------- строки списков ----------
+    function boardRow(n) {
+        const row = el("a", "fm-row" + (n.new ? "" : " read"));
+        row.href = "#/c/" + n.id;
+        row.append(el("span", "fm-ico" + (n.new ? " on" : ""), n.new ? "●" : "#"));
+        const main = el("div", "fm-row-main");
+        main.append(el("div", "fm-row-title", n.title));
+        if (n.about) main.append(el("div", "fm-row-sub", n.about));
+        const meta = el("div", "fm-row-meta");
+        if (n.last) meta.append("last: ", el("i", "", n.last.title), " · " + n.last.name + " · " + ago(n.last.ago));
+        else meta.append(n.can_write ? "no topics yet — be the first" : "no topics yet");
+        main.append(meta);
+        const side = el("div", "fm-row-side");
+        side.append(el("span", "fm-big", String(n.topics)), el("span", "", n.topics === 1 ? "topic" : "topics"));
+        if (n.new) side.append(el("span", "fm-new", n.new + " new"));
+        row.append(main, side);
         return row;
     }
-    function boards(items, depth) {
-        const box = el("div", "fm-boards");
-        const walk = (nodes, level) => nodes.forEach((item) => { box.append(boardRow(item, level > 0)); if (level < 1) walk(item.children, level + 1); });
-        walk(items, depth);
-        return box;
+    function topicRow(t, withSection) {
+        const fresh = t.unseen || t.new > 0;
+        const row = el("a", "fm-row" + (fresh ? "" : " read"));
+        row.href = "#/t/" + t.id;
+        row.append(plate(t.name, t.kind));
+        const main = el("div", "fm-row-main");
+        const title = el("div", "fm-row-title", t.title);
+        if (t.pinned) title.append(el("span", "fm-pinned", "pinned"));
+        if (t.locked) title.append(el("span", "fm-closed", "closed"));
+        main.append(title);
+        if (t.excerpt) main.append(el("div", "fm-row-sub", t.excerpt));
+        const meta = el("div", "fm-row-meta");
+        meta.append(el("i", "", t.name || "SYSTEM"), " · " + ago(t.ago));
+        if (withSection) meta.append(" · in ", el("i", "", t.section_title));
+        if (t.replies) meta.append(" · last reply " + t.last_name + " " + ago(t.last_ago));
+        main.append(meta);
+        const side = el("div", "fm-row-side");
+        side.append(el("span", "fm-big", String(t.replies)), el("span", "", t.replies === 1 ? "reply" : "replies"));
+        if (t.unseen) side.append(el("span", "fm-new", "new"));
+        else if (t.new) side.append(el("span", "fm-new", t.new + " new"));
+        row.append(main, side);
+        return row;
     }
+    function list(rows) { const box = el("div", "fm-list"); box.append(...rows); return box; }
 
     // ---------- формы ----------
     function attachField() {
@@ -102,33 +167,32 @@
         async function browse(path) {
             try {
                 const data = await call(urls.filesUrl + (path ? "?path=" + encodeURIComponent(path) : ""));
-                const list = el("div", "fm-picker-list");
-                if (data.parent) list.append(link("../", () => browse(data.parent)));
+                const items = el("div", "fm-picker-list");
+                if (data.parent) items.append(link("../", () => browse(data.parent)));
                 for (const row of data.entries) {
-                    list.append(link(row.dir ? row.name + "/" : row.name, () => {
+                    items.append(link(row.dir ? row.name + "/" : row.name, () => {
                         if (row.dir) return browse(row.path);
                         if (!chosen.some((file) => file.path === row.path)) chosen.push({ path: row.path, name: row.name });
                         picker.hidden = true;
                         drawChips();
                     }));
                 }
-                picker.replaceChildren(el("div", "fm-muted", data.path), list);
+                picker.replaceChildren(el("div", "fm-muted", data.path), items);
             } catch (error) { fail(error); picker.hidden = true; }
         }
         wrap.append(add, chips, picker);
         return { node: wrap, paths: () => chosen.map((file) => file.path) };
     }
-
-    // форма: поля, вложения (у игрока), «Ctrl+Enter отправить, Esc отмена»
-    function form({ fields, label, send, cancel, inline, files }) {
+    function form({ heading, fields, label, send, cancel, inline, files }) {
         const box = el("form", "fm-form" + (inline ? " inline" : ""));
+        if (heading) box.append(el("div", "fm-form-title", heading));
         box.append(...fields);
         const attached = files && player ? attachField() : null;
         if (attached) box.append(attached.node);
         const submit = el("button", "app-button primary", label);
         submit.type = "submit";
         const foot = el("div", "fm-form-foot");
-        foot.append(submit, button("Cancel", () => cancel(box)), el("span", "fm-hint", "ctrl+enter to send · esc to cancel"));
+        foot.append(submit, button("Cancel", () => cancel(box)), el("span", "fm-hint", "ctrl+enter send · esc cancel"));
         box.append(foot);
         box.addEventListener("keydown", (event) => {
             if (event.key === "Escape") { event.preventDefault(); cancel(box); }
@@ -148,113 +212,113 @@
         node.required = required;
         return node;
     }
-
-    function openTopicForm(sectionId) {
+    function placeForm(made, focus) {
         const box = $("fm-page");
-        if (box.querySelector(":scope > .fm-form")) return;
+        const old = box.querySelector(":scope > .fm-form");
+        if (old) old.remove();
+        const hero = box.querySelector(":scope > .fm-hero");
+        if (hero) hero.after(made); else box.prepend(made);
+        made.scrollIntoView({ block: "nearest" });
+        focus.focus();
+    }
+    function openTopicForm(sectionId, sectionTitle) {
         const title = input("input", "subject", 160, true);
         const text = input("textarea", "what do you want to say?", 4000, true);
-        const made = form({ fields: [title, text], label: "Post topic", files: true, cancel: (f) => f.remove(),
+        placeForm(form({ heading: "NEW TOPIC IN " + (sectionTitle || "").toUpperCase(), fields: [title, text], label: "Post topic", files: true, cancel: (f) => f.remove(),
             send: async (files) => {
                 const topic = await call(urls.newTopicUrl, { section: sectionId, title: title.value, text: text.value, attachments: files });
                 location.hash = "#/t/" + topic.id;
-            } });
-        box.prepend(made);
-        title.focus();
+            } }), title);
     }
     function openSectionForm(parentId) {
-        const box = $("fm-page");
-        if (box.querySelector(":scope > .fm-form")) return;
-        const title = input("input", "section name", 120, true);
+        const title = input("input", "board name", 120, true);
         const about = input("input", "what is it for (optional)", 240, false);
-        const made = form({ fields: [title, about], label: "Create section", cancel: (f) => f.remove(),
+        placeForm(form({ heading: parentId ? "NEW SUB-BOARD" : "NEW BOARD", fields: [title, about], label: "Create board", cancel: (f) => f.remove(),
             send: async () => {
                 const section = await call(urls.newSectionUrl, { space: space.slug, parent: parentId, title: title.value, about: about.value });
                 await loadSpace(space.slug);
                 location.hash = "#/c/" + section.id;
-            } });
-        box.prepend(made);
-        title.focus();
+            } }), title);
     }
-
     async function moderate(url, body) {
         try { await call(url, body); await route(); } catch (error) { fail(error); }
     }
 
-    // ---------- главная пространства: разделы ----------
+    // ---------- обзор пространства ----------
     async function showSpace(slug) {
         await loadSpace(slug);
-        const actions = space.can_create ? [button("+ Section", () => openSectionForm(null))] : [];
-        drawBar([], "", actions);
+        current = "space";
+        drawRail();
+        drawBar([], "", space.can_create ? [button("+ Board", () => openSectionForm(null))] : []);
         const box = page();
-        if (space.about) { const intro = el("div", "fm-intro"); intro.append(markup(space.about)); box.append(intro); }
-        box.append(el("h2", "fm-cap", "SECTIONS"));
-        if (space.tree.length) box.append(boards(space.tree, 0));
-        else box.append(el("p", "fm-void", space.can_create ? "No sections yet. Create the first one." : "No sections yet."));
-        if (spaces.length > 1) {
-            box.append(el("h2", "fm-cap", "OTHER SPACES ON THIS NODE"));
-            const list = el("div", "fm-boards");
-            for (const item of spaces.filter((s) => s.slug !== space.slug)) {
-                const row = el("a", "fm-board"); row.href = "#/s/" + item.slug;
-                row.append(el("span", "fm-dot"), el("span", "fm-board-title", item.title), el("span", "fm-board-count", ""));
-                if (item.about) row.append(el("span", "fm-board-about", item.about));
-                list.append(row);
-            }
-            box.append(list);
+        const nodes = allNodes(space.tree);
+        const hero = el("div", "fm-hero");
+        hero.append(el("h2", "", space.title));
+        if (space.about) { const about = el("div", "fm-about"); about.append(markup(space.about)); hero.append(about); }
+        const stats = el("div", "fm-stats");
+        const stat = (n, label) => { const s = el("span"); s.append(el("b", "", String(n)), " " + label); return s; };
+        const fresh = nodes.reduce((sum, n) => sum + n.new, 0);
+        stats.append(stat(nodes.length, nodes.length === 1 ? "board" : "boards"), stat(nodes.reduce((sum, n) => sum + n.topics, 0), "topics"));
+        if (fresh) stats.append(stat(fresh, "with new posts"));
+        hero.append(stats);
+        box.append(hero);
+
+        box.append(cap("BOARDS"));
+        if (space.tree.length) box.append(list(space.tree.map(boardRow)));
+        else {
+            const empty = el("div", "fm-void", "No boards yet.");
+            if (space.can_create) empty.append(el("br"), button("+ Create the first board", () => openSectionForm(null), "app-button primary"));
+            box.append(empty);
+        }
+        if (space.recent && space.recent.length) {
+            box.append(cap("RECENT ACTIVITY"));
+            box.append(list(space.recent.map((t) => topicRow(t, true))));
         }
     }
 
-    // ---------- раздел: подразделы и темы ----------
-    function topicRow(t) {
-        const fresh = t.unseen || t.new > 0;
-        const row = el("a", "fm-topic" + (fresh ? "" : " read"));
-        row.href = "#/t/" + t.id;
-        const mark = el("span", "fm-mark");
-        if (t.pinned) mark.textContent = "▲";
-        else mark.append(el("span", "fm-dot" + (fresh ? " on" : "")));
-        const title = el("span", "fm-topic-title", t.title);
-        if (t.locked) title.append(el("span", "fm-closed", "closed"));
-        row.append(mark, title, el("span", "fm-by kind-" + t.kind, t.name || "SYSTEM"));
-        if (t.excerpt) row.append(el("span", "fm-excerpt", t.excerpt));
-        const meta = el("span", "fm-topic-meta");
-        const info = el("span", "", plural(t.replies, "reply", "replies") + (t.replies ? " · last " + t.last_name + " " + ago(t.last_ago) : " · " + ago(t.ago)));
-        meta.append(info);
-        if (t.unseen) meta.append(el("span", "fm-new", "new"));
-        else if (t.new) meta.append(el("span", "fm-new", t.new + " new"));
-        row.append(meta);
-        return row;
-    }
-
+    // ---------- раздел ----------
     async function showSection(id) {
         const data = await call(slot(urls.sectionUrl, id));
         await loadSpace(data.space);
+        current = data.id;
+        drawRail();
         const actions = [];
         if (data.can_moderate) actions.push(button("Archive", async () => {
-            if (!confirm("Archive this section? It leaves the lists; posts are kept.")) return;
+            if (!confirm("Archive this board? It leaves the lists; posts are kept.")) return;
             try {
                 await call(urls.archiveUrl, { section: data.id });
                 location.hash = data.crumbs.length > 1 ? "#/c/" + data.crumbs[data.crumbs.length - 2].id : "#/s/" + space.slug;
             } catch (error) { fail(error); }
         }));
-        if (data.can_create) actions.push(button("+ Section", () => openSectionForm(data.id)));
-        if (data.can_write) actions.push(button("+ Topic", () => openTopicForm(data.id), "app-button primary"));
+        if (data.can_create) actions.push(button("+ Sub-board", () => openSectionForm(data.id)));
+        if (data.can_write) actions.push(button("+ New topic", () => openTopicForm(data.id, data.title), "app-button primary"));
         drawBar(data.crumbs.slice(0, -1), data.title, actions);
         const box = page();
-        if (data.about) box.append(el("p", "fm-intro", data.about));
+        const hero = el("div", "fm-hero");
+        hero.append(el("h2", "", data.title));
+        if (data.about) hero.append(el("p", "fm-about", data.about));
+        const stats = el("div", "fm-stats");
+        const replies = data.topics.reduce((sum, t) => sum + t.replies, 0);
+        const fresh = data.topics.filter((t) => t.unseen || t.new).length;
+        const stat = (n, label) => { const s = el("span"); s.append(el("b", "", String(n)), " " + label); return s; };
+        stats.append(stat(data.topics.length, data.topics.length === 1 ? "topic" : "topics"), stat(replies, replies === 1 ? "reply" : "replies"));
+        if (fresh) stats.append(stat(fresh, "with new posts"));
+        if (!data.can_write) stats.append(el("span", "", callsign ? "read only" : "sign in to post"));
+        hero.append(stats);
+        box.append(hero);
+
         const here = findNode(space.tree, data.id);
-        if (here && here.children.length) {
-            box.append(el("h2", "fm-cap", "SECTIONS"));
-            box.append(boards(here.children, 0));
-        }
+        if (here && here.children.length) { box.append(cap("SUB-BOARDS")); box.append(list(here.children.map(boardRow))); }
         const pinned = data.topics.filter((t) => t.pinned);
         const rest = data.topics.filter((t) => !t.pinned);
-        if (pinned.length) {
-            box.append(el("h2", "fm-cap", "PINNED"));
-            const list = el("div", "fm-topics"); pinned.forEach((t) => list.append(topicRow(t))); box.append(list);
+        if (pinned.length) { box.append(cap("PINNED")); box.append(list(pinned.map((t) => topicRow(t)))); }
+        box.append(cap("TOPICS"));
+        if (rest.length) box.append(list(rest.map((t) => topicRow(t))));
+        else {
+            const empty = el("div", "fm-void", "No topics on this board yet.");
+            if (data.can_write) empty.append(el("br"), button("+ Start the first topic", () => openTopicForm(data.id, data.title), "app-button primary"));
+            box.append(empty);
         }
-        box.append(el("h2", "fm-cap", "TOPICS"));
-        if (rest.length) { const list = el("div", "fm-topics"); rest.forEach((t) => list.append(topicRow(t))); box.append(list); }
-        else box.append(el("p", "fm-void", data.can_write ? "Nothing here yet. Start a topic." : "Nothing here yet."));
     }
 
     // ---------- тема ----------
@@ -265,19 +329,18 @@
             row.append(el("b", "", file.name), file.size + " B");
             if (player) row.append(link("save to my disk", async () => {
                 try { const saved = await call(urls.saveUrl, { attachment: file.id }); notice("saved to " + saved.path); } catch (error) { fail(error); }
-            }));
+            }, "strong"));
             box.append(row);
         }
         return box;
     }
     function textOf(post, moderator) {
-        if (post.hidden) {
-            const gone = el("div", "fm-text");
-            gone.append(el("p", "fm-gone", "message deleted"));
-            if (moderator && post.text) gone.append(el("p", "fm-muted", post.text));
-            return gone;
-        }
         const text = el("div", "fm-text");
+        if (post.hidden) {
+            text.append(el("p", "fm-gone", "message deleted"));
+            if (moderator && post.text) text.append(el("p", "fm-muted", post.text));
+            return text;
+        }
         text.append(markup(post.text));
         if (post.files && post.files.length) text.append(filesOf(post));
         return text;
@@ -286,98 +349,120 @@
     async function showTopic(id) {
         const data = await call(slot(urls.topicUrl, id));
         await loadSpace(data.space);
-        drawBar(data.crumbs, "", []);
+        current = data.section;
+        drawRail();
+        const section = data.crumbs[data.crumbs.length - 1];
+        drawBar(data.crumbs, "", data.can_reply ? [button("Reply", () => openReply(null), "app-button primary")] : []);
         const box = page();
         const byId = new Map(data.posts.map((p) => [p.id, p]));
         const kids = new Map();
         for (const post of data.posts) { const key = post.parent || 0; if (!kids.has(key)) kids.set(key, []); kids.get(key).push(post); }
         const count = (post) => (kids.get(post.id) || []).reduce((n, child) => n + 1 + count(child), 0);
         const first = data.posts.find((p) => p.root) || data.posts[0];
+        const isOp = (post) => post.name && post.name === first.name && post.kind === first.kind;
 
-        // первое сообщение: сама тема
-        const op = el("article", "fm-op kind-" + first.kind);
-        op.append(el("h2", "", data.title + (data.locked ? "  [closed]" : "")));
-        const meta = el("div", "fm-meta");
+        const back = el("a", "fm-back", "← back to " + (section ? section.title : "board"));
+        back.href = section ? "#/c/" + section.id : "#/s/" + space.slug;
+        box.append(back);
+
+        // первое сообщение: карточка с заголовком, автором, текстом и действиями
+        const op = el("article", "fm-op");
+        const head = el("header", "fm-op-head");
+        const title = el("h2", "", data.title);
+        if (data.pinned) title.append(el("span", "fm-pinned", "pinned"));
+        if (data.locked) title.append(el("span", "fm-closed", "closed"));
+        const author = el("div", "fm-author");
+        const who = el("div", "fm-who-line");
         const when = el("span", "", ago(first.ago)); when.title = first.at;
-        meta.append(el("span", "fm-name", first.name || "SYSTEM"), when);
-        if (data.pinned) meta.append(el("span", "", "pinned"));
-        op.append(meta, textOf(first, data.can_moderate));
-        const tools = el("div", "fm-tools");
-        if (data.can_reply) tools.append(link("reply", () => openReply(null)));
+        who.append(nameTag(first.name, first.kind), el("span", "fm-badge op", "OP"), when, el("span", "", "in " + (section ? section.title : "")));
+        author.append(plate(first.name, first.kind), who);
+        head.append(title, author);
+        const body = el("div", "fm-op-body");
+        body.append(textOf(first, data.can_moderate));
+        op.append(head, body);
+        const foot = el("footer", "fm-op-foot");
+        if (data.can_reply) foot.append(link("reply", () => openReply(null), "strong"));
         if (data.can_moderate) {
-            tools.append(link(data.pinned ? "unpin" : "pin", () => moderate(urls.flagsUrl, { topic: data.id, pinned: !data.pinned })),
-                         link(data.locked ? "reopen" : "close", () => moderate(urls.flagsUrl, { topic: data.id, locked: !data.locked })),
-                         link("delete topic", () => { if (confirm("Delete the whole topic?")) moderate(urls.hideUrl, { post: first.id }); }, "warn"));
+            foot.append(link(data.pinned ? "unpin" : "pin", () => moderate(urls.flagsUrl, { topic: data.id, pinned: !data.pinned })),
+                        link(data.locked ? "reopen" : "close", () => moderate(urls.flagsUrl, { topic: data.id, locked: !data.locked })),
+                        link("delete topic", () => { if (confirm("Delete the whole topic?")) moderate(urls.hideUrl, { post: first.id }); }, "warn"));
         }
-        if (tools.children.length) op.append(tools);
+        if (foot.children.length) op.append(foot);
         box.append(op);
 
         const replies = data.posts.length - 1;
-        box.append(el("h2", "fm-cap", replies ? plural(replies, "REPLY", "REPLIES") : "NO REPLIES YET"));
+        box.append(cap(replies ? plural(replies, "REPLY", "REPLIES") : "NO REPLIES YET"));
 
-        const render = (post, depth) => {
-            const item = el("div", "fm-c kind-" + post.kind + (post.new ? " fresh" : ""));
+        const render = (post, depth, container) => {
+            const item = el("div", "fm-c" + (post.new ? " fresh" : "") + (post.name === callsign && post.kind === "player" ? " mine" : ""));
             item.id = "p" + post.id;
-            const head = el("div", "fm-chead");
-            const fold = el("button", "fm-fold", "[–]");
-            fold.type = "button";
-            fold.setAttribute("aria-expanded", "true");
-            fold.title = "collapse";
+            const main = el("div", "fm-cmain");
+            const line = el("div", "fm-who-line");
             const when = el("span", "", ago(post.ago)); when.title = post.at;
-            head.append(fold, el("span", "fm-name", post.name || "SYSTEM"), when);
+            line.append(nameTag(post.name, post.kind));
+            if (isOp(post)) line.append(el("span", "fm-badge op", "OP"));
+            line.append(when);
             const parent = byId.get(post.parent);
             if (depth >= INDENT && parent && !parent.root) {
-                const to = el("a", "fm-muted", "→ " + (parent.name || "SYSTEM"));
+                const to = el("a", "", "→ " + (parent.name || "SYSTEM"));
                 to.href = "#p" + parent.id;
                 to.addEventListener("click", (event) => { event.preventDefault(); const target = $("p" + parent.id); if (target) { target.scrollIntoView({ block: "center" }); target.classList.remove("fm-flash"); void target.offsetWidth; target.classList.add("fm-flash"); } });
-                head.append(to);
+                line.append(to);
             }
-            item.append(head);
-            const body = el("div", "fm-cbody");
-            body.append(textOf(post, data.can_moderate));
-            const actions = el("div", "fm-tools");
-            if (data.can_reply && !post.hidden) actions.append(link("reply", () => openReply(post.id, body)));
-            if (data.can_moderate) actions.append(post.hidden ? link("restore", () => moderate(urls.restoreUrl, { post: post.id }))
-                                                              : link("delete", () => moderate(urls.hideUrl, { post: post.id }), "warn"));
-            if (actions.children.length) body.append(actions);
-            item.append(body);
+            if (post.new) line.append(el("span", "fm-new", "new"));
+            const note = el("span", "fm-folded-note");
+            line.append(note);
+            const cbox = el("div", "fm-cbox");
+            cbox.append(line, textOf(post, data.can_moderate));
+            const tools = el("div", "fm-ctools");
+            if (data.can_reply && !post.hidden) tools.append(link("reply", () => openReply(post.id, main)));
+            if (data.can_moderate) tools.append(post.hidden ? link("restore", () => moderate(urls.restoreUrl, { post: post.id }))
+                                                            : link("delete", () => moderate(urls.hideUrl, { post: post.id }), "warn"));
+            if (tools.children.length) cbox.append(tools);
+            main.append(cbox);
+            item.append(plate(post.name, post.kind), main);
+            container.append(item);
+
             const children = kids.get(post.id) || [];
-            if (children.length) {
-                const nest = el("div", "fm-kids" + (depth + 1 >= INDENT ? " flat" : ""));
-                children.forEach((child) => nest.append(render(child, depth + 1)));
-                item.append(nest);
-            }
+            if (!children.length) return;
+            if (depth + 1 >= INDENT) { children.forEach((child) => render(child, depth + 1, container)); return; }
+            const rail = el("button", "fm-line");
+            rail.type = "button";
+            rail.setAttribute("aria-label", "collapse thread");
+            const nest = el("div", "fm-kids");
+            item.append(rail, nest);
+            children.forEach((child) => render(child, depth + 1, nest));
             const total = count(post);
             const setFold = (folded) => {
                 item.classList.toggle("folded", folded);
-                fold.textContent = folded ? "[+" + (total + 1) + "]" : "[–]";
-                fold.setAttribute("aria-expanded", String(!folded));
-                fold.title = folded ? "expand" : "collapse";
+                note.replaceChildren();
+                if (folded) note.append(link("+ " + plural(total, "reply", "replies") + " hidden", () => setFold(false), "strong"));
             };
-            fold.addEventListener("click", () => setFold(!item.classList.contains("folded")));
+            rail.addEventListener("click", () => setFold(true));
             if (depth >= FOLD_FROM && total > 3) setFold(true);
-            return item;
         };
-        const list = el("div", "fm-replies");
-        (kids.get(first.id) || []).forEach((post) => list.append(render(post, 0)));
-        box.append(list);
+        const thread = el("div", "fm-replies");
+        (kids.get(first.id) || []).forEach((post) => render(post, 0, thread));
+        box.append(thread);
 
-        // поле ответа в тему: свёрнуто в строку, раскрывается по щелчку
         function openReply(parentId, under) {
             const at = under || box;
             const existing = at.querySelector(":scope > .fm-form");
-            if (existing) { existing.querySelector("textarea").focus(); return; }
-            const text = input("textarea", parentId ? "reply to " + (byId.get(parentId).name || "SYSTEM") : "reply to the topic", 4000, true);
-            const made = form({ fields: [text], label: "Reply", files: true, inline: !!parentId,
+            if (existing) { existing.querySelector("textarea").focus(); existing.scrollIntoView({ block: "nearest" }); return; }
+            const target = parentId ? byId.get(parentId) : null;
+            const text = input("textarea", target ? "reply to " + (target.name || "SYSTEM") : "reply to the topic", 4000, true);
+            const made = form({ heading: target ? "REPLY TO " + (target.name || "SYSTEM") : "REPLY TO TOPIC", fields: [text], label: "Post reply", files: true, inline: !!parentId,
                 cancel: (f) => { f.remove(); if (!parentId) drawReplyBox(); },
                 send: async (files) => { await call(urls.newPostUrl, { topic: data.id, parent: parentId, text: text.value, attachments: files }); await route(); } });
             if (parentId) at.append(made);
             else { const stub = box.querySelector(":scope > .fm-replybox"); if (stub) stub.replaceWith(made); else box.append(made); }
+            made.scrollIntoView({ block: "nearest" });
             text.focus();
         }
         function drawReplyBox() {
-            const stub = el("button", "fm-replybox", (callsign || "guest") + " — write a reply…");
+            const stub = el("button", "fm-replybox");
             stub.type = "button";
+            stub.append(plate(callsign, "player"), "Write a reply as " + callsign + "…");
             stub.addEventListener("click", () => openReply(null));
             box.append(stub);
         }
@@ -405,13 +490,12 @@
         const hash = location.hash;
         try {
             let found;
-            if ((found = hash.match(/^#\/t\/(\d+)$/))) return await showTopic(found[1]);
-            if ((found = hash.match(/^#\/c\/(\d+)$/))) return await showSection(found[1]);
+            if ((found = hash.match(/^#\/t\/(\d+)$/))) return await showTopic(+found[1]);
+            if ((found = hash.match(/^#\/c\/(\d+)$/))) return await showSection(+found[1]);
             const slug = (found = hash.match(/^#\/s\/([\w-]+)$/)) ? found[1] : spaces[0].slug;
             await showSpace(slug);
-            $("fm-page").parentElement.scrollTop = 0;
         } catch (error) { fail(error); }
     }
-    window.addEventListener("hashchange", () => { route().then(() => { $("fm-page").parentElement.scrollTop = 0; }); });
+    window.addEventListener("hashchange", () => route().then(() => { $("fm-page").parentElement.scrollTop = 0; }));
     start().catch(fail);
 })();

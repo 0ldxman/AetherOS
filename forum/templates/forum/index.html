@@ -16,19 +16,24 @@
           data-new-section-url="{% url 'forum:new_section' %}" data-archive-url="{% url 'forum:archive_section' %}" data-hide-url="{% url 'forum:hide_post' %}"
           data-restore-url="{% url 'forum:restore_post' %}" data-flags-url="{% url 'forum:topic_flags' %}" data-files-url="{% url 'forum:files' %}" data-save-url="{% url 'forum:save_attachment' %}">
 
-        {# шапка как у остальных приложений: тег и название слева, кто и с какого узла справа #}
         <header class="fm-head">
             <div class="fm-title"><span class="fm-tag">[FORUM]</span><h1 id="fm-space">…</h1></div>
             <div id="fm-who" class="fm-who"></div>
         </header>
 
-        {# где игрок и что здесь можно сделать #}
-        <nav class="fm-bar" aria-label="location">
-            <div id="fm-crumbs" class="fm-crumbs"></div>
-            <div id="fm-actions" class="fm-actions"></div>
-        </nav>
-
-        <section class="fm-scroll"><div id="fm-page" class="fm-page" aria-live="polite"></div></section>
+        <div class="fm-frame">
+            {# доски пространства всегда под рукой: как список каналов #}
+            <nav class="fm-rail" aria-label="boards">
+                <div id="fm-rail"></div>
+            </nav>
+            <div class="fm-content">
+                <nav class="fm-bar" aria-label="location">
+                    <div id="fm-crumbs" class="fm-crumbs"></div>
+                    <div id="fm-actions" class="fm-actions"></div>
+                </nav>
+                <section class="fm-scroll"><div id="fm-page" class="fm-page" aria-live="polite"></div></section>
+            </div>
+        </div>
 
         <div class="status" role="status"></div>
     </main>

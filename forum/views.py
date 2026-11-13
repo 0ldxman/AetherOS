@@ -128,8 +128,16 @@ def space(request, slug):
                  "can_write": logic.can_write(n["section"], player, keys), "mine": logic.moderates(n["section"], player),
                  "children": convert(n["children"])} for n in nodes]
 
-    return JsonResponse({"slug": found.slug, "title": found.title, "about": found.about, "tree": convert(logic.sections_of(found, keys)),
-                         "can_create": logic.can_create(found, None, player, keys)})
+    tree = convert(logic.sections_of(found, keys))
+
+    def ids(nodes):
+        return {n["id"]: n["title"] for n in nodes} | {k: v for n in nodes for k, v in ids(n["children"]).items()}
+
+    readable = ids(tree)
+    recent = sorted((t for t in topics if t.section_id in readable), key=lambda t: info[t.pk]["last_at"] or t.created_at, reverse=True)[:8]
+    return JsonResponse({"slug": found.slug, "title": found.title, "about": found.about, "tree": tree,
+                         "can_create": logic.can_create(found, None, player, keys),
+                         "recent": [{**_topic_row(request, t, info[t.pk]), "section": t.section_id, "section_title": readable[t.section_id]} for t in recent]})
 
 
 @require_GET
