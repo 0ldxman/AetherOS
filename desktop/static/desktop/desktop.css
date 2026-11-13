@@ -270,14 +270,21 @@ body {
   text-align: center;
 }
 
-.icon:hover .icon-glyph,
-.icon:focus-visible .icon-glyph {
-  background: var(--font-light);
-  color: var(--bg);
+/* наведение: мягкая подсветка значка и подписи, а не заливка; фокус с клавиатуры — обводка акцентом */
+.icon:hover .icon-glyph {
+  background: color-mix(in srgb, var(--font-light) 14%, var(--bg));
+  border-color: var(--accent);
 }
+
+.icon:hover .icon-label { color: var(--font-light); }
 
 .icon:focus-visible {
   outline: none;
+}
+
+.icon:focus-visible .icon-glyph {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 45%, transparent);
 }
 
 .icon-label {
