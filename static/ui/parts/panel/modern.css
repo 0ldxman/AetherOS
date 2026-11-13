@@ -448,14 +448,8 @@
 [data-panel="modern"] .widget-mail-count { color: var(--font-muted); font-size: 0.8rem; }
 [data-panel="modern"] .widget--mail.has-mail .widget-mail-count { color: var(--accent); font-weight: 700; }
 
-/* панель сверху: карточки ниже неё */
-[data-panel="modern"][data-panel-flip="top"] .widgets { top: calc(var(--pl-h, 44px) + 16px); }
-
 /* часы прибиты к правому краю панели: место под них оставляет сама панель, если они стоят на своём месте */
 [data-panel="modern"] #taskbar:has(#clock-plate) { padding-right: 110px; }
-
-/* часы уже на панели задач: карточка часов на столе их не повторяет, пока часы стоят на панели */
-[data-panel="modern"]:has(#taskbar #clock) .widget--clock { display: none; }
 
 /* подвал «Пуска»: пользователь отдельной строкой целиком, действия ниже; выход не красный, а отделён и с знаком питания */
 [data-panel="modern"] .launcher-foot { flex-wrap: wrap; row-gap: 2px; }

@@ -219,7 +219,59 @@
 
   /* ---------- виджеты стола ---------- */
 
+  // карточки стола живут внутри #desktop, под окнами (стол изолирован: снаружи они легли бы поверх окон)
+  all(".cards").forEach((box) => desktop.prepend(box));
   const widgets = all('[data-shell="widget"]');
+
+  // «События» и «Эфир» забирают данные сами: раз в 30 секунд, пока вкладка видна
+  const cardData = {};
+  async function pullCard(widget) {
+    try {
+      const response = await fetch(widget.dataset.url, { credentials: "same-origin" });
+      if (response.ok) cardData[widget.dataset.widget] = { at: Date.now(), json: await response.json() };
+    } catch { /* сеть пропала: покажем то, что было */ }
+  }
+  widgets.filter((widget) => widget.dataset.url).forEach((widget) => {
+    pullCard(widget);
+    setInterval(() => { if (!document.hidden) pullCard(widget); }, 30000);
+  });
+  function cardCountdown(seconds) {
+    const left = Math.max(0, Math.floor(seconds));
+    const days = Math.floor(left / 86400);
+    const rest = left % 86400;
+    const text = `${pad(Math.floor(rest / 3600))}:${pad(Math.floor(rest / 60) % 60)}:${pad(rest % 60)}`;
+    return days ? `${days}d ${text}` : text;
+  }
+  function make(tag, className, text) {
+    const node = document.createElement(tag);
+    if (className) node.className = className;
+    if (text !== undefined) node.textContent = text;
+    return node;
+  }
+  function renderEvents(widget) {
+    const list = widget.querySelector('[data-widget-field="events"]');
+    const data = cardData.events;
+    if (!list || !data) return;
+    const passed = (Date.now() - data.at) / 1000 * (data.json.rate || 1);
+    const rows = data.json.rows || [];
+    const items = rows.length ? rows.map((row) => {
+      const item = make("li", row.state === "live" ? "is-live" : "");
+      item.append(make("span", "card-title", row.title), make("span", "card-when", (row.state === "live" ? "live " : "in ") + cardCountdown(row.left - passed)));
+      return item;
+    }) : [make("li", "card-empty", "no scheduled events")];
+    list.replaceChildren(...items);
+  }
+  function renderAir(widget) {
+    const data = cardData.air;
+    if (!data) return;
+    const rows = data.json.rows || [];
+    const last = rows[rows.length - 1];
+    field(widget, "freq", data.json.freq ? data.json.freq + " MHz" : "");
+    const line = widget.querySelector('[data-widget-field="line"]');
+    const text = last ? `${last.callsign ? last.callsign + ": " : ""}${last.text}` : "silence";
+    if (line && line.textContent !== text) line.textContent = text;
+    if (line) line.classList.toggle("is-quiet", !last);
+  }
   const pageStart = Date.now();
 
   const pad = (value) => String(value).padStart(2, "0");
@@ -252,6 +304,10 @@
         field(widget, "ping", ping ? ping.textContent + " ms" : "–");
         field(widget, "session", pad(Math.floor(seconds / 3600)) + ":" + pad(Math.floor(seconds / 60) % 60) + ":" + pad(seconds % 60));
         field(widget, "windows", String(Object.keys(openWindows).length));
+      } else if (kind === "events") {
+        renderEvents(widget);
+      } else if (kind === "air") {
+        renderAir(widget);
       } else if (kind === "mail") {
         const icon = typeof mailIcon === "function" && mailUrl ? mailIcon() : null;
         const badge = icon && icon.querySelector(".icon-badge");

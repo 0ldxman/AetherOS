@@ -255,6 +255,11 @@ def clean_parts(data):
     found = panel.clean2(data.get("panel2"))
     if found:
         out["panel2"] = found
+    from machines.world import cards
+
+    found = cards.clean(data.get("cards"))
+    if found is not None:                           # пустой список — «карточек нет», это тоже выбор
+        out["cards"] = found
     return out
 
 

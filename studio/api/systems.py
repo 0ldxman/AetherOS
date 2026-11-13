@@ -18,7 +18,7 @@ from filesystem.machine_view import MachineView
 from filesystem.models import Volume
 from machines.models import EntryPolicy, Group, Machine, Place, SceneScript, SystemBlackout, SystemScene, SystemType, SystemVolume
 from machines.world import blackout as blackouts
-from machines.world import panel, styles, wallpaper, widgets
+from machines.world import cards, panel, styles, wallpaper, widgets
 from machines.world.dates import world
 from machines.world.slots import SLOTS
 from machines.world.facts import facts
@@ -181,6 +181,17 @@ class Panel2Layout(Schema):
     end: list[str]
 
 
+class CardValue(Schema):
+    key: str
+    corner: str
+
+
+class CardInfo(Schema):
+    cards: list[PanelElement]
+    corners: list[WindowOption]
+    presets: dict[str, list[CardValue]]              # стиль -> карточки заготовки
+
+
 class PanelInfo(Schema):
     elements: list[PanelElement]
     looks: list[WindowOption]
@@ -211,6 +222,8 @@ class StyleIn(Schema):
     window: dict[str, str] | None = None             # пусто: окна не меняются; нет ключа — как в стиле
     panel: PanelValue | None = None                 # пусто: панель не меняется; {} — как в стиле
     panel2: Panel2Value | None = None               # дополнительная панель (раньше док), так же
+    cards: list[CardValue] | None = None             # карточки на столе по порядку; пусто — не меняются
+    cards_style: bool = False                        # вернуть карточки заготовки
     parts: dict[str, dict[str, str]] | None = None   # док, сообщения, часы: {группа: {параметр: вариант}}; пустая группа — как в стиле
 
 
@@ -287,6 +300,8 @@ class SystemOut(Schema):
     window_presets: dict[str, dict[str, str]]        # стиль -> его параметры окон
     panel: PanelValue                                # что у панели не как в стиле
     panel2: Panel2Value
+    cards: list[CardValue] | None                    # свой список карточек; None — как в заготовке
+    card_info: CardInfo
     parts: dict[str, dict[str, str]]                 # док, сообщения, часы: выбор автора
     part_params: dict[str, list[WindowParam]]
     part_presets: dict[str, dict[str, dict[str, str]]]   # группа -> стиль -> параметры
@@ -372,6 +387,12 @@ def _out(system):
         window_presets={slug: styles.window_of(slug) for slug in styles.STYLES},
         panel=PanelValue(**styles.clean_parts(system.style_parts).get("panel", {})),
         panel2=Panel2Value(**styles.clean_parts(system.style_parts).get("panel2", {})),
+        cards=[CardValue(**item) for item in styles.clean_parts(system.style_parts)["cards"]] if "cards" in styles.clean_parts(system.style_parts) else None,
+        card_info=CardInfo(
+            cards=[PanelElement(key=key, label=label, hint=hint) for key, (label, hint) in cards.CARDS.items()],
+            corners=[WindowOption(value=k, label=v) for k, v in cards.CORNERS.items()],
+            presets={slug: [CardValue(**item) for item in cards.of(slug)] for slug in styles.STYLES},
+        ),
         parts={group: styles.clean_parts(system.style_parts).get(group, {}) for group in PART_GROUPS},
         part_params={group: [WindowParam(key=key, label=label, options=[WindowOption(value=v, label=l) for v, l in options.items()])
                              for key, (label, options) in styles.GROUPS[group].items()] for group in PART_GROUPS},
@@ -627,6 +648,14 @@ def save_style(request, code: str, body: StyleIn):
         cleaned = styles.clean_parts(chosen)
         kept = {k: v for k, v in (system.style_parts or {}).items() if k not in chosen}
         system.style_parts = {**kept, **{group: cleaned[group] for group in chosen if group in cleaned}}
+    if body.cards_style:
+        system.style_parts = {k: v for k, v in (system.style_parts or {}).items() if k != "cards"}
+    elif body.cards is not None:
+        data = [item.model_dump() for item in body.cards]
+        found = cards.problems(data)
+        if found:
+            raise ValidationError({"cards": found})
+        system.style_parts = {**(system.style_parts or {}), "cards": cards.clean(data)}
     saved = styles.clean_parts(system.style_parts)
     main = body.panel.model_dump(exclude_none=True) if body.panel is not None else saved.get("panel", {})
     second = body.panel2.model_dump(exclude_none=True) if body.panel2 is not None else saved.get("panel2", {})

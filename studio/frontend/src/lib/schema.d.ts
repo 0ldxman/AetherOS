@@ -6687,6 +6687,24 @@ export interface components {
             /** Hold Ms */
             hold_ms?: number | null;
         };
+        /** CardInfo */
+        CardInfo: {
+            /** Cards */
+            cards: components["schemas"]["PanelElement"][];
+            /** Corners */
+            corners: components["schemas"]["WindowOption"][];
+            /** Presets */
+            presets: {
+                [key: string]: components["schemas"]["CardValue"][];
+            };
+        };
+        /** CardValue */
+        CardValue: {
+            /** Key */
+            key: string;
+            /** Corner */
+            corner: string;
+        };
         /** FontChoice */
         FontChoice: {
             /** Value */
@@ -6901,6 +6919,9 @@ export interface components {
             };
             panel: components["schemas"]["PanelValue"];
             panel2: components["schemas"]["Panel2Value"];
+            /** Cards */
+            cards: components["schemas"]["CardValue"][] | null;
+            card_info: components["schemas"]["CardInfo"];
             /** Parts */
             parts: {
                 [key: string]: {
@@ -7182,6 +7203,13 @@ export interface components {
             } | null;
             panel?: components["schemas"]["PanelValue"] | null;
             panel2?: components["schemas"]["Panel2Value"] | null;
+            /** Cards */
+            cards?: components["schemas"]["CardValue"][] | null;
+            /**
+             * Cards Style
+             * @default false
+             */
+            cards_style: boolean;
             /** Parts */
             parts?: {
                 [key: string]: {

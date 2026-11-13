@@ -14,11 +14,12 @@
   type Slot = "start" | "center" | "end";
   type Panel2 = { show?: string; edge?: string; form?: string; hide?: string; reserve?: string; start?: string[]; center?: string[]; end?: string[] };
   type Which = "panel" | "panel2";
+  type Card = { key: string; corner: string };
   type Done = (data: System | undefined, error: unknown, text: string) => void;
 
   let { system, errors, done, onstate }: { system: System; errors: Record<string, string[]>; done: Done; onstate: (state: { dirty: boolean; share: typeof share; save: () => unknown } | null) => void } = $props();
 
-  let look = $state({ style: "aether", tokens: {} as Record<string, string>, wallpaper: { ...WALLPAPER_DEFAULT } as Wallpaper, widgets: {} as Record<string, boolean>, places: {} as Record<string, string>, win: {} as Record<string, string>, panel: {} as Panel, panel2: {} as Panel2, parts: {} as Record<string, Record<string, string>> });
+  let look = $state({ style: "aether", tokens: {} as Record<string, string>, wallpaper: { ...WALLPAPER_DEFAULT } as Wallpaper, widgets: {} as Record<string, boolean>, places: {} as Record<string, string>, win: {} as Record<string, string>, panel: {} as Panel, panel2: {} as Panel2, parts: {} as Record<string, Record<string, string>>, cards: null as Card[] | null });
   let picking = $state(false);
   let lookSaved = $state("");
   let base = $state<typeof look | null>(null);                  // сохранённое: им наполняется общий черновик
@@ -29,7 +30,7 @@
   const HEX6 = /^#[0-9a-fA-F]{6}$/;
 
   async function saveLook() {
-    const body = { style: look.style, tokens: look.tokens, wallpaper: look.wallpaper, widgets: look.widgets, widget_places: look.places, window: look.win, panel: look.panel, panel2: look.panel2, parts: look.parts };
+    const body = { style: look.style, tokens: look.tokens, wallpaper: look.wallpaper, widgets: look.widgets, widget_places: look.places, window: look.win, panel: look.panel, panel2: look.panel2, parts: look.parts, cards: look.cards ?? undefined, cards_style: look.cards === null };
     const { data, error } = await api.PUT("/studio/api/systems/{code}/style", { params: { path: { code: system.code } }, body });
     if (data) share.markSaved();
     done(data, error, "Стиль сохранён.");
@@ -54,7 +55,7 @@
 
   $effect(() => {
     if (!deskPreview) return;
-    const url = `${system.preview_url}?preview_os=${encodeURIComponent(system.code)}&preview_style=${encodeURIComponent(look.style)}&preview_tokens=${encodeURIComponent(JSON.stringify(look.tokens))}&preview_wall=${encodeURIComponent(JSON.stringify(look.wallpaper))}&preview_widgets=${encodeURIComponent(JSON.stringify(look.widgets))}&preview_places=${encodeURIComponent(JSON.stringify(look.places))}&preview_parts=${encodeURIComponent(JSON.stringify({ window: look.win, panel: look.panel, panel2: look.panel2, ...look.parts }))}&preview_scene=${scene.join(",")}`;
+    const url = `${system.preview_url}?preview_os=${encodeURIComponent(system.code)}&preview_style=${encodeURIComponent(look.style)}&preview_tokens=${encodeURIComponent(JSON.stringify(look.tokens))}&preview_wall=${encodeURIComponent(JSON.stringify(look.wallpaper))}&preview_widgets=${encodeURIComponent(JSON.stringify(look.widgets))}&preview_places=${encodeURIComponent(JSON.stringify(look.places))}&preview_parts=${encodeURIComponent(JSON.stringify({ window: look.win, panel: look.panel, panel2: look.panel2, ...look.parts, ...(look.cards ? { cards: look.cards } : {}) }))}&preview_scene=${scene.join(",")}`;
     clearTimeout(deskTimer);
     deskTimer = setTimeout(() => (previewSrc = url), 350);
     return () => clearTimeout(deskTimer);
@@ -75,8 +76,8 @@
   $effect(() => {
     const data = system;
     untrack(() => {
-      const next = { style: data.style, tokens: { ...data.style_tokens }, wallpaper: { ...WALLPAPER_DEFAULT, ...data.wallpaper }, widgets: { ...data.widgets }, places: { ...data.widget_places }, win: { ...data.window }, panel: Object.fromEntries(Object.entries(data.panel).filter(([, v]) => v !== null)) as Panel, panel2: Object.fromEntries(Object.entries(data.panel2).filter(([, v]) => v !== null)) as Panel2, parts: JSON.parse(JSON.stringify(data.parts)) };
-      if (!share.ready) look = { style: next.style, tokens: { ...next.tokens }, wallpaper: { ...next.wallpaper }, widgets: { ...next.widgets }, places: { ...next.places }, win: { ...next.win }, panel: JSON.parse(JSON.stringify(next.panel)), panel2: JSON.parse(JSON.stringify(next.panel2)), parts: JSON.parse(JSON.stringify(next.parts)) };
+      const next = { style: data.style, tokens: { ...data.style_tokens }, wallpaper: { ...WALLPAPER_DEFAULT, ...data.wallpaper }, widgets: { ...data.widgets }, places: { ...data.widget_places }, win: { ...data.window }, panel: Object.fromEntries(Object.entries(data.panel).filter(([, v]) => v !== null)) as Panel, panel2: Object.fromEntries(Object.entries(data.panel2).filter(([, v]) => v !== null)) as Panel2, parts: JSON.parse(JSON.stringify(data.parts)), cards: data.cards ? data.cards.map((c) => ({ ...c })) : null };
+      if (!share.ready) look = { style: next.style, tokens: { ...next.tokens }, wallpaper: { ...next.wallpaper }, widgets: { ...next.widgets }, places: { ...next.places }, win: { ...next.win }, panel: JSON.parse(JSON.stringify(next.panel)), panel2: JSON.parse(JSON.stringify(next.panel2)), parts: JSON.parse(JSON.stringify(next.parts)), cards: next.cards ? next.cards.map((c) => ({ ...c })) : null };
       lookSaved = JSON.stringify(next);
       base = next;
     });
@@ -143,7 +144,7 @@
   const groupTokOwn = (groups: string[]) => system.token_info.filter((t) => groups.includes(t.group) && look.tokens[t.name]).length;
   const sectionOwn = (key: string): number => ({
     base: 0,
-    desk: (wallChanged ? 1 : 0) + widgetsOwn + partOwn("icons") + partOwn("cursor") + tokOwn(DESK_TOKENS),
+    desk: (wallChanged ? 1 : 0) + widgetsOwn + partOwn("icons") + partOwn("cursor") + tokOwn(DESK_TOKENS) + (look.cards ? 1 : 0),
     windows: winOwn + tokOwn([...WINDOW_TOKENS, "--title-bg", "--title-fg", "--title-bg-active", "--title-fg-active"]),
     panel: panelOwn + partOwn("clock") + partOwn("apps") + tokOwn(PANEL_TOKENS),
     notice: partOwn("notice"),
@@ -278,8 +279,29 @@
 
   async function resetAll() {
     if (!(await ask("Вернуть всё к заготовке?", `Изменений: ${allOwn}. Токены, окна, панели, сообщения, эффекты, значки, картинка и узор вернутся к стилю «${system.styles.find((s) => s.slug === look.style)?.label}». Пока не нажато «Сохранить», это можно отменить.`, "Вернуть всё"))) return;
-    look = { ...look, tokens: {}, wallpaper: { ...WALLPAPER_DEFAULT }, widgets: {}, places: {}, win: {}, panel: {}, panel2: {}, parts: {} };
+    look = { ...look, tokens: {}, wallpaper: { ...WALLPAPER_DEFAULT }, widgets: {}, places: {}, win: {}, panel: {}, panel2: {}, parts: {}, cards: null };
   }
+  // карточки на столе: список по порядку; пока он не задан — карточки заготовки
+  const CI = $derived(system.card_info);
+  const cardList = $derived(look.cards ?? CI.presets[look.style] ?? []);
+  const cardOf = (key: string) => cardList.find((c) => c.key === key);
+  function setCard(key: string, corner: string) {
+    const list = cardList.map((c) => ({ ...c }));
+    const found = list.find((c) => c.key === key);
+    if (corner === "") look.cards = list.filter((c) => c.key !== key);
+    else if (found) { found.corner = corner; look.cards = list; }
+    else look.cards = [...list, { key, corner }];
+  }
+  function moveCard(key: string, dir: number) {
+    const list = cardList.map((c) => ({ ...c }));
+    const i = list.findIndex((c) => c.key === key);
+    const j = list.findIndex((c, n) => (dir < 0 ? n < i : n > i) && c.corner === list[i].corner && (dir < 0 ? !list.slice(n + 1, i).some((x) => x.corner === c.corner) : true));
+    if (i < 0 || j < 0) return;
+    [list[i], list[j]] = [list[j], list[i]];
+    look.cards = list;
+  }
+  const sameCorner = (key: string) => { const c = cardOf(key); return c ? cardList.filter((x) => x.corner === c.corner) : []; };
+
   function setMain(value: string) {
     const next = { ...look.panel } as Record<string, unknown>;
     if (value === "on") delete next.show; else next.show = value;
@@ -569,6 +591,30 @@
         <div class="winparams">
           {#each system.widget_info.filter((w) => w.key === "icons") as w (w.key)}{@render widgetRow(w)}{/each}
           {@render params("icons")}
+        </div>
+        <h4 class="wgroup">Карточки на столе {#if look.cards}<button class="btn ghost small" onclick={() => (look.cards = null)}>вернуть как в стиле</button>{/if}</h4>
+        <p class="muted small">Лежат на столе под окнами. В одном углу идут сверху вниз в порядке списка.</p>
+        <div class="winparams">
+          {#each CI.cards as card (card.key)}
+            {@const on = cardOf(card.key)}
+            {@const group = sameCorner(card.key)}
+            <div class="wprow">
+              <div class="wphead"><b>{card.label}</b>
+                {#if on && group.length > 1}<span class="slotbtns">
+                  <button type="button" class="ib" disabled={group[0].key === card.key} onclick={() => moveCard(card.key, -1)} aria-label="Выше: {card.label}">↑</button>
+                  <button type="button" class="ib" disabled={group[group.length - 1].key === card.key} onclick={() => moveCard(card.key, 1)} aria-label="Ниже: {card.label}">↓</button>
+                </span>{/if}
+              </div>
+              <span class="muted small">{card.hint}</span>
+              <div class="chips" role="radiogroup" aria-label="Где: {card.label}">
+                <button type="button" role="radio" class="chip" aria-checked={!on} class:on={!on} onclick={() => setCard(card.key, "")}>Нет</button>
+                {#each CI.corners as corner (corner.value)}
+                  <button type="button" role="radio" class="chip" aria-checked={on?.corner === corner.value} class:on={on?.corner === corner.value} onclick={() => setCard(card.key, corner.value)}>{corner.label}</button>
+                {/each}
+              </div>
+            </div>
+          {/each}
+          {#if errors.cards}{#each errors.cards as text}<p class="warn small">{text}</p>{/each}{/if}
         </div>
         <h4 class="wgroup">На столе</h4>
         <div class="winparams">

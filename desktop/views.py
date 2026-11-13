@@ -163,6 +163,25 @@ def wallpaper(request, code):
     return response
 
 
+def cards_events(request):
+    """Карточка «События» на столе: ближайшие моменты мира, как в команде at (идущие и предстоящие, видимые игроку)."""
+    from django.http import JsonResponse
+
+    from machines.world import chrono
+    from secure.requestkeys import request_keys
+    from world import moments as world_moments
+
+    machine = current_machine(request)
+    profile = active_session(request).profile if request.user.is_authenticated and machine is not None else None
+    game = chrono.game_now()
+    rows = world_moments.board(machine, profile, request_keys(request), where="in_list")[:5]
+    return JsonResponse({"rate": chrono.rate_now(), "rows": [
+        {"title": row["title"], "state": row["state"],
+         "left": int(((row["end"] if row["state"] == "live" else row["start"]) - game).total_seconds())}
+        for row in rows
+    ]})
+
+
 def moments(request):
     """Полоса моментов мира на столе: идущие и скорые (за «предупреждать за» минут) видимые этому игроку на этой машине."""
     from django.http import JsonResponse

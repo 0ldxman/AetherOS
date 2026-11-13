@@ -1,0 +1,56 @@
+/* ==========================================================================
+ * Карточки на столе по углам (desktop/elements/cards.html, machines/world/cards.py). shell.js переносит их внутрь #desktop:
+ * стол изолирован, и снаружи карточки легли бы поверх окон. Общий вид на токенах, виды панелей дорисовывают своё.
+ * ========================================================================== */
+
+.cards { position: absolute; z-index: 1; display: flex; flex-direction: column; gap: 12px; width: 232px; pointer-events: none; }
+.cards > * { pointer-events: auto; }
+.cards--tr, .cards--tl { top: 16px; }
+.cards--br, .cards--bl { bottom: 16px; justify-content: flex-end; }
+.cards--tr, .cards--br { right: 16px; }
+.cards--tl, .cards--bl { left: 16px; }
+/* панели, которые висят над столом: острова основной и дополнительная панель */
+[data-panel-form="islands"][data-panel-edge="top"] :is(.cards--tr, .cards--tl) { top: calc(var(--pl-h, 40px) + 12px); }
+[data-panel-form="islands"][data-panel-edge="bottom"] :is(.cards--br, .cards--bl) { bottom: calc(var(--pl-h, 40px) + 12px); }
+[data-pl2-show="on"][data-pl2-edge="top"] :is(.cards--tr, .cards--tl) { top: 96px; }
+[data-pl2-show="on"][data-pl2-edge="bottom"] :is(.cards--br, .cards--bl) { bottom: 96px; }
+[data-pl2-show="on"][data-pl2-edge="right"] :is(.cards--tr, .cards--br) { right: 96px; }
+[data-pl2-show="on"][data-pl2-edge="left"] :is(.cards--tl, .cards--bl) { left: 96px; }
+
+/* ---- общий вид ---- */
+.card {
+  box-sizing: border-box; width: 100%; padding: 12px 14px; border: var(--border-w, 1px) solid var(--line); border-radius: var(--radius);
+  background: color-mix(in srgb, var(--panel) 92%, transparent); color: var(--fg); font: 12px var(--font-main); text-align: left;
+}
+.card[hidden] { display: none; }
+.card .widget-title { margin: 0 0 8px; color: var(--font-muted); font-size: 11px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; }
+.card .widget-time { color: var(--font-light); font-size: 34px; font-weight: 300; line-height: 1.1; font-variant-numeric: tabular-nums; }
+.card .widget-date { color: var(--font-muted); font-size: 12px; }
+.card .widget-rows { display: grid; gap: 4px; margin: 0; }
+.card .widget-rows div { display: flex; justify-content: space-between; gap: 8px; }
+.card .widget-rows dt { color: var(--font-muted); }
+.card .widget-rows dd { margin: 0; color: var(--font-light); font-variant-numeric: tabular-nums; }
+button.card { display: flex; align-items: center; justify-content: space-between; cursor: pointer; }
+.card.has-mail { border-color: var(--accent); }
+.card .widget-mail-count { color: var(--accent); font-weight: 700; }
+
+.card-rows { display: flex; flex-direction: column; gap: 6px; margin: 0; padding: 0; list-style: none; }
+.card-rows li { display: flex; justify-content: space-between; gap: 10px; min-width: 0; }
+.card-rows .card-title { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--font-light); }
+.card-rows .card-when { flex: none; color: var(--font-muted); font-variant-numeric: tabular-nums; }
+.card-rows .is-live .card-when { color: var(--accent-warn); }
+.card-empty { color: var(--font-muted); }
+.card-freq { float: right; color: var(--accent); letter-spacing: 0; text-transform: none; font-variant-numeric: tabular-nums; }
+.card-line { margin: 0; color: var(--font-light); line-height: 1.4; overflow-wrap: anywhere; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+.card-line.is-quiet { color: var(--font-muted); }
+
+/* ---- дорисовка видов ---- */
+[data-panel="modern"] .card, [data-panel="gnome"] .card { border-radius: calc(var(--radius) + 8px); box-shadow: 0 8px 24px color-mix(in srgb, var(--bg) 60%, transparent); }
+[data-panel="gnome"] .card { background: rgba(30, 30, 36, 0.86); border-color: rgba(255, 255, 255, 0.08); }
+[data-panel="classic"] .card { border: 2px solid var(--ink, var(--window-border)); border-radius: 0; background: var(--cream, var(--font-dark)); color: var(--ink, var(--window-border)); box-shadow: 4px 4px 0 var(--ink, var(--window-border)); }
+[data-panel="classic"] .card :is(.widget-time, .widget-rows dd, .card-title, .card-line) { color: var(--ink, var(--window-border)); }
+[data-panel="tui"] .card { border: 3px double var(--fg); border-radius: 0; background: var(--bg); font-family: var(--font-console); }
+[data-panel="phosphor"] .card { border: 2px solid var(--fg); border-radius: 0; background: var(--bg); font-family: var(--font-console); text-transform: uppercase; }
+[data-panel="phosphor"] .card .widget-title { margin: -12px -14px 8px; padding: 2px 14px; background: var(--fg); color: var(--bg); }
+[data-panel="workbench"] .card { border: 0; border-radius: 0; background: var(--panel);
+  box-shadow: var(--keyline, inset 0 0 0 1px var(--line-bright), inset 0 0 0 3px var(--panel), inset 0 0 0 4px var(--line-bright)), 0 6px 14px rgba(0, 0, 0, 0.35); }

@@ -19285,6 +19285,59 @@
     "title": "BlackoutValues",
     "type": "object"
    },
+   "CardInfo": {
+    "properties": {
+     "cards": {
+      "items": {
+       "$ref": "#/components/schemas/PanelElement"
+      },
+      "title": "Cards",
+      "type": "array"
+     },
+     "corners": {
+      "items": {
+       "$ref": "#/components/schemas/WindowOption"
+      },
+      "title": "Corners",
+      "type": "array"
+     },
+     "presets": {
+      "additionalProperties": {
+       "items": {
+        "$ref": "#/components/schemas/CardValue"
+       },
+       "type": "array"
+      },
+      "title": "Presets",
+      "type": "object"
+     }
+    },
+    "required": [
+     "cards",
+     "corners",
+     "presets"
+    ],
+    "title": "CardInfo",
+    "type": "object"
+   },
+   "CardValue": {
+    "properties": {
+     "key": {
+      "title": "Key",
+      "type": "string"
+     },
+     "corner": {
+      "title": "Corner",
+      "type": "string"
+     }
+    },
+    "required": [
+     "key",
+     "corner"
+    ],
+    "title": "CardValue",
+    "type": "object"
+   },
    "FontChoice": {
     "properties": {
      "value": {
@@ -19975,6 +20028,23 @@
      "panel2": {
       "$ref": "#/components/schemas/Panel2Value"
      },
+     "cards": {
+      "anyOf": [
+       {
+        "items": {
+         "$ref": "#/components/schemas/CardValue"
+        },
+        "type": "array"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Cards"
+     },
+     "card_info": {
+      "$ref": "#/components/schemas/CardInfo"
+     },
      "parts": {
       "additionalProperties": {
        "additionalProperties": {
@@ -20153,6 +20223,8 @@
      "window_presets",
      "panel",
      "panel2",
+     "cards",
+     "card_info",
      "parts",
      "part_params",
      "part_presets",
@@ -20712,6 +20784,25 @@
         "type": "null"
        }
       ]
+     },
+     "cards": {
+      "anyOf": [
+       {
+        "items": {
+         "$ref": "#/components/schemas/CardValue"
+        },
+        "type": "array"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Cards"
+     },
+     "cards_style": {
+      "default": false,
+      "title": "Cards Style",
+      "type": "boolean"
      },
      "parts": {
       "anyOf": [

@@ -139,7 +139,7 @@ def os_slot(context, slot):
     """Что стол добавляет к главной панели (slot "desk"): дополнительную панель и всплывающие меню запуска и журнал, если у вида их нет."""
     from django.template.loader import render_to_string
 
-    from machines.world import panel
+    from machines.world import cards, panel
 
     request = context.get("request")
     if request is None or slot != "desk":
@@ -168,10 +168,11 @@ def os_slot(context, slot):
         "launcher_panel": bool({"launcher", "search", "allapps"} & set(everywhere)) and look not in panel.NATIVE_LAUNCHER_PANEL,
         "notices_panel": "notices" in everywhere and look not in panel.NATIVE_NOTICES_PANEL,
         "search_in_panel": "search" not in everywhere,
+        "cards": list(cards.by_corner(slug, chosen.get("cards")).items()),
         "launcher_side": side(launcher_key, "start") if launcher_key in everywhere else "left",
         "notices_side": side("notices", "end") if "notices" in everywhere else "right",
     }
-    if not (desk["panel2"] or desk["launcher_panel"] or desk["notices_panel"]):
+    if not (desk["panel2"] or desk["launcher_panel"] or desk["notices_panel"] or desk["cards"]):
         return ""
     return mark_safe(render_to_string("desktop/elements/desk.html", {**context.flatten(), **desk}))
 
@@ -207,7 +208,7 @@ def os_theme(context):
     request = context.get("request")
     slug = _state(request)[0] if request is not None else styles.DEFAULT_STYLE
     links = [f"ui/themes/{slug}.css"] if styles.STYLES[slug].css else []
-    links += ["ui/parts/windows.css", "ui/parts/panel2.css", "ui/parts/messages.css", "ui/parts/effects.css", "ui/parts/desk.css"]     # раньше частей вида: их дорисовка сильнее
+    links += ["ui/parts/windows.css", "ui/parts/panel2.css", "ui/parts/messages.css", "ui/parts/effects.css", "ui/parts/desk.css", "ui/parts/cards.css"]     # раньше частей вида: их дорисовка сильнее
     chosen = styles.parts(slug, getattr(request, "_os_parts", {}) if request is not None else {})
     links += [path for path in (styles.part_file(part, chosen[part]) for part in styles.PARTS) if path]
     return mark_safe("".join(format_html('<link rel="stylesheet" href="{}">', static(path)) for path in links))

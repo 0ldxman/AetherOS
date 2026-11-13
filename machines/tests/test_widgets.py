@@ -194,3 +194,41 @@ class FxIconsCursorTests(TestCase):
         self.assertIn("icons/aether/", icon({}))
         self.assertIn("icons/classic/", icon({"icons": {"set": "classic"}}))
         self.assertEqual(icon({"icons": {"set": "text"}}), "")
+
+
+class CardsTests(TestCase):
+    def test_presets_clean_and_corners(self):
+        from machines.world import cards
+
+        self.assertEqual(cards.of("modern"), [{"key": "system", "corner": "tr"}, {"key": "mail", "corner": "tr"}])
+        self.assertEqual(cards.of("aether"), [])
+        self.assertEqual(cards.of("modern", []), [])                                   # пустой список — карточек нет
+        self.assertEqual(cards.clean([{"key": "air", "corner": "bl"}, {"key": "air", "corner": "tr"}, {"key": "nope", "corner": "tr"}]),
+                         [{"key": "air", "corner": "bl"}])
+        self.assertEqual(cards.by_corner("aether", [{"key": "events", "corner": "tr"}, {"key": "clock", "corner": "tl"}, {"key": "air", "corner": "tr"}]),
+                         {"tr": ["events", "air"], "tl": ["clock"]})
+        self.assertEqual(cards.problems([{"key": "air", "corner": "middle"}]), ["Эфир: нет такого угла middle."])
+
+    def test_desk_renders_cards_in_corners(self):
+        request = RequestFactory().get("/")
+        request.user = get_user_model()()
+        request._os_style = ("aether", {}, "AETHER", {})
+        request._os_widgets, request._os_places = {}, {}
+        request._os_parts = {"cards": [{"key": "events", "corner": "tr"}, {"key": "air", "corner": "br"}]}
+        html = Template("{% load os_style %}{% os_slot 'desk' %}").render(Context({"request": request}))
+        self.assertIn('class="cards cards--tr"', html)
+        self.assertIn('data-widget="events" data-url="/desktop/cards/events/"', html.replace("/proxy/8000", ""))
+        self.assertIn('class="cards cards--br"', html)
+
+    def test_studio_saves_cards(self):
+        self.client.force_login(get_user_model().objects.create_user("boss", password="pw", is_staff=True, role=full_role()))
+        SystemType.objects.create(code="KIOSK", name="Kiosk", style="modern")
+        put = lambda body: self.client.put("/studio/api/systems/KIOSK/style", data=json.dumps({"style": "modern", "tokens": {}, **body}), content_type="application/json")
+        data = self.client.get("/studio/api/systems/KIOSK").json()
+        self.assertIsNone(data["cards"])
+        self.assertEqual(data["card_info"]["presets"]["modern"][0]["key"], "system")
+        self.assertEqual(put({"cards": [{"key": "air", "corner": "bl"}]}).json()["cards"], [{"key": "air", "corner": "bl"}])
+        self.assertEqual(put({"cards": []}).json()["cards"], [])
+        self.assertIsNone(put({"cards_style": True}).json()["cards"])
+        response = put({"cards": [{"key": "radio", "corner": "tr"}]})
+        self.assertEqual((response.status_code, response.json()["fields"]["cards"]), (400, ["Нет такой карточки: radio."]))

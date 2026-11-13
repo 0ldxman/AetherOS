@@ -2,7 +2,7 @@
   Что стол добавляет к главной панели (machines/templatetags/os_style.py, os_slot "desk"): дополнительную панель (desktop/elements/panel2.html)
   и всплывающие меню запуска и журнал сообщений, если у вида панели их нет. Поведение даёт shell.js по data-shell,
   вид — desktop/elements.css на токенах стиля и дорисовка вида панели ([data-panel] .el-…).
-{% endcomment %}{% if panel2 %}{% include "desktop/elements/panel2.html" %}{% endif %}{% if launcher_panel %}
+{% endcomment %}{% if panel2 %}{% include "desktop/elements/panel2.html" %}{% endif %}{% if cards %}{% include "desktop/elements/cards.html" %}{% endif %}{% if launcher_panel %}
     <section id="launcher" class="el-pop el-pop--{{ edge }} el-pop--{{ launcher_side }} el-launcher" data-shell="launcher-panel" aria-label="Applications" hidden>
         <header class="el-pop-head"><span>Applications</span></header>{% if search_in_panel %}
         <input type="search" class="el-search el-search--panel" data-shell="search" placeholder="search" autocomplete="off" aria-label="Search apps">{% endif %}

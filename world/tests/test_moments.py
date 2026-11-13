@@ -126,6 +126,11 @@ class MomentScreenTests(TerminalClient, MomentClock):
         self.move(minutes=15)
         self.assertIn("ends in 00:25:00", self.run_command("at")["output"])
 
+    def test_events_card_shows_upcoming_like_at(self):
+        self.moment()
+        rows = self.client.get(reverse("desktop_cards_events")).json()["rows"]
+        self.assertEqual((rows[0]["title"], rows[0]["state"], rows[0]["left"]), ("BOREAS UPLINK", "later", 1800))      # как в at, не только скорые
+
     def test_a_letter_to_everyone_arrives_once(self):
         from filesystem.models import Item
         from mail.boxes import Box
