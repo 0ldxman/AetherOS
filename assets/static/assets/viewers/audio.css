@@ -257,7 +257,7 @@
     height: 30px;
     padding: 0;
     border: 1px solid transparent;
-    border-radius: 0;
+    border-radius: var(--ctl-radius);
     background: transparent;
     color: var(--font-light, #b5b6b8);
     cursor: pointer;
@@ -417,8 +417,8 @@
     min-width: 66px;
     height: 26px;
     padding: 0 20px 0 7px;
-    border: 1px solid var(--font-muted, #85898c);
-    border-radius: 0;
+    border: var(--ctl-border) solid var(--font-muted, #85898c);
+    border-radius: var(--ctl-radius);
     appearance: none;
     -webkit-appearance: none;
     background-color: var(--bg, #191919);
