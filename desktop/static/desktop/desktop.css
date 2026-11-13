@@ -433,8 +433,8 @@ body {
   display: flex;
   flex: 1;
   flex-direction: column;
-  background: var(--tone);
-  color: var(--bg);
+  background: var(--panel);         /* тело — поверхность окна; тон сообщения у заголовка, значка и кнопки */
+  color: var(--fg);
 }
 
 .dialog--error { --tone: var(--status-error); }
@@ -448,15 +448,15 @@ body {
   padding: 1.25rem 1.25rem 1rem;
 }
 
-/* тёмный квадрат с цветным знаком */
+/* знак на плашке тона сообщения */
 .dialog-glyph {
   flex: 0 0 auto;
   display: grid;
   place-items: center;
   width: 2.4rem;
   height: 2.4rem;
-  background: var(--bg);
-  color: var(--tone);
+  background: var(--tone);
+  color: var(--font-dark);
   font-size: 1.4rem;
   font-weight: 700;
 }
@@ -476,31 +476,34 @@ body {
   justify-content: space-between;
   gap: 1rem;
   padding: 0.6rem 1rem;
-  border-top: 1px solid var(--bg);
+  border-top: 1px solid var(--line);
 }
 
 .dialog-code {
   font-size: 12px;
-  opacity: 0.7;
+  color: var(--font-muted);
 }
 
+/* главная кнопка окна: одна ширина и высота во всех стилях, заливка тоном сообщения */
 .dialog-ok {
-  min-width: 5.5rem;
-  padding: 0.25rem 1rem;
-  background: none;
-  border: 1px solid var(--bg);
-  color: var(--bg);
+  min-width: 80px;
+  height: 30px;
+  box-sizing: border-box;
+  padding: 0 1rem;
+  background: var(--tone);
+  border: 1px solid var(--tone);
+  color: var(--font-dark);
   font: inherit;
   cursor: pointer;
 }
 
 .dialog-ok:hover {
-  background: var(--bg);
-  color: var(--tone);
+  background: color-mix(in srgb, var(--tone) 80%, var(--font-light));
 }
 
 .dialog-ok:focus-visible {
-  outline: none;
+  outline: 2px solid var(--tone);
+  outline-offset: 2px;
 }
 
 /* заголовок окна ошибки красится по виду сообщения */
@@ -516,7 +519,7 @@ body {
 
 .winbox.aether.dialog-window--error {
   border-color: var(--status-error);
-  background: var(--status-error);
+  background: var(--panel);
   box-shadow: 0 0 0 1px var(--status-error);
 }
 
