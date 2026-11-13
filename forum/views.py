@@ -1,6 +1,7 @@
 """Приложение «форум» у игрока: пространства машины, дерево разделов, темы, дерево ответов. Отдаёт JSON, страница одна (forum/static/forum/forum.js)."""
 import json
 
+from django.db.models import Count
 from django.http import Http404, JsonResponse
 from django.shortcuts import render
 from django.views.decorators.csrf import ensure_csrf_cookie
@@ -78,6 +79,7 @@ def spaces(request):
     machine, keys = _context(request)
     player = _player(request)
     return JsonResponse({
+        "node": machine.hostname if machine is not None else "",
         "callsign": logic.author_name(player) if player else "",
         "spaces": [{"slug": s.slug, "title": s.title, "about": s.about} for s in logic.spaces_for(machine, keys)],
     })
@@ -89,8 +91,10 @@ def space(request, slug):
     _, keys = _context(request)
     player = _player(request)
 
+    counts = dict(Topic.objects.filter(section__space=found, hidden_at__isnull=True).values_list("section").annotate(n=Count("id")))
+
     def convert(nodes):
-        return [{"id": n["section"].pk, "title": n["section"].title, "about": n["section"].about,
+        return [{"id": n["section"].pk, "title": n["section"].title, "about": n["section"].about, "topics": counts.get(n["section"].pk, 0),
                  "can_write": logic.can_write(n["section"], player, keys), "mine": logic.moderates(n["section"], player),
                  "children": convert(n["children"])} for n in nodes]
 
