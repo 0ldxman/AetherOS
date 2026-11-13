@@ -19,4 +19,5 @@ urlpatterns = [
     path("api/post/hide/", views.hide_post, name="hide_post"),
     path("api/post/restore/", views.restore_post, name="restore_post"),
     path("api/topic/flags/", views.topic_flags, name="topic_flags"),
+    path("api/post/useful/", views.useful, name="useful"),
 ]

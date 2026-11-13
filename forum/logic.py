@@ -273,3 +273,20 @@ def mod_flags(topic, user, pinned=None, locked=None):
 def mod_archive(section, user):
     _need(section, user)
     Section.objects.filter(pk=section.pk).update(archived=True)
+
+
+# ---- полезные ответы ----
+
+def can_mark_useful(topic, user):
+    """Отмечать полезное может автор темы (игрок, открывший её)."""
+    return user is not None and user.is_authenticated and topic.author_id == user.pk
+
+
+def mark_useful(post, user, on=True):
+    if not can_mark_useful(post.topic, user):
+        raise ForumError("отмечать может только автор темы")
+    if post.root or post.author_id == user.pk:
+        raise ForumError("свои сообщения отмечать нельзя")
+    if post.hidden_at is not None:
+        raise ForumError("сообщение удалено")
+    Post.objects.filter(pk=post.pk).update(useful=bool(on))

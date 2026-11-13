@@ -1,6 +1,6 @@
 /* Форум: доски узла. Слева список досок (как каналы), справа лист: обзор, раздел, тема с ветками ответов.
    Только токены ОС: цвета, шрифт, форма (--ctl-*). */
-#forum { --fm-gutter: 22px; --fm-read: 48rem; --fm-plate: 26px;
+#forum { --fm-gutter: 22px; --fm-read: 48rem; --fm-plate: 34px;
          display: flex; flex-direction: column; height: 100vh; height: 100dvh; min-height: 0; overflow: hidden;
          background: var(--bg); color: var(--fg); font: 13px/1.5 var(--font-main); }
 #forum a { color: inherit; text-decoration: none; }
@@ -11,9 +11,9 @@
 /* ---- шапка ---- */
 .fm-head { display: flex; align-items: baseline; justify-content: space-between; gap: 16px; padding: 12px var(--fm-gutter); border-bottom: 1px solid var(--line); }
 .fm-title { display: flex; align-items: baseline; gap: 10px; min-width: 0; }
-.fm-tag { font-size: 10px; font-weight: 700; letter-spacing: 0.08em; color: var(--accent); }
-.fm-title h1 { margin: 0; font-size: 14px; font-weight: 500; letter-spacing: 0.03em; text-transform: uppercase; overflow-wrap: anywhere; }
-.fm-who { color: var(--font-muted); font-size: 11px; letter-spacing: 0.04em; white-space: nowrap; }
+.fm-title h1 { margin: 0; font-size: 14px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; overflow-wrap: anywhere; }
+.fm-addr { color: var(--font-muted); font-size: 11px; letter-spacing: 0.03em; }
+.fm-who { display: inline-flex; align-items: center; gap: 8px; color: var(--font-muted); font-size: 11px; letter-spacing: 0.04em; white-space: nowrap; }
 .fm-who b { color: var(--font-light); }
 
 /* ---- каркас: доски слева, лист справа ---- */
@@ -72,21 +72,28 @@
 .fm-closed, .fm-pinned { margin-left: 8px; padding: 0 5px; border: 1px solid var(--line-bright); border-radius: var(--ctl-radius); color: var(--font-muted); font-size: 10px; font-weight: 400; letter-spacing: 0.04em; }
 .fm-pinned { border-color: var(--accent); color: var(--accent); }
 .fm-new { padding: 0 6px; border-radius: var(--ctl-radius); background: var(--accent); color: var(--font-dark); font-size: 10px; font-weight: 700; letter-spacing: 0.04em; }
-.fm-ico { width: var(--fm-plate); height: var(--fm-plate); display: grid; place-items: center; border: 1px solid var(--line-bright); border-radius: var(--ctl-radius); color: var(--font-muted); font-size: 12px; }
+.fm-ico { justify-self: center; width: 26px; height: 26px; display: grid; place-items: center; border: 1px solid var(--line-bright); border-radius: var(--ctl-radius); color: var(--font-muted); font-size: 12px; }
 .fm-ico.on { border-color: var(--accent); color: var(--accent); }
 
-/* ---- табличка позывного: у каждого автора свой цвет ---- */
-.fm-plate { width: var(--fm-plate); height: var(--fm-plate); flex: 0 0 auto; display: grid; place-items: center; border: 1px solid var(--plate, var(--line-bright));
-            border-radius: var(--ctl-radius); background: color-mix(in srgb, var(--plate, var(--line-bright)) 20%, var(--panel));
-            color: var(--font-light); font-size: 10px; font-weight: 700; letter-spacing: 0.02em; }
+/* ---- код отправителя: бейдж из трёх знаков, у каждого автора свой цвет ---- */
+.fm-plate { justify-self: center; align-self: start; flex: 0 0 auto; display: inline-block; min-width: 3.4ch; margin-top: 2px; padding: 1px 4px; border: 1px solid var(--plate, var(--line-bright));
+            border-radius: var(--ctl-radius); color: var(--plate, var(--font-muted)); font-size: 10px; font-weight: 700; line-height: 1.3; letter-spacing: 0.08em; text-align: center; }
 .fm-plate.c0 { --plate: var(--accent); } .fm-plate.c1 { --plate: var(--accent-green); } .fm-plate.c2 { --plate: var(--accent-warn); } .fm-plate.c3 { --plate: var(--status-info); }
-.fm-plate.sys { --plate: var(--font-muted); border-style: dashed; color: var(--font-muted); background: transparent; }
+.fm-plate.sys { --plate: var(--font-muted); border-style: dashed; }
 .fm-who-line { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 8px; font-size: 11px; color: var(--font-muted); }
 .fm-name { color: var(--font-light); font-weight: 700; letter-spacing: 0.04em; font-size: 12px; }
 .fm-name.kind-character { color: var(--accent-warn); }
 .fm-name.kind-system { color: var(--font-muted); font-weight: 400; }
 .fm-badge { padding: 0 5px; border: 1px solid currentColor; border-radius: var(--ctl-radius); font-size: 9px; font-weight: 700; letter-spacing: 0.06em; }
 .fm-badge.op { color: var(--accent); }
+.fm-badge.useful { color: var(--accent); }
+
+/* полезный ответ: заливка акцентом, текст инвертирован */
+.fm-c.useful > .fm-cmain > .fm-cbox { border-color: var(--accent); background: var(--accent); }
+.fm-c.useful > .fm-cmain > .fm-cbox :is(.fm-who-line, .fm-who-line *, .fm-text, .fm-text *, .fm-link, .fm-name) { color: var(--font-dark); }
+.fm-c.useful > .fm-cmain > .fm-cbox .fm-badge { border-color: var(--font-dark); }
+.fm-c.useful > .fm-cmain > .fm-cbox .fm-new { background: var(--font-dark); color: var(--accent); }
+.fm-c.useful > .fm-cmain > .fm-cbox .fm-file { background: transparent; border-color: var(--font-dark); }
 
 /* ---- тема: первое сообщение карточкой ---- */
 .fm-back { display: inline-block; margin-bottom: 12px; color: var(--font-muted); font-size: 12px; }

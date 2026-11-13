@@ -112,6 +112,7 @@
             {#if post.player}<span class="muted small">игрок {post.player}</span>{:else}<span class="muted small">{post.kind === "system" ? "система" : "автор"}</span>{/if}
             <span class="muted small">{when(post.created_at)}</span>
             {#if post.parent}<span class="muted small">→ #{post.parent}</span>{/if}
+            {#if post.useful}<span class="badge">полезное</span>{/if}
             <span class="muted small">#{post.id}</span>
           </div>
           <p>{post.text}</p>

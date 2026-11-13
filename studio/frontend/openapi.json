@@ -28358,6 +28358,10 @@
       },
       "title": "Files",
       "type": "array"
+     },
+     "useful": {
+      "title": "Useful",
+      "type": "boolean"
      }
     },
     "required": [
@@ -28371,7 +28375,8 @@
      "hidden",
      "hidden_reason",
      "created_at",
-     "files"
+     "files",
+     "useful"
     ],
     "title": "FoPost",
     "type": "object"

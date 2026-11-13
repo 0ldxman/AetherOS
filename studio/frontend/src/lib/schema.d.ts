@@ -10298,6 +10298,8 @@ export interface components {
             created_at: string;
             /** Files */
             files: string[];
+            /** Useful */
+            useful: boolean;
         };
         /** FoTopicOut */
         FoTopicOut: {

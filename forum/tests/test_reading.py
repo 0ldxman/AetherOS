@@ -33,10 +33,10 @@ class ReadingTests(TestCase):
         self.assertTrue(self.summary(topic, self.ivan)["unseen"])
         reading.mark_seen(topic, self.ivan)
         self.assertFalse(self.summary(topic, self.ivan)["unseen"])
-        reply = logic.reply(topic, self.anna, "anyone?", set())
         logic.reply(topic, self.ivan, "me", set())
+        reply = logic.reply(topic, self.anna, "anyone?", set())
         info = self.summary(topic, self.ivan)
-        self.assertEqual((info["new"], info["replies"], info["last_name"]), (1, 2, logic.author_name(self.ivan)))
+        self.assertEqual((info["new"], info["replies"], info["last_name"]), (1, 2, logic.author_name(self.anna)))
         self.assertEqual(reading.new_posts(topic, self.ivan), {reply.pk})
         reading.mark_seen(topic, self.ivan)
         self.assertEqual(self.summary(topic, self.ivan)["new"], 0)
@@ -47,3 +47,14 @@ class ReadingTests(TestCase):
         self.assertEqual((info["new"], info["unseen"]), (0, False))
         self.assertLessEqual(len(info["excerpt"]), reading.EXCERPT)
         self.assertTrue(info["excerpt"].endswith("…"))
+
+    def test_a_reply_of_mine_means_i_saw_what_came_before_it(self):
+        Reader.objects.create(user=self.ivan, since=timezone.now() - timedelta(minutes=5))
+        topic = logic.start_topic(self.section, self.ivan, "Hi", "hello", set())
+        reading.mark_seen(topic, self.ivan)
+        first = logic.reply(topic, self.anna, "one", set())
+        logic.reply(topic, self.ivan, "answer", set(), parent=first)        # ответил, не открывая тему заново
+        self.assertEqual(reading.new_posts(topic, self.ivan), set())
+        self.assertEqual(self.summary(topic, self.ivan)["new"], 0)
+        later = logic.reply(topic, self.anna, "two", set())
+        self.assertEqual(reading.new_posts(topic, self.ivan), {later.pk})

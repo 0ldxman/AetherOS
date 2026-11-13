@@ -195,3 +195,27 @@ class PlayerSectionsTests(TestCase):
         logic.mod_archive(mine, self.ivan)
         mine.refresh_from_db()
         self.assertTrue(mine.archived)
+
+
+class UsefulTests(TestCase):
+    def setUp(self):
+        self.section = Section.objects.create(space=Space.objects.create(slug="net", title="Net"), title="General")
+        self.ivan = get_user_model().objects.create_user("ivan")
+        self.anna = get_user_model().objects.create_user("anna")
+
+    def test_only_the_topic_starter_marks_replies(self):
+        topic = logic.start_topic(self.section, self.ivan, "Q", "how?", set())
+        answer = logic.reply(topic, self.anna, "like this", set())
+        with self.assertRaises(logic.ForumError):
+            logic.mark_useful(answer, self.anna)
+        logic.mark_useful(answer, self.ivan)
+        self.assertTrue(Post.objects.get(pk=answer.pk).useful)
+        logic.mark_useful(answer, self.ivan, on=False)
+        self.assertFalse(Post.objects.get(pk=answer.pk).useful)
+        with self.assertRaises(logic.ForumError):
+            logic.mark_useful(topic.posts.get(root=True), self.ivan)
+        with self.assertRaises(logic.ForumError):
+            logic.mark_useful(logic.reply(topic, self.ivan, "my own", set()), self.ivan)
+        authored = logic.author_topic(self.section, "SYSOP", "Rules", "x")
+        with self.assertRaises(logic.ForumError):
+            logic.mark_useful(logic.reply(authored, self.anna, "ok", set()), self.ivan)

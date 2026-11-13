@@ -162,13 +162,14 @@ def topic(request, pk):
     fresh = reading.new_posts(found, player)
     reading.mark_seen(found, player)
     posts = [{"id": p.pk, "parent": p.parent_id, "root": p.root, "name": p.name, "kind": p.kind, "at": _when(request, p.created_at),
-              "ago": _ago(p.created_at), "new": p.pk in fresh,
+              "ago": _ago(p.created_at), "new": p.pk in fresh, "useful": p.useful, "starter": p.author_id is not None and p.author_id == found.author_id,
               "hidden": p.hidden_at is not None, "text": p.text if moderator or p.hidden_at is None else "",
               "files": [] if p.hidden_at is not None else [{"id": a.pk, "name": a.name, "size": a.size} for a in p.attachments.all()]}
              for p in logic.posts_of(found)]
     can = logic.can_write(found.section, player, keys) and not found.locked
     return JsonResponse({"id": found.pk, "title": found.title, "locked": found.locked, "pinned": found.pinned, "section": found.section_id,
-                         "space": found.section.space.slug, "crumbs": _crumbs(found.section), "can_reply": can, "can_moderate": moderator, "posts": posts})
+                         "space": found.section.space.slug, "crumbs": _crumbs(found.section), "can_reply": can, "can_moderate": moderator,
+                         "can_mark": logic.can_mark_useful(found, player), "posts": posts})
 
 
 def _body(request):
@@ -347,6 +348,18 @@ def archive_section(request):
     found = _section(request, _body(request).get("section"))
     try:
         logic.mod_archive(found, _player(request))
+    except logic.ForumError as error:
+        return _error(error, 403)
+    return JsonResponse({"ok": True})
+
+
+@require_POST
+def useful(request):
+    """Автор темы отмечает ответ полезным (или снимает отметку)."""
+    data = _body(request)
+    post = _post_of(request, data.get("post"))
+    try:
+        logic.mark_useful(post, _player(request), bool(data.get("on", True)))
     except logic.ForumError as error:
         return _error(error, 403)
     return JsonResponse({"ok": True})

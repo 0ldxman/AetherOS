@@ -1,6 +1,7 @@
 """Что игрок уже читал: новое с прошлого визита в теме, сводки тем и разделов для списков."""
 import re
 
+from django.db.models import Max
 from django.utils import timezone
 
 from forum.models import Post, Reader, Visit
@@ -27,7 +28,9 @@ def _thresholds(user, topic_ids):
     if start is None:
         return {}
     seen = dict(Visit.objects.filter(user=user, topic_id__in=topic_ids).values_list("topic_id", "seen_at"))
-    return {pk: max(seen.get(pk, start), start) for pk in topic_ids}
+    # кто ответил в теме, тот видел всё, что было до его ответа
+    wrote = dict(Post.objects.filter(author=user, topic_id__in=topic_ids).values("topic_id").annotate(last=Max("created_at")).values_list("topic_id", "last"))
+    return {pk: max(seen.get(pk, start), wrote.get(pk, start), start) for pk in topic_ids}
 
 
 def summaries(topics, user):

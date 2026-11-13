@@ -98,6 +98,7 @@ class Post(models.Model):
     name = models.CharField("Подпись автора", max_length=16, blank=True)
     kind = models.CharField(max_length=10, choices=Kind.choices, default=Kind.PLAYER)
     text = models.TextField()
+    useful = models.BooleanField("Полезное", default=False, help_text="Автор темы отметил ответ как полезный.")
     created_at = models.DateTimeField(default=timezone.now, db_index=True)
     hidden_at = models.DateTimeField(null=True, blank=True)
     hidden_reason = models.CharField(max_length=200, blank=True)

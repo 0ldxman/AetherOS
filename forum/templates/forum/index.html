@@ -14,10 +14,10 @@
           data-spaces-url="{% url 'forum:spaces' %}" data-space-url="{% url 'forum:space' 'SLUG' %}" data-section-url="{% url 'forum:section' 0 %}"
           data-topic-url="{% url 'forum:topic' 0 %}" data-new-topic-url="{% url 'forum:new_topic' %}" data-new-post-url="{% url 'forum:new_post' %}"
           data-new-section-url="{% url 'forum:new_section' %}" data-archive-url="{% url 'forum:archive_section' %}" data-hide-url="{% url 'forum:hide_post' %}"
-          data-restore-url="{% url 'forum:restore_post' %}" data-flags-url="{% url 'forum:topic_flags' %}" data-files-url="{% url 'forum:files' %}" data-save-url="{% url 'forum:save_attachment' %}">
+          data-restore-url="{% url 'forum:restore_post' %}" data-flags-url="{% url 'forum:topic_flags' %}" data-files-url="{% url 'forum:files' %}" data-save-url="{% url 'forum:save_attachment' %}" data-useful-url="{% url 'forum:useful' %}">
 
         <header class="fm-head">
-            <div class="fm-title"><span class="fm-tag">[FORUM]</span><h1 id="fm-space">…</h1></div>
+            <div class="fm-title"><h1 id="fm-space">…</h1><span id="fm-addr" class="fm-addr"></span></div>
             <div id="fm-who" class="fm-who"></div>
         </header>
 

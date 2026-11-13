@@ -33,15 +33,14 @@
     const page = () => { const box = $("fm-page"); box.replaceChildren(); return box; };
     const cap = (text, extra) => { const h = el("h2", "fm-cap", text); if (extra) h.append(extra); return h; };
 
-    // табличка позывного: две буквы и свой цвет у каждого автора
+    // код отправителя, как в заголовках узловой почты: три знака (MAPT → MAP, OPERATOR-7 → OP7), у системы SYS; свой цвет у каждого
     function plate(name, kind) {
-        if (kind === "system" || !name) return el("span", "fm-plate sys", "SY");
+        if (kind === "system" || !name) return el("span", "fm-plate sys", "SYS");
         let hash = 0;
         for (const ch of name) hash = (hash * 31 + ch.charCodeAt(0)) >>> 0;
-        // буква и цифра позывного (OPERATOR-7 → O7), без цифры две буквы (MAPT → MA): не путается с меткой OP
         const clean = name.toUpperCase().replace(/[^A-Z0-9]/g, "");
-        const digit = clean.slice(1).match(/[0-9]/);
-        const box = el("span", "fm-plate c" + (hash % 4), (clean[0] || "?") + (digit ? digit[0] : clean[1] || ""));
+        const digit = clean.slice(2).match(/[0-9]/);
+        const box = el("span", "fm-plate c" + (hash % 4), digit ? clean.slice(0, 2) + digit[0] : clean.slice(0, 3) || "???");
         box.setAttribute("aria-hidden", "true");
         return box;
     }
@@ -51,8 +50,8 @@
     function drawWho() {
         const who = $("fm-who");
         who.replaceChildren();
-        if (callsign) who.append(el("b", "", callsign), " @ " + (node || "?"));
-        else who.append("guest @ " + (node || "?") + " · read only");
+        if (callsign) who.append(plate(callsign, "player"), el("b", "", callsign));
+        else who.append("guest · read only");
     }
     function drawRail() {
         const rail = $("fm-rail");
@@ -99,6 +98,7 @@
     async function loadSpace(slug) {
         space = await call(urls.spaceUrl.replace("SLUG", slug));
         $("fm-space").textContent = space.title;
+        $("fm-addr").textContent = space.slug + "@" + (node || "?");
         return space;
     }
     const findNode = (nodes, id) => { for (const n of nodes) { if (n.id === id) return n; const f = findNode(n.children, id); if (f) return f; } return null; };
@@ -359,7 +359,7 @@
         for (const post of data.posts) { const key = post.parent || 0; if (!kids.has(key)) kids.set(key, []); kids.get(key).push(post); }
         const count = (post) => (kids.get(post.id) || []).reduce((n, child) => n + 1 + count(child), 0);
         const first = data.posts.find((p) => p.root) || data.posts[0];
-        const isOp = (post) => post.name && post.name === first.name && post.kind === first.kind;
+        const isStarter = (post) => post.starter || (post.kind !== "player" && post.name === first.name && post.kind === first.kind);
 
         const back = el("a", "fm-back", "← back to " + (section ? section.title : "board"));
         back.href = section ? "#/c/" + section.id : "#/s/" + space.slug;
@@ -374,7 +374,7 @@
         const author = el("div", "fm-author");
         const who = el("div", "fm-who-line");
         const when = el("span", "", ago(first.ago)); when.title = first.at;
-        who.append(nameTag(first.name, first.kind), el("span", "fm-badge op", "OP"), when, el("span", "", "in " + (section ? section.title : "")));
+        who.append(nameTag(first.name, first.kind), el("span", "fm-badge op", "TS"), when, el("span", "", "in " + (section ? section.title : "")));
         author.append(plate(first.name, first.kind), who);
         head.append(title, author);
         const body = el("div", "fm-op-body");
@@ -394,13 +394,14 @@
         box.append(cap(replies ? plural(replies, "REPLY", "REPLIES") : "NO REPLIES YET"));
 
         const render = (post, depth, container) => {
-            const item = el("div", "fm-c" + (post.new ? " fresh" : "") + (post.name === callsign && post.kind === "player" ? " mine" : ""));
+            const item = el("div", "fm-c" + (post.new ? " fresh" : "") + (post.useful && !post.hidden ? " useful" : "") + (post.name === callsign && post.kind === "player" ? " mine" : ""));
             item.id = "p" + post.id;
             const main = el("div", "fm-cmain");
             const line = el("div", "fm-who-line");
             const when = el("span", "", ago(post.ago)); when.title = post.at;
             line.append(nameTag(post.name, post.kind));
-            if (isOp(post)) line.append(el("span", "fm-badge op", "OP"));
+            if (isStarter(post)) line.append(el("span", "fm-badge op", "TS"));
+            if (post.useful) line.append(el("span", "fm-badge useful", "✓ useful"));
             line.append(when);
             const parent = byId.get(post.parent);
             if (depth >= INDENT && parent && !parent.root) {
@@ -416,6 +417,7 @@
             cbox.append(line, textOf(post, data.can_moderate));
             const tools = el("div", "fm-ctools");
             if (data.can_reply && !post.hidden) tools.append(link("reply", () => openReply(post.id, main)));
+            if (data.can_mark && !post.hidden && !post.starter) tools.append(link(post.useful ? "unmark useful" : "mark useful", () => moderate(urls.usefulUrl, { post: post.id, on: !post.useful })));
             if (data.can_moderate) tools.append(post.hidden ? link("restore", () => moderate(urls.restoreUrl, { post: post.id }))
                                                             : link("delete", () => moderate(urls.hideUrl, { post: post.id }), "warn"));
             if (tools.children.length) cbox.append(tools);
@@ -462,7 +464,7 @@
         function drawReplyBox() {
             const stub = el("button", "fm-replybox");
             stub.type = "button";
-            stub.append(plate(callsign, "player"), "Write a reply as " + callsign + "…");
+            stub.append(plate(callsign, "player"), "Write a reply…");
             stub.addEventListener("click", () => openReply(null));
             box.append(stub);
         }
