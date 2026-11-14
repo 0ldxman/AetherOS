@@ -27,6 +27,7 @@ NAMES = {
     "flag.set": "Поставлена метка игрока",
     "flag.unset": "Снята метка игрока",
     "character.wrote": "Написал персонажу",
+    "signal": "Сигнал сценария",
 }
 
 
@@ -50,6 +51,7 @@ FIELDS = {                                  # какие подробности 
     "flag.set": ("flag",),
     "flag.unset": ("flag",),
     "character.wrote": ("character", "channel", "text"),
+    "signal": ("signal", "all"),
 }
 
 
@@ -130,5 +132,6 @@ def describe(event):
         "flag.set": lambda: f"flag:{data.get('flag', '')}",
         "flag.unset": lambda: f"flag:{data.get('flag', '')}",
         "character.wrote": lambda: f"{data.get('character', '')} · {data.get('channel', '')} · {data.get('text', '')}",
+        "signal": lambda: data.get("signal", ""),
     }.get(event.name, lambda: "")()
     return f"{title}: {detail}" if detail else title

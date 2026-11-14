@@ -39,6 +39,7 @@ class Doc:
 
     def __init__(self, doc):
         doc = doc or {}
+        self.deps = list(doc.get("_deps") or [])
         self.nodes = {str(node.get("id")): node for node in doc.get("nodes") or [] if isinstance(node, dict) and node.get("id")}
         self.flow, self.refs, self.fed = {}, {}, set()
         for wire in doc.get("wires") or []:
@@ -69,7 +70,7 @@ class Doc:
 
     def is_start(self, node_id):
         kind = self.kind(node_id)
-        return kind is not None and kind.group == N.NOUN and node_id not in self.fed
+        return kind is not None and kind.group == N.NOUN and node_id not in self.fed and not self.nodes[node_id].get("_inline")
 
     def reaching(self, target):
         """Ноды, из которых по проводам потока можно дойти до target."""
@@ -86,21 +87,110 @@ class Doc:
         return seen
 
 
+DEPTH_BOXES = 6
+
+
+def _first(part, kind):
+    for node in (part or {}).get("nodes") or []:
+        if isinstance(node, dict) and node.get("type") == kind:
+            return str(node.get("id"))
+    return None
+
+
+def _load(slug):
+    return Graph.objects.filter(slug=str(slug or "")).only("slug", "doc", "updated_at").first()
+
+
+def iface(part):
+    """Интерфейс группы или сценария: имена сокетов его «Входа» и «Выхода»."""
+    def names(kind):
+        for node in (part or {}).get("nodes") or []:
+            if isinstance(node, dict) and node.get("type") == kind:
+                return [name for name, _ in N.named(node.get("data"))]
+        return []
+    return {"inputs": names("group_in"), "outputs": names("group_out")}
+
+
+def _expand(part, groups, prefix, inline, depth, seen, nodes, wires, deps):
+    """Развернуть уровень графа: ноды групп и вложенных сценариев заменяются их содержимым с префиксом «нода/»; провода в
+    обёртку идут в её «Вход», из обёртки — из её «Выхода» (они пропускают поток по имени сокета)."""
+    boxes = {}
+    for node in (part or {}).get("nodes") or []:
+        if not isinstance(node, dict) or not node.get("id"):
+            continue
+        nid, kind, data = str(node["id"]), node.get("type"), node.get("data") or {}
+        full = prefix + nid
+        if kind == "group":
+            inner = groups.get(str(data.get("group") or ""))
+            if inner is not None and depth < DEPTH_BOXES:
+                _expand(inner, groups, full + "/", inline, depth + 1, seen, nodes, wires, deps)
+                boxes[nid] = (full, inner)
+            continue
+        if kind == "scenario":
+            other = _load(data.get("graph"))
+            if other is not None and other.slug not in seen and depth < DEPTH_BOXES:
+                deps.append((other.slug, other.updated_at.isoformat()))
+                inner = other.doc or {}
+                _expand(inner, inner.get("groups") or {}, full + "/", True, depth + 1, seen | {other.slug}, nodes, wires, deps)
+                boxes[nid] = (full, inner)
+            continue
+        nodes.append({**node, "id": full, "_inline": inline or bool(node.get("_inline"))})
+    plain = {str(node.get("id")) for node in (part or {}).get("nodes") or [] if isinstance(node, dict)} - set(boxes)
+    for wire in (part or {}).get("wires") or []:
+        if not isinstance(wire, dict):
+            continue
+        src, out, dst, inp = (str(wire.get(name) or "") for name in ("from", "out", "to", "in"))
+        if src in boxes:
+            inner_out = _first(boxes[src][1], "group_out")
+            if inner_out is None:
+                continue
+            src = boxes[src][0] + "/" + inner_out
+        elif src in plain:
+            src = prefix + src
+        else:
+            continue
+        if dst in boxes:
+            if inp.startswith("f:"):
+                continue
+            inner_in = _first(boxes[dst][1], "group_in")
+            if inner_in is None:
+                continue
+            dst = boxes[dst][0] + "/" + inner_in
+        elif dst in plain:
+            dst = prefix + dst
+        else:
+            continue
+        wires.append({"from": src, "out": out, "to": dst, "in": inp})
+
+
+def flatten(raw, slug=""):
+    """Граф с развёрнутыми группами и вложенными сценариями (для исполнения и проверки циклов)."""
+    nodes, wires, deps = [], [], []
+    _expand(raw or {}, (raw or {}).get("groups") or {}, "", False, 0, frozenset({slug}) if slug else frozenset(), nodes, wires, deps)
+    return {"nodes": nodes, "wires": wires, "_deps": deps}
+
+
 _docs = {}
 
 
 def doc_of(graph):
+    """Развёрнутый граф из кэша; кэш сбрасывается, когда меняется сам граф или любой вложенный в него сценарий."""
     key = (graph.pk, graph.updated_at)
     found = _docs.get(graph.pk)
+    if found is not None and found[0] == key and found[1].deps:
+        slugs = [slug for slug, _ in found[1].deps]
+        now = {slug: at.isoformat() for slug, at in Graph.objects.filter(slug__in=slugs).values_list("slug", "updated_at")}
+        if any(now.get(slug) != at for slug, at in found[1].deps):
+            found = None
     if found is None or found[0] != key:
-        found = (key, Doc(graph.doc))
+        found = (key, Doc(flatten(graph.doc, graph.slug)))
         _docs[graph.pk] = found
     return found[1]
 
 
 def rebuild_starts(graph):
     """Выписать старты: существительные без входа и события их подключённых выходов."""
-    doc = Doc(graph.doc)
+    doc = Doc(flatten(graph.doc, graph.slug))
     rows = []
     for node_id in doc.nodes:
         if not doc.is_start(node_id):
@@ -325,6 +415,16 @@ def _execute(run, doc, node_id, sock):
         return _action(run, doc, node_id, kind)
     if name in ("reroute", "stage"):
         return ["next"]
+    if name in ("group_in", "group_out"):
+        return [sock]                               # пропускает поток по имени сокета
+    if name == "send_signal":
+        from engine.events import emit
+
+        everyone = data.get("to") == "all"
+        emit(N.SIGNAL_EVENT, None if everyone else run.user, source=f"сценарий {run.graph.slug}", signal=str(data.get("name") or ""), all=everyone)
+        return ["next"]
+    if name == "launch":
+        return [_launch(run, data)]
     if name == "wait":
         return _wait(run, doc, node_id)
     if name == "check":
@@ -389,6 +489,23 @@ def _execute(run, doc, node_id, sock):
         _finish(run, data.get("outcome") or "passed")
         return []
     return []
+
+
+def _launch(run, data):
+    """Запустить другой сценарий с его «Входа» для того же игрока, не дожидаясь его."""
+    target = Graph.objects.filter(slug=str(data.get("graph") or ""), active=True).first()
+    if target is None:
+        _log(run.graph, f"запустить: нет включённого сценария «{data.get('graph')}»", run.user)
+        return "fail"
+    doc = doc_of(target)
+    entry = next((nid for nid, node in doc.nodes.items() if node.get("type") == "group_in" and "/" not in nid), None)
+    names = [name for name, _ in N.named(doc.data(entry))] if entry else []
+    socket = str(data.get("socket") or "").strip() or (names[0] if names else "")
+    if entry is None or socket not in names:
+        _log(run.graph, f"запустить: у сценария «{target.slug}» нет входа «{socket or '?'}»", run.user)
+        return "fail"
+    start(target, entry, socket, run.user, dict(run.ctx or {}), repeat="always")
+    return "next"
 
 
 def _finish(run, outcome=""):
@@ -479,7 +596,12 @@ def dispatch(event):
     touched = 0
     try:
         waits = Wait.objects.filter(kind=Wait.Kind.EVENT, event=event.name, run__status=Run.Status.RUNNING, run__graph__active=True)
-        waits = waits.filter(Q(user=event.user) | Q(anyone=True)) if event.user is not None else waits.filter(Q(user__isnull=True) | Q(anyone=True))
+        if event.name == N.SIGNAL_EVENT and (event.data or {}).get("all"):
+            pass                                     # сигнал всем: просыпаются ожидания всех игроков
+        elif event.user is not None:
+            waits = waits.filter(Q(user=event.user) | Q(anyone=True))
+        else:
+            waits = waits.filter(Q(user__isnull=True) | Q(anyone=True))
         for wait in list(waits.select_related("run__graph")):
             kind = doc_of(wait.run.graph).kind(wait.node)
             if kind is not None and kind.match is not None and kind.match(doc_of(wait.run.graph).data(wait.node), wait.out, event):

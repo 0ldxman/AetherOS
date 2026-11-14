@@ -1,21 +1,24 @@
 <script lang="ts">
   // Нода сценария: шапка цвета группы, подпись, выходы справа, входы слева. ▶ — поток, ◆ — ссылка на вещь (в поле действия).
   import { Handle, Position, useUpdateNodeInternals } from "@xyflow/svelte";
-  import { COLORS, insOf, outsOf, refOf, type GNode, type Kind } from "./kinds";
+  import { COLORS, insOf, outsOf, refOf, type GNode, type Iface, type Kind } from "./kinds";
 
   type Stat = { hits: number; players: number; waiting: number; oldest_days: number };
   let { id, data, selected }: {
     id: string;
-    data: { node: GNode; kind: Kind; waiting: boolean; summary: string; errors: number; warnings: number; stat: Stat | null; refFields: { name: string; label: string }[]; used: string[] };
+    data: { node: GNode; kind: Kind; waiting: boolean; summary: string; errors: number; warnings: number; stat: Stat | null; refFields: { name: string; label: string }[]; used: string[];
+            usedIn: string[]; iface: Iface | null; box: number };
     selected?: boolean;
   } = $props();
 
   const kind = $derived(data.kind);
-  const ins = $derived(insOf(kind, data.node.data));
-  const outs = $derived(outsOf(kind, data.node.data, data.waiting));
-  const ref = $derived(refOf(kind));
+  const hide = $derived(!!data.node.collapsed);
+  const ins = $derived(insOf(kind, data.node.data, data.iface).filter((s) => !hide || s.name === "in" || data.usedIn.includes(s.name)));
+  const outs = $derived(outsOf(kind, data.node.data, data.waiting, data.iface).filter((s) => !hide || data.used.includes(s.name)));
+  const ref = $derived(hide && !data.used.includes("ref") ? null : refOf(kind));
+  const refFields = $derived(data.refFields.filter((f) => !hide || data.usedIn.includes(`f:${f.name}`)));
   const isNoun = $derived(kind.group === "noun");
-  const shape = $derived([ins.map((s) => s.name), outs.map((s) => s.name), data.refFields.map((f) => f.name), data.waiting].join("|"));
+  const shape = $derived([ins.map((s) => s.name), outs.map((s) => s.name), refFields.map((f) => f.name), data.waiting, hide].join("|"));
   const update = useUpdateNodeInternals();
   $effect(() => {
     shape;
@@ -27,15 +30,18 @@
   const days = (value: number) => (value < 1 ? "<1 дн." : `${Math.floor(value)} дн.`);
 </script>
 
-<div class="node" class:selected class:muted-node={data.node.mute} style="--head: {COLORS[kind.group] ?? '#555'}">
+<div class="node" class:selected class:muted-node={data.node.mute} class:box={kind.name === "group" || kind.name === "scenario"} style="--head: {COLORS[kind.group] ?? '#555'}">
   <header>
     {#if ins.length === 1 && ins[0].name === "in" && !(isNoun && kind.start_only)}
       <Handle type="target" position={Position.Left} id="in" class="flow" />
     {/if}
     <b>{kind.label}</b>
     {#if isNoun}<span class="tag" title={role.tip}>{role.text}</span>{/if}
+    {#if kind.name === "group"}<span class="tag" title="Tab — войти в группу">Tab</span>{/if}
+    {#if hide}<span class="tag" title="Неподключённые сокеты скрыты (Ctrl+H)">…</span>{/if}
     <span class="spacer"></span>
     {#if data.errors}<span class="n err" title="Ошибок: {data.errors}">{data.errors}</span>{/if}
+    {#if data.box}<span class="n err" title="Ошибок внутри: {data.box}">{data.box}</span>{/if}
     {#if data.warnings}<span class="n warn" title="Предупреждений: {data.warnings}">{data.warnings}</span>{/if}
   </header>
   {#if data.summary}<div class="summary" title={data.summary}>{data.summary}</div>{/if}
@@ -57,7 +63,7 @@
       <span>{sock.label}</span>
     </div>
   {/each}
-  {#each data.refFields as f (f.name)}
+  {#each refFields as f (f.name)}
     <div class="row in ref">
       <Handle type="target" position={Position.Left} id={`f:${f.name}`} class="ref" />
       <span>{f.label}</span>
@@ -75,6 +81,7 @@
   .node { width: 210px; background: var(--panel-2); border: 1px solid var(--line); border-radius: var(--radius); font-size: 12px; color: var(--text); box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35); }
   .node.selected { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent), 0 4px 14px rgba(0, 0, 0, 0.35); }
   .node.muted-node { opacity: 0.45; }
+  .node.box { border-width: 2px; border-style: double; }
   header { position: relative; display: flex; align-items: center; gap: 6px; padding: 5px 10px; background: color-mix(in srgb, var(--head) 70%, var(--raise));
            border-radius: var(--radius) var(--radius) 0 0; }
   header b { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }

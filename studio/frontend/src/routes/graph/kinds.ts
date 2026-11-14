@@ -4,10 +4,14 @@ import type { Schemas } from "../../lib/api";
 export type Kind = Schemas["GrKind"];
 export type Catalog = Schemas["GrCatalog"];
 export type Field = Schemas["GrField"];
-export type GNode = { id: string; type: string; x: number; y: number; data: Record<string, unknown>; w?: number; h?: number; mute?: boolean };
+export type GNode = { id: string; type: string; x: number; y: number; data: Record<string, unknown>; w?: number; h?: number; mute?: boolean; collapsed?: boolean };
 export type GWire = { id: string; from: string; out: string; to: string; in: string };
-export type Doc = { nodes: GNode[]; wires: GWire[] };
+export type Level = { nodes: GNode[]; wires: GWire[] };
+export type Group = Level & { title: string };
+export type Doc = Level & { groups?: Record<string, Group> };
 export type Sock = { name: string; label: string };
+export type Iface = { inputs: Sock[]; outputs: Sock[] };
+export const BOXES = ["group", "scenario"];
 
 export const REF = "ref";
 export const TIMEOUT = "timeout";
@@ -20,19 +24,28 @@ function items(data: Record<string, unknown>, field: string): unknown[] {
   return Array.from({ length: n }, () => null);
 }
 
-function many(kind: Kind, data: Record<string, unknown>, side: string): Sock[] {
-  return kind.many.filter((m) => m.side === side).flatMap((m) => items(data, m.field).map((item, i) => {
-    const label = item && typeof item === "object" && "label" in item ? String((item as { label: unknown }).label ?? "") : "";
-    return { name: `${m.prefix}${i + 1}`, label: m.label.includes("{label}") ? label || `Если ${i + 1}` : m.label.replace("{n}", String(i + 1)) };
-  }));
+// сокеты «Входа» и «Выхода» группы: имена хранятся в списке, чтобы не сдвигаться при удалении
+export function named(data: Record<string, unknown>): Sock[] {
+  const list = Array.isArray(data.sockets) ? (data.sockets as { name?: string; label?: string }[]) : [];
+  return list.filter((s) => s && String(s.name ?? "").trim()).map((s) => ({ name: String(s.name).trim(), label: String(s.label || s.name) }));
 }
 
-export function insOf(kind: Kind, data: Record<string, unknown>): Sock[] {
+function many(kind: Kind, data: Record<string, unknown>, side: string): Sock[] {
+  return kind.many.filter((m) => m.side === side).flatMap((m) => (!m.prefix ? named(data) : items(data, m.field).map((item, i) => {
+    const label = item && typeof item === "object" && "label" in item ? String((item as { label: unknown }).label ?? "") : "";
+    return { name: `${m.prefix}${i + 1}`, label: m.label.includes("{label}") ? label || `Если ${i + 1}` : m.label.replace("{n}", String(i + 1)) };
+  })));
+}
+
+// iface: сокеты группы или вложенного сценария (из определения группы или списка сценариев)
+export function insOf(kind: Kind, data: Record<string, unknown>, iface: Iface | null = null): Sock[] {
+  if (BOXES.includes(kind.name)) return iface?.inputs ?? [];
   return [...kind.ins.map((name) => ({ name, label: "" })), ...many(kind, data, "in")];
 }
 
 // waiting: у ноды есть входящий провод (существительное ждёт, а не стартует)
-export function outsOf(kind: Kind, data: Record<string, unknown>, waiting: boolean): Sock[] {
+export function outsOf(kind: Kind, data: Record<string, unknown>, waiting: boolean, iface: Iface | null = null): Sock[] {
+  if (BOXES.includes(kind.name)) return iface?.outputs ?? [];
   const out = [...kind.outs.filter((s) => s.name !== REF), ...many(kind, data, "out"), ...kind.tail];
   if (kind.group === "noun" && !kind.start_only && waiting) out.push({ name: TIMEOUT, label: "Таймаут" });
   return out;
@@ -56,7 +69,12 @@ export function summaryOf(kind: Kind, data: Record<string, unknown>, picks: Reco
   return text.replace(/\s+/g, " ").trim();
 }
 
-export function freeId(doc: Doc): string {
+export function ifaceOfLevel(level: Level | undefined): Iface {
+  const find = (type: string) => level?.nodes.find((n) => n.type === type);
+  return { inputs: find("group_in") ? named(find("group_in")!.data) : [], outputs: find("group_out") ? named(find("group_out")!.data) : [] };
+}
+
+export function freeId(doc: Level): string {
   const taken = new Set(doc.nodes.map((n) => n.id));
   let n = doc.nodes.length + 1;
   while (taken.has(`n${n}`)) n += 1;

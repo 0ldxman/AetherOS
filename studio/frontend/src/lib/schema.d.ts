@@ -12097,6 +12097,18 @@ export interface components {
             doc: {
                 [key: string]: unknown;
             };
+            /**
+             * Slug
+             * @default
+             */
+            slug: string;
+        };
+        /** GrIface */
+        GrIface: {
+            /** Inputs */
+            inputs: components["schemas"]["GrSock"][];
+            /** Outputs */
+            outputs: components["schemas"]["GrSock"][];
         };
         /** GrRow */
         GrRow: {
@@ -12108,6 +12120,7 @@ export interface components {
             title: string;
             /** Active */
             active: boolean;
+            iface: components["schemas"]["GrIface"];
             /** Nodes */
             nodes: number;
             /** Running */

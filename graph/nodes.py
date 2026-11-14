@@ -10,8 +10,10 @@ from dataclasses import dataclass, field
 
 from engine.actions import Field
 
-NOUN, FLOW, ACTION, SERVICE = "noun", "flow", "action", "service"
-GROUPS = {NOUN: "Существительные", FLOW: "Ход", ACTION: "Действия", SERVICE: "Служебные"}
+NOUN, FLOW, ACTION, STRUCT, SERVICE = "noun", "flow", "action", "struct", "service"
+GROUPS = {NOUN: "Существительные", FLOW: "Ход", ACTION: "Действия", STRUCT: "Сценарии и группы", SERVICE: "Служебные"}
+BOXES = ("group", "scenario")            # ноды-обёртки: сокеты берутся из их «Входа» и «Выхода»
+SIGNAL_EVENT = "signal"
 REF = "ref"
 TIMEOUT = "timeout"
 TIME_EVENT, MANUAL_EVENT = "@time", "@manual"
@@ -25,7 +27,8 @@ class Sock:
 
 @dataclass(frozen=True)
 class Many:
-    """Повторяемые сокеты: число из поля (или длина списка в нём). Имена prefix1, prefix2…; подпись — шаблон с {n} или {label}."""
+    """Повторяемые сокеты: число из поля (или длина списка в нём). Имена prefix1, prefix2…; подпись — шаблон с {n} или {label}.
+    Пустой prefix: имя берётся из элемента списка (поле name) — так у «Входа» и «Выхода» группы имена не сдвигаются при удалении."""
     side: str
     field: str
     prefix: str
@@ -143,6 +146,10 @@ def _counter(data, out, event):
     return value >= limit > value - delta
 
 
+def _signal(data, out, event):
+    return _same((event.data or {}).get("signal"), data.get("name"))
+
+
 def _moment(data, out, event):
     return _same((event.data or {}).get("moment"), data.get("moment"))
 
@@ -188,6 +195,8 @@ register(Kind("time", "Время", NOUN, "{mode} {at}",
               (Sock("fire", "Наступило"),), events={"fire": TIME_EVENT}, start_only=True))
 register(Kind("manual", "Вручную", NOUN, "{label}", (Field("label", "Подпись кнопки", "text", "Запустить"),),
               (Sock("fire", "Запустили"),), events={"fire": MANUAL_EVENT}, start_only=True))
+register(Kind("signal", "Сигнал", NOUN, "{name}", (Field("name", "Сигнал", "text", "bunker-open", True),),
+              (Sock("got", "Пришёл"),), events={"got": SIGNAL_EVENT}, match=_signal))
 
 
 # ---------- ход ----------
@@ -216,6 +225,21 @@ register(Kind("race", "Первое из", FLOW, "{count}", (Field("count", "С�
 register(Kind("end", "Конец", FLOW, "{outcome}",
               (Field("outcome", "Исход", "select", "", False, (("passed", "прошёл"), ("failed", "провалил"), ("aborted", "прервано"))),)))
 register(Kind("reroute", "Перенаправление", SERVICE, "", (), (Sock("next", ""),)))
+
+
+# ---------- сценарии и группы ----------
+
+register(Kind("group", "Группа", STRUCT, "{title}", (Field("group", "Группа", "hidden"),), ins=()))
+register(Kind("group_in", "Вход", STRUCT, "", (Field("sockets", "Входы", "sockets"),), ins=(), many=(Many("out", "sockets", "", "{label}"),)))
+register(Kind("group_out", "Выход", STRUCT, "", (Field("sockets", "Выходы", "sockets"),), ins=(), many=(Many("in", "sockets", "", "{label}"),)))
+register(Kind("scenario", "Сценарий", STRUCT, "{graph}", (Field("graph", "Сценарий", "graph", "", True),), ins=()))
+register(Kind("launch", "Запустить сценарий", STRUCT, "{graph}",
+              (Field("graph", "Сценарий", "graph", "", True), Field("socket", "Вход сценария", "text", "первый")),
+              (Sock("next", "Дальше"), Sock("fail", "Не вышло"))))
+register(Kind("send_signal", "Послать сигнал", STRUCT, "{name} → {to}",
+              (Field("name", "Сигнал", "text", "bunker-open", True),
+               Field("to", "Кому", "select", "", False, (("player", "этому игроку"), ("all", "всем")))),
+              (Sock("next", "Дальше"),)))
 
 
 # ---------- служебные ----------
@@ -257,12 +281,27 @@ def _count(data, name):
         return [None] * 2
 
 
-def sockets(kind, data, side):
-    """Имена сокетов ноды с её данными: side "in" или "out"."""
+def named(data, field_name="sockets"):
+    """Сокеты «Входа» или «Выхода» группы: [(имя, подпись)]."""
+    out = []
+    for item in (data or {}).get(field_name) or []:
+        if isinstance(item, dict) and str(item.get("name") or "").strip():
+            out.append((str(item["name"]).strip(), str(item.get("label") or item["name"])))
+    return out
+
+
+def sockets(kind, data, side, iface=None):
+    """Имена сокетов ноды с её данными: side "in" или "out". У группы и сценария — по их интерфейсу iface
+    {"inputs": [имя], "outputs": [имя]} (его даёт тот, кто знает определение группы или другой граф)."""
+    if kind.name in BOXES:
+        return list((iface or {}).get("inputs" if side == "in" else "outputs") or [])
     names = list(kind.ins if side == "in" else [sock.name for sock in kind.outs])
     for many in kind.many:
         if many.side == side:
-            names += [f"{many.prefix}{n}" for n in range(1, len(_count(data, many.field)) + 1)]
+            if not many.prefix:
+                names += [name for name, _ in named(data, many.field)]
+            else:
+                names += [f"{many.prefix}{n}" for n in range(1, len(_count(data, many.field)) + 1)]
     if side == "out":
         names += [sock.name for sock in kind.tail]
         if kind.group == NOUN and not kind.start_only:

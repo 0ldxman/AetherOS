@@ -33,7 +33,7 @@ class SocketTests(SimpleTestCase):
 
     def test_catalog(self):
         found = nodes.catalog()
-        self.assertEqual({g["name"] for g in found["groups"]}, {"noun", "flow", "action", "service"})
+        self.assertEqual({g["name"] for g in found["groups"]}, {"noun", "flow", "action", "struct", "service"})
         file = next(k for k in found["kinds"] if k["name"] == "file")
         self.assertEqual(file["ref"], "item")
 

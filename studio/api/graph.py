@@ -67,11 +67,17 @@ class GrCatalog(Schema):
     ref_kinds: dict[str, str]
 
 
+class GrIface(Schema):
+    inputs: list[GrSock]
+    outputs: list[GrSock]
+
+
 class GrRow(Schema):
     id: int
     slug: str
     title: str
     active: bool
+    iface: GrIface
     nodes: int
     running: int
     errors: int
@@ -133,9 +139,19 @@ class GrWaiter(Schema):
     since: dt.datetime
 
 
+def _iface(doc):
+    """«Вход» и «Выход» сценария с подписями: сокеты ноды «Сценарий» в других графах."""
+    def socks(kind):
+        for node in (doc or {}).get("nodes") or []:
+            if isinstance(node, dict) and node.get("type") == kind:
+                return [GrSock(name=name, label=label) for name, label in nodes.named(node.get("data"))]
+        return []
+    return GrIface(inputs=socks("group_in"), outputs=socks("group_out"))
+
+
 def _detail(graph):
     return GrDetail(id=graph.pk, slug=graph.slug, title=graph.title, note=graph.note, active=graph.active, doc=graph.doc or {"nodes": [], "wires": []},
-                    problems=check.problems(graph.doc), stats=stats.of(graph), updated_at=graph.updated_at)
+                    problems=check.problems(graph.doc, graph.slug), stats=stats.of(graph), updated_at=graph.updated_at)
 
 
 def _apply(graph, body):
@@ -165,13 +181,14 @@ def catalog(request):
 
 class GrCheckIn(Schema):
     doc: dict
+    slug: str = ""
 
 
 @router.post("/check", response=list[GrProblem])
 def check_doc(request, body: GrCheckIn):
     """Проверка черновика на лету (ничего не сохраняет)."""
     try:
-        return check.problems(check.clean(body.doc))
+        return check.problems(check.clean(body.doc), body.slug)
     except (ValueError, TypeError) as error:
         return [GrProblem(node="", text=str(error), level=check.ERROR)]
 
@@ -180,8 +197,8 @@ def check_doc(request, body: GrCheckIn):
 def graph_list(request):
     out = []
     for graph in Graph.objects.all():
-        found = check.problems(graph.doc)
-        out.append(GrRow(id=graph.pk, slug=graph.slug, title=graph.title, active=graph.active, nodes=len((graph.doc or {}).get("nodes") or []),
+        found = check.problems(graph.doc, graph.slug)
+        out.append(GrRow(id=graph.pk, slug=graph.slug, title=graph.title, active=graph.active, iface=_iface(graph.doc), nodes=len((graph.doc or {}).get("nodes") or []),
                          running=graph.runs.filter(status="running").count(), errors=sum(1 for p in found if p["level"] == check.ERROR),
                          updated_at=graph.updated_at))
     return out

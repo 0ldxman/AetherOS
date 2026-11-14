@@ -5,15 +5,16 @@
   import { toast } from "../../lib/toast.svelte";
   import type { Catalog, Field, GNode, Kind } from "./kinds";
 
-  let { node, kind, catalog, waiting, fed, problems, stat, graphId, editable, onchange, onremove, onstarted }: {
+  let { node, kind, catalog, waiting, fed, problems, stat, statKey, graphId, editable, onchange, onremove, onstarted, groupTitle = null, ongrouptitle, onenter }: {
     node: GNode; kind: Kind; catalog: Catalog; waiting: boolean; fed: Record<string, string>; problems: { text: string; level: string }[];
-    stat: { hits: number; players: number; waiting: number; oldest_days: number } | null; graphId: number; editable: boolean;
+    stat: { hits: number; players: number; waiting: number; oldest_days: number } | null; statKey: string; graphId: number; editable: boolean;
     onchange: (patch: Partial<GNode>) => void; onremove: () => void; onstarted: () => void;
+    groupTitle?: string | null; ongrouptitle?: (title: string) => void; onenter?: () => void;
   } = $props();
 
   const store = engine();
   const picks = (k: string) => store.catalog?.picks[k] ?? [];
-  const PICKED = ["key", "letter", "item", "object", "section", "character", "station", "machine", "moment"];
+  const PICKED = ["key", "letter", "item", "object", "section", "character", "station", "machine", "moment", "graph"];
   const LISTED = ["flag", "world_flag", "counter"];
   const fields = $derived([...kind.fields, ...(kind.group === "noun" && !kind.start_only ? (waiting ? catalog.wait_fields : catalog.start_fields) : [])]);
   const data = $derived(node.data);
@@ -25,6 +26,13 @@
   const rows = $derived(list("rows") as { label?: string; condition?: string }[]);
   const weights = $derived(list("branches") as number[]);
   function setRow(i: number, patch: Record<string, string>) { set("rows", rows.map((r, n) => (n === i ? { ...r, ...patch } : r))); }
+  const socks = $derived(list("sockets") as { name: string; label: string }[]);
+  function addSock() {
+    const taken = new Set(socks.map((x) => x.name));
+    let n = socks.length + 1;
+    while (taken.has(`s${n}`)) n += 1;
+    set("sockets", [...socks, { name: `s${n}`, label: `${kind.name === "group_in" ? "Вход" : "Выход"} ${n}` }]);
+  }
 
   // запуск «Вручную»
   let players = $state<{ id: number; username: string }[]>([]);
@@ -43,13 +51,13 @@
   // кто ждёт на ноде
   let waiters = $state<{ player: string; player_id: number | null; since: string }[]>([]);
   $effect(() => {
-    const id = node.id;
+    const id = statKey;
     if (!stat?.waiting) { waiters = []; return; }
     api.GET("/studio/api/world/graphs/{graph_id}/waiting/{node}", { params: { path: { graph_id: graphId, node: id } } }).then(({ data: found }) => { waiters = found ?? []; });
   });
   const MONTHS = ["янв", "фев", "мар", "апр", "мая", "июн", "июл", "авг", "сен", "окт", "ноя", "дек"];
   const when = (iso: string) => { const d = new Date(iso); return `${d.getDate()} ${MONTHS[d.getMonth()]}, ${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`; };
-  const shown = (f: Field) => !(kind.name === "wait" && ((f.name === "minutes" && (data.mode ?? "delay") !== "delay") || (f.name === "at" && data.mode !== "until")
+  const shown = (f: Field) => f.kind !== "hidden" && !(kind.name === "wait" && ((f.name === "minutes" && (data.mode ?? "delay") !== "delay") || (f.name === "at" && data.mode !== "until")
                                   || (f.name === "condition" && data.mode !== "condition") || (f.name === "timeout" && data.mode !== "condition")))
                               && !(kind.name === "time" && f.name === "date" && data.mode !== "once");
 </script>
@@ -64,9 +72,31 @@
     <p class="muted small">{kind.start_only ? "Только старт: запускает прохождение." : waiting ? "Ждёт: прохождение стоит здесь, пока событие не случится у этого игрока." : "Старт: событие запускает прохождение для игрока, у которого оно случилось. Подведите провод на вход, чтобы нода ждала."}</p>
   {/if}
 
+  {#if kind.name === "group" && groupTitle !== null}
+    <label class="cell"><span class="label">Название группы</span>
+      <input class="field" value={groupTitle} disabled={!editable} oninput={(e) => ongrouptitle?.(e.currentTarget.value)} /></label>
+    <button class="btn" onclick={() => onenter?.()}>Открыть группу (Tab)</button>
+    <p class="muted small">Внутри: «Вход» и «Выход» задают сокеты этой ноды. Та же группа может стоять в графе несколько раз (Ctrl+D).</p>
+  {:else if kind.name === "scenario"}
+    <p class="muted small">Другой сценарий целиком, как группа: его ноды «Вход» и «Выход» — сокеты этой ноды. Работает в прохождении этого сценария; старты вложенного здесь не срабатывают.</p>
+  {:else if kind.name === "group_in" || kind.name === "group_out"}
+    <p class="muted small">{kind.name === "group_in" ? "Сокеты слева у ноды группы (или у ноды «Сценарий» в других графах)." : "Сокеты справа у ноды группы."} На верхнем уровне сценария «Вход» — куда приходит «Запустить сценарий».</p>
+  {/if}
+
   <fieldset class="fields" disabled={!editable}>
     {#each fields.filter(shown) as f (f.name)}
-      {#if fed[f.name]}
+      {#if f.kind === "sockets"}
+        <div class="cell"><span class="label">{f.label}</span>
+          {#each socks as sock, i (sock.name)}
+            <div class="line">
+              <span class="muted mono small">{sock.name}</span>
+              <input class="field" value={sock.label} oninput={(e) => set("sockets", socks.map((x, n) => (n === i ? { ...x, label: e.currentTarget.value } : x)))} />
+              <button class="x" onclick={() => set("sockets", socks.filter((_, n) => n !== i))} aria-label="Убрать сокет">✕</button>
+            </div>
+          {/each}
+          <button class="btn ghost tiny" onclick={addSock}>+ сокет</button>
+        </div>
+      {:else if fed[f.name]}
         <div class="cell"><span class="label">{f.label}</span><span class="fed">◆ из ноды «{fed[f.name]}»</span></div>
       {:else if f.kind === "bool"}
         <label class="check"><input type="checkbox" checked={!!data[f.name]} onchange={(e) => set(f.name, e.currentTarget.checked || undefined)} />{f.label}</label>

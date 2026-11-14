@@ -36,7 +36,21 @@ def clean(doc):
             continue
         seen.add(key)
         wires.append({"id": str(wire.get("id") or "-".join(key))[:120], "from": key[0], "out": key[1], "to": key[2], "in": key[3]})
-    return {"nodes": out_nodes, "wires": wires}
+    out = {"nodes": out_nodes, "wires": wires}
+    groups = doc.get("groups") or {}
+    if not isinstance(groups, dict):
+        raise ValueError("группы должны быть объектом")
+    if groups:
+        out["groups"] = {}
+        for gid, part in groups.items():
+            gid = str(gid).strip()[:32]
+            if not gid or not isinstance(part, dict):
+                raise ValueError("неверная группа")
+            inner = clean({"nodes": part.get("nodes") or [], "wires": part.get("wires") or []})
+            out["groups"][gid] = {"title": str(part.get("title") or "")[:120], **inner}
+    return out
+
+
 
 
 def _cycles(doc):
@@ -91,93 +105,146 @@ def _waits(doc, node_id):
     return kind is not None and (kind.name == "wait" or (kind.group == N.NOUN and node_id in doc.fed))
 
 
-def problems(raw):
-    """Список проблем сценария."""
+def _iface_of(node, groups, add, key):
+    """Интерфейс обёртки (группы или сценария) или None с проблемой."""
+    from graph.runtime import _load, iface
+
+    data = node.get("data") or {}
+    if node.get("type") == "group":
+        inner = groups.get(str(data.get("group") or ""))
+        if inner is None:
+            add(key, "нет определения группы")
+            return None
+        return iface(inner)
+    other = _load(data.get("graph"))
+    if other is None:
+        if data.get("graph"):
+            add(key, f"нет сценария «{data.get('graph')}»")
+        return None
+    return iface(other.doc)
+
+
+def _part(part, groups, prefix, add, slug):
+    """Проверка одного уровня: самого графа или определения группы (ключ ноды — prefix + id)."""
     from engine import actions as engine
+    from graph.runtime import _load
 
-    doc = Doc(raw)
-    out = []
-
-    def add(node, text, level=ERROR):
-        out.append({"node": node, "text": text, "level": level})
-
+    doc = Doc(part)
+    ifaces = {}
     for node_id, node in doc.nodes.items():
+        key = prefix + node_id
         kind = N.KINDS.get(node.get("type"))
         if kind is None:
-            add(node_id, f"неизвестная нода «{node.get('type')}»")
+            add(key, f"неизвестная нода «{node.get('type')}»")
             continue
         data = node.get("data") or {}
+        if kind.name in N.BOXES:
+            ifaces[node_id] = _iface_of(node, groups, add, key)
+            if kind.name == "scenario" and data.get("graph") and data.get("graph") == slug:
+                add(key, "сценарий не может включать сам себя")
         for item in kind.fields:
             fed = (node_id, item.name) in doc.refs
             if item.required and not fed and data.get(item.name) in (None, ""):
-                add(node_id, f"не заполнено «{item.label}»")
+                add(key, f"не заполнено «{item.label}»")
             if item.kind == "condition" and data.get(item.name):
                 try:
                     parse_condition(data[item.name])
                 except ValueError as error:
-                    add(node_id, f"условие: {error}")
+                    add(key, f"условие: {error}")
             if item.kind == "clock" and data.get(item.name):
                 try:
                     _clock(data[item.name])
                 except ValueError as error:
-                    add(node_id, str(error))
+                    add(key, str(error))
         if kind.name == "file" and not (data.get("item") or data.get("path")):
-            add(node_id, "нужен объект или путь")
+            add(key, "нужен объект или путь")
         if kind.name == "wait":
             mode = data.get("mode") or "delay"
             if mode == "condition" and not data.get("condition"):
-                add(node_id, "нужно условие")
+                add(key, "нужно условие")
             if mode == "until" and not data.get("at"):
-                add(node_id, "нужно время ЧЧ:ММ")
+                add(key, "нужно время ЧЧ:ММ")
         if kind.name == "time" and (data.get("mode") == "once") and not data.get("date"):
-            add(node_id, "нужна дата для «один раз»")
+            add(key, "нужна дата для «один раз»")
         if kind.name == "choose":
             for number, row in enumerate(data.get("rows") or [], 1):
                 try:
                     parse_condition((row or {}).get("condition"))
                 except ValueError as error:
-                    add(node_id, f"строка {number}: {error}")
+                    add(key, f"строка {number}: {error}")
+        if kind.name == "launch" and data.get("graph"):
+            other = _load(data.get("graph"))
+            if other is None:
+                add(key, f"нет сценария «{data.get('graph')}»")
+            elif not any((n or {}).get("type") == "group_in" for n in (other.doc or {}).get("nodes") or []):
+                add(key, f"у сценария «{other.slug}» нет ноды «Вход»: запускать некуда")
+        if kind.name in ("group_in", "group_out"):
+            names = [name for name, _ in N.named(data)]
+            if len(names) != len(set(names)):
+                add(key, "повторяются имена сокетов")
+            if [n for n in doc.nodes.values() if n.get("type") == kind.name].__len__() > 1:
+                add(key, f"на уровне больше одной ноды «{kind.label}»: работает первая", WARNING)
         if kind.group == N.NOUN:
             if node_id in doc.fed and kind.start_only:
-                add(node_id, f"«{kind.label}» бывает только стартом: уберите входящий провод")
+                add(key, f"«{kind.label}» бывает только стартом: уберите входящий провод")
             as_ref = any(src == node_id for src in doc.refs.values())
             if not [out for out in doc.wired(node_id) if out in kind.events] and not as_ref:
-                add(node_id, "ни один выход не подключён: нода ничего не ловит", WARNING)
-        if kind.group == N.ACTION and not any(key[0] == node_id for key in doc.refs):
-            action = {"do": kind.spec.name, **{key: value for key, value in data.items() if value not in (None, "")}}
+                add(key, "ни один выход не подключён: нода ничего не ловит", WARNING)
+        if kind.group == N.ACTION and not any(k[0] == node_id for k in doc.refs):
+            action = {"do": kind.spec.name, **{k: v for k, v in data.items() if v not in (None, "")}}
             for text in engine.check([action], provides=("world", "user", "account")):
-                add(node_id, text.split(": ", 1)[-1])
-        ins = N.sockets(kind, data, "in")
+                add(key, text.split(": ", 1)[-1])
         if kind.name in ("all", "race"):
-            for sock in ins:
+            for sock in N.sockets(kind, data, "in"):
                 if not any(dst == node_id and inp == sock for targets in doc.flow.values() for dst, inp in targets):
-                    add(node_id, f"вход {sock[1:]} не подключён", WARNING)
+                    add(key, f"вход {sock[1:]} не подключён", WARNING)
 
-    for wire in (raw or {}).get("wires") or []:
+    for wire in (part or {}).get("wires") or []:
         src, out_name, dst, inp = (str(wire.get(name)) for name in ("from", "out", "to", "in"))
         src_kind, dst_kind = doc.kind(src), doc.kind(dst)
         if src_kind is None or dst_kind is None:
-            add(src if src_kind else dst, "провод к несуществующей ноде")
+            add(prefix + (src if src_kind else dst), "провод к несуществующей ноде")
             continue
-        if out_name not in N.sockets(src_kind, doc.data(src), "out"):
-            add(src, f"нет выхода «{out_name}»")
+        if out_name not in N.sockets(src_kind, doc.data(src), "out", ifaces.get(src)):
+            if ifaces.get(src, True) is not None:
+                add(prefix + src, f"нет выхода «{out_name}»")
             continue
         if inp.startswith("f:"):
             field = next((f for f in dst_kind.fields if f.name == inp[2:]), None)
             if out_name != N.REF or field is None or N.REF_KINDS.get(field.kind) != (src_kind.ref[0] if src_kind.ref else None):
-                add(dst, f"«{src_kind.label}» не подходит в поле «{field.label if field else inp[2:]}»")
+                add(prefix + dst, f"«{src_kind.label}» не подходит в поле «{field.label if field else inp[2:]}»")
             continue
         if out_name == N.REF:
-            add(src, "выход-ссылку можно вести только в поле действия")
+            add(prefix + src, "выход-ссылку можно вести только в поле действия")
             continue
-        if inp not in N.sockets(dst_kind, doc.data(dst), "in"):
-            add(dst, f"нет входа «{inp}»")
+        if inp not in N.sockets(dst_kind, doc.data(dst), "in", ifaces.get(dst)):
+            if ifaces.get(dst, True) is not None:
+                add(prefix + dst, f"нет входа «{inp}»")
         if out_name == N.TIMEOUT and src_kind.group == N.NOUN and src not in doc.fed:
-            add(src, "таймаут бывает только у ждущей ноды (со входом)")
+            add(prefix + src, "таймаут бывает только у ждущей ноды (со входом)")
 
-    if doc.nodes and not any(doc.is_start(node_id) and doc.wired(node_id) for node_id in doc.nodes):
-        add("", "нет старта: существительное без входящего провода и с подключённым выходом", WARNING)
-    for group in _cycles(doc):
-        if not any(_waits(doc, node_id) for node_id in group):
-            add(sorted(group)[0], "цикл без ожидания: прохождение остановится на лимите")
+
+def problems(raw, slug=""):
+    """Список проблем сценария. Ключ ноды: её id на уровне графа или «группа::id» внутри определения группы."""
+    from graph.runtime import flatten
+
+    raw = raw or {}
+    groups = raw.get("groups") or {}
+    out = []
+
+    def add(node, text, level=ERROR):
+        out.append({"node": node, "text": text, "level": level})
+
+    _part(raw, groups, "", add, slug)
+    for gid, part in groups.items():
+        _part(part, groups, f"{gid}::", add, slug)
+    flat = Doc(flatten(raw, slug))
+    if flat.nodes and not any(flat.is_start(node_id) and flat.wired(node_id) for node_id in flat.nodes):
+        has_entry = any(node.get("type") == "group_in" for node in raw.get("nodes") or [])
+        if not has_entry:
+            add("", "нет старта: существительное без входящего провода и с подключённым выходом", WARNING)
+    for group in _cycles(flat):
+        if not any(_waits(flat, node_id) for node_id in group):
+            first = sorted(group)[0]
+            add(first if "/" not in first else first.split("/")[0], "цикл без ожидания: прохождение остановится на лимите")
     return out

@@ -32918,12 +32918,41 @@
       "additionalProperties": true,
       "title": "Doc",
       "type": "object"
+     },
+     "slug": {
+      "default": "",
+      "title": "Slug",
+      "type": "string"
      }
     },
     "required": [
      "doc"
     ],
     "title": "GrCheckIn",
+    "type": "object"
+   },
+   "GrIface": {
+    "properties": {
+     "inputs": {
+      "items": {
+       "$ref": "#/components/schemas/GrSock"
+      },
+      "title": "Inputs",
+      "type": "array"
+     },
+     "outputs": {
+      "items": {
+       "$ref": "#/components/schemas/GrSock"
+      },
+      "title": "Outputs",
+      "type": "array"
+     }
+    },
+    "required": [
+     "inputs",
+     "outputs"
+    ],
+    "title": "GrIface",
     "type": "object"
    },
    "GrRow": {
@@ -32943,6 +32972,9 @@
      "active": {
       "title": "Active",
       "type": "boolean"
+     },
+     "iface": {
+      "$ref": "#/components/schemas/GrIface"
      },
      "nodes": {
       "title": "Nodes",
@@ -32967,6 +32999,7 @@
      "slug",
      "title",
      "active",
+     "iface",
      "nodes",
      "running",
      "errors",
