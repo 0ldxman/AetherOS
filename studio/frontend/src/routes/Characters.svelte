@@ -9,9 +9,10 @@
   import { go } from "../lib/router.svelte";
   import { toast } from "../lib/toast.svelte";
   import Inbox from "./characters/Inbox.svelte";
+  import Journal from "./characters/Journal.svelte";
 
   let { id, tab = "card" }: { id: number | null; tab?: string } = $props();
-  const TABS = [{ key: "card", label: "Карточка" }, { key: "mail", label: "Почта" }, { key: "forum", label: "Форум" }, { key: "air", label: "Эфир" }];
+  const TABS = [{ key: "card", label: "Карточка" }, { key: "mail", label: "Почта" }, { key: "forum", label: "Форум" }, { key: "air", label: "Эфир" }, { key: "journal", label: "Журнал" }];
   let counts = $state<Record<string, number>>({});
   let newStation = $state({ name: "", kind: "character" });
 
@@ -140,12 +141,14 @@
       {#if id}
         <nav class="tabs" aria-label="Разделы персонажа">
           {#each TABS as t (t.key)}
-            <a class="tab" class:on={tab === t.key} href={`#/characters/${id}${t.key === "card" ? "" : "/" + t.key}`}>{t.label}{#if t.key !== "card" && counts[t.key]}<span class="count">{counts[t.key]}</span>{/if}</a>
+            <a class="tab" class:on={tab === t.key} href={`#/characters/${id}${t.key === "card" ? "" : "/" + t.key}`}>{t.label}{#if counts[t.key]}<span class="count">{counts[t.key]}</span>{/if}</a>
           {/each}
         </nav>
       {/if}
-      {#if id && tab !== "card"}
-        {#key tab}<Inbox character={id} channel={tab} onchange={refreshCounts} />{/key}
+      {#if id && tab === "journal"}
+        <Journal character={id} />
+      {:else if id && tab !== "card"}
+        {#key tab}<Inbox character={id} code={form.code} channel={tab} onchange={refreshCounts} />{/key}
       {:else}
 
       <div class="grid">

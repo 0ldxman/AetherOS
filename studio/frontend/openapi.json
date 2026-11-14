@@ -13197,6 +13197,188 @@
     ]
    }
   },
+  "/studio/api/characters/inbox/{inbound_id}/answer": {
+   "post": {
+    "operationId": "studio_api_characters_answer",
+    "summary": "Answer",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "inbound_id",
+      "schema": {
+       "title": "Inbound Id",
+       "type": "integer"
+      },
+      "required": true
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ChReply"
+        }
+       }
+      }
+     },
+     "400": {
+      "description": "Bad Request",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ChErrors"
+        }
+       }
+      }
+     }
+    },
+    "tags": [
+     "characters"
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/ChAnswerIn"
+       }
+      }
+     },
+     "required": true
+    },
+    "security": [
+     {
+      "StudioAuth": []
+     }
+    ]
+   }
+  },
+  "/studio/api/characters/inbox/{inbound_id}/context": {
+   "get": {
+    "operationId": "studio_api_characters_context",
+    "summary": "Context",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "inbound_id",
+      "schema": {
+       "title": "Inbound Id",
+       "type": "integer"
+      },
+      "required": true
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ChContext"
+        }
+       }
+      }
+     }
+    },
+    "tags": [
+     "characters"
+    ],
+    "security": [
+     {
+      "StudioAuth": []
+     }
+    ]
+   }
+  },
+  "/studio/api/characters/{character_id}/replies": {
+   "get": {
+    "operationId": "studio_api_characters_replies",
+    "summary": "Replies",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "character_id",
+      "schema": {
+       "title": "Character Id",
+       "type": "integer"
+      },
+      "required": true
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "items": {
+          "$ref": "#/components/schemas/ChReply"
+         },
+         "title": "Response",
+         "type": "array"
+        }
+       }
+      }
+     }
+    },
+    "tags": [
+     "characters"
+    ],
+    "security": [
+     {
+      "StudioAuth": []
+     }
+    ]
+   }
+  },
+  "/studio/api/characters/replies/{reply_id}/cancel": {
+   "post": {
+    "operationId": "studio_api_characters_cancel_reply",
+    "summary": "Cancel Reply",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "reply_id",
+      "schema": {
+       "title": "Reply Id",
+       "type": "integer"
+      },
+      "required": true
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ChReply"
+        }
+       }
+      }
+     },
+     "400": {
+      "description": "Bad Request",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ChErrors"
+        }
+       }
+      }
+     }
+    },
+    "tags": [
+     "characters"
+    ],
+    "security": [
+     {
+      "StudioAuth": []
+     }
+    ]
+   }
+  },
   "/studio/api/world/state": {
    "get": {
     "operationId": "studio_api_worldstate_read",
@@ -29425,6 +29607,268 @@
      "status"
     ],
     "title": "ChStatusIn",
+    "type": "object"
+   },
+   "ChReply": {
+    "properties": {
+     "id": {
+      "title": "Id",
+      "type": "integer"
+     },
+     "inbound": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Inbound"
+     },
+     "channel": {
+      "title": "Channel",
+      "type": "string"
+     },
+     "author": {
+      "title": "Author",
+      "type": "string"
+     },
+     "player": {
+      "title": "Player",
+      "type": "string"
+     },
+     "subject": {
+      "title": "Subject",
+      "type": "string"
+     },
+     "text": {
+      "title": "Text",
+      "type": "string"
+     },
+     "status": {
+      "title": "Status",
+      "type": "string"
+     },
+     "error": {
+      "title": "Error",
+      "type": "string"
+     },
+     "send_at": {
+      "format": "date-time",
+      "title": "Send At",
+      "type": "string"
+     },
+     "sent_at": {
+      "anyOf": [
+       {
+        "format": "date-time",
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Sent At"
+     },
+     "actions": {
+      "items": {
+       "additionalProperties": true,
+       "type": "object"
+      },
+      "title": "Actions",
+      "type": "array"
+     },
+     "where": {
+      "title": "Where",
+      "type": "string"
+     }
+    },
+    "required": [
+     "id",
+     "inbound",
+     "channel",
+     "author",
+     "player",
+     "subject",
+     "text",
+     "status",
+     "error",
+     "send_at",
+     "sent_at",
+     "actions",
+     "where"
+    ],
+    "title": "ChReply",
+    "type": "object"
+   },
+   "ChAnswerIn": {
+    "properties": {
+     "text": {
+      "title": "Text",
+      "type": "string"
+     },
+     "subject": {
+      "default": "",
+      "title": "Subject",
+      "type": "string"
+     },
+     "delay": {
+      "default": 0,
+      "title": "Delay",
+      "type": "integer"
+     },
+     "actions": {
+      "default": [],
+      "items": {
+       "additionalProperties": true,
+       "type": "object"
+      },
+      "title": "Actions",
+      "type": "array"
+     },
+     "station": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Station"
+     }
+    },
+    "required": [
+     "text"
+    ],
+    "title": "ChAnswerIn",
+    "type": "object"
+   },
+   "ChContext": {
+    "properties": {
+     "player": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/ChPlayer"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "history": {
+      "items": {
+       "$ref": "#/components/schemas/ChHistory"
+      },
+      "title": "History",
+      "type": "array"
+     },
+     "replies": {
+      "items": {
+       "$ref": "#/components/schemas/ChReply"
+      },
+      "title": "Replies",
+      "type": "array"
+     },
+     "stations": {
+      "items": {
+       "$ref": "#/components/schemas/ChChannel"
+      },
+      "title": "Stations",
+      "type": "array"
+     }
+    },
+    "required": [
+     "player",
+     "history",
+     "replies",
+     "stations"
+    ],
+    "title": "ChContext",
+    "type": "object"
+   },
+   "ChHistory": {
+    "properties": {
+     "kind": {
+      "title": "Kind",
+      "type": "string"
+     },
+     "channel": {
+      "title": "Channel",
+      "type": "string"
+     },
+     "subject": {
+      "title": "Subject",
+      "type": "string"
+     },
+     "text": {
+      "title": "Text",
+      "type": "string"
+     },
+     "at": {
+      "format": "date-time",
+      "title": "At",
+      "type": "string"
+     },
+     "author": {
+      "title": "Author",
+      "type": "string"
+     },
+     "status": {
+      "title": "Status",
+      "type": "string"
+     }
+    },
+    "required": [
+     "kind",
+     "channel",
+     "subject",
+     "text",
+     "at",
+     "author",
+     "status"
+    ],
+    "title": "ChHistory",
+    "type": "object"
+   },
+   "ChPlayer": {
+    "properties": {
+     "username": {
+      "title": "Username",
+      "type": "string"
+     },
+     "callsign": {
+      "title": "Callsign",
+      "type": "string"
+     },
+     "accounts": {
+      "items": {
+       "type": "string"
+      },
+      "title": "Accounts",
+      "type": "array"
+     },
+     "keys": {
+      "items": {
+       "type": "string"
+      },
+      "title": "Keys",
+      "type": "array"
+     },
+     "online": {
+      "title": "Online",
+      "type": "boolean"
+     }
+    },
+    "required": [
+     "username",
+     "callsign",
+     "accounts",
+     "keys",
+     "online"
+    ],
+    "title": "ChPlayer",
     "type": "object"
    },
    "WsContribution": {

@@ -4180,6 +4180,74 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/studio/api/characters/inbox/{inbound_id}/answer": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Answer */
+        post: operations["studio_api_characters_answer"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/studio/api/characters/inbox/{inbound_id}/context": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Context */
+        get: operations["studio_api_characters_context"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/studio/api/characters/{character_id}/replies": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Replies */
+        get: operations["studio_api_characters_replies"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/studio/api/characters/replies/{reply_id}/cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Cancel Reply */
+        post: operations["studio_api_characters_cancel_reply"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/studio/api/world/state": {
         parameters: {
             query?: never;
@@ -10691,6 +10759,107 @@ export interface components {
         ChStatusIn: {
             /** Status */
             status: string;
+        };
+        /** ChReply */
+        ChReply: {
+            /** Id */
+            id: number;
+            /** Inbound */
+            inbound: number | null;
+            /** Channel */
+            channel: string;
+            /** Author */
+            author: string;
+            /** Player */
+            player: string;
+            /** Subject */
+            subject: string;
+            /** Text */
+            text: string;
+            /** Status */
+            status: string;
+            /** Error */
+            error: string;
+            /**
+             * Send At
+             * Format: date-time
+             */
+            send_at: string;
+            /** Sent At */
+            sent_at: string | null;
+            /** Actions */
+            actions: {
+                [key: string]: unknown;
+            }[];
+            /** Where */
+            where: string;
+        };
+        /** ChAnswerIn */
+        ChAnswerIn: {
+            /** Text */
+            text: string;
+            /**
+             * Subject
+             * @default
+             */
+            subject: string;
+            /**
+             * Delay
+             * @default 0
+             */
+            delay: number;
+            /**
+             * Actions
+             * @default []
+             */
+            actions: {
+                [key: string]: unknown;
+            }[];
+            /** Station */
+            station?: number | null;
+        };
+        /** ChContext */
+        ChContext: {
+            player: components["schemas"]["ChPlayer"] | null;
+            /** History */
+            history: components["schemas"]["ChHistory"][];
+            /** Replies */
+            replies: components["schemas"]["ChReply"][];
+            /** Stations */
+            stations: components["schemas"]["ChChannel"][];
+        };
+        /** ChHistory */
+        ChHistory: {
+            /** Kind */
+            kind: string;
+            /** Channel */
+            channel: string;
+            /** Subject */
+            subject: string;
+            /** Text */
+            text: string;
+            /**
+             * At
+             * Format: date-time
+             */
+            at: string;
+            /** Author */
+            author: string;
+            /** Status */
+            status: string;
+        };
+        /** ChPlayer */
+        ChPlayer: {
+            /** Username */
+            username: string;
+            /** Callsign */
+            callsign: string;
+            /** Accounts */
+            accounts: string[];
+            /** Keys */
+            keys: string[];
+            /** Online */
+            online: boolean;
         };
         /** WsContribution */
         WsContribution: {
@@ -18472,6 +18641,116 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ChInbound"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChErrors"];
+                };
+            };
+        };
+    };
+    studio_api_characters_answer: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                inbound_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ChAnswerIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChReply"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChErrors"];
+                };
+            };
+        };
+    };
+    studio_api_characters_context: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                inbound_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChContext"];
+                };
+            };
+        };
+    };
+    studio_api_characters_replies: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                character_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChReply"][];
+                };
+            };
+        };
+    };
+    studio_api_characters_cancel_reply: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                reply_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChReply"];
                 };
             };
             /** @description Bad Request */
