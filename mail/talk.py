@@ -344,6 +344,11 @@ def send(box, keys, *, to, subject="", typed="", variant=None, attachment=None, 
     if forward_item is not None:
         body = f"{typed}\n\n---------- Forwarded message ----------\n{forward_item.body}".strip()
     path = box.put_text("sent", "letter.msg", letters.compose(headers, body), read=True)
+    if persona is not None and persona.character_id is not None:
+        from engine.events import emit
+
+        emit("character.wrote", box.user, machine=box.machine, login=box.login, character=persona.character.code, channel="mail",
+             subject=subject, text=body)
     if persona is not None and variant is None:                     # вне сценария: письмо ждёт автора во входящих персонажа, игроку тишина
         from characters import inbox
 

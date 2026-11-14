@@ -126,7 +126,8 @@ class CntCommand(BaseCommand):
         else:
             from engine.events import emit
 
-            emit("file.read", context.view.user, machine=context.view.machine, login=context.view.login or "", path=entry.path)
+            emit("file.read", context.view.user, machine=context.view.machine, login=context.view.login or "", path=entry.path,
+                 item=getattr(entry.item, "slug", "") if getattr(entry, "item", None) is not None else "")
 
         if effects and any(effect["op"] == "open" for effect in effects):
             text = "\n".join([f"cnt: {target}: opened ({size_of(context, entry)} bytes)", *lines])

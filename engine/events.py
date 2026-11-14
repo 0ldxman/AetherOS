@@ -24,6 +24,9 @@ NAMES = {
     "world.counter": "Счётчик мира",
     "moment.started": "Начался момент",
     "moment.ended": "Кончился момент",
+    "flag.set": "Поставлена метка игрока",
+    "flag.unset": "Снята метка игрока",
+    "character.wrote": "Написал персонажу",
 }
 
 
@@ -44,6 +47,9 @@ FIELDS = {                                  # какие подробности 
     "world.counter": ("counter", "value"),
     "moment.started": ("moment",),
     "moment.ended": ("moment",),
+    "flag.set": ("flag",),
+    "flag.unset": ("flag",),
+    "character.wrote": ("character", "channel", "text"),
 }
 
 
@@ -59,7 +65,7 @@ def _clean(value):
 
 
 def emit(name, user=None, *, machine=None, login="", source="", **data):
-    """Записать событие. machine — объект машины или имя хоста. Возвращает событие или None, если записать не вышло."""
+    """Записать событие и разбудить правила и сценарии. machine — объект машины или имя хоста. Возвращает событие или None, если записать не вышло."""
     from engine.models import Event
 
     if user is not None and not getattr(user, "is_authenticated", False):
@@ -77,6 +83,12 @@ def emit(name, user=None, *, machine=None, login="", source="", **data):
         rules.dispatch(event)
     except Exception:                                   # noqa: BLE001 — сломанное правило не роняет игру; причина в логе
         log.exception("rules on %s failed", name)
+    try:
+        from graph import runtime
+
+        runtime.dispatch(event)
+    except Exception:                                   # noqa: BLE001 — сломанный сценарий не роняет игру
+        log.exception("graph on %s failed", name)
     if user is not None:
         try:
             from engine import chains
@@ -115,5 +127,8 @@ def describe(event):
         "world.counter": lambda: f"world:{data.get('counter', '')} → {data.get('value', '')}",
         "moment.started": lambda: data.get("moment", ""),
         "moment.ended": lambda: data.get("moment", ""),
+        "flag.set": lambda: f"flag:{data.get('flag', '')}",
+        "flag.unset": lambda: f"flag:{data.get('flag', '')}",
+        "character.wrote": lambda: f"{data.get('character', '')} · {data.get('channel', '')} · {data.get('text', '')}",
     }.get(event.name, lambda: "")()
     return f"{title}: {detail}" if detail else title

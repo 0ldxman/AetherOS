@@ -69,6 +69,7 @@ INSTALLED_APPS = [
     'forum',
     'world',
     'engine',
+    'graph',
     'guide',
     'documents',
     'wiki',

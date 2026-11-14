@@ -85,6 +85,7 @@ class ListsTests(TestCase):
     @mock.patch("world.moments.tick")             # тики мира (моменты, реплики персонажей, ротация форума) идут на любом запросе раз в
     @mock.patch("characters.outbox.tick")         # несколько секунд: их запросы не про списки
     @mock.patch("forum.rotation.tick")
+    @mock.patch("graph.runtime.tick")
     def test_changelists_do_not_query_per_row(self, *ticks):
         build(1, self.user, self.key)
         before = {}

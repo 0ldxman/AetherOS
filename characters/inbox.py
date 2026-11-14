@@ -32,6 +32,13 @@ def mentioned(text):
     return out
 
 
+def _wrote(user, character, channel, text, **data):
+    """Событие движка «написал персонажу» (почта шлёт его сама, для любого письма на адрес персонажа)."""
+    from engine.events import emit
+
+    emit("character.wrote", user, character=character.code, channel=channel, text=text or "", **data)
+
+
 def capture_mail(persona, user, sender, subject, text, machine, path):
     """Письмо игрока на адрес персонажа без выбранного варианта сценария."""
     if persona is None or persona.character_id is None or user is None:
@@ -54,18 +61,25 @@ def capture_forum(post):
     for character in mentioned(post.text if not post.root else f"{post.topic.title}\n{post.text}"):
         if character not in targets:
             targets.append(character)
-    return [Inbound.objects.create(character=character, channel=Inbound.Channel.FORUM, user=post.author, sender=post.name,
-                                   subject=post.topic.title[:255], text=post.text, ref={"topic": post.topic_id, "post": post.pk})
-            for character in targets]
+    found = [Inbound.objects.create(character=character, channel=Inbound.Channel.FORUM, user=post.author, sender=post.name,
+                                    subject=post.topic.title[:255], text=post.text, ref={"topic": post.topic_id, "post": post.pk})
+             for character in targets]
+    for character in targets:
+        _wrote(post.author, character, "forum", post.text, topic=post.topic_id)
+    return found
 
 
 def capture_air(transmission):
     """Передача игрока с полным позывным персонажа."""
     if transmission.user_id is None:
         return []
-    return [Inbound.objects.create(character=character, channel=Inbound.Channel.AIR, user=transmission.user, sender=transmission.callsign,
-                                   text=transmission.text, ref={"transmission": transmission.pk, "freq": f"{transmission.freq:.3f}"})
-            for character in mentioned(transmission.text)]
+    targets = mentioned(transmission.text)
+    found = [Inbound.objects.create(character=character, channel=Inbound.Channel.AIR, user=transmission.user, sender=transmission.callsign,
+                                    text=transmission.text, ref={"transmission": transmission.pk, "freq": f"{transmission.freq:.3f}"})
+             for character in targets]
+    for character in targets:
+        _wrote(transmission.user, character, "air", transmission.text, freq=f"{transmission.freq:.3f}")
+    return found
 
 
 def counts(character):

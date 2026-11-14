@@ -156,13 +156,22 @@ def _flag(action, ctx):
     name = (action.get("name") or "").strip()
     if not name:
         raise ActionError("метка без имени")
-    Flag.objects.get_or_create(user=ctx.user, name=name)
+    _, created = Flag.objects.get_or_create(user=ctx.user, name=name)
+    if created:
+        from engine.events import emit
+
+        emit("flag.set", ctx.user, source=ctx.source, flag=name)
 
 
 def _unflag(action, ctx):
     from mail.models import Flag
 
-    Flag.objects.filter(user=ctx.user, name=(action.get("name") or "").strip()).delete()
+    name = (action.get("name") or "").strip()
+    deleted, _ = Flag.objects.filter(user=ctx.user, name=name).delete()
+    if deleted:
+        from engine.events import emit
+
+        emit("flag.unset", ctx.user, source=ctx.source, flag=name)
 
 
 register(Spec("flag", "Поставить метку игрока", USER, "Игрок", "метка {name}", (Field("name", "Метка", "flag", "dock-open", True),),
