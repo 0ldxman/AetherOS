@@ -4248,6 +4248,63 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/studio/api/characters/options/players": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Players
+         * @description Игроки и их почтовые учётки для «написать первым».
+         */
+        get: operations["studio_api_characters_players"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/studio/api/characters/options/sections": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Sections
+         * @description Разделы форума для новой темы от персонажа.
+         */
+        get: operations["studio_api_characters_sections"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/studio/api/characters/{character_id}/say": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Say */
+        post: operations["studio_api_characters_say"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/studio/api/world/state": {
         parameters: {
             query?: never;
@@ -10860,6 +10917,79 @@ export interface components {
             keys: string[];
             /** Online */
             online: boolean;
+        };
+        /** ChAccount */
+        ChAccount: {
+            /** Id */
+            id: number;
+            /** Label */
+            label: string;
+            /** Mail */
+            mail: string;
+        };
+        /** ChPlayerPick */
+        ChPlayerPick: {
+            /** Username */
+            username: string;
+            /** Accounts */
+            accounts: components["schemas"]["ChAccount"][];
+        };
+        /** ChSection */
+        ChSection: {
+            /** Id */
+            id: number;
+            /** Label */
+            label: string;
+        };
+        /** ChSayIn */
+        ChSayIn: {
+            /** Channel */
+            channel: string;
+            /** Text */
+            text: string;
+            /**
+             * Subject
+             * @default
+             */
+            subject: string;
+            /**
+             * Audience
+             * @default player
+             */
+            audience: string;
+            /** Account */
+            account?: number | null;
+            /**
+             * Condition
+             * @default
+             */
+            condition: string;
+            /** Section */
+            section?: number | null;
+            /**
+             * Title
+             * @default
+             */
+            title: string;
+            /**
+             * Freq
+             * @default
+             */
+            freq: string;
+            /** Station */
+            station?: number | null;
+            /**
+             * Delay
+             * @default 0
+             */
+            delay: number;
+            /**
+             * Actions
+             * @default []
+             */
+            actions: {
+                [key: string]: unknown;
+            }[];
         };
         /** WsContribution */
         WsContribution: {
@@ -18743,6 +18873,83 @@ export interface operations {
             cookie?: never;
         };
         requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChReply"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChErrors"];
+                };
+            };
+        };
+    };
+    studio_api_characters_players: {
+        parameters: {
+            query?: {
+                q?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChPlayerPick"][];
+                };
+            };
+        };
+    };
+    studio_api_characters_sections: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChSection"][];
+                };
+            };
+        };
+    };
+    studio_api_characters_say: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                character_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ChSayIn"];
+            };
+        };
         responses: {
             /** @description OK */
             200: {

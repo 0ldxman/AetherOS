@@ -10,9 +10,10 @@
   import { toast } from "../lib/toast.svelte";
   import Inbox from "./characters/Inbox.svelte";
   import Journal from "./characters/Journal.svelte";
+  import Say from "./characters/Say.svelte";
 
   let { id, tab = "card" }: { id: number | null; tab?: string } = $props();
-  const TABS = [{ key: "card", label: "Карточка" }, { key: "mail", label: "Почта" }, { key: "forum", label: "Форум" }, { key: "air", label: "Эфир" }, { key: "journal", label: "Журнал" }];
+  const TABS = [{ key: "card", label: "Карточка" }, { key: "mail", label: "Почта" }, { key: "forum", label: "Форум" }, { key: "air", label: "Эфир" }, { key: "say", label: "Написать" }, { key: "journal", label: "Журнал" }];
   let counts = $state<Record<string, number>>({});
   let newStation = $state({ name: "", kind: "character" });
 
@@ -147,6 +148,9 @@
       {/if}
       {#if id && tab === "journal"}
         <Journal character={id} />
+      {:else if id && tab === "say"}
+        <Say character={id} code={form.code} stations={(options?.stations ?? []).filter((s) => form!.stations.includes(s.id))}
+             mail={(options?.personas ?? []).filter((p) => form!.personas.includes(p.id)).map((p) => p.label)} />
       {:else if id && tab !== "card"}
         {#key tab}<Inbox character={id} code={form.code} channel={tab} onchange={refreshCounts} />{/key}
       {:else}

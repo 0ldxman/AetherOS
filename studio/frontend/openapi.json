@@ -13379,6 +13379,138 @@
     ]
    }
   },
+  "/studio/api/characters/options/players": {
+   "get": {
+    "operationId": "studio_api_characters_players",
+    "summary": "Players",
+    "parameters": [
+     {
+      "in": "query",
+      "name": "q",
+      "schema": {
+       "default": "",
+       "title": "Q",
+       "type": "string"
+      },
+      "required": false
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "items": {
+          "$ref": "#/components/schemas/ChPlayerPick"
+         },
+         "title": "Response",
+         "type": "array"
+        }
+       }
+      }
+     }
+    },
+    "description": "Игроки и их почтовые учётки для «написать первым».",
+    "tags": [
+     "characters"
+    ],
+    "security": [
+     {
+      "StudioAuth": []
+     }
+    ]
+   }
+  },
+  "/studio/api/characters/options/sections": {
+   "get": {
+    "operationId": "studio_api_characters_sections",
+    "summary": "Sections",
+    "parameters": [],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "items": {
+          "$ref": "#/components/schemas/ChSection"
+         },
+         "title": "Response",
+         "type": "array"
+        }
+       }
+      }
+     }
+    },
+    "description": "Разделы форума для новой темы от персонажа.",
+    "tags": [
+     "characters"
+    ],
+    "security": [
+     {
+      "StudioAuth": []
+     }
+    ]
+   }
+  },
+  "/studio/api/characters/{character_id}/say": {
+   "post": {
+    "operationId": "studio_api_characters_say",
+    "summary": "Say",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "character_id",
+      "schema": {
+       "title": "Character Id",
+       "type": "integer"
+      },
+      "required": true
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ChReply"
+        }
+       }
+      }
+     },
+     "400": {
+      "description": "Bad Request",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ChErrors"
+        }
+       }
+      }
+     }
+    },
+    "tags": [
+     "characters"
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/ChSayIn"
+       }
+      }
+     },
+     "required": true
+    },
+    "security": [
+     {
+      "StudioAuth": []
+     }
+    ]
+   }
+  },
   "/studio/api/world/state": {
    "get": {
     "operationId": "studio_api_worldstate_read",
@@ -29869,6 +30001,158 @@
      "online"
     ],
     "title": "ChPlayer",
+    "type": "object"
+   },
+   "ChAccount": {
+    "properties": {
+     "id": {
+      "title": "Id",
+      "type": "integer"
+     },
+     "label": {
+      "title": "Label",
+      "type": "string"
+     },
+     "mail": {
+      "title": "Mail",
+      "type": "string"
+     }
+    },
+    "required": [
+     "id",
+     "label",
+     "mail"
+    ],
+    "title": "ChAccount",
+    "type": "object"
+   },
+   "ChPlayerPick": {
+    "properties": {
+     "username": {
+      "title": "Username",
+      "type": "string"
+     },
+     "accounts": {
+      "items": {
+       "$ref": "#/components/schemas/ChAccount"
+      },
+      "title": "Accounts",
+      "type": "array"
+     }
+    },
+    "required": [
+     "username",
+     "accounts"
+    ],
+    "title": "ChPlayerPick",
+    "type": "object"
+   },
+   "ChSection": {
+    "properties": {
+     "id": {
+      "title": "Id",
+      "type": "integer"
+     },
+     "label": {
+      "title": "Label",
+      "type": "string"
+     }
+    },
+    "required": [
+     "id",
+     "label"
+    ],
+    "title": "ChSection",
+    "type": "object"
+   },
+   "ChSayIn": {
+    "properties": {
+     "channel": {
+      "title": "Channel",
+      "type": "string"
+     },
+     "text": {
+      "title": "Text",
+      "type": "string"
+     },
+     "subject": {
+      "default": "",
+      "title": "Subject",
+      "type": "string"
+     },
+     "audience": {
+      "default": "player",
+      "title": "Audience",
+      "type": "string"
+     },
+     "account": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Account"
+     },
+     "condition": {
+      "default": "",
+      "title": "Condition",
+      "type": "string"
+     },
+     "section": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Section"
+     },
+     "title": {
+      "default": "",
+      "title": "Title",
+      "type": "string"
+     },
+     "freq": {
+      "default": "",
+      "title": "Freq",
+      "type": "string"
+     },
+     "station": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Station"
+     },
+     "delay": {
+      "default": 0,
+      "title": "Delay",
+      "type": "integer"
+     },
+     "actions": {
+      "default": [],
+      "items": {
+       "additionalProperties": true,
+       "type": "object"
+      },
+      "title": "Actions",
+      "type": "array"
+     }
+    },
+    "required": [
+     "channel",
+     "text"
+    ],
+    "title": "ChSayIn",
     "type": "object"
    },
    "WsContribution": {
