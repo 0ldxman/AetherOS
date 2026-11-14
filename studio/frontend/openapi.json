@@ -32755,6 +32755,47 @@
     "title": "GrGroup",
     "type": "object"
    },
+   "GrGrow": {
+    "properties": {
+     "field": {
+      "title": "Field",
+      "type": "string"
+     },
+     "prefix": {
+      "title": "Prefix",
+      "type": "string"
+     },
+     "type": {
+      "title": "Type",
+      "type": "string"
+     },
+     "named": {
+      "title": "Named",
+      "type": "boolean"
+     },
+     "min": {
+      "title": "Min",
+      "type": "integer"
+     },
+     "single": {
+      "items": {
+       "type": "string"
+      },
+      "title": "Single",
+      "type": "array"
+     }
+    },
+    "required": [
+     "field",
+     "prefix",
+     "type",
+     "named",
+     "min",
+     "single"
+    ],
+    "title": "GrGrow",
+    "type": "object"
+   },
    "GrKind": {
     "properties": {
      "name": {
@@ -32823,6 +32864,29 @@
      "help": {
       "title": "Help",
       "type": "string"
+     },
+     "title": {
+      "default": "",
+      "title": "Title",
+      "type": "string"
+     },
+     "grow": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/GrGrow"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "when": {
+      "default": [],
+      "items": {
+       "$ref": "#/components/schemas/GrWhen"
+      },
+      "title": "When",
+      "type": "array"
      }
     },
     "required": [
@@ -32910,6 +32974,32 @@
      "label"
     ],
     "title": "GrSock",
+    "type": "object"
+   },
+   "GrWhen": {
+    "properties": {
+     "field": {
+      "title": "Field",
+      "type": "string"
+     },
+     "mode": {
+      "title": "Mode",
+      "type": "string"
+     },
+     "values": {
+      "items": {
+       "type": "string"
+      },
+      "title": "Values",
+      "type": "array"
+     }
+    },
+    "required": [
+     "field",
+     "mode",
+     "values"
+    ],
+    "title": "GrWhen",
     "type": "object"
    },
    "GrProblem": {

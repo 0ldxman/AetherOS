@@ -79,7 +79,11 @@ export const propFields = (kind: Kind) => kind.fields.filter((f) => !f.socket &&
 export function sockType(kind: Kind, data: Record<string, unknown>, side: "in" | "out", name: string, iface: Iface | null = null): string {
   if (BOXES.includes(kind.name)) return ((side === "in" ? iface?.inputs : iface?.outputs) ?? []).find((s) => s.name === name)?.type ?? "event";
   if (kind.name === "group_in" || kind.name === "group_out") return named(data).find((s) => s.name === name)?.type ?? "event";
-  if (side === "in") return name.startsWith("f:") ? kind.fields.find((f) => f.name === name.slice(2))?.socket ?? "" : "event";
+  if (side === "in") {
+    if (!name.startsWith("f:")) return "event";
+    const field = kind.fields.find((f) => f.name === name.slice(2));
+    return field ? field.socket : isRow(kind, name.slice(2)) ? kind.grow!.type : "";
+  }
   return kind.outs.find((s) => s.name === name)?.type ?? "event";
 }
 
@@ -94,6 +98,65 @@ export function outsOf(kind: Kind, data: Record<string, unknown>, waiting: boole
 }
 
 export const isThing = (type: string | undefined) => !!TYPES[type ?? ""]?.thing;
+
+// заголовок ноды: у «Математики» и «Логики» — выбранное действие (как в Blender)
+export function titleOf(kind: Kind, data: Record<string, unknown>): string {
+  if (!kind.title) return kind.label;
+  const field = kind.fields.find((f) => f.name === kind.title);
+  const value = String(data[kind.title] ?? field?.options[0]?.value ?? "");
+  return field?.options.find((o) => o.value === value)?.label ?? kind.label;
+}
+
+// вход поля есть в выбранном режиме (kind.when); подключённые показываются всегда — это решает нода
+export function inWhen(kind: Kind, data: Record<string, unknown>, name: string): boolean {
+  const rule = (kind.when ?? []).find((w) => w.field === name);
+  if (!rule) return true;
+  const mode = kind.fields.find((f) => f.name === rule.mode);
+  return rule.values.includes(String(data[rule.mode] ?? mode?.options[0]?.value ?? ""));
+}
+
+// ---- растущий список входов (подстановки шаблона, входы «Логики») ----
+export type Row = { id: string; name?: string; value?: unknown };
+export const isRow = (kind: Kind, name: string) => !!kind.grow && name.startsWith(kind.grow.prefix) && /^\d+$/.test(name.slice(kind.grow.prefix.length));
+export function rowsOf(kind: Kind, data: Record<string, unknown>): Row[] {
+  const list = kind.grow ? data[kind.grow.field] : null;
+  return Array.isArray(list) ? (list as Row[]).filter((r) => r && typeof r === "object" && r.id) : [];
+}
+const rowNum = (kind: Kind, id: string) => Number(id.slice(kind.grow!.prefix.length)) || 0;
+const single = (kind: Kind, data: Record<string, unknown>) => !!kind.grow?.single.length && kind.grow.single.includes(String(data[kind.title || "op"] ?? ""));
+
+// строки на холсте: заполненные и пустые до нужного числа (одна пустая всегда, но не меньше min)
+export function visibleRows(kind: Kind, data: Record<string, unknown>): (Row & { empty?: boolean })[] {
+  if (!kind.grow) return [];
+  const stored = rowsOf(kind, data);
+  let next = Math.max(0, ...stored.map((r) => rowNum(kind, r.id))) + 1;
+  const out: (Row & { empty?: boolean })[] = [...stored];
+  const want = single(kind, data) ? 1 : Math.max(kind.grow.min, stored.length + 1);
+  while (out.length < want) out.push({ id: `${kind.grow.prefix}${next++}`, empty: true });
+  return single(kind, data) ? out.slice(0, Math.max(1, Math.min(out.length, 1))) : out;
+}
+
+const filled = (r: Row) => !!String(r.name ?? "").trim() || (r.value !== undefined && r.value !== null && r.value !== "" && r.value !== false);
+
+// хранить только заполненные строки (имя, значение или провод); подключённые, но ещё не записанные — добавить
+export function tidyRows(kind: Kind | undefined, node: GNode, wires: GWire[]): GNode {
+  if (!kind?.grow) return node;
+  const wired = wires.filter((w) => w.to === node.id && w.in.startsWith("f:") && isRow(kind, w.in.slice(2))).map((w) => w.in.slice(2));
+  const stored = rowsOf(kind, node.data);
+  const rows = [...stored, ...wired.filter((id) => !stored.some((r) => r.id === id)).map((id) => ({ id }))]
+    .filter((r) => wired.includes(r.id) || filled(r));
+  if (JSON.stringify(rows) === JSON.stringify(stored)) return node;
+  return { ...node, data: { ...node.data, [kind.grow.field]: rows.length ? rows : undefined } };
+}
+
+// свободное имя подстановки по подписи выхода: «Игрок» -> «игрок», занято -> «игрок2»
+export function rowName(kind: Kind, data: Record<string, unknown>, label: string): string {
+  const base = label.trim().toLowerCase().replace(/[{}]/g, "") || "x";
+  const taken = new Set(rowsOf(kind, data).map((r) => String(r.name ?? "").trim()));
+  let name = base, n = 2;
+  while (taken.has(name)) name = `${base}${n++}`;
+  return name;
+}
 
 // Короткая подпись ноды: шаблон summary с подставленными полями; подсказки (picks) дают человеческие имена.
 export function summaryOf(kind: Kind, data: Record<string, unknown>, picks: Record<string, { value: string; label: string }[]>): string {

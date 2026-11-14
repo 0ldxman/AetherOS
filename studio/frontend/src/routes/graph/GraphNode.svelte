@@ -3,7 +3,7 @@
   // без провода значение правится прямо на ноде, с проводом приходит по нему. Выбор режима — параметр без входа.
   // Круг — событие и простые значения (да/нет, текст, число), ромб — вещь (файл, машина, персонаж…). Цвет — тип.
   import { Handle, Position, useUpdateNodeInternals } from "@xyflow/svelte";
-  import { COLORS, TYPES, insOf, isThing, outsOf, propFields, socketFields, typeColor, type Field, type GNode, type Iface, type Kind } from "./kinds";
+  import { COLORS, TYPES, inWhen, insOf, isThing, outsOf, propFields, rowsOf, socketFields, titleOf, typeColor, visibleRows, type Field, type GNode, type Iface, type Kind, type Row } from "./kinds";
 
   type Stat = { hits: number; players: number; waiting: number; oldest_days: number };
   type Option = { value: string; label: string };
@@ -31,12 +31,21 @@
     if (kind.name === "do:player_count") return ({ delta: mode !== "set", value: mode === "set" } as Record<string, boolean>)[f.name] ?? true;
     if (kind.name === "do:file_change") return ({ item: (mode || "replace") === "replace", target: mode === "move" } as Record<string, boolean>)[f.name] ?? true;
     if (kind.name === "answer") return ({ text: mode !== "allow" && mode !== "default", minutes: mode === "block" } as Record<string, boolean>)[f.name] ?? true;
-    return true;
+    return inWhen(kind, values, f.name);
   };
   const fields = $derived(socketFields(kind).filter((f) => data.usedIn.includes(`f:${f.name}`) || (!hide && inMode(f))));
   const params = $derived(hide ? [] : propFields(kind));
+  // растущий список: подстановки шаблона («имя» + значение) или входы «Логики» (A, B, C…)
+  const grow = $derived(kind.grow ?? null);
+  const rows = $derived(visibleRows(kind, values).filter((r) => !hide || data.usedIn.includes(`f:${r.id}`)));
+  const letter = (i: number) => (i < 26 ? String.fromCharCode(65 + i) : `${i + 1}`);
+  function setRow(row: Row, patch: Partial<Row>) {
+    const list = rowsOf(kind, values);
+    const next = list.some((r) => r.id === row.id) ? list.map((r) => (r.id === row.id ? { ...r, ...patch } : r)) : [...list, { id: row.id, ...patch }];
+    data.onfield(grow!.field, next);
+  }
   const flowLabel = $derived(isNoun ? "Ждать с" : "Когда");
-  const shape = $derived([ins.map((s) => s.name), outs.map((s) => s.name), fields.map((f) => f.name), data.waiting, hide, flowIn].join("|"));
+  const shape = $derived([ins.map((s) => s.name), outs.map((s) => s.name), fields.map((f) => f.name), rows.map((r) => r.id), data.waiting, hide, flowIn].join("|"));
   const update = useUpdateNodeInternals();
   $effect(() => {
     shape;
@@ -60,8 +69,8 @@
 </script>
 
 <div class="node" class:selected class:muted-node={data.node.mute} class:box={kind.name === "group" || kind.name === "scenario"} style="--head: {COLORS[kind.group] ?? '#555'}">
-  <header data-tip={tip(kind.label, "", kind.help)}>
-    <b>{kind.label}</b>
+  <header data-tip={tip(kind.title ? `${kind.label}: ${titleOf(kind, values)}` : kind.label, "", kind.help)}>
+    <b>{titleOf(kind, values)}</b>
     {#if isNoun}<span class="tag" title={role.tip}>{role.text}</span>{/if}
     {#if kind.name === "group"}<span class="tag" title="Tab — войти в группу">Tab</span>{/if}
     {#if hide}<span class="tag" title="Неподключённые сокеты скрыты (Ctrl+H)">…</span>{/if}
@@ -128,6 +137,30 @@
       {/if}
     </div>
   {/each}
+  {#if grow}
+    {#each rows as row, i (row.id)}
+      {@const key = `f:${row.id}`}
+      {@const fed = data.usedIn.includes(key)}
+      <div class="row in field" class:used={fed || !row.empty} class:empty={row.empty && !fed}
+           data-tip={inTip(key, grow.named ? String(row.name || "подстановка") : letter(i), grow.type)}>
+        <Handle type="target" position={Position.Left} id={key} class="sock" style="--c: {typeColor(grow.type)}" data-thing={isThing(grow.type) ? "1" : undefined} />
+        {#if grow.named}
+          <input class="nodrag inline name mono" value={String(row.name ?? "")} placeholder="имя" disabled={!data.editable} aria-label="Имя подстановки"
+                 oninput={(e) => setRow(row, { name: e.currentTarget.value.replace(/[{}]/g, "") || undefined })} />
+          {#if !fed}
+            <input class="nodrag inline" value={row.value === undefined || row.value === null ? "" : String(row.value)} placeholder="значение"
+                   disabled={!data.editable} aria-label="Значение подстановки" oninput={(e) => setRow(row, { value: e.currentTarget.value || undefined })} />
+          {/if}
+        {:else}
+          <span class="label">{letter(i)}</span>
+          {#if !fed && grow.type === "bool"}
+            <input class="nodrag check" type="checkbox" checked={!!row.value} disabled={!data.editable} aria-label={letter(i)}
+                   onchange={(e) => setRow(row, { value: e.currentTarget.checked || undefined })} />
+          {/if}
+        {/if}
+      </div>
+    {/each}
+  {/if}
 
   {#if data.stat && (data.stat.hits || data.stat.waiting)}
     <footer>
@@ -161,6 +194,8 @@
   .inline:focus { outline: none; border-color: var(--accent); }
   .inline.num { flex: 0 0 72px; margin-left: auto; }
   .inline.wide { width: 100%; }
+  .inline.name { flex: 0 0 74px; }
+  .row.empty .inline { border-style: dashed; }
   .mono { font-family: var(--mono); }
   .check { margin-left: auto; }
   footer { display: flex; flex-wrap: wrap; gap: 4px 8px; margin-top: 4px; padding: 4px 10px 0; border-top: 1px solid var(--line-soft); color: var(--muted); font-size: 10.5px; }

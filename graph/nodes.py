@@ -73,6 +73,18 @@ class Many:
 
 
 @dataclass(frozen=True)
+class Grow:
+    """Растущий список входов (как подстановки шаблона): строки {"id", "name", "value"} в поле field, вход строки — "f:<id>".
+    На ноде всегда есть одна пустая строка; заполнили её (имя, значение или провод) — появляется следующая. single — режимы, где вход один."""
+    field: str
+    prefix: str
+    type: str
+    named: bool = False
+    min: int = 1
+    single: tuple = ()
+
+
+@dataclass(frozen=True)
 class Kind:
     name: str
     label: str
@@ -89,6 +101,9 @@ class Kind:
     start_only: bool = False            # только старт (время, вручную)
     subgroup: str = ""
     spec: object = None                 # у действий: engine.actions.Spec
+    title: str = ""                     # поле-режим, подпись выбранного варианта — заголовок ноды (как у Math в Blender)
+    grow: object = None                 # Grow: растущий список входов
+    when: dict = field(default_factory=dict)         # поле -> (поле-режим, значения): вход есть только в этих режимах
 
 
 KINDS = {}
@@ -394,11 +409,11 @@ HELP = {
     "note": "Заметка на холсте. Не исполняется.",
     "frame": "Рамка вокруг нод. Не исполняется.",
     "text": "Текст: значение для входов.", "number": "Число: значение для входов.", "boolean": "Да/нет: значение для входов.",
-    "template": "Склеить текст: {a}, {b}, {c} в шаблоне заменяются значениями входов A, B, C.",
+    "template": "Склеить текст: {имя} в шаблоне заменяется значением подстановки с этим именем. Заполнили подстановку — появляется следующая.",
     "compare": "Сравнить A и B: числа — как числа, остальное — как текст без учёта регистра. «По образцу» понимает *.",
-    "and": "Да, если оба входа да.", "or": "Да, если хотя бы один вход да.", "not": "Наоборот: да становится нет.",
+    "logic": "И — все входы да; Или — хоть один да; Не — наоборот; Исключающее или — ровно один да. Подключили вход — появляется следующий.",
     "fact": "Условие на факты игрока прохождения: ключи, flag:, world:, count:, char:. Верно или нет.",
-    "math": "Посчитать A и B; «случайное» — целое от A до B.",
+    "math": "Посчитать A и B. «Случайное» — целое от A до B; округление, модуль и смена знака берут только A.",
     "read": "Прочитать сейчас: счётчик или метку мира, счётчик или метку игрока прохождения.",
     "do:flag": "Поставить личную метку игроку (flag:имя).", "do:unflag": "Снять личную метку игрока.",
     "do:key": "Положить ключ в папку секретов учётки, на которой случилось событие.",
@@ -448,8 +463,8 @@ SOCKET_HELP = {
 
 # ---------- данные ----------
 
-def _data(name, label, summary, fields, out_type, out_label="Значение"):
-    register(Kind(name, label, DATA, summary, fields, ins=()))
+def _data(name, label, summary, fields, out_type, out_label="Значение", **extra):
+    register(Kind(name, label, DATA, summary, fields, ins=(), **extra))
     DATA_OUTS[name] = (Sock("value", out_label, out_type),)
 
 
@@ -479,19 +494,23 @@ _data("text", "Текст", "{value}", (Field("value", "Текст", "text"),), 
 _data("number", "Число", "{value}", (Field("value", "Число", "number"),), "number", "Число")
 _data("boolean", "Да/нет", "{value}", (Field("value", "Да", "bool"),), "bool", "Да/нет")
 _data("template", "Текст по шаблону", "{template}",
-      (Field("template", "Шаблон", "text", "{a} открыл {b}"), Field("a", "A", "text"), Field("b", "B", "text"), Field("c", "C", "text")), "text", "Текст")
+      (Field("template", "Шаблон", "text", "{игрок} открыл {файл}"), Field("subs", "Подстановки", "hidden")), "text", "Текст",
+      grow=Grow("subs", "s", "text", named=True))
 _data("compare", "Сравнить", "{op}",
       (Field("a", "A", "text"), Field("op", "Как", "select", "", False, (("eq", "="), ("ne", "≠"), ("gt", ">"), ("ge", "≥"), ("lt", "<"), ("le", "≤"),
                                                                        ("contains", "содержит"), ("like", "по образцу *"))), Field("b", "B", "text")),
       "bool", "Верно")
-_data("and", "И", "", (Field("a", "A", "bool"), Field("b", "B", "bool")), "bool", "Да/нет")
-_data("or", "Или", "", (Field("a", "A", "bool"), Field("b", "B", "bool")), "bool", "Да/нет")
-_data("not", "Не", "", (Field("a", "A", "bool"),), "bool", "Да/нет")
+LOGIC = (("and", "И"), ("or", "Или"), ("not", "Не"), ("xor", "Исключающее или"))
+_data("logic", "Логика", "", (Field("op", "Действие", "select", "", False, LOGIC), Field("values", "Входы", "hidden")), "bool", "Да/нет",
+      title="op", grow=Grow("values", "v", "bool", min=2, single=("not",)))
 _data("fact", "Факт", "{expr}", (Field("expr", "Условие", "expr", "flag:met and world:act>=2", True),), "bool", "Верно")
-_data("math", "Математика", "{op}",
-      (Field("a", "A", "number"), Field("op", "Действие", "select", "", False, (("add", "+"), ("sub", "−"), ("mul", "×"), ("div", "÷"), ("min", "мин"),
-                                                                              ("max", "макс"), ("random", "случайное от A до B"))), Field("b", "B", "number")),
-      "number", "Число")
+MATH = (("add", "Сложить"), ("sub", "Вычесть"), ("mul", "Умножить"), ("div", "Разделить"), ("mod", "Остаток"), ("pow", "Степень"),
+        ("min", "Минимум"), ("max", "Максимум"), ("random", "Случайное"),
+        ("round", "Округлить"), ("floor", "Округлить вниз"), ("ceil", "Округлить вверх"), ("abs", "Модуль"), ("neg", "Сменить знак"))
+UNARY = ("round", "floor", "ceil", "abs", "neg")
+_data("math", "Математика", "",
+      (Field("op", "Действие", "select", "", False, MATH), Field("a", "A", "number"), Field("b", "B", "number")), "number", "Число",
+      title="op", when={"b": ("op", tuple(v for v, _ in MATH if v not in UNARY))})
 _data("read", "Прочитать", "{what} {name}",
       (Field("what", "Что", "select", "", False, (("world_counter", "счётчик мира"), ("player_counter", "счётчик игрока"), ("world_flag", "метка мира"),
                                                   ("player_flag", "метка игрока"))), Field("name", "Имя", "text", "", True)), "number", "Значение")
@@ -531,6 +550,28 @@ def named(data, field_name="sockets"):
     return out
 
 
+def rows(kind, data):
+    """Строки растущего списка ноды: [{"id", "name", "value"}] (только заполненные; пустая строка на холсте не хранится)."""
+    if kind.grow is None:
+        return []
+    return [item for item in (data or {}).get(kind.grow.field) or [] if isinstance(item, dict) and str(item.get("id") or "")]
+
+
+def is_row(kind, name):
+    """name — вход строки растущего списка (s1, v2…)."""
+    grow = kind.grow
+    return grow is not None and name.startswith(grow.prefix) and name[len(grow.prefix):].isdigit()
+
+
+def input_label(kind, data, name):
+    """Подпись входа-поля (без «f:»)."""
+    found = next((f for f in kind.fields if f.name == name), None)
+    if found:
+        return found.label
+    row = next((item for item in rows(kind, data) if item.get("id") == name), None)
+    return str((row or {}).get("name") or name)
+
+
 def socket_types(data):
     """{имя: тип} сокетов «Входа» или «Выхода» группы (тип по умолчанию — событие)."""
     return {str(item.get("name")).strip(): (item.get("type") or EVENT) for item in (data or {}).get("sockets") or []
@@ -547,6 +588,8 @@ def sock_type(kind, data, side, name, iface=None):
         return out_type(kind, name)
     if name.startswith("f:"):
         found = next((f for f in kind.fields if f.name == name[2:]), None)
+        if found is None and is_row(kind, name[2:]):
+            return kind.grow.type
         return field_type(found) if found else ""
     return EVENT
 
@@ -589,6 +632,9 @@ def catalog():
             + [{"name": s.name, "label": s.label, "type": s.type} for s in DATA_OUTS.get(k.name, ())],
             "many": [{"side": m.side, "field": m.field, "prefix": m.prefix, "label": m.label} for m in k.many],
             "tail": [{"name": s.name, "label": s.label, "type": EVENT} for s in k.tail],
-            "ref": k.ref[0] if k.ref else "", "start_only": k.start_only, "help": HELP.get(k.name, ""),
+            "ref": k.ref[0] if k.ref else "", "start_only": k.start_only, "help": HELP.get(k.name, ""), "title": k.title,
+            "grow": {"field": k.grow.field, "prefix": k.grow.prefix, "type": k.grow.type, "named": k.grow.named, "min": k.grow.min,
+                     "single": list(k.grow.single)} if k.grow else None,
+            "when": [{"field": name, "mode": mode, "values": list(values)} for name, (mode, values) in k.when.items()],
         } for k in KINDS.values()],
     }

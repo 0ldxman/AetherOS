@@ -12034,6 +12034,21 @@ export interface components {
             /** Label */
             label: string;
         };
+        /** GrGrow */
+        GrGrow: {
+            /** Field */
+            field: string;
+            /** Prefix */
+            prefix: string;
+            /** Type */
+            type: string;
+            /** Named */
+            named: boolean;
+            /** Min */
+            min: number;
+            /** Single */
+            single: string[];
+        };
         /** GrKind */
         GrKind: {
             /** Name */
@@ -12062,6 +12077,17 @@ export interface components {
             start_only: boolean;
             /** Help */
             help: string;
+            /**
+             * Title
+             * @default
+             */
+            title: string;
+            grow?: components["schemas"]["GrGrow"] | null;
+            /**
+             * When
+             * @default []
+             */
+            when: components["schemas"]["GrWhen"][];
         };
         /** GrMany */
         GrMany: {
@@ -12092,6 +12118,15 @@ export interface components {
              * @default event
              */
             type: string;
+        };
+        /** GrWhen */
+        GrWhen: {
+            /** Field */
+            field: string;
+            /** Mode */
+            mode: string;
+            /** Values */
+            values: string[];
         };
         /** GrProblem */
         GrProblem: {

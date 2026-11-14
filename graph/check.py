@@ -235,12 +235,12 @@ def _part(part, groups, prefix, add, slug):
             continue
         src_type = N.sock_type(src_kind, doc.data(src), "out", out_name, ifaces.get(src))
         if inp.startswith("f:"):
-            field = next((f for f in dst_kind.fields if f.name == inp[2:]), None)
-            dst_type = N.field_type(field) if field else ""
+            dst_type = N.sock_type(dst_kind, doc.data(dst), "in", inp)
+            label = N.input_label(dst_kind, doc.data(dst), inp[2:])
             if not dst_type:
-                add(prefix + dst, f"у «{dst_kind.label}» нет входа «{field.label if field else inp[2:]}»")
+                add(prefix + dst, f"у «{dst_kind.label}» нет входа «{label}»")
             elif not N.compatible(src_type, dst_type):
-                add(prefix + dst, f"«{field.label}» ждёт {N.TYPE_LABELS[dst_type]}, а приходит {N.TYPE_LABELS.get(src_type, src_type)}")
+                add(prefix + dst, f"«{label}» ждёт {N.TYPE_LABELS[dst_type]}, а приходит {N.TYPE_LABELS.get(src_type, src_type)}")
             continue
         if inp not in N.sockets(dst_kind, doc.data(dst), "in", ifaces.get(dst)):
             if ifaces.get(dst, True) is not None:

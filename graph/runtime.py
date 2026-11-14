@@ -405,8 +405,12 @@ def value_of(run, doc, node_id, out, depth=0):
     if name == "boolean":
         return _truth(get("value"))
     if name == "template":
-        values = {key: get(key) for key in ("a", "b", "c")}
-        return re.sub(r"\{(a|b|c)\}", lambda m: "" if values[m.group(1)] is None else str(values[m.group(1)]), str(get("template") or ""))
+        values = {}
+        for row in N.rows(kind, data):
+            if str(row.get("name") or "").strip():
+                value = get(row["id"])
+                values[str(row["name"]).strip()] = "" if value is None else str(_plain(value))
+        return re.sub(r"\{([^{}]+)\}", lambda m: values.get(m.group(1).strip(), m.group(0)), str(get("template") or ""))
     if name == "compare":
         a, b, op = get("a"), get("b"), data.get("op") or "eq"
         na, nb = _number(a), _number(b)
@@ -423,12 +427,18 @@ def value_of(run, doc, node_id, out, depth=0):
             return fnmatch.fnmatchcase(sa.casefold(), sb.casefold())
         same = (na == nb) if na is not None and nb is not None else sa.strip().casefold() == sb.strip().casefold()
         return same if op == "eq" else not same
-    if name == "and":
-        return _truth(get("a")) and _truth(get("b"))
-    if name == "or":
-        return _truth(get("a")) or _truth(get("b"))
-    if name == "not":
-        return not _truth(get("a"))
+    if name == "logic":
+        ids = [row["id"] for row in N.rows(kind, data)]
+        ids += sorted({inp for (dst, inp) in doc.refs if dst == node_id and N.is_row(kind, inp) and inp not in ids})
+        values = [_truth(get(row_id)) for row_id in ids]
+        op = data.get("op") or "and"
+        if op == "not":
+            return not (values[0] if values else False)
+        if op == "or":
+            return any(values)
+        if op == "xor":
+            return sum(values) == 1
+        return bool(values) and all(values)
     if name == "fact":
         return _holds(get("expr"), run)
     if name == "math":
@@ -438,8 +448,18 @@ def value_of(run, doc, node_id, out, depth=0):
 
             low, high = sorted((int(a), int(b)))
             return random.randint(low, high)
-        result = {"add": a + b, "sub": a - b, "mul": a * b, "div": a / b if b else 0, "min": min(a, b), "max": max(a, b)}.get(op, 0)
-        return _plain(result)
+        import math
+
+        try:
+            result = {"add": lambda: a + b, "sub": lambda: a - b, "mul": lambda: a * b, "div": lambda: a / b if b else 0,
+                      "mod": lambda: a % b if b else 0, "pow": lambda: a ** b, "min": lambda: min(a, b), "max": lambda: max(a, b),
+                      "round": lambda: round(a), "floor": lambda: math.floor(a), "ceil": lambda: math.ceil(a), "abs": lambda: abs(a),
+                      "neg": lambda: -a}.get(op, lambda: 0)()
+        except (OverflowError, ValueError, ZeroDivisionError):
+            result = 0
+        if isinstance(result, complex):
+            result = 0
+        return _plain(float(result))
     if name == "read":
         return _read(run, data.get("what") or "world_counter", str(get("name") or ""), out)
     return None
@@ -466,7 +486,11 @@ def input_of(run, doc, node_id, name, depth=0):
     src = doc.refs.get((node_id, name))
     if src is not None:
         return value_of(run, doc, src[0], src[1], depth)
-    return doc.data(node_id).get(name)
+    data = doc.data(node_id)
+    kind = doc.kind(node_id)
+    if kind is not None and N.is_row(kind, name):
+        return next((row.get("value") for row in N.rows(kind, data) if row.get("id") == name), None)
+    return data.get(name)
 
 
 def resolved(run, doc, node_id):

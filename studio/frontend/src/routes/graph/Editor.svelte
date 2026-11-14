@@ -17,7 +17,7 @@
   import FrameNode from "./FrameNode.svelte";
   import GraphNode from "./GraphNode.svelte";
   import NodePanel from "./NodePanel.svelte";
-  import { BOXES, TYPES, compatible, sockType, socketFields, typeColor, defaults, freeId, ifaceOfLevel, insOf, summaryOf, type Catalog, type Doc, type GNode, type GWire, type Group, type Iface, type Kind, type Level } from "./kinds";
+  import { BOXES, TYPES, compatible, sockType, socketFields, typeColor, defaults, freeId, ifaceOfLevel, insOf, isRow, outsOf, rowName, rowsOf, summaryOf, tidyRows, type Catalog, type Doc, type GNode, type GWire, type Group, type Iface, type Kind, type Level } from "./kinds";
 
   let { id }: { id: number } = $props();
   type Detail = Schemas["GrDetail"];
@@ -55,6 +55,7 @@
   const statPrefix = $derived(path.map((p) => p.node).join("/") + (path.length ? "/" : ""));
   const keyOf = (nodeId: string) => (gid ? `${gid}::${nodeId}` : nodeId);
   function setLevel(next: Level) {
+    if (next.nodes.some((n) => kindOf(n.type)?.grow)) next = { ...next, nodes: next.nodes.map((n) => tidyRows(kindOf(n.type), n, next.wires)) };
     if (gid) doc = { ...doc, groups: { ...doc.groups, [gid]: { ...(doc.groups?.[gid] as Group), nodes: next.nodes, wires: next.wires } } };
     else doc = { ...doc, nodes: next.nodes, wires: next.wires };
   }
@@ -66,6 +67,7 @@
   // первый вход новой ноды, куда подходит провод этого типа
   function firstInput(kind: Kind, node: GNode, type: string): string | null {
     if (type === "event") return insOf(kind, node.data, ifaceOf(node)).find((s) => (s.type ?? "event") === "event")?.name ?? null;
+    if (kind.grow && compatible(type, kind.grow.type)) return `f:${kind.grow.prefix}1`;
     const box = insOf(kind, node.data, ifaceOf(node)).find((s) => s.type && compatible(type, s.type));
     if (box) return box.name;
     const field = socketFields(kind).find((f) => compatible(type, f.socket));
@@ -345,7 +347,21 @@
     const wire = { id: `${c.source}.${c.sourceHandle}-${c.target}.${c.targetHandle}`, from: c.source, out: c.sourceHandle, to: c.target, in: c.targetHandle };
     let wires = level.wires.filter((w) => w.id !== wire.id);
     if (typeAt(wire.to, "in", wire.in) !== "event") wires = wires.filter((w) => !(w.to === wire.to && w.in === wire.in));      // во вход данных — один провод
-    setLevel({ ...level, wires: [...wires, wire] });
+    setLevel({ nodes: level.nodes.map((n) => (n.id === wire.to ? named(n, wire) : n)), wires: [...wires, wire] });
+  }
+  // провод в пустую подстановку шаблона: имя по подписи выхода («игрок», «машина»), его можно поправить
+  function named(n: GNode, wire: GWire): GNode {
+    const kind = kindOf(n.type);
+    const row = wire.in.slice(2);
+    if (!kind?.grow?.named || !wire.in.startsWith("f:") || !isRow(kind, row)) return n;
+    const rows = rowsOf(kind, n.data);
+    if (String(rows.find((r) => r.id === row)?.name ?? "").trim()) return n;
+    const src = level.nodes.find((x) => x.id === wire.from);
+    const srcKind = src && kindOf(src.type);
+    const label = (src && srcKind && outsOf(srcKind, src.data, false, ifaceOf(src)).find((s) => s.name === wire.out)?.label) || wire.out;
+    const name = rowName(kind, n.data, label);
+    const next = rows.some((r) => r.id === row) ? rows.map((r) => (r.id === row ? { ...r, name } : r)) : [...rows, { id: row, name }];
+    return { ...n, data: { ...n.data, [kind.grow.field]: next } };
   }
   // провод брошен в пустоту: меню нод, новая нода сразу подключится (как в Blender)
   function onconnectend(event: MouseEvent | TouchEvent, s: { isValid: boolean | null; fromNode: { id: string } | null; fromHandle: { id?: string | null; type?: string } | null }) {

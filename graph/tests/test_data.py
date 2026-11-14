@@ -25,12 +25,14 @@ class DataTests(TestCase):
         self.assertTrue(WorldFlag.objects.get(name="vault").on)
 
     def test_template_number_and_player(self):
-        make([node("m", "manual"), node("t", "template", template="{a}-{b}"), node("n", "number", value=3), node("a", "do:flag")],
-             [wire("m", "fire", "a"), f("m", "player", "t", "a"), f("n", "value", "t", "b"), f("t", "value", "a", "name")])
+        subs = [{"id": "s1", "name": "игрок"}, {"id": "s2", "name": "n"}, {"id": "s3", "name": "тег", "value": "z"}]
+        make([node("m", "manual"), node("t", "template", template="{игрок}-{n}-{тег}-{нет}", subs=subs), node("n", "number", value=3),
+              node("a", "do:flag")],
+             [wire("m", "fire", "a"), f("m", "player", "t", "s1"), f("n", "value", "t", "s2"), f("t", "value", "a", "name")])
         from graph.models import Graph
 
         runtime.start_manual(Graph.objects.get(), "m", self.ivan)
-        self.assertTrue(Flag.objects.filter(user=self.ivan, name="ivan-3").exists())
+        self.assertTrue(Flag.objects.filter(user=self.ivan, name="ivan-3-z-{нет}").exists())
 
     def test_condition_from_wires(self):
         doc = [node("m", "manual"), node("c", "check"), node("cmp", "compare", op="ge"), node("cnt", "read", what="world_counter", name="frag"),
@@ -47,10 +49,12 @@ class DataTests(TestCase):
         self.assertEqual((counter("yes"), counter("no")), (1, 1))
 
     def test_logic_and_fact(self):
-        graph = make([node("m", "manual"), node("c", "check"), node("fa", "fact", expr="flag:x"), node("nt", "not"), node("o", "or"),
+        graph = make([node("m", "manual"), node("c", "check"), node("fa", "fact", expr="flag:x"), node("nt", "logic", op="not"),
+                      node("o", "logic", op="or", values=[{"id": "v1"}, {"id": "v2"}]),
                       node("b", "boolean", value=False), node("y", "do:world_count", name="yes")],
-                     [wire("m", "fire", "c"), f("fa", "value", "nt", "a"), f("nt", "value", "o", "a"), f("b", "value", "o", "b"),
+                     [wire("m", "fire", "c"), f("fa", "value", "nt", "v1"), f("nt", "value", "o", "v1"), f("b", "value", "o", "v2"),
                       f("o", "value", "c", "condition"), wire("c", "yes", "y")])
+        self.assertEqual([p for p in check.problems(graph.doc) if p["level"] == "error"], [])
         runtime.start_manual(graph, "m", self.ivan)
         Flag.objects.create(user=self.ivan, name="x")
         runtime.start_manual(graph, "m", self.ivan)
@@ -61,6 +65,31 @@ class DataTests(TestCase):
                      [wire("m", "fire", "a"), f("n", "value", "x", "b"), f("x", "value", "a", "delta")])
         runtime.start_manual(graph, "m")
         self.assertEqual(counter(), 20)
+
+    def test_logic_ops_over_many_inputs(self):
+        from graph.runtime import Doc, value_of
+
+        cases = {("and", (True, True, True)): True, ("and", (True, False, True)): False, ("or", (False, False, True)): True,
+                 ("xor", (True, False, False)): True, ("xor", (True, True, False)): False, ("not", (True,)): False, ("and", ()): False}
+        for (op, values), expected in cases.items():
+            rows = [{"id": f"v{i + 1}", "value": v} for i, v in enumerate(values)]
+            doc = Doc({"nodes": [{"id": "l", "type": "logic", "data": {"op": op, "values": rows}}]})
+            self.assertEqual(value_of(None, doc, "l", "value"), expected, (op, values))
+
+    def test_math_ops(self):
+        from graph.runtime import Doc, value_of
+
+        for op, a, b, expected in (("mod", 7, 3, 1), ("pow", 2, 10, 1024), ("round", 2.6, None, 3), ("floor", 2.6, None, 2),
+                                   ("ceil", 2.1, None, 3), ("abs", -4, None, 4), ("neg", 5, None, -5), ("div", 1, 0, 0), ("pow", 10, 1000, 0)):
+            doc = Doc({"nodes": [{"id": "x", "type": "math", "data": {"op": op, "a": a, "b": b}}]})
+            self.assertEqual(value_of(None, doc, "x", "value"), expected, op)
+
+    def test_row_inputs_are_typed_and_checked(self):
+        graph = make([node("t", "text", value="x"), node("l", "logic", op="and"), node("tp", "template", template="{a}")],
+                     [f("t", "value", "l", "v1"), f("t", "value", "tp", "s1"), f("t", "value", "tp", "zz")])
+        texts = [p["text"] for p in check.problems(graph.doc)]
+        self.assertIn("«v1» ждёт да/нет, а приходит текст", texts)
+        self.assertTrue(any("нет входа «zz»" in t for t in texts))
 
     def test_waiting_filter_from_a_wire_is_frozen_on_the_wait(self):
         graph = make([node("m", "manual"), node("t", "text", value="/srv/*"), node("fl", "file"), node("a", "do:world_count", name="c")],

@@ -41,6 +41,21 @@ class GrMany(Schema):
     label: str
 
 
+class GrGrow(Schema):
+    field: str
+    prefix: str
+    type: str
+    named: bool
+    min: int
+    single: list[str]
+
+
+class GrWhen(Schema):
+    field: str
+    mode: str
+    values: list[str]
+
+
 class GrKind(Schema):
     name: str
     label: str
@@ -55,6 +70,9 @@ class GrKind(Schema):
     ref: str
     start_only: bool
     help: str
+    title: str = ""
+    grow: GrGrow | None = None
+    when: list[GrWhen] = []
 
 
 class GrGroup(Schema):
