@@ -15,7 +15,7 @@ export const BOXES = ["group", "scenario"];
 
 export const REF = "ref";
 export const TIMEOUT = "timeout";
-export const COLORS: Record<string, string> = { noun: "#3f8f86", flow: "#a7793a", data: "#8a5d7a", action: "#4d6fc4", struct: "#7a5aa8", service: "#5b6170" };
+export const COLORS: Record<string, string> = { entity: "#2f7d6d", noun: "#3f8f86", flow: "#a7793a", data: "#8a5d7a", action: "#4d6fc4", struct: "#7a5aa8", service: "#5b6170" };
 
 // Типы сокетов: цвет у точки и провода. event — «случилось» (поток), остальные — вещи, которые едут по ◆-проводу.
 export const TYPES: Record<string, { label: string; color: string; thing?: boolean }> = {
@@ -23,10 +23,12 @@ export const TYPES: Record<string, { label: string; color: string; thing?: boole
   bool: { label: "Да/нет", color: "#e58fc4" },
   text: { label: "Текст", color: "#6ec1e4" },
   number: { label: "Число", color: "#a1a7b0" },
-  item: { label: "Файл", color: "#ed9e40", thing: true },
+  item: { label: "Объект", color: "#ed9e40", thing: true },
   machine: { label: "Машина", color: "#3fc7b5", thing: true },
+  server: { label: "Сервер", color: "#4fa3d9", thing: true },
   character: { label: "Персонаж", color: "#c792ea", thing: true },
   section: { label: "Раздел", color: "#5fd07a", thing: true },
+  player: { label: "Игрок", color: "#f0e6d2", thing: true },
   flag: { label: "Метка игрока", color: "#f2c66d", thing: true },
   world_flag: { label: "Метка мира", color: "#ff8f6b", thing: true },
   counter: { label: "Счётчик", color: "#8fb3ff", thing: true },

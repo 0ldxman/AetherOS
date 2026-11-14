@@ -39,7 +39,8 @@ def _picks():
     from forum.models import Section
     from mail.models import Flag
     from graph.models import Graph
-    from machines.models import Machine
+    from django.contrib.auth import get_user_model
+    from machines.models import Machine, NetResource
     from machines.models.scenes import SceneScript
     from world.models import WorldCounter, WorldFlag, WorldMoment
 
@@ -71,6 +72,9 @@ def _picks():
         "scene": [option(slug, f"{slug} · {title}" if title else slug) for slug, title in SceneScript.objects.order_by("slug").values_list("slug", "title")],
         "graph": [option(slug, f"{slug} · {title}") for slug, title in Graph.objects.order_by("slug").values_list("slug", "title")],
         "moment": [option(name, f"{name} · {title}" if title else name) for name, title in WorldMoment.objects.order_by("name").values_list("name", "title")],
+        "server": [option(address, f"{address} · {title}" if title else address)
+                   for address, title in NetResource.objects.order_by("address").values_list("address", "title")],
+        "player": [option(name) for name in get_user_model().objects.filter(is_staff=False).order_by("username").values_list("username", flat=True)[:300]],
     }
 
 

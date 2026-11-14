@@ -10,20 +10,21 @@ from dataclasses import dataclass, field
 
 from engine.actions import Field
 
-NOUN, FLOW, DATA, ACTION, STRUCT, SERVICE = "noun", "flow", "data", "action", "struct", "service"
-GROUPS = {NOUN: "Существительные", FLOW: "Ход", DATA: "Данные", ACTION: "Действия", STRUCT: "Сценарии и группы", SERVICE: "Служебные"}
+ENTITY, NOUN, FLOW, DATA, ACTION, STRUCT, SERVICE = "entity", "noun", "flow", "data", "action", "struct", "service"
+GROUPS = {ENTITY: "Сущности", NOUN: "Существительные", FLOW: "Ход", DATA: "Данные", ACTION: "Действия", STRUCT: "Сценарии и группы", SERVICE: "Служебные"}
 
 # Типы сокетов. event — «случилось» (по нему идёт ход), остальное — данные: читаются в момент, когда нода выполняется.
 EVENT = "event"
-TYPES = ("event", "bool", "text", "number", "item", "machine", "character", "section", "flag", "world_flag", "counter", "moment")
-TYPE_LABELS = {"event": "событие", "bool": "да/нет", "text": "текст", "number": "число", "item": "файл", "machine": "машину",
-               "character": "персонажа", "section": "раздел", "flag": "метку игрока", "world_flag": "метку мира", "counter": "счётчик",
-               "moment": "момент"}
-THINGS = ("item", "machine", "character", "section", "flag", "world_flag", "counter", "moment")
+TYPES = ("event", "bool", "text", "number", "item", "machine", "server", "character", "section", "moment", "player", "flag", "world_flag",
+         "counter")
+TYPE_LABELS = {"event": "событие", "bool": "да/нет", "text": "текст", "number": "число", "item": "объект", "machine": "машину",
+               "server": "сервер", "character": "персонажа", "section": "раздел", "moment": "момент", "player": "игрока",
+               "flag": "метку игрока", "world_flag": "метку мира", "counter": "счётчик"}
+THINGS = ("item", "machine", "server", "character", "section", "moment", "player", "flag", "world_flag", "counter")
 FIELD_TYPES = {"text": "text", "textarea": "text", "path": "text", "clock": "text", "expr": "text", "scene": "text", "station": "text",
                "graph": "text", "number": "number", "bool": "bool", "condition": "bool", "key": "item", "item": "item", "letter": "item",
                "object": "item", "character": "character", "section": "section", "flag": "flag", "world_flag": "world_flag",
-               "counter": "counter", "moment": "moment", "machine": "machine"}      # вид поля -> тип его входа; нет в списке — параметр без входа
+               "counter": "counter", "moment": "moment", "machine": "machine", "server": "server", "player": "player"}      # вид поля -> тип его входа; нет в списке — параметр без входа
 
 
 def field_type(field):
@@ -415,6 +416,13 @@ HELP = {
     "fact": "Условие на факты игрока прохождения: ключи, flag:, world:, count:, char:. Верно или нет.",
     "math": "Посчитать A и B. «Случайное» — целое от A до B; округление, модуль и смена знака берут только A.",
     "read": "Прочитать сейчас: счётчик или метку мира, счётчик или метку игрока прохождения.",
+    "ent:machine": "Машина: выбрать в ноде, получить проводом или найти по хосту/имени из текста. Свойства — как сейчас.",
+    "ent:server": "Сетевой сервер (nreq, nget): по адресу.", "ent:object": "Объект библиотеки — содержимое, общее для всех; по слагу или названию.",
+    "ent:character": "Персонаж: по коду или имени.", "ent:section": "Раздел форума: по номеру или названию.",
+    "ent:moment": "Момент мира: по имени или названию; «Идёт» — сейчас ли он.",
+    "ent:player": "Игрок: пусто — игрок прохождения, иначе по логину.",
+    "files": "Где у игрока лежит объект: ищется по самому объекту на машинах, где у игрока есть учётка, поэтому перенос и переименование "
+             "его не теряют. «Где» — машина:путь первой копии вне корзины.",
     "do:flag": "Поставить личную метку игроку (flag:имя).", "do:unflag": "Снять личную метку игрока.",
     "do:key": "Положить ключ в папку секретов учётки, на которой случилось событие.",
     "do:file": "Положить объект файлом по пути в учётке игрока.",
@@ -457,7 +465,11 @@ SOCKET_HELP = {
     "again": "уже было", "in": "когда сюда приходит событие, нода выполняется", "ref": "вещь этой ноды (из события, а без него — та, что выбрана в ноде)",
     "value": "значение", "player": "игрок прохождения (имя)", "path": "путь файла из события", "layer": "слой из события",
     "address": "адрес сервера", "command": "команда", "args": "аргументы команды", "text": "текст из события", "channel": "канал: mail, air, forum",
-    "callsign": "позывной игрока", "title": "заголовок темы", "lit": "стоит ли метка",
+    "callsign": "позывной", "title": "заголовок или название", "lit": "стоит ли метка",
+    "name": "имя или название", "host": "хост машины", "system": "код ОС машины", "up": "машина работает (не остановлена)",
+    "code": "код персонажа", "active": "персонаж активен", "archived": "раздел в архиве", "running": "момент идёт сейчас",
+    "format": "формат объекта", "has": "у игрока есть копия вне корзины", "where": "машина:путь первой копии", "count": "сколько копий вне корзины",
+    "trash": "какая-то копия в корзине", "edited": "игрок поменял текст копии",
 }
 
 
@@ -515,6 +527,36 @@ _data("read", "Прочитать", "{what} {name}",
       (Field("what", "Что", "select", "", False, (("world_counter", "счётчик мира"), ("player_counter", "счётчик игрока"), ("world_flag", "метка мира"),
                                                   ("player_flag", "метка игрока"))), Field("name", "Имя", "text", "", True)), "number", "Значение")
 DATA_OUTS["read"] = (Sock("value", "Значение", "number"), Sock("lit", "Стоит", "bool"))
+
+
+# ---------- сущности: вещь мира и её свойства сейчас (graph/entities.py) ----------
+
+def _entity(name, label, field, outs):
+    register(Kind(name, label, ENTITY, "{%s}" % field.name, (field,), ins=()))
+    DATA_OUTS[name] = outs
+
+
+_entity("ent:machine", "Машина", Field("machine", "Машина", "machine"),
+        (Sock("value", "Машина", "machine"), Sock("name", "Имя", "text"), Sock("host", "Хост", "text"), Sock("address", "Адрес", "text"),
+         Sock("system", "ОС", "text"), Sock("up", "Работает", "bool")))
+_entity("ent:server", "Сервер", Field("server", "Сервер", "server"),
+        (Sock("value", "Сервер", "server"), Sock("address", "Адрес", "text"), Sock("title", "Название", "text")))
+_entity("ent:object", "Объект", Field("item", "Объект", "object"),
+        (Sock("value", "Объект", "item"), Sock("name", "Название", "text"), Sock("format", "Формат", "text")))
+_entity("ent:character", "Персонаж", Field("character", "Персонаж", "character"),
+        (Sock("value", "Персонаж", "character"), Sock("code", "Код", "text"), Sock("name", "Имя", "text"), Sock("callsign", "Позывной", "text"),
+         Sock("active", "Активен", "bool")))
+_entity("ent:section", "Раздел", Field("section", "Раздел", "section"),
+        (Sock("value", "Раздел", "section"), Sock("title", "Название", "text"), Sock("archived", "В архиве", "bool")))
+_entity("ent:moment", "Момент", Field("moment", "Момент", "moment"),
+        (Sock("value", "Момент", "moment"), Sock("title", "Название", "text"), Sock("running", "Идёт", "bool")))
+_entity("ent:player", "Игрок", Field("player", "Игрок", "player", "игрок прохождения"),
+        (Sock("value", "Игрок", "player"), Sock("name", "Имя", "text"), Sock("callsign", "Позывной", "text")))
+register(Kind("files", "Файлы игрока", ENTITY, "{item}", (
+    Field("item", "Объект", "object", "", True), Field("player", "Игрок", "player", "игрок прохождения"), Field("machine", "Машина", "machine", "любая"),
+), ins=()))
+DATA_OUTS["files"] = (Sock("has", "Есть", "bool"), Sock("where", "Где", "text"), Sock("count", "Копий", "number"),
+                      Sock("trash", "В корзине", "bool"), Sock("edited", "Изменён игроком", "bool"))
 
 
 def out_type(kind, name):
@@ -636,5 +678,5 @@ def catalog():
             "grow": {"field": k.grow.field, "prefix": k.grow.prefix, "type": k.grow.type, "named": k.grow.named, "min": k.grow.min,
                      "single": list(k.grow.single)} if k.grow else None,
             "when": [{"field": name, "mode": mode, "values": list(values)} for name, (mode, values) in k.when.items()],
-        } for k in KINDS.values()],
+        } for k in sorted(KINDS.values(), key=lambda k: list(GROUPS).index(k.group))],
     }

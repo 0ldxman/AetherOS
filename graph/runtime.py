@@ -394,9 +394,15 @@ def value_of(run, doc, node_id, out, depth=0):
         if value in (None, "") and sock.fallback:
             value = data.get(sock.fallback)
         return value
+    get = lambda name: input_of(run, doc, node_id, name, depth + 1)       # noqa: E731
+    if kind.group == N.ENTITY:
+        from graph import entities
+
+        if kind.name == "files":
+            return entities.files(run, kind, get("item"), get("player"), get("machine"), out)
+        return entities.read(run, kind, get(kind.fields[0].name), out)
     if kind.group != N.DATA:
         return None
-    get = lambda name: input_of(run, doc, node_id, name, depth + 1)       # noqa: E731
     name = kind.name
     if name == "text":
         return str(get("value") or "")
@@ -697,7 +703,7 @@ def advance(run, items):
     while queue and run.status == Run.Status.RUNNING:
         node_id, sock = queue.popleft()
         kind = doc.kind(node_id)
-        if kind is None or kind.name in ("note", "frame") or kind.group == N.DATA:
+        if kind is None or kind.name in ("note", "frame") or kind.group in (N.DATA, N.ENTITY):
             continue
         if doc.nodes[node_id].get("mute"):                 # выключенная нода пропускает поток насквозь (как M в Blender)
             if "next" in N.sockets(kind, doc.data(node_id), "out"):
