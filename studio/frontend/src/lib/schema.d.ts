@@ -4747,6 +4747,43 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/studio/api/world/chains": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Chain List */
+        get: operations["studio_api_chains_chain_list"];
+        put?: never;
+        /** Create */
+        post: operations["studio_api_chains_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/studio/api/world/chains/{chain_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Detail */
+        get: operations["studio_api_chains_detail"];
+        /** Update */
+        put: operations["studio_api_chains_update"];
+        post?: never;
+        /** Delete */
+        delete: operations["studio_api_chains_delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -11730,6 +11767,106 @@ export interface components {
             at: string;
             /** Player */
             player: string;
+        };
+        /** CnRow */
+        CnRow: {
+            /** Id */
+            id: number;
+            /** Slug */
+            slug: string;
+            /** Title */
+            title: string;
+            /** Steps */
+            steps: number;
+            /** Active */
+            active: boolean;
+        };
+        /** CnDetail */
+        CnDetail: {
+            /** Id */
+            id: number;
+            /** Slug */
+            slug: string;
+            /** Title */
+            title: string;
+            /** Note */
+            note: string;
+            /** Active */
+            active: boolean;
+            /** Steps */
+            steps: components["schemas"]["CnStep"][];
+            /** Funnel */
+            funnel: components["schemas"]["CnFunnel"][];
+            /** Players */
+            players: number;
+            /** Finished */
+            finished: string[];
+        };
+        /** CnFunnel */
+        CnFunnel: {
+            /** Reached */
+            reached: number;
+            /** First Player */
+            first_player: string;
+            /** First At */
+            first_at: string | null;
+            /** Waiting */
+            waiting: components["schemas"]["CnWaiting"][];
+            /** Breaks */
+            breaks: string[];
+        };
+        /** CnStep */
+        CnStep: {
+            /** Id */
+            id?: number | null;
+            /** Title */
+            title: string;
+            /**
+             * Condition Text
+             * @default
+             */
+            condition_text: string;
+            /**
+             * Hint
+             * @default
+             */
+            hint: string;
+        };
+        /** CnWaiting */
+        CnWaiting: {
+            /** Player */
+            player: string;
+            /** Player Id */
+            player_id: number;
+            /**
+             * Since
+             * Format: date-time
+             */
+            since: string;
+            /** Days */
+            days: number;
+        };
+        /** CnIn */
+        CnIn: {
+            /** Slug */
+            slug: string;
+            /** Title */
+            title: string;
+            /**
+             * Note
+             * @default
+             */
+            note: string;
+            /**
+             * Active
+             * @default true
+             */
+            active: boolean;
+            /**
+             * Steps
+             * @default []
+             */
+            steps: components["schemas"]["CnStep"][];
         };
     };
     responses: never;
@@ -20056,6 +20193,118 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["RuFire"][];
                 };
+            };
+        };
+    };
+    studio_api_chains_chain_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CnRow"][];
+                };
+            };
+        };
+    };
+    studio_api_chains_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CnIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CnDetail"];
+                };
+            };
+        };
+    };
+    studio_api_chains_detail: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                chain_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CnDetail"];
+                };
+            };
+        };
+    };
+    studio_api_chains_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                chain_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CnIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CnDetail"];
+                };
+            };
+        };
+    };
+    studio_api_chains_delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                chain_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
         };
     };

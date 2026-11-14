@@ -77,6 +77,13 @@ def emit(name, user=None, *, machine=None, login="", source="", **data):
         rules.dispatch(event)
     except Exception:                                   # noqa: BLE001 — сломанное правило не роняет игру; причина в логе
         log.exception("rules on %s failed", name)
+    if user is not None:
+        try:
+            from engine import chains
+
+            chains.update(user)
+        except Exception:                               # noqa: BLE001 — отметки цепочек не роняют игру
+            log.exception("chains on %s failed", name)
     return event
 
 

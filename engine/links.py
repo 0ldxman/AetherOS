@@ -118,6 +118,10 @@ def _requirements():
         name = (row.match or {}).get({"key": "slug", "world": "flag", "counter": "counter"}.get(watched, ""), "")
         if watched and name and not any(ch in str(name) for ch in "*?["):
             out.append((watched, str(name), Place("правило ждёт", row.name, "#/rules")))
+    from engine.models import ChainStep
+
+    for step in ChainStep.objects.select_related("chain"):
+        add(step.condition, Place("шаг цепочки", f"{step.chain.title}: {step.title}", f"#/chains/{step.chain_id}"))
     for part in KeyPart.objects.select_related("recipe__result", "item"):
         out.append(("key", part.item.slug, Place("сборка ключа", f"часть {part.recipe.result.slug}", f"#/items/{part.recipe.result_id}")))
     out += _spoilers()

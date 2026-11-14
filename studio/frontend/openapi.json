@@ -14672,6 +14672,182 @@
      }
     ]
    }
+  },
+  "/studio/api/world/chains": {
+   "get": {
+    "operationId": "studio_api_chains_chain_list",
+    "summary": "Chain List",
+    "parameters": [],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "items": {
+          "$ref": "#/components/schemas/CnRow"
+         },
+         "title": "Response",
+         "type": "array"
+        }
+       }
+      }
+     }
+    },
+    "tags": [
+     "chains"
+    ],
+    "security": [
+     {
+      "StudioAuth": []
+     }
+    ]
+   },
+   "post": {
+    "operationId": "studio_api_chains_create",
+    "summary": "Create",
+    "parameters": [],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/CnDetail"
+        }
+       }
+      }
+     }
+    },
+    "tags": [
+     "chains"
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/CnIn"
+       }
+      }
+     },
+     "required": true
+    },
+    "security": [
+     {
+      "StudioAuth": []
+     }
+    ]
+   }
+  },
+  "/studio/api/world/chains/{chain_id}": {
+   "get": {
+    "operationId": "studio_api_chains_detail",
+    "summary": "Detail",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "chain_id",
+      "schema": {
+       "title": "Chain Id",
+       "type": "integer"
+      },
+      "required": true
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/CnDetail"
+        }
+       }
+      }
+     }
+    },
+    "tags": [
+     "chains"
+    ],
+    "security": [
+     {
+      "StudioAuth": []
+     }
+    ]
+   },
+   "put": {
+    "operationId": "studio_api_chains_update",
+    "summary": "Update",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "chain_id",
+      "schema": {
+       "title": "Chain Id",
+       "type": "integer"
+      },
+      "required": true
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/CnDetail"
+        }
+       }
+      }
+     }
+    },
+    "tags": [
+     "chains"
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/CnIn"
+       }
+      }
+     },
+     "required": true
+    },
+    "security": [
+     {
+      "StudioAuth": []
+     }
+    ]
+   },
+   "delete": {
+    "operationId": "studio_api_chains_delete",
+    "summary": "Delete",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "chain_id",
+      "schema": {
+       "title": "Chain Id",
+       "type": "integer"
+      },
+      "required": true
+     }
+    ],
+    "responses": {
+     "204": {
+      "description": "No Content"
+     }
+    },
+    "tags": [
+     "chains"
+    ],
+    "security": [
+     {
+      "StudioAuth": []
+     }
+    ]
+   }
   }
  },
  "components": {
@@ -31837,6 +32013,247 @@
      "player"
     ],
     "title": "RuFire",
+    "type": "object"
+   },
+   "CnRow": {
+    "properties": {
+     "id": {
+      "title": "Id",
+      "type": "integer"
+     },
+     "slug": {
+      "title": "Slug",
+      "type": "string"
+     },
+     "title": {
+      "title": "Title",
+      "type": "string"
+     },
+     "steps": {
+      "title": "Steps",
+      "type": "integer"
+     },
+     "active": {
+      "title": "Active",
+      "type": "boolean"
+     }
+    },
+    "required": [
+     "id",
+     "slug",
+     "title",
+     "steps",
+     "active"
+    ],
+    "title": "CnRow",
+    "type": "object"
+   },
+   "CnDetail": {
+    "properties": {
+     "id": {
+      "title": "Id",
+      "type": "integer"
+     },
+     "slug": {
+      "title": "Slug",
+      "type": "string"
+     },
+     "title": {
+      "title": "Title",
+      "type": "string"
+     },
+     "note": {
+      "title": "Note",
+      "type": "string"
+     },
+     "active": {
+      "title": "Active",
+      "type": "boolean"
+     },
+     "steps": {
+      "items": {
+       "$ref": "#/components/schemas/CnStep"
+      },
+      "title": "Steps",
+      "type": "array"
+     },
+     "funnel": {
+      "items": {
+       "$ref": "#/components/schemas/CnFunnel"
+      },
+      "title": "Funnel",
+      "type": "array"
+     },
+     "players": {
+      "title": "Players",
+      "type": "integer"
+     },
+     "finished": {
+      "items": {
+       "type": "string"
+      },
+      "title": "Finished",
+      "type": "array"
+     }
+    },
+    "required": [
+     "id",
+     "slug",
+     "title",
+     "note",
+     "active",
+     "steps",
+     "funnel",
+     "players",
+     "finished"
+    ],
+    "title": "CnDetail",
+    "type": "object"
+   },
+   "CnFunnel": {
+    "properties": {
+     "reached": {
+      "title": "Reached",
+      "type": "integer"
+     },
+     "first_player": {
+      "title": "First Player",
+      "type": "string"
+     },
+     "first_at": {
+      "anyOf": [
+       {
+        "format": "date-time",
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "First At"
+     },
+     "waiting": {
+      "items": {
+       "$ref": "#/components/schemas/CnWaiting"
+      },
+      "title": "Waiting",
+      "type": "array"
+     },
+     "breaks": {
+      "items": {
+       "type": "string"
+      },
+      "title": "Breaks",
+      "type": "array"
+     }
+    },
+    "required": [
+     "reached",
+     "first_player",
+     "first_at",
+     "waiting",
+     "breaks"
+    ],
+    "title": "CnFunnel",
+    "type": "object"
+   },
+   "CnStep": {
+    "properties": {
+     "id": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Id"
+     },
+     "title": {
+      "title": "Title",
+      "type": "string"
+     },
+     "condition_text": {
+      "default": "",
+      "title": "Condition Text",
+      "type": "string"
+     },
+     "hint": {
+      "default": "",
+      "title": "Hint",
+      "type": "string"
+     }
+    },
+    "required": [
+     "title"
+    ],
+    "title": "CnStep",
+    "type": "object"
+   },
+   "CnWaiting": {
+    "properties": {
+     "player": {
+      "title": "Player",
+      "type": "string"
+     },
+     "player_id": {
+      "title": "Player Id",
+      "type": "integer"
+     },
+     "since": {
+      "format": "date-time",
+      "title": "Since",
+      "type": "string"
+     },
+     "days": {
+      "title": "Days",
+      "type": "number"
+     }
+    },
+    "required": [
+     "player",
+     "player_id",
+     "since",
+     "days"
+    ],
+    "title": "CnWaiting",
+    "type": "object"
+   },
+   "CnIn": {
+    "properties": {
+     "slug": {
+      "title": "Slug",
+      "type": "string"
+     },
+     "title": {
+      "title": "Title",
+      "type": "string"
+     },
+     "note": {
+      "default": "",
+      "title": "Note",
+      "type": "string"
+     },
+     "active": {
+      "default": true,
+      "title": "Active",
+      "type": "boolean"
+     },
+     "steps": {
+      "default": [],
+      "items": {
+       "$ref": "#/components/schemas/CnStep"
+      },
+      "title": "Steps",
+      "type": "array"
+     }
+    },
+    "required": [
+     "slug",
+     "title"
+    ],
+    "title": "CnIn",
     "type": "object"
    }
   },
