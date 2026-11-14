@@ -4654,6 +4654,79 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/studio/api/world/rules": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Rule List */
+        get: operations["studio_api_rules_rule_list"];
+        put?: never;
+        /** Create */
+        post: operations["studio_api_rules_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/studio/api/world/rules/{rule_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Update */
+        put: operations["studio_api_rules_update"];
+        post?: never;
+        /** Delete */
+        delete: operations["studio_api_rules_delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/studio/api/world/rules/{rule_id}/reset": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Reset
+         * @description Забыть срабатывания: правило снова «ничьё» (для проверки загадки).
+         */
+        post: operations["studio_api_rules_reset"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/studio/api/world/rules/{rule_id}/fires": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Fires */
+        get: operations["studio_api_rules_fires"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -11511,6 +11584,106 @@ export interface components {
             value: string;
             /** Label */
             label: string;
+        };
+        /** RuEventKind */
+        RuEventKind: {
+            /** Name */
+            name: string;
+            /** Label */
+            label: string;
+            /** Fields */
+            fields: string[];
+        };
+        /** RuList */
+        RuList: {
+            /** Rules */
+            rules: components["schemas"]["RuRule"][];
+            /** Events */
+            events: components["schemas"]["RuEventKind"][];
+        };
+        /** RuRule */
+        RuRule: {
+            /** Id */
+            id: number;
+            /** Name */
+            name: string;
+            /** Label */
+            label: string;
+            /** On */
+            on: string;
+            /** Match */
+            match: {
+                [key: string]: string;
+            };
+            /** Condition Text */
+            condition_text: string;
+            /** Actions */
+            actions: {
+                [key: string]: unknown;
+            }[];
+            /** Once */
+            once: string;
+            /** Active */
+            active: boolean;
+            /** Fires */
+            fires: number;
+            /** First Player */
+            first_player: string;
+            /** First At */
+            first_at: string | null;
+            /** Last At */
+            last_at: string | null;
+        };
+        /** RuIn */
+        RuIn: {
+            /** Name */
+            name: string;
+            /**
+             * Label
+             * @default
+             */
+            label: string;
+            /** On */
+            on: string;
+            /**
+             * Match
+             * @default {}
+             */
+            match: {
+                [key: string]: string;
+            };
+            /**
+             * Condition Text
+             * @default
+             */
+            condition_text: string;
+            /**
+             * Actions
+             * @default []
+             */
+            actions: {
+                [key: string]: unknown;
+            }[];
+            /**
+             * Once
+             * @default player
+             */
+            once: string;
+            /**
+             * Active
+             * @default true
+             */
+            active: boolean;
+        };
+        /** RuFire */
+        RuFire: {
+            /**
+             * At
+             * Format: date-time
+             */
+            at: string;
+            /** Player */
+            player: string;
         };
     };
     responses: never;
@@ -19680,6 +19853,142 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["EnCatalog"];
+                };
+            };
+        };
+    };
+    studio_api_rules_rule_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RuList"];
+                };
+            };
+        };
+    };
+    studio_api_rules_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RuIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RuList"];
+                };
+            };
+        };
+    };
+    studio_api_rules_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                rule_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RuIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RuList"];
+                };
+            };
+        };
+    };
+    studio_api_rules_delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                rule_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RuList"];
+                };
+            };
+        };
+    };
+    studio_api_rules_reset: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                rule_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RuList"];
+                };
+            };
+        };
+    };
+    studio_api_rules_fires: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                rule_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RuFire"][];
                 };
             };
         };

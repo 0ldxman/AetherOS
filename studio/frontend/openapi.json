@@ -14417,6 +14417,229 @@
      }
     ]
    }
+  },
+  "/studio/api/world/rules": {
+   "get": {
+    "operationId": "studio_api_rules_rule_list",
+    "summary": "Rule List",
+    "parameters": [],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/RuList"
+        }
+       }
+      }
+     }
+    },
+    "tags": [
+     "rules"
+    ],
+    "security": [
+     {
+      "StudioAuth": []
+     }
+    ]
+   },
+   "post": {
+    "operationId": "studio_api_rules_create",
+    "summary": "Create",
+    "parameters": [],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/RuList"
+        }
+       }
+      }
+     }
+    },
+    "tags": [
+     "rules"
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/RuIn"
+       }
+      }
+     },
+     "required": true
+    },
+    "security": [
+     {
+      "StudioAuth": []
+     }
+    ]
+   }
+  },
+  "/studio/api/world/rules/{rule_id}": {
+   "put": {
+    "operationId": "studio_api_rules_update",
+    "summary": "Update",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "rule_id",
+      "schema": {
+       "title": "Rule Id",
+       "type": "integer"
+      },
+      "required": true
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/RuList"
+        }
+       }
+      }
+     }
+    },
+    "tags": [
+     "rules"
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/RuIn"
+       }
+      }
+     },
+     "required": true
+    },
+    "security": [
+     {
+      "StudioAuth": []
+     }
+    ]
+   },
+   "delete": {
+    "operationId": "studio_api_rules_delete",
+    "summary": "Delete",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "rule_id",
+      "schema": {
+       "title": "Rule Id",
+       "type": "integer"
+      },
+      "required": true
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/RuList"
+        }
+       }
+      }
+     }
+    },
+    "tags": [
+     "rules"
+    ],
+    "security": [
+     {
+      "StudioAuth": []
+     }
+    ]
+   }
+  },
+  "/studio/api/world/rules/{rule_id}/reset": {
+   "post": {
+    "operationId": "studio_api_rules_reset",
+    "summary": "Reset",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "rule_id",
+      "schema": {
+       "title": "Rule Id",
+       "type": "integer"
+      },
+      "required": true
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/RuList"
+        }
+       }
+      }
+     }
+    },
+    "description": "Забыть срабатывания: правило снова «ничьё» (для проверки загадки).",
+    "tags": [
+     "rules"
+    ],
+    "security": [
+     {
+      "StudioAuth": []
+     }
+    ]
+   }
+  },
+  "/studio/api/world/rules/{rule_id}/fires": {
+   "get": {
+    "operationId": "studio_api_rules_fires",
+    "summary": "Fires",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "rule_id",
+      "schema": {
+       "title": "Rule Id",
+       "type": "integer"
+      },
+      "required": true
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "items": {
+          "$ref": "#/components/schemas/RuFire"
+         },
+         "title": "Response",
+         "type": "array"
+        }
+       }
+      }
+     }
+    },
+    "tags": [
+     "rules"
+    ],
+    "security": [
+     {
+      "StudioAuth": []
+     }
+    ]
+   }
   }
  },
  "components": {
@@ -31287,6 +31510,226 @@
      "label"
     ],
     "title": "EnOption",
+    "type": "object"
+   },
+   "RuEventKind": {
+    "properties": {
+     "name": {
+      "title": "Name",
+      "type": "string"
+     },
+     "label": {
+      "title": "Label",
+      "type": "string"
+     },
+     "fields": {
+      "items": {
+       "type": "string"
+      },
+      "title": "Fields",
+      "type": "array"
+     }
+    },
+    "required": [
+     "name",
+     "label",
+     "fields"
+    ],
+    "title": "RuEventKind",
+    "type": "object"
+   },
+   "RuList": {
+    "properties": {
+     "rules": {
+      "items": {
+       "$ref": "#/components/schemas/RuRule"
+      },
+      "title": "Rules",
+      "type": "array"
+     },
+     "events": {
+      "items": {
+       "$ref": "#/components/schemas/RuEventKind"
+      },
+      "title": "Events",
+      "type": "array"
+     }
+    },
+    "required": [
+     "rules",
+     "events"
+    ],
+    "title": "RuList",
+    "type": "object"
+   },
+   "RuRule": {
+    "properties": {
+     "id": {
+      "title": "Id",
+      "type": "integer"
+     },
+     "name": {
+      "title": "Name",
+      "type": "string"
+     },
+     "label": {
+      "title": "Label",
+      "type": "string"
+     },
+     "on": {
+      "title": "On",
+      "type": "string"
+     },
+     "match": {
+      "additionalProperties": {
+       "type": "string"
+      },
+      "title": "Match",
+      "type": "object"
+     },
+     "condition_text": {
+      "title": "Condition Text",
+      "type": "string"
+     },
+     "actions": {
+      "items": {
+       "additionalProperties": true,
+       "type": "object"
+      },
+      "title": "Actions",
+      "type": "array"
+     },
+     "once": {
+      "title": "Once",
+      "type": "string"
+     },
+     "active": {
+      "title": "Active",
+      "type": "boolean"
+     },
+     "fires": {
+      "title": "Fires",
+      "type": "integer"
+     },
+     "first_player": {
+      "title": "First Player",
+      "type": "string"
+     },
+     "first_at": {
+      "anyOf": [
+       {
+        "format": "date-time",
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "First At"
+     },
+     "last_at": {
+      "anyOf": [
+       {
+        "format": "date-time",
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Last At"
+     }
+    },
+    "required": [
+     "id",
+     "name",
+     "label",
+     "on",
+     "match",
+     "condition_text",
+     "actions",
+     "once",
+     "active",
+     "fires",
+     "first_player",
+     "first_at",
+     "last_at"
+    ],
+    "title": "RuRule",
+    "type": "object"
+   },
+   "RuIn": {
+    "properties": {
+     "name": {
+      "title": "Name",
+      "type": "string"
+     },
+     "label": {
+      "default": "",
+      "title": "Label",
+      "type": "string"
+     },
+     "on": {
+      "title": "On",
+      "type": "string"
+     },
+     "match": {
+      "additionalProperties": {
+       "type": "string"
+      },
+      "default": {},
+      "title": "Match",
+      "type": "object"
+     },
+     "condition_text": {
+      "default": "",
+      "title": "Condition Text",
+      "type": "string"
+     },
+     "actions": {
+      "default": [],
+      "items": {
+       "additionalProperties": true,
+       "type": "object"
+      },
+      "title": "Actions",
+      "type": "array"
+     },
+     "once": {
+      "default": "player",
+      "title": "Once",
+      "type": "string"
+     },
+     "active": {
+      "default": true,
+      "title": "Active",
+      "type": "boolean"
+     }
+    },
+    "required": [
+     "name",
+     "on"
+    ],
+    "title": "RuIn",
+    "type": "object"
+   },
+   "RuFire": {
+    "properties": {
+     "at": {
+      "format": "date-time",
+      "title": "At",
+      "type": "string"
+     },
+     "player": {
+      "title": "Player",
+      "type": "string"
+     }
+    },
+    "required": [
+     "at",
+     "player"
+    ],
+    "title": "RuFire",
     "type": "object"
    }
   },

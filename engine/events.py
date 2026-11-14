@@ -27,6 +27,26 @@ NAMES = {
 }
 
 
+FIELDS = {                                  # какие подробности есть у события (для образца правила); у всех ещё host и login
+    "key.got": ("slug", "path"),
+    "key.joined": ("slug",),
+    "file.read": ("path",),
+    "file.deleted": ("path",),
+    "file.restored": ("path",),
+    "layer.removed": ("path", "layer"),
+    "layer.attempt": ("path", "layer"),
+    "layer.failed": ("path", "layer"),
+    "mail.sent": ("to", "conversation", "step", "variant", "result"),
+    "air.sent": ("freq", "callsign", "text"),
+    "forum.posted": ("section", "topic", "title"),
+    "machine.login": (),
+    "world.flag": ("flag", "on"),
+    "world.counter": ("counter", "value"),
+    "moment.started": ("moment",),
+    "moment.ended": ("moment",),
+}
+
+
 def _clean(value):
     """Подробности события только из простых значений: строки, числа, списки, словари."""
     if isinstance(value, (str, int, float, bool)) or value is None:
@@ -46,11 +66,18 @@ def emit(name, user=None, *, machine=None, login="", source="", **data):
         user = None
     host = getattr(machine, "hostname", machine) or ""
     try:
-        return Event.objects.create(name=name[:40], user=user, host=str(host)[:64], login=str(login or "")[:64], source=str(source or "")[:200],
-                                    data=_clean(data))
+        event = Event.objects.create(name=name[:40], user=user, host=str(host)[:64], login=str(login or "")[:64], source=str(source or "")[:200],
+                                     data=_clean(data))
     except Exception:                                   # noqa: BLE001 — событие не должно ронять действие игрока
         log.exception("emit %s failed", name)
         return None
+    try:
+        from engine import rules
+
+        rules.dispatch(event)
+    except Exception:                                   # noqa: BLE001 — сломанное правило не роняет игру; причина в логе
+        log.exception("rules on %s failed", name)
+    return event
 
 
 def journal(user, limit=100):
