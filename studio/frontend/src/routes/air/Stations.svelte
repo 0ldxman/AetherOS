@@ -21,7 +21,6 @@
   let broadcasts = $state<Broadcast[]>([]);
   let responders = $state<Responder[]>([]);
   let picks = $state<Schemas["MlPicks"] | null>(null);
-  let adding = $state({ name: "", label: "", kind: "station" });
   const station = $derived(stations.find((s) => s.id === selected) ?? null);
   const ZONES: string[] = (Intl as unknown as { supportedValuesOf?: (key: string) => string[] }).supportedValuesOf?.("timeZone") ?? ["UTC"];
 
@@ -54,14 +53,6 @@
     picks = (await api.GET("/studio/api/mail/picks", { params: { query: { kind: "key" } } })).data ?? null;
   });
 
-  async function addStation() {
-    const { data, error } = await api.POST("/studio/api/air/stations", { body: adding });
-    if (error || !data) return toast(problem(error), "error");
-    adding = { name: "", label: "", kind: "station" };
-    await loadStations();
-    selected = data.id;
-    onchange?.();
-  }
   async function dropStation() {
     if (!station) return;
     if (!(await ask(`Удалить ${station.name}?`, "Уйдут её передачи за сутки, расписание и ответчики, позывной освободится."))) return;
@@ -150,7 +141,7 @@
 
 <div class="layout">
   <aside class="list">
-    <h3>Станции и персонажи</h3>
+    <h3>Позывные</h3>
     <ul>
       {#each stations as s (s.id)}
         <li><button class:on={s.id === selected} onclick={() => (selected = s.id)}>
@@ -158,14 +149,7 @@
         </button></li>
       {:else}<li class="muted small pad">Станций пока нет.</li>{/each}
     </ul>
-    <form class="add" onsubmit={(e) => { e.preventDefault(); addStation(); }}>
-      <input class="field mono" placeholder="ПОЗЫВНОЙ" bind:value={adding.name} maxlength="12" aria-label="Позывной новой станции" />
-      <div class="row">
-        <select class="field" bind:value={adding.kind} aria-label="Вид"><option value="station">станция</option><option value="character">персонаж</option></select>
-        <button class="btn" disabled={!adding.name.trim()}>Добавить</button>
-      </div>
-      <input class="field" placeholder="подпись для авторов" bind:value={adding.label} aria-label="Подпись" />
-    </form>
+    <p class="muted small pad">Позывные заводятся у персонажа: <a href="#/characters">Персонажи</a> → карточка → «Позывные в эфире».</p>
   </aside>
 
   <section class="detail">
@@ -290,9 +274,6 @@
   .list li button { display: flex; flex-direction: column; gap: 2px; width: 100%; padding: 6px 8px; border: 0; border-radius: var(--radius-s); background: none; color: inherit; font: inherit; text-align: left; cursor: pointer; }
   .list li button:hover { background: var(--raise); }
   .list li button.on { background: color-mix(in srgb, var(--accent) 14%, transparent); }
-  .add { display: flex; flex-direction: column; gap: 6px; padding-top: 10px; border-top: 1px solid var(--line-soft); }
-  .add .row { display: flex; gap: 6px; }
-  .add select { flex: 1; width: auto; }
   .detail { display: flex; flex-direction: column; gap: 14px; padding: 14px 16px; min-width: 0; }
   .head { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
   .head h2 { margin: 0; font-size: 18px; }

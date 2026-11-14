@@ -3671,7 +3671,10 @@ export interface paths {
         /** Stations */
         get: operations["studio_api_air_stations"];
         put?: never;
-        /** Add Station */
+        /**
+         * Add Station
+         * @description Старый путь: Студия заводит позывные на экране персонажа (studio/api/characters.py). Оставлен для совместимости.
+         */
         post: operations["studio_api_air_add_station"];
         delete?: never;
         options?: never;
@@ -4118,6 +4121,60 @@ export interface paths {
         post?: never;
         /** Delete */
         delete: operations["studio_api_characters_delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/studio/api/characters/{character_id}/stations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Add Station */
+        post: operations["studio_api_characters_add_station"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/studio/api/characters/{character_id}/inbox": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Inbox List
+         * @description status: open (новые и взятые), new, taken, answered, skipped, all.
+         */
+        get: operations["studio_api_characters_inbox_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/studio/api/characters/inbox/{inbound_id}/status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Inbox Status */
+        post: operations["studio_api_characters_inbox_status"];
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -10500,6 +10557,10 @@ export interface components {
             personas: number[];
             /** Stations */
             stations: number[];
+            /** Inbox */
+            inbox: {
+                [key: string]: number;
+            };
         };
         /** ChErrors */
         ChErrors: {
@@ -10589,6 +10650,47 @@ export interface components {
             stations: components["schemas"]["ChChannel"][];
             /** Authors */
             authors: components["schemas"]["ChAuthor"][];
+        };
+        /** ChStationIn */
+        ChStationIn: {
+            /** Name */
+            name: string;
+            /**
+             * Kind
+             * @default character
+             */
+            kind: string;
+        };
+        /** ChInbound */
+        ChInbound: {
+            /** Id */
+            id: number;
+            /** Channel */
+            channel: string;
+            /** Sender */
+            sender: string;
+            /** Player */
+            player: string;
+            /** Subject */
+            subject: string;
+            /** Text */
+            text: string;
+            /** Status */
+            status: string;
+            /** Taken By */
+            taken_by: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Link */
+            link: string;
+        };
+        /** ChStatusIn */
+        ChStatusIn: {
+            /** Status */
+            status: string;
         };
         /** WsContribution */
         WsContribution: {
@@ -18285,6 +18387,101 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+        };
+    };
+    studio_api_characters_add_station: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                character_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ChStationIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChOut"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChErrors"];
+                };
+            };
+        };
+    };
+    studio_api_characters_inbox_list: {
+        parameters: {
+            query?: {
+                channel?: string;
+                status?: string;
+            };
+            header?: never;
+            path: {
+                character_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChInbound"][];
+                };
+            };
+        };
+    };
+    studio_api_characters_inbox_status: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                inbound_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ChStatusIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChInbound"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChErrors"];
+                };
             };
         };
     };

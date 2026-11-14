@@ -56,3 +56,29 @@ class CharactersStudioTests(TestCase):
         self.assertEqual((post["name"], post["kind"]), ("OPERATOR-7", "character"))
         response = self.client.post("/studio/api/forum/topics", data=json.dumps({"section": section.pk, "title": "Hi", "text": "t"}), content_type="application/json")
         self.assertEqual(response.status_code, 400)
+
+
+    def test_station_is_created_on_the_character(self):
+        Character.objects.create(code="OP7", name="Operator 7")
+        found = Character.objects.get()
+        status, data = self.call("post", f"/{found.pk}/stations", {"name": "operator-7"})
+        self.assertEqual((status, data["air"], data["callsign"]), (200, ["OPERATOR-7"], "OPERATOR-7"))
+        self.assertEqual(Station.objects.get().character, found)
+        self.assertIn("station", self.call("post", f"/{found.pk}/stations", {"name": "OPERATOR-7"})[1]["fields"])
+        self.assertIn("station", self.call("post", f"/{found.pk}/stations", {"name": "7up"})[1]["fields"])
+
+    def test_inbox_by_channel_and_status(self):
+        from characters.models import Inbound
+
+        found = Character.objects.create(code="OP7", name="Operator 7")
+        a = Inbound.objects.create(character=found, channel="mail", sender="ivan@main", subject="hi", text="are you there")
+        Inbound.objects.create(character=found, channel="air", sender="IVAN", text="OPERATOR-7?")
+        self.assertEqual(self.call("get", f"/{found.pk}")[1]["inbox"], {"mail": 1, "forum": 0, "air": 1})
+        rows = self.call("get", f"/{found.pk}/inbox?channel=mail")[1]
+        self.assertEqual([r["subject"] for r in rows], ["hi"])
+        status, row = self.call("post", f"/inbox/{a.pk}/status", {"status": "taken"})
+        self.assertEqual((row["status"], row["taken_by"]), ("taken", "boss"))
+        self.call("post", f"/inbox/{a.pk}/status", {"status": "answered"})
+        self.assertEqual(self.call("get", f"/{found.pk}/inbox?channel=mail")[1], [])
+        self.assertEqual(len(self.call("get", f"/{found.pk}/inbox?channel=mail&status=all")[1]), 1)
+        self.assertEqual(self.call("post", f"/inbox/{a.pk}/status", {"status": "lost"})[0], 400)

@@ -8,8 +8,12 @@
   import { canAct, canEdit } from "../lib/me.svelte";
   import { go } from "../lib/router.svelte";
   import { toast } from "../lib/toast.svelte";
+  import Inbox from "./characters/Inbox.svelte";
 
-  let { id }: { id: number | null } = $props();
+  let { id, tab = "card" }: { id: number | null; tab?: string } = $props();
+  const TABS = [{ key: "card", label: "Карточка" }, { key: "mail", label: "Почта" }, { key: "forum", label: "Форум" }, { key: "air", label: "Эфир" }];
+  let counts = $state<Record<string, number>>({});
+  let newStation = $state({ name: "", kind: "character" });
 
   type Form = Schemas["ChIn"];
   const editable = canEdit("characters");
@@ -42,6 +46,27 @@
     if (!data) { toast("Персонаж не найден.", "error"); return; }
     form = fill(data);
     saved = JSON.stringify(form);
+    counts = data.inbox;
+  }
+  async function refreshCounts() {
+    if (!id) return;
+    const { data } = await api.GET("/studio/api/characters/{character_id}", { params: { path: { character_id: id } } });
+    if (data) counts = data.inbox;
+  }
+  async function addStation() {
+    if (!id || !form) return;
+    const { data, error } = await api.POST("/studio/api/characters/{character_id}/stations", { params: { path: { character_id: id } }, body: newStation });
+    if (error || !data) {
+      errors = (error as { fields?: Record<string, string> } | undefined)?.fields ?? {};
+      return toast(Object.values(errors)[0] ?? problem(error), "error");
+    }
+    errors = {};
+    newStation = { name: "", kind: "character" };
+    form.stations = [...data.stations];
+    if (!form.callsign) form.callsign = data.callsign;
+    saved = JSON.stringify({ ...JSON.parse(saved), stations: data.stations, callsign: data.callsign });
+    await loadList();
+    toast("Позывной заведён.");
   }
   onMount(async () => {
     await loadList();
@@ -104,12 +129,24 @@
     <section class="editor">
       <header class="head">
         <span class="code big" style:--c={COLORS[form.color]}>{form.code || "???"}</span>
-        <input class="title" bind:value={form.name} placeholder="Имя персонажа" aria-label="Имя" disabled={!editable} />
+        <input class="title" bind:value={form.name} placeholder="Имя персонажа" aria-label="Имя" disabled={!editable || (!!id && tab !== "card")} />
         <span class="spacer"></span>
-        {#if id && canAct("delete")}<button class="btn ghost danger" onclick={remove}>Удалить</button>{/if}
-        <button class="btn primary" disabled={!dirty || busy || !editable || !form.name.trim()} onclick={save}>{id === 0 ? "Создать" : "Сохранить"}</button>
+        {#if !id || tab === "card"}
+          {#if id && canAct("delete")}<button class="btn ghost danger" onclick={remove}>Удалить</button>{/if}
+          <button class="btn primary" disabled={!dirty || busy || !editable || !form.name.trim()} onclick={save}>{id === 0 ? "Создать" : "Сохранить"}</button>
+        {/if}
       </header>
       {#if errors.name}<p class="error small">{errors.name}</p>{/if}
+      {#if id}
+        <nav class="tabs" aria-label="Разделы персонажа">
+          {#each TABS as t (t.key)}
+            <a class="tab" class:on={tab === t.key} href={`#/characters/${id}${t.key === "card" ? "" : "/" + t.key}`}>{t.label}{#if t.key !== "card" && counts[t.key]}<span class="count">{counts[t.key]}</span>{/if}</a>
+          {/each}
+        </nav>
+      {/if}
+      {#if id && tab !== "card"}
+        {#key tab}<Inbox character={id} channel={tab} onchange={refreshCounts} />{/key}
+      {:else}
 
       <div class="grid">
         <label class="row"><span class="label">Код<Hint text="Три знака: бейдж отправителя на форуме и в ленте кукловода. Пусто при создании: из имени." /></span>
@@ -140,14 +177,24 @@
               {@const other = takenBy(s.character)}
               <label class="check"><input type="checkbox" checked={form.stations.includes(s.id)} onchange={() => (form!.stations = toggle(form!.stations, s.id))} disabled={!editable} />
                 <span class="mono">{s.label}</span>{#if other}<span class="muted small">сейчас у {other.code}</span>{/if}</label>
-            {:else}<span class="muted small">Станций нет: их заводят в разделе «Эфир».</span>{/each}
-          </div></div>
+            {:else}<span class="muted small">Позывных пока нет.</span>{/each}
+          </div>
+          {#if editable && id}
+            <form class="newstation" onsubmit={(e) => { e.preventDefault(); addStation(); }}>
+              <input class="field mono" placeholder="НОВЫЙ ПОЗЫВНОЙ" bind:value={newStation.name} maxlength="12" aria-label="Новый позывной" />
+              <select class="field" bind:value={newStation.kind} aria-label="Вид"><option value="character">говорит сам</option><option value="station">станция, маяк</option></select>
+              <button class="btn" disabled={!newStation.name.trim()}>Завести</button>
+            </form>
+            {#if errors.station}<span class="error small">{errors.station}</span>{/if}
+          {:else if id === 0}<span class="muted small">Позывной можно завести после создания персонажа.</span>{/if}
+        </div>
       </div>
 
       <label class="row"><span class="label">Кто это</span><textarea class="field" rows="3" bind:value={form.about} disabled={!editable}></textarea></label>
       <label class="row"><span class="label">Как говорит<Hint text="Манера, длина фраз, слова-паразиты, чего он никогда не скажет." /></span><textarea class="field" rows="3" bind:value={form.voice} disabled={!editable}></textarea></label>
       <label class="row"><span class="label">Что знает и чего не знает<Hint text="Чтобы автор не проговорился: что персонажу известно на текущем акте." /></span><textarea class="field" rows="3" bind:value={form.knows} disabled={!editable}></textarea></label>
       <label class="row"><span class="label">Заметка</span><textarea class="field" rows="2" bind:value={form.note} disabled={!editable}></textarea></label>
+      {/if}
     </section>
   {/if}
 </ListDetail>
@@ -160,7 +207,7 @@
   .name { font-weight: 600; }
   .code { padding: 0 5px; border: 1px solid var(--c); border-radius: var(--radius-s); color: var(--c); font-family: var(--mono); font-size: 11px; font-weight: 700; letter-spacing: 0.08em; }
   .code.big { padding: 2px 8px; font-size: 14px; }
-  .editor { display: flex; flex-direction: column; gap: 14px; max-width: 760px; padding: 18px 28px 40px; }
+  .editor { display: flex; flex-direction: column; gap: 14px; max-width: 1000px; padding: 18px 28px 40px; }
   .head { display: flex; align-items: center; gap: 10px; }
   .title { flex: 1; min-width: 0; padding: 6px 8px; border: 1px solid transparent; border-radius: var(--radius-s); background: none; color: var(--text); font: inherit; font-size: 18px; font-weight: 600; }
   .title:hover, .title:focus { border-color: var(--line-soft); background: var(--bg); outline: none; }
@@ -174,4 +221,10 @@
   .swatch { width: 22px; height: 22px; border: 2px solid transparent; border-radius: var(--radius-s); background: var(--c); cursor: pointer; }
   .swatch.on { border-color: var(--text); }
   .mono { font-family: var(--mono); }
+  .tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--line-soft); }
+  .tab { display: inline-flex; align-items: center; gap: 6px; padding: 7px 14px; border-bottom: 2px solid transparent; color: var(--muted); text-decoration: none; }
+  .tab.on { border-bottom-color: var(--accent); color: var(--text); }
+  .count { min-width: 18px; padding: 0 6px; border-radius: 999px; background: var(--accent); color: var(--bg); font-size: 11px; font-weight: 700; text-align: center; }
+  .newstation { display: flex; gap: 6px; margin-top: 6px; }
+  .newstation .field { min-width: 0; }
 </style>

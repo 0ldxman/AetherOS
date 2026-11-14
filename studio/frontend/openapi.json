@@ -11369,6 +11369,7 @@
       }
      }
     },
+    "description": "Старый путь: Студия заводит позывные на экране персонажа (studio/api/characters.py). Оставлен для совместимости.",
     "tags": [
      "air"
     ],
@@ -13013,6 +13014,182 @@
     "tags": [
      "characters"
     ],
+    "security": [
+     {
+      "StudioAuth": []
+     }
+    ]
+   }
+  },
+  "/studio/api/characters/{character_id}/stations": {
+   "post": {
+    "operationId": "studio_api_characters_add_station",
+    "summary": "Add Station",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "character_id",
+      "schema": {
+       "title": "Character Id",
+       "type": "integer"
+      },
+      "required": true
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ChOut"
+        }
+       }
+      }
+     },
+     "400": {
+      "description": "Bad Request",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ChErrors"
+        }
+       }
+      }
+     }
+    },
+    "tags": [
+     "characters"
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/ChStationIn"
+       }
+      }
+     },
+     "required": true
+    },
+    "security": [
+     {
+      "StudioAuth": []
+     }
+    ]
+   }
+  },
+  "/studio/api/characters/{character_id}/inbox": {
+   "get": {
+    "operationId": "studio_api_characters_inbox_list",
+    "summary": "Inbox List",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "character_id",
+      "schema": {
+       "title": "Character Id",
+       "type": "integer"
+      },
+      "required": true
+     },
+     {
+      "in": "query",
+      "name": "channel",
+      "schema": {
+       "default": "",
+       "title": "Channel",
+       "type": "string"
+      },
+      "required": false
+     },
+     {
+      "in": "query",
+      "name": "status",
+      "schema": {
+       "default": "open",
+       "title": "Status",
+       "type": "string"
+      },
+      "required": false
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "items": {
+          "$ref": "#/components/schemas/ChInbound"
+         },
+         "title": "Response",
+         "type": "array"
+        }
+       }
+      }
+     }
+    },
+    "description": "status: open (новые и взятые), new, taken, answered, skipped, all.",
+    "tags": [
+     "characters"
+    ],
+    "security": [
+     {
+      "StudioAuth": []
+     }
+    ]
+   }
+  },
+  "/studio/api/characters/inbox/{inbound_id}/status": {
+   "post": {
+    "operationId": "studio_api_characters_inbox_status",
+    "summary": "Inbox Status",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "inbound_id",
+      "schema": {
+       "title": "Inbound Id",
+       "type": "integer"
+      },
+      "required": true
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ChInbound"
+        }
+       }
+      }
+     },
+     "400": {
+      "description": "Bad Request",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ChErrors"
+        }
+       }
+      }
+     }
+    },
+    "tags": [
+     "characters"
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/ChStatusIn"
+       }
+      }
+     },
+     "required": true
+    },
     "security": [
      {
       "StudioAuth": []
@@ -28953,6 +29130,13 @@
       },
       "title": "Stations",
       "type": "array"
+     },
+     "inbox": {
+      "additionalProperties": {
+       "type": "integer"
+      },
+      "title": "Inbox",
+      "type": "object"
      }
     },
     "required": [
@@ -28971,7 +29155,8 @@
      "note",
      "owner_id",
      "personas",
-     "stations"
+     "stations",
+     "inbox"
     ],
     "title": "ChOut",
     "type": "object"
@@ -29150,6 +29335,96 @@
      "authors"
     ],
     "title": "ChOptions",
+    "type": "object"
+   },
+   "ChStationIn": {
+    "properties": {
+     "name": {
+      "title": "Name",
+      "type": "string"
+     },
+     "kind": {
+      "default": "character",
+      "title": "Kind",
+      "type": "string"
+     }
+    },
+    "required": [
+     "name"
+    ],
+    "title": "ChStationIn",
+    "type": "object"
+   },
+   "ChInbound": {
+    "properties": {
+     "id": {
+      "title": "Id",
+      "type": "integer"
+     },
+     "channel": {
+      "title": "Channel",
+      "type": "string"
+     },
+     "sender": {
+      "title": "Sender",
+      "type": "string"
+     },
+     "player": {
+      "title": "Player",
+      "type": "string"
+     },
+     "subject": {
+      "title": "Subject",
+      "type": "string"
+     },
+     "text": {
+      "title": "Text",
+      "type": "string"
+     },
+     "status": {
+      "title": "Status",
+      "type": "string"
+     },
+     "taken_by": {
+      "title": "Taken By",
+      "type": "string"
+     },
+     "created_at": {
+      "format": "date-time",
+      "title": "Created At",
+      "type": "string"
+     },
+     "link": {
+      "title": "Link",
+      "type": "string"
+     }
+    },
+    "required": [
+     "id",
+     "channel",
+     "sender",
+     "player",
+     "subject",
+     "text",
+     "status",
+     "taken_by",
+     "created_at",
+     "link"
+    ],
+    "title": "ChInbound",
+    "type": "object"
+   },
+   "ChStatusIn": {
+    "properties": {
+     "status": {
+      "title": "Status",
+      "type": "string"
+     }
+    },
+    "required": [
+     "status"
+    ],
+    "title": "ChStatusIn",
     "type": "object"
    },
    "WsContribution": {

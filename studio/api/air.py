@@ -278,6 +278,7 @@ def stations(request):
 
 @router.post("/stations", response=AirStation)
 def add_station(request, body: AirStationIn):
+    """Старый путь: Студия заводит позывные на экране персонажа (studio/api/characters.py). Оставлен для совместимости."""
     name = body.name.strip().upper()
     if not radio._NAME.match(name):
         _refuse("Позывной: 2–12 латинских букв, цифр или дефисов, начинается с буквы.")

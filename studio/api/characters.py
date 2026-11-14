@@ -1,4 +1,5 @@
 """Персонажи в Студии: карточка (кто, как говорит, что знает), код и цвет, кто ведёт, каналы (адреса почты и позывные эфира). Логика в characters/logic.py."""
+import datetime as dt
 import re
 
 from django.contrib.auth import get_user_model
@@ -7,8 +8,10 @@ from django.shortcuts import get_object_or_404
 from ninja import Router, Schema
 
 from air.models import Station
-from characters import logic
-from characters.models import Character
+from air import radio
+from air.models import Callsign
+from characters import inbox, logic
+from characters.models import Character, Inbound
 from mail.models import Persona
 
 router = Router(tags=["characters"])
@@ -41,6 +44,7 @@ class ChOut(ChRow):
     owner_id: int | None
     personas: list[int]
     stations: list[int]
+    inbox: dict[str, int]        # новых входящих по каналам: mail, forum, air
 
 
 class ChIn(Schema):
@@ -83,7 +87,8 @@ def _row(found):
 
 def _out(found):
     return ChOut(**_row(found), about=found.about, voice=found.voice, knows=found.knows, note=found.note, owner_id=found.owner_id,
-                 personas=list(found.personas.values_list("pk", flat=True)), stations=list(found.stations.values_list("pk", flat=True)))
+                 personas=list(found.personas.values_list("pk", flat=True)), stations=list(found.stations.values_list("pk", flat=True)),
+                 inbox=inbox.counts(found))
 
 
 @transaction.atomic
@@ -163,3 +168,84 @@ def update(request, character_id: int, body: ChIn):
 def delete(request, character_id: int):
     get_object_or_404(Character, pk=character_id).delete()
     return 204, None
+
+
+# ---- позывные эфира заводятся здесь же: станция всегда чья-то ----
+
+class ChStationIn(Schema):
+    name: str
+    kind: str = "character"         # character: персонаж говорит сам; station: автоматическая станция, маяк
+
+
+@router.post("/{character_id}/stations", response={200: ChOut, 400: ChErrors})
+def add_station(request, character_id: int, body: ChStationIn):
+    found = get_object_or_404(Character, pk=character_id)
+    name = body.name.strip().upper()
+    if not radio._NAME.match(name):
+        return 400, {"fields": {"station": "Позывной: 2–12 латинских букв, цифр или дефисов, начинается с буквы."}}
+    if Station.objects.filter(name=name).exists() or Callsign.objects.filter(name=name).exists():
+        return 400, {"fields": {"station": f"Позывной {name} уже занят."}}
+    kind = body.kind if body.kind in Station.Kind.values else Station.Kind.CHARACTER
+    Station.objects.create(name=name, label=found.name[:120], kind=kind, character=found)
+    if not found.callsign:
+        found.callsign = name
+        found.save(update_fields=["callsign"])
+    return _out(found)
+
+
+# ---- входящие ----
+
+class ChInbound(Schema):
+    id: int
+    channel: str
+    sender: str
+    player: str
+    subject: str
+    text: str
+    status: str
+    taken_by: str
+    created_at: dt.datetime
+    link: str                       # куда смотреть в Студии: тема форума, частота эфира, путь письма
+
+
+class ChStatusIn(Schema):
+    status: str
+
+
+def _link(row):
+    if row.channel == Inbound.Channel.FORUM:
+        from forum.models import Topic
+
+        topic = Topic.objects.filter(pk=row.ref.get("topic")).select_related("section__space").first()
+        return f"#/forum/{topic.section.space.slug}/topics" if topic else ""
+    if row.channel == Inbound.Channel.AIR:
+        return f"частота {row.ref.get('freq', '')}"
+    return row.ref.get("path", "")
+
+
+def _inbound(row):
+    return ChInbound(id=row.pk, channel=row.channel, sender=row.sender, player=row.user.get_username() if row.user_id else "", subject=row.subject,
+                     text=row.text, status=row.status, taken_by=row.taken_by.get_username() if row.taken_by_id else "", created_at=row.created_at,
+                     link=_link(row))
+
+
+@router.get("/{character_id}/inbox", response=list[ChInbound])
+def inbox_list(request, character_id: int, channel: str = "", status: str = "open"):
+    """status: open (новые и взятые), new, taken, answered, skipped, all."""
+    found = get_object_or_404(Character, pk=character_id)
+    rows = Inbound.objects.filter(character=found).select_related("user", "taken_by")
+    if channel:
+        rows = rows.filter(channel=channel)
+    if status == "open":
+        rows = rows.filter(status__in=(Inbound.Status.NEW, Inbound.Status.TAKEN))
+    elif status != "all":
+        rows = rows.filter(status=status)
+    return [_inbound(row) for row in rows[:300]]
+
+
+@router.post("/inbox/{inbound_id}/status", response={200: ChInbound, 400: ChErrors})
+def inbox_status(request, inbound_id: int, body: ChStatusIn):
+    row = get_object_or_404(Inbound.objects.select_related("user"), pk=inbound_id)
+    if body.status not in Inbound.Status.values:
+        return 400, {"fields": {"status": "Неизвестный статус."}}
+    return _inbound(inbox.set_status(row, body.status, request.user))
