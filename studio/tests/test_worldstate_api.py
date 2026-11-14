@@ -23,11 +23,11 @@ class WorldStateApiTests(TestCase):
         self.assertEqual(self.call("post", "/flags", {"name": "Bad Name"})[0], 400)
         self.call("post", "/counters", {"name": "fragments", "label": "фрагменты", "mode": "players"})
         status, data = self.call("post", "/triggers", {"name": "act-2", "condition_text": "world:fragments>=7 and not world:sealed",
-                                                       "actions": [{"do": "flag", "name": "act-2"}]})
+                                                       "actions": [{"do": "world_flag", "name": "act-2"}]})
         self.assertEqual(status, 200)
         self.assertEqual(data["triggers"][0]["condition"], {"all": ["world:fragments>=7", {"not": "world:sealed"}]})
         self.assertEqual(data["counters"][0]["thresholds"], [{"value": 7, "op": ">=", "trigger": "act-2"}])
-        self.assertEqual(self.call("post", "/triggers", {"name": "x", "condition_text": "secret-key", "actions": [{"do": "flag", "name": "y"}]})[0], 400)
+        self.assertEqual(self.call("post", "/triggers", {"name": "x", "condition_text": "secret-key", "actions": [{"do": "world_flag", "name": "y"}]})[0], 400)
         self.assertEqual(self.call("post", "/triggers", {"name": "x", "condition_text": "world:a", "actions": []})[0], 400)
         data = self.call("post", "/counters/fragments/set", {"value": 7})[1]
         self.assertEqual([f["name"] for f in data["flags"] if f["on"]], ["act-2"])

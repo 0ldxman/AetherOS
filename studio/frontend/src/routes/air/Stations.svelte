@@ -7,8 +7,8 @@
   import Hint from "../../lib/Hint.svelte";
   import { ask } from "../../lib/confirm.svelte";
   import { toast } from "../../lib/toast.svelte";
-  import Actions from "../mail/Actions.svelte";
-  import type { Action } from "../mail/doc";
+  import ActionsEditor from "../../lib/ActionsEditor.svelte";
+  import { summaries, type Act } from "../../lib/engine.svelte";
 
   type Station = Schemas["AirStation"];
   type Broadcast = Schemas["AirBroadcast"];
@@ -20,7 +20,6 @@
   let selected = $state<number | null>(null);
   let broadcasts = $state<Broadcast[]>([]);
   let responders = $state<Responder[]>([]);
-  let picks = $state<Schemas["MlPicks"] | null>(null);
   const station = $derived(stations.find((s) => s.id === selected) ?? null);
   const ZONES: string[] = (Intl as unknown as { supportedValuesOf?: (key: string) => string[] }).supportedValuesOf?.("timeZone") ?? ["UTC"];
 
@@ -50,7 +49,6 @@
   $effect(() => { void selected; loadStation(); });
   onMount(async () => {
     await loadStations();
-    picks = (await api.GET("/studio/api/mail/picks", { params: { query: { kind: "key" } } })).data ?? null;
   });
 
   async function dropStation() {
@@ -103,13 +101,12 @@
   }
 
   // ---------- ответчик ----------
-  type RForm = { id: number | null; freq: string; pattern: string; regex: boolean; condition: string; cooldown: number; reply: string; delay: number; actions: Action[]; note: string; active: boolean; key: string };
+  type RForm = { id: number | null; freq: string; pattern: string; regex: boolean; condition: string; cooldown: number; reply: string; delay: number; actions: Act[]; note: string; active: boolean; key: string };
   let rform = $state<RForm | null>(null);
-  const KINDS = ["flag", "unflag", "key", "file", "hook", "world_flag", "world_unflag", "world_count"];
   function editResponder(row: Responder | null) {
     rform = row
       ? { id: row.id, freq: row.freq, pattern: row.pattern, regex: row.regex, condition: cond(row.condition), cooldown: row.cooldown, reply: row.reply, delay: row.delay,
-          actions: (row.actions ?? []) as Action[], note: row.note, active: row.active, key: row.key }
+          actions: (row.actions ?? []) as Act[], note: row.note, active: row.active, key: row.key }
       : { id: null, freq: broadcasts[0]?.freq ?? responders[0]?.freq ?? "", pattern: "", regex: false, condition: "", cooldown: 10, reply: "{callsign} DE " + (station?.name ?? ""), delay: 5, actions: [], note: "", active: true, key: "" };
   }
   async function saveResponder() {
@@ -131,12 +128,7 @@
     await api.DELETE("/studio/api/air/responders/{responder_id}", { params: { path: { responder_id: row.id } } });
     loadStation();
   }
-  const ACTION_TEXT: Record<string, (a: Record<string, unknown>) => string> = {
-    flag: (a) => `метка ${a.name ?? ""}`, unflag: (a) => `снять метку ${a.name ?? ""}`, key: (a) => `ключ ${a.slug ?? ""}`,
-    file: (a) => `файл ${a.item ?? ""} → ${a.path ?? ""}`, hook: () => "хук",
-    world_flag: (a) => `world:${a.name ?? ""}`, world_unflag: (a) => `снять world:${a.name ?? ""}`, world_count: (a) => `world:${a.name ?? ""} +${a.delta ?? 1}`,
-  };
-  const actionsText = (actions: Record<string, unknown>[]) => actions.map((a) => ACTION_TEXT[String(a.do)]?.(a) ?? String(a.do)).join(", ");
+  const actionsText = (actions: Record<string, unknown>[]) => summaries(actions as Act[]);
 </script>
 
 <div class="layout">
@@ -255,7 +247,7 @@
         <label><span class="label">Пауза для одного игрока, минут</span><input class="field mono" type="number" min="0" bind:value={rform.cooldown} /></label>
       </div>
       <div><span class="label">Исходы для передавшего</span>
-        <Actions bind:actions={rform.actions} steps={[]} {picks} kinds={KINDS} />
+        <ActionsEditor bind:actions={rform.actions} provides={["world", "user", "account", "session"]} />
       </div>
       <div class="two">
         <label><span class="label">Заметка</span><input class="field" bind:value={rform.note} /></label>

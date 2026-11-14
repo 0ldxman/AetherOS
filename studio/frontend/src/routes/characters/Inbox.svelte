@@ -2,6 +2,8 @@
   // Входящие персонажа в одном канале: список слева; справа сообщение, ответ от персонажа (сразу или через игровое время, с действиями мира),
   // карточка игрока и вся его переписка с персонажем.
   import { api, problem, type Schemas } from "../../lib/api";
+  import ActionsEditor from "../../lib/ActionsEditor.svelte";
+  import type { Act } from "../../lib/engine.svelte";
   import { canEdit } from "../../lib/me.svelte";
   import { when } from "../../lib/time";
   import { toast } from "../../lib/toast.svelte";
@@ -23,14 +25,13 @@
     air: "Передач нет. Сюда попадает передача игрока, в которой есть полный позывной персонажа.",
   };
   const DELAYS = [{ v: 0, l: "сразу" }, { v: 5, l: "через 5 мин" }, { v: 20, l: "через 20 мин" }, { v: 60, l: "через час" }, { v: 180, l: "через 3 часа" }, { v: 720, l: "через 12 часов" }, { v: 1440, l: "через сутки" }];
-  const ACTIONS = [{ v: "flag", l: "поставить метку" }, { v: "unflag", l: "снять метку" }, { v: "count", l: "счётчик +" }];
 
   let filter = $state("open");
   let rows = $state<Row[]>([]);
   let picked = $state<Row | null>(null);
   let ctx = $state<Schemas["ChContext"] | null>(null);
   let loaded = $state(false);
-  let draft = $state({ text: "", subject: "", delay: 0, station: null as number | null, actions: [] as { do: string; name: string; delta: number }[] });
+  let draft = $state({ text: "", subject: "", delay: 0, station: null as number | null, actions: [] as Act[] });
   let busy = $state(false);
 
   async function load() {
@@ -58,7 +59,7 @@
   async function send() {
     if (!picked) return;
     busy = true;
-    const actions = draft.actions.filter((a) => a.name.trim()).map((a) => (a.do === "count" ? { do: "count", name: a.name.trim(), delta: a.delta || 1 } : { do: a.do, name: a.name.trim() }));
+    const actions = draft.actions;
     const { data, error } = await api.POST("/studio/api/characters/inbox/{inbound_id}/answer", {
       params: { path: { inbound_id: picked.id } }, body: { text: draft.text, subject: draft.subject, delay: draft.delay, actions, station: draft.station } });
     busy = false;
@@ -124,15 +125,7 @@
           {/if}
           <textarea class="field" rows="5" bind:value={draft.text} placeholder="что скажет персонаж"></textarea>
           <div class="acts">
-            {#each draft.actions as a, n (n)}
-              <div class="act">
-                <select class="field" bind:value={a.do} aria-label="Действие">{#each ACTIONS as o (o.v)}<option value={o.v}>{o.l}</option>{/each}</select>
-                <input class="field mono" bind:value={a.name} placeholder="имя" aria-label="Имя метки или счётчика" />
-                {#if a.do === "count"}<input class="field num" type="number" bind:value={a.delta} aria-label="На сколько" />{/if}
-                <button class="link" onclick={() => (draft.actions = draft.actions.filter((_, i) => i !== n))}>убрать</button>
-              </div>
-            {/each}
-            <button class="link" onclick={() => (draft.actions = [...draft.actions, { do: "flag", name: "", delta: 1 }])}>+ действие мира при отправке</button>
+            <ActionsEditor bind:actions={draft.actions} provides={["world", "user"]} addLabel="+ действие при отправке" />
           </div>
           <div class="send">
             <select class="field" bind:value={draft.delay} aria-label="Когда">{#each DELAYS as d (d.v)}<option value={d.v}>{d.l}</option>{/each}</select>
@@ -205,10 +198,7 @@
   .tools { display: flex; flex-wrap: wrap; gap: 8px; }
   .compose { display: flex; flex-direction: column; gap: 8px; padding: 12px; border: 1px solid var(--accent); border-radius: var(--radius-s); }
   h4 { margin: 0; font-size: 13px; }
-  .acts { display: flex; flex-direction: column; gap: 6px; align-items: flex-start; }
-  .act { display: flex; gap: 6px; align-items: center; }
-  .act .field { width: auto; }
-  .num { width: 70px !important; }
+  .acts { display: flex; flex-direction: column; gap: 6px; }
   .send { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
   .send .field { width: auto; }
   .link { padding: 0; border: 0; background: none; color: var(--accent); font: inherit; font-size: 12px; cursor: pointer; }

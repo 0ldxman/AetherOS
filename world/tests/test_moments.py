@@ -49,8 +49,8 @@ class MomentClock(TestCase):
 class MomentTests(MomentClock):
     def test_a_moment_holds_its_flag_while_it_runs_and_triggers_see_both_edges(self):
         self.moment()
-        WorldTrigger.objects.create(name="on", condition="world:uplink", repeat=True, actions=[{"do": "count", "name": "opened"}])
-        WorldTrigger.objects.create(name="off", condition={"not": "world:uplink"}, was_true=True, repeat=True, actions=[{"do": "count", "name": "closed"}])
+        WorldTrigger.objects.create(name="on", condition="world:uplink", repeat=True, actions=[{"do": "world_count", "name": "opened"}])
+        WorldTrigger.objects.create(name="off", condition={"not": "world:uplink"}, was_true=True, repeat=True, actions=[{"do": "world_count", "name": "closed"}])
         self.move(minutes=10)
         self.assertFalse(satisfied("world:uplink", set()))
         self.assertEqual([row["state"] for row in moments.board()], ["later"])
@@ -64,7 +64,7 @@ class MomentTests(MomentClock):
 
     def test_a_slot_missed_entirely_still_starts_and_ends(self):
         self.moment()
-        WorldTrigger.objects.create(name="on", condition="world:uplink", actions=[{"do": "flag", "name": "heard"}])
+        WorldTrigger.objects.create(name="on", condition="world:uplink", actions=[{"do": "world_flag", "name": "heard"}])
         self.now += timedelta(hours=2)                                                 # никто не заходил с 12:00 до 14:00
         chrono.forget()
         moments.tick(force=True)

@@ -93,7 +93,8 @@ class AirScheduleApiTests(TestCase):
         aired = self.call("post", f"/air/broadcasts/{made['id']}/now")[1]
         self.assertEqual((aired["callsign"], aired["text"]), ("BOREAS", "ONE"))
         self.assertEqual(len(self.call("get", f"/air/broadcasts?station={self.station.pk}")[1]), 1)
-        responder = {"station": self.station.pk, "freq": "7.115", "pattern": "qrz", "reply": "{callsign} DE BOREAS", "actions": [{"do": "flag", "name": "met"}, {"do": "goto"}]}
+        responder = {"station": self.station.pk, "freq": "7.115", "pattern": "qrz", "reply": "{callsign} DE BOREAS", "actions": [{"do": "flag", "name": "met"}]}
+        self.assertEqual(self.call("post", "/air/responders", {**responder, "actions": [{"do": "goto", "step": "x"}]})[0], 400)     # шагов переписки у ответчика нет
         status, made = self.call("post", "/air/responders", responder)
         self.assertEqual((status, made["actions"]), (200, [{"do": "flag", "name": "met"}]))
         self.assertEqual(self.call("post", "/air/responders", {**responder, "pattern": "(", "regex": True})[0], 400)

@@ -10,6 +10,8 @@ from forum import chronicle, logic, rotation
 from forum.models import Kind, Post, Section, Space, Topic
 from machines.models import TimeAnchor
 from machines.world import chrono
+from engine import actions as engine
+from engine.context import Ctx
 from world import state
 from world.models import WorldEvent, WorldMoment, WorldTrigger
 
@@ -133,7 +135,7 @@ class WorldForumActionTests(TestCase):
         self.board = Section.objects.create(space=self.space, title="Log", write="authors")
 
     def test_new_topic_from_the_system(self):
-        state.run_action({"do": "forum", "section": self.board.pk, "title": "Alert", "text": "core at {world_core}"}, "test")
+        engine.run([{"do": "forum", "section": self.board.pk, "title": "Alert", "text": "core at {world_core}"}], Ctx(source="test"))
         topic = Topic.objects.get()
         self.assertEqual((topic.kind, topic.name), (Kind.SYSTEM, "SYS"))
         self.assertEqual(topic.posts.get().text, "core at {world_core}")      # неизвестная подстановка остаётся как есть
@@ -143,7 +145,7 @@ class WorldForumActionTests(TestCase):
         self.space.save()
         action = {"do": "forum", "section": self.board.pk, "mode": "append", "title": "World log", "text": "tick"}
         for _ in range(3):
-            state.run_action(action, "test")
+            engine.run([action], Ctx(source="test"))
         topics = list(Topic.objects.order_by("pk"))
         self.assertEqual(len(topics), 2)
         self.assertTrue(topics[0].locked)
@@ -152,11 +154,11 @@ class WorldForumActionTests(TestCase):
 
     def test_character_signs_the_post(self):
         Character.objects.create(code="MAR", name="Mara", callsign="MARA")
-        state.run_action({"do": "forum", "section": self.board.pk, "title": "Hi", "text": "hello", "character": "mar"}, "test")
+        engine.run([{"do": "forum", "section": self.board.pk, "title": "Hi", "text": "hello", "character": "mar"}], Ctx(source="test"))
         self.assertEqual(Topic.objects.get().character.code, "MAR")
 
     def test_problems_are_logged_and_checked(self):
-        state.run_action({"do": "forum", "section": 999, "title": "x", "text": "y"}, "test")
+        engine.run([{"do": "forum", "section": 999, "title": "x", "text": "y"}], Ctx(source="test"))
         self.assertTrue(WorldEvent.objects.filter(text__contains="нет раздела форума").exists())
         self.assertTrue(state.check_actions([{"do": "forum", "section": self.board.pk, "title": "", "text": "y"}]))
         self.assertFalse(state.check_actions([{"do": "forum", "section": self.board.pk, "title": "t", "text": "y"}]))

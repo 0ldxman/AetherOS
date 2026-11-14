@@ -130,7 +130,7 @@
           <div class="outcome" class:bad={socket === "wrong" || socket === "exhausted"}>
             <div class="socket">{socketLabel(socket)}{#if socket === "ok" && sockets.some((s) => s.startsWith("word:"))}<span class="muted small"> · если у слова нет своих</span>{/if}
               {#if socket === "exhausted" && !summary("exhausted")}<span class="muted small"> · без своих действий берёт «неверно»</span>{/if}</div>
-            <Actions {steps} {picks} bind:actions={() => variant.outcomes?.[socket] ?? [], (next) => setOutcome(socket, next)} />
+            <Actions {steps} bind:actions={() => variant.outcomes?.[socket] ?? [], (next) => setOutcome(socket, next)} />
           </div>
         {/each}
       </div>

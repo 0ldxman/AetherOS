@@ -11,8 +11,7 @@
     word:<слово>    выбрано это слово;
     wrong           секрет неверен или вложение не то (попытка засчитана);
     exhausted       попытки варианта кончились.
-Действия исхода: {"do": "goto", "step": имя} | {"do": "letter", "item": слаг, "delay": с} | {"do": "flag"/"unflag", "name"} |
-{"do": "key", "slug"} | {"do": "file", "item": слаг, "path"} | {"do": "hook", "text": "alert ... | open ... | kick"} | {"do": "bounce"}.
+Действия исхода — общий словарь движка (engine/actions.py) плюс свои: {"do": "goto", "step", "delay"} и {"do": "bounce"}.
 
 Новое письмо на адрес персонажа даёт варианты текущего шага (или шага «начало переписки», если переписки ещё нет),
 пересылка письма X даёт варианты-пересылки этого письма. Письмо на адрес, которого нет, возвращается от MAILER-DAEMON.
@@ -237,75 +236,30 @@ def attachment_fits(need, item):
 
 
 def _apply(actions, state, box, effects):
-    from filesystem import keystore
-    from filesystem.models import Item
+    """Исходы через движок (engine/actions.py); шаг переписки и возврат письма — свои действия почты."""
+    from engine import actions as engine
+    from engine.context import Ctx
 
-    for action in actions or []:
-        do = action.get("do")
-        if do == "goto":
-            if state is None:
-                continue
-            step = state.conversation.steps.filter(name=action.get("step")).first()
-            if step is not None:
-                enter(state, step, box, int(action.get("delay") or 0))
-        elif do == "letter":
-            item = Item.objects.filter(slug=action.get("item")).first()
-            if item is not None:
-                box.queue(item, int(action.get("delay") or 0))
-        elif do == "flag":
-            Flag.objects.get_or_create(user=box.user, name=action.get("name", ""))
-        elif do == "unflag":
-            Flag.objects.filter(user=box.user, name=action.get("name", "")).delete()
-        elif do == "key":
-            item = Item.objects.filter(slug=action.get("slug")).first()
-            if item is not None and keystore.secrets_dir(box.machine, box.login):
-                keystore.put(box.view, box.machine, box.login, item)
-        elif do == "file":
-            item = Item.objects.filter(slug=action.get("item")).first()
-            path = letters.fill(action.get("path", ""), {"login": box.login})
-            if item is not None and path.startswith("/"):
-                box.view.put_item(path, item)
-        elif do == "hook":
-            effects += _effects(action.get("text", ""), box)
-        elif do == "bounce":
-            effects.append({"bounce": True})
-        elif do in ("world_flag", "world_unflag", "world_count"):
-            from world import state as world
+    def goto(action, ctx):
+        if state is None:
+            return
+        step = state.conversation.steps.filter(name=action.get("step")).first()
+        if step is not None:
+            enter(state, step, box, int(action.get("delay") or 0))
 
-            kind = {"world_flag": "flag", "world_unflag": "unflag", "world_count": "count"}[do]
-            world.run_action({**action, "do": kind}, "письмо" if state is not None else "ответчик", user=box.user)
+    def bounce(action, ctx):
+        ctx.effects.append({"bounce": True})
+
+    source = f"письмо {state.conversation.slug}" if state is not None else "ответчик"
+    ctx = Ctx(source=source, user=box.user, box=box, session=True, host={"goto": goto, "bounce": bounce})
+    effects += engine.run(actions, ctx)
 
 
 def run_actions(actions, box):
-    """Исходы вне переписки (ответчики эфира): flag, unflag, key, file, letter, hook. Возвращает эффекты хуков для браузера."""
+    """Исходы вне переписки (ответчики эфира). Возвращает эффекты для браузера."""
     effects = []
     _apply(actions, None, box, effects)
     return effects
-
-
-def _effects(text, box):
-    """Действия хуков в исходе: alert и open уходят в браузер, kick выбрасывает игрока с учётки при его следующем запросе."""
-    from filesystem.layers.compiler import parse_effect
-    from filesystem.layers.parser import Action
-
-    out = []
-    for line in (text or "").splitlines():
-        name, _, rest = line.strip().partition(" ")
-        if not name:
-            continue
-        rest = rest.strip()
-        quoted = len(rest) >= 2 and rest[0] == rest[-1] == '"'
-        effect, error = parse_effect(Action(name=name, line=0, value=rest[1:-1] if quoted else rest, quoted=quoted))
-        if error or effect is None:
-            continue
-        if effect.get("op") == "kick":
-            from machines.network import bridge
-
-            if box.profile is not None:
-                bridge.request_kick(box.user, box.profile)
-            continue
-        out.append(effect)
-    return out
 
 
 @dataclass

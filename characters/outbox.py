@@ -36,9 +36,10 @@ def send_at(delay_minutes):
 
 
 def _check(actions):
-    from world import state
+    from engine import actions as engine
+    from engine.context import USER, WORLD
 
-    problems = state.check_actions(actions)
+    problems = engine.check(actions, provides=(WORLD, USER))
     if problems:
         raise OutboxError("; ".join(problems))
 
@@ -146,10 +147,10 @@ def deliver(reply):
         Reply.objects.filter(pk=reply.pk).update(status=Reply.Status.FAILED, error=str(error)[:255])
         reply.status, reply.error = Reply.Status.FAILED, str(error)[:255]
         return reply
-    from world import state
+    from engine import actions as engine
+    from engine.context import Ctx
 
-    for action in reply.actions or []:
-        state.run_action(action, f"персонаж {reply.character.code}", user=reply.user)
+    engine.run(reply.actions, Ctx(source=f"персонаж {reply.character.code}", user=reply.user))
     now = timezone.now()
     Reply.objects.filter(pk=reply.pk).update(status=Reply.Status.SENT, sent_at=now, error="")
     reply.status, reply.sent_at = Reply.Status.SENT, now

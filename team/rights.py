@@ -59,7 +59,7 @@ class Rule:
 def _section_of(parts):
     """Раздел по частям пути после /studio/api/."""
     head = parts[0] if parts else ""
-    if head in ("", "me", "app-icons", "formats", "templates", "keys", "access", "layers", "dashboard", "comments", "boards", "tasks", "notifications", "guide", "sandbox"):
+    if head in ("", "me", "app-icons", "formats", "templates", "keys", "access", "layers", "dashboard", "comments", "boards", "tasks", "notifications", "guide", "sandbox", "engine"):
         return FREE
     if head in ("file-formats", "file-encodings"):
         return "formats"

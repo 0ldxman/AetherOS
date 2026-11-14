@@ -68,6 +68,7 @@ INSTALLED_APPS = [
     'air',
     'forum',
     'world',
+    'engine',
     'guide',
     'documents',
     'wiki',

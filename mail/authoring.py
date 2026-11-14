@@ -20,7 +20,14 @@ from mail import letters, talk
 from mail.models import Conversation, Step, Variant
 
 LETTER_FORMAT = "msg"
-ACTIONS = ("goto", "letter", "flag", "unflag", "key", "file", "hook", "bounce")
+HOST = ("goto", "bounce")                      # свои действия переписки; остальные из словаря движка (engine/actions.py)
+
+
+def _engine_problems(action):
+    from engine import actions as engine
+    from engine.context import ACCOUNT, SESSION, USER, WORLD
+
+    return [text.split(": ", 1)[-1] for text in engine.check([action], provides=(WORLD, USER, ACCOUNT, SESSION), host=HOST)]
 COLUMN, ROW = 340, 200                     # шаг сетки начальной раскладки карты
 
 
@@ -244,20 +251,15 @@ def problems(doc):
                     add("warning", f"Исход «{socket}» никогда не сработает.", **where)
                 for action in actions or []:
                     do = action.get("do")
-                    if do not in ACTIONS:
-                        add("error", f"Неизвестное действие «{do}».", **where)
-                    elif do == "goto" and action.get("step") not in seen:
+                    if do == "goto" and action.get("step") not in seen:
                         add("error", f"Переход на шаг «{action.get('step') or '?'}», которого нет.", **where)
                     elif do == "letter" and not action.get("item") and not (action.get("subject") or action.get("text")):
                         add("error", "Письмо в исходе пустое.", **where)
                     elif do == "letter" and action.get("item") and action["item"] not in known:
                         add("error", f"Письма «{action['item']}» нет.", **where)
-                    elif do in ("key", "file") and (action.get("slug") or action.get("item")) not in known:
-                        add("error", f"Объекта «{action.get('slug') or action.get('item') or '?'}» нет.", **where)
-                    elif do in ("flag", "unflag") and not (action.get("name") or "").strip():
-                        add("error", "Метка без имени.", **where)
-                    elif do == "file" and not (action.get("path") or "").startswith("/"):
-                        add("error", "Файл: путь должен начинаться с «/».", **where)
+                    elif do not in ("goto", "letter"):
+                        for text in _engine_problems(action):
+                            add("error", text[:1].upper() + text[1:] + ".", **where)
             if not any(outcomes.get(socket) for socket in allowed):
                 add("warning", "У варианта нет исходов: ответ ни к чему не приведёт.", **where)
     return out
@@ -294,7 +296,10 @@ def _outcomes(persona, conversation, step_name, outcomes):
         rows = []
         for action in actions or []:
             do = action.get("do")
-            if do not in ACTIONS:
+            from engine.actions import REGISTRY
+
+            spec = REGISTRY.get(do)
+            if spec is None:
                 continue
             if do == "letter":
                 item = write_letter(persona, action, f"{conversation.slug}-{step_name}-{socket.replace(':', '-')}")
@@ -304,11 +309,12 @@ def _outcomes(persona, conversation, step_name, outcomes):
                 if action.get("delay"):
                     row["delay"] = int(action["delay"])
             else:
-                keep = {"goto": ("step", "delay"), "flag": ("name",), "unflag": ("name",), "key": ("slug",), "file": ("item", "path"),
-                        "hook": ("text",), "bounce": ()}[do]
-                row = {"do": do, **{name: action[name] for name in keep if action.get(name) not in (None, "")}}
-                if "delay" in row:
-                    row["delay"] = int(row["delay"])
+                row = {"do": do}
+                for item in spec.fields:
+                    value = action.get(item.name)
+                    if value in (None, ""):
+                        continue
+                    row[item.name] = int(value) if item.kind == "number" else bool(value) if item.kind == "bool" else value
             rows.append(row)
         if rows:
             stored[socket] = rows

@@ -112,19 +112,6 @@ export function renameRefs(step: StepDraft, from: string, to: string): StepDraft
   return changed ? { ...step, variants } : step;
 }
 
-export const ACTIONS: { value: string; label: string }[] = [
-  { value: "goto", label: "Перейти на шаг" },
-  { value: "letter", label: "Прислать письмо" },
-  { value: "flag", label: "Поставить метку" },
-  { value: "unflag", label: "Снять метку" },
-  { value: "key", label: "Выдать ключ" },
-  { value: "file", label: "Положить файл" },
-  { value: "hook", label: "Хук (alert, open, kick)" },
-  { value: "bounce", label: "Вернуть как недоставленное" },
-  { value: "world_flag", label: "Поставить метку мира" },
-  { value: "world_unflag", label: "Снять метку мира" },
-  { value: "world_count", label: "Вклад в счётчик мира" },
-];
 
 export function describe(action: Action): string {
   switch (action.do) {

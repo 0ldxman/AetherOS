@@ -158,7 +158,7 @@ class TalkTests(TestCase):
         self.started()
         key_item("dock")
         Variant.objects.create(step=self.first, title="Переслать приказ", mode="forward", forward_of=self.ask,
-                               outcomes={"ok": [{"do": "key", "slug": "dock"}, {"do": "hook", "text": "alert intruder count=2\nopen apps/wiki/go/dock/"}]})
+                               outcomes={"ok": [{"do": "key", "slug": "dock"}, {"do": "alert", "message": "intruder", "count": 2}, {"do": "open", "url": "apps/wiki/go/dock/"}]})
         _, offers = talk.offers_for_forward(self.ivan, self.profile, frozenset(), "guard@port", self.ask)
         sent = talk.send(self.box(), frozenset(), to="guard@port", variant=offers[0].variant, forward_item=self.ask)
         self.assertEqual(sent.kind, "ok")

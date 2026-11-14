@@ -68,7 +68,7 @@ class OutboxTests(TestCase):
             outbox.cancel(Reply.objects.get(pk=reply.pk))
 
     def test_world_actions_run_on_delivery_and_bad_ones_are_refused(self):
-        outbox.answer(self.mail_in(), self.boss, "go", actions=[{"do": "flag", "name": "op7-met"}])
+        outbox.answer(self.mail_in(), self.boss, "go", actions=[{"do": "world_flag", "name": "op7-met"}])
         self.assertTrue(WorldFlag.objects.get(name="op7-met").on)
         with self.assertRaises(outbox.OutboxError):
             outbox.answer(self.mail_in(), self.boss, "x", actions=[{"do": "explode"}])

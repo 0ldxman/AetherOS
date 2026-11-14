@@ -37,9 +37,9 @@ class WorldStateTests(TestCase):
         self.assertEqual(state.set_counter("signals", 5, "автор"), 5)
 
     def test_triggers_fire_on_the_edge_and_chain(self):
-        WorldTrigger.objects.create(name="act-2", condition="world:fragments>=3", actions=[{"do": "flag", "name": "act-2"}])
-        WorldTrigger.objects.create(name="dawn", condition="world:act-2", actions=[{"do": "count", "name": "acts", "delta": 1}])
-        WorldTrigger.objects.create(name="beacon", condition="world:fragments>=2", repeat=True, actions=[{"do": "count", "name": "beacons"}])
+        WorldTrigger.objects.create(name="act-2", condition="world:fragments>=3", actions=[{"do": "world_flag", "name": "act-2"}])
+        WorldTrigger.objects.create(name="dawn", condition="world:act-2", actions=[{"do": "world_count", "name": "acts", "delta": 1}])
+        WorldTrigger.objects.create(name="beacon", condition="world:fragments>=2", repeat=True, actions=[{"do": "world_count", "name": "beacons"}])
         state.count("fragments", 2)
         self.assertEqual(WorldTrigger.objects.get(name="act-2").fired_count, 0)
         state.count("fragments", 1)
@@ -54,8 +54,8 @@ class WorldStateTests(TestCase):
         self.assertTrue(WorldEvent.objects.filter(kind="trigger", subject="dawn").exists())
 
     def test_a_loop_of_triggers_stops(self):
-        WorldTrigger.objects.create(name="ping", condition="world:a", repeat=True, actions=[{"do": "unflag", "name": "a"}, {"do": "flag", "name": "b"}])
-        WorldTrigger.objects.create(name="pong", condition="world:b", repeat=True, actions=[{"do": "unflag", "name": "b"}, {"do": "flag", "name": "a"}])
+        WorldTrigger.objects.create(name="ping", condition="world:a", repeat=True, actions=[{"do": "world_unflag", "name": "a"}, {"do": "world_flag", "name": "b"}])
+        WorldTrigger.objects.create(name="pong", condition="world:b", repeat=True, actions=[{"do": "world_unflag", "name": "b"}, {"do": "world_flag", "name": "a"}])
         state.set_flag("a")
         self.assertTrue(WorldEvent.objects.filter(text__contains="слишком длинная").exists())
 
@@ -73,7 +73,7 @@ class WorldStateTests(TestCase):
         self.assertEqual(Post.objects.get().title, "Core is back")
         self.assertEqual((Transmission.objects.get().text, Transmission.objects.get().key), ("CORE ONLINE", "orpheus"))
         self.assertTrue(WorldEvent.objects.filter(text__contains="не выполнено").exists())
-        self.assertEqual(state.check_actions([{"do": "news"}, {"do": "fly"}]), ["действие 1: у новости нет заголовка", "действие 2: неизвестно «fly»"])
+        self.assertEqual(state.check_actions([{"do": "news"}, {"do": "fly"}]), ["действие 1: не заполнено «Заголовок»", "действие 2: неизвестно «fly»"])
         self.assertEqual(state.check_condition("world:x>=2 "), [])
         self.assertTrue(state.check_condition("secret-key"))
 

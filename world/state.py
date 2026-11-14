@@ -18,7 +18,6 @@ from world.models import WorldContribution, WorldCounter, WorldEvent, WorldFlag,
 NAME = re.compile(r"^[a-z0-9][a-z0-9_-]{0,63}$")
 ATOM = re.compile(r"^world:([a-z0-9][a-z0-9_-]{0,63})(?:(>=|<=|>|<|=)(-?\d+))?$")
 DEPTH = 8
-ACTIONS = ("flag", "unflag", "count", "news", "air", "letter", "forum")
 
 
 class WorldError(ValueError):
@@ -195,34 +194,13 @@ def fire(trigger, _depth=0, by="", user=None):
     """Выполнить действия триггера (по условию или «запустить сейчас» с пульта)."""
     WorldTrigger.objects.filter(pk=trigger.pk).update(fired_at=timezone.now(), fired_count=F("fired_count") + 1)
     _log("trigger", trigger.name, f"сработал триггер {trigger.name}" + (f" ({trigger.label})" if trigger.label else ""), by or "условие", user)
-    source = f"триггер {trigger.name}"
-    for action in trigger.actions or []:
-        run_action(action, source, _depth)
+    from engine import actions as engine
+    from engine.context import Ctx
+
+    engine.run(trigger.actions, Ctx(source=f"триггер {trigger.name}", depth=_depth))      # у триггера нет игрока: только действия мира
 
 
-def run_action(action, source, _depth=0, user=None):
-    """Одно действие мира: из триггера или из исхода письма и ответчика (тогда user — игрок)."""
-    do = action.get("do")
-    try:
-        if do == "flag":
-            set_flag(action.get("name", ""), True, source, user, _depth)
-        elif do == "unflag":
-            set_flag(action.get("name", ""), False, source, user, _depth)
-        elif do == "count":
-            count(action.get("name", ""), int(action.get("delta") or 1), source, user, _depth)
-        elif do == "news":
-            _news(action, source)
-        elif do == "air":
-            _air(action, source)
-        elif do == "letter":
-            _letter(action, source)
-        elif do == "forum":
-            _forum(action, source, user)
-    except (WorldError, ValueError) as error:
-        _log("action", do or "", f"действие не выполнено: {error}", source)
-
-
-def _news(action, source):
+def _news(action, source, user=None):
     from news.models import Post
 
     title = (action.get("title") or "").strip()
@@ -234,7 +212,7 @@ def _news(action, source):
     _log("action", "news", f"новость «{title}»", source)
 
 
-def _air(action, source):
+def _air(action, source, user=None):
     from air import radio
     from air.models import Station
 
@@ -245,7 +223,7 @@ def _air(action, source):
     _log("action", "air", f"{station.name} в эфире {action.get('freq')}", source)
 
 
-def _letter(action, source):
+def _letter(action, source, user=None):
     from filesystem.models import Item
     from world import letters
 
@@ -298,43 +276,10 @@ def _forum(action, source, user=None):
 
 
 def check_actions(actions):
-    """Проблемы действий для Студии: [текст]."""
-    out = []
-    for number, action in enumerate(actions or [], 1):
-        do = action.get("do")
-        if do not in ACTIONS:
-            out.append(f"действие {number}: неизвестно «{do}»")
-        elif do in ("flag", "unflag", "count"):
-            try:
-                check_name(action.get("name", ""))
-            except WorldError as error:
-                out.append(f"действие {number}: {error}")
-        elif do == "news" and not (action.get("title") or "").strip():
-            out.append(f"действие {number}: у новости нет заголовка")
-        elif do == "air" and not (action.get("station") and action.get("freq") and (action.get("text") or "").strip()):
-            out.append(f"действие {number}: нужны станция, частота и текст")
-        elif do == "forum":
-            from forum.models import Section
+    """Проблемы действий триггера для Студии: только действия мира (engine/actions.py)."""
+    from engine import actions as engine
 
-            if not Section.objects.filter(pk=action.get("section") or 0, archived=False).exists():
-                out.append(f"действие {number}: нет раздела форума")
-            elif not (action.get("text") or "").strip():
-                out.append(f"действие {number}: у записи нет текста")
-            elif not (action.get("title") or "").strip():
-                out.append(f"действие {number}: нужен заголовок темы")
-            elif action.get("mode", "new") not in ("new", "append"):
-                out.append(f"действие {number}: режим new или append")
-            elif action.get("character"):
-                from characters.models import Character
-
-                if not Character.objects.filter(code=str(action["character"]).upper()).exists():
-                    out.append(f"действие {number}: нет персонажа {action['character']}")
-        elif do == "letter":
-            from filesystem.models import Item
-
-            if not Item.objects.filter(slug=action.get("item", "")).exists():
-                out.append(f"действие {number}: нет письма «{action.get('item', '')}»")
-    return out
+    return engine.check(actions)
 
 
 def check_condition(condition):

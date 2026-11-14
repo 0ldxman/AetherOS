@@ -4325,26 +4325,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/studio/api/world/state/forum-options": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Forum Options
-         * @description Разделы форума и персонажи для действия forum.
-         */
-        get: operations["studio_api_worldstate_forum_options"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/studio/api/world/state": {
         parameters: {
             query?: never;
@@ -4651,6 +4631,23 @@ export interface paths {
         put?: never;
         /** Split */
         post: operations["studio_api_worldstate_split"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/studio/api/engine/catalog": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Catalog */
+        get: operations["studio_api_engine_catalog"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -11101,20 +11098,6 @@ export interface components {
                 [key: string]: unknown;
             }[];
         };
-        /** WsForumOptions */
-        WsForumOptions: {
-            /** Sections */
-            sections: components["schemas"]["WsPick"][];
-            /** Characters */
-            characters: components["schemas"]["WsPick"][];
-        };
-        /** WsPick */
-        WsPick: {
-            /** Id */
-            id: string;
-            /** Label */
-            label: string;
-        };
         /** WsContribution */
         WsContribution: {
             /** Who */
@@ -11464,6 +11447,52 @@ export interface components {
              * @default false
              */
             consume: boolean;
+        };
+        /** EnAction */
+        EnAction: {
+            /** Name */
+            name: string;
+            /** Label */
+            label: string;
+            /** Needs */
+            needs: string;
+            /** Group */
+            group: string;
+            /** Summary */
+            summary: string;
+            /** Fields */
+            fields: components["schemas"]["EnField"][];
+        };
+        /** EnCatalog */
+        EnCatalog: {
+            /** Actions */
+            actions: components["schemas"]["EnAction"][];
+            /** Picks */
+            picks: {
+                [key: string]: components["schemas"]["EnOption"][];
+            };
+        };
+        /** EnField */
+        EnField: {
+            /** Name */
+            name: string;
+            /** Label */
+            label: string;
+            /** Kind */
+            kind: string;
+            /** Placeholder */
+            placeholder: string;
+            /** Required */
+            required: boolean;
+            /** Options */
+            options: components["schemas"]["EnOption"][];
+        };
+        /** EnOption */
+        EnOption: {
+            /** Value */
+            value: string;
+            /** Label */
+            label: string;
         };
     };
     responses: never;
@@ -19121,26 +19150,6 @@ export interface operations {
             };
         };
     };
-    studio_api_worldstate_forum_options: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["WsForumOptions"];
-                };
-            };
-        };
-    };
     studio_api_worldstate_read: {
         parameters: {
             query?: never;
@@ -19633,6 +19642,26 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["WsRecipe"];
+                };
+            };
+        };
+    };
+    studio_api_engine_catalog: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnCatalog"];
                 };
             };
         };

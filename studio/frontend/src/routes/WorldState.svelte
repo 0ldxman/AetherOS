@@ -4,7 +4,9 @@
   import { onDestroy, onMount } from "svelte";
   import { api, problem, type Schemas } from "../lib/api";
   import Dialog from "../lib/Dialog.svelte";
+  import ActionsEditor from "../lib/ActionsEditor.svelte";
   import Hint from "../lib/Hint.svelte";
+  import { summary, type Act } from "../lib/engine.svelte";
   import PageHead from "../lib/PageHead.svelte";
   import { ask } from "../lib/confirm.svelte";
   import { toast } from "../lib/toast.svelte";
@@ -12,7 +14,6 @@
   type State = Schemas["WsState"];
   type Counter = Schemas["WsCounter"];
   type Trigger = Schemas["WsTrigger"];
-  type Act = { do: string; name?: string; delta?: number; title?: string; text?: string; station?: string; freq?: string; key?: string; important?: boolean; item?: string; systems?: string; machines?: string; section?: number | string; mode?: string; character?: string };
   type Moment = Schemas["WsMoment"];
 
   let data = $state<State | null>(null);
@@ -153,17 +154,9 @@
   type TForm = { id: number | null; name: string; label: string; condition_text: string; actions: Act[]; repeat: boolean; active: boolean };
   let tform = $state<TForm | null>(null);
   let busy = $state(false);
-  const KINDS = [
-    { value: "flag", label: "Поставить метку мира" }, { value: "unflag", label: "Снять метку мира" }, { value: "count", label: "Вклад в счётчик" },
-    { value: "news", label: "Опубликовать новость" }, { value: "air", label: "Передать в эфир" }, { value: "letter", label: "Письмо всем" },
-    { value: "forum", label: "Запись на форуме" },
-  ];
-  let forumOptions = $state<Schemas["WsForumOptions"]>({ sections: [], characters: [] });
-  onMount(async () => { const { data: found } = await api.GET("/studio/api/world/state/forum-options"); if (found) forumOptions = found; });
-  const sectionLabel = (id: unknown) => forumOptions.sections.find((s) => s.id === String(id))?.label ?? `раздел ${id}`;
   function editTrigger(t: Trigger | null) {
     tform = t ? { id: t.id, name: t.name, label: t.label, condition_text: t.condition_text, actions: (t.actions as Act[]).map((a) => ({ ...a })), repeat: t.repeat, active: t.active }
-              : { id: null, name: "", label: "", condition_text: "", actions: [{ do: "flag", name: "" }], repeat: false, active: true };
+              : { id: null, name: "", label: "", condition_text: "", actions: [{ do: "world_flag", name: "" }], repeat: false, active: true };
   }
   async function saveTrigger() {
     if (!tform) return;
@@ -189,18 +182,7 @@
     const { data: next, error } = await api.DELETE("/studio/api/world/state/triggers/{trigger_id}", { params: { path: { trigger_id: t.id } } });
     take(next, error);
   }
-  function describe(a: Act) {
-    switch (a.do) {
-      case "flag": return `поставить world:${a.name}`;
-      case "unflag": return `снять world:${a.name}`;
-      case "count": return `world:${a.name} ${(a.delta ?? 1) >= 0 ? "+" : ""}${a.delta ?? 1}`;
-      case "news": return `новость «${a.title}»`;
-      case "air": return `${(a.station ?? "").toUpperCase()} в эфир ${a.freq}${a.key ? " шифром" : ""}`;
-      case "letter": return `письмо всем «${a.item}»${a.machines ? ` на ${a.machines}` : ""}${a.systems ? ` (ОС ${a.systems})` : ""}`;
-      case "forum": return `${a.character || "SYS"} ${a.mode === "append" ? "дописывает в" : "открывает тему"} «${a.title}» · ${sectionLabel(a.section)}`;
-      default: return a.do;
-    }
-  }
+  const describe = (a: Act) => summary(a);
   function triggerState(t: Trigger) {
     if (!t.active) return { text: "выключен", cls: "off" };
     if (t.fired_count && !t.repeat) return { text: `сработал ${when(t.fired_at)}`, cls: "done" };
@@ -388,62 +370,7 @@
       <label><span class="label">Когда<Hint text="Условие на мир: world:метка, world:счётчик>=число (>=, >, <=, <, =), and, or, not и скобки. Срабатывает, когда условие из неверного становится верным." /></span>
         <input class="field mono" bind:value={tform.condition_text} placeholder="world:fragments>=7 and not world:sealed" /></label>
       <div><span class="label">Что сделать</span>
-        <div class="acts-list">
-          {#each tform.actions as a, i}
-            <div class="act">
-              <select class="field kind" bind:value={a.do} aria-label="Действие">{#each KINDS as k}<option value={k.value}>{k.label}</option>{/each}</select>
-              {#if a.do === "flag" || a.do === "unflag"}
-                <input class="field mono" bind:value={a.name} placeholder="метка" aria-label="Метка" />
-              {:else if a.do === "count"}
-                <input class="field mono" bind:value={a.name} placeholder="счётчик" aria-label="Счётчик" />
-                <input class="field mono num" type="number" bind:value={a.delta} placeholder="1" aria-label="Сколько" />
-              {:else if a.do === "news"}
-                <div class="stack">
-                  <input class="field" bind:value={a.title} placeholder="Заголовок" aria-label="Заголовок" />
-                  <textarea class="field" rows="2" bind:value={a.text} placeholder="Текст новости" aria-label="Текст"></textarea>
-                  <label class="check"><input type="checkbox" bind:checked={a.important} /> Важная: всплывает на столе</label>
-                </div>
-              {:else if a.do === "letter"}
-                <div class="stack">
-                  <input class="field mono" bind:value={a.item} placeholder="слаг объекта письма (.msg)" aria-label="Письмо" />
-                  <div class="row"><input class="field mono" bind:value={a.machines} placeholder="только машины: aether-main, …" aria-label="Машины" />
-                    <input class="field mono" bind:value={a.systems} placeholder="только ОС: AETHER, …" aria-label="ОС" /></div>
-                  <span class="muted small">Придёт каждому игроку один раз, когда он откроет почту на подходящей машине.</span>
-                </div>
-              {:else if a.do === "forum"}
-                <div class="stack">
-                  <div class="row">
-                    <select class="field" bind:value={a.section} aria-label="Раздел">
-                      <option value={undefined} disabled>раздел форума…</option>
-                      {#each forumOptions.sections as s (s.id)}<option value={Number(s.id)}>{s.label}</option>{/each}
-                    </select>
-                    <select class="field" bind:value={a.character} aria-label="От кого">
-                      <option value={undefined}>от системы (SYS)</option>
-                      {#each forumOptions.characters as c (c.id)}<option value={c.id}>{c.label}</option>{/each}
-                    </select>
-                  </div>
-                  <div class="row">
-                    <select class="field" bind:value={a.mode} aria-label="Режим">
-                      <option value={undefined}>новая тема</option><option value="append">дописать в тему</option>
-                    </select>
-                    <input class="field" bind:value={a.title} placeholder={a.mode === "append" ? "заголовок темы, например World log" : "заголовок новой темы"} aria-label="Заголовок" />
-                  </div>
-                  <textarea class="field" rows="2" bind:value={a.text} placeholder="текст: {'{time}'}, {'{player}'}, {'{world_счётчик}'}" aria-label="Текст"></textarea>
-                  <span class="muted small">«Дописать» пишет в последний открытый том темы с этим заголовком (нет такой — создаёт). Хроника — это обычный раздел, куда пишут такие действия.</span>
-                </div>
-              {:else if a.do === "air"}
-                <div class="stack">
-                  <div class="row"><input class="field mono" bind:value={a.station} placeholder="СТАНЦИЯ" aria-label="Станция" />
-                    <input class="field mono" bind:value={a.freq} placeholder="МГц" aria-label="Частота" />
-                    <input class="field mono" bind:value={a.key} placeholder="шифр (необязательно)" aria-label="Шифр" /></div>
-                  <input class="field" bind:value={a.text} placeholder="Текст передачи" aria-label="Текст" />
-                </div>
-              {/if}
-              <button type="button" class="x" onclick={() => (tform!.actions = tform!.actions.filter((_, j) => j !== i))} aria-label="Убрать действие">✕</button>
-            </div>
-          {/each}
-          <button type="button" class="btn ghost small add-act" onclick={() => tform!.actions.push({ do: "flag", name: "" })}>+ действие</button>
-        </div>
+        <ActionsEditor bind:actions={tform.actions} provides={["world"]} />
       </div>
       <div class="two">
         <label class="check"><input type="checkbox" bind:checked={tform.repeat} /> Повторный: каждый раз, когда условие снова станет верным</label>
@@ -517,9 +444,6 @@
   .check input { width: auto; }
   .acts-list { display: flex; flex-direction: column; gap: 6px; margin-top: 4px; }
   .act { display: flex; gap: 6px; align-items: flex-start; padding: 6px; border: 1px solid var(--line-soft); border-radius: var(--radius-s); background: var(--bg); }
-  .act .kind { flex: 0 0 200px; width: 200px; }
-  .act > .field { flex: 1; min-width: 0; }
-  .act .num { flex: 0 0 80px; width: 80px; }
   .stack { flex: 1; display: flex; flex-direction: column; gap: 6px; min-width: 0; }
   .row { display: flex; gap: 6px; }
   textarea { resize: vertical; font: inherit; }

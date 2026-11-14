@@ -439,7 +439,6 @@ def delete_broadcast(request, broadcast_id: int):
 
 # ---------- ответчики ----------
 
-ACTIONS = {"flag", "unflag", "key", "file", "letter", "hook", "world_flag", "world_unflag", "world_count"}
 
 
 def _responder(row):
@@ -457,7 +456,13 @@ def _responder_values(body):
     found = events.pattern_problems(body.pattern, body.regex)
     if found:
         _refuse(f"Шаблон: {found[0]}")
-    actions = [action for action in body.actions if action.get("do") in ACTIONS]
+    from engine import actions as engine
+    from engine.context import ACCOUNT, SESSION, USER, WORLD
+
+    actions = body.actions
+    found = engine.check(actions, provides=(WORLD, USER, ACCOUNT, SESSION))
+    if found:
+        _refuse("Исходы: " + found[0])
     if not body.reply.strip() and not actions:
         _refuse("Ответчику нужен ответ в эфир или хотя бы один исход.")
     return {"station_id": body.station, "freq": freq, "pattern": body.pattern.strip(), "regex": body.regex, "condition": body.condition or None,

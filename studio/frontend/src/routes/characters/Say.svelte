@@ -2,6 +2,8 @@
   // Персонаж пишет первым: письмо одному игроку, группе по условию или всем; новая тема на форуме; передача в эфир.
   import { onMount } from "svelte";
   import { api, problem, type Schemas } from "../../lib/api";
+  import ActionsEditor from "../../lib/ActionsEditor.svelte";
+  import type { Act } from "../../lib/engine.svelte";
   import AccessBuilder from "../../lib/AccessBuilder.svelte";
   import { canEdit } from "../../lib/me.svelte";
   import { when } from "../../lib/time";
@@ -11,7 +13,6 @@
 
   const editable = canEdit("characters");
   const DELAYS = [{ v: 0, l: "сразу" }, { v: 5, l: "через 5 мин" }, { v: 20, l: "через 20 мин" }, { v: 60, l: "через час" }, { v: 180, l: "через 3 часа" }, { v: 720, l: "через 12 часов" }, { v: 1440, l: "через сутки" }];
-  const ACTIONS = [{ v: "flag", l: "поставить метку" }, { v: "unflag", l: "снять метку" }, { v: "count", l: "счётчик +" }];
 
   let channel = $state("mail");
   let audience = $state("player");
@@ -19,7 +20,7 @@
   let players = $state<Schemas["ChPlayerPick"][]>([]);
   let sections = $state<Schemas["ChSection"][]>([]);
   let draft = $state({ text: "", subject: "", account: null as number | null, condition: "", section: null as number | null, title: "", freq: "14.230",
-                       station: null as number | null, delay: 0, actions: [] as { do: string; name: string; delta: number }[] });
+                       station: null as number | null, delay: 0, actions: [] as Act[] });
   let busy = $state(false);
   let errors = $state<Record<string, string>>({});
 
@@ -38,7 +39,7 @@
 
   async function send() {
     busy = true;
-    const actions = draft.actions.filter((a) => a.name.trim()).map((a) => (a.do === "count" ? { do: "count", name: a.name.trim(), delta: a.delta || 1 } : { do: a.do, name: a.name.trim() }));
+    const actions = draft.actions;
     const { data, error } = await api.POST("/studio/api/characters/{character_id}/say", { params: { path: { character_id: character } }, body: {
       channel, text: draft.text, subject: draft.subject, audience, account: draft.account, condition: draft.condition, section: draft.section,
       title: draft.title, freq: draft.freq, station: draft.station, delay: draft.delay, actions } });
@@ -97,15 +98,7 @@
 
   <textarea class="field" rows="6" bind:value={draft.text} placeholder="что скажет персонаж"></textarea>
   <div class="acts">
-    {#each draft.actions as a, n (n)}
-      <div class="act">
-        <select class="field" bind:value={a.do} aria-label="Действие">{#each ACTIONS as o (o.v)}<option value={o.v}>{o.l}</option>{/each}</select>
-        <input class="field mono" bind:value={a.name} placeholder="имя" aria-label="Имя метки или счётчика" />
-        {#if a.do === "count"}<input class="field num" type="number" bind:value={a.delta} aria-label="На сколько" />{/if}
-        <button class="link" onclick={() => (draft.actions = draft.actions.filter((_, i) => i !== n))}>убрать</button>
-      </div>
-    {/each}
-    <button class="link" onclick={() => (draft.actions = [...draft.actions, { do: "flag", name: "", delta: 1 }])}>+ действие мира при отправке</button>
+    <ActionsEditor bind:actions={draft.actions} provides={["world", "user"]} addLabel="+ действие при отправке" />
   </div>
   {#if editable}
     <div class="send">
@@ -126,13 +119,9 @@
   .pick { display: flex; gap: 8px; }
   .pick .field { flex: 1; min-width: 0; }
   .row { display: flex; flex-direction: column; gap: 4px; }
-  .acts { display: flex; flex-direction: column; gap: 6px; align-items: flex-start; }
-  .act { display: flex; gap: 6px; align-items: center; }
-  .act .field { width: auto; }
-  .num { width: 70px !important; }
+  .acts { display: flex; flex-direction: column; gap: 6px; }
   .send { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
   .send .field { width: auto; }
-  .link { padding: 0; border: 0; background: none; color: var(--accent); font: inherit; font-size: 12px; cursor: pointer; }
   .small { font-size: 12px; margin: 0; }
   .mono { font-family: var(--mono); }
 </style>

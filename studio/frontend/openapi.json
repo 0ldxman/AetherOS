@@ -13559,34 +13559,6 @@
     ]
    }
   },
-  "/studio/api/world/state/forum-options": {
-   "get": {
-    "operationId": "studio_api_worldstate_forum_options",
-    "summary": "Forum Options",
-    "parameters": [],
-    "responses": {
-     "200": {
-      "description": "OK",
-      "content": {
-       "application/json": {
-        "schema": {
-         "$ref": "#/components/schemas/WsForumOptions"
-        }
-       }
-      }
-     }
-    },
-    "description": "Разделы форума и персонажи для действия forum.",
-    "tags": [
-     "world-state"
-    ],
-    "security": [
-     {
-      "StudioAuth": []
-     }
-    ]
-   }
-  },
   "/studio/api/world/state": {
    "get": {
     "operationId": "studio_api_worldstate_read",
@@ -14412,6 +14384,33 @@
      },
      "required": true
     },
+    "security": [
+     {
+      "StudioAuth": []
+     }
+    ]
+   }
+  },
+  "/studio/api/engine/catalog": {
+   "get": {
+    "operationId": "studio_api_engine_catalog",
+    "summary": "Catalog",
+    "parameters": [],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/EnCatalog"
+        }
+       }
+      }
+     }
+    },
+    "tags": [
+     "engine"
+    ],
     "security": [
      {
       "StudioAuth": []
@@ -30325,48 +30324,6 @@
     "title": "ChSayIn",
     "type": "object"
    },
-   "WsForumOptions": {
-    "properties": {
-     "sections": {
-      "items": {
-       "$ref": "#/components/schemas/WsPick"
-      },
-      "title": "Sections",
-      "type": "array"
-     },
-     "characters": {
-      "items": {
-       "$ref": "#/components/schemas/WsPick"
-      },
-      "title": "Characters",
-      "type": "array"
-     }
-    },
-    "required": [
-     "sections",
-     "characters"
-    ],
-    "title": "WsForumOptions",
-    "type": "object"
-   },
-   "WsPick": {
-    "properties": {
-     "id": {
-      "title": "Id",
-      "type": "string"
-     },
-     "label": {
-      "title": "Label",
-      "type": "string"
-     }
-    },
-    "required": [
-     "id",
-     "label"
-    ],
-    "title": "WsPick",
-    "type": "object"
-   },
    "WsContribution": {
     "properties": {
      "who": {
@@ -31161,6 +31118,133 @@
      "count"
     ],
     "title": "WsSplit",
+    "type": "object"
+   },
+   "EnAction": {
+    "properties": {
+     "name": {
+      "title": "Name",
+      "type": "string"
+     },
+     "label": {
+      "title": "Label",
+      "type": "string"
+     },
+     "needs": {
+      "title": "Needs",
+      "type": "string"
+     },
+     "group": {
+      "title": "Group",
+      "type": "string"
+     },
+     "summary": {
+      "title": "Summary",
+      "type": "string"
+     },
+     "fields": {
+      "items": {
+       "$ref": "#/components/schemas/EnField"
+      },
+      "title": "Fields",
+      "type": "array"
+     }
+    },
+    "required": [
+     "name",
+     "label",
+     "needs",
+     "group",
+     "summary",
+     "fields"
+    ],
+    "title": "EnAction",
+    "type": "object"
+   },
+   "EnCatalog": {
+    "properties": {
+     "actions": {
+      "items": {
+       "$ref": "#/components/schemas/EnAction"
+      },
+      "title": "Actions",
+      "type": "array"
+     },
+     "picks": {
+      "additionalProperties": {
+       "items": {
+        "$ref": "#/components/schemas/EnOption"
+       },
+       "type": "array"
+      },
+      "title": "Picks",
+      "type": "object"
+     }
+    },
+    "required": [
+     "actions",
+     "picks"
+    ],
+    "title": "EnCatalog",
+    "type": "object"
+   },
+   "EnField": {
+    "properties": {
+     "name": {
+      "title": "Name",
+      "type": "string"
+     },
+     "label": {
+      "title": "Label",
+      "type": "string"
+     },
+     "kind": {
+      "title": "Kind",
+      "type": "string"
+     },
+     "placeholder": {
+      "title": "Placeholder",
+      "type": "string"
+     },
+     "required": {
+      "title": "Required",
+      "type": "boolean"
+     },
+     "options": {
+      "items": {
+       "$ref": "#/components/schemas/EnOption"
+      },
+      "title": "Options",
+      "type": "array"
+     }
+    },
+    "required": [
+     "name",
+     "label",
+     "kind",
+     "placeholder",
+     "required",
+     "options"
+    ],
+    "title": "EnField",
+    "type": "object"
+   },
+   "EnOption": {
+    "properties": {
+     "value": {
+      "title": "Value",
+      "type": "string"
+     },
+     "label": {
+      "title": "Label",
+      "type": "string"
+     }
+    },
+    "required": [
+     "value",
+     "label"
+    ],
+    "title": "EnOption",
     "type": "object"
    }
   },
