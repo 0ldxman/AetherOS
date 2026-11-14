@@ -74,13 +74,71 @@ def answer(inbound, author, text, *, subject="", delay_minutes=0, actions=(), st
     return reply
 
 
+AUDIENCES = ("player", "group", "all")
+
+
+@transaction.atomic
+def say(character, author, channel, text, *, subject="", audience="player", user=None, account=None, condition=None,
+        section=None, title="", freq="", station=None, delay_minutes=0, actions=()):
+    """Персонаж пишет первым, без входящего.
+
+    Почта: одному игроку в выбранную учётку (account) или многим (group: по условию, all: всем) — тогда письмо ленивое, как письмо мира,
+    и приходит при следующем открытии почты. Форум: новая тема в разделе. Эфир: передача на частоте от позывного."""
+    text = (text or "").strip()
+    if not text:
+        raise OutboxError("пустая реплика")
+    actions = list(actions or [])
+    _check(actions)
+    ref, target = {}, None
+    if channel == Inbound.Channel.MAIL:
+        sender = character.personas.values_list("address", flat=True).first()
+        if not sender:
+            raise OutboxError("у персонажа нет почтового адреса")
+        if not (subject or "").strip():
+            raise OutboxError("у письма нет темы")
+        if audience not in AUDIENCES:
+            raise OutboxError("кому: player, group или all")
+        if audience == "player":
+            if account is None or not account.mail:
+                raise OutboxError("выберите учётку игрока")
+            ref, target = {"to": account.mail, "from": sender}, account.user or user
+        else:
+            if audience == "group" and not condition:
+                raise OutboxError("для группы нужно условие")
+            ref = {"from": sender, "audience": audience, "condition": condition if audience == "group" else None}
+    elif channel == Inbound.Channel.FORUM:
+        if section is None:
+            raise OutboxError("выберите раздел форума")
+        if not (title or "").strip():
+            raise OutboxError("у темы нет заголовка")
+        ref = {"section": section.pk, "title": title.strip()[:160]}
+        subject = ref["title"]
+    elif channel == Inbound.Channel.AIR:
+        chosen = station or character.stations.order_by("pk").first()
+        if chosen is None or chosen.character_id != character.pk:
+            raise OutboxError("у персонажа нет позывного в эфире")
+        from air import radio
+
+        try:
+            ref = {"freq": f"{radio.parse_freq(freq or radio.CALLING):.3f}", "station": chosen.pk}
+        except Exception as error:                     # noqa: BLE001 — разбор частоты бросает свою ошибку с текстом
+            raise OutboxError(str(error)) from None
+    else:
+        raise OutboxError("канал: mail, forum или air")
+    reply = Reply.objects.create(character=character, channel=channel, author=author, user=target, subject=(subject or "")[:255], text=text,
+                                 ref=ref, actions=actions, send_at=send_at(delay_minutes))
+    if reply.send_at <= timezone.now():
+        deliver(reply)
+    return reply
+
+
 def deliver(reply):
     """Отправить реплику в канал и выполнить её действия мира. Ошибка канала: статус failed с причиной."""
     try:
         if reply.channel == Inbound.Channel.MAIL:
-            _mail(reply)
+            _mail_many(reply) if reply.ref.get("audience") in ("group", "all") else _mail(reply)
         elif reply.channel == Inbound.Channel.FORUM:
-            _forum(reply)
+            _new_topic(reply) if reply.ref.get("section") else _forum(reply)
         else:
             _air(reply)
     except Exception as error:                        # noqa: BLE001 — реплика не должна ронять запрос автора, причина остаётся в журнале
@@ -113,6 +171,31 @@ def _mail(reply):
     slug = f"live-{reply.character.code.lower()}-{reply.pk}"
     item = Item.objects.create(slug=slug, name=f"{slug}.msg", format=LETTER_FORMAT, body=body)
     Box.of_profile(profile, user=reply.user).deliver(item)
+
+
+def _mail_many(reply):
+    """Письмо многим: ленивое, приходит каждому при открытии почты (с условием — тем, чьи ключи подходят)."""
+    from filesystem.models import Item
+    from mail import letters
+    from mail.delivery import LETTER_FORMAT
+    from world import letters as world_letters
+
+    body = letters.compose([("From", reply.ref.get("from", "")), ("To", "{to}"), ("Subject", reply.subject or "(no subject)")], reply.text + "\n")
+    slug = f"live-{reply.character.code.lower()}-{reply.pk}"
+    item = Item.objects.create(slug=slug, name=f"{slug}.msg", format=LETTER_FORMAT, body=body)
+    world_letters.send_all(item, source=f"персонаж {reply.character.code}", condition=reply.ref.get("condition"))
+
+
+def _new_topic(reply):
+    from forum import logic
+    from forum.models import Section
+
+    section = Section.objects.filter(pk=reply.ref.get("section"), archived=False).first()
+    if section is None:
+        raise OutboxError("раздела больше нет")
+    topic = logic.author_topic(section, "", reply.ref.get("title") or reply.subject, reply.text, character=reply.character)
+    reply.ref = {**reply.ref, "topic": topic.pk}
+    Reply.objects.filter(pk=reply.pk).update(ref=reply.ref)
 
 
 def _forum(reply):

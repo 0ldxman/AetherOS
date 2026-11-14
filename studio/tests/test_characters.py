@@ -102,3 +102,27 @@ class CharactersStudioTests(TestCase):
         self.assertEqual(self.call("post", f"/replies/{reply['id']}/cancel")[0], 400)
         status, data = self.call("post", f"/inbox/{row.pk}/answer", {"text": " "})
         self.assertEqual((status, list(data["fields"])), (400, ["text"]))
+
+
+    def test_say_first_by_mail_forum_and_air(self):
+        from machines.models import Machine, MachineProfile
+
+        found = Character.objects.create(code="OP7", name="Operator 7")
+        Persona.objects.create(address="op7@core", character=found)
+        Station.objects.create(name="OPERATOR-7", kind="character", character=found)
+        player = get_user_model().objects.create_user("ivan")
+        account = MachineProfile.objects.create(machine=Machine.objects.create(name="Main", hostname="aether-main"), user=player, name="Ivan", login="ivan", freq=1)
+        picks = self.call("get", "/options/players?q=iv")[1]
+        self.assertEqual(picks[0]["accounts"][0]["id"], account.pk)
+        status, reply = self.call("post", f"/{found.pk}/say", {"channel": "mail", "text": "hi", "subject": "s", "account": account.pk})
+        self.assertEqual((status, reply["status"], reply["player"]), (200, "sent", "ivan"))
+        status, reply = self.call("post", f"/{found.pk}/say", {"channel": "mail", "text": "hi", "subject": "s", "audience": "group", "condition": "badge and"})
+        self.assertEqual((status, list(reply["fields"])), (400, ["condition"]))
+        status, reply = self.call("post", f"/{found.pk}/say", {"channel": "mail", "text": "hi", "subject": "s", "audience": "all", "delay": 30})
+        self.assertEqual((reply["status"], reply["where"]), ("pending", "op7@core → всем игрокам"))
+        section = Section.objects.create(space=Space.objects.create(slug="net", title="Net"), title="General")
+        self.assertEqual(self.call("get", "/options/sections")[1], [{"id": section.pk, "label": "Net / General"}])
+        status, reply = self.call("post", f"/{found.pk}/say", {"channel": "forum", "text": "log", "section": section.pk, "title": "Shift"})
+        self.assertEqual(reply["status"], "sent")
+        status, reply = self.call("post", f"/{found.pk}/say", {"channel": "air", "text": "CQ", "freq": "14.230"})
+        self.assertEqual(reply["status"], "sent")

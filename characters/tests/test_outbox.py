@@ -94,3 +94,61 @@ class OutboxTests(TestCase):
         row = Inbound.objects.create(character=lonely, channel="air", sender="IVAN", text="LONELY?", ref={"freq": "14.230"})
         with self.assertRaises(outbox.OutboxError):
             outbox.answer(row, self.boss, "hi")
+
+
+class SayTests(TestCase):
+    """Персонаж пишет первым: одному игроку, группе, всем; новая тема; передача."""
+
+    def setUp(self):
+        self.op = Character.objects.create(code="OP7", name="Operator 7", callsign="OPERATOR-7")
+        self.station = Station.objects.create(name="OPERATOR-7", kind="character", character=self.op)
+        Persona.objects.create(address="op7@core", character=self.op)
+        self.boss = get_user_model().objects.create_user("boss", is_staff=True)
+        self.main = Machine.objects.create(name="Main", hostname="aether-main")
+        self.ivan = get_user_model().objects.create_user("ivan")
+        self.anna = get_user_model().objects.create_user("anna")
+        self.ivan_box = MachineProfile.objects.create(machine=self.main, user=self.ivan, name="Ivan", login="ivan", freq=1)
+        self.anna_box = MachineProfile.objects.create(machine=self.main, user=self.anna, name="Anna", login="anna", freq=2)
+
+    def inbox_of(self, profile, keys=None):
+        from world.letters import deliver
+
+        box = Box.of_profile(profile, user=profile.user)
+        deliver(box, keys)
+        return [(r.letter.sender, r.letter.subject) for r in box.letters_in("inbox")]
+
+    def test_letter_to_one_player_account(self):
+        reply = outbox.say(self.op, self.boss, "mail", "Meet me on core.", subject="tonight", account=self.ivan_box)
+        self.assertEqual((reply.status, reply.user), ("sent", self.ivan))
+        self.assertEqual(self.inbox_of(self.ivan_box), [("op7@core", "tonight")])
+        self.assertEqual(self.inbox_of(self.anna_box), [])
+
+    def test_letter_to_a_group_by_keys_and_to_all(self):
+        outbox.say(self.op, self.boss, "mail", "Only for badge holders.", subject="badge", audience="group", condition="badge")
+        self.assertEqual(self.inbox_of(self.ivan_box, {"badge"}), [("op7@core", "badge")])
+        self.assertEqual(self.inbox_of(self.anna_box, set()), [])
+        self.assertEqual(self.inbox_of(self.anna_box, {"badge"}), [("op7@core", "badge")])      # получила, когда ключ появился
+        outbox.say(self.op, self.boss, "mail", "Everyone.", subject="all hands", audience="all")
+        self.assertIn(("op7@core", "all hands"), self.inbox_of(self.anna_box, set()))
+
+    def test_new_forum_topic_and_air_transmission(self):
+        section = Section.objects.create(space=Space.objects.create(slug="net", title="Net"), title="General")
+        reply = outbox.say(self.op, self.boss, "forum", "Shift report.", section=section, title="Shift 14")
+        topic = section.topics.get()
+        self.assertEqual((topic.title, topic.character, reply.ref["topic"]), ("Shift 14", self.op, topic.pk))
+        outbox.say(self.op, self.boss, "air", "CQ CQ DE OPERATOR-7", freq="14.230")
+        self.assertTrue(Transmission.objects.filter(station=self.station, text="CQ CQ DE OPERATOR-7").exists())
+
+    def test_refusals(self):
+        cases = [
+            dict(channel="mail", text="x", subject=""),
+            dict(channel="mail", text="x", subject="s"),                                  # нет учётки
+            dict(channel="mail", text="x", subject="s", audience="group"),                # нет условия
+            dict(channel="forum", text="x", title="t"),                                   # нет раздела
+            dict(channel="air", text="x", freq="nope"),
+            dict(channel="fax", text="x"),
+        ]
+        for case in cases:
+            channel = case.pop("channel")
+            with self.assertRaises(outbox.OutboxError, msg=case):
+                outbox.say(self.op, self.boss, channel, **case)

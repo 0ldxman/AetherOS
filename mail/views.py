@@ -22,7 +22,7 @@ def _box(request):
     box = box_for(request)
     if box is None:
         raise Http404
-    deliver(box)                    # письма мира всем: приходят при открытии почты
+    deliver(box, _keys(request))    # письма мира всем: приходят при открытии почты (с условием — тем, чьи ключи подходят)
     return box
 
 

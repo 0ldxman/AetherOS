@@ -304,9 +304,10 @@ class ChContext(Schema):
 
 def _where(row):
     if row.channel == Inbound.Channel.MAIL:
-        return f"{row.ref.get('from', '')} → {row.ref.get('to', '')}"
+        audience = {"all": "всем игрокам", "group": "группе по условию"}.get(row.ref.get("audience"), row.ref.get("to", ""))
+        return f"{row.ref.get('from', '')} → {audience}"
     if row.channel == Inbound.Channel.FORUM:
-        return f"тема {row.ref.get('topic')}"
+        return f"тема {row.ref.get('topic')}" if row.ref.get("topic") else "новая тема"
     return f"{row.ref.get('freq', '')}"
 
 
@@ -361,3 +362,95 @@ def cancel_reply(request, reply_id: int):
         return _reply(outbox.cancel(row))
     except outbox.OutboxError as error:
         return 400, {"fields": {"status": str(error)}}
+
+
+# ---- персонаж пишет первым ----
+
+class ChSayIn(Schema):
+    channel: str                       # mail | forum | air
+    text: str
+    subject: str = ""
+    audience: str = "player"           # почта: player | group | all
+    account: int | None = None         # почта одному: учётка игрока
+    condition: str = ""                # почта группе: условие текстом
+    section: int | None = None         # форум: раздел
+    title: str = ""
+    freq: str = ""                     # эфир
+    station: int | None = None
+    delay: int = 0
+    actions: list[dict] = []
+
+
+class ChAccount(Schema):
+    id: int
+    label: str
+    mail: str
+
+
+class ChPlayerPick(Schema):
+    username: str
+    accounts: list[ChAccount]
+
+
+class ChSection(Schema):
+    id: int
+    label: str
+
+
+@router.get("/options/players", response=list[ChPlayerPick])
+def players(request, q: str = ""):
+    """Игроки и их почтовые учётки для «написать первым»."""
+    from machines.models import MachineProfile
+
+    found = get_user_model().objects.filter(is_staff=False)
+    if q.strip():
+        found = found.filter(username__icontains=q.strip())
+    out = []
+    for user in found.order_by("username")[:30]:
+        accounts = [ChAccount(id=p.pk, label=f"{p.login}@{p.machine.hostname}", mail=p.mail)
+                    for p in MachineProfile.objects.filter(user=user).exclude(mail="").select_related("machine")]
+        out.append(ChPlayerPick(username=user.get_username(), accounts=accounts))
+    return out
+
+
+@router.get("/options/sections", response=list[ChSection])
+def sections(request):
+    """Разделы форума для новой темы от персонажа."""
+    from forum.models import Section
+
+    rows = list(Section.objects.filter(archived=False).select_related("space", "parent"))
+    by_id = {row.pk: row for row in rows}
+
+    def label(row):
+        parts = []
+        while row is not None:
+            parts.append(row.title)
+            row = by_id.get(row.parent_id)
+        return " / ".join(reversed(parts))
+
+    return sorted((ChSection(id=row.pk, label=f"{row.space.title} / {label(row)}") for row in rows), key=lambda s: s.label)
+
+
+@router.post("/{character_id}/say", response={200: ChReply, 400: ChErrors})
+def say(request, character_id: int, body: ChSayIn):
+    from documents.markup.expr import SpoilerSyntaxError, parse_expr
+    from forum.models import Section
+    from machines.models import MachineProfile
+
+    found = get_object_or_404(Character, pk=character_id)
+    condition = None
+    if body.audience == "group" and body.condition.strip():
+        try:
+            condition = parse_expr(body.condition)
+        except SpoilerSyntaxError as error:
+            return 400, {"fields": {"condition": str(error)}}
+    account = MachineProfile.objects.filter(pk=body.account).select_related("user").first() if body.account else None
+    section = Section.objects.filter(pk=body.section).first() if body.section else None
+    station = Station.objects.filter(pk=body.station, character=found).first() if body.station else None
+    try:
+        made = outbox.say(found, request.user, body.channel, body.text, subject=body.subject, audience=body.audience, account=account,
+                          condition=condition, section=section, title=body.title, freq=body.freq, station=station,
+                          delay_minutes=max(0, body.delay), actions=body.actions)
+    except outbox.OutboxError as error:
+        return 400, {"fields": {"text": str(error)}}
+    return _reply(made)

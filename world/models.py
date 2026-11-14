@@ -130,6 +130,7 @@ class WorldLetter(models.Model):
     item = models.ForeignKey("filesystem.Item", on_delete=models.CASCADE, related_name="+")
     systems = models.JSONField(default=list, blank=True)
     machines = models.JSONField(default=list, blank=True)
+    condition = models.JSONField(null=True, blank=True, help_text="Кому: условие по ключам и меткам мира. Пусто: всем.")
     source = models.CharField(max_length=200, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
