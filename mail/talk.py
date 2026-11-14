@@ -390,6 +390,10 @@ def send(box, keys, *, to, subject="", typed="", variant=None, attachment=None, 
     if forward_item is not None:
         body = f"{typed}\n\n---------- Forwarded message ----------\n{forward_item.body}".strip()
     path = box.put_text("sent", "letter.msg", letters.compose(headers, body), read=True)
+    if persona is not None and variant is None:                     # вне сценария: письмо ждёт автора во входящих персонажа, игроку тишина
+        from characters import inbox
+
+        inbox.capture_mail(persona, box.user, box.address, subject, body, box.machine, path)
 
     if persona is None:
         account = MachineProfile.objects.filter(mail__iexact=to).select_related("machine").first()

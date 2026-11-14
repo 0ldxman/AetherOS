@@ -169,6 +169,9 @@ def transmit(user, freq, text, machine=None, now=None, keys=frozenset(), box=Non
     sent = Transmission.objects.create(freq=freq, user=user, callsign=sign.name, machine=machine, text=text, sandbox=is_sandbox(user), created_at=now,
                                        via=via, **_keyed(text, air_key))
     sent.effects = events.react(sent, keys, box, now)
+    from characters import inbox
+
+    inbox.capture_air(sent)
     return sent
 
 

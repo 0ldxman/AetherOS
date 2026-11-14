@@ -120,7 +120,11 @@ def start_topic(section, user, title, text, keys):
         raise ForumError("в этот раздел писать нельзя")
     title, text = _clean(title, TITLE_MAX, "заголовок"), _clean(text, TEXT_MAX, "текст")
     _rate(user)
-    return _create_topic(section, user, title, text, Kind.PLAYER, author_name(user))
+    topic = _create_topic(section, user, title, text, Kind.PLAYER, author_name(user))
+    from characters import inbox
+
+    inbox.capture_forum(topic.posts.get(root=True))
+    return topic
 
 
 @transaction.atomic
@@ -131,7 +135,11 @@ def reply(topic, user, text, keys, parent=None):
         raise ForumError("тема закрыта")
     text = _clean(text, TEXT_MAX, "текст")
     _rate(user)
-    return _add_post(topic, user, text, Kind.PLAYER, author_name(user), parent)
+    post = _add_post(topic, user, text, Kind.PLAYER, author_name(user), parent)
+    from characters import inbox
+
+    inbox.capture_forum(post)
+    return post
 
 
 # ---- записи автора (Студия: персонаж или система) ----

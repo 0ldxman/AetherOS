@@ -77,6 +77,16 @@ class TalkTests(TestCase):
     def subjects(self, folder="inbox"):
         return [row.letter.subject for row in self.box().letters_in(folder)]
 
+    def test_a_letter_outside_scenarios_waits_in_the_character_inbox(self):
+        from characters.models import Character, Inbound
+
+        face = Character.objects.create(code="GRD", name="Port guard")
+        Persona.objects.filter(pk=self.guard.pk).update(character=face)
+        sent = talk.send(self.box(), frozenset(), to="guard@port", subject="Hello", typed="Is anyone at the gate?")
+        row = Inbound.objects.get()
+        self.assertEqual((row.character, row.channel, row.subject, row.text, row.ref["path"]), (face, "mail", "Hello", "Is anyone at the gate?", sent.path))
+        self.assertEqual(self.subjects(), [])                          # игроку тишина: ни ответа, ни отказа
+
     def started(self):
         deliver_by_slug(self.ivan, "door", profile=self.profile)
         return TalkState.objects.get(user=self.ivan)

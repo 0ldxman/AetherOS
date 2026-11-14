@@ -37,3 +37,39 @@ class Character(models.Model):
     def signature(self):
         """Как персонаж подписан на форуме и в эфире."""
         return self.callsign or self.name
+
+
+class Inbound(models.Model):
+    """Что игрок написал персонажу вне сценариев: письмо на его адрес, ответ или упоминание на форуме, позывной в эфире."""
+
+    class Channel(models.TextChoices):
+        MAIL = "mail", "Почта"
+        FORUM = "forum", "Форум"
+        AIR = "air", "Эфир"
+
+    class Status(models.TextChoices):
+        NEW = "new", "Новое"
+        TAKEN = "taken", "Взято"
+        ANSWERED = "answered", "Отвечено"
+        SKIPPED = "skipped", "Пропущено"
+
+    character = models.ForeignKey(Character, on_delete=models.CASCADE, related_name="inbound")
+    channel = models.CharField(max_length=8, choices=Channel.choices)
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL, related_name="+")
+    sender = models.CharField("От кого", max_length=255, help_text="Адрес, позывной или логин отправителя, как его видит мир.")
+    subject = models.CharField("Тема", max_length=255, blank=True)
+    text = models.TextField(blank=True)
+    ref = models.JSONField("Где лежит", default=dict, blank=True, help_text="mail: machine, path; forum: topic, post; air: transmission, freq.")
+    status = models.CharField(max_length=8, choices=Status.choices, default=Status.NEW, db_index=True)
+    taken_by = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL, related_name="+")
+    taken_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+
+    class Meta:
+        ordering = ("-created_at", "-id")
+        indexes = [models.Index(fields=("character", "channel", "status"), name="inbound_char_channel_idx")]
+        verbose_name = "Входящее персонажа"
+        verbose_name_plural = "Входящие персонажей"
+
+    def __str__(self):
+        return f"{self.character.code} {self.channel}: {self.text[:40]}"
