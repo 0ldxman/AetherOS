@@ -28,6 +28,16 @@ class UnlockResult:
     effects: list = field(default_factory=list)  # эффекты хуков для браузера (kick, alert)
 
 
+LAYER_EVENTS = {"remove": "layer.removed", "attempt": "layer.attempt", "fail": "layer.failed"}
+FILE_EVENTS = {"read": "file.read", "delete": "file.deleted", "restore": "file.restored"}
+
+
+def _emit(view, name, **data):
+    from engine.events import emit
+
+    emit(name, view.user, machine=view.machine, login=view.login or "", **data)
+
+
 def _deliver_mail(user, mails):
     """Письма из хуков: доставляются игроку (почта сама решает, что с несуществующим)."""
     from mail.delivery import deliver_by_slug
@@ -48,6 +58,10 @@ def unlock_file(view, path: str, given=None) -> UnlockResult:
     entry = view.get(path)
 
     outcome = attempt_remove(entry.state, locked.state, path=path, name=posixpath.basename(path), given=given)
+    layer = outcome.result.layer.state.name if outcome.result.layer is not None else ""
+    for event in outcome.result.events:
+        if event in LAYER_EVENTS:
+            _emit(view, LAYER_EVENTS[event], path=path, layer=layer, wrong=list(outcome.result.wrong))
 
     # Прогресс сохраняем до файловых операций: copy берёт его из записи.
     locked.state = outcome.state
@@ -70,6 +84,8 @@ def fire_file_event(view, path: str, event: str, shown: str | None = None) -> Un
 
     shown это путь для {path} в текстах хуков (файл мог уже переехать). У файла без слоёв хуков нет: None."""
     entry = view.get(path)
+    if event in FILE_EVENTS:
+        _emit(view, FILE_EVENTS[event], path=shown or path)
     if entry is None or (not entry.state.strip() and not entry.progress):
         return None
 

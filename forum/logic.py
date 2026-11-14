@@ -121,6 +121,9 @@ def start_topic(section, user, title, text, keys):
     title, text = _clean(title, TITLE_MAX, "заголовок"), _clean(text, TEXT_MAX, "текст")
     _rate(user)
     topic = _create_topic(section, user, title, text, Kind.PLAYER, author_name(user))
+    from engine.events import emit
+
+    emit("forum.posted", user, topic=topic.pk, title=topic.title, section=section.pk, new_topic=True)
     from characters import inbox
 
     inbox.capture_forum(topic.posts.get(root=True))
@@ -136,6 +139,9 @@ def reply(topic, user, text, keys, parent=None):
     text = _clean(text, TEXT_MAX, "текст")
     _rate(user)
     post = _add_post(topic, user, text, Kind.PLAYER, author_name(user), parent)
+    from engine.events import emit
+
+    emit("forum.posted", user, topic=topic.pk, title=topic.title, section=topic.section_id, post=post.pk)
     from characters import inbox
 
     inbox.capture_forum(post)

@@ -6,6 +6,7 @@ from django.shortcuts import get_object_or_404
 from ninja import Router, Schema
 from ninja.errors import HttpError
 
+from engine import events
 from team import players as logic
 
 router = Router(tags=["players"])
@@ -65,6 +66,14 @@ class PlEvent(Schema):
     detail: str
 
 
+class PlJournal(Schema):
+    at: dt.datetime
+    name: str                    # имя события (key.got, file.read…)
+    text: str                    # подпись с главным из подробностей
+    where: str                   # учётка@машина, если событие было на машине
+    source: str
+
+
 class PlCard(Schema):
     id: int
     username: str
@@ -79,6 +88,7 @@ class PlCard(Schema):
     machines: list[PlMachineFiles]
     files: list[PlFile]
     events: list[PlEvent]
+    journal: list[PlJournal]
 
 
 class PlAccountIn(Schema):
@@ -128,6 +138,8 @@ def _card(user):
         files=[PlFile(**f) for f in data["files"]],
         events=[PlEvent(at=e.at, label=e.get_kind_display(), login=e.profile.login, hostname=e.profile.machine.hostname,
                         source=e.source, detail=e.detail) for e in data["events"]],
+        journal=[PlJournal(at=e.at, name=e.name, text=events.describe(e), where=f"{e.login}@{e.host}" if e.host else "", source=e.source)
+                 for e in events.journal(user)],
     )
 
 

@@ -129,6 +129,9 @@ def set_flag(name, on=True, source="", user=None, _depth=0):
     flag.on, flag.changed_at, flag.changed_by = on, timezone.now(), _who(source, user)[:200]
     flag.save(update_fields=["on", "changed_at", "changed_by"])
     _log("flag", name, f"метка world:{name} {'поставлена' if on else 'снята'}", source, user)
+    from engine.events import emit
+
+    emit("world.flag", user, source=source, flag=name, on=on)
     forget()
     evaluate(_depth)
     return True
@@ -147,6 +150,9 @@ def count(name, delta=1, source="", user=None, _depth=0):
         WorldCounter.objects.filter(pk=counter.pk).update(value=F("value") + delta, changed_at=timezone.now())
     counter.refresh_from_db()
     _log("counter", name, f"world:{name} {delta:+d} → {counter.value}", _who(source, user), user)
+    from engine.events import emit
+
+    emit("world.counter", user, source=source, counter=name, delta=delta, value=counter.value)
     forget()
     evaluate(_depth)
     return counter.value

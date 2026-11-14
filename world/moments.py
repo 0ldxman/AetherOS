@@ -53,10 +53,16 @@ def running(moment):
 def _begin(moment, start, source):
     moment.started_at, moment.ends_at = start, start + timedelta(minutes=moment.duration)
     moment.save(update_fields=["started_at", "ends_at"])
+    from engine.events import emit
+
+    emit("moment.started", source=source, moment=moment.name, title=moment.title)
     state.set_flag(moment.name, True, source)
 
 
 def _end(moment, source):
+    from engine.events import emit
+
+    emit("moment.ended", source=source, moment=moment.name, title=moment.title)
     state.set_flag(moment.name, False, source)
 
 

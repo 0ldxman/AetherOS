@@ -47,4 +47,7 @@ def put(view, machine, login, item):
     if found is not None and found.item is not None and found.item.pk == item.pk:
         return path, False
     view.put_item(path, item)
+    from engine.events import emit
+
+    emit("key.got", view.user, machine=machine, login=login, slug=item.slug, path=path)
     return path, True

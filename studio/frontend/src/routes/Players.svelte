@@ -204,6 +204,21 @@
       </div>
 
       <div class="block">
+        <b>Журнал игрока</b>
+        {#if !card.journal.length}
+          <p class="muted small">Пока ничего: здесь появятся ключи, файлы, слои, письма персонажам, эфир, форум и входы.</p>
+        {:else}
+          <table class="grid">
+            <tbody>
+              {#each card.journal as e, i (i)}
+                <tr><td class="muted">{when(e.at)}</td><td>{e.text}</td><td class="mono">{e.where}</td><td class="muted">{e.source}</td></tr>
+              {/each}
+            </tbody>
+          </table>
+        {/if}
+      </div>
+
+      <div class="block">
         <b>Журнал входов</b>
         {#if !card.events.length}
           <p class="muted small">Записей нет (журнал хранится 30 дней).</p>

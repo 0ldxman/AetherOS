@@ -120,9 +120,13 @@ class CntCommand(BaseCommand):
         # хуки on read верхнего слоя: могут сказать что-то или открыть окно (open), а слой остаётся на месте
         lines, effects = [], None
         if entry.state.strip() or entry.progress:
-            lines, effects = hook_report([fire_file_event(context.view, entry.path, "read", entry.path)])
+            lines, effects = hook_report([fire_file_event(context.view, entry.path, "read", entry.path)])       # событие file.read шлёт сам хук
             context.invalidate()
             entry = VirtualFilesystem(context).get_file(path) or entry
+        else:
+            from engine.events import emit
+
+            emit("file.read", context.view.user, machine=context.view.machine, login=context.view.login or "", path=entry.path)
 
         if effects and any(effect["op"] == "open" for effect in effects):
             text = "\n".join([f"cnt: {target}: opened ({size_of(context, entry)} bytes)", *lines])

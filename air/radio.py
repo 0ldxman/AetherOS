@@ -168,6 +168,9 @@ def transmit(user, freq, text, machine=None, now=None, keys=frozenset(), box=Non
     purge(now)
     sent = Transmission.objects.create(freq=freq, user=user, callsign=sign.name, machine=machine, text=text, sandbox=is_sandbox(user), created_at=now,
                                        via=via, **_keyed(text, air_key))
+    from engine.events import emit
+
+    emit("air.sent", user, machine=machine, login=getattr(box, "login", ""), freq=f"{freq:.3f}", callsign=sign.name, text=text[:200])
     sent.effects = events.react(sent, keys, box, now)
     from characters import inbox
 

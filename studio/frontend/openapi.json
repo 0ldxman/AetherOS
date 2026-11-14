@@ -25503,6 +25503,13 @@
       },
       "title": "Events",
       "type": "array"
+     },
+     "journal": {
+      "items": {
+       "$ref": "#/components/schemas/PlJournal"
+      },
+      "title": "Journal",
+      "type": "array"
      }
     },
     "required": [
@@ -25518,7 +25525,8 @@
      "keys",
      "machines",
      "files",
-     "events"
+     "events",
+     "journal"
     ],
     "title": "PlCard",
     "type": "object"
@@ -25594,6 +25602,40 @@
      "at"
     ],
     "title": "PlFile",
+    "type": "object"
+   },
+   "PlJournal": {
+    "properties": {
+     "at": {
+      "format": "date-time",
+      "title": "At",
+      "type": "string"
+     },
+     "name": {
+      "title": "Name",
+      "type": "string"
+     },
+     "text": {
+      "title": "Text",
+      "type": "string"
+     },
+     "where": {
+      "title": "Where",
+      "type": "string"
+     },
+     "source": {
+      "title": "Source",
+      "type": "string"
+     }
+    },
+    "required": [
+     "at",
+     "name",
+     "text",
+     "where",
+     "source"
+    ],
+    "title": "PlJournal",
     "type": "object"
    },
    "PlKey": {

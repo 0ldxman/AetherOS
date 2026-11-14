@@ -379,6 +379,10 @@ def send(box, keys, *, to, subject="", typed="", variant=None, attachment=None, 
         state.save(update_fields=["attempts", "updated_at"])
     turn = decide(variant.outcomes, variant.max_attempts, verdict, used)
     kind, actions, left = turn.kind, turn.actions, turn.left
+    from engine.events import emit
+
+    emit("mail.sent", box.user, machine=box.machine, login=box.login, to=to, conversation=conversation.slug, step=variant.step.name,
+         variant=variant.title, result=kind, sockets=turn.sockets)
     _apply(actions, state, box, effects)
     if any(effect.get("bounce") for effect in effects):
         _bounce(box, to, subject, "mailbox unavailable")

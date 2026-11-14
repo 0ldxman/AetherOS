@@ -8977,6 +8977,8 @@ export interface components {
             files: components["schemas"]["PlFile"][];
             /** Events */
             events: components["schemas"]["PlEvent"][];
+            /** Journal */
+            journal: components["schemas"]["PlJournal"][];
         };
         /** PlEvent */
         PlEvent: {
@@ -9011,6 +9013,22 @@ export interface components {
              * Format: date-time
              */
             at: string;
+        };
+        /** PlJournal */
+        PlJournal: {
+            /**
+             * At
+             * Format: date-time
+             */
+            at: string;
+            /** Name */
+            name: string;
+            /** Text */
+            text: string;
+            /** Where */
+            where: string;
+            /** Source */
+            source: string;
         };
         /** PlKey */
         PlKey: {
