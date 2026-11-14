@@ -18,8 +18,8 @@ class ChainTests(TestCase):
         for user in (self.ivan, self.anna):
             MachineProfile.objects.create(machine=machine, user=user, name=user.username, login=user.username, freq=1)
         self.chain = Chain.objects.create(slug="door", title="Door")
-        self.one = ChainStep.objects.create(chain=self.chain, order=0, title="Met the guard", condition="flag:met")
-        self.two = ChainStep.objects.create(chain=self.chain, order=1, title="Saw the door", condition="flag:door")
+        self.one = ChainStep.objects.create(chain=self.chain, order=0, title="Met the guard", condition="tag:met")
+        self.two = ChainStep.objects.create(chain=self.chain, order=1, title="Saw the door", condition="tag:door")
 
     def test_steps_are_reached_in_order_on_player_events(self):
         store.set_tag("player", self.ivan.pk, "door")
@@ -40,14 +40,14 @@ class ChainTests(TestCase):
         self.assertEqual((report["players"], first["reached"], first["first"][0], second["reached"]), (2, 2, self.anna, 1))
         self.assertEqual([w["user"] for w in second["waiting"]], [self.anna])
         self.assertEqual(report["finished"], [self.ivan])
-        self.assertEqual(second["breaks"], ["flag:door"])               # flag:door никто не ставит
+        self.assertEqual(second["breaks"], ["tag:door"])               # tag:door никто не ставит
 
     def test_studio_edits_steps_and_keeps_reaches(self):
         boss = get_user_model().objects.create_user("boss", is_staff=True, role=full_role())
         self.client.force_login(boss)
         store.set_tag("player", self.ivan.pk, "met")
         chains.update(self.ivan)
-        body = {"slug": "door", "title": "Door", "steps": [{"id": self.one.pk, "title": "Met", "condition_text": "flag:met"},
+        body = {"slug": "door", "title": "Door", "steps": [{"id": self.one.pk, "title": "Met", "condition_text": "tag:met"},
                                                            {"title": "Got key", "condition_text": "mask"}]}
         response = self.client.put(f"/studio/api/world/chains/{self.chain.pk}", body, content_type="application/json")
         self.assertEqual(response.status_code, 200)

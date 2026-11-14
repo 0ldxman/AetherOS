@@ -6,7 +6,7 @@ def satisfied(req, keys):
 
     req  - условие: пустое (открыто всем), строка-slug ключа
            или словарь {"all": [...]}, {"any": [...]}, {"not": ...}
-    keys - факты игрока: slug'и его ключей и flag:<имя> его меток (engine/facts.py); world:… читается из мира
+    keys - факты игрока: slug'и его ключей, tag:<имя> его тегов и count:<имя>=<число> (engine/facts.py); world:… читается из мира
     """
     if not req:
         return True
@@ -15,7 +15,7 @@ def satisfied(req, keys):
             from world.state import atom
 
             return atom(req)
-        if req.startswith(("count:", "char:")):     # счётчик игрока и тег персонажа (engine/facts.py)
+        if req.startswith(("tag:", "count:")):      # теги и счётчики игрока и вещей (engine/facts.py)
             from engine.facts import compare
 
             return compare(req, keys)
@@ -84,7 +84,7 @@ def _format(req, parent):
 
 
 def condition_slugs(req):
-    """Все slug'и ключей в условии (в порядке появления, с повторами); метки игрока flag: и мира world: не ключи."""
+    """Все slug'и ключей в условии (в порядке появления, с повторами); теги tag:, счётчики count: и мир world: не ключи."""
     if not req:
         return []
     if isinstance(req, str):

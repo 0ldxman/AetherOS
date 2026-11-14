@@ -1,4 +1,4 @@
-"""Цепочки: шаги загадки по порядку, каждый — условие на факты игрока (ключи всех его учёток, flag:, world:).
+"""Цепочки: шаги загадки по порядку, каждый — условие на факты игрока (ключи всех его учёток, tag:, world:).
 
 Шаг считается пройденным, когда выполнены его условие и все шаги до него. Движок отмечает прохождение (ChainReach) при
 каждом событии игрока и при открытии цепочки в Студии; первая отметка шага — кто прошёл его первым. Отчёт: воронка по шагам,
@@ -104,7 +104,7 @@ def report(chain):
         rows.append({
             "step": step, "reached": len(done), "first": (done[0].user, done[0].at) if done else None,
             "waiting": [{"user": user, "since": since, "days": (now - since).total_seconds() / 86400} for user, since in waiting],
-            "breaks": [f"{kind}:{name}" if kind != "key" else name for kind, name in links.atoms(step.condition) if (kind, name) in broken],
+            "breaks": [f"{ {"flag": "tag", "counter": "world"}.get(kind, kind)}:{name}" if kind != "key" else name for kind, name in links.atoms(step.condition) if (kind, name) in broken],
         })
     finished = [user for user, _ in standing.get(len(steps), [])]
     return {"players": len(players), "steps": rows, "finished": finished}

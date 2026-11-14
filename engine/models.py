@@ -35,7 +35,7 @@ class Rule(models.Model):
     label = models.CharField("Подпись для авторов", max_length=200, blank=True)
     on = models.CharField("Событие", max_length=40, db_index=True)
     match = models.JSONField("Подробности", default=dict, blank=True, help_text="{поле: значение}; в значении * — любые знаки.")
-    condition = models.JSONField("Условие", null=True, blank=True, help_text="На факты игрока: ключи, flag:, world:.")
+    condition = models.JSONField("Условие", null=True, blank=True, help_text="На факты игрока: ключи, tag:, count:, world:.")
     actions = models.JSONField("Действия", default=list, blank=True)
     once = models.CharField("Сколько раз", max_length=8, choices=Once.choices, default=Once.PLAYER)
     active = models.BooleanField("Включено", default=True)
@@ -86,7 +86,7 @@ class ChainStep(models.Model):
     chain = models.ForeignKey(Chain, on_delete=models.CASCADE, related_name="steps")
     order = models.PositiveSmallIntegerField(default=0)
     title = models.CharField("Шаг", max_length=120)
-    condition = models.JSONField("Пройден, когда", null=True, blank=True, help_text="Условие на факты игрока: ключи, flag:, world:.")
+    condition = models.JSONField("Пройден, когда", null=True, blank=True, help_text="Условие на факты игрока: ключи, tag:, count:, world:.")
     hint = models.CharField("Подсказка автору", max_length=300, blank=True, help_text="Где игрок это берёт.")
 
     class Meta:

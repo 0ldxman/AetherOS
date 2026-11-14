@@ -1,4 +1,4 @@
-"""Факты игрока: личные метки flag:<имя> работают в любом условии рядом с ключами и world:."""
+"""Факты игрока: личные метки tag:<имя> работают в любом условии рядом с ключами и world:."""
 from engine import values as store
 from django.contrib.auth import get_user_model
 from django.test import RequestFactory, TestCase
@@ -17,27 +17,27 @@ class FactsTests(TestCase):
 
     def test_flags_join_keys(self):
         store.set_tag("player", self.ivan.pk, "dock-open")
-        self.assertEqual(facts.of(self.ivan, {"mask"}), frozenset({"mask", "flag:dock-open"}))
+        self.assertEqual(facts.of(self.ivan, {"mask"}), frozenset({"mask", "tag:dock-open", f"@user:{self.ivan.pk}"}))
         self.assertEqual(facts.of(None, {"mask"}), frozenset({"mask"}))
 
     def test_conditions_parse_and_check_flags(self):
-        condition = parse_expr("flag:dock-open and not mask")
-        self.assertEqual(condition, {"all": ["flag:dock-open", {"not": "mask"}]})
-        self.assertTrue(satisfied(condition, facts.of(self.ivan) | {"flag:dock-open"}))
+        condition = parse_expr("tag:dock-open and not mask")
+        self.assertEqual(condition, {"all": ["tag:dock-open", {"not": "mask"}]})
+        self.assertTrue(satisfied(condition, facts.of(self.ivan) | {"tag:dock-open"}))
         self.assertFalse(satisfied(condition, frozenset()))
 
     def test_flags_and_world_atoms_are_not_keys(self):
-        self.assertEqual(condition_slugs({"all": ["flag:x", "world:y", "mask"]}), ["mask"])
+        self.assertEqual(condition_slugs({"all": ["tag:x", "world:y", "mask"]}), ["mask"])
 
     def test_request_facts_carry_flags_without_a_machine_session(self):
         store.set_tag("player", self.ivan.pk, "met")
         request = RequestFactory().get("/")
         request.user, request.session = self.ivan, {}
-        self.assertEqual(held_keys(request), frozenset({"flag:met"}))
+        self.assertEqual(held_keys(request), frozenset({"tag:met", f"@user:{self.ivan.pk}"}))
 
     def test_a_forum_board_can_open_by_a_player_flag(self):
         space = Space.objects.create(slug="net", title="Net")
-        board = Section.objects.create(space=space, title="Inner", read_if="flag:met")
+        board = Section.objects.create(space=space, title="Inner", read_if="tag:met")
         self.assertFalse(logic.can_read(board, facts.of(self.ivan)))
         store.set_tag("player", self.ivan.pk, "met")
         self.assertTrue(logic.can_read(board, facts.of(self.ivan)))

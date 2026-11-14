@@ -145,7 +145,7 @@ class WaitTests(TestCase):
         self.assertEqual(counter(), 1)
 
     def test_wait_condition_wakes_on_players_event(self):
-        graph = make([node("m", "manual"), node("w", "wait", mode="condition", condition="flag:ready"), node("a", "do:world_count", name="c")],
+        graph = make([node("m", "manual"), node("w", "wait", mode="condition", condition="tag:ready"), node("a", "do:world_count", name="c")],
                      [wire("m", "fire", "w"), wire("w", "next", "a")])
         runtime.start_manual(graph, "m", self.ivan)
         self.assertEqual(counter(), 0)
@@ -189,9 +189,9 @@ class FlowTests(TestCase):
         self.players = [User.objects.create_user(f"p{n}") for n in range(3)]
 
     def test_check_and_choose(self):
-        graph = make([node("m", "manual"), node("c", "check", condition="flag:x"), node("yes", "do:world_count", name="yes"),
+        graph = make([node("m", "manual"), node("c", "check", condition="tag:x"), node("yes", "do:world_count", name="yes"),
                       node("no", "do:world_count", name="no"),
-                      node("s", "choose", rows=[{"label": "A", "condition": "flag:a"}, {"label": "X", "condition": "flag:x"}]),
+                      node("s", "choose", rows=[{"label": "A", "condition": "tag:a"}, {"label": "X", "condition": "tag:x"}]),
                       node("r2", "do:world_count", name="r2"), node("else", "do:world_count", name="else")],
                      [wire("m", "fire", "c"), wire("c", "yes", "yes"), wire("c", "no", "no"), wire("m", "fire", "s"), wire("s", "r2", "r2"),
                       wire("s", "else", "else")])

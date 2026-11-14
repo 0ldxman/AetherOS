@@ -42,8 +42,11 @@ def atoms(condition):
             except WorldError:
                 return []
             return [("counter" if op else "world", name)]
-        if condition.startswith("flag:"):
-            return [("flag", condition[5:])]
+        if condition.startswith(("tag:", "count:")):
+            from engine.facts import parse
+
+            found = parse(condition)
+            return [("flag", found[3])] if found and found[0] == "tag" and found[1] == "player" and not found[2] else []
         return [("key", condition)]
     if isinstance(condition, dict):
         found = []

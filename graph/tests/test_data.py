@@ -48,7 +48,7 @@ class DataTests(TestCase):
         self.assertEqual((counter("yes"), counter("no")), (1, 1))
 
     def test_logic_and_fact(self):
-        graph = make([node("m", "manual"), node("c", "check"), node("fa", "fact", expr="flag:x"), node("nt", "logic", op="not"),
+        graph = make([node("m", "manual"), node("c", "check"), node("fa", "fact", expr="tag:x"), node("nt", "logic", op="not"),
                       node("o", "logic", op="or", values=[{"id": "v1"}, {"id": "v2"}]),
                       node("b", "boolean", value=False), node("y", "do:world_count", name="yes")],
                      [wire("m", "fire", "c"), f("fa", "value", "nt", "v1"), f("nt", "value", "o", "v1"), f("b", "value", "o", "v2"),

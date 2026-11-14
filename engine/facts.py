@@ -1,14 +1,26 @@
-"""Факты игрока для условий. Условие (secure/access.py) проверяется по набору строк: слаги ключей, flag:<имя> — личные метки
-игрока, а world:… читается из мира отдельно. Набор собирается здесь, чтобы любое место с условием видело одно и то же."""
-FLAG = "flag:"
+"""Факты игрока для условий. Условие (secure/access.py) проверяется по набору строк: слаги ключей игрока, его теги строками
+tag:<имя>, его счётчики count:<имя>=<значение> и метка @user:<номер> (кто игрок — для значений «для игрока»).
+
+Ключи условий на теги и счётчики (engine/values.py):
+    tag:имя                              тег игрока
+    tag:world:имя                        тег мира (короче: world:имя)
+    tag:владелец:вещь:имя                общий тег вещи (character, machine, server, object, player)
+    tag:владелец:вещь:имя@player         тег вещи для этого игрока
+    count:…[оп число]                    то же для счётчиков; оп: >=, >, <=, <, =; без него — «больше нуля»
+"""
+import re
+
+TAG = "tag:"
 WORLD = "world:"
 COUNT = "count:"
-CHAR = "char:"
-PREFIXES = (FLAG, WORLD, COUNT, CHAR)
+USER = "@user:"
+PLAYER = "@player"
+PREFIXES = (TAG, WORLD, COUNT, USER)
+ATOM = re.compile(r"(tag|count):([^\s<>=]+?)(?:(>=|<=|>|<|=)(-?\d+))?")
 
 
 def flags(user):
-    """Личные метки игрока (ставятся действиями flag/unflag)."""
+    """Теги игрока (имена)."""
     if user is None or not getattr(user, "is_authenticated", False):
         return set()
     from engine import values
@@ -27,30 +39,68 @@ def counts(user):
 
 
 def of(user, keys=()):
-    """Ключи игрока плюс его метки строками flag:<имя> и счётчики count:<имя>=<значение>."""
-    return frozenset(keys) | {FLAG + name for name in flags(user)} | counts(user)
+    """Ключи игрока плюс его теги tag:<имя>, счётчики count:<имя>=<значение> и метка игрока @user:<номер>."""
+    found = frozenset(keys) | {TAG + name for name in flags(user)} | counts(user)
+    if user is not None and getattr(user, "is_authenticated", False):
+        found |= {f"{USER}{user.pk}"}
+    return found
+
+
+def parse(text):
+    """(вид tag|count, владелец, вещь, имя, для игрока, оператор, число) или None, если строка не ключ тега или счётчика."""
+    match = ATOM.fullmatch(str(text or "").strip())
+    if not match:
+        return None
+    kind, rest, op, number = match.groups()
+    parts = rest.split(":")
+    per = parts[-1].endswith(PLAYER)
+    if per:
+        parts[-1] = parts[-1][:-len(PLAYER)]
+    if len(parts) == 1:
+        owner, thing = "player", ""
+    elif len(parts) == 2 and parts[0] == "world":
+        owner, thing = "world", ""
+    elif len(parts) == 3:
+        owner, thing = parts[0], parts[1]
+    else:
+        return None
+    from engine import values
+
+    if owner not in values.OWNERS or not parts[-1] or (kind == "tag" and op):
+        return None
+    return kind, owner, thing, parts[-1].lower(), per, op, int(number) if number is not None else None
+
+
+def _player_of(keys):
+    pk = next((k[len(USER):] for k in keys if isinstance(k, str) and k.startswith(USER)), None)
+    return int(pk) if pk and pk.isdigit() else None
 
 
 def compare(text, keys):
-    """count:имя[оп число] по фактам игрока; char:КОД:тег по персонажу. Без оператора count:имя — «больше нуля»."""
-    import re
-
-    if text.startswith(CHAR):
-        _, code, tag = (text.split(":", 2) + ["", ""])[:3]
-        from engine import values
-
-        return values.on("character", values.owner_id("character", code), tag.strip().lower())
-    match = re.fullmatch(r"count:([A-Za-z0-9_-]{1,64})(?:(>=|<=|>|<|=)(-?\d+))?", text)
-    if not match:
+    """Верен ли ключ тега или счётчика для игрока с фактами keys. Непонятная строка закрывает."""
+    found = parse(text)
+    if found is None:
         return False
-    name, op, number = match.group(1), match.group(2), match.group(3)
-    value = next((int(k.split("=", 1)[1]) for k in keys if isinstance(k, str) and k.startswith(f"{COUNT}{name}=")), 0)
+    kind, owner, thing, name, per, op, number = found
+    from engine import values
+
+    if owner == "player" and not thing:             # своё: теги и счётчики уже в фактах (так работает и песочница почты)
+        if kind == "tag":
+            return f"{TAG}{name}" in keys
+        value = next((int(k.split("=", 1)[1]) for k in keys if isinstance(k, str) and k.startswith(f"{COUNT}{name}=")), 0)
+    else:
+        oid = values.owner_id(owner, thing) if owner != "world" else 0
+        user = _player_of(keys) if per else None
+        if per and user is None:
+            return False
+        value = values.get(values.TAG if kind == "tag" else values.COUNT, owner, oid, name, user)
+    if kind == "tag":
+        return bool(value)
     if op is None:
         return value > 0
-    limit = int(number)
-    return {">=": value >= limit, "<=": value <= limit, ">": value > limit, "<": value < limit, "=": value == limit}[op]
+    return {">=": value >= number, "<=": value <= number, ">": value > number, "<": value < number, "=": value == number}[op]
 
 
 def is_key(text):
-    """Строка условия — это ключ, а не метка игрока или мира."""
+    """Строка условия — это ключ, а не тег, счётчик или метка мира."""
     return isinstance(text, str) and not text.startswith(PREFIXES)

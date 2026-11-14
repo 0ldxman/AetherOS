@@ -39,7 +39,7 @@ class LinksTests(TestCase):
         self.assertEqual(row("key", "ghost").problem, "такого ключа нет в реестре")
 
     def test_player_flags_from_actions(self):
-        Rule.objects.create(name="door", on="file.read", condition="flag:met-guard", actions=[])
+        Rule.objects.create(name="door", on="file.read", condition="tag:met-guard", actions=[])
         self.assertEqual(row("flag", "met-guard").level, "error")
         Rule.objects.create(name="meet", on="mail.sent", actions=[{"do": "flag", "name": "met-guard"}])
         self.assertEqual(row("flag", "met-guard").level, "ok")
@@ -54,6 +54,6 @@ class LinksTests(TestCase):
     def test_the_studio_lists_links(self):
         boss = get_user_model().objects.create_user("boss", is_staff=True, role=full_role())
         self.client.force_login(boss)
-        Section.objects.create(space=self.space, title="Inner", read_if="flag:x")
+        Section.objects.create(space=self.space, title="Inner", read_if="tag:x")
         data = self.client.get("/studio/api/engine/links").json()
         self.assertEqual((data[0]["kind"], data[0]["name"], data[0]["level"]), ("flag", "x", "error"))

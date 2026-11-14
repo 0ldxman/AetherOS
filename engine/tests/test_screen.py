@@ -73,14 +73,14 @@ class PlayerFactsTests(TestCase):
 
         Character.objects.create(code="MIR", name="Mira")
         run([{"do": "character_tag", "character": "mir", "tag": "Exposed"}])
-        self.assertTrue(satisfied("char:MIR:exposed", frozenset()))
+        self.assertTrue(satisfied("tag:character:MIR:exposed", frozenset()))
         run([{"do": "character_tag", "character": "MIR", "tag": "exposed", "mode": "remove"}])
-        self.assertFalse(satisfied("char:MIR:exposed", frozenset()))
+        self.assertFalse(satisfied("tag:character:MIR:exposed", frozenset()))
 
     def test_condition_syntax_accepts_new_atoms(self):
         from documents.markup.expr import parse_expr
 
-        self.assertEqual(parse_expr("count:hints>=2 and char:MIR:exposed"), {"all": ["count:hints>=2", "char:MIR:exposed"]})
+        self.assertEqual(parse_expr("count:hints>=2 and tag:character:MIR:exposed"), {"all": ["count:hints>=2", "tag:character:MIR:exposed"]})
         self.assertFalse(facts.is_key("count:x"))
 
 

@@ -46,7 +46,7 @@ class RuleTests(TestCase):
         self.assertEqual(self.counter(), 2)
 
     def test_condition_on_player_facts(self):
-        self.rule(condition="flag:met-guard")
+        self.rule(condition="tag:met-guard")
         emit("key.got", self.ivan, slug="boreas")
         self.assertEqual(self.counter(), 0)
         self.assertFalse(RuleFire.objects.exists())               # не сработало: потом ещё может
@@ -80,7 +80,7 @@ class RuleApiTests(TestCase):
         return self.client.post("/studio/api/world/rules", body, content_type="application/json")
 
     def test_create_validate_and_see_who_fired(self):
-        body = {"name": "first-boreas", "on": "key.got", "match": {"slug": "boreas"}, "condition_text": "flag:met", "once": "world",
+        body = {"name": "first-boreas", "on": "key.got", "match": {"slug": "boreas"}, "condition_text": "tag:met", "once": "world",
                 "actions": [{"do": "world_flag", "name": "decoded"}]}
         self.assertEqual(self.post({**body, "on": "nope"}).status_code, 400)
         self.assertEqual(self.post({**body, "match": {"nope": "x"}}).status_code, 400)
@@ -89,7 +89,7 @@ class RuleApiTests(TestCase):
         response = self.post(body)
         self.assertEqual(response.status_code, 200)
         row = response.json()["rules"][0]
-        self.assertEqual((row["condition_text"], row["fires"]), ("flag:met", 0))
+        self.assertEqual((row["condition_text"], row["fires"]), ("tag:met", 0))
         ivan = get_user_model().objects.create_user("ivan")
         store.set_tag("player", ivan.pk, "met")
         emit("key.got", ivan, slug="boreas")

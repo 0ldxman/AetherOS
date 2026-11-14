@@ -74,7 +74,7 @@ class CheckTests(SimpleTestCase):
         self.assertFalse(any("цикл" in text for _, text in texts(doc)))
 
     def test_condition_and_clock(self):
-        doc = {"nodes": [node("m", "manual"), node("c", "check", condition="flag:x and ("), node("w", "wait", mode="until", at="25:00")],
+        doc = {"nodes": [node("m", "manual"), node("c", "check", condition="tag:x and ("), node("w", "wait", mode="until", at="25:00")],
                "wires": [wire("m", "fire", "c"), wire("c", "yes", "w")]}
         found = texts(doc)
         self.assertTrue(any(n == "c" and text.startswith("условие") for n, text in found))

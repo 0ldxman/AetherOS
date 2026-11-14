@@ -45,7 +45,7 @@ def view_as(request):
 
 def held_keys(request):
     """Факты игрока для условий: ключи, которые он достал из файлов (слаги файлов папки секретов учётки этой сессии),
-    и его личные метки строками flag:<имя> (engine/facts.py)."""
+    и его теги строками tag:<имя> (engine/facts.py)."""
     from engine import facts
     from filesystem.keystore import slugs_of
     from machines.current import SESSION_KEY

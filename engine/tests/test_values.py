@@ -58,3 +58,46 @@ class ValueTests(TestCase):
         self.assertEqual(values.caption("count", "world", 0, "act", 2), "Архив")
         self.assertIsNone(values.owner_id("machine", "nowhere"))
         self.assertEqual(values.get("count", "machine", None, "x"), 0)
+
+
+class KeyTests(TestCase):
+    def setUp(self):
+        self.ivan = get_user_model().objects.create_user("ivan")
+        self.olga = get_user_model().objects.create_user("olga")
+        self.core = Machine.objects.create(name="Core", hostname="core")
+        self.kate = Character.objects.create(code="K7A", name="Kate")
+
+    def holds(self, text, user):
+        from engine import facts
+        from secure.access import satisfied
+
+        return satisfied(text, facts.of(user))
+
+    def test_player_world_and_thing_keys(self):
+        values.set_tag("player", self.ivan.pk, "met")
+        values.add("player", self.ivan.pk, "hints", 2)
+        values.set_tag("world", 0, "storm")
+        values.add("world", 0, "act", 2)
+        values.set_tag("machine", self.core.pk, "quarantine")
+        values.set_tag("machine", self.core.pk, "hacked", user=self.ivan)
+        values.add("character", self.kate.pk, "trust", 3, user=self.ivan)
+        for text, ivan, olga in (("tag:met", True, False), ("count:hints>=2", True, False), ("count:hints", True, False),
+                                 ("tag:world:storm", True, True), ("count:world:act=2", True, True), ("world:act>=2", True, True),
+                                 ("tag:machine:core:quarantine", True, True), ("tag:machine:CORE:hacked@player", True, False),
+                                 ("tag:machine:core:hacked", False, False), ("count:character:k7a:trust@player>=3", True, False),
+                                 ("count:character:K7A:trust<1", True, True), ("tag:nowhere:x:y", False, False), ("tag:met>=1", False, False)):
+            self.assertEqual((self.holds(text, self.ivan), self.holds(text, self.olga)), (ivan, olga), text)
+
+    def test_keys_parse_in_text_conditions(self):
+        from documents.markup.expr import parse_expr
+
+        self.assertEqual(parse_expr("tag:machine:core:hacked@player and count:character:K7A:trust@player>=3"),
+                         {"all": ["tag:machine:core:hacked@player", "count:character:K7A:trust@player>=3"]})
+
+    def test_old_keys_are_rewritten(self):
+        from importlib import import_module
+
+        fix = import_module("engine.migrations.0009_condition_keys").fix
+        self.assertEqual(fix({"all": ["flag:met", "char:MIR:exposed", "world:x", "mask", "noflag:x"]}),
+                         {"all": ["tag:met", "tag:character:MIR:exposed", "world:x", "mask", "noflag:x"]})
+        self.assertEqual(fix("flag:a and not char:K7A:gone"), "tag:a and not tag:character:K7A:gone")

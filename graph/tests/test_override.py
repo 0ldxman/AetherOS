@@ -43,6 +43,6 @@ class AttemptCheckTests(TestCase):
         bad = {"nodes": [node("m", "machine", host="x"), node("w", "wait", minutes=1), node("a", "answer")],
                "wires": [wire("m", "attempt", "w"), wire("w", "next", "a")]}
         self.assertTrue(any("мгновенного" in p["text"] for p in check.problems(bad)))
-        good = {"nodes": [node("m", "machine", host="x"), node("c", "check", condition="flag:x"), node("a", "answer")],
+        good = {"nodes": [node("m", "machine", host="x"), node("c", "check", condition="tag:x"), node("a", "answer")],
                 "wires": [wire("m", "attempt", "c"), wire("c", "yes", "a")]}
         self.assertFalse(any("мгновенного" in p["text"] for p in check.problems(good)))
