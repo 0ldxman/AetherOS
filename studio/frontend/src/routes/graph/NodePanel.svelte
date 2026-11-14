@@ -3,7 +3,7 @@
   import { api, problem } from "../../lib/api";
   import { engine } from "../../lib/engine.svelte";
   import { toast } from "../../lib/toast.svelte";
-  import type { Catalog, Field, GNode, Kind } from "./kinds";
+  import { TYPES, type Catalog, type Field, type GNode, type Kind } from "./kinds";
 
   let { node, kind, catalog, waiting, fed, problems, stat, statKey, graphId, editable, onchange, onremove, onstarted, groupTitle = null, ongrouptitle, onenter }: {
     node: GNode; kind: Kind; catalog: Catalog; waiting: boolean; fed: Record<string, string>; problems: { text: string; level: string }[];
@@ -26,12 +26,12 @@
   const rows = $derived(list("rows") as { label?: string; condition?: string }[]);
   const weights = $derived(list("branches") as number[]);
   function setRow(i: number, patch: Record<string, string>) { set("rows", rows.map((r, n) => (n === i ? { ...r, ...patch } : r))); }
-  const socks = $derived(list("sockets") as { name: string; label: string }[]);
+  const socks = $derived(list("sockets") as { name: string; label: string; type?: string }[]);
   function addSock() {
     const taken = new Set(socks.map((x) => x.name));
     let n = socks.length + 1;
     while (taken.has(`s${n}`)) n += 1;
-    set("sockets", [...socks, { name: `s${n}`, label: `${kind.name === "group_in" ? "Вход" : "Выход"} ${n}` }]);
+    set("sockets", [...socks, { name: `s${n}`, label: `${kind.name === "group_in" ? "Вход" : "Выход"} ${n}`, type: "event" }]);
   }
 
   // запуск «Вручную»
@@ -92,6 +92,9 @@
             <div class="line">
               <span class="muted mono small">{sock.name}</span>
               <input class="field" value={sock.label} oninput={(e) => set("sockets", socks.map((x, n) => (n === i ? { ...x, label: e.currentTarget.value } : x)))} />
+              <select class="field type" value={sock.type ?? "event"} aria-label="Тип сокета" onchange={(e) => set("sockets", socks.map((x, n) => (n === i ? { ...x, type: e.currentTarget.value } : x)))}>
+                {#each Object.entries(TYPES) as [key, t] (key)}<option value={key}>{t.label}</option>{/each}
+              </select>
               <button class="x" onclick={() => set("sockets", socks.filter((_, n) => n !== i))} aria-label="Убрать сокет">✕</button>
             </div>
           {/each}
@@ -194,6 +197,7 @@
   .line .field { flex: 1; min-width: 0; }
   .small-in { flex: 0 0 90px !important; }
   .num { flex: 0 0 80px !important; }
+  .type { flex: 0 0 110px !important; }
   .fed { font-size: 12px; color: #c792ea; }
   textarea { resize: vertical; font: inherit; }
   .small { font-size: 12px; margin: 0; }

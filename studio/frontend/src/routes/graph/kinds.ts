@@ -9,25 +9,41 @@ export type GWire = { id: string; from: string; out: string; to: string; in: str
 export type Level = { nodes: GNode[]; wires: GWire[] };
 export type Group = Level & { title: string };
 export type Doc = Level & { groups?: Record<string, Group> };
-export type Sock = { name: string; label: string };
+export type Sock = { name: string; label: string; type?: string };
 export type Iface = { inputs: Sock[]; outputs: Sock[] };
 export const BOXES = ["group", "scenario"];
 
 export const REF = "ref";
 export const TIMEOUT = "timeout";
-export const COLORS: Record<string, string> = { noun: "#3f8f86", flow: "#a7793a", action: "#4d6fc4", struct: "#7a5aa8", service: "#5b6170" };
+export const COLORS: Record<string, string> = { noun: "#3f8f86", flow: "#a7793a", data: "#8a5d7a", action: "#4d6fc4", struct: "#7a5aa8", service: "#5b6170" };
 
 // Типы сокетов: цвет у точки и провода. event — «случилось» (поток), остальные — вещи, которые едут по ◆-проводу.
-export const TYPES: Record<string, { label: string; color: string }> = {
+export const TYPES: Record<string, { label: string; color: string; thing?: boolean }> = {
   event: { label: "Событие", color: "#e6e8ec" },
-  item: { label: "Файл", color: "#ed9e40" },
-  character: { label: "Персонаж", color: "#c792ea" },
-  section: { label: "Раздел", color: "#5fd0a0" },
-  flag: { label: "Метка игрока", color: "#f2c66d" },
-  world_flag: { label: "Метка мира", color: "#ff8f6b" },
-  counter: { label: "Счётчик", color: "#8fb3ff" },
+  bool: { label: "Да/нет", color: "#e58fc4" },
+  text: { label: "Текст", color: "#6ec1e4" },
+  number: { label: "Число", color: "#a1a7b0" },
+  item: { label: "Файл", color: "#ed9e40", thing: true },
+  machine: { label: "Машина", color: "#3fc7b5", thing: true },
+  character: { label: "Персонаж", color: "#c792ea", thing: true },
+  section: { label: "Раздел", color: "#5fd07a", thing: true },
+  flag: { label: "Метка игрока", color: "#f2c66d", thing: true },
+  world_flag: { label: "Метка мира", color: "#ff8f6b", thing: true },
+  counter: { label: "Счётчик", color: "#8fb3ff", thing: true },
+  moment: { label: "Момент", color: "#d4d27a", thing: true },
 };
 export const typeColor = (type: string) => TYPES[type]?.color ?? TYPES.event.color;
+
+// Можно ли вести провод из выхода типа src во вход типа dst (та же логика, что graph/nodes.compatible)
+export function compatible(src: string, dst: string): boolean {
+  if (src === dst) return true;
+  if (src === "event" || dst === "event") return false;
+  if (dst === "text") return true;
+  if (dst === "number") return src === "bool";
+  if (dst === "bool") return src === "number";
+  if (TYPES[dst]?.thing) return src === "text";
+  return false;
+}
 
 function items(data: Record<string, unknown>, field: string): unknown[] {
   const value = data[field];
@@ -38,8 +54,8 @@ function items(data: Record<string, unknown>, field: string): unknown[] {
 
 // сокеты «Входа» и «Выхода» группы: имена хранятся в списке, чтобы не сдвигаться при удалении
 export function named(data: Record<string, unknown>): Sock[] {
-  const list = Array.isArray(data.sockets) ? (data.sockets as { name?: string; label?: string }[]) : [];
-  return list.filter((s) => s && String(s.name ?? "").trim()).map((s) => ({ name: String(s.name).trim(), label: String(s.label || s.name) }));
+  const list = Array.isArray(data.sockets) ? (data.sockets as { name?: string; label?: string; type?: string }[]) : [];
+  return list.filter((s) => s && String(s.name ?? "").trim()).map((s) => ({ name: String(s.name).trim(), label: String(s.label || s.name), type: s.type || "event" }));
 }
 
 function many(kind: Kind, data: Record<string, unknown>, side: string): Sock[] {
@@ -52,20 +68,32 @@ function many(kind: Kind, data: Record<string, unknown>, side: string): Sock[] {
 // iface: сокеты группы или вложенного сценария (из определения группы или списка сценариев)
 export function insOf(kind: Kind, data: Record<string, unknown>, iface: Iface | null = null): Sock[] {
   if (BOXES.includes(kind.name)) return iface?.inputs ?? [];
-  return [...kind.ins.map((name) => ({ name, label: "" })), ...many(kind, data, "in")];
+  return [...kind.ins.map((name) => ({ name, label: "", type: "event" })), ...many(kind, data, "in")];
+}
+
+// поля ноды, у которых есть вход (тип), и поля-параметры (выбор режима) — как в Blender
+export const socketFields = (kind: Kind) => kind.fields.filter((f) => f.socket);
+export const propFields = (kind: Kind) => kind.fields.filter((f) => !f.socket && f.kind === "select");
+
+// тип сокета ноды: name "f:поле" — вход-поле
+export function sockType(kind: Kind, data: Record<string, unknown>, side: "in" | "out", name: string, iface: Iface | null = null): string {
+  if (BOXES.includes(kind.name)) return ((side === "in" ? iface?.inputs : iface?.outputs) ?? []).find((s) => s.name === name)?.type ?? "event";
+  if (kind.name === "group_in" || kind.name === "group_out") return named(data).find((s) => s.name === name)?.type ?? "event";
+  if (side === "in") return name.startsWith("f:") ? kind.fields.find((f) => f.name === name.slice(2))?.socket ?? "" : "event";
+  return kind.outs.find((s) => s.name === name)?.type ?? "event";
 }
 
 // waiting: у ноды есть входящий провод (существительное ждёт, а не стартует)
 export function outsOf(kind: Kind, data: Record<string, unknown>, waiting: boolean, iface: Iface | null = null): Sock[] {
   if (BOXES.includes(kind.name)) return iface?.outputs ?? [];
-  const out = [...kind.outs.filter((s) => s.name !== REF), ...many(kind, data, "out"), ...kind.tail];
-  if (kind.group === "noun" && !kind.start_only && waiting) out.push({ name: TIMEOUT, label: "Таймаут" });
-  return out;
+  const events = kind.outs.filter((s) => (s.type ?? "event") === "event");
+  const values = kind.outs.filter((s) => s.type && s.type !== "event");
+  const out: Sock[] = [...events, ...many(kind, data, "out"), ...kind.tail];
+  if (kind.group === "noun" && !kind.start_only && waiting) out.push({ name: TIMEOUT, label: "Таймаут", type: "event" });
+  return [...out, ...values];
 }
 
-export function refOf(kind: Kind): Sock | null {
-  return kind.outs.find((s) => s.name === REF) ?? null;
-}
+export const isThing = (type: string | undefined) => !!TYPES[type ?? ""]?.thing;
 
 // Короткая подпись ноды: шаблон summary с подставленными полями; подсказки (picks) дают человеческие имена.
 export function summaryOf(kind: Kind, data: Record<string, unknown>, picks: Record<string, { value: string; label: string }[]>): string {

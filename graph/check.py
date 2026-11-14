@@ -208,7 +208,8 @@ def _part(part, groups, prefix, add, slug):
         if kind.group == N.NOUN:
             if node_id in doc.fed and kind.start_only:
                 add(key, f"«{kind.label}» бывает только стартом: уберите входящий провод")
-            as_ref = any(src == node_id for src in doc.refs.values())
+            as_ref = any(src[0] == node_id for src in doc.refs.values()) or any(
+                src == node_id and N.out_type(kind, out) != N.EVENT for (src, out) in doc.flow)
             if not [out for out in doc.wired(node_id) if out in kind.events] and not as_ref:
                 add(key, "ни один выход не подключён: нода ничего не ловит", WARNING)
         if kind.group == N.ACTION and not any(k[0] == node_id for k in doc.refs):
@@ -232,17 +233,22 @@ def _part(part, groups, prefix, add, slug):
             if ifaces.get(src, True) is not None:
                 add(prefix + src, f"нет выхода «{out_name}»")
             continue
+        src_type = N.sock_type(src_kind, doc.data(src), "out", out_name, ifaces.get(src))
         if inp.startswith("f:"):
             field = next((f for f in dst_kind.fields if f.name == inp[2:]), None)
-            if out_name != N.REF or field is None or N.REF_KINDS.get(field.kind) != (src_kind.ref[0] if src_kind.ref else None):
-                add(prefix + dst, f"«{src_kind.label}» не подходит в поле «{field.label if field else inp[2:]}»")
-            continue
-        if out_name == N.REF:
-            add(prefix + src, "выход-ссылку можно вести только в поле действия")
+            dst_type = N.field_type(field) if field else ""
+            if not dst_type:
+                add(prefix + dst, f"у «{dst_kind.label}» нет входа «{field.label if field else inp[2:]}»")
+            elif not N.compatible(src_type, dst_type):
+                add(prefix + dst, f"«{field.label}» ждёт {N.TYPE_LABELS[dst_type]}, а приходит {N.TYPE_LABELS.get(src_type, src_type)}")
             continue
         if inp not in N.sockets(dst_kind, doc.data(dst), "in", ifaces.get(dst)):
             if ifaces.get(dst, True) is not None:
                 add(prefix + dst, f"нет входа «{inp}»")
+            continue
+        dst_type = N.sock_type(dst_kind, doc.data(dst), "in", inp, ifaces.get(dst))
+        if not N.compatible(src_type, dst_type):
+            add(prefix + dst, f"вход ждёт {N.TYPE_LABELS.get(dst_type, dst_type)}, а приходит {N.TYPE_LABELS.get(src_type, src_type)}")
         if out_name == N.TIMEOUT and src_kind.group == N.NOUN and src not in doc.fed:
             add(prefix + src, "таймаут бывает только у ждущей ноды (со входом)")
 

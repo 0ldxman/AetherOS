@@ -33,7 +33,7 @@ class SocketTests(SimpleTestCase):
 
     def test_catalog(self):
         found = nodes.catalog()
-        self.assertEqual({g["name"] for g in found["groups"]}, {"noun", "flow", "action", "struct", "service"})
+        self.assertEqual({g["name"] for g in found["groups"]}, {"noun", "flow", "data", "action", "struct", "service"})
         file = next(k for k in found["kinds"] if k["name"] == "file")
         self.assertEqual(file["ref"], "item")
 
@@ -59,7 +59,7 @@ class CheckTests(SimpleTestCase):
                "wires": [wire("m", "nope", "a"), wire("f", "ref", "a", "f:name")]}
         found = texts(doc)
         self.assertIn(("m", "нет выхода «nope»"), found)
-        self.assertIn(("a", "«Файл» не подходит в поле «Метка мира»"), found)
+        self.assertIn(("a", "«Метка мира» ждёт метку мира, а приходит файл"), found)
 
     def test_start_only_with_input_and_cycle(self):
         doc = {"nodes": [node("m", "manual"), node("t", "time", at="10:00"), node("a", "reroute"), node("b", "reroute")],

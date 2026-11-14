@@ -32665,12 +32665,12 @@
       "title": "Wait Fields",
       "type": "array"
      },
-     "ref_kinds": {
-      "additionalProperties": {
+     "types": {
+      "items": {
        "type": "string"
       },
-      "title": "Ref Kinds",
-      "type": "object"
+      "title": "Types",
+      "type": "array"
      },
      "socket_help": {
       "additionalProperties": {
@@ -32685,7 +32685,7 @@
      "kinds",
      "start_fields",
      "wait_fields",
-     "ref_kinds",
+     "types",
      "socket_help"
     ],
     "title": "GrCatalog",
@@ -32719,6 +32719,10 @@
       },
       "title": "Options",
       "type": "array"
+     },
+     "socket": {
+      "title": "Socket",
+      "type": "string"
      }
     },
     "required": [
@@ -32727,7 +32731,8 @@
      "kind",
      "placeholder",
      "required",
-     "options"
+     "options",
+     "socket"
     ],
     "title": "GrField",
     "type": "object"
@@ -32892,6 +32897,11 @@
      },
      "label": {
       "title": "Label",
+      "type": "string"
+     },
+     "type": {
+      "default": "event",
+      "title": "Type",
       "type": "string"
      }
     },

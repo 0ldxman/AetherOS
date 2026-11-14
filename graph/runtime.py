@@ -43,15 +43,16 @@ class Doc:
         doc = doc or {}
         self.deps = list(doc.get("_deps") or [])
         self.nodes = {str(node.get("id")): node for node in doc.get("nodes") or [] if isinstance(node, dict) and node.get("id")}
-        self.flow, self.refs, self.fed = {}, {}, set()
+        self.flow, self.refs, self.fed, self.into = {}, {}, set(), {}
         for wire in doc.get("wires") or []:
             if not isinstance(wire, dict):
                 continue
             src, out, dst, inp = str(wire.get("from")), str(wire.get("out")), str(wire.get("to")), str(wire.get("in"))
             if src not in self.nodes or dst not in self.nodes:
                 continue
+            self.into[(dst, inp)] = (src, out)
             if inp.startswith("f:"):
-                self.refs[(dst, inp[2:])] = src
+                self.refs[(dst, inp[2:])] = (src, out)
             else:
                 self.flow.setdefault((src, out), []).append((dst, inp))
                 self.fed.add(dst)
@@ -105,12 +106,15 @@ def _load(slug):
 
 def iface(part):
     """Интерфейс группы или сценария: имена сокетов его «Входа» и «Выхода»."""
+    def node(kind):
+        return next((n for n in (part or {}).get("nodes") or [] if isinstance(n, dict) and n.get("type") == kind), None)
+
     def names(kind):
-        for node in (part or {}).get("nodes") or []:
-            if isinstance(node, dict) and node.get("type") == kind:
-                return [name for name, _ in N.named(node.get("data"))]
-        return []
-    return {"inputs": names("group_in"), "outputs": names("group_out")}
+        found = node(kind)
+        return [name for name, _ in N.named(found.get("data"))] if found else []
+
+    return {"inputs": names("group_in"), "outputs": names("group_out"),
+            "in_types": N.socket_types((node("group_in") or {}).get("data")), "out_types": N.socket_types((node("group_out") or {}).get("data"))}
 
 
 def _expand(part, groups, prefix, inline, depth, seen, nodes, wires, deps):
@@ -259,9 +263,20 @@ def parse_condition(text):
     return _parsed[text]
 
 
+def _truth(value):
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, (int, float)):
+        return value != 0
+    return str(value or "").strip().lower() not in ("", "0", "false", "no", "нет")
+
+
 def _holds(text, run, known=None):
+    """Условие: да/нет с провода или текст условия на факты игрока."""
     from secure.access import satisfied
 
+    if isinstance(text, (bool, int, float)):
+        return _truth(text)
     try:
         condition = parse_condition(text)
     except ValueError as error:
@@ -333,8 +348,138 @@ def _count(data, name, default=2):
         return default
 
 
-def _noun_wait(run, doc, node_id, kind):
+# ---------- данные: значения по проводам ----------
+
+def capture(run, node_id, event=None, ctx=None):
+    """Запомнить подробности события существительного: из них берутся его выходы данных (путь, учётка, значение…)."""
+    if event is not None:
+        found = {**(event.data or {}), "host": event.host, "login": event.login}
+    else:
+        found = {**((ctx or {}).get("data") or {}), "host": (ctx or {}).get("host", ""), "login": (ctx or {}).get("login", "")}
+    run.state = {**(run.state or {}), "vals": {**((run.state or {}).get("vals") or {}), node_id: found}}
+
+
+def _number(value):
+    try:
+        return float(str(value).replace(",", "."))
+    except (TypeError, ValueError):
+        return None
+
+
+def _plain(value):
+    if isinstance(value, float) and value.is_integer():
+        return int(value)
+    return value
+
+
+def value_of(run, doc, node_id, out, depth=0):
+    """Значение выхода данных: подробность события существительного, результат ноды данных или проход через вход/выход группы."""
+    if depth > 30:
+        return None
+    kind = doc.kind(node_id)
+    if kind is None:
+        return None
     data = doc.data(node_id)
+    if kind.name in ("group_in", "group_out"):
+        src = doc.into.get((node_id, out))
+        return value_of(run, doc, src[0], src[1], depth + 1) if src else None
+    if kind.group == N.NOUN:
+        sock = N.data_out(kind, out)
+        if sock is None:
+            return None
+        if sock.key == "@player":
+            return run.user.get_username() if run.user is not None else ""
+        found = ((run.state or {}).get("vals") or {}).get(node_id) or {}
+        value = found.get(sock.key)
+        if value in (None, "") and sock.fallback:
+            value = data.get(sock.fallback)
+        return value
+    if kind.group != N.DATA:
+        return None
+    get = lambda name: input_of(run, doc, node_id, name, depth + 1)       # noqa: E731
+    name = kind.name
+    if name == "text":
+        return str(get("value") or "")
+    if name == "number":
+        return _plain(_number(get("value")) or 0)
+    if name == "boolean":
+        return _truth(get("value"))
+    if name == "template":
+        values = {key: get(key) for key in ("a", "b", "c")}
+        return re.sub(r"\{(a|b|c)\}", lambda m: "" if values[m.group(1)] is None else str(values[m.group(1)]), str(get("template") or ""))
+    if name == "compare":
+        a, b, op = get("a"), get("b"), data.get("op") or "eq"
+        na, nb = _number(a), _number(b)
+        if op in ("gt", "ge", "lt", "le"):
+            if na is None or nb is None:
+                return False
+            return {"gt": na > nb, "ge": na >= nb, "lt": na < nb, "le": na <= nb}[op]
+        sa, sb = str(a if a is not None else ""), str(b if b is not None else "")
+        if op == "contains":
+            return sb.casefold() in sa.casefold()
+        if op == "like":
+            import fnmatch
+
+            return fnmatch.fnmatchcase(sa.casefold(), sb.casefold())
+        same = (na == nb) if na is not None and nb is not None else sa.strip().casefold() == sb.strip().casefold()
+        return same if op == "eq" else not same
+    if name == "and":
+        return _truth(get("a")) and _truth(get("b"))
+    if name == "or":
+        return _truth(get("a")) or _truth(get("b"))
+    if name == "not":
+        return not _truth(get("a"))
+    if name == "fact":
+        return _holds(get("expr"), run)
+    if name == "math":
+        a, b, op = _number(get("a")) or 0, _number(get("b")) or 0, data.get("op") or "add"
+        if op == "random":
+            import random
+
+            low, high = sorted((int(a), int(b)))
+            return random.randint(low, high)
+        result = {"add": a + b, "sub": a - b, "mul": a * b, "div": a / b if b else 0, "min": min(a, b), "max": max(a, b)}.get(op, 0)
+        return _plain(result)
+    if name == "read":
+        return _read(run, data.get("what") or "world_counter", str(get("name") or ""), out)
+    return None
+
+
+def _read(run, what, name, out):
+    from engine.models import PlayerValue
+    from mail.models import Flag
+    from world.models import WorldCounter, WorldFlag
+
+    if what == "world_counter":
+        value = WorldCounter.objects.filter(name=name).values_list("value", flat=True).first() or 0
+    elif what == "player_counter":
+        value = PlayerValue.objects.filter(user=run.user, name=name).values_list("value", flat=True).first() or 0 if run.user else 0
+    elif what == "world_flag":
+        value = int(WorldFlag.objects.filter(name=name, on=True).exists())
+    else:
+        value = int(run.user is not None and Flag.objects.filter(user=run.user, name=name).exists())
+    return bool(value) if out == "lit" else value
+
+
+def input_of(run, doc, node_id, name, depth=0):
+    """Значение входа-поля: с провода, а без провода — то, что вписано в ноду."""
+    src = doc.refs.get((node_id, name))
+    if src is not None:
+        return value_of(run, doc, src[0], src[1], depth)
+    return doc.data(node_id).get(name)
+
+
+def resolved(run, doc, node_id):
+    """Данные ноды с подставленными значениями проводов."""
+    data = dict(doc.data(node_id))
+    for (dst, name), (src, out) in doc.refs.items():
+        if dst == node_id:
+            data[name] = value_of(run, doc, src, out)
+    return data
+
+
+def _noun_wait(run, doc, node_id, kind):
+    data = resolved(run, doc, node_id)
     outs = [out for out in doc.wired(node_id) if out in kind.events]
     if data.get("past") and run.user is not None:
         from engine.models import Event
@@ -343,16 +488,19 @@ def _noun_wait(run, doc, node_id, kind):
             for out in outs:
                 if kind.events[out] == event.name and kind.match(data, out, event):
                     run.ctx = {**(run.ctx or {}), **_ctx_of(event), "host": event.host or run.ctx.get("host"), "login": event.login or run.ctx.get("login")}
+                    capture(run, node_id, event)
                     return [out]
+    fed = {name: data[name] for (dst, name) in doc.refs if dst == node_id}       # фильтры с проводов: значения на момент ожидания
     for out in outs:
-        Wait.objects.create(run=run, user=run.user, node=node_id, out=out, kind=Wait.Kind.EVENT, event=kind.events[out], anyone=bool(data.get("anyone")))
+        Wait.objects.create(run=run, user=run.user, node=node_id, out=out, kind=Wait.Kind.EVENT, event=kind.events[out], anyone=bool(data.get("anyone")),
+                            data=fed)
     if data.get("timeout") not in (None, "", 0, "0") and N.TIMEOUT in doc.wired(node_id):
         Wait.objects.create(run=run, user=run.user, node=node_id, out=N.TIMEOUT, kind=Wait.Kind.TIME, until=after(data.get("timeout")))
     return []
 
 
 def _wait(run, doc, node_id):
-    data = doc.data(node_id)
+    data = resolved(run, doc, node_id)
     mode, real = data.get("mode") or "delay", bool(data.get("real"))
     if mode == "condition":
         if _holds(data.get("condition"), run):
@@ -376,17 +524,12 @@ def _action(run, doc, node_id, kind):
     from engine import actions as engine
     from engine.context import Ctx
 
-    spec, data = kind.spec, doc.data(node_id)
+    spec, data = kind.spec, resolved(run, doc, node_id)
     action = {"do": spec.name}
     for item in spec.fields:
-        source = doc.refs.get((node_id, item.name))
-        if source is not None:
-            src_kind = doc.kind(source)
-            value = doc.data(source).get(src_kind.ref[1]) if src_kind and src_kind.ref else None
-        else:
-            value = data.get(item.name)
+        value = data.get(item.name)
         if value not in (None, ""):
-            action[item.name] = _fill(value, run)
+            action[item.name] = _fill(_plain(value) if isinstance(value, float) else value, run)
     ctx = Ctx(source=f"сценарий {run.graph.slug}", user=run.user, box=_box(run), depth=_depth.get())
     have = ctx.provides()
     if spec.needs not in have:
@@ -409,7 +552,7 @@ def _execute(run, doc, node_id, sock):
     """Выполнить ноду; вернуть выходы, по которым идти дальше."""
     import random
 
-    kind, data = doc.kind(node_id), doc.data(node_id)
+    kind, data = doc.kind(node_id), resolved(run, doc, node_id)
     name = kind.name
     if kind.group == N.NOUN:
         return [] if kind.start_only else _noun_wait(run, doc, node_id, kind)
@@ -530,7 +673,7 @@ def advance(run, items):
     while queue and run.status == Run.Status.RUNNING:
         node_id, sock = queue.popleft()
         kind = doc.kind(node_id)
-        if kind is None or kind.name in ("note", "frame"):
+        if kind is None or kind.name in ("note", "frame") or kind.group == N.DATA:
             continue
         if doc.nodes[node_id].get("mute"):                 # выключенная нода пропускает поток насквозь (как M в Blender)
             if "next" in N.sockets(kind, doc.data(node_id), "out"):
@@ -577,6 +720,7 @@ def start(graph, node_id, out, user=None, ctx=None, repeat=None):
             return None
         run = Run.objects.create(graph=graph, user=user, node=node_id, ctx=ctx or {})
     run.graph = graph
+    capture(run, node_id, ctx=ctx or {})
     _hit(run, node_id)
     return advance(run, doc.next(node_id, out))
 
@@ -594,6 +738,7 @@ def resume(wait, event=None):
             ctx = run.ctx or {}
             run.ctx = {**ctx, "event": event.name, "data": {**(ctx.get("data") or {}), **(event.data or {})},
                        "host": ctx.get("host") or event.host, "login": ctx.get("login") or event.login}
+            capture(run, wait.node, event)
     return advance(run, doc_of(run.graph).next(wait.node, wait.out))
 
 
@@ -614,12 +759,12 @@ def dispatch(event):
         # событие без игрока (сигнал всем, метка мира, момент, машина) будит ждущих у всех
         for wait in list(waits.select_related("run__graph")):
             kind = doc_of(wait.run.graph).kind(wait.node)
-            if kind is not None and kind.match is not None and kind.match(doc_of(wait.run.graph).data(wait.node), wait.out, event):
+            if kind is not None and kind.match is not None and kind.match({**doc_of(wait.run.graph).data(wait.node), **(wait.data or {})}, wait.out, event):
                 touched += bool(resume(wait, event))
         if event.user is not None:
             for wait in list(Wait.objects.filter(kind=Wait.Kind.CONDITION, user=event.user, run__status=Run.Status.RUNNING,
                                                  run__graph__active=True).select_related("run__graph")):
-                if _holds(doc_of(wait.run.graph).data(wait.node).get("condition"), wait.run):
+                if _holds(resolved(wait.run, doc_of(wait.run.graph), wait.node).get("condition"), wait.run):
                     touched += bool(resume(wait))
         for row in list(Start.objects.filter(event=event.name, graph__active=True).select_related("graph")):
             doc = doc_of(row.graph)
@@ -647,7 +792,7 @@ def attempt(name, user, *, host="", login="", **data):
                                              run__graph__active=True).select_related("run__graph")):
             doc = doc_of(wait.run.graph)
             kind = doc.kind(wait.node)
-            if kind is not None and kind.match(doc.data(wait.node), wait.out, event):
+            if kind is not None and kind.match({**doc.data(wait.node), **(wait.data or {})}, wait.out, event):
                 resume(wait, event)
                 if holder["answer"] is not None:
                     break
@@ -743,7 +888,7 @@ def tick(force=False):
     for wait in list(Wait.objects.filter(until__lte=timezone.now(), run__status=Run.Status.RUNNING, run__graph__active=True).select_related("run__graph")):
         done += bool(resume(wait))
     for wait in list(Wait.objects.filter(kind=Wait.Kind.CONDITION, run__status=Run.Status.RUNNING, run__graph__active=True).select_related("run__graph")):
-        if _holds(doc_of(wait.run.graph).data(wait.node).get("condition"), wait.run):
+        if _holds(resolved(wait.run, doc_of(wait.run.graph), wait.node).get("condition"), wait.run):
             done += bool(resume(wait))
     done += _time_starts()
     return done

@@ -17,7 +17,7 @@
   import FrameNode from "./FrameNode.svelte";
   import GraphNode from "./GraphNode.svelte";
   import NodePanel from "./NodePanel.svelte";
-  import { BOXES, REF, TYPES, typeColor, defaults, freeId, ifaceOfLevel, insOf, summaryOf, type Catalog, type Doc, type GNode, type GWire, type Group, type Iface, type Kind, type Level } from "./kinds";
+  import { BOXES, TYPES, compatible, sockType, socketFields, typeColor, defaults, freeId, ifaceOfLevel, insOf, summaryOf, type Catalog, type Doc, type GNode, type GWire, type Group, type Iface, type Kind, type Level } from "./kinds";
 
   let { id }: { id: number } = $props();
   type Detail = Schemas["GrDetail"];
@@ -33,7 +33,7 @@
   let selected = $state("");
   let tab = $state<"node" | "check">("node");
   let busy = $state(false);
-  let menu = $state<{ x: number; y: number; from: { node: string; out: string } | null } | null>(null);
+  let menu = $state<{ x: number; y: number; from: { node: string; out: string; type: string } | null } | null>(null);
   let pointer = { x: 300, y: 200 };
   // подсказка при наведении (как в Blender): строки из data-tip ноды или сокета
   let hint = $state<{ x: number; y: number; lines: string[] } | null>(null);
@@ -57,6 +57,19 @@
   function setLevel(next: Level) {
     if (gid) doc = { ...doc, groups: { ...doc.groups, [gid]: { ...(doc.groups?.[gid] as Group), nodes: next.nodes, wires: next.wires } } };
     else doc = { ...doc, nodes: next.nodes, wires: next.wires };
+  }
+  function typeAt(nodeId: string, side: "in" | "out", name: string): string {
+    const n = level.nodes.find((x) => x.id === nodeId);
+    const kind = n && kindOf(n.type);
+    return n && kind ? sockType(kind, n.data, side, name, ifaceOf(n)) : "";
+  }
+  // первый вход новой ноды, куда подходит провод этого типа
+  function firstInput(kind: Kind, node: GNode, type: string): string | null {
+    if (type === "event") return insOf(kind, node.data, ifaceOf(node)).find((s) => (s.type ?? "event") === "event")?.name ?? null;
+    const box = insOf(kind, node.data, ifaceOf(node)).find((s) => s.type && compatible(type, s.type));
+    if (box) return box.name;
+    const field = socketFields(kind).find((f) => compatible(type, f.socket));
+    return field ? `f:${field.name}` : null;
   }
   function ifaceOf(n: GNode): Iface | null {
     if (n.type === "group") return ifaceOfLevel(doc.groups?.[String(n.data.group ?? "")]);
@@ -166,7 +179,7 @@
     const found = doc.groups?.[group];
     if (found) doc = { ...doc, groups: { ...doc.groups, [group]: { ...found, title } } };
   }
-  function addNode(kind: Kind, position: { x: number; y: number }, from: { node: string; out: string } | null = null) {
+  function addNode(kind: Kind, position: { x: number; y: number }, from: { node: string; out: string; type: string } | null = null) {
     const node: GNode = { id: freeId(level), type: kind.name, x: Math.round(position.x), y: Math.round(position.y), data: defaults(kind) };
     if (kind.name === "frame") { node.w = 420; node.h = 260; }
     if (kind.name === "group_in" || kind.name === "group_out") node.data = { sockets: [{ name: "s1", label: kind.name === "group_in" ? "Вход" : "Выход" }] };
@@ -179,8 +192,8 @@
     }
     const wires = [...level.wires];
     if (from) {
-      const target = insOf(kind, node.data, ifaceOf(node))[0];
-      if (target) wires.push({ id: wireId({ from: from.node, out: from.out, to: node.id, in: target.name }), from: from.node, out: from.out, to: node.id, in: target.name });
+      const target = firstInput(kind, node, from.type);
+      if (target) wires.push({ id: wireId({ from: from.node, out: from.out, to: node.id, in: target }), from: from.node, out: from.out, to: node.id, in: target });
     }
     setLevel({ nodes: [...level.nodes, node], wires });
     selected = node.id;
@@ -198,8 +211,10 @@
     if (!ids.size) return;
     const picked = level.nodes.filter((n) => ids.has(n.id));
     const inside = level.wires.filter((w) => ids.has(w.from) && ids.has(w.to));
-    const incoming = level.wires.filter((w) => !ids.has(w.from) && ids.has(w.to) && !w.in.startsWith("f:"));
-    const outgoing = level.wires.filter((w) => ids.has(w.from) && !ids.has(w.to) && w.out !== REF);
+    const incoming = level.wires.filter((w) => !ids.has(w.from) && ids.has(w.to));
+    const outgoing = level.wires.filter((w) => ids.has(w.from) && !ids.has(w.to));
+    const typeIn = (key: string) => { const w = incoming.find((x) => `${x.to}|${x.in}` === key)!; return typeAt(w.from, "out", w.out) || "event"; };
+    const typeOut = (key: string) => { const [from, out] = key.split("|"); return typeAt(from, "out", out) || "event"; };
     const inKeys = [...new Set(incoming.map((w) => `${w.to}|${w.in}`))];
     const outKeys = [...new Set(outgoing.map((w) => `${w.from}|${w.out}`))];
     const xs = picked.map((n) => n.x), ys = picked.map((n) => n.y);
@@ -207,8 +222,8 @@
     const taken = new Set(picked.map((n) => n.id));
     const pickId = (base: string) => { let name = base, n = 1; while (taken.has(name)) name = `${base}${++n}`; taken.add(name); return name; };
     const inId = pickId("in"), outId = pickId("out");
-    const inSocks = inKeys.map((_, i) => ({ name: `s${i + 1}`, label: `Вход ${i + 1}` }));
-    const outSocks = outKeys.map((_, i) => ({ name: `s${i + 1}`, label: `Выход ${i + 1}` }));
+    const inSocks = inKeys.map((key, i) => ({ name: `s${i + 1}`, label: `Вход ${i + 1}`, type: typeIn(key) }));
+    const outSocks = outKeys.map((key, i) => ({ name: `s${i + 1}`, label: `Выход ${i + 1}`, type: typeOut(key) }));
     const group = freeGroup();
     const box: GNode = { id: freeId(level), type: "group", x: Math.round(xs.reduce((a, b) => a + b, 0) / xs.length), y: midY, data: { group } };
     const innerWires: GWire[] = [
@@ -290,18 +305,14 @@
                     width: kind.name === "frame" ? n.w ?? 420 : undefined, height: kind.name === "frame" ? n.h ?? 260 : undefined,
                     data: { title: String(n.data.title ?? n.data.text ?? ""), note: kind.name === "note", onresize: (w: number, h: number) => patchNode(n.id, { w: Math.round(w), h: Math.round(h) }) } } satisfies Node];
         }
-        const refFields = kind.group === "action" ? kind.fields.filter((f) => catalog!.ref_kinds[f.kind]).map((f) => {
-          const raw = n.data[f.name];
-          const shown = raw === undefined || raw === null || raw === "" ? "" : (picks[f.kind]?.find((o) => o.value === String(raw))?.label ?? String(raw));
-          return { name: f.name, label: f.label, type: catalog!.ref_kinds[f.kind], value: shown.split(" · ")[0] };
-        }) : [];
         const inner = n.type === "group" ? String(n.data.group ?? "") : "";
         const boxStat = BOXES.includes(n.type) && live ? Object.entries(live.nodes).filter(([k]) => k.startsWith(`${prefix}${n.id}/`))
           .reduce((acc, [, v]) => ({ hits: Math.max(acc.hits, v.hits), players: Math.max(acc.players, v.players), waiting: acc.waiting + v.waiting,
                                     oldest_days: Math.max(acc.oldest_days, v.oldest_days) }), { hits: 0, players: 0, waiting: 0, oldest_days: 0 }) : null;
         return [{
           id: n.id, type: "gnode", position: { x: n.x, y: n.y }, selected: n.id === chosenId || keep.has(n.id),
-          data: { node: n, kind, waiting: fedInto.has(n.id), refFields, iface: ifaceOf(n),
+          data: { node: n, kind, waiting: fedInto.has(n.id), iface: ifaceOf(n), picks, editable,
+                  onfield: (name: string, value: unknown) => patchField(n.id, name, value),
                   summary: n.type === "group" ? doc.groups?.[inner]?.title ?? "" : summaryOf(kind, n.data, picks),
                   errors: found.filter((p) => p.node === key(n.id) && p.level === "error").length, warnings: found.filter((p) => p.node === key(n.id) && p.level === "warning").length,
                   box: inner ? found.filter((p) => p.node.startsWith(`${inner}::`) && p.level === "error").length : 0,
@@ -313,40 +324,35 @@
                   })) },
         } satisfies Node];
       });
-      const typeOf = (nodeId: string) => kindOf(list.find((x) => x.id === nodeId)?.type ?? "")?.ref ?? "";
-      edges = wires.map((w) => ({ id: w.id || `${w.from}.${w.out}-${w.to}.${w.in}`, source: w.from, sourceHandle: w.out, target: w.to, targetHandle: w.in,
-                                  class: w.out === REF ? "ref" : "", style: `stroke: ${w.out === REF ? typeColor(typeOf(w.from)) : TYPES.event.color}` }) satisfies Edge);
+      edges = wires.map((w) => {
+        const type = typeAt(w.from, "out", w.out) || "event";
+        return { id: w.id || `${w.from}.${w.out}-${w.to}.${w.in}`, source: w.from, sourceHandle: w.out, target: w.to, targetHandle: w.in,
+                 class: type === "event" ? "" : "data", style: `stroke: ${typeColor(type)}` } satisfies Edge;
+      });
     });
   });
 
-  function refKindOf(nodeId: string) {
+  function patchField(nodeId: string, name: string, value: unknown) {
     const n = level.nodes.find((x) => x.id === nodeId);
-    const kind = n && kindOf(n.type);
-    return kind?.ref ?? "";
+    if (n) patchNode(nodeId, { data: { ...n.data, [name]: value } });
   }
   function valid(c: Connection | Edge): boolean {
-    const out = c.sourceHandle ?? "", inp = c.targetHandle ?? "";
-    if (out === REF) {
-      if (!inp.startsWith("f:")) return false;
-      const target = level.nodes.find((x) => x.id === c.target);
-      const field = target && kindOf(target.type)?.fields.find((f) => f.name === inp.slice(2));
-      return !!field && catalog?.ref_kinds[field.kind] === refKindOf(c.source);
-    }
-    return !inp.startsWith("f:");
+    const src = typeAt(c.source, "out", c.sourceHandle ?? ""), dst = typeAt(c.target, "in", c.targetHandle ?? "");
+    return !!src && !!dst && compatible(src, dst);
   }
   function onconnect(c: Connection) {
     if (!c.sourceHandle || !c.targetHandle || !valid(c)) return;
     const wire = { id: `${c.source}.${c.sourceHandle}-${c.target}.${c.targetHandle}`, from: c.source, out: c.sourceHandle, to: c.target, in: c.targetHandle };
     let wires = level.wires.filter((w) => w.id !== wire.id);
-    if (wire.in.startsWith("f:")) wires = wires.filter((w) => !(w.to === wire.to && w.in === wire.in));      // в поле — один провод
+    if (typeAt(wire.to, "in", wire.in) !== "event") wires = wires.filter((w) => !(w.to === wire.to && w.in === wire.in));      // во вход данных — один провод
     setLevel({ ...level, wires: [...wires, wire] });
   }
   // провод брошен в пустоту: меню нод, новая нода сразу подключится (как в Blender)
   function onconnectend(event: MouseEvent | TouchEvent, s: { isValid: boolean | null; fromNode: { id: string } | null; fromHandle: { id?: string | null; type?: string } | null }) {
-    if (s.isValid || !s.fromNode || !s.fromHandle?.id || s.fromHandle.type === "target" || s.fromHandle.id === REF || !editable) return;
+    if (s.isValid || !s.fromNode || !s.fromHandle?.id || s.fromHandle.type === "target" || !editable) return;
     const point = "changedTouches" in event ? event.changedTouches[0] : event;
     if (document.elementFromPoint(point.clientX, point.clientY)?.closest(".svelte-flow__node")) return;
-    menu = { x: point.clientX, y: point.clientY, from: { node: s.fromNode.id, out: s.fromHandle.id } };
+    menu = { x: point.clientX, y: point.clientY, from: { node: s.fromNode.id, out: s.fromHandle.id, type: typeAt(s.fromNode.id, "out", s.fromHandle.id) || "event" } };
   }
   function ondelete({ nodes: goneNodes, edges: goneEdges }: { nodes: Node[]; edges: Edge[] }) {
     const ids = new Set(goneEdges.map((e) => e.id));
@@ -466,7 +472,7 @@
           <Background gap={24} />
           <Controls showLock={false} />
           <Panel position="bottom-center">
-            <div class="legend">{#each Object.entries(TYPES) as [key, t] (key)}<span><i class:thing={key !== "event"} style="--c: {t.color}"></i>{t.label}</span>{/each}</div>
+            <div class="legend">{#each Object.entries(TYPES) as [key, t] (key)}<span><i class:thing={t.thing} style="--c: {t.color}"></i>{t.label}</span>{/each}</div>
           </Panel>
           <MiniMap pannable zoomable bgColor="#15171c" nodeColor="#2a2e37" maskColor="rgba(0, 0, 0, 0.5)" />
           <Panel position="top-left">
@@ -474,7 +480,7 @@
             <span class="tip muted">Shift+A — добавить · Ctrl+G — в группу · Tab — войти/выйти · M — выключить · Ctrl+H — свернуть · Ctrl+D — копия · Delete — убрать</span>
           </Panel>
           {#if menu}
-            <AddMenu at={menu} {catalog} filter={menu.from ? (k) => insOf(k, {}).length > 0 && !k.start_only : null}
+            <AddMenu at={menu} {catalog} filter={menu.from ? (k) => !k.start_only && firstInput(k, { id: "", type: k.name, x: 0, y: 0, data: {} }, menu!.from!.type) !== null : null}
                      onpick={(kind, position) => addNode(kind, position, menu?.from ?? null)} onclose={() => (menu = null)} />
           {/if}
         </SvelteFlow>
@@ -552,7 +558,7 @@
   .problem .mono { font-size: 11.5px; opacity: 0.85; }
   .map :global(.svelte-flow) { --xy-background-color: var(--bg); --xy-edge-stroke: #c9ced6; --xy-edge-stroke-width: 1.6; --xy-controls-button-background-color: var(--panel-2);
                                --xy-controls-button-border-color: var(--line); --xy-controls-button-color: var(--text); }
-  .map :global(.svelte-flow__edge.ref path) { stroke-dasharray: 5 4; }
+  .map :global(.svelte-flow__edge.data path) { stroke-width: 1.4; }
   .hint { position: fixed; z-index: 50; max-width: 280px; display: flex; flex-direction: column; gap: 2px; padding: 6px 9px; pointer-events: none;
           border: 1px solid var(--line); border-radius: var(--radius-s); background: var(--panel); box-shadow: 0 6px 18px rgba(0, 0, 0, 0.45); font-size: 12px; }
   .hint span { color: var(--muted); }

@@ -76,6 +76,7 @@ class Wait(models.Model):
     kind = models.CharField(max_length=10, choices=Kind.choices)
     event = models.CharField(max_length=40, blank=True, db_index=True)
     anyone = models.BooleanField("Событие любого игрока", default=False)
+    data = models.JSONField("Значения с проводов", default=dict, blank=True)
     until = models.DateTimeField(null=True, blank=True, db_index=True)
     created_at = models.DateTimeField(auto_now_add=True)
 

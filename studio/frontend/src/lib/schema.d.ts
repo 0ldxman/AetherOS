@@ -12003,10 +12003,8 @@ export interface components {
             start_fields: components["schemas"]["GrField"][];
             /** Wait Fields */
             wait_fields: components["schemas"]["GrField"][];
-            /** Ref Kinds */
-            ref_kinds: {
-                [key: string]: string;
-            };
+            /** Types */
+            types: string[];
             /** Socket Help */
             socket_help: {
                 [key: string]: string;
@@ -12026,6 +12024,8 @@ export interface components {
             required: boolean;
             /** Options */
             options: components["schemas"]["GrOption"][];
+            /** Socket */
+            socket: string;
         };
         /** GrGroup */
         GrGroup: {
@@ -12087,6 +12087,11 @@ export interface components {
             name: string;
             /** Label */
             label: string;
+            /**
+             * Type
+             * @default event
+             */
+            type: string;
         };
         /** GrProblem */
         GrProblem: {

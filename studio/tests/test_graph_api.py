@@ -33,7 +33,9 @@ class GraphApiTests(TestCase):
         names = [k["name"] for k in data["kinds"]]
         self.assertIn("machine", names)
         self.assertIn("do:world_flag", names)
-        self.assertEqual(data["ref_kinds"]["key"], "item")
+        self.assertIn("bool", data["types"])
+        file = next(k for k in data["kinds"] if k["name"] == "file")
+        self.assertIn({"name": "path", "label": "Путь", "type": "text"}, file["outs"])
 
     def test_create_save_and_starts(self):
         response = self.create(active=True)

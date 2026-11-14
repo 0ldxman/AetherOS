@@ -25,11 +25,13 @@ class GrField(Schema):
     placeholder: str
     required: bool
     options: list[GrOption]
+    socket: str
 
 
 class GrSock(Schema):
     name: str
     label: str
+    type: str = "event"
 
 
 class GrMany(Schema):
@@ -65,7 +67,7 @@ class GrCatalog(Schema):
     kinds: list[GrKind]
     start_fields: list[GrField]
     wait_fields: list[GrField]
-    ref_kinds: dict[str, str]
+    types: list[str]
     socket_help: dict[str, str]
 
 
@@ -146,7 +148,8 @@ def _iface(doc):
     def socks(kind):
         for node in (doc or {}).get("nodes") or []:
             if isinstance(node, dict) and node.get("type") == kind:
-                return [GrSock(name=name, label=label) for name, label in nodes.named(node.get("data"))]
+                types = nodes.socket_types(node.get("data"))
+                return [GrSock(name=name, label=label, type=types.get(name, "event")) for name, label in nodes.named(node.get("data"))]
         return []
     return GrIface(inputs=socks("group_in"), outputs=socks("group_out"))
 

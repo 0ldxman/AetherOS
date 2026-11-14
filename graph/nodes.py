@@ -10,8 +10,41 @@ from dataclasses import dataclass, field
 
 from engine.actions import Field
 
-NOUN, FLOW, ACTION, STRUCT, SERVICE = "noun", "flow", "action", "struct", "service"
-GROUPS = {NOUN: "Существительные", FLOW: "Ход", ACTION: "Действия", STRUCT: "Сценарии и группы", SERVICE: "Служебные"}
+NOUN, FLOW, DATA, ACTION, STRUCT, SERVICE = "noun", "flow", "data", "action", "struct", "service"
+GROUPS = {NOUN: "Существительные", FLOW: "Ход", DATA: "Данные", ACTION: "Действия", STRUCT: "Сценарии и группы", SERVICE: "Служебные"}
+
+# Типы сокетов. event — «случилось» (по нему идёт ход), остальное — данные: читаются в момент, когда нода выполняется.
+EVENT = "event"
+TYPES = ("event", "bool", "text", "number", "item", "machine", "character", "section", "flag", "world_flag", "counter", "moment")
+TYPE_LABELS = {"event": "событие", "bool": "да/нет", "text": "текст", "number": "число", "item": "файл", "machine": "машину",
+               "character": "персонажа", "section": "раздел", "flag": "метку игрока", "world_flag": "метку мира", "counter": "счётчик",
+               "moment": "момент"}
+THINGS = ("item", "machine", "character", "section", "flag", "world_flag", "counter", "moment")
+FIELD_TYPES = {"text": "text", "textarea": "text", "path": "text", "clock": "text", "expr": "text", "scene": "text", "station": "text",
+               "graph": "text", "number": "number", "bool": "bool", "condition": "bool", "key": "item", "item": "item", "letter": "item",
+               "object": "item", "character": "character", "section": "section", "flag": "flag", "world_flag": "world_flag",
+               "counter": "counter", "moment": "moment", "machine": "machine"}      # вид поля -> тип его входа; нет в списке — параметр без входа
+
+
+def field_type(field):
+    return FIELD_TYPES.get(field.kind, "")
+
+
+def compatible(src, dst):
+    """Можно ли вести провод из выхода типа src во вход типа dst (как в Blender: число в текст можно, событие в данные нельзя)."""
+    if src == dst:
+        return True
+    if EVENT in (src, dst):
+        return False
+    if dst == "text":
+        return True                                  # любое значение подставляется текстом (вещь — своим именем)
+    if dst == "number":
+        return src == "bool"
+    if dst == "bool":
+        return src == "number"
+    if dst in THINGS:
+        return src == "text"                         # вещь по имени
+    return False
 BOXES = ("group", "scenario")
 GLOBAL_EVENTS = frozenset({"world.flag", "world.counter", "moment.started", "moment.ended", "machine.stopped", "machine.started"})   # будят всех ждущих            # ноды-обёртки: сокеты берутся из их «Входа» и «Выхода»
 SIGNAL_EVENT = "signal"
@@ -24,6 +57,9 @@ TIME_EVENT, MANUAL_EVENT = "@time", "@manual"
 class Sock:
     name: str
     label: str
+    type: str = EVENT
+    key: str = ""                       # у выхода данных существительного: подробность события (@player — игрок)
+    fallback: str = ""                  # если события ещё не было: поле ноды
 
 
 @dataclass(frozen=True)
@@ -311,7 +347,7 @@ def _actions():
     for spec in REGISTRY.values():
         if spec.needs in (HOST, SESSION) or spec.run is None:      # эффекты браузера ждут доставки вне запроса (этап 3)
             continue
-        register(Kind("do:" + spec.name, spec.label, ACTION, spec.summary, spec.fields, (Sock("next", "Дальше"), Sock("fail", "Не вышло")),
+        register(Kind("do:" + spec.name, spec.label, ACTION, spec.summary, spec.fields, (Sock("next", "Сделано"), Sock("fail", "Не вышло")),
                       subgroup=spec.group, spec=spec))
 
 
@@ -357,6 +393,13 @@ HELP = {
     "stage": "Отметка прохождения: счётчик «прошли» на холсте.",
     "note": "Заметка на холсте. Не исполняется.",
     "frame": "Рамка вокруг нод. Не исполняется.",
+    "text": "Текст: значение для входов.", "number": "Число: значение для входов.", "boolean": "Да/нет: значение для входов.",
+    "template": "Склеить текст: {a}, {b}, {c} в шаблоне заменяются значениями входов A, B, C.",
+    "compare": "Сравнить A и B: числа — как числа, остальное — как текст без учёта регистра. «По образцу» понимает *.",
+    "and": "Да, если оба входа да.", "or": "Да, если хотя бы один вход да.", "not": "Наоборот: да становится нет.",
+    "fact": "Условие на факты игрока прохождения: ключи, flag:, world:, count:, char:. Верно или нет.",
+    "math": "Посчитать A и B; «случайное» — целое от A до B.",
+    "read": "Прочитать сейчас: счётчик или метку мира, счётчик или метку игрока прохождения.",
     "do:flag": "Поставить личную метку игроку (flag:имя).", "do:unflag": "Снять личную метку игрока.",
     "do:key": "Положить ключ в папку секретов учётки, на которой случилось событие.",
     "do:file": "Положить объект файлом по пути в учётке игрока.",
@@ -396,8 +439,75 @@ SOCKET_HELP = {
     "changed": "значение изменилось", "reached": "значение дошло до порога", "fire": "запуск",
     "timeout": "событие не случилось за таймаут", "next": "дальше", "fail": "действие не выполнилось; причина в журнале мира",
     "yes": "условие верно", "no": "условие неверно", "else": "ни одна строка не верна", "pass": "пропущен", "late": "не успел",
-    "again": "уже было", "in": "сюда приходит ход", "ref": "вещь этой ноды: в поле действия",
+    "again": "уже было", "in": "когда сюда приходит событие, нода выполняется", "ref": "вещь этой ноды (из события, а без него — та, что выбрана в ноде)",
+    "value": "значение", "player": "игрок прохождения (имя)", "path": "путь файла из события", "layer": "слой из события",
+    "address": "адрес сервера", "command": "команда", "args": "аргументы команды", "text": "текст из события", "channel": "канал: mail, air, forum",
+    "callsign": "позывной игрока", "title": "заголовок темы", "lit": "стоит ли метка",
 }
+
+
+# ---------- данные ----------
+
+def _data(name, label, summary, fields, out_type, out_label="Значение"):
+    register(Kind(name, label, DATA, summary, fields, ins=()))
+    DATA_OUTS[name] = (Sock("value", out_label, out_type),)
+
+
+DATA_OUTS = {}
+_P = ("@player",)
+for _kind, _outs in {
+    "machine": (Sock(REF, "Машина", "machine", "host", "host"), Sock("account", "Учётка", "text", "login", "login")),
+    "server": (Sock("address", "Сервер", "text", "address", "address"), Sock("path", "Путь", "text", "path")),
+    "command": (Sock("command", "Команда", "text", "command", "command"), Sock("args", "Аргументы", "text", "args")),
+    "player_counter": (Sock("value", "Значение", "number", "value"),),
+    "file": (Sock(REF, "Файл", "item", "item", "item"), Sock("path", "Путь", "text", "path", "path"), Sock("layer", "Слой", "text", "layer")),
+    "character": (Sock(REF, "Персонаж", "character", "character", "character"), Sock("text", "Текст", "text", "text"),
+                  Sock("channel", "Канал", "text", "channel")),
+    "freq": (Sock("text", "Текст", "text", "text"), Sock("callsign", "Позывной", "text", "callsign")),
+    "section": (Sock(REF, "Раздел", "section", "section", "section"), Sock("title", "Тема", "text", "title")),
+    "flag": (Sock(REF, "Метка", "flag", "flag", "name"),),
+    "world_flag": (Sock(REF, "Метка мира", "world_flag", "flag", "name"),),
+    "counter": (Sock(REF, "Счётчик", "counter", "counter", "name"), Sock("value", "Значение", "number", "value")),
+    "moment": (Sock(REF, "Момент", "moment", "moment", "moment"),),
+    "signal": (),
+    "time": (),
+    "manual": (),
+}.items():
+    DATA_OUTS[_kind] = _outs + (Sock("player", "Игрок", "text", "@player"),)
+
+_data("text", "Текст", "{value}", (Field("value", "Текст", "text"),), "text", "Текст")
+_data("number", "Число", "{value}", (Field("value", "Число", "number"),), "number", "Число")
+_data("boolean", "Да/нет", "{value}", (Field("value", "Да", "bool"),), "bool", "Да/нет")
+_data("template", "Текст по шаблону", "{template}",
+      (Field("template", "Шаблон", "text", "{a} открыл {b}"), Field("a", "A", "text"), Field("b", "B", "text"), Field("c", "C", "text")), "text", "Текст")
+_data("compare", "Сравнить", "{op}",
+      (Field("a", "A", "text"), Field("op", "Как", "select", "", False, (("eq", "="), ("ne", "≠"), ("gt", ">"), ("ge", "≥"), ("lt", "<"), ("le", "≤"),
+                                                                       ("contains", "содержит"), ("like", "по образцу *"))), Field("b", "B", "text")),
+      "bool", "Верно")
+_data("and", "И", "", (Field("a", "A", "bool"), Field("b", "B", "bool")), "bool", "Да/нет")
+_data("or", "Или", "", (Field("a", "A", "bool"), Field("b", "B", "bool")), "bool", "Да/нет")
+_data("not", "Не", "", (Field("a", "A", "bool"),), "bool", "Да/нет")
+_data("fact", "Факт", "{expr}", (Field("expr", "Условие", "expr", "flag:met and world:act>=2", True),), "bool", "Верно")
+_data("math", "Математика", "{op}",
+      (Field("a", "A", "number"), Field("op", "Действие", "select", "", False, (("add", "+"), ("sub", "−"), ("mul", "×"), ("div", "÷"), ("min", "мин"),
+                                                                              ("max", "макс"), ("random", "случайное от A до B"))), Field("b", "B", "number")),
+      "number", "Число")
+_data("read", "Прочитать", "{what} {name}",
+      (Field("what", "Что", "select", "", False, (("world_counter", "счётчик мира"), ("player_counter", "счётчик игрока"), ("world_flag", "метка мира"),
+                                                  ("player_flag", "метка игрока"))), Field("name", "Имя", "text", "", True)), "number", "Значение")
+DATA_OUTS["read"] = (Sock("value", "Значение", "number"), Sock("lit", "Стоит", "bool"))
+
+
+def out_type(kind, name):
+    """Тип выхода: событие или тип данных."""
+    for sock in DATA_OUTS.get(kind.name, ()):
+        if sock.name == name:
+            return sock.type
+    return EVENT
+
+
+def data_out(kind, name):
+    return next((sock for sock in DATA_OUTS.get(kind.name, ()) if sock.name == name), None)
 
 
 # ---------- сокеты ноды ----------
@@ -421,12 +531,32 @@ def named(data, field_name="sockets"):
     return out
 
 
+def socket_types(data):
+    """{имя: тип} сокетов «Входа» или «Выхода» группы (тип по умолчанию — событие)."""
+    return {str(item.get("name")).strip(): (item.get("type") or EVENT) for item in (data or {}).get("sockets") or []
+            if isinstance(item, dict) and str(item.get("name") or "").strip()}
+
+
+def sock_type(kind, data, side, name, iface=None):
+    """Тип сокета ноды: у групп и сценариев — по интерфейсу, у «Входа»/«Выхода» — по списку, иначе событие или тип выхода данных."""
+    if kind.name in BOXES:
+        return ((iface or {}).get("in_types" if side == "in" else "out_types") or {}).get(name, EVENT)
+    if kind.name in ("group_in", "group_out"):
+        return socket_types(data).get(name, EVENT)
+    if side == "out":
+        return out_type(kind, name)
+    if name.startswith("f:"):
+        found = next((f for f in kind.fields if f.name == name[2:]), None)
+        return field_type(found) if found else ""
+    return EVENT
+
+
 def sockets(kind, data, side, iface=None):
     """Имена сокетов ноды с её данными: side "in" или "out". У группы и сценария — по их интерфейсу iface
     {"inputs": [имя], "outputs": [имя]} (его даёт тот, кто знает определение группы или другой граф)."""
     if kind.name in BOXES:
         return list((iface or {}).get("inputs" if side == "in" else "outputs") or [])
-    names = list(kind.ins if side == "in" else [sock.name for sock in kind.outs])
+    names = list(kind.ins if side == "in" else [sock.name for sock in kind.outs if sock.name != REF])
     for many in kind.many:
         if many.side == side:
             if not many.prefix:
@@ -435,6 +565,7 @@ def sockets(kind, data, side, iface=None):
                 names += [f"{many.prefix}{n}" for n in range(1, len(_count(data, many.field)) + 1)]
     if side == "out":
         names += [sock.name for sock in kind.tail]
+        names += [sock.name for sock in DATA_OUTS.get(kind.name, ())]
         if kind.group == NOUN and not kind.start_only:
             names.append(TIMEOUT)                    # есть только у ждущей ноды (со входом)
     return names
@@ -442,21 +573,22 @@ def sockets(kind, data, side, iface=None):
 
 def catalog():
     """Виды нод для Студии."""
-    def fields(items):
+    def fields(items, sockets=True):
         return [{"name": f.name, "label": f.label, "kind": f.kind, "placeholder": f.placeholder, "required": f.required,
-                 "options": [{"value": v, "label": label} for v, label in f.options]} for f in items]
+                 "options": [{"value": v, "label": label} for v, label in f.options], "socket": field_type(f) if sockets else ""} for f in items]
 
     return {
         "groups": [{"name": name, "label": label} for name, label in GROUPS.items()],
-        "start_fields": fields(START_FIELDS),
-        "wait_fields": fields(WAIT_FIELDS),
-        "ref_kinds": REF_KINDS,
+        "start_fields": fields(START_FIELDS, False),
+        "wait_fields": fields(WAIT_FIELDS, False),
+        "types": list(TYPES),
         "socket_help": SOCKET_HELP,
         "kinds": [{
             "name": k.name, "label": k.label, "group": k.group, "subgroup": k.subgroup, "summary": k.summary, "fields": fields(k.fields),
-            "ins": list(k.ins), "outs": [{"name": s.name, "label": s.label} for s in k.outs],
+            "ins": list(k.ins), "outs": [{"name": s.name, "label": s.label, "type": EVENT} for s in k.outs if s.name != REF]
+            + [{"name": s.name, "label": s.label, "type": s.type} for s in DATA_OUTS.get(k.name, ())],
             "many": [{"side": m.side, "field": m.field, "prefix": m.prefix, "label": m.label} for m in k.many],
-            "tail": [{"name": s.name, "label": s.label} for s in k.tail],
+            "tail": [{"name": s.name, "label": s.label, "type": EVENT} for s in k.tail],
             "ref": k.ref[0] if k.ref else "", "start_only": k.start_only, "help": HELP.get(k.name, ""),
         } for k in KINDS.values()],
     }
