@@ -173,7 +173,8 @@ def _grants():
     from engine.actions import refs
     from filesystem.models import KEY_FORMAT, ItemKey, Placement
     from secure.models import KeyRecipe
-    from world.models import WorldCounter, WorldFlag, WorldMoment
+    from world import state
+    from world.models import WorldMoment
 
     out = []
     for actions, place in _action_lists():
@@ -188,8 +189,8 @@ def _grants():
         out.append(("key", recipe.result.slug, Place("сборка из частей", recipe.result.slug, f"#/items/{recipe.result_id}")))
     for moment in WorldMoment.objects.all():
         out.append(("world", moment.name, Place("момент", moment.title or moment.name, "#/world-state")))
-    manual = [("world", name, Place("пульт мира", "вручную", "#/world-state")) for name in WorldFlag.objects.values_list("name", flat=True)]
-    manual += [("counter", name, Place("пульт мира", "вручную", "#/world-state")) for name in WorldCounter.objects.values_list("name", flat=True)]
+    manual = [("world", name, Place("пульт мира", "вручную", "#/world-state")) for name in state.names("tag")]
+    manual += [("counter", name, Place("пульт мира", "вручную", "#/world-state")) for name in state.names("count")]
     return out, manual
 
 

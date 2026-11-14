@@ -3,6 +3,8 @@ MAILER-DAEMON, письмо с чужой учётки, вложение-док�
 
 Запуск: python manage.py test mail
 """
+from engine import values as store
+from engine.models import Value
 import json
 
 from django.contrib.auth import get_user_model
@@ -17,7 +19,7 @@ from machines.models import Machine, MachineProfile, Session
 from mail import talk
 from mail.boxes import Box
 from mail.delivery import deliver_by_slug
-from mail.models import Conversation, Flag, Persona, Step, TalkState, Variant
+from mail.models import Conversation, Persona, Step, TalkState, Variant
 
 
 class CheckTests(TestCase):
@@ -103,7 +105,7 @@ class TalkTests(TestCase):
         self.assertEqual(sent.kind, "ok")
         self.assertEqual(TalkState.objects.get(user=self.ivan).step, self.done)
         self.assertEqual(set(self.subjects()), {"Код?", "Принято", "Склад 7"})
-        self.assertFalse(Flag.objects.exists())                                           # у слова свой исход, без метки
+        self.assertFalse(Value.objects.filter(kind="tag", owner="player", value=1).exists())                                           # у слова свой исход, без метки
         self.assertEqual(self.subjects("sent"), ["Re: Код?"])
 
     def test_wrong_answers_go_on_and_then_exhaust(self):

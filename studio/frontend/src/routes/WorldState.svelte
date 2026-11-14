@@ -51,11 +51,11 @@
   }
 
   // ---------- счётчики ----------
-  let counterForm = $state({ name: "", label: "", mode: "sum" });
+  let counterForm = $state({ name: "", label: "" });
   let setting = $state<{ name: string; value: number } | null>(null);
   async function addCounter() {
     const { data: next, error } = await api.POST("/studio/api/world/state/counters", { body: counterForm });
-    if (take(next, error)) counterForm = { name: "", label: "", mode: "sum" };
+    if (take(next, error)) counterForm = { name: "", label: "" };
   }
   async function bump(name: string, value: number) {
     const { data: next, error } = await api.POST("/studio/api/world/state/counters/{name}/add", { params: { path: { name } }, body: { value } });
@@ -222,8 +222,7 @@
         {@const x = scale(c)}
         <div class="counter">
           <div class="ctop">
-            <div class="who"><b class="mono">world:{c.name}</b>{#if c.label}<span class="muted small">{c.label}</span>{/if}
-              <span class="muted small">{c.mode === "players" ? `каждый игрок один раз · вложились ${c.players}` : "сумма вкладов"}</span></div>
+            <div class="who"><b class="mono">world:{c.name}</b>{#if c.label}<span class="muted small">{c.label}</span>{/if}</div>
             <div class="value"><span class="mono">{c.value}</span>{#if c.labels[String(c.value)]}<span class="vlabel">{c.labels[String(c.value)]}</span>{/if}</div>
           </div>
           <div class="bar" aria-hidden="true">
@@ -240,17 +239,11 @@
             </div>
             <button class="x" onclick={() => dropCounter(c.name)} title="Удалить счётчик" aria-label="Удалить счётчик">✕</button>
           </div>
-          {#if c.recent.length}
-            <ul class="recent">
-              {#each c.recent as r}<li><span class="mono">{r.delta >= 0 ? "+" : ""}{r.delta}</span><span>{r.who || r.source || "—"}</span><span class="muted small">{r.who && r.source ? r.source + " · " : ""}{when(r.at)}</span></li>{/each}
-            </ul>
-          {/if}
         </div>
       {:else}<p class="muted small empty">Счётчиков пока нет.</p>{/each}
       <form class="add" onsubmit={(e) => { e.preventDefault(); addCounter(); }}>
         <input class="field mono" placeholder="имя: fragments" bind:value={counterForm.name} aria-label="Имя счётчика" />
         <input class="field" placeholder="подпись для авторов" bind:value={counterForm.label} aria-label="Подпись" />
-        <select class="field mode" bind:value={counterForm.mode} aria-label="Как считать"><option value="sum">сумма вкладов</option><option value="players">каждый игрок один раз</option></select>
         <button class="btn" disabled={!counterForm.name.trim()}>+ Счётчик</button>
       </form>
     </section>
@@ -395,7 +388,6 @@
   .x:hover { color: var(--danger); }
   .add { display: flex; gap: 6px; flex-wrap: wrap; padding-top: 8px; border-top: 1px solid var(--line-soft); }
   .add .field { flex: 1; min-width: 120px; }
-  .add .mode { flex: 0 0 auto; width: auto; }
 
   .flags { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }
   .flags li { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 10px; align-items: center; padding: 6px 4px; border-radius: var(--radius-s); }
@@ -416,8 +408,6 @@
   .mark i { position: absolute; top: 16px; left: 50%; transform: translateX(-50%); font-style: normal; font-size: 10px; color: var(--muted); }
   .crow { display: flex; justify-content: space-between; align-items: center; }
   .btns { display: flex; gap: 4px; }
-  .recent { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 1px; font-size: 12.5px; }
-  .recent li { display: grid; grid-template-columns: 4ch minmax(0, auto) minmax(0, 1fr); gap: 8px; align-items: baseline; }
 
   .trigger { display: flex; justify-content: space-between; gap: 12px; padding: 10px 12px; border: 1px solid var(--line-soft); border-radius: var(--radius); background: var(--bg); }
   .trigger.off { opacity: 0.6; }

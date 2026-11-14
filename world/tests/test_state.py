@@ -6,7 +6,7 @@ from django.test import TestCase
 
 from secure.access import satisfied
 from world import state
-from world.models import WorldContribution, WorldCounter, WorldEvent, WorldTrigger
+from world.models import WorldEvent, WorldTrigger
 
 
 class WorldStateTests(TestCase):
@@ -26,15 +26,13 @@ class WorldStateTests(TestCase):
         with self.assertRaises(state.WorldError):
             state.parse_atom("world:fragments=>3")
 
-    def test_a_players_counter_takes_each_player_once(self):
-        WorldCounter.objects.create(name="signals", mode=WorldCounter.Mode.PLAYERS)
+    def test_a_counter_sums_and_is_logged(self):
         state.count("signals", user=self.ivan, source="ответчик")
-        state.count("signals", user=self.ivan, source="ответчик")
-        state.count("signals", user=self.olga, source="письмо")
-        state.count("signals", source="автор")                               # без игрока не считается
-        self.assertEqual(WorldCounter.objects.get(name="signals").value, 2)
-        self.assertEqual(WorldContribution.objects.filter(counter__name="signals").count(), 2)
+        state.count("signals", 2, user=self.olga, source="письмо")
+        self.assertEqual(state.snapshot()["counters"]["signals"], 3)
+        self.assertEqual(WorldEvent.objects.filter(kind="counter", subject="signals").count(), 2)
         self.assertEqual(state.set_counter("signals", 5, "автор"), 5)
+        self.assertEqual(state.names("count"), ["signals"])
 
     def test_triggers_fire_on_the_edge_and_chain(self):
         WorldTrigger.objects.create(name="act-2", condition="world:fragments>=3", actions=[{"do": "world_flag", "name": "act-2"}])
@@ -85,5 +83,4 @@ class WorldStateTests(TestCase):
         box = type("Box", (), {"user": self.ivan, "machine": None, "login": "ivan", "profile": None})()
         talk.run_actions([{"do": "world_count", "name": "fragments", "delta": 2}, {"do": "world_flag", "name": "met-boreas"}], box)
         self.assertTrue(satisfied({"all": ["world:fragments=6", "world:met-boreas"]}, set()))
-        self.assertEqual(WorldContribution.objects.filter(user=self.ivan).count(), 1)
         self.assertIn(Decimal("6"), [Decimal(v) for v in state.params().values()])

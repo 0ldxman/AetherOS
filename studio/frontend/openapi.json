@@ -31176,35 +31176,6 @@
     "title": "ChSayIn",
     "type": "object"
    },
-   "WsContribution": {
-    "properties": {
-     "who": {
-      "title": "Who",
-      "type": "string"
-     },
-     "delta": {
-      "title": "Delta",
-      "type": "integer"
-     },
-     "source": {
-      "title": "Source",
-      "type": "string"
-     },
-     "at": {
-      "format": "date-time",
-      "title": "At",
-      "type": "string"
-     }
-    },
-    "required": [
-     "who",
-     "delta",
-     "source",
-     "at"
-    ],
-    "title": "WsContribution",
-    "type": "object"
-   },
    "WsCounter": {
     "properties": {
      "name": {
@@ -31213,10 +31184,6 @@
      },
      "label": {
       "title": "Label",
-      "type": "string"
-     },
-     "mode": {
-      "title": "Mode",
       "type": "string"
      },
      "value": {
@@ -31242,17 +31209,6 @@
       "title": "Thresholds",
       "type": "array"
      },
-     "recent": {
-      "items": {
-       "$ref": "#/components/schemas/WsContribution"
-      },
-      "title": "Recent",
-      "type": "array"
-     },
-     "players": {
-      "title": "Players",
-      "type": "integer"
-     },
      "labels": {
       "additionalProperties": {
        "type": "string"
@@ -31264,12 +31220,9 @@
     "required": [
      "name",
      "label",
-     "mode",
      "value",
      "changed_at",
      "thresholds",
-     "recent",
-     "players",
      "labels"
     ],
     "title": "WsCounter",
@@ -31690,11 +31643,6 @@
      "label": {
       "default": "",
       "title": "Label",
-      "type": "string"
-     },
-     "mode": {
-      "default": "sum",
-      "title": "Mode",
       "type": "string"
      }
     },

@@ -3,6 +3,7 @@ secure/recipes.py, здесь обёртка."""
 from datetime import datetime
 
 from django.shortcuts import get_object_or_404
+from django.http import Http404
 from ninja import Router, Schema
 from ninja.errors import HttpError
 
@@ -11,7 +12,9 @@ from secure import recipes
 from secure.access import format_condition
 from world import state
 from world import moments
-from world.models import WorldContribution, WorldCounter, WorldEvent, WorldFlag, WorldMoment, WorldTrigger
+from engine import values
+from engine.models import Value, ValueInfo
+from world.models import WorldEvent, WorldMoment, WorldTrigger
 
 router = Router(tags=["world-state"])
 
@@ -38,22 +41,12 @@ class WsThreshold(Schema):
     trigger: str
 
 
-class WsContribution(Schema):
-    who: str
-    delta: int
-    source: str
-    at: datetime
-
-
 class WsCounter(Schema):
     name: str
     label: str
-    mode: str
     value: int
     changed_at: datetime | None
     thresholds: list[WsThreshold]
-    recent: list[WsContribution]
-    players: int                 # сколько разных игроков вложилось
     labels: dict[str, str]       # подписи значений: {"2": "Архив"}
 
 
@@ -144,7 +137,6 @@ class WsFlagIn(Schema):
 class WsCounterIn(Schema):
     name: str
     label: str = ""
-    mode: str = "sum"
 
 
 class WsAmount(Schema):
@@ -160,21 +152,28 @@ class WsTriggerIn(Schema):
     active: bool = True
 
 
-def _who(row):
-    if row.user is None:
-        return ""
-    from air.radio import callsign_of
+def _world(kind):
+    """Метки или счётчики мира: (имя, запись значения или None, описание или None)."""
+    rows = {row.name: row for row in Value.objects.filter(kind=kind, owner=values.WORLD, owner_id=0, user=None)}
+    infos = {row.name: row for row in ValueInfo.objects.filter(kind=kind, owner=values.WORLD, owner_id=0)}
+    return [(name, rows.get(name), infos.get(name)) for name in sorted(set(rows) | set(infos))]
 
-    return callsign_of(row.user).name
+
+def _counter(name, row, info):
+    return WsCounter(name=name, label=info.label if info else "", value=row.value if row else 0, changed_at=row.changed_at if row else None,
+                     thresholds=[WsThreshold(value=v, op=op, trigger=t) for v, op, t in state.thresholds(name)],
+                     labels={str(k): str(v) for k, v in ((info.labels if info else None) or {}).items()})
 
 
-def _counter(row):
-    recent = row.contributions.select_related("user")[:8]
-    return WsCounter(name=row.name, label=row.label, mode=row.mode, value=row.value, changed_at=row.changed_at,
-                     thresholds=[WsThreshold(value=v, op=op, trigger=t) for v, op, t in state.thresholds(row.name)],
-                     recent=[WsContribution(who=_who(c), delta=c.delta, source=c.source, at=c.at) for c in recent],
-                     players=row.contributions.exclude(user=None).values("user").distinct().count(),
-                     labels={str(k): str(v) for k, v in (row.labels or {}).items()})
+def _exists(kind, name):
+    if not state.names(kind).count(name):
+        raise Http404
+
+
+def _drop(kind, name):
+    values.forget(kind, values.WORLD, 0, name)
+    ValueInfo.objects.filter(kind=kind, owner=values.WORLD, owner_id=0, name=name).delete()
+    state.forget()
 
 
 def _moment(row):
@@ -205,8 +204,9 @@ def read(request):
     moments.tick(force=True)
     return WsState(
         moments=[_moment(m) for m in WorldMoment.objects.all()], game_now=chrono.game_now(),
-        flags=[WsFlag(name=f.name, label=f.label, on=f.on, changed_at=f.changed_at, changed_by=f.changed_by) for f in WorldFlag.objects.all()],
-        counters=[_counter(c) for c in WorldCounter.objects.all()],
+        flags=[WsFlag(name=name, label=info.label if info else "", on=bool(row and row.value), changed_at=row.changed_at if row else None,
+                      changed_by=row.changed_by if row else "") for name, row, info in _world(values.TAG)],
+        counters=[_counter(*found) for found in _world(values.COUNT)],
         triggers=[_trigger(t) for t in WorldTrigger.objects.all()],
         events=[WsEvent(at=e.at, kind=e.kind, subject=e.subject, text=e.text, source=e.source) for e in WorldEvent.objects.all()[:60]],
     )
@@ -220,20 +220,16 @@ def save_flag(request, body: WsFlagIn):
         name = state.check_name(body.name)
     except state.WorldError as error:
         _refuse(error)
-    flag, _ = WorldFlag.objects.get_or_create(name=name)
-    if flag.label != body.label.strip():
-        flag.label = body.label.strip()[:200]
-        flag.save(update_fields=["label"])
+    values.describe(values.TAG, values.WORLD, name, label=body.label)
     state.set_flag(name, body.on, _author(request))
     return read(request)
 
 
 @router.delete("/flags/{name}", response=WsState)
 def delete_flag(request, name: str):
-    flag = get_object_or_404(WorldFlag, name=name)
-    if flag.on:
-        state.set_flag(name, False, _author(request))
-    flag.delete()
+    _exists(values.TAG, name)
+    state.set_flag(name, False, _author(request))
+    _drop(values.TAG, name)
     return read(request)
 
 
@@ -245,40 +241,36 @@ def save_counter(request, body: WsCounterIn):
         name = state.check_name(body.name)
     except state.WorldError as error:
         _refuse(error)
-    if body.mode not in WorldCounter.Mode.values:
-        _refuse("Режим: сумма вкладов или каждый игрок один раз.")
-    counter, _ = WorldCounter.objects.get_or_create(name=name)
-    counter.label, counter.mode = body.label.strip()[:200], body.mode
-    counter.save(update_fields=["label", "mode"])
+    values.describe(values.COUNT, values.WORLD, name, label=body.label)
+    state.count(name, 0, _author(request))
     return read(request)
 
 
 @router.post("/counters/{name}/add", response=WsState)
 def add_to_counter(request, name: str, body: WsAmount):
-    get_object_or_404(WorldCounter, name=name)
+    _exists(values.COUNT, name)
     state.count(name, body.value, _author(request))
     return read(request)
 
 
 @router.post("/counters/{name}/set", response=WsState)
 def set_counter(request, name: str, body: WsAmount):
-    get_object_or_404(WorldCounter, name=name)
+    _exists(values.COUNT, name)
     state.set_counter(name, body.value, _author(request))
     return read(request)
 
 
 @router.delete("/counters/{name}", response=WsState)
 def delete_counter(request, name: str):
-    get_object_or_404(WorldCounter, name=name).delete()
-    state.forget()
+    _exists(values.COUNT, name)
+    _drop(values.COUNT, name)
     return read(request)
 
 
 @router.put("/counters/{name}/labels", response=WsState)
 def counter_labels(request, name: str, body: WsLabels):
-    counter = get_object_or_404(WorldCounter, name=name)
-    counter.labels = {str(int(k)): v.strip()[:80] for k, v in body.labels.items() if str(k).lstrip("-").isdigit() and v.strip()}
-    counter.save(update_fields=["labels"])
+    _exists(values.COUNT, name)
+    values.describe(values.COUNT, values.WORLD, name, labels=body.labels)
     return read(request)
 
 

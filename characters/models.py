@@ -17,7 +17,6 @@ class Character(models.Model):
     callsign = models.CharField("Позывной", max_length=16, blank=True, help_text="Подпись в эфире и на форуме. Пусто: имя.")
     color = models.PositiveSmallIntegerField("Цвет кода", default=0, help_text="0 акцент, 1 зелёный, 2 предупреждение, 3 сведения (токены ОС).")
     status = models.CharField("Статус", max_length=8, choices=Status.choices, default=Status.ACTIVE)
-    tags = models.JSONField("Теги", default=list, blank=True, help_text="Метки персонажа для сюжета: раскрыт, пропал… В условиях — char:КОД:тег.")
     about = models.TextField("Кто это", blank=True)
     voice = models.TextField("Как говорит", blank=True, help_text="Манера, слова-паразиты, чего никогда не скажет.")
     knows = models.TextField("Что знает", blank=True, help_text="И чего не знает: чтобы не проговориться.")

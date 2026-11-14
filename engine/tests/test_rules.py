@@ -1,4 +1,6 @@
 """Правила на события: образец подробностей, условие на факты игрока, кратность и «кто первым»."""
+from engine import values as store
+from engine.models import Value
 from django.contrib.auth import get_user_model
 from django.test import TestCase
 
@@ -6,9 +8,7 @@ from engine import rules
 from engine.events import emit
 from engine.models import Rule, RuleFire
 from forum.models import Post, Section, Space
-from mail.models import Flag
 from team.testing import full_role
-from world.models import WorldCounter, WorldFlag
 
 
 class RuleTests(TestCase):
@@ -21,8 +21,7 @@ class RuleTests(TestCase):
         return Rule.objects.create(**{**values, **fields})
 
     def counter(self):
-        found = WorldCounter.objects.filter(name="decoded").first()
-        return found.value if found else 0
+        return store.get("count", "world", 0, "decoded")
 
     def test_once_per_player(self):
         self.rule()
@@ -51,7 +50,7 @@ class RuleTests(TestCase):
         emit("key.got", self.ivan, slug="boreas")
         self.assertEqual(self.counter(), 0)
         self.assertFalse(RuleFire.objects.exists())               # не сработало: потом ещё может
-        Flag.objects.create(user=self.ivan, name="met-guard")
+        store.set_tag("player", self.ivan.pk, "met-guard")
         emit("key.got", self.ivan, slug="boreas")
         self.assertEqual(self.counter(), 1)
 
@@ -61,7 +60,7 @@ class RuleTests(TestCase):
         self.rule(once="world", actions=[{"do": "flag", "name": "decoder"},
                                          {"do": "forum", "section": log.pk, "mode": "append", "title": "World log", "text": "{player} first decoded BOREAS"}])
         emit("key.got", self.ivan, slug="boreas")
-        self.assertTrue(Flag.objects.filter(user=self.ivan, name="decoder").exists())
+        self.assertTrue(store.on("player", self.ivan.pk, "decoder"))
         self.assertIn("first decoded BOREAS", Post.objects.get().text)
         self.assertNotIn("{player}", Post.objects.get().text)
 
@@ -69,7 +68,7 @@ class RuleTests(TestCase):
         Rule.objects.create(name="ping", on="world.flag", match={"flag": "a"}, once="always", actions=[{"do": "world_unflag", "name": "a"}, {"do": "world_flag", "name": "b"}])
         Rule.objects.create(name="pong", on="world.flag", match={"flag": "b"}, once="always", actions=[{"do": "world_unflag", "name": "b"}, {"do": "world_flag", "name": "a"}])
         emit("world.flag", self.ivan, flag="a", on=True)            # не зависает
-        self.assertTrue(WorldFlag.objects.exists())
+        self.assertTrue(Value.objects.filter(kind="tag", owner="world").exists())
 
 
 class RuleApiTests(TestCase):
@@ -92,7 +91,7 @@ class RuleApiTests(TestCase):
         row = response.json()["rules"][0]
         self.assertEqual((row["condition_text"], row["fires"]), ("flag:met", 0))
         ivan = get_user_model().objects.create_user("ivan")
-        Flag.objects.create(user=ivan, name="met")
+        store.set_tag("player", ivan.pk, "met")
         emit("key.got", ivan, slug="boreas")
         row = self.client.get("/studio/api/world/rules").json()["rules"][0]
         self.assertEqual((row["fires"], row["first_player"]), (1, "ivan"))

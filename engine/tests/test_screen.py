@@ -1,4 +1,5 @@
 """Действия этапа 3: экран игрока через очередь, счётчик игрока, теги персонажа, файлы, машины, учётки, сеть, моменты."""
+from engine import values as store
 from datetime import timedelta
 
 from django.contrib.auth import get_user_model
@@ -9,7 +10,7 @@ from engine import actions as engine
 from engine import facts, push
 from engine.context import Ctx
 from engine.events import emit
-from engine.models import Event, PlayerValue
+from engine.models import Event
 from filesystem.testing import key_item
 from machines.models import AccountBlock, Machine, MachineProfile, NetNode, NetResource, Session
 from machines.network import bridge
@@ -57,7 +58,7 @@ class PlayerFactsTests(TestCase):
 
     def test_player_counter_and_condition(self):
         run([{"do": "player_count", "name": "hints"}, {"do": "player_count", "name": "hints", "delta": 2}], user=self.ivan)
-        self.assertEqual(PlayerValue.objects.get(user=self.ivan, name="hints").value, 3)
+        self.assertEqual(store.get("count", "player", self.ivan.pk, "hints"), 3)
         known = facts.of(self.ivan)
         self.assertTrue(satisfied("count:hints>=3", known))
         self.assertFalse(satisfied("count:hints>3", known))
@@ -159,13 +160,13 @@ class MachineTests(TestCase):
         run([{"do": "net_node", "address": "apollo.com", "token": "-"}])
 
     def test_moments(self):
-        from world.models import WorldFlag, WorldMoment
+        from world.models import WorldMoment
 
         WorldMoment.objects.create(name="storm", duration=30)
         run([{"do": "moment_start", "moment": "storm"}])
-        self.assertTrue(WorldFlag.objects.get(name="storm").on)
+        self.assertTrue(store.on("world", 0, "storm"))
         run([{"do": "moment_end", "moment": "storm"}])
-        self.assertFalse(WorldFlag.objects.get(name="storm").on)
+        self.assertFalse(store.on("world", 0, "storm"))
 
 
 class GraphEventTests(TestCase):

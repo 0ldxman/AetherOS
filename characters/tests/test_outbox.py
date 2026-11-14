@@ -1,4 +1,5 @@
 """Реплики персонажа: ответ в почту, на форум, в эфир; отложенные; отмена; действия мира; история с игроком."""
+from engine import values as store
 from datetime import timedelta
 
 from django.contrib.auth import get_user_model
@@ -15,7 +16,6 @@ from forum.models import Post, Section, Space
 from machines.models import Machine, MachineProfile
 from mail.boxes import Box
 from mail.models import Persona
-from world.models import WorldFlag
 
 
 class OutboxTests(TestCase):
@@ -69,7 +69,7 @@ class OutboxTests(TestCase):
 
     def test_world_actions_run_on_delivery_and_bad_ones_are_refused(self):
         outbox.answer(self.mail_in(), self.boss, "go", actions=[{"do": "world_flag", "name": "op7-met"}])
-        self.assertTrue(WorldFlag.objects.get(name="op7-met").on)
+        self.assertTrue(store.on("world", 0, "op7-met"))
         with self.assertRaises(outbox.OutboxError):
             outbox.answer(self.mail_in(), self.boss, "x", actions=[{"do": "explode"}])
 

@@ -472,18 +472,17 @@ def value_of(run, doc, node_id, out, depth=0):
 
 
 def _read(run, what, name, out):
-    from engine.models import PlayerValue
-    from mail.models import Flag
-    from world.models import WorldCounter, WorldFlag
+    from engine import values
 
+    player = run.user.pk if run is not None and run.user is not None else None
     if what == "world_counter":
-        value = WorldCounter.objects.filter(name=name).values_list("value", flat=True).first() or 0
+        value = values.get(values.COUNT, values.WORLD, 0, name)
     elif what == "player_counter":
-        value = PlayerValue.objects.filter(user=run.user, name=name).values_list("value", flat=True).first() or 0 if run.user else 0
+        value = values.get(values.COUNT, values.PLAYER, player, name)
     elif what == "world_flag":
-        value = int(WorldFlag.objects.filter(name=name, on=True).exists())
+        value = values.get(values.TAG, values.WORLD, 0, name)
     else:
-        value = int(run.user is not None and Flag.objects.filter(user=run.user, name=name).exists())
+        value = values.get(values.TAG, values.PLAYER, player, name)
     return bool(value) if out == "lit" else value
 
 

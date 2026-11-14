@@ -1,4 +1,5 @@
 """Карта связей: что требуется и где это взять; разрывы загадок."""
+from engine import values as store
 from django.contrib.auth import get_user_model
 from django.test import TestCase
 
@@ -8,7 +9,7 @@ from filesystem.models import Item, ItemKey
 from filesystem.testing import key_item
 from forum.models import Section, Space
 from team.testing import full_role
-from world.models import WorldFlag, WorldMoment, WorldTrigger
+from world.models import WorldMoment, WorldTrigger
 
 
 def row(kind, name):
@@ -46,7 +47,7 @@ class LinksTests(TestCase):
     def test_world_flags_from_moments_or_only_by_hand(self):
         WorldTrigger.objects.create(name="t", condition={"all": ["world:uplink", "world:sealed"]}, actions=[])
         WorldMoment.objects.create(name="uplink", schedule="daily 21:00")
-        WorldFlag.objects.create(name="sealed")
+        store.set_tag("world", 0, "sealed", False)
         self.assertEqual(row("world", "uplink").level, "ok")
         self.assertEqual((row("world", "sealed").level, row("world", "sealed").problem), ("warning", "ставится только вручную на пульте"))
 

@@ -160,19 +160,3 @@ class TalkState(models.Model):
         constraints = [models.UniqueConstraint(fields=("user", "conversation"), name="unique_talk_state")]
         verbose_name = "Переписка игрока"
         verbose_name_plural = "Переписки игроков"
-
-
-class Flag(models.Model):
-    """Метка прогресса игрока: персонажи «помнят», что он сделал (условия вариантов, исходы)."""
-
-    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="flags")
-    name = models.CharField(max_length=64)
-    set_at = models.DateTimeField(auto_now_add=True)
-
-    class Meta:
-        constraints = [models.UniqueConstraint(fields=("user", "name"), name="unique_player_flag")]
-        verbose_name = "Метка игрока"
-        verbose_name_plural = "Метки игроков"
-
-    def __str__(self):
-        return f"{self.user_id}:{self.name}"

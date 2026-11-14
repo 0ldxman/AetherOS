@@ -1,4 +1,5 @@
 """Исполнитель сценариев: старты, ожидания, ход, действия, время."""
+from engine import values as store
 from datetime import timedelta
 from unittest import mock
 
@@ -10,8 +11,6 @@ from engine.events import emit
 from engine.models import Event
 from graph import runtime, stats
 from graph.models import Graph, Hit, Mark, Run, Start, Wait
-from mail.models import Flag
-from world.models import WorldCounter, WorldFlag
 
 
 def node(node_id, kind, **data):
@@ -29,8 +28,7 @@ def make(nodes, wires, active=True, slug="g"):
 
 
 def counter(name="c"):
-    found = WorldCounter.objects.filter(name=name).first()
-    return found.value if found else 0
+    return store.get("count", "world", 0, name)
 
 
 class StartTests(TestCase):
@@ -77,8 +75,8 @@ class StartTests(TestCase):
         make([node("m", "machine", host="archive"), node("f", "do:flag", name="met")], [wire("m", "login", "f")], slug="one")
         make([node("n", "flag", name="met"), node("a", "do:world_flag", name="door")], [wire("n", "set", "a")], slug="two")
         emit("machine.login", self.ivan, machine="archive")
-        self.assertTrue(Flag.objects.filter(user=self.ivan, name="met").exists())
-        self.assertTrue(WorldFlag.objects.get(name="door").on)
+        self.assertTrue(store.on("player", self.ivan.pk, "met"))
+        self.assertTrue(store.on("world", 0, "door"))
         self.assertTrue(Event.objects.filter(name="flag.set", user=self.ivan).exists())
 
     def test_ref_wire_feeds_action_field(self):
@@ -86,7 +84,7 @@ class StartTests(TestCase):
              [wire("m", "fire", "a"), wire("w", "ref", "a", "f:name")])
         graph = Graph.objects.get()
         runtime.start_manual(graph, "m")
-        self.assertTrue(WorldFlag.objects.get(name="alarm").on)
+        self.assertTrue(store.on("world", 0, "alarm"))
 
     def test_account_action_without_machine_goes_to_fail(self):
         make([node("m", "manual"), node("k", "do:key", slug="boreas"), node("a", "do:world_count", name="c")], [wire("m", "fire", "k"), wire("k", "fail", "a")])
@@ -151,7 +149,7 @@ class WaitTests(TestCase):
                      [wire("m", "fire", "w"), wire("w", "next", "a")])
         runtime.start_manual(graph, "m", self.ivan)
         self.assertEqual(counter(), 0)
-        Flag.objects.create(user=self.ivan, name="ready")
+        store.set_tag("player", self.ivan.pk, "ready")
         emit("file.read", self.ivan, path="/x")
         self.assertEqual(counter(), 1)
 
@@ -199,7 +197,7 @@ class FlowTests(TestCase):
                       wire("s", "else", "else")])
         ivan = self.players[0]
         runtime.start_manual(graph, "m", ivan)
-        Flag.objects.create(user=ivan, name="x")
+        store.set_tag("player", ivan.pk, "x")
         runtime.start_manual(graph, "m", ivan)
         self.assertEqual([counter(n) for n in ("yes", "no", "r2", "else")], [1, 1, 1, 1])
 
@@ -282,9 +280,9 @@ class HookTests(TestCase):
 
         make([node("w", "counter", name="frag", threshold=2), node("a", "do:world_flag", name="open")], [wire("w", "reached", "a")])
         state.count("frag")
-        self.assertFalse(WorldFlag.objects.filter(name="open", on=True).exists())
+        self.assertFalse(store.on("world", 0, "open"))
         state.count("frag")
-        self.assertTrue(WorldFlag.objects.get(name="open").on)
+        self.assertTrue(store.on("world", 0, "open"))
         self.assertTrue(Hit.objects.exists())
 
     @mock.patch("graph.runtime.dispatch", side_effect=RuntimeError("boom"))

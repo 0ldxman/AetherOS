@@ -1,4 +1,5 @@
 """Цепочки: шаги-условия по порядку, отметки прохождения от событий игрока, воронка, кто первым, разрывы."""
+from engine import values as store
 from django.contrib.auth import get_user_model
 from django.test import TestCase
 
@@ -6,7 +7,6 @@ from engine import chains
 from engine.events import emit
 from engine.models import Chain, ChainReach, ChainStep
 from machines.models import Machine, MachineProfile
-from mail.models import Flag
 from team.testing import full_role
 
 
@@ -22,18 +22,18 @@ class ChainTests(TestCase):
         self.two = ChainStep.objects.create(chain=self.chain, order=1, title="Saw the door", condition="flag:door")
 
     def test_steps_are_reached_in_order_on_player_events(self):
-        Flag.objects.create(user=self.ivan, name="door")
+        store.set_tag("player", self.ivan.pk, "door")
         emit("file.read", self.ivan, path="/x")
         self.assertFalse(ChainReach.objects.exists())                 # второй шаг без первого не считается
-        Flag.objects.create(user=self.ivan, name="met")
+        store.set_tag("player", self.ivan.pk, "met")
         emit("file.read", self.ivan, path="/x")
         self.assertEqual(ChainReach.objects.filter(user=self.ivan).count(), 2)
 
     def test_report_shows_the_funnel_first_and_who_waits(self):
-        Flag.objects.create(user=self.anna, name="met")
+        store.set_tag("player", self.anna.pk, "met")
         chains.update(self.anna)
-        Flag.objects.create(user=self.ivan, name="met")
-        Flag.objects.create(user=self.ivan, name="door")
+        store.set_tag("player", self.ivan.pk, "met")
+        store.set_tag("player", self.ivan.pk, "door")
         chains.update(self.ivan)
         report = chains.report(self.chain)
         first, second = report["steps"]
@@ -45,7 +45,7 @@ class ChainTests(TestCase):
     def test_studio_edits_steps_and_keeps_reaches(self):
         boss = get_user_model().objects.create_user("boss", is_staff=True, role=full_role())
         self.client.force_login(boss)
-        Flag.objects.create(user=self.ivan, name="met")
+        store.set_tag("player", self.ivan.pk, "met")
         chains.update(self.ivan)
         body = {"slug": "door", "title": "Door", "steps": [{"id": self.one.pk, "title": "Met", "condition_text": "flag:met"},
                                                            {"title": "Got key", "condition_text": "mask"}]}

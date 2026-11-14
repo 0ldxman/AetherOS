@@ -151,27 +151,20 @@ def _world_name(action):
 # ---------- игрок: личные метки ----------
 
 def _flag(action, ctx):
-    from mail.models import Flag
+    from engine import values
 
     name = (action.get("name") or "").strip()
     if not name:
         raise ActionError("метка без имени")
-    _, created = Flag.objects.get_or_create(user=ctx.user, name=name)
-    if created:
-        from engine.events import emit
-
-        emit("flag.set", ctx.user, source=ctx.source, flag=name)
+    values.set_tag(values.PLAYER, ctx.user.pk, name, True, source=ctx.source, actor=ctx.user, _depth=ctx.depth)
 
 
 def _unflag(action, ctx):
-    from mail.models import Flag
+    from engine import values
 
     name = (action.get("name") or "").strip()
-    deleted, _ = Flag.objects.filter(user=ctx.user, name=name).delete()
-    if deleted:
-        from engine.events import emit
-
-        emit("flag.unset", ctx.user, source=ctx.source, flag=name)
+    if name:
+        values.set_tag(values.PLAYER, ctx.user.pk, name, False, source=ctx.source, actor=ctx.user, _depth=ctx.depth)
 
 
 register(Spec("flag", "Поставить метку игрока", USER, "Игрок", "метка {name}", (Field("name", "Метка", "flag", "dock-open", True),),
@@ -433,20 +426,15 @@ register(Spec("scene", "Сцена на весь экран", USER, SCREEN, "с�
 # ---------- игрок: счётчик ----------
 
 def _player_count(action, ctx):
-    from django.db import transaction
-
-    from engine.models import PlayerValue
+    from engine import values
 
     name = (action.get("name") or "").strip()
     if not name:
         raise ActionError("счётчик без имени")
-    with transaction.atomic():
-        row, _ = PlayerValue.objects.select_for_update().get_or_create(user=ctx.user, name=name)
-        row.value = _int(action.get("value"), 0, -10**9) if action.get("mode") == "set" else row.value + _int(action.get("delta"), 1, -10**9)
-        row.save(update_fields=["value"])
-    from engine.events import emit
-
-    emit("player.counter", ctx.user, source=ctx.source, counter=name, value=row.value)
+    if action.get("mode") == "set":
+        values.put(values.PLAYER, ctx.user.pk, name, _int(action.get("value"), 0, -10**9), source=ctx.source, actor=ctx.user, _depth=ctx.depth)
+    else:
+        values.add(values.PLAYER, ctx.user.pk, name, _int(action.get("delta"), 1, -10**9), source=ctx.source, actor=ctx.user, _depth=ctx.depth)
 
 
 register(Spec("player_count", "Счётчик игрока", USER, "Игрок", "count:{name} {mode} {delta}{value}",
@@ -598,11 +586,9 @@ def _character_tag(action, ctx):
     tag = (action.get("tag") or "").strip().lower()
     if not tag:
         raise ActionError("тег без имени")
-    tags = [t for t in character.tags or [] if t != tag]
-    if (action.get("mode") or "add") == "add":
-        tags.append(tag)
-    character.tags = tags
-    character.save(update_fields=["tags"])
+    from engine import values
+
+    values.set_tag("character", character.pk, tag, (action.get("mode") or "add") == "add", source=ctx.source, actor=ctx.user, _depth=ctx.depth)
 
 
 register(Spec("machine_power", "Изменить машину", WORLD, "Машины", "{host}: {state}",

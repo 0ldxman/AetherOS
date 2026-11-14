@@ -37,12 +37,13 @@ def _picks():
     from characters.models import Character
     from filesystem.models import KEY_FORMAT, Item
     from forum.models import Section
-    from mail.models import Flag
     from graph.models import Graph
     from django.contrib.auth import get_user_model
     from machines.models import Machine, NetResource
     from machines.models.scenes import SceneScript
-    from world.models import WorldCounter, WorldFlag, WorldMoment
+    from engine.models import Value
+    from world import state
+    from world.models import WorldMoment
 
     items = list(Item.objects.order_by("slug").values_list("slug", "format", "name"))
     sections = list(Section.objects.filter(archived=False).select_related("space"))
@@ -63,9 +64,9 @@ def _picks():
         "section": sorted((option(row.pk, f"{row.space.title}: {path(row)}") for row in sections), key=lambda o: o.label),
         "character": [option(c.code, f"{c.code} · {c.signature}") for c in Character.objects.order_by("code")],
         "station": [option(name) for name in Station.objects.order_by("name").values_list("name", flat=True)],
-        "flag": [option(name) for name in Flag.objects.order_by("name").values_list("name", flat=True).distinct()],
-        "world_flag": [option(name) for name in WorldFlag.objects.order_by("name").values_list("name", flat=True)],
-        "counter": [option(name) for name in WorldCounter.objects.order_by("name").values_list("name", flat=True)],
+        "flag": [option(name) for name in Value.objects.filter(kind="tag", owner="player").order_by("name").values_list("name", flat=True).distinct()],
+        "world_flag": [option(name) for name in state.names("tag")],
+        "counter": [option(name) for name in state.names("count")],
         "object": [option(slug, f"{slug} · {name}" if name and name != slug else slug) for slug, fmt, name in items],
         "machine": [option(host, f"{host} · {name}" if name and name != host else host)
                     for host, name in Machine.objects.exclude(hostname="").order_by("hostname").values_list("hostname", "name")],

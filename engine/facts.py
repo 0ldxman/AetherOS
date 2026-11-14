@@ -11,18 +11,19 @@ def flags(user):
     """Личные метки игрока (ставятся действиями flag/unflag)."""
     if user is None or not getattr(user, "is_authenticated", False):
         return set()
-    from mail.models import Flag
+    from engine import values
 
-    return set(Flag.objects.filter(user=user).values_list("name", flat=True))
+    return values.names(values.TAG, values.PLAYER, user.pk)
 
 
 def counts(user):
     """Счётчики игрока строками count:<имя>=<значение> (условие count:имя>=N сравнивает с ними)."""
     if user is None or not getattr(user, "is_authenticated", False):
         return set()
-    from engine.models import PlayerValue
+    from engine import values
 
-    return {f"{COUNT}{name}={value}" for name, value in PlayerValue.objects.filter(user=user).values_list("name", "value")}
+    found = values._cached(values.PLAYER, user.pk, None)
+    return {f"{COUNT}{name}={value}" for (kind, name), value in found.items() if kind == values.COUNT}
 
 
 def of(user, keys=()):
@@ -36,10 +37,9 @@ def compare(text, keys):
 
     if text.startswith(CHAR):
         _, code, tag = (text.split(":", 2) + ["", ""])[:3]
-        from characters.models import Character
+        from engine import values
 
-        found = Character.objects.filter(code=code.upper()).values_list("tags", flat=True).first()
-        return tag.lower() in (found or [])
+        return values.on("character", values.owner_id("character", code), tag.strip().lower())
     match = re.fullmatch(r"count:([A-Za-z0-9_-]{1,64})(?:(>=|<=|>|<|=)(-?\d+))?", text)
     if not match:
         return False

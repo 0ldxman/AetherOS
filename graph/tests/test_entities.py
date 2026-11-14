@@ -1,4 +1,5 @@
 """Ноды сущностей и «Файлы игрока»."""
+from engine import values as store
 from types import SimpleNamespace
 
 from django.contrib.auth import get_user_model
@@ -51,9 +52,7 @@ class EntityTests(TestCase):
                      [wire("m", "fire", "a"), f("t", "value", "e", "machine"), f("e", "host", "a", "name")])
         self.assertEqual([p for p in check.problems(graph.doc) if p["level"] == "error"], [])
         runtime.start_manual(graph, "m")
-        from world.models import WorldFlag
-
-        self.assertTrue(WorldFlag.objects.get(name="core").on)
+        self.assertTrue(store.on("world", 0, "core"))
 
     def test_entity_type_is_checked(self):
         graph = make([node("c", "ent:character"), node("e", "ent:machine")], [f("c", "value", "e", "machine")])

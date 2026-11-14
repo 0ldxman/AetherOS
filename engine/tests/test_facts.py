@@ -1,4 +1,5 @@
 """Факты игрока: личные метки flag:<имя> работают в любом условии рядом с ключами и world:."""
+from engine import values as store
 from django.contrib.auth import get_user_model
 from django.test import RequestFactory, TestCase
 
@@ -6,7 +7,6 @@ from documents.markup.expr import parse_expr
 from engine import facts
 from forum import logic
 from forum.models import Section, Space
-from mail.models import Flag
 from secure.access import condition_slugs, satisfied
 from secure.requestkeys import held_keys
 
@@ -16,7 +16,7 @@ class FactsTests(TestCase):
         self.ivan = get_user_model().objects.create_user("ivan")
 
     def test_flags_join_keys(self):
-        Flag.objects.create(user=self.ivan, name="dock-open")
+        store.set_tag("player", self.ivan.pk, "dock-open")
         self.assertEqual(facts.of(self.ivan, {"mask"}), frozenset({"mask", "flag:dock-open"}))
         self.assertEqual(facts.of(None, {"mask"}), frozenset({"mask"}))
 
@@ -30,7 +30,7 @@ class FactsTests(TestCase):
         self.assertEqual(condition_slugs({"all": ["flag:x", "world:y", "mask"]}), ["mask"])
 
     def test_request_facts_carry_flags_without_a_machine_session(self):
-        Flag.objects.create(user=self.ivan, name="met")
+        store.set_tag("player", self.ivan.pk, "met")
         request = RequestFactory().get("/")
         request.user, request.session = self.ivan, {}
         self.assertEqual(held_keys(request), frozenset({"flag:met"}))
@@ -39,5 +39,5 @@ class FactsTests(TestCase):
         space = Space.objects.create(slug="net", title="Net")
         board = Section.objects.create(space=space, title="Inner", read_if="flag:met")
         self.assertFalse(logic.can_read(board, facts.of(self.ivan)))
-        Flag.objects.create(user=self.ivan, name="met")
+        store.set_tag("player", self.ivan.pk, "met")
         self.assertTrue(logic.can_read(board, facts.of(self.ivan)))

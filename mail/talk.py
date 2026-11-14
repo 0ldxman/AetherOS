@@ -22,7 +22,7 @@ from dataclasses import dataclass, field
 from django.db import transaction
 
 from mail import letters
-from mail.models import Conversation, Flag, Persona, Step, TalkState, Variant
+from mail.models import Conversation, Persona, Step, TalkState, Variant
 
 TOKEN = re.compile(r"\{\{(.+?)\}\}|\[\[(.+?)\]\]", re.DOTALL)
 DAEMON = "MAILER-DAEMON"
@@ -94,7 +94,9 @@ def check(template, typed):
 # ---- кто что может ответить ---------------------------------------------------------------------------------------------
 
 def flags_of(user):
-    return set(Flag.objects.filter(user=user).values_list("name", flat=True)) if user is not None else set()
+    from engine import facts
+
+    return facts.flags(user)
 
 
 def available(variant, profile, keys, flags):

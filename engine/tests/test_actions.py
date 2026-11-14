@@ -1,4 +1,6 @@
 """Словарь действий движка: каталог, проверки по месту, выполнение по контексту, ссылки, перенос старых записей."""
+from engine import values as store
+from engine.models import Value
 import importlib
 
 from django.contrib.auth import get_user_model
@@ -10,8 +12,7 @@ from filesystem import keystore
 from filesystem.testing import key_item
 from machines.models import Machine, MachineProfile
 from mail.boxes import Box
-from mail.models import Flag
-from world.models import WorldEvent, WorldFlag
+from world.models import WorldEvent
 
 
 class CatalogTests(TestCase):
@@ -50,14 +51,14 @@ class RunTests(TestCase):
 
     def test_world_actions_run_without_a_player(self):
         engine.run([{"do": "world_flag", "name": "core"}], Ctx(source="test"))
-        self.assertTrue(WorldFlag.objects.get(name="core").on)
+        self.assertTrue(store.on("world", 0, "core"))
 
     def test_player_actions_need_a_player_and_are_logged_otherwise(self):
         engine.run([{"do": "flag", "name": "met"}], Ctx(source="test"))
-        self.assertFalse(Flag.objects.exists())
+        self.assertFalse(Value.objects.filter(kind="tag", owner="player", value=1).exists())
         self.assertTrue(WorldEvent.objects.filter(text__contains="здесь недоступно").exists())
         engine.run([{"do": "flag", "name": "met"}], Ctx(source="test", user=self.ivan))
-        self.assertTrue(Flag.objects.filter(user=self.ivan, name="met").exists())
+        self.assertTrue(store.on("player", self.ivan.pk, "met"))
 
     def test_account_actions_give_keys_and_session_effects_go_to_the_browser(self):
         key_item("dock")
@@ -78,7 +79,7 @@ class RunTests(TestCase):
 
     def test_a_broken_action_does_not_stop_the_rest(self):
         engine.run([{"do": "key", "slug": "nope"}, {"do": "flag", "name": "after"}], Ctx(source="test", user=self.ivan, box=self.box()))
-        self.assertTrue(Flag.objects.filter(name="after").exists())
+        self.assertTrue(Value.objects.filter(kind="tag", owner="player", name="after", value=1).exists())
         self.assertTrue(WorldEvent.objects.filter(text__contains="нет ключа").exists())
 
 

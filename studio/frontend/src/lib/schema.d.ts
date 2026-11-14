@@ -11371,38 +11371,18 @@ export interface components {
                 [key: string]: unknown;
             }[];
         };
-        /** WsContribution */
-        WsContribution: {
-            /** Who */
-            who: string;
-            /** Delta */
-            delta: number;
-            /** Source */
-            source: string;
-            /**
-             * At
-             * Format: date-time
-             */
-            at: string;
-        };
         /** WsCounter */
         WsCounter: {
             /** Name */
             name: string;
             /** Label */
             label: string;
-            /** Mode */
-            mode: string;
             /** Value */
             value: number;
             /** Changed At */
             changed_at: string | null;
             /** Thresholds */
             thresholds: components["schemas"]["WsThreshold"][];
-            /** Recent */
-            recent: components["schemas"]["WsContribution"][];
-            /** Players */
-            players: number;
             /** Labels */
             labels: {
                 [key: string]: string;
@@ -11562,11 +11542,6 @@ export interface components {
              * @default
              */
             label: string;
-            /**
-             * Mode
-             * @default sum
-             */
-            mode: string;
         };
         /** WsAmount */
         WsAmount: {

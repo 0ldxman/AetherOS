@@ -8,12 +8,11 @@
 """
 import re
 
-from django.db import transaction
 from django.db.models import F
 from django.utils import timezone
 
 from machines import memo
-from world.models import WorldContribution, WorldCounter, WorldEvent, WorldFlag, WorldTrigger
+from world.models import WorldEvent, WorldTrigger
 
 NAME = re.compile(r"^[a-z0-9][a-z0-9_-]{0,63}$")
 ATOM = re.compile(r"^world:([a-z0-9][a-z0-9_-]{0,63})(?:(>=|<=|>|<|=)(-?\d+))?$")
@@ -34,10 +33,19 @@ def check_name(name):
 # ---------- чтение ----------
 
 def _load():
-    return {
-        "flags": set(WorldFlag.objects.filter(on=True).values_list("name", flat=True)),
-        "counters": dict(WorldCounter.objects.values_list("name", "value")),
-    }
+    from engine.models import Value
+
+    rows = list(Value.objects.filter(owner="world", owner_id=0, user=None).values_list("kind", "name", "value"))
+    return {"flags": {name for kind, name, value in rows if kind == "tag" and value},
+            "counters": {name: value for kind, name, value in rows if kind == "count"}}
+
+
+def names(kind):
+    """Имена меток (tag) или счётчиков (count) мира, заведённых значением или описанием."""
+    from engine.models import Value, ValueInfo
+
+    found = set(Value.objects.filter(kind=kind, owner="world", owner_id=0, user=None).values_list("name", flat=True))
+    return sorted(found | set(ValueInfo.objects.filter(kind=kind, owner="world", owner_id=0).values_list("name", flat=True)))
 
 
 def snapshot():
@@ -121,56 +129,24 @@ def _who(source, user):
 # ---------- изменения ----------
 
 def set_flag(name, on=True, source="", user=None, _depth=0):
-    """Поставить или снять метку. Возвращает True, если что-то поменялось."""
-    name = check_name(name)
-    flag, _ = WorldFlag.objects.get_or_create(name=name)
-    if flag.on == on:
-        return False
-    flag.on, flag.changed_at, flag.changed_by = on, timezone.now(), _who(source, user)[:200]
-    flag.save(update_fields=["on", "changed_at", "changed_by"])
-    _log("flag", name, f"метка world:{name} {'поставлена' if on else 'снята'}", source, user)
-    from engine.events import emit
+    """Поставить или снять метку мира. Возвращает True, если что-то поменялось."""
+    from engine import values
 
-    emit("world.flag", user, source=source, flag=name, on=on)
-    forget()
-    evaluate(_depth)
-    return True
+    return values.set_tag(values.WORLD, 0, check_name(name), on, source=source, actor=user, _depth=_depth)
 
 
 def count(name, delta=1, source="", user=None, _depth=0):
-    """Вклад в счётчик. В режиме «каждый игрок один раз» повторный вклад игрока ничего не меняет. Возвращает новое значение."""
-    name = check_name(name)
-    counter, _ = WorldCounter.objects.get_or_create(name=name)
-    with transaction.atomic():
-        if counter.mode == WorldCounter.Mode.PLAYERS:
-            if user is None or WorldContribution.objects.filter(counter=counter, user=user).exists():
-                return counter.value
-            delta = 1
-        WorldContribution.objects.create(counter=counter, user=user, delta=delta, source=source[:200])
-        WorldCounter.objects.filter(pk=counter.pk).update(value=F("value") + delta, changed_at=timezone.now())
-    counter.refresh_from_db()
-    _log("counter", name, f"world:{name} {delta:+d} → {counter.value}", _who(source, user), user)
-    from engine.events import emit
+    """Прибавить к счётчику мира. Возвращает новое значение."""
+    from engine import values
 
-    emit("world.counter", user, source=source, counter=name, delta=delta, value=counter.value)
-    forget()
-    evaluate(_depth)
-    return counter.value
+    return values.add(values.WORLD, 0, check_name(name), int(delta), source=source, actor=user, _depth=_depth)
 
 
 def set_counter(name, value, source="", user=None):
-    """Задать значение (автор с пульта): записывается вкладом на разницу."""
-    name = check_name(name)
-    counter, _ = WorldCounter.objects.get_or_create(name=name)
-    delta = int(value) - counter.value
-    if not delta:
-        return counter.value
-    WorldContribution.objects.create(counter=counter, user=user, delta=delta, source=source[:200])
-    WorldCounter.objects.filter(pk=counter.pk).update(value=int(value), changed_at=timezone.now())
-    _log("counter", name, f"world:{name} задан {int(value)}", source, user)
-    forget()
-    evaluate()
-    return int(value)
+    """Задать значение счётчика мира (автор с пульта)."""
+    from engine import values
+
+    return values.put(values.WORLD, 0, check_name(name), int(value), source=source, actor=user)
 
 
 # ---------- триггеры ----------

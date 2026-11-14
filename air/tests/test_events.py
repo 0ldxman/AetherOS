@@ -1,4 +1,5 @@
 """События эфира в игровом времени: окна полос, передачи по расписанию, ответчики."""
+from engine.models import Value
 from datetime import datetime, timedelta, timezone as tz
 from decimal import Decimal
 from unittest import mock
@@ -104,7 +105,6 @@ class AirEventsTests(TestCase):
         self.assertEqual(texts, ["SECRET"])
 
     def test_a_responder_answers_after_a_delay_once_per_cooldown(self):
-        from mail.models import Flag
 
         Responder.objects.create(station=self.boreas, freq=Decimal("7.115"), pattern="qsl\nкто там", reply="{callsign} DE BOREAS QSL",
                                  delay=30, cooldown=10, actions=[{"do": "flag", "name": "met-boreas"}])
@@ -117,7 +117,7 @@ class AirEventsTests(TestCase):
         radio.transmit(self.ivan, "7.115", "QSL?", now=self.now)
         self.move(minutes=1)
         self.assertEqual(self.heard(self.olga).count("IVAN DE BOREAS QSL"), 1)          # пауза для этого игрока
-        self.assertFalse(Flag.objects.filter(user=self.ivan).exists())                   # без ящика исходов нет
+        self.assertFalse(Value.objects.filter(kind="tag", owner="player", owner_id=self.ivan.pk, value=1).exists())                   # без ящика исходов нет
         self.move(minutes=11)
         with mock.patch("mail.talk._apply") as apply:
             radio.transmit(self.ivan, "7.115", "qsl", now=self.now, box=box)

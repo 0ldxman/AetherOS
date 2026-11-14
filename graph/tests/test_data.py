@@ -1,4 +1,5 @@
 """Провода данных: выходы событий, ноды данных, входы-поля, типы."""
+from engine import values as store
 from django.contrib.auth import get_user_model
 from django.test import TestCase
 
@@ -6,8 +7,6 @@ from engine.events import emit
 from graph import check, runtime
 from graph.models import Wait
 from graph.tests.test_runtime import counter, make, node, wire
-from mail.models import Flag
-from world.models import WorldFlag
 
 
 def f(src, out, dst, field):
@@ -22,17 +21,17 @@ class DataTests(TestCase):
         make([node("fl", "file", path="/home/*"), node("a", "do:world_flag")],
              [wire("fl", "read", "a"), f("fl", "layer", "a", "name")])
         emit("file.read", self.ivan, path="/home/x", layer="vault")
-        self.assertTrue(WorldFlag.objects.get(name="vault").on)
+        self.assertTrue(store.on("world", 0, "vault"))
 
     def test_template_number_and_player(self):
         subs = [{"id": "s1", "name": "игрок"}, {"id": "s2", "name": "n"}, {"id": "s3", "name": "тег", "value": "z"}]
-        make([node("m", "manual"), node("t", "template", template="{игрок}-{n}-{тег}-{нет}", subs=subs), node("n", "number", value=3),
+        make([node("m", "manual"), node("t", "template", template="{игрок}-{n}-{тег}", subs=subs), node("n", "number", value=3),
               node("a", "do:flag")],
              [wire("m", "fire", "a"), f("m", "player", "t", "s1"), f("n", "value", "t", "s2"), f("t", "value", "a", "name")])
         from graph.models import Graph
 
         runtime.start_manual(Graph.objects.get(), "m", self.ivan)
-        self.assertTrue(Flag.objects.filter(user=self.ivan, name="ivan-3-z-{нет}").exists())
+        self.assertTrue(store.on("player", self.ivan.pk, "ivan-3-z"))
 
     def test_condition_from_wires(self):
         doc = [node("m", "manual"), node("c", "check"), node("cmp", "compare", op="ge"), node("cnt", "read", what="world_counter", name="frag"),
@@ -56,7 +55,7 @@ class DataTests(TestCase):
                       f("o", "value", "c", "condition"), wire("c", "yes", "y")])
         self.assertEqual([p for p in check.problems(graph.doc) if p["level"] == "error"], [])
         runtime.start_manual(graph, "m", self.ivan)
-        Flag.objects.create(user=self.ivan, name="x")
+        store.set_tag("player", self.ivan.pk, "x")
         runtime.start_manual(graph, "m", self.ivan)
         self.assertEqual(counter("yes"), 1)
 
@@ -65,6 +64,12 @@ class DataTests(TestCase):
                      [wire("m", "fire", "a"), f("n", "value", "x", "b"), f("x", "value", "a", "delta")])
         runtime.start_manual(graph, "m")
         self.assertEqual(counter(), 20)
+
+    def test_unknown_substitution_stays(self):
+        from graph.runtime import Doc, value_of
+
+        doc = Doc({"nodes": [{"id": "t", "type": "template", "data": {"template": "a-{нет}", "subs": [{"id": "s1", "name": "да", "value": "1"}]}}]})
+        self.assertEqual(value_of(None, doc, "t", "value"), "a-{нет}")
 
     def test_logic_ops_over_many_inputs(self):
         from graph.runtime import Doc, value_of
@@ -113,7 +118,7 @@ class DataTests(TestCase):
         runtime.rebuild_starts(graph)
         self.assertEqual([p for p in check.problems(doc, "g") if p["level"] == "error"], [])
         runtime.start_manual(graph, "m")
-        self.assertTrue(WorldFlag.objects.get(name="deep").on)
+        self.assertTrue(store.on("world", 0, "deep"))
 
 
 class TypeTests(TestCase):
