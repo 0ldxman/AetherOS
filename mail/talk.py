@@ -100,7 +100,7 @@ def flags_of(user):
 def available(variant, profile, keys, flags):
     from secure.access import satisfied
 
-    if variant.condition and not satisfied(variant.condition, keys):
+    if variant.condition and not satisfied(variant.condition, frozenset(keys) | {f"flag:{name}" for name in flags}):
         return False
     if any(name not in flags for name in variant.need_flags or []):
         return False

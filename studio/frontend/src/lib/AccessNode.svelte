@@ -29,8 +29,8 @@
   <div class="leaf">
     <label class="not" title="Условие выполнится, когда ключа НЕТ"><input type="checkbox" checked={node.negated} onchange={(event) => { node.negated = event.currentTarget.checked; onchange(); }} /> не</label>
     <input
-      class="field mono" list="access-keys" placeholder="ключ" aria-label="Ключ" value={node.key}
-      oninput={(event) => { node.key = event.currentTarget.value.replace(/[^A-Za-z0-9_-]/g, ""); onchange(); }}
+      class="field mono" list="access-keys" placeholder="ключ, flag:метка или world:метка" aria-label="Ключ или метка" value={node.key}
+      oninput={(event) => { node.key = event.currentTarget.value.replace(/[^A-Za-z0-9_:<>=-]/g, ""); onchange(); }}
     />
     <button type="button" class="icon danger" aria-label="Убрать ключ" onclick={onremove}>✕</button>
   </div>

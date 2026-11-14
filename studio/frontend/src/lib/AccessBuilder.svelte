@@ -3,9 +3,11 @@
   import { onMount, untrack } from "svelte";
   import { api, type Schemas } from "./api";
   import AccessNode, { fromTree, toTree, type Node, type Tree } from "./AccessNode.svelte";
+  import { engine } from "./engine.svelte";
 
   let { value = $bindable(""), bad = false }: { value: string; bad?: boolean } = $props();
 
+  const facts = engine();
   let keys = $state<Schemas["Key"][]>([]);
   let mode = $state<"build" | "text">("build");
   let model = $state<Node | null>(null);
@@ -82,7 +84,11 @@
   {:else}
     <AccessNode node={model} root onchange={push} onremove={clear} />
   {/if}
-  <datalist id="access-keys">{#each keys as key (key.slug)}<option value={key.slug}>{key.description}</option>{/each}</datalist>
+  <datalist id="access-keys">
+    {#each keys as key (key.slug)}<option value={key.slug}>{key.description}</option>{/each}
+    {#each facts.catalog?.picks.flag ?? [] as o (o.value)}<option value={"flag:" + o.value}>метка игрока</option>{/each}
+    {#each facts.catalog?.picks.world_flag ?? [] as o (o.value)}<option value={"world:" + o.value}>метка мира</option>{/each}
+  </datalist>
 </div>
 
 <style>

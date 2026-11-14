@@ -44,7 +44,9 @@ def view_as(request):
 
 
 def held_keys(request):
-    """Ключи, которые игрок достал из файлов (kex): слаги файлов его папки /home/.secrets в этой сессии."""
+    """Факты игрока для условий: ключи, которые он достал из файлов (слаги файлов папки секретов учётки этой сессии),
+    и его личные метки строками flag:<имя> (engine/facts.py)."""
+    from engine import facts
     from filesystem.keystore import slugs_of
     from machines.current import SESSION_KEY
     from machines.models import Session
@@ -52,9 +54,8 @@ def held_keys(request):
     if not request.user.is_authenticated or not hasattr(request, "session"):
         return frozenset()
     session_id = request.session.get(SESSION_KEY)
-    if not session_id:
-        return frozenset()
-    return slugs_of(Session.objects.filter(pk=session_id, user=request.user).first())
+    keys = slugs_of(Session.objects.filter(pk=session_id, user=request.user).first()) if session_id else frozenset()
+    return facts.of(request.user, keys)
 
 
 def request_keys(request):

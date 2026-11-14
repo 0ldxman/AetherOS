@@ -82,8 +82,10 @@ class ListsTests(TestCase):
             self.assertEqual(response.status_code, 200, name)
             self.assertNotContains(response, "object (", msg_prefix=name)
 
-    @mock.patch("world.moments.tick")             # моменты мира наступают раз в 15 с на любом запросе: их запросы не про списки
-    def test_changelists_do_not_query_per_row(self, tick):
+    @mock.patch("world.moments.tick")             # тики мира (моменты, реплики персонажей, ротация форума) идут на любом запросе раз в
+    @mock.patch("characters.outbox.tick")         # несколько секунд: их запросы не про списки
+    @mock.patch("forum.rotation.tick")
+    def test_changelists_do_not_query_per_row(self, *ticks):
         build(1, self.user, self.key)
         before = {}
         for name in self.urls():

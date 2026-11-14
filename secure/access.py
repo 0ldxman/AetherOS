@@ -6,7 +6,7 @@ def satisfied(req, keys):
 
     req  - условие: пустое (открыто всем), строка-slug ключа
            или словарь {"all": [...]}, {"any": [...]}, {"not": ...}
-    keys - набор slug'ов ключей, которые сейчас доступны игроку
+    keys - факты игрока: slug'и его ключей и flag:<имя> его меток (engine/facts.py); world:… читается из мира
     """
     if not req:
         return True
@@ -80,11 +80,13 @@ def _format(req, parent):
 
 
 def condition_slugs(req):
-    """Все slug'и ключей в условии (в порядке появления, с повторами)."""
+    """Все slug'и ключей в условии (в порядке появления, с повторами); метки игрока flag: и мира world: не ключи."""
     if not req:
         return []
     if isinstance(req, str):
-        return [req]
+        from engine.facts import is_key
+
+        return [req] if is_key(req) else []
     found = []
     for value in req.values():
         for part in value if isinstance(value, list) else [value]:
