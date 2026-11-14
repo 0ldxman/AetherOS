@@ -14848,6 +14848,385 @@
      }
     ]
    }
+  },
+  "/studio/api/world/graphs/catalog": {
+   "get": {
+    "operationId": "studio_api_graph_catalog",
+    "summary": "Catalog",
+    "parameters": [],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/GrCatalog"
+        }
+       }
+      }
+     }
+    },
+    "tags": [
+     "graph"
+    ],
+    "security": [
+     {
+      "StudioAuth": []
+     }
+    ]
+   }
+  },
+  "/studio/api/world/graphs/check": {
+   "post": {
+    "operationId": "studio_api_graph_check_doc",
+    "summary": "Check Doc",
+    "parameters": [],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "items": {
+          "$ref": "#/components/schemas/GrProblem"
+         },
+         "title": "Response",
+         "type": "array"
+        }
+       }
+      }
+     }
+    },
+    "description": "Проверка черновика на лету (ничего не сохраняет).",
+    "tags": [
+     "graph"
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/GrCheckIn"
+       }
+      }
+     },
+     "required": true
+    },
+    "security": [
+     {
+      "StudioAuth": []
+     }
+    ]
+   }
+  },
+  "/studio/api/world/graphs": {
+   "get": {
+    "operationId": "studio_api_graph_graph_list",
+    "summary": "Graph List",
+    "parameters": [],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "items": {
+          "$ref": "#/components/schemas/GrRow"
+         },
+         "title": "Response",
+         "type": "array"
+        }
+       }
+      }
+     }
+    },
+    "tags": [
+     "graph"
+    ],
+    "security": [
+     {
+      "StudioAuth": []
+     }
+    ]
+   },
+   "post": {
+    "operationId": "studio_api_graph_create",
+    "summary": "Create",
+    "parameters": [],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/GrDetail"
+        }
+       }
+      }
+     }
+    },
+    "tags": [
+     "graph"
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/GrIn"
+       }
+      }
+     },
+     "required": true
+    },
+    "security": [
+     {
+      "StudioAuth": []
+     }
+    ]
+   }
+  },
+  "/studio/api/world/graphs/{graph_id}": {
+   "get": {
+    "operationId": "studio_api_graph_detail",
+    "summary": "Detail",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "graph_id",
+      "schema": {
+       "title": "Graph Id",
+       "type": "integer"
+      },
+      "required": true
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/GrDetail"
+        }
+       }
+      }
+     }
+    },
+    "tags": [
+     "graph"
+    ],
+    "security": [
+     {
+      "StudioAuth": []
+     }
+    ]
+   },
+   "put": {
+    "operationId": "studio_api_graph_update",
+    "summary": "Update",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "graph_id",
+      "schema": {
+       "title": "Graph Id",
+       "type": "integer"
+      },
+      "required": true
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/GrDetail"
+        }
+       }
+      }
+     }
+    },
+    "tags": [
+     "graph"
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/GrIn"
+       }
+      }
+     },
+     "required": true
+    },
+    "security": [
+     {
+      "StudioAuth": []
+     }
+    ]
+   },
+   "delete": {
+    "operationId": "studio_api_graph_delete",
+    "summary": "Delete",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "graph_id",
+      "schema": {
+       "title": "Graph Id",
+       "type": "integer"
+      },
+      "required": true
+     }
+    ],
+    "responses": {
+     "204": {
+      "description": "No Content"
+     }
+    },
+    "tags": [
+     "graph"
+    ],
+    "security": [
+     {
+      "StudioAuth": []
+     }
+    ]
+   }
+  },
+  "/studio/api/world/graphs/{graph_id}/stats": {
+   "get": {
+    "operationId": "studio_api_graph_graph_stats",
+    "summary": "Graph Stats",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "graph_id",
+      "schema": {
+       "title": "Graph Id",
+       "type": "integer"
+      },
+      "required": true
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/GrStats"
+        }
+       }
+      }
+     }
+    },
+    "tags": [
+     "graph"
+    ],
+    "security": [
+     {
+      "StudioAuth": []
+     }
+    ]
+   }
+  },
+  "/studio/api/world/graphs/{graph_id}/waiting/{node}": {
+   "get": {
+    "operationId": "studio_api_graph_waiting",
+    "summary": "Waiting",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "graph_id",
+      "schema": {
+       "title": "Graph Id",
+       "type": "integer"
+      },
+      "required": true
+     },
+     {
+      "in": "path",
+      "name": "node",
+      "schema": {
+       "title": "Node",
+       "type": "string"
+      },
+      "required": true
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "items": {
+          "$ref": "#/components/schemas/GrWaiter"
+         },
+         "title": "Response",
+         "type": "array"
+        }
+       }
+      }
+     }
+    },
+    "tags": [
+     "graph"
+    ],
+    "security": [
+     {
+      "StudioAuth": []
+     }
+    ]
+   }
+  },
+  "/studio/api/world/graphs/{graph_id}/start": {
+   "post": {
+    "operationId": "studio_api_graph_manual",
+    "summary": "Manual",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "graph_id",
+      "schema": {
+       "title": "Graph Id",
+       "type": "integer"
+      },
+      "required": true
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/GrStarted"
+        }
+       }
+      }
+     }
+    },
+    "tags": [
+     "graph"
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/GrStartIn"
+       }
+      }
+     },
+     "required": true
+    },
+    "security": [
+     {
+      "StudioAuth": []
+     }
+    ]
+   }
   }
  },
  "components": {
@@ -32254,6 +32633,567 @@
      "title"
     ],
     "title": "CnIn",
+    "type": "object"
+   },
+   "GrCatalog": {
+    "properties": {
+     "groups": {
+      "items": {
+       "$ref": "#/components/schemas/GrGroup"
+      },
+      "title": "Groups",
+      "type": "array"
+     },
+     "kinds": {
+      "items": {
+       "$ref": "#/components/schemas/GrKind"
+      },
+      "title": "Kinds",
+      "type": "array"
+     },
+     "start_fields": {
+      "items": {
+       "$ref": "#/components/schemas/GrField"
+      },
+      "title": "Start Fields",
+      "type": "array"
+     },
+     "wait_fields": {
+      "items": {
+       "$ref": "#/components/schemas/GrField"
+      },
+      "title": "Wait Fields",
+      "type": "array"
+     },
+     "ref_kinds": {
+      "additionalProperties": {
+       "type": "string"
+      },
+      "title": "Ref Kinds",
+      "type": "object"
+     }
+    },
+    "required": [
+     "groups",
+     "kinds",
+     "start_fields",
+     "wait_fields",
+     "ref_kinds"
+    ],
+    "title": "GrCatalog",
+    "type": "object"
+   },
+   "GrField": {
+    "properties": {
+     "name": {
+      "title": "Name",
+      "type": "string"
+     },
+     "label": {
+      "title": "Label",
+      "type": "string"
+     },
+     "kind": {
+      "title": "Kind",
+      "type": "string"
+     },
+     "placeholder": {
+      "title": "Placeholder",
+      "type": "string"
+     },
+     "required": {
+      "title": "Required",
+      "type": "boolean"
+     },
+     "options": {
+      "items": {
+       "$ref": "#/components/schemas/GrOption"
+      },
+      "title": "Options",
+      "type": "array"
+     }
+    },
+    "required": [
+     "name",
+     "label",
+     "kind",
+     "placeholder",
+     "required",
+     "options"
+    ],
+    "title": "GrField",
+    "type": "object"
+   },
+   "GrGroup": {
+    "properties": {
+     "name": {
+      "title": "Name",
+      "type": "string"
+     },
+     "label": {
+      "title": "Label",
+      "type": "string"
+     }
+    },
+    "required": [
+     "name",
+     "label"
+    ],
+    "title": "GrGroup",
+    "type": "object"
+   },
+   "GrKind": {
+    "properties": {
+     "name": {
+      "title": "Name",
+      "type": "string"
+     },
+     "label": {
+      "title": "Label",
+      "type": "string"
+     },
+     "group": {
+      "title": "Group",
+      "type": "string"
+     },
+     "subgroup": {
+      "title": "Subgroup",
+      "type": "string"
+     },
+     "summary": {
+      "title": "Summary",
+      "type": "string"
+     },
+     "fields": {
+      "items": {
+       "$ref": "#/components/schemas/GrField"
+      },
+      "title": "Fields",
+      "type": "array"
+     },
+     "ins": {
+      "items": {
+       "type": "string"
+      },
+      "title": "Ins",
+      "type": "array"
+     },
+     "outs": {
+      "items": {
+       "$ref": "#/components/schemas/GrSock"
+      },
+      "title": "Outs",
+      "type": "array"
+     },
+     "many": {
+      "items": {
+       "$ref": "#/components/schemas/GrMany"
+      },
+      "title": "Many",
+      "type": "array"
+     },
+     "tail": {
+      "items": {
+       "$ref": "#/components/schemas/GrSock"
+      },
+      "title": "Tail",
+      "type": "array"
+     },
+     "ref": {
+      "title": "Ref",
+      "type": "string"
+     },
+     "start_only": {
+      "title": "Start Only",
+      "type": "boolean"
+     }
+    },
+    "required": [
+     "name",
+     "label",
+     "group",
+     "subgroup",
+     "summary",
+     "fields",
+     "ins",
+     "outs",
+     "many",
+     "tail",
+     "ref",
+     "start_only"
+    ],
+    "title": "GrKind",
+    "type": "object"
+   },
+   "GrMany": {
+    "properties": {
+     "side": {
+      "title": "Side",
+      "type": "string"
+     },
+     "field": {
+      "title": "Field",
+      "type": "string"
+     },
+     "prefix": {
+      "title": "Prefix",
+      "type": "string"
+     },
+     "label": {
+      "title": "Label",
+      "type": "string"
+     }
+    },
+    "required": [
+     "side",
+     "field",
+     "prefix",
+     "label"
+    ],
+    "title": "GrMany",
+    "type": "object"
+   },
+   "GrOption": {
+    "properties": {
+     "value": {
+      "title": "Value",
+      "type": "string"
+     },
+     "label": {
+      "title": "Label",
+      "type": "string"
+     }
+    },
+    "required": [
+     "value",
+     "label"
+    ],
+    "title": "GrOption",
+    "type": "object"
+   },
+   "GrSock": {
+    "properties": {
+     "name": {
+      "title": "Name",
+      "type": "string"
+     },
+     "label": {
+      "title": "Label",
+      "type": "string"
+     }
+    },
+    "required": [
+     "name",
+     "label"
+    ],
+    "title": "GrSock",
+    "type": "object"
+   },
+   "GrProblem": {
+    "properties": {
+     "node": {
+      "title": "Node",
+      "type": "string"
+     },
+     "text": {
+      "title": "Text",
+      "type": "string"
+     },
+     "level": {
+      "title": "Level",
+      "type": "string"
+     }
+    },
+    "required": [
+     "node",
+     "text",
+     "level"
+    ],
+    "title": "GrProblem",
+    "type": "object"
+   },
+   "GrCheckIn": {
+    "properties": {
+     "doc": {
+      "additionalProperties": true,
+      "title": "Doc",
+      "type": "object"
+     }
+    },
+    "required": [
+     "doc"
+    ],
+    "title": "GrCheckIn",
+    "type": "object"
+   },
+   "GrRow": {
+    "properties": {
+     "id": {
+      "title": "Id",
+      "type": "integer"
+     },
+     "slug": {
+      "title": "Slug",
+      "type": "string"
+     },
+     "title": {
+      "title": "Title",
+      "type": "string"
+     },
+     "active": {
+      "title": "Active",
+      "type": "boolean"
+     },
+     "nodes": {
+      "title": "Nodes",
+      "type": "integer"
+     },
+     "running": {
+      "title": "Running",
+      "type": "integer"
+     },
+     "errors": {
+      "title": "Errors",
+      "type": "integer"
+     },
+     "updated_at": {
+      "format": "date-time",
+      "title": "Updated At",
+      "type": "string"
+     }
+    },
+    "required": [
+     "id",
+     "slug",
+     "title",
+     "active",
+     "nodes",
+     "running",
+     "errors",
+     "updated_at"
+    ],
+    "title": "GrRow",
+    "type": "object"
+   },
+   "GrDetail": {
+    "properties": {
+     "id": {
+      "title": "Id",
+      "type": "integer"
+     },
+     "slug": {
+      "title": "Slug",
+      "type": "string"
+     },
+     "title": {
+      "title": "Title",
+      "type": "string"
+     },
+     "note": {
+      "title": "Note",
+      "type": "string"
+     },
+     "active": {
+      "title": "Active",
+      "type": "boolean"
+     },
+     "doc": {
+      "additionalProperties": true,
+      "title": "Doc",
+      "type": "object"
+     },
+     "problems": {
+      "items": {
+       "$ref": "#/components/schemas/GrProblem"
+      },
+      "title": "Problems",
+      "type": "array"
+     },
+     "stats": {
+      "$ref": "#/components/schemas/GrStats"
+     },
+     "updated_at": {
+      "format": "date-time",
+      "title": "Updated At",
+      "type": "string"
+     }
+    },
+    "required": [
+     "id",
+     "slug",
+     "title",
+     "note",
+     "active",
+     "doc",
+     "problems",
+     "stats",
+     "updated_at"
+    ],
+    "title": "GrDetail",
+    "type": "object"
+   },
+   "GrNodeStat": {
+    "properties": {
+     "hits": {
+      "title": "Hits",
+      "type": "integer"
+     },
+     "players": {
+      "title": "Players",
+      "type": "integer"
+     },
+     "waiting": {
+      "title": "Waiting",
+      "type": "integer"
+     },
+     "oldest_days": {
+      "title": "Oldest Days",
+      "type": "number"
+     }
+    },
+    "required": [
+     "hits",
+     "players",
+     "waiting",
+     "oldest_days"
+    ],
+    "title": "GrNodeStat",
+    "type": "object"
+   },
+   "GrStats": {
+    "properties": {
+     "nodes": {
+      "additionalProperties": {
+       "$ref": "#/components/schemas/GrNodeStat"
+      },
+      "title": "Nodes",
+      "type": "object"
+     },
+     "running": {
+      "title": "Running",
+      "type": "integer"
+     },
+     "outcomes": {
+      "additionalProperties": {
+       "type": "integer"
+      },
+      "title": "Outcomes",
+      "type": "object"
+     }
+    },
+    "required": [
+     "nodes",
+     "running",
+     "outcomes"
+    ],
+    "title": "GrStats",
+    "type": "object"
+   },
+   "GrIn": {
+    "properties": {
+     "slug": {
+      "title": "Slug",
+      "type": "string"
+     },
+     "title": {
+      "title": "Title",
+      "type": "string"
+     },
+     "note": {
+      "default": "",
+      "title": "Note",
+      "type": "string"
+     },
+     "active": {
+      "default": false,
+      "title": "Active",
+      "type": "boolean"
+     },
+     "doc": {
+      "additionalProperties": true,
+      "default": {},
+      "title": "Doc",
+      "type": "object"
+     }
+    },
+    "required": [
+     "slug",
+     "title"
+    ],
+    "title": "GrIn",
+    "type": "object"
+   },
+   "GrWaiter": {
+    "properties": {
+     "player": {
+      "title": "Player",
+      "type": "string"
+     },
+     "player_id": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Player Id"
+     },
+     "since": {
+      "format": "date-time",
+      "title": "Since",
+      "type": "string"
+     }
+    },
+    "required": [
+     "player",
+     "player_id",
+     "since"
+    ],
+    "title": "GrWaiter",
+    "type": "object"
+   },
+   "GrStarted": {
+    "properties": {
+     "status": {
+      "title": "Status",
+      "type": "string"
+     },
+     "outcome": {
+      "title": "Outcome",
+      "type": "string"
+     }
+    },
+    "required": [
+     "status",
+     "outcome"
+    ],
+    "title": "GrStarted",
+    "type": "object"
+   },
+   "GrStartIn": {
+    "properties": {
+     "node": {
+      "title": "Node",
+      "type": "string"
+     },
+     "player": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Player"
+     }
+    },
+    "required": [
+     "node"
+    ],
+    "title": "GrStartIn",
     "type": "object"
    }
   },

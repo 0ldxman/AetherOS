@@ -4784,6 +4784,131 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/studio/api/world/graphs/catalog": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Catalog */
+        get: operations["studio_api_graph_catalog"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/studio/api/world/graphs/check": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Check Doc
+         * @description Проверка черновика на лету (ничего не сохраняет).
+         */
+        post: operations["studio_api_graph_check_doc"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/studio/api/world/graphs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Graph List */
+        get: operations["studio_api_graph_graph_list"];
+        put?: never;
+        /** Create */
+        post: operations["studio_api_graph_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/studio/api/world/graphs/{graph_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Detail */
+        get: operations["studio_api_graph_detail"];
+        /** Update */
+        put: operations["studio_api_graph_update"];
+        post?: never;
+        /** Delete */
+        delete: operations["studio_api_graph_delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/studio/api/world/graphs/{graph_id}/stats": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Graph Stats */
+        get: operations["studio_api_graph_graph_stats"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/studio/api/world/graphs/{graph_id}/waiting/{node}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Waiting */
+        get: operations["studio_api_graph_waiting"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/studio/api/world/graphs/{graph_id}/start": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Manual */
+        post: operations["studio_api_graph_manual"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -11867,6 +11992,232 @@ export interface components {
              * @default []
              */
             steps: components["schemas"]["CnStep"][];
+        };
+        /** GrCatalog */
+        GrCatalog: {
+            /** Groups */
+            groups: components["schemas"]["GrGroup"][];
+            /** Kinds */
+            kinds: components["schemas"]["GrKind"][];
+            /** Start Fields */
+            start_fields: components["schemas"]["GrField"][];
+            /** Wait Fields */
+            wait_fields: components["schemas"]["GrField"][];
+            /** Ref Kinds */
+            ref_kinds: {
+                [key: string]: string;
+            };
+        };
+        /** GrField */
+        GrField: {
+            /** Name */
+            name: string;
+            /** Label */
+            label: string;
+            /** Kind */
+            kind: string;
+            /** Placeholder */
+            placeholder: string;
+            /** Required */
+            required: boolean;
+            /** Options */
+            options: components["schemas"]["GrOption"][];
+        };
+        /** GrGroup */
+        GrGroup: {
+            /** Name */
+            name: string;
+            /** Label */
+            label: string;
+        };
+        /** GrKind */
+        GrKind: {
+            /** Name */
+            name: string;
+            /** Label */
+            label: string;
+            /** Group */
+            group: string;
+            /** Subgroup */
+            subgroup: string;
+            /** Summary */
+            summary: string;
+            /** Fields */
+            fields: components["schemas"]["GrField"][];
+            /** Ins */
+            ins: string[];
+            /** Outs */
+            outs: components["schemas"]["GrSock"][];
+            /** Many */
+            many: components["schemas"]["GrMany"][];
+            /** Tail */
+            tail: components["schemas"]["GrSock"][];
+            /** Ref */
+            ref: string;
+            /** Start Only */
+            start_only: boolean;
+        };
+        /** GrMany */
+        GrMany: {
+            /** Side */
+            side: string;
+            /** Field */
+            field: string;
+            /** Prefix */
+            prefix: string;
+            /** Label */
+            label: string;
+        };
+        /** GrOption */
+        GrOption: {
+            /** Value */
+            value: string;
+            /** Label */
+            label: string;
+        };
+        /** GrSock */
+        GrSock: {
+            /** Name */
+            name: string;
+            /** Label */
+            label: string;
+        };
+        /** GrProblem */
+        GrProblem: {
+            /** Node */
+            node: string;
+            /** Text */
+            text: string;
+            /** Level */
+            level: string;
+        };
+        /** GrCheckIn */
+        GrCheckIn: {
+            /** Doc */
+            doc: {
+                [key: string]: unknown;
+            };
+        };
+        /** GrRow */
+        GrRow: {
+            /** Id */
+            id: number;
+            /** Slug */
+            slug: string;
+            /** Title */
+            title: string;
+            /** Active */
+            active: boolean;
+            /** Nodes */
+            nodes: number;
+            /** Running */
+            running: number;
+            /** Errors */
+            errors: number;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+        };
+        /** GrDetail */
+        GrDetail: {
+            /** Id */
+            id: number;
+            /** Slug */
+            slug: string;
+            /** Title */
+            title: string;
+            /** Note */
+            note: string;
+            /** Active */
+            active: boolean;
+            /** Doc */
+            doc: {
+                [key: string]: unknown;
+            };
+            /** Problems */
+            problems: components["schemas"]["GrProblem"][];
+            stats: components["schemas"]["GrStats"];
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+        };
+        /** GrNodeStat */
+        GrNodeStat: {
+            /** Hits */
+            hits: number;
+            /** Players */
+            players: number;
+            /** Waiting */
+            waiting: number;
+            /** Oldest Days */
+            oldest_days: number;
+        };
+        /** GrStats */
+        GrStats: {
+            /** Nodes */
+            nodes: {
+                [key: string]: components["schemas"]["GrNodeStat"];
+            };
+            /** Running */
+            running: number;
+            /** Outcomes */
+            outcomes: {
+                [key: string]: number;
+            };
+        };
+        /** GrIn */
+        GrIn: {
+            /** Slug */
+            slug: string;
+            /** Title */
+            title: string;
+            /**
+             * Note
+             * @default
+             */
+            note: string;
+            /**
+             * Active
+             * @default false
+             */
+            active: boolean;
+            /**
+             * Doc
+             * @default {}
+             */
+            doc: {
+                [key: string]: unknown;
+            };
+        };
+        /** GrWaiter */
+        GrWaiter: {
+            /** Player */
+            player: string;
+            /** Player Id */
+            player_id: number | null;
+            /**
+             * Since
+             * Format: date-time
+             */
+            since: string;
+        };
+        /** GrStarted */
+        GrStarted: {
+            /** Status */
+            status: string;
+            /** Outcome */
+            outcome: string;
+        };
+        /** GrStartIn */
+        GrStartIn: {
+            /** Node */
+            node: string;
+            /** Player */
+            player?: number | null;
         };
     };
     responses: never;
@@ -20305,6 +20656,233 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+        };
+    };
+    studio_api_graph_catalog: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GrCatalog"];
+                };
+            };
+        };
+    };
+    studio_api_graph_check_doc: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GrCheckIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GrProblem"][];
+                };
+            };
+        };
+    };
+    studio_api_graph_graph_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GrRow"][];
+                };
+            };
+        };
+    };
+    studio_api_graph_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GrIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GrDetail"];
+                };
+            };
+        };
+    };
+    studio_api_graph_detail: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                graph_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GrDetail"];
+                };
+            };
+        };
+    };
+    studio_api_graph_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                graph_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GrIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GrDetail"];
+                };
+            };
+        };
+    };
+    studio_api_graph_delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                graph_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    studio_api_graph_graph_stats: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                graph_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GrStats"];
+                };
+            };
+        };
+    };
+    studio_api_graph_waiting: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                graph_id: number;
+                node: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GrWaiter"][];
+                };
+            };
+        };
+    };
+    studio_api_graph_manual: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                graph_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GrStartIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GrStarted"];
+                };
             };
         };
     };

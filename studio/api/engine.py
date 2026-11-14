@@ -38,7 +38,8 @@ def _picks():
     from filesystem.models import KEY_FORMAT, Item
     from forum.models import Section
     from mail.models import Flag
-    from world.models import WorldCounter, WorldFlag
+    from machines.models import Machine
+    from world.models import WorldCounter, WorldFlag, WorldMoment
 
     items = list(Item.objects.order_by("slug").values_list("slug", "format", "name"))
     sections = list(Section.objects.filter(archived=False).select_related("space"))
@@ -62,6 +63,10 @@ def _picks():
         "flag": [option(name) for name in Flag.objects.order_by("name").values_list("name", flat=True).distinct()],
         "world_flag": [option(name) for name in WorldFlag.objects.order_by("name").values_list("name", flat=True)],
         "counter": [option(name) for name in WorldCounter.objects.order_by("name").values_list("name", flat=True)],
+        "object": [option(slug, f"{slug} · {name}" if name and name != slug else slug) for slug, fmt, name in items],
+        "machine": [option(host, f"{host} · {name}" if name and name != host else host)
+                    for host, name in Machine.objects.exclude(hostname="").order_by("hostname").values_list("hostname", "name")],
+        "moment": [option(name, f"{name} · {title}" if title else name) for name, title in WorldMoment.objects.order_by("name").values_list("name", "title")],
     }
 
 

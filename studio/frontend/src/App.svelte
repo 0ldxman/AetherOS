@@ -21,6 +21,8 @@
   import Rules from "./routes/Rules.svelte";
   import Links from "./routes/Links.svelte";
   import Chains from "./routes/Chains.svelte";
+  import Graphs from "./routes/Graphs.svelte";
+  import GraphEditor from "./routes/graph/Editor.svelte";
   import Scenes from "./routes/Scenes.svelte";
   import Formats from "./routes/Formats.svelte";
   import Encodings from "./routes/Encodings.svelte";
@@ -67,6 +69,8 @@
     | { name: "rules" }
     | { name: "links" }
     | { name: "chains"; id: number | null }
+    | { name: "graphs" }
+    | { name: "graph"; id: number }
     | { name: "formats"; id: string | null }
     | { name: "encodings"; id: string | null }
     | { name: "map"; tab: string; id: number | null }
@@ -107,6 +111,8 @@
     if (match("/links", route.path)) return { name: "links" };
     if ((found = match("/chains/:id", route.path))) return { name: "chains", id: +found.id };
     if (match("/chains", route.path)) return { name: "chains", id: null };
+    if ((found = match("/graphs/:id", route.path))) return { name: "graph", id: +found.id };
+    if (match("/graphs", route.path)) return { name: "graphs" };
     if ((found = match("/formats/:id", route.path))) return { name: "formats", id: decodeURIComponent(found.id) };
     if (match("/formats", route.path)) return { name: "formats", id: null };
     if ((found = match("/encodings/:id", route.path))) return { name: "encodings", id: decodeURIComponent(found.id) };
@@ -274,6 +280,10 @@
       <Links />
     {:else if page.name === "chains"}
       <Chains id={page.id} />
+    {:else if page.name === "graphs"}
+      <Graphs />
+    {:else if page.name === "graph"}
+      {#key page.id}<GraphEditor id={page.id} />{/key}
     {:else if page.name === "formats"}
       <Formats name={page.id} />
     {:else if page.name === "encodings"}

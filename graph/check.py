@@ -140,7 +140,8 @@ def problems(raw):
         if kind.group == N.NOUN:
             if node_id in doc.fed and kind.start_only:
                 add(node_id, f"«{kind.label}» бывает только стартом: уберите входящий провод")
-            if not [out for out in doc.wired(node_id) if out in kind.events]:
+            as_ref = any(src == node_id for src in doc.refs.values())
+            if not [out for out in doc.wired(node_id) if out in kind.events] and not as_ref:
                 add(node_id, "ни один выход не подключён: нода ничего не ловит", WARNING)
         if kind.group == N.ACTION and not any(key[0] == node_id for key in doc.refs):
             action = {"do": kind.spec.name, **{key: value for key, value in data.items() if value not in (None, "")}}

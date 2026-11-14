@@ -243,6 +243,12 @@ class FlowTests(TestCase):
         self.assertEqual(counter(), 3)
         self.assertEqual(Wait.objects.count(), 1)
 
+    def test_muted_action_passes_flow_through(self):
+        graph = make([node("m", "manual"), {**node("x", "do:world_count", name="skip"), "mute": True}, node("a", "do:world_count", name="c")],
+                     [wire("m", "fire", "x"), wire("x", "next", "a")])
+        runtime.start_manual(graph, "m")
+        self.assertEqual((counter("skip"), counter("c")), (0, 1))
+
     def test_stats(self):
         graph = make([node("m", "manual"), node("s", "stage", title="x"), node("f", "flag", name="q"), node("r", "reroute")],
                      [wire("m", "fire", "s"), wire("s", "next", "f"), wire("f", "set", "r")])

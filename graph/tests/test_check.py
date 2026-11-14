@@ -43,6 +43,11 @@ class CheckTests(SimpleTestCase):
         doc = {"nodes": [node("m", "manual"), node("a", "do:world_flag", name="door")], "wires": [wire("m", "fire", "a")]}
         self.assertEqual(texts(doc), [])
 
+    def test_noun_used_only_as_reference_is_fine(self):
+        doc = {"nodes": [node("m", "manual"), node("w", "world_flag", name="x"), node("a", "do:world_flag")],
+               "wires": [wire("m", "fire", "a"), wire("w", "ref", "a", "f:name")]}
+        self.assertEqual(texts(doc), [])
+
     def test_required_and_unknown(self):
         doc = {"nodes": [node("m", "machine"), node("x", "nope")], "wires": [wire("m", "login", "x")]}
         found = texts(doc)

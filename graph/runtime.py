@@ -403,7 +403,11 @@ def advance(run, items):
     while queue and run.status == Run.Status.RUNNING:
         node_id, sock = queue.popleft()
         kind = doc.kind(node_id)
-        if kind is None or kind.name in ("note", "frame") or doc.nodes[node_id].get("mute"):
+        if kind is None or kind.name in ("note", "frame"):
+            continue
+        if doc.nodes[node_id].get("mute"):                 # выключенная нода пропускает поток насквозь (как M в Blender)
+            if "next" in N.sockets(kind, doc.data(node_id), "out"):
+                queue.extend(doc.next(node_id, "next"))
             continue
         steps += 1
         if steps > STEPS:

@@ -151,7 +151,7 @@ register(Kind("machine", "Машина", NOUN, "{host} {login}",
               (Field("host", "Машина", "machine", "", True), Field("login", "Учётка", "text", "любая; можно *")),
               (Sock("login", "Вошёл"),), events={"login": "machine.login"}, match=_machine))
 register(Kind("file", "Файл", NOUN, "{item} {path}",
-              (Field("item", "Объект", "item", "любой"), Field("path", "Путь", "text", "любой; можно *"), Field("layer", "Слой", "text", "любой")),
+              (Field("item", "Объект", "object", "любой"), Field("path", "Путь", "text", "любой; можно *"), Field("layer", "Слой", "text", "любой")),
               (Sock("read", "Открыл"), Sock("deleted", "Удалил"), Sock("restored", "Вернул из корзины"), Sock("got", "Получил ключ"),
                Sock("joined", "Собрал ключ"), Sock("layer_removed", "Снял слой"), Sock("layer_attempt", "Ошибка на слое"),
                Sock("layer_failed", "Попытки кончились"), Sock(REF, "Файл")),
