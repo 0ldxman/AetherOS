@@ -596,12 +596,9 @@ def dispatch(event):
     touched = 0
     try:
         waits = Wait.objects.filter(kind=Wait.Kind.EVENT, event=event.name, run__status=Run.Status.RUNNING, run__graph__active=True)
-        if event.name == N.SIGNAL_EVENT and (event.data or {}).get("all"):
-            pass                                     # сигнал всем: просыпаются ожидания всех игроков
-        elif event.user is not None:
+        if event.user is not None and event.name not in N.GLOBAL_EVENTS:
             waits = waits.filter(Q(user=event.user) | Q(anyone=True))
-        else:
-            waits = waits.filter(Q(user__isnull=True) | Q(anyone=True))
+        # событие без игрока (сигнал всем, метка мира, момент, машина) будит ждущих у всех
         for wait in list(waits.select_related("run__graph")):
             kind = doc_of(wait.run.graph).kind(wait.node)
             if kind is not None and kind.match is not None and kind.match(doc_of(wait.run.graph).data(wait.node), wait.out, event):

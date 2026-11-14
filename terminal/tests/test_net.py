@@ -80,6 +80,15 @@ class NetTests(TerminalClient, TestCase):
         self.assertIn("404", self.run_command("nreq apollo.com/nothing")["output"])
         self.assertIn("404", self.run_command("nreq apollo.com/info/hidden.txt")["output"])
 
+    def test_requests_are_events(self):
+        from engine.models import Event
+
+        self.run_command("nreq apollo.com/info/data")
+        self.run_command("nreq vault.net")
+        found = list(Event.objects.values_list("name", "data__path"))
+        self.assertIn(("net.request", "info/data"), found)
+        self.assertIn(("net.denied", ""), found)
+
     def test_tokens_guard_a_server_and_a_node(self):
         self.assertIn("401", self.run_command("nreq vault.net")["output"])
         self.assertEqual(self.run_command("nreq --token sesame vault.net")["exit_code"], 0)

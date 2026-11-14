@@ -86,6 +86,7 @@ class ListsTests(TestCase):
     @mock.patch("characters.outbox.tick")         # несколько секунд: их запросы не про списки
     @mock.patch("forum.rotation.tick")
     @mock.patch("graph.runtime.tick")
+    @mock.patch("machines.world.power.tick")
     def test_changelists_do_not_query_per_row(self, *ticks):
         build(1, self.user, self.key)
         before = {}

@@ -28,6 +28,13 @@ NAMES = {
     "flag.unset": "Снята метка игрока",
     "character.wrote": "Написал персонажу",
     "signal": "Сигнал сценария",
+    "machine.stopped": "Машина остановлена",
+    "machine.started": "Машина запущена",
+    "net.request": "Запросил страницу сервера",
+    "net.download": "Скачал файл с сервера",
+    "net.denied": "Сервер отказал",
+    "command.run": "Выполнил команду",
+    "player.counter": "Счётчик игрока",
 }
 
 
@@ -52,6 +59,13 @@ FIELDS = {                                  # какие подробности 
     "flag.unset": ("flag",),
     "character.wrote": ("character", "channel", "text"),
     "signal": ("signal", "all"),
+    "machine.stopped": (),
+    "machine.started": (),
+    "net.request": ("address", "path"),
+    "net.download": ("address", "path"),
+    "net.denied": ("address", "path", "reason"),
+    "command.run": ("command", "args"),
+    "player.counter": ("counter", "value"),
 }
 
 
@@ -101,6 +115,24 @@ def emit(name, user=None, *, machine=None, login="", source="", **data):
     return event
 
 
+_heard = {"at": 0.0, "names": frozenset()}
+
+
+def heard(name):
+    """Слушает ли событие хоть один сценарий или правило (для частых событий вроде command.run: не писать их зря)."""
+    import time
+
+    if time.monotonic() - _heard["at"] > 10:
+        from engine.models import Rule
+        from graph.models import Start, Wait
+
+        names = set(Start.objects.filter(graph__active=True).values_list("event", flat=True))
+        names |= set(Wait.objects.filter(kind="event").values_list("event", flat=True))
+        names |= set(Rule.objects.filter(active=True).values_list("on", flat=True))
+        _heard.update(at=time.monotonic(), names=frozenset(names))
+    return name in _heard["names"]
+
+
 def journal(user, limit=100):
     """Последние события игрока для карточки в Студии."""
     from engine.models import Event
@@ -133,5 +165,12 @@ def describe(event):
         "flag.unset": lambda: f"flag:{data.get('flag', '')}",
         "character.wrote": lambda: f"{data.get('character', '')} · {data.get('channel', '')} · {data.get('text', '')}",
         "signal": lambda: data.get("signal", ""),
+        "machine.stopped": lambda: event.host,
+        "machine.started": lambda: event.host,
+        "net.request": lambda: f"{data.get('address', '')}/{data.get('path', '')}",
+        "net.download": lambda: f"{data.get('address', '')}/{data.get('path', '')}",
+        "net.denied": lambda: f"{data.get('address', '')}/{data.get('path', '')} · {data.get('reason', '')}",
+        "command.run": lambda: f"{data.get('command', '')} {data.get('args', '')}".strip(),
+        "player.counter": lambda: f"count:{data.get('counter', '')} → {data.get('value', '')}",
     }.get(event.name, lambda: "")()
     return f"{title}: {detail}" if detail else title

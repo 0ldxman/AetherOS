@@ -529,4 +529,15 @@
     updatePrompt();
     input.focus();
     greet();
+    // Сценарии пишут в терминал вне запроса: стол передаёт текст и сцены сюда (engine/push.py)
+    window.terminalAPI = {
+        print(text) {
+            for (const line of String(text).split("\n")) appendLine(line, "terminal-line--push");
+            scrollToBottom();
+        },
+        async play(steps) {
+            await playScene(steps);
+            scrollToBottom();
+        },
+    };
 })();

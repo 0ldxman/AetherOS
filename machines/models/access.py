@@ -145,3 +145,16 @@ class Group(models.Model):
             raise ValidationError({"privileges": f"Нет таких привилегий: {', '.join(unknown)}."})
         if self.disabled and self.machine_id is None:
             raise ValidationError({"disabled": "Отключить можно только группу у машины."})
+
+
+class AccountBlock(models.Model):
+    """Блокировка учётки сценарием: для одного игрока или для всех (user пусто) до срока."""
+
+    profile = models.ForeignKey("machines.MachineProfile", on_delete=models.CASCADE, related_name="blocks")
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.CASCADE, related_name="+")
+    until = models.DateTimeField()
+    text = models.CharField(max_length=255, blank=True)
+
+    class Meta:
+        verbose_name = "Блокировка учётки"
+        verbose_name_plural = "Блокировки учёток"

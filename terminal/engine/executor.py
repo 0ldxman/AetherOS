@@ -51,6 +51,11 @@ class TerminalExecutor:
                 127,
             ), context.cwd
 
+        from engine.events import emit, heard
+
+        if heard("command.run"):
+            emit("command.run", session.user, machine=context.machine, login=getattr(context.view, "login", "") or "",
+                 command=parsed.name, args=" ".join(parsed.args)[:300])
         try:
             result = command.execute(context, parsed.args)
         except PathSyntax as bad:

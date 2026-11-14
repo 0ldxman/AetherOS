@@ -110,3 +110,31 @@ class ChainReach(models.Model):
         constraints = [models.UniqueConstraint(fields=("step", "user"), name="unique_chain_reach")]
         verbose_name = "Шаг пройден"
         verbose_name_plural = "Шаги пройдены"
+
+
+class Push(models.Model):
+    """Эффект для браузера игрока вне запроса (engine/push.py): стол забирает их опросом."""
+
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="+")
+    op = models.CharField(max_length=16)
+    payload = models.JSONField(default=dict, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+    taken_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ("id",)
+        verbose_name = "Эффект для игрока"
+        verbose_name_plural = "Эффекты для игроков"
+
+
+class PlayerValue(models.Model):
+    """Счётчик игрока: число по имени. В условиях — count:имя>=N."""
+
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="player_values")
+    name = models.SlugField(max_length=64)
+    value = models.IntegerField(default=0)
+
+    class Meta:
+        constraints = [models.UniqueConstraint(fields=("user", "name"), name="unique_player_value")]
+        verbose_name = "Счётчик игрока"
+        verbose_name_plural = "Счётчики игроков"

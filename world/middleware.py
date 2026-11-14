@@ -23,6 +23,9 @@ class WorldTickMiddleware:
                 from graph import runtime
 
                 runtime.tick()
+                from machines.world import power
+
+                power.tick()
             except Exception:                               # noqa: BLE001 — мир не должен ронять страницу
                 log.exception("world tick failed")
         return self.get_response(request)

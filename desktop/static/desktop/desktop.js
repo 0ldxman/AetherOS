@@ -1496,3 +1496,81 @@ window.addEventListener("blur", () => setMenu(false));
   setInterval(poll, 30000);
   setInterval(draw, 1000);
 })();
+
+
+// Эффекты сценариев (engine/push.py): сервер копит их для игрока, стол забирает опросом и показывает по порядку.
+(() => {
+  const url = desktop.dataset.pushUrl;
+  const pause = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+  const terminals = () => [...document.querySelectorAll("iframe")].map((frame) => {
+    try { return frame.contentWindow && frame.contentWindow.terminalAPI; } catch (error) { return null; }
+  }).filter(Boolean);
+
+  function ticker(text, seconds) {
+    const strip = document.createElement("div");
+    strip.className = "push-ticker";
+    const line = document.createElement("span");
+    line.textContent = text;
+    line.style.animationDuration = `${Math.max(8, text.length * 0.18)}s`;
+    strip.append(line);
+    document.body.append(strip);
+    setTimeout(() => strip.remove(), seconds * 1000);
+  }
+
+  async function scene(steps) {
+    const cover = document.createElement("div");
+    cover.className = "push-scene";
+    const screen = document.createElement("div");
+    screen.className = "push-scene-output";
+    cover.append(screen);
+    document.body.append(cover);
+    const player = window.Aether && window.Aether.console ? window.Aether.console.create(screen, { flashTarget: cover }) : null;
+    if (player) await player.play(steps || []);
+    const hint = document.createElement("div");
+    hint.className = "push-scene-hint";
+    hint.textContent = "[ any key ]";
+    cover.append(hint);
+    await new Promise((resolve) => {
+      const done = () => { window.removeEventListener("keydown", done); cover.removeEventListener("click", done); resolve(); };
+      window.addEventListener("keydown", done);
+      cover.addEventListener("click", done);
+    });
+    cover.remove();
+  }
+
+  async function run(item) {
+    if (item.op === "notify") showToast({ kind: "info", title: item.title || "", text: item.text || "" }, {}, null, 12000);
+    else if (item.op === "ticker") ticker(item.text || "", item.seconds || 30);
+    else if (item.op === "open") openApp(item.id, item.title, item.url);
+    else if (item.op === "blackout") blackout(item);
+    else if (item.op === "alert") {
+      const spec = SYSTEM_MESSAGES[item.message] ? item.message : { kind: "error", title: "Error", text: item.message || "" };
+      for (let i = 0; i < (item.count || 1); i++) {
+        showDialog(spec, { object: `0x${(4096 + Math.floor(Math.random() * 61000)).toString(16)}` }, { stack: true });
+        await pause((item.gap ?? 500) * (0.6 + Math.random() * 0.8));
+      }
+    } else if (item.op === "terminal" || item.op === "tscene") {
+      const found = terminals();
+      if (!found.length) {
+        if (item.op === "terminal") showToast({ kind: "info", title: "broadcast", text: item.text || "" }, {}, null, 12000);
+        return;
+      }
+      for (const api of found) item.op === "terminal" ? api.print(item.text || "") : api.play(item.scene);
+    } else if (item.op === "scene") await scene(item.scene);
+  }
+
+  window.desktopAPI.push = run;               // показать эффект вручную (предпросмотр стола)
+  if (!url || desktop.dataset.preview) return;
+  let busy = false;
+  async function poll() {
+    if (busy || document.hidden) return;
+    busy = true;
+    try {
+      const data = await fetch(url, { credentials: "same-origin" }).then((r) => r.json());
+      for (const item of data.items || []) await run(item);
+    } catch (error) { /* стол работает и без эффектов */ }
+    busy = false;
+  }
+  setTimeout(poll, 1500);
+  setInterval(poll, 6000);
+})();

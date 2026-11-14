@@ -15,6 +15,10 @@ def satisfied(req, keys):
             from world.state import atom
 
             return atom(req)
+        if req.startswith(("count:", "char:")):     # счётчик игрока и тег персонажа (engine/facts.py)
+            from engine.facts import compare
+
+            return compare(req, keys)
         return req in keys
     if "all" in req:
         return all(satisfied(r, keys) for r in req["all"])

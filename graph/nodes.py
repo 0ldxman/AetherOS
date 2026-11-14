@@ -12,7 +12,8 @@ from engine.actions import Field
 
 NOUN, FLOW, ACTION, STRUCT, SERVICE = "noun", "flow", "action", "struct", "service"
 GROUPS = {NOUN: "Существительные", FLOW: "Ход", ACTION: "Действия", STRUCT: "Сценарии и группы", SERVICE: "Служебные"}
-BOXES = ("group", "scenario")            # ноды-обёртки: сокеты берутся из их «Входа» и «Выхода»
+BOXES = ("group", "scenario")
+GLOBAL_EVENTS = frozenset({"world.flag", "world.counter", "moment.started", "moment.ended", "machine.stopped", "machine.started"})   # будят всех ждущих            # ноды-обёртки: сокеты берутся из их «Входа» и «Выхода»
 SIGNAL_EVENT = "signal"
 REF = "ref"
 TIMEOUT = "timeout"
@@ -88,7 +89,37 @@ WAIT_FIELDS = (
 
 
 def _machine(data, out, event):
+    if out in ("stopped", "started"):
+        return _same(event.host, data.get("host"))
     return _same(event.host, data.get("host")) and _glob(event.login, data.get("login"))
+
+
+def _server(data, out, event):
+    d = event.data or {}
+    from machines.models.net import normalize_address
+
+    if normalize_address(d.get("address", "")) != normalize_address(data.get("address", "")) and \
+            normalize_address(d.get("address", "")).split("://")[-1] != normalize_address(data.get("address", "")).split("://")[-1]:
+        return False
+    return _glob(d.get("path", ""), data.get("path"))
+
+
+def _command(data, out, event):
+    d = event.data or {}
+    return _glob(d.get("command", ""), data.get("command")) and _glob(d.get("args", ""), data.get("args"), fold=True) \
+        and (not data.get("host") or _same(event.host, data.get("host")))
+
+
+def _player_counter(data, out, event):
+    d = event.data or {}
+    if not _same(d.get("counter"), data.get("name")):
+        return False
+    if out == "changed":
+        return True
+    try:
+        return int(d.get("value") or 0) >= int(data.get("threshold") or 0)
+    except (TypeError, ValueError):
+        return False
 
 
 def _file(data, out, event):
@@ -156,7 +187,20 @@ def _moment(data, out, event):
 
 register(Kind("machine", "Машина", NOUN, "{host} {login}",
               (Field("host", "Машина", "machine", "", True), Field("login", "Учётка", "text", "любая; можно *")),
-              (Sock("login", "Вошёл"),), events={"login": "machine.login"}, match=_machine))
+              (Sock("login", "Вошёл"), Sock("stopped", "Остановлена"), Sock("started", "Запущена")),
+              events={"login": "machine.login", "stopped": "machine.stopped", "started": "machine.started"}, match=_machine))
+register(Kind("server", "Сервер сети", NOUN, "{address}/{path}",
+              (Field("address", "Сервер", "text", "apollo.com", True), Field("path", "Путь", "text", "любой; можно *")),
+              (Sock("request", "Запросил страницу"), Sock("download", "Скачал файл"), Sock("denied", "Отказ (токен)")),
+              events={"request": "net.request", "download": "net.download", "denied": "net.denied"}, match=_server))
+register(Kind("command", "Команда", NOUN, "{command} {args}",
+              (Field("command", "Команда", "text", "decrypt", True), Field("args", "Аргументы", "text", "любые; можно *"),
+               Field("host", "Только на машине", "machine", "любой")),
+              (Sock("run", "Выполнил"),), events={"run": "command.run"}, match=_command))
+register(Kind("player_counter", "Счётчик игрока", NOUN, "count:{name} ≥ {threshold}",
+              (Field("name", "Счётчик", "text", "hints", True), Field("threshold", "Порог", "number", "для «достиг»")),
+              (Sock("changed", "Изменился"), Sock("reached", "Достиг порога")),
+              events={"changed": "player.counter", "reached": "player.counter"}, match=_player_counter))
 register(Kind("file", "Файл", NOUN, "{item} {path}",
               (Field("item", "Объект", "object", "любой"), Field("path", "Путь", "text", "любой; можно *"), Field("layer", "Слой", "text", "любой")),
               (Sock("read", "Открыл"), Sock("deleted", "Удалил"), Sock("restored", "Вернул из корзины"), Sock("got", "Получил ключ"),

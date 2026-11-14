@@ -71,6 +71,11 @@ class NetCommand(BaseCommand):
         request = context.request
         keys = request_keys(request) if request is not None else frozenset()
 
+        def event(name, **data):
+            from engine.events import emit
+
+            emit(name, context.view.user, machine=context.machine, login=context.view.login or "", address=address, path=path, **data)
+
         if resource is None or (resource.key_condition is not None and not satisfied(resource.key_condition, keys)):
             return CommandResult(
                 f"{self.name}: could not resolve host '{address}'", 1, scene=scenes.unreachable_scene(system, address)
@@ -80,6 +85,7 @@ class NetCommand(BaseCommand):
         node = site.nodes.get(path)
         required = [token for token in (resource.token, node.token if node else "") if token]
         if any(opts["token"] != token for token in required):
+            event("net.denied", reason="token")
             return CommandResult(f"{self.name}: 401 unauthorized", 1, scene=scenes.refused_scene(system, address))
 
         if not site.exists(path):
@@ -87,7 +93,10 @@ class NetCommand(BaseCommand):
                 f"{self.name}: 404 not found: {address}/{path}", 1, scene=scenes.refused_scene(system, address)
             )
 
-        return self.handle(context, site, path, opts)
+        result = self.handle(context, site, path, opts)
+        if not result.exit_code:
+            event("net.download" if self.name == "nget" else "net.request")
+        return result
 
     def _parse(self, args):
         opts = {"operands": [], "token": None, "output": None}

@@ -201,3 +201,12 @@ def moments(request):
          "left": int(((row["end"] if row["state"] == "live" else row["start"]) - game).total_seconds())}
         for row in rows
     ]})
+
+
+def push(request):
+    """Эффекты сценариев для этого игрока (engine/push.py): окна, уведомления, бегущая строка, чёрный экран, текст и сцены."""
+    from django.http import JsonResponse
+
+    from engine import push as queue
+
+    return JsonResponse({"items": queue.take(request.user) if request.user.is_authenticated and not request.user.is_staff else []})

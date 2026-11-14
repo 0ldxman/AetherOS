@@ -14,7 +14,7 @@
 
   const store = engine();
   const picks = (k: string) => store.catalog?.picks[k] ?? [];
-  const PICKED = ["key", "letter", "item", "object", "section", "character", "station", "machine", "moment", "graph"];
+  const PICKED = ["key", "letter", "item", "object", "section", "character", "station", "machine", "moment", "graph", "scene"];
   const LISTED = ["flag", "world_flag", "counter"];
   const fields = $derived([...kind.fields, ...(kind.group === "noun" && !kind.start_only ? (waiting ? catalog.wait_fields : catalog.start_fields) : [])]);
   const data = $derived(node.data);

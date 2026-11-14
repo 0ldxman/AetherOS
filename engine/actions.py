@@ -351,6 +351,283 @@ register(Spec("forum", "Запись на форуме", WORLD, "Мир", "за�
               run=_world("_forum"), check=_section_check))
 
 
+# ---------- экран игрока: эффекты уходят в очередь (engine/push.py), стол забирает их опросом ----------
+
+SCREEN = "Экран игрока"
+
+
+def _push(op, build):
+    def go(action, ctx):
+        from engine import push
+
+        push.send(ctx.user, op, **build(action))
+    return go
+
+
+def scene_steps(slug):
+    """Сцена из Студии (machines.SceneScript), собранная для проигрывателя."""
+    from machines.models.scenes import SceneScript, resolve_script
+    from machines.world.dates import world
+    from scenes.script import compile_script
+
+    script = SceneScript.objects.filter(slug=slug or "").first()
+    if script is None:
+        raise ActionError(f"нет сцены «{slug or '?'}»")
+    scene, errors = compile_script(script.body, {}, world().game_now, resolve_script)
+    if errors:
+        raise ActionError(f"сцена «{slug}»: {errors[0]}")
+    return scene.to_dict()
+
+
+def _scene_check(action):
+    from machines.models.scenes import SceneScript
+
+    return [] if SceneScript.objects.filter(slug=action.get("scene") or "").exists() else [f"нет сцены «{action.get('scene') or '?'}»"]
+
+
+def _int(value, default, low=0, high=None):
+    try:
+        number = int(value if value not in (None, "") else default)
+    except (TypeError, ValueError):
+        number = default
+    number = max(low, number)
+    return min(number, high) if high is not None else number
+
+
+register(Spec("notify", "Уведомление", USER, SCREEN, "уведомление «{title}»",
+              (Field("title", "Заголовок", "text", "INCOMING", True), Field("text", "Текст", "textarea")),
+              run=_push("notify", lambda a: {"title": a.get("title", ""), "text": a.get("text", "")})))
+register(Spec("ticker", "Бегущая строка", USER, SCREEN, "строка «{text}»",
+              (Field("text", "Текст", "text", "", True), Field("seconds", "Сколько держать, с", "number", "30")),
+              run=_push("ticker", lambda a: {"text": a.get("text", ""), "seconds": _int(a.get("seconds"), 30, 3, 3600)})))
+register(Spec("windows", "Окна ошибок", USER, SCREEN, "окна «{message}»",
+              (Field("message", "Сообщение", "text", "unreachable", True), Field("count", "Сколько окон", "number", "6"),
+               Field("gap", "Пауза, мс", "number", "500")),
+              run=_push("alert", lambda a: {"message": a.get("message", ""), "count": _int(a.get("count"), 6, 1, 40), "gap": _int(a.get("gap"), 500, 0, 10000)})))
+register(Spec("open_window", "Открыть окно", USER, SCREEN, "открыть {url}",
+              (Field("url", "Адрес", "text", "apps/wiki/go/secret/", True), Field("title", "Заголовок окна", "text")),
+              run=_push("open", lambda a: {"url": a.get("url", ""), "title": a.get("title", "") or a.get("url", ""), "id": "graph-" + str(abs(hash(a.get("url", ""))) % 10**8)})))
+register(Spec("blackout", "Чёрный экран", USER, SCREEN, "чёрный экран «{title}»",
+              (Field("title", "Заголовок", "text", "kernel panic"), Field("text", "Текст", "textarea", "", True),
+               Field("tone", "Тон", "select", "", False, (("error", "ошибка"), ("info", "сообщение"))), Field("hold", "Держать после текста, мс", "number", "2600")),
+              run=_push("blackout", lambda a: {"title": a.get("title", ""), "text": a.get("text", ""), "tone": a.get("tone") or "error", "delay": 400,
+                                               "hold": _int(a.get("hold"), 2600, 0, 60000)})))
+register(Spec("terminal_text", "Текст в терминале", USER, SCREEN, "в терминал «{text}»", (Field("text", "Текст", "textarea", "broadcast from root: …", True),),
+              run=_push("terminal", lambda a: {"text": a.get("text", "")})))
+
+
+def _scene_push(op):
+    def go(action, ctx):
+        from engine import push
+
+        push.send(ctx.user, op, scene=scene_steps(action.get("scene")))
+    return go
+
+
+register(Spec("terminal_scene", "Сцена в терминале", USER, SCREEN, "сцена {scene} в терминале", (Field("scene", "Сцена", "scene", "", True),),
+              run=_scene_push("tscene"), check=_scene_check))
+register(Spec("scene", "Сцена на весь экран", USER, SCREEN, "сцена {scene}", (Field("scene", "Сцена", "scene", "", True),),
+              run=_scene_push("scene"), check=_scene_check))
+
+
+# ---------- игрок: счётчик ----------
+
+def _player_count(action, ctx):
+    from django.db import transaction
+
+    from engine.models import PlayerValue
+
+    name = (action.get("name") or "").strip()
+    if not name:
+        raise ActionError("счётчик без имени")
+    with transaction.atomic():
+        row, _ = PlayerValue.objects.select_for_update().get_or_create(user=ctx.user, name=name)
+        row.value = _int(action.get("value"), 0, -10**9) if action.get("mode") == "set" else row.value + _int(action.get("delta"), 1, -10**9)
+        row.save(update_fields=["value"])
+    from engine.events import emit
+
+    emit("player.counter", ctx.user, source=ctx.source, counter=name, value=row.value)
+
+
+register(Spec("player_count", "Счётчик игрока", USER, "Игрок", "count:{name} {mode} {delta}{value}",
+              (Field("name", "Счётчик", "text", "hints", True), Field("mode", "Как", "select", "", False, (("add", "прибавить"), ("set", "задать"))),
+               Field("delta", "Сколько прибавить", "number", "1"), Field("value", "Задать значение", "number")),
+              run=_player_count))
+
+
+# ---------- файлы игрока ----------
+
+def _path(action, ctx, name="path"):
+    from mail import letters
+
+    path = letters.fill(action.get(name, ""), {"login": ctx.box.login})
+    if not path.startswith("/"):
+        raise ActionError("путь должен начинаться с «/»")
+    return path
+
+
+def _file_delete(action, ctx):
+    path = _path(action, ctx)
+    if not ctx.box.view.exists(path):
+        raise ActionError(f"нет файла {path}")
+    ctx.box.view.remove(path)
+
+
+def _file_change(action, ctx):
+    view, path = ctx.box.view, _path(action, ctx)
+    if not view.exists(path):
+        raise ActionError(f"нет файла {path}")
+    mode = action.get("mode") or "replace"
+    if mode == "replace":
+        item = _item(action.get("item"))
+        if item is None:
+            raise ActionError(f"нет объекта «{action.get('item')}»")
+        view.remove(path)
+        view.put_item(path, item)
+    elif mode == "move":
+        view.move(path, _path(action, ctx, "target"))
+    elif mode == "reset":
+        view.set_progress(path, "")
+    else:
+        raise ActionError(f"неизвестный режим «{mode}»")
+
+
+register(Spec("file_delete", "Удалить файл", ACCOUNT, "Игрок", "удалить {path}", (Field("path", "Путь", "path", "/home/{login}/report.txt", True),),
+              run=_file_delete, check=lambda a: [] if (a.get("path") or "").startswith("/") else ["путь должен начинаться с «/»"]))
+register(Spec("file_change", "Изменить файл", ACCOUNT, "Игрок", "{mode} {path}",
+              (Field("path", "Путь", "path", "/home/{login}/report.txt", True),
+               Field("mode", "Что сделать", "select", "", False, (("replace", "подменить объект"), ("move", "переименовать / переместить"), ("reset", "вернуть слои"))),
+               Field("item", "Новый объект", "object"), Field("target", "Новый путь", "path", "/home/{login}/old/report.txt")),
+              run=_file_change,
+              check=lambda a: (["путь должен начинаться с «/»"] if not (a.get("path") or "").startswith("/") else [])
+              + (_need_item(a, "item") if (a.get("mode") or "replace") == "replace" else [])
+              + (["нужен новый путь"] if a.get("mode") == "move" and not (a.get("target") or "").startswith("/") else []),
+              refs=lambda a: [("item", a.get("item", ""), "grants")] if a.get("item") else []))
+
+
+# ---------- мир: машины, учётки, сеть, моменты, персонажи ----------
+
+def _machine_of(action):
+    from machines.models import Machine
+
+    machine = Machine.objects.filter(hostname=action.get("host") or "").first()
+    if machine is None:
+        raise ActionError(f"нет машины «{action.get('host') or '?'}»")
+    return machine
+
+
+def _machine_power(action, ctx):
+    from machines.world import power
+
+    power.set_state(_machine_of(action), action.get("state") or "stop", _int(action.get("minutes"), 5, 1, 7 * 24 * 60), ctx.source)
+
+
+def _account(action, ctx):
+    from datetime import timedelta
+
+    from django.utils import timezone
+
+    from machines.models import AccountBlock, MachineProfile
+
+    machine = _machine_of(action)
+    profile = MachineProfile.objects.filter(machine=machine, login=action.get("login") or "").first()
+    if profile is None:
+        raise ActionError(f"нет учётки {action.get('login')}@{machine.hostname}")
+    everyone = action.get("scope") == "all"
+    if not everyone and ctx.user is None:
+        raise ActionError("«этому игроку» без игрока")
+    user = None if everyone else ctx.user
+    if action.get("password"):
+        if not everyone:
+            raise ActionError("пароль меняется только для всех")
+        from django.contrib.auth.hashers import make_password
+
+        profile.password_hash = make_password(str(action["password"]))
+        profile.save(update_fields=["password_hash"])
+    if action.get("unblock"):
+        AccountBlock.objects.filter(profile=profile, user=user).delete()
+    minutes = _int(action.get("block"), 0, 0, 30 * 24 * 60)
+    if minutes:
+        AccountBlock.objects.create(profile=profile, user=user, until=timezone.now() + timedelta(minutes=minutes), text=action.get("text", "")[:255])
+
+
+def _net(action, ctx):
+    from machines.models import NetNode, NetResource
+    from machines.models.net import normalize_address
+
+    resource = NetResource.objects.filter(address=normalize_address(action.get("address", ""))).first()
+    if resource is None:
+        raise ActionError(f"нет сервера «{action.get('address') or '?'}»")
+    path = "/".join(part for part in (action.get("path") or "").split("/") if part)
+    if action.get("path") is not None and path:
+        node = NetNode.objects.filter(resource=resource, path=path).first()
+        if node is None:
+            raise ActionError(f"нет узла {resource.address}/{path}")
+        target = node
+    else:
+        target = resource
+    fields = []
+    if action.get("token") is not None and action.get("token") != "":
+        target.token = "" if action["token"] == "-" else str(action["token"])
+        fields.append("token")
+    if isinstance(target, NetNode) and action.get("response"):
+        target.response = action["response"]
+        fields.append("response")
+    if fields:
+        target.save(update_fields=fields)
+
+
+def _moment(start):
+    def go(action, ctx):
+        from world import moments
+        from world.models import WorldMoment
+
+        moment = WorldMoment.objects.filter(name=action.get("moment") or "").first()
+        if moment is None:
+            raise ActionError(f"нет момента «{action.get('moment') or '?'}»")
+        (moments.start_now if start else moments.stop_now)(moment, ctx.source)
+    return go
+
+
+def _character_tag(action, ctx):
+    from characters.models import Character
+
+    character = Character.objects.filter(code=str(action.get("character") or "").upper()).first()
+    if character is None:
+        raise ActionError(f"нет персонажа {action.get('character') or '?'}")
+    tag = (action.get("tag") or "").strip().lower()
+    if not tag:
+        raise ActionError("тег без имени")
+    tags = [t for t in character.tags or [] if t != tag]
+    if (action.get("mode") or "add") == "add":
+        tags.append(tag)
+    character.tags = tags
+    character.save(update_fields=["tags"])
+
+
+register(Spec("machine_power", "Изменить машину", WORLD, "Машины", "{host}: {state}",
+              (Field("host", "Машина", "machine", "", True),
+               Field("state", "Что сделать", "select", "", False, (("stop", "остановить"), ("start", "запустить"), ("reboot", "перезагрузить"))),
+               Field("minutes", "Перезагрузка, мин", "number", "5")),
+              run=_machine_power))
+register(Spec("account", "Изменить учётку", WORLD, "Машины", "{login}@{host}",
+              (Field("host", "Машина", "machine", "", True), Field("login", "Учётка", "text", "admin", True),
+               Field("scope", "Для кого", "select", "", False, (("player", "этому игроку"), ("all", "всем"))),
+               Field("block", "Заблокировать, мин", "number", "0 — не блокировать"), Field("text", "Текст блокировки", "text"),
+               Field("unblock", "Снять блокировку", "bool"), Field("password", "Новый пароль (для всех)", "text")),
+              run=_account))
+register(Spec("net_node", "Изменить узел сети", WORLD, "Машины", "{address}/{path}",
+              (Field("address", "Сервер", "text", "apollo.com", True), Field("path", "Узел (пусто — сервер)", "text", "info/data"),
+               Field("token", "Новый токен (- убрать)", "text"), Field("response", "Новый ответ страницы", "textarea")),
+              run=_net))
+register(Spec("moment_start", "Начать момент", WORLD, "Мир", "начать {moment}", (Field("moment", "Момент", "moment", "", True),), run=_moment(True)))
+register(Spec("moment_end", "Закончить момент", WORLD, "Мир", "закончить {moment}", (Field("moment", "Момент", "moment", "", True),), run=_moment(False)))
+register(Spec("character_tag", "Тег персонажа", WORLD, "Мир", "{character}: {tag}",
+              (Field("character", "Персонаж", "character", "", True), Field("tag", "Тег", "text", "exposed", True),
+               Field("mode", "Что сделать", "select", "", False, (("add", "поставить"), ("remove", "снять")))),
+              run=_character_tag))
+
+
 # ---------- хозяин: переписка ----------
 
 register(Spec("goto", "Перейти на шаг", HOST, "Переписка", "→ шаг {step}", (Field("step", "Шаг", "step", "", True), Field("delay", "Задержка, с", "number", "0"))))

@@ -158,9 +158,15 @@ WARN_AT = (30, 10)          # за сколько секунд до обрыва
 
 def locked_for(user, profile):
     """Сколько секунд запись ещё не принимает игрока после обрыва по сроку (0: принимает)."""
+    from django.db.models import Max, Q
+
+    from machines.models import AccountBlock
+
     until = Session.objects.filter(user=user, profile=profile, blocked_until__isnull=False).order_by("-pk").values_list(
         "blocked_until", flat=True
     ).first()
+    block = AccountBlock.objects.filter(Q(user=user) | Q(user__isnull=True), profile=profile, until__gt=timezone.now()).aggregate(top=Max("until"))["top"]
+    until = max(filter(None, (until, block)), default=None)
     if until is None:
         return 0
     return max(0, int((until - timezone.now()).total_seconds()) + 1)
@@ -436,7 +442,9 @@ def parse_endpoint(raw):
 def resolve(host, login, endpoint=None):
     """Запись login на машине host. endpoint (частота или порт) нужен, если у логина несколько записей."""
     machine = Machine.objects.filter(hostname=host).first()
-    if machine is None:
+    from machines.world import power
+
+    if machine is None or power.is_down(machine):
         return Resolution(error="no_host")
 
     profiles = list(MachineProfile.objects.filter(machine=machine, login=login))

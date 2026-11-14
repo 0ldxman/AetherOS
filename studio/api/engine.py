@@ -40,6 +40,7 @@ def _picks():
     from mail.models import Flag
     from graph.models import Graph
     from machines.models import Machine
+    from machines.models.scenes import SceneScript
     from world.models import WorldCounter, WorldFlag, WorldMoment
 
     items = list(Item.objects.order_by("slug").values_list("slug", "format", "name"))
@@ -67,6 +68,7 @@ def _picks():
         "object": [option(slug, f"{slug} · {name}" if name and name != slug else slug) for slug, fmt, name in items],
         "machine": [option(host, f"{host} · {name}" if name and name != host else host)
                     for host, name in Machine.objects.exclude(hostname="").order_by("hostname").values_list("hostname", "name")],
+        "scene": [option(slug, f"{slug} · {title}" if title else slug) for slug, title in SceneScript.objects.order_by("slug").values_list("slug", "title")],
         "graph": [option(slug, f"{slug} · {title}") for slug, title in Graph.objects.order_by("slug").values_list("slug", "title")],
         "moment": [option(name, f"{name} · {title}" if title else name) for name, title in WorldMoment.objects.order_by("name").values_list("name", "title")],
     }

@@ -42,6 +42,8 @@ class Machine(models.Model):
         choices=Status.choices,
         default=Status.OFFLINE,
     )
+    halted = models.BooleanField("Остановлена", default=False, help_text="Остановленная машина не отвечает: хост не находится, сессии обрываются.")
+    halted_until = models.DateTimeField("Поднимется", null=True, blank=True, help_text="Пусто: стоит, пока не запустят.")
 
     hid = models.CharField(
         max_length=17,
