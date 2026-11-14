@@ -9,7 +9,7 @@
   let { id, data, selected }: {
     id: string;
     data: { node: GNode; kind: Kind; waiting: boolean; summary: string; errors: number; warnings: number; stat: Stat | null; refFields: RefField[]; used: string[];
-            usedIn: string[]; iface: Iface | null; box: number };
+            usedIn: string[]; iface: Iface | null; box: number; help: Record<string, string>; fedFrom: Record<string, string> };
     selected?: boolean;
   } = $props();
 
@@ -34,10 +34,14 @@
                         : { text: "ссылка", tip: "Подключён только ◆: нода даёт вещь в поле действия и ничего не ловит" });
   const days = (value: number) => (value < 1 ? "<1 дн." : `${Math.floor(value)} дн.`);
   const refType = $derived(kind.ref || "");
+  // подсказка как в Blender: название, тип и смысл, значение или откуда подключено (строки через \n; показывает холст)
+  const tip = (title: string, type: string, text: string, extra = "") => [title, [type, text].filter(Boolean).join(" · "), extra].filter(Boolean).join("\n");
+  const outTip = (name: string, label: string) => tip(label || name, "Событие", data.help[name] ?? (name.match(/^[a-z]\d+$/) ? "ветка" : ""));
+  const inTip = (name: string, label: string) => tip(label || "Запуск", "Событие", data.help[name] ?? "", data.fedFrom[name] ? `подключено: ${data.fedFrom[name]}` : "не подключено");
 </script>
 
 <div class="node" class:selected class:muted-node={data.node.mute} class:box={kind.name === "group" || kind.name === "scenario"} style="--head: {COLORS[kind.group] ?? '#555'}">
-  <header>
+  <header data-tip={tip(kind.label, "", kind.help)}>
     <b>{kind.label}</b>
     {#if isNoun}<span class="tag" title={role.tip}>{role.text}</span>{/if}
     {#if kind.name === "group"}<span class="tag" title="Tab — войти в группу">Tab</span>{/if}
@@ -50,33 +54,33 @@
   {#if data.summary}<div class="summary" title={data.summary}>{data.summary}</div>{/if}
 
   {#each outs as sock (sock.name)}
-    <div class="row out" class:used={data.used.includes(sock.name)} class:attempt={sock.name === "attempt"} title="Событие">
+    <div class="row out" class:used={data.used.includes(sock.name)} class:attempt={sock.name === "attempt"} data-tip={outTip(sock.name, sock.label)}>
       <span>{sock.label}</span>
       <Handle type="source" position={Position.Right} id={sock.name} class="sock event" style="--c: {TYPES.event.color}" />
     </div>
   {/each}
   {#if ref}
-    <div class="row out" class:used={data.used.includes("ref")} title={TYPES[refType]?.label ?? ""}>
+    <div class="row out" class:used={data.used.includes("ref")} data-tip={tip(ref.label, TYPES[refType]?.label ?? "", data.help.ref ?? "")}>
       <span>{ref.label}</span>
       <Handle type="source" position={Position.Right} id="ref" class="sock thing" style="--c: {typeColor(refType)}" />
     </div>
   {/if}
 
   {#if flowIn}
-    <div class="row in" class:used={data.usedIn.includes("in")} title="Событие: когда сюда приходит ход">
+    <div class="row in" class:used={data.usedIn.includes("in")} data-tip={inTip("in", flowLabel)}>
       <Handle type="target" position={Position.Left} id="in" class="sock event" style="--c: {TYPES.event.color}" />
       <span>{flowLabel}</span>
     </div>
   {/if}
   {#each ins as sock (sock.name)}
-    <div class="row in" class:used={data.usedIn.includes(sock.name)} title="Событие">
+    <div class="row in" class:used={data.usedIn.includes(sock.name)} data-tip={inTip(sock.name, sock.label)}>
       <Handle type="target" position={Position.Left} id={sock.name} class="sock event" style="--c: {TYPES.event.color}" />
       <span>{sock.label}</span>
     </div>
   {/each}
   {#each refFields as f (f.name)}
     {@const fed = data.usedIn.includes(`f:${f.name}`)}
-    <div class="row in" class:used={fed} title={TYPES[f.type]?.label ?? ""}>
+    <div class="row in" class:used={fed} data-tip={tip(f.label, TYPES[f.type]?.label ?? "", "поле действия", fed ? `подключено: ${data.fedFrom[`f:${f.name}`] ?? ""}` : f.value ? `значение: ${f.value}` : "не заполнено")}>
       <Handle type="target" position={Position.Left} id={`f:${f.name}`} class="sock thing" style="--c: {typeColor(f.type)}" />
       <span>{f.label}</span>
       {#if !fed && f.value}<em class="value">{f.value}</em>{/if}

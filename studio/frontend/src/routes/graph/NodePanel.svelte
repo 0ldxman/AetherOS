@@ -68,6 +68,7 @@
     <span class="spacer"></span>
     {#if editable}<button class="btn ghost danger tiny" onclick={onremove}>Удалить</button>{/if}
   </div>
+  {#if kind.help}<p class="small">{kind.help}</p>{/if}
   {#if kind.group === "noun"}
     <p class="muted small">{kind.start_only ? "Только старт: запускает прохождение." : waiting ? "Ждёт: прохождение стоит здесь, пока событие не случится у этого игрока." : "Старт: событие запускает прохождение для игрока, у которого оно случилось. Подведите провод на вход, чтобы нода ждала."}</p>
   {/if}

@@ -52,6 +52,7 @@ class GrKind(Schema):
     tail: list[GrSock]
     ref: str
     start_only: bool
+    help: str
 
 
 class GrGroup(Schema):
@@ -65,6 +66,7 @@ class GrCatalog(Schema):
     start_fields: list[GrField]
     wait_fields: list[GrField]
     ref_kinds: dict[str, str]
+    socket_help: dict[str, str]
 
 
 class GrIface(Schema):

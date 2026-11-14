@@ -35,6 +35,18 @@
   let busy = $state(false);
   let menu = $state<{ x: number; y: number; from: { node: string; out: string } | null } | null>(null);
   let pointer = { x: 300, y: 200 };
+  // подсказка при наведении (как в Blender): строки из data-tip ноды или сокета
+  let hint = $state<{ x: number; y: number; lines: string[] } | null>(null);
+  let hintTimer: ReturnType<typeof setTimeout>;
+  function hover(event: MouseEvent) {
+    const found = (event.target as HTMLElement | null)?.closest<HTMLElement>("[data-tip]");
+    clearTimeout(hintTimer);
+    if (!found) { hint = null; return; }
+    const lines = (found.dataset.tip ?? "").split("\n").filter(Boolean);
+    const { clientX: x, clientY: y } = event;
+    if (hint) { hint = { x, y, lines }; return; }
+    hintTimer = setTimeout(() => (hint = { x, y, lines }), 450);
+  }
   let path = $state<{ node: string; group: string }[]>([]);            // где мы: цепочка групп от графа вглубь
   let graphs = $state<Schemas["GrRow"][]>([]);
 
@@ -294,7 +306,11 @@
                   errors: found.filter((p) => p.node === key(n.id) && p.level === "error").length, warnings: found.filter((p) => p.node === key(n.id) && p.level === "warning").length,
                   box: inner ? found.filter((p) => p.node.startsWith(`${inner}::`) && p.level === "error").length : 0,
                   stat: boxStat ?? live?.nodes[prefix + n.id] ?? null, used: wires.filter((w) => w.from === n.id).map((w) => w.out),
-                  usedIn: wires.filter((w) => w.to === n.id).map((w) => w.in) },
+                  usedIn: wires.filter((w) => w.to === n.id).map((w) => w.in), help: catalog!.socket_help,
+                  fedFrom: Object.fromEntries(wires.filter((w) => w.to === n.id).map((w) => {
+                    const src = list.find((x) => x.id === w.from);
+                    return [w.in, src ? `${kindOf(src.type)?.label ?? src.type} · ${src.id}` : w.from];
+                  })) },
         } satisfies Node];
       });
       const typeOf = (nodeId: string) => kindOf(list.find((x) => x.id === nodeId)?.type ?? "")?.ref ?? "";
@@ -435,7 +451,12 @@
 
     <div class="cols">
       <!-- svelte-ignore a11y_no_static_element_interactions -->
-      <div class="map" onmousemove={(e) => (pointer = { x: e.clientX, y: e.clientY })}>
+      <div class="map" onmousemove={(e) => { pointer = { x: e.clientX, y: e.clientY }; hover(e); }} onmouseleave={() => { clearTimeout(hintTimer); hint = null; }}>
+        {#if hint}
+          <div class="hint" style="left: {Math.min(hint.x + 14, window.innerWidth - 300)}px; top: {hint.y + 16}px">
+            <b>{hint.lines[0]}</b>{#each hint.lines.slice(1) as line, i (i)}<span>{line}</span>{/each}
+          </div>
+        {/if}
         {#key gid}
         <SvelteFlow bind:nodes bind:edges {nodeTypes} colorMode="dark" minZoom={0.15} maxZoom={1.6} nodesDraggable={editable} nodesConnectable={editable}
                     deleteKey={editable ? ["Delete", "Backspace"] : null} isValidConnection={valid} {onconnect} {onconnectend} {ondelete} onnodedragstop={ondragstop}
@@ -532,6 +553,9 @@
   .map :global(.svelte-flow) { --xy-background-color: var(--bg); --xy-edge-stroke: #c9ced6; --xy-edge-stroke-width: 1.6; --xy-controls-button-background-color: var(--panel-2);
                                --xy-controls-button-border-color: var(--line); --xy-controls-button-color: var(--text); }
   .map :global(.svelte-flow__edge.ref path) { stroke-dasharray: 5 4; }
+  .hint { position: fixed; z-index: 50; max-width: 280px; display: flex; flex-direction: column; gap: 2px; padding: 6px 9px; pointer-events: none;
+          border: 1px solid var(--line); border-radius: var(--radius-s); background: var(--panel); box-shadow: 0 6px 18px rgba(0, 0, 0, 0.45); font-size: 12px; }
+  .hint span { color: var(--muted); }
   .legend { display: flex; flex-wrap: wrap; gap: 4px 12px; padding: 4px 10px; border-radius: var(--radius-s); background: color-mix(in srgb, var(--panel) 85%, transparent);
             color: var(--muted); font-size: 11px; }
   .legend span { display: inline-flex; align-items: center; gap: 5px; }

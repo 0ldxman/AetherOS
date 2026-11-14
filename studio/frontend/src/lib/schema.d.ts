@@ -12007,6 +12007,10 @@ export interface components {
             ref_kinds: {
                 [key: string]: string;
             };
+            /** Socket Help */
+            socket_help: {
+                [key: string]: string;
+            };
         };
         /** GrField */
         GrField: {
@@ -12056,6 +12060,8 @@ export interface components {
             ref: string;
             /** Start Only */
             start_only: boolean;
+            /** Help */
+            help: string;
         };
         /** GrMany */
         GrMany: {

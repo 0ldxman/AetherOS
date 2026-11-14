@@ -32671,6 +32671,13 @@
       },
       "title": "Ref Kinds",
       "type": "object"
+     },
+     "socket_help": {
+      "additionalProperties": {
+       "type": "string"
+      },
+      "title": "Socket Help",
+      "type": "object"
      }
     },
     "required": [
@@ -32678,7 +32685,8 @@
      "kinds",
      "start_fields",
      "wait_fields",
-     "ref_kinds"
+     "ref_kinds",
+     "socket_help"
     ],
     "title": "GrCatalog",
     "type": "object"
@@ -32806,6 +32814,10 @@
      "start_only": {
       "title": "Start Only",
       "type": "boolean"
+     },
+     "help": {
+      "title": "Help",
+      "type": "string"
      }
     },
     "required": [
@@ -32820,7 +32832,8 @@
      "many",
      "tail",
      "ref",
-     "start_only"
+     "start_only",
+     "help"
     ],
     "title": "GrKind",
     "type": "object"
