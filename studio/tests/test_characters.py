@@ -82,3 +82,23 @@ class CharactersStudioTests(TestCase):
         self.assertEqual(self.call("get", f"/{found.pk}/inbox?channel=mail")[1], [])
         self.assertEqual(len(self.call("get", f"/{found.pk}/inbox?channel=mail&status=all")[1]), 1)
         self.assertEqual(self.call("post", f"/inbox/{a.pk}/status", {"status": "lost"})[0], 400)
+
+
+    def test_answer_from_the_inbox_context_and_journal(self):
+        from characters.models import Inbound
+
+        found = Character.objects.create(code="OP7", name="Operator 7")
+        Station.objects.create(name="OPERATOR-7", kind="character", character=found)
+        player = get_user_model().objects.create_user("ivan")
+        row = Inbound.objects.create(character=found, channel="air", user=player, sender="IVAN", text="OPERATOR-7?", ref={"freq": "14.230"})
+        status, reply = self.call("post", f"/inbox/{row.pk}/answer", {"text": "QSL", "delay": 20, "actions": [{"do": "flag", "name": "met"}]})
+        self.assertEqual((status, reply["status"], reply["author"], reply["player"]), (200, "pending", "boss", "ivan"))
+        context = self.call("get", f"/inbox/{row.pk}/context")[1]
+        self.assertEqual((context["player"]["username"], [h["kind"] for h in context["history"]], len(context["replies"])), ("ivan", ["in", "out"], 1))
+        self.assertEqual(context["stations"][0]["label"], "OPERATOR-7")
+        self.assertEqual([r["id"] for r in self.call("get", f"/{found.pk}/replies")[1]], [reply["id"]])
+        status, cancelled = self.call("post", f"/replies/{reply['id']}/cancel")
+        self.assertEqual(cancelled["status"], "cancelled")
+        self.assertEqual(self.call("post", f"/replies/{reply['id']}/cancel")[0], 400)
+        status, data = self.call("post", f"/inbox/{row.pk}/answer", {"text": " "})
+        self.assertEqual((status, list(data["fields"])), (400, ["text"]))

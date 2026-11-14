@@ -10,8 +10,8 @@ from ninja import Router, Schema
 from air.models import Station
 from air import radio
 from air.models import Callsign
-from characters import inbox, logic
-from characters.models import Character, Inbound
+from characters import inbox, logic, outbox
+from characters.models import Character, Inbound, Reply
 from mail.models import Persona
 
 router = Router(tags=["characters"])
@@ -249,3 +249,115 @@ def inbox_status(request, inbound_id: int, body: ChStatusIn):
     if body.status not in Inbound.Status.values:
         return 400, {"fields": {"status": "Неизвестный статус."}}
     return _inbound(inbox.set_status(row, body.status, request.user))
+
+
+# ---- реплики персонажа ----
+
+class ChReply(Schema):
+    id: int
+    inbound: int | None
+    channel: str
+    author: str
+    player: str
+    subject: str
+    text: str
+    status: str
+    error: str
+    send_at: dt.datetime
+    sent_at: dt.datetime | None
+    actions: list[dict]
+    where: str
+
+
+class ChAnswerIn(Schema):
+    text: str
+    subject: str = ""
+    delay: int = 0                    # игровые минуты
+    actions: list[dict] = []
+    station: int | None = None
+
+
+class ChHistory(Schema):
+    kind: str                         # in | out
+    channel: str
+    subject: str
+    text: str
+    at: dt.datetime
+    author: str
+    status: str
+
+
+class ChPlayer(Schema):
+    username: str
+    callsign: str
+    accounts: list[str]
+    keys: list[str]
+    online: bool
+
+
+class ChContext(Schema):
+    player: ChPlayer | None
+    history: list[ChHistory]
+    replies: list[ChReply]
+    stations: list[ChChannel]
+
+
+def _where(row):
+    if row.channel == Inbound.Channel.MAIL:
+        return f"{row.ref.get('from', '')} → {row.ref.get('to', '')}"
+    if row.channel == Inbound.Channel.FORUM:
+        return f"тема {row.ref.get('topic')}"
+    return f"{row.ref.get('freq', '')}"
+
+
+def _reply(row):
+    return ChReply(id=row.pk, inbound=row.inbound_id, channel=row.channel, author=row.author.get_username() if row.author_id else "",
+                   player=row.user.get_username() if row.user_id else "", subject=row.subject, text=row.text, status=row.status, error=row.error,
+                   send_at=row.send_at, sent_at=row.sent_at, actions=row.actions or [], where=_where(row))
+
+
+def _player(user):
+    if user is None:
+        return None
+    from air.radio import callsign_of
+    from team import players
+
+    card = players.card(user)
+    return ChPlayer(username=user.get_username(), callsign=callsign_of(user).name,
+                    accounts=[f"{row['profile'].login}@{row['profile'].machine.hostname}" for row in card["accounts"]],
+                    keys=sorted({row["name"] or row["slug"] for row in card["keys"]}), online=card["online"])
+
+
+@router.post("/inbox/{inbound_id}/answer", response={200: ChReply, 400: ChErrors})
+def answer(request, inbound_id: int, body: ChAnswerIn):
+    row = get_object_or_404(Inbound.objects.select_related("character", "user"), pk=inbound_id)
+    station = Station.objects.filter(pk=body.station, character=row.character).first() if body.station else None
+    try:
+        made = outbox.answer(row, request.user, body.text, subject=body.subject, delay_minutes=max(0, body.delay), actions=body.actions, station=station)
+    except outbox.OutboxError as error:
+        return 400, {"fields": {"text": str(error)}}
+    return _reply(made)
+
+
+@router.get("/inbox/{inbound_id}/context", response=ChContext)
+def context(request, inbound_id: int):
+    row = get_object_or_404(Inbound.objects.select_related("character", "user"), pk=inbound_id)
+    history = [ChHistory(**item) for item in outbox.history(row.character, row.user)] if row.user_id else []
+    replies = [_reply(r) for r in row.replies.select_related("author", "user")]
+    stations = [ChChannel(id=s.pk, label=s.name, character=s.character_id) for s in row.character.stations.order_by("pk")]
+    return ChContext(player=_player(row.user), history=history, replies=replies, stations=stations)
+
+
+@router.get("/{character_id}/replies", response=list[ChReply])
+def replies(request, character_id: int):
+    found = get_object_or_404(Character, pk=character_id)
+    return [_reply(r) for r in Reply.objects.filter(character=found).select_related("author", "user")[:300]]
+
+
+@router.post("/replies/{reply_id}/cancel", response={200: ChReply, 400: ChErrors})
+def cancel_reply(request, reply_id: int):
+    row = get_object_or_404(Reply.objects.select_related("author", "user"), pk=reply_id)
+    try:
+        return _reply(outbox.cancel(row))
+    except outbox.OutboxError as error:
+        return 400, {"fields": {"status": str(error)}}

@@ -37,7 +37,8 @@ def capture_mail(persona, user, sender, subject, text, machine, path):
     if persona is None or persona.character_id is None or user is None:
         return None
     return Inbound.objects.create(character_id=persona.character_id, channel=Inbound.Channel.MAIL, user=user, sender=sender[:255],
-                                  subject=(subject or "")[:255], text=text or "", ref={"machine": machine.pk if machine else None, "path": path})
+                                  subject=(subject or "")[:255], text=text or "",
+                                  ref={"machine": machine.pk if machine else None, "path": path, "persona": persona.address})
 
 
 def capture_forum(post):
