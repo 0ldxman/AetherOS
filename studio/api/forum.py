@@ -7,7 +7,7 @@ from django.shortcuts import get_object_or_404
 from ninja import Router, Schema
 
 from documents.markup.expr import SpoilerSyntaxError, parse_expr
-from forum import logic
+from forum import logic, rotation
 from forum.models import Kind, Post, Section, Space, Topic
 from machines.models import Machine
 from secure.access import format_condition
@@ -50,6 +50,7 @@ class FoSection(Schema):
     created_by: str              # логин игрока, если раздел создал игрок
     archived: bool
     topics: int
+    rotation: dict[str, int]     # свои ключи ротации; ключа нет: как выше
 
 
 class FoSpaceOut(Schema):
@@ -65,6 +66,8 @@ class FoSpaceOut(Schema):
     machines: list[int]
     machine_options: list[FoMachine]
     sections: list[FoSection]
+    rotation: dict[str, int]
+    rotation_defaults: dict[str, int]
 
 
 class FoSpaceIn(Schema):
@@ -78,6 +81,7 @@ class FoSpaceIn(Schema):
     create: str = "players"
     create_if: str = ""
     machines: list[int] = []
+    rotation: dict = {}
 
 
 class FoSectionIn(Schema):
@@ -91,6 +95,7 @@ class FoSectionIn(Schema):
     create: str = "inherit"
     create_if: str = ""
     archived: bool = False
+    rotation: dict = {}
 
 
 class FoTopicRow(Schema):
@@ -106,6 +111,9 @@ class FoTopicRow(Schema):
     hidden: bool
     created_at: dt.datetime
     bumped_at: dt.datetime
+    archived: bool = False
+    closed_reason: str = ""
+    volume: int = 0
 
 
 class FoPost(Schema):
@@ -169,6 +177,14 @@ def _parse(text, field, errors):
         return None
 
 
+def _rotation(data, errors):
+    try:
+        return rotation.clean(data)
+    except rotation.RotationError as error:
+        errors["rotation"] = str(error)
+        return {}
+
+
 def _bad(errors):
     return 400, {"fields": errors}
 
@@ -176,7 +192,8 @@ def _bad(errors):
 def _section_row(row, counts):
     return FoSection(id=row.pk, parent=row.parent_id, title=row.title, about=row.about, order=row.order, read_if=_cond(row.read_if),
                      write=row.write, write_if=_cond(row.write_if), create=row.create, create_if=_cond(row.create_if),
-                     created_by=row.created_by.get_username() if row.created_by_id else "", archived=row.archived, topics=counts.get(row.pk, 0))
+                     created_by=row.created_by.get_username() if row.created_by_id else "", archived=row.archived, topics=counts.get(row.pk, 0),
+                     rotation=row.rotation or {})
 
 
 def _space_out(space):
@@ -185,7 +202,7 @@ def _space_out(space):
     return FoSpaceOut(slug=space.slug, title=space.title, about=space.about, order=space.order, read_if=_cond(space.read_if), write=space.write,
                       write_if=_cond(space.write_if), create=space.create, create_if=_cond(space.create_if), machines=list(space.machines.values_list("pk", flat=True)),
                       machine_options=[FoMachine(id=m.pk, label=m.label, hostname=m.hostname) for m in Machine.objects.order_by("hostname")],
-                      sections=[_section_row(row, counts) for row in sections])
+                      sections=[_section_row(row, counts) for row in sections], rotation=space.rotation or {}, rotation_defaults=rotation.DEFAULTS)
 
 
 def _apply_space(space, body, errors):
@@ -198,8 +215,10 @@ def _apply_space(space, body, errors):
         errors["create"] = "Режим создания разделов: players или authors."
     read_if, write_if = _parse(body.read_if, "read_if", errors), _parse(body.write_if, "write_if", errors)
     create_if = _parse(body.create_if, "create_if", errors)
+    rules = _rotation(body.rotation, errors)
     if errors:
         return False
+    space.rotation = rules
     space.title, space.about, space.order = title[:120], body.about, body.order
     space.read_if, space.write, space.write_if = read_if, body.write, write_if
     space.create, space.create_if = body.create, create_if
@@ -270,8 +289,10 @@ def _apply_section(section, space, body, errors):
             errors["parent"] = "Раздел нельзя вложить в самого себя."
     read_if, write_if = _parse(body.read_if, "read_if", errors), _parse(body.write_if, "write_if", errors)
     create_if = _parse(body.create_if, "create_if", errors)
+    rules = _rotation(body.rotation, errors)
     if errors:
         return False
+    section.rotation = rules
     section.create, section.create_if = body.create, create_if
     section.space, section.parent, section.title, section.about = space, parent, title[:120], body.about[:240]
     section.order, section.read_if, section.write, section.write_if, section.archived = body.order, read_if, body.write, write_if, body.archived
@@ -295,6 +316,24 @@ def update_section(request, section_id: int, body: FoSectionIn):
     return _section_row(section, {section.pk: section.topics.count()})
 
 
+class FoChronicle(Schema):
+    title: str = "Chronicle"
+
+
+class FoChronicleOut(Schema):
+    section: FoSection
+    triggers: int
+
+
+@router.post("/spaces/{slug}/chronicle", response=FoChronicleOut)
+def make_chronicle(request, slug: str, body: FoChronicle):
+    """Раздел хроники и по триггеру на каждый момент мира (forum/chronicle.py)."""
+    from forum import chronicle
+
+    section, made = chronicle.create(get_object_or_404(Space, slug=slug), body.title.strip() or "Chronicle")
+    return FoChronicleOut(section=_section_row(section, {}), triggers=made)
+
+
 @router.delete("/sections/{section_id}", response={204: None})
 def delete_section(request, section_id: int):
     get_object_or_404(Section, pk=section_id).delete()
@@ -306,7 +345,7 @@ def delete_section(request, section_id: int):
 def _topic_row(topic, replies):
     return dict(id=topic.pk, title=topic.title, section=topic.section_id, section_title=topic.section.title, name=topic.name, kind=topic.kind,
                 replies=replies, pinned=topic.pinned, locked=topic.locked, hidden=topic.hidden_at is not None, created_at=topic.created_at,
-                bumped_at=topic.bumped_at)
+                bumped_at=topic.bumped_at, archived=topic.archived_at is not None, closed_reason=topic.closed_reason, volume=topic.volume)
 
 
 @router.get("/spaces/{slug}/topics", response=list[FoTopicRow])

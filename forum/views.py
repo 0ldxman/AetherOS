@@ -76,9 +76,15 @@ def _face(row):
 
 def _topic_row(request, topic, info):
     return {**_face(topic), "id": topic.pk, "title": topic.title, "name": topic.name, "kind": topic.kind, "pinned": topic.pinned, "locked": topic.locked,
+            "volume": topic.volume, "archived": topic.archived_at is not None, "closing": topic.warned_at is not None and not topic.locked,
             "excerpt": info["excerpt"], "replies": info["replies"], "new": info["new"], "unseen": info["unseen"],
             "at": _when(request, topic.created_at), "ago": _ago(topic.created_at),
             "last_name": info["last_name"], "last_ago": _ago(info["last_at"])}
+
+
+def _next_volume(topic):
+    found = Topic.objects.filter(prev=topic, hidden_at__isnull=True).values_list("pk", flat=True).first()
+    return found
 
 
 def _error(error, status=400):
@@ -111,7 +117,7 @@ def space(request, slug):
     _, keys = _context(request)
     player = _player(request)
 
-    topics = list(Topic.objects.filter(section__space=found, hidden_at__isnull=True))
+    topics = list(Topic.objects.filter(section__space=found, hidden_at__isnull=True, archived_at__isnull=True))
     info = reading.summaries(topics, player)
     per_section = {}
     for item in topics:
@@ -151,10 +157,13 @@ def section(request, pk):
     found = _section(request, pk)
     _, keys = _context(request)
     player = _player(request)
-    listed = list(logic.topics_in(found))
+    archive = request.GET.get("archive") == "1"
+    listed = list(logic.topics_in(found, archive))
     info = reading.summaries(listed, player)
     topics = [_topic_row(request, t, info[t.pk]) for t in listed]
+    archived = logic.topics_in(found, True).count() if not archive else len(listed)
     return JsonResponse({"id": found.pk, "title": found.title, "about": found.about, "space": found.space.slug, "crumbs": _crumbs(found),
+                         "archive": archive, "archived": archived,
                          "can_write": logic.can_write(found, player, keys), "can_create": logic.can_create(found.space, found, player, keys),
                          "can_moderate": logic.moderates(found, player), "topics": topics})
 
@@ -167,15 +176,21 @@ def topic(request, pk):
     moderator = logic.moderates(found.section, player)
     fresh = reading.new_posts(found, player)
     reading.mark_seen(found, player)
+    every = logic.posts_of(found)
+    if found.compressed:                                  # сжатый архив: только первое сообщение
+        every = [p for p in every if p.root]
     posts = [{"id": p.pk, "parent": p.parent_id, "root": p.root, "name": p.name, "kind": p.kind, "at": _when(request, p.created_at),
               "ago": _ago(p.created_at), "new": p.pk in fresh, **_face(p), "useful": p.useful, "starter": p.author_id is not None and p.author_id == found.author_id,
               "hidden": p.hidden_at is not None, "text": p.text if moderator or p.hidden_at is None else "",
               "files": [] if p.hidden_at is not None else [{"id": a.pk, "name": a.name, "size": a.size} for a in p.attachments.all()]}
-             for p in logic.posts_of(found)]
+             for p in every]
     can = logic.can_write(found.section, player, keys) and not found.locked
     return JsonResponse({"id": found.pk, "title": found.title, "locked": found.locked, "pinned": found.pinned, "section": found.section_id,
                          "space": found.section.space.slug, "crumbs": _crumbs(found.section), "can_reply": can, "can_moderate": moderator,
-                         "can_mark": logic.can_mark_useful(found, player), "posts": posts})
+                         "can_mark": logic.can_mark_useful(found, player), "posts": posts,
+                         "volume": found.volume, "prev": found.prev_id, "next": _next_volume(found), "closed_reason": found.closed_reason,
+                         "archived": found.archived_at is not None, "compressed": found.posts.count() - 1 if found.compressed else 0,
+                         "closing": found.warned_at is not None and not found.locked})
 
 
 def _body(request):

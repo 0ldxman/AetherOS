@@ -12451,6 +12451,54 @@
     ]
    }
   },
+  "/studio/api/forum/spaces/{slug}/chronicle": {
+   "post": {
+    "operationId": "studio_api_forum_make_chronicle",
+    "summary": "Make Chronicle",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "slug",
+      "schema": {
+       "title": "Slug",
+       "type": "string"
+      },
+      "required": true
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/FoChronicleOut"
+        }
+       }
+      }
+     }
+    },
+    "description": "Раздел хроники и по триггеру на каждый момент мира (forum/chronicle.py).",
+    "tags": [
+     "forum"
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/FoChronicle"
+       }
+      }
+     },
+     "required": true
+    },
+    "security": [
+     {
+      "StudioAuth": []
+     }
+    ]
+   }
+  },
   "/studio/api/forum/spaces/{slug}/topics": {
    "get": {
     "operationId": "studio_api_forum_topics",
@@ -13504,6 +13552,34 @@
      },
      "required": true
     },
+    "security": [
+     {
+      "StudioAuth": []
+     }
+    ]
+   }
+  },
+  "/studio/api/world/state/forum-options": {
+   "get": {
+    "operationId": "studio_api_worldstate_forum_options",
+    "summary": "Forum Options",
+    "parameters": [],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/WsForumOptions"
+        }
+       }
+      }
+     }
+    },
+    "description": "Разделы форума и персонажи для действия forum.",
+    "tags": [
+     "world-state"
+    ],
     "security": [
      {
       "StudioAuth": []
@@ -28708,6 +28784,13 @@
      "topics": {
       "title": "Topics",
       "type": "integer"
+     },
+     "rotation": {
+      "additionalProperties": {
+       "type": "integer"
+      },
+      "title": "Rotation",
+      "type": "object"
      }
     },
     "required": [
@@ -28723,7 +28806,8 @@
      "create_if",
      "created_by",
      "archived",
-     "topics"
+     "topics",
+     "rotation"
     ],
     "title": "FoSection",
     "type": "object"
@@ -28786,6 +28870,20 @@
       },
       "title": "Sections",
       "type": "array"
+     },
+     "rotation": {
+      "additionalProperties": {
+       "type": "integer"
+      },
+      "title": "Rotation",
+      "type": "object"
+     },
+     "rotation_defaults": {
+      "additionalProperties": {
+       "type": "integer"
+      },
+      "title": "Rotation Defaults",
+      "type": "object"
      }
     },
     "required": [
@@ -28800,7 +28898,9 @@
      "create_if",
      "machines",
      "machine_options",
-     "sections"
+     "sections",
+     "rotation",
+     "rotation_defaults"
     ],
     "title": "FoSpaceOut",
     "type": "object"
@@ -28874,6 +28974,12 @@
       },
       "title": "Machines",
       "type": "array"
+     },
+     "rotation": {
+      "additionalProperties": true,
+      "default": {},
+      "title": "Rotation",
+      "type": "object"
      }
     },
     "required": [
@@ -28938,12 +29044,46 @@
       "default": false,
       "title": "Archived",
       "type": "boolean"
+     },
+     "rotation": {
+      "additionalProperties": true,
+      "default": {},
+      "title": "Rotation",
+      "type": "object"
      }
     },
     "required": [
      "title"
     ],
     "title": "FoSectionIn",
+    "type": "object"
+   },
+   "FoChronicleOut": {
+    "properties": {
+     "section": {
+      "$ref": "#/components/schemas/FoSection"
+     },
+     "triggers": {
+      "title": "Triggers",
+      "type": "integer"
+     }
+    },
+    "required": [
+     "section",
+     "triggers"
+    ],
+    "title": "FoChronicleOut",
+    "type": "object"
+   },
+   "FoChronicle": {
+    "properties": {
+     "title": {
+      "default": "Chronicle",
+      "title": "Title",
+      "type": "string"
+     }
+    },
+    "title": "FoChronicle",
     "type": "object"
    },
    "FoTopicRow": {
@@ -28997,6 +29137,21 @@
       "format": "date-time",
       "title": "Bumped At",
       "type": "string"
+     },
+     "archived": {
+      "default": false,
+      "title": "Archived",
+      "type": "boolean"
+     },
+     "closed_reason": {
+      "default": "",
+      "title": "Closed Reason",
+      "type": "string"
+     },
+     "volume": {
+      "default": 0,
+      "title": "Volume",
+      "type": "integer"
      }
     },
     "required": [
@@ -29146,6 +29301,21 @@
       "format": "date-time",
       "title": "Bumped At",
       "type": "string"
+     },
+     "archived": {
+      "default": false,
+      "title": "Archived",
+      "type": "boolean"
+     },
+     "closed_reason": {
+      "default": "",
+      "title": "Closed Reason",
+      "type": "string"
+     },
+     "volume": {
+      "default": 0,
+      "title": "Volume",
+      "type": "integer"
      },
      "posts": {
       "items": {
@@ -30153,6 +30323,48 @@
      "text"
     ],
     "title": "ChSayIn",
+    "type": "object"
+   },
+   "WsForumOptions": {
+    "properties": {
+     "sections": {
+      "items": {
+       "$ref": "#/components/schemas/WsPick"
+      },
+      "title": "Sections",
+      "type": "array"
+     },
+     "characters": {
+      "items": {
+       "$ref": "#/components/schemas/WsPick"
+      },
+      "title": "Characters",
+      "type": "array"
+     }
+    },
+    "required": [
+     "sections",
+     "characters"
+    ],
+    "title": "WsForumOptions",
+    "type": "object"
+   },
+   "WsPick": {
+    "properties": {
+     "id": {
+      "title": "Id",
+      "type": "string"
+     },
+     "label": {
+      "title": "Label",
+      "type": "string"
+     }
+    },
+    "required": [
+     "id",
+     "label"
+    ],
+    "title": "WsPick",
     "type": "object"
    },
    "WsContribution": {

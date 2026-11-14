@@ -43,7 +43,7 @@
 
   async function create() {
     if (!dialog) return;
-    const { data, error } = await api.POST("/studio/api/forum/spaces", { body: { slug: dialog.slug, title: dialog.title, about: "", order: 0, read_if: "", write: "players", write_if: "", create: "players", create_if: "", machines: [] } });
+    const { data, error } = await api.POST("/studio/api/forum/spaces", { body: { slug: dialog.slug, title: dialog.title, about: "", order: 0, read_if: "", write: "players", write_if: "", create: "players", create_if: "", machines: [], rotation: {} } });
     if (error || !data) {
       errors = (error as { fields?: Record<string, string> } | undefined)?.fields ?? {};
       return toast(Object.values(errors)[0] ?? problem(error), "error");

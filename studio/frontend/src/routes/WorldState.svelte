@@ -12,7 +12,7 @@
   type State = Schemas["WsState"];
   type Counter = Schemas["WsCounter"];
   type Trigger = Schemas["WsTrigger"];
-  type Act = { do: string; name?: string; delta?: number; title?: string; text?: string; station?: string; freq?: string; key?: string; important?: boolean; item?: string; systems?: string; machines?: string };
+  type Act = { do: string; name?: string; delta?: number; title?: string; text?: string; station?: string; freq?: string; key?: string; important?: boolean; item?: string; systems?: string; machines?: string; section?: number | string; mode?: string; character?: string };
   type Moment = Schemas["WsMoment"];
 
   let data = $state<State | null>(null);
@@ -156,7 +156,11 @@
   const KINDS = [
     { value: "flag", label: "Поставить метку мира" }, { value: "unflag", label: "Снять метку мира" }, { value: "count", label: "Вклад в счётчик" },
     { value: "news", label: "Опубликовать новость" }, { value: "air", label: "Передать в эфир" }, { value: "letter", label: "Письмо всем" },
+    { value: "forum", label: "Запись на форуме" },
   ];
+  let forumOptions = $state<Schemas["WsForumOptions"]>({ sections: [], characters: [] });
+  onMount(async () => { const { data: found } = await api.GET("/studio/api/world/state/forum-options"); if (found) forumOptions = found; });
+  const sectionLabel = (id: unknown) => forumOptions.sections.find((s) => s.id === String(id))?.label ?? `раздел ${id}`;
   function editTrigger(t: Trigger | null) {
     tform = t ? { id: t.id, name: t.name, label: t.label, condition_text: t.condition_text, actions: (t.actions as Act[]).map((a) => ({ ...a })), repeat: t.repeat, active: t.active }
               : { id: null, name: "", label: "", condition_text: "", actions: [{ do: "flag", name: "" }], repeat: false, active: true };
@@ -193,6 +197,7 @@
       case "news": return `новость «${a.title}»`;
       case "air": return `${(a.station ?? "").toUpperCase()} в эфир ${a.freq}${a.key ? " шифром" : ""}`;
       case "letter": return `письмо всем «${a.item}»${a.machines ? ` на ${a.machines}` : ""}${a.systems ? ` (ОС ${a.systems})` : ""}`;
+      case "forum": return `${a.character || "SYS"} ${a.mode === "append" ? "дописывает в" : "открывает тему"} «${a.title}» · ${sectionLabel(a.section)}`;
       default: return a.do;
     }
   }
@@ -404,6 +409,27 @@
                   <div class="row"><input class="field mono" bind:value={a.machines} placeholder="только машины: aether-main, …" aria-label="Машины" />
                     <input class="field mono" bind:value={a.systems} placeholder="только ОС: AETHER, …" aria-label="ОС" /></div>
                   <span class="muted small">Придёт каждому игроку один раз, когда он откроет почту на подходящей машине.</span>
+                </div>
+              {:else if a.do === "forum"}
+                <div class="stack">
+                  <div class="row">
+                    <select class="field" bind:value={a.section} aria-label="Раздел">
+                      <option value={undefined} disabled>раздел форума…</option>
+                      {#each forumOptions.sections as s (s.id)}<option value={Number(s.id)}>{s.label}</option>{/each}
+                    </select>
+                    <select class="field" bind:value={a.character} aria-label="От кого">
+                      <option value={undefined}>от системы (SYS)</option>
+                      {#each forumOptions.characters as c (c.id)}<option value={c.id}>{c.label}</option>{/each}
+                    </select>
+                  </div>
+                  <div class="row">
+                    <select class="field" bind:value={a.mode} aria-label="Режим">
+                      <option value={undefined}>новая тема</option><option value="append">дописать в тему</option>
+                    </select>
+                    <input class="field" bind:value={a.title} placeholder={a.mode === "append" ? "заголовок темы, например World log" : "заголовок новой темы"} aria-label="Заголовок" />
+                  </div>
+                  <textarea class="field" rows="2" bind:value={a.text} placeholder="текст: {'{time}'}, {'{player}'}, {'{world_счётчик}'}" aria-label="Текст"></textarea>
+                  <span class="muted small">«Дописать» пишет в последний открытый том темы с этим заголовком (нет такой — создаёт). Хроника — это обычный раздел, куда пишут такие действия.</span>
                 </div>
               {:else if a.do === "air"}
                 <div class="stack">

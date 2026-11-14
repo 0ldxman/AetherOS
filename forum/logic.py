@@ -78,9 +78,9 @@ def sections_of(space, keys):
     return build(None)
 
 
-def topics_in(section):
-    """Видимые темы раздела: закреплённые, затем по свежести; с числом ответов и временем последнего сообщения."""
-    return (Topic.objects.filter(section=section, hidden_at__isnull=True).select_related("character")
+def topics_in(section, archive=False):
+    """Видимые темы раздела (archive: только перенесённые в архив): закреплённые, затем по свежести; с числом ответов."""
+    return (Topic.objects.filter(section=section, hidden_at__isnull=True, archived_at__isnull=not archive).select_related("character")
             .annotate(replies=Count("posts", filter=Q(posts__root=False, posts__hidden_at__isnull=True))))
 
 
@@ -180,7 +180,7 @@ def _add_post(topic, user, text, kind, name, parent, character=None):
     while depth >= MAX_DEPTH and parent.parent is not None:
         parent, depth = parent.parent, depth - 1
     post = Post.objects.create(topic=topic, parent=parent, author=user, name=name, kind=kind, text=text, character=character)
-    Topic.objects.filter(pk=topic.pk).update(bumped_at=post.created_at)
+    Topic.objects.filter(pk=topic.pk).update(bumped_at=post.created_at, warned_at=None)     # новое сообщение снимает предупреждение о закрытии
     return post
 
 
@@ -201,13 +201,36 @@ def restore_post(post):
 
 
 def set_flags(topic, pinned=None, locked=None):
-    fields = {}
+    from forum import rotation
+
     if pinned is not None:
-        fields["pinned"] = pinned
-    if locked is not None:
-        fields["locked"] = locked
-    if fields:
-        Topic.objects.filter(pk=topic.pk).update(**fields)
+        Topic.objects.filter(pk=topic.pk).update(pinned=pinned)
+    if locked is not None and bool(locked) != topic.locked:
+        if locked:
+            rotation.close(topic, "manual")
+        else:
+            rotation.reopen(topic)
+
+
+# ---- записи мира (действие forum из триггеров, исходов и кукловода) ----
+
+def world_post(section, text, title="", mode="new", character=None, name=""):
+    """Новая тема (mode new) или запись в последний открытый том темы с этим заголовком (mode append; нет: создаётся).
+    От персонажа или от системы (подпись name, по умолчанию SYS). Полный том закрывается и продолжается следующим."""
+    from forum import rotation
+
+    name = (name or rotation.SYSTEM)[:16]
+    kind = Kind.CHARACTER if character is not None else Kind.SYSTEM
+    if mode == "append":
+        title = _clean(title, TITLE_MAX, "заголовок")
+        topic = (Topic.objects.filter(section=section, title__iexact=title, hidden_at__isnull=True, archived_at__isnull=True, locked=False)
+                 .exclude(kind=Kind.PLAYER).order_by("-volume", "-pk").first())
+        if topic is None:
+            return author_topic(section, name, title, text, kind, character).posts.get(root=True)
+        if rotation.full(topic):
+            topic = rotation.next_volume(topic)
+        return author_post(topic, name, text, kind, character=character)
+    return author_topic(section, name, title, text, kind, character).posts.get(root=True)
 
 
 # ---- разделы игроков ----

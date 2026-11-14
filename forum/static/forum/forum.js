@@ -123,6 +123,14 @@
         row.append(main, side);
         return row;
     }
+    // пометки темы: закреплена, том, закрыта или в архиве, скоро закроется
+    function tags(title, t) {
+        if (t.pinned) title.append(el("span", "fm-pinned", "pinned"));
+        if (t.volume) title.append(el("span", "fm-closed", "vol. " + t.volume));
+        if (t.archived) title.append(el("span", "fm-closed", "archived"));
+        else if (t.locked) title.append(el("span", "fm-closed", "closed"));
+        else if (t.closing) title.append(el("span", "fm-closed warn", "closing"));
+    }
     function topicRow(t, withSection) {
         const fresh = t.unseen || t.new > 0;
         const row = el("a", "fm-row" + (fresh ? "" : " read"));
@@ -130,8 +138,7 @@
         row.append(plate(t.name, t.kind, t));
         const main = el("div", "fm-row-main");
         const title = el("div", "fm-row-title", t.title);
-        if (t.pinned) title.append(el("span", "fm-pinned", "pinned"));
-        if (t.locked) title.append(el("span", "fm-closed", "closed"));
+        tags(title, t);
         main.append(title);
         if (t.excerpt) main.append(el("div", "fm-row-sub", t.excerpt));
         const meta = el("div", "fm-row-meta");
@@ -278,8 +285,8 @@
     }
 
     // ---------- раздел ----------
-    async function showSection(id) {
-        const data = await call(slot(urls.sectionUrl, id));
+    async function showSection(id, archive) {
+        const data = await call(slot(urls.sectionUrl, id) + (archive ? "?archive=1" : ""));
         await loadSpace(data.space);
         current = data.id;
         drawRail();
@@ -293,6 +300,17 @@
         }));
         if (data.can_create) actions.push(button("+ Sub-board", () => openSectionForm(data.id)));
         if (data.can_write) actions.push(button("+ New topic", () => openTopicForm(data.id, data.title), "app-button primary"));
+        if (data.archive) {
+            drawBar(data.crumbs, "archive", []);
+            const box = page();
+            const back = el("a", "fm-back", "← back to " + data.title);
+            back.href = "#/c/" + data.id;
+            const hero = el("div", "fm-hero");
+            hero.append(el("h2", "", data.title + " · archive"), el("p", "fm-about", "Closed topics moved here after a while. Read only."));
+            box.append(back, hero, cap("ARCHIVED TOPICS"));
+            box.append(data.topics.length ? list(data.topics.map((t) => topicRow(t))) : el("div", "fm-void", "The archive is empty."));
+            return;
+        }
         drawBar(data.crumbs.slice(0, -1), data.title, actions);
         const box = page();
         const hero = el("div", "fm-hero");
@@ -319,6 +337,11 @@
             const empty = el("div", "fm-void", "No topics on this board yet.");
             if (data.can_write) empty.append(el("br"), button("+ Start the first topic", () => openTopicForm(data.id, data.title), "app-button primary"));
             box.append(empty);
+        }
+        if (data.archived) {
+            const more = el("a", "fm-archive-link", "Archive · " + plural(data.archived, "topic", "topics") + " →");
+            more.href = "#/c/" + data.id + "/archive";
+            box.append(more);
         }
     }
 
@@ -370,14 +393,19 @@
         const op = el("article", "fm-op");
         const head = el("header", "fm-op-head");
         const title = el("h2", "", data.title);
-        if (data.pinned) title.append(el("span", "fm-pinned", "pinned"));
-        if (data.locked) title.append(el("span", "fm-closed", "closed"));
+        tags(title, data);
         const author = el("div", "fm-author");
         const who = el("div", "fm-who-line");
         const when = el("span", "", ago(first.ago)); when.title = first.at;
         who.append(nameTag(first.name, first.kind), el("span", "fm-badge op", "TS"), when, el("span", "", "in " + (section ? section.title : "")));
         author.append(plate(first.name, first.kind, first), who);
         head.append(title, author);
+        if (data.prev || data.next) {
+            const vols = el("div", "fm-volumes");
+            if (data.prev) { const a = el("a", "", "← volume " + (data.volume - 1)); a.href = "#/t/" + data.prev; vols.append(a); }
+            if (data.next) { const a = el("a", "", "volume " + (data.volume + 1) + " →"); a.href = "#/t/" + data.next; vols.append(a); }
+            head.append(vols);
+        }
         const body = el("div", "fm-op-body");
         body.append(textOf(first, data.can_moderate));
         op.append(head, body);
@@ -391,7 +419,13 @@
         if (foot.children.length) op.append(foot);
         box.append(op);
 
+        if (data.closing) box.append(el("p", "fm-banner", "No recent activity: this topic will be closed unless someone posts."));
         const replies = data.posts.length - 1;
+        if (data.compressed) {
+            box.append(cap(plural(data.compressed, "RECORD", "RECORDS") + " COMPRESSED"));
+            box.append(el("p", "fm-void", "[" + plural(data.compressed, "record", "records") + " compressed] Only the opening post is kept in the archive."));
+            return;
+        }
         box.append(cap(replies ? plural(replies, "REPLY", "REPLIES") : "NO REPLIES YET"));
 
         const render = (post, depth, container) => {
@@ -418,7 +452,7 @@
             cbox.append(line, textOf(post, data.can_moderate));
             const tools = el("div", "fm-ctools");
             if (data.can_reply && !post.hidden) tools.append(link("reply", () => openReply(post.id, main)));
-            if (data.can_mark && !post.hidden && !post.starter) tools.append(link(post.useful ? "unmark useful" : "mark useful", () => moderate(urls.usefulUrl, { post: post.id, on: !post.useful })));
+            if (data.can_mark && !post.hidden && !post.starter && post.kind !== "system") tools.append(link(post.useful ? "unmark useful" : "mark useful", () => moderate(urls.usefulUrl, { post: post.id, on: !post.useful })));
             if (data.can_moderate) tools.append(post.hidden ? link("restore", () => moderate(urls.restoreUrl, { post: post.id }))
                                                             : link("delete", () => moderate(urls.hideUrl, { post: post.id }), "warn"));
             if (tools.children.length) cbox.append(tools);
@@ -470,7 +504,18 @@
             box.append(stub);
         }
         if (data.can_reply) drawReplyBox();
-        else box.append(el("p", "fm-void", data.locked ? "This topic is closed." : callsign ? "This board is read only." : "Sign in to reply."));
+        else {
+            const end = el("p", "fm-void", closedText(data));
+            if (data.next) { const a = el("a", "", "Open volume " + (data.volume + 1) + " →"); a.href = "#/t/" + data.next; end.append(el("br"), a); }
+            box.append(end);
+        }
+    }
+    function closedText(data) {
+        if (data.archived) return "Moved to archive. Read only.";
+        if (data.locked && data.closed_reason === "volume") return data.next ? "This volume is full. The thread continues in volume " + (data.volume + 1) + "." : "This volume is full.";
+        if (data.locked && data.closed_reason === "idle") return "Closed for inactivity.";
+        if (data.locked) return "This topic is closed.";
+        return callsign ? "This board is read only." : "Sign in to reply.";
     }
 
     // ---------- старт ----------
@@ -494,7 +539,7 @@
         try {
             let found;
             if ((found = hash.match(/^#\/t\/(\d+)$/))) return await showTopic(+found[1]);
-            if ((found = hash.match(/^#\/c\/(\d+)$/))) return await showSection(+found[1]);
+            if ((found = hash.match(/^#\/c\/(\d+)(\/archive)?$/))) return await showSection(+found[1], !!found[2]);
             const slug = (found = hash.match(/^#\/s\/([\w-]+)$/)) ? found[1] : spaces[0].slug;
             await showSpace(slug);
         } catch (error) { fail(error); }

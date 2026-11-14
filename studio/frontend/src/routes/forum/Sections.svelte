@@ -3,6 +3,7 @@
   import { api, problem, type Schemas } from "../../lib/api";
   import AccessBuilder from "../../lib/AccessBuilder.svelte";
   import Hint from "../../lib/Hint.svelte";
+  import Rotation from "./Rotation.svelte";
   import { ask } from "../../lib/confirm.svelte";
   import { canAct } from "../../lib/me.svelte";
   import { toast } from "../../lib/toast.svelte";
@@ -10,7 +11,7 @@
   type Section = Schemas["FoSection"];
   let { space, editable, onchanged }: { space: Schemas["FoSpaceOut"]; editable: boolean; onchanged: () => void } = $props();
 
-  type Form = { id: number | null; title: string; parent: number | null; about: string; order: number; read_if: string; write: string; write_if: string; create: string; create_if: string; archived: boolean };
+  type Form = { id: number | null; title: string; parent: number | null; about: string; order: number; read_if: string; write: string; write_if: string; create: string; create_if: string; archived: boolean; rotation: Record<string, number> };
   let form = $state<Form | null>(null);
   let errors = $state<Record<string, string>>({});
   let busy = $state(false);
@@ -25,8 +26,8 @@
     return out;
   });
 
-  const blank = (parent: number | null): Form => ({ id: null, title: "", parent, about: "", order: 0, read_if: "", write: "inherit", write_if: "", create: "inherit", create_if: "", archived: false });
-  const open = (s: Section) => { form = { id: s.id, title: s.title, parent: s.parent, about: s.about, order: s.order, read_if: s.read_if, write: s.write, write_if: s.write_if, create: s.create, create_if: s.create_if, archived: s.archived }; errors = {}; };
+  const blank = (parent: number | null): Form => ({ id: null, title: "", parent, about: "", order: 0, read_if: "", write: "inherit", write_if: "", create: "inherit", create_if: "", archived: false, rotation: {} });
+  const open = (s: Section) => { form = { id: s.id, title: s.title, parent: s.parent, about: s.about, order: s.order, read_if: s.read_if, write: s.write, write_if: s.write_if, create: s.create, create_if: s.create_if, archived: s.archived, rotation: { ...s.rotation } }; errors = {}; };
 
   // варианты родителя: любой раздел, кроме самого и его потомков
   function descendants(id: number): Set<number> {
@@ -34,12 +35,28 @@
     for (let grew = true; grew;) { grew = false; for (const s of space.sections) if (s.parent !== null && out.has(s.parent) && !out.has(s.id)) { out.add(s.id); grew = true; } }
     return out;
   }
+  // что раздел унаследует: умолчания ← пространство ← разделы от корня до родителя
+  const inherited = $derived.by(() => {
+    const chain: Section[] = [];
+    for (let id = form?.parent ?? null; id !== null;) { const s = space.sections.find((x) => x.id === id); if (!s) break; chain.unshift(s); id = s.parent; }
+    return Object.assign({}, space.rotation_defaults, space.rotation, ...chain.map((s) => s.rotation));
+  });
+
+  async function chronicle() {
+    if (!(await ask("Создать хронику?", "Раздел «Chronicle» (пишут только авторы) и по повторному триггеру на каждый момент мира: момент начался — запись в тему «World log». Триггеры потом правятся на пульте мира.", "Создать"))) return;
+    const { data, error } = await api.POST("/studio/api/forum/spaces/{slug}/chronicle", { params: { path: { slug: space.slug } }, body: { title: "Chronicle" } });
+    if (error || !data) return toast(problem(error), "error");
+    toast(`Хроника создана, триггеров: ${data.triggers}.`);
+    await onchanged();
+    open(data.section);
+  }
+
   const parentOptions = $derived(form?.id ? flat.filter(({ s }) => !descendants(form!.id!).has(s.id)) : flat);
 
   async function save() {
     if (!form) return;
     busy = true;
-    const body = { title: form.title, parent: form.parent, about: form.about, order: form.order, read_if: form.read_if, write: form.write, write_if: form.write_if, create: form.create, create_if: form.create_if, archived: form.archived };
+    const body = { title: form.title, parent: form.parent, about: form.about, order: form.order, read_if: form.read_if, write: form.write, write_if: form.write_if, create: form.create, create_if: form.create_if, archived: form.archived, rotation: form.rotation };
     const result = form.id === null
       ? await api.POST("/studio/api/forum/spaces/{slug}/sections", { params: { path: { slug: space.slug } }, body })
       : await api.PUT("/studio/api/forum/sections/{section_id}", { params: { path: { section_id: form.id } }, body });
@@ -78,6 +95,7 @@
     {#if editable}
       <button class="btn" onclick={() => { form = blank(null); errors = {}; }}>+ Раздел</button>
       {#if form?.id}<button class="btn ghost" onclick={() => { form = blank(form!.id); errors = {}; }}>+ Подраздел</button>{/if}
+      <button class="btn ghost" onclick={chronicle}>+ Хроника мира</button>
     {/if}
   </aside>
 
@@ -106,6 +124,7 @@
         <label class="row narrow"><span class="label">Порядок</span><input class="field" type="number" bind:value={form.order} disabled={!editable} /></label>
         <label class="check"><input type="checkbox" bind:checked={form.archived} disabled={!editable} />В архиве<Hint text="Раздел пропадает из списков игрока, записи остаются." /></label>
       </div>
+      <Rotation bind:value={form.rotation} {inherited} {editable} error={errors.rotation} />
       {#if editable}
         <div class="tools">
           <button class="btn primary" disabled={busy || !form.title.trim()} onclick={save}>Сохранить</button>

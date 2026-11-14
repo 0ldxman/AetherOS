@@ -18,7 +18,7 @@ from world.models import WorldContribution, WorldCounter, WorldEvent, WorldFlag,
 NAME = re.compile(r"^[a-z0-9][a-z0-9_-]{0,63}$")
 ATOM = re.compile(r"^world:([a-z0-9][a-z0-9_-]{0,63})(?:(>=|<=|>|<|=)(-?\d+))?$")
 DEPTH = 8
-ACTIONS = ("flag", "unflag", "count", "news", "air", "letter")
+ACTIONS = ("flag", "unflag", "count", "news", "air", "letter", "forum")
 
 
 class WorldError(ValueError):
@@ -216,6 +216,8 @@ def run_action(action, source, _depth=0, user=None):
             _air(action, source)
         elif do == "letter":
             _letter(action, source)
+        elif do == "forum":
+            _forum(action, source, user)
     except (WorldError, ValueError) as error:
         _log("action", do or "", f"действие не выполнено: {error}", source)
 
@@ -255,6 +257,46 @@ def _letter(action, source):
     _log("action", "letter", f"письмо всем: {item.slug}", source)
 
 
+class _Keep(dict):
+    def __missing__(self, key):
+        return "{" + key + "}"
+
+
+def fill(text, user=None):
+    """Подстановки в тексте действия: {world_<счётчик>}, {time} (игровое время), {player} (позывной игрока, если действие от игрока)."""
+    from machines.world import chrono
+
+    values = _Keep(params())
+    values["time"] = chrono.stamp(timezone.now())
+    if user is not None:
+        values["player"] = _who("", user)
+    try:
+        return (text or "").format_map(values)
+    except (ValueError, IndexError):
+        return text or ""
+
+
+def _forum(action, source, user=None):
+    from characters.models import Character
+    from forum import logic
+    from forum.models import Section
+
+    section = Section.objects.filter(pk=action.get("section") or 0, archived=False).first()
+    if section is None:
+        raise WorldError(f"нет раздела форума {action.get('section')}")
+    character = None
+    if action.get("character"):
+        character = Character.objects.filter(code=str(action["character"]).upper()).first()
+        if character is None:
+            raise WorldError(f"нет персонажа {action['character']}")
+    try:
+        post = logic.world_post(section, fill(action.get("text"), user), fill(action.get("title"), user), action.get("mode") or "new",
+                                character, action.get("name") or "")
+    except logic.ForumError as error:
+        raise WorldError(str(error)) from None
+    _log("action", "forum", f"форум: «{post.topic.title}»", source)
+
+
 def check_actions(actions):
     """Проблемы действий для Студии: [текст]."""
     out = []
@@ -271,6 +313,22 @@ def check_actions(actions):
             out.append(f"действие {number}: у новости нет заголовка")
         elif do == "air" and not (action.get("station") and action.get("freq") and (action.get("text") or "").strip()):
             out.append(f"действие {number}: нужны станция, частота и текст")
+        elif do == "forum":
+            from forum.models import Section
+
+            if not Section.objects.filter(pk=action.get("section") or 0, archived=False).exists():
+                out.append(f"действие {number}: нет раздела форума")
+            elif not (action.get("text") or "").strip():
+                out.append(f"действие {number}: у записи нет текста")
+            elif not (action.get("title") or "").strip():
+                out.append(f"действие {number}: нужен заголовок темы")
+            elif action.get("mode", "new") not in ("new", "append"):
+                out.append(f"действие {number}: режим new или append")
+            elif action.get("character"):
+                from characters.models import Character
+
+                if not Character.objects.filter(code=str(action["character"]).upper()).exists():
+                    out.append(f"действие {number}: нет персонажа {action['character']}")
         elif do == "letter":
             from filesystem.models import Item
 

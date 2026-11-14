@@ -171,3 +171,11 @@
   .fm-rail { display: none; }
   .fm-who { display: none; }
 }
+
+/* ---- ротация: архив, тома, предупреждение о закрытии ---- */
+.fm-closed.warn { border-color: var(--accent-warn); color: var(--accent-warn); }
+.fm-archive-link { display: inline-block; margin-top: 14px; color: var(--font-muted); font-size: 12px; letter-spacing: 0.04em; }
+#forum .fm-archive-link:hover { color: var(--accent); }
+.fm-volumes { display: flex; gap: 16px; margin-top: 8px; font-size: 12px; }
+.fm-volumes a { color: var(--accent); }
+.fm-banner { margin: 12px 0 0; padding: 8px 12px; border: 1px solid var(--accent-warn); border-radius: var(--ctl-radius); color: var(--accent-warn); font-size: 12px; }

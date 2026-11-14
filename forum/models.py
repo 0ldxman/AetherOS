@@ -28,6 +28,7 @@ class Space(models.Model):
     create_if = models.JSONField("Условие создания", null=True, blank=True, validators=[validate_requirements],
                                  help_text="Дополнительное условие для игроков, создающих разделы. Пусто: без него.")
     order = models.PositiveIntegerField("Порядок", default=0)
+    rotation = models.JSONField("Ротация", default=dict, blank=True, help_text="Ротация тем: {archive_days, idle_days, grace_days, volume_posts, compress_days}; ключа нет: как выше (forum/rotation.py).")
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -55,6 +56,7 @@ class Section(models.Model):
     create_if = models.JSONField("Условие создания", null=True, blank=True, validators=[validate_requirements])
     created_by = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL, related_name="+")
     archived = models.BooleanField("В архиве", default=False, help_text="Раздел скрыт из списков, записи остаются.")
+    rotation = models.JSONField("Ротация", default=dict, blank=True, help_text="Ротация тем: {archive_days, idle_days, grace_days, volume_posts, compress_days}; ключа нет: как выше (forum/rotation.py).")
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -79,6 +81,13 @@ class Topic(models.Model):
     bumped_at = models.DateTimeField(default=timezone.now, db_index=True)
     hidden_at = models.DateTimeField(null=True, blank=True)
     hidden_reason = models.CharField(max_length=200, blank=True)
+    closed_at = models.DateTimeField("Закрыта когда", null=True, blank=True)
+    closed_reason = models.CharField("Почему закрыта", max_length=8, blank=True, choices=[("manual", "Вручную"), ("idle", "Неактивна"), ("volume", "Том заполнен")])
+    warned_at = models.DateTimeField("Предупреждена о закрытии", null=True, blank=True)
+    archived_at = models.DateTimeField("Перенесена в архив", null=True, blank=True, db_index=True)
+    compressed = models.BooleanField("Сжата", default=False, help_text="В архиве остались заголовок и первое сообщение.")
+    volume = models.PositiveSmallIntegerField("Том", default=0, help_text="0: тема без томов; 1, 2…: номер тома.")
+    prev = models.OneToOneField("self", null=True, blank=True, on_delete=models.SET_NULL, related_name="next", verbose_name="Предыдущий том")
 
     class Meta:
         ordering = ("-pinned", "-bumped_at")

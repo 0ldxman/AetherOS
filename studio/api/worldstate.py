@@ -198,6 +198,37 @@ def _trigger(row):
                      fired_count=row.fired_count)
 
 
+class WsPick(Schema):
+    id: str
+    label: str
+
+
+class WsForumOptions(Schema):
+    sections: list[WsPick]
+    characters: list[WsPick]
+
+
+@router.get("/forum-options", response=WsForumOptions)
+def forum_options(request):
+    """Разделы форума и персонажи для действия forum."""
+    from characters.models import Character
+    from forum.models import Section
+
+    rows = list(Section.objects.filter(archived=False).select_related("space", "parent"))
+    by_id = {row.pk: row for row in rows}
+
+    def path(row):
+        parts = []
+        while row is not None:
+            parts.append(row.title)
+            row = by_id.get(row.parent_id)
+        return " / ".join(parts[::-1])
+
+    sections = sorted((WsPick(id=str(row.pk), label=f"{row.space.title}: {path(row)}") for row in rows), key=lambda pick: pick.label)
+    characters = [WsPick(id=c.code, label=f"{c.code} · {c.signature}") for c in Character.objects.order_by("code")]
+    return WsForumOptions(sections=sections, characters=characters)
+
+
 @router.get("", response=WsState)
 def read(request):
     from machines.world import chrono

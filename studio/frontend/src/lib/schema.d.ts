@@ -3969,6 +3969,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/studio/api/forum/spaces/{slug}/chronicle": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Make Chronicle
+         * @description Раздел хроники и по триггеру на каждый момент мира (forum/chronicle.py).
+         */
+        post: operations["studio_api_forum_make_chronicle"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/studio/api/forum/spaces/{slug}/topics": {
         parameters: {
             query?: never;
@@ -4299,6 +4319,26 @@ export interface paths {
         put?: never;
         /** Say */
         post: operations["studio_api_characters_say"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/studio/api/world/state/forum-options": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Forum Options
+         * @description Разделы форума и персонажи для действия forum.
+         */
+        get: operations["studio_api_worldstate_forum_options"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -10342,6 +10382,10 @@ export interface components {
             archived: boolean;
             /** Topics */
             topics: number;
+            /** Rotation */
+            rotation: {
+                [key: string]: number;
+            };
         };
         /** FoSpaceOut */
         FoSpaceOut: {
@@ -10369,6 +10413,14 @@ export interface components {
             machine_options: components["schemas"]["FoMachine"][];
             /** Sections */
             sections: components["schemas"]["FoSection"][];
+            /** Rotation */
+            rotation: {
+                [key: string]: number;
+            };
+            /** Rotation Defaults */
+            rotation_defaults: {
+                [key: string]: number;
+            };
         };
         /** FoErrors */
         FoErrors: {
@@ -10426,6 +10478,13 @@ export interface components {
              * @default []
              */
             machines: number[];
+            /**
+             * Rotation
+             * @default {}
+             */
+            rotation: {
+                [key: string]: unknown;
+            };
         };
         /** FoSectionIn */
         FoSectionIn: {
@@ -10473,6 +10532,27 @@ export interface components {
              * @default false
              */
             archived: boolean;
+            /**
+             * Rotation
+             * @default {}
+             */
+            rotation: {
+                [key: string]: unknown;
+            };
+        };
+        /** FoChronicleOut */
+        FoChronicleOut: {
+            section: components["schemas"]["FoSection"];
+            /** Triggers */
+            triggers: number;
+        };
+        /** FoChronicle */
+        FoChronicle: {
+            /**
+             * Title
+             * @default Chronicle
+             */
+            title: string;
         };
         /** FoTopicRow */
         FoTopicRow: {
@@ -10506,6 +10586,21 @@ export interface components {
              * Format: date-time
              */
             bumped_at: string;
+            /**
+             * Archived
+             * @default false
+             */
+            archived: boolean;
+            /**
+             * Closed Reason
+             * @default
+             */
+            closed_reason: string;
+            /**
+             * Volume
+             * @default 0
+             */
+            volume: number;
         };
         /** FoPost */
         FoPost: {
@@ -10569,6 +10664,21 @@ export interface components {
              * Format: date-time
              */
             bumped_at: string;
+            /**
+             * Archived
+             * @default false
+             */
+            archived: boolean;
+            /**
+             * Closed Reason
+             * @default
+             */
+            closed_reason: string;
+            /**
+             * Volume
+             * @default 0
+             */
+            volume: number;
             /** Posts */
             posts: components["schemas"]["FoPost"][];
         };
@@ -10990,6 +11100,20 @@ export interface components {
             actions: {
                 [key: string]: unknown;
             }[];
+        };
+        /** WsForumOptions */
+        WsForumOptions: {
+            /** Sections */
+            sections: components["schemas"]["WsPick"][];
+            /** Characters */
+            characters: components["schemas"]["WsPick"][];
+        };
+        /** WsPick */
+        WsPick: {
+            /** Id */
+            id: string;
+            /** Label */
+            label: string;
         };
         /** WsContribution */
         WsContribution: {
@@ -18349,6 +18473,32 @@ export interface operations {
             };
         };
     };
+    studio_api_forum_make_chronicle: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FoChronicle"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FoChronicleOut"];
+                };
+            };
+        };
+    };
     studio_api_forum_topics: {
         parameters: {
             query?: {
@@ -18967,6 +19117,26 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ChErrors"];
+                };
+            };
+        };
+    };
+    studio_api_worldstate_forum_options: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WsForumOptions"];
                 };
             };
         };

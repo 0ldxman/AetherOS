@@ -3,6 +3,7 @@
   import { api, problem, type Schemas } from "../../lib/api";
   import AccessBuilder from "../../lib/AccessBuilder.svelte";
   import Hint from "../../lib/Hint.svelte";
+  import Rotation from "./Rotation.svelte";
   import { ask } from "../../lib/confirm.svelte";
   import { canAct } from "../../lib/me.svelte";
   import { toast } from "../../lib/toast.svelte";
@@ -11,7 +12,7 @@
     space: Schemas["FoSpaceOut"]; editable: boolean; onsaved: (s: Schemas["FoSpaceOut"]) => void; ondeleted: () => void;
   } = $props();
 
-  const pick = (s: Schemas["FoSpaceOut"]) => ({ title: s.title, about: s.about, order: s.order, read_if: s.read_if, write: s.write, write_if: s.write_if, create: s.create, create_if: s.create_if, machines: [...s.machines] });
+  const pick = (s: Schemas["FoSpaceOut"]) => ({ title: s.title, about: s.about, order: s.order, read_if: s.read_if, write: s.write, write_if: s.write_if, create: s.create, create_if: s.create_if, machines: [...s.machines], rotation: { ...s.rotation } });
   // экран пересоздаётся при смене пространства ({#key}), поэтому начальное значение здесь верно
   // svelte-ignore state_referenced_locally
   let form = $state(pick(space));
@@ -74,6 +75,8 @@
     <select class="field" bind:value={form.create} disabled={!editable}><option value="players">Игроки</option><option value="authors">Только авторы</option></select></label>
   <div class="row"><span class="label">Условие создания<Hint text="Дополнительное условие для игроков, создающих разделы. Пусто: без него." /></span>
     <AccessBuilder bind:value={form.create_if} bad={!!errors.create_if} />{#if errors.create_if}<span class="error small">{errors.create_if}</span>{/if}</div>
+
+  <Rotation bind:value={form.rotation} inherited={space.rotation_defaults} {editable} error={errors.rotation} />
 
   <label class="row narrow"><span class="label">Порядок в списке</span><input class="field" type="number" bind:value={form.order} disabled={!editable} /></label>
 
