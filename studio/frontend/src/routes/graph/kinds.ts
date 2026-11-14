@@ -15,7 +15,19 @@ export const BOXES = ["group", "scenario"];
 
 export const REF = "ref";
 export const TIMEOUT = "timeout";
-export const COLORS: Record<string, string> = { noun: "#3f8f86", flow: "#a7793a", action: "#4d6fc4", service: "#5b6170" };
+export const COLORS: Record<string, string> = { noun: "#3f8f86", flow: "#a7793a", action: "#4d6fc4", struct: "#7a5aa8", service: "#5b6170" };
+
+// Типы сокетов: цвет у точки и провода. event — «случилось» (поток), остальные — вещи, которые едут по ◆-проводу.
+export const TYPES: Record<string, { label: string; color: string }> = {
+  event: { label: "Событие", color: "#e6e8ec" },
+  item: { label: "Файл", color: "#ed9e40" },
+  character: { label: "Персонаж", color: "#c792ea" },
+  section: { label: "Раздел", color: "#5fd0a0" },
+  flag: { label: "Метка игрока", color: "#f2c66d" },
+  world_flag: { label: "Метка мира", color: "#ff8f6b" },
+  counter: { label: "Счётчик", color: "#8fb3ff" },
+};
+export const typeColor = (type: string) => TYPES[type]?.color ?? TYPES.event.color;
 
 function items(data: Record<string, unknown>, field: string): unknown[] {
   const value = data[field];

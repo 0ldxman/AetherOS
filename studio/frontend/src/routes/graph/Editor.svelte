@@ -17,7 +17,7 @@
   import FrameNode from "./FrameNode.svelte";
   import GraphNode from "./GraphNode.svelte";
   import NodePanel from "./NodePanel.svelte";
-  import { BOXES, REF, defaults, freeId, ifaceOfLevel, insOf, summaryOf, type Catalog, type Doc, type GNode, type GWire, type Group, type Iface, type Kind, type Level } from "./kinds";
+  import { BOXES, REF, TYPES, typeColor, defaults, freeId, ifaceOfLevel, insOf, summaryOf, type Catalog, type Doc, type GNode, type GWire, type Group, type Iface, type Kind, type Level } from "./kinds";
 
   let { id }: { id: number } = $props();
   type Detail = Schemas["GrDetail"];
@@ -278,7 +278,11 @@
                     width: kind.name === "frame" ? n.w ?? 420 : undefined, height: kind.name === "frame" ? n.h ?? 260 : undefined,
                     data: { title: String(n.data.title ?? n.data.text ?? ""), note: kind.name === "note", onresize: (w: number, h: number) => patchNode(n.id, { w: Math.round(w), h: Math.round(h) }) } } satisfies Node];
         }
-        const refFields = kind.group === "action" ? kind.fields.filter((f) => catalog!.ref_kinds[f.kind]).map((f) => ({ name: f.name, label: f.label })) : [];
+        const refFields = kind.group === "action" ? kind.fields.filter((f) => catalog!.ref_kinds[f.kind]).map((f) => {
+          const raw = n.data[f.name];
+          const shown = raw === undefined || raw === null || raw === "" ? "" : (picks[f.kind]?.find((o) => o.value === String(raw))?.label ?? String(raw));
+          return { name: f.name, label: f.label, type: catalog!.ref_kinds[f.kind], value: shown.split(" · ")[0] };
+        }) : [];
         const inner = n.type === "group" ? String(n.data.group ?? "") : "";
         const boxStat = BOXES.includes(n.type) && live ? Object.entries(live.nodes).filter(([k]) => k.startsWith(`${prefix}${n.id}/`))
           .reduce((acc, [, v]) => ({ hits: Math.max(acc.hits, v.hits), players: Math.max(acc.players, v.players), waiting: acc.waiting + v.waiting,
@@ -293,8 +297,9 @@
                   usedIn: wires.filter((w) => w.to === n.id).map((w) => w.in) },
         } satisfies Node];
       });
+      const typeOf = (nodeId: string) => kindOf(list.find((x) => x.id === nodeId)?.type ?? "")?.ref ?? "";
       edges = wires.map((w) => ({ id: w.id || `${w.from}.${w.out}-${w.to}.${w.in}`, source: w.from, sourceHandle: w.out, target: w.to, targetHandle: w.in,
-                                  class: w.out === REF ? "ref" : w.out === "fail" || w.out === "timeout" ? "bad" : "" }) satisfies Edge);
+                                  class: w.out === REF ? "ref" : "", style: `stroke: ${w.out === REF ? typeColor(typeOf(w.from)) : TYPES.event.color}` }) satisfies Edge);
     });
   });
 
@@ -439,6 +444,9 @@
           <FitOnce />
           <Background gap={24} />
           <Controls showLock={false} />
+          <Panel position="bottom-center">
+            <div class="legend">{#each Object.entries(TYPES) as [key, t] (key)}<span><i class:thing={key !== "event"} style="--c: {t.color}"></i>{t.label}</span>{/each}</div>
+          </Panel>
           <MiniMap pannable zoomable bgColor="#15171c" nodeColor="#2a2e37" maskColor="rgba(0, 0, 0, 0.5)" />
           <Panel position="top-left">
             {#if editable}<button class="btn" onclick={(e) => (menu = { x: e.clientX, y: e.clientY + 30, from: null })}>+ Нода</button>{/if}
@@ -523,8 +531,12 @@
   .problem .mono { font-size: 11.5px; opacity: 0.85; }
   .map :global(.svelte-flow) { --xy-background-color: var(--bg); --xy-edge-stroke: #c9ced6; --xy-edge-stroke-width: 1.6; --xy-controls-button-background-color: var(--panel-2);
                                --xy-controls-button-border-color: var(--line); --xy-controls-button-color: var(--text); }
-  .map :global(.svelte-flow__edge.ref path) { stroke: #c792ea; stroke-dasharray: 5 4; }
-  .map :global(.svelte-flow__edge.bad path) { stroke: var(--warn); }
+  .map :global(.svelte-flow__edge.ref path) { stroke-dasharray: 5 4; }
+  .legend { display: flex; flex-wrap: wrap; gap: 4px 12px; padding: 4px 10px; border-radius: var(--radius-s); background: color-mix(in srgb, var(--panel) 85%, transparent);
+            color: var(--muted); font-size: 11px; }
+  .legend span { display: inline-flex; align-items: center; gap: 5px; }
+  .legend i { width: 8px; height: 8px; border-radius: 50%; border: 2px solid var(--c); background: var(--c); }
+  .legend i.thing { border-radius: 1px; transform: rotate(45deg); width: 7px; height: 7px; }
   .map :global(.svelte-flow__edge.selected path) { stroke: var(--accent); stroke-width: 3; }
   .map :global(.svelte-flow__node) { border: 0; padding: 0; background: none; width: auto; }
 </style>
