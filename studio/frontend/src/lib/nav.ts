@@ -37,6 +37,7 @@ export const GROUPS: NavGroup[] = [
       { href: "#/time", label: "Время", section: ["time"], right: "world", icon: "clock" },
       { href: "#/world-state", label: "Состояние мира", section: ["worldstate"], right: "world", icon: "flag" },
       { href: "#/rules", label: "Правила", section: ["rules"], right: "world", icon: "zap" },
+      { href: "#/links", label: "Связи", section: ["links"], right: "world", icon: "link" },
       { href: "#/map", label: "Карта", section: ["map"], right: "map", icon: "map" },
       { href: "#/scenes", label: "Сцены", section: ["scenes"], right: "scenes", icon: "scenes" },
       { href: "#/policies", label: "Политики входа", section: ["policies"], right: "policies", icon: "policies" },

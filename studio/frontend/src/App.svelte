@@ -19,6 +19,7 @@
   import Time from "./routes/Time.svelte";
   import WorldState from "./routes/WorldState.svelte";
   import Rules from "./routes/Rules.svelte";
+  import Links from "./routes/Links.svelte";
   import Scenes from "./routes/Scenes.svelte";
   import Formats from "./routes/Formats.svelte";
   import Encodings from "./routes/Encodings.svelte";
@@ -63,6 +64,7 @@
     | { name: "time" }
     | { name: "worldstate" }
     | { name: "rules" }
+    | { name: "links" }
     | { name: "formats"; id: string | null }
     | { name: "encodings"; id: string | null }
     | { name: "map"; tab: string; id: number | null }
@@ -100,6 +102,7 @@
     if (match("/time", route.path)) return { name: "time" };
     if (match("/world-state", route.path)) return { name: "worldstate" };
     if (match("/rules", route.path)) return { name: "rules" };
+    if (match("/links", route.path)) return { name: "links" };
     if ((found = match("/formats/:id", route.path))) return { name: "formats", id: decodeURIComponent(found.id) };
     if (match("/formats", route.path)) return { name: "formats", id: null };
     if ((found = match("/encodings/:id", route.path))) return { name: "encodings", id: decodeURIComponent(found.id) };
@@ -263,6 +266,8 @@
       <WorldState />
     {:else if page.name === "rules"}
       <Rules />
+    {:else if page.name === "links"}
+      <Links />
     {:else if page.name === "formats"}
       <Formats name={page.id} />
     {:else if page.name === "encodings"}

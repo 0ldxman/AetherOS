@@ -14418,6 +14418,38 @@
     ]
    }
   },
+  "/studio/api/engine/links": {
+   "get": {
+    "operationId": "studio_api_engine_links",
+    "summary": "Links",
+    "parameters": [],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "items": {
+          "$ref": "#/components/schemas/EnLink"
+         },
+         "title": "Response",
+         "type": "array"
+        }
+       }
+      }
+     }
+    },
+    "description": "Карта связей: что где требуется и что где выдаётся, с разрывами (engine/links.py).",
+    "tags": [
+     "engine"
+    ],
+    "security": [
+     {
+      "StudioAuth": []
+     }
+    ]
+   }
+  },
   "/studio/api/world/rules": {
    "get": {
     "operationId": "studio_api_rules_rule_list",
@@ -31510,6 +31542,81 @@
      "label"
     ],
     "title": "EnOption",
+    "type": "object"
+   },
+   "EnLink": {
+    "properties": {
+     "kind": {
+      "title": "Kind",
+      "type": "string"
+     },
+     "name": {
+      "title": "Name",
+      "type": "string"
+     },
+     "level": {
+      "title": "Level",
+      "type": "string"
+     },
+     "problem": {
+      "title": "Problem",
+      "type": "string"
+     },
+     "required": {
+      "items": {
+       "$ref": "#/components/schemas/EnPlace"
+      },
+      "title": "Required",
+      "type": "array"
+     },
+     "granted": {
+      "items": {
+       "$ref": "#/components/schemas/EnPlace"
+      },
+      "title": "Granted",
+      "type": "array"
+     },
+     "manual": {
+      "items": {
+       "$ref": "#/components/schemas/EnPlace"
+      },
+      "title": "Manual",
+      "type": "array"
+     }
+    },
+    "required": [
+     "kind",
+     "name",
+     "level",
+     "problem",
+     "required",
+     "granted",
+     "manual"
+    ],
+    "title": "EnLink",
+    "type": "object"
+   },
+   "EnPlace": {
+    "properties": {
+     "what": {
+      "title": "What",
+      "type": "string"
+     },
+     "label": {
+      "title": "Label",
+      "type": "string"
+     },
+     "href": {
+      "title": "Href",
+      "type": "string"
+     }
+    },
+    "required": [
+     "what",
+     "label",
+     "href"
+    ],
+    "title": "EnPlace",
     "type": "object"
    },
    "RuEventKind": {

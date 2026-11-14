@@ -4654,6 +4654,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/studio/api/engine/links": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Links
+         * @description Карта связей: что где требуется и что где выдаётся, с разрывами (engine/links.py).
+         */
+        get: operations["studio_api_engine_links"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/studio/api/world/rules": {
         parameters: {
             query?: never;
@@ -11584,6 +11604,32 @@ export interface components {
             value: string;
             /** Label */
             label: string;
+        };
+        /** EnLink */
+        EnLink: {
+            /** Kind */
+            kind: string;
+            /** Name */
+            name: string;
+            /** Level */
+            level: string;
+            /** Problem */
+            problem: string;
+            /** Required */
+            required: components["schemas"]["EnPlace"][];
+            /** Granted */
+            granted: components["schemas"]["EnPlace"][];
+            /** Manual */
+            manual: components["schemas"]["EnPlace"][];
+        };
+        /** EnPlace */
+        EnPlace: {
+            /** What */
+            what: string;
+            /** Label */
+            label: string;
+            /** Href */
+            href: string;
         };
         /** RuEventKind */
         RuEventKind: {
@@ -19853,6 +19899,26 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["EnCatalog"];
+                };
+            };
+        };
+    };
+    studio_api_engine_links: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnLink"][];
                 };
             };
         };

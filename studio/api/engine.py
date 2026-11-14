@@ -70,3 +70,29 @@ def catalog(request):
     from engine import actions
 
     return EnCatalog(actions=actions.catalog(), picks=_picks())
+
+
+class EnPlace(Schema):
+    what: str
+    label: str
+    href: str
+
+
+class EnLink(Schema):
+    kind: str
+    name: str
+    level: str
+    problem: str
+    required: list[EnPlace]
+    granted: list[EnPlace]
+    manual: list[EnPlace]
+
+
+@router.get("/links", response=list[EnLink])
+def links(request):
+    """Карта связей: что где требуется и что где выдаётся, с разрывами (engine/links.py)."""
+    from engine import links as found
+
+    convert = lambda places: [EnPlace(what=p.what, label=p.label, href=p.href) for p in places]      # noqa: E731
+    return [EnLink(kind=row.kind, name=row.name, level=row.level, problem=row.problem, required=convert(row.required),
+                   granted=convert(row.granted), manual=convert(row.manual)) for row in found.analyze()]
