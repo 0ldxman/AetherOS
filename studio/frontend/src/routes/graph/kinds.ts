@@ -111,10 +111,10 @@ export function titleOf(kind: Kind, data: Record<string, unknown>): string {
 
 // вход поля есть в выбранном режиме (kind.when); подключённые показываются всегда — это решает нода
 export function inWhen(kind: Kind, data: Record<string, unknown>, name: string): boolean {
-  const rule = (kind.when ?? []).find((w) => w.field === name);
-  if (!rule) return true;
-  const mode = kind.fields.find((f) => f.name === rule.mode);
-  return rule.values.includes(String(data[rule.mode] ?? mode?.options[0]?.value ?? ""));
+  return (kind.when ?? []).filter((w) => w.field === name).every((rule) => {
+    const mode = kind.fields.find((f) => f.name === rule.mode);
+    return rule.values.includes(String(data[rule.mode] ?? mode?.options[0]?.value ?? ""));
+  });
 }
 
 // ---- растущий список входов (подстановки шаблона, входы «Логики») ----

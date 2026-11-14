@@ -80,6 +80,21 @@ def read(run, kind, key, out):
     return _blank(kind, out) if not found else found.get(out, _blank(kind, out))
 
 
+def value(run, kind, data, out):
+    """«Тег» и «Счётчик»: значение владельца (мир, игрок, вещь; у вещи — общее или для игрока)."""
+    from engine import values
+
+    try:
+        owner, oid, user = values.target(data, getattr(run, "user", None))
+        name = values.check_name(data.get("name"))
+    except values.BadValue:
+        return _blank(kind, out)
+    if kind.name == "ent:tag":
+        return values.on(owner, oid, name, user)
+    number = values.get(values.COUNT, owner, oid, name, user)
+    return values.caption(values.COUNT, owner, oid, name, number) if out == "caption" else number
+
+
 def files(run, kind, item, player, machine, out):
     """«Файлы игрока»: есть ли у игрока объект, где лежит, сколько копий, в корзине ли, правил ли он его."""
     from filesystem.copies import copies

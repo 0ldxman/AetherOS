@@ -34,7 +34,7 @@
     return inWhen(kind, values, f.name);
   };
   const fields = $derived(socketFields(kind).filter((f) => data.usedIn.includes(`f:${f.name}`) || (!hide && inMode(f))));
-  const params = $derived(hide ? [] : propFields(kind));
+  const params = $derived(hide ? [] : propFields(kind).filter((f) => inWhen(kind, values, f.name)));
   // растущий список: подстановки шаблона («имя» + значение) или входы «Логики» (A, B, C…)
   const grow = $derived(kind.grow ?? null);
   const rows = $derived(visibleRows(kind, values).filter((r) => !hide || data.usedIn.includes(`f:${r.id}`)));

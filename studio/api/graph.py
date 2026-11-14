@@ -73,6 +73,7 @@ class GrKind(Schema):
     title: str = ""
     grow: GrGrow | None = None
     when: list[GrWhen] = []
+    hidden: bool = False
 
 
 class GrGroup(Schema):

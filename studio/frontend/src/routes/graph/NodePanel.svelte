@@ -3,7 +3,7 @@
   import { api, problem } from "../../lib/api";
   import { engine } from "../../lib/engine.svelte";
   import { toast } from "../../lib/toast.svelte";
-  import { TYPES, type Catalog, type Field, type GNode, type Kind } from "./kinds";
+  import { TYPES, inWhen, type Catalog, type Field, type GNode, type Kind } from "./kinds";
 
   let { node, kind, catalog, waiting, fed, problems, stat, statKey, graphId, editable, onchange, onremove, onstarted, groupTitle = null, ongrouptitle, onenter }: {
     node: GNode; kind: Kind; catalog: Catalog; waiting: boolean; fed: Record<string, string>; problems: { text: string; level: string }[];
@@ -57,7 +57,7 @@
   });
   const MONTHS = ["янв", "фев", "мар", "апр", "мая", "июн", "июл", "авг", "сен", "окт", "ноя", "дек"];
   const when = (iso: string) => { const d = new Date(iso); return `${d.getDate()} ${MONTHS[d.getMonth()]}, ${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`; };
-  const shown = (f: Field) => f.kind !== "hidden" && !(kind.name === "wait" && ((f.name === "minutes" && (data.mode ?? "delay") !== "delay") || (f.name === "at" && data.mode !== "until")
+  const shown = (f: Field) => f.kind !== "hidden" && inWhen(kind, data, f.name) && !(kind.name === "wait" && ((f.name === "minutes" && (data.mode ?? "delay") !== "delay") || (f.name === "at" && data.mode !== "until")
                                   || (f.name === "condition" && data.mode !== "condition") || (f.name === "timeout" && data.mode !== "condition")))
                               && !(kind.name === "time" && f.name === "date" && data.mode !== "once");
 </script>

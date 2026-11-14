@@ -12063,6 +12063,11 @@ export interface components {
              * @default []
              */
             when: components["schemas"]["GrWhen"][];
+            /**
+             * Hidden
+             * @default false
+             */
+            hidden: boolean;
         };
         /** GrMany */
         GrMany: {

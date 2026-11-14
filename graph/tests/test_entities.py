@@ -1,5 +1,4 @@
 """Ноды сущностей и «Файлы игрока»."""
-from engine import values as store
 from types import SimpleNamespace
 
 from django.contrib.auth import get_user_model
@@ -52,7 +51,9 @@ class EntityTests(TestCase):
                      [wire("m", "fire", "a"), f("t", "value", "e", "machine"), f("e", "host", "a", "name")])
         self.assertEqual([p for p in check.problems(graph.doc) if p["level"] == "error"], [])
         runtime.start_manual(graph, "m")
-        self.assertTrue(store.on("world", 0, "core"))
+        from engine import values
+
+        self.assertTrue(values.on("world", 0, "core"))
 
     def test_entity_type_is_checked(self):
         graph = make([node("c", "ent:character"), node("e", "ent:machine")], [f("c", "value", "e", "machine")])
@@ -93,3 +94,44 @@ class PlayerFilesTests(TestCase):
         petr = get_user_model().objects.create_user("petr")
         self.assertFalse(one("files", SimpleNamespace(user=petr, state={}), item=self.note.slug)("has"))
         self.assertTrue(one("files", None, item=self.note.slug, player="ivan")("has"))
+
+
+class TagCountTests(TestCase):
+    def setUp(self):
+        from engine import values
+
+        self.values = values
+        self.ivan = get_user_model().objects.create_user("ivan")
+        self.olga = get_user_model().objects.create_user("olga")
+        self.core = Machine.objects.create(name="Core", hostname="core")
+        self.run = SimpleNamespace(user=self.ivan, state={})
+
+    def test_actions_write_and_nodes_read(self):
+        graph = make([node("m", "manual"), node("e", "ent:machine", machine="core"),
+                      node("t", "do:tag", owner="machine", scope="player", name="hacked"),
+                      node("c", "do:count", owner="world", name="alarm", delta=2),
+                      node("p", "do:count", owner="player", mode="set", name="hints", value=5)],
+                     [wire("m", "fire", "t"), wire("m", "fire", "c"), wire("m", "fire", "p"), f("e", "value", "t", "machine")])
+        self.assertEqual([p for p in check.problems(graph.doc) if p["level"] == "error"], [])
+        runtime.start_manual(graph, "m", self.ivan)
+        v = self.values
+        self.assertTrue(v.on("machine", self.core.pk, "hacked", self.ivan))
+        self.assertFalse(v.on("machine", self.core.pk, "hacked"))
+        self.assertEqual(v.get("count", "world", 0, "alarm"), 2)
+        self.assertEqual(v.get("count", "player", self.ivan.pk, "hints"), 5)
+        self.assertTrue(one("ent:tag", self.run, owner="machine", machine="core", scope="player", name="hacked")("on"))
+        self.assertFalse(one("ent:tag", SimpleNamespace(user=self.olga, state={}), owner="machine", machine="core", scope="player",
+                             name="hacked")("on"))
+        self.assertTrue(one("ent:tag", None, owner="machine", machine="core", scope="player", **{"for": "ivan"}, name="hacked")("on"))
+        self.assertEqual(one("ent:count", self.run, owner="player", name="hints")("value"), 5)
+        v.describe("count", "world", "alarm", labels={"2": "Тревога"})
+        self.assertEqual(one("ent:count", None, owner="world", name="alarm")("caption"), "Тревога")
+        self.assertEqual(one("ent:count", None, owner="machine", machine="nowhere", name="x")("value"), 0)
+
+    def test_old_kinds_are_hidden_but_still_work(self):
+        from graph import nodes
+
+        kinds = {k["name"]: k for k in nodes.catalog()["kinds"]}
+        self.assertTrue(kinds["do:flag"]["hidden"] and kinds["read"]["hidden"])
+        self.assertFalse(kinds["do:tag"]["hidden"])
+        self.assertIn({"field": "for", "mode": "scope", "values": ["player"]}, kinds["ent:tag"]["when"])

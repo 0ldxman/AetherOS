@@ -400,6 +400,8 @@ def value_of(run, doc, node_id, out, depth=0):
 
         if kind.name == "files":
             return entities.files(run, kind, get("item"), get("player"), get("machine"), out)
+        if kind.name in ("ent:tag", "ent:count"):
+            return entities.value(run, kind, {f.name: get(f.name) for f in kind.fields}, out)
         return entities.read(run, kind, get(kind.fields[0].name), out)
     if kind.group != N.DATA:
         return None

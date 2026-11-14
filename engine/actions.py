@@ -591,6 +591,45 @@ def _character_tag(action, ctx):
     values.set_tag("character", character.pk, tag, (action.get("mode") or "add") == "add", source=ctx.source, actor=ctx.user, _depth=ctx.depth)
 
 
+OWNER_FIELDS = (
+    Field("owner", "Владелец", "select", "", False, (("world", "мир"), ("player", "игрок"), ("character", "персонаж"), ("machine", "машина"),
+                                                     ("server", "сервер"), ("object", "объект"))),
+    Field("who", "Игрок", "player", "игрок прохождения"), Field("character", "Персонаж", "character"), Field("machine", "Машина", "machine"),
+    Field("server", "Сервер", "server"), Field("item", "Объект", "object"),
+    Field("scope", "Чьё", "select", "", False, (("shared", "общее"), ("player", "для игрока"))),
+    Field("for", "Для игрока", "player", "игрок прохождения"),
+)
+
+
+def _tag(action, ctx):
+    from engine import values
+
+    owner, oid, user = values.target(action, ctx.user)
+    values.set_tag(owner, oid, action.get("name") or "", (action.get("mode") or "on") == "on", user=user, source=ctx.source, actor=ctx.user,
+                   _depth=ctx.depth)
+
+
+def _count(action, ctx):
+    from engine import values
+
+    owner, oid, user = values.target(action, ctx.user)
+    if action.get("mode") == "set":
+        values.put(owner, oid, action.get("name") or "", _int(action.get("value"), 0, -10**9), user=user, source=ctx.source, actor=ctx.user,
+                   _depth=ctx.depth)
+    else:
+        values.add(owner, oid, action.get("name") or "", _int(action.get("delta"), 1, -10**9), user=user, source=ctx.source, actor=ctx.user,
+                   _depth=ctx.depth)
+
+
+register(Spec("tag", "Тег", WORLD, "Теги и счётчики", "{mode} тег {owner} {name}",
+              (Field("mode", "Что сделать", "select", "", False, (("on", "поставить"), ("off", "снять"))), *OWNER_FIELDS,
+               Field("name", "Тег", "text", "", True)), run=_tag))
+register(Spec("count", "Счётчик", WORLD, "Теги и счётчики", "{mode} счётчик {owner} {name} {delta}{value}",
+              (Field("mode", "Что сделать", "select", "", False, (("add", "прибавить"), ("set", "задать"))), *OWNER_FIELDS,
+               Field("name", "Счётчик", "text", "", True), Field("delta", "Сколько прибавить", "number", "1"), Field("value", "Задать значение", "number")),
+              run=_count))
+
+
 register(Spec("machine_power", "Изменить машину", WORLD, "Машины", "{host}: {state}",
               (Field("host", "Машина", "machine", "", True),
                Field("state", "Что сделать", "select", "", False, (("stop", "остановить"), ("start", "запустить"), ("reboot", "перезагрузить"))),

@@ -17,7 +17,7 @@
   const groupLabel = (name: string) => catalog.groups.find((g) => g.name === name)?.label ?? name;
   const found = $derived.by(() => {
     const q = query.trim().toLowerCase();
-    return catalog.kinds.filter((k) => (!filter || filter(k)) && (!q || `${k.label} ${k.subgroup} ${groupLabel(k.group)}`.toLowerCase().includes(q)));
+    return catalog.kinds.filter((k) => !k.hidden && (!filter || filter(k)) && (!q || `${k.label} ${k.subgroup} ${groupLabel(k.group)}`.toLowerCase().includes(q)));
   });
   const sections = $derived.by(() => {
     const out: { title: string; kinds: Kind[] }[] = [];

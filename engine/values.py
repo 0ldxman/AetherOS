@@ -82,6 +82,38 @@ def owner_key(owner, pk):
     return model.objects.filter(pk=pk).values_list(field, flat=True).first() or str(pk)
 
 
+THING_FIELDS = {"character": "character", "machine": "machine", "server": "server", "object": "item", PLAYER: "who"}
+
+
+def _user(who):
+    if hasattr(who, "pk"):
+        return who
+    from django.contrib.auth import get_user_model
+
+    return get_user_model().objects.filter(username__iexact=str(who).strip()).first()
+
+
+def target(data, player=None):
+    """(владелец, номер вещи, игрок или None) по полям ноды или действия: owner, вещь (character, machine, server, item, who),
+    scope «player» — своё у игрока for (пусто — игрок прохождения player). Нет вещи или игрока — BadValue."""
+    owner = _check_owner(data.get("owner") or WORLD)
+    oid = 0
+    if owner != WORLD:
+        thing = data.get(THING_FIELDS[owner])
+        if owner == PLAYER and thing in (None, ""):
+            thing = player
+        oid = owner_id(owner, thing)
+        if oid is None:
+            raise BadValue(f"нет вещи: {OWNERS[owner]} {thing if isinstance(thing, str) else ''}".strip())
+    user = None
+    if owner not in (WORLD, PLAYER) and data.get("scope") == "player":
+        who = data.get("for")
+        user = _user(who) if who not in (None, "") else player
+        if user is None:
+            raise BadValue("нет игрока: значение «для игрока»")
+    return owner, oid, user
+
+
 # ---------- чтение ----------
 
 def _rows(owner, oid, user_id):

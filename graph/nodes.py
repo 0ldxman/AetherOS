@@ -6,7 +6,7 @@
 action — действия движка (engine/actions.py), service — служебные.
 """
 import fnmatch
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 
 from engine.actions import Field
 
@@ -104,7 +104,8 @@ class Kind:
     spec: object = None                 # у действий: engine.actions.Spec
     title: str = ""                     # поле-режим, подпись выбранного варианта — заголовок ноды (как у Math в Blender)
     grow: object = None                 # Grow: растущий список входов
-    when: dict = field(default_factory=dict)         # поле -> (поле-режим, значения): вход есть только в этих режимах
+    when: dict = field(default_factory=dict)         # поле -> (поле-режим, значения) или список таких пар: вход есть только в этих режимах
+    hidden: bool = False                # старая нода: работает в готовых сценариях, но в меню её нет
 
 
 KINDS = {}
@@ -356,6 +357,14 @@ REF_KINDS = {"item": "item", "key": "item", "letter": "item", "character": "char
              "world_flag": "world_flag", "counter": "counter"}      # вид поля действия -> вид ссылки, которую оно принимает
 
 
+THINGS_OF = ("character", "machine", "server", "object")
+OWNER_WHEN = {"who": ("owner", ("player",)), "character": ("owner", ("character",)), "machine": ("owner", ("machine",)),
+              "server": ("owner", ("server",)), "item": ("owner", ("object",)), "scope": ("owner", THINGS_OF),
+              "for": (("owner", THINGS_OF), ("scope", ("player",)))}
+ACTION_WHEN = {"tag": OWNER_WHEN, "count": {**OWNER_WHEN, "delta": ("mode", ("add",)), "value": ("mode", ("set",))}}
+LEGACY = {"flag", "unflag", "world_flag", "world_unflag", "world_count", "player_count", "character_tag"}   # теперь «Тег» и «Счётчик»
+
+
 def _actions():
     from engine.actions import HOST, REGISTRY
     from engine.context import SESSION
@@ -364,7 +373,7 @@ def _actions():
         if spec.needs in (HOST, SESSION) or spec.run is None:      # эффекты браузера ждут доставки вне запроса (этап 3)
             continue
         register(Kind("do:" + spec.name, spec.label, ACTION, spec.summary, spec.fields, (Sock("next", "Сделано"), Sock("fail", "Не вышло")),
-                      subgroup=spec.group, spec=spec))
+                      subgroup=spec.group, spec=spec, when=ACTION_WHEN.get(spec.name, {}), hidden=spec.name in LEGACY))
 
 
 _actions()
@@ -421,6 +430,10 @@ HELP = {
     "ent:character": "Персонаж: по коду или имени.", "ent:section": "Раздел форума: по номеру или названию.",
     "ent:moment": "Момент мира: по имени или названию; «Идёт» — сейчас ли он.",
     "ent:player": "Игрок: пусто — игрок прохождения, иначе по логину.",
+    "ent:tag": "Тег владельца: мира, игрока, персонажа, машины, сервера или объекта; у вещи — общий или свой у игрока.",
+    "ent:count": "Счётчик владельца, как у «Тега»; «Подпись» — подпись значения из описания счётчика («2» — «Архив»).",
+    "do:tag": "Поставить или снять тег владельца (мир, игрок, вещь; у вещи — общий или для игрока).",
+    "do:count": "Прибавить к счётчику владельца или задать его.",
     "files": "Где у игрока лежит объект: ищется по самому объекту на машинах, где у игрока есть учётка, поэтому перенос и переименование "
              "его не теряют. «Где» — машина:путь первой копии вне корзины.",
     "do:flag": "Поставить тег игроку (tag:имя).", "do:unflag": "Снять тег игрока.",
@@ -469,7 +482,7 @@ SOCKET_HELP = {
     "name": "имя или название", "host": "хост машины", "system": "код ОС машины", "up": "машина работает (не остановлена)",
     "code": "код персонажа", "active": "персонаж активен", "archived": "раздел в архиве", "running": "момент идёт сейчас",
     "format": "формат объекта", "has": "у игрока есть копия вне корзины", "where": "машина:путь первой копии", "count": "сколько копий вне корзины",
-    "trash": "какая-то копия в корзине", "edited": "игрок поменял текст копии",
+    "trash": "какая-то копия в корзине", "edited": "игрок поменял текст копии", "caption": "подпись значения",
 }
 
 
@@ -527,6 +540,7 @@ _data("read", "Прочитать", "{what} {name}",
       (Field("what", "Что", "select", "", False, (("world_counter", "счётчик мира"), ("player_counter", "счётчик игрока"), ("world_flag", "метка мира"),
                                                   ("player_flag", "метка игрока"))), Field("name", "Имя", "text", "", True)), "number", "Значение")
 DATA_OUTS["read"] = (Sock("value", "Значение", "number"), Sock("lit", "Стоит", "bool"))
+KINDS["read"] = replace(KINDS["read"], hidden=True)                 # теперь «Тег» и «Счётчик»
 
 
 # ---------- сущности: вещь мира и её свойства сейчас (graph/entities.py) ----------
@@ -555,6 +569,16 @@ _entity("ent:player", "Игрок", Field("player", "Игрок", "player", "и�
 register(Kind("files", "Файлы игрока", ENTITY, "{item}", (
     Field("item", "Объект", "object", "", True), Field("player", "Игрок", "player", "игрок прохождения"), Field("machine", "Машина", "machine", "любая"),
 ), ins=()))
+def _value_kind(name, label, outs):
+    from engine.actions import OWNER_FIELDS
+
+    register(Kind(name, label, ENTITY, "{owner} {name}", (*OWNER_FIELDS, Field("name", "Имя", "text", "", True)), ins=(),
+                  subgroup="Теги и счётчики", when=OWNER_WHEN))
+    DATA_OUTS[name] = outs
+
+
+_value_kind("ent:tag", "Тег", (Sock("on", "Стоит", "bool"),))
+_value_kind("ent:count", "Счётчик", (Sock("value", "Значение", "number"), Sock("caption", "Подпись", "text")))
 DATA_OUTS["files"] = (Sock("has", "Есть", "bool"), Sock("where", "Где", "text"), Sock("count", "Копий", "number"),
                       Sock("trash", "В корзине", "bool"), Sock("edited", "Изменён игроком", "bool"))
 
@@ -677,6 +701,8 @@ def catalog():
             "ref": k.ref[0] if k.ref else "", "start_only": k.start_only, "help": HELP.get(k.name, ""), "title": k.title,
             "grow": {"field": k.grow.field, "prefix": k.grow.prefix, "type": k.grow.type, "named": k.grow.named, "min": k.grow.min,
                      "single": list(k.grow.single)} if k.grow else None,
-            "when": [{"field": name, "mode": mode, "values": list(values)} for name, (mode, values) in k.when.items()],
+            "when": [{"field": name, "mode": mode, "values": list(values)} for name, rule in k.when.items()
+                     for mode, values in ([rule] if isinstance(rule[0], str) else rule)],
+            "hidden": k.hidden,
         } for k in sorted(KINDS.values(), key=lambda k: list(GROUPS).index(k.group))],
     }
