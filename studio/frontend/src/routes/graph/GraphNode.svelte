@@ -46,7 +46,7 @@
   </header>
   {#if data.summary}<div class="summary" title={data.summary}>{data.summary}</div>{/if}
   {#each outs as sock (sock.name)}
-    <div class="row out" class:used={data.used.includes(sock.name)} class:bad={sock.name === "fail" || sock.name === "timeout" || sock.name === "late"}>
+    <div class="row out" class:used={data.used.includes(sock.name)} class:bad={sock.name === "fail" || sock.name === "timeout" || sock.name === "late"} class:attempt={sock.name === "attempt"}>
       <span>{sock.label}</span>
       <Handle type="source" position={Position.Right} id={sock.name} class="flow" />
     </div>
@@ -107,4 +107,7 @@
   .row.used :global(.svelte-flow__handle.flow) { background: #d9dde4; }
   .row.bad.used :global(.svelte-flow__handle.flow) { background: var(--warn); border-color: var(--warn); }
   .row.used :global(.svelte-flow__handle.ref) { background: #c792ea; }
+  .row.attempt { color: #e9a86a; }
+  .row.attempt :global(.svelte-flow__handle.flow) { border-color: #e9a86a; border-radius: 2px; transform: translate(50%, -50%) rotate(45deg); }
+  .row.attempt.used :global(.svelte-flow__handle.flow) { background: #e9a86a; }
 </style>

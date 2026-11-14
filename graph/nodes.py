@@ -187,12 +187,12 @@ def _moment(data, out, event):
 
 register(Kind("machine", "Машина", NOUN, "{host} {login}",
               (Field("host", "Машина", "machine", "", True), Field("login", "Учётка", "text", "любая; можно *")),
-              (Sock("login", "Вошёл"), Sock("stopped", "Остановлена"), Sock("started", "Запущена")),
-              events={"login": "machine.login", "stopped": "machine.stopped", "started": "machine.started"}, match=_machine))
+              (Sock("attempt", "◇ Попытка входа"), Sock("login", "Вошёл"), Sock("stopped", "Остановлена"), Sock("started", "Запущена")),
+              events={"attempt": "machine.attempt", "login": "machine.login", "stopped": "machine.stopped", "started": "machine.started"}, match=_machine))
 register(Kind("server", "Сервер сети", NOUN, "{address}/{path}",
               (Field("address", "Сервер", "text", "apollo.com", True), Field("path", "Путь", "text", "любой; можно *")),
-              (Sock("request", "Запросил страницу"), Sock("download", "Скачал файл"), Sock("denied", "Отказ (токен)")),
-              events={"request": "net.request", "download": "net.download", "denied": "net.denied"}, match=_server))
+              (Sock("attempt", "◇ Попытка запроса"), Sock("request", "Запросил страницу"), Sock("download", "Скачал файл"), Sock("denied", "Отказ")),
+              events={"attempt": "net.attempt", "request": "net.request", "download": "net.download", "denied": "net.denied"}, match=_server))
 register(Kind("command", "Команда", NOUN, "{command} {args}",
               (Field("command", "Команда", "text", "decrypt", True), Field("args", "Аргументы", "text", "любые; можно *"),
                Field("host", "Только на машине", "machine", "любой")),
@@ -202,7 +202,8 @@ register(Kind("player_counter", "Счётчик игрока", NOUN, "count:{nam
               (Sock("changed", "Изменился"), Sock("reached", "Достиг порога")),
               events={"changed": "player.counter", "reached": "player.counter"}, match=_player_counter))
 register(Kind("file", "Файл", NOUN, "{item} {path}",
-              (Field("item", "Объект", "object", "любой"), Field("path", "Путь", "text", "любой; можно *"), Field("layer", "Слой", "text", "любой")),
+              (Field("item", "Объект", "object", "любой"), Field("path", "Путь", "text", "любой; можно *"), Field("layer", "Слой", "text", "любой"),
+               Field("override", "Вместо хуков слоя: хуки этого файла не срабатывают, работает граф", "bool")),
               (Sock("read", "Открыл"), Sock("deleted", "Удалил"), Sock("restored", "Вернул из корзины"), Sock("got", "Получил ключ"),
                Sock("joined", "Собрал ключ"), Sock("layer_removed", "Снял слой"), Sock("layer_attempt", "Ошибка на слое"),
                Sock("layer_failed", "Попытки кончились"), Sock(REF, "Файл")),
@@ -268,6 +269,10 @@ register(Kind("race", "Первое из", FLOW, "{count}", (Field("count", "С�
               ins=(), many=(Many("in", "count", "i", "Вход {n}"), Many("out", "count", "o", "Первым {n}"))))
 register(Kind("end", "Конец", FLOW, "{outcome}",
               (Field("outcome", "Исход", "select", "", False, (("passed", "прошёл"), ("failed", "провалил"), ("aborted", "прервано"))),)))
+register(Kind("answer", "Ответить", FLOW, "{mode}",
+              (Field("mode", "Ответ", "select", "", False, (("allow", "впустить"), ("deny", "отказать"), ("block", "заблокировать"), ("default", "как обычно (пароль, ключи, токен)"))),
+               Field("text", "Текст отказа", "text", "node unavailable"), Field("minutes", "Блокировка, мин", "number", "10")),
+              (Sock("next", "Дальше"),)))
 register(Kind("reroute", "Перенаправление", SERVICE, "", (), (Sock("next", ""),)))
 
 

@@ -131,6 +131,48 @@ class BridgeTests(BridgeFixture):
         self.assertEqual(self.depth(), 0)
         self.assertEqual(self.run_command("exit")["exit_code"], 1)               # выходить некуда
 
+    def graph(self, answer, start=True):
+        from graph.models import Graph
+        from graph import runtime
+
+        nodes = [{"id": "m", "type": "machine", "x": 0, "y": 0, "data": {"host": "aether-core", "login": "root"}},
+                 {"id": "a", "type": "answer", "x": 0, "y": 0, "data": answer}]
+        wires = [{"from": "m", "out": "attempt", "to": "a", "in": "in"}]
+        if not start:                                                                # ждущая нода: игрок на этом этапе
+            nodes.append({"id": "s", "type": "manual", "x": 0, "y": 0, "data": {}})
+            wires.append({"from": "s", "out": "fire", "to": "m", "in": "in"})
+        graph = Graph.objects.create(slug=f"g{Graph.objects.count()}", title="g", active=True, doc={"nodes": nodes, "wires": wires})
+        runtime.rebuild_starts(graph)
+        return graph
+
+    def test_a_scenario_lets_in_without_the_password(self):
+        self.graph({"mode": "allow"})
+        data = self.run_command("rcon root@aether-core")
+        self.assertEqual(data["exit_code"], 0)
+        self.assertEqual(self.where().login, "root")
+
+    def test_a_scenario_refuses_and_blocks(self):
+        graph = self.graph({"mode": "deny", "text": "node unavailable"})
+        data = self.run_command("rcon root@aether-core")
+        self.assertIn("node unavailable", data["output"])
+        self.assertEqual(self.depth(), 0)
+        graph.delete()
+        self.graph({"mode": "block", "minutes": 5, "text": "intrusion"})
+        self.assertIn("account locked", self.run_command("rcon root@aether-core")["output"])
+        self.assertEqual(self.where().login, "ivan")
+
+    def test_default_answer_keeps_the_password(self):
+        self.graph({"mode": "default"})
+        self.assertEqual(self.run_command("rcon root@aether-core")["prompt"]["kind"], "password")
+
+    def test_waiting_node_of_the_player_answers_first(self):
+        from graph import runtime
+
+        self.graph({"mode": "deny", "text": "start says no"})
+        waiting = self.graph({"mode": "allow"}, start=False)
+        runtime.start_manual(waiting, "s", self.user)
+        self.assertEqual(self.run_command("rcon root@aether-core")["exit_code"], 0)
+
     def test_unknown_host_and_account_are_named(self):
         self.assertIn("could not resolve host", self.run_command("rcon guest@nowhere")["output"])
         self.assertIn("no such account", self.run_command("rcon stranger@aether-core")["output"])

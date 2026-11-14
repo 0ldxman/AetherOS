@@ -111,6 +111,9 @@ class EntryCommand(BaseCommand):
         if isinstance(found, CommandResult):
             return found
         profile, slugs = found
+        decided = self._scenario(context, profile, login, host, args)
+        if decided is not None:
+            return decided
         refusal = self._gate(context, profile, login, host)
         if refusal is not None:
             return refusal
@@ -144,6 +147,29 @@ class EntryCommand(BaseCommand):
         if found.profile.pk == context.profile.pk:
             return CommandResult(f"{self.name}: already on this account", 1)
         return found.profile, slugs
+
+    def _scenario(self, context, profile, login, host, args):
+        """Сценарий отвечает на попытку входа (нода «Ответить»): впустить, отказать, заблокировать. None — решают поля учётки."""
+        from graph import runtime
+
+        answer = runtime.attempt("machine.attempt", context.user, host=profile.machine.hostname or "", login=profile.login,
+                                 source=context.machine.hostname or "")
+        if answer is None:
+            return None
+        if answer["mode"] == "allow":
+            return self._admit(context, profile, args, "graph")
+        if answer["mode"] == "block":
+            from datetime import timedelta
+
+            from django.utils import timezone
+
+            from machines.models import AccountBlock
+
+            AccountBlock.objects.create(profile=profile, user=context.user, until=timezone.now() + timedelta(minutes=answer["minutes"]), text=answer["text"][:255])
+            entry.record(profile, context.user, LoginEvent.Kind.GRAPH, _source(context), "block")
+            return _locked(profile, login, answer["minutes"] * 60, answer["text"], f"{self.name}: {login}@{host}: ")
+        entry.record(profile, context.user, LoginEvent.Kind.GRAPH, _source(context), "deny")
+        return _denied(profile, profile.machine.system, host, f"{profile.freq:.3f} MHz", answer["text"])
 
     def _gate(self, context, profile, login, host):
         """Отказ политики входа (блокировка, источник, маршрут, окно времени) или None."""

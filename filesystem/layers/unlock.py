@@ -43,6 +43,16 @@ def _emit(view, name, **data):
     emit(name, view.user, machine=view.machine, login=view.login or "", **data)
 
 
+def _overridden(view, name, **data):
+    """Сценарий взял это событие файла на себя («Вместо хуков слоя»): хуки слоя молчат."""
+    try:
+        from graph import runtime
+
+        return runtime.overrides(name, view.user, host=getattr(view.machine, "hostname", "") or "", login=view.login or "", **data)
+    except Exception:                               # noqa: BLE001 — без сценария хуки работают как обычно
+        return False
+
+
 def _deliver_mail(user, mails):
     """Письма из хуков: доставляются игроку (почта сама решает, что с несуществующим)."""
     from mail.delivery import deliver_by_slug
@@ -73,13 +83,16 @@ def unlock_file(view, path: str, given=None) -> UnlockResult:
     locked.save(update_fields=["state"])
     view.invalidate()
 
-    ops = apply_file_ops(view, path, outcome.hooks.file_ops)
+    quiet = any(_overridden(view, LAYER_EVENTS[event], path=path, item=_slug(entry), layer=layer)
+                for event in outcome.result.events if event in LAYER_EVENTS)
+    hooks = outcome.hooks
+    ops = [] if quiet else apply_file_ops(view, path, hooks.file_ops)
     final = ops[-1].path if ops and ops[-1].applied and ops[-1].op.kind == "rename" else path
-    mail = _deliver_mail(view.user, outcome.hooks.mails)
+    mail = [] if quiet else _deliver_mail(view.user, hooks.mails)
 
     return UnlockResult(
-        path=final, progress=outcome.state, result=outcome.result, say=outcome.hooks.say, log=outcome.hooks.log, ops=ops,
-        mail=mail, effects=outcome.hooks.effects,
+        path=final, progress=outcome.state, result=outcome.result, say=[] if quiet else hooks.say, log=[] if quiet else hooks.log, ops=ops,
+        mail=mail, effects=[] if quiet else hooks.effects,
     )
 
 
@@ -105,10 +118,11 @@ def fire_file_event(view, path: str, event: str, shown: str | None = None) -> Un
     locked.save(update_fields=["state"])
     view.invalidate()
 
-    ops = apply_file_ops(view, path, fired.hooks.file_ops)
-    mail = _deliver_mail(view.user, fired.hooks.mails)
+    quiet = event in FILE_EVENTS and _overridden(view, FILE_EVENTS[event], path=shown, item=_slug(entry))
+    ops = [] if quiet else apply_file_ops(view, path, fired.hooks.file_ops)
+    mail = [] if quiet else _deliver_mail(view.user, fired.hooks.mails)
 
     return UnlockResult(
-        path=path, progress=fired.state, result=RemoveResult(False), say=fired.hooks.say, log=fired.hooks.log, ops=ops, mail=mail,
-        effects=fired.hooks.effects,
+        path=path, progress=fired.state, result=RemoveResult(False), say=[] if quiet else fired.hooks.say, log=[] if quiet else fired.hooks.log,
+        ops=ops, mail=mail, effects=[] if quiet else fired.hooks.effects,
     )

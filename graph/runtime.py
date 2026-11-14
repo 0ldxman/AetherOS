@@ -28,6 +28,8 @@ DEPTH = 8          # сценарий → действие → событие �
 STEPS = 300        # нод за один проход: защита от цикла без ожидания
 TICK = 15
 _depth = contextvars.ContextVar("graph_depth", default=0)
+_answer = contextvars.ContextVar("graph_answer", default=None)       # попытка ждёт «Ответить»: {"answer": None | {...}}
+ATTEMPTS = ("machine.attempt", "net.attempt")
 _lock = threading.Lock()
 _last = {"at": 0.0}
 
@@ -425,6 +427,14 @@ def _execute(run, doc, node_id, sock):
         return ["next"]
     if name == "launch":
         return [_launch(run, data)]
+    if name == "answer":
+        holder = _answer.get()
+        if holder is None:
+            _log(run.graph, "«Ответить» без попытки: ответ некому", run.user)
+        elif holder.get("answer") is None:
+            minutes = max(1, min(int(data.get("minutes") or 10), 30 * 24 * 60)) if str(data.get("minutes") or "").lstrip("-").isdigit() else 10
+            holder["answer"] = {"mode": data.get("mode") or "allow", "text": _fill(str(data.get("text") or ""), run), "minutes": minutes}
+        return ["next"]
     if name == "wait":
         return _wait(run, doc, node_id)
     if name == "check":
@@ -594,6 +604,9 @@ def dispatch(event):
         return 0
     token = _depth.set(depth + 1)
     touched = 0
+    if event.name in ATTEMPTS:
+        _depth.reset(token)
+        return 0                                     # попытки решает attempt(), не общая рассылка
     try:
         waits = Wait.objects.filter(kind=Wait.Kind.EVENT, event=event.name, run__status=Run.Status.RUNNING, run__graph__active=True)
         if event.user is not None and event.name not in N.GLOBAL_EVENTS:
@@ -616,6 +629,59 @@ def dispatch(event):
     finally:
         _depth.reset(token)
     return touched
+
+
+def attempt(name, user, *, host="", login="", **data):
+    """Игрок стоит у двери: сценарий может решить сразу. Сначала ждущая этого игрока нода (он на этом этапе), потом старт.
+    Возвращает {"mode": allow|deny|block|default, "text", "minutes"} или None (никто не ответил: работают поля вещи)."""
+    from engine.events import _clean
+    from engine.models import Event
+
+    if user is not None and not getattr(user, "is_authenticated", False):
+        user = None
+    holder = {"answer": None}
+    token = _answer.set(holder)
+    try:
+        event = Event.objects.create(name=name, user=user, host=str(host or "")[:64], login=str(login or "")[:64], data=_clean(data))
+        for wait in list(Wait.objects.filter(kind=Wait.Kind.EVENT, event=name, user=user, run__status=Run.Status.RUNNING,
+                                             run__graph__active=True).select_related("run__graph")):
+            doc = doc_of(wait.run.graph)
+            kind = doc.kind(wait.node)
+            if kind is not None and kind.match(doc.data(wait.node), wait.out, event):
+                resume(wait, event)
+                if holder["answer"] is not None:
+                    break
+        if holder["answer"] is None:
+            for row in list(Start.objects.filter(event=name, graph__active=True).select_related("graph")):
+                doc = doc_of(row.graph)
+                kind = doc.kind(row.node)
+                if kind is not None and kind.match(doc.data(row.node), row.out, event):
+                    start(row.graph, row.node, row.out, user, _ctx_of(event), repeat="always")
+                    if holder["answer"] is not None:
+                        break
+    except Exception:                               # noqa: BLE001 — сломанный сценарий: дверь работает как обычно
+        log.exception("graph attempt %s failed", name)
+        return None
+    finally:
+        _answer.reset(token)
+    found = holder["answer"]
+    return None if found is None or found["mode"] == "default" else found
+
+
+def overrides(name, user, *, host="", login="", **data):
+    """Граф перекрывает хуки слоя: ждущая этого игрока нода или старт файла с «Вместо хуков слоя», которые ловят это событие."""
+    from types import SimpleNamespace
+
+    event = SimpleNamespace(name=name, user=user, host=host or "", login=login or "", data=data)
+    rows = [(w.run.graph, w.node, w.out) for w in Wait.objects.filter(kind=Wait.Kind.EVENT, event=name, user=user, run__status=Run.Status.RUNNING,
+                                                                     run__graph__active=True).select_related("run__graph")]
+    rows += [(s.graph, s.node, s.out) for s in Start.objects.filter(event=name, graph__active=True).select_related("graph")]
+    for graph, node_id, out in rows:
+        doc = doc_of(graph)
+        kind, node_data = doc.kind(node_id), doc.data(node_id)
+        if kind is not None and node_data.get("override") and kind.match(node_data, out, event):
+            return True
+    return False
 
 
 def start_manual(graph, node_id, user=None):

@@ -16,12 +16,12 @@ from secure.requestkeys import request_keys
 class Site:
     """Сервер глазами игрока: узлы, которые ему видны по ключам."""
 
-    def __init__(self, resource, keys):
+    def __init__(self, resource, keys, everything=False):
         self.resource = resource
         self.nodes = {
             node.path: node
             for node in resource.nodes.select_related("item")
-            if node.key_condition is None or satisfied(node.key_condition, keys)
+            if everything or node.key_condition is None or satisfied(node.key_condition, keys)
         }
 
     def children(self, path):
@@ -76,15 +76,26 @@ class NetCommand(BaseCommand):
 
             emit(name, context.view.user, machine=context.machine, login=context.view.login or "", address=address, path=path, **data)
 
-        if resource is None or (resource.key_condition is not None and not satisfied(resource.key_condition, keys)):
+        answer = None
+        if resource is not None:
+            from graph import runtime
+
+            answer = runtime.attempt("net.attempt", context.view.user, host=context.machine.hostname or "", login=context.view.login or "",
+                                     address=address, path=path)
+        if answer is not None and answer["mode"] != "allow":
+            event("net.denied", reason="scenario")
+            return CommandResult(f"{self.name}: {answer['text'] or '403 forbidden'}", 1, scene=scenes.refused_scene(system, address))
+        allowed = answer is not None
+
+        if resource is None or (not allowed and resource.key_condition is not None and not satisfied(resource.key_condition, keys)):
             return CommandResult(
                 f"{self.name}: could not resolve host '{address}'", 1, scene=scenes.unreachable_scene(system, address)
             )
 
-        site = Site(resource, keys)
+        site = Site(resource, keys, everything=allowed)
         node = site.nodes.get(path)
         required = [token for token in (resource.token, node.token if node else "") if token]
-        if any(opts["token"] != token for token in required):
+        if not allowed and any(opts["token"] != token for token in required):
             event("net.denied", reason="token")
             return CommandResult(f"{self.name}: 401 unauthorized", 1, scene=scenes.refused_scene(system, address))
 
