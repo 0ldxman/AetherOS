@@ -1,10 +1,10 @@
 """Сценарии-графы в Студии: каталог, сохранение с проверкой, счётчики, кто ждёт, запуск вручную."""
+from engine import values as store
 from django.contrib.auth import get_user_model
 from django.test import TestCase
 
 from graph.models import Graph, Start
 from team.testing import full_role
-from world.models import WorldFlag
 
 URL = "/studio/api/world/graphs"
 
@@ -62,7 +62,7 @@ class GraphApiTests(TestCase):
         graph_id = self.create(active=True).json()["id"]
         response = self.client.post(f"{URL}/{graph_id}/start", {"node": "m", "player": self.ivan.pk}, content_type="application/json")
         self.assertEqual(response.json()["status"], "running")
-        self.assertTrue(WorldFlag.objects.get(name="door").on)
+        self.assertTrue(store.on("world", 0, "door"))
         found = self.client.get(f"{URL}/{graph_id}/stats").json()
         self.assertEqual(found["running"], 1)
         self.assertEqual(found["nodes"]["f"]["waiting"], 1)
