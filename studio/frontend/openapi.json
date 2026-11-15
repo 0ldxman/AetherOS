@@ -32907,6 +32907,17 @@
       "default": "",
       "title": "Typed",
       "type": "string"
+     },
+     "covers": {
+      "additionalProperties": {
+       "items": {
+        "type": "string"
+       },
+       "type": "array"
+      },
+      "default": {},
+      "title": "Covers",
+      "type": "object"
      }
     },
     "required": [

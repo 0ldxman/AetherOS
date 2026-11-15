@@ -38,7 +38,9 @@
     const socket = resolveType(kind, values, f.socket);
     return socket === f.socket ? f : { ...f, socket, kind: isList(socket) ? "list" : PICK[socket] ?? socket };
   };
-  const fields = $derived(socketFields(kind).map(typed).filter((f) => data.usedIn.includes(`f:${f.name}`) || (!hide && inMode(f))));
+  // провод в поле-замену (например «Размещение») прячет поля, которые он заменяет
+  const covered = (f: Field) => Object.entries(kind.covers ?? {}).some(([name, hid]) => hid.includes(f.name) && data.usedIn.includes(`f:${name}`));
+  const fields = $derived(socketFields(kind).map(typed).filter((f) => data.usedIn.includes(`f:${f.name}`) || (!hide && inMode(f) && !covered(f))));
   // выход данных с тем же именем или подписью, что у входа-поля (Машина, Объект, Путь…), стоит в той же строке справа
   const paired = $derived.by(() => {
     const found: Record<string, (typeof outs)[number]> = {};

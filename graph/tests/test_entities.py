@@ -150,3 +150,10 @@ class TagCountTests(TestCase):
         self.assertTrue(kinds["do:tag"]["hidden"])
         self.assertFalse(kinds["act:tag"]["hidden"])
         self.assertIn({"field": "for", "mode": "scope", "values": ["player"]}, kinds["ent:tag"]["when"])
+
+    def test_placement_wire_covers_machine_path_player(self):
+        from graph import nodes
+
+        kinds = {k["name"]: k for k in nodes.catalog()["kinds"]}
+        self.assertEqual(kinds["ent:placement"]["covers"], {"placement": ["machine", "path", "player"]})
+        self.assertEqual(kinds["ent:machine"]["covers"], {})

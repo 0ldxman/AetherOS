@@ -76,6 +76,7 @@ class GrKind(Schema):
     hidden: bool = False
     owned: str = ""
     typed: str = ""
+    covers: dict[str, list[str]] = {}
 
 
 class GrGroup(Schema):

@@ -132,6 +132,7 @@ class Kind:
     grow: object = None                 # Grow: растущий список входов
     when: dict = field(default_factory=dict)         # поле -> (поле-режим, значения) или список таких пар: вход есть только в этих режимах
     typed: str = ""                     # поле-параметр «Тип элементов»: им заменяются @T и @list в типах сокетов
+    covers: dict = field(default_factory=dict)     # поле -> поля, которые прячутся, когда в него идёт провод (провод их заменяет)
     hidden: bool = False                # старая нода: работает в готовых сценариях, но в меню её нет
     owned: str = ""                     # нода попытки: вид графа у вещи (graph/owned.py), Tab открывает его
 
@@ -791,7 +792,7 @@ _value_kind("ent:count", "Счётчик", (Sock("value", "Значение", "n
 register(Kind("ent:placement", "Размещение", ENTITY, "{machine}:{path}", (
     Field("placement", "Размещение", "placement", "игрок@машина:/путь"), Field("machine", "Машина", "machine"), Field("path", "Путь", "path"),
     Field("player", "Игрок", "player", "игрок прохождения"),
-), ins=()))
+), ins=(), covers={"placement": ("machine", "path", "player")}))
 DATA_OUTS["ent:placement"] = (Sock("value", "Размещение", "placement"), Sock("item", "Объект", "item"), Sock("machine", "Машина", "machine"),
                               Sock("path", "Путь", "text"), Sock("name", "Имя", "text"), Sock("exists", "Есть", "bool"),
                               Sock("trash", "В корзине", "bool"), Sock("edited", "Изменён игроком", "bool"))
@@ -959,6 +960,6 @@ def catalog():
                      "single": list(k.grow.single)} if k.grow else None,
             "when": [{"field": name, "mode": mode, "values": list(values)} for name, rule in k.when.items()
                      for mode, values in ([rule] if isinstance(rule[0], str) else rule)],
-            "hidden": k.hidden, "owned": k.owned, "typed": k.typed,
+            "hidden": k.hidden, "owned": k.owned, "typed": k.typed, "covers": {name: list(hid) for name, hid in k.covers.items()},
         } for k in sorted(KINDS.values(), key=_menu_order)],
     }

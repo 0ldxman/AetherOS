@@ -12098,6 +12098,13 @@ export interface components {
              * @default
              */
             typed: string;
+            /**
+             * Covers
+             * @default {}
+             */
+            covers: {
+                [key: string]: string[];
+            };
         };
         /** GrMany */
         GrMany: {
