@@ -795,7 +795,7 @@ register(Kind("ent:placement", "Размещение", ENTITY, "{machine}:{path}
 DATA_OUTS["ent:placement"] = (Sock("value", "Размещение", "placement"), Sock("item", "Объект", "item"), Sock("machine", "Машина", "machine"),
                               Sock("path", "Путь", "text"), Sock("name", "Имя", "text"), Sock("exists", "Есть", "bool"),
                               Sock("trash", "В корзине", "bool"), Sock("edited", "Изменён игроком", "bool"))
-register(Kind("find", "Найти размещения", ENTITY, "{item} {path}", (
+register(Kind("find", "Размещение: Найти", ENTITY, "{item} {path}", (
     Field("item", "Объект", "object", "любой"), Field("player", "Игрок", "player", "игрок прохождения"), Field("machine", "Машина", "machine", "любая"),
     Field("path", "Путь", "text", "любой; можно *"),
     Field("where", "Где", "select", "", False, (("live", "Вне корзины"), ("trash", "В корзине"), ("all", "Везде"))),

@@ -205,7 +205,7 @@ def placement(run, kind, data, out):
 
 
 def find(run, kind, data):
-    """«Найти размещения»: список «игрок@машина:/путь» по объекту (пусто — любые файлы), машине, пути и корзине."""
+    """«Размещение: Найти»: список «игрок@машина:/путь» по объекту (пусто — любые файлы), машине, пути и корзине."""
     from filesystem.copies import find as search
 
     user = _player(run, _key(data.get("player")))
