@@ -170,7 +170,7 @@ def transmit(user, freq, text, machine=None, now=None, keys=frozenset(), box=Non
                                        via=via, **_keyed(text, air_key))
     from engine.events import emit
 
-    emit("air.sent", user, machine=machine, login=getattr(box, "login", ""), freq=f"{freq:.3f}", callsign=sign.name, text=text[:200])
+    emit("air.sent", user, machine=machine, login=getattr(box, "login", ""), freq=f"{freq:.3f}", callsign=sign.name, text=text[:200], by="player")
     sent.effects = events.react(sent, keys, box, now)
     from characters import inbox
 
@@ -181,7 +181,18 @@ def transmit(user, freq, text, machine=None, now=None, keys=frozenset(), box=Non
 def station_transmit(station, freq, text, key=""):
     """Передача от станции или персонажа (Студия): без лимитов игрока, в любой полосе; с ключом — шифровкой."""
     text = _clean(text)
-    return Transmission.objects.create(freq=parse_freq(freq), station=station, callsign=station.name, text=text, **_keyed(text, key))
+    sent = Transmission.objects.create(freq=parse_freq(freq), station=station, callsign=station.name, text=text, **_keyed(text, key))
+    station_sent(sent)
+    return sent
+
+
+def station_sent(sent):
+    """Событие передачи станции или персонажа: без игрока, будит ждущих у всех."""
+    from engine.events import emit
+
+    character = getattr(sent.station, "character", None)
+    emit("air.sent", None, freq=f"{sent.freq:.3f}", callsign=sent.callsign, text=sent.text[:200], by="station",
+         character=getattr(character, "code", ""))
 
 
 # ---------- приём ----------

@@ -191,14 +191,15 @@ def react(sent, keys=frozenset(), box=None, now=None):
 def flush_replies(now=None):
     now = now or timezone.now()
     made = 0
-    for reply in PendingReply.objects.filter(due_at__lte=now).select_related("station"):
+    for reply in PendingReply.objects.filter(due_at__lte=now).select_related("station__character"):
         with transaction.atomic():
             if not PendingReply.objects.filter(pk=reply.pk).delete()[0]:
                 continue
-            from air.radio import _keyed
+            from air.radio import _keyed, station_sent
 
-            Transmission.objects.create(freq=reply.freq, station=reply.station, callsign=reply.station.name, text=reply.text,
+            sent = Transmission.objects.create(freq=reply.freq, station=reply.station, callsign=reply.station.name, text=reply.text,
                                         created_at=reply.due_at, user=reply.user, sandbox=reply.sandbox, **_keyed(reply.text, reply.key))
+            station_sent(sent)
             made += 1
     return made
 

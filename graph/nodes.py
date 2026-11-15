@@ -376,12 +376,24 @@ def _mail(data, out, event):
     return (event.data or {}).get("channel") == "mail" and _match(character=("character", "thing"), text=("text", "glob"))(data, out, event)
 
 
-_when("on:player.mail", "Игрок: Отправил письмо", (Field("character", "Персонаж", "many:character", "любой"), Field("text", "Текст", "text", "любой; можно *")),
-      (Sock("sent", "Отправил"),), {"sent": "character.wrote"}, _mail,
+_when("on:character.mail", "Персонаж: Получил письмо", (Field("character", "Персонаж", "many:character", "любой"), Field("text", "Текст", "text", "любой; можно *")),
+      (Sock("sent", "Получил"),), {"sent": "character.wrote"}, _mail,
       (Sock("character", "Персонаж", "character", "character"), Sock("text", "Текст", "text", "text")), "{character}")
-_when("on:player.air", "Игрок: Отправил в эфир", (Field("freq", "Частота, МГц", "text", "любая"), Field("text", "Текст", "text", "любой; можно *")),
-      (Sock("sent", "Отправил"),), {"sent": "air.sent"}, _match(freq=("freq", "freq"), text=("text", "glob")),
-      (Sock("freq", "Частота", "text", "freq"), Sock("text", "Текст", "text", "text")), "{freq}")
+_AIR_MATCH = _match(freq=("freq", "freq"), text=("text", "glob"), by=("by", "via"), character=("character", "thing"))
+
+
+def _air(data, out, event):                     # персонаж — фильтр только для передач станций
+    return _AIR_MATCH(data if data.get("by") == "station" else {**data, "character": ""}, out, event)
+
+
+_when("on:air.sent", "Эфир: Передача на частоте",
+      (Field("freq", "Частота, МГц", "text", "любая"), Field("text", "Текст", "text", "любой; можно *"),
+       Field("by", "От кого", "select", "", False, (("any", "любой"), ("player", "игрок"), ("station", "персонаж или станция"))),
+       Field("character", "Персонаж", "many:character", "любой")),
+      (Sock("sent", "Передача"),), {"sent": "air.sent"}, _air,
+      (Sock("freq", "Частота", "text", "freq"), Sock("text", "Текст", "text", "text"), Sock("callsign", "Позывной", "text", "callsign"),
+       Sock("character", "Персонаж", "character", "character")), "{freq}")
+KINDS["on:air.sent"] = replace(KINDS["on:air.sent"], when={"character": ("by", ("station",))})
 _when("on:moment.status", "Момент: Статус изменён", (Field("moment", "Момент", "many:moment", "любой"),),
       (Sock("started", "Начался"), Sock("ended", "Кончился")), {"started": "moment.started", "ended": "moment.ended"},
       _match(moment=("moment", "thing")), (Sock("moment", "Момент", "moment", "moment"),), "{moment}")
@@ -784,7 +796,8 @@ HELP = {
     "on:placement.appeared": "У игрока появился новый файл: сделал сам (вырезка, подпись, текст из архива) или скопировал. "
                              "Объект, впервые попавший к игроку, — «Объект: Получен».",
     "on:object.got": "Объект лёг игроку: из письма или архива, с форума, с сервера, с другой машины, собран из частей, ключ, выдан сценарием.",
-    "on:player.mail": "Игрок написал персонажу письмо.", "on:player.air": "Игрок передал в эфир на частоте.",
+    "on:character.mail": "Персонаж получил письмо от игрока. Кто написал — выход «Игрок».",
+    "on:air.sent": "В эфир передали на частоте: игрок или персонаж (станция). У игрока — выход «Игрок», у станции с персонажем — «Персонаж».",
     "on:moment.status": "Момент мира начался или кончился.",
     "on:tag": "Тег владельца поставили или сняли. Владелец и «чьё» — как у ноды «Тег».",
     "on:count": "Счётчик владельца изменился: выходы — новое значение и разница.",

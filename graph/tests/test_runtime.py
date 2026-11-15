@@ -305,7 +305,7 @@ class CharacterEventTests(TestCase):
         from characters.models import Character
 
         mira = Character.objects.create(code="MIR", name="Mira")
-        make([node("c", "on:player.mail", character="MIR", text="*help*"), node("a", "do:world_count", name="c")], [wire("c", "sent", "a")])
+        make([node("c", "on:character.mail", character="MIR", text="*help*"), node("a", "do:world_count", name="c")], [wire("c", "sent", "a")])
         ivan = get_user_model().objects.create_user("ivan")
         inbox._wrote(ivan, mira, "air", "please HELP me")
         self.assertEqual(counter(), 0)                                       # другой канал
