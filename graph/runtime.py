@@ -732,7 +732,8 @@ def advance(run, items):
 
 # ---------- старт и пробуждение ----------
 
-DEFAULT_REPEAT = {"time": "always", "manual": "always", "moment": "always"}
+DEFAULT_REPEAT = {"time": "always", "manual": "always", "moment": "always", "on:time": "always", "on:schedule": "always",
+                  "on:moment.status": "always", "on:machine.status": "always"}
 
 
 def start(graph, node_id, out, user=None, ctx=None, repeat=None):
@@ -785,7 +786,7 @@ def dispatch(event):
         return 0                                     # попытки решает attempt(), не общая рассылка
     try:
         waits = Wait.objects.filter(kind=Wait.Kind.EVENT, event=event.name, run__status=Run.Status.RUNNING, run__graph__active=True)
-        if event.user is not None and event.name not in N.GLOBAL_EVENTS:
+        if event.user is not None and event.name not in N.GLOBAL_EVENTS and not (event.data or {}).get("shared"):
             waits = waits.filter(Q(user=event.user) | Q(anyone=True))
         # событие без игрока (сигнал всем, метка мира, момент, машина) будит ждущих у всех
         for wait in list(waits.select_related("run__graph")):
@@ -870,7 +871,40 @@ def start_manual(graph, node_id, user=None):
 
 # ---------- время ----------
 
-def _time_target(data, game):
+DAYS = {"пн": 0, "вт": 1, "ср": 2, "чт": 3, "пт": 4, "сб": 5, "вс": 6, "mon": 0, "tue": 1, "wed": 2, "thu": 3, "fri": 4, "sat": 5, "sun": 6}
+
+
+def _days(text):
+    found = set()
+    for word in re.findall(r"[a-zа-яё]+", str(text or "").lower()):
+        key = word[:3] if word[:3] in DAYS else word[:2]
+        if key in DAYS:
+            found.add(DAYS[key])
+    if not found:
+        raise ValueError("нет дней недели")
+    return found
+
+
+def _time_target(data, game, kind_name="time"):
+    """Последний срок не позже game: у «В момент» — дата и время, у «По расписанию» — по режиму."""
+    if kind_name == "on:time":
+        data = {**data, "mode": "once"}
+    elif kind_name == "on:schedule":
+        mode = data.get("mode") or "daily"
+        if mode == "every":
+            step = max(1, int(_number(data.get("minutes")) or 60))
+            midnight = game.replace(hour=0, minute=0, second=0, microsecond=0)
+            passed = int((game - midnight).total_seconds() // 60)
+            return midnight + timedelta(minutes=passed - passed % step)
+        hour, minute = _clock(data.get("at"))
+        target = game.replace(hour=hour, minute=minute, second=0, microsecond=0)
+        if target > game:
+            target -= timedelta(days=1)
+        if mode == "weekly":
+            days = _days(data.get("days"))
+            while target.weekday() not in days:
+                target -= timedelta(days=1)
+        return target
     hour, minute = _clock(data.get("at"))
     if (data.get("mode") or "daily") == "once":
         day = datetime.strptime(str(data.get("date") or "").strip(), "%Y-%m-%d")
@@ -886,9 +920,10 @@ def _time_starts():
     game = chrono.game_now()
     fired = 0
     for row in list(Start.objects.filter(event=N.TIME_EVENT, graph__active=True).select_related("graph")):
-        data = doc_of(row.graph).data(row.node)
+        doc = doc_of(row.graph)
+        data, kind = doc.data(row.node), doc.kind(row.node)
         try:
-            target = _time_target(data, game)
+            target = _time_target(data, game, kind.name if kind else "time")
         except ValueError:
             continue
         stamp = int(target.timestamp())

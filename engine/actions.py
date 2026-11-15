@@ -198,6 +198,9 @@ def _file(action, ctx):
     if not path.startswith("/"):
         raise ActionError("путь файла должен начинаться с «/»")
     ctx.box.view.put_item(path, item)
+    from filesystem import arrivals
+
+    arrivals.got(ctx.box.view, path, item, "scenario")
 
 
 def _letter(action, ctx):

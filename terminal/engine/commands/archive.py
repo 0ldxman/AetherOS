@@ -180,6 +180,9 @@ class PakCommand(LayerCommand):
             target = posixpath.join(folder, name)
             if member.item is not None:
                 context.view.put_item(target, member.item)
+                from filesystem import arrivals
+
+                arrivals.got(context.view, target, member.item, "archive")
             else:
                 context.view.put_text(target, member.text or "")              # член со своим текстом: у игрока свой файл
         context.invalidate()

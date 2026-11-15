@@ -163,6 +163,14 @@ def _after(kind, owner, oid, name, user, value, old, source, actor, depth):
     _forget(owner, oid, user)
     from engine.events import emit
 
+    who = user if user is not None else (_player(oid) if owner == PLAYER else actor)
+    shared = user is None and owner != PLAYER                    # общее значение: будит ждущих у всех
+    common = {"source": source, "owner": owner, "thing": owner_key(owner, oid), "key": name, "per": user is not None, "shared": shared}
+    if kind == TAG:
+        emit("value.tag", who, on=bool(value), **common)
+    else:
+        emit("value.count", who, value=value, delta=value - old, **common)
+
     if owner == WORLD:
         from world import state
 
@@ -173,7 +181,7 @@ def _after(kind, owner, oid, name, user, value, old, source, actor, depth):
             state._log("counter", name, f"world:{name} {value - old:+d} → {value}", state._who(source, actor), actor)
             emit("world.counter", actor, source=source, counter=name, delta=value - old, value=value)
     elif owner == PLAYER:
-        player = actor if getattr(actor, "pk", None) == oid else _player(oid)
+        player = who
         if kind == TAG:
             emit("flag.set" if value else "flag.unset", player, source=source, flag=name)
         else:

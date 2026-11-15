@@ -108,7 +108,7 @@ def join(view, machine, login, names):
         raise RecipeError("name at least two fragments")
     for recipe in KeyRecipe.objects.prefetch_related("parts__item").select_related("result"):
         if {part.item.slug for part in recipe.parts.all()} == slugs:
-            path, fresh = keystore.put(view, machine, login, recipe.result)
+            path, fresh = keystore.put(view, machine, login, recipe.result, source="join")
             from engine.events import emit
 
             emit("key.joined", view.user, machine=machine, login=login, slug=recipe.result.slug, parts=sorted(slugs))

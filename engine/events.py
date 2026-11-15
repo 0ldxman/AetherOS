@@ -37,6 +37,10 @@ NAMES = {
     "net.denied": "Сервер отказал",
     "command.run": "Выполнил команду",
     "player.counter": "Счётчик игрока",
+    "object.got": "Объект попал к игроку",
+    "file.changed": "Изменил файл",
+    "value.tag": "Тег изменился",
+    "value.count": "Счётчик изменился",
 }
 
 
@@ -70,6 +74,10 @@ FIELDS = {                                  # какие подробности 
     "net.denied": ("address", "path", "reason"),
     "command.run": ("command", "args"),
     "player.counter": ("counter", "value"),
+    "object.got": ("item", "path", "via"),
+    "file.changed": ("item", "path"),
+    "value.tag": ("owner", "thing", "key", "on", "per"),
+    "value.count": ("owner", "thing", "key", "value", "delta", "per"),
 }
 
 
@@ -178,5 +186,10 @@ def describe(event):
         "net.denied": lambda: f"{data.get('address', '')}/{data.get('path', '')} · {data.get('reason', '')}",
         "command.run": lambda: f"{data.get('command', '')} {data.get('args', '')}".strip(),
         "player.counter": lambda: f"count:{data.get('counter', '')} → {data.get('value', '')}",
+        "object.got": lambda: f"{data.get('path', '')} · {data.get('via', '')}",
+        "file.changed": lambda: data.get("path", ""),
+        "value.tag": lambda: f"{data.get('owner', '')}{':' + str(data['thing']) if data.get('thing') else ''}:{data.get('key', '')} "
+                             f"{'поставлен' if data.get('on') else 'снят'}",
+        "value.count": lambda: f"{data.get('owner', '')}{':' + str(data['thing']) if data.get('thing') else ''}:{data.get('key', '')} → {data.get('value', '')}",
     }.get(event.name, lambda: "")()
     return f"{title}: {detail}" if detail else title

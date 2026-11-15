@@ -11,7 +11,7 @@ from dataclasses import dataclass, field, replace
 from engine.actions import Field
 
 ENTITY, NOUN, FLOW, DATA, ACTION, STRUCT, SERVICE = "entity", "noun", "flow", "data", "action", "struct", "service"
-GROUPS = {ENTITY: "Сущности", NOUN: "Существительные", FLOW: "Ход", DATA: "Данные", ACTION: "Действия", STRUCT: "Сценарии и группы", SERVICE: "Служебные"}
+GROUPS = {ENTITY: "Сущности", NOUN: "Когда", FLOW: "Ход", DATA: "Данные", ACTION: "Действия", STRUCT: "Сценарии и группы", SERVICE: "Служебные"}
 
 # Типы сокетов. event — «случилось» (по нему идёт ход), остальное — данные: читаются в момент, когда нода выполняется.
 EVENT = "event"
@@ -109,6 +109,7 @@ class Kind:
 
 
 KINDS = {}
+DATA_OUTS = {}
 
 
 def register(kind):
@@ -291,10 +292,169 @@ register(Kind("time", "Время", NOUN, "{mode} {at}",
                Field("at", "Время (игровое, ЧЧ:ММ)", "clock", "21:00", True), Field("date", "Дата (для «один раз»)", "text", "2031-05-14"),
                Field("scope", "Для кого", "select", "", False, (("world", "мир"), ("each", "каждый игрок")))),
               (Sock("fire", "Наступило"),), events={"fire": TIME_EVENT}, start_only=True))
-register(Kind("manual", "Вручную", NOUN, "{label}", (Field("label", "Подпись кнопки", "text", "Запустить"),),
+register(Kind("manual", "Запуск вручную", NOUN, "{label}", (Field("label", "Подпись кнопки", "text", "Запустить"),),
               (Sock("fire", "Запустили"),), events={"fire": MANUAL_EVENT}, start_only=True))
 register(Kind("signal", "Сигнал", NOUN, "{name}", (Field("name", "Сигнал", "text", "bunker-open", True),),
               (Sock("got", "Пришёл"),), events={"got": SIGNAL_EVENT}, match=_signal))
+
+
+OLD_NOUNS = ("machine", "server", "command", "player_counter", "file", "character", "freq", "section", "flag", "world_flag", "counter",
+             "moment", "time")
+for _name in OLD_NOUNS:
+    KINDS[_name] = replace(KINDS[_name], hidden=True)
+
+
+# ---------- когда: события по пространствам («Машина: Статус изменён») ----------
+
+def _thing(value, wanted):
+    return not wanted or _same(value, wanted)
+
+
+def _match(**rules):
+    """Сравнение события с фильтрами ноды: поле ноды -> (ключ события, как сравнивать). Пустой фильтр пропускает любое."""
+    def match(data, out, event):
+        d = {**(event.data or {}), "host": event.host, "login": event.login}
+        for name, (key, how) in rules.items():
+            wanted = data.get(name)
+            if wanted in (None, ""):
+                continue
+            value = d.get(key, "")
+            if how == "thing" and not _same(value, wanted):
+                return False
+            if how == "glob" and not _glob(value, wanted, fold=True):
+                return False
+            if how == "freq":
+                try:
+                    if abs(float(value or 0) - float(str(wanted).replace(",", "."))) >= 0.0005:
+                        return False
+                except ValueError:
+                    return False
+            if how == "item" and not (_same(d.get("item"), wanted) or _same(d.get("slug"), wanted)):
+                return False
+            if how == "via" and wanted != "any" and value != wanted:
+                return False
+        return True
+    return match
+
+
+def _when(name, label, fields, outs, events, match, data_outs, summary="", start_only=False):
+    register(Kind(name, label, NOUN, summary, fields, outs, events=events, match=match, start_only=start_only))
+    DATA_OUTS[name] = tuple(data_outs) + (Sock("player", "Игрок", "player", "@player"),)
+
+
+THINGS_OF = ("character", "machine", "server", "object")
+OWNER_WHEN = {"who": ("owner", ("player",)), "character": ("owner", ("character",)), "machine": ("owner", ("machine",)),
+              "server": ("owner", ("server",)), "item": ("owner", ("object",)), "scope": ("owner", THINGS_OF),
+              "for": (("owner", THINGS_OF), ("scope", ("player",)))}
+_MACHINE = Field("machine", "Машина", "machine", "любая")
+_OBJECT = Field("item", "Объект", "object", "любой")
+_PATH = Field("path", "Путь", "text", "любой; можно *")
+_HOST_OUT = Sock("machine", "Машина", "machine", "host")
+_LOGIN_OUT = Sock("login", "Учётка", "text", "login")
+
+
+_when("on:machine.status", "Машина: Статус изменён", (_MACHINE,), (Sock("stopped", "Остановлена"), Sock("started", "Запущена")),
+      {"stopped": "machine.stopped", "started": "machine.started"}, _match(machine=("host", "thing")), (_HOST_OUT,), "{machine}")
+_when("on:terminal.command", "Терминал: Введена команда",
+      (_MACHINE, Field("command", "Команда", "text", "любая; можно *"), Field("args", "Аргументы", "text", "любые; можно *")),
+      (Sock("run", "Введена"),), {"run": "command.run"}, _match(machine=("host", "thing"), command=("command", "glob"), args=("args", "glob")),
+      (_HOST_OUT, _LOGIN_OUT, Sock("command", "Команда", "text", "command"), Sock("args", "Аргументы", "text", "args")), "{command} {args}")
+_OBJECT_MATCH = _match(item=("item", "item"), path=("path", "glob"), machine=("host", "thing"))
+_OBJECT_OUTS = (Sock("item", "Объект", "item", "item"), Sock("path", "Путь", "text", "path"), _HOST_OUT, _LOGIN_OUT)
+for _name, _label, _out, _event in (("viewed", "Просмотрен", "Открыл", "file.read"), ("deleted", "Удалён", "Удалил", "file.deleted"),
+                                    ("restored", "Восстановлен", "Вернул из корзины", "file.restored"), ("changed", "Изменён", "Сохранил правку", "file.changed")):
+    _when(f"on:object.{_name}", f"Объект: {_label}", (_OBJECT, _PATH, _MACHINE), (Sock(_name, _out),), {_name: _event}, _OBJECT_MATCH, _OBJECT_OUTS,
+          "{item} {path}")
+_when("on:object.got", "Объект: Получен",
+      (_OBJECT, Field("via", "Откуда", "select", "", False, (("any", "любым путём"), ("archive", "из письма или архива"), ("forum", "с форума"),
+                                                             ("net", "скачан с сервера"), ("xfer", "перенесён с машины"), ("join", "собран из частей"),
+                                                             ("key", "ключ в секретах"), ("scenario", "выдан сценарием"))),
+       _PATH, _MACHINE),
+      (Sock("got", "Получен"),), {"got": "object.got"}, _match(item=("item", "item"), via=("via", "via"), path=("path", "glob"), machine=("host", "thing")),
+      _OBJECT_OUTS + (Sock("via", "Откуда", "text", "via"),), "{item} {via}")
+
+
+def _mail(data, out, event):
+    return (event.data or {}).get("channel") == "mail" and _match(character=("character", "thing"), text=("text", "glob"))(data, out, event)
+
+
+_when("on:player.mail", "Игрок: Отправил письмо", (Field("character", "Персонаж", "character", "любой"), Field("text", "Текст", "text", "любой; можно *")),
+      (Sock("sent", "Отправил"),), {"sent": "character.wrote"}, _mail,
+      (Sock("character", "Персонаж", "character", "character"), Sock("text", "Текст", "text", "text")), "{character}")
+_when("on:player.air", "Игрок: Отправил в эфир", (Field("freq", "Частота, МГц", "text", "любая"), Field("text", "Текст", "text", "любой; можно *")),
+      (Sock("sent", "Отправил"),), {"sent": "air.sent"}, _match(freq=("freq", "freq"), text=("text", "glob")),
+      (Sock("freq", "Частота", "text", "freq"), Sock("text", "Текст", "text", "text"), Sock("callsign", "Позывной", "text", "callsign")), "{freq}")
+_when("on:moment.status", "Момент: Статус изменён", (Field("moment", "Момент", "moment", "любой"),),
+      (Sock("started", "Начался"), Sock("ended", "Кончился")), {"started": "moment.started", "ended": "moment.ended"},
+      _match(moment=("moment", "thing")), (Sock("moment", "Момент", "moment", "moment"),), "{moment}")
+
+
+def _value(data, event):
+    """Тег или счётчик события тот же, что выбран в ноде: владелец, вещь, чьё (общее или для игрока «для игрока»), имя."""
+    d = event.data or {}
+    owner = data.get("owner") or "world"
+    if d.get("owner") != owner or not _same(d.get("key"), data.get("name")):
+        return False
+    thing = data.get({"character": "character", "machine": "machine", "server": "server", "object": "item", "player": "who"}.get(owner, ""), "")
+    if owner != "world" and thing not in (None, "") and not _same(d.get("thing"), thing):
+        return False
+    if owner not in ("world", "player"):
+        if bool(d.get("per")) != (data.get("scope") == "player"):
+            return False
+        wanted = data.get("for")
+        if d.get("per") and wanted not in (None, "") and not _same(getattr(event.user, "username", ""), wanted):
+            return False
+    return True
+
+
+def _tag(data, out, event):
+    return _value(data, event) and bool((event.data or {}).get("on")) == (out == "set")
+
+
+def _count(data, out, event):
+    return _value(data, event)
+
+
+def _threshold(data, out, event):
+    if not _value(data, event):
+        return False
+    d = event.data or {}
+    try:
+        limit, value, delta = int(data.get("threshold") or 0), int(d.get("value") or 0), int(d.get("delta") or 0)
+    except (TypeError, ValueError):
+        return False
+    before = value - delta
+    return value >= limit > before if out == "up" else before >= limit > value
+
+
+def _owner_fields():
+    from engine.actions import OWNER_FIELDS
+
+    return tuple(OWNER_FIELDS) + (Field("name", "Имя", "text", "", True),)
+
+
+def _value_when(name, label, outs, events, match, data_outs, extra=()):
+    _when(name, label, _owner_fields() + tuple(extra), outs, events, match, data_outs, "{owner} {name}")
+    KINDS[name] = replace(KINDS[name], when=OWNER_WHEN)
+
+
+_value_when("on:tag", "Тег: Изменение", (Sock("set", "Поставлен"), Sock("unset", "Снят")), {"set": "value.tag", "unset": "value.tag"}, _tag, ())
+_value_when("on:count", "Счётчик: Изменение", (Sock("changed", "Изменился"),), {"changed": "value.count"}, _count,
+            (Sock("value", "Значение", "number", "value"), Sock("delta", "Разница", "number", "delta")))
+_value_when("on:count.threshold", "Счётчик: Порог", (Sock("up", "Дошёл"), Sock("down", "Ушёл ниже")), {"up": "value.count", "down": "value.count"},
+            _threshold, (Sock("value", "Значение", "number", "value"),), (Field("threshold", "Порог", "number", "", True),))
+_when("on:time", "Время: В момент",
+      (Field("date", "Дата (игровая)", "text", "2031-05-14", True), Field("at", "Время (игровое, ЧЧ:ММ)", "clock", "21:00", True),
+       Field("scope", "Для кого", "select", "", False, (("world", "мир"), ("each", "каждый игрок")))),
+      (Sock("fire", "Наступило"),), {"fire": TIME_EVENT}, None, (), "{date} {at}", start_only=True)
+_when("on:schedule", "Время: По расписанию",
+      (Field("mode", "Как часто", "select", "", False, (("daily", "каждый день"), ("weekly", "по дням недели"), ("every", "каждые N минут"))),
+       Field("at", "Время (игровое, ЧЧ:ММ)", "clock", "21:00"), Field("days", "Дни недели", "text", "пн, ср, пт"),
+       Field("minutes", "Каждые, мин (игровые)", "number", "60"),
+       Field("scope", "Для кого", "select", "", False, (("world", "мир"), ("each", "каждый игрок")))),
+      (Sock("fire", "Наступило"),), {"fire": TIME_EVENT}, None, (), "{mode} {at}", start_only=True)
+KINDS["on:schedule"] = replace(KINDS["on:schedule"], title="mode", when={"at": ("mode", ("daily", "weekly")), "days": ("mode", ("weekly",)),
+                                                                          "minutes": ("mode", ("every",))})
 
 
 # ---------- ход ----------
@@ -357,10 +517,6 @@ REF_KINDS = {"item": "item", "key": "item", "letter": "item", "character": "char
              "world_flag": "world_flag", "counter": "counter"}      # вид поля действия -> вид ссылки, которую оно принимает
 
 
-THINGS_OF = ("character", "machine", "server", "object")
-OWNER_WHEN = {"who": ("owner", ("player",)), "character": ("owner", ("character",)), "machine": ("owner", ("machine",)),
-              "server": ("owner", ("server",)), "item": ("owner", ("object",)), "scope": ("owner", THINGS_OF),
-              "for": (("owner", THINGS_OF), ("scope", ("player",)))}
 ACTION_WHEN = {"tag": OWNER_WHEN, "count": {**OWNER_WHEN, "delta": ("mode", ("add",)), "value": ("mode", ("set",))}}
 LEGACY = {"flag", "unflag", "world_flag", "world_unflag", "world_count", "player_count", "character_tag"}   # теперь «Тег» и «Счётчик»
 
@@ -396,6 +552,19 @@ HELP = {
     "moment": "Момент мира: начался или кончился. Событие общее.",
     "time": "Игровое время: каждый день или один раз в ЧЧ:ММ. Запускает прохождение мира или каждого игрока. Только старт.",
     "manual": "Кнопка автора: запустить прохождение для игрока или мира из панели ноды. Только старт.",
+    "on:machine.status": "Машину остановили или запустили (для всех). Пустая машина — любая.",
+    "on:terminal.command": "Игрок ввёл команду в терминале. Команда и аргументы понимают *.",
+    "on:object.viewed": "Игрок открыл файл. Фильтры: объект, путь (*), машина; пусто — любой.",
+    "on:object.deleted": "Игрок удалил файл (в корзину).", "on:object.restored": "Игрок вернул файл из корзины.",
+    "on:object.changed": "Игрок сохранил правку текста файла.",
+    "on:object.got": "Объект лёг игроку: из письма или архива, с форума, с сервера, с другой машины, собран из частей, ключ, выдан сценарием.",
+    "on:player.mail": "Игрок написал персонажу письмо.", "on:player.air": "Игрок передал в эфир на частоте.",
+    "on:moment.status": "Момент мира начался или кончился.",
+    "on:tag": "Тег владельца поставили или сняли. Владелец и «чьё» — как у ноды «Тег».",
+    "on:count": "Счётчик владельца изменился: выходы — новое значение и разница.",
+    "on:count.threshold": "Счётчик перешёл порог: «Дошёл» — снизу вверх, «Ушёл ниже» — сверху вниз.",
+    "on:time": "Один раз в игровую дату и время. Для мира или для каждого игрока.",
+    "on:schedule": "По игровому времени: каждый день в ЧЧ:ММ, по дням недели или каждые N минут.",
     "signal": "Сигнал от «Послать сигнал» с тем же именем: связывает сценарии без проводов.",
     "wait": "Ждать время, до времени (ЧЧ:ММ) или пока условие не станет верным. Время игровое, если не отмечено «реальное».",
     "check": "Проверить факты игрока (ключи, tag:, count:, world:) и пойти в «Да» или «Нет».",
@@ -483,6 +652,9 @@ SOCKET_HELP = {
     "code": "код персонажа", "active": "персонаж активен", "archived": "раздел в архиве", "running": "момент идёт сейчас",
     "format": "формат объекта", "has": "у игрока есть копия вне корзины", "where": "машина:путь первой копии", "count": "сколько копий вне корзины",
     "trash": "какая-то копия в корзине", "edited": "игрок поменял текст копии", "caption": "подпись значения",
+    "stopped": "машину остановили", "viewed": "игрок открыл файл", "via": "откуда пришёл объект", "delta": "на сколько изменилось",
+    "up": "значение дошло до порога снизу", "down": "значение ушло ниже порога", "ended": "момент кончился", "machine": "машина события",
+    "item": "объект события", "moment": "момент события", "freq": "частота",
 }
 
 
@@ -493,7 +665,6 @@ def _data(name, label, summary, fields, out_type, out_label="Значение", 
     DATA_OUTS[name] = (Sock("value", out_label, out_type),)
 
 
-DATA_OUTS = {}
 _P = ("@player",)
 for _kind, _outs in {
     "machine": (Sock(REF, "Машина", "machine", "host", "host"), Sock("account", "Учётка", "text", "login", "login")),

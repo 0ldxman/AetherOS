@@ -46,7 +46,7 @@ class ValueTests(TestCase):
         values.set_tag("player", self.ivan.pk, "met", actor=self.ivan)                  # уже стоит: ничего
         values.add("player", self.ivan.pk, "hints", 3, actor=self.ivan)
         names = list(Event.objects.order_by("pk").values_list("name", flat=True))
-        self.assertEqual(names, ["world.flag", "flag.set", "player.counter"])
+        self.assertEqual(names, ["value.tag", "world.flag", "value.tag", "flag.set", "value.count", "player.counter"])
         self.assertEqual(Event.objects.get(name="flag.set").user, self.ivan)
 
     def test_names_and_info(self):

@@ -34,6 +34,20 @@
     return inWhen(kind, values, f.name);
   };
   const fields = $derived(socketFields(kind).filter((f) => data.usedIn.includes(`f:${f.name}`) || (!hide && inMode(f))));
+  // выход данных с тем же именем или подписью, что у входа-поля (Машина, Объект, Путь…), стоит в той же строке справа
+  const paired = $derived.by(() => {
+    const found: Record<string, (typeof outs)[number]> = {};
+    const free = outs.filter((o) => (o.type ?? "event") !== "event");
+    for (const f of fields) {
+      const out = free.find((o) => o.name === f.name || o.label === f.label);
+      if (out) {
+        found[f.name] = out;
+        free.splice(free.indexOf(out), 1);
+      }
+    }
+    return found;
+  });
+  const lone = $derived(outs.filter((o) => !Object.values(paired).includes(o)));
   const params = $derived(hide ? [] : propFields(kind).filter((f) => inWhen(kind, values, f.name)));
   // растущий список: подстановки шаблона («имя» + значение) или входы «Логики» (A, B, C…)
   const grow = $derived(kind.grow ?? null);
@@ -81,7 +95,7 @@
   </header>
   {#if data.summary && kind.name === "group"}<div class="summary" title={data.summary}>{data.summary}</div>{/if}
 
-  {#each outs as sock (sock.name)}
+  {#each lone as sock (sock.name)}
     <div class="row out" class:used={data.used.includes(sock.name)} class:attempt={sock.name === "attempt"} data-tip={outTip(sock.name, sock.label, sock.type)}>
       <span>{sock.label}</span>
       <Handle type="source" position={Position.Right} id={sock.name} class="sock" style="--c: {typeColor(sock.type ?? 'event')}" data-thing={isThing(sock.type) ? "1" : undefined} />
@@ -134,6 +148,13 @@
           <input class="nodrag inline" class:mono={f.kind === "condition" || f.kind === "expr" || f.kind === "path" || f.kind === "clock"} value={val(f.name)}
                  placeholder={f.placeholder} disabled={!data.editable} aria-label={f.label} title={val(f.name)} oninput={(e) => set(f.name, e.currentTarget.value)} />
         {/if}
+      {:else if paired[f.name]}<span class="spacer"></span>
+      {/if}
+      {#if paired[f.name]}
+        {@const out = paired[f.name]}
+        <span class="pass" class:used={data.used.includes(out.name)} data-tip={outTip(out.name, out.label, out.type)}>
+          <Handle type="source" position={Position.Right} id={out.name} class="sock" style="--c: {typeColor(out.type ?? 'event')}" data-thing={isThing(out.type) ? "1" : undefined} />
+        </span>
       {/if}
     </div>
   {/each}
@@ -196,6 +217,9 @@
   .inline.wide { width: 100%; }
   .inline.name { flex: 0 0 74px; }
   .row.empty .inline { border-style: dashed; }
+  .row.field:has(.pass) { padding-right: 14px; }
+  .pass { position: absolute; right: 0; top: 50%; width: 0; height: 0; }
+  .pass.used :global(.svelte-flow__handle.sock) { background: var(--c); }
   .mono { font-family: var(--mono); }
   .check { margin-left: auto; }
   footer { display: flex; flex-wrap: wrap; gap: 4px 8px; margin-top: 4px; padding: 4px 10px 0; border-top: 1px solid var(--line-soft); color: var(--muted); font-size: 10.5px; }

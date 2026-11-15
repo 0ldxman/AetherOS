@@ -39,7 +39,7 @@ def held(view, machine, login):
     )
 
 
-def put(view, machine, login, item):
+def put(view, machine, login, item, source="key"):
     """Положить ключ в папку секретов записи ссылкой на его объект. Возвращает (путь, создан ли заново)."""
     folder = secrets_dir(machine, login)
     path = f"{folder}/{item.slug}"
@@ -50,4 +50,7 @@ def put(view, machine, login, item):
     from engine.events import emit
 
     emit("key.got", view.user, machine=machine, login=login, slug=item.slug, path=path)
+    from filesystem import arrivals
+
+    arrivals.got(view, path, item, source)
     return path, True

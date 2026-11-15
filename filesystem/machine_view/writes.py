@@ -114,7 +114,13 @@ class WriteMixin:
         fields = {"content": text, "data": None, "deleted_at": None}
         if found.item is not None:
             fields["item"] = found.item                                   # правка тела объекта: ссылка остаётся
-        return self._save(row, **fields)
+        result = self._save(row, **fields)
+        if self.user is not None:
+            from engine.events import emit
+
+            emit("file.changed", self.user, machine=self.machine, login=self.login or "", path=found.path,
+                 item=found.item.slug if found.item is not None else "")
+        return result
 
     def set_rights(self, path, **fields):
         """Права файла в слое игрока: owner, group, mode (только переданные поля)."""

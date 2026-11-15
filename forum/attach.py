@@ -59,6 +59,9 @@ def save_to_disk(box, attachment):
     rights = {"owner": box.login, "group": "", "mode": "644"}
     if attachment.item_id is not None:
         box.view.put_item(path, attachment.item, "", attachment.content, rights)
+        from filesystem import arrivals
+
+        arrivals.got(box.view, path, attachment.item, "forum")
     elif attachment.data is not None:
         box.view.put_data(path, bytes(attachment.data), "", rights)
     else:

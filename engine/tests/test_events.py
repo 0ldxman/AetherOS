@@ -44,7 +44,7 @@ class EventTests(TestCase):
         state.set_flag("core", True, "test", self.ivan)
         entry.record(self.profile, self.ivan, LoginEvent.Kind.OK)
         entry.record(self.profile, self.ivan, LoginEvent.Kind.BAD_PASSWORD)
-        self.assertEqual([e.name for e in events.journal(self.ivan)][::-1], ["forum.posted", "world.flag", "machine.login"])
+        self.assertEqual([e.name for e in events.journal(self.ivan)][::-1], ["forum.posted", "value.tag", "world.flag", "machine.login"])
 
 
 class JournalApiTests(TestCase):

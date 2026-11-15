@@ -54,6 +54,9 @@ def place_entry(dest, entry, dest_path, name):
     view = dest.view
     if entry.item is not None:
         view.put_item(target, entry.item, entry.progress, entry.text_override)
+        from filesystem import arrivals
+
+        arrivals.got(view, target, entry.item, "xfer")
     elif entry.own_data is not None:
         view.put_data(target, entry.own_data, entry.progress)
     else:
@@ -70,6 +73,9 @@ def place_item(dest, item, state, dest_path, name):
 
     dest.view.put_item(target, item, state)
     dest.invalidate()
+    from filesystem import arrivals
+
+    arrivals.got(dest.view, target, item, "net")
     return target, None
 
 
