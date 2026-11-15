@@ -80,14 +80,14 @@ class NetTests(TerminalClient, TestCase):
         self.assertIn("404", self.run_command("nreq apollo.com/nothing")["output"])
         self.assertIn("404", self.run_command("nreq apollo.com/info/hidden.txt")["output"])
 
-    def answer(self, mode):
-        from graph.models import Graph
-        from graph import runtime
+    def answer(self, mode, kind="net.request"):
+        from graph import owned, runtime
 
-        graph = Graph.objects.create(slug="g", title="g", active=True, doc={
-            "nodes": [{"id": "s", "type": "server", "x": 0, "y": 0, "data": {"address": "vault.net"}},
-                      {"id": "a", "type": "answer", "x": 0, "y": 0, "data": {"mode": mode, "text": "403 go away"}}],
-            "wires": [{"from": "s", "out": "attempt", "to": "a", "in": "in"}]})
+        graph = owned.ensure(kind, "vault.net")
+        graph.doc = {"nodes": [{"id": "s", "type": "attempt:server", "x": 0, "y": 0, "data": {}},
+                               {"id": "a", "type": "answer", "x": 0, "y": 0, "data": {"mode": mode, "text": "403 go away"}}],
+                     "wires": [{"from": "s", "out": "go", "to": "a", "in": "in"}]}
+        graph.save()
         runtime.rebuild_starts(graph)
 
     def test_a_scenario_opens_a_guarded_server(self):
@@ -97,6 +97,10 @@ class NetTests(TerminalClient, TestCase):
     def test_a_scenario_refuses(self):
         self.answer("deny")
         self.assertIn("403 go away", self.run_command("nreq --token sesame vault.net")["output"])
+
+    def test_request_and_download_have_their_own_graphs(self):
+        self.answer("deny", "net.download")
+        self.assertEqual(self.run_command("nreq --token sesame vault.net")["exit_code"], 0)
 
     def test_requests_are_events(self):
         from engine.models import Event

@@ -78,10 +78,10 @@ class NetCommand(BaseCommand):
 
         answer = None
         if resource is not None:
-            from graph import runtime
+            from graph import owned
 
-            answer = runtime.attempt("net.attempt", context.view.user, host=context.machine.hostname or "", login=context.view.login or "",
-                                     address=address, path=path)
+            answer = owned.decide("net.download" if self.name == "nget" else "net.request", resource, context.view.user,
+                                  host=context.machine.hostname or "", login=context.view.login or "", address=resource.address, path=path)
         if answer is not None and answer["mode"] != "allow":
             event("net.denied", reason="scenario")
             return CommandResult(f"{self.name}: {answer['text'] or '403 forbidden'}", 1, scene=scenes.refused_scene(system, address))
@@ -100,6 +100,7 @@ class NetCommand(BaseCommand):
             return CommandResult(f"{self.name}: 401 unauthorized", 1, scene=scenes.refused_scene(system, address))
 
         if not site.exists(path):
+            event("net.denied", reason="not_found")
             return CommandResult(
                 f"{self.name}: 404 not found: {address}/{path}", 1, scene=scenes.refused_scene(system, address)
             )

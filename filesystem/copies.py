@@ -11,6 +11,7 @@ class Copy:
     path: str
     trashed: bool           # лежит в корзине
     edited: bool            # игрок поменял текст
+    progress: str = ""      # прогресс игрока по слоям (PlayerFile.state)
 
 
 def accounts(user, machine=None):
@@ -41,5 +42,5 @@ def copies(user, slug, machine=None):
             out.setdefault((host.hostname, entry.path), Copy(
                 host.hostname, entry.path,
                 trashed=player is not None and player.trashed_at is not None,
-                edited=player is not None and (player.content is not None or player.data is not None)))
+                edited=player is not None and (player.content is not None or player.data is not None), progress=entry.progress or ""))
     return sorted(out.values(), key=lambda c: (c.trashed, c.host, c.path))

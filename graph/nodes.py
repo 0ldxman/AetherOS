@@ -15,16 +15,16 @@ GROUPS = {ENTITY: "Сущности", NOUN: "Когда", FLOW: "Ход", DATA: 
 
 # Типы сокетов. event — «случилось» (по нему идёт ход), остальное — данные: читаются в момент, когда нода выполняется.
 EVENT = "event"
-TYPES = ("event", "bool", "text", "number", "item", "machine", "server", "character", "section", "moment", "player", "flag", "world_flag",
-         "counter")
-TYPE_LABELS = {"event": "событие", "bool": "да/нет", "text": "текст", "number": "число", "item": "объект", "machine": "машину",
+TYPES = ("event", "bool", "text", "number", "item", "layer", "machine", "server", "character", "section", "moment", "player", "flag",
+         "world_flag", "counter")
+TYPE_LABELS = {"event": "событие", "bool": "да/нет", "text": "текст", "number": "число", "item": "объект", "layer": "слой", "machine": "машину",
                "server": "сервер", "character": "персонажа", "section": "раздел", "moment": "момент", "player": "игрока",
                "flag": "метку игрока", "world_flag": "метку мира", "counter": "счётчик"}
-THINGS = ("item", "machine", "server", "character", "section", "moment", "player", "flag", "world_flag", "counter")
+THINGS = ("item", "layer", "machine", "server", "character", "section", "moment", "player", "flag", "world_flag", "counter")
 FIELD_TYPES = {"text": "text", "textarea": "text", "path": "text", "clock": "text", "expr": "text", "scene": "text", "station": "text",
                "graph": "text", "number": "number", "bool": "bool", "condition": "bool", "key": "item", "item": "item", "letter": "item",
                "object": "item", "character": "character", "section": "section", "flag": "flag", "world_flag": "world_flag",
-               "counter": "counter", "moment": "moment", "machine": "machine", "server": "server", "player": "player"}      # вид поля -> тип его входа; нет в списке — параметр без входа
+               "counter": "counter", "moment": "moment", "machine": "machine", "server": "server", "player": "player", "layer": "layer"}      # вид поля -> тип его входа; нет в списке — параметр без входа
 
 
 def field_type(field):
@@ -477,6 +477,21 @@ def _owned_match(kind_name):
 register(Kind("try:machine", "Машина: Попытка входа", NOUN, "{machine}", (Field("machine", "Машина", "machine", "", True),), (),
               match=_owned_match("machine"), owned="machine"))
 DATA_OUTS["try:machine"] = ()
+_SERVER_OUTS = (Sock("server", "Сервер", "server", "address"), Sock("path", "Путь", "text", "path"), _HOST_OUT, _LOGIN_OUT)
+_when("attempt:server", "Попытка", (), (Sock("go", "Попытка"),), {"go": "@attempt"}, None, _SERVER_OUTS, start_only=True)
+KINDS["attempt:server"] = replace(KINDS["attempt:server"], ins=(), hidden=True)
+for _kind, _label in (("net.request", "Сетевой сервер: Попытка запроса"), ("net.download", "Сетевой сервер: Попытка скачивания")):
+    register(Kind(f"try:{_kind}", _label, NOUN, "{server}", (Field("server", "Сервер", "server", "", True),), (),
+                  match=_owned_match(_kind), owned=_kind))
+    DATA_OUTS[f"try:{_kind}"] = ()
+_when("attempt:layer", "Попытка", (), (Sock("go", "Попытка"),), {"go": "@attempt"}, None,
+      (Sock("item", "Объект", "item", "item"), Sock("layer", "Слой", "layer", "layer"), Sock("number", "Номер", "number", "number"),
+       Sock("kind", "Тип", "text", "layer_type"), Sock("given", "Ввёл", "text", "given"), Sock("path", "Путь", "text", "path"), _HOST_OUT, _LOGIN_OUT),
+      start_only=True)
+KINDS["attempt:layer"] = replace(KINDS["attempt:layer"], ins=(), hidden=True)
+register(Kind("try:layer", "Слой объекта: Попытка снятия", NOUN, "{layer}", (Field("layer", "Слой", "layer", "слаг#номер", True),), (),
+              match=_owned_match("layer"), owned="layer"))
+DATA_OUTS["try:layer"] = ()
 
 
 # ---------- ход ----------
@@ -634,6 +649,13 @@ HELP = {
     "ent:count": "Счётчик владельца, как у «Тега»; «Подпись» — подпись значения из описания счётчика («2» — «Архив»).",
     "do:tag": "Поставить или снять тег владельца (мир, игрок, вещь; у вещи — общий или для игрока).",
     "do:count": "Прибавить к счётчику владельца или задать его.",
+    "ent:layer": "Слой объекта: текущий для игрока (верхний неснятый), верхний, последний, по номеру или по типу. "
+                 "Выход «Слой» подключают к «Слой объекта: Попытка снятия»; текущий — значит любой слой объекта.",
+    "try:net.request": "Запрос к выбранному серверу (nreq). Tab — граф попытки сервера; выходы — сокеты «Выхода» внутри.",
+    "try:net.download": "Скачивание с выбранного сервера (nget). Tab — граф попытки сервера; выходы — сокеты «Выхода» внутри.",
+    "try:layer": "Попытка снять слой: граф этого слоя (или любого слоя объекта, если слой текущий). Выходы — сокеты «Выхода» внутри.",
+    "attempt:server": "Игрок обращается к серверу: подробности попытки. Дальше проверки и действия, конец — «Ответить».",
+    "attempt:layer": "Игрок снимает слой: подробности попытки (что ввёл). «Ответить: впустить» снимает слой без проверки.",
     "files": "Где у игрока лежит объект: ищется по самому объекту на машинах, где у игрока есть учётка, поэтому перенос и переименование "
              "его не теряют. «Где» — машина:путь первой копии вне корзины.",
     "do:flag": "Поставить тег игроку (tag:имя).", "do:unflag": "Снять тег игрока.",
@@ -687,7 +709,9 @@ SOCKET_HELP = {
     "up": "значение дошло до порога снизу", "down": "значение ушло ниже порога", "ended": "момент кончился", "machine": "машина события",
     "item": "объект события", "moment": "момент события", "freq": "частота",
     "entered": "игрок вошёл (кто бы ни решал: граф или поля машины)", "denied": "в доступе отказано", "reason": "почему отказ: пароль, ключ, окно, граф…",
-    "go": "попытка: дальше проверки, конец — «Ответить»",
+    "go": "попытка: дальше проверки, конец — «Ответить»", "given": "что игрок ввёл, снимая слой", "kind": "тип слоя",
+    "number": "номер слоя сверху (у слоя, добавленного игроком, — 0)", "removed": "игрок уже снял этот слой", "left": "сколько слоёв осталось у игрока",
+    "server": "сервер",
 }
 
 
@@ -772,6 +796,20 @@ _entity("ent:moment", "Момент", Field("moment", "Момент", "moment"),
         (Sock("value", "Момент", "moment"), Sock("title", "Название", "text"), Sock("running", "Идёт", "bool")))
 _entity("ent:player", "Игрок", Field("player", "Игрок", "player", "игрок прохождения"),
         (Sock("value", "Игрок", "player"), Sock("name", "Имя", "text"), Sock("callsign", "Позывной", "text")))
+def _layer_types():
+    from filesystem.layers.registry import registry
+
+    return tuple((name, name) for name in registry.names())
+
+
+register(Kind("ent:layer", "Слой объекта", ENTITY, "{item}", (
+    Field("mode", "Какой слой", "select", "", False, (("current", "Текущий слой"), ("top", "Верхний слой"), ("last", "Последний слой"),
+                                                     ("number", "Слой по номеру"), ("type", "Слой по типу"))),
+    Field("item", "Объект", "object", "", True), Field("player", "Игрок", "player", "игрок прохождения"), Field("number", "Номер", "number", "1"),
+    Field("kind", "Тип", "select", "", False, _layer_types()),
+), ins=(), title="mode", when={"player": ("mode", ("current",)), "number": ("mode", ("number",)), "kind": ("mode", ("type",))}))
+DATA_OUTS["ent:layer"] = (Sock("value", "Слой", "layer"), Sock("kind", "Тип", "text"), Sock("number", "Номер", "number"),
+                          Sock("removed", "Снят", "bool"), Sock("left", "Осталось слоёв", "number"))
 register(Kind("files", "Файлы игрока", ENTITY, "{item}", (
     Field("item", "Объект", "object", "", True), Field("player", "Игрок", "player", "игрок прохождения"), Field("machine", "Машина", "machine", "любая"),
 ), ins=()))

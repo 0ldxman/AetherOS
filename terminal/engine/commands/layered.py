@@ -143,6 +143,9 @@ class LayerCommand(BaseCommand):
             extra = finish(entry, before) if finish else None
             lines += [extra] if extra else []
             code = 0
+        elif outcome.refused:
+            lines = [f"{self.name}: {target}: {outcome.refused}"]
+            code = 1
         else:
             wrong = ", ".join(outcome.result.wrong)
             lines = [self.fail_for(context, entry, target, wrong, values)]

@@ -26,6 +26,7 @@ class UnlockResult:
     ops: list[OpResult]  # что получилось с drop, rename, copy
     mail: list = field(default_factory=list)  # что получилось с письмами (mail.delivery.DeliveryResult)
     effects: list = field(default_factory=list)  # эффекты хуков для браузера (kick, alert)
+    refused: str = ""  # граф попытки отказал: его текст вместо обычного «неверно»
 
 
 LAYER_EVENTS = {"remove": "layer.removed", "attempt": "layer.attempt", "fail": "layer.failed"}
@@ -53,6 +54,35 @@ def _overridden(view, name, **data):
         return False
 
 
+def _graph_answer(view, entry, path, raw_state, given):
+    """Граф попытки слоя (у объекта): «слаг#номер» верхнего слоя игрока; у добавленного игроком слоя — только «любой слой»."""
+    item = getattr(entry, "item", None)
+    if item is None or not (entry.state or "").strip():
+        return None
+    try:
+        from filesystem.layers.compiler import compile_text
+        from filesystem.layers.stack import load_progress
+        from graph import owned
+
+        progress = load_progress(raw_state, entry.state)
+        canonical = compile_text(entry.state)
+        if progress.added:
+            number, kind = "*", progress.added[0].name
+        elif progress.removed < len(canonical):
+            number, kind = str(progress.removed + 1), canonical[progress.removed].state.name
+        else:
+            return None
+        values = [str(value) for value in (given or {}).values()]
+        return owned.decide("layer", f"{item.slug}#{number}", view.user, host=getattr(view.machine, "hostname", "") or "", login=view.login or "",
+                            item=item.slug, layer=f"{item.slug}#{number}", number=int(number) if number.isdigit() else 0, layer_type=kind,
+                            given=" ".join(values), path=path)
+    except Exception:                               # noqa: BLE001 — сломанный граф: слой снимается как обычно
+        import logging
+
+        logging.getLogger("graph").exception("layer attempt graph failed")
+        return None
+
+
 def _deliver_mail(user, mails):
     """Письма из хуков: доставляются игроку (почта сама решает, что с несуществующим)."""
     from mail.delivery import deliver_by_slug
@@ -72,7 +102,11 @@ def unlock_file(view, path: str, given=None) -> UnlockResult:
     view.invalidate()
     entry = view.get(path)
 
-    outcome = attempt_remove(entry.state, locked.state, path=path, name=posixpath.basename(path), given=given)
+    answer = _graph_answer(view, entry, path, locked.state, given)
+    if answer is not None and answer["mode"] != "allow":
+        return UnlockResult(path=path, progress=locked.state, result=RemoveResult(False), say=[], log=[], ops=[],
+                            refused=answer["text"] or "access denied")
+    outcome = attempt_remove(entry.state, locked.state, path=path, name=posixpath.basename(path), given=given, force=answer is not None)
     layer = outcome.result.layer.state.name if outcome.result.layer is not None else ""
     for event in outcome.result.events:
         if event in LAYER_EVENTS:

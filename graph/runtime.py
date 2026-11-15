@@ -405,6 +405,8 @@ def value_of(run, doc, node_id, out, depth=0):
             return entities.files(run, kind, get("item"), get("player"), get("machine"), out)
         if kind.name in ("ent:tag", "ent:count"):
             return entities.value(run, kind, {f.name: get(f.name) for f in kind.fields}, out)
+        if kind.name == "ent:layer":
+            return entities.layer(run, kind, {f.name: get(f.name) for f in kind.fields}, out)
         return entities.read(run, kind, get(kind.fields[0].name), out)
     if kind.group != N.DATA:
         return None
@@ -866,7 +868,8 @@ def attempt(name, user, *, host="", login="", **data):
     return None if found is None or found["mode"] == "default" else found
 
 
-OUTCOMES = {"machine": ("machine.login", "machine.denied")}        # «как обычно»: чем кончилось, когда решила сама вещь
+OUTCOMES = {"machine": ("machine.login", "machine.denied"), "net.request": ("net.request", "net.denied"),       # «как обычно»: чем кончилось,
+            "net.download": ("net.download", "net.denied"), "layer": ("layer.removed", "layer.attempt")}         # когда решила сама вещь
 
 
 def _outcome_waits(run, doc, node_id):

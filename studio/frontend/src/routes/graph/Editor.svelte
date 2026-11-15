@@ -82,7 +82,11 @@
     let thing = String(n.data[field] ?? "");
     const wire = level.wires.find((w) => w.to === n.id && w.in === `f:${field}`);
     const src = wire && level.nodes.find((x) => x.id === wire.from);
-    if (src && src.type.startsWith("ent:")) thing = String(src.data[kindOf(src.type)?.fields[0]?.name ?? ""] ?? "");
+    if (src && src.type === "ent:layer") {
+      const mode = String(src.data.mode ?? "current"), item = String(src.data.item ?? "");
+      const pick: Record<string, string> = { current: "*", top: "top", last: "last", number: String(src.data.number ?? ""), type: `type:${src.data.kind ?? ""}` };
+      thing = item ? `${item}#${pick[mode] ?? "*"}` : "";
+    } else if (src && src.type.startsWith("ent:")) thing = String(src.data[kindOf(src.type)?.fields[0]?.name ?? ""] ?? "");
     else if (wire) thing = "";
     return thing ? `${kind.owned}|${thing}` : "";
   }

@@ -46,6 +46,7 @@ def attempt_remove(
     name: str,
     given: Mapping[str, Any] | None = None,
     registry: StateRegistry = default_registry,
+    force: bool = False,
 ) -> AttemptOutcome:
     """canonical_text -- Item.state, raw_state -- PlayerFile.state,
     given -- значения игрока (имя аргумента -> значение, типы уже приведены).
@@ -58,7 +59,7 @@ def attempt_remove(
 
     progress = load_progress(raw_state, canonical_text)
     stack = build_stack(canonical, progress, registry)
-    result = remove_top(stack, progress, given)
+    result = remove_top(stack, progress, given, force=force)
     hooks = run_events(result, progress, path=path, name=name, registry=registry)
 
     return AttemptOutcome(result, hooks, progress.dump())

@@ -172,6 +172,7 @@ def remove_top(
     stack: list[CompiledLayer],
     progress: Progress,
     given: Mapping[str, Any] | None = None,
+    force: bool = False,
 ) -> RemoveResult:
     """Пробует снять верхний слой значениями игрока `given` (имя -> значение,
     типы уже приведены командой). Какая именно команда это вызвала и что
@@ -191,7 +192,7 @@ def remove_top(
         return RemoveResult(False)
 
     top = stack[0]
-    wrong = top.state.check_unlock(top.params, given)
+    wrong = () if force else top.state.check_unlock(top.params, given)       # force: граф попытки решил «снять»
 
     if not wrong:
         if progress.added:

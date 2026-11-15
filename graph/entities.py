@@ -95,6 +95,80 @@ def value(run, kind, data, out):
     return values.caption(values.COUNT, owner, oid, name, number) if out == "caption" else number
 
 
+def _canonical(slug):
+    """Объект и его слои по описанию (канонический стек, верхний первым)."""
+    from filesystem.layers.compiler import compile_text
+    from filesystem.models import Item
+
+    item = Item.objects.filter(slug=slug).first() if slug else None
+    if item is None or not (item.state or "").strip():
+        return item, []
+    try:
+        return item, compile_text(item.state)
+    except Exception:                               # noqa: BLE001 — испорченное описание: слоёв как будто нет
+        return item, []
+
+
+def layer_key(data):
+    """Ключ слоя для графа попытки: «слаг#номер», у «Текущего» — «слаг#*» (любой слой объекта). Нет такого слоя — пусто."""
+    slug = _key(data.get("item"))
+    mode = data.get("mode") or "current"
+    if not slug:
+        return ""
+    if mode == "current":
+        return f"{slug}#*"
+    _, canonical = _canonical(slug)
+    number = 0
+    if mode == "top":
+        number = 1
+    elif mode == "last":
+        number = len(canonical)
+    elif mode == "number":
+        try:
+            number = int(float(str(data.get("number") or 0)))
+        except ValueError:
+            number = 0
+    elif mode == "type":
+        number = next((i + 1 for i, layer in enumerate(canonical) if layer.state.name == data.get("kind")), 0)
+    return f"{slug}#{number}" if 1 <= number <= len(canonical) else ""
+
+
+def layer(run, kind, data, out):
+    """«Слой объекта»: ключ слоя, его тип и номер, снят ли он у игрока и сколько слоёв у игрока осталось."""
+    from filesystem.copies import copies
+    from filesystem.layers.stack import load_progress
+
+    key = layer_key(data)
+    if not key:
+        return _blank(kind, out)
+    slug, _, number = key.partition("#")
+    item, canonical = _canonical(slug)
+    user = _player(run, _key(data.get("player")))
+    progress = None
+    if user is not None and item is not None:
+        live = [c for c in copies(user, slug) if not c.trashed]
+        if live:
+            try:
+                progress = load_progress(live[0].progress, item.state)
+            except ValueError:
+                progress = None
+    removed = progress.removed if progress else 0
+    added = progress.added if progress else []
+    if number == "*":
+        if added:
+            position, name = 0, added[0].name
+        elif removed < len(canonical):
+            position, name = removed + 1, canonical[removed].state.name
+        else:
+            position, name = 0, ""
+    else:
+        position = int(number)
+        name = canonical[position - 1].state.name
+    found = {"value": key, "kind": name, "number": position, "removed": number != "*" and removed >= position,
+             "left": len(added) + max(0, len(canonical) - removed)}
+    return found.get(out, _blank(kind, out))
+
+
 def files(run, kind, item, player, machine, out):
     """«Файлы игрока»: есть ли у игрока объект, где лежит, сколько копий, в корзине ли, правил ли он его."""
     from filesystem.copies import copies
