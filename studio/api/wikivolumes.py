@@ -52,7 +52,7 @@ def hosts(request):
     for machine in Machine.objects.prefetch_related("exports", "profiles").order_by("hostname"):
         result.append(WvHost(
             hostname=machine.hostname, label=machine.label, exports=[e.path for e in machine.exports.all()],
-            accounts=[WvAccount(login=p.login, freq=str(p.freq)) for p in machine.profiles.all() if p.user_id is None],
+            accounts=[WvAccount(login=p.login, freq=", ".join(p.endpoints)) for p in machine.profiles.all() if p.user_id is None],
         ))
     return result
 

@@ -47,7 +47,7 @@ class MachineProfileInline(admin.TabularInline):
         "user",
         "login",
         "mail",
-        "freq",
+        "endpoints",
     )
 
     show_change_link = True

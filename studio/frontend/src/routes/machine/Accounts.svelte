@@ -35,8 +35,11 @@
   let found = $state<string[]>([]);
   let chosenPlayer = $state("");
 
+  // «14.230» и «22.000» -> «14.230», «22»: порты без дробной части
+  const short = (point: string) => (Number(point) % 1 === 0 ? String(Number(point)) : point);
+
   function blank() {
-    return { login: "", name: "", freq: "1", mail: "", groups: [] as string[], root: false, keys: "", entry_policy: null as number | null,
+    return { login: "", name: "", endpoints: [] as string[], mail: "", groups: [] as string[], root: false, keys: "", entry_policy: null as number | null,
              ttl: null as number | null, cooldown: null as number | null, kick_message: "", login_scene: null as string | null };
   }
 
@@ -47,7 +50,7 @@
   // список: учётки автора сверху, рабочие учётки игроков отдельной группой (их столько, сколько игроков)
   const matches = (row: Schemas["AccountRow"]) => {
     const q = filter.trim().toLowerCase();
-    return !q || [row.login, row.name, row.owner ?? "", row.freq].some((text) => text.toLowerCase().includes(q));
+    return !q || [row.login, row.name, row.owner ?? "", row.endpoints.join(" ")].some((text) => text.toLowerCase().includes(q));
   };
   const authored = $derived(machine.accounts.filter((row) => !row.owner && matches(row)));
   const ofPlayers = $derived(machine.accounts.filter((row) => row.owner && matches(row)));
@@ -121,7 +124,7 @@
   }
 
   function valuesOf(data: Account) {
-    return { login: data.login, name: data.name, freq: data.freq, mail: data.mail, groups: [...data.groups], root: data.root, keys: data.keys,
+    return { login: data.login, name: data.name, endpoints: [...data.endpoints], mail: data.mail, groups: [...data.groups], root: data.root, keys: data.keys,
              entry_policy: data.entry_policy ?? null, ttl: data.ttl ?? null, cooldown: data.cooldown ?? null, kick_message: data.kick_message, login_scene: data.login_scene ?? null };
   }
 
@@ -225,7 +228,7 @@
     <input class="field" placeholder="Найти учётку или игрока…" bind:value={filter} aria-label="Поиск по учёткам" />
     {#snippet row(item: Schemas["AccountRow"])}
       <a class="item" class:on={item.id === current} href="#/machines/{machine.id}/accounts/{item.id}">
-        <span class="login mono">{item.login}<span class="muted at">@{item.freq}</span></span>
+        <span class="login mono">{item.login}{#if item.endpoints.length}<span class="muted at">:{item.endpoints.map(short).join(", ")}</span>{/if}</span>
         <span class="marks">
           {#if item.root}<span class="chip root">root</span>{/if}
           {#if item.has_password}<span class="chip">пароль</span>{/if}
@@ -265,11 +268,11 @@
           <h3>Кто это</h3>
           <div class="pair">
             <label><span class="label">Логин{#if account.owner}<Hint text="Логин рабочей учётки игрока менять нельзя: он совпадает с его логином на сайте." />{/if}</span><input class="field mono" bind:value={form.login} class:bad={errors.login} disabled={!!account.owner} /></label>
-            <label><span class="label">Частота / порт<Hint text="Где слушает эта запись: у систем Aether частота в МГц (14.230), у остальных порт (22)." /></span><input class="field mono" bind:value={form.freq} class:bad={errors.freq} /></label>
+            <label><span class="label">Точки входа<Hint text="Где на учётку заходят удалённо: у систем Aether частоты в МГц (14.230), у остальных порты (22, 2222) — через запятую. Пусто — извне не зайти." /></span><input class="field mono" value={form.endpoints.map(short).join(", ")} onchange={(e) => (form.endpoints = e.currentTarget.value.split(/[,\s]+/).filter(Boolean))} class:bad={errors.endpoints} placeholder="не заходят" /></label>
           </div>
           <label><span class="label">Имя</span><input class="field" bind:value={form.name} /></label>
           <label><span class="label">Почта</span><input class="field mono" bind:value={form.mail} class:bad={errors.mail} placeholder="{form.login}@{machine.hostname}" /></label>
-          {#each Object.entries(errors).filter(([key]) => ["login", "freq", "mail", "__all__"].includes(key)) as [, list]}<p class="err">{list.join(" ")}</p>{/each}
+          {#each Object.entries(errors).filter(([key]) => ["login", "endpoints", "mail", "__all__"].includes(key)) as [, list]}<p class="err">{list.join(" ")}</p>{/each}
 
           <div class="ownerrow">
             <span class="label">Игрок</span>

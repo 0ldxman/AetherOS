@@ -19130,9 +19130,12 @@
       "title": "Name",
       "type": "string"
      },
-     "freq": {
-      "title": "Freq",
-      "type": "string"
+     "endpoints": {
+      "items": {
+       "type": "string"
+      },
+      "title": "Endpoints",
+      "type": "array"
      },
      "groups": {
       "items": {
@@ -19183,7 +19186,7 @@
      "id",
      "login",
      "name",
-     "freq",
+     "endpoints",
      "groups",
      "root",
      "has_password",
@@ -19857,9 +19860,12 @@
       "title": "Name",
       "type": "string"
      },
-     "freq": {
-      "title": "Freq",
-      "type": "string"
+     "endpoints": {
+      "items": {
+       "type": "string"
+      },
+      "title": "Endpoints",
+      "type": "array"
      },
      "mail": {
       "title": "Mail",
@@ -19972,7 +19978,7 @@
      "id",
      "login",
      "name",
-     "freq",
+     "endpoints",
      "mail",
      "groups",
      "root",
@@ -20074,10 +20080,13 @@
       "title": "Name",
       "type": "string"
      },
-     "freq": {
-      "default": "1",
-      "title": "Freq",
-      "type": "string"
+     "endpoints": {
+      "default": [],
+      "items": {
+       "type": "string"
+      },
+      "title": "Endpoints",
+      "type": "array"
      },
      "mail": {
       "default": "",

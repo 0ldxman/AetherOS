@@ -1,7 +1,17 @@
+from decimal import Decimal, InvalidOperation
+
 from django.conf import settings
 from django.db import models
 
 from mail.addresses import validate_address
+
+
+def endpoint(value):
+    """Точка входа строкой с тремя знаками («14.230», «22.000»); не число — None."""
+    try:
+        return f"{Decimal(str(value).strip().replace(',', '.')):.3f}"
+    except (InvalidOperation, ValueError):
+        return None
 
 
 class MachineProfile(models.Model):
@@ -27,11 +37,11 @@ class MachineProfile(models.Model):
         max_length=255,
     )
 
-    freq = models.DecimalField(
-        "Частота / порт",
-        max_digits=8,
-        decimal_places=3,
-        help_text="Где слушает эта запись: у систем Aether частота в МГц (14.230), у остальных порт (22).",
+    endpoints = models.JSONField(
+        "Точки входа",
+        default=list,
+        blank=True,
+        help_text="Где на учётку заходят удалённо: у систем Aether частоты в МГц (14.230), у остальных порты (22). Пусто — извне не зайти.",
     )
 
     login = models.CharField(
@@ -95,20 +105,34 @@ class MachineProfile(models.Model):
     )
 
     class Meta:
-        ordering = ("machine", "login", "freq")
+        ordering = ("machine", "login")
         constraints = [
             models.UniqueConstraint(
                 fields=(
                     "machine",
                     "login",
-                    "freq",
                 ),
-                name="unique_machine_profile_endpoint",
+                name="unique_machine_profile_login",
             ),
         ]
 
     def __str__(self):
-        return f"{self.login}@{self.machine.label}:{self.freq:.3f}"
+        return f"{self.login}@{self.machine.label}"
+
+    @property
+    def freq(self):
+        """Первая точка входа (Decimal); 0 — извне не зайти. Задать — точки входа станут этой одной (0 — ни одной)."""
+        return Decimal(self.endpoints[0]) if self.endpoints else Decimal("0")
+
+    @freq.setter
+    def freq(self, value):
+        found = endpoint(value)
+        self.endpoints = [found] if found and Decimal(found) != 0 else []
+
+    def serves(self, value):
+        """Слушает ли учётка на этой частоте или порту."""
+        found = endpoint(value)
+        return found is not None and found in self.endpoints
 
     def save(self, *args, **kwargs):
         if not self.mail:

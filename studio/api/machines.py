@@ -51,7 +51,7 @@ class AccountRow(Schema):
     id: int
     login: str
     name: str
-    freq: str
+    endpoints: list[str]
     groups: list[str]
     root: bool
     has_password: bool
@@ -195,7 +195,7 @@ def _event(event):
 
 def _account_row(profile):
     return AccountRow(
-        id=profile.pk, login=profile.login, name=profile.name, freq=f"{profile.freq:.3f}", groups=list(profile.groups or []),
+        id=profile.pk, login=profile.login, name=profile.name, endpoints=list(profile.endpoints or []), groups=list(profile.groups or []),
         root=profile.root, has_password=bool(profile.password_hash), has_key=bool(profile.key_condition), tokens=profile.token_count,
         policy=_policy(profile), owner=profile.user.get_username() if profile.user_id else None,
     )
@@ -306,7 +306,7 @@ def randomart(request, body: ArtIn):
 def overview(request, machine_id: int):
     machine = _machine(machine_id)
     accounts = list(
-        machine.profiles.exclude(user__sandbox_of__isnull=False).select_related("user", "entry_policy", "machine__entry_policy").annotate(token_count=Count("tokens")).order_by("login", "freq")
+        machine.profiles.exclude(user__sandbox_of__isnull=False).select_related("user", "entry_policy", "machine__entry_policy").annotate(token_count=Count("tokens")).order_by("login")
     )
     sessions = Session.objects.filter(profile__machine=machine, seen_at__gte=timezone.now() - ONLINE, user__sandbox_of__isnull=True).select_related("user", "profile")
     events = LoginEvent.objects.filter(profile__machine=machine).exclude(user__sandbox_of__isnull=False).select_related("profile", "user").order_by("-at", "-id")[:15]

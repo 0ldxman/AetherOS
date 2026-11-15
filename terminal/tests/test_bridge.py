@@ -42,8 +42,8 @@ class BridgeFixture(TerminalClient, TestCase):
         cls.badge = account(cls.core, "badge", key_condition="cardkey")
         cls.tok = account(cls.core, "tok", password_hash=make_password("s3cret"), key_condition="cardkey")
         cls.walled = account(cls.core, "walled", entry_policy=EntryPolicy.objects.create(name="walled", sources="somewhere-else"))
-        cls.twin_a = account(cls.core, "twin", freq=14.230)
-        cls.twin_b = account(cls.core, "twin", freq=15.000)
+        cls.twin = MachineProfile.objects.create(machine=cls.core, login="twin", name="twin", endpoints=["14.230", "15.000"])
+        cls.shut = MachineProfile.objects.create(machine=cls.core, login="shut", name="shut", endpoints=[])
         cls.deep_open = account(cls.deep, "dig")
         cls.core_to_deep = account(cls.core, "relay")
         MachineProfileToken.objects.create(profile=cls.tok, token="golden", max_usage=1)
@@ -315,12 +315,16 @@ class BridgeTests(BridgeFixture):
         self.assertIn("Permission denied", self.run_command("rcon walled@aether-core")["output"])
         self.assertEqual(self.depth(), 0)
 
-    def test_several_endpoints_need_the_endpoint_option(self):
-        self.assertIn("-p", self.run_command("rcon twin@aether-core")["output"])
-        self.assertEqual(self.run_command("rcon -p 15 twin@aether-core")["exit_code"], 0)
-        self.assertEqual(self.where().freq, self.twin_b.freq)
+    def test_one_account_on_several_endpoints(self):
+        data = self.run_command("rcon twin@aether-core")                     # без -p — первая точка
+        self.assertEqual(data["exit_code"], 0, data["output"])
+        self.assertEqual(self.where().pk, self.twin.pk)
         self.assertEqual(self.run_command("exit")["exit_code"], 0)
-        self.assertIn("no such account", self.run_command("rcon -p 99 twin@aether-core")["output"])
+        data = self.run_command("rcon -p 15 twin@aether-core")
+        self.assertEqual(data["exit_code"], 0, data["output"])
+        self.assertEqual(self.run_command("exit")["exit_code"], 0)
+        self.assertIn("connection refused", self.run_command("rcon -p 99 twin@aether-core")["output"])
+        self.assertIn("connection refused", self.run_command("rcon shut@aether-core")["output"])     # точек нет — извне не зайти
 
     # ---------- стек ----------
 

@@ -93,7 +93,7 @@ class AccountRightsTests(NetworkCase):
 
     def check(self, account, action="r"):
         remote(self.client_machine, self.host, "/srv/harbor", "/mnt/h", account)
-        profile, _ = MachineProfile.objects.get_or_create(machine=self.client_machine, login="ivan", freq=1, defaults={"name": "I"})
+        profile, _ = MachineProfile.objects.get_or_create(machine=self.client_machine, login="ivan", defaults={"name": "I", "freq": 1})
         view = MachineView(self.client_machine, self.user, principal_for(profile))
         rights.check(view, view.principal, "/mnt/h/docs/plan.txt", action)
 

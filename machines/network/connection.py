@@ -23,7 +23,7 @@ def exported(host, path):
 
 def account_of(host, login):
     """Запись хоста по логину (первая по частоте) или None."""
-    return host.profiles.filter(login=login).order_by("freq").first() if login else None
+    return host.profiles.filter(login=login).first() if login else None
 
 
 def connect(client, host, host_path, account, user, trail=frozenset()):

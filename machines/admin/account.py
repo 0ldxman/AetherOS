@@ -41,7 +41,7 @@ class MachineProfileAdmin(ConditionFieldsMixin, admin.ModelAdmin):
         "user",
         "login",
         "mail",
-        "freq",
+        "endpoints",
         "has_password",
         "condition",
     )
@@ -99,7 +99,7 @@ class MachineProfileAdmin(ConditionFieldsMixin, admin.ModelAdmin):
                 "fields": (
                     "login",
                     "mail",
-                    "freq",
+                    "endpoints",
                 ),
             },
         ),

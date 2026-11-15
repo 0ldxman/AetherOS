@@ -35,7 +35,7 @@ class UsageTests(TestCase):
         self.assertEqual(self.kinds("key_ab"), [])
 
     def test_profile_condition_counts(self):
-        self.assertEqual(self.kinds("key_prof"), [("профиль", "l@main:1.000")])
+        self.assertEqual(self.kinds("key_prof"), [("профиль", "l@main")])
 
     def test_file_key_counts(self):
         self.assertEqual(self.kinds("key_file"), [("объект", "secret.txt [secrettxt]")])

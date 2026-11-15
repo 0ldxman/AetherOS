@@ -32,6 +32,7 @@ from django.utils import timezone
 from secure.access import satisfied
 
 from machines.access import entry
+from machines.models.account import endpoint as endpoint_of
 from machines.current import SESSION_KEY, active_session
 from machines.models import LoginEvent, Machine, MachineProfile, MachineProfileToken, Session
 from machines.world import blackout
@@ -429,7 +430,8 @@ def route(request, source, target):
 @dataclass
 class Resolution:
     profile: MachineProfile | None = None
-    error: str = ""          # no_host | no_account | ambiguous | bad_endpoint
+    error: str = ""          # no_host | no_account | closed (на этой точке учётка не слушает или точек нет)
+    endpoint: str = ""       # через какую точку входа («14.230», «22.000»)
 
 
 def parse_endpoint(raw):
@@ -440,21 +442,28 @@ def parse_endpoint(raw):
 
 
 def resolve(host, login, endpoint=None):
-    """Запись login на машине host. endpoint (частота или порт) нужен, если у логина несколько записей."""
+    """Учётка login на машине host и точка входа: названная (endpoint — частота или порт) или первая из её точек."""
     machine = Machine.objects.filter(hostname=host).first()
     from machines.world import power
 
     if machine is None or power.is_down(machine):
         return Resolution(error="no_host")
-
-    profiles = list(MachineProfile.objects.filter(machine=machine, login=login))
-    if endpoint is not None:
-        profiles = [p for p in profiles if p.freq == endpoint]
-    if not profiles:
+    profile = MachineProfile.objects.filter(machine=machine, login=login).first()
+    if profile is None:
         return Resolution(error="no_account")
-    if len(profiles) > 1:
-        return Resolution(error="ambiguous")
-    return Resolution(profiles[0])
+    if endpoint is not None:
+        return Resolution(profile, endpoint=endpoint_of(endpoint)) if profile.serves(endpoint) else Resolution(profile, "closed")
+    if not profile.endpoints:
+        return Resolution(profile, "closed")
+    return Resolution(profile, endpoint=profile.endpoints[0])
+
+
+def endpoint_text(profile, value=None):
+    """Точка входа для игрока: у Aether «14.230 MHz», у остальных порт «22». value — через какую вошли (пусто — первая)."""
+    found = endpoint_of(value) if value not in (None, "") else (profile.endpoints[0] if profile.endpoints else "")
+    if not found:
+        return ""
+    return f"{Decimal(found):.3f} MHz" if profile.machine.system == "AETHER" else str(int(Decimal(found)))
 
 
 # ---------- условия входа ----------

@@ -6465,8 +6465,8 @@ export interface components {
             login: string;
             /** Name */
             name: string;
-            /** Freq */
-            freq: string;
+            /** Endpoints */
+            endpoints: string[];
             /** Groups */
             groups: string[];
             /** Root */
@@ -6738,8 +6738,8 @@ export interface components {
             login: string;
             /** Name */
             name: string;
-            /** Freq */
-            freq: string;
+            /** Endpoints */
+            endpoints: string[];
             /** Mail */
             mail: string;
             /** Groups */
@@ -6803,10 +6803,10 @@ export interface components {
              */
             name: string;
             /**
-             * Freq
-             * @default 1
+             * Endpoints
+             * @default []
              */
-            freq: string;
+            endpoints: string[];
             /**
              * Mail
              * @default

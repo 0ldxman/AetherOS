@@ -17,6 +17,7 @@ from ninja import Router, Schema
 
 from documents.markup.expr import SpoilerSyntaxError, parse_expr
 from machines.access import entry
+from machines.models.account import endpoint
 from machines.models import EntryPolicy, LoginEvent, Machine, MachineProfile, MachineProfileToken, SceneScript, Session
 from machines.network import bridge
 from machines.world.facts import ONLINE
@@ -40,7 +41,7 @@ class AccountOut(Schema):
     id: int
     login: str
     name: str
-    freq: str
+    endpoints: list[str]
     mail: str
     groups: list[str]
     root: bool
@@ -60,7 +61,7 @@ class AccountOut(Schema):
 class AccountIn(Schema):
     login: str
     name: str = ""
-    freq: str = "1"
+    endpoints: list[str] = []
     mail: str = ""
     groups: list[str] = []
     root: bool = False
@@ -99,7 +100,7 @@ def _profile(machine_id, account_id):
 
 def _out(profile):
     return AccountOut(
-        id=profile.pk, login=profile.login, name=profile.name, freq=f"{profile.freq:.3f}", mail=profile.mail, groups=list(profile.groups or []),
+        id=profile.pk, login=profile.login, name=profile.name, endpoints=list(profile.endpoints or []), mail=profile.mail, groups=list(profile.groups or []),
         root=profile.root, has_password=bool(profile.password_hash), keys=format_condition(profile.key_condition) if profile.key_condition else "",
         entry_policy=profile.entry_policy_id, policy=_policy(profile), ttl=profile.ttl, cooldown=profile.cooldown,
         kick_message=profile.kick_message, login_scene=profile.login_scene.slug if profile.login_scene_id else None,
@@ -113,7 +114,10 @@ def _apply(profile, body):
     errors = {}
     profile.login = body.login.strip()
     profile.name = body.name.strip() or profile.login
-    profile.freq = body.freq.strip() or "1"
+    points = [endpoint(value) for value in body.endpoints if str(value).strip()]
+    if None in points:
+        errors["endpoints"] = ["точка входа — число: частота (14.230) или порт (22)"]
+    profile.endpoints = sorted({point for point in points if point and float(point) != 0}, key=float)
     profile.mail = body.mail.strip() or f"{profile.login}@{profile.machine.label}"      # как MachineProfile.save
     profile.groups = sorted({name.strip() for name in body.groups if name.strip()})
     profile.root = body.root

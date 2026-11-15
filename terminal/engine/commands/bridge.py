@@ -61,7 +61,7 @@ def answer_prompt(request, text, session, cwd):
     if entry.after_failure(profile, request.user, source):
         wait = entry.locked_seconds(request.user, profile)
         return _locked(profile, profile.login, wait, _policy_text(profile, "locked_text")), cwd
-    return _denied(profile, profile.machine.system, profile.machine.hostname, f"{profile.freq:.3f} MHz", _policy_text(profile, "denied_text")), cwd
+    return _denied(profile, profile.machine.system, profile.machine.hostname, bridge.endpoint_text(profile, getattr(profile, "endpoint_used", None)), _policy_text(profile, "denied_text")), cwd
 
 
 def _source(context):
@@ -142,10 +142,11 @@ class EntryCommand(BaseCommand):
             return CommandResult(
                 f"{self.name}: no such account '{login}' on {host}", 1, scene=scenes.denied_scene(system, host, login),
             )
-        if found.error == "ambiguous":
-            return CommandResult(f"{self.name}: '{login}' is served on several endpoints, use -p", 2)
+        if found.error == "closed":
+            return CommandResult(f"{self.name}: {host}: connection refused", 1, scene=scenes.denied_scene(system, host, login))
         if found.profile.pk == context.profile.pk:
             return CommandResult(f"{self.name}: already on this account", 1)
+        found.profile.endpoint_used = found.endpoint                     # какая точка: для экранов входа
         return found.profile, slugs
 
     def _scenario(self, context, profile, login, host, args):
@@ -169,7 +170,7 @@ class EntryCommand(BaseCommand):
             entry.record(profile, context.user, LoginEvent.Kind.GRAPH, _source(context), "block")
             return _locked(profile, login, answer["minutes"] * 60, answer["text"], f"{self.name}: {login}@{host}: ")
         entry.record(profile, context.user, LoginEvent.Kind.GRAPH, _source(context), "deny")
-        return _denied(profile, profile.machine.system, host, f"{profile.freq:.3f} MHz", answer["text"])
+        return _denied(profile, profile.machine.system, host, bridge.endpoint_text(profile, getattr(profile, "endpoint_used", None)), answer["text"])
 
     def _gate(self, context, profile, login, host):
         """Отказ политики входа (блокировка, источник, маршрут, окно времени) или None."""
@@ -179,13 +180,13 @@ class EntryCommand(BaseCommand):
         if refusal.kind == LoginEvent.Kind.LOCKED:
             return _locked(profile, login, refusal.wait, refusal.text, f"{self.name}: {login}@{host}: ")
         entry.record(profile, context.user, refusal.kind, _source(context))
-        return _denied(profile, profile.machine.system, host, f"{profile.freq:.3f} MHz", refusal.text)
+        return _denied(profile, profile.machine.system, host, bridge.endpoint_text(profile, getattr(profile, "endpoint_used", None)), refusal.text)
 
     def _credentials(self, context, opts, profile, slugs, args):
         """Токен, ключи и пароль по тому, что у записи есть и как политика их сочетает."""
         user, source = context.user, _source(context)
         login, host = profile.login, profile.machine.hostname or profile.machine.name
-        endpoint_text = f"{profile.freq:.3f} MHz"
+        endpoint_text = bridge.endpoint_text(profile, getattr(profile, "endpoint_used", None))
 
         if opts["token"]:
             token = bridge.valid_token(profile, opts["token"])

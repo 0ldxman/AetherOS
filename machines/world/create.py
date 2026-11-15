@@ -10,7 +10,7 @@ from filesystem.manager.filemanager import apply_template, copy_volume
 from filesystem.models import Volume, VolumeTemplate
 from machines.models import Export, Group, Machine, MachineMount, MachineProfile, Place
 
-PROFILE_FIELDS = ("name", "freq", "login", "password_hash", "key_condition", "ttl", "cooldown", "groups", "root", "entry_policy", "kick_message")
+PROFILE_FIELDS = ("name", "endpoints", "login", "password_hash", "key_condition", "ttl", "cooldown", "groups", "root", "entry_policy", "kick_message")
 
 
 def _slug(base):

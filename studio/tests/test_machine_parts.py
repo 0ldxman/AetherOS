@@ -332,7 +332,7 @@ class CreateAndSystemsTests(TestCase):
         self.call("post", "/scenes", {"slug": "own-hello", "body": "own {login} on {host}"})
         data = self.call("get", f"/machines/{self.core.pk}/accounts/{profile.pk}")[1]
         self.assertEqual((data["login_scene"], "own-hello" in [row["slug"] for row in data["scene_library"]]), (None, True))
-        body = {k: data[k] for k in ("login", "name", "freq", "mail", "groups", "root")} | {"login_scene": "own-hello"}
+        body = {k: data[k] for k in ("login", "name", "endpoints", "mail", "groups", "root")} | {"login_scene": "own-hello"}
         self.assertEqual(self.call("put", f"/machines/{self.core.pk}/accounts/{profile.pk}", body)[1]["login_scene"], "own-hello")
         profile.refresh_from_db()
         self.assertEqual(slots.account_scene(profile, values)[0]["value"], f"own {profile.login} on {self.core.hostname}")

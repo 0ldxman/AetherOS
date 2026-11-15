@@ -4,6 +4,8 @@
 говорит на обычном сетевом языке (порт, tcp, tls). Сцену собирает сервер уже после решения: в неё попадает
 только то, что игрок и так узнал бы из ответа.
 """
+from decimal import Decimal
+
 from machines.world import slots
 from scenes.engine import Scene
 
@@ -11,16 +13,17 @@ AETHER = "AETHER"
 
 
 def _endpoint(system, profile):
-    """Частота у Aether, порт у остальных."""
-    if system == AETHER:
-        return f"{profile.freq:.3f} MHz"
-    return str(int(profile.freq))
+    """Частота у Aether, порт у остальных: та, через которую вошли (или первая точка учётки)."""
+    from machines.network.bridge import endpoint_text
+
+    return endpoint_text(profile, getattr(profile, "endpoint_used", None))
 
 
 def connect_scene(system, host, profile, cut=True, opened=True):
     """Игрок вошёл: соединение, обмен ключами, вход, и (cut) чёрный кадр перед сменой рабочего стола.
     rshell и xfer не меняют рабочий стол: для них cut=False, а xfer ещё и не говорит об открытой сессии."""
-    own = slots.custom("bridge.connect", system, host=host, login=profile.login, endpoint=_endpoint(system, profile), freq=f"{profile.freq:.3f}", os=system)
+    own = slots.custom("bridge.connect", system, host=host, login=profile.login, endpoint=_endpoint(system, profile),
+                       freq=f"{Decimal(getattr(profile, 'endpoint_used', None) or profile.freq):.3f}", os=system)
     if own is not None:
         return own
     s = Scene()
