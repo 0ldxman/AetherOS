@@ -43,7 +43,9 @@ def check(context, fs, source, target, move, recursive):
 
 def apply(context, source, target, move):
     """Перенести или скопировать source (файл или папку со всем внутри) в target. Возвращает число файлов."""
+    from filesystem import fileevents
+
     view = context.view
-    count = view.move(source, target) if move else view.copy(source, target)
+    count = fileevents.move(view, source, target) if move else fileevents.copy(view, source, target)
     context.invalidate()
     return count

@@ -153,5 +153,8 @@ class WardCommand(LayerCommand):
         if fs.exists(output):
             return CommandResult(f"ward: '{output}' exists, delete it first", 1)
         context.view.put_text(output, signatures.block(name, signatures.digest(data), f"sig:{name}").decode())
+        from filesystem import fileevents
+
+        fileevents.created(context.view, output)
         context.invalidate()
         return CommandResult(f"ward: signed {target} with key {name}\n  {output}", 0, scene=sign_scene(entry.path, name))

@@ -9,6 +9,7 @@
 import posixpath
 from dataclasses import dataclass
 
+from filesystem import fileevents
 from filesystem.layers.executor import FileOp
 
 
@@ -52,11 +53,11 @@ def apply_file_ops(view, current_path: str, ops: list[FileOp]) -> list[OpResult]
         elif found is not None:
             results.append(OpResult(op, target, False, "путь занят"))
         elif op.kind == "rename":
-            view.move(current_path, target)
+            fileevents.move(view, current_path, target)
             current_path = target
             results.append(OpResult(op, target, True))
         elif op.kind == "copy":
-            view.copy(current_path, target)
+            fileevents.copy(view, current_path, target)
             results.append(OpResult(op, target, True))
         else:
             raise ValueError(f"неизвестная файловая операция {op.kind!r}")

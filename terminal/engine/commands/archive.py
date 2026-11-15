@@ -185,6 +185,9 @@ class PakCommand(LayerCommand):
                 arrivals.got(context.view, target, member.item, "archive")
             else:
                 context.view.put_text(target, member.text or "")              # член со своим текстом: у игрока свой файл
+                from filesystem import fileevents
+
+                fileevents.created(context.view, target)
         context.invalidate()
 
         lines = [f"x {name}" for name, _ in chosen]

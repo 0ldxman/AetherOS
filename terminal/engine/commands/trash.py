@@ -100,7 +100,7 @@ class Del(BaseCommand):
             return CommandResult()
 
         # хуки on delete: файл уже в корзине, а в текстах хука {path} прежний путь
-        lines, effects = hook_report([fire_file_event(context.view, new_path, "delete", original) for new_path, original in moved])
+        lines, effects = hook_report([fire_file_event(context.view, new_path, "delete", original, to=new_path) for new_path, original in moved])
         context.invalidate()
         count = len(moved)
         text = "\n".join([f"del: {count} file{'s' if count != 1 else ''} moved to the trash", *lines])

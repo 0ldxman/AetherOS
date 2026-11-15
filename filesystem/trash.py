@@ -35,7 +35,11 @@ def purge_expired(user=None):
 
 def empty_trash(view, trash_dir):
     """Очистить корзину записи. Возвращает сколько файлов."""
+    from filesystem import fileevents
+
     found = trashed(view, trash_dir)
     for entry in found:
+        item = entry.item.slug if entry.item is not None else ""
         view.remove(entry.path)
+        fileevents.purged(view, entry.path, item)
     return len(found)

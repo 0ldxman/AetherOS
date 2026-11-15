@@ -149,6 +149,9 @@ class BlkCommand(LayerCommand):
             context.view.put_data(destination, data[start:end])
         except ValueError:
             return CommandResult(f"blk: {target}: output too large", 1)
+        from filesystem import fileevents
+
+        fileevents.created(context.view, destination)
         context.invalidate()
         return CommandResult("\n".join([*lines, f"blk: {target}: {self.done}", f"  {destination}"]), 0, scene=scene)
 

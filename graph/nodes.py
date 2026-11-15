@@ -159,6 +159,22 @@ def _same(a, b):
     return str(a or "").strip().lower() == str(b or "").strip().lower()
 
 
+def moved_paths(data):
+    """Где файл был и где он теперь: перенос и возврат — from → path, удаление в корзину — path → to, остальное — path."""
+    data = data or {}
+    path = data.get("path") or ""
+    return {"before": data.get("from") or path, "after": data.get("to") or path} if path else {}
+
+
+def same_placement(event, path, wanted):
+    """Событие случилось с размещением wanted («игрок@машина:/путь»; без «игрок@» — у любого игрока)?"""
+    head, _, want_path = str(wanted or "").strip().partition(":")
+    owner, _, host = head.rpartition("@")
+    if not path or want_path != path or not _same(host, event.host):
+        return False
+    return not owner or (event.user is not None and _same(owner, event.user.get_username()))
+
+
 # ---------- существительные ----------
 
 START_FIELDS = (
@@ -190,7 +206,7 @@ def _thing(value, wanted):
 def _match(**rules):
     """Сравнение события с фильтрами ноды: поле ноды -> (ключ события, как сравнивать). Пустой фильтр пропускает любое."""
     def match(data, out, event):
-        d = {**(event.data or {}), "host": event.host, "login": event.login}
+        d = {**(event.data or {}), "host": event.host, "login": event.login, **moved_paths(event.data)}
         for name, (key, how) in rules.items():
             wanted = data.get(name)
             if wanted in (None, ""):
@@ -210,12 +226,14 @@ def _match(**rules):
                 return False
             if how == "via" and wanted != "any" and value != wanted:
                 return False
+            if how == "placement" and not same_placement(event, value, wanted):
+                return False
         return True
     return match
 
 
-def _when(name, label, fields, outs, events, match, data_outs, summary="", start_only=False):
-    register(Kind(name, label, NOUN, summary, fields, outs, events=events, match=match, start_only=start_only))
+def _when(name, label, fields, outs, events, match, data_outs, summary="", start_only=False, covers=None):
+    register(Kind(name, label, NOUN, summary, fields, outs, events=events, match=match, start_only=start_only, covers=covers or {}))
     DATA_OUTS[name] = tuple(data_outs) + (Sock("player", "Игрок", "player", "@player"),)
 
 
@@ -250,6 +268,30 @@ _when("on:object.got", "Объект: Получен",
        _PATH, _MACHINE),
       (Sock("got", "Получен"),), {"got": "object.got"}, _match(item=("item", "item"), via=("via", "via"), path=("path", "glob"), machine=("host", "thing")),
       _OBJECT_OUTS + (Sock("via", "Откуда", "text", "via"),), "{item} {via}")
+
+# размещение: что игрок делает с конкретным файлом. Провод «Размещение» — ждать этот файл, иначе фильтры (с объектом — любая его копия).
+# Изменение — «было там, стало здесь»: удаление переносит в корзину, возврат — из неё; фильтры смотрят, где файл был.
+_PLACE_IN = Field("placement", "Размещение", "placement", "любое")
+_PLACE_COVERS = {"placement": ("item", "path", "machine")}
+_PLACE_MATCH = _match(placement=("before", "placement"), item=("item", "item"), path=("before", "glob"), machine=("host", "thing"))
+_when("on:placement.changed", "Размещение: Изменено", (_PLACE_IN, _OBJECT, _PATH, _MACHINE),
+      (Sock("edited", "Отредактировано"), Sock("moved", "Перемещено"), Sock("deleted", "Удалено"), Sock("restored", "Восстановлено"),
+       Sock("purged", "Удалено насовсем")),
+      {"edited": "file.changed", "moved": "file.moved", "deleted": "file.deleted", "restored": "file.restored", "purged": "file.purged"},
+      _PLACE_MATCH, (Sock("from_placement", "Было", "placement", "from_placement"), Sock("placement", "Размещение", "placement", "placement"),
+                     Sock("item", "Объект", "item", "item"), Sock("path", "Путь", "text", "after"), _HOST_OUT, _LOGIN_OUT),
+      "{item} {path}", covers=_PLACE_COVERS)
+_when("on:placement.opened", "Размещение: Открыто", (_PLACE_IN, _OBJECT, _PATH, _MACHINE), (Sock("opened", "Открыл"),), {"opened": "file.read"},
+      _PLACE_MATCH, _OBJECT_OUTS, "{item} {path}", covers=_PLACE_COVERS)
+_when("on:placement.appeared", "Размещение: Появилось",
+      (_PLACE_IN, _OBJECT, Field("via", "Как", "select", "", False, (("any", "любым способом"), ("created", "создан игроком"), ("copied", "скопирован"))),
+       _PATH, _MACHINE),
+      (Sock("appeared", "Появилось"),), {"appeared": "file.created"},
+      _match(placement=("path", "placement"), item=("item", "item"), via=("via", "via"), path=("path", "glob"), machine=("host", "thing")),
+      _OBJECT_OUTS + (Sock("from_placement", "Источник", "placement", "from_placement"), Sock("via", "Как", "text", "via")), "{item} {path}",
+      covers=_PLACE_COVERS)
+for _name in ("viewed", "deleted", "restored", "changed"):                 # старые: теперь «Размещение: …»
+    KINDS[f"on:object.{_name}"] = replace(KINDS[f"on:object.{_name}"], hidden=True)
 
 
 def _mail(data, out, event):
@@ -555,6 +597,13 @@ HELP = {
     "on:object.viewed": "Игрок открыл файл. Фильтры: объект, путь (*), машина; пусто — любой.",
     "on:object.deleted": "Игрок удалил файл (в корзину).", "on:object.restored": "Игрок вернул файл из корзины.",
     "on:object.changed": "Игрок сохранил правку текста файла.",
+    "on:placement.changed": "Файл игрока изменился: отредактирован, перенесён, удалён в корзину, возвращён, стёрт насовсем. "
+                            "Провод «Размещение» — следить за этим файлом, иначе фильтры (объект — любая его копия, путь *, машина). "
+                            "«Было» — где файл был, «Размещение» — где он теперь (после удаления — в корзине). "
+                            "Ждущая нода сама идёт за файлом, если он переехал.",
+    "on:placement.opened": "Игрок открыл файл. Провод «Размещение» — этот файл; иначе фильтры: объект, путь (*), машина.",
+    "on:placement.appeared": "У игрока появился новый файл: сделал сам (вырезка, подпись, текст из архива) или скопировал. "
+                             "Объект, впервые попавший к игроку, — «Объект: Получен».",
     "on:object.got": "Объект лёг игроку: из письма или архива, с форума, с сервера, с другой машины, собран из частей, ключ, выдан сценарием.",
     "on:player.mail": "Игрок написал персонажу письмо.", "on:player.air": "Игрок передал в эфир на частоте.",
     "on:moment.status": "Момент мира начался или кончился.",
@@ -675,7 +724,10 @@ SOCKET_HELP = {
     "code": "код персонажа", "active": "персонаж активен", "archived": "раздел в архиве", "running": "момент идёт сейчас",
     "format": "формат объекта", "has": "у игрока есть копия вне корзины", "where": "машина:путь первой копии", "count": "сколько копий вне корзины",
     "trash": "какая-то копия в корзине", "edited": "игрок поменял текст копии", "caption": "подпись значения",
-    "stopped": "машину остановили", "viewed": "игрок открыл файл", "via": "откуда пришёл объект", "delta": "на сколько изменилось",
+    "stopped": "машину остановили", "viewed": "игрок открыл файл", "via": "откуда пришёл объект", "from_placement": "где файл был до изменения / с чего скопирован",
+    "edited": "игрок сохранил правку текста",
+    "opened": "игрок открыл файл", "changed": "игрок сохранил правку", "purged": "игрок стёр файл насовсем", "moved": "игрок перенёс файл",
+    "appeared": "у игрока появился новый файл", "delta": "на сколько изменилось",
     "up": "значение дошло до порога снизу", "down": "значение ушло ниже порога", "ended": "момент кончился", "machine": "машина события",
     "item": "объект события", "moment": "момент события", "freq": "частота", "placement": "файл игрока: машина и путь", "exists": "файл есть у игрока",
     "entered": "игрок вошёл (кто бы ни решал: граф или поля машины)", "denied": "в доступе отказано", "reason": "почему отказ: пароль, ключ, окно, граф…",

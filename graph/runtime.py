@@ -354,13 +354,14 @@ def _count(data, name, default=2):
 def capture(run, node_id, event=None, ctx=None):
     """Запомнить подробности события существительного: из них берутся его выходы данных (путь, учётка, значение…)."""
     if event is not None:
-        found = {**(event.data or {}), "host": event.host, "login": event.login}
-        if event.host and (event.data or {}).get("path") and event.user is not None:      # где случилось: размещение игрока
-            found["placement"] = f"{event.user.get_username()}@{event.host}:{event.data['path']}"
+        found, user = {**(event.data or {}), "host": event.host, "login": event.login}, event.user
     else:
-        found = {**((ctx or {}).get("data") or {}), "host": (ctx or {}).get("host", ""), "login": (ctx or {}).get("login", "")}
-        if found["host"] and found.get("path") and run.user is not None and "placement" not in found:
-            found["placement"] = f"{run.user.get_username()}@{found["host"]}:{found["path"]}"
+        found, user = {**((ctx or {}).get("data") or {}), "host": (ctx or {}).get("host", ""), "login": (ctx or {}).get("login", "")}, run.user
+    found.update({key: value for key, value in N.moved_paths(found).items() if key not in found})
+    if found["host"] and user is not None:                                     # где случилось: размещение игрока (и где было до изменения)
+        for key, path in (("placement", "after"), ("from_placement", "before")):
+            if found.get(path) and key not in found:
+                found[key] = f"{user.get_username()}@{found['host']}:{found[path]}"
     run.state = {**(run.state or {}), "vals": {**((run.state or {}).get("vals") or {}), node_id: found}}
 
 
@@ -842,6 +843,25 @@ def resume(wait, event=None):
     return advance(run, doc_of(run.graph).next(wait.node, wait.out))
 
 
+def follow(event):
+    """Файл переехал (перенос, удаление в корзину, возврат): ждущие его ноды и запомненные размещения идут за ним (файл тот же)."""
+    paths = N.moved_paths(event.data)
+    if event.user is None or not event.host or not paths or paths["before"] == paths["after"]:
+        return
+    name = event.user.get_username()
+    old, new = f"{name}@{event.host}:{paths['before']}", f"{name}@{event.host}:{paths['after']}"
+    for wait in Wait.objects.filter(user=event.user, run__status=Run.Status.RUNNING, data__placement=old):
+        wait.data = {**wait.data, "placement": new}
+        wait.save(update_fields=["data"])
+    for run in Run.objects.filter(user=event.user, status=Run.Status.RUNNING):
+        vals = (run.state or {}).get("vals") or {}
+        moved = {node: {**found, "placement": new, "path": paths["after"], "after": paths["after"]} for node, found in vals.items()
+                 if isinstance(found, dict) and found.get("placement") == old}
+        if moved:
+            run.state = {**run.state, "vals": {**vals, **moved}}
+            run.save(update_fields=["state"])
+
+
 def dispatch(event):
     """Событие из engine.events.emit: разбудить ожидания и запустить старты. Возвращает число затронутых прохождений."""
     depth = _depth.get()
@@ -873,6 +893,8 @@ def dispatch(event):
                 data = {**data, kind.fields[0].name: owned.thing_of(doc, row.node)}
             if kind is not None and kind.match is not None and kind.match(data, row.out, event):
                 touched += bool(start(row.graph, row.node, row.out, event.user, _ctx_of(event)))
+        if event.name in ("file.moved", "file.deleted", "file.restored"):
+            follow(event)
     finally:
         _depth.reset(token)
     return touched

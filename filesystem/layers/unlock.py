@@ -120,13 +120,14 @@ def unlock_file(view, path: str, given=None, force=False) -> UnlockResult:
 
 
 @transaction.atomic
-def fire_file_event(view, path: str, event: str, shown: str | None = None) -> UnlockResult | None:
+def fire_file_event(view, path: str, event: str, shown: str | None = None, **extra) -> UnlockResult | None:
     """Хуки события, которое случилось с файлом само (delete при del, restore при rcvr).
 
-    shown это путь для {path} в текстах хуков (файл мог уже переехать). У файла без слоёв хуков нет: None."""
+    shown это путь для {path} в текстах хуков (файл мог уже переехать); extra — ещё подробности события
+    (to — куда удалён в корзину, from — откуда возвращён). У файла без слоёв хуков нет: None."""
     entry = view.get(path)
     if event in FILE_EVENTS:
-        _emit(view, FILE_EVENTS[event], path=shown or path, item=_slug(entry))
+        _emit(view, FILE_EVENTS[event], path=shown or path, item=_slug(entry), **extra)
     if entry is None or (not entry.state.strip() and not entry.progress):
         return None
 

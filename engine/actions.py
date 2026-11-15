@@ -487,7 +487,9 @@ def _file_change(action, ctx):
         view.remove(path)
         view.put_item(path, item)
     elif mode == "move":
-        view.move(path, _path(action, ctx, "target"))
+        from filesystem import fileevents
+
+        fileevents.move(view, path, _path(action, ctx, "target"))
     elif mode == "reset":
         view.set_progress(path, "")
     else:

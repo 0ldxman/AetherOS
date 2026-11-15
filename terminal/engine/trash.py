@@ -89,7 +89,7 @@ def recover(context, path, dest=None):
         state, author = entry.progress, entry.state
         view.move(entry.path, target)
 
-        fired = fire_file_event(view, target, "restore", target)          # хук автора видит файл ещё целым
+        fired = fire_file_event(view, target, "restore", target, **{"from": entry.path})    # хук автора видит файл ещё целым
         progress = load_progress(view.get(target).progress if fired is not None else state, author)
         for _ in range(layers):
             progress.push("damaged")
