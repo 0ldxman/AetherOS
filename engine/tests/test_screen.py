@@ -126,6 +126,18 @@ class MachineTests(TestCase):
         self.assertFalse(bridge.resolve("archive", "guest").error)
         self.assertTrue(Event.objects.filter(name="machine.started").exists())
 
+    def test_maintenance_closes_entry_but_not_the_session(self):
+        Session.objects.create(user=self.ivan, profile=self.profile)
+        run([{"do": "machine_power", "host": "archive", "state": "maintenance", "text": "back at 18:00"}])
+        machine = Machine.objects.get(pk=self.machine.pk)
+        self.assertEqual((bridge.resolve("archive", "guest").error, power.maintenance_text(machine)), ("maintenance", "back at 18:00"))
+        self.assertFalse(Session.objects.filter(kick_at__isnull=False).exists())          # кто внутри — остаётся
+        self.assertFalse(power.is_down(machine))                                          # в сети
+        self.assertTrue(Event.objects.filter(name="machine.maintenance.started", host="archive").exists())
+        run([{"do": "machine_power", "host": "archive", "state": "start"}])
+        self.assertFalse(bridge.resolve("archive", "guest").error)
+        self.assertTrue(Event.objects.filter(name="machine.maintenance.ended").exists())
+
     def test_reboot_comes_back_by_itself(self):
         run([{"do": "machine_power", "host": "archive", "state": "reboot", "minutes": 5}])
         self.assertTrue(power.is_down(Machine.objects.get(pk=self.machine.pk)))

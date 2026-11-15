@@ -15,7 +15,7 @@
 
   let { machine, onchange }: { machine: Schemas["Overview"]; onchange: () => void } = $props();
 
-  let form = $state({ hostname: "", name: "", system: "", status: "", hid: "", address: "", serial: "", host_key: "", note: "", booted_at: "", time_zone: "UTC", entry_policy: null as number | null });
+  let form = $state({ hostname: "", name: "", system: "", status: "", hid: "", address: "", serial: "", host_key: "", note: "", booted_at: "", time_zone: "UTC", maintenance_text: "", entry_policy: null as number | null });
   let saving = $state(false);
   let errors = $state<Record<string, string[]>>({});
   let dialog = $state<null | "delete" | "copy">(null);
@@ -36,7 +36,7 @@
 
   const base = $derived({
     hostname: machine.hostname, name: machine.name, system: machine.system, status: machine.status, hid: machine.hid, address: machine.address, serial: machine.serial, host_key: machine.host_key,
-    note: machine.note, booted_at: local(machine.booted_at ?? null), time_zone: machine.time_zone, entry_policy: machine.policy?.id ?? null,
+    note: machine.note, booted_at: local(machine.booted_at ?? null), time_zone: machine.time_zone, maintenance_text: machine.maintenance_text, entry_policy: machine.policy?.id ?? null,
   });
   // общий черновик обзора машины: пока он не подключён, форма берётся из сохранённого, потом её ведёт черновик
   const share = new SharedForm({ room: () => `machines/${machine.id}`, texts: ["note"], draft: () => form, base: () => base, onRemoteSave: () => onchange() });
@@ -47,7 +47,7 @@
   const dirty = $derived(
     form.hostname !== machine.hostname || form.name !== machine.name || form.system !== machine.system ||
       form.status !== machine.status || form.entry_policy !== (machine.policy?.id ?? null) || form.hid !== machine.hid || form.address !== machine.address || form.serial !== machine.serial || form.host_key !== machine.host_key ||
-      form.note !== machine.note || form.booted_at !== local(machine.booted_at ?? null) || form.time_zone !== machine.time_zone,
+      form.note !== machine.note || form.booted_at !== local(machine.booted_at ?? null) || form.time_zone !== machine.time_zone || form.maintenance_text !== machine.maintenance_text,
   );
   guardUnsaved(() => dirty && !share.ready);
 
@@ -141,6 +141,10 @@
           <select class="field" bind:value={form.status}>{#each machine.statuses as code}<option value={code}>{STATUS[code] ?? code}</option>{/each}</select>
         </label>
       </div>
+      {#if form.status === "MAINTENANCE"}
+        <label><span class="label">Что видит игрок при входе<Hint text="На обслуживании машина в сети, но войти нельзя. Кто уже внутри, остаётся." /></span>
+          <input class="field mono" bind:value={form.maintenance_text} placeholder="system under maintenance" /></label>
+      {/if}
       <label><span class="label">Часовой пояс<Hint text="В нём машина показывает время: date, журналы, почта, часы стола, окна входа. Игровое время одно на весь мир." /></span>
         <input class="field mono" list="machine-zones" bind:value={form.time_zone} class:bad={errors.time_zone} placeholder="UTC, Europe/Moscow…" />
         <datalist id="machine-zones">{#each ZONES as zone}<option value={zone}></option>{/each}</datalist>

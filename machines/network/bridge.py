@@ -430,7 +430,7 @@ def route(request, source, target):
 @dataclass
 class Resolution:
     profile: MachineProfile | None = None
-    error: str = ""          # no_host | no_account | closed (на этой точке учётка не слушает или точек нет)
+    error: str = ""          # no_host | maintenance | no_account | closed (на этой точке учётка не слушает или точек нет)
     endpoint: str = ""       # через какую точку входа («14.230», «22.000»)
 
 
@@ -448,6 +448,8 @@ def resolve(host, login, endpoint=None):
 
     if machine is None or power.is_down(machine):
         return Resolution(error="no_host")
+    if power.in_maintenance(machine):
+        return Resolution(error="maintenance")
     profile = MachineProfile.objects.filter(machine=machine, login=login).first()
     if profile is None:
         return Resolution(error="no_account")

@@ -142,6 +142,12 @@ class EntryCommand(BaseCommand):
             return CommandResult(
                 f"{self.name}: no such account '{login}' on {host}", 1, scene=scenes.denied_scene(system, host, login),
             )
+        if found.error == "maintenance":
+            from machines.models import Machine
+            from machines.world import power
+
+            target = Machine.objects.filter(hostname=host).first()
+            return CommandResult(f"{self.name}: {host}: {power.maintenance_text(target)}", 1, scene=scenes.denied_scene(system, host, login))
         if found.error == "closed":
             return CommandResult(f"{self.name}: {host}: connection refused", 1, scene=scenes.denied_scene(system, host, login))
         if found.profile.pk == context.profile.pk:

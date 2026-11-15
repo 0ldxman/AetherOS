@@ -19381,6 +19381,10 @@
       "title": "Time Zone",
       "type": "string"
      },
+     "maintenance_text": {
+      "title": "Maintenance Text",
+      "type": "string"
+     },
      "local_now": {
       "title": "Local Now",
       "type": "string"
@@ -19473,6 +19477,7 @@
      "note",
      "booted_at",
      "time_zone",
+     "maintenance_text",
      "local_now",
      "is_system",
      "policy",
@@ -19610,6 +19615,11 @@
      "time_zone": {
       "default": "UTC",
       "title": "Time Zone",
+      "type": "string"
+     },
+     "maintenance_text": {
+      "default": "",
+      "title": "Maintenance Text",
       "type": "string"
      },
      "entry_policy": {

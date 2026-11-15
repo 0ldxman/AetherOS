@@ -6562,6 +6562,8 @@ export interface components {
             booted_at: string | null;
             /** Time Zone */
             time_zone: string;
+            /** Maintenance Text */
+            maintenance_text: string;
             /** Local Now */
             local_now: string;
             /** Is System */
@@ -6641,6 +6643,11 @@ export interface components {
              * @default UTC
              */
             time_zone: string;
+            /**
+             * Maintenance Text
+             * @default
+             */
+            maintenance_text: string;
             /** Entry Policy */
             entry_policy?: number | null;
         };

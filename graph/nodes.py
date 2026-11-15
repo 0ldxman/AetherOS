@@ -110,7 +110,8 @@ def _one(src, dst):
         return src == "text"                         # вещь по имени
     return False
 BOXES = ("group", "scenario")
-GLOBAL_EVENTS = frozenset({"world.flag", "world.counter", "moment.started", "moment.ended", "machine.stopped", "machine.started"})   # будят всех ждущих            # ноды-обёртки: сокеты берутся из их «Входа» и «Выхода»
+GLOBAL_EVENTS = frozenset({"world.flag", "world.counter", "moment.started", "moment.ended", "machine.stopped", "machine.started",
+                           "machine.maintenance.started", "machine.maintenance.ended"})   # будят всех ждущих            # ноды-обёртки: сокеты берутся из их «Входа» и «Выхода»
 SIGNAL_EVENT = "signal"
 REF = "ref"
 TIMEOUT = "timeout"
@@ -317,8 +318,11 @@ _HOST_OUT = Sock("machine", "Машина", "machine", "host")
 _LOGIN_OUT = Sock("login", "Учётка", "text", "login")
 
 
-_when("on:machine.status", "Машина: Статус изменён", (_MACHINE,), (Sock("stopped", "Остановлена"), Sock("started", "Запущена")),
-      {"stopped": "machine.stopped", "started": "machine.started"}, _match(machine=("host", "thing")), (_HOST_OUT,), "{machine}")
+_when("on:machine.status", "Машина: Статус изменён", (_MACHINE,),
+      (Sock("stopped", "Остановлена"), Sock("started", "Запущена"), Sock("maintenance_on", "Обслуживание началось"),
+       Sock("maintenance_off", "Обслуживание кончилось")),
+      {"stopped": "machine.stopped", "started": "machine.started", "maintenance_on": "machine.maintenance.started",
+       "maintenance_off": "machine.maintenance.ended"}, _match(machine=("host", "thing")), (_HOST_OUT,), "{machine}")
 _when("on:terminal.command", "Терминал: Введена команда",
       (_MACHINE, Field("command", "Команда", "text", "любая; можно *"), Field("args", "Аргументы", "text", "любые; можно *")),
       (Sock("run", "Введена"),), {"run": "command.run"}, _match(machine=("host", "thing"), command=("command", "glob"), args=("args", "glob")),
@@ -563,6 +567,7 @@ _OWNER = ("owner", "who", "character", "machine", "server", "item", "scope", "fo
 CHOICES = (
     ("machine.status", "Машина: Изменить статус", (("stop", "Остановить", "machine_power", {"state": "stop"}, ("host",)),
                                                    ("start", "Запустить", "machine_power", {"state": "start"}, ("host",)),
+                                                   ("maintenance", "Обслуживание", "machine_power", {"state": "maintenance"}, ("host", "text")),
                                                    ("reboot", "Перезагрузить", "machine_power", {"state": "reboot"}, ("host", "minutes")))),
     ("account", "Учётка: Изменить", (("block", "Заблокировать", "account", {}, ("host", "login", "scope", "block", "text")),
                                      ("unblock", "Снять блокировку", "account", {"unblock": True}, ("host", "login", "scope")),

@@ -523,7 +523,8 @@ def _machine_of(action):
 def _machine_power(action, ctx):
     from machines.world import power
 
-    power.set_state(_machine_of(action), action.get("state") or "stop", _int(action.get("minutes"), 5, 1, 7 * 24 * 60), ctx.source)
+    power.set_state(_machine_of(action), action.get("state") or "stop", _int(action.get("minutes"), 5, 1, 7 * 24 * 60), ctx.source,
+                    text=str(action.get("text") or ""))
 
 
 def _account(action, ctx):
@@ -652,8 +653,9 @@ register(Spec("layer_remove", "Снять верхний слой", ACCOUNT, "И
 
 register(Spec("machine_power", "Изменить машину", WORLD, "Машины", "{host}: {state}",
               (Field("host", "Машина", "machine", "", True),
-               Field("state", "Что сделать", "select", "", False, (("stop", "остановить"), ("start", "запустить"), ("reboot", "перезагрузить"))),
-               Field("minutes", "Перезагрузка, мин", "number", "5")),
+               Field("state", "Что сделать", "select", "", False, (("stop", "остановить"), ("start", "запустить"), ("reboot", "перезагрузить"),
+                                                                   ("maintenance", "на обслуживание"))),
+               Field("minutes", "Перезагрузка, мин", "number", "5"), Field("text", "Что видит игрок", "text", "system under maintenance")),
               run=_machine_power))
 register(Spec("account", "Изменить учётку", WORLD, "Машины", "{login}@{host}",
               (Field("host", "Машина", "machine", "", True), Field("login", "Учётка", "text", "admin", True),

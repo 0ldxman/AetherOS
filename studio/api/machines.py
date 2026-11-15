@@ -106,6 +106,7 @@ class Overview(Schema):
     note: str
     booted_at: datetime | None
     time_zone: str
+    maintenance_text: str
     local_now: str              # «2031-03-02 14:05 MSK»: время машины сейчас (без сдвига часов игрока)
     is_system: bool
     policy: Policy | None
@@ -131,6 +132,7 @@ class MachineIn(Schema):
     note: str = ""
     booted_at: datetime | None = None
     time_zone: str = "UTC"
+    maintenance_text: str = ""
     entry_policy: int | None = None
 
 
@@ -314,7 +316,7 @@ def overview(request, machine_id: int):
     return Overview(
         id=machine.pk, hostname=machine.hostname or "", name=machine.name, system=machine.system, status=machine.status, hid=machine.hid,
         address=machine.address, serial=machine.serial, host_key=machine.host_key, **_auto(machine),
-        note=machine.note, booted_at=machine.booted_at, time_zone=machine.time_zone,
+        note=machine.note, booted_at=machine.booted_at, time_zone=machine.time_zone, maintenance_text=machine.maintenance_text,
         local_now=f"{chrono.in_zone(chrono.game_now(), machine):%Y-%m-%d %H:%M %Z}",
         is_system=machine.is_system,
         policy=Policy(id=machine_policy.pk, name=machine_policy.name, origin="machine") if machine_policy else None,
@@ -339,7 +341,12 @@ def save(request, machine_id: int, body: MachineIn):
     machine.hostname = body.hostname.strip() or None
     machine.name = body.name
     machine.system = body.system
+    from machines.world import power
+
+    if (body.status == Machine.Status.MAINTENANCE) != power.in_maintenance(machine):      # на обслуживание и обратно — с событием
+        power.set_maintenance(machine, body.status == Machine.Status.MAINTENANCE, source="Студия")
     machine.status = body.status
+    machine.maintenance_text = body.maintenance_text.strip()[:255]
     machine.address, machine.serial, machine.host_key = body.address.strip(), body.serial.strip(), body.host_key.strip()
     machine.note, machine.booted_at = body.note, body.booted_at
     zone = body.time_zone.strip() or "UTC"
