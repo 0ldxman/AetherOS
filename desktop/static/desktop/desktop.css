@@ -703,7 +703,36 @@ body {
 .push-scene-hint { opacity: 0.5; font-size: 12px; text-align: right; }
 @media (prefers-reduced-motion: reduce) { .push-ticker span { animation: none; padding-left: 12px; } }
 
-/* возможности сценариев: окно с выбором и кнопки действий в окне файла */
-.dialog-choices { gap: 8px; justify-content: flex-end; flex-wrap: wrap; }
-.file-actions { --tone: var(--accent); position: absolute; right: 12px; bottom: 12px; z-index: 5; display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
-.file-action { box-shadow: 0 2px 8px color-mix(in srgb, var(--bg) 70%, transparent); }
+/* ---------- возможности сценариев: окно-запрос и полоса действий в рамке окна файла ---------- */
+
+/* запрос: без знака, текст основным цветом, варианты равноправны — контур, заливка тоном при наведении и фокусе.
+   :where — вид кнопок своего стиля (notice/<вид>.css) важнее этого умолчания */
+.winbox.aether.dialog-window--prompt .wb-control { display: none; }
+.dialog--prompt .dialog-main { flex: 0 0 auto; padding: 1.1rem 1.25rem 0.9rem; }      /* высота по тексту: окно подгоняется под неё */
+.dialog--prompt .dialog-foot { margin-top: auto; }
+.dialog--prompt .dialog-message { color: var(--fg); font-size: 0.95rem; white-space: pre-line; }
+.dialog-choices { justify-content: flex-end; flex-wrap: wrap; gap: 8px; }
+.dialog-choices--column { flex-direction: column; align-items: stretch; }
+:where(.dialog--prompt) .dialog-ok { background: none; color: var(--fg); border-color: var(--line-bright); }
+:where(.dialog--prompt) .dialog-ok:hover,
+:where(.dialog--prompt) .dialog-ok:focus-visible { background: var(--tone); border-color: var(--tone); color: var(--font-dark); outline: none; }
+.dialog-choices--column .dialog-choice { width: 100%; height: auto; min-height: 30px; padding-block: 4px; text-align: left; }
+.dialog-choice-key { margin-right: 0.75em; color: var(--font-muted); }
+.dialog-choice:is(:hover, :focus-visible) .dialog-choice-key { color: inherit; }
+
+/* полоса действий: часть рамки, тело окна сжимается на её высоту (футер вьювера не перекрыт) */
+.winbox.aether { --win-actions-h: 30px; }
+:root .winbox.aether.has-actions .wb-body { bottom: calc(var(--wb-inset-bottom, 0px) + var(--win-actions-h)); }
+.winbox.aether.min .win-actions { display: none; }
+.win-actions {
+  --tone: var(--accent);
+  position: absolute; left: var(--wb-inset-x, 0px); right: var(--wb-inset-x, 0px); bottom: var(--wb-inset-bottom, 0px); z-index: 2;
+  display: flex; align-items: center; gap: 10px; height: var(--win-actions-h); padding: 0 6px 0 10px; box-sizing: border-box;
+  background: var(--panel); border-top: 1px solid var(--line); color: var(--font-muted); font-size: 12px;
+}
+.win-actions-label { flex: none; font-family: var(--font-console, monospace); letter-spacing: 0.04em; }
+.win-actions-list { display: flex; gap: 6px; margin-left: auto; min-width: 0; overflow: hidden; }
+:where(.win-actions) .dialog-ok { min-width: 0; height: 22px; padding: 0 10px; font-size: 12px; white-space: nowrap;
+                                  background: none; color: var(--fg); border-color: var(--line-bright); }
+:where(.win-actions) .dialog-ok:hover,
+:where(.win-actions) .dialog-ok:focus-visible { background: var(--tone); border-color: var(--tone); color: var(--font-dark); outline: none; }

@@ -531,31 +531,41 @@ function addFoot(win) {
   if (root) root.appendChild(document.createElement("i")).className = "wb-foot";
 }
 
-// действия над файлом (возможности сценариев): кнопки в окне файла, адрес которого несёт ?path=
+// действия над файлом (возможности сценариев): полоса в рамке окна под содержимым, адрес окна несёт ?path=.
+// Тело окна сжимается на высоту полосы, а не перекрывается: свой футер вьювера остаётся виден.
 function fileActions(win, url) {
   const endpoint = desktop.dataset.fileActionsUrl;
   let path = "";
   try { path = new URL(url, location.href).searchParams.get("path") || ""; } catch (error) { return; }
   if (!endpoint || !path.startsWith("/") || desktop.dataset.preview) return;
   fetch(endpoint + "?" + new URLSearchParams({ path }), { credentials: "same-origin" }).then((r) => r.json()).then((data) => {
-    const root = win.dom || win.window;
-    if (!root || !(data.actions || []).length) return;
-    const bar = el("div", "file-actions");
-    for (const action of data.actions) {
-      const button = el("button", "dialog-ok file-action", action.title);
-      button.type = "button";
-      button.addEventListener("click", async () => {
-        button.disabled = true;
-        const answer = await fetch(endpoint, { method: "POST", credentials: "same-origin",
-          headers: { "Content-Type": "application/json", "X-CSRFToken": getCookie("csrftoken") },
-          body: JSON.stringify({ offer: action.id, path }) }).catch(() => null);
-        if (answer && answer.ok) button.remove(); else button.disabled = false;
-        if (!bar.querySelector("button")) bar.remove();
-      });
-      bar.append(button);
-    }
-    root.append(bar);
+    actionsBar(win, data.actions || [], (action) => fetch(endpoint, { method: "POST", credentials: "same-origin",
+      headers: { "Content-Type": "application/json", "X-CSRFToken": getCookie("csrftoken") },
+      body: JSON.stringify({ offer: action.id, path }) }).then((answer) => answer.ok, () => false));
   }).catch(() => {});
+}
+
+// полоса действий [{id, title}] в рамке окна; pick(action) -> Promise<bool>: true — действие сделано, кнопка уходит
+function actionsBar(win, actions, pick) {
+  const root = win && (win.dom || win.window);
+  if (!root || !actions.length) return;
+  root.querySelector(".win-actions")?.remove();
+  const bar = el("div", "win-actions");
+  const list = el("div", "win-actions-list");
+  bar.append(el("span", "win-actions-label", "actions"), list);
+  const drop = () => { bar.remove(); root.classList.remove("has-actions"); };
+  for (const action of actions) {
+    const button = el("button", "dialog-ok win-action", action.title);
+    button.type = "button";
+    button.addEventListener("click", async () => {
+      button.disabled = true;
+      if (await pick(action)) button.remove(); else button.disabled = false;
+      if (!list.querySelector("button")) drop();
+    });
+    list.append(button);
+  }
+  root.classList.add("has-actions");
+  root.append(bar);
 }
 
 function openApp(id, label, url, options = {}) {
@@ -1585,26 +1595,32 @@ window.addEventListener("blur", () => setMenu(false));
       }
       for (const api of found) item.op === "terminal" ? api.print(item.text || "") : api.play(item.scene);
     } else if (item.op === "scene") await scene(item.scene);
+    else if (item.op === "prompt") choice(item);              // предпросмотр стола: окно-запрос без сценария
   }
 
-  // окна с выбором (возможности сценариев): висят, пока игрок не нажмёт кнопку; сценарий закрыл возможность — окно уходит
+  // окна-запросы (возможности сценариев): текст и равноправные варианты; висят, пока игрок не выберет, закрытая сценарием
+  // возможность убирает окно. Клавиши: 1…9 — вариант, стрелки — между вариантами.
   const choiceWindows = {};
   function choice(offer) {
     if (choiceWindows[offer.id]) return;
-    const body = el("div", "dialog dialog--info");
+    const buttons = offer.buttons || [];
+    const column = buttons.length > 2 || buttons.some((label) => label.length > 14);
+    const body = el("div", "dialog dialog--prompt");
     const main = el("div", "dialog-main");
-    const foot = el("div", "dialog-foot dialog-choices");
-    main.append(el("span", "dialog-glyph", "?"), el("p", "dialog-message", offer.text || ""));
+    const foot = el("div", "dialog-foot dialog-choices" + (column ? " dialog-choices--column" : ""));
+    main.append(el("p", "dialog-message", offer.text || ""));
     body.append(main, foot);
-    const win = new WinBox(offer.title || "", {
+    const win = new WinBox(offer.title || "prompt", {
       id: "choice-" + offer.id.replace(/\W+/g, "-"), root: desktop, top: WINDOW_TOP, bottom: WINDOW_BOTTOM,
-      class: ["aether", "no-full", "no-max", "no-min", "no-resize", "no-close", "dialog-window", "dialog-window--info"],
-      x: "center", y: "center", width: 420, height: 190, mount: body,
+      class: ["aether", "no-full", "no-max", "no-min", "no-resize", "no-close", "dialog-window", "dialog-window--prompt"],
+      x: "center", y: "center", width: 440, height: 400, mount: body,
       onclose: () => { delete choiceWindows[offer.id]; },
     });
-    for (const label of offer.buttons || []) {
-      const button = el("button", "dialog-ok", label);
+    buttons.forEach((label, index) => {
+      const button = el("button", "dialog-ok dialog-choice");
       button.type = "button";
+      if (column && index < 9) button.append(el("span", "dialog-choice-key", String(index + 1)));
+      button.append(document.createTextNode(label));
       button.addEventListener("click", async () => {
         foot.querySelectorAll("button").forEach((b) => { b.disabled = true; });
         await fetch(desktop.dataset.chooseUrl, { method: "POST", credentials: "same-origin",
@@ -1612,10 +1628,23 @@ window.addEventListener("blur", () => setMenu(false));
           body: JSON.stringify({ offer: offer.id, button: label }) }).catch(() => null);
         win.close(true);
       });
+      button.addEventListener("keydown", (event) => {
+        const all = [...foot.querySelectorAll("button")];
+        const step = { ArrowDown: 1, ArrowRight: 1, ArrowUp: -1, ArrowLeft: -1 }[event.key];
+        if (step) { event.preventDefault(); all[(all.indexOf(button) + step + all.length) % all.length].focus(); }
+        const picked = /^[1-9]$/.test(event.key) ? all[Number(event.key) - 1] : null;
+        if (picked) { event.preventDefault(); picked.click(); }
+      });
       foot.append(button);
-    }
+    });
     addFoot(win);
+    // высота по содержимому: разница между окном и его телом — заголовок и рамка этого стиля
+    const inner = (win.dom || win.window).querySelector(".wb-body");
+    const chrome = inner ? win.height - inner.clientHeight : 0;
+    win.resize(440, Math.min(desktop.clientHeight - 40, Math.ceil(main.offsetHeight + foot.offsetHeight + chrome))).move("center", "center");
     choiceWindows[offer.id] = win;
+    const first = foot.querySelector("button");
+    if (first) first.focus({ preventScroll: true });
   }
   function choices(list) {
     const live = new Set(list.map((offer) => offer.id));
@@ -1624,6 +1653,7 @@ window.addEventListener("blur", () => setMenu(false));
   }
 
   window.desktopAPI.push = run;               // показать эффект вручную (предпросмотр стола)
+  window.desktopAPI.actionsBar = (id, titles) => actionsBar(openWindows[id], titles.map((title, i) => ({ id: String(i), title })), async () => true);
   if (!url || desktop.dataset.preview) return;
   let busy = false;
   async function poll() {

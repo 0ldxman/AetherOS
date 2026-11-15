@@ -45,3 +45,6 @@
 [data-notice="tui"] .toast--error { border-style: dashed; border-color: var(--font-light); }
 [data-notice="tui"] .toast--warning { border-color: var(--font-light); }
 [data-notice="tui"] .toast-text { color: var(--font-soft); }
+/* ---- полоса действий в рамке окна (возможности сценариев): на фоне стола, линия рамки сверху ---- */
+[data-notice="tui"] .win-actions { background: var(--bg); border-top: 1px solid var(--frame, var(--line-bright)); color: var(--font-muted); }
+[data-notice="tui"] .win-actions .dialog-ok { height: auto; padding: 0; border: 0; }
