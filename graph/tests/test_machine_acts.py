@@ -3,6 +3,7 @@ from django.contrib.auth import get_user_model
 from django.contrib.auth.hashers import check_password
 from django.test import TestCase
 
+from engine import values
 from graph import check, runtime
 from graph.models import Run
 from graph.runtime import Doc, value_of
@@ -30,12 +31,16 @@ class MachineActTests(TestCase):
         return (Run.objects.order_by("-pk").first().state.get("vals") or {}).get("a", {})
 
     def test_change_machine(self):
-        self.act("act:machine.change", machine="core", name="Core-2", system="LINUX", time_zone="Asia/Tokyo", host_key="*", note="welcome",
-                 booted="2031-03-02 14:05")
+        for variant, value in (("name", "Core-2"), ("system", "LINUX"), ("time_zone", "Asia/Tokyo"), ("host_key", ""), ("note", "welcome"),
+                               ("booted", "2031-03-02 14:05")):
+            self.act("act:machine.change", variant=variant, machine="core", **{variant: value})
+        self.assertFalse(values.on("world", 0, "bad"))
         self.core.refresh_from_db()
         self.assertEqual((self.core.name, self.core.system, self.core.time_zone, self.core.note, self.core.booted_at.year),
                          ("Core-2", "LINUX", "Asia/Tokyo", "welcome", 2031))
         self.assertTrue(self.core.host_key.startswith("SHA256:"))
+        self.act("act:machine.change", variant="system", machine="core", system="NOPE")            # нет такой ОС — «Не вышло»
+        self.assertTrue(values.on("world", 0, "bad"))
 
     def test_account_entity(self):
         doc = Doc({"nodes": [node("u", "ent:account", account="ops@core")], "wires": []})

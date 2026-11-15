@@ -64,7 +64,7 @@ def type_label(kind):
 FIELD_TYPES = {"text": "text", "textarea": "text", "path": "text", "clock": "text", "expr": "text", "scene": "text", "station": "text",
                "graph": "text", "number": "number", "bool": "bool", "condition": "bool", "key": "item", "item": "item", "letter": "item",
                "object": "item", "character": "character", "section": "section", "flag": "flag", "world_flag": "world_flag",
-               "counter": "counter", "moment": "moment", "machine": "machine", "server": "server", "player": "player", "layer": "layer", "placement": "placement", "account": "account"}      # вид поля -> тип его входа; нет в списке — параметр без входа
+               "counter": "counter", "moment": "moment", "machine": "machine", "system": "text", "time_zone": "text", "server": "server", "player": "player", "layer": "layer", "placement": "placement", "account": "account"}      # вид поля -> тип его входа; нет в списке — параметр без входа
 
 
 def field_type(field):
@@ -705,11 +705,14 @@ PLACEMENT_ACTS = ("act:placement", "act:placement.create", "act:layer")
 
 # машина и её учётки (machines/world/edits.py)
 register(Kind("act:machine.change", "Машина: Изменить", ACTION, "{machine}", (
-    Field("machine", "Машина", "many:machine", "", True), Field("name", "Имя", "text", "не менять"), Field("address", "Адрес", "text", "не менять"),
-    Field("system", "ОС", "text", "не менять (код ОС)"), Field("time_zone", "Часовой пояс", "text", "не менять (Europe/Moscow)"),
-    Field("host_key", "Ключ хоста", "text", "не менять; * — новый случайный"), Field("note", "Приветствие", "textarea", "не менять ({note} в приветствии ОС)"),
-    Field("booted", "Включена с", "text", "не менять; 2031-03-02 14:05 или «сейчас»"),
-), _ACT_OUTS))
+    Field("variant", "Что изменить", "select", "", False, (("name", "Изменить имя"), ("address", "Изменить адрес"), ("system", "Изменить ОС"),
+                                                           ("time_zone", "Изменить часовой пояс"), ("host_key", "Изменить ключ хоста"),
+                                                           ("note", "Изменить приветствие"), ("booted", "Изменить «Включена с»"))),
+    Field("machine", "Машина", "many:machine", "", True), Field("name", "Имя", "text", "", True), Field("address", "Адрес", "text", "", True),
+    Field("system", "ОС", "system", "", True), Field("time_zone", "Часовой пояс", "time_zone", "", True),
+    Field("host_key", "Ключ хоста", "text", "пусто — новый случайный"), Field("note", "Приветствие", "textarea", "{note} в приветствии ОС"),
+    Field("booted", "Включена с", "text", "2031-03-02 14:05 или «сейчас»", True),
+), _ACT_OUTS, title="variant", when={name: ("variant", (name,)) for name in ("name", "address", "system", "time_zone", "host_key", "note", "booted")}))
 register(Kind("act:account.change", "Машина: Изменить учётку", ACTION, "{account}", (
     Field("variant", "Действие", "select", "", False, (("mail", "Изменить почту"), ("password", "Изменить пароль"), ("keys", "Установить выражение ключей"),
                                                        ("points_add", "Добавить точки входа"), ("points_remove", "Убрать точки входа"),
@@ -761,8 +764,8 @@ HELP = {
     "act:placement.create": "Создать файл игроку: с объектом — «Добавить» (ключ без пути — в папку секретов), без объекта — свой файл с текстом. "
                             "Куда — размещение или Машина + Путь (+ Игрок, пусто — игрок хода).",
     "ent:account": "Учётка на машине: провод «Учётка» (логин@хост) или Машина + Логин. «Заблокирована» — для игрока хода.",
-    "act:machine.change": "Свойства машины для всех: имя, адрес, ОС, часовой пояс, ключ хоста (* — новый: игрок заметит подмену), приветствие ({note}), "
-                          "«Включена с» (от неё считается uptime; включение машины её не трогает). Пустое поле — не менять.",
+    "act:machine.change": "Свойство машины для всех — что выбрано: имя, адрес, ОС, часовой пояс, ключ хоста (пусто — новый случайный: игрок, "
+                          "который уже заходил, заметит подмену), приветствие ({note}), «Включена с» (от неё считается uptime; включение машины её не трогает).",
     "act:account.change": "Учётка: почта, пароль (для всех), выражение ключей, точки входа и группы (добавить или убрать, одно или список), "
                           "токены: создать (выход «Токен» — строка, её можно вписать в письмо) или удалить (пусто — все).",
     "act:account.access": "Заблокировать вход на учётку на N минут (игроку или всем, с текстом) или снять блокировку.",

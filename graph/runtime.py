@@ -801,8 +801,13 @@ def _machine_act(run, node_id, kind, data):
                 machine = entities._machine(entities._key(key))
                 if machine is None:
                     raise edits.EditError(f"нет машины «{key}»")
-                edits.change_machine(machine, name=fill("name"), address=fill("address"), system=fill("system"), time_zone=fill("time_zone"),
-                                     host_key=fill("host_key"), note=fill("note"), booted=fill("booted"))
+                what = mode or "name"
+                value = str(data.get(what) or "") if what == "note" else fill(what)
+                if what == "host_key" and not value:
+                    value = "*"                                         # пусто — новый случайный отпечаток
+                if what != "note" and not value:
+                    raise edits.EditError("не задано новое значение")
+                edits.change_machine(machine, **{"booted" if what == "booted" else what: _fill(value, run) if what == "note" else value})
             if not _as_list(raw):
                 raise edits.EditError("не выбрана машина")
         elif kind.name == "act:account.manage" and (mode or "create") == "create":

@@ -39,7 +39,9 @@ def _picks():
     from forum.models import Section
     from graph.models import Graph
     from django.contrib.auth import get_user_model
-    from machines.models import Machine, NetResource
+    from zoneinfo import available_timezones
+
+    from machines.models import Machine, NetResource, SystemType
     from machines.models.scenes import SceneScript
     from engine.models import Value
     from world import state
@@ -76,6 +78,8 @@ def _picks():
         "server": [option(address, f"{address} · {title}" if title else address)
                    for address, title in NetResource.objects.order_by("address").values_list("address", "title")],
         "player": [option(name) for name in get_user_model().objects.filter(is_staff=False).order_by("username").values_list("username", flat=True)[:300]],
+        "system": [option(code, f"{code} · {name}" if name and name != code else code) for code, name in SystemType.objects.order_by("code").values_list("code", "name")],
+        "time_zone": [option(zone) for zone in sorted(available_timezones()) if "/" in zone or zone == "UTC"],
     }
 
 

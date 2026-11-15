@@ -50,7 +50,7 @@ def change_machine(machine, *, name="", address="", system="", time_zone="", hos
         machine.time_zone = time_zone
     if host_key:
         machine.host_key = identity.generate_host_key() if host_key.strip() == "*" else host_key.strip()[:64]
-    if note is not None and note != "":
+    if note is not None:
         machine.note = note
     if booted:
         machine.booted_at = booted_at(booted)
