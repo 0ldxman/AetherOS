@@ -89,14 +89,15 @@ class ChannelTests(TestCase):
         made = make_file(self.core, "/home/ivan/sample.bin", body="x")
         Item.objects.filter(pk=made.item.pk).update(slug="sample")
         make_file(self.core, "/home/ivan/other.txt", body="y")
-        graph = make([node("m", "manual"), node("o", "act:offer.open", channel="file", title="Send to lab", item="sample"),
+        graph = make([node("m", "manual"), node("o", "act:offer.open", channel="file", title="Send to lab", item="sample", caption="Lab uplink ready"),
                       node("u", "on:offer.used", offer="g:o", repeat="always"), node("c", "do:world_count", name="c")],
                      [wire("m", "fire", "o"), wire("u", "ok", "c")])
         self.open_for_ivan(graph)
         self.login()
         self.assertEqual(self.client.get("/desktop/file-actions/", {"path": "/home/ivan/other.txt"}).json()["actions"], [])
-        actions = self.client.get("/desktop/file-actions/", {"path": "/home/ivan/sample.bin"}).json()["actions"]
-        self.assertEqual(actions, [{"id": "g:o", "title": "Send to lab"}])
+        answer = self.client.get("/desktop/file-actions/", {"path": "/home/ivan/sample.bin"}).json()
+        self.assertEqual(answer["actions"], [{"id": "g:o", "title": "Send to lab"}])
+        self.assertEqual(answer["caption"], "Lab uplink ready")
         self.client.post("/desktop/file-actions/", json.dumps({"offer": "g:o", "path": "/home/ivan/sample.bin"}), content_type="application/json")
         self.assertEqual(counter(), 1)
         self.assertEqual(Event.objects.get(name="offer.used").data["placement"], "ivan@core:/home/ivan/sample.bin")

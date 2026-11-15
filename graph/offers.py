@@ -59,7 +59,7 @@ def spec_of(data):
             "command": _text(data, "command"), "machines": [m.lower() for m in many("machine")], "items": many("item"), "path": _text(data, "path"),
             "message": str(data.get("message") or ""), "buttons": many("buttons"),
             "reply_ok": _text(data, "reply_ok"), "reply_wrong": _text(data, "reply_wrong"), "characters": characters, "address": _text(data, "address").lower(),
-            "reply_to": _text(data, "reply_to"), "forward_of": _text(data, "forward_of"), "title": _text(data, "title"),
+            "reply_to": _text(data, "reply_to"), "forward_of": _text(data, "forward_of"), "title": _text(data, "title"), "caption": _text(data, "caption"),
             "text": str(data.get("text") or ""), "attach": attach, "attach_item": _text(data, "attach_item") if attach else "",
             "attempts": _int(data.get("attempts")), "account": _text(data, "account").lower(),
             "show": "mystery" if data.get("show") == "mystery" else "open", "closed": "hidden" if data.get("closed") == "hidden" else "mystery",

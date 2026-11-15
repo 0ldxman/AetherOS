@@ -772,6 +772,7 @@ register(Kind("act:offer.open", "Возможность: Открыть", ACTION
     Field("reply_to", "В ответ на", "letter", "любое письмо"), Field("forward_of", "Что переслать", "letter", "", True),
     Field("command", "Команда", "text", "unlock", True), Field("machine", "Машина", "many:machine", "любая"),
     Field("item", "Объект", "many:object", "любой"), Field("path", "Путь", "text", "любой; можно *"),
+    Field("caption", "Надпись у кнопок", "text", "пусто — без надписи"),
     Field("title", "Подпись", "text", "", True), Field("message", "Текст окна", "textarea", ""),
     Field("buttons", "Кнопки", "many:text", "Да, Нет"),
     Field("text", "Текст для набора", "textarea", "{{секрет}}, [[слово|другое]]; пусто — без набора"),
@@ -790,7 +791,7 @@ register(Kind("act:offer.open", "Возможность: Открыть", ACTION
     **{name: _TYPED for name in ("text", "attempts", "account")},
     **{name: ("channel", ("command",)) for name in ("command", "machine", "reply_ok", "reply_wrong")},
     "title": ("channel", ("mail", "choice", "file")), "message": ("channel", ("choice",)), "buttons": ("channel", ("choice",)),
-    "item": ("channel", ("file",)), "path": ("channel", ("file",))}))
+    **{name: ("channel", ("file",)) for name in ("item", "path", "caption")}}))
 DATA_OUTS["act:offer.open"] = (Sock("offer", "Возможность", "offer"),)
 register(Kind("act:offer.close", "Возможность: Закрыть", ACTION, "{offer}{group}", (
     Field("variant", "Что закрыть", "select", "", False, (("offer", "Закрыть возможность"), ("group", "Закрыть группу"))),

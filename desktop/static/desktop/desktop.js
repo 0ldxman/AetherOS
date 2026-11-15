@@ -541,17 +541,19 @@ function fileActions(win, url) {
   fetch(endpoint + "?" + new URLSearchParams({ path }), { credentials: "same-origin" }).then((r) => r.json()).then((data) => {
     actionsBar(win, data.actions || [], (action) => fetch(endpoint, { method: "POST", credentials: "same-origin",
       headers: { "Content-Type": "application/json", "X-CSRFToken": getCookie("csrftoken") },
-      body: JSON.stringify({ offer: action.id, path }) }).then((answer) => answer.ok, () => false));
+      body: JSON.stringify({ offer: action.id, path }) }).then((answer) => answer.ok, () => false), data.caption || "");
   }).catch(() => {});
 }
 
-// полоса действий [{id, title}] в рамке окна; pick(action) -> Promise<bool>: true — действие сделано, кнопка уходит
-function actionsBar(win, actions, pick) {
+// полоса действий [{id, title}] в рамке окна; pick(action) -> Promise<bool>: true — действие сделано, кнопка уходит;
+// caption — надпись автора слева (из мира, не служебная)
+function actionsBar(win, actions, pick, caption = "") {
   const root = win && (win.dom || win.window);
   if (!root || !actions.length) return;
   root.querySelector(".win-actions")?.remove();
   const bar = el("div", "win-actions");
   const list = el("div", "win-actions-list");
+  if (caption) bar.append(el("span", "win-actions-caption", caption));
   bar.append(list);
   const drop = () => { bar.remove(); root.classList.remove("has-actions"); };
   for (const action of actions) {
@@ -1653,7 +1655,7 @@ window.addEventListener("blur", () => setMenu(false));
   }
 
   window.desktopAPI.push = run;               // показать эффект вручную (предпросмотр стола)
-  window.desktopAPI.actionsBar = (id, titles) => actionsBar(openWindows[id], titles.map((title, i) => ({ id: String(i), title })), async () => true);
+  window.desktopAPI.actionsBar = (id, titles, caption = "") => actionsBar(openWindows[id], titles.map((title, i) => ({ id: String(i), title })), async () => true, caption);
   if (!url || desktop.dataset.preview) return;
   let busy = false;
   async function poll() {

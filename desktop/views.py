@@ -267,4 +267,6 @@ def file_actions(request):
     if request.method == "POST":
         done = offers.act_on_file(user, host, login, str(data.get("offer") or ""), path, slug, profile.machine)
         return JsonResponse({"ok": done}, status=200 if done else 404)
-    return JsonResponse({"actions": [{"id": view.key, "title": view.spec.get("title") or "…"} for view in offers.file_actions(user, host, login, path, slug)]})
+    found = offers.file_actions(user, host, login, path, slug)
+    caption = next((view.spec["caption"] for view in found if view.spec.get("caption")), "")
+    return JsonResponse({"actions": [{"id": view.key, "title": view.spec.get("title") or "…"} for view in found], "caption": caption})
