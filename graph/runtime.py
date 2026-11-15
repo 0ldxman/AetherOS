@@ -203,8 +203,9 @@ def rebuild_starts(graph):
             continue
         kind = doc.kind(node_id)
         for out in doc.wired(node_id):
-            if out in kind.events:
-                rows.append(Start(graph=graph, node=node_id, out=out, event=kind.events[out]))
+            event = N.event_of(kind, out)
+            if event:
+                rows.append(Start(graph=graph, node=node_id, out=out, event=event))
     with transaction.atomic():
         Start.objects.filter(graph=graph).delete()
         Start.objects.bulk_create(rows)
@@ -384,6 +385,8 @@ def value_of(run, doc, node_id, out, depth=0):
         src = doc.into.get((node_id, out))
         return value_of(run, doc, src[0], src[1], depth + 1) if src else None
     if kind.group == N.NOUN:
+        if kind.owned:                               # данные «Выхода» графа попытки приехали с событием
+            return (((run.state or {}).get("vals") or {}).get(node_id) or {}).get("vals", {}).get(out)
         sock = N.data_out(kind, out)
         if sock is None:
             return None
@@ -449,6 +452,9 @@ def value_of(run, doc, node_id, out, depth=0):
         return bool(values) and all(values)
     if name == "fact":
         return _holds(get("expr"), run)
+    if name == "switch":
+        value = get("yes") if _truth(get("condition")) else get("no")
+        return "" if value is None else str(_plain(value))
     if name == "math":
         a, b, op = _number(get("a")) or 0, _number(get("b")) or 0, data.get("op") or "add"
         if op == "random":
@@ -511,19 +517,19 @@ def resolved(run, doc, node_id):
 
 def _noun_wait(run, doc, node_id, kind):
     data = resolved(run, doc, node_id)
-    outs = [out for out in doc.wired(node_id) if out in kind.events]
+    outs = [out for out in doc.wired(node_id) if N.event_of(kind, out)]
     if data.get("past") and run.user is not None:
         from engine.models import Event
 
-        for event in Event.objects.filter(user=run.user, name__in={kind.events[out] for out in outs})[:300]:
+        for event in Event.objects.filter(user=run.user, name__in={N.event_of(kind, out) for out in outs})[:300]:
             for out in outs:
-                if kind.events[out] == event.name and kind.match(data, out, event):
+                if N.event_of(kind, out) == event.name and kind.match(data, out, event):
                     run.ctx = {**(run.ctx or {}), **_ctx_of(event), "host": event.host or run.ctx.get("host"), "login": event.login or run.ctx.get("login")}
                     capture(run, node_id, event)
                     return [out]
     fed = {name: data[name] for (dst, name) in doc.refs if dst == node_id}       # фильтры с проводов: значения на момент ожидания
     for out in outs:
-        Wait.objects.create(run=run, user=run.user, node=node_id, out=out, kind=Wait.Kind.EVENT, event=kind.events[out], anyone=bool(data.get("anyone")),
+        Wait.objects.create(run=run, user=run.user, node=node_id, out=out, kind=Wait.Kind.EVENT, event=N.event_of(kind, out), anyone=bool(data.get("anyone")),
                             data=fed)
     if data.get("timeout") not in (None, "", 0, "0") and N.TIMEOUT in doc.wired(node_id):
         Wait.objects.create(run=run, user=run.user, node=node_id, out=N.TIMEOUT, kind=Wait.Kind.TIME, until=after(data.get("timeout")))
@@ -592,6 +598,14 @@ def _execute(run, doc, node_id, sock):
     if name in ("reroute", "stage"):
         return ["next"]
     if name in ("group_in", "group_out"):
+        if name == "group_out" and getattr(run.graph, "owner", "") and "/" not in node_id:
+            from engine.events import emit                  # свой выход графа попытки: событие для ноды попытки в сценариях
+
+            ctx = run.ctx or {}
+            types = N.socket_types(doc.data(node_id))
+            vals = {name: _plain(value_of(run, doc, node_id, name)) for name, kind_of in types.items() if kind_of != N.EVENT}
+            emit(N.OWNED_OUT, run.user, machine=ctx.get("host") or None, login=ctx.get("login", ""), owner=run.graph.owner, socket=sock,
+                 vals={k: v for k, v in vals.items() if isinstance(v, (str, int, float, bool)) or v is None})
         return [sock]                               # пропускает поток по имени сокета
     if name == "send_signal":
         from engine.events import emit
@@ -608,6 +622,8 @@ def _execute(run, doc, node_id, sock):
         elif holder.get("answer") is None:
             minutes = max(1, min(int(data.get("minutes") or 10), 30 * 24 * 60)) if str(data.get("minutes") or "").lstrip("-").isdigit() else 10
             holder["answer"] = {"mode": data.get("mode") or "allow", "text": _fill(str(data.get("text") or ""), run), "minutes": minutes}
+            if holder["answer"]["mode"] == "default":
+                _outcome_waits(run, doc, node_id)
         return ["next"]
     if name == "wait":
         return _wait(run, doc, node_id)
@@ -801,7 +817,12 @@ def dispatch(event):
         for row in list(Start.objects.filter(event=event.name, graph__active=True).select_related("graph")):
             doc = doc_of(row.graph)
             kind = doc.kind(row.node)
-            if kind is not None and kind.match is not None and kind.match(doc.data(row.node), row.out, event):
+            data = doc.data(row.node)
+            if kind is not None and kind.owned:
+                from graph import owned
+
+                data = {**data, kind.fields[0].name: owned.thing_of(doc, row.node)}
+            if kind is not None and kind.match is not None and kind.match(data, row.out, event):
                 touched += bool(start(row.graph, row.node, row.out, event.user, _ctx_of(event)))
     finally:
         _depth.reset(token)
@@ -839,6 +860,43 @@ def attempt(name, user, *, host="", login="", **data):
     except Exception:                               # noqa: BLE001 — сломанный сценарий: дверь работает как обычно
         log.exception("graph attempt %s failed", name)
         return None
+    finally:
+        _answer.reset(token)
+    found = holder["answer"]
+    return None if found is None or found["mode"] == "default" else found
+
+
+OUTCOMES = {"machine": ("machine.login", "machine.denied")}        # «как обычно»: чем кончилось, когда решила сама вещь
+
+
+def _outcome_waits(run, doc, node_id):
+    """«Ответить: как обычно»: ждать, что решат поля вещи, и пойти по «Пустили» или «Отказали» (прежняя попытка игрока снимается)."""
+    events = OUTCOMES.get((run.graph.owner or "").split(":")[0])
+    wired = doc.wired(node_id)
+    if not events or not ({"allowed", "refused"} & set(wired)):
+        return
+    Wait.objects.filter(run__graph=run.graph, user=run.user, node=node_id, kind=Wait.Kind.EVENT).exclude(run=run).delete()
+    ctx = run.ctx or {}
+    for out, event in zip(("allowed", "refused"), events):
+        if out in wired:
+            Wait.objects.create(run=run, user=run.user, node=node_id, out=out, kind=Wait.Kind.EVENT, event=event,
+                                data={"_host": ctx.get("host", ""), "_login": ctx.get("login", "")})
+
+
+def decide(graph, user, *, host="", login="", **data):
+    """Граф попытки у вещи решает сразу: от стартовой «Попытки» до «Ответить». Ответ {"mode", "text", "minutes"} или None."""
+    from engine.events import _clean
+
+    if user is not None and not getattr(user, "is_authenticated", False):
+        user = None
+    doc = doc_of(graph)
+    node_id = next((nid for nid, node in doc.nodes.items() if str(node.get("type") or "").startswith("attempt:") and "/" not in nid), None)
+    if node_id is None:
+        return None
+    holder = {"answer": None}
+    token = _answer.set(holder)
+    try:
+        start(graph, node_id, "go", user, {"host": host, "login": login, "event": "@attempt", "data": _clean(data)}, repeat="always")
     finally:
         _answer.reset(token)
     found = holder["answer"]

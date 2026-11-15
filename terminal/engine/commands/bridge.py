@@ -149,11 +149,11 @@ class EntryCommand(BaseCommand):
         return found.profile, slugs
 
     def _scenario(self, context, profile, login, host, args):
-        """Сценарий отвечает на попытку входа (нода «Ответить»): впустить, отказать, заблокировать. None — решают поля учётки."""
-        from graph import runtime
+        """Граф входа машины отвечает на попытку (нода «Ответить»): впустить, отказать, заблокировать. None — решают поля учётки."""
+        from graph import owned
 
-        answer = runtime.attempt("machine.attempt", context.user, host=profile.machine.hostname or "", login=profile.login,
-                                 source=context.machine.hostname or "")
+        answer = owned.decide("machine", profile.machine, context.user, host=profile.machine.hostname or "", login=profile.login,
+                              via=context.machine.hostname or "")
         if answer is None:
             return None
         if answer["mode"] == "allow":

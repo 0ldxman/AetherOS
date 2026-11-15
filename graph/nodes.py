@@ -106,6 +106,7 @@ class Kind:
     grow: object = None                 # Grow: растущий список входов
     when: dict = field(default_factory=dict)         # поле -> (поле-режим, значения) или список таких пар: вход есть только в этих режимах
     hidden: bool = False                # старая нода: работает в готовых сценариях, но в меню её нет
+    owned: str = ""                     # нода попытки: вид графа у вещи (graph/owned.py), Tab открывает его
 
 
 KINDS = {}
@@ -457,6 +458,27 @@ KINDS["on:schedule"] = replace(KINDS["on:schedule"], title="mode", when={"at": (
                                                                           "minutes": ("mode", ("every",))})
 
 
+# ---------- попытки: граф у вещи (graph/owned.py) ----------
+
+_when("attempt:machine", "Попытка", (), (Sock("go", "Попытка"),), {"go": "@attempt"}, None,
+      (_HOST_OUT, _LOGIN_OUT, Sock("via", "Откуда", "text", "via")), start_only=True)
+KINDS["attempt:machine"] = replace(KINDS["attempt:machine"], ins=(), hidden=True)
+def _owned_match(kind_name):
+    def match(data, out, event):
+        from graph import owned
+
+        d = event.data or {}
+        if event.name != OWNED_OUT or d.get("socket") != out:
+            return False
+        return d.get("owner") == owned.owner_of(kind_name, data.get(KINDS[f"try:{kind_name}"].fields[0].name))
+    return match
+
+
+register(Kind("try:machine", "Машина: Попытка входа", NOUN, "{machine}", (Field("machine", "Машина", "machine", "", True),), (),
+              match=_owned_match("machine"), owned="machine"))
+DATA_OUTS["try:machine"] = ()
+
+
 # ---------- ход ----------
 
 register(Kind("wait", "Ждать", FLOW, "{mode}",
@@ -485,7 +507,11 @@ register(Kind("end", "Конец", FLOW, "{outcome}",
 register(Kind("answer", "Ответить", FLOW, "{mode}",
               (Field("mode", "Ответ", "select", "", False, (("allow", "впустить"), ("deny", "отказать"), ("block", "заблокировать"), ("default", "как обычно (пароль, ключи, токен)"))),
                Field("text", "Текст отказа", "text", "node unavailable"), Field("minutes", "Блокировка, мин", "number", "10")),
-              (Sock("next", "Дальше"),)))
+              (Sock("next", "Дальше"), Sock("allowed", "Пустили"), Sock("refused", "Отказали")),
+              match=lambda data, out, event: (not data.get("_host") or _same(event.host, data["_host"]))
+              and (not data.get("_login") or _same(event.login, data["_login"])),
+              when={"text": ("mode", ("deny", "block")), "minutes": ("mode", ("block",)), "allowed": ("mode", ("default",)),
+                    "refused": ("mode", ("default",))}))
 register(Kind("reroute", "Перенаправление", SERVICE, "", (), (Sock("next", ""),)))
 
 
@@ -552,6 +578,9 @@ HELP = {
     "moment": "Момент мира: начался или кончился. Событие общее.",
     "time": "Игровое время: каждый день или один раз в ЧЧ:ММ. Запускает прохождение мира или каждого игрока. Только старт.",
     "manual": "Кнопка автора: запустить прохождение для игрока или мира из панели ноды. Только старт.",
+    "try:machine": "Вход на выбранную машину. Tab — граф входа этой машины: от «Попытки» до «Ответить», без ожиданий. "
+                   "Выходы ноды — сокеты «Выхода» внутри графа: события и данные.",
+    "attempt:machine": "Игрок пытается войти: подробности попытки. Дальше проверки и действия, конец — «Ответить».",
     "on:machine.status": "Машину остановили или запустили (для всех). Пустая машина — любая.",
     "on:terminal.command": "Игрок ввёл команду в терминале. Команда и аргументы понимают *.",
     "on:object.viewed": "Игрок открыл файл. Фильтры: объект, путь (*), машина; пусто — любой.",
@@ -576,7 +605,7 @@ HELP = {
     "all": "Дальше, когда пришли все входы, в любом порядке.",
     "race": "Дальше по первому пришедшему входу; остальные ожидания, ведущие сюда, снимаются.",
     "end": "Прохождение закончено с исходом; все ждущие ветки снимаются.",
-    "answer": "Ответ на ◇ Попытку: впустить, отказать, заблокировать или как обычно. До неё на пути не должно быть ожиданий.",
+    "answer": "Ответ в графе попытки (у машины, сервера, слоя): впустить, отказать, заблокировать или как обычно — решают поля вещи.",
     "reroute": "Точка излома провода. Ничего не делает.",
     "group": "Группа нод (Ctrl+G). Tab — войти. Сокеты — её «Вход» и «Выход».",
     "group_in": "Вход группы или сценария: сокеты слева у ноды группы; сюда приходит «Запустить сценарий».",
@@ -599,6 +628,8 @@ HELP = {
     "ent:character": "Персонаж: по коду или имени.", "ent:section": "Раздел форума: по номеру или названию.",
     "ent:moment": "Момент мира: по имени или названию; «Идёт» — сейчас ли он.",
     "ent:player": "Игрок: пусто — игрок прохождения, иначе по логину.",
+    "switch": "Если «Если» — да, значение «Да», иначе «Нет». Так выход получает значение по условию.",
+    "allowed": "поля вещи пустили (у «как обычно»)", "refused": "поля вещи отказали (у «как обычно»)",
     "ent:tag": "Тег владельца: мира, игрока, персонажа, машины, сервера или объекта; у вещи — общий или свой у игрока.",
     "ent:count": "Счётчик владельца, как у «Тега»; «Подпись» — подпись значения из описания счётчика («2» — «Архив»).",
     "do:tag": "Поставить или снять тег владельца (мир, игрок, вещь; у вещи — общий или для игрока).",
@@ -655,6 +686,8 @@ SOCKET_HELP = {
     "stopped": "машину остановили", "viewed": "игрок открыл файл", "via": "откуда пришёл объект", "delta": "на сколько изменилось",
     "up": "значение дошло до порога снизу", "down": "значение ушло ниже порога", "ended": "момент кончился", "machine": "машина события",
     "item": "объект события", "moment": "момент события", "freq": "частота",
+    "entered": "игрок вошёл (кто бы ни решал: граф или поля машины)", "denied": "в доступе отказано", "reason": "почему отказ: пароль, ключ, окно, граф…",
+    "go": "попытка: дальше проверки, конец — «Ответить»",
 }
 
 
@@ -711,6 +744,8 @@ _data("read", "Прочитать", "{what} {name}",
       (Field("what", "Что", "select", "", False, (("world_counter", "счётчик мира"), ("player_counter", "счётчик игрока"), ("world_flag", "метка мира"),
                                                   ("player_flag", "метка игрока"))), Field("name", "Имя", "text", "", True)), "number", "Значение")
 DATA_OUTS["read"] = (Sock("value", "Значение", "number"), Sock("lit", "Стоит", "bool"))
+_data("switch", "Выбрать значение", "",
+      (Field("condition", "Если", "bool"), Field("yes", "Да", "text"), Field("no", "Нет", "text")), "text", "Значение")
 KINDS["read"] = replace(KINDS["read"], hidden=True)                 # теперь «Тег» и «Счётчик»
 
 
@@ -815,6 +850,16 @@ def socket_types(data):
             if isinstance(item, dict) and str(item.get("name") or "").strip()}
 
 
+OWNED_OUT = "graph.out"                   # свой «Выход» графа попытки: событие для ноды попытки снаружи
+
+
+def event_of(kind, out):
+    """Событие выхода ноды «Когда»: из её списка, а у ноды попытки её выходы — сокеты «Выхода» графа (graph.out)."""
+    if out in kind.events:
+        return kind.events[out]
+    return OWNED_OUT if kind.owned and out != TIMEOUT else None
+
+
 def sock_type(kind, data, side, name, iface=None):
     """Тип сокета ноды: у групп и сценариев — по интерфейсу, у «Входа»/«Выхода» — по списку, иначе событие или тип выхода данных."""
     if kind.name in BOXES:
@@ -822,6 +867,8 @@ def sock_type(kind, data, side, name, iface=None):
     if kind.name in ("group_in", "group_out"):
         return socket_types(data).get(name, EVENT)
     if side == "out":
+        if kind.owned and name in ((iface or {}).get("out_types") or {}):
+            return iface["out_types"][name]
         return out_type(kind, name)
     if name.startswith("f:"):
         found = next((f for f in kind.fields if f.name == name[2:]), None)
@@ -844,6 +891,8 @@ def sockets(kind, data, side, iface=None):
             else:
                 names += [f"{many.prefix}{n}" for n in range(1, len(_count(data, many.field)) + 1)]
     if side == "out":
+        if kind.owned:
+            names += list((iface or {}).get("outputs") or [])
         names += [sock.name for sock in kind.tail]
         names += [sock.name for sock in DATA_OUTS.get(kind.name, ())]
         if kind.group == NOUN and not kind.start_only:
@@ -874,6 +923,6 @@ def catalog():
                      "single": list(k.grow.single)} if k.grow else None,
             "when": [{"field": name, "mode": mode, "values": list(values)} for name, rule in k.when.items()
                      for mode, values in ([rule] if isinstance(rule[0], str) else rule)],
-            "hidden": k.hidden,
+            "hidden": k.hidden, "owned": k.owned,
         } for k in sorted(KINDS.values(), key=lambda k: list(GROUPS).index(k.group))],
     }

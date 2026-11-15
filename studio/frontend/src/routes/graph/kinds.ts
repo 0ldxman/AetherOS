@@ -86,15 +86,19 @@ export function sockType(kind: Kind, data: Record<string, unknown>, side: "in" |
     const field = kind.fields.find((f) => f.name === name.slice(2));
     return field ? field.socket : isRow(kind, name.slice(2)) ? kind.grow!.type : "";
   }
+  if (kind.owned) {
+    const own = iface?.outputs.find((s) => s.name === name);
+    if (own) return own.type ?? "event";
+  }
   return kind.outs.find((s) => s.name === name)?.type ?? "event";
 }
 
 // waiting: у ноды есть входящий провод (существительное ждёт, а не стартует)
 export function outsOf(kind: Kind, data: Record<string, unknown>, waiting: boolean, iface: Iface | null = null): Sock[] {
   if (BOXES.includes(kind.name)) return iface?.outputs ?? [];
-  const events = kind.outs.filter((s) => (s.type ?? "event") === "event");
+  const events = kind.outs.filter((s) => (s.type ?? "event") === "event" && inWhen(kind, data, s.name));
   const values = kind.outs.filter((s) => s.type && s.type !== "event");
-  const out: Sock[] = [...events, ...many(kind, data, "out"), ...kind.tail];
+  const out: Sock[] = [...events, ...(kind.owned ? iface?.outputs ?? [] : []), ...many(kind, data, "out"), ...kind.tail];
   if (kind.group === "noun" && !kind.start_only && waiting) out.push({ name: TIMEOUT, label: "Таймаут", type: "event" });
   return [...out, ...values];
 }

@@ -12,11 +12,14 @@ class Graph(models.Model):
     note = models.TextField("Заметка автора", blank=True)
     active = models.BooleanField("Включён", default=False)
     doc = models.JSONField("Граф", default=dict, blank=True)
+    owner = models.CharField("Принадлежит", max_length=80, blank=True, default="", db_index=True,
+                             help_text="Граф попытки у вещи: «machine:12» (graph/owned.py). Пусто — обычный сценарий.")
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
         ordering = ("title",)
+        constraints = [models.UniqueConstraint(fields=("owner",), condition=~models.Q(owner=""), name="unique_graph_owner")]
         verbose_name = "Сценарий"
         verbose_name_plural = "Сценарии"
 

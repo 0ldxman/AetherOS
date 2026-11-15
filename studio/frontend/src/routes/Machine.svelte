@@ -11,6 +11,7 @@
   import Groups from "./machine/Groups.svelte";
   import Disks from "./machine/Disks.svelte";
   import Files from "./machine/Files.svelte";
+  import Login from "./machine/Login.svelte";
 
   let { id, tab, sub }: { id: number; tab: string; sub: number | null } = $props();
 
@@ -28,6 +29,7 @@
     { key: "overview", label: "Обзор" },
     { key: "accounts", label: "Учётки" },
     { key: "access", label: "Проверка входа" },
+    { key: "login", label: "Вход" },
     { key: "journal", label: "Журнал" },
     { key: "groups", label: "Группы" },
     { key: "files", label: "Файлы" },
@@ -61,6 +63,8 @@
     <section class="body">
       {#if tab === "accounts"}
         <Accounts {machine} selected={sub} onchange={reload} />
+      {:else if tab === "login"}
+        <Login {machine} />
       {:else if tab === "access"}
         <Access {machine} account={sub} />
       {:else if tab === "groups"}

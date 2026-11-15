@@ -14984,6 +14984,63 @@
     ]
    }
   },
+  "/studio/api/world/graphs/owned": {
+   "get": {
+    "operationId": "studio_api_graph_owned_graph",
+    "summary": "Owned Graph",
+    "parameters": [
+     {
+      "in": "query",
+      "name": "kind",
+      "schema": {
+       "title": "Kind",
+       "type": "string"
+      },
+      "required": true
+     },
+     {
+      "in": "query",
+      "name": "key",
+      "schema": {
+       "title": "Key",
+       "type": "string"
+      },
+      "required": true
+     },
+     {
+      "in": "query",
+      "name": "create",
+      "schema": {
+       "default": false,
+       "title": "Create",
+       "type": "boolean"
+      },
+      "required": false
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/GrOwned"
+        }
+       }
+      }
+     }
+    },
+    "description": "Граф попытки у вещи (машина по хосту…): номер и свои выходы; create — завести, если его ещё нет.",
+    "tags": [
+     "graph"
+    ],
+    "security": [
+     {
+      "StudioAuth": []
+     }
+    ]
+   }
+  },
   "/studio/api/world/graphs/{graph_id}": {
    "get": {
     "operationId": "studio_api_graph_detail",
@@ -32840,6 +32897,11 @@
       "default": false,
       "title": "Hidden",
       "type": "boolean"
+     },
+     "owned": {
+      "default": "",
+      "title": "Owned",
+      "type": "string"
      }
     },
     "required": [
@@ -33096,6 +33158,11 @@
       "title": "Active",
       "type": "boolean"
      },
+     "owner": {
+      "default": "",
+      "title": "Owner",
+      "type": "string"
+     },
      "doc": {
       "additionalProperties": true,
       "title": "Doc",
@@ -33220,6 +33287,35 @@
      "title"
     ],
     "title": "GrIn",
+    "type": "object"
+   },
+   "GrOwned": {
+    "properties": {
+     "id": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Id"
+     },
+     "owner": {
+      "title": "Owner",
+      "type": "string"
+     },
+     "iface": {
+      "$ref": "#/components/schemas/GrIface"
+     }
+    },
+    "required": [
+     "id",
+     "owner",
+     "iface"
+    ],
+    "title": "GrOwned",
     "type": "object"
    },
    "GrWaiter": {

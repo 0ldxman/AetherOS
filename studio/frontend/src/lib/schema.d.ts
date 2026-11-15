@@ -4839,6 +4839,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/studio/api/world/graphs/owned": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Owned Graph
+         * @description Граф попытки у вещи (машина по хосту…): номер и свои выходы; create — завести, если его ещё нет.
+         */
+        get: operations["studio_api_graph_owned_graph"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/studio/api/world/graphs/{graph_id}": {
         parameters: {
             query?: never;
@@ -12068,6 +12088,11 @@ export interface components {
              * @default false
              */
             hidden: boolean;
+            /**
+             * Owned
+             * @default
+             */
+            owned: string;
         };
         /** GrMany */
         GrMany: {
@@ -12171,6 +12196,11 @@ export interface components {
             note: string;
             /** Active */
             active: boolean;
+            /**
+             * Owner
+             * @default
+             */
+            owner: string;
             /** Doc */
             doc: {
                 [key: string]: unknown;
@@ -12231,6 +12261,14 @@ export interface components {
             doc: {
                 [key: string]: unknown;
             };
+        };
+        /** GrOwned */
+        GrOwned: {
+            /** Id */
+            id: number | null;
+            /** Owner */
+            owner: string;
+            iface: components["schemas"]["GrIface"];
         };
         /** GrWaiter */
         GrWaiter: {
@@ -20782,6 +20820,30 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["GrDetail"];
+                };
+            };
+        };
+    };
+    studio_api_graph_owned_graph: {
+        parameters: {
+            query: {
+                kind: string;
+                key: string;
+                create?: boolean;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GrOwned"];
                 };
             };
         };

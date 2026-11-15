@@ -71,6 +71,13 @@ class DataTests(TestCase):
         doc = Doc({"nodes": [{"id": "t", "type": "template", "data": {"template": "a-{нет}", "subs": [{"id": "s1", "name": "да", "value": "1"}]}}]})
         self.assertEqual(value_of(None, doc, "t", "value"), "a-{нет}")
 
+    def test_switch_picks_by_condition(self):
+        from graph.runtime import Doc, value_of
+
+        for condition, expected in ((True, "night"), (False, "no pass"), (1, "night"), ("", "no pass")):
+            doc = Doc({"nodes": [{"id": "s", "type": "switch", "data": {"condition": condition, "yes": "night", "no": "no pass"}}]})
+            self.assertEqual(value_of(None, doc, "s", "value"), expected)
+
     def test_logic_ops_over_many_inputs(self):
         from graph.runtime import Doc, value_of
 

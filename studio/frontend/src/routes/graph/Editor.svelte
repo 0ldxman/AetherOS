@@ -19,7 +19,7 @@
   import NodePanel from "./NodePanel.svelte";
   import { BOXES, TYPES, compatible, sockType, socketFields, typeColor, defaults, freeId, ifaceOfLevel, insOf, isRow, outsOf, rowName, rowsOf, summaryOf, tidyRows, type Catalog, type Doc, type GNode, type GWire, type Group, type Iface, type Kind, type Level } from "./kinds";
 
-  let { id }: { id: number } = $props();
+  let { id, embedded = false }: { id: number; embedded?: boolean } = $props();
   type Detail = Schemas["GrDetail"];
   type Form = { slug: string; title: string; note: string; active: boolean };
 
@@ -73,7 +73,33 @@
     const field = socketFields(kind).find((f) => compatible(type, f.socket));
     return field ? `f:${field.name}` : null;
   }
+  // нода попытки: граф у вещи (машина по хосту); вещь выбрана на ноде или пришла с ноды сущности
+  let owned = $state<Record<string, Schemas["GrOwned"]>>({});
+  function ownedKey(n: GNode): string {
+    const kind = kindOf(n.type);
+    if (!kind?.owned) return "";
+    const field = kind.fields[0]?.name ?? "";
+    let thing = String(n.data[field] ?? "");
+    const wire = level.wires.find((w) => w.to === n.id && w.in === `f:${field}`);
+    const src = wire && level.nodes.find((x) => x.id === wire.from);
+    if (src && src.type.startsWith("ent:")) thing = String(src.data[kindOf(src.type)?.fields[0]?.name ?? ""] ?? "");
+    else if (wire) thing = "";
+    return thing ? `${kind.owned}|${thing}` : "";
+  }
+  async function fetchOwned(key: string, create = false) {
+    const [kind, thing] = key.split("|");
+    const { data } = await api.GET("/studio/api/world/graphs/owned", { params: { query: { kind, key: thing, create } } });
+    if (data) owned = { ...owned, [key]: data };
+    return data ?? null;
+  }
+  $effect(() => {
+    for (const n of level.nodes) {
+      const key = ownedKey(n);
+      if (key && !(key in untrack(() => owned))) fetchOwned(key);
+    }
+  });
   function ifaceOf(n: GNode): Iface | null {
+    if (kindOf(n.type)?.owned) return owned[ownedKey(n)]?.iface ?? null;
     if (n.type === "group") return ifaceOfLevel(doc.groups?.[String(n.data.group ?? "")]);
     if (n.type === "scenario") return graphs.find((g) => g.slug === n.data.graph)?.iface ?? null;
     return null;
@@ -149,7 +175,8 @@
     const { error } = await api.DELETE("/studio/api/world/graphs/{graph_id}", { params: { path: { graph_id: id } } });
     if (error) return toast(problem(error), "error");
     toast("Сценарий удалён.");
-    go("/graphs");
+    if (graph.owner) history.back();
+    else go("/graphs");
   }
 
   // группы, на которые больше нет нод, при сохранении убираются
@@ -247,8 +274,15 @@
     selected = box.id;
     toast("Собрано в группу. Tab — войти внутрь.");
   }
-  function enter(nodeId: string) {
+  async function enter(nodeId: string) {
     const n = level.nodes.find((x) => x.id === nodeId);
+    if (n && kindOf(n.type)?.owned) {
+      const key = ownedKey(n);
+      if (!key) return toast("Сначала выберите вещь на ноде: граф попытки принадлежит ей.", "error");
+      const found = await fetchOwned(key, true);
+      if (found?.id) go(`/graphs/${found.id}`);
+      return;
+    }
     if (!n || n.type !== "group" || !doc.groups?.[String(n.data.group)]) return;
     path = [...path, { node: n.id, group: String(n.data.group) }];
     selected = "";
@@ -388,7 +422,7 @@
     if (event.key === "Tab" && !mod) {
       event.preventDefault();
       const n = level.nodes.find((x) => x.id === selected);
-      if (n?.type === "group") enter(n.id);
+      if (n && (n.type === "group" || kindOf(n.type)?.owned)) enter(n.id);
       else if (path.length) leave();
       return;
     }
@@ -451,8 +485,12 @@
 {:else}
   <div class="editor">
     <header class="head">
-      <a class="btn ghost" href="#/graphs" aria-label="К списку сценариев" title="К списку сценариев">←</a>
+      {#if !embedded}
+        {#if graph?.owner}<button class="btn ghost" onclick={() => history.back()} aria-label="Назад" title="Назад">←</button>
+        {:else}<a class="btn ghost" href="#/graphs" aria-label="К списку сценариев" title="К списку сценариев">←</a>{/if}
+      {/if}
       <input class="title" bind:value={form.title} aria-label="Название сценария" disabled={!editable} />
+      {#if graph?.owner}<span class="chip" title="Граф попытки принадлежит вещи: решает сразу, без ожиданий; нет ответа — решают поля вещи">граф попытки</span>{/if}
       {#if path.length}
         <nav class="crumbs" aria-label="Уровень">
           <button class="crumb" onclick={() => leave(0)}>граф</button>

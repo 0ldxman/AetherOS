@@ -163,6 +163,13 @@ def _part(part, groups, prefix, add, slug):
             ifaces[node_id] = _iface_of(node, groups, add, key)
             if kind.name == "scenario" and data.get("graph") and data.get("graph") == slug:
                 add(key, "сценарий не может включать сам себя")
+        if kind.owned:
+            from graph import owned
+
+            thing = owned.thing_of(doc, node_id)
+            ifaces[node_id] = owned.iface(owned.owner_of(kind.owned, thing) if thing else None)
+            if not thing and (node_id, kind.fields[0].name) in doc.refs:
+                add(key, f"«{kind.fields[0].label}» должна быть выбрана заранее: на ноде или на ноде сущности")
         for item in kind.fields:
             fed = (node_id, item.name) in doc.refs
             if item.required and not fed and data.get(item.name) in (None, ""):
@@ -253,7 +260,18 @@ def _part(part, groups, prefix, add, slug):
             add(prefix + src, "таймаут бывает только у ждущей ноды (со входом)")
 
 
-def problems(raw, slug=""):
+def _owned_rules(raw, add):
+    """Граф попытки решает сразу: ожиданий в нём нет."""
+    doc = Doc(raw)
+    for node_id, node in doc.nodes.items():
+        kind = N.KINDS.get(node.get("type"))
+        if kind is not None and (kind.name == "wait" or (kind.group == N.NOUN and not kind.name.startswith("attempt:"))):
+            add(node_id, "в графе попытки нельзя ждать: решение принимается сразу")
+    if not any(str(n.get("type") or "").startswith("attempt:") for n in doc.nodes.values()):
+        add("", "нет стартовой ноды «Попытка»")
+
+
+def problems(raw, slug="", owner=""):
     """Список проблем сценария. Ключ ноды: её id на уровне графа или «группа::id» внутри определения группы."""
     from graph.runtime import flatten
 
@@ -265,10 +283,12 @@ def problems(raw, slug=""):
         out.append({"node": node, "text": text, "level": level})
 
     _part(raw, groups, "", add, slug)
+    if owner:
+        _owned_rules(raw, add)
     for gid, part in groups.items():
         _part(part, groups, f"{gid}::", add, slug)
     flat = Doc(flatten(raw, slug))
-    if flat.nodes and not any(flat.is_start(node_id) and flat.wired(node_id) for node_id in flat.nodes):
+    if flat.nodes and not owner and not any(flat.is_start(node_id) and flat.wired(node_id) for node_id in flat.nodes):
         has_entry = any(node.get("type") == "group_in" for node in raw.get("nodes") or [])
         if not has_entry:
             add("", "нет старта: существительное без входящего провода и с подключённым выходом", WARNING)

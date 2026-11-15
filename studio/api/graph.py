@@ -74,6 +74,7 @@ class GrKind(Schema):
     grow: GrGrow | None = None
     when: list[GrWhen] = []
     hidden: bool = False
+    owned: str = ""
 
 
 class GrGroup(Schema):
@@ -132,6 +133,7 @@ class GrDetail(Schema):
     title: str
     note: str
     active: bool
+    owner: str = ""
     doc: dict
     problems: list[GrProblem]
     stats: GrStats
@@ -156,6 +158,12 @@ class GrStarted(Schema):
     outcome: str
 
 
+class GrOwned(Schema):
+    id: int | None
+    owner: str
+    iface: GrIface
+
+
 class GrWaiter(Schema):
     player: str
     player_id: int | None
@@ -174,8 +182,9 @@ def _iface(doc):
 
 
 def _detail(graph):
-    return GrDetail(id=graph.pk, slug=graph.slug, title=graph.title, note=graph.note, active=graph.active, doc=graph.doc or {"nodes": [], "wires": []},
-                    problems=check.problems(graph.doc, graph.slug), stats=stats.of(graph), updated_at=graph.updated_at)
+    return GrDetail(id=graph.pk, slug=graph.slug, title=graph.title, note=graph.note, active=graph.active, owner=graph.owner,
+                    doc=graph.doc or {"nodes": [], "wires": []}, problems=check.problems(graph.doc, graph.slug, graph.owner), stats=stats.of(graph),
+                    updated_at=graph.updated_at)
 
 
 def _apply(graph, body):
@@ -212,7 +221,8 @@ class GrCheckIn(Schema):
 def check_doc(request, body: GrCheckIn):
     """Проверка черновика на лету (ничего не сохраняет)."""
     try:
-        return check.problems(check.clean(body.doc), body.slug)
+        owner = Graph.objects.filter(slug=body.slug).values_list("owner", flat=True).first() or ""
+        return check.problems(check.clean(body.doc), body.slug, owner)
     except (ValueError, TypeError) as error:
         return [GrProblem(node="", text=str(error), level=check.ERROR)]
 
@@ -220,7 +230,7 @@ def check_doc(request, body: GrCheckIn):
 @router.get("", response=list[GrRow])
 def graph_list(request):
     out = []
-    for graph in Graph.objects.all():
+    for graph in Graph.objects.filter(owner=""):
         found = check.problems(graph.doc, graph.slug)
         out.append(GrRow(id=graph.pk, slug=graph.slug, title=graph.title, active=graph.active, iface=_iface(graph.doc), nodes=len((graph.doc or {}).get("nodes") or []),
                          running=graph.runs.filter(status="running").count(), errors=sum(1 for p in found if p["level"] == check.ERROR),
@@ -233,6 +243,18 @@ def create(request, body: GrIn):
     graph = Graph()
     _apply(graph, body)
     return _detail(graph)
+
+
+@router.get("/owned", response=GrOwned)
+def owned_graph(request, kind: str, key: str, create: bool = False):
+    """Граф попытки у вещи (машина по хосту…): номер и свои выходы; create — завести, если его ещё нет."""
+    from graph import owned
+
+    owner = owned.owner_of(kind, key)
+    if owner is None:
+        raise HttpError(404, "Нет такой вещи.")
+    graph = owned.ensure(kind, key) if create else owned.find(owner)
+    return GrOwned(id=graph.pk if graph else None, owner=owner, iface=_iface(graph.doc) if graph else GrIface(inputs=[], outputs=[]))
 
 
 @router.get("/{int:graph_id}", response=GrDetail)

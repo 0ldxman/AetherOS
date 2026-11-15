@@ -94,6 +94,7 @@
     <b>{titleOf(kind, values)}</b>
     {#if isNoun}<span class="tag" title={role.tip}>{role.text}</span>{/if}
     {#if kind.name === "group"}<span class="tag" title="Tab — войти в группу">Tab</span>{/if}
+    {#if kind.owned}<span class="tag" title="Tab — граф попытки этой вещи">Tab</span>{/if}
     {#if hide}<span class="tag" title="Неподключённые сокеты скрыты (Ctrl+H)">…</span>{/if}
     <span class="spacer"></span>
     {#if data.errors}<span class="n err" title="Ошибок: {data.errors}">{data.errors}</span>{/if}
@@ -101,6 +102,17 @@
     {#if data.warnings}<span class="n warn" title="Предупреждений: {data.warnings}">{data.warnings}</span>{/if}
   </header>
   {#if data.summary && kind.name === "group"}<div class="summary" title={data.summary}>{data.summary}</div>{/if}
+
+  {#if params.length}
+    <div class="props">
+      {#each params as f (f.name)}
+        <select class="nodrag inline wide" value={val(f.name) || f.options[0]?.value} disabled={!data.editable} aria-label={f.label} title={f.label}
+                onchange={(e) => set(f.name, e.currentTarget.value)}>
+          {#each f.options as o (o.value)}<option value={o.value}>{o.label}</option>{/each}
+        </select>
+      {/each}
+    </div>
+  {/if}
 
   {#if beside}
     <div class="row both" class:used={data.usedIn.includes("in") || data.used.includes(beside.name)}>
@@ -119,16 +131,6 @@
     </div>
   {/each}
 
-  {#if params.length}
-    <div class="props">
-      {#each params as f (f.name)}
-        <select class="nodrag inline wide" value={val(f.name) || f.options[0]?.value} disabled={!data.editable} aria-label={f.label} title={f.label}
-                onchange={(e) => set(f.name, e.currentTarget.value)}>
-          {#each f.options as o (o.value)}<option value={o.value}>{o.label}</option>{/each}
-        </select>
-      {/each}
-    </div>
-  {/if}
 
   {#if flowIn && !beside}
     <div class="row in" class:used={data.usedIn.includes("in")} data-tip={inTip("in", flowLabel, "event")}>

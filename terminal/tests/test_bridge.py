@@ -131,17 +131,27 @@ class BridgeTests(BridgeFixture):
         self.assertEqual(self.depth(), 0)
         self.assertEqual(self.run_command("exit")["exit_code"], 1)               # выходить некуда
 
-    def graph(self, answer, start=True):
-        from graph.models import Graph
-        from graph import runtime
+    def graph(self, *answers, condition=None, out=None):
+        """Граф входа aether-core: «Попытка» → «Ответить» (или условие → два ответа; out — свой «Выход» после ответа)."""
+        from graph import owned, runtime
 
-        nodes = [{"id": "m", "type": "machine", "x": 0, "y": 0, "data": {"host": "aether-core", "login": "root"}},
-                 {"id": "a", "type": "answer", "x": 0, "y": 0, "data": answer}]
-        wires = [{"from": "m", "out": "attempt", "to": "a", "in": "in"}]
-        if not start:                                                                # ждущая нода: игрок на этом этапе
-            nodes.append({"id": "s", "type": "manual", "x": 0, "y": 0, "data": {}})
-            wires.append({"from": "s", "out": "fire", "to": "m", "in": "in"})
-        graph = Graph.objects.create(slug=f"g{Graph.objects.count()}", title="g", active=True, doc={"nodes": nodes, "wires": wires})
+        graph = owned.ensure("machine", "aether-core")
+        nodes = [{"id": "start", "type": "attempt:machine", "x": 0, "y": 0, "data": {}}]
+        wires = []
+        if condition:
+            nodes.append({"id": "c", "type": "check", "x": 0, "y": 0, "data": {"condition": condition}})
+            wires.append({"from": "start", "out": "go", "to": "c", "in": "in"})
+            for out_name, answer, node_id in (("yes", answers[0], "a"), ("no", answers[1], "b")):
+                nodes.append({"id": node_id, "type": "answer", "x": 0, "y": 0, "data": answer})
+                wires.append({"from": "c", "out": out_name, "to": node_id, "in": "in"})
+        else:
+            nodes.append({"id": "a", "type": "answer", "x": 0, "y": 0, "data": answers[0]})
+            wires.append({"from": "start", "out": "go", "to": "a", "in": "in"})
+        if out:
+            nodes.append({"id": "o", "type": "group_out", "x": 0, "y": 0, "data": {"sockets": [{"name": out, "label": out}]}})
+            wires.append({"from": "a", "out": "next", "to": "o", "in": out})
+        graph.doc = {"nodes": nodes, "wires": wires}
+        graph.save()
         runtime.rebuild_starts(graph)
         return graph
 
@@ -152,11 +162,10 @@ class BridgeTests(BridgeFixture):
         self.assertEqual(self.where().login, "root")
 
     def test_a_scenario_refuses_and_blocks(self):
-        graph = self.graph({"mode": "deny", "text": "node unavailable"})
+        self.graph({"mode": "deny", "text": "node unavailable"})
         data = self.run_command("rcon root@aether-core")
         self.assertIn("node unavailable", data["output"])
         self.assertEqual(self.depth(), 0)
-        graph.delete()
         self.graph({"mode": "block", "minutes": 5, "text": "intrusion"})
         self.assertIn("account locked", self.run_command("rcon root@aether-core")["output"])
         self.assertEqual(self.where().login, "ivan")
@@ -165,13 +174,68 @@ class BridgeTests(BridgeFixture):
         self.graph({"mode": "default"})
         self.assertEqual(self.run_command("rcon root@aether-core")["prompt"]["kind"], "password")
 
-    def test_waiting_node_of_the_player_answers_first(self):
+    def test_story_progress_decides_through_tags(self):
+        from engine import values
+
+        self.graph({"mode": "allow"}, {"mode": "deny", "text": "not yet"}, condition="tag:cleared")
+        self.assertIn("not yet", self.run_command("rcon root@aether-core")["output"])
+        values.set_tag("player", self.user.pk, "cleared")
+        self.assertEqual(self.run_command("rcon root@aether-core")["exit_code"], 0)
+
+    def story(self, outs):
+        """Сценарий с нодой попытки aether-core: каждый её выход (сокет «Выхода» графа) прибавляет к своему счётчику мира."""
+        from graph.models import Graph
         from graph import runtime
 
-        self.graph({"mode": "deny", "text": "start says no"})
-        waiting = self.graph({"mode": "allow"}, start=False)
-        runtime.start_manual(waiting, "s", self.user)
-        self.assertEqual(self.run_command("rcon root@aether-core")["exit_code"], 0)
+        nodes = [{"id": "t", "type": "try:machine", "x": 0, "y": 0, "data": {"repeat": "always"}},
+                 {"id": "m", "type": "ent:machine", "x": 0, "y": 0, "data": {"machine": "aether-core"}}]
+        wires = [{"from": "m", "out": "value", "to": "t", "in": "f:machine"}]                 # машина с ноды сущности
+        for out in outs:
+            nodes.append({"id": out, "type": "do:world_count", "x": 0, "y": 0, "data": {"name": out}})
+            wires.append({"from": "t", "out": out, "to": out, "in": "in"})
+        world = Graph.objects.create(slug="story", title="story", active=True, doc={"nodes": nodes, "wires": wires})
+        runtime.rebuild_starts(world)
+        return world
+
+    def inner(self, answer, outs):
+        """Граф входа: «Попытка» → «Ответить»; outs — {выход ответа: сокет «Выхода»}, плюс сокет данных «who» = учётка."""
+        from graph import owned, runtime
+
+        graph = owned.ensure("machine", "aether-core")
+        sockets = [{"name": name, "label": name, "type": "event"} for name in outs.values()] + [{"name": "who", "label": "who", "type": "text"}]
+        graph.doc = {"nodes": [{"id": "start", "type": "attempt:machine", "x": 0, "y": 0, "data": {}},
+                               {"id": "a", "type": "answer", "x": 0, "y": 0, "data": answer},
+                               {"id": "o", "type": "group_out", "x": 0, "y": 0, "data": {"sockets": sockets}}],
+                     "wires": [{"from": "start", "out": "go", "to": "a", "in": "in"}, {"from": "start", "out": "login", "to": "o", "in": "who"}]
+                     + [{"from": "a", "out": out, "to": "o", "in": name} for out, name in outs.items()]}
+        graph.save()
+        runtime.rebuild_starts(graph)
+
+    def test_outputs_are_the_inner_exit_sockets_with_their_data(self):
+        from engine import values
+        from graph.models import Graph
+        from graph import runtime
+
+        self.inner({"mode": "allow"}, {"next": "let-in"})
+        world = self.story(["let-in"])
+        world.doc["nodes"].append({"id": "f", "type": "do:world_flag", "x": 0, "y": 0, "data": {}})
+        world.doc["wires"] += [{"from": "let-in", "out": "next", "to": "f", "in": "in"}, {"from": "t", "out": "who", "to": "f", "in": "f:name"}]
+        world.save()
+        runtime.rebuild_starts(world)
+        self.run_command("rcon root@aether-core")
+        self.assertEqual(values.get("count", "world", 0, "let-in"), 1)
+        self.assertTrue(values.on("world", 0, "root"))                               # учётка приехала данными «Выхода»
+
+    def test_as_usual_goes_on_after_the_machine_decides(self):
+        from engine import values
+
+        self.inner({"mode": "default"}, {"allowed": "ok", "refused": "bad"})
+        self.story(["ok", "bad"])
+        self.assertEqual(self.run_command("rcon root@aether-core")["prompt"]["kind"], "password")
+        self.answer("wrong")
+        self.run_command("rcon root@aether-core")
+        self.answer("s3cret")
+        self.assertEqual((values.get("count", "world", 0, "ok"), values.get("count", "world", 0, "bad")), (1, 1))
 
     def test_unknown_host_and_account_are_named(self):
         self.assertIn("could not resolve host", self.run_command("rcon guest@nowhere")["output"])

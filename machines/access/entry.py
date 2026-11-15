@@ -84,10 +84,12 @@ def record(profile, user, kind, source="", detail=""):
         profile=profile, user=user, kind=kind, source=source, detail=detail, shown_at=clock.now(profile.machine, user),
     )
     LoginEvent.objects.filter(at__lt=timezone.now() - KEEP).delete()                 # старое убирается у всех, а не только у этой пары
-    if kind == LoginEvent.Kind.OK:
-        from engine.events import emit
+    from engine.events import emit
 
-        emit("machine.login", user, machine=profile.machine, login=profile.login, source=source)
+    if kind == LoginEvent.Kind.OK:
+        emit("machine.login", user, machine=profile.machine, login=profile.login, source=source, via=source)
+    elif kind not in (LoginEvent.Kind.UNLOCKED, LoginEvent.Kind.KICKED):
+        emit("machine.denied", user, machine=profile.machine, login=profile.login, source=source, via=source, reason=kind)
     return event
 
 
