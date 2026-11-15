@@ -33,6 +33,33 @@ def purge_expired(user=None):
     return count
 
 
+def to_trash(view, trash_dir, path):
+    """Перенести файл или папку path в корзину записи под тем же именем (занято: name.1, name.2).
+    Возвращает [(путь в корзине, прежний путь)] для каждого файла."""
+    import posixpath
+
+    from django.conf import settings
+
+    files = [entry for entry in view.under(path) if not entry.is_dir]
+    name = posixpath.basename(path)
+    candidate, number = name, 0
+    while view.exists(posixpath.join(trash_dir, candidate)):
+        number += 1
+        candidate = f"{name}.{number}"
+    target = posixpath.join(trash_dir, candidate)
+    view.move(path, target)
+    now = timezone.now()
+    moved = []
+    for entry in files:
+        new_path = target + entry.path[len(path):]
+        row = view.get(new_path).player
+        row.origin_path, row.trashed_at, row.purge_at = entry.path, now, now + settings.TRASH_TTL
+        row.save(update_fields=["origin_path", "trashed_at", "purge_at"])
+        moved.append((new_path, entry.path))
+    view.invalidate()
+    return moved
+
+
 def empty_trash(view, trash_dir):
     """Очистить корзину записи. Возвращает сколько файлов."""
     from filesystem import fileevents

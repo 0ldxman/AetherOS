@@ -286,13 +286,15 @@ def _holds(text, run, known=None):
     return bool(satisfied(condition, _facts(run) if known is None else known))
 
 
-def _fill(value, run):
-    """Подставить подробности события в текст: {host}, {login}, {path}, {slug}… Неизвестное остаётся как есть."""
+def _fill(value, run, keep=()):
+    """Подставить подробности события в текст: {host}, {login}, {path}, {slug}… Неизвестное остаётся как есть,
+    пустое из keep — тоже (его подставит действие: учётка игрока на машине)."""
     if not isinstance(value, str) or "{" not in value:
         return value
     ctx = run.ctx or {}
     known = {"host": ctx.get("host", ""), "login": ctx.get("login", "")}
     known.update({key: item for key, item in (ctx.get("data") or {}).items() if isinstance(item, (str, int, float))})
+    known = {key: item for key, item in known.items() if key not in keep or item not in (None, "")}
     return re.sub(r"\{(\w+)\}", lambda m: str(known[m.group(1)]) if m.group(1) in known else m.group(0), value)
 
 
@@ -404,6 +406,8 @@ def value_of(run, doc, node_id, out, depth=0):
         if value in (None, "") and sock.fallback:
             value = data.get(sock.fallback)
         return value
+    if kind.name in N.PLACEMENT_ACTS:                # что сделало действие: запомнено при выполнении
+        return (((run.state or {}).get("vals") or {}).get(node_id) or {}).get(out)
     get = lambda name: input_of(run, doc, node_id, name, depth + 1)       # noqa: E731
     if kind.group == N.ENTITY:
         from graph import entities
@@ -632,6 +636,68 @@ def _action(run, doc, node_id, kind):
     return ["next"]
 
 
+def _placement_act(run, doc, node_id, kind):
+    """«Размещение: Изменить / Создать»: с каждым размещением на входе; «Размещение» на выходе — где файл теперь (одно или список, как вход)."""
+    import posixpath
+
+    from filesystem import placements
+    from graph import entities
+
+    data = resolved(run, doc, node_id)
+    raw = data.get("placement")
+    many = isinstance(raw, (list, tuple))
+    keys = [str(k) for k in _as_list(raw) if str(k or "").strip()]
+    create = kind.name == "act:placement.create"
+    if create and not keys and not many:
+        user, machine = entities._player(run, entities._key(data.get("player"))), entities._machine(entities._key(data.get("machine")))
+        found = [(user, machine, _fill(str(data.get("path") or ""), run, keep=("login",)))] if user is not None and machine is not None else [None]
+    else:
+        found = [entities.parse_placement(key, run) for key in keys]
+    item = None
+    if data.get("item") not in (None, ""):
+        from filesystem.models import Item
+
+        item = Item.objects.filter(slug=entities._key(data.get("item"))).first() or Item.objects.filter(name__iexact=entities._key(data.get("item"))).first()
+        if item is None:
+            _log(run.graph, f"«{kind.label}»: нет объекта «{data.get('item')}»", run.user)
+            return ["fail"]
+    mode = data.get("variant") or "move"
+    results, failed = [], not found
+    for place in found:
+        if place is None:
+            failed = True
+            continue
+        user, machine, path = place
+        try:
+            if create:
+                new = placements.add(user, machine, path, item) if item is not None else placements.create(user, machine, path, _fill(str(data.get("text") or ""), run))
+            elif mode == "move":
+                target = _fill(str(data.get("target") or ""), run, keep=("login",)).strip()
+                if target.endswith("/"):
+                    target += posixpath.basename(path)                      # в папку под тем же именем
+                elif target and "/" not in target:
+                    target = posixpath.join(posixpath.dirname(path), target)   # новое имя рядом
+                new = placements.move(user, machine, path, target)
+            elif mode == "replace":
+                if item is None:
+                    raise placements.PlacementError("не выбран новый объект")
+                new = placements.replace(user, machine, path, item)
+            elif mode == "trash":
+                new = placements.trash(user, machine, path)
+            elif mode == "purge":
+                new = placements.purge(user, machine, path)
+            else:
+                new = placements.restore(user, machine, path, _fill(str(data.get("restore_to") or ""), run, keep=("login",)))
+        except (placements.PlacementError, ValueError, PermissionError, FileNotFoundError) as error:
+            _log(run.graph, f"«{N.titled(kind, data)}»: {error}", run.user)
+            failed = True
+            continue
+        results.append(entities.placement_key(user, machine.hostname, new) if new else "")
+    value = results if many else (results[0] if results else "")
+    run.state = {**(run.state or {}), "vals": {**((run.state or {}).get("vals") or {}), node_id: {"placement": value}}}
+    return ["fail"] if failed else ["next"]
+
+
 def _execute(run, doc, node_id, sock):
     """Выполнить ноду; вернуть выходы, по которым идти дальше."""
     import random
@@ -640,6 +706,8 @@ def _execute(run, doc, node_id, sock):
     name = kind.name
     if kind.group == N.NOUN:
         return [] if kind.start_only else _noun_wait(run, doc, node_id, kind)
+    if name in N.PLACEMENT_ACTS:
+        return _placement_act(run, doc, node_id, kind)
     if kind.group == N.ACTION:
         return _action(run, doc, node_id, kind)
     if name in ("reroute", "stage"):

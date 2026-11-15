@@ -569,6 +569,20 @@ def active(kind, data, name):
     return True
 
 
+def titled(kind, data):
+    """Заголовок ноды с её данными: «Размещение: Удалить в корзину», «Размещение: Добавить»."""
+    for name, label in kind.titled.items():
+        if (data or {}).get(name) not in (None, ""):
+            return label
+    if kind.title:
+        chosen = next((f for f in kind.fields if f.name == kind.title), None)
+        value = (data or {}).get(kind.title) or (chosen.options[0][0] if chosen and chosen.options else "")
+        label = dict(chosen.options).get(value, "") if chosen else ""
+        space = kind.label.split(": ")[0] if ": " in kind.label else ""
+        return f"{space}: {label}" if space and label else label or kind.label
+    return kind.label
+
+
 def action_of(kind, data):
     """(Spec, действие для движка) ноды действия: у ноды с выбором — по варианту, с его неизменными полями."""
     if kind.variants:
@@ -624,10 +638,36 @@ def _actions():
 
 _actions()
 
+# действия с размещением игрока (filesystem/placements.py): на вход одно размещение или список, выход «Размещение» — где файл теперь
+_ACT_OUTS = (Sock("next", "Сделано"), Sock("fail", "Не вышло"))
+register(Kind("act:placement", "Размещение: Изменить", ACTION, "{placement}", (
+    Field("variant", "Действие", "select", "", False, (("move", "Переместить"), ("replace", "Подменить объект"), ("trash", "Удалить в корзину"),
+                                                       ("purge", "Удалить насовсем"), ("restore", "Восстановить"))),
+    Field("placement", "Размещение", "many:placement", "игрок@машина:/путь", True),
+    Field("target", "Новый путь", "path", "/путь, новое имя или папка/"), Field("restore_to", "Куда", "path", "на прежнее место"),
+    Field("item", "Новый объект", "object", "", True),
+), _ACT_OUTS, title="variant", when={"target": ("variant", ("move",)), "restore_to": ("variant", ("restore",)), "item": ("variant", ("replace",))},
+    follows={"placement": "placement"}))
+DATA_OUTS["act:placement"] = (Sock("placement", "Размещение", "many:placement"),)
+register(Kind("act:placement.create", "Размещение: Создать", ACTION, "{item} {path}", (
+    Field("placement", "Куда", "many:placement", "игрок@машина:/путь"), Field("machine", "Машина", "machine"),
+    Field("path", "Путь", "path", "/home/{login}/note.txt; ключ — пусто: в секреты"), Field("player", "Игрок", "player", "игрок хода"),
+    Field("item", "Объект", "object", "нет — свой файл с текстом"), Field("text", "Текст", "textarea", "подстановки {host}, {login}, {path}…"),
+), _ACT_OUTS, covers={"placement": ("machine", "path", "player"), "item": ("text",)}, titled={"item": "Размещение: Добавить"},
+    follows={"placement": "placement"}))
+DATA_OUTS["act:placement.create"] = (Sock("placement", "Размещение", "many:placement"),)
+for _old in ("act:object.give", "act:object.change", "do:file_delete"):     # теперь «Размещение: Создать / Изменить»
+    KINDS[_old] = replace(KINDS[_old], hidden=True)
+PLACEMENT_ACTS = ("act:placement", "act:placement.create")
+
 
 # ---------- пояснения (подсказки на холсте, как в Blender) ----------
 
 HELP = {
+    "act:placement": "Что-то сделать с файлом игрока: перенести (путь, новое имя или папка/), подменить объект, удалить в корзину или насовсем, "
+                     "вернуть из корзины. На вход — одно размещение или список: с каждым. «Размещение» на выходе — где файл теперь.",
+    "act:placement.create": "Создать файл игроку: с объектом — «Добавить» (ключ без пути — в папку секретов), без объекта — свой файл с текстом. "
+                            "Куда — размещение или Машина + Путь (+ Игрок, пусто — игрок хода).",
     "manual": "Кнопка автора: запустить ход с игроком или без (мир) из панели ноды. Только старт.",
     "try:machine": "Вход на выбранную машину. Tab — граф входа этой машины: от «Попытки» до «Ответить», без ожиданий. "
                    "Выходы ноды — сокеты «Выхода» внутри графа: события и данные.",
@@ -1020,7 +1060,7 @@ def sockets(kind, data, side, iface=None):
     return names
 
 
-SPACES = ("Машина", "Учётка", "Сетевой сервер", "Терминал", "Объект", "Слой объекта", "Игрок", "Экран", "Почта", "Эфир", "Форум", "Новости",
+SPACES = ("Машина", "Учётка", "Сетевой сервер", "Терминал", "Объект", "Размещение", "Слой объекта", "Игрок", "Экран", "Почта", "Эфир", "Форум", "Новости",
           "Момент", "Тег", "Счётчик")                # порядок пространств в меню (как у «Когда»)
 
 

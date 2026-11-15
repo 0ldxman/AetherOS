@@ -195,7 +195,7 @@ def _part(part, groups, prefix, add, slug):
                 src == node_id and N.out_type(kind, out) != N.EVENT for (src, out) in doc.flow)
             if not [out for out in doc.wired(node_id) if out in kind.events] and not as_ref:
                 add(key, "ни один выход не подключён: нода ничего не ловит", WARNING)
-        if kind.group == N.ACTION and not any(k[0] == node_id for k in doc.refs):
+        if kind.group == N.ACTION and (kind.spec is not None or kind.variants) and not any(k[0] == node_id for k in doc.refs):
             _, action = N.action_of(kind, data)
             for text in engine.check([action], provides=("world", "user", "account")):
                 add(key, text.split(": ", 1)[-1])
