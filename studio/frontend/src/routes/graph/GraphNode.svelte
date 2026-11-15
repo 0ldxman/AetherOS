@@ -52,6 +52,9 @@
   const isData = (o: (typeof outs)[number]) => (o.type ?? "event") !== "event" && !BOXES.includes(kind.name) && kind.name !== "group_in";
   const topOuts = $derived(lone.filter((o) => !isData(o)));
   const bottomOuts = $derived(lone.filter(isData));
+  // вход «Ждать с» / «Когда» в одной строке с первым выходом-событием («Получен», «Сделано»)
+  const beside = $derived(flowIn ? topOuts[0] ?? null : null);
+  const restOuts = $derived(beside ? topOuts.slice(1) : topOuts);
   const params = $derived(hide ? [] : propFields(kind).filter((f) => inWhen(kind, values, f.name)));
   // растущий список: подстановки шаблона («имя» + значение) или входы «Логики» (A, B, C…)
   const grow = $derived(kind.grow ?? null);
@@ -99,7 +102,17 @@
   </header>
   {#if data.summary && kind.name === "group"}<div class="summary" title={data.summary}>{data.summary}</div>{/if}
 
-  {#each topOuts as sock (sock.name)}
+  {#if beside}
+    <div class="row both" class:used={data.usedIn.includes("in") || data.used.includes(beside.name)}>
+      <span class="half in" class:used={data.usedIn.includes("in")} data-tip={inTip("in", flowLabel, "event")}>
+        <Handle type="target" position={Position.Left} id="in" class="sock" style="--c: {TYPES.event.color}" />{flowLabel}
+      </span>
+      <span class="half out" class:used={data.used.includes(beside.name)} data-tip={outTip(beside.name, beside.label, beside.type)}>
+        {beside.label}<Handle type="source" position={Position.Right} id={beside.name} class="sock" style="--c: {typeColor(beside.type ?? 'event')}" />
+      </span>
+    </div>
+  {/if}
+  {#each restOuts as sock (sock.name)}
     <div class="row out" class:used={data.used.includes(sock.name)} class:attempt={sock.name === "attempt"} data-tip={outTip(sock.name, sock.label, sock.type)}>
       <span>{sock.label}</span>
       <Handle type="source" position={Position.Right} id={sock.name} class="sock" style="--c: {typeColor(sock.type ?? 'event')}" data-thing={isThing(sock.type) ? "1" : undefined} />
@@ -117,7 +130,7 @@
     </div>
   {/if}
 
-  {#if flowIn}
+  {#if flowIn && !beside}
     <div class="row in" class:used={data.usedIn.includes("in")} data-tip={inTip("in", flowLabel, "event")}>
       <Handle type="target" position={Position.Left} id="in" class="sock" style="--c: {TYPES.event.color}" />
       <span>{flowLabel}</span>
@@ -228,6 +241,10 @@
   .inline.wide { width: 100%; }
   .inline.name { flex: 0 0 74px; }
   .row.empty .inline { border-style: dashed; }
+  .row.both { justify-content: space-between; padding: 1px 0; }
+  .half { display: flex; align-items: center; padding: 0 12px; min-height: 21px; color: var(--faint); }
+  .half.used { color: var(--text); }
+  .half.used :global(.svelte-flow__handle.sock) { background: var(--c); }
   .row.field:has(.pass) { padding-right: 14px; }
   .pass { position: absolute; right: 0; top: 50%; width: 0; height: 0; }
   .pass.used :global(.svelte-flow__handle.sock) { background: var(--c); }
