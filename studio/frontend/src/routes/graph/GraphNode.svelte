@@ -3,7 +3,7 @@
   // без провода значение правится прямо на ноде, с проводом приходит по нему. Выбор режима — параметр без входа.
   // Круг — событие и простые значения (да/нет, текст, число), ромб — вещь (файл, машина, персонаж…). Цвет — тип.
   import { Handle, Position, useUpdateNodeInternals } from "@xyflow/svelte";
-  import { COLORS, TYPES, inWhen, insOf, isThing, outsOf, propFields, rowsOf, socketFields, titleOf, typeColor, visibleRows, type Field, type GNode, type Iface, type Kind, type Row } from "./kinds";
+  import { BOXES, COLORS, TYPES, inWhen, insOf, isThing, outsOf, propFields, rowsOf, socketFields, titleOf, typeColor, visibleRows, type Field, type GNode, type Iface, type Kind, type Row } from "./kinds";
 
   type Stat = { hits: number; players: number; waiting: number; oldest_days: number };
   type Option = { value: string; label: string };
@@ -48,6 +48,10 @@
     return found;
   });
   const lone = $derived(outs.filter((o) => !Object.values(paired).includes(o)));
+  // сверху — выходы-события (и сокеты групп), снизу, под всеми полями, — выходы данных без своего поля
+  const isData = (o: (typeof outs)[number]) => (o.type ?? "event") !== "event" && !BOXES.includes(kind.name) && kind.name !== "group_in";
+  const topOuts = $derived(lone.filter((o) => !isData(o)));
+  const bottomOuts = $derived(lone.filter(isData));
   const params = $derived(hide ? [] : propFields(kind).filter((f) => inWhen(kind, values, f.name)));
   // растущий список: подстановки шаблона («имя» + значение) или входы «Логики» (A, B, C…)
   const grow = $derived(kind.grow ?? null);
@@ -95,7 +99,7 @@
   </header>
   {#if data.summary && kind.name === "group"}<div class="summary" title={data.summary}>{data.summary}</div>{/if}
 
-  {#each lone as sock (sock.name)}
+  {#each topOuts as sock (sock.name)}
     <div class="row out" class:used={data.used.includes(sock.name)} class:attempt={sock.name === "attempt"} data-tip={outTip(sock.name, sock.label, sock.type)}>
       <span>{sock.label}</span>
       <Handle type="source" position={Position.Right} id={sock.name} class="sock" style="--c: {typeColor(sock.type ?? 'event')}" data-thing={isThing(sock.type) ? "1" : undefined} />
@@ -182,6 +186,13 @@
       </div>
     {/each}
   {/if}
+
+  {#each bottomOuts as sock (sock.name)}
+    <div class="row out" class:used={data.used.includes(sock.name)} data-tip={outTip(sock.name, sock.label, sock.type)}>
+      <span>{sock.label}</span>
+      <Handle type="source" position={Position.Right} id={sock.name} class="sock" style="--c: {typeColor(sock.type ?? 'event')}" data-thing={isThing(sock.type) ? "1" : undefined} />
+    </div>
+  {/each}
 
   {#if data.stat && (data.stat.hits || data.stat.waiting)}
     <footer>
