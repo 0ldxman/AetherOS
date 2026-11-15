@@ -68,10 +68,11 @@ FIELD_TYPES = {"text": "text", "textarea": "text", "path": "text", "clock": "tex
 
 
 def field_type(field):
-    if field.kind in (ELEMENT, OF_LIST):
+    if field.kind in (ELEMENT, OF_LIST, MANY + ELEMENT):
         return field.kind
-    if is_many(field.kind):                         # поле «одно или список»: вход того же вида
-        return MANY + "|".join(FIELD_TYPES.get(b, b) for b in field.kind[len(MANY):].split("|"))
+    if is_many(field.kind) or "|" in field.kind:    # «одно или список» и несколько типов: вход тех же видов
+        prefix, kinds = (MANY, field.kind[len(MANY):]) if is_many(field.kind) else ("", field.kind)
+        return prefix + "|".join(FIELD_TYPES.get(b, b) for b in kinds.split("|"))
     if field.kind == "@any":
         return ANY_LIST
     return FIELD_TYPES.get(field.kind, "")
@@ -172,6 +173,7 @@ class Kind:
     covers: dict = field(default_factory=dict)     # поле -> поля, которые прячутся, когда в него идёт провод (провод их заменяет)
     follows: dict = field(default_factory=dict)    # выход «одно или список» -> поле, чью кратность он повторяет
     titled: dict = field(default_factory=dict)     # поле -> заголовок ноды, когда поле задано (провод или значение)
+    infers: dict = field(default_factory=dict)     # поле-провод -> (поле-режим, {тип провода: (значение режима, поле, куда положить значение)})
     hidden: bool = False                # старая нода: работает в готовых сценариях, но в меню её нет
     owned: str = ""                     # нода попытки: вид графа у вещи (graph/owned.py), Tab открывает его
 
@@ -242,15 +244,29 @@ def _thing(value, wanted):
     return not wanted or _same(value, wanted)
 
 
+def match_one(how, value, d, event, wanted):
+    if how == "thing":
+        return _same(value, wanted)
+    if how == "item":
+        return _same(d.get("item"), wanted) or _same(d.get("slug"), wanted)
+    return same_placement(event, value, wanted)
+
+
 def _match(**rules):
     """Сравнение события с фильтрами ноды: поле ноды -> (ключ события, как сравнивать). Пустой фильтр пропускает любое."""
     def match(data, out, event):
         d = {**(event.data or {}), "host": event.host, "login": event.login, **moved_paths(event.data)}
         for name, (key, how) in rules.items():
             wanted = data.get(name)
-            if wanted in (None, ""):
+            if wanted in (None, "", []):
                 continue
             value = d.get(key, "")
+            wants = list(wanted) if isinstance(wanted, (list, tuple)) else [wanted]       # список — подходит любой
+            if how in ("thing", "item", "placement") and len(wants) > 1:
+                if not any(match_one(how, value, d, event, one) for one in wants):
+                    return False
+                continue
+            wanted = wants[0]
             if how == "thing" and not _same(value, wanted):
                 return False
             if how == "glob" and not _glob(value, wanted, fold=True):
@@ -280,8 +296,8 @@ THINGS_OF = ("character", "machine", "server", "object")
 OWNER_WHEN = {"who": ("owner", ("player",)), "character": ("owner", ("character",)), "machine": ("owner", ("machine",)),
               "server": ("owner", ("server",)), "item": ("owner", ("object",)), "scope": ("owner", THINGS_OF),
               "for": (("owner", THINGS_OF), ("scope", ("player",)))}
-_MACHINE = Field("machine", "Машина", "machine", "любая")
-_OBJECT = Field("item", "Объект", "object", "любой")
+_MACHINE = Field("machine", "Машина", "many:machine", "любая")              # фильтры событий: одно или список — подходит любой
+_OBJECT = Field("item", "Объект", "many:object", "любой")
 _PATH = Field("path", "Путь", "text", "любой; можно *")
 _HOST_OUT = Sock("machine", "Машина", "machine", "host")
 _LOGIN_OUT = Sock("login", "Учётка", "text", "login")
@@ -310,7 +326,7 @@ _when("on:object.got", "Объект: Получен",
 
 # размещение: что игрок делает с конкретным файлом. Провод «Размещение» — ждать этот файл, иначе фильтры (с объектом — любая его копия).
 # Изменение — «было там, стало здесь»: удаление переносит в корзину, возврат — из неё; фильтры смотрят, где файл был.
-_PLACE_IN = Field("placement", "Размещение", "placement", "любое")
+_PLACE_IN = Field("placement", "Размещение", "many:placement", "любое")
 _PLACE_COVERS = {"placement": ("item", "path", "machine")}
 _PLACE_MATCH = _match(placement=("before", "placement"), item=("item", "item"), path=("before", "glob"), machine=("host", "thing"))
 _when("on:placement.changed", "Размещение: Изменено", (_PLACE_IN, _OBJECT, _PATH, _MACHINE),
@@ -337,13 +353,13 @@ def _mail(data, out, event):
     return (event.data or {}).get("channel") == "mail" and _match(character=("character", "thing"), text=("text", "glob"))(data, out, event)
 
 
-_when("on:player.mail", "Игрок: Отправил письмо", (Field("character", "Персонаж", "character", "любой"), Field("text", "Текст", "text", "любой; можно *")),
+_when("on:player.mail", "Игрок: Отправил письмо", (Field("character", "Персонаж", "many:character", "любой"), Field("text", "Текст", "text", "любой; можно *")),
       (Sock("sent", "Отправил"),), {"sent": "character.wrote"}, _mail,
       (Sock("character", "Персонаж", "character", "character"), Sock("text", "Текст", "text", "text")), "{character}")
 _when("on:player.air", "Игрок: Отправил в эфир", (Field("freq", "Частота, МГц", "text", "любая"), Field("text", "Текст", "text", "любой; можно *")),
       (Sock("sent", "Отправил"),), {"sent": "air.sent"}, _match(freq=("freq", "freq"), text=("text", "glob")),
       (Sock("freq", "Частота", "text", "freq"), Sock("text", "Текст", "text", "text"), Sock("callsign", "Позывной", "text", "callsign")), "{freq}")
-_when("on:moment.status", "Момент: Статус изменён", (Field("moment", "Момент", "moment", "любой"),),
+_when("on:moment.status", "Момент: Статус изменён", (Field("moment", "Момент", "many:moment", "любой"),),
       (Sock("started", "Начался"), Sock("ended", "Кончился")), {"started": "moment.started", "ended": "moment.ended"},
       _match(moment=("moment", "thing")), (Sock("moment", "Момент", "moment", "moment"),), "{moment}")
 
@@ -355,7 +371,8 @@ def _value(data, event):
     if d.get("owner") != owner or not _same(d.get("key"), data.get("name")):
         return False
     thing = data.get({"character": "character", "machine": "machine", "server": "server", "object": "item", "player": "who"}.get(owner, ""), "")
-    if owner != "world" and thing not in (None, "") and not _same(d.get("thing"), thing):
+    things = [t for t in (thing if isinstance(thing, (list, tuple)) else [thing]) if t not in (None, "")]
+    if owner != "world" and things and not any(_same(d.get("thing"), t) for t in things):
         return False
     if owner not in ("world", "player"):
         if bool(d.get("per")) != (data.get("scope") == "player"):
@@ -867,7 +884,7 @@ _data("list.item", "Список: Элемент", "",
        Field("list", "Список", OF_LIST), Field("number", "Номер", "number", "1")), ELEMENT, "Элемент",
       typed="of", when={"number": ("mode", ("number",))})
 DATA_OUTS["list.item"] += (Sock("found", "Есть", "bool"),)
-_data("list.has", "Список: Содержит", "", (_OF, Field("list", "Список", OF_LIST), Field("value", "Значение", ELEMENT)), "bool", "Содержит",
+_data("list.has", "Список: Содержит", "", (_OF, Field("list", "Список", OF_LIST), Field("value", "Значение", MANY + ELEMENT)), "bool", "Содержит",
       typed="of")
 _data("switch", "Выбрать значение", "",
       (Field("condition", "Если", "bool"), Field("yes", "Да", "text"), Field("no", "Нет", "text")), "text", "Значение")
@@ -929,7 +946,7 @@ DATA_OUTS["ent:placement"] = (Sock("value", "Размещение", "placement")
                               Sock("path", "Путь", "text"), Sock("name", "Имя", "text"), Sock("exists", "Есть", "bool"),
                               Sock("trash", "В корзине", "bool"), Sock("edited", "Изменён игроком", "bool"))
 register(Kind("find", "Размещение: Найти", ENTITY, "{item} {path}", (
-    Field("item", "Объект", "object", "любой"), Field("player", "Игрок", "player", "игрок хода"), Field("machine", "Машина", "machine", "любая"),
+    Field("item", "Объект", "many:object", "любой"), Field("player", "Игрок", "player", "игрок хода"), Field("machine", "Машина", "machine", "любая"),
     Field("path", "Путь", "text", "любой; можно *"),
     Field("where", "Где", "select", "", False, (("live", "Вне корзины"), ("trash", "В корзине"), ("all", "Везде"))),
 ), ins=()))
@@ -1009,11 +1026,11 @@ def event_of(kind, out):
 
 def resolve(kind, data, value):
     """@T и @list — по «Типу элементов» ноды (по умолчанию текст)."""
-    if value not in (ELEMENT, OF_LIST) or not kind.typed:
+    if value not in (ELEMENT, OF_LIST, MANY + ELEMENT) or not kind.typed:
         return value
     element = (data or {}).get(kind.typed) or "text"
     element = element if element in ELEMENTS else "text"
-    return element if value == ELEMENT else LIST + element
+    return {ELEMENT: element, OF_LIST: LIST + element}.get(value, MANY + element)
 
 
 def sock_type(kind, data, side, name, iface=None):
@@ -1069,6 +1086,48 @@ def _menu_order(kind):
     return list(GROUPS).index(kind.group), SPACES.index(space) if kind.group == ACTION and space in SPACES else 0
 
 
+# теги и счётчики: «Владелец» одним сокетом (игрок, персонаж, машина, сервер, объект) — владелец по типу провода
+_OWNED_BY = {"player": ("player", "who"), "character": ("character", "character"), "machine": ("machine", "machine"), "server": ("server", "server"),
+             "item": ("object", "item")}
+_THINGS = ("who", "character", "machine", "server", "item")
+
+
+def _with_owner(name, many):
+    kind = KINDS[name]
+    fields = list(kind.fields)
+    at = next(i for i, f in enumerate(fields) if f.name == "owner")
+    prefix = MANY if many else ""
+    fields.insert(at + 1, Field("thing", "Владелец", prefix + "player|character|machine|server|object", "провод: игрок, персонаж, машина, сервер, объект"))
+    if many:
+        fields = [replace(f, kind=MANY + f.kind) if f.name in _THINGS else f for f in fields]
+    KINDS[name] = replace(kind, fields=tuple(fields), infers={"thing": ("owner", _OWNED_BY)},
+                          covers={**kind.covers, "thing": ("owner",) + _THINGS})
+
+
+for _name in ("ent:tag", "ent:count"):
+    _with_owner(_name, False)
+for _name in ("on:tag", "on:count", "on:count.threshold", "act:tag", "act:count"):
+    _with_owner(_name, True)
+# действия над вещами мира: одно или список — с каждой
+for _name, _fields in (("act:machine.status", ("host",)), ("act:account", ("host",)), ("act:moment", ("moment",))):
+    KINDS[_name] = replace(KINDS[_name], fields=tuple(replace(f, kind=MANY + f.kind) if f.name in _fields else f for f in KINDS[_name].fields))
+KINDS["do:net_node"] = replace(KINDS["do:net_node"], fields=tuple(replace(f, kind="server") if f.name == "address" else f for f in KINDS["do:net_node"].fields))
+
+
+def inferred(kind, data, types):
+    """Поля, которые задаёт тип провода (Kind.infers): types — {поле: тип того, что пришло}. Возвращает дополненные данные."""
+    if not kind.infers:
+        return data
+    data = dict(data)
+    for name, (mode, by) in kind.infers.items():
+        mult, bases = split_type(types.get(name) or "")
+        found = by.get(bases[0]) if name in types else None
+        if found is not None:
+            data[mode] = found[0]
+            data[found[1]] = data.get(name)
+    return data
+
+
 def catalog():
     """Виды нод для Студии."""
     def fields(items, sockets=True):
@@ -1094,5 +1153,6 @@ def catalog():
                      for mode, values in ([rule] if isinstance(rule[0], str) else rule)],
             "hidden": k.hidden, "owned": k.owned, "typed": k.typed, "covers": {name: list(hid) for name, hid in k.covers.items()},
             "follows": dict(k.follows), "titled": dict(k.titled),
+            "infers": {name: {"mode": mode, "by": {t: {"value": v, "field": f} for t, (v, f) in by.items()}} for name, (mode, by) in k.infers.items()},
         } for k in sorted(KINDS.values(), key=_menu_order)],
     }

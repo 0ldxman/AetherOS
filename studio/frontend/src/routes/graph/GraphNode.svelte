@@ -3,7 +3,7 @@
   // без провода значение правится прямо на ноде, с проводом приходит по нему. Выбор режима — параметр без входа.
   // Круг — событие и простые значения (да/нет, текст, число), ромб — вещь (файл, машина, персонаж…). Цвет — тип.
   import { Handle, Position, useUpdateNodeInternals } from "@xyflow/svelte";
-  import { BOXES, COLORS, TYPES, followType, isSet, isList, isMany, typeColors, resolveType, typeLabel as labelOfType, inWhen, insOf, isThing, outsOf, propFields, rowsOf, socketFields, titleOf, typeColor, visibleRows, type Field, type GNode, type Iface, type Kind, type Row } from "./kinds";
+  import { BOXES, COLORS, TYPES, followType, inferred, isSet, plainKind, wireOnly, isList, isMany, typeColors, resolveType, typeLabel as labelOfType, inWhen, insOf, isThing, outsOf, propFields, rowsOf, socketFields, titleOf, typeColor, visibleRows, type Field, type GNode, type Iface, type Kind, type Row } from "./kinds";
 
   type Stat = { hits: number; players: number; waiting: number; oldest_days: number };
   type Option = { value: string; label: string };
@@ -16,7 +16,7 @@
   } = $props();
 
   const kind = $derived(data.kind);
-  const values = $derived(data.node.data);
+  const values = $derived(inferred(data.kind, data.node.data, data.fedTypes));
   const hide = $derived(!!data.node.collapsed);
   const isNoun = $derived(kind.group === "noun");
   const allIns = $derived(insOf(kind, values, data.iface));
@@ -37,7 +37,7 @@
   const PICK: Record<string, string> = { item: "object", machine: "machine", server: "server", character: "character", section: "section", moment: "moment", player: "player" };
   const typed = (f: Field): Field => {
     const socket = resolveType(kind, values, f.socket);
-    if (isMany(f.kind)) return { ...f, kind: f.kind.slice(5).split("|")[0] };
+    if (isMany(f.kind)) return { ...f, socket, kind: plainKind(f.kind) };
     return socket === f.socket ? f : { ...f, socket, kind: isList(socket) ? "list" : PICK[socket] ?? socket };
   };
   // провод в поле-замену (например «Размещение») прячет поля, которые он заменяет
@@ -64,7 +64,7 @@
   // вход «Ждать с» / «Когда» в одной строке с первым выходом-событием («Получен», «Сделано»)
   const beside = $derived(flowIn ? topOuts[0] ?? null : null);
   const restOuts = $derived(beside ? topOuts.slice(1) : topOuts);
-  const params = $derived(hide ? [] : propFields(kind).filter((f) => inWhen(kind, values, f.name)));
+  const params = $derived(hide ? [] : propFields(kind).filter((f) => inWhen(kind, values, f.name) && !covered(f)));
   // растущий список: подстановки шаблона («имя» + значение) или входы «Логики» (A, B, C…)
   const grow = $derived(kind.grow ?? null);
   const growType = $derived(grow ? resolveType(kind, values, grow.type) : "");
@@ -169,7 +169,7 @@
     <div class="row in field" class:used={fed} data-tip={inTip(key, f.label, f.socket)}>
       <Handle type="target" position={Position.Left} id={key} class="sock" {...paint(f.socket)} {...look(f.socket)} />
       <span class="label" class:req={f.required && !fed && !val(f.name)}>{f.label}</span>
-      {#if !fed && !isList(f.socket)}
+      {#if !fed && !isList(f.socket) && !wireOnly(f.kind)}
         {#if f.socket === "bool" && (f.kind === "bool" || f.kind === "@T")}
           <input class="nodrag check" type="checkbox" checked={!!values[f.name]} disabled={!data.editable} onchange={(e) => set(f.name, e.currentTarget.checked || undefined)} aria-label={f.label} />
         {:else if options(f).length}

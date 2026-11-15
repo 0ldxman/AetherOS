@@ -3,7 +3,7 @@
   import { api, problem } from "../../lib/api";
   import { engine } from "../../lib/engine.svelte";
   import { toast } from "../../lib/toast.svelte";
-  import { TYPES, inWhen, type Catalog, type Field, type GNode, type Kind } from "./kinds";
+  import { TYPES, inWhen, type Catalog, type Field, type GNode, type Kind, plainKind, wireOnly } from "./kinds";
 
   let { node, kind, catalog, waiting, fed, problems, stat, statKey, graphId, editable, onchange, onremove, onstarted, groupTitle = null, ongrouptitle, onenter }: {
     node: GNode; kind: Kind; catalog: Catalog; waiting: boolean; fed: Record<string, string>; problems: { text: string; level: string }[];
@@ -16,7 +16,7 @@
   const picks = (k: string) => store.catalog?.picks[k] ?? [];
   const PICKED = ["key", "letter", "item", "object", "section", "character", "station", "machine", "moment", "graph", "scene"];
   const LISTED = ["flag", "world_flag", "counter"];
-  const fields = $derived([...kind.fields, ...(kind.group === "noun" && !kind.start_only ? (waiting ? catalog.wait_fields : catalog.start_fields) : [])]);
+  const fields = $derived([...kind.fields.filter((f) => !wireOnly(f.kind)).map((f) => ({ ...f, kind: plainKind(f.kind) })), ...(kind.group === "noun" && !kind.start_only ? (waiting ? catalog.wait_fields : catalog.start_fields) : [])]);
   const data = $derived(node.data);
   const value = (name: string) => (data[name] === undefined || data[name] === null ? "" : String(data[name]));
   const set = (name: string, v: unknown) => onchange({ data: { ...data, [name]: v === "" ? undefined : v } });

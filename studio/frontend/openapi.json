@@ -32801,6 +32801,45 @@
     "title": "GrGrow",
     "type": "object"
    },
+   "GrInfer": {
+    "properties": {
+     "mode": {
+      "title": "Mode",
+      "type": "string"
+     },
+     "by": {
+      "additionalProperties": {
+       "$ref": "#/components/schemas/GrInferTo"
+      },
+      "title": "By",
+      "type": "object"
+     }
+    },
+    "required": [
+     "mode",
+     "by"
+    ],
+    "title": "GrInfer",
+    "type": "object"
+   },
+   "GrInferTo": {
+    "properties": {
+     "value": {
+      "title": "Value",
+      "type": "string"
+     },
+     "field": {
+      "title": "Field",
+      "type": "string"
+     }
+    },
+    "required": [
+     "value",
+     "field"
+    ],
+    "title": "GrInferTo",
+    "type": "object"
+   },
    "GrKind": {
     "properties": {
      "name": {
@@ -32933,6 +32972,14 @@
       },
       "default": {},
       "title": "Titled",
+      "type": "object"
+     },
+     "infers": {
+      "additionalProperties": {
+       "$ref": "#/components/schemas/GrInfer"
+      },
+      "default": {},
+      "title": "Infers",
       "type": "object"
      }
     },

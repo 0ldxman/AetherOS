@@ -12044,6 +12044,22 @@ export interface components {
             /** Single */
             single: string[];
         };
+        /** GrInfer */
+        GrInfer: {
+            /** Mode */
+            mode: string;
+            /** By */
+            by: {
+                [key: string]: components["schemas"]["GrInferTo"];
+            };
+        };
+        /** GrInferTo */
+        GrInferTo: {
+            /** Value */
+            value: string;
+            /** Field */
+            field: string;
+        };
         /** GrKind */
         GrKind: {
             /** Name */
@@ -12118,6 +12134,13 @@ export interface components {
              */
             titled: {
                 [key: string]: string;
+            };
+            /**
+             * Infers
+             * @default {}
+             */
+            infers: {
+                [key: string]: components["schemas"]["GrInfer"];
             };
         };
         /** GrMany */

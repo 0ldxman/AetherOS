@@ -56,6 +56,16 @@ class GrWhen(Schema):
     values: list[str]
 
 
+class GrInferTo(Schema):
+    value: str
+    field: str
+
+
+class GrInfer(Schema):
+    mode: str
+    by: dict[str, GrInferTo]
+
+
 class GrKind(Schema):
     name: str
     label: str
@@ -79,6 +89,7 @@ class GrKind(Schema):
     covers: dict[str, list[str]] = {}
     follows: dict[str, str] = {}
     titled: dict[str, str] = {}
+    infers: dict[str, GrInfer] = {}
 
 
 class GrGroup(Schema):

@@ -417,7 +417,7 @@ def value_of(run, doc, node_id, out, depth=0):
         if kind.name == "ent:placement":
             return entities.placement(run, kind, {f.name: get(f.name) for f in kind.fields}, out)
         if kind.name in ("ent:tag", "ent:count"):
-            return entities.value(run, kind, {f.name: get(f.name) for f in kind.fields}, out)
+            return entities.value(run, kind, _inferred(doc, node_id, kind, {f.name: get(f.name) for f in kind.fields}), out)
         if kind.name == "ent:layer":
             return entities.layer(run, kind, {f.name: get(f.name) for f in kind.fields}, out)
         return entities.read(run, kind, get(kind.fields[0].name), out)
@@ -480,8 +480,8 @@ def value_of(run, doc, node_id, out, depth=0):
         found = 0 <= index < len(items)
         return found if out == "found" else (items[index] if found else None)
     if name == "list.has":
-        wanted = str(_plain(get("value")) if get("value") is not None else "").strip().casefold()
-        return any(str(_plain(item)).strip().casefold() == wanted for item in _as_list(get("list")))
+        wanted = {str(_plain(w)).strip().casefold() for w in _as_list(get("value"))}            # одно или список: хоть одно
+        return any(str(_plain(item)).strip().casefold() in wanted for item in _as_list(get("list")))
     if name == "switch":
         value = get("yes") if _truth(get("condition")) else get("no")
         return "" if value is None else str(_plain(value))
@@ -564,7 +564,19 @@ def resolved(run, doc, node_id):
         if dst == node_id:
             value = value_of(run, doc, src, out)
             data[name] = _shape(kind, data, name, value) if kind is not None else value
-    return data
+    return _inferred(doc, node_id, kind, data)
+
+
+def _inferred(doc, node_id, kind, data):
+    """Тип провода задаёт поля ноды (Kind.infers): машина в «Владелец» — владелец «машина»."""
+    if kind is None or not kind.infers:
+        return data
+    types = {}
+    for name in kind.infers:
+        src = doc.refs.get((node_id, name))
+        if src is not None and doc.kind(src[0]) is not None:
+            types[name] = N.sock_type(doc.kind(src[0]), doc.data(src[0]), "out", src[1])
+    return N.inferred(kind, data, types)
 
 
 def _noun_wait(run, doc, node_id, kind):
@@ -583,6 +595,9 @@ def _noun_wait(run, doc, node_id, kind):
                     capture(run, node_id, event)
                     return [out]
     fed = {name: data[name] for (dst, name) in doc.refs if dst == node_id}       # фильтры с проводов: значения на момент ожидания
+    for name, (mode, by) in kind.infers.items():                                 # и то, что задал тип провода (владелец и его вещь)
+        if name in fed:
+            fed.update({key: data.get(key) for key in (mode, *(f for _, f in by.values()))})
     for out in outs:
         Wait.objects.create(run=run, user=run.user, node=node_id, out=out, kind=Wait.Kind.EVENT, event=N.event_of(kind, out), anyone=not own,
                             data=fed)
@@ -613,10 +628,23 @@ def _wait(run, doc, node_id):
 
 
 def _action(run, doc, node_id, kind):
+    import itertools
+
+    data = resolved(run, doc, node_id)
+    lists = [f.name for f in kind.fields if N.is_many(f.kind) and isinstance(data.get(f.name), (list, tuple))]
+    if lists:                                       # «одно или список»: действие с каждым (с каждым сочетанием)
+        outs = set()
+        for combo in list(itertools.product(*(list(data[name]) for name in lists)))[:LIST_LIMIT]:
+            outs.update(_action_one(run, kind, {**data, **dict(zip(lists, combo))}))
+        return ["fail"] if "fail" in outs or not outs else ["next"]
+    return _action_one(run, kind, data)
+
+
+def _action_one(run, kind, data):
     from engine import actions as engine
     from engine.context import Ctx
 
-    spec, action = N.action_of(kind, resolved(run, doc, node_id))
+    spec, action = N.action_of(kind, data)
     action = {key: _fill(_plain(value) if isinstance(value, float) else value, run) if key != "do" else value for key, value in action.items()}
     ctx = Ctx(source=f"сценарий {run.graph.slug}", user=run.user, box=_box(run), depth=_depth.get())
     have = ctx.provides()
@@ -934,9 +962,12 @@ def follow(event):
         return
     name = event.user.get_username()
     old, new = f"{name}@{event.host}:{paths['before']}", f"{name}@{event.host}:{paths['after']}"
-    for wait in Wait.objects.filter(run__status=Run.Status.RUNNING, data__placement=old):
-        wait.data = {**wait.data, "placement": new}
-        wait.save(update_fields=["data"])
+    for wait in Wait.objects.filter(run__status=Run.Status.RUNNING, data__has_key="placement"):
+        wanted = wait.data.get("placement")
+        moved = [new if w == old else w for w in wanted] if isinstance(wanted, list) else (new if wanted == old else wanted)
+        if moved != wanted:
+            wait.data = {**wait.data, "placement": moved}
+            wait.save(update_fields=["data"])
     for run in Run.objects.filter(status=Run.Status.RUNNING, graph__active=True):
         vals = (run.state or {}).get("vals") or {}
         moved = {node: {**found, "placement": new, "path": paths["after"], "after": paths["after"]} for node, found in vals.items()

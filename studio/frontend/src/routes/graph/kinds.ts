@@ -52,9 +52,26 @@ export function typeLabel(type: string | undefined): string {
   return isList(type) ? `Список (${elements})` : isMany(type) ? `${one} или список (${elements})` : one;
 }
 export function resolveType(kind: Kind, data: Record<string, unknown>, type: string | undefined): string {
-  if (type !== "@T" && type !== "@list") return type ?? "";
+  if (type !== "@T" && type !== "@list" && type !== "many:@T") return type ?? "";
   const element = String((kind.typed && data[kind.typed]) || "text");
-  return type === "@T" ? element : `list:${element}`;
+  return type === "@T" ? element : type === "@list" ? `list:${element}` : `many:${element}`;
+}
+
+// вид поля без кратности: «many:object» -> «object»; поле нескольких типов («player|machine») — только провод, без редактора
+export const plainKind = (kind: string) => (kind.startsWith("many:") ? kind.slice(5) : kind);
+export const wireOnly = (kind: string) => plainKind(kind).includes("|");
+
+// тип провода задаёт поля ноды (kind.infers): машина в «Владелец» — владелец «машина»
+export function inferred(kind: Kind, data: Record<string, unknown>, fed: Record<string, string>): Record<string, unknown> {
+  const rules = Object.entries(kind.infers ?? {});
+  if (!rules.length) return data;
+  const out = { ...data };
+  for (const [name, rule] of rules) {
+    const type = fed[`f:${name}`];
+    const found = type ? rule.by[basesOf(type)[0]] : undefined;
+    if (found) out[rule.mode] = found.value;
+  }
+  return out;
 }
 
 // Можно ли вести провод из выхода типа src во вход типа dst (та же логика, что graph/nodes.compatible)
