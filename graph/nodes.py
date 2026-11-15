@@ -15,15 +15,15 @@ GROUPS = {ENTITY: "Сущности", NOUN: "Когда", FLOW: "Ход", DATA: 
 
 # Типы сокетов. event — «случилось» (по нему идёт ход), остальное — данные: читаются в момент, когда нода выполняется.
 EVENT = "event"
-TYPES = ("event", "bool", "text", "number", "item", "layer", "machine", "server", "character", "section", "moment", "player", "flag",
+TYPES = ("event", "bool", "text", "number", "item", "placement", "layer", "machine", "server", "character", "section", "moment", "player", "flag",
          "world_flag", "counter")
-TYPE_LABELS = {"event": "событие", "bool": "да/нет", "text": "текст", "number": "число", "item": "объект", "layer": "слой", "machine": "машину",
+TYPE_LABELS = {"event": "событие", "bool": "да/нет", "text": "текст", "number": "число", "item": "объект", "placement": "размещение", "layer": "слой", "machine": "машину",
                "server": "сервер", "character": "персонажа", "section": "раздел", "moment": "момент", "player": "игрока",
                "flag": "метку игрока", "world_flag": "метку мира", "counter": "счётчик"}
-THINGS = ("item", "layer", "machine", "server", "character", "section", "moment", "player", "flag", "world_flag", "counter")
+THINGS = ("item", "placement", "layer", "machine", "server", "character", "section", "moment", "player", "flag", "world_flag", "counter")
 
 # списки: «list:<тип элемента>»; «list:any» — вход, которому подходит любой список (количество)
-ELEMENTS = {"text": "Текст", "number": "Число", "bool": "Да/нет", "item": "Объект", "layer": "Слой", "machine": "Машина", "server": "Сервер",
+ELEMENTS = {"text": "Текст", "number": "Число", "bool": "Да/нет", "item": "Объект", "placement": "Размещение", "layer": "Слой", "machine": "Машина", "server": "Сервер",
             "character": "Персонаж", "section": "Раздел", "moment": "Момент", "player": "Игрок"}
 LIST, ANY_LIST = "list:", "list:any"
 TYPES = TYPES + tuple(LIST + name for name in ELEMENTS) + (ANY_LIST,)
@@ -37,7 +37,7 @@ def is_list(kind):
 FIELD_TYPES = {"text": "text", "textarea": "text", "path": "text", "clock": "text", "expr": "text", "scene": "text", "station": "text",
                "graph": "text", "number": "number", "bool": "bool", "condition": "bool", "key": "item", "item": "item", "letter": "item",
                "object": "item", "character": "character", "section": "section", "flag": "flag", "world_flag": "world_flag",
-               "counter": "counter", "moment": "moment", "machine": "machine", "server": "server", "player": "player", "layer": "layer"}      # вид поля -> тип его входа; нет в списке — параметр без входа
+               "counter": "counter", "moment": "moment", "machine": "machine", "server": "server", "player": "player", "layer": "layer", "placement": "placement"}      # вид поля -> тип его входа; нет в списке — параметр без входа
 
 
 def field_type(field):
@@ -236,7 +236,8 @@ _when("on:terminal.command", "Терминал: Введена команда",
       (Sock("run", "Введена"),), {"run": "command.run"}, _match(machine=("host", "thing"), command=("command", "glob"), args=("args", "glob")),
       (_HOST_OUT, _LOGIN_OUT, Sock("command", "Команда", "text", "command"), Sock("args", "Аргументы", "text", "args")), "{command} {args}")
 _OBJECT_MATCH = _match(item=("item", "item"), path=("path", "glob"), machine=("host", "thing"))
-_OBJECT_OUTS = (Sock("item", "Объект", "item", "item"), Sock("path", "Путь", "text", "path"), _HOST_OUT, _LOGIN_OUT)
+_OBJECT_OUTS = (Sock("placement", "Размещение", "placement", "placement"), Sock("item", "Объект", "item", "item"), Sock("path", "Путь", "text", "path"),
+                _HOST_OUT, _LOGIN_OUT)
 for _name, _label, _out, _event in (("viewed", "Просмотрен", "Открыл", "file.read"), ("deleted", "Удалён", "Удалил", "file.deleted"),
                                     ("restored", "Восстановлен", "Вернул из корзины", "file.restored"), ("changed", "Изменён", "Сохранил правку", "file.changed")):
     _when(f"on:object.{_name}", f"Объект: {_label}", (_OBJECT, _PATH, _MACHINE), (Sock(_name, _out),), {_name: _event}, _OBJECT_MATCH, _OBJECT_OUTS,
@@ -622,8 +623,10 @@ HELP = {
     "try:layer": "Попытка снять слой: граф этого слоя (или любого слоя объекта, если слой текущий). Выходы — сокеты «Выхода» внутри.",
     "attempt:server": "Игрок обращается к серверу: подробности попытки. Дальше проверки и действия, конец — «Ответить».",
     "attempt:layer": "Игрок снимает слой: подробности попытки (что ввёл). «Ответить: впустить» снимает слой без проверки.",
-    "files": "Где у игрока лежит объект: ищется по самому объекту на машинах, где у игрока есть учётка, поэтому перенос и переименование "
-             "его не теряют. «Где» — машина:путь первой копии вне корзины.",
+    "ent:placement": "Размещение — файл в виде игрока: машина и путь (пусто «Игрок» — игрок прохождения) или провод «Размещение». "
+                     "Свойства — как сейчас: есть ли файл, какой в нём объект, в корзине ли.",
+    "find": "Размещения игрока на его машинах: с объектом (пусто — любые файлы), путь по образцу *, вне корзины, в корзине или везде. "
+            "Список — «Для каждого» или «Список: …». Перенос и переименование файла его не теряют.",
     "do:flag": "Поставить тег игроку (tag:имя).", "do:unflag": "Снять тег игрока.",
     "do:key": "Положить ключ в папку секретов учётки, на которой случилось событие.",
     "do:file": "Положить объект файлом по пути в учётке игрока.",
@@ -673,7 +676,7 @@ SOCKET_HELP = {
     "trash": "какая-то копия в корзине", "edited": "игрок поменял текст копии", "caption": "подпись значения",
     "stopped": "машину остановили", "viewed": "игрок открыл файл", "via": "откуда пришёл объект", "delta": "на сколько изменилось",
     "up": "значение дошло до порога снизу", "down": "значение ушло ниже порога", "ended": "момент кончился", "machine": "машина события",
-    "item": "объект события", "moment": "момент события", "freq": "частота",
+    "item": "объект события", "moment": "момент события", "freq": "частота", "placement": "файл игрока: машина и путь", "exists": "файл есть у игрока",
     "entered": "игрок вошёл (кто бы ни решал: граф или поля машины)", "denied": "в доступе отказано", "reason": "почему отказ: пароль, ключ, окно, граф…",
     "go": "попытка: дальше проверки, конец — «Ответить»", "each": "по разу на элемент списка", "done": "все элементы пройдены",
     "index": "номер элемента (с 1)", "found": "элемент с таким номером есть", "list": "список", "given": "что игрок ввёл, снимая слой", "kind": "тип слоя",
@@ -775,9 +778,6 @@ register(Kind("ent:layer", "Слой объекта", ENTITY, "{item}", (
 ), ins=(), title="mode", when={"player": ("mode", ("current",)), "number": ("mode", ("number",)), "kind": ("mode", ("type",))}))
 DATA_OUTS["ent:layer"] = (Sock("value", "Слой", "layer"), Sock("kind", "Тип", "text"), Sock("number", "Номер", "number"),
                           Sock("removed", "Снят", "bool"), Sock("left", "Осталось слоёв", "number"))
-register(Kind("files", "Файлы игрока", ENTITY, "{item}", (
-    Field("item", "Объект", "object", "", True), Field("player", "Игрок", "player", "игрок прохождения"), Field("machine", "Машина", "machine", "любая"),
-), ins=()))
 def _value_kind(name, label, outs):
     from engine.actions import OWNER_FIELDS
 
@@ -788,8 +788,19 @@ def _value_kind(name, label, outs):
 
 _value_kind("ent:tag", "Тег", (Sock("on", "Стоит", "bool"),))
 _value_kind("ent:count", "Счётчик", (Sock("value", "Значение", "number"), Sock("caption", "Подпись", "text")))
-DATA_OUTS["files"] = (Sock("has", "Есть", "bool"), Sock("where", "Где", "text"), Sock("count", "Копий", "number"),
-                      Sock("trash", "В корзине", "bool"), Sock("edited", "Изменён игроком", "bool"))
+register(Kind("ent:placement", "Размещение", ENTITY, "{machine}:{path}", (
+    Field("placement", "Размещение", "placement", "игрок@машина:/путь"), Field("machine", "Машина", "machine"), Field("path", "Путь", "path"),
+    Field("player", "Игрок", "player", "игрок прохождения"),
+), ins=()))
+DATA_OUTS["ent:placement"] = (Sock("value", "Размещение", "placement"), Sock("item", "Объект", "item"), Sock("machine", "Машина", "machine"),
+                              Sock("path", "Путь", "text"), Sock("name", "Имя", "text"), Sock("exists", "Есть", "bool"),
+                              Sock("trash", "В корзине", "bool"), Sock("edited", "Изменён игроком", "bool"))
+register(Kind("find", "Найти размещения", ENTITY, "{item} {path}", (
+    Field("item", "Объект", "object", "любой"), Field("player", "Игрок", "player", "игрок прохождения"), Field("machine", "Машина", "machine", "любая"),
+    Field("path", "Путь", "text", "любой; можно *"),
+    Field("where", "Где", "select", "", False, (("live", "Вне корзины"), ("trash", "В корзине"), ("all", "Везде"))),
+), ins=()))
+DATA_OUTS["find"] = (Sock("value", "Размещения", "list:placement"),)
 
 
 def out_type(kind, name):

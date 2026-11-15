@@ -24,6 +24,7 @@ export const TYPES: Record<string, { label: string; color: string; thing?: boole
   text: { label: "Текст", color: "#6ec1e4" },
   number: { label: "Число", color: "#a1a7b0" },
   item: { label: "Объект", color: "#ed9e40", thing: true },
+  placement: { label: "Размещение", color: "#e8b86a", thing: true },
   layer: { label: "Слой", color: "#d98a5a", thing: true },
   machine: { label: "Машина", color: "#3fc7b5", thing: true },
   server: { label: "Сервер", color: "#4fa3d9", thing: true },

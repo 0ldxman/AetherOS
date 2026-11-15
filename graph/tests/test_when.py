@@ -42,6 +42,12 @@ class WhenTests(TestCase):
         emit("file.read", self.ivan, machine="core", login="ivan", path="seen-it", item="note")
         self.assertTrue(values.on("world", 0, "seen-it"))
 
+    def test_object_event_gives_the_placement(self):
+        make([node("w", "on:object.viewed"), node("p", "ent:placement"), node("a", "act:tag", variant="on", owner="world")],
+             [wire("w", "viewed", "a"), wire("w", "placement", "p", "f:placement"), wire("p", "name", "a", "f:name")])
+        emit("file.read", self.ivan, machine="core", login="ivan", path="/home/report.txt", item="x")
+        self.assertTrue(values.on("world", 0, "report.txt"))
+
     def test_object_got_by_source(self):
         self.one("on:object.got", "got", via="join")
         emit("object.got", self.ivan, item="k", path="/x", via="key")

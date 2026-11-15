@@ -12,6 +12,7 @@ class Copy:
     trashed: bool           # лежит в корзине
     edited: bool            # игрок поменял текст
     progress: str = ""      # прогресс игрока по слоям (PlayerFile.state)
+    item: str = ""          # слаг объекта в файле (пусто — свой текст без объекта)
 
 
 def accounts(user, machine=None):
@@ -26,6 +27,49 @@ def accounts(user, machine=None):
     for profile in [row.profile for row in sessions] + list(profiles):
         found.setdefault((profile.machine_id, profile.login), profile)
     return [(profile.machine, login) for (_, login), profile in found.items()]
+
+
+def _copy(host, entry):
+    player = entry.player
+    return Copy(host.hostname, entry.path, trashed=player is not None and player.trashed_at is not None,
+                edited=player is not None and (player.content is not None or player.data is not None), progress=entry.progress or "",
+                item=entry.item.slug if entry.item is not None else "")
+
+
+def find(user, slug=None, machine=None, path="", where="live", limit=200):
+    """Размещения у игрока: файлы его вида машин (machine — только эта), с объектом slug (пусто — любые), путь по образцу (*),
+    where: live — вне корзины, trash — в корзине, all — везде."""
+    import fnmatch
+
+    from filesystem.machine_view import view_for
+
+    out = {}
+    for host, login in accounts(user, machine):
+        view = view_for(host, user, login=login)
+        for entry in view.entries.values():
+            if entry.is_dir or entry.via is not None:
+                continue
+            if slug and (entry.item is None or entry.item.slug != slug):
+                continue
+            if path and not fnmatch.fnmatchcase(entry.path, path):
+                continue
+            found = _copy(host, entry)
+            if (where == "live" and found.trashed) or (where == "trash" and not found.trashed):
+                continue
+            out.setdefault((host.hostname, entry.path), found)
+    return sorted(out.values(), key=lambda c: (c.trashed, c.host, c.path))[:limit]
+
+
+def at(user, machine, path):
+    """Размещение игрока на машине по пути или None (файла нет)."""
+    from filesystem.machine_view import view_for
+
+    logins = [login for _, login in accounts(user, machine)]
+    view = view_for(machine, user, login=logins[0] if logins else None)
+    entry = view.get(path)
+    if entry is None or entry.is_dir:
+        return None
+    return _copy(machine, entry)
 
 
 def copies(user, slug, machine=None):

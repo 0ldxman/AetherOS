@@ -169,20 +169,52 @@ def layer(run, kind, data, out):
     return found.get(out, _blank(kind, out))
 
 
-def files(run, kind, item, player, machine, out):
-    """«Файлы игрока»: есть ли у игрока объект, где лежит, сколько копий, в корзине ли, правил ли он его."""
-    from filesystem.copies import copies
+def placement_key(user, host, path):
+    return f"{user.get_username()}@{host}:{path}" if user is not None and host and path else ""
 
-    user = _player(run, _key(player))
-    item, host = _key(item), _key(machine)
-    if user is None or not item:
+
+def parse_placement(text, run=None):
+    """(игрок, машина, путь) из «игрок@машина:/путь»; без «игрок@» — игрок прохождения. Чего нет — None."""
+    head, _, path = _key(text).partition(":")
+    owner, _, host = head.rpartition("@")
+    user = _player(run, owner)
+    machine = _machine(host)
+    if user is None or machine is None or not path:
+        return None
+    return user, machine, path
+
+
+def placement(run, kind, data, out):
+    """«Размещение»: файл игрока по проводу или по машине и пути — и его свойства сейчас."""
+    from filesystem.copies import at
+
+    found = parse_placement(data.get("placement"), run) if _key(data.get("placement")) else None
+    if found is None and not _key(data.get("placement")):
+        user, machine, path = _player(run, _key(data.get("player"))), _machine(_key(data.get("machine"))), _key(data.get("path"))
+        found = (user, machine, path) if user is not None and machine is not None and path else None
+    if found is None:
         return _blank(kind, out)
-    where = None
-    if host:
-        where = _machine(host)
-        if where is None:
-            return _blank(kind, out)
-    found = copies(user, item, where)
-    live = [c for c in found if not c.trashed]
-    return {"has": bool(live), "where": f"{live[0].host}:{live[0].path}" if live else "", "count": len(live),
-            "trash": any(c.trashed for c in found), "edited": any(c.edited for c in live)}.get(out, _blank(kind, out))
+    user, machine, path = found
+    copy = at(user, machine, path)
+    import posixpath
+
+    props = {"value": placement_key(user, machine.hostname, path), "machine": machine.hostname, "path": path, "name": posixpath.basename(path),
+             "exists": copy is not None and not copy.trashed, "trash": copy is not None and copy.trashed, "edited": bool(copy and copy.edited),
+             "item": copy.item if copy else ""}
+    return props.get(out, _blank(kind, out))
+
+
+def find(run, kind, data):
+    """«Найти размещения»: список «игрок@машина:/путь» по объекту (пусто — любые файлы), машине, пути и корзине."""
+    from filesystem.copies import find as search
+
+    user = _player(run, _key(data.get("player")))
+    if user is None:
+        return []
+    machine = None
+    if _key(data.get("machine")):
+        machine = _machine(_key(data.get("machine")))
+        if machine is None:
+            return []
+    return [placement_key(user, copy.host, copy.path)
+            for copy in search(user, _key(data.get("item")) or None, machine, _key(data.get("path")), data.get("where") or "live")]

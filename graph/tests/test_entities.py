@@ -68,32 +68,46 @@ class PlayerFilesTests(TestCase):
         self.note = make_file(self.core, "/home/ivan/note.txt", body="hello").item
         self.run = SimpleNamespace(user=self.ivan, state={})
 
-    def get(self, out, **data):
-        return one("files", self.run, item=self.note.slug, **data)(out)
+    def found(self, **data):
+        return one("find", self.run, **data)("value")
+
+    def place(self, out, **data):
+        return one("ent:placement", self.run, **data)(out)
 
     def test_found_by_object_after_move(self):
-        self.assertEqual((self.get("has"), self.get("where"), self.get("count")), (True, "core:/home/ivan/note.txt", 1))
+        self.assertEqual(self.found(item=self.note.slug), ["ivan@core:/home/ivan/note.txt"])
         view_for(self.core, self.ivan, login="ivan").move("/home/ivan/note.txt", "/home/ivan/old.txt")
-        self.assertEqual(self.get("where"), "core:/home/ivan/old.txt")
-        self.assertEqual(self.get("count", machine="core"), 1)
-        self.assertEqual(self.get("count", machine="other"), 0)
+        self.assertEqual(self.found(item=self.note.slug), ["ivan@core:/home/ivan/old.txt"])
+        self.assertEqual(self.found(item=self.note.slug, machine="other"), [])
 
-    def test_trash_and_edit(self):
+    def test_any_files_by_path_and_trash(self):
+        make_file(self.core, "/home/ivan/other.log", body="x")
+        self.assertEqual(self.found(path="/home/ivan/*.log"), ["ivan@core:/home/ivan/other.log"])
         view = view_for(self.core, self.ivan, login="ivan")
         view.copy("/home/ivan/note.txt", "/home/ivan/copy.txt")
-        self.assertEqual(self.get("count"), 2)
+        self.assertEqual(len(self.found(item=self.note.slug)), 2)
         view.move("/home/ivan/note.txt", "/home/ivan/.trash/note.txt")
         row = view_for(self.core, self.ivan, login="ivan").get("/home/ivan/.trash/note.txt").player
         row.trashed_at = timezone.now()
         row.save()
-        self.assertEqual((self.get("count"), self.get("trash"), self.get("edited")), (1, True, False))
-        view_for(self.core, self.ivan, login="ivan").put_item("/home/ivan/copy.txt", self.note, content="changed")
-        self.assertTrue(self.get("edited"))
+        self.assertEqual(self.found(item=self.note.slug), ["ivan@core:/home/ivan/copy.txt"])
+        self.assertEqual(self.found(item=self.note.slug, where="trash"), ["ivan@core:/home/ivan/.trash/note.txt"])
+        self.assertEqual(len(self.found(item=self.note.slug, where="all")), 2)
+
+    def test_placement_properties(self):
+        key = "ivan@core:/home/ivan/note.txt"
+        self.assertEqual((self.place("exists", placement=key), self.place("item", placement=key), self.place("name", placement=key)),
+                         (True, self.note.slug, "note.txt"))
+        self.assertEqual(self.place("value", machine="core", path="/home/ivan/note.txt"), key)
+        self.assertEqual(self.place("value", placement="core:/home/ivan/note.txt"), key)              # без «игрок@» — игрок прохождения
+        self.assertFalse(self.place("exists", placement="ivan@core:/nowhere"))
+        view_for(self.core, self.ivan, login="ivan").put_item("/home/ivan/note.txt", self.note, content="changed")
+        self.assertTrue(self.place("edited", placement=key))
 
     def test_other_player_has_nothing(self):
         petr = get_user_model().objects.create_user("petr")
-        self.assertFalse(one("files", SimpleNamespace(user=petr, state={}), item=self.note.slug)("has"))
-        self.assertTrue(one("files", None, item=self.note.slug, player="ivan")("has"))
+        self.assertEqual(one("find", SimpleNamespace(user=petr, state={}), item=self.note.slug)("value"), [])
+        self.assertEqual(one("find", None, item=self.note.slug, player="ivan")("value"), ["ivan@core:/home/ivan/note.txt"])
 
 
 class TagCountTests(TestCase):

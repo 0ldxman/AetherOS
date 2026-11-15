@@ -355,8 +355,12 @@ def capture(run, node_id, event=None, ctx=None):
     """Запомнить подробности события существительного: из них берутся его выходы данных (путь, учётка, значение…)."""
     if event is not None:
         found = {**(event.data or {}), "host": event.host, "login": event.login}
+        if event.host and (event.data or {}).get("path") and event.user is not None:      # где случилось: размещение игрока
+            found["placement"] = f"{event.user.get_username()}@{event.host}:{event.data['path']}"
     else:
         found = {**((ctx or {}).get("data") or {}), "host": (ctx or {}).get("host", ""), "login": (ctx or {}).get("login", "")}
+        if found["host"] and found.get("path") and run.user is not None and "placement" not in found:
+            found["placement"] = f"{run.user.get_username()}@{found["host"]}:{found["path"]}"
     run.state = {**(run.state or {}), "vals": {**((run.state or {}).get("vals") or {}), node_id: found}}
 
 
@@ -403,8 +407,10 @@ def value_of(run, doc, node_id, out, depth=0):
     if kind.group == N.ENTITY:
         from graph import entities
 
-        if kind.name == "files":
-            return entities.files(run, kind, get("item"), get("player"), get("machine"), out)
+        if kind.name == "find":
+            return entities.find(run, kind, {f.name: get(f.name) for f in kind.fields})
+        if kind.name == "ent:placement":
+            return entities.placement(run, kind, {f.name: get(f.name) for f in kind.fields}, out)
         if kind.name in ("ent:tag", "ent:count"):
             return entities.value(run, kind, {f.name: get(f.name) for f in kind.fields}, out)
         if kind.name == "ent:layer":
