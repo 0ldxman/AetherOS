@@ -1612,7 +1612,7 @@ window.addEventListener("blur", () => setMenu(false));
     body.append(main, foot);
     const win = new WinBox(offer.title || "prompt", {
       id: "choice-" + offer.id.replace(/\W+/g, "-"), root: desktop, top: WINDOW_TOP, bottom: WINDOW_BOTTOM,
-      class: ["aether", "no-full", "no-max", "no-min", "no-resize", "no-close", "dialog-window", "dialog-window--prompt"],
+      class: ["aether", "no-full", "no-max", "no-min", "no-resize", "dialog-window", "dialog-window--prompt"],
       x: "center", y: "center", width: 440, height: 400, mount: body,
       onclose: () => { delete choiceWindows[offer.id]; },
     });

@@ -707,18 +707,19 @@ body {
 
 /* запрос: без знака, текст основным цветом, варианты равноправны — контур, заливка тоном при наведении и фокусе.
    :where — вид кнопок своего стиля (notice/<вид>.css) важнее этого умолчания */
-.winbox.aether.dialog-window--prompt .wb-control { display: none; }
+/* крестик на месте, как у окна ошибки (заголовок не съезжает), но его не видно и не нажать: запрос закрывает только выбор */
+.winbox.aether.dialog-window--prompt .wb-control { visibility: hidden; pointer-events: none; }
 .dialog--prompt .dialog-main { flex: 0 0 auto; padding: 1.1rem 1.25rem 0.9rem; }      /* высота по тексту: окно подгоняется под неё */
 .dialog--prompt .dialog-foot { margin-top: auto; }
 .dialog--prompt .dialog-message { color: var(--fg); font-size: 0.95rem; white-space: pre-line; }
 .dialog-choices { justify-content: flex-end; flex-wrap: wrap; gap: 8px; }
 .dialog-choices--column { flex-direction: column; align-items: stretch; }
 :where(.dialog--prompt) .dialog-ok { background: none; color: var(--fg); border-color: var(--line-bright); }
-:where(.dialog--prompt) .dialog-ok:hover,
-:where(.dialog--prompt) .dialog-ok:focus-visible { background: var(--tone); border-color: var(--tone); color: var(--font-dark); outline: none; }
+:where(.dialog--prompt) .dialog-ok:hover { background: var(--tone); border-color: var(--tone); color: var(--font-dark); }
+:where(.dialog--prompt) .dialog-ok:focus-visible { border-color: var(--tone); outline: 1px solid var(--tone); outline-offset: 1px; }   /* фокус — не выбор по умолчанию */
 .dialog-choices--column .dialog-choice { width: 100%; height: auto; min-height: 30px; padding-block: 4px; text-align: left; }
 .dialog-choice-key { margin-right: 0.75em; color: var(--font-muted); }
-.dialog-choice:is(:hover, :focus-visible) .dialog-choice-key { color: inherit; }
+.dialog-choice:hover .dialog-choice-key { color: inherit; }
 
 /* полоса действий: часть рамки, тело окна сжимается на её высоту (футер вьювера не перекрыт) */
 .winbox.aether { --win-actions-h: 30px; }
