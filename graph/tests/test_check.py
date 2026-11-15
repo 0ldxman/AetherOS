@@ -44,8 +44,8 @@ class CheckTests(SimpleTestCase):
         self.assertEqual(texts(doc), [])
 
     def test_noun_used_only_as_reference_is_fine(self):
-        doc = {"nodes": [node("m", "manual"), node("w", "ent:machine", machine="core"), node("a", "do:world_flag")],
-               "wires": [wire("m", "fire", "a"), wire("w", "host", "a", "f:name")]}
+        doc = {"nodes": [node("m", "manual"), node("w", "ent:machine", machine="core"), node("a", "act:tag", variant="on")],
+               "wires": [wire("m", "fire", "a"), wire("w", "value", "a", "f:name")]}
         self.assertEqual(texts(doc), [])
 
     def test_required_and_unknown(self):

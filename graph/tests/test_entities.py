@@ -47,8 +47,8 @@ class EntityTests(TestCase):
         self.assertEqual(one("ent:player", run, player="nobody")("name"), "")
 
     def test_entity_feeds_an_action_and_text_finds_a_thing(self):
-        graph = make([node("m", "manual"), node("t", "text", value="Core"), node("e", "ent:machine"), node("a", "do:world_flag")],
-                     [wire("m", "fire", "a"), f("t", "value", "e", "machine"), f("e", "host", "a", "name")])
+        graph = make([node("m", "manual"), node("t", "text", value="Core"), node("e", "ent:machine"), node("a", "act:tag", variant="on")],
+                     [wire("m", "fire", "a"), f("t", "value", "e", "machine"), f("e", "value", "a", "name")])
         self.assertEqual([p for p in check.problems(graph.doc) if p["level"] == "error"], [])
         runtime.start_manual(graph, "m")
         from engine import values

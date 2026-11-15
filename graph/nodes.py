@@ -324,6 +324,7 @@ _when("on:terminal.command", "Терминал: Введена команда",
       (Sock("run", "Введена"),), {"run": "command.run"}, _match(machine=("host", "thing"), command=("command", "glob"), args=("args", "glob")),
       (_HOST_OUT, _LOGIN_OUT, Sock("command", "Команда", "text", "command"), Sock("args", "Аргументы", "text", "args")), "{command} {args}")
 _OBJECT_MATCH = _match(item=("item", "item"), path=("path", "glob"), machine=("host", "thing"))
+_PLACE_OUTS = (Sock("placement", "Размещение", "placement", "placement"), _LOGIN_OUT)       # объект, путь, машина — у ноды «Размещение»
 _OBJECT_OUTS = (Sock("placement", "Размещение", "placement", "placement"), Sock("item", "Объект", "item", "item"), Sock("path", "Путь", "text", "path"),
                 _HOST_OUT, _LOGIN_OUT)
 for _name, _label, _out, _event in (("viewed", "Просмотрен", "Открыл", "file.read"), ("deleted", "Удалён", "Удалил", "file.deleted"),
@@ -336,7 +337,7 @@ _when("on:object.got", "Объект: Получен",
                                                              ("key", "ключ в секретах"), ("scenario", "выдан сценарием"))),
        _PATH, _MACHINE),
       (Sock("got", "Получен"),), {"got": "object.got"}, _match(item=("item", "item"), via=("via", "via"), path=("path", "glob"), machine=("host", "thing")),
-      _OBJECT_OUTS + (Sock("via", "Откуда", "text", "via"),), "{item} {via}")
+      _PLACE_OUTS + (Sock("via", "Откуда", "text", "via"),), "{item} {via}")
 
 # размещение: что игрок делает с конкретным файлом. Провод «Размещение» — ждать этот файл, иначе фильтры (с объектом — любая его копия).
 # Изменение — «было там, стало здесь»: удаление переносит в корзину, возврат — из неё; фильтры смотрят, где файл был.
@@ -347,17 +348,16 @@ _when("on:placement.changed", "Размещение: Изменено", (_PLACE_
       (Sock("edited", "Отредактировано"), Sock("moved", "Перемещено"), Sock("deleted", "Удалено"), Sock("restored", "Восстановлено"),
        Sock("purged", "Удалено насовсем")),
       {"edited": "file.changed", "moved": "file.moved", "deleted": "file.deleted", "restored": "file.restored", "purged": "file.purged"},
-      _PLACE_MATCH, (Sock("from_placement", "Было", "placement", "from_placement"), Sock("placement", "Размещение", "placement", "placement"),
-                     Sock("item", "Объект", "item", "item"), Sock("path", "Путь", "text", "after"), _HOST_OUT, _LOGIN_OUT),
+      _PLACE_MATCH, (Sock("from_placement", "Было", "placement", "from_placement"),) + _PLACE_OUTS,
       "{item} {path}", covers=_PLACE_COVERS)
 _when("on:placement.opened", "Размещение: Открыто", (_PLACE_IN, _OBJECT, _PATH, _MACHINE), (Sock("opened", "Открыл"),), {"opened": "file.read"},
-      _PLACE_MATCH, _OBJECT_OUTS, "{item} {path}", covers=_PLACE_COVERS)
+      _PLACE_MATCH, _PLACE_OUTS, "{item} {path}", covers=_PLACE_COVERS)
 _when("on:placement.appeared", "Размещение: Появилось",
       (_PLACE_IN, _OBJECT, Field("via", "Как", "select", "", False, (("any", "любым способом"), ("created", "создан игроком"), ("copied", "скопирован"))),
        _PATH, _MACHINE),
       (Sock("appeared", "Появилось"),), {"appeared": "file.created"},
       _match(placement=("path", "placement"), item=("item", "item"), via=("via", "via"), path=("path", "glob"), machine=("host", "thing")),
-      _OBJECT_OUTS + (Sock("from_placement", "Источник", "placement", "from_placement"), Sock("via", "Как", "text", "via")), "{item} {path}",
+      _PLACE_OUTS + (Sock("from_placement", "Источник", "placement", "from_placement"), Sock("via", "Как", "text", "via")), "{item} {path}",
       covers=_PLACE_COVERS)
 def _layer_types_any():
     from filesystem.layers.registry import registry
@@ -386,7 +386,7 @@ _when("on:player.mail", "Игрок: Отправил письмо", (Field("cha
       (Sock("character", "Персонаж", "character", "character"), Sock("text", "Текст", "text", "text")), "{character}")
 _when("on:player.air", "Игрок: Отправил в эфир", (Field("freq", "Частота, МГц", "text", "любая"), Field("text", "Текст", "text", "любой; можно *")),
       (Sock("sent", "Отправил"),), {"sent": "air.sent"}, _match(freq=("freq", "freq"), text=("text", "glob")),
-      (Sock("freq", "Частота", "text", "freq"), Sock("text", "Текст", "text", "text"), Sock("callsign", "Позывной", "text", "callsign")), "{freq}")
+      (Sock("freq", "Частота", "text", "freq"), Sock("text", "Текст", "text", "text")), "{freq}")
 _when("on:moment.status", "Момент: Статус изменён", (Field("moment", "Момент", "many:moment", "любой"),),
       (Sock("started", "Начался"), Sock("ended", "Кончился")), {"started": "moment.started", "ended": "moment.ended"},
       _match(moment=("moment", "thing")), (Sock("moment", "Момент", "moment", "moment"),), "{moment}")
@@ -887,7 +887,7 @@ for _kind, _outs in {
     "signal": (),
     "manual": (),
 }.items():
-    DATA_OUTS[_kind] = _outs + (Sock("player", "Игрок", "text", "@player"),)
+    DATA_OUTS[_kind] = _outs + (Sock("player", "Игрок", "player", "@player"),)
 
 _data("text", "Текст", "{value}", (Field("value", "Текст", "text"),), "text", "Текст")
 _data("number", "Число", "{value}", (Field("value", "Число", "number"),), "number", "Число")
@@ -938,21 +938,21 @@ def _entity(name, label, field, outs):
 
 
 _entity("ent:machine", "Машина", Field("machine", "Машина", "machine"),
-        (Sock("value", "Машина", "machine"), Sock("name", "Имя", "text"), Sock("host", "Хост", "text"), Sock("address", "Адрес", "text"),
+        (Sock("value", "Машина", "machine"), Sock("name", "Имя", "text"), Sock("address", "Адрес", "text"),
          Sock("system", "ОС", "text"), Sock("up", "Работает", "bool")))
 _entity("ent:server", "Сервер", Field("server", "Сервер", "server"),
-        (Sock("value", "Сервер", "server"), Sock("address", "Адрес", "text"), Sock("title", "Название", "text")))
+        (Sock("value", "Сервер", "server"), Sock("title", "Название", "text")))
 _entity("ent:object", "Объект", Field("item", "Объект", "object"),
         (Sock("value", "Объект", "item"), Sock("name", "Название", "text"), Sock("format", "Формат", "text")))
 _entity("ent:character", "Персонаж", Field("character", "Персонаж", "character"),
-        (Sock("value", "Персонаж", "character"), Sock("code", "Код", "text"), Sock("name", "Имя", "text"), Sock("callsign", "Позывной", "text"),
+        (Sock("value", "Персонаж", "character"), Sock("name", "Имя", "text"), Sock("callsign", "Позывной", "text"),
          Sock("active", "Активен", "bool")))
 _entity("ent:section", "Раздел", Field("section", "Раздел", "section"),
         (Sock("value", "Раздел", "section"), Sock("title", "Название", "text"), Sock("archived", "В архиве", "bool")))
 _entity("ent:moment", "Момент", Field("moment", "Момент", "moment"),
         (Sock("value", "Момент", "moment"), Sock("title", "Название", "text"), Sock("running", "Идёт", "bool")))
 _entity("ent:player", "Игрок", Field("player", "Игрок", "player", "игрок хода"),
-        (Sock("value", "Игрок", "player"), Sock("name", "Имя", "text"), Sock("callsign", "Позывной", "text")))
+        (Sock("value", "Игрок", "player"), Sock("callsign", "Позывной", "text")))
 def _layer_types():
     from filesystem.layers.registry import registry
 
