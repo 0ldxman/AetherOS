@@ -203,10 +203,68 @@ def moments(request):
     ]})
 
 
+def _where(request):
+    """(игрок, учётка) текущей сессии или (None, None)."""
+    try:
+        session = active_session(request) if request.user.is_authenticated and not request.user.is_staff else None
+    except Machine.DoesNotExist:                    # мир без главной машины: игроку некуда войти
+        session = None
+    if session is None or session.profile is None:
+        return None, None
+    return request.user, session.profile
+
+
 def push(request):
-    """Эффекты сценариев для этого игрока (engine/push.py): окна, уведомления, бегущая строка, чёрный экран, текст и сцены."""
+    """Эффекты сценариев для этого игрока (engine/push.py): окна, уведомления, бегущая строка, чёрный экран, текст и сцены;
+    offers — окна с выбором, открытые ему сценариями (висят, пока он не ответит)."""
     from django.http import JsonResponse
 
     from engine import push as queue
+    from graph import offers
 
-    return JsonResponse({"items": queue.take(request.user) if request.user.is_authenticated and not request.user.is_staff else []})
+    user, profile = _where(request)
+    found = offers.choices(user, profile.machine.hostname, profile.login) if profile is not None else []
+    return JsonResponse({"items": queue.take(request.user) if request.user.is_authenticated and not request.user.is_staff else [],
+                         "offers": [{"id": view.key, "title": view.spec.get("title") or "", "text": view.spec.get("message") or "",
+                                     "buttons": view.spec["buttons"]} for view in found]})
+
+
+def choose(request):
+    """Кнопка окна с выбором: {"offer", "button"}."""
+    import json
+
+    from django.http import JsonResponse
+
+    from graph import offers
+
+    user, profile = _where(request)
+    if request.method != "POST" or profile is None:
+        return JsonResponse({"error": "no session"}, status=403)
+    data = json.loads(request.body or b"{}")
+    done = offers.choose(user, profile.machine.hostname, profile.login, str(data.get("offer") or ""), str(data.get("button") or ""), profile.machine)
+    return JsonResponse({"ok": done}, status=200 if done else 404)
+
+
+def file_actions(request):
+    """Действия над файлом окна: GET ?path= — кнопки, POST {"offer", "path"} — нажать."""
+    import json
+
+    from django.http import JsonResponse
+
+    from filesystem.machine_view import view_for
+    from graph import offers
+
+    user, profile = _where(request)
+    if profile is None:
+        return JsonResponse({"actions": []})
+    data = json.loads(request.body or b"{}") if request.method == "POST" else request.GET
+    path = str(data.get("path") or "").rstrip("/")
+    entry = view_for(profile.machine, user, login=profile.login).get(path) if path.startswith("/") else None
+    if entry is None or entry.is_dir:
+        return JsonResponse({"actions": []}, status=404 if request.method == "POST" else 200)
+    slug = getattr(entry.item, "slug", "") or ""
+    host, login = profile.machine.hostname, profile.login
+    if request.method == "POST":
+        done = offers.act_on_file(user, host, login, str(data.get("offer") or ""), path, slug, profile.machine)
+        return JsonResponse({"ok": done}, status=200 if done else 404)
+    return JsonResponse({"actions": [{"id": view.key, "title": view.spec.get("title") or "…"} for view in offers.file_actions(user, host, login, path, slug)]})

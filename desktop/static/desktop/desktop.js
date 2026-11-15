@@ -531,6 +531,33 @@ function addFoot(win) {
   if (root) root.appendChild(document.createElement("i")).className = "wb-foot";
 }
 
+// действия над файлом (возможности сценариев): кнопки в окне файла, адрес которого несёт ?path=
+function fileActions(win, url) {
+  const endpoint = desktop.dataset.fileActionsUrl;
+  let path = "";
+  try { path = new URL(url, location.href).searchParams.get("path") || ""; } catch (error) { return; }
+  if (!endpoint || !path.startsWith("/") || desktop.dataset.preview) return;
+  fetch(endpoint + "?" + new URLSearchParams({ path }), { credentials: "same-origin" }).then((r) => r.json()).then((data) => {
+    const root = win.dom || win.window;
+    if (!root || !(data.actions || []).length) return;
+    const bar = el("div", "file-actions");
+    for (const action of data.actions) {
+      const button = el("button", "dialog-ok file-action", action.title);
+      button.type = "button";
+      button.addEventListener("click", async () => {
+        button.disabled = true;
+        const answer = await fetch(endpoint, { method: "POST", credentials: "same-origin",
+          headers: { "Content-Type": "application/json", "X-CSRFToken": getCookie("csrftoken") },
+          body: JSON.stringify({ offer: action.id, path }) }).catch(() => null);
+        if (answer && answer.ok) button.remove(); else button.disabled = false;
+        if (!bar.querySelector("button")) bar.remove();
+      });
+      bar.append(button);
+    }
+    root.append(bar);
+  }).catch(() => {});
+}
+
 function openApp(id, label, url, options = {}) {
   const existing = openWindows[id];
 
@@ -603,6 +630,7 @@ function openApp(id, label, url, options = {}) {
   });
 
   addFoot(win);
+  fileActions(win, url);
   openWindows[id] = win;
   openMeta[id] = { id, label, url, options };
   noteFocus(id);
@@ -1559,6 +1587,42 @@ window.addEventListener("blur", () => setMenu(false));
     } else if (item.op === "scene") await scene(item.scene);
   }
 
+  // окна с выбором (возможности сценариев): висят, пока игрок не нажмёт кнопку; сценарий закрыл возможность — окно уходит
+  const choiceWindows = {};
+  function choice(offer) {
+    if (choiceWindows[offer.id]) return;
+    const body = el("div", "dialog dialog--info");
+    const main = el("div", "dialog-main");
+    const foot = el("div", "dialog-foot dialog-choices");
+    main.append(el("span", "dialog-glyph", "?"), el("p", "dialog-message", offer.text || ""));
+    body.append(main, foot);
+    const win = new WinBox(offer.title || "", {
+      id: "choice-" + offer.id.replace(/\W+/g, "-"), root: desktop, top: WINDOW_TOP, bottom: WINDOW_BOTTOM,
+      class: ["aether", "no-full", "no-max", "no-min", "no-resize", "no-close", "dialog-window", "dialog-window--info"],
+      x: "center", y: "center", width: 420, height: 190, mount: body,
+      onclose: () => { delete choiceWindows[offer.id]; },
+    });
+    for (const label of offer.buttons || []) {
+      const button = el("button", "dialog-ok", label);
+      button.type = "button";
+      button.addEventListener("click", async () => {
+        foot.querySelectorAll("button").forEach((b) => { b.disabled = true; });
+        await fetch(desktop.dataset.chooseUrl, { method: "POST", credentials: "same-origin",
+          headers: { "Content-Type": "application/json", "X-CSRFToken": getCookie("csrftoken") },
+          body: JSON.stringify({ offer: offer.id, button: label }) }).catch(() => null);
+        win.close(true);
+      });
+      foot.append(button);
+    }
+    addFoot(win);
+    choiceWindows[offer.id] = win;
+  }
+  function choices(list) {
+    const live = new Set(list.map((offer) => offer.id));
+    for (const offer of list) choice(offer);
+    for (const id of Object.keys(choiceWindows)) if (!live.has(id)) choiceWindows[id].close(true);
+  }
+
   window.desktopAPI.push = run;               // показать эффект вручную (предпросмотр стола)
   if (!url || desktop.dataset.preview) return;
   let busy = false;
@@ -1568,6 +1632,7 @@ window.addEventListener("blur", () => setMenu(false));
     try {
       const data = await fetch(url, { credentials: "same-origin" }).then((r) => r.json());
       for (const item of data.items || []) await run(item);
+      choices(data.offers || []);
     } catch (error) { /* стол работает и без эффектов */ }
     busy = false;
   }

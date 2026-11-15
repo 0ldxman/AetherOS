@@ -46,6 +46,11 @@ class TerminalExecutor:
         command = commands_for(context.machine.system).get(parsed.name)
 
         if command is None:
+            from terminal.engine import offers as hidden
+
+            found = hidden.run(session, context, parsed)
+            if found is not None:
+                return found, context.cwd
             return CommandResult(
                 f"{parsed.name}: command not found",
                 127,

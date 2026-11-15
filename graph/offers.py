@@ -48,7 +48,17 @@ def spec_of(data):
     characters = [str(c).strip() for c in (characters if isinstance(characters, (list, tuple)) else [characters]) if str(c or "").strip()]
     attach = data.get("attach") if data.get("attach") in ATTACH else ""
     condition = data.get("condition")
-    return {"mode": data.get("mode") or "reply", "characters": characters, "address": _text(data, "address").lower(),
+
+    def many(name):
+        value = data.get(name)
+        if isinstance(value, str):
+            value = value.split(",") if name == "buttons" else [value]
+        return [str(one).strip() for one in value or [] if str(one or "").strip()]
+
+    return {"channel": data.get("channel") or "mail", "mode": data.get("mode") or "reply",
+            "command": _text(data, "command"), "machines": [m.lower() for m in many("machine")], "items": many("item"), "path": _text(data, "path"),
+            "message": str(data.get("message") or ""), "buttons": many("buttons"),
+            "reply_ok": _text(data, "reply_ok"), "reply_wrong": _text(data, "reply_wrong"), "characters": characters, "address": _text(data, "address").lower(),
             "reply_to": _text(data, "reply_to"), "forward_of": _text(data, "forward_of"), "title": _text(data, "title"),
             "text": str(data.get("text") or ""), "attach": attach, "attach_item": _text(data, "attach_item") if attach else "",
             "attempts": _int(data.get("attempts")), "account": _text(data, "account").lower(),
@@ -205,6 +215,63 @@ def state(user, host, login, text):
         return None
     views = visible(user, host, login, channel=None, only=found)
     return views[0] if views else None
+
+
+def used(view, user, result, *, machine=None, login="", left=None, words=(), **data):
+    """Событие «Возможность: Использована»."""
+    from engine.events import emit
+
+    words = list(words)
+    emit("offer.used", user, machine=machine, login=login, offer=view.key, group=view.group, result=result, words=words,
+         word=words[0] if words else "", left=-1 if left is None else left, **data)
+
+
+def placement_of(user, host, path):
+    from graph import entities
+
+    return entities.placement_key(user, host, path)
+
+
+def _glob_path(path, pattern):
+    import fnmatch
+
+    return not pattern or (fnmatch.fnmatchcase(path, pattern) if any(ch in pattern for ch in "*?[") else path == pattern)
+
+
+def choices(user, host="", login=""):
+    """Окна с выбором, открытые игроку: [View]."""
+    return [view for view in visible(user, host, login, "choice") if view.open and view.spec.get("buttons")]
+
+
+def choose(user, host, login, key, button, machine=None):
+    """Игрок нажал кнопку окна: возможность закрывается (с группой), событие с выбранным словом. False — окна уже нет."""
+    view = next((one for one in choices(user, host, login) if one.key == key), None)
+    if view is None or button not in view.spec["buttons"]:
+        return False
+    attempt(view, user, True)
+    used(view, user, "ok", machine=machine, login=login, words=[button], text=button)
+    return True
+
+
+def file_actions(user, host, login, path, item_slug=""):
+    """Действия над файлом path игрока: [View] (кнопки в окне файла)."""
+    found = []
+    for view in visible(user, host, login, "file"):
+        spec = view.spec
+        if not view.open or (spec.get("items") and item_slug not in spec["items"]) or not _glob_path(path, spec.get("path", "")):
+            continue
+        found.append(view)
+    return found
+
+
+def act_on_file(user, host, login, key, path, item_slug="", machine=None):
+    """Игрок нажал кнопку в окне файла: возможность закрывается (с группой), событие с размещением файла."""
+    view = next((one for one in file_actions(user, host, login, path, item_slug) if one.key == key), None)
+    if view is None:
+        return False
+    attempt(view, user, True)
+    used(view, user, "ok", machine=machine, login=login, text=view.spec.get("title", ""), placement=placement_of(user, host, path), item=item_slug)
+    return True
 
 
 def attempt(view, user, right):

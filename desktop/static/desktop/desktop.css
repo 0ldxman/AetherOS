@@ -702,3 +702,8 @@ body {
 .push-scene-output { flex: 1; overflow: hidden; white-space: pre-wrap; }
 .push-scene-hint { opacity: 0.5; font-size: 12px; text-align: right; }
 @media (prefers-reduced-motion: reduce) { .push-ticker span { animation: none; padding-left: 12px; } }
+
+/* возможности сценариев: окно с выбором и кнопки действий в окне файла */
+.dialog-choices { gap: 8px; justify-content: flex-end; flex-wrap: wrap; }
+.file-actions { --tone: var(--accent); position: absolute; right: 12px; bottom: 12px; z-index: 5; display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
+.file-action { box-shadow: 0 2px 8px color-mix(in srgb, var(--bg) 70%, transparent); }
