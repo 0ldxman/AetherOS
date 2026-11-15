@@ -133,5 +133,6 @@ class TagCountTests(TestCase):
 
         kinds = {k["name"]: k for k in nodes.catalog()["kinds"]}
         self.assertTrue(kinds["do:flag"]["hidden"] and kinds["read"]["hidden"])
-        self.assertFalse(kinds["do:tag"]["hidden"])
+        self.assertTrue(kinds["do:tag"]["hidden"])
+        self.assertFalse(kinds["act:tag"]["hidden"])
         self.assertIn({"field": "for", "mode": "scope", "values": ["player"]}, kinds["ent:tag"]["when"])

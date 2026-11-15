@@ -464,6 +464,17 @@ def _file_delete(action, ctx):
     ctx.box.view.remove(path)
 
 
+def _layer_remove(action, ctx):
+    from filesystem.layers.unlock import unlock_file
+
+    view, path = ctx.box.view, _path(action, ctx)
+    if not view.exists(path):
+        raise ActionError(f"нет файла {path}")
+    outcome = unlock_file(view, path, None, force=True)
+    if not outcome.result.removed:
+        raise ActionError(f"у {path} нет слоёв")
+
+
 def _file_change(action, ctx):
     view, path = ctx.box.view, _path(action, ctx)
     if not view.exists(path):
@@ -631,6 +642,10 @@ register(Spec("count", "Счётчик", WORLD, "Теги и счётчики", 
               (Field("mode", "Что сделать", "select", "", False, (("add", "прибавить"), ("set", "задать"))), *OWNER_FIELDS,
                Field("name", "Счётчик", "text", "", True), Field("delta", "Сколько прибавить", "number", "1"), Field("value", "Задать значение", "number")),
               run=_count))
+
+
+register(Spec("layer_remove", "Снять верхний слой", ACCOUNT, "Игрок", "снять слой {path}", (Field("path", "Путь", "path", "", True),),
+              run=_layer_remove))
 
 
 register(Spec("machine_power", "Изменить машину", WORLD, "Машины", "{host}: {state}",

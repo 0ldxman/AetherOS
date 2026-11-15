@@ -81,7 +81,7 @@ def _deliver_mail(user, mails):
 
 
 @transaction.atomic
-def unlock_file(view, path: str, given=None) -> UnlockResult:
+def unlock_file(view, path: str, given=None, force=False) -> UnlockResult:
     """Одна попытка снять верхний слой с файла. `given` -- значения игрока (имя аргумента -> значение, типы приведены командой).
 
     Строка слоя игрока блокируется на время попытки: две одновременные команды иначе обе прочитали бы старые счётчики попыток и
@@ -92,11 +92,11 @@ def unlock_file(view, path: str, given=None) -> UnlockResult:
     view.invalidate()
     entry = view.get(path)
 
-    answer = _graph_answer(view, entry, path, locked.state, given)
+    answer = None if force else _graph_answer(view, entry, path, locked.state, given)
     if answer is not None and answer["mode"] != "allow":
         return UnlockResult(path=path, progress=locked.state, result=RemoveResult(False), say=[], log=[], ops=[],
                             refused=answer["text"] or "access denied")
-    outcome = attempt_remove(entry.state, locked.state, path=path, name=posixpath.basename(path), given=given, force=answer is not None)
+    outcome = attempt_remove(entry.state, locked.state, path=path, name=posixpath.basename(path), given=given, force=force or answer is not None)
     layer = outcome.result.layer.state.name if outcome.result.layer is not None else ""
     for event in outcome.result.events:
         if event in LAYER_EVENTS:

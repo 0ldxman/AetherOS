@@ -151,7 +151,7 @@ def _part(part, groups, prefix, add, slug):
                 add(key, f"«{kind.fields[0].label}» должна быть выбрана заранее: на ноде или на ноде сущности")
         for item in kind.fields:
             fed = (node_id, item.name) in doc.refs
-            if item.required and not fed and data.get(item.name) in (None, ""):
+            if item.required and not fed and data.get(item.name) in (None, "") and N.active(kind, data, item.name):
                 add(key, f"не заполнено «{item.label}»")
             if item.kind == "condition" and data.get(item.name):
                 try:
@@ -195,7 +195,7 @@ def _part(part, groups, prefix, add, slug):
             if not [out for out in doc.wired(node_id) if out in kind.events] and not as_ref:
                 add(key, "ни один выход не подключён: нода ничего не ловит", WARNING)
         if kind.group == N.ACTION and not any(k[0] == node_id for k in doc.refs):
-            action = {"do": kind.spec.name, **{k: v for k, v in data.items() if v not in (None, "")}}
+            _, action = N.action_of(kind, data)
             for text in engine.check([action], provides=("world", "user", "account")):
                 add(key, text.split(": ", 1)[-1])
         if kind.name in ("all", "race"):

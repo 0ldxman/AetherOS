@@ -102,6 +102,7 @@ class Kind:
     start_only: bool = False            # только старт (время, вручную)
     subgroup: str = ""
     spec: object = None                 # у действий: engine.actions.Spec
+    variants: dict = field(default_factory=dict)     # у действия с выбором: вариант -> (Spec, неизменные поля)
     title: str = ""                     # поле-режим, подпись выбранного варианта — заголовок ноды (как у Math в Blender)
     grow: object = None                 # Grow: растущий список входов
     when: dict = field(default_factory=dict)         # поле -> (поле-режим, значения) или список таких пар: вход есть только в этих режимах
@@ -410,6 +411,89 @@ ACTION_WHEN = {"tag": OWNER_WHEN, "count": {**OWNER_WHEN, "delta": ("mode", ("ad
 LEGACY = {"flag", "unflag", "world_flag", "world_unflag", "world_count", "player_count", "character_tag"}   # теперь «Тег» и «Счётчик»
 
 
+# действия по пространствам, как у «Когда»: одно действие движка — подпись; несколько — нода с выбором, заголовок по выбору
+RENAMED = {
+    "net_node": "Сетевой сервер: Изменить узел", "file_delete": "Объект: Удалить у игрока", "kick": "Игрок: Выбросить из сессии",
+    "notify": "Экран: Уведомление", "ticker": "Экран: Бегущая строка", "windows": "Экран: Окна ошибок", "open_window": "Экран: Окно с адресом",
+    "blackout": "Экран: Чёрный экран", "scene": "Экран: Сцена", "air": "Эфир: Передать", "news": "Новости: Опубликовать",
+}
+_OWNER = ("owner", "who", "character", "machine", "server", "item", "scope", "for", "name")
+CHOICES = (
+    ("machine.status", "Машина: Изменить статус", (("stop", "Остановить", "machine_power", {"state": "stop"}, ("host",)),
+                                                   ("start", "Запустить", "machine_power", {"state": "start"}, ("host",)),
+                                                   ("reboot", "Перезагрузить", "machine_power", {"state": "reboot"}, ("host", "minutes")))),
+    ("account", "Учётка: Изменить", (("block", "Заблокировать", "account", {}, ("host", "login", "scope", "block", "text")),
+                                     ("unblock", "Снять блокировку", "account", {"unblock": True}, ("host", "login", "scope")),
+                                     ("password", "Сменить пароль", "account", {}, ("host", "login", "password")))),
+    ("object.give", "Объект: Выдать", (("path", "В путь", "file", {}, ("item", "path")), ("secrets", "В секреты (ключ)", "key", {}, ("slug",)))),
+    ("object.change", "Объект: Изменить у игрока", (("replace", "Подменить", "file_change", {"mode": "replace"}, ("path", "item")),
+                                                   ("move", "Переместить", "file_change", {"mode": "move"}, ("path", "target")))),
+    ("layer.change", "Слой объекта: Изменить", (("remove", "Снять верхний", "layer_remove", {}, ("path",)),
+                                                ("reset", "Вернуть все", "file_change", {"mode": "reset"}, ("path",)))),
+    ("terminal", "Терминал: Вывести", (("text", "Текст", "terminal_text", {}, ("text",)), ("scene", "Сцена", "terminal_scene", {}, ("scene",)))),
+    ("mail", "Почта: Прислать письмо", (("player", "Игроку", "letter", {}, ("item", "delay")),
+                                       ("all", "Всем", "letter_all", {}, ("item", "machines", "systems")))),
+    ("forum", "Форум: Написать", (("new", "Новая тема", "forum", {"mode": "new"}, ("section", "character", "title", "text")),
+                                  ("append", "Ответ в тему", "forum", {"mode": "append"}, ("section", "character", "title", "text")))),
+    ("moment", "Момент: Изменить статус", (("start", "Начать", "moment_start", {}, ("moment",)), ("end", "Закончить", "moment_end", {}, ("moment",)))),
+    ("tag", "Тег: Изменить", (("on", "Поставить", "tag", {"mode": "on"}, _OWNER), ("off", "Снять", "tag", {"mode": "off"}, _OWNER))),
+    ("count", "Счётчик: Изменить", (("add", "Прибавить", "count", {"mode": "add"}, _OWNER + ("delta",)),
+                                    ("set", "Задать", "count", {"mode": "set"}, _OWNER + ("value",)))),
+)
+CHOSEN = {spec for _, _, variants in CHOICES for _, _, spec, _, _ in variants}
+
+
+def active(kind, data, name):
+    """Вход есть в выбранном режиме (Kind.when), как на холсте: неактивные поля не проверяются и не нужны."""
+    rule = kind.when.get(name)
+    if not rule:
+        return True
+    for mode, values in ([rule] if isinstance(rule[0], str) else rule):
+        chosen = next((f for f in kind.fields if f.name == mode), None)
+        current = data.get(mode) or (chosen.options[0][0] if chosen is not None and chosen.options else "")
+        if str(current) not in values:
+            return False
+    return True
+
+
+def action_of(kind, data):
+    """(Spec, действие для движка) ноды действия: у ноды с выбором — по варианту, с его неизменными полями."""
+    if kind.variants:
+        values = [v for v, _ in kind.fields[0].options]
+        spec, fixed = kind.variants.get(data.get("variant") or values[0], kind.variants[values[0]])
+    else:
+        spec, fixed = kind.spec, {}
+    action = {"do": spec.name}
+    for item in spec.fields:
+        value = data.get(item.name)
+        if item.name not in fixed and value not in (None, ""):
+            action[item.name] = value
+    return spec, {**action, **fixed}
+
+
+def _choice(key, label, variants):
+    from engine.actions import REGISTRY
+
+    fields, shown = [], {}
+    for value, _, spec_name, fixed, names in variants:
+        for item in REGISTRY[spec_name].fields:
+            if item.name in names and item.name not in fixed:
+                if item.name not in shown:
+                    fields.append(item)
+                shown.setdefault(item.name, []).append(value)
+    when = {}
+    for name, modes in shown.items():
+        rule = [("variant", tuple(modes))]
+        extra = OWNER_WHEN.get(name) if variants[0][2] in ("tag", "count") else None
+        if extra:
+            rule += list([extra] if isinstance(extra[0], str) else extra)
+        when[name] = rule if len(rule) > 1 else rule[0]
+    choice = Field("variant", "Действие", "select", "", False, tuple((value, title) for value, title, *_ in variants))
+    register(Kind(f"act:{key}", label, ACTION, "", (choice, *fields), (Sock("next", "Сделано"), Sock("fail", "Не вышло")),
+                  title="variant", when=when,
+                  variants={value: (REGISTRY[spec_name], fixed) for value, _, spec_name, fixed, _ in variants}))
+
+
 def _actions():
     from engine.actions import HOST, REGISTRY
     from engine.context import SESSION
@@ -417,8 +501,12 @@ def _actions():
     for spec in REGISTRY.values():
         if spec.needs in (HOST, SESSION) or spec.run is None:      # эффекты браузера ждут доставки вне запроса (этап 3)
             continue
-        register(Kind("do:" + spec.name, spec.label, ACTION, spec.summary, spec.fields, (Sock("next", "Сделано"), Sock("fail", "Не вышло")),
-                      subgroup=spec.group, spec=spec, when=ACTION_WHEN.get(spec.name, {}), hidden=spec.name in LEGACY))
+        label = RENAMED.get(spec.name, spec.label)
+        register(Kind("do:" + spec.name, label, ACTION, spec.summary, spec.fields, (Sock("next", "Сделано"), Sock("fail", "Не вышло")),
+                      subgroup="" if ": " in label else spec.group, spec=spec, when=ACTION_WHEN.get(spec.name, {}),
+                      hidden=spec.name in LEGACY or spec.name in CHOSEN))
+    for key, label, variants in CHOICES:
+        _choice(key, label, variants)
 
 
 _actions()
@@ -482,8 +570,17 @@ HELP = {
     "allowed": "поля вещи пустили (у «как обычно»)", "refused": "поля вещи отказали (у «как обычно»)",
     "ent:tag": "Тег владельца: мира, игрока, персонажа, машины, сервера или объекта; у вещи — общий или свой у игрока.",
     "ent:count": "Счётчик владельца, как у «Тега»; «Подпись» — подпись значения из описания счётчика («2» — «Архив»).",
-    "do:tag": "Поставить или снять тег владельца (мир, игрок, вещь; у вещи — общий или для игрока).",
-    "do:count": "Прибавить к счётчику владельца или задать его.",
+    "act:tag": "Поставить или снять тег владельца (мир, игрок, вещь; у вещи — общий или для игрока).",
+    "act:count": "Прибавить к счётчику владельца или задать его.",
+    "act:machine.status": "Остановить, запустить или перезагрузить машину — для всех. Остановленная не находится, сессии обрываются.",
+    "act:account": "Учётка: заблокировать на N минут (игроку или всем), снять блокировку, сменить пароль для всех.",
+    "act:object.give": "Выдать объект игроку: файлом по пути на учётке события или ключом в папку секретов.",
+    "act:object.change": "Файл игрока: подменить объект или переместить.",
+    "act:layer.change": "Слои файла игрока: снять верхний (как будто игрок снял сам, хуки срабатывают) или вернуть все.",
+    "act:terminal": "Строка или сцена во все открытые терминалы игрока.",
+    "act:mail": "Готовое письмо: игроку в ящик учётки события (можно с задержкой) или всем при открытии почты.",
+    "act:forum": "Запись на форуме от системы или персонажа: новая тема или ответ в тему с таким заголовком.",
+    "act:moment": "Начать или закончить момент мира сейчас.",
     "ent:layer": "Слой объекта: текущий для игрока (верхний неснятый), верхний, последний, по номеру или по типу. "
                  "Выход «Слой» подключают к «Слой объекта: Попытка снятия»; текущий — значит любой слой объекта.",
     "try:net.request": "Запрос к выбранному серверу (nreq). Tab — граф попытки сервера; выходы — сокеты «Выхода» внутри.",
@@ -759,6 +856,15 @@ def sockets(kind, data, side, iface=None):
     return names
 
 
+SPACES = ("Машина", "Учётка", "Сетевой сервер", "Терминал", "Объект", "Слой объекта", "Игрок", "Экран", "Почта", "Эфир", "Форум", "Новости",
+          "Момент", "Тег", "Счётчик")                # порядок пространств в меню (как у «Когда»)
+
+
+def _menu_order(kind):
+    space = kind.label.split(": ")[0] if ": " in kind.label else ""
+    return list(GROUPS).index(kind.group), SPACES.index(space) if kind.group == ACTION and space in SPACES else 0
+
+
 def catalog():
     """Виды нод для Студии."""
     def fields(items, sockets=True):
@@ -783,5 +889,5 @@ def catalog():
             "when": [{"field": name, "mode": mode, "values": list(values)} for name, rule in k.when.items()
                      for mode, values in ([rule] if isinstance(rule[0], str) else rule)],
             "hidden": k.hidden, "owned": k.owned,
-        } for k in sorted(KINDS.values(), key=lambda k: list(GROUPS).index(k.group))],
+        } for k in sorted(KINDS.values(), key=_menu_order)],
     }

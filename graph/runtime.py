@@ -562,12 +562,8 @@ def _action(run, doc, node_id, kind):
     from engine import actions as engine
     from engine.context import Ctx
 
-    spec, data = kind.spec, resolved(run, doc, node_id)
-    action = {"do": spec.name}
-    for item in spec.fields:
-        value = data.get(item.name)
-        if value not in (None, ""):
-            action[item.name] = _fill(_plain(value) if isinstance(value, float) else value, run)
+    spec, action = N.action_of(kind, resolved(run, doc, node_id))
+    action = {key: _fill(_plain(value) if isinstance(value, float) else value, run) if key != "do" else value for key, value in action.items()}
     ctx = Ctx(source=f"сценарий {run.graph.slug}", user=run.user, box=_box(run), depth=_depth.get())
     have = ctx.provides()
     if spec.needs not in have:
