@@ -82,7 +82,6 @@
     | { name: "tasks" }
     | { name: "task"; id: number }
     | { name: "mail"; id: number | null }
-    | { name: "talk"; id: number }
     | { name: "news"; id: number | null }
     | { name: "support"; id: number | null }
     | { name: "air"; tab: string }
@@ -122,7 +121,6 @@
     if (match("/map", route.path)) return { name: "map", tab: "territory", id: null };
     if (match("/home", route.path)) return { name: "home" };
     if ((found = match("/mail/personas/:id", route.path))) return { name: "mail", id: +found.id };
-    if ((found = match("/mail/:id", route.path))) return { name: "talk", id: +found.id };
     if (match("/mail", route.path)) return { name: "mail", id: null };
     if ((found = match("/news/:id", route.path))) return { name: "news", id: +found.id };
     if (match("/news", route.path)) return { name: "news", id: null };
@@ -244,14 +242,6 @@
       {#key page.slug}<Guide slug={page.slug} />{/key}
     {:else if page.name === "mail"}
       {#key page.id}<Mail id={page.id} />{/key}
-    {:else if page.name === "talk"}
-      {#await import("./routes/mail/Talk.svelte")}
-        <p class="muted" style="padding: 20px">Загрузка сценария…</p>
-      {:then loaded}
-        {#key page.id}<loaded.default id={page.id} />{/key}
-      {:catch}
-        <p class="muted" style="padding: 20px">Редактор сценария не загрузился. Обновите страницу.</p>
-      {/await}
     {:else if page.name === "players"}
       <Players id={page.id} />
     {:else if page.name === "home"}

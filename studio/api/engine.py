@@ -32,6 +32,21 @@ class EnCatalog(Schema):
     picks: dict[str, list[EnOption]]       # вид поля (key, letter, item, section, character, station, flag, world_flag, counter) → варианты
 
 
+def _offer_picks(option):
+    """Возможности всех сценариев: ноды «Возможность: Открыть» — «слаг:нода» и подпись."""
+    from graph import offers, runtime
+    from graph.models import Graph
+
+    found = []
+    for graph in Graph.objects.filter(owner="").order_by("title"):
+        doc = runtime.doc_of(graph)
+        for node_id, node in doc.nodes.items():
+            if node.get("type") == offers.OPEN:
+                title = str(doc.data(node_id).get("title") or "").strip() or node_id
+                found.append(option(offers.key(graph, node_id), f"{graph.title} · {title}"))
+    return found
+
+
 def _picks():
     from air.models import Station
     from characters.models import Character
@@ -68,6 +83,7 @@ def _picks():
         "station": [option(name) for name in Station.objects.order_by("name").values_list("name", flat=True)],
         "flag": [option(name) for name in Value.objects.filter(kind="tag", owner="player").order_by("name").values_list("name", flat=True).distinct()],
         "world_flag": [option(name) for name in state.names("tag")],
+        "offer": _offer_picks(option),
         "counter": [option(name) for name in state.names("count")],
         "object": [option(slug, f"{slug} · {name}" if name and name != slug else slug) for slug, fmt, name in items],
         "machine": [option(host, f"{host} · {name}" if name and name != host else host)

@@ -74,6 +74,7 @@ class GrKind(Schema):
     summary: str
     fields: list[GrField]
     ins: list[str]
+    in_types: dict[str, str] = {}
     outs: list[GrSock]
     many: list[GrMany]
     tail: list[GrSock]

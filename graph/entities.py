@@ -187,6 +187,16 @@ def find(run, kind, data):
             for copy in search(user, _key(data.get("item")) or None, machine, _key(data.get("path")), data.get("where") or "live")]
 
 
+def offer(run, kind, data, out):
+    """«Возможность» для игрока хода: открыта ли сейчас, сколько попыток осталось (-1 — без ограничения)."""
+    from graph import offers
+
+    ctx = getattr(run, "ctx", None) or {}
+    view = offers.state(getattr(run, "user", None), ctx.get("host", ""), ctx.get("login", ""), _key(data.get("offer")))
+    props = {"open": bool(view is not None and view.open), "left": (-1 if view.left is None else view.left) if view is not None else 0}
+    return props.get(out, _blank(kind, out))
+
+
 def account(run, kind, data, out):
     """«Учётка»: по проводу «логин@хост» или по машине и логину — её свойства сейчас. «Заблокирована» — для игрока хода."""
     from django.db.models import Q

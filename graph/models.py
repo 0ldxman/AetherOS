@@ -105,6 +105,40 @@ class Hit(models.Model):
         verbose_name_plural = "Проходы нод"
 
 
+class Offer(models.Model):
+    """Возможность, открытая сценарием: вариант письма (позже — команда, кнопка). Это нода «Возможность: Открыть» графа;
+    user пусто — всем. standing: в «Когда» идёт провод условия — открыта тем, у кого оно верно (считается при запросе)."""
+
+    graph = models.ForeignKey(Graph, on_delete=models.CASCADE, related_name="offers")
+    node = models.CharField(max_length=64)
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.CASCADE, related_name="+")
+    channel = models.CharField("Канал", max_length=16, default="mail", db_index=True)
+    group = models.CharField("Группа", max_length=64, blank=True)
+    standing = models.BooleanField("По условию", default=False)
+    spec = models.JSONField("Что предложено", default=dict, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ("created_at", "id")
+        verbose_name = "Возможность"
+        verbose_name_plural = "Возможности"
+
+
+class OfferTry(models.Model):
+    """Попытки игрока по возможности и закрыта ли она для него (возможность «всем» или по условию, закрытая одному)."""
+
+    graph = models.ForeignKey(Graph, on_delete=models.CASCADE, related_name="+")
+    node = models.CharField(max_length=64)
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="+")
+    used = models.PositiveIntegerField(default=0)
+    closed = models.BooleanField(default=False)
+
+    class Meta:
+        constraints = [models.UniqueConstraint(fields=("graph", "node", "user"), name="unique_offer_try")]
+        verbose_name = "Попытки возможности"
+        verbose_name_plural = "Попытки возможностей"
+
+
 class Mark(models.Model):
     """Счётчик ноды: «по очереди», «первые в мире» (user пусто), «однажды» (на игрока), последний запуск по времени."""
 

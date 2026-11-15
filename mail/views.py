@@ -115,7 +115,7 @@ def message_trash(request):
     return JsonResponse({"path": target})
 
 
-# ---- ответ, новое письмо, пересылка (mail.talk) ---------------------------------------------------------------------------
+# ---- ответ, новое письмо, пересылка (mail.talk: варианты — возможности сценариев) ---------------------------------------
 
 def _keys(request):
     from secure.requestkeys import request_keys
@@ -123,14 +123,15 @@ def _keys(request):
     return request_keys(request)
 
 
-def _offer(offer):
+def _offer(view):
     from mail.talk import public
 
-    variant = offer.variant
-    if not offer.open:
-        return {"id": variant.pk, "title": "???", "open": False, "segments": [], "attach": False}
-    return {"id": variant.pk, "title": variant.title, "open": True, "segments": public(variant.text) if variant.text.strip() else [],
-            "attach": bool(variant.attachment)}
+    spec = view.spec
+    if not view.open:
+        return {"id": view.key, "title": "???", "open": False, "segments": [], "attach": False}
+    text = str(spec.get("text") or "")
+    return {"id": view.key, "title": spec.get("title") or "…", "open": True, "segments": public(text) if text.strip() else [],
+            "attach": bool(spec.get("attach"))}
 
 
 def _letter_item(box, path):
@@ -146,27 +147,25 @@ def compose_options(request):
     box = _box(request)
     if box.user is None:
         return JsonResponse({"error": "sign in to send mail"}, status=403)
-    keys = _keys(request)
     reply, forward, to = request.GET.get("reply", ""), request.GET.get("forward", ""), request.GET.get("to", "").strip()
-    subject, offers, persona = "", [], None
+    subject, offers = "", []
     if reply:
         row = box.letter(reply)
         if row is None:
             raise Http404
         to = to or row.letter.sender
         subject = row.letter.subject if row.letter.subject.lower().startswith("re:") else f"Re: {row.letter.subject}"
-        persona, offers = talk.offers_for_reply(box.user, box.profile, keys, _letter_item(box, reply))
-        if not offers:
-            persona, offers = talk.offers_for_address(box.user, box.profile, keys, to)
+        offers = talk.offers_to_answer(box, to, reply_item=_letter_item(box, reply))
     elif forward:
         row = box.letter(forward)
         if row is None:
             raise Http404
         subject = f"Fwd: {row.letter.subject}"
         if to:
-            persona, offers = talk.offers_for_forward(box.user, box.profile, keys, to, _letter_item(box, forward))
+            offers = talk.offers_to_answer(box, to, forward_item=_letter_item(box, forward))
     elif to:
-        persona, offers = talk.offers_for_address(box.user, box.profile, keys, to)
+        offers = talk.offers_to_answer(box, to)
+    persona = talk.persona_of(to) if to else None
     return JsonResponse({
         "from": box.address, "to": to, "subject": subject,
         "persona": {"address": persona.address, "name": persona.name} if persona else None,
@@ -191,13 +190,11 @@ def _browser_effects(effects):
 def send_letter(request):
     """Отправить письмо: вариант набран (сверяет сервер), вложение по пути, ответ или пересылка письма ящика."""
     from mail import talk
-    from mail.models import Variant
 
     box = _box(request)
     if box.user is None:
         return JsonResponse({"error": "sign in to send mail"}, status=403)
     data = json.loads(request.body or b"{}")
-    variant = Variant.objects.select_related("step__conversation").filter(pk=data.get("variant")).first() if data.get("variant") else None
     attachment = None
     if data.get("attachment"):
         attachment = box.view.get(str(data["attachment"]))
@@ -207,8 +204,8 @@ def send_letter(request):
     forward_item = _letter_item(box, data.get("forward", "")) if data.get("forward") else None
     if data.get("forward") and forward_item is None and box.letter(data["forward"]) is None:
         raise Http404
-    result = talk.send(box, _keys(request), to=data.get("to", ""), subject=data.get("subject", ""), typed=data.get("text", ""),
-                       variant=variant, attachment=attachment, reply_item=reply_item, forward_item=forward_item)
+    result = talk.send(box, to=data.get("to", ""), subject=data.get("subject", ""), typed=data.get("text", ""),
+                       offer=str(data.get("offer") or ""), attachment=attachment, reply_item=reply_item, forward_item=forward_item)
     status = 400 if result.kind in ("mismatch", "closed") else 200
     return JsonResponse({"kind": result.kind, "path": result.path, "left": result.left, "effects": _browser_effects(result.effects),
                          "error": result.detail if status == 400 else ""}, status=status)

@@ -119,7 +119,7 @@ class AirEventsTests(TestCase):
         self.assertEqual(self.heard(self.olga).count("IVAN DE BOREAS QSL"), 1)          # пауза для этого игрока
         self.assertFalse(Value.objects.filter(kind="tag", owner="player", owner_id=self.ivan.pk, value=1).exists())                   # без ящика исходов нет
         self.move(minutes=11)
-        with mock.patch("mail.talk._apply") as apply:
+        with mock.patch("mail.talk.run_actions", return_value=[]) as apply:
             radio.transmit(self.ivan, "7.115", "qsl", now=self.now, box=box)
         apply.assert_called_once()
         self.assertFalse(events.matches(Responder(pattern="qsl"), "qslx"))

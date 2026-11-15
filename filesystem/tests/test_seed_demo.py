@@ -49,6 +49,26 @@ class SeedDemoTests(TestCase):
         self.assertIn("decrypted", self.run_command("ward /home/ivan/door.bin hunter2").output)
         self.assertIn("pak: extracted 3 files", self.run_command("pak x /home/ivan/pack.zip").output)
 
+    def test_the_guard_answers_through_the_scenario(self):
+        from graph import check
+        from graph.models import Graph
+        from mail import talk
+        from mail.boxes import Box
+
+        graph = Graph.objects.get(slug="harbor-door")
+        self.assertEqual([p for p in check.problems(graph.doc, graph.slug) if p["level"] == "error"], [])
+        box = Box.of_profile(self.session.profile, user=self.user)
+        hello = talk.offers_to_answer(box, "guard@aether-core")
+        self.assertEqual([o.spec["title"] for o in hello], ["Ask for dock access"])
+        self.assertEqual(talk.send(box, to="guard@aether-core", typed="I need access to the docks.", offer=hello[0].key).kind, "ok")
+        ask = next(row for row in box.letters_in("inbox") if row.letter.subject == "Identify yourself")
+        item = box.view.get(ask.path).item
+        offers = talk.offers_to_answer(box, "guard@aether-core", reply_item=item)
+        self.assertEqual([(o.spec["title"], o.open) for o in offers], [("Give the password", True), ("Mention the tunnel", False)])
+        sent = talk.send(box, to="guard@aether-core", typed="Password: hunter2. Dock 7, please.", offer=offers[0].key, reply_item=item)
+        self.assertEqual(sent.kind, "ok")
+        self.assertIn("Access granted", [row.letter.subject for row in box.letters_in("inbox")])
+
     def test_the_archive_lists_its_members_and_the_nested_one_needs_its_password(self):
         listing = self.run_command("pak l /home/ivan/pack.zip").output
         self.assertIn("README.txt", listing)

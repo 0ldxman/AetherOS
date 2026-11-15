@@ -578,7 +578,7 @@
     async function sendComposed() {
         composer.send.disabled = true;
         const body = {
-            to: composer.to, subject: composer.subject, text: composer.typed, variant: composer.variant ? composer.variant.id : null,
+            to: composer.to, subject: composer.subject, text: composer.typed, offer: composer.variant ? composer.variant.id : null,
             attachment: composer.attachment, reply: composer.reply, forward: composer.forward
         };
         try {

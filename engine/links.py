@@ -67,7 +67,6 @@ def _requirements():
     from forum.models import Section, Space
     from machines.models import MachineProfile
     from machines.models.net import NetNode, NetResource
-    from mail.models import Variant
     from map.models import MapScene
     from secure.models import KeyPart
     from world.models import WorldLetter, WorldMoment, WorldTrigger
@@ -91,14 +90,6 @@ def _requirements():
         add(row.key_condition, Place("узел сети", str(row), ""))
     for row in MapScene.objects.exclude(key_condition=None):
         add(row.key_condition, Place("сцена карты", str(row), "#/map/scenes"))
-    for row in Variant.objects.select_related("step__conversation"):
-        place = Place("вариант письма", f"{row.step.conversation.slug} / {row.step.name}: {row.title}", f"#/mail/{row.step.conversation_id}")
-        add(row.condition, place)
-        out.extend(("flag", name, place) for name in row.need_flags or [])
-        need = row.attachment or {}
-        for slug in (need.get("key"), need.get("signed")):        # приложить ключ или файл, подписанный ключом: ключ нужен игроку
-            if slug:
-                out.append(("key", slug, place))
     for model, what in ((Band, "диапазон эфира"), (Broadcast, "передача по расписанию"), (Responder, "ответчик эфира")):
         for row in model.objects.exclude(condition=None):
             add(row.condition, Place(what, str(row), "#/air"))
@@ -154,14 +145,9 @@ def _action_lists():
     """[(действия, Place)] всех мест с действиями."""
     from air.models import Responder
     from engine.models import Rule
-    from mail.models import Variant
     from world.models import WorldTrigger
 
     out = []
-    for row in Variant.objects.select_related("step__conversation"):
-        place = Place("исход письма", f"{row.step.conversation.slug} / {row.step.name}: {row.title}", f"#/mail/{row.step.conversation_id}")
-        for actions in (row.outcomes or {}).values():
-            out.append((actions, place))
     for row in Responder.objects.select_related("station"):
         out.append((row.actions, Place("ответчик эфира", str(row), "#/air")))
     for row in WorldTrigger.objects.all():

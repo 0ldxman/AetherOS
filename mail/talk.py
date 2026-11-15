@@ -1,20 +1,12 @@
 """Переписка с персонажами: игрок отвечает не что угодно, а выбирает вариант и набирает его текст.
 
-Сценарий (Conversation) состоит из шагов (Step). Попав на шаг, игрок получает письмо персонажа (если оно задано) и может
-ответить одним из вариантов шага (Variant). В тексте варианта:
+Варианты — возможности канала «письмо», открытые сценариями (graph/offers.py, нода «Возможность: Открыть»):
+ответ на письмо, новое письмо на адрес персонажа, пересылка письма. В тексте варианта:
     {{секрет}}           игрок видит только длину и должен знать значение сам (пароль, имя);
-    [[склад 7|склад 9]]  выбор слова: игрок набирает одно из них, от выбора зависит исход.
-Сверка без учёта регистра, лишних пробелов и разницы ё/е.
-
-Исходы варианта (outcomes) по ключам:
-    ok              текст и секреты верны (если для выбранного слова нет своего исхода);
-    word:<слово>    выбрано это слово;
-    wrong           секрет неверен или вложение не то (попытка засчитана);
-    exhausted       попытки варианта кончились.
-Действия исхода — общий словарь движка (engine/actions.py) плюс свои: {"do": "goto", "step", "delay"} и {"do": "bounce"}.
-
-Новое письмо на адрес персонажа даёт варианты текущего шага (или шага «начало переписки», если переписки ещё нет),
-пересылка письма X даёт варианты-пересылки этого письма. Письмо на адрес, которого нет, возвращается от MAILER-DAEMON.
+    [[склад 7|склад 9]]  выбор слова: игрок набирает одно из них, событие сообщает, какое.
+Сверка без учёта регистра, лишних пробелов и разницы ё/е. Не тот текст — письмо не уходит; верный текст с неверным секретом
+или не тем вложением — неверный ответ (попытка засчитана). Чем кончилось — событие offer.used («Возможность: Использована»).
+Письмо без варианта ждёт автора во входящих персонажа; письмо на адрес, которого нет, возвращается от MAILER-DAEMON.
 """
 import re
 from dataclasses import dataclass, field
@@ -22,7 +14,7 @@ from dataclasses import dataclass, field
 from django.db import transaction
 
 from mail import letters
-from mail.models import Conversation, Persona, Step, TalkState, Variant
+from mail.models import Persona
 
 TOKEN = re.compile(r"\{\{(.+?)\}\}|\[\[(.+?)\]\]", re.DOTALL)
 DAEMON = "MAILER-DAEMON"
@@ -91,111 +83,50 @@ def check(template, typed):
     return Check("ok" if right else "wrong", words)
 
 
-# ---- кто что может ответить ---------------------------------------------------------------------------------------------
-
-def flags_of(user):
-    from engine import facts
-
-    return facts.flags(user)
-
-
-def available(variant, profile, keys, flags):
-    from secure.access import satisfied
-
-    if variant.condition and not satisfied(variant.condition, frozenset(keys) | {f"tag:{name}" for name in flags}):
-        return False
-    if any(name not in flags for name in variant.need_flags or []):
-        return False
-    if any(name in flags for name in variant.deny_flags or []):
-        return False
-    return variant.account_id is None or (profile is not None and variant.account_id == profile.pk)
-
-
-@dataclass
-class Offer:
-    variant: Variant
-    open: bool
-
-
-def _offered(steps, mode, profile, keys, flags, forward_of=None):
-    offers = []
-    for step in steps:
-        for variant in step.variants.all():
-            if variant.mode != mode or (mode == Variant.Mode.FORWARD and variant.forward_of_id != getattr(forward_of, "pk", None)):
-                continue
-            is_open = available(variant, profile, keys, flags)
-            if is_open or variant.closed == Variant.Closed.MYSTERY:
-                offers.append(Offer(variant, is_open))
-    return offers
-
-
-def _current_steps(user, persona):
-    """Шаги, на которых игрок сейчас стоит с этим персонажем, и шаги начала тех переписок, которых ещё нет."""
-    states = {s.conversation_id: s for s in TalkState.objects.filter(user=user, conversation__persona=persona).select_related("step")}
-    steps = []
-    for conversation in persona.conversations.prefetch_related("steps__variants"):
-        state = states.get(conversation.pk)
-        if state is not None and state.step is not None:
-            steps.append(state.step)
-        elif state is None:
-            steps += [step for step in conversation.steps.all() if step.opening]
-    return steps
-
+# ---- что игрок может написать -------------------------------------------------------------------------------------------
 
 def persona_of(address):
     return Persona.objects.filter(address=(address or "").strip().lower()).first()
 
 
-def offers_for_reply(user, profile, keys, item):
-    """Ответ на письмо персонажа (объект письма): варианты шага, на котором игрок стоит в этой переписке."""
-    if item is None or user is None:
-        return None, []
-    step = Step.objects.filter(letter=item).select_related("conversation__persona").first()
-    if step is None:
-        return None, []
-    state = TalkState.objects.filter(user=user, conversation=step.conversation).select_related("step").first()
-    if state is None or state.step is None:
-        return step.conversation.persona, []
-    return step.conversation.persona, _offered([state.step], Variant.Mode.REPLY, profile, keys, flags_of(user))
+def _addressed(spec, to, persona):
+    if spec.get("address"):
+        return spec["address"] == to
+    code = getattr(getattr(persona, "character", None), "code", "")
+    return bool(code) and any(str(one).strip().lower() == code.lower() for one in spec.get("characters") or [])
 
 
-def offers_for_address(user, profile, keys, address):
-    persona = persona_of(address)
-    if persona is None or user is None:
-        return persona, []
-    return persona, _offered(_current_steps(user, persona), Variant.Mode.REPLY, profile, keys, flags_of(user))
+def offers_for(box, mode, to, item=None):
+    """Варианты для ящика: mode reply (item — письмо, на которое отвечают), new или forward (item — что пересылают)."""
+    from graph import offers
+
+    if box.user is None:
+        return []
+    to = (to or "").strip().lower()
+    persona = persona_of(to)
+    found = []
+    for view in offers.visible(box.user, getattr(box.machine, "hostname", ""), box.login, "mail"):
+        spec = view.spec
+        if spec.get("mode", "reply") != mode or not _addressed(spec, to, persona):
+            continue
+        if mode == "reply" and spec.get("reply_to") and getattr(item, "slug", None) != spec["reply_to"]:
+            continue
+        if mode == "forward" and (item is None or item.slug != spec.get("forward_of")):
+            continue
+        found.append(view)
+    return found
 
 
-def offers_for_forward(user, profile, keys, address, item):
-    persona = persona_of(address)
-    if persona is None or user is None or item is None:
-        return persona, []
-    return persona, _offered(_current_steps(user, persona), Variant.Mode.FORWARD, profile, keys, flags_of(user), forward_of=item)
+def offers_to_answer(box, to, reply_item=None, forward_item=None):
+    """Что игрок видит в наборе: пересылка, ответ (если на письмо вариантов нет — варианты нового письма) или новое письмо."""
+    if forward_item is not None:
+        return offers_for(box, "forward", to, forward_item)
+    if reply_item is not None:
+        return offers_for(box, "reply", to, reply_item) or offers_for(box, "new", to)
+    return offers_for(box, "new", to)
 
 
-# ---- ход переписки ------------------------------------------------------------------------------------------------------
-
-def enter(state, step, box, delay=0):
-    """Игрок попадает на шаг: попытки сначала, письмо персонажа шага приходит (сразу или с задержкой)."""
-    state.step = step
-    state.attempts = {}
-    state.save(update_fields=["step", "attempts", "updated_at"])
-    if step.letter_id:
-        box.queue(step.letter, step.letter_delay + delay)
-
-
-def start(user, conversation, profile, delay=0):
-    """Хук «mail <слаг сценария>»: переписка начинается с первого шага (по порядку, не «начало переписки»)."""
-    from mail.boxes import Box
-
-    first = conversation.steps.filter(opening=False).first() or conversation.steps.first()
-    if first is None:
-        return None
-    state, _ = TalkState.objects.get_or_create(user=user, conversation=conversation, defaults={"profile": profile})
-    state.profile = profile
-    enter(state, first, Box.of_profile(profile, user), delay)
-    return state
-
+# ---- отправка -----------------------------------------------------------------------------------------------------------
 
 @dataclass
 class Sent:
@@ -213,10 +144,6 @@ def _bounce(box, to, subject, reason):
         f"be delivered to one or more recipients.\n\n<{to}>: {reason}",
     )
     box.put_text("inbox", "returned.msg", text)
-
-
-def _attached_ok(variant, entry):
-    return attachment_fits(variant.attachment, None if entry is None else entry.item)
 
 
 def attachment_fits(need, item):
@@ -237,78 +164,22 @@ def attachment_fits(need, item):
     return True
 
 
-def _apply(actions, state, box, effects):
-    """Исходы через движок (engine/actions.py); шаг переписки и возврат письма — свои действия почты."""
-    from engine import actions as engine
-    from engine.context import Ctx
-
-    def goto(action, ctx):
-        if state is None:
-            return
-        step = state.conversation.steps.filter(name=action.get("step")).first()
-        if step is not None:
-            enter(state, step, box, int(action.get("delay") or 0))
-
-    def bounce(action, ctx):
-        ctx.effects.append({"bounce": True})
-
-    source = f"письмо {state.conversation.slug}" if state is not None else "ответчик"
-    ctx = Ctx(source=source, user=box.user, box=box, session=True, host={"goto": goto, "bounce": bounce})
-    effects += engine.run(actions, ctx)
+def _need(spec):
+    return {spec["attach"]: spec.get("attach_item", "")} if spec.get("attach") else {}
 
 
 def run_actions(actions, box):
-    """Исходы вне переписки (ответчики эфира). Возвращает эффекты для браузера."""
-    effects = []
-    _apply(actions, None, box, effects)
-    return effects
+    """Действия движка вне сценариев (ответчики эфира). Возвращает эффекты для браузера."""
+    from engine import actions as engine
+    from engine.context import Ctx
 
-
-@dataclass
-class Turn:
-    kind: str                        # ok | wrong | exhausted
-    sockets: list                    # какие исходы сработали (ok, word:<слово>, wrong, exhausted)
-    actions: list
-    left: int | None = None
-
-
-def decide(outcomes, max_attempts, verdict, used=0):
-    """Что случится после ответа: исход по сверке (verdict) и числу уже потраченных попыток варианта (used).
-    Свои исходы выбранных слов важнее общего ok; exhausted без своих действий берёт действия wrong."""
-    outcomes = outcomes or {}
-    if verdict.verdict == "ok":
-        sockets = [f"word:{word}" for word in verdict.words if outcomes.get(f"word:{word}")]
-        actions = [action for socket in sockets for action in outcomes[socket]]
-        if not sockets:
-            sockets, actions = ["ok"], list(outcomes.get("ok", []))
-        return Turn("ok", sockets, actions)
-    spent = used + 1
-    if max_attempts and spent >= max_attempts:
-        socket = "exhausted" if outcomes.get("exhausted") else "wrong"
-        return Turn("exhausted", [socket], list(outcomes.get(socket, [])), 0)
-    return Turn("wrong", ["wrong"], list(outcomes.get("wrong", [])), max_attempts - spent if max_attempts else None)
-
-
-def sockets(text, attachment=None, max_attempts=0):
-    """Выходы варианта на карте: ok, по слову каждого выбора, wrong (если есть что угадать или приложить), exhausted."""
-    out = ["ok"]
-    secret = bool(attachment)
-    for kind, value in segments(text):
-        if kind == "choice":
-            out += [f"word:{option}" for option in value if f"word:{option}" not in out]
-        elif kind == "secret":
-            secret = True
-    if secret or max_attempts:
-        out.append("wrong")
-    if max_attempts:
-        out.append("exhausted")
-    return out
+    return engine.run(actions, Ctx(source="ответчик", user=box.user, box=box, session=True))
 
 
 @transaction.atomic
-def send(box, keys, *, to, subject="", typed="", variant=None, attachment=None, reply_item=None, forward_item=None):
-    """Отправить письмо игрока. Его копия ложится в «отправленные», дальше решает адрес: персонаж (вариант и исходы),
-    ящик учётки (письмо приходит туда в слое игрока) или никто (возврат от MAILER-DAEMON).
+def send(box, *, to, subject="", typed="", offer=None, attachment=None, reply_item=None, forward_item=None):
+    """Отправить письмо игрока. Его копия ложится в «отправленные», дальше решает адрес: персонаж (вариант — возможность offer,
+    «слаг:нода»), ящик учётки (письмо приходит туда в слое игрока) или никто (возврат от MAILER-DAEMON).
 
     attachment: файл вида машины игрока, приложенный к письму (или None)."""
     from machines.models import MachineProfile
@@ -316,24 +187,13 @@ def send(box, keys, *, to, subject="", typed="", variant=None, attachment=None, 
     to = (to or "").strip().lower()
     if not to or "@" not in to:
         return Sent("mismatch", detail="no recipient")
-    effects = []
     persona = persona_of(to)
-    if variant is not None:
-        # вариант должен быть среди тех, что игрок сейчас видит, и открыт
-        if forward_item is not None:
-            _, offers = offers_for_forward(box.user, box.profile, keys, to, forward_item)
-        elif reply_item is not None:
-            _, offers = offers_for_reply(box.user, box.profile, keys, reply_item)
-            if not offers:
-                _, offers = offers_for_address(box.user, box.profile, keys, to)
-        else:
-            _, offers = offers_for_address(box.user, box.profile, keys, to)
-        match = next((offer for offer in offers if offer.variant.pk == variant.pk), None)
-        if match is None or not match.open:
+    view = verdict = None
+    if offer:
+        view = next((one for one in offers_to_answer(box, to, reply_item, forward_item) if one.key == offer), None)
+        if view is None or not view.open:
             return Sent("closed", detail="this answer is not available")
-        if variant.step.conversation.persona_id != getattr(persona, "pk", None):
-            return Sent("closed", detail="this answer is for another recipient")
-        verdict = check(variant.text, typed) if variant.text.strip() else Check("ok")
+        verdict = check(view.spec.get("text", ""), typed) if str(view.spec.get("text") or "").strip() else Check("ok")
         if verdict.verdict == "mismatch":
             return Sent("mismatch", detail="the text does not match")
 
@@ -346,12 +206,12 @@ def send(box, keys, *, to, subject="", typed="", variant=None, attachment=None, 
     if forward_item is not None:
         body = f"{typed}\n\n---------- Forwarded message ----------\n{forward_item.body}".strip()
     path = box.put_text("sent", "letter.msg", letters.compose(headers, body), read=True)
-    if persona is not None and persona.character_id is not None:
-        from engine.events import emit
+    from engine.events import emit
 
+    if persona is not None and persona.character_id is not None:
         emit("character.wrote", box.user, machine=box.machine, login=box.login, character=persona.character.code, channel="mail",
-             subject=subject, text=body)
-    if persona is not None and variant is None:                     # вне сценария: письмо ждёт автора во входящих персонажа, игроку тишина
+             subject=subject, text=body, offer=view.key if view is not None else "")
+    if persona is not None and view is None:                       # вне вариантов: письмо ждёт автора во входящих персонажа
         from characters import inbox
 
         inbox.capture_mail(persona, box.user, box.address, subject, body, box.machine, path)
@@ -364,34 +224,15 @@ def send(box, keys, *, to, subject="", typed="", variant=None, attachment=None, 
         from mail.boxes import Box
 
         Box.of_profile(account, box.user).put_text("inbox", "letter.msg", letters.compose(headers, body))
+    if view is None:
         return Sent("sent", path)
 
-    if variant is None:
-        return Sent("sent", path)                             # персонаж молчит: на такое письмо ему нечего ответить
-
-    conversation = variant.step.conversation
-    state, _ = TalkState.objects.get_or_create(user=box.user, conversation=conversation, defaults={"profile": box.profile})
-    if state.profile_id is None:
-        state.profile = box.profile
-    if state.step_id is None:
-        state.step = variant.step                              # переписку начал сам игрок: он на шаге её начала
-    state.save()
-
-    if verdict.verdict == "ok" and not _attached_ok(variant, attachment):
+    if verdict.verdict == "ok" and not attachment_fits(_need(view.spec), None if attachment is None else attachment.item):
         verdict = Check("wrong", verdict.words)
+    from graph import entities, offers
 
-    used = (state.attempts or {}).get(str(variant.pk), 0)
-    if verdict.verdict != "ok":
-        state.attempts = {**(state.attempts or {}), str(variant.pk): used + 1}
-        state.save(update_fields=["attempts", "updated_at"])
-    turn = decide(variant.outcomes, variant.max_attempts, verdict, used)
-    kind, actions, left = turn.kind, turn.actions, turn.left
-    from engine.events import emit
-
-    emit("mail.sent", box.user, machine=box.machine, login=box.login, to=to, conversation=conversation.slug, step=variant.step.name,
-         variant=variant.title, result=kind, sockets=turn.sockets)
-    _apply(actions, state, box, effects)
-    if any(effect.get("bounce") for effect in effects):
-        _bounce(box, to, subject, "mailbox unavailable")
-        effects = [effect for effect in effects if not effect.get("bounce")]
-    return Sent(kind, path, left, effects)
+    kind, left = offers.attempt(view, box.user, verdict.verdict == "ok")
+    emit("offer.used", box.user, machine=box.machine, login=box.login, offer=view.key, group=view.group, result=kind, words=verdict.words,
+         word=verdict.words[0] if verdict.words else "", text=body[:500], to=to, left=-1 if left is None else left,
+         placement=entities.placement_key(box.user, getattr(box.machine, "hostname", ""), path))
+    return Sent(kind, path, left)

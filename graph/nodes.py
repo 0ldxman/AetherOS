@@ -16,15 +16,15 @@ GROUPS = {ENTITY: "Сущности", NOUN: "Когда", FLOW: "Ход", DATA: 
 # Типы сокетов. event — «случилось» (по нему идёт ход), остальное — данные: читаются в момент, когда нода выполняется.
 EVENT = "event"
 TYPES = ("event", "bool", "text", "number", "item", "placement", "layer", "machine", "account", "server", "character", "section", "moment", "player", "flag",
-         "world_flag", "counter")
+         "world_flag", "counter", "offer")
 TYPE_LABELS = {"event": "событие", "bool": "да/нет", "text": "текст", "number": "число", "item": "объект", "placement": "размещение", "layer": "слой", "machine": "машину", "account": "учётку",
                "server": "сервер", "character": "персонажа", "section": "раздел", "moment": "момент", "player": "игрока",
-               "flag": "метку игрока", "world_flag": "метку мира", "counter": "счётчик"}
-THINGS = ("item", "placement", "layer", "machine", "account", "server", "character", "section", "moment", "player", "flag", "world_flag", "counter")
+               "flag": "метку игрока", "world_flag": "метку мира", "counter": "счётчик", "offer": "возможность"}
+THINGS = ("item", "placement", "layer", "machine", "account", "server", "character", "section", "moment", "player", "flag", "world_flag", "counter", "offer")
 
 # списки: «list:<тип элемента>»; «list:any» — вход, которому подходит любой список (количество)
 ELEMENTS = {"text": "Текст", "number": "Число", "bool": "Да/нет", "item": "Объект", "placement": "Размещение", "layer": "Слой", "machine": "Машина", "account": "Учётка", "server": "Сервер",
-            "character": "Персонаж", "section": "Раздел", "moment": "Момент", "player": "Игрок"}
+            "character": "Персонаж", "section": "Раздел", "moment": "Момент", "player": "Игрок", "offer": "Возможность"}
 LIST, ANY_LIST = "list:", "list:any"
 TYPES = TYPES + tuple(LIST + name for name in ELEMENTS) + (ANY_LIST,)
 TYPE_LABELS.update({LIST + name: f"список ({label.lower()})" for name, label in ELEMENTS.items()})
@@ -64,7 +64,7 @@ def type_label(kind):
 FIELD_TYPES = {"text": "text", "textarea": "text", "path": "text", "clock": "text", "expr": "text", "scene": "text", "station": "text",
                "graph": "text", "number": "number", "bool": "bool", "condition": "bool", "key": "item", "item": "item", "letter": "item",
                "object": "item", "character": "character", "section": "section", "flag": "flag", "world_flag": "world_flag",
-               "counter": "counter", "moment": "moment", "machine": "machine", "system": "text", "time_zone": "text", "server": "server", "player": "player", "layer": "layer", "placement": "placement", "account": "account"}      # вид поля -> тип его входа; нет в списке — параметр без входа
+               "counter": "counter", "moment": "moment", "machine": "machine", "system": "text", "time_zone": "text", "server": "server", "player": "player", "layer": "layer", "placement": "placement", "account": "account", "offer": "offer"}      # вид поля -> тип его входа; нет в списке — параметр без входа
 
 
 def field_type(field):
@@ -84,6 +84,9 @@ def compatible(src, dst):
     «Одно или список» принимает и то и другое; во вход нескольких типов подходит любой из них."""
     if src == dst:
         return True
+    bases = split_type(dst)[1]
+    if EVENT in bases and len(bases) > 1:                # вход потока, которому подходит и значение («Когда»: событие или условие)
+        return src == EVENT or compatible(src, "|".join(b for b in bases if b != EVENT))
     if EVENT in (src, dst):
         return False
     if dst == ANY_LIST:
@@ -177,6 +180,7 @@ class Kind:
     infers: dict = field(default_factory=dict)     # поле-провод -> (поле-режим, {тип провода: (значение режима, поле, куда положить значение)})
     hidden: bool = False                # старая нода: работает в готовых сценариях, но в меню её нет
     owned: str = ""                     # нода попытки: вид графа у вещи (graph/owned.py), Tab открывает его
+    in_types: dict = field(default_factory=dict)     # вход потока -> тип, если он принимает не только событие («event|bool»)
 
 
 KINDS = {}
@@ -758,6 +762,54 @@ register(Kind("act:account.manage", "Машина: Создать или уда�
 DATA_OUTS["act:account.manage"] = (Sock("account", "Учётка", "account"),)
 MACHINE_ACTS = ("act:machine.change", "act:account.change", "act:account.access", "act:account.manage")
 
+# возможности: что сценарий открыл игроку в игре (graph/offers.py; письмо — mail/talk.py)
+register(Kind("act:offer.open", "Возможность: Открыть", ACTION, "{title}", (
+    Field("channel", "Канал", "select", "", False, (("mail", "письмо"),)),
+    Field("mode", "Как", "select", "", False, (("reply", "ответ на письмо"), ("new", "новое письмо"), ("forward", "пересылка письма"))),
+    Field("character", "Кому", "many:character", "персонаж"), Field("address", "Адрес", "text", "пусто — любой адрес персонажа"),
+    Field("reply_to", "В ответ на", "letter", "любое письмо"), Field("forward_of", "Что переслать", "letter", "", True),
+    Field("title", "Подпись в списке", "text", "", True), Field("text", "Текст для набора", "textarea", "{{секрет}}, [[слово|другое]]; пусто — без набора"),
+    Field("attach", "Приложить", "select", "", False, (("", "ничего"), ("item", "объект"), ("key", "ключ"), ("signed", "подписанное ключом"))),
+    Field("attach_item", "Что приложить", "object", "", True), Field("attempts", "Попыток", "number", "0 — без ограничения"),
+    Field("account", "С учётки", "account", "любая"), Field("condition", "Доступна, если", "condition", "всегда"),
+    Field("scope", "Для кого", "select", "", False, (("player", "игроку хода"), ("all", "всем"))),
+    Field("show", "Открыть", "select", "", False, (("open", "открытой"), ("mystery", "закрытой «???»"))),
+    Field("closed", "Когда недоступна", "select", "", False, (("mystery", "показать «???»"), ("hidden", "скрыть"))),
+    Field("group", "Группа", "text", "использована одна — закрыты все"),
+), _ACT_OUTS, in_types={"in": "event|bool"},
+    when={"reply_to": ("mode", ("reply",)), "forward_of": ("mode", ("forward",)), "attach_item": ("attach", ("item", "key", "signed"))}))
+DATA_OUTS["act:offer.open"] = (Sock("offer", "Возможность", "offer"),)
+register(Kind("act:offer.close", "Возможность: Закрыть", ACTION, "{offer}{group}", (
+    Field("variant", "Что закрыть", "select", "", False, (("offer", "Закрыть возможность"), ("group", "Закрыть группу"))),
+    Field("offer", "Возможность", "many:offer", "", True), Field("group", "Группа", "text", "", True),
+    Field("scope", "Для кого", "select", "", False, (("player", "игроку хода"), ("all", "всем"))),
+), _ACT_OUTS, title="variant", when={"offer": ("variant", ("offer",)), "group": ("variant", ("group",))}))
+OFFER_ACTS = ("act:offer.open", "act:offer.close")
+register(Kind("ent:offer", "Возможность", ENTITY, "{offer}", (Field("offer", "Возможность", "offer", "сценарий:нода"),), ins=()))
+DATA_OUTS["ent:offer"] = (Sock("open", "Открыта", "bool"), Sock("left", "Осталось попыток", "number"))
+
+
+def _offer_used(data, out, event):
+    d = event.data or {}
+    if d.get("result") != out:
+        return False
+    wanted = data.get("offer")
+    wants = [str(w).strip() for w in (wanted if isinstance(wanted, (list, tuple)) else [wanted]) if str(w or "").strip()]
+    if wants and not any(_same(w, d.get("offer")) for w in wants):
+        return False
+    if data.get("group") and not _same(data.get("group"), d.get("group")):
+        return False
+    word = str(data.get("word") or "").strip()
+    return not word or any(_glob(one, word, fold=True) for one in d.get("words") or [])
+
+
+_when("on:offer.used", "Возможность: Использована",
+      (Field("offer", "Возможность", "many:offer", "любая"), Field("group", "Группа", "text", "любая"), Field("word", "Слово", "text", "любое; можно *")),
+      (Sock("ok", "Верно"), Sock("wrong", "Неверно"), Sock("exhausted", "Попытки кончились")),
+      {"ok": "offer.used", "wrong": "offer.used", "exhausted": "offer.used"}, _offer_used,
+      (Sock("offer", "Возможность", "offer", "offer"), Sock("text", "Текст", "text", "text"), Sock("word", "Слово", "text", "word"),
+       Sock("left", "Осталось попыток", "number", "left"), Sock("placement", "Письмо", "placement", "placement"), _LOGIN_OUT), "{offer}{group} {word}")
+
 # учётка — «логин@хост»
 register(Kind("ent:account", "Учётка", ENTITY, "{login}", (
     Field("account", "Учётка", "account", "логин@хост"), Field("machine", "Машина", "machine"), Field("login", "Логин", "text"),
@@ -775,6 +827,15 @@ HELP = {
                      "На вход — одно размещение или список: с каждым. «Размещение» на выходе — где файл теперь.",
     "act:placement.create": "Создать файл игроку: с объектом — «Добавить» (ключ без пути — в папку секретов), без объекта — свой файл с текстом. "
                             "Куда — размещение или Машина + Путь (+ Игрок, пусто — игрок хода).",
+    "act:offer.open": "Открыть игроку возможность в игре — вариант письма: ответ на письмо, новое письмо персонажу или пересылку. "
+                      "Игрок выбирает её в списке и набирает текст: {{секрет}} знает сам, [[слово|другое]] выбирает. "
+                      "Во «Когда» — поток (открыть сейчас: игроку хода или всем) или провод условия (открыта, пока условие верно у игрока). "
+                      "«Доступна, если» — условие на факты игрока: пока неверно, вариант «???» или скрыт. "
+                      "Верный ответ закрывает возможность и её группу, неверный тратит попытку.",
+    "act:offer.close": "Закрыть возможность или всю группу: игроку хода или всем.",
+    "ent:offer": "Возможность для игрока хода: открыта ли сейчас и сколько попыток осталось (-1 — без ограничения).",
+    "on:offer.used": "Игрок использовал возможность: верно (текст и секрет совпали, вложение то), неверно (попытка засчитана), попытки кончились. "
+                     "Фильтры: возможность, группа, выбранное слово.",
     "ent:account": "Учётка на машине: провод «Учётка» (логин@хост) или Машина + Логин. «Заблокирована» — для игрока хода.",
     "act:machine.change": "Свойство машины для всех — что выбрано: имя, адрес, ОС, часовой пояс, ключ хоста (пусто — новый случайный: игрок, "
                           "который уже заходил, заметит подмену), приветствие ({note}), «Включена с» (от неё считается uptime; включение машины её не трогает).",
@@ -1135,7 +1196,7 @@ def _sock_type(kind, data, side, name, iface=None):
         if found is None and is_row(kind, name[2:]):
             return kind.grow.type
         return field_type(found) if found else ""
-    return EVENT
+    return kind.in_types.get(name, EVENT)
 
 
 def sockets(kind, data, side, iface=None):
@@ -1242,7 +1303,7 @@ def catalog():
         "socket_help": SOCKET_HELP,
         "kinds": [{
             "name": k.name, "label": k.label, "group": k.group, "subgroup": k.subgroup, "summary": k.summary, "fields": fields(k.fields),
-            "ins": list(k.ins), "outs": [{"name": s.name, "label": s.label, "type": EVENT} for s in k.outs if s.name != REF]
+            "ins": list(k.ins), "in_types": dict(k.in_types), "outs": [{"name": s.name, "label": s.label, "type": EVENT} for s in k.outs if s.name != REF]
             + [{"name": s.name, "label": s.label, "type": s.type} for s in DATA_OUTS.get(k.name, ())],
             "many": [{"side": m.side, "field": m.field, "prefix": m.prefix, "label": m.label} for m in k.many],
             "tail": [{"name": s.name, "label": s.label, "type": EVENT} for s in k.tail],

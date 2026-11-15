@@ -12,12 +12,12 @@
   import { canAct, canEdit } from "../../lib/me.svelte";
   import { go } from "../../lib/router.svelte";
   import { toast } from "../../lib/toast.svelte";
-  import FitOnce from "../mail/FitOnce.svelte";
+  import FitOnce from "./FitOnce.svelte";
   import AddMenu from "./AddMenu.svelte";
   import FrameNode from "./FrameNode.svelte";
   import GraphNode from "./GraphNode.svelte";
   import NodePanel from "./NodePanel.svelte";
-  import { BOXES, TYPES, compatible, resolveType, sockType, socketFields, typeColor, defaults, freeId, ifaceOfLevel, insOf, isRow, outsOf, rowName, rowsOf, summaryOf, tidyRows, type Catalog, type Doc, type GNode, type GWire, type Group, type Iface, type Kind, type Level } from "./kinds";
+  import { BOXES, TYPES, compatible, takesEvent, resolveType, sockType, socketFields, typeColor, defaults, freeId, ifaceOfLevel, insOf, isRow, outsOf, rowName, rowsOf, summaryOf, tidyRows, type Catalog, type Doc, type GNode, type GWire, type Group, type Iface, type Kind, type Level } from "./kinds";
 
   let { id, embedded = false }: { id: number; embedded?: boolean } = $props();
   type Detail = Schemas["GrDetail"];
@@ -66,7 +66,7 @@
   }
   // первый вход новой ноды, куда подходит провод этого типа
   function firstInput(kind: Kind, node: GNode, type: string): string | null {
-    if (type === "event") return insOf(kind, node.data, ifaceOf(node)).find((s) => (s.type ?? "event") === "event")?.name ?? null;
+    if (type === "event") return insOf(kind, node.data, ifaceOf(node)).find((s) => takesEvent(s.type))?.name ?? null;
     if (kind.grow && compatible(type, resolveType(kind, node.data, kind.grow.type))) return `f:${kind.grow.prefix}1`;
     const box = insOf(kind, node.data, ifaceOf(node)).find((s) => s.type && compatible(type, s.type));
     if (box) return box.name;
@@ -385,7 +385,9 @@
     if (!c.sourceHandle || !c.targetHandle || !valid(c)) return;
     const wire = { id: `${c.source}.${c.sourceHandle}-${c.target}.${c.targetHandle}`, from: c.source, out: c.sourceHandle, to: c.target, in: c.targetHandle };
     let wires = level.wires.filter((w) => w.id !== wire.id);
-    if (typeAt(wire.to, "in", wire.in) !== "event") wires = wires.filter((w) => !(w.to === wire.to && w.in === wire.in));      // во вход данных — один провод
+    const srcType = typeAt(wire.from, "out", wire.out) || "event";
+    if (typeAt(wire.to, "in", wire.in) !== "event")       // во вход данных — один провод; во «Когда» — потоки или одно значение
+      wires = wires.filter((w) => !(w.to === wire.to && w.in === wire.in && (srcType !== "event" || (typeAt(w.from, "out", w.out) || "event") !== "event")));
     setLevel({ nodes: level.nodes.map((n) => (n.id === wire.to ? named(n, wire) : n)), wires: [...wires, wire] });
   }
   // провод в пустую подстановку шаблона: имя по подписи выхода («игрок», «машина»), его можно поправить

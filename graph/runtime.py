@@ -53,9 +53,16 @@ class Doc:
             self.into[(dst, inp)] = (src, out)
             if inp.startswith("f:"):
                 self.refs[(dst, inp[2:])] = (src, out)
+            elif self._value_into(src, out, dst, inp):           # во вход потока пришло значение («Когда»: условие)
+                self.refs[(dst, inp)] = (src, out)
             else:
                 self.flow.setdefault((src, out), []).append((dst, inp))
                 self.fed.add(dst)
+
+    def _value_into(self, src, out, dst, inp):
+        kind, src_kind = self.kind(dst), self.kind(src)
+        return (kind is not None and src_kind is not None and inp in kind.in_types
+                and N.sock_type(src_kind, self.data(src), "out", out) != N.EVENT)
 
     def next(self, node_id, out):
         return list(self.flow.get((node_id, out), []))
@@ -206,9 +213,12 @@ def rebuild_starts(graph):
             event = N.event_of(kind, out)
             if event:
                 rows.append(Start(graph=graph, node=node_id, out=out, event=event))
+    from graph import offers
+
     with transaction.atomic():
         Start.objects.filter(graph=graph).delete()
         Start.objects.bulk_create(rows)
+        offers.declare(graph, doc)
     return rows
 
 
@@ -410,6 +420,10 @@ def value_of(run, doc, node_id, out, depth=0):
         if value in (None, "") and sock.fallback:
             value = data.get(sock.fallback)
         return value
+    if kind.name == "act:offer.open":                 # возможность — сама нода
+        from graph import offers
+
+        return offers.key(run.graph, node_id) if out == "offer" else None
     if kind.name in N.PLACEMENT_ACTS or kind.name in N.MACHINE_ACTS:    # что сделало действие: запомнено при выполнении
         return (((run.state or {}).get("vals") or {}).get(node_id) or {}).get(out)
     get = lambda name: input_of(run, doc, node_id, name, depth + 1)       # noqa: E731
@@ -427,6 +441,8 @@ def value_of(run, doc, node_id, out, depth=0):
             return entities.account(run, kind, {f.name: get(f.name) for f in kind.fields}, out)
         if kind.name == "ent:layer":
             return entities.layer(run, kind, {f.name: get(f.name) for f in kind.fields}, out)
+        if kind.name == "ent:offer":
+            return entities.offer(run, kind, {f.name: get(f.name) for f in kind.fields}, out)
         return entities.read(run, kind, get(kind.fields[0].name), out)
     if kind.group != N.DATA:
         return None
@@ -881,6 +897,10 @@ def _execute(run, doc, node_id, sock):
         return _placement_act(run, doc, node_id, kind)
     if name in N.MACHINE_ACTS:
         return _machine_act(run, node_id, kind, data)
+    if name in N.OFFER_ACTS:
+        from graph import offers
+
+        return offers.act(run, node_id, kind, data)
     if kind.group == N.ACTION:
         return _action(run, doc, node_id, kind)
     if name in ("reroute", "stage"):

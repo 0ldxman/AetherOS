@@ -36,31 +36,55 @@ def mount(machine, volume, path, order=0):
 
 
 def demo_conversation():
-    """Переписка с охраной порта: игрок пишет первым, называет пароль из door.bin и выбирает док; ошибки ведут дальше."""
-    from mail.models import Conversation, Persona, Step, Variant
+    """Переписка с охраной порта сценарием-графом: игрок пишет первым, называет пароль из door.bin и выбирает док; ошибки ведут дальше."""
+    from graph import runtime
+    from graph.models import Graph
+    from mail.models import Persona
 
     def letter(slug, subject, body):
         return Item.objects.get_or_create(slug=slug, defaults={
             "name": f"{slug}.msg", "format": "msg", "body": f"From: guard@aether-core\nTo: {{to}}\nSubject: {subject}\nX-Label: security\n\n{body}\n"})[0]
 
-    guard, _ = Persona.objects.get_or_create(address="guard@aether-core", defaults={"name": "Harbor security"})
-    talk, made = Conversation.objects.get_or_create(slug="harbor-door", defaults={"persona": guard, "title": "Dock access"})
-    if not made:
+    Persona.objects.get_or_create(address="guard@aether-core", defaults={"name": "Harbor security"})
+    if Graph.objects.filter(slug="harbor-door").exists():
         return
-    hello = Step.objects.create(conversation=talk, name="hello", order=0, opening=True)
-    ask = Step.objects.create(conversation=talk, name="ask", order=1, letter=letter("guard-ask", "Identify yourself", "State the door password and the dock you need."))
-    Step.objects.create(conversation=talk, name="open", order=2, letter=letter("guard-open", "Access granted", "Dock 7 confirmed. The gate is open."))
-    Step.objects.create(conversation=talk, name="closed", order=3, letter=letter("guard-closed", "Access denied", "Too many errors. This address is blocked."))
+    letter("guard-ask", "Identify yourself", "State the door password and the dock you need.")
+    letter("guard-open", "Access granted", "Dock 7 confirmed. The gate is open.")
+    letter("guard-closed", "Access denied", "Too many errors. This address is blocked.")
     letter("guard-wrong", "Wrong password", "That is not the password. Try again.")
     letter("guard-nine", "Dock 9", "Dock 9 is under repair. Use dock 7 instead.")
-    Variant.objects.create(step=hello, title="Ask for dock access", text="I need access to the docks.", outcomes={"ok": [{"do": "goto", "step": "ask"}]})
-    Variant.objects.create(
-        step=ask, title="Give the password", text="Password: {{hunter2}}. Dock [[7|9]], please.", max_attempts=3,
-        outcomes={"word:7": [{"do": "goto", "step": "open"}, {"do": "flag", "name": "dock-open"}],
-                  "word:9": [{"do": "letter", "item": "guard-nine"}],
-                  "wrong": [{"do": "letter", "item": "guard-wrong"}], "exhausted": [{"do": "goto", "step": "closed"}]},
-    )
-    Variant.objects.create(step=ask, title="Mention the tunnel", text="I know about the tunnel.", need_flags=["tunnel"], closed="mystery")
+
+    def node(node_id, kind, x, y, **data):
+        return {"id": node_id, "type": kind, "x": x, "y": y, "data": data}
+
+    def wire(src, out, dst, inp="in"):
+        return {"from": src, "out": out, "to": dst, "in": inp}
+
+    guard = {"address": "guard@aether-core"}
+    nodes = [
+        node("yes", "boolean", 0, 0, value=True),
+        node("hello", "act:offer.open", 220, 0, mode="new", title="Ask for dock access", text="I need access to the docks.", **guard),
+        node("asked", "on:offer.used", 0, 260, offer="harbor-door:hello", repeat="always"),
+        node("ask", "act:mail", 260, 260, variant="player", item="guard-ask"),
+        node("password", "act:offer.open", 520, 260, mode="reply", title="Give the password", text="Password: {{hunter2}}. Dock [[7|9]], please.",
+             attempts=3, group="ask", **guard),
+        node("tunnel", "act:offer.open", 780, 260, mode="reply", title="Mention the tunnel", text="I know about the tunnel.",
+             condition="tag:tunnel", group="ask", **guard),
+        node("seven", "on:offer.used", 0, 520, offer="harbor-door:password", word="7", repeat="always"),
+        node("open", "act:mail", 260, 520, variant="player", item="guard-open"),
+        node("flag", "act:tag", 520, 520, variant="on", owner="player", name="dock-open"),
+        node("nine", "on:offer.used", 0, 700, offer="harbor-door:password", word="9", repeat="always"),
+        node("repair", "act:mail", 260, 700, variant="player", item="guard-nine"),
+        node("wrong", "on:offer.used", 0, 880, offer="harbor-door:password", repeat="always"),
+        node("again", "act:mail", 260, 840, variant="player", item="guard-wrong"),
+        node("closed", "act:mail", 260, 960, variant="player", item="guard-closed"),
+    ]
+    wires = [wire("yes", "value", "hello"), wire("asked", "ok", "ask"), wire("ask", "next", "password"), wire("password", "next", "tunnel"),
+             wire("seven", "ok", "open"), wire("open", "next", "flag"), wire("nine", "ok", "repair"), wire("repair", "next", "password"),
+             wire("wrong", "wrong", "again"), wire("wrong", "exhausted", "closed")]
+    graph = Graph.objects.create(slug="harbor-door", title="Dock access", active=True, doc={"nodes": nodes, "wires": wires},
+                                 note="Охрана порта: пароль hunter2 лежит в door.bin; док 9 на ремонте, нужен 7.")
+    runtime.rebuild_starts(graph)
 
 
 def demo_news():

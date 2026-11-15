@@ -1,5 +1,5 @@
 <script lang="ts">
-  // Почта: персонажи мира с адресами и их сценарии переписки. Персонаж правится здесь, сценарий открывается картой шагов.
+  // Почта: адреса персонажей мира. Варианты ответа игрока — возможности сценариев (нода «Возможность: Открыть» в графе).
   import { onMount } from "svelte";
   import { api, problem, type Schemas } from "../lib/api";
   import Dialog from "../lib/Dialog.svelte";
@@ -10,7 +10,6 @@
   import { canAct, canEdit } from "../lib/me.svelte";
   import { go } from "../lib/router.svelte";
   import { SharedForm } from "../lib/shared.svelte";
-  import { slugify } from "../lib/slug";
   import { toast } from "../lib/toast.svelte";
 
   let { id }: { id: number | null } = $props();
@@ -22,9 +21,8 @@
   let base = $state<Form | null>(null);
   let saved = $state("");
   let busy = $state(false);
-  let dialog = $state<"" | "persona" | "talk">("");
-  let draft = $state({ address: "", name: "", title: "", slug: "" });
-  let slugTouched = false;
+  let dialog = $state<"" | "persona">("");
+  let draft = $state({ address: "", name: "" });
 
   const editable = canEdit("mail");
   const persona = $derived(personas.find((p) => p.id === id) ?? null);
@@ -61,8 +59,7 @@
 
   async function remove() {
     if (!persona) return;
-    const n = persona.conversations.length;
-    if (!(await ask(`Удалить персонажа ${persona.address}?`, n ? `Вместе с ним удалятся сценарии (${n}).` : "Письма на его адрес будут возвращаться от MAILER-DAEMON.", "Удалить персонажа"))) return;
+    if (!(await ask(`Удалить персонажа ${persona.address}?`, "Письма на его адрес будут возвращаться от MAILER-DAEMON.", "Удалить персонажа"))) return;
     const { error } = await api.DELETE("/studio/api/mail/personas/{persona_id}", { params: { path: { persona_id: persona.id } } });
     if (error) return toast(problem(error), "error");
     toast("Персонаж удалён.");
@@ -76,20 +73,6 @@
     dialog = "";
     go(`/mail/personas/${data.id}`);
   }
-
-  async function createTalk() {
-    if (!persona) return;
-    const { data, error } = await api.POST("/studio/api/mail/conversations", { body: { persona: persona.id, title: draft.title, slug: draft.slug } });
-    if (error || !data) return toast(problem(error, "Не создалось."), "error");
-    dialog = "";
-    go(`/mail/${data.id}`);
-  }
-
-  function openTalkDialog() {
-    draft = { ...draft, title: "", slug: "" };
-    slugTouched = false;
-    dialog = "talk";
-  }
 </script>
 
 <ListDetail title="Почта">
@@ -97,7 +80,7 @@
     {#each personas as p (p.id)}
       <a class="item" class:on={p.id === id} href={`#/mail/personas/${p.id}`}>
         <span>{p.name || p.address}</span>
-        <span class="muted small">{p.name ? p.address : ""}{p.conversations.length ? `${p.name ? " · " : ""}сценариев ${p.conversations.length}` : ""}</span>
+        <span class="muted small">{p.name ? p.address : ""}</span>
       </a>
     {:else}
       {#if loaded}<p class="muted small pad-s">Персонажей пока нет.</p>{/if}
@@ -132,18 +115,8 @@
         <label class="wide"><span class="label">Заметка автора</span><textarea class="field" rows="3" bind:value={form.note} disabled={!editable} placeholder="Кто это, как игрок узнаёт адрес"></textarea></label>
       </div>
 
-      <div class="talks">
-        <div class="talks-head"><h3>Сценарии переписки</h3>{#if editable}<button class="btn" onclick={openTalkDialog}>+ Сценарий</button>{/if}</div>
-        {#each persona.conversations as c (c.id)}
-          <a class="talk" href={`#/mail/${c.id}`}>
-            <b>{c.title}</b>
-            <span class="muted mono small">mail {c.slug}</span>
-            <span class="muted small">шагов {c.steps}</span>
-          </a>
-        {:else}
-          <p class="muted small">Сценариев нет: на письма игрока персонаж не отвечает.</p>
-        {/each}
-      </div>
+      <p class="muted small">Что игрок может ответить этому адресу, задаёт сценарий: нода «Возможность: Открыть» (адрес или персонаж),
+        а чем кончился ответ — «Возможность: Использована».</p>
     </section>
   {/if}
 </ListDetail>
@@ -152,11 +125,6 @@
   <Dialog title="Новый персонаж" confirm="Создать" onsubmit={createPersona} onclose={() => (dialog = "")}>
     <label><span class="label">Адрес</span><input class="field mono" bind:value={draft.address} placeholder="guard@aether-core" /></label>
     <label><span class="label">Имя (необязательно)</span><input class="field" bind:value={draft.name} /></label>
-  </Dialog>
-{:else if dialog === "talk"}
-  <Dialog title="Новый сценарий" confirm="Создать" onsubmit={createTalk} onclose={() => (dialog = "")}>
-    <label><span class="label">Название</span><input class="field" bind:value={draft.title} oninput={() => { if (!slugTouched) draft.slug = slugify(draft.title); }} placeholder="Доступ к докам" /></label>
-    <label><span class="label">Идентификатор для хука mail</span><input class="field mono" bind:value={draft.slug} oninput={() => (slugTouched = true)} placeholder="harbor-door" /></label>
   </Dialog>
 {/if}
 
@@ -167,7 +135,6 @@
   .detail { display: flex; flex-direction: column; gap: 18px; padding: 20px 32px 40px; max-width: 860px; }
   .head { display: flex; align-items: center; gap: 10px; }
   h2 { margin: 0; font-size: 20px; }
-  h3 { margin: 0; font-size: 14px; }
   .spacer { flex: 1; }
   .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
   .wide { grid-column: 1 / -1; }
@@ -175,8 +142,4 @@
   textarea { resize: vertical; font: inherit; }
   .mono { font-family: var(--mono); }
   .small { font-size: 12px; margin: 0; }
-  .talks { display: flex; flex-direction: column; gap: 8px; }
-  .talks-head { display: flex; align-items: center; justify-content: space-between; }
-  .talk { display: grid; grid-template-columns: 1fr auto auto; gap: 14px; align-items: baseline; padding: 10px 14px; border: 1px solid var(--line-soft); border-radius: var(--radius); color: var(--text); }
-  .talk:hover { background: var(--panel); text-decoration: none; border-color: var(--line); }
 </style>

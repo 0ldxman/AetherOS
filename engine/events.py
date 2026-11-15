@@ -17,7 +17,6 @@ NAMES = {
     "layer.attempt": "Неверная попытка снять слой",
     "layer.failed": "Попытки снять слой кончились",
     "layer.added": "Файлу добавлен слой",
-    "mail.sent": "Написал персонажу",
     "air.sent": "Передача в эфир",
     "forum.posted": "Написал на форуме",
     "machine.login": "Вошёл на машину",
@@ -47,6 +46,7 @@ NAMES = {
     "file.purged": "Стёр файл насовсем",
     "value.tag": "Тег изменился",
     "value.count": "Счётчик изменился",
+    "offer.used": "Использовал возможность",
 }
 
 
@@ -60,7 +60,6 @@ FIELDS = {                                  # какие подробности 
     "layer.attempt": ("path", "layer", "id", "left", "given"),
     "layer.failed": ("path", "layer", "id", "left"),
     "layer.added": ("path", "layer", "id", "left"),
-    "mail.sent": ("to", "conversation", "step", "variant", "result"),
     "air.sent": ("freq", "callsign", "text", "by", "character"),
     "forum.posted": ("section", "topic", "title"),
     "machine.login": (),
@@ -90,6 +89,7 @@ FIELDS = {                                  # какие подробности 
     "file.purged": ("item", "path"),
     "value.tag": ("owner", "thing", "key", "on", "per"),
     "value.count": ("owner", "thing", "key", "value", "delta", "per"),
+    "offer.used": ("offer", "group", "result", "word", "words", "text", "to", "left", "placement"),
 }
 
 
@@ -178,7 +178,7 @@ def describe(event):
         "layer.attempt": lambda: f"{data.get('path', '')} · {data.get('layer', '')}",
         "layer.failed": lambda: f"{data.get('path', '')} · {data.get('layer', '')}",
         "layer.added": lambda: f"{data.get('path', '')} · {data.get('layer', '')}",
-        "mail.sent": lambda: f"{data.get('to', '')} · {data.get('variant', '')} → {data.get('result', '')}".strip(" ·→"),
+        "offer.used": lambda: f"{data.get('offer', '')} → {data.get('result', '')}",
         "air.sent": lambda: f"{data.get('freq', '')} · {data.get('text', '')}",
         "forum.posted": lambda: data.get("title", ""),
         "machine.login": lambda: "",

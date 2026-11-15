@@ -36,6 +36,7 @@ export const TYPES: Record<string, { label: string; color: string; thing?: boole
   world_flag: { label: "Метка мира", color: "#ff8f6b", thing: true },
   counter: { label: "Счётчик", color: "#8fb3ff", thing: true },
   moment: { label: "Момент", color: "#d4d27a", thing: true },
+  offer: { label: "Возможность", color: "#e3b8f5", thing: true },
 };
 // списки: «list:<тип элемента>», «list:any» — вход, которому подходит любой список; @T и @list — по «Типу элементов» ноды.
 // «many:<тип>» — одно значение или список; «a|b» — подходит любой из типов (сокет в цветах всех)
@@ -43,6 +44,7 @@ export const isList = (type: string | undefined) => !!type && type.startsWith("l
 export const isMany = (type: string | undefined) => !!type && type.startsWith("many:");
 export const elementOf = (type: string) => (isList(type) || isMany(type) ? type.slice(5) : type);
 export const basesOf = (type: string) => elementOf(type).split("|");
+export const takesEvent = (type: string | undefined) => !type || basesOf(type).includes("event");
 export const typeColor = (type: string) => (type === "list:any" ? "#c9ccd2" : TYPES[basesOf(type)[0]]?.color ?? TYPES.event.color);
 export const typeColors = (type: string) => (type === "list:any" ? ["#c9ccd2"] : basesOf(type).map((b) => TYPES[b]?.color ?? TYPES.event.color));
 export function typeLabel(type: string | undefined): string {
@@ -78,6 +80,8 @@ export function inferred(kind: Kind, data: Record<string, unknown>, fed: Record<
 // Можно ли вести провод из выхода типа src во вход типа dst (та же логика, что graph/nodes.compatible)
 export function compatible(src: string, dst: string): boolean {
   if (src === dst) return true;
+  const bases = basesOf(dst);
+  if (bases.includes("event") && bases.length > 1) return src === "event" || compatible(src, bases.filter((b) => b !== "event").join("|"));
   if (src === "event" || dst === "event") return false;
   if (dst === "list:any") return isList(src) || isMany(src);
   if (isList(src) && !isList(dst) && !isMany(dst)) return dst === "text";
@@ -118,7 +122,7 @@ function many(kind: Kind, data: Record<string, unknown>, side: string): Sock[] {
 // iface: сокеты группы или вложенного сценария (из определения группы или списка сценариев)
 export function insOf(kind: Kind, data: Record<string, unknown>, iface: Iface | null = null): Sock[] {
   if (BOXES.includes(kind.name)) return iface?.inputs ?? [];
-  return [...kind.ins.map((name) => ({ name, label: "", type: "event" })), ...many(kind, data, "in")];
+  return [...kind.ins.map((name) => ({ name, label: "", type: kind.in_types?.[name] ?? "event" })), ...many(kind, data, "in")];
 }
 
 // поля ноды, у которых есть вход (тип), и поля-параметры (выбор режима) — как в Blender
@@ -130,7 +134,7 @@ export function sockType(kind: Kind, data: Record<string, unknown>, side: "in" |
   if (BOXES.includes(kind.name)) return ((side === "in" ? iface?.inputs : iface?.outputs) ?? []).find((s) => s.name === name)?.type ?? "event";
   if (kind.name === "group_in" || kind.name === "group_out") return named(data).find((s) => s.name === name)?.type ?? "event";
   if (side === "in") {
-    if (!name.startsWith("f:")) return "event";
+    if (!name.startsWith("f:")) return kind.in_types?.[name] ?? "event";
     const field = kind.fields.find((f) => f.name === name.slice(2));
     return resolveType(kind, data, field ? field.socket : isRow(kind, name.slice(2)) ? kind.grow!.type : "");
   }

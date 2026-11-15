@@ -75,6 +75,7 @@
     data.onfield(grow!.field, next);
   }
   const flowLabel = $derived(isNoun ? "Ждать с" : "Когда");
+  const flowType = $derived(kind.in_types?.in ?? "event");
   const shape = $derived([ins.map((s) => s.name), outs.map((s) => s.name), fields.map((f) => f.name), rows.map((r) => r.id), data.waiting, hide, flowIn].join("|"));
   const update = useUpdateNodeInternals();
   $effect(() => {
@@ -134,8 +135,8 @@
 
   {#if beside}
     <div class="row both" class:used={data.usedIn.includes("in") || data.used.includes(beside.name)}>
-      <span class="half in" class:used={data.usedIn.includes("in")} data-tip={inTip("in", flowLabel, "event")}>
-        <Handle type="target" position={Position.Left} id="in" class="sock" style="--c: {TYPES.event.color}" />{flowLabel}
+      <span class="half in" class:used={data.usedIn.includes("in")} data-tip={inTip("in", flowLabel, flowType)}>
+        <Handle type="target" position={Position.Left} id="in" class="sock" {...paint(flowType)} />{flowLabel}
       </span>
       <span class="half out" class:used={data.used.includes(beside.name)} data-tip={outTip(beside.name, beside.label, beside.type)}>
         {beside.label}<Handle type="source" position={Position.Right} id={beside.name} class="sock" {...paint(beside.type ?? 'event')} />
@@ -151,8 +152,8 @@
 
 
   {#if flowIn && !beside}
-    <div class="row in" class:used={data.usedIn.includes("in")} data-tip={inTip("in", flowLabel, "event")}>
-      <Handle type="target" position={Position.Left} id="in" class="sock" style="--c: {TYPES.event.color}" />
+    <div class="row in" class:used={data.usedIn.includes("in")} data-tip={inTip("in", flowLabel, flowType)}>
+      <Handle type="target" position={Position.Left} id="in" class="sock" {...paint(flowType)} />
       <span>{flowLabel}</span>
     </div>
   {/if}

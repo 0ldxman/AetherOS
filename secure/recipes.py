@@ -70,20 +70,10 @@ def split(result, count, consume=False):
 
 
 def sources(item):
-    """Откуда игрок получит ключ: [(вид, где)] — блок в файле, исход письма, исход ответчика эфира."""
+    """Откуда игрок получит ключ: [(вид, где)] — блок в файле, исход ответчика эфира."""
     from filesystem.models import ItemKey
 
     found = [("файл", link.item.slug) for link in ItemKey.objects.filter(key=item).select_related("item")]
-    try:
-        from mail.models import Variant
-
-        for variant in Variant.objects.select_related("step__conversation"):
-            for actions in (variant.outcomes or {}).values():
-                if any(action.get("do") == "key" and action.get("slug") == item.slug for action in actions or []):
-                    found.append(("письмо", f"{variant.step.conversation} · шаг {variant.step.name}"))
-                    break
-    except Exception:                                       # noqa: BLE001 — почта необязательна
-        pass
     from air.models import Responder
 
     for responder in Responder.objects.select_related("station"):
