@@ -557,7 +557,7 @@ LEGACY = {"flag", "unflag", "world_flag", "world_unflag", "world_count", "player
 RENAMED = {
     "net_node": "Сетевой сервер: Изменить узел", "file_delete": "Объект: Удалить у игрока", "kick": "Игрок: Выбросить из сессии",
     "notify": "Экран: Уведомление", "ticker": "Экран: Бегущая строка", "windows": "Экран: Окна ошибок", "open_window": "Экран: Окно с адресом",
-    "blackout": "Экран: Чёрный экран", "scene": "Экран: Сцена", "air": "Эфир: Передать", "news": "Новости: Опубликовать",
+    "blackout": "Экран: Чёрный экран", "scene": "Экран: Сцена", "air": "Персонаж: Передать в эфир", "news": "Новости: Опубликовать",
 }
 _OWNER = ("owner", "who", "character", "machine", "server", "item", "scope", "for", "name")
 CHOICES = (
@@ -568,9 +568,9 @@ CHOICES = (
                                      ("unblock", "Снять блокировку", "account", {"unblock": True}, ("host", "login", "scope")),
                                      ("password", "Сменить пароль", "account", {}, ("host", "login", "password")))),
     ("terminal", "Терминал: Вывести", (("text", "Текст", "terminal_text", {}, ("text",)), ("scene", "Сцена", "terminal_scene", {}, ("scene",)))),
-    ("mail", "Почта: Прислать письмо", (("player", "Игроку", "letter", {}, ("item", "delay")),
-                                       ("all", "Всем", "letter_all", {}, ("item", "machines", "systems")))),
-    ("forum", "Форум: Написать", (("new", "Новая тема", "forum", {"mode": "new"}, ("section", "character", "title", "text")),
+    ("mail", "Персонаж: Отправить письмо", (("player", "Отправить письмо игроку", "letter", {}, ("item", "delay")),
+                                            ("all", "Отправить письмо всем", "letter_all", {}, ("item", "machines", "systems")))),
+    ("forum", "Персонаж: Написать на форум", (("new", "Новая тема", "forum", {"mode": "new"}, ("section", "character", "title", "text")),
                                   ("append", "Ответ в тему", "forum", {"mode": "append"}, ("section", "character", "title", "text")))),
     ("moment", "Момент: Изменить статус", (("start", "Начать", "moment_start", {}, ("moment",)), ("end", "Закончить", "moment_end", {}, ("moment",)))),
     ("tag", "Тег: Изменить", (("on", "Поставить", "tag", {"mode": "on"}, _OWNER), ("off", "Снять", "tag", {"mode": "off"}, _OWNER))),
@@ -578,6 +578,7 @@ CHOICES = (
                                     ("set", "Задать", "count", {"mode": "set"}, _OWNER + ("value",)))),
 )
 CHOSEN = {spec for _, _, variants in CHOICES for _, _, spec, _, _ in variants}
+FIXED_TITLE = {"forum"}                     # заголовок не меняется по выбору
 
 
 def active(kind, data, name):
@@ -641,7 +642,7 @@ def _choice(key, label, variants):
         when[name] = rule if len(rule) > 1 else rule[0]
     choice = Field("variant", "Действие", "select", "", False, tuple((value, title) for value, title, *_ in variants))
     register(Kind(f"act:{key}", label, ACTION, "", (choice, *fields), (Sock("next", "Сделано"), Sock("fail", "Не вышло")),
-                  title="variant", when=when,
+                  title="" if key in FIXED_TITLE else "variant", when=when,
                   variants={value: (REGISTRY[spec_name], fixed) for value, _, spec_name, fixed, _ in variants}))
 
 
@@ -1088,7 +1089,7 @@ def sockets(kind, data, side, iface=None):
     return names
 
 
-SPACES = ("Машина", "Учётка", "Сетевой сервер", "Терминал", "Объект", "Размещение", "Слой объекта", "Игрок", "Экран", "Почта", "Эфир", "Форум", "Новости",
+SPACES = ("Машина", "Учётка", "Сетевой сервер", "Терминал", "Объект", "Размещение", "Слой", "Игрок", "Экран", "Персонаж", "Почта", "Эфир", "Форум", "Новости",
           "Момент", "Тег", "Счётчик")                # порядок пространств в меню (как у «Когда»)
 
 
