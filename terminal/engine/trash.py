@@ -76,5 +76,8 @@ def recover(context, path, dest=None):
         for _ in range(layers):
             progress.push("damaged")
         view.set_progress(target, progress.dump())
+        from filesystem.layers import player
+
+        player.added(view, target, layers)
         recovered.append((target, fired))
     return recovered, None

@@ -8,16 +8,8 @@
   import CodeEditor from "../../lib/CodeEditor.svelte";
   import { toast } from "../../lib/toast.svelte";
   import { SharedForm } from "../../lib/shared.svelte";
-  import { go } from "../../lib/router.svelte";
 
   let { item, onsaved }: { item: Schemas["ItemOut"]; onsaved: () => void } = $props();
-
-  // граф попытки снятия слоя (как у «Слой объекта: Попытка снятия» в сценариях): свой у слоя или общий на любой слой
-  async function attemptGraph(number: string) {
-    const { data, error } = await api.GET("/studio/api/world/graphs/owned", { params: { query: { kind: "layer", key: `${item.slug}#${number}`, create: true } } });
-    if (error || !data?.id) return toast(problem(error, "Граф не открылся."), "error");
-    go(`/graphs/${data.id}`);
-  }
 
   let saved = $state<Schemas["ProtectionOut"] | null>(null);
   let form = $state({ access: "", state: "" });
@@ -131,9 +123,8 @@
         {:else if preview?.layers.length}
           <ol class="layers">
             {#each preview.layers as layer, i}<li><b class="mono">{layer.name}</b> <span class="muted mono">{PARAMS(layer)}</span>
-              {#if !dirty}<button class="btn ghost small" title="Граф попытки снять этот слой: решает сразу, нет ответа — проверяет сам слой" onclick={() => attemptGraph(String(i + 1))}>Граф попытки</button>{/if}</li>{/each}
+</li>{/each}
           </ol>
-          {#if !dirty}<button class="btn ghost small" title="Граф попытки на любой слой этого объекта (если у слоя нет своего)" onclick={() => attemptGraph("*")}>Граф попытки: любой слой</button>{/if}
         {/if}
       </section>
     </div>

@@ -244,7 +244,17 @@ def _thing(value, wanted):
     return not wanted or _same(value, wanted)
 
 
+def same_layer(event, path, d, wanted):
+    """Слой события — wanted: «…#c2» — этот слой, без «#» — любой слой этого размещения."""
+    head, mark, number = str(wanted or "").rpartition("#")
+    if not mark:
+        return same_placement(event, path, wanted)
+    return same_placement(event, path, head) and str(d.get("id") or "") == number
+
+
 def match_one(how, value, d, event, wanted):
+    if how == "layer":
+        return same_layer(event, value, d, wanted)
     if how == "thing":
         return _same(value, wanted)
     if how == "item":
@@ -262,7 +272,7 @@ def _match(**rules):
                 continue
             value = d.get(key, "")
             wants = list(wanted) if isinstance(wanted, (list, tuple)) else [wanted]       # список — подходит любой
-            if how in ("thing", "item", "placement") and len(wants) > 1:
+            if how in ("thing", "item", "placement", "layer") and len(wants) > 1:
                 if not any(match_one(how, value, d, event, one) for one in wants):
                     return False
                 continue
@@ -282,6 +292,10 @@ def _match(**rules):
             if how == "via" and wanted != "any" and value != wanted:
                 return False
             if how == "placement" and not same_placement(event, value, wanted):
+                return False
+            if how == "layer" and not same_layer(event, value, d, wanted):
+                return False
+            if how == "same" and not _same(value, wanted):
                 return False
         return True
     return match
@@ -345,6 +359,21 @@ _when("on:placement.appeared", "Размещение: Появилось",
       _match(placement=("path", "placement"), item=("item", "item"), via=("via", "via"), path=("path", "glob"), machine=("host", "thing")),
       _OBJECT_OUTS + (Sock("from_placement", "Источник", "placement", "from_placement"), Sock("via", "Как", "text", "via")), "{item} {path}",
       covers=_PLACE_COVERS)
+def _layer_types_any():
+    from filesystem.layers.registry import registry
+
+    return (("", "любой"),) + tuple((name, name) for name in registry.names())
+
+
+# слой: что случилось со слоем файла игрока. Провод «Слой» — этот слой, «Размещение» — любой слой этого файла
+_when("on:layer.changed", "Слой: Изменено",
+      (Field("layer", "Слой", "many:layer|placement", "любой"), _OBJECT, Field("type", "Тип", "select", "", False, _layer_types_any()), _PATH, _MACHINE),
+      (Sock("removed", "Снят"), Sock("attempt", "Неверная попытка"), Sock("failed", "Попытки кончились"), Sock("added", "Добавлен")),
+      {"removed": "layer.removed", "attempt": "layer.attempt", "failed": "layer.failed", "added": "layer.added"},
+      _match(layer=("path", "layer"), item=("item", "item"), type=("layer", "same"), path=("path", "glob"), machine=("host", "thing")),
+      (Sock("layer", "Слой", "layer", "layer_key"), Sock("placement", "Размещение", "placement", "placement"), Sock("type", "Тип", "text", "layer"),
+       Sock("given", "Ввёл", "text", "given"), Sock("left", "Осталось слоёв", "number", "left"), Sock("item", "Объект", "item", "item"),
+       _HOST_OUT, _LOGIN_OUT), "{type} {item}", covers={"layer": ("item", "path", "machine")})
 for _name in ("viewed", "deleted", "restored", "changed"):                 # старые: теперь «Размещение: …»
     KINDS[f"on:object.{_name}"] = replace(KINDS[f"on:object.{_name}"], hidden=True)
 
@@ -460,14 +489,6 @@ for _kind, _label in (("net.request", "Сетевой сервер: Попытк
     register(Kind(f"try:{_kind}", _label, NOUN, "{server}", (Field("server", "Сервер", "server", "", True),), (),
                   match=_owned_match(_kind), owned=_kind))
     DATA_OUTS[f"try:{_kind}"] = ()
-_when("attempt:layer", "Попытка", (), (Sock("go", "Попытка"),), {"go": "@attempt"}, None,
-      (Sock("item", "Объект", "item", "item"), Sock("layer", "Слой", "layer", "layer"), Sock("number", "Номер", "number", "number"),
-       Sock("kind", "Тип", "text", "layer_type"), Sock("given", "Ввёл", "text", "given"), Sock("path", "Путь", "text", "path"), _HOST_OUT, _LOGIN_OUT),
-      start_only=True)
-KINDS["attempt:layer"] = replace(KINDS["attempt:layer"], ins=(), hidden=True)
-register(Kind("try:layer", "Слой объекта: Попытка снятия", NOUN, "{layer}", (Field("layer", "Слой", "layer", "слаг#номер", True),), (),
-              match=_owned_match("layer"), owned="layer"))
-DATA_OUTS["try:layer"] = ()
 
 
 # ---------- ход ----------
@@ -676,7 +697,15 @@ register(Kind("act:placement.create", "Размещение: Создать", AC
 DATA_OUTS["act:placement.create"] = (Sock("placement", "Размещение", "many:placement"),)
 for _old in ("act:object.give", "act:object.change", "do:file_delete"):     # теперь «Размещение: Создать / Изменить»
     KINDS[_old] = replace(KINDS[_old], hidden=True)
-PLACEMENT_ACTS = ("act:placement", "act:placement.create")
+register(Kind("act:layer", "Слой: Изменить", ACTION, "{layer}", (
+    Field("variant", "Действие", "select", "", False, (("remove", "Снять"), ("quiet", "Снять тихо"), ("add", "Добавить слой"), ("reset", "Вернуть все"),
+                                                       ("attempts", "Сбросить попытки"))),
+    Field("layer", "Слой", "many:layer|placement", "слой или размещение (его верхний слой)", True),
+    Field("type", "Тип", "select", "", False, _layer_types_any()[1:]), Field("args", "Параметры", "text", "как в описании: пароль, кодировка…"),
+), _ACT_OUTS, title="variant", when={"type": ("variant", ("add",)), "args": ("variant", ("add",))}, follows={"layer": "layer"}))
+DATA_OUTS["act:layer"] = (Sock("layer", "Слой", "many:layer"),)
+KINDS["act:layer.change"] = replace(KINDS["act:layer.change"], hidden=True)                # теперь «Слой: Изменить»
+PLACEMENT_ACTS = ("act:placement", "act:placement.create", "act:layer")
 
 
 # ---------- пояснения (подсказки на холсте, как в Blender) ----------
@@ -764,13 +793,12 @@ HELP = {
     "act:mail": "Готовое письмо: игроку в ящик учётки события (можно с задержкой) или всем при открытии почты.",
     "act:forum": "Запись на форуме от системы или персонажа: новая тема или ответ в тему с таким заголовком.",
     "act:moment": "Начать или закончить момент мира сейчас.",
-    "ent:layer": "Слой объекта: текущий для игрока (верхний неснятый), верхний, последний, по номеру или по типу. "
-                 "Выход «Слой» подключают к «Слой объекта: Попытка снятия»; текущий — значит любой слой объекта.",
+    "ent:layer": "Слой файла игрока (провод с «Размещение → Слои» или события слоя): тип, индекс (1 — верхний), снят ли, сколько попыток осталось (-1 — без ограничения), добавлен ли поверх описания, чьё размещение.",
+    "on:layer.changed": "Со слоем файла игрока что-то случилось: снят, неверная попытка, попытки кончились, добавлен поверх. Провод «Слой» — этот слой, «Размещение» — любой слой файла; иначе фильтры: объект, тип, путь, машина.",
+    "act:layer": "Сделать со слоем: снять (как игрок — хуки срабатывают; не верхний — вместе со всем, что над ним), снять тихо (без хуков), добавить слой поверх (тип и параметры как в описании), вернуть все слои, сбросить попытки. Размещение — его верхний слой.",
     "try:net.request": "Запрос к выбранному серверу (nreq). Tab — граф попытки сервера; выходы — сокеты «Выхода» внутри.",
     "try:net.download": "Скачивание с выбранного сервера (nget). Tab — граф попытки сервера; выходы — сокеты «Выхода» внутри.",
-    "try:layer": "Попытка снять слой: граф этого слоя (или любого слоя объекта, если слой текущий). Выходы — сокеты «Выхода» внутри.",
     "attempt:server": "Игрок обращается к серверу: подробности попытки. Дальше проверки и действия, конец — «Ответить».",
-    "attempt:layer": "Игрок снимает слой: подробности попытки (что ввёл). «Ответить: впустить» снимает слой без проверки.",
     "ent:placement": "Размещение — файл в виде игрока: машина и путь (пусто «Игрок» — игрок хода) или провод «Размещение». "
                      "Свойства — как сейчас: есть ли файл, какой в нём объект, в корзине ли.",
     "find": "Размещения игрока на его машинах: с объектом (пусто — любые файлы), путь по образцу *, вне корзины, в корзине или везде. "
@@ -921,14 +949,11 @@ def _layer_types():
     return tuple((name, name) for name in registry.names())
 
 
-register(Kind("ent:layer", "Слой объекта", ENTITY, "{item}", (
-    Field("mode", "Какой слой", "select", "", False, (("current", "Текущий слой"), ("top", "Верхний слой"), ("last", "Последний слой"),
-                                                     ("number", "Слой по номеру"), ("type", "Слой по типу"))),
-    Field("item", "Объект", "object", "", True), Field("player", "Игрок", "player", "игрок хода"), Field("number", "Номер", "number", "1"),
-    Field("kind", "Тип", "select", "", False, _layer_types()),
-), ins=(), title="mode", when={"player": ("mode", ("current",)), "number": ("mode", ("number",)), "kind": ("mode", ("type",))}))
-DATA_OUTS["ent:layer"] = (Sock("value", "Слой", "layer"), Sock("kind", "Тип", "text"), Sock("number", "Номер", "number"),
-                          Sock("removed", "Снят", "bool"), Sock("left", "Осталось слоёв", "number"))
+# слой — в файле конкретного игрока: «игрок@машина:/путь#c2» (c — слой описания по номеру, a — добавленный поверх)
+register(Kind("ent:layer", "Слой", ENTITY, "{layer}", (Field("layer", "Слой", "layer", "игрок@машина:/путь#c1", True),), ins=()))
+DATA_OUTS["ent:layer"] = (Sock("type", "Тип", "text"), Sock("index", "Индекс", "number"), Sock("removed", "Снят", "bool"),
+                          Sock("attempts", "Осталось попыток", "number"), Sock("added", "Добавленный", "bool"),
+                          Sock("placement", "Размещение", "placement"))
 def _value_kind(name, label, outs):
     from engine.actions import OWNER_FIELDS
 
@@ -945,7 +970,7 @@ register(Kind("ent:placement", "Размещение", ENTITY, "{machine}:{path}
 ), ins=(), covers={"placement": ("machine", "path", "player")}))
 DATA_OUTS["ent:placement"] = (Sock("value", "Размещение", "placement"), Sock("item", "Объект", "item"), Sock("machine", "Машина", "machine"),
                               Sock("path", "Путь", "text"), Sock("name", "Имя", "text"), Sock("exists", "Есть", "bool"),
-                              Sock("trash", "В корзине", "bool"), Sock("edited", "Изменён игроком", "bool"))
+                              Sock("trash", "В корзине", "bool"), Sock("edited", "Изменён игроком", "bool"), Sock("layers", "Слои", "list:layer"))
 register(Kind("find", "Размещение: Найти", ENTITY, "{item} {path}", (
     Field("item", "Объект", "many:object", "любой"), Field("player", "Игрок", "player", "игрок хода"), Field("machine", "Машина", "machine", "любая"),
     Field("path", "Путь", "text", "любой; можно *"),

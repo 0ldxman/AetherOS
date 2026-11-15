@@ -1,4 +1,4 @@
-"""Графы у вещей: как машина решает попытку входа, сервер — запрос, слой — попытку снятия.
+"""Графы у вещей: как машина решает попытку входа, сервер — запрос.
 
 Граф принадлежит вещи (Graph.owner = «вид:номер»), один на вещь и вид попытки. Его открывают из ноды попытки в сценарии
 («Машина: Попытка входа», Tab) или с экрана вещи. Внутри стартовая нода «Попытка» с подробностями, дальше всё, кроме ожиданий,
@@ -13,28 +13,15 @@ KINDS = {
     "machine": ("machine", "Вход на машину", "attempt:machine"),
     "net.request": ("server", "Запрос к серверу", "attempt:server"),
     "net.download": ("server", "Скачивание с сервера", "attempt:server"),
-    "layer": ("object", "Снятие слоя", "attempt:layer"),
 }
 
 
 def owner_of(kind, thing):
-    """«machine:12» по вещи или её ключу (хост, адрес…); у слоя ключ «слаг#номер» или «слаг#*» (любой слой) → «layer:12:3».
-    None — нет такой вещи."""
+    """«machine:12» по вещи или её ключу (хост, адрес…). None — нет такой вещи."""
     from engine import values
 
     if kind not in KINDS:
         return None
-    if kind == "layer":
-        slug, _, number = str(thing or "").partition("#")
-        if number in ("top", "last") or number.startswith("type:"):          # Студия: слой по режиму, номер знает только описание
-            from graph import entities
-
-            mode, _, layer_type = number.partition(":")
-            slug, _, number = entities.layer_key({"item": slug, "mode": mode, "kind": layer_type}).partition("#")
-        pk = values.owner_id("object", slug)
-        if pk is None or not (number == "*" or number.isdigit()):
-            return None
-        return f"layer:{pk}:{number}"
     pk = values.owner_id(KINDS[kind][0], thing)
     return f"{kind}:{pk}" if pk is not None else None
 
@@ -43,10 +30,7 @@ def _label(kind, owner):
     from engine import values
 
     parts = owner.split(":")
-    key = values.owner_key(KINDS[kind][0], int(parts[1]))
-    if kind == "layer":
-        return f"{key}, {'любой слой' if parts[2] == '*' else 'слой ' + parts[2]}"
-    return key
+    return values.owner_key(KINDS[kind][0], int(parts[1]))
 
 
 def find(owner):
@@ -74,11 +58,8 @@ def ensure(kind, thing):
 
 
 def decide(kind, thing, user, *, host="", login="", **data):
-    """Спросить граф вещи о попытке: {"mode": allow|deny|block, "text", "minutes"} или None (решают поля вещи).
-    Слой: сначала граф этого слоя, нет его — граф «любой слой» объекта."""
+    """Спросить граф вещи о попытке: {"mode": allow|deny|block, "text", "minutes"} или None (решают поля вещи)."""
     graph = find(owner_of(kind, thing))
-    if graph is None and kind == "layer":
-        graph = find(owner_of(kind, str(thing).partition("#")[0] + "#*"))
     if graph is None or not graph.active:
         return None
     from graph import runtime
@@ -104,10 +85,6 @@ def thing_of(doc, node_id):
     src_kind = doc.kind(src[0])
     if src_kind is None or src_kind.group != N.ENTITY or not src_kind.fields:
         return ""
-    if src_kind.name == "ent:layer":
-        from graph import entities
-
-        return entities.layer_key(doc.data(src[0]))
     return doc.data(src[0]).get(src_kind.fields[0].name) or ""
 
 

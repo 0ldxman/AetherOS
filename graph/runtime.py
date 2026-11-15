@@ -364,6 +364,8 @@ def capture(run, node_id, event=None, ctx=None):
         for key, path in (("placement", "after"), ("from_placement", "before")):
             if found.get(path) and key not in found:
                 found[key] = f"{user.get_username()}@{found['host']}:{found[path]}"
+        if found.get("id") and found.get("placement") and "layer_key" not in found:          # событие слоя: какой слой
+            found["layer_key"] = f"{found['placement']}#{found['id']}"
     run.state = {**(run.state or {}), "vals": {**((run.state or {}).get("vals") or {}), node_id: found}}
 
 
@@ -676,6 +678,8 @@ def _placement_act(run, doc, node_id, kind):
     from graph import entities
 
     data = resolved(run, doc, node_id)
+    if kind.name == "act:layer":
+        return _layer_act(run, node_id, kind, data)
     raw = data.get("placement")
     many = isinstance(raw, (list, tuple))
     keys = [str(k) for k in _as_list(raw) if str(k or "").strip()]
@@ -728,6 +732,49 @@ def _placement_act(run, doc, node_id, kind):
     value = results if many else (results[0] if results else "")
     run.state = {**(run.state or {}), "vals": {**((run.state or {}).get("vals") or {}), node_id: {"placement": value}}}
     return ["fail"] if failed else ["next"]
+
+
+def _layer_act(run, node_id, kind, data):
+    """«Слой: Изменить» со слоем или размещением (его верхним слоем), одним или списком. «Слой» на выходе — с каким слоем сделано."""
+    from filesystem.layers import player
+    from graph import entities
+
+    raw = data.get("layer")
+    many = isinstance(raw, (list, tuple))
+    mode = data.get("variant") or "remove"
+    results, failed = [], False
+    keys = [str(k) for k in _as_list(raw) if str(k or "").strip()]
+    for key in keys:
+        head, mark, number = key.rpartition("#")
+        place = entities.parse_placement(head if mark else key, run)
+        if place is None:
+            failed = True
+            continue
+        user, machine, path = place
+        number = number if mark else ""
+        base = entities.placement_key(user, machine.hostname, path)
+        try:
+            view = entities._view(user, machine)
+            if mode in ("remove", "quiet"):
+                path, done = player.remove(view, path, number, quiet=mode == "quiet")
+                number = done[-1] if done else number
+                base = entities.placement_key(user, machine.hostname, path)
+            elif mode == "add":
+                number = player.add(view, path, str(data.get("type") or ""), _fill(str(data.get("args") or ""), run))
+            elif mode == "reset":
+                player.reset(view, path)
+                number = number or player.top_id(view.get(path).state, view.get(path).progress)
+            else:
+                player.reset_attempts(view, path, number)
+                number = number or player.top_id(view.get(path).state, view.get(path).progress)
+        except (player.LayerError, ValueError, PermissionError, FileNotFoundError) as error:
+            _log(run.graph, f"«{N.titled(kind, data)}»: {error}", run.user)
+            failed = True
+            continue
+        results.append(f"{base}#{number}" if number else base)
+    value = results if many else (results[0] if results else "")
+    run.state = {**(run.state or {}), "vals": {**((run.state or {}).get("vals") or {}), node_id: {"layer": value}}}
+    return ["fail"] if failed or not keys else ["next"]
 
 
 def _execute(run, doc, node_id, sock):
@@ -1020,7 +1067,7 @@ def dispatch(event):
 
 
 OUTCOMES = {"machine": ("machine.login", "machine.denied"), "net.request": ("net.request", "net.denied"),       # «как обычно»: чем кончилось,
-            "net.download": ("net.download", "net.denied"), "layer": ("layer.removed", "layer.attempt")}         # когда решила сама вещь
+            "net.download": ("net.download", "net.denied")}                                                     # когда решила сама вещь
 
 
 def _outcome_waits(run, doc, node_id):

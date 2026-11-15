@@ -95,78 +95,42 @@ def value(run, kind, data, out):
     return values.caption(values.COUNT, owner, oid, name, number) if out == "caption" else number
 
 
-def _canonical(slug):
-    """Объект и его слои по описанию (канонический стек, верхний первым)."""
-    from filesystem.layers.compiler import compile_text
-    from filesystem.models import Item
+def parse_layer(text, run=None):
+    """(игрок, машина, путь, номер слоя) из «игрок@машина:/путь#c2». Чего нет — None."""
+    head, _, number = _key(text).rpartition("#")
+    found = parse_placement(head, run) if head else None
+    return (*found, number) if found is not None and number else None
 
-    item = Item.objects.filter(slug=slug).first() if slug else None
-    if item is None or not (item.state or "").strip():
-        return item, []
+
+def _view(user, machine):
+    from filesystem import placements
+
+    return placements._view(user, machine)[0]
+
+
+def layers_of(user, machine, path):
+    """Слои файла игрока (все, со снятыми): [LayerInfo]; файла нет — пусто."""
+    from filesystem.layers import player
+
     try:
-        return item, compile_text(item.state)
-    except Exception:                               # noqa: BLE001 — испорченное описание: слоёв как будто нет
-        return item, []
-
-
-def layer_key(data):
-    """Ключ слоя для графа попытки: «слаг#номер», у «Текущего» — «слаг#*» (любой слой объекта). Нет такого слоя — пусто."""
-    slug = _key(data.get("item"))
-    mode = data.get("mode") or "current"
-    if not slug:
-        return ""
-    if mode == "current":
-        return f"{slug}#*"
-    _, canonical = _canonical(slug)
-    number = 0
-    if mode == "top":
-        number = 1
-    elif mode == "last":
-        number = len(canonical)
-    elif mode == "number":
-        try:
-            number = int(float(str(data.get("number") or 0)))
-        except ValueError:
-            number = 0
-    elif mode == "type":
-        number = next((i + 1 for i, layer in enumerate(canonical) if layer.state.name == data.get("kind")), 0)
-    return f"{slug}#{number}" if 1 <= number <= len(canonical) else ""
+        return player.of(_view(user, machine), path)
+    except (player.LayerError, ValueError):
+        return []
 
 
 def layer(run, kind, data, out):
-    """«Слой объекта»: ключ слоя, его тип и номер, снят ли он у игрока и сколько слоёв у игрока осталось."""
-    from filesystem.copies import copies
-    from filesystem.layers.stack import load_progress
-
-    key = layer_key(data)
-    if not key:
+    """«Слой»: тип, место в стопке, снят ли, сколько попыток осталось, добавлен ли поверх описания, чьё размещение."""
+    found = parse_layer(data.get("layer"), run)
+    if found is None:
         return _blank(kind, out)
-    slug, _, number = key.partition("#")
-    item, canonical = _canonical(slug)
-    user = _player(run, _key(data.get("player")))
-    progress = None
-    if user is not None and item is not None:
-        live = [c for c in copies(user, slug) if not c.trashed]
-        if live:
-            try:
-                progress = load_progress(live[0].progress, item.state)
-            except ValueError:
-                progress = None
-    removed = progress.removed if progress else 0
-    added = progress.added if progress else []
-    if number == "*":
-        if added:
-            position, name = 0, added[0].name
-        elif removed < len(canonical):
-            position, name = removed + 1, canonical[removed].state.name
-        else:
-            position, name = 0, ""
+    user, machine, path, number = found
+    info = next((i for i in layers_of(user, machine, path) if i.id == number), None)
+    if info is None:                                # снятый добавленный слой пропадает
+        props = {"removed": True, "added": number.startswith("a"), "placement": placement_key(user, machine.hostname, path)}
     else:
-        position = int(number)
-        name = canonical[position - 1].state.name
-    found = {"value": key, "kind": name, "number": position, "removed": number != "*" and removed >= position,
-             "left": len(added) + max(0, len(canonical) - removed)}
-    return found.get(out, _blank(kind, out))
+        props = {"type": info.type, "index": info.index, "removed": info.removed, "attempts": -1 if info.attempts_left is None else info.attempts_left,
+                 "added": info.added, "placement": placement_key(user, machine.hostname, path)}
+    return props.get(out, _blank(kind, out))
 
 
 def placement_key(user, host, path):
@@ -201,6 +165,9 @@ def placement(run, kind, data, out):
     props = {"value": placement_key(user, machine.hostname, path), "machine": machine.hostname, "path": path, "name": posixpath.basename(path),
              "exists": copy is not None and not copy.trashed, "trash": copy is not None and copy.trashed, "edited": bool(copy and copy.edited),
              "item": copy.item if copy else ""}
+    if out == "layers":                             # все слои файла, верхний первым (со снятыми)
+        key = props["value"]
+        return [f"{key}#{info.id}" for info in layers_of(user, machine, path)]
     return props.get(out, _blank(kind, out))
 
 
