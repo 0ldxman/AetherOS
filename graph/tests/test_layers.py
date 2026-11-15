@@ -52,7 +52,9 @@ class LayerNodeTests(TestCase):
         self.assertEqual([e.data["id"] for e in Event.objects.filter(name="layer.removed").order_by("pk")], ["c1", "c2"])
 
     def test_add_on_top_then_reset(self):
-        self.assertEqual(self.act("add", layer=KEY, type="damaged"), f"{KEY}#a1")
+        graph = make([node("m", "manual"), node("a", "act:placement", variant="add_layer", placement=KEY, type="damaged")], [wire("m", "fire", "a")],
+                     slug="add")
+        runtime.start_manual(graph, "m", self.ivan)
         layers = self.get([node("p", "ent:placement", placement=KEY)], [], "p", "layers")
         self.assertEqual(layers[0], f"{KEY}#a1")
         self.assertTrue(self.layer(f"{KEY}#a1", "added"))
@@ -61,7 +63,8 @@ class LayerNodeTests(TestCase):
         self.assertTrue(self.layer(f"{KEY}#a1", "removed"))
         self.act("remove", layer=KEY)
         self.assertTrue(self.layer(f"{KEY}#c1", "removed"))
-        self.act("reset", layer=KEY)
+        graph = make([node("m", "manual"), node("a", "act:placement", variant="reset_layers", placement=KEY)], [wire("m", "fire", "a")], slug="reset")
+        runtime.start_manual(graph, "m", self.ivan)
         self.assertFalse(self.layer(f"{KEY}#c1", "removed"))
 
     def test_changed_event_by_layer_or_placement(self):

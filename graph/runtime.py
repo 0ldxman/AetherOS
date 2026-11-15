@@ -675,6 +675,7 @@ def _placement_act(run, doc, node_id, kind):
     import posixpath
 
     from filesystem import placements
+    from filesystem.layers import player
     from graph import entities
 
     data = resolved(run, doc, node_id)
@@ -722,9 +723,16 @@ def _placement_act(run, doc, node_id, kind):
                 new = placements.trash(user, machine, path)
             elif mode == "purge":
                 new = placements.purge(user, machine, path)
+            elif mode in ("add_layer", "reset_layers"):
+                view = entities._view(user, machine)
+                if mode == "add_layer":
+                    player.add(view, path, str(data.get("type") or ""), _fill(str(data.get("args") or ""), run))
+                else:
+                    player.reset(view, path)
+                new = path
             else:
                 new = placements.restore(user, machine, path, _fill(str(data.get("restore_to") or ""), run, keep=("login",)))
-        except (placements.PlacementError, ValueError, PermissionError, FileNotFoundError) as error:
+        except (placements.PlacementError, player.LayerError, ValueError, PermissionError, FileNotFoundError) as error:
             _log(run.graph, f"«{N.titled(kind, data)}»: {error}", run.user)
             failed = True
             continue
@@ -759,11 +767,6 @@ def _layer_act(run, node_id, kind, data):
                 path, done = player.remove(view, path, number, quiet=mode == "quiet")
                 number = done[-1] if done else number
                 base = entities.placement_key(user, machine.hostname, path)
-            elif mode == "add":
-                number = player.add(view, path, str(data.get("type") or ""), _fill(str(data.get("args") or ""), run))
-            elif mode == "reset":
-                player.reset(view, path)
-                number = number or player.top_id(view.get(path).state, view.get(path).progress)
             else:
                 player.reset_attempts(view, path, number)
                 number = number or player.top_id(view.get(path).state, view.get(path).progress)

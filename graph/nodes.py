@@ -677,15 +677,26 @@ def _actions():
 
 _actions()
 
+def _layer_type_names():
+    from filesystem.layers.registry import registry
+
+    return tuple((name, name) for name in registry.names())
+
+
+_LAYER_TYPES = _layer_type_names()
+
 # действия с размещением игрока (filesystem/placements.py): на вход одно размещение или список, выход «Размещение» — где файл теперь
 _ACT_OUTS = (Sock("next", "Сделано"), Sock("fail", "Не вышло"))
 register(Kind("act:placement", "Размещение: Изменить", ACTION, "{placement}", (
     Field("variant", "Действие", "select", "", False, (("move", "Переместить"), ("replace", "Подменить объект"), ("trash", "Удалить в корзину"),
-                                                       ("purge", "Удалить насовсем"), ("restore", "Восстановить"))),
+                                                       ("purge", "Удалить насовсем"), ("restore", "Восстановить"),
+                                                       ("add_layer", "Добавить слой защиты"), ("reset_layers", "Вернуть слои защиты"))),
     Field("placement", "Размещение", "many:placement", "игрок@машина:/путь", True),
     Field("target", "Новый путь", "path", "/путь, новое имя или папка/"), Field("restore_to", "Куда", "path", "на прежнее место"),
     Field("item", "Новый объект", "object", "", True),
-), _ACT_OUTS, title="variant", when={"target": ("variant", ("move",)), "restore_to": ("variant", ("restore",)), "item": ("variant", ("replace",))},
+    Field("type", "Тип слоя", "select", "", False, _LAYER_TYPES), Field("args", "Параметры", "text", "как в описании: пароль, кодировка…"),
+), _ACT_OUTS, title="variant", when={"target": ("variant", ("move",)), "restore_to": ("variant", ("restore",)), "item": ("variant", ("replace",)),
+                                      "type": ("variant", ("add_layer",)), "args": ("variant", ("add_layer",))},
     follows={"placement": "placement"}))
 DATA_OUTS["act:placement"] = (Sock("placement", "Размещение", "many:placement"),)
 register(Kind("act:placement.create", "Размещение: Создать", ACTION, "{item} {path}", (
@@ -698,11 +709,9 @@ DATA_OUTS["act:placement.create"] = (Sock("placement", "Размещение", "
 for _old in ("act:object.give", "act:object.change", "do:file_delete"):     # теперь «Размещение: Создать / Изменить»
     KINDS[_old] = replace(KINDS[_old], hidden=True)
 register(Kind("act:layer", "Слой: Изменить", ACTION, "{layer}", (
-    Field("variant", "Действие", "select", "", False, (("remove", "Снять"), ("quiet", "Снять тихо"), ("add", "Добавить слой"), ("reset", "Вернуть все"),
-                                                       ("attempts", "Сбросить попытки"))),
+    Field("variant", "Действие", "select", "", False, (("remove", "Снять"), ("quiet", "Снять тихо"), ("attempts", "Сбросить попытки"))),
     Field("layer", "Слой", "many:layer|placement", "слой или размещение (его верхний слой)", True),
-    Field("type", "Тип", "select", "", False, _layer_types_any()[1:]), Field("args", "Параметры", "text", "как в описании: пароль, кодировка…"),
-), _ACT_OUTS, title="variant", when={"type": ("variant", ("add",)), "args": ("variant", ("add",))}, follows={"layer": "layer"}))
+), _ACT_OUTS, title="variant", follows={"layer": "layer"}))
 DATA_OUTS["act:layer"] = (Sock("layer", "Слой", "many:layer"),)
 KINDS["act:layer.change"] = replace(KINDS["act:layer.change"], hidden=True)                # теперь «Слой: Изменить»
 PLACEMENT_ACTS = ("act:placement", "act:placement.create", "act:layer")
@@ -712,7 +721,8 @@ PLACEMENT_ACTS = ("act:placement", "act:placement.create", "act:layer")
 
 HELP = {
     "act:placement": "Что-то сделать с файлом игрока: перенести (путь, новое имя или папка/), подменить объект, удалить в корзину или насовсем, "
-                     "вернуть из корзины. На вход — одно размещение или список: с каждым. «Размещение» на выходе — где файл теперь.",
+                     "вернуть из корзины, добавить слой защиты поверх (тип и параметры как в описании), вернуть слои как в описании. "
+                     "На вход — одно размещение или список: с каждым. «Размещение» на выходе — где файл теперь.",
     "act:placement.create": "Создать файл игроку: с объектом — «Добавить» (ключ без пути — в папку секретов), без объекта — свой файл с текстом. "
                             "Куда — размещение или Машина + Путь (+ Игрок, пусто — игрок хода).",
     "manual": "Кнопка автора: запустить ход с игроком или без (мир) из панели ноды. Только старт.",
@@ -795,7 +805,8 @@ HELP = {
     "act:moment": "Начать или закончить момент мира сейчас.",
     "ent:layer": "Слой файла игрока (провод с «Размещение → Слои» или события слоя): тип, индекс (1 — верхний), снят ли, сколько попыток осталось (-1 — без ограничения), добавлен ли поверх описания, чьё размещение.",
     "on:layer.changed": "Со слоем файла игрока что-то случилось: снят, неверная попытка, попытки кончились, добавлен поверх. Провод «Слой» — этот слой, «Размещение» — любой слой файла; иначе фильтры: объект, тип, путь, машина.",
-    "act:layer": "Сделать со слоем: снять (как игрок — хуки срабатывают; не верхний — вместе со всем, что над ним), снять тихо (без хуков), добавить слой поверх (тип и параметры как в описании), вернуть все слои, сбросить попытки. Размещение — его верхний слой.",
+    "act:layer": "Сделать со слоем: снять (как игрок — хуки срабатывают; не верхний — вместе со всем, что над ним), снять тихо (без хуков), "
+                 "сбросить попытки. Размещение — его верхний слой.",
     "try:net.request": "Запрос к выбранному серверу (nreq). Tab — граф попытки сервера; выходы — сокеты «Выхода» внутри.",
     "try:net.download": "Скачивание с выбранного сервера (nget). Tab — граф попытки сервера; выходы — сокеты «Выхода» внутри.",
     "attempt:server": "Игрок обращается к серверу: подробности попытки. Дальше проверки и действия, конец — «Ответить».",
