@@ -22,12 +22,13 @@ class SocketTests(SimpleTestCase):
         self.assertEqual(nodes.sockets(choose, {"rows": [{}, {}, {}]}, "out"), ["r1", "r2", "r3", "else"])
         race = nodes.KINDS["race"]
         self.assertEqual(nodes.sockets(race, {"count": 3}, "in"), ["i1", "i2", "i3"])
-        self.assertIn("timeout", nodes.sockets(nodes.KINDS["on:object.viewed"], {}, "out"))
+        self.assertIn("timeout", nodes.sockets(nodes.KINDS["on:placement.opened"], {}, "out"))
         self.assertNotIn("timeout", nodes.sockets(nodes.KINDS["manual"], {}, "out"))
 
     def test_actions_come_from_engine_without_browser_and_host(self):
         self.assertIn("do:world_flag", nodes.KINDS)
-        self.assertIn("do:key", nodes.KINDS)
+        self.assertIn("do:letter", nodes.KINDS)
+        self.assertNotIn("do:key", nodes.KINDS)                              # теперь «Размещение: Создать»
         self.assertNotIn("do:alert", nodes.KINDS)
         self.assertNotIn("do:goto", nodes.KINDS)
 
@@ -55,11 +56,11 @@ class CheckTests(SimpleTestCase):
         self.assertIn(("x", "неизвестная нода «nope»"), found)
 
     def test_bad_sockets_and_ref(self):
-        doc = {"nodes": [node("m", "manual"), node("f", "on:object.viewed", item="r"), node("a", "do:world_flag", name="x")],
-               "wires": [wire("m", "nope", "a"), wire("f", "item", "a", "f:name")]}
+        doc = {"nodes": [node("m", "manual"), node("f", "on:placement.opened", item="r"), node("a", "do:world_flag", name="x")],
+               "wires": [wire("m", "nope", "a"), wire("f", "placement", "a", "f:name")]}
         found = texts(doc)
         self.assertIn(("m", "нет выхода «nope»"), found)
-        self.assertIn(("a", "«Метка мира» ждёт метку мира, а приходит объект"), found)
+        self.assertIn(("a", "«Метка мира» ждёт метку мира, а приходит размещение"), found)
 
     def test_start_only_with_input_and_cycle(self):
         doc = {"nodes": [node("m", "manual"), node("t", "on:schedule", mode="daily", at="10:00"), node("a", "reroute"), node("b", "reroute")],

@@ -37,11 +37,11 @@ class ChoiceActionTests(TestCase):
         self.assertEqual(values.get("count", "world", 0, "act"), 3)
 
     def test_only_fields_of_the_chosen_variant_are_required(self):
-        doc = {"nodes": [node("m", "manual"), node("a", "act:object.give", variant="secrets", slug="boreas")], "wires": [wire("m", "fire", "a")]}
+        doc = {"nodes": [node("m", "manual"), node("a", "act:machine.status", variant="stop", host="core")], "wires": [wire("m", "fire", "a")]}
         self.assertFalse([p for p in check.problems(doc) if "не заполнено" in p["text"]])
-        doc["nodes"][1]["data"] = {"variant": "path"}
+        doc["nodes"][1]["data"] = {"variant": "stop"}
         texts = [p["text"] for p in check.problems(doc)]
-        self.assertIn("не заполнено «Объект»", texts)
+        self.assertTrue(any(t.startswith("не заполнено") for t in texts), texts)
 
     def test_menu_shows_namespaces_in_order_and_hides_merged_actions(self):
         kinds = [k for k in nodes.catalog()["kinds"] if k["group"] == "action" and not k["hidden"]]

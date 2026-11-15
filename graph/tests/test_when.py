@@ -35,16 +35,16 @@ class WhenTests(TestCase):
         self.assertEqual(counter(), 1)
 
     def test_object_events_and_their_details(self):
-        graph = make([node("w", "on:object.viewed", item="note"), node("a", "do:world_flag")],
-                     [wire("w", "viewed", "a"), wire("w", "path", "a", "f:name")])
+        graph = make([node("w", "on:placement.opened", item="note"), node("p", "ent:placement"), node("a", "act:tag", variant="on")],
+                     [wire("w", "opened", "a"), wire("w", "placement", "p", "f:placement"), wire("p", "path", "a", "f:name")])
         self.assertEqual([p for p in check.problems(graph.doc) if p["level"] == "error"], [])
         emit("file.read", self.ivan, machine="core", login="ivan", path="other", item="x")
         emit("file.read", self.ivan, machine="core", login="ivan", path="seen-it", item="note")
         self.assertTrue(values.on("world", 0, "seen-it"))
 
     def test_object_event_gives_the_placement(self):
-        make([node("w", "on:object.viewed"), node("p", "ent:placement"), node("a", "act:tag", variant="on", owner="world")],
-             [wire("w", "viewed", "a"), wire("w", "placement", "p", "f:placement"), wire("p", "name", "a", "f:name")])
+        make([node("w", "on:placement.opened"), node("p", "ent:placement"), node("a", "act:tag", variant="on", owner="world")],
+             [wire("w", "opened", "a"), wire("w", "placement", "p", "f:placement"), wire("p", "name", "a", "f:name")])
         emit("file.read", self.ivan, machine="core", login="ivan", path="/home/report.txt", item="x")
         self.assertTrue(values.on("world", 0, "report.txt"))
 

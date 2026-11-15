@@ -64,7 +64,7 @@ class PlacementWhenTests(TestCase):
         self.assertTrue(values.on("world", 0, "copied"))
 
     def test_old_object_events_are_hidden_but_work(self):
-        self.assertTrue(nodes.KINDS["on:object.viewed"].hidden)
+        self.assertNotIn("on:object.viewed", nodes.KINDS)
         self.assertFalse(nodes.KINDS["on:placement.changed"].hidden)
         doc = {"nodes": [node("w", "on:placement.changed"), self.tag("x")], "wires": [wire("w", "purged", "t-x")]}
         self.assertEqual([p for p in check.problems(doc) if p["level"] == "error"], [])

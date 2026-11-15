@@ -87,7 +87,7 @@ class StartTests(TestCase):
         self.assertTrue(store.on("world", 0, "alarm"))
 
     def test_account_action_without_machine_goes_to_fail(self):
-        make([node("m", "manual"), node("k", "do:key", slug="boreas"), node("a", "do:world_count", name="c")], [wire("m", "fire", "k"), wire("k", "fail", "a")])
+        make([node("m", "manual"), node("k", "do:letter", item="boreas"), node("a", "do:world_count", name="c")], [wire("m", "fire", "k"), wire("k", "fail", "a")])
         runtime.start_manual(Graph.objects.get(), "m", self.ivan)
         self.assertEqual(counter(), 1)
 
@@ -119,8 +119,8 @@ class WaitTests(TestCase):
 
     def test_past_event_counts(self):
         emit("file.read", self.ivan, path="/r.txt", item="report")
-        graph = make([node("m", "manual"), node("f", "on:object.viewed", item="report", past=True), node("a", "do:world_count", name="c")],
-                     [wire("m", "fire", "f"), wire("f", "viewed", "a")])
+        graph = make([node("m", "manual"), node("f", "on:placement.opened", item="report", past=True), node("a", "do:world_count", name="c")],
+                     [wire("m", "fire", "f"), wire("f", "opened", "a")])
         runtime.start_manual(graph, "m", self.ivan)
         self.assertEqual(counter(), 1)
 

@@ -323,14 +323,7 @@ _when("on:terminal.command", "Терминал: Введена команда",
       (_MACHINE, Field("command", "Команда", "text", "любая; можно *"), Field("args", "Аргументы", "text", "любые; можно *")),
       (Sock("run", "Введена"),), {"run": "command.run"}, _match(machine=("host", "thing"), command=("command", "glob"), args=("args", "glob")),
       (_HOST_OUT, _LOGIN_OUT, Sock("command", "Команда", "text", "command"), Sock("args", "Аргументы", "text", "args")), "{command} {args}")
-_OBJECT_MATCH = _match(item=("item", "item"), path=("path", "glob"), machine=("host", "thing"))
 _PLACE_OUTS = (Sock("placement", "Размещение", "placement", "placement"), _LOGIN_OUT)       # объект, путь, машина — у ноды «Размещение»
-_OBJECT_OUTS = (Sock("placement", "Размещение", "placement", "placement"), Sock("item", "Объект", "item", "item"), Sock("path", "Путь", "text", "path"),
-                _HOST_OUT, _LOGIN_OUT)
-for _name, _label, _out, _event in (("viewed", "Просмотрен", "Открыл", "file.read"), ("deleted", "Удалён", "Удалил", "file.deleted"),
-                                    ("restored", "Восстановлен", "Вернул из корзины", "file.restored"), ("changed", "Изменён", "Сохранил правку", "file.changed")):
-    _when(f"on:object.{_name}", f"Объект: {_label}", (_OBJECT, _PATH, _MACHINE), (Sock(_name, _out),), {_name: _event}, _OBJECT_MATCH, _OBJECT_OUTS,
-          "{item} {path}")
 _when("on:object.got", "Объект: Получен",
       (_OBJECT, Field("via", "Откуда", "select", "", False, (("any", "любым путём"), ("archive", "из письма или архива"), ("forum", "с форума"),
                                                              ("net", "скачан с сервера"), ("xfer", "перенесён с машины"), ("join", "собран из частей"),
@@ -373,8 +366,6 @@ _when("on:layer.changed", "Слой: Изменено",
       _match(layer=("path", "layer"), item=("item", "item"), type=("layer", "same")),
       (Sock("layer", "Слой", "layer", "layer_key"), _LOGIN_OUT, Sock("given", "Ввод игрока", "text", "given")),        # остальное — у «Слоя» и «Размещения»
       "{type} {item}", covers={"layer": ("item",)})
-for _name in ("viewed", "deleted", "restored", "changed"):                 # старые: теперь «Размещение: …»
-    KINDS[f"on:object.{_name}"] = replace(KINDS[f"on:object.{_name}"], hidden=True)
 
 
 def _mail(data, out, event):
@@ -576,11 +567,6 @@ CHOICES = (
     ("account", "Учётка: Изменить", (("block", "Заблокировать", "account", {}, ("host", "login", "scope", "block", "text")),
                                      ("unblock", "Снять блокировку", "account", {"unblock": True}, ("host", "login", "scope")),
                                      ("password", "Сменить пароль", "account", {}, ("host", "login", "password")))),
-    ("object.give", "Объект: Выдать", (("path", "В путь", "file", {}, ("item", "path")), ("secrets", "В секреты (ключ)", "key", {}, ("slug",)))),
-    ("object.change", "Объект: Изменить у игрока", (("replace", "Подменить", "file_change", {"mode": "replace"}, ("path", "item")),
-                                                   ("move", "Переместить", "file_change", {"mode": "move"}, ("path", "target")))),
-    ("layer.change", "Слой объекта: Изменить", (("remove", "Снять верхний", "layer_remove", {}, ("path",)),
-                                                ("reset", "Вернуть все", "file_change", {"mode": "reset"}, ("path",)))),
     ("terminal", "Терминал: Вывести", (("text", "Текст", "terminal_text", {}, ("text",)), ("scene", "Сцена", "terminal_scene", {}, ("scene",)))),
     ("mail", "Почта: Прислать письмо", (("player", "Игроку", "letter", {}, ("item", "delay")),
                                        ("all", "Всем", "letter_all", {}, ("item", "machines", "systems")))),
@@ -705,14 +691,13 @@ register(Kind("act:placement.create", "Размещение: Создать", AC
 ), _ACT_OUTS, covers={"placement": ("machine", "path", "player"), "item": ("text",)}, titled={"item": "Размещение: Добавить"},
     follows={"placement": "placement"}))
 DATA_OUTS["act:placement.create"] = (Sock("placement", "Размещение", "many:placement"),)
-for _old in ("act:object.give", "act:object.change", "do:file_delete"):     # теперь «Размещение: Создать / Изменить»
-    KINDS[_old] = replace(KINDS[_old], hidden=True)
+for _old in ("do:file", "do:key", "do:file_delete", "do:file_change", "do:layer_remove"):     # теперь «Размещение: …» и «Слой: Изменить»
+    KINDS.pop(_old, None)
 register(Kind("act:layer", "Слой: Изменить", ACTION, "{layer}", (
     Field("variant", "Действие", "select", "", False, (("remove", "Снять"), ("quiet", "Снять тихо"), ("attempts", "Сбросить попытки"))),
     Field("layer", "Слой", "many:layer|placement", "слой или размещение (его верхний слой)", True),
 ), _ACT_OUTS, title="variant", follows={"layer": "layer"}))
 DATA_OUTS["act:layer"] = (Sock("layer", "Слой", "many:layer"),)
-KINDS["act:layer.change"] = replace(KINDS["act:layer.change"], hidden=True)                # теперь «Слой: Изменить»
 PLACEMENT_ACTS = ("act:placement", "act:placement.create", "act:layer")
 
 
@@ -730,9 +715,6 @@ HELP = {
     "attempt:machine": "Игрок пытается войти: подробности попытки. Дальше проверки и действия, конец — «Ответить».",
     "on:machine.status": "Машину остановили или запустили (для всех). Пустая машина — любая.",
     "on:terminal.command": "Игрок ввёл команду в терминале. Команда и аргументы понимают *.",
-    "on:object.viewed": "Игрок открыл файл. Фильтры: объект, путь (*), машина; пусто — любой.",
-    "on:object.deleted": "Игрок удалил файл (в корзину).", "on:object.restored": "Игрок вернул файл из корзины.",
-    "on:object.changed": "Игрок сохранил правку текста файла.",
     "on:placement.changed": "Файл игрока изменился: отредактирован, перенесён, удалён в корзину, возвращён, стёрт насовсем. "
                             "Провод «Размещение» — следить за этим файлом, иначе фильтры (объект — любая его копия, путь *, машина). "
                             "«Было» — где файл был, «Размещение» — где он теперь (после удаления — в корзине). "
@@ -795,9 +777,6 @@ HELP = {
     "act:count": "Прибавить к счётчику владельца или задать его.",
     "act:machine.status": "Остановить, запустить или перезагрузить машину — для всех. Остановленная не находится, сессии обрываются.",
     "act:account": "Учётка: заблокировать на N минут (игроку или всем), снять блокировку, сменить пароль для всех.",
-    "act:object.give": "Выдать объект игроку: файлом по пути на учётке события или ключом в папку секретов.",
-    "act:object.change": "Файл игрока: подменить объект или переместить.",
-    "act:layer.change": "Слои файла игрока: снять верхний (как будто игрок снял сам, хуки срабатывают) или вернуть все.",
     "act:terminal": "Строка или сцена во все открытые терминалы игрока.",
     "act:mail": "Готовое письмо: игроку в ящик учётки события (можно с задержкой) или всем при открытии почты.",
     "act:forum": "Запись на форуме от системы или персонажа: новая тема или ответ в тему с таким заголовком.",
@@ -814,8 +793,6 @@ HELP = {
     "find": "Размещения игрока на его машинах: с объектом (пусто — любые файлы), путь по образцу *, вне корзины, в корзине или везде. "
             "Список — «Для каждого» или «Список: …». Перенос и переименование файла его не теряют.",
     "do:flag": "Поставить тег игроку (tag:имя).", "do:unflag": "Снять тег игрока.",
-    "do:key": "Положить ключ в папку секретов учётки, на которой случилось событие.",
-    "do:file": "Положить объект файлом по пути в учётке игрока.",
     "do:letter": "Прислать готовое письмо в ящик учётки игрока (можно с задержкой).",
     "do:kick": "Выбросить игрока из сессии учётки события.",
     "do:world_flag": "Поставить метку мира.", "do:world_unflag": "Снять метку мира.",
@@ -830,8 +807,6 @@ HELP = {
     "do:terminal_text": "Строка во все открытые терминалы игрока (нет терминала — уведомление).",
     "do:terminal_scene": "Сыграть сцену в открытых терминалах игрока.", "do:scene": "Сыграть сцену на весь экран стола игрока.",
     "do:player_count": "Прибавить к счётчику игрока или задать его (count:имя в условиях).",
-    "do:file_delete": "Удалить файл у игрока (его копию).",
-    "do:file_change": "Изменить файл игрока: подменить объект, переименовать или переместить, вернуть слои.",
     "do:machine_power": "Остановить, запустить или перезагрузить машину — для всех. Остановленная не находится, сессии обрываются.",
     "do:account": "Учётка: заблокировать на N минут (игроку или всем), снять блокировку, новый пароль для всех.",
     "do:net_node": "Узел сервера: новый токен или ответ страницы — для всех.",

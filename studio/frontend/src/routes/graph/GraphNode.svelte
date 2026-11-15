@@ -29,7 +29,6 @@
     const mode = String(values.mode ?? "");
     if (kind.name === "wait") return ({ minutes: (mode || "delay") === "delay", at: mode === "until", condition: mode === "condition", timeout: mode === "condition" } as Record<string, boolean>)[f.name] ?? true;
     if (kind.name === "do:player_count") return ({ delta: mode !== "set", value: mode === "set" } as Record<string, boolean>)[f.name] ?? true;
-    if (kind.name === "do:file_change") return ({ item: (mode || "replace") === "replace", target: mode === "move" } as Record<string, boolean>)[f.name] ?? true;
     if (kind.name === "answer") return ({ text: mode !== "allow" && mode !== "default", minutes: mode === "block" } as Record<string, boolean>)[f.name] ?? true;
     return inWhen(kind, values, f.name);
   };
