@@ -70,3 +70,23 @@ class ManySocketTests(TestCase):
         self.assertEqual(nodes.sock_type(nodes.KINDS["do:net_node"], {}, "in", "f:address"), "server")
         self.assertEqual(nodes.sock_type(nodes.KINDS["find"], {}, "in", "f:item"), "many:item")
         self.assertEqual(nodes.sock_type(nodes.KINDS["act:machine.status"], {}, "in", "f:host"), "many:machine")
+
+    def test_owner_table(self):
+        graph = make([node("m", "manual"), node("e", "ent:machine", machine="core"), node("p", "ent:player", player="ivan"),
+                      node("w", "act:tag", variant="on", name="world-tag"),
+                      node("me", "act:tag", variant="on", scope="player", name="my-tag"),
+                      node("pair", "act:tag", variant="on", scope="player", name="pair-tag"),
+                      node("shared", "act:tag", variant="on", name="core-tag"),
+                      node("pl", "act:tag", variant="on", name="ivan-tag")],
+                     [wire("m", "fire", "w"), wire("w", "next", "me"), wire("me", "next", "pair"), wire("pair", "next", "shared"),
+                      wire("shared", "next", "pl"), f("e", "value", "pair", "thing"), f("e", "value", "shared", "thing"), f("p", "value", "pl", "thing")])
+        self.no_errors(graph.doc)
+        runtime.start_manual(graph, "m", self.ivan)
+        self.assertTrue(values.on("world", 0, "world-tag"))
+        self.assertTrue(values.on("player", self.ivan.pk, "my-tag"))
+        self.assertTrue(values.on("machine", self.core.pk, "pair-tag", self.ivan) and not values.on("machine", self.core.pk, "pair-tag"))
+        self.assertTrue(values.on("machine", self.core.pk, "core-tag"))
+        self.assertTrue(values.on("player", self.ivan.pk, "ivan-tag"))
+        names = [f.name for f in nodes.KINDS["act:tag"].fields]
+        self.assertNotIn("owner", names)
+        self.assertNotIn("machine", names)

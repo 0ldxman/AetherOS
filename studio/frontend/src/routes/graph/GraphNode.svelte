@@ -100,7 +100,7 @@
   const outTip = (name: string, label: string, type: string | undefined) => tip(label || name, typeLabel(type), data.help[name] ?? (name.match(/^[a-z]\d+$/) ? "ветка" : ""));
   const inTip = (name: string, label: string, type: string | undefined) => tip(label, typeLabel(type), data.help[name] ?? "", data.fedFrom[name] ? `подключено: ${data.fedFrom[name]}` : "не подключено");
   const val = (name: string) => (values[name] === undefined || values[name] === null ? "" : String(values[name]));
-  const options = (f: Field) => data.picks[f.kind] ?? [];
+  const options = (f: Field) => (f.kind === "select" ? f.options : data.picks[f.kind] ?? []);
   const shown = (f: Field) => {
     const raw = val(f.name);
     return options(f).find((o) => o.value === raw)?.label.split(" · ")[0] ?? raw;
@@ -173,9 +173,9 @@
         {#if f.socket === "bool" && (f.kind === "bool" || f.kind === "@T")}
           <input class="nodrag check" type="checkbox" checked={!!values[f.name]} disabled={!data.editable} onchange={(e) => set(f.name, e.currentTarget.checked || undefined)} aria-label={f.label} />
         {:else if options(f).length}
-          <select class="nodrag inline" value={val(f.name)} disabled={!data.editable} onchange={(e) => set(f.name, f.kind === "section" ? Number(e.currentTarget.value) || undefined : e.currentTarget.value)}
+          <select class="nodrag inline" value={f.kind === "select" ? val(f.name) || f.options[0]?.value : val(f.name)} disabled={!data.editable} onchange={(e) => set(f.name, f.kind === "section" ? Number(e.currentTarget.value) || undefined : e.currentTarget.value)}
                   aria-label={f.label} title={shown(f)}>
-            <option value="">{f.placeholder || "—"}</option>
+            {#if f.kind !== "select"}<option value="">{f.placeholder || "—"}</option>{/if}
             {#if val(f.name) && !options(f).some((o) => o.value === val(f.name))}<option value={val(f.name)}>{val(f.name)}</option>{/if}
             {#each options(f) as o (o.value)}<option value={o.value}>{o.label}</option>{/each}
           </select>

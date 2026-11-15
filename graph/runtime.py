@@ -417,7 +417,8 @@ def value_of(run, doc, node_id, out, depth=0):
         if kind.name == "ent:placement":
             return entities.placement(run, kind, {f.name: get(f.name) for f in kind.fields}, out)
         if kind.name in ("ent:tag", "ent:count"):
-            return entities.value(run, kind, _inferred(doc, node_id, kind, {f.name: get(f.name) for f in kind.fields}), out)
+            found = {**doc.data(node_id), **{f.name: get(f.name) for f in kind.fields}}      # и прежний выбор владельца (owner, machine…)
+            return entities.value(run, kind, _inferred(doc, node_id, kind, found), out)
         if kind.name == "ent:layer":
             return entities.layer(run, kind, {f.name: get(f.name) for f in kind.fields}, out)
         return entities.read(run, kind, get(kind.fields[0].name), out)
@@ -635,7 +636,10 @@ def _action(run, doc, node_id, kind):
     if lists:                                       # «одно или список»: действие с каждым (с каждым сочетанием)
         outs = set()
         for combo in list(itertools.product(*(list(data[name]) for name in lists)))[:LIST_LIMIT]:
-            outs.update(_action_one(run, kind, {**data, **dict(zip(lists, combo))}))
+            one = dict(data)
+            for name, value in zip(lists, combo):        # и поля, куда провод разложен («Владелец» -> машина): тот же список
+                one.update({key: value for key, item in data.items() if item is data[name]})
+            outs.update(_action_one(run, kind, one))
         return ["fail"] if "fail" in outs or not outs else ["next"]
     return _action_one(run, kind, data)
 

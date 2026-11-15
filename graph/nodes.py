@@ -367,6 +367,7 @@ _when("on:moment.status", "Момент: Статус изменён", (Field("m
 def _value(data, event):
     """Тег или счётчик события тот же, что выбран в ноде: владелец, вещь, чьё (общее или для игрока «для игрока»), имя."""
     d = event.data or {}
+    data = owner_defaults(data)
     owner = data.get("owner") or "world"
     if d.get("owner") != owner or not _same(d.get("key"), data.get("name")):
         return False
@@ -1092,16 +1093,33 @@ _OWNED_BY = {"player": ("player", "who"), "character": ("character", "character"
 _THINGS = ("who", "character", "machine", "server", "item")
 
 
+_OWNER_SET = ("owner", "who", "character", "machine", "server", "item", "scope", "for")
+
+
 def _with_owner(name, many):
+    """«Владелец» — только провод (игрок, персонаж, машина, сервер, объект) и «Чьё»: общий или для игрока.
+    Без владельца: общий — мир, для игрока — игрок. С вещью: общий — её, для игрока — пары «вещь + игрок». Игрок-владелец — его."""
     kind = KINDS[name]
-    fields = list(kind.fields)
-    at = next(i for i, f in enumerate(fields) if f.name == "owner")
-    prefix = MANY if many else ""
-    fields.insert(at + 1, Field("thing", "Владелец", prefix + "player|character|machine|server|object", "провод: игрок, персонаж, машина, сервер, объект"))
-    if many:
-        fields = [replace(f, kind=MANY + f.kind) if f.name in _THINGS else f for f in fields]
-    KINDS[name] = replace(kind, fields=tuple(fields), infers={"thing": ("owner", _OWNED_BY)},
-                          covers={**kind.covers, "thing": ("owner",) + _THINGS})
+    at = next(i for i, f in enumerate(kind.fields) if f.name == "owner")
+    rest = [f for f in kind.fields if f.name not in _OWNER_SET]
+    owner = (Field("thing", "Владелец", (MANY if many else "") + "player|character|machine|server|object", "нет — мир или игрок"),
+             Field("scope", "Чьё", "select", "", False, (("shared", "общий"), ("player", "для игрока"))),
+             Field("for", "Игрок", "player", "игрок хода"))
+    when = {key: rule for key, rule in kind.when.items() if key not in _OWNER_SET}
+    when["for"] = ("scope", ("player",))
+    KINDS[name] = replace(kind, fields=tuple(rest[:at]) + owner + tuple(rest[at:]), when=when, infers={"thing": ("owner", _OWNED_BY)})
+
+
+def owner_defaults(data):
+    """Без провода во «Владелец» (и без прежнего выбора owner): общий — мир, для игрока — игрок из «Игрок» (пусто — игрок хода)."""
+    if (data or {}).get("owner"):
+        return data
+    data = dict(data or {})
+    if data.get("scope") == "player":
+        data["owner"], data["who"] = "player", data.get("for") or data.get("who")
+    else:
+        data["owner"] = "world"
+    return data
 
 
 for _name in ("ent:tag", "ent:count"):
@@ -1123,9 +1141,9 @@ def inferred(kind, data, types):
         mult, bases = split_type(types.get(name) or "")
         found = by.get(bases[0]) if name in types else None
         if found is not None:
-            data[mode] = found[0]
             data[found[1]] = data.get(name)
-    return data
+            data[mode] = found[0]
+    return owner_defaults(data) if "thing" in kind.infers else data
 
 
 def catalog():
