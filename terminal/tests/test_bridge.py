@@ -218,8 +218,9 @@ class BridgeTests(BridgeFixture):
 
         self.inner({"mode": "allow"}, {"next": "let-in"})
         world = self.story(["let-in"])
-        world.doc["nodes"].append({"id": "f", "type": "do:world_flag", "x": 0, "y": 0, "data": {}})
-        world.doc["wires"] += [{"from": "let-in", "out": "next", "to": "f", "in": "in"}, {"from": "t", "out": "who", "to": "f", "in": "f:name"}]
+        world.doc["nodes"] += [{"id": "f", "type": "do:world_flag", "x": 0, "y": 0, "data": {}}, {"id": "u", "type": "ent:account", "x": 0, "y": 0, "data": {}}]
+        world.doc["wires"] += [{"from": "let-in", "out": "next", "to": "f", "in": "in"}, {"from": "t", "out": "who", "to": "u", "in": "f:account"},
+                               {"from": "u", "out": "login", "to": "f", "in": "f:name"}]
         world.save()
         runtime.rebuild_starts(world)
         self.run_command("rcon root@aether-core")

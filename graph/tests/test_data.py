@@ -18,8 +18,11 @@ class DataTests(TestCase):
         self.ivan = get_user_model().objects.create_user("ivan")
 
     def test_event_detail_feeds_an_action_field(self):
-        make([node("fl", "on:placement.opened", path="/home/*"), node("a", "act:tag", variant="on")],
-             [wire("fl", "opened", "a"), f("fl", "login", "a", "name")])
+        make([node("fl", "on:placement.opened", path="/home/*"), node("u", "ent:account"), node("a", "act:tag", variant="on")],
+             [wire("fl", "opened", "a"), f("fl", "login", "u", "account"), f("u", "login", "a", "name")])
+        from machines.models import Machine, MachineProfile
+
+        MachineProfile.objects.create(machine=Machine.objects.create(name="Core", hostname="core"), login="vault", name="Vault")
         emit("file.read", self.ivan, machine="core", login="ivan", path="/srv/x", item="other")
         emit("file.read", self.ivan, machine="core", login="vault", path="/home/x", item="vault")
         self.assertTrue(store.on("world", 0, "vault"))

@@ -185,3 +185,28 @@ def find(run, kind, data):
             return []
     return [placement_key(user, copy.host, copy.path)
             for copy in search(user, _key(data.get("item")) or None, machine, _key(data.get("path")), data.get("where") or "live")]
+
+
+def account(run, kind, data, out):
+    """«Учётка»: по проводу «логин@хост» или по машине и логину — её свойства сейчас. «Заблокирована» — для игрока хода."""
+    from django.db.models import Q
+    from django.utils import timezone
+
+    from machines.models import AccountBlock, MachineProfile
+    from machines.world import edits
+
+    key = _key(data.get("account"))
+    if key:
+        profile = edits.account(key)
+    else:
+        machine, login = _machine(_key(data.get("machine"))), _key(data.get("login"))
+        profile = MachineProfile.objects.filter(machine=machine, login=login).first() if machine is not None and login else None
+    if profile is None:
+        return _blank(kind, out)
+    user = getattr(run, "user", None)
+    blocks = AccountBlock.objects.filter(profile=profile, until__gt=timezone.now())
+    blocked = blocks.filter(Q(user=None) | Q(user=user)).exists() if user is not None else blocks.filter(user=None).exists()
+    props = {"value": edits.account_key(profile), "machine": profile.machine.hostname or "", "login": profile.login, "name": profile.name,
+             "mail": profile.mail, "groups": list(profile.groups or []), "endpoints": list(profile.endpoints or []), "root": bool(profile.root),
+             "blocked": blocked}
+    return props.get(out, _blank(kind, out))

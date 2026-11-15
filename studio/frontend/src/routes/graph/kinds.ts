@@ -27,6 +27,7 @@ export const TYPES: Record<string, { label: string; color: string; thing?: boole
   placement: { label: "Размещение", color: "#a3d94f", thing: true },
   layer: { label: "Слой", color: "#d98a5a", thing: true },
   machine: { label: "Машина", color: "#3fc7b5", thing: true },
+  account: { label: "Учётка", color: "#8fd8c4", thing: true },
   server: { label: "Сервер", color: "#4fa3d9", thing: true },
   character: { label: "Персонаж", color: "#c792ea", thing: true },
   section: { label: "Раздел", color: "#5fd07a", thing: true },

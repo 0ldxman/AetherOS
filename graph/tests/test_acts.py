@@ -48,4 +48,4 @@ class ChoiceActionTests(TestCase):
         labels = [k["label"] for k in kinds]
         self.assertLess(labels.index("Машина: Изменить статус"), labels.index("Экран: Уведомление"))
         self.assertNotIn("Изменить машину", labels)
-        self.assertEqual(nodes.KINDS["act:account"].title, "variant")
+        self.assertEqual(nodes.KINDS["act:account.access"].title, "variant")

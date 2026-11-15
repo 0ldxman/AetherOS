@@ -15,15 +15,15 @@ GROUPS = {ENTITY: "Сущности", NOUN: "Когда", FLOW: "Ход", DATA: 
 
 # Типы сокетов. event — «случилось» (по нему идёт ход), остальное — данные: читаются в момент, когда нода выполняется.
 EVENT = "event"
-TYPES = ("event", "bool", "text", "number", "item", "placement", "layer", "machine", "server", "character", "section", "moment", "player", "flag",
+TYPES = ("event", "bool", "text", "number", "item", "placement", "layer", "machine", "account", "server", "character", "section", "moment", "player", "flag",
          "world_flag", "counter")
-TYPE_LABELS = {"event": "событие", "bool": "да/нет", "text": "текст", "number": "число", "item": "объект", "placement": "размещение", "layer": "слой", "machine": "машину",
+TYPE_LABELS = {"event": "событие", "bool": "да/нет", "text": "текст", "number": "число", "item": "объект", "placement": "размещение", "layer": "слой", "machine": "машину", "account": "учётку",
                "server": "сервер", "character": "персонажа", "section": "раздел", "moment": "момент", "player": "игрока",
                "flag": "метку игрока", "world_flag": "метку мира", "counter": "счётчик"}
-THINGS = ("item", "placement", "layer", "machine", "server", "character", "section", "moment", "player", "flag", "world_flag", "counter")
+THINGS = ("item", "placement", "layer", "machine", "account", "server", "character", "section", "moment", "player", "flag", "world_flag", "counter")
 
 # списки: «list:<тип элемента>»; «list:any» — вход, которому подходит любой список (количество)
-ELEMENTS = {"text": "Текст", "number": "Число", "bool": "Да/нет", "item": "Объект", "placement": "Размещение", "layer": "Слой", "machine": "Машина", "server": "Сервер",
+ELEMENTS = {"text": "Текст", "number": "Число", "bool": "Да/нет", "item": "Объект", "placement": "Размещение", "layer": "Слой", "machine": "Машина", "account": "Учётка", "server": "Сервер",
             "character": "Персонаж", "section": "Раздел", "moment": "Момент", "player": "Игрок"}
 LIST, ANY_LIST = "list:", "list:any"
 TYPES = TYPES + tuple(LIST + name for name in ELEMENTS) + (ANY_LIST,)
@@ -64,7 +64,7 @@ def type_label(kind):
 FIELD_TYPES = {"text": "text", "textarea": "text", "path": "text", "clock": "text", "expr": "text", "scene": "text", "station": "text",
                "graph": "text", "number": "number", "bool": "bool", "condition": "bool", "key": "item", "item": "item", "letter": "item",
                "object": "item", "character": "character", "section": "section", "flag": "flag", "world_flag": "world_flag",
-               "counter": "counter", "moment": "moment", "machine": "machine", "server": "server", "player": "player", "layer": "layer", "placement": "placement"}      # вид поля -> тип его входа; нет в списке — параметр без входа
+               "counter": "counter", "moment": "moment", "machine": "machine", "server": "server", "player": "player", "layer": "layer", "placement": "placement", "account": "account"}      # вид поля -> тип его входа; нет в списке — параметр без входа
 
 
 def field_type(field):
@@ -315,7 +315,7 @@ _MACHINE = Field("machine", "Машина", "many:machine", "любая")       
 _OBJECT = Field("item", "Объект", "many:object", "любой")
 _PATH = Field("path", "Путь", "text", "любой; можно *")
 _HOST_OUT = Sock("machine", "Машина", "machine", "host")
-_LOGIN_OUT = Sock("login", "Учётка", "text", "login")
+_LOGIN_OUT = Sock("login", "Учётка", "account", "account")              # «логин@хост»: свойства — у ноды «Учётка»
 
 
 _when("on:machine.status", "Машина: Статус изменён", (_MACHINE,),
@@ -569,9 +569,6 @@ CHOICES = (
                                                    ("start", "Запустить", "machine_power", {"state": "start"}, ("host",)),
                                                    ("maintenance", "Обслуживание", "machine_power", {"state": "maintenance"}, ("host", "text")),
                                                    ("reboot", "Перезагрузить", "machine_power", {"state": "reboot"}, ("host", "minutes")))),
-    ("account", "Учётка: Изменить", (("block", "Заблокировать", "account", {}, ("host", "login", "scope", "block", "text")),
-                                     ("unblock", "Снять блокировку", "account", {"unblock": True}, ("host", "login", "scope")),
-                                     ("password", "Сменить пароль", "account", {}, ("host", "login", "password")))),
     ("terminal", "Терминал: Вывести", (("text", "Текст", "terminal_text", {}, ("text",)), ("scene", "Сцена", "terminal_scene", {}, ("scene",)))),
     ("mail", "Персонаж: Отправить письмо", (("player", "Отправить письмо игроку", "letter", {}, ("item", "delay")),
                                             ("all", "Отправить письмо всем", "letter_all", {}, ("item", "machines", "systems")))),
@@ -697,7 +694,7 @@ register(Kind("act:placement.create", "Размещение: Создать", AC
 ), _ACT_OUTS, covers={"placement": ("machine", "path", "player"), "item": ("text",)}, titled={"item": "Размещение: Добавить"},
     follows={"placement": "placement"}))
 DATA_OUTS["act:placement.create"] = (Sock("placement", "Размещение", "many:placement"),)
-for _old in ("do:file", "do:key", "do:file_delete", "do:file_change", "do:layer_remove"):     # теперь «Размещение: …» и «Слой: Изменить»
+for _old in ("do:file", "do:key", "do:file_delete", "do:file_change", "do:layer_remove", "do:account"):     # теперь «Размещение: …» и «Слой: Изменить»
     KINDS.pop(_old, None)
 register(Kind("act:layer", "Слой: Изменить", ACTION, "{layer}", (
     Field("variant", "Действие", "select", "", False, (("remove", "Снять"), ("quiet", "Снять тихо"), ("attempts", "Сбросить попытки"))),
@@ -705,6 +702,54 @@ register(Kind("act:layer", "Слой: Изменить", ACTION, "{layer}", (
 ), _ACT_OUTS, title="variant", follows={"layer": "layer"}))
 DATA_OUTS["act:layer"] = (Sock("layer", "Слой", "many:layer"),)
 PLACEMENT_ACTS = ("act:placement", "act:placement.create", "act:layer")
+
+# машина и её учётки (machines/world/edits.py)
+register(Kind("act:machine.change", "Машина: Изменить", ACTION, "{machine}", (
+    Field("machine", "Машина", "many:machine", "", True), Field("name", "Имя", "text", "не менять"), Field("address", "Адрес", "text", "не менять"),
+    Field("system", "ОС", "text", "не менять (код ОС)"), Field("time_zone", "Часовой пояс", "text", "не менять (Europe/Moscow)"),
+    Field("host_key", "Ключ хоста", "text", "не менять; * — новый случайный"), Field("note", "Приветствие", "textarea", "не менять ({note} в приветствии ОС)"),
+    Field("booted", "Включена с", "text", "не менять; 2031-03-02 14:05 или «сейчас»"),
+), _ACT_OUTS))
+register(Kind("act:account.change", "Машина: Изменить учётку", ACTION, "{account}", (
+    Field("variant", "Действие", "select", "", False, (("mail", "Изменить почту"), ("password", "Изменить пароль"), ("keys", "Установить выражение ключей"),
+                                                       ("points_add", "Добавить точки входа"), ("points_remove", "Убрать точки входа"),
+                                                       ("groups_add", "Добавить в группы"), ("groups_remove", "Убрать из групп"),
+                                                       ("token_add", "Создать токен"), ("token_remove", "Удалить токены"))),
+    Field("account", "Учётка", "many:account", "логин@хост", True),
+    Field("mail", "Почта", "text", "пусто — логин@метка"), Field("password", "Пароль", "text", "пусто — без пароля"),
+    Field("keys", "Выражение ключей", "text", "cardkey and badge; пусто — без ключей"),
+    Field("points", "Точки входа", "many:text", "14.230 или 22"), Field("groups", "Группы", "many:text", "ops"),
+    Field("uses", "Сколько раз", "number", "без предела"), Field("minutes", "Живёт, мин", "number", "без предела"),
+    Field("tokens", "Токены", "many:text", "пусто — все токены учётки"),
+), _ACT_OUTS, title="variant", when={"mail": ("variant", ("mail",)), "password": ("variant", ("password",)), "keys": ("variant", ("keys",)),
+                                      "points": ("variant", ("points_add", "points_remove")), "groups": ("variant", ("groups_add", "groups_remove")),
+                                      "uses": ("variant", ("token_add",)), "minutes": ("variant", ("token_add",)), "tokens": ("variant", ("token_remove",))},
+    follows={"token": "account"}))
+DATA_OUTS["act:account.change"] = (Sock("token", "Токен", "many:text"),)
+register(Kind("act:account.access", "Машина: Доступ к учётке", ACTION, "{account}", (
+    Field("variant", "Действие", "select", "", False, (("block", "Заблокировать учётку"), ("unblock", "Разблокировать учётку"))),
+    Field("account", "Учётка", "many:account", "логин@хост", True),
+    Field("scope", "Кому", "select", "", False, (("player", "игроку"), ("all", "всем"))), Field("player", "Игрок", "player", "игрок хода"),
+    Field("minutes", "На сколько, мин", "number", "10"), Field("text", "Текст блокировки", "text", ""),
+), _ACT_OUTS, title="variant", when={"player": ("scope", ("player",)), "minutes": ("variant", ("block",)), "text": ("variant", ("block",))}))
+register(Kind("act:account.manage", "Машина: Создать или удалить учётку", ACTION, "{login}{account}", (
+    Field("variant", "Действие", "select", "", False, (("create", "Создать учётку"), ("delete", "Удалить учётку"))),
+    Field("machine", "Машина", "machine", "", True), Field("login", "Логин", "text", "", True), Field("name", "Имя", "text", "как логин"),
+    Field("points", "Точки входа", "many:text", "14.230 или 22; пусто — извне не зайти"), Field("password", "Пароль", "text", "без пароля"),
+    Field("mail", "Почта", "text", "логин@метка"), Field("groups", "Группы", "many:text", ""),
+    Field("account", "Учётка", "many:account", "логин@хост", True),
+), _ACT_OUTS, title="variant", when={**{name: ("variant", ("create",)) for name in ("machine", "login", "name", "points", "password", "mail", "groups")},
+                                      "account": ("variant", ("delete",))}))
+DATA_OUTS["act:account.manage"] = (Sock("account", "Учётка", "account"),)
+MACHINE_ACTS = ("act:machine.change", "act:account.change", "act:account.access", "act:account.manage")
+
+# учётка — «логин@хост»
+register(Kind("ent:account", "Учётка", ENTITY, "{login}", (
+    Field("account", "Учётка", "account", "логин@хост"), Field("machine", "Машина", "machine"), Field("login", "Логин", "text"),
+), ins=(), covers={"account": ("machine", "login")}))
+DATA_OUTS["ent:account"] = (Sock("value", "Учётка", "account"), Sock("machine", "Машина", "machine"), Sock("login", "Логин", "text"),
+                            Sock("name", "Имя", "text"), Sock("mail", "Почта", "text"), Sock("groups", "Группы", "list:text"),
+                            Sock("endpoints", "Точки входа", "list:text"), Sock("root", "Root", "bool"), Sock("blocked", "Заблокирована", "bool"))
 
 
 # ---------- пояснения (подсказки на холсте, как в Blender) ----------
@@ -715,6 +760,13 @@ HELP = {
                      "На вход — одно размещение или список: с каждым. «Размещение» на выходе — где файл теперь.",
     "act:placement.create": "Создать файл игроку: с объектом — «Добавить» (ключ без пути — в папку секретов), без объекта — свой файл с текстом. "
                             "Куда — размещение или Машина + Путь (+ Игрок, пусто — игрок хода).",
+    "ent:account": "Учётка на машине: провод «Учётка» (логин@хост) или Машина + Логин. «Заблокирована» — для игрока хода.",
+    "act:machine.change": "Свойства машины для всех: имя, адрес, ОС, часовой пояс, ключ хоста (* — новый: игрок заметит подмену), приветствие ({note}), "
+                          "«Включена с» (от неё считается uptime; включение машины её не трогает). Пустое поле — не менять.",
+    "act:account.change": "Учётка: почта, пароль (для всех), выражение ключей, точки входа и группы (добавить или убрать, одно или список), "
+                          "токены: создать (выход «Токен» — строка, её можно вписать в письмо) или удалить (пусто — все).",
+    "act:account.access": "Заблокировать вход на учётку на N минут (игроку или всем, с текстом) или снять блокировку.",
+    "act:account.manage": "Создать учётку на машине (выход «Учётка») или удалить (рабочую учётку игрока — нельзя).",
     "manual": "Кнопка автора: запустить ход с игроком или без (мир) из панели ноды. Только старт.",
     "try:machine": "Вход на выбранную машину. Tab — граф входа этой машины: от «Попытки» до «Ответить», без ожиданий. "
                    "Выходы ноды — сокеты «Выхода» внутри графа: события и данные.",
@@ -782,7 +834,6 @@ HELP = {
     "act:tag": "Поставить или снять тег владельца (мир, игрок, вещь; у вещи — общий или для игрока).",
     "act:count": "Прибавить к счётчику владельца или задать его.",
     "act:machine.status": "Остановить, запустить или перезагрузить машину — для всех. Остановленная не находится, сессии обрываются.",
-    "act:account": "Учётка: заблокировать на N минут (игроку или всем), снять блокировку, сменить пароль для всех.",
     "act:terminal": "Строка или сцена во все открытые терминалы игрока.",
     "act:mail": "Готовое письмо: игроку в ящик учётки события (можно с задержкой) или всем при открытии почты.",
     "act:forum": "Запись на форуме от системы или персонажа: новая тема или ответ в тему с таким заголовком.",
@@ -814,7 +865,6 @@ HELP = {
     "do:terminal_scene": "Сыграть сцену в открытых терминалах игрока.", "do:scene": "Сыграть сцену на весь экран стола игрока.",
     "do:player_count": "Прибавить к счётчику игрока или задать его (count:имя в условиях).",
     "do:machine_power": "Остановить, запустить или перезагрузить машину — для всех. Остановленная не находится, сессии обрываются.",
-    "do:account": "Учётка: заблокировать на N минут (игроку или всем), снять блокировку, новый пароль для всех.",
     "do:net_node": "Узел сервера: новый токен или ответ страницы — для всех.",
     "do:moment_start": "Начать момент мира сейчас.", "do:moment_end": "Закончить момент мира сейчас.",
     "do:character_tag": "Поставить или снять тег персонажа (tag:character:КОД:тег в условиях).",
@@ -1143,7 +1193,7 @@ for _name in ("ent:tag", "ent:count"):
 for _name in ("on:tag", "on:count", "on:count.threshold", "act:tag", "act:count"):
     _with_owner(_name, True)
 # действия над вещами мира: одно или список — с каждой
-for _name, _fields in (("act:machine.status", ("host",)), ("act:account", ("host",)), ("act:moment", ("moment",))):
+for _name, _fields in (("act:machine.status", ("host",)), ("act:moment", ("moment",))):
     KINDS[_name] = replace(KINDS[_name], fields=tuple(replace(f, kind=MANY + f.kind) if f.name in _fields else f for f in KINDS[_name].fields))
 KINDS["do:net_node"] = replace(KINDS["do:net_node"], fields=tuple(replace(f, kind="server") if f.name == "address" else f for f in KINDS["do:net_node"].fields))
 

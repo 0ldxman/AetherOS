@@ -364,6 +364,8 @@ def capture(run, node_id, event=None, ctx=None):
         for key, path in (("placement", "after"), ("from_placement", "before")):
             if found.get(path) and key not in found:
                 found[key] = f"{user.get_username()}@{found['host']}:{found[path]}"
+        if found.get("login") and "account" not in found:                                  # учётка события: «логин@хост»
+            found["account"] = f"{found['login']}@{found['host']}"
         if found.get("id") and found.get("placement") and "layer_key" not in found:          # событие слоя: какой слой
             found["layer_key"] = f"{found['placement']}#{found['id']}"
     run.state = {**(run.state or {}), "vals": {**((run.state or {}).get("vals") or {}), node_id: found}}
@@ -408,7 +410,7 @@ def value_of(run, doc, node_id, out, depth=0):
         if value in (None, "") and sock.fallback:
             value = data.get(sock.fallback)
         return value
-    if kind.name in N.PLACEMENT_ACTS:                # что сделало действие: запомнено при выполнении
+    if kind.name in N.PLACEMENT_ACTS or kind.name in N.MACHINE_ACTS:    # что сделало действие: запомнено при выполнении
         return (((run.state or {}).get("vals") or {}).get(node_id) or {}).get(out)
     get = lambda name: input_of(run, doc, node_id, name, depth + 1)       # noqa: E731
     if kind.group == N.ENTITY:
@@ -421,6 +423,8 @@ def value_of(run, doc, node_id, out, depth=0):
         if kind.name in ("ent:tag", "ent:count"):
             found = {**doc.data(node_id), **{f.name: get(f.name) for f in kind.fields}}      # и прежний выбор владельца (owner, machine…)
             return entities.value(run, kind, _inferred(doc, node_id, kind, found), out)
+        if kind.name == "ent:account":
+            return entities.account(run, kind, {f.name: get(f.name) for f in kind.fields}, out)
         if kind.name == "ent:layer":
             return entities.layer(run, kind, {f.name: get(f.name) for f in kind.fields}, out)
         return entities.read(run, kind, get(kind.fields[0].name), out)
@@ -780,6 +784,86 @@ def _layer_act(run, node_id, kind, data):
     return ["fail"] if failed or not keys else ["next"]
 
 
+def _machine_act(run, node_id, kind, data):
+    """Машина и учётки: «Изменить», «Изменить учётку», «Доступ к учётке», «Создать или удалить учётку». С каждой из списка."""
+    from graph import entities
+    from machines.world import edits
+
+    mode = data.get("variant") or ""
+    fill = lambda name: _fill(str(data.get(name) or ""), run).strip()        # noqa: E731
+    items = lambda name: [str(v).strip() for v in _as_list(data.get(name)) if str(v or "").strip()]      # noqa: E731
+    number = lambda name: int(float(data.get(name))) if str(data.get(name) or "").strip().lstrip("-").replace(".", "", 1).isdigit() else None  # noqa: E731
+    results, failed, many = [], False, False
+    try:
+        if kind.name == "act:machine.change":
+            raw = data.get("machine")
+            for key in _as_list(raw):
+                machine = entities._machine(entities._key(key))
+                if machine is None:
+                    raise edits.EditError(f"нет машины «{key}»")
+                edits.change_machine(machine, name=fill("name"), address=fill("address"), system=fill("system"), time_zone=fill("time_zone"),
+                                     host_key=fill("host_key"), note=fill("note"), booted=fill("booted"))
+            if not _as_list(raw):
+                raise edits.EditError("не выбрана машина")
+        elif kind.name == "act:account.manage" and (mode or "create") == "create":
+            machine = entities._machine(entities._key(data.get("machine")))
+            if machine is None:
+                raise edits.EditError("не выбрана машина")
+            profile = edits.create(machine, fill("login"), name=fill("name"), endpoints=items("points"), password=str(data.get("password") or ""),
+                                   mail=fill("mail"), groups=items("groups"))
+            results.append(edits.account_key(profile))
+        else:
+            raw = data.get("account")
+            many = isinstance(raw, (list, tuple))
+            keys = [str(k) for k in _as_list(raw) if str(k or "").strip()]
+            if not keys:
+                raise edits.EditError("не выбрана учётка")
+            for key in keys:
+                profile = edits.account(key)
+                if profile is None:
+                    _log(run.graph, f"«{N.titled(kind, data)}»: нет учётки {key}", run.user)
+                    failed = True
+                    continue
+                if kind.name == "act:account.manage":
+                    edits.delete(profile)
+                elif kind.name == "act:account.access":
+                    everyone = data.get("scope") == "all"
+                    user = None if everyone else entities._player(run, entities._key(data.get("player")))
+                    if not everyone and user is None:
+                        raise edits.EditError("нет игрока: «игроку» без игрока")
+                    if (mode or "block") == "block":
+                        edits.block(profile, user, number("minutes") or 10, fill("text"))
+                    else:
+                        edits.unblock(profile, user, everyone=everyone)
+                else:
+                    mode = mode or "mail"
+                    if mode == "mail":
+                        edits.set_mail(profile, fill("mail"))
+                    elif mode == "password":
+                        edits.set_password(profile, str(data.get("password") or ""))
+                    elif mode == "keys":
+                        edits.set_keys(profile, fill("keys"))
+                    elif mode == "points_add":
+                        edits.add_endpoints(profile, items("points"))
+                    elif mode == "points_remove":
+                        edits.remove_endpoints(profile, items("points"))
+                    elif mode == "groups_add":
+                        edits.add_groups(profile, items("groups"))
+                    elif mode == "groups_remove":
+                        edits.remove_groups(profile, items("groups"))
+                    elif mode == "token_add":
+                        results.append(edits.create_token(profile, number("uses"), number("minutes")))
+                    elif mode == "token_remove":
+                        edits.delete_tokens(profile, items("tokens"))
+    except edits.EditError as error:
+        _log(run.graph, f"«{N.titled(kind, data)}»: {error}", run.user)
+        failed = True
+    out = "account" if kind.name == "act:account.manage" else "token"
+    value = results if many else (results[0] if results else "")
+    run.state = {**(run.state or {}), "vals": {**((run.state or {}).get("vals") or {}), node_id: {out: value}}}
+    return ["fail"] if failed else ["next"]
+
+
 def _execute(run, doc, node_id, sock):
     """Выполнить ноду; вернуть выходы, по которым идти дальше."""
     import random
@@ -790,6 +874,8 @@ def _execute(run, doc, node_id, sock):
         return [] if kind.start_only else _noun_wait(run, doc, node_id, kind)
     if name in N.PLACEMENT_ACTS:
         return _placement_act(run, doc, node_id, kind)
+    if name in N.MACHINE_ACTS:
+        return _machine_act(run, node_id, kind, data)
     if kind.group == N.ACTION:
         return _action(run, doc, node_id, kind)
     if name in ("reroute", "stage"):
