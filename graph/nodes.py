@@ -367,13 +367,12 @@ def _layer_types_any():
 
 # слой: что случилось со слоем файла игрока. Провод «Слой» — этот слой, «Размещение» — любой слой этого файла
 _when("on:layer.changed", "Слой: Изменено",
-      (Field("layer", "Слой", "many:layer|placement", "любой"), _OBJECT, Field("type", "Тип", "select", "", False, _layer_types_any()), _PATH, _MACHINE),
+      (Field("layer", "Слой", "many:layer|placement", "любой"), _OBJECT, Field("type", "Тип", "select", "", False, _layer_types_any())),
       (Sock("removed", "Снят"), Sock("attempt", "Неверная попытка"), Sock("failed", "Попытки кончились"), Sock("added", "Добавлен")),
       {"removed": "layer.removed", "attempt": "layer.attempt", "failed": "layer.failed", "added": "layer.added"},
-      _match(layer=("path", "layer"), item=("item", "item"), type=("layer", "same"), path=("path", "glob"), machine=("host", "thing")),
-      (Sock("layer", "Слой", "layer", "layer_key"), Sock("placement", "Размещение", "placement", "placement"), Sock("type", "Тип", "text", "layer"),
-       Sock("given", "Ввёл", "text", "given"), Sock("left", "Осталось слоёв", "number", "left"), Sock("item", "Объект", "item", "item"),
-       _HOST_OUT, _LOGIN_OUT), "{type} {item}", covers={"layer": ("item", "path", "machine")})
+      _match(layer=("path", "layer"), item=("item", "item"), type=("layer", "same")),
+      (Sock("layer", "Слой", "layer", "layer_key"), _LOGIN_OUT, Sock("given", "Ввод игрока", "text", "given")),        # остальное — у «Слоя» и «Размещения»
+      "{type} {item}", covers={"layer": ("item",)})
 for _name in ("viewed", "deleted", "restored", "changed"):                 # старые: теперь «Размещение: …»
     KINDS[f"on:object.{_name}"] = replace(KINDS[f"on:object.{_name}"], hidden=True)
 
@@ -804,7 +803,7 @@ HELP = {
     "act:forum": "Запись на форуме от системы или персонажа: новая тема или ответ в тему с таким заголовком.",
     "act:moment": "Начать или закончить момент мира сейчас.",
     "ent:layer": "Слой файла игрока (провод с «Размещение → Слои» или события слоя): тип, индекс (1 — верхний), снят ли, сколько попыток осталось (-1 — без ограничения), добавлен ли поверх описания, чьё размещение.",
-    "on:layer.changed": "Со слоем файла игрока что-то случилось: снят, неверная попытка, попытки кончились, добавлен поверх. Провод «Слой» — этот слой, «Размещение» — любой слой файла; иначе фильтры: объект, тип, путь, машина.",
+    "on:layer.changed": "Со слоем файла игрока что-то случилось: снят, неверная попытка, попытки кончились, добавлен поверх. Провод «Слой» — этот слой, «Размещение» — любой слой файла; иначе фильтры: объект, тип. Тип, размещение, объект — у ноды «Слой».",
     "act:layer": "Сделать со слоем: снять (как игрок — хуки срабатывают; не верхний — вместе со всем, что над ним), снять тихо (без хуков), "
                  "сбросить попытки. Размещение — его верхний слой.",
     "try:net.request": "Запрос к выбранному серверу (nreq). Tab — граф попытки сервера; выходы — сокеты «Выхода» внутри.",
