@@ -1,5 +1,5 @@
 <script lang="ts">
-  // Список сценариев-графов: включён ли, сколько нод, сколько прохождений идёт, есть ли ошибки. «+ Сценарий» создаёт пустой и открывает холст.
+  // Список сценариев-графов: включён ли, сколько нод, сколько ходов идёт, есть ли ошибки. «+ Сценарий» создаёт пустой и открывает холст.
   import { api, problem, type Schemas } from "../lib/api";
   import Dialog from "../lib/Dialog.svelte";
   import PageHead from "../lib/PageHead.svelte";
@@ -40,7 +40,7 @@
         <span class="dot" class:on={row.active} title={row.active ? "Включён" : "Выключен"}></span>
         <span class="name"><b>{row.title}</b><span class="muted mono">{row.slug}</span></span>
         <span class="muted">нод {row.nodes}</span>
-        <span class="muted">идёт {row.running}</span>
+        <span class="muted">ходов {row.running}</span>
         {#if row.errors}<span class="err">ошибок {row.errors}</span>{:else}<span></span>{/if}
         <span class="muted">{when(row.updated_at)}</span>
       </a>

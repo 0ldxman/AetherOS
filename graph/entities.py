@@ -174,7 +174,7 @@ def placement_key(user, host, path):
 
 
 def parse_placement(text, run=None):
-    """(игрок, машина, путь) из «игрок@машина:/путь»; без «игрок@» — игрок прохождения. Чего нет — None."""
+    """(игрок, машина, путь) из «игрок@машина:/путь»; без «игрок@» — игрок хода. Чего нет — None."""
     head, _, path = _key(text).partition(":")
     owner, _, host = head.rpartition("@")
     user = _player(run, owner)

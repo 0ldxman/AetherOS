@@ -4,7 +4,7 @@
 по проводам потока, пока не упрётся в ожидание (событие, время, условие) или в конец. Время и условия двигает tick() из
 middleware мира. Прохождение одного игрока в одном сценарии — Run; где стоят его ветки — Wait.
 
-Действия выполняются словарём движка от имени игрока прохождения; учётка — та, на которой случилось событие (host, login).
+Действия выполняются словарём движка от имени игрока хода; учётка — та, на которой случилось событие (host, login).
 Ни одна ошибка сценария не роняет игру: причина пишется в журнал мира.
 """
 import contextvars
@@ -564,18 +564,21 @@ def resolved(run, doc, node_id):
 def _noun_wait(run, doc, node_id, kind):
     data = resolved(run, doc, node_id)
     outs = [out for out in doc.wired(node_id) if N.event_of(kind, out)]
-    if data.get("past") and run.user is not None:
+    own = bool(data.get("own"))
+    if data.get("past") and (run.user is not None or not own):
         from engine.models import Event
 
-        for event in Event.objects.filter(user=run.user, name__in={N.event_of(kind, out) for out in outs})[:300]:
+        past = Event.objects.filter(name__in={N.event_of(kind, out) for out in outs})
+        for event in (past.filter(user=run.user) if own else past)[:300]:
             for out in outs:
                 if N.event_of(kind, out) == event.name and kind.match(data, out, event):
                     run.ctx = {**(run.ctx or {}), **_ctx_of(event), "host": event.host or run.ctx.get("host"), "login": event.login or run.ctx.get("login")}
+                    _take(run, event)
                     capture(run, node_id, event)
                     return [out]
     fed = {name: data[name] for (dst, name) in doc.refs if dst == node_id}       # фильтры с проводов: значения на момент ожидания
     for out in outs:
-        Wait.objects.create(run=run, user=run.user, node=node_id, out=out, kind=Wait.Kind.EVENT, event=N.event_of(kind, out), anyone=bool(data.get("anyone")),
+        Wait.objects.create(run=run, user=run.user, node=node_id, out=out, kind=Wait.Kind.EVENT, event=N.event_of(kind, out), anyone=not own,
                             data=fed)
     if data.get("timeout") not in (None, "", 0, "0") and N.TIMEOUT in doc.wired(node_id):
         Wait.objects.create(run=run, user=run.user, node=node_id, out=N.TIMEOUT, kind=Wait.Kind.TIME, until=after(data.get("timeout")))
@@ -704,7 +707,7 @@ def _execute(run, doc, node_id, sock):
         return ["pass"]
     if name == "once":
         with transaction.atomic():
-            mark = _mark(run, node_id, run.user)
+            mark = _mark(run, node_id, run.user if data.get("per") == "player" else None)
             if mark.value:
                 return ["again"]
             mark.value = 1
@@ -814,7 +817,7 @@ def start(graph, node_id, out, user=None, ctx=None, repeat=None):
     repeat = repeat or doc.data(node_id).get("repeat") or DEFAULT_REPEAT.get(kind.name, "once")
     with transaction.atomic():
         Graph.objects.select_for_update().filter(pk=graph.pk).first()      # два события сразу: правило повтора видит одно
-        runs = Run.objects.filter(graph=graph, user=user, node=node_id)
+        runs = Run.objects.filter(graph=graph, node=node_id)              # прохождение одно на всех: «один раз» — за игру
         if repeat == "once" and runs.exists():
             return None
         if repeat == "end" and runs.filter(status=Run.Status.RUNNING).exists():
@@ -824,6 +827,16 @@ def start(graph, node_id, out, user=None, ctx=None, repeat=None):
     capture(run, node_id, ctx=ctx or {})
     _hit(run, node_id)
     return advance(run, doc.next(node_id, out))
+
+
+def _take(run, event):
+    """Событие другого игрока продвинуло ход: дальше ход идёт с ним (его машина, учётка, письма — ему). True, если игрок сменился."""
+    if event.user is None or run.user_id == event.user.pk:
+        return False
+    run.user = event.user
+    Run.objects.filter(pk=run.pk).update(user=event.user)
+    Wait.objects.filter(run=run).update(user=event.user)
+    return True
 
 
 def resume(wait, event=None):
@@ -837,8 +850,9 @@ def resume(wait, event=None):
             return None                              # уже сработало в другом запросе
         if event is not None:
             ctx = run.ctx or {}
+            took = _take(run, event)
             run.ctx = {**ctx, "event": event.name, "data": {**(ctx.get("data") or {}), **(event.data or {})},
-                       "host": ctx.get("host") or event.host, "login": ctx.get("login") or event.login}
+                       "host": event.host if took else ctx.get("host") or event.host, "login": event.login if took else ctx.get("login") or event.login}
             capture(run, wait.node, event)
     return advance(run, doc_of(run.graph).next(wait.node, wait.out))
 
@@ -850,10 +864,10 @@ def follow(event):
         return
     name = event.user.get_username()
     old, new = f"{name}@{event.host}:{paths['before']}", f"{name}@{event.host}:{paths['after']}"
-    for wait in Wait.objects.filter(user=event.user, run__status=Run.Status.RUNNING, data__placement=old):
+    for wait in Wait.objects.filter(run__status=Run.Status.RUNNING, data__placement=old):
         wait.data = {**wait.data, "placement": new}
         wait.save(update_fields=["data"])
-    for run in Run.objects.filter(user=event.user, status=Run.Status.RUNNING):
+    for run in Run.objects.filter(status=Run.Status.RUNNING, graph__active=True):
         vals = (run.state or {}).get("vals") or {}
         moved = {node: {**found, "placement": new, "path": paths["after"], "after": paths["after"]} for node, found in vals.items()
                  if isinstance(found, dict) and found.get("placement") == old}

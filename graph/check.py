@@ -289,5 +289,5 @@ def problems(raw, slug="", owner=""):
     for group in _cycles(flat):
         if not any(_waits(flat, node_id) for node_id in group):
             first = sorted(group)[0]
-            add(first if "/" not in first else first.split("/")[0], "цикл без ожидания: прохождение остановится на лимите")
+            add(first if "/" not in first else first.split("/")[0], "цикл без ожидания: ход остановится на лимите")
     return out

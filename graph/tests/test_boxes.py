@@ -108,7 +108,7 @@ class SignalTests(TestCase):
         self.ivan, self.anna = User.objects.create_user("ivan"), User.objects.create_user("anna")
 
     def test_signal_to_player_and_to_all(self):
-        waiter = make([node("m", "manual"), node("s", "signal", name="go"), node("a", "do:world_count", name="c")],
+        waiter = make([node("m", "manual"), node("s", "signal", name="go", own=True), node("a", "do:world_count", name="c")],
                       [wire("m", "fire", "s"), wire("s", "got", "a")], slug="waiter")
         sender = make([node("m", "manual"), node("x", "send_signal", name="go", to="player")], [wire("m", "fire", "x")], slug="sender")
         for user in (self.ivan, self.anna):

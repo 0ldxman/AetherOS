@@ -61,7 +61,7 @@ class WhenTests(TestCase):
         self.assertEqual(counter(), 1)
 
     def test_tag_of_a_thing_for_a_player_wakes_only_them(self):
-        graph = make([node("m", "manual"), node("w", "on:tag", owner="machine", machine="core", scope="player", name="hacked"),
+        graph = make([node("m", "manual"), node("w", "on:tag", owner="machine", machine="core", scope="player", name="hacked", own=True),
                       node("a", "do:world_count", name="c")], [wire("m", "fire", "w"), wire("w", "set", "a")])
         runtime.start_manual(graph, "m", self.ivan)
         runtime.start_manual(graph, "m", self.anna)

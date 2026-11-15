@@ -52,12 +52,12 @@ class StartTests(TestCase):
         emit("command.run", self.ivan, machine="dock", login="guest", command="login")
         self.assertEqual(counter(), 0)
 
-    def test_once_per_player_by_default(self):
+    def test_once_per_game_by_default(self):
         self.login_graph()
         for _ in range(2):
             emit("command.run", self.ivan, machine="archive", command="login")
         emit("command.run", self.anna, machine="archive", command="login")
-        self.assertEqual(counter(), 2)
+        self.assertEqual(counter(), 1)                                      # прохождение одно на всех: первый запустил
 
     def test_repeat_always(self):
         self.login_graph(repeat="always")
@@ -97,17 +97,25 @@ class WaitTests(TestCase):
         self.ivan = get_user_model().objects.create_user("ivan")
         self.anna = get_user_model().objects.create_user("anna")
 
-    def test_noun_with_input_waits_for_players_event(self):
-        graph = make([node("m", "manual"), node("f", "on:object.viewed", item="report"), node("a", "do:world_count", name="c")],
-                     [wire("m", "fire", "f"), wire("f", "viewed", "a")])
+    def test_noun_with_input_waits_for_anyone_and_the_move_goes_on_with_them(self):
+        graph = make([node("m", "manual"), node("f", "on:placement.opened", item="report"), node("a", "do:world_count", name="c")],
+                     [wire("m", "fire", "f"), wire("f", "opened", "a")])
         run = runtime.start_manual(graph, "m", self.ivan)
         self.assertEqual(run.status, Run.Status.RUNNING)
-        emit("file.read", self.anna, path="/r.txt", item="report")          # чужое событие не будит
+        emit("file.read", self.anna, path="/r.txt", item="report")          # любой игрок двигает ход
+        self.assertEqual(counter(), 1)
+        self.assertFalse(Wait.objects.exists())
+        run = Run.objects.get()
+        self.assertEqual((run.status, run.user), (Run.Status.DONE, self.anna))
+
+    def test_only_the_moves_player(self):
+        graph = make([node("m", "manual"), node("f", "on:placement.opened", item="report", own=True), node("a", "do:world_count", name="c")],
+                     [wire("m", "fire", "f"), wire("f", "opened", "a")])
+        runtime.start_manual(graph, "m", self.ivan)
+        emit("file.read", self.anna, path="/r.txt", item="report")          # «Только игрок хода»: чужое не будит
         self.assertEqual(counter(), 0)
         emit("file.read", self.ivan, path="/r.txt", item="report")
         self.assertEqual(counter(), 1)
-        self.assertFalse(Wait.objects.exists())
-        self.assertEqual(Run.objects.get().status, Run.Status.DONE)
 
     def test_past_event_counts(self):
         emit("file.read", self.ivan, path="/r.txt", item="report")
@@ -210,14 +218,15 @@ class FlowTests(TestCase):
 
     def test_first_in_world_and_once(self):
         graph = make([node("m", "manual"), node("f", "first", count=1), node("w", "do:world_count", name="win"), node("l", "do:world_count", name="late"),
-                      node("o", "once"), node("n", "do:world_count", name="new"), node("g", "do:world_count", name="again")],
+                      node("o", "once"), node("n", "do:world_count", name="new"), node("g", "do:world_count", name="again"),
+                      node("p", "once", per="player"), node("pn", "do:world_count", name="player_new")],
                      [wire("m", "fire", "f"), wire("f", "pass", "w"), wire("f", "late", "l"), wire("m", "fire", "o"), wire("o", "pass", "n"),
-                      wire("o", "again", "g")])
+                      wire("o", "again", "g"), wire("m", "fire", "p"), wire("p", "pass", "pn")])
         first, second = self.players[:2]
         runtime.start_manual(graph, "m", first)
         runtime.start_manual(graph, "m", second)
         runtime.start_manual(graph, "m", second)
-        self.assertEqual([counter(n) for n in ("win", "late", "new", "again")], [1, 2, 2, 1])
+        self.assertEqual([counter(n) for n in ("win", "late", "new", "again", "player_new")], [1, 2, 1, 2, 2])
 
     def test_random_respects_zero_weight(self):
         graph = make([node("m", "manual"), node("r", "random", branches=[0, 1]), node("a", "do:world_count", name="a"), node("b", "do:world_count", name="b")],

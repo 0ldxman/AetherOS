@@ -80,8 +80,8 @@
     shape;
     queueMicrotask(() => update(id));
   });
-  const role = $derived(data.waiting ? { text: "ждёт", tip: "Есть провод в «Ждать с»: прохождение ждёт событие здесь" }
-                        : outs.some((o) => (o.type ?? "event") === "event" && data.used.includes(o.name)) || !data.used.length ? { text: "старт", tip: "Нет провода в «Ждать с»: событие запускает прохождение" }
+  const role = $derived(data.waiting ? { text: "ждёт", tip: "Есть провод в «Ждать с»: ход ждёт событие здесь" }
+                        : outs.some((o) => (o.type ?? "event") === "event" && data.used.includes(o.name)) || !data.used.length ? { text: "старт", tip: "Нет провода в «Ждать с»: событие запускает ход" }
                         : { text: "данные", tip: "Подключены только данные: нода ничего не ловит, а отдаёт вещь или значение" });
   const days = (value: number) => (value < 1 ? "<1 дн." : `${Math.floor(value)} дн.`);
   const tip = (title: string, type: string, text: string, extra = "") => [title, [type, text].filter(Boolean).join(" · "), extra].filter(Boolean).join("\n");
@@ -234,7 +234,7 @@
   {#if data.stat && (data.stat.hits || data.stat.waiting)}
     <footer>
       {#if data.stat.hits}<span title="Сколько раз прошли через ноду / сколько разных игроков">прошли {data.stat.hits}{data.stat.players ? ` · игроков ${data.stat.players}` : ""}</span>{/if}
-      {#if data.stat.waiting}<span class="wait" class:old={data.stat.oldest_days >= 3} title="Сколько прохождений стоит здесь и сколько ждёт самое старое">ждут {data.stat.waiting} · {days(data.stat.oldest_days)}</span>{/if}
+      {#if data.stat.waiting}<span class="wait" class:old={data.stat.oldest_days >= 3} title="Сколько ходов стоит здесь и сколько ждёт самое старое">ждут {data.stat.waiting} · {days(data.stat.oldest_days)}</span>{/if}
     </footer>
   {/if}
 </div>

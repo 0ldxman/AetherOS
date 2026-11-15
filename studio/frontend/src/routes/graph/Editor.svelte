@@ -175,7 +175,7 @@
     toast(data.problems.some((p) => p.level === "error") ? "Сохранено, но есть ошибки: см. «Проверка»." : "Сценарий сохранён.");
   }
   async function remove() {
-    if (!graph || !(await ask(`Удалить сценарий «${graph.title}»?`, "Вместе с прохождениями игроков и счётчиками нод.", "Удалить сценарий"))) return;
+    if (!graph || !(await ask(`Удалить сценарий «${graph.title}»?`, "Вместе с ходами и счётчиками нод.", "Удалить сценарий"))) return;
     const { error } = await api.DELETE("/studio/api/world/graphs/{graph_id}", { params: { path: { graph_id: id } } });
     if (error) return toast(problem(error), "error");
     toast("Сценарий удалён.");
@@ -504,9 +504,9 @@
           {/each}
         </nav>
       {/if}
-      <label class="switch" title="Выключенный сценарий не запускается и не двигает прохождения">
+      <label class="switch" title="Выключенный сценарий не запускается и не двигает ходы">
         <input type="checkbox" bind:checked={form.active} disabled={!editable} />{form.active ? "Включён" : "Выключен"}</label>
-      {#if stats}<span class="muted small">идёт прохождений: {stats.running}</span>{/if}
+      {#if stats}<span class="muted small">ходов: {stats.running}</span>{/if}
       <span class="spacer"></span>
       {#if dirty}<span class="muted small">не сохранено</span>{/if}
       {#if canAct("delete")}<button class="btn ghost danger" onclick={remove}>Удалить</button>{/if}
@@ -563,7 +563,7 @@
             <div class="settings">
               <label><span class="label">Имя</span><input class="field mono" bind:value={form.slug} disabled={!editable} /></label>
               <label><span class="label">Заметка автора</span><textarea class="field" rows="5" bind:value={form.note} disabled={!editable} placeholder="Что задумано, как игрок проходит, что проверить"></textarea></label>
-              <p class="muted small">Нод {doc.nodes.length}, проводов {doc.wires.length}. Существительное без входящего провода — старт: его событие запускает прохождение игрока. С входящим — ожидание. Выберите ноду, чтобы править её поля.</p>
+              <p class="muted small">Нод {doc.nodes.length}, проводов {doc.wires.length}. Существительное без входящего провода — старт: его событие запускает ход с игроком события. С входящим — ожидание. Выберите ноду, чтобы править её поля.</p>
               {#if stats && Object.keys(stats.outcomes).length}
                 <p class="muted small">Закончено: {Object.entries(stats.outcomes).map(([k, v]) => `${({ passed: "прошли", failed: "провалили", aborted: "прервано", done: "без исхода" } as Record<string, string>)[k] ?? k} ${v}`).join(", ")}</p>
               {/if}
