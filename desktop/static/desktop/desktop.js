@@ -552,7 +552,7 @@ function actionsBar(win, actions, pick) {
   root.querySelector(".win-actions")?.remove();
   const bar = el("div", "win-actions");
   const list = el("div", "win-actions-list");
-  bar.append(el("span", "win-actions-label", "actions"), list);
+  bar.append(list);
   const drop = () => { bar.remove(); root.classList.remove("has-actions"); };
   for (const action of actions) {
     const button = el("button", "dialog-ok win-action", action.title);
