@@ -22,7 +22,7 @@ class SocketTests(SimpleTestCase):
         self.assertEqual(nodes.sockets(choose, {"rows": [{}, {}, {}]}, "out"), ["r1", "r2", "r3", "else"])
         race = nodes.KINDS["race"]
         self.assertEqual(nodes.sockets(race, {"count": 3}, "in"), ["i1", "i2", "i3"])
-        self.assertIn("timeout", nodes.sockets(nodes.KINDS["file"], {}, "out"))
+        self.assertIn("timeout", nodes.sockets(nodes.KINDS["on:object.viewed"], {}, "out"))
         self.assertNotIn("timeout", nodes.sockets(nodes.KINDS["manual"], {}, "out"))
 
     def test_actions_come_from_engine_without_browser_and_host(self):
@@ -34,8 +34,8 @@ class SocketTests(SimpleTestCase):
     def test_catalog(self):
         found = nodes.catalog()
         self.assertEqual({g["name"] for g in found["groups"]}, {"entity", "noun", "flow", "data", "action", "struct", "service"})
-        file = next(k for k in found["kinds"] if k["name"] == "file")
-        self.assertEqual(file["ref"], "item")
+        attempt = next(k for k in found["kinds"] if k["name"] == "try:machine")
+        self.assertEqual((attempt["owned"], attempt["outs"]), ("machine", []))
 
 
 class CheckTests(SimpleTestCase):
@@ -44,25 +44,25 @@ class CheckTests(SimpleTestCase):
         self.assertEqual(texts(doc), [])
 
     def test_noun_used_only_as_reference_is_fine(self):
-        doc = {"nodes": [node("m", "manual"), node("w", "world_flag", name="x"), node("a", "do:world_flag")],
-               "wires": [wire("m", "fire", "a"), wire("w", "ref", "a", "f:name")]}
+        doc = {"nodes": [node("m", "manual"), node("w", "ent:machine", machine="core"), node("a", "do:world_flag")],
+               "wires": [wire("m", "fire", "a"), wire("w", "host", "a", "f:name")]}
         self.assertEqual(texts(doc), [])
 
     def test_required_and_unknown(self):
-        doc = {"nodes": [node("m", "machine"), node("x", "nope")], "wires": [wire("m", "login", "x")]}
+        doc = {"nodes": [node("m", "on:tag"), node("x", "nope")], "wires": [wire("m", "set", "x")]}
         found = texts(doc)
-        self.assertIn(("m", "не заполнено «Машина»"), found)
+        self.assertIn(("m", "не заполнено «Имя»"), found)
         self.assertIn(("x", "неизвестная нода «nope»"), found)
 
     def test_bad_sockets_and_ref(self):
-        doc = {"nodes": [node("m", "manual"), node("f", "file", item="r"), node("a", "do:world_flag", name="x")],
-               "wires": [wire("m", "nope", "a"), wire("f", "ref", "a", "f:name")]}
+        doc = {"nodes": [node("m", "manual"), node("f", "on:object.viewed", item="r"), node("a", "do:world_flag", name="x")],
+               "wires": [wire("m", "nope", "a"), wire("f", "item", "a", "f:name")]}
         found = texts(doc)
         self.assertIn(("m", "нет выхода «nope»"), found)
         self.assertIn(("a", "«Метка мира» ждёт метку мира, а приходит объект"), found)
 
     def test_start_only_with_input_and_cycle(self):
-        doc = {"nodes": [node("m", "manual"), node("t", "time", at="10:00"), node("a", "reroute"), node("b", "reroute")],
+        doc = {"nodes": [node("m", "manual"), node("t", "on:schedule", mode="daily", at="10:00"), node("a", "reroute"), node("b", "reroute")],
                "wires": [wire("m", "fire", "t"), wire("m", "fire", "a"), wire("a", "next", "b"), wire("b", "next", "a")]}
         found = texts(doc)
         self.assertTrue(any("только стартом" in text for _, text in found))

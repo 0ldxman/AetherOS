@@ -94,7 +94,7 @@ class WhenTests(TestCase):
 
         kinds = {k["name"]: k for k in nodes.catalog()["kinds"]}
         self.assertEqual(kinds["on:machine.status"]["label"], "Машина: Статус изменён")
-        self.assertTrue(kinds["file"]["hidden"] and kinds["machine"]["hidden"])
+        self.assertFalse({"file", "machine", "flag", "time"} & set(kinds))
         self.assertFalse(kinds["manual"]["hidden"] or kinds["signal"]["hidden"])
         self.assertEqual(kinds["on:schedule"]["title"], "mode")
 

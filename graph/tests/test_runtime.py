@@ -37,51 +37,51 @@ class StartTests(TestCase):
         self.ivan, self.anna = User.objects.create_user("ivan"), User.objects.create_user("anna")
 
     def login_graph(self, **start):
-        return make([node("m", "machine", host="archive", **start), node("a", "do:world_count", name="c")], [wire("m", "login", "a")])
+        return make([node("m", "on:terminal.command", machine="archive", **start), node("a", "do:world_count", name="c")], [wire("m", "run", "a")])
 
     def test_event_starts_run_and_runs_action(self):
         graph = self.login_graph()
-        self.assertEqual(Start.objects.filter(graph=graph).get().event, "machine.login")
-        emit("machine.login", self.ivan, machine="archive", login="guest")
+        self.assertEqual(Start.objects.filter(graph=graph).get().event, "command.run")
+        emit("command.run", self.ivan, machine="archive", login="guest", command="login")
         self.assertEqual(counter(), 1)
         run = Run.objects.get()
         self.assertEqual((run.user, run.status, run.ctx["host"]), (self.ivan, Run.Status.DONE, "archive"))
 
     def test_other_machine_does_not_start(self):
         self.login_graph()
-        emit("machine.login", self.ivan, machine="dock", login="guest")
+        emit("command.run", self.ivan, machine="dock", login="guest", command="login")
         self.assertEqual(counter(), 0)
 
     def test_once_per_player_by_default(self):
         self.login_graph()
         for _ in range(2):
-            emit("machine.login", self.ivan, machine="archive")
-        emit("machine.login", self.anna, machine="archive")
+            emit("command.run", self.ivan, machine="archive", command="login")
+        emit("command.run", self.anna, machine="archive", command="login")
         self.assertEqual(counter(), 2)
 
     def test_repeat_always(self):
         self.login_graph(repeat="always")
         for _ in range(3):
-            emit("machine.login", self.ivan, machine="archive")
+            emit("command.run", self.ivan, machine="archive", command="login")
         self.assertEqual(counter(), 3)
 
     def test_inactive_graph_does_nothing(self):
         graph = self.login_graph()
         Graph.objects.filter(pk=graph.pk).update(active=False)
-        emit("machine.login", self.ivan, machine="archive")
+        emit("command.run", self.ivan, machine="archive", command="login")
         self.assertEqual(counter(), 0)
 
     def test_player_flag_action_emits_event_for_next_graph(self):
-        make([node("m", "machine", host="archive"), node("f", "do:flag", name="met")], [wire("m", "login", "f")], slug="one")
-        make([node("n", "flag", name="met"), node("a", "do:world_flag", name="door")], [wire("n", "set", "a")], slug="two")
-        emit("machine.login", self.ivan, machine="archive")
+        make([node("m", "on:terminal.command", machine="archive"), node("f", "do:flag", name="met")], [wire("m", "run", "f")], slug="one")
+        make([node("n", "on:tag", owner="player", name="met"), node("a", "do:world_flag", name="door")], [wire("n", "set", "a")], slug="two")
+        emit("command.run", self.ivan, machine="archive", command="login")
         self.assertTrue(store.on("player", self.ivan.pk, "met"))
         self.assertTrue(store.on("world", 0, "door"))
         self.assertTrue(Event.objects.filter(name="flag.set", user=self.ivan).exists())
 
     def test_ref_wire_feeds_action_field(self):
-        make([node("m", "manual"), node("w", "world_flag", name="alarm"), node("a", "do:world_flag")],
-             [wire("m", "fire", "a"), wire("w", "ref", "a", "f:name")])
+        make([node("m", "manual"), node("w", "text", value="alarm"), node("a", "do:world_flag")],
+             [wire("m", "fire", "a"), wire("w", "value", "a", "f:name")])
         graph = Graph.objects.get()
         runtime.start_manual(graph, "m")
         self.assertTrue(store.on("world", 0, "alarm"))
@@ -98,8 +98,8 @@ class WaitTests(TestCase):
         self.anna = get_user_model().objects.create_user("anna")
 
     def test_noun_with_input_waits_for_players_event(self):
-        graph = make([node("m", "manual"), node("f", "file", item="report"), node("a", "do:world_count", name="c")],
-                     [wire("m", "fire", "f"), wire("f", "read", "a")])
+        graph = make([node("m", "manual"), node("f", "on:object.viewed", item="report"), node("a", "do:world_count", name="c")],
+                     [wire("m", "fire", "f"), wire("f", "viewed", "a")])
         run = runtime.start_manual(graph, "m", self.ivan)
         self.assertEqual(run.status, Run.Status.RUNNING)
         emit("file.read", self.anna, path="/r.txt", item="report")          # чужое событие не будит
@@ -111,20 +111,20 @@ class WaitTests(TestCase):
 
     def test_past_event_counts(self):
         emit("file.read", self.ivan, path="/r.txt", item="report")
-        graph = make([node("m", "manual"), node("f", "file", item="report", past=True), node("a", "do:world_count", name="c")],
-                     [wire("m", "fire", "f"), wire("f", "read", "a")])
+        graph = make([node("m", "manual"), node("f", "on:object.viewed", item="report", past=True), node("a", "do:world_count", name="c")],
+                     [wire("m", "fire", "f"), wire("f", "viewed", "a")])
         runtime.start_manual(graph, "m", self.ivan)
         self.assertEqual(counter(), 1)
 
     def test_anyone(self):
-        graph = make([node("m", "manual"), node("f", "flag", name="x", anyone=True), node("a", "do:world_count", name="c")],
+        graph = make([node("m", "manual"), node("f", "on:tag", owner="player", name="x", anyone=True), node("a", "do:world_count", name="c")],
                      [wire("m", "fire", "f"), wire("f", "set", "a")])
         runtime.start_manual(graph, "m")                                    # прохождение мира
-        emit("flag.set", self.anna, flag="x")
+        store.set_tag("player", self.anna.pk, "x")
         self.assertEqual(counter(), 1)
 
     def test_timeout_of_noun(self):
-        graph = make([node("m", "manual"), node("f", "flag", name="x", timeout=10), node("a", "do:world_count", name="c")],
+        graph = make([node("m", "manual"), node("f", "on:tag", owner="player", name="x", timeout=10), node("a", "do:world_count", name="c")],
                      [wire("m", "fire", "f"), wire("f", "timeout", "a")])
         runtime.start_manual(graph, "m", self.ivan)
         self.assertEqual(Wait.objects.count(), 1)                           # выход «set» не подключён: ждём только срок
@@ -154,29 +154,29 @@ class WaitTests(TestCase):
         self.assertEqual(counter(), 1)
 
     def test_race_cancels_other_branch(self):
-        graph = make([node("m", "manual"), node("f1", "flag", name="a"), node("f2", "flag", name="b"), node("r", "race", count=2),
+        graph = make([node("m", "manual"), node("f1", "on:tag", owner="player", name="a"), node("f2", "on:tag", owner="player", name="b"), node("r", "race", count=2),
                       node("x", "do:world_count", name="c"), node("y", "do:world_count", name="d")],
                      [wire("m", "fire", "f1"), wire("m", "fire", "f2"), wire("f1", "set", "r", "i1"), wire("f2", "set", "r", "i2"),
                       wire("r", "o1", "x"), wire("r", "o2", "y")])
         runtime.start_manual(graph, "m", self.ivan)
         self.assertEqual(Wait.objects.count(), 2)
-        emit("flag.set", self.ivan, flag="b")
+        store.set_tag("player", self.ivan.pk, "b")
         self.assertEqual((counter("c"), counter("d")), (0, 1))
         self.assertFalse(Wait.objects.exists())
         self.assertEqual(Run.objects.get().status, Run.Status.DONE)
 
     def test_all_joins_in_any_order(self):
-        graph = make([node("m", "manual"), node("f1", "flag", name="a"), node("f2", "flag", name="b"), node("j", "all", count=2),
+        graph = make([node("m", "manual"), node("f1", "on:tag", owner="player", name="a"), node("f2", "on:tag", owner="player", name="b"), node("j", "all", count=2),
                       node("x", "do:world_count", name="c")],
                      [wire("m", "fire", "f1"), wire("m", "fire", "f2"), wire("f1", "set", "j", "i1"), wire("f2", "set", "j", "i2"), wire("j", "next", "x")])
         runtime.start_manual(graph, "m", self.ivan)
-        emit("flag.set", self.ivan, flag="b")
+        store.set_tag("player", self.ivan.pk, "b")
         self.assertEqual(counter(), 0)
-        emit("flag.set", self.ivan, flag="a")
+        store.set_tag("player", self.ivan.pk, "a")
         self.assertEqual(counter(), 1)
 
     def test_end_closes_run_and_waits(self):
-        graph = make([node("m", "manual"), node("f", "flag", name="a"), node("e", "end", outcome="failed")],
+        graph = make([node("m", "manual"), node("f", "on:tag", owner="player", name="a"), node("e", "end", outcome="failed")],
                      [wire("m", "fire", "f"), wire("m", "fire", "e")])
         run = runtime.start_manual(graph, "m", self.ivan)
         self.assertEqual((run.status, run.outcome), (Run.Status.DONE, "failed"))
@@ -248,7 +248,7 @@ class FlowTests(TestCase):
         self.assertEqual((counter("skip"), counter("c")), (0, 1))
 
     def test_stats(self):
-        graph = make([node("m", "manual"), node("s", "stage", title="x"), node("f", "flag", name="q"), node("r", "reroute")],
+        graph = make([node("m", "manual"), node("s", "stage", title="x"), node("f", "on:tag", owner="player", name="q"), node("r", "reroute")],
                      [wire("m", "fire", "s"), wire("s", "next", "f"), wire("f", "set", "r")])
         for player in self.players[:2]:
             runtime.start_manual(graph, "m", player)
@@ -265,7 +265,7 @@ class TimeTests(TestCase):
 
         game = chrono.game_now()
         at = (game - timedelta(minutes=1)).strftime("%H:%M")
-        graph = make([node("t", "time", at=at), node("a", "do:world_count", name="c")], [wire("t", "fire", "a")])
+        graph = make([node("t", "on:schedule", mode="daily", at=at), node("a", "do:world_count", name="c")], [wire("t", "fire", "a")])
         runtime.tick(force=True)
         self.assertEqual(counter(), 0)                                       # включили после срока: сегодня не догоняем
         Mark.objects.filter(graph=graph).update(value=0 + 1)
@@ -278,7 +278,7 @@ class HookTests(TestCase):
     def test_events_of_world_reach_graphs(self):
         from world import state
 
-        make([node("w", "counter", name="frag", threshold=2), node("a", "do:world_flag", name="open")], [wire("w", "reached", "a")])
+        make([node("w", "on:count.threshold", owner="world", name="frag", threshold=2), node("a", "do:world_flag", name="open")], [wire("w", "up", "a")])
         state.count("frag")
         self.assertFalse(store.on("world", 0, "open"))
         state.count("frag")
@@ -296,9 +296,9 @@ class CharacterEventTests(TestCase):
         from characters.models import Character
 
         mira = Character.objects.create(code="MIR", name="Mira")
-        make([node("c", "character", character="MIR", text="*help*"), node("a", "do:world_count", name="c")], [wire("c", "air", "a")])
+        make([node("c", "on:player.mail", character="MIR", text="*help*"), node("a", "do:world_count", name="c")], [wire("c", "sent", "a")])
         ivan = get_user_model().objects.create_user("ivan")
-        inbox._wrote(ivan, mira, "forum", "please HELP me")
-        self.assertEqual(counter(), 0)                                       # другой канал
         inbox._wrote(ivan, mira, "air", "please HELP me")
+        self.assertEqual(counter(), 0)                                       # другой канал
+        inbox._wrote(ivan, mira, "mail", "please HELP me")
         self.assertEqual(counter(), 1)

@@ -177,8 +177,8 @@ class GraphEventTests(TestCase):
 
         User = get_user_model()
         players = [User.objects.create_user(f"p{n}") for n in range(2)]
-        graph = make([node("m", "manual"), node("w", "world_flag", name="alarm"), node("a", "do:world_count", name="c")],
-                     [wire("m", "fire", "w"), wire("w", "on", "a")])
+        graph = make([node("m", "manual"), node("w", "on:tag", owner="world", name="alarm"), node("a", "do:world_count", name="c")],
+                     [wire("m", "fire", "w"), wire("w", "set", "a")])
         for player in players:
             runtime.start_manual(graph, "m", player)
         state.set_flag("alarm", True, "test", players[0])
@@ -191,7 +191,7 @@ class GraphEventTests(TestCase):
         self.assertFalse(events.heard("command.run"))
         from graph.tests.test_runtime import make, node, wire
 
-        make([node("c", "command", command="decrypt"), node("a", "do:world_count", name="c")], [wire("c", "run", "a")])
+        make([node("c", "on:terminal.command", command="decrypt"), node("a", "do:world_count", name="c")], [wire("c", "run", "a")])
         events._heard["at"] = 0
         self.assertTrue(events.heard("command.run"))
         emit("command.run", get_user_model().objects.create_user("ivan"), command="decrypt", args="x")

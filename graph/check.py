@@ -105,27 +105,6 @@ def _waits(doc, node_id):
     return kind is not None and (kind.name == "wait" or (kind.group == N.NOUN and node_id in doc.fed))
 
 
-def _answers(doc, node_id):
-    """От выхода «Попытка» до «Ответить» есть путь без ожиданий (через группы не смотрим: считаем, что там ответ есть)."""
-    queue, seen = [dst for dst, _ in doc.next(node_id, "attempt")], set()
-    while queue:
-        current = queue.pop()
-        if current in seen:
-            continue
-        seen.add(current)
-        kind = doc.kind(current)
-        if kind is None:
-            continue
-        if kind.name == "answer" or kind.name in N.BOXES:
-            return True
-        if kind.name == "wait" or kind.group == N.NOUN:
-            continue
-        for (src, _), targets in doc.flow.items():
-            if src == current:
-                queue.extend(dst for dst, _ in targets)
-    return False
-
-
 def _iface_of(node, groups, add, key):
     """Интерфейс обёртки (группы или сценария) или None с проблемой."""
     from graph.runtime import _load, iface
@@ -184,16 +163,12 @@ def _part(part, groups, prefix, add, slug):
                     _clock(data[item.name])
                 except ValueError as error:
                     add(key, str(error))
-        if kind.name == "file" and not (data.get("item") or data.get("path")):
-            add(key, "нужен объект или путь")
         if kind.name == "wait":
             mode = data.get("mode") or "delay"
             if mode == "condition" and not data.get("condition"):
                 add(key, "нужно условие")
             if mode == "until" and not data.get("at"):
                 add(key, "нужно время ЧЧ:ММ")
-        if kind.name == "time" and (data.get("mode") == "once") and not data.get("date"):
-            add(key, "нужна дата для «один раз»")
         if kind.name == "choose":
             for number, row in enumerate(data.get("rows") or [], 1):
                 try:
@@ -223,8 +198,6 @@ def _part(part, groups, prefix, add, slug):
             action = {"do": kind.spec.name, **{k: v for k, v in data.items() if v not in (None, "")}}
             for text in engine.check([action], provides=("world", "user", "account")):
                 add(key, text.split(": ", 1)[-1])
-        if kind.group == N.NOUN and "attempt" in doc.wired(node_id) and not _answers(doc, node_id):
-            add(key, "попытка без мгновенного «Ответить»: решат поля вещи (на пути не должно быть ожиданий)", WARNING)
         if kind.name in ("all", "race"):
             for sock in N.sockets(kind, data, "in"):
                 if not any(dst == node_id and inp == sock for targets in doc.flow.values() for dst, inp in targets):

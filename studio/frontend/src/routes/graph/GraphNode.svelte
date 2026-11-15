@@ -27,7 +27,6 @@
   const inMode = (f: Field) => {
     const mode = String(values.mode ?? "");
     if (kind.name === "wait") return ({ minutes: (mode || "delay") === "delay", at: mode === "until", condition: mode === "condition", timeout: mode === "condition" } as Record<string, boolean>)[f.name] ?? true;
-    if (kind.name === "time" && f.name === "date") return mode === "once";
     if (kind.name === "do:player_count") return ({ delta: mode !== "set", value: mode === "set" } as Record<string, boolean>)[f.name] ?? true;
     if (kind.name === "do:file_change") return ({ item: (mode || "replace") === "replace", target: mode === "move" } as Record<string, boolean>)[f.name] ?? true;
     if (kind.name === "answer") return ({ text: mode !== "allow" && mode !== "default", minutes: mode === "block" } as Record<string, boolean>)[f.name] ?? true;
@@ -125,7 +124,7 @@
     </div>
   {/if}
   {#each restOuts as sock (sock.name)}
-    <div class="row out" class:used={data.used.includes(sock.name)} class:attempt={sock.name === "attempt"} data-tip={outTip(sock.name, sock.label, sock.type)}>
+    <div class="row out" class:used={data.used.includes(sock.name)} data-tip={outTip(sock.name, sock.label, sock.type)}>
       <span>{sock.label}</span>
       <Handle type="source" position={Position.Right} id={sock.name} class="sock" style="--c: {typeColor(sock.type ?? 'event')}" data-thing={isThing(sock.type) ? "1" : undefined} />
     </div>

@@ -143,166 +143,14 @@ WAIT_FIELDS = (
 )
 
 
-def _machine(data, out, event):
-    if out in ("stopped", "started"):
-        return _same(event.host, data.get("host"))
-    return _same(event.host, data.get("host")) and _glob(event.login, data.get("login"))
-
-
-def _server(data, out, event):
-    d = event.data or {}
-    from machines.models.net import normalize_address
-
-    if normalize_address(d.get("address", "")) != normalize_address(data.get("address", "")) and \
-            normalize_address(d.get("address", "")).split("://")[-1] != normalize_address(data.get("address", "")).split("://")[-1]:
-        return False
-    return _glob(d.get("path", ""), data.get("path"))
-
-
-def _command(data, out, event):
-    d = event.data or {}
-    return _glob(d.get("command", ""), data.get("command")) and _glob(d.get("args", ""), data.get("args"), fold=True) \
-        and (not data.get("host") or _same(event.host, data.get("host")))
-
-
-def _player_counter(data, out, event):
-    d = event.data or {}
-    if not _same(d.get("counter"), data.get("name")):
-        return False
-    if out == "changed":
-        return True
-    try:
-        return int(d.get("value") or 0) >= int(data.get("threshold") or 0)
-    except (TypeError, ValueError):
-        return False
-
-
-def _file(data, out, event):
-    d = event.data or {}
-    item = data.get("item")
-    if item and not (_same(d.get("item"), item) or _same(d.get("slug"), item)):
-        return False
-    if not _glob(d.get("path", ""), data.get("path")):
-        return False
-    if out.startswith("layer_") and not _glob(d.get("layer", ""), data.get("layer")):
-        return False
-    return bool(item or data.get("path"))
-
-
-def _character(data, out, event):
-    d = event.data or {}
-    return _same(d.get("character"), data.get("character")) and d.get("channel") == out and _glob(d.get("text", ""), data.get("text"), fold=True)
-
-
-def _freq(data, out, event):
-    d = event.data or {}
-    try:
-        same = abs(float(d.get("freq") or 0) - float(str(data.get("freq") or "").replace(",", "."))) < 0.0005
-    except ValueError:
-        return False
-    return same and _glob(d.get("text", ""), data.get("text"), fold=True)
-
-
-def _section(data, out, event):
-    d = event.data or {}
-    if str(d.get("section")) != str(data.get("section") or ""):
-        return False
-    return bool(d.get("new_topic")) == (out == "topic")
-
-
-def _flag(data, out, event):
-    return _same((event.data or {}).get("flag"), data.get("name"))
-
-
-def _world_flag(data, out, event):
-    d = event.data or {}
-    return _same(d.get("flag"), data.get("name")) and bool(d.get("on")) == (out == "on")
-
-
-def _counter(data, out, event):
-    d = event.data or {}
-    if not _same(d.get("counter"), data.get("name")):
-        return False
-    if out == "changed":
-        return True
-    try:
-        limit, value, delta = int(data.get("threshold") or 0), int(d.get("value") or 0), int(d.get("delta") or 0)
-    except (TypeError, ValueError):
-        return False
-    return value >= limit > value - delta
-
-
 def _signal(data, out, event):
     return _same((event.data or {}).get("signal"), data.get("name"))
 
 
-def _moment(data, out, event):
-    return _same((event.data or {}).get("moment"), data.get("moment"))
-
-
-register(Kind("machine", "Машина", NOUN, "{host} {login}",
-              (Field("host", "Машина", "machine", "", True), Field("login", "Учётка", "text", "любая; можно *")),
-              (Sock("attempt", "◇ Попытка входа"), Sock("login", "Вошёл"), Sock("stopped", "Остановлена"), Sock("started", "Запущена")),
-              events={"attempt": "machine.attempt", "login": "machine.login", "stopped": "machine.stopped", "started": "machine.started"}, match=_machine))
-register(Kind("server", "Сервер сети", NOUN, "{address}/{path}",
-              (Field("address", "Сервер", "text", "apollo.com", True), Field("path", "Путь", "text", "любой; можно *")),
-              (Sock("attempt", "◇ Попытка запроса"), Sock("request", "Запросил страницу"), Sock("download", "Скачал файл"), Sock("denied", "Отказ")),
-              events={"attempt": "net.attempt", "request": "net.request", "download": "net.download", "denied": "net.denied"}, match=_server))
-register(Kind("command", "Команда", NOUN, "{command} {args}",
-              (Field("command", "Команда", "text", "decrypt", True), Field("args", "Аргументы", "text", "любые; можно *"),
-               Field("host", "Только на машине", "machine", "любой")),
-              (Sock("run", "Выполнил"),), events={"run": "command.run"}, match=_command))
-register(Kind("player_counter", "Счётчик игрока", NOUN, "count:{name} ≥ {threshold}",
-              (Field("name", "Счётчик", "text", "hints", True), Field("threshold", "Порог", "number", "для «достиг»")),
-              (Sock("changed", "Изменился"), Sock("reached", "Достиг порога")),
-              events={"changed": "player.counter", "reached": "player.counter"}, match=_player_counter))
-register(Kind("file", "Файл", NOUN, "{item} {path}",
-              (Field("item", "Объект", "object", "любой"), Field("path", "Путь", "text", "любой; можно *"), Field("layer", "Слой", "text", "любой"),
-               Field("override", "Вместо хуков слоя: хуки этого файла не срабатывают, работает граф", "bool")),
-              (Sock("read", "Открыл"), Sock("deleted", "Удалил"), Sock("restored", "Вернул из корзины"), Sock("got", "Получил ключ"),
-               Sock("joined", "Собрал ключ"), Sock("layer_removed", "Снял слой"), Sock("layer_attempt", "Ошибка на слое"),
-               Sock("layer_failed", "Попытки кончились"), Sock(REF, "Файл")),
-              events={"read": "file.read", "deleted": "file.deleted", "restored": "file.restored", "got": "key.got", "joined": "key.joined",
-                      "layer_removed": "layer.removed", "layer_attempt": "layer.attempt", "layer_failed": "layer.failed"},
-              match=_file, ref=("item", "item")))
-register(Kind("character", "Персонаж", NOUN, "{character}",
-              (Field("character", "Персонаж", "character", "", True), Field("text", "Текст", "text", "любой; можно *")),
-              (Sock("mail", "Написал письмо"), Sock("air", "Позвал в эфире"), Sock("forum", "Написал на форуме"), Sock(REF, "Персонаж")),
-              events={"mail": "character.wrote", "air": "character.wrote", "forum": "character.wrote"}, match=_character, ref=("character", "character")))
-register(Kind("freq", "Частота", NOUN, "{freq}",
-              (Field("freq", "Частота, МГц", "text", "7.205", True), Field("text", "Текст", "text", "любой; можно *")),
-              (Sock("sent", "Передача"),), events={"sent": "air.sent"}, match=_freq))
-register(Kind("section", "Раздел форума", NOUN, "раздел {section}", (Field("section", "Раздел", "section", "", True),),
-              (Sock("topic", "Новая тема"), Sock("reply", "Ответ"), Sock(REF, "Раздел")),
-              events={"topic": "forum.posted", "reply": "forum.posted"}, match=_section, ref=("section", "section")))
-register(Kind("flag", "Метка игрока", NOUN, "tag:{name}", (Field("name", "Метка", "flag", "", True),),
-              (Sock("set", "Поставили"), Sock("unset", "Сняли"), Sock(REF, "Метка")),
-              events={"set": "flag.set", "unset": "flag.unset"}, match=_flag, ref=("flag", "name")))
-register(Kind("world_flag", "Метка мира", NOUN, "world:{name}", (Field("name", "Метка мира", "world_flag", "", True),),
-              (Sock("on", "Поставили"), Sock("off", "Сняли"), Sock(REF, "Метка")),
-              events={"on": "world.flag", "off": "world.flag"}, match=_world_flag, ref=("world_flag", "name")))
-register(Kind("counter", "Счётчик мира", NOUN, "world:{name} ≥ {threshold}",
-              (Field("name", "Счётчик", "counter", "", True), Field("threshold", "Порог", "number", "для «достиг»")),
-              (Sock("changed", "Изменился"), Sock("reached", "Достиг порога"), Sock(REF, "Счётчик")),
-              events={"changed": "world.counter", "reached": "world.counter"}, match=_counter, ref=("counter", "name")))
-register(Kind("moment", "Момент мира", NOUN, "{moment}", (Field("moment", "Момент", "moment", "", True),),
-              (Sock("started", "Начался"), Sock("ended", "Кончился")),
-              events={"started": "moment.started", "ended": "moment.ended"}, match=_moment))
-register(Kind("time", "Время", NOUN, "{mode} {at}",
-              (Field("mode", "Когда", "select", "", False, (("daily", "каждый день"), ("once", "один раз"))),
-               Field("at", "Время (игровое, ЧЧ:ММ)", "clock", "21:00", True), Field("date", "Дата (для «один раз»)", "text", "2031-05-14"),
-               Field("scope", "Для кого", "select", "", False, (("world", "мир"), ("each", "каждый игрок")))),
-              (Sock("fire", "Наступило"),), events={"fire": TIME_EVENT}, start_only=True))
 register(Kind("manual", "Запуск вручную", NOUN, "{label}", (Field("label", "Подпись кнопки", "text", "Запустить"),),
               (Sock("fire", "Запустили"),), events={"fire": MANUAL_EVENT}, start_only=True))
 register(Kind("signal", "Сигнал", NOUN, "{name}", (Field("name", "Сигнал", "text", "bunker-open", True),),
               (Sock("got", "Пришёл"),), events={"got": SIGNAL_EVENT}, match=_signal))
-
-
-OLD_NOUNS = ("machine", "server", "command", "player_counter", "file", "character", "freq", "section", "flag", "world_flag", "counter",
-             "moment", "time")
-for _name in OLD_NOUNS:
-    KINDS[_name] = replace(KINDS[_name], hidden=True)
 
 
 # ---------- когда: события по пространствам («Машина: Статус изменён») ----------
@@ -579,19 +427,6 @@ _actions()
 # ---------- пояснения (подсказки на холсте, как в Blender) ----------
 
 HELP = {
-    "machine": "Машина и её учётки. Ловит вход игрока, остановку и запуск машины. ◇ Попытка входа — игрок стоит у двери, сценарий может ответить нодой «Ответить».",
-    "server": "Внутриигровой сервер (nreq, nget). Ловит запросы страниц, скачивание файлов и отказ. ◇ Попытка запроса — ответить можно нодой «Ответить».",
-    "command": "Команда терминала. Срабатывает, когда игрок её выполнил (с аргументами по образцу).",
-    "player_counter": "Личный счётчик игрока (действие «Счётчик игрока»). Срабатывает, когда изменился или дошёл до порога.",
-    "file": "Объект или файлы по пути. Ловит открытие, удаление, возврат, получение и сборку ключа, события слоёв. «Вместо хуков слоя» — хуки файла молчат, работает граф.",
-    "character": "Персонаж. Срабатывает, когда игрок пишет ему: письмом, в эфире (полный позывной) или на форуме.",
-    "freq": "Частота эфира. Срабатывает на передачу игрока на этой частоте (с текстом по образцу).",
-    "section": "Раздел форума: новая тема или ответ игрока.",
-    "flag": "Тег игрока (tag:имя): поставили или сняли.",
-    "world_flag": "Метка мира (world:имя), одна на всех. Событие общее: будит ждущих у всех игроков.",
-    "counter": "Счётчик мира. «Достиг порога» — в тот момент, когда значение перешло порог. Событие общее.",
-    "moment": "Момент мира: начался или кончился. Событие общее.",
-    "time": "Игровое время: каждый день или один раз в ЧЧ:ММ. Запускает прохождение мира или каждого игрока. Только старт.",
     "manual": "Кнопка автора: запустить прохождение для игрока или мира из панели ноды. Только старт.",
     "try:machine": "Вход на выбранную машину. Tab — граф входа этой машины: от «Попытки» до «Ответить», без ожиданий. "
                    "Выходы ноды — сокеты «Выхода» внутри графа: события и данные.",
@@ -724,21 +559,7 @@ def _data(name, label, summary, fields, out_type, out_label="Значение", 
 
 _P = ("@player",)
 for _kind, _outs in {
-    "machine": (Sock(REF, "Машина", "machine", "host", "host"), Sock("account", "Учётка", "text", "login", "login")),
-    "server": (Sock("address", "Сервер", "text", "address", "address"), Sock("path", "Путь", "text", "path")),
-    "command": (Sock("command", "Команда", "text", "command", "command"), Sock("args", "Аргументы", "text", "args")),
-    "player_counter": (Sock("value", "Значение", "number", "value"),),
-    "file": (Sock(REF, "Файл", "item", "item", "item"), Sock("path", "Путь", "text", "path", "path"), Sock("layer", "Слой", "text", "layer")),
-    "character": (Sock(REF, "Персонаж", "character", "character", "character"), Sock("text", "Текст", "text", "text"),
-                  Sock("channel", "Канал", "text", "channel")),
-    "freq": (Sock("text", "Текст", "text", "text"), Sock("callsign", "Позывной", "text", "callsign")),
-    "section": (Sock(REF, "Раздел", "section", "section", "section"), Sock("title", "Тема", "text", "title")),
-    "flag": (Sock(REF, "Метка", "flag", "flag", "name"),),
-    "world_flag": (Sock(REF, "Метка мира", "world_flag", "flag", "name"),),
-    "counter": (Sock(REF, "Счётчик", "counter", "counter", "name"), Sock("value", "Значение", "number", "value")),
-    "moment": (Sock(REF, "Момент", "moment", "moment", "moment"),),
     "signal": (),
-    "time": (),
     "manual": (),
 }.items():
     DATA_OUTS[_kind] = _outs + (Sock("player", "Игрок", "text", "@player"),)

@@ -18,9 +18,10 @@ class DataTests(TestCase):
         self.ivan = get_user_model().objects.create_user("ivan")
 
     def test_event_detail_feeds_an_action_field(self):
-        make([node("fl", "file", path="/home/*"), node("a", "do:world_flag")],
-             [wire("fl", "read", "a"), f("fl", "layer", "a", "name")])
-        emit("file.read", self.ivan, path="/home/x", layer="vault")
+        make([node("fl", "on:object.viewed", path="/home/*"), node("a", "do:world_flag")],
+             [wire("fl", "viewed", "a"), f("fl", "item", "a", "name")])
+        emit("file.read", self.ivan, path="/srv/x", item="other")
+        emit("file.read", self.ivan, path="/home/x", item="vault")
         self.assertTrue(store.on("world", 0, "vault"))
 
     def test_template_number_and_player(self):
@@ -104,8 +105,8 @@ class DataTests(TestCase):
         self.assertTrue(any("нет входа «zz»" in t for t in texts))
 
     def test_waiting_filter_from_a_wire_is_frozen_on_the_wait(self):
-        graph = make([node("m", "manual"), node("t", "text", value="/srv/*"), node("fl", "file"), node("a", "do:world_count", name="c")],
-                     [wire("m", "fire", "fl"), f("t", "value", "fl", "path"), wire("fl", "read", "a")])
+        graph = make([node("m", "manual"), node("t", "text", value="/srv/*"), node("fl", "on:object.viewed"), node("a", "do:world_count", name="c")],
+                     [wire("m", "fire", "fl"), f("t", "value", "fl", "path"), wire("fl", "viewed", "a")])
         runtime.start_manual(graph, "m", self.ivan)
         self.assertEqual(Wait.objects.get().data, {"path": "/srv/*"})
         emit("file.read", self.ivan, path="/home/x")

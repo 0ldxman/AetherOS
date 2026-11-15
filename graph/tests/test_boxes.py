@@ -35,12 +35,12 @@ class GroupTests(TestCase):
         self.assertEqual(check.problems(doc, "g"), [])
 
     def test_noun_inside_group_is_a_start(self):
-        group = {"nodes": [node("f", "flag", name="x"), node("a", "do:world_count", name="c")], "wires": [wire("f", "set", "a")]}
+        group = {"nodes": [node("f", "on:tag", owner="player", name="x"), node("a", "do:world_count", name="c")], "wires": [wire("f", "set", "a")]}
         graph = Graph.objects.create(slug="g", title="g", active=True, doc={"nodes": [node("g", "group", group="grp")], "wires": [], "groups": {"grp": group}})
         runtime.rebuild_starts(graph)
-        from engine.events import emit
+        from engine import values
 
-        emit("flag.set", self.ivan, flag="x")
+        values.set_tag("player", self.ivan.pk, "x")
         self.assertEqual(counter("c"), 1)
 
     def test_checks(self):
@@ -62,7 +62,7 @@ class ScenarioNodeTests(TestCase):
     def setUp(self):
         self.ivan = get_user_model().objects.create_user("ivan")
         self.inner = make([gin("i", "go"), node("a", "do:world_count", name="c"), gout("o", "done"),
-                           node("f", "flag", name="x"), node("z", "do:world_count", name="own")],
+                           node("f", "on:tag", owner="player", name="x"), node("z", "do:world_count", name="own")],
                           [wire("i", "go", "a"), wire("a", "next", "o", "done"), wire("f", "set", "z")], slug="inner")
 
     def test_scenario_node_inlines_other_graph(self):

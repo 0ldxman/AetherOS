@@ -11,7 +11,7 @@ URL = "/studio/api/world/graphs"
 
 def doc():
     return {"nodes": [{"id": "m", "type": "manual", "x": 0, "y": 0, "data": {}},
-                      {"id": "f", "type": "flag", "x": 200, "y": 0, "data": {"name": "met"}},
+                      {"id": "f", "type": "on:tag", "x": 200, "y": 0, "data": {"owner": "player", "name": "met"}},
                       {"id": "r", "type": "reroute", "x": 300, "y": 0, "data": {}},
                       {"id": "a", "type": "do:world_flag", "x": 400, "y": 0, "data": {"name": "door"}}],
             "wires": [{"from": "m", "out": "fire", "to": "a", "in": "in"}, {"from": "m", "out": "fire", "to": "f", "in": "in"},
@@ -31,10 +31,10 @@ class GraphApiTests(TestCase):
     def test_catalog(self):
         data = self.client.get(f"{URL}/catalog").json()
         names = [k["name"] for k in data["kinds"]]
-        self.assertIn("machine", names)
+        self.assertIn("try:machine", names)
         self.assertIn("do:world_flag", names)
         self.assertIn("bool", data["types"])
-        file = next(k for k in data["kinds"] if k["name"] == "file")
+        file = next(k for k in data["kinds"] if k["name"] == "on:object.viewed")
         self.assertIn({"name": "path", "label": "Путь", "type": "text"}, file["outs"])
 
     def test_create_save_and_starts(self):
@@ -51,7 +51,7 @@ class GraphApiTests(TestCase):
         bad = doc()
         bad["nodes"][1]["data"] = {}
         data = self.create(doc=bad).json()
-        self.assertIn({"node": "f", "text": "не заполнено «Метка»", "level": "error"}, data["problems"])
+        self.assertIn({"node": "f", "text": "не заполнено «Имя»", "level": "error"}, data["problems"])
 
     def test_broken_doc_and_duplicate_slug(self):
         self.assertEqual(self.create(doc={"nodes": [{"id": "a"}, {"id": "a"}]}).status_code, 400)

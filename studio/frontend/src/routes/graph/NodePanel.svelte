@@ -58,8 +58,7 @@
   const MONTHS = ["янв", "фев", "мар", "апр", "мая", "июн", "июл", "авг", "сен", "окт", "ноя", "дек"];
   const when = (iso: string) => { const d = new Date(iso); return `${d.getDate()} ${MONTHS[d.getMonth()]}, ${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`; };
   const shown = (f: Field) => f.kind !== "hidden" && inWhen(kind, data, f.name) && !(kind.name === "wait" && ((f.name === "minutes" && (data.mode ?? "delay") !== "delay") || (f.name === "at" && data.mode !== "until")
-                                  || (f.name === "condition" && data.mode !== "condition") || (f.name === "timeout" && data.mode !== "condition")))
-                              && !(kind.name === "time" && f.name === "date" && data.mode !== "once");
+                                  || (f.name === "condition" && data.mode !== "condition") || (f.name === "timeout" && data.mode !== "condition")));
 </script>
 
 <div class="panel">
