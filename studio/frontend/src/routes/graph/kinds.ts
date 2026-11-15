@@ -36,14 +36,20 @@ export const TYPES: Record<string, { label: string; color: string; thing?: boole
   counter: { label: "Счётчик", color: "#8fb3ff", thing: true },
   moment: { label: "Момент", color: "#d4d27a", thing: true },
 };
-// списки: «list:<тип элемента>», «list:any» — вход, которому подходит любой список; @T и @list — по «Типу элементов» ноды
+// списки: «list:<тип элемента>», «list:any» — вход, которому подходит любой список; @T и @list — по «Типу элементов» ноды.
+// «many:<тип>» — одно значение или список; «a|b» — подходит любой из типов (сокет в цветах всех)
 export const isList = (type: string | undefined) => !!type && type.startsWith("list:");
-export const elementOf = (type: string) => (isList(type) ? type.slice(5) : type);
-export const typeColor = (type: string) => (type === "list:any" ? "#c9ccd2" : TYPES[elementOf(type)]?.color ?? TYPES.event.color);
+export const isMany = (type: string | undefined) => !!type && type.startsWith("many:");
+export const elementOf = (type: string) => (isList(type) || isMany(type) ? type.slice(5) : type);
+export const basesOf = (type: string) => elementOf(type).split("|");
+export const typeColor = (type: string) => (type === "list:any" ? "#c9ccd2" : TYPES[basesOf(type)[0]]?.color ?? TYPES.event.color);
+export const typeColors = (type: string) => (type === "list:any" ? ["#c9ccd2"] : basesOf(type).map((b) => TYPES[b]?.color ?? TYPES.event.color));
 export function typeLabel(type: string | undefined): string {
   if (!type) return "";
   if (type === "list:any") return "Список";
-  return isList(type) ? `Список (${(TYPES[elementOf(type)]?.label ?? elementOf(type)).toLowerCase()})` : TYPES[type]?.label ?? "";
+  const one = basesOf(type).map((b) => TYPES[b]?.label ?? b).join(" или ");
+  const elements = one.toLowerCase();
+  return isList(type) ? `Список (${elements})` : isMany(type) ? `${one} или список (${elements})` : one;
 }
 export function resolveType(kind: Kind, data: Record<string, unknown>, type: string | undefined): string {
   if (type !== "@T" && type !== "@list") return type ?? "";
@@ -55,9 +61,15 @@ export function resolveType(kind: Kind, data: Record<string, unknown>, type: str
 export function compatible(src: string, dst: string): boolean {
   if (src === dst) return true;
   if (src === "event" || dst === "event") return false;
-  if (dst === "list:any") return isList(src);
-  if (isList(dst)) return isList(src) ? compatible(elementOf(src), elementOf(dst)) : compatible(src, elementOf(dst));
-  if (isList(src)) return dst === "text";
+  if (dst === "list:any") return isList(src) || isMany(src);
+  if (isList(src) && !isList(dst) && !isMany(dst)) return dst === "text";
+  const [from, to] = [basesOf(src), basesOf(dst)];
+  if (from.length > 1 || to.length > 1 || from[0] !== src || to[0] !== dst) return from.every((s) => to.some((d) => one(s, d)));
+  return one(src, dst);
+}
+
+function one(src: string, dst: string): boolean {
+  if (src === dst) return true;
   if (dst === "text") return true;
   if (dst === "number") return src === "bool";
   if (dst === "bool") return src === "number";
@@ -121,10 +133,25 @@ export function outsOf(kind: Kind, data: Record<string, unknown>, waiting: boole
   return [...out, ...values];
 }
 
-export const isThing = (type: string | undefined) => !!TYPES[elementOf(type ?? "")]?.thing;
+export const isThing = (type: string | undefined) => basesOf(type ?? "").some((b) => !!TYPES[b]?.thing);
+
+// выход, который повторяет вход (kind.follows): пришёл список — список, одно — одно
+export function followType(kind: Kind, name: string, type: string, fed: Record<string, string>): string {
+  const field = kind.follows?.[name];
+  const src = field ? fed[`f:${field}`] : "";
+  if (!src || !isMany(type)) return type;
+  return isList(src) ? `list:${elementOf(type)}` : isMany(src) ? type : elementOf(type);
+}
 
 // заголовок ноды: у «Математики» и «Логики» — выбранное действие (как в Blender)
-export function titleOf(kind: Kind, data: Record<string, unknown>): string {
+const given = (value: unknown) => value !== undefined && value !== null && value !== "";
+
+// поле задано: в него идёт провод или в нём что-то вписано
+export const isSet = (data: Record<string, unknown>, usedIn: string[], name: string) => usedIn.includes(`f:${name}`) || given(data[name]);
+
+export function titleOf(kind: Kind, data: Record<string, unknown>, usedIn: string[] = []): string {
+  const named = Object.entries(kind.titled ?? {}).find(([name]) => isSet(data, usedIn, name));
+  if (named) return named[1];                                    // «Размещение: Создать» с объектом — «Размещение: Добавить»
   if (!kind.title) return kind.label;
   const field = kind.fields.find((f) => f.name === kind.title);
   const value = String(data[kind.title] ?? field?.options[0]?.value ?? "");

@@ -12105,6 +12105,20 @@ export interface components {
             covers: {
                 [key: string]: string[];
             };
+            /**
+             * Follows
+             * @default {}
+             */
+            follows: {
+                [key: string]: string;
+            };
+            /**
+             * Titled
+             * @default {}
+             */
+            titled: {
+                [key: string]: string;
+            };
         };
         /** GrMany */
         GrMany: {

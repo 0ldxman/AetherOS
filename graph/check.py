@@ -221,7 +221,7 @@ def _part(part, groups, prefix, add, slug):
             if not dst_type:
                 add(prefix + dst, f"у «{dst_kind.label}» нет входа «{label}»")
             elif not N.compatible(src_type, dst_type):
-                add(prefix + dst, f"«{label}» ждёт {N.TYPE_LABELS[dst_type]}, а приходит {N.TYPE_LABELS.get(src_type, src_type)}")
+                add(prefix + dst, f"«{label}» ждёт {N.type_label(dst_type)}, а приходит {N.type_label(src_type)}")
             continue
         if inp not in N.sockets(dst_kind, doc.data(dst), "in", ifaces.get(dst)):
             if ifaces.get(dst, True) is not None:
@@ -229,7 +229,7 @@ def _part(part, groups, prefix, add, slug):
             continue
         dst_type = N.sock_type(dst_kind, doc.data(dst), "in", inp, ifaces.get(dst))
         if not N.compatible(src_type, dst_type):
-            add(prefix + dst, f"вход ждёт {N.TYPE_LABELS.get(dst_type, dst_type)}, а приходит {N.TYPE_LABELS.get(src_type, src_type)}")
+            add(prefix + dst, f"вход ждёт {N.type_label(dst_type)}, а приходит {N.type_label(src_type)}")
         if out_name == N.TIMEOUT and src_kind.group == N.NOUN and src not in doc.fed:
             add(prefix + src, "таймаут бывает только у ждущей ноды (со входом)")
 

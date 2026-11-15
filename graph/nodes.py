@@ -32,8 +32,35 @@ TYPE_LABELS[ANY_LIST] = "список"
 ELEMENT, OF_LIST = "@T", "@list"           # тип входа или выхода ноды списка: элемент или список того, что выбрано в «Тип элементов»
 
 
+# кратность и несколько типов: «many:<тип>» — одно значение или список; «a|b» — подходит любой из типов
+MANY = "many:"
+
+
 def is_list(kind):
     return str(kind or "").startswith(LIST)
+
+
+def is_many(kind):
+    return str(kind or "").startswith(MANY)
+
+
+def split_type(kind):
+    """(кратность one | list | many, типы) из строки типа: «many:machine|server» -> ("many", ("machine", "server"))."""
+    kind = str(kind or "")
+    for prefix, mult in ((LIST, "list"), (MANY, "many")):
+        if kind.startswith(prefix):
+            return mult, tuple(kind[len(prefix):].split("|"))
+    return "one", tuple(kind.split("|"))
+
+
+def type_label(kind):
+    """Тип словами (винительный падеж: «ждёт …»): «размещение или список (размещение)», «машину или сервер»."""
+    if kind in TYPE_LABELS:
+        return TYPE_LABELS[kind]
+    mult, bases = split_type(kind)
+    one = " или ".join(TYPE_LABELS.get(b, b) for b in bases)
+    elements = " или ".join(ELEMENTS.get(b, b).lower() for b in bases)
+    return {"one": one, "list": f"список ({elements})", "many": f"{one} или список ({elements})"}[mult]
 FIELD_TYPES = {"text": "text", "textarea": "text", "path": "text", "clock": "text", "expr": "text", "scene": "text", "station": "text",
                "graph": "text", "number": "number", "bool": "bool", "condition": "bool", "key": "item", "item": "item", "letter": "item",
                "object": "item", "character": "character", "section": "section", "flag": "flag", "world_flag": "world_flag",
@@ -43,6 +70,8 @@ FIELD_TYPES = {"text": "text", "textarea": "text", "path": "text", "clock": "tex
 def field_type(field):
     if field.kind in (ELEMENT, OF_LIST):
         return field.kind
+    if is_many(field.kind):                         # поле «одно или список»: вход того же вида
+        return MANY + "|".join(FIELD_TYPES.get(b, b) for b in field.kind[len(MANY):].split("|"))
     if field.kind == "@any":
         return ANY_LIST
     return FIELD_TYPES.get(field.kind, "")
@@ -50,18 +79,26 @@ def field_type(field):
 
 def compatible(src, dst):
     """Можно ли вести провод из выхода типа src во вход типа dst (как в Blender: число в текст можно, событие в данные нельзя).
-    Одно значение подходит в список (станет списком из одного), список — в текст (через запятую) и в «любой список»."""
+    Одно значение подходит в список (станет списком из одного), список — в текст (через запятую) и в «любой список».
+    «Одно или список» принимает и то и другое; во вход нескольких типов подходит любой из них."""
     if src == dst:
         return True
     if EVENT in (src, dst):
         return False
     if dst == ANY_LIST:
-        return is_list(src)
-    if is_list(dst):
-        element = dst[len(LIST):]
-        return compatible(src[len(LIST):], element) if is_list(src) else compatible(src, element)
-    if is_list(src):
+        return is_list(src) or is_many(src)
+    (src_mult, src_bases), (dst_mult, dst_bases) = split_type(src), split_type(dst)
+    if src_mult == "list" and dst_mult == "one":
         return dst == "text"
+    if len(src_bases) > 1 or len(dst_bases) > 1 or src_mult != "one" or dst_mult != "one":
+        return all(any(_one(s, d) for d in dst_bases) for s in src_bases)
+    return _one(src, dst)
+
+
+def _one(src, dst):
+    """Совместимость одиночных типов."""
+    if src == dst:
+        return True
     if dst == "text":
         return True                                  # любое значение подставляется текстом (вещь — своим именем)
     if dst == "number":
@@ -133,6 +170,8 @@ class Kind:
     when: dict = field(default_factory=dict)         # поле -> (поле-режим, значения) или список таких пар: вход есть только в этих режимах
     typed: str = ""                     # поле-параметр «Тип элементов»: им заменяются @T и @list в типах сокетов
     covers: dict = field(default_factory=dict)     # поле -> поля, которые прячутся, когда в него идёт провод (провод их заменяет)
+    follows: dict = field(default_factory=dict)    # выход «одно или список» -> поле, чью кратность он повторяет
+    titled: dict = field(default_factory=dict)     # поле -> заголовок ноды, когда поле задано (провод или значение)
     hidden: bool = False                # старая нода: работает в готовых сценариях, но в меню её нет
     owned: str = ""                     # нода попытки: вид графа у вещи (graph/owned.py), Tab открывает его
 
@@ -1014,5 +1053,6 @@ def catalog():
             "when": [{"field": name, "mode": mode, "values": list(values)} for name, rule in k.when.items()
                      for mode, values in ([rule] if isinstance(rule[0], str) else rule)],
             "hidden": k.hidden, "owned": k.owned, "typed": k.typed, "covers": {name: list(hid) for name, hid in k.covers.items()},
+            "follows": dict(k.follows), "titled": dict(k.titled),
         } for k in sorted(KINDS.values(), key=_menu_order)],
     }

@@ -3,14 +3,14 @@
   // без провода значение правится прямо на ноде, с проводом приходит по нему. Выбор режима — параметр без входа.
   // Круг — событие и простые значения (да/нет, текст, число), ромб — вещь (файл, машина, персонаж…). Цвет — тип.
   import { Handle, Position, useUpdateNodeInternals } from "@xyflow/svelte";
-  import { BOXES, COLORS, TYPES, isList, resolveType, typeLabel as labelOfType, inWhen, insOf, isThing, outsOf, propFields, rowsOf, socketFields, titleOf, typeColor, visibleRows, type Field, type GNode, type Iface, type Kind, type Row } from "./kinds";
+  import { BOXES, COLORS, TYPES, followType, isSet, isList, isMany, typeColors, resolveType, typeLabel as labelOfType, inWhen, insOf, isThing, outsOf, propFields, rowsOf, socketFields, titleOf, typeColor, visibleRows, type Field, type GNode, type Iface, type Kind, type Row } from "./kinds";
 
   type Stat = { hits: number; players: number; waiting: number; oldest_days: number };
   type Option = { value: string; label: string };
   let { id, data, selected }: {
     id: string;
     data: { node: GNode; kind: Kind; waiting: boolean; summary: string; errors: number; warnings: number; stat: Stat | null; used: string[];
-            usedIn: string[]; iface: Iface | null; box: number; help: Record<string, string>; fedFrom: Record<string, string>;
+            usedIn: string[]; iface: Iface | null; box: number; help: Record<string, string>; fedFrom: Record<string, string>; fedTypes: Record<string, string>;
             picks: Record<string, Option[]>; editable: boolean; onfield: (name: string, value: unknown) => void };
     selected?: boolean;
   } = $props();
@@ -22,7 +22,8 @@
   const allIns = $derived(insOf(kind, values, data.iface));
   const flowIn = $derived(allIns.some((s) => s.name === "in") && !(isNoun && kind.start_only));
   const ins = $derived(allIns.filter((s) => s.name !== "in" && (!hide || data.usedIn.includes(s.name))));
-  const outs = $derived(outsOf(kind, values, data.waiting, data.iface).filter((s) => !hide || data.used.includes(s.name)));
+  const outs = $derived(outsOf(kind, values, data.waiting, data.iface).map((s) => ({ ...s, type: s.type && followType(kind, s.name, s.type, data.fedTypes) }))
+    .filter((s) => !hide || data.used.includes(s.name)));
   // поля, которые есть в выбранном режиме (как в Blender: режим меняет набор входов); подключённые видны всегда
   const inMode = (f: Field) => {
     const mode = String(values.mode ?? "");
@@ -36,10 +37,11 @@
   const PICK: Record<string, string> = { item: "object", machine: "machine", server: "server", character: "character", section: "section", moment: "moment", player: "player" };
   const typed = (f: Field): Field => {
     const socket = resolveType(kind, values, f.socket);
+    if (isMany(f.kind)) return { ...f, kind: f.kind.slice(5).split("|")[0] };
     return socket === f.socket ? f : { ...f, socket, kind: isList(socket) ? "list" : PICK[socket] ?? socket };
   };
   // провод в поле-замену (например «Размещение») прячет поля, которые он заменяет
-  const covered = (f: Field) => Object.entries(kind.covers ?? {}).some(([name, hid]) => hid.includes(f.name) && data.usedIn.includes(`f:${name}`));
+  const covered = (f: Field) => Object.entries(kind.covers ?? {}).some(([name, hid]) => hid.includes(f.name) && isSet(values, data.usedIn, name));
   const fields = $derived(socketFields(kind).map(typed).filter((f) => data.usedIn.includes(`f:${f.name}`) || (!hide && inMode(f) && !covered(f))));
   // выход данных с тем же именем или подписью, что у входа-поля (Машина, Объект, Путь…), стоит в той же строке справа
   const paired = $derived.by(() => {
@@ -86,7 +88,15 @@
   const days = (value: number) => (value < 1 ? "<1 дн." : `${Math.floor(value)} дн.`);
   const tip = (title: string, type: string, text: string, extra = "") => [title, [type, text].filter(Boolean).join(" · "), extra].filter(Boolean).join("\n");
   const typeLabel = (type: string | undefined) => labelOfType(type ?? "event");
-  const look = (type: string | undefined) => ({ "data-thing": isThing(type) ? "1" : undefined, "data-list": isList(type) ? "1" : undefined });
+  const look = (type: string | undefined) => ({ "data-thing": isThing(type) ? "1" : undefined, "data-list": isList(type) ? "1" : undefined,
+                                                 "data-many": isMany(type) ? "1" : undefined });
+  // цвет сокета; несколько типов — по цвету на сторону рамки (до четырёх)
+  const paint = (type: string) => {
+    const colors = typeColors(type);
+    if (colors.length < 2) return { style: `--c: ${colors[0]}` };
+    const [a, b, c = b, d = a] = colors;
+    return { style: `--c: ${a}; --c2: ${b}; border-color: ${a} ${c} ${b} ${d}`, "data-union": "1" };
+  };
   const outTip = (name: string, label: string, type: string | undefined) => tip(label || name, typeLabel(type), data.help[name] ?? (name.match(/^[a-z]\d+$/) ? "ветка" : ""));
   const inTip = (name: string, label: string, type: string | undefined) => tip(label, typeLabel(type), data.help[name] ?? "", data.fedFrom[name] ? `подключено: ${data.fedFrom[name]}` : "не подключено");
   const val = (name: string) => (values[name] === undefined || values[name] === null ? "" : String(values[name]));
@@ -99,8 +109,8 @@
 </script>
 
 <div class="node" class:selected class:muted-node={data.node.mute} class:box={kind.name === "group" || kind.name === "scenario"} style="--head: {COLORS[kind.group] ?? '#555'}">
-  <header data-tip={tip(kind.title ? `${kind.label}: ${titleOf(kind, values)}` : kind.label, "", kind.help)}>
-    <b>{titleOf(kind, values)}</b>
+  <header data-tip={tip(kind.title ? `${kind.label}: ${titleOf(kind, values, data.usedIn)}` : titleOf(kind, values, data.usedIn), "", kind.help)}>
+    <b>{titleOf(kind, values, data.usedIn)}</b>
     {#if isNoun}<span class="tag" title={role.tip}>{role.text}</span>{/if}
     {#if kind.name === "group"}<span class="tag" title="Tab — войти в группу">Tab</span>{/if}
     {#if kind.owned}<span class="tag" title="Tab — граф попытки этой вещи">Tab</span>{/if}
@@ -129,14 +139,14 @@
         <Handle type="target" position={Position.Left} id="in" class="sock" style="--c: {TYPES.event.color}" />{flowLabel}
       </span>
       <span class="half out" class:used={data.used.includes(beside.name)} data-tip={outTip(beside.name, beside.label, beside.type)}>
-        {beside.label}<Handle type="source" position={Position.Right} id={beside.name} class="sock" style="--c: {typeColor(beside.type ?? 'event')}" />
+        {beside.label}<Handle type="source" position={Position.Right} id={beside.name} class="sock" {...paint(beside.type ?? 'event')} />
       </span>
     </div>
   {/if}
   {#each restOuts as sock (sock.name)}
     <div class="row out" class:used={data.used.includes(sock.name)} data-tip={outTip(sock.name, sock.label, sock.type)}>
       <span>{sock.label}</span>
-      <Handle type="source" position={Position.Right} id={sock.name} class="sock" style="--c: {typeColor(sock.type ?? 'event')}" {...look(sock.type)} />
+      <Handle type="source" position={Position.Right} id={sock.name} class="sock" {...paint(sock.type ?? 'event')} {...look(sock.type)} />
     </div>
   {/each}
 
@@ -149,7 +159,7 @@
   {/if}
   {#each ins as sock (sock.name)}
     <div class="row in" class:used={data.usedIn.includes(sock.name)} data-tip={inTip(sock.name, sock.label, sock.type)}>
-      <Handle type="target" position={Position.Left} id={sock.name} class="sock" style="--c: {typeColor(sock.type ?? 'event')}" {...look(sock.type)} />
+      <Handle type="target" position={Position.Left} id={sock.name} class="sock" {...paint(sock.type ?? 'event')} {...look(sock.type)} />
       <span>{sock.label}</span>
     </div>
   {/each}
@@ -157,7 +167,7 @@
     {@const key = `f:${f.name}`}
     {@const fed = data.usedIn.includes(key)}
     <div class="row in field" class:used={fed} data-tip={inTip(key, f.label, f.socket)}>
-      <Handle type="target" position={Position.Left} id={key} class="sock" style="--c: {typeColor(f.socket)}" {...look(f.socket)} />
+      <Handle type="target" position={Position.Left} id={key} class="sock" {...paint(f.socket)} {...look(f.socket)} />
       <span class="label" class:req={f.required && !fed && !val(f.name)}>{f.label}</span>
       {#if !fed && !isList(f.socket)}
         {#if f.socket === "bool" && (f.kind === "bool" || f.kind === "@T")}
@@ -181,7 +191,7 @@
       {#if paired[f.name]}
         {@const out = paired[f.name]}
         <span class="pass" class:used={data.used.includes(out.name)} data-tip={outTip(out.name, out.label, out.type)}>
-          <Handle type="source" position={Position.Right} id={out.name} class="sock" style="--c: {typeColor(out.type ?? 'event')}" {...look(out.type)} />
+          <Handle type="source" position={Position.Right} id={out.name} class="sock" {...paint(out.type ?? 'event')} {...look(out.type)} />
         </span>
       {/if}
     </div>
@@ -192,7 +202,7 @@
       {@const fed = data.usedIn.includes(key)}
       <div class="row in field" class:used={fed || !row.empty} class:empty={row.empty && !fed}
            data-tip={inTip(key, grow.named ? String(row.name || "подстановка") : letter(i), growType)}>
-        <Handle type="target" position={Position.Left} id={key} class="sock" style="--c: {typeColor(growType)}" {...look(growType)} />
+        <Handle type="target" position={Position.Left} id={key} class="sock" {...paint(growType)} {...look(growType)} />
         {#if grow.named}
           <input class="nodrag inline name mono" value={String(row.name ?? "")} placeholder="имя" disabled={!data.editable} aria-label="Имя подстановки"
                  oninput={(e) => setRow(row, { name: e.currentTarget.value.replace(/[{}]/g, "") || undefined })} />
@@ -227,7 +237,7 @@
   {#each bottomOuts as sock (sock.name)}
     <div class="row out" class:used={data.used.includes(sock.name)} data-tip={outTip(sock.name, sock.label, sock.type)}>
       <span>{sock.label}</span>
-      <Handle type="source" position={Position.Right} id={sock.name} class="sock" style="--c: {typeColor(sock.type ?? 'event')}" {...look(sock.type)} />
+      <Handle type="source" position={Position.Right} id={sock.name} class="sock" {...paint(sock.type ?? 'event')} {...look(sock.type)} />
     </div>
   {/each}
 
@@ -279,8 +289,11 @@
   .wait.old { color: var(--warn); }
   .node :global(.svelte-flow__handle.sock) { width: 10px; height: 10px; background: var(--panel-2); border: 2px solid var(--c); }
   .node :global(.svelte-flow__handle.sock[data-list]) { box-shadow: 0 0 0 2px var(--panel-2), 0 0 0 3.5px var(--c); }
+  .node :global(.svelte-flow__handle.sock[data-many]) { outline: 1.5px dashed var(--c); outline-offset: 2px; }
+  .node :global(.svelte-flow__handle.sock[data-union]) { background: var(--panel-2); }
   .node :global(.svelte-flow__handle.sock[data-thing]) { width: 9px; height: 9px; border-radius: 1px; }
   .node :global(.svelte-flow__handle.sock[data-thing].svelte-flow__handle-left) { transform: translate(-50%, -50%) rotate(45deg); }
   .node :global(.svelte-flow__handle.sock[data-thing].svelte-flow__handle-right) { transform: translate(50%, -50%) rotate(45deg); }
   .row.used :global(.svelte-flow__handle.sock) { background: var(--c); }
+  .row.used :global(.svelte-flow__handle.sock[data-union]) { background: linear-gradient(135deg, var(--c) 50%, var(--c2) 50%); }
 </style>

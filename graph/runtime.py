@@ -531,6 +531,8 @@ def _shape(kind, data, name, value):
     wanted = N.sock_type(kind, data, "in", f"f:{name}")
     if N.is_list(wanted):
         return _as_list(value)
+    if N.is_many(wanted):                           # «одно или список»: как пришло
+        return list(value) if isinstance(value, tuple) else value
     if isinstance(value, (list, tuple)):
         return ", ".join(str(_plain(item)) for item in value) if wanted == "text" else (value[0] if value else None)
     return value

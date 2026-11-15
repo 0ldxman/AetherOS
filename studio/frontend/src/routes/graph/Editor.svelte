@@ -358,6 +358,7 @@
                   box: inner ? found.filter((p) => p.node.startsWith(`${inner}::`) && p.level === "error").length : 0,
                   stat: boxStat ?? live?.nodes[prefix + n.id] ?? null, used: wires.filter((w) => w.from === n.id).map((w) => w.out),
                   usedIn: wires.filter((w) => w.to === n.id).map((w) => w.in), help: catalog!.socket_help,
+                  fedTypes: Object.fromEntries(wires.filter((w) => w.to === n.id).map((w) => [w.in, typeAt(w.from, "out", w.out)])),
                   fedFrom: Object.fromEntries(wires.filter((w) => w.to === n.id).map((w) => {
                     const src = list.find((x) => x.id === w.from);
                     return [w.in, src ? `${kindOf(src.type)?.label ?? src.type} · ${src.id}` : w.from];
@@ -530,7 +531,7 @@
           <Background gap={24} />
           <Controls showLock={false} />
           <Panel position="bottom-center">
-            <div class="legend">{#each Object.entries(TYPES) as [key, t] (key)}<span><i class:thing={t.thing} style="--c: {t.color}"></i>{t.label}</span>{/each}<span><i class="list"></i>двойная обводка — список</span></div>
+            <div class="legend">{#each Object.entries(TYPES) as [key, t] (key)}<span><i class:thing={t.thing} style="--c: {t.color}"></i>{t.label}</span>{/each}<span><i class="list"></i>двойная обводка — список</span><span><i class="many"></i>пунктир — одно или список</span></div>
           </Panel>
           <MiniMap pannable zoomable bgColor="#15171c" nodeColor="#2a2e37" maskColor="rgba(0, 0, 0, 0.5)" />
           <Panel position="top-left">
@@ -624,6 +625,7 @@
             color: var(--muted); font-size: 11px; }
   .legend span { display: inline-flex; align-items: center; gap: 5px; }
   .legend i { width: 8px; height: 8px; border-radius: 50%; border: 2px solid var(--c); background: var(--c); }
+  .legend i.many { --c: var(--muted); background: transparent; outline: 1.5px dashed var(--c); outline-offset: 1.5px; border: 1.5px solid var(--c); }
   .legend i.list { --c: var(--muted); background: transparent; box-shadow: 0 0 0 1.5px var(--panel), 0 0 0 3px var(--c); }
   .legend i.thing { border-radius: 1px; transform: rotate(45deg); width: 7px; height: 7px; }
   .map :global(.svelte-flow__edge.selected path) { stroke: var(--accent); stroke-width: 3; }

@@ -77,6 +77,8 @@ class GrKind(Schema):
     owned: str = ""
     typed: str = ""
     covers: dict[str, list[str]] = {}
+    follows: dict[str, str] = {}
+    titled: dict[str, str] = {}
 
 
 class GrGroup(Schema):

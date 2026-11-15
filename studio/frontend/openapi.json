@@ -32918,6 +32918,22 @@
       "default": {},
       "title": "Covers",
       "type": "object"
+     },
+     "follows": {
+      "additionalProperties": {
+       "type": "string"
+      },
+      "default": {},
+      "title": "Follows",
+      "type": "object"
+     },
+     "titled": {
+      "additionalProperties": {
+       "type": "string"
+      },
+      "default": {},
+      "title": "Titled",
+      "type": "object"
      }
     },
     "required": [
