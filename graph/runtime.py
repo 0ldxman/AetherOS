@@ -213,6 +213,9 @@ def rebuild_starts(graph):
             event = N.event_of(kind, out)
             if event:
                 rows.append(Start(graph=graph, node=node_id, out=out, event=event))
+    for node_id in doc.nodes:                       # действие с условием во «Когда»: делать, пока верно
+        if doc.kind(node_id) is not None and doc.kind(node_id).name in N.UNDO and (node_id, "in") in doc.refs:
+            rows.append(Start(graph=graph, node=node_id, out=N.BIND, event=N.WHILE_EVENT))
     from graph import offers
 
     with transaction.atomic():
@@ -650,10 +653,10 @@ def _wait(run, doc, node_id):
     return []
 
 
-def _action(run, doc, node_id, kind):
+def _action(run, doc, node_id, kind, override=None):
     import itertools
 
-    data = resolved(run, doc, node_id)
+    data = {**resolved(run, doc, node_id), **(override or {})}
     lists = [f.name for f in kind.fields if N.is_many(f.kind) and isinstance(data.get(f.name), (list, tuple))]
     if lists:                                       # «одно или список»: действие с каждым (с каждым сочетанием)
         outs = set()
@@ -1067,7 +1070,7 @@ def _drain(run, doc, queue, steps):
 
 # ---------- старт и пробуждение ----------
 
-DEFAULT_REPEAT = {"manual": "always", "on:time": "always", "on:schedule": "always",
+DEFAULT_REPEAT = {"manual": "always", "while": "always", "on:time": "always", "on:schedule": "always",
                   "on:moment.status": "always", "on:machine.status": "always"}
 
 
@@ -1175,6 +1178,7 @@ def dispatch(event):
                 touched += bool(start(row.graph, row.node, row.out, event.user, _ctx_of(event)))
         if event.name in ("file.moved", "file.deleted", "file.restored"):
             follow(event)
+        touched += whiles(event)
     finally:
         _depth.reset(token)
     return touched
@@ -1314,4 +1318,57 @@ def tick(force=False):
         if _holds(resolved(wait.run, doc_of(wait.run.graph), wait.node).get("condition"), wait.run):
             done += bool(resume(wait))
     done += _time_starts()
+    done += whiles()
     return done
+
+
+def whiles(event=None):
+    """«Пока» и действия с условием во «Когда»: пересчитать условия, на смене — сработать. event — что случилось (None — тик).
+    Условие игрока считается для игрока события (событие без игрока — для всех, у кого оно уже считалось), условие мира — всегда."""
+    rows = {}
+    for row in Start.objects.filter(event=N.WHILE_EVENT, graph__active=True).select_related("graph"):
+        rows.setdefault((row.graph_id, row.node), (row.graph, set()))[1].add(row.out)
+    ctx = _ctx_of(event) if event is not None else {}
+    done = 0
+    for (_, node_id), (graph, outs) in rows.items():
+        doc = doc_of(graph)
+        kind = doc.kind(node_id)
+        if kind is None:
+            continue
+        bound = N.BIND in outs
+        if bound or doc.data(node_id).get("scope") == "world":
+            users = [None]
+        elif event is not None and event.user is not None:
+            users = [event.user]
+        else:
+            users = [mark.user for mark in Mark.objects.filter(graph=graph, node=node_id).exclude(user=None).select_related("user")]
+        for user in users:
+            run = Run(graph=graph, user=user, ctx=ctx, state={})
+            value = resolved(run, doc, node_id).get("in" if bound else "condition")
+            now = value not in (None, "") and _holds(value, run)
+            with transaction.atomic():
+                mark, _ = Mark.objects.select_for_update().get_or_create(graph=graph, node=node_id, user=user)
+                if bool(mark.value) == now:
+                    continue
+                mark.value = int(now)
+                mark.save(update_fields=["value"])
+            if bound:
+                done += _bound(graph, doc, node_id, kind, now)
+            elif ("true" if now else "false") in outs:
+                done += bool(start(graph, node_id, "true" if now else "false", user, ctx))
+    return done
+
+
+def _bound(graph, doc, node_id, kind, now):
+    """Действие с условием: стало верно — сделать выбранное, стало ложно — обратное (N.UNDO); дальше по его выходам."""
+    variant = doc.data(node_id).get("variant") or kind.fields[0].options[0][0]
+    if not now:
+        variant = N.UNDO.get(kind.name, {}).get(variant)
+        if variant is None:
+            return 0
+    run = Run.objects.create(graph=graph, user=None, node=node_id, ctx={})
+    run.graph = graph
+    _hit(run, node_id)
+    outs = _action(run, doc, node_id, kind, {"variant": variant})
+    advance(run, [step for out in outs for step in doc.next(node_id, out)])
+    return 1
