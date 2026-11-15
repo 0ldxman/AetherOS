@@ -21,6 +21,19 @@ TYPE_LABELS = {"event": "событие", "bool": "да/нет", "text": "тек
                "server": "сервер", "character": "персонажа", "section": "раздел", "moment": "момент", "player": "игрока",
                "flag": "метку игрока", "world_flag": "метку мира", "counter": "счётчик"}
 THINGS = ("item", "layer", "machine", "server", "character", "section", "moment", "player", "flag", "world_flag", "counter")
+
+# списки: «list:<тип элемента>»; «list:any» — вход, которому подходит любой список (количество)
+ELEMENTS = {"text": "Текст", "number": "Число", "bool": "Да/нет", "item": "Объект", "layer": "Слой", "machine": "Машина", "server": "Сервер",
+            "character": "Персонаж", "section": "Раздел", "moment": "Момент", "player": "Игрок"}
+LIST, ANY_LIST = "list:", "list:any"
+TYPES = TYPES + tuple(LIST + name for name in ELEMENTS) + (ANY_LIST,)
+TYPE_LABELS.update({LIST + name: f"список ({label.lower()})" for name, label in ELEMENTS.items()})
+TYPE_LABELS[ANY_LIST] = "список"
+ELEMENT, OF_LIST = "@T", "@list"           # тип входа или выхода ноды списка: элемент или список того, что выбрано в «Тип элементов»
+
+
+def is_list(kind):
+    return str(kind or "").startswith(LIST)
 FIELD_TYPES = {"text": "text", "textarea": "text", "path": "text", "clock": "text", "expr": "text", "scene": "text", "station": "text",
                "graph": "text", "number": "number", "bool": "bool", "condition": "bool", "key": "item", "item": "item", "letter": "item",
                "object": "item", "character": "character", "section": "section", "flag": "flag", "world_flag": "world_flag",
@@ -28,15 +41,27 @@ FIELD_TYPES = {"text": "text", "textarea": "text", "path": "text", "clock": "tex
 
 
 def field_type(field):
+    if field.kind in (ELEMENT, OF_LIST):
+        return field.kind
+    if field.kind == "@any":
+        return ANY_LIST
     return FIELD_TYPES.get(field.kind, "")
 
 
 def compatible(src, dst):
-    """Можно ли вести провод из выхода типа src во вход типа dst (как в Blender: число в текст можно, событие в данные нельзя)."""
+    """Можно ли вести провод из выхода типа src во вход типа dst (как в Blender: число в текст можно, событие в данные нельзя).
+    Одно значение подходит в список (станет списком из одного), список — в текст (через запятую) и в «любой список»."""
     if src == dst:
         return True
     if EVENT in (src, dst):
         return False
+    if dst == ANY_LIST:
+        return is_list(src)
+    if is_list(dst):
+        element = dst[len(LIST):]
+        return compatible(src[len(LIST):], element) if is_list(src) else compatible(src, element)
+    if is_list(src):
+        return dst == "text"
     if dst == "text":
         return True                                  # любое значение подставляется текстом (вещь — своим именем)
     if dst == "number":
@@ -106,6 +131,7 @@ class Kind:
     title: str = ""                     # поле-режим, подпись выбранного варианта — заголовок ноды (как у Math в Blender)
     grow: object = None                 # Grow: растущий список входов
     when: dict = field(default_factory=dict)         # поле -> (поле-режим, значения) или список таких пар: вход есть только в этих режимах
+    typed: str = ""                     # поле-параметр «Тип элементов»: им заменяются @T и @list в типах сокетов
     hidden: bool = False                # старая нода: работает в готовых сценариях, но в меню её нет
     owned: str = ""                     # нода попытки: вид графа у вещи (graph/owned.py), Tab открывает его
 
@@ -368,6 +394,9 @@ register(Kind("race", "Первое из", FLOW, "{count}", (Field("count", "С�
               ins=(), many=(Many("in", "count", "i", "Вход {n}"), Many("out", "count", "o", "Первым {n}"))))
 register(Kind("end", "Конец", FLOW, "{outcome}",
               (Field("outcome", "Исход", "select", "", False, (("passed", "прошёл"), ("failed", "провалил"), ("aborted", "прервано"))),)))
+register(Kind("foreach", "Для каждого", FLOW, "", (Field("of", "Тип элементов", "select", "", False, tuple(ELEMENTS.items())),
+                                                    Field("list", "Список", OF_LIST)),
+              (Sock("each", "Каждый"), Sock("done", "Готово")), typed="of"))
 register(Kind("answer", "Ответить", FLOW, "{mode}",
               (Field("mode", "Ответ", "select", "", False, (("allow", "впустить"), ("deny", "отказать"), ("block", "заблокировать"), ("default", "как обычно (пароль, ключи, токен)"))),
                Field("text", "Текст отказа", "text", "node unavailable"), Field("minutes", "Блокировка, мин", "number", "10")),
@@ -566,6 +595,11 @@ HELP = {
     "ent:character": "Персонаж: по коду или имени.", "ent:section": "Раздел форума: по номеру или названию.",
     "ent:moment": "Момент мира: по имени или названию; «Идёт» — сейчас ли он.",
     "ent:player": "Игрок: пусто — игрок прохождения, иначе по логину.",
+    "list.make": "Собрать список из входов: подключили последний — появился следующий. Тип элементов выбирается на ноде.",
+    "list.count": "Сколько элементов в списке (пустой — 0).",
+    "list.item": "Элемент списка: первый, последний или по номеру. «Есть» — нет ли такого (список короче).",
+    "list.has": "Есть ли значение в списке (текст — без учёта регистра).",
+    "foreach": "Для каждого элемента списка — ветка «Каждый» с данными «Элемент» и «Номер», потом «Готово». В ветке «Каждый» нельзя ждать.",
     "switch": "Если «Если» — да, значение «Да», иначе «Нет». Так выход получает значение по условию.",
     "allowed": "поля вещи пустили (у «как обычно»)", "refused": "поля вещи отказали (у «как обычно»)",
     "ent:tag": "Тег владельца: мира, игрока, персонажа, машины, сервера или объекта; у вещи — общий или свой у игрока.",
@@ -641,7 +675,8 @@ SOCKET_HELP = {
     "up": "значение дошло до порога снизу", "down": "значение ушло ниже порога", "ended": "момент кончился", "machine": "машина события",
     "item": "объект события", "moment": "момент события", "freq": "частота",
     "entered": "игрок вошёл (кто бы ни решал: граф или поля машины)", "denied": "в доступе отказано", "reason": "почему отказ: пароль, ключ, окно, граф…",
-    "go": "попытка: дальше проверки, конец — «Ответить»", "given": "что игрок ввёл, снимая слой", "kind": "тип слоя",
+    "go": "попытка: дальше проверки, конец — «Ответить»", "each": "по разу на элемент списка", "done": "все элементы пройдены",
+    "index": "номер элемента (с 1)", "found": "элемент с таким номером есть", "list": "список", "given": "что игрок ввёл, снимая слой", "kind": "тип слоя",
     "number": "номер слоя сверху (у слоя, добавленного игроком, — 0)", "removed": "игрок уже снял этот слой", "left": "сколько слоёв осталось у игрока",
     "server": "сервер",
 }
@@ -655,6 +690,7 @@ def _data(name, label, summary, fields, out_type, out_label="Значение", 
 
 
 _P = ("@player",)
+DATA_OUTS["foreach"] = (Sock("item", "Элемент", ELEMENT), Sock("index", "Номер", "number"))
 for _kind, _outs in {
     "signal": (),
     "manual": (),
@@ -686,6 +722,17 @@ _data("read", "Прочитать", "{what} {name}",
       (Field("what", "Что", "select", "", False, (("world_counter", "счётчик мира"), ("player_counter", "счётчик игрока"), ("world_flag", "метка мира"),
                                                   ("player_flag", "метка игрока"))), Field("name", "Имя", "text", "", True)), "number", "Значение")
 DATA_OUTS["read"] = (Sock("value", "Значение", "number"), Sock("lit", "Стоит", "bool"))
+_OF = Field("of", "Тип элементов", "select", "", False, tuple(ELEMENTS.items()))
+_data("list.make", "Список: Собрать", "", (_OF, Field("items", "Элементы", "hidden")), OF_LIST, "Список",
+      typed="of", grow=Grow("items", "e", ELEMENT, min=2))
+_data("list.count", "Список: Количество", "", (Field("list", "Список", ANY_LIST.replace("list:any", "@any")),), "number", "Количество")
+_data("list.item", "Список: Элемент", "",
+      (_OF, Field("mode", "Какой", "select", "", False, (("first", "Первый"), ("last", "Последний"), ("number", "По номеру"))),
+       Field("list", "Список", OF_LIST), Field("number", "Номер", "number", "1")), ELEMENT, "Элемент",
+      typed="of", when={"number": ("mode", ("number",))})
+DATA_OUTS["list.item"] += (Sock("found", "Есть", "bool"),)
+_data("list.has", "Список: Содержит", "", (_OF, Field("list", "Список", OF_LIST), Field("value", "Значение", ELEMENT)), "bool", "Содержит",
+      typed="of")
 _data("switch", "Выбрать значение", "",
       (Field("condition", "Если", "bool"), Field("yes", "Да", "text"), Field("no", "Нет", "text")), "text", "Значение")
 KINDS["read"] = replace(KINDS["read"], hidden=True)                 # теперь «Тег» и «Счётчик»
@@ -816,7 +863,20 @@ def event_of(kind, out):
     return OWNED_OUT if kind.owned and out != TIMEOUT else None
 
 
+def resolve(kind, data, value):
+    """@T и @list — по «Типу элементов» ноды (по умолчанию текст)."""
+    if value not in (ELEMENT, OF_LIST) or not kind.typed:
+        return value
+    element = (data or {}).get(kind.typed) or "text"
+    element = element if element in ELEMENTS else "text"
+    return element if value == ELEMENT else LIST + element
+
+
 def sock_type(kind, data, side, name, iface=None):
+    return resolve(kind, data, _sock_type(kind, data, side, name, iface))
+
+
+def _sock_type(kind, data, side, name, iface=None):
     """Тип сокета ноды: у групп и сценариев — по интерфейсу, у «Входа»/«Выхода» — по списку, иначе событие или тип выхода данных."""
     if kind.name in BOXES:
         return ((iface or {}).get("in_types" if side == "in" else "out_types") or {}).get(name, EVENT)
@@ -888,6 +948,6 @@ def catalog():
                      "single": list(k.grow.single)} if k.grow else None,
             "when": [{"field": name, "mode": mode, "values": list(values)} for name, rule in k.when.items()
                      for mode, values in ([rule] if isinstance(rule[0], str) else rule)],
-            "hidden": k.hidden, "owned": k.owned,
+            "hidden": k.hidden, "owned": k.owned, "typed": k.typed,
         } for k in sorted(KINDS.values(), key=_menu_order)],
     }

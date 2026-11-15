@@ -131,6 +131,7 @@ def _part(part, groups, prefix, add, slug):
 
     doc = Doc(part)
     ifaces = {}
+    _foreach_rules(doc, add, prefix)
     for node_id, node in doc.nodes.items():
         key = prefix + node_id
         kind = N.KINDS.get(node.get("type"))
@@ -231,6 +232,26 @@ def _part(part, groups, prefix, add, slug):
             add(prefix + dst, f"вход ждёт {N.TYPE_LABELS.get(dst_type, dst_type)}, а приходит {N.TYPE_LABELS.get(src_type, src_type)}")
         if out_name == N.TIMEOUT and src_kind.group == N.NOUN and src not in doc.fed:
             add(prefix + src, "таймаут бывает только у ждущей ноды (со входом)")
+
+
+def _foreach_rules(doc, add, prefix):
+    """В ветке «Каждый» нельзя ждать: элементы проходят свою ветку сразу."""
+    for node_id, node in doc.nodes.items():
+        if node.get("type") != "foreach":
+            continue
+        queue, seen = [dst for dst, _ in doc.next(node_id, "each")], set()
+        while queue:
+            current = queue.pop()
+            if current in seen or current == node_id:
+                continue
+            seen.add(current)
+            kind = doc.kind(current)
+            if kind is not None and (kind.name == "wait" or (kind.group == N.NOUN and current in doc.fed)):
+                add(prefix + node_id, "в ветке «Каждый» нельзя ждать: элементы проходят её сразу")
+                break
+            for (src, _), targets in doc.flow.items():
+                if src == current:
+                    queue.extend(dst for dst, _ in targets)
 
 
 def _owned_rules(raw, add):

@@ -3,7 +3,7 @@
   // без провода значение правится прямо на ноде, с проводом приходит по нему. Выбор режима — параметр без входа.
   // Круг — событие и простые значения (да/нет, текст, число), ромб — вещь (файл, машина, персонаж…). Цвет — тип.
   import { Handle, Position, useUpdateNodeInternals } from "@xyflow/svelte";
-  import { BOXES, COLORS, TYPES, inWhen, insOf, isThing, outsOf, propFields, rowsOf, socketFields, titleOf, typeColor, visibleRows, type Field, type GNode, type Iface, type Kind, type Row } from "./kinds";
+  import { BOXES, COLORS, TYPES, isList, resolveType, typeLabel as labelOfType, inWhen, insOf, isThing, outsOf, propFields, rowsOf, socketFields, titleOf, typeColor, visibleRows, type Field, type GNode, type Iface, type Kind, type Row } from "./kinds";
 
   type Stat = { hits: number; players: number; waiting: number; oldest_days: number };
   type Option = { value: string; label: string };
@@ -32,7 +32,13 @@
     if (kind.name === "answer") return ({ text: mode !== "allow" && mode !== "default", minutes: mode === "block" } as Record<string, boolean>)[f.name] ?? true;
     return inWhen(kind, values, f.name);
   };
-  const fields = $derived(socketFields(kind).filter((f) => data.usedIn.includes(`f:${f.name}`) || (!hide && inMode(f))));
+  // тип входа по «Типу элементов» ноды (списки); вещь в поле — подсказки того же вида
+  const PICK: Record<string, string> = { item: "object", machine: "machine", server: "server", character: "character", section: "section", moment: "moment", player: "player" };
+  const typed = (f: Field): Field => {
+    const socket = resolveType(kind, values, f.socket);
+    return socket === f.socket ? f : { ...f, socket, kind: isList(socket) ? "list" : PICK[socket] ?? socket };
+  };
+  const fields = $derived(socketFields(kind).map(typed).filter((f) => data.usedIn.includes(`f:${f.name}`) || (!hide && inMode(f))));
   // выход данных с тем же именем или подписью, что у входа-поля (Машина, Объект, Путь…), стоит в той же строке справа
   const paired = $derived.by(() => {
     const found: Record<string, (typeof outs)[number]> = {};
@@ -57,6 +63,7 @@
   const params = $derived(hide ? [] : propFields(kind).filter((f) => inWhen(kind, values, f.name)));
   // растущий список: подстановки шаблона («имя» + значение) или входы «Логики» (A, B, C…)
   const grow = $derived(kind.grow ?? null);
+  const growType = $derived(grow ? resolveType(kind, values, grow.type) : "");
   const rows = $derived(visibleRows(kind, values).filter((r) => !hide || data.usedIn.includes(`f:${r.id}`)));
   const letter = (i: number) => (i < 26 ? String.fromCharCode(65 + i) : `${i + 1}`);
   function setRow(row: Row, patch: Partial<Row>) {
@@ -76,7 +83,8 @@
                         : { text: "данные", tip: "Подключены только данные: нода ничего не ловит, а отдаёт вещь или значение" });
   const days = (value: number) => (value < 1 ? "<1 дн." : `${Math.floor(value)} дн.`);
   const tip = (title: string, type: string, text: string, extra = "") => [title, [type, text].filter(Boolean).join(" · "), extra].filter(Boolean).join("\n");
-  const typeLabel = (type: string | undefined) => TYPES[type ?? "event"]?.label ?? "";
+  const typeLabel = (type: string | undefined) => labelOfType(type ?? "event");
+  const look = (type: string | undefined) => ({ "data-thing": isThing(type) ? "1" : undefined, "data-list": isList(type) ? "1" : undefined });
   const outTip = (name: string, label: string, type: string | undefined) => tip(label || name, typeLabel(type), data.help[name] ?? (name.match(/^[a-z]\d+$/) ? "ветка" : ""));
   const inTip = (name: string, label: string, type: string | undefined) => tip(label, typeLabel(type), data.help[name] ?? "", data.fedFrom[name] ? `подключено: ${data.fedFrom[name]}` : "не подключено");
   const val = (name: string) => (values[name] === undefined || values[name] === null ? "" : String(values[name]));
@@ -126,7 +134,7 @@
   {#each restOuts as sock (sock.name)}
     <div class="row out" class:used={data.used.includes(sock.name)} data-tip={outTip(sock.name, sock.label, sock.type)}>
       <span>{sock.label}</span>
-      <Handle type="source" position={Position.Right} id={sock.name} class="sock" style="--c: {typeColor(sock.type ?? 'event')}" data-thing={isThing(sock.type) ? "1" : undefined} />
+      <Handle type="source" position={Position.Right} id={sock.name} class="sock" style="--c: {typeColor(sock.type ?? 'event')}" {...look(sock.type)} />
     </div>
   {/each}
 
@@ -139,7 +147,7 @@
   {/if}
   {#each ins as sock (sock.name)}
     <div class="row in" class:used={data.usedIn.includes(sock.name)} data-tip={inTip(sock.name, sock.label, sock.type)}>
-      <Handle type="target" position={Position.Left} id={sock.name} class="sock" style="--c: {typeColor(sock.type ?? 'event')}" data-thing={isThing(sock.type) ? "1" : undefined} />
+      <Handle type="target" position={Position.Left} id={sock.name} class="sock" style="--c: {typeColor(sock.type ?? 'event')}" {...look(sock.type)} />
       <span>{sock.label}</span>
     </div>
   {/each}
@@ -147,10 +155,10 @@
     {@const key = `f:${f.name}`}
     {@const fed = data.usedIn.includes(key)}
     <div class="row in field" class:used={fed} data-tip={inTip(key, f.label, f.socket)}>
-      <Handle type="target" position={Position.Left} id={key} class="sock" style="--c: {typeColor(f.socket)}" data-thing={isThing(f.socket) ? "1" : undefined} />
+      <Handle type="target" position={Position.Left} id={key} class="sock" style="--c: {typeColor(f.socket)}" {...look(f.socket)} />
       <span class="label" class:req={f.required && !fed && !val(f.name)}>{f.label}</span>
-      {#if !fed}
-        {#if f.socket === "bool" && f.kind === "bool"}
+      {#if !fed && !isList(f.socket)}
+        {#if f.socket === "bool" && (f.kind === "bool" || f.kind === "@T")}
           <input class="nodrag check" type="checkbox" checked={!!values[f.name]} disabled={!data.editable} onchange={(e) => set(f.name, e.currentTarget.checked || undefined)} aria-label={f.label} />
         {:else if options(f).length}
           <select class="nodrag inline" value={val(f.name)} disabled={!data.editable} onchange={(e) => set(f.name, f.kind === "section" ? Number(e.currentTarget.value) || undefined : e.currentTarget.value)}
@@ -171,7 +179,7 @@
       {#if paired[f.name]}
         {@const out = paired[f.name]}
         <span class="pass" class:used={data.used.includes(out.name)} data-tip={outTip(out.name, out.label, out.type)}>
-          <Handle type="source" position={Position.Right} id={out.name} class="sock" style="--c: {typeColor(out.type ?? 'event')}" data-thing={isThing(out.type) ? "1" : undefined} />
+          <Handle type="source" position={Position.Right} id={out.name} class="sock" style="--c: {typeColor(out.type ?? 'event')}" {...look(out.type)} />
         </span>
       {/if}
     </div>
@@ -181,8 +189,8 @@
       {@const key = `f:${row.id}`}
       {@const fed = data.usedIn.includes(key)}
       <div class="row in field" class:used={fed || !row.empty} class:empty={row.empty && !fed}
-           data-tip={inTip(key, grow.named ? String(row.name || "подстановка") : letter(i), grow.type)}>
-        <Handle type="target" position={Position.Left} id={key} class="sock" style="--c: {typeColor(grow.type)}" data-thing={isThing(grow.type) ? "1" : undefined} />
+           data-tip={inTip(key, grow.named ? String(row.name || "подстановка") : letter(i), growType)}>
+        <Handle type="target" position={Position.Left} id={key} class="sock" style="--c: {typeColor(growType)}" {...look(growType)} />
         {#if grow.named}
           <input class="nodrag inline name mono" value={String(row.name ?? "")} placeholder="имя" disabled={!data.editable} aria-label="Имя подстановки"
                  oninput={(e) => setRow(row, { name: e.currentTarget.value.replace(/[{}]/g, "") || undefined })} />
@@ -192,9 +200,22 @@
           {/if}
         {:else}
           <span class="label">{letter(i)}</span>
-          {#if !fed && grow.type === "bool"}
+          {#if !fed && growType === "bool"}
             <input class="nodrag check" type="checkbox" checked={!!row.value} disabled={!data.editable} aria-label={letter(i)}
                    onchange={(e) => setRow(row, { value: e.currentTarget.checked || undefined })} />
+          {:else if !fed && PICK[growType]}
+            <select class="nodrag inline" value={String(row.value ?? "")} disabled={!data.editable} aria-label={letter(i)}
+                    onchange={(e) => setRow(row, { value: e.currentTarget.value || undefined })}>
+              <option value="">—</option>
+              {#if row.value && !(data.picks[PICK[growType]] ?? []).some((o) => o.value === String(row.value))}<option value={String(row.value)}>{String(row.value)}</option>{/if}
+              {#each data.picks[PICK[growType]] ?? [] as o (o.value)}<option value={o.value}>{o.label}</option>{/each}
+            </select>
+          {:else if !fed && growType === "number"}
+            <input class="nodrag inline num" type="number" value={row.value === undefined || row.value === null ? "" : String(row.value)} disabled={!data.editable}
+                   aria-label={letter(i)} oninput={(e) => setRow(row, { value: e.currentTarget.value === "" ? undefined : +e.currentTarget.value })} />
+          {:else if !fed && !isList(growType)}
+            <input class="nodrag inline" value={row.value === undefined || row.value === null ? "" : String(row.value)} disabled={!data.editable}
+                   aria-label={letter(i)} oninput={(e) => setRow(row, { value: e.currentTarget.value || undefined })} />
           {/if}
         {/if}
       </div>
@@ -204,7 +225,7 @@
   {#each bottomOuts as sock (sock.name)}
     <div class="row out" class:used={data.used.includes(sock.name)} data-tip={outTip(sock.name, sock.label, sock.type)}>
       <span>{sock.label}</span>
-      <Handle type="source" position={Position.Right} id={sock.name} class="sock" style="--c: {typeColor(sock.type ?? 'event')}" data-thing={isThing(sock.type) ? "1" : undefined} />
+      <Handle type="source" position={Position.Right} id={sock.name} class="sock" style="--c: {typeColor(sock.type ?? 'event')}" {...look(sock.type)} />
     </div>
   {/each}
 
@@ -255,6 +276,7 @@
   .wait { color: var(--accent); }
   .wait.old { color: var(--warn); }
   .node :global(.svelte-flow__handle.sock) { width: 10px; height: 10px; background: var(--panel-2); border: 2px solid var(--c); }
+  .node :global(.svelte-flow__handle.sock[data-list]) { box-shadow: 0 0 0 2px var(--panel-2), 0 0 0 3.5px var(--c); }
   .node :global(.svelte-flow__handle.sock[data-thing]) { width: 9px; height: 9px; border-radius: 1px; }
   .node :global(.svelte-flow__handle.sock[data-thing].svelte-flow__handle-left) { transform: translate(-50%, -50%) rotate(45deg); }
   .node :global(.svelte-flow__handle.sock[data-thing].svelte-flow__handle-right) { transform: translate(50%, -50%) rotate(45deg); }

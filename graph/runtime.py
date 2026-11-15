@@ -24,6 +24,7 @@ from graph.models import Graph, Hit, Mark, Run, Start, Wait
 
 log = logging.getLogger("graph")
 
+LIST_LIMIT = 200                             # «Для каждого» проходит не больше стольких элементов
 DEPTH = 8          # сценарий → действие → событие → сценарий…
 STEPS = 300        # нод за один проход: защита от цикла без ожидания
 TICK = 15
@@ -383,6 +384,8 @@ def value_of(run, doc, node_id, out, depth=0):
     if kind.name in ("group_in", "group_out"):
         src = doc.into.get((node_id, out))
         return value_of(run, doc, src[0], src[1], depth + 1) if src else None
+    if kind.name == "foreach":                       # элемент и номер текущего прохода ветки «Каждый»
+        return (((run.state or {}).get("vals") or {}).get(node_id) or {}).get(out)
     if kind.group == N.NOUN:
         if kind.owned:                               # данные «Выхода» графа попытки приехали с событием
             return (((run.state or {}).get("vals") or {}).get(node_id) or {}).get("vals", {}).get(out)
@@ -453,6 +456,21 @@ def value_of(run, doc, node_id, out, depth=0):
         return bool(values) and all(values)
     if name == "fact":
         return _holds(get("expr"), run)
+    if name == "list.make":
+        ids = [row["id"] for row in N.rows(kind, data)]
+        ids += sorted({inp for (dst, inp) in doc.refs if dst == node_id and N.is_row(kind, inp) and inp not in ids})
+        return [value for value in (get(row_id) for row_id in ids) if value not in (None, "")]
+    if name == "list.count":
+        return len(_as_list(get("list")))
+    if name == "list.item":
+        items = _as_list(get("list"))
+        mode = data.get("mode") or "first"
+        index = 0 if mode == "first" else len(items) - 1 if mode == "last" else int(_number(get("number")) or 1) - 1
+        found = 0 <= index < len(items)
+        return found if out == "found" else (items[index] if found else None)
+    if name == "list.has":
+        wanted = str(_plain(get("value")) if get("value") is not None else "").strip().casefold()
+        return any(str(_plain(item)).strip().casefold() == wanted for item in _as_list(get("list")))
     if name == "switch":
         value = get("yes") if _truth(get("condition")) else get("no")
         return "" if value is None else str(_plain(value))
@@ -495,11 +513,29 @@ def _read(run, what, name, out):
     return bool(value) if out == "lit" else value
 
 
+def _as_list(value):
+    if value in (None, ""):
+        return []
+    return list(value) if isinstance(value, (list, tuple)) else [value]
+
+
+def _shape(kind, data, name, value):
+    """Значение под тип входа: одно значение во вход-список — списком из одного, список во вход-текст — через запятую."""
+    wanted = N.sock_type(kind, data, "in", f"f:{name}")
+    if N.is_list(wanted):
+        return _as_list(value)
+    if isinstance(value, (list, tuple)):
+        return ", ".join(str(_plain(item)) for item in value) if wanted == "text" else (value[0] if value else None)
+    return value
+
+
 def input_of(run, doc, node_id, name, depth=0):
     """Значение входа-поля: с провода, а без провода — то, что вписано в ноду."""
     src = doc.refs.get((node_id, name))
     if src is not None:
-        return value_of(run, doc, src[0], src[1], depth)
+        kind = doc.kind(node_id)
+        value = value_of(run, doc, src[0], src[1], depth)
+        return _shape(kind, doc.data(node_id), name, value) if kind is not None else value
     data = doc.data(node_id)
     kind = doc.kind(node_id)
     if kind is not None and N.is_row(kind, name):
@@ -510,9 +546,11 @@ def input_of(run, doc, node_id, name, depth=0):
 def resolved(run, doc, node_id):
     """Данные ноды с подставленными значениями проводов."""
     data = dict(doc.data(node_id))
+    kind = doc.kind(node_id)
     for (dst, name), (src, out) in doc.refs.items():
         if dst == node_id:
-            data[name] = value_of(run, doc, src, out)
+            value = value_of(run, doc, src, out)
+            data[name] = _shape(kind, data, name, value) if kind is not None else value
     return data
 
 
@@ -713,7 +751,15 @@ def _finish(run, outcome=""):
 def advance(run, items):
     """Пройти от входов items [(нода, вход)] до ожиданий и концов."""
     doc = doc_of(run.graph)
-    queue, steps = deque(items), 0
+    _drain(run, doc, deque(items), [0])
+    if run.status == Run.Status.RUNNING and not Wait.objects.filter(run=run).exists():
+        _finish(run, run.outcome or "")
+    run.save(update_fields=["status", "outcome", "ended_at", "ctx", "state"])
+    return run
+
+
+def _drain(run, doc, queue, steps):
+    """Очередь нод до конца. «Для каждого» проходит ветку «Каждый» целиком по разу на элемент, потом идёт в «Готово»."""
     while queue and run.status == Run.Status.RUNNING:
         node_id, sock = queue.popleft()
         kind = doc.kind(node_id)
@@ -723,12 +769,19 @@ def advance(run, items):
             if "next" in N.sockets(kind, doc.data(node_id), "out"):
                 queue.extend(doc.next(node_id, "next"))
             continue
-        steps += 1
-        if steps > STEPS:
+        steps[0] += 1
+        if steps[0] > STEPS:
             _log(run.graph, f"больше {STEPS} нод за раз: цикл без ожидания? Прохождение остановлено", run.user)
             _finish(run, "aborted")
             break
         _hit(run, node_id)
+        if kind.name == "foreach":
+            for index, item in enumerate(_as_list(input_of(run, doc, node_id, "list"))[:LIST_LIMIT], 1):
+                vals = {**((run.state or {}).get("vals") or {}), node_id: {"item": item, "index": index}}
+                run.state = {**(run.state or {}), "vals": vals}
+                _drain(run, doc, deque(doc.next(node_id, "each")), steps)
+            queue.extend(doc.next(node_id, "done"))
+            continue
         try:
             outs = _execute(run, doc, node_id, sock)
         except Exception as error:                   # noqa: BLE001 — сломанная нода не роняет игру
@@ -737,10 +790,6 @@ def advance(run, items):
             outs = []
         for out in outs:
             queue.extend(doc.next(node_id, out))
-    if run.status == Run.Status.RUNNING and not Wait.objects.filter(run=run).exists():
-        _finish(run, run.outcome or "")
-    run.save(update_fields=["status", "outcome", "ended_at", "ctx", "state"])
-    return run
 
 
 # ---------- старт и пробуждение ----------

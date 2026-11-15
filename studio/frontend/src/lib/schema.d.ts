@@ -12093,6 +12093,11 @@ export interface components {
              * @default
              */
             owned: string;
+            /**
+             * Typed
+             * @default
+             */
+            typed: string;
         };
         /** GrMany */
         GrMany: {

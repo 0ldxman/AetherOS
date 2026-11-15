@@ -35,12 +35,28 @@ export const TYPES: Record<string, { label: string; color: string; thing?: boole
   counter: { label: "Счётчик", color: "#8fb3ff", thing: true },
   moment: { label: "Момент", color: "#d4d27a", thing: true },
 };
-export const typeColor = (type: string) => TYPES[type]?.color ?? TYPES.event.color;
+// списки: «list:<тип элемента>», «list:any» — вход, которому подходит любой список; @T и @list — по «Типу элементов» ноды
+export const isList = (type: string | undefined) => !!type && type.startsWith("list:");
+export const elementOf = (type: string) => (isList(type) ? type.slice(5) : type);
+export const typeColor = (type: string) => (type === "list:any" ? "#c9ccd2" : TYPES[elementOf(type)]?.color ?? TYPES.event.color);
+export function typeLabel(type: string | undefined): string {
+  if (!type) return "";
+  if (type === "list:any") return "Список";
+  return isList(type) ? `Список (${(TYPES[elementOf(type)]?.label ?? elementOf(type)).toLowerCase()})` : TYPES[type]?.label ?? "";
+}
+export function resolveType(kind: Kind, data: Record<string, unknown>, type: string | undefined): string {
+  if (type !== "@T" && type !== "@list") return type ?? "";
+  const element = String((kind.typed && data[kind.typed]) || "text");
+  return type === "@T" ? element : `list:${element}`;
+}
 
 // Можно ли вести провод из выхода типа src во вход типа dst (та же логика, что graph/nodes.compatible)
 export function compatible(src: string, dst: string): boolean {
   if (src === dst) return true;
   if (src === "event" || dst === "event") return false;
+  if (dst === "list:any") return isList(src);
+  if (isList(dst)) return isList(src) ? compatible(elementOf(src), elementOf(dst)) : compatible(src, elementOf(dst));
+  if (isList(src)) return dst === "text";
   if (dst === "text") return true;
   if (dst === "number") return src === "bool";
   if (dst === "bool") return src === "number";
@@ -85,26 +101,26 @@ export function sockType(kind: Kind, data: Record<string, unknown>, side: "in" |
   if (side === "in") {
     if (!name.startsWith("f:")) return "event";
     const field = kind.fields.find((f) => f.name === name.slice(2));
-    return field ? field.socket : isRow(kind, name.slice(2)) ? kind.grow!.type : "";
+    return resolveType(kind, data, field ? field.socket : isRow(kind, name.slice(2)) ? kind.grow!.type : "");
   }
   if (kind.owned) {
     const own = iface?.outputs.find((s) => s.name === name);
     if (own) return own.type ?? "event";
   }
-  return kind.outs.find((s) => s.name === name)?.type ?? "event";
+  return resolveType(kind, data, kind.outs.find((s) => s.name === name)?.type ?? "event");
 }
 
 // waiting: у ноды есть входящий провод (существительное ждёт, а не стартует)
 export function outsOf(kind: Kind, data: Record<string, unknown>, waiting: boolean, iface: Iface | null = null): Sock[] {
   if (BOXES.includes(kind.name)) return iface?.outputs ?? [];
   const events = kind.outs.filter((s) => (s.type ?? "event") === "event" && inWhen(kind, data, s.name));
-  const values = kind.outs.filter((s) => s.type && s.type !== "event");
+  const values = kind.outs.filter((s) => s.type && s.type !== "event").map((s) => ({ ...s, type: resolveType(kind, data, s.type) }));
   const out: Sock[] = [...events, ...(kind.owned ? iface?.outputs ?? [] : []), ...many(kind, data, "out"), ...kind.tail];
   if (kind.group === "noun" && !kind.start_only && waiting) out.push({ name: TIMEOUT, label: "Таймаут", type: "event" });
   return [...out, ...values];
 }
 
-export const isThing = (type: string | undefined) => !!TYPES[type ?? ""]?.thing;
+export const isThing = (type: string | undefined) => !!TYPES[elementOf(type ?? "")]?.thing;
 
 // заголовок ноды: у «Математики» и «Логики» — выбранное действие (как в Blender)
 export function titleOf(kind: Kind, data: Record<string, unknown>): string {

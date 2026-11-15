@@ -17,7 +17,7 @@
   import FrameNode from "./FrameNode.svelte";
   import GraphNode from "./GraphNode.svelte";
   import NodePanel from "./NodePanel.svelte";
-  import { BOXES, TYPES, compatible, sockType, socketFields, typeColor, defaults, freeId, ifaceOfLevel, insOf, isRow, outsOf, rowName, rowsOf, summaryOf, tidyRows, type Catalog, type Doc, type GNode, type GWire, type Group, type Iface, type Kind, type Level } from "./kinds";
+  import { BOXES, TYPES, compatible, resolveType, sockType, socketFields, typeColor, defaults, freeId, ifaceOfLevel, insOf, isRow, outsOf, rowName, rowsOf, summaryOf, tidyRows, type Catalog, type Doc, type GNode, type GWire, type Group, type Iface, type Kind, type Level } from "./kinds";
 
   let { id, embedded = false }: { id: number; embedded?: boolean } = $props();
   type Detail = Schemas["GrDetail"];
@@ -67,10 +67,10 @@
   // первый вход новой ноды, куда подходит провод этого типа
   function firstInput(kind: Kind, node: GNode, type: string): string | null {
     if (type === "event") return insOf(kind, node.data, ifaceOf(node)).find((s) => (s.type ?? "event") === "event")?.name ?? null;
-    if (kind.grow && compatible(type, kind.grow.type)) return `f:${kind.grow.prefix}1`;
+    if (kind.grow && compatible(type, resolveType(kind, node.data, kind.grow.type))) return `f:${kind.grow.prefix}1`;
     const box = insOf(kind, node.data, ifaceOf(node)).find((s) => s.type && compatible(type, s.type));
     if (box) return box.name;
-    const field = socketFields(kind).find((f) => compatible(type, f.socket));
+    const field = socketFields(kind).find((f) => compatible(type, resolveType(kind, node.data, f.socket)));
     return field ? `f:${field.name}` : null;
   }
   // нода попытки: граф у вещи (машина по хосту); вещь выбрана на ноде или пришла с ноды сущности
@@ -530,7 +530,7 @@
           <Background gap={24} />
           <Controls showLock={false} />
           <Panel position="bottom-center">
-            <div class="legend">{#each Object.entries(TYPES) as [key, t] (key)}<span><i class:thing={t.thing} style="--c: {t.color}"></i>{t.label}</span>{/each}</div>
+            <div class="legend">{#each Object.entries(TYPES) as [key, t] (key)}<span><i class:thing={t.thing} style="--c: {t.color}"></i>{t.label}</span>{/each}<span><i class="list"></i>двойная обводка — список</span></div>
           </Panel>
           <MiniMap pannable zoomable bgColor="#15171c" nodeColor="#2a2e37" maskColor="rgba(0, 0, 0, 0.5)" />
           <Panel position="top-left">
@@ -624,6 +624,7 @@
             color: var(--muted); font-size: 11px; }
   .legend span { display: inline-flex; align-items: center; gap: 5px; }
   .legend i { width: 8px; height: 8px; border-radius: 50%; border: 2px solid var(--c); background: var(--c); }
+  .legend i.list { --c: var(--muted); background: transparent; box-shadow: 0 0 0 1.5px var(--panel), 0 0 0 3px var(--c); }
   .legend i.thing { border-radius: 1px; transform: rotate(45deg); width: 7px; height: 7px; }
   .map :global(.svelte-flow__edge.selected path) { stroke: var(--accent); stroke-width: 3; }
   .map :global(.svelte-flow__node) { border: 0; padding: 0; background: none; width: auto; }

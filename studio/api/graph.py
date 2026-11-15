@@ -75,6 +75,7 @@ class GrKind(Schema):
     when: list[GrWhen] = []
     hidden: bool = False
     owned: str = ""
+    typed: str = ""
 
 
 class GrGroup(Schema):

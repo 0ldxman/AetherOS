@@ -32902,6 +32902,11 @@
       "default": "",
       "title": "Owned",
       "type": "string"
+     },
+     "typed": {
+      "default": "",
+      "title": "Typed",
+      "type": "string"
      }
     },
     "required": [
