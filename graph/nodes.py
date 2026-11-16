@@ -367,7 +367,7 @@ def _layer_types_any():
 
 
 # слой: что случилось со слоем файла игрока. Провод «Слой» — этот слой, «Размещение» — любой слой этого файла
-_when("on:layer.changed", "Слой: Изменено",
+_when("on:layer.changed", "Слой: Изменён",
       (Field("layer", "Слой", "many:layer|placement", "любой"), _OBJECT, Field("type", "Тип", "select", "", False, _layer_types_any())),
       (Sock("removed", "Снят"), Sock("attempt", "Неверная попытка"), Sock("failed", "Попытки кончились"), Sock("added", "Добавлен")),
       {"removed": "layer.removed", "attempt": "layer.attempt", "failed": "layer.failed", "added": "layer.added"},
@@ -454,8 +454,8 @@ def _value_when(name, label, outs, events, match, data_outs, extra=()):
     KINDS[name] = replace(KINDS[name], when=OWNER_WHEN)
 
 
-_value_when("on:tag", "Тег: Изменение", (Sock("set", "Поставлен"), Sock("unset", "Снят")), {"set": "value.tag", "unset": "value.tag"}, _tag, ())
-_value_when("on:count", "Счётчик: Изменение", (Sock("changed", "Изменился"),), {"changed": "value.count"}, _count,
+_value_when("on:tag", "Тег: Изменён", (Sock("set", "Поставлен"), Sock("unset", "Снят")), {"set": "value.tag", "unset": "value.tag"}, _tag, ())
+_value_when("on:count", "Счётчик: Изменён", (Sock("changed", "Изменился"),), {"changed": "value.count"}, _count,
             (Sock("value", "Значение", "number", "value"), Sock("delta", "Разница", "number", "delta")))
 _value_when("on:count.threshold", "Счётчик: Порог", (Sock("up", "Дошёл"), Sock("down", "Ушёл ниже")), {"up": "value.count", "down": "value.count"},
             _threshold, (Sock("value", "Значение", "number", "value"),), (Field("threshold", "Порог", "number", "", True),))

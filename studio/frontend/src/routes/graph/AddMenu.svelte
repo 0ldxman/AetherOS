@@ -14,22 +14,34 @@
   let input: HTMLInputElement | undefined = $state();
   $effect(() => { input?.focus(); });
 
+  // Порядок: тип ноды (назначение), внутри — пространство «Машина: …», «Размещение: …»; без пространства — первыми.
+  const ORDER = ["noun", "action", "flow", "data", "entity", "struct", "service"];
   const groupLabel = (name: string) => catalog.groups.find((g) => g.name === name)?.label ?? name;
+  const split = (kind: Kind) => {
+    const at = kind.label.indexOf(": ");
+    return at > 0 ? { space: kind.label.slice(0, at), short: kind.label.slice(at + 2) } : { space: kind.subgroup ?? "", short: kind.label };
+  };
   const found = $derived.by(() => {
     const q = query.trim().toLowerCase();
     return catalog.kinds.filter((k) => !k.hidden && (!filter || filter(k)) && (!q || `${k.label} ${k.subgroup} ${groupLabel(k.group)}`.toLowerCase().includes(q)));
   });
+  type Space = { name: string; kinds: Kind[] };
   const sections = $derived.by(() => {
-    const out: { title: string; kinds: Kind[] }[] = [];
+    const out: { group: string; title: string; spaces: Space[] }[] = [];
     for (const kind of found) {
-      const title = kind.subgroup ? `${groupLabel(kind.group)} · ${kind.subgroup}` : groupLabel(kind.group);
-      let section = out.find((s) => s.title === title);
-      if (!section) out.push((section = { title, kinds: [] }));
-      section.kinds.push(kind);
+      let section = out.find((s) => s.group === kind.group);
+      if (!section) out.push((section = { group: kind.group, title: groupLabel(kind.group), spaces: [] }));
+      const name = split(kind).space;
+      let space = section.spaces.find((s) => s.name === name);
+      if (!space) section.spaces.push((space = { name, kinds: [] }));
+      space.kinds.push(kind);
     }
+    const rank = (group: string) => (ORDER.indexOf(group) + ORDER.length + 1) % (ORDER.length + 1);
+    out.sort((a, b) => rank(a.group) - rank(b.group));
+    for (const section of out) section.spaces.sort((a, b) => (a.name ? 1 : 0) - (b.name ? 1 : 0) || a.name.localeCompare(b.name, "ru"));
     return out;
   });
-  const flat = $derived(sections.flatMap((s) => s.kinds));
+  const flat = $derived(sections.flatMap((s) => s.spaces.flatMap((space) => space.kinds)));
   $effect(() => { query; active = 0; });
 
   function pick(kind: Kind) {
@@ -42,18 +54,22 @@
     else if (event.key === "Enter" && flat[active]) { event.preventDefault(); pick(flat[active]); }
   }
   const left = $derived(Math.min(at.x, window.innerWidth - 300));
-  const top = $derived(Math.min(at.y, window.innerHeight - 420));
+  const top = $derived(Math.min(at.y, window.innerHeight - 460));
 </script>
 
 <button class="shade" aria-label="Закрыть меню" onclick={onclose}></button>
 <div class="menu" style="left: {left}px; top: {top}px" role="dialog" aria-label="Добавить ноду">
   <input class="field" bind:this={input} bind:value={query} {onkeydown} placeholder="Поиск ноды…" aria-label="Поиск ноды" />
   <div class="list">
-    {#each sections as section (section.title)}
-      <div class="group">{section.title}</div>
-      {#each section.kinds as kind (kind.name)}
-        <button class="kind" class:on={flat[active] === kind} style="--c: {COLORS[kind.group]}" onclick={() => pick(kind)}
-                onmouseenter={() => (active = flat.indexOf(kind))}>{kind.label}</button>
+    {#each sections as section (section.group)}
+      <div class="group" style="--c: {COLORS[section.group]}">{section.title}</div>
+      {#each section.spaces as space (space.name)}
+        {#each space.kinds as kind (kind.name)}
+          <button class="kind" class:on={flat[active] === kind} style="--c: {COLORS[kind.group]}" onclick={() => pick(kind)}
+                  onmouseenter={() => (active = flat.indexOf(kind))} title={kind.label}>
+            {#if space.name}<span class="space">{space.name}</span>{/if}<span class="name">{split(kind).short}</span>
+          </button>
+        {/each}
       {/each}
     {:else}
       <p class="muted none">Ничего не нашлось.</p>
@@ -65,8 +81,13 @@
   .shade { position: fixed; inset: 0; z-index: 40; border: 0; background: transparent; cursor: default; }
   .menu { position: fixed; z-index: 41; width: 280px; display: flex; flex-direction: column; gap: 6px; padding: 8px; border: 1px solid var(--line); border-radius: var(--radius);
           background: var(--panel); box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5); }
-  .list { max-height: 360px; overflow-y: auto; display: flex; flex-direction: column; }
-  .group { padding: 6px 6px 2px; color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: 0.04em; }
+  .list { max-height: 400px; overflow-y: auto; display: flex; flex-direction: column; }
+  .group { position: sticky; top: 0; z-index: 1; display: flex; align-items: center; gap: 6px; margin-top: 4px; padding: 5px 6px 4px; background: var(--panel);
+           border-bottom: 1px solid var(--line); color: var(--text); font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; }
+  .group:first-child { margin-top: 0; }
+  .group::before { content: ""; width: 3px; height: 11px; border-radius: 1px; background: var(--c); flex: none; }
+  .space { flex: none; color: var(--muted); }
+  .name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .kind { display: flex; align-items: center; gap: 8px; padding: 5px 8px; border: 0; border-radius: var(--radius-s); background: none; color: var(--text); font: inherit;
           font-size: 13px; text-align: left; cursor: pointer; }
   .kind::before { content: ""; width: 8px; height: 8px; border-radius: 2px; background: var(--c); flex: none; }
