@@ -121,6 +121,16 @@ def host_matches(name, patterns):
     return any(fnmatch.fnmatchcase(name or "", pattern) for pattern in patterns)
 
 
+def taken(machine, user=None):
+    """Сколько других игроков сейчас на машине (у кого есть подключение к ней)."""
+    from machines.models import Session
+
+    rows = Session.objects.filter(profile__machine=machine, user__sandbox_of__isnull=True)
+    if user is not None:
+        rows = rows.exclude(user=user)
+    return rows.values("user").distinct().count()
+
+
 def gate(profile, user, source_machine, chain):
     """Проверки до способов входа: чья учётка, блокировка, откуда, через что, когда. Decision отказа или None.
 
@@ -129,6 +139,8 @@ def gate(profile, user, source_machine, chain):
 
     if profile.user_id is not None and getattr(user, "pk", None) != profile.user_id:
         return Decision(LoginEvent.Kind.OWNER, "")                    # учётка игрока: входит только он
+    if profile.machine.seats is not None and user is not None and taken(profile.machine, user) >= profile.machine.seats:
+        return Decision(LoginEvent.Kind.BUSY, "")                     # все места заняты другими игроками
     source = source_machine.hostname or source_machine.name
     wait = bridge.locked_for(user, profile)
     policy = policy_of(profile)

@@ -995,6 +995,13 @@ def _machine_act(run, node_id, kind, data):
                 if machine is None:
                     raise edits.EditError(f"нет машины «{key}»")
                 what = mode or "name"
+                if what == "display":
+                    edits.change_machine(machine, display=(data.get("display") or "on") != "off")
+                    continue
+                if what == "seats":
+                    raw = str(data.get("seats") if data.get("seats") is not None else "").strip()
+                    edits.change_machine(machine, seats=int(float(raw)) if raw.replace(".", "", 1).isdigit() else None)
+                    continue
                 value = str(data.get(what) or "") if what == "note" else fill(what)
                 if what == "host_key" and not value:
                     value = "*"                                         # пусто — новый случайный отпечаток

@@ -111,6 +111,8 @@ class EntryCommand(BaseCommand):
         if isinstance(found, CommandResult):
             return found
         profile, slugs = found
+        if self.mode == "rcon" and not profile.machine.display:
+            return CommandResult(f"rcon: {host}: no graphical shell on this host (use rshell)", 1)
         decided = self._scenario(context, profile, login, host, args)
         if decided is not None:
             return decided
@@ -186,6 +188,8 @@ class EntryCommand(BaseCommand):
         if refusal.kind == LoginEvent.Kind.LOCKED:
             return _locked(profile, login, refusal.wait, refusal.text, f"{self.name}: {login}@{host}: ")
         entry.record(profile, context.user, refusal.kind, _source(context))
+        if refusal.kind == LoginEvent.Kind.BUSY:
+            return CommandResult(f"{self.name}: {host}: too many users ({profile.machine.seats} seats taken), try later", 1)
         return _denied(profile, profile.machine.system, host, bridge.endpoint_text(profile, getattr(profile, "endpoint_used", None)), refusal.text)
 
     def _credentials(self, context, opts, profile, slugs, args):

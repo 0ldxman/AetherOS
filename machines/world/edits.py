@@ -31,8 +31,12 @@ def booted_at(text):
     raise EditError(f"«Включена с»: не дата «{text}» (пишите 2031-03-02 14:05 или «сейчас»)")
 
 
-def change_machine(machine, *, name="", address="", system="", time_zone="", host_key="", note=None, booted=""):
-    """Свойства машины для всех; пустое — не трогать. host_key «*» — новый случайный отпечаток."""
+UNSET = object()
+
+
+def change_machine(machine, *, name="", address="", system="", time_zone="", host_key="", note=None, booted="", display=None, seats=UNSET):
+    """Свойства машины для всех; пустое — не трогать. host_key «*» — новый случайный отпечаток. display — есть ли графическая оболочка,
+    seats — сколько игроков одновременно (None — без ограничения)."""
     from machines.models import SystemType
     from machines.world import chrono, identity
 
@@ -54,6 +58,10 @@ def change_machine(machine, *, name="", address="", system="", time_zone="", hos
         machine.note = note
     if booted:
         machine.booted_at = booted_at(booted)
+    if display is not None:
+        machine.display = bool(display)
+    if seats is not UNSET:
+        machine.seats = None if seats in (None, "") else max(0, int(seats))
     machine.save()
     return machine
 

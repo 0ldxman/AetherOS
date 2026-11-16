@@ -75,6 +75,10 @@ class Machine(models.Model):
         help_text="Игровой момент, с которого работает машина; от него считается {uptime}. Пусто: неизвестно.",
     )
 
+    display = models.BooleanField("Графическая оболочка", default=True,
+                                  help_text="Без неё у машины нет рабочего стола: rcon отказывает, входят только rshell (терминал), xfer и раздачи.")
+    seats = models.PositiveSmallIntegerField("Мест", null=True, blank=True,
+                                             help_text="Сколько игроков одновременно может быть на машине. Пусто — без ограничения.")
     time_zone = models.CharField(
         "Часовой пояс", max_length=64, default="UTC",
         help_text="Пояс IANA (Europe/Moscow, Asia/Tokyo): в нём машина показывает время в date, журналах, почте и на столе.",

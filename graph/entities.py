@@ -30,6 +30,12 @@ def _player(run, key):
     return get_user_model().objects.filter(username__iexact=key).first()
 
 
+def _taken(machine):
+    from machines.access import entry
+
+    return entry.taken(machine)
+
+
 def _props(name, key, run):
     """Свойства вещи вида name по ключу: {выход: значение} или None, если вещи нет."""
     if name == "ent:machine":
@@ -40,7 +46,8 @@ def _props(name, key, run):
 
         m = _machine(key)
         return m and {"value": m.hostname, "name": m.name, "host": m.hostname, "address": m.address, "system": m.system,
-                      "up": not power.is_down(m), "disks": disks.of_machine(m), "sessions": sessions.of_machine(m)}
+                      "up": not power.is_down(m), "disks": disks.of_machine(m), "sessions": sessions.of_machine(m), "display": m.display,
+                      "seats": m.seats or 0, "taken": _taken(m)}
     if name == "ent:server":
         from machines.models import NetResource
 

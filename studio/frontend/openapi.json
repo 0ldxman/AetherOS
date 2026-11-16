@@ -19357,6 +19357,21 @@
       "title": "Time Zone",
       "type": "string"
      },
+     "display": {
+      "title": "Display",
+      "type": "boolean"
+     },
+     "seats": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Seats"
+     },
      "maintenance_text": {
       "title": "Maintenance Text",
       "type": "string"
@@ -19453,6 +19468,8 @@
      "note",
      "booted_at",
      "time_zone",
+     "display",
+     "seats",
      "maintenance_text",
      "local_now",
      "is_system",
@@ -19592,6 +19609,22 @@
       "default": "UTC",
       "title": "Time Zone",
       "type": "string"
+     },
+     "display": {
+      "default": true,
+      "title": "Display",
+      "type": "boolean"
+     },
+     "seats": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Seats"
      },
      "maintenance_text": {
       "default": "",

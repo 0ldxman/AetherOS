@@ -15,7 +15,7 @@
 
   let { machine, onchange }: { machine: Schemas["Overview"]; onchange: () => void } = $props();
 
-  let form = $state({ hostname: "", name: "", system: "", status: "", hid: "", address: "", serial: "", host_key: "", note: "", booted_at: "", time_zone: "UTC", maintenance_text: "", entry_policy: null as number | null });
+  let form = $state({ hostname: "", name: "", system: "", status: "", hid: "", address: "", serial: "", host_key: "", note: "", booted_at: "", time_zone: "UTC", display: true, seats: null as number | null, maintenance_text: "", entry_policy: null as number | null });
   let saving = $state(false);
   let errors = $state<Record<string, string[]>>({});
   let dialog = $state<null | "delete" | "copy">(null);
@@ -36,7 +36,8 @@
 
   const base = $derived({
     hostname: machine.hostname, name: machine.name, system: machine.system, status: machine.status, hid: machine.hid, address: machine.address, serial: machine.serial, host_key: machine.host_key,
-    note: machine.note, booted_at: local(machine.booted_at ?? null), time_zone: machine.time_zone, maintenance_text: machine.maintenance_text, entry_policy: machine.policy?.id ?? null,
+    note: machine.note, booted_at: local(machine.booted_at ?? null), time_zone: machine.time_zone, display: machine.display, seats: machine.seats ?? null,
+    maintenance_text: machine.maintenance_text, entry_policy: machine.policy?.id ?? null,
   });
   // общий черновик обзора машины: пока он не подключён, форма берётся из сохранённого, потом её ведёт черновик
   const share = new SharedForm({ room: () => `machines/${machine.id}`, texts: ["note"], draft: () => form, base: () => base, onRemoteSave: () => onchange() });
@@ -47,7 +48,8 @@
   const dirty = $derived(
     form.hostname !== machine.hostname || form.name !== machine.name || form.system !== machine.system ||
       form.status !== machine.status || form.entry_policy !== (machine.policy?.id ?? null) || form.hid !== machine.hid || form.address !== machine.address || form.serial !== machine.serial || form.host_key !== machine.host_key ||
-      form.note !== machine.note || form.booted_at !== local(machine.booted_at ?? null) || form.time_zone !== machine.time_zone || form.maintenance_text !== machine.maintenance_text,
+      form.note !== machine.note || form.booted_at !== local(machine.booted_at ?? null) || form.time_zone !== machine.time_zone || form.maintenance_text !== machine.maintenance_text ||
+      form.display !== machine.display || (form.seats ?? null) !== (machine.seats ?? null),
   );
   guardUnsaved(() => dirty && !share.ready);
 
@@ -73,7 +75,7 @@
   async function save() {
     saving = true;
     errors = {};
-    const { error } = await api.PUT("/studio/api/machines/{machine_id}", { params: { path: { machine_id: machine.id } }, body: { ...form, booted_at: form.booted_at ? `${form.booted_at}:00Z` : null } });
+    const { error } = await api.PUT("/studio/api/machines/{machine_id}", { params: { path: { machine_id: machine.id } }, body: { ...form, seats: typeof form.seats === "number" && !Number.isNaN(form.seats) ? form.seats : null, booted_at: form.booted_at ? `${form.booted_at}:00Z` : null } });
     saving = false;
     if (error) {
       errors = (error as { fields?: Record<string, string[]> }).fields ?? {};
@@ -151,6 +153,12 @@
         <span class="muted small">сейчас на машине {machine.local_now}</span>
       </label>
       {#if errors.time_zone}<p class="err">{errors.time_zone.join(" ")}</p>{/if}
+      <div class="pair">
+        <label class="check"><input type="checkbox" bind:checked={form.display} /> Графическая оболочка
+          <Hint text="Без неё у машины нет рабочего стола: rcon отвечает no graphical shell, войти можно только rshell (терминал), xfer и раздачами." /></label>
+        <label><span class="label">Мест<Hint text="Сколько игроков может быть на машине одновременно. Остальным — too many users. Пусто — без ограничения." /></span>
+          <input class="field" type="number" min="0" bind:value={form.seats} placeholder="без ограничения" /></label>
+      </div>
       <label><span class="label">Политика входа машины<Hint text="Как проверяется вход на эту машину. Учётка со своей политикой её перекрывает. Что действует для каждой учётки, видно на вкладке «Проверка входа»." /></span>
         <select class="field" bind:value={form.entry_policy}>
           <option value={null}>от ОС</option>

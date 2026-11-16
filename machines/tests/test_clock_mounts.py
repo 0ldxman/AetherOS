@@ -175,3 +175,27 @@ class ShareTests(WorldCase):
         self.client.force_login(self.user)
         self.assertIn("closed", self.run_command("unshare ivan-drop")["output"])
         self.assertFalse(PlayerMount.objects.exists())
+
+
+class MachineTraitsTests(WorldCase):
+    """Графическая оболочка и число мест."""
+
+    def test_without_a_graphical_shell_rcon_refuses_and_rshell_works(self):
+        self.allow()
+        Machine.objects.filter(pk=self.core.pk).update(display=False)
+        self.assertIn("no graphical shell", self.run_command("rcon reader@aether-core")["output"])
+        first = self.run_command("rshell reader@aether-core")
+        result = self.answer("right") if first.get("prompt") else first
+        self.assertNotIn("no graphical shell", result["output"])
+
+    def test_seats_turn_away_the_next_player(self):
+        from machines.models import Session
+
+        self.allow()
+        Machine.objects.filter(pk=self.core.pk).update(seats=1)
+        Session.objects.create(user=self.other, profile=self.reader)                 # petr уже на aether-core
+        self.assertIn("too many users", self.run_command("rshell reader@aether-core")["output"])
+        self.assertEqual(LoginEvent.objects.filter(profile=self.reader, kind="busy").count(), 1)
+        Machine.objects.filter(pk=self.core.pk).update(seats=None)
+        first = self.run_command("rshell reader@aether-core")
+        self.assertNotIn("too many users", (first.get("output") or ""))

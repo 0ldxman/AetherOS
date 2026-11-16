@@ -773,12 +773,16 @@ PLACEMENT_ACTS = ("act:placement", "act:placement.create", "act:layer")
 register(Kind("act:machine.change", "Машина: Изменить", ACTION, "{machine}", (
     Field("variant", "Что изменить", "select", "", False, (("name", "Изменить имя"), ("address", "Изменить адрес"), ("system", "Изменить ОС"),
                                                            ("time_zone", "Изменить часовой пояс"), ("host_key", "Изменить ключ хоста"),
-                                                           ("note", "Изменить приветствие"), ("booted", "Изменить «Включена с»"))),
+                                                           ("note", "Изменить приветствие"), ("booted", "Изменить «Включена с»"),
+                                                           ("display", "Изменить графику"), ("seats", "Изменить число мест"))),
     Field("machine", "Машина", "many:machine", "", True), Field("name", "Имя", "text", "", True), Field("address", "Адрес", "text", "", True),
     Field("system", "ОС", "system", "", True), Field("time_zone", "Часовой пояс", "time_zone", "", True),
     Field("host_key", "Ключ хоста", "text", "пусто — новый случайный"), Field("note", "Приветствие", "textarea", "{note} в приветствии ОС"),
     Field("booted", "Включена с", "datetime", "2031-03-02 14:05 или «сейчас»", True),
-), _ACT_OUTS, title="variant", when={name: ("variant", (name,)) for name in ("name", "address", "system", "time_zone", "host_key", "note", "booted")}))
+    Field("display", "Графика", "switch", "", False, (("on", "Есть"), ("off", "Нет"))),
+    Field("seats", "Мест", "number", "пусто — без ограничения"),
+), _ACT_OUTS, title="variant",
+   when={name: ("variant", (name,)) for name in ("name", "address", "system", "time_zone", "host_key", "note", "booted", "display", "seats")}))
 register(Kind("act:account.change", "Учётка: Изменить", ACTION, "{account}", (
     Field("variant", "Действие", "select", "", False, (("mail", "Изменить почту"), ("password", "Изменить пароль"), ("keys", "Установить выражение ключей"),
                                                        ("points_add", "Добавить точки входа"), ("points_remove", "Убрать точки входа"),
@@ -905,7 +909,7 @@ HELP = {
                      "кнопки окна, «Нажата» у файла; развилки текста — выходами-словами. Лимит попыток — счётчик по «Неверно».",
     "ent:account": "Учётка на машине: провод «Учётка» (логин@хост) или Машина + Логин. «Заблокирована» — для игрока хода.",
     "act:machine.change": "Свойство машины для всех — что выбрано: имя, адрес, ОС, часовой пояс, ключ хоста (пусто — новый случайный: игрок, "
-                          "который уже заходил, заметит подмену), приветствие ({note}), «Включена с» (от неё считается uptime; включение машины её не трогает).",
+                          "который уже заходил, заметит подмену), приветствие ({note}), «Включена с» (от неё считается uptime; включение машины её не трогает). Графика — без неё rcon отказывает, входят только rshell, xfer и раздачи. Число мест — сколько игроков одновременно (пусто — без ограничения).",
     "act:account.change": "Учётка: почта, пароль (для всех), выражение ключей, точки входа и группы (добавить или убрать, одно или список), "
                           "токены: создать (выход «Токен» — строка, её можно вписать в письмо) или удалить (пусто — все).",
     "act:account.access": "Заблокировать вход на учётку на N минут (игроку или всем, с текстом) или снять блокировку.",
@@ -1214,7 +1218,8 @@ def _entity(name, label, field, outs):
 _entity("ent:machine", "Машина", Field("machine", "Машина", "machine"),
         (Sock("value", "Машина", "machine"), Sock("name", "Имя", "text"), Sock("address", "Адрес", "text"),
          Sock("system", "ОС", "text"), Sock("up", "Работает", "bool"), Sock("disks", "Диски", "list:mount"),
-         Sock("sessions", "Сессии", "list:session")))
+         Sock("sessions", "Сессии", "list:session"), Sock("display", "Графика", "bool"), Sock("seats", "Мест", "number"),
+         Sock("taken", "Занято мест", "number")))
 _entity("ent:volume", "Диск", Field("volume", "Диск", "volume"),
         (Sock("value", "Диск", "volume"), Sock("name", "Название", "text"), Sock("where", "Где подключён", "list:mount")))
 register(Kind("ent:mount", "Машина: Диск", ENTITY, "{point}{mount}", (

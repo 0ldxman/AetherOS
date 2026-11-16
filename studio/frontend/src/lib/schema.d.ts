@@ -6593,6 +6593,10 @@ export interface components {
             booted_at: string | null;
             /** Time Zone */
             time_zone: string;
+            /** Display */
+            display: boolean;
+            /** Seats */
+            seats: number | null;
             /** Maintenance Text */
             maintenance_text: string;
             /** Local Now */
@@ -6674,6 +6678,13 @@ export interface components {
              * @default UTC
              */
             time_zone: string;
+            /**
+             * Display
+             * @default true
+             */
+            display: boolean;
+            /** Seats */
+            seats?: number | null;
             /**
              * Maintenance Text
              * @default
