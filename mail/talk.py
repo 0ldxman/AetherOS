@@ -208,13 +208,15 @@ def send(box, *, to, subject="", typed="", offer=None, attachment=None, reply_it
     path = box.put_text("sent", "letter.msg", letters.compose(headers, body), read=True)
     from engine.events import emit
 
-    if persona is not None and persona.character_id is not None:
-        emit("character.wrote", box.user, machine=box.machine, login=box.login, character=persona.character.code, channel="mail",
-             subject=subject, text=body, offer=view.key if view is not None else "")
+    captured = None
     if persona is not None and view is None:                       # вне вариантов: письмо ждёт автора во входящих персонажа
         from characters import inbox
 
-        inbox.capture_mail(persona, box.user, box.address, subject, body, box.machine, path)
+        captured = inbox.capture_mail(persona, box.user, box.address, subject, body, box.machine, path)
+    if persona is not None and persona.character_id is not None:   # после входящего: сценарий может ответить на него сразу
+        emit("character.wrote", box.user, machine=box.machine, login=box.login, character=persona.character.code, channel="mail",
+             subject=subject, text=body, offer=view.key if view is not None else "", sender=box.address,
+             message=captured.pk if captured is not None else "")
 
     if persona is None:
         account = MachineProfile.objects.filter(mail__iexact=to).select_related("machine").first()

@@ -204,6 +204,7 @@ class ChInbound(Schema):
     text: str
     status: str
     taken_by: str
+    graph: str                      # сценарий, который ответил: «Отправлено сценарием …»
     created_at: dt.datetime
     link: str                       # куда смотреть в Студии: тема форума, частота эфира, путь письма
 
@@ -223,9 +224,18 @@ def _link(row):
     return row.ref.get("path", "")
 
 
+def _graph_title(slug):
+    if not slug:
+        return ""
+    from graph.models import Graph
+
+    return Graph.objects.filter(slug=slug).values_list("title", flat=True).first() or slug
+
+
 def _inbound(row):
     return ChInbound(id=row.pk, channel=row.channel, sender=row.sender, player=row.user.get_username() if row.user_id else "", subject=row.subject,
-                     text=row.text, status=row.status, taken_by=row.taken_by.get_username() if row.taken_by_id else "", created_at=row.created_at,
+                     text=row.text, status=row.status, taken_by=row.taken_by.get_username() if row.taken_by_id else "", graph=_graph_title(row.graph),
+                     created_at=row.created_at,
                      link=_link(row))
 
 

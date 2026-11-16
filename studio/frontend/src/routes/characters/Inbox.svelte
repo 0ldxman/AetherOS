@@ -91,7 +91,7 @@
         <span class="top"><b>{row.sender}</b>{#if row.player && row.player !== row.sender}<span class="muted small">игрок {row.player}</span>{/if}<span class="spacer"></span><span class="muted small">{when(row.created_at)}</span></span>
         {#if row.subject}<span class="subject">{row.subject}</span>{/if}
         <span class="muted small text">{excerpt(row.text)}</span>
-        <span class="st {row.status}">{STATUS[row.status]}{row.taken_by ? ` · ${row.taken_by}` : ""}</span>
+        <span class="st {row.status}">{row.graph ? `отправлено сценарием «${row.graph}»` : STATUS[row.status]}{row.taken_by ? ` · ${row.taken_by}` : ""}</span>
       </button>
     {:else}
       {#if loaded}<p class="muted small empty">{filter === "open" ? EMPTY[channel] : "Ничего нет."}</p>{/if}
@@ -106,7 +106,7 @@
           <p class="muted small">{picked.sender}{picked.player && picked.player !== picked.sender ? ` (игрок ${picked.player})` : ""} · {when(picked.created_at)}{picked.link ? " · " : ""}
             {#if picked.link.startsWith("#/")}<a href={picked.link}>открыть тему</a>{:else}<span class="mono">{picked.link}</span>{/if}</p>
         </div>
-        <span class="st {picked.status}">{STATUS[picked.status]}{picked.taken_by ? ` · ${picked.taken_by}` : ""}</span>
+        <span class="st {picked.status}">{picked.graph ? `отправлено сценарием «${picked.graph}»` : STATUS[picked.status]}{picked.taken_by ? ` · ${picked.taken_by}` : ""}</span>
       </header>
       <pre class="body">{picked.text}</pre>
       {#if editable}

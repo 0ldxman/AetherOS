@@ -63,6 +63,7 @@ class Inbound(models.Model):
     status = models.CharField(max_length=8, choices=Status.choices, default=Status.NEW, db_index=True)
     taken_by = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL, related_name="+")
     taken_at = models.DateTimeField(null=True, blank=True)
+    graph = models.CharField("Сценарий", max_length=64, blank=True, help_text="Слаг сценария, который ответил на сообщение.")
     created_at = models.DateTimeField(auto_now_add=True, db_index=True)
 
     class Meta:
@@ -97,6 +98,7 @@ class Reply(models.Model):
     sent_at = models.DateTimeField(null=True, blank=True)
     status = models.CharField(max_length=10, choices=Status.choices, default=Status.PENDING, db_index=True)
     error = models.CharField(max_length=255, blank=True)
+    graph = models.CharField("Сценарий", max_length=64, blank=True, help_text="Слаг сценария, который отправил реплику.")
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:

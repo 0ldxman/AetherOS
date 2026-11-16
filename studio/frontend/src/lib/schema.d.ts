@@ -11037,6 +11037,8 @@ export interface components {
             status: string;
             /** Taken By */
             taken_by: string;
+            /** Graph */
+            graph: string;
             /**
              * Created At
              * Format: date-time

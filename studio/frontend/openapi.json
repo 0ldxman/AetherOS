@@ -30350,6 +30350,10 @@
       "title": "Taken By",
       "type": "string"
      },
+     "graph": {
+      "title": "Graph",
+      "type": "string"
+     },
      "created_at": {
       "format": "date-time",
       "title": "Created At",
@@ -30369,6 +30373,7 @@
      "text",
      "status",
      "taken_by",
+     "graph",
      "created_at",
      "link"
     ],

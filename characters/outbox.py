@@ -45,8 +45,8 @@ def _check(actions):
 
 
 @transaction.atomic
-def answer(inbound, author, text, *, subject="", delay_minutes=0, actions=(), station=None):
-    """Ответ во входящее: в тот же канал, тому же игроку. Входящее становится отвеченным."""
+def answer(inbound, author, text, *, subject="", delay_minutes=0, actions=(), station=None, graph=""):
+    """Ответ во входящее: в тот же канал, тому же игроку. Входящее становится отвеченным (graph — каким сценарием)."""
     text = (text or "").strip()
     if not text:
         raise OutboxError("пустая реплика")
@@ -68,8 +68,11 @@ def answer(inbound, author, text, *, subject="", delay_minutes=0, actions=(), st
             raise OutboxError("у персонажа нет позывного в эфире")
         ref = {"freq": inbound.ref.get("freq"), "station": chosen.pk}
     reply = Reply.objects.create(character=inbound.character, inbound=inbound, channel=inbound.channel, author=author, user=inbound.user,
-                                 subject=subject[:255], text=text, ref=ref, actions=actions, send_at=send_at(delay_minutes))
+                                 subject=subject[:255], text=text, ref=ref, actions=actions, send_at=send_at(delay_minutes), graph=graph)
     inbox.set_status(inbound, Inbound.Status.ANSWERED, author)
+    if graph:
+        Inbound.objects.filter(pk=inbound.pk).update(graph=graph)
+        inbound.graph = graph
     if reply.send_at <= timezone.now():
         deliver(reply)
     return reply
@@ -80,12 +83,16 @@ AUDIENCES = ("player", "group", "all")
 
 @transaction.atomic
 def say(character, author, channel, text, *, subject="", audience="player", user=None, account=None, condition=None,
-        section=None, title="", freq="", station=None, delay_minutes=0, actions=()):
+        section=None, title="", freq="", station=None, delay_minutes=0, actions=(), item=None, graph=""):
     """Персонаж пишет первым, без входящего.
 
     Почта: одному игроку в выбранную учётку (account) или многим (group: по условию, all: всем) — тогда письмо ленивое, как письмо мира,
-    и приходит при следующем открытии почты. Форум: новая тема в разделе. Эфир: передача на частоте от позывного."""
+    и приходит при следующем открытии почты; item — готовое письмо (объект msg) вместо текста. Форум: новая тема в разделе. Эфир: передача
+    на частоте от позывного. graph — какой сценарий отправил."""
     text = (text or "").strip()
+    if item is not None and channel == Inbound.Channel.MAIL:
+        text = text or item.body or "-"
+        subject = subject or item.name
     if not text:
         raise OutboxError("пустая реплика")
     actions = list(actions or [])
@@ -93,7 +100,7 @@ def say(character, author, channel, text, *, subject="", audience="player", user
     ref, target = {}, None
     if channel == Inbound.Channel.MAIL:
         sender = character.personas.values_list("address", flat=True).first()
-        if not sender:
+        if not sender and item is None:
             raise OutboxError("у персонажа нет почтового адреса")
         if not (subject or "").strip():
             raise OutboxError("у письма нет темы")
@@ -102,7 +109,7 @@ def say(character, author, channel, text, *, subject="", audience="player", user
         if audience == "player":
             if account is None or not account.mail:
                 raise OutboxError("выберите учётку игрока")
-            ref, target = {"to": account.mail, "from": sender}, account.user or user
+            ref, target = {"to": account.mail, "profile": account.pk, "from": sender}, account.user or user
         else:
             if audience == "group" and not condition:
                 raise OutboxError("для группы нужно условие")
@@ -126,11 +133,59 @@ def say(character, author, channel, text, *, subject="", audience="player", user
             raise OutboxError(str(error)) from None
     else:
         raise OutboxError("канал: mail, forum или air")
+    if item is not None:
+        ref["item"] = item.pk
     reply = Reply.objects.create(character=character, channel=channel, author=author, user=target, subject=(subject or "")[:255], text=text,
-                                 ref=ref, actions=actions, send_at=send_at(delay_minutes))
+                                 ref=ref, actions=actions, send_at=send_at(delay_minutes), graph=graph)
     if reply.send_at <= timezone.now():
         deliver(reply)
     return reply
+
+
+@transaction.atomic
+def to_topic(character, topic, text, *, delay_minutes=0, graph=""):
+    """Персонаж пишет в существующую тему форума (в конец)."""
+    text = (text or "").strip()
+    if not text:
+        raise OutboxError("пустая реплика")
+    reply = Reply.objects.create(character=character, channel=Inbound.Channel.FORUM, subject=topic.title[:255], text=text,
+                                 ref={"topic": topic.pk}, send_at=send_at(delay_minutes), graph=graph)
+    if reply.send_at <= timezone.now():
+        deliver(reply)
+    return reply
+
+
+def recipients(items, user=None, event_account=None):
+    """Учётки-адресаты письма из того, что подали: учётка (логин@хост), адрес почты, игрок (его учётка на aether-main), персонаж (ящик
+    учётки с его адресом). Порядок сохраняется, повторы убираются. Непонятное — OutboxError с ним."""
+    from django.contrib.auth import get_user_model
+
+    from characters.models import Character
+    from machines.current import home_account
+    from machines.models import MachineProfile
+    from machines.world import edits
+
+    found = []
+    for raw in items:
+        key = str(raw or "").strip()
+        if not key:
+            continue
+        profile = edits.account(key) if "@" in key else None
+        if profile is None and "@" in key:
+            profile = MachineProfile.objects.filter(mail__iexact=key).select_related("machine").first()
+        if profile is None:
+            player = get_user_model().objects.filter(username__iexact=key).first()
+            if player is not None:
+                profile = home_account(player)
+        if profile is None:
+            character = Character.objects.filter(code__iexact=key).first()
+            address = character.personas.values_list("address", flat=True).first() if character is not None else None
+            profile = MachineProfile.objects.filter(mail__iexact=address).select_related("machine").first() if address else None
+        if profile is None:
+            raise OutboxError(f"не понять, кому: «{key}»")
+        if profile not in found:
+            found.append(profile)
+    return found
 
 
 def deliver(reply):
@@ -165,12 +220,15 @@ def _mail(reply):
     from mail.delivery import LETTER_FORMAT
 
     to = reply.ref.get("to", "")
-    profile = MachineProfile.objects.filter(mail__iexact=to).select_related("machine").first()
+    profile = MachineProfile.objects.filter(pk=reply.ref.get("profile") or 0).select_related("machine").first() \
+        or MachineProfile.objects.filter(mail__iexact=to).select_related("machine").first()
     if profile is None:
         raise OutboxError(f"нет ящика {to}")
-    body = letters.compose([("From", reply.ref.get("from", "")), ("To", to), ("Subject", reply.subject or "(no subject)")], reply.text + "\n")
-    slug = f"live-{reply.character.code.lower()}-{reply.pk}"
-    item = Item.objects.create(slug=slug, name=f"{slug}.msg", format=LETTER_FORMAT, body=body)
+    item = Item.objects.filter(pk=reply.ref.get("item") or 0).first()
+    if item is None:
+        body = letters.compose([("From", reply.ref.get("from", "")), ("To", to), ("Subject", reply.subject or "(no subject)")], reply.text + "\n")
+        slug = f"live-{reply.character.code.lower()}-{reply.pk}"
+        item = Item.objects.create(slug=slug, name=f"{slug}.msg", format=LETTER_FORMAT, body=body)
     Box.of_profile(profile, user=reply.user).deliver(item)
 
 
@@ -181,9 +239,11 @@ def _mail_many(reply):
     from mail.delivery import LETTER_FORMAT
     from world import letters as world_letters
 
-    body = letters.compose([("From", reply.ref.get("from", "")), ("To", "{to}"), ("Subject", reply.subject or "(no subject)")], reply.text + "\n")
-    slug = f"live-{reply.character.code.lower()}-{reply.pk}"
-    item = Item.objects.create(slug=slug, name=f"{slug}.msg", format=LETTER_FORMAT, body=body)
+    item = Item.objects.filter(pk=reply.ref.get("item") or 0).first()
+    if item is None:
+        body = letters.compose([("From", reply.ref.get("from", "")), ("To", "{to}"), ("Subject", reply.subject or "(no subject)")], reply.text + "\n")
+        slug = f"live-{reply.character.code.lower()}-{reply.pk}"
+        item = Item.objects.create(slug=slug, name=f"{slug}.msg", format=LETTER_FORMAT, body=body)
     world_letters.send_all(item, source=f"персонаж {reply.character.code}", condition=reply.ref.get("condition"))
 
 

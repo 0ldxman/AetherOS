@@ -227,6 +227,77 @@ def rebuild_starts(graph):
 
 # ---------- помощники ----------
 
+def _character_act(run, kind, data):
+    """«Персонаж: Написать» и «Персонаж: Ответить» (characters/outbox.py): реплика с отметкой сценария."""
+    from characters import outbox
+    from characters.models import Character, Inbound
+
+    number = lambda name: int(float(data.get(name))) if str(data.get(name) or "").strip().replace(".", "", 1).isdigit() else 0      # noqa: E731
+    text = _fill(str(data.get("text") or ""), run)
+    slug = run.graph.slug
+    try:
+        if kind.name == "act:character.reply":
+            raw = str(data.get("message") or "").strip()
+            inbound = Inbound.objects.select_related("character").filter(pk=int(raw)).first() if raw.isdigit() else None
+            if inbound is None:
+                raise outbox.OutboxError("нет сообщения: подайте провод «Сообщение»")
+            outbox.answer(inbound, None, text, subject=_fill(str(data.get("subject") or ""), run), delay_minutes=number("delay"), graph=slug)
+            return ["next"]
+        character = Character.objects.filter(code__iexact=str(data.get("character") or "").strip()).first()
+        if character is None:
+            raise outbox.OutboxError("не выбран персонаж")
+        channel = data.get("channel") or "mail"
+        if channel == "forum":
+            from forum.models import Section, Topic
+
+            raw = str(data.get("section") or "").strip()
+            section = Section.objects.filter(pk=int(raw), archived=False).first() if raw.isdigit() else None
+            if section is None:
+                raise outbox.OutboxError("нет раздела форума")
+            title = _fill(str(data.get("title") or ""), run).strip()
+            if (data.get("topic") or "new") == "append":
+                topic = Topic.objects.filter(section=section, title__iexact=title, hidden_at__isnull=True).order_by("-pk").first()
+                if topic is None:
+                    raise outbox.OutboxError(f"нет темы «{title}»")
+                outbox.to_topic(character, topic, text, delay_minutes=number("delay"), graph=slug)
+            else:
+                outbox.say(character, None, Inbound.Channel.FORUM, text, section=section, title=title, delay_minutes=number("delay"), graph=slug)
+            return ["next"]
+        if channel == "air":
+            outbox.say(character, None, Inbound.Channel.AIR, text, freq=_fill(str(data.get("freq") or ""), run).strip(),
+                       delay_minutes=number("delay"), user=run.user, graph=slug)
+            return ["next"]
+        from filesystem.models import Item
+
+        item = Item.objects.filter(slug=str(data.get("letter") or "").strip()).first() if data.get("letter") else None
+        if data.get("letter") and item is None:
+            raise outbox.OutboxError(f"нет письма «{data.get('letter')}»")
+        subject = _fill(str(data.get("subject") or ""), run)
+        common = dict(subject=subject, delay_minutes=number("delay"), item=item, graph=slug)
+        to = data.get("to") or "event"
+        if to == "all":
+            outbox.say(character, None, Inbound.Channel.MAIL, text, audience="all", **common)
+            return ["next"]
+        if to == "list":
+            targets = outbox.recipients(_as_list(data.get("targets")))
+        elif to == "event" and (run.ctx or {}).get("host") and (run.ctx or {}).get("login"):
+            from machines.models import MachineProfile
+
+            targets = list(MachineProfile.objects.filter(machine__hostname=run.ctx["host"], login=run.ctx["login"]).select_related("machine")[:1])
+        else:
+            from machines.current import home_account
+
+            targets = [home_account(run.user)] if run.user is not None else []
+        if not targets:
+            raise outbox.OutboxError("некому отправить")
+        for profile in targets:
+            outbox.say(character, None, Inbound.Channel.MAIL, text, account=profile, user=run.user, **common)
+    except outbox.OutboxError as error:
+        _log(run.graph, f"«{kind.label}»: {error}", run.user)
+        return ["fail"]
+    return ["next"]
+
+
 def _thing_find(run, kind, data, get, out):
     """«Найти по условию»: найдено (список), первое, количество."""
     from engine import search
@@ -1028,6 +1099,8 @@ def _execute(run, doc, node_id, sock):
         return [] if kind.start_only else _noun_wait(run, doc, node_id, kind)
     if name in N.PLACEMENT_ACTS:
         return _placement_act(run, doc, node_id, kind)
+    if name in ("act:character.say", "act:character.reply"):
+        return _character_act(run, kind, data)
     if name == "act:session.close":
         from graph import sessions
 

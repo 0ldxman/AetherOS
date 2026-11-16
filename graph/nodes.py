@@ -16,11 +16,11 @@ GROUPS = {ENTITY: "Сущности", NOUN: "Триггеры", FLOW: "Ход", 
 # Типы сокетов. event — «случилось» (по нему идёт ход), остальное — данные: читаются в момент, когда нода выполняется.
 EVENT = "event"
 TYPES = ("event", "bool", "text", "number", "item", "placement", "layer", "machine", "account", "server", "character", "section", "moment", "player", "flag",
-         "world_flag", "counter", "offer", "session", "datetime", "volume", "mount")
+         "world_flag", "counter", "offer", "session", "datetime", "volume", "mount", "message")
 TYPE_LABELS = {"event": "событие", "bool": "да/нет", "text": "текст", "number": "число", "item": "объект", "placement": "размещение", "layer": "слой", "machine": "машину", "account": "учётку",
                "server": "сетевой ресурс", "character": "персонажа", "section": "раздел", "moment": "момент", "player": "игрока",
                "flag": "метку игрока", "world_flag": "метку мира", "counter": "счётчик", "offer": "возможность", "session": "сессию",
-               "datetime": "дату и время", "volume": "диск", "mount": "диск машины"}
+               "datetime": "дату и время", "volume": "диск", "mount": "диск машины", "message": "сообщение"}
 THINGS = ("item", "placement", "layer", "machine", "account", "server", "character", "section", "moment", "player", "flag", "world_flag", "counter", "offer",
           "session", "volume", "mount")
 
@@ -69,7 +69,8 @@ FIELD_TYPES = {"text": "text", "textarea": "text", "path": "text", "clock": "tex
                "object": "item", "character": "character", "section": "section", "flag": "flag", "world_flag": "world_flag",
                "counter": "counter", "moment": "moment", "machine": "machine", "system": "text", "time_zone": "text", "server": "server", "player": "player", "layer": "layer", "placement": "placement", "account": "account", "offer": "offer",
                "recipient": "many:character|text", "mail_ref": "item|placement", "attachment": "many:item|placement",
-               "offer_group": "many:offer|text", "session": "session", "datetime": "datetime|text", "volume": "volume", "mount": "mount"}      # вид поля -> тип его входа; нет в списке — параметр без входа
+               "offer_group": "many:offer|text", "session": "session", "datetime": "datetime|text", "volume": "volume", "mount": "mount",
+               "message": "message"}      # вид поля -> тип его входа; нет в списке — параметр без входа
 
 
 def field_type(field):
@@ -390,6 +391,21 @@ def _mail(data, out, event):
     return (event.data or {}).get("channel") == "mail" and _match(character=("character", "thing"), text=("text", "glob"))(data, out, event)
 
 
+_WROTE_MATCH = _match(character=("character", "thing"), text=("text", "glob"))
+
+
+def _wrote(data, out, event):
+    channel = data.get("channel") or "any"
+    return (channel == "any" or (event.data or {}).get("channel") == channel) and _WROTE_MATCH(data, out, event)
+
+
+_when("on:character.wrote", "Персонаж: Получил сообщение",
+      (Field("channel", "Канал", "switch", "", False, (("any", "Любой"), ("mail", "Почта"), ("forum", "Форум"), ("air", "Эфир"))),
+       Field("character", "Персонаж", "many:character", "любой"), Field("text", "Текст", "text", "любой; можно *")),
+      (Sock("sent", "Получил"),), {"sent": "character.wrote"}, _wrote,
+      (Sock("character", "Персонаж", "character", "character"), Sock("channel", "Канал", "text", "channel"), Sock("sender", "От кого", "text", "sender"),
+       Sock("subject", "Тема", "text", "subject"), Sock("text", "Текст", "text", "text"), Sock("message", "Сообщение", "message", "message")),
+      "{character}")
 _when("on:character.mail", "Персонаж: Получил письмо", (Field("character", "Персонаж", "many:character", "любой"), Field("text", "Текст", "text", "любой; можно *")),
       (Sock("sent", "Получил"),), {"sent": "character.wrote"}, _mail,
       (Sock("character", "Персонаж", "character", "character"), Sock("text", "Текст", "text", "text")), "{character}")
@@ -408,6 +424,7 @@ _when("on:air.sent", "Эфир: Передача на частоте",
       (Sock("freq", "Частота", "text", "freq"), Sock("text", "Текст", "text", "text"), Sock("callsign", "Позывной", "text", "callsign"),
        Sock("character", "Персонаж", "character", "character")), "{freq}")
 KINDS["on:air.sent"] = replace(KINDS["on:air.sent"], when={"character": ("by", ("station",))})
+KINDS["on:character.mail"] = replace(KINDS["on:character.mail"], hidden=True)          # теперь «Персонаж: Получил сообщение»
 _when("on:moment.status", "Момент: Статус изменён", (Field("moment", "Момент", "many:moment", "любой"),),
       (Sock("started", "Начался"), Sock("ended", "Кончился")), {"started": "moment.started", "ended": "moment.ended"},
       _match(moment=("moment", "thing")), (Sock("moment", "Момент", "moment", "moment"),), "{moment}")
@@ -580,7 +597,8 @@ REF_KINDS = {"item": "item", "key": "item", "letter": "item", "character": "char
 
 
 ACTION_WHEN = {"tag": OWNER_WHEN, "count": {**OWNER_WHEN, "delta": ("mode", ("add",)), "value": ("mode", ("set",))}}
-REPLACED = {"kick"}                         # «Сессия: Закрыть»
+REPLACED = {"kick", "air"}                  # «Сессия: Закрыть», «Персонаж: Написать»
+HIDDEN_CHOICES = {"mail", "forum"}          # «Персонаж: Написать»
 LEGACY = {"flag", "unflag", "world_flag", "world_unflag", "world_count", "player_count", "character_tag"}   # теперь «Тег» и «Счётчик»
 
 
@@ -685,7 +703,7 @@ def _choice(key, label, variants):
         when[name] = rule if len(rule) > 1 else rule[0]
     choice = Field("variant", "Действие", "select", "", False, tuple((value, title) for value, title, *_ in variants))
     register(Kind(f"act:{key}", label, ACTION, "", (choice, *fields), (Sock("next", "Сделано"), Sock("fail", "Не вышло")),
-                  title="" if key in FIXED_TITLE else "variant", when=when,
+                  title="" if key in FIXED_TITLE else "variant", when=when, hidden=key in HIDDEN_CHOICES,
                   variants={value: (REGISTRY[spec_name], fixed) for value, _, spec_name, fixed, _ in variants}))
 
 
@@ -900,7 +918,15 @@ HELP = {
     "on:placement.appeared": "У игрока появился новый файл: сделал сам (вырезка, подпись, текст из архива) или скопировал. "
                              "Объект, впервые попавший к игроку, — «Объект: Получен».",
     "on:object.got": "Объект лёг игроку: из письма или архива, с форума, с сервера, с другой машины, собран из частей, ключ, выдан сценарием.",
-    "on:character.mail": "Персонаж получил письмо от игрока. Кто написал — выход «Игрок».",
+    "on:character.mail": "Старое: теперь «Персонаж: Получил сообщение».",
+    "on:character.wrote": "Игрок написал персонажу: письмо на его адрес, ответ или полный позывной на форуме, позывной в эфире. Кто — выход "
+                          "«Игрок»; «Сообщение» — провод в «Персонаж: Ответить» (у письма, выбранного вариантом возможности, его нет).",
+    "act:character.say": "Персонаж пишет первым. Почта — кому: Учётке (события), Лично (учётка игрока на aether-main), Всем (в каждую "
+                         "учётку игрока при открытии почты) или указать: учётки, адреса, игроки, персонажи (ящик с их адресом). Тема и текст "
+                         "или готовое письмо. Форум — новая тема или в тему с этим заголовком. Эфир — частота, позывной персонажа. Задержка — "
+                         "в игровых минутах.",
+    "act:character.reply": "Ответ на сообщение туда же: письмо отправителю, сообщение под постом, передача на той же частоте. У кукловода "
+                           "сообщение становится отвеченным: «Отправлено сценарием …».",
     "on:air.sent": "В эфир передали на частоте: игрок или персонаж (станция). У игрока — выход «Игрок», у станции с персонажем — «Персонаж».",
     "on:moment.status": "Момент мира начался или кончился.",
     "on:tag": "Тег владельца поставили или сняли. Владелец и «чьё» — как у ноды «Тег».",
@@ -1090,7 +1116,7 @@ register(Kind("thing.find", "Найти по условию", ENTITY, "{what}: {
     Field("what", "Что ищем", "select", "", False, _THING_KINDS),
     Field("expr", "Условие", "expr", "tag:account:compromised and count:account:fails >= 3", True),
     Field("among", "Среди", OF_LIST), Field("sort", "Порядок по счётчику", "text", "имя или имя@player; пусто — по имени"),
-    Field("order", "", "switch", "", False, (("desc", "Больше сначала"), ("asc", "Меньше сначала"))),
+    Field("order", "Сначала", "select", "", False, (("desc", "больше"), ("asc", "меньше"))),
     Field("limit", "Сколько взять", "number", "все"),
 ), ins=(), typed="what"))
 DATA_OUTS["thing.find"] = (Sock("value", "Найдено", OF_LIST), Sock("first", "Первое", ELEMENT), Sock("count", "Количество", "number"))
@@ -1205,6 +1231,27 @@ register(Kind("session.find", "Сессия: Найти", ENTITY, "", (
 ), ins=(), title="mode", plural={"value": ("mode", ("all", "machine", "account"))},
    when={"player": ("mode", ("all",)), "machine": ("mode", ("machine",)), "account": ("mode", ("account",)),
          "active": ("mode", ("all", "machine", "account"))}))
+_SAY = ("mail", "forum", "air")
+register(Kind("act:character.say", "Персонаж: Написать", ACTION, "{character}", (
+    Field("channel", "Канал", "switch", "", False, (("mail", "Почта"), ("forum", "Форум"), ("air", "Эфир"))),
+    Field("character", "От кого", "character", "", True),
+    Field("to", "Кому", "switch", "", False, (("event", "Учётке"), ("home", "Лично"), ("all", "Всем"), ("list", "Указать"))),
+    Field("targets", "Адресаты", "many:account|player|character|text", "учётка, адрес, игрок или персонаж", True),
+    Field("letter", "Готовое письмо", "letter", "нет — тема и текст"), Field("subject", "Тема", "text", "", True),
+    Field("section", "Раздел", "section", "", True),
+    Field("topic", "Куда", "switch", "", False, (("new", "Новая тема"), ("append", "В тему"))), Field("title", "Заголовок темы", "text", "", True),
+    Field("freq", "Частота, МГц", "text", "7.205; пусто — вызывная"),
+    Field("text", "Текст", "textarea", "{player}, {login}, {host} и подробности события", True),
+    Field("delay", "Задержка, игр. мин", "number", "0"),
+), (Sock("next", "Сделано"), Sock("fail", "Не вышло")), title="channel",
+   when={"to": ("channel", ("mail",)), "targets": [("channel", ("mail",)), ("to", ("list",))], "letter": ("channel", ("mail",)),
+         "subject": ("channel", ("mail",)), "section": ("channel", ("forum",)), "topic": ("channel", ("forum",)),
+         "title": ("channel", ("forum",)), "freq": ("channel", ("air",))}))
+register(Kind("act:character.reply", "Персонаж: Ответить", ACTION, "", (
+    Field("message", "Сообщение", "message", "провод от «Получил сообщение»", True),
+    Field("text", "Текст", "textarea", "{player} и подробности события", True), Field("subject", "Тема", "text", "Re: тема письма"),
+    Field("delay", "Задержка, игр. мин", "number", "0"),
+), (Sock("next", "Сделано"), Sock("fail", "Не вышло"))))
 register(Kind("act:session.close", "Сессия: Закрыть", ACTION, "{session}", (
     Field("session", "Сессия", "many:session", "текущая"),
 ), (Sock("next", "Сделано"), Sock("fail", "Не вышло"))))

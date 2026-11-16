@@ -33,7 +33,8 @@ def mentioned(text):
 
 
 def _wrote(user, character, channel, text, **data):
-    """Событие движка «написал персонажу» (почта шлёт его сама, для любого письма на адрес персонажа)."""
+    """Событие движка «написал персонажу» (почта шлёт его сама, для любого письма на адрес персонажа). message — номер входящего: на него
+    отвечает «Персонаж: Ответить»."""
     from engine.events import emit
 
     emit("character.wrote", user, character=character.code, channel=channel, text=text or "", **data)
@@ -64,8 +65,8 @@ def capture_forum(post):
     found = [Inbound.objects.create(character=character, channel=Inbound.Channel.FORUM, user=post.author, sender=post.name,
                                     subject=post.topic.title[:255], text=post.text, ref={"topic": post.topic_id, "post": post.pk})
              for character in targets]
-    for character in targets:
-        _wrote(post.author, character, "forum", post.text, topic=post.topic_id)
+    for row in found:
+        _wrote(post.author, row.character, "forum", post.text, topic=post.topic_id, subject=row.subject, sender=row.sender, message=row.pk)
     return found
 
 
@@ -77,8 +78,8 @@ def capture_air(transmission):
     found = [Inbound.objects.create(character=character, channel=Inbound.Channel.AIR, user=transmission.user, sender=transmission.callsign,
                                     text=transmission.text, ref={"transmission": transmission.pk, "freq": f"{transmission.freq:.3f}"})
              for character in targets]
-    for character in targets:
-        _wrote(transmission.user, character, "air", transmission.text, freq=f"{transmission.freq:.3f}")
+    for row in found:
+        _wrote(transmission.user, row.character, "air", transmission.text, freq=f"{transmission.freq:.3f}", sender=row.sender, message=row.pk)
     return found
 
 
