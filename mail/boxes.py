@@ -44,7 +44,7 @@ class Box:
 
         self.machine, self.login, self.address = machine, login, address
         self.user, self.session_key, self.profile = user, session_key, profile
-        self.view = view_for(machine, user, login=login)
+        self.view = view_for(machine, user, login=login, live=True)          # ящик — файлы мира, общие для всех на учётке
         self.root = places.resolve(machine, "mail", login) or DEFAULT_ROOT.format(login=login)
 
     @classmethod
@@ -158,14 +158,14 @@ class Box:
                                           defaults={"arrived_at": now(self.machine, self.user), "read_at": None})
 
     def deliver(self, item, folder="inbox", name=None):
-        """Положить письмо автора (объект msg) в папку ящика в слое игрока. Возвращает путь."""
+        """Положить письмо автора (объект msg) в папку ящика — в мире, его видят все на учётке. Возвращает путь."""
         path = self._free_name(folder, name or f"{item.slug or item.pk}.msg")
         self.view.put_item(path, item)
         self._arrived(path)
         return path
 
     def put_text(self, folder, name, text, read=False):
-        """Своё письмо игрока (отправленное, возврат от MAILER-DAEMON) текстом в его слое."""
+        """Письмо текстом (отправленное, возврат от MAILER-DAEMON) в папку ящика."""
         path = self._free_name(folder, name)
         self.view.put_text(path, text)
         self._arrived(path)
@@ -206,9 +206,10 @@ class Box:
         """Доставить письма из очереди, срок которых подошёл."""
         from mail.models import MailQueue
 
-        if self.user is None or self.profile is None:
+        if self.profile is None:
             return 0
-        due = list(MailQueue.objects.filter(user=self.user, profile=self.profile, available_at__lte=timezone.now()).select_related("item"))
+        # срок подошёл — письмо приходит в ящик, кто бы его ни открыл первым
+        due = list(MailQueue.objects.filter(profile=self.profile, available_at__lte=timezone.now()).select_related("item"))
         for waiting in due:
             self.deliver(waiting.item, waiting.folder)
             waiting.delete()

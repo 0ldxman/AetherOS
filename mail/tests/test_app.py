@@ -89,8 +89,10 @@ class BoxTests(TestCase):
         self.assertTrue(row.locked)
         self.assertEqual((row.letter.sender, row.letter.body), ("x@y", ""))
 
-    def test_the_hook_delivers_now_or_later_to_the_current_account(self):
-        Session.objects.create(user=self.ivan, profile=self.profile, seen_at=timezone.now())
+    def test_the_hook_delivers_now_or_later_to_the_personal_box_of_the_player(self):
+        Session.objects.create(user=self.olga, profile=self.profile, seen_at=timezone.now())     # где сидит — неважно
+        self.assertEqual(deliver_by_slug(self.olga, "door-code").delivered, True)
+        self.assertEqual(len(Box.of_profile(self.shared, user=self.olga).letters_in("inbox")), 1)  # в её ящик на aether-main
         now = deliver_by_slug(self.ivan, "door-code")
         self.assertTrue(now.delivered and now.immediate)
         later = deliver_by_slug(self.ivan, "door-code", delay=60)
@@ -98,7 +100,7 @@ class BoxTests(TestCase):
         self.assertEqual(MailQueue.objects.count(), 1)
         self.assertEqual(len(self.box().letters_in("inbox")), 2)
         with mock.patch("django.utils.timezone.now", return_value=timezone.now() + timedelta(seconds=120)):
-            self.assertEqual(len(self.box().letters_in("inbox")), 3)                    # подошёл срок: письмо из очереди пришло
+            self.assertEqual(len(self.box(self.olga).letters_in("inbox")), 3)          # срок подошёл: пришло, кто бы ни открыл ящик
         self.assertFalse(MailQueue.objects.exists())
         self.assertFalse(deliver_by_slug(self.ivan, "ghost").delivered)
 

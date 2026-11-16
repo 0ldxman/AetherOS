@@ -204,10 +204,21 @@ def _file(action, ctx):
 
 
 def _letter(action, ctx):
+    """Письмо в ящик учётки события (ответ в переписке: туда, откуда писали) или лично игроку — в его ящик на aether-main.
+    У события без учётки — лично."""
+    from mail.boxes import Box
+    from mail.delivery import current_profile
+
     item = _item(action.get("item"))
     if item is None:
         raise ActionError(f"нет письма «{action.get('item')}»")
-    ctx.box.queue(item, int(action.get("delay") or 0))
+    box = ctx.box if (action.get("to") or "event") == "event" else None
+    if box is None:
+        profile = current_profile(ctx.user)
+        if profile is None:
+            raise ActionError("у игрока нет своей учётки")
+        box = Box.of_profile(profile, ctx.user)
+    box.queue(item, int(action.get("delay") or 0))
 
 
 def _key_check(action):
@@ -222,8 +233,9 @@ register(Spec("file", "Положить файл", ACCOUNT, "Игрок", "фа�
               (Field("item", "Объект", "item", "", True), Field("path", "Путь", "path", "/home/{login}/file.txt", True)),
               run=_file, check=lambda a: _need_item(a, "item") + ([] if (a.get("path") or "").startswith("/") else ["путь должен начинаться с «/»"]),
               refs=lambda a: [("item", a.get("item", ""), "grants")]))
-register(Spec("letter", "Прислать письмо", ACCOUNT, "Игрок", "письмо {item}",
-              (Field("item", "Письмо", "letter", "", True), Field("delay", "Задержка, с", "number", "0")),
+register(Spec("letter", "Прислать письмо", USER, "Игрок", "письмо {item}",
+              (Field("to", "Куда", "switch", "", False, (("event", "Учётке события"), ("home", "Игроку лично"))),
+               Field("item", "Письмо", "letter", "", True), Field("delay", "Задержка, с", "number", "0")),
               run=_letter, check=lambda a: _need_item(a, "item", "msg", "письма"), refs=lambda a: [("item", a.get("item", ""), "grants")]))
 
 

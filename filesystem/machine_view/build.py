@@ -52,7 +52,7 @@ class BuildMixin:
 
         rows = {}
         instance_ids = {layer.instance.pk for layer in layers if layer.instance is not None}
-        if self.user is not None and instance_ids:
+        if self.live and instance_ids:
             for row in FileChange.objects.filter(sandbox=self.world, instance_id__in=instance_ids).select_related("item").prefetch_related(*ITEM_PREFETCH):
                 rows.setdefault(row.instance_id, []).append(row)
 

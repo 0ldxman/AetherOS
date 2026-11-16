@@ -1,7 +1,7 @@
-"""Доставка писем по хуку слоя: «mail <идентификатор> [delay=секунды]» кладёт письмо в ящик учётки игрока.
+"""Доставка писем игроку: «mail <идентификатор> [delay=секунды]» (хук слоя), «Прислать письмо» в правилах.
 
-Идентификатор — слаг объекта формата msg. Приходит в ящик учётки, под которой игрок сейчас работает (последняя
-сессия), сразу или через очередь. Безымянный игрок (witness) писем по триггеру не получает.
+Идентификатор — слаг объекта формата msg. Приходит в личный ящик игрока — его учётки на aether-main, где бы он сейчас
+ни работал, сразу или через очередь. Безымянный игрок (witness) писем по триггеру не получает.
 """
 from dataclasses import dataclass
 
@@ -18,11 +18,14 @@ class DeliveryResult:
 
 
 def current_profile(user):
-    """Учётка, под которой игрок работал последней."""
-    from machines.models import Session
+    """Личная учётка игрока: письма «игроку» идут сюда."""
+    from machines.current import home_account
+    from machines.models import Machine
 
-    session = Session.objects.filter(user=user).select_related("profile__machine").order_by("-seen_at", "-pk").first()
-    return session.profile if session is not None else None
+    try:
+        return home_account(user)
+    except Machine.DoesNotExist:
+        return None
 
 
 def deliver_by_slug(user, slug, *, delay=0, profile=None):
