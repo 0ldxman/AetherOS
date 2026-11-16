@@ -224,7 +224,14 @@ def push(request):
 
     user, profile = _where(request)
     found = offers.choices(user, profile.machine.hostname, profile.login) if profile is not None else []
-    return JsonResponse({"items": queue.take(request.user) if request.user.is_authenticated and not request.user.is_staff else [],
+    items = []
+    if request.user.is_authenticated and not request.user.is_staff:
+        from machines.models import Workplace
+
+        place = Workplace.objects.select_related("desktop__profile", "terminal__profile").filter(user=request.user).first()   # не заводит
+        items = queue.take(request.user, desk=place.desktop.profile if place and place.desktop_id else None,
+                           terminal=place.terminal.profile if place and place.terminal_id else None)
+    return JsonResponse({"items": items,
                          "offers": [{"id": view.key, "title": view.spec.get("title") or "", "text": view.spec.get("message") or "",
                                      "buttons": view.spec["buttons"]} for view in found]})
 

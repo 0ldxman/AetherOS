@@ -118,6 +118,8 @@ class Push(models.Model):
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="+")
     op = models.CharField(max_length=16)
     payload = models.JSONField(default=dict, blank=True)
+    where = models.CharField("Где", max_length=32, blank=True, help_text="account:<номер> или machine:<номер>: показать, только когда стол "
+                                                                         "(терминал — для терминальных) игрока там. Пусто — где угодно.")
     created_at = models.DateTimeField(auto_now_add=True, db_index=True)
     taken_at = models.DateTimeField(null=True, blank=True)
 

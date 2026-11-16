@@ -830,26 +830,26 @@ def _screen(run, doc, node_id, kind):
 
     data = resolved(run, doc, node_id)
     if (data.get("who") or "player") == "list":
-        users = sessions.users_of(_as_list(data.get("targets")))
+        found = sessions.audience(_as_list(data.get("targets")))
     elif data.get("scope") == "all":
-        users = sessions.online_users()
+        found = [(user, "") for user in sessions.online_users()]
     else:
-        users = [run.user] if run.user is not None else []
-    if not users:
+        found = [(run.user, "")] if run.user is not None else []
+    if not found:
         _log(run.graph, f"«{N.titled(kind, data)}»: некому показать", run.user)
         return ["fail"]
     data = {key: value for key, value in data.items() if key not in ("who", "scope", "targets")}
-    outs = {out for user in users[:LIST_LIMIT] for out in _action_one(run, kind, data, user)}
+    outs = {out for user, where in found[:LIST_LIMIT] for out in _action_one(run, kind, data, user, where)}
     return ["fail"] if "fail" in outs else ["next"]
 
 
-def _action_one(run, kind, data, user=None):
+def _action_one(run, kind, data, user=None, where=""):
     from engine import actions as engine
     from engine.context import Ctx
 
     spec, action = N.action_of(kind, data)
     action = {key: _fill(_plain(value) if isinstance(value, float) else value, run) if key != "do" else value for key, value in action.items()}
-    ctx = Ctx(source=f"сценарий {run.graph.slug}", user=user or run.user, box=_box(run) if user is None else None, depth=_depth.get())
+    ctx = Ctx(source=f"сценарий {run.graph.slug}", user=user or run.user, box=_box(run) if user is None else None, depth=_depth.get(), where=where)
     have = ctx.provides()
     if spec.needs not in have:
         need = {"user": "игрока", "account": "учётки игрока (событие было не на машине)"}.get(spec.needs, spec.needs)

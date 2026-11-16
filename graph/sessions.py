@@ -32,9 +32,10 @@ def online_users():
     return list(get_user_model().objects.filter(session__seen_at__gte=_since(), sandbox_of__isnull=True).distinct().order_by("username"))
 
 
-def users_of(items):
-    """Игроки по тому, что подали: игрок (логин), сессия (игрок/логин@хост), учётка (логин@хост) или машина (хост) — у учётки и машины
-    те, кто сейчас на них (активная сессия). Повторы убираются, непонятное пропускается."""
+def audience(items):
+    """[(игрок, где)] по тому, что подали: игрок (логин; где угодно), сессия (игрок/логин@хост; на её учётке), учётка (логин@хост) или
+    машина (хост) — те, кто сейчас на них, там же. Где — для engine/push. Игрок повторно не попадает, непонятное пропускается."""
+    from engine.push import where_of
     from django.contrib.auth import get_user_model
 
     from graph import entities
@@ -47,21 +48,26 @@ def users_of(items):
         key = str(raw or "").strip()
         if not key:
             continue
+        where = ""
         if "/" in key:
             parsed = parse(key)
-            users = list(User.objects.filter(username=parsed[0])) if parsed else []
+            profile = edits.account(f"{parsed[1]}@{parsed[2]}") if parsed else None
+            users = list(User.objects.filter(username=parsed[0])) if parsed and profile is not None else []
+            where = where_of(profile)
         elif "@" in key:
             profile = edits.account(key)
             users = [row.user for row in Session.objects.filter(profile=profile, seen_at__gte=since).select_related("user")] if profile else []
+            where = where_of(profile)
         else:
             users = list(User.objects.filter(username__iexact=key))
             if not users:
                 machine = entities._machine(key)
                 users = [row.user for row in Session.objects.filter(profile__machine=machine, seen_at__gte=since).select_related("user")] \
                     if machine is not None else []
+                where = where_of(machine=machine)
         for user in users:
-            if user not in found and getattr(user, "sandbox_of_id", None) is None:
-                found.append(user)
+            if all(user != seen for seen, _ in found) and getattr(user, "sandbox_of_id", None) is None:
+                found.append((user, where))
     return found
 
 

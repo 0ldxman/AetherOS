@@ -95,14 +95,15 @@ class SessionTests(TestCase):
         from graph.tests.test_data import f
 
         sent = []
-        with mock.patch("engine.push.send", lambda user, op, **kw: sent.append((user.get_username(), op))):
+        with mock.patch("engine.push.send", lambda user, op, where="", **kw: sent.append((user.get_username(), op))):
             graph = Graph.objects.create(slug="scr", doc={"nodes": [node("m", "manual"), node("e", "ent:machine", machine="aether-core"),
                                                                     node("s", "act:screen", variant="notify", who="list", title="ALERT")],
                                                           "wires": [wire("m", "fire", "s"), f("e", "value", "s", "targets")]})
             runtime.start_manual(graph, "m", self.anna)
             self.assertEqual(sent, [("ivan", "notify")])                     # на aether-core сейчас только ivan; anna давно
             sent.clear()
-            self.assertEqual(sessions.users_of(["anna", "ivan/guest@aether-core", "guest@aether-core", "nobody"]), [self.anna, self.ivan])
+            self.assertEqual(sessions.audience(["anna", "ivan/guest@aether-core", "guest@aether-core", "nobody"]),
+                             [(self.anna, ""), (self.ivan, f"account:{self.guest.pk}")])
             graph.doc = {"nodes": [node("m", "manual"), node("s", "act:screen", variant="ticker", text="x")], "wires": [wire("m", "fire", "s")]}
             graph.save()
             runtime.start_manual(graph, "m", self.anna)

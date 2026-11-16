@@ -382,7 +382,7 @@ def _push(op, build):
     def go(action, ctx):
         from engine import push
 
-        push.send(ctx.user, op, **build(action))
+        push.send(ctx.user, op, ctx.where, **build(action))
     return go
 
 
@@ -442,7 +442,7 @@ def _scene_push(op):
     def go(action, ctx):
         from engine import push
 
-        push.send(ctx.user, op, scene=scene_steps(action.get("scene")))
+        push.send(ctx.user, op, ctx.where, scene=scene_steps(action.get("scene")))
     return go
 
 

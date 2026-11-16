@@ -36,6 +36,19 @@ class ScreenTests(TestCase):
         self.assertEqual(taken[1]["count"], 40)
         self.assertEqual(push.take(self.ivan), [])
 
+    def test_an_effect_for_an_account_waits_until_the_desk_is_there(self):
+        from machines.models import Machine, MachineProfile
+
+        core = Machine.objects.create(name="Core", hostname="core")
+        guard = MachineProfile.objects.create(machine=core, login="guard", name="guard", freq=1)
+        home = MachineProfile.objects.create(machine=core, login="ivan", name="ivan", freq=2)
+        push.send(self.ivan, "notify", push.where_of(guard), title="for guard")
+        push.send(self.ivan, "terminal", push.where_of(machine=core), text="for core terminal")
+        push.send(self.ivan, "ticker", text="anywhere")
+        self.assertEqual([t["op"] for t in push.take(self.ivan, desk=home, terminal=None)], ["ticker"])        # стол не на guard
+        self.assertEqual([t["op"] for t in push.take(self.ivan, desk=guard, terminal=home)], ["notify", "terminal"])
+        self.assertEqual(push.take(self.ivan, desk=guard, terminal=home), [])
+
     def test_stale_effects_are_dropped(self):
         push.send(self.ivan, "notify", title="old")
         from engine.models import Push

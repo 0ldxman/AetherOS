@@ -13,6 +13,7 @@ class Ctx:
     depth: int = 0                   # глубина цепочки мира (триггер → действие → триггер)
     effects: list = field(default_factory=list)
     host: dict = field(default_factory=dict)      # локальные действия хозяина: {"goto": функция(action, ctx)}
+    where: str = ""                  # эффекты экрана: где показать (engine/push.py) — account:<номер>, machine:<номер>, пусто — где угодно
 
     @property
     def profile(self):
