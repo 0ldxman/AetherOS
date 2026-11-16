@@ -84,6 +84,7 @@ class LoginEvent(models.Model):
         UNLOCKED = "unlocked", "Разблокирован автором"
         KICKED = "kicked", "Выкинут автором"
         GRAPH = "graph", "Решил сценарий"
+        OWNER = "owner", "Чужая учётка игрока"
 
     FAILURES = ("bad_password", "bad_key")
     MARKS = ("ok", "locked", "unlocked")          # после них ошибки входа считаются заново

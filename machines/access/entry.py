@@ -122,11 +122,13 @@ def host_matches(name, patterns):
 
 
 def gate(profile, user, source_machine, chain):
-    """Проверки до способов входа: блокировка, откуда, через что, когда. Decision отказа или None.
+    """Проверки до способов входа: чья учётка, блокировка, откуда, через что, когда. Decision отказа или None.
 
     source_machine это машина, с которой входят; chain это имена хостов цепочки мостов игрока от исходной машины до неё."""
     from machines.network import bridge
 
+    if profile.user_id is not None and getattr(user, "pk", None) != profile.user_id:
+        return Decision(LoginEvent.Kind.OWNER, "")                    # учётка игрока: входит только он
     source = source_machine.hostname or source_machine.name
     wait = bridge.locked_for(user, profile)
     policy = policy_of(profile)

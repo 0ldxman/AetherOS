@@ -446,6 +446,16 @@ class RshellTests(BridgeFixture):
         make_file(cls.core, "/home/loot.dat", state="> encrypted hunter2")
         make_file(cls.core, "/home/docs/readme.txt", state="")
 
+    def test_an_account_of_a_player_lets_in_only_its_owner(self):
+        from machines.models import LoginEvent, MachineProfile
+
+        anna = get_user_model().objects.create_user("anna")
+        MachineProfile.objects.filter(machine=self.core, login="guest").update(user=anna)
+        self.assertIn("Permission denied", self.run_command("rshell guest@aether-core")["output"])
+        self.assertEqual(LoginEvent.objects.filter(kind="owner").count(), 1)
+        MachineProfile.objects.filter(machine=self.core, login="guest").update(user=self.user)
+        self.assertEqual(self.run_command("rshell guest@aether-core")["exit_code"], 0)
+
     def test_rshell_enters_without_switching_the_desktop(self):
         data = self.run_command("rshell guest@aether-core")
         self.assertEqual(data["exit_code"], 0)

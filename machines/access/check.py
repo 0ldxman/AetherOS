@@ -56,6 +56,12 @@ def check(profile, *, source="", chain=(), at=None, player=None, password=None, 
     def refuse(kind):
         return Verdict(False, kind, steps)
 
+    if profile.user_id is not None:
+        if player is None or player.pk != profile.user_id:
+            steps.append(Step("owner", False, f"Учётка игрока {profile.user.get_username()}: входит только он."))
+            return refuse(LoginEvent.Kind.OWNER)
+        steps.append(Step("owner", True, "Своя учётка игрока."))
+
     if player is not None:
         wait = max(bridge.locked_for(player, profile), entry.locked_seconds(player, profile) if policy else 0)
         if wait:

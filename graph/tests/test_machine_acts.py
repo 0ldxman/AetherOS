@@ -71,3 +71,12 @@ class MachineActTests(TestCase):
         self.assertEqual(MachineProfile.objects.get(login="ghost").endpoints, ["14.230"])
         self.act("act:account.manage", variant="delete", account="ghost@core")
         self.assertFalse(MachineProfile.objects.filter(login="ghost").exists())
+
+    def test_an_account_for_the_player_of_the_turn(self):
+        made = self.act("act:account.manage", variant="create", owner="player", machine="core", login="lab-{player}")
+        self.assertEqual(made["account"], "lab-ivan@core")
+        self.assertEqual(MachineProfile.objects.get(login="lab-ivan").user, self.ivan)
+        again = self.act("act:account.manage", variant="create", owner="player", machine="core", login="lab2-{player}")
+        self.assertEqual(again, {"account": ""})                                             # одна на машину: «Не вышло»
+        self.act("act:account.manage", variant="delete", account="lab-ivan@core")
+        self.assertTrue(MachineProfile.objects.filter(login="lab-ivan").exists())            # учётку игрока не удалить

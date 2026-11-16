@@ -42,22 +42,7 @@ def _active_session(request, session_id):
         if session is not None:
             return session
 
-    machine = Machine.objects.get(hostname=MAIN_HOSTNAME)
-
-    profile = MachineProfile.objects.filter(
-        machine=machine,
-        user=request.user,
-    ).first()
-
-    if profile is None:
-        profile = MachineProfile.objects.create(
-            machine=machine,
-            user=request.user,
-            name=request.user.get_username(),
-            login=request.user.get_username(),
-            freq=AUTO_PROFILE_FREQ,
-        )
-
+    profile = home_account(request.user)
     session = Session.objects.create(
         user=request.user,
         profile=profile,
@@ -65,6 +50,17 @@ def _active_session(request, session_id):
     request.session[SESSION_KEY] = session.pk
 
     return session
+
+def home_account(user):
+    """Своя учётка игрока на aether-main (его загончик, почта, ключи): заводится при первом входе в игру. Снаружи на неё не
+    зайти (точек входа нет); корень его подключений."""
+    machine = Machine.objects.get(hostname=MAIN_HOSTNAME)
+    profile = MachineProfile.objects.filter(machine=machine, user=user).first()
+    if profile is None:
+        profile = MachineProfile.objects.create(machine=machine, user=user, name=user.get_username(), login=user.get_username(),
+                                                freq=AUTO_PROFILE_FREQ)
+    return profile
+
 
 def current_machine(request):
     if request.user.is_authenticated:

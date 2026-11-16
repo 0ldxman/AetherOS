@@ -172,8 +172,8 @@ def unblock(profile, user=None, everyone=False):
     found.delete()
 
 
-def create(machine, login, *, name="", endpoints=(), password="", mail="", groups=()):
-    """Новая учётка на машине. Логин занят — EditError."""
+def create(machine, login, *, name="", endpoints=(), password="", mail="", groups=(), user=None):
+    """Новая учётка на машине; user — учётка этого игрока (его место на машине, одна на машину). Логин занят — EditError."""
     from machines.models import MachineProfile
 
     login = str(login or "").strip()
@@ -181,7 +181,9 @@ def create(machine, login, *, name="", endpoints=(), password="", mail="", group
         raise EditError(f"логин «{login}» не подходит")
     if MachineProfile.objects.filter(machine=machine, login=login).exists():
         raise EditError(f"учётка {login}@{machine.hostname} уже есть")
-    profile = MachineProfile(machine=machine, login=login, name=str(name or "").strip() or login, endpoints=_points(endpoints),
+    if user is not None and MachineProfile.objects.filter(machine=machine, user=user).exists():
+        raise EditError(f"у игрока {user.get_username()} уже есть учётка на {machine.hostname}")
+    profile = MachineProfile(machine=machine, user=user, login=login, name=str(name or "").strip() or login, endpoints=_points(endpoints),
                              groups=sorted({str(g).strip() for g in groups if str(g).strip()}),
                              password_hash=make_password(str(password)) if str(password or "") else "")
     profile.save()

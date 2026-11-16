@@ -305,7 +305,7 @@ def _fill(value, run, keep=()):
     if not isinstance(value, str) or "{" not in value:
         return value
     ctx = run.ctx or {}
-    known = {"host": ctx.get("host", ""), "login": ctx.get("login", "")}
+    known = {"host": ctx.get("host", ""), "login": ctx.get("login", ""), "player": run.user.get_username() if getattr(run, "user", None) is not None else ""}
     known.update({key: item for key, item in (ctx.get("data") or {}).items() if isinstance(item, (str, int, float))})
     known = {key: item for key, item in known.items() if key not in keep or item not in (None, "")}
     return re.sub(r"\{(\w+)\}", lambda m: str(known[m.group(1)]) if m.group(1) in known else m.group(0), value)
@@ -891,8 +891,13 @@ def _machine_act(run, node_id, kind, data):
             machine = entities._machine(entities._key(data.get("machine")))
             if machine is None:
                 raise edits.EditError("не выбрана машина")
+            owner = None
+            if data.get("owner") == "player":
+                if run.user is None:
+                    raise edits.EditError("«Игрока хода» без игрока")
+                owner = run.user
             profile = edits.create(machine, fill("login"), name=fill("name"), endpoints=items("points"), password=str(data.get("password") or ""),
-                                   mail=fill("mail"), groups=items("groups"))
+                                   mail=fill("mail"), groups=items("groups"), user=owner)
             results.append(edits.account_key(profile))
         else:
             raw = data.get("account")

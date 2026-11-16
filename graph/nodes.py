@@ -771,11 +771,12 @@ register(Kind("act:account.access", "Машина: Доступ к учётке"
 ), _ACT_OUTS, title="variant", when={"player": ("scope", ("player",)), "minutes": ("variant", ("block",)), "text": ("variant", ("block",))}))
 register(Kind("act:account.manage", "Машина: Создать или удалить учётку", ACTION, "{login}{account}", (
     Field("variant", "Действие", "select", "", False, (("create", "Создать учётку"), ("delete", "Удалить учётку"))),
-    Field("machine", "Машина", "machine", "", True), Field("login", "Логин", "text", "", True), Field("name", "Имя", "text", "как логин"),
+    Field("owner", "Чья", "switch", "", False, (("story", "Сюжетная"), ("player", "Игрока хода"))),
+    Field("machine", "Машина", "machine", "", True), Field("login", "Логин", "text", "{player} — логин игрока", True), Field("name", "Имя", "text", "как логин"),
     Field("points", "Точки входа", "many:text", "14.230 или 22; пусто — извне не зайти"), Field("password", "Пароль", "text", "без пароля"),
     Field("mail", "Почта", "text", "логин@метка"), Field("groups", "Группы", "many:text", ""),
     Field("account", "Учётка", "many:account", "логин@хост", True),
-), _ACT_OUTS, title="variant", when={**{name: ("variant", ("create",)) for name in ("machine", "login", "name", "points", "password", "mail", "groups")},
+), _ACT_OUTS, title="variant", when={**{name: ("variant", ("create",)) for name in ("owner", "machine", "login", "name", "points", "password", "mail", "groups")},
                                       "account": ("variant", ("delete",))}))
 DATA_OUTS["act:account.manage"] = (Sock("account", "Учётка", "account"),)
 MACHINE_ACTS = ("act:machine.change", "act:account.change", "act:account.access", "act:account.manage")
@@ -864,7 +865,8 @@ HELP = {
     "act:account.change": "Учётка: почта, пароль (для всех), выражение ключей, точки входа и группы (добавить или убрать, одно или список), "
                           "токены: создать (выход «Токен» — строка, её можно вписать в письмо) или удалить (пусто — все).",
     "act:account.access": "Заблокировать вход на учётку на N минут (игроку или всем, с текстом) или снять блокировку.",
-    "act:account.manage": "Создать учётку на машине (выход «Учётка») или удалить (рабочую учётку игрока — нельзя).",
+    "act:account.manage": "Создать учётку на машине (выход «Учётка») или удалить (учётку игрока — нельзя). «Игрока хода» — его место на "
+                          "этой машине (одна на машину): домашняя папка, почта, ключи, как на aether-main. Логин можно шаблоном: {player}.",
     "manual": "Кнопка автора: запустить ход с игроком или без (мир) из панели ноды. Только старт.",
     "try:machine": "Вход на выбранную машину. Tab — граф входа этой машины: от «Попытки» до «Ответить», без ожиданий. "
                    "Выходы ноды — сокеты «Выхода» внутри графа: события и данные.",
