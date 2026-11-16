@@ -6,7 +6,10 @@ Django 6.1, игра-ОС. Пользователь пишет по-русски
 - Python: `.venv/bin/python manage.py ...`
 - Тесты только на sqlite (у базы по умолчанию нет прав создавать тестовую):
   `DATABASE_URL=sqlite:////tmp/t.sqlite3 .venv/bin/python manage.py test <приложения> 2>&1 | tail -5`
-- По ходу работы гонять затронутые приложения, полный набор (`terminal filesystem machines desktop wiki mail config users secure assets scenes documents map monitor studio team news support guide air world`) один раз в конце куска.
+- После правки гонять только затронутые приложения.
+- Полный набор (`terminal filesystem machines desktop wiki mail config users secure assets scenes documents map monitor studio team news support guide air world graph engine forum`) — только когда менялись модели, миграции или общие модули (`machines`, `filesystem`, `engine`), либо один раз в конце пачки правок, а не после каждого коммита.
+- Полный набор запускать с `--parallel 4` и в фоне: не ждать, продолжать работу, на падение реагировать по результату.
+  С `--parallel 4` ~2,5 мин вместо 6. В тестах кэш локальный (`TESTING` в settings), не общий Redis: иначе процессы читают чужой кэш.
 - Node 22 в `/config/.local/node/bin` (добавить в PATH). Студия: `cd studio/frontend && npm run api && npm run check && npm run build`.
 - `manage.py runserver` сам запускает `npm run watch` (`--no-studio` отключает). С `--noreload` сервер перезапускать после правок бэкенда. `pkill` runserver ронял оболочку: запускать отдельным вызовом, сервер стартовать через nohup тоже отдельным.
 - Скриншоты: браузеру нужны шрифты (FONTCONFIG_FILE с DejaVu), playwright и LD_LIBRARY_PATH из scratchpad (`pw`, `env.sh`). Снимать только новые экраны.
@@ -34,4 +37,5 @@ Django 6.1, игра-ОС. Пользователь пишет по-русски
 ## Экономия токенов
 - Файлы читать по диапазонам, вывод команд резать `tail`/`grep`. Широкий поиск по репозиторию отдавать агенту Explore.
 - Проектирование и спорные развилки — Opus; рутина по согласованному эскизу (экраны, миграции, тесты, правки) — Sonnet.
-- Сессию закрывать на границе куска, итог записывать в память.
+- Сессию закрывать на границе большого куска, итог записывать в память: длинная сессия со сжатием контекста дороже всего.
+- Мелкие правки в одном направлении собирать в один коммит и один отчёт.

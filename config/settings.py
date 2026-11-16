@@ -10,6 +10,7 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/6.1/ref/settings/
 """
 
+import sys
 from datetime import timedelta
 from pathlib import Path
 import environ
@@ -151,7 +152,8 @@ DATABASES["default"].setdefault("CONN_HEALTH_CHECKS", True)
 # Кэш и сессии. С REDIS_URL оба живут в Redis (сессии cached_db: база остаётся источником правды,
 # Redis снимает с неё чтение на каждый запрос). Без него кэш локальный, сессии в базе.
 REDIS_URL = env("REDIS_URL", default="")
-if REDIS_URL:
+TESTING = sys.argv[1:2] == ["test"]          # тесты не трогают общий Redis: у параллельных прогонов (--parallel) кэш свой
+if REDIS_URL and not TESTING:
     CACHES = {
         "default": {
             "BACKEND": "django.core.cache.backends.redis.RedisCache",
