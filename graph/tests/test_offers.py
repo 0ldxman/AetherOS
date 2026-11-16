@@ -50,22 +50,22 @@ class OfferTests(TestCase):
         self.assertIn("по условию открываются только возможности этого сценария", [p["text"] for p in check.problems(alien, slug="g")])
 
     def test_a_condition_with_show_shows_a_locked_variant(self):
-        make([node("t", "ent:tag", owner="player", name="vip"), offer("a", closed="hidden"), node("o", "act:offer.open", show="mystery")],
+        make([node("t", "ent:tag", owner="player", name="vip"), offer("a"), node("o", "act:offer.open", show="mystery", closed="hidden")],
              [wire("t", "on", "o"), wire("a", "offer", "o", "f:offer")])
         self.assertEqual(offers.visible(self.ivan), [])
         values.set_tag("player", self.ivan.pk, "vip")
         self.assertEqual([(v.key, v.open) for v in offers.visible(self.ivan)], [("g:a", False)])
 
     def test_a_condition_opens_it_for_those_it_holds_for(self):
-        make([node("t", "ent:tag", owner="player", name="vip"), offer("a", closed="hidden"), node("o", "act:offer.open")],
+        make([node("t", "ent:tag", owner="player", name="vip"), offer("a"), node("o", "act:offer.open", closed="hidden")],
              [wire("t", "on", "o"), wire("a", "offer", "o", "f:offer")])
         self.assertEqual((self.keys(self.ivan), offers.visible(self.ivan)), ([], []))
         values.set_tag("player", self.ivan.pk, "vip")
         self.assertEqual((self.keys(self.ivan), self.keys(self.anna)), (["g:a"], []))
 
     def test_open_for_the_player_or_for_all_and_close_a_group(self):
-        graph = make([node("m", "manual"), offer("a", group="s"), offer("b", group="s"), offer("c", closed="hidden"),
-                      opener("oa", "a"), opener("ob", "b", scope="all"), opener("oc", "c", show="mystery"), node("x", "act:offer.close", variant="group", group="s"),
+        graph = make([node("m", "manual"), offer("a", group="s"), offer("b", group="s"), offer("c"),
+                      opener("oa", "a"), opener("ob", "b", scope="all"), opener("oc", "c", show="mystery", closed="hidden"), node("x", "act:offer.close", variant="group", group="s"),
                       node("go", "manual"), opener("od", "c")],
                      [wire("m", "fire", "oa"), wire("oa", "next", "ob"), wire("ob", "next", "oc"), wire("go", "fire", "od")])
         runtime.start_manual(graph, "m", self.ivan)
@@ -131,6 +131,11 @@ class OfferTests(TestCase):
         self.assertEqual(counter("n"), 0)
         emit("offer.used", self.ivan, offer="g:w", result="ok", outs=["ok", "b2"])
         self.assertEqual(counter("n"), 1)
+
+    def test_a_letter_on_the_input_drops_new(self):
+        self.assertEqual(offers.spec_of({"mode": "new", "letter": "x"})["mode"], "reply")
+        self.assertEqual(offers.spec_of({"mode": "forward"})["mode"], "forward")
+        self.assertEqual(N.KINDS["ent:offer"].inline, {"letter": ("mode", ("new",))})
 
     def test_fork_names(self):
         self.assertEqual(offers.fork("док: 7|9"), ("док", ["7", "9"]))

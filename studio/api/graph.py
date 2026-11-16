@@ -66,6 +66,11 @@ class GrInfer(Schema):
     by: dict[str, GrInferTo]
 
 
+class GrInline(Schema):
+    switch: str
+    drop: list[str] = []
+
+
 class GrKind(Schema):
     name: str
     label: str
@@ -91,6 +96,7 @@ class GrKind(Schema):
     follows: dict[str, str] = {}
     titled: dict[str, str] = {}
     infers: dict[str, GrInfer] = {}
+    inline: dict[str, GrInline] = {}
 
 
 class GrGroup(Schema):

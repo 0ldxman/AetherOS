@@ -51,18 +51,25 @@ def spec_of(data):
             value = value.split(",") if name == "buttons" else [value]
         return [str(one).strip() for one in value or [] if str(one or "").strip()]
 
-    return {"channel": data.get("channel") or "mail", "mode": data.get("mode") or "reply",
+    letter = _text(data, "letter")
+    mode = data.get("mode") if data.get("mode") in ("new", "reply", "forward") else "new"
+    if letter and mode == "new":                    # письмо на входе: «Новое» не бывает
+        mode = "reply"
+    return {"channel": data.get("channel") or "mail", "mode": mode, "letter": letter,
             "command": _text(data, "command"), "machines": [m.lower() for m in many("machine")], "items": many("item"), "path": _text(data, "path"),
             "message": str(data.get("message") or ""), "buttons": many("buttons"),
             "reply_ok": _text(data, "reply_ok"), "reply_wrong": _text(data, "reply_wrong"), "to": [one.lower() for one in many("to")],
-            "reply_to": _text(data, "reply_to"), "forward_of": _text(data, "forward_of"), "title": _text(data, "title"), "caption": _text(data, "caption"),
-            "text": str(data.get("text") or ""), "attach": many("attach"), "attach_mode": "signed" if data.get("attach_mode") == "signed" else "item",
-            "account": _text(data, "account").lower(), "group": _text(data, "group")[:64],
-            "closed": "hidden" if data.get("closed") == "hidden" else "mystery"}
+            "title": _text(data, "title"), "caption": _text(data, "caption"),
+            "text": str(data.get("text") or ""), "attach": many("attach"),
+            "account": _text(data, "account").lower(), "group": _text(data, "group")[:64]}
 
 
 def _show(data):
     return "mystery" if (data or {}).get("show") == "mystery" else "open"
+
+
+def _closed(data):
+    return "hidden" if (data or {}).get("closed") == "hidden" else "mystery"
 
 
 # ---- выходы «Использована» -----------------------------------------------------------------------------------------------
@@ -140,10 +147,12 @@ def match_data(graph, doc, node_id, data):
 
 # ---- открыть и закрыть ---------------------------------------------------------------------------------------------------
 
-def open_offer(graph, node, spec, user=None, show="open"):
-    """Открыть (снова) игроку или всем — или показать закрытой «???» (show="mystery"): закрытия игроков снимаются."""
+def open_offer(graph, node, spec, user=None, show="open", closed="mystery"):
+    """Открыть (снова) игроку или всем — или показать закрытой «???» (show="mystery"): закрытия игроков снимаются.
+    closed — что видит игрок, пока возможность ему недоступна (не та учётка): «???» или ничего (hidden)."""
     Offer.objects.filter(graph=graph, node=node, user=user, standing=False).delete()
-    Offer.objects.create(graph=graph, node=node, user=user, channel=spec["channel"], group=spec["group"], spec={**spec, "show": show})
+    Offer.objects.create(graph=graph, node=node, user=user, channel=spec["channel"], group=spec["group"],
+                         spec={**spec, "show": show, "closed": closed})
     tries = OfferTry.objects.filter(graph=graph, node=node)
     (tries if user is None else tries.filter(user=user)).delete()
 
@@ -232,7 +241,7 @@ def act(run, node_id, kind, data):
         if spec is None:
             runtime._log(run.graph, f"«{kind.label}»: «{key(graph, node)}» — не нода «Возможность»", run.user)
             return ["fail"]
-        open_offer(graph, node, spec, user, _show(data))
+        open_offer(graph, node, spec, user, _show(data), _closed(data))
     return ["next"]
 
 
@@ -259,9 +268,11 @@ def _live(graph, node, by, user, host, login):
     if kind is None or kind.name != ENTITY:
         return None
     run = Run(graph=graph, user=user, ctx={"host": host, "login": login}, state={})
-    shows = {_show(doc.data(one)) for one in by if doc.kind(one) is not None and runtime._truth(runtime.resolved(run, doc, one).get("in"))}
+    by = [one for one in by if doc.kind(one) is not None]
+    shows = {_show(doc.data(one)) for one in by if runtime._truth(runtime.resolved(run, doc, one).get("in"))}
     state = "open" if "open" in shows else "teaser" if shows else "off"
-    return spec_of(runtime.resolved(run, doc, node)), state
+    closed = "mystery" if any(_closed(doc.data(one)) == "mystery" for one in by) else "hidden"      # хоть одно «???» — видна
+    return {**spec_of(runtime.resolved(run, doc, node)), "closed": closed}, state
 
 
 def visible(user, host="", login="", channel="mail", only=None):

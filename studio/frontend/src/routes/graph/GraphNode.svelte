@@ -63,7 +63,14 @@
   // вход «Ждать с» / «Когда» в одной строке с первым выходом-событием («Получен», «Сделано»)
   const beside = $derived(flowIn ? topOuts[0] ?? null : null);
   const restOuts = $derived(beside ? topOuts.slice(1) : topOuts);
-  const params = $derived(hide ? [] : propFields(kind).filter((f) => inWhen(kind, values, f.name) && !covered(f)));
+  // переключатель в строке своего входа (kind.inline): «Как [Новое | Ответ | Пересылка]» с входом письма
+  const inlineSwitches = $derived(new Set(Object.values(kind.inline ?? {}).map((rule) => rule.switch)));
+  const params = $derived(hide ? [] : propFields(kind).filter((f) => inWhen(kind, values, f.name) && !covered(f) && !inlineSwitches.has(f.name)));
+  const inlineOptions = (f: Field, fed: boolean) => {
+    const rule = kind.inline![f.name];
+    const all = kind.fields.find((x) => x.name === rule.switch)?.options ?? [];
+    return fed || val(f.name) ? all.filter((o) => !rule.drop.includes(o.value)) : all;
+  };
   // растущий список: подстановки шаблона («имя» + значение) или входы «Логики» (A, B, C…)
   const grow = $derived(kind.grow ?? null);
   const growType = $derived(grow ? resolveType(kind, values, grow.type) : "");
@@ -182,7 +189,17 @@
     <div class="row in field" class:used={fed} data-tip={inTip(key, f.label, f.socket)}>
       <Handle type="target" position={Position.Left} id={key} class="sock" {...paint(f.socket)} {...look(f.socket)} />
       <span class="label" class:req={f.required && !fed && !val(f.name)}>{f.label}</span>
-      {#if !fed && !isList(f.socket) && !wireOnly(f.kind)}
+      {#if kind.inline?.[f.name]}
+        {@const rule = kind.inline[f.name]}
+        {@const opts = inlineOptions(f, fed)}
+        {@const current = opts.some((o) => o.value === val(rule.switch)) ? val(rule.switch) : opts[0]?.value}
+        <div class="nodrag switch grow" role="radiogroup" aria-label={f.label}>
+          {#each opts as o (o.value)}
+            <button type="button" role="radio" aria-checked={current === o.value} class:on={current === o.value} disabled={!data.editable}
+                    onclick={() => set(rule.switch, o.value)}>{o.label}</button>
+          {/each}
+        </div>
+      {:else if !fed && !isList(f.socket) && !wireOnly(f.kind)}
         {#if f.socket === "bool" && (f.kind === "bool" || f.kind === "@T")}
           <input class="nodrag check" type="checkbox" checked={!!values[f.name]} disabled={!data.editable} onchange={(e) => set(f.name, e.currentTarget.checked || undefined)} aria-label={f.label} />
         {:else if options(f).length}
@@ -289,6 +306,7 @@
   .switch-row { display: flex; flex-direction: column; gap: 2px; padding: 1px 0; }
   .switch-label { color: var(--faint); font-size: 11px; white-space: nowrap; }
   .switch { display: flex; min-width: 0; border: 1px solid var(--line); border-radius: 4px; overflow: hidden; background: var(--bg); }
+  .switch.grow { flex: 1; }
   .switch button { flex: 1 1 0; min-width: 0; height: 19px; padding: 0 6px; border: 0; background: none; color: var(--muted); font: inherit; font-size: 11px;
                    white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: pointer; }
   .switch button + button { border-left: 1px solid var(--line); }

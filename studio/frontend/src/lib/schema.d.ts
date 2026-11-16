@@ -11680,6 +11680,16 @@ export interface components {
             /** Field */
             field: string;
         };
+        /** GrInline */
+        GrInline: {
+            /** Switch */
+            switch: string;
+            /**
+             * Drop
+             * @default []
+             */
+            drop: string[];
+        };
         /** GrKind */
         GrKind: {
             /** Name */
@@ -11768,6 +11778,13 @@ export interface components {
              */
             infers: {
                 [key: string]: components["schemas"]["GrInfer"];
+            };
+            /**
+             * Inline
+             * @default {}
+             */
+            inline: {
+                [key: string]: components["schemas"]["GrInline"];
             };
         };
         /** GrMany */

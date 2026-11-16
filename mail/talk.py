@@ -122,9 +122,7 @@ def offers_for(box, mode, to, item=None, path=""):
         spec = view.spec
         if spec.get("mode", "reply") != mode or not _addressed(spec, to, persona):
             continue
-        if mode == "reply" and spec.get("reply_to") and not _same_file(spec["reply_to"], box.user, host, item, path):
-            continue
-        if mode == "forward" and not _same_file(spec.get("forward_of"), box.user, host, item, path):
+        if spec.get("letter") and not _same_file(spec["letter"], box.user, host, item, path):      # пусто — любое письмо
             continue
         found.append(view)
     return found
@@ -159,32 +157,15 @@ def _bounce(box, to, subject, reason):
 
 
 def attachment_fits(spec, box, attachment):
-    """Подходит ли вложение к варианту. «Вложение» — объекты или размещения (любое из списка); «Сам файл» — этот объект
-    (или этот файл), «Подписан им» — документ, подписанный этим ключом. Пусто — ничего не нужно."""
+    """Подходит ли вложение к варианту: «Вложение» — объекты или размещения (любое из списка); пусто — ничего не нужно.
+    Подпись и прочее проверяет сценарий по выходу «Вложение» у «Использована»."""
     wants = spec.get("attach") or []
     if not wants:
         return True
     if attachment is None:
         return False
     host = getattr(box.machine, "hostname", "")
-    item = attachment.item
-    if spec.get("attach_mode") != "signed":
-        return any(_same_file(want, box.user, host, item, attachment.path) for want in wants)
-    keys = {_key_slug(want) for want in wants} - {""}
-    return item is not None and item.signatures.filter(key__slug__in=keys, valid=True).exists()
-
-
-def _key_slug(want):
-    """Слаг ключа: из размещения — объект этого файла, иначе как есть."""
-    want = str(want or "").strip()
-    if ":/" not in want:
-        return want
-    from filesystem.copies import at
-    from graph.entities import parse_placement
-
-    found = parse_placement(want)
-    copy = at(*found) if found is not None else None
-    return getattr(getattr(copy, "item", None), "slug", "") or ""
+    return any(_same_file(want, box.user, host, attachment.item, attachment.path) for want in wants)
 
 
 def run_actions(actions, box):
@@ -251,6 +232,8 @@ def send(box, *, to, subject="", typed="", offer=None, attachment=None, reply_it
     from graph import offers
 
     kind = offers.settle(view, box.user, verdict.verdict == "ok")
+    host = getattr(box.machine, "hostname", "")
     offers.used(view, box.user, kind, machine=box.machine, login=box.login, words=verdict.words, text=body[:500], to=to,
-                placement=offers.placement_of(box.user, getattr(box.machine, "hostname", ""), path))
+                placement=offers.placement_of(box.user, host, path),
+                attachment=offers.placement_of(box.user, host, attachment.path) if attachment is not None else "")
     return Sent(kind, path)

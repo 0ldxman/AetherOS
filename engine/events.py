@@ -89,7 +89,7 @@ FIELDS = {                                  # какие подробности 
     "file.purged": ("item", "path"),
     "value.tag": ("owner", "thing", "key", "on", "per"),
     "value.count": ("owner", "thing", "key", "value", "delta", "per"),
-    "offer.used": ("offer", "group", "result", "outs", "words", "forks", "text", "to", "placement"),
+    "offer.used": ("offer", "group", "result", "outs", "words", "forks", "text", "to", "placement", "attachment"),
 }
 
 

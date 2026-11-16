@@ -45,19 +45,19 @@ def wire(src, out, dst, inp="in"):
     return {"from": src, "out": out, "to": dst, "in": inp}
 
 
-def offered(node_id, **data):
-    """Сущность «Возможность» node_id и «Открыть» её (нода o<node_id>)."""
-    return [node(node_id, "ent:offer", **data), node("o" + node_id, "act:offer.open", offer=f"door:{node_id}")]
+def offered(node_id, opened=None, **data):
+    """Сущность «Возможность» node_id и «Открыть» её (нода o<node_id>, opened — её поля)."""
+    return [node(node_id, "ent:offer", **data), node("o" + node_id, "act:offer.open", offer=f"door:{node_id}", **(opened or {}))]
 
 
 def door(extra_nodes=(), extra_wires=()):
     """Персонаж спрашивает код; варианты ответа — возможности группы «ask»; исходы — письма. Слово развилки «склад» ведёт
     своей дорогой; две неверные попытки (счётчик игрока) закрывают вариант."""
     nodes = [node("m", "manual"), node("ask", "act:mail", variant="player", item="guard-ask"),
-             *offered("code", mode="reply", to="guard@port", reply_to="guard-ask", title="Назвать код", text="Код: {{4471}}. Склад [[склад: 7|9]].",
+             *offered("code", mode="reply", to="guard@port", letter="guard-ask", title="Назвать код", text="Код: {{4471}}. Склад [[склад: 7|9]].",
                       group="ask"),
              *offered("tunnel", mode="reply", to="guard@port", title="Тайный ход", text="Я знаю про тоннель.", group="ask"),
-             *offered("hidden", mode="reply", to="guard@port", title="Скрытый", text="x", closed="hidden", group="ask"),
+             *offered("hidden", {"closed": "hidden"}, mode="reply", to="guard@port", title="Скрытый", text="x", group="ask"),
              node("knows", "fact", expr="tag:tunnel"), node("never", "fact", expr="tag:never"),
              node("u", "on:offer.used", offer="door:code", repeat="always"), node("seven", "compare", op="eq", b="7"), node("which", "check"),
              node("m7", "act:mail", variant="player", item="guard-7"), node("m9", "act:mail", variant="player", item="guard-thanks"),
@@ -170,9 +170,9 @@ class TalkTests(TestCase):
         talk.send(self.box(), to=self.captain.mail, subject="Себе", typed="заметка")
         self.assertEqual([r.letter.subject for r in self.box(self.captain).letters_in("inbox")], ["Себе"])
 
-    def test_a_variant_for_another_account_and_a_proof_attachment(self):
+    def test_a_variant_for_another_account_and_an_attachment(self):
         graph = self.started(door(offered("boss", mode="new", to="guard@port", title="От капитана", text="Приказ.",
-                                          account="captain@aether-main", attach="seal", attach_mode="signed"),
+                                          account="captain@aether-main", attach="order"),
                                   [wire("ocode", "next", "oboss")]))
         mine = talk.offers_to_answer(self.box(), "guard@port")
         self.assertFalse(next(o for o in mine if o.key == "door:boss").open)                # с учётки ivan закрыт
@@ -186,6 +186,9 @@ class TalkTests(TestCase):
         as_captain.view.put_item("/home/captain/signed.txt", order)
         signed = as_captain.view.get("/home/captain/signed.txt")
         self.assertEqual(talk.send(as_captain, to="guard@port", typed="Приказ.", offer="door:boss", attachment=signed).kind, "ok")
+        from engine.models import Event
+
+        self.assertEqual(Event.objects.filter(name="offer.used").order_by("pk").last().data["attachment"], "ivan@aether-main:/home/captain/signed.txt")
         self.assertTrue(graph)
 
     def test_to_takes_a_character_and_reply_to_a_letter_of_the_sender_node(self):
@@ -195,7 +198,7 @@ class TalkTests(TestCase):
         Persona.objects.filter(pk=self.guard.pk).update(character=face)
         graph = self.started(door([node("face", "ent:character", character="GRD"), node("chat", "ent:offer", mode="reply", title="Привет", text="Привет."),
                                    node("ochat", "act:offer.open")],
-                                  [wire("face", "value", "chat", "f:to"), wire("ask", "item", "chat", "f:reply_to"), wire("chat", "offer", "ochat", "f:offer"),
+                                  [wire("face", "value", "chat", "f:to"), wire("ask", "item", "chat", "f:letter"), wire("chat", "offer", "ochat", "f:offer"),
                                    wire("ocode", "next", "ochat")]))
         offers = talk.offers_to_answer(self.box(), "guard@port", reply_item=self.ask)
         self.assertIn("door:chat", [o.key for o in offers])
@@ -213,7 +216,7 @@ class TalkTests(TestCase):
         self.assertEqual(talk.send(self.box(), to="guard@port", typed="Отчёт.", offer="door:proof", attachment=report).kind, "ok")
 
     def test_forwarding_a_letter(self):
-        self.started(door(offered("fwd", mode="forward", to="guard@port", forward_of="guard-ask", title="Переслать"),
+        self.started(door(offered("fwd", mode="forward", to="guard@port", letter="guard-ask", title="Переслать"),
                           [wire("ocode", "next", "ofwd")]))
         self.assertEqual(talk.offers_to_answer(self.box(), "guard@port"), [o for o in talk.offers_to_answer(self.box(), "guard@port") if o.key != "door:fwd"])
         offers = talk.offers_to_answer(self.box(), "guard@port", forward_item=self.ask)

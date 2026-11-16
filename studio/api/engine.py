@@ -78,7 +78,6 @@ def _picks():
     return {
         "key": [option(slug, f"{slug} · {name}" if name and name != slug else slug) for slug, fmt, name in items if fmt == KEY_FORMAT],
         "letter": [option(slug, f"{slug} · {name}" if name and name != slug else slug) for slug, fmt, name in items if fmt == "msg"],
-        "mail_ref": [option(slug, f"{slug} · {name}" if name and name != slug else slug) for slug, fmt, name in items if fmt == "msg"],
         "attachment": [option(slug, f"{slug} · {name}" if name and name != slug else slug) for slug, fmt, name in items],
         "item": [option(slug, f"{slug} · {name}" if name and name != slug else slug) for slug, fmt, name in items if fmt != KEY_FORMAT],
         "section": sorted((option(row.pk, f"{row.space.title}: {path(row)}") for row in sections), key=lambda o: o.label),

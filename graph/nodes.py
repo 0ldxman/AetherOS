@@ -182,6 +182,7 @@ class Kind:
     hidden: bool = False                # старая нода: работает в готовых сценариях, но в меню её нет
     owned: str = ""                     # нода попытки: вид графа у вещи (graph/owned.py), Tab открывает его
     in_types: dict = field(default_factory=dict)     # вход потока -> тип, если он принимает не только событие («event|bool»)
+    inline: dict = field(default_factory=dict)       # поле-вход -> (поле-переключатель в его строке, варианты, которых нет, когда вход задан)
 
 
 KINDS = {}
@@ -768,9 +769,9 @@ _MAIL, _TYPED = ("channel", ("mail",)), ("channel", ("mail", "command"))
 register(Kind("ent:offer", "Возможность", ENTITY, "{title}{command}", (
     Field("channel", "Канал", "select", "", False, (("mail", "Письмо"), ("command", "Команда терминала"), ("choice", "Окно с выбором"),
                                                      ("file", "Кнопка у файла"))),
-    Field("mode", "Как", "switch", "", False, (("reply", "Ответ"), ("new", "Новое"), ("forward", "Пересылка"))),
+    Field("mode", "Как", "switch", "", False, (("new", "Новое"), ("reply", "Ответ"), ("forward", "Пересылка"))),
+    Field("letter", "Как", "mail_ref", "любое письмо"),
     Field("to", "Кому", "recipient", "адрес или персонаж"),
-    Field("reply_to", "В ответ на", "mail_ref", "любое письмо"), Field("forward_of", "Что переслать", "mail_ref", "", True),
     Field("command", "Команда", "text", "unlock", True), Field("machine", "Машина", "many:machine", "любая"),
     Field("item", "Объект", "many:object", "любой"), Field("path", "Путь", "text", "любой; можно *"),
     Field("title", "Подпись", "text", "", True), Field("caption", "Надпись у кнопок", "text", "пусто — без надписи"),
@@ -778,22 +779,20 @@ register(Kind("ent:offer", "Возможность", ENTITY, "{title}{command}",
     Field("text", "Текст для набора", "textarea", "{{секрет}}, [[док: 7|9]]; пусто — без набора"),
     Field("reply_ok", "Ответ, если верно", "text", "ничего"), Field("reply_wrong", "Ответ, если неверно", "text", "{command}: access denied"),
     Field("attach", "Вложение", "attachment", "ничего"),
-    Field("attach_mode", "Подходит", "switch", "", False, (("item", "Сам файл"), ("signed", "Подписан им"))),
     Field("account", "С учётки", "account", "любая"),
-    Field("closed", "Когда недоступна", "switch", "", False, (("mystery", "«???»"), ("hidden", "Скрыть"))),
     Field("group", "Группа", "text", "использована одна — закрыты все"),
 ), ins=(), when={
-    **{name: _MAIL for name in ("mode", "to", "attach", "attach_mode", "closed")},
-    "reply_to": (_MAIL, ("mode", ("reply",))), "forward_of": (_MAIL, ("mode", ("forward",))),
+    **{name: _MAIL for name in ("mode", "letter", "to", "attach")},
     **{name: _TYPED for name in ("text", "account")},
     **{name: ("channel", ("command",)) for name in ("command", "machine", "reply_ok", "reply_wrong")},
     "title": ("channel", ("mail", "choice", "file")), "message": ("channel", ("choice",)), "buttons": ("channel", ("choice",)),
-    **{name: ("channel", ("file",)) for name in ("item", "path", "caption")}}, title="channel"))
+    **{name: ("channel", ("file",)) for name in ("item", "path", "caption")}}, title="channel", inline={"letter": ("mode", ("new",))}))
 DATA_OUTS["ent:offer"] = (Sock("offer", "Возможность", "offer"), Sock("open", "Открыта", "bool"))
 _OFFER_SCOPE = Field("scope", "Для кого", "switch", "", False, (("player", "Игроку хода"), ("all", "Всем")))
 register(Kind("act:offer.open", "Возможность: Открыть", ACTION, "{offer}", (
     Field("show", "Как", "switch", "", False, (("open", "Открыть"), ("mystery", "Показать «???»"))),
     Field("offer", "Возможность", "many:offer", "", True), _OFFER_SCOPE,
+    Field("closed", "Недоступна", "switch", "", False, (("mystery", "«???»"), ("hidden", "Скрыть"))),
 ), _ACT_OUTS, in_types={"in": "event|bool"}, title="show"))
 register(Kind("act:offer.close", "Возможность: Закрыть", ACTION, "{offer}{group}", (
     Field("variant", "Что закрыть", "select", "", False, (("offer", "Закрыть возможность"), ("group", "Закрыть группу"))),
@@ -818,7 +817,7 @@ def _offer_used(data, out, event):
 _when(USED_OFFER, "Возможность: Использована", (Field("offer", "Возможность", "many:offer", "любая"),),
       (Sock("ok", "Верно"), Sock("wrong", "Неверно")), {"ok": "offer.used", "wrong": "offer.used"}, _offer_used,
       (Sock("offer", "Возможность", "offer", "offer"), Sock("text", "Текст", "text", "text"), Sock("placement", "Размещение", "placement", "placement"),
-       _LOGIN_OUT), "{offer}")
+       Sock("attachment", "Вложение", "placement", "attachment"), _LOGIN_OUT), "{offer}")
 
 # учётка — «логин@хост»
 register(Kind("ent:account", "Учётка", ENTITY, "{login}", (
@@ -843,7 +842,7 @@ HELP = {
                  "файла (объект, путь). Группа: использована одна — закрыты все. Выходы: ключ для «Открыть»/«Закрыть» и открыта ли сейчас.",
     "act:offer.open": "Сделать возможность доступной или показать её закрытой «???» (игрок видит, но выбрать не может; потом «Открыть» "
                       "раскрывает). Во «Когда» — поток (сейчас: игроку хода или всем) или провод условия (пока условие верно у игрока; "
-                      "только возможности этого сценария).",
+                      "только возможности этого сценария). «Недоступна» — что видит игрок, пока условие неверно или учётка не та: «???» или ничего.",
     "act:offer.close": "Закрыть возможность или всю группу: игроку хода или всем.",
     "on:offer.used": "Игрок использовал возможность. Выходы — по подключённой сущности: Верно / Неверно (текст, секрет и вложение), "
                      "кнопки окна, «Нажата» у файла; развилки текста — выходами-словами. Лимит попыток — счётчик по «Неверно».",
@@ -1345,6 +1344,7 @@ def catalog():
                      for mode, values in ([rule] if isinstance(rule[0], str) else rule)],
             "hidden": k.hidden, "owned": k.owned, "typed": k.typed, "covers": {name: list(hid) for name, hid in k.covers.items()},
             "follows": dict(k.follows), "titled": dict(k.titled),
+            "inline": {name: {"switch": switch, "drop": list(drop)} for name, (switch, drop) in k.inline.items()},
             "infers": {name: {"mode": mode, "by": {t: {"value": v, "field": f} for t, (v, f) in by.items()}} for name, (mode, by) in k.infers.items()},
         } for k in sorted(KINDS.values(), key=_menu_order)],
     }

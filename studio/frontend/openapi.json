@@ -31931,6 +31931,27 @@
     "title": "GrInferTo",
     "type": "object"
    },
+   "GrInline": {
+    "properties": {
+     "switch": {
+      "title": "Switch",
+      "type": "string"
+     },
+     "drop": {
+      "default": [],
+      "items": {
+       "type": "string"
+      },
+      "title": "Drop",
+      "type": "array"
+     }
+    },
+    "required": [
+     "switch"
+    ],
+    "title": "GrInline",
+    "type": "object"
+   },
    "GrKind": {
     "properties": {
      "name": {
@@ -32079,6 +32100,14 @@
       },
       "default": {},
       "title": "Infers",
+      "type": "object"
+     },
+     "inline": {
+      "additionalProperties": {
+       "$ref": "#/components/schemas/GrInline"
+      },
+      "default": {},
+      "title": "Inline",
       "type": "object"
      }
     },

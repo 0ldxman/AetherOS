@@ -14,7 +14,7 @@
 
   const store = engine();
   const picks = (k: string) => store.catalog?.picks[k] ?? [];
-  const PICKED = ["key", "letter", "item", "object", "section", "character", "station", "machine", "moment", "graph", "scene", "system", "time_zone", "offer", "mail_ref", "attachment"];
+  const PICKED = ["key", "letter", "item", "object", "section", "character", "station", "machine", "moment", "graph", "scene", "system", "time_zone", "offer", "attachment"];
   const LISTED = ["flag", "world_flag", "counter"];
   const fields = $derived([...kind.fields.filter((f) => !wireOnly(f.kind)).map((f) => ({ ...f, kind: plainKind(f.kind) })), ...(kind.group === "noun" && !kind.start_only ? (waiting ? catalog.wait_fields : catalog.start_fields) : [])]);
   const data = $derived(node.data);
@@ -84,7 +84,7 @@
   {/if}
 
   <fieldset class="fields" disabled={!editable}>
-    {#each fields.filter(shown) as f (f.name)}
+    {#each fields.filter((f) => shown(f) && !(kind.inline?.[f.name] && !fed[f.name])) as f (f.name)}
       {#if f.kind === "sockets"}
         <div class="cell"><span class="label">{f.label}</span>
           {#each socks as sock, i (sock.name)}
@@ -111,10 +111,12 @@
             {#each picks(f.kind) as o (o.value)}<option value={o.value}>{o.label}</option>{/each}
           </select></label>
       {:else if f.kind === "switch"}
-        {@const current = value(f.name) || f.options[0]?.value}
+        {@const rule = Object.entries(kind.inline ?? {}).find(([, r]) => r.switch === f.name)}
+        {@const opts = rule && fed[rule[0]] ? f.options.filter((o) => !rule[1].drop.includes(o.value)) : f.options}
+        {@const current = opts.some((o) => o.value === value(f.name)) ? value(f.name) : opts[0]?.value}
         <div class="cell"><span class="label">{f.label}</span>
           <div class="switch" role="radiogroup" aria-label={f.label}>
-            {#each f.options as o (o.value)}
+            {#each opts as o (o.value)}
               <button type="button" role="radio" aria-checked={current === o.value} class:on={current === o.value} onclick={() => set(f.name, o.value)}>{o.label}</button>
             {/each}
           </div></div>
