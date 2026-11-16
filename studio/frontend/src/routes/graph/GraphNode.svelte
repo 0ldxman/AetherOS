@@ -286,9 +286,9 @@
   .inline:focus { outline: none; border-color: var(--accent); }
   .inline.num { flex: 0 0 72px; margin-left: auto; }
   .inline.wide { width: 100%; }
-  .switch-row { display: flex; align-items: center; gap: 6px; min-height: 21px; }
-  .switch-label { flex: 0 0 auto; color: var(--faint); font-size: 11.5px; white-space: nowrap; }
-  .switch { flex: 1; display: flex; min-width: 0; border: 1px solid var(--line); border-radius: 4px; overflow: hidden; background: var(--bg); }
+  .switch-row { display: flex; flex-direction: column; gap: 2px; padding: 1px 0; }
+  .switch-label { color: var(--faint); font-size: 11px; white-space: nowrap; }
+  .switch { display: flex; min-width: 0; border: 1px solid var(--line); border-radius: 4px; overflow: hidden; background: var(--bg); }
   .switch button { flex: 1 1 0; min-width: 0; height: 19px; padding: 0 6px; border: 0; background: none; color: var(--muted); font: inherit; font-size: 11px;
                    white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: pointer; }
   .switch button + button { border-left: 1px solid var(--line); }
