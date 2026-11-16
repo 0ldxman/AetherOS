@@ -82,12 +82,11 @@ class OfferTests(TestCase):
 
     def test_one_offer_opened_from_two_places_and_closed_by_wire(self):
         graph = make([node("m", "manual"), node("m2", "manual"), offer("a", text="hello {{name}}"), node("o1", "act:offer"), node("o2", "act:offer"),
-                      node("k", "check"), node("c", "do:world_count", name="c"), node("go", "manual"), node("x", "act:offer", state="hidden")],
+                      node("go", "manual"), node("x", "act:offer", state="hidden")],
                      [wire("m", "fire", "o1"), wire("m2", "fire", "o2"), wire("a", "offer", "o1", "f:offer"), wire("a", "offer", "o2", "f:offer"),
-                      wire("o1", "next", "k"), wire("a", "open", "k", "f:condition"), wire("k", "yes", "c"),
                       wire("go", "fire", "x"), wire("a", "offer", "x", "f:offer")])
         runtime.start_manual(graph, "m", self.ivan)
-        self.assertEqual(counter(), 1)                                                                 # «Открыта» — да
+        self.assertEqual(self.keys(self.ivan), ["g:a"])
         self.assertEqual(offers.visible(self.ivan)[0].spec["text"], "hello {{name}}")
         runtime.start_manual(graph, "go", self.ivan)
         self.assertEqual(self.keys(self.ivan), [])

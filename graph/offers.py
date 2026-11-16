@@ -358,14 +358,8 @@ def state(user, host, login, text):
 
 
 def entity_value(run, node_id, out):
-    """Выходы сущности «Возможность»: её ключ и открыта ли она сейчас игроку хода."""
-    if out == "offer":
-        return key(run.graph, node_id)
-    if out == "open":
-        ctx = run.ctx or {}
-        view = state(getattr(run, "user", None), ctx.get("host", ""), ctx.get("login", ""), key(run.graph, node_id))
-        return bool(view is not None and view.open)
-    return None
+    """Выход сущности «Возможность»: её ключ."""
+    return key(run.graph, node_id) if out == "offer" else None
 
 
 def settle(view, user, right):
