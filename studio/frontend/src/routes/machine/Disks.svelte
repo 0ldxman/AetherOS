@@ -12,7 +12,7 @@
 
   let disks = $state<Schemas["Disks"] | null>(null);
   let editing = $state<null | { id: number | null; mode: string; volume: number | null; volume_path: string; host: number | null;
-                                host_path: string; account: number | null; mount_path: string; order: number }>(null);
+                                host_path: string; account: number | null; mount_path: string; order: number; read_only: boolean }>(null);
   let errors = $state<Record<string, string[]>>({});
   let newExport = $state("");
   let viewer = $state<number | null>(null);
@@ -45,8 +45,8 @@
     errors = {};
     editing = mount
       ? { id: mount.id, mode: mount.mode, volume: mount.volume?.id ?? null, volume_path: mount.volume_path, host: mount.host?.id ?? null,
-          host_path: mount.host_path, account: mount.account?.id ?? null, mount_path: mount.mount_path, order: mount.order }
-      : { id: null, mode: "local", volume: null, volume_path: "", host: null, host_path: "", account: null, mount_path: "", order: 0 };
+          host_path: mount.host_path, account: mount.account?.id ?? null, mount_path: mount.mount_path, order: mount.order, read_only: mount.read_only }
+      : { id: null, mode: "local", volume: null, volume_path: "", host: null, host_path: "", account: null, mount_path: "", order: 0, read_only: false };
   }
 
   async function saveMount() {
@@ -155,6 +155,7 @@
               <span><span class="chip">диск</span> {mount.volume?.label}{#if mount.volume_path}<span class="mono muted"> /{mount.volume_path}</span>{/if}</span>
             {/if}
             {#if mount.order && !mount.overlay}<span class="chip">слой {mount.order}</span>{/if}
+            {#if mount.read_only}<span class="chip" title="Игрок ничего не запишет и не удалит">только чтение</span>{/if}
             {#if mount.overlay}<span class="chip" title="Диск отличий этой машины. Меняется выбором выше.">отличия</span>{/if}
             <span class="spacer"></span>
             {#if !mount.overlay}
@@ -262,6 +263,7 @@
       <label><span class="label">Точка монтирования</span><input class="field mono" bind:value={editing.mount_path} placeholder="/mnt/harbor или C:" /></label>
       <label><span class="label">Слой (порядок)</span><input class="field" type="number" min="0" bind:value={editing.order} /></label>
     </div>
+    <label class="check"><input type="checkbox" bind:checked={editing.read_only} /> Только чтение <span class="muted small">— игрок ничего не запишет и не удалит на этом диске</span></label>
     {#if fieldError("mount_path") || fieldError("__all__")}<p class="err">{fieldError("mount_path")} {fieldError("__all__")}</p>{/if}
   </Dialog>
 {/if}

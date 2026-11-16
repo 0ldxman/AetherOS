@@ -972,7 +972,7 @@ def _disk_act(run, node_id, kind, data):
             if machine is None:
                 raise disks.DiskError("не выбрана машина")
         if mode == "attach":
-            result = disks.attach(machine, disks.volume(key("volume")), point, _fill(key("folder"), run))
+            result = disks.attach(machine, disks.volume(key("volume")), point, _fill(key("folder"), run), _truth(data.get("read_only")))
         elif mode == "remote":
             account = edits.account(key("account")) if key("account") else None
             host = entities._machine(key("host"))
@@ -980,7 +980,7 @@ def _disk_act(run, node_id, kind, data):
                 from machines.network import connection
 
                 account = connection.account_of(host, "guest")
-            result = disks.attach_remote(machine, host, _fill(key("path"), run), account, point)
+            result = disks.attach_remote(machine, host, _fill(key("path"), run), account, point, _truth(data.get("read_only")))
         else:
             volume = disks.volume(key("volume")) if key("volume") else None
             if key("volume") and volume is None:

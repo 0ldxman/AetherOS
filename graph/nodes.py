@@ -784,10 +784,10 @@ register(Kind("act:machine.disk", "Машина: Изменить диск", ACT
     Field("machine", "Машина", "machine", "", True), Field("volume", "Диск", "volume", "", True), Field("folder", "Папка диска", "path", "весь диск"),
     Field("host", "Хост", "machine", "", True), Field("path", "Путь на хосте", "path", "/srv/archive", True),
     Field("account", "Учётка хоста", "account", "guest"), Field("point", "Точка", "path", "/mnt/archive"),
-    Field("mount", "Диск машины", "mount", "хост:/точка"),
+    Field("read_only", "Только чтение", "bool"), Field("mount", "Диск машины", "mount", "хост:/точка"),
 ), _ACT_OUTS, title="variant", when={"volume": ("variant", ("attach", "detach")), "folder": ("variant", ("attach",)),
                                       "host": ("variant", ("remote",)), "path": ("variant", ("remote",)), "account": ("variant", ("remote",)),
-                                      "mount": ("variant", ("detach",))}))
+                                      "read_only": ("variant", ("attach", "remote")), "mount": ("variant", ("detach",))}))
 DATA_OUTS["act:machine.disk"] = (Sock("mount", "Диск машины", "mount"),)
 MACHINE_ACTS = ("act:machine.change", "act:account.change", "act:account.access", "act:account.manage", "act:machine.disk")
 
@@ -1151,7 +1151,8 @@ register(Kind("ent:mount", "Машина: Диск", ENTITY, "{point}{mount}", (
 ), ins=(), covers={"mount": ("machine", "point")}))
 DATA_OUTS["ent:mount"] = (Sock("value", "Диск машины", "mount"), Sock("machine", "Машина", "machine"), Sock("point", "Точка", "text"),
                           Sock("type", "Тип", "text"), Sock("volume", "Диск", "volume"), Sock("host", "Хост", "machine"),
-                          Sock("path", "Путь", "text"), Sock("account", "Учётка", "account"), Sock("exists", "Есть", "bool"))
+                          Sock("path", "Путь", "text"), Sock("account", "Учётка", "account"), Sock("read_only", "Только чтение", "bool"),
+                          Sock("exists", "Есть", "bool"))
 _entity("ent:server", "Сервер", Field("server", "Сервер", "server"),
         (Sock("value", "Сервер", "server"), Sock("title", "Название", "text")))
 _entity("ent:object", "Объект", Field("item", "Объект", "object"),

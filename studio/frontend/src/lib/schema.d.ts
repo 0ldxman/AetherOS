@@ -6957,6 +6957,11 @@ export interface components {
             /** Order */
             order: number;
             /**
+             * Read Only
+             * @default false
+             */
+            read_only: boolean;
+            /**
              * Overlay
              * @default false
              */
@@ -7046,6 +7051,11 @@ export interface components {
              * @default 0
              */
             order: number;
+            /**
+             * Read Only
+             * @default false
+             */
+            read_only: boolean;
         };
         /** OverlayIn */
         OverlayIn: {

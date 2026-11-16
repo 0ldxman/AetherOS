@@ -69,6 +69,10 @@ def check(view, principal, path, action):
     if principal is None:
         return
     path = "/" + "/".join(part for part in path.split("/") if part)
+    if action == "w" and view.read_only_at(path):
+        from filesystem.machine_view.entries import ReadOnly
+
+        raise ReadOnly(path)                     # диск «только чтение»: и для root
     routed = view.remote_route(path)
     if routed is not None:                       # путь на сетевом диске: права проверяет хост для учётки подключения
         host_view, host_path = routed

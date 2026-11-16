@@ -35,6 +35,7 @@ class MachineMount(models.Model):
         help_text="Куда монтируется на машине: /mnt/harbor или диск C:. Пусто: в файловую систему том не попадает.",
     )
     mode = models.CharField("Режим", max_length=8, choices=Mode.choices, default=Mode.LOCAL)
+    read_only = models.BooleanField("Только чтение", default=False, help_text="Игрок не может ничего записать, изменить или удалить на этом диске.")
     order = models.PositiveSmallIntegerField(
         "Порядок", default=0,
         help_text="Если на одну точку смонтировано несколько томов, они складываются стопкой: больший порядок лежит выше.",

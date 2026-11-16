@@ -33,6 +33,7 @@ class DiskMount(Schema):
     account: Ref | None
     mount_path: str
     order: int
+    read_only: bool = False
     overlay: bool = False     # монтирование диска отличий: меняется выбором «Диск отличий», а не здесь
 
 
@@ -78,6 +79,7 @@ class MountIn(Schema):
     account: int | None = None
     mount_path: str = ""
     order: int = 0
+    read_only: bool = False
 
 
 class ExportIn(Schema):
@@ -133,7 +135,8 @@ def _disks(machine):
         mounts=[
             DiskMount(id=m.pk, mode=m.mode, volume=_ref(m.volume, m.volume.name or m.volume.slug if m.volume_id else ""), volume_path=m.volume_path,
                   host=_ref(m.host, m.host.label if m.host_id else ""), host_path=m.host_path,
-                  account=_ref(m.account, m.account.login if m.account_id else ""), mount_path=m.mount_path, order=m.order, overlay=_is_overlay(machine, m))
+                  account=_ref(m.account, m.account.login if m.account_id else ""), mount_path=m.mount_path, order=m.order, read_only=m.read_only,
+                  overlay=_is_overlay(machine, m))
             for m in mounts
         ],
         exports=[ExportRow(id=e.pk, path=e.path) for e in machine.exports.all()],
@@ -154,7 +157,7 @@ def disks(request, machine_id: int):
 
 
 def _apply(mount, body):
-    for name in ("mode", "volume_path", "host_path", "mount_path", "order"):
+    for name in ("mode", "volume_path", "host_path", "mount_path", "order", "read_only"):
         setattr(mount, name, getattr(body, name))
     mount.volume_id = body.volume if body.mode == MachineMount.Mode.LOCAL else None
     mount.host_id = body.host if body.mode == MachineMount.Mode.REMOTE else None

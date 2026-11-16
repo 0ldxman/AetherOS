@@ -441,10 +441,10 @@ class MntCommand(EntryCommand):
             mount = layer.mount
             if layer.remote:
                 account = mount.account.login if mount.account is not None else "guest"
-                rows.append(f"{mount.host.hostname or mount.host.name}:{mount.host_path} on {layer.point} type net ({account})")
+                rows.append(f"{mount.host.hostname or mount.host.name}:{mount.host_path} on {layer.point} type net ({account}{',ro' if getattr(mount, 'read_only', False) else ''})")
             else:
                 disk = mount.volume.label or mount.volume.name or str(mount.volume.uuid)
-                rows.append(f"{disk} on {layer.point} type disk")
+                rows.append(f"{disk} on {layer.point} type disk{' (ro)' if mount.read_only else ''}")
         return CommandResult("\n".join(rows))
 
     def run(self, context, opts):

@@ -83,7 +83,7 @@ def props(key):
     return {"value": key_of(machine, point), "machine": machine.hostname, "point": point, "type": "сетевой" if remote else "диск",
             "volume": mount.volume.slug if mount.volume_id else "", "host": mount.host.hostname if remote and mount.host_id else "",
             "path": mount.host_path if remote else ("/" + mount.volume_path.strip("/") if mount.volume_path.strip("/") else "/"),
-            "account": edits.account_key(mount.account) if remote and mount.account_id else "", "exists": True}
+            "account": edits.account_key(mount.account) if remote and mount.account_id else "", "read_only": mount.read_only, "exists": True}
 
 
 def _changed():
@@ -99,7 +99,7 @@ def _on_top(machine, point):
     return 0 if top is None else top + 1          # точка занята — новый диск ложится сверху
 
 
-def attach(machine, volume, point, folder=""):
+def attach(machine, volume, point, folder="", read_only=False):
     """Подключить том (или его папку) в точку машины. Возвращает ключ «хост:/точка»."""
     from filesystem.names import normalize_inner
     from machines.models import MachineMount
@@ -110,12 +110,12 @@ def attach(machine, volume, point, folder=""):
     if volume is None:
         raise DiskError("не выбран диск")
     MachineMount.objects.create(machine=machine, volume=volume, volume_path=normalize_inner(folder or ""), mount_path=point,
-                                mode=MachineMount.Mode.LOCAL, order=_on_top(machine, point))
+                                mode=MachineMount.Mode.LOCAL, read_only=bool(read_only), order=_on_top(machine, point))
     _changed()
     return key_of(machine, point)
 
 
-def attach_remote(machine, host, path, account, point):
+def attach_remote(machine, host, path, account, point, read_only=False):
     """Подключить путь другой машины по сети от имени её учётки (пусто — guest). Хост должен отдавать путь."""
     from machines.models import MachineMount
     from machines.network import connection
@@ -133,7 +133,7 @@ def attach_remote(machine, host, path, account, point):
     if account is not None and account.machine_id != host.pk:
         raise DiskError("учётка должна быть на хосте")
     MachineMount.objects.create(machine=machine, host=host, host_path=path, account=account, mount_path=point,
-                                mode=MachineMount.Mode.REMOTE, order=_on_top(machine, point))
+                                mode=MachineMount.Mode.REMOTE, read_only=bool(read_only), order=_on_top(machine, point))
     _changed()
     return key_of(machine, point)
 

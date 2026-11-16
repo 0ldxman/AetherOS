@@ -51,3 +51,21 @@ class DiskNodesTests(TestCase):
         self.assertTrue(values.on("world", 0, "backup"))
         self.assertEqual(disks.props("port:/mnt/archive")["path"], "/docs")
         self.assertIsNone(disks.props("port:/nowhere"))
+
+    def test_a_read_only_disk_refuses_a_player_but_not_the_scenario(self):
+        from django.contrib.auth import get_user_model
+
+        from filesystem.machine_view.entries import ReadOnly
+        from machines.access.groups import principal_for
+
+        make_file(self.port, "/home/x.txt", body="x")
+        disks.attach_remote(self.port, self.vault, "/srv/logs", None, "/mnt/logs", read_only=True)
+        self.act(variant="attach", machine="port", volume="archive", point="/mnt/archive", read_only=True)
+        self.assertTrue(disks.props("port:/mnt/archive")["read_only"])
+        root = MachineProfile.objects.create(machine=self.port, login="root", name="root", freq=3, root=True)
+        view = MachineView(self.port, get_user_model().objects.create_user("ivan"), principal_for(root))
+        for write in (lambda: view.put_text("/mnt/archive/n.txt", "n"), lambda: view.remove("/mnt/logs/a.log")):
+            with self.assertRaises(ReadOnly):
+                write()
+        view.put_text("/home/y.txt", "y")                                                  # остальная машина пишется
+        MachineView(self.port, None).put_text("/mnt/archive/n.txt", "n")                   # сценарий пишет
