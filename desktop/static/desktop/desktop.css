@@ -739,8 +739,12 @@ body {
 :where(.win-actions) .dialog-ok:focus-visible { background: var(--tone); border-color: var(--tone); color: var(--font-dark); outline: none; }
 
 
-/* помехи изображения машины: побитые блоки сжатого видео (desktop.js; пиксели и оттенки — svg-фильтр на столе) */
-.screen-blocks { position: fixed; inset: 0; pointer-events: none; z-index: 2147483000; }
+/* помехи изображения машины: цифровой шум и побитые блоки сжатого видео (desktop.js; разрешение, оттенки, цвет — svg-фильтр страницы) */
+.screen-grain {
+  position: fixed; inset: 0; width: 100vw; height: 100vh; pointer-events: none; z-index: 2147483000;
+  mix-blend-mode: overlay;
+}
+.screen-blocks { position: fixed; inset: 0; pointer-events: none; z-index: 2147483001; }
 .screen-blocks i { position: absolute; display: block; }
 .screen-blocks i.smear { backdrop-filter: blur(6px) saturate(1.6); }
 .screen-blocks i.tint { backdrop-filter: hue-rotate(var(--hue)) contrast(1.6); }

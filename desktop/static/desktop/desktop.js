@@ -1674,55 +1674,81 @@ window.addEventListener("blur", () => setMenu(false));
 })();
 
 
-// Помехи изображения машины (machines.Machine.screen_noise, 0–100): стол чужой машины идёт по плохому каналу, как сжатое видео.
-// Постоянно — ниже разрешение (пиксели), меньше оттенков (ступенчатые переходы) и размытость. Провалами — разрешение резко падает и
-// потом восстанавливается, куски экрана приходят побитыми блоками. Чем выше уровень, тем хуже и чаще. При «меньше движения» — без
-// провалов и блоков.
+// Помехи изображения машины (machines.Machine.screen_noise, 0–100): вся страница стола идёт по плохому каналу, как сжатое видео.
+// Постоянно — цвет растекается (он хранится грубее яркости), меньше оттенков, мягкость, цветной цифровой шум; с 50 — ниже разрешение
+// (пиксель 3, 5, 7 px на 50, 75, 100). Провалами — разрешение резко падает и куски экрана приходят побитыми блоками. При «меньше
+// движения» — без провалов, блоков и мерцания шума.
 (() => {
   const level = Math.min(100, Math.max(0, parseInt(desktop.dataset.screenNoise || "0", 10) || 0));
   if (!level) return;
   const k = level / 100;
   const calm = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-  const stage = document.getElementById("desktop");
+  const screen = document.body;                       // часы, уведомления и окна приходят с той же машины
 
-  // пиксели: квадраты size×size закрашиваются цветом одной своей точки; оттенки: по levels ступеней на канал
   const ns = "http://www.w3.org/2000/svg";
   const svg = document.createElementNS(ns, "svg");
   svg.setAttribute("width", "0"); svg.setAttribute("height", "0"); svg.style.position = "absolute";
-  document.body.append(svg);
+  document.documentElement.append(svg);
   const steps = (n) => Array.from({ length: n }, (_, i) => (i / (n - 1)).toFixed(3)).join(" ");
-  const quality = (size, levels, blur) => {
-    const half = Math.max(1, Math.floor(size / 2));
-    const cell = half * 2 + 1;                         // квадрат без щелей: точка в середине, расширенная на half во все стороны
-    // как уменьшение картинки: цвет квадрата — усреднённый (размытие перед выборкой), а не цвет одной точки
-    const pixel = size > 1
-      ? `<feGaussianBlur in="SourceGraphic" stdDeviation="${(cell * 0.4).toFixed(2)}" result="soft"/>` +
+  const gray = "0.299 0.587 0.114 0 0 0.299 0.587 0.114 0 0 0.299 0.587 0.114 0 0 0 0 0 1 0";
+  const quality = (half, levels, blur, bleed) => {
+    const cell = half * 2 + 1;
+    // цвет растекается: яркость резкая, цвет — размытый (luma + (blur - luma(blur)))
+    const chroma = `<feColorMatrix in="SourceGraphic" type="matrix" values="${gray}" result="luma"/>` +
+      `<feGaussianBlur in="SourceGraphic" stdDeviation="${bleed}" result="soft"/>` +
+      `<feColorMatrix in="soft" type="matrix" values="${gray}" result="softluma"/>` +
+      `<feComposite in="soft" in2="softluma" operator="arithmetic" k2="1" k3="-1" k4="0.5" result="tint"/>` +
+      `<feComposite in="luma" in2="tint" operator="arithmetic" k2="1" k3="1" k4="-0.5" result="mix"/>`;
+    // ниже разрешение: цвет квадрата — усреднённый (размытие перед выборкой одной точки и её расширение на весь квадрат)
+    const pixel = half > 0
+      ? `<feGaussianBlur in="mix" stdDeviation="${(cell * 0.3).toFixed(2)}" result="avg"/>` +
         `<feFlood x="${half}" y="${half}" width="1" height="1"/><feComposite width="${cell}" height="${cell}"/><feTile result="grid"/>` +
-        `<feComposite in="soft" in2="grid" operator="in"/><feMorphology operator="dilate" radius="${half}" result="px"/>`
-      : `<feOffset in="SourceGraphic" result="px"/>`;
-    svg.innerHTML = `<filter id="screen-quality" x="0" y="0" width="100%" height="100%" color-interpolation-filters="sRGB">${pixel}` +
+        `<feComposite in="avg" in2="grid" operator="in"/><feMorphology operator="dilate" radius="${half}" result="px"/>`
+      : `<feOffset in="mix" result="px"/>`;
+    svg.innerHTML = `<filter id="screen-quality" x="0" y="0" width="100%" height="100%" color-interpolation-filters="sRGB">${chroma}${pixel}` +
       `<feComponentTransfer in="px"><feFuncR type="discrete" tableValues="${steps(levels)}"/><feFuncG type="discrete" tableValues="${steps(levels)}"/>` +
       `<feFuncB type="discrete" tableValues="${steps(levels)}"/></feComponentTransfer>${blur ? `<feGaussianBlur stdDeviation="${blur}"/>` : ""}</filter>`;
-    stage.style.filter = "url(#screen-quality)";
+    screen.style.filter = "url(#screen-quality)";
   };
-  const size = 2 * Math.max(1, Math.ceil(k * 4));     // пиксель: 25 — 3 px, 50 — 5, 75 — 7, 100 — 9
-  const levels = Math.round(24 - k * 18);             // 25 — 20 оттенков на канал, 100 — 6
-  const blur = +(k * 0.6).toFixed(2);
-  quality(size, levels, blur);
-  if (calm) return;
+  const half = level < 50 ? 0 : level < 75 ? 1 : level < 100 ? 2 : 3;   // пиксель 1, 3, 5, 7 px
+  const levels = Math.round(32 - k * 24);                               // оттенков на канал: 25 — 26, 100 — 8
+  const blur = +(0.35 + k * 0.35).toFixed(2);
+  const bleed = +(1.5 + k * 4).toFixed(1);
+  quality(half, levels, blur, bleed);
 
-  // побитые блоки: квадраты экрана размыты, сдвинуты по цвету или «застыли» сплошной заливкой
+  // цифровой шум: мелкое цветное зерно (внутри потока — оно тоже проходит через фильтр)
+  const grain = document.createElement("canvas");
+  grain.className = "screen-grain";
+  grain.width = 320; grain.height = 200;
+  grain.style.opacity = String(0.08 + k * 0.2);
+  screen.append(grain);
+  const pen = grain.getContext("2d");
+  const frame = pen.createImageData(grain.width, grain.height);
+  const paint = () => {
+    for (let i = 0; i < frame.data.length; i += 4) {
+      frame.data[i] = 128 + (Math.random() - 0.5) * 255 * k;
+      frame.data[i + 1] = 128 + (Math.random() - 0.5) * 255 * k;
+      frame.data[i + 2] = 128 + (Math.random() - 0.5) * 255 * k;
+      frame.data[i + 3] = 255;
+    }
+    pen.putImageData(frame, 0, 0);
+  };
+  paint();
+  if (calm) return;
+  setInterval(paint, 90);
+
+  // побитые блоки: квадраты экрана размыты, со сдвигом цвета или залиты
   const tiles = document.createElement("div");
   tiles.className = "screen-blocks";
-  document.body.append(tiles);
+  screen.append(tiles);
   const corrupt = (count, cell) => {
     tiles.replaceChildren();
     for (let i = 0; i < count; i++) {
       const tile = document.createElement("i");
-      const w = cell * (1 + Math.floor(Math.random() * 4)), h = cell * (1 + Math.floor(Math.random() * 2));
       tile.style.left = `${Math.floor(Math.random() * innerWidth / cell) * cell}px`;
       tile.style.top = `${Math.floor(Math.random() * innerHeight / cell) * cell}px`;
-      tile.style.width = `${w}px`; tile.style.height = `${h}px`;
+      tile.style.width = `${cell * (1 + Math.floor(Math.random() * 4))}px`;
+      tile.style.height = `${cell * (1 + Math.floor(Math.random() * 2))}px`;
       tile.className = ["smear", "tint", "stale"][Math.floor(Math.random() * 3)];
       tile.style.setProperty("--hue", `${Math.floor(Math.random() * 360)}deg`);
       tiles.append(tile);
@@ -1731,9 +1757,9 @@ window.addEventListener("blur", () => setMenu(false));
 
   const drop = () => {
     const length = 300 + Math.random() * (400 + level * 12);           // 100 — до 1,6 с
-    quality(size + Math.round(4 + k * 10 * Math.random()), Math.max(3, levels - 6), blur + k * 0.8);
+    quality(half + 2 + Math.round(k * 4 * Math.random()), Math.max(4, levels - 8), blur + 0.4, bleed + 2);
     corrupt(Math.round(3 + k * 22 * Math.random()), 16);
-    setTimeout(() => { quality(size, levels, blur); tiles.replaceChildren(); }, length);
+    setTimeout(() => { quality(half, levels, blur, bleed); tiles.replaceChildren(); }, length);
     setTimeout(drop, (15000 - level * 120) * (0.3 + Math.random()));     // 25 — раз в ~12 с, 100 — раз в ~3 с
   };
   setTimeout(drop, 1500 + Math.random() * 2500);
