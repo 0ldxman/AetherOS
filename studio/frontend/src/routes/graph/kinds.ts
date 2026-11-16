@@ -16,7 +16,7 @@ export const BOXES = ["group", "scenario"];
 export const REF = "ref";
 export const TIMEOUT = "timeout";
 export const OFFER_USED = "on:offer.used";          // выходы — по сущности «Возможность» на проводе (graph/offers.used_outs)
-export const COLORS: Record<string, string> = { entity: "#2f7d6d", noun: "#3f8f86", flow: "#a7793a", data: "#8a5d7a", action: "#4d6fc4", struct: "#7a5aa8", service: "#5b6170" };
+export const COLORS: Record<string, string> = { entity: "#2f7d6d", noun: "#c2547a", flow: "#a7793a", data: "#8a5d7a", action: "#4d6fc4", struct: "#7a5aa8", service: "#5b6170" };
 
 // Типы сокетов: цвет у точки и провода. event — «случилось» (поток), остальные — вещи, которые едут по ◆-проводу.
 export const TYPES: Record<string, { label: string; color: string; thing?: boolean }> = {

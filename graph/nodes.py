@@ -11,7 +11,7 @@ from dataclasses import dataclass, field, replace
 from engine.actions import Field
 
 ENTITY, NOUN, FLOW, DATA, ACTION, STRUCT, SERVICE = "entity", "noun", "flow", "data", "action", "struct", "service"
-GROUPS = {ENTITY: "Сущности", NOUN: "Когда", FLOW: "Ход", DATA: "Данные", ACTION: "Действия", STRUCT: "Сценарии и группы", SERVICE: "Служебные"}
+GROUPS = {ENTITY: "Сущности", NOUN: "Триггеры", FLOW: "Ход", DATA: "Данные", ACTION: "Действия", STRUCT: "Сценарии и группы", SERVICE: "Служебные"}
 
 # Типы сокетов. event — «случилось» (по нему идёт ход), остальное — данные: читаются в момент, когда нода выполняется.
 EVENT = "event"
