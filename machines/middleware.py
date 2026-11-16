@@ -31,11 +31,18 @@ SPECIAL_RULES = {
 }
 
 
+SEEN_SKIP = ("/studio", "/admin", "/static")      # запросы автора и статика — не игра
+
+
 class MachineAppMiddleware:
     def __init__(self, get_response):
         self.get_response = get_response
 
     def __call__(self, request):
+        if not request.path_info.startswith(SEEN_SKIP):
+            from machines.network import bridge
+
+            bridge.mark_seen(request)
         try:
             match = resolve(request.path_info)
         except Resolver404:

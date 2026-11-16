@@ -214,7 +214,11 @@ class Session(models.Model):
     )
 
     seen_at = models.DateTimeField(
-        null=True, blank=True, help_text="Когда игрок последний раз работал в этой сессии (терминал отмечает раз в полминуты).",
+        null=True, blank=True, help_text="Когда игрок последний раз работал здесь: рабочий стол или терминал (отмечается раз в полминуты).",
+    )
+
+    linked_at = models.DateTimeField(
+        null=True, blank=True, help_text="Когда подключение последний раз было открыто в цепочке мостов, даже если игрок работал дальше.",
     )
 
     kick_at = models.DateTimeField(

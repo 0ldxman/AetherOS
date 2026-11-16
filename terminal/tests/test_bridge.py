@@ -492,6 +492,39 @@ class RshellTests(BridgeFixture):
         self.assertEqual(self.run_command("exit")["login"], "guest")            # сначала оболочка
         self.assertEqual([e["op"] for e in self.run_command("exit")["effects"]], ["blackout"])   # потом мост
 
+    def test_exit_from_a_bridge_opened_in_a_shell_returns_the_desktop_where_it_was(self):
+        self.run_command("rshell guest@aether-core")
+        self.run_command("rcon dig@aether-deep")
+        self.assertEqual(self.where().login, "dig")
+        data = self.run_command("exit")
+        self.assertEqual((data["hostname"], data["login"]), ("aether-core", "guest"))   # терминал — в оболочке
+        self.assertEqual(self.where().login, "ivan")                                     # рабочий стол — где был, не на оболочке
+        self.assertEqual(self.shells(), 1)
+
+    def test_only_the_desktop_and_the_terminal_are_active_the_chain_is_linked(self):
+        from django.core.cache import cache
+
+        from machines.models import Session
+
+        self.run_command("rcon guest@aether-core")
+        self.run_command("rshell dig@aether-deep")
+        Session.objects.update(seen_at=None, linked_at=None)
+        cache.clear()
+        self.run_command("whoami")
+        rows = {row.profile.login: (row.seen_at is not None, row.linked_at is not None) for row in Session.objects.all()}
+        self.assertEqual(rows, {"ivan": (False, True), "guest": (True, True), "dig": (True, True)})
+
+    def test_a_player_without_bridges_is_active_on_the_desktop(self):
+        from django.core.cache import cache
+
+        from machines.models import Session
+
+        self.run_command("whoami")
+        Session.objects.update(seen_at=None)
+        cache.clear()
+        self.client.get(reverse("desktop"))
+        self.assertIsNotNone(Session.objects.get(profile__login="ivan").seen_at)
+
     def test_xfer_downloads_a_file_into_the_players_session_with_its_layers(self):
         self.run_command("rshell guest@aether-core")
         data = self.run_command("xfer :/home/loot.dat /home/got.dat")

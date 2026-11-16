@@ -8,7 +8,7 @@ from django.utils import timezone
 from machines.world import clock
 from machines.models import LoginEvent, MachineMount, MachineProfile, Session, SystemVolume
 
-ONLINE = timedelta(minutes=2)         # сессия считается живой, если терминал отмечался недавно
+ONLINE = timedelta(minutes=2)         # игрок на машине, если работал в сессии недавно (рабочий стол или терминал)
 
 
 def uptime_text(delta):

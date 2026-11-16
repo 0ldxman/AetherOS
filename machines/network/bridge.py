@@ -8,10 +8,13 @@
     terminal    узел, на котором сейчас терминал: команды идут в его сессии. Он может не совпадать с desktop.
 
 rcon растит ребёнка узла терминала и двигает оба указателя, rshell только terminal. Закрытие узла закрывает всё поддерево:
-если под ним был рабочий стол, он возвращается на родителя закрытого узла. Прямой связи между узлами, не родственными по
+если под ним был рабочий стол, он возвращается на ближайшего предка, где рабочий стол уже был (корень, вход через rcon или
+перенос вкладкой), — не на оболочку rshell. Прямой связи между узлами, не родственными по
 дереву, нет: путь из C в A идёт через B.
 
 Сессия для пары (игрок, запись) переиспользуется: прогресс по файлам и счётчики попыток остаются между визитами.
+Пока браузер шлёт запросы, сессии рабочего стола и терминала отмечаются активными (seen_at), все узлы дерева — подключёнными
+(linked_at): mark_seen.
 
 Условия входа, их проверяет verdict():
     пароль    нужен, если у записи он задан (хеш);
@@ -173,16 +176,30 @@ def locked_for(user, profile):
     return max(0, int((until - timezone.now()).total_seconds()) + 1)
 
 
-SEEN_EVERY = 30            # раз в сколько секунд терминал отмечает, что игрок в сессиях (для «кто сейчас на машине»)
+SEEN_EVERY = 30            # раз в сколько секунд браузер отмечает, где игрок (для «кто сейчас на машине»)
 
 
-def _mark_seen(request, tree):
+def mark_seen(request):
+    """Игрок здесь: сессии рабочего стола и терминала активны (seen_at), все подключения дерева открыты (linked_at).
+    Не чаще раза в SEEN_EVERY секунд на браузер; дерево и сессию не создаёт."""
     from django.core.cache import cache
 
-    stamp = f"bridge-seen:{request.session.session_key}"
-    if request.session.session_key and not cache.get(stamp):
-        Session.objects.filter(pk__in=[node["session"] for node in tree["nodes"].values()]).update(seen_at=timezone.now())
-        cache.set(stamp, 1, SEEN_EVERY)
+    key = getattr(request.session, "session_key", None)
+    if not key or not getattr(request.user, "is_authenticated", False):
+        return
+    stamp = f"bridge-seen:{key}"
+    if cache.get(stamp):
+        return
+    tree = _tree(request, create=False)
+    if tree:
+        active = {tree["nodes"][tree["desktop"]]["session"], tree["nodes"][tree["terminal"]]["session"]}
+        linked = {node["session"] for node in tree["nodes"].values()}
+    else:
+        active = linked = {request.session[SESSION_KEY]} if request.session.get(SESSION_KEY) else set()
+    now = timezone.now()
+    Session.objects.filter(pk__in=linked, user=request.user).update(linked_at=now)
+    Session.objects.filter(pk__in=active, user=request.user).update(seen_at=now)
+    cache.set(stamp, 1, SEEN_EVERY)
 
 
 def request_kick(user, profile):
@@ -196,9 +213,9 @@ def expire(request, now=None):
     принимает игрока; после обрыва автором блокировки нет."""
     now = now or time.time()
     kicks = []
+    mark_seen(request)
     tree = _tree(request, create=False)
     if tree:
-        _mark_seen(request, tree)
         kicked = set(Session.objects.filter(
             pk__in=[node["session"] for node in tree["nodes"].values() if node["parent"] is not None], kick_at__isnull=False,
         ).values_list("pk", flat=True))
@@ -266,13 +283,13 @@ def open_child(request, profile, desktop, cwd):
     tree = _tree(request)
     session = session_for(request.user, profile)
     # игрок здесь с этой минуты; старая просьба автора выкинуть к новому входу не относится
-    Session.objects.filter(pk=session.pk).update(kick_at=None, seen_at=timezone.now())
+    Session.objects.filter(pk=session.pk).update(kick_at=None, seen_at=timezone.now(), linked_at=timezone.now())
     parent = tree["terminal"]
     tree["nodes"][parent]["cwd"] = cwd
     key = str(tree["next"])
     tree["next"] += 1
     tree["nodes"][key] = {
-        "parent": parent, "session": session.pk, "cwd": HOME,
+        "parent": parent, "session": session.pk, "cwd": HOME, "desk": bool(desktop),     # был ли здесь рабочий стол
         "deadline": time.time() + entry.ttl_of(profile) if entry.ttl_of(profile) else None,        # срок подключения с момента входа
     }
     tree["terminal"] = key
@@ -289,9 +306,16 @@ class Closed:
     desktop_moved: bool     # рабочий стол переехал (сменить его в браузере)
 
 
+def _desk_above(tree, node):
+    """Ближайший к node (включая его) узел, где был рабочий стол: корень, вход через rcon или перенос вкладкой."""
+    while tree["nodes"][node]["parent"] is not None and not tree["nodes"][node].get("desk"):
+        node = tree["nodes"][node]["parent"]
+    return node
+
+
 def close(request, node=None, cwd=HOME):
     """Закрыть узел (по умолчанию терминальный) со всем поддеревом. None для корня: закрывать нечего.
-    Терминал переходит на родителя закрытого узла, рабочий стол под закрытым узлом тоже."""
+    Терминал переходит на родителя закрытого узла; рабочий стол под закрытым узлом — туда, где он был выше (не на оболочку)."""
     tree = _tree(request)
     node = node or tree["terminal"]
     if node not in tree["nodes"] or tree["nodes"][node]["parent"] is None:
@@ -305,11 +329,12 @@ def close(request, node=None, cwd=HOME):
     if tree["terminal"] in gone:
         tree["terminal"] = parent
     if moved:
-        tree["desktop"] = parent
+        tree["desktop"] = _desk_above(tree, parent)
     for key in gone:
         del tree["nodes"][key]
     _save(request, tree)
-    return Closed([item for item in sessions if item is not None], HOME if moved else tree["nodes"][tree["terminal"]]["cwd"], moved)
+    fresh = moved and tree["terminal"] == tree["desktop"]
+    return Closed([item for item in sessions if item is not None], HOME if fresh else tree["nodes"][tree["terminal"]]["cwd"], moved)
 
 
 def close_all(request):
@@ -350,6 +375,7 @@ def move_desktop(request, node):
     if node not in tree["nodes"] or tree["desktop"] == node:
         return False
     tree["desktop"] = node
+    tree["nodes"][node]["desk"] = True
     _save(request, tree)
     return True
 
