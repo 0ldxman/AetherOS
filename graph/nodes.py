@@ -190,6 +190,7 @@ class Kind:
     inline: dict = field(default_factory=dict)       # поле-вход -> (поле-переключатель в его строке, варианты, которых нет, когда вход задан)
     plural: dict = field(default_factory=dict)       # выход -> (поле-режим, значения): в этих режимах выход — список своего типа
     outs_when: dict = field(default_factory=dict)    # выход данных -> (поле-режим, значения): выход есть только в этих режимах
+    types_from: tuple = ()      # входы (или "@rows" — строки растущего списка), чей тип провода Студия пишет в typed
 
 
 KINDS = {}
@@ -536,9 +537,9 @@ register(Kind("race", "Первое из", FLOW, "{count}", (Field("count", "С�
               ins=(), many=(Many("in", "count", "i", "Вход {n}"), Many("out", "count", "o", "Первым {n}"))))
 register(Kind("end", "Конец", FLOW, "{outcome}",
               (Field("outcome", "Исход", "select", "", False, (("passed", "прошёл"), ("failed", "провалил"), ("aborted", "прервано"))),)))
-register(Kind("foreach", "Для каждого", FLOW, "", (Field("of", "Тип элементов", "select", "", False, tuple(ELEMENTS.items())),
+register(Kind("foreach", "Для каждого", FLOW, "", (Field("of", "Тип элементов", "hidden", "", False, tuple(ELEMENTS.items())),
                                                     Field("list", "Список", OF_LIST)),
-              (Sock("each", "Каждый"), Sock("done", "Готово")), typed="of"))
+              (Sock("each", "Каждый"), Sock("done", "Готово")), typed="of", types_from=("list",)))
 register(Kind("answer", "Ответить", FLOW, "{mode}",
               (Field("mode", "Ответ", "select", "", False, (("allow", "впустить"), ("deny", "отказать"), ("block", "заблокировать"), ("default", "как обычно (пароль, ключи, токен)"))),
                Field("text", "Текст отказа", "text", "node unavailable"), Field("minutes", "Блокировка, мин", "number", "10")),
@@ -931,10 +932,12 @@ HELP = {
                    "даже если игрок работает дальше.",
     "session.find": "Текущая — где произошло действие (в условии у «Изменить» — где игрок применяет возможность). Все — сессии игрока "
                     "(пусто — игрок хода), Машина — сессии всех игроков на машине: списком, свежие первыми. «Только активные» — кто там сейчас.",
-    "list.make": "Собрать список из входов: подключили последний — появился следующий. Тип элементов выбирается на ноде.",
-    "list.count": "Сколько элементов в списке (пустой — 0).",
-    "list.item": "Элемент списка: первый, последний или по номеру. «Есть» — нет ли такого (список короче).",
-    "list.has": "Есть ли значение в списке (текст — без учёта регистра).",
+    "list.make": "Собрать список из входов (что угодно): подключили последний — появился следующий; пустые не попадают. Все провода "
+                 "одного типа — список этого типа, иначе — текста. «Количество» — сколько вышло.",
+    "list.content": "Количество элементов; Элемент — первый, последний или по номеру («Есть» — нашёлся ли); Содержит — есть ли значение "
+                    "(одно или хоть одно из списка; текст — без учёта регистра). Тип элемента — по поданному списку.",
+    "list.action": "Новый список: Добавить значение (в конец, в начало или на номер), Убрать (последний, первый или по номеру), "
+                   "Достать по номеру или по элементу — тогда ещё «Элемент» и «Есть». Номера с 1.",
     "foreach": "Для каждого элемента списка — ветка «Каждый» с данными «Элемент» и «Номер», потом «Готово». В ветке «Каждый» нельзя ждать.",
     "switch": "Если «Если» — да, значение «Да», иначе «Нет». Так выход получает значение по условию.",
     "allowed": "поля вещи пустили (у «как обычно»)", "refused": "поля вещи отказали (у «как обычно»)",
@@ -1055,17 +1058,32 @@ _data("read", "Прочитать", "{what} {name}",
       (Field("what", "Что", "select", "", False, (("world_counter", "счётчик мира"), ("player_counter", "счётчик игрока"), ("world_flag", "метка мира"),
                                                   ("player_flag", "метка игрока"))), Field("name", "Имя", "text", "", True)), "number", "Значение")
 DATA_OUTS["read"] = (Sock("value", "Значение", "number"), Sock("lit", "Стоит", "bool"))
-_OF = Field("of", "Тип элементов", "select", "", False, tuple(ELEMENTS.items()))
-_data("list.make", "Список: Собрать", "", (_OF, Field("items", "Элементы", "hidden")), OF_LIST, "Список",
-      typed="of", grow=Grow("items", "e", ELEMENT, min=2))
-_data("list.count", "Список: Количество", "", (Field("list", "Список", ANY_LIST.replace("list:any", "@any")),), "number", "Количество")
-_data("list.item", "Список: Элемент", "",
-      (_OF, Field("mode", "Какой", "select", "", False, (("first", "Первый"), ("last", "Последний"), ("number", "По номеру"))),
-       Field("list", "Список", OF_LIST), Field("number", "Номер", "number", "1")), ELEMENT, "Элемент",
-      typed="of", when={"number": ("mode", ("number",))})
-DATA_OUTS["list.item"] += (Sock("found", "Есть", "bool"),)
-_data("list.has", "Список: Содержит", "", (_OF, Field("list", "Список", OF_LIST), Field("value", "Значение", MANY + ELEMENT)), "bool", "Содержит",
-      typed="of")
+_OF = Field("of", "Тип элементов", "hidden", "", False, tuple(ELEMENTS.items()))     # пишет Студия по типу проводов (types_from)
+_data("list.make", "Список", "", (_OF, Field("items", "Элементы", "hidden")), OF_LIST, "Список",
+      typed="of", grow=Grow("items", "e", "text", min=2), types_from=("@rows",))
+DATA_OUTS["list.make"] += (Sock("count", "Количество", "number"),)
+register(Kind("list.content", "Список: Содержимое", DATA, "", (
+    _OF, Field("mode", "Что", "switch", "", False, (("count", "Количество"), ("item", "Элемент"), ("has", "Содержит"))),
+    Field("list", "Список", OF_LIST),
+    Field("pick", "Какой", "switch", "", False, (("first", "Первый"), ("last", "Последний"), ("number", "По номеру"))),
+    Field("number", "Номер", "number", "1"), Field("value", "Значение", MANY + ELEMENT),
+), ins=(), typed="of", title="mode", types_from=("list",),
+   when={"pick": ("mode", ("item",)), "number": [("mode", ("item",)), ("pick", ("number",))], "value": ("mode", ("has",))},
+   outs_when={"count": ("mode", ("count",)), "item": ("mode", ("item",)), "found": ("mode", ("item",)), "has": ("mode", ("has",))}))
+DATA_OUTS["list.content"] = (Sock("count", "Количество", "number"), Sock("item", "Элемент", ELEMENT), Sock("found", "Есть", "bool"),
+                             Sock("has", "Содержит", "bool"))
+register(Kind("list.action", "Список: Действие", DATA, "", (
+    _OF, Field("mode", "Что", "switch", "", False, (("add", "Добавить"), ("remove", "Убрать"), ("take", "Достать"))),
+    Field("list", "Список", OF_LIST), Field("value", "Значение", ELEMENT),
+    Field("where", "Где", "switch", "", False, (("end", "В конец"), ("start", "В начало"), ("index", "По номеру"))),
+    Field("at", "Номер", "number", "1"),
+    Field("by", "Как", "switch", "", False, (("index", "По номеру"), ("value", "По элементу"))),
+    Field("number", "Номер", "number", "1"), Field("item", "Элемент", ELEMENT),
+), ins=(), typed="of", title="mode", types_from=("list",),
+   when={"value": ("mode", ("add",)), "where": ("mode", ("add", "remove")), "at": [("mode", ("add", "remove")), ("where", ("index",))],
+         "by": ("mode", ("take",)), "number": [("mode", ("take",)), ("by", ("index",))], "item": [("mode", ("take",)), ("by", ("value",))]},
+   outs_when={"item": ("mode", ("take",)), "found": ("mode", ("take",))}))
+DATA_OUTS["list.action"] = (Sock("list", "Список", OF_LIST), Sock("item", "Элемент", ELEMENT), Sock("found", "Есть", "bool"))
 _data("switch", "Выбрать значение", "",
       (Field("condition", "Если", "bool"), Field("yes", "Да", "text"), Field("no", "Нет", "text")), "text", "Значение")
 _data("time.get", "Время", "", (
@@ -1406,6 +1424,7 @@ def catalog():
             "inline": {name: {"switch": switch, "drop": list(drop)} for name, (switch, drop) in k.inline.items()},
             "plural": {name: {"mode": mode, "values": list(values)} for name, (mode, values) in k.plural.items()},
             "outs_when": {name: {"mode": mode, "values": list(values)} for name, (mode, values) in k.outs_when.items()},
+            "types_from": list(k.types_from),
             "infers": {name: {"mode": mode, "by": {t: {"value": v, "field": f} for t, (v, f) in by.items()}} for name, (mode, by) in k.infers.items()},
         } for k in sorted(KINDS.values(), key=_menu_order)],
     }

@@ -26,11 +26,13 @@ class ListTypeTests(TestCase):
         self.assertFalse(nodes.compatible("event", "list:text"))
 
     def test_element_type_follows_the_node(self):
-        kind = nodes.KINDS["list.item"]
+        kind = nodes.KINDS["list.content"]
         self.assertEqual(nodes.sock_type(kind, {"of": "machine"}, "in", "f:list"), "list:machine")
-        self.assertEqual(nodes.sock_type(kind, {"of": "machine"}, "out", "value"), "machine")
-        self.assertEqual(nodes.sock_type(kind, {}, "out", "value"), "text")
-        graph = {"nodes": [node("c", "ent:character"), node("i", "list.item", of="machine")], "wires": [f("c", "value", "i", "list")]}
+        self.assertEqual(nodes.sock_type(kind, {"of": "machine", "mode": "item"}, "out", "item"), "machine")
+        self.assertEqual(nodes.sock_type(kind, {"mode": "item"}, "out", "item"), "text")
+        self.assertEqual(nodes.sockets(kind, {"mode": "item"}, "out"), ["item", "found"])
+        self.assertEqual(nodes.KINDS["list.make"].types_from, ("@rows",))
+        graph = {"nodes": [node("c", "ent:character"), node("i", "list.content", of="machine")], "wires": [f("c", "value", "i", "list")]}
         self.assertIn("«Список» ждёт список (машина), а приходит персонажа", [p["text"] for p in check.problems(graph)])
 
 
@@ -40,21 +42,39 @@ class ListNodeTests(TestCase):
 
     def test_make_count_item_has(self):
         base = [items("text", "a", "", "B")]
-        self.assertEqual(self.get(base, [], "l"), ["a", "B"])
-        self.assertEqual(self.get(base + [node("c", "list.count")], [f("l", "value", "c", "list")], "c"), 2)
-        last = node("i", "list.item", mode="last")
-        self.assertEqual(self.get(base + [last], [f("l", "value", "i", "list")], "i"), "B")
-        far = node("i", "list.item", mode="number", number=5)
-        self.assertEqual((self.get(base + [far], [f("l", "value", "i", "list")], "i"), self.get(base + [far], [f("l", "value", "i", "list")], "i", "found")),
+        self.assertEqual((self.get(base, [], "l"), self.get(base, [], "l", "count")), (["a", "B"], 2))
+        self.assertEqual(self.get(base + [node("c", "list.content")], [f("l", "value", "c", "list")], "c", "count"), 2)
+        last = node("i", "list.content", mode="item", pick="last")
+        self.assertEqual(self.get(base + [last], [f("l", "value", "i", "list")], "i", "item"), "B")
+        far = node("i", "list.content", mode="item", pick="number", number=5)
+        self.assertEqual((self.get(base + [far], [f("l", "value", "i", "list")], "i", "item"), self.get(base + [far], [f("l", "value", "i", "list")], "i", "found")),
                          (None, False))
-        has = node("h", "list.has", value="b")
-        self.assertTrue(self.get(base + [has], [f("l", "value", "h", "list")], "h"))
+        has = node("h", "list.content", mode="has", value="b")
+        self.assertTrue(self.get(base + [has], [f("l", "value", "h", "list")], "h", "has"))
+
+    def test_add_remove_take(self):
+        base = [items("text", "a", "b", "c")]
+        wire_ = [f("l", "value", "x", "list")]
+
+        def act(**data):
+            return self.get(base + [node("x", "list.action", **data)], wire_, "x", "list")
+
+        self.assertEqual(act(value="d"), ["a", "b", "c", "d"])
+        self.assertEqual(act(value="d", where="start"), ["d", "a", "b", "c"])
+        self.assertEqual(act(value="d", where="index", at=2), ["a", "d", "b", "c"])
+        self.assertEqual(act(mode="remove"), ["a", "b"])
+        self.assertEqual(act(mode="remove", where="start"), ["b", "c"])
+        self.assertEqual(act(mode="remove", where="index", at=9), ["a", "b", "c"])
+        took = node("x", "list.action", mode="take", by="value", item="B")
+        self.assertEqual([self.get(base + [took], wire_, "x", out) for out in ("list", "item", "found")], [["a", "c"], "b", True])
+        took = node("x", "list.action", mode="take", number=7)
+        self.assertEqual([self.get(base + [took], wire_, "x", out) for out in ("list", "item", "found")], [["a", "b", "c"], None, False])
 
     def test_single_value_becomes_a_list_and_a_list_becomes_text(self):
-        nodes_ = [node("t", "text", value="solo"), node("c", "list.count"), items("text", "x", "y"), node("tp", "text", value="{all}",
+        nodes_ = [node("t", "text", value="solo"), node("c", "list.content"), items("text", "x", "y"), node("tp", "text", value="{all}",
                   subs=[{"id": "s1", "name": "all"}])]
         wires = [f("t", "value", "c", "list"), f("l", "value", "tp", "s1")]
-        self.assertEqual(self.get(nodes_, wires, "c"), 1)
+        self.assertEqual(self.get(nodes_, wires, "c", "count"), 1)
         self.assertEqual(self.get(nodes_, wires, "tp"), "x, y")
 
 

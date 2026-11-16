@@ -32107,6 +32107,14 @@
       "title": "Outs When",
       "type": "object"
      },
+     "types_from": {
+      "default": [],
+      "items": {
+       "type": "string"
+      },
+      "title": "Types From",
+      "type": "array"
+     },
      "titled": {
       "additionalProperties": {
        "type": "string"

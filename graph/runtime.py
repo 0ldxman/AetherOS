@@ -528,18 +528,21 @@ def value_of(run, doc, node_id, out, depth=0):
     if name == "list.make":
         ids = [row["id"] for row in N.rows(kind, data)]
         ids += sorted({inp for (dst, inp) in doc.refs if dst == node_id and N.is_row(kind, inp) and inp not in ids})
-        return [value for value in (get(row_id) for row_id in ids) if value not in (None, "")]
-    if name == "list.count":
-        return len(_as_list(get("list")))
-    if name == "list.item":
+        found = [value for value in (get(row_id) for row_id in ids) if value not in (None, "")]
+        return len(found) if out == "count" else found
+    if name == "list.content":
         items = _as_list(get("list"))
-        mode = data.get("mode") or "first"
-        index = 0 if mode == "first" else len(items) - 1 if mode == "last" else int(_number(get("number")) or 1) - 1
+        if out == "count":
+            return len(items)
+        if out == "has":
+            wanted = {str(_plain(w)).strip().casefold() for w in _as_list(get("value"))}            # одно или список: хоть одно
+            return any(str(_plain(item)).strip().casefold() in wanted for item in items)
+        pick = data.get("pick") or "first"
+        index = 0 if pick == "first" else len(items) - 1 if pick == "last" else int(_number(get("number")) or 1) - 1
         found = 0 <= index < len(items)
         return found if out == "found" else (items[index] if found else None)
-    if name == "list.has":
-        wanted = {str(_plain(w)).strip().casefold() for w in _as_list(get("value"))}            # одно или список: хоть одно
-        return any(str(_plain(item)).strip().casefold() in wanted for item in _as_list(get("list")))
+    if name == "list.action":
+        return _list_action(list(_as_list(get("list"))), data.get("mode") or "add", data, get).get(out)
     if name == "switch":
         value = get("yes") if _truth(get("condition")) else get("no")
         return "" if value is None else str(_plain(value))
@@ -580,6 +583,29 @@ def _read(run, what, name, out):
     else:
         value = values.get(values.TAG, values.PLAYER, player, name)
     return bool(value) if out == "lit" else value
+
+
+def _list_action(items, mode, data, get):
+    """«Список: Действие»: {"list": новый список, "item": достали, "found": нашёлся ли}. Номера с 1."""
+    number = lambda name: int(_number(get(name)) or 1) - 1      # noqa: E731
+    if mode in ("add", "remove"):
+        where = data.get("where") or "end"
+        if mode == "add":
+            value = get("value")
+            if value not in (None, ""):
+                items.insert(len(items) if where == "end" else 0 if where == "start" else max(0, min(len(items), number("at"))), value)
+            return {"list": items}
+        index = len(items) - 1 if where == "end" else 0 if where == "start" else number("at")
+        if 0 <= index < len(items):
+            items.pop(index)
+        return {"list": items}
+    if (data.get("by") or "index") == "value":
+        wanted = str(_plain(get("item"))).strip().casefold()
+        index = next((i for i, one in enumerate(items) if str(_plain(one)).strip().casefold() == wanted), -1)
+    else:
+        index = number("number")
+    found = 0 <= index < len(items)
+    return {"list": items, "item": items.pop(index) if found else None, "found": found}
 
 
 def _as_list(value):

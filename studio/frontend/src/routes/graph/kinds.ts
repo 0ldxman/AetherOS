@@ -150,6 +150,32 @@ export function sockType(kind: Kind, data: Record<string, unknown>, side: "in" |
   return pluralType(kind, data, name, resolveType(kind, data, kind.outs.find((s) => s.name === name)?.type ?? "event"));
 }
 
+// тип элементов по проводам (kind.types_from): провода одного типа — этот тип, иначе текст; без проводов — текст.
+// Повторяется, пока меняется: «Список» → «Список: Содержимое» → «Для каждого» получают тип по цепочке.
+export function typeByWires(level: Level, kindOf: (type: string) => Kind | undefined, typeOut: (node: GNode, out: string) => string): Level {
+  let nodes = level.nodes;
+  for (let pass = 0; pass < 6; pass++) {
+    let changed = false;
+    nodes = nodes.map((n) => {
+      const kind = kindOf(n.type);
+      if (!kind?.typed || !kind.types_from?.length) return n;
+      const from = kind.types_from;
+      const fed = level.wires.filter((w) => w.to === n.id && w.in.startsWith("f:") && (from.includes(w.in.slice(2)) || (from.includes("@rows") && isRow(kind, w.in.slice(2)))));
+      const allowed = kind.fields.find((f) => f.name === kind.typed)?.options.map((o) => o.value) ?? [];
+      const bases = [...new Set(fed.map((w) => {
+        const src = nodes.find((x) => x.id === w.from);
+        return src ? basesOf(typeOut(src, w.out))[0] : "";
+      }))];
+      const of = bases.length === 1 && allowed.includes(bases[0]) ? bases[0] : "text";
+      if ((n.data[kind.typed] ?? "text") === of) return n;
+      changed = true;
+      return { ...n, data: { ...n.data, [kind.typed]: of } };
+    });
+    if (!changed) break;
+  }
+  return nodes === level.nodes ? level : { ...level, nodes };
+}
+
 // выход данных только в части режимов (kind.outs_when): «Время: Расчёт» — «Разница» или «Дата»
 export function outOn(kind: Kind, data: Record<string, unknown>, name: string): boolean {
   const rule = kind.outs_when?.[name];

@@ -11785,6 +11785,11 @@ export interface components {
                 [key: string]: components["schemas"]["GrPlural"];
             };
             /**
+             * Types From
+             * @default []
+             */
+            types_from: string[];
+            /**
              * Titled
              * @default {}
              */

@@ -102,6 +102,7 @@ class GrKind(Schema):
     follows: dict[str, str] = {}
     plural: dict[str, GrPlural] = {}
     outs_when: dict[str, GrPlural] = {}
+    types_from: list[str] = []
     titled: dict[str, str] = {}
     infers: dict[str, GrInfer] = {}
     inline: dict[str, GrInline] = {}

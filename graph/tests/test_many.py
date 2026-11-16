@@ -64,9 +64,9 @@ class ManySocketTests(TestCase):
 
     def test_contains_any_and_server_type(self):
         doc = {"nodes": [machines("core", "main"), node("v", "list.make", of="machine", items=[{"id": "e1", "value": "x"}, {"id": "e2", "value": "main"}]),
-                         node("h", "list.has", of="machine")], "wires": [f("l", "value", "h", "list"), f("v", "value", "h", "value")]}
+                         node("h", "list.content", of="machine", mode="has")], "wires": [f("l", "value", "h", "list"), f("v", "value", "h", "value")]}
         self.no_errors(doc)
-        self.assertTrue(value_of(None, Doc(doc), "h", "value"))
+        self.assertTrue(value_of(None, Doc(doc), "h", "has"))
         self.assertEqual(nodes.sock_type(nodes.KINDS["do:net_node"], {}, "in", "f:address"), "server")
         self.assertEqual(nodes.sock_type(nodes.KINDS["find"], {}, "in", "f:item"), "many:item")
         self.assertEqual(nodes.sock_type(nodes.KINDS["act:machine.status"], {}, "in", "f:host"), "many:machine")
