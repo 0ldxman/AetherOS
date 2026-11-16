@@ -4704,6 +4704,144 @@
     ]
    }
   },
+  "/studio/api/machines/{machine_id}/world": {
+   "get": {
+    "operationId": "studio_api_machinefiles_world_changes",
+    "summary": "World Changes",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "machine_id",
+      "schema": {
+       "title": "Machine Id",
+       "type": "integer"
+      },
+      "required": true
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "items": {
+          "$ref": "#/components/schemas/WorldChange"
+         },
+         "title": "Response",
+         "type": "array"
+        }
+       }
+      }
+     }
+    },
+    "description": "Что игроки изменили на машине поверх базы: кто, что, когда.",
+    "tags": [
+     "machine-files"
+    ],
+    "security": [
+     {
+      "StudioAuth": []
+     }
+    ]
+   }
+  },
+  "/studio/api/machines/{machine_id}/world/revert": {
+   "post": {
+    "operationId": "studio_api_machinefiles_world_revert",
+    "summary": "World Revert",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "machine_id",
+      "schema": {
+       "title": "Machine Id",
+       "type": "integer"
+      },
+      "required": true
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/WorldReverted"
+        }
+       }
+      }
+     }
+    },
+    "description": "Откатить изменения мира на пути (и под ним) или все на машине: снова виден файл из базы. Видят все игроки.",
+    "tags": [
+     "machine-files"
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/WorldRevert"
+       }
+      }
+     },
+     "required": true
+    },
+    "security": [
+     {
+      "StudioAuth": []
+     }
+    ]
+   }
+  },
+  "/studio/api/machines/{machine_id}/files/keep": {
+   "post": {
+    "operationId": "studio_api_machinefiles_keep",
+    "summary": "Keep",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "machine_id",
+      "schema": {
+       "title": "Machine Id",
+       "type": "integer"
+      },
+      "required": true
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/MachineFileDone"
+        }
+       }
+      }
+     }
+    },
+    "description": "Игрок не может удалить или перенести файл.",
+    "tags": [
+     "machine-files"
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/MachineFileKeep"
+       }
+      }
+     },
+     "required": true
+    },
+    "security": [
+     {
+      "StudioAuth": []
+     }
+    ]
+   }
+  },
   "/studio/api/machines/{machine_id}/files/rights": {
    "post": {
     "operationId": "studio_api_machinefiles_rights",
@@ -20736,6 +20874,11 @@
       "default": false,
       "title": "Condition",
       "type": "boolean"
+     },
+     "keep": {
+      "default": false,
+      "title": "Keep",
+      "type": "boolean"
      }
     },
     "required": [
@@ -20918,6 +21061,82 @@
      "dest"
     ],
     "title": "MachineFileMove",
+    "type": "object"
+   },
+   "WorldChange": {
+    "properties": {
+     "path": {
+      "title": "Path",
+      "type": "string"
+     },
+     "kind": {
+      "title": "Kind",
+      "type": "string"
+     },
+     "by": {
+      "title": "By",
+      "type": "string"
+     },
+     "at": {
+      "format": "date-time",
+      "title": "At",
+      "type": "string"
+     },
+     "item": {
+      "title": "Item",
+      "type": "string"
+     }
+    },
+    "required": [
+     "path",
+     "kind",
+     "by",
+     "at",
+     "item"
+    ],
+    "title": "WorldChange",
+    "type": "object"
+   },
+   "WorldReverted": {
+    "properties": {
+     "count": {
+      "title": "Count",
+      "type": "integer"
+     }
+    },
+    "required": [
+     "count"
+    ],
+    "title": "WorldReverted",
+    "type": "object"
+   },
+   "WorldRevert": {
+    "properties": {
+     "path": {
+      "default": "",
+      "title": "Path",
+      "type": "string"
+     }
+    },
+    "title": "WorldRevert",
+    "type": "object"
+   },
+   "MachineFileKeep": {
+    "properties": {
+     "path": {
+      "title": "Path",
+      "type": "string"
+     },
+     "keep": {
+      "title": "Keep",
+      "type": "boolean"
+     }
+    },
+    "required": [
+     "path",
+     "keep"
+    ],
+    "title": "MachineFileKeep",
     "type": "object"
    },
    "MachineFileRights": {

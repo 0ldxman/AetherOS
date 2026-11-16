@@ -537,6 +537,7 @@ def machine_data(machine):
             row["item"] = info[entry.item.pk]
         if not entry.is_dir:
             row["layers"], row["condition"] = _protection(entry)
+            row["keep"] = bool(entry.placement is not None and entry.placement.keep)
         rows.append(row)
 
     deleted = []

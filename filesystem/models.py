@@ -551,6 +551,7 @@ class Placement(models.Model):
         help_text="Владелец, группа, остальные: чтение 4, запись 2, вход или запуск 1 (640, 755). Пусто: открыто всем.",
     )
     hidden = models.BooleanField("Скрыт", default=False, help_text="Скрытое не показывает ls без -a.")
+    keep = models.BooleanField("Не удалить", default=False, help_text="Игрок не может удалить или перенести этот файл (улика остаётся для всех).")
 
     access_mode = models.CharField("Доступ", max_length=8, choices=Mode.choices, default=Mode.INHERIT)
     access = models.JSONField("Условие доступа", default=dict, blank=True, validators=[validate_requirements])

@@ -42,7 +42,30 @@
   }
   $effect(() => { try { sessionStorage.setItem(key(), cwd); } catch { /* вкладка без хранилища */ } });
 
+  // изменения мира: что игроки поменяли поверх базы — кто, что, когда; откат возвращает файл из базы для всех
+  let changes = $state<Schemas["WorldChange"][]>([]);
+  let changesOpen = $state(false);
+  const CHANGE: Record<string, string> = { edited: "изменён", added: "создан", deleted: "удалён", trashed: "в корзине", progress: "сняты слои" };
+  async function loadChanges() {
+    changes = (await api.GET("/studio/api/machines/{machine_id}/world", { params: { path: { machine_id: machine.id } } })).data ?? [];
+  }
+  async function revert(path: string) {
+    const what = path ? path : "все изменения на машине";
+    if (!(await ask(`Откатить ${what}?`, "Снова будет виден файл из базы — у всех игроков. Изменения игроков пропадут.", "Откатить"))) return;
+    const { data, error } = await api.POST("/studio/api/machines/{machine_id}/world/revert", { params: { path: { machine_id: machine.id } }, body: { path } });
+    if (error || !data) return toast(problem(error), "error");
+    toast(`Откачено изменений: ${data.count}.`);
+    loadChanges();
+  }
+  async function setKeep(row: Row, keep: boolean) {
+    const { error } = await api.POST("/studio/api/machines/{machine_id}/files/keep", { params: { path: { machine_id: machine.id } }, body: { path: row.path, keep } });
+    if (error) return toast(problem(error), "error");
+    toast(keep ? "Игрок не сможет удалить или перенести файл." : "Файл снова можно удалять.");
+    load();
+  }
+
   async function load() {
+    loadChanges();
     const { data } = await api.GET("/studio/api/machines/{machine_id}/files", { params: { path: { machine_id: machine.id } } });
     if (data) { rows = data.rows; overlayDisk = data.overlay ?? null; changed = data.changed; }
     loading = false;
@@ -220,6 +243,8 @@
     if (row.kind !== "dir") items.push({ label: "Копировать…", run: () => ask_("copy", [row]) });
     items.push({ label: "Права…", run: () => ask_("rights", [row]) });
     if (row.item) items.push({ label: "Защита на машине…", hint: "Своё условие и свои слои только для этой машины", run: () => protectRow(row) });
+    if (row.kind === "file") items.push(row.keep ? { label: "Разрешить удалять", run: () => setKeep(row, false) }
+                                                 : { label: "Игрок не может удалить", hint: "Ни удалить, ни перенести: улика остаётся для всех", run: () => setKeep(row, true) });
     items.push("sep");
     if (row.mark === "override") items.push({ label: "Сбросить к общему", hint: "Убрать копию, вернуть файл общего диска", run: () => reset([row]) });
     items.push({ label: isOwn(row) ? "Удалить…" : "Скрыть на машине", danger: true, run: () => hide([row]) });
@@ -372,6 +397,7 @@
               {#if row.kind === "file" && !row.item}<span class="chip own" title="Файл без объекта: текст лежит прямо в диске">без объекта</span>{/if}
               {#if row.layers}<span class="chip warn" title="У файла есть слои защиты">слои</span>{/if}
               {#if row.condition}<span class="chip warn" title="У файла есть условие доступа">условие</span>{/if}
+              {#if row.keep}<span class="chip warn" title="Игрок не может удалить или перенести">не удалить</span>{/if}
               {#if MARK[row.mark]}<span class="mk {MARK[row.mark].tone}" title={MARK[row.mark].hint}>{MARK[row.mark].text}</span>{/if}
             </span>
             <span class="mono muted">{row.volume || "—"}</span>
@@ -387,6 +413,27 @@
 
     <FileDetails rows={picked} folder={cwd} shown={listing.length} onopen={openRow} onrename={(row) => ask_("rename", [row])} onprotect={protectRow} />
   </div>
+
+  <section class="world" aria-label="Изменения мира">
+    <button class="btn ghost" onclick={() => (changesOpen = !changesOpen)} aria-expanded={changesOpen}>
+      {changesOpen ? "▾" : "▸"} Изменения игроков: {changes.length}<Hint text="Что игроки изменили на этой машине поверх базы: правки, новые файлы, удаления, корзина, снятые слои. Мир общий — это видят все. Песочницы авторов здесь не показаны." />
+    </button>
+    {#if changesOpen}
+      {#if changes.length}
+        <div class="wbar"><button class="btn ghost danger small" onclick={() => revert("")}>Откатить всё на машине</button></div>
+        <table class="table">
+          <thead><tr><th>Путь</th><th>Что</th><th>Кто</th><th>Когда</th><th></th></tr></thead>
+          <tbody>
+            {#each changes as c (c.path)}
+              <tr><td class="mono">{c.path}{#if c.item}<span class="muted small"> · {c.item}</span>{/if}</td><td>{CHANGE[c.kind] ?? c.kind}</td>
+                <td>{c.by || "—"}</td><td class="muted small">{new Date(c.at).toLocaleString()}</td>
+                <td><button class="btn ghost small" onclick={() => revert(c.path)}>Откатить</button></td></tr>
+            {/each}
+          </tbody>
+        </table>
+      {:else}<p class="muted small">Игроки здесь ничего не меняли.</p>{/if}
+    {/if}
+  </section>
 </div>
 
 <svelte:window onclick={() => (creating = false)} />
@@ -417,6 +464,8 @@
 {/if}
 
 <style>
+  .world { padding: 8px 12px; border-top: 1px solid var(--line-soft); }
+  .wbar { margin: 6px 0; }
   .files { display: flex; flex-direction: column; height: 100%; min-height: 0; }
   .bar { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; padding: 10px 20px; border-bottom: 1px solid var(--line-soft); }
   .crumbs { display: flex; align-items: center; gap: 2px; font-family: var(--mono); }

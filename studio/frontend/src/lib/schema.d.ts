@@ -1580,6 +1580,66 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/studio/api/machines/{machine_id}/world": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * World Changes
+         * @description Что игроки изменили на машине поверх базы: кто, что, когда.
+         */
+        get: operations["studio_api_machinefiles_world_changes"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/studio/api/machines/{machine_id}/world/revert": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * World Revert
+         * @description Откатить изменения мира на пути (и под ним) или все на машине: снова виден файл из базы. Видят все игроки.
+         */
+        post: operations["studio_api_machinefiles_world_revert"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/studio/api/machines/{machine_id}/files/keep": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Keep
+         * @description Игрок не может удалить или перенести файл.
+         */
+        post: operations["studio_api_machinefiles_keep"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/studio/api/machines/{machine_id}/files/rights": {
         parameters: {
             query?: never;
@@ -7079,6 +7139,11 @@ export interface components {
              * @default false
              */
             condition: boolean;
+            /**
+             * Keep
+             * @default false
+             */
+            keep: boolean;
         };
         /** MachineFiles */
         MachineFiles: {
@@ -7138,6 +7203,42 @@ export interface components {
             dest: string;
             /** Name */
             name?: string | null;
+        };
+        /** WorldChange */
+        WorldChange: {
+            /** Path */
+            path: string;
+            /** Kind */
+            kind: string;
+            /** By */
+            by: string;
+            /**
+             * At
+             * Format: date-time
+             */
+            at: string;
+            /** Item */
+            item: string;
+        };
+        /** WorldReverted */
+        WorldReverted: {
+            /** Count */
+            count: number;
+        };
+        /** WorldRevert */
+        WorldRevert: {
+            /**
+             * Path
+             * @default
+             */
+            path: string;
+        };
+        /** MachineFileKeep */
+        MachineFileKeep: {
+            /** Path */
+            path: string;
+            /** Keep */
+            keep: boolean;
         };
         /** MachineFileRights */
         MachineFileRights: {
@@ -14677,6 +14778,80 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["MachineFilePath"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MachineFileDone"];
+                };
+            };
+        };
+    };
+    studio_api_machinefiles_world_changes: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                machine_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorldChange"][];
+                };
+            };
+        };
+    };
+    studio_api_machinefiles_world_revert: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                machine_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["WorldRevert"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorldReverted"];
+                };
+            };
+        };
+    };
+    studio_api_machinefiles_keep: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                machine_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MachineFileKeep"];
             };
         };
         responses: {

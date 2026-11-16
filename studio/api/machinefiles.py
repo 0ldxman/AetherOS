@@ -3,6 +3,8 @@
 Логика в filesystem.manager.overlay; здесь схемы и коды ответов. Общие диски не меняются: правка общего файла создаёт его копию в
 диске отличий, скрытие кладёт надгробие, «сбросить» убирает копию и возвращает то, что лежит ниже.
 """
+import datetime
+
 from django.shortcuts import get_object_or_404
 from ninja import Router, Schema
 
@@ -36,6 +38,7 @@ class MachineFileRow(Schema):
     mode: str = ""
     layers: bool = False         # у файла есть слои защиты
     condition: bool = False      # у файла есть условие доступа
+    keep: bool = False           # игрок не может удалить или перенести
 
 
 class MachineFiles(Schema):
@@ -87,6 +90,27 @@ class MachineFileProtect(Schema):
 
 class MachineFileDone(Schema):
     ok: bool = True
+
+
+class WorldChange(Schema):
+    path: str
+    kind: str                    # deleted | trashed | edited | added | progress
+    by: str
+    at: datetime.datetime
+    item: str
+
+
+class WorldRevert(Schema):
+    path: str = ""               # пусто — все изменения на машине
+
+
+class WorldReverted(Schema):
+    count: int
+
+
+class MachineFileKeep(Schema):
+    path: str
+    keep: bool
 
 
 def _machine(machine_id):
@@ -157,6 +181,33 @@ def restore(request, machine_id: int, body: MachineFilePath):
 def reset(request, machine_id: int, body: MachineFilePath):
     """Сбросить правку: убрать копию из диска отличий, вернётся файл общего диска."""
     overlay.reset(_machine(machine_id), body.path)
+    return MachineFileDone()
+
+
+@router.get("/{int:machine_id}/world", response=list[WorldChange])
+def world_changes(request, machine_id: int):
+    """Что игроки изменили на машине поверх базы: кто, что, когда."""
+    from filesystem.manager import world
+
+    return world.changes(_machine(machine_id))
+
+
+@router.post("/{int:machine_id}/world/revert", response=WorldReverted)
+def world_revert(request, machine_id: int, body: WorldRevert):
+    """Откатить изменения мира на пути (и под ним) или все на машине: снова виден файл из базы. Видят все игроки."""
+    from filesystem.manager import world
+
+    return WorldReverted(count=world.revert(_machine(machine_id), body.path))
+
+
+@router.post("/{int:machine_id}/files/keep", response=MachineFileDone)
+def keep(request, machine_id: int, body: MachineFileKeep):
+    """Игрок не может удалить или перенести файл."""
+    from filesystem.manager import world
+    from ninja.errors import HttpError
+
+    if not world.set_keep(_machine(machine_id), body.path, body.keep):
+        raise HttpError(400, "Это не файл из базы машины.")
     return MachineFileDone()
 
 

@@ -157,6 +157,8 @@ class WriteMixin:
         count = 0
         if self.principal is not None:
             rights.check_parent(self, self.principal, self._clean(path))
+            if any(found.placement is not None and found.placement.keep for found in self.under(path)):
+                raise rights.NotPermitted("keep")                       # автор запретил удалять: улика остаётся для всех
         for found in reversed(self.under(path)):
             if found.layer is None or found.via is not None:
                 continue
@@ -193,6 +195,8 @@ class WriteMixin:
         return count
 
     def move(self, source, target):
+        if self.principal is not None and any(found.placement is not None and found.placement.keep for found in self.under(source)):
+            raise rights.NotPermitted("keep")
         count = self.copy(source, target, keep_owner=True)
         if self._clean(target) != self._clean(source):
             self.remove(source)
