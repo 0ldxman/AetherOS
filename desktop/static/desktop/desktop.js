@@ -1674,20 +1674,82 @@ window.addEventListener("blur", () => setMenu(false));
 })();
 
 
-// Помехи изображения машины (machines.Machine.screen_noise): полосы поверх стола и редкие сбои картинки — чаще и сильнее с уровнем.
+// Помехи изображения машины (machines.Machine.screen_noise, 0–100): мешают работать всерьёз. Постоянно — полосы развёртки и снег
+// (зерно поверх стола), на высоких уровнях — расслоение цвета. Сбоями — искажение волной, срыв кадра, пропадание изображения.
+// Чем выше уровень, тем чаще, дольше и сильнее. При «меньше движения» — только неподвижные полосы и снег.
 (() => {
   const level = Math.min(100, Math.max(0, parseInt(desktop.dataset.screenNoise || "0", 10) || 0));
   if (!level) return;
+  const k = level / 100;
+  const calm = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
   const veil = document.createElement("div");
   veil.className = "screen-noise";
-  veil.style.setProperty("--noise", String(level / 100));
+  veil.style.setProperty("--noise", String(k));
   document.body.append(veil);
-  if (window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
-  const glitch = () => {
-    document.body.classList.add("screen-glitch");
-    document.body.style.setProperty("--glitch-x", `${(Math.random() - 0.5) * level * 0.2}px`);
-    setTimeout(() => document.body.classList.remove("screen-glitch"), 80 + Math.random() * 120);
-    setTimeout(glitch, (20000 - level * 180) * (0.4 + Math.random()));
+
+  // снег: мелкий холст, растянутый на весь экран
+  const snow = document.createElement("canvas");
+  snow.className = "screen-snow";
+  snow.width = 240; snow.height = 150;
+  snow.style.opacity = String(0.08 + k * 0.42);
+  document.body.append(snow);
+  const pen = snow.getContext("2d");
+  const frame = pen.createImageData(snow.width, snow.height);
+  const paint = () => {
+    for (let i = 0; i < frame.data.length; i += 4) {
+      const v = Math.random() < 0.5 ? 0 : 255 * Math.random();
+      frame.data[i] = frame.data[i + 1] = frame.data[i + 2] = v;
+      frame.data[i + 3] = Math.random() < 0.35 + k * 0.5 ? 255 : 0;
+    }
+    pen.putImageData(frame, 0, 0);
   };
-  setTimeout(glitch, 3000 + Math.random() * 4000);
+  paint();
+  if (calm) return;
+  setInterval(paint, 70);
+
+  // искажение волной: svg-фильтр, его включают сбои
+  const ns = "http://www.w3.org/2000/svg";
+  const svg = document.createElementNS(ns, "svg");
+  svg.setAttribute("width", "0"); svg.setAttribute("height", "0"); svg.style.position = "absolute";
+  svg.innerHTML = '<filter id="screen-warp"><feTurbulence id="screen-warp-noise" type="fractalNoise" baseFrequency="0.002 0.08" numOctaves="1" seed="1"/>' +
+    '<feDisplacementMap in="SourceGraphic" scale="0" xChannelSelector="R" yChannelSelector="G" id="screen-warp-map"/></filter>';
+  document.body.append(svg);
+  const map = svg.querySelector("#screen-warp-map");
+  const turb = svg.querySelector("#screen-warp-noise");
+
+  const split = (px) => `drop-shadow(${px}px 0 0 rgb(255 0 60 / 0.55)) drop-shadow(${-px}px 0 0 rgb(0 220 255 / 0.55))`;
+  const base = level >= 60 ? split(Math.round(1 + (level - 60) / 20)) : "none";       // расслоение цвета постоянно
+  const stage = document.getElementById("desktop");
+  stage.style.filter = base;
+
+  const blackout = document.createElement("div");
+  blackout.className = "screen-blackout";
+  document.body.append(blackout);
+
+  const kinds = ["warp", "warp", "split", "roll"].concat(level >= 50 ? ["black"] : []);
+  const glitch = () => {
+    const kind = kinds[Math.floor(Math.random() * kinds.length)];
+    const length = 120 + Math.random() * (150 + level * 4);
+    if (kind === "warp") {
+      turb.setAttribute("seed", String(Math.floor(Math.random() * 1000)));
+      map.setAttribute("scale", String(10 + k * 60));
+      stage.style.filter = `url(#screen-warp) ${base === "none" ? "" : base}`;
+    } else if (kind === "split") {
+      stage.style.filter = split(3 + k * 9);
+      stage.style.transform = `translateX(${(Math.random() - 0.5) * k * 40}px)`;
+    } else if (kind === "roll") {
+      stage.style.transform = `translateY(${(Math.random() < 0.5 ? -1 : 1) * (20 + k * 160)}px)`;
+    } else {
+      blackout.classList.add("on");
+    }
+    setTimeout(() => {
+      stage.style.filter = base;
+      stage.style.transform = "";
+      map.setAttribute("scale", "0");
+      blackout.classList.remove("on");
+    }, length);
+    setTimeout(glitch, (14000 - level * 120) * (0.3 + Math.random()));        // 25 — раз в ~11 с, 100 — раз в ~2 с
+  };
+  setTimeout(glitch, 1500 + Math.random() * 2500);
 })();
