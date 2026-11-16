@@ -51,8 +51,17 @@ class AirChange(Schema):
     by: str
 
 
+class AirStanding(Schema):
+    """Модерация игрока в эфире — с любой учётки."""
+    muted_until: datetime | None
+    rx_only: bool
+
+
 class AirSign(Schema):
-    player: AirPlayer
+    account: int
+    label: str                               # логин@хост
+    player: AirPlayer | None                 # владелец учётки игрока; у сюжетной — пусто
+    standing: AirStanding | None             # модерация владельца
     name: str
     changed_at: datetime | None
     muted_until: datetime | None
@@ -62,6 +71,11 @@ class AirSign(Schema):
 
 class AirSignIn(Schema):
     name: str | None = None
+    rx_only: bool | None = None
+    mute_minutes: int | None = None          # 0: снять заглушку
+
+
+class AirStandingIn(Schema):
     rx_only: bool | None = None
     mute_minutes: int | None = None          # 0: снять заглушку
 
@@ -233,38 +247,67 @@ def transmit(request, body: AirTx):
         _refuse(error)
 
 
+def _standing(user):
+    found = radio.standing_of(user)
+    return AirStanding(muted_until=found.muted_until, rx_only=found.rx_only)
+
+
 def _sign(sign):
-    changes = CallsignChange.objects.filter(user=sign.user).select_related("by")[:20]
-    return AirSign(player=_player(sign.user), name=sign.name, changed_at=sign.changed_at, muted_until=sign.muted_until, rx_only=sign.rx_only,
+    profile = sign.profile
+    owner = profile.user if profile.user_id else None
+    changes = CallsignChange.objects.filter(profile=profile).select_related("by")[:20]
+    return AirSign(account=profile.pk, label=f"{profile.login}@{profile.machine.hostname}", player=_player(owner),
+                   standing=_standing(owner) if owner is not None else None, name=sign.name, changed_at=sign.changed_at,
+                   muted_until=sign.muted_until, rx_only=sign.rx_only,
                    history=[AirChange(old=c.old, new=c.new, at=c.at, by=c.by.get_username() if c.by else "") for c in changes])
 
 
 @router.get("/callsigns", response=list[AirSign])
 def callsigns(request, q: str = ""):
-    found = Callsign.objects.select_related("user").prefetch_related("user__socialaccount_set").filter(user__sandbox_of__isnull=True)
+    """Позывные учёток (сюжетных и учёток игроков); у учётки игрока — её владелец и его модерация."""
+    found = (Callsign.objects.select_related("profile__machine", "profile__user").prefetch_related("profile__user__socialaccount_set")
+             .exclude(profile__user__sandbox_of__isnull=False))
     if q.strip():
-        found = found.filter(Q(name__icontains=q.strip()) | Q(user__username__icontains=q.strip()))
+        found = found.filter(Q(name__icontains=q.strip()) | Q(profile__user__username__icontains=q.strip()) | Q(profile__login__icontains=q.strip()))
     return [_sign(sign) for sign in found.order_by("name")[:300]]
 
 
-@router.get("/callsigns/{int:user_id}", response=AirSign)
-def callsign(request, user_id: int):
-    return _sign(radio.callsign_of(get_object_or_404(get_user_model(), pk=user_id)))
+def _account(account_id):
+    from machines.models import MachineProfile
+
+    return get_object_or_404(MachineProfile.objects.select_related("machine", "user"), pk=account_id)
 
 
-@router.put("/callsigns/{int:user_id}", response=AirSign)
-def change_callsign(request, user_id: int, body: AirSignIn):
-    user = get_object_or_404(get_user_model(), pk=user_id)
+@router.get("/callsigns/{int:account_id}", response=AirSign)
+def callsign(request, account_id: int):
+    return _sign(radio.callsign_of(_account(account_id)))
+
+
+@router.put("/callsigns/{int:account_id}", response=AirSign)
+def change_callsign(request, account_id: int, body: AirSignIn):
+    """Позывной учётки: сменить, заглушить, отобрать передатчик — у всех, кто на ней."""
+    profile = _account(account_id)
     try:
         if body.name is not None:
-            radio.rename(user, body.name, by=request.user)
+            radio.rename(profile, body.name, by=request.user)
         if body.rx_only is not None:
-            radio.set_rx_only(user, body.rx_only)
+            radio.set_rx_only(profile, body.rx_only)
         if body.mute_minutes is not None:
-            radio.silence(user, max(0, body.mute_minutes))
+            radio.silence(profile, max(0, body.mute_minutes))
     except radio.AirError as error:
         _refuse(error)
-    return _sign(radio.callsign_of(user))
+    return _sign(radio.callsign_of(profile))
+
+
+@router.put("/players/{int:user_id}", response=AirStanding)
+def change_standing(request, user_id: int, body: AirStandingIn):
+    """Модерация игрока: заглушить или отобрать передатчик — с любой учётки."""
+    user = get_object_or_404(get_user_model(), pk=user_id)
+    if body.rx_only is not None:
+        radio.set_rx_only(user, body.rx_only)
+    if body.mute_minutes is not None:
+        radio.silence(user, max(0, body.mute_minutes))
+    return _standing(user)
 
 
 def _station(row):

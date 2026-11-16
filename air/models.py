@@ -7,13 +7,14 @@ from django.utils import timezone
 
 
 class Callsign(models.Model):
-    """Позывной игрока в эфире. Настоящее имя (Discord) видят только авторы."""
+    """Позывной учётки: подпись в эфире и на форуме для всех, кто пишет с неё. У учётки игрока — из его имени в Discord,
+    у сюжетной — из логина (или как задал автор). Заглушить и отобрать передатчик можно у учётки (молчит у всех на ней)."""
 
-    user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="callsign")
+    profile = models.OneToOneField("machines.MachineProfile", on_delete=models.CASCADE, related_name="callsign")
     name = models.CharField("Позывной", max_length=16, unique=True)
     changed_at = models.DateTimeField("Сменён игроком", null=True, blank=True)
     muted_until = models.DateTimeField("Заглушён до", null=True, blank=True)
-    rx_only = models.BooleanField("Только приём", default=False, help_text="Передатчик отобран: игрок слушает, но не передаёт.")
+    rx_only = models.BooleanField("Только приём", default=False, help_text="Передатчик учётки отобран: с неё слушают, но не передают.")
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -25,8 +26,16 @@ class Callsign(models.Model):
         return self.name
 
 
+class AirStanding(models.Model):
+    """Модерация игрока в эфире: заглушён или без передатчика с любой учётки."""
+
+    user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="air_standing")
+    muted_until = models.DateTimeField("Заглушён до", null=True, blank=True)
+    rx_only = models.BooleanField("Только приём", default=False, help_text="Передатчик отобран: игрок слушает, но не передаёт ни с какой учётки.")
+
+
 class CallsignChange(models.Model):
-    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="callsign_changes")
+    profile = models.ForeignKey("machines.MachineProfile", on_delete=models.CASCADE, related_name="callsign_changes")
     old = models.CharField(max_length=16)
     new = models.CharField(max_length=16)
     at = models.DateTimeField(auto_now_add=True)

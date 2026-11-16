@@ -320,11 +320,11 @@ def _reply(row):
 def _player(user):
     if user is None:
         return None
-    from air.radio import callsign_of
+    from air.radio import account_of, callsign_of
     from team import players
 
     card = players.card(user)
-    return ChPlayer(username=user.get_username(), callsign=callsign_of(user).name,
+    return ChPlayer(username=user.get_username(), callsign=callsign_of(account_of(user)).name,
                     accounts=[f"{row['profile'].login}@{row['profile'].machine.hostname}" for row in card["accounts"]],
                     keys=sorted({row["name"] or row["slug"] for row in card["keys"]}), online=card["online"])
 

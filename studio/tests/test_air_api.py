@@ -39,14 +39,19 @@ class AirApiTests(TestCase):
         self.assertFalse(self.call("post", f"/air/transmissions/{sent.pk}/unhide")[1]["hidden"])
 
     def test_callsigns_mute_and_take_the_transmitter(self):
-        radio.callsign_of(self.ivan)
-        status, sign = self.call("put", f"/air/callsigns/{self.ivan.pk}", {"name": "zephyr", "rx_only": True})
-        self.assertEqual((status, sign["name"], sign["rx_only"], sign["history"][0]["by"]), (200, "ZEPHYR", True, "boss"))
+        account = radio.account_of(self.ivan)
+        radio.callsign_of(account)
+        status, sign = self.call("put", f"/air/callsigns/{account.pk}", {"name": "zephyr", "rx_only": True})
+        self.assertEqual((status, sign["name"], sign["rx_only"], sign["history"][0]["by"], sign["player"]["username"]), (200, "ZEPHYR", True, "boss", "ivan"))
         with self.assertRaises(radio.AirError):
             radio.transmit(self.ivan, "7.115", "x")
-        sign = self.call("put", f"/air/callsigns/{self.ivan.pk}", {"rx_only": False, "mute_minutes": 30})[1]
+        sign = self.call("put", f"/air/callsigns/{account.pk}", {"rx_only": False, "mute_minutes": 30})[1]
         self.assertIsNotNone(sign["muted_until"])
-        self.assertEqual(self.call("put", f"/air/callsigns/{self.ivan.pk}", {"mute_minutes": 0})[1]["muted_until"], None)
+        self.assertEqual(self.call("put", f"/air/callsigns/{account.pk}", {"mute_minutes": 0})[1]["muted_until"], None)
+        standing = self.call("put", f"/air/players/{self.ivan.pk}", {"rx_only": True})[1]             # игрок — с любой учётки
+        self.assertTrue(standing["rx_only"])
+        with self.assertRaises(radio.AirError):
+            radio.transmit(self.ivan, "7.115", "x")
         self.assertEqual([s["name"] for s in self.call("get", "/air/callsigns?q=zep")[1]], ["ZEPHYR"])
 
     def test_stations_bands_and_station_transmissions(self):

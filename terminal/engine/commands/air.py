@@ -27,6 +27,17 @@ def _keys(context):
     return request_keys(request)
 
 
+def _account(context):
+    """Учётка, с которой терминал выходит в эфир: учётка сессии терминала."""
+    return context.session.profile
+
+
+def _box(context, user):
+    from mail.boxes import Box
+
+    return Box.of_profile(_account(context), user)
+
+
 def _hhmm(moment, machine=None):
     from machines.world import chrono
 
@@ -51,7 +62,7 @@ class AirCommand(BaseCommand):
             if sub == "scan":
                 return self._scan(context, user, rest)
             if sub == "call":
-                return self._call(user, rest)
+                return self._call(context, user, rest)
             if sub == "key":
                 return self._key(context, rest)
         except radio.AirError as error:
@@ -75,7 +86,7 @@ class AirCommand(BaseCommand):
 
     def _status(self, context, user):
         freq, since = self._tuned(context)
-        who = radio.callsign_of(user).name if user is not None else "listener (sign in to transmit)"
+        who = radio.callsign_of(_account(context)).name if user is not None else "listener (sign in to transmit)"
         return CommandResult(f"rx {freq:.3f} MHz since {_hhmm(since, context.machine)}\ncallsign {who}")
 
     def _tune(self, context, user, rest):
@@ -93,7 +104,8 @@ class AirCommand(BaseCommand):
         if not rest:
             return CommandResult("usage: air tx <text>", 2)
         freq, _since = self._tuned(context)
-        radio.transmit(user, freq, " ".join(rest), machine=context.machine, keys=_keys(context), air_key=self._cipher(context, freq))
+        radio.transmit(user, freq, " ".join(rest), machine=context.machine, keys=_keys(context), air_key=self._cipher(context, freq),
+                       box=_box(context, user))
         return CommandResult(f"tx {freq:.3f} MHz ok")
 
     def _log(self, context, user, rest):
@@ -155,10 +167,11 @@ class AirCommand(BaseCommand):
             session[CIPHER] = found
         return CommandResult(f"key on {freq:.3f}: {key}" if key else f"key removed on {freq:.3f}")
 
-    def _call(self, user, rest):
+    def _call(self, context, user, rest):
         if user is None:
             raise radio.AirError("sign in to get a callsign")
         if len(rest) > 1:
             return CommandResult("usage: air call [callsign]", 2)
-        sign = radio.rename(user, rest[0]) if rest else radio.callsign_of(user)
+        account = _account(context)
+        sign = radio.rename(account, rest[0], actor=user) if rest else radio.callsign_of(account)
         return CommandResult(f"callsign {sign.name}")

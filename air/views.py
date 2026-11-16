@@ -54,7 +54,9 @@ def _state(request):
     from machines.world import chrono
 
     since_label = chrono.stamp(since, current_machine(request), "%H:%M")
-    return {"freq": f"{freq:.3f}", "since": since.isoformat(), "callsign": radio.callsign_of(player).name if player else "",
+    from mail.boxes import box_for
+
+    return {"freq": f"{freq:.3f}", "since": since.isoformat(), "callsign": radio.callsign_of(radio.account_of(player, box_for(request))).name if player else "",
             "can_tx": player is not None, "calling": f"{radio.CALLING:.3f}", "label": label,
             "inhibit": band is not None and band.kind == band.Kind.RESERVED,
             "since_label": since_label, "key": _cipher(request, freq), "low": f"{radio.LOW:.3f}", "high": f"{radio.HIGH:.3f}", "scan_width": f"{radio.SCAN_WIDTH:.3f}"}
@@ -164,7 +166,9 @@ def callsign(request):
     if player is None:
         return _error("sign in to get a callsign", 403)
     try:
-        sign = radio.rename(player, json.loads(request.body or b"{}").get("name", ""))
+        from mail.boxes import box_for
+
+        sign = radio.rename(radio.account_of(player, box_for(request)), json.loads(request.body or b"{}").get("name", ""), actor=player)
     except radio.AirError as error:
         return _error(error)
     return JsonResponse({"callsign": sign.name})

@@ -74,7 +74,7 @@ def _props(name, key, run):
 
         user = _player(run, key)
         return user and {"value": user.get_username(), "name": user.get_username(),
-                         "callsign": Callsign.objects.filter(user=user).values_list("name", flat=True).first() or ""}
+                         "callsign": Callsign.objects.filter(profile__machine__hostname="aether-main", profile__user=user).values_list("name", flat=True).first() or ""}
     return None
 
 

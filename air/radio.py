@@ -11,7 +11,7 @@ from decimal import ROUND_HALF_UP, Decimal, InvalidOperation
 from django.db.models import Count, Max, Q
 from django.utils import timezone
 
-from air.models import Band, Callsign, CallsignChange, Report, Station, Transmission
+from air.models import AirStanding, Band, Callsign, CallsignChange, Report, Station, Transmission
 
 LOW, HIGH, STEP = Decimal("3.000"), Decimal("30.000"), Decimal("0.005")
 CALLING = Decimal("14.230")              # вызывной канал: его слышат все, включая гостей
@@ -56,10 +56,10 @@ def _normalize(text):
     return name[:12].strip("-") or "OP"
 
 
-def _taken(name, user=None):
+def _taken(name, profile=None):
     if Station.objects.filter(name=name).exists():
         return True
-    return Callsign.objects.filter(name=name).exclude(user=user).exists()
+    return Callsign.objects.filter(name=name).exclude(profile=profile).exists()
 
 
 def _discord_name(user):
@@ -68,33 +68,57 @@ def _discord_name(user):
     return data.get("global_name") or data.get("username") or user.get_username()
 
 
-def callsign_of(user):
-    """Позывной игрока: создаётся при первом обращении из имени Discord (или логина), при совпадении с номером."""
-    found = Callsign.objects.filter(user=user).first()
+def account_of(user, box=None, account=None):
+    """Учётка, с которой игрок выходит в эфир или пишет на форум: названная, учётка ящика, иначе своя на aether-main."""
+    from machines.models import MachineProfile
+
+    if account is not None:
+        return account
+    profile = getattr(box, "profile", None)
+    if isinstance(profile, MachineProfile):
+        return profile
+    from machines.current import MAIN_HOSTNAME, home_account
+    from machines.models import Machine
+
+    Machine.objects.get_or_create(hostname=MAIN_HOSTNAME, defaults={"name": "Main"})      # своя учётка живёт на aether-main
+    return home_account(user)
+
+
+def callsign_of(profile):
+    """Позывной учётки: создаётся при первом обращении — у учётки игрока из имени Discord (или логина), у сюжетной из логина;
+    при совпадении с номером."""
+    found = Callsign.objects.filter(profile=profile).first()
     if found is not None:
         return found
-    base = _normalize(_discord_name(user))
+    base = _normalize(_discord_name(profile.user) if profile.user_id else profile.login)
     name, n = base, 1
     while _taken(name):
         n += 1
         name = f"{base[:12 - len(str(n)) - 1]}-{n}"
-    return Callsign.objects.create(user=user, name=name)
+    return Callsign.objects.create(profile=profile, name=name)
 
 
-def rename(user, new, by=None):
-    """Сменить позывной. Игрок сам: не чаще раза в RENAME_EVERY. Автор (by): без ограничения."""
-    sign = callsign_of(user)
+def standing_of(user):
+    """Модерация игрока в эфире (заглушка, отобранный передатчик) — с любой учётки."""
+    return AirStanding.objects.get_or_create(user=user)[0]
+
+
+def rename(profile, new, by=None, actor=None):
+    """Сменить позывной учётки. Игрок (actor) — только своей учётки и не чаще раза в RENAME_EVERY. Автор (by): без ограничения."""
+    if by is None and actor is not None and profile.user_id != actor.pk:
+        raise AirError("callsign belongs to the account owner")
+    sign = callsign_of(profile)
     name = (new or "").strip().upper()
     if not _NAME.match(name):
         raise AirError("callsign: 2-12 letters, digits or '-', starting with a letter")
     if name == sign.name:
         return sign
-    if _taken(name, user):
+    if _taken(name, profile):
         raise AirError(f"callsign {name} is taken")
     now = timezone.now()
     if by is None and sign.changed_at is not None and now - sign.changed_at < RENAME_EVERY:
         raise AirError("callsign can be changed once a week")
-    CallsignChange.objects.create(user=user, old=sign.name, new=name, by=by)
+    CallsignChange.objects.create(profile=profile, old=sign.name, new=name, by=by)
     sign.name = name
     if by is None:
         sign.changed_at = now
@@ -148,11 +172,13 @@ def transmit(user, freq, text, machine=None, now=None, keys=frozenset(), box=Non
 
     now = now or timezone.now()
     freq = parse_freq(freq)
-    sign = callsign_of(user)
-    if sign.rx_only:
-        raise AirError("transmitter disabled")
-    if sign.muted_until and sign.muted_until > now:
-        raise AirError(f"transmitter silenced until {timezone.localtime(sign.muted_until):%H:%M}")
+    sign = callsign_of(account_of(user, box))
+    standing = standing_of(user)
+    for held in (standing, sign):                       # и игрок, и учётка должны быть в эфире
+        if held.rx_only:
+            raise AirError("transmitter disabled")
+        if held.muted_until and held.muted_until > now:
+            raise AirError(f"transmitter silenced until {timezone.localtime(held.muted_until):%H:%M}")
     band = band_of(freq)
     if band is not None and band.kind == Band.Kind.RESERVED:
         raise AirError(f"{freq} is a reserved band")
@@ -275,18 +301,26 @@ def unhide(transmission):
     bridge.on_unhide(transmission)
 
 
-def silence(user, minutes):
-    sign = callsign_of(user)
-    sign.muted_until = timezone.now() + timedelta(minutes=minutes) if minutes else None
-    sign.save(update_fields=["muted_until"])
-    return sign
+def silence(held, minutes):
+    """Заглушить на minutes минут (0 — снять): игрока (пользователь) или учётку (её позывной, MachineProfile)."""
+    held = _held(held)
+    held.muted_until = timezone.now() + timedelta(minutes=minutes) if minutes else None
+    held.save(update_fields=["muted_until"])
+    return held
 
 
-def set_rx_only(user, value):
-    sign = callsign_of(user)
-    sign.rx_only = bool(value)
-    sign.save(update_fields=["rx_only"])
-    return sign
+def set_rx_only(held, value):
+    """Отобрать или вернуть передатчик: игроку или учётке."""
+    held = _held(held)
+    held.rx_only = bool(value)
+    held.save(update_fields=["rx_only"])
+    return held
+
+
+def _held(what):
+    from machines.models import MachineProfile
+
+    return callsign_of(what) if isinstance(what, MachineProfile) else standing_of(what)
 
 
 def report(transmission, user, reason=""):

@@ -3543,7 +3543,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Callsigns */
+        /**
+         * Callsigns
+         * @description Позывные учёток (сюжетных и учёток игроков); у учётки игрока — её владелец и его модерация.
+         */
         get: operations["studio_api_air_callsigns"];
         put?: never;
         post?: never;
@@ -3553,7 +3556,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/studio/api/air/callsigns/{user_id}": {
+    "/studio/api/air/callsigns/{account_id}": {
         parameters: {
             query?: never;
             header?: never;
@@ -3562,8 +3565,31 @@ export interface paths {
         };
         /** Callsign */
         get: operations["studio_api_air_callsign"];
-        /** Change Callsign */
+        /**
+         * Change Callsign
+         * @description Позывной учётки: сменить, заглушить, отобрать передатчик — у всех, кто на ней.
+         */
         put: operations["studio_api_air_change_callsign"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/studio/api/air/players/{user_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Change Standing
+         * @description Модерация игрока: заглушить или отобрать передатчик — с любой учётки.
+         */
+        put: operations["studio_api_air_change_standing"];
         post?: never;
         delete?: never;
         options?: never;
@@ -9926,7 +9952,12 @@ export interface components {
         };
         /** AirSign */
         AirSign: {
-            player: components["schemas"]["AirPlayer"];
+            /** Account */
+            account: number;
+            /** Label */
+            label: string;
+            player: components["schemas"]["AirPlayer"] | null;
+            standing: components["schemas"]["AirStanding"] | null;
             /** Name */
             name: string;
             /** Changed At */
@@ -9938,10 +9969,27 @@ export interface components {
             /** History */
             history: components["schemas"]["AirChange"][];
         };
+        /**
+         * AirStanding
+         * @description Модерация игрока в эфире — с любой учётки.
+         */
+        AirStanding: {
+            /** Muted Until */
+            muted_until: string | null;
+            /** Rx Only */
+            rx_only: boolean;
+        };
         /** AirSignIn */
         AirSignIn: {
             /** Name */
             name?: string | null;
+            /** Rx Only */
+            rx_only?: boolean | null;
+            /** Mute Minutes */
+            mute_minutes?: number | null;
+        };
+        /** AirStandingIn */
+        AirStandingIn: {
             /** Rx Only */
             rx_only?: boolean | null;
             /** Mute Minutes */
@@ -18112,7 +18160,7 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                user_id: number;
+                account_id: number;
             };
             cookie?: never;
         };
@@ -18134,7 +18182,7 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                user_id: number;
+                account_id: number;
             };
             cookie?: never;
         };
@@ -18151,6 +18199,32 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["AirSign"];
+                };
+            };
+        };
+    };
+    studio_api_air_change_standing: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                user_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AirStandingIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AirStanding"];
                 };
             };
         };

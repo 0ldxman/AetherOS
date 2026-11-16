@@ -10957,6 +10957,7 @@
       }
      }
     },
+    "description": "Позывные учёток (сюжетных и учёток игроков); у учётки игрока — её владелец и его модерация.",
     "tags": [
      "air"
     ],
@@ -10967,16 +10968,16 @@
     ]
    }
   },
-  "/studio/api/air/callsigns/{user_id}": {
+  "/studio/api/air/callsigns/{account_id}": {
    "get": {
     "operationId": "studio_api_air_callsign",
     "summary": "Callsign",
     "parameters": [
      {
       "in": "path",
-      "name": "user_id",
+      "name": "account_id",
       "schema": {
-       "title": "User Id",
+       "title": "Account Id",
        "type": "integer"
       },
       "required": true
@@ -11009,9 +11010,9 @@
     "parameters": [
      {
       "in": "path",
-      "name": "user_id",
+      "name": "account_id",
       "schema": {
-       "title": "User Id",
+       "title": "Account Id",
        "type": "integer"
       },
       "required": true
@@ -11029,6 +11030,7 @@
       }
      }
     },
+    "description": "Позывной учётки: сменить, заглушить, отобрать передатчик — у всех, кто на ней.",
     "tags": [
      "air"
     ],
@@ -11037,6 +11039,54 @@
       "application/json": {
        "schema": {
         "$ref": "#/components/schemas/AirSignIn"
+       }
+      }
+     },
+     "required": true
+    },
+    "security": [
+     {
+      "StudioAuth": []
+     }
+    ]
+   }
+  },
+  "/studio/api/air/players/{user_id}": {
+   "put": {
+    "operationId": "studio_api_air_change_standing",
+    "summary": "Change Standing",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "user_id",
+      "schema": {
+       "title": "User Id",
+       "type": "integer"
+      },
+      "required": true
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/AirStanding"
+        }
+       }
+      }
+     }
+    },
+    "description": "Модерация игрока: заглушить или отобрать передатчик — с любой учётки.",
+    "tags": [
+     "air"
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/AirStandingIn"
        }
       }
      },
@@ -27963,8 +28013,33 @@
    },
    "AirSign": {
     "properties": {
+     "account": {
+      "title": "Account",
+      "type": "integer"
+     },
+     "label": {
+      "title": "Label",
+      "type": "string"
+     },
      "player": {
-      "$ref": "#/components/schemas/AirPlayer"
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/AirPlayer"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "standing": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/AirStanding"
+       },
+       {
+        "type": "null"
+       }
+      ]
      },
      "name": {
       "title": "Name",
@@ -28007,7 +28082,10 @@
      }
     },
     "required": [
+     "account",
+     "label",
      "player",
+     "standing",
      "name",
      "changed_at",
      "muted_until",
@@ -28015,6 +28093,33 @@
      "history"
     ],
     "title": "AirSign",
+    "type": "object"
+   },
+   "AirStanding": {
+    "description": "Модерация игрока в эфире — с любой учётки.",
+    "properties": {
+     "muted_until": {
+      "anyOf": [
+       {
+        "format": "date-time",
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Muted Until"
+     },
+     "rx_only": {
+      "title": "Rx Only",
+      "type": "boolean"
+     }
+    },
+    "required": [
+     "muted_until",
+     "rx_only"
+    ],
+    "title": "AirStanding",
     "type": "object"
    },
    "AirSignIn": {
@@ -28054,6 +28159,34 @@
      }
     },
     "title": "AirSignIn",
+    "type": "object"
+   },
+   "AirStandingIn": {
+    "properties": {
+     "rx_only": {
+      "anyOf": [
+       {
+        "type": "boolean"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Rx Only"
+     },
+     "mute_minutes": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Mute Minutes"
+     }
+    },
+    "title": "AirStandingIn",
     "type": "object"
    },
    "AirStation": {

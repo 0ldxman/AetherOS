@@ -23,6 +23,14 @@ def _player(request):
     return request.user if request.user.is_authenticated else None
 
 
+def _account(request):
+    """Учётка рабочего стола: с неё пишут на форум (её позывной — подпись)."""
+    from machines.current import active_session
+
+    session = active_session(request) if request.user.is_authenticated else None
+    return session.profile if session is not None else None
+
+
 def _space(request, slug):
     """Пространство, которое видит игрок на этой машине, или 404."""
     machine, keys = _context(request)
@@ -106,7 +114,7 @@ def spaces(request):
     player = _player(request)
     return JsonResponse({
         "node": machine.hostname if machine is not None else "",
-        "callsign": logic.author_name(player) if player else "",
+        "callsign": logic.author_name(player, _account(request)) if player else "",
         "spaces": [{"slug": s.slug, "title": s.title, "about": s.about} for s in logic.spaces_for(machine, keys)],
     })
 
@@ -288,7 +296,7 @@ def new_topic(request):
     _, keys = _context(request)
     try:
         snapshots = _snapshots(request, data, keys)
-        created = logic.start_topic(found, _player(request), data.get("title"), data.get("text"), keys)
+        created = logic.start_topic(found, _player(request), data.get("title"), data.get("text"), keys, account=_account(request))
         attach.attach(created.posts.get(root=True), snapshots)
     except logic.ForumError as error:
         return _error(error, 403)
@@ -303,7 +311,7 @@ def new_post(request):
     parent = Post.objects.filter(pk=data["parent"], topic=found).first() if data.get("parent") else None
     try:
         snapshots = _snapshots(request, data, keys)
-        created = logic.reply(found, _player(request), data.get("text"), keys, parent=parent)
+        created = logic.reply(found, _player(request), data.get("text"), keys, parent=parent, account=_account(request))
         attach.attach(created, snapshots)
     except logic.ForumError as error:
         return _error(error, 403)

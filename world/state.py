@@ -117,10 +117,11 @@ def _log(kind, subject, text, source="", user=None):
 
 def _who(source, user):
     if user is not None:
-        from air.radio import callsign_of
+        from air.radio import account_of, callsign_of
 
         try:
-            return f"{source} · {callsign_of(user).name}" if source else callsign_of(user).name
+            name = callsign_of(account_of(user)).name
+            return f"{source} · {name}" if source else name
         except Exception:                                   # noqa: BLE001 — позывной не обязателен для журнала
             return source or user.get_username()
     return source

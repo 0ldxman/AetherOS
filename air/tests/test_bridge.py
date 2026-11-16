@@ -55,7 +55,7 @@ class BridgeTests(TestCase):
         self.assertEqual(bridge.outbox(), [])                                   # своё обратно в канал не уходит
         self.assertEqual(bridge.inbound("123456789012345678", "777", "who am i", "43"), (None, "sign in to the game with Discord to transmit"))
         self.assertEqual(bridge.inbound("1", "555", "x", "44")[1], "no bridge")
-        radio.callsign_of(self.ivan).__class__.objects.filter(user=self.ivan).update(rx_only=True)
+        radio.set_rx_only(self.ivan, True)
         self.assertEqual(bridge.inbound("123456789012345678", "555", "again", "45")[1], "transmitter disabled")
         radio.hide(made, None)
         self.assertEqual(bridge.to_delete()[0][2], "42")                        # скрытие удаляет и исходное сообщение в Discord

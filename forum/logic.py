@@ -91,10 +91,11 @@ def posts_of(topic):
 
 # ---- подписи ----
 
-def author_name(user):
+def author_name(user, account=None):
+    """Подпись записи: позывной учётки, с которой пишут (по умолчанию — своей учётки игрока)."""
     from air import radio
 
-    return radio.callsign_of(user).name
+    return radio.callsign_of(radio.account_of(user, account=account)).name
 
 
 def _clean(text, limit, what):
@@ -115,12 +116,12 @@ def _rate(user):
 # ---- записи игрока ----
 
 @transaction.atomic
-def start_topic(section, user, title, text, keys):
+def start_topic(section, user, title, text, keys, account=None):
     if not can_write(section, user, keys):
         raise ForumError("в этот раздел писать нельзя")
     title, text = _clean(title, TITLE_MAX, "заголовок"), _clean(text, TEXT_MAX, "текст")
     _rate(user)
-    topic = _create_topic(section, user, title, text, Kind.PLAYER, author_name(user))
+    topic = _create_topic(section, user, title, text, Kind.PLAYER, author_name(user, account))
     from engine.events import emit
 
     emit("forum.posted", user, topic=topic.pk, title=topic.title, section=section.pk, new_topic=True)
@@ -131,14 +132,14 @@ def start_topic(section, user, title, text, keys):
 
 
 @transaction.atomic
-def reply(topic, user, text, keys, parent=None):
+def reply(topic, user, text, keys, parent=None, account=None):
     if topic.hidden_at is not None or not can_write(topic.section, user, keys):
         raise ForumError("отвечать нельзя")
     if topic.locked:
         raise ForumError("тема закрыта")
     text = _clean(text, TEXT_MAX, "текст")
     _rate(user)
-    post = _add_post(topic, user, text, Kind.PLAYER, author_name(user), parent)
+    post = _add_post(topic, user, text, Kind.PLAYER, author_name(user, account), parent)
     from engine.events import emit
 
     emit("forum.posted", user, topic=topic.pk, title=topic.title, section=topic.section_id, post=post.pk)

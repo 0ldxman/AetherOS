@@ -28,23 +28,48 @@ class AirTests(TestCase):
                 radio.parse_freq(bad)
 
     def test_callsigns_come_from_the_name_are_unique_and_reserved(self):
+        from machines.models import MachineProfile
+
         Station.objects.create(name="CORE")
         core = get_user_model().objects.create_user("core")
-        self.assertEqual(radio.callsign_of(self.ivan).name, "IVAN")
-        self.assertEqual(radio.callsign_of(core).name, "CORE-2")                    # имя станции занято
+        ivan, olga = radio.account_of(self.ivan), radio.account_of(self.olga)          # свои учётки на aether-main
+        self.assertEqual(radio.callsign_of(ivan).name, "IVAN")
+        self.assertEqual(radio.callsign_of(radio.account_of(core)).name, "CORE-2")     # имя станции занято
         with self.assertRaises(radio.AirError):
-            radio.rename(self.olga, "CORE")
+            radio.rename(olga, "CORE", actor=self.olga)
         with self.assertRaises(radio.AirError):
-            radio.rename(self.olga, "IVAN")
+            radio.rename(olga, "IVAN", actor=self.olga)
         with self.assertRaises(radio.AirError):
-            radio.rename(self.olga, "9lives")
-        radio.rename(self.olga, "zephyr-7")
-        self.assertEqual(Callsign.objects.get(user=self.olga).name, "ZEPHYR-7")
+            radio.rename(olga, "9lives", actor=self.olga)
+        radio.rename(olga, "zephyr-7", actor=self.olga)
+        self.assertEqual(Callsign.objects.get(profile=olga).name, "ZEPHYR-7")
         with self.assertRaises(radio.AirError):
-            radio.rename(self.olga, "NORTH")                                         # раз в неделю
+            radio.rename(olga, "NORTH", actor=self.olga)                             # раз в неделю
         author = get_user_model().objects.create_user("boss", is_staff=True)
-        radio.rename(self.olga, "NORTH", by=author)                                  # автору можно
-        self.assertEqual(list(CallsignChange.objects.filter(user=self.olga).values_list("new", flat=True)), ["NORTH", "ZEPHYR-7"])
+        radio.rename(olga, "NORTH", by=author)                                       # автору можно
+        self.assertEqual(list(CallsignChange.objects.filter(profile=olga).values_list("new", flat=True)), ["NORTH", "ZEPHYR-7"])
+        guard = MachineProfile.objects.create(machine=ivan.machine, login="guard", name="Guard", freq=5)
+        self.assertEqual(radio.callsign_of(guard).name, "GUARD")                     # у сюжетной — из логина
+        with self.assertRaises(radio.AirError):
+            radio.rename(guard, "WOLF", actor=self.ivan)                             # чужой учётке игрок не меняет
+
+    def test_the_callsign_is_of_the_account_and_moderation_is_of_both(self):
+        from types import SimpleNamespace
+
+        from machines.models import MachineProfile
+
+        home = radio.account_of(self.ivan)
+        guard = MachineProfile.objects.create(machine=home.machine, login="guard", name="Guard", freq=5)
+        on_guard = SimpleNamespace(profile=guard, login="guard")
+        self.assertEqual(radio.transmit(self.ivan, "7.115", "from guard", now=self.t0, box=on_guard).callsign, "GUARD")
+        self.assertEqual(radio.transmit(self.olga, "7.115", "me too", now=self.t0, box=on_guard).callsign, "GUARD")   # одна подпись
+        radio.silence(guard, 30)                                                     # заглушена учётка: молчат все на ней
+        with self.assertRaises(radio.AirError):
+            radio.transmit(self.olga, "7.115", "x", now=self.t0 + timedelta(seconds=10), box=on_guard)
+        self.assertEqual(radio.transmit(self.olga, "7.115", "home", now=self.t0 + timedelta(seconds=10)).callsign, "OLGA")
+        radio.silence(self.olga, 30)                                                 # заглушён игрок: молчит с любой учётки
+        with self.assertRaises(radio.AirError):
+            radio.transmit(self.olga, "7.115", "x", now=self.t0 + timedelta(seconds=20))
 
     def test_a_listener_hears_only_what_came_after_tuning_in(self):
         self.tx(self.ivan, "7.115", "before")

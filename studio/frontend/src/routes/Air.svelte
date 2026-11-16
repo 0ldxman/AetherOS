@@ -57,8 +57,16 @@
     const { data } = await api.POST("/studio/api/air/transmissions/{tx_id}/unhide", { params: { path: { tx_id: row.id } } });
     if (data) patch(data);
   }
-  async function sign(userId: number, body: Schemas["AirSignIn"], done: string) {
-    const { error } = await api.PUT("/studio/api/air/callsigns/{user_id}", { params: { path: { user_id: userId } }, body });
+  // позывной учётки: сменить, заглушить, отобрать передатчик у всех на ней
+  async function sign(accountId: number, body: Schemas["AirSignIn"], done: string) {
+    const { error } = await api.PUT("/studio/api/air/callsigns/{account_id}", { params: { path: { account_id: accountId } }, body });
+    if (error) return toast(problem(error), "error");
+    toast(done);
+    if (current === "callsigns") loadSigns();
+  }
+  // игрок: заглушить или отобрать передатчик с любой учётки
+  async function standing(userId: number, body: Schemas["AirStandingIn"], done: string) {
+    const { error } = await api.PUT("/studio/api/air/players/{user_id}", { params: { path: { user_id: userId } }, body });
     if (error) return toast(problem(error), "error");
     toast(done);
     if (current === "callsigns") loadSigns();
@@ -81,7 +89,7 @@
   }
   let signTimer: ReturnType<typeof setTimeout>;
   $effect(() => { sq; if (current !== "callsigns") return; clearTimeout(signTimer); signTimer = setTimeout(loadSigns, 200); });
-  const muted = (s: Schemas["AirSign"]) => !!s.muted_until && new Date(s.muted_until) > new Date();
+  const muted = (s: { muted_until?: string | null }) => !!s.muted_until && new Date(s.muted_until) > new Date();
 
   // ---------- частоты ----------
   let bands = $state<Schemas["AirBand"][]>([]);
@@ -191,7 +199,7 @@
             {#if row.hidden}<button class="btn ghost small" onclick={() => unhide(row)}>Вернуть</button>
             {:else}<button class="btn ghost small" onclick={() => hide(row)} title="У игроков станет «··· noise ···»">Скрыть</button>{/if}
             {#if row.player}
-              <button class="btn ghost small" onclick={() => sign(row.player!.id, { mute_minutes: 60 }, `${row.callsign} заглушён на час.`)}>Заглушить 1 ч</button>
+              <button class="btn ghost small" onclick={() => standing(row.player!.id, { mute_minutes: 60 }, `Игрок ${row.player!.username} заглушён на час.`)} title="Игрок не выйдет в эфир ни с какой учётки">Заглушить игрока 1 ч</button>
               <a class="btn ghost small" href="#/players/{row.player.id}" title={who(row.player)}>Игрок</a>
             {/if}
           </span>
@@ -211,35 +219,45 @@
       <button class="btn primary" disabled={!stations.length || !say.text.trim()}>Передать</button>
     </form>
   {:else if current === "callsigns"}
-    <div class="bar"><label class="find"><Icon name="search" size={14} /><input placeholder="Позывной или игрок" bind:value={sq} aria-label="Поиск позывного" /></label></div>
+    <div class="bar"><label class="find"><Icon name="search" size={14} /><input placeholder="Позывной, учётка или игрок" bind:value={sq} aria-label="Поиск позывного" /></label></div>
+    <p class="muted small">Позывной — у учётки: им подписан каждый, кто выходит в эфир или пишет на форум с неё. Заглушить учётку — молчат все на ней;
+      заглушить игрока — он молчит с любой учётки.</p>
     <table class="table">
-      <thead><tr><th>Позывной</th><th>Игрок</th><th>Состояние</th><th>Прежние</th><th></th></tr></thead>
+      <thead><tr><th>Позывной</th><th>Учётка</th><th>Игрок</th><th>Состояние</th><th>Прежние</th><th></th></tr></thead>
       <tbody>
-        {#each signs as s (s.player.id)}
+        {#each signs as s (s.account)}
           <tr>
             <td class="mono">
-              {#if renaming === s.player.id}
-                <form onsubmit={(e) => { e.preventDefault(); sign(s.player.id, { name: newName }, "Позывной сменён."); renaming = null; }}>
+              {#if renaming === s.account}
+                <form onsubmit={(e) => { e.preventDefault(); sign(s.account, { name: newName }, "Позывной сменён."); renaming = null; }}>
                   <input class="field mono small" bind:value={newName} maxlength="12" aria-label="Новый позывной" />
                 </form>
               {:else}<b>{s.name}</b>{/if}
             </td>
-            <td><a href="#/players/{s.player.id}">{s.player.username}</a>{#if s.player.discord && s.player.discord !== s.player.username}<span class="muted small"> · {s.player.discord}</span>{/if}</td>
+            <td class="mono small">{s.label}</td>
+            <td>{#if s.player}<a href="#/players/{s.player.id}">{s.player.username}</a>{#if s.player.discord && s.player.discord !== s.player.username}<span class="muted small"> · {s.player.discord}</span>{/if}{:else}<span class="muted small">сюжетная</span>{/if}</td>
             <td>
-              {#if s.rx_only}<span class="badge warn">только приём</span>{/if}
-              {#if muted(s)}<span class="badge warn">заглушён до {when(s.muted_until)}</span>{/if}
-              {#if !s.rx_only && !muted(s)}<span class="muted small">в эфире</span>{/if}
+              {#if s.rx_only}<span class="badge warn">учётка: только приём</span>{/if}
+              {#if muted(s)}<span class="badge warn">учётка заглушена до {when(s.muted_until)}</span>{/if}
+              {#if s.standing?.rx_only}<span class="badge warn">игрок: только приём</span>{/if}
+              {#if s.standing && muted(s.standing)}<span class="badge warn">игрок заглушён до {when(s.standing.muted_until)}</span>{/if}
+              {#if !s.rx_only && !muted(s) && !s.standing?.rx_only && !(s.standing && muted(s.standing))}<span class="muted small">в эфире</span>{/if}
             </td>
             <td class="muted small">{s.history.map((h) => `${h.old} → ${h.new}${h.by ? ` (${h.by})` : ""}`).join(", ")}</td>
             <td class="acts">
-              <button class="btn ghost small" onclick={() => { renaming = s.player.id; newName = s.name; }}>Сменить</button>
-              {#if muted(s)}<button class="btn ghost small" onclick={() => sign(s.player.id, { mute_minutes: 0 }, "Заглушка снята.")}>Снять заглушку</button>
-              {:else}<button class="btn ghost small" onclick={() => sign(s.player.id, { mute_minutes: 60 }, "Заглушён на час.")}>Заглушить 1 ч</button>{/if}
-              <button class="btn ghost small" onclick={() => sign(s.player.id, { rx_only: !s.rx_only }, s.rx_only ? "Передатчик возвращён." : "Передатчик отобран.")}>{s.rx_only ? "Вернуть передатчик" : "Только приём"}</button>
+              <button class="btn ghost small" onclick={() => { renaming = s.account; newName = s.name; }}>Сменить</button>
+              {#if muted(s)}<button class="btn ghost small" onclick={() => sign(s.account, { mute_minutes: 0 }, "Заглушка учётки снята.")}>Снять заглушку</button>
+              {:else}<button class="btn ghost small" onclick={() => sign(s.account, { mute_minutes: 60 }, "Учётка заглушена на час.")}>Заглушить учётку 1 ч</button>{/if}
+              <button class="btn ghost small" onclick={() => sign(s.account, { rx_only: !s.rx_only }, s.rx_only ? "Передатчик учётки возвращён." : "Передатчик учётки отобран.")}>{s.rx_only ? "Вернуть передатчик" : "Только приём"}</button>
+              {#if s.player && s.standing}
+                {#if muted(s.standing)}<button class="btn ghost small" onclick={() => standing(s.player!.id, { mute_minutes: 0 }, "Заглушка игрока снята.")}>Снять заглушку игрока</button>{/if}
+                {#if s.standing.rx_only}<button class="btn ghost small" onclick={() => standing(s.player!.id, { rx_only: false }, "Передатчик игроку возвращён.")}>Вернуть передатчик игроку</button>
+                {:else}<button class="btn ghost small" onclick={() => standing(s.player!.id, { rx_only: true }, "Передатчик у игрока отобран.")} title="С любой учётки">Игрок: только приём</button>{/if}
+              {/if}
             </td>
           </tr>
         {:else}
-          <tr><td colspan="5" class="muted">Позывных пока нет: он появляется у игрока при первом выходе в эфир.</td></tr>
+          <tr><td colspan="6" class="muted">Позывных пока нет: он появляется у учётки при первом выходе в эфир с неё.</td></tr>
         {/each}
       </tbody>
     </table>
