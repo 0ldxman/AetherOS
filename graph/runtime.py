@@ -428,6 +428,8 @@ def value_of(run, doc, node_id, out, depth=0):
     if kind.name in N.PLACEMENT_ACTS or kind.name in N.MACHINE_ACTS:    # что сделало действие: запомнено при выполнении
         return (((run.state or {}).get("vals") or {}).get(node_id) or {}).get(out)
     get = lambda name: input_of(run, doc, node_id, name, depth + 1)       # noqa: E731
+    if kind.name == "act:mail" and out == "item":                       # письмо, которое отправляет нода
+        return get("item")
     if kind.group == N.ENTITY:
         from graph import entities
 

@@ -14,7 +14,7 @@
 
   const store = engine();
   const picks = (k: string) => store.catalog?.picks[k] ?? [];
-  const PICKED = ["key", "letter", "item", "object", "section", "character", "station", "machine", "moment", "graph", "scene", "system", "time_zone", "offer"];
+  const PICKED = ["key", "letter", "item", "object", "section", "character", "station", "machine", "moment", "graph", "scene", "system", "time_zone", "offer", "mail_ref", "attachment"];
   const LISTED = ["flag", "world_flag", "counter"];
   const fields = $derived([...kind.fields.filter((f) => !wireOnly(f.kind)).map((f) => ({ ...f, kind: plainKind(f.kind) })), ...(kind.group === "noun" && !kind.start_only ? (waiting ? catalog.wait_fields : catalog.start_fields) : [])]);
   const data = $derived(node.data);
@@ -110,6 +110,14 @@
             {#if data[f.name] && !picks(f.kind).some((o) => o.value === value(f.name))}<option value={value(f.name)}>{value(f.name)}</option>{/if}
             {#each picks(f.kind) as o (o.value)}<option value={o.value}>{o.label}</option>{/each}
           </select></label>
+      {:else if f.kind === "switch"}
+        {@const current = value(f.name) || f.options[0]?.value}
+        <div class="cell"><span class="label">{f.label}</span>
+          <div class="switch" role="radiogroup" aria-label={f.label}>
+            {#each f.options as o (o.value)}
+              <button type="button" role="radio" aria-checked={current === o.value} class:on={current === o.value} onclick={() => set(f.name, o.value)}>{o.label}</button>
+            {/each}
+          </div></div>
       {:else if f.kind === "select"}
         <label class="cell"><span class="label">{f.label}</span>
           <select class="field" value={value(f.name) || f.options[0]?.value} onchange={(e) => set(f.name, e.currentTarget.value)}>
@@ -190,6 +198,12 @@
   .spacer { flex: 1; }
   .fields { display: flex; flex-direction: column; gap: 9px; border: 0; padding: 0; margin: 0; min-width: 0; }
   .cell { display: flex; flex-direction: column; gap: 3px; }
+  .switch { display: flex; border: 1px solid var(--line); border-radius: var(--radius-s); overflow: hidden; background: var(--bg); }
+  .switch button { flex: 1 1 0; min-width: 0; padding: 5px 8px; border: 0; background: none; color: var(--muted); font: inherit; font-size: 12.5px; cursor: pointer; }
+  .switch button + button { border-left: 1px solid var(--line); }
+  .switch button.on { background: var(--accent-soft); color: var(--text); }
+  .switch button:not(.on):hover:enabled { color: var(--text); }
+  .switch button:focus-visible { outline: 1px solid var(--accent); outline-offset: -1px; }
   .label { font-size: 11.5px; color: var(--muted); margin: 0; }
   .check { display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; }
   .line { display: flex; gap: 6px; align-items: center; }

@@ -128,7 +128,8 @@ export function insOf(kind: Kind, data: Record<string, unknown>, iface: Iface | 
 
 // поля ноды, у которых есть вход (тип), и поля-параметры (выбор режима) — как в Blender
 export const socketFields = (kind: Kind) => kind.fields.filter((f) => f.socket);
-export const propFields = (kind: Kind) => kind.fields.filter((f) => !f.socket && f.kind === "select");
+export const isChoice = (f: Field) => f.kind === "select" || f.kind === "switch";        // переключатель — выбор кнопками [а | б]
+export const propFields = (kind: Kind) => kind.fields.filter((f) => !f.socket && isChoice(f));
 
 // тип сокета ноды: name "f:поле" — вход-поле
 export function sockType(kind: Kind, data: Record<string, unknown>, side: "in" | "out", name: string, iface: Iface | null = null): string {
@@ -271,7 +272,7 @@ export function summaryOf(kind: Kind, data: Record<string, unknown>, picks: Reco
     const value = data[name];
     if (value === undefined || value === null || value === "") return "";
     const field = kind.fields.find((f) => f.name === name);
-    if (field?.kind === "select") return field.options.find((o) => o.value === String(value))?.label ?? String(value);
+    if (field && isChoice(field)) return field.options.find((o) => o.value === String(value))?.label ?? String(value);
     if (field?.kind === "section") return picks.section?.find((o) => o.value === String(value))?.label ?? String(value);
     return String(value);
   });
@@ -292,7 +293,7 @@ export function freeId(doc: Level): string {
 
 export function defaults(kind: Kind): Record<string, unknown> {
   const data: Record<string, unknown> = {};
-  for (const f of kind.fields) if (f.kind === "select" && f.options.length) data[f.name] = f.options[0].value;
+  for (const f of kind.fields) if (isChoice(f) && f.options.length) data[f.name] = f.options[0].value;
   if (kind.name === "random") data.branches = [1, 1];
   if (kind.name === "choose") data.rows = [{ label: "", condition: "" }];
   for (const name of ["count"]) if (kind.fields.some((f) => f.name === name)) data[name] = kind.name === "first" ? 1 : 2;

@@ -125,10 +125,23 @@
   {#if params.length}
     <div class="props">
       {#each params as f (f.name)}
-        <select class="nodrag inline wide" value={val(f.name) || f.options[0]?.value} disabled={!data.editable} aria-label={f.label} title={f.label}
-                onchange={(e) => set(f.name, e.currentTarget.value)}>
-          {#each f.options as o (o.value)}<option value={o.value}>{o.label}</option>{/each}
-        </select>
+        {#if f.kind === "switch"}
+          {@const current = val(f.name) || f.options[0]?.value}
+          <div class="switch-row">
+            {#if kind.title !== f.name}<span class="switch-label">{f.label}</span>{/if}
+            <div class="nodrag switch" role="radiogroup" aria-label={f.label}>
+              {#each f.options as o (o.value)}
+                <button type="button" role="radio" aria-checked={current === o.value} class:on={current === o.value} disabled={!data.editable}
+                        onclick={() => set(f.name, o.value)}>{o.label}</button>
+              {/each}
+            </div>
+          </div>
+        {:else}
+          <select class="nodrag inline wide" value={val(f.name) || f.options[0]?.value} disabled={!data.editable} aria-label={f.label} title={f.label}
+                  onchange={(e) => set(f.name, e.currentTarget.value)}>
+            {#each f.options as o (o.value)}<option value={o.value}>{o.label}</option>{/each}
+          </select>
+        {/if}
       {/each}
     </div>
   {/if}
@@ -273,6 +286,15 @@
   .inline:focus { outline: none; border-color: var(--accent); }
   .inline.num { flex: 0 0 72px; margin-left: auto; }
   .inline.wide { width: 100%; }
+  .switch-row { display: flex; align-items: center; gap: 6px; min-height: 21px; }
+  .switch-label { flex: 0 0 auto; color: var(--faint); font-size: 11.5px; white-space: nowrap; }
+  .switch { flex: 1; display: flex; min-width: 0; border: 1px solid var(--line); border-radius: 4px; overflow: hidden; background: var(--bg); }
+  .switch button { flex: 1 1 0; min-width: 0; height: 19px; padding: 0 6px; border: 0; background: none; color: var(--muted); font: inherit; font-size: 11px;
+                   white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: pointer; }
+  .switch button + button { border-left: 1px solid var(--line); }
+  .switch button.on { background: var(--accent-soft); color: var(--text); }
+  .switch button:not(.on):hover:enabled { color: var(--text); }
+  .switch button:focus-visible { outline: 1px solid var(--accent); outline-offset: -1px; }
   .inline.name { flex: 0 0 74px; }
   .row.empty .inline { border-style: dashed; }
   .row.both { justify-content: space-between; padding: 1px 0; }

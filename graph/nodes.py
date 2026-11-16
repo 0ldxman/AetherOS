@@ -64,7 +64,8 @@ def type_label(kind):
 FIELD_TYPES = {"text": "text", "textarea": "text", "path": "text", "clock": "text", "expr": "text", "scene": "text", "station": "text",
                "graph": "text", "number": "number", "bool": "bool", "condition": "bool", "key": "item", "item": "item", "letter": "item",
                "object": "item", "character": "character", "section": "section", "flag": "flag", "world_flag": "world_flag",
-               "counter": "counter", "moment": "moment", "machine": "machine", "system": "text", "time_zone": "text", "server": "server", "player": "player", "layer": "layer", "placement": "placement", "account": "account", "offer": "offer"}      # вид поля -> тип его входа; нет в списке — параметр без входа
+               "counter": "counter", "moment": "moment", "machine": "machine", "system": "text", "time_zone": "text", "server": "server", "player": "player", "layer": "layer", "placement": "placement", "account": "account", "offer": "offer",
+               "recipient": "many:character|text", "mail_ref": "item|placement", "attachment": "many:item|placement"}      # вид поля -> тип его входа; нет в списке — параметр без входа
 
 
 def field_type(field):
@@ -767,37 +768,39 @@ _MAIL, _TYPED = ("channel", ("mail",)), ("channel", ("mail", "command"))
 register(Kind("ent:offer", "Возможность", ENTITY, "{title}{command}", (
     Field("channel", "Канал", "select", "", False, (("mail", "Письмо"), ("command", "Команда терминала"), ("choice", "Окно с выбором"),
                                                      ("file", "Кнопка у файла"))),
-    Field("mode", "Как", "select", "", False, (("reply", "ответ на письмо"), ("new", "новое письмо"), ("forward", "пересылка письма"))),
-    Field("character", "Кому", "many:character", "персонаж"), Field("address", "Адрес", "text", "пусто — любой адрес персонажа"),
-    Field("reply_to", "В ответ на", "letter", "любое письмо"), Field("forward_of", "Что переслать", "letter", "", True),
+    Field("mode", "Как", "switch", "", False, (("reply", "Ответ"), ("new", "Новое"), ("forward", "Пересылка"))),
+    Field("to", "Кому", "recipient", "адрес или персонаж"),
+    Field("reply_to", "В ответ на", "mail_ref", "любое письмо"), Field("forward_of", "Что переслать", "mail_ref", "", True),
     Field("command", "Команда", "text", "unlock", True), Field("machine", "Машина", "many:machine", "любая"),
     Field("item", "Объект", "many:object", "любой"), Field("path", "Путь", "text", "любой; можно *"),
     Field("title", "Подпись", "text", "", True), Field("caption", "Надпись у кнопок", "text", "пусто — без надписи"),
     Field("message", "Текст окна", "textarea", ""), Field("buttons", "Кнопки", "many:text", "Да, Нет"),
     Field("text", "Текст для набора", "textarea", "{{секрет}}, [[док: 7|9]]; пусто — без набора"),
     Field("reply_ok", "Ответ, если верно", "text", "ничего"), Field("reply_wrong", "Ответ, если неверно", "text", "{command}: access denied"),
-    Field("attach", "Приложить", "select", "", False, (("", "ничего"), ("item", "объект"), ("key", "ключ"), ("signed", "подписанное ключом"))),
-    Field("attach_item", "Что приложить", "object", "", True), Field("account", "С учётки", "account", "любая"),
-    Field("show", "Показать", "select", "", False, (("open", "открытой"), ("mystery", "закрытой «???»"))),
-    Field("closed", "Когда недоступна", "select", "", False, (("mystery", "показать «???»"), ("hidden", "скрыть"))),
+    Field("attach", "Вложение", "attachment", "ничего"),
+    Field("attach_mode", "Вложение", "switch", "", False, (("item", "Сам файл"), ("signed", "Подписан им"))),
+    Field("account", "С учётки", "account", "любая"),
+    Field("closed", "Когда недоступна", "switch", "", False, (("mystery", "«???»"), ("hidden", "Скрыть"))),
     Field("group", "Группа", "text", "использована одна — закрыты все"),
 ), ins=(), when={
-    **{name: _MAIL for name in ("mode", "character", "address", "attach", "show", "closed")},
+    **{name: _MAIL for name in ("mode", "to", "attach", "attach_mode", "closed")},
     "reply_to": (_MAIL, ("mode", ("reply",))), "forward_of": (_MAIL, ("mode", ("forward",))),
-    "attach_item": (_MAIL, ("attach", ("item", "key", "signed"))),
     **{name: _TYPED for name in ("text", "account")},
     **{name: ("channel", ("command",)) for name in ("command", "machine", "reply_ok", "reply_wrong")},
     "title": ("channel", ("mail", "choice", "file")), "message": ("channel", ("choice",)), "buttons": ("channel", ("choice",)),
     **{name: ("channel", ("file",)) for name in ("item", "path", "caption")}}, title="channel"))
 DATA_OUTS["ent:offer"] = (Sock("offer", "Возможность", "offer"), Sock("open", "Открыта", "bool"))
-_OFFER_SCOPE = Field("scope", "Для кого", "select", "", False, (("player", "игроку хода"), ("all", "всем")))
-register(Kind("act:offer.open", "Возможность: Открыть", ACTION, "{offer}", (Field("offer", "Возможность", "many:offer", "", True), _OFFER_SCOPE),
-              _ACT_OUTS, in_types={"in": "event|bool"}))
+_OFFER_SCOPE = Field("scope", "Для кого", "switch", "", False, (("player", "Игроку хода"), ("all", "Всем")))
+register(Kind("act:offer.open", "Возможность: Открыть", ACTION, "{offer}", (
+    Field("show", "Как", "switch", "", False, (("open", "Открыть"), ("mystery", "Показать «???»"))),
+    Field("offer", "Возможность", "many:offer", "", True), _OFFER_SCOPE,
+), _ACT_OUTS, in_types={"in": "event|bool"}, title="show"))
 register(Kind("act:offer.close", "Возможность: Закрыть", ACTION, "{offer}{group}", (
     Field("variant", "Что закрыть", "select", "", False, (("offer", "Закрыть возможность"), ("group", "Закрыть группу"))),
     Field("offer", "Возможность", "many:offer", "", True), Field("group", "Группа", "text", "", True), _OFFER_SCOPE,
 ), _ACT_OUTS, title="variant", when={"offer": ("variant", ("offer",)), "group": ("variant", ("group",))}))
 OFFER_ACTS = ("act:offer.open", "act:offer.close")
+DATA_OUTS["act:mail"] = (Sock("item", "Письмо", "item"),)        # то же письмо — в «В ответ на» у «Возможности»
 
 
 USED_OFFER = "on:offer.used"        # выходы-события — по сущности на проводе «Возможность» (graph/offers.used_outs)
@@ -838,8 +841,9 @@ HELP = {
                  "({{секрет}} знает сам, [[док: 7|9]] выбирает — развилка становится выходом «Использована»). Команда терминала — скрытая "
                  "команда (вместо «command not found»), аргументы сверяются так же. Окно с выбором — на столе игрока. Кнопка у файла — в окне "
                  "файла (объект, путь). Группа: использована одна — закрыты все. Выходы: ключ для «Открыть»/«Закрыть» и открыта ли сейчас.",
-    "act:offer.open": "Сделать возможность доступной. Во «Когда» — поток (открыть сейчас: игроку хода или всем) или провод условия "
-                      "(открыта, пока условие верно у игрока; только возможности этого сценария).",
+    "act:offer.open": "Сделать возможность доступной или показать её закрытой «???» (игрок видит, но выбрать не может; потом «Открыть» "
+                      "раскрывает). Во «Когда» — поток (сейчас: игроку хода или всем) или провод условия (пока условие верно у игрока; "
+                      "только возможности этого сценария).",
     "act:offer.close": "Закрыть возможность или всю группу: игроку хода или всем.",
     "on:offer.used": "Игрок использовал возможность. Выходы — по подключённой сущности: Верно / Неверно (текст, секрет и вложение), "
                      "кнопки окна, «Нажата» у файла; развилки текста — выходами-словами. Лимит попыток — счётчик по «Неверно».",

@@ -92,39 +92,50 @@ def persona_of(address):
 
 
 def _addressed(spec, to, persona):
-    if spec.get("address"):
-        return spec["address"] == to
-    code = getattr(getattr(persona, "character", None), "code", "")
-    return bool(code) and any(str(one).strip().lower() == code.lower() for one in spec.get("characters") or [])
+    """«Кому» варианта: адреса (с @) и коды персонажей (любой адрес персонажа)."""
+    code = (getattr(getattr(persona, "character", None), "code", "") or "").lower()
+    return any(one == to if "@" in one else bool(code) and one == code for one in spec.get("to") or [])
 
 
-def offers_for(box, mode, to, item=None):
-    """Варианты для ящика: mode reply (item — письмо, на которое отвечают), new или forward (item — что пересылают)."""
+def _same_file(want, user, host, item, path):
+    """Подходит ли файл ящика под «В ответ на» / «Что переслать» / «Вложение»: размещение «игрок@машина:/путь» — этот файл,
+    иначе слаг объекта — любая его копия."""
+    want = str(want or "").strip()
+    if ":/" in want:
+        from graph.offers import placement_of
+
+        return bool(path) and placement_of(user, host, path).lower() == want.lower()
+    return item is not None and item.slug == want
+
+
+def offers_for(box, mode, to, item=None, path=""):
+    """Варианты для ящика: mode reply (item, path — письмо, на которое отвечают), new или forward (что пересылают)."""
     from graph import offers
 
     if box.user is None:
         return []
     to = (to or "").strip().lower()
     persona = persona_of(to)
+    host = getattr(box.machine, "hostname", "")
     found = []
-    for view in offers.visible(box.user, getattr(box.machine, "hostname", ""), box.login, "mail"):
+    for view in offers.visible(box.user, host, box.login, "mail"):
         spec = view.spec
         if spec.get("mode", "reply") != mode or not _addressed(spec, to, persona):
             continue
-        if mode == "reply" and spec.get("reply_to") and getattr(item, "slug", None) != spec["reply_to"]:
+        if mode == "reply" and spec.get("reply_to") and not _same_file(spec["reply_to"], box.user, host, item, path):
             continue
-        if mode == "forward" and (item is None or item.slug != spec.get("forward_of")):
+        if mode == "forward" and not _same_file(spec.get("forward_of"), box.user, host, item, path):
             continue
         found.append(view)
     return found
 
 
-def offers_to_answer(box, to, reply_item=None, forward_item=None):
+def offers_to_answer(box, to, reply_item=None, forward_item=None, reply_path="", forward_path=""):
     """Что игрок видит в наборе: пересылка, ответ (если на письмо вариантов нет — варианты нового письма) или новое письмо."""
-    if forward_item is not None:
-        return offers_for(box, "forward", to, forward_item)
-    if reply_item is not None:
-        return offers_for(box, "reply", to, reply_item) or offers_for(box, "new", to)
+    if forward_item is not None or forward_path:
+        return offers_for(box, "forward", to, forward_item, forward_path)
+    if reply_item is not None or reply_path:
+        return offers_for(box, "reply", to, reply_item, reply_path) or offers_for(box, "new", to)
     return offers_for(box, "new", to)
 
 
@@ -147,26 +158,33 @@ def _bounce(box, to, subject, reason):
     box.put_text("inbox", "returned.msg", text)
 
 
-def attachment_fits(need, item):
-    """Подходит ли приложенный объект к требованию варианта ({"item"|"key"|"signed": слаг}; пустое: ничего не нужно)."""
-    need = need or {}
-    if not need:
+def attachment_fits(spec, box, attachment):
+    """Подходит ли вложение к варианту. «Вложение» — объекты или размещения (любое из списка); «Сам файл» — этот объект
+    (или этот файл), «Подписан им» — документ, подписанный этим ключом. Пусто — ничего не нужно."""
+    wants = spec.get("attach") or []
+    if not wants:
         return True
-    if item is None:
+    if attachment is None:
         return False
-    if "item" in need:
-        return item.slug == need["item"]
-    if "key" in need:
-        from filesystem.models import KEY_FORMAT
-
-        return item.format == KEY_FORMAT and item.slug == need["key"]
-    if "signed" in need:
-        return item.signatures.filter(key__slug=need["signed"], valid=True).exists()
-    return True
+    host = getattr(box.machine, "hostname", "")
+    item = attachment.item
+    if spec.get("attach_mode") != "signed":
+        return any(_same_file(want, box.user, host, item, attachment.path) for want in wants)
+    keys = {_key_slug(want) for want in wants} - {""}
+    return item is not None and item.signatures.filter(key__slug__in=keys, valid=True).exists()
 
 
-def _need(spec):
-    return {spec["attach"]: spec.get("attach_item", "")} if spec.get("attach") else {}
+def _key_slug(want):
+    """Слаг ключа: из размещения — объект этого файла, иначе как есть."""
+    want = str(want or "").strip()
+    if ":/" not in want:
+        return want
+    from filesystem.copies import at
+    from graph.entities import parse_placement
+
+    found = parse_placement(want)
+    copy = at(*found) if found is not None else None
+    return getattr(getattr(copy, "item", None), "slug", "") or ""
 
 
 def run_actions(actions, box):
@@ -178,7 +196,7 @@ def run_actions(actions, box):
 
 
 @transaction.atomic
-def send(box, *, to, subject="", typed="", offer=None, attachment=None, reply_item=None, forward_item=None):
+def send(box, *, to, subject="", typed="", offer=None, attachment=None, reply_item=None, forward_item=None, reply_path="", forward_path=""):
     """Отправить письмо игрока. Его копия ложится в «отправленные», дальше решает адрес: персонаж (вариант — возможность offer,
     «слаг:нода»), ящик учётки (письмо приходит туда в слое игрока) или никто (возврат от MAILER-DAEMON).
 
@@ -191,7 +209,7 @@ def send(box, *, to, subject="", typed="", offer=None, attachment=None, reply_it
     persona = persona_of(to)
     view = verdict = None
     if offer:
-        view = next((one for one in offers_to_answer(box, to, reply_item, forward_item) if one.key == offer), None)
+        view = next((one for one in offers_to_answer(box, to, reply_item, forward_item, reply_path, forward_path) if one.key == offer), None)
         if view is None or not view.open:
             return Sent("closed", detail="this answer is not available")
         verdict = check(view.spec.get("text", ""), typed) if str(view.spec.get("text") or "").strip() else Check("ok")
@@ -228,7 +246,7 @@ def send(box, *, to, subject="", typed="", offer=None, attachment=None, reply_it
     if view is None:
         return Sent("sent", path)
 
-    if verdict.verdict == "ok" and not attachment_fits(_need(view.spec), None if attachment is None else attachment.item):
+    if verdict.verdict == "ok" and not attachment_fits(view.spec, box, attachment):
         verdict = Check("wrong", verdict.words)
     from graph import offers
 

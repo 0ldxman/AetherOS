@@ -60,7 +60,7 @@ def demo_conversation():
     def wire(src, out, dst, inp="in"):
         return {"from": src, "out": out, "to": dst, "in": inp}
 
-    guard = {"address": "guard@aether-core"}
+    guard = {"to": "guard@aether-core"}
     nodes = [
         node("yes", "boolean", 0, 0, value=True),
         node("hello", "ent:offer", 0, 140, mode="new", title="Ask for dock access", text="I need access to the docks.", **guard),

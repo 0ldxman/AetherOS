@@ -18,7 +18,6 @@ from graph.models import Graph, Offer, OfferTry, Run
 ENTITY = "ent:offer"
 OPEN = "act:offer.open"
 USED = "on:offer.used"
-ATTACH = ("item", "key", "signed")
 _busy = contextvars.ContextVar("offers_busy", default=frozenset())
 
 
@@ -46,10 +45,6 @@ def _keys(value):
 
 def spec_of(data):
     """Что предлагает сущность «Возможность» (данные с подставленными проводами)."""
-    characters = data.get("character")
-    characters = [str(c).strip() for c in (characters if isinstance(characters, (list, tuple)) else [characters]) if str(c or "").strip()]
-    attach = data.get("attach") if data.get("attach") in ATTACH else ""
-
     def many(name):
         value = data.get(name)
         if isinstance(value, str):
@@ -59,11 +54,15 @@ def spec_of(data):
     return {"channel": data.get("channel") or "mail", "mode": data.get("mode") or "reply",
             "command": _text(data, "command"), "machines": [m.lower() for m in many("machine")], "items": many("item"), "path": _text(data, "path"),
             "message": str(data.get("message") or ""), "buttons": many("buttons"),
-            "reply_ok": _text(data, "reply_ok"), "reply_wrong": _text(data, "reply_wrong"), "characters": characters, "address": _text(data, "address").lower(),
+            "reply_ok": _text(data, "reply_ok"), "reply_wrong": _text(data, "reply_wrong"), "to": [one.lower() for one in many("to")],
             "reply_to": _text(data, "reply_to"), "forward_of": _text(data, "forward_of"), "title": _text(data, "title"), "caption": _text(data, "caption"),
-            "text": str(data.get("text") or ""), "attach": attach, "attach_item": _text(data, "attach_item") if attach else "",
+            "text": str(data.get("text") or ""), "attach": many("attach"), "attach_mode": "signed" if data.get("attach_mode") == "signed" else "item",
             "account": _text(data, "account").lower(), "group": _text(data, "group")[:64],
-            "show": "mystery" if data.get("show") == "mystery" else "open", "closed": "hidden" if data.get("closed") == "hidden" else "mystery"}
+            "closed": "hidden" if data.get("closed") == "hidden" else "mystery"}
+
+
+def _show(data):
+    return "mystery" if (data or {}).get("show") == "mystery" else "open"
 
 
 # ---- выходы «Использована» -----------------------------------------------------------------------------------------------
@@ -141,10 +140,10 @@ def match_data(graph, doc, node_id, data):
 
 # ---- открыть и закрыть ---------------------------------------------------------------------------------------------------
 
-def open_offer(graph, node, spec, user=None):
-    """Открыть (снова) игроку или всем: закрытия игроков снимаются."""
+def open_offer(graph, node, spec, user=None, show="open"):
+    """Открыть (снова) игроку или всем — или показать закрытой «???» (show="mystery"): закрытия игроков снимаются."""
     Offer.objects.filter(graph=graph, node=node, user=user, standing=False).delete()
-    Offer.objects.create(graph=graph, node=node, user=user, channel=spec["channel"], group=spec["group"], spec=spec)
+    Offer.objects.create(graph=graph, node=node, user=user, channel=spec["channel"], group=spec["group"], spec={**spec, "show": show})
     tries = OfferTry.objects.filter(graph=graph, node=node)
     (tries if user is None else tries.filter(user=user)).delete()
 
@@ -233,7 +232,7 @@ def act(run, node_id, kind, data):
         if spec is None:
             runtime._log(run.graph, f"«{kind.label}»: «{key(graph, node)}» — не нода «Возможность»", run.user)
             return ["fail"]
-        open_offer(graph, node, spec, user)
+        open_offer(graph, node, spec, user, _show(data))
     return ["next"]
 
 
@@ -251,7 +250,8 @@ class View:
 
 
 def _live(graph, node, by, user, host, login):
-    """Возможность по условию сейчас: (что предлагает, верно ли хоть одно условие) или None (сущности уже нет)."""
+    """Возможность по условию сейчас: (что предлагает, open | teaser | off) или None (сущности уже нет). Верно условие у
+    «Открыть» — открыта; верно только у «Показать «???»» — видна закрытой."""
     from graph import runtime
 
     doc = runtime.doc_of(graph)
@@ -259,8 +259,9 @@ def _live(graph, node, by, user, host, login):
     if kind is None or kind.name != ENTITY:
         return None
     run = Run(graph=graph, user=user, ctx={"host": host, "login": login}, state={})
-    holds = any(runtime._truth(runtime.resolved(run, doc, one).get("in")) for one in by if doc.kind(one) is not None)
-    return spec_of(runtime.resolved(run, doc, node)), holds
+    shows = {_show(doc.data(one)) for one in by if doc.kind(one) is not None and runtime._truth(runtime.resolved(run, doc, one).get("in"))}
+    state = "open" if "open" in shows else "teaser" if shows else "off"
+    return spec_of(runtime.resolved(run, doc, node)), state
 
 
 def visible(user, host="", login="", channel="mail", only=None):
@@ -283,12 +284,11 @@ def visible(user, host="", login="", channel="mail", only=None):
         everyone = [row for row in group if row.user_id is None and not row.standing]
         standing = [row for row in group if row.standing]
         graph = group[0].graph
-        if own:                                                            # своя строка важнее строки «всем»
-            spec, is_open = own[0].spec, True
+        if own or (everyone and place not in tries):                       # своя строка важнее строки «всем»
+            spec = (own or everyone)[0].spec
+            state = "teaser" if spec.get("show") == "mystery" else "open"
         elif place in tries:
             continue
-        elif everyone:
-            spec, is_open = everyone[0].spec, True
         else:
             busy = _busy.get()
             if place in busy:                                              # условие ссылается на саму возможность
@@ -300,13 +300,12 @@ def visible(user, host="", login="", channel="mail", only=None):
                 _busy.reset(token)
             if live is None:
                 continue
-            spec, is_open = live
-        is_open = is_open and spec.get("show") != "mystery"
-        if spec.get("account") and spec["account"] != account:
-            is_open = False
-        if not is_open and spec.get("closed") == "hidden":
+            spec, state = live
+        if state == "open" and spec.get("account") and spec["account"] != account:
+            state = "off"
+        if state == "off" and spec.get("closed") == "hidden":
             continue
-        found.append(View(graph, place[1], key(graph, place[1]), spec, is_open, spec.get("group") or group[0].group))
+        found.append(View(graph, place[1], key(graph, place[1]), spec, state == "open", spec.get("group") or group[0].group))
     return found
 
 

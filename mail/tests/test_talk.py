@@ -54,10 +54,10 @@ def door(extra_nodes=(), extra_wires=()):
     """Персонаж спрашивает код; варианты ответа — возможности группы «ask»; исходы — письма. Слово развилки «склад» ведёт
     своей дорогой; две неверные попытки (счётчик игрока) закрывают вариант."""
     nodes = [node("m", "manual"), node("ask", "act:mail", variant="player", item="guard-ask"),
-             *offered("code", mode="reply", address="guard@port", reply_to="guard-ask", title="Назвать код", text="Код: {{4471}}. Склад [[склад: 7|9]].",
+             *offered("code", mode="reply", to="guard@port", reply_to="guard-ask", title="Назвать код", text="Код: {{4471}}. Склад [[склад: 7|9]].",
                       group="ask"),
-             *offered("tunnel", mode="reply", address="guard@port", title="Тайный ход", text="Я знаю про тоннель.", group="ask"),
-             *offered("hidden", mode="reply", address="guard@port", title="Скрытый", text="x", closed="hidden", group="ask"),
+             *offered("tunnel", mode="reply", to="guard@port", title="Тайный ход", text="Я знаю про тоннель.", group="ask"),
+             *offered("hidden", mode="reply", to="guard@port", title="Скрытый", text="x", closed="hidden", group="ask"),
              node("knows", "fact", expr="tag:tunnel"), node("never", "fact", expr="tag:never"),
              node("u", "on:offer.used", offer="door:code", repeat="always"), node("seven", "compare", op="eq", b="7"), node("which", "check"),
              node("m7", "act:mail", variant="player", item="guard-7"), node("m9", "act:mail", variant="player", item="guard-thanks"),
@@ -156,7 +156,7 @@ class TalkTests(TestCase):
 
     def test_a_new_letter_by_condition_an_unknown_address_bounces_and_an_account_receives(self):
         graph = door([node("yes", "boolean", value=True),
-                      *offered("hello", mode="new", address="guard@port", title="Представиться", text="Я из порта.")],
+                      *offered("hello", mode="new", to="guard@port", title="Представиться", text="Я из порта.")],
                      [wire("yes", "value", "ohello")])
         offers = talk.offers_to_answer(self.box(), "GUARD@port")
         self.assertEqual([o.key for o in offers], ["door:hello"])
@@ -171,8 +171,8 @@ class TalkTests(TestCase):
         self.assertEqual([r.letter.subject for r in self.box(self.captain).letters_in("inbox")], ["Себе"])
 
     def test_a_variant_for_another_account_and_a_proof_attachment(self):
-        graph = self.started(door(offered("boss", mode="new", address="guard@port", title="От капитана", text="Приказ.",
-                                          account="captain@aether-main", attach="signed", attach_item="seal"),
+        graph = self.started(door(offered("boss", mode="new", to="guard@port", title="От капитана", text="Приказ.",
+                                          account="captain@aether-main", attach="seal", attach_mode="signed"),
                                   [wire("ocode", "next", "oboss")]))
         mine = talk.offers_to_answer(self.box(), "guard@port")
         self.assertFalse(next(o for o in mine if o.key == "door:boss").open)                # с учётки ivan закрыт
@@ -188,8 +188,32 @@ class TalkTests(TestCase):
         self.assertEqual(talk.send(as_captain, to="guard@port", typed="Приказ.", offer="door:boss", attachment=signed).kind, "ok")
         self.assertTrue(graph)
 
+    def test_to_takes_a_character_and_reply_to_a_letter_of_the_sender_node(self):
+        from characters.models import Character
+
+        face = Character.objects.create(code="GRD", name="Port guard")
+        Persona.objects.filter(pk=self.guard.pk).update(character=face)
+        graph = self.started(door([node("face", "ent:character", character="GRD"), node("chat", "ent:offer", mode="reply", title="Привет", text="Привет."),
+                                   node("ochat", "act:offer.open")],
+                                  [wire("face", "value", "chat", "f:to"), wire("ask", "item", "chat", "f:reply_to"), wire("chat", "offer", "ochat", "f:offer"),
+                                   wire("ocode", "next", "ochat")]))
+        offers = talk.offers_to_answer(self.box(), "guard@port", reply_item=self.ask)
+        self.assertIn("door:chat", [o.key for o in offers])
+        other = letter("guard-other", "guard@port", "Другое")
+        self.assertNotIn("door:chat", [o.key for o in talk.offers_to_answer(self.box(), "guard@port", reply_item=other)])
+        self.assertTrue(graph)
+
+    def test_the_attachment_can_be_this_very_file(self):
+        self.started(door(offered("proof", mode="new", to="guard@port", title="Отчёт", text="Отчёт.", attach="ivan@aether-main:/home/ivan/report.txt"),
+                          [wire("ocode", "next", "oproof")]))
+        report = self.box().view.get("/home/ivan/report.txt")
+        self.box().view.put_item("/home/ivan/copy.txt", report.item)
+        copy = self.box().view.get("/home/ivan/copy.txt")
+        self.assertEqual(talk.send(self.box(), to="guard@port", typed="Отчёт.", offer="door:proof", attachment=copy).kind, "wrong")
+        self.assertEqual(talk.send(self.box(), to="guard@port", typed="Отчёт.", offer="door:proof", attachment=report).kind, "ok")
+
     def test_forwarding_a_letter(self):
-        self.started(door(offered("fwd", mode="forward", address="guard@port", forward_of="guard-ask", title="Переслать"),
+        self.started(door(offered("fwd", mode="forward", to="guard@port", forward_of="guard-ask", title="Переслать"),
                           [wire("ocode", "next", "ofwd")]))
         self.assertEqual(talk.offers_to_answer(self.box(), "guard@port"), [o for o in talk.offers_to_answer(self.box(), "guard@port") if o.key != "door:fwd"])
         offers = talk.offers_to_answer(self.box(), "guard@port", forward_item=self.ask)
@@ -223,7 +247,7 @@ class TalkAppTests(TestCase):
         cls.ask = letter("guard-ask", "guard@port", "Код?", "Назовите код.")
         letter("guard-ok", "guard@port", "Проходите")
         nodes = [node("m", "manual"), node("ask", "act:mail", variant="player", item="guard-ask"),
-                 *offered("code", mode="reply", address="guard@port", title="Код", text="Код {{4471}}"),
+                 *offered("code", mode="reply", to="guard@port", title="Код", text="Код {{4471}}"),
                  node("u", "on:offer.used", offer="door:code", repeat="always"), node("ok", "act:mail", variant="player", item="guard-ok")]
         cls.graph = Graph.objects.create(slug="door", title="Дверь", active=True, doc={"nodes": nodes, "wires": [
             wire("m", "fire", "ask"), wire("ask", "next", "ocode"), wire("u", "ok", "ok")]})

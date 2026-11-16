@@ -155,14 +155,14 @@ def compose_options(request):
             raise Http404
         to = to or row.letter.sender
         subject = row.letter.subject if row.letter.subject.lower().startswith("re:") else f"Re: {row.letter.subject}"
-        offers = talk.offers_to_answer(box, to, reply_item=_letter_item(box, reply))
+        offers = talk.offers_to_answer(box, to, reply_item=_letter_item(box, reply), reply_path=reply)
     elif forward:
         row = box.letter(forward)
         if row is None:
             raise Http404
         subject = f"Fwd: {row.letter.subject}"
         if to:
-            offers = talk.offers_to_answer(box, to, forward_item=_letter_item(box, forward))
+            offers = talk.offers_to_answer(box, to, forward_item=_letter_item(box, forward), forward_path=forward)
     elif to:
         offers = talk.offers_to_answer(box, to)
     persona = talk.persona_of(to) if to else None
@@ -205,7 +205,8 @@ def send_letter(request):
     if data.get("forward") and forward_item is None and box.letter(data["forward"]) is None:
         raise Http404
     result = talk.send(box, to=data.get("to", ""), subject=data.get("subject", ""), typed=data.get("text", ""),
-                       offer=str(data.get("offer") or ""), attachment=attachment, reply_item=reply_item, forward_item=forward_item)
+                       offer=str(data.get("offer") or ""), attachment=attachment, reply_item=reply_item, forward_item=forward_item,
+                       reply_path=str(data.get("reply") or ""), forward_path=str(data.get("forward") or ""))
     status = 400 if result.kind in ("mismatch", "closed") else 200
     return JsonResponse({"kind": result.kind, "path": result.path, "effects": _browser_effects(result.effects),
                          "error": result.detail if status == 400 else ""}, status=status)
