@@ -84,25 +84,34 @@ def _universe(owner, among):
     return dict(rows.values_list("pk", field))
 
 
-def find(text, what, user=None, facts_of_player=frozenset(), among=None, sort="", descending=True, limit=None):
-    """Ключи вещей вида what, для которых условие верно. sort — счётчик для порядка (имя или имя@player), limit — сколько взять."""
+ORDERS = ("name", "count", "tag_time", "changed", "random")
+
+
+def find(text, what, user=None, facts_of_player=frozenset(), among=None, order="name", by="", descending=False, limit=None):
+    """Ключи вещей вида what, для которых условие верно, по порядку: name — по имени, count — по счётчику by, tag_time — когда поставили
+    тег by, changed — когда последний раз меняли тег или счётчик by (у кого нет — в конце), random — случайно. by — имя или имя@player.
+    limit — сколько взять."""
+    import random
+
     from secure.access import satisfied
 
     req = parse(text, what)
     owner = OWNER_OF[what]
     universe = _universe(owner, among)
     names = {own_atom(atom, owner)[1] for atom in _atoms(req) if own_atom(atom, owner)}
-    sort_name, _, sort_per = str(sort or "").strip().lower().partition("@")
-    if sort_name:
+    order = order if order in ORDERS else "name"
+    sort_name, _, sort_per = str(by or "").strip().lower().partition("@")
+    if order in ("count", "tag_time", "changed") and sort_name:
         names.add(sort_name)
-    known = {}
+    known, when = {}, {}
     from engine.models import Value
     from django.db.models import Q
 
     rows = Value.objects.filter(owner=owner, owner_id__in=list(universe), name__in=names)
     rows = rows.filter(Q(user__isnull=True) | Q(user=user)) if user is not None else rows.filter(user__isnull=True)
-    for row in rows.values_list("kind", "owner_id", "name", "user_id", "value"):
+    for row in rows.values_list("kind", "owner_id", "name", "user_id", "value", "changed_at"):
         known[(row[0], row[1], row[2], row[3] is not None)] = row[4]
+        when[(row[0], row[1], row[2], row[3] is not None)] = row[5]
     shared = {}
 
     def holds(node, pk):
@@ -127,11 +136,25 @@ def find(text, what, user=None, facts_of_player=frozenset(), among=None, sort=""
             return not holds(node["not"], pk)
         return False
 
-    found = [pk for pk in universe if holds(req, pk)]
-    if sort_name:
-        found.sort(key=lambda pk: known.get((values.COUNT, pk, sort_name, sort_per == "player"), 0), reverse=descending)
-    else:
-        found.sort(key=lambda pk: str(universe[pk]).lower())
+    found = sorted((pk for pk in universe if holds(req, pk)), key=lambda pk: str(universe[pk]).lower())
+    per = sort_per == "player"
+    if order == "random":
+        random.shuffle(found)
+    elif order == "count" and sort_name:
+        found.sort(key=lambda pk: known.get((values.COUNT, pk, sort_name, per), 0), reverse=descending)
+    elif order in ("tag_time", "changed") and sort_name:
+        def moment(pk):
+            if order == "tag_time":
+                return when.get((values.TAG, pk, sort_name, per)) if known.get((values.TAG, pk, sort_name, per)) else None
+            stamps = [when.get((kind, pk, sort_name, per)) for kind in (values.TAG, values.COUNT)]
+            stamps = [stamp for stamp in stamps if stamp is not None]
+            return max(stamps) if stamps else None
+
+        dated = [pk for pk in found if moment(pk) is not None]
+        dated.sort(key=moment, reverse=descending)
+        found = dated + [pk for pk in found if moment(pk) is None]          # без отметки — в конце
+    elif order == "name" and descending:
+        found.reverse()
     if limit:
         found = found[:limit]
     return [universe[pk] for pk in found]

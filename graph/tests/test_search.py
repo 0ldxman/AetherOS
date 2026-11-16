@@ -31,12 +31,25 @@ class SearchTests(TestCase):
             search.find("tag:world:alarm", "account")
 
     def test_order_limit_and_among(self):
-        self.assertEqual(search.find("count:account:fails", "account", sort="fails", limit=1), ["guard@core"])
-        self.assertEqual(search.find("count:account:fails", "account", sort="fails", descending=False), ["ops@core", "guard@core"])
+        from datetime import timedelta
+
+        from django.utils import timezone
+
+        from engine.models import Value
+
+        self.assertEqual(search.find("count:account:fails", "account", order="count", by="fails", descending=True, limit=1), ["guard@core"])
+        self.assertEqual(search.find("count:account:fails", "account", order="count", by="fails"), ["ops@core", "guard@core"])
+        self.assertEqual(search.find("tag:account:compromised or not tag:account:compromised", "account", order="name", descending=True),
+                         ["ops@core", "guest@core", "guard@core"])
+        Value.objects.filter(name="compromised", owner_id=values.owner_id("account", "ops@core")).update(changed_at=timezone.now() - timedelta(hours=2))
+        self.assertEqual(search.find("tag:account:compromised", "account", order="tag_time", by="compromised"), ["ops@core", "guard@core"])
+        everyone = search.find("tag:account:compromised or not tag:account:compromised", "account", order="changed", by="compromised", descending=True)
+        self.assertEqual(everyone, ["guard@core", "ops@core", "guest@core"])                   # без отметки — в конце
+        self.assertEqual(sorted(search.find("tag:account:compromised", "account", order="random")), ["guard@core", "ops@core"])
         self.assertEqual(search.find("tag:account:compromised", "account", among=["ops@core", "guest@core"]), ["ops@core"])
 
     def test_the_node_gives_list_first_and_count_and_check_warns(self):
-        graph = make([node("m", "manual"), node("s", "thing.find", what="account", expr="tag:account:compromised", sort="fails"),
+        graph = make([node("m", "manual"), node("s", "thing.find", what="account", expr="tag:account:compromised", order="count", by="fails"),
                       node("t", "act:tag", variant="on", owner="world")],
                      [wire("m", "fire", "t"), f("s", "count", "t", "name")])
         runtime.start_manual(graph, "m", self.ivan)

@@ -304,9 +304,11 @@ def _thing_find(run, kind, data, get, out):
     among = get("among")
     limit = get("limit")
     try:
+        order = data.get("order") or ("count" if data.get("sort") else "name")             # sort — прежнее поле порядка по счётчику
+        direction = {"name": data.get("name_dir") or "asc", "count": data.get("count_dir") or "desc"}.get(order, data.get("time_dir") or "asc")
         found = search.find(get("expr"), data.get("what") or "account", run.user, _facts(run),
-                            among=_as_list(among) if among not in (None, "") else None, sort=get("sort"),
-                            descending=(data.get("order") or "desc") == "desc",
+                            among=_as_list(among) if among not in (None, "") else None, order=order, by=get("by") or data.get("sort") or "",
+                            descending=direction == "desc",
                             limit=int(float(limit)) if str(limit or "").strip().replace(".", "", 1).isdigit() else None)
     except search.SearchError as error:
         _log(run.graph, f"«{kind.label}»: {error}", run.user)

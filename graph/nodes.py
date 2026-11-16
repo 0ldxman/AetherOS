@@ -989,7 +989,8 @@ HELP = {
     "thing.find": "Вещи выбранного вида, для которых условие верно. Условие — как у условий доступа (and, or, not, скобки); атом про саму "
                   "вещь — вид без вещи: tag:account:имя, count:machine:имя >= 3, tag:account:имя@player (значение для игрока хода). "
                   "tag:world:…, tag:имя (игрока хода) и теги конкретных вещей одинаковы для всех и только дополняют: без атома про вещь "
-                  "условие не отбирает. «Среди» — искать только в этом списке. Порядок — по счётчику, иначе по имени.",
+                  "условие не отбирает. «Среди» — искать только в этом списке. Порядок: по имени, по счётчику, по времени тега (когда поставили), по "
+                  "времени изменения тега или счётчика (у кого его нет — в конце) или случайно; «Сколько взять» — первые N.",
     "session.find": "Текущая — где произошло действие (в условии у «Изменить» — где игрок применяет возможность). Все — сессии игрока "
                     "(пусто — игрок хода), Машина — сессии всех игроков на машине, Учётка — всех игроков на учётке: списком, свежие первыми. "
                     "«Только активные» — кто там сейчас.",
@@ -1115,10 +1116,16 @@ _THING_KINDS = (("account", "Учётка"), ("player", "Игрок"), ("charact
 register(Kind("thing.find", "Найти по условию", ENTITY, "{what}: {expr}", (
     Field("what", "Что ищем", "select", "", False, _THING_KINDS),
     Field("expr", "Условие", "expr", "tag:account:compromised and count:account:fails >= 3", True),
-    Field("among", "Среди", OF_LIST), Field("sort", "Порядок по счётчику", "text", "имя или имя@player; пусто — по имени"),
-    Field("order", "Сначала", "select", "", False, (("desc", "больше"), ("asc", "меньше"))),
+    Field("among", "Среди", OF_LIST),
+    Field("order", "Порядок", "select", "", False, (("name", "По имени"), ("count", "По счётчику"), ("tag_time", "По времени тега"),
+                                                    ("changed", "По времени изменения"), ("random", "Случайно"))),
+    Field("by", "Тег или счётчик", "text", "имя или имя@player", True),
+    Field("name_dir", "Сначала", "select", "", False, (("asc", "А→Я"), ("desc", "Я→А"))),
+    Field("count_dir", "Сначала", "select", "", False, (("desc", "больше"), ("asc", "меньше"))),
+    Field("time_dir", "Сначала", "select", "", False, (("asc", "раньше"), ("desc", "позже"))),
     Field("limit", "Сколько взять", "number", "все"),
-), ins=(), typed="what"))
+), ins=(), typed="what", when={"by": ("order", ("count", "tag_time", "changed")), "name_dir": ("order", ("name",)),
+                               "count_dir": ("order", ("count",)), "time_dir": ("order", ("tag_time", "changed"))}))
 DATA_OUTS["thing.find"] = (Sock("value", "Найдено", OF_LIST), Sock("first", "Первое", ELEMENT), Sock("count", "Количество", "number"))
 _data("fact", "Факт", "{expr}", (Field("expr", "Условие", "expr", "tag:met and world:act>=2", True),), "bool", "Верно")
 MATH = (("add", "Сложить"), ("sub", "Вычесть"), ("mul", "Умножить"), ("div", "Разделить"), ("mod", "Остаток"), ("pow", "Степень"),
