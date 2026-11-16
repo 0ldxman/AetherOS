@@ -256,7 +256,7 @@ class SignatureTests(TerminalClient, TestCase):
 
     def test_a_signed_mail_attachment_verifies_after_it_is_saved_into_the_session(self):
         from filesystem import keystore
-        from filesystem.models import ItemSignature, PlayerFile
+        from filesystem.models import ItemSignature, FileChange
         from filesystem.testing import make_file, key_item
         from machines.models import Session
 

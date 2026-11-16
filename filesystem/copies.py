@@ -11,7 +11,7 @@ class Copy:
     path: str
     trashed: bool           # лежит в корзине
     edited: bool            # игрок поменял текст
-    progress: str = ""      # прогресс игрока по слоям (PlayerFile.state)
+    progress: str = ""      # прогресс игрока по слоям (FileChange.state)
     item: str = ""          # слаг объекта в файле (пусто — свой текст без объекта)
 
 

@@ -10,7 +10,7 @@ from django.urls import get_script_prefix, set_script_prefix
 from django.utils import timezone
 
 from filesystem.machine_view import MachineView
-from filesystem.models import PlayerFile
+from filesystem.models import FileChange
 from filesystem.testing import key_item, make_file
 from machines.models import LoginEvent, Machine, MachineProfile, Session
 from team.models import Change, Role
@@ -69,12 +69,12 @@ class PlayersTests(TestCase):
         other = MachineProfile.objects.create(machine=self.machine, name="Root", login="root", freq=2)
         self.assertEqual(self.post("kick", {"account": other.pk}).status_code, 400)
 
-    def test_reset_removes_the_files_of_the_player(self):
+    def test_reset_rolls_back_what_the_player_changed(self):
         view = MachineView(self.machine, self.ivan)
         view.copy("/home/note.txt", "/home/copy.txt")
-        self.assertTrue(PlayerFile.objects.filter(user=self.ivan).exists())
+        self.assertTrue(FileChange.objects.filter(changed_by=self.ivan).exists())
         card = self.post("reset", {"machine": self.machine.pk}).json()
-        self.assertFalse(PlayerFile.objects.filter(user=self.ivan).exists())
+        self.assertFalse(FileChange.objects.filter(changed_by=self.ivan).exists())
         self.assertEqual(card["machines"], [])
 
     def test_ban_closes_the_door_and_the_superadmin_is_not_banned(self):

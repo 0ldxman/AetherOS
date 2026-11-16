@@ -60,7 +60,7 @@ class EntityTests(TestCase):
         self.assertIn("«Машина» ждёт машину, а приходит персонажа", [p["text"] for p in check.problems(graph.doc)])
 
 
-class PlayerFilesTests(TestCase):
+class FileChangesTests(TestCase):
     def setUp(self):
         self.ivan = get_user_model().objects.create_user("ivan")
         self.core = Machine.objects.create(name="Core", hostname="core")

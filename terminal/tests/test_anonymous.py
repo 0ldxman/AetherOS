@@ -53,11 +53,11 @@ class AnonymousTerminalTests(TestCase):
             self.assertEqual(data["hostname"], "aether-null")
 
     def test_nothing_is_executed_for_a_witness(self):
-        from filesystem.models import PlayerFile
+        from filesystem.models import FileChange
 
         self.witness()
         self.run_command("ls")
-        self.assertEqual(PlayerFile.objects.count(), 0)
+        self.assertEqual(FileChange.objects.count(), 0)
 
     def test_a_visitor_who_is_not_connected_anywhere_is_refused(self):
         self.assertEqual(self.client.get(reverse("terminal:index")).status_code, 403)

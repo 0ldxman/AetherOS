@@ -110,7 +110,7 @@ class TrashTests(TestCase):
 
         from django.utils import timezone
 
-        from filesystem.models import PlayerFile
+        from filesystem.models import FileChange
 
         self.run_command("del -f /home/a.txt")
         data = self.run_command("rcvr /home/ivan/.trash/a.txt")
@@ -120,7 +120,7 @@ class TrashTests(TestCase):
         self.assertIn("nothing to repair", self.run_command("rpr /home/a.txt")["output"])
 
         self.run_command("del -f /home/b.txt")
-        PlayerFile.objects.filter(path="home/ivan/.trash/b.txt").update(trashed_at=timezone.now() - timedelta(days=3, hours=1))
+        FileChange.objects.filter(path="home/ivan/.trash/b.txt").update(trashed_at=timezone.now() - timedelta(days=3, hours=1))
         self.run_command("rcvr /home/ivan/.trash/b.txt")
         repaired = [self.run_command("rpr /home/b.txt")["exit_code"] for _ in range(5)]
         self.assertEqual(repaired, [0, 0, 0, 0, 1])                                   # 1 + 3 дня = 4 слоя
@@ -130,10 +130,10 @@ class TrashTests(TestCase):
 
         from django.utils import timezone
 
-        from filesystem.models import PlayerFile
+        from filesystem.models import FileChange
 
         self.run_command("del -f /home/a.txt")
-        PlayerFile.objects.filter(path="home/ivan/.trash/a.txt").update(trashed_at=timezone.now() - timedelta(days=6))
+        FileChange.objects.filter(path="home/ivan/.trash/a.txt").update(trashed_at=timezone.now() - timedelta(days=6))
         self.run_command("rcvr /home/ivan/.trash/a.txt")
         self.assertEqual([self.run_command("rpr /home/a.txt")["exit_code"] for _ in range(7)], [0] * 5 + [1, 1])
 
@@ -158,10 +158,10 @@ class TrashTests(TestCase):
 
         from django.utils import timezone
 
-        from filesystem.models import PlayerFile
+        from filesystem.models import FileChange
 
         self.run_command("del -f /home/a.txt")
-        PlayerFile.objects.filter(path="home/ivan/.trash/a.txt").update(purge_at=timezone.now() - timedelta(minutes=1))
+        FileChange.objects.filter(path="home/ivan/.trash/a.txt").update(purge_at=timezone.now() - timedelta(minutes=1))
         self.assertEqual(self.run_command("rcvr /home/ivan/.trash/a.txt")["exit_code"], 1)         # срок вышел: возвращать нечего
         self.assertNotIn("a.txt", self.ls())                                           # машинный файл не вернулся на старое место
         self.assertIn("No such file", self.ls("/home/ivan/.trash"))                               # корзина пуста
@@ -182,14 +182,14 @@ class TrashTests(TestCase):
         from django.core.management import call_command
         from django.utils import timezone
 
-        from filesystem.models import PlayerFile
+        from filesystem.models import FileChange
 
         self.run_command("del -f /home/a.txt")
-        PlayerFile.objects.update(purge_at=timezone.now() - timedelta(minutes=1))
+        FileChange.objects.update(purge_at=timezone.now() - timedelta(minutes=1))
         out = StringIO()
         call_command("purge_trash", stdout=out)
         self.assertIn("purged: 1", out.getvalue())
-        self.assertFalse(PlayerFile.objects.filter(purge_at__isnull=False, deleted_at__isnull=True).exists())
+        self.assertFalse(FileChange.objects.filter(purge_at__isnull=False, deleted_at__isnull=True).exists())
 
     def test_on_delete_runs_the_hooks_of_the_top_layer(self):
         data = self.run_command("del -f /home/bait.txt")

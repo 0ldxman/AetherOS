@@ -657,17 +657,21 @@ class VolumeInstance(models.Model):
         return f"{self.volume.slug} @ {self.host.label if self.host_id else 'external'}"
 
 
-class PlayerFile(models.Model):
-    """Слой игрока: одно отличие игрока от общей базы по одному пути внутри тома.
+class FileChange(models.Model):
+    """Изменение мира: одно отличие от базы по одному пути внутри тома. Общее для всех игроков мира; у песочницы автора
+    (sandbox — песочный игрок) свои изменения, параллельные миру. Кто что видит и меняет, решают права учёток.
 
     У записи либо ссылка на объект (item), либо собственное содержимое: content (текст, например подпись) или data (байты,
     например вырезка). Для записи с объектом content это своя версия его тела (правка edt).
     """
 
-    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="player_files")
-    instance = models.ForeignKey(VolumeInstance, on_delete=models.CASCADE, related_name="player_files")
+    sandbox = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.CASCADE, related_name="sandbox_files",
+                                help_text="Пусто: мир. Иначе песочница автора (его песочный игрок).")
+    changed_by = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL, related_name="file_changes",
+                                   help_text="Кто изменил последним (для автора, в игре не видно).")
+    instance = models.ForeignKey(VolumeInstance, on_delete=models.CASCADE, related_name="file_changes")
     path = models.CharField("Путь в томе", max_length=2048)
-    item = models.ForeignKey(Item, null=True, blank=True, on_delete=models.CASCADE, related_name="player_files")
+    item = models.ForeignKey(Item, null=True, blank=True, on_delete=models.CASCADE, related_name="file_changes")
     content = models.TextField(null=True, blank=True)
     data = models.BinaryField(null=True, blank=True)
     state = models.TextField(blank=True, default="")
@@ -690,17 +694,18 @@ class PlayerFile(models.Model):
 
     class Meta:
         constraints = [
-            models.UniqueConstraint(fields=("user", "instance", "path"), name="unique_player_file_path"),
+            models.UniqueConstraint(fields=("instance", "path"), condition=Q(sandbox__isnull=True), name="unique_world_file_path"),
+            models.UniqueConstraint(fields=("sandbox", "instance", "path"), condition=Q(sandbox__isnull=False), name="unique_sandbox_file_path"),
             models.CheckConstraint(
-                condition=~(Q(item__isnull=False) & Q(data__isnull=False)), name="player_file_item_or_data",
+                condition=~(Q(item__isnull=False) & Q(data__isnull=False)), name="file_change_item_or_data",
             ),
         ]
-        indexes = [models.Index(fields=("user", "instance"), name="playerfile_user_instance_idx")]
-        verbose_name = "Файл игрока"
-        verbose_name_plural = "Файлы игроков"
+        indexes = [models.Index(fields=("sandbox", "instance"), name="filechange_world_idx")]
+        verbose_name = "Изменение файла"
+        verbose_name_plural = "Изменения файлов"
 
     def __str__(self):
-        return f"{self.user_id}: {self.instance}:/{self.path}"
+        return f"{'мир' if self.sandbox_id is None else f'песочница {self.sandbox_id}'}: {self.instance}:/{self.path}"
 
     def save(self, *args, **kwargs):
         self.path = normalize_inner(self.path)

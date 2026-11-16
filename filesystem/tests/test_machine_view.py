@@ -5,7 +5,7 @@ from django.test import TestCase
 from django.test.utils import CaptureQueriesContext
 
 from filesystem.machine_view import DATA_LIMIT, MachineView, Occupied
-from filesystem.models import FileFormat, Item, PlayerFile, Placement, Volume, VolumeInstance
+from filesystem.models import FileFormat, Item, FileChange, Placement, Volume, VolumeInstance
 from machines.models import Machine, MachineMount
 
 
@@ -37,6 +37,10 @@ class ViewCase(TestCase):
 
     def view(self, machine=None, user=None):
         return MachineView(machine or self.machine, user or self.user)
+
+    def sandbox(self):
+        """Песочный игрок автора: свои изменения поверх базы, параллельно миру."""
+        return get_user_model().objects.get_or_create(username="sand", defaults={"sandbox_of": self.other})[0]
 
 
 class BuildTests(ViewCase):
@@ -209,10 +213,13 @@ class PlayerLayerTests(ViewCase):
         self.assertEqual(Placement.objects.filter(volume=self.root).count(), 3)
         self.assertEqual(Item.objects.get(slug="other").body, "o")
 
-    def test_a_deleted_file_is_gone_for_the_player_only(self):
+    def test_a_deleted_file_is_gone_for_the_whole_world_but_not_the_sandbox(self):
         self.view().remove("/home/note.txt")
         self.assertFalse(self.view().exists("/home/note.txt"))
-        self.assertTrue(self.view(user=self.other).exists("/home/note.txt"))
+        self.assertFalse(self.view(user=self.other).exists("/home/note.txt"))                    # мир один
+        self.assertTrue(self.view(user=self.sandbox()).exists("/home/note.txt"))                # песочница видит базу
+        self.view(user=self.sandbox()).remove("/home/other.txt")
+        self.assertTrue(self.view().exists("/home/other.txt"))                                  # и мира не трогает
 
     def test_deleting_a_folder_removes_everything_under_it(self):
         count = self.view().remove("/home")
@@ -220,17 +227,34 @@ class PlayerLayerTests(ViewCase):
         self.assertFalse(self.view().exists("/home"))
         self.assertFalse(self.view().exists("/home/other.txt"))
 
-    def test_an_edit_keeps_the_object_and_changes_the_text_for_the_player(self):
+    def test_an_edit_keeps_the_object_and_changes_the_text_for_everyone(self):
         self.view().edit_text("/home/note.txt", "my text")
         found = self.view().get("/home/note.txt")
         self.assertEqual((found.item.slug, found.body, found.text_override), ("note", "my text", "my text"))
-        self.assertEqual(self.view(user=self.other).get("/home/note.txt").body, "base text")
+        self.assertEqual(self.view(user=self.other).get("/home/note.txt").body, "my text")
+        self.assertEqual(found.player.changed_by, self.user)                                    # кто изменил — для автора
+        self.assertEqual(self.view(user=self.sandbox()).get("/home/note.txt").body, "base text")
 
-    def test_progress_over_layers_is_kept_per_player_without_changing_the_file(self):
+    def test_progress_over_layers_is_shared_without_changing_the_file(self):
         self.view().set_progress("/home/note.txt", "step1")
         found = self.view().get("/home/note.txt")
         self.assertEqual((found.progress, found.item.slug, found.body), ("step1", "note", "base text"))
-        self.assertEqual(self.view(user=self.other).get("/home/note.txt").progress, "")
+        self.assertEqual(self.view(user=self.other).get("/home/note.txt").progress, "step1")    # вскрыл один — открыто всем
+        self.assertEqual(self.view(user=self.sandbox()).get("/home/note.txt").progress, "")
+
+    def test_a_layer_comes_off_in_place_only_with_the_right_to_write(self):
+        from filesystem import rights
+        from machines.access.groups import principal_for
+        from machines.models import MachineProfile
+
+        Placement.objects.filter(item=self.note).update(owner="root", mode="644")
+        guest = MachineProfile.objects.create(machine=self.machine, login="guest", name="guest", freq=1)
+        view = MachineView(self.machine, self.user, principal_for(guest))
+        with self.assertRaises(rights.Denied):
+            view.set_progress("/home/note.txt", "step1")                          # чужой файл: только чтение
+        Placement.objects.filter(item=self.note).update(mode="666")
+        MachineView(self.machine, self.user, principal_for(guest)).set_progress("/home/note.txt", "step1")
+        self.assertEqual(self.view(user=self.other).get("/home/note.txt").progress, "step1")
 
     def test_a_copy_has_its_own_progress_and_the_same_object(self):
         view = self.view()
@@ -260,7 +284,7 @@ class PlayerLayerTests(ViewCase):
         self.assertTrue(view.exists("/home/new"))
         view.remove("/home/new")
         self.assertFalse(self.view().exists("/home/new"))
-        self.assertFalse(PlayerFile.objects.filter(path="home/new").exists())
+        self.assertFalse(FileChange.objects.filter(path="home/new").exists())
 
     def test_a_signature_is_a_file_with_its_own_text(self):
         self.view().put_text("/home/note.sig", "-----SIGNATURE-----")
@@ -307,7 +331,7 @@ class PlayerLayerTests(ViewCase):
         mount(self.machine, base, "/", order=0)
         view = self.view()
         view.put_text("/newfile", "x")
-        instance = VolumeInstance.objects.get(player_files__path="newfile")
+        instance = VolumeInstance.objects.get(file_changes__path="newfile")
         self.assertEqual(instance.volume, self.root)
 
 
@@ -367,7 +391,7 @@ class QueryTests(ViewCase):
         for index in range(files):
             place(root, f"d{index % 5}/f{index}", item(f"s{files}-{index}"))
         mount(self.machine, root, "/", order=files)
-        PlayerFile.objects.all().delete()
+        FileChange.objects.all().delete()
 
     def count(self):
         view = self.view()

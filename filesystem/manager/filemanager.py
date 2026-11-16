@@ -524,8 +524,8 @@ def text_blockers(item):
         reasons.append("его содержимое не текст")
     if item.in_archives.exists() or item.net_nodes.exists():
         reasons.append("на него ссылаются архивы, письма или сеть")
-    if item.player_files.exists():
-        reasons.append("у игроков есть его копии")
+    if item.file_changes.exists():
+        reasons.append("в мире есть его копии")
     return reasons
 
 

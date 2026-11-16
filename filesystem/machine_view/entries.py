@@ -2,7 +2,7 @@
 from dataclasses import dataclass, field
 import posixpath
 
-from filesystem.models import Placement, PlayerFile
+from filesystem.models import FileChange, Placement
 from machines.models import MachineMount
 
 DIR, FILE = "dir", "file"
@@ -75,7 +75,7 @@ class Entry:
     inner: str = ""                          # путь внутри тома слоя
     placement: Placement | None = None       # откуда пришла запись из базы
     item: object = None                      # объект (из базы или выбранный игроком)
-    player: PlayerFile | None = None         # запись слоя игрока, которая меняет эту запись или создаёт её
+    player: FileChange | None = None         # изменение мира, которое меняет эту запись или создаёт её
     has_base: bool = False                   # под записью игрока лежит запись из базы (удалить = надгробие)
     gates: tuple = field(default_factory=tuple)   # условия доступа: том и папки вдоль пути
     via: object = None                       # сетевое подключение (Layer), через которое запись пришла с хоста

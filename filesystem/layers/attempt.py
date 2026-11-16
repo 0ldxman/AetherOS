@@ -35,7 +35,7 @@ from filesystem.layers.stack import (
 class AttemptOutcome:
     result: RemoveResult  # слой снят или нет, какой слой, что неверно, события
     hooks: HookOutcome  # say, log и файловые операции после хуков
-    state: str  # новый текст для PlayerFile.state
+    state: str  # новый текст для FileChange.state
 
 
 def attempt_remove(
@@ -48,7 +48,7 @@ def attempt_remove(
     registry: StateRegistry = default_registry,
     force: bool = False,
 ) -> AttemptOutcome:
-    """canonical_text -- Item.state, raw_state -- PlayerFile.state,
+    """canonical_text -- Item.state, raw_state -- FileChange.state,
     given -- значения игрока (имя аргумента -> значение, типы уже приведены).
 
     Ошибка в canonical_text (StateError) сюда доходить не должна: админка
@@ -68,7 +68,7 @@ def attempt_remove(
 @dataclass
 class EventOutcome:
     hooks: HookOutcome  # что случилось по хукам события
-    state: str  # новый текст для PlayerFile.state (хук мог добавить слой)
+    state: str  # новый текст для FileChange.state (хук мог добавить слой)
 
 
 def fire_event(

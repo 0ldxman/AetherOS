@@ -5,14 +5,20 @@ from filesystem.machine_view.remote import RemoteMixin
 from filesystem.machine_view.writes import WriteMixin
 
 
+def world_of(user):
+    """Экземпляр, который видит игрок: None — мир, песочный игрок — его песочница."""
+    return user if getattr(user, "sandbox_of_id", None) else None
+
+
 class MachineView(BuildMixin, ReadMixin, RemoteMixin, WriteMixin):
-    """Вид машины для игрока (user=None: только база, без слоя игрока)."""
+    """Вид машины для игрока: база и изменения его экземпляра — мира или песочницы автора (user=None: только база, вид автора)."""
 
     generation = 0                          # растёт при каждой записи через любой вид: собранное раньше устарело
 
     def __init__(self, machine, user=None, principal=None, trail=frozenset(), _state=None, login=None):
         self.machine = machine
         self.user = user
+        self.world = world_of(user)         # чьи изменения поверх базы (у user=None изменений нет вовсе)
         # логин учётки для шаблонных папок {login}: явный, иначе учётка подключения, иначе последняя сессия игрока на машине.
         # Без игрока и без логина (вид автора) шаблонная папка видна как есть.
         self.login = login or getattr(principal, "login", None) or (session_login(machine, user) if user is not None else None)
@@ -45,5 +51,5 @@ def view_for(machine, user=None, principal=None, login=None):
     from machines import memo
 
     login = login or getattr(principal, "login", None) or (session_login(machine, user) if user is not None else None)
-    base = memo.cached(("view", machine.pk, user.pk if user is not None else None, login), lambda: MachineView(machine, user, login=login))
+    base = memo.cached(("view", machine.pk, user.pk if user is not None else None, login), lambda: MachineView(machine, user, login=login))      # mnt и логин — у игрока
     return base if principal is None else base.fork(principal)

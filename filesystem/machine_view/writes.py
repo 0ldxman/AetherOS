@@ -1,4 +1,4 @@
-"""Запись в слой игрока: проверка прав, новые файлы, правка, удаление, копирование."""
+"""Запись в мир (или песочницу автора): проверка прав, новые файлы, правка, удаление, копирование. Кто изменил — changed_by."""
 import posixpath
 
 from django.core.exceptions import ValidationError
@@ -7,7 +7,7 @@ from django.utils import timezone
 from filesystem import instances, rights
 from filesystem.names import validate_name
 from filesystem.machine_view.entries import DATA_LIMIT, BadName, Occupied, ReadOnly
-from filesystem.models import PlayerFile
+from filesystem.models import FileChange
 
 
 class WriteMixin:
@@ -56,12 +56,14 @@ class WriteMixin:
 
     def _row(self, layer, inner):
         instance = layer.instance or instances.get_or_create(layer.mount.volume_id, layer.host_id)
-        row, _ = PlayerFile.objects.get_or_create(user=self.user, instance=instance, path=inner)
+        row, _ = FileChange.objects.get_or_create(sandbox=self.world, instance=instance, path=inner)
         return row
 
     def _save(self, row, **fields):
         for name, value in fields.items():
             setattr(row, name, value)
+        if self.user is not None:
+            row.changed_by = self.user
         row.save()
         self.invalidate()
         return row
@@ -134,13 +136,16 @@ class WriteMixin:
         return self._save(row, **fields)
 
     def set_progress(self, path, state):
-        """Прогресс игрока по слоям файла."""
+        """Прогресс по слоям файла — общий для мира, поэтому снять слой на месте можно только с правом записи (без него —
+        копией к себе). Попытки тоже общие: неверные вводы всех игроков считаются вместе."""
         done, result = self._delegate(path, "set_progress", state)
         if done:
             return result
         found = self.get(path)
         if found is None or (found.is_dir and found.placement is None):
             raise FileNotFoundError(path)
+        if self.principal is not None:
+            self._may(path, "w")
         row = found.player or self._row(found.layer, found.inner)
         return self._save(row, state=state)
 

@@ -72,11 +72,11 @@ class ConnectionTests(NetworkCase):
         MachineProfile.objects.create(machine=self.host, login="guest", name="Guest", freq=3)
         self.assertTrue(MachineView(self.client_machine, self.user).exists("/mnt/h/docs"))
 
-    def test_the_state_is_the_state_of_the_host_for_this_player_only(self):
+    def test_the_state_is_the_state_of_the_host_in_the_world(self):
         remote(self.client_machine, self.host, "/srv/harbor", "/mnt/h", self.reader)
         MachineView(self.client_machine, self.user).edit_text("/mnt/h/docs/open.txt", "from the client")
         self.assertEqual(MachineView(self.host, self.user).get("/srv/harbor/docs/open.txt").body, "from the client")
-        self.assertEqual(MachineView(self.host, self.other).get("/srv/harbor/docs/open.txt").body, "open")
+        self.assertEqual(MachineView(self.host, self.other).get("/srv/harbor/docs/open.txt").body, "from the client")
         MachineView(self.host, self.user).remove("/srv/harbor/docs/open.txt")
         self.assertFalse(MachineView(self.client_machine, self.user).exists("/mnt/h/docs/open.txt"))
 

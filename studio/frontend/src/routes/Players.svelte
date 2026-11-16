@@ -1,6 +1,6 @@
 <script lang="ts">
   // Игроки: кто играет, где был, что у него есть (учётки, ключи, изменённые файлы, журнал входов), и действия автора:
-  // выбросить, разблокировать, выдать или забрать ключ, сбросить прогресс, отключить вход.
+  // выбросить, разблокировать, выдать или забрать ключ, откатить его изменения в мире, отключить вход.
   import { onMount } from "svelte";
   import { api, problem, type Schemas } from "../lib/api";
   import Dialog from "../lib/Dialog.svelte";
@@ -87,8 +87,8 @@
   }
   async function reset() {
     const where = resetMachine === null ? "на всех машинах" : `на ${card?.machines.find((m) => m.machine === resetMachine)?.hostname}`;
-    if (!(await ask(`Сбросить прогресс ${card?.username} ${where}?`, "Пропадут его копии и правки файлов, удаления, корзина, снятые слои и сдвиги часов. Учётки и журнал входов останутся. Отменить нельзя.", "Сбросить прогресс"))) return;
-    await act(() => api.POST("/studio/api/players/{player_id}/reset", { params: path(), body: { machine: resetMachine } }), "Прогресс сброшен.");
+    if (!(await ask(`Откатить изменения ${card?.username} ${where}?`, "Из мира пропадёт то, что он изменил последним: копии и правки файлов, удаления, корзина, снятые слои, — и его сдвиги часов. Мир общий: откат увидят все. Отменить нельзя.", "Откатить"))) return;
+    await act(() => api.POST("/studio/api/players/{player_id}/reset", { params: path(), body: { machine: resetMachine } }), "Изменения откачены.");
     dialog = null;
   }
   async function ban(banned: boolean) {
@@ -129,8 +129,8 @@
           </p>
         </div>
         <span class="spacer"></span>
-        <button class="btn ghost" disabled={busy || !allowed("reset") || !card.machines.length} title={why("reset") || (!card.machines.length ? "Прогресса пока нет." : "")}
-                onclick={() => { resetMachine = null; dialog = "reset"; }}>Сбросить прогресс…</button>
+        <button class="btn ghost" disabled={busy || !allowed("reset") || !card.machines.length} title={why("reset") || (!card.machines.length ? "Изменений пока нет." : "")}
+                onclick={() => { resetMachine = null; dialog = "reset"; }}>Откатить изменения…</button>
         {#if card.banned}
           <button class="btn" disabled={busy || !allowed("ban")} title={why("ban")} onclick={() => ban(false)}>Вернуть вход</button>
         {:else}
@@ -252,7 +252,7 @@
 {/if}
 
 {#if dialog === "reset" && card}
-  <Dialog title="Сбросить прогресс" confirm="Дальше" danger {busy} onsubmit={reset} onclose={() => (dialog = null)}>
+  <Dialog title="Откатить изменения" confirm="Дальше" danger {busy} onsubmit={reset} onclose={() => (dialog = null)}>
     <label><span class="label">Где</span>
       <select class="field" bind:value={resetMachine}>
         <option value={null}>на всех машинах</option>

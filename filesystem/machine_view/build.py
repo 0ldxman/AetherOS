@@ -5,7 +5,7 @@ import posixpath
 from filesystem.machine_view.entries import DIR, Entry, FILE, ITEM_PREFETCH, Layer, _depth, _drop, inner_paths
 
 TEMPLATE = "{login}"        # папка-шаблон в томе: у каждой учётки на её месте свой логин (/home/{login}/Desktop -> /home/ivan/Desktop)
-from filesystem.models import Placement, PlayerFile, VolumeInstance
+from filesystem.models import FileChange, Placement, VolumeInstance
 from machines.models import MachineMount, SystemVolume
 
 
@@ -53,7 +53,7 @@ class BuildMixin:
         rows = {}
         instance_ids = {layer.instance.pk for layer in layers if layer.instance is not None}
         if self.user is not None and instance_ids:
-            for row in PlayerFile.objects.filter(user=self.user, instance_id__in=instance_ids).select_related("item").prefetch_related(*ITEM_PREFETCH):
+            for row in FileChange.objects.filter(sandbox=self.world, instance_id__in=instance_ids).select_related("item").prefetch_related(*ITEM_PREFETCH):
                 rows.setdefault(row.instance_id, []).append(row)
 
         entries, points = {}, set()

@@ -416,7 +416,7 @@ def where(request, item_id: int):
     item = _item(item_id)
     placements = item.placements.select_related("volume", "parent")
     mentions = [Mention(kind="сеть", label=f"{n.resource.address}{n.path}") for n in item.net_nodes.select_related("resource")]
-    files = item.player_files.filter(deleted_at__isnull=True).select_related("user")
+    files = item.file_changes.filter(deleted_at__isnull=True, sandbox__isnull=True).select_related("changed_by")
     return Whereabouts(
         placements=[
             Placed(placement=p.pk, volume=p.volume_id, parent=p.parent_id, volume_name=p.volume.name or p.volume.slug, volume_slug=p.volume.slug, path=p.path(), owner=p.owner, group=p.group,
@@ -427,7 +427,7 @@ def where(request, item_id: int):
         members=[InArchive(archive=m.item_id, name=m.item.name, path=m.path) for m in item.members.select_related("item")],
         mentions=mentions,
         players=Players(copies=files.count(), edits=files.exclude(content=None).count(),
-                        users=sorted({f.user.get_username() for f in files})),
+                        users=sorted({f.changed_by.get_username() for f in files if f.changed_by_id})),
         holders=[Mention(kind=kind, label=label) for kind, label in holders(item)],
     )
 

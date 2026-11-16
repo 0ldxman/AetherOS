@@ -2,7 +2,7 @@
 
 Игрок это пользователь игры (вход через Discord). Его учётки это записи машин, под которыми он работал (Session) или которые
 привязаны к нему (рабочая учётка). Ключи игрока лежат файлами в папках секретов его учёток (filesystem.keystore), его
-прогресс это слой игрока (PlayerFile: свои копии, удаления, корзина, снятые слои) и сдвиги часов машин (MachineClock).
+изменения мира, которые он сделал последним (FileChange.changed_by), и сдвиги часов машин (MachineClock).
 """
 from django.contrib.auth import get_user_model
 from django.db import transaction
@@ -34,7 +34,7 @@ def players(query="", online=False, limit=200):
     found = get_user_model().objects.filter(is_superuser=False, sandbox_of__isnull=True).annotate(
         seen=Max("sessions__seen_at"),
         accounts=Count("sessions__profile", distinct=True),
-        files=Count("player_files", distinct=True),
+        files=Count("file_changes", distinct=True),
         online_now=Count("sessions", filter=Q(sessions__seen_at__gte=alive), distinct=True),
     ).prefetch_related("socialaccount_set")
     if query:
@@ -85,9 +85,9 @@ def _keys(user, accounts):
 
 
 def _files(user):
-    from filesystem.models import PlayerFile
+    from filesystem.models import FileChange
 
-    found = PlayerFile.objects.filter(user=user).select_related("instance__host", "instance__volume", "item")
+    found = FileChange.objects.filter(changed_by=user, sandbox__isnull=True).select_related("instance__host", "instance__volume", "item")
     per_machine = {}
     for host_id, hostname, count in found.values_list("instance__host_id", "instance__host__hostname").annotate(count=Count("pk")):
         per_machine[host_id] = {"machine": host_id, "hostname": hostname, "count": count}
@@ -177,13 +177,13 @@ def take_key(user, profile_id, name):
 
 @transaction.atomic
 def reset(user, machine_id=None):
-    """Сбросить прогресс игрока: его файлы (копии, правки, удаления, корзина, снятые слои) и сдвиги часов, на машине или везде.
+    """Откатить, что игрок изменил в мире последним (копии, правки, удаления, корзина, снятые слои), и сдвиги часов, на машине или везде.
 
     Возвращает число убранных файлов. Учётки, сессии и журнал входов не трогаются."""
-    from filesystem.models import PlayerFile
+    from filesystem.models import FileChange
     from machines.models import MachineClock
 
-    files = PlayerFile.objects.filter(user=user)
+    files = FileChange.objects.filter(changed_by=user, sandbox__isnull=True)
     clocks = MachineClock.objects.filter(user=user)
     if machine_id is not None:
         files = files.filter(instance__host_id=machine_id)

@@ -5,7 +5,7 @@ from django.db import IntegrityError, transaction
 from django.test import TestCase
 
 from filesystem.models import (
-    MAX_DEPTH, FileFormat, Item, ItemKey, ItemSignature, PlayerFile, Placement, Volume, VolumeInstance,
+    MAX_DEPTH, FileFormat, Item, ItemKey, ItemSignature, FileChange, Placement, Volume, VolumeInstance,
 )
 from machines.models import Machine
 
@@ -201,28 +201,30 @@ class PlayerLayerTests(TestCase):
         with self.assertRaises(IntegrityError), transaction.atomic():
             VolumeInstance.objects.create(volume=self.volume, host=None)
 
-    def test_a_path_is_normalized_and_unique_for_a_player_and_an_instance(self):
-        row = PlayerFile.objects.create(user=self.user, instance=self.instance, path="/etc//hosts/", item=self.item)
+    def test_a_path_is_normalized_and_unique_in_the_world_for_an_instance(self):
+        row = FileChange.objects.create(changed_by=self.user, instance=self.instance, path="/etc//hosts/", item=self.item)
         self.assertEqual(row.path, "etc/hosts")
         with self.assertRaises(IntegrityError), transaction.atomic():
-            PlayerFile.objects.create(user=self.user, instance=self.instance, path="etc/hosts")
+            FileChange.objects.create(changed_by=self.user, instance=self.instance, path="etc/hosts")
 
-    def test_the_same_path_in_another_players_layer_is_another_row(self):
-        other = get_user_model().objects.create_user("petr", password="x")
-        PlayerFile.objects.create(user=self.user, instance=self.instance, path="a")
-        PlayerFile.objects.create(user=other, instance=self.instance, path="a")
+    def test_the_same_path_in_a_sandbox_is_another_row(self):
+        sandbox = get_user_model().objects.create_user("sand", password="x", sandbox_of=self.user)
+        FileChange.objects.create(changed_by=self.user, instance=self.instance, path="a")
+        FileChange.objects.create(sandbox=sandbox, instance=self.instance, path="a")
+        with self.assertRaises(IntegrityError), transaction.atomic():
+            FileChange.objects.create(sandbox=sandbox, instance=self.instance, path="a")
 
     def test_a_row_has_an_object_or_its_own_bytes_but_not_both(self):
-        PlayerFile.objects.create(user=self.user, instance=self.instance, path="slice.bin", data=b"\x00\x01")
-        PlayerFile.objects.create(user=self.user, instance=self.instance, path="sig.txt", content="-----BEGIN-----")
+        FileChange.objects.create(changed_by=self.user, instance=self.instance, path="slice.bin", data=b"\x00\x01")
+        FileChange.objects.create(changed_by=self.user, instance=self.instance, path="sig.txt", content="-----BEGIN-----")
         with self.assertRaises(IntegrityError), transaction.atomic():
-            PlayerFile.objects.create(user=self.user, instance=self.instance, path="bad", item=self.item, data=b"x")
+            FileChange.objects.create(changed_by=self.user, instance=self.instance, path="bad", item=self.item, data=b"x")
 
     def test_an_edited_text_keeps_its_object(self):
-        row = PlayerFile.objects.create(user=self.user, instance=self.instance, path="n.txt", item=self.item, content="mine")
+        row = FileChange.objects.create(changed_by=self.user, instance=self.instance, path="n.txt", item=self.item, content="mine")
         self.assertEqual((row.item_id, row.content), (self.item.pk, "mine"))
 
     def test_deleting_an_object_removes_the_rows_that_pointed_at_it(self):
-        PlayerFile.objects.create(user=self.user, instance=self.instance, path="n", item=self.item)
+        FileChange.objects.create(changed_by=self.user, instance=self.instance, path="n", item=self.item)
         Item.objects.filter(pk=self.item.pk).delete()
-        self.assertFalse(PlayerFile.objects.exists())
+        self.assertFalse(FileChange.objects.exists())

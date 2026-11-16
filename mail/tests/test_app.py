@@ -63,14 +63,14 @@ class BoxTests(TestCase):
         olga_as_ivan = Box.of_profile(self.profile, user=self.olga)
         self.assertEqual(len(olga_as_ivan.letters_in("inbox")), 1)                     # улика в ящике видна любому вошедшему
 
-    def test_a_delivered_letter_is_only_in_the_layer_of_the_player_and_speaks_to_him(self):
+    def test_a_delivered_letter_is_in_the_box_of_the_account_and_speaks_to_the_player(self):
         path = self.box().deliver(self.letter)
         self.assertTrue(path.startswith("/var/mail/ivan/inbox/door-code"))
         row = self.box().letter(path)
         self.assertEqual(row.letter.to, self.profile.mail)
         self.assertIn("Привет, ivan.", row.letter.body)
         self.assertIsNotNone(row.arrived)
-        self.assertEqual(len(Box.of_profile(self.profile, user=self.olga).letters_in("inbox")), 1)   # у другого игрока только улика
+        self.assertEqual(len(Box.of_profile(self.profile, user=self.olga).letters_in("inbox")), 2)   # ящик учётки общий
 
     def test_read_marks_are_per_player_and_trash_moves_the_letter(self):
         path = self.box().deliver(self.letter)

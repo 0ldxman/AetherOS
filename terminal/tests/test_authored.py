@@ -50,7 +50,7 @@ class AuthoredFileTests(TerminalClient, TestCase):
         raw = self.run_command("txtx /etc/shadow.txt")["output"]
         self.assertNotIn("root:x:0", raw)
 
-    def test_an_edit_and_a_copy_stay_with_the_player_and_the_author_text_is_kept(self):
+    def test_an_edit_and_a_copy_are_in_the_world_and_the_author_text_is_kept(self):
         view = MachineView(self.main, self.user)
         view.edit_text("/etc/hosts", HOSTS + "10.0.0.9 trap\n")
         self.assertIn("trap", self.run_command("txtx /etc/hosts")["output"])
@@ -61,7 +61,9 @@ class AuthoredFileTests(TerminalClient, TestCase):
         self.assertEqual(self.run_command("cp /etc/hosts /home/h.txt")["exit_code"], 0)
         self.assertIn("trap", self.run_command("txtx /home/h.txt")["output"])
         other = get_user_model().objects.create_user("anna")
-        self.assertNotIn("trap", MachineView(self.main, other).get("/etc/hosts").body)        # правка видна только игроку
+        self.assertIn("trap", MachineView(self.main, other).get("/etc/hosts").body)           # мир один: правку видят все
+        sandbox = get_user_model().objects.create_user("sand", sandbox_of=other)
+        self.assertNotIn("trap", MachineView(self.main, sandbox).get("/etc/hosts").body)      # кроме песочницы автора
 
     def test_a_text_member_of_an_archive_is_extracted_as_the_players_file(self):
         self.assertIn("readme.txt  18", self.run_command("pak l /home/pack.zip")["output"])
