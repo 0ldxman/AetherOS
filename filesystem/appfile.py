@@ -17,17 +17,39 @@ from django.core.exceptions import ValidationError
 APP_FORMAT = "app"
 
 
-VOLUME = re.compile(r"^(?:(?P<host>[^:\s/]+):)?(?P<path>/\S*)(?:\s+as\s+(?P<title>.+?))?(?:\s+user=(?P<user>\S+))?$")
+VOLUME = re.compile(r"^(?:(?P<host>[^:\s/]+):)?(?P<path>/\S*)(?P<rest>.*)$")
+OPTION = re.compile(r"\s+(user|pass|token|key)=(\S+)\s*$")
 
 
 @dataclass(frozen=True)
 class VolumeLine:
-    """volume archive-srv:/srv/harbor as Harbor user=reader: хост (пусто: эта машина), путь на нём, название раздела, запись хоста."""
+    """volume archive-srv:/srv/harbor as Harbor user=reader pass=… token=… key=…: хост (пусто: эта машина), путь на нём, название
+    раздела, запись хоста и чем на неё войти — пароль, токен или ключ из папки секретов игрока (по правилам учётки, как rshell)."""
 
     host: str
     path: str
     title: str
     user: str
+    password: str = ""
+    token: str = ""
+    key: str = ""
+
+
+def parse_volume(text):
+    """VolumeLine из «хост:/путь [as Название] [user=…] [pass=…] [token=…] [key=…]» или None."""
+    found = VOLUME.match((text or "").strip())
+    if found is None:
+        return None
+    rest, options = found["rest"], {}
+    while (option := OPTION.search(rest)) is not None:
+        options.setdefault(option[1], option[2])
+        rest = rest[:option.start()]
+    rest = rest.strip()
+    if rest and not rest.startswith("as "):
+        return None
+    path = found["path"].rstrip("/") or "/"
+    return VolumeLine(found["host"] or "", path, rest[3:].strip(), options.get("user", ""), options.get("pass", ""),
+                      options.get("token", ""), options.get("key", ""))
 
 
 @dataclass(frozen=True)
@@ -56,11 +78,11 @@ def parse(text):
         if line and not line.startswith("#"):
             key, _, value = line.partition(" ")
             if key.lower() == "volume":
-                found = VOLUME.match(value.strip())
-                if found is None:
-                    raise ValidationError({"body": f"Строка «{line}»: нужно volume хост:/путь [as Название] [user=запись]."})
-                path = found["path"].rstrip("/") or "/"
-                volumes.append(VolumeLine(found["host"] or "", path, (found["title"] or "").strip(), found["user"] or ""))
+                spec = parse_volume(value)
+                if spec is None:
+                    raise ValidationError({"body": f"Строка «{line}»: нужно volume хост:/путь [as Название] [user=запись] "
+                                                   "[pass=пароль | token=токен | key=ключ]."})
+                volumes.append(spec)
                 continue
             values.setdefault(key.lower(), value.strip())
 

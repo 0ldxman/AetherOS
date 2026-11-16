@@ -28,6 +28,9 @@ class WvLine(Schema):
     path: str
     title: str = ""
     user: str = ""
+    password: str = ""               # чем войти на учётку хоста: пароль, токен или ключ из секретов игрока
+    token: str = ""
+    key: str = ""
 
 
 class WvCheckIn(Schema):
@@ -62,7 +65,8 @@ def check(request, body: WvCheckIn):
     machine = get_object_or_404(Machine, pk=body.machine) if body.machine else None
     results = []
     for line in body.lines:
-        spec = VolumeLine(line.host.strip(), "/" + line.path.strip().strip("/") if line.path.strip().strip("/") else "/", line.title.strip(), line.user.strip())
+        spec = VolumeLine(line.host.strip(), "/" + line.path.strip().strip("/") if line.path.strip().strip("/") else "/", line.title.strip(), line.user.strip(),
+                          line.password.strip(), line.token.strip(), line.key.strip())
         if spec.host == "" and machine is None:
             results.append({"ok": False, "reason": "no_machine", "message": "Для своей машины выберите, на какой машине проверять.", "title": spec.title or spec.path, "pages": 0, "closed": 0})
             continue

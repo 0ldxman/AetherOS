@@ -6,21 +6,49 @@
 
   let { body = $bindable() }: { body: string } = $props();
 
-  type Row = { host: string; path: string; title: string; user: string };
-  const VOLUME = /^(?:([^:\s/]+):)?(\/\S*)(?:\s+as\s+(.+?))?(?:\s+user=(\S+))?$/;
+  // вход на учётку хоста: пароль, токен или ключ из секретов игрока (как rshell); auth — что редактируется в строке
+  type Auth = "" | "password" | "token" | "key";
+  type Row = { host: string; path: string; title: string; user: string; password: string; token: string; key: string; auth: Auth };
+  const VOLUME = /^(?:([^:\s/]+):)?(\/\S*)(.*)$/;
+  const OPTION = /\s+(user|pass|token|key)=(\S+)\s*$/;
   const LINES = /^volume[ \t]+(.*)$/gim;
+  const AUTH: [Auth, string, string][] = [["", "без входа", ""], ["password", "пароль", "pass"], ["token", "токен", "token"], ["key", "ключ", "key"]];
 
+  function parseLine(text: string): Row | null {
+    const match = VOLUME.exec(text);
+    if (!match) return null;
+    let rest = match[3];
+    const opts: Record<string, string> = {};
+    for (let found = OPTION.exec(rest); found; found = OPTION.exec(rest)) {
+      opts[found[1]] ??= found[2];
+      rest = rest.slice(0, found.index);
+    }
+    rest = rest.trim();
+    if (rest && !rest.startsWith("as ")) return null;
+    const row: Row = { host: match[1] ?? "", path: match[2], title: rest.slice(3).trim(), user: opts.user ?? "", password: opts.pass ?? "",
+                       token: opts.token ?? "", key: opts.key ?? "", auth: "" };
+    row.auth = row.password ? "password" : row.token ? "token" : row.key ? "key" : "";
+    return row;
+  }
   function parse(text: string): { rows: Row[]; raw: string[] } {
     const rows: Row[] = [];
     const raw: string[] = [];
     for (const found of text.matchAll(LINES)) {
-      const match = VOLUME.exec(found[1].trim());
-      if (match) rows.push({ host: match[1] ?? "", path: match[2], title: (match[3] ?? "").trim(), user: match[4] ?? "" });
+      const row = parseLine(found[1].trim());
+      if (row) rows.push(row);
       else raw.push(found[1].trim());
     }
     return { rows, raw };
   }
-  const line = (row: Row) => `${row.host ? `${row.host}:` : ""}${row.path || "/"}${row.title.trim() ? ` as ${row.title.trim()}` : ""}${row.user ? ` user=${row.user}` : ""}`;
+  const line = (row: Row) => `${row.host ? `${row.host}:` : ""}${row.path || "/"}${row.title.trim() ? ` as ${row.title.trim()}` : ""}${row.user ? ` user=${row.user}` : ""}`
+    + `${row.password ? ` pass=${row.password}` : ""}${row.token ? ` token=${row.token}` : ""}${row.key ? ` key=${row.key}` : ""}`;
+  function setAuth(row: Row, auth: Auth) {
+    const kept = row.auth ? row[row.auth] : "";
+    row.password = row.token = row.key = "";
+    if (auth) row[auth] = kept;
+    row.auth = auth;
+    write();
+  }
 
   const isWiki = $derived(/^path[ \t]+\/apps\/wiki(\/|\s|$)/im.test(body));
   let rows = $state<Row[]>(parse(body).rows);
@@ -48,7 +76,7 @@
     const lines = [...rows.map((row) => `volume ${line(row)}`), ...raw.map((text) => `volume ${text}`)];
     body = `${rest}\n${lines.join("\n")}${lines.length ? "\n" : ""}`;
   }
-  function add() { rows = [...rows, { host: hosts[0]?.hostname ?? "", path: "", title: "", user: "" }]; write(); }
+  function add() { rows = [...rows, { host: hosts[0]?.hostname ?? "", path: "", title: "", user: "", password: "", token: "", key: "", auth: "" }]; write(); }
   function drop(index: number) { rows = rows.filter((_, i) => i !== index); write(); }
   function move(index: number, step: number) {
     const to = index + step;
@@ -74,7 +102,8 @@
     if (!snapshot.length) { results = []; return; }
     timer = setTimeout(async () => {
       checking = true;
-      const { data } = await api.POST("/studio/api/wiki-volumes/check", { body: { lines: snapshot, machine: chosen } });
+      const lines = snapshot.map(({ auth: _, ...rest }) => rest);
+      const { data } = await api.POST("/studio/api/wiki-volumes/check", { body: { lines, machine: chosen } });
       checking = false;
       results = data ?? [];
     }, 400);
@@ -116,6 +145,14 @@
             {#if row.user && !hostOf(row.host)?.accounts.some((a) => a.login === row.user)}<option value={row.user}>{row.user} (нет такой)</option>{/if}
           </select>
         {:else}<span class="muted small own">права игрока</span>{/if}
+        {#if row.host}
+          <span class="auth">
+            <select class="field" value={row.auth} onchange={(e) => setAuth(row, (e.currentTarget as HTMLSelectElement).value as Auth)} aria-label="Вход, раздел {index + 1}">
+              {#each AUTH as [value, label] (value)}<option {value}>{label}</option>{/each}
+            </select>
+            {#if row.auth}<input class="field mono" bind:value={row[row.auth]} oninput={write} placeholder={row.auth === "key" ? "имя ключа в секретах" : ""} aria-label="Чем войти, раздел {index + 1}" />{/if}
+          </span>
+        {:else}<span></span>{/if}
         <input class="field" bind:value={row.title} oninput={write} placeholder={result?.title ?? "название"} aria-label="Название, раздел {index + 1}" />
         <span class="acts">
           <button class="btn ghost" aria-label="Выше" disabled={index === 0} onclick={() => move(index, -1)}>↑</button>
@@ -149,7 +186,10 @@
   header { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
   .spacer { flex: 1; }
   .small { font-size: 12px; }
-  .row { display: grid; grid-template-columns: minmax(110px, 0.9fr) minmax(120px, 1.2fr) minmax(110px, 0.9fr) minmax(90px, 0.8fr) auto; gap: 6px; align-items: center; }
+  .row { display: grid; grid-template-columns: minmax(110px, 0.9fr) minmax(120px, 1.2fr) minmax(110px, 0.9fr) minmax(130px, 1fr) minmax(90px, 0.8fr) auto; gap: 6px; align-items: center; }
+  .auth { display: flex; gap: 4px; min-width: 0; }
+  .auth select { flex: none; width: auto; }
+  .auth input { flex: 1; min-width: 0; }
   .row select, .row input { min-width: 0; }
   .own { padding: 0 4px; }
   .acts { display: flex; gap: 2px; }

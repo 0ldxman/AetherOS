@@ -161,9 +161,12 @@ def _sections(request, machine):
     user = request.user if signed else None
     hosts = {found.hostname: found for found in Machine.objects.filter(hostname__in={line.host for line in lines if line.host})}
 
+    from filesystem import keystore
+
+    keys = keystore.slugs_of(active_session(request)) if signed else frozenset()
     sections = []
     for line in lines:
-        view, _ = connect_line(machine, line, user, principal_for(profile) if profile is not None else None, hosts)
+        view, _ = connect_line(machine, line, user, principal_for(profile) if profile is not None else None, hosts, keys)
         if view is not None:
             sections.append((line.title or posixpath.basename(line.path) or line.host or machine.label, view, line.path))
     return sections
@@ -174,16 +177,19 @@ REASONS = {
     "no_account": "У хоста нет такой учётной записи.",
     "not_exported": "Хост не отдаёт этот путь: добавьте его в экспорты хоста.",
     "chain": "Подключение зациклено или цепочка хостов слишком длинная.",
+    "no_entry": "Учётка не пускает: нужен пароль (pass=), токен (token=) или ключ из секретов игрока (key=), либо вход закрыт её правилами.",
     "no_folder": "По этому пути нет папки.",
     "empty": "В папке нет страниц, которые эта учётка вправе читать.",
 }
 
 
-def connect_line(machine, line, user, principal, hosts=None):
+def connect_line(machine, line, user, principal, hosts=None, keys=frozenset()):
     """Вид, который даёт строка volume, и причина отказа: (вид, "") или (None, код из REASONS).
 
-    Со строкой без хоста берётся своя машина с правами игрока (principal); с хостом вики подключается к нему как клиент."""
+    Со строкой без хоста берётся своя машина с правами игрока (principal); с хостом вики подключается к нему как клиент и входит на
+    учётку по её правилам, как rshell: пароль, токен или ключ строки (keys — ключи в секретах игрока; key= берётся, только если он там есть)."""
     from filesystem.machine_view import view_for
+    from machines.access import check
     from machines.models import Machine
     from machines.network import connection
 
@@ -196,6 +202,10 @@ def connect_line(machine, line, user, principal, hosts=None):
             return None, "no_account"
         if not connection.exported(host, line.path):
             return None, "not_exported"
+        verdict = check.check(account, source=machine.hostname, player=user, password=line.password or None,
+                              keys={line.key} & set(keys), token=line.token or None)
+        if verdict.admitted is not True:
+            return None, "no_entry"
         view = connection.connect(machine, host, line.path, account, user)
         if view is None:
             return None, "chain"
@@ -205,8 +215,9 @@ def connect_line(machine, line, user, principal, hosts=None):
 
 
 def check_line(machine, line, user=None, principal=None):
-    """Что вики сделает со строкой volume: {"ok", "reason", "message", "title", "pages", "closed"}. Нужна автору (Студия): игрок причину не видит."""
-    view, reason = connect_line(machine, line, user, principal)
+    """Что вики сделает со строкой volume: {"ok", "reason", "message", "title", "pages", "closed"}. Нужна автору (Студия): игрок причину не
+    видит. Ключ строки (key=) считается у игрока в секретах."""
+    view, reason = connect_line(machine, line, user, principal, keys={line.key} if line.key else frozenset())
     title = line.title or posixpath.basename(line.path) or line.host or machine.label
     if view is None:
         return {"ok": False, "reason": reason, "message": REASONS[reason], "title": title, "pages": 0, "closed": 0}

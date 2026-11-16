@@ -5224,6 +5224,21 @@ export interface components {
              * @default
              */
             user: string;
+            /**
+             * Password
+             * @default
+             */
+            password: string;
+            /**
+             * Token
+             * @default
+             */
+            token: string;
+            /**
+             * Key
+             * @default
+             */
+            key: string;
         };
         /** Mount */
         Mount: {

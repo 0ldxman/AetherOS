@@ -68,3 +68,24 @@ class WikiVolumesApiTests(TestCase):
         self.assertEqual((a["duplicate"], b["duplicate"]), (True, True))
         [one] = self.check({"host": "archive-srv", "path": "/srv/harbor", "user": "reader"})
         self.assertEqual((one["title"], one["duplicate"]), ("harbor", False))
+
+    def test_a_guarded_account_needs_its_password_token_or_key(self):
+        from machines.world import edits
+
+        guarded = MachineProfile.objects.create(machine=self.host, login="keeper", name="Keeper", freq=2)
+        edits.set_password(guarded, "s3cret")
+        token = edits.create_token(guarded)
+        base = {"host": "archive-srv", "path": "/srv/harbor", "user": "keeper"}
+        results = self.check(base, {**base, "password": "wrong"}, {**base, "password": "s3cret"}, {**base, "token": token})
+        self.assertEqual([r["reason"] or "ok" for r in results], ["no_entry", "no_entry", "ok", "ok"])
+        edits.set_password(guarded, "")
+        edits.set_keys(guarded, "cardkey")
+        no_key, with_key = self.check(base, {**base, "key": "cardkey"})
+        self.assertEqual((no_key["reason"], with_key["ok"]), ("no_entry", True))
+
+    def test_the_line_keeps_its_way_in(self):
+        from filesystem.appfile import parse_volume
+
+        line = parse_volume("archive-srv:/srv/harbor as Порт и док user=keeper pass=s3cret")
+        self.assertEqual((line.title, line.user, line.password, line.token), ("Порт и док", "keeper", "s3cret", ""))
+        self.assertIsNone(parse_volume("archive-srv:/srv/harbor junk"))

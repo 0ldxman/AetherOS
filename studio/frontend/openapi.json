@@ -15845,6 +15845,21 @@
       "default": "",
       "title": "User",
       "type": "string"
+     },
+     "password": {
+      "default": "",
+      "title": "Password",
+      "type": "string"
+     },
+     "token": {
+      "default": "",
+      "title": "Token",
+      "type": "string"
+     },
+     "key": {
+      "default": "",
+      "title": "Key",
+      "type": "string"
      }
     },
     "required": [
