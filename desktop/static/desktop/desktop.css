@@ -739,13 +739,16 @@ body {
 :where(.win-actions) .dialog-ok:focus-visible { background: var(--tone); border-color: var(--tone); color: var(--font-dark); outline: none; }
 
 
-/* помехи изображения машины: полосы развёртки и короткие сбои (desktop.js) */
+/* помехи изображения машины: полосы развёртки, катящаяся полоса и короткие сбои (desktop.js); сила — --noise от 0 до 1 */
 .screen-noise {
   position: fixed; inset: 0; pointer-events: none; z-index: 2147483000;
-  background: repeating-linear-gradient(to bottom, color-mix(in srgb, var(--fg) calc(var(--noise) * 6%), transparent) 0 1px, transparent 1px 3px);
-  mix-blend-mode: overlay;
-  animation: screen-noise-roll 7s linear infinite;
+  background:
+    linear-gradient(to bottom, transparent 0%, color-mix(in srgb, var(--fg) calc(var(--noise) * 7%), transparent) 50%, transparent 100%) 0 0 / 100% 18% no-repeat,
+    repeating-linear-gradient(to bottom, color-mix(in srgb, var(--fg) calc(var(--noise) * 14%), transparent) 0 1px, transparent 1px 3px);
+  animation: screen-noise-roll 6s linear infinite, screen-noise-flicker 0.15s steps(2) infinite;
+  opacity: calc(0.55 + var(--noise) * 0.45);
 }
-@keyframes screen-noise-roll { from { background-position: 0 0; } to { background-position: 0 300px; } }
-body.screen-glitch { transform: translateX(var(--glitch-x, 0)); filter: hue-rotate(25deg) contrast(1.2); }
+@keyframes screen-noise-roll { from { background-position: 0 -20%, 0 0; } to { background-position: 0 120%, 0 0; } }
+@keyframes screen-noise-flicker { 50% { opacity: calc(0.45 + var(--noise) * 0.4); } }
+body.screen-glitch { transform: translateX(var(--glitch-x, 0)); filter: hue-rotate(25deg) contrast(1.25) saturate(1.4); }
 @media (prefers-reduced-motion: reduce) { .screen-noise { animation: none; } }
