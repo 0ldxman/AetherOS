@@ -1,4 +1,4 @@
-"""Теги и счётчики: одно хранилище для мира, игрока, персонажа, машины, сервера и объекта.
+"""Теги и счётчики: одно хранилище для мира, игрока, персонажа, машины, сервера, объекта и учётки (общей для всех на ней).
 
 Значение бывает общим (user пусто) или своим у каждого игрока (user — игрок): «этот персонаж доверяет этому игроку на 3».
 У владельца «игрок» значения и так его собственные: owner_id — сам игрок, user пусто.
@@ -14,7 +14,8 @@ from machines import memo
 
 TAG, COUNT = "tag", "count"
 WORLD, PLAYER = "world", "player"
-OWNERS = {WORLD: "мир", PLAYER: "игрок", "character": "персонаж", "machine": "машина", "server": "сервер", "object": "объект"}
+OWNERS = {WORLD: "мир", PLAYER: "игрок", "character": "персонаж", "machine": "машина", "server": "сервер", "object": "объект",
+          "account": "учётка"}
 NAME = re.compile(r"^[\w][\w.-]{0,63}$")
 
 
@@ -70,6 +71,11 @@ def owner_id(owner, thing):
         return None
     if hasattr(thing, "pk"):
         return thing.pk
+    if owner == "account":                                   # учётка по ключу «логин@хост»
+        from machines.world import edits
+
+        found = edits.account(str(thing))
+        return found.pk if found is not None else None
     model, field = _model(owner)
     return model.objects.filter(**{f"{field}__iexact": str(thing).strip()}).values_list("pk", flat=True).first()
 
@@ -78,11 +84,16 @@ def owner_key(owner, pk):
     """Ключ вещи по номеру (для подписей и условий)."""
     if owner == WORLD:
         return ""
+    if owner == "account":
+        from machines.models import MachineProfile
+        from machines.world import edits
+
+        return edits.account_key(MachineProfile.objects.select_related("machine").filter(pk=pk).first()) or str(pk)
     model, field = _model(owner)
     return model.objects.filter(pk=pk).values_list(field, flat=True).first() or str(pk)
 
 
-THING_FIELDS = {"character": "character", "machine": "machine", "server": "server", "object": "item", PLAYER: "who"}
+THING_FIELDS = {"character": "character", "machine": "machine", "server": "server", "object": "item", PLAYER: "who", "account": "account"}
 
 
 def _user(who):

@@ -321,9 +321,9 @@ def _when(name, label, fields, outs, events, match, data_outs, summary="", start
     DATA_OUTS[name] = tuple(data_outs) + (Sock("player", "Игрок", "player", "@player"),)
 
 
-THINGS_OF = ("character", "machine", "server", "object")
+THINGS_OF = ("character", "machine", "server", "object", "account")
 OWNER_WHEN = {"who": ("owner", ("player",)), "character": ("owner", ("character",)), "machine": ("owner", ("machine",)),
-              "server": ("owner", ("server",)), "item": ("owner", ("object",)), "scope": ("owner", THINGS_OF),
+              "server": ("owner", ("server",)), "item": ("owner", ("object",)), "account": ("owner", ("account",)), "scope": ("owner", THINGS_OF),
               "for": (("owner", THINGS_OF), ("scope", ("player",)))}
 _MACHINE = Field("machine", "Машина", "many:machine", "любая")              # фильтры событий: одно или список — подходит любой
 _OBJECT = Field("item", "Объект", "many:object", "любой")
@@ -589,7 +589,7 @@ RENAMED = {
     "notify": "Экран: Уведомление", "ticker": "Экран: Бегущая строка", "windows": "Экран: Окна ошибок", "open_window": "Экран: Окно с адресом",
     "blackout": "Экран: Чёрный экран", "scene": "Экран: Сцена", "air": "Персонаж: Передать в эфир", "news": "Новости: Опубликовать",
 }
-_OWNER = ("owner", "who", "character", "machine", "server", "item", "scope", "for", "name")
+_OWNER = ("owner", "who", "character", "machine", "server", "item", "account", "scope", "for", "name")
 CHOICES = (
     ("machine.status", "Машина: Изменить статус", (("stop", "Остановить", "machine_power", {"state": "stop"}, ("host",)),
                                                    ("start", "Запустить", "machine_power", {"state": "start"}, ("host",)),
@@ -804,12 +804,13 @@ register(Kind("ent:offer", "Возможность", ENTITY, "{title}{command}",
     "title": ("channel", ("mail", "choice", "file")), "message": ("channel", ("choice",)), "buttons": ("channel", ("choice",)),
     **{name: ("channel", ("file",)) for name in ("item", "path", "caption")}}, title="channel", inline={"letter": ("mode", ("new",))}))
 DATA_OUTS["ent:offer"] = (Sock("offer", "Возможность", "offer"),)
-_OFFER_SCOPE = Field("scope", "Для кого", "switch", "", False, (("player", "Игроку хода"), ("all", "Всем")))
+_OFFER_SCOPE = Field("scope", "Для кого", "switch", "", False, (("player", "Игроку хода"), ("account", "Учётке"), ("all", "Всем")))
 register(Kind("act:offer", "Возможность: Изменить", ACTION, "{offer}", (
     Field("state", "Состояние", "switch", "", False, (("open", "Открыть"), ("mystery", "Показать «???»"), ("hidden", "Скрыть"))),
     Field("whole", "Что", "switch", "", False, (("one", "Одну"), ("group", "Группу"))),
     Field("offer", "Возможность", "offer_group", "возможность или имя группы", True), _OFFER_SCOPE,
-), _ACT_OUTS, in_types={"in": "event|bool"}, title="state", inline={"offer": ("whole", ())}))
+    Field("account", "Учётка", "account", "учётка события"),
+), _ACT_OUTS, in_types={"in": "event|bool"}, title="state", inline={"offer": ("whole", ())}, when={"account": ("scope", ("account",))}))
 OFFER_ACTS = ("act:offer",)
 DATA_OUTS["act:mail"] = (Sock("item", "Письмо", "item"),)        # то же письмо — в «В ответ на» у «Возможности»
 
@@ -853,7 +854,7 @@ HELP = {
                  "команда (вместо «command not found»), аргументы сверяются так же. Окно с выбором — на столе игрока. Кнопка у файла — в окне "
                  "файла (объект, путь). Группа: использована одна — скрыты все. Выход — ключ для «Изменить» и «Использована».",
     "act:offer": "Что игрок видит: Открыть — вариант и можно его применить; Показать «???» — знает, что вариант есть, но выбрать нельзя; "
-                 "Скрыть — ничего (так по умолчанию). «Группу» — все возможности группы: имя группы текстом (в этом сценарии) или возможность "
+                 "Скрыть — ничего (так по умолчанию). Для кого: игроку хода, учётке (видят все, кто на ней, — провод или учётка события; верный ответ одного скрывает вариант у всех на ней) или всем. «Группу» — все возможности группы: имя группы текстом (в этом сценарии) или возможность "
                  "из неё проводом; можно списком. Во «Когда» — событие (состояние держится до следующего "
                  "изменения; «Скрыть» перекрывает условия) или провод условия (пока верно; несколько — побеждает самое открытое; "
                  "только возможности этого сценария).",
@@ -1331,20 +1332,20 @@ def _menu_order(kind):
 
 # теги и счётчики: «Владелец» одним сокетом (игрок, персонаж, машина, сервер, объект) — владелец по типу провода
 _OWNED_BY = {"player": ("player", "who"), "character": ("character", "character"), "machine": ("machine", "machine"), "server": ("server", "server"),
-             "item": ("object", "item")}
-_THINGS = ("who", "character", "machine", "server", "item")
+             "item": ("object", "item"), "account": ("account", "account")}
+_THINGS = ("who", "character", "machine", "server", "item", "account")
 
 
-_OWNER_SET = ("owner", "who", "character", "machine", "server", "item", "scope", "for")
+_OWNER_SET = ("owner", "who", "character", "machine", "server", "item", "account", "scope", "for")
 
 
 def _with_owner(name, many):
-    """«Владелец» — только провод (игрок, персонаж, машина, сервер, объект) и «Чьё»: общий или для игрока.
+    """«Владелец» — только провод (игрок, персонаж, машина, сервер, объект, учётка) и «Чьё»: общий или для игрока.
     Без владельца: общий — мир, для игрока — игрок. С вещью: общий — её, для игрока — пары «вещь + игрок». Игрок-владелец — его."""
     kind = KINDS[name]
     at = next(i for i, f in enumerate(kind.fields) if f.name == "owner")
     rest = [f for f in kind.fields if f.name not in _OWNER_SET]
-    owner = (Field("thing", "Владелец", (MANY if many else "") + "player|character|machine|server|object", "нет — мир или игрок"),
+    owner = (Field("thing", "Владелец", (MANY if many else "") + "player|character|machine|server|object|account", "нет — мир или игрок"),
              Field("scope", "Чьё", "select", "", False, (("shared", "общий"), ("player", "для игрока"))),
              Field("for", "Игрок", "player", "игрок хода"))
     when = {key: rule for key, rule in kind.when.items() if key not in _OWNER_SET}

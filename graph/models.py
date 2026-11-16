@@ -107,12 +107,14 @@ class Hit(models.Model):
 
 class Offer(models.Model):
     """Возможность, открытая сценарием: вариант письма, скрытая команда, окно с выбором, кнопка у файла. node — нода-сущность
-    «Возможность» графа; user пусто — всем. standing: «Открыть» с проводом условия во «Когда» (spec.by — эта нода) — открыта тем,
-    у кого оно верно (считается при запросе)."""
+    «Возможность» графа; user пусто — всем, profile — всем, кто на этой учётке (разговор у учётки один). standing: «Открыть» с
+    проводом условия во «Когда» (spec.by — эта нода) — открыта тем, у кого оно верно (считается при запросе)."""
 
     graph = models.ForeignKey(Graph, on_delete=models.CASCADE, related_name="offers")
     node = models.CharField(max_length=64)
     user = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.CASCADE, related_name="+")
+    profile = models.ForeignKey("machines.MachineProfile", null=True, blank=True, on_delete=models.CASCADE, related_name="+",
+                                help_text="Для учётки: видят все, кто на ней.")
     channel = models.CharField("Канал", max_length=16, default="mail", db_index=True)
     group = models.CharField("Группа", max_length=64, blank=True)
     standing = models.BooleanField("По условию", default=False)

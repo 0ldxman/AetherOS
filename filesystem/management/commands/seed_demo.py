@@ -69,7 +69,7 @@ def demo_conversation():
         node("ask", "act:mail", 640, 220, variant="player", item="guard-ask"),
         node("password", "ent:offer", 640, 460, mode="reply", title="Give the password", text="Password: {{hunter2}}. Dock [[dock: 7|9]], please.",
              group="ask", **guard),
-        node("open_password", "act:offer", 960, 220),
+        node("open_password", "act:offer", 960, 220, scope="account"),        # разговор у учётки: варианты видят все на ней
         node("knows", "fact", 640, 1000, expr="tag:tunnel"),
         node("tunnel", "ent:offer", 640, 1140, mode="reply", title="Mention the tunnel", text="I know about the tunnel.", group="ask", **guard),
         node("open_tunnel", "act:offer", 960, 1000),
@@ -83,7 +83,7 @@ def demo_conversation():
         node("repair", "act:mail", 1920, 560, variant="player", item="guard-nine"),
         node("tries", "act:count", 1280, 860, variant="add", owner="player", name="dock_tries", delta=1),
         node("limit", "check", 1600, 860, condition="count:dock_tries>=3"),
-        node("shut", "act:offer", 1920, 820, state="hidden"),
+        node("shut", "act:offer", 1920, 820, state="hidden", scope="account"),
         node("closed", "act:mail", 2240, 820, variant="player", item="guard-closed"),
         node("again", "act:mail", 1920, 1060, variant="player", item="guard-wrong"),
     ]

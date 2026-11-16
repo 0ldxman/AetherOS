@@ -33,8 +33,8 @@ class ManySocketTests(TestCase):
         self.no_errors(doc)
         self.assertEqual(value_of(None, Doc(doc), "c", "value"), 7)
         kind = nodes.KINDS["ent:count"]
-        self.assertEqual(nodes.sock_type(kind, {}, "in", "f:thing"), "player|character|machine|server|item")
-        self.assertEqual(nodes.sock_type(nodes.KINDS["act:tag"], {}, "in", "f:thing"), "many:player|character|machine|server|item")
+        self.assertEqual(nodes.sock_type(kind, {}, "in", "f:thing"), "player|character|machine|server|item|account")
+        self.assertEqual(nodes.sock_type(nodes.KINDS["act:tag"], {}, "in", "f:thing"), "many:player|character|machine|server|item|account")
 
     def test_tag_each_machine_of_a_list(self):
         graph = make([node("m", "manual"), machines("core", "main"), node("t", "act:tag", variant="on", name="hacked")],
@@ -70,6 +70,22 @@ class ManySocketTests(TestCase):
         self.assertEqual(nodes.sock_type(nodes.KINDS["do:net_node"], {}, "in", "f:address"), "server")
         self.assertEqual(nodes.sock_type(nodes.KINDS["find"], {}, "in", "f:item"), "many:item")
         self.assertEqual(nodes.sock_type(nodes.KINDS["act:machine.status"], {}, "in", "f:host"), "many:machine")
+
+    def test_a_tag_of_an_account_is_shared_by_everyone_on_it(self):
+        from engine import facts
+        from machines.models import MachineProfile
+
+        guard = MachineProfile.objects.create(machine=self.core, login="guard", name="Guard", freq=7)
+        graph = make([node("m", "manual"), node("acc", "ent:account", account="guard@core"),
+                      node("t", "act:tag", variant="on", name="asked"), node("c", "act:count", variant="add", name="calls", delta=2)],
+                     [wire("m", "fire", "t"), wire("t", "next", "c"), f("acc", "value", "t", "thing"), f("acc", "value", "c", "thing")])
+        self.no_errors(graph.doc)
+        runtime.start_manual(graph, "m", self.ivan)
+        self.assertTrue(values.on("account", guard.pk, "asked"))
+        self.assertEqual(values.get(values.COUNT, "account", guard.pk, "calls"), 2)
+        self.assertTrue(facts.compare("tag:account:guard@core:asked", set()))
+        self.assertTrue(facts.compare("count:account:guard@core:calls>=2", set()))
+        self.assertEqual(values.owner_key("account", guard.pk), "guard@core")
 
     def test_owner_table(self):
         graph = make([node("m", "manual"), node("e", "ent:machine", machine="core"), node("p", "ent:player", player="ivan"),

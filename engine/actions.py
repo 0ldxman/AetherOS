@@ -622,9 +622,9 @@ def _character_tag(action, ctx):
 
 OWNER_FIELDS = (
     Field("owner", "Владелец", "select", "", False, (("world", "мир"), ("player", "игрок"), ("character", "персонаж"), ("machine", "машина"),
-                                                     ("server", "сервер"), ("object", "объект"))),
+                                                     ("server", "сервер"), ("object", "объект"), ("account", "учётка"))),
     Field("who", "Игрок", "player", "игрок хода"), Field("character", "Персонаж", "character"), Field("machine", "Машина", "machine"),
-    Field("server", "Сервер", "server"), Field("item", "Объект", "object"),
+    Field("server", "Сервер", "server"), Field("item", "Объект", "object"), Field("account", "Учётка", "account", "логин@хост"),
     Field("scope", "Чьё", "select", "", False, (("shared", "общее"), ("player", "для игрока"))),
     Field("for", "Для игрока", "player", "игрок хода"),
 )

@@ -135,7 +135,7 @@ class Value(models.Model):
         COUNT = "count", "Счётчик"
 
     kind = models.CharField(max_length=8, choices=Kind.choices)
-    owner = models.CharField("Владелец", max_length=16)           # world, player, character, machine, server, object
+    owner = models.CharField("Владелец", max_length=16)           # world, player, character, machine, server, object, account
     owner_id = models.PositiveBigIntegerField("Номер вещи", default=0)    # мир — 0
     user = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.CASCADE, related_name="+")
     name = models.CharField("Имя", max_length=64)

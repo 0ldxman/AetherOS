@@ -146,16 +146,23 @@ def match_data(graph, doc, node_id, data):
 
 # ---- открыть и закрыть ---------------------------------------------------------------------------------------------------
 
-def open_offer(graph, node, spec, user=None, show="open"):
-    """Открыть (снова) игроку или всем — или показать закрытой «???» (show="mystery"): скрытия игроков снимаются."""
-    Offer.objects.filter(graph=graph, node=node, user=user, standing=False).delete()
-    Offer.objects.create(graph=graph, node=node, user=user, channel=spec["channel"], group=spec["group"], spec={**spec, "show": show})
-    tries = OfferTry.objects.filter(graph=graph, node=node)
-    (tries if user is None else tries.filter(user=user)).delete()
+def open_offer(graph, node, spec, user=None, show="open", profile=None):
+    """Открыть (снова) игроку, учётке (profile — всем на ней) или всем — или показать закрытой «???» (show="mystery"):
+    скрытия игроков снимаются."""
+    Offer.objects.filter(graph=graph, node=node, user=user, profile=profile, standing=False).delete()
+    Offer.objects.create(graph=graph, node=node, user=user, profile=profile, channel=spec["channel"], group=spec["group"],
+                         spec={**spec, "show": show})
+    if profile is None:
+        tries = OfferTry.objects.filter(graph=graph, node=node)
+        (tries if user is None else tries.filter(user=user)).delete()
 
 
-def close(graph, node, user=None):
-    """Закрыть игроку (возможность «всем» и по условию — только для него) или всем (кроме объявленных условием)."""
+def close(graph, node, user=None, profile=None):
+    """Закрыть учётке (profile — у всех на ней), игроку (возможность «всем» и по условию — только для него) или всем
+    (кроме объявленных условием)."""
+    if profile is not None:
+        Offer.objects.filter(graph=graph, node=node, profile=profile).delete()
+        return
     if user is None:
         Offer.objects.filter(graph=graph, node=node, standing=False).delete()
         OfferTry.objects.filter(graph=graph, node=node).delete()
@@ -165,9 +172,9 @@ def close(graph, node, user=None):
         OfferTry.objects.update_or_create(graph=graph, node=node, user=user, defaults={"closed": True})
 
 
-def close_group(graph, group, user=None):
+def close_group(graph, group, user=None, profile=None):
     for node in set(Offer.objects.filter(graph=graph, group=group).values_list("node", flat=True)):
-        close(graph, node, user)
+        close(graph, node, user, profile)
 
 
 def _entities(doc):
@@ -225,9 +232,14 @@ def act(run, node_id, kind, data):
     """Нода «Возможность: Изменить»: открыть, показать «???» или скрыть — одну или всю группу."""
     from graph import runtime
 
-    user = None if data.get("scope") == "all" else run.user
-    if data.get("scope") != "all" and user is None:
+    scope = data.get("scope") or "player"
+    user = run.user if scope == "player" else None
+    profile = _account(run, data) if scope == "account" else None
+    if scope == "player" and user is None:
         runtime._log(run.graph, f"«{kind.label}»: нет игрока хода", None)
+        return ["fail"]
+    if scope == "account" and profile is None:
+        runtime._log(run.graph, f"«{kind.label}»: нет учётки (ни провода, ни учётки у события)", run.user)
         return ["fail"]
     state = _state(data)
     wanted = _keys(data.get("offer"))
@@ -239,7 +251,7 @@ def act(run, node_id, kind, data):
         for one in wanted:
             graph, name, members = _group(run, one)
             if state == "hidden" and name:
-                close_group(graph, name, user)
+                close_group(graph, name, user, profile)
             found += [(graph, node) for node in members]
     else:
         found = [parse(one) for one in wanted]
@@ -248,14 +260,28 @@ def act(run, node_id, kind, data):
             return ["fail"]
     for graph, node in found:
         if state == "hidden":
-            close(graph, node, user)
+            close(graph, node, user, profile)
             continue
         spec = entity_spec(run, graph, node)
         if spec is None:
             runtime._log(run.graph, f"«{kind.label}»: «{key(graph, node)}» — не нода «Возможность»", run.user)
             return ["fail"]
-        open_offer(graph, node, spec, user, state)
+        open_offer(graph, node, spec, user, state, profile)
     return ["next"]
+
+
+def _account(run, data):
+    """Учётка для «Учётке»: с провода (логин@хост), иначе учётка события."""
+    from machines.models import MachineProfile
+    from machines.world import edits
+
+    wanted = _text(data, "account")
+    if wanted:
+        return edits.account(wanted)
+    ctx = run.ctx or {}
+    if not ctx.get("host") or not ctx.get("login"):
+        return None
+    return MachineProfile.objects.filter(machine__hostname=ctx["host"], login=ctx["login"]).first()
 
 
 def _group(run, one):
@@ -286,6 +312,7 @@ class View:
     open: bool
     group: str = ""
     extra: dict = field(default_factory=dict)
+    profile: object = None                   # открыта для учётки: ответ скрывает её у всех на ней
 
 
 def _live(graph, node, by, user, host, login):
@@ -307,28 +334,32 @@ def visible(user, host="", login="", channel="mail", only=None):
     """Возможности канала для игрока: открытые и закрытые «???» (скрытые не попадают). only — (граф, нода): одна."""
     if user is None:
         return []
-    rows = Offer.objects.filter(graph__active=True).filter(Q(user=user) | Q(user=None)).select_related("graph")
+    from machines.models import MachineProfile
+
+    account = MachineProfile.objects.filter(machine__hostname=host, login=login).first() if host and login else None
+    rows = (Offer.objects.filter(graph__active=True).filter(Q(user=user) | Q(user=None, profile=None) | Q(profile=account) if account is not None
+                                                           else Q(user=user) | Q(user=None, profile=None)).select_related("graph"))
     if channel:
         rows = rows.filter(channel=channel)
     if only is not None:
         rows = rows.filter(graph=only[0], node=only[1])
     tries = {(t.graph_id, t.node): t for t in OfferTry.objects.filter(user=user, closed=True)}
     places = {}
-    for row in sorted(rows, key=lambda r: r.user_id is None):           # свои строки — первыми
+    for row in sorted(rows, key=lambda r: (r.user_id is None, r.profile_id is None)):     # свои строки, потом учётки — первыми
         places.setdefault((row.graph_id, row.node), []).append(row)
     found = []
     for place, group in places.items():
-        own = [row for row in group if row.user_id is not None]
-        everyone = [row for row in group if row.user_id is None and not row.standing]
+        own = [row for row in group if row.user_id is not None or row.profile_id is not None]
+        everyone = [row for row in group if row.user_id is None and row.profile_id is None and not row.standing]
         standing = [row for row in group if row.standing]
         graph = group[0].graph
         if place in tries and not own:                                      # скрыта игроку потоком: условия её не возвращают
             continue
-        spec, best = None, "hidden"
-        for row in own[:1] + everyone[:1]:
+        spec, best, held = None, "hidden", None
+        for row in own[:2] + everyone[:1]:
             state = "teaser" if (row.spec or {}).get("show") == "mystery" else "open"
             if spec is None or RANK[state] > RANK[best]:
-                spec, best = row.spec, state
+                spec, best, held = row.spec, state, row.profile if row.profile_id is not None else None
         if standing and best != "open":
             busy = _busy.get()
             if place not in busy:                                          # условие может ссылаться на саму возможность
@@ -341,7 +372,7 @@ def visible(user, host="", login="", channel="mail", only=None):
                     spec, best = live
         if spec is None or best == "hidden":
             continue
-        found.append(View(graph, place[1], key(graph, place[1]), spec, best == "open", spec.get("group") or group[0].group))
+        found.append(View(graph, place[1], key(graph, place[1]), spec, best == "open", spec.get("group") or group[0].group, profile=held))
     return found
 
 
@@ -360,12 +391,13 @@ def entity_value(run, node_id, out):
 
 
 def settle(view, user, right):
-    """Засчитать ответ: верный закрывает возможность и её группу для игрока. Возвращает ok или wrong."""
+    """Засчитать ответ: верный закрывает возможность и её группу — для игрока, а у возможности учётки — у всех на ней.
+    Возвращает ok или wrong."""
     if not right:
         return "wrong"
-    close(view.graph, view.node, user)
+    close(view.graph, view.node, user, view.profile)
     if view.group:
-        close_group(view.graph, view.group, user)
+        close_group(view.graph, view.group, user, view.profile)
     return "ok"
 
 

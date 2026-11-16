@@ -147,6 +147,21 @@ class OfferTests(TestCase):
                  "wires": [wire("y", "value", "h"), wire("a", "offer", "h", "f:offer")]}
         self.assertIn("«Скрыть» — только по событию: без условия возможность и так скрыта", [p["text"] for p in check.problems(alien, slug="g")])
 
+    def test_an_offer_for_an_account_is_one_conversation_for_everyone_on_it(self):
+        from machines.models import Machine, MachineProfile
+
+        port = Machine.objects.create(name="Port", hostname="port")
+        MachineProfile.objects.create(machine=port, login="guard", name="Guard", freq=1)
+        graph = make([node("m", "manual"), offer("a", group="ask"), offer("b", group="ask"),
+                      node("o", "act:offer", offer=["g:a", "g:b"], scope="account", account="guard@port")], [wire("m", "fire", "o")])
+        runtime.start_manual(graph, "m", self.ivan)
+        mine = offers.visible(self.ivan, "port", "guard")
+        self.assertEqual(sorted(v.key for v in mine), ["g:a", "g:b"])
+        self.assertEqual(sorted(v.key for v in offers.visible(self.anna, "port", "guard")), ["g:a", "g:b"])     # видят все на учётке
+        self.assertEqual(offers.visible(self.anna, "port", "other"), [])                                      # с другой — нет
+        self.assertEqual(offers.settle(next(v for v in mine if v.key == "g:a"), self.ivan, True), "ok")
+        self.assertEqual(offers.visible(self.anna, "port", "guard"), [])        # верный ответ одного скрыл вариант (и группу) у всех
+
     def test_hide_a_group_by_its_name(self):
         graph = make([node("m", "manual"), offer("a", group="ask"), offer("b", group="ask"), offer("c"), node("o", "act:offer", offer=["g:a", "g:b", "g:c"]),
                       node("h", "act:offer", state="hidden", whole="group", offer="ask")], [wire("m", "fire", "o"), wire("o", "next", "h")])
