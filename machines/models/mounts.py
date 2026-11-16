@@ -102,8 +102,34 @@ class Export(models.Model):
         super().save(*args, **kwargs)
 
 
+class Share(models.Model):
+    """Папка, которую игрок раздал из своего дома (share): другие подключают её к себе в дом (mnt) или к вики по имени и коду.
+    ro — только смотреть; drop — ещё класть новое, а удалять и менять только своё."""
+
+    class Mode(models.TextChoices):
+        RO = "ro", "Только чтение"
+        DROP = "drop", "Класть новое"
+
+    machine = models.ForeignKey("machines.Machine", on_delete=models.CASCADE, related_name="shares")
+    profile = models.ForeignKey("machines.MachineProfile", on_delete=models.CASCADE, related_name="shares", verbose_name="Учётка")
+    name = models.CharField("Имя", max_length=64)
+    path = models.CharField("Папка", max_length=2048)
+    code = models.CharField("Код", max_length=32)
+    mode = models.CharField("Режим", max_length=8, choices=Mode.choices, default=Mode.RO)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ("machine", "name")
+        verbose_name = "Раздача"
+        verbose_name_plural = "Раздачи"
+        constraints = [models.UniqueConstraint(fields=("machine", "name"), name="unique_share_name")]
+
+    def __str__(self):
+        return f"{self.machine.hostname}:{self.name} ({self.path})"
+
+
 class PlayerMount(models.Model):
-    """Сетевой диск, который игрок подключил на машине сам (mnt): виден только ему, пока учётка хоста не сменила пароль."""
+    """Раздача, которую игрок подключил к себе в дом (mnt): видна только ему, пока раздачу не закрыли и не сменили код."""
 
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="player_mounts")
     machine = models.ForeignKey("machines.Machine", on_delete=models.CASCADE, related_name="player_mounts")
@@ -111,7 +137,8 @@ class PlayerMount(models.Model):
     host_path = models.CharField(max_length=2048)
     account = models.ForeignKey("machines.MachineProfile", on_delete=models.CASCADE, related_name="+")
     mount_path = models.CharField(max_length=2048)
-    secret = models.CharField("Отпечаток пароля", max_length=128, blank=True, help_text="Хэш пароля учётки в момент подключения: сменился, диск пропал.")
+    secret = models.CharField("Отпечаток пароля", max_length=128, blank=True, help_text="Код раздачи в момент подключения: сменился, диск пропал.")
+    share = models.ForeignKey(Share, null=True, blank=True, on_delete=models.CASCADE, related_name="mounts", verbose_name="Раздача")
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -124,7 +151,10 @@ class PlayerMount(models.Model):
 
     def as_mount(self):
         """Монтирование для вида машины: несохранённая запись MachineMount с отрицательным id (уникальным среди обычных)."""
-        return MachineMount(
+        mount = MachineMount(
             id=-self.pk, machine_id=self.machine_id, mode=MachineMount.Mode.REMOTE, host_id=self.host_id, host_path=self.host_path,
             account_id=self.account_id, mount_path=self.mount_path, order=1000,
+            read_only=self.share is not None and self.share.mode == Share.Mode.RO,
         )
+        mount.share = self.share
+        return mount

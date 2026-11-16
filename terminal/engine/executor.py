@@ -61,28 +61,28 @@ class TerminalExecutor:
         if heard("command.run"):
             emit("command.run", session.user, machine=context.machine, login=getattr(context.view, "login", "") or "",
                  command=parsed.name, args=" ".join(parsed.args)[:300])
-        try:
-            result = command.execute(context, parsed.args)
-        except PathSyntax as bad:
-            return CommandResult(f"{parsed.name}: {bad}", 2), context.cwd
-        except rights.Denied as denied:
-            return CommandResult(f"{parsed.name}: {context.show(denied.path)}: Permission denied", 1), context.cwd
-        except rights.NotPermitted:
-            return CommandResult(f"{parsed.name}: Operation not permitted", 1), context.cwd
-        except BadName as bad:
-            return CommandResult(f"{parsed.name}: {bad}: Invalid argument", 1), context.cwd
-        except ReadOnly as where:
-            return CommandResult(f"{parsed.name}: {where}: Read-only file system", 1), context.cwd
-        except Occupied as where:
-            return CommandResult(f"{parsed.name}: {where}: Device or resource busy", 1), context.cwd
-        except Exception:
-            import logging
+        return guarded(parsed.name, context, lambda: command.execute(context, parsed.args)), context.cwd
 
-            logging.getLogger("terminal").exception("command failed: %s", parsed.name)
-            # Не раскрываем внутренние ошибки Django пользователю.
-            return CommandResult(
-                "terminal: internal command error",
-                1,
-            ), context.cwd
 
-        return result, context.cwd
+def guarded(name, context, call):
+    """Выполнить call() команды name: ошибки файловой системы — ответом терминала, внутренние — общим текстом (с записью в лог).
+    Нужен и командам, которые доделывают работу после вопроса (del, wipe)."""
+    try:
+        return call()
+    except PathSyntax as bad:
+        return CommandResult(f"{name}: {bad}", 2)
+    except rights.Denied as denied:
+        return CommandResult(f"{name}: {context.show(denied.path)}: Permission denied", 1)
+    except rights.NotPermitted:
+        return CommandResult(f"{name}: Operation not permitted", 1)
+    except BadName as bad:
+        return CommandResult(f"{name}: {bad}: Invalid argument", 1)
+    except ReadOnly as where:
+        return CommandResult(f"{name}: {where}: Read-only file system", 1)
+    except Occupied as where:
+        return CommandResult(f"{name}: {where}: Device or resource busy", 1)
+    except Exception:
+        import logging
+
+        logging.getLogger("terminal").exception("command failed: %s", name)
+        return CommandResult("terminal: internal command error", 1)          # внутренние ошибки Django игроку не раскрываем

@@ -4138,6 +4138,53 @@
     ]
    }
   },
+  "/studio/api/machines/{machine_id}/shares/{share_id}": {
+   "delete": {
+    "operationId": "studio_api_disks_drop_share",
+    "summary": "Drop Share",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "machine_id",
+      "schema": {
+       "title": "Machine Id",
+       "type": "integer"
+      },
+      "required": true
+     },
+     {
+      "in": "path",
+      "name": "share_id",
+      "schema": {
+       "title": "Share Id",
+       "type": "integer"
+      },
+      "required": true
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Disks"
+        }
+       }
+      }
+     }
+    },
+    "description": "Закрыть раздачу игрока: у всех, кто её подключил, она пропадает.",
+    "tags": [
+     "disks"
+    ],
+    "security": [
+     {
+      "StudioAuth": []
+     }
+    ]
+   }
+  },
   "/studio/api/machines/{machine_id}/exports/{export_id}": {
    "delete": {
     "operationId": "studio_api_disks_drop_export",
@@ -20426,6 +20473,13 @@
    },
    "Disks": {
     "properties": {
+     "shares": {
+      "items": {
+       "$ref": "#/components/schemas/ShareRow"
+      },
+      "title": "Shares",
+      "type": "array"
+     },
      "inherited": {
       "items": {
        "$ref": "#/components/schemas/InheritedMount"
@@ -20480,6 +20534,7 @@
      }
     },
     "required": [
+     "shares",
      "inherited",
      "mounts",
      "exports",
@@ -20586,6 +20641,52 @@
      "label"
     ],
     "title": "Ref",
+    "type": "object"
+   },
+   "ShareRow": {
+    "properties": {
+     "id": {
+      "title": "Id",
+      "type": "integer"
+     },
+     "name": {
+      "title": "Name",
+      "type": "string"
+     },
+     "path": {
+      "title": "Path",
+      "type": "string"
+     },
+     "mode": {
+      "title": "Mode",
+      "type": "string"
+     },
+     "owner": {
+      "title": "Owner",
+      "type": "string"
+     },
+     "code": {
+      "title": "Code",
+      "type": "string"
+     },
+     "mounted": {
+      "items": {
+       "type": "string"
+      },
+      "title": "Mounted",
+      "type": "array"
+     }
+    },
+    "required": [
+     "id",
+     "name",
+     "path",
+     "mode",
+     "owner",
+     "code",
+     "mounted"
+    ],
+    "title": "ShareRow",
     "type": "object"
    },
    "MountIn": {

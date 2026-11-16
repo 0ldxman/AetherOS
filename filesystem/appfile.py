@@ -17,7 +17,7 @@ from django.core.exceptions import ValidationError
 APP_FORMAT = "app"
 
 
-VOLUME = re.compile(r"^(?:(?P<host>[^:\s/]+):)?(?P<path>/\S*)(?P<rest>.*)$")
+VOLUME = re.compile(r"^(?:(?P<host>[^:\s/]+):)?(?P<path>/\S*|[\w.-]+)(?P<rest>.*)$")      # путь или имя раздачи (хост:имя)
 OPTION = re.compile(r"\s+(user|pass|token|key)=(\S+)\s*$")
 
 
@@ -47,6 +47,8 @@ def parse_volume(text):
     rest = rest.strip()
     if rest and not rest.startswith("as "):
         return None
+    if not found["path"].startswith("/") and not found["host"]:
+        return None                                              # раздача — только с хостом
     path = found["path"].rstrip("/") or "/"
     return VolumeLine(found["host"] or "", path, rest[3:].strip(), options.get("user", ""), options.get("pass", ""),
                       options.get("token", ""), options.get("key", ""))

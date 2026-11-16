@@ -5,7 +5,7 @@ from terminal.engine.commands.basic import (
     PwdCommand,
 )
 from terminal.engine.commands.bridge import (
-    BridgeCloseCommand, BridgeCommand, ExitCommand, MntCommand, RshellCommand, UmntCommand, XferCommand,
+    BridgeCloseCommand, BridgeCommand, ExitCommand, MntCommand, RshellCommand, ShareCommand, UmntCommand, UnshareCommand, XferCommand,
 )
 from terminal.engine.commands.archive import PakCommand
 from terminal.engine.commands.crypto import WardCommand
@@ -60,7 +60,7 @@ COMMON = (
 COMMANDS_BY_SYSTEM = {
     "AETHER": {
         command.name: command()
-        for command in (*COMMON, BridgeCommand, RshellCommand, XferCommand, BridgeCloseCommand, ExitCommand, MntCommand, UmntCommand)
+        for command in (*COMMON, BridgeCommand, RshellCommand, XferCommand, BridgeCloseCommand, ExitCommand, MntCommand, UmntCommand, ShareCommand, UnshareCommand)
     },
 }
 

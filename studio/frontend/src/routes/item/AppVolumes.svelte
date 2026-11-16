@@ -9,7 +9,7 @@
   // вход на учётку хоста: пароль, токен или ключ из секретов игрока (как rshell); auth — что редактируется в строке
   type Auth = "" | "password" | "token" | "key";
   type Row = { host: string; path: string; title: string; user: string; password: string; token: string; key: string; auth: Auth };
-  const VOLUME = /^(?:([^:\s/]+):)?(\/\S*)(.*)$/;
+  const VOLUME = /^(?:([^:\s/]+):)?(\/\S*|[\w.-]+)(.*)$/;          // путь или имя раздачи игрока (хост:имя, вход — token=)
   const OPTION = /\s+(user|pass|token|key)=(\S+)\s*$/;
   const LINES = /^volume[ \t]+(.*)$/gim;
   const AUTH: [Auth, string, string][] = [["", "без входа", ""], ["password", "пароль", "pass"], ["token", "токен", "token"], ["key", "ключ", "key"]];
@@ -136,7 +136,7 @@
           {#each hosts as host (host.hostname)}<option value={host.hostname}>{host.hostname}</option>{/each}
           {#if row.host && !hostOf(row.host)}<option value={row.host}>{row.host} (нет такого)</option>{/if}
         </select>
-        <input class="field mono" bind:value={row.path} oninput={write} list="exports-{index}" placeholder="/srv/harbor" aria-label="Путь, раздел {index + 1}" />
+        <input class="field mono" bind:value={row.path} oninput={write} list="exports-{index}" placeholder="/srv/harbor или имя раздачи" aria-label="Путь, раздел {index + 1}" />
         <datalist id="exports-{index}">{#each hostOf(row.host)?.exports ?? [] as path}<option value={path}></option>{/each}</datalist>
         {#if row.host}
           <select class="field" bind:value={row.user} onchange={write} aria-label="Учётка, раздел {index + 1}">

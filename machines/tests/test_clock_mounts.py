@@ -13,7 +13,7 @@ from filesystem.models import Item, Placement, Volume
 from filesystem.testing import make_app
 from machines.world import chrono, clock
 from terminal.testing import TerminalClient
-from machines.models import EntryPolicy, Export, Group, LoginEvent, Machine, MachineMount, MachineProfile, PlayerMount
+from machines.models import EntryPolicy, Export, Group, LoginEvent, Machine, MachineMount, MachineProfile, PlayerMount, Share
 
 
 @override_settings(FORCE_SCRIPT_NAME=None)
@@ -99,51 +99,79 @@ class ClockTests(WorldCase):
         return build_raw(view.get(made.path), view).data.decode()
 
 
-class PlayerMountTests(WorldCase):
-    def attach(self, command="mnt reader@aether-core:/srv/harbor /mnt/h", password="right"):
-        first = self.run_command(command)
-        if first.get("prompt"):
-            return self.answer(password)
-        return first
+class ShareTests(WorldCase):
+    """share и mnt: игрок раздаёт папку своего дома, другой подключает её к себе в дом по имени и коду."""
 
-    def test_without_the_privilege_the_player_cannot_mount(self):
-        self.assertIn("Operation not permitted", self.run_command("mnt reader@aether-core:/srv/harbor /mnt/h")["output"])
-        self.assertFalse(PlayerMount.objects.exists())
+    def setUp(self):
+        super().setUp()
+        from filesystem.machine_view import MachineView
+        from machines.access.groups import principal_for
 
-    def test_a_disk_is_attached_under_the_account_and_listed(self):
-        self.allow("mount")
-        result = self.attach()
-        self.assertEqual(result["exit_code"], 0, result["output"])
-        self.assertIn("manifest.txt", self.run_command("ls /mnt/h")["output"])
-        self.assertIn("cargo", self.run_command("txtx /mnt/h/manifest.txt")["output"])
-        self.assertIn("aether-core:/srv/harbor on /mnt/h type net (reader)", self.run_command("mnt")["output"])
-        self.assertEqual(LoginEvent.objects.filter(profile=self.reader, kind="ok").count(), 1)
+        MachineView(self.main, self.user, principal_for(self.home)).put_text("/home/ivan/drop/note.txt", "note of ivan")
 
-    def test_a_wrong_password_a_missing_export_and_a_busy_point_attach_nothing(self):
-        self.allow("mount")
-        self.assertIn("Permission denied", self.attach(password="wrong")["output"])
-        self.assertIn("not exported", self.attach("mnt reader@aether-core:/srv /mnt/h")["output"])
-        self.assertIn("not exported", self.attach("mnt reader@aether-core:/srv/harbor/nothing /mnt/h")["output"])
-        self.assertIn("mount point busy", self.attach("mnt reader@aether-core:/srv/harbor /")["output"])
-        self.assertFalse(PlayerMount.objects.exists())
+    def remove(self, path):
+        self.run_command(f"del {path}")
+        return self.answer("y")
 
-    def test_the_disk_belongs_to_the_player_and_goes_away_when_the_password_changes(self):
-        self.allow("mount")
-        self.attach()
+    def as_petr(self):
         self.client.logout()
         self.client.force_login(self.other)
-        self.assertNotIn("manifest.txt", self.run_command("ls /mnt/h")["output"])
-        MachineProfile.objects.filter(pk=self.reader.pk).update(password_hash=make_password("changed"))
+
+    def shared(self, *flags):
+        result = self.run_command(" ".join(("share", *flags, "/home/ivan/drop")))
+        self.assertEqual(result["exit_code"], 0, result["output"])
+        return Share.objects.get(name="ivan-drop").code
+
+    def test_without_the_privilege_nothing_is_shared_or_mounted(self):
+        self.assertIn("Operation not permitted", self.run_command("share /home/ivan/drop")["output"])
+        self.assertIn("Operation not permitted", self.run_command("mnt --token x aether-main:ivan-drop /home/ivan/n")["output"])
+        self.assertFalse(Share.objects.exists())
+
+    def test_a_shared_folder_is_mounted_by_another_player_only_for_him(self):
+        self.allow("mount")
+        code = self.shared()
+        self.assertIn("ivan-drop", self.run_command("share")["output"])
+        self.as_petr()
+        result = self.run_command(f"mnt --token {code} aether-main:ivan-drop /home/petr/ivan")
+        self.assertEqual(result["exit_code"], 0, result["output"])
+        self.assertIn("note of ivan", self.run_command("txtx /home/petr/ivan/note.txt")["output"])
+        self.assertIn("aether-main:ivan-drop on /home/petr/ivan type share (ro)", self.run_command("mnt")["output"])
+        self.assertIn("Read-only file system", self.remove("/home/petr/ivan/note.txt")["output"])
         self.client.logout()
         self.client.force_login(self.user)
-        self.assertNotIn("manifest.txt", self.run_command("ls /mnt/h")["output"])
+        self.assertIn("mounted by: petr", self.run_command("share")["output"])
+        self.assertNotIn("note.txt", self.run_command("ls /home/petr/ivan")["output"])          # подключение — только у petr
 
-    def test_umnt_detaches_a_disk_of_the_player_but_not_one_of_the_machine(self):
+    def test_drop_lets_put_new_files_and_remove_only_own(self):
         self.allow("mount")
-        self.attach()
+        code = self.shared("-m", "drop")
+        self.as_petr()
+        self.run_command(f"mnt --token {code} aether-main:ivan-drop /home/petr/ivan")
+        self.assertEqual(self.run_command("cp /home/petr/ivan/note.txt /home/petr/ivan/mine.txt")["exit_code"], 0)
+        self.assertIn("Operation not permitted", self.remove("/home/petr/ivan/note.txt")["output"])
+        self.assertEqual(self.remove("/home/petr/ivan/mine.txt")["exit_code"], 0)
+
+    def test_a_wrong_code_a_point_outside_home_and_an_old_address_mount_nothing(self):
+        self.allow("mount")
+        code = self.shared()
+        self.as_petr()
+        self.assertIn("wrong code", self.run_command("mnt --token nope aether-main:ivan-drop /home/petr/ivan")["output"])
+        self.assertIn("inside your home", self.run_command(f"mnt --token {code} aether-main:ivan-drop /mnt/ivan")["output"])
+        self.assertIn("inside your home", self.run_command(f"mnt --token {code} aether-main:ivan-drop /home/petr")["output"])
+        self.assertIn("only shared folders", self.run_command("mnt --token t reader@aether-core:/srv/harbor /home/petr/h")["output"])
+        self.assertFalse(PlayerMount.objects.exists())
+        self.assertIn("only folders of your home", self.run_command("share /srv")["output"])
+
+    def test_unshare_and_umnt_take_it_away_but_not_a_disk_of_the_machine(self):
+        self.allow("mount")
+        code = self.shared()
+        self.as_petr()
+        self.run_command(f"mnt --token {code} aether-main:ivan-drop /home/petr/ivan")
         MachineMount.objects.create(machine=self.main, mode="remote", host=self.core, host_path="/srv/harbor", mount_path="/mnt/own", account=self.reader)
         self.assertIn("Operation not permitted", self.run_command("umnt /mnt/own")["output"])
-        self.assertIn("unmounted", self.run_command("umnt /mnt/h")["output"])
+        self.assertIn("unmounted", self.run_command("umnt /home/petr/ivan")["output"])
+        self.run_command(f"mnt --token {code} aether-main:ivan-drop /home/petr/ivan")
+        self.client.logout()
+        self.client.force_login(self.user)
+        self.assertIn("closed", self.run_command("unshare ivan-drop")["output"])
         self.assertFalse(PlayerMount.objects.exists())
-        self.assertEqual(self.run_command("umnt /mnt/nothing")["exit_code"], 1)
-        self.assertIn("manifest.txt", self.run_command("ls /mnt/own")["output"])

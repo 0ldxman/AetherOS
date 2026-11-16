@@ -1364,6 +1364,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/studio/api/machines/{machine_id}/shares/{share_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Drop Share
+         * @description Закрыть раздачу игрока: у всех, кто её подключил, она пропадает.
+         */
+        delete: operations["studio_api_disks_drop_share"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/studio/api/machines/{machine_id}/exports/{export_id}": {
         parameters: {
             query?: never;
@@ -6969,6 +6989,8 @@ export interface components {
         };
         /** Disks */
         Disks: {
+            /** Shares */
+            shares: components["schemas"]["ShareRow"][];
             /** Inherited */
             inherited: components["schemas"]["InheritedMount"][];
             /** Mounts */
@@ -7017,6 +7039,23 @@ export interface components {
             id: number;
             /** Label */
             label: string;
+        };
+        /** ShareRow */
+        ShareRow: {
+            /** Id */
+            id: number;
+            /** Name */
+            name: string;
+            /** Path */
+            path: string;
+            /** Mode */
+            mode: string;
+            /** Owner */
+            owner: string;
+            /** Code */
+            code: string;
+            /** Mounted */
+            mounted: string[];
         };
         /** MountIn */
         MountIn: {
@@ -14501,6 +14540,29 @@ export interface operations {
                 "application/json": components["schemas"]["ExportIn"];
             };
         };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Disks"];
+                };
+            };
+        };
+    };
+    studio_api_disks_drop_share: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                machine_id: number;
+                share_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
         responses: {
             /** @description OK */
             200: {

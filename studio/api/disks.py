@@ -56,7 +56,18 @@ class InheritedMount(Schema):
     order: int
 
 
+class ShareRow(Schema):
+    id: int
+    name: str
+    path: str
+    mode: str
+    owner: str                          # учётка игрока, который раздал
+    code: str
+    mounted: list[str]                  # кто подключил
+
+
 class Disks(Schema):
+    shares: list[ShareRow]              # что игроки раздали с этой машины
     inherited: list[InheritedMount]     # образ системного диска ОС машины: лежит под её монтированиями
     mounts: list[DiskMount]
     exports: list[ExportRow]
@@ -126,8 +137,12 @@ def _overlay_choices(machine):
 
 
 def _disks(machine):
+    from machines.network import shares
+
     mounts = machine.mounts.select_related("volume", "host", "account").order_by("mount_path", "order", "id")
     return Disks(
+        shares=[ShareRow(id=s.pk, name=s.name, path=s.path, mode=s.mode, owner=s.profile.login, code=s.code, mounted=shares.mounted_by(s))
+                for s in machine.shares.select_related("profile")],
         inherited=[
             InheritedMount(volume=Ref(id=r.volume_id, label=r.volume.name or r.volume.slug), volume_path=r.volume_path, mount_path=r.mount_path, order=r.order)
             for r in SystemVolume.objects.filter(system_type__code=machine.system).select_related("volume")
@@ -219,6 +234,16 @@ def new_export(request, machine_id: int, body: ExportIn):
     export = Export(machine=machine, path=body.path)
     export.save()
     return _disks(machine)
+
+
+@router.delete("/{int:machine_id}/shares/{int:share_id}", response=Disks)
+def drop_share(request, machine_id: int, share_id: int):
+    """Закрыть раздачу игрока: у всех, кто её подключил, она пропадает."""
+    from machines.models import Share
+
+    get_object_or_404(Share, pk=share_id, machine_id=machine_id).delete()
+    MachineView.generation += 1
+    return _disks(get_object_or_404(Machine, pk=machine_id))
 
 
 @router.delete("/{int:machine_id}/exports/{int:export_id}", response=Disks)

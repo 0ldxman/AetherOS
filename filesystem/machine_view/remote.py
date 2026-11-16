@@ -16,6 +16,14 @@ class RemoteMixin:
             return self._host_view(layer), (base + "/" + inner if inner else base) or "/"
         return None
 
+    def _share_at(self, path):
+        """Раздача, через которую подключён путь, или None."""
+        path = self._clean(path)
+        for layer in reversed(self.layers):
+            if layer.inner_path(path) is not None:
+                return getattr(layer.mount, "share", None)
+        return None
+
     def read_only_at(self, path):
         """Путь лежит на диске, подключённом «только чтение» (верхнее монтирование, которое его покрывает)?"""
         path = self._clean(path)
@@ -32,6 +40,11 @@ class RemoteMixin:
         view, host_path = routed
         if view is None or (self.principal is not None and self.read_only_at(path)):
             raise ReadOnly(path)                 # оборвано или подключено «только чтение»: запись не идёт на хост
+        share = self._share_at(path)
+        if share is not None and self.principal is not None:
+            from machines.network import shares
+
+            shares.allows(self, share, self._clean(path), method)
         try:
             return True, getattr(view, method)(host_path, *args, **kwargs)
         finally:

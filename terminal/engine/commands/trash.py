@@ -36,10 +36,12 @@ def answer_confirm(request, text, session, cwd):
     if not pending or text.strip().lower() not in YES:
         return CommandResult(), cwd
 
+    from terminal.engine.executor import guarded
+
     context = TerminalContext(session=session, cwd=cwd, request=request)
     if pending["mode"] == "wipe":
-        return Wipe.finish(context), cwd
-    return Del.finish(context, pending["paths"], pending["recursive"]), cwd
+        return guarded("wipe", context, lambda: Wipe.finish(context)), cwd
+    return guarded("del", context, lambda: Del.finish(context, pending["paths"], pending["recursive"])), cwd
 
 
 class Del(BaseCommand):

@@ -168,7 +168,7 @@ def _sections(request, machine):
     for line in lines:
         view, _ = connect_line(machine, line, user, principal_for(profile) if profile is not None else None, hosts, keys)
         if view is not None:
-            sections.append((line.title or posixpath.basename(line.path) or line.host or machine.label, view, line.path))
+            sections.append((line.title or posixpath.basename(line.path) or line.host or machine.label, view, _root(line)))
     return sections
 
 
@@ -177,6 +177,7 @@ REASONS = {
     "no_account": "У хоста нет такой учётной записи.",
     "not_exported": "Хост не отдаёт этот путь: добавьте его в экспорты хоста.",
     "chain": "Подключение зациклено или цепочка хостов слишком длинная.",
+    "no_share": "Такой раздачи нет или код (token=) не тот.",
     "no_entry": "Учётка не пускает: нужен пароль (pass=), токен (token=) или ключ из секретов игрока (key=), либо вход закрыт её правилами.",
     "no_folder": "По этому пути нет папки.",
     "empty": "В папке нет страниц, которые эта учётка вправе читать.",
@@ -193,6 +194,14 @@ def connect_line(machine, line, user, principal, hosts=None, keys=frozenset()):
     from machines.models import Machine
     from machines.network import connection
 
+    if line.host and not line.path.startswith("/"):                 # раздача игрока: хост:имя и её код
+        from machines.network import shares
+
+        found = shares.find(line.host, line.path)
+        if found is None or found.code != line.token:
+            return None, "no_share"
+        view = connection.connect_share(machine, found, user)
+        return (view, "") if view is not None and view.is_directory(found.path) else (None, "no_folder")
     if line.host:
         host = (hosts or {}).get(line.host) or Machine.objects.filter(hostname=line.host).first()
         if host is None:
@@ -214,6 +223,16 @@ def connect_line(machine, line, user, principal, hosts=None, keys=frozenset()):
     return (view, "") if view.is_directory(line.path) else (None, "no_folder")
 
 
+def _root(line):
+    """Папка раздела в виде, который даёт строка: путь, а у раздачи — её папка на машине."""
+    if line.path.startswith("/"):
+        return line.path
+    from machines.network import shares
+
+    found = shares.find(line.host, line.path)
+    return found.path if found is not None else "/"
+
+
 def check_line(machine, line, user=None, principal=None):
     """Что вики сделает со строкой volume: {"ok", "reason", "message", "title", "pages", "closed"}. Нужна автору (Студия): игрок причину не
     видит. Ключ строки (key=) считается у игрока в секретах."""
@@ -221,8 +240,8 @@ def check_line(machine, line, user=None, principal=None):
     title = line.title or posixpath.basename(line.path) or line.host or machine.label
     if view is None:
         return {"ok": False, "reason": reason, "message": REASONS[reason], "title": title, "pages": 0, "closed": 0}
-    library = _from_views(_formats(), [(title, view, line.path)])
-    files = sum(1 for entry in view.under(line.path)[1:] if not entry.is_dir and entry.item is not None and entry.placement is not None)
+    library = _from_views(_formats(), [(title, view, _root(line))])
+    files = sum(1 for entry in view.under(_root(line))[1:] if not entry.is_dir and entry.item is not None and entry.placement is not None)
     if not library.pages:
         return {"ok": False, "reason": "empty", "message": REASONS["empty"], "title": title, "pages": 0, "closed": files}
     return {"ok": True, "reason": "", "message": "", "title": title, "pages": len(library.pages), "closed": max(0, files - len(library.pages))}

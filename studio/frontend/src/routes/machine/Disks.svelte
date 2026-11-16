@@ -101,6 +101,12 @@
     newExport = "";
   }
 
+  async function dropShare(id: number, name: string) {
+    if (!(await ask(`Закрыть раздачу «${name}»?`, "У всех, кто её подключил, папка пропадёт. Файлы в доме игрока останутся.", "Закрыть"))) return;
+    const { data } = await api.DELETE("/studio/api/machines/{machine_id}/shares/{share_id}", { params: { path: { ...path, share_id: id } } });
+    if (data) disks = data;
+  }
+
   async function dropExport(id: number) {
     if (!(await ask("Перестать отдавать путь по сети?", "Другие машины больше не смогут к нему подключиться.", "Убрать"))) return;
     const { data } = await api.DELETE("/studio/api/machines/{machine_id}/exports/{export_id}", { params: { path: { ...path, export_id: id } } });
@@ -180,6 +186,17 @@
           <input class="field mono" placeholder="/srv/harbor" bind:value={newExport} />
           <button class="btn" disabled={!newExport.trim()}>Отдавать</button>
         </form>
+        {#if disks.shares.length}
+          <h2>Раздачи игроков</h2>
+          <p class="muted small">Папки, которые игроки раздали из своего дома (share). Подключают по имени и коду: mnt или раздел вики.</p>
+          {#each disks.shares as row (row.id)}
+            <div class="export">
+              <span><span class="mono">{row.name}</span> <span class="muted mono small">{row.path}</span> <span class="chip">{row.mode === "drop" ? "класть новое" : "только чтение"}</span>
+                <span class="muted small">· {row.owner} · код <span class="mono">{row.code}</span>{#if row.mounted.length} · подключили: {row.mounted.join(", ")}{/if}</span></span>
+              <button class="btn ghost danger" onclick={() => dropShare(row.id, row.name)}>Закрыть</button>
+            </div>
+          {/each}
+        {/if}
       </section>
     </div>
 

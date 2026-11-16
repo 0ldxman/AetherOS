@@ -11,7 +11,7 @@ GROUPS = (
     ("files", ("ls", "cd", "pwd", "cnt", "edt", "mv", "cp", "del", "rcvr", "wipe", "perm", "own", "clear")),
     ("inspect and repair", ("ftyp", "txtx", "rpr", "cvt", "blk")),
     ("keys and archives", ("kex", "kjoin", "ward", "pak")),
-    ("network", ("nreq", "nget", "rcon", "rshell", "xfer", "mnt", "umnt", "exit", "rcon-close")),
+    ("network", ("nreq", "nget", "rcon", "rshell", "xfer", "mnt", "umnt", "share", "unshare", "exit", "rcon-close")),
     ("system", ("date", "tmset")),
     ("air", ("air", "at")),
     ("other", ("help",)),
@@ -148,12 +148,20 @@ HELP = {
         "Moves the clock of this machine for you. reset brings back the real time. Needs the privilege to change the clock.",
     ),
     "mnt": (
-        "attach a directory of another machine as a disk",
-        ("mnt [-i <keyname>] [--token <token>] <login>@<host>:<path> <mount point>", "mnt"),
-        "Signs in to the account like rshell does; the disk is then used with the rights of that account. "
+        "attach a folder somebody shared into your home",
+        ("mnt --token <code> <host>:<share> ~/<mount point>", "mnt"),
+        "Only you see it, and it goes away when the share is closed or gets a new code. "
         "Without arguments lists the disks. Needs the privilege to mount.",
     ),
     "umnt": ("detach a disk you attached", ("umnt <mount point>",), "Disks set up by the machine itself cannot be detached."),
+    "share": (
+        "share a folder of your home",
+        ("share [-m ro|drop] [-n <name>] <directory>", "share"),
+        "Gives a name and a code: whoever knows both can mount the folder (mnt) or open it in the wiki. "
+        "ro: look and copy. drop: also put new files; they can remove and change only what they put. "
+        "Without arguments lists your shares and who mounted them.",
+    ),
+    "unshare": ("close a share", ("unshare <name|directory>",), "The folder disappears for everybody who mounted it."),
     "perm": (
         "change the permissions of a file",
         ("perm <mode> <file>...",),

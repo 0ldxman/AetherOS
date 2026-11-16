@@ -89,3 +89,18 @@ class WikiVolumesApiTests(TestCase):
         line = parse_volume("archive-srv:/srv/harbor as Порт и док user=keeper pass=s3cret")
         self.assertEqual((line.title, line.user, line.password, line.token), ("Порт и док", "keeper", "s3cret", ""))
         self.assertIsNone(parse_volume("archive-srv:/srv/harbor junk"))
+
+    def test_a_player_share_opens_as_a_section_with_its_code(self):
+        from machines.models import Share
+
+        owner = MachineProfile.objects.create(machine=self.host, login="ivan", name="Ivan", freq=3)
+        Share.objects.create(machine=self.host, profile=owner, name="ivan-harbor", path="/srv/harbor", code="ab12-cd34")
+        good, bad, none = self.check({"host": "archive-srv", "path": "ivan-harbor", "token": "ab12-cd34", "title": "Порт"},
+                                     {"host": "archive-srv", "path": "ivan-harbor", "token": "nope"},
+                                     {"host": "archive-srv", "path": "nobody"})
+        self.assertEqual((good["ok"], good["pages"]), (True, 1), good)
+        self.assertEqual((bad["reason"], none["reason"]), ("no_share", "no_share"))
+        machine = self.client.get(f"/studio/api/machines/{self.host.pk}/disks").json()
+        self.assertEqual([(s["name"], s["owner"], s["code"]) for s in machine["shares"]], [("ivan-harbor", "ivan", "ab12-cd34")])
+        self.client.delete(f"/studio/api/machines/{self.host.pk}/shares/{machine['shares'][0]['id']}")
+        self.assertFalse(Share.objects.exists())

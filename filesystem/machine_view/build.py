@@ -29,14 +29,15 @@ class BuildMixin:
         return layers
 
     def _player_mounts(self):
-        """Диски, которые игрок подключил сам (mnt): пока учётка хоста не сменила пароль, после этого диск пропал."""
-        if self.user is None:
+        """Раздачи, которые игрок подключил к себе (mnt): пока раздачу не закрыли и не сменили код. В виде хоста для подключения
+        (trail) их нет: личные подключения — только у самого игрока."""
+        if self.user is None or self.trail:
             return []
         from machines.models import PlayerMount
 
         found = []
-        for row in PlayerMount.objects.filter(machine=self.machine, user=self.user).select_related("host", "account"):
-            if row.account.password_hash != row.secret:
+        for row in PlayerMount.objects.filter(machine=self.machine, user=self.user, share__isnull=False).select_related("host", "account", "share"):
+            if row.share.code != row.secret:
                 continue
             mount = row.as_mount()
             mount.host, mount.account = row.host, row.account
@@ -129,7 +130,11 @@ class BuildMixin:
             from machines.network import connection
 
             mount = layer.mount
-            hosts[key] = None if mount.host_id is None else connection.connect(self.machine, mount.host, mount.host_path, mount.account, self.user, self.trail)
+            share = getattr(mount, "share", None)
+            if share is not None:
+                hosts[key] = connection.connect_share(self.machine, share, self.user, self.trail)
+            else:
+                hosts[key] = None if mount.host_id is None else connection.connect(self.machine, mount.host, mount.host_path, mount.account, self.user, self.trail)
         return hosts[key]
 
     def _lay_remote(self, entries, layer):

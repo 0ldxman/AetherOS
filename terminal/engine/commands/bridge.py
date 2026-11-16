@@ -101,7 +101,7 @@ class EntryCommand(BaseCommand):
 
     def enter(self, context, opts, target, args=None):
         """Проверка входа на target (login@host). Возвращает CommandResult (отказ, ошибка, запрос пароля) или результат finish."""
-        context.need({"xfer": "transfer", "mnt": "mount"}.get(self.mode, "bridge"))
+        context.need({"xfer": "transfer"}.get(self.mode, "bridge"))
         args = args or {}
         login, _, host = target.partition("@")
         if not login or not host:
@@ -421,61 +421,109 @@ class XferCommand(EntryCommand):
             scene=scenes.transfer_scene(source_path, target, connect=connect, hops=hops, hop_ms=hop_ms),
         )
 
-class MntCommand(EntryCommand):
-    """mnt login@host:/путь /точка: подключить путь на другой машине как свой диск. Вход на запись хоста идёт как у rshell (пароль,
-    ключ, токен, политика входа), а работа с диском потом идёт от имени этой записи. Без аргументов показывает подключённые диски."""
+class MntCommand(BaseCommand):
+    """mnt --token код хост:раздача ~/точка: подключить к себе в дом папку, которую раздал игрок (share). Видна только вам и пропадает,
+    когда раздачу закрыли или сменили код. Диски машины подключает автор (сценарий). Без аргументов показывает подключённые диски."""
 
     name = "mnt"
-    mode = "mnt"
-    operands = 2
-    usage = "usage: mnt [-i keyname] [--token token] login@host:/path /mount/point\n       mnt   (list the disks)"
+    usage = "usage: mnt --token code host:share ~/mount/point\n       mnt   (list the disks)"
 
     def execute(self, context, args):
         if not args:
             return self.listing(context)
-        return super().execute(context, args)
+        context.need("mount")
+        from machines.network import shares
+
+        token, rest, index = "", [], 0
+        while index < len(args):
+            if args[index] == "--token" and index + 1 < len(args):
+                token, index = args[index + 1], index + 2
+                continue
+            rest.append(args[index])
+            index += 1
+        if len(rest) != 2 or not token:
+            return CommandResult(self.usage, 2)
+        source, point = rest
+        host, colon, name = source.partition(":")
+        if not colon or not host or not name or "/" in name or "@" in host:
+            return CommandResult(f"mnt: {source}: only shared folders can be mounted (host:share)", 2)
+        try:
+            row = shares.mount(context.view, context.user, context.profile, shares.find(host, name), token, context.resolve_path(point))
+        except shares.ShareError as error:
+            return CommandResult(f"mnt: {source}: {error}", 1)
+        context.invalidate()
+        return CommandResult(f"mnt: {source} mounted on {row.mount_path} ({row.share.mode})")
 
     def listing(self, context):
         rows = []
         for layer in context.view.layers:
             mount = layer.mount
-            if layer.remote:
+            share = getattr(mount, "share", None)
+            if share is not None:
+                rows.append(f"{share.machine.hostname}:{share.name} on {layer.point} type share ({share.mode})")
+            elif layer.remote:
                 account = mount.account.login if mount.account is not None else "guest"
-                rows.append(f"{mount.host.hostname or mount.host.name}:{mount.host_path} on {layer.point} type net ({account}{',ro' if getattr(mount, 'read_only', False) else ''})")
+                rows.append(f"{mount.host.hostname or mount.host.name}:{mount.host_path} on {layer.point} type net ({account}{',ro' if mount.read_only else ''})")
             else:
                 disk = mount.volume.label or mount.volume.name or str(mount.volume.uuid)
                 rows.append(f"{disk} on {layer.point} type disk{' (ro)' if mount.read_only else ''}")
         return CommandResult("\n".join(rows))
 
-    def run(self, context, opts):
-        source, point = opts["operands"]
-        target, colon, path = source.partition(":")
-        if not colon or "@" not in target or not path.startswith("/"):
+
+class ShareCommand(BaseCommand):
+    """share [-m ro|drop] [-n имя] ~/папка: раздать папку из своего дома по имени и коду. Без аргументов — свои раздачи и кто их подключил."""
+
+    name = "share"
+    usage = "usage: share [-m ro|drop] [-n name] <directory>\n       share   (list your shares)"
+
+    def execute(self, context, args):
+        context.need("mount")
+        from machines.models import Share
+        from machines.network import shares
+
+        if not args:
+            rows = [f"{row.machine.hostname}:{row.name}  {context.show(row.path)}  {row.mode}  code {row.code}"
+                    + (f"  mounted by: {', '.join(shares.mounted_by(row))}" if shares.mounted_by(row) else "")
+                    for row in Share.objects.filter(profile=context.profile).select_related("machine")]
+            return CommandResult("\n".join(rows) or "share: nothing shared")
+        mode, name, paths, index = "ro", "", [], 0
+        while index < len(args):
+            if args[index] in ("-m", "-n") and index + 1 < len(args):
+                if args[index] == "-m":
+                    mode = args[index + 1]
+                else:
+                    name = args[index + 1]
+                index += 2
+                continue
+            paths.append(args[index])
+            index += 1
+        if len(paths) != 1:
             return CommandResult(self.usage, 2)
-        return self.enter(context, opts, target, {"path": path.rstrip("/") or "/", "point": context.resolve_path(point)})
+        try:
+            row = shares.share(context.view, context.profile, context.resolve_path(paths[0]), mode, name)
+        except shares.ShareError as error:
+            return CommandResult(f"share: {error}", 1)
+        address = f"{row.machine.hostname}:{row.name}"
+        return CommandResult(f"{context.show(row.path)} shared as {address} ({row.mode})\ncode: {row.code}\n"
+                             f"to mount: mnt --token {row.code} {address} ~/{row.name}")
 
-    def finish(self, context, profile, args):
-        from machines.network import connection
-        from machines.models import PlayerMount
 
-        host, path, point = profile.machine, args["path"], args["point"]
-        label = f"{profile.login}@{host.hostname or host.name}:{path}"
-        if host.pk == context.machine.pk:
-            return CommandResult(f"mnt: {label}: this machine cannot mount itself", 1)
-        view = connection.connect(context.machine, host, path, profile, context.user)
-        if view is None or not view.is_directory(path):
-            return CommandResult(f"mnt: {label}: not exported", 1)
-        if point == "/" or any(layer.point == point for layer in context.view.layers):
-            return CommandResult(f"mnt: {point}: mount point busy", 1)
-        existing = context.view.get(point)
-        if existing is not None and not existing.is_dir:
-            return CommandResult(f"mnt: {point}: not a directory", 1)
-        PlayerMount.objects.create(
-            user=context.user, machine=context.machine, host=host, host_path=path, account=profile, mount_path=point,
-            secret=profile.password_hash,
-        )
+class UnshareCommand(BaseCommand):
+    """unshare имя|папка: закрыть раздачу; у всех, кто её подключил, она пропадает."""
+
+    name = "unshare"
+    usage = "usage: unshare <name|directory>"
+
+    def execute(self, context, args):
+        from machines.network import shares
+
+        if len(args) != 1:
+            return CommandResult(self.usage, 2)
+        what = context.resolve_path(args[0]) if args[0].startswith(("/", "~", ".")) else args[0]
+        if not shares.unshare(context.profile, what):
+            return CommandResult(f"unshare: {args[0]}: not shared", 1)
         context.invalidate()
-        return CommandResult(f"mnt: {label} mounted on {point}")
+        return CommandResult(f"unshare: {args[0]}: closed")
 
 
 class UmntCommand(BaseCommand):
@@ -501,7 +549,7 @@ class UmntCommand(BaseCommand):
         return CommandResult(f"umnt: {point}: not mounted", 1)
 
 
-ENTRY_COMMANDS = {"rcon": BridgeCommand, "rshell": RshellCommand, "xfer": XferCommand, "mnt": MntCommand}
+ENTRY_COMMANDS = {"rcon": BridgeCommand, "rshell": RshellCommand, "xfer": XferCommand}
 
 
 class ExitCommand(BaseCommand):

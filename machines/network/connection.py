@@ -26,6 +26,17 @@ def account_of(host, login):
     return host.profiles.filter(login=login).first() if login else None
 
 
+def connect_share(client, share, user, trail=frozenset()):
+    """Вид машины раздачи для подключения: глазами учётки хозяина, но только под папкой раздачи (решает тот, кто кладёт слой).
+    Машина может подключить раздачу с самой себя: во вложенном виде личных подключений нет, поэтому цепочка не замкнётся."""
+    from filesystem.machine_view import MachineView
+
+    chain = trail | {client.pk}
+    if len(chain) > MAX_CHAIN:
+        return None
+    return MachineView(share.machine, user, principal_for(share.profile), trail=chain)
+
+
 def connect(client, host, host_path, account, user, trail=frozenset()):
     """Вид хоста для подключения или None, если подключиться нельзя (цепочка длинная или замкнулась, пути нет в экспорте, нет учётки)."""
     from filesystem.machine_view import MachineView
