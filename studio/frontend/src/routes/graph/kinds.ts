@@ -209,7 +209,7 @@ export function titleOf(kind: Kind, data: Record<string, unknown>, usedIn: strin
   const value = String(data[kind.title] ?? field?.options[0]?.value ?? "");
   const chosen = field?.options.find((o) => o.value === value)?.label;
   if (!chosen) return kind.label;
-  const space = kind.label.includes(": ") ? kind.label.split(": ")[0] : "";        // «Время: по дням недели»
+  const space = kind.label.includes(": ") ? kind.label.split(": ")[0] : kind.group === "entity" ? kind.label : "";   // «Время: по дням недели», «Возможность: Письмо»
   return space ? `${space}: ${chosen}` : chosen;
 }
 

@@ -109,7 +109,7 @@
 </script>
 
 <div class="node" class:selected class:muted-node={data.node.mute} class:box={kind.name === "group" || kind.name === "scenario"} style="--head: {COLORS[kind.group] ?? '#555'}">
-  <header data-tip={tip(kind.title ? `${kind.label}: ${titleOf(kind, values, data.usedIn)}` : titleOf(kind, values, data.usedIn), "", kind.help)}>
+  <header data-tip={tip(kind.title && !titleOf(kind, values, data.usedIn).startsWith(kind.label) ? `${kind.label}: ${titleOf(kind, values, data.usedIn)}` : titleOf(kind, values, data.usedIn), "", kind.help)}>
     <b>{titleOf(kind, values, data.usedIn)}</b>
     {#if isNoun}<span class="tag" title={role.tip}>{role.text}</span>{/if}
     {#if kind.name === "group"}<span class="tag" title="Tab — войти в группу">Tab</span>{/if}

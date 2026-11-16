@@ -764,9 +764,9 @@ MACHINE_ACTS = ("act:machine.change", "act:account.change", "act:account.access"
 
 # возможности: что сценарий открыл игроку в игре (graph/offers.py; письмо — mail/talk.py)
 _MAIL, _TYPED = ("channel", ("mail",)), ("channel", ("mail", "command"))
-register(Kind("ent:offer", "Возможность", ENTITY, "{channel}: {title}{command}", (
-    Field("channel", "Канал", "select", "", False, (("mail", "письмо"), ("command", "команда терминала"), ("choice", "окно с выбором"),
-                                                     ("file", "кнопка у файла"))),
+register(Kind("ent:offer", "Возможность", ENTITY, "{title}{command}", (
+    Field("channel", "Канал", "select", "", False, (("mail", "Письмо"), ("command", "Команда терминала"), ("choice", "Окно с выбором"),
+                                                     ("file", "Кнопка у файла"))),
     Field("mode", "Как", "select", "", False, (("reply", "ответ на письмо"), ("new", "новое письмо"), ("forward", "пересылка письма"))),
     Field("character", "Кому", "many:character", "персонаж"), Field("address", "Адрес", "text", "пусто — любой адрес персонажа"),
     Field("reply_to", "В ответ на", "letter", "любое письмо"), Field("forward_of", "Что переслать", "letter", "", True),
@@ -788,7 +788,7 @@ register(Kind("ent:offer", "Возможность", ENTITY, "{channel}: {title}
     **{name: _TYPED for name in ("text", "account")},
     **{name: ("channel", ("command",)) for name in ("command", "machine", "reply_ok", "reply_wrong")},
     "title": ("channel", ("mail", "choice", "file")), "message": ("channel", ("choice",)), "buttons": ("channel", ("choice",)),
-    **{name: ("channel", ("file",)) for name in ("item", "path", "caption")}}))
+    **{name: ("channel", ("file",)) for name in ("item", "path", "caption")}}, title="channel"))
 DATA_OUTS["ent:offer"] = (Sock("offer", "Возможность", "offer"), Sock("open", "Открыта", "bool"))
 _OFFER_SCOPE = Field("scope", "Для кого", "select", "", False, (("player", "игроку хода"), ("all", "всем")))
 register(Kind("act:offer.open", "Возможность: Открыть", ACTION, "{offer}", (Field("offer", "Возможность", "many:offer", "", True), _OFFER_SCOPE),
