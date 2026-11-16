@@ -25,6 +25,46 @@ def _since():
     return timezone.now() - ONLINE
 
 
+def online_users():
+    """Игроки, которые сейчас в игре (активная сессия где угодно)."""
+    from django.contrib.auth import get_user_model
+
+    return list(get_user_model().objects.filter(session__seen_at__gte=_since(), sandbox_of__isnull=True).distinct().order_by("username"))
+
+
+def users_of(items):
+    """Игроки по тому, что подали: игрок (логин), сессия (игрок/логин@хост), учётка (логин@хост) или машина (хост) — у учётки и машины
+    те, кто сейчас на них (активная сессия). Повторы убираются, непонятное пропускается."""
+    from django.contrib.auth import get_user_model
+
+    from graph import entities
+    from machines.models import Session
+    from machines.world import edits
+
+    User = get_user_model()
+    since, found = _since(), []
+    for raw in items:
+        key = str(raw or "").strip()
+        if not key:
+            continue
+        if "/" in key:
+            parsed = parse(key)
+            users = list(User.objects.filter(username=parsed[0])) if parsed else []
+        elif "@" in key:
+            profile = edits.account(key)
+            users = [row.user for row in Session.objects.filter(profile=profile, seen_at__gte=since).select_related("user")] if profile else []
+        else:
+            users = list(User.objects.filter(username__iexact=key))
+            if not users:
+                machine = entities._machine(key)
+                users = [row.user for row in Session.objects.filter(profile__machine=machine, seen_at__gte=since).select_related("user")] \
+                    if machine is not None else []
+        for user in users:
+            if user not in found and getattr(user, "sandbox_of_id", None) is None:
+                found.append(user)
+    return found
+
+
 def of_machine(machine, active=False):
     """Сессии всех игроков на машине: список ключей, свежие первыми."""
     from machines.models import Session

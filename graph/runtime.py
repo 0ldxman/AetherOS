@@ -824,13 +824,32 @@ def _action(run, doc, node_id, kind, override=None):
     return _action_one(run, kind, data)
 
 
-def _action_one(run, kind, data):
+def _screen(run, doc, node_id, kind):
+    """«Экран: Показать» каждому адресату: игроку хода, всем в игре или указанным (игрок, сессия, учётка, машина)."""
+    from graph import sessions
+
+    data = resolved(run, doc, node_id)
+    if (data.get("who") or "player") == "list":
+        users = sessions.users_of(_as_list(data.get("targets")))
+    elif data.get("scope") == "all":
+        users = sessions.online_users()
+    else:
+        users = [run.user] if run.user is not None else []
+    if not users:
+        _log(run.graph, f"«{N.titled(kind, data)}»: некому показать", run.user)
+        return ["fail"]
+    data = {key: value for key, value in data.items() if key not in ("who", "scope", "targets")}
+    outs = {out for user in users[:LIST_LIMIT] for out in _action_one(run, kind, data, user)}
+    return ["fail"] if "fail" in outs else ["next"]
+
+
+def _action_one(run, kind, data, user=None):
     from engine import actions as engine
     from engine.context import Ctx
 
     spec, action = N.action_of(kind, data)
     action = {key: _fill(_plain(value) if isinstance(value, float) else value, run) if key != "do" else value for key, value in action.items()}
-    ctx = Ctx(source=f"сценарий {run.graph.slug}", user=run.user, box=_box(run), depth=_depth.get())
+    ctx = Ctx(source=f"сценарий {run.graph.slug}", user=user or run.user, box=_box(run) if user is None else None, depth=_depth.get())
     have = ctx.provides()
     if spec.needs not in have:
         need = {"user": "игрока", "account": "учётки игрока (событие было не на машине)"}.get(spec.needs, spec.needs)
@@ -1117,6 +1136,8 @@ def _execute(run, doc, node_id, sock):
         from graph import offers
 
         return offers.act(run, node_id, kind, data)
+    if name == "act:screen":
+        return _screen(run, doc, node_id, kind)
     if kind.group == N.ACTION:
         return _action(run, doc, node_id, kind)
     if name in ("reroute", "stage"):

@@ -11,6 +11,7 @@ from engine import facts, values
 
 OWNER_OF = {"player": "player", "character": "character", "machine": "machine", "account": "account", "server": "server", "item": "object"}
 SPACED = re.compile(r"\s*(>=|<=|>|<|=)\s*")
+GROUP = re.compile(r"^group:account:([\w.-]+)$")                      # учётка в группе прав
 OPS = {">=": lambda a, b: a >= b, "<=": lambda a, b: a <= b, ">": lambda a, b: a > b, "<": lambda a, b: a < b, "=": lambda a, b: a == b}
 
 
@@ -24,7 +25,10 @@ def tidy(text):
 
 
 def own_atom(text, owner):
-    """(вид tag|count, имя, для игрока, оператор, число), если атом — про кандидата вида owner; иначе None."""
+    """(вид tag|count|group, имя, для игрока, оператор, число), если атом — про кандидата вида owner; иначе None."""
+    group = GROUP.match(str(text or "").strip())
+    if group:
+        return ("group", group[1].lower(), False, None, None) if owner == "account" else None
     match = facts.ATOM.fullmatch(str(text or "").strip())
     if not match:
         return None
@@ -60,7 +64,8 @@ def parse(text, what):
     except ValueError as error:
         raise SearchError(str(error)) from None
     if not any(own_atom(atom, owner) for atom in _atoms(req)):
-        raise SearchError(f"нет условия на саму вещь: нужен tag:{owner}:имя или count:{owner}:имя (tag:world:… сам по себе не отбирает)")
+        raise SearchError(f"нет условия на саму вещь: нужен tag:{owner}:имя или count:{owner}:имя"
+                          + (" или group:account:группа" if owner == "account" else "") + " (tag:world:… сам по себе не отбирает)")
     return req
 
 
@@ -98,7 +103,13 @@ def find(text, what, user=None, facts_of_player=frozenset(), among=None, order="
     req = parse(text, what)
     owner = OWNER_OF[what]
     universe = _universe(owner, among)
-    names = {own_atom(atom, owner)[1] for atom in _atoms(req) if own_atom(atom, owner)}
+    names = {own_atom(atom, owner)[1] for atom in _atoms(req) if own_atom(atom, owner) and own_atom(atom, owner)[0] != "group"}
+    groups = {}
+    if owner == "account" and any((own_atom(atom, owner) or ("",))[0] == "group" for atom in _atoms(req)):
+        from machines.models import MachineProfile
+
+        groups = {pk: {str(name).lower() for name in (found or [])}
+                  for pk, found in MachineProfile.objects.filter(pk__in=list(universe)).values_list("pk", "groups")}
     order = order if order in ORDERS else "name"
     sort_name, _, sort_per = str(by or "").strip().lower().partition("@")
     if order in ("count", "tag_time", "changed") and sort_name:
@@ -122,6 +133,8 @@ def find(text, what, user=None, facts_of_player=frozenset(), among=None, order="
                     shared[node] = bool(satisfied(node, facts_of_player))
                 return shared[node]
             kind, name, per, op, number = mine
+            if kind == "group":
+                return name in groups.get(pk, set())
             if per and user is None:
                 return False
             value = known.get((values.TAG if kind == "tag" else values.COUNT, pk, name, per), 0)

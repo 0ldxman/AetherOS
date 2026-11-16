@@ -30,6 +30,13 @@ class SearchTests(TestCase):
         with self.assertRaises(search.SearchError):
             search.find("tag:world:alarm", "account")
 
+    def test_accounts_by_rights_group(self):
+        MachineProfile.objects.filter(login="ops").update(groups=["Ops", "wheel"])
+        self.assertEqual(search.find("group:account:ops", "account"), ["ops@core"])
+        self.assertEqual(search.find("group:account:wheel and not tag:account:compromised", "account"), [])
+        with self.assertRaises(search.SearchError):
+            search.find("group:account:ops", "machine")
+
     def test_order_limit_and_among(self):
         from datetime import timedelta
 

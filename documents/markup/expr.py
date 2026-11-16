@@ -17,7 +17,7 @@ class SpoilerSyntaxError(ValueError):
 
 
 _KEYWORDS = {"and", "or", "not"}
-_SLUG = re.compile(r"[A-Za-z0-9_-]+|world:[a-z0-9][a-z0-9_-]{0,63}(?:(?:>=|<=|>|<|=)-?\d+)?|(?:tag|count):[^\s()<>=]{1,200}?(?:(?:>=|<=|>|<|=)-?\d+)?")   # ключ, метка/счётчик мира, тег и счётчик (engine/facts.py)
+_SLUG = re.compile(r"[A-Za-z0-9_-]+|world:[a-z0-9][a-z0-9_-]{0,63}(?:(?:>=|<=|>|<|=)-?\d+)?|(?:tag|count):[^\s()<>=]{1,200}?(?:(?:>=|<=|>|<|=)-?\d+)?|group:account:[\w.-]{1,64}")   # ключ, метка/счётчик мира, тег и счётчик (engine/facts.py), группа учётки (engine/search.py)
 
 
 def parse_expr(src):
