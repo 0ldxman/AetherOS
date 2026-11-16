@@ -35,11 +35,12 @@ def _props(name, key, run):
     if name == "ent:machine":
         from machines.world import power
 
+        from graph import sessions
         from machines.world import disks
 
         m = _machine(key)
         return m and {"value": m.hostname, "name": m.name, "host": m.hostname, "address": m.address, "system": m.system,
-                      "up": not power.is_down(m), "disks": disks.of_machine(m)}
+                      "up": not power.is_down(m), "disks": disks.of_machine(m), "sessions": sessions.of_machine(m)}
     if name == "ent:server":
         from machines.models import NetResource
 

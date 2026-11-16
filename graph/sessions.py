@@ -25,6 +25,14 @@ def _since():
     return timezone.now() - ONLINE
 
 
+def of_machine(machine, active=False):
+    """Сессии всех игроков на машине: список ключей, свежие первыми."""
+    from machines.models import Session
+
+    rows = Session.objects.select_related("user", "profile__machine").filter(profile__machine=machine, user__sandbox_of__isnull=True)
+    return _keys(rows.filter(seen_at__gte=_since()) if active else rows)
+
+
 def of_account(profile, active=False):
     """Сессии игроков на учётке: список ключей, свежие первыми."""
     from machines.models import Session
@@ -75,9 +83,7 @@ def find(run, mode, player="", machine="", active=False, account=""):
     rows = Session.objects.select_related("user", "profile__machine")
     if mode == "machine":
         found = entities._machine(entities._key(machine))
-        if found is None:
-            return []
-        rows = rows.filter(profile__machine=found, user__sandbox_of__isnull=True)
+        return of_machine(found, active) if found is not None else []
     else:
         user = entities._player(run, entities._key(player))
         if user is None:

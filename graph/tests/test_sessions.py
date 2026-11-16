@@ -79,6 +79,16 @@ class SessionTests(TestCase):
         self.assertEqual(sessions.close(run, ["anna/guest@aether-core", "nobody/x@y"]), 1)
         self.assertIsNone(Session.objects.get(user=self.ivan, profile=self.home).kick_at)
 
+    def test_everyone_on_a_machine_is_closed_through_the_machine_output(self):
+        from graph.tests.test_data import f
+
+        graph = Graph.objects.create(slug="kick-all", doc={"nodes": [node("m", "manual"), node("e", "ent:machine", machine="aether-core"),
+                                                                     node("c", "act:session.close")],
+                                                           "wires": [wire("m", "fire", "c"), f("e", "sessions", "c", "session")]})
+        runtime.start_manual(graph, "m", self.ivan)
+        self.assertEqual(Session.objects.filter(profile=self.guest, kick_at__isnull=False).count(), 2)
+        self.assertIsNone(Session.objects.get(profile=self.home).kick_at)
+
     def test_screen_is_one_node_and_kick_is_hidden(self):
         self.assertEqual([label for _, label in N.KINDS["act:screen"].fields[0].options],
                          ["Уведомление", "Бегущая строка", "Окна ошибок", "Окно с адресом", "Чёрный экран", "Сцена"])
