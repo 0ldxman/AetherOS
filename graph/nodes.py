@@ -16,18 +16,18 @@ GROUPS = {ENTITY: "Сущности", NOUN: "Когда", FLOW: "Ход", DATA: 
 # Типы сокетов. event — «случилось» (по нему идёт ход), остальное — данные: читаются в момент, когда нода выполняется.
 EVENT = "event"
 TYPES = ("event", "bool", "text", "number", "item", "placement", "layer", "machine", "account", "server", "character", "section", "moment", "player", "flag",
-         "world_flag", "counter", "offer", "session", "datetime")
+         "world_flag", "counter", "offer", "session", "datetime", "volume", "mount")
 TYPE_LABELS = {"event": "событие", "bool": "да/нет", "text": "текст", "number": "число", "item": "объект", "placement": "размещение", "layer": "слой", "machine": "машину", "account": "учётку",
                "server": "сервер", "character": "персонажа", "section": "раздел", "moment": "момент", "player": "игрока",
                "flag": "метку игрока", "world_flag": "метку мира", "counter": "счётчик", "offer": "возможность", "session": "сессию",
-               "datetime": "дату и время"}
+               "datetime": "дату и время", "volume": "диск", "mount": "диск машины"}
 THINGS = ("item", "placement", "layer", "machine", "account", "server", "character", "section", "moment", "player", "flag", "world_flag", "counter", "offer",
-          "session")
+          "session", "volume", "mount")
 
 # списки: «list:<тип элемента>»; «list:any» — вход, которому подходит любой список (количество)
 ELEMENTS = {"text": "Текст", "number": "Число", "bool": "Да/нет", "item": "Объект", "placement": "Размещение", "layer": "Слой", "machine": "Машина", "account": "Учётка", "server": "Сервер",
             "character": "Персонаж", "section": "Раздел", "moment": "Момент", "player": "Игрок", "offer": "Возможность", "session": "Сессия",
-            "datetime": "Дата и время"}
+            "datetime": "Дата и время", "volume": "Диск", "mount": "Диск машины"}
 LIST, ANY_LIST = "list:", "list:any"
 TYPES = TYPES + tuple(LIST + name for name in ELEMENTS) + (ANY_LIST,)
 TYPE_LABELS.update({LIST + name: f"список ({label.lower()})" for name, label in ELEMENTS.items()})
@@ -69,7 +69,7 @@ FIELD_TYPES = {"text": "text", "textarea": "text", "path": "text", "clock": "tex
                "object": "item", "character": "character", "section": "section", "flag": "flag", "world_flag": "world_flag",
                "counter": "counter", "moment": "moment", "machine": "machine", "system": "text", "time_zone": "text", "server": "server", "player": "player", "layer": "layer", "placement": "placement", "account": "account", "offer": "offer",
                "recipient": "many:character|text", "mail_ref": "item|placement", "attachment": "many:item|placement",
-               "offer_group": "many:offer|text", "session": "session", "datetime": "datetime|text"}      # вид поля -> тип его входа; нет в списке — параметр без входа
+               "offer_group": "many:offer|text", "session": "session", "datetime": "datetime|text", "volume": "volume", "mount": "mount"}      # вид поля -> тип его входа; нет в списке — параметр без входа
 
 
 def field_type(field):
@@ -779,7 +779,17 @@ register(Kind("act:account.manage", "Машина: Создать или уда�
 ), _ACT_OUTS, title="variant", when={**{name: ("variant", ("create",)) for name in ("owner", "machine", "login", "name", "points", "password", "mail", "groups")},
                                       "account": ("variant", ("delete",))}))
 DATA_OUTS["act:account.manage"] = (Sock("account", "Учётка", "account"),)
-MACHINE_ACTS = ("act:machine.change", "act:account.change", "act:account.access", "act:account.manage")
+register(Kind("act:machine.disk", "Машина: Изменить диск", ACTION, "{point}{mount}", (
+    Field("variant", "Действие", "select", "", False, (("attach", "Подключить диск"), ("remote", "Подключить сетевой диск"), ("detach", "Отключить диск"))),
+    Field("machine", "Машина", "machine", "", True), Field("volume", "Диск", "volume", "", True), Field("folder", "Папка диска", "path", "весь диск"),
+    Field("host", "Хост", "machine", "", True), Field("path", "Путь на хосте", "path", "/srv/archive", True),
+    Field("account", "Учётка хоста", "account", "guest"), Field("point", "Точка", "path", "/mnt/archive"),
+    Field("mount", "Диск машины", "mount", "хост:/точка"),
+), _ACT_OUTS, title="variant", when={"volume": ("variant", ("attach", "detach")), "folder": ("variant", ("attach",)),
+                                      "host": ("variant", ("remote",)), "path": ("variant", ("remote",)), "account": ("variant", ("remote",)),
+                                      "mount": ("variant", ("detach",))}))
+DATA_OUTS["act:machine.disk"] = (Sock("mount", "Диск машины", "mount"),)
+MACHINE_ACTS = ("act:machine.change", "act:account.change", "act:account.access", "act:account.manage", "act:machine.disk")
 
 # возможности: что сценарий открыл игроку в игре (graph/offers.py; письмо — mail/talk.py)
 _MAIL, _TYPED = ("channel", ("mail",)), ("channel", ("mail", "command"))
@@ -926,7 +936,14 @@ HELP = {
     "fact": "Условие на факты игрока хода: ключи, tag:, count:, world:. Верно или нет.",
     "math": "Посчитать A и B. «Случайное» — целое от A до B; округление, модуль и смена знака берут только A.",
     "read": "Прочитать сейчас: счётчик или метку мира, счётчик или метку игрока хода.",
-    "ent:machine": "Машина: выбрать в ноде, получить проводом или найти по хосту/имени из текста. Свойства — как сейчас.",
+    "ent:machine": "Машина: выбрать в ноде, получить проводом или найти по хосту/имени из текста. Свойства — как сейчас. Диски — что "
+                   "подключено в её точках (список «Машина: Диск»).",
+    "ent:volume": "Диск автора (том): по слагу или названию. «Где подключён» — точки машин, где он стоит.",
+    "ent:mount": "Что стоит в точке машины: провод «хост:/точка» или Машина + Точка. Тип: диск (том автора, выход «Диск») или сетевой "
+                 "(Хост, Путь, Учётка хоста). «Есть» — подключено ли сейчас.",
+    "act:machine.disk": "Подключить диск в точку машины (в занятую — ляжет сверху), подключить по сети путь другой машины (хост должен его "
+                        "отдавать; учётка хоста, пусто — guest) или отключить: провод «Машина: Диск», либо Машина + Точка (всё в ней) "
+                        "или Машина + Диск (этот диск с машины). Для всех. Выход — «Машина: Диск».",
     "ent:server": "Сетевой сервер (nreq, nget): по адресу.", "ent:object": "Объект библиотеки — содержимое, общее для всех; по слагу или названию.",
     "ent:character": "Персонаж: по коду или имени.", "ent:section": "Раздел форума: по номеру или названию.",
     "ent:moment": "Момент мира: по имени или названию; «Идёт» — сейчас ли он.",
@@ -1126,7 +1143,15 @@ def _entity(name, label, field, outs):
 
 _entity("ent:machine", "Машина", Field("machine", "Машина", "machine"),
         (Sock("value", "Машина", "machine"), Sock("name", "Имя", "text"), Sock("address", "Адрес", "text"),
-         Sock("system", "ОС", "text"), Sock("up", "Работает", "bool")))
+         Sock("system", "ОС", "text"), Sock("up", "Работает", "bool"), Sock("disks", "Диски", "list:mount")))
+_entity("ent:volume", "Диск", Field("volume", "Диск", "volume"),
+        (Sock("value", "Диск", "volume"), Sock("name", "Название", "text"), Sock("where", "Где подключён", "list:mount")))
+register(Kind("ent:mount", "Машина: Диск", ENTITY, "{point}{mount}", (
+    Field("mount", "Диск машины", "mount", "хост:/точка"), Field("machine", "Машина", "machine"), Field("point", "Точка", "path", "/mnt/archive"),
+), ins=(), covers={"mount": ("machine", "point")}))
+DATA_OUTS["ent:mount"] = (Sock("value", "Диск машины", "mount"), Sock("machine", "Машина", "machine"), Sock("point", "Точка", "text"),
+                          Sock("type", "Тип", "text"), Sock("volume", "Диск", "volume"), Sock("host", "Хост", "machine"),
+                          Sock("path", "Путь", "text"), Sock("account", "Учётка", "account"), Sock("exists", "Есть", "bool"))
 _entity("ent:server", "Сервер", Field("server", "Сервер", "server"),
         (Sock("value", "Сервер", "server"), Sock("title", "Название", "text")))
 _entity("ent:object", "Объект", Field("item", "Объект", "object"),

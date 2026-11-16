@@ -35,9 +35,11 @@ def _props(name, key, run):
     if name == "ent:machine":
         from machines.world import power
 
+        from machines.world import disks
+
         m = _machine(key)
         return m and {"value": m.hostname, "name": m.name, "host": m.hostname, "address": m.address, "system": m.system,
-                      "up": not power.is_down(m)}
+                      "up": not power.is_down(m), "disks": disks.of_machine(m)}
     if name == "ent:server":
         from machines.models import NetResource
 
@@ -69,6 +71,11 @@ def _props(name, key, run):
         from graph import sessions
 
         return sessions.props(key)
+    if name == "ent:volume":
+        from machines.world import disks
+
+        v = disks.volume(key)
+        return v and {"value": v.slug, "name": v.name or v.slug, "where": disks.where(v)}
     if name == "ent:player":
         from air.models import Callsign
 
@@ -191,6 +198,18 @@ def find(run, kind, data):
             for copy in search(user, _key(data.get("item")) or None, machine, _key(data.get("path")), data.get("where") or "live")]
 
 
+
+
+def mount(run, kind, data, out):
+    """«Машина: Диск»: по проводу «хост:/точка» или по машине и точке — что там стоит сейчас."""
+    from machines.world import disks
+
+    key = _key(data.get("mount"))
+    if not key:
+        machine = _machine(_key(data.get("machine")))
+        key = disks.key_of(machine, _key(data.get("point")))
+    found = disks.props(key)
+    return (found or {}).get(out, _blank(kind, out))
 
 
 def account(run, kind, data, out):

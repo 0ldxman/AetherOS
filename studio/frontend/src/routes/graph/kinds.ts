@@ -40,6 +40,8 @@ export const TYPES: Record<string, { label: string; color: string; thing?: boole
   offer: { label: "Возможность", color: "#e3b8f5", thing: true },
   session: { label: "Сессия", color: "#e58fae", thing: true },
   datetime: { label: "Дата и время", color: "#7fa8c9" },
+  volume: { label: "Диск", color: "#b0a07a", thing: true },
+  mount: { label: "Диск машины", color: "#6fb38f", thing: true },
 };
 // списки: «list:<тип элемента>», «list:any» — вход, которому подходит любой список; @T и @list — по «Типу элементов» ноды.
 // «many:<тип>» — одно значение или список; «a|b» — подходит любой из типов (сокет в цветах всех)

@@ -452,6 +452,8 @@ def value_of(run, doc, node_id, out, depth=0):
             return entities.value(run, kind, _inferred(doc, node_id, kind, found), out)
         if kind.name == "ent:account":
             return entities.account(run, kind, {f.name: get(f.name) for f in kind.fields}, out)
+        if kind.name == "ent:mount":
+            return entities.mount(run, kind, {f.name: get(f.name) for f in kind.fields}, out)
         if kind.name == "ent:layer":
             return entities.layer(run, kind, {f.name: get(f.name) for f in kind.fields}, out)
         if kind.name == "ent:offer":
@@ -951,6 +953,48 @@ def _machine_act(run, node_id, kind, data):
     return ["fail"] if failed else ["next"]
 
 
+def _disk_act(run, node_id, kind, data):
+    """«Машина: Изменить диск»: подключить диск, подключить сетевой, отключить — у машины для всех."""
+    from graph import entities
+    from machines.world import disks, edits
+
+    mode = data.get("variant") or "attach"
+    key = lambda name: entities._key(data.get(name))       # noqa: E731
+    result, failed = "", False
+    try:
+        if mode == "detach" and key("mount"):
+            found = disks.parse(key("mount"))
+            if found is None:
+                raise disks.DiskError(f"нет точки «{key('mount')}»")
+            machine, point = found
+        else:
+            machine, point = entities._machine(key("machine")), _fill(key("point"), run)
+            if machine is None:
+                raise disks.DiskError("не выбрана машина")
+        if mode == "attach":
+            result = disks.attach(machine, disks.volume(key("volume")), point, _fill(key("folder"), run))
+        elif mode == "remote":
+            account = edits.account(key("account")) if key("account") else None
+            host = entities._machine(key("host"))
+            if account is None and host is not None:
+                from machines.network import connection
+
+                account = connection.account_of(host, "guest")
+            result = disks.attach_remote(machine, host, _fill(key("path"), run), account, point)
+        else:
+            volume = disks.volume(key("volume")) if key("volume") else None
+            if key("volume") and volume is None:
+                raise disks.DiskError(f"нет диска «{key('volume')}»")
+            if not disks.detach(machine, point, volume):
+                raise disks.DiskError("там ничего не подключено")
+            result = disks.key_of(machine, point) if point else ""
+    except disks.DiskError as error:
+        _log(run.graph, f"«{N.titled(kind, data)}»: {error}", run.user)
+        failed = True
+    run.state = {**(run.state or {}), "vals": {**((run.state or {}).get("vals") or {}), node_id: {"mount": result}}}
+    return ["fail"] if failed else ["next"]
+
+
 def _execute(run, doc, node_id, sock):
     """Выполнить ноду; вернуть выходы, по которым идти дальше."""
     import random
@@ -961,6 +1005,8 @@ def _execute(run, doc, node_id, sock):
         return [] if kind.start_only else _noun_wait(run, doc, node_id, kind)
     if name in N.PLACEMENT_ACTS:
         return _placement_act(run, doc, node_id, kind)
+    if name == "act:machine.disk":
+        return _disk_act(run, node_id, kind, data)
     if name in N.MACHINE_ACTS:
         return _machine_act(run, node_id, kind, data)
     if name in N.OFFER_ACTS:

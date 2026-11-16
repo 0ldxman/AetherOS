@@ -14,7 +14,7 @@
 
   const store = engine();
   const picks = (k: string) => store.catalog?.picks[k] ?? [];
-  const PICKED = ["key", "letter", "item", "object", "section", "character", "station", "machine", "moment", "graph", "scene", "system", "time_zone", "offer", "attachment"];
+  const PICKED = ["key", "letter", "item", "object", "section", "character", "station", "machine", "moment", "graph", "scene", "system", "time_zone", "offer", "attachment", "volume"];
   const LISTED = ["flag", "world_flag", "counter"];
   // поле со встроенным переключателем: без провода в панели только если текстом его не задать («Как» — только провод письма)
   const typed = (f: Field) => (f.socket ?? "").split(/[:|]/).includes("text");
