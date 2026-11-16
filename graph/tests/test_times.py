@@ -27,29 +27,50 @@ class TimeTests(TestCase):
         self.assertEqual(times.text(GAME), "2031-05-14 21:00")
         self.assertEqual(times.clock("9:05"), (9, 5))
 
-    def test_shift_diff_parts(self):
-        self.assertEqual(times.shift("2031-05-14 21:00", -90), "2031-05-14 19:30")
-        self.assertEqual(times.shift("2031-05-14 21:00", 1, "days"), "2031-05-15 21:00")
+    def test_seconds_show_only_when_set(self):
+        self.assertEqual(times.text(GAME.replace(second=15)), "2031-05-14 21:00:15")
+        self.assertEqual(times.parse("2031-05-14 21:00:15").second, 15)
+        self.assertEqual(times.clock_full("21:00:15"), (21, 0, 15))
+
+    def test_shift_diff_zone_parts(self):
+        self.assertEqual(times.shift("2031-05-14 21:00", minutes=-90), "2031-05-14 19:30")
+        self.assertEqual(times.shift("2031-05-14 21:00", days=1, seconds=5), "2031-05-15 21:00:05")
         self.assertEqual(times.diff("2031-05-15 21:00", "2031-05-14 21:00", "hours"), 24)
+        self.assertEqual(times.diff("2031-05-14 21:00:30", "2031-05-14 21:00", "seconds"), 30)
         self.assertEqual(times.diff("x", "2031-05-14 21:00"), 0)
+        self.assertEqual(times.in_zone("2031-05-14 21:00", "Asia/Tokyo"), "2031-05-15 06:00")
+        self.assertEqual(times.in_zone("2031-05-14 21:00", "Mars/Base"), "")
         parts = times.parts("2031-05-14 21:00")
         self.assertEqual((parts["weekday"], parts["date"], parts["clock"]), (3, "2031-05-14", "21:00"))
         tokyo = Machine.objects.create(name="T", hostname="tokyo", time_zone="Asia/Tokyo")
-        self.assertEqual(times.parts("2031-05-14 21:00", tokyo)["clock"], "06:00")                 # UTC+9: уже четверг
         self.assertEqual(times.parts("2031-05-14 21:00", tokyo)["weekday"], 4)
+
+    def test_time_node(self):
+        with mock.patch("graph.times.now", return_value=GAME.replace(second=7)):
+            self.assertEqual(times.outputs(times.moment()), {"value": "2031-05-14 21:00:07", "date": "2031-05-14", "clock": "21:00:07"})
+            self.assertEqual(times.text(times.moment("date")), "2031-05-14 00:00")
+            self.assertEqual(times.text(times.moment("clock", "other", "09:30")), "2031-05-14 09:30")
+            self.assertEqual(times.text(times.moment("clock", "other", "2030-01-01 08:15")), "2031-05-14 08:15")
+            self.assertEqual(times.text(times.moment("date", "other", "2031-06-01 10:30")), "2031-06-01 00:00")
+            self.assertIsNone(times.moment("datetime", "other", "вчера"))
 
     def test_nodes_and_compare(self):
         with mock.patch("graph.times.now", return_value=GAME):
-            nodes = [node("now", "time.now"), node("back", "time.shift", amount=-30), node("d", "time.diff", unit="minutes"),
-                     node("p", "time.parts"), node("lt", "compare", op="lt"), node("eq", "compare", op="eq", b="2031-05-14 21:00")]
-            wires = [wire("now", "value", "back", "f:value"), wire("back", "value", "d", "f:b"), wire("now", "value", "d", "f:a"),
-                     wire("back", "value", "p", "f:value"), wire("back", "value", "lt", "f:a"), wire("now", "value", "lt", "f:b"),
-                     wire("now", "value", "eq", "f:a")]
-            self.assertEqual(self.value(nodes, wires, "back"), "2031-05-14 20:30")
-            self.assertEqual(self.value(nodes, wires, "d"), 30)
+            nodes = [node("now", "time.get"), node("back", "time.calc", mode="shift", minutes=-30), node("d", "time.calc", unit="minutes"),
+                     node("z", "time.zone", zone="Asia/Tokyo"), node("p", "time.parts"), node("lt", "compare", op="lt"),
+                     node("eq", "compare", op="eq", b="2031-05-14 21:00"), node("t", "text", value="{когда}!", subs=[{"id": "s1", "name": "когда"}])]
+            wires = [wire("now", "value", "back", "f:a"), wire("back", "shifted", "d", "f:b"), wire("now", "value", "d", "f:a"),
+                     wire("now", "value", "z", "f:value"), wire("back", "shifted", "p", "f:value"), wire("back", "shifted", "lt", "f:a"),
+                     wire("now", "value", "lt", "f:b"), wire("now", "value", "eq", "f:a"), wire("now", "date", "t", "f:s1")]
+            self.assertEqual(self.value(nodes, wires, "back", "shifted"), "2031-05-14 20:30")
+            self.assertEqual(self.value(nodes, wires, "d", "diff"), 30)
+            self.assertEqual(self.value(nodes, wires, "z"), "2031-05-15 06:00")
             self.assertEqual(self.value(nodes, wires, "p", "minute"), 30)
             self.assertTrue(self.value(nodes, wires, "lt"))
             self.assertTrue(self.value(nodes, wires, "eq"))
+            self.assertEqual(self.value(nodes, wires, "t"), "2031-05-14!")
+        kind = N.KINDS["time.calc"]
+        self.assertEqual((N.sockets(kind, {}, "out"), N.sockets(kind, {"mode": "shift"}, "out")), (["diff"], ["shifted"]))
 
     def test_date_fields_are_mixed(self):
         self.assertEqual(N.sock_type(N.KINDS["wait"], {}, "in", "f:at"), "datetime|text")

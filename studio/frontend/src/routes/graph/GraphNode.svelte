@@ -135,8 +135,8 @@
         {#if f.kind === "switch"}
           {@const current = val(f.name) || f.options[0]?.value}
           <div class="switch-row">
-            {#if kind.title !== f.name}<span class="switch-label">{f.label}</span>{/if}
-            <div class="nodrag switch" role="radiogroup" aria-label={f.label}>
+            {#if kind.title !== f.name && f.label}<span class="switch-label">{f.label}</span>{/if}
+            <div class="nodrag switch" role="radiogroup" aria-label={f.label || kind.label}>
               {#each f.options as o (o.value)}
                 <button type="button" role="radio" aria-checked={current === o.value} class:on={current === o.value} disabled={!data.editable}
                         onclick={() => set(f.name, o.value)}>{o.label}</button>

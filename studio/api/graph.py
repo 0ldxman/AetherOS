@@ -48,6 +48,7 @@ class GrGrow(Schema):
     named: bool
     min: int
     single: list[str]
+    needs: str = ""
 
 
 class GrWhen(Schema):
@@ -100,6 +101,7 @@ class GrKind(Schema):
     covers: dict[str, list[str]] = {}
     follows: dict[str, str] = {}
     plural: dict[str, GrPlural] = {}
+    outs_when: dict[str, GrPlural] = {}
     titled: dict[str, str] = {}
     infers: dict[str, GrInfer] = {}
     inline: dict[str, GrInline] = {}

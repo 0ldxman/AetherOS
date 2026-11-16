@@ -116,8 +116,8 @@
         {@const rule = Object.entries(kind.inline ?? {}).find(([, r]) => r.switch === f.name)}
         {@const opts = rule && fed[rule[0]] ? f.options.filter((o) => !rule[1].drop.includes(o.value)) : f.options}
         {@const current = opts.some((o) => o.value === value(f.name)) ? value(f.name) : opts[0]?.value}
-        <div class="cell"><span class="label">{f.label}</span>
-          <div class="switch" role="radiogroup" aria-label={f.label}>
+        <div class="cell">{#if f.label}<span class="label">{f.label}</span>{/if}
+          <div class="switch" role="radiogroup" aria-label={f.label || kind.label}>
             {#each opts as o (o.value)}
               <button type="button" role="radio" aria-checked={current === o.value} class:on={current === o.value} onclick={() => set(f.name, o.value)}>{o.label}</button>
             {/each}

@@ -150,6 +150,13 @@ export function sockType(kind: Kind, data: Record<string, unknown>, side: "in" |
   return pluralType(kind, data, name, resolveType(kind, data, kind.outs.find((s) => s.name === name)?.type ?? "event"));
 }
 
+// выход данных только в части режимов (kind.outs_when): «Время: Расчёт» — «Разница» или «Дата»
+export function outOn(kind: Kind, data: Record<string, unknown>, name: string): boolean {
+  const rule = kind.outs_when?.[name];
+  if (!rule) return true;
+  return rule.values.includes(String(data[rule.mode] || kind.fields.find((f) => f.name === rule.mode)?.options[0]?.value || ""));
+}
+
 // выход-список в части режимов (kind.plural): «Сессия: Все» — список сессий, «Текущая» — одна
 export function pluralType(kind: Kind, data: Record<string, unknown>, name: string, type: string): string {
   const rule = kind.plural?.[name];
@@ -167,7 +174,8 @@ export function outsOf(kind: Kind, data: Record<string, unknown>, waiting: boole
     return [...own, ...iface.outputs.filter((s) => s.type && s.type !== "event"), ...kind.outs.filter((s) => s.type && s.type !== "event")];
   }
   const events = kind.outs.filter((s) => (s.type ?? "event") === "event" && inWhen(kind, data, s.name));
-  const values = kind.outs.filter((s) => s.type && s.type !== "event").map((s) => ({ ...s, type: pluralType(kind, data, s.name, resolveType(kind, data, s.type)) }));
+  const values = kind.outs.filter((s) => s.type && s.type !== "event" && outOn(kind, data, s.name))
+    .map((s) => ({ ...s, type: pluralType(kind, data, s.name, resolveType(kind, data, s.type)) }));
   const out: Sock[] = [...events, ...(kind.owned ? iface?.outputs ?? [] : []), ...many(kind, data, "out"), ...kind.tail];
   if (kind.group === "noun" && !kind.start_only && waiting) out.push({ name: TIMEOUT, label: "Таймаут", type: "event" });
   return [...out, ...values];
@@ -246,6 +254,7 @@ const single = (kind: Kind, data: Record<string, unknown>) => !!kind.grow?.singl
 export function visibleRows(kind: Kind, data: Record<string, unknown>): (Row & { empty?: boolean })[] {
   if (!kind.grow) return [];
   const stored = rowsOf(kind, data);
+  if (kind.grow.needs && !stored.length && !String(data[kind.grow.needs] ?? "").includes("{")) return [];   // «Текст» без {подстановок}
   let next = Math.max(0, ...stored.map((r) => rowNum(kind, r.id))) + 1;
   const out: (Row & { empty?: boolean })[] = [...stored];
   const want = single(kind, data) ? 1 : Math.max(kind.grow.min, stored.length + 1);

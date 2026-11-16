@@ -11663,6 +11663,11 @@ export interface components {
             min: number;
             /** Single */
             single: string[];
+            /**
+             * Needs
+             * @default
+             */
+            needs: string;
         };
         /** GrInfer */
         GrInfer: {
@@ -11770,6 +11775,13 @@ export interface components {
              * @default {}
              */
             plural: {
+                [key: string]: components["schemas"]["GrPlural"];
+            };
+            /**
+             * Outs When
+             * @default {}
+             */
+            outs_when: {
                 [key: string]: components["schemas"]["GrPlural"];
             };
             /**

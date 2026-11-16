@@ -29,7 +29,7 @@ class DataTests(TestCase):
 
     def test_template_number_and_player(self):
         subs = [{"id": "s1", "name": "игрок"}, {"id": "s2", "name": "n"}, {"id": "s3", "name": "тег", "value": "z"}]
-        make([node("m", "manual"), node("t", "template", template="{игрок}-{n}-{тег}", subs=subs), node("n", "number", value=3),
+        make([node("m", "manual"), node("t", "text", value="{игрок}-{n}-{тег}", subs=subs), node("n", "number", value=3),
               node("a", "do:flag")],
              [wire("m", "fire", "a"), f("m", "player", "t", "s1"), f("n", "value", "t", "s2"), f("t", "value", "a", "name")])
         from graph.models import Graph
@@ -72,7 +72,7 @@ class DataTests(TestCase):
     def test_unknown_substitution_stays(self):
         from graph.runtime import Doc, value_of
 
-        doc = Doc({"nodes": [{"id": "t", "type": "template", "data": {"template": "a-{нет}", "subs": [{"id": "s1", "name": "да", "value": "1"}]}}]})
+        doc = Doc({"nodes": [{"id": "t", "type": "text", "data": {"value": "a-{нет}", "subs": [{"id": "s1", "name": "да", "value": "1"}]}}]})
         self.assertEqual(value_of(None, doc, "t", "value"), "a-{нет}")
 
     def test_switch_picks_by_condition(self):
@@ -101,7 +101,7 @@ class DataTests(TestCase):
             self.assertEqual(value_of(None, doc, "x", "value"), expected, op)
 
     def test_row_inputs_are_typed_and_checked(self):
-        graph = make([node("t", "text", value="x"), node("l", "logic", op="and"), node("tp", "template", template="{a}")],
+        graph = make([node("t", "text", value="x"), node("l", "logic", op="and"), node("tp", "text", value="{a}")],
                      [f("t", "value", "l", "v1"), f("t", "value", "tp", "s1"), f("t", "value", "tp", "zz")])
         texts = [p["text"] for p in check.problems(graph.doc)]
         self.assertIn("«v1» ждёт да/нет, а приходит текст", texts)

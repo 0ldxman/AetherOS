@@ -463,27 +463,28 @@ def value_of(run, doc, node_id, out, depth=0):
         return None
     name = kind.name
     if name == "text":
-        return str(get("value") or "")
-    if name == "number":
-        return _plain(_number(get("value")) or 0)
-    if name == "boolean":
-        return _truth(get("value"))
-    if name == "template":
         values = {}
         for row in N.rows(kind, data):
             if str(row.get("name") or "").strip():
                 value = get(row["id"])
                 values[str(row["name"]).strip()] = "" if value is None else str(_plain(value))
-        return re.sub(r"\{([^{}]+)\}", lambda m: values.get(m.group(1).strip(), m.group(0)), str(get("template") or ""))
-    if name in ("time.now", "time.shift", "time.diff", "time.parts"):
+        body = str(get("value") or "")
+        return re.sub(r"\{([^{}]+)\}", lambda m: values.get(m.group(1).strip(), m.group(0)), body) if values else body
+    if name == "number":
+        return _plain(_number(get("value")) or 0)
+    if name == "boolean":
+        return _truth(get("value"))
+    if name in ("time.get", "time.calc", "time.zone", "time.parts"):
         from graph import times
 
-        if name == "time.now":
-            return times.text(times.now())
-        if name == "time.shift":
-            return times.shift(get("value") or "сейчас", _number(get("amount")) or 0, data.get("unit") or "minutes")
-        if name == "time.diff":
-            return times.diff(get("a") or "сейчас", get("b"), data.get("unit") or "minutes")
+        if name == "time.get":
+            return times.outputs(times.moment(data.get("what") or "datetime", data.get("source") or "now", get("value"))).get(out, "")
+        if name == "time.calc":
+            if out == "diff":
+                return times.diff(get("a") or "сейчас", get("b"), data.get("unit") or "seconds")
+            return times.shift(get("a") or "сейчас", *(_number(get(part)) or 0 for part in ("days", "hours", "minutes", "seconds")))
+        if name == "time.zone":
+            return times.in_zone(get("value") or "сейчас", get("zone"))
         from graph import entities
 
         machine = entities._machine(entities._key(get("machine")))

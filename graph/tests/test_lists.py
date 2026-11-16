@@ -51,7 +51,7 @@ class ListNodeTests(TestCase):
         self.assertTrue(self.get(base + [has], [f("l", "value", "h", "list")], "h"))
 
     def test_single_value_becomes_a_list_and_a_list_becomes_text(self):
-        nodes_ = [node("t", "text", value="solo"), node("c", "list.count"), items("text", "x", "y"), node("tp", "template", template="{all}",
+        nodes_ = [node("t", "text", value="solo"), node("c", "list.count"), items("text", "x", "y"), node("tp", "text", value="{all}",
                   subs=[{"id": "s1", "name": "all"}])]
         wires = [f("t", "value", "c", "list"), f("l", "value", "tp", "s1")]
         self.assertEqual(self.get(nodes_, wires, "c"), 1)

@@ -155,6 +155,7 @@ class Grow:
     named: bool = False
     min: int = 1
     single: tuple = ()
+    needs: str = ""             # поле, где должна быть «{», чтобы появилась пустая строка (у «Текста» — подстановки шаблона)
 
 
 @dataclass(frozen=True)
@@ -188,6 +189,7 @@ class Kind:
     in_types: dict = field(default_factory=dict)     # вход потока -> тип, если он принимает не только событие («event|bool»)
     inline: dict = field(default_factory=dict)       # поле-вход -> (поле-переключатель в его строке, варианты, которых нет, когда вход задан)
     plural: dict = field(default_factory=dict)       # выход -> (поле-режим, значения): в этих режимах выход — список своего типа
+    outs_when: dict = field(default_factory=dict)    # выход данных -> (поле-режим, значения): выход есть только в этих режимах
 
 
 KINDS = {}
@@ -606,6 +608,14 @@ CHOSEN = {spec for _, _, variants in CHOICES for _, _, spec, _, _ in variants}
 FIXED_TITLE = {"forum"}                     # заголовок не меняется по выбору
 
 
+def _out_on(kind, data, name):
+    rule = kind.outs_when.get(name)
+    if not rule:
+        return True
+    chosen = next((f for f in kind.fields if f.name == rule[0]), None)
+    return ((data or {}).get(rule[0]) or (chosen.options[0][0] if chosen is not None and chosen.options else "")) in rule[1]
+
+
 def active(kind, data, name):
     """Вход есть в выбранном режиме (Kind.when), как на холсте: неактивные поля не проверяются и не нужны."""
     rule = kind.when.get(name)
@@ -898,12 +908,15 @@ HELP = {
     "stage": "Отметка хода: счётчик «прошли» на холсте.",
     "note": "Заметка на холсте. Не исполняется.",
     "frame": "Рамка вокруг нод. Не исполняется.",
-    "text": "Текст: значение для входов.", "number": "Число: значение для входов.", "boolean": "Да/нет: значение для входов.",
-    "template": "Склеить текст: {имя} в шаблоне заменяется значением подстановки с этим именем. Заполнили подстановку — появляется следующая.",
+    "text": "Текст для входов. {имя} в тексте заменяется значением подстановки с этим именем (любой тип: вещь — ключом, список — через "
+            "запятую). Написали «{» — появилась подстановка; заполнили — появляется следующая.",
+    "number": "Число: значение для входов.", "boolean": "Да/нет: значение для входов.",
     "compare": "Сравнить A и B: числа — как числа, даты — как даты (раньше — меньше), остальное — как текст без учёта регистра. «По образцу» понимает *.",
-    "time.now": "Игровое «сейчас» (мировое время).",
-    "time.shift": "Дата плюс N минут, часов или дней (минус — назад). Дата — провод или текст «2031-05-14 21:00», «сейчас».",
-    "time.diff": "Сколько от B до A: A − B в минутах, часах или днях (целое). A пусто — сейчас: давно ли — «Последняя активность» в B.",
+    "time.get": "Сейчас или заданное «Другое» (текст или провод даты). Дата — эта дата в 00:00, Время — это время сегодня. "
+                "Выходы: дата и время, дата текстом, время текстом. Время мировое.",
+    "time.calc": "Разница — A − B в секундах, минутах, часах или днях (целое; A пусто — сейчас): давно ли — «Последняя активность» в B. "
+                 "Сдвиг — A плюс дни, часы, минуты и секунды (минус — назад).",
+    "time.zone": "Те же часы в другом поясе: на выходе — дата и время, как их показывают часы этого пояса (пояс в значении не хранится).",
     "time.parts": "Год, месяц, день, час, минута, день недели (1 — пн), дата и время текстом. С машиной — в её часовом поясе.",
     "logic": "И — все входы да; Или — хоть один да; Не — наоборот; Исключающее или — ровно один да. Подключили вход — появляется следующий.",
     "fact": "Условие на факты игрока хода: ключи, tag:, count:, world:. Верно или нет.",
@@ -1019,12 +1032,10 @@ for _kind, _outs in {
 }.items():
     DATA_OUTS[_kind] = _outs + (Sock("player", "Игрок", "player", "@player"),)
 
-_data("text", "Текст", "{value}", (Field("value", "Текст", "text"),), "text", "Текст")
+_data("text", "Текст", "{value}", (Field("value", "Текст", "text", "{игрок} открыл {файл}"), Field("subs", "Подстановки", "hidden")), "text", "Текст",
+      grow=Grow("subs", "s", "text", named=True, needs="value"))
 _data("number", "Число", "{value}", (Field("value", "Число", "number"),), "number", "Число")
 _data("boolean", "Да/нет", "{value}", (Field("value", "Да", "bool"),), "bool", "Да/нет")
-_data("template", "Текст по шаблону", "{template}",
-      (Field("template", "Шаблон", "text", "{игрок} открыл {файл}"), Field("subs", "Подстановки", "hidden")), "text", "Текст",
-      grow=Grow("subs", "s", "text", named=True))
 _data("compare", "Сравнить", "{op}",
       (Field("a", "A", "text"), Field("op", "Как", "select", "", False, (("eq", "="), ("ne", "≠"), ("gt", ">"), ("ge", "≥"), ("lt", "<"), ("le", "≤"),
                                                                        ("contains", "содержит"), ("like", "по образцу *"))), Field("b", "B", "text")),
@@ -1057,12 +1068,24 @@ _data("list.has", "Список: Содержит", "", (_OF, Field("list", "С�
       typed="of")
 _data("switch", "Выбрать значение", "",
       (Field("condition", "Если", "bool"), Field("yes", "Да", "text"), Field("no", "Нет", "text")), "text", "Значение")
-_UNIT = Field("unit", "Единица", "switch", "", False, (("minutes", "Минуты"), ("hours", "Часы"), ("days", "Дни")))
-_data("time.now", "Время: Сейчас", "", (), "datetime", "Сейчас")
-_data("time.shift", "Время: Сдвинуть", "", (Field("value", "Дата", "datetime", "сейчас", True), Field("amount", "На", "number", "-30"), _UNIT),
-      "datetime", "Дата")
-_data("time.diff", "Время: Разница", "", (Field("a", "A", "datetime", "сейчас"), Field("b", "B", "datetime", "", True), _UNIT),
-      "number", "A − B")
+_data("time.get", "Время", "", (
+    Field("source", "Когда", "switch", "", False, (("now", "Сейчас"), ("other", "Другое"))),
+    Field("what", "", "switch", "", False, (("datetime", "Дата и время"), ("date", "Дата"), ("clock", "Время"))),     # без подписи
+    Field("value", "Значение", "datetime", "2031-05-14 21:00 · 2031-05-14 · 21:00", True),
+), "datetime", "Дата и время", when={"value": ("source", ("other",))})
+DATA_OUTS["time.get"] = (Sock("value", "Дата и время", "datetime"), Sock("date", "Дата", "text"), Sock("clock", "Время", "text"))
+register(Kind("time.calc", "Время: Расчёт", DATA, "", (
+    Field("mode", "Режим", "switch", "", False, (("diff", "Разница"), ("shift", "Сдвиг"))),
+    Field("a", "A", "datetime", "сейчас"), Field("b", "B", "datetime", "", True),
+    Field("days", "Дни", "number", "0"), Field("hours", "Часы", "number", "0"), Field("minutes", "Минуты", "number", "0"),
+    Field("seconds", "Секунды", "number", "0"),
+    Field("unit", "Единица", "switch", "", False, (("seconds", "Секунды"), ("minutes", "Минуты"), ("hours", "Часы"), ("days", "Дни"))),
+), ins=(), title="mode", when={"b": ("mode", ("diff",)), "unit": ("mode", ("diff",)),
+                               **{name: ("mode", ("shift",)) for name in ("days", "hours", "minutes", "seconds")}},
+   outs_when={"diff": ("mode", ("diff",)), "shifted": ("mode", ("shift",))}))
+DATA_OUTS["time.calc"] = (Sock("diff", "Разница", "number"), Sock("shifted", "Дата", "datetime"))
+_data("time.zone", "Время: Временная зона", "{zone}",
+      (Field("value", "Дата", "datetime", "сейчас"), Field("zone", "Пояс", "time_zone", "", True)), "datetime", "Дата")
 _data("time.parts", "Время: Части", "", (Field("value", "Дата", "datetime", "сейчас", True), Field("machine", "Машина", "machine", "мировое время")),
       "number", "Год")
 DATA_OUTS["time.parts"] = (Sock("year", "Год", "number"), Sock("month", "Месяц", "number"), Sock("day", "День", "number"),
@@ -1270,7 +1293,7 @@ def sockets(kind, data, side, iface=None):
         if kind.owned:
             names += list((iface or {}).get("outputs") or [])
         names += [sock.name for sock in kind.tail]
-        names += [sock.name for sock in DATA_OUTS.get(kind.name, ())]
+        names += [sock.name for sock in DATA_OUTS.get(kind.name, ()) if _out_on(kind, data, sock.name)]
         if kind.group == NOUN and not kind.start_only:
             names.append(TIMEOUT)                    # есть только у ждущей ноды (со входом)
     return names
@@ -1375,13 +1398,14 @@ def catalog():
             "tail": [{"name": s.name, "label": s.label, "type": EVENT} for s in k.tail],
             "ref": k.ref[0] if k.ref else "", "start_only": k.start_only, "help": HELP.get(k.name, ""), "title": k.title,
             "grow": {"field": k.grow.field, "prefix": k.grow.prefix, "type": k.grow.type, "named": k.grow.named, "min": k.grow.min,
-                     "single": list(k.grow.single)} if k.grow else None,
+                     "single": list(k.grow.single), "needs": k.grow.needs} if k.grow else None,
             "when": [{"field": name, "mode": mode, "values": list(values)} for name, rule in k.when.items()
                      for mode, values in ([rule] if isinstance(rule[0], str) else rule)],
             "hidden": k.hidden, "owned": k.owned, "typed": k.typed, "covers": {name: list(hid) for name, hid in k.covers.items()},
             "follows": dict(k.follows), "titled": dict(k.titled),
             "inline": {name: {"switch": switch, "drop": list(drop)} for name, (switch, drop) in k.inline.items()},
             "plural": {name: {"mode": mode, "values": list(values)} for name, (mode, values) in k.plural.items()},
+            "outs_when": {name: {"mode": mode, "values": list(values)} for name, (mode, values) in k.outs_when.items()},
             "infers": {name: {"mode": mode, "by": {t: {"value": v, "field": f} for t, (v, f) in by.items()}} for name, (mode, by) in k.infers.items()},
         } for k in sorted(KINDS.values(), key=_menu_order)],
     }

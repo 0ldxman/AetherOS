@@ -173,8 +173,8 @@ def _part(part, groups, prefix, add, slug):
             if item.kind == "datetime" and data.get(item.name) and not fed:
                 from graph import times
 
-                if times.parse(data[item.name]) is None and (kind.name != "wait" or times.clock(data[item.name]) is None):
-                    add(key, f"«{item.label}»: нужно ГГГГ-ММ-ДД ЧЧ:ММ" + (" или ЧЧ:ММ" if kind.name == "wait" else ""))
+                if times.parse(data[item.name]) is None and (kind.name not in ("wait", "time.get") or times.clock(data[item.name]) is None):
+                    add(key, f"«{item.label}»: нужно ГГГГ-ММ-ДД ЧЧ:ММ" + (" или ЧЧ:ММ" if kind.name in ("wait", "time.get") else ""))
             if item.kind == "clock" and data.get(item.name):
                 try:
                     _clock(data[item.name])
