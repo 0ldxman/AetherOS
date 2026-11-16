@@ -69,6 +69,14 @@
                   {#if action[f.name] && !picks(f.kind).some((o) => o.value === value(action, f.name))}<option value={value(action, f.name)}>{action[f.name]}</option>{/if}
                   {#each picks(f.kind) as o (o.value)}<option value={o.value}>{o.label}</option>{/each}
                 </select></label>
+            {:else if f.kind === "switch"}
+              {@const current = f.options.some((o) => o.value === value(action, f.name)) ? value(action, f.name) : f.options[0]?.value}
+              <div class="cell">{#if f.label}<span class="label">{f.label}</span>{/if}
+                <div class="switch" role="radiogroup" aria-label={f.label}>
+                  {#each f.options as o (o.value)}
+                    <button type="button" role="radio" aria-checked={current === o.value} class:on={current === o.value} onclick={() => set(index, { [f.name]: o.value })}>{o.label}</button>
+                  {/each}
+                </div></div>
             {:else if f.kind === "select"}
               <label class="cell"><span class="label">{f.label}</span>
                 <select class="field" value={value(action, f.name) || f.options[0]?.value} onchange={(e) => set(index, { [f.name]: e.currentTarget.value })} aria-label={f.label}>
@@ -113,6 +121,12 @@
   .cell.num { flex: 0 0 100px; }
   .wide { flex-basis: 100%; }
   .letter { display: flex; flex-direction: column; gap: 5px; }
+  .switch { display: flex; border: 1px solid var(--line); border-radius: var(--radius-s); overflow: hidden; background: var(--bg); }
+  .switch button { flex: 1 1 0; min-width: 0; padding: 5px 8px; border: 0; background: none; color: var(--muted); font: inherit; font-size: 12.5px; cursor: pointer; }
+  .switch button + button { border-left: 1px solid var(--line); }
+  .switch button.on { background: var(--accent-soft); color: var(--text); }
+  .switch button:not(.on):hover { color: var(--text); }
+  .switch button:focus-visible { outline: 1px solid var(--accent); outline-offset: -1px; }
   .label { font-size: 11px; color: var(--muted); }
   .check { display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; flex-basis: 100%; }
   textarea { resize: vertical; font: inherit; }

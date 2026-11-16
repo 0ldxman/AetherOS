@@ -67,6 +67,16 @@ class LayerNodeTests(TestCase):
         runtime.start_manual(graph, "m", self.ivan)
         self.assertFalse(self.layer(f"{KEY}#c1", "removed"))
 
+    def test_placement_wire_catches_any_player(self):
+        from types import SimpleNamespace
+
+        from graph.nodes import same_placement
+
+        anna = SimpleNamespace(host="main", user=get_user_model().objects.create_user("anna"))
+        self.assertTrue(same_placement(anna, "/home/ivan/vault.bin", KEY))             # мир общий: правка anna — тот же файл
+        self.assertFalse(same_placement(anna, "/home/ivan/other.bin", KEY))
+        self.assertFalse(same_placement(SimpleNamespace(host="core", user=None), "/home/ivan/vault.bin", KEY))
+
     def test_changed_event_by_layer_or_placement(self):
         graph = make([node("m", "manual"), node("w", "on:layer.changed", layer=f"{KEY}#c2"), node("a", "do:world_count", name="c"),
                       node("t", "act:tag", variant="on", name="typed")],

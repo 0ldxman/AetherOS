@@ -223,12 +223,11 @@ def moved_paths(data):
 
 
 def same_placement(event, path, wanted):
-    """Событие случилось с размещением wanted («игрок@машина:/путь»; без «игрок@» — у любого игрока)?"""
+    """Событие случилось с размещением wanted («игрок@машина:/путь»)? Мир общий: файл один на всех, поэтому «игрок@» в ключе
+    не сужает — изменение любого игрока считается."""
     head, _, want_path = str(wanted or "").strip().partition(":")
-    owner, _, host = head.rpartition("@")
-    if not path or want_path != path or not _same(host, event.host):
-        return False
-    return not owner or (event.user is not None and _same(owner, event.user.get_username()))
+    host = head.rpartition("@")[2]
+    return bool(path) and want_path == path and _same(host, event.host)
 
 
 # ---------- существительные ----------

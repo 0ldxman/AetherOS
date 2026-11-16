@@ -38,14 +38,14 @@ class PlacementWhenTests(TestCase):
         emit("file.read", self.ivan, machine="core", login="ivan", path="/home/renamed.txt", item="note")
         self.assertTrue(values.on("world", 0, "seen"))
 
-    def test_one_file_of_one_player_each_change_its_output(self):
+    def test_one_file_each_change_its_output_whoever_did_it(self):
         self.assertEqual(nodes.KINDS["on:placement.changed"].covers, {"placement": ("item", "path", "machine")})
         make([node("w", "on:placement.changed", placement="ivan@core:/home/a.txt"), self.tag("gone"), self.tag("edited")],
              [wire("w", "deleted", "t-gone"), wire("w", "edited", "t-edited")])
-        emit("file.deleted", self.petr, machine="core", login="petr", path="/home/a.txt", to="/home/petr/.trash/a.txt")
         emit("file.deleted", self.ivan, machine="core", login="ivan", path="/home/b.txt", to="/home/ivan/.trash/b.txt")
+        emit("file.deleted", self.ivan, machine="lab", login="ivan", path="/home/a.txt", to="/home/ivan/.trash/a.txt")
         self.assertFalse(values.on("world", 0, "gone"))
-        emit("file.deleted", self.ivan, machine="CORE", login="ivan", path="/home/a.txt", to="/home/ivan/.trash/a.txt")
+        emit("file.deleted", self.petr, machine="CORE", login="petr", path="/home/a.txt", to="/home/petr/.trash/a.txt")   # мир общий: тот же файл
         self.assertEqual((values.on("world", 0, "gone"), values.on("world", 0, "edited")), (True, False))
 
     def test_was_and_now(self):
