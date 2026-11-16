@@ -297,7 +297,9 @@ def problems(raw, slug="", owner=""):
     out = []
 
     def add(node, text, level=ERROR):
-        out.append({"node": node, "text": text, "level": level})
+        found = {"node": node, "text": text, "level": level}
+        if found not in out:                     # одно и то же видят проверка полей и проверка действия движка — показать раз
+            out.append(found)
 
     _part(raw, groups, "", add, slug)
     if owner:

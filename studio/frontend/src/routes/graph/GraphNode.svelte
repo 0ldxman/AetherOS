@@ -93,6 +93,13 @@
                         : outs.some((o) => (o.type ?? "event") === "event" && data.used.includes(o.name)) || !data.used.length ? { text: "старт", tip: "Нет провода в «Ждать с»: событие запускает ход" }
                         : { text: "данные", tip: "Подключены только данные: нода ничего не ловит, а отдаёт вещь или значение" });
   const days = (value: number) => (value < 1 ? "<1 дн." : `${Math.floor(value)} дн.`);
+  // подсказка заголовка: нода и выбранный вариант — «Экран: Показать · Уведомление», без повтора пространства
+  const tipTitle = $derived.by(() => {
+    const title = titleOf(kind, values, data.usedIn);
+    if (!kind.title || title.startsWith(kind.label)) return title;
+    const space = kind.label.includes(": ") ? kind.label.split(": ")[0] + ": " : "";
+    return `${kind.label} · ${space && title.startsWith(space) ? title.slice(space.length) : title}`;
+  });
   const tip = (title: string, type: string, text: string, extra = "") => [title, [type, text].filter(Boolean).join(" · "), extra].filter(Boolean).join("\n");
   const typeLabel = (type: string | undefined) => labelOfType(type ?? "event");
   const look = (type: string | undefined) => ({ "data-thing": isThing(type) ? "1" : undefined, "data-list": isList(type) ? "1" : undefined,
@@ -116,7 +123,7 @@
 </script>
 
 <div class="node" class:selected class:muted-node={data.node.mute} class:box={kind.name === "group" || kind.name === "scenario"} style="--head: {COLORS[kind.group] ?? '#555'}">
-  <header data-tip={tip(kind.title && !titleOf(kind, values, data.usedIn).startsWith(kind.label) ? `${kind.label}: ${titleOf(kind, values, data.usedIn)}` : titleOf(kind, values, data.usedIn), "", kind.help)}>
+  <header data-tip={tip(tipTitle, "", kind.help)}>
     <b>{titleOf(kind, values, data.usedIn)}</b>
     {#if isNoun}<span class="tag" title={role.tip}>{role.text}</span>{/if}
     {#if kind.name === "group"}<span class="tag" title="Tab — войти в группу">Tab</span>{/if}
