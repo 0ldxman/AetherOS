@@ -52,10 +52,16 @@ class StartTests(TestCase):
         emit("command.run", self.ivan, machine="dock", login="guest", command="login")
         self.assertEqual(counter(), 0)
 
-    def test_once_per_game_by_default(self):
+    def test_once_per_player_by_default(self):
         self.login_graph()
         for _ in range(2):
             emit("command.run", self.ivan, machine="archive", command="login")
+        emit("command.run", self.anna, machine="archive", command="login")
+        self.assertEqual(counter(), 2)                                      # по разу на каждого игрока
+
+    def test_once_per_game(self):
+        self.login_graph(repeat="game")
+        emit("command.run", self.ivan, machine="archive", command="login")
         emit("command.run", self.anna, machine="archive", command="login")
         self.assertEqual(counter(), 1)                                      # прохождение одно на всех: первый запустил
 

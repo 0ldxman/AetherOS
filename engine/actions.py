@@ -182,10 +182,23 @@ def _key(action, ctx):
     item = _item(action.get("slug"), KEY_FORMAT)
     if item is None:
         raise ActionError(f"нет ключа «{action.get('slug')}»")
-    box = ctx.box
+    box = _target_box(action, ctx)
     if not keystore.secrets_dir(box.machine, box.login):
         raise ActionError(f"у учётки {box.login} нет папки секретов")
     keystore.put(box.view, box.machine, box.login, item)
+
+
+def _target_box(action, ctx):
+    """Учётка события (на сюжетной учётке — общее для всех на ней) или лично игроку — его учётка на aether-main."""
+    from mail.boxes import Box
+    from mail.delivery import current_profile
+
+    if (action.get("to") or "event") == "event" and ctx.box is not None:
+        return ctx.box
+    profile = current_profile(ctx.user)
+    if profile is None:
+        raise ActionError("у игрока нет своей учётки")
+    return Box.of_profile(profile, ctx.user)
 
 
 def _file(action, ctx):
@@ -194,13 +207,14 @@ def _file(action, ctx):
     item = _item(action.get("item"))
     if item is None:
         raise ActionError(f"нет объекта «{action.get('item')}»")
-    path = letters.fill(action.get("path", ""), {"login": ctx.box.login})
+    box = _target_box(action, ctx)
+    path = letters.fill(action.get("path", ""), {"login": box.login})
     if not path.startswith("/"):
         raise ActionError("путь файла должен начинаться с «/»")
-    ctx.box.view.put_item(path, item)
+    box.view.put_item(path, item)
     from filesystem import arrivals
 
-    arrivals.got(ctx.box.view, path, item, "scenario")
+    arrivals.got(box.view, path, item, "scenario")
 
 
 def _letter(action, ctx):
@@ -227,15 +241,15 @@ def _key_check(action):
     return _need_item(action, "slug", KEY_FORMAT, "ключа")
 
 
-register(Spec("key", "Выдать ключ", ACCOUNT, "Игрок", "ключ {slug}", (Field("slug", "Ключ", "key", "", True),),
+_TO = Field("to", "Куда", "switch", "", False, (("event", "Учётке события"), ("home", "Игроку лично")))
+register(Spec("key", "Выдать ключ", USER, "Игрок", "ключ {slug}", (_TO, Field("slug", "Ключ", "key", "", True)),
               run=_key, check=_key_check, refs=lambda a: [("key", a.get("slug", ""), "grants")]))
-register(Spec("file", "Положить файл", ACCOUNT, "Игрок", "файл {item} → {path}",
-              (Field("item", "Объект", "item", "", True), Field("path", "Путь", "path", "/home/{login}/file.txt", True)),
+register(Spec("file", "Положить файл", USER, "Игрок", "файл {item} → {path}",
+              (_TO, Field("item", "Объект", "item", "", True), Field("path", "Путь", "path", "/home/{login}/file.txt", True)),
               run=_file, check=lambda a: _need_item(a, "item") + ([] if (a.get("path") or "").startswith("/") else ["путь должен начинаться с «/»"]),
               refs=lambda a: [("item", a.get("item", ""), "grants")]))
 register(Spec("letter", "Прислать письмо", USER, "Игрок", "письмо {item}",
-              (Field("to", "Куда", "switch", "", False, (("event", "Учётке события"), ("home", "Игроку лично"))),
-               Field("item", "Письмо", "letter", "", True), Field("delay", "Задержка, с", "number", "0")),
+              (_TO, Field("item", "Письмо", "letter", "", True), Field("delay", "Задержка, с", "number", "0")),
               run=_letter, check=lambda a: _need_item(a, "item", "msg", "письма"), refs=lambda a: [("item", a.get("item", ""), "grants")]))
 
 

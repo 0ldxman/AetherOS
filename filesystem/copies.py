@@ -16,7 +16,7 @@ class Copy:
 
 
 def accounts(user, machine=None):
-    """[(машина, логин)] игрока: его сессии и привязанные к нему учётки (machine — только эта машина)."""
+    """[(машина, логин)] игрока: сначала его собственные учётки (его место на машине), потом сессии (machine — только эта машина)."""
     from machines.models import MachineProfile, Session
 
     sessions = Session.objects.filter(user=user).select_related("profile__machine")
@@ -24,7 +24,7 @@ def accounts(user, machine=None):
     if machine is not None:
         sessions, profiles = sessions.filter(profile__machine=machine), profiles.filter(machine=machine)
     found = {}
-    for profile in [row.profile for row in sessions] + list(profiles):
+    for profile in list(profiles) + [row.profile for row in sessions]:
         found.setdefault((profile.machine_id, profile.login), profile)
     return [(profile.machine, login) for (_, login), profile in found.items()]
 

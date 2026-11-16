@@ -666,7 +666,7 @@ def _inferred(doc, node_id, kind, data):
 def _noun_wait(run, doc, node_id, kind):
     data = resolved(run, doc, node_id)
     outs = [out for out in doc.wired(node_id) if N.event_of(kind, out)]
-    own = bool(data.get("own"))
+    own = data.get("own") in (True, "player", "true")
     if data.get("past") and (run.user is not None or not own):
         from engine.models import Event
 
@@ -1146,10 +1146,13 @@ def start(graph, node_id, out, user=None, ctx=None, repeat=None):
     repeat = repeat or doc.data(node_id).get("repeat") or DEFAULT_REPEAT.get(kind.name, "once")
     with transaction.atomic():
         Graph.objects.select_for_update().filter(pk=graph.pk).first()      # два события сразу: правило повтора видит одно
-        runs = Run.objects.filter(graph=graph, node=node_id)              # прохождение одно на всех: «один раз» — за игру
-        if repeat == "once" and runs.exists():
+        runs = Run.objects.filter(graph=graph, node=node_id)
+        mine = runs.filter(user=user)                                     # «один раз» и «снова после конца» — у каждого игрока свои
+        if repeat == "game" and runs.exists():
             return None
-        if repeat == "end" and runs.filter(status=Run.Status.RUNNING).exists():
+        if repeat == "once" and mine.exists():
+            return None
+        if repeat == "end" and mine.filter(status=Run.Status.RUNNING).exists():
             return None
         run = Run.objects.create(graph=graph, user=user, node=node_id, ctx=ctx or {})
     run.graph = graph

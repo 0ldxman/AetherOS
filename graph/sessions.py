@@ -61,8 +61,15 @@ def props(key):
     row = (Session.objects.filter(user__username__iexact=username, profile__login=login, profile__machine__hostname__iexact=host)
            .order_by("-pk").first())
     from graph import times
+    from machines.models import Workplace
 
     since = _since()
+    active = bool(row and row.seen_at and row.seen_at >= since)
+    where = ""
+    if row is not None:
+        place = Workplace.objects.filter(user_id=row.user_id).values_list("desktop_id", "terminal_id").first() or (None, None)
+        where = {(True, True): "стол и терминал", (True, False): "стол", (False, True): "терминал"}.get((place[0] == row.pk, place[1] == row.pk), "")
     return {"value": key_of(username, login, host), "player": username, "machine": host, "account": f"{login}@{host}",
-            "seen": times.of_real(row.seen_at) if row is not None else "",
-            "active": bool(row and row.seen_at and row.seen_at >= since), "linked": row is not None}
+            "seen": times.of_real(row.seen_at) if row is not None else "", "active": active, "linked": row is not None,
+            "status": "активна" if active else "подключена" if row is not None else "закрыта", "via": row.via if row is not None else "",
+            "where": where}

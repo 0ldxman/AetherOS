@@ -20,7 +20,7 @@ class CatalogTests(TestCase):
         names = {row["name"]: row for row in engine.catalog()}
         for name in ("flag", "key", "file", "letter", "alert", "open", "kick", "world_flag", "world_count", "news", "air", "letter_all", "forum", "goto", "bounce"):
             self.assertIn(name, names)
-        self.assertEqual(names["key"]["needs"], ACCOUNT)
+        self.assertEqual(names["key"]["needs"], USER)                          # «лично» — и без учётки события
         self.assertEqual([f["name"] for f in names["world_count"]["fields"]], ["name", "delta"])
 
     def test_check_knows_what_the_place_provides(self):
@@ -31,7 +31,7 @@ class CatalogTests(TestCase):
                          ["действие 1: «Перейти на шаг» здесь недоступно"])
         self.assertEqual(engine.check([{"do": "goto", "step": "x"}], host=("goto",)), [])
         self.assertEqual(engine.check([{"do": "world_flag", "name": "Bad Name"}])[0][:12], "действие 1: ")
-        self.assertEqual(engine.check([{"do": "key", "slug": "nope"}], provides=(ACCOUNT,)), ["действие 1: нет ключа «nope»"])
+        self.assertEqual(engine.check([{"do": "key", "slug": "nope"}], provides=(USER, ACCOUNT)), ["действие 1: нет ключа «nope»"])
         self.assertEqual(engine.check([{"do": "open", "url": "/abs"}], provides=(SESSION,))[0][:18], "действие 1: «open»")
 
     def test_refs_say_what_is_granted(self):
