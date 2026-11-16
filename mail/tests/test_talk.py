@@ -1,5 +1,5 @@
-"""Переписка с персонажами на возможностях сценария: набор с секретами и выбором слова, попытки, новое письмо и возврат от
-MAILER-DAEMON, письмо с чужой учётки, вложение-доказательство, пересылка, условие доступа, приложение почты.
+"""Переписка с персонажами на возможностях сценария: набор с секретами и развилками, лимит попыток счётчиком, новое письмо
+и возврат от MAILER-DAEMON, письмо с чужой учётки, вложение-доказательство, пересылка, условие доступа, приложение почты.
 
 Запуск: python manage.py test mail
 """
@@ -24,7 +24,7 @@ from mail.models import Persona
 
 class CheckTests(TestCase):
     def test_secret_choice_case_and_yo(self):
-        template = "Код двери: {{4471}}. Груз на [[складе 7|складе 9]]. Всё."
+        template = "Код двери: {{4471}}. Груз на [[склад: складе 7|складе 9]]. Всё."
         self.assertEqual(talk.check(template, "код двери: 4471. груз на складе 9. всё.").verdict, "ok")
         self.assertEqual(talk.check(template, "Код двери: 4471. Груз на складе 9. Всё.").words, ["складе 9"])
         self.assertEqual(talk.check(template, "Код двери: 1111. Груз на складе 7. Всё.").verdict, "wrong")
@@ -45,25 +45,30 @@ def wire(src, out, dst, inp="in"):
     return {"from": src, "out": out, "to": dst, "in": inp}
 
 
-def used(node_id, offer, out, then, **data):
-    """«Использована» offer по выходу out → письмо персонажа then."""
-    return ([node(node_id, "on:offer.used", offer=f"door:{offer}", repeat="always", **data), node(node_id + "m", "act:mail", variant="player", item=then)],
-            [wire(node_id, out, node_id + "m")])
+def offered(node_id, **data):
+    """Сущность «Возможность» node_id и «Открыть» её (нода o<node_id>)."""
+    return [node(node_id, "ent:offer", **data), node("o" + node_id, "act:offer.open", offer=f"door:{node_id}")]
 
 
 def door(extra_nodes=(), extra_wires=()):
-    """Персонаж спрашивает код; варианты ответа — возможности группы «ask»; исходы — письма."""
+    """Персонаж спрашивает код; варианты ответа — возможности группы «ask»; исходы — письма. Слово развилки «склад» ведёт
+    своей дорогой; две неверные попытки (счётчик игрока) закрывают вариант."""
     nodes = [node("m", "manual"), node("ask", "act:mail", variant="player", item="guard-ask"),
-             node("code", "act:offer.open", mode="reply", address="guard@port", reply_to="guard-ask", title="Назвать код",
-                  text="Код: {{4471}}. Склад [[7|9]].", attempts=2, group="ask"),
-             node("tunnel", "act:offer.open", mode="reply", address="guard@port", title="Тайный ход", text="Я знаю про тоннель.", group="ask"),
+             *offered("code", mode="reply", address="guard@port", reply_to="guard-ask", title="Назвать код", text="Код: {{4471}}. Склад [[склад: 7|9]].",
+                      group="ask"),
+             *offered("tunnel", mode="reply", address="guard@port", title="Тайный ход", text="Я знаю про тоннель.", group="ask"),
+             *offered("hidden", mode="reply", address="guard@port", title="Скрытый", text="x", closed="hidden", group="ask"),
              node("knows", "fact", expr="tag:tunnel"), node("never", "fact", expr="tag:never"),
-             node("hidden", "act:offer.open", mode="reply", address="guard@port", title="Скрытый", text="x", closed="hidden", group="ask"), *extra_nodes]
-    wires = [wire("m", "fire", "ask"), wire("ask", "next", "code"), wire("knows", "value", "tunnel"), wire("never", "value", "hidden"), *extra_wires]
-    for made in (used("u7", "code", "ok", "guard-7", word="7"), used("uw", "code", "wrong", "guard-warn"), used("ux", "code", "exhausted", "guard-angry"),
-                 used("u9", "code", "ok", "guard-thanks", word="9")):
-        nodes += made[0]
-        wires += made[1]
+             node("u", "on:offer.used", offer="door:code", repeat="always"), node("seven", "compare", op="eq", b="7"), node("which", "check"),
+             node("m7", "act:mail", variant="player", item="guard-7"), node("m9", "act:mail", variant="player", item="guard-thanks"),
+             node("tries", "act:count", variant="add", owner="player", name="tries", delta=1), node("limit", "check", condition="count:tries>=2"),
+             node("shut", "act:offer.close", variant="offer", offer="door:code"), node("angry", "act:mail", variant="player", item="guard-angry"),
+             node("warn", "act:mail", variant="player", item="guard-warn"), *extra_nodes]
+    wires = [wire("m", "fire", "ask"), wire("ask", "next", "ocode"), wire("knows", "value", "otunnel"), wire("never", "value", "ohidden"),
+             wire("u", "ok", "which"), wire("u", "fork:склад", "seven", "f:a"), wire("seven", "value", "which", "f:condition"),
+             wire("which", "yes", "m7"), wire("which", "no", "m9"),
+             wire("u", "wrong", "tries"), wire("tries", "next", "limit"), wire("limit", "yes", "shut"), wire("shut", "next", "angry"), wire("limit", "no", "warn"),
+             *extra_wires]
     graph = Graph.objects.create(slug="door", title="Дверь", active=True, doc={"nodes": nodes, "wires": wires})
     runtime.rebuild_starts(graph)
     return graph
@@ -134,25 +139,25 @@ class TalkTests(TestCase):
         self.assertEqual(talk.offers_to_answer(self.box(), "guard@port", reply_item=self.ask), [])         # группа закрыта
         self.assertEqual(self.send("Код: 4471. Склад 7.").kind, "closed")
 
-    def test_wrong_answers_go_on_and_then_exhaust(self):
+    def test_wrong_answers_count_and_the_scenario_closes_the_variant(self):
         self.started()
         first = self.send("Код: 1111. Склад 9.")
-        self.assertEqual((first.kind, first.left), ("wrong", 1))
+        self.assertEqual(first.kind, "wrong")
         self.assertIn("Неверно", self.subjects())
-        second = self.send("Код: 2222. Склад 9.")
-        self.assertEqual(second.kind, "exhausted")
+        self.assertEqual(self.send("Код: 2222. Склад 9.").kind, "wrong")
         self.assertIn("Хватит", self.subjects())
         self.assertEqual(self.send("Код: 4471. Склад 9.").kind, "closed")
 
     def test_a_typed_text_that_differs_is_refused_without_an_attempt(self):
         self.started()
         self.assertEqual(self.send("привет").kind, "mismatch")
-        self.assertEqual(self.send("Код: 1111. Склад 9.").left, 1)
+        self.assertEqual(self.send("Код: 1111. Склад 9.").kind, "wrong")
+        self.assertEqual(store.get("count", "player", self.ivan.pk, "tries"), 1)
 
     def test_a_new_letter_by_condition_an_unknown_address_bounces_and_an_account_receives(self):
         graph = door([node("yes", "boolean", value=True),
-                      node("hello", "act:offer.open", mode="new", address="guard@port", title="Представиться", text="Я из порта.")],
-                     [wire("yes", "value", "hello")])
+                      *offered("hello", mode="new", address="guard@port", title="Представиться", text="Я из порта.")],
+                     [wire("yes", "value", "ohello")])
         offers = talk.offers_to_answer(self.box(), "GUARD@port")
         self.assertEqual([o.key for o in offers], ["door:hello"])
         self.assertEqual(talk.send(self.box(), to="guard@port", typed="Я из порта.", offer="door:hello").kind, "ok")
@@ -166,9 +171,9 @@ class TalkTests(TestCase):
         self.assertEqual([r.letter.subject for r in self.box(self.captain).letters_in("inbox")], ["Себе"])
 
     def test_a_variant_for_another_account_and_a_proof_attachment(self):
-        graph = self.started(door([node("boss", "act:offer.open", mode="new", address="guard@port", title="От капитана", text="Приказ.",
-                                        account="captain@aether-main", attach="signed", attach_item="seal")],
-                                  [wire("code", "next", "boss")]))
+        graph = self.started(door(offered("boss", mode="new", address="guard@port", title="От капитана", text="Приказ.",
+                                          account="captain@aether-main", attach="signed", attach_item="seal"),
+                                  [wire("ocode", "next", "oboss")]))
         mine = talk.offers_to_answer(self.box(), "guard@port")
         self.assertFalse(next(o for o in mine if o.key == "door:boss").open)                # с учётки ivan закрыт
         seal = key_item("seal")
@@ -184,8 +189,8 @@ class TalkTests(TestCase):
         self.assertTrue(graph)
 
     def test_forwarding_a_letter(self):
-        self.started(door([node("fwd", "act:offer.open", mode="forward", address="guard@port", forward_of="guard-ask", title="Переслать")],
-                          [wire("code", "next", "fwd")]))
+        self.started(door(offered("fwd", mode="forward", address="guard@port", forward_of="guard-ask", title="Переслать"),
+                          [wire("ocode", "next", "ofwd")]))
         self.assertEqual(talk.offers_to_answer(self.box(), "guard@port"), [o for o in talk.offers_to_answer(self.box(), "guard@port") if o.key != "door:fwd"])
         offers = talk.offers_to_answer(self.box(), "guard@port", forward_item=self.ask)
         self.assertEqual([o.key for o in offers], ["door:fwd"])
@@ -194,13 +199,13 @@ class TalkTests(TestCase):
         letter_row = next(row for row in self.box().letters_in("sent"))
         self.assertIn("Forwarded message", letter_row.letter.body)
 
-    def test_the_used_event_gives_the_word_and_the_letter(self):
+    def test_the_used_event_gives_the_fork_and_the_letter(self):
         from engine.models import Event
 
         self.started()
         self.send("Код: 4471. Склад 9.")
         event = Event.objects.get(name="offer.used")
-        self.assertEqual((event.data["offer"], event.data["result"], event.data["word"], event.data["group"]), ("door:code", "ok", "9", "ask"))
+        self.assertEqual((event.data["offer"], event.data["result"], event.data["forks"], event.data["group"]), ("door:code", "ok", {"склад": "9"}, "ask"))
         self.assertTrue(event.data["placement"].startswith("ivan@aether-main:"))
         self.assertIn("Принято", self.subjects())
 
@@ -218,10 +223,10 @@ class TalkAppTests(TestCase):
         cls.ask = letter("guard-ask", "guard@port", "Код?", "Назовите код.")
         letter("guard-ok", "guard@port", "Проходите")
         nodes = [node("m", "manual"), node("ask", "act:mail", variant="player", item="guard-ask"),
-                 node("code", "act:offer.open", mode="reply", address="guard@port", title="Код", text="Код {{4471}}"),
+                 *offered("code", mode="reply", address="guard@port", title="Код", text="Код {{4471}}"),
                  node("u", "on:offer.used", offer="door:code", repeat="always"), node("ok", "act:mail", variant="player", item="guard-ok")]
         cls.graph = Graph.objects.create(slug="door", title="Дверь", active=True, doc={"nodes": nodes, "wires": [
-            wire("m", "fire", "ask"), wire("ask", "next", "code"), wire("u", "ok", "ok")]})
+            wire("m", "fire", "ask"), wire("ask", "next", "ocode"), wire("u", "ok", "ok")]})
         runtime.rebuild_starts(cls.graph)
 
     def setUp(self):

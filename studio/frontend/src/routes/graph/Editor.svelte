@@ -17,7 +17,7 @@
   import FrameNode from "./FrameNode.svelte";
   import GraphNode from "./GraphNode.svelte";
   import NodePanel from "./NodePanel.svelte";
-  import { BOXES, TYPES, compatible, takesEvent, resolveType, sockType, socketFields, typeColor, defaults, freeId, ifaceOfLevel, insOf, isRow, outsOf, rowName, rowsOf, summaryOf, tidyRows, type Catalog, type Doc, type GNode, type GWire, type Group, type Iface, type Kind, type Level } from "./kinds";
+  import { BOXES, OFFER_USED, TYPES, compatible, offerIface, takesEvent, resolveType, sockType, socketFields, typeColor, defaults, freeId, ifaceOfLevel, insOf, isRow, outsOf, rowName, rowsOf, summaryOf, tidyRows, type Catalog, type Doc, type GNode, type GWire, type Group, type Iface, type Kind, type Level } from "./kinds";
 
   let { id, embedded = false }: { id: number; embedded?: boolean } = $props();
   type Detail = Schemas["GrDetail"];
@@ -106,6 +106,16 @@
     if (kindOf(n.type)?.owned) return owned[ownedKey(n)]?.iface ?? null;
     if (n.type === "group") return ifaceOfLevel(doc.groups?.[String(n.data.group ?? "")]);
     if (n.type === "scenario") return graphs.find((g) => g.slug === n.data.graph)?.iface ?? null;
+    if (n.type === OFFER_USED) {                       // выходы по сущности: провод с неё или ключ этого сценария
+      const wire = level.wires.find((w) => w.to === n.id && w.in === "f:offer");
+      let entity = wire ? level.nodes.find((x) => x.id === wire.from) : undefined;
+      if (!wire) {
+        const keys = (Array.isArray(n.data.offer) ? n.data.offer : [n.data.offer]).map((k) => String(k ?? "").trim()).filter(Boolean);
+        const [slug, id] = keys.length === 1 ? [keys[0].slice(0, keys[0].indexOf(":")), keys[0].slice(keys[0].indexOf(":") + 1)] : ["", ""];
+        entity = slug && slug === form.slug ? level.nodes.find((x) => x.id === id) : undefined;
+      }
+      return entity?.type === "ent:offer" ? offerIface(entity.data) : null;
+    }
     return null;
   }
 

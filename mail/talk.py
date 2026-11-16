@@ -1,11 +1,11 @@
 """Переписка с персонажами: игрок отвечает не что угодно, а выбирает вариант и набирает его текст.
 
-Варианты — возможности канала «письмо», открытые сценариями (graph/offers.py, нода «Возможность: Открыть»):
+Варианты — возможности канала «письмо» (graph/offers.py: сущность «Возможность», открывает «Возможность: Открыть»):
 ответ на письмо, новое письмо на адрес персонажа, пересылка письма. В тексте варианта:
-    {{секрет}}           игрок видит только длину и должен знать значение сам (пароль, имя);
-    [[склад 7|склад 9]]  выбор слова: игрок набирает одно из них, событие сообщает, какое.
+    {{секрет}}               игрок видит только длину и должен знать значение сам (пароль, имя);
+    [[склад: 7|9]]           развилка: игрок набирает одно из слов; имя до «: » — выход «Использована» с выбранным словом.
 Сверка без учёта регистра, лишних пробелов и разницы ё/е. Не тот текст — письмо не уходит; верный текст с неверным секретом
-или не тем вложением — неверный ответ (попытка засчитана). Чем кончилось — событие offer.used («Возможность: Использована»).
+или не тем вложением — неверный ответ. Чем кончилось — событие offer.used («Возможность: Использована»).
 Письмо без варианта ждёт автора во входящих персонажа; письмо на адрес, которого нет, возвращается от MAILER-DAEMON.
 """
 import re
@@ -32,7 +32,9 @@ def segments(text):
         if found.group(1) is not None:
             parts.append(("secret", found.group(1)))
         else:
-            parts.append(("choice", [option.strip() for option in found.group(2).split("|") if option.strip()]))
+            from graph.offers import fork
+
+            parts.append(("choice", fork(found.group(2))[1]))
         last = found.end()
     if last < len(text):
         parts.append(("text", text[last:]))
@@ -130,9 +132,8 @@ def offers_to_answer(box, to, reply_item=None, forward_item=None):
 
 @dataclass
 class Sent:
-    kind: str                        # sent | ok | wrong | exhausted | bounced | mismatch | closed
+    kind: str                        # sent | ok | wrong | bounced | mismatch | closed
     path: str = ""                   # письмо игрока в «отправленных»
-    left: int | None = None          # сколько попыток осталось у варианта
     effects: list = field(default_factory=list)
     detail: str = ""
 
@@ -229,10 +230,9 @@ def send(box, *, to, subject="", typed="", offer=None, attachment=None, reply_it
 
     if verdict.verdict == "ok" and not attachment_fits(_need(view.spec), None if attachment is None else attachment.item):
         verdict = Check("wrong", verdict.words)
-    from graph import entities, offers
+    from graph import offers
 
-    kind, left = offers.attempt(view, box.user, verdict.verdict == "ok")
-    emit("offer.used", box.user, machine=box.machine, login=box.login, offer=view.key, group=view.group, result=kind, words=verdict.words,
-         word=verdict.words[0] if verdict.words else "", text=body[:500], to=to, left=-1 if left is None else left,
-         placement=entities.placement_key(box.user, getattr(box.machine, "hostname", ""), path))
-    return Sent(kind, path, left)
+    kind = offers.settle(view, box.user, verdict.verdict == "ok")
+    offers.used(view, box.user, kind, machine=box.machine, login=box.login, words=verdict.words, text=body[:500], to=to,
+                placement=offers.placement_of(box.user, getattr(box.machine, "hostname", ""), path))
+    return Sent(kind, path)

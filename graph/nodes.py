@@ -764,65 +764,58 @@ MACHINE_ACTS = ("act:machine.change", "act:account.change", "act:account.access"
 
 # возможности: что сценарий открыл игроку в игре (graph/offers.py; письмо — mail/talk.py)
 _MAIL, _TYPED = ("channel", ("mail",)), ("channel", ("mail", "command"))
-register(Kind("act:offer.open", "Возможность: Открыть", ACTION, "{title}{command}", (
+register(Kind("ent:offer", "Возможность", ENTITY, "{channel}: {title}{command}", (
     Field("channel", "Канал", "select", "", False, (("mail", "письмо"), ("command", "команда терминала"), ("choice", "окно с выбором"),
-                                                     ("file", "действие над файлом"))),
+                                                     ("file", "кнопка у файла"))),
     Field("mode", "Как", "select", "", False, (("reply", "ответ на письмо"), ("new", "новое письмо"), ("forward", "пересылка письма"))),
     Field("character", "Кому", "many:character", "персонаж"), Field("address", "Адрес", "text", "пусто — любой адрес персонажа"),
     Field("reply_to", "В ответ на", "letter", "любое письмо"), Field("forward_of", "Что переслать", "letter", "", True),
     Field("command", "Команда", "text", "unlock", True), Field("machine", "Машина", "many:machine", "любая"),
     Field("item", "Объект", "many:object", "любой"), Field("path", "Путь", "text", "любой; можно *"),
-    Field("caption", "Надпись у кнопок", "text", "пусто — без надписи"),
-    Field("title", "Подпись", "text", "", True), Field("message", "Текст окна", "textarea", ""),
-    Field("buttons", "Кнопки", "many:text", "Да, Нет"),
-    Field("text", "Текст для набора", "textarea", "{{секрет}}, [[слово|другое]]; пусто — без набора"),
+    Field("title", "Подпись", "text", "", True), Field("caption", "Надпись у кнопок", "text", "пусто — без надписи"),
+    Field("message", "Текст окна", "textarea", ""), Field("buttons", "Кнопки", "many:text", "Да, Нет"),
+    Field("text", "Текст для набора", "textarea", "{{секрет}}, [[док: 7|9]]; пусто — без набора"),
     Field("reply_ok", "Ответ, если верно", "text", "ничего"), Field("reply_wrong", "Ответ, если неверно", "text", "{command}: access denied"),
     Field("attach", "Приложить", "select", "", False, (("", "ничего"), ("item", "объект"), ("key", "ключ"), ("signed", "подписанное ключом"))),
-    Field("attach_item", "Что приложить", "object", "", True), Field("attempts", "Попыток", "number", "0 — без ограничения"),
-    Field("account", "С учётки", "account", "любая"),
-    Field("scope", "Для кого", "select", "", False, (("player", "игроку хода"), ("all", "всем"))),
-    Field("show", "Открыть", "select", "", False, (("open", "открытой"), ("mystery", "закрытой «???»"))),
+    Field("attach_item", "Что приложить", "object", "", True), Field("account", "С учётки", "account", "любая"),
+    Field("show", "Показать", "select", "", False, (("open", "открытой"), ("mystery", "закрытой «???»"))),
     Field("closed", "Когда недоступна", "select", "", False, (("mystery", "показать «???»"), ("hidden", "скрыть"))),
     Field("group", "Группа", "text", "использована одна — закрыты все"),
-), _ACT_OUTS, in_types={"in": "event|bool"}, when={
+), ins=(), when={
     **{name: _MAIL for name in ("mode", "character", "address", "attach", "show", "closed")},
     "reply_to": (_MAIL, ("mode", ("reply",))), "forward_of": (_MAIL, ("mode", ("forward",))),
     "attach_item": (_MAIL, ("attach", ("item", "key", "signed"))),
-    **{name: _TYPED for name in ("text", "attempts", "account")},
+    **{name: _TYPED for name in ("text", "account")},
     **{name: ("channel", ("command",)) for name in ("command", "machine", "reply_ok", "reply_wrong")},
     "title": ("channel", ("mail", "choice", "file")), "message": ("channel", ("choice",)), "buttons": ("channel", ("choice",)),
     **{name: ("channel", ("file",)) for name in ("item", "path", "caption")}}))
-DATA_OUTS["act:offer.open"] = (Sock("offer", "Возможность", "offer"),)
+DATA_OUTS["ent:offer"] = (Sock("offer", "Возможность", "offer"), Sock("open", "Открыта", "bool"))
+_OFFER_SCOPE = Field("scope", "Для кого", "select", "", False, (("player", "игроку хода"), ("all", "всем")))
+register(Kind("act:offer.open", "Возможность: Открыть", ACTION, "{offer}", (Field("offer", "Возможность", "many:offer", "", True), _OFFER_SCOPE),
+              _ACT_OUTS, in_types={"in": "event|bool"}))
 register(Kind("act:offer.close", "Возможность: Закрыть", ACTION, "{offer}{group}", (
     Field("variant", "Что закрыть", "select", "", False, (("offer", "Закрыть возможность"), ("group", "Закрыть группу"))),
-    Field("offer", "Возможность", "many:offer", "", True), Field("group", "Группа", "text", "", True),
-    Field("scope", "Для кого", "select", "", False, (("player", "игроку хода"), ("all", "всем"))),
+    Field("offer", "Возможность", "many:offer", "", True), Field("group", "Группа", "text", "", True), _OFFER_SCOPE,
 ), _ACT_OUTS, title="variant", when={"offer": ("variant", ("offer",)), "group": ("variant", ("group",))}))
 OFFER_ACTS = ("act:offer.open", "act:offer.close")
-register(Kind("ent:offer", "Возможность", ENTITY, "{offer}", (Field("offer", "Возможность", "offer", "сценарий:нода"),), ins=()))
-DATA_OUTS["ent:offer"] = (Sock("open", "Открыта", "bool"), Sock("left", "Осталось попыток", "number"))
+
+
+USED_OFFER = "on:offer.used"        # выходы-события — по сущности на проводе «Возможность» (graph/offers.used_outs)
 
 
 def _offer_used(data, out, event):
     d = event.data or {}
-    if d.get("result") != out:
-        return False
     wanted = data.get("offer")
     wants = [str(w).strip() for w in (wanted if isinstance(wanted, (list, tuple)) else [wanted]) if str(w or "").strip()]
     if wants and not any(_same(w, d.get("offer")) for w in wants):
         return False
-    if data.get("group") and not _same(data.get("group"), d.get("group")):
-        return False
-    word = str(data.get("word") or "").strip()
-    return not word or any(_glob(one, word, fold=True) for one in d.get("words") or [])
+    return out in (d.get("outs") or [d.get("result")])
 
 
-_when("on:offer.used", "Возможность: Использована",
-      (Field("offer", "Возможность", "many:offer", "любая"), Field("group", "Группа", "text", "любая"), Field("word", "Слово", "text", "любое; можно *")),
-      (Sock("ok", "Верно"), Sock("wrong", "Неверно"), Sock("exhausted", "Попытки кончились")),
-      {"ok": "offer.used", "wrong": "offer.used", "exhausted": "offer.used"}, _offer_used,
-      (Sock("offer", "Возможность", "offer", "offer"), Sock("text", "Текст", "text", "text"), Sock("word", "Слово", "text", "word"),
-       Sock("left", "Осталось попыток", "number", "left"), Sock("placement", "Размещение", "placement", "placement"), _LOGIN_OUT), "{offer}{group} {word}")
+_when(USED_OFFER, "Возможность: Использована", (Field("offer", "Возможность", "many:offer", "любая"),),
+      (Sock("ok", "Верно"), Sock("wrong", "Неверно")), {"ok": "offer.used", "wrong": "offer.used"}, _offer_used,
+      (Sock("offer", "Возможность", "offer", "offer"), Sock("text", "Текст", "text", "text"), Sock("placement", "Размещение", "placement", "placement"),
+       _LOGIN_OUT), "{offer}")
 
 # учётка — «логин@хост»
 register(Kind("ent:account", "Учётка", ENTITY, "{login}", (
@@ -841,17 +834,15 @@ HELP = {
                      "На вход — одно размещение или список: с каждым. «Размещение» на выходе — где файл теперь.",
     "act:placement.create": "Создать файл игроку: с объектом — «Добавить» (ключ без пути — в папку секретов), без объекта — свой файл с текстом. "
                             "Куда — размещение или Машина + Путь (+ Игрок, пусто — игрок хода).",
-    "act:offer.open": "Открыть игроку возможность в игре. Письмо — вариант ответа, нового письма или пересылки: игрок выбирает его в списке и набирает текст "
-                      "({{секрет}} знает сам, [[слово|другое]] выбирает). Команда терминала — скрытая команда (вместо «command not found»), "
-                      "аргументы сверяются так же. Окно с выбором — на столе игрока, кнопка — выбранное слово. "
-                      "Действие над файлом — кнопка в окне файла (объект, путь). "
-                      "Во «Когда» — поток (открыть сейчас: игроку хода или всем) или провод условия (открыта, пока условие верно у игрока). "
-                      "«Доступна, если» — условие на факты игрока: пока неверно, вариант «???» или скрыт. "
-                      "Верный ответ закрывает возможность и её группу, неверный тратит попытку.",
+    "ent:offer": "Что предлагается игроку. Письмо — вариант ответа, нового письма или пересылки: игрок выбирает его в списке и набирает текст "
+                 "({{секрет}} знает сам, [[док: 7|9]] выбирает — развилка становится выходом «Использована»). Команда терминала — скрытая "
+                 "команда (вместо «command not found»), аргументы сверяются так же. Окно с выбором — на столе игрока. Кнопка у файла — в окне "
+                 "файла (объект, путь). Группа: использована одна — закрыты все. Выходы: ключ для «Открыть»/«Закрыть» и открыта ли сейчас.",
+    "act:offer.open": "Сделать возможность доступной. Во «Когда» — поток (открыть сейчас: игроку хода или всем) или провод условия "
+                      "(открыта, пока условие верно у игрока; только возможности этого сценария).",
     "act:offer.close": "Закрыть возможность или всю группу: игроку хода или всем.",
-    "ent:offer": "Возможность для игрока хода: открыта ли сейчас и сколько попыток осталось (-1 — без ограничения).",
-    "on:offer.used": "Игрок использовал возможность: верно (текст и секрет совпали, вложение то), неверно (попытка засчитана), попытки кончились. "
-                     "Фильтры: возможность, группа, выбранное слово (у окна — нажатая кнопка). «Размещение» — письмо игрока или файл.",
+    "on:offer.used": "Игрок использовал возможность. Выходы — по подключённой сущности: Верно / Неверно (текст, секрет и вложение), "
+                     "кнопки окна, «Нажата» у файла; развилки текста — выходами-словами. Лимит попыток — счётчик по «Неверно».",
     "ent:account": "Учётка на машине: провод «Учётка» (логин@хост) или Машина + Логин. «Заблокирована» — для игрока хода.",
     "act:machine.change": "Свойство машины для всех — что выбрано: имя, адрес, ОС, часовой пояс, ключ хоста (пусто — новый случайный: игрок, "
                           "который уже заходил, заметит подмену), приветствие ({note}), «Включена с» (от неё считается uptime; включение машины её не трогает).",
@@ -1184,6 +1175,8 @@ def event_of(kind, out):
     """Событие выхода ноды «Когда»: из её списка, а у ноды попытки её выходы — сокеты «Выхода» графа (graph.out)."""
     if out in kind.events:
         return kind.events[out]
+    if kind.name == USED_OFFER and out != TIMEOUT and not out.startswith("fork:") and data_out(kind, out) is None:
+        return "offer.used"                         # кнопки окна b1, b2…
     return OWNED_OUT if kind.owned and out != TIMEOUT else None
 
 
@@ -1209,6 +1202,8 @@ def _sock_type(kind, data, side, name, iface=None):
     if side == "out":
         if kind.owned and name in ((iface or {}).get("out_types") or {}):
             return iface["out_types"][name]
+        if kind.name == USED_OFFER and name.startswith("fork:"):
+            return "text"
         return out_type(kind, name)
     if name.startswith("f:"):
         found = next((f for f in kind.fields if f.name == name[2:]), None)
@@ -1224,6 +1219,8 @@ def sockets(kind, data, side, iface=None):
     if kind.name in BOXES:
         return list((iface or {}).get("inputs" if side == "in" else "outputs") or [])
     names = list(kind.ins if side == "in" else [sock.name for sock in kind.outs if sock.name != REF])
+    if side == "out" and kind.name == USED_OFFER and iface is not None:
+        names = list(iface.get("outputs") or [])            # по сущности: Верно/Неверно, кнопки, «Нажата», развилки
     for many in kind.many:
         if many.side == side:
             if not many.prefix:

@@ -1,18 +1,23 @@
-"""Возможности: что сценарий открыл игроку в интерфейсе игры. Сейчас канал один — письмо (варианты ответа, mail/talk.py).
+"""Возможности: что сценарий предлагает игроку в интерфейсе игры — вариант письма (mail/talk.py), скрытую команду терминала
+(terminal/engine/offers.py), окно с выбором и кнопку у файла (desktop).
 
-Возможность — нода «Возможность: Открыть» графа (ключ «слаг:нода»). Открывает её поток (игроку хода или всем) или провод
-условия во вход «Когда» — тогда она объявлена, пока сценарий включён, и открыта тем, у кого условие верно.
-Закрывает «Возможность: Закрыть» (возможность или группу) и верный ответ: использованная закрывается вместе со своей группой.
-Неверный ответ тратит попытку; кончились — закрыта. Чем кончилось — событие offer.used («Возможность: Использована»).
+Что предлагается — нода-сущность «Возможность» (ключ «слаг:нода»). Когда — действия: «Возможность: Открыть» потоком (игроку хода
+или всем) или проводом условия во «Когда» (объявлена, пока сценарий включён, и открыта тем, у кого условие верно);
+«Возможность: Закрыть» — возможность или группу. Верный ответ закрывает возможность вместе с её группой, неверный — ничего
+(лимит попыток — счётчик сценария). Чем кончилось — событие offer.used («Возможность: Использована»): выходы по каналу
+(Верно/Неверно, кнопки окна, «Нажата») и развилки текста.
 """
 import contextvars
+import re
 from dataclasses import dataclass, field
 
 from django.db.models import Q
 
 from graph.models import Graph, Offer, OfferTry, Run
 
+ENTITY = "ent:offer"
 OPEN = "act:offer.open"
+USED = "on:offer.used"
 ATTACH = ("item", "key", "signed")
 _busy = contextvars.ContextVar("offers_busy", default=frozenset())
 
@@ -35,15 +40,12 @@ def _text(data, name):
     return str(value or "").strip()
 
 
-def _int(value):
-    try:
-        return max(0, int(float(value or 0)))
-    except (TypeError, ValueError):
-        return 0
+def _keys(value):
+    return [str(one).strip() for one in (value if isinstance(value, (list, tuple)) else [value]) if str(one or "").strip()]
 
 
 def spec_of(data):
-    """Что предлагает нода «Открыть» (данные с подставленными проводами)."""
+    """Что предлагает сущность «Возможность» (данные с подставленными проводами)."""
     characters = data.get("character")
     characters = [str(c).strip() for c in (characters if isinstance(characters, (list, tuple)) else [characters]) if str(c or "").strip()]
     attach = data.get("attach") if data.get("attach") in ATTACH else ""
@@ -60,20 +62,89 @@ def spec_of(data):
             "reply_ok": _text(data, "reply_ok"), "reply_wrong": _text(data, "reply_wrong"), "characters": characters, "address": _text(data, "address").lower(),
             "reply_to": _text(data, "reply_to"), "forward_of": _text(data, "forward_of"), "title": _text(data, "title"), "caption": _text(data, "caption"),
             "text": str(data.get("text") or ""), "attach": attach, "attach_item": _text(data, "attach_item") if attach else "",
-            "attempts": _int(data.get("attempts")), "account": _text(data, "account").lower(),
+            "account": _text(data, "account").lower(), "group": _text(data, "group")[:64],
             "show": "mystery" if data.get("show") == "mystery" else "open", "closed": "hidden" if data.get("closed") == "hidden" else "mystery"}
 
 
-def _group(data):
-    return _text(data, "group")[:64]
+# ---- выходы «Использована» -----------------------------------------------------------------------------------------------
+
+FORK = re.compile(r"\[\[(.+?)\]\]", re.DOTALL)
+FORK_NAME = re.compile(r"^\s*([^|:\s][^|:]*?):\s+(.*)$", re.DOTALL)
+
+
+def fork(body):
+    """Развилка [[док: 7|9]] -> ("док", ["7", "9"]); без имени — ("", [...]). Имя — до двоеточия с пробелом (12:00 — не имя)."""
+    found = FORK_NAME.match(body)
+    name, rest = (found.group(1).strip(), found.group(2)) if found else ("", body)
+    return name, [option.strip() for option in rest.split("|") if option.strip()]
+
+
+def forks(text):
+    """Выходы развилок текста: [(имя выхода, подпись)] — «fork:док» / «fork:1» («Развилка 1»)."""
+    out = []
+    for number, found in enumerate(FORK.finditer(text or ""), 1):
+        name, _ = fork(found.group(1))
+        out.append((f"fork:{name or number}", name or f"Развилка {number}"))
+    return out
+
+
+def fork_values(text, words):
+    """Выбранные слова по выходам развилок: {"док": "7", "2": "ночь"} (ключ — имя выхода без «fork:»)."""
+    return {name[5:]: word for (name, _), word in zip(forks(text), words)}
+
+
+def used_outs(data):
+    """Выходы «Использована» по данным сущности: [(имя, подпись, тип)] — события, затем развилки (текст)."""
+    channel = data.get("channel") or "mail"
+    if channel == "choice":
+        buttons = spec_of(data)["buttons"]
+        events = [(f"b{number}", label, "event") for number, label in enumerate(buttons, 1)]
+    elif channel == "file":
+        events = [("ok", "Нажата", "event")]
+    else:
+        events = [("ok", "Верно", "event"), ("wrong", "Неверно", "event")]
+    text = str(data.get("text") or "") if channel in ("mail", "command") else ""
+    return events + [(name, label, "text") for name, label in forks(text)]
+
+
+def wired_entity(doc, node_id, slug=""):
+    """Сущность «Возможность» ноды (её поле «Возможность»): провод с ноды-сущности или ключ этого графа. Иначе None."""
+    src = doc.refs.get((node_id, "offer"))
+    if src is not None:
+        kind = doc.kind(src[0])
+        return src[0] if kind is not None and kind.name == ENTITY else None
+    keys = _keys(doc.data(node_id).get("offer"))
+    if len(keys) == 1 and slug:
+        head, _, node = keys[0].partition(":")
+        if head == slug and doc.kind(node) is not None and doc.kind(node).name == ENTITY:
+            return node
+    return None
+
+
+def used_iface(doc, node_id, slug=""):
+    """Сокеты «Использована» по подключённой сущности: {"outputs", "out_types", "labels"} или None (сущность не известна)."""
+    entity = wired_entity(doc, node_id, slug)
+    if entity is None:
+        return None
+    outs = used_outs(doc.data(entity))
+    return {"outputs": [name for name, _, _ in outs], "out_types": {name: kind for name, _, kind in outs},
+            "labels": {name: label for name, label, _ in outs}}
+
+
+def match_data(graph, doc, node_id, data):
+    """Данные «Использована» для сверки с событием: ключ сущности, если она пришла проводом."""
+    src = doc.refs.get((node_id, "offer"))
+    if src is not None and doc.kind(src[0]) is not None and doc.kind(src[0]).name == ENTITY:
+        return {**data, "offer": key(graph, src[0])}
+    return data
 
 
 # ---- открыть и закрыть ---------------------------------------------------------------------------------------------------
 
-def open_offer(graph, node, data, user=None):
-    """Открыть (снова) игроку или всем: попытки сначала, закрытия игроков снимаются."""
+def open_offer(graph, node, spec, user=None):
+    """Открыть (снова) игроку или всем: закрытия игроков снимаются."""
     Offer.objects.filter(graph=graph, node=node, user=user, standing=False).delete()
-    Offer.objects.create(graph=graph, node=node, user=user, channel=data.get("channel") or "mail", group=_group(data), spec=spec_of(data))
+    Offer.objects.create(graph=graph, node=node, user=user, channel=spec["channel"], group=spec["group"], spec=spec)
     tries = OfferTry.objects.filter(graph=graph, node=node)
     (tries if user is None else tries.filter(user=user)).delete()
 
@@ -94,12 +165,44 @@ def close_group(graph, group, user=None):
         close(graph, node, user)
 
 
+def declared(doc, node_id, slug):
+    """Сущности этого графа, которые «Открыть» с условием во «Когда» объявляет: провод с сущности или ключи этого графа."""
+    src = doc.refs.get((node_id, "offer"))
+    if src is not None:
+        kind = doc.kind(src[0])
+        return [src[0]] if kind is not None and kind.name == ENTITY else []
+    found = []
+    for one in _keys(doc.data(node_id).get("offer")):
+        head, _, node = one.partition(":")
+        if head == slug and doc.kind(node) is not None and doc.kind(node).name == ENTITY:
+            found.append(node)
+    return found
+
+
 def declare(graph, doc):
     """Возможности по условию (провод во «Когда»): выписать при сохранении графа."""
     Offer.objects.filter(graph=graph, standing=True).delete()
-    rows = [Offer(graph=graph, node=node_id, standing=True, channel=doc.data(node_id).get("channel") or "mail", group=_group(doc.data(node_id)))
-            for node_id in doc.nodes if doc.nodes[node_id].get("type") == OPEN and (node_id, "in") in doc.refs]
+    rows = []
+    for node_id in doc.nodes:
+        if doc.nodes[node_id].get("type") != OPEN or (node_id, "in") not in doc.refs:
+            continue
+        for entity in declared(doc, node_id, graph.slug):
+            spec = spec_of(doc.data(entity))
+            rows.append(Offer(graph=graph, node=entity, standing=True, channel=spec["channel"], group=spec["group"], spec={"by": node_id}))
     Offer.objects.bulk_create(rows)
+
+
+def entity_spec(run, graph, node):
+    """Что предлагает сущность node графа graph сейчас (провода — в прохождении run или, у чужого графа, по игроку). None — нет её."""
+    from graph import runtime
+
+    doc = runtime.doc_of(graph)
+    kind = doc.kind(node)
+    if kind is None or kind.name != ENTITY:
+        return None
+    if graph.pk != run.graph_id:
+        run = Run(graph=graph, user=run.user, ctx=run.ctx, state={})
+    return spec_of(runtime.resolved(run, doc, node))
 
 
 def act(run, node_id, kind, data):
@@ -110,23 +213,27 @@ def act(run, node_id, kind, data):
     if data.get("scope") != "all" and user is None:
         runtime._log(run.graph, f"«{kind.label}»: нет игрока хода", None)
         return ["fail"]
-    if kind.name == OPEN:
-        open_offer(run.graph, node_id, data, user)
-        return ["next"]
-    if data.get("variant") == "group":
+    if kind.name != OPEN and data.get("variant") == "group":
         group = _text(data, "group")
         if not group:
             runtime._log(run.graph, f"«{kind.label}»: не задана группа", run.user)
             return ["fail"]
         close_group(run.graph, group, user)
         return ["next"]
-    wanted = data.get("offer")
-    found = [parse(one) for one in (wanted if isinstance(wanted, (list, tuple)) else [wanted]) if str(one or "").strip()]
+    wanted = _keys(data.get("offer"))
+    found = [parse(one) for one in wanted]
     if not found or None in found:
-        runtime._log(run.graph, f"«{kind.label}»: нет возможности «{wanted}»", run.user)
+        runtime._log(run.graph, f"«{kind.label}»: нет возможности «{', '.join(wanted)}»", run.user)
         return ["fail"]
     for graph, node in found:
-        close(graph, node, user)
+        if kind.name != OPEN:
+            close(graph, node, user)
+            continue
+        spec = entity_spec(run, graph, node)
+        if spec is None:
+            runtime._log(run.graph, f"«{kind.label}»: «{key(graph, node)}» — не нода «Возможность»", run.user)
+            return ["fail"]
+        open_offer(graph, node, spec, user)
     return ["next"]
 
 
@@ -140,25 +247,24 @@ class View:
     spec: dict
     open: bool
     group: str = ""
-    left: int | None = None           # сколько попыток осталось; None — без ограничения
     extra: dict = field(default_factory=dict)
 
 
-def _live(row, user, host, login):
-    """Данные ноды «Открыть» для игрока сейчас: условие и поля с проводов (без подробностей события — факты игрока)."""
+def _live(graph, node, by, user, host, login):
+    """Возможность по условию сейчас: (что предлагает, верно ли хоть одно условие) или None (сущности уже нет)."""
     from graph import runtime
 
-    doc = runtime.doc_of(row.graph)
-    if doc.kind(row.node) is None:
+    doc = runtime.doc_of(graph)
+    kind = doc.kind(node)
+    if kind is None or kind.name != ENTITY:
         return None
-    run = Run(graph=row.graph, user=user, ctx={"host": host, "login": login}, state={})
-    return run, runtime.resolved(run, doc, row.node)
+    run = Run(graph=graph, user=user, ctx={"host": host, "login": login}, state={})
+    holds = any(runtime._truth(runtime.resolved(run, doc, one).get("in")) for one in by if doc.kind(one) is not None)
+    return spec_of(runtime.resolved(run, doc, node)), holds
 
 
 def visible(user, host="", login="", channel="mail", only=None):
     """Возможности канала для игрока: открытые и закрытые «???» (скрытые не попадают). only — (граф, нода): одна."""
-    from graph import runtime
-
     if user is None:
         return []
     rows = Offer.objects.filter(graph__active=True).filter(Q(user=user) | Q(user=None)).select_related("graph")
@@ -166,40 +272,42 @@ def visible(user, host="", login="", channel="mail", only=None):
         rows = rows.filter(channel=channel)
     if only is not None:
         rows = rows.filter(graph=only[0], node=only[1])
-    tries = {(t.graph_id, t.node): t for t in OfferTry.objects.filter(user=user)}
+    tries = {(t.graph_id, t.node): t for t in OfferTry.objects.filter(user=user, closed=True)}
+    places = {}
+    for row in sorted(rows, key=lambda r: r.user_id is None):           # свои строки — первыми
+        places.setdefault((row.graph_id, row.node), []).append(row)
     account = f"{login}@{host}".lower()
-    seen = {}
-    for row in sorted(rows, key=lambda r: r.user_id is None):           # своя строка важнее строки «всем»
-        place = (row.graph_id, row.node)
-        if place in seen:
+    found = []
+    for place, group in places.items():
+        own = [row for row in group if row.user_id is not None]
+        everyone = [row for row in group if row.user_id is None and not row.standing]
+        standing = [row for row in group if row.standing]
+        graph = group[0].graph
+        if own:                                                            # своя строка важнее строки «всем»
+            spec, is_open = own[0].spec, True
+        elif place in tries:
             continue
-        seen[place] = None
-        done = tries.get(place)
-        if done is not None and done.closed and (row.user_id is None or row.standing):
-            continue
-        busy = _busy.get()
-        if place in busy:                                                  # условие ссылается на саму возможность
-            continue
-        token = _busy.set(busy | {place})
-        try:
-            spec, is_open = row.spec, True
-            if row.standing:
-                live = _live(row, user, host, login)
-                if live is None:
-                    continue
-                spec, is_open = spec_of(live[1]), runtime._truth(live[1].get("in"))
-            is_open = is_open and spec.get("show") != "mystery"
-        finally:
-            _busy.reset(token)
-        attempts, used = spec.get("attempts") or 0, done.used if done is not None else 0
-        if attempts and used >= attempts:
-            continue
+        elif everyone:
+            spec, is_open = everyone[0].spec, True
+        else:
+            busy = _busy.get()
+            if place in busy:                                              # условие ссылается на саму возможность
+                continue
+            token = _busy.set(busy | {place})
+            try:
+                live = _live(graph, place[1], [str((row.spec or {}).get("by") or "") for row in standing], user, host, login)
+            finally:
+                _busy.reset(token)
+            if live is None:
+                continue
+            spec, is_open = live
+        is_open = is_open and spec.get("show") != "mystery"
         if spec.get("account") and spec["account"] != account:
             is_open = False
         if not is_open and spec.get("closed") == "hidden":
             continue
-        seen[place] = View(row.graph, row.node, key(row.graph, row.node), spec, is_open, row.group, attempts - used if attempts else None)
-    return [view for view in seen.values() if view is not None]
+        found.append(View(graph, place[1], key(graph, place[1]), spec, is_open, spec.get("group") or group[0].group))
+    return found
 
 
 def state(user, host, login, text):
@@ -211,13 +319,34 @@ def state(user, host, login, text):
     return views[0] if views else None
 
 
-def used(view, user, result, *, machine=None, login="", left=None, words=(), **data):
-    """Событие «Возможность: Использована»."""
+def entity_value(run, node_id, out):
+    """Выходы сущности «Возможность»: её ключ и открыта ли она сейчас игроку хода."""
+    if out == "offer":
+        return key(run.graph, node_id)
+    if out == "open":
+        ctx = run.ctx or {}
+        view = state(getattr(run, "user", None), ctx.get("host", ""), ctx.get("login", ""), key(run.graph, node_id))
+        return bool(view is not None and view.open)
+    return None
+
+
+def settle(view, user, right):
+    """Засчитать ответ: верный закрывает возможность и её группу для игрока. Возвращает ok или wrong."""
+    if not right:
+        return "wrong"
+    close(view.graph, view.node, user)
+    if view.group:
+        close_group(view.graph, view.group, user)
+    return "ok"
+
+
+def used(view, user, result, *, machine=None, login="", outs=None, words=(), **data):
+    """Событие «Возможность: Использована»: outs — выходы ноды, по которым идти; развилки — по словам текста варианта."""
     from engine.events import emit
 
     words = list(words)
-    emit("offer.used", user, machine=machine, login=login, offer=view.key, group=view.group, result=result, words=words,
-         word=words[0] if words else "", left=-1 if left is None else left, **data)
+    emit("offer.used", user, machine=machine, login=login, offer=view.key, group=view.group, result=result, outs=list(outs or [result]),
+         words=words, forks=fork_values(view.spec.get("text", ""), words), **data)
 
 
 def placement_of(user, host, path):
@@ -238,17 +367,17 @@ def choices(user, host="", login=""):
 
 
 def choose(user, host, login, key, button, machine=None):
-    """Игрок нажал кнопку окна: возможность закрывается (с группой), событие с выбранным словом. False — окна уже нет."""
+    """Игрок нажал кнопку окна: возможность закрывается (с группой), событие идёт по выходу этой кнопки. False — окна уже нет."""
     view = next((one for one in choices(user, host, login) if one.key == key), None)
     if view is None or button not in view.spec["buttons"]:
         return False
-    attempt(view, user, True)
-    used(view, user, "ok", machine=machine, login=login, words=[button], text=button)
+    settle(view, user, True)
+    used(view, user, "ok", machine=machine, login=login, outs=["ok", f"b{view.spec['buttons'].index(button) + 1}"], text=button)
     return True
 
 
 def file_actions(user, host, login, path, item_slug=""):
-    """Действия над файлом path игрока: [View] (кнопки в окне файла)."""
+    """Кнопки у файла path игрока: [View]."""
     found = []
     for view in visible(user, host, login, "file"):
         spec = view.spec
@@ -263,26 +392,6 @@ def act_on_file(user, host, login, key, path, item_slug="", machine=None):
     view = next((one for one in file_actions(user, host, login, path, item_slug) if one.key == key), None)
     if view is None:
         return False
-    attempt(view, user, True)
+    settle(view, user, True)
     used(view, user, "ok", machine=machine, login=login, text=view.spec.get("title", ""), placement=placement_of(user, host, path), item=item_slug)
     return True
-
-
-def attempt(view, user, right):
-    """Засчитать ответ: верный закрывает возможность и её группу для игрока; неверный тратит попытку.
-    Возвращает (ok | wrong | exhausted, сколько попыток осталось или None)."""
-    if right:
-        close(view.graph, view.node, user)
-        if view.group:
-            close_group(view.graph, view.group, user)
-        return "ok", view.left
-    done, _ = OfferTry.objects.get_or_create(graph=view.graph, node=view.node, user=user)
-    done.used += 1
-    attempts = view.spec.get("attempts") or 0
-    if attempts and done.used >= attempts:
-        done.closed = True
-        done.save(update_fields=["used", "closed"])
-        Offer.objects.filter(graph=view.graph, node=view.node, user=user).delete()
-        return "exhausted", 0
-    done.save(update_fields=["used"])
-    return "wrong", attempts - done.used if attempts else None

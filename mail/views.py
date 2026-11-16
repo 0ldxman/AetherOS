@@ -207,7 +207,7 @@ def send_letter(request):
     result = talk.send(box, to=data.get("to", ""), subject=data.get("subject", ""), typed=data.get("text", ""),
                        offer=str(data.get("offer") or ""), attachment=attachment, reply_item=reply_item, forward_item=forward_item)
     status = 400 if result.kind in ("mismatch", "closed") else 200
-    return JsonResponse({"kind": result.kind, "path": result.path, "left": result.left, "effects": _browser_effects(result.effects),
+    return JsonResponse({"kind": result.kind, "path": result.path, "effects": _browser_effects(result.effects),
                          "error": result.detail if status == 400 else ""}, status=status)
 
 

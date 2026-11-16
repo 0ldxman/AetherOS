@@ -571,7 +571,7 @@
     }
 
     const RESULT = {
-        ok: "message sent", sent: "message sent", wrong: "message sent", exhausted: "message sent",
+        ok: "message sent", sent: "message sent", wrong: "message sent",
         bounced: "message returned: recipient unknown"
     };
 

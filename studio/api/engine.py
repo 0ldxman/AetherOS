@@ -33,7 +33,7 @@ class EnCatalog(Schema):
 
 
 def _offer_picks(option):
-    """Возможности всех сценариев: ноды «Возможность: Открыть» — «слаг:нода» и подпись."""
+    """Возможности всех сценариев: ноды-сущности «Возможность» — «слаг:нода» и подпись."""
     from graph import offers, runtime
     from graph.models import Graph
 
@@ -41,8 +41,9 @@ def _offer_picks(option):
     for graph in Graph.objects.filter(owner="").order_by("title"):
         doc = runtime.doc_of(graph)
         for node_id, node in doc.nodes.items():
-            if node.get("type") == offers.OPEN:
-                title = str(doc.data(node_id).get("title") or "").strip() or node_id
+            if node.get("type") == offers.ENTITY:
+                data = doc.data(node_id)
+                title = str(data.get("title") or data.get("command") or "").strip() or node_id
                 found.append(option(offers.key(graph, node_id), f"{graph.title} · {title}"))
     return found
 

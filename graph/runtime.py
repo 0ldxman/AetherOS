@@ -413,6 +413,8 @@ def value_of(run, doc, node_id, out, depth=0):
     if kind.group == N.NOUN:
         if kind.owned:                               # данные «Выхода» графа попытки приехали с событием
             return (((run.state or {}).get("vals") or {}).get(node_id) or {}).get("vals", {}).get(out)
+        if kind.name == N.USED_OFFER and out.startswith("fork:"):        # слово развилки текста варианта
+            return ((((run.state or {}).get("vals") or {}).get(node_id) or {}).get("forks") or {}).get(out[5:], "")
         sock = N.data_out(kind, out)
         if sock is None:
             return None
@@ -423,10 +425,6 @@ def value_of(run, doc, node_id, out, depth=0):
         if value in (None, "") and sock.fallback:
             value = data.get(sock.fallback)
         return value
-    if kind.name == "act:offer.open":                 # возможность — сама нода
-        from graph import offers
-
-        return offers.key(run.graph, node_id) if out == "offer" else None
     if kind.name in N.PLACEMENT_ACTS or kind.name in N.MACHINE_ACTS:    # что сделало действие: запомнено при выполнении
         return (((run.state or {}).get("vals") or {}).get(node_id) or {}).get(out)
     get = lambda name: input_of(run, doc, node_id, name, depth + 1)       # noqa: E731
@@ -445,7 +443,9 @@ def value_of(run, doc, node_id, out, depth=0):
         if kind.name == "ent:layer":
             return entities.layer(run, kind, {f.name: get(f.name) for f in kind.fields}, out)
         if kind.name == "ent:offer":
-            return entities.offer(run, kind, {f.name: get(f.name) for f in kind.fields}, out)
+            from graph import offers
+
+            return offers.entity_value(run, node_id, out)
         return entities.read(run, kind, get(kind.fields[0].name), out)
     if kind.group != N.DATA:
         return None
@@ -1158,8 +1158,14 @@ def dispatch(event):
             waits = waits.filter(Q(user=event.user) | Q(anyone=True))
         # событие без игрока (сигнал всем, метка мира, момент, машина) будит ждущих у всех
         for wait in list(waits.select_related("run__graph")):
-            kind = doc_of(wait.run.graph).kind(wait.node)
-            if kind is not None and kind.match is not None and kind.match({**doc_of(wait.run.graph).data(wait.node), **(wait.data or {})}, wait.out, event):
+            doc = doc_of(wait.run.graph)
+            kind = doc.kind(wait.node)
+            data = {**doc.data(wait.node), **(wait.data or {})}
+            if kind is not None and kind.name == N.USED_OFFER:
+                from graph import offers
+
+                data = offers.match_data(wait.run.graph, doc, wait.node, data)
+            if kind is not None and kind.match is not None and kind.match(data, wait.out, event):
                 touched += bool(resume(wait, event))
         if event.user is not None:
             for wait in list(Wait.objects.filter(kind=Wait.Kind.CONDITION, user=event.user, run__status=Run.Status.RUNNING,
@@ -1174,6 +1180,10 @@ def dispatch(event):
                 from graph import owned
 
                 data = {**data, kind.fields[0].name: owned.thing_of(doc, row.node)}
+            if kind is not None and kind.name == N.USED_OFFER:
+                from graph import offers
+
+                data = offers.match_data(row.graph, doc, row.node, data)
             if kind is not None and kind.match is not None and kind.match(data, row.out, event):
                 touched += bool(start(row.graph, row.node, row.out, event.user, _ctx_of(event)))
         if event.name in ("file.moved", "file.deleted", "file.restored"):

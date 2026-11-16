@@ -1,11 +1,11 @@
 """Скрытые команды — возможности сценариев (graph/offers.py, канал «команда терминала»). Команду, которой у ОС нет, игрок
 может ввести, пока возможность открыта; настоящие команды она не перекрывает. Аргументы сверяются, как текст варианта письма
-(mail.talk.check: {{секрет}}, [[слово|другое]]); пустой шаблон принимает любые. Чем кончилось — событие offer.used."""
+(mail.talk.check: {{секрет}}, [[имя: слово|другое]]); пустой шаблон принимает любые. Чем кончилось — событие offer.used."""
 from terminal.engine.result import CommandResult
 
 
-def _fill(text, name, args, left):
-    return (text or "").replace("{command}", name).replace("{args}", args).replace("{left}", "" if left is None else str(left))
+def _fill(text, name, args):
+    return (text or "").replace("{command}", name).replace("{args}", args)
 
 
 def run(session, context, parsed):
@@ -30,10 +30,8 @@ def run(session, context, parsed):
             break
     else:
         return CommandResult(f"{name}: invalid arguments", 2)
-    result, left = offers.attempt(view, user, verdict.verdict == "ok")
-    offers.used(view, user, result, machine=context.machine, login=login, left=left, words=verdict.words, text=args[:300], command=name)
+    result = offers.settle(view, user, verdict.verdict == "ok")
+    offers.used(view, user, result, machine=context.machine, login=login, words=verdict.words, text=args[:300], command=name)
     if result == "ok":
-        return CommandResult(_fill(view.spec.get("reply_ok"), name, args, left), 0)
-    if result == "exhausted":
-        return CommandResult(f"{name}: locked", 1)
-    return CommandResult(_fill(view.spec.get("reply_wrong") or "{command}: access denied", name, args, left), 1)
+        return CommandResult(_fill(view.spec.get("reply_ok"), name, args), 0)
+    return CommandResult(_fill(view.spec.get("reply_wrong") or "{command}: access denied", name, args), 1)

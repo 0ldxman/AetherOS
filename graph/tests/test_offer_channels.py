@@ -1,4 +1,4 @@
-"""Возможности вне почты: скрытая команда терминала, окно с выбором на столе, действие над файлом в его окне."""
+"""Возможности вне почты: скрытая команда терминала, окно с выбором на столе, кнопка у файла в его окне."""
 import json
 
 from django.contrib.auth import get_user_model
@@ -17,8 +17,11 @@ from machines.models import Machine, MachineProfile, Session
 from terminal.engine.executor import TerminalExecutor
 
 
-def make(nodes, wires):
-    graph = Graph.objects.create(slug="g", title="g", active=True, doc={"nodes": nodes, "wires": wires})
+def make(entity, nodes=(), wires=()):
+    """Сущность «o» (entity — её данные), «Открыть» её по «m» и ещё ноды."""
+    doc = {"nodes": [node("m", "manual"), node("o", "ent:offer", **entity), node("op", "act:offer.open", offer="g:o"), *nodes],
+           "wires": [wire("m", "fire", "op"), *wires]}
+    graph = Graph.objects.create(slug="g", title="g", active=True, doc=doc)
     runtime.rebuild_starts(graph)
     return graph
 
@@ -47,33 +50,30 @@ class ChannelTests(TestCase):
         session.save()
 
     def test_a_hidden_command_checks_its_arguments(self):
-        graph = make([node("m", "manual"), node("o", "act:offer.open", channel="command", command="unlock", text="door {{4471}}", attempts=2,
-                                                reply_ok="door open", machine="core"),
-                      node("u", "on:offer.used", offer="g:o", repeat="always"), node("c", "do:world_count", name="c")],
-                     [wire("m", "fire", "o"), wire("u", "ok", "c")])
+        graph = make({"channel": "command", "command": "unlock", "text": "[[door|gate]] {{4471}}", "reply_ok": "{args}: open", "machine": "core"},
+                     [node("u", "on:offer.used", repeat="always"), node("c", "do:world_count", name="c"), node("w", "do:world_count", name="w")],
+                     [wire("o", "offer", "u", "f:offer"), wire("u", "ok", "c"), wire("u", "wrong", "w")])
         self.assertIn("command not found", self.shell("unlock door 4471").output)
         self.open_for_ivan(graph)
         self.assertIn("invalid arguments", self.shell("unlock window").output)
         wrong = self.shell("unlock door 1111")
         self.assertEqual((wrong.output, wrong.exit_code), ("unlock: access denied", 1))
-        self.assertEqual(self.shell("unlock door 4471").output, "door open")
-        self.assertEqual(counter(), 1)
+        self.assertEqual(self.shell("unlock door 1112").exit_code, 1)                    # попыток не считаем: это счётчик сценария
+        self.assertEqual(self.shell("unlock gate 4471").output, "gate 4471: open")
+        self.assertEqual((counter(), counter("w")), (1, 2))
         self.assertIn("command not found", self.shell("unlock door 4471").output)          # использована — закрыта
-        self.assertEqual(Event.objects.filter(name="offer.used").first().data["command"], "unlock")
+        event = Event.objects.filter(name="offer.used").first()
+        self.assertEqual((event.data["command"], event.data["forks"]), ("unlock", {"1": "gate"}))
 
-    def test_attempts_lock_the_command_and_real_commands_stay(self):
-        graph = make([node("m", "manual"), node("o", "act:offer.open", channel="command", command="unlock", text="{{x}}", attempts=1),
-                      node("p", "act:offer.open", channel="command", command="ls")],
-                     [wire("m", "fire", "o"), wire("o", "next", "p")])
+    def test_real_commands_stay(self):
+        graph = make({"channel": "command", "command": "ls"})
         self.open_for_ivan(graph)
-        self.assertEqual(self.shell("unlock y").output, "unlock: locked")
-        self.assertIn("command not found", self.shell("unlock x").output)
         self.assertNotIn("access denied", self.shell("ls /").output)
 
-    def test_a_choice_window_waits_for_a_button(self):
-        graph = make([node("m", "manual"), node("o", "act:offer.open", channel="choice", title="Uplink", message="Accept the transfer?", buttons=["Yes", "No"]),
-                      node("u", "on:offer.used", offer="g:o", word="Yes", repeat="always"), node("c", "do:world_count", name="c")],
-                     [wire("m", "fire", "o"), wire("u", "ok", "c")])
+    def test_a_choice_window_goes_by_the_pressed_button(self):
+        graph = make({"channel": "choice", "title": "Uplink", "message": "Accept the transfer?", "buttons": ["Yes", "No"]},
+                     [node("u", "on:offer.used", repeat="always"), node("c", "do:world_count", name="c")],
+                     [wire("o", "offer", "u", "f:offer"), wire("u", "b1", "c")])
         self.login()
         self.assertEqual(self.client.get("/desktop/push/").json()["offers"], [])
         self.open_for_ivan(graph)
@@ -85,13 +85,13 @@ class ChannelTests(TestCase):
         self.assertEqual(counter(), 1)
         self.assertEqual(self.client.get("/desktop/push/").json()["offers"], [])
 
-    def test_an_action_on_a_file_window(self):
+    def test_a_button_on_a_file_window(self):
         made = make_file(self.core, "/home/ivan/sample.bin", body="x")
         Item.objects.filter(pk=made.item.pk).update(slug="sample")
         make_file(self.core, "/home/ivan/other.txt", body="y")
-        graph = make([node("m", "manual"), node("o", "act:offer.open", channel="file", title="Send to lab", item="sample", caption="Lab uplink ready"),
-                      node("u", "on:offer.used", offer="g:o", repeat="always"), node("c", "do:world_count", name="c")],
-                     [wire("m", "fire", "o"), wire("u", "ok", "c")])
+        graph = make({"channel": "file", "title": "Send to lab", "item": "sample", "caption": "Lab uplink ready"},
+                     [node("u", "on:offer.used", repeat="always"), node("c", "do:world_count", name="c")],
+                     [wire("o", "offer", "u", "f:offer"), wire("u", "ok", "c")])
         self.open_for_ivan(graph)
         self.login()
         self.assertEqual(self.client.get("/desktop/file-actions/", {"path": "/home/ivan/other.txt"}).json()["actions"], [])
@@ -101,4 +101,3 @@ class ChannelTests(TestCase):
         self.client.post("/desktop/file-actions/", json.dumps({"offer": "g:o", "path": "/home/ivan/sample.bin"}), content_type="application/json")
         self.assertEqual(counter(), 1)
         self.assertEqual(Event.objects.get(name="offer.used").data["placement"], "ivan@core:/home/ivan/sample.bin")
-        self.assertTrue(graph)

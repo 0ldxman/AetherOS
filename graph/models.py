@@ -106,8 +106,9 @@ class Hit(models.Model):
 
 
 class Offer(models.Model):
-    """Возможность, открытая сценарием: вариант письма (позже — команда, кнопка). Это нода «Возможность: Открыть» графа;
-    user пусто — всем. standing: в «Когда» идёт провод условия — открыта тем, у кого оно верно (считается при запросе)."""
+    """Возможность, открытая сценарием: вариант письма, скрытая команда, окно с выбором, кнопка у файла. node — нода-сущность
+    «Возможность» графа; user пусто — всем. standing: «Открыть» с проводом условия во «Когда» (spec.by — эта нода) — открыта тем,
+    у кого оно верно (считается при запросе)."""
 
     graph = models.ForeignKey(Graph, on_delete=models.CASCADE, related_name="offers")
     node = models.CharField(max_length=64)
@@ -125,18 +126,17 @@ class Offer(models.Model):
 
 
 class OfferTry(models.Model):
-    """Попытки игрока по возможности и закрыта ли она для него (возможность «всем» или по условию, закрытая одному)."""
+    """Возможность «всем» или по условию, закрытая одному игроку (он её использовал или её закрыли ему)."""
 
     graph = models.ForeignKey(Graph, on_delete=models.CASCADE, related_name="+")
     node = models.CharField(max_length=64)
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="+")
-    used = models.PositiveIntegerField(default=0)
     closed = models.BooleanField(default=False)
 
     class Meta:
         constraints = [models.UniqueConstraint(fields=("graph", "node", "user"), name="unique_offer_try")]
-        verbose_name = "Попытки возможности"
-        verbose_name_plural = "Попытки возможностей"
+        verbose_name = "Закрытая игроку возможность"
+        verbose_name_plural = "Закрытые игрокам возможности"
 
 
 class Mark(models.Model):

@@ -143,6 +143,15 @@ def _part(part, groups, prefix, add, slug):
             ifaces[node_id] = _iface_of(node, groups, add, key)
             if kind.name == "scenario" and data.get("graph") and data.get("graph") == slug:
                 add(key, "сценарий не может включать сам себя")
+        if kind.name == N.USED_OFFER:
+            from graph import offers
+
+            ifaces[node_id] = offers.used_iface(doc, node_id, slug)
+        if kind.name == "act:offer.open" and (node_id, "in") in doc.refs and (node_id, "offer") not in doc.refs:
+            from graph import offers
+
+            if any(one.partition(":")[0] != slug for one in offers._keys(data.get("offer"))):
+                add(key, "по условию открываются только возможности этого сценария")
         if kind.owned:
             from graph import owned
 
@@ -193,7 +202,7 @@ def _part(part, groups, prefix, add, slug):
                 add(key, f"«{kind.label}» бывает только стартом: уберите входящий провод")
             as_ref = any(src[0] == node_id for src in doc.refs.values()) or any(
                 src == node_id and N.out_type(kind, out) != N.EVENT for (src, out) in doc.flow)
-            if not [out for out in doc.wired(node_id) if out in kind.events] and not as_ref:
+            if not [out for out in doc.wired(node_id) if out in kind.events or (kind.name == N.USED_OFFER and N.event_of(kind, out))] and not as_ref:
                 add(key, "ни один выход не подключён: нода ничего не ловит", WARNING)
         if kind.group == N.ACTION and (kind.spec is not None or kind.variants) and not any(k[0] == node_id for k in doc.refs):
             _, action = N.action_of(kind, data)

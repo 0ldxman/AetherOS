@@ -15,6 +15,7 @@ export const BOXES = ["group", "scenario"];
 
 export const REF = "ref";
 export const TIMEOUT = "timeout";
+export const OFFER_USED = "on:offer.used";          // выходы — по сущности «Возможность» на проводе (graph/offers.used_outs)
 export const COLORS: Record<string, string> = { entity: "#2f7d6d", noun: "#3f8f86", flow: "#a7793a", data: "#8a5d7a", action: "#4d6fc4", struct: "#7a5aa8", service: "#5b6170" };
 
 // Типы сокетов: цвет у точки и провода. event — «случилось» (поток), остальные — вещи, которые едут по ◆-проводу.
@@ -138,21 +139,50 @@ export function sockType(kind: Kind, data: Record<string, unknown>, side: "in" |
     const field = kind.fields.find((f) => f.name === name.slice(2));
     return resolveType(kind, data, field ? field.socket : isRow(kind, name.slice(2)) ? kind.grow!.type : "");
   }
-  if (kind.owned) {
+  if (kind.owned || kind.name === OFFER_USED) {
     const own = iface?.outputs.find((s) => s.name === name);
     if (own) return own.type ?? "event";
   }
+  if (kind.name === OFFER_USED && name.startsWith("fork:")) return "text";
   return resolveType(kind, data, kind.outs.find((s) => s.name === name)?.type ?? "event");
 }
 
 // waiting: у ноды есть входящий провод (существительное ждёт, а не стартует)
 export function outsOf(kind: Kind, data: Record<string, unknown>, waiting: boolean, iface: Iface | null = null): Sock[] {
   if (BOXES.includes(kind.name)) return iface?.outputs ?? [];
+  if (kind.name === OFFER_USED && iface) {
+    const own = iface.outputs.filter((s) => (s.type ?? "event") === "event");
+    if (!kind.start_only && waiting) own.push({ name: TIMEOUT, label: "Таймаут", type: "event" });
+    return [...own, ...iface.outputs.filter((s) => s.type && s.type !== "event"), ...kind.outs.filter((s) => s.type && s.type !== "event")];
+  }
   const events = kind.outs.filter((s) => (s.type ?? "event") === "event" && inWhen(kind, data, s.name));
   const values = kind.outs.filter((s) => s.type && s.type !== "event").map((s) => ({ ...s, type: resolveType(kind, data, s.type) }));
   const out: Sock[] = [...events, ...(kind.owned ? iface?.outputs ?? [] : []), ...many(kind, data, "out"), ...kind.tail];
   if (kind.group === "noun" && !kind.start_only && waiting) out.push({ name: TIMEOUT, label: "Таймаут", type: "event" });
   return [...out, ...values];
+}
+
+// выходы «Использована» по данным сущности «Возможность» (как graph/offers.used_outs): события канала, затем развилки текста
+const FORK = /\[\[([\s\S]+?)\]\]/g;
+const FORK_NAME = /^\s*([^|:\s][^|:]*?):\s+[\s\S]*$/;
+export function offerIface(data: Record<string, unknown>): Iface {
+  const channel = String(data.channel || "mail");
+  let events: Sock[];
+  if (channel === "choice") {
+    const raw = Array.isArray(data.buttons) ? data.buttons : String(data.buttons ?? "").split(",");
+    events = raw.map((b) => String(b ?? "").trim()).filter(Boolean).map((label, i) => ({ name: `b${i + 1}`, label, type: "event" }));
+  } else if (channel === "file") events = [{ name: "ok", label: "Нажата", type: "event" }];
+  else events = [{ name: "ok", label: "Верно", type: "event" }, { name: "wrong", label: "Неверно", type: "event" }];
+  const forks: Sock[] = [];
+  if (channel === "mail" || channel === "command") {
+    let n = 0;
+    for (const found of String(data.text ?? "").matchAll(FORK)) {
+      n += 1;
+      const name = FORK_NAME.exec(found[1])?.[1].trim() ?? "";
+      forks.push({ name: `fork:${name || n}`, label: name || `Развилка ${n}`, type: "text" });
+    }
+  }
+  return { inputs: [], outputs: [...events, ...forks] };
 }
 
 export const isThing = (type: string | undefined) => basesOf(type ?? "").some((b) => !!TYPES[b]?.thing);
