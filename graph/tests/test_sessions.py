@@ -21,8 +21,8 @@ class SessionTests(TestCase):
         self.home = MachineProfile.objects.create(machine=self.main, user=self.ivan, login="ivan", name="ivan", freq=1)
         self.guest = MachineProfile.objects.create(machine=self.core, login="guest", name="guest", freq=1)
         now = timezone.now()
-        Session.objects.create(user=self.ivan, profile=self.home, seen_at=now - timedelta(hours=1), linked_at=now)
-        Session.objects.create(user=self.ivan, profile=self.guest, seen_at=now, linked_at=now)
+        Session.objects.create(user=self.ivan, profile=self.home, seen_at=now - timedelta(hours=1))
+        Session.objects.create(user=self.ivan, profile=self.guest, seen_at=now)
         Session.objects.create(user=self.anna, profile=self.guest, seen_at=now - timedelta(hours=2))
 
     def run_of(self, user=None, host="", login=""):

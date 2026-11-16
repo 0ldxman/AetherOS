@@ -1,20 +1,19 @@
 """Мост: игрок входит с одной машины на другую из терминала (rcon, rshell).
 
-Состояние живёт в Django-сессии, на сервере, браузер его подменить не может. Это дерево подключений:
+Состояние живёт в базе, одно на игрока (во всех его браузерах то же самое). Это дерево подключений:
 
-    узел        одно подключение: сессия машины (для пары игрок, запись) и родитель, откуда подключились;
-                корень это машина, на которой игрок начал. Один и тот же профиль, открытый двумя путями, это два узла;
-    desktop     узел, чей рабочий стол открыт (его сессия лежит в machine_session_id и читают все приложения);
-    terminal    узел, на котором сейчас терминал: команды идут в его сессии. Он может не совпадать с desktop.
+    узел        одно подключение — строка Session (игрок, учётка, родитель, как вошли, папка терминала, срок); закрытое
+                удаляется. Корень — учётка, с которой игрок начал. Одна учётка, открытая двумя путями, это два узла;
+    desktop     узел, чей рабочий стол открыт (Workplace.desktop, его читают все приложения);
+    terminal    узел, на котором сейчас терминал (Workplace.terminal): команды идут в его сессии. Он может не совпадать с desktop.
 
 rcon растит ребёнка узла терминала и двигает оба указателя, rshell только terminal. Закрытие узла закрывает всё поддерево:
 если под ним был рабочий стол, он возвращается на ближайшего предка, где рабочий стол уже был (корень, вход через rcon или
 перенос вкладкой), — не на оболочку rshell. Прямой связи между узлами, не родственными по
 дереву, нет: путь из C в A идёт через B.
 
-Сессия для пары (игрок, запись) переиспользуется: прогресс по файлам и счётчики попыток остаются между визитами.
-Пока браузер шлёт запросы, сессии рабочего стола и терминала отмечаются активными (seen_at), все узлы дерева — подключёнными
-(linked_at): mark_seen.
+Пока браузер шлёт запросы, сессии рабочего стола и терминала отмечаются активными (seen_at): mark_seen. Подключена — значит
+есть в дереве.
 
 Условия входа, их проверяет verdict():
     пароль    нужен, если у записи он задан (хеш);
@@ -36,11 +35,10 @@ from secure.access import satisfied
 
 from machines.access import entry
 from machines.models.account import endpoint as endpoint_of
-from machines.current import SESSION_KEY, active_session
-from machines.models import LoginEvent, Machine, MachineProfile, MachineProfileToken, Session
+from machines.current import active_session, workplace_for
+from machines.models import LoginEvent, Machine, MachineProfile, MachineProfileToken, Session, Workplace
 from machines.world import blackout
 
-TREE_KEY = "bridge_tree"
 MAX_DEPTH = 4           # самая длинная цепочка подключений от корня
 MAX_NODES = 8           # вкладок (подключений) всего
 HOME = "/home"
@@ -49,32 +47,64 @@ HOME = "/home"
 # ---------- дерево подключений ----------
 
 def session_for(user, profile):
-    """Сессия пары (игрок, запись): переиспользуется между визитами, прогресс по файлам остаётся."""
-    session = Session.objects.filter(user=user, profile=profile).select_related("profile__machine").order_by("-pk").first()
-    if session is None:
-        session = Session.objects.create(user=user, profile=profile)
-    return session
+    """Сессия без узла для разовой передачи (xfer по адресу): не сохраняется, в дереве её нет."""
+    return Session(user=user, profile=profile)
 
 
 def _tree(request, create=True):
-    """Дерево из сессии Django. Если рабочий стол сменили мимо моста (другим входом), дерево начинается заново."""
-    tree = request.session.get(TREE_KEY)
-    current = request.session.get(SESSION_KEY)
-    if tree is not None:
-        node = tree["nodes"].get(tree["desktop"])
-        if node is None or (current is not None and node["session"] != current):
-            tree = None
-    if tree is None:
+    """Дерево из базы: {"nodes": {id: {parent, session, cwd, desk, deadline}}, "desktop", "terminal", "root"} — узлы от корня
+    рабочего места. create=False: None, если рабочего места ещё нет."""
+    user = getattr(request, "user", None)
+    if not getattr(user, "is_authenticated", False):
+        return None
+    cached = request.__dict__.get("_bridge_tree")
+    if cached is not None:                                # за запрос дерево читается из базы один раз
+        return cached
+    if create:
+        place = workplace_for(request)
+    else:
+        place = request.__dict__.get("_workplace") or Workplace.objects.filter(user=user).first()
+        if place is None or place.desktop_id is None or place.terminal_id is None:
+            return None
+    rows = {str(row.pk): row for row in Session.objects.filter(user=user).select_related("profile__machine").order_by("pk")}
+    for row in rows.values():
+        row.user = user                                   # тот же игрок: без запроса на каждую сессию
+    node = str(place.desktop_id)
+    while node in rows and rows[node].parent_id is not None:
+        node = str(rows[node].parent_id)
+    if node not in rows or str(place.terminal_id) not in rows:
         if not create:
             return None
-        base = active_session(request)
-        tree = {"next": 1, "nodes": {"0": {"parent": None, "session": base.pk, "cwd": HOME}}, "desktop": "0", "terminal": "0"}
+        Workplace.objects.filter(pk=place.pk).update(desktop=None, terminal=None)
+        request.__dict__.pop("_active_session", None)
+        request.__dict__.pop("_workplace", None)
+        return _tree(request, create)
+    root, nodes = node, {}
+    frontier = [root]
+    while frontier:                                       # только поддерево корня: прочие строки игрока не трогаем
+        key = frontier.pop()
+        row = rows[key]
+        nodes[key] = {"parent": str(row.parent_id) if row.parent_id else None, "session": row.pk, "cwd": row.cwd or HOME,
+                      "desk": row.desk or row.parent_id is None, "deadline": row.deadline}
+        frontier += [str(child.pk) for child in rows.values() if child.parent_id == row.pk]
+    tree = {"nodes": nodes, "desktop": str(place.desktop_id), "terminal": str(place.terminal_id), "root": root, "_was": set(nodes),
+            "_rows": rows}
+    request.__dict__["_bridge_tree"] = tree
     return tree
 
 
 def _save(request, tree):
-    request.session[TREE_KEY] = tree
-    request.session[SESSION_KEY] = tree["nodes"][tree["desktop"]]["session"]
+    """Записать дерево: закрытые узлы удаляются, у оставшихся — папка, рабочий стол, срок; указатели рабочего места."""
+    gone = [int(key) for key in tree.get("_was", ()) if key not in tree["nodes"]]
+    if gone:
+        Session.objects.filter(user=request.user, pk__in=gone).delete()
+    for key, node in tree["nodes"].items():
+        Session.objects.filter(pk=int(key)).update(cwd=node.get("cwd") or HOME, desk=bool(node.get("desk")), deadline=node.get("deadline"))
+    Workplace.objects.filter(user=request.user).update(desktop_id=int(tree["desktop"]), terminal_id=int(tree["terminal"]))
+    tree["_was"] = set(tree["nodes"])
+    request.__dict__["_bridge_tree"] = tree
+    request.__dict__.pop("_active_session", None)         # стол мог переехать
+    request.__dict__.pop("_workplace", None)
 
 
 def _depth_of(tree, node):
@@ -94,6 +124,9 @@ def _subtree(tree, node):
 
 
 def _session_of(request, tree, node):
+    found = (tree.get("_rows") or {}).get(node)
+    if found is not None:
+        return found
     return Session.objects.select_related("profile__machine").filter(pk=tree["nodes"][node]["session"], user=request.user).first()
 
 
@@ -110,12 +143,18 @@ def node_count(request):
 
 def terminal_id(request):
     tree = _tree(request, create=False)
-    return tree["terminal"] if tree else "0"
+    return tree["terminal"] if tree else ""
 
 
 def desktop_id(request):
     tree = _tree(request, create=False)
-    return tree["desktop"] if tree else "0"
+    return tree["desktop"] if tree else ""
+
+
+def at_root(request):
+    """Терминал на корне (своя машина): выходить некуда."""
+    tree = _tree(request, create=False)
+    return tree is None or tree["terminal"] == tree["root"]
 
 
 def terminal_session(request):
@@ -133,10 +172,9 @@ def tabs(request):
     tree = _tree(request, create=False)
     if not tree or len(tree["nodes"]) < 2:
         return []
-    sessions = {
-        item.pk: item
-        for item in Session.objects.select_related("profile__machine").filter(pk__in=[n["session"] for n in tree["nodes"].values()])
-    }
+    sessions = {int(key): row for key, row in (tree.get("_rows") or {}).items()}
+    missing = [n["session"] for n in tree["nodes"].values() if n["session"] not in sessions]
+    sessions.update({item.pk: item for item in Session.objects.select_related("profile__machine").filter(pk__in=missing)})
     rows = []
     for key in sorted(tree["nodes"], key=int):
         item = tree["nodes"][key]
@@ -166,11 +204,7 @@ def locked_for(user, profile):
 
     from machines.models import AccountBlock
 
-    until = Session.objects.filter(user=user, profile=profile, blocked_until__isnull=False).order_by("-pk").values_list(
-        "blocked_until", flat=True
-    ).first()
-    block = AccountBlock.objects.filter(Q(user=user) | Q(user__isnull=True), profile=profile, until__gt=timezone.now()).aggregate(top=Max("until"))["top"]
-    until = max(filter(None, (until, block)), default=None)
+    until = AccountBlock.objects.filter(Q(user=user) | Q(user__isnull=True), profile=profile, until__gt=timezone.now()).aggregate(top=Max("until"))["top"]
     if until is None:
         return 0
     return max(0, int((until - timezone.now()).total_seconds()) + 1)
@@ -180,8 +214,8 @@ SEEN_EVERY = 30            # раз в сколько секунд браузе�
 
 
 def mark_seen(request):
-    """Игрок здесь: сессии рабочего стола и терминала активны (seen_at), все подключения дерева открыты (linked_at).
-    Не чаще раза в SEEN_EVERY секунд на браузер; дерево и сессию не создаёт."""
+    """Игрок здесь: сессии рабочего стола и терминала активны (seen_at), рабочее место — тоже. Не чаще раза в SEEN_EVERY
+    секунд на браузер; дерево и сессию не создаёт."""
     from django.core.cache import cache
 
     key = getattr(request.session, "session_key", None)
@@ -190,15 +224,11 @@ def mark_seen(request):
     stamp = f"bridge-seen:{key}"
     if cache.get(stamp):
         return
-    tree = _tree(request, create=False)
-    if tree:
-        active = {tree["nodes"][tree["desktop"]]["session"], tree["nodes"][tree["terminal"]]["session"]}
-        linked = {node["session"] for node in tree["nodes"].values()}
-    else:
-        active = linked = {request.session[SESSION_KEY]} if request.session.get(SESSION_KEY) else set()
-    now = timezone.now()
-    Session.objects.filter(pk__in=linked, user=request.user).update(linked_at=now)
-    Session.objects.filter(pk__in=active, user=request.user).update(seen_at=now)
+    place = request.__dict__.get("_workplace") or Workplace.objects.filter(user=request.user).first()
+    if place is not None:
+        now = timezone.now()
+        Session.objects.filter(pk__in=[pk for pk in (place.desktop_id, place.terminal_id) if pk], user=request.user).update(seen_at=now)
+        Workplace.objects.filter(pk=place.pk).update(seen_at=now)
     cache.set(stamp, 1, SEEN_EVERY)
 
 
@@ -237,12 +267,13 @@ def expire(request, now=None):
         profile = left.profile
         if by_author:
             kicked.discard(left.pk)
-            Session.objects.filter(pk=left.pk).update(kick_at=None)
             entry.record(profile, request.user, LoginEvent.Kind.KICKED, detail="studio")
         else:
             lock = entry.lock_seconds_of(profile)
             if lock:
-                Session.objects.filter(pk=left.pk).update(blocked_until=timezone.now() + timedelta(seconds=lock))
+                from machines.models import AccountBlock
+
+                AccountBlock.objects.create(profile=profile, user=request.user, until=timezone.now() + timedelta(seconds=lock), cooldown=True)
         kicks.append({
             "label": f"{profile.login}@{profile.machine.hostname}",
             "host": profile.machine.hostname,
@@ -261,8 +292,8 @@ def remember_cwd(request, cwd):
     """Папка терминала сейчас записывается на узле терминала (нужна, чтобы закрытие другого узла её не потеряло)."""
     tree = _tree(request, create=False)
     if tree:
-        tree["nodes"][tree["terminal"]]["cwd"] = cwd
-        request.session[TREE_KEY] = tree
+        tree["nodes"][tree["terminal"]]["cwd"] = cwd or HOME
+        Session.objects.filter(pk=int(tree["terminal"])).update(cwd=cwd or HOME)
 
 
 def take_kicks(request):
@@ -281,17 +312,15 @@ def can_open(request):
 def open_child(request, profile, desktop, cwd):
     """Подключение profile от узла терминала. cwd это папка терминала сейчас (вернётся при выходе). desktop: сменить и рабочий стол."""
     tree = _tree(request)
-    session = session_for(request.user, profile)
-    # игрок здесь с этой минуты; старая просьба автора выкинуть к новому входу не относится
-    Session.objects.filter(pk=session.pk).update(kick_at=None, seen_at=timezone.now(), linked_at=timezone.now())
     parent = tree["terminal"]
     tree["nodes"][parent]["cwd"] = cwd
-    key = str(tree["next"])
-    tree["next"] += 1
-    tree["nodes"][key] = {
-        "parent": parent, "session": session.pk, "cwd": HOME, "desk": bool(desktop),     # был ли здесь рабочий стол
-        "deadline": time.time() + entry.ttl_of(profile) if entry.ttl_of(profile) else None,        # срок подключения с момента входа
-    }
+    deadline = time.time() + entry.ttl_of(profile) if entry.ttl_of(profile) else None        # срок подключения с момента входа
+    session = Session.objects.create(user=request.user, profile=profile, parent_id=int(parent), via=Session.Via.RCON if desktop else Session.Via.RSHELL,
+                                     desk=bool(desktop), cwd=HOME, deadline=deadline, seen_at=timezone.now())
+    key = str(session.pk)
+    tree["nodes"][key] = {"parent": parent, "session": session.pk, "cwd": HOME, "desk": bool(desktop), "deadline": deadline}
+    tree.setdefault("_rows", {})[key] = session
+    tree["_was"] = {*tree.get("_was", ()), key}
     tree["terminal"] = key
     if desktop:
         tree["desktop"] = key
@@ -343,9 +372,9 @@ def close_all(request):
     if not tree or len(tree["nodes"]) < 2:
         return None
     left = _session_of(request, tree, tree["terminal"])
-    moved = tree["desktop"] != "0"
-    root = tree["nodes"]["0"]
-    _save(request, {"next": 1, "nodes": {"0": root}, "desktop": "0", "terminal": "0"})
+    root = tree["root"]
+    moved = tree["desktop"] != root
+    _save(request, {"nodes": {root: tree["nodes"][root]}, "desktop": root, "terminal": root, "root": root, "_was": tree["_was"]})
     return left, moved
 
 
@@ -511,7 +540,7 @@ def methods(profile):
 
 def chain_hosts(request):
     """Имена хостов цепочки мостов от исходной машины игрока до узла терминала включительно."""
-    tree = _tree(request, create=False)
+    tree = _tree(request)
     if not tree:
         return [active_session(request).profile.machine.hostname]
     names, node = [], tree["terminal"]

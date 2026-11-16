@@ -15,41 +15,78 @@ AUTO_PROFILE_FREQ = Decimal("0.000")
 
 
 def active_session(request):
+    """Сессия рабочего стола игрока: её учётку читают стол, файлы, почта, ключи. Рабочее место одно на игрока, во всех
+    браузерах одно и то же (machines.models.Workplace)."""
     if not request.user.is_authenticated:
         return None
 
-    session_id = request.session.get(SESSION_KEY)
-
     # за запрос эту функцию зовут и middleware, и вид, и шаблон: держим найденную сессию, пока выбор не сменился
     memo = getattr(request, "_active_session", None)
-    if memo is not None and memo[0] == (session_id, request.user.pk):
+    if memo is not None and memo[0] == request.user.pk and not _wants_sign_in(request):
         return memo[1]
 
-    session = _active_session(request, session_id)
-    request._active_session = ((request.session.get(SESSION_KEY), request.user.pk), session)
+    session = _active_session(request)
+    request._active_session = (request.user.pk, session)
     return session
 
 
-def _active_session(request, session_id):
-    if session_id:
-        session = (
-            Session.objects
-            .select_related("profile__machine")
-            .filter(pk=session_id, user=request.user)
-            .first()
-        )
+def _wants_sign_in(request):
+    session = getattr(request, "session", None)
+    return bool(session is not None and session.get(SESSION_KEY))
 
-        if session is not None:
-            return session
 
-    profile = home_account(request.user)
-    session = Session.objects.create(
-        user=request.user,
-        profile=profile,
-    )
-    request.session[SESSION_KEY] = session.pk
+def _active_session(request):
+    if _wants_sign_in(request):                     # «сесть за эту учётку»: вход с экрана замка, подготовка снимков, тесты
+        sign_in(request.user, Session.objects.filter(pk=request.session.pop(SESSION_KEY), user=request.user).first())
+        request.__dict__.pop("_workplace", None)
+    return workplace_for(request).desktop
 
-    return session
+
+def workplace_for(request):
+    """Рабочее место игрока запроса: за запрос читается один раз (мосты сбрасывают его, когда меняют стол или терминал)."""
+    place = request.__dict__.get("_workplace")
+    if place is None or place.user_id != request.user.pk:
+        place = request.__dict__["_workplace"] = workplace_of(request.user)
+    return place
+
+
+def current_session(request):
+    """Сессия рабочего стола, если игрок уже в игре (рабочее место есть), иначе None — без создания учётки и места."""
+    from machines.models import Workplace
+
+    if not getattr(request.user, "is_authenticated", False):
+        return None
+    if _wants_sign_in(request) or request.__dict__.get("_workplace") is not None:
+        return active_session(request)
+    place = Workplace.objects.select_related("desktop__profile__machine").filter(user=request.user).first()
+    return place.desktop if place is not None else None
+
+
+def workplace_of(user):
+    """Рабочее место игрока; нет его или указатели потерялись — стол и терминал на корне (своя учётка на aether-main)."""
+    from machines.models import Workplace
+
+    related = ("desktop__profile__machine", "terminal__profile__machine")
+    place = Workplace.objects.select_related(*related).filter(user=user).first()
+    if place is not None and place.desktop_id and place.terminal_id:
+        return place
+    root = Session.objects.filter(user=user, parent__isnull=True).order_by("pk").first()
+    if root is None:
+        root = Session.objects.create(user=user, profile=home_account(user), via=Session.Via.LOCAL, desk=True)
+    Workplace.objects.update_or_create(user=user, defaults={"desktop": root, "terminal": root})
+    return Workplace.objects.select_related(*related).get(user=user)
+
+
+def sign_in(user, session):
+    """Сесть за учётку сессии session: она становится корнем, остальные подключения игрока закрываются."""
+    from machines.models import Workplace
+
+    if session is None:
+        return
+    Session.objects.filter(user=user).exclude(pk=session.pk).delete()
+    Session.objects.filter(pk=session.pk).update(parent=None, via=Session.Via.LOCAL, desk=True, deadline=None)
+    Workplace.objects.update_or_create(user=user, defaults={"desktop": session, "terminal": session})
+
 
 def home_account(user):
     """Своя учётка игрока на aether-main (его загончик, почта, ключи): заводится при первом входе в игру. Снаружи на неё не

@@ -43,7 +43,7 @@ class SandboxTests(TestCase):
         self.assertEqual(self.client.get(reverse("desktop")).status_code, 200)
         self.assertTrue(Session.objects.filter(user=player).exists())               # игра узнала песочного игрока
         self.assertFalse(Session.objects.filter(user=self.author).exists())
-        self.assertIn(sandbox.SESSION_COOKIE, self.client.cookies)                    # у него своя сессия
+        self.assertTrue(get_user_model().objects.get(username="sandbox-anna").workplace.desktop_id)   # у него своё рабочее место
         self.assertEqual(self.client.get(f"{API}/sandbox").json()["open"], True)     # Студия видит автора
         self.client.post(f"{API}/sandbox/close")
         self.client.get(reverse("desktop"))

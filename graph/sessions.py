@@ -2,7 +2,8 @@
 
 Сессия — пара игрок + учётка (machines.models.Session): заводится при первом входе и остаётся. По проводу едет ключом
 «игрок/логин@хост». Текущая — где произошло действие (машина и учётка события; в условии у «Изменить» — где игрок применяет
-возможность). Активна — рабочий стол или терминал игрока там; подключена — открыта в цепочке мостов (machines.network.bridge).
+возможность). Активна — рабочий стол или терминал игрока там; подключена — открыта в цепочке мостов (machines.network.bridge):
+закрытая сессия удаляется.
 """
 from django.utils import timezone
 
@@ -64,4 +65,4 @@ def props(key):
     since = _since()
     return {"value": key_of(username, login, host), "player": username, "machine": host, "account": f"{login}@{host}",
             "seen": times.of_real(row.seen_at) if row is not None else "",
-            "active": bool(row and row.seen_at and row.seen_at >= since), "linked": bool(row and row.linked_at and row.linked_at >= since)}
+            "active": bool(row and row.seen_at and row.seen_at >= since), "linked": row is not None}

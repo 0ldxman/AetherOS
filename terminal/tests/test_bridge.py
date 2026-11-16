@@ -94,6 +94,12 @@ class BridgeFixture(TerminalClient, TestCase):
         request.user = self.user
         return request
 
+    def tab(self, label):
+        """Номер вкладки login@host."""
+        from machines.network import bridge
+
+        return next(row["id"] for row in bridge.tabs(self.request()) if row["label"] == label)
+
     def depth(self):
         """Подключений до рабочего стола."""
         from machines.network import bridge
@@ -105,7 +111,7 @@ class BridgeFixture(TerminalClient, TestCase):
         from machines.network import bridge
 
         request = self.request()
-        tree = request.session.get(bridge.TREE_KEY)
+        tree = bridge._tree(request, create=False)
         if not tree:
             return 0
         return max(0, bridge._depth_of(tree, tree["terminal"]) - bridge._depth_of(tree, tree["desktop"]))
@@ -353,15 +359,16 @@ class BridgeTests(BridgeFixture):
         self.assertEqual(self.depth(), 4)
         self.assertIn("too many nested", results[-1]["output"])
 
-    def test_the_same_session_is_reused_between_visits(self):
+    def test_a_closed_connection_is_gone_and_a_new_entry_opens_a_new_one(self):
         from machines.models import Session
 
         self.run_command("rcon guest@aether-core")
-        first = self.client.session["machine_session_id"]
+        first = Session.objects.get(profile=self.open_account)
+        self.assertEqual((first.via, first.parent.profile.login), ("rcon", "ivan"))
         self.run_command("rcon-close")
+        self.assertFalse(Session.objects.filter(profile=self.open_account).exists())        # историю хранит журнал входов
         self.run_command("rcon guest@aether-core")
-        self.assertEqual(self.client.session["machine_session_id"], first)
-        self.assertEqual(Session.objects.filter(profile=self.open_account).count(), 1)
+        self.assertNotEqual(Session.objects.get(profile=self.open_account).pk, first.pk)
 
     def test_the_shell_restarts_in_home_on_the_new_machine(self):
         self.run_command("cd /")
@@ -518,10 +525,10 @@ class RshellTests(BridgeFixture):
 
         self.run_command("rcon guest@aether-core")
         self.run_command("rshell dig@aether-deep")
-        Session.objects.update(seen_at=None, linked_at=None)
+        Session.objects.update(seen_at=None)
         cache.clear()
         self.run_command("whoami")
-        rows = {row.profile.login: (row.seen_at is not None, row.linked_at is not None) for row in Session.objects.all()}
+        rows = {row.profile.login: (row.seen_at is not None, True) for row in Session.objects.all()}
         self.assertEqual(rows, {"ivan": (False, True), "guest": (True, True), "dig": (True, True)})
 
     def test_a_player_without_bridges_is_active_on_the_desktop(self):
@@ -644,16 +651,16 @@ class TabsTests(BridgeFixture):
         self.assertEqual(data["exit_code"], 1)
         self.assertIn("no display", data["output"])
         self.assertIsNone(data["window"])
-        self.post("tab_focus", "0")
+        self.post("tab_focus", self.tab("ivan@aether-main"))
         self.assertNotIn("no display", self.run_command("cnt /home/notes.txt")["output"])   # на столе работает как обычно
 
     def test_each_tab_remembers_its_folder(self):
         self.run_command("cd /home/work")
         data = self.run_command("rshell guest@aether-core")
         self.assertEqual(data["cwd"], "/home")
-        self.post("tab_focus", "0")
+        self.post("tab_focus", self.tab("ivan@aether-main"))
         self.assertEqual(self.run_command("pwd")["output"], "/home/work")
-        self.post("tab_focus", "1")
+        self.post("tab_focus", self.tab("guest@aether-core"))
         self.assertEqual(self.run_command("pwd")["output"], "/home")
 
     def test_a_tab_menu_moves_the_desktop(self):
@@ -674,15 +681,17 @@ class TabsTests(BridgeFixture):
         self.assertEqual([e["op"] for e in data["effects"]], ["blackout"])                              # рабочий стол был под закрытым
         self.assertEqual(self.where().login, "ivan")
         self.assertEqual((data["login"], data["hostname"]), ("ivan", "aether-main"))
-        self.assertEqual(self.post("tab_close", "0")[0], 404)                              # корень не закрывается
+        from machines.network import bridge
+
+        self.assertEqual(self.post("tab_close", bridge._tree(self.request())["root"])[0], 404)    # корень не закрывается
 
     def test_closing_a_branch_keeps_the_others(self):
         self.run_command("rshell guest@aether-core")
-        self.post("tab_focus", "0")
+        self.post("tab_focus", self.tab("ivan@aether-main"))
         self.run_command("rshell dig@aether-deep")                                         # вторая ветка от корня
         labels = [row["label"] for row in self.run_command("pwd")["tabs"]]
         self.assertEqual(labels, ["ivan@aether-main", "guest@aether-core", "dig@aether-deep"])
-        code, data = self.post("tab_close", "1")
+        code, data = self.post("tab_close", self.tab("guest@aether-core"))
         self.assertEqual([row["label"] for row in data["tabs"]], ["ivan@aether-main", "dig@aether-deep"])
         self.assertEqual(data["effects"], [])
         self.assertEqual(data["login"], "dig")                                             # терминал не был под закрытым
@@ -812,9 +821,9 @@ class ConnectionLimitTests(BridgeFixture):
         self.assertIn("account locked", data["output"])
         self.assertIn("retry in 0", data["output"])
         self.assertEqual(self.where().login, "ivan")
-        from machines.models import Session
+        from machines.models import AccountBlock
 
-        Session.objects.filter(profile=self.open_account).update(blocked_until=timezone.now() - timedelta(seconds=1))
+        AccountBlock.objects.filter(profile=self.open_account, cooldown=True).update(until=timezone.now() - timedelta(seconds=1))
         self.assertEqual(self.run_command("rcon guest@aether-core")["exit_code"], 0)
 
     def test_a_transfer_is_cut_when_a_node_on_the_route_expires_before_it_ends(self):

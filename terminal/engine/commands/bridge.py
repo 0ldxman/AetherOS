@@ -509,7 +509,7 @@ class ExitCommand(BaseCommand):
 
     def execute(self, context, args):
         request = context.request
-        if request is None or bridge.node_count(request) < 2 or bridge.terminal_id(request) == "0":
+        if request is None or bridge.node_count(request) < 2 or bridge.at_root(request):
             return CommandResult(f"{self.name}: not inside a remote session", 1)
 
         closed = bridge.close(request, cwd=context.cwd)

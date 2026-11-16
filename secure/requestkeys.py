@@ -48,13 +48,11 @@ def held_keys(request):
     и его теги строками tag:<имя> (engine/facts.py)."""
     from engine import facts
     from filesystem.keystore import slugs_of
-    from machines.current import SESSION_KEY
-    from machines.models import Session
+    from machines.current import current_session
 
     if not request.user.is_authenticated or not hasattr(request, "session"):
         return frozenset()
-    session_id = request.session.get(SESSION_KEY)
-    keys = slugs_of(Session.objects.filter(pk=session_id, user=request.user).first()) if session_id else frozenset()
+    keys = slugs_of(current_session(request))               # ключи из папки секретов учётки рабочего стола
     return facts.of(request.user, keys)
 
 

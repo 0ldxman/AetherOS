@@ -156,6 +156,7 @@ class AccountBlock(models.Model):
     user = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.CASCADE, related_name="+")
     until = models.DateTimeField()
     text = models.CharField(max_length=255, blank=True)
+    cooldown = models.BooleanField(default=False, help_text="После обрыва подключения по сроку (а не сценарием).")
 
     class Meta:
         verbose_name = "Блокировка учётки"

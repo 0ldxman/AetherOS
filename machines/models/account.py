@@ -187,6 +187,14 @@ class MachineProfileToken(models.Model):
 
 
 class Session(models.Model):
+    """Подключение игрока к учётке — узел дерева мостов (machines/network/bridge.py). Живёт, пока открыто: закрытое удаляется,
+    историю входов пишет журнал (LoginEvent). Корень — учётка, с которой игрок начал (via local)."""
+
+    class Via(models.TextChoices):
+        LOCAL = "local", "Своя машина"
+        RCON = "rcon", "rcon"
+        RSHELL = "rshell", "rshell"
+
     id = models.BigAutoField(
         primary_key=True,
     )
@@ -203,22 +211,19 @@ class Session(models.Model):
         related_name="sessions",
     )
 
+    parent = models.ForeignKey("self", null=True, blank=True, on_delete=models.CASCADE, related_name="children",
+                               help_text="Откуда подключились; пусто — корень.")
+    via = models.CharField("Как вошли", max_length=8, choices=Via.choices, default=Via.LOCAL)
+    desk = models.BooleanField(default=False, help_text="Здесь был рабочий стол (корень, rcon, перенос вкладкой): сюда он вернётся.")
+    cwd = models.CharField("Папка терминала", max_length=1024, default="/home")
+    deadline = models.FloatField(null=True, blank=True, help_text="Срок подключения (секунды эпохи); пусто — без срока.")
+
     created_at = models.DateTimeField(
         auto_now_add=True,
     )
 
-    blocked_until = models.DateTimeField(
-        null=True,
-        blank=True,
-        help_text="Запись не принимает игрока до этого момента (после обрыва по сроку).",
-    )
-
     seen_at = models.DateTimeField(
         null=True, blank=True, help_text="Когда игрок последний раз работал здесь: рабочий стол или терминал (отмечается раз в полминуты).",
-    )
-
-    linked_at = models.DateTimeField(
-        null=True, blank=True, help_text="Когда подключение последний раз было открыто в цепочке мостов, даже если игрок работал дальше.",
     )
 
     kick_at = models.DateTimeField(
@@ -227,3 +232,20 @@ class Session(models.Model):
 
     def __str__(self):
         return f"{self.user} @ {self.profile}"
+
+
+class Workplace(models.Model):
+    """Рабочее место игрока — одно на игрока: на какой сессии его рабочий стол и на какой терминал. Все браузеры игрока
+    видят одно и то же."""
+
+    user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="workplace")
+    desktop = models.ForeignKey(Session, null=True, blank=True, on_delete=models.SET_NULL, related_name="+")
+    terminal = models.ForeignKey(Session, null=True, blank=True, on_delete=models.SET_NULL, related_name="+")
+    seen_at = models.DateTimeField(null=True, blank=True, help_text="Последний запрос игрока в игре.")
+
+    class Meta:
+        verbose_name = "Рабочее место"
+        verbose_name_plural = "Рабочие места"
+
+    def __str__(self):
+        return f"{self.user}"

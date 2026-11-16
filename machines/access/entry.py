@@ -111,9 +111,9 @@ def after_failure(profile, user, source=""):
 
 def unlock(profile, user):
     """Автор снимает с игрока блокировку учётки: и по ошибкам входа, и после обрыва по сроку. Ошибки до неё больше не считаются."""
-    from machines.models import Session
+    from machines.models import AccountBlock
 
-    Session.objects.filter(user=user, profile=profile).update(blocked_until=None)
+    AccountBlock.objects.filter(user=user, profile=profile, cooldown=True).delete()
     return record(profile, user, LoginEvent.Kind.UNLOCKED, detail="studio")
 
 

@@ -328,7 +328,8 @@ class StudioActionsTests(TerminalClient, TestCase):
         data = self.run_command("whoami")
         self.assertTrue(data.get("kicks"), data)
         self.assertEqual(LoginEvent.objects.filter(profile=profile).last().kind, "kicked")
-        session.refresh_from_db()
-        self.assertIsNone(session.kick_at)
-        self.assertIsNone(session.blocked_until)                                   # после обрыва автором блокировки нет
+        from machines.models import AccountBlock
+
+        self.assertFalse(Session.objects.filter(pk=session.pk).exists())          # закрытое подключение удаляется
+        self.assertFalse(AccountBlock.objects.exists())                            # после обрыва автором блокировки нет
         self.assertEqual(self.run_command("rcon guest@aether-core")["exit_code"], 0)
