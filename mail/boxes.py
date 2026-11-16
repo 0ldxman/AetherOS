@@ -61,12 +61,17 @@ class Box:
     # --- чтение -------------------------------------------------------------------------------------------------
 
     def context(self):
-        """Подстановки письма для этого игрока."""
+        """Подстановки письма: {player} — имя учётки ящика (у учётки игрока — сам игрок), одно для всех, кто его читает."""
         from machines.world.clock import now
 
         moment = now(self.machine, self.user)
-        return {"login": self.login, "to": self.address, "address": self.address,
-                "player": self.user.get_username() if self.user is not None else self.login, "date": f"{moment:%a, %d %b %Y %H:%M}"}
+        return {"login": self.login, "to": self.address, "address": self.address, "player": self._who(), "date": f"{moment:%a, %d %b %Y %H:%M}"}
+
+    def _who(self):
+        profile = self.profile
+        if profile is not None and profile.user_id is not None:
+            return profile.user.get_username()
+        return (profile.name if profile is not None else "") or self.login
 
     def _marks(self):
         from mail.models import MailMark

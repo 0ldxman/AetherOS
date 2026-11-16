@@ -1,4 +1,5 @@
-"""Письмо всем по триггеру мира: каждому игроку один раз, при следующем открытии почты на подходящей машине (ленивая доставка)."""
+"""Письмо всем игрокам по триггеру мира: в каждую учётку игрока на подходящей машине один раз, при следующем открытии её почты
+(ленивая доставка). Сюжетные учётки его не получают."""
 from world.models import WorldLetter, WorldLetterDelivery
 
 
@@ -18,17 +19,17 @@ def deliver(box, keys=None):
     Письмо с условием приходит, когда ключи игрока (keys) его выполняют; до того оно ждёт и не считается доставленным."""
     from secure.access import satisfied
 
-    if box is None or box.user is None:
-        return 0
+    if box is None or box.user is None or box.profile is None or box.profile.user_id is None:
+        return 0                                         # только учётки игроков
 
-    done = set(WorldLetterDelivery.objects.filter(user=box.user).values_list("letter_id", flat=True))
+    done = set(WorldLetterDelivery.objects.filter(profile=box.profile).values_list("letter_id", flat=True))
     made = 0
     for letter in WorldLetter.objects.exclude(pk__in=done).select_related("item"):
         if not _fits(letter, box.machine):
             continue
         if letter.condition and not satisfied(letter.condition, keys or set()):
             continue
-        _, fresh = WorldLetterDelivery.objects.get_or_create(letter=letter, user=box.user)
+        _, fresh = WorldLetterDelivery.objects.get_or_create(letter=letter, profile=box.profile)
         if fresh:
             box.deliver(letter.item)
             made += 1

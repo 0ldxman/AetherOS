@@ -74,7 +74,8 @@ class WorldMoment(models.Model):
 
 
 class WorldLetter(models.Model):
-    """Письмо всем по триггеру: приходит каждому игроку один раз, при следующем открытии почты на подходящей машине."""
+    """Письмо всем игрокам по триггеру: в каждую учётку игрока на подходящей машине один раз, при следующем открытии её почты.
+    Сюжетные учётки его не получают."""
 
     item = models.ForeignKey("filesystem.Item", on_delete=models.CASCADE, related_name="+")
     systems = models.JSONField(default=list, blank=True)
@@ -89,8 +90,8 @@ class WorldLetter(models.Model):
 
 class WorldLetterDelivery(models.Model):
     letter = models.ForeignKey(WorldLetter, on_delete=models.CASCADE, related_name="deliveries")
-    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="+")
+    profile = models.ForeignKey("machines.MachineProfile", on_delete=models.CASCADE, related_name="+")
     at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
-        constraints = [models.UniqueConstraint(fields=("letter", "user"), name="unique_world_letter_user")]
+        constraints = [models.UniqueConstraint(fields=("letter", "profile"), name="unique_world_letter_profile")]

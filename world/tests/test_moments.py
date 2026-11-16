@@ -138,6 +138,11 @@ class MomentScreenTests(TerminalClient, MomentClock):
         letter = Item.objects.create(slug="all-hands", name="all-hands.msg", format="msg", body="From: core@aether-core\nSubject: All hands\n\nReport.")
         letters.send_all(letter, systems=[], machines=["aether-main"], source="триггер")
         letters.send_all(letter, machines=["elsewhere"])
-        box = Box.of_profile(MachineProfile.objects.get(login="ivan"), user=self.user)
+        profile = MachineProfile.objects.get(login="ivan")
+        story = MachineProfile.objects.create(machine=profile.machine, login="ops", name="ops", freq=3)
+        self.assertEqual(letters.deliver(Box.of_profile(story, user=self.user)), 0)                 # сюжетной учётке — нет
+        MachineProfile.objects.filter(pk=profile.pk).update(user=self.user)
+        profile.refresh_from_db()
+        box = Box.of_profile(profile, user=self.user)
         self.assertEqual(letters.deliver(box), 1)
         self.assertEqual(letters.deliver(box), 0)

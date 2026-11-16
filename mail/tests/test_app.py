@@ -104,6 +104,13 @@ class BoxTests(TestCase):
         self.assertFalse(MailQueue.objects.exists())
         self.assertFalse(deliver_by_slug(self.ivan, "ghost").delivered)
 
+    def test_player_in_a_letter_is_the_name_of_the_account(self):
+        hello = Item.objects.create(slug="hello", name="hello", format="msg", body="From: x@y\nSubject: Hi\n\nПривет, {player}.")
+        boss = MachineProfile.objects.create(machine=self.main, name="Boss", login="boss", freq=3)
+        path = Box.of_profile(boss, user=self.ivan).deliver(hello)
+        self.assertEqual(Box.of_profile(boss, user=self.olga).letter(path).letter.body, "Привет, Boss.")        # одно для всех на учётке
+        self.assertEqual(self.box(self.olga).letter(self.box().deliver(hello)).letter.body, "Привет, ivan.")    # у учётки игрока — он сам
+
     def test_attachments_are_members_of_the_letter(self):
         report = Item.objects.create(slug="report", name="report.txt", body="отчёт")
         ItemMember.objects.create(archive=self.letter, path="report.txt", item=report)
