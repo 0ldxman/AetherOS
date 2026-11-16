@@ -1,10 +1,10 @@
 """Возможности: что сценарий предлагает игроку в интерфейсе игры — вариант письма (mail/talk.py), скрытую команду терминала
 (terminal/engine/offers.py), окно с выбором и кнопку у файла (desktop).
 
-Что предлагается — нода-сущность «Возможность» (ключ «слаг:нода»). Когда — действия: «Возможность: Открыть» потоком (игроку хода
-или всем) или проводом условия во «Когда» (объявлена, пока сценарий включён, и открыта тем, у кого условие верно);
-«Возможность: Закрыть» — возможность или группу. Верный ответ закрывает возможность вместе с её группой, неверный — ничего
-(лимит попыток — счётчик сценария). Чем кончилось — событие offer.used («Возможность: Использована»): выходы по каналу
+Что предлагается — нода-сущность «Возможность» (ключ «слаг:нода»). Что игрок видит — «Возможность: Изменить»: Открыть,
+Показать «???» (знает, что вариант есть) или Скрыть (по умолчанию). Потоком — игроку хода или всем, держится до следующего
+изменения; проводом условия во «Когда» — пока условие верно у игрока (побеждает самое открытое), но «Скрыть» потоком его
+перекрывает. Верный ответ скрывает возможность вместе с её группой, неверный — ничего (лимит попыток — счётчик сценария). Чем кончилось — событие offer.used («Возможность: Использована»): выходы по каналу
 (Верно/Неверно, кнопки окна, «Нажата») и развилки текста.
 """
 import contextvars
@@ -16,7 +16,8 @@ from django.db.models import Q
 from graph.models import Graph, Offer, OfferTry, Run
 
 ENTITY = "ent:offer"
-OPEN = "act:offer.open"
+OPEN = "act:offer"
+RANK = {"hidden": 0, "teaser": 1, "open": 2}
 USED = "on:offer.used"
 _busy = contextvars.ContextVar("offers_busy", default=frozenset())
 
@@ -64,12 +65,10 @@ def spec_of(data):
             "account": _text(data, "account").lower(), "group": _text(data, "group")[:64]}
 
 
-def _show(data):
-    return "mystery" if (data or {}).get("show") == "mystery" else "open"
-
-
-def _closed(data):
-    return "hidden" if (data or {}).get("closed") == "hidden" else "mystery"
+def _state(data):
+    """Состояние ноды «Изменить»: open | mystery | hidden."""
+    value = (data or {}).get("state")
+    return value if value in ("open", "mystery", "hidden") else "open"
 
 
 # ---- выходы «Использована» -----------------------------------------------------------------------------------------------
@@ -147,12 +146,10 @@ def match_data(graph, doc, node_id, data):
 
 # ---- открыть и закрыть ---------------------------------------------------------------------------------------------------
 
-def open_offer(graph, node, spec, user=None, show="open", closed="mystery"):
-    """Открыть (снова) игроку или всем — или показать закрытой «???» (show="mystery"): закрытия игроков снимаются.
-    closed — что видит игрок, пока возможность ему недоступна (не та учётка): «???» или ничего (hidden)."""
+def open_offer(graph, node, spec, user=None, show="open"):
+    """Открыть (снова) игроку или всем — или показать закрытой «???» (show="mystery"): скрытия игроков снимаются."""
     Offer.objects.filter(graph=graph, node=node, user=user, standing=False).delete()
-    Offer.objects.create(graph=graph, node=node, user=user, channel=spec["channel"], group=spec["group"],
-                         spec={**spec, "show": show, "closed": closed})
+    Offer.objects.create(graph=graph, node=node, user=user, channel=spec["channel"], group=spec["group"], spec={**spec, "show": show})
     tries = OfferTry.objects.filter(graph=graph, node=node)
     (tries if user is None else tries.filter(user=user)).delete()
 
@@ -192,7 +189,7 @@ def declare(graph, doc):
     Offer.objects.filter(graph=graph, standing=True).delete()
     rows = []
     for node_id in doc.nodes:
-        if doc.nodes[node_id].get("type") != OPEN or (node_id, "in") not in doc.refs:
+        if doc.nodes[node_id].get("type") != OPEN or (node_id, "in") not in doc.refs or _state(doc.data(node_id)) == "hidden":
             continue
         for entity in declared(doc, node_id, graph.slug):
             spec = spec_of(doc.data(entity))
@@ -214,34 +211,30 @@ def entity_spec(run, graph, node):
 
 
 def act(run, node_id, kind, data):
-    """Ноды «Возможность: Открыть» и «Возможность: Закрыть»."""
+    """Нода «Возможность: Изменить»: открыть, показать «???» или скрыть (одну или всю её группу)."""
     from graph import runtime
 
     user = None if data.get("scope") == "all" else run.user
     if data.get("scope") != "all" and user is None:
         runtime._log(run.graph, f"«{kind.label}»: нет игрока хода", None)
         return ["fail"]
-    if kind.name != OPEN and data.get("variant") == "group":
-        group = _text(data, "group")
-        if not group:
-            runtime._log(run.graph, f"«{kind.label}»: не задана группа", run.user)
-            return ["fail"]
-        close_group(run.graph, group, user)
-        return ["next"]
     wanted = _keys(data.get("offer"))
     found = [parse(one) for one in wanted]
     if not found or None in found:
         runtime._log(run.graph, f"«{kind.label}»: нет возможности «{', '.join(wanted)}»", run.user)
         return ["fail"]
+    state = _state(data)
     for graph, node in found:
-        if kind.name != OPEN:
+        spec = entity_spec(run, graph, node)
+        if state == "hidden":
+            if data.get("whole") == "group" and spec is not None and spec["group"]:
+                close_group(graph, spec["group"], user)
             close(graph, node, user)
             continue
-        spec = entity_spec(run, graph, node)
         if spec is None:
             runtime._log(run.graph, f"«{kind.label}»: «{key(graph, node)}» — не нода «Возможность»", run.user)
             return ["fail"]
-        open_offer(graph, node, spec, user, _show(data), _closed(data))
+        open_offer(graph, node, spec, user, state)
     return ["next"]
 
 
@@ -259,7 +252,7 @@ class View:
 
 
 def _live(graph, node, by, user, host, login):
-    """Возможность по условию сейчас: (что предлагает, open | teaser | off) или None (сущности уже нет). Верно условие у
+    """Возможность по условию сейчас: (что предлагает, open | teaser | hidden) или None (сущности уже нет). Верно условие у
     «Открыть» — открыта; верно только у «Показать «???»» — видна закрытой."""
     from graph import runtime
 
@@ -268,11 +261,9 @@ def _live(graph, node, by, user, host, login):
     if kind is None or kind.name != ENTITY:
         return None
     run = Run(graph=graph, user=user, ctx={"host": host, "login": login}, state={})
-    by = [one for one in by if doc.kind(one) is not None]
-    shows = {_show(doc.data(one)) for one in by if runtime._truth(runtime.resolved(run, doc, one).get("in"))}
-    state = "open" if "open" in shows else "teaser" if shows else "off"
-    closed = "mystery" if any(_closed(doc.data(one)) == "mystery" for one in by) else "hidden"      # хоть одно «???» — видна
-    return {**spec_of(runtime.resolved(run, doc, node)), "closed": closed}, state
+    shows = {_state(doc.data(one)) for one in by if doc.kind(one) is not None and runtime._truth(runtime.resolved(run, doc, one).get("in"))}
+    state = "open" if "open" in shows else "teaser" if "mystery" in shows else "hidden"
+    return spec_of(runtime.resolved(run, doc, node)), state
 
 
 def visible(user, host="", login="", channel="mail", only=None):
@@ -295,28 +286,28 @@ def visible(user, host="", login="", channel="mail", only=None):
         everyone = [row for row in group if row.user_id is None and not row.standing]
         standing = [row for row in group if row.standing]
         graph = group[0].graph
-        if own or (everyone and place not in tries):                       # своя строка важнее строки «всем»
-            spec = (own or everyone)[0].spec
-            state = "teaser" if spec.get("show") == "mystery" else "open"
-        elif place in tries:
+        if place in tries and not own:                                      # скрыта игроку потоком: условия её не возвращают
             continue
-        else:
+        spec, best = None, "hidden"
+        for row in own[:1] + everyone[:1]:
+            state = "teaser" if (row.spec or {}).get("show") == "mystery" else "open"
+            if spec is None or RANK[state] > RANK[best]:
+                spec, best = row.spec, state
+        if standing and best != "open":
             busy = _busy.get()
-            if place in busy:                                              # условие ссылается на саму возможность
-                continue
-            token = _busy.set(busy | {place})
-            try:
-                live = _live(graph, place[1], [str((row.spec or {}).get("by") or "") for row in standing], user, host, login)
-            finally:
-                _busy.reset(token)
-            if live is None:
-                continue
-            spec, state = live
-        if state == "open" and spec.get("account") and spec["account"] != account:
-            state = "off"
-        if state == "off" and spec.get("closed") == "hidden":
+            if place not in busy:                                          # условие может ссылаться на саму возможность
+                token = _busy.set(busy | {place})
+                try:
+                    live = _live(graph, place[1], [str((row.spec or {}).get("by") or "") for row in standing], user, host, login)
+                finally:
+                    _busy.reset(token)
+                if live is not None and RANK[live[1]] > RANK[best]:
+                    spec, best = live
+        if spec is None or best == "hidden":
             continue
-        found.append(View(graph, place[1], key(graph, place[1]), spec, state == "open", spec.get("group") or group[0].group))
+        if best == "open" and spec.get("account") and spec["account"] != account:
+            best = "teaser"                                                # вариант есть, но не с этой учётки
+        found.append(View(graph, place[1], key(graph, place[1]), spec, best == "open", spec.get("group") or group[0].group))
     return found
 
 

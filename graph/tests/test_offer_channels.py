@@ -19,7 +19,7 @@ from terminal.engine.executor import TerminalExecutor
 
 def make(entity, nodes=(), wires=()):
     """Сущность «o» (entity — её данные), «Открыть» её по «m» и ещё ноды."""
-    doc = {"nodes": [node("m", "manual"), node("o", "ent:offer", **entity), node("op", "act:offer.open", offer="g:o"), *nodes],
+    doc = {"nodes": [node("m", "manual"), node("o", "ent:offer", **entity), node("op", "act:offer", offer="g:o"), *nodes],
            "wires": [wire("m", "fire", "op"), *wires]}
     graph = Graph.objects.create(slug="g", title="g", active=True, doc=doc)
     runtime.rebuild_starts(graph)

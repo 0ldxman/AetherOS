@@ -23,7 +23,7 @@ def offer(node_id, **data):
 
 
 def opener(node_id, target, **data):
-    return node(node_id, "act:offer.open", offer=f"g:{target}", **data)
+    return node(node_id, "act:offer", offer=f"g:{target}", **data)
 
 
 class OfferTests(TestCase):
@@ -39,25 +39,25 @@ class OfferTests(TestCase):
         self.assertTrue(N.compatible("bool", "event|bool"))
         self.assertTrue(N.compatible("number", "event|bool"))
         self.assertFalse(N.compatible("machine", "event|bool"))
-        kind = N.KINDS["act:offer.open"]
+        kind = N.KINDS["act:offer"]
         self.assertEqual(N.sock_type(kind, {}, "in", "in"), "event|bool")
-        doc = {"nodes": [node("t", "ent:tag", owner="player", name="vip"), offer("a"), node("o", "act:offer.open")],
+        doc = {"nodes": [node("t", "ent:tag", owner="player", name="vip"), offer("a"), node("o", "act:offer")],
                "wires": [wire("t", "on", "o"), wire("a", "offer", "o", "f:offer")]}
         self.assertEqual([p for p in check.problems(doc) if p["level"] == "error"], [])
         self.assertEqual(runtime.Doc(doc).refs[("o", "in")], ("t", "on"))
         self.assertNotIn("o", runtime.Doc(doc).fed)
-        alien = {"nodes": [node("t", "ent:tag", owner="player", name="vip"), node("o", "act:offer.open", offer="other:a")], "wires": [wire("t", "on", "o")]}
+        alien = {"nodes": [node("t", "ent:tag", owner="player", name="vip"), node("o", "act:offer", offer="other:a")], "wires": [wire("t", "on", "o")]}
         self.assertIn("по условию открываются только возможности этого сценария", [p["text"] for p in check.problems(alien, slug="g")])
 
     def test_a_condition_with_show_shows_a_locked_variant(self):
-        make([node("t", "ent:tag", owner="player", name="vip"), offer("a"), node("o", "act:offer.open", show="mystery", closed="hidden")],
+        make([node("t", "ent:tag", owner="player", name="vip"), offer("a"), node("o", "act:offer", state="mystery")],
              [wire("t", "on", "o"), wire("a", "offer", "o", "f:offer")])
         self.assertEqual(offers.visible(self.ivan), [])
         values.set_tag("player", self.ivan.pk, "vip")
         self.assertEqual([(v.key, v.open) for v in offers.visible(self.ivan)], [("g:a", False)])
 
     def test_a_condition_opens_it_for_those_it_holds_for(self):
-        make([node("t", "ent:tag", owner="player", name="vip"), offer("a"), node("o", "act:offer.open", closed="hidden")],
+        make([node("t", "ent:tag", owner="player", name="vip"), offer("a"), node("o", "act:offer")],
              [wire("t", "on", "o"), wire("a", "offer", "o", "f:offer")])
         self.assertEqual((self.keys(self.ivan), offers.visible(self.ivan)), ([], []))
         values.set_tag("player", self.ivan.pk, "vip")
@@ -65,8 +65,7 @@ class OfferTests(TestCase):
 
     def test_open_for_the_player_or_for_all_and_close_a_group(self):
         graph = make([node("m", "manual"), offer("a", group="s"), offer("b", group="s"), offer("c"),
-                      opener("oa", "a"), opener("ob", "b", scope="all"), opener("oc", "c", show="mystery", closed="hidden"), node("x", "act:offer.close", variant="group", group="s"),
-                      node("go", "manual"), opener("od", "c")],
+                      opener("oa", "a"), opener("ob", "b", scope="all"), opener("oc", "c", state="mystery"), node("go", "manual"), opener("od", "c")],
                      [wire("m", "fire", "oa"), wire("oa", "next", "ob"), wire("ob", "next", "oc"), wire("go", "fire", "od")])
         runtime.start_manual(graph, "m", self.ivan)
         self.assertEqual((self.keys(self.ivan), self.keys(self.anna)), (["g:a", "g:b"], ["g:b"]))
@@ -82,8 +81,8 @@ class OfferTests(TestCase):
         self.assertFalse(Offer.objects.filter(node="b").exists())
 
     def test_one_offer_opened_from_two_places_and_closed_by_wire(self):
-        graph = make([node("m", "manual"), node("m2", "manual"), offer("a", text="hello {{name}}"), node("o1", "act:offer.open"), node("o2", "act:offer.open"),
-                      node("k", "check"), node("c", "do:world_count", name="c"), node("go", "manual"), node("x", "act:offer.close", variant="offer")],
+        graph = make([node("m", "manual"), node("m2", "manual"), offer("a", text="hello {{name}}"), node("o1", "act:offer"), node("o2", "act:offer"),
+                      node("k", "check"), node("c", "do:world_count", name="c"), node("go", "manual"), node("x", "act:offer", state="hidden")],
                      [wire("m", "fire", "o1"), wire("m2", "fire", "o2"), wire("a", "offer", "o1", "f:offer"), wire("a", "offer", "o2", "f:offer"),
                       wire("o1", "next", "k"), wire("a", "open", "k", "f:condition"), wire("k", "yes", "c"),
                       wire("go", "fire", "x"), wire("a", "offer", "x", "f:offer")])
@@ -96,7 +95,7 @@ class OfferTests(TestCase):
         self.assertEqual(self.keys(self.ivan), ["g:a"])
 
     def test_open_fails_without_an_offer_entity(self):
-        graph = make([node("m", "manual"), node("o", "act:offer.open", offer="g:m"), node("c", "do:world_count", name="c")],
+        graph = make([node("m", "manual"), node("o", "act:offer", offer="g:m"), node("c", "do:world_count", name="c")],
                      [wire("m", "fire", "o"), wire("o", "fail", "c")])
         runtime.start_manual(graph, "m", self.ivan)
         self.assertEqual((counter(), Offer.objects.count()), (1, 0))
@@ -131,6 +130,23 @@ class OfferTests(TestCase):
         self.assertEqual(counter("n"), 0)
         emit("offer.used", self.ivan, offer="g:w", result="ok", outs=["ok", "b2"])
         self.assertEqual(counter("n"), 1)
+
+    def test_states_stack_and_hide_by_event_wins(self):
+        graph = make([node("y", "boolean", value=True), node("t", "ent:tag", owner="player", name="vip"), offer("a", group="g1"), offer("b", group="g1"),
+                      node("q", "act:offer", state="mystery"), node("o", "act:offer"), node("ob", "act:offer", offer="g:b"),
+                      node("m", "manual"), node("h", "act:offer", state="hidden", whole="group", offer="g:a"), node("m2", "manual")],
+                     [wire("y", "value", "q"), wire("t", "on", "o"), wire("a", "offer", "q", "f:offer"), wire("a", "offer", "o", "f:offer"),
+                      wire("m2", "fire", "ob"), wire("m", "fire", "h")])
+        self.assertEqual([(v.key, v.open) for v in offers.visible(self.ivan)], [("g:a", False)])           # «???», пока условия нет
+        values.set_tag("player", self.ivan.pk, "vip")
+        self.assertEqual([(v.key, v.open) for v in offers.visible(self.ivan)], [("g:a", True)])            # самое открытое
+        runtime.start_manual(graph, "m2", self.ivan)
+        self.assertEqual(self.keys(self.ivan), ["g:a", "g:b"])
+        runtime.start_manual(graph, "m", self.ivan)                                                       # скрыть всю группу
+        self.assertEqual((offers.visible(self.ivan), self.keys(self.anna)), ([], []))
+        alien = {"nodes": [node("y", "boolean", value=True), offer("a"), node("h", "act:offer", state="hidden")],
+                 "wires": [wire("y", "value", "h"), wire("a", "offer", "h", "f:offer")]}
+        self.assertIn("«Скрыть» — только по событию: без условия возможность и так скрыта", [p["text"] for p in check.problems(alien, slug="g")])
 
     def test_a_letter_on_the_input_drops_new(self):
         self.assertEqual(offers.spec_of({"mode": "new", "letter": "x"})["mode"], "reply")

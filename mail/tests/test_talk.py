@@ -47,7 +47,7 @@ def wire(src, out, dst, inp="in"):
 
 def offered(node_id, opened=None, **data):
     """Сущность «Возможность» node_id и «Открыть» её (нода o<node_id>, opened — её поля)."""
-    return [node(node_id, "ent:offer", **data), node("o" + node_id, "act:offer.open", offer=f"door:{node_id}", **(opened or {}))]
+    return [node(node_id, "ent:offer", **data), node("o" + node_id, "act:offer", offer=f"door:{node_id}", **(opened or {}))]
 
 
 def door(extra_nodes=(), extra_wires=()):
@@ -57,14 +57,15 @@ def door(extra_nodes=(), extra_wires=()):
              *offered("code", mode="reply", to="guard@port", letter="guard-ask", title="Назвать код", text="Код: {{4471}}. Склад [[склад: 7|9]].",
                       group="ask"),
              *offered("tunnel", mode="reply", to="guard@port", title="Тайный ход", text="Я знаю про тоннель.", group="ask"),
-             *offered("hidden", {"closed": "hidden"}, mode="reply", to="guard@port", title="Скрытый", text="x", group="ask"),
-             node("knows", "fact", expr="tag:tunnel"), node("never", "fact", expr="tag:never"),
+             *offered("hidden", mode="reply", to="guard@port", title="Скрытый", text="x", group="ask"),
+             node("knows", "fact", expr="tag:tunnel"), node("never", "fact", expr="tag:never"), node("yes", "boolean", value=True),
+             node("qtunnel", "act:offer", state="mystery", offer="door:tunnel"),
              node("u", "on:offer.used", offer="door:code", repeat="always"), node("seven", "compare", op="eq", b="7"), node("which", "check"),
              node("m7", "act:mail", variant="player", item="guard-7"), node("m9", "act:mail", variant="player", item="guard-thanks"),
              node("tries", "act:count", variant="add", owner="player", name="tries", delta=1), node("limit", "check", condition="count:tries>=2"),
-             node("shut", "act:offer.close", variant="offer", offer="door:code"), node("angry", "act:mail", variant="player", item="guard-angry"),
+             node("shut", "act:offer", state="hidden", offer="door:code"), node("angry", "act:mail", variant="player", item="guard-angry"),
              node("warn", "act:mail", variant="player", item="guard-warn"), *extra_nodes]
-    wires = [wire("m", "fire", "ask"), wire("ask", "next", "ocode"), wire("knows", "value", "otunnel"), wire("never", "value", "ohidden"),
+    wires = [wire("m", "fire", "ask"), wire("ask", "next", "ocode"), wire("knows", "value", "otunnel"), wire("never", "value", "ohidden"), wire("yes", "value", "qtunnel"),
              wire("u", "ok", "which"), wire("u", "fork:склад", "seven", "f:a"), wire("seven", "value", "which", "f:condition"),
              wire("which", "yes", "m7"), wire("which", "no", "m9"),
              wire("u", "wrong", "tries"), wire("tries", "next", "limit"), wire("limit", "yes", "shut"), wire("shut", "next", "angry"), wire("limit", "no", "warn"),
@@ -155,9 +156,9 @@ class TalkTests(TestCase):
         self.assertEqual(store.get("count", "player", self.ivan.pk, "tries"), 1)
 
     def test_a_new_letter_by_condition_an_unknown_address_bounces_and_an_account_receives(self):
-        graph = door([node("yes", "boolean", value=True),
+        graph = door([node("always", "boolean", value=True),
                       *offered("hello", mode="new", to="guard@port", title="Представиться", text="Я из порта.")],
-                     [wire("yes", "value", "ohello")])
+                     [wire("always", "value", "ohello")])
         offers = talk.offers_to_answer(self.box(), "GUARD@port")
         self.assertEqual([o.key for o in offers], ["door:hello"])
         self.assertEqual(talk.send(self.box(), to="guard@port", typed="Я из порта.", offer="door:hello").kind, "ok")
@@ -197,7 +198,7 @@ class TalkTests(TestCase):
         face = Character.objects.create(code="GRD", name="Port guard")
         Persona.objects.filter(pk=self.guard.pk).update(character=face)
         graph = self.started(door([node("face", "ent:character", character="GRD"), node("chat", "ent:offer", mode="reply", title="Привет", text="Привет."),
-                                   node("ochat", "act:offer.open")],
+                                   node("ochat", "act:offer")],
                                   [wire("face", "value", "chat", "f:to"), wire("ask", "item", "chat", "f:letter"), wire("chat", "offer", "ochat", "f:offer"),
                                    wire("ocode", "next", "ochat")]))
         offers = talk.offers_to_answer(self.box(), "guard@port", reply_item=self.ask)
