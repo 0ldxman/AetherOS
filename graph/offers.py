@@ -57,12 +57,12 @@ def spec_of(data):
     if letter and mode == "new":                    # письмо на входе: «Новое» не бывает
         mode = "reply"
     return {"channel": data.get("channel") or "mail", "mode": mode, "letter": letter,
-            "command": _text(data, "command"), "machines": [m.lower() for m in many("machine")], "items": many("item"), "path": _text(data, "path"),
+            "command": _text(data, "command"), "items": many("item"), "path": _text(data, "path"),
             "message": str(data.get("message") or ""), "buttons": many("buttons"),
             "reply_ok": _text(data, "reply_ok"), "reply_wrong": _text(data, "reply_wrong"), "to": [one.lower() for one in many("to")],
             "title": _text(data, "title"), "caption": _text(data, "caption"),
             "text": str(data.get("text") or ""), "attach": many("attach"),
-            "account": _text(data, "account").lower(), "group": _text(data, "group")[:64]}
+            "group": _text(data, "group")[:64]}
 
 
 def _state(data):
@@ -316,7 +316,6 @@ def visible(user, host="", login="", channel="mail", only=None):
     places = {}
     for row in sorted(rows, key=lambda r: r.user_id is None):           # свои строки — первыми
         places.setdefault((row.graph_id, row.node), []).append(row)
-    account = f"{login}@{host}".lower()
     found = []
     for place, group in places.items():
         own = [row for row in group if row.user_id is not None]
@@ -342,8 +341,6 @@ def visible(user, host="", login="", channel="mail", only=None):
                     spec, best = live
         if spec is None or best == "hidden":
             continue
-        if best == "open" and spec.get("account") and spec["account"] != account:
-            best = "teaser"                                                # вариант есть, но не с этой учётки
         found.append(View(graph, place[1], key(graph, place[1]), spec, best == "open", spec.get("group") or group[0].group))
     return found
 

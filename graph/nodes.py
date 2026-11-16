@@ -16,15 +16,16 @@ GROUPS = {ENTITY: "Сущности", NOUN: "Когда", FLOW: "Ход", DATA: 
 # Типы сокетов. event — «случилось» (по нему идёт ход), остальное — данные: читаются в момент, когда нода выполняется.
 EVENT = "event"
 TYPES = ("event", "bool", "text", "number", "item", "placement", "layer", "machine", "account", "server", "character", "section", "moment", "player", "flag",
-         "world_flag", "counter", "offer")
+         "world_flag", "counter", "offer", "session")
 TYPE_LABELS = {"event": "событие", "bool": "да/нет", "text": "текст", "number": "число", "item": "объект", "placement": "размещение", "layer": "слой", "machine": "машину", "account": "учётку",
                "server": "сервер", "character": "персонажа", "section": "раздел", "moment": "момент", "player": "игрока",
-               "flag": "метку игрока", "world_flag": "метку мира", "counter": "счётчик", "offer": "возможность"}
-THINGS = ("item", "placement", "layer", "machine", "account", "server", "character", "section", "moment", "player", "flag", "world_flag", "counter", "offer")
+               "flag": "метку игрока", "world_flag": "метку мира", "counter": "счётчик", "offer": "возможность", "session": "сессию"}
+THINGS = ("item", "placement", "layer", "machine", "account", "server", "character", "section", "moment", "player", "flag", "world_flag", "counter", "offer",
+          "session")
 
 # списки: «list:<тип элемента>»; «list:any» — вход, которому подходит любой список (количество)
 ELEMENTS = {"text": "Текст", "number": "Число", "bool": "Да/нет", "item": "Объект", "placement": "Размещение", "layer": "Слой", "machine": "Машина", "account": "Учётка", "server": "Сервер",
-            "character": "Персонаж", "section": "Раздел", "moment": "Момент", "player": "Игрок", "offer": "Возможность"}
+            "character": "Персонаж", "section": "Раздел", "moment": "Момент", "player": "Игрок", "offer": "Возможность", "session": "Сессия"}
 LIST, ANY_LIST = "list:", "list:any"
 TYPES = TYPES + tuple(LIST + name for name in ELEMENTS) + (ANY_LIST,)
 TYPE_LABELS.update({LIST + name: f"список ({label.lower()})" for name, label in ELEMENTS.items()})
@@ -66,7 +67,7 @@ FIELD_TYPES = {"text": "text", "textarea": "text", "path": "text", "clock": "tex
                "object": "item", "character": "character", "section": "section", "flag": "flag", "world_flag": "world_flag",
                "counter": "counter", "moment": "moment", "machine": "machine", "system": "text", "time_zone": "text", "server": "server", "player": "player", "layer": "layer", "placement": "placement", "account": "account", "offer": "offer",
                "recipient": "many:character|text", "mail_ref": "item|placement", "attachment": "many:item|placement",
-               "offer_group": "many:offer|text"}      # вид поля -> тип его входа; нет в списке — параметр без входа
+               "offer_group": "many:offer|text", "session": "session"}      # вид поля -> тип его входа; нет в списке — параметр без входа
 
 
 def field_type(field):
@@ -184,6 +185,7 @@ class Kind:
     owned: str = ""                     # нода попытки: вид графа у вещи (graph/owned.py), Tab открывает его
     in_types: dict = field(default_factory=dict)     # вход потока -> тип, если он принимает не только событие («event|bool»)
     inline: dict = field(default_factory=dict)       # поле-вход -> (поле-переключатель в его строке, варианты, которых нет, когда вход задан)
+    plural: dict = field(default_factory=dict)       # выход -> (поле-режим, значения): в этих режимах выход — список своего типа
 
 
 KINDS = {}
@@ -773,19 +775,18 @@ register(Kind("ent:offer", "Возможность", ENTITY, "{title}{command}",
     Field("mode", "Как", "switch", "", False, (("new", "Новое"), ("reply", "Ответ"), ("forward", "Пересылка"))),
     Field("letter", "Как", "mail_ref", "любое письмо"),
     Field("to", "Кому", "recipient", "адрес или персонаж"),
-    Field("command", "Команда", "text", "unlock", True), Field("machine", "Машина", "many:machine", "любая"),
+    Field("command", "Команда", "text", "unlock", True),
     Field("item", "Объект", "many:object", "любой"), Field("path", "Путь", "text", "любой; можно *"),
     Field("title", "Подпись", "text", "", True), Field("caption", "Надпись у кнопок", "text", "пусто — без надписи"),
     Field("message", "Текст окна", "textarea", ""), Field("buttons", "Кнопки", "many:text", "Да, Нет"),
     Field("text", "Текст для набора", "textarea", "{{секрет}}, [[док: 7|9]]; пусто — без набора"),
     Field("reply_ok", "Ответ, если верно", "text", "ничего"), Field("reply_wrong", "Ответ, если неверно", "text", "{command}: access denied"),
     Field("attach", "Вложение", "attachment", "ничего"),
-    Field("account", "С учётки", "account", "любая"),
     Field("group", "Группа", "text", "использована одна — закрыты все"),
 ), ins=(), when={
     **{name: _MAIL for name in ("mode", "letter", "to", "attach")},
-    **{name: _TYPED for name in ("text", "account")},
-    **{name: ("channel", ("command",)) for name in ("command", "machine", "reply_ok", "reply_wrong")},
+    "text": _TYPED,
+    **{name: ("channel", ("command",)) for name in ("command", "reply_ok", "reply_wrong")},
     "title": ("channel", ("mail", "choice", "file")), "message": ("channel", ("choice",)), "buttons": ("channel", ("choice",)),
     **{name: ("channel", ("file",)) for name in ("item", "path", "caption")}}, title="channel", inline={"letter": ("mode", ("new",))}))
 DATA_OUTS["ent:offer"] = (Sock("offer", "Возможность", "offer"),)
@@ -907,6 +908,10 @@ HELP = {
     "ent:character": "Персонаж: по коду или имени.", "ent:section": "Раздел форума: по номеру или названию.",
     "ent:moment": "Момент мира: по имени или названию; «Идёт» — сейчас ли он.",
     "ent:player": "Игрок: пусто — игрок хода, иначе по логину.",
+    "ent:session": "Сессия — игрок на учётке. Активна — его рабочий стол или терминал там сейчас; подключена — открыта в цепочке мостов, "
+                   "даже если игрок работает дальше.",
+    "session.find": "Текущая — где произошло действие (в условии у «Изменить» — где игрок применяет возможность). Все — сессии игрока "
+                    "(пусто — игрок хода), Машина — сессии всех игроков на машине: списком, свежие первыми. «Только активные» — кто там сейчас.",
     "list.make": "Собрать список из входов: подключили последний — появился следующий. Тип элементов выбирается на ноде.",
     "list.count": "Сколько элементов в списке (пустой — 0).",
     "list.item": "Элемент списка: первый, последний или по номеру. «Есть» — нет ли такого (список короче).",
@@ -1072,6 +1077,16 @@ _entity("ent:moment", "Момент", Field("moment", "Момент", "moment"),
         (Sock("value", "Момент", "moment"), Sock("title", "Название", "text"), Sock("running", "Идёт", "bool")))
 _entity("ent:player", "Игрок", Field("player", "Игрок", "player", "игрок хода"),
         (Sock("value", "Игрок", "player"), Sock("callsign", "Позывной", "text")))
+_entity("ent:session", "Сессия", Field("session", "Сессия", "session", "игрок/логин@хост"),
+        (Sock("value", "Сессия", "session"), Sock("player", "Игрок", "player"), Sock("machine", "Машина", "machine"),
+         Sock("account", "Учётка", "account"), Sock("active", "Активна", "bool"), Sock("linked", "Подключена", "bool")))
+register(Kind("session.find", "Сессия: Найти", ENTITY, "", (
+    Field("mode", "Какие", "switch", "", False, (("current", "Текущая"), ("all", "Все"), ("machine", "Машина"))),
+    Field("player", "Игрок", "player", "игрок хода"), Field("machine", "Машина", "machine", "", True),
+    Field("active", "Только активные", "bool"),
+), ins=(), title="mode", plural={"value": ("mode", ("all", "machine"))},
+   when={"player": ("mode", ("all",)), "machine": ("mode", ("machine",)), "active": ("mode", ("all", "machine"))}))
+DATA_OUTS["session.find"] = (Sock("value", "Сессия", "session"),)
 def _layer_types():
     from filesystem.layers.registry import registry
 
@@ -1205,6 +1220,11 @@ def _sock_type(kind, data, side, name, iface=None):
             return iface["out_types"][name]
         if kind.name == USED_OFFER and name.startswith("fork:"):
             return "text"
+        if name in kind.plural:
+            mode, values = kind.plural[name]
+            field_ = next((f for f in kind.fields if f.name == mode), None)
+            chosen = (data or {}).get(mode) or (field_.options[0][0] if field_ and field_.options else "")
+            return LIST + out_type(kind, name) if chosen in values else out_type(kind, name)
         return out_type(kind, name)
     if name.startswith("f:"):
         found = next((f for f in kind.fields if f.name == name[2:]), None)
@@ -1343,6 +1363,7 @@ def catalog():
             "hidden": k.hidden, "owned": k.owned, "typed": k.typed, "covers": {name: list(hid) for name, hid in k.covers.items()},
             "follows": dict(k.follows), "titled": dict(k.titled),
             "inline": {name: {"switch": switch, "drop": list(drop)} for name, (switch, drop) in k.inline.items()},
+            "plural": {name: {"mode": mode, "values": list(values)} for name, (mode, values) in k.plural.items()},
             "infers": {name: {"mode": mode, "by": {t: {"value": v, "field": f} for t, (v, f) in by.items()}} for name, (mode, by) in k.infers.items()},
         } for k in sorted(KINDS.values(), key=_menu_order)],
     }

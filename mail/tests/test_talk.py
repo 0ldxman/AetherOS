@@ -172,9 +172,11 @@ class TalkTests(TestCase):
         self.assertEqual([r.letter.subject for r in self.box(self.captain).letters_in("inbox")], ["Себе"])
 
     def test_a_variant_for_another_account_and_an_attachment(self):
-        graph = self.started(door(offered("boss", mode="new", to="guard@port", title="От капитана", text="Приказ.",
-                                          account="captain@aether-main", attach="order"),
-                                  [wire("ocode", "next", "oboss")]))
+        graph = self.started(door([*offered("boss", mode="new", to="guard@port", title="От капитана", text="Приказ.", attach="order"),
+                                   node("cur", "session.find"), node("sess", "ent:session"), node("cap", "compare", op="eq", b="captain@aether-main"),
+                                   node("qboss", "act:offer", state="mystery", offer="door:boss")],
+                                  [wire("cur", "value", "sess", "f:session"), wire("sess", "account", "cap", "f:a"), wire("cap", "value", "oboss"),
+                                   wire("yes", "value", "qboss")]))
         mine = talk.offers_to_answer(self.box(), "guard@port")
         self.assertFalse(next(o for o in mine if o.key == "door:boss").open)                # с учётки ivan закрыт
         seal = key_item("seal")

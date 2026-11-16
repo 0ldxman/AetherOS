@@ -11766,6 +11766,13 @@ export interface components {
                 [key: string]: string;
             };
             /**
+             * Plural
+             * @default {}
+             */
+            plural: {
+                [key: string]: components["schemas"]["GrPlural"];
+            };
+            /**
              * Titled
              * @default {}
              */
@@ -11804,6 +11811,13 @@ export interface components {
             value: string;
             /** Label */
             label: string;
+        };
+        /** GrPlural */
+        GrPlural: {
+            /** Mode */
+            mode: string;
+            /** Values */
+            values: string[];
         };
         /** GrSock */
         GrSock: {

@@ -19,7 +19,7 @@ def run(session, context, parsed):
     host, login = context.machine.hostname or "", getattr(context.view, "login", "") or ""
     name = parsed.name
     found = [view for view in offers.visible(user, host, login, "command")
-             if view.open and view.spec.get("command") == name and (not view.spec.get("machines") or host.lower() in view.spec["machines"])]
+             if view.open and view.spec.get("command") == name]
     if not found:
         return None
     args = " ".join(parsed.args)

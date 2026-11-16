@@ -65,6 +65,10 @@ def _props(name, key, run):
 
         m = WorldMoment.objects.filter(Q(name__iexact=key) | Q(title__iexact=key)).order_by("pk").first() if key else None
         return m and {"value": m.name, "title": m.title or m.name, "running": moments.running(m)}
+    if name == "ent:session":
+        from graph import sessions
+
+        return sessions.props(key)
     if name == "ent:player":
         from air.models import Callsign
 

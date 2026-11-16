@@ -433,6 +433,10 @@ def value_of(run, doc, node_id, out, depth=0):
     if kind.group == N.ENTITY:
         from graph import entities
 
+        if kind.name == "session.find":
+            from graph import sessions
+
+            return sessions.find(run, data.get("mode") or "current", get("player"), get("machine"), _truth(get("active")))
         if kind.name == "find":
             return entities.find(run, kind, {f.name: get(f.name) for f in kind.fields})
         if kind.name == "ent:placement":

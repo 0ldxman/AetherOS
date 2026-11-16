@@ -66,6 +66,11 @@ class GrInfer(Schema):
     by: dict[str, GrInferTo]
 
 
+class GrPlural(Schema):
+    mode: str
+    values: list[str]
+
+
 class GrInline(Schema):
     switch: str
     drop: list[str] = []
@@ -94,6 +99,7 @@ class GrKind(Schema):
     typed: str = ""
     covers: dict[str, list[str]] = {}
     follows: dict[str, str] = {}
+    plural: dict[str, GrPlural] = {}
     titled: dict[str, str] = {}
     infers: dict[str, GrInfer] = {}
     inline: dict[str, GrInline] = {}

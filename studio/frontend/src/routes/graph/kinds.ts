@@ -38,6 +38,7 @@ export const TYPES: Record<string, { label: string; color: string; thing?: boole
   counter: { label: "Счётчик", color: "#8fb3ff", thing: true },
   moment: { label: "Момент", color: "#d4d27a", thing: true },
   offer: { label: "Возможность", color: "#e3b8f5", thing: true },
+  session: { label: "Сессия", color: "#e58fae", thing: true },
 };
 // списки: «list:<тип элемента>», «list:any» — вход, которому подходит любой список; @T и @list — по «Типу элементов» ноды.
 // «many:<тип>» — одно значение или список; «a|b» — подходит любой из типов (сокет в цветах всех)
@@ -145,7 +146,15 @@ export function sockType(kind: Kind, data: Record<string, unknown>, side: "in" |
     if (own) return own.type ?? "event";
   }
   if (kind.name === OFFER_USED && name.startsWith("fork:")) return "text";
-  return resolveType(kind, data, kind.outs.find((s) => s.name === name)?.type ?? "event");
+  return pluralType(kind, data, name, resolveType(kind, data, kind.outs.find((s) => s.name === name)?.type ?? "event"));
+}
+
+// выход-список в части режимов (kind.plural): «Сессия: Все» — список сессий, «Текущая» — одна
+export function pluralType(kind: Kind, data: Record<string, unknown>, name: string, type: string): string {
+  const rule = kind.plural?.[name];
+  if (!rule) return type;
+  const chosen = String(data[rule.mode] || kind.fields.find((f) => f.name === rule.mode)?.options[0]?.value || "");
+  return rule.values.includes(chosen) ? `list:${type}` : type;
 }
 
 // waiting: у ноды есть входящий провод (существительное ждёт, а не стартует)
@@ -157,7 +166,7 @@ export function outsOf(kind: Kind, data: Record<string, unknown>, waiting: boole
     return [...own, ...iface.outputs.filter((s) => s.type && s.type !== "event"), ...kind.outs.filter((s) => s.type && s.type !== "event")];
   }
   const events = kind.outs.filter((s) => (s.type ?? "event") === "event" && inWhen(kind, data, s.name));
-  const values = kind.outs.filter((s) => s.type && s.type !== "event").map((s) => ({ ...s, type: resolveType(kind, data, s.type) }));
+  const values = kind.outs.filter((s) => s.type && s.type !== "event").map((s) => ({ ...s, type: pluralType(kind, data, s.name, resolveType(kind, data, s.type)) }));
   const out: Sock[] = [...events, ...(kind.owned ? iface?.outputs ?? [] : []), ...many(kind, data, "out"), ...kind.tail];
   if (kind.group === "noun" && !kind.start_only && waiting) out.push({ name: TIMEOUT, label: "Таймаут", type: "event" });
   return [...out, ...values];

@@ -32086,6 +32086,14 @@
       "title": "Follows",
       "type": "object"
      },
+     "plural": {
+      "additionalProperties": {
+       "$ref": "#/components/schemas/GrPlural"
+      },
+      "default": {},
+      "title": "Plural",
+      "type": "object"
+     },
      "titled": {
       "additionalProperties": {
        "type": "string"
@@ -32173,6 +32181,27 @@
      "label"
     ],
     "title": "GrOption",
+    "type": "object"
+   },
+   "GrPlural": {
+    "properties": {
+     "mode": {
+      "title": "Mode",
+      "type": "string"
+     },
+     "values": {
+      "items": {
+       "type": "string"
+      },
+      "title": "Values",
+      "type": "array"
+     }
+    },
+    "required": [
+     "mode",
+     "values"
+    ],
+    "title": "GrPlural",
     "type": "object"
    },
    "GrSock": {
