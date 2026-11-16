@@ -25,11 +25,50 @@ def _since():
     return timezone.now() - ONLINE
 
 
-def find(run, mode, player="", machine="", active=False):
-    """Текущая — ключ; Все (сессии игрока) и Машина (сессии на машине) — список ключей, свежие первыми."""
+def of_account(profile, active=False):
+    """Сессии игроков на учётке: список ключей, свежие первыми."""
+    from machines.models import Session
+
+    rows = Session.objects.select_related("user", "profile__machine").filter(profile=profile, user__sandbox_of__isnull=True)
+    return _keys(rows.filter(seen_at__gte=_since()) if active else rows)
+
+
+def _keys(rows):
+    rows = sorted(rows, key=lambda row: (row.seen_at is None, -(row.seen_at.timestamp() if row.seen_at else 0), row.pk))
+    return list(dict.fromkeys(key_of(row.user.get_username(), row.profile.login, row.profile.machine.hostname) for row in rows))
+
+
+def close(run, keys):
+    """«Сессия: Закрыть»: выбросить игроков с учёток по ключам (пусто — текущая). Сколько сессий помечено."""
+    from django.contrib.auth import get_user_model
+
+    from machines.models import MachineProfile
+    from machines.network import bridge
+
+    keys = [key for key in keys if str(key or "").strip()] or [find(run, "current")]
+    count = 0
+    for key in keys:
+        found = parse(key)
+        if found is None:
+            continue
+        username, login, host = found
+        user = get_user_model().objects.filter(username=username).first()
+        profile = MachineProfile.objects.filter(machine__hostname=host, login=login).first()
+        if user is not None and profile is not None:
+            count += bridge.request_kick(user, profile)
+    return count
+
+
+def find(run, mode, player="", machine="", active=False, account=""):
+    """Текущая — ключ; Все (сессии игрока), Машина (сессии на машине), Учётка (сессии на учётке) — список ключей, свежие первыми."""
     from graph import entities
     from machines.models import Session
 
+    if mode == "account":
+        from machines.world import edits
+
+        profile = edits.account(entities._key(account))
+        return of_account(profile, active) if profile is not None else []
     if mode not in ("all", "machine"):
         ctx, user = run.ctx or {}, getattr(run, "user", None)
         return key_of(user.get_username() if user is not None else "", ctx.get("login") or "", ctx.get("host") or "")

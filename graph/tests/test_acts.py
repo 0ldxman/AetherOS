@@ -46,6 +46,6 @@ class ChoiceActionTests(TestCase):
     def test_menu_shows_namespaces_in_order_and_hides_merged_actions(self):
         kinds = [k for k in nodes.catalog()["kinds"] if k["group"] == "action" and not k["hidden"]]
         labels = [k["label"] for k in kinds]
-        self.assertLess(labels.index("Машина: Изменить статус"), labels.index("Экран: Уведомление"))
+        self.assertLess(labels.index("Машина: Изменить статус"), labels.index("Экран: Показать"))
         self.assertNotIn("Изменить машину", labels)
         self.assertEqual(nodes.KINDS["act:account.access"].title, "variant")

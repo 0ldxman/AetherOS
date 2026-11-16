@@ -231,7 +231,10 @@ def account(run, kind, data, out):
     user = getattr(run, "user", None)
     blocks = AccountBlock.objects.filter(profile=profile, until__gt=timezone.now())
     blocked = blocks.filter(Q(user=None) | Q(user=user)).exists() if user is not None else blocks.filter(user=None).exists()
+    from graph import sessions
+
     props = {"value": edits.account_key(profile), "machine": profile.machine.hostname or "", "login": profile.login, "name": profile.name,
+             "sessions": sessions.of_account(profile),
              "mail": profile.mail, "groups": list(profile.groups or []), "endpoints": list(profile.endpoints or []), "root": bool(profile.root),
              "blocked": blocked}
     return props.get(out, _blank(kind, out))

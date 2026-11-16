@@ -68,3 +68,20 @@ class SessionTests(TestCase):
         here = [view.open for view in offers.visible(self.ivan, "aether-core", "guest", "command")]
         there = [view.open for view in offers.visible(self.ivan, "aether-main", "ivan", "command")]
         self.assertEqual((here, there), ([True], []))
+
+    def test_sessions_of_an_account_and_closing_them(self):
+        run = self.run_of(host="aether-core", login="guest")
+        self.assertEqual(sessions.find(run, "account", account="guest@aether-core"), ["ivan/guest@aether-core", "anna/guest@aether-core"])
+        self.assertEqual(sessions.find(run, "account", account="guest@aether-core", active=True), ["ivan/guest@aether-core"])
+        self.assertEqual(sessions.of_account(self.home), ["ivan/ivan@aether-main"])
+        self.assertEqual(sessions.close(run, []), 1)                                         # пусто — текущая
+        self.assertIsNotNone(Session.objects.get(user=self.ivan, profile=self.guest).kick_at)
+        self.assertEqual(sessions.close(run, ["anna/guest@aether-core", "nobody/x@y"]), 1)
+        self.assertIsNone(Session.objects.get(user=self.ivan, profile=self.home).kick_at)
+
+    def test_screen_is_one_node_and_kick_is_hidden(self):
+        self.assertEqual([label for _, label in N.KINDS["act:screen"].fields[0].options],
+                         ["Уведомление", "Бегущая строка", "Окна ошибок", "Окно с адресом", "Чёрный экран", "Сцена"])
+        self.assertTrue(N.KINDS["do:notify"].hidden and N.KINDS["do:kick"].hidden)
+        self.assertEqual(N.KINDS["act:account.change"].label, "Учётка: Изменить")
+        self.assertEqual(N.KINDS["ent:server"].label, "Сетевой ресурс")

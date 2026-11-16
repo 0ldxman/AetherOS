@@ -442,7 +442,7 @@ def value_of(run, doc, node_id, out, depth=0):
         if kind.name == "session.find":
             from graph import sessions
 
-            return sessions.find(run, data.get("mode") or "current", get("player"), get("machine"), _truth(get("active")))
+            return sessions.find(run, data.get("mode") or "current", get("player"), get("machine"), _truth(get("active")), get("account"))
         if kind.name == "find":
             return entities.find(run, kind, {f.name: get(f.name) for f in kind.fields})
         if kind.name == "ent:placement":
@@ -1005,6 +1005,13 @@ def _execute(run, doc, node_id, sock):
         return [] if kind.start_only else _noun_wait(run, doc, node_id, kind)
     if name in N.PLACEMENT_ACTS:
         return _placement_act(run, doc, node_id, kind)
+    if name == "act:session.close":
+        from graph import sessions
+
+        if sessions.close(run, _as_list(data.get("session"))):
+            return ["next"]
+        _log(run.graph, f"«{kind.label}»: нет такой сессии", run.user)
+        return ["fail"]
     if name == "act:machine.disk":
         return _disk_act(run, node_id, kind, data)
     if name in N.MACHINE_ACTS:

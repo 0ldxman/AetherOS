@@ -18,14 +18,14 @@ EVENT = "event"
 TYPES = ("event", "bool", "text", "number", "item", "placement", "layer", "machine", "account", "server", "character", "section", "moment", "player", "flag",
          "world_flag", "counter", "offer", "session", "datetime", "volume", "mount")
 TYPE_LABELS = {"event": "событие", "bool": "да/нет", "text": "текст", "number": "число", "item": "объект", "placement": "размещение", "layer": "слой", "machine": "машину", "account": "учётку",
-               "server": "сервер", "character": "персонажа", "section": "раздел", "moment": "момент", "player": "игрока",
+               "server": "сетевой ресурс", "character": "персонажа", "section": "раздел", "moment": "момент", "player": "игрока",
                "flag": "метку игрока", "world_flag": "метку мира", "counter": "счётчик", "offer": "возможность", "session": "сессию",
                "datetime": "дату и время", "volume": "диск", "mount": "диск машины"}
 THINGS = ("item", "placement", "layer", "machine", "account", "server", "character", "section", "moment", "player", "flag", "world_flag", "counter", "offer",
           "session", "volume", "mount")
 
 # списки: «list:<тип элемента>»; «list:any» — вход, которому подходит любой список (количество)
-ELEMENTS = {"text": "Текст", "number": "Число", "bool": "Да/нет", "item": "Объект", "placement": "Размещение", "layer": "Слой", "machine": "Машина", "account": "Учётка", "server": "Сервер",
+ELEMENTS = {"text": "Текст", "number": "Число", "bool": "Да/нет", "item": "Объект", "placement": "Размещение", "layer": "Слой", "machine": "Машина", "account": "Учётка", "server": "Сетевой ресурс",
             "character": "Персонаж", "section": "Раздел", "moment": "Момент", "player": "Игрок", "offer": "Возможность", "session": "Сессия",
             "datetime": "Дата и время", "volume": "Диск", "mount": "Диск машины"}
 LIST, ANY_LIST = "list:", "list:any"
@@ -502,11 +502,11 @@ def _owned_match(kind_name):
 register(Kind("try:machine", "Машина: Попытка входа", NOUN, "{machine}", (Field("machine", "Машина", "machine", "", True),), (),
               match=_owned_match("machine"), owned="machine"))
 DATA_OUTS["try:machine"] = ()
-_SERVER_OUTS = (Sock("server", "Сервер", "server", "address"), Sock("path", "Путь", "text", "path"), _HOST_OUT, _LOGIN_OUT)
+_SERVER_OUTS = (Sock("server", "Сетевой ресурс", "server", "address"), Sock("path", "Путь", "text", "path"), _HOST_OUT, _LOGIN_OUT)
 _when("attempt:server", "Попытка", (), (Sock("go", "Попытка"),), {"go": "@attempt"}, None, _SERVER_OUTS, start_only=True)
 KINDS["attempt:server"] = replace(KINDS["attempt:server"], ins=(), hidden=True)
-for _kind, _label in (("net.request", "Сетевой сервер: Попытка запроса"), ("net.download", "Сетевой сервер: Попытка скачивания")):
-    register(Kind(f"try:{_kind}", _label, NOUN, "{server}", (Field("server", "Сервер", "server", "", True),), (),
+for _kind, _label in (("net.request", "Сетевой ресурс: Попытка запроса"), ("net.download", "Сетевой ресурс: Попытка скачивания")):
+    register(Kind(f"try:{_kind}", _label, NOUN, "{server}", (Field("server", "Сетевой ресурс", "server", "", True),), (),
                   match=_owned_match(_kind), owned=_kind))
     DATA_OUTS[f"try:{_kind}"] = ()
 
@@ -580,12 +580,13 @@ REF_KINDS = {"item": "item", "key": "item", "letter": "item", "character": "char
 
 
 ACTION_WHEN = {"tag": OWNER_WHEN, "count": {**OWNER_WHEN, "delta": ("mode", ("add",)), "value": ("mode", ("set",))}}
+REPLACED = {"kick"}                         # «Сессия: Закрыть»
 LEGACY = {"flag", "unflag", "world_flag", "world_unflag", "world_count", "player_count", "character_tag"}   # теперь «Тег» и «Счётчик»
 
 
 # действия по пространствам, как у «Когда»: одно действие движка — подпись; несколько — нода с выбором, заголовок по выбору
 RENAMED = {
-    "net_node": "Сетевой сервер: Изменить узел", "file_delete": "Объект: Удалить у игрока", "kick": "Игрок: Выбросить из сессии",
+    "net_node": "Сетевой ресурс: Изменить узел", "file_delete": "Объект: Удалить у игрока", "kick": "Игрок: Выбросить из сессии (старое)",
     "notify": "Экран: Уведомление", "ticker": "Экран: Бегущая строка", "windows": "Экран: Окна ошибок", "open_window": "Экран: Окно с адресом",
     "blackout": "Экран: Чёрный экран", "scene": "Экран: Сцена", "air": "Персонаж: Передать в эфир", "news": "Новости: Опубликовать",
 }
@@ -600,6 +601,12 @@ CHOICES = (
                                             ("all", "Отправить письмо всем", "letter_all", {}, ("item", "machines", "systems")))),
     ("forum", "Персонаж: Написать на форум", (("new", "Новая тема", "forum", {"mode": "new"}, ("section", "character", "title", "text")),
                                   ("append", "Ответ в тему", "forum", {"mode": "append"}, ("section", "character", "title", "text")))),
+    ("screen", "Экран: Показать", (("notify", "Уведомление", "notify", {}, ("title", "text")),
+                                   ("ticker", "Бегущая строка", "ticker", {}, ("text", "seconds")),
+                                   ("windows", "Окна ошибок", "windows", {}, ("message", "count", "gap")),
+                                   ("open_window", "Окно с адресом", "open_window", {}, ("url", "title")),
+                                   ("blackout", "Чёрный экран", "blackout", {}, ("title", "text", "tone", "hold")),
+                                   ("scene", "Сцена", "scene", {}, ("scene",)))),
     ("moment", "Момент: Изменить статус", (("start", "Начать", "moment_start", {}, ("moment",)), ("end", "Закончить", "moment_end", {}, ("moment",)))),
     ("tag", "Тег: Изменить", (("on", "Поставить", "tag", {"mode": "on"}, _OWNER), ("off", "Снять", "tag", {"mode": "off"}, _OWNER))),
     ("count", "Счётчик: Изменить", (("add", "Прибавить", "count", {"mode": "add"}, _OWNER + ("delta",)),
@@ -692,7 +699,7 @@ def _actions():
         label = RENAMED.get(spec.name, spec.label)
         register(Kind("do:" + spec.name, label, ACTION, spec.summary, spec.fields, (Sock("next", "Сделано"), Sock("fail", "Не вышло")),
                       subgroup="" if ": " in label else spec.group, spec=spec, when=ACTION_WHEN.get(spec.name, {}),
-                      hidden=spec.name in LEGACY or spec.name in CHOSEN))
+                      hidden=spec.name in LEGACY or spec.name in CHOSEN or spec.name in REPLACED))
     for key, label, variants in CHOICES:
         _choice(key, label, variants)
 
@@ -747,7 +754,7 @@ register(Kind("act:machine.change", "Машина: Изменить", ACTION, "{
     Field("host_key", "Ключ хоста", "text", "пусто — новый случайный"), Field("note", "Приветствие", "textarea", "{note} в приветствии ОС"),
     Field("booted", "Включена с", "datetime", "2031-03-02 14:05 или «сейчас»", True),
 ), _ACT_OUTS, title="variant", when={name: ("variant", (name,)) for name in ("name", "address", "system", "time_zone", "host_key", "note", "booted")}))
-register(Kind("act:account.change", "Машина: Изменить учётку", ACTION, "{account}", (
+register(Kind("act:account.change", "Учётка: Изменить", ACTION, "{account}", (
     Field("variant", "Действие", "select", "", False, (("mail", "Изменить почту"), ("password", "Изменить пароль"), ("keys", "Установить выражение ключей"),
                                                        ("points_add", "Добавить точки входа"), ("points_remove", "Убрать точки входа"),
                                                        ("groups_add", "Добавить в группы"), ("groups_remove", "Убрать из групп"),
@@ -763,13 +770,13 @@ register(Kind("act:account.change", "Машина: Изменить учётку
                                       "uses": ("variant", ("token_add",)), "minutes": ("variant", ("token_add",)), "tokens": ("variant", ("token_remove",))},
     follows={"token": "account"}))
 DATA_OUTS["act:account.change"] = (Sock("token", "Токен", "many:text"),)
-register(Kind("act:account.access", "Машина: Доступ к учётке", ACTION, "{account}", (
+register(Kind("act:account.access", "Учётка: Доступ", ACTION, "{account}", (
     Field("variant", "Действие", "select", "", False, (("block", "Заблокировать учётку"), ("unblock", "Разблокировать учётку"))),
     Field("account", "Учётка", "many:account", "логин@хост", True),
     Field("scope", "Кому", "select", "", False, (("player", "игроку"), ("all", "всем"))), Field("player", "Игрок", "player", "игрок хода"),
     Field("minutes", "На сколько, мин", "number", "10"), Field("text", "Текст блокировки", "text", ""),
 ), _ACT_OUTS, title="variant", when={"player": ("scope", ("player",)), "minutes": ("variant", ("block",)), "text": ("variant", ("block",))}))
-register(Kind("act:account.manage", "Машина: Создать или удалить учётку", ACTION, "{login}{account}", (
+register(Kind("act:account.manage", "Учётка: Создать или удалить", ACTION, "{login}{account}", (
     Field("variant", "Действие", "select", "", False, (("create", "Создать учётку"), ("delete", "Удалить учётку"))),
     Field("owner", "Чья", "switch", "", False, (("story", "Сюжетная"), ("player", "Игрока хода"))),
     Field("machine", "Машина", "machine", "", True), Field("login", "Логин", "text", "{player} — логин игрока", True), Field("name", "Имя", "text", "как логин"),
@@ -848,7 +855,8 @@ register(Kind("ent:account", "Учётка", ENTITY, "{login}", (
 ), ins=(), covers={"account": ("machine", "login")}))
 DATA_OUTS["ent:account"] = (Sock("value", "Учётка", "account"), Sock("machine", "Машина", "machine"), Sock("login", "Логин", "text"),
                             Sock("name", "Имя", "text"), Sock("mail", "Почта", "text"), Sock("groups", "Группы", "list:text"),
-                            Sock("endpoints", "Точки входа", "list:text"), Sock("root", "Root", "bool"), Sock("blocked", "Заблокирована", "bool"))
+                            Sock("endpoints", "Точки входа", "list:text"), Sock("root", "Root", "bool"), Sock("blocked", "Заблокирована", "bool"),
+                            Sock("sessions", "Сессии", "list:session"))
 
 
 # ---------- пояснения (подсказки на холсте, как в Blender) ----------
@@ -944,7 +952,7 @@ HELP = {
     "act:machine.disk": "Подключить диск в точку машины (в занятую — ляжет сверху), подключить по сети путь другой машины (хост должен его "
                         "отдавать; учётка хоста, пусто — guest) или отключить: провод «Машина: Диск», либо Машина + Точка (всё в ней) "
                         "или Машина + Диск (этот диск с машины). Для всех. Выход — «Машина: Диск».",
-    "ent:server": "Сетевой сервер (nreq, nget): по адресу.", "ent:object": "Объект библиотеки — содержимое, общее для всех; по слагу или названию.",
+    "ent:server": "Сетевой ресурс (nreq, nget): по адресу.", "ent:object": "Объект библиотеки — содержимое, общее для всех; по слагу или названию.",
     "ent:character": "Персонаж: по коду или имени.", "ent:section": "Раздел форума: по номеру или названию.",
     "ent:moment": "Момент мира: по имени или названию; «Идёт» — сейчас ли он.",
     "ent:player": "Игрок: пусто — игрок хода, иначе по логину.",
@@ -952,7 +960,10 @@ HELP = {
                    "(открыта в цепочке мостов, игрок работает дальше) · закрыта. Тип — как вошли: local · rcon · rshell. Где: стол · "
                    "терминал · стол и терминал · пусто.",
     "session.find": "Текущая — где произошло действие (в условии у «Изменить» — где игрок применяет возможность). Все — сессии игрока "
-                    "(пусто — игрок хода), Машина — сессии всех игроков на машине: списком, свежие первыми. «Только активные» — кто там сейчас.",
+                    "(пусто — игрок хода), Машина — сессии всех игроков на машине, Учётка — всех игроков на учётке: списком, свежие первыми. "
+                    "«Только активные» — кто там сейчас.",
+    "act:session.close": "Закрыть сессию: игрока выбрасывает с учётки при следующем запросе (рабочий стол или терминал возвращаются "
+                         "на предыдущую в цепочке). Одна сессия или список; пусто — текущая (где произошло действие).",
     "list.make": "Собрать список из входов (что угодно): подключили последний — появился следующий; пустые не попадают. Все провода "
                  "одного типа — список этого типа, иначе — текста. «Количество» — сколько вышло.",
     "list.content": "Количество элементов; Элемент — первый, последний или по номеру («Есть» — нашёлся ли); Содержит — есть ли значение "
@@ -988,7 +999,7 @@ HELP = {
             "Список — «Для каждого» или «Список: …». Перенос и переименование файла его не теряют.",
     "do:flag": "Поставить тег игроку (tag:имя).", "do:unflag": "Снять тег игрока.",
     "do:letter": "Прислать готовое письмо в ящик учётки игрока (можно с задержкой).",
-    "do:kick": "Выбросить игрока из сессии учётки события.",
+    "do:kick": "Старое: теперь «Сессия: Закрыть».",
     "do:world_flag": "Поставить метку мира.", "do:world_unflag": "Снять метку мира.",
     "do:world_count": "Прибавить к счётчику мира.",
     "do:news": "Опубликовать новость; важная всплывает на столе.",
@@ -1038,7 +1049,7 @@ SOCKET_HELP = {
     "go": "попытка: дальше проверки, конец — «Ответить»", "each": "по разу на элемент списка", "done": "все элементы пройдены",
     "index": "номер элемента (с 1)", "found": "элемент с таким номером есть", "list": "список", "given": "что игрок ввёл, снимая слой", "kind": "тип слоя",
     "number": "номер слоя сверху (у слоя, добавленного игроком, — 0)", "removed": "игрок уже снял этот слой", "left": "сколько слоёв осталось у игрока",
-    "server": "сервер",
+    "server": "сетевой ресурс",
 }
 
 
@@ -1153,8 +1164,8 @@ DATA_OUTS["ent:mount"] = (Sock("value", "Диск машины", "mount"), Sock(
                           Sock("type", "Тип", "text"), Sock("volume", "Диск", "volume"), Sock("host", "Хост", "machine"),
                           Sock("path", "Путь", "text"), Sock("account", "Учётка", "account"), Sock("read_only", "Только чтение", "bool"),
                           Sock("exists", "Есть", "bool"))
-_entity("ent:server", "Сервер", Field("server", "Сервер", "server"),
-        (Sock("value", "Сервер", "server"), Sock("title", "Название", "text")))
+_entity("ent:server", "Сетевой ресурс", Field("server", "Сетевой ресурс", "server"),
+        (Sock("value", "Сетевой ресурс", "server"), Sock("title", "Название", "text")))
 _entity("ent:object", "Объект", Field("item", "Объект", "object"),
         (Sock("value", "Объект", "item"), Sock("name", "Название", "text"), Sock("format", "Формат", "text")))
 _entity("ent:character", "Персонаж", Field("character", "Персонаж", "character"),
@@ -1171,11 +1182,16 @@ _entity("ent:session", "Сессия", Field("session", "Сессия", "session
          Sock("account", "Учётка", "account"), Sock("seen", "Последняя активность", "datetime"), Sock("active", "Активна", "bool"),
          Sock("status", "Статус", "text"), Sock("via", "Тип", "text"), Sock("where", "Где", "text")))
 register(Kind("session.find", "Сессия: Найти", ENTITY, "", (
-    Field("mode", "Какие", "switch", "", False, (("current", "Текущая"), ("all", "Все"), ("machine", "Машина"))),
+    Field("mode", "Какие", "switch", "", False, (("current", "Текущая"), ("all", "Все"), ("machine", "Машина"), ("account", "Учётка"))),
     Field("player", "Игрок", "player", "игрок хода"), Field("machine", "Машина", "machine", "", True),
+    Field("account", "Учётка", "account", "логин@хост", True),
     Field("active", "Только активные", "bool"),
-), ins=(), title="mode", plural={"value": ("mode", ("all", "machine"))},
-   when={"player": ("mode", ("all",)), "machine": ("mode", ("machine",)), "active": ("mode", ("all", "machine"))}))
+), ins=(), title="mode", plural={"value": ("mode", ("all", "machine", "account"))},
+   when={"player": ("mode", ("all",)), "machine": ("mode", ("machine",)), "account": ("mode", ("account",)),
+         "active": ("mode", ("all", "machine", "account"))}))
+register(Kind("act:session.close", "Сессия: Закрыть", ACTION, "{session}", (
+    Field("session", "Сессия", "many:session", "текущая"),
+), (Sock("next", "Сделано"), Sock("fail", "Не вышло"))))
 DATA_OUTS["session.find"] = (Sock("value", "Сессия", "session"),)
 def _layer_types():
     from filesystem.layers.registry import registry
@@ -1348,7 +1364,7 @@ def sockets(kind, data, side, iface=None):
     return names
 
 
-SPACES = ("Машина", "Учётка", "Сетевой сервер", "Терминал", "Объект", "Размещение", "Слой", "Игрок", "Экран", "Персонаж", "Почта", "Эфир", "Форум", "Новости",
+SPACES = ("Машина", "Учётка", "Сессия", "Сетевой ресурс", "Терминал", "Объект", "Размещение", "Слой", "Игрок", "Экран", "Персонаж", "Почта", "Эфир", "Форум", "Новости",
           "Момент", "Тег", "Счётчик")                # порядок пространств в меню (как у «Когда»)
 
 

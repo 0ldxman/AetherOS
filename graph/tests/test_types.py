@@ -26,7 +26,7 @@ class SocketTypeTests(SimpleTestCase):
 
     def test_labels_and_fields(self):
         self.assertEqual(nodes.type_label("many:placement"), "размещение или список (размещение)")
-        self.assertEqual(nodes.type_label("machine|server"), "машину или сервер")
+        self.assertEqual(nodes.type_label("machine|server"), "машину или сетевой ресурс")
         self.assertEqual(nodes.type_label("list:placement"), "список (размещение)")
         self.assertEqual(nodes.field_type(Field("p", "Размещение", "many:placement")), "many:placement")
         self.assertEqual(nodes.field_type(Field("o", "Объект", "many:object")), "many:item")
