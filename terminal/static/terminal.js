@@ -57,6 +57,18 @@
         output.appendChild(line);
     }
 
+    async function typeLines(text, className, step) {
+        const line = document.createElement("div");
+        line.className = `terminal-line ${className}`.trim();
+        output.appendChild(line);
+        const lines = text.split("\n");
+        for (let i = 0; i < lines.length; i++) {
+            line.textContent += (i ? "\n" : "") + lines[i];
+            line.scrollIntoView({ block: "end" });
+            if (i < lines.length - 1) await new Promise((resolve) => setTimeout(resolve, step));
+        }
+    }
+
     function updatePrompt() {
         if (shellPrompt) { prompt.textContent = shellPrompt; return; }
         // логин@машина:путь$, путь как в Linux: домашняя папка это ~, внутри неё ~/папка (папку называет сервер)
@@ -371,11 +383,20 @@
             output.textContent = "";
         }
 
+        // медленный канал: ответ приходит с паузой и печатается построчно
+        if (data.delay) {
+            await new Promise((resolve) => setTimeout(resolve, data.delay));
+        }
+
         // сначала работа команды, потом её ответ
         await playScene(data.scene);
 
         if (data.output) {
-            appendLine(data.output, data.exit_code ? "terminal-error" : "");
+            if (data.line_ms) {
+                await typeLines(data.output, data.exit_code ? "terminal-error" : "", data.line_ms);
+            } else {
+                appendLine(data.output, data.exit_code ? "terminal-error" : "");
+            }
         }
 
         if (data.window) {

@@ -199,3 +199,36 @@ class MachineTraitsTests(WorldCase):
         Machine.objects.filter(pk=self.core.pk).update(seats=None)
         first = self.run_command("rshell reader@aether-core")
         self.assertNotIn("too many users", (first.get("output") or ""))
+
+
+class ChannelTests(WorldCase):
+    """Медленный и нестабильный канал до машины."""
+
+    def test_noise_flips_bits_and_breaks_cyrillic(self):
+        import random
+
+        from machines.world import channel
+
+        machine = Machine(noise="often")
+        noisy = channel.garble("access granted to guard\nдоступ разрешён\n" * 40, machine, random.Random(7))
+        self.assertNotEqual(noisy, "access granted to guard\nдоступ разрешён\n" * 40)
+        self.assertIn("\ufffd", noisy)
+        self.assertEqual(noisy.count("\n"), 80)                                           # строки на месте
+        self.assertEqual(channel.garble("same", Machine(noise="none")), "same")
+        self.assertEqual(channel.delay(Machine(lag="none")), (0, 0))
+        pause, line = channel.delay(Machine(lag="heavy"), "xfer", random.Random(1))
+        self.assertTrue(6000 <= pause <= 12000 and line == 180)
+
+    def test_an_unstable_host_drops_the_rshell_and_the_terminal_gets_the_lag(self):
+        from unittest import mock
+
+        self.allow()
+        Machine.objects.filter(pk=self.core.pk).update(lag="light", noise="often")
+        first = self.run_command("rshell reader@aether-core")
+        if first.get("prompt"):
+            self.answer("right")
+        with mock.patch("machines.world.channel.drops", return_value=True), mock.patch("machines.world.channel.garble", lambda text, machine, rng=None: text):
+            result = self.run_command("ls /srv/harbor")
+        self.assertIn("Connection reset by peer", result["output"])
+        self.assertTrue(500 <= result["delay"] <= 1200 and result["line_ms"] == 60)
+        self.assertEqual(self.run_command("pwd")["hostname"], "aether-main")              # на следующем запросе подключение закрыто

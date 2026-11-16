@@ -15,7 +15,7 @@
 
   let { machine, onchange }: { machine: Schemas["Overview"]; onchange: () => void } = $props();
 
-  let form = $state({ hostname: "", name: "", system: "", status: "", hid: "", address: "", serial: "", host_key: "", note: "", booted_at: "", time_zone: "UTC", display: true, seats: null as number | null, maintenance_text: "", entry_policy: null as number | null });
+  let form = $state({ hostname: "", name: "", system: "", status: "", hid: "", address: "", serial: "", host_key: "", note: "", booted_at: "", time_zone: "UTC", display: true, seats: null as number | null, lag: "none", noise: "none", maintenance_text: "", entry_policy: null as number | null });
   let saving = $state(false);
   let errors = $state<Record<string, string[]>>({});
   let dialog = $state<null | "delete" | "copy">(null);
@@ -36,7 +36,7 @@
 
   const base = $derived({
     hostname: machine.hostname, name: machine.name, system: machine.system, status: machine.status, hid: machine.hid, address: machine.address, serial: machine.serial, host_key: machine.host_key,
-    note: machine.note, booted_at: local(machine.booted_at ?? null), time_zone: machine.time_zone, display: machine.display, seats: machine.seats ?? null,
+    note: machine.note, booted_at: local(machine.booted_at ?? null), time_zone: machine.time_zone, display: machine.display, seats: machine.seats ?? null, lag: machine.lag, noise: machine.noise,
     maintenance_text: machine.maintenance_text, entry_policy: machine.policy?.id ?? null,
   });
   // общий черновик обзора машины: пока он не подключён, форма берётся из сохранённого, потом её ведёт черновик
@@ -49,7 +49,7 @@
     form.hostname !== machine.hostname || form.name !== machine.name || form.system !== machine.system ||
       form.status !== machine.status || form.entry_policy !== (machine.policy?.id ?? null) || form.hid !== machine.hid || form.address !== machine.address || form.serial !== machine.serial || form.host_key !== machine.host_key ||
       form.note !== machine.note || form.booted_at !== local(machine.booted_at ?? null) || form.time_zone !== machine.time_zone || form.maintenance_text !== machine.maintenance_text ||
-      form.display !== machine.display || (form.seats ?? null) !== (machine.seats ?? null),
+      form.display !== machine.display || (form.seats ?? null) !== (machine.seats ?? null) || form.lag !== machine.lag || form.noise !== machine.noise,
   );
   guardUnsaved(() => dirty && !share.ready);
 
@@ -158,6 +158,12 @@
           <Hint text="Без неё у машины нет рабочего стола: rcon отвечает no graphical shell, войти можно только rshell (терминал), xfer и раздачами." /></label>
         <label><span class="label">Мест<Hint text="Сколько игроков может быть на машине одновременно. Остальным — too many users. Пусто — без ограничения." /></span>
           <input class="field" type="number" min="0" bind:value={form.seats} placeholder="без ограничения" /></label>
+      </div>
+      <div class="pair">
+        <label><span class="label">Задержка<Hint text="Медленный канал: ответ терминала на этой машине приходит с паузой (0,5–1 с или 2–4 с) и печатается построчно; xfer втрое дольше." /></span>
+          <select class="field" bind:value={form.lag}><option value="none">нет</option><option value="light">небольшая</option><option value="heavy">сильная</option></select></label>
+        <label><span class="label">Помехи<Hint text="Нестабильный канал: в выводе сбитые символы (a→c, кириллица →�), пропавшие и повторённые; иногда подключение рвётся (connection reset by peer). Редкие — около 1% символов и обрыв в 3% команд, частые — 4% и 10%." /></span>
+          <select class="field" bind:value={form.noise}><option value="none">нет</option><option value="rare">редкие</option><option value="often">частые</option></select></label>
       </div>
       <label><span class="label">Политика входа машины<Hint text="Как проверяется вход на эту машину. Учётка со своей политикой её перекрывает. Что действует для каждой учётки, видно на вкладке «Проверка входа»." /></span>
         <select class="field" bind:value={form.entry_policy}>

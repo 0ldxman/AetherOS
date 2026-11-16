@@ -998,6 +998,9 @@ def _machine_act(run, node_id, kind, data):
                 if what == "display":
                     edits.change_machine(machine, display=(data.get("display") or "on") != "off")
                     continue
+                if what in ("lag", "noise"):
+                    edits.change_machine(machine, **{what: data.get(what) or "none"})
+                    continue
                 if what == "seats":
                     raw = str(data.get("seats") if data.get("seats") is not None else "").strip()
                     edits.change_machine(machine, seats=int(float(raw)) if raw.replace(".", "", 1).isdigit() else None)

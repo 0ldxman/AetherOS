@@ -126,6 +126,21 @@ def execute(request):
         )
 
     effects = _server_effects(request, session, result.effects)
+    pause, line_ms = 0, 0
+    if not payload.get("cancel") and "answer" not in payload:
+        from machines.world import channel
+
+        machine = session.profile.machine
+        command = str(payload.get("command") or "").strip().split(" ")[0]
+        pause, line_ms = channel.delay(machine, command)
+        from dataclasses import replace
+
+        text = channel.garble(result.output, machine)
+        if session.parent_id is not None and channel.drops(machine):        # обрыв: подключение закроется на следующем запросе
+            bridge.request_kick(request.user, session.profile)
+            text = "\n".join(filter(None, [text, "Connection reset by peer"]))
+        if text != result.output:
+            result = replace(result, output=text)
     if bridge.desktop_id(request) != desktop_before:
         new_cwd = _home(request)      # смена рабочего стола начинает новую оболочку
     elif bridge.node_count(request) > nodes_before:
@@ -154,6 +169,8 @@ def execute(request):
         "tabs": _tabs(request),
         "now": _clock(),
         "warn_at": bridge.WARN_AT,
+        "delay": pause,                 # медленный канал: пауза до ответа и между строками, мс
+        "line_ms": line_ms,
     })
 
 

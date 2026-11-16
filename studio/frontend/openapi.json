@@ -19372,6 +19372,14 @@
       ],
       "title": "Seats"
      },
+     "lag": {
+      "title": "Lag",
+      "type": "string"
+     },
+     "noise": {
+      "title": "Noise",
+      "type": "string"
+     },
      "maintenance_text": {
       "title": "Maintenance Text",
       "type": "string"
@@ -19470,6 +19478,8 @@
      "time_zone",
      "display",
      "seats",
+     "lag",
+     "noise",
      "maintenance_text",
      "local_now",
      "is_system",
@@ -19625,6 +19635,16 @@
        }
       ],
       "title": "Seats"
+     },
+     "lag": {
+      "default": "none",
+      "title": "Lag",
+      "type": "string"
+     },
+     "noise": {
+      "default": "none",
+      "title": "Noise",
+      "type": "string"
      },
      "maintenance_text": {
       "default": "",
