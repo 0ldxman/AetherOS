@@ -35,7 +35,7 @@ UNSET = object()
 
 
 def change_machine(machine, *, name="", address="", system="", time_zone="", host_key="", note=None, booted="", display=None, seats=UNSET,
-                   lag_ms=None, noise_pct=None, drop_pct=None):
+                   lag_ms=None, noise_pct=None, drop_pct=None, bandwidth_kbps=None, input_noise_pct=None, overload_pct=None, screen_noise=None):
     """Свойства машины для всех; пустое — не трогать. host_key «*» — новый случайный отпечаток. display — есть ли графическая оболочка,
     seats — сколько игроков одновременно (None — без ограничения)."""
     from machines.models import SystemType
@@ -69,6 +69,14 @@ def change_machine(machine, *, name="", address="", system="", time_zone="", hos
         machine.noise_pct = min(100.0, max(0.0, float(noise_pct)))
     if drop_pct is not None:
         machine.drop_pct = min(100.0, max(0.0, float(drop_pct)))
+    if bandwidth_kbps is not None:
+        machine.bandwidth_kbps = max(0, int(bandwidth_kbps))
+    if input_noise_pct is not None:
+        machine.input_noise_pct = min(100.0, max(0.0, float(input_noise_pct)))
+    if overload_pct is not None:
+        machine.overload_pct = min(100.0, max(0.0, float(overload_pct)))
+    if screen_noise is not None:
+        machine.screen_noise = min(100, max(0, int(screen_noise)))
     machine.save()
     return machine
 

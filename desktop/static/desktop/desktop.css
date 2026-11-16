@@ -737,3 +737,15 @@ body {
                                   background: none; color: var(--fg); border-color: var(--line-bright); }
 :where(.win-actions) .dialog-ok:hover,
 :where(.win-actions) .dialog-ok:focus-visible { background: var(--tone); border-color: var(--tone); color: var(--font-dark); outline: none; }
+
+
+/* помехи изображения машины: полосы развёртки и короткие сбои (desktop.js) */
+.screen-noise {
+  position: fixed; inset: 0; pointer-events: none; z-index: 2147483000;
+  background: repeating-linear-gradient(to bottom, color-mix(in srgb, var(--fg) calc(var(--noise) * 6%), transparent) 0 1px, transparent 1px 3px);
+  mix-blend-mode: overlay;
+  animation: screen-noise-roll 7s linear infinite;
+}
+@keyframes screen-noise-roll { from { background-position: 0 0; } to { background-position: 0 300px; } }
+body.screen-glitch { transform: translateX(var(--glitch-x, 0)); filter: hue-rotate(25deg) contrast(1.2); }
+@media (prefers-reduced-motion: reduce) { .screen-noise { animation: none; } }

@@ -82,3 +82,18 @@ def place_item(dest, item, state, dest_path, name):
 def hop_seconds(size):
     """Сколько секунд файл size байт идёт по одному прыжку: больше файл, дольше (от 1 до 8 секунд)."""
     return min(8.0, 1.0 + size / 1024 / 300)
+
+
+def damage(context, path):
+    """Файл пришёл через канал с помехами: сверху слой damaged, как у файла, долго пролежавшего в корзине."""
+    from filesystem.layers import player
+    from filesystem.layers.stack import load_progress
+
+    view = context.view
+    entry = view.get(path)
+    if entry is None:
+        return
+    progress = load_progress(entry.progress, entry.state)
+    progress.push("damaged")
+    view.set_progress(path, progress.dump())
+    player.added(view, path, 1)

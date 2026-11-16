@@ -402,12 +402,19 @@ class XferCommand(EntryCommand):
             (remote, remote_path, local, local_path) if args["download"] else (local, local_path, remote, remote_path)
         )
 
+        from machines.world import channel
+
+        entry = VirtualFilesystem(source).get_file(source_path)
+        size = size_of(source, entry) if entry is not None else 0
+        slow = channel.transfer_ms(size, source.machine, dest.machine)       # узкий канал: передача идёт со скоростью канала
         hops, hop_ms, lost = None, None, None
         if route:
             request = local.request
             ids = bridge.route_ids(request, *route)                  # узлы по порядку отправки
             hops = bridge.route(request, *route)
             hop_ms, lost = self.timing(source, source_path, request, ids)
+            if slow:
+                hop_ms = max(hop_ms, slow)
 
         if lost:
             return CommandResult(
@@ -419,10 +426,15 @@ class XferCommand(EntryCommand):
         if error:
             return CommandResult(f"{self.name}: {error}", 1, scene=scenes.transfer_scene(source_path, 0, ok=False, connect=connect, hops=hops, hop_ms=hop_ms))
 
+        broken = channel.damaged(size, source.machine, dest.machine)          # помехи канала: файл пришёл испорченным
+        if broken:
+            from terminal.engine.transfer import damage
+
+            damage(dest, target)
         return CommandResult(
-            f"{self.name}: {source_path} -> {target}: transferred",
+            f"{self.name}: {source_path} -> {target}: " + ("transferred, checksum mismatch (file damaged)" if broken else "transferred"),
             0,
-            scene=scenes.transfer_scene(source_path, target, connect=connect, hops=hops, hop_ms=hop_ms),
+            scene=scenes.transfer_scene(source_path, target, ok=not broken, connect=connect, hops=hops, hop_ms=hop_ms, send_ms=slow or None),
         )
 
 class MntCommand(BaseCommand):

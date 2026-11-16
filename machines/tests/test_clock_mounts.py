@@ -245,3 +245,38 @@ class ChannelTests(WorldCase):
         after = self.run_command("pwd")
         self.assertEqual(after["hostname"], "aether-main")
         self.assertIn("Connection reset by peer", str(after.get("kicks")))
+
+
+class ChannelMoreTests(WorldCase):
+    """Пропускная способность и порча при передаче, перегрузка, помехи ввода и изображения."""
+
+    def test_bandwidth_damage_and_overload_rules(self):
+        import random
+
+        from machines.world import channel
+
+        self.assertEqual(channel.transfer_ms(1024 * 100, Machine(bandwidth_kbps=50), Machine(bandwidth_kbps=0)), 2000)
+        self.assertEqual(channel.transfer_ms(1024 * 100, Machine(), None), 0)
+        self.assertFalse(channel.damaged(10_000, Machine()))
+        self.assertTrue(channel.damaged(10_000_000, Machine(noise_pct=5), rng=random.Random(1)))
+        self.assertFalse(channel.overloaded(Machine(overload_pct=100), "exit"))
+        self.assertTrue(channel.overloaded(Machine(overload_pct=100), "ls"))
+
+    def test_overload_refuses_a_command_and_the_terminal_learns_input_noise(self):
+        Machine.objects.filter(pk=self.main.pk).update(overload_pct=100, input_noise_pct=4)
+        result = self.run_command("ls /")
+        self.assertIn("Resource temporarily unavailable", result["output"])
+        self.assertEqual(result["input_noise"], 4)
+
+    def test_a_transfer_through_noise_arrives_damaged(self):
+        from unittest import mock
+
+        self.allow()
+        Machine.objects.filter(pk=self.core.pk).update(noise_pct=50)
+        with mock.patch("machines.world.channel.damaged", return_value=True):
+            first = self.run_command("xfer reader@aether-core:/srv/harbor/manifest.txt /home/m.txt")
+            result = self.answer("right") if first.get("prompt") else first
+        self.assertIn("checksum mismatch", result["output"], result["output"])
+        from filesystem.machine_view import MachineView
+
+        self.assertIn("damaged", MachineView(self.main, self.user).get("/home/m.txt").progress)

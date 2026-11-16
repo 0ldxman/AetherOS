@@ -1672,3 +1672,22 @@ window.addEventListener("blur", () => setMenu(false));
   setTimeout(poll, 1500);
   setInterval(poll, 6000);
 })();
+
+
+// Помехи изображения машины (machines.Machine.screen_noise): полосы поверх стола и редкие сбои картинки — чаще и сильнее с уровнем.
+(() => {
+  const level = Math.min(100, Math.max(0, parseInt(desktop.dataset.screenNoise || "0", 10) || 0));
+  if (!level) return;
+  const veil = document.createElement("div");
+  veil.className = "screen-noise";
+  veil.style.setProperty("--noise", String(level / 100));
+  document.body.append(veil);
+  if (window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+  const glitch = () => {
+    document.body.classList.add("screen-glitch");
+    document.body.style.setProperty("--glitch-x", `${(Math.random() - 0.5) * level * 0.2}px`);
+    setTimeout(() => document.body.classList.remove("screen-glitch"), 80 + Math.random() * 120);
+    setTimeout(glitch, (20000 - level * 180) * (0.4 + Math.random()));
+  };
+  setTimeout(glitch, 3000 + Math.random() * 4000);
+})();

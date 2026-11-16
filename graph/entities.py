@@ -47,7 +47,9 @@ def _props(name, key, run):
         m = _machine(key)
         return m and {"value": m.hostname, "name": m.name, "host": m.hostname, "address": m.address, "system": m.system,
                       "up": not power.is_down(m), "disks": disks.of_machine(m), "sessions": sessions.of_machine(m), "display": m.display,
-                      "seats": m.seats or 0, "taken": _taken(m), "lag_ms": m.lag_ms, "noise_pct": m.noise_pct, "drop_pct": m.drop_pct}
+                      "seats": m.seats or 0, "taken": _taken(m), "lag_ms": m.lag_ms, "noise_pct": m.noise_pct, "drop_pct": m.drop_pct,
+                      "bandwidth_kbps": m.bandwidth_kbps, "input_noise_pct": m.input_noise_pct, "overload_pct": m.overload_pct,
+                      "screen_noise": m.screen_noise}
     if name == "ent:server":
         from machines.models import NetResource
 

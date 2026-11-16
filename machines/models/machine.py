@@ -84,6 +84,15 @@ class Machine(models.Model):
     drop_pct = models.FloatField("Обрывы, % в минуту", default=0,
                                  help_text="Шанс за минуту, пока игрок работает с машиной (терминал, стол, вики, почта), что подключение "
                                            "оборвётся: 5 — примерно раз в 20 минут. 0 — нет.")
+    bandwidth_kbps = models.PositiveIntegerField("Пропускная способность, КБ/с", default=0,
+                                                 help_text="xfer идёт со скоростью канала: большой файл передаётся долго. 0 — без ограничения.")
+    input_noise_pct = models.FloatField("Помехи ввода, % символов", default=0,
+                                        help_text="Пока игрок набирает команду в терминале этой машины, столько процентов символов подменяются "
+                                                  "соседними по коду. Пароли не трогаются. 0 — нет.")
+    overload_pct = models.FloatField("Перегрузка, % команд", default=0,
+                                     help_text="Столько процентов команд терминала не выполняется: Resource temporarily unavailable. 0 — нет.")
+    screen_noise = models.PositiveSmallIntegerField("Помехи изображения", default=0,
+                                                    help_text="Рабочий стол этой машины с полосами и сбоями картинки: 0 — нет, 100 — сильно.")
     seats = models.PositiveSmallIntegerField("Мест", null=True, blank=True,
                                              help_text="Сколько игроков одновременно может быть на машине. Пусто — без ограничения.")
     time_zone = models.CharField(

@@ -111,6 +111,10 @@ class Overview(Schema):
     lag_ms: int                 # задержка канала, мс
     noise_pct: float            # помехи: процент сбитых символов
     drop_pct: float             # обрывы: шанс за минуту работы, %
+    bandwidth_kbps: int         # пропускная способность для xfer, КБ/с; 0 — без ограничения
+    input_noise_pct: float      # помехи ввода, % символов
+    overload_pct: float         # перегрузка, % команд
+    screen_noise: int           # помехи изображения стола, 0–100
     maintenance_text: str
     local_now: str              # «2031-03-02 14:05 MSK»: время машины сейчас (без сдвига часов игрока)
     is_system: bool
@@ -142,6 +146,10 @@ class MachineIn(Schema):
     lag_ms: int = 0
     noise_pct: float = 0
     drop_pct: float = 0
+    bandwidth_kbps: int = 0
+    input_noise_pct: float = 0
+    overload_pct: float = 0
+    screen_noise: int = 0
     maintenance_text: str = ""
     entry_policy: int | None = None
 
@@ -327,6 +335,7 @@ def overview(request, machine_id: int):
         id=machine.pk, hostname=machine.hostname or "", name=machine.name, system=machine.system, status=machine.status, hid=machine.hid,
         address=machine.address, serial=machine.serial, host_key=machine.host_key, **_auto(machine),
         note=machine.note, booted_at=machine.booted_at, time_zone=machine.time_zone, display=machine.display, seats=machine.seats, lag_ms=machine.lag_ms, noise_pct=machine.noise_pct, drop_pct=machine.drop_pct,
+        bandwidth_kbps=machine.bandwidth_kbps, input_noise_pct=machine.input_noise_pct, overload_pct=machine.overload_pct, screen_noise=machine.screen_noise,
         maintenance_text=machine.maintenance_text,
         local_now=f"{chrono.in_zone(chrono.game_now(), machine):%Y-%m-%d %H:%M %Z}",
         is_system=machine.is_system,
@@ -367,6 +376,9 @@ def save(request, machine_id: int, body: MachineIn):
     machine.display, machine.seats = body.display, body.seats
     machine.lag_ms = max(0, body.lag_ms)
     machine.noise_pct, machine.drop_pct = min(100.0, max(0.0, body.noise_pct)), min(100.0, max(0.0, body.drop_pct))
+    machine.bandwidth_kbps = max(0, body.bandwidth_kbps)
+    machine.input_noise_pct, machine.overload_pct = min(100.0, max(0.0, body.input_noise_pct)), min(100.0, max(0.0, body.overload_pct))
+    machine.screen_noise = min(100, max(0, body.screen_noise))
     if body.hid is not None:
         machine.hid = body.hid.strip().lower()
     machine.entry_policy_id = body.entry_policy

@@ -998,7 +998,7 @@ def _machine_act(run, node_id, kind, data):
                 if what == "display":
                     edits.change_machine(machine, display=(data.get("display") or "on") != "off")
                     continue
-                if what in ("lag_ms", "noise_pct", "drop_pct"):
+                if what in ("lag_ms", "noise_pct", "drop_pct", "bandwidth_kbps", "input_noise_pct", "overload_pct", "screen_noise"):
                     raw = str(data.get(what) if data.get(what) is not None else "0").strip() or "0"
                     try:
                         number_value = float(raw)

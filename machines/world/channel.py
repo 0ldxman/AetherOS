@@ -50,6 +50,32 @@ def garble(text, machine, rng=random):
     return "".join(out)
 
 
+def _pct(machine, name):
+    return min(100.0, max(0.0, float(getattr(machine, name, 0) or 0))) / 100
+
+
+def overloaded(machine, command="", rng=random):
+    """Не выполнилась ли команда из-за перегрузки (выход из оболочки работает всегда)."""
+    rate = _pct(machine, "overload_pct")
+    return bool(rate) and command not in ("exit", "rcon-close", "") and rng.random() < rate
+
+
+def transfer_ms(size, *machines):
+    """Сколько мс идёт передача size байт по самому узкому каналу из machines (0 — ограничения нет)."""
+    limits = [int(getattr(machine, "bandwidth_kbps", 0) or 0) for machine in machines if machine is not None]
+    limits = [kbps for kbps in limits if kbps > 0]
+    return int(size / 1024 / min(limits) * 1000) if limits else 0
+
+
+def damaged(size, *machines, rng=random):
+    """Пришёл ли файл size байт испорченным: каждый блок 4 КБ портится с вероятностью помех канала."""
+    rate = max((_pct(machine, "noise_pct") for machine in machines if machine is not None), default=0)
+    if not rate:
+        return False
+    blocks = max(1, -(-int(size) // 4096))
+    return rng.random() < min(0.95, 1 - (1 - rate) ** blocks)
+
+
 def drops(machine, seconds, rng=random):
     """Оборвётся ли подключение за seconds секунд работы с машиной (шанс drop_pct % за минуту)."""
     rate = min(100.0, max(0.0, float(getattr(machine, "drop_pct", 0) or 0))) / 100

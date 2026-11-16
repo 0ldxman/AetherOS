@@ -85,7 +85,7 @@ def disconnect_scene(system, host, cut=True):
     return s.to_dict()
 
 
-def transfer_scene(name, size_seed, ok=True, connect=None, hops=None, hop_ms=None, lost=None):
+def transfer_scene(name, size_seed, ok=True, connect=None, hops=None, hop_ms=None, lost=None, send_ms=None):
     """Перенос файла: открытие канала, полоса передачи, проверка. connect это сцена соединения (xfer с явным адресом),
     hops метки узлов от отправителя к получателю (xfer между открытыми вкладками): файл идёт по цепочке, и на каждом
     прыжке своя полоса передачи, от узла к следующему."""
@@ -106,7 +106,7 @@ def transfer_scene(name, size_seed, ok=True, connect=None, hops=None, hop_ms=Non
         s.task("checksum   ", _result(ok), ms=(250, 550))
         return s.to_dict()
     s.task("channel    opening ", "OK", ms=(150, 350))
-    s.count(f"sending {name} ", _stable(name + str(size_seed), 4, 900), unit=" KB", ms=(500, 1100), width=12)
+    s.count(f"sending {name} ", _stable(name + str(size_seed), 4, 900), unit=" KB", ms=send_ms or (500, 1100), width=12)
     s.task("checksum   ", _result(ok), ms=(250, 550))
     return s.to_dict()
 

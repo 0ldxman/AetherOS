@@ -19,6 +19,7 @@
     let cwd = terminal.dataset.cwd || "/home";
     let home = terminal.dataset.home || "/home";
     let shellPrompt = terminal.dataset.shellPrompt || "";      // приглашение по диалекту путей машины (считает сервер)
+    let inputNoise = parseFloat((terminal.dataset.inputNoise || "0").replace(",", ".")) || 0;     // помехи ввода машины, % символов
     let busy = false;
 
     // У каждой вкладки своя лента вывода и своя история команд. Ленты неактивных вкладок лежат отдельно, пока терминал
@@ -375,6 +376,7 @@
         shellPrompt = data.shell_prompt || shellPrompt;
         hostname = data.hostname || hostname;     // rshell меняет машину и логин оболочки
         login = data.login || login;
+        if (typeof data.input_noise === "number") inputNoise = data.input_noise;
         syncClock(data);
         if (data.tabs) renderTabs(data.tabs);
         updatePrompt();
@@ -462,6 +464,26 @@
             input.focus();
             scrollToBottom();
         }
+    });
+
+    // помехи ввода: набранный символ на плохой линии доходит соседним по коду (сбитый бит); пароли не трогаем
+    function flipped(char) {
+        const code = char.charCodeAt(0);
+        if (code > 126) return "\ufffd";
+        for (let i = 0; i < 8; i++) {
+            const next = code ^ (1 << Math.floor(Math.random() * 6));
+            if (next >= 32 && next <= 126) return String.fromCharCode(next);
+        }
+        return char;
+    }
+    input.addEventListener("beforeinput", (event) => {
+        if (!inputNoise || awaiting || event.inputType !== "insertText" || !event.data || event.data.length !== 1) return;
+        if (Math.random() * 100 >= inputNoise) return;
+        event.preventDefault();
+        const start = input.selectionStart ?? input.value.length;
+        const end = input.selectionEnd ?? start;
+        input.value = input.value.slice(0, start) + flipped(event.data) + input.value.slice(end);
+        input.setSelectionRange(start + 1, start + 1);
     });
 
     input.addEventListener("keydown", (event) => {

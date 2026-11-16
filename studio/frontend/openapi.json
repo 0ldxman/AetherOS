@@ -19384,6 +19384,22 @@
       "title": "Drop Pct",
       "type": "number"
      },
+     "bandwidth_kbps": {
+      "title": "Bandwidth Kbps",
+      "type": "integer"
+     },
+     "input_noise_pct": {
+      "title": "Input Noise Pct",
+      "type": "number"
+     },
+     "overload_pct": {
+      "title": "Overload Pct",
+      "type": "number"
+     },
+     "screen_noise": {
+      "title": "Screen Noise",
+      "type": "integer"
+     },
      "maintenance_text": {
       "title": "Maintenance Text",
       "type": "string"
@@ -19485,6 +19501,10 @@
      "lag_ms",
      "noise_pct",
      "drop_pct",
+     "bandwidth_kbps",
+     "input_noise_pct",
+     "overload_pct",
+     "screen_noise",
      "maintenance_text",
      "local_now",
      "is_system",
@@ -19655,6 +19675,26 @@
       "default": 0,
       "title": "Drop Pct",
       "type": "number"
+     },
+     "bandwidth_kbps": {
+      "default": 0,
+      "title": "Bandwidth Kbps",
+      "type": "integer"
+     },
+     "input_noise_pct": {
+      "default": 0,
+      "title": "Input Noise Pct",
+      "type": "number"
+     },
+     "overload_pct": {
+      "default": 0,
+      "title": "Overload Pct",
+      "type": "number"
+     },
+     "screen_noise": {
+      "default": 0,
+      "title": "Screen Noise",
+      "type": "integer"
      },
      "maintenance_text": {
       "default": "",

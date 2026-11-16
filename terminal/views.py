@@ -118,12 +118,17 @@ def execute(request):
                 status=400,
             )
 
-        result, new_cwd = TerminalExecutor().execute(
-            session=session,
-            source=source,
-            cwd=cwd,
-            request=request,
-        )
+        from machines.world import channel
+
+        if channel.overloaded(session.profile.machine, source.strip().split(" ")[0]):        # перегрузка: команда не выполнилась
+            result, new_cwd = CommandResult(f"{source.strip().split(' ')[0]}: Resource temporarily unavailable", 1), cwd
+        else:
+            result, new_cwd = TerminalExecutor().execute(
+                session=session,
+                source=source,
+                cwd=cwd,
+                request=request,
+            )
 
     effects = _server_effects(request, session, result.effects)
     pause, line_ms = 0, 0
@@ -168,6 +173,7 @@ def execute(request):
         "warn_at": bridge.WARN_AT,
         "delay": pause,                 # медленный канал: пауза до ответа и между строками, мс
         "line_ms": line_ms,
+        "input_noise": bridge.terminal_session(request).profile.machine.input_noise_pct,     # помехи ввода, % символов
     })
 
 
@@ -387,6 +393,7 @@ def terminal_page(request):
             "home": home,
             "prompt_path": prompt_path(home, home),
             "shell_prompt": shell_prompt(machine, _login(request), hostname, home, home),
+            "input_noise": machine.input_noise_pct,
             "greeting": greeting,
             "tabs": _tabs(request) if is_player(request) else [],
             "boot": {"kicks": kicks, "now": _clock(), "warn_at": bridge.WARN_AT},

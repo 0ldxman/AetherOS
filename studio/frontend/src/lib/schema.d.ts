@@ -6603,6 +6603,14 @@ export interface components {
             noise_pct: number;
             /** Drop Pct */
             drop_pct: number;
+            /** Bandwidth Kbps */
+            bandwidth_kbps: number;
+            /** Input Noise Pct */
+            input_noise_pct: number;
+            /** Overload Pct */
+            overload_pct: number;
+            /** Screen Noise */
+            screen_noise: number;
             /** Maintenance Text */
             maintenance_text: string;
             /** Local Now */
@@ -6706,6 +6714,26 @@ export interface components {
              * @default 0
              */
             drop_pct: number;
+            /**
+             * Bandwidth Kbps
+             * @default 0
+             */
+            bandwidth_kbps: number;
+            /**
+             * Input Noise Pct
+             * @default 0
+             */
+            input_noise_pct: number;
+            /**
+             * Overload Pct
+             * @default 0
+             */
+            overload_pct: number;
+            /**
+             * Screen Noise
+             * @default 0
+             */
+            screen_noise: number;
             /**
              * Maintenance Text
              * @default

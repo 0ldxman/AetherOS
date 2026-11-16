@@ -15,7 +15,7 @@
 
   let { machine, onchange }: { machine: Schemas["Overview"]; onchange: () => void } = $props();
 
-  let form = $state({ hostname: "", name: "", system: "", status: "", hid: "", address: "", serial: "", host_key: "", note: "", booted_at: "", time_zone: "UTC", display: true, seats: null as number | null, lag_ms: 0, noise_pct: 0, drop_pct: 0, maintenance_text: "", entry_policy: null as number | null });
+  let form = $state({ hostname: "", name: "", system: "", status: "", hid: "", address: "", serial: "", host_key: "", note: "", booted_at: "", time_zone: "UTC", display: true, seats: null as number | null, lag_ms: 0, noise_pct: 0, drop_pct: 0, bandwidth_kbps: 0, input_noise_pct: 0, overload_pct: 0, screen_noise: 0, maintenance_text: "", entry_policy: null as number | null });
   let saving = $state(false);
   let errors = $state<Record<string, string[]>>({});
   let dialog = $state<null | "delete" | "copy">(null);
@@ -37,6 +37,7 @@
   const base = $derived({
     hostname: machine.hostname, name: machine.name, system: machine.system, status: machine.status, hid: machine.hid, address: machine.address, serial: machine.serial, host_key: machine.host_key,
     note: machine.note, booted_at: local(machine.booted_at ?? null), time_zone: machine.time_zone, display: machine.display, seats: machine.seats ?? null, lag_ms: machine.lag_ms, noise_pct: machine.noise_pct, drop_pct: machine.drop_pct,
+    bandwidth_kbps: machine.bandwidth_kbps, input_noise_pct: machine.input_noise_pct, overload_pct: machine.overload_pct, screen_noise: machine.screen_noise,
     maintenance_text: machine.maintenance_text, entry_policy: machine.policy?.id ?? null,
   });
   // общий черновик обзора машины: пока он не подключён, форма берётся из сохранённого, потом её ведёт черновик
@@ -50,7 +51,8 @@
       form.status !== machine.status || form.entry_policy !== (machine.policy?.id ?? null) || form.hid !== machine.hid || form.address !== machine.address || form.serial !== machine.serial || form.host_key !== machine.host_key ||
       form.note !== machine.note || form.booted_at !== local(machine.booted_at ?? null) || form.time_zone !== machine.time_zone || form.maintenance_text !== machine.maintenance_text ||
       form.display !== machine.display || (form.seats ?? null) !== (machine.seats ?? null) || form.lag_ms !== machine.lag_ms ||
-      form.noise_pct !== machine.noise_pct || form.drop_pct !== machine.drop_pct,
+      form.noise_pct !== machine.noise_pct || form.drop_pct !== machine.drop_pct || form.bandwidth_kbps !== machine.bandwidth_kbps ||
+      form.input_noise_pct !== machine.input_noise_pct || form.overload_pct !== machine.overload_pct || form.screen_noise !== machine.screen_noise,
   );
   guardUnsaved(() => dirty && !share.ready);
 
@@ -76,7 +78,9 @@
   async function save() {
     saving = true;
     errors = {};
-    const { error } = await api.PUT("/studio/api/machines/{machine_id}", { params: { path: { machine_id: machine.id } }, body: { ...form, lag_ms: Number(form.lag_ms) || 0, noise_pct: Number(form.noise_pct) || 0, drop_pct: Number(form.drop_pct) || 0, seats: typeof form.seats === "number" && !Number.isNaN(form.seats) ? form.seats : null, booted_at: form.booted_at ? `${form.booted_at}:00Z` : null } });
+    const { error } = await api.PUT("/studio/api/machines/{machine_id}", { params: { path: { machine_id: machine.id } }, body: { ...form, lag_ms: Number(form.lag_ms) || 0, noise_pct: Number(form.noise_pct) || 0, drop_pct: Number(form.drop_pct) || 0,
+      bandwidth_kbps: Number(form.bandwidth_kbps) || 0, input_noise_pct: Number(form.input_noise_pct) || 0, overload_pct: Number(form.overload_pct) || 0,
+      screen_noise: Number(form.screen_noise) || 0, seats: typeof form.seats === "number" && !Number.isNaN(form.seats) ? form.seats : null, booted_at: form.booted_at ? `${form.booted_at}:00Z` : null } });
     saving = false;
     if (error) {
       errors = (error as { fields?: Record<string, string[]> }).fields ?? {};
@@ -170,6 +174,18 @@
         <label><span class="label">Обрывы, % в минуту<Hint text="Шанс за минуту, пока игрок работает с машиной (терминал, стол, вики, почта), что подключение оборвётся: Connection reset by peer, игрок возвращается на предыдущую машину. 5 — примерно раз в 20 минут. Своя машина игрока не рвётся." /></span>
           <input class="field" type="number" min="0" max="100" step="0.5" bind:value={form.drop_pct} />
           <span class="presets">{#each [[0, "нет"], [3, "редко"], [10, "часто"]] as [pct, label] (pct)}<button type="button" class="btn ghost tiny" onclick={() => (form.drop_pct = pct as number)}>{label}</button>{/each}</span></label>
+        <label><span class="label">Пропускная способность, КБ/с<Hint text="xfer с этой машины и на неё идёт со скоростью канала (берётся самый узкий из двух): 1 МБ при 50 КБ/с — 20 секунд. Если у машины есть помехи, файл может прийти испорченным (слой damaged, checksum mismatch). 0 — без ограничения." /></span>
+          <input class="field" type="number" min="0" step="10" bind:value={form.bandwidth_kbps} />
+          <span class="presets">{#each [[0, "без огр."], [200, "средне"], [30, "медленно"]] as [kb, label] (kb)}<button type="button" class="btn ghost tiny" onclick={() => (form.bandwidth_kbps = kb as number)}>{label}</button>{/each}</span></label>
+        <label><span class="label">Помехи ввода, %<Hint text="Пока игрок набирает команду в терминале этой машины, столько процентов символов подменяются соседними по коду (a→c). Пароли не трогаются." /></span>
+          <input class="field" type="number" min="0" max="100" step="0.5" bind:value={form.input_noise_pct} />
+          <span class="presets">{#each [[0, "нет"], [2, "изредка"], [6, "сильно"]] as [pct, label] (pct)}<button type="button" class="btn ghost tiny" onclick={() => (form.input_noise_pct = pct as number)}>{label}</button>{/each}</span></label>
+        <label><span class="label">Перегрузка, % команд<Hint text="Столько процентов команд терминала не выполняется: Resource temporarily unavailable — нужно повторить. exit работает всегда." /></span>
+          <input class="field" type="number" min="0" max="100" step="1" bind:value={form.overload_pct} />
+          <span class="presets">{#each [[0, "нет"], [10, "заметно"], [30, "сильно"]] as [pct, label] (pct)}<button type="button" class="btn ghost tiny" onclick={() => (form.overload_pct = pct as number)}>{label}</button>{/each}</span></label>
+        <label><span class="label">Помехи изображения<Hint text="Рабочий стол этой машины с полосами развёртки и редкими сбоями картинки (сдвиг, цвет): 0 — нет, 100 — сильно. При «меньше движения» в системе — только полосы." /></span>
+          <input class="field" type="number" min="0" max="100" step="5" bind:value={form.screen_noise} />
+          <span class="presets">{#each [[0, "нет"], [30, "слабо"], [80, "сильно"]] as [lvl, label] (lvl)}<button type="button" class="btn ghost tiny" onclick={() => (form.screen_noise = lvl as number)}>{label}</button>{/each}</span></label>
       </div>
       <label><span class="label">Политика входа машины<Hint text="Как проверяется вход на эту машину. Учётка со своей политикой её перекрывает. Что действует для каждой учётки, видно на вкладке «Проверка входа»." /></span>
         <select class="field" bind:value={form.entry_policy}>
