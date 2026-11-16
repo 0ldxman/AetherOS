@@ -108,8 +108,9 @@ class Overview(Schema):
     time_zone: str
     display: bool               # графическая оболочка: без неё rcon отказывает
     seats: int | None           # мест одновременно; пусто — без ограничения
-    lag: str                    # задержка канала: none | light | heavy
-    noise: str                  # помехи канала: none | rare | often
+    lag_ms: int                 # задержка канала, мс
+    noise_pct: float            # помехи: процент сбитых символов
+    drop_pct: float             # обрывы: шанс за минуту работы, %
     maintenance_text: str
     local_now: str              # «2031-03-02 14:05 MSK»: время машины сейчас (без сдвига часов игрока)
     is_system: bool
@@ -138,8 +139,9 @@ class MachineIn(Schema):
     time_zone: str = "UTC"
     display: bool = True
     seats: int | None = None
-    lag: str = "none"
-    noise: str = "none"
+    lag_ms: int = 0
+    noise_pct: float = 0
+    drop_pct: float = 0
     maintenance_text: str = ""
     entry_policy: int | None = None
 
@@ -324,7 +326,7 @@ def overview(request, machine_id: int):
     return Overview(
         id=machine.pk, hostname=machine.hostname or "", name=machine.name, system=machine.system, status=machine.status, hid=machine.hid,
         address=machine.address, serial=machine.serial, host_key=machine.host_key, **_auto(machine),
-        note=machine.note, booted_at=machine.booted_at, time_zone=machine.time_zone, display=machine.display, seats=machine.seats, lag=machine.lag, noise=machine.noise,
+        note=machine.note, booted_at=machine.booted_at, time_zone=machine.time_zone, display=machine.display, seats=machine.seats, lag_ms=machine.lag_ms, noise_pct=machine.noise_pct, drop_pct=machine.drop_pct,
         maintenance_text=machine.maintenance_text,
         local_now=f"{chrono.in_zone(chrono.game_now(), machine):%Y-%m-%d %H:%M %Z}",
         is_system=machine.is_system,
@@ -362,7 +364,9 @@ def save(request, machine_id: int, body: MachineIn):
     if not chrono.valid_zone(zone):
         raise ValidationError({"time_zone": [f"Нет такого часового пояса: {zone}. Пишите как Europe/Moscow."]})
     machine.time_zone = zone
-    machine.display, machine.seats, machine.lag, machine.noise = body.display, body.seats, body.lag, body.noise
+    machine.display, machine.seats = body.display, body.seats
+    machine.lag_ms = max(0, body.lag_ms)
+    machine.noise_pct, machine.drop_pct = min(100.0, max(0.0, body.noise_pct)), min(100.0, max(0.0, body.drop_pct))
     if body.hid is not None:
         machine.hid = body.hid.strip().lower()
     machine.entry_policy_id = body.entry_policy

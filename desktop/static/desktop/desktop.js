@@ -1665,6 +1665,7 @@ window.addEventListener("blur", () => setMenu(false));
       const data = await fetch(url, { credentials: "same-origin" }).then((r) => r.json());
       for (const item of data.items || []) await run(item);
       choices(data.offers || []);
+      handleKicks(data.kicks);
     } catch (error) { /* стол работает и без эффектов */ }
     busy = false;
   }

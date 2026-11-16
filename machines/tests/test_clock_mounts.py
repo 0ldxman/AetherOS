@@ -204,31 +204,44 @@ class MachineTraitsTests(WorldCase):
 class ChannelTests(WorldCase):
     """Медленный и нестабильный канал до машины."""
 
-    def test_noise_flips_bits_and_breaks_cyrillic(self):
+    def test_noise_flips_bits_and_breaks_cyrillic_and_lag_has_jitter(self):
         import random
 
         from machines.world import channel
 
-        machine = Machine(noise="often")
-        noisy = channel.garble("access granted to guard\nдоступ разрешён\n" * 40, machine, random.Random(7))
-        self.assertNotEqual(noisy, "access granted to guard\nдоступ разрешён\n" * 40)
+        text = "access granted to guard\nдоступ разрешён\n" * 40
+        noisy = channel.garble(text, Machine(noise_pct=5), random.Random(7))
+        self.assertNotEqual(noisy, text)
         self.assertIn("\ufffd", noisy)
         self.assertEqual(noisy.count("\n"), 80)                                           # строки на месте
-        self.assertEqual(channel.garble("same", Machine(noise="none")), "same")
-        self.assertEqual(channel.delay(Machine(lag="none")), (0, 0))
-        pause, line = channel.delay(Machine(lag="heavy"), "xfer", random.Random(1))
-        self.assertTrue(6000 <= pause <= 12000 and line == 180)
+        self.assertEqual(channel.garble("same", Machine()), "same")
+        self.assertEqual(channel.delay(Machine()), (0, 0))
+        pause, line = channel.delay(Machine(lag_ms=3000), "xfer", random.Random(1))
+        self.assertTrue(6300 <= pause <= 11700 and line == 200)
+        self.assertFalse(channel.drops(Machine(drop_pct=0), 60))
+        self.assertTrue(channel.drops(Machine(drop_pct=100), 60))
+        hits = sum(channel.drops(Machine(drop_pct=50), 60, random.Random(n)) for n in range(400))
+        self.assertTrue(150 < hits < 250)                                                  # около половины за минуту
 
-    def test_an_unstable_host_drops_the_rshell_and_the_terminal_gets_the_lag(self):
+    def test_working_with_an_unstable_host_drops_the_connection(self):
+        from datetime import timedelta
         from unittest import mock
 
+        from django.core.cache import cache
+        from django.utils import timezone
+
+        from machines.models import Session
+
         self.allow()
-        Machine.objects.filter(pk=self.core.pk).update(lag="light", noise="often")
+        Machine.objects.filter(pk=self.core.pk).update(lag_ms=800, drop_pct=100)
         first = self.run_command("rshell reader@aether-core")
         if first.get("prompt"):
             self.answer("right")
-        with mock.patch("machines.world.channel.drops", return_value=True), mock.patch("machines.world.channel.garble", lambda text, machine, rng=None: text):
-            result = self.run_command("ls /srv/harbor")
-        self.assertIn("Connection reset by peer", result["output"])
-        self.assertTrue(500 <= result["delay"] <= 1200 and result["line_ms"] == 60)
-        self.assertEqual(self.run_command("pwd")["hostname"], "aether-main")              # на следующем запросе подключение закрыто
+        result = self.run_command("pwd")
+        self.assertTrue(560 <= result["delay"] <= 1040 and result["line_ms"] == 53)
+        Session.objects.filter(profile=self.reader).update(seen_at=timezone.now() - timedelta(minutes=1))
+        cache.clear()                                                                      # mark_seen отмечает не чаще раза в 30 с
+        self.client.get("/desktop/push/")                                                  # любая работа с машиной, не только терминал
+        after = self.run_command("pwd")
+        self.assertEqual(after["hostname"], "aether-main")
+        self.assertIn("Connection reset by peer", str(after.get("kicks")))

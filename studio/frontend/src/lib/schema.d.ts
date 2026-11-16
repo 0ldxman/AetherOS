@@ -6597,10 +6597,12 @@ export interface components {
             display: boolean;
             /** Seats */
             seats: number | null;
-            /** Lag */
-            lag: string;
-            /** Noise */
-            noise: string;
+            /** Lag Ms */
+            lag_ms: number;
+            /** Noise Pct */
+            noise_pct: number;
+            /** Drop Pct */
+            drop_pct: number;
             /** Maintenance Text */
             maintenance_text: string;
             /** Local Now */
@@ -6690,15 +6692,20 @@ export interface components {
             /** Seats */
             seats?: number | null;
             /**
-             * Lag
-             * @default none
+             * Lag Ms
+             * @default 0
              */
-            lag: string;
+            lag_ms: number;
             /**
-             * Noise
-             * @default none
+             * Noise Pct
+             * @default 0
              */
-            noise: string;
+            noise_pct: number;
+            /**
+             * Drop Pct
+             * @default 0
+             */
+            drop_pct: number;
             /**
              * Maintenance Text
              * @default

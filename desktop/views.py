@@ -231,7 +231,16 @@ def push(request):
         place = Workplace.objects.select_related("desktop__profile", "terminal__profile").filter(user=request.user).first()   # не заводит
         items = queue.take(request.user, desk=place.desktop.profile if place and place.desktop_id else None,
                            terminal=place.terminal.profile if place and place.terminal_id else None)
-    return JsonResponse({"items": items,
+    kicks = []
+    if request.user.is_authenticated and not request.user.is_staff:
+        from machines.network import bridge
+
+        bridge.expire(request)                         # обрыв по помехам или сценарием: стол узнаёт при опросе
+        waiting = request.session.get(bridge.KICKS_KEY, [])
+        kicks = [kick for kick in waiting if kick.get("desktop")]
+        if kicks:                                      # обрывы терминала остаются ему
+            request.session[bridge.KICKS_KEY] = [kick for kick in waiting if not kick.get("desktop")]
+    return JsonResponse({"items": items, "kicks": kicks,
                          "offers": [{"id": view.key, "title": view.spec.get("title") or "", "text": view.spec.get("message") or "",
                                      "buttons": view.spec["buttons"]} for view in found]})
 

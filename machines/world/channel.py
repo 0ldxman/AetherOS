@@ -2,23 +2,21 @@
 
 Помехи — как на настоящей линии: сбитый бит превращает латинский символ в соседний по коду (a → c, / → ?), порченый байт многобайтного
 символа (кириллица в UTF-8) даёт �, байт может пропасть или повториться. Каждый ответ портится заново: повтор команды помогает
-восстановить текст."""
+восстановить текст. Обрывы считаются по времени работы с машиной (bridge.mark_seen), а не по командам."""
 import random
 
-LAG = {"light": (500, 1200, 60), "heavy": (2000, 4000, 180)}         # пауза до ответа, мс (от, до) и пауза между строками
-NOISE = {"rare": 0.012, "often": 0.04}                               # доля испорченных символов
-DROP = {"rare": 0.03, "often": 0.1}                                  # вероятность обрыва на команду
-SLOW_COMMANDS = {"xfer": 3}                                          # во сколько раз дольше
+JITTER = 0.3                         # задержка гуляет на ±30%
+SLOW_COMMANDS = {"xfer": 3}          # во сколько раз дольше
+CAP = 120                            # больше стольких секунд без запросов за раз не считается работой
 
 
 def delay(machine, command="", rng=random):
     """(пауза до ответа, пауза между строками) в мс или (0, 0)."""
-    found = LAG.get(getattr(machine, "lag", "none"))
-    if not found:
+    base = int(getattr(machine, "lag_ms", 0) or 0)
+    if base <= 0:
         return 0, 0
-    low, high, line = found
-    times = SLOW_COMMANDS.get(command, 1)
-    return int(rng.uniform(low, high) * times), line
+    pause = base * rng.uniform(1 - JITTER, 1 + JITTER) * SLOW_COMMANDS.get(command, 1)
+    return int(pause), max(20, min(250, base // 15))
 
 
 def _flip(char, rng):
@@ -34,7 +32,7 @@ def _flip(char, rng):
 
 def garble(text, machine, rng=random):
     """Вывод через нестабильный канал: часть символов сбита, пропала или повторилась. Переводы строк не трогаются."""
-    rate = NOISE.get(getattr(machine, "noise", "none"))
+    rate = min(100.0, max(0.0, float(getattr(machine, "noise_pct", 0) or 0))) / 100
     if not rate or not text:
         return text
     out = []
@@ -52,7 +50,9 @@ def garble(text, machine, rng=random):
     return "".join(out)
 
 
-def drops(machine, rng=random):
-    """Оборвётся ли подключение на этой команде."""
-    rate = DROP.get(getattr(machine, "noise", "none"))
-    return bool(rate) and rng.random() < rate
+def drops(machine, seconds, rng=random):
+    """Оборвётся ли подключение за seconds секунд работы с машиной (шанс drop_pct % за минуту)."""
+    rate = min(100.0, max(0.0, float(getattr(machine, "drop_pct", 0) or 0))) / 100
+    if not rate or seconds <= 0:
+        return False
+    return rng.random() < 1 - (1 - rate) ** (min(seconds, CAP) / 60)

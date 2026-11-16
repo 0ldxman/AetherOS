@@ -35,7 +35,7 @@ UNSET = object()
 
 
 def change_machine(machine, *, name="", address="", system="", time_zone="", host_key="", note=None, booted="", display=None, seats=UNSET,
-                   lag="", noise=""):
+                   lag_ms=None, noise_pct=None, drop_pct=None):
     """Свойства машины для всех; пустое — не трогать. host_key «*» — новый случайный отпечаток. display — есть ли графическая оболочка,
     seats — сколько игроков одновременно (None — без ограничения)."""
     from machines.models import SystemType
@@ -63,14 +63,12 @@ def change_machine(machine, *, name="", address="", system="", time_zone="", hos
         machine.display = bool(display)
     if seats is not UNSET:
         machine.seats = None if seats in (None, "") else max(0, int(seats))
-    if lag:
-        if lag not in type(machine).Lag.values:
-            raise EditError(f"задержка: {lag}?")
-        machine.lag = lag
-    if noise:
-        if noise not in type(machine).Noise.values:
-            raise EditError(f"помехи: {noise}?")
-        machine.noise = noise
+    if lag_ms is not None:
+        machine.lag_ms = max(0, int(lag_ms))
+    if noise_pct is not None:
+        machine.noise_pct = min(100.0, max(0.0, float(noise_pct)))
+    if drop_pct is not None:
+        machine.drop_pct = min(100.0, max(0.0, float(drop_pct)))
     machine.save()
     return machine
 

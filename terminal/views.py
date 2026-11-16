@@ -136,9 +136,6 @@ def execute(request):
         from dataclasses import replace
 
         text = channel.garble(result.output, machine)
-        if session.parent_id is not None and channel.drops(machine):        # обрыв: подключение закроется на следующем запросе
-            bridge.request_kick(request.user, session.profile)
-            text = "\n".join(filter(None, [text, "Connection reset by peer"]))
         if text != result.output:
             result = replace(result, output=text)
     if bridge.desktop_id(request) != desktop_before:

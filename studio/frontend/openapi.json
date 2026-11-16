@@ -19372,13 +19372,17 @@
       ],
       "title": "Seats"
      },
-     "lag": {
-      "title": "Lag",
-      "type": "string"
+     "lag_ms": {
+      "title": "Lag Ms",
+      "type": "integer"
      },
-     "noise": {
-      "title": "Noise",
-      "type": "string"
+     "noise_pct": {
+      "title": "Noise Pct",
+      "type": "number"
+     },
+     "drop_pct": {
+      "title": "Drop Pct",
+      "type": "number"
      },
      "maintenance_text": {
       "title": "Maintenance Text",
@@ -19478,8 +19482,9 @@
      "time_zone",
      "display",
      "seats",
-     "lag",
-     "noise",
+     "lag_ms",
+     "noise_pct",
+     "drop_pct",
      "maintenance_text",
      "local_now",
      "is_system",
@@ -19636,15 +19641,20 @@
       ],
       "title": "Seats"
      },
-     "lag": {
-      "default": "none",
-      "title": "Lag",
-      "type": "string"
+     "lag_ms": {
+      "default": 0,
+      "title": "Lag Ms",
+      "type": "integer"
      },
-     "noise": {
-      "default": "none",
-      "title": "Noise",
-      "type": "string"
+     "noise_pct": {
+      "default": 0,
+      "title": "Noise Pct",
+      "type": "number"
+     },
+     "drop_pct": {
+      "default": 0,
+      "title": "Drop Pct",
+      "type": "number"
      },
      "maintenance_text": {
       "default": "",

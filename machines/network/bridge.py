@@ -227,9 +227,27 @@ def mark_seen(request):
     place = request.__dict__.get("_workplace") or Workplace.objects.filter(user=request.user).first()
     if place is not None:
         now = timezone.now()
+        _unstable(request.user, [pk for pk in (place.desktop_id, place.terminal_id) if pk], now)
         Session.objects.filter(pk__in=[pk for pk in (place.desktop_id, place.terminal_id) if pk], user=request.user).update(seen_at=now)
         Workplace.objects.filter(pk=place.pk).update(seen_at=now)
     cache.set(stamp, 1, SEEN_EVERY)
+
+
+RESET = "bridge-reset:{}"           # отметка «оборвалось по помехам» у сессии: текст обрыва Connection reset by peer
+
+
+def _unstable(user, ids, now):
+    """Игрок работает со столом и терминалом: на машинах с обрывами подключение может оборваться (machines/world/channel.py)."""
+    from django.core.cache import cache
+
+    from machines.world import channel
+
+    rows = Session.objects.filter(pk__in=ids, user=user, parent__isnull=False, profile__machine__drop_pct__gt=0).select_related("profile__machine")
+    for row in rows:
+        seconds = (now - row.seen_at).total_seconds() if row.seen_at else SEEN_EVERY
+        if channel.drops(row.profile.machine, seconds):
+            Session.objects.filter(pk=row.pk).update(kick_at=now)
+            cache.set(RESET.format(row.pk), 1, 3600)
 
 
 def request_kick(user, profile):
@@ -265,9 +283,14 @@ def expire(request, now=None):
             break
         left = closed.sessions[0]
         profile = left.profile
+        reset = False
         if by_author:
+            from django.core.cache import cache
+
             kicked.discard(left.pk)
-            entry.record(profile, request.user, LoginEvent.Kind.KICKED, detail="studio")
+            reset = bool(cache.get(RESET.format(left.pk)))
+            cache.delete(RESET.format(left.pk))
+            entry.record(profile, request.user, LoginEvent.Kind.KICKED, detail="reset" if reset else "studio")
         else:
             lock = entry.lock_seconds_of(profile)
             if lock:
@@ -278,8 +301,8 @@ def expire(request, now=None):
             "label": f"{profile.login}@{profile.machine.hostname}",
             "host": profile.machine.hostname,
             "system": profile.machine.system,
-            "message": entry.kick_text_of(profile),
-            "blackout": blackout.resolve("kick", profile, entry.kick_text_of(profile)),
+            "message": "Connection reset by peer" if reset else entry.kick_text_of(profile),
+            "blackout": blackout.resolve("kick", profile, "Connection reset by peer" if reset else entry.kick_text_of(profile)),
             "desktop": closed.desktop_moved,
             "cwd": closed.cwd,
         })

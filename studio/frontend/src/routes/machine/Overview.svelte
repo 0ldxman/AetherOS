@@ -15,7 +15,7 @@
 
   let { machine, onchange }: { machine: Schemas["Overview"]; onchange: () => void } = $props();
 
-  let form = $state({ hostname: "", name: "", system: "", status: "", hid: "", address: "", serial: "", host_key: "", note: "", booted_at: "", time_zone: "UTC", display: true, seats: null as number | null, lag: "none", noise: "none", maintenance_text: "", entry_policy: null as number | null });
+  let form = $state({ hostname: "", name: "", system: "", status: "", hid: "", address: "", serial: "", host_key: "", note: "", booted_at: "", time_zone: "UTC", display: true, seats: null as number | null, lag_ms: 0, noise_pct: 0, drop_pct: 0, maintenance_text: "", entry_policy: null as number | null });
   let saving = $state(false);
   let errors = $state<Record<string, string[]>>({});
   let dialog = $state<null | "delete" | "copy">(null);
@@ -36,7 +36,7 @@
 
   const base = $derived({
     hostname: machine.hostname, name: machine.name, system: machine.system, status: machine.status, hid: machine.hid, address: machine.address, serial: machine.serial, host_key: machine.host_key,
-    note: machine.note, booted_at: local(machine.booted_at ?? null), time_zone: machine.time_zone, display: machine.display, seats: machine.seats ?? null, lag: machine.lag, noise: machine.noise,
+    note: machine.note, booted_at: local(machine.booted_at ?? null), time_zone: machine.time_zone, display: machine.display, seats: machine.seats ?? null, lag_ms: machine.lag_ms, noise_pct: machine.noise_pct, drop_pct: machine.drop_pct,
     maintenance_text: machine.maintenance_text, entry_policy: machine.policy?.id ?? null,
   });
   // общий черновик обзора машины: пока он не подключён, форма берётся из сохранённого, потом её ведёт черновик
@@ -49,7 +49,8 @@
     form.hostname !== machine.hostname || form.name !== machine.name || form.system !== machine.system ||
       form.status !== machine.status || form.entry_policy !== (machine.policy?.id ?? null) || form.hid !== machine.hid || form.address !== machine.address || form.serial !== machine.serial || form.host_key !== machine.host_key ||
       form.note !== machine.note || form.booted_at !== local(machine.booted_at ?? null) || form.time_zone !== machine.time_zone || form.maintenance_text !== machine.maintenance_text ||
-      form.display !== machine.display || (form.seats ?? null) !== (machine.seats ?? null) || form.lag !== machine.lag || form.noise !== machine.noise,
+      form.display !== machine.display || (form.seats ?? null) !== (machine.seats ?? null) || form.lag_ms !== machine.lag_ms ||
+      form.noise_pct !== machine.noise_pct || form.drop_pct !== machine.drop_pct,
   );
   guardUnsaved(() => dirty && !share.ready);
 
@@ -75,7 +76,7 @@
   async function save() {
     saving = true;
     errors = {};
-    const { error } = await api.PUT("/studio/api/machines/{machine_id}", { params: { path: { machine_id: machine.id } }, body: { ...form, seats: typeof form.seats === "number" && !Number.isNaN(form.seats) ? form.seats : null, booted_at: form.booted_at ? `${form.booted_at}:00Z` : null } });
+    const { error } = await api.PUT("/studio/api/machines/{machine_id}", { params: { path: { machine_id: machine.id } }, body: { ...form, lag_ms: Number(form.lag_ms) || 0, noise_pct: Number(form.noise_pct) || 0, drop_pct: Number(form.drop_pct) || 0, seats: typeof form.seats === "number" && !Number.isNaN(form.seats) ? form.seats : null, booted_at: form.booted_at ? `${form.booted_at}:00Z` : null } });
     saving = false;
     if (error) {
       errors = (error as { fields?: Record<string, string[]> }).fields ?? {};
@@ -159,11 +160,16 @@
         <label><span class="label">Мест<Hint text="Сколько игроков может быть на машине одновременно. Остальным — too many users. Пусто — без ограничения." /></span>
           <input class="field" type="number" min="0" bind:value={form.seats} placeholder="без ограничения" /></label>
       </div>
-      <div class="pair">
-        <label><span class="label">Задержка<Hint text="Медленный канал: ответ терминала на этой машине приходит с паузой (0,5–1 с или 2–4 с) и печатается построчно; xfer втрое дольше." /></span>
-          <select class="field" bind:value={form.lag}><option value="none">нет</option><option value="light">небольшая</option><option value="heavy">сильная</option></select></label>
-        <label><span class="label">Помехи<Hint text="Нестабильный канал: в выводе сбитые символы (a→c, кириллица →�), пропавшие и повторённые; иногда подключение рвётся (connection reset by peer). Редкие — около 1% символов и обрыв в 3% команд, частые — 4% и 10%." /></span>
-          <select class="field" bind:value={form.noise}><option value="none">нет</option><option value="rare">редкие</option><option value="often">частые</option></select></label>
+      <div class="channel">
+        <label><span class="label">Задержка, мс<Hint text="Медленный канал: ответ терминала на этой машине приходит с паузой (±30%) и печатается построчно; xfer втрое дольше. 0 — нет." /></span>
+          <input class="field" type="number" min="0" step="100" bind:value={form.lag_ms} />
+          <span class="presets">{#each [[0, "нет"], [800, "заметно"], [3000, "тяжело"]] as [ms, label] (ms)}<button type="button" class="btn ghost tiny" onclick={() => (form.lag_ms = ms as number)}>{label}</button>{/each}</span></label>
+        <label><span class="label">Помехи, % символов<Hint text="В выводе терминала столько процентов символов сбито (a→c, кириллица → �), пропало или повторилось. Каждый ответ портится заново." /></span>
+          <input class="field" type="number" min="0" max="100" step="0.5" bind:value={form.noise_pct} />
+          <span class="presets">{#each [[0, "нет"], [1, "изредка"], [5, "сильно"]] as [pct, label] (pct)}<button type="button" class="btn ghost tiny" onclick={() => (form.noise_pct = pct as number)}>{label}</button>{/each}</span></label>
+        <label><span class="label">Обрывы, % в минуту<Hint text="Шанс за минуту, пока игрок работает с машиной (терминал, стол, вики, почта), что подключение оборвётся: Connection reset by peer, игрок возвращается на предыдущую машину. 5 — примерно раз в 20 минут. Своя машина игрока не рвётся." /></span>
+          <input class="field" type="number" min="0" max="100" step="0.5" bind:value={form.drop_pct} />
+          <span class="presets">{#each [[0, "нет"], [3, "редко"], [10, "часто"]] as [pct, label] (pct)}<button type="button" class="btn ghost tiny" onclick={() => (form.drop_pct = pct as number)}>{label}</button>{/each}</span></label>
       </div>
       <label><span class="label">Политика входа машины<Hint text="Как проверяется вход на эту машину. Учётка со своей политикой её перекрывает. Что действует для каждой учётки, видно на вкладке «Проверка входа»." /></span>
         <select class="field" bind:value={form.entry_policy}>
@@ -268,6 +274,8 @@
 {/if}
 
 <style>
+  .channel { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 10px; }
+  .presets { display: flex; gap: 4px; margin-top: 4px; }
   .idrow { display: grid; grid-template-columns: 1fr max-content; gap: 8px; align-items: end; margin-top: 10px; }
   summary { cursor: pointer; font-size: 13px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.4px; }
   summary .small { text-transform: none; letter-spacing: 0; font-weight: 400; margin-left: 8px; }

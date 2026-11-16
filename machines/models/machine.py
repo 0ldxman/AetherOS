@@ -77,20 +77,13 @@ class Machine(models.Model):
 
     display = models.BooleanField("Графическая оболочка", default=True,
                                   help_text="Без неё у машины нет рабочего стола: rcon отказывает, входят только rshell (терминал), xfer и раздачи.")
-    class Lag(models.TextChoices):
-        NONE = "none", "Нет"
-        LIGHT = "light", "Небольшая"
-        HEAVY = "heavy", "Сильная"
-
-    class Noise(models.TextChoices):
-        NONE = "none", "Нет"
-        RARE = "rare", "Редкие"
-        OFTEN = "often", "Частые"
-
-    lag = models.CharField("Задержка", max_length=8, choices=Lag.choices, default=Lag.NONE,
-                           help_text="Медленный канал: ответ терминала приходит с паузой и печатается построчно; xfer ещё медленнее.")
-    noise = models.CharField("Помехи", max_length=8, choices=Noise.choices, default=Noise.NONE,
-                             help_text="Нестабильный канал: в выводе сбитые, пропавшие и повторённые символы, иногда подключение рвётся.")
+    lag_ms = models.PositiveIntegerField("Задержка, мс", default=0,
+                                         help_text="Медленный канал: ответ терминала приходит с паузой (±30%) и печатается построчно; xfer втрое дольше. 0 — нет.")
+    noise_pct = models.FloatField("Помехи, % символов", default=0,
+                                  help_text="Нестабильный канал: столько процентов символов вывода терминала сбито, пропало или повторилось. 0 — нет.")
+    drop_pct = models.FloatField("Обрывы, % в минуту", default=0,
+                                 help_text="Шанс за минуту, пока игрок работает с машиной (терминал, стол, вики, почта), что подключение "
+                                           "оборвётся: 5 — примерно раз в 20 минут. 0 — нет.")
     seats = models.PositiveSmallIntegerField("Мест", null=True, blank=True,
                                              help_text="Сколько игроков одновременно может быть на машине. Пусто — без ограничения.")
     time_zone = models.CharField(
