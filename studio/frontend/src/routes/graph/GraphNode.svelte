@@ -307,7 +307,7 @@
   .switch-label { color: var(--faint); font-size: 11px; white-space: nowrap; }
   .switch { display: flex; min-width: 0; border: 1px solid var(--line); border-radius: 4px; overflow: hidden; background: var(--bg); }
   .switch.grow { flex: 1; }
-  .switch button { flex: 1 1 0; min-width: 0; height: 19px; padding: 0 6px; border: 0; background: none; color: var(--muted); font: inherit; font-size: 11px;
+  .switch button { flex: 1 1 auto; min-width: 0; height: 19px; padding: 0 4px; border: 0; background: none; color: var(--muted); font: inherit; font-size: 11px;
                    white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: pointer; }
   .switch button + button { border-left: 1px solid var(--line); }
   .switch button.on { background: var(--accent-soft); color: var(--text); }

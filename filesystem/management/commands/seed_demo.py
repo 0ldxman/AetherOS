@@ -87,6 +87,7 @@ def demo_conversation():
     ]
     wires = [wire("yes", "value", "open_hello"), wire("hello", "offer", "open_hello", "f:offer"), wire("hello", "offer", "asked", "f:offer"),
              wire("asked", "ok", "ask"), wire("ask", "next", "open_password"), wire("password", "offer", "open_password", "f:offer"),
+             wire("ask", "item", "password", "f:letter"),
              wire("knows", "value", "open_tunnel"), wire("tunnel", "offer", "open_tunnel", "f:offer"),
              wire("password", "offer", "answered", "f:offer"), wire("answered", "ok", "which"), wire("answered", "fork:dock", "seven", "f:a"),
              wire("seven", "value", "which", "f:condition"), wire("which", "yes", "open"), wire("open", "next", "flag"),
