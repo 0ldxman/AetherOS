@@ -65,7 +65,8 @@ FIELD_TYPES = {"text": "text", "textarea": "text", "path": "text", "clock": "tex
                "graph": "text", "number": "number", "bool": "bool", "condition": "bool", "key": "item", "item": "item", "letter": "item",
                "object": "item", "character": "character", "section": "section", "flag": "flag", "world_flag": "world_flag",
                "counter": "counter", "moment": "moment", "machine": "machine", "system": "text", "time_zone": "text", "server": "server", "player": "player", "layer": "layer", "placement": "placement", "account": "account", "offer": "offer",
-               "recipient": "many:character|text", "mail_ref": "item|placement", "attachment": "many:item|placement"}      # вид поля -> тип его входа; нет в списке — параметр без входа
+               "recipient": "many:character|text", "mail_ref": "item|placement", "attachment": "many:item|placement",
+               "offer_group": "many:offer|text"}      # вид поля -> тип его входа; нет в списке — параметр без входа
 
 
 def field_type(field):
@@ -789,11 +790,13 @@ register(Kind("ent:offer", "Возможность", ENTITY, "{title}{command}",
     **{name: ("channel", ("file",)) for name in ("item", "path", "caption")}}, title="channel", inline={"letter": ("mode", ("new",))}))
 DATA_OUTS["ent:offer"] = (Sock("offer", "Возможность", "offer"), Sock("open", "Открыта", "bool"))
 _OFFER_SCOPE = Field("scope", "Для кого", "switch", "", False, (("player", "Игроку хода"), ("all", "Всем")))
-register(Kind("act:offer", "Возможность: Изменить", ACTION, "{offer}", (
+register(Kind("act:offer", "Возможность: Изменить", ACTION, "{offer}{group}", (
     Field("state", "Состояние", "switch", "", False, (("open", "Открыть"), ("mystery", "Показать «???»"), ("hidden", "Скрыть"))),
-    Field("offer", "Возможность", "many:offer", "", True), _OFFER_SCOPE,
     Field("whole", "Что скрыть", "switch", "", False, (("one", "Только эту"), ("group", "Всю группу"))),
-), _ACT_OUTS, in_types={"in": "event|bool"}, title="state", when={"whole": ("state", ("hidden",))}))
+    Field("offer", "Возможность", "many:offer", "", True),
+    Field("group", "Группа", "offer_group", "имя или возможность из группы", True), _OFFER_SCOPE,
+), _ACT_OUTS, in_types={"in": "event|bool"}, title="state",
+   when={"whole": ("state", ("hidden",)), "offer": ("whole", ("one",)), "group": [("state", ("hidden",)), ("whole", ("group",))]}))
 OFFER_ACTS = ("act:offer",)
 DATA_OUTS["act:mail"] = (Sock("item", "Письмо", "item"),)        # то же письмо — в «В ответ на» у «Возможности»
 
@@ -837,7 +840,7 @@ HELP = {
                  "команда (вместо «command not found»), аргументы сверяются так же. Окно с выбором — на столе игрока. Кнопка у файла — в окне "
                  "файла (объект, путь). Группа: использована одна — скрыты все. Выходы: ключ для «Изменить» и «Использована», открыта ли сейчас.",
     "act:offer": "Что игрок видит: Открыть — вариант и можно его применить; Показать «???» — знает, что вариант есть, но выбрать нельзя; "
-                 "Скрыть — ничего (так по умолчанию; можно всю группу возможности). Во «Когда» — событие (состояние держится до следующего "
+                 "Скрыть — ничего (так по умолчанию; «Всю группу» — по имени группы или по возможности из неё). Во «Когда» — событие (состояние держится до следующего "
                  "изменения; «Скрыть» перекрывает условия) или провод условия (пока верно; несколько — побеждает самое открытое; "
                  "только возможности этого сценария).",
     "on:offer.used": "Игрок использовал возможность. Выходы — по подключённой сущности: Верно / Неверно (текст, секрет и вложение), "

@@ -134,9 +134,9 @@ class OfferTests(TestCase):
     def test_states_stack_and_hide_by_event_wins(self):
         graph = make([node("y", "boolean", value=True), node("t", "ent:tag", owner="player", name="vip"), offer("a", group="g1"), offer("b", group="g1"),
                       node("q", "act:offer", state="mystery"), node("o", "act:offer"), node("ob", "act:offer", offer="g:b"),
-                      node("m", "manual"), node("h", "act:offer", state="hidden", whole="group", offer="g:a"), node("m2", "manual")],
+                      node("m", "manual"), node("h", "act:offer", state="hidden", whole="group"), node("m2", "manual")],
                      [wire("y", "value", "q"), wire("t", "on", "o"), wire("a", "offer", "q", "f:offer"), wire("a", "offer", "o", "f:offer"),
-                      wire("m2", "fire", "ob"), wire("m", "fire", "h")])
+                      wire("m2", "fire", "ob"), wire("m", "fire", "h"), wire("a", "offer", "h", "f:group")])
         self.assertEqual([(v.key, v.open) for v in offers.visible(self.ivan)], [("g:a", False)])           # «???», пока условия нет
         values.set_tag("player", self.ivan.pk, "vip")
         self.assertEqual([(v.key, v.open) for v in offers.visible(self.ivan)], [("g:a", True)])            # самое открытое
@@ -147,6 +147,12 @@ class OfferTests(TestCase):
         alien = {"nodes": [node("y", "boolean", value=True), offer("a"), node("h", "act:offer", state="hidden")],
                  "wires": [wire("y", "value", "h"), wire("a", "offer", "h", "f:offer")]}
         self.assertIn("«Скрыть» — только по событию: без условия возможность и так скрыта", [p["text"] for p in check.problems(alien, slug="g")])
+
+    def test_hide_a_group_by_its_name(self):
+        graph = make([node("m", "manual"), offer("a", group="ask"), offer("b", group="ask"), offer("c"), node("o", "act:offer", offer=["g:a", "g:b", "g:c"]),
+                      node("h", "act:offer", state="hidden", whole="group", group="ask")], [wire("m", "fire", "o"), wire("o", "next", "h")])
+        runtime.start_manual(graph, "m", self.ivan)
+        self.assertEqual(self.keys(self.ivan), ["g:c"])
 
     def test_a_letter_on_the_input_drops_new(self):
         self.assertEqual(offers.spec_of({"mode": "new", "letter": "x"})["mode"], "reply")
