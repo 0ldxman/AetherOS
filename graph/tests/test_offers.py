@@ -136,7 +136,7 @@ class OfferTests(TestCase):
                       node("q", "act:offer", state="mystery"), node("o", "act:offer"), node("ob", "act:offer", offer="g:b"),
                       node("m", "manual"), node("h", "act:offer", state="hidden", whole="group"), node("m2", "manual")],
                      [wire("y", "value", "q"), wire("t", "on", "o"), wire("a", "offer", "q", "f:offer"), wire("a", "offer", "o", "f:offer"),
-                      wire("m2", "fire", "ob"), wire("m", "fire", "h"), wire("a", "offer", "h", "f:group")])
+                      wire("m2", "fire", "ob"), wire("m", "fire", "h"), wire("a", "offer", "h", "f:offer")])
         self.assertEqual([(v.key, v.open) for v in offers.visible(self.ivan)], [("g:a", False)])           # «???», пока условия нет
         values.set_tag("player", self.ivan.pk, "vip")
         self.assertEqual([(v.key, v.open) for v in offers.visible(self.ivan)], [("g:a", True)])            # самое открытое
@@ -150,9 +150,21 @@ class OfferTests(TestCase):
 
     def test_hide_a_group_by_its_name(self):
         graph = make([node("m", "manual"), offer("a", group="ask"), offer("b", group="ask"), offer("c"), node("o", "act:offer", offer=["g:a", "g:b", "g:c"]),
-                      node("h", "act:offer", state="hidden", whole="group", group="ask")], [wire("m", "fire", "o"), wire("o", "next", "h")])
+                      node("h", "act:offer", state="hidden", whole="group", offer="ask")], [wire("m", "fire", "o"), wire("o", "next", "h")])
         runtime.start_manual(graph, "m", self.ivan)
         self.assertEqual(self.keys(self.ivan), ["g:c"])
+
+    def test_open_a_group_by_name_or_by_an_offer(self):
+        graph = make([node("m", "manual"), offer("a", group="ask"), offer("b", group="ask"), offer("c", group="other"), offer("d"),
+                      node("o", "act:offer", whole="group", offer="ask"), node("q", "act:offer", state="mystery", whole="group")],
+                     [wire("m", "fire", "o"), wire("o", "next", "q"), wire("c", "offer", "q", "f:offer")])
+        runtime.start_manual(graph, "m", self.ivan)
+        self.assertEqual(sorted((v.key, v.open) for v in offers.visible(self.ivan)), [("g:a", True), ("g:b", True), ("g:c", False)])
+
+    def test_a_group_by_condition(self):
+        make([node("y", "boolean", value=True), offer("a", group="ask"), offer("b", group="ask"), offer("c"),
+              node("o", "act:offer", whole="group", offer=["ask"])], [wire("y", "value", "o")])
+        self.assertEqual(self.keys(self.ivan), ["g:a", "g:b"])
 
     def test_a_letter_on_the_input_drops_new(self):
         self.assertEqual(offers.spec_of({"mode": "new", "letter": "x"})["mode"], "reply")

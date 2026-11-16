@@ -16,6 +16,8 @@
   const picks = (k: string) => store.catalog?.picks[k] ?? [];
   const PICKED = ["key", "letter", "item", "object", "section", "character", "station", "machine", "moment", "graph", "scene", "system", "time_zone", "offer", "attachment"];
   const LISTED = ["flag", "world_flag", "counter"];
+  // поле со встроенным переключателем: без провода в панели только если текстом его не задать («Как» — только провод письма)
+  const typed = (f: Field) => (f.socket ?? "").split(/[:|]/).includes("text");
   const fields = $derived([...kind.fields.filter((f) => !wireOnly(f.kind)).map((f) => ({ ...f, kind: plainKind(f.kind) })), ...(kind.group === "noun" && !kind.start_only ? (waiting ? catalog.wait_fields : catalog.start_fields) : [])]);
   const data = $derived(node.data);
   const value = (name: string) => (data[name] === undefined || data[name] === null ? "" : String(data[name]));
@@ -84,7 +86,7 @@
   {/if}
 
   <fieldset class="fields" disabled={!editable}>
-    {#each fields.filter((f) => shown(f) && !(kind.inline?.[f.name] && !fed[f.name])) as f (f.name)}
+    {#each fields.filter((f) => shown(f) && !(kind.inline?.[f.name] && !fed[f.name] && !typed(f))) as f (f.name)}
       {#if f.kind === "sockets"}
         <div class="cell"><span class="label">{f.label}</span>
           {#each socks as sock, i (sock.name)}
@@ -157,12 +159,13 @@
       {:else}
         <label class="cell"><span class="label">{f.label}{f.required ? "" : " (необязательно)"}</span>
           <input class="field" class:mono={LISTED.includes(f.kind) || f.kind === "clock"} value={value(f.name)} placeholder={f.placeholder}
-                 list={LISTED.includes(f.kind) ? `gr-${uid}-${f.kind}` : undefined} oninput={(e) => set(f.name, e.currentTarget.value)} /></label>
+                 list={LISTED.includes(f.kind) || f.kind === "offer_group" ? `gr-${uid}-${f.kind}` : undefined} oninput={(e) => set(f.name, e.currentTarget.value)} /></label>
       {/if}
     {/each}
     <label class="check"><input type="checkbox" checked={!!node.mute} onchange={(e) => onchange({ mute: e.currentTarget.checked || undefined })} />Выключена (M): поток идёт насквозь</label>
   </fieldset>
   {#each LISTED as k (k)}<datalist id={`gr-${uid}-${k}`}>{#each picks(k) as o (o.value)}<option value={o.value}></option>{/each}</datalist>{/each}
+  <datalist id={`gr-${uid}-offer_group`}>{#each picks("offer") as o (o.value)}<option value={o.value}>{o.label}</option>{/each}</datalist>
 
   {#if problems.length}
     <div class="problems">

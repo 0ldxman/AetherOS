@@ -152,7 +152,7 @@ def _part(part, groups, prefix, add, slug):
 
             if data.get("state") == "hidden":
                 add(key, "«Скрыть» — только по событию: без условия возможность и так скрыта")
-            elif (node_id, "offer") not in doc.refs and any(one.partition(":")[0] != slug for one in offers._keys(data.get("offer"))):
+            elif (node_id, "offer") not in doc.refs and any(":" in one and one.partition(":")[0] != slug for one in offers._keys(data.get("offer"))):
                 add(key, "по условию открываются только возможности этого сценария")
         if kind.owned:
             from graph import owned

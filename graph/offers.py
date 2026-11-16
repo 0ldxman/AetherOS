@@ -170,18 +170,29 @@ def close_group(graph, group, user=None):
         close(graph, node, user)
 
 
+def _entities(doc):
+    return [node for node in doc.nodes if doc.kind(node) is not None and doc.kind(node).name == ENTITY]
+
+
 def declared(doc, node_id, slug):
-    """Сущности этого графа, которые «Открыть» с условием во «Когда» объявляет: провод с сущности или ключи этого графа."""
+    """Сущности этого графа, которые «Изменить» с условием во «Когда» объявляет: провод с сущности, ключи этого графа или, у
+    «Группу», — вся группа (имя текстом или группа поданной возможности)."""
     src = doc.refs.get((node_id, "offer"))
+    found, names = [], []
     if src is not None:
         kind = doc.kind(src[0])
-        return [src[0]] if kind is not None and kind.name == ENTITY else []
-    found = []
-    for one in _keys(doc.data(node_id).get("offer")):
-        head, _, node = one.partition(":")
-        if head == slug and doc.kind(node) is not None and doc.kind(node).name == ENTITY:
-            found.append(node)
-    return found
+        found = [src[0]] if kind is not None and kind.name == ENTITY else []
+    else:
+        for one in _keys(doc.data(node_id).get("offer")):
+            head, sep, node = one.partition(":")
+            if not sep:
+                names.append(one)
+            elif head == slug and doc.kind(node) is not None and doc.kind(node).name == ENTITY:
+                found.append(node)
+    if doc.data(node_id).get("whole") != "group":
+        return found
+    groups = ({spec_of(doc.data(node))["group"] for node in found} | set(names)) - {""}
+    return list(dict.fromkeys(found + [node for node in _entities(doc) if spec_of(doc.data(node))["group"] in groups]))
 
 
 def declare(graph, doc):
@@ -211,7 +222,7 @@ def entity_spec(run, graph, node):
 
 
 def act(run, node_id, kind, data):
-    """Нода «Возможность: Изменить»: открыть, показать «???» или скрыть (одну или всю её группу)."""
+    """Нода «Возможность: Изменить»: открыть, показать «???» или скрыть — одну или всю группу."""
     from graph import runtime
 
     user = None if data.get("scope") == "all" else run.user
@@ -219,18 +230,27 @@ def act(run, node_id, kind, data):
         runtime._log(run.graph, f"«{kind.label}»: нет игрока хода", None)
         return ["fail"]
     state = _state(data)
-    if state == "hidden" and data.get("whole") == "group":
-        return _hide_groups(run, kind, data, user)
     wanted = _keys(data.get("offer"))
-    found = [parse(one) for one in wanted]
-    if not found or None in found:
-        runtime._log(run.graph, f"«{kind.label}»: нет возможности «{', '.join(wanted)}»", run.user)
+    if not wanted:
+        runtime._log(run.graph, f"«{kind.label}»: не задана возможность", run.user)
         return ["fail"]
+    if data.get("whole") == "group":
+        found = []
+        for one in wanted:
+            graph, name, members = _group(run, one)
+            if state == "hidden" and name:
+                close_group(graph, name, user)
+            found += [(graph, node) for node in members]
+    else:
+        found = [parse(one) for one in wanted]
+        if None in found:
+            runtime._log(run.graph, f"«{kind.label}»: нет возможности «{', '.join(wanted)}»", run.user)
+            return ["fail"]
     for graph, node in found:
-        spec = entity_spec(run, graph, node)
         if state == "hidden":
             close(graph, node, user)
             continue
+        spec = entity_spec(run, graph, node)
         if spec is None:
             runtime._log(run.graph, f"«{kind.label}»: «{key(graph, node)}» — не нода «Возможность»", run.user)
             return ["fail"]
@@ -238,24 +258,21 @@ def act(run, node_id, kind, data):
     return ["next"]
 
 
-def _hide_groups(run, kind, data, user):
-    """«Скрыть всю группу»: имя группы (в этом сценарии) или возможность — тогда её группа."""
+def _group(run, one):
+    """Группа по значению поля: возможность (её группа в её сценарии, она сама — тоже) или имя (в этом сценарии).
+    -> (граф, имя группы, сущности группы)."""
     from graph import runtime
 
-    wanted = _keys(data.get("group"))
-    if not wanted:
-        runtime._log(run.graph, f"«{kind.label}»: не задана группа", run.user)
-        return ["fail"]
-    for one in wanted:
-        found = parse(one) if ":" in one else None
-        spec = entity_spec(run, *found) if found is not None else None
-        if found is not None and spec is not None:
-            if spec["group"]:
-                close_group(found[0], spec["group"], user)
-            close(found[0], found[1], user)
-        else:
-            close_group(run.graph, one[:64], user)
-    return ["next"]
+    found = parse(one) if ":" in one else None
+    spec = entity_spec(run, *found) if found is not None else None
+    graph, name = (found[0], spec["group"]) if spec is not None else (run.graph, one[:64])
+    if graph.pk != run.graph_id:
+        run = Run(graph=graph, user=run.user, ctx=run.ctx, state={})
+    doc = runtime.doc_of(graph)
+    members = [node for node in _entities(doc) if name and spec_of(runtime.resolved(run, doc, node))["group"] == name]
+    if spec is not None and found[1] not in members:
+        members.insert(0, found[1])
+    return graph, name, members
 
 
 # ---- что видит игрок -----------------------------------------------------------------------------------------------------
