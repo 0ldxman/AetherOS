@@ -227,6 +227,27 @@ def rebuild_starts(graph):
 
 # ---------- помощники ----------
 
+def _thing_find(run, kind, data, get, out):
+    """«Найти по условию»: найдено (список), первое, количество."""
+    from engine import search
+
+    among = get("among")
+    limit = get("limit")
+    try:
+        found = search.find(get("expr"), data.get("what") or "account", run.user, _facts(run),
+                            among=_as_list(among) if among not in (None, "") else None, sort=get("sort"),
+                            descending=(data.get("order") or "desc") == "desc",
+                            limit=int(float(limit)) if str(limit or "").strip().replace(".", "", 1).isdigit() else None)
+    except search.SearchError as error:
+        _log(run.graph, f"«{kind.label}»: {error}", run.user)
+        found = []
+    if out == "count":
+        return len(found)
+    if out == "first":
+        return found[0] if found else ""
+    return found
+
+
 def _log(graph, text, user=None):
     from world import state
 
@@ -445,6 +466,8 @@ def value_of(run, doc, node_id, out, depth=0):
             return sessions.find(run, data.get("mode") or "current", get("player"), get("machine"), _truth(get("active")), get("account"))
         if kind.name == "find":
             return entities.find(run, kind, {f.name: get(f.name) for f in kind.fields})
+        if kind.name == "thing.find":
+            return _thing_find(run, kind, data, get, out)
         if kind.name == "ent:placement":
             return entities.placement(run, kind, {f.name: get(f.name) for f in kind.fields}, out)
         if kind.name in ("ent:tag", "ent:count"):

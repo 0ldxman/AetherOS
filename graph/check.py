@@ -165,6 +165,13 @@ def _part(part, groups, prefix, add, slug):
             fed = (node_id, item.name) in doc.refs
             if item.required and not fed and data.get(item.name) in (None, "") and N.active(kind, data, item.name):
                 add(key, f"не заполнено «{item.label}»")
+            if kind.name == "thing.find" and item.name == "expr" and data.get(item.name) and not fed:
+                from engine import search
+
+                try:
+                    search.parse(data[item.name], data.get("what") or "account")
+                except search.SearchError as error:
+                    add(key, f"условие: {error}")
             if item.kind == "condition" and data.get(item.name):
                 try:
                     parse_condition(data[item.name])
