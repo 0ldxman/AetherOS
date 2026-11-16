@@ -68,8 +68,8 @@ def demo_conversation():
         node("ask", "act:mail", 260, 260, variant="player", item="guard-ask"),
         node("password", "act:offer.open", 520, 260, mode="reply", title="Give the password", text="Password: {{hunter2}}. Dock [[7|9]], please.",
              attempts=3, group="ask", **guard),
-        node("tunnel", "act:offer.open", 780, 260, mode="reply", title="Mention the tunnel", text="I know about the tunnel.",
-             condition="tag:tunnel", group="ask", **guard),
+        node("knows", "fact", 520, 120, expr="tag:tunnel"),
+        node("tunnel", "act:offer.open", 780, 120, mode="reply", title="Mention the tunnel", text="I know about the tunnel.", group="ask", **guard),
         node("seven", "on:offer.used", 0, 520, offer="harbor-door:password", word="7", repeat="always"),
         node("open", "act:mail", 260, 520, variant="player", item="guard-open"),
         node("flag", "act:tag", 520, 520, variant="on", owner="player", name="dock-open"),
@@ -79,7 +79,7 @@ def demo_conversation():
         node("again", "act:mail", 260, 840, variant="player", item="guard-wrong"),
         node("closed", "act:mail", 260, 960, variant="player", item="guard-closed"),
     ]
-    wires = [wire("yes", "value", "hello"), wire("asked", "ok", "ask"), wire("ask", "next", "password"), wire("password", "next", "tunnel"),
+    wires = [wire("yes", "value", "hello"), wire("asked", "ok", "ask"), wire("ask", "next", "password"), wire("knows", "value", "tunnel"),
              wire("seven", "ok", "open"), wire("open", "next", "flag"), wire("nine", "ok", "repair"), wire("repair", "next", "password"),
              wire("wrong", "wrong", "again"), wire("wrong", "exhausted", "closed")]
     graph = Graph.objects.create(slug="harbor-door", title="Dock access", active=True, doc={"nodes": nodes, "wires": wires},

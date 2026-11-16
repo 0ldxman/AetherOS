@@ -56,11 +56,10 @@ def door(extra_nodes=(), extra_wires=()):
     nodes = [node("m", "manual"), node("ask", "act:mail", variant="player", item="guard-ask"),
              node("code", "act:offer.open", mode="reply", address="guard@port", reply_to="guard-ask", title="Назвать код",
                   text="Код: {{4471}}. Склад [[7|9]].", attempts=2, group="ask"),
-             node("tunnel", "act:offer.open", mode="reply", address="guard@port", title="Тайный ход", text="Я знаю про тоннель.",
-                  condition="tag:tunnel", group="ask"),
-             node("hidden", "act:offer.open", mode="reply", address="guard@port", title="Скрытый", text="x", condition="tag:never",
-                  closed="hidden", group="ask"), *extra_nodes]
-    wires = [wire("m", "fire", "ask"), wire("ask", "next", "code"), wire("code", "next", "tunnel"), wire("tunnel", "next", "hidden"), *extra_wires]
+             node("tunnel", "act:offer.open", mode="reply", address="guard@port", title="Тайный ход", text="Я знаю про тоннель.", group="ask"),
+             node("knows", "fact", expr="tag:tunnel"), node("never", "fact", expr="tag:never"),
+             node("hidden", "act:offer.open", mode="reply", address="guard@port", title="Скрытый", text="x", closed="hidden", group="ask"), *extra_nodes]
+    wires = [wire("m", "fire", "ask"), wire("ask", "next", "code"), wire("knows", "value", "tunnel"), wire("never", "value", "hidden"), *extra_wires]
     for made in (used("u7", "code", "ok", "guard-7", word="7"), used("uw", "code", "wrong", "guard-warn"), used("ux", "code", "exhausted", "guard-angry"),
                  used("u9", "code", "ok", "guard-thanks", word="9")):
         nodes += made[0]
@@ -169,7 +168,7 @@ class TalkTests(TestCase):
     def test_a_variant_for_another_account_and_a_proof_attachment(self):
         graph = self.started(door([node("boss", "act:offer.open", mode="new", address="guard@port", title="От капитана", text="Приказ.",
                                         account="captain@aether-main", attach="signed", attach_item="seal")],
-                                  [wire("hidden", "next", "boss")]))
+                                  [wire("code", "next", "boss")]))
         mine = talk.offers_to_answer(self.box(), "guard@port")
         self.assertFalse(next(o for o in mine if o.key == "door:boss").open)                # с учётки ivan закрыт
         seal = key_item("seal")
@@ -186,7 +185,7 @@ class TalkTests(TestCase):
 
     def test_forwarding_a_letter(self):
         self.started(door([node("fwd", "act:offer.open", mode="forward", address="guard@port", forward_of="guard-ask", title="Переслать")],
-                          [wire("hidden", "next", "fwd")]))
+                          [wire("code", "next", "fwd")]))
         self.assertEqual(talk.offers_to_answer(self.box(), "guard@port"), [o for o in talk.offers_to_answer(self.box(), "guard@port") if o.key != "door:fwd"])
         offers = talk.offers_to_answer(self.box(), "guard@port", forward_item=self.ask)
         self.assertEqual([o.key for o in offers], ["door:fwd"])

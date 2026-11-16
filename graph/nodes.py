@@ -779,7 +779,7 @@ register(Kind("act:offer.open", "Возможность: Открыть", ACTION
     Field("reply_ok", "Ответ, если верно", "text", "ничего"), Field("reply_wrong", "Ответ, если неверно", "text", "{command}: access denied"),
     Field("attach", "Приложить", "select", "", False, (("", "ничего"), ("item", "объект"), ("key", "ключ"), ("signed", "подписанное ключом"))),
     Field("attach_item", "Что приложить", "object", "", True), Field("attempts", "Попыток", "number", "0 — без ограничения"),
-    Field("account", "С учётки", "account", "любая"), Field("condition", "Доступна, если", "condition", "всегда"),
+    Field("account", "С учётки", "account", "любая"),
     Field("scope", "Для кого", "select", "", False, (("player", "игроку хода"), ("all", "всем"))),
     Field("show", "Открыть", "select", "", False, (("open", "открытой"), ("mystery", "закрытой «???»"))),
     Field("closed", "Когда недоступна", "select", "", False, (("mystery", "показать «???»"), ("hidden", "скрыть"))),

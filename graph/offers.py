@@ -47,7 +47,6 @@ def spec_of(data):
     characters = data.get("character")
     characters = [str(c).strip() for c in (characters if isinstance(characters, (list, tuple)) else [characters]) if str(c or "").strip()]
     attach = data.get("attach") if data.get("attach") in ATTACH else ""
-    condition = data.get("condition")
 
     def many(name):
         value = data.get(name)
@@ -62,8 +61,7 @@ def spec_of(data):
             "reply_to": _text(data, "reply_to"), "forward_of": _text(data, "forward_of"), "title": _text(data, "title"), "caption": _text(data, "caption"),
             "text": str(data.get("text") or ""), "attach": attach, "attach_item": _text(data, "attach_item") if attach else "",
             "attempts": _int(data.get("attempts")), "account": _text(data, "account").lower(),
-            "show": "mystery" if data.get("show") == "mystery" else "open", "closed": "hidden" if data.get("closed") == "hidden" else "mystery",
-            "live": condition not in (None, "") and not (isinstance(condition, str) and not condition.strip())}
+            "show": "mystery" if data.get("show") == "mystery" else "open", "closed": "hidden" if data.get("closed") == "hidden" else "mystery"}
 
 
 def _group(data):
@@ -185,15 +183,11 @@ def visible(user, host="", login="", channel="mail", only=None):
         token = _busy.set(busy | {place})
         try:
             spec, is_open = row.spec, True
-            if row.standing or (row.spec or {}).get("live"):
+            if row.standing:
                 live = _live(row, user, host, login)
                 if live is None:
                     continue
-                run, data = live
-                if row.standing:
-                    spec, is_open = spec_of(data), runtime._truth(data.get("in"))
-                if spec.get("live"):
-                    is_open = is_open and runtime._holds(data.get("condition"), run)
+                spec, is_open = spec_of(live[1]), runtime._truth(live[1].get("in"))
             is_open = is_open and spec.get("show") != "mystery"
         finally:
             _busy.reset(token)
