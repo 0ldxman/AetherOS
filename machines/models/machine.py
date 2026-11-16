@@ -92,7 +92,8 @@ class Machine(models.Model):
     overload_pct = models.FloatField("Перегрузка, % команд", default=0,
                                      help_text="Столько процентов команд терминала не выполняется: Resource temporarily unavailable. 0 — нет.")
     screen_noise = models.PositiveSmallIntegerField("Помехи изображения", default=0,
-                                                    help_text="Рабочий стол этой машины с полосами и сбоями картинки: 0 — нет, 100 — сильно.")
+                                                    help_text="Стол машины идёт по плохому каналу, как сжатое видео: ниже разрешение, меньше оттенков, "
+                                                              "провалы качества и побитые блоки. 0 — нет, 100 — не прочитать.")
     seats = models.PositiveSmallIntegerField("Мест", null=True, blank=True,
                                              help_text="Сколько игроков одновременно может быть на машине. Пусто — без ограничения.")
     time_zone = models.CharField(

@@ -739,20 +739,9 @@ body {
 :where(.win-actions) .dialog-ok:focus-visible { background: var(--tone); border-color: var(--tone); color: var(--font-dark); outline: none; }
 
 
-/* помехи изображения машины: полосы развёртки, катящаяся полоса, мерцание, снег и пропадание (desktop.js); сила — --noise от 0 до 1 */
-.screen-noise {
-  position: fixed; inset: 0; pointer-events: none; z-index: 2147483000;
-  background:
-    linear-gradient(to bottom, transparent 0%, color-mix(in srgb, var(--fg) calc(var(--noise) * 12%), transparent) 50%, transparent 100%) 0 0 / 100% 22% no-repeat,
-    repeating-linear-gradient(to bottom, color-mix(in srgb, var(--fg) calc(var(--noise) * 22%), transparent) 0 1px, transparent 1px 3px);
-  animation: screen-noise-roll 5s linear infinite, screen-noise-flicker 0.12s steps(2) infinite;
-}
-.screen-snow {
-  position: fixed; inset: 0; width: 100vw; height: 100vh; pointer-events: none; z-index: 2147483001;
-  image-rendering: pixelated; mix-blend-mode: screen;
-}
-.screen-blackout { position: fixed; inset: 0; pointer-events: none; z-index: 2147483002; background: var(--bg); opacity: 0; }
-.screen-blackout.on { opacity: 1; }
-@keyframes screen-noise-roll { from { background-position: 0 -25%, 0 0; } to { background-position: 0 125%, 0 0; } }
-@keyframes screen-noise-flicker { 50% { opacity: 0.75; } }
-@media (prefers-reduced-motion: reduce) { .screen-noise { animation: none; } }
+/* помехи изображения машины: побитые блоки сжатого видео (desktop.js; пиксели и оттенки — svg-фильтр на столе) */
+.screen-blocks { position: fixed; inset: 0; pointer-events: none; z-index: 2147483000; }
+.screen-blocks i { position: absolute; display: block; }
+.screen-blocks i.smear { backdrop-filter: blur(6px) saturate(1.6); }
+.screen-blocks i.tint { backdrop-filter: hue-rotate(var(--hue)) contrast(1.6); }
+.screen-blocks i.stale { background: color-mix(in srgb, var(--panel) 85%, var(--fg)); }

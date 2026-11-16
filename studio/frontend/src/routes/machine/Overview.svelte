@@ -183,7 +183,7 @@
         <label><span class="label">Перегрузка, % команд<Hint text="Столько процентов команд терминала не выполняется: Resource temporarily unavailable — нужно повторить. exit работает всегда." /></span>
           <input class="field" type="number" min="0" max="100" step="1" bind:value={form.overload_pct} />
           <span class="presets">{#each [[0, "нет"], [10, "заметно"], [30, "сильно"]] as [pct, label] (pct)}<button type="button" class="btn ghost tiny" onclick={() => (form.overload_pct = pct as number)}>{label}</button>{/each}</span></label>
-        <label><span class="label">Помехи изображения<Hint text="Рабочий стол этой машины с полосами развёртки и редкими сбоями картинки (сдвиг, цвет): 0 — нет, 100 — сильно. При «меньше движения» в системе — только полосы." /></span>
+        <label><span class="label">Помехи изображения<Hint text="Стол машины идёт по плохому каналу, как сжатое видео: ниже разрешение (пиксель 3–9 px), меньше оттенков, размыто; провалами качество резко падает и куски экрана приходят побитыми блоками. 25 — читается с трудом, 75 и выше — текст не прочитать. При «меньше движения» — без провалов." /></span>
           <input class="field" type="number" min="0" max="100" step="5" bind:value={form.screen_noise} />
           <span class="presets">{#each [[0, "нет"], [30, "слабо"], [80, "сильно"]] as [lvl, label] (lvl)}<button type="button" class="btn ghost tiny" onclick={() => (form.screen_noise = lvl as number)}>{label}</button>{/each}</span></label>
       </div>

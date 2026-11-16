@@ -1674,82 +1674,67 @@ window.addEventListener("blur", () => setMenu(false));
 })();
 
 
-// Помехи изображения машины (machines.Machine.screen_noise, 0–100): мешают работать всерьёз. Постоянно — полосы развёртки и снег
-// (зерно поверх стола), на высоких уровнях — расслоение цвета. Сбоями — искажение волной, срыв кадра, пропадание изображения.
-// Чем выше уровень, тем чаще, дольше и сильнее. При «меньше движения» — только неподвижные полосы и снег.
+// Помехи изображения машины (machines.Machine.screen_noise, 0–100): стол чужой машины идёт по плохому каналу, как сжатое видео.
+// Постоянно — ниже разрешение (пиксели), меньше оттенков (ступенчатые переходы) и размытость. Провалами — разрешение резко падает и
+// потом восстанавливается, куски экрана приходят побитыми блоками. Чем выше уровень, тем хуже и чаще. При «меньше движения» — без
+// провалов и блоков.
 (() => {
   const level = Math.min(100, Math.max(0, parseInt(desktop.dataset.screenNoise || "0", 10) || 0));
   if (!level) return;
   const k = level / 100;
   const calm = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const stage = document.getElementById("desktop");
 
-  const veil = document.createElement("div");
-  veil.className = "screen-noise";
-  veil.style.setProperty("--noise", String(k));
-  document.body.append(veil);
-
-  // снег: мелкий холст, растянутый на весь экран
-  const snow = document.createElement("canvas");
-  snow.className = "screen-snow";
-  snow.width = 240; snow.height = 150;
-  snow.style.opacity = String(0.08 + k * 0.42);
-  document.body.append(snow);
-  const pen = snow.getContext("2d");
-  const frame = pen.createImageData(snow.width, snow.height);
-  const paint = () => {
-    for (let i = 0; i < frame.data.length; i += 4) {
-      const v = Math.random() < 0.5 ? 0 : 255 * Math.random();
-      frame.data[i] = frame.data[i + 1] = frame.data[i + 2] = v;
-      frame.data[i + 3] = Math.random() < 0.35 + k * 0.5 ? 255 : 0;
-    }
-    pen.putImageData(frame, 0, 0);
-  };
-  paint();
-  if (calm) return;
-  setInterval(paint, 70);
-
-  // искажение волной: svg-фильтр, его включают сбои
+  // пиксели: квадраты size×size закрашиваются цветом одной своей точки; оттенки: по levels ступеней на канал
   const ns = "http://www.w3.org/2000/svg";
   const svg = document.createElementNS(ns, "svg");
   svg.setAttribute("width", "0"); svg.setAttribute("height", "0"); svg.style.position = "absolute";
-  svg.innerHTML = '<filter id="screen-warp"><feTurbulence id="screen-warp-noise" type="fractalNoise" baseFrequency="0.002 0.08" numOctaves="1" seed="1"/>' +
-    '<feDisplacementMap in="SourceGraphic" scale="0" xChannelSelector="R" yChannelSelector="G" id="screen-warp-map"/></filter>';
   document.body.append(svg);
-  const map = svg.querySelector("#screen-warp-map");
-  const turb = svg.querySelector("#screen-warp-noise");
-
-  const split = (px) => `drop-shadow(${px}px 0 0 rgb(255 0 60 / 0.55)) drop-shadow(${-px}px 0 0 rgb(0 220 255 / 0.55))`;
-  const base = level >= 60 ? split(Math.round(1 + (level - 60) / 20)) : "none";       // расслоение цвета постоянно
-  const stage = document.getElementById("desktop");
-  stage.style.filter = base;
-
-  const blackout = document.createElement("div");
-  blackout.className = "screen-blackout";
-  document.body.append(blackout);
-
-  const kinds = ["warp", "warp", "split", "roll"].concat(level >= 50 ? ["black"] : []);
-  const glitch = () => {
-    const kind = kinds[Math.floor(Math.random() * kinds.length)];
-    const length = 120 + Math.random() * (150 + level * 4);
-    if (kind === "warp") {
-      turb.setAttribute("seed", String(Math.floor(Math.random() * 1000)));
-      map.setAttribute("scale", String(10 + k * 60));
-      stage.style.filter = `url(#screen-warp) ${base === "none" ? "" : base}`;
-    } else if (kind === "split") {
-      stage.style.filter = split(3 + k * 9);
-      stage.style.transform = `translateX(${(Math.random() - 0.5) * k * 40}px)`;
-    } else if (kind === "roll") {
-      stage.style.transform = `translateY(${(Math.random() < 0.5 ? -1 : 1) * (20 + k * 160)}px)`;
-    } else {
-      blackout.classList.add("on");
-    }
-    setTimeout(() => {
-      stage.style.filter = base;
-      stage.style.transform = "";
-      map.setAttribute("scale", "0");
-      blackout.classList.remove("on");
-    }, length);
-    setTimeout(glitch, (14000 - level * 120) * (0.3 + Math.random()));        // 25 — раз в ~11 с, 100 — раз в ~2 с
+  const steps = (n) => Array.from({ length: n }, (_, i) => (i / (n - 1)).toFixed(3)).join(" ");
+  const quality = (size, levels, blur) => {
+    const half = Math.max(1, Math.floor(size / 2));
+    const cell = half * 2 + 1;                         // квадрат без щелей: точка в середине, расширенная на half во все стороны
+    // как уменьшение картинки: цвет квадрата — усреднённый (размытие перед выборкой), а не цвет одной точки
+    const pixel = size > 1
+      ? `<feGaussianBlur in="SourceGraphic" stdDeviation="${(cell * 0.4).toFixed(2)}" result="soft"/>` +
+        `<feFlood x="${half}" y="${half}" width="1" height="1"/><feComposite width="${cell}" height="${cell}"/><feTile result="grid"/>` +
+        `<feComposite in="soft" in2="grid" operator="in"/><feMorphology operator="dilate" radius="${half}" result="px"/>`
+      : `<feOffset in="SourceGraphic" result="px"/>`;
+    svg.innerHTML = `<filter id="screen-quality" x="0" y="0" width="100%" height="100%" color-interpolation-filters="sRGB">${pixel}` +
+      `<feComponentTransfer in="px"><feFuncR type="discrete" tableValues="${steps(levels)}"/><feFuncG type="discrete" tableValues="${steps(levels)}"/>` +
+      `<feFuncB type="discrete" tableValues="${steps(levels)}"/></feComponentTransfer>${blur ? `<feGaussianBlur stdDeviation="${blur}"/>` : ""}</filter>`;
+    stage.style.filter = "url(#screen-quality)";
   };
-  setTimeout(glitch, 1500 + Math.random() * 2500);
+  const size = 2 * Math.max(1, Math.ceil(k * 4));     // пиксель: 25 — 3 px, 50 — 5, 75 — 7, 100 — 9
+  const levels = Math.round(24 - k * 18);             // 25 — 20 оттенков на канал, 100 — 6
+  const blur = +(k * 0.6).toFixed(2);
+  quality(size, levels, blur);
+  if (calm) return;
+
+  // побитые блоки: квадраты экрана размыты, сдвинуты по цвету или «застыли» сплошной заливкой
+  const tiles = document.createElement("div");
+  tiles.className = "screen-blocks";
+  document.body.append(tiles);
+  const corrupt = (count, cell) => {
+    tiles.replaceChildren();
+    for (let i = 0; i < count; i++) {
+      const tile = document.createElement("i");
+      const w = cell * (1 + Math.floor(Math.random() * 4)), h = cell * (1 + Math.floor(Math.random() * 2));
+      tile.style.left = `${Math.floor(Math.random() * innerWidth / cell) * cell}px`;
+      tile.style.top = `${Math.floor(Math.random() * innerHeight / cell) * cell}px`;
+      tile.style.width = `${w}px`; tile.style.height = `${h}px`;
+      tile.className = ["smear", "tint", "stale"][Math.floor(Math.random() * 3)];
+      tile.style.setProperty("--hue", `${Math.floor(Math.random() * 360)}deg`);
+      tiles.append(tile);
+    }
+  };
+
+  const drop = () => {
+    const length = 300 + Math.random() * (400 + level * 12);           // 100 — до 1,6 с
+    quality(size + Math.round(4 + k * 10 * Math.random()), Math.max(3, levels - 6), blur + k * 0.8);
+    corrupt(Math.round(3 + k * 22 * Math.random()), 16);
+    setTimeout(() => { quality(size, levels, blur); tiles.replaceChildren(); }, length);
+    setTimeout(drop, (15000 - level * 120) * (0.3 + Math.random()));     // 25 — раз в ~12 с, 100 — раз в ~3 с
+  };
+  setTimeout(drop, 1500 + Math.random() * 2500);
 })();
