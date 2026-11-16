@@ -59,6 +59,9 @@ def props(key):
     username, login, host = found
     row = (Session.objects.filter(user__username__iexact=username, profile__login=login, profile__machine__hostname__iexact=host)
            .order_by("-pk").first())
+    from graph import times
+
     since = _since()
     return {"value": key_of(username, login, host), "player": username, "machine": host, "account": f"{login}@{host}",
+            "seen": times.of_real(row.seen_at) if row is not None else "",
             "active": bool(row and row.seen_at and row.seen_at >= since), "linked": bool(row and row.linked_at and row.linked_at >= since)}

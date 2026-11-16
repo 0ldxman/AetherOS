@@ -312,10 +312,12 @@ def _fill(value, run, keep=()):
 
 
 def _clock(text):
-    found = re.fullmatch(r"\s*(\d{1,2}):(\d{2})\s*", str(text or ""))
-    if not found or int(found.group(1)) > 23 or int(found.group(2)) > 59:
-        raise ValueError(f"время «{text}»: нужно ЧЧ:ММ")
-    return int(found.group(1)), int(found.group(2))
+    from graph import times
+
+    found = times.clock(text)
+    if found is None:
+        raise ValueError(f"время «{text}»: нужно ЧЧ:ММ или дата ГГГГ-ММ-ДД ЧЧ:ММ")
+    return found
 
 
 def after(minutes, real=False):
@@ -330,9 +332,13 @@ def after(minutes, real=False):
 
 
 def until_clock(text, real=False):
-    """Ближайший реальный момент, когда часы (игровые или реальные) покажут ЧЧ:ММ."""
+    """Ближайший реальный момент, когда часы (игровые или реальные) покажут ЧЧ:ММ; дата «ГГГГ-ММ-ДД ЧЧ:ММ» — этот момент."""
+    from graph import times
     from machines.world import chrono
 
+    moment = times.parse(text, words=False) if times.clock(text) is None else None
+    if moment is not None:
+        return moment if real else chrono.to_real(moment)
     hour, minute = _clock(text)
     if real:
         now = timezone.localtime()
@@ -469,9 +475,28 @@ def value_of(run, doc, node_id, out, depth=0):
                 value = get(row["id"])
                 values[str(row["name"]).strip()] = "" if value is None else str(_plain(value))
         return re.sub(r"\{([^{}]+)\}", lambda m: values.get(m.group(1).strip(), m.group(0)), str(get("template") or ""))
+    if name in ("time.now", "time.shift", "time.diff", "time.parts"):
+        from graph import times
+
+        if name == "time.now":
+            return times.text(times.now())
+        if name == "time.shift":
+            return times.shift(get("value") or "сейчас", _number(get("amount")) or 0, data.get("unit") or "minutes")
+        if name == "time.diff":
+            return times.diff(get("a") or "сейчас", get("b"), data.get("unit") or "minutes")
+        from graph import entities
+
+        machine = entities._machine(entities._key(get("machine")))
+        return times.parts(get("value") or "сейчас", machine).get(out, 0)
     if name == "compare":
         a, b, op = get("a"), get("b"), data.get("op") or "eq"
         na, nb = _number(a), _number(b)
+        if na is None or nb is None:                                     # даты — как даты
+            from graph import times
+
+            da, db = times.parse(a, words=False), times.parse(b, words=False)
+            if da is not None and db is not None:
+                na, nb = da.timestamp(), db.timestamp()
         if op in ("gt", "ge", "lt", "le"):
             if na is None or nb is None:
                 return False
@@ -1282,10 +1307,14 @@ def _time_target(data, game, kind_name="time"):
             while target.weekday() not in days:
                 target -= timedelta(days=1)
         return target
-    hour, minute = _clock(data.get("at"))
     if (data.get("mode") or "daily") == "once":
-        day = datetime.strptime(str(data.get("date") or "").strip(), "%Y-%m-%d")
-        return day.replace(hour=hour, minute=minute, tzinfo=dt_timezone.utc)
+        from graph import times
+
+        moment = times.parse(data.get("at"), words=False)
+        if moment is None:
+            raise ValueError(f"дата «{data.get('at')}»: нужно ГГГГ-ММ-ДД ЧЧ:ММ")
+        return moment
+    hour, minute = _clock(data.get("at"))
     target = game.replace(hour=hour, minute=minute, second=0, microsecond=0)
     return target if target <= game else target - timedelta(days=1)
 
@@ -1298,7 +1327,8 @@ def _time_starts():
     fired = 0
     for row in list(Start.objects.filter(event=N.TIME_EVENT, graph__active=True).select_related("graph")):
         doc = doc_of(row.graph)
-        data, kind = doc.data(row.node), doc.kind(row.node)
+        kind = doc.kind(row.node)
+        data = resolved(Run(graph=row.graph, user=None, ctx={}, state={}), doc, row.node) if kind is not None else doc.data(row.node)
         try:
             target = _time_target(data, game, kind.name if kind else "time")
         except ValueError:

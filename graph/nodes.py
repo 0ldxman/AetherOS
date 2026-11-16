@@ -16,16 +16,18 @@ GROUPS = {ENTITY: "Сущности", NOUN: "Когда", FLOW: "Ход", DATA: 
 # Типы сокетов. event — «случилось» (по нему идёт ход), остальное — данные: читаются в момент, когда нода выполняется.
 EVENT = "event"
 TYPES = ("event", "bool", "text", "number", "item", "placement", "layer", "machine", "account", "server", "character", "section", "moment", "player", "flag",
-         "world_flag", "counter", "offer", "session")
+         "world_flag", "counter", "offer", "session", "datetime")
 TYPE_LABELS = {"event": "событие", "bool": "да/нет", "text": "текст", "number": "число", "item": "объект", "placement": "размещение", "layer": "слой", "machine": "машину", "account": "учётку",
                "server": "сервер", "character": "персонажа", "section": "раздел", "moment": "момент", "player": "игрока",
-               "flag": "метку игрока", "world_flag": "метку мира", "counter": "счётчик", "offer": "возможность", "session": "сессию"}
+               "flag": "метку игрока", "world_flag": "метку мира", "counter": "счётчик", "offer": "возможность", "session": "сессию",
+               "datetime": "дату и время"}
 THINGS = ("item", "placement", "layer", "machine", "account", "server", "character", "section", "moment", "player", "flag", "world_flag", "counter", "offer",
           "session")
 
 # списки: «list:<тип элемента>»; «list:any» — вход, которому подходит любой список (количество)
 ELEMENTS = {"text": "Текст", "number": "Число", "bool": "Да/нет", "item": "Объект", "placement": "Размещение", "layer": "Слой", "machine": "Машина", "account": "Учётка", "server": "Сервер",
-            "character": "Персонаж", "section": "Раздел", "moment": "Момент", "player": "Игрок", "offer": "Возможность", "session": "Сессия"}
+            "character": "Персонаж", "section": "Раздел", "moment": "Момент", "player": "Игрок", "offer": "Возможность", "session": "Сессия",
+            "datetime": "Дата и время"}
 LIST, ANY_LIST = "list:", "list:any"
 TYPES = TYPES + tuple(LIST + name for name in ELEMENTS) + (ANY_LIST,)
 TYPE_LABELS.update({LIST + name: f"список ({label.lower()})" for name, label in ELEMENTS.items()})
@@ -67,7 +69,7 @@ FIELD_TYPES = {"text": "text", "textarea": "text", "path": "text", "clock": "tex
                "object": "item", "character": "character", "section": "section", "flag": "flag", "world_flag": "world_flag",
                "counter": "counter", "moment": "moment", "machine": "machine", "system": "text", "time_zone": "text", "server": "server", "player": "player", "layer": "layer", "placement": "placement", "account": "account", "offer": "offer",
                "recipient": "many:character|text", "mail_ref": "item|placement", "attachment": "many:item|placement",
-               "offer_group": "many:offer|text", "session": "session"}      # вид поля -> тип его входа; нет в списке — параметр без входа
+               "offer_group": "many:offer|text", "session": "session", "datetime": "datetime|text"}      # вид поля -> тип его входа; нет в списке — параметр без входа
 
 
 def field_type(field):
@@ -465,9 +467,9 @@ _value_when("on:count", "Счётчик: Изменён", (Sock("changed", "Из
 _value_when("on:count.threshold", "Счётчик: Порог", (Sock("up", "Дошёл"), Sock("down", "Ушёл ниже")), {"up": "value.count", "down": "value.count"},
             _threshold, (Sock("value", "Значение", "number", "value"),), (Field("threshold", "Порог", "number", "", True),))
 _when("on:time", "Время: В момент",
-      (Field("date", "Дата (игровая)", "text", "2031-05-14", True), Field("at", "Время (игровое, ЧЧ:ММ)", "clock", "21:00", True),
+      (Field("at", "Дата и время (игровые)", "datetime", "2031-05-14 21:00", True),
        Field("scope", "Для кого", "select", "", False, (("world", "мир"), ("each", "каждый игрок")))),
-      (Sock("fire", "Наступило"),), {"fire": TIME_EVENT}, None, (), "{date} {at}", start_only=True)
+      (Sock("fire", "Наступило"),), {"fire": TIME_EVENT}, None, (), "{at}", start_only=True)
 _when("on:schedule", "Время: По расписанию",
       (Field("mode", "Как часто", "select", "", False, (("daily", "каждый день"), ("weekly", "по дням недели"), ("every", "каждые N минут"))),
        Field("at", "Время (игровое, ЧЧ:ММ)", "clock", "21:00"), Field("days", "Дни недели", "text", "пн, ср, пт"),
@@ -510,7 +512,7 @@ for _kind, _label in (("net.request", "Сетевой сервер: Попытк
 
 register(Kind("wait", "Ждать", FLOW, "{mode}",
               (Field("mode", "Чего ждать", "select", "", False, (("delay", "время"), ("until", "до времени"), ("condition", "пока условие"))),
-               Field("minutes", "Минут", "number", "5"), Field("at", "До (игровое, ЧЧ:ММ)", "clock", "21:00"),
+               Field("minutes", "Минут", "number", "5"), Field("at", "До (игровое)", "datetime", "21:00 или 2031-05-14 21:00"),
                Field("condition", "Условие", "condition"), Field("timeout", "Таймаут, мин", "number", "без таймаута"),
                Field("real", "Реальное время вместо игрового", "bool")),
               (Sock("next", "Дальше"), Sock(TIMEOUT, "Таймаут"))))
@@ -732,7 +734,7 @@ register(Kind("act:machine.change", "Машина: Изменить", ACTION, "{
     Field("machine", "Машина", "many:machine", "", True), Field("name", "Имя", "text", "", True), Field("address", "Адрес", "text", "", True),
     Field("system", "ОС", "system", "", True), Field("time_zone", "Часовой пояс", "time_zone", "", True),
     Field("host_key", "Ключ хоста", "text", "пусто — новый случайный"), Field("note", "Приветствие", "textarea", "{note} в приветствии ОС"),
-    Field("booted", "Включена с", "text", "2031-03-02 14:05 или «сейчас»", True),
+    Field("booted", "Включена с", "datetime", "2031-03-02 14:05 или «сейчас»", True),
 ), _ACT_OUTS, title="variant", when={name: ("variant", (name,)) for name in ("name", "address", "system", "time_zone", "host_key", "note", "booted")}))
 register(Kind("act:account.change", "Машина: Изменить учётку", ACTION, "{account}", (
     Field("variant", "Действие", "select", "", False, (("mail", "Изменить почту"), ("password", "Изменить пароль"), ("keys", "Установить выражение ключей"),
@@ -898,7 +900,11 @@ HELP = {
     "frame": "Рамка вокруг нод. Не исполняется.",
     "text": "Текст: значение для входов.", "number": "Число: значение для входов.", "boolean": "Да/нет: значение для входов.",
     "template": "Склеить текст: {имя} в шаблоне заменяется значением подстановки с этим именем. Заполнили подстановку — появляется следующая.",
-    "compare": "Сравнить A и B: числа — как числа, остальное — как текст без учёта регистра. «По образцу» понимает *.",
+    "compare": "Сравнить A и B: числа — как числа, даты — как даты (раньше — меньше), остальное — как текст без учёта регистра. «По образцу» понимает *.",
+    "time.now": "Игровое «сейчас» (мировое время).",
+    "time.shift": "Дата плюс N минут, часов или дней (минус — назад). Дата — провод или текст «2031-05-14 21:00», «сейчас».",
+    "time.diff": "Сколько от B до A: A − B в минутах, часах или днях (целое). A пусто — сейчас: давно ли — «Последняя активность» в B.",
+    "time.parts": "Год, месяц, день, час, минута, день недели (1 — пн), дата и время текстом. С машиной — в её часовом поясе.",
     "logic": "И — все входы да; Или — хоть один да; Не — наоборот; Исключающее или — ровно один да. Подключили вход — появляется следующий.",
     "fact": "Условие на факты игрока хода: ключи, tag:, count:, world:. Верно или нет.",
     "math": "Посчитать A и B. «Случайное» — целое от A до B; округление, модуль и смена знака берут только A.",
@@ -1051,6 +1057,17 @@ _data("list.has", "Список: Содержит", "", (_OF, Field("list", "С�
       typed="of")
 _data("switch", "Выбрать значение", "",
       (Field("condition", "Если", "bool"), Field("yes", "Да", "text"), Field("no", "Нет", "text")), "text", "Значение")
+_UNIT = Field("unit", "Единица", "switch", "", False, (("minutes", "Минуты"), ("hours", "Часы"), ("days", "Дни")))
+_data("time.now", "Время: Сейчас", "", (), "datetime", "Сейчас")
+_data("time.shift", "Время: Сдвинуть", "", (Field("value", "Дата", "datetime", "сейчас", True), Field("amount", "На", "number", "-30"), _UNIT),
+      "datetime", "Дата")
+_data("time.diff", "Время: Разница", "", (Field("a", "A", "datetime", "сейчас"), Field("b", "B", "datetime", "", True), _UNIT),
+      "number", "A − B")
+_data("time.parts", "Время: Части", "", (Field("value", "Дата", "datetime", "сейчас", True), Field("machine", "Машина", "machine", "мировое время")),
+      "number", "Год")
+DATA_OUTS["time.parts"] = (Sock("year", "Год", "number"), Sock("month", "Месяц", "number"), Sock("day", "День", "number"),
+                           Sock("hour", "Час", "number"), Sock("minute", "Минута", "number"), Sock("weekday", "День недели", "number"),
+                           Sock("date", "Дата", "text"), Sock("clock", "Время", "text"))
 KINDS["read"] = replace(KINDS["read"], hidden=True)                 # теперь «Тег» и «Счётчик»
 
 
@@ -1079,7 +1096,8 @@ _entity("ent:player", "Игрок", Field("player", "Игрок", "player", "и�
         (Sock("value", "Игрок", "player"), Sock("callsign", "Позывной", "text")))
 _entity("ent:session", "Сессия", Field("session", "Сессия", "session", "игрок/логин@хост"),
         (Sock("value", "Сессия", "session"), Sock("player", "Игрок", "player"), Sock("machine", "Машина", "machine"),
-         Sock("account", "Учётка", "account"), Sock("active", "Активна", "bool"), Sock("linked", "Подключена", "bool")))
+         Sock("account", "Учётка", "account"), Sock("seen", "Последняя активность", "datetime"), Sock("active", "Активна", "bool"),
+         Sock("linked", "Подключена", "bool")))
 register(Kind("session.find", "Сессия: Найти", ENTITY, "", (
     Field("mode", "Какие", "switch", "", False, (("current", "Текущая"), ("all", "Все"), ("machine", "Машина"))),
     Field("player", "Игрок", "player", "игрок хода"), Field("machine", "Машина", "machine", "", True),

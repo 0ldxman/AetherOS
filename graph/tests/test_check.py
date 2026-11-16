@@ -80,6 +80,12 @@ class CheckTests(SimpleTestCase):
         found = texts(doc)
         self.assertTrue(any(n == "c" and text.startswith("условие") for n, text in found))
         self.assertTrue(any(n == "w" and "ЧЧ:ММ" in text for n, text in found))
+        doc = {"nodes": [node("m", "manual"), node("w", "wait", mode="until", at="2031-05-14 21:00"), node("b", "act:machine.change", variant="booted",
+                                                                                                        machine="aether-main", booted="вчера")],
+               "wires": [wire("m", "fire", "w"), wire("w", "next", "b")]}
+        found = texts(doc)
+        self.assertFalse(any(n == "w" for n, _ in found))
+        self.assertTrue(any(n == "b" and "ГГГГ-ММ-ДД" in text for n, text in found))
 
     def test_no_start_warning(self):
         doc = {"nodes": [node("a", "reroute")], "wires": []}

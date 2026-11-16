@@ -42,8 +42,10 @@ class SessionTests(TestCase):
         self.assertEqual(sessions.find(run, "machine", machine="nowhere"), [])
 
     def test_the_entity_reads_the_session(self):
-        self.assertEqual(sessions.props("ivan/ivan@aether-main"), {"value": "ivan/ivan@aether-main", "player": "ivan", "machine": "aether-main",
-                                                                   "account": "ivan@aether-main", "active": False, "linked": True})
+        found = sessions.props("ivan/ivan@aether-main")
+        found.pop("seen")                                                                    # дата — test_times
+        self.assertEqual(found, {"value": "ivan/ivan@aether-main", "player": "ivan", "machine": "aether-main", "account": "ivan@aether-main",
+                                 "active": False, "linked": True})
         self.assertTrue(sessions.props("ivan/guest@aether-core")["active"])
         self.assertFalse(sessions.props("ivan/root@aether-core")["linked"])                   # входа не было — не подключена
         self.assertIsNone(sessions.props("guest@aether-core"))

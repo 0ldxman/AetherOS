@@ -170,6 +170,11 @@ def _part(part, groups, prefix, add, slug):
                     parse_condition(data[item.name])
                 except ValueError as error:
                     add(key, f"условие: {error}")
+            if item.kind == "datetime" and data.get(item.name) and not fed:
+                from graph import times
+
+                if times.parse(data[item.name]) is None and (kind.name != "wait" or times.clock(data[item.name]) is None):
+                    add(key, f"«{item.label}»: нужно ГГГГ-ММ-ДД ЧЧ:ММ" + (" или ЧЧ:ММ" if kind.name == "wait" else ""))
             if item.kind == "clock" and data.get(item.name):
                 try:
                     _clock(data[item.name])
@@ -179,8 +184,8 @@ def _part(part, groups, prefix, add, slug):
             mode = data.get("mode") or "delay"
             if mode == "condition" and not data.get("condition"):
                 add(key, "нужно условие")
-            if mode == "until" and not data.get("at"):
-                add(key, "нужно время ЧЧ:ММ")
+            if mode == "until" and not data.get("at") and (node_id, "at") not in doc.refs:
+                add(key, "нужно время ЧЧ:ММ или дата")
         if kind.name == "choose":
             for number, row in enumerate(data.get("rows") or [], 1):
                 try:

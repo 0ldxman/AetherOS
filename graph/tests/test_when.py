@@ -120,7 +120,7 @@ class WhenTests(TestCase):
         self.assertEqual(runtime._time_target({"mode": "daily", "at": "21:00"}, game, "on:schedule"), datetime(2031, 5, 13, 21, 0, tzinfo=dt_timezone.utc))
         self.assertEqual(runtime._time_target({"mode": "weekly", "at": "09:00", "days": "пн, пт"}, game, "on:schedule"),
                          datetime(2031, 5, 12, 9, 0, tzinfo=dt_timezone.utc))
-        self.assertEqual(runtime._time_target({"date": "2031-06-01", "at": "10:30"}, game, "on:time"), datetime(2031, 6, 1, 10, 30, tzinfo=dt_timezone.utc))
+        self.assertEqual(runtime._time_target({"at": "2031-06-01 10:30"}, game, "on:time"), datetime(2031, 6, 1, 10, 30, tzinfo=dt_timezone.utc))
 
     def test_catalog_groups_new_nodes_and_hides_old_nouns(self):
         from graph import nodes
