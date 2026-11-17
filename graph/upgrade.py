@@ -187,6 +187,19 @@ def each_boxes(doc):
     return changed
 
 
+def mail_to(doc):
+    """«Кому» у «Персонаж: Написать» теперь по умолчанию «Указать»: старым письмам без выбора — прежнее «Учётке». True — граф поменялся."""
+    if not isinstance(doc, dict):
+        return False
+    changed = False
+    for level in [doc, *[g for g in (doc.get("groups") or {}).values() if isinstance(g, dict)]]:
+        for node in level.get("nodes") or []:
+            if isinstance(node, dict) and node.get("type") == "act:character.say" and not (node.get("data") or {}).get("to"):
+                node["data"] = {**(node.get("data") or {}), "to": "event"}
+                changed = True
+    return changed
+
+
 def attributes(doc):
     """Состояние машины и доступ учётки ушли в атрибуты, дефекты из «Машина: Изменить» — в «Изменить состояние». True — граф поменялся."""
     if not isinstance(doc, dict):

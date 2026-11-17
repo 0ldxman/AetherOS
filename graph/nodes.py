@@ -1359,7 +1359,7 @@ _SAY = ("mail", "forum", "air")
 register(Kind("act:character.say", "Персонаж: Написать", ACTION, "{character}", (
     Field("channel", "Канал", "switch", "", False, (("mail", "Почта"), ("forum", "Форум"), ("air", "Эфир"))),
     Field("character", "От кого", "character", "", True),
-    Field("to", "Кому", "switch", "", False, (("event", "Учётке"), ("home", "Лично"), ("all", "Всем"), ("list", "Указать"))),
+    Field("to", "Кому", "switch", "", False, (("list", "Указать"), ("event", "Учётке"), ("home", "Лично"), ("all", "Всем"))),
     Field("targets", "Адресаты", "many:account|player|character|text", "учётка, адрес, игрок или персонаж", True),
     Field("letter", "Готовое письмо", "letter", "нет — тема и текст"), Field("subject", "Тема", "text", "", True),
     Field("section", "Раздел", "section", "", True),

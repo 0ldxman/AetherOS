@@ -279,7 +279,7 @@ def _character_act(run, kind, data):
             raise outbox.OutboxError(f"нет письма «{data.get('letter')}»")
         subject = _fill(str(data.get("subject") or ""), run)
         common = dict(subject=subject, item=item, graph=slug)
-        to = data.get("to") or "event"
+        to = data.get("to") or "list"
         if to == "all":
             outbox.say(character, None, Inbound.Channel.MAIL, text, audience="all", **common)
             return ["next"]
