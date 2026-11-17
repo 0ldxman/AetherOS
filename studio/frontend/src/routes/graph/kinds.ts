@@ -12,6 +12,7 @@ export type Doc = Level & { groups?: Record<string, Group> };
 export type Sock = { name: string; label: string; type?: string };
 export type Iface = { inputs: Sock[]; outputs: Sock[] };
 export const BOXES = ["group", "scenario"];
+export const HOLDERS = ["group", "each"];      // ноды со своим уровнем в doc.groups: Tab — внутрь
 
 // триггеры (руками игрока) и события (время, сигнал, сценарий, автор): старт без провода, ожидание со входом
 export const isTrigger = (kind: { group: string }) => kind.group === "noun" || kind.group === "happen";

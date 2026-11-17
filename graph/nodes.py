@@ -243,7 +243,7 @@ START_FIELDS = (
 )
 WAIT_FIELDS = (
     Field("past", "Засчитать, если уже было", "bool"),
-    Field("own", "Ждать от", "switch", "", False, (("any", "Любого"), ("player", "Инициатора"))),
+    Field("own", "Ждать от", "switch", "", False, (("any", "Любого"), ("player", "Инициатора"), ("item", "Элемента"))),
     Field("timeout", "Таймаут, мин (игровые)", "number", "без таймаута"),
 )
 
@@ -577,9 +577,24 @@ register(Kind("some", "Ожидание: По количеству", FLOW, "{nee
               (Sock("next", "Дальше"),), ins=(), many=(Many("in", "count", "i", "Вход {n}"),)))
 register(Kind("end", "Конец", FLOW, "{outcome}",
               (Field("outcome", "Исход", "select", "", False, (("passed", "прошёл"), ("failed", "провалил"), ("aborted", "прервано"))),)))
-register(Kind("foreach", "Для каждого", FLOW, "", (Field("of", "Тип элементов", "hidden", "", False, tuple(ELEMENTS.items())),
+register(Kind("each", "Для каждого", FLOW, "{mode}", (
+    Field("of", "Тип элементов", "hidden", "", False, tuple(ELEMENTS.items())), Field("list", "Список", OF_LIST),
+    Field("mode", "Ждать", "switch", "", False, (("all", "Все"), ("first", "Первого"), ("count", "N"))),
+    Field("need", "Сколько", "number", "2")), (Sock("done", "Готово"),), typed="of", types_from=("list",), when={"need": ("mode", ("count",))}))
+DATA_OUTS["each"] = (Sock("finished", "Успели", OF_LIST), Sock("first", "Первый", ELEMENT))
+register(Kind("branch_in", "Начало ветки", FLOW, "", (), (Sock("next", "Поток"),), ins=(), hidden=True))
+DATA_OUTS["branch_in"] = (Sock("item", "Элемент", "text"), Sock("index", "Номер", "number"))
+register(Kind("branch_out", "Конец ветки", FLOW, "", (), (), hidden=True))
+HELP_EACH = {
+    "each": "Ветка на каждый элемент списка (Tab — внутрь): от «Начала ветки» до «Конца ветки», внутри можно ждать. Элемент-игрок — инициатор ветки, "
+            "элемент-учётка — её место (у триггеров «Ждать от: Элемента» — только события на ней). «Готово» — когда вернулись все, первый или N; "
+            "остальные ветки снимаются. Выходы: Успели (по порядку), Первый.",
+    "branch_in": "Начало ветки «Для каждого»: Элемент и Номер (с 1).",
+    "branch_out": "Конец ветки: элемент вернулся — засчитан в «Успели».",
+}
+register(Kind("foreach", "Для каждого (старое)", FLOW, "", (Field("of", "Тип элементов", "hidden", "", False, tuple(ELEMENTS.items())),
                                                     Field("list", "Список", OF_LIST)),
-              (Sock("each", "Каждый"), Sock("done", "Готово")), typed="of", types_from=("list",)))
+              (Sock("each", "Каждый"), Sock("done", "Готово")), typed="of", types_from=("list",), hidden=True))
 register(Kind("answer", "Ответить", FLOW, "{mode}",
               (Field("mode", "Ответ", "select", "", False, (("allow", "впустить"), ("deny", "отказать"), ("block", "заблокировать"), ("default", "как обычно (пароль, ключи, токен)"))),
                Field("text", "Текст отказа", "text", "node unavailable"), Field("minutes", "Блокировка, мин", "number", "10")),
@@ -1070,6 +1085,7 @@ HELP = {
                     "(одно или хоть одно из списка; текст — без учёта регистра). Тип элемента — по поданному списку.",
     "list.action": "Новый список: Добавить значение (в конец, в начало или на номер), Убрать (последний, первый или по номеру), "
                    "Достать по номеру или по элементу — тогда ещё «Элемент» и «Есть». Номера с 1.",
+    **HELP_EACH,
     "foreach": "Для каждого элемента списка — ветка «Каждый» с данными «Элемент» и «Номер», потом «Готово». В ветке «Каждый» нельзя ждать.",
     "switch": "Если «Если» — да, значение «Да», иначе «Нет». Так выход получает значение по условию.",
     "allowed": "поля вещи пустили (у «как обычно»)", "refused": "поля вещи отказали (у «как обычно»)",

@@ -139,6 +139,12 @@ def _expand(part, groups, prefix, inline, depth, seen, nodes, wires, deps):
                 _expand(inner, groups, full + "/", inline, depth + 1, seen, nodes, wires, deps)
                 boxes[nid] = (full, inner)
             continue
+        if kind == "each":
+            inner = groups.get(str(data.get("group") or ""))
+            nodes.append({**node, "id": full, "_inline": inline or bool(node.get("_inline"))})
+            if inner is not None and depth < DEPTH_BOXES:
+                _expand(inner, groups, full + "/", True, depth + 1, seen, nodes, wires, deps)
+            continue
         if kind == "scenario":
             other = _load(data.get("graph"))
             if other is not None and other.slug not in seen and depth < DEPTH_BOXES:
@@ -507,7 +513,7 @@ def value_of(run, doc, node_id, out, depth=0):
     if kind.name in ("group_in", "group_out"):
         src = doc.into.get((node_id, out))
         return value_of(run, doc, src[0], src[1], depth + 1) if src else None
-    if kind.name == "foreach":                       # элемент и номер текущего прохода ветки «Каждый»
+    if kind.name in ("foreach", "branch_in", "each"):  # элемент и номер ветки; у «Для каждого» — кто успел и кто первый
         return (((run.state or {}).get("vals") or {}).get(node_id) or {}).get(out)
     if kind.group in N.NOUNS:
         if kind.owned:                               # данные «Выхода» графа попытки приехали с событием
@@ -763,7 +769,8 @@ def _inferred(doc, node_id, kind, data):
 def _noun_wait(run, doc, node_id, kind):
     data = resolved(run, doc, node_id)
     outs = [out for out in doc.wired(node_id) if N.event_of(kind, out)]
-    own = data.get("own") in (True, "player", "true")
+    item = (run.state or {}).get("item") or {}
+    own = data.get("own") in (True, "player", "true") or (data.get("own") == "item" and bool(item.get("user")))
     if data.get("past") and (run.user is not None or not own):
         from engine.models import Event
 
@@ -779,6 +786,8 @@ def _noun_wait(run, doc, node_id, kind):
     for name, (mode, by) in kind.infers.items():                                 # и то, что задал тип провода (владелец и его вещь)
         if name in fed:
             fed.update({key: data.get(key) for key in (mode, *(f for _, f in by.values()))})
+    if data.get("own") == "item" and item.get("account") and not item.get("user"):
+        fed["@account"] = item["account"]                                         # элемент-учётка: только события на ней
     for out in outs:
         Wait.objects.create(run=run, user=run.user, node=node_id, out=out, kind=Wait.Kind.EVENT, event=N.event_of(kind, out), anyone=not own,
                             data=fed)
@@ -1311,6 +1320,126 @@ def _launch(run, data):
 def _finish(run, outcome=""):
     run.status, run.outcome, run.ended_at = Run.Status.DONE, outcome, timezone.now()
     Wait.objects.filter(run=run).delete()
+    if run.pk:
+        _cancel_children(run)
+
+
+def _cancel_children(run):
+    """Ветки «Для каждого», которые ещё идут, снимаются вместе с их ожиданиями (и их ветки — тоже)."""
+    for child in Run.objects.filter(parent=run, status=Run.Status.RUNNING):
+        _finish(child, "cancelled")
+        child.save(update_fields=["status", "outcome", "ended_at"])
+
+
+# ---------- «Для каждого»: ветка на элемент, «Конец ветки» возвращает её ----------
+
+_live = {}                                   # потоки, которые сейчас запускают ветки: вернувшиеся сразу пишут в них, а не в базу
+
+
+def _item_of(value):
+    """Кто такой элемент: {"user": pk, "account": логин@хост} — игрок, учётка или сессия (игрок/логин@хост); иначе пусто."""
+    from django.contrib.auth import get_user_model
+
+    from machines.world import edits
+
+    text = str(value or "").strip()
+    head, slash, rest = text.partition("/")
+    user_name, account = (head, rest) if slash else ("" if "@" in text else text, text if "@" in text else "")
+    found = {}
+    if user_name:
+        user = get_user_model().objects.filter(username__iexact=user_name).first()
+        if user is not None:
+            found["user"] = user.pk
+    if account and edits.account(account) is not None:
+        found["account"] = account
+    return found
+
+
+def _branches_met(state, data):
+    done, total = len(state.get("finished") or []), state.get("total") or 0
+    mode = data.get("mode") or "all"
+    if mode == "first":
+        return done >= 1
+    if mode == "count":
+        return done >= min(_count(data, "need", 2) if str(data.get("need") or "").isdigit() else 2, total)
+    return done >= total
+
+
+def _each(run, doc, node_id, queue):
+    """Запустить ветки «Для каждого»: по потоку на элемент, со своим элементом (игрок — инициатор, учётка — место)."""
+    from django.contrib.auth import get_user_model
+
+    data = resolved(run, doc, node_id)
+    items = _as_list(input_of(run, doc, node_id, "list"))[:LIST_LIMIT]
+    start_at = next((nid for nid, node in doc.nodes.items() if nid.startswith(node_id + "/") and node.get("type") == "branch_in"
+                     and nid.count("/") == node_id.count("/") + 1), None)
+    state = {"total": len(items), "finished": []}
+    vals = {**((run.state or {}).get("vals") or {}), node_id: {"finished": [], "first": ""}}
+    run.state = {**(run.state or {}), "vals": vals, "each": {**((run.state or {}).get("each") or {}), node_id: state}}
+    if not items or start_at is None:
+        if start_at is None and items:
+            _log(run.graph, "«Для каждого»: внутри нет «Начала ветки»", run.user)
+        queue.extend(doc.next(node_id, "done"))
+        return
+    hold = Wait.objects.create(run=run, user=run.user, node=node_id, out="done", kind=Wait.Kind.TIME, until=None)   # ждёт ветки
+    run.save(update_fields=["state", "ctx", "user"])
+    _live[run.pk] = run
+    try:
+        for index, value in enumerate(items, 1):
+            if _branches_met(run.state["each"][node_id], data):
+                break                                            # «Первого»/N уже набрали — остальные не запускаем
+            item = _item_of(value)
+            user = get_user_model().objects.filter(pk=item["user"]).first() if item.get("user") else run.user
+            ctx = dict(run.ctx or {})
+            if item.get("account"):
+                login, _, host = item["account"].partition("@")
+                ctx.update(host=host, login=login)
+            child = Run.objects.create(graph=run.graph, user=user, node=start_at, ctx=ctx, parent=run,
+                                       state={"vals": {**vals, start_at: {"item": value, "index": index}}, "item": item,
+                                              "each": node_id, "value": value})
+            child.graph = run.graph
+            _hit(child, start_at)
+            advance(child, doc.next(start_at, "next"))
+    finally:
+        _live.pop(run.pk, None)
+    if _branches_met(run.state["each"][node_id], data):
+        hold.delete()
+        _cancel_children(run)
+        queue.extend(doc.next(node_id, "done"))
+
+
+def _branch_done(child):
+    """Ветка дошла до «Конца ветки»: записать её в «Успели» у родителя; набралось нужное — родитель идёт в «Готово»."""
+    state = child.state or {}
+    node_id = state.get("each")
+    if child.parent_id is None or not node_id:
+        return
+    parent = _live.get(child.parent_id)
+    live = parent is not None
+    with transaction.atomic():
+        if not live:
+            parent = Run.objects.select_for_update().select_related("graph").filter(pk=child.parent_id).first()
+            if parent is None or parent.status != Run.Status.RUNNING:
+                return
+        each = dict(((parent.state or {}).get("each") or {}).get(node_id) or {})
+        if each.get("closed"):
+            return
+        each["finished"] = [*(each.get("finished") or []), state.get("value")]
+        vals = dict((parent.state or {}).get("vals") or {})
+        vals[node_id] = {"finished": list(each["finished"]), "first": each["finished"][0]}
+        doc = doc_of(parent.graph)
+        met = _branches_met(each, resolved(parent, doc, node_id))
+        if met:
+            each["closed"] = True
+        parent.state = {**(parent.state or {}), "vals": vals, "each": {**((parent.state or {}).get("each") or {}), node_id: each}}
+        if live:
+            return                                   # ветки ещё запускаются: «Готово» решит сам запуск
+        parent.save(update_fields=["state"])
+        if not met:
+            return
+        Wait.objects.filter(run=parent, node=node_id).delete()
+    _cancel_children(parent)
+    advance(parent, doc.next(node_id, "done"))
 
 
 def advance(run, items):
@@ -1340,6 +1469,12 @@ def _drain(run, doc, queue, steps):
             _finish(run, "aborted")
             break
         _hit(run, node_id)
+        if kind.name == "each":
+            _each(run, doc, node_id, queue)
+            continue
+        if kind.name == "branch_out":
+            _branch_done(run)
+            continue
         if kind.name == "foreach":
             for index, item in enumerate(_as_list(input_of(run, doc, node_id, "list"))[:LIST_LIMIT], 1):
                 vals = {**((run.state or {}).get("vals") or {}), node_id: {"item": item, "index": index}}
@@ -1457,6 +1592,9 @@ def dispatch(event):
                 from graph import offers
 
                 data = offers.match_data(wait.run.graph, doc, wait.node, data)
+            account = (wait.data or {}).get("@account")
+            if account and f"{event.login}@{event.host}".lower() != str(account).lower():
+                continue
             if kind is not None and kind.match is not None and kind.match(data, wait.out, event):
                 touched += bool(resume(wait, event))
         if event.user is not None:

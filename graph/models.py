@@ -56,6 +56,8 @@ class Run(models.Model):
     state = models.JSONField("Состояние", default=dict, blank=True)      # joins, races
     started_at = models.DateTimeField(auto_now_add=True)
     ended_at = models.DateTimeField(null=True, blank=True)
+    parent = models.ForeignKey("self", null=True, blank=True, on_delete=models.CASCADE, related_name="children",
+                               help_text="Ветка «Для каждого»: поток, который её запустил и ждёт её «Конца ветки».")
 
     class Meta:
         ordering = ("-started_at", "-id")

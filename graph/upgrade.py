@@ -156,6 +156,37 @@ def flow_nodes(doc):
     return changed
 
 
+def _each_level(level, groups):
+    """Старое «Для каждого» без веток стало группой: внутри «Начало ветки» → «Конец ветки». С ветками — остаётся старым (работает как было)."""
+    changed = False
+    for node in [n for n in level.get("nodes") or [] if isinstance(n, dict) and n.get("type") == "foreach"]:
+        if any(isinstance(w, dict) and str(w.get("from")) == str(node["id"]) for w in level.get("wires") or []):
+            continue
+        key = 1
+        while f"each{key}" in groups:
+            key += 1
+        group = f"each{key}"
+        groups[group] = {"title": "Для каждого", "nodes": [{"id": "start", "type": "branch_in", "x": 0, "y": 0, "data": {}},
+                                                          {"id": "end", "type": "branch_out", "x": 520, "y": 0, "data": {}}],
+                         "wires": [{"id": "w-start-end", "from": "start", "out": "next", "to": "end", "in": "in"}]}
+        node["type"], node["data"] = "each", {**(node.get("data") or {}), "group": group}
+        changed = True
+    return changed
+
+
+def each_boxes(doc):
+    """«Для каждого» — группа через Tab. True — граф поменялся."""
+    if not isinstance(doc, dict):
+        return False
+    groups = doc.setdefault("groups", {})
+    changed = False
+    for level in [doc, *[g for g in list(groups.values()) if isinstance(g, dict)]]:
+        changed = _each_level(level, groups) or changed
+    if not groups:
+        doc.pop("groups")
+    return changed
+
+
 def attributes(doc):
     """Состояние машины и доступ учётки ушли в атрибуты, дефекты из «Машина: Изменить» — в «Изменить состояние». True — граф поменялся."""
     if not isinstance(doc, dict):

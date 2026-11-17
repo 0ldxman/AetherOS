@@ -79,6 +79,9 @@
       <input class="field" value={groupTitle} disabled={!editable} oninput={(e) => ongrouptitle?.(e.currentTarget.value)} /></label>
     <button class="btn" onclick={() => onenter?.()}>Открыть группу (Tab)</button>
     <p class="muted small">Внутри: «Вход» и «Выход» задают сокеты этой ноды. Та же группа может стоять в графе несколько раз (Ctrl+D).</p>
+  {:else if kind.name === "each"}
+    <button class="btn" onclick={() => onenter?.()}>Открыть ветку (Tab)</button>
+    <p class="muted small">Внутри — ветка, которая идёт отдельно для каждого элемента: от «Начала ветки» (Элемент, Номер) до «Конца ветки». Внутри можно ждать. «Готово» — когда вернулись все, первый или N; остальные ветки снимаются.</p>
   {:else if kind.name === "scenario"}
     <p class="muted small">Другой сценарий целиком, как группа: его ноды «Вход» и «Выход» — сокеты этой ноды. Работает в ходах этого сценария; старты вложенного здесь не срабатывают.</p>
   {:else if kind.name === "group_in" || kind.name === "group_out"}

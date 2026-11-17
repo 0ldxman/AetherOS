@@ -17,7 +17,7 @@
   import FrameNode from "./FrameNode.svelte";
   import GraphNode from "./GraphNode.svelte";
   import NodePanel from "./NodePanel.svelte";
-  import { BOXES, OFFER_USED, TYPES, compatible, offerIface, takesEvent, resolveType, sockType, socketFields, typeColor, defaults, freeId, ifaceOfLevel, insOf, isRow, outsOf, rowName, rowsOf, summaryOf, tidyRows, typeByWires, type Catalog, type Doc, type GNode, type GWire, type Group, type Iface, type Kind, type Level } from "./kinds";
+  import { BOXES, HOLDERS, OFFER_USED, TYPES, compatible, offerIface, takesEvent, resolveType, sockType, socketFields, typeColor, defaults, freeId, ifaceOfLevel, insOf, isRow, outsOf, rowName, rowsOf, summaryOf, tidyRows, typeByWires, type Catalog, type Doc, type GNode, type GWire, type Group, type Iface, type Kind, type Level } from "./kinds";
 
   let { id, embedded = false }: { id: number; embedded?: boolean } = $props();
   type Detail = Schemas["GrDetail"];
@@ -201,7 +201,7 @@
     const walk = (lvl: Level) => {
       for (const n of lvl.nodes) {
         const g = String(n.data.group ?? "");
-        if (n.type === "group" && groups[g] && !used.has(g)) { used.add(g); walk(groups[g]); }
+        if (HOLDERS.includes(n.type) && groups[g] && !used.has(g)) { used.add(g); walk(groups[g]); }
       }
     };
     walk(doc);
@@ -233,6 +233,13 @@
       doc = { ...doc, groups: { ...doc.groups, [group]: { title: "Группа", wires: [], nodes: [
         { id: "in", type: "group_in", x: 0, y: 0, data: { sockets: [{ name: "s1", label: "Вход" }] } },
         { id: "out", type: "group_out", x: 520, y: 0, data: { sockets: [{ name: "s1", label: "Выход" }] } }] } } };
+    }
+    if (kind.name === "each") {                      // ветка на элемент: внутри «Начало ветки» → «Конец ветки»
+      const group = freeGroup();
+      node.data = { ...node.data, group };
+      doc = { ...doc, groups: { ...doc.groups, [group]: { title: "Для каждого", nodes: [
+        { id: "start", type: "branch_in", x: 0, y: 0, data: {} }, { id: "end", type: "branch_out", x: 520, y: 0, data: {} }],
+        wires: [{ id: "start.next-end.in", from: "start", out: "next", to: "end", in: "in" }] } } };
     }
     const wires = [...level.wires];
     if (from) {
@@ -298,7 +305,7 @@
       if (found?.id) go(`/graphs/${found.id}`);
       return;
     }
-    if (!n || n.type !== "group" || !doc.groups?.[String(n.data.group)]) return;
+    if (!n || !HOLDERS.includes(n.type) || !doc.groups?.[String(n.data.group)]) return;
     path = [...path, { node: n.id, group: String(n.data.group) }];
     selected = "";
   }
@@ -356,7 +363,7 @@
                     width: kind.name === "frame" ? n.w ?? 420 : undefined, height: kind.name === "frame" ? n.h ?? 260 : undefined,
                     data: { title: String(n.data.title ?? n.data.text ?? ""), note: kind.name === "note", onresize: (w: number, h: number) => patchNode(n.id, { w: Math.round(w), h: Math.round(h) }) } } satisfies Node];
         }
-        const inner = n.type === "group" ? String(n.data.group ?? "") : "";
+        const inner = HOLDERS.includes(n.type) ? String(n.data.group ?? "") : "";
         const boxStat = BOXES.includes(n.type) && live ? Object.entries(live.nodes).filter(([k]) => k.startsWith(`${prefix}${n.id}/`))
           .reduce((acc, [, v]) => ({ hits: Math.max(acc.hits, v.hits), players: Math.max(acc.players, v.players), waiting: acc.waiting + v.waiting,
                                     oldest_days: Math.max(acc.oldest_days, v.oldest_days) }), { hits: 0, players: 0, waiting: 0, oldest_days: 0 }) : null;
@@ -440,7 +447,7 @@
     if (event.key === "Tab" && !mod) {
       event.preventDefault();
       const n = level.nodes.find((x) => x.id === selected);
-      if (n && (n.type === "group" || kindOf(n.type)?.owned)) enter(n.id);
+      if (n && (HOLDERS.includes(n.type) || kindOf(n.type)?.owned)) enter(n.id);
       else if (path.length) leave();
       return;
     }
@@ -475,7 +482,7 @@
     const walk = (lvl: Level, trail: { node: string; group: string }[], seen: Set<string>): { node: string; group: string }[] | null => {
       for (const n of lvl.nodes) {
         const g = String(n.data.group ?? "");
-        if (n.type !== "group" || seen.has(g) || !doc.groups?.[g]) continue;
+        if (!HOLDERS.includes(n.type) || seen.has(g) || !doc.groups?.[g]) continue;
         const next = [...trail, { node: n.id, group: g }];
         if (g === group) return next;
         const deeper = walk(doc.groups[g], next, new Set([...seen, g]));
