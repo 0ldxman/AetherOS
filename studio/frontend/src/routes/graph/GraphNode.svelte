@@ -122,7 +122,7 @@
   const set = (name: string, value: unknown) => data.onfield(name, value === "" ? undefined : value);
 </script>
 
-<div class="node" class:selected class:muted-node={data.node.mute} class:box={kind.name === "group" || kind.name === "scenario"} style="--head: {COLORS[kind.group] ?? '#555'}">
+<div class="node" class:selected class:muted-node={data.node.mute} class:box={kind.name === "group" || kind.name === "scenario"} class:flow={kind.group === "flow"} style="--head: {COLORS[kind.group] ?? '#555'}">
   <header data-tip={tip(tipTitle, "", kind.help)}>
     <b>{titleOf(kind, values, data.usedIn)}</b>
     {#if isNoun}<span class="tag" title={role.tip}>{role.text}</span>{/if}
@@ -292,6 +292,8 @@
   .node.muted-node { opacity: 0.45; }
   .node.box { border-width: 2px; border-style: double; }
   header { display: flex; align-items: center; gap: 6px; padding: 5px 10px; margin-bottom: 4px; background: color-mix(in srgb, var(--head) 70%, var(--raise)); border-radius: var(--radius) var(--radius) 0 0; }
+  .node.flow header { background: #fff; color: #111; }                 /* ноды потока белые: их видно сразу */
+  .node.flow header .tag { background: rgba(0, 0, 0, 0.1); color: #111; }
   header b { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .tag { font-size: 10px; padding: 0 5px; border-radius: 999px; background: rgba(0, 0, 0, 0.25); color: var(--text); }
   .spacer { flex: 1; }

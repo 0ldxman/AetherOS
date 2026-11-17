@@ -4,7 +4,7 @@
 по проводам потока, пока не упрётся в ожидание (событие, время, условие) или в конец. Время и условия двигает tick() из
 middleware мира. Прохождение одного игрока в одном сценарии — Run; где стоят его ветки — Wait.
 
-Действия выполняются словарём движка от имени игрока хода; учётка — та, на которой случилось событие (host, login).
+Действия выполняются словарём движка от имени инициатора; учётка — та, на которой случилось событие (host, login).
 Ни одна ошибка сценария не роняет игру: причина пишется в журнал мира.
 """
 import contextvars
@@ -825,7 +825,7 @@ def _action(run, doc, node_id, kind, override=None):
 
 
 def _screen(run, doc, node_id, kind):
-    """«Экран: Показать» каждому адресату: игроку хода, всем в игре или указанным (игрок, сессия, учётка, машина)."""
+    """«Экран: Показать» каждому адресату: инициатору, всем в игре или указанным (игрок, сессия, учётка, машина)."""
     from graph import sessions
 
     data = resolved(run, doc, node_id)
@@ -1049,7 +1049,7 @@ def _machine_act(run, node_id, kind, data):
             owner = None
             if data.get("owner") == "player":
                 if run.user is None:
-                    raise edits.EditError("«Игрока хода» без игрока")
+                    raise edits.EditError("«Инициатора» без игрока")
                 owner = run.user
             profile = edits.create(machine, fill("login"), name=fill("name"), endpoints=items("points"), password=str(data.get("password") or ""),
                                    mail=fill("mail"), groups=items("groups"), user=owner)
@@ -1232,6 +1232,8 @@ def _execute(run, doc, node_id, sock):
     if name == "turns":
         with transaction.atomic():
             mark = _mark(run, node_id)
+            if data.get("cycle") == "stop" and mark.value >= _count(data, "count"):
+                return ["over"]                     # все ветки пройдены, по кругу не идём
             number = mark.value % _count(data, "count") + 1
             mark.value += 1
             mark.save(update_fields=["value"])
@@ -1262,6 +1264,20 @@ def _execute(run, doc, node_id, sock):
         joins[node_id] = sorted(got)
         run.state = {**(run.state or {}), "joins": joins}
         return []
+    if name == "some":                               # любые need входов из count
+        done = list((run.state or {}).get("races") or [])
+        if node_id in done:
+            return []
+        joins = dict((run.state or {}).get("joins") or {})
+        got = set(joins.get(node_id) or []) | {sock}
+        if len(got) < min(_count(data, "need"), _count(data, "count", 3)):
+            joins[node_id] = sorted(got)
+            run.state = {**(run.state or {}), "joins": joins}
+            return []
+        joins.pop(node_id, None)
+        run.state = {**(run.state or {}), "joins": joins, "races": done + [node_id]}
+        Wait.objects.filter(run=run, node__in=doc.reaching(node_id)).delete()
+        return ["next"]
     if name == "race":
         done = list((run.state or {}).get("races") or [])
         if node_id in done or not sock.startswith("i"):

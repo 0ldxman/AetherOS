@@ -118,7 +118,7 @@ class WaitTests(TestCase):
         graph = make([node("m", "manual"), node("f", "on:placement.opened", item="report", own=True), node("a", "do:world_count", name="c")],
                      [wire("m", "fire", "f"), wire("f", "opened", "a")])
         runtime.start_manual(graph, "m", self.ivan)
-        emit("file.read", self.anna, path="/r.txt", item="report")          # «Только игрок хода»: чужое не будит
+        emit("file.read", self.anna, path="/r.txt", item="report")          # «Только инициатор»: чужое не будит
         self.assertEqual(counter(), 0)
         emit("file.read", self.ivan, path="/r.txt", item="report")
         self.assertEqual(counter(), 1)

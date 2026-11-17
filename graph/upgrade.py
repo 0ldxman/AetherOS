@@ -120,6 +120,42 @@ def events(doc):
     return changed
 
 
+def _flow_level(level):
+    """«Выбор» — цепочка «Направить: Если»: строка за строкой, «Ложь» в следующую, у последней «Ложь» — бывшее «Иначе»."""
+    changed = False
+    for node in [n for n in level.get("nodes") or [] if isinstance(n, dict) and n.get("type") == "choose"]:
+        rows = [row for row in (node.get("data") or {}).get("rows") or [] if isinstance(row, dict)] or [{"condition": ""}]
+        nid, wires = str(node["id"]), level.setdefault("wires", [])
+        ids = [nid] + [f"{nid}-{n}" for n in range(2, len(rows) + 1)]
+        node["type"], node["data"] = "check", {"condition": rows[0].get("condition") or ""}
+        for number, row in enumerate(rows[1:], 2):
+            level["nodes"].append({"id": ids[number - 1], "type": "check", "x": (node.get("x") or 0) + 280 * (number - 1), "y": node.get("y") or 0,
+                                   "data": {"condition": row.get("condition") or ""}})
+        for number in range(1, len(rows)):
+            wires.append({"id": f"w-{ids[number - 1]}-no", "from": ids[number - 1], "out": "no", "to": ids[number], "in": "in"})
+        for wire in wires:
+            if not isinstance(wire, dict) or str(wire.get("from")) != nid:
+                continue
+            out = str(wire.get("out") or "")
+            if out.startswith("r") and out[1:].isdigit() and 1 <= int(out[1:]) <= len(rows):
+                wire["from"], wire["out"] = ids[int(out[1:]) - 1], "yes"
+            elif out == "else":
+                wire["from"], wire["out"] = ids[-1], "no"
+        changed = True
+    return changed
+
+
+def flow_nodes(doc):
+    """Ноды потока: «Выбор» стал цепочкой «Если». True — граф поменялся."""
+    if not isinstance(doc, dict):
+        return False
+    changed = _flow_level(doc)
+    for group in (doc.get("groups") or {}).values():
+        if isinstance(group, dict):
+            changed = _flow_level(group) or changed
+    return changed
+
+
 def attributes(doc):
     """Состояние машины и доступ учётки ушли в атрибуты, дефекты из «Машина: Изменить» — в «Изменить состояние». True — граф поменялся."""
     if not isinstance(doc, dict):

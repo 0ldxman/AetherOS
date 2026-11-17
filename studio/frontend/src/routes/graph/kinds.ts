@@ -19,7 +19,7 @@ export const isTrigger = (kind: { group: string }) => kind.group === "noun" || k
 export const REF = "ref";
 export const TIMEOUT = "timeout";
 export const OFFER_USED = "on:offer.used";          // выходы — по сущности «Возможность» на проводе (graph/offers.used_outs)
-export const COLORS: Record<string, string> = { entity: "#2f7d6d", attr: "#5e8f3e", noun: "#c2547a", happen: "#d06a3a", flow: "#a7793a", data: "#8a5d7a", action: "#4d6fc4", struct: "#7a5aa8", service: "#5b6170" };
+export const COLORS: Record<string, string> = { entity: "#2f7d6d", attr: "#5e8f3e", noun: "#c2547a", happen: "#d06a3a", flow: "#ffffff", data: "#8a5d7a", action: "#4d6fc4", struct: "#7a5aa8", service: "#5b6170" };
 
 // Типы сокетов: цвет у точки и провода. event — «случилось» (поток), остальные — вещи, которые едут по ◆-проводу.
 export const TYPES: Record<string, { label: string; color: string; thing?: boolean }> = {
@@ -209,7 +209,7 @@ export function outsOf(kind: Kind, data: Record<string, unknown>, waiting: boole
   const events = kind.outs.filter((s) => (s.type ?? "event") === "event" && inWhen(kind, data, s.name));
   const values = kind.outs.filter((s) => s.type && s.type !== "event" && outOn(kind, data, s.name))
     .map((s) => ({ ...s, type: pluralType(kind, data, s.name, resolveType(kind, data, s.type)) }));
-  const out: Sock[] = [...events, ...(kind.owned ? iface?.outputs ?? [] : []), ...many(kind, data, "out"), ...kind.tail];
+  const out: Sock[] = [...events, ...(kind.owned ? iface?.outputs ?? [] : []), ...many(kind, data, "out"), ...kind.tail.filter((s) => inWhen(kind, data, s.name))];
   if (isTrigger(kind) && !kind.start_only && waiting) out.push({ name: TIMEOUT, label: "Таймаут", type: "event" });
   return [...out, ...values];
 }

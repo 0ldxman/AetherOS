@@ -212,3 +212,35 @@ class EventOutsTests(TestCase):
         graph = make([node("m", "manual"), node("t", "act:tag", variant="on", owner="world", name="x")], [wire("m", "fire", "t")], slug="man")
         run = runtime.start_manual(graph, "m", author=boss)
         self.assertEqual(value_of(run, Doc(graph.doc), "m", "author"), "boss")
+
+
+class FlowNodesTests(TestCase):
+    def setUp(self):
+        self.ivan = get_user_model().objects.create_user("ivan")
+
+    def test_turns_stop(self):
+        graph = make([node("m", "manual"), node("t", "turns", count=2, cycle="stop"), node("a", "do:world_count", name="b1"),
+                      node("b", "do:world_count", name="b2"), node("o", "do:world_count", name="over")],
+                     [wire("m", "fire", "t"), wire("t", "b1", "a"), wire("t", "b2", "b"), wire("t", "over", "o")], slug="tt")
+        for _ in range(4):
+            runtime.start_manual(graph, "m", self.ivan)
+        self.assertEqual([values.get(values.COUNT, "world", 0, n) for n in ("b1", "b2", "over")], [1, 1, 2])
+        self.assertIn("over", N.sockets(N.KINDS["turns"], {"cycle": "stop"}, "out"))
+        self.assertNotIn("over", N.sockets(N.KINDS["turns"], {}, "out"))
+
+    def test_some_of_inputs(self):
+        graph = make([node("m", "manual"), node("s", "some", count=3, need=2), node("a", "do:world_count", name="c")],
+                     [wire("m", "fire", "s", "i1"), wire("m", "fire", "s", "i3"), wire("s", "next", "a")], slug="so")
+        runtime.start_manual(graph, "m", self.ivan)
+        self.assertEqual(values.get(values.COUNT, "world", 0, "c"), 1)
+
+    def test_choose_becomes_if_chain(self):
+        doc = {"nodes": [node("m", "manual"), node("c", "choose", rows=[{"label": "a", "condition": "tag:a"}, {"label": "b", "condition": "tag:b"}]),
+                         node("x", "act:tag"), node("y", "act:tag"), node("z", "act:tag")],
+               "wires": [wire("m", "fire", "c"), wire("c", "r1", "x"), wire("c", "r2", "y"), wire("c", "else", "z")]}
+        self.assertTrue(upgrade.flow_nodes(doc))
+        kinds = {n["id"]: (n["type"], n["data"]) for n in doc["nodes"]}
+        self.assertEqual((kinds["c"], kinds["c-2"]), (("check", {"condition": "tag:a"}), ("check", {"condition": "tag:b"})))
+        pairs = {(w["from"], w["out"], w["to"]) for w in doc["wires"]}
+        self.assertTrue({("m", "fire", "c"), ("c", "yes", "x"), ("c", "no", "c-2"), ("c-2", "yes", "y"), ("c-2", "no", "z")} <= pairs)
+        self.assertFalse(upgrade.flow_nodes(doc))

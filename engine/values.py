@@ -106,7 +106,7 @@ def _user(who):
 
 def target(data, player=None):
     """(владелец, номер вещи, игрок или None) по полям ноды или действия: owner, вещь (character, machine, server, item, who),
-    scope «player» — своё у игрока for (пусто — игрок хода player). Нет вещи или игрока — BadValue."""
+    scope «player» — своё у игрока for (пусто — инициатор player). Нет вещи или игрока — BadValue."""
     owner = _check_owner(data.get("owner") or WORLD)
     oid = 0
     if owner != WORLD:

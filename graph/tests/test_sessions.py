@@ -107,7 +107,7 @@ class SessionTests(TestCase):
             graph.doc = {"nodes": [node("m", "manual"), node("s", "act:screen", variant="ticker", text="x")], "wires": [wire("m", "fire", "s")]}
             graph.save()
             runtime.start_manual(graph, "m", self.anna)
-            self.assertEqual(sent, [("anna", "ticker")])                     # по умолчанию — игроку хода
+            self.assertEqual(sent, [("anna", "ticker")])                     # по умолчанию — инициатору
 
     def test_screen_is_one_node_and_kick_is_hidden(self):
         self.assertEqual([label for _, label in N.KINDS["act:screen"].fields[0].options],

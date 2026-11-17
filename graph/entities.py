@@ -134,7 +134,7 @@ def machine_time(machine, user=None):
 
 
 def access(run, key):
-    """«Учётка: Доступ»: группы, точки входа, root, блокировка для игрока хода, выражение ключей и живые токены."""
+    """«Учётка: Доступ»: группы, точки входа, root, блокировка для инициатора, выражение ключей и живые токены."""
     from django.db.models import F
     from django.utils import timezone
 
@@ -219,7 +219,7 @@ def placement_key(user, host, path):
 
 
 def parse_placement(text, run=None):
-    """(игрок, машина, путь) из «игрок@машина:/путь»; без «игрок@» — игрок хода. Чего нет — None."""
+    """(игрок, машина, путь) из «игрок@машина:/путь»; без «игрок@» — инициатор. Чего нет — None."""
     head, _, path = _key(text).partition(":")
     owner, _, host = head.rpartition("@")
     user = _player(run, owner)
