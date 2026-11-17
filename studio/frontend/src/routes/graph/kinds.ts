@@ -159,7 +159,7 @@ export function sockType(kind: Kind, data: Record<string, unknown>, side: "in" |
 }
 
 // тип элементов по проводам (kind.types_from): провода одного типа — этот тип, иначе текст; без проводов — текст.
-// Повторяется, пока меняется: «Список» → «Список: Содержимое» → «Для каждого» получают тип по цепочке.
+// Повторяется, пока меняется: «Список» → «Список: Содержимое» → «Ожидание веток» получают тип по цепочке.
 export function typeByWires(level: Level, kindOf: (type: string) => Kind | undefined, typeOut: (node: GNode, out: string) => string): Level {
   let nodes = level.nodes;
   for (let pass = 0; pass < 6; pass++) {

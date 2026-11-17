@@ -24,7 +24,7 @@ from graph.models import Graph, Hit, Mark, Run, Start, Wait
 
 log = logging.getLogger("graph")
 
-LIST_LIMIT = 200                             # «Для каждого» проходит не больше стольких элементов
+LIST_LIMIT = 200                             # «Ожидание веток» проходит не больше стольких элементов
 DEPTH = 8          # сценарий → действие → событие → сценарий…
 STEPS = 300        # нод за один проход: защита от цикла без ожидания
 TICK = 15
@@ -513,7 +513,7 @@ def value_of(run, doc, node_id, out, depth=0):
     if kind.name in ("group_in", "group_out"):
         src = doc.into.get((node_id, out))
         return value_of(run, doc, src[0], src[1], depth + 1) if src else None
-    if kind.name in ("branch_in", "each"):  # элемент и номер ветки; у «Для каждого» — кто успел и кто первый
+    if kind.name in ("branch_in", "each"):  # элемент и номер ветки; у «Ожидание веток» — кто успел и кто первый
         return (((run.state or {}).get("vals") or {}).get(node_id) or {}).get(out)
     if kind.group in N.NOUNS:
         if kind.owned:                               # данные «Выхода» графа попытки приехали с событием
@@ -1319,13 +1319,13 @@ def _finish(run, outcome=""):
 
 
 def _cancel_children(run):
-    """Ветки «Для каждого», которые ещё идут, снимаются вместе с их ожиданиями (и их ветки — тоже)."""
+    """Ветки «Ожидание веток», которые ещё идут, снимаются вместе с их ожиданиями (и их ветки — тоже)."""
     for child in Run.objects.filter(parent=run, status=Run.Status.RUNNING):
         _finish(child, "cancelled")
         child.save(update_fields=["status", "outcome", "ended_at"])
 
 
-# ---------- «Для каждого»: ветка на элемент, «Конец ветки» возвращает её ----------
+# ---------- «Ожидание веток»: ветка на элемент, «Конец ветки» возвращает её ----------
 
 _live = {}                                   # потоки, которые сейчас запускают ветки: вернувшиеся сразу пишут в них, а не в базу
 
@@ -1360,7 +1360,7 @@ def _branches_met(state, data):
 
 
 def _each(run, doc, node_id, queue):
-    """Запустить ветки «Для каждого»: по потоку на элемент, со своим элементом (игрок — инициатор, учётка — место)."""
+    """Запустить ветки «Ожидание веток»: по потоку на элемент, со своим элементом (игрок — инициатор, учётка — место)."""
     from django.contrib.auth import get_user_model
 
     data = resolved(run, doc, node_id)
@@ -1372,7 +1372,7 @@ def _each(run, doc, node_id, queue):
     run.state = {**(run.state or {}), "vals": vals, "each": {**((run.state or {}).get("each") or {}), node_id: state}}
     if not items or start_at is None:
         if start_at is None and items:
-            _log(run.graph, "«Для каждого»: внутри нет «Начала ветки»", run.user)
+            _log(run.graph, "«Ожидание веток»: внутри нет «Начала ветки»", run.user)
         queue.extend(doc.next(node_id, "done"))
         return
     hold = Wait.objects.create(run=run, user=run.user, node=node_id, out="done", kind=Wait.Kind.TIME, until=None)   # ждёт ветки
@@ -1381,7 +1381,7 @@ def _each(run, doc, node_id, queue):
     try:
         for index, value in enumerate(items, 1):
             if _branches_met(run.state["each"][node_id], data):
-                break                                            # «Первого»/N уже набрали — остальные не запускаем
+                break                                            # «Любой»/«По количеству» уже набрали — остальные не запускаем
             item = _item_of(value)
             user = get_user_model().objects.filter(pk=item["user"]).first() if item.get("user") else run.user
             ctx = dict(run.ctx or {})
@@ -1447,7 +1447,7 @@ def advance(run, items):
 
 
 def _drain(run, doc, queue, steps):
-    """Очередь нод до конца. «Для каждого» запускает ветки (по потоку на элемент) и ждёт их «Конца ветки»."""
+    """Очередь нод до конца. «Ожидание веток» запускает ветки (по потоку на элемент) и ждёт их «Конца ветки»."""
     while queue and run.status == Run.Status.RUNNING:
         node_id, sock = queue.popleft()
         kind = doc.kind(node_id)

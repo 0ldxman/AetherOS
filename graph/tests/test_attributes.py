@@ -250,5 +250,5 @@ class FamilyTests(TestCase):
     def test_route_and_wait_families(self):
         kinds = {k["name"]: k for k in N.catalog()["kinds"]}
         self.assertEqual([n for n, k in kinds.items() if k["family"] == "Направить"], ["check", "random", "turns"])
-        self.assertEqual([n for n, k in kinds.items() if k["family"] == "Ожидание"], ["all", "race", "some"])
+        self.assertEqual([n for n, k in kinds.items() if k["family"] == "Ожидание входов"], ["all", "race", "some"])
         self.assertEqual(kinds["each"]["family"], "")
