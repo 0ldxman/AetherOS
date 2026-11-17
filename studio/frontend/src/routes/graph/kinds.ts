@@ -20,7 +20,7 @@ export const isTrigger = (kind: { group: string }) => kind.group === "noun" || k
 export const REF = "ref";
 export const TIMEOUT = "timeout";
 export const OFFER_USED = "on:offer.used";          // выходы — по сущности «Возможность» на проводе (graph/offers.used_outs)
-export const COLORS: Record<string, string> = { entity: "#2f7d6d", attr: "#5e8f3e", noun: "#c2547a", happen: "#d06a3a", flow: "#ffffff", data: "#8a5d7a", action: "#4d6fc4", struct: "#7a5aa8", service: "#5b6170" };
+export const COLORS: Record<string, string> = { entity: "#2f7d6d", attr: "#5e8f3e", noun: "#c2547a", happen: "#d06a3a", flow: "#e6e8ec", data: "#8a5d7a", action: "#4d6fc4", struct: "#7a5aa8", service: "#5b6170" };
 
 // Типы сокетов: цвет у точки и провода. event — «случилось» (поток), остальные — вещи, которые едут по ◆-проводу.
 export const TYPES: Record<string, { label: string; color: string; thing?: boolean }> = {

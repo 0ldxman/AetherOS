@@ -300,7 +300,7 @@
   .node.muted-node { opacity: 0.45; }
   .node.box { border-width: 2px; border-style: double; }
   header { display: flex; align-items: center; gap: 6px; padding: 5px 10px; margin-bottom: 4px; background: color-mix(in srgb, var(--head) 70%, var(--raise)); border-radius: var(--radius) var(--radius) 0 0; }
-  .node.flow header { background: #fff; color: #111; }                 /* ноды потока белые: их видно сразу */
+  .node.flow header { background: var(--head); color: #111; }          /* ноды потока — цвета провода потока: их видно сразу */
   .node.flow header .tag { background: rgba(0, 0, 0, 0.1); color: #111; }
   header b { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .tag { font-size: 10px; padding: 0 5px; border-radius: 999px; background: rgba(0, 0, 0, 0.25); color: var(--text); }
