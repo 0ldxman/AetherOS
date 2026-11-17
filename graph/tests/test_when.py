@@ -8,6 +8,7 @@ from engine import values
 from engine.events import emit
 from graph import check, runtime
 from graph.models import Run
+from graph.nodes import KINDS as _KINDS
 from graph.tests.test_runtime import counter, make, node, wire
 from machines.models import Machine
 
@@ -121,6 +122,17 @@ class WhenTests(TestCase):
         self.assertEqual(runtime._time_target({"mode": "weekly", "at": "09:00", "days": "пн, пт"}, game, "on:schedule"),
                          datetime(2031, 5, 12, 9, 0, tzinfo=dt_timezone.utc))
         self.assertEqual(runtime._time_target({"at": "2031-06-01 10:30"}, game, "on:time"), datetime(2031, 6, 1, 10, 30, tzinfo=dt_timezone.utc))
+
+    def test_time_is_one_world_turn(self):
+        from graph.models import Mark
+
+        graph = make([node("t", "on:time", at="2000-01-01 00:00", scope="each"), node("a", "do:world_count", name="c")], [wire("t", "fire", "a")])
+        runtime._time_starts()                              # включили: прошедшее не догоняем
+        Mark.objects.filter(graph=graph, node="t").update(value=0)
+        runtime._time_starts()
+        self.assertEqual(counter(), 1)                      # старое «каждый игрок» больше не множит ходы
+        self.assertEqual(list(Run.objects.filter(graph=graph).values_list("user", flat=True)), [None])
+        self.assertNotIn("scope", [f.name for f in _KINDS["on:time"].fields])
 
     def test_catalog_groups_new_nodes_and_hides_old_nouns(self):
         from graph import nodes

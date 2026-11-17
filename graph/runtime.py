@@ -1565,7 +1565,6 @@ def _time_target(data, game, kind_name="time"):
 
 
 def _time_starts():
-    from engine.chains import _players
     from machines.world import chrono
 
     game = chrono.game_now()
@@ -1589,9 +1588,7 @@ def _time_starts():
                 continue
             mark.value = stamp
             mark.save(update_fields=["value"])
-        users = list(_players()) if data.get("scope") == "each" else [None]
-        for user in users:
-            fired += bool(start(row.graph, row.node, "fire", user, {"event": N.TIME_EVENT}))
+        fired += bool(start(row.graph, row.node, "fire", None, {"event": N.TIME_EVENT}))       # время — ход мира, без игрока
     return fired
 
 
