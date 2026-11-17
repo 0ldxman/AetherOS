@@ -47,6 +47,36 @@ def _level(level):
     return changed
 
 
+_WROTE = {"mail": "from_address", "forum": "nick", "air": "callsign"}
+
+
+def _wrote_level(level):
+    """«Персонаж: Получил сообщение» с выбранным каналом: «От кого» стал адресом, ником или позывным; темы у эфира нет."""
+    channels = {str(node["id"]): (node.get("data") or {}).get("channel") or "any" for node in level.get("nodes") or []
+                if isinstance(node, dict) and node.get("type") == "on:character.wrote"}
+    changed = False
+    for wire in list(level.get("wires") or []):
+        channel = channels.get(str(wire.get("from"))) if isinstance(wire, dict) else None
+        if channel in _WROTE and wire.get("out") == "sender":
+            wire["out"] = _WROTE[channel]
+            changed = True
+        elif channel == "air" and wire.get("out") == "subject":
+            level["wires"].remove(wire)
+            changed = True
+    return changed
+
+
+def wrote_outs(doc):
+    """Выходы «Получил сообщение» по каналу. True — граф поменялся."""
+    if not isinstance(doc, dict):
+        return False
+    changed = _wrote_level(doc)
+    for group in (doc.get("groups") or {}).values():
+        if isinstance(group, dict):
+            changed = _wrote_level(group) or changed
+    return changed
+
+
 def attributes(doc):
     """Состояние машины и доступ учётки ушли в атрибуты, дефекты из «Машина: Изменить» — в «Изменить состояние». True — граф поменялся."""
     if not isinstance(doc, dict):

@@ -405,9 +405,15 @@ _when("on:character.wrote", "Персонаж: Получил сообщение
       (Field("channel", "Канал", "switch", "", False, (("any", "Любой"), ("mail", "Почта"), ("forum", "Форум"), ("air", "Эфир"))),
        Field("character", "Персонаж", "many:character", "любой"), Field("text", "Текст", "text", "любой; можно *")),
       (Sock("sent", "Получил"),), {"sent": "character.wrote"}, _wrote,
-      (Sock("character", "Персонаж", "character", "character"), Sock("channel", "Канал", "text", "channel"), Sock("sender", "От кого", "text", "sender"),
-       Sock("subject", "Тема", "text", "subject"), Sock("text", "Текст", "text", "text"), Sock("message", "Сообщение", "message", "message")),
+      (Sock("character", "Персонаж", "character", "character"), Sock("channel", "Канал", "text", "channel"),
+       Sock("subject", "Тема", "text", "subject"), Sock("sender", "Подпись", "text", "sender"), Sock("from_address", "Адрес", "text", "sender"),
+       Sock("nick", "Ник", "text", "sender"), Sock("freq", "Частота", "text", "freq"), Sock("callsign", "Позывной", "text", "sender"),
+       Sock("text", "Текст", "text", "text"), Sock("message", "Сообщение", "message", "message")),
       "{character}")
+# подпись игрока в канале: обратный адрес письма, ник на форуме, позывной в эфире; у «Любого» — общая «Подпись»
+KINDS["on:character.wrote"] = replace(KINDS["on:character.wrote"], outs_when={
+    "subject": ("channel", ("any", "mail", "forum")), "sender": ("channel", ("any",)), "from_address": ("channel", ("mail",)),
+    "nick": ("channel", ("forum",)), "freq": ("channel", ("air",)), "callsign": ("channel", ("air",))})
 _when("on:character.mail", "Персонаж: Получил письмо", (Field("character", "Персонаж", "many:character", "любой"), Field("text", "Текст", "text", "любой; можно *")),
       (Sock("sent", "Получил"),), {"sent": "character.wrote"}, _mail,
       (Sock("character", "Персонаж", "character", "character"), Sock("text", "Текст", "text", "text")), "{character}")
@@ -1093,6 +1099,8 @@ HELP = {
 }
 
 SOCKET_HELP = {
+    "sender": "как игрок подписался: обратный адрес письма, ник на форуме или позывной в эфире", "from_address": "обратный адрес письма игрока",
+    "nick": "ник, под которым игрок написал на форуме", "subject": "тема письма или название темы форума",
     "attempt": "игрок пытается войти или запросить: ждёт «Ответить»",
     "login": "игрок вошёл на машину", "stopped": "машину остановили", "started": "машину запустили",
     "request": "игрок запросил страницу (nreq)", "download": "игрок скачал файл (nget)", "denied": "сервер отказал (токен или сценарий)",

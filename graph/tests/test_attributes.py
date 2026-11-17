@@ -137,3 +137,22 @@ class PlayerEntityTests(TestCase):
         self.assertEqual(value_of(run, doc, "p", "accounts"), ["ivan@core"])
         self.assertEqual(value_of(run, doc, "p", "sessions"), ["ivan/ops@core"])
         self.assertEqual(mine.user, ivan)
+
+
+class WroteOutsTests(TestCase):
+    def test_outputs_by_channel(self):
+        kind = N.KINDS["on:character.wrote"]
+        outs = lambda channel: [s.name for s in N.DATA_OUTS[kind.name] if N._out_on(kind, {"channel": channel}, s.name)]   # noqa: E731
+        self.assertEqual(outs("any"), ["character", "channel", "subject", "sender", "text", "message", "player"])
+        self.assertEqual(outs("mail"), ["character", "channel", "subject", "from_address", "text", "message", "player"])
+        self.assertEqual(outs("forum"), ["character", "channel", "subject", "nick", "text", "message", "player"])
+        self.assertEqual(outs("air"), ["character", "channel", "freq", "callsign", "text", "message", "player"])
+
+    def test_old_wires(self):
+        doc = {"nodes": [node("a", "on:character.wrote", channel="air"), node("m", "on:character.wrote", channel="mail"),
+                         node("x", "on:character.wrote"), node("t", "text")],
+               "wires": [f("a", "sender", "t", "value"), f("a", "subject", "t", "value"), f("m", "sender", "t", "value"),
+                         f("x", "sender", "t", "value")]}
+        self.assertTrue(upgrade.wrote_outs(doc))
+        self.assertEqual([(w["from"], w["out"]) for w in doc["wires"]], [("a", "callsign"), ("m", "from_address"), ("x", "sender")])
+        self.assertFalse(upgrade.wrote_outs(doc))
