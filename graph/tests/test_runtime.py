@@ -202,18 +202,15 @@ class FlowTests(TestCase):
         User = get_user_model()
         self.players = [User.objects.create_user(f"p{n}") for n in range(3)]
 
-    def test_check_and_choose(self):
+    def test_if(self):
         graph = make([node("m", "manual"), node("c", "check", condition="tag:x"), node("yes", "do:world_count", name="yes"),
-                      node("no", "do:world_count", name="no"),
-                      node("s", "choose", rows=[{"label": "A", "condition": "tag:a"}, {"label": "X", "condition": "tag:x"}]),
-                      node("r2", "do:world_count", name="r2"), node("else", "do:world_count", name="else")],
-                     [wire("m", "fire", "c"), wire("c", "yes", "yes"), wire("c", "no", "no"), wire("m", "fire", "s"), wire("s", "r2", "r2"),
-                      wire("s", "else", "else")])
+                      node("no", "do:world_count", name="no")],
+                     [wire("m", "fire", "c"), wire("c", "yes", "yes"), wire("c", "no", "no")])
         ivan = self.players[0]
         runtime.start_manual(graph, "m", ivan)
         store.set_tag("player", ivan.pk, "x")
         runtime.start_manual(graph, "m", ivan)
-        self.assertEqual([counter(n) for n in ("yes", "no", "r2", "else")], [1, 1, 1, 1])
+        self.assertEqual([counter(n) for n in ("yes", "no")], [1, 1])
 
     def test_turns_round_robin(self):
         graph = make([node("m", "manual"), node("t", "turns", count=2), node("a", "do:world_count", name="a"), node("b", "do:world_count", name="b")],

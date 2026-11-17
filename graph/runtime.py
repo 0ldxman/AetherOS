@@ -513,7 +513,7 @@ def value_of(run, doc, node_id, out, depth=0):
     if kind.name in ("group_in", "group_out"):
         src = doc.into.get((node_id, out))
         return value_of(run, doc, src[0], src[1], depth + 1) if src else None
-    if kind.name in ("foreach", "branch_in", "each"):  # элемент и номер ветки; у «Для каждого» — кто успел и кто первый
+    if kind.name in ("branch_in", "each"):  # элемент и номер ветки; у «Для каждого» — кто успел и кто первый
         return (((run.state or {}).get("vals") or {}).get(node_id) or {}).get(out)
     if kind.group in N.NOUNS:
         if kind.owned:                               # данные «Выхода» графа попытки приехали с событием
@@ -1222,12 +1222,6 @@ def _execute(run, doc, node_id, sock):
         return _wait(run, doc, node_id)
     if name == "check":
         return ["yes" if _holds(data.get("condition"), run) else "no"]
-    if name == "choose":
-        known = _facts(run)
-        for number, row in enumerate(data.get("rows") or [], 1):
-            if isinstance(row, dict) and _holds(row.get("condition"), run, known):
-                return [f"r{number}"]
-        return ["else"]
     if name == "random":
         weights = []
         for value in data.get("branches") or [1, 1]:
@@ -1453,7 +1447,7 @@ def advance(run, items):
 
 
 def _drain(run, doc, queue, steps):
-    """Очередь нод до конца. «Для каждого» проходит ветку «Каждый» целиком по разу на элемент, потом идёт в «Готово»."""
+    """Очередь нод до конца. «Для каждого» запускает ветки (по потоку на элемент) и ждёт их «Конца ветки»."""
     while queue and run.status == Run.Status.RUNNING:
         node_id, sock = queue.popleft()
         kind = doc.kind(node_id)
@@ -1474,13 +1468,6 @@ def _drain(run, doc, queue, steps):
             continue
         if kind.name == "branch_out":
             _branch_done(run)
-            continue
-        if kind.name == "foreach":
-            for index, item in enumerate(_as_list(input_of(run, doc, node_id, "list"))[:LIST_LIMIT], 1):
-                vals = {**((run.state or {}).get("vals") or {}), node_id: {"item": item, "index": index}}
-                run.state = {**(run.state or {}), "vals": vals}
-                _drain(run, doc, deque(doc.next(node_id, "each")), steps)
-            queue.extend(doc.next(node_id, "done"))
             continue
         try:
             outs = _execute(run, doc, node_id, sock)

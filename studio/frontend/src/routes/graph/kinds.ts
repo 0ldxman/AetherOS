@@ -348,7 +348,6 @@ export function defaults(kind: Kind): Record<string, unknown> {
   const data: Record<string, unknown> = {};
   for (const f of kind.fields) if (isChoice(f) && f.options.length) data[f.name] = f.options[0].value;
   if (kind.name === "random") data.branches = [1, 1];
-  if (kind.name === "choose") data.rows = [{ label: "", condition: "" }];
   for (const name of ["count"]) if (kind.fields.some((f) => f.name === name)) data[name] = kind.name === "first" ? 1 : 2;
   return data;
 }

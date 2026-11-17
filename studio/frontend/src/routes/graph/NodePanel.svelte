@@ -25,9 +25,7 @@
   const uid = Math.random().toString(36).slice(2, 8);
 
   const list = (name: string) => (Array.isArray(data[name]) ? (data[name] as unknown[]) : []);
-  const rows = $derived(list("rows") as { label?: string; condition?: string }[]);
   const weights = $derived(list("branches") as number[]);
-  function setRow(i: number, patch: Record<string, string>) { set("rows", rows.map((r, n) => (n === i ? { ...r, ...patch } : r))); }
   const socks = $derived(list("sockets") as { name: string; label: string; type?: string }[]);
   function addSock() {
     const taken = new Set(socks.map((x) => x.name));
@@ -139,17 +137,6 @@
       {:else if f.kind === "condition"}
         <label class="cell"><span class="label">{f.label}</span>
           <input class="field mono" value={value(f.name)} placeholder="flag:met and boreas-key or world:alarm" oninput={(e) => set(f.name, e.currentTarget.value)} /></label>
-      {:else if f.kind === "rows"}
-        <div class="cell"><span class="label">{f.label}: первая верная строка ведёт в свой выход, иначе «Иначе»</span>
-          {#each rows as row, i (i)}
-            <div class="line">
-              <input class="field small-in" value={row.label ?? ""} placeholder="Подпись" oninput={(e) => setRow(i, { label: e.currentTarget.value })} />
-              <input class="field mono" value={row.condition ?? ""} placeholder="flag:x" oninput={(e) => setRow(i, { condition: e.currentTarget.value })} />
-              <button class="x" onclick={() => set("rows", rows.filter((_, n) => n !== i))} aria-label="Убрать строку">✕</button>
-            </div>
-          {/each}
-          <button class="btn ghost tiny" onclick={() => set("rows", [...rows, { label: "", condition: "" }])}>+ строка</button>
-        </div>
       {:else if f.kind === "weights"}
         <div class="cell"><span class="label">{f.label}: чем больше вес, тем чаще ветка</span>
           {#each weights as w, i (i)}
@@ -216,7 +203,6 @@
   .check { display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; }
   .line { display: flex; gap: 6px; align-items: center; }
   .line .field { flex: 1; min-width: 0; }
-  .small-in { flex: 0 0 90px !important; }
   .num { flex: 0 0 80px !important; }
   .type { flex: 0 0 110px !important; }
   .fed { font-size: 12px; color: #c792ea; }

@@ -131,7 +131,6 @@ def _part(part, groups, prefix, add, slug):
 
     doc = Doc(part)
     ifaces = {}
-    _foreach_rules(doc, add, prefix)
     for node_id, node in doc.nodes.items():
         key = prefix + node_id
         kind = N.KINDS.get(node.get("type"))
@@ -193,12 +192,6 @@ def _part(part, groups, prefix, add, slug):
                 add(key, "нужно условие")
             if mode == "until" and not data.get("at") and (node_id, "at") not in doc.refs:
                 add(key, "нужно время ЧЧ:ММ или дата")
-        if kind.name == "choose":
-            for number, row in enumerate(data.get("rows") or [], 1):
-                try:
-                    parse_condition((row or {}).get("condition"))
-                except ValueError as error:
-                    add(key, f"строка {number}: {error}")
         if kind.name == "launch" and data.get("graph"):
             other = _load(data.get("graph"))
             if other is None:
@@ -255,26 +248,6 @@ def _part(part, groups, prefix, add, slug):
             add(prefix + dst, f"вход ждёт {N.type_label(dst_type)}, а приходит {N.type_label(src_type)}")
         if out_name == N.TIMEOUT and src_kind.group in N.NOUNS and src not in doc.fed:
             add(prefix + src, "таймаут бывает только у ждущей ноды (со входом)")
-
-
-def _foreach_rules(doc, add, prefix):
-    """В ветке «Каждый» нельзя ждать: элементы проходят свою ветку сразу."""
-    for node_id, node in doc.nodes.items():
-        if node.get("type") != "foreach":
-            continue
-        queue, seen = [dst for dst, _ in doc.next(node_id, "each")], set()
-        while queue:
-            current = queue.pop()
-            if current in seen or current == node_id:
-                continue
-            seen.add(current)
-            kind = doc.kind(current)
-            if kind is not None and (kind.name == "wait" or (kind.group in N.NOUNS and current in doc.fed)):
-                add(prefix + node_id, "в ветке «Каждый» нельзя ждать: элементы проходят её сразу")
-                break
-            for (src, _), targets in doc.flow.items():
-                if src == current:
-                    queue.extend(dst for dst, _ in targets)
 
 
 def _owned_rules(raw, add):
