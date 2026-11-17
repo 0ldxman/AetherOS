@@ -11,8 +11,10 @@ from dataclasses import dataclass, field, replace
 from engine.actions import Field
 
 ENTITY, NOUN, FLOW, DATA, ACTION, STRUCT, SERVICE = "entity", "noun", "flow", "data", "action", "struct", "service"
+HAPPEN = "happen"                   # события: триггеры, которые игрок руками вызвать не может (время, сигнал, сценарий, автор)
+NOUNS = (NOUN, HAPPEN)              # и то и другое — существительные: старт без провода, ожидание со входом
 ATTR = "attr"                       # атрибуты: одна сторона сущности (её состояние, время, доступ) — читаются, как сущности
-GROUPS = {ENTITY: "Сущности", ATTR: "Атрибуты", NOUN: "Триггеры", FLOW: "Ход", DATA: "Данные", ACTION: "Действия", STRUCT: "Сценарии и группы", SERVICE: "Служебные"}
+GROUPS = {ENTITY: "Сущности", ATTR: "Атрибуты", NOUN: "Триггеры", HAPPEN: "События", FLOW: "Ход", DATA: "Данные", ACTION: "Действия", STRUCT: "Сценарии и группы", SERVICE: "Служебные"}
 
 # Типы сокетов. event — «случилось» (по нему идёт ход), остальное — данные: читаются в момент, когда нода выполняется.
 EVENT = "event"
@@ -345,12 +347,19 @@ _when("on:terminal.command", "Терминал: Введена команда",
       (Sock("run", "Введена"),), {"run": "command.run"}, _match(machine=("host", "thing"), command=("command", "glob"), args=("args", "glob")),
       (_HOST_OUT, _LOGIN_OUT, Sock("command", "Команда", "text", "command"), Sock("args", "Аргументы", "text", "args")), "{command} {args}")
 _PLACE_OUTS = (Sock("placement", "Размещение", "placement", "placement"), _LOGIN_OUT)       # объект, путь, машина — у ноды «Размещение»
+_GOT_MATCH = _match(item=("item", "item"), via=("via", "via"), path=("path", "glob"), machine=("host", "thing"))
+
+
+def _got(data, out, event):                     # выданное сценарием или автором — не дело рук игрока: сценарий и так знает, что выдал
+    return (event.data or {}).get("via") != "scenario" and _GOT_MATCH(data, out, event)
+
+
 _when("on:object.got", "Объект: Получен",
       (_OBJECT, Field("via", "Откуда", "select", "", False, (("any", "любым путём"), ("archive", "из письма или архива"), ("forum", "с форума"),
                                                              ("net", "скачан с сервера"), ("xfer", "перенесён с машины"), ("join", "собран из частей"),
-                                                             ("key", "ключ в секретах"), ("scenario", "выдан сценарием"))),
+                                                             ("key", "ключ в секретах"))),
        _PATH, _MACHINE),
-      (Sock("got", "Получен"),), {"got": "object.got"}, _match(item=("item", "item"), via=("via", "via"), path=("path", "glob"), machine=("host", "thing")),
+      (Sock("got", "Получен"),), {"got": "object.got"}, _got,
       _PLACE_OUTS + (Sock("via", "Откуда", "text", "via"),), "{item} {via}")
 
 # размещение: что игрок делает с конкретным файлом. Провод «Размещение» — ждать этот файл, иначе фильтры (с объектом — любая его копия).
@@ -382,11 +391,16 @@ def _layer_types_any():
 # слой: что случилось со слоем файла игрока. Провод «Слой» — этот слой, «Размещение» — любой слой этого файла
 _when("on:layer.changed", "Слой: Изменён",
       (Field("layer", "Слой", "many:layer|placement", "любой"), _OBJECT, Field("type", "Тип", "select", "", False, _layer_types_any())),
-      (Sock("removed", "Снят"), Sock("attempt", "Неверная попытка"), Sock("failed", "Попытки кончились"), Sock("added", "Добавлен")),
-      {"removed": "layer.removed", "attempt": "layer.attempt", "failed": "layer.failed", "added": "layer.added"},
+      (Sock("removed", "Снят"), Sock("attempt", "Неверная попытка"), Sock("failed", "Попытки кончились")),
+      {"removed": "layer.removed", "attempt": "layer.attempt", "failed": "layer.failed"},
       _match(layer=("path", "layer"), item=("item", "item"), type=("layer", "same")),
       (Sock("layer", "Слой", "layer", "layer_key"), _LOGIN_OUT, Sock("given", "Ввод игрока", "text", "given")),        # остальное — у «Слоя» и «Размещения»
       "{type} {item}", covers={"layer": ("item",)})
+_when("on:layer.added", "Слой: Добавлен",
+      (Field("layer", "Слой", "many:layer|placement", "любой"), _OBJECT, Field("type", "Тип", "select", "", False, _layer_types_any())),
+      (Sock("added", "Добавлен"),), {"added": "layer.added"},
+      _match(layer=("path", "layer"), item=("item", "item"), type=("layer", "same")),
+      (Sock("layer", "Слой", "layer", "layer_key"), _LOGIN_OUT), "{type} {item}", covers={"layer": ("item",)})
 
 
 def _mail(data, out, event):
@@ -417,21 +431,19 @@ KINDS["on:character.wrote"] = replace(KINDS["on:character.wrote"], outs_when={
 _when("on:character.mail", "Персонаж: Получил письмо", (Field("character", "Персонаж", "many:character", "любой"), Field("text", "Текст", "text", "любой; можно *")),
       (Sock("sent", "Получил"),), {"sent": "character.wrote"}, _mail,
       (Sock("character", "Персонаж", "character", "character"), Sock("text", "Текст", "text", "text")), "{character}")
-_AIR_MATCH = _match(freq=("freq", "freq"), text=("text", "glob"), by=("by", "via"), character=("character", "thing"))
+_AIR_MATCH = _match(freq=("freq", "freq"), text=("text", "glob"), character=("character", "thing"))
 
 
-def _air(data, out, event):                     # персонаж — фильтр только для передач станций
-    return _AIR_MATCH(data if data.get("by") == "station" else {**data, "character": ""}, out, event)
+def _air(by):
+    return lambda data, out, event: (event.data or {}).get("by", "player") == by and _AIR_MATCH(data, out, event)
 
 
-_when("on:air.sent", "Эфир: Передача на частоте",
-      (Field("freq", "Частота, МГц", "text", "любая"), Field("text", "Текст", "text", "любой; можно *"),
-       Field("by", "От кого", "select", "", False, (("any", "любой"), ("player", "игрок"), ("station", "персонаж или станция"))),
-       Field("character", "Персонаж", "many:character", "любой")),
-      (Sock("sent", "Передача"),), {"sent": "air.sent"}, _air,
-      (Sock("freq", "Частота", "text", "freq"), Sock("text", "Текст", "text", "text"), Sock("callsign", "Позывной", "text", "callsign"),
-       Sock("character", "Персонаж", "character", "character")), "{freq}")
-KINDS["on:air.sent"] = replace(KINDS["on:air.sent"], when={"character": ("by", ("station",))})
+_AIR_FIELDS = (Field("freq", "Частота, МГц", "text", "любая"), Field("text", "Текст", "text", "любой; можно *"))
+_AIR_OUTS = (Sock("freq", "Частота", "text", "freq"), Sock("text", "Текст", "text", "text"), Sock("callsign", "Позывной", "text", "callsign"))
+_when("on:air.sent", "Эфир: Передача на частоте", _AIR_FIELDS, (Sock("sent", "Передача"),), {"sent": "air.sent"}, _air("player"), _AIR_OUTS, "{freq}")
+_when("on:air.station", "Эфир: Передача станции", _AIR_FIELDS + (Field("character", "Персонаж", "many:character", "любой"),),
+      (Sock("sent", "Передача"),), {"sent": "air.sent"}, _air("station"), _AIR_OUTS + (Sock("character", "Персонаж", "character", "character"),),
+      "{freq}")
 KINDS["on:character.mail"] = replace(KINDS["on:character.mail"], hidden=True)          # теперь «Персонаж: Получил сообщение»
 _when("on:moment.status", "Момент: Статус изменён", (Field("moment", "Момент", "many:moment", "любой"),),
       (Sock("started", "Начался"), Sock("ended", "Кончился")), {"started": "moment.started", "ended": "moment.ended"},
@@ -946,7 +958,7 @@ HELP = {
     "act:account.access": "Заблокировать вход на учётку на N минут (игроку или всем, с текстом) или снять блокировку.",
     "act:account.manage": "Создать учётку на машине (выход «Учётка») или удалить (учётку игрока — нельзя). «Игрока хода» — его место на "
                           "этой машине (одна на машину): домашняя папка, почта, ключи, как на aether-main. Логин можно шаблоном: {player}.",
-    "manual": "Кнопка автора: запустить ход с игроком или без (мир) из панели ноды. Только старт.",
+    "manual": "Кнопка автора в панели ноды. Выход «Автор» — кто нажал. Для проверки можно запустить за игрока: он станет игроком потока. Только старт.",
     "try:machine": "Вход на выбранную машину. Tab — граф входа этой машины: от «Попытки» до «Ответить», без ожиданий. "
                    "Выходы ноды — сокеты «Выхода» внутри графа: события и данные.",
     "attempt:machine": "Игрок пытается войти: подробности попытки. Дальше проверки и действия, конец — «Ответить».",
@@ -959,7 +971,7 @@ HELP = {
     "on:placement.opened": "Игрок открыл файл. Провод «Размещение» — этот файл; иначе фильтры: объект, путь (*), машина.",
     "on:placement.appeared": "У игрока появился новый файл: сделал сам (вырезка, подпись, текст из архива) или скопировал. "
                              "Объект, впервые попавший к игроку, — «Объект: Получен».",
-    "on:object.got": "Объект лёг игроку: из письма или архива, с форума, с сервера, с другой машины, собран из частей, ключ, выдан сценарием.",
+    "on:object.got": "Объект лёг игроку его руками: из письма или архива, с форума, с сервера, с другой машины, собран из частей, ключ. Выданное сценарием или автором сюда не попадает.",
     "on:character.mail": "Старое: теперь «Персонаж: Получил сообщение».",
     "on:character.wrote": "Игрок написал персонажу: письмо на его адрес, ответ или полный позывной на форуме, позывной в эфире. Кто — выход "
                           "«Игрок»; «Сообщение» — провод в «Персонаж: Ответить» (у письма, выбранного вариантом возможности, его нет).",
@@ -969,7 +981,8 @@ HELP = {
                          "сразу; позже — нода «Ждать» перед ней.",
     "act:character.reply": "Ответ на сообщение туда же: письмо отправителю, сообщение под постом, передача на той же частоте. У кукловода "
                            "сообщение становится отвеченным: «Отправлено сценарием …».",
-    "on:air.sent": "В эфир передали на частоте: игрок или персонаж (станция). У игрока — выход «Игрок», у станции с персонажем — «Персонаж».",
+    "on:air.sent": "Игрок передал в эфир на частоте. Позывной — его станции. Передачи станций и персонажей — событие «Эфир: Передача станции».",
+    "on:air.station": "В эфир передала станция (ответчик автора или персонаж). Персонаж — у станции с персонажем. Игрока нет.",
     "on:moment.status": "Момент мира начался или кончился.",
     "on:tag": "Тег владельца поставили или сняли. Владелец и «чьё» — как у ноды «Тег».",
     "on:count": "Счётчик владельца изменился: выходы — новое значение и разница.",
@@ -1065,7 +1078,8 @@ HELP = {
     "while": "Условие стало верным или ложным: «Стало верно» и «Стало ложно» запускают ход. Для каждого игрока (его факты, пересчёт на его событиях) "
              "или для мира (пересчёт на любом событии и по времени). Первая проверка с ложным условием ничего не запускает.",
     "ent:layer": "Слой файла игрока (провод с «Размещение → Слои» или события слоя): тип, индекс (1 — верхний), снят ли, сколько попыток осталось (-1 — без ограничения), добавлен ли поверх описания, чьё размещение.",
-    "on:layer.changed": "Со слоем файла игрока что-то случилось: снят, неверная попытка, попытки кончились, добавлен поверх. Провод «Слой» — этот слой, «Размещение» — любой слой файла; иначе фильтры: объект, тип. Тип, размещение, объект — у ноды «Слой».",
+    "on:layer.added": "Сценарий или автор положил слой поверх файла. Провод «Слой» — этот слой, «Размещение» — любой слой файла; иначе фильтры: объект, тип.",
+    "on:layer.changed": "Игрок что-то сделал со слоем файла: снял, ошибся, истратил попытки (добавленный слой — событие «Слой: Добавлен»). Провод «Слой» — этот слой, «Размещение» — любой слой файла; иначе фильтры: объект, тип. Тип, размещение, объект — у ноды «Слой».",
     "act:layer": "Сделать со слоем: снять (как игрок — хуки срабатывают; не верхний — вместе со всем, что над ним), снять тихо (без хуков), "
                  "сбросить попытки. Размещение — его верхний слой.",
     "try:net.request": "Запрос к выбранному серверу (nreq). Tab — граф попытки сервера; выходы — сокеты «Выхода» внутри.",
@@ -1496,13 +1510,21 @@ def sockets(kind, data, side, iface=None):
             names += list((iface or {}).get("outputs") or [])
         names += [sock.name for sock in kind.tail]
         names += [sock.name for sock in DATA_OUTS.get(kind.name, ()) if _out_on(kind, data, sock.name)]
-        if kind.group == NOUN and not kind.start_only:
+        if kind.group in NOUNS and not kind.start_only:
             names.append(TIMEOUT)                    # есть только у ждущей ноды (со входом)
     return names
 
 
 SPACES = ("Машина", "Учётка", "Сессия", "Сетевой ресурс", "Терминал", "Объект", "Размещение", "Слой", "Игрок", "Экран", "Персонаж", "Почта", "Эфир", "Форум", "Новости",
           "Момент", "Тег", "Счётчик")                # порядок пространств в меню (как у «Когда»)
+
+
+# события: игрок руками их не вызовет — время, сигналы, автор, изменения от сценария
+for _name in ("manual", "signal", "on:machine.status", "on:moment.status", "on:tag", "on:count", "on:count.threshold", "on:time", "on:schedule",
+              "on:layer.added", "on:air.station"):
+    KINDS[_name] = replace(KINDS[_name], group=HAPPEN)
+    DATA_OUTS[_name] = tuple(sock for sock in DATA_OUTS.get(_name, ()) if sock.name != "player")      # игрок их не вызывает: выхода «Игрок» нет
+DATA_OUTS["manual"] = (Sock("author", "Автор", "text", "author"),)          # кто из авторов нажал кнопку
 
 
 def _menu_order(kind):

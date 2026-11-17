@@ -3,7 +3,7 @@
   // без провода значение правится прямо на ноде, с проводом приходит по нему. Выбор режима — параметр без входа.
   // Круг — событие и простые значения (да/нет, текст, число), ромб — вещь (файл, машина, персонаж…). Цвет — тип.
   import { Handle, Position, useUpdateNodeInternals } from "@xyflow/svelte";
-  import { BOXES, COLORS, TYPES, followType, inferred, isSet, plainKind, wireOnly, isList, isMany, typeColors, resolveType, typeLabel as labelOfType, inWhen, insOf, isThing, outsOf, propFields, rowsOf, socketFields, titleOf, typeColor, visibleRows, type Field, type GNode, type Iface, type Kind, type Row } from "./kinds";
+  import { BOXES, COLORS, TYPES, isTrigger, followType, inferred, isSet, plainKind, wireOnly, isList, isMany, typeColors, resolveType, typeLabel as labelOfType, inWhen, insOf, isThing, outsOf, propFields, rowsOf, socketFields, titleOf, typeColor, visibleRows, type Field, type GNode, type Iface, type Kind, type Row } from "./kinds";
 
   type Stat = { hits: number; players: number; waiting: number; oldest_days: number };
   type Option = { value: string; label: string };
@@ -18,7 +18,7 @@
   const kind = $derived(data.kind);
   const values = $derived(inferred(data.kind, data.node.data, data.fedTypes));
   const hide = $derived(!!data.node.collapsed);
-  const isNoun = $derived(kind.group === "noun");
+  const isNoun = $derived(isTrigger(kind));
   const allIns = $derived(insOf(kind, values, data.iface));
   const flowIn = $derived(allIns.some((s) => s.name === "in") && !(isNoun && kind.start_only));
   const ins = $derived(allIns.filter((s) => s.name !== "in" && (!hide || data.usedIn.includes(s.name))));

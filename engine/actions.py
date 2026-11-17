@@ -185,7 +185,7 @@ def _key(action, ctx):
     box = _target_box(action, ctx)
     if not keystore.secrets_dir(box.machine, box.login):
         raise ActionError(f"у учётки {box.login} нет папки секретов")
-    keystore.put(box.view, box.machine, box.login, item)
+    keystore.put(box.view, box.machine, box.login, item, source="scenario")
 
 
 def _target_box(action, ctx):

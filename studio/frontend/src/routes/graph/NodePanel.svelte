@@ -3,7 +3,7 @@
   import { api, problem } from "../../lib/api";
   import { engine } from "../../lib/engine.svelte";
   import { toast } from "../../lib/toast.svelte";
-  import { TYPES, inWhen, type Catalog, type Field, type GNode, type Kind, plainKind, wireOnly } from "./kinds";
+  import { TYPES, inWhen, isTrigger, type Catalog, type Field, type GNode, type Kind, plainKind, wireOnly } from "./kinds";
 
   let { node, kind, catalog, waiting, fed, problems, stat, statKey, graphId, editable, onchange, onremove, onstarted, groupTitle = null, ongrouptitle, onenter }: {
     node: GNode; kind: Kind; catalog: Catalog; waiting: boolean; fed: Record<string, string>; problems: { text: string; level: string }[];
@@ -18,7 +18,7 @@
   const LISTED = ["flag", "world_flag", "counter"];
   // поле со встроенным переключателем: без провода в панели только если текстом его не задать («Как» — только провод письма)
   const typed = (f: Field) => (f.socket ?? "").split(/[:|]/).includes("text");
-  const fields = $derived([...kind.fields.filter((f) => !wireOnly(f.kind)).map((f) => ({ ...f, kind: plainKind(f.kind) })), ...(kind.group === "noun" && !kind.start_only ? (waiting ? catalog.wait_fields : catalog.start_fields) : [])]);
+  const fields = $derived([...kind.fields.filter((f) => !wireOnly(f.kind)).map((f) => ({ ...f, kind: plainKind(f.kind) })), ...(isTrigger(kind) && !kind.start_only ? (waiting ? catalog.wait_fields : catalog.start_fields) : [])]);
   const data = $derived(node.data);
   const value = (name: string) => (data[name] === undefined || data[name] === null ? "" : String(data[name]));
   const set = (name: string, v: unknown) => onchange({ data: { ...data, [name]: v === "" ? undefined : v } });
@@ -70,7 +70,7 @@
     {#if editable}<button class="btn ghost danger tiny" onclick={onremove}>Удалить</button>{/if}
   </div>
   {#if kind.help}<p class="small">{kind.help}</p>{/if}
-  {#if kind.group === "noun"}
+  {#if isTrigger(kind)}
     <p class="muted small">{kind.start_only ? "Только старт: запускает ход." : waiting ? "Ждёт: ход стоит здесь, пока событие не случится у любого игрока (или только у игрока хода) — дальше ход идёт с тем, кто сделал." : "Старт: событие запускает ход с игроком, у которого оно случилось. Подведите провод на вход, чтобы нода ждала."}</p>
   {/if}
 
@@ -178,7 +178,7 @@
       <span class="label">Запустить сейчас</span>
       <div class="line">
         <select class="field" bind:value={player}>
-          <option value="">для мира (без игрока)</option>
+          <option value="">без игрока</option>
           {#each players as p (p.id)}<option value={String(p.id)}>{p.username}</option>{/each}
         </select>
         <button class="btn" onclick={start}>Запустить</button>

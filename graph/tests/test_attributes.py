@@ -156,3 +156,59 @@ class WroteOutsTests(TestCase):
         self.assertTrue(upgrade.wrote_outs(doc))
         self.assertEqual([(w["from"], w["out"]) for w in doc["wires"]], [("a", "callsign"), ("m", "from_address"), ("x", "sender")])
         self.assertFalse(upgrade.wrote_outs(doc))
+
+
+class EventsTests(TestCase):
+    def test_events_group(self):
+        groups = {name: N.KINDS[name].group for name in ("manual", "signal", "on:time", "on:tag", "on:layer.added", "on:air.station",
+                                                         "on:air.sent", "on:layer.changed", "on:object.got", "while")}
+        self.assertEqual({name for name, group in groups.items() if group == N.HAPPEN},
+                         {"manual", "signal", "on:time", "on:tag", "on:layer.added", "on:air.station"})
+        self.assertEqual(groups["while"], N.NOUN)
+        self.assertNotIn("added", [s.name for s in N.KINDS["on:layer.changed"].outs])
+
+    def test_air_split(self):
+        from engine.events import emit
+        from graph.models import Run
+
+        ivan = get_user_model().objects.create_user("ivan")
+        make([node("p", "on:air.sent", repeat="always"), node("a", "do:world_count", name="player")], [wire("p", "sent", "a")], slug="ap")
+        make([node("s", "on:air.station", repeat="always"), node("b", "do:world_count", name="station")], [wire("s", "sent", "b")], slug="as")
+        emit("air.sent", ivan, freq="14.230", callsign="IV1", text="hi", by="player")
+        emit("air.sent", None, freq="14.230", callsign="KT", text="yo", by="station")
+        self.assertEqual((values.get(values.COUNT, "world", 0, "player"), values.get(values.COUNT, "world", 0, "station")), (1, 1))
+        self.assertEqual(Run.objects.count(), 2)
+
+    def test_object_got_from_scenario_is_not_a_trigger(self):
+        kind = N.KINDS["on:object.got"]
+        event = type("E", (), {"data": {"via": "scenario", "item": "x", "path": "/a"}, "host": "core", "login": "ops"})()
+        self.assertFalse(kind.match({"via": "any"}, "got", event))
+        event.data["via"] = "archive"
+        self.assertTrue(kind.match({"via": "any"}, "got", event))
+
+    def test_upgrade(self):
+        doc = {"nodes": [node("a", "on:air.sent", by="station", character="kate"), node("b", "on:air.sent", by="any", character="kate"),
+                         node("l", "on:layer.changed", type="password"), node("m", "manual"), node("t", "act:tag")],
+               "wires": [wire("m", "fire", "l"), wire("l", "added", "t"), wire("l", "removed", "t")]}
+        self.assertTrue(upgrade.events(doc))
+        kinds = {n["id"]: (n["type"], n["data"]) for n in doc["nodes"]}
+        self.assertEqual(kinds["a"], ("on:air.station", {"character": "kate"}))
+        self.assertEqual(kinds["b"], ("on:air.sent", {}))
+        self.assertEqual(kinds["l-added"], ("on:layer.added", {"type": "password"}))
+        pairs = [(w["from"], w["out"], w["to"]) for w in doc["wires"]]
+        self.assertIn(("l-added", "added", "t"), pairs)
+        self.assertIn(("l", "removed", "t"), pairs)
+        self.assertIn(("m", "fire", "l-added"), pairs)
+        self.assertFalse(upgrade.events(doc))
+
+
+class EventOutsTests(TestCase):
+    def test_events_have_no_player_and_manual_has_author(self):
+        for name in ("signal", "on:time", "on:tag", "on:machine.status", "on:air.station", "on:layer.added"):
+            self.assertNotIn("player", [s.name for s in N.DATA_OUTS[name]], name)
+        self.assertIn("player", [s.name for s in N.DATA_OUTS["on:air.sent"]])
+        self.assertEqual([s.name for s in N.DATA_OUTS["manual"]], ["author"])
+        boss = get_user_model().objects.create_user("boss", is_staff=True)
+        graph = make([node("m", "manual"), node("t", "act:tag", variant="on", owner="world", name="x")], [wire("m", "fire", "t")], slug="man")
+        run = runtime.start_manual(graph, "m", author=boss)
+        self.assertEqual(value_of(run, Doc(graph.doc), "m", "author"), "boss")

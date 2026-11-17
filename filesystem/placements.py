@@ -58,7 +58,7 @@ def add(user, machine, path, item):
     if not str(path or "").strip() and item.format_id == KEY_FORMAT:
         if not keystore.secrets_dir(machine, login):
             raise PlacementError(f"у учётки {login or '?'} нет папки секретов")
-        found, _ = keystore.put(view, machine, login, item)
+        found, _ = keystore.put(view, machine, login, item, source="scenario")
         return found
     path = _path(fill(path, login))
     view.put_item(path, item)

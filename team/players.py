@@ -156,7 +156,7 @@ def give_key(user, profile_id, slug):
         raise PlayerError(f"Ключа «{slug}» нет в реестре.")
     if not keystore.secrets_dir(profile.machine, profile.login):
         raise PlayerError("У этой учётки нет папки секретов.")
-    path, made = keystore.put(view_for(profile.machine, user, login=profile.login), profile.machine, profile.login, item)
+    path, made = keystore.put(view_for(profile.machine, user, login=profile.login), profile.machine, profile.login, item, source="scenario")
     if not made:
         raise PlayerError("Этот ключ у игрока уже есть.")
     return path

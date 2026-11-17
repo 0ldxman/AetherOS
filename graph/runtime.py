@@ -80,7 +80,7 @@ class Doc:
 
     def is_start(self, node_id):
         kind = self.kind(node_id)
-        return kind is not None and kind.group == N.NOUN and node_id not in self.fed and not self.nodes[node_id].get("_inline")
+        return kind is not None and kind.group in N.NOUNS and node_id not in self.fed and not self.nodes[node_id].get("_inline")
 
     def reaching(self, target):
         """Ноды, из которых по проводам потока можно дойти до target."""
@@ -509,7 +509,7 @@ def value_of(run, doc, node_id, out, depth=0):
         return value_of(run, doc, src[0], src[1], depth + 1) if src else None
     if kind.name == "foreach":                       # элемент и номер текущего прохода ветки «Каждый»
         return (((run.state or {}).get("vals") or {}).get(node_id) or {}).get(out)
-    if kind.group == N.NOUN:
+    if kind.group in N.NOUNS:
         if kind.owned:                               # данные «Выхода» графа попытки приехали с событием
             return (((run.state or {}).get("vals") or {}).get(node_id) or {}).get("vals", {}).get(out)
         if kind.name == N.USED_OFFER and out.startswith("fork:"):        # слово развилки текста варианта
@@ -1154,7 +1154,7 @@ def _execute(run, doc, node_id, sock):
 
     kind, data = doc.kind(node_id), resolved(run, doc, node_id)
     name = kind.name
-    if kind.group == N.NOUN:
+    if kind.group in N.NOUNS:
         return [] if kind.start_only else _noun_wait(run, doc, node_id, kind)
     if name in N.PLACEMENT_ACTS:
         return _placement_act(run, doc, node_id, kind)
@@ -1508,12 +1508,13 @@ def decide(graph, user, *, host="", login="", **data):
     return None if found is None or found["mode"] == "default" else found
 
 
-def start_manual(graph, node_id, user=None):
-    """Кнопка автора «Вручную»: запустить для игрока или для мира."""
+def start_manual(graph, node_id, user=None, author=None):
+    """Кнопка автора «Вручную»: поток мира или (для проверки) за игрока user; author — кто нажал (выход «Автор»)."""
     kind = doc_of(graph).kind(node_id)
     if kind is None or kind.name != "manual":
         raise ValueError("это не нода «Вручную»")
-    return start(graph, node_id, "fire", user, {"event": N.MANUAL_EVENT}, repeat="always")
+    name = author.get_username() if author is not None else ""
+    return start(graph, node_id, "fire", user, {"event": N.MANUAL_EVENT, "data": {"author": name}}, repeat="always")
 
 
 # ---------- время ----------

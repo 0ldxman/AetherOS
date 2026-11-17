@@ -323,7 +323,7 @@ def manual(request, graph_id: int, body: GrStartIn):
     graph = get_object_or_404(Graph, pk=graph_id)
     user = get_object_or_404(get_user_model(), pk=body.player) if body.player else None
     try:
-        run = runtime.start_manual(graph, body.node, user)
+        run = runtime.start_manual(graph, body.node, user, author=request.user)
     except ValueError as error:
         raise HttpError(400, str(error)) from None
     return GrStarted(status=run.status if run else "skipped", outcome=run.outcome if run else "")

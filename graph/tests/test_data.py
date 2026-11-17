@@ -30,8 +30,8 @@ class DataTests(TestCase):
     def test_template_number_and_player(self):
         subs = [{"id": "s1", "name": "игрок"}, {"id": "s2", "name": "n"}, {"id": "s3", "name": "тег", "value": "z"}]
         make([node("m", "manual"), node("t", "text", value="{игрок}-{n}-{тег}", subs=subs), node("n", "number", value=3),
-              node("a", "do:flag")],
-             [wire("m", "fire", "a"), f("m", "player", "t", "s1"), f("n", "value", "t", "s2"), f("t", "value", "a", "name")])
+              node("a", "do:flag"), node("p", "ent:player")],
+             [wire("m", "fire", "a"), f("p", "value", "t", "s1"), f("n", "value", "t", "s2"), f("t", "value", "a", "name")])
         from graph.models import Graph
 
         runtime.start_manual(Graph.objects.get(), "m", self.ivan)

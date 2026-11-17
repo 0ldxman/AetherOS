@@ -102,7 +102,7 @@ def _cycles(doc):
 
 def _waits(doc, node_id):
     kind = doc.kind(node_id)
-    return kind is not None and (kind.name == "wait" or (kind.group == N.NOUN and node_id in doc.fed))
+    return kind is not None and (kind.name == "wait" or (kind.group in N.NOUNS and node_id in doc.fed))
 
 
 def _iface_of(node, groups, add, key):
@@ -211,7 +211,7 @@ def _part(part, groups, prefix, add, slug):
                 add(key, "повторяются имена сокетов")
             if [n for n in doc.nodes.values() if n.get("type") == kind.name].__len__() > 1:
                 add(key, f"на уровне больше одной ноды «{kind.label}»: работает первая", WARNING)
-        if kind.group == N.NOUN:
+        if kind.group in N.NOUNS:
             if node_id in doc.fed and kind.start_only:
                 add(key, f"«{kind.label}» бывает только стартом: уберите входящий провод")
             as_ref = any(src[0] == node_id for src in doc.refs.values()) or any(
@@ -253,7 +253,7 @@ def _part(part, groups, prefix, add, slug):
         dst_type = N.sock_type(dst_kind, doc.data(dst), "in", inp, ifaces.get(dst))
         if not N.compatible(src_type, dst_type):
             add(prefix + dst, f"вход ждёт {N.type_label(dst_type)}, а приходит {N.type_label(src_type)}")
-        if out_name == N.TIMEOUT and src_kind.group == N.NOUN and src not in doc.fed:
+        if out_name == N.TIMEOUT and src_kind.group in N.NOUNS and src not in doc.fed:
             add(prefix + src, "таймаут бывает только у ждущей ноды (со входом)")
 
 
@@ -269,7 +269,7 @@ def _foreach_rules(doc, add, prefix):
                 continue
             seen.add(current)
             kind = doc.kind(current)
-            if kind is not None and (kind.name == "wait" or (kind.group == N.NOUN and current in doc.fed)):
+            if kind is not None and (kind.name == "wait" or (kind.group in N.NOUNS and current in doc.fed)):
                 add(prefix + node_id, "в ветке «Каждый» нельзя ждать: элементы проходят её сразу")
                 break
             for (src, _), targets in doc.flow.items():
@@ -282,7 +282,7 @@ def _owned_rules(raw, add):
     doc = Doc(raw)
     for node_id, node in doc.nodes.items():
         kind = N.KINDS.get(node.get("type"))
-        if kind is not None and (kind.name == "wait" or (kind.group == N.NOUN and not kind.name.startswith("attempt:"))):
+        if kind is not None and (kind.name == "wait" or (kind.group in N.NOUNS and not kind.name.startswith("attempt:"))):
             add(node_id, "в графе попытки нельзя ждать: решение принимается сразу")
     if not any(str(n.get("type") or "").startswith("attempt:") for n in doc.nodes.values()):
         add("", "нет стартовой ноды «Попытка»")

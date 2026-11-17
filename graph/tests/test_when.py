@@ -68,7 +68,7 @@ class WhenTests(TestCase):
 
         mira = Character.objects.create(code="MIR", name="Mira")
         k7a = Station.objects.create(name="K7A", kind="character", character=mira)
-        self.one("on:air.sent", "sent", freq="7.1", by="station", character="MIR")
+        self.one("on:air.station", "sent", freq="7.1", character="MIR")
         emit("air.sent", self.ivan, freq="7.100", callsign="IVAN", text="cq", by="player")
         radio.station_transmit(Station.objects.create(name="BEACON"), "7.1", "beacon")
         radio.station_transmit(k7a, "7.2", "мимо")
@@ -76,7 +76,7 @@ class WhenTests(TestCase):
         radio.station_transmit(k7a, "7.1", "здесь Мира")
         self.assertEqual(counter(), 1)
 
-    def test_air_any_sender(self):
+    def test_air_player_and_station_are_apart(self):
         from air import radio
         from air.models import Station
 
@@ -84,9 +84,9 @@ class WhenTests(TestCase):
         make([node("w", "on:air.sent", text="*cq*"), node("a", "do:world_count", name="d")], [wire("w", "sent", "a")], slug="g2")
         emit("air.sent", self.ivan, freq="7.100", callsign="IVAN", text="CQ CQ", by="player")
         self.assertEqual((counter("c"), counter("d")), (1, 1))
-        make([node("w", "on:air.sent", text="*cq*"), node("a", "do:world_count", name="e")], [wire("w", "sent", "a")], slug="g3")
+        make([node("w", "on:air.station", text="*cq*"), node("a", "do:world_count", name="e")], [wire("w", "sent", "a")], slug="g3")
         radio.station_transmit(Station.objects.create(name="BEACON"), "7.1", "cq beacon")
-        self.assertEqual(counter("e"), 1)
+        self.assertEqual((counter("c"), counter("d"), counter("e")), (1, 1, 1))      # станция — не игрок: «Передача на частоте» молчит
 
     def test_tag_of_a_thing_for_a_player_wakes_only_them(self):
         graph = make([node("m", "manual"), node("w", "on:tag", owner="machine", machine="core", scope="player", name="hacked", own=True),

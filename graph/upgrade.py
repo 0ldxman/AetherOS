@@ -77,6 +77,49 @@ def wrote_outs(doc):
     return changed
 
 
+def _events_level(level):
+    """Передачи станций — «Эфир: Передача станции»; «Добавлен» у слоя — «Слой: Добавлен» рядом (с теми же фильтрами и входами)."""
+    changed = False
+    nodes = [node for node in level.get("nodes") or [] if isinstance(node, dict) and node.get("id")]
+    ids = {str(node["id"]) for node in nodes}
+    for node in nodes:
+        data = node.get("data") or {}
+        if node.get("type") == "on:air.sent" and "by" in data:
+            node["type"] = "on:air.station" if data.get("by") == "station" else "on:air.sent"
+            node["data"] = {key: value for key, value in data.items() if key != "by" and (key != "character" or data.get("by") == "station")}
+            changed = True
+        if node.get("type") != "on:layer.changed":
+            continue
+        moved = [wire for wire in level.get("wires") or [] if isinstance(wire, dict) and str(wire.get("from")) == str(node["id"])
+                 and wire.get("out") == "added"]
+        if not moved:
+            continue
+        new_id = f"{node['id']}-added"
+        while new_id in ids:
+            new_id += "x"
+        ids.add(new_id)
+        level["nodes"].append({"id": new_id, "type": "on:layer.added", "x": node.get("x") or 0, "y": (node.get("y") or 0) + 220,
+                               "data": {key: value for key, value in data.items() if key in ("layer", "item", "type", "repeat", "past", "own", "timeout")}})
+        for wire in moved:
+            wire["from"] = new_id
+        for wire in list(level.get("wires") or []):        # ждущая нода: входы те же
+            if isinstance(wire, dict) and str(wire.get("to")) == str(node["id"]):
+                level["wires"].append({**wire, "id": f"{wire.get('id') or 'w'}-{new_id}", "to": new_id})
+        changed = True
+    return changed
+
+
+def events(doc):
+    """Триггеры и события разведены: эфир станций и добавленный слой — свои ноды. True — граф поменялся."""
+    if not isinstance(doc, dict):
+        return False
+    changed = _events_level(doc)
+    for group in (doc.get("groups") or {}).values():
+        if isinstance(group, dict):
+            changed = _events_level(group) or changed
+    return changed
+
+
 def attributes(doc):
     """Состояние машины и доступ учётки ушли в атрибуты, дефекты из «Машина: Изменить» — в «Изменить состояние». True — граф поменялся."""
     if not isinstance(doc, dict):

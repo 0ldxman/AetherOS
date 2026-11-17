@@ -34,7 +34,7 @@ class SocketTests(SimpleTestCase):
 
     def test_catalog(self):
         found = nodes.catalog()
-        self.assertEqual({g["name"] for g in found["groups"]}, {"entity", "attr", "noun", "flow", "data", "action", "struct", "service"})
+        self.assertEqual({g["name"] for g in found["groups"]}, {"entity", "attr", "noun", "happen", "flow", "data", "action", "struct", "service"})
         attempt = next(k for k in found["kinds"] if k["name"] == "try:machine")
         self.assertEqual((attempt["owned"], attempt["outs"]), ("machine", []))
 
