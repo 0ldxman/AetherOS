@@ -80,6 +80,7 @@ class GrInline(Schema):
 class GrKind(Schema):
     name: str
     label: str
+    family: str = ""
     group: str
     subgroup: str
     summary: str

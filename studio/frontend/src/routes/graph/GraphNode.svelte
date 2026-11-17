@@ -11,7 +11,7 @@
     id: string;
     data: { node: GNode; kind: Kind; waiting: boolean; summary: string; errors: number; warnings: number; stat: Stat | null; used: string[];
             usedIn: string[]; iface: Iface | null; box: number; help: Record<string, string>; fedFrom: Record<string, string>; fedTypes: Record<string, string>;
-            picks: Record<string, Option[]>; editable: boolean; onfield: (name: string, value: unknown) => void };
+            picks: Record<string, Option[]>; editable: boolean; onfield: (name: string, value: unknown) => void; family?: { value: string; label: string }[] };
     selected?: boolean;
   } = $props();
 
@@ -136,6 +136,14 @@
   </header>
   {#if data.summary && kind.name === "group"}<div class="summary" title={data.summary}>{data.summary}</div>{/if}
 
+  {#if data.family?.length}
+    <div class="props">
+      <select class="nodrag inline family" value={kind.name} disabled={!data.editable} aria-label="Режим"
+              onchange={(e) => data.onfield("@type", e.currentTarget.value)}>
+        {#each data.family as o (o.value)}<option value={o.value}>{o.label}</option>{/each}
+      </select>
+    </div>
+  {/if}
   {#if params.length}
     <div class="props">
       {#each params as f (f.name)}
@@ -309,6 +317,7 @@
   .label.req { color: var(--danger); }
   .props { display: flex; flex-direction: column; gap: 3px; padding: 3px 12px; }
   .inline { flex: 1; min-width: 0; height: 19px; padding: 0 5px; border: 1px solid var(--line); border-radius: 4px; background: var(--bg); color: var(--text); font: inherit; font-size: 11px; }
+  .family { flex: none; height: 22px; font-size: 11.5px; }
   .inline:focus { outline: none; border-color: var(--accent); }
   .inline.num { flex: 0 0 72px; margin-left: auto; }
   .inline.wide { width: 100%; }

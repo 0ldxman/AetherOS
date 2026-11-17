@@ -244,3 +244,11 @@ class FlowNodesTests(TestCase):
         pairs = {(w["from"], w["out"], w["to"]) for w in doc["wires"]}
         self.assertTrue({("m", "fire", "c"), ("c", "yes", "x"), ("c", "no", "c-2"), ("c-2", "yes", "y"), ("c-2", "no", "z")} <= pairs)
         self.assertFalse(upgrade.flow_nodes(doc))
+
+
+class FamilyTests(TestCase):
+    def test_route_and_wait_families(self):
+        kinds = {k["name"]: k for k in N.catalog()["kinds"]}
+        self.assertEqual([n for n, k in kinds.items() if k["family"] == "Направить"], ["check", "random", "turns"])
+        self.assertEqual([n for n, k in kinds.items() if k["family"] == "Ожидание"], ["all", "race", "some"])
+        self.assertEqual(kinds["each"]["family"], "")

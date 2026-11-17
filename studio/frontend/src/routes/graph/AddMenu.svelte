@@ -23,7 +23,10 @@
   };
   const found = $derived.by(() => {
     const q = query.trim().toLowerCase();
-    return catalog.kinds.filter((k) => !k.hidden && (!filter || filter(k)) && (!q || `${k.label} ${k.subgroup} ${groupLabel(k.group)}`.toLowerCase().includes(q)));
+    const seen = new Set<string>();                  // семейство — одной строкой: первая его нода, режим выбирается на ноде
+    return catalog.kinds.filter((k) => !k.hidden && (!filter || filter(k)) && (!q || `${k.label} ${k.family ?? ""} ${k.subgroup} ${groupLabel(k.group)}`.toLowerCase().includes(q)))
+      .filter((k) => !k.family || (!seen.has(k.family) && !!seen.add(k.family)))
+      .map((k) => (k.family ? { ...k, label: k.family } : k));      // найденный режим и добавится (поиск «случ» — «Случайно»)
   });
   type Space = { name: string; kinds: Kind[] };
   const sections = $derived.by(() => {

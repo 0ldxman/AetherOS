@@ -11976,6 +11976,11 @@ export interface components {
             name: string;
             /** Label */
             label: string;
+            /**
+             * Family
+             * @default
+             */
+            family: string;
             /** Group */
             group: string;
             /** Subgroup */

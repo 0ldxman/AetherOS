@@ -32553,6 +32553,11 @@
       "title": "Label",
       "type": "string"
      },
+     "family": {
+      "default": "",
+      "title": "Family",
+      "type": "string"
+     },
      "group": {
       "title": "Group",
       "type": "string"

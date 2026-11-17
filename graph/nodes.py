@@ -195,6 +195,7 @@ class Kind:
     inline: dict = field(default_factory=dict)       # поле-вход -> (поле-переключатель в его строке, варианты, которых нет, когда вход задан)
     plural: dict = field(default_factory=dict)       # выход -> (поле-режим, значения): в этих режимах выход — список своего типа
     outs_when: dict = field(default_factory=dict)    # выход данных -> (поле-режим, значения): выход есть только в этих режимах
+    family: str = ""            # семейство: в меню одна нода («Направить»), режим — выпадающий список, он меняет вид ноды
     types_from: tuple = ()      # входы (или "@rows" — строки растущего списка), чей тип провода Студия пишет в typed
 
 
@@ -1545,6 +1546,12 @@ SPACES = ("Машина", "Учётка", "Сессия", "Сетевой рес
           "Момент", "Тег", "Счётчик")                # порядок пространств в меню (как у «Когда»)
 
 
+# семейства: одна нода в меню, режим — выпадающий список на ноде (первый вид — то, что добавляет меню)
+FAMILIES = {"Направить": ("check", "random", "turns"), "Ожидание": ("all", "race", "some")}
+for _family, _names in FAMILIES.items():
+    for _name in _names:
+        KINDS[_name] = replace(KINDS[_name], family=_family)
+
 # события: игрок руками их не вызовет — время, сигналы, автор, изменения от сценария
 for _name in ("manual", "signal", "on:machine.status", "on:moment.status", "on:tag", "on:count", "on:count.threshold", "on:time", "on:schedule",
               "on:layer.added", "on:air.station"):
@@ -1642,6 +1649,7 @@ def catalog():
         "socket_help": SOCKET_HELP,
         "kinds": [{
             "name": k.name, "label": k.label, "group": k.group, "subgroup": k.subgroup, "summary": k.summary, "fields": fields(k.fields),
+            "family": k.family,
             "ins": list(k.ins), "in_types": dict(k.in_types), "outs": [{"name": s.name, "label": s.label, "type": EVENT} for s in k.outs if s.name != REF]
             + [{"name": s.name, "label": s.label, "type": s.type} for s in DATA_OUTS.get(k.name, ())],
             "many": [{"side": m.side, "field": m.field, "prefix": m.prefix, "label": m.label} for m in k.many],

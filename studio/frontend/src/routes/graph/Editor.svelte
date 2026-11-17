@@ -370,7 +370,8 @@
         return [{
           id: n.id, type: "gnode", position: { x: n.x, y: n.y }, selected: n.id === chosenId || keep.has(n.id),
           data: { node: n, kind, waiting: fedInto.has(n.id), iface: ifaceOf(n), picks, editable,
-                  onfield: (name: string, value: unknown) => patchField(n.id, name, value),
+                  onfield: (name: string, value: unknown) => (name === "@type" ? retype(n.id, String(value)) : patchField(n.id, name, value)),
+                  family: kind.family && catalog ? catalog.kinds.filter((k) => k.family === kind.family).map((k) => ({ value: k.name, label: k.label.split(": ").pop() ?? k.label })) : [],
                   summary: n.type === "group" ? doc.groups?.[inner]?.title ?? "" : summaryOf(kind, n.data, picks),
                   errors: found.filter((p) => p.node === key(n.id) && p.level === "error").length, warnings: found.filter((p) => p.node === key(n.id) && p.level === "warning").length,
                   box: inner ? found.filter((p) => p.node.startsWith(`${inner}::`) && p.level === "error").length : 0,
@@ -391,6 +392,16 @@
     });
   });
 
+  // режим семейства («Направить: Если» → «Случайно»): другой вид ноды; общие поля остаются, провода к пропавшим сокетам снимаются
+  function retype(nodeId: string, type: string) {
+    const n = level.nodes.find((x) => x.id === nodeId), next = kindOf(type);
+    if (!n || !next || n.type === type) return;
+    const data = { ...defaults(next), ...Object.fromEntries(Object.entries(n.data).filter(([key]) => next.fields.some((f) => f.name === key))) };
+    const ins = new Set([...insOf(next, data).map((s) => s.name), ...next.fields.map((f) => `f:${f.name}`)]);
+    const outs = new Set(outsOf(next, data, fedInto.has(nodeId)).map((s) => s.name));
+    setLevel({ nodes: level.nodes.map((x) => (x.id === nodeId ? { ...x, type, data } : x)),
+               wires: level.wires.filter((w) => (w.to !== nodeId || ins.has(w.in)) && (w.from !== nodeId || outs.has(w.out))) });
+  }
   function patchField(nodeId: string, name: string, value: unknown) {
     const n = level.nodes.find((x) => x.id === nodeId);
     if (n) patchNode(nodeId, { data: { ...n.data, [name]: value } });
