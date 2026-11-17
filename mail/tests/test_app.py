@@ -141,6 +141,16 @@ class MailAppTests(TestCase):
     def post(self, name, body):
         return self.client.post(f"/apps/mail/api/{name}/", data=json.dumps(body), content_type="application/json")
 
+    def test_first_open_emits_mail_read(self):
+        from engine.models import Event
+
+        row = self.client.get("/apps/mail/api/messages/").json()["messages"][0]
+        self.client.get("/apps/mail/api/message/", {"path": row["id"]})
+        self.client.get("/apps/mail/api/message/", {"path": row["id"]})          # второй раз — уже прочитано
+        found = Event.objects.filter(name="mail.read")
+        self.assertEqual(found.count(), 1)
+        self.assertEqual((found[0].user, found[0].login, found[0].data["subject"], found[0].data["sender"]), (self.ivan, "ivan", "Привет", "boss@port"))
+
     def test_the_list_the_letter_unread_and_trash(self):
         data = self.client.get("/apps/mail/api/messages/").json()
         self.assertEqual(data["address"], self.profile.mail)

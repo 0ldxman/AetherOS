@@ -94,3 +94,15 @@ class EachTests(TestCase):
         inner = doc["groups"][doc["nodes"][0]["data"]["group"]]
         self.assertEqual([n["type"] for n in inner["nodes"]], ["branch_in", "branch_out"])
         self.assertFalse(upgrade.each_boxes(doc))
+
+
+class MailReadTests(TestCase):
+    def test_trigger_matches_subject_and_letter(self):
+        from graph import nodes as N
+
+        kind = N.KINDS["on:mail.read"]
+        event = type("E", (), {"data": {"subject": "Пароль от склада", "sender": "kate@aether-main", "item": "letter-1", "path": "/x"},
+                               "host": "core", "login": "ops"})()
+        self.assertTrue(kind.match({"subject": "Пароль*", "letter": "letter-1"}, "read", event))
+        self.assertFalse(kind.match({"sender": "boss@*"}, "read", event))
+        self.assertEqual(kind.group, N.NOUN)

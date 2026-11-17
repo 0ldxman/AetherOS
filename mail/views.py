@@ -84,6 +84,12 @@ def message_detail(request):
     row = box.letter(_path(request))
     if row is None:
         raise Http404
+    if not row.read and box.user is not None:            # впервые: событие «Почта: Письмо прочитано»
+        from engine.events import emit
+
+        entry = box.view.get(row.path)
+        emit("mail.read", box.user, machine=box.machine, login=box.login, path=row.path, subject=row.letter.subject or "",
+             sender=row.letter.sender or "", item=getattr(getattr(entry, "item", None), "slug", "") or "")
     box.mark(row.path, True)
     data = _row(row)
     data.update({

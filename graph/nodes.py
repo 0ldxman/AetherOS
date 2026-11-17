@@ -428,6 +428,13 @@ _when("on:character.wrote", "Персонаж: Получил сообщение
 KINDS["on:character.wrote"] = replace(KINDS["on:character.wrote"], outs_when={
     "subject": ("channel", ("any", "mail", "forum")), "sender": ("channel", ("any",)), "from_address": ("channel", ("mail",)),
     "nick": ("channel", ("forum",)), "freq": ("channel", ("air",)), "callsign": ("channel", ("air",))})
+_when("on:mail.read", "Почта: Письмо прочитано",
+      (Field("letter", "Письмо", "many:letter", "любое"), Field("subject", "Тема", "text", "любая; можно *"),
+       Field("sender", "От кого", "text", "любой адрес; можно *"), _MACHINE),
+      (Sock("read", "Прочитано"),), {"read": "mail.read"},
+      _match(letter=("item", "item"), subject=("subject", "glob"), sender=("sender", "glob"), machine=("host", "thing")),
+      (Sock("subject", "Тема", "text", "subject"), Sock("sender", "От кого", "text", "sender"), _HOST_OUT, _LOGIN_OUT,
+       Sock("placement", "Размещение", "placement", "placement")), "{subject}")
 _when("on:character.mail", "Персонаж: Получил письмо", (Field("character", "Персонаж", "many:character", "любой"), Field("text", "Текст", "text", "любой; можно *")),
       (Sock("sent", "Получил"),), {"sent": "character.wrote"}, _mail,
       (Sock("character", "Персонаж", "character", "character"), Sock("text", "Текст", "text", "text")), "{character}")
@@ -1001,6 +1008,8 @@ HELP = {
                          "сразу; позже — нода «Ждать» перед ней.",
     "act:character.reply": "Ответ на сообщение туда же: письмо отправителю, сообщение под постом, передача на той же частоте. У кукловода "
                            "сообщение становится отвеченным: «Отправлено сценарием …».",
+    "on:mail.read": "Игрок впервые открыл письмо в почте (в ящике своей учётки). Письмо — объект из библиотеки; тема и отправитель понимают *. "
+                    "«От кого» — адрес отправителя письма. Учётка — чей ящик.",
     "on:air.sent": "Игрок передал в эфир на частоте. Позывной — его станции. Передачи станций и персонажей — событие «Эфир: Передача станции».",
     "on:air.station": "В эфир передала станция (ответчик автора или персонаж). Персонаж — у станции с персонажем. Игрока нет.",
     "on:moment.status": "Момент мира начался или кончился.",
