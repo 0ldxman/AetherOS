@@ -121,3 +121,19 @@ class UpgradeTests(TestCase):
         self.assertEqual((inner[0]["type"], inner[0]["data"]), ("act:machine.state", {"mode": "set", "machine": "core", "screen_noise": 40}))
         self.assertEqual(inner[1]["type"], "act:machine.change")
         self.assertFalse(upgrade.attributes(doc))
+
+
+class PlayerEntityTests(TestCase):
+    def test_accounts_and_sessions(self):
+        from machines.models import Session
+
+        ivan = get_user_model().objects.create_user("ivan")
+        core = Machine.objects.create(name="Core", hostname="core")
+        mine = MachineProfile.objects.create(machine=core, login="ivan", user=ivan)
+        ops = MachineProfile.objects.create(machine=core, login="ops")
+        Session.objects.create(user=ivan, profile=ops)
+        run = type("R", (), {"user": ivan, "state": {}, "ctx": {}})()
+        doc = Doc({"nodes": [node("p", "ent:player")], "wires": []})
+        self.assertEqual(value_of(run, doc, "p", "accounts"), ["ivan@core"])
+        self.assertEqual(value_of(run, doc, "p", "sessions"), ["ivan/ops@core"])
+        self.assertEqual(mine.user, ivan)

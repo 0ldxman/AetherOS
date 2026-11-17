@@ -106,8 +106,15 @@ def _props(name, key, run):
     if name == "ent:player":
         from air.models import Callsign
 
+        from graph import sessions
+        from machines.models import MachineProfile
+        from machines.world import edits
+
         user = _player(run, key)
         return user and {"value": user.get_username(), "name": user.get_username(),
+                         "accounts": [edits.account_key(p) for p in MachineProfile.objects.filter(user=user).exclude(machine__hostname="")
+                                      .select_related("machine").order_by("machine__hostname", "login")],
+                         "sessions": sessions.find(run, "all", user.get_username()),
                          "callsign": Callsign.objects.filter(profile__machine__hostname="aether-main", profile__user=user).values_list("name", flat=True).first() or ""}
     return None
 

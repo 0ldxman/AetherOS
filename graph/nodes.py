@@ -1287,7 +1287,8 @@ _entity("ent:section", "Раздел", Field("section", "Раздел", "section
 _entity("ent:moment", "Момент", Field("moment", "Момент", "moment"),
         (Sock("value", "Момент", "moment"), Sock("title", "Название", "text"), Sock("running", "Идёт", "bool")))
 _entity("ent:player", "Игрок", Field("player", "Игрок", "player", "игрок хода"),
-        (Sock("value", "Игрок", "player"), Sock("callsign", "Позывной", "text")))
+        (Sock("value", "Игрок", "player"), Sock("callsign", "Позывной", "text"), Sock("accounts", "Учётки", "list:account"),
+         Sock("sessions", "Сессии", "list:session")))
 _entity("ent:session", "Сессия", Field("session", "Сессия", "session", "игрок/логин@хост"),
         (Sock("value", "Сессия", "session"), Sock("player", "Игрок", "player"), Sock("machine", "Машина", "machine"),
          Sock("account", "Учётка", "account"), Sock("seen", "Последняя активность", "datetime"), Sock("active", "Активна", "bool"),
